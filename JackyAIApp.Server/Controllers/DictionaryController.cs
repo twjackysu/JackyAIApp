@@ -6,22 +6,22 @@ using Microsoft.Extensions.Options;
 namespace JackyAIApp.Server.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
-    public class KeyVaultTestController : ControllerBase
+    [Route("api/[controller]/{word}")]
+    public class DictionaryController : ControllerBase
     {
-        private readonly ILogger<KeyVaultTestController> _logger;
+        private readonly ILogger<DictionaryController> _logger;
         private readonly IOptionsMonitor<Settings> _settings;
 
-        public KeyVaultTestController(ILogger<KeyVaultTestController> logger, IOptionsMonitor<Settings> settings)
+        public DictionaryController(ILogger<DictionaryController> logger, IOptionsMonitor<Settings> settings)
         {
             _logger = logger;
             _settings = settings;
         }
 
-        [HttpGet(Name = "GetSecret")]
-        public string Get()
+        [HttpGet(Name = "Search word")]
+        public string Get(string word)
         {
-            return _settings.CurrentValue.Test ?? "";
+            return word;
         }
     }
 }

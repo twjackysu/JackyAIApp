@@ -1,4 +1,4 @@
-using Azure.Identity;
+﻿using Azure.Identity;
 using JackyAIApp.Server.Configuration;
 using NLog;
 using NLog.Web;
@@ -22,6 +22,18 @@ try
             new Uri($"https://{builder.Configuration["KeyVaultName"]}.vault.azure.net/"),
             new ManagedIdentityCredential());
     }
+
+    //builder.Services.AddAuthentication(options =>
+    //{
+    //    options.DefaultScheme = "Cookies";
+    //    options.DefaultChallengeScheme = "Google";
+    //})
+    //.AddCookie()
+    //.AddGoogle(googleOptions =>
+    //{
+    //    googleOptions.ClientId = builder.Configuration["Google:ClientId"]?.ToString() ?? "";
+    //    googleOptions.ClientSecret = builder.Configuration["Google:ClientSecret"]?.ToString() ?? "";
+    //});
 
     builder.Services.AddControllers();
     // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

@@ -4,6 +4,7 @@ import Tabs from '@mui/material/Tabs';
 import { useState } from 'react';
 
 import CustomTabPanel from './components/StyledTabPanel';
+import Dictionary from './Dictionary';
 
 function App() {
   const [value, setValue] = useState(0);
@@ -14,20 +15,20 @@ function App() {
   return (
     <>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={value} onChange={handleChange} aria-label="basic tabs example">
-          <Tab label="Item One" />
-          <Tab label="Item Two" />
-          <Tab label="Item Three" />
+        <Tabs value={value} onChange={handleChange}>
+          <Tab label="字典 (Dictionary)" />
+          <Tab label="儲存庫 (Repository)" />
+          <Tab label="考試 (Exam)" />
         </Tabs>
       </Box>
       <CustomTabPanel value={value} index={0}>
-        Item One
+        <Dictionary />
       </CustomTabPanel>
       <CustomTabPanel value={value} index={1}>
-        Item Two
+        Repository (Under Construction)
       </CustomTabPanel>
       <CustomTabPanel value={value} index={2}>
-        Item Three
+        Exam (Under Construction)
       </CustomTabPanel>
     </>
   );
