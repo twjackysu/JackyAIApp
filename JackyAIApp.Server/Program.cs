@@ -1,4 +1,6 @@
 ﻿using Azure.Identity;
+using DotnetSdkUtilities.Factory.ResponseFactory;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using NLog;
 using NLog.Web;
@@ -40,9 +42,13 @@ try
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
 
+    builder.Services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
+    builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
+
     builder.Services.AddOptions().Configure<Settings>(builder.Configuration.GetSection("Settings"));
     var app = builder.Build();
 
+    app.UseMiddleware<ExceptionMiddleware>();
     app.UseDefaultFiles();
     app.UseStaticFiles();
 

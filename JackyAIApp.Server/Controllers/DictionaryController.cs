@@ -1,4 +1,5 @@
-using Azure.Security.KeyVault.Secrets;
+
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -11,6 +12,7 @@ namespace JackyAIApp.Server.Controllers
     {
         private readonly ILogger<DictionaryController> _logger;
         private readonly IOptionsMonitor<Settings> _settings;
+        private readonly IMyResponseFactory _responseFactory;
 
         public DictionaryController(ILogger<DictionaryController> logger, IOptionsMonitor<Settings> settings)
         {
