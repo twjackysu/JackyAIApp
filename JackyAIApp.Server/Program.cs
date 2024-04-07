@@ -2,8 +2,11 @@
 using DotnetSdkUtilities.Factory.ResponseFactory;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
+using JackyAIApp.Server.Data;
+using Microsoft.EntityFrameworkCore;
 using NLog;
 using NLog.Web;
+using System.Configuration;
 
 // Early init of NLog to allow startup and exception logging, before host is built
 var logger = LogManager.Setup()
@@ -25,6 +28,11 @@ try
             new ManagedIdentityCredential());
     }
 
+    var configuration = builder.Configuration;
+    var connectionString = configuration.GetConnectionString("DefaultConnection") ?? "";
+    var databaseName = configuration.GetValue<string>("Settings:DatabaseName") ?? "";
+    builder.Services.AddDbContext<AzureCosmosDBContext>(
+        options => options.UseCosmos(connectionString, databaseName));
     //builder.Services.AddAuthentication(options =>
     //{
     //    options.DefaultScheme = "Cookies";
