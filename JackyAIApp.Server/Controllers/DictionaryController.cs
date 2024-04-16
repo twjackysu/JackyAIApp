@@ -26,6 +26,10 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> Get(string word)
         {
             var lowerWord = word.Trim().ToLower();
+            if(lowerWord.Length > 20)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "The word is too long. The maximum length is 20 characters.");
+            }
             var dbWord = _DBContext.Word.SingleOrDefault(x => x.Word == word && (!x.DataInvalid.HasValue || !x.DataInvalid.Value));
             if(dbWord != null)
             {
