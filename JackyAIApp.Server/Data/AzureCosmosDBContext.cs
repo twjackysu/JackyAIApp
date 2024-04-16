@@ -12,9 +12,9 @@ namespace JackyAIApp.Server.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.HasDefaultContainer("WordDefinition");
-            modelBuilder.Entity<WordDefinition>().ToContainer("WordDefinition");
+            modelBuilder.HasDefaultContainer("Word");
+            modelBuilder.Entity<Word>().ToContainer("Word");
         }
-        public virtual DbSet<WordDefinition> WordDefinition { get; set; }
+        public virtual DbSet<Word> Word { get; set; }
     }
 }

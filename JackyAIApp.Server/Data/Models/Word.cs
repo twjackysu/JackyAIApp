@@ -5,7 +5,7 @@ namespace JackyAIApp.Server.Data.Models
     /// <summary>
     /// Represents the definition of an English word, including its meanings, usage examples, synonyms, antonyms, and additional linguistic information.
     /// </summary>
-    public class WordDefinition
+    public class Word: WordBase
     {
         /// <summary>
         /// Unique identifier for a WordDefinition document in Cosmos DB.
@@ -20,17 +20,6 @@ namespace JackyAIApp.Server.Data.Models
         public required string PartitionKey { get; set; }
 
         /// <summary>
-        /// The English word being defined.
-        /// </summary>
-        public required string Word { get; set; }
-
-        /// <summary>
-        /// A collection of meanings for the word, where each meaning includes a part of speech, definitions, example sentences, 
-        /// and associated synonyms, antonyms, and related words.
-        /// </summary>
-        public required List<WordMeaning> Meanings { get; set; }
-
-        /// <summary>
         /// The date when the word was added to the dictionary.
         /// </summary>
         public required DateTime DateAdded { get; set; }
@@ -40,12 +29,30 @@ namespace JackyAIApp.Server.Data.Models
         /// </summary>
         public DateTime LastUpdated { get; set; }
 
+        /// <summary>
+        /// Data is invalid after verification.
+        /// </summary>
+        public bool? DataInvalid { get; set; }
+
         public override string ToString()
         {
             return JsonConvert.SerializeObject(this);
         }
     }
+    public class WordBase
+    {
 
+        /// <summary>
+        /// The English word being defined.
+        /// </summary>
+        public required string Word { get; set; }
+
+        /// <summary>
+        /// A collection of meanings for the word, where each meaning includes a part of speech, definitions, example sentences, 
+        /// and associated synonyms, antonyms, and related words.
+        /// </summary>
+        public required List<WordMeaning> Meanings { get; set; }
+    }
     public class WordMeaning
     {
         /// <summary>

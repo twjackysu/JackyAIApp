@@ -6,6 +6,7 @@ using JackyAIApp.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using NLog;
 using NLog.Web;
+using OpenAI.Extensions;
 using System.Configuration;
 
 // Early init of NLog to allow startup and exception logging, before host is built
@@ -52,6 +53,8 @@ try
 
     builder.Services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
     builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
+    var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
+    builder.Services.AddOpenAIService(options => { options.ApiKey = openAIKey; });
 
     builder.Services.AddOptions().Configure<Settings>(builder.Configuration.GetSection("Settings"));
     var app = builder.Build();
