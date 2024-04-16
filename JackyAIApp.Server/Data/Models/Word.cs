@@ -64,7 +64,7 @@ namespace JackyAIApp.Server.Data.Models
         /// Definitions for this meaning of the word. Since a single meaning can have multiple definitions,
         /// this is represented as a list.
         /// </summary>
-        public required List<string> Definitions { get; set; }
+        public required List<Definition> Definitions { get; set; }
 
         /// <summary>
         /// Example sentences demonstrating the use of this meaning of the word.
@@ -87,7 +87,24 @@ namespace JackyAIApp.Server.Data.Models
         /// </summary>
         public required List<string> RelatedWords { get; set; }
     }
+    /// <summary>
+     /// Represents a bilingual definition of a word, providing explanations in both English and Chinese.
+     /// This class is essential for understanding the meanings of words across two major languages, aiding bilingual education and translation tasks.
+     /// </summary>
+    public class Definition
+    {
+        /// <summary>
+        /// The definition of the word in English.
+        /// This field is used to convey the meaning of the word as understood and used in English-speaking contexts.
+        /// </summary>
+        public required string English { get; set; }
 
+        /// <summary>
+        /// The corresponding definition of the word in Chinese.
+        /// This field is crucial for Chinese-speaking users to understand the exact nuance of the word's English meaning in their native language.
+        /// </summary>
+        public required string Chinese { get; set; }
+    }
     /// <summary>
     /// Represents an example sentence using a specific word, including both the English sentence and its Chinese translation.
     /// </summary>

@@ -35,9 +35,81 @@ namespace JackyAIApp.Server.Controllers
             {
                 Messages = new List<ChatMessage>
                 {
-                    ChatMessage.FromSystem("You are a professional Chinese-to-English dictionary system. You can provide the dictionary content for the words submitted by the users, in a fixed format as follows. If the user inputs randomly and the word cannot be found, please return `null`. ref typescript interface: ```interface WordDefinition {word: string;meanings: WordMeaning[];} interface WordMeaning {partOfSpeech: string;definitions: string[];exampleSentences: ExampleSentence[];synonyms: string[];antonyms: string[];relatedWords: string[];} interface ExampleSentence {english: string;chinese: string;}```"),
-                    ChatMessage.FromUser("light"),
-                    ChatMessage.FromAssistant("{\"word\":\"light\",\"meanings\":[{\"partOfSpeech\":\"noun\",\"definitions\":[\"the natural agent that stimulates sight and makes things visible\"],\"exampleSentences\":[{\"english\":\"The light was so bright that I had to squint.\",\"chinese\":\"光線太亮，我不得不眯眼。\"}],\"synonyms\":[\"illumination\",\"brightness\"],\"antonyms\":[\"darkness\"],\"relatedWords\":[\"lamp\",\"beam\"]},{\"partOfSpeech\":\"adjective\",\"definitions\":[\"having a considerable or sufficient amount of natural light; not dark\"],\"exampleSentences\":[{\"english\":\"The room is light and airy.\",\"chinese\":\"這個房間光線充足且通風。\"}],\"synonyms\":[\"luminous\",\"bright\"],\"antonyms\":[\"heavy\",\"dark\"],\"relatedWords\":[\"airy\",\"spacious\"]}]}"),
+                    ChatMessage.FromSystem("You are a professional Chinese-to-English dictionary system. You can provide the dictionary content for the words submitted by the users, in a fixed format as follows. If the user inputs randomly and the word cannot be found, please return `null`. ref typescript interface: ```interface Word extends WordBase { id: string; partitionKey: string; dateAdded: string; lastUpdated: string; dataInvalid?: boolean; } interface WordBase { word: string; meanings: WordMeaning[]; } interface WordMeaning { partOfSpeech: string; definitions: Definition[]; exampleSentences: ExampleSentence[]; synonyms: string[]; antonyms: string[]; relatedWords: string[]; } interface Definition { english: string; chinese: string; } interface ExampleSentence { english: string; chinese: string; }```"),
+                    ChatMessage.FromUser("set"),
+                    ChatMessage.FromAssistant(JsonConvert.SerializeObject(new WordBase()
+                    {
+                        Word = "set",
+                        Meanings = new List<WordMeaning>()
+                        {
+                            new WordMeaning()
+                            {
+                                PartOfSpeech = "noun",
+                                Definitions = new List<Definition>()
+                                {
+                                    new Definition()
+                                    {
+                                        English = "A collection of objects that belong together or are used together.",
+                                        Chinese = "一組屬於或一起使用的物件。"
+                                    },
+                                    new Definition()
+                                    {
+                                        English = "The way in which something is set, positioned, or arranged.",
+                                        Chinese = "某物被設置、定位或排列的方式。"
+                                    }
+                                },
+                                ExampleSentences = new List<ExampleSentence>()
+                                {
+                                    new ExampleSentence()
+                                    {
+                                        English = "He bought a chess set.",
+                                        Chinese = "他買了一套西洋棋。"
+                                    },
+                                    new ExampleSentence()
+                                    {
+                                        English = "The set of her skirt is perfect.",
+                                        Chinese = "她的裙子的設置是完美的。"
+                                    }
+                                },
+                                Synonyms = new List<string> { "group", "collection" },
+                                Antonyms = new List<string> { "single" },
+                                RelatedWords = new List<string> { "kit", "assembly" }
+                            },
+                            new WordMeaning()
+                            {
+                                PartOfSpeech = "verb",
+                                Definitions = new List<Definition>()
+                                {
+                                    new Definition()
+                                    {
+                                        English = "To put something in a specified place or position.",
+                                        Chinese = "將某物放在指定的地方或位置。"
+                                    },
+                                    new Definition()
+                                    {
+                                        English = "To fix firmly or to make stable.",
+                                        Chinese = "固定或使穩定。"
+                                    }
+                                },
+                                ExampleSentences = new List<ExampleSentence>()
+                                {
+                                    new ExampleSentence()
+                                    {
+                                        English = "She set the book on the table.",
+                                        Chinese = "她將書放在桌上。"
+                                    },
+                                    new ExampleSentence()
+                                    {
+                                        English = "The concrete will set within a few hours.",
+                                        Chinese = "混凝土幾小時內就會凝固。"
+                                    }
+                                },
+                                Synonyms = new List<string> { "place", "position" },
+                                Antonyms = new List<string> { "remove" },
+                                RelatedWords = new List<string> { "install", "establish" }
+                            }
+                        },
+                    })),
                     ChatMessage.FromUser(lowerWord)
                 },
                 Model = Models.Gpt_4_turbo_preview,
