@@ -29,12 +29,12 @@ namespace JackyAIApp.Server.Common
             }
         }
 
-        private async Task HandleExceptionAsync(HttpContext context, Exception exception, IApiResponseFactory apiResponseFactory)
+        private async Task HandleExceptionAsync(HttpContext context, Exception exception, IApiResponseFactory? apiResponseFactory)
         {
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-            var response = apiResponseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, exception.Message);
+            var response = apiResponseFactory?.CreateErrorResponse(ErrorCodes.InternalServerError, exception.Message);
             var requestId = Guid.NewGuid().ToString();
             // Log exception
             _logger.LogError(exception, $"An unhandled exception has occurred while executing the request. Request ID: {requestId}");

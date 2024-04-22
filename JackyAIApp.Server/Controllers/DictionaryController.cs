@@ -16,22 +16,26 @@ namespace JackyAIApp.Server.Controllers
     [Route("api/[controller]/{word}")]
     public class DictionaryController(ILogger<DictionaryController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IOpenAIService openAIService) : ControllerBase
     {
-        private readonly ILogger<DictionaryController> _logger = logger;
+        private readonly ILogger<DictionaryController> _logger = logger ?? throw new ArgumentNullException();
         private readonly IOptionsMonitor<Settings> _settings = settings;
-        private readonly IMyResponseFactory _responseFactory = responseFactory;
+        private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
         private readonly AzureCosmosDBContext _DBContext = DBContext;
         private readonly IOpenAIService _openAIService = openAIService;
 
         [HttpGet(Name = "Search word")]
         public async Task<IActionResult> Get(string word)
         {
+            _logger.LogInformation("Test");
+
+            // await _DBContext.Database.EnsureDeletedAsync();
+            await _DBContext.Database.EnsureCreatedAsync();
             var lowerWord = word.Trim().ToLower();
             if(lowerWord.Length > 20)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "The word is too long. The maximum length is 20 characters.");
             }
-            var dbWord = _DBContext.Word.SingleOrDefault(x => x.Word == word && (!x.DataInvalid.HasValue || !x.DataInvalid.Value));
-            if(dbWord != null)
+            var dbWord = _DBContext.Word.SingleOrDefault(x => x.Word == word);
+            if(dbWord != null && (!dbWord.DataInvalid.HasValue || !dbWord.DataInvalid.Value))
             {
                 return _responseFactory.CreateOKResponse(dbWord);
             }
@@ -116,12 +120,12 @@ namespace JackyAIApp.Server.Controllers
                     })),
                     ChatMessage.FromUser(lowerWord)
                 },
-                Model = Models.Gpt_4_turbo_preview,
+                Model = Models.Gpt_4_turbo,
             });
             if (completionResult.Successful)
             {
 
-                logger.LogInformation($"Query OpenAI word: {lowerWord}, result: {JsonConvert.SerializeObject(completionResult, Formatting.Indented)}");
+                _logger.LogInformation($"Query OpenAI word: {lowerWord}, result: {JsonConvert.SerializeObject(completionResult, Formatting.Indented)}");
                 var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
                 if (string.IsNullOrEmpty(content))
                 {
@@ -141,8 +145,6 @@ namespace JackyAIApp.Server.Controllers
                     DateAdded = DateTime.Now,
                     LastUpdated = DateTime.Now,
                 };
-                // await _DBContext.Database.EnsureDeletedAsync();
-                await _DBContext.Database.EnsureCreatedAsync();
                 await _DBContext.AddAsync(wordDefinition);
                 await _DBContext.SaveChangesAsync();
                 _logger.LogInformation($"word: {lowerWord} added to DB.");
