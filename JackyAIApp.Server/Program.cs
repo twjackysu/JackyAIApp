@@ -21,6 +21,7 @@ try
 
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole();
+    builder.Host.UseNLog();
     // Add services to the container.
     if (builder.Environment.IsProduction())
     {
