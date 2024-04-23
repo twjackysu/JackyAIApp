@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using OpenAI.Interfaces;
 using OpenAI.ObjectModels;
 using OpenAI.ObjectModels.RequestModels;
+using System.Text.RegularExpressions;
 using WeCantSpell.Hunspell;
 
 namespace JackyAIApp.Server.Controllers
@@ -26,9 +27,14 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet(Name = "Search word")]
         public async Task<IActionResult> Get(string word)
         {
-            _logger.LogInformation("Test");
-
-            // await _DBContext.Database.EnsureDeletedAsync();
+            var CleanInput = (string input) =>
+            {
+                // remove start with ```json or ```, and end with ```
+                string pattern = @"^\s*```\s*json\s*|^\s*```\s*|```\s*$";
+                string replacement = "";
+                string result = Regex.Replace(input, pattern, replacement, RegexOptions.IgnoreCase);
+                return result.Trim();
+            };
             await _DBContext.Database.EnsureCreatedAsync();
             var lowerWord = word.Trim().ToLower();
 
@@ -135,7 +141,7 @@ namespace JackyAIApp.Server.Controllers
                 {
                     return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
                 }
-                var wordbase = JsonConvert.DeserializeObject<WordBase>(content);
+                var wordbase = JsonConvert.DeserializeObject<WordBase>(CleanInput(content));
                 if(wordbase == null)
                 {
                     return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
