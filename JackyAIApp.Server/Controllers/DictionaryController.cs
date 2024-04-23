@@ -53,7 +53,7 @@ namespace JackyAIApp.Server.Controllers
             {
                 Messages = new List<ChatMessage>
                 {
-                    ChatMessage.FromSystem("You are a professional Chinese-to-English dictionary system. You can provide the dictionary content for the words submitted by the users, in a fixed format as follows. If the user inputs randomly and the word cannot be found, please return `null`. ref typescript interface: ```interface Word extends WordBase { id: string; partitionKey: string; dateAdded: string; lastUpdated: string; dataInvalid?: boolean; } interface WordBase { word: string; meanings: WordMeaning[]; } interface WordMeaning { partOfSpeech: string; definitions: Definition[]; exampleSentences: ExampleSentence[]; synonyms: string[]; antonyms: string[]; relatedWords: string[]; } interface Definition { english: string; chinese: string; } interface ExampleSentence { english: string; chinese: string; }```"),
+                    ChatMessage.FromSystem("You are a professional Chinese-to-English dictionary system designed to provide complete dictionary entries for the words submitted by the users. Always return as much information as possible for each word, including part of speech, definitions, example sentences, synonyms, antonyms, and related words. Here's the expected behavior:\n- If the word can be found, return the full dictionary entry with all available details.\n- If only partial information is available, provide whatever details are available, but at least include 'partOfSpeech' and 'exampleSentences'.\n- If the word cannot be found, check for spelling mistakes, suggest similar words, and return these suggestions. If no suitable suggestions can be found, return `null`.\n\nPlease note that the system should not selectively provide information but should aim to give a comprehensive view of each word based on the available data. Follow this format:\nreference typescript interface: ```interface Word extends WordBase { id: string; partitionKey: string; dateAdded: string; lastUpdated: string; dataInvalid?: boolean; } interface WordBase { word: string; meanings: WordMeaning[]; } interface WordMeaning { partOfSpeech: string; definitions: Definition[]; exampleSentences: ExampleSentence[]; synonyms: string[]; antonyms: string[]; relatedWords: string[]; } interface Definition { english: string; chinese: string; } interface ExampleSentence { english: string; chinese: string; }```"),
                     ChatMessage.FromUser("set"),
                     ChatMessage.FromAssistant(JsonConvert.SerializeObject(new WordBase()
                     {
@@ -135,13 +135,22 @@ namespace JackyAIApp.Server.Controllers
             var errorMessage = "Query failed, OpenAI could not generate the corresponding word.";
             if (completionResult.Successful)
             {
-                _logger.LogInformation($"Query OpenAI word: {lowerWord}, result: {JsonConvert.SerializeObject(completionResult, Formatting.Indented)}");
+                _logger.LogInformation("Query OpenAI word: {lowerWord}, result: {json}", lowerWord, JsonConvert.SerializeObject(completionResult, Formatting.Indented));
                 var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
                 if (string.IsNullOrEmpty(content))
                 {
                     return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
                 }
-                var wordbase = JsonConvert.DeserializeObject<WordBase>(CleanInput(content));
+                WordBase? wordbase = null;
+                try
+                {
+                    wordbase = JsonConvert.DeserializeObject<WordBase>(CleanInput(content));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize the content: {content}", content);
+                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
                 if(wordbase == null)
                 {
                     return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
@@ -157,7 +166,7 @@ namespace JackyAIApp.Server.Controllers
                 };
                 await _DBContext.AddAsync(wordDefinition);
                 await _DBContext.SaveChangesAsync();
-                _logger.LogInformation($"word: {lowerWord} added to DB.");
+                _logger.LogInformation("word: {lowerWord} added to DB.", lowerWord);
                 return responseFactory.CreateOKResponse(wordDefinition);
             }
             return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
