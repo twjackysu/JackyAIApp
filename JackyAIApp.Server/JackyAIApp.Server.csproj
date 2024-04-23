@@ -30,6 +30,7 @@
     <PackageReference Include="NLog.MailKit" Version="5.*" />
     <PackageReference Include="NLog.Web.AspNetCore" Version="5.*" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="WeCantSpell.Hunspell" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,6 +41,15 @@
 
   <ItemGroup>
     <Folder Include="Services\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Dictionary\en_US.aff">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Dictionary\en_US.dic">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

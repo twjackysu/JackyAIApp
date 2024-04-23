@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using OpenAI.Interfaces;
 using OpenAI.ObjectModels;
 using OpenAI.ObjectModels.RequestModels;
+using WeCantSpell.Hunspell;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -30,9 +31,12 @@ namespace JackyAIApp.Server.Controllers
             // await _DBContext.Database.EnsureDeletedAsync();
             await _DBContext.Database.EnsureCreatedAsync();
             var lowerWord = word.Trim().ToLower();
-            if(lowerWord.Length > 20)
+
+            var dictionary = WordList.CreateFromFiles("Dictionary/en_US.dic");
+            bool isValid = dictionary.Check(lowerWord);
+            if (!isValid)
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "The word is too long. The maximum length is 20 characters.");
+                return responseFactory.CreateErrorResponse(ErrorCodes.TheWordCannotBeFound, "This is not a valid word.");
             }
             var dbWord = _DBContext.Word.SingleOrDefault(x => x.Word == word);
             if(dbWord != null && (!dbWord.DataInvalid.HasValue || !dbWord.DataInvalid.Value))
@@ -122,19 +126,19 @@ namespace JackyAIApp.Server.Controllers
                 },
                 Model = Models.Gpt_4_turbo,
             });
+            var errorMessage = "Query failed, OpenAI could not generate the corresponding word.";
             if (completionResult.Successful)
             {
-
                 _logger.LogInformation($"Query OpenAI word: {lowerWord}, result: {JsonConvert.SerializeObject(completionResult, Formatting.Indented)}");
                 var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
                 if (string.IsNullOrEmpty(content))
                 {
-                    return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIIsNotResponding);
+                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
                 }
                 var wordbase = JsonConvert.DeserializeObject<WordBase>(content);
                 if(wordbase == null)
                 {
-                    return responseFactory.CreateErrorResponse(ErrorCodes.TheWordCannotBeFound);
+                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
                 }
                 var wordDefinition = new Word()
                 {
@@ -150,7 +154,7 @@ namespace JackyAIApp.Server.Controllers
                 _logger.LogInformation($"word: {lowerWord} added to DB.");
                 return responseFactory.CreateOKResponse(wordDefinition);
             }
-            return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful);
+            return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
         }
     }
 }
