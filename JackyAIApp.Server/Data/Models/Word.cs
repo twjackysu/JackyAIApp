@@ -48,6 +48,12 @@ namespace JackyAIApp.Server.Data.Models
         public required string Word { get; set; }
 
         /// <summary>
+        /// Gets or sets the KK phonics of the word.
+        /// This represents the pronunciation of the word in KK (Kenyon and Knott) phonetic notation.
+        /// </summary>
+        public required string KKPhonics { get; set; }
+
+        /// <summary>
         /// A collection of meanings for the word, where each meaning includes a part of speech, definitions, example sentences, 
         /// and associated synonyms, antonyms, and related words.
         /// </summary>

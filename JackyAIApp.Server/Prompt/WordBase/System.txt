@@ -9,6 +9,7 @@ Reference typescript interface:
 ```
 interface WordBase {
   word: string;
+  kkPhonics: string;
   meanings: WordMeaning[];
 }
 interface WordMeaning {

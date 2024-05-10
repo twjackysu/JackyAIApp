@@ -8,6 +8,7 @@ export interface Word extends WordBase {
 
 interface WordBase {
   word: string;
+  kkPhonics: string;
   meanings: WordMeaning[];
 }
 

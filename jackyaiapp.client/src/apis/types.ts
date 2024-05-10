@@ -11,14 +11,14 @@ export enum ErrorCodes {
 }
 
 export interface ApiOkResponse<T> {
-  Data: T;
+  data: T;
 }
 
 export interface ApiErrorResponse {
-  Error: ErrorDetails;
+  error: ErrorDetails;
 }
 
 export interface ErrorDetails {
-  Code: ErrorCodes;
-  Message: string;
+  code: ErrorCodes;
+  message: string;
 }

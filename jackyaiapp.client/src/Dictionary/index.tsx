@@ -1,6 +1,5 @@
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import WordCard from './WordCard';
@@ -23,9 +22,7 @@ function Dictionary() {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
         />
-        <Typography variant="body1" gutterBottom>
-          <WordCard word={word} />
-        </Typography>
+        <WordCard word={word} />
       </Stack>
     </Box>
   );

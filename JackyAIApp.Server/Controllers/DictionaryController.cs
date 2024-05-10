@@ -52,85 +52,86 @@ namespace JackyAIApp.Server.Controllers
             string systemChatMessage = System.IO.File.ReadAllText("Prompt/WordBase/System.txt");
             var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
             {
-                Messages = new List<ChatMessage>
-                {
+                Messages =
+                [
                     ChatMessage.FromSystem(systemChatMessage),
                     ChatMessage.FromUser("set"),
                     ChatMessage.FromAssistant(JsonConvert.SerializeObject(new WordBase()
                     {
                         Word = "set",
-                        Meanings = new List<WordMeaning>()
-                        {
+                        KKPhonics = "/sÉ›t/",
+                        Meanings =
+                        [
                             new WordMeaning()
                             {
                                 PartOfSpeech = "noun",
-                                Definitions = new List<Definition>()
-                                {
+                                Definitions =
+                                [
                                     new Definition()
                                     {
                                         English = "A collection of objects that belong together or are used together.",
-                                        Chinese = "¤@²ÕÄİ©ó©Î¤@°_¨Ï¥Îªºª«¥ó¡C"
+                                        Chinese = "ä¸€çµ„å±¬æ–¼æˆ–ä¸€èµ·ä½¿ç”¨çš„ç‰©ä»¶ã€‚"
                                     },
                                     new Definition()
                                     {
                                         English = "The way in which something is set, positioned, or arranged.",
-                                        Chinese = "¬Yª«³Q³]¸m¡B©w¦ì©Î±Æ¦Cªº¤è¦¡¡C"
+                                        Chinese = "æŸç‰©è¢«è¨­ç½®ã€å®šä½æˆ–æ’åˆ—çš„æ–¹å¼ã€‚"
                                     }
-                                },
-                                ExampleSentences = new List<ExampleSentence>()
-                                {
+                                ],
+                                ExampleSentences =
+                                [
                                     new ExampleSentence()
                                     {
                                         English = "He bought a chess set.",
-                                        Chinese = "¥L¶R¤F¤@®M¦è¬v´Ñ¡C"
+                                        Chinese = "ä»–è²·äº†ä¸€å¥—è¥¿æ´‹æ£‹ã€‚"
                                     },
                                     new ExampleSentence()
                                     {
                                         English = "The set of her skirt is perfect.",
-                                        Chinese = "¦oªº¸È¤lªº³]¸m¬O§¹¬üªº¡C"
+                                        Chinese = "å¥¹çš„è£™å­çš„è¨­ç½®æ˜¯å®Œç¾çš„ã€‚"
                                     }
-                                },
-                                Synonyms = new List<string> { "group", "collection" },
-                                Antonyms = new List<string> { "single" },
-                                RelatedWords = new List<string> { "kit", "assembly" }
+                                ],
+                                Synonyms = ["group", "collection"],
+                                Antonyms = ["single"],
+                                RelatedWords = ["kit", "assembly"]
                             },
                             new WordMeaning()
                             {
                                 PartOfSpeech = "verb",
-                                Definitions = new List<Definition>()
-                                {
+                                Definitions =
+                                [
                                     new Definition()
                                     {
                                         English = "To put something in a specified place or position.",
-                                        Chinese = "±N¬Yª«©ñ¦b«ü©wªº¦a¤è©Î¦ì¸m¡C"
+                                        Chinese = "å°‡æŸç‰©æ”¾åœ¨æŒ‡å®šçš„åœ°æ–¹æˆ–ä½ç½®ã€‚"
                                     },
                                     new Definition()
                                     {
                                         English = "To fix firmly or to make stable.",
-                                        Chinese = "©T©w©Î¨ÏÃ­©w¡C"
+                                        Chinese = "å›ºå®šæˆ–ä½¿ç©©å®šã€‚"
                                     }
-                                },
-                                ExampleSentences = new List<ExampleSentence>()
-                                {
+                                ],
+                                ExampleSentences =
+                                [
                                     new ExampleSentence()
                                     {
                                         English = "She set the book on the table.",
-                                        Chinese = "¦o±N®Ñ©ñ¦b®à¤W¡C"
+                                        Chinese = "å¥¹å°‡æ›¸æ”¾åœ¨æ¡Œä¸Šã€‚"
                                     },
                                     new ExampleSentence()
                                     {
                                         English = "The concrete will set within a few hours.",
-                                        Chinese = "²V¾®¤g´X¤p®É¤º´N·|¾®©T¡C"
+                                        Chinese = "æ··å‡åœŸå¹¾å°æ™‚å…§å°±æœƒå‡å›ºã€‚"
                                     }
-                                },
-                                Synonyms = new List<string> { "place", "position" },
-                                Antonyms = new List<string> { "remove" },
-                                RelatedWords = new List<string> { "install", "establish" }
+                                ],
+                                Synonyms = ["place", "position"],
+                                Antonyms = ["remove"],
+                                RelatedWords = ["install", "establish"]
                             }
-                        },
+                        ],
                     })),
                     ChatMessage.FromUser(lowerWord)
-                },
+                ],
                 Model = Models.Gpt_4_turbo,
             });
             var errorMessage = "Query failed, OpenAI could not generate the corresponding word.";
@@ -161,6 +162,7 @@ namespace JackyAIApp.Server.Controllers
                     Id = Guid.NewGuid().ToString(),
                     PartitionKey = lowerWord[..2], // the first two letters of a word
                     Word = wordbase.Word,
+                    KKPhonics = wordbase.KKPhonics,
                     Meanings = wordbase.Meanings,
                     DateAdded = DateTime.Now,
                     LastUpdated = DateTime.Now,
