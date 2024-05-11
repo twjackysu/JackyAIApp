@@ -3,7 +3,6 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import FavoriteBorder from '@mui/icons-material/FavoriteBorder';
 import { useGetWordQuery } from '@/apis/dictionaryApis';
@@ -11,11 +10,9 @@ import { Fragment } from 'react/jsx-runtime';
 import { lime, deepPurple, lightGreen, lightBlue } from '@mui/material/colors';
 import DividerWithText from '../components/DividerWithText';
 import LinearProgress from '@mui/material/LinearProgress';
-import styled from '@emotion/styled';
-
-const StyledAudio = styled.audio`
-  width: 100px;
-`;
+import IconButton from '@mui/material/IconButton';
+import PlayCircleIcon from '@mui/icons-material/PlayCircle';
+import { playVoiceTube, playGoogleNormal } from './utils/audio';
 
 interface Props {
   word?: string | null;
@@ -23,18 +20,21 @@ interface Props {
 
 function WordCard({ word }: Props) {
   const { data, isFetching, isError } = useGetWordQuery(word!, { skip: !word });
+  const handleWordClick = () => {
+    if (!word) return;
+    playVoiceTube(word);
+  };
   return (
     <Card>
       <Stack sx={{ pl: 2 }}>
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" spacing={2} alignItems="center">
-            <Typography variant="h2">{word}</Typography>
-            {word && (
-              <StyledAudio
-                controls
-                src={`https://tw.voicetube.com/player/${encodeURIComponent(word)}.mp3`}
-              ></StyledAudio>
-            )}
+            <Typography variant="h2" onClick={handleWordClick}>
+              {word}
+            </Typography>
+            <IconButton sx={{ m: 2, p: 2 }} onClick={handleWordClick}>
+              <PlayCircleIcon />
+            </IconButton>
           </Stack>
           <IconButton sx={{ m: 2, p: 2 }}>
             <FavoriteBorder />
@@ -72,9 +72,19 @@ function WordCard({ word }: Props) {
                 <DividerWithText text="Example sentences" />
                 {meaning.exampleSentences.map((exampleSentence) => (
                   <Fragment key={exampleSentence.english}>
-                    <Typography variant="body2" color={lightGreen[200]}>
-                      {exampleSentence.english}
-                    </Typography>
+                    <Stack direction="row" spacing={2}>
+                      <Typography variant="body2" color={lightGreen[200]}>
+                        {exampleSentence.english}
+                      </Typography>
+                      <IconButton
+                        sx={{ m: 0, p: 0 }}
+                        onClick={() => {
+                          playGoogleNormal(exampleSentence.english);
+                        }}
+                      >
+                        <PlayCircleIcon />
+                      </IconButton>
+                    </Stack>
                     <Typography variant="body2" color={lightGreen[200]}>
                       {exampleSentence.chinese}
                     </Typography>
