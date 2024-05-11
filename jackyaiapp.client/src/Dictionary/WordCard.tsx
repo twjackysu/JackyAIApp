@@ -11,6 +11,11 @@ import { Fragment } from 'react/jsx-runtime';
 import { lime, deepPurple, lightGreen, lightBlue } from '@mui/material/colors';
 import DividerWithText from '../components/DividerWithText';
 import LinearProgress from '@mui/material/LinearProgress';
+import styled from '@emotion/styled';
+
+const StyledAudio = styled.audio`
+  width: 100px;
+`;
 
 interface Props {
   word?: string | null;
@@ -22,7 +27,15 @@ function WordCard({ word }: Props) {
     <Card>
       <Stack sx={{ pl: 2 }}>
         <Stack direction="row" justifyContent="space-between">
-          <Typography variant="h2">{word}</Typography>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Typography variant="h2">{word}</Typography>
+            {word && (
+              <StyledAudio
+                controls
+                src={`https://tw.voicetube.com/player/${encodeURIComponent(word)}.mp3`}
+              ></StyledAudio>
+            )}
+          </Stack>
           <IconButton sx={{ m: 2, p: 2 }}>
             <FavoriteBorder />
           </IconButton>
