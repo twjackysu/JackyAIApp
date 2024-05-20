@@ -3,11 +3,11 @@ using DotnetSdkUtilities.Factory.ResponseFactory;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
+using JackyAIApp.Server.Services;
 using Microsoft.EntityFrameworkCore;
 using NLog;
 using NLog.Web;
 using OpenAI.Extensions;
-using System.Configuration;
 
 // Early init of NLog to allow startup and exception logging, before host is built
 var logger = LogManager.Setup()
@@ -35,17 +35,18 @@ try
     var databaseName = configuration.GetValue<string>("Settings:DatabaseName") ?? "";
     builder.Services.AddDbContext<AzureCosmosDBContext>(
         options => options.UseCosmos(connectionString, databaseName));
-    //builder.Services.AddAuthentication(options =>
-    //{
-    //    options.DefaultScheme = "Cookies";
-    //    options.DefaultChallengeScheme = "Google";
-    //})
-    //.AddCookie()
-    //.AddGoogle(googleOptions =>
-    //{
-    //    googleOptions.ClientId = builder.Configuration["Google:ClientId"]?.ToString() ?? "";
-    //    googleOptions.ClientSecret = builder.Configuration["Google:ClientSecret"]?.ToString() ?? "";
-    //});
+
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = "Cookies";
+        options.DefaultChallengeScheme = "Google";
+    })
+    .AddCookie()
+    .AddGoogle(googleOptions =>
+    {
+        googleOptions.ClientId = builder.Configuration["Settings:Google:ClientId"]?.ToString() ?? "";
+        googleOptions.ClientSecret = builder.Configuration["Settings:Google:ClientSecret"]?.ToString() ?? "";
+    });
 
     builder.Services.AddControllers();
     // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -54,6 +55,7 @@ try
 
     builder.Services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
     builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
+    builder.Services.AddScoped<IUserService, UserService>();
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options => { options.ApiKey = openAIKey; });
 
