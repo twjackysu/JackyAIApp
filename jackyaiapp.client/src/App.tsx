@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import CustomTabPanel from './components/StyledTabPanel';
 import Dictionary from './Dictionary';
+import Repository from './Repository';
 
 function App() {
   const [value, setValue] = useState(0);
@@ -25,7 +26,7 @@ function App() {
         <Dictionary />
       </CustomTabPanel>
       <CustomTabPanel value={value} index={1}>
-        Repository (Under Construction)
+        <Repository />
       </CustomTabPanel>
       <CustomTabPanel value={value} index={2}>
         Exam (Under Construction)

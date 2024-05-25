@@ -13,6 +13,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import IconButton from '@mui/material/IconButton';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import { playVoiceTube, playGoogleNormal } from './utils/audio';
+import { usePutWordMutation } from '@/apis/repositoryApis';
 
 interface Props {
   word?: string | null;
@@ -20,9 +21,15 @@ interface Props {
 
 function WordCard({ word }: Props) {
   const { data, isFetching, isError } = useGetWordQuery(word!, { skip: !word });
+  const [putWordMutation] = usePutWordMutation();
   const handleWordClick = () => {
     if (!word) return;
     playVoiceTube(word);
+  };
+  const handleFavoriteClick = () => {
+    const wordId = data?.data.id;
+    if (!wordId) return;
+    putWordMutation(wordId);
   };
   return (
     <Card>
@@ -37,7 +44,7 @@ function WordCard({ word }: Props) {
             </IconButton>
           </Stack>
           <IconButton sx={{ m: 2, p: 2 }}>
-            <FavoriteBorder />
+            <FavoriteBorder onClick={handleFavoriteClick} />
           </IconButton>
         </Stack>
         {isFetching && (

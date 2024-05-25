@@ -2,17 +2,11 @@
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models;
-using JackyAIApp.Server.Request;
 using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.Cosmos;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using OpenAI.Interfaces;
-using Org.BouncyCastle.Bcpg;
-using System.Collections.Generic;
 
 namespace JackyAIApp.Server.Controllers
 {
