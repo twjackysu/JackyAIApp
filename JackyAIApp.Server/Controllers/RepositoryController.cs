@@ -24,7 +24,7 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetWords()
         {
             var userId = _userService.GetUserId();
-            var list = await _DBContext.PersonalWord.Where(x => x.UserId == userId).Select(x => x.Id).ToListAsync();
+            var list = await _DBContext.PersonalWord.Where(x => x.UserId == userId).Select(x => x.WordId).ToListAsync();
             return responseFactory.CreateOKResponse(await _DBContext.Word.Where(x => list.Contains(x.Id)).ToListAsync());
         }
         [HttpGet("word/{id}")]

@@ -4,6 +4,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using NLog;
 using NLog.Web;
@@ -18,7 +19,6 @@ logger.Debug("program start");
 try
 {
     var builder = WebApplication.CreateBuilder(args);
-
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole();
     builder.Host.UseNLog();
@@ -38,10 +38,17 @@ try
 
     builder.Services.AddAuthentication(options =>
     {
-        options.DefaultScheme = "Cookies";
-        options.DefaultChallengeScheme = "Google";
+        options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     })
-    .AddCookie()
+    .AddCookie(options =>
+    {
+        options.Cookie.HttpOnly = true;
+        options.Cookie.MaxAge = TimeSpan.FromDays(1);
+        options.ExpireTimeSpan = TimeSpan.FromDays(1);
+        options.LoginPath = "/api/account/login/Google";
+    })
     .AddGoogle(googleOptions =>
     {
         googleOptions.ClientId = builder.Configuration["Settings:Google:ClientId"]?.ToString() ?? "";
