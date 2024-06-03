@@ -5,29 +5,30 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import FavoriteBorder from '@mui/icons-material/FavoriteBorder';
-import { useGetWordQuery } from '@/apis/dictionaryApis';
 import { Fragment } from 'react/jsx-runtime';
 import { lime, deepPurple, lightGreen, lightBlue } from '@mui/material/colors';
-import DividerWithText from '../components/DividerWithText';
+import DividerWithText from './DividerWithText';
 import LinearProgress from '@mui/material/LinearProgress';
 import IconButton from '@mui/material/IconButton';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
-import { playVoiceTube, playGoogleNormal } from './utils/audio';
+import { playVoiceTube, playGoogleNormal } from '../Dictionary/utils/audio';
 import { usePutWordMutation } from '@/apis/repositoryApis';
+import { Word } from '../apis/dictionaryApis/types';
 
 interface Props {
-  word?: string | null;
+  word?: Word | null;
+  isFetching?: boolean;
+  isError?: boolean;
 }
 
-function WordCard({ word }: Props) {
-  const { data, isFetching, isError } = useGetWordQuery(word!, { skip: !word });
+function WordCard({ word, isFetching, isError }: Props) {
   const [putWordMutation] = usePutWordMutation();
   const handleWordClick = () => {
     if (!word) return;
-    playVoiceTube(word);
+    playVoiceTube(word.word);
   };
   const handleFavoriteClick = () => {
-    const wordId = data?.data.id;
+    const wordId = word?.id;
     if (!wordId) return;
     putWordMutation(wordId);
   };
@@ -37,29 +38,33 @@ function WordCard({ word }: Props) {
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" spacing={2} alignItems="center">
             <Typography variant="h2" onClick={handleWordClick}>
-              {word}
+              {word?.word}
             </Typography>
-            <IconButton sx={{ m: 2, p: 2 }} onClick={handleWordClick}>
-              <PlayCircleIcon />
-            </IconButton>
+            {word && (
+              <IconButton sx={{ m: 2, p: 2 }} onClick={handleWordClick}>
+                <PlayCircleIcon />
+              </IconButton>
+            )}
           </Stack>
-          <IconButton sx={{ m: 2, p: 2 }}>
-            <FavoriteBorder onClick={handleFavoriteClick} />
-          </IconButton>
+          {word && (
+            <IconButton sx={{ m: 2, p: 2 }}>
+              <FavoriteBorder onClick={handleFavoriteClick} />
+            </IconButton>
+          )}
         </Stack>
         {isFetching && (
           <Box sx={{ width: '100%' }}>
             <LinearProgress />
           </Box>
         )}
-        <Typography color={lightBlue[200]}>{data?.data.kkPhonics}</Typography>
+        <Typography color={lightBlue[200]}>{word?.kkPhonics}</Typography>
       </Stack>
       <CardContent>
         {isError ? (
           <Typography>Something wrong</Typography>
         ) : (
           <Grid container spacing={2}>
-            {data?.data.meanings.map((meaning) => (
+            {word?.meanings.map((meaning) => (
               <Grid key={meaning.partOfSpeech} item xs={6}>
                 <DividerWithText text="Part of speech" />
                 <Typography variant="h6" color={lime[200]}>

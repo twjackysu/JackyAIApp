@@ -6,6 +6,7 @@ using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace JackyAIApp.Server.Controllers
@@ -13,30 +14,44 @@ namespace JackyAIApp.Server.Controllers
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class RepositoryController(ILogger<RepositoryController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IUserService userService) : ControllerBase
+    public class RepositoryController(ILogger<RepositoryController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IUserService userService, IMemoryCache memoryCache) : ControllerBase
     {
         private readonly ILogger<RepositoryController> _logger = logger ?? throw new ArgumentNullException();
         private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
         private readonly AzureCosmosDBContext _DBContext = DBContext;
         private readonly IUserService _userService = userService;
+        private readonly IMemoryCache _memoryCache = memoryCache;
         [HttpGet("word")]
         public async Task<IActionResult> GetWords()
         {
             var userId = _userService.GetUserId();
-            var list = await _DBContext.PersonalWord.Where(x => x.UserId == userId).Select(x => x.WordId).ToListAsync();
-            return responseFactory.CreateOKResponse(await _DBContext.Word.Where(x => list.Contains(x.Id)).ToListAsync());
+            var cacheKey = $"GetWords_{userId}";
+            if(!_memoryCache.TryGetValue(cacheKey, out List<Word>? result))
+            {
+                var list = await _DBContext.PersonalWord.Where(x => x.UserId == userId).Select(x => x.WordId).ToListAsync();
+                result = await _DBContext.Word.Where(x => list.Contains(x.Id)).ToListAsync();
+                _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(1));
+            }
+            return responseFactory.CreateOKResponse(result);
         }
         [HttpGet("word/{id}")]
         public async Task<IActionResult> GetWord(string id)
         {
             var userId = _userService.GetUserId();
-            var personalWord = await _DBContext.PersonalWord.SingleOrDefaultAsync(w => w.Id == id);
-            if(personalWord == null)
+            var cacheKey = $"GetWords_{id}_{userId}";
+            if(!_memoryCache.TryGetValue(cacheKey, out Word? result))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound);
+                var personalWord = await _DBContext.PersonalWord.SingleOrDefaultAsync(w => w.Id == id);
+                if (personalWord == null)
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound);
+                }
+                var reuslt = await _DBContext.Word.SingleOrDefaultAsync(x => personalWord.WordId == x.Id);
+
+                _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(1));
             }
-            return responseFactory.CreateOKResponse(await _DBContext.Word.SingleOrDefaultAsync(x => personalWord.WordId == x.Id));
+            return responseFactory.CreateOKResponse(result);
         }
         [HttpPut("word/{wordId}")]
         public async Task<IActionResult> AddWord(string wordId)

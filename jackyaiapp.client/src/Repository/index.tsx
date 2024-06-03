@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import { useGetWordsQuery } from '@/apis/repositoryApis';
 import LinearProgress from '@mui/material/LinearProgress';
+import WordCard from '../components/WordCard';
 
 function Repository() {
   const { data, isFetching } = useGetWordsQuery();
@@ -13,7 +14,7 @@ function Repository() {
             <LinearProgress />
           </Box>
         )}
-        {data?.data.map((word) => word.word).join(', ')}
+        {data?.data.map((word) => <WordCard word={word} />)}
       </Stack>
     </Box>
   );

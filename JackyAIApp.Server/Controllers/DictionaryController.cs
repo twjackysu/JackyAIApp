@@ -4,6 +4,7 @@ using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using OpenAI.Interfaces;
@@ -16,13 +17,14 @@ namespace JackyAIApp.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]/{word}")]
-    public class DictionaryController(ILogger<DictionaryController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IOpenAIService openAIService) : ControllerBase
+    public class DictionaryController(ILogger<DictionaryController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IOpenAIService openAIService, IMemoryCache memoryCache) : ControllerBase
     {
         private readonly ILogger<DictionaryController> _logger = logger ?? throw new ArgumentNullException();
         private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
         private readonly AzureCosmosDBContext _DBContext = DBContext;
         private readonly IOpenAIService _openAIService = openAIService;
+        private readonly IMemoryCache _memoryCache = memoryCache;
 
         [HttpGet(Name = "Search word")]
         public async Task<IActionResult> Get(string word)
@@ -35,7 +37,7 @@ namespace JackyAIApp.Server.Controllers
                 string result = Regex.Replace(input, pattern, replacement, RegexOptions.IgnoreCase);
                 return result.Trim();
             };
-            await _DBContext.Database.EnsureCreatedAsync();
+
             var lowerWord = word.Trim().ToLower();
 
             var dictionary = WordList.CreateFromFiles("Dictionary/en_US.dic");
@@ -44,7 +46,12 @@ namespace JackyAIApp.Server.Controllers
             {
                 return responseFactory.CreateErrorResponse(ErrorCodes.TheWordCannotBeFound, "This is not a valid word.");
             }
-            var dbWord = _DBContext.Word.SingleOrDefault(x => x.Word == word);
+            var cacheKey = $"Get_Dictionary_{lowerWord}";
+            if (_memoryCache.TryGetValue(lowerWord, out Word? dbWord))
+            {
+                dbWord = _DBContext.Word.SingleOrDefault(x => x.Word == lowerWord);
+                _memoryCache.Set(cacheKey, dbWord, TimeSpan.FromDays(1));
+            }
             if(dbWord != null && (!dbWord.DataInvalid.HasValue || !dbWord.DataInvalid.Value))
             {
                 return _responseFactory.CreateOKResponse(dbWord);
