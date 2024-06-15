@@ -61,7 +61,9 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest);
             }
             var userId = _userService.GetUserId();
-            if(userId == null)
+            var cacheKey = $"GetWords_{userId}";
+            _memoryCache.Remove(cacheKey);
+            if (userId == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden);
             }

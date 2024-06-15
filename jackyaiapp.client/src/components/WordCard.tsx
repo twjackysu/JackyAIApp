@@ -14,6 +14,8 @@ import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import { playVoiceTube, playGoogleNormal } from '../Dictionary/utils/audio';
 import { usePutWordMutation } from '@/apis/repositoryApis';
 import { Word } from '../apis/dictionaryApis/types';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import { useInvalidWordMutation } from '@/apis/dictionaryApis';
 
 interface Props {
   word?: Word | null;
@@ -23,6 +25,7 @@ interface Props {
 
 function WordCard({ word, isFetching, isError }: Props) {
   const [putWordMutation] = usePutWordMutation();
+  const [invalidWordMutation] = useInvalidWordMutation();
   const handleWordClick = () => {
     if (!word) return;
     playVoiceTube(word.word);
@@ -31,6 +34,11 @@ function WordCard({ word, isFetching, isError }: Props) {
     const wordId = word?.id;
     if (!wordId) return;
     putWordMutation(wordId);
+  };
+  const handleInvalidClick = () => {
+    if (word?.word) {
+      invalidWordMutation(word.word);
+    }
   };
   return (
     <Card>
@@ -47,9 +55,14 @@ function WordCard({ word, isFetching, isError }: Props) {
             )}
           </Stack>
           {word && (
-            <IconButton sx={{ m: 2, p: 2 }}>
-              <FavoriteBorder onClick={handleFavoriteClick} />
-            </IconButton>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <IconButton sx={{ m: 2, p: 2 }}>
+                <FavoriteBorder onClick={handleFavoriteClick} />
+              </IconButton>
+              <IconButton sx={{ m: 2, p: 2 }}>
+                <DeleteForeverIcon onClick={handleInvalidClick} />
+              </IconButton>
+            </Stack>
           )}
         </Stack>
         {isFetching && (

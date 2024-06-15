@@ -47,7 +47,7 @@ namespace JackyAIApp.Server.Controllers
                 return responseFactory.CreateErrorResponse(ErrorCodes.TheWordCannotBeFound, "This is not a valid word.");
             }
             var cacheKey = $"Get_Dictionary_{lowerWord}";
-            if (_memoryCache.TryGetValue(lowerWord, out Word? dbWord))
+            if (!_memoryCache.TryGetValue(lowerWord, out Word? dbWord))
             {
                 dbWord = _DBContext.Word.SingleOrDefault(x => x.Word == lowerWord);
                 _memoryCache.Set(cacheKey, dbWord, TimeSpan.FromDays(1));
@@ -174,12 +174,36 @@ namespace JackyAIApp.Server.Controllers
                     DateAdded = DateTime.Now,
                     LastUpdated = DateTime.Now,
                 };
-                await _DBContext.AddAsync(wordDefinition);
+                if(dbWord != null && (dbWord.DataInvalid.HasValue && dbWord.DataInvalid.Value))
+                {
+                    dbWord = wordDefinition;
+                }
+                else
+                {
+                    await _DBContext.AddAsync(wordDefinition);
+                }
                 await _DBContext.SaveChangesAsync();
                 _logger.LogInformation("word: {lowerWord} added to DB.", lowerWord);
                 return responseFactory.CreateOKResponse(wordDefinition);
             }
             return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
+        }
+
+        [Route("invalid")]
+        [HttpPut(Name = "Make a word invalid")]
+        public async Task<IActionResult> Invalid(string word)
+        {
+            var lowerWord = word.Trim().ToLower();
+            var cacheKey = $"Get_Dictionary_{lowerWord}";
+            _memoryCache.Remove(cacheKey);
+            var result = _DBContext.Word.SingleOrDefault(x => x.Word == lowerWord);
+            if (result != null)
+            {
+                result.DataInvalid = true;
+                result.LastUpdated = DateTime.Now;
+                await _DBContext.SaveChangesAsync();
+            }
+            return responseFactory.CreateOKResponse(result);
         }
     }
 }

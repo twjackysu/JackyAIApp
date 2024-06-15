@@ -54,7 +54,7 @@ try
         googleOptions.ClientId = builder.Configuration["Settings:Google:ClientId"]?.ToString() ?? "";
         googleOptions.ClientSecret = builder.Configuration["Settings:Google:ClientSecret"]?.ToString() ?? "";
     });
-
+    builder.Services.AddMemoryCache();
     builder.Services.AddControllers();
     // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
     builder.Services.AddEndpointsApiExplorer();
