@@ -47,7 +47,7 @@ try
         options.Cookie.HttpOnly = true;
         options.Cookie.MaxAge = TimeSpan.FromDays(1);
         options.ExpireTimeSpan = TimeSpan.FromDays(1);
-        options.LoginPath = "/api/account/login/Google";
+        options.LoginPath = "/signin";
     })
     .AddGoogle(googleOptions =>
     {

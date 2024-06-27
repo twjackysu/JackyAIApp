@@ -14,6 +14,7 @@ export const repositoryApis = createApi({
     getRepositoryWords: builder.query<ApiOkResponse<Word[]>, void>({
       query: () => ({
         url: 'word',
+        redirect: 'follow',
       }),
       providesTags: ['PersonalWord'],
     }),
@@ -21,6 +22,7 @@ export const repositoryApis = createApi({
       query: (wordId) => ({
         url: `word/${wordId}`,
         method: 'PUT',
+        redirect: 'follow',
         invalidatesTags: ['PersonalWord'],
       }),
     }),
@@ -28,6 +30,7 @@ export const repositoryApis = createApi({
       query: (wordId) => ({
         url: `word/${wordId}`,
         method: 'DELETE',
+        redirect: 'follow',
         invalidatesTags: ['PersonalWord'],
       }),
     }),

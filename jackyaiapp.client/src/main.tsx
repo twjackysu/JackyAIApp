@@ -4,8 +4,10 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import SignIn from './SignIn.tsx';
 import { Provider } from 'react-redux';
 import { store } from '@/redux/store';
+import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 
 const darkTheme = createTheme({
   palette: {
@@ -13,13 +15,24 @@ const darkTheme = createTheme({
   },
 });
 
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <App />,
+  },
+  {
+    path: '/signin',
+    element: <SignIn />,
+  },
+]);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
         <Container maxWidth="lg">
-          <App />
+          <RouterProvider router={router} />
         </Container>
       </ThemeProvider>
     </Provider>
