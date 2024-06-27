@@ -176,7 +176,12 @@ namespace JackyAIApp.Server.Controllers
                 };
                 if(dbWord != null && (dbWord.DataInvalid.HasValue && dbWord.DataInvalid.Value))
                 {
-                    dbWord = wordDefinition;
+                    dbWord.DataInvalid = null;
+                    dbWord.Word = wordDefinition.Word;
+                    dbWord.KKPhonics = wordDefinition.KKPhonics;
+                    dbWord.Meanings = wordDefinition.Meanings;
+                    dbWord.DateAdded = DateTime.Now;
+                    dbWord.LastUpdated = DateTime.Now;
                 }
                 else
                 {

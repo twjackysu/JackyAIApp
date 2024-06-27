@@ -5,6 +5,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import FavoriteBorder from '@mui/icons-material/FavoriteBorder';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 import { Fragment } from 'react/jsx-runtime';
 import { lime, deepPurple, lightGreen, lightBlue } from '@mui/material/colors';
 import DividerWithText from './DividerWithText';
@@ -12,7 +13,10 @@ import LinearProgress from '@mui/material/LinearProgress';
 import IconButton from '@mui/material/IconButton';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import { playVoiceTube, playGoogleNormal } from '../Dictionary/utils/audio';
-import { usePutWordMutation } from '@/apis/repositoryApis';
+import {
+  usePutRepositoryWordMutation,
+  useDeleteRepositoryWordMutation,
+} from '@/apis/repositoryApis';
 import { Word } from '../apis/dictionaryApis/types';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { useInvalidWordMutation } from '@/apis/dictionaryApis';
@@ -21,10 +25,12 @@ interface Props {
   word?: Word | null;
   isFetching?: boolean;
   isError?: boolean;
+  isFavorite?: boolean;
 }
 
-function WordCard({ word, isFetching, isError }: Props) {
-  const [putWordMutation] = usePutWordMutation();
+function WordCard({ word, isFetching, isError, isFavorite }: Props) {
+  const [putRepositoryWordMutation] = usePutRepositoryWordMutation();
+  const [deleteRepositoryWordMutation] = useDeleteRepositoryWordMutation();
   const [invalidWordMutation] = useInvalidWordMutation();
   const handleWordClick = () => {
     if (!word) return;
@@ -33,7 +39,12 @@ function WordCard({ word, isFetching, isError }: Props) {
   const handleFavoriteClick = () => {
     const wordId = word?.id;
     if (!wordId) return;
-    putWordMutation(wordId);
+    putRepositoryWordMutation(wordId);
+  };
+  const handleDeleteFavoriteClick = () => {
+    const wordId = word?.id;
+    if (!wordId) return;
+    deleteRepositoryWordMutation(wordId);
   };
   const handleInvalidClick = () => {
     if (word?.word) {
@@ -41,7 +52,7 @@ function WordCard({ word, isFetching, isError }: Props) {
     }
   };
   return (
-    <Card>
+    <Card sx={{ width: '100%' }}>
       <Stack sx={{ pl: 2 }}>
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" spacing={2} alignItems="center">
@@ -57,7 +68,11 @@ function WordCard({ word, isFetching, isError }: Props) {
           {word && (
             <Stack direction="row" spacing={2} alignItems="center">
               <IconButton sx={{ m: 2, p: 2 }}>
-                <FavoriteBorder onClick={handleFavoriteClick} />
+                {isFavorite ? (
+                  <FavoriteIcon onClick={handleDeleteFavoriteClick} />
+                ) : (
+                  <FavoriteBorder onClick={handleFavoriteClick} />
+                )}
               </IconButton>
               <IconButton sx={{ m: 2, p: 2 }}>
                 <DeleteForeverIcon onClick={handleInvalidClick} />

@@ -11,35 +11,31 @@ export const repositoryApis = createApi({
     baseUrl: '/api/repository',
   }),
   endpoints: (builder) => ({
-    getWords: builder.query<ApiOkResponse<Word[]>, void>({
+    getRepositoryWords: builder.query<ApiOkResponse<Word[]>, void>({
       query: () => ({
         url: 'word',
       }),
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.data.map((x) => ({ type: 'PersonalWord' as const, id: x.word })),
-              'PersonalWord',
-            ]
-          : ['PersonalWord'],
+      providesTags: ['PersonalWord'],
     }),
-    getWord: builder.query<ApiOkResponse<Word>, string>({
-      query: (personalWordId) => ({
-        url: `word/${personalWordId}`,
-      }),
-      providesTags: (result) =>
-        result
-          ? [{ type: 'PersonalWord' as const, id: result.data.word }, 'PersonalWord']
-          : ['PersonalWord'],
-    }),
-    putWord: builder.mutation<ApiOkResponse<PersonalWord>, string>({
+    putRepositoryWord: builder.mutation<ApiOkResponse<PersonalWord>, string>({
       query: (wordId) => ({
         url: `word/${wordId}`,
         method: 'PUT',
         invalidatesTags: ['PersonalWord'],
       }),
     }),
+    deleteRepositoryWord: builder.mutation<ApiOkResponse<void>, string>({
+      query: (wordId) => ({
+        url: `word/${wordId}`,
+        method: 'DELETE',
+        invalidatesTags: ['PersonalWord'],
+      }),
+    }),
   }),
 });
 
-export const { useGetWordQuery, useGetWordsQuery, usePutWordMutation } = repositoryApis;
+export const {
+  useGetRepositoryWordsQuery,
+  usePutRepositoryWordMutation,
+  useDeleteRepositoryWordMutation,
+} = repositoryApis;

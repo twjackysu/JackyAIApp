@@ -35,24 +35,6 @@ namespace JackyAIApp.Server.Controllers
             }
             return responseFactory.CreateOKResponse(result);
         }
-        [HttpGet("word/{id}")]
-        public async Task<IActionResult> GetWord(string id)
-        {
-            var userId = _userService.GetUserId();
-            var cacheKey = $"GetWords_{id}_{userId}";
-            if(!_memoryCache.TryGetValue(cacheKey, out Word? result))
-            {
-                var personalWord = await _DBContext.PersonalWord.SingleOrDefaultAsync(w => w.Id == id);
-                if (personalWord == null)
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound);
-                }
-                var reuslt = await _DBContext.Word.SingleOrDefaultAsync(x => personalWord.WordId == x.Id);
-
-                _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(1));
-            }
-            return responseFactory.CreateOKResponse(result);
-        }
         [HttpPut("word/{wordId}")]
         public async Task<IActionResult> AddWord(string wordId)
         {
@@ -81,6 +63,35 @@ namespace JackyAIApp.Server.Controllers
             await _DBContext.SaveChangesAsync();
 
             return _responseFactory.CreateOKResponse(personalWord);
+        }
+        [HttpDelete("word/{wordId}")]
+        public async Task<IActionResult> DeleteWord(string wordId)
+        {
+            if (wordId == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest);
+            }
+            var userId = _userService.GetUserId();
+            var cacheKey = $"GetWords_{userId}";
+            _memoryCache.Remove(cacheKey);
+            if (userId == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden);
+            }
+            _logger.LogInformation("user: {userId}, delete personal word: {wordId}", userId, wordId);
+
+            var personalWord = await _DBContext.PersonalWord
+                .FirstOrDefaultAsync(pw => pw.UserId == userId && pw.WordId == wordId);
+
+            if (personalWord == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound);
+            }
+
+            _DBContext.PersonalWord.Remove(personalWord);
+            await _DBContext.SaveChangesAsync();
+
+            return _responseFactory.CreateOKResponse();
         }
     }
 }
