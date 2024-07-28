@@ -56,9 +56,7 @@ function WordCard({ word, isFetching, isError, isFavorite }: Props) {
       <Stack sx={{ pl: 2 }}>
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" spacing={2} alignItems="center">
-            <Typography variant="h2" onClick={handleWordClick}>
-              {word?.word}
-            </Typography>
+            <Typography variant="h2">{word?.word}</Typography>
             {word && (
               <IconButton sx={{ m: 2, p: 2 }} onClick={handleWordClick}>
                 <PlayCircleIcon />
