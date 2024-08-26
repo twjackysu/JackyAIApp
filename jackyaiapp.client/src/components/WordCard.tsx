@@ -20,15 +20,20 @@ import {
 import { Word } from '../apis/dictionaryApis/types';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { useInvalidWordMutation } from '@/apis/dictionaryApis';
+import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import { SerializedError } from '@reduxjs/toolkit';
+import { isErrorWithData } from '../apis/utils/safetyTypeChecker';
+import { ApiErrorResponse } from '../apis/types';
 
 interface Props {
   word?: Word | null;
   isFetching?: boolean;
   isError?: boolean;
   isFavorite?: boolean;
+  error?: FetchBaseQueryError | SerializedError;
 }
 
-function WordCard({ word, isFetching, isError, isFavorite }: Props) {
+function WordCard({ word, isFetching, isError, isFavorite, error }: Props) {
   const [putRepositoryWordMutation] = usePutRepositoryWordMutation();
   const [deleteRepositoryWordMutation] = useDeleteRepositoryWordMutation();
   const [invalidWordMutation] = useInvalidWordMutation();
@@ -51,6 +56,7 @@ function WordCard({ word, isFetching, isError, isFavorite }: Props) {
       invalidWordMutation(word.word);
     }
   };
+  console.log('error', error);
   return (
     <Card sx={{ width: '100%' }}>
       <Stack sx={{ pl: 2 }}>
@@ -88,7 +94,11 @@ function WordCard({ word, isFetching, isError, isFavorite }: Props) {
       </Stack>
       <CardContent>
         {isError ? (
-          <Typography>Something wrong</Typography>
+          isErrorWithData(error) ? (
+            <Typography>{(error?.data as ApiErrorResponse).error.message}</Typography>
+          ) : (
+            <Typography>Something wrong</Typography>
+          )
         ) : (
           <Grid container spacing={2}>
             {word?.meanings.map((meaning) => (

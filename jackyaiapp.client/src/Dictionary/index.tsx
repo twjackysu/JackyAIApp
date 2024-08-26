@@ -15,7 +15,7 @@ function Dictionary() {
     }
   };
 
-  const { data, isFetching, isError } = useGetWordQuery(word!, { skip: !word });
+  const { data, isFetching, isError, error } = useGetWordQuery(word!, { skip: !word });
   const { data: personalWordsData, isFetching: personalWordsIsFetching } =
     useGetRepositoryWordsQuery();
   return (
@@ -33,6 +33,7 @@ function Dictionary() {
           isFetching={isFetching || personalWordsIsFetching}
           isError={isError}
           isFavorite={personalWordsData?.data.some((p) => p.id === data?.data.id)}
+          error={error}
         />
       </Stack>
     </Box>
