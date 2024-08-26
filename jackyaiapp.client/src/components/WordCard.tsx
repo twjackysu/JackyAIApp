@@ -81,6 +81,7 @@ function WordCard({ word, isFetching, isError, isFavorite }: Props) {
         {isFetching && (
           <Box sx={{ width: '100%' }}>
             <LinearProgress />
+            <Typography variant="h6">Generating AI response, please wait...</Typography>
           </Box>
         )}
         <Typography color={lightBlue[200]}>{word?.kkPhonics}</Typography>
