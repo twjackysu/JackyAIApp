@@ -20,7 +20,28 @@ function Repository() {
   return (
     <Box>
       <Stack direction="row">
-        <List component="nav">
+        <List
+          component="nav"
+          sx={{
+            maxHeight: '94vh',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            scrollbarWidth: 'thin', // For Firefox
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              borderRadius: '10px',
+            },
+            '&::-webkit-scrollbar-thumb:hover': {
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'transparent',
+            },
+          }}
+        >
           {data?.data.map((word, index) => (
             <ListItemButton
               selected={selectedIndex === index}
