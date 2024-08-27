@@ -1,22 +1,19 @@
-﻿using Microsoft.AspNetCore.Authentication.Cookies;
+﻿using JackyAIApp.Server.Data;
+using JackyAIApp.Server.Data.Models;
+using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using JackyAIApp.Server.Common;
-using JackyAIApp.Server.Configuration;
-using JackyAIApp.Server.Data;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Options;
-using OpenAI.Interfaces;
-using DotnetSdkUtilities.Factory.ResponseFactory;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace JackyAIApp.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AccountController : ControllerBase
+    public class AccountController(ILogger<AccountController> logger, AzureCosmosDBContext DBContext, IUserService userService) : ControllerBase
     {
+        private readonly ILogger<AccountController> _logger = logger ?? throw new ArgumentNullException();
+        private readonly AzureCosmosDBContext _DBContext = DBContext;
+        private readonly IUserService _userService = userService;
         [HttpGet("login/{provider}")]
         public IActionResult Login(string provider)
         {
@@ -38,6 +35,25 @@ namespace JackyAIApp.Server.Controllers
             if (!result.Succeeded)
             {
                 return Unauthorized();
+            }
+            var userId = _userService.GetUserId();
+            await _DBContext.Database.EnsureCreatedAsync();
+            var user = _DBContext.User.SingleOrDefault(x => x.Id == userId);
+            if (user == null && userId != null)
+            {
+                user = new User()
+                {
+                    Id = userId,
+                    PartitionKey = userId,
+                    Name = _userService.GetUserName(),
+                    Email = _userService.GetUserEmail(),
+                    LastUpdated = DateTime.Now,
+                    CreditBalance = 20,
+                    TotalCreditsUsed = 0,
+                    WordIds = []
+                };
+                _DBContext.User.Add(user);
+                await _DBContext.SaveChangesAsync();
             }
             return LocalRedirect("~/");
         }

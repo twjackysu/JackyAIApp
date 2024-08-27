@@ -4,5 +4,7 @@
     {
         string? GetUserId();
         string? GetUserName();
+        string? GetUserEmail();
+        string? GetIssuer();
     }
 }

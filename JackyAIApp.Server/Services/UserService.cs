@@ -21,5 +21,15 @@ namespace JackyAIApp.Server.Services
             var user = _httpContextAccessor.HttpContext?.User;
             return user?.FindFirst(ClaimTypes.Name)?.Value;
         }
+        public string? GetUserEmail()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            return user?.FindFirst(ClaimTypes.Email)?.Value;
+        }
+        public string? GetIssuer()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            return user?.FindFirst(ClaimTypes.Authentication)?.Value;
+        }
     }
 }
