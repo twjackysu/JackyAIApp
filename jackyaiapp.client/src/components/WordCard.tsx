@@ -1,5 +1,4 @@
 import Stack from '@mui/material/Stack';
-import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -9,7 +8,6 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import { Fragment } from 'react/jsx-runtime';
 import { lime, deepPurple, lightGreen, lightBlue } from '@mui/material/colors';
 import DividerWithText from './DividerWithText';
-import LinearProgress from '@mui/material/LinearProgress';
 import IconButton from '@mui/material/IconButton';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import { playVoiceTube, playGoogleNormal } from '../Dictionary/utils/audio';
@@ -22,8 +20,8 @@ import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { useInvalidWordMutation } from '@/apis/dictionaryApis';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { SerializedError } from '@reduxjs/toolkit';
-import { isErrorWithData } from '../apis/utils/safetyTypeChecker';
-import { ApiErrorResponse } from '../apis/types';
+import FetchBaseQueryErrorMessage from './FetchBaseQueryErrorMessage';
+import AILoading from './AILoading';
 
 interface Props {
   word?: Word | null;
@@ -84,21 +82,12 @@ function WordCard({ word, isFetching, isError, isFavorite, error }: Props) {
             </Stack>
           )}
         </Stack>
-        {isFetching && (
-          <Box sx={{ width: '100%' }}>
-            <LinearProgress />
-            <Typography variant="h6">Generating AI response, please wait...</Typography>
-          </Box>
-        )}
+        {isFetching && <AILoading />}
         <Typography color={lightBlue[200]}>{word?.kkPhonics}</Typography>
       </Stack>
       <CardContent>
         {isError ? (
-          isErrorWithData(error) ? (
-            <Typography>{(error?.data as ApiErrorResponse).error.message}</Typography>
-          ) : (
-            <Typography>Something wrong</Typography>
-          )
+          <FetchBaseQueryErrorMessage error={error} />
         ) : (
           <Grid container spacing={2}>
             {word?.meanings.map((meaning) => (

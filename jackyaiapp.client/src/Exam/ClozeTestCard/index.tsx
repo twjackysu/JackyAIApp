@@ -1,21 +1,20 @@
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import { useGetClozeTestQuery } from '@/apis/examApis';
-import {
-  Button,
-  FormControl,
-  FormControlLabel,
-  FormLabel,
-  LinearProgress,
-  Radio,
-  RadioGroup,
-  Typography,
-} from '@mui/material';
-import { useState } from 'react';
+import Button from '@mui/material/Button';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormLabel from '@mui/material/FormLabel';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import Typography from '@mui/material/Typography';
+import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
+import AILoading from '@/components/AILoading';
 
 const CORRECT_TEXT = 'Correct!';
 function ClozeTestCard() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const { data, isFetching, refetch } = useGetClozeTestQuery();
+  const { data, isFetching, refetch, isError, error } = useGetClozeTestQuery();
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,12 +33,10 @@ function ClozeTestCard() {
     refetch();
   };
   if (isFetching) {
-    return (
-      <Box sx={{ width: '100%' }}>
-        <LinearProgress />
-        <Typography variant="h6">Generating AI response, please wait...</Typography>
-      </Box>
-    );
+    return <AILoading />;
+  }
+  if (isError) {
+    return <FetchBaseQueryErrorMessage error={error} />;
   }
   return (
     <Box sx={{ maxWidth: 600, margin: 'auto', padding: 2 }}>
