@@ -16,12 +16,11 @@ import {
   useDeleteRepositoryWordMutation,
 } from '@/apis/repositoryApis';
 import { Word } from '../apis/dictionaryApis/types';
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
-import { useInvalidWordMutation } from '@/apis/dictionaryApis';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { SerializedError } from '@reduxjs/toolkit';
 import FetchBaseQueryErrorMessage from './FetchBaseQueryErrorMessage';
 import AILoading from './AILoading';
+import AdminInvalidWordButton from './AdminInvalidWordButton';
 
 interface Props {
   word?: Word | null;
@@ -34,7 +33,6 @@ interface Props {
 function WordCard({ word, isFetching, isError, isFavorite, error }: Props) {
   const [putRepositoryWordMutation] = usePutRepositoryWordMutation();
   const [deleteRepositoryWordMutation] = useDeleteRepositoryWordMutation();
-  const [invalidWordMutation] = useInvalidWordMutation();
   const handleWordClick = () => {
     if (!word) return;
     playVoiceTube(word.word);
@@ -49,12 +47,7 @@ function WordCard({ word, isFetching, isError, isFavorite, error }: Props) {
     if (!wordId) return;
     deleteRepositoryWordMutation(wordId);
   };
-  const handleInvalidClick = () => {
-    if (word?.word) {
-      invalidWordMutation(word.word);
-    }
-  };
-  console.log('error', error);
+
   return (
     <Card sx={{ width: '100%' }}>
       <Stack sx={{ pl: 2 }}>
@@ -76,9 +69,7 @@ function WordCard({ word, isFetching, isError, isFavorite, error }: Props) {
                   <FavoriteBorder onClick={handleFavoriteClick} />
                 )}
               </IconButton>
-              <IconButton sx={{ m: 2, p: 2 }}>
-                <DeleteForeverIcon onClick={handleInvalidClick} />
-              </IconButton>
+              <AdminInvalidWordButton word={word.word} />
             </Stack>
           )}
         </Stack>

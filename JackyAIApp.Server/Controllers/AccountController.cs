@@ -1,19 +1,22 @@
-﻿using JackyAIApp.Server.Data;
+﻿using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models;
 using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JackyAIApp.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AccountController(ILogger<AccountController> logger, AzureCosmosDBContext DBContext, IUserService userService) : ControllerBase
+    public class AccountController(ILogger<AccountController> logger, AzureCosmosDBContext DBContext, IUserService userService, IMyResponseFactory responseFactory) : ControllerBase
     {
         private readonly ILogger<AccountController> _logger = logger ?? throw new ArgumentNullException();
         private readonly AzureCosmosDBContext _DBContext = DBContext;
         private readonly IUserService _userService = userService;
+        private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
         [HttpGet("login/{provider}")]
         public IActionResult Login(string provider)
         {
@@ -69,6 +72,18 @@ namespace JackyAIApp.Server.Controllers
         {
             var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
             return Ok(new { IsAuthenticated = isAuthenticated });
+        }
+        [Authorize]
+        [HttpGet("info")]
+        public IActionResult GetUserInfo()
+        {
+            var userId = _userService.GetUserId();
+            var user = _DBContext.User.SingleOrDefault(x => x.Id == userId);
+            if (user == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+            }
+            return _responseFactory.CreateOKResponse(user);
         }
     }
 }

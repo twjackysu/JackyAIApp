@@ -44,6 +44,7 @@ namespace JackyAIApp.Server.Data.Models
         /// Gets or sets the list of word IDs associated with the user.
         /// </summary>
         public required List<string> WordIds { get; set; }
+        public bool? IsAdmin { get; set; }
         public override string ToString()
         {
             return JsonConvert.SerializeObject(this);
