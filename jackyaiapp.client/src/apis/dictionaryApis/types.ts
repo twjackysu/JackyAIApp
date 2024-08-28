@@ -4,6 +4,7 @@ export interface Word extends WordBase {
   dateAdded: string;
   lastUpdated: string;
   dataInvalid?: boolean;
+  clozeTests?: ClozeTest[];
 }
 
 interface WordBase {
@@ -29,4 +30,10 @@ interface Definition {
 interface ExampleSentence {
   english: string;
   chinese: string;
+}
+
+export interface ClozeTest {
+  question: string;
+  options: string[];
+  answer: string;
 }

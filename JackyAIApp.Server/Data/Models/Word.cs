@@ -1,4 +1,6 @@
 ﻿using Newtonsoft.Json;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
 
 namespace JackyAIApp.Server.Data.Models
 {
@@ -28,6 +30,8 @@ namespace JackyAIApp.Server.Data.Models
         /// The date when the word's information was last updated.
         /// </summary>
         public DateTime LastUpdated { get; set; }
+
+        public List<ClozeTest>? ClozeTests { get; set; }
 
         /// <summary>
         /// Data is invalid after verification.
@@ -126,5 +130,21 @@ namespace JackyAIApp.Server.Data.Models
         /// </summary>
         public required string Chinese { get; set; }
     }
+    public class ClozeTest
+    {
+        /// <summary>
+        /// Gets or sets the question text for the cloze test.
+        /// </summary>
+        public required string Question { get; set; }
 
+        /// <summary>
+        /// Gets or sets the list of options available for the cloze test.
+        /// </summary>
+        public required List<string> Options { get; set; }
+
+        /// <summary>
+        /// Gets or sets the correct answer for the cloze test.
+        /// </summary>
+        public required string Answer { get; set; }
+    }
 }

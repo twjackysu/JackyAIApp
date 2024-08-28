@@ -50,6 +50,9 @@
     <None Update="Dictionary\en_US.dic">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Prompt\Exam\ClozeSystem.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Prompt\WordBase\System.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

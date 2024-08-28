@@ -4,6 +4,7 @@ import Tabs from '@mui/material/Tabs';
 
 import Dictionary from './Dictionary';
 import Repository from './Repository';
+import Exam from './Exam';
 import useRouteMatch from './hooks/useRouteMatch';
 import { Link, Route, Routes } from 'react-router-dom';
 import RequireAuth from './auth/RequireAuth';
@@ -30,7 +31,14 @@ function App() {
             </RequireAuth>
           }
         />
-        <Route path="/exam" element={<div>Exam (Under Construction)</div>} />
+        <Route
+          path="/exam"
+          element={
+            <RequireAuth>
+              <Exam />
+            </RequireAuth>
+          }
+        />
         <Route path="/" element={<Dictionary />} />
       </Routes>
     </>

@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { dictionaryApis } from '@/apis/dictionaryApis';
 import { repositoryApis } from '@/apis/repositoryApis';
 import { accountApis } from '@/apis/accountApis';
+import { examApis } from '@/apis/examApis';
 
 export const store = configureStore({
   reducer: {
@@ -9,6 +10,7 @@ export const store = configureStore({
     [dictionaryApis.reducerPath]: dictionaryApis.reducer,
     [repositoryApis.reducerPath]: repositoryApis.reducer,
     [accountApis.reducerPath]: accountApis.reducer,
+    [examApis.reducerPath]: examApis.reducer,
   },
   // Adding the api middleware enables caching, invalidation, polling,
   // and other useful features of `rtk-query`.
@@ -17,6 +19,7 @@ export const store = configureStore({
       dictionaryApis.middleware,
       repositoryApis.middleware,
       accountApis.middleware,
+      examApis.middleware,
     ),
 });
 
