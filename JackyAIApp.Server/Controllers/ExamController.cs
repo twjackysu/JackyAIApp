@@ -88,6 +88,11 @@ namespace JackyAIApp.Server.Controllers
                 try
                 {
                     clozeTest = JsonConvert.DeserializeObject<ClozeTest>(content);
+                    // Randomize the order of options
+                    if (clozeTest != null && clozeTest.Options != null)
+                    {
+                        clozeTest.Options = clozeTest.Options.OrderBy(x => random.Next()).ToList();
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -102,9 +107,9 @@ namespace JackyAIApp.Server.Controllers
                 {
                     word.ClozeTests ??= [];
                     word.ClozeTests.Add(clozeTest);
+                    await _DBContext.SaveChangesAsync();
+                    _logger.LogInformation("clozeTest: {clozeTestJson} added to DB.", JsonConvert.SerializeObject(clozeTest));
                 }
-                await _DBContext.SaveChangesAsync();
-                _logger.LogInformation("clozeTest: {clozeTestJson} added to DB.", JsonConvert.SerializeObject(clozeTest));
                 return responseFactory.CreateOKResponse(clozeTest);
             }
             return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
