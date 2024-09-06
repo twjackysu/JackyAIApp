@@ -52,7 +52,12 @@ function ClozeTestCard() {
         </RadioGroup>
       </FormControl>
       <Box sx={{ marginTop: 2 }}>
-        <Button variant="contained" color="primary" onClick={handleSubmit}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleSubmit}
+          disabled={feedback === CORRECT_TEXT}
+        >
           Submit
         </Button>
       </Box>

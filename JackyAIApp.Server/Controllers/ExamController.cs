@@ -91,7 +91,7 @@ namespace JackyAIApp.Server.Controllers
                     // Randomize the order of options
                     if (clozeTest != null && clozeTest.Options != null)
                     {
-                        clozeTest.Options = clozeTest.Options.OrderBy(x => random.Next()).ToList();
+                        clozeTest.Options = [.. clozeTest.Options.OrderBy(x => random.NextDouble())];
                     }
                 }
                 catch (Exception ex)
