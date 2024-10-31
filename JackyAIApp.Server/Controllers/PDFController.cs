@@ -35,14 +35,15 @@ namespace JackyAIApp.Server.Controllers
                 var readerProps = new ReaderProperties().SetPassword(System.Text.Encoding.UTF8.GetBytes(password));
                 using var reader = new PdfReader(memoryStream, readerProps);
                 using var outputMemoryStream = new MemoryStream();
-                using var writer = new PdfWriter(outputMemoryStream);
+                var writerProps = new WriterProperties().SetFullCompressionMode(true);
+                using var writer = new PdfWriter(outputMemoryStream, writerProps);
                 using var pdfDoc = new PdfDocument(reader, writer);
 
                 pdfDoc.Close();
 
                 var fileBytes = outputMemoryStream.ToArray();
-
-                return File(fileBytes, "application/pdf", "unlocked.pdf");
+                Response.Headers.ContentDisposition = "attachment; filename=unlocked_compressed.pdf";
+                return File(fileBytes, "application/pdf", "unlocked_compressed.pdf");
             }
             catch (BadPasswordException)
             {

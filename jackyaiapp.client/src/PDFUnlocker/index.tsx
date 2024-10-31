@@ -5,7 +5,7 @@ function PDFUnlocker() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  document.title = 'PDF Unlocker';
+  document.title = 'PDF Unlocker & Compressor';
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setPdfFile(e.target.files[0]);
@@ -59,7 +59,7 @@ function PDFUnlocker() {
   return (
     <Box sx={{ maxWidth: 400, mx: 'auto', mt: 5, p: 3, borderRadius: 2, boxShadow: 3 }}>
       <Typography variant="h5" gutterBottom>
-        Unlock PDF
+        Unlock PDF & Compress PDF
       </Typography>
       <form onSubmit={handleSubmit}>
         <Box mb={2}>
@@ -88,7 +88,7 @@ function PDFUnlocker() {
           />
         </Box>
         <Button variant="contained" color="primary" type="submit" disabled={isLoading} fullWidth>
-          {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Unlock PDF'}
+          {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Unlock PDF & Compress PDF'}
         </Button>
       </form>
     </Box>
