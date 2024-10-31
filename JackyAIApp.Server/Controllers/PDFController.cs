@@ -32,17 +32,15 @@ namespace JackyAIApp.Server.Controllers
 
             try
             {
-                string outputPath = Path.Combine(Path.GetTempPath(), "unlocked.pdf");
-
                 var readerProps = new ReaderProperties().SetPassword(System.Text.Encoding.UTF8.GetBytes(password));
-                var reader = new PdfReader(memoryStream, readerProps);
-                var writerProps = new WriterProperties();
+                using var reader = new PdfReader(memoryStream, readerProps);
+                using var outputMemoryStream = new MemoryStream();
+                using var writer = new PdfWriter(outputMemoryStream);
+                using var pdfDoc = new PdfDocument(reader, writer);
 
-                using var pdfDoc = new PdfDocument(reader, new PdfWriter(outputPath, writerProps));
+                pdfDoc.Close();
 
-                var fileBytes = System.IO.File.ReadAllBytes(outputPath);
-
-                System.IO.File.Delete(outputPath);
+                var fileBytes = outputMemoryStream.ToArray();
 
                 return File(fileBytes, "application/pdf", "unlocked.pdf");
             }
