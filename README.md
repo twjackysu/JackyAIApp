@@ -1,5 +1,7 @@
 # JackyAIApp
 
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/twjackysu/JackyAIApp)
+
 JackyAIApp is an application powered by generative AI. This is a private side project, but contributions from anyone are welcome.
 
 ## Disclaimer
