@@ -10,7 +10,7 @@ import { useState, useEffect, useRef, MouseEvent } from 'react';
 
 function Repository() {
   const [pageNumber, setPageNumber] = useState(1);
-  const pageSize = 10;
+  const pageSize = 20;
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { data, isFetching } = useGetRepositoryWordsQuery({
     pageNumber,
