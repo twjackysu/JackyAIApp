@@ -23,6 +23,15 @@ export const repositoryApis = createApi({
             ]
           : ['PersonalWord'],
     }),
+    getRepositoryWordsByWordId: builder.query<ApiOkResponse<Word>, string>({
+      query: (wordId) => ({
+        url: `word/${wordId}`,
+      }),
+      providesTags: (result) =>
+        result
+          ? [{ type: 'PersonalWord' as const, id: result.data.id }, 'PersonalWord']
+          : ['PersonalWord'],
+    }),
     putRepositoryWord: builder.mutation<ApiOkResponse<PersonalWord>, string>({
       query: (wordId) => ({
         url: `word/${wordId}`,
@@ -42,6 +51,7 @@ export const repositoryApis = createApi({
 
 export const {
   useGetRepositoryWordsQuery,
+  useGetRepositoryWordsByWordIdQuery,
   usePutRepositoryWordMutation,
   useDeleteRepositoryWordMutation,
 } = repositoryApis;

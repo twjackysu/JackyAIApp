@@ -1,4 +1,5 @@
-﻿using JackyAIApp.Server.Common;
+﻿using iText.Kernel.Geom;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models;
@@ -48,6 +49,31 @@ namespace JackyAIApp.Server.Controllers
             }
             return _responseFactory.CreateOKResponse(result);
         }
+        [HttpGet("word/{wordId}")]
+        public async Task<IActionResult> GetWords(string wordId)
+        {
+            var userId = _userService.GetUserId();
+
+            var cacheKey = $"GetWords_{userId}_WordId_{wordId}";
+            if (!_memoryCache.TryGetValue(cacheKey, out Word? result))
+            {
+                var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+                if (user == null)
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+                }
+                var list = user.WordIds;
+                var wordIdExist = list.Contains(wordId);
+                if (wordIdExist)
+                {
+                    result = await _DBContext.Word
+                        .SingleOrDefaultAsync(x => wordId == x.Id);
+                    _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(1));
+                    _cacheKeyTracker.AddKey(cacheKey, TimeSpan.FromDays(1));
+                }
+            }
+            return _responseFactory.CreateOKResponse(result);
+        }
 
         [HttpPut("word/{wordId}")]
         public async Task<IActionResult> AddWord(string wordId)
@@ -58,7 +84,7 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var userId = _userService.GetUserId();
-            var cacheKeyPattern = $"GetWords_{userId}_Page_";
+            var cacheKeyPattern = $"GetWords_{userId}";
 
             var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
@@ -93,7 +119,7 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var userId = _userService.GetUserId();
-            var cacheKeyPattern = $"GetWords_{userId}_Page_";
+            var cacheKeyPattern = $"GetWords_{userId}";
 
             var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)

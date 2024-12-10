@@ -4,7 +4,7 @@ import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import WordCard from '../components/WordCard';
 import { useGetWordQuery } from '@/apis/dictionaryApis';
-import { useGetRepositoryWordsQuery } from '../apis/repositoryApis';
+import { useGetRepositoryWordsByWordIdQuery } from '../apis/repositoryApis';
 
 function Dictionary() {
   const [text, setText] = useState<string>('');
@@ -16,8 +16,9 @@ function Dictionary() {
   };
 
   const { data, isFetching, isError, error } = useGetWordQuery(word!, { skip: !word });
+  const wordId = data?.data.id ?? '';
   const { data: personalWordsData, isFetching: personalWordsIsFetching } =
-    useGetRepositoryWordsQuery();
+    useGetRepositoryWordsByWordIdQuery(wordId, { skip: !wordId });
   return (
     <Box>
       <Stack>
@@ -32,7 +33,7 @@ function Dictionary() {
           word={data?.data}
           isFetching={isFetching || personalWordsIsFetching}
           isError={isError}
-          isFavorite={personalWordsData?.data.some((p) => p.id === data?.data.id)}
+          isFavorite={!!personalWordsData?.data}
           error={error}
         />
       </Stack>
