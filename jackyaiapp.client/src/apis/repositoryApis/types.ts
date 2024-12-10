@@ -5,3 +5,8 @@ export interface PersonalWord {
   userId: string;
   creationDate: Date;
 }
+
+export interface GetRepositoryWordRequest {
+  pageNumber: number;
+  pageSize: number;
+}

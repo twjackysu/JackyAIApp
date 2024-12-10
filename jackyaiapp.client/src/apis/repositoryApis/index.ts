@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { Word } from '@/apis/dictionaryApis/types';
 import { ApiOkResponse } from '../types';
-import { PersonalWord } from './types';
+import { GetRepositoryWordRequest, PersonalWord } from './types';
 
 // Define a service using a base URL and expected endpoints
 export const repositoryApis = createApi({
@@ -11,9 +11,9 @@ export const repositoryApis = createApi({
     baseUrl: '/api/repository',
   }),
   endpoints: (builder) => ({
-    getRepositoryWords: builder.query<ApiOkResponse<Word[]>, void>({
-      query: () => ({
-        url: 'word',
+    getRepositoryWords: builder.query<ApiOkResponse<Word[]>, GetRepositoryWordRequest>({
+      query: (request) => ({
+        url: `word?pageNumber=${request.pageNumber}&pageSize=${request.pageSize}`,
       }),
       providesTags: (result) =>
         result
