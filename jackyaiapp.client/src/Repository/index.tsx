@@ -1,17 +1,19 @@
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
+
 import { useGetRepositoryWordsQuery } from '@/apis/repositoryApis';
-import LinearProgress from '@mui/material/LinearProgress';
 import WordCard from '../components/WordCard';
 import List from '@mui/material/List';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemButton from '@mui/material/ListItemButton';
 import { useState, useEffect, useRef, MouseEvent } from 'react';
+import { Word } from '../apis/dictionaryApis/types';
 
 function Repository() {
   const [pageNumber, setPageNumber] = useState(1);
   const pageSize = 20;
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [accumulatedData, setAccumulatedData] = useState<Record<number, Word[]>>({});
   const { data, isFetching } = useGetRepositoryWordsQuery({
     pageNumber,
     pageSize,
@@ -43,13 +45,22 @@ function Repository() {
     if (listElement) {
       listElement.addEventListener('scroll', handleScroll);
     }
-
+    if (!isFetching) {
+      setAccumulatedData((prev) => {
+        return {
+          ...prev,
+          [pageNumber]: data?.data ?? [],
+        };
+      });
+    }
     return () => {
       if (listElement) {
         listElement.removeEventListener('scroll', handleScroll);
       }
     };
   }, [isFetching, data, pageNumber, pageSize]);
+
+  const allWords = Object.values(accumulatedData).reduce((acc, words) => acc.concat(words), []);
 
   return (
     <Box>
@@ -77,7 +88,7 @@ function Repository() {
             },
           }}
         >
-          {data?.data.map((word, index) => (
+          {allWords.map((word, index) => (
             <ListItemButton
               key={index}
               selected={selectedIndex === index}
@@ -87,12 +98,7 @@ function Repository() {
             </ListItemButton>
           ))}
         </List>
-        {isFetching && (
-          <Box sx={{ width: '100%' }}>
-            <LinearProgress />
-          </Box>
-        )}
-        <WordCard word={data?.data[selectedIndex]} isFavorite />
+        <WordCard word={allWords[selectedIndex]} isFavorite isFetching={isFetching} />
       </Stack>
     </Box>
   );
