@@ -1,4 +1,6 @@
 ﻿using Azure.Identity;
+using Betalgo.Ranul.OpenAI.Extensions;
+using DotnetSdkUtilities.Extensions.ServiceCollectionExtensions;
 using DotnetSdkUtilities.Factory.ResponseFactory;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
@@ -8,7 +10,6 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using NLog;
 using NLog.Web;
-using OpenAI.Extensions;
 
 // Early init of NLog to allow startup and exception logging, before host is built
 var logger = LogManager.Setup()
@@ -54,13 +55,12 @@ try
         googleOptions.ClientId = builder.Configuration["Settings:Google:ClientId"]?.ToString() ?? "";
         googleOptions.ClientSecret = builder.Configuration["Settings:Google:ClientSecret"]?.ToString() ?? "";
     });
-    builder.Services.AddMemoryCache();
+    builder.Services.AddExtendedMemoryCache();
     builder.Services.AddControllers();
     // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
 
-    builder.Services.AddSingleton<ICacheKeyTracker, CacheKeyTracker>();
     builder.Services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
     builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
     builder.Services.AddScoped<IUserService, UserService>();

@@ -1,4 +1,5 @@
-﻿using iText.Kernel.Geom;
+﻿using DotnetSdkUtilities.Services;
+using iText.Kernel.Geom;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
@@ -16,16 +17,15 @@ namespace JackyAIApp.Server.Controllers
     [Route("api/[controller]")]
     [ApiController]
     public class RepositoryController(ILogger<RepositoryController> logger, IOptionsMonitor<Settings> settings, 
-        IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IUserService userService, IMemoryCache memoryCache,
-        ICacheKeyTracker cacheKeyTracker) : ControllerBase
+        IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IUserService userService, IExtendedMemoryCache memoryCache
+        ) : ControllerBase
     {
         private readonly ILogger<RepositoryController> _logger = logger ?? throw new ArgumentNullException();
         private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
         private readonly AzureCosmosDBContext _DBContext = DBContext;
         private readonly IUserService _userService = userService;
-        private readonly IMemoryCache _memoryCache = memoryCache;
-        private readonly ICacheKeyTracker _cacheKeyTracker = cacheKeyTracker;
+        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         [HttpGet("word")]
         public async Task<IActionResult> GetWords(int pageNumber = 1, int pageSize = 10)
         {
@@ -45,7 +45,6 @@ namespace JackyAIApp.Server.Controllers
                     .Take(pageSize)
                     .ToListAsync();
                 _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(1));
-                _cacheKeyTracker.AddKey(cacheKey, TimeSpan.FromDays(1));
             }
             return _responseFactory.CreateOKResponse(result);
         }
@@ -69,7 +68,6 @@ namespace JackyAIApp.Server.Controllers
                     result = await _DBContext.Word
                         .SingleOrDefaultAsync(x => wordId == x.Id);
                     _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(1));
-                    _cacheKeyTracker.AddKey(cacheKey, TimeSpan.FromDays(1));
                 }
             }
             return _responseFactory.CreateOKResponse(result);
@@ -84,7 +82,6 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var userId = _userService.GetUserId();
-            var cacheKeyPattern = $"GetWords_{userId}";
 
             var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
@@ -104,8 +101,8 @@ namespace JackyAIApp.Server.Controllers
 
             await _DBContext.SaveChangesAsync();
 
-            // 清除所有相關的緩存
-            ClearCacheByPattern(cacheKeyPattern);
+            var cacheKeyPrefix = $"GetWords_{userId}";
+            _memoryCache.ClearCacheByContains(cacheKeyPrefix);
 
             return _responseFactory.CreateOKResponse(user);
         }
@@ -119,7 +116,6 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var userId = _userService.GetUserId();
-            var cacheKeyPattern = $"GetWords_{userId}";
 
             var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
@@ -139,20 +135,10 @@ namespace JackyAIApp.Server.Controllers
 
             await _DBContext.SaveChangesAsync();
 
-            // 清除所有相關的緩存
-            ClearCacheByPattern(cacheKeyPattern);
+            var cacheKeyPrefix = $"GetWords_{userId}";
+            _memoryCache.ClearCacheByContains(cacheKeyPrefix);
 
             return _responseFactory.CreateOKResponse();
-        }
-
-        private void ClearCacheByPattern(string pattern)
-        {
-            var keys = _cacheKeyTracker.GetKeysByPattern(pattern);
-            foreach (var key in keys)
-            {
-                _memoryCache.Remove(key);
-                _cacheKeyTracker.RemoveKey(key);
-            }
         }
     }
 }

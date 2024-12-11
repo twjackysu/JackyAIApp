@@ -1,33 +1,32 @@
-﻿using JackyAIApp.Server.Common;
+﻿using Betalgo.Ranul.OpenAI.Interfaces;
+using Betalgo.Ranul.OpenAI.ObjectModels;
+using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
+using DotnetSdkUtilities.Services;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models;
 using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
-using OpenAI.ObjectModels.RequestModels;
-using OpenAI.ObjectModels;
-using OpenAI.Interfaces;
-using OpenAI.Managers;
 
 namespace JackyAIApp.Server.Controllers
 {
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class ExamController(ILogger<ExamController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IUserService userService, IMemoryCache memoryCache, IOpenAIService openAIService) : ControllerBase
+    public class ExamController(ILogger<ExamController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IUserService userService, IExtendedMemoryCache memoryCache, IOpenAIService openAIService) : ControllerBase
     {
         private readonly ILogger<ExamController> _logger = logger ?? throw new ArgumentNullException();
         private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
         private readonly AzureCosmosDBContext _DBContext = DBContext;
         private readonly IUserService _userService = userService;
-        private readonly IMemoryCache _memoryCache = memoryCache;
+        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         private readonly IOpenAIService _openAIService = openAIService;
 
         [HttpGet("cloze")]

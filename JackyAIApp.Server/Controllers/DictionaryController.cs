@@ -1,4 +1,8 @@
 
+using Betalgo.Ranul.OpenAI.Interfaces;
+using Betalgo.Ranul.OpenAI.ObjectModels;
+using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
+using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
@@ -7,9 +11,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
-using OpenAI.Interfaces;
-using OpenAI.ObjectModels;
-using OpenAI.ObjectModels.RequestModels;
 using System.Text.RegularExpressions;
 using WeCantSpell.Hunspell;
 
@@ -17,14 +18,14 @@ namespace JackyAIApp.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]/{word}")]
-    public class DictionaryController(ILogger<DictionaryController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IOpenAIService openAIService, IMemoryCache memoryCache) : ControllerBase
+    public class DictionaryController(ILogger<DictionaryController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IOpenAIService openAIService, IExtendedMemoryCache memoryCache) : ControllerBase
     {
         private readonly ILogger<DictionaryController> _logger = logger ?? throw new ArgumentNullException();
         private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
         private readonly AzureCosmosDBContext _DBContext = DBContext;
         private readonly IOpenAIService _openAIService = openAIService;
-        private readonly IMemoryCache _memoryCache = memoryCache;
+        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
 
         [HttpGet(Name = "Search word")]
         public async Task<IActionResult> Get(string word)

@@ -1,4 +1,5 @@
-﻿using iText.Kernel.Exceptions;
+﻿using DotnetSdkUtilities.Services;
+using iText.Kernel.Exceptions;
 using iText.Kernel.Pdf;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
@@ -11,13 +12,13 @@ namespace JackyAIApp.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class PDFController(ILogger<PDFController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IUserService userService, IMemoryCache memoryCache) : ControllerBase
+    public class PDFController(ILogger<PDFController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IUserService userService, IExtendedMemoryCache memoryCache) : ControllerBase
     {
         private readonly ILogger<PDFController> _logger = logger ?? throw new ArgumentNullException();
         private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
         private readonly IUserService _userService = userService;
-        private readonly IMemoryCache _memoryCache = memoryCache;
+        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         [HttpPost("unlock")]
         public async Task<IActionResult> UnlockPdf([FromForm] IFormFile pdfFile, [FromForm] string password)
         {
