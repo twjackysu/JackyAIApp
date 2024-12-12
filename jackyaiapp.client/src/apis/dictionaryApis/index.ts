@@ -13,6 +13,9 @@ export const dictionaryApis = createApi({
       providesTags: (result) =>
         result ? [{ type: 'Word' as const, id: result.data.word }, 'Word'] : ['Word'],
     }),
+    getWordOfTheDay: builder.query<ApiOkResponse<Word>, void>({
+      query: () => 'WordOfTheDay',
+    }),
     invalidWord: builder.mutation<ApiOkResponse<Word>, string>({
       query: (word) => ({
         url: `${word}/invalid`,
@@ -23,4 +26,4 @@ export const dictionaryApis = createApi({
   }),
 });
 
-export const { useGetWordQuery, useInvalidWordMutation } = dictionaryApis;
+export const { useGetWordQuery, useInvalidWordMutation, useGetWordOfTheDayQuery } = dictionaryApis;

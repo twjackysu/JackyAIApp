@@ -28,9 +28,19 @@ interface Props {
   isError?: boolean;
   isFavorite?: boolean;
   error?: FetchBaseQueryError | SerializedError;
+  isOneWordFullWidth?: boolean;
+  isHideFavoriteButton?: boolean;
 }
 
-function WordCard({ word, isFetching, isError, isFavorite, error }: Props) {
+function WordCard({
+  word,
+  isFetching,
+  isError,
+  isFavorite,
+  error,
+  isOneWordFullWidth,
+  isHideFavoriteButton,
+}: Props) {
   const [putRepositoryWordMutation] = usePutRepositoryWordMutation();
   const [deleteRepositoryWordMutation] = useDeleteRepositoryWordMutation();
   const handleWordClick = () => {
@@ -47,7 +57,6 @@ function WordCard({ word, isFetching, isError, isFavorite, error }: Props) {
     if (!wordId) return;
     deleteRepositoryWordMutation(wordId);
   };
-
   return (
     <Card sx={{ width: '100%' }}>
       <Stack sx={{ pl: 2 }}>
@@ -60,7 +69,7 @@ function WordCard({ word, isFetching, isError, isFavorite, error }: Props) {
               </IconButton>
             )}
           </Stack>
-          {word && (
+          {word && !isHideFavoriteButton && (
             <Stack direction="row" spacing={2} alignItems="center">
               <IconButton sx={{ m: 2, p: 2 }}>
                 {isFavorite ? (
@@ -82,7 +91,11 @@ function WordCard({ word, isFetching, isError, isFavorite, error }: Props) {
         ) : (
           <Grid container spacing={2}>
             {word?.meanings.map((meaning) => (
-              <Grid key={meaning.partOfSpeech} item xs={6}>
+              <Grid
+                key={meaning.partOfSpeech}
+                item
+                xs={isOneWordFullWidth || word?.meanings.length === 1 ? 12 : 6}
+              >
                 <DividerWithText text="Part of speech" />
                 <Typography variant="h6" color={lime[200]}>
                   {meaning.partOfSpeech}
