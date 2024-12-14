@@ -1,17 +1,21 @@
-import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
-import { useState } from 'react';
-import WordCard from '../components/WordCard';
 import { useGetWordQuery } from '@/apis/dictionaryApis';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import { useRef, useState } from 'react';
 import { useGetRepositoryWordsByWordIdQuery } from '../apis/repositoryApis';
-import DailyWord from './components/DailyWord'; // 引入 DailyWord 組件
+import WordCard from '../components/WordCard';
+import RecentlySearched, { RecentlySearchedRef } from './components/RecentlySearched';
+import WordOfTheDay from './components/WordOfTheDay';
 
 function Dictionary() {
   const [text, setText] = useState<string>('');
   const [word, setWord] = useState<string | null>(null);
+  const recentlySearchedRef = useRef<RecentlySearchedRef>(null);
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter') {
       setWord(text);
+      recentlySearchedRef.current?.handleEnterKeyDown(e, text.toLowerCase());
     }
   };
 
@@ -20,15 +24,12 @@ function Dictionary() {
   const { data: personalWordsData, isFetching: personalWordsIsFetching } =
     useGetRepositoryWordsByWordIdQuery(wordId, { skip: !wordId });
 
+  const handleClickRecentlySearchedText = (recentlySearchedText: string) => {
+    setWord(recentlySearchedText);
+    setText(recentlySearchedText);
+  };
   return (
-    <Box
-      display="flex"
-      flexDirection="column"
-      justifyContent={word ? 'flex-start' : 'center'}
-      alignItems="center"
-      height="calc(100vh - 48px)"
-      padding={word ? '20px' : '0'}
-    >
+    <Stack direction="column" justifyContent={word ? 'flex-start' : 'center'} alignItems="center">
       <TextField
         label="Search"
         variant="outlined"
@@ -41,7 +42,13 @@ function Dictionary() {
           transition: 'margin-bottom 0.3s ease',
         }}
       />
-      {!word && <DailyWord />} {/* 當沒有搜索詞語時顯示每日一詞 */}
+      {!word && (
+        <RecentlySearched
+          ref={recentlySearchedRef}
+          onClickRecentlySearchedText={handleClickRecentlySearchedText}
+        />
+      )}
+      {!word && <WordOfTheDay />}
       {word && (
         <Box width={data?.data.meanings.length == 1 ? '80%' : '100%'}>
           <WordCard
@@ -53,7 +60,7 @@ function Dictionary() {
           />
         </Box>
       )}
-    </Box>
+    </Stack>
   );
 }
 
