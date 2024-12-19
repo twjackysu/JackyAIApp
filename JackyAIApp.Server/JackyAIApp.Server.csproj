@@ -7,6 +7,7 @@
     <SpaRoot>..\jackyaiapp.client</SpaRoot>
     <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
     <SpaProxyServerUrl>https://localhost:5173</SpaProxyServerUrl>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,7 +31,7 @@
     <PackageReference Include="NLog.Extensions.Logging" Version="5.*" />
     <PackageReference Include="NLog.MailKit" Version="5.*" />
     <PackageReference Include="NLog.Web.AspNetCore" Version="5.*" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
     <PackageReference Include="WeCantSpell.Hunspell" Version="5.2.1" />
   </ItemGroup>
 

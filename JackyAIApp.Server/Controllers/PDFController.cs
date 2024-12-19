@@ -20,7 +20,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IUserService _userService = userService;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         [HttpPost("unlock")]
-        public async Task<IActionResult> UnlockPdf([FromForm] IFormFile pdfFile, [FromForm] string password)
+        public async Task<IActionResult> UnlockPdf(IFormFile pdfFile, [FromForm] string password)
         {
             if (pdfFile == null || pdfFile.Length == 0)
             {

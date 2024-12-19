@@ -17,7 +17,7 @@ using WeCantSpell.Hunspell;
 namespace JackyAIApp.Server.Controllers
 {
     [ApiController]
-    [Route("api/[controller]/{word}")]
+    [Route("api/[controller]")]
     public class DictionaryController(ILogger<DictionaryController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureCosmosDBContext DBContext, IOpenAIService openAIService, IExtendedMemoryCache memoryCache) : ControllerBase
     {
         private readonly ILogger<DictionaryController> _logger = logger ?? throw new ArgumentNullException();
@@ -27,7 +27,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IOpenAIService _openAIService = openAIService;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
 
-        [HttpGet(Name = "Search word")]
+        [HttpGet("{word}", Name = "Search word")]
         public async Task<IActionResult> Get(string word)
         {
             var CleanInput = (string input) =>
@@ -195,8 +195,7 @@ namespace JackyAIApp.Server.Controllers
             return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
         }
 
-        [Route("invalid")]
-        [HttpPut(Name = "Make a word invalid")]
+        [HttpPut("{word}/invalid", Name = "Make a word invalid")]
         public async Task<IActionResult> Invalid(string word)
         {
             var lowerWord = word.Trim().ToLower();
