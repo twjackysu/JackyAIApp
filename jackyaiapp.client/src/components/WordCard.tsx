@@ -82,7 +82,7 @@ function WordCard({
             </Stack>
           )}
         </Stack>
-        {isFetching && <AILoading />}
+        {isFetching || <AILoading />}
         <Typography color={lightBlue[200]}>{word?.kkPhonics}</Typography>
       </Stack>
       <CardContent>
