@@ -1,7 +1,7 @@
 import { Link } from '@mui/material';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { forwardRef, useImperativeHandle } from 'react';
+import { Fragment, forwardRef, useImperativeHandle } from 'react';
 
 const recentlySearchedKey = 'recentlySearched';
 interface RecentlySearchedProps {
@@ -68,12 +68,12 @@ const RecentlySearched = forwardRef<RecentlySearchedRef, RecentlySearchedProps>(
         </Typography>
         <Typography variant="body1">
           {recentWords.map((text, i) => (
-            <>
+            <Fragment key={text}>
               <Link href="#" onClick={(e) => handleClickLinkText(e, text)}>
                 {text}
               </Link>
               {i !== recentWords.length - 1 && ', '}
-            </>
+            </Fragment>
           ))}
         </Typography>
       </Box>
