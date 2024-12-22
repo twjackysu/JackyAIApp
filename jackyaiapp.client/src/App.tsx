@@ -10,10 +10,11 @@ import Repository from './Repository';
 import RequireAuth from './auth/RequireAuth';
 import useRouteMatch from './hooks/useRouteMatch';
 
-const tabRoutes = ['/dictionary', '/repository', '/exam', '/'];
+const tabRoutes = ['/', '/dictionary', '/repository', '/exam'];
 function App() {
   const routeMatch = useRouteMatch(tabRoutes);
-  const currentTab = routeMatch?.pattern?.path;
+  const _currentTab = routeMatch?.pattern?.path;
+  const currentTab = _currentTab === '/' ? '/dictionary' : _currentTab;
   return (
     <>
       {currentTab && (
@@ -42,7 +43,7 @@ function App() {
           }
         />
         <Route
-          path="/exam"
+          path="/exam/*"
           element={
             <RequireAuth>
               <Exam />
