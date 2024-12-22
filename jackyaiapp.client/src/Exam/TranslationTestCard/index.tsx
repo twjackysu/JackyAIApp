@@ -13,6 +13,7 @@ const CORRECT_TEXT = 'Correct!';
 function TranslationCard() {
   const [input, setInput] = useState<string | null>(null);
   const { data, isFetching, refetch, isError, error } = useGetTranslationTestQuery();
+  const [showAnswer, setShowAnswer] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleTextFieldInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,7 +29,11 @@ function TranslationCard() {
   const handleNext = () => {
     setInput(null);
     setFeedback(null);
+    setShowAnswer(false);
     refetch();
+  };
+  const handleShowAnswer = () => {
+    setShowAnswer(true);
   };
   if (isFetching) {
     return <AILoading />;
@@ -42,28 +47,46 @@ function TranslationCard() {
         {data?.data.chinese}
       </Typography>
       <FormControl component="fieldset">
-        <FormLabel component="legend">Type the corresponding English sentence:</FormLabel>
-        <TextField value={input || ''} onChange={handleTextFieldInputChange} />
+        <FormLabel component="legend">輸入對應的英文句子:</FormLabel>
+        <TextField
+          value={input || ''}
+          onChange={handleTextFieldInputChange}
+          disabled={showAnswer}
+        />
       </FormControl>
-      <Box sx={{ marginTop: 2 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSubmit}
-          disabled={feedback === CORRECT_TEXT}
-        >
-          Submit
-        </Button>
-      </Box>
+      {showAnswer && (
+        <Typography variant="h6" sx={{ marginTop: 2 }}>
+          {data?.data.english}
+        </Typography>
+      )}
+      {showAnswer || (
+        <Box sx={{ marginTop: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSubmit}
+            disabled={feedback === CORRECT_TEXT}
+          >
+            Submit
+          </Button>
+        </Box>
+      )}
       {feedback && (
         <Typography variant="h6" sx={{ marginTop: 2 }}>
           {feedback}
         </Typography>
       )}
-      {feedback === CORRECT_TEXT && (
+      {(showAnswer || feedback === CORRECT_TEXT) && (
         <Button variant="contained" color="primary" onClick={handleNext}>
           Next
         </Button>
+      )}
+      {showAnswer || (
+        <Box sx={{ marginTop: 2 }}>
+          <Button variant="outlined" onClick={handleShowAnswer} disabled={showAnswer}>
+            Show Answer
+          </Button>
+        </Box>
       )}
     </Box>
   );

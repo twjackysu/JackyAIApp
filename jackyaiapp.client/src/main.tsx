@@ -12,6 +12,15 @@ const darkTheme = createTheme({
   palette: {
     mode: 'dark',
   },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none', // forbid uppercase
+        },
+      },
+    },
+  },
 });
 
 createRoot(document.getElementById('root')!).render(

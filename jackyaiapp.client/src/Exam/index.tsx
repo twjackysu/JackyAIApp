@@ -18,11 +18,6 @@ const styles = {
 function Exam() {
   return (
     <Box sx={{ p: 2 }}>
-      <Routes>
-        <Route path="cloze" element={<ClozeTestCard />} />
-        <Route path="translation" element={<TranslationTestCard />} />
-        <Route path="/" element={<div>請選擇測驗類型。</div>} />
-      </Routes>
       <Box
         sx={{
           display: 'flex',
@@ -57,6 +52,11 @@ function Exam() {
           造句測驗 (Sentence Formation Test)
         </Button>
       </Box>
+      <Routes>
+        <Route path="cloze" element={<ClozeTestCard />} />
+        <Route path="translation" element={<TranslationTestCard />} />
+        <Route path="/" element={<div>請選擇測驗類型。</div>} />
+      </Routes>
     </Box>
   );
 }
