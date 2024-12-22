@@ -2,12 +2,12 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 
 import { useGetRepositoryWordsQuery } from '@/apis/repositoryApis';
-import WordCard from '../components/WordCard';
 import List from '@mui/material/List';
-import ListItemText from '@mui/material/ListItemText';
 import ListItemButton from '@mui/material/ListItemButton';
-import { useState, useEffect, useRef, MouseEvent } from 'react';
+import ListItemText from '@mui/material/ListItemText';
+import { MouseEvent, useEffect, useRef, useState } from 'react';
 import { Word } from '../apis/dictionaryApis/types';
+import WordCard from '../components/WordCard';
 
 function Repository() {
   const [pageNumber, setPageNumber] = useState(1);

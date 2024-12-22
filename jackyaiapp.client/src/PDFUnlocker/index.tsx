@@ -1,5 +1,5 @@
+import { Box, Button, CircularProgress, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
-import { Box, Typography, TextField, Button, CircularProgress } from '@mui/material';
 
 function PDFUnlocker() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);

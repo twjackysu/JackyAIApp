@@ -1,8 +1,8 @@
-import { configureStore } from '@reduxjs/toolkit';
-import { dictionaryApis } from '@/apis/dictionaryApis';
-import { repositoryApis } from '@/apis/repositoryApis';
 import { accountApis } from '@/apis/accountApis';
+import { dictionaryApis } from '@/apis/dictionaryApis';
 import { examApis } from '@/apis/examApis';
+import { repositoryApis } from '@/apis/repositoryApis';
+import { configureStore } from '@reduxjs/toolkit';
 
 export const store = configureStore({
   reducer: {

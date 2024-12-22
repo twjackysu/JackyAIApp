@@ -1,7 +1,7 @@
 import { useGetUserInfoQuery } from '@/apis/accountApis';
+import { useInvalidWordMutation } from '@/apis/dictionaryApis';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import IconButton from '@mui/material/IconButton';
-import { useInvalidWordMutation } from '@/apis/dictionaryApis';
 
 interface Props {
   word?: string | null;

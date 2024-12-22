@@ -1,5 +1,5 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { Word } from '@/apis/dictionaryApis/types';
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { ApiOkResponse } from '../types';
 import { GetRepositoryWordRequest, PersonalWord } from './types';
 

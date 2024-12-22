@@ -2,13 +2,13 @@ import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 
-import Dictionary from './Dictionary';
-import Repository from './Repository';
-import Exam from './Exam';
-import useRouteMatch from './hooks/useRouteMatch';
 import { Link, Route, Routes } from 'react-router-dom';
-import RequireAuth from './auth/RequireAuth';
+import Dictionary from './Dictionary';
+import Exam from './Exam';
 import PDFUnlocker from './PDFUnlocker';
+import Repository from './Repository';
+import RequireAuth from './auth/RequireAuth';
+import useRouteMatch from './hooks/useRouteMatch';
 
 const tabRoutes = ['/dictionary', '/repository', '/exam', '/'];
 function App() {

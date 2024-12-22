@@ -1,8 +1,8 @@
-import { isErrorWithData } from '@/apis/utils/safetyTypeChecker';
 import { ApiErrorResponse } from '@/apis/types';
+import { isErrorWithData } from '@/apis/utils/safetyTypeChecker';
 import Typography from '@mui/material/Typography';
-import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { SerializedError } from '@reduxjs/toolkit';
+import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 
 interface Props {
   error: FetchBaseQueryError | SerializedError | undefined;

@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import Box from '@mui/material/Box';
 import { useGetClozeTestQuery } from '@/apis/examApis';
+import AILoading from '@/components/AILoading';
+import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -8,8 +9,7 @@ import FormLabel from '@mui/material/FormLabel';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import Typography from '@mui/material/Typography';
-import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
-import AILoading from '@/components/AILoading';
+import { useState } from 'react';
 
 const CORRECT_TEXT = 'Correct!';
 function ClozeTestCard() {

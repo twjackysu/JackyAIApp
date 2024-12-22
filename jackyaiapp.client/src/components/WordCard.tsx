@@ -1,26 +1,26 @@
-import Stack from '@mui/material/Stack';
-import Grid from '@mui/material/Grid';
+import {
+  useDeleteRepositoryWordMutation,
+  usePutRepositoryWordMutation,
+} from '@/apis/repositoryApis';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorder from '@mui/icons-material/FavoriteBorder';
+import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import FavoriteBorder from '@mui/icons-material/FavoriteBorder';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import { Fragment } from 'react/jsx-runtime';
-import { lime, deepPurple, lightGreen, lightBlue } from '@mui/material/colors';
-import DividerWithText from './DividerWithText';
+import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
-import PlayCircleIcon from '@mui/icons-material/PlayCircle';
-import { playVoiceTube, playGoogleNormal } from '../Dictionary/utils/audio';
-import {
-  usePutRepositoryWordMutation,
-  useDeleteRepositoryWordMutation,
-} from '@/apis/repositoryApis';
-import { Word } from '../apis/dictionaryApis/types';
-import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { deepPurple, lightBlue, lightGreen, lime } from '@mui/material/colors';
 import { SerializedError } from '@reduxjs/toolkit';
-import FetchBaseQueryErrorMessage from './FetchBaseQueryErrorMessage';
+import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import { Fragment } from 'react/jsx-runtime';
+import { playGoogleNormal, playVoiceTube } from '../Dictionary/utils/audio';
+import { Word } from '../apis/dictionaryApis/types';
 import AILoading from './AILoading';
 import AdminInvalidWordButton from './AdminInvalidWordButton';
+import DividerWithText from './DividerWithText';
+import FetchBaseQueryErrorMessage from './FetchBaseQueryErrorMessage';
 
 interface Props {
   word?: Word | null;

@@ -1,5 +1,5 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { ClozeTest } from '@/apis/dictionaryApis/types';
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { ApiOkResponse } from '../types';
 
 // Define a service using a base URL and expected endpoints

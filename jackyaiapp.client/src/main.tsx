@@ -1,12 +1,12 @@
+import { store } from '@/redux/store';
 import Container from '@mui/material/Container';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App';
 import { Provider } from 'react-redux';
-import { store } from '@/redux/store';
 import { BrowserRouter } from 'react-router-dom';
+import App from './App';
 
 const darkTheme = createTheme({
   palette: {
