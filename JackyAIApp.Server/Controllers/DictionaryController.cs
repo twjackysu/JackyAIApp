@@ -140,7 +140,7 @@ namespace JackyAIApp.Server.Controllers
                     })),
                     ChatMessage.FromUser(lowerWord)
                 ],
-                Model = Models.Gpt_4_turbo,
+                Model = Models.Gpt_4o_mini,
             });
             var errorMessage = "Query failed, OpenAI could not generate the corresponding word.";
             if (completionResult.Successful)
