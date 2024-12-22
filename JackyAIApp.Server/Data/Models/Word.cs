@@ -32,6 +32,7 @@ namespace JackyAIApp.Server.Data.Models
         public DateTime LastUpdated { get; set; }
 
         public List<ClozeTest>? ClozeTests { get; set; }
+        public List<TranslationTest>? TranslationTest { get; set; }
 
         /// <summary>
         /// Data is invalid after verification.
@@ -146,5 +147,10 @@ namespace JackyAIApp.Server.Data.Models
         /// Gets or sets the correct answer for the cloze test.
         /// </summary>
         public required string Answer { get; set; }
+    }
+    public class TranslationTest
+    {
+        public required string English { get; set; }
+        public required string Chinese { get; set; }
     }
 }

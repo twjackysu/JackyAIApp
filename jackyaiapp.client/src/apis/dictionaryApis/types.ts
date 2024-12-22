@@ -37,3 +37,8 @@ export interface ClozeTest {
   options: string[];
   answer: string;
 }
+
+export interface TranslationTest {
+  english: string;
+  chinese: string;
+}

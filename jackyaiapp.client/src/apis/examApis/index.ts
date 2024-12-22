@@ -1,4 +1,4 @@
-import { ClozeTest } from '@/apis/dictionaryApis/types';
+import { ClozeTest, TranslationTest } from '@/apis/dictionaryApis/types';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { ApiOkResponse } from '../types';
 
@@ -14,7 +14,12 @@ export const examApis = createApi({
         url: 'cloze',
       }),
     }),
+    getTranslationTest: builder.query<ApiOkResponse<TranslationTest>, void>({
+      query: () => ({
+        url: 'translation',
+      }),
+    }),
   }),
 });
 
-export const { useGetClozeTestQuery } = examApis;
+export const { useGetClozeTestQuery, useGetTranslationTestQuery } = examApis;

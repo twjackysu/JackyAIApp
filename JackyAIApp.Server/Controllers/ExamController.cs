@@ -72,7 +72,7 @@ namespace JackyAIApp.Server.Controllers
                     })),
                     ChatMessage.FromUser(word.Word)
                 ],
-                Model = Models.Gpt_4_turbo,
+                Model = Models.Gpt_4o_mini,
             });
             var errorMessage = "Query failed, OpenAI could not generate the corresponding cloze test.";
             if (completionResult.Successful)
@@ -110,6 +110,85 @@ namespace JackyAIApp.Server.Controllers
                     _logger.LogInformation("clozeTest: {clozeTestJson} added to DB.", JsonConvert.SerializeObject(clozeTest));
                 }
                 return responseFactory.CreateOKResponse(clozeTest);
+            }
+            return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
+        }
+
+        [HttpGet("translation")]
+        public async Task<IActionResult> GetTranslationTest()
+        {
+            var userId = _userService.GetUserId();
+            var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+            }
+            var list = user.WordIds;
+            var random = new Random();
+            var randomIndex = random.Next(user.WordIds.Count);
+
+            string randomWordId = user.WordIds[randomIndex];
+
+            var word = await _DBContext.Word.SingleOrDefaultAsync(x => x.Id == randomWordId);
+            if (word == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.");
+            }
+            if (word.TranslationTest != null && word.TranslationTest.Count > 3)
+            {
+                // Check if there are enough test questions for the vocabulary; if there are more than three, no additional questions will be generated.
+                var randomTestIndex = random.Next(word.TranslationTest.Count);
+                var randomTest = word.TranslationTest[randomTestIndex];
+                return responseFactory.CreateOKResponse(randomTest);
+            }
+
+            string systemChatMessage = System.IO.File.ReadAllText("Prompt/Exam/TranslationSystem.txt");
+            var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+            {
+                Messages =
+                [
+                    ChatMessage.FromSystem(systemChatMessage),
+                    ChatMessage.FromUser("appetizer"),
+                    ChatMessage.FromAssistant(JsonConvert.SerializeObject(new TranslationTest()
+                    {
+                        English = "Soup is often a good choice for an appetizer.",
+                        Chinese = "湯經常是開胃菜的好選擇。"
+                    })),
+                    ChatMessage.FromUser(word.Word)
+                ],
+                Model = Models.Gpt_4o_mini,
+            });
+            var errorMessage = "Query failed, OpenAI could not generate the corresponding translation test.";
+            if (completionResult.Successful)
+            {
+                _logger.LogInformation("Generate translation test: {lowerWord}, result: {json}", word.Word, JsonConvert.SerializeObject(completionResult, Formatting.Indented));
+                var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
+                if (string.IsNullOrEmpty(content))
+                {
+                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+                TranslationTest? translationTest = null;
+                try
+                {
+                    translationTest = JsonConvert.DeserializeObject<TranslationTest>(content);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize the content: {content}", content);
+                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+                if (translationTest == null)
+                {
+                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+                if (word.TranslationTest == null || !word.TranslationTest.Any(x => x.Chinese == translationTest.Chinese))
+                {
+                    word.TranslationTest ??= [];
+                    word.TranslationTest.Add(translationTest);
+                    await _DBContext.SaveChangesAsync();
+                    _logger.LogInformation("translationTest: {translationTestJson} added to DB.", JsonConvert.SerializeObject(translationTest));
+                }
+                return responseFactory.CreateOKResponse(translationTest);
             }
             return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
         }
