@@ -4,6 +4,7 @@ import { orange } from '@mui/material/colors';
 import { Link, Route, Routes } from 'react-router-dom';
 import ClozeTestCard from './ClozeTestCard';
 import TranslationTestCard from './TranslationTestCard';
+import RolePlayingConversationTestCard from './RolePlayingConversationTestCard';
 
 const styles = {
   button: {
@@ -40,7 +41,7 @@ function Exam() {
         </Button>
         <Button
           component={Link}
-          to="sentenceTest"
+          to="sentenceConstructionTest"
           variant="outlined"
           sx={{
             ...styles.button,
@@ -49,12 +50,13 @@ function Exam() {
             ':hover': { borderColor: orange[100] },
           }}
         >
-          造句測驗 (Sentence Formation Test)
+          角色扮演對話測驗 (Role-Playing Conversation Test)
         </Button>
       </Box>
       <Routes>
         <Route path="cloze" element={<ClozeTestCard />} />
         <Route path="translation" element={<TranslationTestCard />} />
+        <Route path="rolePlayingConversation" element={<RolePlayingConversationTestCard />} />
         <Route path="/" element={<div>請選擇測驗類型。</div>} />
       </Routes>
     </Box>

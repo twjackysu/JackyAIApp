@@ -19,6 +19,11 @@ export const examApis = createApi({
         url: 'translation',
       }),
     }),
+    getInitialRolePlayingConversationTest: builder.query<ApiOkResponse<string>, void>({
+      query: () => ({
+        url: 'rolePlayingConversation/initial',
+      }),
+    }),
   }),
 });
 
