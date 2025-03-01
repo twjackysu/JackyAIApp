@@ -29,6 +29,10 @@ namespace JackyAIApp.Server.Controllers
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         private readonly IOpenAIService _openAIService = openAIService;
 
+        /// <summary>
+        /// Generates a cloze test for the user based on their unfamiliar words.
+        /// </summary>
+        /// <returns>An IActionResult containing the cloze test or an error response.</returns>
         [HttpGet("cloze")]
         public async Task<IActionResult> GetClozeTest()
         {
@@ -114,6 +118,10 @@ namespace JackyAIApp.Server.Controllers
             return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
         }
 
+        /// <summary>
+        /// Generates a translation test for the user based on their unfamiliar words.
+        /// </summary>
+        /// <returns>An IActionResult containing the translation test or an error response.</returns>
         [HttpGet("translation")]
         public async Task<IActionResult> GetTranslationTest()
         {
