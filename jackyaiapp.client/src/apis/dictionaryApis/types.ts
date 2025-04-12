@@ -5,6 +5,7 @@ export interface Word extends WordBase {
   lastUpdated: string;
   dataInvalid?: boolean;
   clozeTests?: ClozeTest[];
+  translationTests?: string[];
 }
 
 interface WordBase {
@@ -38,7 +39,18 @@ export interface ClozeTest {
   answer: string;
 }
 
-export interface TranslationTest {
-  english: string;
+export interface TranslationTestResponse {
+  word: string;
   chinese: string;
+  english: string;
+}
+
+export interface TranslationTestUserResponse {
+  unfamiliarWords: string;
+  examinationQuestion: string;
+  translation: string;
+}
+
+export interface TranslationQualityGradingAssistantResponse {
+  translationQualityGrading: string;
 }

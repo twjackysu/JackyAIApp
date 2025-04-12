@@ -32,7 +32,7 @@ namespace JackyAIApp.Server.Data.Models
         public DateTime LastUpdated { get; set; }
 
         public List<ClozeTest>? ClozeTests { get; set; }
-        public List<TranslationTest>? TranslationTest { get; set; }
+        public List<TranslationTest>? TranslationTests { get; set; }
 
         /// <summary>
         /// Data is invalid after verification.
@@ -148,9 +148,36 @@ namespace JackyAIApp.Server.Data.Models
         /// </summary>
         public required string Answer { get; set; }
     }
+    public class TranslationTestUserResponse
+    {
+        /// <summary>
+        /// Unfamiliar word
+        /// </summary>
+        public required string UnfamiliarWords { get; set; }
+        /// <summary>
+        /// Sentence to be translated (Traditional Chinese)
+        /// </summary>
+        public required string ExaminationQuestion { get; set; }
+        /// <summary>
+        /// User's English translation
+        /// </summary>
+        public required string Translation { get; set; }
+    }
+    public class TranslationQualityGradingAssistantResponse
+    {
+        /// <summary>
+        /// Translation quality grading based on the user's UnfamiliarWords, ExaminationQuestion, and Translation, along with the reason
+        /// </summary>
+        public required string TranslationQualityGrading { get; set; }
+    }
+
     public class TranslationTest
     {
-        public required string English { get; set; }
-        public required string Chinese { get; set; }
+        public required string Chinese { get; set;}
+        public required string English { get; set;}
+    }
+    public class TranslationTestResponse: TranslationTest
+    {
+        public required string Word { get; set; }
     }
 }

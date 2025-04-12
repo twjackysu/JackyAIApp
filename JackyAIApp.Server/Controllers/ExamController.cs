@@ -10,7 +10,6 @@ using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 
@@ -142,12 +141,16 @@ namespace JackyAIApp.Server.Controllers
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.");
             }
-            if (word.TranslationTest != null && word.TranslationTest.Count > 3)
+            if (word.TranslationTests != null && word.TranslationTests.Count > 3)
             {
                 // Check if there are enough test questions for the vocabulary; if there are more than three, no additional questions will be generated.
-                var randomTestIndex = random.Next(word.TranslationTest.Count);
-                var randomTest = word.TranslationTest[randomTestIndex];
-                return responseFactory.CreateOKResponse(randomTest);
+                var randomTestIndex = random.Next(word.TranslationTests.Count);
+                var randomTest = word.TranslationTests[randomTestIndex];
+                return responseFactory.CreateOKResponse(new TranslationTestResponse() {
+                    Word = word.Word,
+                    Chinese = randomTest.Chinese,
+                    English = randomTest.English,
+                });
             }
 
             string systemChatMessage = System.IO.File.ReadAllText("Prompt/Exam/TranslationSystem.txt");
@@ -189,14 +192,78 @@ namespace JackyAIApp.Server.Controllers
                 {
                     return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
                 }
-                if (word.TranslationTest == null || !word.TranslationTest.Any(x => x.Chinese == translationTest.Chinese))
+                if (word.TranslationTests == null || !word.TranslationTests.Any(x => x.Chinese == translationTest.Chinese))
                 {
-                    word.TranslationTest ??= [];
-                    word.TranslationTest.Add(translationTest);
+                    word.TranslationTests ??= [];
+                    word.TranslationTests.Add(translationTest);
                     await _DBContext.SaveChangesAsync();
                     _logger.LogInformation("translationTest: {translationTestJson} added to DB.", JsonConvert.SerializeObject(translationTest));
                 }
-                return responseFactory.CreateOKResponse(translationTest);
+                return responseFactory.CreateOKResponse(new TranslationTestResponse()
+                {
+                    Word = word.Word,
+                    Chinese = translationTest.Chinese,
+                    English = translationTest.English,
+                });
+            }
+            return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
+        }
+        /// <summary>
+        /// Generates a translation quality grading.
+        /// </summary>
+        /// <returns>An IActionResult containing the translation quality grading or an error response.</returns>
+        [HttpPost("translation/quality_grading")]
+        public async Task<IActionResult> GetTranslationQualityGrading([FromBody]TranslationTestUserResponse userResponse)
+        {
+            if(userResponse == null || string.IsNullOrEmpty(userResponse.Translation) || string.IsNullOrEmpty(userResponse.Translation) || string.IsNullOrEmpty(userResponse.Translation))
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "input cannot be null or empty.");
+            }
+
+            string systemChatMessage = System.IO.File.ReadAllText("Prompt/Exam/TranslationQualityGradingSystem.txt");
+            var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+            {
+                Messages =
+                [
+                    ChatMessage.FromSystem(systemChatMessage),
+                    ChatMessage.FromUser(JsonConvert.SerializeObject(new TranslationTestUserResponse()
+                    {
+                        UnfamiliarWords = "attentively",
+                        ExaminationQuestion = "他專注地閱讀著一本有趣的書。",
+                        Translation = "He was reading an interesting book attentively."
+                    })),
+                    ChatMessage.FromAssistant(JsonConvert.SerializeObject(new TranslationQualityGradingAssistantResponse()
+                    {
+                        TranslationQualityGrading = "A級 原因：這個翻譯完整保留了原文的所有語意，語法和拼寫完全正確，語句流暢且符合英文的表達習慣。"
+                    })),
+                    ChatMessage.FromUser(JsonConvert.SerializeObject(userResponse))
+                ],
+                Model = Models.Gpt_4o_mini,
+            });
+            var errorMessage = "Query failed, OpenAI could not generate the corresponding quality grading.";
+            if (completionResult.Successful)
+            {
+                _logger.LogInformation("Generate translation quality grading, userResponse: {lowerWord}, result: {json}", JsonConvert.SerializeObject(userResponse, Formatting.Indented), JsonConvert.SerializeObject(completionResult, Formatting.Indented));
+                var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
+                if (string.IsNullOrEmpty(content))
+                {
+                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+                TranslationQualityGradingAssistantResponse? translationQualityGrading = null;
+                try
+                {
+                    translationQualityGrading = JsonConvert.DeserializeObject<TranslationQualityGradingAssistantResponse>(content);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize the content: {content}", content);
+                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+                if (translationQualityGrading == null)
+                {
+                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+                return responseFactory.CreateOKResponse(translationQualityGrading);
             }
             return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
         }
