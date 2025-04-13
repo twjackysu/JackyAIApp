@@ -27,10 +27,8 @@ export const repositoryApis = createApi({
       query: (wordId) => ({
         url: `word/${wordId}`,
       }),
-      providesTags: (result) =>
-        result
-          ? [{ type: 'PersonalWord' as const, id: result.data.id }, 'PersonalWord']
-          : ['PersonalWord'],
+      providesTags: (result, _, arg) =>
+        result ? [{ type: 'PersonalWord' as const, id: arg }, 'PersonalWord'] : ['PersonalWord'],
     }),
     putRepositoryWord: builder.mutation<ApiOkResponse<PersonalWord>, string>({
       query: (wordId) => ({

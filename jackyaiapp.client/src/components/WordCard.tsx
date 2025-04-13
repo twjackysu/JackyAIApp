@@ -71,7 +71,7 @@ function WordCard({
           </Stack>
           {word && !isHideFavoriteButton && (
             <Stack direction="row" spacing={2} alignItems="center">
-              <IconButton sx={{ m: 2, p: 2 }}>
+              <IconButton sx={{ m: 2, p: 2 }} disabled={isFetching}>
                 {isFavorite ? (
                   <FavoriteIcon onClick={handleDeleteFavoriteClick} />
                 ) : (
