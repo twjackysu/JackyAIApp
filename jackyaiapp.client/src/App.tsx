@@ -19,7 +19,17 @@ function App() {
     <>
       {currentTab && (
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={currentTab}>
+          <Tabs
+            value={currentTab}
+            scrollButtons="auto"
+            variant="scrollable"
+            allowScrollButtonsMobile
+            sx={{
+              '& .MuiTabs-scrollButtons': {
+                '&.Mui-disabled': { opacity: 0.3 },
+              },
+            }}
+          >
             <Tab label="字典 (Dictionary)" value="/dictionary" to="/dictionary" component={Link} />
             <Tab
               label="儲存庫 (Repository)"
