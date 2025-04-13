@@ -7,6 +7,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import { MouseEvent, useEffect, useRef, useState } from 'react';
 import { Word } from '../apis/dictionaryApis/types';
+import RepositoryNoWordAlert from '../components/RepositoryNoWordAlert';
 import WordCard from '../components/WordCard';
 
 function Repository() {
@@ -65,40 +66,48 @@ function Repository() {
   return (
     <Box>
       <Stack direction="row">
-        <List
-          component="nav"
-          ref={listRef}
-          sx={{
-            maxHeight: '94vh',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            scrollbarWidth: 'thin', // For Firefox
-            '&::-webkit-scrollbar': {
-              width: '8px',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              borderRadius: '10px',
-            },
-            '&::-webkit-scrollbar-thumb:hover': {
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: 'transparent',
-            },
-          }}
-        >
-          {allWords.map((word, index) => (
-            <ListItemButton
-              key={index}
-              selected={selectedIndex === index}
-              onClick={(event) => handleListItemClick(event, index)}
+        {allWords.length === 0 ? (
+          <Box p={2}>
+            <RepositoryNoWordAlert />
+          </Box>
+        ) : (
+          <>
+            <List
+              component="nav"
+              ref={listRef}
+              sx={{
+                maxHeight: '94vh',
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                scrollbarWidth: 'thin', // For Firefox
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                  borderRadius: '10px',
+                },
+                '&::-webkit-scrollbar-thumb:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: 'transparent',
+                },
+              }}
             >
-              <ListItemText primary={word.word} />
-            </ListItemButton>
-          ))}
-        </List>
-        <WordCard word={allWords[selectedIndex]} isFavorite isFetching={isFetching} />
+              {allWords.map((word, index) => (
+                <ListItemButton
+                  key={index}
+                  selected={selectedIndex === index}
+                  onClick={(event) => handleListItemClick(event, index)}
+                >
+                  <ListItemText primary={word.word} />
+                </ListItemButton>
+              ))}
+            </List>
+            <WordCard word={allWords[selectedIndex]} isFavorite isFetching={isFetching} />
+          </>
+        )}
       </Stack>
     </Box>
   );
