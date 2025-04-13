@@ -55,6 +55,7 @@ function Exam() {
       <Routes>
         <Route path="cloze" element={<ClozeTestCard />} />
         <Route path="translation" element={<TranslationTestCard />} />
+        <Route path="sentenceTest" element={<div>造句測驗還沒做，請選擇其他類型...</div>} />
         <Route path="/" element={<div>請選擇測驗類型。</div>} />
       </Routes>
     </Box>
