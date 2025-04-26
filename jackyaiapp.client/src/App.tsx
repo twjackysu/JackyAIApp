@@ -4,6 +4,7 @@ import Tabs from '@mui/material/Tabs';
 
 import { Link, Route, Routes } from 'react-router-dom';
 import Dictionary from './Dictionary';
+import EffortPlanner from './EffortPlanner';
 import Exam from './Exam';
 import PDFUnlocker from './PDFUnlocker';
 import Repository from './Repository';
@@ -43,6 +44,7 @@ function App() {
       )}
       <Routes>
         <Route path="/pdf" element={<PDFUnlocker />} />
+        <Route path="/effortPlanner" element={<EffortPlanner />} />
         <Route path="/dictionary" element={<Dictionary />} />
         <Route
           path="/repository"
