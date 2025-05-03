@@ -1,4 +1,8 @@
-import { useLazyPostSearchQuery } from '@/apis/jiraApis';
+import {
+  useGetJiraConfigQuery,
+  useLazyPostSearchQuery,
+  usePostJiraConfigMutation,
+} from '@/apis/jiraApis';
 import {
   Box,
   Button,
@@ -6,27 +10,24 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Popover,
+  Select,
   Switch,
   TextField,
   Typography,
 } from '@mui/material';
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { TASK } from '../constants';
 import EffortPlannerContext from '../context/EffortPlannerContext';
 
 function SyncFromJiraDialog() {
   const {
-    jiraDomain,
-    setJiraDomain,
-    jiraEmail,
-    setJiraEmail,
-    jiraToken,
-    setJiraToken,
-    jiraTickets,
-    setJiraTickets,
-    jiraSprints,
-    setJiraSprints,
+    selectedJiraConfigId,
+    setSelectedJiraConfigId,
     excludeSubTasks,
     setExcludeSubTasks,
     setAssigned,
@@ -36,11 +37,42 @@ function SyncFromJiraDialog() {
   } = useContext(EffortPlannerContext);
 
   const [postSearch] = useLazyPostSearchQuery();
+  const [postJiraConfig] = usePostJiraConfigMutation();
+  const { data } = useGetJiraConfigQuery();
+  const jiraConfigs = data?.data || [];
+
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [newDomain, setNewDomain] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newToken, setNewToken] = useState('');
+  const [jiraTickets, setJiraTickets] = useState('');
+  const [jiraSprints, setJiraSprints] = useState('');
+
+  const handleAddConfigClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handlePopoverClose = () => {
+    setAnchorEl(null);
+    setNewDomain('');
+    setNewEmail('');
+    setNewToken('');
+  };
+
+  const handleSaveConfig = async () => {
+    if (!newDomain || !newEmail || !newToken) return;
+    await postJiraConfig({
+      body: {
+        domain: newDomain,
+        email: newEmail,
+        token: newToken,
+      },
+    }).unwrap();
+    handlePopoverClose();
+  };
+
   const handleSubmit = () => {
     const fetchJiraTasks = async () => {
-      const domain = jiraDomain.trim();
-      const email = jiraEmail.trim();
-      const token = jiraToken.trim();
       const tickets = jiraTickets
         .split(',')
         .map((t) => t.trim())
@@ -49,7 +81,7 @@ function SyncFromJiraDialog() {
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean);
-      if (!domain || !email || !token || (tickets.length === 0 && sprints.length === 0)) return;
+      if (!selectedJiraConfigId || (tickets.length === 0 && sprints.length === 0)) return;
 
       const conditions: string[] = [];
 
@@ -70,9 +102,7 @@ function SyncFromJiraDialog() {
       try {
         const issues = await postSearch({
           body: {
-            email,
-            domain,
-            token,
+            jiraConfigId: selectedJiraConfigId,
             jql,
           },
         }).unwrap();
@@ -110,29 +140,70 @@ function SyncFromJiraDialog() {
     <Dialog open={showJiraDialog} onClose={handleClose}>
       <DialogTitle>Sync from Jira</DialogTitle>
       <DialogContent>
-        <TextField
-          label="Jira Domain"
-          fullWidth
-          value={jiraDomain}
-          onChange={(e) => setJiraDomain(e.target.value)}
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Email"
-          fullWidth
-          value={jiraEmail}
-          onChange={(e) => setJiraEmail(e.target.value)}
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="API Token"
-          type="password"
-          fullWidth
-          value={jiraToken}
-          onChange={(e) => setJiraToken(e.target.value)}
-          sx={{ mb: 2 }}
-          helperText="go to https://id.atlassian.com/manage-profile/security/api-tokens to create a token"
-        />
+        {jiraConfigs.length > 0 ? (
+          <FormControl fullWidth sx={{ my: 1 }}>
+            <InputLabel>Select Jira Config</InputLabel>
+            <Select
+              value={selectedJiraConfigId}
+              onChange={(e) => setSelectedJiraConfigId(e.target.value)}
+            >
+              {jiraConfigs.map((config) => (
+                <MenuItem key={config.id} value={config.id}>
+                  {config.domain} ({config.email})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        ) : (
+          <Typography color="text.secondary" sx={{ my: 1 }}>
+            Please add a Jira configuration.
+          </Typography>
+        )}
+        <Button variant="outlined" onClick={handleAddConfigClick} sx={{ mb: 1 }}>
+          Add Config
+        </Button>
+
+        <Popover
+          open={Boolean(anchorEl)}
+          anchorEl={anchorEl}
+          onClose={handlePopoverClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+        >
+          <Box sx={{ p: 2, width: 300 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>
+              Add Jira Config
+            </Typography>
+            <TextField
+              label="Jira Domain"
+              fullWidth
+              value={newDomain}
+              onChange={(e) => setNewDomain(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Email"
+              fullWidth
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="API Token"
+              type="password"
+              fullWidth
+              value={newToken}
+              onChange={(e) => setNewToken(e.target.value)}
+              sx={{ mb: 2 }}
+              helperText="go to https://id.atlassian.com/manage-profile/security/api-tokens to create a token"
+            />
+            <Button variant="contained" onClick={handleSaveConfig} fullWidth>
+              Save
+            </Button>
+          </Box>
+        </Popover>
         <TextField
           label="Ticket Numbers"
           fullWidth

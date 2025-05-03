@@ -15,9 +15,21 @@ export interface JiraSearchResponse {
 
 export interface JiraSearchRequest {
   body: {
-    domain: string;
-    email: string;
-    token: string;
+    jiraConfigId: string;
     jql: string;
   };
+}
+
+interface JiraConfigBase {
+  domain: string;
+  email: string;
+  token: string;
+}
+
+export interface JiraConfigRequest {
+  body: JiraConfigBase;
+}
+
+export interface JiraConfig extends JiraConfigBase {
+  id: string;
 }

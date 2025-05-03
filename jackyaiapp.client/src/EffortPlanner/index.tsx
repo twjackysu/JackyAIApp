@@ -14,11 +14,7 @@ export default function EffortPlanner() {
   const [peopleCount, setPeopleCount] = useState(1);
   const [daysPerPerson, setDaysPerPerson] = useState(10);
   const [leaveDays, setLeaveDays] = useState(0);
-  const [jiraDomain, setJiraDomain] = useState('');
-  const [jiraEmail, setJiraEmail] = useState('');
-  const [jiraToken, setJiraToken] = useState('');
-  const [jiraTickets, setJiraTickets] = useState('');
-  const [jiraSprints, setJiraSprints] = useState('');
+  const [selectedJiraConfigId, setSelectedJiraConfigId] = useState('');
   const [showJiraDialog, setShowJiraDialog] = useState(false);
   const [excludeSubTasks, setExcludeSubTasks] = useState(true);
 
@@ -41,18 +37,10 @@ export default function EffortPlanner() {
         setLeaveDays,
         excludeSubTasks,
         setExcludeSubTasks,
-        jiraDomain,
-        setJiraDomain,
-        jiraEmail,
-        setJiraEmail,
-        jiraToken,
-        setJiraToken,
         showJiraDialog,
         setShowJiraDialog,
-        jiraTickets,
-        setJiraTickets,
-        jiraSprints,
-        setJiraSprints,
+        selectedJiraConfigId,
+        setSelectedJiraConfigId,
         maxDays: peopleCount * daysPerPerson - leaveDays,
         totalDays: assigned.reduce((sum, task) => sum + task.days, 0),
       }}

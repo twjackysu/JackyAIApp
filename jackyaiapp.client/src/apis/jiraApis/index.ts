@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { ApiOkResponse } from '../types';
-import { JiraSearchRequest, JiraSearchResponse } from './types';
+import { JiraConfig, JiraConfigRequest, JiraSearchRequest, JiraSearchResponse } from './types';
 
 // Define a service using a base URL and expected endpoints
 export const jiraApis = createApi({
@@ -8,6 +8,7 @@ export const jiraApis = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: '/api/jira',
   }),
+  tagTypes: ['JiraConfig'],
   endpoints: (builder) => ({
     postSearch: builder.query<ApiOkResponse<JiraSearchResponse>, JiraSearchRequest>({
       query: ({ body }) => ({
@@ -16,7 +17,23 @@ export const jiraApis = createApi({
         body,
       }),
     }),
+    postJiraConfig: builder.mutation<ApiOkResponse<string>, JiraConfigRequest>({
+      query: ({ body }) => ({
+        url: `configs`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['JiraConfig'],
+    }),
+    getJiraConfig: builder.query<ApiOkResponse<JiraConfig[]>, void>({
+      query: () => ({
+        url: `configs`,
+        method: 'GET',
+      }),
+      providesTags: ['JiraConfig'],
+    }),
   }),
 });
 
-export const { useLazyPostSearchQuery } = jiraApis;
+export const { useLazyPostSearchQuery, useGetJiraConfigQuery, usePostJiraConfigMutation } =
+  jiraApis;

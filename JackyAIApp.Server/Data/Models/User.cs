@@ -45,6 +45,7 @@ namespace JackyAIApp.Server.Data.Models
         /// </summary>
         public required List<string> WordIds { get; set; }
         public bool? IsAdmin { get; set; }
+        public List<JiraConfig>? JiraConfigs { get; set; }
         public override string ToString()
         {
             return JsonConvert.SerializeObject(this);

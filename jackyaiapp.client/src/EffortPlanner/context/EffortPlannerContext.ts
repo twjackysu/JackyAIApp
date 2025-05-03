@@ -15,33 +15,19 @@ interface EffortPlannerContextProps {
   setLeaveDays: Dispatch<SetStateAction<number>>;
   excludeSubTasks: boolean;
   setExcludeSubTasks: Dispatch<SetStateAction<boolean>>;
-  jiraDomain: string;
-  setJiraDomain: Dispatch<SetStateAction<string>>;
-  jiraEmail: string;
-  setJiraEmail: Dispatch<SetStateAction<string>>;
-  jiraToken: string;
-  setJiraToken: Dispatch<SetStateAction<string>>;
+  selectedJiraConfigId: string;
+  setSelectedJiraConfigId: Dispatch<SetStateAction<string>>;
   showJiraDialog: boolean;
   setShowJiraDialog: Dispatch<SetStateAction<boolean>>;
-  jiraTickets: string;
-  setJiraTickets: Dispatch<SetStateAction<string>>;
-  jiraSprints: string;
-  setJiraSprints: Dispatch<SetStateAction<string>>;
+  maxDays: number;
+  totalDays: number;
 }
 
 const EffortPlannerContext = createContext<EffortPlannerContextProps>({
-  jiraDomain: '',
-  setJiraDomain: () => {},
-  jiraEmail: '',
-  setJiraEmail: () => {},
-  jiraToken: '',
-  setJiraToken: () => {},
+  selectedJiraConfigId: '',
+  setSelectedJiraConfigId: () => {},
   showJiraDialog: false,
   setShowJiraDialog: () => {},
-  jiraTickets: '',
-  setJiraTickets: () => {},
-  jiraSprints: '',
-  setJiraSprints: () => {},
   assigned: [],
   setAssigned: () => {},
   savedTasks: [],
@@ -54,6 +40,8 @@ const EffortPlannerContext = createContext<EffortPlannerContextProps>({
   setLeaveDays: () => {},
   excludeSubTasks: true,
   setExcludeSubTasks: () => {},
+  maxDays: 0,
+  totalDays: 0,
 });
 
 export default EffortPlannerContext;

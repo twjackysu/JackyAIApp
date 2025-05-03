@@ -1,18 +1,39 @@
-﻿using JackyAIApp.Server.Services.Jira.DTOs;
+﻿using JackyAIApp.Server.Data;
+using JackyAIApp.Server.Data.Models;
+using JackyAIApp.Server.Services.Jira.DTOs;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System.Net.Http.Headers;
 using System.Text;
 
 namespace JackyAIApp.Server.Services.Jira
 {
-    public class JiraRestApiService(ILogger<JiraRestApiService> logger) : IJiraRestApiService
+    public class JiraRestApiService(ILogger<JiraRestApiService> logger, AzureCosmosDBContext DBContext, IUserService userService) : IJiraRestApiService
     {
         private readonly ILogger<JiraRestApiService> _logger = logger ?? throw new ArgumentNullException();
         private readonly HttpClient _httpClient = new();
+        private readonly AzureCosmosDBContext _DBContext = DBContext;
+        private readonly IUserService _userService = userService;
 
 
-        public async Task<JiraSearchResponse?> SearchAsync(string domain, string email, string token, string jql)
+        public async Task<JiraSearchResponse?> SearchAsync(string jiraConfigId,  string jql)
         {
+            var userId = _userService.GetUserId();
+            var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+            {
+                throw new UserNotFoundException($"{userId} user not found.");
+            }
+            var config = user.JiraConfigs?.SingleOrDefault(x => x.Id == jiraConfigId);
+
+            if(config == null)
+            {
+                throw new JiraConfigNotFoundException($"{jiraConfigId} config not found.");
+            }
+            var domain = config.Domain;
+            var email = config.Email;
+            var token = config.Token;
+
             jql = jql.Trim();
             if (string.IsNullOrWhiteSpace(domain) || string.IsNullOrWhiteSpace(email) ||
                 string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(jql))
@@ -51,6 +72,31 @@ namespace JackyAIApp.Server.Services.Jira
                 _logger.LogError(ex, "Search error: {message}", ex.Message);
                 throw;
             }
+        }
+
+        public async Task<IEnumerable<JiraConfig>> GetJiraConfigs()
+        {
+            var userId = _userService.GetUserId();
+            var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+
+            return user?.JiraConfigs ?? [];
+        }
+        public async Task<string> AddJiraConfig(string domain, string email, string token)
+        {
+            var userId = _userService.GetUserId();
+            var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+            {
+                throw new UserNotFoundException($"{userId} user not found.");
+            }
+            if (user.JiraConfigs == null)
+            {
+                user.JiraConfigs = [];
+            }
+            var id = new Guid().ToString();
+            user.JiraConfigs.Add(new JiraConfig() { Id = id, Domain = domain, Email = email, Token = token});
+            await _DBContext.SaveChangesAsync();
+            return id;
         }
     }
 }

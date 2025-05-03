@@ -44,7 +44,14 @@ function App() {
       )}
       <Routes>
         <Route path="/pdf" element={<PDFUnlocker />} />
-        <Route path="/effortPlanner" element={<EffortPlanner />} />
+        <Route
+          path="/effortPlanner"
+          element={
+            <RequireAuth>
+              <EffortPlanner />
+            </RequireAuth>
+          }
+        />
         <Route path="/dictionary" element={<Dictionary />} />
         <Route
           path="/repository"
