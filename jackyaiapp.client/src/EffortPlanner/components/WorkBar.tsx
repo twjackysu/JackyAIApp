@@ -1,6 +1,7 @@
 import { Box, Button, Typography } from '@mui/material';
 import { red } from '@mui/material/colors';
 import React from 'react';
+import { WORK_BAR } from '../constants';
 import TaskCard from './TaskCard';
 
 interface WorkBarProps {
@@ -11,6 +12,7 @@ interface WorkBarProps {
   onDragStart: (e: React.DragEvent<HTMLDivElement>, index: number) => void;
   onDelete: (index: number) => void;
   reset: () => void;
+  moveTaskToStashed: (index: number) => void;
 }
 
 const WorkBar: React.FC<WorkBarProps> = ({
@@ -21,6 +23,7 @@ const WorkBar: React.FC<WorkBarProps> = ({
   onDragStart,
   onDelete,
   reset,
+  moveTaskToStashed,
 }) => {
   const isOverCapacity = totalDays > maxDays;
 
@@ -46,6 +49,8 @@ const WorkBar: React.FC<WorkBarProps> = ({
               task={task}
               onDelete={() => onDelete(index)}
               onDragStart={(e) => onDragStart(e, index)}
+              location={WORK_BAR}
+              moveToStashed={() => moveTaskToStashed(index)}
             />
           ))}
         </Box>

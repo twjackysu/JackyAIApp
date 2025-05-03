@@ -14,3 +14,6 @@ export const TASKS: TaskCardProp[] = [
   { ...TASK.HIGH },
   { ...TASK.UNKNOWN },
 ];
+
+export const WORK_BAR = 'workBar';
+export const STASHED = 'stashed';

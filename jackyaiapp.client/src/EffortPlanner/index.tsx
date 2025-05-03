@@ -6,6 +6,7 @@ import SyncFromJiraDialog from './components/SyncFromJiraDialog';
 import TaskPool from './components/TaskPool';
 import WorkBar from './components/WorkBar';
 import { TASK, TASKS } from './constants';
+import JiraSettingContext from './context/JiraSettingContext';
 import { Task } from './types';
 
 export default function EffortPlanner() {
@@ -133,72 +134,101 @@ export default function EffortPlanner() {
     if (labels.includes('0_Low_Efforts')) return TASK.LOW.key;
     return TASK.UNKNOWN.key;
   };
+  const moveTaskToStashed = (index: number) => {
+    const task = assigned[index];
+    if (!task) return;
 
+    const newId = Date.now();
+    setSavedTasks([...savedTasks, { ...task, id: newId }]);
+
+    const updatedAssigned = [...assigned];
+    updatedAssigned.splice(index, 1);
+    setAssigned(updatedAssigned);
+  };
+
+  const moveTaskToWorkBar = (taskId: number) => {
+    const task = savedTasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    const newTotal = totalDays + task.days;
+    if (newTotal <= maxDays || (newTotal > maxDays && totalDays <= maxDays)) {
+      setAssigned([...assigned, { ...task, name: task.name }]);
+      setSavedTasks(savedTasks.filter((t) => t.id !== taskId));
+    } else {
+      alert('WARNING: Adding this task will cause the workload to exceed capacity!');
+    }
+  };
   return (
-    <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box sx={{ display: 'flex', gap: 3 }}>
-        <Box sx={{ flex: 1 }}>
-          <TextField
-            label="Number of Developers"
-            type="number"
-            value={peopleCount}
-            onChange={(e) => setPeopleCount(parseInt(e.target.value, 10) || 1)}
-            sx={{ mr: 2 }}
-          />
-          <TextField
-            label="Work Days per Developer"
-            type="number"
-            value={daysPerPerson}
-            onChange={(e) => setDaysPerPerson(parseFloat(e.target.value) || 1)}
-            sx={{ mr: 2 }}
-          />
-          <TextField
-            label="Total Leave Days"
-            type="number"
-            value={leaveDays}
-            onChange={(e) => setLeaveDays(parseFloat(e.target.value) || 0)}
-            sx={{ mr: 2 }}
-          />
-          <Button variant="contained" onClick={() => setShowJiraDialog(true)}>
-            Sync from Jira
-          </Button>
+    <JiraSettingContext.Provider
+      value={{ jiraDomain, setJiraDomain, jiraEmail, setJiraEmail, jiraToken, setJiraToken }}
+    >
+      <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box sx={{ display: 'flex', gap: 3 }}>
+          <Box sx={{ flex: 1 }}>
+            <TextField
+              label="Number of Developers"
+              type="number"
+              value={peopleCount}
+              onChange={(e) => setPeopleCount(parseInt(e.target.value, 10) || 1)}
+              sx={{ mr: 2 }}
+            />
+            <TextField
+              label="Work Days per Developer"
+              type="number"
+              value={daysPerPerson}
+              onChange={(e) => setDaysPerPerson(parseFloat(e.target.value) || 1)}
+              sx={{ mr: 2 }}
+            />
+            <TextField
+              label="Total Leave Days"
+              type="number"
+              value={leaveDays}
+              onChange={(e) => setLeaveDays(parseFloat(e.target.value) || 0)}
+              sx={{ mr: 2 }}
+            />
+            <Button variant="contained" onClick={() => setShowJiraDialog(true)}>
+              Sync from Jira
+            </Button>
+          </Box>
         </Box>
+
+        <TaskPool tasks={TASKS} onDragStart={onSavedTaskDragStart} />
+        <WorkBar
+          tasks={assigned}
+          maxDays={maxDays}
+          totalDays={totalDays}
+          onDrop={onDrop}
+          onDragStart={onAssignedDragStart}
+          onDelete={deleteAssignedTask}
+          reset={reset}
+          moveTaskToStashed={moveTaskToStashed}
+        />
+        <StashedTasks
+          tasks={savedTasks}
+          onDrop={onStashDrop}
+          onDragStart={onSavedTaskDragStart}
+          onDelete={deleteSavedTask}
+          moveTaskToWorkBar={moveTaskToWorkBar}
+        />
+
+        <SyncFromJiraDialog
+          open={showJiraDialog}
+          onClose={() => setShowJiraDialog(false)}
+          onSubmit={fetchJiraTasks}
+          jiraDomain={jiraDomain}
+          setJiraDomain={setJiraDomain}
+          jiraEmail={jiraEmail}
+          setJiraEmail={setJiraEmail}
+          jiraToken={jiraToken}
+          setJiraToken={setJiraToken}
+          jiraTickets={jiraTickets}
+          setJiraTickets={setJiraTickets}
+          jiraSprints={jiraSprints}
+          setJiraSprints={setJiraSprints}
+          excludeSubTasks={excludeSubTasks}
+          setExcludeSubTasks={setExcludeSubTasks}
+        />
       </Box>
-
-      <TaskPool tasks={TASKS} onDragStart={onSavedTaskDragStart} />
-      <WorkBar
-        tasks={assigned}
-        maxDays={maxDays}
-        totalDays={totalDays}
-        onDrop={onDrop}
-        onDragStart={onAssignedDragStart}
-        onDelete={deleteAssignedTask}
-        reset={reset}
-      />
-      <StashedTasks
-        tasks={savedTasks}
-        onDrop={onStashDrop}
-        onDragStart={onSavedTaskDragStart}
-        onDelete={deleteSavedTask}
-      />
-
-      <SyncFromJiraDialog
-        open={showJiraDialog}
-        onClose={() => setShowJiraDialog(false)}
-        onSubmit={fetchJiraTasks}
-        jiraDomain={jiraDomain}
-        setJiraDomain={setJiraDomain}
-        jiraEmail={jiraEmail}
-        setJiraEmail={setJiraEmail}
-        jiraToken={jiraToken}
-        setJiraToken={setJiraToken}
-        jiraTickets={jiraTickets}
-        setJiraTickets={setJiraTickets}
-        jiraSprints={jiraSprints}
-        setJiraSprints={setJiraSprints}
-        excludeSubTasks={excludeSubTasks}
-        setExcludeSubTasks={setExcludeSubTasks}
-      />
-    </Box>
+    </JiraSettingContext.Provider>
   );
 }

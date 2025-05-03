@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import React from 'react';
+import { STASHED } from '../constants';
 import TaskCard from './TaskCard';
 
 interface StashedTasksProps {
@@ -7,9 +8,17 @@ interface StashedTasksProps {
   onDrop: React.DragEventHandler<HTMLDivElement>;
   onDragStart: (e: React.DragEvent<HTMLDivElement>, taskId: number) => void;
   onDelete: (taskId: number) => void;
+
+  moveTaskToWorkBar: (taskId: number) => void;
 }
 
-const StashedTasks: React.FC<StashedTasksProps> = ({ tasks, onDrop, onDragStart, onDelete }) => {
+const StashedTasks: React.FC<StashedTasksProps> = ({
+  tasks,
+  onDrop,
+  onDragStart,
+  onDelete,
+  moveTaskToWorkBar,
+}) => {
   return (
     <Box>
       <Typography variant="h6">Stashed Tasks</Typography>
@@ -30,6 +39,8 @@ const StashedTasks: React.FC<StashedTasksProps> = ({ tasks, onDrop, onDragStart,
               task={task}
               onDelete={() => onDelete(task.id)}
               onDragStart={(e) => onDragStart(e, task.id)}
+              location={STASHED}
+              moveToWorkBar={() => moveTaskToWorkBar(task.id)}
             />
           ))}
         </Box>
