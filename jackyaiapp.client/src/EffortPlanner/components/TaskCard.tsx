@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import React, { useContext, useState } from 'react';
 import { STASHED, TASK, WORK_BAR } from '../constants';
-import JiraSettingContext from '../context/JiraSettingContext';
+import JiraSettingContext from '../context/EffortPlannerContext';
 import { Task } from '../types';
 
 interface TaskCardProps {

@@ -1,38 +1,55 @@
 import { Box, Button, Typography } from '@mui/material';
 import { red } from '@mui/material/colors';
-import React from 'react';
-import { WORK_BAR } from '../constants';
+import React, { useContext } from 'react';
+import { TASKS, WORK_BAR } from '../constants';
+import EffortPlannerContext from '../context/EffortPlannerContext';
 import TaskCard from './TaskCard';
 
-interface WorkBarProps {
-  tasks: any[];
-  maxDays: number;
-  totalDays: number;
-  onDrop: React.DragEventHandler<HTMLDivElement>;
-  onDragStart: (e: React.DragEvent<HTMLDivElement>, index: number) => void;
-  onDelete: (index: number) => void;
-  reset: () => void;
-  moveTaskToStashed: (index: number) => void;
-}
+function WorkBar() {
+  const { setAssigned, setSavedTasks, savedTasks, assigned, maxDays, totalDays } =
+    useContext(EffortPlannerContext);
 
-const WorkBar: React.FC<WorkBarProps> = ({
-  tasks,
-  maxDays,
-  totalDays,
-  onDrop,
-  onDragStart,
-  onDelete,
-  reset,
-  moveTaskToStashed,
-}) => {
   const isOverCapacity = totalDays > maxDays;
 
+  const handleAssignedDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.dataTransfer.setData('assigned-index', index.toString());
+  };
+  const handleDrop: React.DragEventHandler<HTMLDivElement> = (event) => {
+    const taskId = parseInt(event.dataTransfer.getData('text/plain'), 10);
+    const task = TASKS.find((t) => t.id === taskId) || savedTasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const newTotal = totalDays + task.days;
+    if (newTotal <= maxDays || (newTotal > maxDays && totalDays <= maxDays)) {
+      setAssigned([...assigned, { ...task, name: '' }]);
+      setSavedTasks(savedTasks.filter((t) => t.id !== taskId));
+    }
+  };
+
+  const handleDeleteAssignedTask = (index: number) => {
+    const updated = [...assigned];
+    updated.splice(index, 1);
+    setAssigned(updated);
+  };
+
+  const reset = () => setAssigned([]);
+
+  const moveTaskToStashed = (index: number) => {
+    const task = assigned[index];
+    if (!task) return;
+
+    const newId = Date.now();
+    setSavedTasks([...savedTasks, { ...task, id: newId }]);
+
+    const updatedAssigned = [...assigned];
+    updatedAssigned.splice(index, 1);
+    setAssigned(updatedAssigned);
+  };
   return (
     <Box>
       <Typography variant="h6">{maxDays}-Day Work Bar</Typography>
       <Box
         onDragOver={(e) => e.preventDefault()}
-        onDrop={onDrop}
+        onDrop={handleDrop}
         sx={{
           minHeight: 100,
           p: 2,
@@ -43,12 +60,12 @@ const WorkBar: React.FC<WorkBarProps> = ({
         }}
       >
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {tasks.map((task, index) => (
+          {assigned.map((task, index) => (
             <TaskCard
               key={index}
               task={task}
-              onDelete={() => onDelete(index)}
-              onDragStart={(e) => onDragStart(e, index)}
+              onDelete={() => handleDeleteAssignedTask(index)}
+              onDragStart={(e) => handleAssignedDragStart(e, index)}
               location={WORK_BAR}
               moveToStashed={() => moveTaskToStashed(index)}
             />
@@ -64,6 +81,6 @@ const WorkBar: React.FC<WorkBarProps> = ({
       </Button>
     </Box>
   );
-};
+}
 
 export default WorkBar;
