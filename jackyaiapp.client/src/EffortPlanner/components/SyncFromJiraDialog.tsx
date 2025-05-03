@@ -1,10 +1,14 @@
 import {
+  Box,
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
+  Switch,
   TextField,
+  Typography,
 } from '@mui/material';
 import React from 'react';
 
@@ -22,6 +26,8 @@ interface SyncFromJiraDialogProps {
   setJiraTickets: (value: string) => void;
   jiraSprints: string;
   setJiraSprints: (value: string) => void;
+  excludeSubTasks: boolean;
+  setExcludeSubTasks: (value: boolean) => void;
 }
 
 const SyncFromJiraDialog: React.FC<SyncFromJiraDialogProps> = ({
@@ -38,6 +44,8 @@ const SyncFromJiraDialog: React.FC<SyncFromJiraDialogProps> = ({
   setJiraTickets,
   jiraSprints,
   setJiraSprints,
+  excludeSubTasks,
+  setExcludeSubTasks,
 }) => {
   return (
     <Dialog open={open} onClose={onClose}>
@@ -82,6 +90,22 @@ const SyncFromJiraDialog: React.FC<SyncFromJiraDialogProps> = ({
           placeholder="10623,10623"
           helperText="comma separated sprint numbers"
         />
+
+        <Box sx={{ mt: 3, mb: 2 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={excludeSubTasks}
+                onChange={(e) => setExcludeSubTasks(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="Exclude sub-tasks"
+          />
+          <Typography variant="caption" color="text.secondary" display="block">
+            When enabled, sub-tasks will not be included in query results
+          </Typography>
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onSubmit} variant="contained">

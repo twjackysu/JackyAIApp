@@ -20,6 +20,7 @@ export default function EffortPlanner() {
   const [jiraTickets, setJiraTickets] = useState('');
   const [jiraSprints, setJiraSprints] = useState('');
   const [showJiraDialog, setShowJiraDialog] = useState(false);
+  const [excludeSubTasks, setExcludeSubTasks] = useState(true);
   const [postSearch] = useLazyPostSearchQuery();
 
   const maxDays = peopleCount * daysPerPerson - leaveDays;
@@ -93,7 +94,9 @@ export default function EffortPlanner() {
       const sprintClause = `sprint in (${sprints.map((s) => s.toString().trim()).join(',')})`;
       conditions.push(sprintClause);
     }
-
+    if (excludeSubTasks) {
+      conditions.push('issuetype != Sub-task');
+    }
     const jql = conditions.length > 0 ? conditions.join(' AND ') : '';
 
     try {
@@ -193,6 +196,8 @@ export default function EffortPlanner() {
         setJiraTickets={setJiraTickets}
         jiraSprints={jiraSprints}
         setJiraSprints={setJiraSprints}
+        excludeSubTasks={excludeSubTasks}
+        setExcludeSubTasks={setExcludeSubTasks}
       />
     </Box>
   );
