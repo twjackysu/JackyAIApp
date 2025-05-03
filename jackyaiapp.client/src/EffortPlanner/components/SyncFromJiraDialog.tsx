@@ -1,8 +1,10 @@
 import {
+  useDeleteJiraConfigMutation,
   useGetJiraConfigQuery,
   useLazyPostSearchQuery,
   usePostJiraConfigMutation,
 } from '@/apis/jiraApis';
+import DeleteIcon from '@mui/icons-material/Delete';
 import {
   Box,
   Button,
@@ -10,8 +12,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
   FormControlLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Popover,
@@ -20,7 +24,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useContext, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { TASK } from '../constants';
 import EffortPlannerContext from '../context/EffortPlannerContext';
 
@@ -38,9 +42,10 @@ function SyncFromJiraDialog() {
 
   const [postSearch] = useLazyPostSearchQuery();
   const [postJiraConfig] = usePostJiraConfigMutation();
+  const [deleteJiraConfig] = useDeleteJiraConfigMutation();
   const { data } = useGetJiraConfigQuery();
   const jiraConfigs = data?.data || [];
-
+  const selectRef = useRef<HTMLSelectElement>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [newDomain, setNewDomain] = useState('');
   const [newEmail, setNewEmail] = useState('');
@@ -49,7 +54,7 @@ function SyncFromJiraDialog() {
   const [jiraSprints, setJiraSprints] = useState('');
 
   const handleAddConfigClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
+    setAnchorEl(selectRef.current);
   };
 
   const handlePopoverClose = () => {
@@ -136,32 +141,62 @@ function SyncFromJiraDialog() {
   const handleClose = () => {
     setShowJiraDialog(false);
   };
+
+  const handleDeleteConfig = async (configId: string) => {
+    try {
+      await deleteJiraConfig(configId).unwrap();
+      console.log('Config deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete config', error);
+    }
+  };
   return (
     <Dialog open={showJiraDialog} onClose={handleClose}>
       <DialogTitle>Sync from Jira</DialogTitle>
       <DialogContent>
-        {jiraConfigs.length > 0 ? (
-          <FormControl fullWidth sx={{ my: 1 }}>
-            <InputLabel>Select Jira Config</InputLabel>
-            <Select
-              value={selectedJiraConfigId}
-              onChange={(e) => setSelectedJiraConfigId(e.target.value)}
-            >
-              {jiraConfigs.map((config) => (
-                <MenuItem key={config.id} value={config.id}>
-                  {config.domain} ({config.email})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        ) : (
-          <Typography color="text.secondary" sx={{ my: 1 }}>
-            Please add a Jira configuration.
-          </Typography>
-        )}
-        <Button variant="outlined" onClick={handleAddConfigClick} sx={{ mb: 1 }}>
-          Add Config
-        </Button>
+        <FormControl fullWidth sx={{ my: 1 }}>
+          <InputLabel>Select Jira Config</InputLabel>
+          <Select
+            ref={selectRef}
+            value={selectedJiraConfigId}
+            onChange={(e) => setSelectedJiraConfigId(e.target.value)}
+            renderValue={(selected) =>
+              selected === 'add-config'
+                ? 'Add Config'
+                : jiraConfigs.find((config) => config.id === selected)?.domain
+            }
+          >
+            {jiraConfigs.map((config) => (
+              <MenuItem key={config.id} value={config.id}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                  }}
+                >
+                  <span>
+                    {config.domain} ({config.email})
+                  </span>
+                  <IconButton
+                    edge="end"
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering the select change
+                      handleDeleteConfig(config.id);
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </MenuItem>
+            ))}
+            <MenuItem value="add-config" onClick={handleAddConfigClick}>
+              Add Config
+            </MenuItem>
+          </Select>
+        </FormControl>
 
         <Popover
           open={Boolean(anchorEl)}
@@ -204,6 +239,7 @@ function SyncFromJiraDialog() {
             </Button>
           </Box>
         </Popover>
+        <Divider sx={{ my: 2 }} />
         <TextField
           label="Ticket Numbers"
           fullWidth

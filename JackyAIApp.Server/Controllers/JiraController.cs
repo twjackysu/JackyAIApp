@@ -1,9 +1,11 @@
-﻿using JackyAIApp.Server.Common;
+﻿using DotnetSdkUtilities.Services;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Services.Jira;
 using JackyAIApp.Server.Services.Jira.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace JackyAIApp.Server.Controllers
@@ -11,7 +13,8 @@ namespace JackyAIApp.Server.Controllers
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class JiraController(ILogger<JiraController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IJiraRestApiService jiraRestApiService): ControllerBase
+    public class JiraController(ILogger<JiraController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, 
+        IJiraRestApiService jiraRestApiService) : ControllerBase
     {
         private readonly ILogger<JiraController> _logger = logger ?? throw new ArgumentNullException();
         private readonly IOptionsMonitor<Settings> _settings = settings;
@@ -27,14 +30,20 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("configs")]
         public async Task<IActionResult> GetConfigs()
         {
-            var issues = await _jiraRestApiService.GetJiraConfigs();
-            return _responseFactory.CreateOKResponse(issues);
+            var configs = await _jiraRestApiService.GetJiraConfigs();
+            return _responseFactory.CreateOKResponse(configs);
         }
         [HttpPost("configs")]
         public async Task<IActionResult> PostConfigs([FromBody] JiraConfigRequest request)
         {
-            var issues = await _jiraRestApiService.AddJiraConfig(request.Domain, request.Email, request.Token);
-            return _responseFactory.CreateOKResponse(issues);
+            var configs = await _jiraRestApiService.AddJiraConfig(request.Domain, request.Email, request.Token);
+            return _responseFactory.CreateOKResponse(configs);
+        }
+        [HttpDelete("configs/{jiraConfigId}")]
+        public async Task<IActionResult> PostConfigs(string jiraConfigId)
+        {
+            await _jiraRestApiService.DeleteJiraConfig(jiraConfigId);
+            return _responseFactory.CreateOKResponse();
         }
     }
 }

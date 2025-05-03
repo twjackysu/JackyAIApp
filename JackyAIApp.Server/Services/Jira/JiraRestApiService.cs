@@ -1,19 +1,23 @@
-﻿using JackyAIApp.Server.Data;
+﻿using DotnetSdkUtilities.Services;
+using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models;
 using JackyAIApp.Server.Services.Jira.DTOs;
+using Microsoft.Azure.Cosmos;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 using System.Net.Http.Headers;
 using System.Text;
 
 namespace JackyAIApp.Server.Services.Jira
 {
-    public class JiraRestApiService(ILogger<JiraRestApiService> logger, AzureCosmosDBContext DBContext, IUserService userService) : IJiraRestApiService
+    public class JiraRestApiService(ILogger<JiraRestApiService> logger, AzureCosmosDBContext DBContext, IUserService userService, IExtendedMemoryCache memoryCache) : IJiraRestApiService
     {
         private readonly ILogger<JiraRestApiService> _logger = logger ?? throw new ArgumentNullException();
         private readonly HttpClient _httpClient = new();
         private readonly AzureCosmosDBContext _DBContext = DBContext;
         private readonly IUserService _userService = userService;
+        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
 
 
         public async Task<JiraSearchResponse?> SearchAsync(string jiraConfigId,  string jql)
@@ -77,9 +81,17 @@ namespace JackyAIApp.Server.Services.Jira
         public async Task<IEnumerable<JiraConfig>> GetJiraConfigs()
         {
             var userId = _userService.GetUserId();
-            var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
-
-            return user?.JiraConfigs ?? [];
+            var cacheKey = $"{nameof(GetJiraConfigs)}_{userId}";
+            if (!_memoryCache.TryGetValue(cacheKey, out IEnumerable<JiraConfig>? configs))
+            {
+                var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+                configs = user?.JiraConfigs ?? [];
+                if (configs.Any())
+                {
+                    _memoryCache.Set(cacheKey, configs, TimeSpan.FromDays(1));
+                }
+            }
+            return configs ?? [];
         }
         public async Task<string> AddJiraConfig(string domain, string email, string token)
         {
@@ -94,9 +106,36 @@ namespace JackyAIApp.Server.Services.Jira
                 user.JiraConfigs = [];
             }
             var id = new Guid().ToString();
-            user.JiraConfigs.Add(new JiraConfig() { Id = id, Domain = domain, Email = email, Token = token});
+            user.JiraConfigs.Add(new JiraConfig() { Id = id, Domain = domain, Email = email, Token = token });
             await _DBContext.SaveChangesAsync();
+
+            var cacheKey = $"{nameof(GetJiraConfigs)}_{userId}";
+            _memoryCache.Remove(cacheKey);
+
             return id;
+        }
+
+        public async Task DeleteJiraConfig(string jiraConfigId)
+        {
+            var userId = _userService.GetUserId();
+            var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+            {
+                throw new UserNotFoundException($"{userId} user not found.");
+            }
+            var config = user.JiraConfigs?.SingleOrDefault(x => x.Id == jiraConfigId);
+            if (config == null)
+            {
+                throw new JiraConfigNotFoundException($"{jiraConfigId} config not found.");
+            }
+            if (user.JiraConfigs != null)
+            {
+                user.JiraConfigs.Remove(config);
+                await _DBContext.SaveChangesAsync();
+
+                var cacheKey = $"{nameof(GetJiraConfigs)}_{userId}";
+                _memoryCache.Remove(cacheKey);
+            }
         }
     }
 }

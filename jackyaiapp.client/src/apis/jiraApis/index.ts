@@ -32,8 +32,19 @@ export const jiraApis = createApi({
       }),
       providesTags: ['JiraConfig'],
     }),
+    deleteJiraConfig: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `configs/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['JiraConfig'],
+    }),
   }),
 });
 
-export const { useLazyPostSearchQuery, useGetJiraConfigQuery, usePostJiraConfigMutation } =
-  jiraApis;
+export const {
+  useLazyPostSearchQuery,
+  useGetJiraConfigQuery,
+  usePostJiraConfigMutation,
+  useDeleteJiraConfigMutation,
+} = jiraApis;

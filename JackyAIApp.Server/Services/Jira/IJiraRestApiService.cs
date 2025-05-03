@@ -8,5 +8,6 @@ namespace JackyAIApp.Server.Services.Jira
         Task<JiraSearchResponse?> SearchAsync(string jiraConfigId, string jql);
         Task<IEnumerable<JiraConfig>> GetJiraConfigs();
         Task<string> AddJiraConfig(string domain, string email, string token);
+        Task DeleteJiraConfig(string jiraConfigId);
     }
 }
