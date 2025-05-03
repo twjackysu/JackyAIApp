@@ -105,7 +105,7 @@ namespace JackyAIApp.Server.Services.Jira
             {
                 user.JiraConfigs = [];
             }
-            var id = new Guid().ToString();
+            var id = Guid.NewGuid().ToString();
             user.JiraConfigs.Add(new JiraConfig() { Id = id, Domain = domain, Email = email, Token = token });
             await _DBContext.SaveChangesAsync();
 

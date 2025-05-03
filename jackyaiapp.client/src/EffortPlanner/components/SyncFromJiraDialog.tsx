@@ -53,7 +53,7 @@ function SyncFromJiraDialog() {
   const [jiraTickets, setJiraTickets] = useState('');
   const [jiraSprints, setJiraSprints] = useState('');
 
-  const handleAddConfigClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleAddConfigClick = (_: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(selectRef.current);
   };
 
@@ -163,7 +163,7 @@ function SyncFromJiraDialog() {
             renderValue={(selected) =>
               selected === 'add-config'
                 ? 'Add Config'
-                : jiraConfigs.find((config) => config.id === selected)?.domain
+                : jiraConfigs.find((config) => config.id === selected)?.id
             }
           >
             {jiraConfigs.map((config) => (
@@ -176,9 +176,7 @@ function SyncFromJiraDialog() {
                     width: '100%',
                   }}
                 >
-                  <span>
-                    {config.domain} ({config.email})
-                  </span>
+                  <span title={`${config.domain} (${config.email})`}>{config.id}</span>
                   <IconButton
                     edge="end"
                     size="small"

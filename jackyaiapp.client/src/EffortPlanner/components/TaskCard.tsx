@@ -3,6 +3,7 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import InboxIcon from '@mui/icons-material/Inbox';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 
+import { useGetJiraConfigQuery } from '@/apis/jiraApis';
 import {
   IconButton,
   ListItemIcon,
@@ -15,7 +16,7 @@ import {
 } from '@mui/material';
 import React, { useContext, useState } from 'react';
 import { STASHED, TASK, WORK_BAR } from '../constants';
-import JiraSettingContext from '../context/EffortPlannerContext';
+import EffortPlannerContext from '../context/EffortPlannerContext';
 import { Task } from '../types';
 
 interface TaskCardProps {
@@ -38,7 +39,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(menuAnchorEl);
-  const { jiraDomain } = useContext(JiraSettingContext);
+  const { selectedJiraConfigId } = useContext(EffortPlannerContext);
+
+  const { data } = useGetJiraConfigQuery();
+  const jiraDomain = data?.data.find((config) => config.id === selectedJiraConfigId)?.domain ?? '';
 
   const handleCardClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.stopPropagation();
