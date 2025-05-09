@@ -79,7 +79,10 @@ try
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IJiraRestApiService, JiraRestApiService>();
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
-    builder.Services.AddOpenAIService(options => { options.ApiKey = openAIKey; });
+    builder.Services.AddOpenAIService(options => { 
+        options.ApiKey = openAIKey; 
+        options.UseBeta = true;
+    });
 
     builder.Services.AddOptions().Configure<Settings>(builder.Configuration.GetSection("Settings"));
     var app = builder.Build();

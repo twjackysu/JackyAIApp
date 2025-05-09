@@ -14,5 +14,6 @@
         TheWordCannotBeFound = 1040004,
         Unauthorized = 1040100,
         Forbidden = 1040300,
+        ExternalApiError = 1040500,
     }
 }
