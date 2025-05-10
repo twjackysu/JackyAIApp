@@ -10,12 +10,13 @@ import PDFUnlocker from './PDFUnlocker';
 import Repository from './Repository';
 import RequireAuth from './auth/RequireAuth';
 import useRouteMatch from './hooks/useRouteMatch';
+import Finance from './Finance';
 
-const tabRoutes = ['/', '/dictionary', '/repository', '/exam'];
+const tabRoutes = ['/dictionary', '/repository', '/exam'];
 function App() {
   const routeMatch = useRouteMatch(tabRoutes);
   const _currentTab = routeMatch?.pattern?.path;
-  const currentTab = _currentTab === '/' ? '/dictionary' : _currentTab;
+  const currentTab = _currentTab === '/' ? '/finance' : _currentTab;
   return (
     <>
       {currentTab && (
@@ -69,7 +70,8 @@ function App() {
             </RequireAuth>
           }
         />
-        <Route path="/" element={<Dictionary />} />
+        <Route path="/finance" element={<Finance />} />
+        <Route path="/" element={<Finance />} />
       </Routes>
     </>
   );
