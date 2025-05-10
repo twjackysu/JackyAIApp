@@ -212,7 +212,7 @@ namespace JackyAIApp.Server.Controllers
                                 Role = "user",
                                 Content = new MessageContentOneOfType(
                                     new List<MessageContent>() {
-                                    MessageContent.TextContent("From today's major news about listed companies, select five to ten companies with the greatest growth potential and one to five companies that may decline, and explain the reasons.")
+                                    MessageContent.TextContent("From today's major news about listed companies, select five to ten companies with the greatest growth potential and one to five companies that may decline, and explain the reasons. So you need to list at least 6 companies (5 growing and 1 declining) and at most 15 companies (10 growing and 5 declining).")
                                 }),
                                 Attachments = new List<Attachment>()
                                 {
