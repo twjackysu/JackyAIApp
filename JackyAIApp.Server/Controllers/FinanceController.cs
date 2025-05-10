@@ -7,7 +7,6 @@ using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models;
 using JackyAIApp.Server.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
@@ -36,6 +35,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IOpenAIService _openAIService = openAIService;
         private readonly HttpClient _httpClient = httpClientFactory?.CreateClient() ?? throw new ArgumentNullException(nameof(httpClientFactory));
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+
         /// <summary>
         /// Gets the daily important financial information from Taiwan Stock Exchange.
         /// </summary>
@@ -45,89 +45,86 @@ namespace JackyAIApp.Server.Controllers
         {
             try
             {
-                // Fetch raw material information from Taiwan Stock Exchange API
+                // Step 1: Fetch raw material information from Taiwan Stock Exchange API
                 string rawMaterialInfo = await GetRawMaterialInfoAsync();
                 if (string.IsNullOrEmpty(rawMaterialInfo))
                 {
                     return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to fetch data from Taiwan Stock Exchange API.");
                 }
+
                 var date = rawMaterialInfo.Substring(11, 7);
-                var fileNmae = $"{date}.json";
-                var cacheKey = $"{nameof(GetDailyImportantInfo)}_{fileNmae}";
+                var fileName = $"{date}.json";
+                var cacheKey = $"{nameof(GetDailyImportantInfo)}_{fileName}";
+
+                // Step 2: Check if the result is cached
                 if (!_memoryCache.TryGetValue(cacheKey, out List<StrategicInsight>? result))
                 {
+                    // Step 3: List existing files in OpenAI
                     var listFilesResponse = await _openAIService.Files.ListFile();
                     if (!listFilesResponse.Successful)
                     {
                         return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to fetch list files from OpenAI files API.");
                     }
+
                     string? fileId = null;
-                    for (var i = 0; i < listFilesResponse?.Data?.Count; i++)
+
+                    // Step 4: Manage files in OpenAI (delete old files, keep or upload the current file)
+                    foreach (var file in listFilesResponse?.Data ?? [])
                     {
-                        var file = listFilesResponse.Data[i];
-                        if (file != null)
+                        if (file.FileName != fileName)
                         {
-                            if (file.FileName != fileNmae)
-                            {
-                                await _openAIService.Files.DeleteFile(file.Id);
-                            }
-                            else
-                            {
-                                fileId = file.Id;
-                            }
+                            await _openAIService.Files.DeleteFile(file.Id);
+                        }
+                        else
+                        {
+                            fileId = file.Id;
                         }
                     }
+
                     if (fileId == null)
                     {
                         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(rawMaterialInfo));
-                        var fileUploadResult = await _openAIService.Files.FileUpload("assistants", stream, fileNmae);
+                        var fileUploadResult = await _openAIService.Files.FileUpload("assistants", stream, fileName);
                         if (!fileUploadResult.Successful)
                         {
-                            return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to upload data from OpenAI files API.");
+                            return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to upload data to OpenAI files API.");
                         }
                         fileId = fileUploadResult.Id;
                     }
 
                     var vectorStoreId = "vs_681efca3b2388191a761e64f1f7250ac";
-                    // vectorStore只需要create一次
+                    // vectorStore has been created through the OpenAI webUI playground, so there is no need to create it again
 
-                    var listVectorStoreFilesResponse = await _openAIService.Beta.VectorStoreFiles.ListVectorStoreFiles(vectorStoreId, new VectorStoreFileListRequest()
-                    {
-
-                    });
+                    // Step 5: List and clean vector store files
+                    var listVectorStoreFilesResponse = await _openAIService.Beta.VectorStoreFiles.ListVectorStoreFiles(vectorStoreId, new VectorStoreFileListRequest());
                     if (!listVectorStoreFilesResponse.Successful)
                     {
-                        return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to fetch list vector store files from OpenAI files API.");
+                        return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to fetch vector store files from OpenAI files API.");
                     }
-                    // 清空VectorStoreFiles
+
                     bool needCreateVSFiles = true;
-                    for (var i = 0; i < listVectorStoreFilesResponse?.Data?.Count; i++)
+                    foreach (var vsFile in listVectorStoreFilesResponse?.Data ?? [])
                     {
-                        var vsFiles = listVectorStoreFilesResponse?.Data[i];
-                        if (vsFiles != null)
+                        if (vsFile.Id == fileId)
                         {
-                            if (vsFiles.Id == fileId)
-                            {
-                                // 如果已經有該fileId則不create VSFiles
-                                needCreateVSFiles = false;
-                            }
-                            else
-                            {
-                                await _openAIService.Beta.VectorStoreFiles.DeleteVectorStoreFile(vectorStoreId, vsFiles.Id);
-                            }
+                            needCreateVSFiles = false;
+                        }
+                        else
+                        {
+                            await _openAIService.Beta.VectorStoreFiles.DeleteVectorStoreFile(vectorStoreId, vsFile.Id);
                         }
                     }
+
+                    // Step 6: Create vector store files if needed
                     if (needCreateVSFiles)
                     {
-                        var createVSFilesResponse = await _openAIService.Beta.VectorStoreFiles.CreateVectorStoreFile(vectorStoreId, new CreateVectorStoreFileRequest()
-                        {
-                            FileId = fileId,
-                        });
+                        var createVSFilesResponse = await _openAIService.Beta.VectorStoreFiles.CreateVectorStoreFile(vectorStoreId, new CreateVectorStoreFileRequest { FileId = fileId });
                         if (!createVSFilesResponse.Successful)
                         {
-                            return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to create vector store files from OpenAI files API.");
+                            return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to create vector store files in OpenAI files API.");
                         }
 
+                        // Wait for vector store processing to complete
                         while (true)
                         {
                             await Task.Delay(2000);
@@ -135,7 +132,7 @@ namespace JackyAIApp.Server.Controllers
 
                             if (!getVSResponse.Successful || getVSResponse.FileCounts.Failed > 0)
                             {
-                                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to fetch get vector store from OpenAI files API.");
+                                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to retrieve vector store from OpenAI files API.");
                             }
                             if (getVSResponse.FileCounts.Completed > 0)
                             {
@@ -144,141 +141,48 @@ namespace JackyAIApp.Server.Controllers
                         }
                     }
 
+                    // Step 7: Create thread and run analysis
                     string assistantID = "asst_5vCsMPtNXvVfsbptyZakpr2m";
-                    // 因為assistant內是設vectorStore，所以只需要create一次
-
-                    //string systemChatMessage = System.IO.File.ReadAllText("Prompt/Finance/DailyImportantInfoSystem.txt");
-                    //var assistantList = await _openAIService.Beta.Assistants.AssistantList();
-                    //string botName = "Finance Insight Assistants";
-                    //var hasBot = assistantList?.Data?.FirstOrDefault(x => x.Name == botName);
-                    //string? assistantID = hasBot?.Id;
-                    //if (string.IsNullOrEmpty(assistantID))
-                    //{
-                    //    var createAssistantResponse = await _openAIService.Beta.Assistants.AssistantCreate(new AssistantCreateRequest()
-                    //    {
-                    //        Name = botName,
-                    //        Instructions = systemChatMessage,
-                    //        Tools = new List<ToolDefinition>()
-                    //        {
-                    //            new ToolDefinition() {
-                    //                Type = "file_search"
-                    //            }
-                    //        },
-                    //        Model = Models.Gpt_4o,
-                    //        ToolResources = new ToolResources()
-                    //        {
-                    //            FileSearch = new FileSearch()
-                    //            {
-                    //                VectorStoreIds = new List<string>()
-                    //                {
-                    //                    vectorStoreId,
-                    //                }
-                    //            }
-                    //        }
-                    //    });
-                    //    if (!createAssistantResponse.Successful)
-                    //    {
-                    //        return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to create assistant from OpenAI API.");
-                    //    }
-                    //    assistantID = createAssistantResponse.Id;
-                    //}
-                    //else
-                    //{
-                    //    var editAssistantResponse = await _openAIService.Beta.Assistants.AssistantModify(assistantID, new AssistantModifyRequest()
-                    //    {
-                    //        ToolResources = new ToolResources()
-                    //        {
-                    //            FileSearch = new FileSearch()
-                    //            {
-                    //                VectorStoreIds = new List<string>() { vectorStoreId }
-                    //            }
-                    //        }
-                    //    });
-                    //    if (!editAssistantResponse.Successful)
-                    //    {
-                    //        return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to modify assistant from OpenAI API.");
-                    //    }
-                    //}
-                    var createThreadAndRunResponse = await _openAIService.Beta.Runs.CreateThreadAndRun(new CreateThreadAndRunRequest()
+                    // The assistant has already been created through the OpenAI webUI playground, so there is no need to create it again
+                    var createThreadAndRunResponse = await _openAIService.Beta.Runs.CreateThreadAndRun(new CreateThreadAndRunRequest
                     {
                         AssistantId = assistantID,
-                        Thread = new ThreadCreateRequest()
+                        Thread = new ThreadCreateRequest
                         {
-                            Messages = new List<MessageCreateRequest>()
-                        {
-                            new MessageCreateRequest()
+                            Messages = new List<MessageCreateRequest>
                             {
-                                Role = "user",
-                                Content = new MessageContentOneOfType(
-                                    new List<MessageContent>() {
-                                    MessageContent.TextContent("From today's major news about listed companies, select five to ten companies with the greatest growth potential and one to five companies that may decline, and explain the reasons. So you need to list at least 6 companies (5 growing and 1 declining) and at most 15 companies (10 growing and 5 declining).")
-                                }),
-                                Attachments = new List<Attachment>()
+                                new MessageCreateRequest
                                 {
-                                    new Attachment()
+                                    Role = "user",
+                                    Content = new MessageContentOneOfType(new List<MessageContent>
                                     {
-                                        FileId = fileId,
-                                        Tools = new List<ToolDefinition>()
+                                        MessageContent.TextContent("From today's major news about listed companies, select five to ten companies with the greatest growth potential and one to five companies that may decline, and explain the reasons. So you need to list at least 6 companies (5 growing and 1 declining) and at most 15 companies (10 growing and 5 declining).")
+                                    }),
+                                    Attachments = new List<Attachment>
+                                    {
+                                        new Attachment
                                         {
-                                            new ToolDefinition()
+                                            FileId = fileId,
+                                            Tools = new List<ToolDefinition>
                                             {
-                                                Type = "file_search"
+                                                new ToolDefinition { Type = "file_search" }
                                             }
                                         }
                                     }
-                                },
+                                }
                             }
-                        }
                         }
                     });
 
-                    //var createThreadResponse = await _openAIService.Beta.Threads.ThreadCreate();
-                    //if (!createThreadResponse.Successful)
-                    //{
-                    //    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to create threads from OpenAI API.");
-                    //}
-                    //string threadId = createThreadResponse.Id;
-                    //var createMessageResponse = await _openAIService.Beta.Messages.CreateMessage(threadId, new MessageCreateRequest()
-                    //{
-                    //    Role = "user",
-                    //    Attachments = new List<Attachment>()
-                    //    {
-                    //        new Attachment()
-                    //        {
-                    //            FileId = fileId,
-                    //            Tools = new List<ToolDefinition>()
-                    //            {
-                    //                new ToolDefinition()
-                    //                {
-                    //                    Type = "file_search"
-                    //                }
-                    //            }
-                    //        }
-                    //    },
-                    //    Content = new MessageContentOneOfType(
-                    //        new List<MessageContent>() {
-                    //        MessageContent.TextContent("From today's major news about listed companies, pick out five companies with the greatest potential for growth and explain why.")
-                    //    }),
-                    //});
-                    //if (!createMessageResponse.Successful)
-                    //{
-                    //    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to create messages from OpenAI API.");
-                    //}
                     if (!createThreadAndRunResponse.Successful)
                     {
-                        return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to create messages and threads and run from OpenAI API.");
+                        return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to create thread and run analysis in OpenAI API.");
                     }
-                    string threadId = createThreadAndRunResponse.ThreadId;
-                    //var runResponse = await _openAIService.Beta.Runs.RunCreate(threadId, new RunCreateRequest()
-                    //{
-                    //    AssistantId = assistantID,
 
-                    //});
-                    //if (!runResponse.Successful)
-                    //{
-                    //    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to create runs from OpenAI API.");
-                    //}
+                    string threadId = createThreadAndRunResponse.ThreadId;
                     string runId = createThreadAndRunResponse.Id;
+
+                    // Step 8: Monitor run status
                     while (true)
                     {
                         await Task.Delay(3000);
@@ -288,17 +192,16 @@ namespace JackyAIApp.Server.Controllers
                         if (runStatusResponse.Status == "failed")
                             break;
                     }
-                    var getMessageListResponse = await _openAIService.Beta.Messages.ListMessages(threadId);
 
+                    // Step 9: Retrieve and process messages
+                    var getMessageListResponse = await _openAIService.Beta.Messages.ListMessages(threadId);
                     var errorMessage = "Query failed, OpenAI could not analyze the financial information.";
 
                     if (getMessageListResponse.Successful)
                     {
-                        _logger.LogInformation("Generate financial analysis result: {json}",
-                            JsonConvert.SerializeObject(getMessageListResponse.Data, Formatting.Indented));
+                        _logger.LogInformation("Generate financial analysis result: {json}", JsonConvert.SerializeObject(getMessageListResponse.Data, Formatting.Indented));
 
                         var content = getMessageListResponse.Data?.FirstOrDefault()?.Content?.FirstOrDefault()?.Text?.Value ?? "";
-
                         content = content.Replace("```json", "").Replace("```", "");
 
                         if (string.IsNullOrEmpty(content))
@@ -329,6 +232,8 @@ namespace JackyAIApp.Server.Controllers
 
                     return _responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
                 }
+
+                // Step 10: Return cached result
                 return _responseFactory.CreateOKResponse(result);
             }
             catch (Exception ex)
