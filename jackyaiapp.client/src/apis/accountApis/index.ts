@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { CheckAuthResponse, User } from './type';
+import { ApiOkResponse } from '../types';
 
 // Define a service using a base URL and expected endpoints
 export const accountApis = createApi({
@@ -13,7 +14,7 @@ export const accountApis = createApi({
         url: 'check-auth',
       }),
     }),
-    getUserInfo: builder.query<User, void>({
+    getUserInfo: builder.query<ApiOkResponse<User>, void>({
       query: () => ({
         url: 'info',
       }),

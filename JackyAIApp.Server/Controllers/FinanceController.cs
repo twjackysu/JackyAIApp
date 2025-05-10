@@ -16,7 +16,6 @@ using System.Text;
 
 namespace JackyAIApp.Server.Controllers
 {
-    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class FinanceController(

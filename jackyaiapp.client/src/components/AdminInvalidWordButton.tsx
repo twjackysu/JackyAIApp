@@ -15,7 +15,7 @@ function AdminInvalidWordButton({ word }: Props) {
       invalidWordMutation(word);
     }
   };
-  if (!data?.isAdmin) {
+  if (!data?.data.isAdmin) {
     return null;
   }
   return (

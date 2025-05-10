@@ -5,7 +5,6 @@ function PDFUnlocker() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  document.title = 'PDF Unlocker & Compressor';
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setPdfFile(e.target.files[0]);
