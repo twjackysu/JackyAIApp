@@ -12,10 +12,10 @@ import Stack from '@mui/material/Stack';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import Paper from '@mui/material/Paper';
-import TextField from '@mui/material/TextField';
-import InputAdornment from '@mui/material/InputAdornment';
-import SearchIcon from '@mui/icons-material/Search';
+// import Paper from '@mui/material/Paper';
+// import TextField from '@mui/material/TextField';
+// import InputAdornment from '@mui/material/InputAdornment';
+// import SearchIcon from '@mui/icons-material/Search';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -55,7 +55,7 @@ const ImplicationIcon = ({ implication }: { implication: string }) => {
 };
 
 function Finance() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm /*, setSearchTerm */] = useState('');
   const currentDate = useMemo(() => getCurrentDate(), []);
 
   // Use RTK Query hook to fetch data
