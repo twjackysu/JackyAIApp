@@ -14,8 +14,8 @@ namespace JackyAIApp.Server.Data
                     .SetBasePath(Directory.GetCurrentDirectory())
                     .AddJsonFile("appsettings.json")
                     .Build();
-            var connectionString = config.GetConnectionString("DefaultConnection") ?? "";
-            var databaseName = config.GetValue<string>("Settings:DatabaseName") ?? "";
+            var connectionString = config.GetConnectionString("AzureCosmosDBConnection") ?? "";
+            var databaseName = config.GetValue<string>("Settings:AzureCosmosDatabaseName") ?? "";
             var optionsBuilder = new DbContextOptionsBuilder<AzureCosmosDBContext>();
             optionsBuilder.UseCosmos(connectionString, databaseName);
 

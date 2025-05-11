@@ -35,10 +35,16 @@ try
     }
 
     var configuration = builder.Configuration;
-    var connectionString = configuration.GetConnectionString("DefaultConnection") ?? "";
-    var databaseName = configuration.GetValue<string>("Settings:DatabaseName") ?? "";
+    // Configure Cosmos DB Context
+    var cosmosConnectionString = configuration.GetConnectionString("AzureCosmosDBConnection") ?? "";
+    var cosmosDatabaseName = configuration.GetValue<string>("Settings:AzureCosmosDatabaseName") ?? "";
     builder.Services.AddDbContext<AzureCosmosDBContext>(
-        options => options.UseCosmos(connectionString, databaseName));
+        options => options.UseCosmos(cosmosConnectionString, cosmosDatabaseName));
+
+    // Configure SQL Database Context
+    var sqlConnectionString = configuration.GetConnectionString("SQLConnection") ?? "";
+    builder.Services.AddDbContext<AzureSQLDBContext>(
+        options => options.UseSqlServer(sqlConnectionString));
 
     builder.Services.AddAuthentication(options =>
     {
@@ -79,8 +85,9 @@ try
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IJiraRestApiService, JiraRestApiService>();
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
-    builder.Services.AddOpenAIService(options => { 
-        options.ApiKey = openAIKey; 
+    builder.Services.AddOpenAIService(options =>
+    {
+        options.ApiKey = openAIKey;
         options.UseBeta = true;
     });
 
