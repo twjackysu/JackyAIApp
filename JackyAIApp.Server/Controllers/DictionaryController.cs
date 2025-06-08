@@ -48,7 +48,7 @@ namespace JackyAIApp.Server.Controllers
                 return responseFactory.CreateErrorResponse(ErrorCodes.TheWordCannotBeFound, "This is not a valid word.");
             }
             var cacheKey = $"Get_Dictionary_{lowerWord}";
-            if (!_memoryCache.TryGetValue(lowerWord, out Word? dbWord))
+            if (!_memoryCache.TryGetValue(cacheKey, out Word? dbWord))
             {
                 dbWord = _DBContext.Word.SingleOrDefault(x => x.Word == lowerWord);
                 _memoryCache.Set(cacheKey, dbWord, TimeSpan.FromDays(1));
