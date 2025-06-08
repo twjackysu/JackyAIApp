@@ -7,6 +7,7 @@ using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Jira;
+using JackyAIApp.Server.TempForMigrate;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
@@ -35,10 +36,23 @@ try
     }
 
     var configuration = builder.Configuration;
+    
+    // Add Cosmos DB context
     var connectionString = configuration.GetConnectionString("DefaultConnection") ?? "";
     var databaseName = configuration.GetValue<string>("Settings:DatabaseName") ?? "";
     builder.Services.AddDbContext<AzureCosmosDBContext>(
         options => options.UseCosmos(connectionString, databaseName));
+        
+    // Add SQL DB context
+    var sqlConnectionString = configuration.GetConnectionString("AzureSQLDB");
+    if (!string.IsNullOrEmpty(sqlConnectionString))
+    {
+        builder.Services.AddDbContext<AzureSQLDBContext>(
+            options => options.UseSqlServer(sqlConnectionString));
+    }
+    
+    // Register the migration service
+    builder.Services.AddScoped<DataMigrationService>();
 
     builder.Services.AddAuthentication(options =>
     {

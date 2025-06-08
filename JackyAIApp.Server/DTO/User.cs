@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace JackyAIApp.Server.Data.Models
+namespace JackyAIApp.Server.DTO
 {
     public class User
     {

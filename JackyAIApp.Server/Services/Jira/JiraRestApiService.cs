@@ -1,8 +1,7 @@
 ﻿using DotnetSdkUtilities.Services;
-using JackyAIApp.Server.Data;
-using JackyAIApp.Server.Data.Models;
 using JackyAIApp.Server.Services.Jira.DTOs;
-using Microsoft.Azure.Cosmos;
+using JackyAIApp.Server.Data;
+using JackyAIApp.Server.Data.Models.SQL;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
@@ -11,11 +10,11 @@ using System.Text;
 
 namespace JackyAIApp.Server.Services.Jira
 {
-    public class JiraRestApiService(ILogger<JiraRestApiService> logger, AzureCosmosDBContext DBContext, IUserService userService, IExtendedMemoryCache memoryCache) : IJiraRestApiService
+    public class JiraRestApiService(ILogger<JiraRestApiService> logger, AzureSQLDBContext DBContext, IUserService userService, IExtendedMemoryCache memoryCache) : IJiraRestApiService
     {
         private readonly ILogger<JiraRestApiService> _logger = logger ?? throw new ArgumentNullException();
         private readonly HttpClient _httpClient = new();
-        private readonly AzureCosmosDBContext _DBContext = DBContext;
+        private readonly AzureSQLDBContext _DBContext = DBContext;
         private readonly IUserService _userService = userService;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
 
@@ -23,7 +22,7 @@ namespace JackyAIApp.Server.Services.Jira
         public async Task<JiraSearchResponse?> SearchAsync(string jiraConfigId,  string jql)
         {
             var userId = _userService.GetUserId();
-            var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+            var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
                 throw new UserNotFoundException($"{userId} user not found.");
@@ -84,7 +83,7 @@ namespace JackyAIApp.Server.Services.Jira
             var cacheKey = $"{nameof(GetJiraConfigs)}_{userId}";
             if (!_memoryCache.TryGetValue(cacheKey, out IEnumerable<JiraConfig>? configs))
             {
-                var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+                var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
                 configs = user?.JiraConfigs ?? [];
                 if (configs.Any())
                 {
@@ -96,7 +95,7 @@ namespace JackyAIApp.Server.Services.Jira
         public async Task<string> AddJiraConfig(string domain, string email, string token)
         {
             var userId = _userService.GetUserId();
-            var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+            var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
                 throw new UserNotFoundException($"{userId} user not found.");
@@ -106,7 +105,7 @@ namespace JackyAIApp.Server.Services.Jira
                 user.JiraConfigs = [];
             }
             var id = Guid.NewGuid().ToString();
-            user.JiraConfigs.Add(new JiraConfig() { Id = id, Domain = domain, Email = email, Token = token });
+            user.JiraConfigs.Add(new JiraConfig() { Id = id, Domain = domain, Email = email, Token = token, UserId = userId });
             await _DBContext.SaveChangesAsync();
 
             var cacheKey = $"{nameof(GetJiraConfigs)}_{userId}";
@@ -118,7 +117,7 @@ namespace JackyAIApp.Server.Services.Jira
         public async Task DeleteJiraConfig(string jiraConfigId)
         {
             var userId = _userService.GetUserId();
-            var user = await _DBContext.User.SingleOrDefaultAsync(x => x.Id == userId);
+            var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
                 throw new UserNotFoundException($"{userId} user not found.");

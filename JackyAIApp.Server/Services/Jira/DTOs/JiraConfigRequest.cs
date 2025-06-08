@@ -1,4 +1,4 @@
-﻿using JackyAIApp.Server.Data.Models;
+﻿using JackyAIApp.Server.DTO;
 
 namespace JackyAIApp.Server.Services.Jira.DTOs
 {

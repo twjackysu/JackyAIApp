@@ -19,15 +19,16 @@
     <PackageReference Include="DotnetSdkUtilities" Version="1.0.6" />
     <PackageReference Include="itext7" Version="9.1.0" />
     <PackageReference Include="itext7.bouncy-castle-fips-adapter" Version="9.1.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.16" />
     <PackageReference Include="Microsoft.AspNetCore.SpaProxy">
       <Version>8.*-*</Version>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Cosmos" Version="8.0.13" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.13">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Cosmos" Version="8.0.16" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.16">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.16" />
     <PackageReference Include="NLog" Version="5.*" />
     <PackageReference Include="NLog.Extensions.Logging" Version="5.*" />
     <PackageReference Include="NLog.MailKit" Version="5.*" />
