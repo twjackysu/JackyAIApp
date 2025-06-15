@@ -1,8 +1,6 @@
 ﻿using DotnetSdkUtilities.Services;
-using JackyAIApp.Server.Services.Jira.DTOs;
 using JackyAIApp.Server.Data;
-using JackyAIApp.Server.Data.Models.SQL;
-using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.Jira.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;

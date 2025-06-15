@@ -20,6 +20,11 @@ function Repository() {
     pageSize,
   });
   const listRef = useRef<HTMLUListElement>(null);
+  const isFetchingRef = useRef(isFetching);
+  const hasMoreRef = useRef(true);
+
+  // 更新 refs 以便在事件處理器中使用最新值
+  isFetchingRef.current = isFetching;
 
   const handleListItemClick = (
     _: MouseEvent<HTMLDivElement, globalThis.MouseEvent>,
@@ -29,14 +34,28 @@ function Repository() {
   };
 
   useEffect(() => {
+    if (!isFetching && data) {
+      setAccumulatedData((prev) => {
+        return {
+          ...prev,
+          [pageNumber]: data.data ?? [],
+        };
+      });
+
+      if (data.data.length < pageSize) {
+        hasMoreRef.current = false;
+      }
+    }
+  }, [isFetching, data, pageNumber, pageSize]);
+
+  const allWords = Object.values(accumulatedData).reduce((acc, words) => acc.concat(words), []);
+
+  useEffect(() => {
     const handleScroll = () => {
-      if (listRef.current) {
+      if (listRef.current && hasMoreRef.current && !isFetchingRef.current) {
         const { scrollTop, scrollHeight, clientHeight } = listRef.current;
-        if (
-          scrollTop + clientHeight >= scrollHeight &&
-          !isFetching &&
-          data?.data.length === pageNumber * pageSize
-        ) {
+        // 在接近底部時觸發載入 (留 10px 的緩衝)
+        if (scrollTop + clientHeight >= scrollHeight - 10) {
           setPageNumber((prevPageNumber) => prevPageNumber + 1);
         }
       }
@@ -45,23 +64,12 @@ function Repository() {
     const listElement = listRef.current;
     if (listElement) {
       listElement.addEventListener('scroll', handleScroll);
-    }
-    if (!isFetching) {
-      setAccumulatedData((prev) => {
-        return {
-          ...prev,
-          [pageNumber]: data?.data ?? [],
-        };
-      });
-    }
-    return () => {
-      if (listElement) {
-        listElement.removeEventListener('scroll', handleScroll);
-      }
-    };
-  }, [isFetching, data, pageNumber, pageSize]);
 
-  const allWords = Object.values(accumulatedData).reduce((acc, words) => acc.concat(words), []);
+      return () => {
+        listElement.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [allWords.length]); // 依賴 allWords.length，確保當數據變化時重新設置監聽器
 
   return (
     <Box>
@@ -76,7 +84,7 @@ function Repository() {
               component="nav"
               ref={listRef}
               sx={{
-                maxHeight: '94vh',
+                maxHeight: '80vh',
                 overflowY: 'auto',
                 overflowX: 'hidden',
                 scrollbarWidth: 'thin', // For Firefox
