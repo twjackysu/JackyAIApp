@@ -1,13 +1,11 @@
 ﻿using Newtonsoft.Json;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.ComponentModel.DataAnnotations;
 
-namespace JackyAIApp.Server.Data.Models
+namespace JackyAIApp.Server.DTO
 {
     /// <summary>
     /// Represents the definition of an English word, including its meanings, usage examples, synonyms, antonyms, and additional linguistic information.
     /// </summary>
-    public class Word: WordBase
+    public class Word : WordBase
     {
         /// <summary>
         /// Unique identifier for a WordDefinition document in Cosmos DB.
@@ -99,9 +97,9 @@ namespace JackyAIApp.Server.Data.Models
         public required List<string> RelatedWords { get; set; }
     }
     /// <summary>
-     /// Represents a bilingual definition of a word, providing explanations in both English and Chinese.
-     /// This class is essential for understanding the meanings of words across two major languages, aiding bilingual education and translation tasks.
-     /// </summary>
+    /// Represents a bilingual definition of a word, providing explanations in both English and Chinese.
+    /// This class is essential for understanding the meanings of words across two major languages, aiding bilingual education and translation tasks.
+    /// </summary>
     public class Definition
     {
         /// <summary>
@@ -173,10 +171,10 @@ namespace JackyAIApp.Server.Data.Models
 
     public class TranslationTest
     {
-        public required string Chinese { get; set;}
-        public required string English { get; set;}
+        public required string Chinese { get; set; }
+        public required string English { get; set; }
     }
-    public class TranslationTestResponse: TranslationTest
+    public class TranslationTestResponse : TranslationTest
     {
         public required string Word { get; set; }
     }

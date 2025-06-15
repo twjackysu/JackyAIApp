@@ -35,16 +35,26 @@ try
     }
 
     var configuration = builder.Configuration;
-    // Configure Cosmos DB Context
-    var cosmosConnectionString = configuration.GetConnectionString("AzureCosmosDBConnection") ?? "";
+    
+    // Add Cosmos DB context
+    var cosmosConnectionString = configuration.GetConnectionString("DefaultConnection") ?? "";
     var cosmosDatabaseName = configuration.GetValue<string>("Settings:AzureCosmosDatabaseName") ?? "";
     builder.Services.AddDbContext<AzureCosmosDBContext>(
         options => options.UseCosmos(cosmosConnectionString, cosmosDatabaseName));
+        
+    // Register the migration service
+    builder.Services.AddScoped<DataMigrationService>();
 
     // Configure SQL Database Context
     var sqlConnectionString = configuration.GetConnectionString("SQLConnection") ?? "";
     builder.Services.AddDbContext<AzureSQLDBContext>(
-        options => options.UseSqlServer(sqlConnectionString));
+        options => options.UseSqlServer(sqlConnectionString, sqlOptions =>
+        {
+            sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(30),
+                errorNumbersToAdd: null);
+        }));
 
     builder.Services.AddAuthentication(options =>
     {
@@ -65,7 +75,11 @@ try
         googleOptions.ClientSecret = builder.Configuration["Settings:Google:ClientSecret"]?.ToString() ?? "";
     });
     builder.Services.AddExtendedMemoryCache();
-    builder.Services.AddControllers();
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        });
     // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>

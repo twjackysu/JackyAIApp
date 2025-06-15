@@ -1,4 +1,5 @@
 ﻿using JackyAIApp.Server.Data.Models;
+using JackyAIApp.Server.DTO;
 using Microsoft.EntityFrameworkCore;
 
 namespace JackyAIApp.Server.Data

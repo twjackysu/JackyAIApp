@@ -5,7 +5,7 @@ using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
-using JackyAIApp.Server.Data.Models;
+using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -21,7 +21,7 @@ namespace JackyAIApp.Server.Controllers
         ILogger<FinanceController> logger,
         IOptionsMonitor<Settings> settings,
         IMyResponseFactory responseFactory,
-        AzureCosmosDBContext DBContext,
+        AzureSQLDBContext DBContext,
         IUserService userService,
         IOpenAIService openAIService,
         IHttpClientFactory httpClientFactory,
@@ -30,7 +30,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly ILogger<FinanceController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
-        private readonly AzureCosmosDBContext _DBContext = DBContext;
+        private readonly AzureSQLDBContext _DBContext = DBContext;
         private readonly IUserService _userService = userService;
         private readonly IOpenAIService _openAIService = openAIService;
         private readonly HttpClient _httpClient = httpClientFactory?.CreateClient() ?? throw new ArgumentNullException(nameof(httpClientFactory));

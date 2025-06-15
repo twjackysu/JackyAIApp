@@ -1,4 +1,5 @@
-﻿using JackyAIApp.Server.Data.Models;
+﻿
+using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.Services.Jira.DTOs;
 
 namespace JackyAIApp.Server.Services.Jira
