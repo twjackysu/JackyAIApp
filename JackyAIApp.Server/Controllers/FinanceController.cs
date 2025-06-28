@@ -575,10 +575,10 @@ namespace JackyAIApp.Server.Controllers
                 // Try different MCP tools to gather comprehensive data
                 var tools = new[]
                 {
-                    "get_stock_price",
-                    "get_stock_info", 
-                    "get_financial_data",
-                    "get_market_data"
+                    "get_stock_daily_trading",
+                    "get_market_index_info",
+                    "get_stock_monthly_average",
+                    "get_company_profile"
                 };
 
                 foreach (var tool in tools)
