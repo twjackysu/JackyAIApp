@@ -551,7 +551,10 @@ namespace JackyAIApp.Server.Controllers
                 }
 
                 // Cache the result for 6 hours
-                _memoryCache.Set(cacheKey, analysis, TimeSpan.FromHours(6));
+                if(analysis != null)
+                {
+                    _memoryCache.Set(cacheKey, analysis, TimeSpan.FromHours(6));
+                }
 
                 return _responseFactory.CreateOKResponse(analysis);
             }
@@ -694,6 +697,8 @@ namespace JackyAIApp.Server.Controllers
                         Messages = new List<ChatMessage>
                         {
                             ChatMessage.FromSystem(systemPrompt),
+                            ChatMessage.FromUser("3679"),
+                            ChatMessage.FromAssistant("{\n  \"stockCode\": \"3679\",\n  \"companyName\": \"新至陞科技股份有限公司\",\n  \"currentPrice\": 129.50,\n  \"shortTermTrend\": \"neutral\",\n  \"mediumTermTrend\": \"bullish\",\n  \"longTermTrend\": \"bullish\",\n  \"shortTermSummary\": \"在短期內（1-3個月），新至陞的股價表現相對穩定，近期的收盤價129.50元與月平均價133.10元相近，顯示出市場對該股的需求尚可，但缺乏明顯的上漲動力。成交量為125,950股，顯示出一定的市場活躍度，但仍需觀察市場情緒的變化。\",\n  \"mediumTermSummary\": \"在中期內（3-12個月），隨著公司業績的穩定增長及股利政策的支持，預計新至陞的股價將逐步上升。公司最近的淨利表現良好，且股利收益率達到7.72%，這將吸引更多的投資者進場，進一步推動股價上升。\",\n  \"longTermSummary\": \"在長期內（1-3年），隨著公司在科技領域的持續創新及市場需求的增長，新至陞有潛力實現穩定的增長。若公司能夠持續提升其市場競爭力，並保持良好的財務表現，股價有望在未來幾年內顯著上升，形成長期的牛市趨勢。\",\n  \"keyFactors\": [\n    \"公司穩定的財務表現及良好的股利政策\",\n    \"市場對科技股的需求持續增長\",\n    \"公司在行業內的競爭優勢\"\n  ],\n  \"riskFactors\": [\n    \"市場波動可能影響股價表現\",\n    \"行業競爭加劇可能影響利潤率\",\n    \"全球經濟不確定性可能影響業務增長\"\n  ],\n  \"recommendation\": \"buy\",\n  \"confidenceLevel\": \"medium\",\n  \"lastUpdated\": \"2023-10-01T12:00:00\",\n  \"dataSource\": \"MCP Server + AI 分析\"\n}"),
                             ChatMessage.FromUser(userMessage)
                         },
                         Model = Models.Gpt_4o_mini,
