@@ -20,7 +20,7 @@ export const financeApis = createApi({
       // Force refetch on errors by not caching failed requests
       keepUnusedDataFor: 0, // Don't cache failed requests
       // Retry failed requests
-      transformErrorResponse: (response, meta, arg) => {
+      transformErrorResponse: (response) => {
         // Log error for debugging
         console.error('Finance API error:', response);
         return response;
@@ -33,7 +33,7 @@ export const financeApis = createApi({
         body: request,
       }),
       invalidatesTags: ['StockAnalysis'],
-      transformErrorResponse: (response, meta, arg) => {
+      transformErrorResponse: (response) => {
         console.error('Stock analysis error:', response);
         return response;
       },
