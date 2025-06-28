@@ -143,7 +143,14 @@ function Finance() {
   const currentDate = useMemo(() => getCurrentDate(), []);
 
   // Use RTK Query hook to fetch daily market data
-  const { data: apiResponse, isLoading, isError, error, refetch, isFetching } = useGetDailyImportantInfoQuery(undefined, {
+  const {
+    data: apiResponse,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useGetDailyImportantInfoQuery(undefined, {
     // Always refetch when component mounts or user triggers refetch
     refetchOnMountOrArgChange: true,
     // Don't skip the query
@@ -151,11 +158,8 @@ function Finance() {
   });
 
   // Use mutation hook for stock analysis
-  const [analyzeStock, { 
-    isLoading: isAnalyzing, 
-    error: analysisError,
-    reset: resetAnalysis 
-  }] = useAnalyzeStockMutation();
+  const [analyzeStock, { isLoading: isAnalyzing, error: analysisError, reset: resetAnalysis }] =
+    useAnalyzeStockMutation();
 
   const stockInsights: StrategicInsight[] = apiResponse?.data || [];
 
@@ -202,33 +206,43 @@ function Finance() {
     <Box sx={{ p: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" component="h1" fontWeight="bold">
-          今日市場摘要 (Market Summary)
+          {searchResults ? '股票分析 (Stock Analysis)' : '今日市場摘要 (Market Summary)'}
         </Typography>
         <Stack direction="row" alignItems="center" spacing={2}>
           <Typography variant="subtitle1" color="text.secondary">
             {currentDate}
           </Typography>
-          <IconButton
-            onClick={() => {
-              console.log('Header refresh triggered');
-              refetch();
-            }}
-            disabled={isFetching}
-            size="small"
-            sx={{
-              bgcolor: 'action.hover',
-              '&:hover': {
-                bgcolor: 'action.selected',
-              },
-            }}
-          >
-            <RefreshIcon />
-          </IconButton>
+          {!searchResults && (
+            <IconButton
+              onClick={() => {
+                console.log('Header refresh triggered');
+                refetch();
+              }}
+              disabled={isFetching}
+              size="small"
+              sx={{
+                bgcolor: 'action.hover',
+                '&:hover': {
+                  bgcolor: 'action.selected',
+                },
+              }}
+            >
+              <RefreshIcon />
+            </IconButton>
+          )}
         </Stack>
       </Stack>
 
       {/* Stock Search Section */}
-      <Paper sx={{ p: 3, mb: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+      <Paper
+        sx={{
+          p: 3,
+          mb: 3,
+          bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
         <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
           股票分析搜尋 (Stock Analysis)
         </Typography>
@@ -341,7 +355,8 @@ function Finance() {
             <Typography variant="body1">無法載入市場數據，請點擊重新整理按鈕再試一次</Typography>
             {error && 'status' in error && (
               <Typography variant="caption" color="text.secondary">
-                錯誤詳情: {error.status} - {error.data ? JSON.stringify(error.data).substring(0, 100) : '伺服器暫時無法回應'}
+                錯誤詳情: {error.status} -{' '}
+                {error.data ? JSON.stringify(error.data).substring(0, 100) : '伺服器暫時無法回應'}
               </Typography>
             )}
           </Stack>
@@ -355,7 +370,10 @@ function Finance() {
             <Typography variant="body1">股票分析失敗，請檢查股票代碼是否正確</Typography>
             {analysisError && 'status' in analysisError && (
               <Typography variant="caption" color="text.secondary">
-                錯誤詳情: {analysisError.status} - {analysisError.data ? JSON.stringify(analysisError.data).substring(0, 100) : '分析服務暫時無法使用'}
+                錯誤詳情: {analysisError.status} -{' '}
+                {analysisError.data
+                  ? JSON.stringify(analysisError.data).substring(0, 100)
+                  : '分析服務暫時無法使用'}
               </Typography>
             )}
           </Stack>
@@ -364,7 +382,15 @@ function Finance() {
 
       {/* Stock Analysis Results */}
       {searchResults && (
-        <Paper sx={{ p: 3, mb: 3, bgcolor: 'background.paper', border: '2px solid', borderColor: 'primary.main' }}>
+        <Paper
+          sx={{
+            p: 3,
+            mb: 3,
+            bgcolor: 'background.paper',
+            border: '2px solid',
+            borderColor: 'primary.main',
+          }}
+        >
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
             {searchResults.companyName} ({searchResults.stockCode}) - 趨勢分析
           </Typography>
@@ -373,11 +399,13 @@ function Finance() {
               當前股價: ${searchResults.currentPrice}
             </Typography>
           )}
-          
+
           <Grid container spacing={3} sx={{ mt: 1 }}>
             {/* Short Term */}
             <Grid item xs={12} md={4}>
-              <Card sx={{ height: '100%', bgcolor: getTrendColor(searchResults.shortTermTrend, 0.1) }}>
+              <Card
+                sx={{ height: '100%', bgcolor: getTrendColor(searchResults.shortTermTrend, 0.1) }}
+              >
                 <CardHeader
                   avatar={
                     <Avatar sx={{ bgcolor: getTrendColor(searchResults.shortTermTrend) }}>
@@ -395,7 +423,9 @@ function Finance() {
 
             {/* Medium Term */}
             <Grid item xs={12} md={4}>
-              <Card sx={{ height: '100%', bgcolor: getTrendColor(searchResults.mediumTermTrend, 0.1) }}>
+              <Card
+                sx={{ height: '100%', bgcolor: getTrendColor(searchResults.mediumTermTrend, 0.1) }}
+              >
                 <CardHeader
                   avatar={
                     <Avatar sx={{ bgcolor: getTrendColor(searchResults.mediumTermTrend) }}>
@@ -413,7 +443,9 @@ function Finance() {
 
             {/* Long Term */}
             <Grid item xs={12} md={4}>
-              <Card sx={{ height: '100%', bgcolor: getTrendColor(searchResults.longTermTrend, 0.1) }}>
+              <Card
+                sx={{ height: '100%', bgcolor: getTrendColor(searchResults.longTermTrend, 0.1) }}
+              >
                 <CardHeader
                   avatar={
                     <Avatar sx={{ bgcolor: getTrendColor(searchResults.longTermTrend) }}>
@@ -460,10 +492,10 @@ function Finance() {
             {/* Investment Recommendation */}
             <Grid item xs={12}>
               <Card sx={{ bgcolor: getRecommendationColor(searchResults.recommendation, 0.1) }}>
-                <CardHeader 
+                <CardHeader
                   title="投資建議"
                   action={
-                    <Chip 
+                    <Chip
                       label={getRecommendationLabel(searchResults.recommendation)}
                       color={getRecommendationChipColor(searchResults.recommendation)}
                       variant="filled"
