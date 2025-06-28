@@ -533,21 +533,22 @@ namespace JackyAIApp.Server.Controllers
                 var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(request.StockCodeOrName, timeoutCts.Token);
                 if (string.IsNullOrEmpty(resolvedStockCode))
                 {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to find stock code for '{request.StockCodeOrName}'. Please verify the company name or stock code.");
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to find stock code for '{request.StockCodeOrName}'. Please verify the company name or stock code. Searched in TWSE company database but found no matches.");
                 }
 
                 // Call TWSE Open API service to get stock data using resolved stock code
                 var stockData = await _twseApiService.GetStockDataAsync(resolvedStockCode, timeoutCts.Token);
                 if (string.IsNullOrEmpty(stockData))
                 {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to retrieve stock data from TWSE APIs.");
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Failed to retrieve stock data from TWSE APIs for stock code '{resolvedStockCode}'. TWSE API endpoints may be unavailable or returned empty data.");
                 }
 
                 // Analyze the stock data using OpenAI with the resolved stock code
-                var analysis = await AnalyzeStockWithAIAsync(resolvedStockCode, stockData, timeoutCts.Token);
+                var (analysis, errorDetail) = await AnalyzeStockWithAIAsync(resolvedStockCode, stockData, timeoutCts.Token);
                 if (analysis == null)
                 {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, "Failed to analyze stock data.");
+                    var detailedError = $"Failed to analyze stock data for '{resolvedStockCode}'. Details: {errorDetail ?? "Unknown error"}";
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, detailedError);
                 }
 
                 // Cache the result for 6 hours
@@ -561,12 +562,17 @@ namespace JackyAIApp.Server.Controllers
             catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
             {
                 _logger.LogWarning("Stock analysis timed out for {stockCode}", request.StockCodeOrName);
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Analysis timed out.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Analysis timed out after {OPERATION_TIMEOUT_SECONDS} seconds for stock '{request.StockCodeOrName}'. Please try again later.");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while analyzing stock {stockCode}", request.StockCodeOrName);
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "An error occurred during analysis.");
+                var detailedError = $"Unexpected error occurred while analyzing stock '{request.StockCodeOrName}': {ex.Message}";
+                if (ex.InnerException != null)
+                {
+                    detailedError += $" Inner exception: {ex.InnerException.Message}";
+                }
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, detailedError);
             }
         }
 
@@ -576,8 +582,8 @@ namespace JackyAIApp.Server.Controllers
         /// <param name="stockCodeOrName">Stock identifier.</param>
         /// <param name="stockData">Raw stock data from MCP Server.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>Stock trend analysis or null if failed.</returns>
-        private async Task<StockTrendAnalysis?> AnalyzeStockWithAIAsync(string stockCodeOrName, string stockData, CancellationToken cancellationToken)
+        /// <returns>Stock trend analysis result with detailed error information.</returns>
+        private async Task<(StockTrendAnalysis? analysis, string? errorDetail)> AnalyzeStockWithAIAsync(string stockCodeOrName, string stockData, CancellationToken cancellationToken)
         {
             for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++)
             {
@@ -605,10 +611,11 @@ namespace JackyAIApp.Server.Controllers
 
                     if (!completionResponse.Successful)
                     {
+                        var errorDetail = $"OpenAI API failed (Attempt {attempt}/{MAX_RETRY_ATTEMPTS}): {completionResponse.Error?.Message ?? "Unknown error"}";
                         if (attempt == MAX_RETRY_ATTEMPTS)
                         {
                             _logger.LogError("OpenAI completion failed for stock {stockCode}: {error}", stockCodeOrName, completionResponse.Error?.Message);
-                            return null;
+                            return (null, errorDetail);
                         }
                         await Task.Delay(1000 * attempt, cancellationToken);
                         continue;
@@ -619,26 +626,53 @@ namespace JackyAIApp.Server.Controllers
 
                     if (string.IsNullOrEmpty(content))
                     {
-                        if (attempt == MAX_RETRY_ATTEMPTS) return null;
+                        var errorDetail = $"OpenAI returned empty content (Attempt {attempt}/{MAX_RETRY_ATTEMPTS})";
+                        if (attempt == MAX_RETRY_ATTEMPTS) 
+                        {
+                            return (null, errorDetail);
+                        }
                         continue;
                     }
 
-                    var analysis = JsonConvert.DeserializeObject<StockTrendAnalysis>(content);
-                    if (analysis != null)
+                    try
                     {
-                        analysis.LastUpdated = DateTime.UtcNow;
-                        return analysis;
+                        var analysis = JsonConvert.DeserializeObject<StockTrendAnalysis>(content);
+                        if (analysis != null)
+                        {
+                            analysis.LastUpdated = DateTime.UtcNow;
+                            return (analysis, null);
+                        }
+                        else
+                        {
+                            var errorDetail = $"Failed to deserialize OpenAI response to StockTrendAnalysis (Attempt {attempt}/{MAX_RETRY_ATTEMPTS}). Content: {content.Substring(0, Math.Min(content.Length, 200))}...";
+                            if (attempt == MAX_RETRY_ATTEMPTS)
+                            {
+                                return (null, errorDetail);
+                            }
+                        }
+                    }
+                    catch (JsonException jsonEx)
+                    {
+                        var errorDetail = $"JSON deserialization failed (Attempt {attempt}/{MAX_RETRY_ATTEMPTS}): {jsonEx.Message}. Content: {content.Substring(0, Math.Min(content.Length, 200))}...";
+                        if (attempt == MAX_RETRY_ATTEMPTS)
+                        {
+                            return (null, errorDetail);
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
+                    var errorDetail = $"Unexpected error (Attempt {attempt}/{MAX_RETRY_ATTEMPTS}): {ex.Message}. Stack trace: {ex.StackTrace}";
                     _logger.LogWarning(ex, "Stock analysis attempt {attempt} failed for {stockCode}", attempt, stockCodeOrName);
-                    if (attempt == MAX_RETRY_ATTEMPTS) return null;
+                    if (attempt == MAX_RETRY_ATTEMPTS) 
+                    {
+                        return (null, errorDetail);
+                    }
                     await Task.Delay(1000 * attempt, cancellationToken);
                 }
             }
 
-            return null;
+            return (null, "Analysis failed after all retry attempts");
         }
     }
 }
