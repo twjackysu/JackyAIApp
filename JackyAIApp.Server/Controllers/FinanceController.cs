@@ -7,6 +7,7 @@ using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.Finance;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
@@ -27,7 +28,8 @@ namespace JackyAIApp.Server.Controllers
         IUserService userService,
         IOpenAIService openAIService,
         IHttpClientFactory httpClientFactory,
-        IExtendedMemoryCache memoryCache) : ControllerBase
+        IExtendedMemoryCache memoryCache,
+        ITWSEOpenAPIService twseApiService) : ControllerBase
     {
         private readonly ILogger<FinanceController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         private readonly IOptionsMonitor<Settings> _settings = settings;
@@ -37,6 +39,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IOpenAIService _openAIService = openAIService;
         private readonly HttpClient _httpClient = httpClientFactory?.CreateClient() ?? throw new ArgumentNullException(nameof(httpClientFactory));
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+        private readonly ITWSEOpenAPIService _twseApiService = twseApiService ?? throw new ArgumentNullException(nameof(twseApiService));
         
         // Cache keys and constants
         private const string VECTOR_STORE_ID = "vs_681efca3b2388191a761e64f1f7250ac";
@@ -526,15 +529,22 @@ namespace JackyAIApp.Server.Controllers
                     return _responseFactory.CreateOKResponse(cachedResult);
                 }
 
-                // Call MCP Server to get stock data
-                var stockData = await GetStockDataFromMCPServerAsync(request.StockCodeOrName, timeoutCts.Token);
-                if (string.IsNullOrEmpty(stockData))
+                // First, resolve user input to a valid stock code
+                var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(request.StockCodeOrName, timeoutCts.Token);
+                if (string.IsNullOrEmpty(resolvedStockCode))
                 {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to retrieve stock data from MCP Server.");
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to find stock code for '{request.StockCodeOrName}'. Please verify the company name or stock code.");
                 }
 
-                // Analyze the stock data using OpenAI
-                var analysis = await AnalyzeStockWithAIAsync(request.StockCodeOrName, stockData, timeoutCts.Token);
+                // Call TWSE Open API service to get stock data using resolved stock code
+                var stockData = await _twseApiService.GetStockDataAsync(resolvedStockCode, timeoutCts.Token);
+                if (string.IsNullOrEmpty(stockData))
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to retrieve stock data from TWSE APIs.");
+                }
+
+                // Analyze the stock data using OpenAI with the resolved stock code
+                var analysis = await AnalyzeStockWithAIAsync(resolvedStockCode, stockData, timeoutCts.Token);
                 if (analysis == null)
                 {
                     return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, "Failed to analyze stock data.");
@@ -555,109 +565,6 @@ namespace JackyAIApp.Server.Controllers
                 _logger.LogError(ex, "Error occurred while analyzing stock {stockCode}", request.StockCodeOrName);
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "An error occurred during analysis.");
             }
-        }
-
-        /// <summary>
-        /// Retrieves stock data from online MCP Server.
-        /// </summary>
-        /// <param name="stockCodeOrName">Stock code or company name to search.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>Raw stock data from MCP Server.</returns>
-        private async Task<string> GetStockDataFromMCPServerAsync(string stockCodeOrName, CancellationToken cancellationToken)
-        {
-            try
-            {
-                var mcpServerUrl = "https://glama.ai/mcp/servers/@twjackysu/TWSEMCPServer";
-                
-                var stockData = new StringBuilder();
-                stockData.AppendLine($"=== Stock Data for {stockCodeOrName} ===");
-
-                // Try different MCP tools to gather comprehensive data
-                var tools = new[]
-                {
-                    "get_stock_daily_trading",
-                    "get_market_index_info",
-                    "get_stock_monthly_average",
-                    "get_company_profile"
-                };
-
-                foreach (var tool in tools)
-                {
-                    try
-                    {
-                        var toolData = await CallMCPToolAsync(mcpServerUrl, tool, stockCodeOrName, cancellationToken);
-                        if (!string.IsNullOrEmpty(toolData))
-                        {
-                            stockData.AppendLine($"=== {tool} ===");
-                            stockData.AppendLine(toolData);
-                            stockData.AppendLine();
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to call MCP tool {tool} for stock {stockCode}", tool, stockCodeOrName);
-                    }
-                }
-
-                var result = stockData.ToString();
-                
-                if (string.IsNullOrWhiteSpace(result) || result.Length < 100)
-                {
-                    _logger.LogWarning("Insufficient stock data retrieved from MCP Server for {stockCode}", stockCodeOrName);
-                    
-                    // Fallback to Taiwan Stock Exchange APIs
-                    return await GetFallbackStockDataAsync(stockCodeOrName, cancellationToken);
-                }
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to call MCP Server for stock {stockCode}", stockCodeOrName);
-                
-                // Fallback to Taiwan Stock Exchange APIs
-                return await GetFallbackStockDataAsync(stockCodeOrName, cancellationToken);
-            }
-        }
-
-        /// <summary>
-        /// Calls a specific MCP tool via HTTP API.
-        /// </summary>
-        private async Task<string> CallMCPToolAsync(string baseUrl, string toolName, string stockCode, CancellationToken cancellationToken)
-        {
-            try
-            {
-                // Construct the API endpoint for the MCP server
-                var apiUrl = $"{baseUrl}/tools/{toolName}";
-                
-                var requestData = new
-                {
-                    stock_code = stockCode,
-                    symbol = stockCode
-                };
-
-                var requestJson = JsonConvert.SerializeObject(requestData);
-                var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-
-                using var response = await _httpClient.PostAsync(apiUrl, content, cancellationToken);
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return responseContent;
-                }
-                else
-                {
-                    _logger.LogWarning("MCP tool {tool} returned status {status} for stock {stockCode}", 
-                        toolName, response.StatusCode, stockCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to call MCP tool {tool} for stock {stockCode}", toolName, stockCode);
-            }
-
-            return string.Empty;
         }
 
         /// <summary>

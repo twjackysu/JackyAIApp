@@ -6,6 +6,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Jira;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -75,6 +76,8 @@ try
         googleOptions.ClientSecret = builder.Configuration["Settings:Google:ClientSecret"]?.ToString() ?? "";
     });
     builder.Services.AddExtendedMemoryCache();
+    builder.Services.AddMemoryCache();
+    builder.Services.AddHttpClient();
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
         {
@@ -98,6 +101,7 @@ try
     builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IJiraRestApiService, JiraRestApiService>();
+    builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options =>
     {
