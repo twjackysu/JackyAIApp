@@ -61,6 +61,30 @@ namespace JackyAIApp.Server.Services.Finance
         Task<string> GetMarketIndexInfoAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Gets monthly revenue data from TWSE API.
+        /// </summary>
+        /// <param name="stockCode">Stock code.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Monthly revenue data.</returns>
+        Task<string> GetMonthlyRevenueAsync(string stockCode, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets comprehensive income statement from TWSE API.
+        /// </summary>
+        /// <param name="stockCode">Stock code.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Income statement data.</returns>
+        Task<string> GetIncomeStatementAsync(string stockCode, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets balance sheet from TWSE API.
+        /// </summary>
+        /// <param name="stockCode">Stock code.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Balance sheet data.</returns>
+        Task<string> GetBalanceSheetAsync(string stockCode, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Resolves user input to a valid stock code using AI and company database.
         /// </summary>
         /// <param name="userInput">User input (could be stock code, company name, or partial name).</param>

@@ -33,51 +33,113 @@ namespace JackyAIApp.Server.Services.Finance
         }
 
         /// <summary>
-        /// Retrieves comprehensive stock data from TWSE Open API endpoints.
+        /// Retrieves comprehensive stock data from TWSE Open API endpoints organized by analysis timeframe.
         /// </summary>
         public async Task<string> GetStockDataAsync(string stockCode, CancellationToken cancellationToken = default)
         {
             try
             {
                 var stockData = new StringBuilder();
-                stockData.AppendLine($"=== Stock Data for {stockCode} ===");
+                stockData.AppendLine($"=== Comprehensive Stock Analysis for {stockCode} ===");
+                stockData.AppendLine();
 
-                // Try different TWSE APIs to gather comprehensive data
-                var tasks = new[]
+                // Short-Term Analysis (1-3 months) - Technical & Chip Analysis
+                stockData.AppendLine("=== SHORT-TERM ANALYSIS (1-3 months) ===");
+                stockData.AppendLine("Data Sources: Technical indicators and market sentiment");
+                stockData.AppendLine();
+
+                var shortTermTasks = new[]
                 {
                     GetStockDailyTradingAsync(stockCode, cancellationToken),
-                    GetCompanyProfileAsync(stockCode, cancellationToken),
-                    GetStockMonthlyAverageAsync(stockCode, cancellationToken),
-                    GetStockValuationRatiosAsync(stockCode, cancellationToken),
-                    GetCompanyDividendAsync(stockCode, cancellationToken),
                     GetMarketIndexInfoAsync(cancellationToken)
                 };
 
-                var results = await Task.WhenAll(tasks);
+                var shortTermResults = await Task.WhenAll(shortTermTasks);
+                var shortTermTypes = new[] { "Daily Trading Data (Technical)", "Market Index & Institutional Activity (Chip)" };
 
-                var dataTypes = new[]
+                for (int i = 0; i < shortTermResults.Length; i++)
                 {
-                    "Daily Trading",
-                    "Company Profile", 
-                    "Monthly Average",
-                    "Valuation Ratios",
-                    "Dividend Info",
-                    "Market Index"
-                };
-
-                for (int i = 0; i < results.Length; i++)
-                {
-                    if (!string.IsNullOrEmpty(results[i]))
+                    if (!string.IsNullOrEmpty(shortTermResults[i]))
                     {
-                        stockData.AppendLine($"=== {dataTypes[i]} ===");
-                        stockData.AppendLine(results[i]);
+                        stockData.AppendLine($"--- {shortTermTypes[i]} ---");
+                        stockData.AppendLine(shortTermResults[i]);
                         stockData.AppendLine();
                     }
                 }
 
+                // Medium-Term Analysis (3-12 months) - Technical & Fundamental
+                stockData.AppendLine("=== MEDIUM-TERM ANALYSIS (3-12 months) ===");
+                stockData.AppendLine("Data Sources: Monthly trends and fundamental performance");
+                stockData.AppendLine();
+
+                var mediumTermTasks = new[]
+                {
+                    GetStockMonthlyAverageAsync(stockCode, cancellationToken),
+                    GetMonthlyRevenueAsync(stockCode, cancellationToken),
+                    GetIncomeStatementAsync(stockCode, cancellationToken),
+                    GetBalanceSheetAsync(stockCode, cancellationToken)
+                };
+
+                var mediumTermResults = await Task.WhenAll(mediumTermTasks);
+                var mediumTermTypes = new[] 
+                { 
+                    "Monthly Average Prices (Technical)", 
+                    "Monthly Revenue (Fundamental)", 
+                    "Income Statement (Fundamental)", 
+                    "Balance Sheet (Fundamental)" 
+                };
+
+                for (int i = 0; i < mediumTermResults.Length; i++)
+                {
+                    if (!string.IsNullOrEmpty(mediumTermResults[i]))
+                    {
+                        stockData.AppendLine($"--- {mediumTermTypes[i]} ---");
+                        stockData.AppendLine(mediumTermResults[i]);
+                        stockData.AppendLine();
+                    }
+                }
+
+                // Long-Term Analysis (1-3 years) - Valuation & Fundamentals
+                stockData.AppendLine("=== LONG-TERM ANALYSIS (1-3 years) ===");
+                stockData.AppendLine("Data Sources: Valuation metrics and dividend policy");
+                stockData.AppendLine();
+
+                var longTermTasks = new[]
+                {
+                    GetCompanyDividendAsync(stockCode, cancellationToken),
+                    GetStockValuationRatiosAsync(stockCode, cancellationToken)
+                };
+
+                var longTermResults = await Task.WhenAll(longTermTasks);
+                var longTermTypes = new[] 
+                { 
+                    "Dividend Distribution (Fundamental)", 
+                    "Valuation Ratios (P/E, P/B, Dividend Yield)" 
+                };
+
+                for (int i = 0; i < longTermResults.Length; i++)
+                {
+                    if (!string.IsNullOrEmpty(longTermResults[i]))
+                    {
+                        stockData.AppendLine($"--- {longTermTypes[i]} ---");
+                        stockData.AppendLine(longTermResults[i]);
+                        stockData.AppendLine();
+                    }
+                }
+
+                // Company Profile for context
+                stockData.AppendLine("=== COMPANY CONTEXT ===");
+                var companyProfile = await GetCompanyProfileAsync(stockCode, cancellationToken);
+                if (!string.IsNullOrEmpty(companyProfile))
+                {
+                    stockData.AppendLine("--- Company Profile ---");
+                    stockData.AppendLine(companyProfile);
+                    stockData.AppendLine();
+                }
+
                 var result = stockData.ToString();
                 
-                if (string.IsNullOrWhiteSpace(result) || result.Length < 100)
+                if (string.IsNullOrWhiteSpace(result) || result.Length < 200)
                 {
                     _logger.LogWarning("Insufficient stock data retrieved from TWSE APIs for {stockCode}", stockCode);
                     return $"Limited data available for {stockCode}. Stock code provided for basic analysis.";
@@ -235,6 +297,78 @@ namespace JackyAIApp.Server.Services.Finance
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to get market index info");
+            }
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Gets monthly revenue data from TWSE API.
+        /// </summary>
+        public async Task<string> GetMonthlyRevenueAsync(string stockCode, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var apiUrl = $"{BaseUrl}/opendata/t187ap05_L";
+                
+                SetUserAgent();
+                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
+                    return FilterStockDataByCode(content, stockCode);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get monthly revenue for stock {stockCode}", stockCode);
+            }
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Gets comprehensive income statement from TWSE API.
+        /// </summary>
+        public async Task<string> GetIncomeStatementAsync(string stockCode, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var apiUrl = $"{BaseUrl}/opendata/t187ap06_L_ci";
+                
+                SetUserAgent();
+                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
+                    return FilterStockDataByCode(content, stockCode);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get income statement for stock {stockCode}", stockCode);
+            }
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Gets balance sheet from TWSE API.
+        /// </summary>
+        public async Task<string> GetBalanceSheetAsync(string stockCode, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var apiUrl = $"{BaseUrl}/opendata/t187ap07_L_ci";
+                
+                SetUserAgent();
+                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
+                    return FilterStockDataByCode(content, stockCode);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get balance sheet for stock {stockCode}", stockCode);
             }
             return string.Empty;
         }

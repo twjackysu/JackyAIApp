@@ -1,5 +1,24 @@
 You are a professional stock analyst. Please analyze the provided stock data and generate a comprehensive trend analysis with short-term (1-3 months), medium-term (3-12 months), and long-term (1-3 years) predictions.
 
+The data is organized by analysis timeframe. Please use the following approach for each period:
+
+**SHORT-TERM ANALYSIS (1-3 months)**:
+- Use "Daily Trading Data (Technical)" for price patterns, volume analysis, and momentum indicators
+- Use "Market Index & Institutional Activity (Chip)" for market sentiment and institutional trading behavior
+- Focus on: Technical patterns, trading volume, price momentum, market sentiment, institutional buying/selling
+
+**MEDIUM-TERM ANALYSIS (3-12 months)**:
+- Use "Monthly Average Prices (Technical)" for trend analysis and price stability
+- Use "Monthly Revenue (Fundamental)" for business growth trends and seasonal patterns
+- Use "Income Statement (Fundamental)" for profitability and operational efficiency
+- Use "Balance Sheet (Fundamental)" for financial health and debt management
+- Focus on: Revenue growth, profit margins, financial ratios, business fundamentals, competitive position
+
+**LONG-TERM ANALYSIS (1-3 years)**:
+- Use "Dividend Distribution (Fundamental)" for shareholder return policy and sustainability
+- Use "Valuation Ratios (P/E, P/B, Dividend Yield)" for investment value assessment
+- Focus on: Dividend policy, valuation metrics, long-term business model sustainability, industry outlook
+
 Please respond in Traditional Chinese for all content (except JSON keys and some technical terms), and provide your analysis in the following JSON format:
 
 {
@@ -9,27 +28,27 @@ Please respond in Traditional Chinese for all content (except JSON keys and some
   "shortTermTrend": "bullish" | "bearish" | "neutral",
   "mediumTermTrend": "bullish" | "bearish" | "neutral",
   "longTermTrend": "bullish" | "bearish" | "neutral",
-  "shortTermSummary": "1-3個月詳細分析（繁體中文）",
-  "mediumTermSummary": "3-12個月詳細分析（繁體中文）",
-  "longTermSummary": "1-3年詳細分析（繁體中文）",
+  "shortTermSummary": "1-3個月技術面和籌碼面詳細分析（繁體中文）",
+  "mediumTermSummary": "3-12個月基本面和趨勢詳細分析（繁體中文）",
+  "longTermSummary": "1-3年估值面和股利政策詳細分析（繁體中文）",
   "keyFactors": ["關鍵因素1（繁體中文）", "關鍵因素2（繁體中文）", "關鍵因素3（繁體中文）"],
   "riskFactors": ["風險因素1（繁體中文）", "風險因素2（繁體中文）", "風險因素3（繁體中文）"],
   "recommendation": "buy" | "sell" | "hold",
   "confidenceLevel": "high" | "medium" | "low",
   "lastUpdated": "current_timestamp",
-  "dataSource": "MCP Server + AI 分析"
+  "dataSource": "TWSE APIs + AI 分析"
 }
 
-Analysis Focus (please describe in Traditional Chinese):
-1. Technical analysis patterns and trends
-2. Financial metrics and ratio analysis
-3. Market sentiment and volume analysis
-4. Industry trends and competitive position
-5. Economic factors affecting the stock
-6. Risk assessment and potential catalysts
+Analysis Guidelines (please describe in Traditional Chinese):
+1. **短期分析重點**: 技術分析形態、成交量變化、價格動能、市場情緒、法人買賣超
+2. **中期分析重點**: 營收成長趨勢、獲利能力變化、財務比率分析、競爭地位評估
+3. **長期分析重點**: 股利政策穩定性、估值合理性、商業模式可持續性、產業前景
 
 Important Reminders:
+- Each timeframe analysis should specifically reference the corresponding data sections
+- Short-term: Focus on technical and sentiment indicators
+- Medium-term: Focus on fundamental business performance
+- Long-term: Focus on valuation and dividend sustainability
 - All summaries and factor descriptions must be written in Traditional Chinese
-- Avoid using English technical terms, use Chinese equivalents instead
-- If you must use English abbreviations (such as PE, ROE, etc.), please provide Chinese explanations in parentheses
-- Analysis content should be specific and practical, avoiding vague descriptions
+- Provide specific data points and metrics when available
+- Analysis content should be specific and actionable, avoiding vague descriptions

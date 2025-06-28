@@ -102,6 +102,8 @@ try
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IJiraRestApiService, JiraRestApiService>();
     builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
+    builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
+    builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options =>
     {
