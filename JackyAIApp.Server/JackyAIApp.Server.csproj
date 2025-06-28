@@ -64,6 +64,12 @@
     <None Update="Prompt\Exam\TranslationSystem.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Prompt\Finance\DailyImportantInfoSystem.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Prompt\Finance\StockAnalysisSystem.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Prompt\WordBase\System.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
