@@ -22,7 +22,7 @@ import Alert from '@mui/material/Alert';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
-import { green, red, blue, grey, orange, purple } from '@mui/material/colors';
+import { green, red, blue, grey, orange } from '@mui/material/colors';
 import { useGetDailyImportantInfoQuery, useAnalyzeStockMutation } from '@/apis/financeApis';
 import { StrategicInsight, StockTrendAnalysis } from '@/apis/financeApis/types';
 
