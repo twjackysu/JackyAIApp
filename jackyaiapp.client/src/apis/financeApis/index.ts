@@ -10,11 +10,21 @@ export const financeApis = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: '/api/finance',
   }),
+  tagTypes: ['DailyInfo'],
   endpoints: (builder) => ({
     getDailyImportantInfo: builder.query<ApiOkResponse<StrategicInsight[]>, void>({
       query: () => ({
         url: `dailyimportantinfo`,
       }),
+      providesTags: ['DailyInfo'],
+      // Force refetch on errors by not caching failed requests
+      keepUnusedDataFor: 0, // Don't cache failed requests
+      // Retry failed requests
+      transformErrorResponse: (response, meta, arg) => {
+        // Log error for debugging
+        console.error('Finance API error:', response);
+        return response;
+      },
     }),
   }),
 });

@@ -59,7 +59,12 @@ function Finance() {
   const currentDate = useMemo(() => getCurrentDate(), []);
 
   // Use RTK Query hook to fetch data
-  const { data: apiResponse, isLoading, isError, refetch } = useGetDailyImportantInfoQuery();
+  const { data: apiResponse, isLoading, isError, error, refetch, isFetching } = useGetDailyImportantInfoQuery(undefined, {
+    // Always refetch when component mounts or user triggers refetch
+    refetchOnMountOrArgChange: true,
+    // Don't skip the query
+    skip: false,
+  });
 
   const stockInsights: StrategicInsight[] = apiResponse?.data || [];
 
@@ -78,9 +83,27 @@ function Finance() {
         <Typography variant="h4" component="h1" fontWeight="bold">
           今日市場摘要 (Market Summary)
         </Typography>
-        <Typography variant="subtitle1" color="text.secondary">
-          {currentDate}
-        </Typography>
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Typography variant="subtitle1" color="text.secondary">
+            {currentDate}
+          </Typography>
+          <IconButton
+            onClick={() => {
+              console.log('Header refresh triggered');
+              refetch();
+            }}
+            disabled={isFetching}
+            size="small"
+            sx={{
+              bgcolor: 'action.hover',
+              '&:hover': {
+                bgcolor: 'action.selected',
+              },
+            }}
+          >
+            <RefreshIcon />
+          </IconButton>
+        </Stack>
       </Stack>
       {/* 
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -101,16 +124,16 @@ function Finance() {
         />
       </Paper> */}
 
-      {isLoading && (
+      {(isLoading || isFetching) && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
           <CircularProgress />
           <Typography variant="h6" sx={{ ml: 2 }}>
-            正在獲取最新市場數據...
+            {isFetching && !isLoading ? '正在重新載入市場數據...' : '正在獲取最新市場數據...'}
           </Typography>
         </Box>
       )}
 
-      {isError && (
+      {isError && !isFetching && (
         <Alert
           severity="error"
           sx={{ mb: 3 }}
@@ -119,10 +142,12 @@ function Finance() {
               color="inherit"
               size="small"
               onClick={() => {
+                console.log('Manual refetch triggered');
                 refetch();
               }}
+              disabled={isFetching}
               sx={{
-                animation: 'pulse 1.5s infinite',
+                animation: isFetching ? 'none' : 'pulse 1.5s infinite',
                 '@keyframes pulse': {
                   '0%': { transform: 'scale(1)' },
                   '50%': { transform: 'scale(1.1)' },
@@ -134,8 +159,13 @@ function Finance() {
             </IconButton>
           }
         >
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="column" spacing={1}>
             <Typography variant="body1">無法載入市場數據，請點擊重新整理按鈕再試一次</Typography>
+            {error && 'status' in error && (
+              <Typography variant="caption" color="text.secondary">
+                錯誤詳情: {error.status} - {error.data ? JSON.stringify(error.data).substring(0, 100) : '伺服器暫時無法回應'}
+              </Typography>
+            )}
           </Stack>
         </Alert>
       )}
