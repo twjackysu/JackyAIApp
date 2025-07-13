@@ -41,17 +41,17 @@ namespace JackyAIApp.Server.Controllers
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
             }
-            
+
             // Get a random word from the user's collection
             var userWords = await _DBContext.UserWords
                 .Where(uw => uw.UserId == userId)
                 .ToListAsync();
-                
+
             if (userWords.Count == 0)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.");
             }
-            
+
             var random = new Random();
             var randomIndex = random.Next(userWords.Count);
             string randomWordId = userWords[randomIndex].WordId;
@@ -60,12 +60,12 @@ namespace JackyAIApp.Server.Controllers
                 .Include(w => w.ClozeTests)
                     .ThenInclude(ct => ct.Options)
                 .SingleOrDefaultAsync(x => x.Id == randomWordId);
-                
-            if(word == null)
+
+            if (word == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Word not found.");
             }
-            
+
             if (word.ClozeTests != null && word.ClozeTests.Count > 3)
             {
                 // Check if there are enough test questions for the vocabulary; if there are more than three, no additional questions will be generated.
@@ -100,17 +100,17 @@ namespace JackyAIApp.Server.Controllers
                 {
                     return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
                 }
-                Data.Models.SQL.ClozeTest ? clozeTest = null;
+                Data.Models.SQL.ClozeTest? clozeTest = null;
                 try
                 {
                     var clozeTestDTO = JsonConvert.DeserializeObject<DTO.ClozeTest>(content);
-                    
+
                     // Convert options to list if needed
                     if (clozeTestDTO != null && clozeTestDTO.Options != null)
                     {
                         // Randomize the order of options
                         var optionsList = clozeTestDTO.Options.OrderBy(x => random.NextDouble()).ToList();
-                        
+
                         // Create a new cloze test to save to the database
                         string clozeTestId = Guid.NewGuid().ToString();
                         var newClozeTest = new Data.Models.SQL.ClozeTest
@@ -121,7 +121,7 @@ namespace JackyAIApp.Server.Controllers
                             WordId = word.Id,
                             Word = word
                         };
-                        
+
                         // Add options
                         foreach (var option in optionsList)
                         {
@@ -142,19 +142,19 @@ namespace JackyAIApp.Server.Controllers
                     _logger.LogError(ex, "Failed to deserialize the content: {content}", content);
                     return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
                 }
-                
+
                 if (clozeTest == null)
                 {
                     return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
                 }
-                
+
                 // Check if a similar cloze test already exists
                 bool similarTestExists = false;
                 if (word.ClozeTests != null)
                 {
                     similarTestExists = word.ClozeTests.Any(x => x.Question == clozeTest.Question);
                 }
-                
+
                 if (!similarTestExists)
                 {
                     if (word.ClozeTests == null)
@@ -183,17 +183,17 @@ namespace JackyAIApp.Server.Controllers
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
             }
-            
+
             // Get a random word from the user's collection
             var userWords = await _DBContext.UserWords
                 .Where(uw => uw.UserId == userId)
                 .ToListAsync();
-                
+
             if (userWords.Count == 0)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.");
             }
-            
+
             var random = new Random();
             var randomIndex = random.Next(userWords.Count);
             string randomWordId = userWords[randomIndex].WordId;
@@ -201,12 +201,12 @@ namespace JackyAIApp.Server.Controllers
             var word = await _DBContext.Words
                 .Include(w => w.TranslationTests)
                 .SingleOrDefaultAsync(x => x.Id == randomWordId);
-                
+
             if (word == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Word not found.");
             }
-            
+
             if (word.TranslationTests != null && word.TranslationTests.Count > 3)
             {
                 // Check if there are enough test questions for the vocabulary; if there are more than three, no additional questions will be generated.
@@ -244,7 +244,7 @@ namespace JackyAIApp.Server.Controllers
                 try
                 {
                     var testFromJson = JsonConvert.DeserializeObject<DTO.TranslationTest>(content);
-                    
+
                     if (testFromJson != null)
                     {
                         translationTest = new Data.Models.SQL.TranslationTest
@@ -262,18 +262,18 @@ namespace JackyAIApp.Server.Controllers
                     _logger.LogError(ex, "Failed to deserialize the content: {content}", content);
                     return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
                 }
-                
+
                 if (translationTest == null)
                 {
                     return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
                 }
-                
+
                 bool similarTestExists = false;
                 if (word.TranslationTests != null)
                 {
                     similarTestExists = word.TranslationTests.Any(x => x.Chinese == translationTest.Chinese);
                 }
-                
+
                 if (!similarTestExists)
                 {
                     if (word.TranslationTests == null)
@@ -284,20 +284,20 @@ namespace JackyAIApp.Server.Controllers
                     await _DBContext.SaveChangesAsync();
                     _logger.LogInformation("translationTest: {translationTestJson} added to DB.", JsonConvert.SerializeObject(ConvertTranslationTestToDto(translationTest, word.WordText)));
                 }
-                
+
                 return _responseFactory.CreateOKResponse(ConvertTranslationTestToDto(translationTest, word.WordText));
             }
             return _responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
         }
-        
+
         /// <summary>
         /// Generates a translation quality grading.
         /// </summary>
         /// <returns>An IActionResult containing the translation quality grading or an error response.</returns>
         [HttpPost("translation/quality_grading")]
-        public async Task<IActionResult> GetTranslationQualityGrading([FromBody]TranslationTestUserResponse userResponse)
+        public async Task<IActionResult> GetTranslationQualityGrading([FromBody] TranslationTestUserResponse userResponse)
         {
-            if(userResponse == null || string.IsNullOrEmpty(userResponse.Translation) || string.IsNullOrEmpty(userResponse.ExaminationQuestion) || string.IsNullOrEmpty(userResponse.UnfamiliarWords))
+            if (userResponse == null || string.IsNullOrEmpty(userResponse.Translation) || string.IsNullOrEmpty(userResponse.ExaminationQuestion) || string.IsNullOrEmpty(userResponse.UnfamiliarWords))
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "input cannot be null or empty.");
             }
@@ -348,6 +348,199 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateOKResponse(translationQualityGrading);
             }
             return _responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
+        }
+
+        /// <summary>
+        /// Starts a new conversation test by generating a scenario and first message.
+        /// </summary>
+        /// <returns>An IActionResult containing the conversation start response or an error response.</returns>
+        [HttpPost("conversation/start")]
+        public async Task<IActionResult> StartConversationTest([FromBody] ConversationStartRequest request)
+        {
+            var userId = _userService.GetUserId();
+            var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            if (request == null || request.UserVocabularyWords == null || request.UserVocabularyWords.Count == 0)
+            {
+                // Get user's vocabulary words if not provided
+                var userWords = await _DBContext.UserWords
+                    .Include(uw => uw.Word)
+                    .Where(uw => uw.UserId == userId)
+                    .Select(uw => uw.Word.WordText)
+                    .ToListAsync();
+
+                if (userWords.Count == 0)
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.");
+                }
+
+                request = new ConversationStartRequest
+                {
+                    UserVocabularyWords = userWords,
+                    DifficultyLevel = request?.DifficultyLevel ?? 3
+                };
+            }
+
+            string systemChatMessage = System.IO.File.ReadAllText("Prompt/Exam/ConversationStartSystem.txt");
+            var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+            {
+                Messages =
+                [
+                    ChatMessage.FromSystem(systemChatMessage),
+                    ChatMessage.FromUser(JsonConvert.SerializeObject(request))
+                ],
+                Model = Models.Gpt_4o_mini,
+            });
+
+            var errorMessage = "Query failed, OpenAI could not generate the conversation scenario.";
+            if (completionResult.Successful)
+            {
+                _logger.LogInformation("Generate conversation start: {request}, result: {json}", JsonConvert.SerializeObject(request), JsonConvert.SerializeObject(completionResult, Formatting.Indented));
+                var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
+                if (string.IsNullOrEmpty(content))
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                ConversationStartResponse? conversationStart = null;
+                try
+                {
+                    conversationStart = JsonConvert.DeserializeObject<ConversationStartResponse>(content);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize the content: {content}", content);
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                if (conversationStart == null)
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                return _responseFactory.CreateOKResponse(conversationStart);
+            }
+            return _responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
+        }
+
+        /// <summary>
+        /// Processes user's response in a conversation and generates AI response with corrections if needed.
+        /// </summary>
+        /// <returns>An IActionResult containing the AI response and correction feedback.</returns>
+        [HttpPost("conversation/respond")]
+        public async Task<IActionResult> RespondToConversation([FromBody] ConversationResponseRequest request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.UserMessage) || request.ConversationContext == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Invalid conversation request.");
+            }
+
+            var userId = _userService.GetUserId();
+            var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            string systemChatMessage = System.IO.File.ReadAllText("Prompt/Exam/ConversationResponseSystem.txt");
+            var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+            {
+                Messages =
+                [
+                    ChatMessage.FromSystem(systemChatMessage),
+                    ChatMessage.FromUser(JsonConvert.SerializeObject(request))
+                ],
+                Model = Models.Gpt_4o_mini,
+            });
+
+            var errorMessage = "Query failed, OpenAI could not generate the conversation response.";
+            if (completionResult.Successful)
+            {
+                _logger.LogInformation("Generate conversation response: {request}, result: {json}", JsonConvert.SerializeObject(request), JsonConvert.SerializeObject(completionResult, Formatting.Indented));
+                var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
+                if (string.IsNullOrEmpty(content))
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                ConversationResponseResponse? conversationResponse = null;
+                try
+                {
+                    conversationResponse = JsonConvert.DeserializeObject<ConversationResponseResponse>(content);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize the content: {content}", content);
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                if (conversationResponse == null)
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                return _responseFactory.CreateOKResponse(conversationResponse);
+            }
+            return _responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
+        }
+
+        /// <summary>
+        /// Transcribes audio to text using OpenAI Whisper.
+        /// </summary>
+        /// <returns>An IActionResult containing the transcription or an error response.</returns>
+        [HttpPost("whisper/transcribe")]
+        public async Task<IActionResult> TranscribeAudio(IFormFile audioFile)
+        {
+            if (audioFile == null || audioFile.Length == 0)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "No audio file provided.");
+            }
+
+            var userId = _userService.GetUserId();
+            var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            try
+            {
+                using var stream = audioFile.OpenReadStream();
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                var audioBytes = memoryStream.ToArray();
+
+                var audioResult = await _openAIService.Audio.CreateTranscription(new Betalgo.Ranul.OpenAI.ObjectModels.RequestModels.AudioCreateTranscriptionRequest
+                {
+                    File = audioBytes,
+                    FileName = audioFile.FileName,
+                    Model = Betalgo.Ranul.OpenAI.ObjectModels.Models.WhisperV1,
+                    Language = "en" // English language for better accuracy
+                });
+
+                if (audioResult.Successful && !string.IsNullOrEmpty(audioResult.Text))
+                {
+                    _logger.LogInformation("Whisper transcription successful: {text}", audioResult.Text);
+                    return _responseFactory.CreateOKResponse(new WhisperTranscriptionResponse
+                    {
+                        Text = audioResult.Text.Trim()
+                    });
+                }
+                else
+                {
+                    _logger.LogError("Whisper transcription failed: {error}", audioResult.Error?.Message);
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, "Failed to transcribe audio.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during Whisper transcription");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, "Error processing audio file.");
+            }
         }
 
         /// <summary>

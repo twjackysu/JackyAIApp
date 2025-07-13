@@ -178,4 +178,59 @@ namespace JackyAIApp.Server.DTO
     {
         public required string Word { get; set; }
     }
+
+    public class ConversationStartRequest
+    {
+        public required List<string> UserVocabularyWords { get; set; }
+        public int DifficultyLevel { get; set; } = 3;
+    }
+
+    public class ConversationStartResponse
+    {
+        public required string Scenario { get; set; }
+        public required string UserRole { get; set; }
+        public required string AiRole { get; set; }
+        public required string Context { get; set; }
+        public required string FirstMessage { get; set; }
+    }
+
+    public class ConversationContext
+    {
+        public required string Scenario { get; set; }
+        public required string UserRole { get; set; }
+        public required string AiRole { get; set; }
+        public required int TurnNumber { get; set; }
+    }
+
+    public class ConversationTurn
+    {
+        public required string Speaker { get; set; }
+        public required string Message { get; set; }
+    }
+
+    public class ConversationResponseRequest
+    {
+        public required ConversationContext ConversationContext { get; set; }
+        public required List<ConversationTurn> ConversationHistory { get; set; }
+        public required string UserMessage { get; set; }
+    }
+
+    public class ConversationCorrection
+    {
+        public required bool HasCorrection { get; set; }
+        public string? OriginalText { get; set; }
+        public string? SuggestedText { get; set; }
+        public string? Explanation { get; set; }
+    }
+
+    public class ConversationResponseResponse
+    {
+        public required string AiResponse { get; set; }
+        public required ConversationCorrection Correction { get; set; }
+    }
+
+    public class WhisperTranscriptionResponse
+    {
+        public required string Text { get; set; }
+    }
 }

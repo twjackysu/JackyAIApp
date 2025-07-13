@@ -1,6 +1,7 @@
 import {
   useGetTranslationTestQuery,
   useLazyGetTranslationQualityGradingQuery,
+  useTranscribeAudioMutation,
 } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
@@ -15,47 +16,68 @@ import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { green, grey } from '@mui/material/colors';
+import { useTheme } from '@mui/material/styles';
 import { useEffect, useRef, useState } from 'react';
 
 function TranslationCard() {
+  const theme = useTheme();
   const [input, setInput] = useState<string | null>(null);
   const { data, isFetching, refetch, isError, error } = useGetTranslationTestQuery();
   const [showAnswer, setShowAnswer] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const [isSupported, setIsSupported] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
 
   useEffect(() => {
-    // Check if your browser supports the Web Speech API
-    if ('webkitSpeechRecognition' in window) {
-      setIsSupported(true);
-      const recognition = new (window.webkitSpeechRecognition as any)();
-      recognition.lang = 'en-US'; // Set the language to English
-      recognition.interimResults = false; // Whether to display intermediate results
-      recognition.maxAlternatives = 1; // Number of results displayed
+    // Setup MediaRecorder for audio recording
+    const setupMediaRecorder = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        
+        const chunks: Blob[] = [];
+        
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            chunks.push(event.data);
+          }
+        };
 
-      recognition.onresult = (event: any) => {
-        const result = event.results[0][0].transcript;
-        setInput(result);
-      };
+        recorder.onstop = async () => {
+          if (chunks.length > 0) {
+            const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+            await handleAudioTranscription(audioBlob);
+            chunks.length = 0; // Clear chunks
+          }
+        };
 
-      recognition.onerror = (event: any) => {
-        console.error('語音辨識錯誤:', event.error);
-      };
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-      recognitionRef.current = recognition;
-    } else {
-      setIsSupported(false);
-    }
+        setMediaRecorder(recorder);
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+      }
+    };
+
+    setupMediaRecorder();
   }, []);
+
+  const handleAudioTranscription = async (audioBlob: Blob) => {
+    try {
+      const formData = new FormData();
+      formData.append('audioFile', audioBlob, 'recording.wav');
+      
+      const response = await transcribeAudio(formData).unwrap();
+      if (response.data.text) {
+        setInput(response.data.text);
+      }
+    } catch (error) {
+      console.error('Error transcribing audio:', error);
+    }
+  };
 
   const [getTranslationQualityGrading, { isFetching: isTranslationQualityGradingFetching }] =
     useLazyGetTranslationQualityGradingQuery();
+  const [transcribeAudio, { isLoading: isTranscribing }] = useTranscribeAudioMutation();
 
   const handleTextFieldInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setInput(event.target.value);
@@ -88,12 +110,18 @@ function TranslationCard() {
   };
 
   const handleToggleRecording = () => {
-    if (isRecording && recognitionRef.current) {
-      recognitionRef.current.stop();
+    if (!mediaRecorder) return;
+    
+    if (isRecording) {
+      // Stop recording and transcribe
+      mediaRecorder.stop();
       setIsRecording(false);
-    } else if (recognitionRef.current) {
-      recognitionRef.current.start();
-      setIsRecording(true);
+    } else {
+      // Start recording
+      if (mediaRecorder.state === 'inactive') {
+        mediaRecorder.start();
+        setIsRecording(true);
+      }
     }
   };
   if (isFetching) {
@@ -117,23 +145,34 @@ function TranslationCard() {
           />
           <Tooltip
             title={
-              isSupported
-                ? 'Click to start/stop recording'
-                : 'Your browser does not support speech recognition.'
+              mediaRecorder
+                ? isRecording 
+                  ? 'Click to stop recording'
+                  : 'Click to start recording'
+                : 'Microphone not available'
             }
             arrow
           >
             <IconButton
               onClick={handleToggleRecording}
               sx={{
-                color: isRecording ? green[500] : grey[500],
+                color: isRecording 
+                  ? theme.palette.error.main 
+                  : isTranscribing 
+                    ? theme.palette.warning.main 
+                    : theme.palette.action.active,
               }}
-              disabled={!isSupported}
+              disabled={!mediaRecorder || isTranscribing}
             >
               <MicIcon />
             </IconButton>
           </Tooltip>
         </Stack>
+        {isTranscribing && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            正在轉換語音為文字...
+          </Typography>
+        )}
       </FormControl>
       {showAnswer && (
         <Typography variant="h6" sx={{ marginTop: 2 }}>
@@ -146,7 +185,7 @@ function TranslationCard() {
             variant="contained"
             color="primary"
             onClick={handleSubmit}
-            disabled={isTranslationQualityGradingFetching || !!feedback}
+            disabled={isTranslationQualityGradingFetching || !!feedback || isTranscribing}
           >
             Submit
           </Button>
