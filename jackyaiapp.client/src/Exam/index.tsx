@@ -36,24 +36,7 @@ function Exam() {
   
   // Check if we're on a specific test page
   const isOnTestPage = location.pathname !== '/exam' && location.pathname !== '/exam/';
-  
-  // Get current test name for back button
-  const getTestName = () => {
-    const path = location.pathname.split('/').pop();
-    switch (path) {
-      case 'cloze':
-        return '克漏字測驗';
-      case 'translation':
-        return '翻譯測驗';
-      case 'conversation':
-        return '情境對話測驗';
-      case 'sentenceTest':
-        return '造句測驗';
-      default:
-        return '測驗';
-    }
-  };
-  
+    
   return (
     <Box sx={{ p: 2, position: 'relative' }}>
       {isRepositoryNoWord ? (
