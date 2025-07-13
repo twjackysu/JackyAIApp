@@ -18,6 +18,7 @@ import {
   Chip,
   IconButton,
   Paper,
+  Popover,
   TextField,
   Tooltip,
 } from '@mui/material';
@@ -32,6 +33,7 @@ interface ConversationState {
   context: ConversationContext;
   history: ConversationTurn[];
   isActive: boolean;
+  difficultyLevel: number;
 }
 
 function ConversationTestCard() {
@@ -43,6 +45,10 @@ function ConversationTestCard() {
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Difficulty selection popover
+  const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<number>(3);
   
   const [startConversation, { isLoading: isStarting, error: startError }] = useStartConversationTestMutation();
   const [respondToConversation, { isLoading: isResponding }] = useRespondToConversationMutation();
@@ -106,11 +112,20 @@ function ConversationTestCard() {
     }
   };
 
-  const handleStartConversation = async () => {
+  const handleShowDifficultySelector = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseDifficultySelector = () => {
+    setAnchorEl(null);
+  };
+
+  const handleStartConversation = async (difficultyLevel: number) => {
+    handleCloseDifficultySelector();
     try {
       const response = await startConversation({
         userVocabularyWords: [], // Backend will fetch user's words
-        difficultyLevel: 3,
+        difficultyLevel,
       }).unwrap();
 
       setConversationState({
@@ -127,6 +142,7 @@ function ConversationTestCard() {
           },
         ],
         isActive: true,
+        difficultyLevel,
       });
       setCorrection(null);
     } catch (error) {
@@ -197,6 +213,7 @@ function ConversationTestCard() {
     setConversationState(null);
     setInput('');
     setCorrection(null);
+    setSelectedDifficulty(3); // Reset to default difficulty
   };
 
   const handleKeyPress = (event: React.KeyboardEvent) => {
@@ -227,10 +244,72 @@ function ConversationTestCard() {
           variant="contained"
           color="primary"
           size="large"
-          onClick={handleStartConversation}
+          onClick={handleShowDifficultySelector}
         >
           開始對話
         </Button>
+        
+        {/* Difficulty Selection Popover */}
+        <Popover
+          open={Boolean(anchorEl)}
+          anchorEl={anchorEl}
+          onClose={handleCloseDifficultySelector}
+          anchorOrigin={{
+            vertical: 'top',
+            horizontal: 'center',
+          }}
+          transformOrigin={{
+            vertical: 'bottom',
+            horizontal: 'center',
+          }}
+        >
+          <Box sx={{ p: 3, minWidth: 320, maxWidth: 360 }}>
+            <Typography variant="h6" gutterBottom align="center">
+              🎯 選擇對話難度
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
+              選擇適合你英文程度的對話難度
+            </Typography>
+            <Stack spacing={1.5}>
+              {[
+                { level: 1, label: '初級 (Beginner)', desc: '簡單日常對話、基礎詞彙' },
+                { level: 2, label: '初中級 (Elementary)', desc: '基礎生活對話、常用句型' },
+                { level: 3, label: '中級 (Intermediate)', desc: '一般情境對話、多樣話題' },
+                { level: 4, label: '中高級 (Upper-Intermediate)', desc: '複雜話題討論、抽象概念' },
+                { level: 5, label: '高級 (Advanced)', desc: '專業深度對話、學術討論' },
+              ].map((option) => (
+                <Button
+                  key={option.level}
+                  variant={selectedDifficulty === option.level ? 'contained' : 'outlined'}
+                  onClick={() => {
+                    setSelectedDifficulty(option.level);
+                    handleStartConversation(option.level);
+                  }}
+                  sx={{ 
+                    justifyContent: 'flex-start',
+                    textAlign: 'left',
+                    py: 1.5,
+                    px: 2,
+                    '&:hover': {
+                      transform: 'translateY(-1px)',
+                      boxShadow: 2,
+                    },
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                >
+                  <Box sx={{ width: '100%' }}>
+                    <Typography variant="body1" fontWeight="bold" gutterBottom>
+                      {option.label}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {option.desc}
+                    </Typography>
+                  </Box>
+                </Button>
+              ))}
+            </Stack>
+          </Box>
+        </Popover>
       </Box>
     );
   }
@@ -246,7 +325,7 @@ function ConversationTestCard() {
         <Typography variant="h6" gutterBottom>
           📍 {conversationState.context.scenario}
         </Typography>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} flexWrap="wrap">
           <Chip
             label={`你的角色: ${conversationState.context.userRole}`}
             variant="outlined"
@@ -256,6 +335,17 @@ function ConversationTestCard() {
             label={`AI角色: ${conversationState.context.aiRole}`}
             variant="outlined"
             color="secondary"
+          />
+          <Chip
+            label={`難度: ${
+              conversationState.difficultyLevel === 1 ? '初級' :
+              conversationState.difficultyLevel === 2 ? '初中級' :
+              conversationState.difficultyLevel === 3 ? '中級' :
+              conversationState.difficultyLevel === 4 ? '中高級' : '高級'
+            }`}
+            variant="outlined"
+            color="success"
+            size="small"
           />
         </Stack>
       </Paper>

@@ -16,16 +16,27 @@ Your response must strictly follow this JSON format:
 }
 
 Guidelines:
-1. Create realistic, practical scenarios (restaurant, shopping, travel, work, etc.)
+1. Create realistic, practical scenarios from diverse contexts
 2. Incorporate 2-3 vocabulary words naturally into the conversation context
 3. Match the complexity to the difficulty level
 4. Keep scenarios culturally appropriate and educational
 5. Make your first message welcoming and context-appropriate
 6. Ensure the scenario allows for 4-6 meaningful conversation turns
+7. IMPORTANT: Generate varied scenarios - avoid repetitive themes like reunions or events
+
+Diverse scenario categories to choose from:
+- Daily life: Shopping, dining, transportation, housing
+- Work & Career: Job interview, office meeting, customer service, teamwork
+- Education: School discussion, library visit, study group, exam preparation
+- Health & Fitness: Doctor visit, gym conversation, pharmacy, wellness discussion
+- Travel & Tourism: Airport, hotel, sightseeing, asking directions
+- Technology: Tech support, online shopping, social media, device troubleshooting
+- Entertainment: Movie theater, concert, sports event, hobby discussion
+- Social situations: Making friends, party conversation, community events, volunteer work
 
 Example scenarios by difficulty:
-- Level 1-2: Ordering food, asking for directions, shopping for clothes
-- Level 3: Job interview, doctor visit, hotel check-in
-- Level 4-5: Business meeting, academic discussion, technical support
+- Level 1-2: Ordering coffee, buying groceries, asking for directions, simple small talk
+- Level 3: Booking a hotel room, visiting a doctor, workplace discussion, planning a trip
+- Level 4-5: Business negotiation, academic presentation, technical consultation, complex problem-solving
 
-Make the conversation engaging and encourage the user to use their vocabulary words naturally.
+VARY the scenarios - ensure each conversation offers a fresh, different context to keep learning engaging.

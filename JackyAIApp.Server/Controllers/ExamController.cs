@@ -386,14 +386,21 @@ namespace JackyAIApp.Server.Controllers
             }
 
             string systemChatMessage = System.IO.File.ReadAllText("Prompt/Exam/ConversationStartSystem.txt");
+            
+            // Add randomness to avoid repetitive scenarios
+            var random = new Random();
+            var randomSeed = random.Next(1000, 9999);
+            var enhancedSystemMessage = systemChatMessage + $"\n\nIMPORTANT: Use this random seed for variety: {randomSeed}. Ensure each scenario is different from typical reunion or event themes. Focus on practical, everyday situations that would genuinely help English learners.";
+            
             var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
             {
                 Messages =
                 [
-                    ChatMessage.FromSystem(systemChatMessage),
+                    ChatMessage.FromSystem(enhancedSystemMessage),
                     ChatMessage.FromUser(JsonConvert.SerializeObject(request))
                 ],
                 Model = Models.Gpt_4o_mini,
+                Temperature = 0.8f, // Increase creativity
             });
 
             var errorMessage = "Query failed, OpenAI could not generate the conversation scenario.";
