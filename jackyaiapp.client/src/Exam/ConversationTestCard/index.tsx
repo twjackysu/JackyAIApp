@@ -42,6 +42,7 @@ function ConversationTestCard() {
   
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const [startConversation, { isLoading: isStarting, error: startError }] = useStartConversationTestMutation();
   const [respondToConversation, { isLoading: isResponding }] = useRespondToConversationMutation();
@@ -78,6 +79,18 @@ function ConversationTestCard() {
 
     setupMediaRecorder();
   }, []);
+
+  // Auto scroll to bottom when conversation history changes
+  useEffect(() => {
+    const scrollToBottom = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+    
+    if (conversationState?.history) {
+      // Small delay to ensure DOM is updated
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [conversationState?.history, isResponding]);
 
   const handleAudioTranscription = async (audioBlob: Blob) => {
     try {
@@ -127,6 +140,19 @@ function ConversationTestCard() {
     const userMessage = input.trim();
     setInput('');
 
+    // First, immediately add user's message to the conversation
+    setConversationState(prev => ({
+      ...prev!,
+      context: {
+        ...prev!.context,
+        turnNumber: prev!.context.turnNumber + 1,
+      },
+      history: [
+        ...prev!.history,
+        { speaker: 'user', message: userMessage },
+      ],
+    }));
+
     try {
       const response = await respondToConversation({
         conversationContext: conversationState.context,
@@ -134,16 +160,11 @@ function ConversationTestCard() {
         userMessage,
       }).unwrap();
 
-      // Update conversation state
+      // Then add AI's response
       setConversationState(prev => ({
         ...prev!,
-        context: {
-          ...prev!.context,
-          turnNumber: prev!.context.turnNumber + 1,
-        },
         history: [
           ...prev!.history,
-          { speaker: 'user', message: userMessage },
           { speaker: 'ai', message: response.data.aiResponse },
         ],
       }));
@@ -152,6 +173,7 @@ function ConversationTestCard() {
       setCorrection(response.data.correction.hasCorrection ? response.data.correction : null);
     } catch (error) {
       console.error('Failed to send message:', error);
+      // If error occurs, you might want to remove the user message or show an error
     }
   };
 
@@ -298,6 +320,8 @@ function ConversationTestCard() {
               </Box>
             </Box>
           )}
+          {/* Scroll anchor */}
+          <div ref={messagesEndRef} />
         </Stack>
       </Paper>
 
