@@ -10,6 +10,7 @@ import RepositoryNoWordAlert from '../components/RepositoryNoWordAlert';
 import ClozeTestCard from './ClozeTestCard';
 import ConversationTestCard from './ConversationTestCard';
 import TranslationTestCard from './TranslationTestCard';
+import SentenceTestCard from './SentenceTestCard';
 import { alpha, useTheme } from '@mui/material/styles';
 
 const styles = {
@@ -129,7 +130,7 @@ function Exam() {
             <Route path="cloze" element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <ClozeTestCard />} />
             <Route path="translation" element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <TranslationTestCard />} />
             <Route path="conversation" element={<ConversationTestCard />} />
-            <Route path="sentenceTest" element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <div>造句測驗還沒做，請選擇其他類型...</div>} />
+            <Route path="sentenceTest" element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <SentenceTestCard />} />
             <Route path="/" element={
               <Box sx={{ 
                 textAlign: 'center', 

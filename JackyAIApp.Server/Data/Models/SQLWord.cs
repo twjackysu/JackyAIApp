@@ -38,6 +38,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public ICollection<WordMeaning> Meanings { get; set; } = [];
         public ICollection<ClozeTest> ClozeTests { get; set; } = [];
         public ICollection<TranslationTest> TranslationTests { get; set; } = [];
+        public ICollection<SentenceTest> SentenceTests { get; set; } = [];
     }
 
     public class WordMeaning
@@ -185,6 +186,40 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// User's English translation
         /// </summary>
         public required string English { get; set; }
+
+        public required string WordId { get; set; }
+        [ForeignKey(nameof(WordId))]
+        public Word Word { get; set; } = null!;
+    }
+
+    public class SentenceTest
+    {
+        public required string Id { get; set; }
+
+        /// <summary>
+        /// The prompt given to the user for sentence formation.
+        /// </summary>
+        public required string Prompt { get; set; }
+
+        /// <summary>
+        /// A sample answer provided by AI for reference.
+        /// </summary>
+        public required string SampleAnswer { get; set; }
+
+        /// <summary>
+        /// Context or scenario for the sentence formation.
+        /// </summary>
+        public required string Context { get; set; }
+
+        /// <summary>
+        /// Difficulty level from 1 (easy) to 5 (hard).
+        /// </summary>
+        public required int DifficultyLevel { get; set; }
+
+        /// <summary>
+        /// Grammar pattern or structure to be used (optional).
+        /// </summary>
+        public string? GrammarPattern { get; set; }
 
         public required string WordId { get; set; }
         [ForeignKey(nameof(WordId))]

@@ -235,4 +235,38 @@ namespace JackyAIApp.Server.DTO
     {
         public required string Text { get; set; }
     }
+
+    public class SentenceTest
+    {
+        public required string Prompt { get; set; }
+        public required string SampleAnswer { get; set; }
+        public required string Context { get; set; }
+        public required int DifficultyLevel { get; set; }
+        public string? GrammarPattern { get; set; }
+    }
+
+    public class SentenceTestResponse : SentenceTest
+    {
+        public required string Word { get; set; }
+    }
+
+    public class SentenceTestUserResponse
+    {
+        public required string Word { get; set; }
+        public required string Prompt { get; set; }
+        public required string Context { get; set; }
+        public required string UserSentence { get; set; }
+        public required int DifficultyLevel { get; set; }
+        public string? GrammarPattern { get; set; }
+    }
+
+    public class SentenceTestGradingResponse
+    {
+        public required int Score { get; set; }
+        public required string GrammarFeedback { get; set; }
+        public required string UsageFeedback { get; set; }
+        public required string CreativityFeedback { get; set; }
+        public required string OverallFeedback { get; set; }
+        public required List<string> Suggestions { get; set; }
+    }
 }

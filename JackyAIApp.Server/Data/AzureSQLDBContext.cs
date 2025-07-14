@@ -84,6 +84,13 @@ namespace JackyAIApp.Server.Data
                 .WithMany(w => w.TranslationTests)
                 .HasForeignKey(tt => tt.WordId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Configure SentenceTest relationship
+            modelBuilder.Entity<SentenceTest>()
+                .HasOne(st => st.Word)
+                .WithMany(w => w.SentenceTests)
+                .HasForeignKey(st => st.WordId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -95,6 +102,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<ClozeTest> ClozeTests { get; set; }
         public virtual DbSet<ClozeTestOption> ClozeTestOptions { get; set; }
         public virtual DbSet<TranslationTest> TranslationTests { get; set; }
+        public virtual DbSet<SentenceTest> SentenceTests { get; set; }
         public virtual DbSet<UserWord> UserWords { get; set; }
         public virtual DbSet<JiraConfig> JiraConfigs { get; set; }
     }

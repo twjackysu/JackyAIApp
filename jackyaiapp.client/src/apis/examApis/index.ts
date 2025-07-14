@@ -12,6 +12,9 @@ import {
   ConversationResponseRequest,
   ConversationResponseResponse,
   WhisperTranscriptionResponse,
+  SentenceTestResponse,
+  SentenceTestUserResponse,
+  SentenceTestGradingResponse,
 } from './types';
 
 // Define a service using a base URL and expected endpoints
@@ -71,6 +74,21 @@ export const examApis = createApi({
         body: formData,
       }),
     }),
+    getSentenceTest: builder.query<ApiOkResponse<SentenceTestResponse>, void>({
+      query: () => ({
+        url: 'sentence',
+      }),
+    }),
+    evaluateSentence: builder.mutation<
+      ApiOkResponse<SentenceTestGradingResponse>,
+      SentenceTestUserResponse
+    >({
+      query: (body) => ({
+        url: 'sentence/evaluate',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 });
 
@@ -81,4 +99,6 @@ export const {
   useStartConversationTestMutation,
   useRespondToConversationMutation,
   useTranscribeAudioMutation,
+  useGetSentenceTestQuery,
+  useEvaluateSentenceMutation,
 } = examApis;

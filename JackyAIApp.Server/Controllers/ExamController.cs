@@ -530,6 +530,204 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
+        /// Generates a sentence formation test for the user based on their unfamiliar words.
+        /// </summary>
+        /// <returns>An IActionResult containing the sentence test or an error response.</returns>
+        [HttpGet("sentence")]
+        public async Task<IActionResult> GetSentenceTest()
+        {
+            var userId = _userService.GetUserId();
+            var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            var userWords = await _DBContext.UserWords
+                .Where(uw => uw.UserId == userId)
+                .ToListAsync();
+
+            if (userWords.Count == 0)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.");
+            }
+
+            var random = new Random();
+            var randomIndex = random.Next(userWords.Count);
+            string randomWordId = userWords[randomIndex].WordId;
+
+            var word = await _DBContext.Words
+                .Include(w => w.SentenceTests)
+                .SingleOrDefaultAsync(x => x.Id == randomWordId);
+
+            if (word == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Word not found.");
+            }
+
+            if (word.SentenceTests != null && word.SentenceTests.Count > 3)
+            {
+                var randomTestIndex = random.Next(word.SentenceTests.Count);
+                var randomTest = word.SentenceTests.ElementAt(randomTestIndex);
+                return _responseFactory.CreateOKResponse(ConvertSentenceTestToDto(randomTest, word.WordText));
+            }
+
+            string systemChatMessage = System.IO.File.ReadAllText("Prompt/Exam/SentenceSystem.txt");
+            var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+            {
+                Messages =
+                [
+                    ChatMessage.FromSystem(systemChatMessage),
+                    ChatMessage.FromUser("adventure"),
+                    ChatMessage.FromAssistant(JsonConvert.SerializeObject(new DTO.SentenceTest()
+                    {
+                        Prompt = "Create a sentence using the word 'adventure' in the context of travel.",
+                        SampleAnswer = "Last summer, I went on an amazing adventure to explore the mountains.",
+                        Context = "Travel and exploration",
+                        DifficultyLevel = 3,
+                        GrammarPattern = "Past tense narrative"
+                    })),
+                    ChatMessage.FromUser(word.WordText)
+                ],
+                Model = Models.Gpt_4o_mini,
+            });
+
+            var errorMessage = "Query failed, OpenAI could not generate the corresponding sentence test.";
+            if (completionResult.Successful)
+            {
+                _logger.LogInformation("Generate sentence test: {word}, result: {json}", word.WordText, JsonConvert.SerializeObject(completionResult, Formatting.Indented));
+                var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
+                if (string.IsNullOrEmpty(content))
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                Data.Models.SQL.SentenceTest? sentenceTest = null;
+                try
+                {
+                    var testFromJson = JsonConvert.DeserializeObject<DTO.SentenceTest>(content);
+
+                    if (testFromJson != null)
+                    {
+                        sentenceTest = new Data.Models.SQL.SentenceTest
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Prompt = testFromJson.Prompt,
+                            SampleAnswer = testFromJson.SampleAnswer,
+                            Context = testFromJson.Context,
+                            DifficultyLevel = testFromJson.DifficultyLevel,
+                            GrammarPattern = testFromJson.GrammarPattern,
+                            WordId = word.Id,
+                            Word = word
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize the content: {content}", content);
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                if (sentenceTest == null)
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                bool similarTestExists = false;
+                if (word.SentenceTests != null)
+                {
+                    similarTestExists = word.SentenceTests.Any(x => x.Prompt == sentenceTest.Prompt);
+                }
+
+                if (!similarTestExists)
+                {
+                    if (word.SentenceTests == null)
+                    {
+                        word.SentenceTests = new List<Data.Models.SQL.SentenceTest>();
+                    }
+                    word.SentenceTests.Add(sentenceTest);
+                    await _DBContext.SaveChangesAsync();
+                    _logger.LogInformation("sentenceTest: {sentenceTestJson} added to DB.", JsonConvert.SerializeObject(ConvertSentenceTestToDto(sentenceTest, word.WordText)));
+                }
+
+                return _responseFactory.CreateOKResponse(ConvertSentenceTestToDto(sentenceTest, word.WordText));
+            }
+            return _responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
+        }
+
+        /// <summary>
+        /// Evaluates a user's sentence formation response and provides detailed feedback.
+        /// </summary>
+        /// <returns>An IActionResult containing the sentence evaluation or an error response.</returns>
+        [HttpPost("sentence/evaluate")]
+        public async Task<IActionResult> EvaluateSentence([FromBody] SentenceTestUserResponse userResponse)
+        {
+            if (userResponse == null || string.IsNullOrEmpty(userResponse.UserSentence) || string.IsNullOrEmpty(userResponse.Word) || string.IsNullOrEmpty(userResponse.Prompt))
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Input cannot be null or empty.");
+            }
+
+            string systemChatMessage = System.IO.File.ReadAllText("Prompt/Exam/SentenceEvaluationSystem.txt");
+            var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+            {
+                Messages =
+                [
+                    ChatMessage.FromSystem(systemChatMessage),
+                    ChatMessage.FromUser(JsonConvert.SerializeObject(new SentenceTestUserResponse()
+                    {
+                        Word = "adventure",
+                        Prompt = "Create a sentence using the word 'adventure' in the context of travel.",
+                        Context = "Travel and exploration",
+                        UserSentence = "My adventure to Japan was incredible and full of surprises.",
+                        DifficultyLevel = 3,
+                        GrammarPattern = "Past tense narrative"
+                    })),
+                    ChatMessage.FromAssistant(JsonConvert.SerializeObject(new SentenceTestGradingResponse()
+                    {
+                        Score = 85,
+                        GrammarFeedback = "語法正確，時態使用恰當。",
+                        UsageFeedback = "單字 'adventure' 使用正確，完全符合旅遊情境。",
+                        CreativityFeedback = "句子表達生動，用詞豐富。",
+                        OverallFeedback = "整體表現優秀，句子結構完整，意思清楚。",
+                        Suggestions = ["可以考慮添加更多細節描述", "嘗試使用更多形容詞來豐富句子"]
+                    })),
+                    ChatMessage.FromUser(JsonConvert.SerializeObject(userResponse))
+                ],
+                Model = Models.Gpt_4o_mini,
+            });
+
+            var errorMessage = "Query failed, OpenAI could not generate the sentence evaluation.";
+            if (completionResult.Successful)
+            {
+                _logger.LogInformation("Generate sentence evaluation, userResponse: {userResponse}, result: {json}", JsonConvert.SerializeObject(userResponse, Formatting.Indented), JsonConvert.SerializeObject(completionResult, Formatting.Indented));
+                var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
+                if (string.IsNullOrEmpty(content))
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                SentenceTestGradingResponse? sentenceEvaluation = null;
+                try
+                {
+                    sentenceEvaluation = JsonConvert.DeserializeObject<SentenceTestGradingResponse>(content);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize the content: {content}", content);
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                if (sentenceEvaluation == null)
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
+                }
+
+                return _responseFactory.CreateOKResponse(sentenceEvaluation);
+            }
+            return _responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
+        }
+
+        /// <summary>
         /// Converts SQL ClozeTest entity to DTO to avoid circular reference issues
         /// </summary>
         private ClozeTest ConvertClozeTestToDto(Data.Models.SQL.ClozeTest sqlClozeTest)
@@ -552,6 +750,22 @@ namespace JackyAIApp.Server.Controllers
                 Word = wordText,
                 Chinese = sqlTranslationTest.Chinese,
                 English = sqlTranslationTest.English
+            };
+        }
+
+        /// <summary>
+        /// Converts SQL SentenceTest entity to DTO to avoid circular reference issues
+        /// </summary>
+        private SentenceTestResponse ConvertSentenceTestToDto(Data.Models.SQL.SentenceTest sqlSentenceTest, string wordText)
+        {
+            return new SentenceTestResponse
+            {
+                Word = wordText,
+                Prompt = sqlSentenceTest.Prompt,
+                SampleAnswer = sqlSentenceTest.SampleAnswer,
+                Context = sqlSentenceTest.Context,
+                DifficultyLevel = sqlSentenceTest.DifficultyLevel,
+                GrammarPattern = sqlSentenceTest.GrammarPattern
             };
         }
     }
