@@ -48,12 +48,46 @@ dotnet ef database update
 - **Google OAuth** authentication
 
 ### Key Features & Modules
-1. **Dictionary** (`/dictionary`) - English learning with word lookup, audio, testing, word repository
-2. **Finance** (`/finance`) - AI-generated daily financial news summaries  
-3. **Effort Planner** (`/effortPlanner`) - Task management with Jira API integration
-4. **PDF Unlocker** (`/pdf`) - Password removal utility
-5. **Exam System** - Translation and cloze tests with AI grading
-6. **Repository** - Personal word collection management
+1. **Dictionary** (`/dictionary`) - English learning with word lookup, audio, pronunciation, word repository
+   - Hunspell spell checking
+   - Bilingual definitions (English/Chinese)
+   - Synonyms, antonyms, related words
+   - Example sentences with translations
+   - Recent search history
+   - Daily word recommendations
+
+2. **Repository** (`/repository`) - Personal word collection management
+   - User personal vocabulary database
+   - Word bookmarking and organization
+   - Learning progress tracking
+   - Integration with exam system
+
+3. **Exam System** (`/exam`) - Multiple English testing modes
+   - **Cloze Test**: Fill-in-the-blank questions based on user's vocabulary
+   - **Translation Test**: Chinese-English translation practice with AI grading
+   - **Conversation Test**: AI-powered scenario-based dialogue practice
+     - Pre-defined scenario templates (restaurant, hotel, shopping, interview, etc.)
+     - Custom scenario creation
+     - Voice recording and transcription
+     - Real-time grammar correction
+     - No dependency on user vocabulary (can be used without saved words)
+   - **Sentence Formation Test**: (In development)
+
+4. **Finance** (`/finance`) - Taiwan stock market analysis and insights
+   - Daily financial news AI summaries
+   - Stock trend analysis
+   - Taiwan Stock Exchange data integration
+   - Strategic insights generation
+
+5. **Effort Planner** (`/effortPlanner`) - Task management with Jira API integration
+   - Jira API integration for task synchronization
+   - Work progress tracking
+   - Project management tools
+
+6. **PDF Unlocker** (`/pdf`) - PDF processing utilities
+   - Password removal from protected PDFs
+   - Batch PDF processing
+   - File compression features
 
 ## Code Organization Patterns
 
@@ -82,8 +116,13 @@ JackyAIApp.Server/
 ### Database Architecture
 - **User-centric design** with Google OAuth IDs as primary keys
 - **Many-to-many relationships**: Users ↔ Words via UserWord junction table
-- **Feature-specific entities**: JiraConfig per user, WordMeaning with nested Definitions/Examples
-- **Test entities**: ClozeTest, TranslationTest with user associations
+- **Core entities**:
+  - **User**: Basic info, credit balance, admin privileges
+  - **Word**: Word text, KK phonetics, timestamps, validity flags
+  - **WordMeaning**: Part of speech, definitions, examples, synonyms/antonyms
+  - **UserWord**: User-word many-to-many relationship
+  - **JiraConfig**: Per-user Jira configuration settings
+- **Test entities**: ClozeTest, TranslationTest, ClozeTestOption with user associations
 
 ### API Communication Pattern
 - **RTK Query slices** for each feature domain
@@ -111,9 +150,11 @@ JackyAIApp.Server/
 - **Feature-specific prompts**: ClozeSystem.txt, TranslationSystem.txt, etc.
 
 ### AI Service Integration
-- **OpenAI client** configured in dependency injection
+- **OpenAI client** configured in dependency injection using Betalgo.Ranul.OpenAI
+- **Models used**: GPT-4o-mini for conversations, Whisper for audio transcription
 - **Rate limiting and error handling** for AI service calls
 - **Response validation** before returning to frontend
+- **Conversation features**: Real-time dialogue, grammar correction, scenario-based practice
 
 ## Development Workflow
 
@@ -136,24 +177,51 @@ JackyAIApp.Server/
 
 ## Important Notes
 
+### Recent Updates & Features
+- **Conversation Test Enhancement**: 
+  - Added scenario-based dialogue system with pre-defined templates
+  - Supports custom scenario creation
+  - Removed dependency on user vocabulary words
+  - Integrated voice recording with Whisper transcription
+  - Real-time grammar correction and feedback
+- **UI/UX Improvements**:
+  - Redesigned exam selection interface with flexible button layout
+  - Added floating back button for better navigation
+  - Enhanced responsive design across all components
+- **API Architecture Updates**:
+  - Refactored conversation API to accept scenarios and roles directly
+  - Updated prompt templates for better AI responses
+  - Improved error handling and validation
+
 ### Security Considerations
 - **Authentication**: Google OAuth only, no local user registration
 - **Secrets**: Never commit API keys - use Azure Key Vault
 - **PDF Processing**: Sanitize user inputs for PDF operations
 - **HTTPS**: Enforced in all environments
+- **Input Validation**: Comprehensive validation on all API endpoints
 
 ### Database Migration Status
 - **Recently migrated** from Azure Cosmos DB to SQL Server
 - **Migration controller** available for data transitions
 - **Dual context support** during migration period (AzureCosmosDBContext + AzureSQLDBContext)
+- **Entity Framework**: Full Code First approach with migrations
 
 ### Testing Status
 - **Current**: No test framework configured (E2E directory exists but empty)
 - **CI/CD**: Includes `dotnet test` step but no actual tests
 - **Recommendation**: Implement unit tests for Services/ and integration tests for Controllers/
+- **Manual Testing**: Comprehensive manual testing of all features during development
+
+### Performance & Optimization
+- **Caching**: RTK Query automatic caching for API responses
+- **Lazy Loading**: Route-based code splitting with React Router
+- **Bundle Optimization**: Vite build optimization for production
+- **Database Indexing**: Proper indexes on frequently queried fields
 
 ### Common Troubleshooting
 - **HTTPS certificates**: Auto-generated for local development
 - **SPA proxy**: Configured for React dev server to backend API
 - **Entity Framework**: Use `dotnet ef` commands from JackyAIApp.Server directory
 - **NPM issues**: Delete node_modules and package-lock.json, then `npm install`
+- **Azure Key Vault**: Ensure proper authentication for local development
+- **CORS Issues**: Configured for development proxy, check production settings
