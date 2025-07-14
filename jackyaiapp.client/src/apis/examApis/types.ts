@@ -1,5 +1,7 @@
 export interface ConversationStartRequest {
-  userVocabularyWords: string[];
+  scenario: string;
+  userRole: string;
+  aiRole: string;
   difficultyLevel: number;
 }
 

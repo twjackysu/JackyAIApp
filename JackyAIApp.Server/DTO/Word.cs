@@ -181,7 +181,9 @@ namespace JackyAIApp.Server.DTO
 
     public class ConversationStartRequest
     {
-        public required List<string> UserVocabularyWords { get; set; }
+        public required string Scenario { get; set; }
+        public required string UserRole { get; set; }
+        public required string AiRole { get; set; }
         public int DifficultyLevel { get; set; } = 3;
     }
 

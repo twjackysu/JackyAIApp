@@ -364,43 +364,22 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
             }
 
-            if (request == null || request.UserVocabularyWords == null || request.UserVocabularyWords.Count == 0)
+            if (request == null || string.IsNullOrEmpty(request.Scenario) || string.IsNullOrEmpty(request.UserRole) || string.IsNullOrEmpty(request.AiRole))
             {
-                // Get user's vocabulary words if not provided
-                var userWords = await _DBContext.UserWords
-                    .Include(uw => uw.Word)
-                    .Where(uw => uw.UserId == userId)
-                    .Select(uw => uw.Word.WordText)
-                    .ToListAsync();
-
-                if (userWords.Count == 0)
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.");
-                }
-
-                request = new ConversationStartRequest
-                {
-                    UserVocabularyWords = userWords,
-                    DifficultyLevel = request?.DifficultyLevel ?? 3
-                };
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Scenario, UserRole, and AiRole are required.");
             }
 
             string systemChatMessage = System.IO.File.ReadAllText("Prompt/Exam/ConversationStartSystem.txt");
-            
-            // Add randomness to avoid repetitive scenarios
-            var random = new Random();
-            var randomSeed = random.Next(1000, 9999);
-            var enhancedSystemMessage = systemChatMessage + $"\n\nIMPORTANT: Use this random seed for variety: {randomSeed}. Ensure each scenario is different from typical reunion or event themes. Focus on practical, everyday situations that would genuinely help English learners.";
             
             var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
             {
                 Messages =
                 [
-                    ChatMessage.FromSystem(enhancedSystemMessage),
+                    ChatMessage.FromSystem(systemChatMessage),
                     ChatMessage.FromUser(JsonConvert.SerializeObject(request))
                 ],
                 Model = Models.Gpt_4o_mini,
-                Temperature = 0.8f, // Increase creativity
+                Temperature = 0.8f, // Increase creativity for varied responses
             });
 
             var errorMessage = "Query failed, OpenAI could not generate the conversation scenario.";

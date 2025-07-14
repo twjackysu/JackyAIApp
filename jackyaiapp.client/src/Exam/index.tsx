@@ -37,9 +37,12 @@ function Exam() {
   // Check if we're on a specific test page
   const isOnTestPage = location.pathname !== '/exam' && location.pathname !== '/exam/';
     
+  // Check if we're on conversation test page
+  const isOnConversationTest = location.pathname.includes('/conversation');
+  
   return (
     <Box sx={{ p: 2, position: 'relative' }}>
-      {isRepositoryNoWord ? (
+      {isRepositoryNoWord && !isOnConversationTest ? (
         <RepositoryNoWordAlert />
       ) : (
         <>
@@ -67,98 +70,66 @@ function Exam() {
             // Test selection buttons when on main exam page
             <Box
               sx={{
-                position: 'relative',
                 mb: 3,
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  width: '20px',
-                  background: `linear-gradient(to left, ${theme.palette.background.default}, transparent)`,
-                  zIndex: 1,
-                  pointerEvents: 'none',
-                },
-                '&::after': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  bottom: 0,
-                  width: '20px',
-                  background: `linear-gradient(to right, ${theme.palette.background.default}, transparent)`,
-                  zIndex: 1,
-                  pointerEvents: 'none',
-                },
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 2,
+                justifyContent: 'center',
+                px: 2,
               }}
             >
-              <Box
-                sx={{
-                  display: 'flex',
-                  gap: 2,
-                  overflowX: 'auto',
-                  pb: 1,
-                  px: 2,
-                  scrollbarWidth: 'thin',
-                  '&::-webkit-scrollbar': {
-                    height: '6px',
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    backgroundColor: alpha(theme.palette.action.hover, 0.1),
-                    borderRadius: '3px',
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    backgroundColor: alpha(theme.palette.action.active, 0.3),
-                    borderRadius: '3px',
-                    '&:hover': {
-                      backgroundColor: alpha(theme.palette.action.active, 0.5),
-                    },
-                  },
-                }}
+              <Button 
+                component={Link} 
+                to="cloze" 
+                variant="outlined" 
+                sx={styles.button}
+                disabled={isRepositoryNoWord}
               >
-                <Button component={Link} to="cloze" variant="outlined" sx={styles.button}>
-                  克漏字測驗 (Cloze Test)
-                </Button>
-                <Button
-                  component={Link}
-                  to="translation"
-                  variant="outlined"
-                  color="secondary"
-                  sx={styles.button}
-                >
-                  翻譯測驗 (Translation Test)
-                </Button>
-                <Button
-                  component={Link}
-                  to="conversation"
-                  variant="outlined"
-                  color="success"
-                  sx={styles.button}
-                >
-                  情境對話測驗 (Conversation Test)
-                </Button>
-                <Button
-                  component={Link}
-                  to="sentenceTest"
-                  variant="outlined"
-                  sx={{
-                    ...styles.button,
-                    color: orange[500],
-                    borderColor: orange[500],
-                    ':hover': { borderColor: orange[100] },
-                  }}
-                >
-                  造句測驗 (Sentence Formation Test)
-                </Button>
-              </Box>
+                克漏字測驗 (Cloze Test)
+              </Button>
+              <Button
+                component={Link}
+                to="translation"
+                variant="outlined"
+                color="secondary"
+                sx={styles.button}
+                disabled={isRepositoryNoWord}
+              >
+                翻譯測驗 (Translation Test)
+              </Button>
+              <Button
+                component={Link}
+                to="conversation"
+                variant="outlined"
+                color="success"
+                sx={styles.button}
+              >
+                情境對話測驗 (Conversation Test)
+              </Button>
+              <Button
+                component={Link}
+                to="sentenceTest"
+                variant="outlined"
+                sx={{
+                  ...styles.button,
+                  color: orange[500],
+                  borderColor: orange[500],
+                  ':hover': { borderColor: orange[100] },
+                }}
+                disabled={isRepositoryNoWord}
+              >
+                造句測驗 (Sentence Formation Test)
+              </Button>
             </Box>
           )}
+          {isRepositoryNoWord && !isOnConversationTest && (
+            <RepositoryNoWordAlert />
+          )}
           <Routes>
-            <Route path="cloze" element={<ClozeTestCard />} />
-            <Route path="translation" element={<TranslationTestCard />} />
+            <Route path="cloze" element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <ClozeTestCard />} />
+            <Route path="translation" element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <TranslationTestCard />} />
             <Route path="conversation" element={<ConversationTestCard />} />
-            <Route path="sentenceTest" element={<div>造句測驗還沒做，請選擇其他類型...</div>} />
+            <Route path="sentenceTest" element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <div>造句測驗還沒做，請選擇其他類型...</div>} />
             <Route path="/" element={
               <Box sx={{ 
                 textAlign: 'center', 

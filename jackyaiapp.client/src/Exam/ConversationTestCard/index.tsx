@@ -15,7 +15,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 // Sub-components
-import DifficultySelector from './components/DifficultySelector';
+import ScenarioSelector from './components/ScenarioSelector';
 import ConversationHeader from './components/ConversationHeader';
 import ChatMessages from './components/ChatMessages';
 import MessageInput from './components/MessageInput';
@@ -50,10 +50,12 @@ function ConversationTestCard() {
     onTranscriptionComplete: (text) => setInput(text),
   });
 
-  const handleStartConversation = async (difficultyLevel: number) => {
+  const handleStartConversation = async (scenario: string, userRole: string, aiRole: string, difficultyLevel: number) => {
     try {
       const response = await startConversation({
-        userVocabularyWords: [], // Backend will fetch user's words
+        scenario,
+        userRole,
+        aiRole,
         difficultyLevel,
       }).unwrap();
 
@@ -138,18 +140,10 @@ function ConversationTestCard() {
 
   if (!conversationState) {
     return (
-      <Box sx={{ maxWidth: 600, margin: 'auto', padding: 2, textAlign: 'center' }}>
-        <Typography variant="h5" gutterBottom>
-          情境對話測驗
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          透過實際對話場景練習英文，AI會根據你的單字庫生成合適的情境，並在對話中提供即時的語法建議。
-        </Typography>
-        <DifficultySelector 
-          onSelectDifficulty={handleStartConversation}
-          disabled={isStarting}
-        />
-      </Box>
+      <ScenarioSelector 
+        onSelectScenario={handleStartConversation}
+        disabled={isStarting}
+      />
     );
   }
 
