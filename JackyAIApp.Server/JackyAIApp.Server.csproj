@@ -70,6 +70,12 @@
     <None Update="Prompt\Exam\ConversationStartSystem.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Prompt\Exam\SentenceSystem.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Prompt\Exam\SentenceEvaluationSystem.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Prompt\Finance\DailyImportantInfoSystem.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
