@@ -42,10 +42,11 @@ dotnet ef database update
 
 ### Backend Stack
 - **.NET 8 Web API** with Swagger documentation
-- **Entity Framework Core** with SQL Server (migrated from Cosmos DB)
+- **Entity Framework Core** with Azure SQL Database
 - **Azure integrations**: Key Vault for secrets, App Service hosting
-- **OpenAI integration** via Betalgo.Ranul.OpenAI package
+- **OpenAI integration** via Betalgo.Ranul.OpenAI package (v9.0.3)
 - **Google OAuth** authentication
+- **External API integrations**: Taiwan Stock Exchange (TWSE) Open API, Jira API
 
 ### Key Features & Modules
 1. **Dictionary** (`/dictionary`) - English learning with word lookup, audio, pronunciation, word repository
@@ -55,6 +56,7 @@ dotnet ef database update
    - Example sentences with translations
    - Recent search history
    - Daily word recommendations
+   - Audio pronunciation support
 
 2. **Repository** (`/repository`) - Personal word collection management
    - User personal vocabulary database
@@ -74,10 +76,11 @@ dotnet ef database update
    - **Sentence Formation Test**: (In development)
 
 4. **Finance** (`/finance`) - Taiwan stock market analysis and insights
-   - Daily financial news AI summaries
-   - Stock trend analysis
-   - Taiwan Stock Exchange data integration
-   - Strategic insights generation
+   - Daily financial news AI summaries from Taiwan Stock Exchange
+   - Individual stock trend analysis with short/medium/long-term predictions
+   - Taiwan Stock Exchange (TWSE) Open API integration
+   - Strategic insights generation with bullish/bearish recommendations
+   - AI-powered stock data analysis using OpenAI GPT-4o-mini
 
 5. **Effort Planner** (`/effortPlanner`) - Task management with Jira API integration
    - Jira API integration for task synchronization
@@ -151,9 +154,15 @@ JackyAIApp.Server/
 
 ### AI Service Integration
 - **OpenAI client** configured in dependency injection using Betalgo.Ranul.OpenAI
-- **Models used**: GPT-4o-mini for conversations, Whisper for audio transcription
+- **Models used**: 
+  - GPT-4o-mini for conversations and text analysis
+  - Whisper for audio transcription (STT)
+  - TTS-1 and TTS-1-HD for text-to-speech synthesis
 - **Rate limiting and error handling** for AI service calls
 - **Response validation** before returning to frontend
+- **Audio features**: 
+  - Voice recording and transcription for conversation practice
+  - Text-to-speech with multiple voice options and speeds
 - **Conversation features**: Real-time dialogue, grammar correction, scenario-based practice
 
 ## Development Workflow
@@ -178,12 +187,20 @@ JackyAIApp.Server/
 ## Important Notes
 
 ### Recent Updates & Features
+- **Finance Module Enhancement**:
+  - Added individual stock analysis with AI-powered trend predictions
+  - Integrated Taiwan Stock Exchange (TWSE) Open API
+  - Three-timeframe analysis: short-term (1-3 months), medium-term (3-12 months), long-term (1-3 years)
+  - Investment recommendations with confidence levels
 - **Conversation Test Enhancement**: 
   - Added scenario-based dialogue system with pre-defined templates
   - Supports custom scenario creation
   - Removed dependency on user vocabulary words
   - Integrated voice recording with Whisper transcription
   - Real-time grammar correction and feedback
+- **Audio System Updates**:
+  - Enhanced TTS integration with multiple voice options and speeds
+  - Improved audio quality and performance
 - **UI/UX Improvements**:
   - Redesigned exam selection interface with flexible button layout
   - Added floating back button for better navigation
@@ -201,10 +218,10 @@ JackyAIApp.Server/
 - **Input Validation**: Comprehensive validation on all API endpoints
 
 ### Database Migration Status
-- **Recently migrated** from Azure Cosmos DB to SQL Server
-- **Migration controller** available for data transitions
-- **Dual context support** during migration period (AzureCosmosDBContext + AzureSQLDBContext)
+- **Successfully migrated** from Azure Cosmos DB to SQL Server
+- **Migration completed** - now using Azure SQL Database as primary data store
 - **Entity Framework**: Full Code First approach with migrations
+- **Legacy migration controller** available for reference (migration period completed)
 
 ### Testing Status
 - **Current**: No test framework configured (E2E directory exists but empty)
