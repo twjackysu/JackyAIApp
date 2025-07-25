@@ -6,6 +6,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using DotnetSdkUtilities.Services;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -19,7 +20,8 @@ namespace JackyAIApp.Server.Controllers
         IUserService userService,
         ITWSEOpenAPIService twseApiService,
         ITWSEDataService twseDataService,
-        IFinanceAnalysisService financeAnalysisService) : ControllerBase
+        IFinanceAnalysisService financeAnalysisService,
+        IExtendedMemoryCache memoryCache) : ControllerBase
     {
         private readonly ILogger<FinanceController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         private readonly IOptionsMonitor<Settings> _settings = settings;
@@ -29,8 +31,10 @@ namespace JackyAIApp.Server.Controllers
         private readonly ITWSEOpenAPIService _twseApiService = twseApiService ?? throw new ArgumentNullException(nameof(twseApiService));
         private readonly ITWSEDataService _twseDataService = twseDataService ?? throw new ArgumentNullException(nameof(twseDataService));
         private readonly IFinanceAnalysisService _financeAnalysisService = financeAnalysisService ?? throw new ArgumentNullException(nameof(financeAnalysisService));
+        private readonly IExtendedMemoryCache _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
+        private const int CACHE_HOURS = 12; // Cache duration in hours
 
         /// <summary>
         /// Gets the daily important financial information from Taiwan Stock Exchange.
@@ -40,11 +44,23 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("dailyimportantinfo")]
         public async Task<IActionResult> GetDailyImportantInfo(CancellationToken cancellationToken = default)
         {
+            // Create cache key based on current date to ensure daily refresh
+            var currentDate = DateTime.Now.ToString("yyyyMMdd");
+            var cacheKey = $"DailyImportantInfo_{currentDate}";
+
+            // Try to get from cache first
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+            {
+                _logger.LogInformation("Returning cached daily important info for date: {date}", currentDate);
+                return _responseFactory.CreateOKResponse(cachedResult);
+            }
+
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(OPERATION_TIMEOUT_SECONDS));
             
             try
             {
+                _logger.LogInformation("Fetching new daily important info for date: {date}", currentDate);
                 // Step 1: Fetch raw material information from Taiwan Stock Exchange API with caching
                 string rawMaterialInfo = await _twseDataService.GetRawMaterialInfoWithCacheAsync(timeoutCts.Token);
                 if (string.IsNullOrEmpty(rawMaterialInfo))
@@ -76,6 +92,9 @@ namespace JackyAIApp.Server.Controllers
                     return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, "Analysis failed or timed out.");
                 }
 
+                // Cache the successful result for 4 hours
+                _memoryCache.Set(cacheKey, analysisResult, TimeSpan.FromHours(CACHE_HOURS));
+                
                 return _responseFactory.CreateOKResponse(analysisResult);
             }
             catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
