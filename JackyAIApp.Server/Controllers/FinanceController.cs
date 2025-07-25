@@ -135,6 +135,19 @@ namespace JackyAIApp.Server.Controllers
                     return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to find stock code for '{request.StockCodeOrName}'. Please verify the company name or stock code. Searched in TWSE company database but found no matches.");
                 }
 
+                // Create cache key based on resolved stock code and current date
+                var currentDate = DateTime.Now.ToString("yyyyMMdd");
+                var cacheKey = $"StockAnalysis_{resolvedStockCode}_{currentDate}";
+
+                // Try to get from cache first
+                if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+                {
+                    _logger.LogInformation("Returning cached stock analysis for stock: {stockCode}, date: {date}", resolvedStockCode, currentDate);
+                    return _responseFactory.CreateOKResponse(cachedResult);
+                }
+
+                _logger.LogInformation("Fetching new stock analysis for stock: {stockCode}, date: {date}", resolvedStockCode, currentDate);
+                
                 // Call TWSE Open API service to get stock data using resolved stock code
                 var stockData = await _twseApiService.GetStockDataAsync(resolvedStockCode, timeoutCts.Token);
                 if (string.IsNullOrEmpty(stockData))
@@ -149,6 +162,9 @@ namespace JackyAIApp.Server.Controllers
                     var detailedError = $"Failed to analyze stock data for '{resolvedStockCode}'. Details: {errorDetail ?? "Unknown error"}";
                     return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, detailedError);
                 }
+
+                // Cache the successful result for the same duration as daily important info
+                _memoryCache.Set(cacheKey, analysis, TimeSpan.FromHours(CACHE_HOURS));
 
                 return _responseFactory.CreateOKResponse(analysis);
             }
