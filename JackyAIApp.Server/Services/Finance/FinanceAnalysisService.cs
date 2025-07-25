@@ -140,7 +140,7 @@ namespace JackyAIApp.Server.Services.Finance
                                     Role = "user",
                                     Content = new MessageContentOneOfType(new List<MessageContent>
                                     {
-                                        MessageContent.TextContent("From today's major news about listed companies, select five to ten companies with the greatest growth potential and one to five companies that may decline, and explain the reasons. So you need to list at least 6 companies (5 growing and 1 declining) and at most 15 companies (10 growing and 5 declining).")
+                                        MessageContent.TextContent("From today's major news about listed companies, select five to ten companies with the greatest growth potential and one to five companies that may decline, and explain the reasons. So you need to list at least 6 companies (5 growing and 1 declining) and at most 15 companies (10 growing and 5 declining). IMPORTANT: The attached file contains dates in Taiwan ROC (Republic of China) calendar format where the year is represented as ROC year + 1911 = Western year. For example, 1140725 means ROC year 114 (which is 2025 in Western calendar) + month 07 + day 25. Please convert all dates to Western calendar format (YYYY-MM-DD) in your JSON response.")
                                     }),
                                     Attachments = new List<Attachment>
                                     {
