@@ -3,6 +3,7 @@ using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.DTO;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace JackyAIApp.Server.Services.Finance
 {
@@ -15,6 +16,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly ILogger<FinanceAnalysisService> _logger;
         private const string ASSISTANT_ID = "asst_5vCsMPtNXvVfsbptyZakpr2m";
         private const int MAX_RETRY_ATTEMPTS = 3;
+        private const int MAX_ITEMS_PER_CHUNK = 30; // Adjustable chunk size
 
         public FinanceAnalysisService(
             IOpenAIService openAIService,
@@ -262,6 +264,141 @@ namespace JackyAIApp.Server.Services.Finance
                 _logger.LogError(ex, "Failed to process analysis result");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Analyzes Taiwan stock news data using Chat API with chunked processing.
+        /// </summary>
+        public async Task<List<StrategicInsight>?> AnalyzeWithChatAPIAsync(string rawData, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Split data into safe chunks
+                var chunks = SplitJsonArraySafely(rawData, MAX_ITEMS_PER_CHUNK);
+                var allInsights = new List<StrategicInsight>();
+
+                var systemPrompt = await System.IO.File.ReadAllTextAsync("Prompt/Finance/DailyImportantInfoSystem.txt", cancellationToken);
+
+                // Process each chunk
+                foreach (var chunk in chunks)
+                {
+                    var chunkInsights = await ProcessChunkWithRetry(systemPrompt, chunk, cancellationToken);
+                    if (chunkInsights != null)
+                    {
+                        allInsights.AddRange(chunkInsights);
+                    }
+                }
+
+                return allInsights.Count > 0 ? allInsights : null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to analyze data with Chat API");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Safely splits JSON array into chunks without breaking JSON structure.
+        /// </summary>
+        private List<string> SplitJsonArraySafely(string jsonArray, int maxItemsPerChunk)
+        {
+            try
+            {
+                var items = JsonConvert.DeserializeObject<JArray>(jsonArray);
+                var batches = new List<string>();
+
+                if (items == null || items.Count == 0)
+                {
+                    return batches;
+                }
+
+                for (int i = 0; i < items.Count; i += maxItemsPerChunk)
+                {
+                    var batch = items.Skip(i).Take(maxItemsPerChunk);
+                    var batchJson = JsonConvert.SerializeObject(batch, Formatting.None);
+                    batches.Add(batchJson);
+                }
+
+                _logger.LogInformation("Split {totalItems} items into {batchCount} chunks", items.Count, batches.Count);
+                return batches;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to split JSON array safely");
+                return new List<string> { jsonArray }; // Fallback to original data
+            }
+        }
+
+        /// <summary>
+        /// Processes a single chunk with retry mechanism.
+        /// </summary>
+        private async Task<List<StrategicInsight>?> ProcessChunkWithRetry(string systemPrompt, string chunkData, CancellationToken cancellationToken)
+        {
+            for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++)
+            {
+                try
+                {
+                    var completionRequest = new ChatCompletionCreateRequest
+                    {
+                        Messages = new List<ChatMessage>
+                        {
+                            ChatMessage.FromSystem(systemPrompt),
+                            ChatMessage.FromUser($"請分析以下台股重大訊息資料：\n\n{chunkData}")
+                        },
+                        Model = Models.Gpt_4o_mini,
+                        Temperature = 0.3f,
+                        MaxTokens = 4000
+                    };
+
+                    var completionResponse = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
+
+                    if (!completionResponse.Successful)
+                    {
+                        _logger.LogWarning("Chat API failed (Attempt {attempt}/{max}): {error}", 
+                            attempt, MAX_RETRY_ATTEMPTS, completionResponse.Error?.Message);
+                        if (attempt == MAX_RETRY_ATTEMPTS) return null;
+                        await Task.Delay(1000 * attempt, cancellationToken);
+                        continue;
+                    }
+
+                    var content = completionResponse.Choices?.FirstOrDefault()?.Message?.Content ?? "";
+                    content = content.Replace("```json", "").Replace("```", "").Trim();
+
+                    if (string.IsNullOrEmpty(content))
+                    {
+                        _logger.LogWarning("Chat API returned empty content (Attempt {attempt}/{max})", attempt, MAX_RETRY_ATTEMPTS);
+                        if (attempt == MAX_RETRY_ATTEMPTS) return null;
+                        continue;
+                    }
+
+                    // Handle both direct array format and wrapped object format
+                    try
+                    {
+                        // Try direct array format first
+                        return JsonConvert.DeserializeObject<List<StrategicInsight>>(content);
+                    }
+                    catch (JsonException)
+                    {
+                        // If that fails, try wrapped object format
+                        var wrappedResult = JsonConvert.DeserializeObject<dynamic>(content);
+                        if (wrappedResult?.result != null)
+                        {
+                            var resultArray = wrappedResult.result.ToString();
+                            return JsonConvert.DeserializeObject<List<StrategicInsight>>(resultArray);
+                        }
+                        throw;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Chunk processing attempt {attempt} failed", attempt);
+                    if (attempt == MAX_RETRY_ATTEMPTS) return null;
+                    await Task.Delay(1000 * attempt, cancellationToken);
+                }
+            }
+
+            return null;
         }
     }
 }

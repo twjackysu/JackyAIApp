@@ -25,6 +25,14 @@ namespace JackyAIApp.Server.Services.Finance
         Task<List<StrategicInsight>?> RunFinancialAnalysisAsync(string fileId, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Analyzes Taiwan stock news data using Chat API with chunked processing.
+        /// </summary>
+        /// <param name="rawData">Raw JSON data from Taiwan Stock Exchange API.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Analysis results or null if failed.</returns>
+        Task<List<StrategicInsight>?> AnalyzeWithChatAPIAsync(string rawData, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Processes the analysis result from OpenAI messages.
         /// </summary>
         /// <param name="threadId">Thread ID to retrieve messages from.</param>

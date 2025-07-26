@@ -68,25 +68,8 @@ namespace JackyAIApp.Server.Controllers
                     return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to fetch data from Taiwan Stock Exchange API.");
                 }
 
-                var date = rawMaterialInfo.Substring(11, 7);
-                var fileName = $"{date}.json";
-
-                // Step 2: Get or upload file with optimized file management
-                string fileId = await _twseDataService.GetOrUploadFileWithRetryAsync(rawMaterialInfo, fileName, timeoutCts.Token);
-                if (string.IsNullOrEmpty(fileId))
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to manage file in OpenAI.");
-                }
-
-                // Step 3: Ensure vector store is ready with optimized operations
-                bool vectorStoreReady = await _twseDataService.EnsureVectorStoreReadyAsync(fileId, timeoutCts.Token);
-                if (!vectorStoreReady)
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to prepare vector store.");
-                }
-
-                // Step 4: Create thread and run analysis with timeout
-                var analysisResult = await _financeAnalysisService.RunFinancialAnalysisAsync(fileId, timeoutCts.Token);
+                // Step 2: Run analysis using Chat API with chunked processing (more cost-effective)
+                var analysisResult = await _financeAnalysisService.AnalyzeWithChatAPIAsync(rawMaterialInfo, timeoutCts.Token);
                 if (analysisResult == null)
                 {
                     return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, "Analysis failed or timed out.");
