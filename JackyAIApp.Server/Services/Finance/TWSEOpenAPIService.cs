@@ -496,8 +496,8 @@ namespace JackyAIApp.Server.Services.Finance
                 // Get company list and try to find exact or partial matches
                 var companies = await GetCompanyListAsync(cancellationToken);
                 
-                // Try exact company name match first
-                var exactMatch = FindExactCompanyMatch(companies, userInput);
+                // Try exact company name match first with LLM assistance
+                var exactMatch = await FindExactCompanyMatchAsync(companies, userInput, cancellationToken);
                 if (!string.IsNullOrEmpty(exactMatch))
                 {
                     return exactMatch;
@@ -632,25 +632,80 @@ namespace JackyAIApp.Server.Services.Finance
         }
 
         /// <summary>
-        /// Finds exact company name match.
+        /// Uses LLM to find the best matching company from the full company list.
         /// </summary>
-        private string FindExactCompanyMatch(List<CompanyInfo> companies, string userInput)
+        private async Task<string> FindExactCompanyMatchAsync(List<CompanyInfo> companies, string userInput, CancellationToken cancellationToken)
         {
-            // Try exact match (case insensitive)
-            var exactMatch = companies.FirstOrDefault(c => 
-                string.Equals(c.Name, userInput, StringComparison.OrdinalIgnoreCase));
-
-            if (exactMatch != null)
+            try
             {
-                return exactMatch.Code;
+                // First try simple exact match for performance
+                var exactMatch = companies.FirstOrDefault(c => 
+                    string.Equals(c.Name, userInput, StringComparison.OrdinalIgnoreCase));
+
+                if (exactMatch != null)
+                {
+                    return exactMatch.Code;
+                }
+
+                // If no exact match, use LLM to find the best match
+                var companyList = companies
+                    .Take(100) // Limit to avoid token overflow
+                    .Select(c => $"{c.Code}:{c.Name}")
+                    .ToList();
+
+                var systemPrompt = @"你是台灣證券交易所的股票代號查詢助手。
+給定用戶輸入和公司列表，請找出最匹配的公司代號。
+
+規則：
+1. 只返回4位數字的股票代號 (例如: 2330)
+2. 如果找不到匹配，返回 'NONE'
+3. 優先考慮知名公司和常見簡稱
+4. 支援部分匹配和簡稱
+
+例子：
+- 用戶輸入 '台積電' 或 '台積' → 找到 '台灣積體電路製造股份有限公司' → 返回 '2330'
+- 用戶輸入 '鴻海' → 找到 '鴻海精密工業股份有限公司' → 返回 '2317'
+- 用戶輸入 '聯發科' → 找到對應公司 → 返回代號";
+
+                var userPrompt = $@"用戶輸入: '{userInput}'
+
+公司列表:
+{string.Join("\n", companyList)}
+
+請返回最匹配的股票代號:";
+
+                var completionRequest = new ChatCompletionCreateRequest
+                {
+                    Messages = new List<ChatMessage>
+                    {
+                        ChatMessage.FromSystem(systemPrompt),
+                        ChatMessage.FromUser(userPrompt)
+                    },
+                    Model = Models.Gpt_4o_mini,
+                    Temperature = 0.1f,
+                    MaxTokens = 10
+                };
+
+                var response = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
+                
+                if (response.Successful)
+                {
+                    var result = response.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
+                    
+                    // Validate that the result is a 4-digit stock code
+                    if (IsValidStockCode(result))
+                    {
+                        _logger.LogInformation("LLM resolved '{input}' to stock code '{code}'", userInput, result);
+                        return result;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "LLM company matching failed for input '{userInput}'", userInput);
             }
 
-            // Try partial match (contains)
-            var partialMatch = companies.FirstOrDefault(c => 
-                c.Name.Contains(userInput, StringComparison.OrdinalIgnoreCase) ||
-                userInput.Contains(c.Name, StringComparison.OrdinalIgnoreCase));
-
-            return partialMatch?.Code ?? string.Empty;
+            return string.Empty;
         }
 
         /// <summary>
