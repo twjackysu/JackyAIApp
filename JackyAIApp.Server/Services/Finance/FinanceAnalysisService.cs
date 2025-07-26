@@ -239,7 +239,23 @@ namespace JackyAIApp.Server.Services.Finance
                     return null;
                 }
 
-                return JsonConvert.DeserializeObject<List<StrategicInsight>>(content);
+                // Handle both direct array format and wrapped object format
+                try
+                {
+                    // Try direct array format first
+                    return JsonConvert.DeserializeObject<List<StrategicInsight>>(content);
+                }
+                catch (JsonException)
+                {
+                    // If that fails, try wrapped object format
+                    var wrappedResult = JsonConvert.DeserializeObject<dynamic>(content);
+                    if (wrappedResult?.result != null)
+                    {
+                        var resultArray = wrappedResult.result.ToString();
+                        return JsonConvert.DeserializeObject<List<StrategicInsight>>(resultArray);
+                    }
+                    throw;
+                }
             }
             catch (Exception ex)
             {
