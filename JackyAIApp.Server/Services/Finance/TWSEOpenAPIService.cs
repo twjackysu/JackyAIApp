@@ -1,9 +1,10 @@
-using System.Text;
-using System.Text.Json;
 using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
+using JackyAIApp.Server.DTO;
 using Microsoft.Extensions.Caching.Memory;
+using System.Text;
+using System.Text.Json;
 
 namespace JackyAIApp.Server.Services.Finance
 {
@@ -681,7 +682,7 @@ namespace JackyAIApp.Server.Services.Finance
                         ChatMessage.FromSystem(systemPrompt),
                         ChatMessage.FromUser(userPrompt)
                     },
-                    Model = Models.Gpt_4o_mini,
+                    Model = NewModels.GPT_5_NANO,
                     Temperature = 0.1f,
                     MaxTokens = 10
                 };
@@ -758,7 +759,7 @@ Return the best matching stock code:";
                         ChatMessage.FromSystem(systemPrompt),
                         ChatMessage.FromUser(userPrompt)
                     },
-                    Model = Models.Gpt_4o_mini,
+                    Model = NewModels.GPT_5_NANO,
                     Temperature = 0.1f,
                     MaxTokens = 50
                 };

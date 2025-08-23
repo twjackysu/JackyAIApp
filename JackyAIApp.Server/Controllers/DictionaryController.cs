@@ -154,7 +154,7 @@ namespace JackyAIApp.Server.Controllers
                     })),
                     ChatMessage.FromUser(lowerWord)
                 ],
-                Model = Models.Gpt_4o_mini,
+                Model = NewModels.GPT_5_NANO,
             });
             var errorMessage = "Query failed, OpenAI could not generate the corresponding word.";
             if (completionResult.Successful)

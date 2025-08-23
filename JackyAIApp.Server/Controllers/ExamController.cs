@@ -89,7 +89,7 @@ namespace JackyAIApp.Server.Controllers
                     })),
                     ChatMessage.FromUser(word.WordText)
                 ],
-                Model = Models.Gpt_4o_mini,
+                Model = NewModels.GPT_5_NANO,
             });
             var errorMessage = "Query failed, OpenAI could not generate the corresponding cloze test.";
             if (completionResult.Successful)
@@ -229,7 +229,7 @@ namespace JackyAIApp.Server.Controllers
                     })),
                     ChatMessage.FromUser(word.WordText)
                 ],
-                Model = Models.Gpt_4o_mini,
+                Model = NewModels.GPT_5_NANO,
             });
             var errorMessage = "Query failed, OpenAI could not generate the corresponding translation test.";
             if (completionResult.Successful)
@@ -320,7 +320,7 @@ namespace JackyAIApp.Server.Controllers
                     })),
                     ChatMessage.FromUser(JsonConvert.SerializeObject(userResponse))
                 ],
-                Model = Models.Gpt_4o_mini,
+                Model = NewModels.GPT_5_NANO,
             });
             var errorMessage = "Query failed, OpenAI could not generate the corresponding quality grading.";
             if (completionResult.Successful)
@@ -378,7 +378,7 @@ namespace JackyAIApp.Server.Controllers
                     ChatMessage.FromSystem(systemChatMessage),
                     ChatMessage.FromUser(JsonConvert.SerializeObject(request))
                 ],
-                Model = Models.Gpt_4o_mini,
+                Model = NewModels.GPT_5_NANO,
                 Temperature = 0.8f, // Increase creativity for varied responses
             });
 
@@ -440,7 +440,7 @@ namespace JackyAIApp.Server.Controllers
                     ChatMessage.FromSystem(systemChatMessage),
                     ChatMessage.FromUser(JsonConvert.SerializeObject(request))
                 ],
-                Model = Models.Gpt_4o_mini,
+                Model = NewModels.GPT_5_NANO,
             });
 
             var errorMessage = "Query failed, OpenAI could not generate the conversation response.";
@@ -589,7 +589,7 @@ namespace JackyAIApp.Server.Controllers
                     })),
                     ChatMessage.FromUser(word.WordText)
                 ],
-                Model = Models.Gpt_4o_mini,
+                Model = NewModels.GPT_5_NANO,
             });
 
             var errorMessage = "Query failed, OpenAI could not generate the corresponding sentence test.";
@@ -693,7 +693,7 @@ namespace JackyAIApp.Server.Controllers
                     })),
                     ChatMessage.FromUser(JsonConvert.SerializeObject(userResponse))
                 ],
-                Model = Models.Gpt_4o_mini,
+                Model = NewModels.GPT_5_NANO,
             });
 
             var errorMessage = "Query failed, OpenAI could not generate the sentence evaluation.";
