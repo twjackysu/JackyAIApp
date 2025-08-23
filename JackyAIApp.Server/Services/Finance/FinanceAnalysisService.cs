@@ -346,7 +346,7 @@ namespace JackyAIApp.Server.Services.Finance
                             ChatMessage.FromSystem(systemPrompt),
                             ChatMessage.FromUser($"請分析以下台股重大訊息資料：\n\n{chunkData}")
                         },
-                        Model = NewModels.GPT_5_NANO,
+                        Model = Models.Gpt_4o_mini,
                         Temperature = 0.3f,
                         MaxTokens = 4000
                     };

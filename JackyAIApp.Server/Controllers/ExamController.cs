@@ -378,7 +378,7 @@ namespace JackyAIApp.Server.Controllers
                     ChatMessage.FromSystem(systemChatMessage),
                     ChatMessage.FromUser(JsonConvert.SerializeObject(request))
                 ],
-                Model = NewModels.GPT_5_NANO,
+                Model = Models.Gpt_4o_mini,
                 Temperature = 0.8f, // Increase creativity for varied responses
             });
 
