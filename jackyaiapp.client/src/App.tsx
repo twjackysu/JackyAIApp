@@ -19,6 +19,7 @@ import RequireAuth from './auth/RequireAuth';
 import useRouteMatch from './hooks/useRouteMatch';
 import Finance from './Finance';
 import UserProfileMenu from './components/UserProfileMenu';
+import FloatingChatbot from './components/FloatingChatbot';
 import { useState, useEffect } from 'react';
 import { apps, FINANCE, EFFORT_PLANNER, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
 
@@ -203,6 +204,11 @@ function App() {
           <Route path="/" element={<Finance />} />
         </Routes>
       </Box>
+
+      {/* 懸浮 Chatbot */}
+      <RequireAuth>
+        <FloatingChatbot />
+      </RequireAuth>
     </>
   );
 }

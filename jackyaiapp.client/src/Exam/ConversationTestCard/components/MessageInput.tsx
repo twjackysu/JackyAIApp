@@ -34,17 +34,33 @@ function MessageInput({
   };
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Stack direction="row" spacing={1} alignItems="flex-end">
+    <Paper 
+      elevation={3} 
+      sx={{ 
+        p: 2, 
+        display: 'flex', 
+        flexDirection: 'column',
+        borderRadius: 0, 
+        backgroundColor: theme.palette.background.paper 
+      }}
+    >
+      <Stack direction="row" spacing={1} alignItems="center">
         <TextField
           fullWidth
           multiline
           maxRows={3}
+          variant="outlined"
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="輸入你的回應..."
           disabled={isResponding}
+          sx={{ 
+            mr: 2, 
+            '& .MuiOutlinedInput-root': { 
+              borderRadius: 8 
+            } 
+          }}
         />
         <Tooltip
           title={

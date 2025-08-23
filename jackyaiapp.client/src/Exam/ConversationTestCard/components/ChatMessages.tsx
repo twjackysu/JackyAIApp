@@ -5,6 +5,7 @@ import PauseIcon from '@mui/icons-material/Pause';
 import { forwardRef, useEffect, useRef } from 'react';
 import { ConversationTurn } from '@/apis/examApis/types';
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
+import MarkdownMessage from '@/components/MarkdownMessage';
 
 interface ChatMessagesProps {
   messages: ConversationTurn[];
@@ -37,59 +38,105 @@ const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
     }, [messages, playMessage]);
 
     return (
-      <Paper sx={{ p: 2, mb: 2, maxHeight: 400, overflowY: 'auto' }}>
-        <Stack spacing={2}>
+      <Box 
+        sx={{ 
+          flexGrow: 1, 
+          p: 3, 
+          overflowY: 'auto', 
+          bgcolor: 'background.default', 
+          maxHeight: 400,
+          // 更精美的聊天區域 scrollbar
+          '&::-webkit-scrollbar': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: theme.palette.mode === 'dark' 
+              ? 'rgba(255, 255, 255, 0.15)'
+              : 'rgba(0, 0, 0, 0.15)',
+            borderRadius: '3px',
+            '&:hover': {
+              backgroundColor: theme.palette.mode === 'dark' 
+                ? 'rgba(255, 255, 255, 0.25)'
+                : 'rgba(0, 0, 0, 0.25)',
+            },
+          },
+        }}
+      >
+        <Stack spacing={1}>
           {messages.map((turn, index) => {
             const messageId = `${turn.speaker}-${index}`;
             const isPlaying = playingMessageId === messageId;
+            const isOwnMessage = turn.speaker === 'user';
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
             return (
               <Box
                 key={index}
                 sx={{
                   display: 'flex',
-                  justifyContent: turn.speaker === 'user' ? 'flex-end' : 'flex-start',
+                  justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
+                  mb: 2,
                 }}
               >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: turn.speaker === 'user' ? 'row-reverse' : 'row',
-                    alignItems: 'flex-start',
-                    gap: 1,
-                    maxWidth: '70%',
-                  }}
-                >
-                  <Avatar
-                    sx={{
-                      bgcolor: turn.speaker === 'user' 
-                        ? theme.palette.primary.main 
-                        : theme.palette.success.main,
-                      width: 32,
-                      height: 32,
+                {!isOwnMessage && (
+                  <Avatar 
+                    sx={{ 
+                      mr: 1,
+                      bgcolor: theme.palette.success.main,
+                      width: 40,
+                      height: 40,
                     }}
                   >
-                    {turn.speaker === 'user' ? 'U' : 'AI'}
+                    AI
                   </Avatar>
-                  <Box>
-                    <Paper
-                      sx={{
-                        p: 1.5,
-                        bgcolor: turn.speaker === 'user' 
-                          ? theme.palette.mode === 'dark' 
-                            ? 'rgba(25, 118, 210, 0.12)' 
-                            : 'rgba(25, 118, 210, 0.08)'
-                          : theme.palette.mode === 'dark' 
-                            ? 'rgba(46, 125, 50, 0.12)' 
-                            : 'rgba(46, 125, 50, 0.08)',
-                      }}
-                    >
-                      <Typography variant="body1">{turn.message}</Typography>
-                    </Paper>
-                    
-                    {/* Audio control for AI messages */}
-                    {turn.speaker === 'ai' && (
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
+                )}
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1.5,
+                    maxWidth: '70%',
+                    borderRadius: isOwnMessage ? '16px 16px 0 16px' : '16px 16px 16px 0',
+                    backgroundColor: isOwnMessage 
+                      ? theme.palette.primary.main 
+                      : theme.palette.background.paper,
+                    color: isOwnMessage 
+                      ? theme.palette.primary.contrastText 
+                      : theme.palette.text.primary,
+                    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+                  }}
+                >
+                  <Stack direction="column" spacing={0.5}>
+                    {!isOwnMessage && (
+                      <Typography 
+                        variant="caption" 
+                        fontWeight="bold" 
+                        sx={{ color: theme.palette.success.main }}
+                      >
+                        AI Assistant
+                      </Typography>
+                    )}
+                    <MarkdownMessage
+                      content={turn.message}
+                      isOwnMessage={isOwnMessage}
+                      theme={theme}
+                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          alignSelf: 'flex-end', 
+                          color: isOwnMessage 
+                            ? theme.palette.primary.contrastText 
+                            : theme.palette.text.secondary 
+                        }}
+                      >
+                        {timestamp}
+                      </Typography>
+                      {/* Audio control for AI messages */}
+                      {turn.speaker === 'ai' && (
                         <Tooltip title={isPlaying ? "停止播放" : "播放語音"}>
                           <IconButton
                             size="small"
@@ -112,29 +159,49 @@ const ChatMessages = forwardRef<HTMLDivElement, ChatMessagesProps>(
                             {isPlaying ? <PauseIcon fontSize="small" /> : <VolumeUpIcon fontSize="small" />}
                           </IconButton>
                         </Tooltip>
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
+                      )}
+                    </Box>
+                  </Stack>
+                </Paper>
+                {isOwnMessage && (
+                  <Avatar 
+                    sx={{ 
+                      ml: 1,
+                      bgcolor: theme.palette.primary.main,
+                      width: 40,
+                      height: 40,
+                    }}
+                  >
+                    U
+                  </Avatar>
+                )}
               </Box>
             );
           })}
           {isResponding && (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Avatar sx={{ bgcolor: theme.palette.success.main, width: 32, height: 32 }}>
-                  AI
-                </Avatar>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
+              <Avatar sx={{ mr: 1, bgcolor: theme.palette.success.main, width: 40, height: 40 }}>
+                AI
+              </Avatar>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 1.5,
+                  borderRadius: '16px 16px 16px 0',
+                  backgroundColor: theme.palette.background.paper,
+                  boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+                }}
+              >
                 <Typography variant="body2" color="text.secondary">
                   正在輸入...
                 </Typography>
-              </Box>
+              </Paper>
             </Box>
           )}
           {/* Scroll anchor */}
           <div ref={ref} />
         </Stack>
-      </Paper>
+      </Box>
     );
   }
 );

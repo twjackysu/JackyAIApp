@@ -9,8 +9,7 @@ import {
 } from '@/apis/examApis/types';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
+import { Box, Button, useMediaQuery, useTheme } from '@mui/material';
 import { useState } from 'react';
 
 // Sub-components
@@ -31,6 +30,9 @@ interface ConversationState {
 }
 
 function ConversationTestCard() {
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [conversationState, setConversationState] = useState<ConversationState | null>(null);
   const [input, setInput] = useState<string>('');
   const [correction, setCorrection] = useState<ConversationCorrection | null>(null);
@@ -147,7 +149,20 @@ function ConversationTestCard() {
   }
 
   return (
-    <Box sx={{ maxWidth: 700, margin: 'auto', padding: 2 }}>
+    <Box 
+      sx={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        height: isSmallScreen ? 'calc(100vh - 64px)' : '600px',
+        maxWidth: 800, 
+        margin: 'auto', 
+        bgcolor: 'background.default',
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        overflow: 'hidden'
+      }}
+    >
       <ConversationHeader 
         context={conversationState.context}
         difficultyLevel={conversationState.difficultyLevel}
@@ -160,7 +175,9 @@ function ConversationTestCard() {
       />
 
       {correction && (
-        <CorrectionAlert correction={correction} />
+        <Box sx={{ px: 2 }}>
+          <CorrectionAlert correction={correction} />
+        </Box>
       )}
 
       <MessageInput
@@ -174,11 +191,12 @@ function ConversationTestCard() {
         mediaRecorder={mediaRecorder}
       />
 
-      <Box sx={{ mt: 2, textAlign: 'center' }}>
+      <Box sx={{ p: 2, textAlign: 'center', borderTop: '1px solid', borderColor: 'divider' }}>
         <Button
           variant="outlined"
           onClick={handleNewConversation}
           disabled={isResponding || isTranscribing}
+          sx={{ borderRadius: 2 }}
         >
           開始新對話
         </Button>
