@@ -29,13 +29,22 @@ function FloatingChatbot() {
     setShowHtmlViewer(true);
   };
 
-  // 當檢測到 HTML streaming 時自動開啟預覽面板並實時更新內容
+  // 當檢測到 HTML 區塊時自動開啟預覽面板
   useEffect(() => {
-    if (isStreamingHtml && currentHtmlBlock) {
+    const hasHtmlBlocks = blocks.some((block) => block.contentType === 'html');
+
+    if (hasHtmlBlocks && !showHtmlViewer) {
+      // 如果有 HTML 區塊但面板還沒開啟，自動開啟
+      const latestHtmlBlock = blocks.filter((block) => block.contentType === 'html').pop();
+      if (latestHtmlBlock) {
+        setSelectedHtmlContent(latestHtmlBlock.content);
+        setShowHtmlViewer(true);
+      }
+    } else if (currentHtmlBlock && showHtmlViewer) {
+      // 如果面板已開啟且有 streaming HTML，更新內容
       setSelectedHtmlContent(currentHtmlBlock.content);
-      setShowHtmlViewer(true);
     }
-  }, [isStreamingHtml, currentHtmlBlock]);
+  }, [blocks, currentHtmlBlock, isStreamingHtml, showHtmlViewer]);
 
   // 實時更新右側預覽內容（如果正在顯示且有 streaming HTML）
   useEffect(() => {
@@ -113,8 +122,6 @@ function FloatingChatbot() {
 
     setMessages((prev) => [...prev, botMessage]);
 
-    console.log('Sending message with conversationId:', conversationId);
-
     await sendStreamingMessage(
       userMessage.content,
       conversationId,
@@ -129,7 +136,6 @@ function FloatingChatbot() {
       (newConversationId?: string) => {
         // 更新 conversation_id
         if (newConversationId) {
-          console.log('Received new conversationId:', newConversationId);
           setConversationId(newConversationId);
         }
       },

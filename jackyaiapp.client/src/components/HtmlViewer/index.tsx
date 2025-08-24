@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Box, ToggleButton, ToggleButtonGroup, Typography, Paper } from '@mui/material';
 import { Code, Preview } from '@mui/icons-material';
 import hljs from 'highlight.js';
@@ -16,6 +16,21 @@ function HtmlViewer({ content, isComplete = false, title }: HtmlViewerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>(() => 
     isComplete ? 'preview' : 'code'
   );
+  
+  const codeScrollRef = useRef<HTMLPreElement>(null);
+  const previewScrollRef = useRef<HTMLDivElement>(null);
+
+  // 當內容更新時自動滾動到底部（特別是 streaming 時）
+  useEffect(() => {
+    if (!isComplete) {
+      // 只在 streaming 時自動滾動
+      const targetElement = viewMode === 'code' ? codeScrollRef.current : previewScrollRef.current;
+      if (targetElement) {
+        // 直接滾動到底部，避免動畫干擾 streaming 效果
+        targetElement.scrollTop = targetElement.scrollHeight;
+      }
+    }
+  }, [content, viewMode, isComplete]);
 
   const handleModeChange = (_: React.MouseEvent<HTMLElement>, newMode: ViewMode | null) => {
     if (newMode !== null) {
@@ -74,6 +89,7 @@ function HtmlViewer({ content, isComplete = false, title }: HtmlViewerProps) {
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         {viewMode === 'preview' ? (
           <Box
+            ref={previewScrollRef}
             sx={{
               height: '100%',
               overflow: 'auto',
@@ -92,15 +108,19 @@ function HtmlViewer({ content, isComplete = false, title }: HtmlViewerProps) {
             )}
           </Box>
         ) : (
-          <Box sx={{ height: '100%', overflow: 'auto' }}>
+          <Box sx={{ height: '100%', overflow: 'hidden' }}>
             <Paper
               elevation={0}
               sx={{
                 height: '100%',
                 bgcolor: 'transparent',
-                '& pre': {
+              }}
+            >
+              <pre
+                ref={codeScrollRef}
+                style={{
                   margin: 0,
-                  padding: 2,
+                  padding: '16px',
                   height: '100%',
                   overflow: 'auto',
                   fontSize: '0.875rem',
@@ -108,10 +128,8 @@ function HtmlViewer({ content, isComplete = false, title }: HtmlViewerProps) {
                   fontFamily: 'monospace',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-all'
-                }
-              }}
-            >
-              <pre>
+                }}
+              >
                 <code
                   className="hljs language-html"
                   dangerouslySetInnerHTML={{ __html: getHighlightedCode() }}
