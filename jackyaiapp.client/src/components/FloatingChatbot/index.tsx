@@ -1,21 +1,63 @@
-import { useState, useRef, useEffect } from 'react';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
-import { useDraggable } from './hooks/useDraggable';
-import { useAgentStatus } from './hooks/useAgentStatus';
-import { Message } from './types';
+import { useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
+import { useEffect, useRef, useState } from 'react';
+import ChatDialogWithPreview from './components/ChatDialogWithPreview';
 import FloatingButton from './components/FloatingButton';
-import ChatDialog from './components/ChatDialog';
+import { useAgentStatus } from './hooks/useAgentStatus';
+import { useDraggable } from './hooks/useDraggable';
+import { Message } from './types';
 
 function FloatingChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [conversationId, setConversationId] = useState<string>('');
+  const [currentStreamingContent, setCurrentStreamingContent] = useState<string>('');
+  const [showHtmlViewer, setShowHtmlViewer] = useState(false);
+  const [selectedHtmlContent, setSelectedHtmlContent] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   const { sendStreamingMessage, streamingStatus } = useChatStreaming();
   const { position, isDragging, fabRef, handleMouseDown } = useDraggable();
   const { statusText, statusColor } = useAgentStatus(streamingStatus);
+  const { blocks, currentHtmlBlock, isStreamingHtml } =
+    useStreamingHtmlParser(currentStreamingContent);
+
+  // 處理 HTML 預覽
+  const handleHtmlPreview = (content: string) => {
+    setSelectedHtmlContent(content);
+    setShowHtmlViewer(true);
+  };
+
+  // 當檢測到 HTML streaming 時自動開啟預覽面板並實時更新內容
+  useEffect(() => {
+    if (isStreamingHtml && currentHtmlBlock) {
+      setSelectedHtmlContent(currentHtmlBlock.content);
+      setShowHtmlViewer(true);
+    }
+  }, [isStreamingHtml, currentHtmlBlock]);
+
+  // 實時更新右側預覽內容（如果正在顯示且有 streaming HTML）
+  useEffect(() => {
+    if (showHtmlViewer && currentHtmlBlock) {
+      setSelectedHtmlContent(currentHtmlBlock.content);
+    }
+  }, [currentHtmlBlock?.content, showHtmlViewer]);
+
+  // 實時更新最後一條 bot 消息的 parsedBlocks
+  useEffect(() => {
+    if (blocks.length > 0) {
+      setMessages((prev) => {
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage && !lastMessage.isUser) {
+          return prev.map((msg, index) =>
+            index === prev.length - 1 ? { ...msg, parsedBlocks: blocks } : msg,
+          );
+        }
+        return prev;
+      });
+    }
+  }, [blocks]);
 
   // 自動滾動到底部
   const scrollToBottom = () => {
@@ -57,7 +99,7 @@ function FloatingChatbot() {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
 
     // 創建初始的 bot 訊息
@@ -66,23 +108,21 @@ function FloatingChatbot() {
       content: '',
       isUser: false,
       timestamp: new Date(),
+      parsedBlocks: [],
     };
-    
-    setMessages(prev => [...prev, botMessage]);
+
+    setMessages((prev) => [...prev, botMessage]);
 
     console.log('Sending message with conversationId:', conversationId);
-    
+
     await sendStreamingMessage(
       userMessage.content,
       conversationId,
       // onMessageUpdate
       (content: string) => {
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === botMessage.id 
-              ? { ...msg, content } 
-              : msg
-          )
+        setCurrentStreamingContent(content);
+        setMessages((prev) =>
+          prev.map((msg) => (msg.id === botMessage.id ? { ...msg, content } : msg)),
         );
       },
       // onComplete
@@ -95,14 +135,12 @@ function FloatingChatbot() {
       },
       // onError
       (error: string) => {
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === botMessage.id 
-              ? { ...msg, content: `錯誤: ${error}` } 
-              : msg
-          )
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === botMessage.id ? { ...msg, content: `錯誤: ${error}` } : msg,
+          ),
         );
-      }
+      },
     );
   };
 
@@ -112,7 +150,6 @@ function FloatingChatbot() {
       handleSendMessage();
     }
   };
-
   return (
     <>
       <FloatingButton
@@ -123,7 +160,7 @@ function FloatingChatbot() {
         onClick={handleFabClick}
       />
 
-      <ChatDialog
+      <ChatDialogWithPreview
         open={isOpen}
         onClose={handleClose}
         messages={messages}
@@ -135,6 +172,10 @@ function FloatingChatbot() {
         statusText={statusText}
         statusColor={statusColor}
         messagesEndRef={messagesEndRef}
+        currentHtmlBlock={currentHtmlBlock}
+        showHtmlViewer={showHtmlViewer}
+        selectedHtmlContent={selectedHtmlContent}
+        onHtmlPreview={handleHtmlPreview}
       />
     </>
   );
