@@ -70,29 +70,34 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
             {children}
           </Typography>
         ),
-        code: ({ inline, children, ...props }) => (
-          <Box
-            component={inline ? 'code' : 'pre'}
-            sx={{
-              backgroundColor: isOwnMessage 
-                ? 'rgba(255, 255, 255, 0.1)' 
-                : theme.palette.mode === 'dark' 
-                  ? 'rgba(255, 255, 255, 0.05)' 
-                  : 'rgba(0, 0, 0, 0.05)',
-              padding: inline ? '2px 4px' : '8px 12px',
-              borderRadius: 1,
-              fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-              fontSize: inline ? '0.85em' : '0.875rem',
-              display: inline ? 'inline' : 'block',
-              margin: inline ? 0 : '8px 0',
-              overflow: inline ? 'visible' : 'auto',
-              color: 'inherit',
-            }}
-            {...props}
-          >
-            {children}
-          </Box>
-        ),
+        code: ({ node, children, className, ...props }) => {
+          const isInline = !node || node.tagName !== 'pre';
+          const { ref, key, ...cleanProps } = props;
+          return (
+            <Box
+              component={isInline ? 'code' : 'pre'}
+              className={className}
+              sx={{
+                backgroundColor: isOwnMessage 
+                  ? 'rgba(255, 255, 255, 0.1)' 
+                  : theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.05)' 
+                    : 'rgba(0, 0, 0, 0.05)',
+                padding: isInline ? '2px 4px' : '8px 12px',
+                borderRadius: 1,
+                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                fontSize: isInline ? '0.85em' : '0.875rem',
+                display: isInline ? 'inline' : 'block',
+                margin: isInline ? 0 : '8px 0',
+                overflow: isInline ? 'visible' : 'auto',
+                color: 'inherit',
+              }}
+              {...cleanProps}
+            >
+              {children}
+            </Box>
+          );
+        },
         blockquote: ({ children }) => (
           <Box
             sx={{

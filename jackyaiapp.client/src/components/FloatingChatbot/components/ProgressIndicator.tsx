@@ -19,11 +19,6 @@ const ProgressIndicator = ({ streamingStatus }: ProgressIndicatorProps) => {
       >
         <SmartToyIcon sx={{ fontSize: 14, mr: 0.5 }} />
         {streamingStatus.statusText}
-        {streamingStatus.workflowSteps > 0 && (
-          <Typography variant="caption" sx={{ ml: 1 }}>
-            ({streamingStatus.completedSteps}/{streamingStatus.workflowSteps})
-          </Typography>
-        )}
       </Typography>
     </Box>
   );
