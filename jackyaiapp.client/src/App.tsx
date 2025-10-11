@@ -18,16 +18,18 @@ import Repository from './Repository';
 import RequireAuth from './auth/RequireAuth';
 import useRouteMatch from './hooks/useRouteMatch';
 import Finance from './Finance';
+import MicrosoftGraph from './MicrosoftGraph';
 import UserProfileMenu from './components/UserProfileMenu';
 import FloatingChatbot from './components/FloatingChatbot';
 import { useState, useEffect } from 'react';
-import { apps, FINANCE, EFFORT_PLANNER, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
+import { apps, FINANCE, EFFORT_PLANNER, PDF_UNLOCKER, ENGLISH_LEARNING, MICROSOFT_GRAPH } from './constants/apps';
 
 // Helper function to determine current app section based on route
 const getCurrentAppSection = (path: string): string => {
   if (path === '/' || path === FINANCE.path) return FINANCE.name;
   if (path === EFFORT_PLANNER.path) return EFFORT_PLANNER.name;
   if (path === PDF_UNLOCKER.path) return PDF_UNLOCKER.name;
+  if (path === MICROSOFT_GRAPH.path) return MICROSOFT_GRAPH.name;
   if (ENGLISH_LEARNING.allPaths.some((route) => path.startsWith(route)))
     return ENGLISH_LEARNING.name;
   return FINANCE.name;
@@ -42,6 +44,7 @@ function App() {
     FINANCE.allPaths
       .concat(EFFORT_PLANNER.allPaths)
       .concat(PDF_UNLOCKER.allPaths)
+      .concat(MICROSOFT_GRAPH.allPaths)
       .concat(ENGLISH_LEARNING.allPaths),
   );
   const _currentTab = routeMatch?.pattern?.path || '/';
@@ -180,6 +183,14 @@ function App() {
             element={
               <RequireAuth>
                 <EffortPlanner />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path={MICROSOFT_GRAPH.path}
+            element={
+              <RequireAuth>
+                <MicrosoftGraph />
               </RequireAuth>
             }
           />

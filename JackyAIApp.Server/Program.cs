@@ -110,6 +110,7 @@ try
     builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
+    builder.Services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options =>
     {

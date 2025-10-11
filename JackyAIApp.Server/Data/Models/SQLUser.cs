@@ -41,6 +41,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
         // Navigation properties
         public ICollection<UserWord> UserWords { get; set; } = [];
         public ICollection<JiraConfig> JiraConfigs { get; set; } = [];
+        public MicrosoftGraphToken? MicrosoftGraphToken { get; set; }
     }
 
     /// <summary>
@@ -94,5 +95,52 @@ namespace JackyAIApp.Server.Data.Models.SQL
         
         [ForeignKey(nameof(UserId))]
         public User User { get; set; } = null!;
+    }
+
+    /// <summary>
+    /// Microsoft Graph OAuth tokens for a user
+    /// </summary>
+    public class MicrosoftGraphToken
+    {
+        [Key]
+        public required string UserId { get; set; }
+        
+        [ForeignKey(nameof(UserId))]
+        public User User { get; set; } = null!;
+
+        /// <summary>
+        /// Microsoft Graph access token (encrypted)
+        /// </summary>
+        public required string AccessToken { get; set; }
+
+        /// <summary>
+        /// Microsoft Graph refresh token (encrypted)
+        /// </summary>
+        public required string RefreshToken { get; set; }
+
+        /// <summary>
+        /// When the access token expires
+        /// </summary>
+        public required DateTime ExpiresAt { get; set; }
+
+        /// <summary>
+        /// OAuth scopes granted
+        /// </summary>
+        public required string Scopes { get; set; }
+
+        /// <summary>
+        /// When the token was first created
+        /// </summary>
+        public required DateTime CreatedAt { get; set; }
+
+        /// <summary>
+        /// When the token was last refreshed
+        /// </summary>
+        public required DateTime UpdatedAt { get; set; }
+
+        /// <summary>
+        /// Whether the connection is currently active
+        /// </summary>
+        public bool IsActive { get; set; } = true;
     }
 }

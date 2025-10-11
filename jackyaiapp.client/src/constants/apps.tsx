@@ -2,6 +2,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import DescriptionIcon from '@mui/icons-material/Description';
 import WorkIcon from '@mui/icons-material/Work';
 import SchoolIcon from '@mui/icons-material/School';
+import CloudIcon from '@mui/icons-material/Cloud';
 
 export const FINANCE = {
   name: 'Finance Dashboard',
@@ -31,5 +32,12 @@ export const PDF_UNLOCKER = {
   allPaths: ['/pdf'],
 };
 
+export const MICROSOFT_GRAPH = {
+  name: 'Microsoft Graph Connector',
+  path: '/microsoftgraph',
+  icon: <CloudIcon fontSize="small" />,
+  allPaths: ['/microsoftgraph'],
+};
+
 // Application definitions used for both the app bar and the user profile menu
-export const apps = [FINANCE, ENGLISH_LEARNING, EFFORT_PLANNER, PDF_UNLOCKER];
+export const apps = [FINANCE, ENGLISH_LEARNING, EFFORT_PLANNER, PDF_UNLOCKER, MICROSOFT_GRAPH];

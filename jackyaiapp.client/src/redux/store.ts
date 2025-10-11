@@ -3,6 +3,7 @@ import { dictionaryApis } from '@/apis/dictionaryApis';
 import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
 import { jiraApis } from '@/apis/jiraApis';
+import { microsoftGraphApis } from '@/apis/microsoftGraphApis';
 import { repositoryApis } from '@/apis/repositoryApis';
 import { configureStore } from '@reduxjs/toolkit';
 
@@ -15,6 +16,7 @@ export const store = configureStore({
     [examApis.reducerPath]: examApis.reducer,
     [jiraApis.reducerPath]: jiraApis.reducer,
     [financeApis.reducerPath]: financeApis.reducer,
+    [microsoftGraphApis.reducerPath]: microsoftGraphApis.reducer,
   },
   // Adding the api middleware enables caching, invalidation, polling,
   // and other useful features of `rtk-query`.
@@ -26,6 +28,7 @@ export const store = configureStore({
       examApis.middleware,
       jiraApis.middleware,
       financeApis.middleware,
+      microsoftGraphApis.middleware,
     ),
 });
 
