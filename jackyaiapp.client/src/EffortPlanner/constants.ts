@@ -1,4 +1,5 @@
 import { blue, green, grey, red } from '@mui/material/colors';
+
 import { TaskCardProp } from './types';
 
 export const TASK: Record<string, TaskCardProp> = {

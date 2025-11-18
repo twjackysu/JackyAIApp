@@ -1,8 +1,8 @@
+import CloseIcon from '@mui/icons-material/Close';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { AppBar, Avatar, Box, IconButton, Stack, Toolbar, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import CloseIcon from '@mui/icons-material/Close';
 
 interface ChatHeaderProps {
   statusText: string;

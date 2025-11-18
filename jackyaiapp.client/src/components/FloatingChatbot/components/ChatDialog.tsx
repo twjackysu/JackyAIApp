@@ -1,10 +1,13 @@
 import { Dialog, useMediaQuery, useTheme } from '@mui/material';
+
 import { StreamingStatus } from '@/hooks/useChatStreaming';
+
 import { Message } from '../types';
+
 import ChatHeader from './ChatHeader';
-import ProgressIndicator from './ProgressIndicator';
-import MessageArea from './MessageArea';
 import ChatInput from './ChatInput';
+import MessageArea from './MessageArea';
+import ProgressIndicator from './ProgressIndicator';
 
 interface ChatDialogProps {
   open: boolean;
@@ -51,18 +54,11 @@ const ChatDialog = ({
         },
       }}
     >
-      <ChatHeader
-        statusText={statusText}
-        statusColor={statusColor}
-        onClose={onClose}
-      />
+      <ChatHeader statusText={statusText} statusColor={statusColor} onClose={onClose} />
 
       <ProgressIndicator streamingStatus={streamingStatus} />
 
-      <MessageArea 
-        messages={messages} 
-        ref={messagesEndRef} 
-      />
+      <MessageArea messages={messages} ref={messagesEndRef} />
 
       <ChatInput
         value={inputValue}

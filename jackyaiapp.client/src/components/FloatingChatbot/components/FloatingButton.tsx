@@ -1,5 +1,6 @@
-import { Fab } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
+import { Fab } from '@mui/material';
+
 import { Position } from '../types';
 
 interface FloatingButtonProps {
@@ -10,12 +11,12 @@ interface FloatingButtonProps {
   onClick: (e: React.MouseEvent) => void;
 }
 
-const FloatingButton = ({ 
-  position, 
-  isDragging, 
-  fabRef, 
-  onMouseDown, 
-  onClick 
+const FloatingButton = ({
+  position,
+  isDragging,
+  fabRef,
+  onMouseDown,
+  onClick,
 }: FloatingButtonProps) => {
   return (
     <Fab

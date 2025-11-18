@@ -1,28 +1,17 @@
-import React, { useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Switch,
-  FormControlLabel,
-  Chip,
-  Grid,
-  CircularProgress,
-  IconButton,
-  Tooltip,
-} from '@mui/material';
 import { Refresh } from '@mui/icons-material';
+import { Box, CircularProgress, Grid, IconButton, Tooltip, Typography } from '@mui/material';
+import Alert, { AlertProps } from '@mui/material/Alert';
+import Snackbar, { SnackbarCloseReason } from '@mui/material/Snackbar';
+import React, { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+
 import {
-  useGetConnectorStatusQuery,
   useConnectProviderMutation,
   useDisconnectProviderMutation,
-  useRefreshProviderTokensMutation,
+  useGetConnectorStatusQuery,
 } from '@/apis/connectorsApis/connectorsApis';
-import { ConnectorStatus } from '@/apis/connectorsApis/types';
-import Snackbar, { SnackbarCloseReason } from '@mui/material/Snackbar';
-import Alert, { AlertProps } from '@mui/material/Alert';
+
+import ConnectorCard from './ConnectorCard';
 
 interface State {
   open: boolean;
@@ -30,148 +19,23 @@ interface State {
   severity?: AlertProps['severity'] | null;
 }
 
-// Provider icons (you can replace these with actual icons)
-const getProviderIcon = (provider: string) => {
-  switch (provider) {
-    case 'Microsoft':
-      return '🔷';
-    case 'Atlassian':
-      return '🔵';
-    case 'Google':
-      return '🔴';
-    default:
-      return '⚪';
-  }
-};
-
-interface ConnectorCardProps {
-  connector: ConnectorStatus;
-  onToggle: (provider: string, isConnected: boolean) => void;
-  isLoading: boolean;
-}
-
-const ConnectorCard: React.FC<ConnectorCardProps> = ({ connector, onToggle, isLoading }) => {
+const Connectors: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const { data: connectors, isLoading, error, refetch } = useGetConnectorStatusQuery();
+  const [connectProvider] = useConnectProviderMutation();
+  const [disconnectProvider] = useDisconnectProviderMutation();
   const [state, setState] = React.useState<State>({
     open: false,
     message: '',
   });
-  const [refreshTokens] = useRefreshProviderTokensMutation();
 
-  const handleRefresh = async () => {
-    try {
-      await refreshTokens(connector.provider).unwrap();
-      setState({
-        open: true,
-        message: `Refreshed tokens for ${connector.providerDisplayName}`,
-        severity: 'success',
-      });
-    } catch (error) {
-      setState({
-        open: true,
-        message: `Failed to refresh tokens for ${connector.providerDisplayName}`,
-        severity: 'error',
-      });
-    }
-  };
-
-  const handleClose = (event?: React.SyntheticEvent | Event, reason?: SnackbarCloseReason) => {
+  const handleClose = (_event?: React.SyntheticEvent | Event, reason?: SnackbarCloseReason) => {
     if (reason === 'clickaway') {
       return;
     }
 
     setState({ ...state, open: false });
   };
-
-  return (
-    <Card
-      sx={{
-        height: '100%',
-        border: connector.isConnected ? '2px solid #4caf50' : '1px solid #e0e0e0',
-        transition: 'all 0.3s ease',
-        '&:hover': {
-          boxShadow: 3,
-        },
-      }}
-    >
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4" sx={{ mr: 1 }}>
-            {getProviderIcon(connector.provider)}
-          </Typography>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" component="h2">
-              {connector.providerDisplayName}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {connector.services.join(', ')}
-            </Typography>
-          </Box>
-          {connector.isConnected && (
-            <Tooltip title="Refresh tokens">
-              <IconButton onClick={handleRefresh} size="small">
-                <Refresh />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
-
-        <FormControlLabel
-          control={
-            <Switch
-              checked={connector.isConnected}
-              onChange={(e) => onToggle(connector.provider, e.target.checked)}
-              disabled={isLoading}
-            />
-          }
-          label={connector.isConnected ? 'Connected' : 'Not Connected'}
-          sx={{ mb: 2 }}
-        />
-
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-          {connector.services.map((service) => (
-            <Chip
-              key={service}
-              label={service}
-              size="small"
-              variant="outlined"
-              color={connector.isConnected ? 'primary' : 'default'}
-            />
-          ))}
-        </Box>
-
-        {connector.isConnected && connector.expiresAt && (
-          <Typography variant="caption" color="text.secondary">
-            Expires: {new Date(connector.expiresAt).toLocaleDateString()}
-          </Typography>
-        )}
-
-        {connector.requiresReconnection && (
-          <Alert severity="warning" sx={{ mt: 1 }}>
-            Connection expires soon. Please reconnect.
-          </Alert>
-        )}
-
-        <Snackbar open={state.open} onClose={handleClose} autoHideDuration={6000}>
-          <Alert
-            onClose={handleClose}
-            severity={state.severity ? state.severity : 'info'}
-            variant="filled"
-            sx={{ width: '100%' }}
-          >
-            {state.message}
-          </Alert>
-        </Snackbar>
-      </CardContent>
-    </Card>
-  );
-};
-
-const Connectors: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const { data: connectors, isLoading, error, refetch } = useGetConnectorStatusQuery();
-  const [connectProvider] = useConnectProviderMutation();
-  const [disconnectProvider] = useDisconnectProviderMutation();
-
   // Handle OAuth callback results
   useEffect(() => {
     const success = searchParams.get('success');
@@ -179,7 +43,11 @@ const Connectors: React.FC = () => {
     const provider = searchParams.get('provider');
 
     if (success === 'true' && provider) {
-      toast.success(`Successfully connected to ${provider}`);
+      setState({
+        open: true,
+        message: `Successfully connected to ${provider}`,
+        severity: 'success',
+      });
       refetch(); // Refresh the connector status
     } else if (error && provider) {
       const errorMessages: Record<string, string> = {
@@ -191,7 +59,7 @@ const Connectors: React.FC = () => {
         invalid_provider: 'Invalid provider specified',
       };
       const message = errorMessages[error] || `Failed to connect to ${provider}`;
-      toast.error(message);
+      setState({ open: true, message, severity: 'error' });
     }
 
     // Clean up URL parameters
@@ -208,11 +76,13 @@ const Connectors: React.FC = () => {
         window.location.href = result.redirectUrl;
       } else {
         await disconnectProvider(provider).unwrap();
-        toast.success(`Disconnected from ${provider}`);
+
+        setState({ open: true, message: `Disconnected from ${provider}`, severity: 'success' });
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       const errorMessage = error?.data?.message || error?.message || 'An error occurred';
-      toast.error(errorMessage);
+      setState({ open: true, message: errorMessage, severity: 'error' });
     }
   };
 
@@ -253,7 +123,25 @@ const Connectors: React.FC = () => {
       <Grid container spacing={3}>
         {connectors?.map((connector) => (
           <Grid item xs={12} sm={6} md={4} key={connector.provider}>
-            <ConnectorCard connector={connector} onToggle={handleToggle} isLoading={isLoading} />
+            <ConnectorCard
+              connector={connector}
+              onToggle={handleToggle}
+              isLoading={isLoading}
+              onRefreshSuccess={() =>
+                setState({
+                  open: true,
+                  message: `Successfully connected to ${connector.provider}`,
+                  severity: 'success',
+                })
+              }
+              onRefreshError={() =>
+                setState({
+                  open: true,
+                  message: `Failed to connect to ${connector.provider}`,
+                  severity: 'error',
+                })
+              }
+            />
           </Grid>
         ))}
       </Grid>
@@ -265,6 +153,16 @@ const Connectors: React.FC = () => {
           </Typography>
         </Box>
       )}
+      <Snackbar open={state.open} onClose={handleClose} autoHideDuration={6000}>
+        <Alert
+          onClose={handleClose}
+          severity={state.severity ? state.severity : 'info'}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {state.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

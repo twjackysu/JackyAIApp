@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+
 import { useTranscribeAudioMutation } from '@/apis/examApis';
 
 interface UseVoiceRecordingProps {
@@ -15,9 +16,9 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const recorder = new MediaRecorder(stream);
-        
+
         const chunks: Blob[] = [];
-        
+
         recorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
             chunks.push(event.data);
@@ -39,13 +40,14 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
     };
 
     setupMediaRecorder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAudioTranscription = async (audioBlob: Blob) => {
     try {
       const formData = new FormData();
       formData.append('audioFile', audioBlob, 'recording.wav');
-      
+
       const response = await transcribeAudio(formData).unwrap();
       if (response.data.text) {
         onTranscriptionComplete(response.data.text);
@@ -57,7 +59,7 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
 
   const toggleRecording = () => {
     if (!mediaRecorder) return;
-    
+
     if (isRecording) {
       mediaRecorder.stop();
       setIsRecording(false);

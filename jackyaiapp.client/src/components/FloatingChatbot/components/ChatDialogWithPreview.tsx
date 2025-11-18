@@ -1,15 +1,18 @@
 import { Dialog, useMediaQuery, useTheme } from '@mui/material';
 import { Allotment } from 'allotment';
+
 import 'allotment/dist/style.css';
-import { StreamingStatus } from '@/hooks/useChatStreaming';
-import { Message } from '../types';
-import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 import HtmlViewer from '@/components/HtmlViewer';
+import { StreamingStatus } from '@/hooks/useChatStreaming';
+import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
+
+import { Message } from '../types';
+
 import ChatHeader from './ChatHeader';
-import ProgressIndicator from './ProgressIndicator';
+import ChatInput from './ChatInput';
 import MessageArea from './MessageArea';
 import MessageAreaWithBlocks from './MessageAreaWithBlocks';
-import ChatInput from './ChatInput';
+import ProgressIndicator from './ProgressIndicator';
 
 interface ChatDialogWithPreviewProps {
   open: boolean;
@@ -67,18 +70,11 @@ const ChatDialogWithPreview = ({
           },
         }}
       >
-        <ChatHeader
-          statusText={statusText}
-          statusColor={statusColor}
-          onClose={onClose}
-        />
+        <ChatHeader statusText={statusText} statusColor={statusColor} onClose={onClose} />
 
         <ProgressIndicator streamingStatus={streamingStatus} />
 
-        <MessageArea 
-          messages={messages} 
-          ref={messagesEndRef} 
-        />
+        <MessageArea messages={messages} ref={messagesEndRef} />
 
         <ChatInput
           value={inputValue}
@@ -95,7 +91,7 @@ const ChatDialogWithPreview = ({
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth={showHtmlViewer ? "xl" : "sm"}
+      maxWidth={showHtmlViewer ? 'xl' : 'sm'}
       fullWidth
       PaperProps={{
         sx: {
@@ -108,11 +104,7 @@ const ChatDialogWithPreview = ({
         },
       }}
     >
-      <ChatHeader
-        statusText={statusText}
-        statusColor={statusColor}
-        onClose={onClose}
-      />
+      <ChatHeader statusText={statusText} statusColor={statusColor} onClose={onClose} />
 
       <ProgressIndicator streamingStatus={streamingStatus} />
 
@@ -123,8 +115,8 @@ const ChatDialogWithPreview = ({
             {/* 左側：聊天區域 */}
             <Allotment.Pane minSize={300}>
               <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <MessageAreaWithBlocks 
-                  messages={messages} 
+                <MessageAreaWithBlocks
+                  messages={messages}
                   ref={messagesEndRef}
                   onHtmlPreview={onHtmlPreview}
                   style={{ flex: 1 }}
@@ -151,8 +143,8 @@ const ChatDialogWithPreview = ({
         ) : (
           // 沒有 HTML 預覽時的原有布局
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-            <MessageAreaWithBlocks 
-              messages={messages} 
+            <MessageAreaWithBlocks
+              messages={messages}
               ref={messagesEndRef}
               onHtmlPreview={onHtmlPreview}
               style={{ flex: 1 }}

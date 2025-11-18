@@ -1,28 +1,28 @@
-import Box from '@mui/material/Box';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import Button from '@mui/material/Button';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import { useState, useEffect } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
+
+import RequireAuth from './auth/RequireAuth';
+import FloatingChatbot from './components/FloatingChatbot';
+import UserProfileMenu from './components/UserProfileMenu';
+import Connectors from './Connectors';
+import { apps, FINANCE, EFFORT_PLANNER, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
 import Dictionary from './Dictionary';
 import EffortPlanner from './EffortPlanner';
 import Exam from './Exam';
+import Finance from './Finance';
+import useRouteMatch from './hooks/useRouteMatch';
 import PDFUnlocker from './PDFUnlocker';
 import Repository from './Repository';
-import RequireAuth from './auth/RequireAuth';
-import useRouteMatch from './hooks/useRouteMatch';
-import Finance from './Finance';
-import UserProfileMenu from './components/UserProfileMenu';
-import FloatingChatbot from './components/FloatingChatbot';
-import Connectors from './Connectors';
-import { useState, useEffect } from 'react';
-import { apps, FINANCE, EFFORT_PLANNER, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
 
 // Helper function to determine current app section based on route
 const getCurrentAppSection = (path: string): string => {

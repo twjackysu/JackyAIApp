@@ -1,6 +1,7 @@
-import { useCheckAuthQuery } from '@/apis/accountApis';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+
+import { useCheckAuthQuery } from '@/apis/accountApis';
 
 interface Props {
   children: React.ReactNode;

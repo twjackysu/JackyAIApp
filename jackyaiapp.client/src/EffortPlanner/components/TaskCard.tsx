@@ -2,8 +2,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import InboxIcon from '@mui/icons-material/Inbox';
 import ListAltIcon from '@mui/icons-material/ListAlt';
-
-import { useGetJiraConfigQuery } from '@/apis/jiraApis';
 import {
   IconButton,
   ListItemIcon,
@@ -15,6 +13,9 @@ import {
   Typography,
 } from '@mui/material';
 import React, { useContext, useState } from 'react';
+
+import { useGetJiraConfigQuery } from '@/apis/jiraApis';
+
 import { STASHED, TASK, WORK_BAR } from '../constants';
 import EffortPlannerContext from '../context/EffortPlannerContext';
 import { Task } from '../types';

@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
+
 import { useChatStreaming } from '@/hooks/useChatStreaming';
 import { useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
-import { useEffect, useRef, useState } from 'react';
+
 import ChatDialogWithPreview from './components/ChatDialogWithPreview';
 import FloatingButton from './components/FloatingButton';
 import { useAgentStatus } from './hooks/useAgentStatus';
@@ -51,7 +53,7 @@ function FloatingChatbot() {
     if (showHtmlViewer && currentHtmlBlock) {
       setSelectedHtmlContent(currentHtmlBlock.content);
     }
-  }, [currentHtmlBlock?.content, showHtmlViewer]);
+  }, [currentHtmlBlock, currentHtmlBlock?.content, showHtmlViewer]);
 
   // 實時更新最後一條 bot 消息的 parsedBlocks
   useEffect(() => {
@@ -83,7 +85,7 @@ function FloatingChatbot() {
     if (streamingStatus.isLoading) {
       scrollToBottom();
     }
-  }, [streamingStatus.currentEvent]);
+  }, [streamingStatus.currentEvent, streamingStatus.isLoading]);
 
   const handleFabClick = (e: React.MouseEvent) => {
     // 如果正在拖拉就不開啟聊天

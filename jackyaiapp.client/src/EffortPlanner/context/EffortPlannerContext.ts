@@ -1,6 +1,8 @@
-import type { Dispatch, SetStateAction } from 'react';
 import { createContext } from 'react';
+
 import { Task } from '../types';
+
+import type { Dispatch, SetStateAction } from 'react';
 
 interface EffortPlannerContextProps {
   assigned: Task[];

@@ -29,7 +29,12 @@ interface ScenarioTemplate {
 }
 
 interface ScenarioSelectorProps {
-  onSelectScenario: (scenario: string, userRole: string, aiRole: string, difficultyLevel: number) => void;
+  onSelectScenario: (
+    scenario: string,
+    userRole: string,
+    aiRole: string,
+    difficultyLevel: number,
+  ) => void;
   disabled?: boolean;
 }
 
@@ -42,7 +47,7 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     userRole: 'Customer',
     aiRole: 'Waiter/Waitress',
     description: '練習在餐廳點餐的日常對話',
-    tags: ['日常', '食物', '服務']
+    tags: ['日常', '食物', '服務'],
   },
   {
     id: 'hotel',
@@ -51,7 +56,7 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     userRole: 'Guest',
     aiRole: 'Hotel Receptionist',
     description: '學習酒店入住登記相關英語',
-    tags: ['旅遊', '住宿', '服務']
+    tags: ['旅遊', '住宿', '服務'],
   },
   {
     id: 'shopping',
@@ -60,7 +65,7 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     userRole: 'Customer',
     aiRole: 'Shop Assistant',
     description: '練習購物時的詢問和討論',
-    tags: ['購物', '商品', '價格']
+    tags: ['購物', '商品', '價格'],
   },
   {
     id: 'interview',
@@ -69,7 +74,7 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     userRole: 'Job Candidate',
     aiRole: 'Interviewer',
     description: '模擬工作面試情境',
-    tags: ['工作', '面試', '專業']
+    tags: ['工作', '面試', '專業'],
   },
   {
     id: 'doctor',
@@ -78,7 +83,7 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     userRole: 'Patient',
     aiRole: 'Doctor',
     description: '學習看病時的醫療英語',
-    tags: ['醫療', '健康', '症狀']
+    tags: ['醫療', '健康', '症狀'],
   },
   {
     id: 'airport',
@@ -87,8 +92,8 @@ const SCENARIO_TEMPLATES: ScenarioTemplate[] = [
     userRole: 'Traveler',
     aiRole: 'Airport Staff',
     description: '練習在機場問路和查詢資訊',
-    tags: ['旅遊', '交通', '方向']
-  }
+    tags: ['旅遊', '交通', '方向'],
+  },
 ];
 
 function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps) {
@@ -109,7 +114,7 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
         selectedTemplate.scenario,
         selectedTemplate.userRole,
         selectedTemplate.aiRole,
-        difficultyLevel
+        difficultyLevel,
       );
     }
   };
@@ -123,12 +128,18 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
 
   const getDifficultyText = (level: number) => {
     switch (level) {
-      case 1: return '初級 (簡單詞彙)';
-      case 2: return '初中級 (基礎對話)';
-      case 3: return '中級 (日常對話)';
-      case 4: return '中高級 (複雜表達)';
-      case 5: return '高級 (專業對話)';
-      default: return '中級';
+      case 1:
+        return '初級 (簡單詞彙)';
+      case 2:
+        return '初中級 (基礎對話)';
+      case 3:
+        return '中級 (日常對話)';
+      case 4:
+        return '中高級 (複雜表達)';
+      case 5:
+        return '高級 (專業對話)';
+      default:
+        return '中級';
     }
   };
 
@@ -137,7 +148,7 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
       <Typography variant="h5" gutterBottom textAlign="center">
         選擇對話情境
       </Typography>
-      
+
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
         選擇預設情境模板或自定義場景開始練習
       </Typography>
@@ -152,8 +163,8 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
                 borderColor: selectedTemplate?.id === template.id ? 'primary.main' : 'divider',
                 '&:hover': {
                   borderColor: 'primary.main',
-                  boxShadow: 2
-                }
+                  boxShadow: 2,
+                },
               }}
               onClick={() => handleTemplateSelect(template)}
             >
@@ -182,21 +193,25 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
       </Grid>
 
       <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 3 }}>
-        <Button
-          variant="outlined"
-          onClick={() => setShowCustomDialog(true)}
-          disabled={disabled}
-        >
+        <Button variant="outlined" onClick={() => setShowCustomDialog(true)} disabled={disabled}>
           自定義情境
         </Button>
       </Box>
 
       {selectedTemplate && (
-        <Box sx={{ backgroundColor: 'background.paper', p: 2, borderRadius: 1, border: 1, borderColor: 'divider' }}>
+        <Box
+          sx={{
+            backgroundColor: 'background.paper',
+            p: 2,
+            borderRadius: 1,
+            border: 1,
+            borderColor: 'divider',
+          }}
+        >
           <Typography variant="h6" gutterBottom>
             已選擇: {selectedTemplate.name}
           </Typography>
-          
+
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>難度等級</InputLabel>
             <Select
@@ -224,7 +239,12 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
       )}
 
       {/* 自定義情境對話框 */}
-      <Dialog open={showCustomDialog} onClose={() => setShowCustomDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={showCustomDialog}
+        onClose={() => setShowCustomDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>自定義對話情境</DialogTitle>
         <DialogContent>
           <TextField

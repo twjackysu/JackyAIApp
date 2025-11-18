@@ -1,5 +1,8 @@
 // filepath: e:\Users\jacky\Documents\Repo\JackyAIApp\jackyaiapp.client\src\components\UserProfileMenu.tsx
-import { useGetUserInfoQuery } from '@/apis/accountApis';
+import LinkIcon from '@mui/icons-material/Link';
+import LoginIcon from '@mui/icons-material/Login';
+import LogoutIcon from '@mui/icons-material/Logout';
+import PersonIcon from '@mui/icons-material/Person';
 import {
   Avatar,
   Box,
@@ -13,10 +16,9 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import PersonIcon from '@mui/icons-material/Person';
-import LogoutIcon from '@mui/icons-material/Logout';
-import LoginIcon from '@mui/icons-material/Login';
-import LinkIcon from '@mui/icons-material/Link';
+
+import { useGetUserInfoQuery } from '@/apis/accountApis';
+
 import { apps } from '../constants/apps';
 
 function UserProfileMenu() {

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { Box, ToggleButton, ToggleButtonGroup, Typography, Paper } from '@mui/material';
 import { Code, Preview } from '@mui/icons-material';
+import { Box, ToggleButton, ToggleButtonGroup, Typography, Paper } from '@mui/material';
 import hljs from 'highlight.js';
+import { useState, useEffect, useRef } from 'react';
 
 interface HtmlViewerProps {
   content: string;
@@ -13,10 +13,8 @@ type ViewMode = 'preview' | 'code';
 
 function HtmlViewer({ content, isComplete = false, title }: HtmlViewerProps) {
   // 根據 isComplete 初始化模式，但不會強制切換
-  const [viewMode, setViewMode] = useState<ViewMode>(() => 
-    isComplete ? 'preview' : 'code'
-  );
-  
+  const [viewMode, setViewMode] = useState<ViewMode>(() => (isComplete ? 'preview' : 'code'));
+
   const codeScrollRef = useRef<HTMLPreElement>(null);
   const previewScrollRef = useRef<HTMLDivElement>(null);
 
@@ -52,29 +50,22 @@ function HtmlViewer({ content, isComplete = false, title }: HtmlViewerProps) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
-      <Box sx={{ 
-        p: 2, 
-        borderBottom: 1, 
-        borderColor: 'divider',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
+      <Box
+        sx={{
+          p: 2,
+          borderBottom: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Typography variant="h6" sx={{ fontSize: '0.9rem' }}>
           {title || 'HTML Preview'}
         </Typography>
-        
-        <ToggleButtonGroup
-          value={viewMode}
-          exclusive
-          onChange={handleModeChange}
-          size="small"
-        >
-          <ToggleButton 
-            value="preview" 
-            disabled={!isComplete}
-            sx={{ px: 1.5 }}
-          >
+
+        <ToggleButtonGroup value={viewMode} exclusive onChange={handleModeChange} size="small">
+          <ToggleButton value="preview" disabled={!isComplete} sx={{ px: 1.5 }}>
             <Preview sx={{ mr: 0.5, fontSize: '1rem' }} />
             Preview
           </ToggleButton>
@@ -95,8 +86,8 @@ function HtmlViewer({ content, isComplete = false, title }: HtmlViewerProps) {
               overflow: 'auto',
               p: 2,
               '& > *': {
-                maxWidth: '100%'
-              }
+                maxWidth: '100%',
+              },
             }}
           >
             {isComplete ? (
@@ -127,7 +118,7 @@ function HtmlViewer({ content, isComplete = false, title }: HtmlViewerProps) {
                   lineHeight: 1.5,
                   fontFamily: 'monospace',
                   whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-all'
+                  wordBreak: 'break-all',
                 }}
               >
                 <code

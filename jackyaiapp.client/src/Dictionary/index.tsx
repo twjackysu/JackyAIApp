@@ -1,10 +1,13 @@
-import { useGetWordQuery } from '@/apis/dictionaryApis';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { useRef, useState } from 'react';
+
+import { useGetWordQuery } from '@/apis/dictionaryApis';
+
 import { useGetRepositoryWordsByWordIdQuery } from '../apis/repositoryApis';
 import WordCard from '../components/WordCard';
+
 import RecentlySearched, { RecentlySearchedRef } from './components/RecentlySearched';
 import WordOfTheDay from './components/WordOfTheDay';
 

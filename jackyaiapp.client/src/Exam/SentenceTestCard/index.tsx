@@ -1,6 +1,9 @@
-import { useGetSentenceTestQuery, useEvaluateSentenceMutation } from '@/apis/examApis';
-import AILoading from '@/components/AILoading';
-import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import Accordion from '@mui/material/Accordion';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -8,13 +11,11 @@ import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import AlertTitle from '@mui/material/AlertTitle';
-import Accordion from '@mui/material/Accordion';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useState } from 'react';
+
+import { useGetSentenceTestQuery, useEvaluateSentenceMutation } from '@/apis/examApis';
+import AILoading from '@/components/AILoading';
+import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 
 interface EvaluationResult {
   score: number;
@@ -29,7 +30,7 @@ function SentenceTestCard() {
   const [userSentence, setUserSentence] = useState('');
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
   const [showSample, setShowSample] = useState(false);
-  
+
   const { data, isFetching, refetch, isError, error } = useGetSentenceTestQuery();
   const [evaluateSentence, { isLoading: isEvaluating }] = useEvaluateSentenceMutation();
 
@@ -43,7 +44,7 @@ function SentenceTestCard() {
         context: data.data.context,
         userSentence: userSentence.trim(),
         difficultyLevel: data.data.difficultyLevel,
-        grammarPattern: data.data.grammarPattern
+        grammarPattern: data.data.grammarPattern,
       }).unwrap();
 
       setEvaluationResult(result.data);
@@ -90,13 +91,9 @@ function SentenceTestCard() {
             <Typography variant="h6" component="h2">
               造句練習
             </Typography>
-            <Chip 
-              label={`難度 ${data?.data.difficultyLevel}/5`} 
-              color="primary" 
-              size="small" 
-            />
+            <Chip label={`難度 ${data?.data.difficultyLevel}/5`} color="primary" size="small" />
           </Box>
-          
+
           <Typography variant="body1" sx={{ mb: 2, fontWeight: 'bold' }}>
             目標單字: <span style={{ color: 'primary.main' }}>{data?.data.word}</span>
           </Typography>
@@ -127,18 +124,15 @@ function SentenceTestCard() {
           />
 
           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={handleSubmit}
               disabled={!userSentence.trim() || isEvaluating}
             >
               {isEvaluating ? '評分中...' : '提交答案'}
             </Button>
-            
-            <Button 
-              variant="outlined" 
-              onClick={() => setShowSample(!showSample)}
-            >
+
+            <Button variant="outlined" onClick={() => setShowSample(!showSample)}>
               {showSample ? '隱藏' : '顯示'}範例答案
             </Button>
           </Box>
@@ -157,7 +151,7 @@ function SentenceTestCard() {
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
               <Typography variant="h6">評分結果</Typography>
-              <Chip 
+              <Chip
                 label={`${evaluationResult.score}分 - ${getScoreText(evaluationResult.score)}`}
                 color={getScoreColor(evaluationResult.score)}
               />
@@ -199,7 +193,9 @@ function SentenceTestCard() {
 
             {evaluationResult.suggestions.length > 0 && (
               <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>改進建議:</Typography>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  改進建議:
+                </Typography>
                 {evaluationResult.suggestions.map((suggestion, index) => (
                   <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
                     • {suggestion}
@@ -208,11 +204,7 @@ function SentenceTestCard() {
               </Box>
             )}
 
-            <Button 
-              variant="contained" 
-              onClick={handleNext}
-              sx={{ mt: 2 }}
-            >
+            <Button variant="contained" onClick={handleNext} sx={{ mt: 2 }}>
               下一題
             </Button>
           </CardContent>

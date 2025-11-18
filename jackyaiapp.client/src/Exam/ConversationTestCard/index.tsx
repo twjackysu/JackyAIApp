@@ -1,3 +1,6 @@
+import { Box, Button, useMediaQuery, useTheme } from '@mui/material';
+import { useState } from 'react';
+
 import {
   useStartConversationTestMutation,
   useRespondToConversationMutation,
@@ -9,17 +12,12 @@ import {
 } from '@/apis/examApis/types';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
-import { Box, Button, useMediaQuery, useTheme } from '@mui/material';
-import { useState } from 'react';
 
-// Sub-components
-import ScenarioSelector from './components/ScenarioSelector';
-import ConversationHeader from './components/ConversationHeader';
 import ChatMessages from './components/ChatMessages';
-import MessageInput from './components/MessageInput';
+import ConversationHeader from './components/ConversationHeader';
 import CorrectionAlert from './components/CorrectionAlert';
-
-// Custom hooks
+import MessageInput from './components/MessageInput';
+import ScenarioSelector from './components/ScenarioSelector';
 import { useVoiceRecording, useAutoScroll } from './hooks';
 
 interface ConversationState {
@@ -32,26 +30,27 @@ interface ConversationState {
 function ConversationTestCard() {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   const [conversationState, setConversationState] = useState<ConversationState | null>(null);
   const [input, setInput] = useState<string>('');
   const [correction, setCorrection] = useState<ConversationCorrection | null>(null);
-  
-  const [startConversation, { isLoading: isStarting, error: startError }] = useStartConversationTestMutation();
+
+  const [startConversation, { isLoading: isStarting, error: startError }] =
+    useStartConversationTestMutation();
   const [respondToConversation, { isLoading: isResponding }] = useRespondToConversationMutation();
-  
+
   // Custom hooks
   const messagesEndRef = useAutoScroll(conversationState?.history, isResponding);
-  const {
-    isRecording,
-    isTranscribing,
-    mediaRecorder,
-    toggleRecording,
-  } = useVoiceRecording({
+  const { isRecording, isTranscribing, mediaRecorder, toggleRecording } = useVoiceRecording({
     onTranscriptionComplete: (text) => setInput(text),
   });
 
-  const handleStartConversation = async (scenario: string, userRole: string, aiRole: string, difficultyLevel: number) => {
+  const handleStartConversation = async (
+    scenario: string,
+    userRole: string,
+    aiRole: string,
+    difficultyLevel: number,
+  ) => {
     try {
       const response = await startConversation({
         scenario,
@@ -89,16 +88,13 @@ function ConversationTestCard() {
     setInput('');
 
     // First, immediately add user's message to the conversation
-    setConversationState(prev => ({
+    setConversationState((prev) => ({
       ...prev!,
       context: {
         ...prev!.context,
         turnNumber: prev!.context.turnNumber + 1,
       },
-      history: [
-        ...prev!.history,
-        { speaker: 'user', message: userMessage },
-      ],
+      history: [...prev!.history, { speaker: 'user', message: userMessage }],
     }));
 
     try {
@@ -109,12 +105,9 @@ function ConversationTestCard() {
       }).unwrap();
 
       // Then add AI's response
-      setConversationState(prev => ({
+      setConversationState((prev) => ({
         ...prev!,
-        history: [
-          ...prev!.history,
-          { speaker: 'ai', message: response.data.aiResponse },
-        ],
+        history: [...prev!.history, { speaker: 'ai', message: response.data.aiResponse }],
       }));
 
       // Set correction if any
@@ -140,35 +133,30 @@ function ConversationTestCard() {
   }
 
   if (!conversationState) {
-    return (
-      <ScenarioSelector 
-        onSelectScenario={handleStartConversation}
-        disabled={isStarting}
-      />
-    );
+    return <ScenarioSelector onSelectScenario={handleStartConversation} disabled={isStarting} />;
   }
 
   return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
         height: isSmallScreen ? 'calc(100vh - 64px)' : '600px',
-        maxWidth: 800, 
-        margin: 'auto', 
+        maxWidth: 800,
+        margin: 'auto',
         bgcolor: 'background.default',
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 1,
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}
     >
-      <ConversationHeader 
+      <ConversationHeader
         context={conversationState.context}
         difficultyLevel={conversationState.difficultyLevel}
       />
 
-      <ChatMessages 
+      <ChatMessages
         messages={conversationState.history}
         isResponding={isResponding}
         ref={messagesEndRef}

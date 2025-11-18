@@ -1,28 +1,29 @@
-import { useState, useMemo } from 'react';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import SearchIcon from '@mui/icons-material/Search';
+import Alert from '@mui/material/Alert';
+import Avatar from '@mui/material/Avatar';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
-import Divider from '@mui/material/Divider';
-import Avatar from '@mui/material/Avatar';
-import Stack from '@mui/material/Stack';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import Paper from '@mui/material/Paper';
-import TextField from '@mui/material/TextField';
-import InputAdornment from '@mui/material/InputAdornment';
-import SearchIcon from '@mui/icons-material/Search';
-import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import IconButton from '@mui/material/IconButton';
-import LinearProgress from '@mui/material/LinearProgress';
 import { green, red, blue, grey, orange } from '@mui/material/colors';
+import Divider from '@mui/material/Divider';
+import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
+import LinearProgress from '@mui/material/LinearProgress';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import { useState, useMemo } from 'react';
+
 import { useGetDailyImportantInfoQuery, useAnalyzeStockMutation } from '@/apis/financeApis';
 import { StrategicInsight, StockTrendAnalysis } from '@/apis/financeApis/types';
 
@@ -161,6 +162,7 @@ function Finance() {
   const [analyzeStock, { isLoading: isAnalyzing, error: analysisError, reset: resetAnalysis }] =
     useAnalyzeStockMutation();
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const stockInsights: StrategicInsight[] = apiResponse?.data || [];
 
   const filteredData = useMemo(() => {

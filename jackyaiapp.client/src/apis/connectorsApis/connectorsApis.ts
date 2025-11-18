@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
 import { ConnectorStatus, ConnectResponse, RefreshResponse, DisconnectResponse } from './types';
 
 export const connectorsApi = createApi({

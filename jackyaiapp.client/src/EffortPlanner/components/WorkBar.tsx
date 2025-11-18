@@ -1,8 +1,10 @@
 import { Box, Button, Typography } from '@mui/material';
 import { red } from '@mui/material/colors';
 import React, { useContext } from 'react';
+
 import { TASKS, WORK_BAR } from '../constants';
 import EffortPlannerContext from '../context/EffortPlannerContext';
+
 import TaskCard from './TaskCard';
 
 function WorkBar() {

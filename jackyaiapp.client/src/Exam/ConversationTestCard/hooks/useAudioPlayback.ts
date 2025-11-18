@@ -13,23 +13,23 @@ export function useAudioPlayback() {
       }
 
       setPlayingMessageId(messageId || null);
-      
+
       // Create audio element to track when it ends
       const url = `/api/Audio/normal?text=${encodeURIComponent(message)}`;
       const audio = new Audio(url);
       currentAudioRef.current = audio;
-      
+
       audio.onended = () => {
         setPlayingMessageId(null);
         currentAudioRef.current = null;
       };
-      
+
       audio.onerror = () => {
         setPlayingMessageId(null);
         currentAudioRef.current = null;
         console.error('Error playing audio');
       };
-      
+
       await audio.play();
     } catch (error) {
       setPlayingMessageId(null);

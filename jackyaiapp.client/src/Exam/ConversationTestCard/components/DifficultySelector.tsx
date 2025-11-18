@@ -43,7 +43,7 @@ function DifficultySelector({ onSelectDifficulty, disabled = false }: Difficulty
       >
         開始對話
       </Button>
-      
+
       <Popover
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
@@ -70,7 +70,7 @@ function DifficultySelector({ onSelectDifficulty, disabled = false }: Difficulty
                 key={option.level}
                 variant={selectedDifficulty === option.level ? 'contained' : 'outlined'}
                 onClick={() => handleSelectDifficulty(option.level)}
-                sx={{ 
+                sx={{
                   justifyContent: 'flex-start',
                   textAlign: 'left',
                   py: 1.5,

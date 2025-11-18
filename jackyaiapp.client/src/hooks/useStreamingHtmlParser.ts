@@ -30,20 +30,31 @@ const CODE_BLOCK_END = /```/;
 
 // 自閉合標籤列表
 const SELF_CLOSING_TAGS = new Set([
-  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-  'link', 'meta', 'param', 'source', 'track', 'wbr'
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
 ]);
 
 export function useStreamingHtmlParser(streamingContent: string): HtmlParserResult {
-
   const result = useMemo(() => {
     const newBlocks: ParsedBlock[] = [];
-    let currentState: ParseState = {
+    const currentState: ParseState = {
       mode: 'markdown',
       tagStack: [],
       currentBlockId: null,
       currentContent: '',
-      blockCounter: 0
+      blockCounter: 0,
     };
 
     let i = 0;
@@ -62,7 +73,7 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
               id: `markdown-${currentState.blockCounter++}`,
               contentType: 'markdown',
               content: markdownBuffer.trim(),
-              isComplete: true
+              isComplete: true,
             });
             markdownBuffer = '';
           }
@@ -72,7 +83,7 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
           currentState.currentBlockId = `html-${currentState.blockCounter++}`;
           currentState.currentContent = '';
           i += codeBlockMatch[0].length;
-          
+
           // 跳過緊接著的換行符（如果有的話）
           if (i < streamingContent.length && streamingContent[i] === '\n') {
             i++;
@@ -84,14 +95,14 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
         const htmlMatch = remaining.match(HTML_START_TAG);
         if (htmlMatch && htmlMatch.index === 0) {
           const tagName = htmlMatch[1].toLowerCase();
-          
+
           // 保存之前的 markdown 內容
           if (markdownBuffer.trim()) {
             newBlocks.push({
               id: `markdown-${currentState.blockCounter++}`,
               contentType: 'markdown',
               content: markdownBuffer.trim(),
-              isComplete: true
+              isComplete: true,
             });
             markdownBuffer = '';
           }
@@ -100,12 +111,12 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
           currentState.mode = 'html';
           currentState.currentBlockId = `html-${currentState.blockCounter++}`;
           currentState.currentContent = htmlMatch[0];
-          
+
           // 如果不是自閉合標籤，加入標籤堆棧
           if (!SELF_CLOSING_TAGS.has(tagName)) {
             currentState.tagStack = [tagName];
           }
-          
+
           i += htmlMatch[0].length;
           continue;
         }
@@ -113,8 +124,7 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
         // 普通 markdown 字符
         markdownBuffer += streamingContent[i];
         i++;
-      } 
-      else if (currentState.mode === 'codeblock') {
+      } else if (currentState.mode === 'codeblock') {
         // 檢查是否遇到結束的 ```
         const endMatch = remaining.match(CODE_BLOCK_END);
         if (endMatch && endMatch.index === 0) {
@@ -123,7 +133,7 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
             id: currentState.currentBlockId!,
             contentType: 'html',
             content: currentState.currentContent,
-            isComplete: true
+            isComplete: true,
           });
 
           // 重置狀態
@@ -137,14 +147,13 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
         // 累積 HTML 內容
         currentState.currentContent += streamingContent[i];
         i++;
-      }
-      else if (currentState.mode === 'html') {
+      } else if (currentState.mode === 'html') {
         // 檢查結束標籤
         const endMatch = remaining.match(HTML_END_TAG);
         if (endMatch && endMatch.index === 0) {
           const tagName = endMatch[1].toLowerCase();
           currentState.currentContent += endMatch[0];
-          
+
           // 從堆棧中移除對應的標籤
           const lastTagIndex = currentState.tagStack.lastIndexOf(tagName);
           if (lastTagIndex !== -1) {
@@ -159,7 +168,7 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
               id: currentState.currentBlockId!,
               contentType: 'html',
               content: currentState.currentContent,
-              isComplete: true
+              isComplete: true,
             });
 
             currentState.mode = 'markdown';
@@ -174,12 +183,12 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
         if (startMatch && startMatch.index === 0) {
           const tagName = startMatch[1].toLowerCase();
           currentState.currentContent += startMatch[0];
-          
+
           // 如果不是自閉合標籤，加入堆棧
           if (!SELF_CLOSING_TAGS.has(tagName)) {
             currentState.tagStack.push(tagName);
           }
-          
+
           i += startMatch[0].length;
           continue;
         }
@@ -196,7 +205,7 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
         id: `markdown-${currentState.blockCounter++}`,
         contentType: 'markdown',
         content: markdownBuffer.trim(),
-        isComplete: true
+        isComplete: true,
       });
     }
 
@@ -206,21 +215,20 @@ export function useStreamingHtmlParser(streamingContent: string): HtmlParserResu
         id: currentState.currentBlockId,
         contentType: 'html',
         content: currentState.currentContent,
-        isComplete: false
+        isComplete: false,
       });
     }
 
     // 不需要更新內部狀態，因為我們使用 useMemo 來重新計算
 
     // 找到當前正在 streaming 的 HTML 區塊
-    const currentHtmlBlock = newBlocks.find(block => 
-      block.contentType === 'html' && !block.isComplete
-    ) || null;
+    const currentHtmlBlock =
+      newBlocks.find((block) => block.contentType === 'html' && !block.isComplete) || null;
 
     return {
       blocks: newBlocks,
       currentHtmlBlock,
-      isStreamingHtml: currentState.mode === 'html' || currentState.mode === 'codeblock'
+      isStreamingHtml: currentState.mode === 'html' || currentState.mode === 'codeblock',
     };
   }, [streamingContent]);
 

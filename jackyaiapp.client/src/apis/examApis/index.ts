@@ -1,11 +1,14 @@
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
 import {
   ClozeTest,
   TranslationQualityGradingAssistantResponse,
   TranslationTestResponse,
   TranslationTestUserResponse,
 } from '@/apis/dictionaryApis/types';
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
 import { ApiOkResponse } from '../types';
+
 import {
   ConversationStartRequest,
   ConversationStartResponse,
@@ -64,10 +67,7 @@ export const examApis = createApi({
         body,
       }),
     }),
-    transcribeAudio: builder.mutation<
-      ApiOkResponse<WhisperTranscriptionResponse>,
-      FormData
-    >({
+    transcribeAudio: builder.mutation<ApiOkResponse<WhisperTranscriptionResponse>, FormData>({
       query: (formData) => ({
         url: 'whisper/transcribe',
         method: 'POST',

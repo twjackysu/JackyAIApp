@@ -1,3 +1,5 @@
+import { configureStore } from '@reduxjs/toolkit';
+
 import { accountApis } from '@/apis/accountApis';
 import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
 import { dictionaryApis } from '@/apis/dictionaryApis';
@@ -5,7 +7,6 @@ import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
 import { jiraApis } from '@/apis/jiraApis';
 import { repositoryApis } from '@/apis/repositoryApis';
-import { configureStore } from '@reduxjs/toolkit';
 
 export const store = configureStore({
   reducer: {

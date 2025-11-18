@@ -1,9 +1,3 @@
-import {
-  useDeleteJiraConfigMutation,
-  useGetJiraConfigQuery,
-  useLazyPostSearchQuery,
-  usePostJiraConfigMutation,
-} from '@/apis/jiraApis';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
   Box,
@@ -25,6 +19,14 @@ import {
   Typography,
 } from '@mui/material';
 import { useContext, useRef, useState } from 'react';
+
+import {
+  useDeleteJiraConfigMutation,
+  useGetJiraConfigQuery,
+  useLazyPostSearchQuery,
+  usePostJiraConfigMutation,
+} from '@/apis/jiraApis';
+
 import { TASK } from '../constants';
 import EffortPlannerContext from '../context/EffortPlannerContext';
 
@@ -53,7 +55,7 @@ function SyncFromJiraDialog() {
   const [jiraTickets, setJiraTickets] = useState('');
   const [jiraSprints, setJiraSprints] = useState('');
 
-  const handleAddConfigClick = (_: React.MouseEvent<HTMLElement>) => {
+  const handleAddConfigClick = () => {
     setAnchorEl(selectRef.current);
   };
 

@@ -1,6 +1,6 @@
+import SendIcon from '@mui/icons-material/Send';
 import { IconButton, Paper, TextField } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import SendIcon from '@mui/icons-material/Send';
 
 interface ChatInputProps {
   value: string;
@@ -41,11 +41,7 @@ const ChatInput = ({ value, onChange, onSend, onKeyPress, disabled }: ChatInputP
           },
         }}
       />
-      <IconButton
-        color="primary"
-        onClick={onSend}
-        disabled={!value.trim() || disabled}
-      >
+      <IconButton color="primary" onClick={onSend} disabled={!value.trim() || disabled}>
         <SendIcon />
       </IconButton>
     </Paper>

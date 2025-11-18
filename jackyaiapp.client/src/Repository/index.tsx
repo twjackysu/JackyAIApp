@@ -1,11 +1,12 @@
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-
-import { useGetRepositoryWordsQuery } from '@/apis/repositoryApis';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
+import Stack from '@mui/material/Stack';
 import { MouseEvent, useEffect, useRef, useState } from 'react';
+
+import { useGetRepositoryWordsQuery } from '@/apis/repositoryApis';
+
 import { Word } from '../apis/dictionaryApis/types';
 import RepositoryNoWordAlert from '../components/RepositoryNoWordAlert';
 import WordCard from '../components/WordCard';

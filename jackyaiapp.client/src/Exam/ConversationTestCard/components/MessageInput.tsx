@@ -1,7 +1,7 @@
-import { IconButton, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 import MicIcon from '@mui/icons-material/Mic';
 import SendIcon from '@mui/icons-material/Send';
+import { IconButton, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 interface MessageInputProps {
   input: string;
@@ -34,14 +34,14 @@ function MessageInput({
   };
 
   return (
-    <Paper 
-      elevation={3} 
-      sx={{ 
-        p: 2, 
-        display: 'flex', 
+    <Paper
+      elevation={3}
+      sx={{
+        p: 2,
+        display: 'flex',
         flexDirection: 'column',
-        borderRadius: 0, 
-        backgroundColor: theme.palette.background.paper 
+        borderRadius: 0,
+        backgroundColor: theme.palette.background.paper,
       }}
     >
       <Stack direction="row" spacing={1} alignItems="center">
@@ -55,17 +55,17 @@ function MessageInput({
           onKeyPress={handleKeyPress}
           placeholder="輸入你的回應..."
           disabled={isResponding}
-          sx={{ 
-            mr: 2, 
-            '& .MuiOutlinedInput-root': { 
-              borderRadius: 8 
-            } 
+          sx={{
+            mr: 2,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 8,
+            },
           }}
         />
         <Tooltip
           title={
             mediaRecorder
-              ? isRecording 
+              ? isRecording
                 ? 'Click to stop recording'
                 : 'Click to start recording'
               : 'Microphone not available'
@@ -75,10 +75,10 @@ function MessageInput({
           <IconButton
             onClick={onToggleRecording}
             sx={{
-              color: isRecording 
-                ? theme.palette.error.main 
-                : isTranscribing 
-                  ? theme.palette.warning.main 
+              color: isRecording
+                ? theme.palette.error.main
+                : isTranscribing
+                  ? theme.palette.warning.main
                   : theme.palette.action.active,
             }}
             disabled={!mediaRecorder || isResponding || isTranscribing}

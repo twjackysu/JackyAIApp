@@ -1,7 +1,9 @@
 // filepath: e:\Users\jacky\Documents\Repo\JackyAIApp\jackyaiapp.client\src\apis\financeApis\index.ts
 
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
 import { ApiOkResponse } from '../types';
+
 import { StrategicInsight, StockTrendAnalysis, StockSearchRequest } from './types';
 
 // Define a service using a base URL and expected endpoints

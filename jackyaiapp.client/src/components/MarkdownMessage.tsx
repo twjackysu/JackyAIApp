@@ -1,12 +1,12 @@
 import { Box, Typography } from '@mui/material';
+import { Theme } from '@mui/material/styles';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-
+import remarkGfm from 'remark-gfm';
 interface MarkdownMessageProps {
   content: string;
   isOwnMessage: boolean;
-  theme: any;
+  theme: Theme;
 }
 
 const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps) => {
@@ -17,10 +17,10 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
       components={{
         // 自定義樣式
         p: ({ children }) => (
-          <Typography 
-            variant="body1" 
-            component="div" 
-            sx={{ 
+          <Typography
+            variant="body1"
+            component="div"
+            sx={{
               margin: 0,
               marginBottom: 1,
               '&:last-child': { marginBottom: 0 },
@@ -32,10 +32,10 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
           </Typography>
         ),
         h1: ({ children }) => (
-          <Typography 
-            variant="h5" 
-            component="h1" 
-            sx={{ 
+          <Typography
+            variant="h5"
+            component="h1"
+            sx={{
               marginBottom: 1,
               color: 'inherit',
               fontWeight: 600,
@@ -45,10 +45,10 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
           </Typography>
         ),
         h2: ({ children }) => (
-          <Typography 
-            variant="h6" 
-            component="h2" 
-            sx={{ 
+          <Typography
+            variant="h6"
+            component="h2"
+            sx={{
               marginBottom: 1,
               color: 'inherit',
               fontWeight: 600,
@@ -58,10 +58,10 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
           </Typography>
         ),
         h3: ({ children }) => (
-          <Typography 
-            variant="subtitle1" 
-            component="h3" 
-            sx={{ 
+          <Typography
+            variant="subtitle1"
+            component="h3"
+            sx={{
               marginBottom: 1,
               color: 'inherit',
               fontWeight: 600,
@@ -72,16 +72,17 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
         ),
         code: ({ node, children, className, ...props }) => {
           const isInline = !node || node.tagName !== 'pre';
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { ref, key, ...cleanProps } = props;
           return (
             <Box
               component={isInline ? 'code' : 'pre'}
               className={className}
               sx={{
-                backgroundColor: isOwnMessage 
-                  ? 'rgba(255, 255, 255, 0.1)' 
-                  : theme.palette.mode === 'dark' 
-                    ? 'rgba(255, 255, 255, 0.05)' 
+                backgroundColor: isOwnMessage
+                  ? 'rgba(255, 255, 255, 0.1)'
+                  : theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.05)'
                     : 'rgba(0, 0, 0, 0.05)',
                 padding: isInline ? '2px 4px' : '8px 12px',
                 borderRadius: 1,
@@ -101,9 +102,9 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
         blockquote: ({ children }) => (
           <Box
             sx={{
-              borderLeft: `4px solid ${isOwnMessage 
-                ? 'rgba(255, 255, 255, 0.3)' 
-                : theme.palette.primary.main}`,
+              borderLeft: `4px solid ${
+                isOwnMessage ? 'rgba(255, 255, 255, 0.3)' : theme.palette.primary.main
+              }`,
               paddingLeft: 2,
               margin: '8px 0',
               color: 'inherit',
@@ -139,15 +140,13 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
           </Typography>
         ),
         a: ({ href, children }) => (
-          <Typography 
-            component="a" 
+          <Typography
+            component="a"
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            sx={{ 
-              color: isOwnMessage 
-                ? 'rgba(255, 255, 255, 0.9)' 
-                : theme.palette.primary.main,
+            sx={{
+              color: isOwnMessage ? 'rgba(255, 255, 255, 0.9)' : theme.palette.primary.main,
               textDecoration: 'underline',
             }}
           >
@@ -155,9 +154,9 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
           </Typography>
         ),
         table: ({ children }) => (
-          <Box 
-            sx={{ 
-              overflowX: 'auto', 
+          <Box
+            sx={{
+              overflowX: 'auto',
               margin: '8px 0',
               border: `1px solid ${theme.palette.divider}`,
               borderRadius: 1,
@@ -169,22 +168,21 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
           </Box>
         ),
         thead: ({ children }) => (
-          <Box 
-            component="thead" 
-            sx={{ 
-              backgroundColor: theme.palette.mode === 'dark' 
-                ? 'rgba(255, 255, 255, 0.05)' 
-                : 'rgba(0, 0, 0, 0.05)' 
+          <Box
+            component="thead"
+            sx={{
+              backgroundColor:
+                theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
             }}
           >
             {children}
           </Box>
         ),
         th: ({ children }) => (
-          <Box 
-            component="th" 
-            sx={{ 
-              padding: 1, 
+          <Box
+            component="th"
+            sx={{
+              padding: 1,
               textAlign: 'left',
               borderBottom: `1px solid ${theme.palette.divider}`,
               fontWeight: 600,
@@ -195,9 +193,9 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
           </Box>
         ),
         td: ({ children }) => (
-          <Box 
-            component="td" 
-            sx={{ 
+          <Box
+            component="td"
+            sx={{
               padding: 1,
               borderBottom: `1px solid ${theme.palette.divider}`,
               color: 'inherit',

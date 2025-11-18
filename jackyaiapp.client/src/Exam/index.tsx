@@ -1,17 +1,19 @@
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { orange } from '@mui/material/colors';
+import IconButton from '@mui/material/IconButton';
+import { alpha, useTheme } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
 import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+
 import { useGetRepositoryWordsQuery } from '../apis/repositoryApis';
 import RepositoryNoWordAlert from '../components/RepositoryNoWordAlert';
+
 import ClozeTestCard from './ClozeTestCard';
 import ConversationTestCard from './ConversationTestCard';
-import TranslationTestCard from './TranslationTestCard';
 import SentenceTestCard from './SentenceTestCard';
-import { alpha, useTheme } from '@mui/material/styles';
+import TranslationTestCard from './TranslationTestCard';
 
 const styles = {
   button: {
@@ -34,13 +36,13 @@ function Exam() {
     pageSize: 1,
   });
   const isRepositoryNoWord = !data?.data?.[0];
-  
+
   // Check if we're on a specific test page
   const isOnTestPage = location.pathname !== '/exam' && location.pathname !== '/exam/';
-    
+
   // Check if we're on conversation test page
   const isOnConversationTest = location.pathname.includes('/conversation');
-  
+
   return (
     <Box sx={{ p: 2, position: 'relative' }}>
       {isRepositoryNoWord && !isOnConversationTest ? (
@@ -49,9 +51,9 @@ function Exam() {
         <>
           {isOnTestPage && (
             // Floating back button when on a specific test
-            <IconButton 
+            <IconButton
               onClick={() => navigate('/exam')}
-              sx={{ 
+              sx={{
                 position: 'absolute',
                 top: 16,
                 left: 16,
@@ -61,7 +63,7 @@ function Exam() {
                 '&:hover': {
                   backgroundColor: alpha(theme.palette.background.paper, 1),
                   boxShadow: 4,
-                }
+                },
               }}
             >
               <ArrowBackIcon />
@@ -79,10 +81,10 @@ function Exam() {
                 px: 2,
               }}
             >
-              <Button 
-                component={Link} 
-                to="cloze" 
-                variant="outlined" 
+              <Button
+                component={Link}
+                to="cloze"
+                variant="outlined"
                 sx={styles.button}
                 disabled={isRepositoryNoWord}
               >
@@ -123,28 +125,38 @@ function Exam() {
               </Button>
             </Box>
           )}
-          {isRepositoryNoWord && !isOnConversationTest && (
-            <RepositoryNoWordAlert />
-          )}
+          {isRepositoryNoWord && !isOnConversationTest && <RepositoryNoWordAlert />}
           <Routes>
-            <Route path="cloze" element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <ClozeTestCard />} />
-            <Route path="translation" element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <TranslationTestCard />} />
+            <Route
+              path="cloze"
+              element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <ClozeTestCard />}
+            />
+            <Route
+              path="translation"
+              element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <TranslationTestCard />}
+            />
             <Route path="conversation" element={<ConversationTestCard />} />
-            <Route path="sentenceTest" element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <SentenceTestCard />} />
-            <Route path="/" element={
-              <Box sx={{ 
-                textAlign: 'center', 
-                mt: 4,
-                color: 'text.secondary'
-              }}>
-                <Typography variant="h6" gutterBottom>
-                  歡迎使用英語學習測驗系統 📚
-                </Typography>
-                <Typography variant="body1">
-                  請從上方選擇一種測驗類型開始練習
-                </Typography>
-              </Box>
-            } />
+            <Route
+              path="sentenceTest"
+              element={isRepositoryNoWord ? <RepositoryNoWordAlert /> : <SentenceTestCard />}
+            />
+            <Route
+              path="/"
+              element={
+                <Box
+                  sx={{
+                    textAlign: 'center',
+                    mt: 4,
+                    color: 'text.secondary',
+                  }}
+                >
+                  <Typography variant="h6" gutterBottom>
+                    歡迎使用英語學習測驗系統 📚
+                  </Typography>
+                  <Typography variant="body1">請從上方選擇一種測驗類型開始練習</Typography>
+                </Box>
+              }
+            />
           </Routes>
         </>
       )}

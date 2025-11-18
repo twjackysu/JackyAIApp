@@ -1,8 +1,9 @@
+import Paper from '@mui/material/Paper';
+import { styled } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
+
 import { useGetWordOfTheDayQuery } from '@/apis/dictionaryApis';
 import WordCard from '@/components/WordCard';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import { styled } from '@mui/material/styles';
 
 const WordOfTheDayContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),

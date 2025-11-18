@@ -1,5 +1,6 @@
-import { Box, LinearProgress, Typography } from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import { Box, LinearProgress, Typography } from '@mui/material';
+
 import { StreamingStatus } from '@/hooks/useChatStreaming';
 
 interface ProgressIndicatorProps {

@@ -91,7 +91,7 @@ export const useChatStreaming = () => {
                       }));
                       break;
 
-                    case 'node_started':
+                    case 'node_started': {
                       const nodeTitle = data.data?.title || '節點';
                       setStreamingStatus((prev) => ({
                         ...prev,
@@ -99,8 +99,9 @@ export const useChatStreaming = () => {
                         statusText: `正在執行: ${nodeTitle}`,
                       }));
                       break;
+                    }
 
-                    case 'node_finished':
+                    case 'node_finished': {
                       const finishedNodeTitle = data.data?.title || '節點';
                       const status = data.data?.status || 'unknown';
                       const statusEmoji =
@@ -118,8 +119,9 @@ export const useChatStreaming = () => {
                         statusText: `${statusEmoji} ${finishedNodeTitle} 已完成`,
                       }));
                       break;
+                    }
 
-                    case 'agent_log':
+                    case 'agent_log': {
                       // 顯示 agent_log 的 label 作為狀態
                       const agentLabel = data.data?.label || '';
                       const agentStatus = data.data?.status || '';
@@ -154,6 +156,7 @@ export const useChatStreaming = () => {
                         }
                       }
                       break;
+                    }
 
                     case 'message':
                       // Dify 的 message event 包含片段，需要累加
@@ -177,7 +180,7 @@ export const useChatStreaming = () => {
                       }, 500);
                       return;
 
-                    case 'workflow_finished':
+                    case 'workflow_finished': {
                       const workflowStatus = data.data?.status || 'unknown';
                       const workflowEmoji =
                         workflowStatus === 'succeeded'
@@ -197,6 +200,7 @@ export const useChatStreaming = () => {
                         onMessageUpdate(accumulatedContent);
                       }
                       break;
+                    }
 
                     case 'error':
                       onError(data.message || 'Unknown error');

@@ -1,10 +1,3 @@
-import {
-  useGetTranslationTestQuery,
-  useLazyGetTranslationQualityGradingQuery,
-  useTranscribeAudioMutation,
-} from '@/apis/examApis';
-import AILoading from '@/components/AILoading';
-import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MicIcon from '@mui/icons-material/Mic';
 import { TextField } from '@mui/material';
@@ -14,10 +7,18 @@ import FormControl from '@mui/material/FormControl';
 import FormLabel from '@mui/material/FormLabel';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
+import { useTheme } from '@mui/material/styles';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { useTheme } from '@mui/material/styles';
 import { useEffect, useState } from 'react';
+
+import {
+  useGetTranslationTestQuery,
+  useLazyGetTranslationQualityGradingQuery,
+  useTranscribeAudioMutation,
+} from '@/apis/examApis';
+import AILoading from '@/components/AILoading';
+import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 
 function TranslationCard() {
   const theme = useTheme();
@@ -35,9 +36,9 @@ function TranslationCard() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const recorder = new MediaRecorder(stream);
-        
+
         const chunks: Blob[] = [];
-        
+
         recorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
             chunks.push(event.data);
@@ -59,13 +60,14 @@ function TranslationCard() {
     };
 
     setupMediaRecorder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAudioTranscription = async (audioBlob: Blob) => {
     try {
       const formData = new FormData();
       formData.append('audioFile', audioBlob, 'recording.wav');
-      
+
       const response = await transcribeAudio(formData).unwrap();
       if (response.data.text) {
         setInput(response.data.text);
@@ -111,7 +113,7 @@ function TranslationCard() {
 
   const handleToggleRecording = () => {
     if (!mediaRecorder) return;
-    
+
     if (isRecording) {
       // Stop recording and transcribe
       mediaRecorder.stop();
@@ -146,7 +148,7 @@ function TranslationCard() {
           <Tooltip
             title={
               mediaRecorder
-                ? isRecording 
+                ? isRecording
                   ? 'Click to stop recording'
                   : 'Click to start recording'
                 : 'Microphone not available'
@@ -156,10 +158,10 @@ function TranslationCard() {
             <IconButton
               onClick={handleToggleRecording}
               sx={{
-                color: isRecording 
-                  ? theme.palette.error.main 
-                  : isTranscribing 
-                    ? theme.palette.warning.main 
+                color: isRecording
+                  ? theme.palette.error.main
+                  : isTranscribing
+                    ? theme.palette.warning.main
                     : theme.palette.action.active,
               }}
               disabled={!mediaRecorder || isTranscribing}

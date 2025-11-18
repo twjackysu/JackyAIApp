@@ -1,8 +1,9 @@
-import { AppBar, Avatar, Chip, IconButton, Stack, Toolbar, Typography } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
-import { ConversationContext } from '@/apis/examApis/types';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import { AppBar, Avatar, Chip, IconButton, Stack, Toolbar, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+
+import { ConversationContext } from '@/apis/examApis/types';
 
 interface ConversationHeaderProps {
   context: ConversationContext;
@@ -22,17 +23,17 @@ function ConversationHeader({ context, difficultyLevel }: ConversationHeaderProp
 
   return (
     <>
-      <AppBar 
-        position="static" 
-        color="inherit" 
-        elevation={0} 
+      <AppBar
+        position="static"
+        color="inherit"
+        elevation={0}
         sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
       >
         <Toolbar>
-          <Avatar 
-            sx={{ 
+          <Avatar
+            sx={{
               mr: 2,
-              bgcolor: theme.palette.success.main
+              bgcolor: theme.palette.success.main,
             }}
           >
             <SmartToyIcon />
@@ -45,24 +46,25 @@ function ConversationHeader({ context, difficultyLevel }: ConversationHeaderProp
               AI 助手 - {context.aiRole}
             </Typography>
           </Stack>
-          <Stack sx={{ flexGrow: 1 }} /> 
+          <Stack sx={{ flexGrow: 1 }} />
           <IconButton color="inherit">
             <MoreVertIcon />
           </IconButton>
         </Toolbar>
       </AppBar>
-      
-      <Stack 
-        direction="row" 
-        spacing={1} 
-        flexWrap="wrap" 
-        sx={{ 
-          p: 2, 
-          bgcolor: theme.palette.mode === 'dark' 
-            ? 'rgba(144, 202, 249, 0.08)' 
-            : 'rgba(144, 202, 249, 0.12)',
+
+      <Stack
+        direction="row"
+        spacing={1}
+        flexWrap="wrap"
+        sx={{
+          p: 2,
+          bgcolor:
+            theme.palette.mode === 'dark'
+              ? 'rgba(144, 202, 249, 0.08)'
+              : 'rgba(144, 202, 249, 0.12)',
           borderBottom: '1px solid',
-          borderColor: 'divider'
+          borderColor: 'divider',
         }}
       >
         <Chip

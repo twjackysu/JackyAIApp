@@ -1,7 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import React, { useContext } from 'react';
+
 import { STASHED } from '../constants';
 import EffortPlannerContext from '../context/EffortPlannerContext';
+
 import TaskCard from './TaskCard';
 
 interface StashedTasksProps {

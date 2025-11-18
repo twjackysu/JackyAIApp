@@ -1,12 +1,14 @@
-import { forwardRef } from 'react';
+import { Visibility } from '@mui/icons-material';
+import PersonIcon from '@mui/icons-material/Person';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { Avatar, Box, Paper, Stack, Typography, Button } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { Visibility } from '@mui/icons-material';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import PersonIcon from '@mui/icons-material/Person';
+import { forwardRef } from 'react';
+
 import MarkdownMessage from '@/components/MarkdownMessage';
-import { Message } from '../types';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
+
+import { Message } from '../types';
 
 interface MessageAreaWithBlocksProps {
   messages: Message[];
@@ -15,23 +17,17 @@ interface MessageAreaWithBlocksProps {
 }
 
 // 單個區塊渲染組件
-const BlockRenderer = ({ 
-  block, 
-  onHtmlPreview 
-}: { 
-  block: ParsedBlock; 
+const BlockRenderer = ({
+  block,
+  onHtmlPreview,
+}: {
+  block: ParsedBlock;
   onHtmlPreview: (content: string) => void;
 }) => {
   const theme = useTheme();
 
   if (block.contentType === 'markdown') {
-    return (
-      <MarkdownMessage
-        content={block.content}
-        isOwnMessage={false}
-        theme={theme}
-      />
-    );
+    return <MarkdownMessage content={block.content} isOwnMessage={false} theme={theme} />;
   } else {
     // HTML 區塊顯示為預覽按鈕
     return (
@@ -48,19 +44,19 @@ const BlockRenderer = ({
             '&:hover': {
               borderColor: theme.palette.primary.main,
               color: theme.palette.primary.main,
-            }
+            },
           }}
         >
           View HTML {block.isComplete ? 'Preview' : '(Streaming...)'}
         </Button>
         {!block.isComplete && (
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              display: 'block', 
-              mt: 0.5, 
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block',
+              mt: 0.5,
               color: theme.palette.text.secondary,
-              fontSize: '0.7rem'
+              fontSize: '0.7rem',
             }}
           >
             HTML content is still loading...
@@ -95,9 +91,7 @@ const MessageAreaWithBlocks = forwardRef<HTMLDivElement, MessageAreaWithBlocksPr
             borderRadius: '3px',
             '&:hover': {
               backgroundColor:
-                theme.palette.mode === 'dark'
-                  ? 'rgba(255, 255, 255, 0.25)'
-                  : 'rgba(0, 0, 0, 0.25)',
+                theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)',
             },
           },
           ...style,
@@ -199,7 +193,7 @@ const MessageAreaWithBlocks = forwardRef<HTMLDivElement, MessageAreaWithBlocksPr
                         AI 助手
                       </Typography>
                     )}
-                    
+
                     {/* 渲染消息內容 */}
                     {isOwnMessage || !message.parsedBlocks ? (
                       // 用戶消息或沒有解析區塊的消息，使用原有方式
@@ -212,15 +206,15 @@ const MessageAreaWithBlocks = forwardRef<HTMLDivElement, MessageAreaWithBlocksPr
                       // Bot 消息且有解析區塊，使用新的區塊渲染
                       <Box>
                         {message.parsedBlocks.map((block) => (
-                          <BlockRenderer 
-                            key={block.id} 
-                            block={block} 
+                          <BlockRenderer
+                            key={block.id}
+                            block={block}
                             onHtmlPreview={onHtmlPreview}
                           />
                         ))}
                       </Box>
                     )}
-                    
+
                     <Typography
                       variant="caption"
                       sx={{
@@ -255,7 +249,7 @@ const MessageAreaWithBlocks = forwardRef<HTMLDivElement, MessageAreaWithBlocksPr
         </Stack>
       </Box>
     );
-  }
+  },
 );
 
 MessageAreaWithBlocks.displayName = 'MessageAreaWithBlocks';
