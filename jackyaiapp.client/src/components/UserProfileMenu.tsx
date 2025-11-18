@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom';
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LoginIcon from '@mui/icons-material/Login';
+import LinkIcon from '@mui/icons-material/Link';
 import { apps } from '../constants/apps';
 
 function UserProfileMenu() {
@@ -129,6 +130,23 @@ function UserProfileMenu() {
 
         {isAuthenticated && (
           <>
+            <Divider />
+            <MenuItem
+              component={Link}
+              to="/connectors"
+              onClick={handleClose}
+              sx={{
+                minWidth: 200,
+                '&:hover': { backgroundColor: 'action.hover' },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <LinkIcon sx={{ mr: 1 }} />
+                <Typography variant="body2" sx={{ ml: 1 }}>
+                  Connected Services
+                </Typography>
+              </Box>
+            </MenuItem>
             <Divider />
             <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
               <LogoutIcon sx={{ mr: 1 }} />

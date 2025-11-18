@@ -20,6 +20,7 @@ import useRouteMatch from './hooks/useRouteMatch';
 import Finance from './Finance';
 import UserProfileMenu from './components/UserProfileMenu';
 import FloatingChatbot from './components/FloatingChatbot';
+import Connectors from './Connectors';
 import { useState, useEffect } from 'react';
 import { apps, FINANCE, EFFORT_PLANNER, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
 
@@ -197,6 +198,14 @@ function App() {
             element={
               <RequireAuth>
                 <Exam />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/connectors"
+            element={
+              <RequireAuth>
+                <Connectors />
               </RequireAuth>
             }
           />

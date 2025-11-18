@@ -91,6 +91,18 @@ namespace JackyAIApp.Server.Data
                 .WithMany(w => w.SentenceTests)
                 .HasForeignKey(st => st.WordId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Configure UserConnector relationship
+            modelBuilder.Entity<UserConnector>()
+                .HasOne(uc => uc.User)
+                .WithMany(u => u.UserConnectors)
+                .HasForeignKey(uc => uc.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Ensure unique constraint for UserId + ProviderName
+            modelBuilder.Entity<UserConnector>()
+                .HasIndex(uc => new { uc.UserId, uc.ProviderName })
+                .IsUnique();
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -105,5 +117,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<SentenceTest> SentenceTests { get; set; }
         public virtual DbSet<UserWord> UserWords { get; set; }
         public virtual DbSet<JiraConfig> JiraConfigs { get; set; }
+        public virtual DbSet<UserConnector> UserConnectors { get; set; }
     }
 }

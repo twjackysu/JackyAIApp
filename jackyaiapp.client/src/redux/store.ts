@@ -1,4 +1,5 @@
 import { accountApis } from '@/apis/accountApis';
+import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
 import { dictionaryApis } from '@/apis/dictionaryApis';
 import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
@@ -15,6 +16,7 @@ export const store = configureStore({
     [examApis.reducerPath]: examApis.reducer,
     [jiraApis.reducerPath]: jiraApis.reducer,
     [financeApis.reducerPath]: financeApis.reducer,
+    [connectorsApi.reducerPath]: connectorsApi.reducer,
   },
   // Adding the api middleware enables caching, invalidation, polling,
   // and other useful features of `rtk-query`.
@@ -26,6 +28,7 @@ export const store = configureStore({
       examApis.middleware,
       jiraApis.middleware,
       financeApis.middleware,
+      connectorsApi.middleware,
     ),
 });
 

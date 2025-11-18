@@ -41,6 +41,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
         // Navigation properties
         public ICollection<UserWord> UserWords { get; set; } = [];
         public ICollection<JiraConfig> JiraConfigs { get; set; } = [];
+        public ICollection<UserConnector> UserConnectors { get; set; } = [];
     }
 
     /// <summary>
@@ -94,5 +95,62 @@ namespace JackyAIApp.Server.Data.Models.SQL
         
         [ForeignKey(nameof(UserId))]
         public User User { get; set; } = null!;
+    }
+
+    /// <summary>
+    /// User's external service connectors (Microsoft, Atlassian, Google)
+    /// </summary>
+    public class UserConnector
+    {
+        [Key]
+        public int Id { get; set; }
+
+        /// <summary>
+        /// Foreign key to the User table
+        /// </summary>
+        public required string UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User User { get; set; } = null!;
+
+        /// <summary>
+        /// Provider name: Microsoft, Atlassian, Google
+        /// </summary>
+        public required string ProviderName { get; set; }
+
+        /// <summary>
+        /// Encrypted access token for API calls
+        /// </summary>
+        public string? EncryptedAccessToken { get; set; }
+
+        /// <summary>
+        /// Encrypted refresh token for token renewal
+        /// </summary>
+        public string? EncryptedRefreshToken { get; set; }
+
+        /// <summary>
+        /// Access token expiration time
+        /// </summary>
+        public DateTime? TokenExpiresAt { get; set; }
+
+        /// <summary>
+        /// Refresh token expiration time (typically 90 days)
+        /// </summary>
+        public DateTime? RefreshTokenExpiresAt { get; set; }
+
+        /// <summary>
+        /// Whether this connector is currently active
+        /// </summary>
+        public bool IsActive { get; set; } = true;
+
+        /// <summary>
+        /// When this connector was first created
+        /// </summary>
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// When this connector was last updated
+        /// </summary>
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 }

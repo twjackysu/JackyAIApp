@@ -110,6 +110,13 @@ try
     builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
+
+    // Configure Connectors services
+    builder.Services.Configure<ConnectorOptions>(builder.Configuration.GetSection(ConnectorOptions.SectionName));
+    builder.Services.AddScoped<ITokenEncryptionService, TokenEncryptionService>();
+    builder.Services.AddScoped<IStateService, StateService>();
+    builder.Services.AddScoped<IConnectorService, ConnectorService>();
+
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options =>
     {
