@@ -32,7 +32,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly ITWSEDataService _twseDataService = twseDataService ?? throw new ArgumentNullException(nameof(twseDataService));
         private readonly IFinanceAnalysisService _financeAnalysisService = financeAnalysisService ?? throw new ArgumentNullException(nameof(financeAnalysisService));
         private readonly IExtendedMemoryCache _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
-        
+
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
         private const int CACHE_HOURS = 12; // Cache duration in hours
 
@@ -57,7 +57,7 @@ namespace JackyAIApp.Server.Controllers
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(OPERATION_TIMEOUT_SECONDS));
-            
+
             try
             {
                 _logger.LogInformation("Fetching new daily important info for date: {date}", currentDate);
@@ -77,7 +77,7 @@ namespace JackyAIApp.Server.Controllers
 
                 // Cache the successful result for 4 hours
                 _memoryCache.Set(cacheKey, analysisResult, TimeSpan.FromHours(CACHE_HOURS));
-                
+
                 return _responseFactory.CreateOKResponse(analysisResult);
             }
             catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
@@ -130,7 +130,7 @@ namespace JackyAIApp.Server.Controllers
                 }
 
                 _logger.LogInformation("Fetching new stock analysis for stock: {stockCode}, date: {date}", resolvedStockCode, currentDate);
-                
+
                 // Call TWSE Open API service to get stock data using resolved stock code
                 var stockData = await _twseApiService.GetStockDataAsync(resolvedStockCode, timeoutCts.Token);
                 if (string.IsNullOrEmpty(stockData))
@@ -138,8 +138,11 @@ namespace JackyAIApp.Server.Controllers
                     return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Failed to retrieve stock data from TWSE APIs for stock code '{resolvedStockCode}'. TWSE API endpoints may be unavailable or returned empty data.");
                 }
 
-                // Analyze the stock data using OpenAI with the resolved stock code
-                var (analysis, errorDetail) = await _financeAnalysisService.AnalyzeStockWithAIAsync(resolvedStockCode, stockData, timeoutCts.Token);
+                // Get user ID for Dify API
+                var userId = _userService.GetUserId() ?? "anonymous";
+
+                // Analyze the stock data using Dify AI with the resolved stock code
+                var (analysis, errorDetail) = await _financeAnalysisService.AnalyzeStockWithAIAsync(resolvedStockCode, stockData, userId, timeoutCts.Token);
                 if (analysis == null)
                 {
                     var detailedError = $"Failed to analyze stock data for '{resolvedStockCode}'. Details: {errorDetail ?? "Unknown error"}";

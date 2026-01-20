@@ -8,13 +8,14 @@ namespace JackyAIApp.Server.Services.Finance
     public interface IFinanceAnalysisService
     {
         /// <summary>
-        /// Analyzes stock data using OpenAI to generate trend predictions.
+        /// Analyzes stock data using Dify AI to generate trend predictions.
         /// </summary>
         /// <param name="stockCodeOrName">Stock identifier.</param>
         /// <param name="stockData">Raw stock data from TWSE APIs.</param>
+        /// <param name="userId">User identifier for Dify API.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Stock trend analysis result with detailed error information.</returns>
-        Task<(StockTrendAnalysis? analysis, string? errorDetail)> AnalyzeStockWithAIAsync(string stockCodeOrName, string stockData, CancellationToken cancellationToken = default);
+        Task<(StockTrendAnalysis? analysis, string? errorDetail)> AnalyzeStockWithAIAsync(string stockCodeOrName, string stockData, string userId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Runs financial analysis with timeout and retry mechanism for daily market insights.
