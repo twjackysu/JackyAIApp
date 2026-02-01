@@ -204,96 +204,7 @@ namespace JackyAIApp.Server.Controllers
                     // Create new meanings from WordBase data
                     foreach (var meaningData in wordbase.Meanings)
                     {
-                        var meaningId = Guid.NewGuid().ToString();
-                        var meaning = new Data.Models.SQL.WordMeaning
-                        {
-                            Id = meaningId,
-                            PartOfSpeech = meaningData.PartOfSpeech,
-                            WordId = dbWord.Id,
-                            Word = dbWord
-                        };
-                        
-                        // Add definitions
-                        if (meaningData.Definitions != null)
-                        {
-                            foreach (var definitionData in meaningData.Definitions)
-                            {
-                                meaning.Definitions.Add(new Data.Models.SQL.Definition
-                                {
-                                    Id = Guid.NewGuid().ToString(),
-                                    English = definitionData.English,
-                                    Chinese = definitionData.Chinese,
-                                    WordMeaningId = meaningId,
-                                    WordMeaning = meaning
-                                });
-                            }
-                        }
-                        
-                        // Add example sentences
-                        if (meaningData.ExampleSentences != null)
-                        {
-                            foreach (var exampleData in meaningData.ExampleSentences)
-                            {
-                                meaning.ExampleSentences.Add(new Data.Models.SQL.ExampleSentence
-                                {
-                                    Id = Guid.NewGuid().ToString(),
-                                    English = exampleData.English,
-                                    Chinese = exampleData.Chinese,
-                                    WordMeaningId = meaningId,
-                                    WordMeaning = meaning
-                                });
-                            }
-                        }
-                        
-                        // Add Synonyms as tags
-                        if (meaningData.Synonyms != null)
-                        {
-                            foreach (var synonym in meaningData.Synonyms)
-                            {
-                                meaning.Tags.Add(new Data.Models.SQL.WordMeaningTag
-                                {
-                                    Id = Guid.NewGuid().ToString(),
-                                    TagType = "Synonym",
-                                    Word = synonym,
-                                    WordMeaningId = meaningId,
-                                    WordMeaning = meaning
-                                });
-                            }
-                        }
-                        
-                        // Add Antonyms as tags
-                        if (meaningData.Antonyms != null)
-                        {
-                            foreach (var antonym in meaningData.Antonyms)
-                            {
-                                meaning.Tags.Add(new Data.Models.SQL.WordMeaningTag
-                                {
-                                    Id = Guid.NewGuid().ToString(),
-                                    TagType = "Antonym",
-                                    Word = antonym,
-                                    WordMeaningId = meaningId,
-                                    WordMeaning = meaning
-                                });
-                            }
-                        }
-                        
-                        // Add RelatedWords as tags
-                        if (meaningData.RelatedWords != null)
-                        {
-                            foreach (var relatedWord in meaningData.RelatedWords)
-                            {
-                                meaning.Tags.Add(new Data.Models.SQL.WordMeaningTag
-                                {
-                                    Id = Guid.NewGuid().ToString(),
-                                    TagType = "Related",
-                                    Word = relatedWord,
-                                    WordMeaningId = meaningId,
-                                    WordMeaning = meaning
-                                });
-                            }
-                        }
-                        
-                        dbWord.Meanings.Add(meaning);
+                        dbWord.Meanings.Add(CreateMeaningFromDto(meaningData, dbWord.Id, dbWord));
                     }
                     
                     dbWord.LastUpdated = DateTime.Now;
@@ -315,99 +226,7 @@ namespace JackyAIApp.Server.Controllers
                     // Create meanings
                     foreach (var meaningData in wordbase.Meanings)
                     {
-                        var meaningId = Guid.NewGuid().ToString();
-                        var meaning = new Data.Models.SQL.WordMeaning
-                        {
-                            Id = meaningId,
-                            PartOfSpeech = meaningData.PartOfSpeech,
-                            WordId = newWordId,
-                            Word = newWord,
-                            Definitions = new List<Data.Models.SQL.Definition>(),
-                            ExampleSentences = new List<Data.Models.SQL.ExampleSentence>(),
-                            Tags = new List<Data.Models.SQL.WordMeaningTag>()
-                        };
-                        
-                        // Add definitions
-                        if (meaningData.Definitions != null)
-                        {
-                            foreach (var definitionData in meaningData.Definitions)
-                            {
-                                meaning.Definitions.Add(new Data.Models.SQL.Definition
-                                {
-                                    Id = Guid.NewGuid().ToString(),
-                                    English = definitionData.English,
-                                    Chinese = definitionData.Chinese,
-                                    WordMeaningId = meaningId,
-                                    WordMeaning = meaning
-                                });
-                            }
-                        }
-                        
-                        // Add example sentences
-                        if (meaningData.ExampleSentences != null)
-                        {
-                            foreach (var exampleData in meaningData.ExampleSentences)
-                            {
-                                meaning.ExampleSentences.Add(new Data.Models.SQL.ExampleSentence
-                                {
-                                    Id = Guid.NewGuid().ToString(),
-                                    English = exampleData.English,
-                                    Chinese = exampleData.Chinese,
-                                    WordMeaningId = meaningId,
-                                    WordMeaning = meaning
-                                });
-                            }
-                        }
-                        
-                        // Add Synonyms as tags
-                        if (meaningData.Synonyms != null)
-                        {
-                            foreach (var synonym in meaningData.Synonyms)
-                            {
-                                meaning.Tags.Add(new Data.Models.SQL.WordMeaningTag
-                                {
-                                    Id = Guid.NewGuid().ToString(),
-                                    TagType = "Synonym",
-                                    Word = synonym,
-                                    WordMeaningId = meaningId,
-                                    WordMeaning = meaning
-                                });
-                            }
-                        }
-                        
-                        // Add Antonyms as tags
-                        if (meaningData.Antonyms != null)
-                        {
-                            foreach (var antonym in meaningData.Antonyms)
-                            {
-                                meaning.Tags.Add(new Data.Models.SQL.WordMeaningTag
-                                {
-                                    Id = Guid.NewGuid().ToString(),
-                                    TagType = "Antonym",
-                                    Word = antonym,
-                                    WordMeaningId = meaningId,
-                                    WordMeaning = meaning
-                                });
-                            }
-                        }
-                        
-                        // Add RelatedWords as tags
-                        if (meaningData.RelatedWords != null)
-                        {
-                            foreach (var relatedWord in meaningData.RelatedWords)
-                            {
-                                meaning.Tags.Add(new Data.Models.SQL.WordMeaningTag
-                                {
-                                    Id = Guid.NewGuid().ToString(),
-                                    TagType = "Related",
-                                    Word = relatedWord,
-                                    WordMeaningId = meaningId,
-                                    WordMeaning = meaning
-                                });
-                            }
-                        }
-                        
-                        newWord.Meanings.Add(meaning);
+                        newWord.Meanings.Add(CreateMeaningFromDto(meaningData, newWordId, newWord));
                     }
                     
                     await _DBContext.Words.AddAsync(newWord);
@@ -450,6 +269,87 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
+        /// Creates a WordMeaning entity from DTO data
+        /// </summary>
+        private Data.Models.SQL.WordMeaning CreateMeaningFromDto(DTO.WordMeaning meaningData, string wordId, Data.Models.SQL.Word word)
+        {
+            var meaningId = Guid.NewGuid().ToString();
+            var meaning = new Data.Models.SQL.WordMeaning
+            {
+                Id = meaningId,
+                PartOfSpeech = meaningData.PartOfSpeech,
+                WordId = wordId,
+                Word = word,
+                Definitions = new List<Data.Models.SQL.Definition>(),
+                ExampleSentences = new List<Data.Models.SQL.ExampleSentence>(),
+                Tags = new List<Data.Models.SQL.WordMeaningTag>()
+            };
+
+            // Add definitions
+            if (meaningData.Definitions != null)
+            {
+                foreach (var definitionData in meaningData.Definitions)
+                {
+                    meaning.Definitions.Add(new Data.Models.SQL.Definition
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        English = definitionData.English,
+                        Chinese = definitionData.Chinese,
+                        WordMeaningId = meaningId,
+                        WordMeaning = meaning
+                    });
+                }
+            }
+
+            // Add example sentences
+            if (meaningData.ExampleSentences != null)
+            {
+                foreach (var exampleData in meaningData.ExampleSentences)
+                {
+                    meaning.ExampleSentences.Add(new Data.Models.SQL.ExampleSentence
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        English = exampleData.English,
+                        Chinese = exampleData.Chinese,
+                        WordMeaningId = meaningId,
+                        WordMeaning = meaning
+                    });
+                }
+            }
+
+            // Add Synonyms as tags
+            AddTagsToMeaning(meaning, meaningId, meaningData.Synonyms, Constants.TagTypes.Synonym);
+
+            // Add Antonyms as tags
+            AddTagsToMeaning(meaning, meaningId, meaningData.Antonyms, Constants.TagTypes.Antonym);
+
+            // Add RelatedWords as tags
+            AddTagsToMeaning(meaning, meaningId, meaningData.RelatedWords, Constants.TagTypes.Related);
+
+            return meaning;
+        }
+
+        /// <summary>
+        /// Adds tags of a specific type to a word meaning
+        /// </summary>
+        private static void AddTagsToMeaning(Data.Models.SQL.WordMeaning meaning, string meaningId, List<string>? words, string tagType)
+        {
+            if (words == null) return;
+
+            foreach (var word in words)
+            {
+                meaning.Tags.Add(new Data.Models.SQL.WordMeaningTag
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    TagType = tagType,
+                    Word = word,
+                    WordMeaningId = meaningId,
+                    WordMeaning = meaning
+                });
+            }
+        }
+
+        /// <summary>
         /// Converts SQL entity to DTO to avoid circular reference issues
         /// </summary>
         private DTO.Word ConvertToDto(Data.Models.SQL.Word sqlWord)
@@ -476,9 +376,9 @@ namespace JackyAIApp.Server.Controllers
                         English = es.English,
                         Chinese = es.Chinese
                     }).ToList(),
-                    Synonyms = m.Tags.Where(t => t.TagType == "Synonym").Select(t => t.Word).ToList(),
-                    Antonyms = m.Tags.Where(t => t.TagType == "Antonym").Select(t => t.Word).ToList(),
-                    RelatedWords = m.Tags.Where(t => t.TagType == "Related").Select(t => t.Word).ToList()
+                    Synonyms = m.Tags.Where(t => t.TagType == Constants.TagTypes.Synonym).Select(t => t.Word).ToList(),
+                    Antonyms = m.Tags.Where(t => t.TagType == Constants.TagTypes.Antonym).Select(t => t.Word).ToList(),
+                    RelatedWords = m.Tags.Where(t => t.TagType == Constants.TagTypes.Related).Select(t => t.Word).ToList()
                 }).ToList()
             };
         }
