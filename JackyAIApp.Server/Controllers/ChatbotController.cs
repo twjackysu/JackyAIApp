@@ -12,13 +12,13 @@ namespace JackyAIApp.Server.Controllers
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class ChatbotController(ILogger<ChatbotController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IUserService userService) : ControllerBase
+    public class ChatbotController(ILogger<ChatbotController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IUserService userService, IHttpClientFactory httpClientFactory) : ControllerBase
     {
         private readonly ILogger<ChatbotController> _logger = logger ?? throw new ArgumentNullException();
         private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
         private readonly IUserService _userService = userService;
-        private readonly HttpClient _httpClient = new HttpClient();
+        private readonly IHttpClientFactory _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException();
 
         /// <summary>
         /// Forwards chat messages to Dify API and streams the response back to the client.
@@ -66,7 +66,7 @@ namespace JackyAIApp.Server.Controllers
                     return;
                 }
 
-                using var httpClient = new HttpClient();
+                using var httpClient = _httpClientFactory.CreateClient();
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {difyApiKey}");
                 httpClient.DefaultRequestHeaders.Add("Accept", "text/event-stream");
                 httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");

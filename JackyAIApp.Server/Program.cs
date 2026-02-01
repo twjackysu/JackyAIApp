@@ -103,6 +103,7 @@ try
         options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
     });
 
+    builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
     builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
     builder.Services.AddScoped<IUserService, UserService>();
