@@ -31,5 +31,6 @@ export const PDF_UNLOCKER = {
   allPaths: ['/pdf'],
 };
 
-// Application definitions used for both the app bar and the user profile menu
-export const apps = [FINANCE, ENGLISH_LEARNING, EFFORT_PLANNER, PDF_UNLOCKER];
+// Application definitions used for navigation menu
+// Note: PDF_UNLOCKER is hidden from navigation but still accessible via direct URL
+export const apps = [FINANCE, ENGLISH_LEARNING, EFFORT_PLANNER];
