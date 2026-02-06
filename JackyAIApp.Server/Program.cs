@@ -65,8 +65,11 @@ try
     .AddCookie(options =>
     {
         options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Lax; // Required for OAuth redirect
         options.Cookie.MaxAge = TimeSpan.FromDays(1);
         options.ExpireTimeSpan = TimeSpan.FromDays(1);
+        options.SlidingExpiration = true; // Auto-renew while active
         options.LoginPath = "/api/account/login/Google";
     })
     .AddGoogle(googleOptions =>

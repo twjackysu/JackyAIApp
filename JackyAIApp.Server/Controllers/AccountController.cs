@@ -1,4 +1,4 @@
-﻿using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.Services;
@@ -18,6 +18,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly AzureSQLDBContext _DBContext = DBContext;
         private readonly IUserService _userService = userService;
         private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
+
         [HttpGet("login/{provider}")]
         public IActionResult Login(string provider)
         {
@@ -38,8 +39,11 @@ namespace JackyAIApp.Server.Controllers
             var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             if (!result.Succeeded)
             {
-                return Unauthorized();
+                _logger.LogWarning("Login callback failed: {FailureMessage}", result.Failure?.Message);
+                // Redirect to a user-friendly error page instead of raw 401
+                return LocalRedirect("~/login-error");
             }
+
             var userId = _userService.GetUserId();
             await _DBContext.Database.EnsureCreatedAsync();
             var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
@@ -50,28 +54,28 @@ namespace JackyAIApp.Server.Controllers
                     Id = userId,
                     Name = _userService.GetUserName(),
                     Email = _userService.GetUserEmail(),
-                    LastUpdated = DateTime.Now,
+                    LastUpdated = DateTime.UtcNow,
                     CreditBalance = 20,
                     TotalCreditsUsed = 0
                 };
                 _DBContext.Users.Add(user);
                 await _DBContext.SaveChangesAsync();
+                _logger.LogInformation("New user created: {UserId}", userId);
             }
+
             return LocalRedirect("~/");
         }
 
-        [HttpPost("logout")]    
+        [Authorize]
+        [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
+            var userId = _userService.GetUserId();
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            _logger.LogInformation("User logged out: {UserId}", userId);
             return NoContent();
         }
-        [HttpGet("check-auth")]
-        public IActionResult CheckAuth()
-        {
-            var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
-            return Ok(new { IsAuthenticated = isAuthenticated });
-        }
+
         [Authorize]
         [HttpGet("info")]
         public async Task<IActionResult> GetUserInfo()
@@ -79,11 +83,12 @@ namespace JackyAIApp.Server.Controllers
             var userId = _userService.GetUserId();
             var user = await _DBContext.Users
                 .SingleOrDefaultAsync(x => x.Id == userId);
-                
+
             if (user == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
             }
+
             return _responseFactory.CreateOKResponse(user);
         }
     }
