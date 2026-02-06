@@ -46,7 +46,7 @@ dotnet ef database update
 - **Azure integrations**: Key Vault for secrets, App Service hosting
 - **OpenAI integration** via Betalgo.Ranul.OpenAI package (v9.0.3)
 - **Google OAuth** authentication
-- **External API integrations**: Taiwan Stock Exchange (TWSE) Open API, Jira API
+- **External API integrations**: Taiwan Stock Exchange (TWSE) Open API
 
 ### Key Features & Modules
 1. **Dictionary** (`/dictionary`) - English learning with word lookup, audio, pronunciation, word repository
@@ -82,12 +82,7 @@ dotnet ef database update
    - Strategic insights generation with bullish/bearish recommendations
    - AI-powered stock data analysis using OpenAI GPT-4o-mini
 
-5. **Effort Planner** (`/effortPlanner`) - Task management with Jira API integration
-   - Jira API integration for task synchronization
-   - Work progress tracking
-   - Project management tools
-
-6. **PDF Unlocker** (`/pdf`) - PDF processing utilities
+5. **PDF Unlocker** (`/pdf`) - PDF processing utilities
    - Password removal from protected PDFs
    - Batch PDF processing
    - File compression features
@@ -124,7 +119,6 @@ JackyAIApp.Server/
   - **Word**: Word text, KK phonetics, timestamps, validity flags
   - **WordMeaning**: Part of speech, definitions, examples, synonyms/antonyms
   - **UserWord**: User-word many-to-many relationship
-  - **JiraConfig**: Per-user Jira configuration settings
 - **Test entities**: ClozeTest, TranslationTest, ClozeTestOption with user associations
 
 ### API Communication Pattern
