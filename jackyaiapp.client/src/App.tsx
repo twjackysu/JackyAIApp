@@ -13,6 +13,7 @@ import { Link, Route, Routes, useLocation } from 'react-router-dom';
 
 import RequireAuth from './auth/RequireAuth';
 import FloatingChatbot from './components/FloatingChatbot';
+import LoginError from './components/LoginError';
 import UserProfileMenu from './components/UserProfileMenu';
 import Connectors from './Connectors';
 import { apps, FINANCE, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
@@ -199,6 +200,7 @@ function App() {
             }
           />
           <Route path={FINANCE.path} element={<Finance />} />
+          <Route path="/login-error" element={<LoginError />} />
           <Route path="/" element={<Finance />} />
         </Routes>
       </Box>

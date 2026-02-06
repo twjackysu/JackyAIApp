@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import { useCheckAuthQuery } from '@/apis/accountApis';
+import { useGetUserInfoQuery } from '@/apis/accountApis';
 
 interface Props {
   children: React.ReactNode;
@@ -9,16 +9,19 @@ interface Props {
 
 function RequireAuth({ children }: Props) {
   const location = useLocation();
-  const { data, isFetching, isError } = useCheckAuthQuery();
+  const { data, isFetching, isError } = useGetUserInfoQuery();
 
   useEffect(() => {
-    if (!isFetching && !isError && !data?.isAuthenticated) {
+    // If not fetching and either error (401) or no user data, redirect to login
+    if (!isFetching && (isError || !data?.data)) {
       window.location.replace(
         `/api/account/login/Google?ReturnUrl=${encodeURIComponent(location.pathname)}`,
       );
     }
   }, [data, isError, isFetching, location]);
-  if (isFetching || isError || !data?.isAuthenticated) {
+
+  // Show nothing while checking auth or if not authenticated
+  if (isFetching || isError || !data?.data) {
     return null;
   }
 
