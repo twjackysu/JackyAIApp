@@ -5,7 +5,6 @@ import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
 import { dictionaryApis } from '@/apis/dictionaryApis';
 import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
-import { jiraApis } from '@/apis/jiraApis';
 import { repositoryApis } from '@/apis/repositoryApis';
 
 export const store = configureStore({
@@ -15,7 +14,6 @@ export const store = configureStore({
     [repositoryApis.reducerPath]: repositoryApis.reducer,
     [accountApis.reducerPath]: accountApis.reducer,
     [examApis.reducerPath]: examApis.reducer,
-    [jiraApis.reducerPath]: jiraApis.reducer,
     [financeApis.reducerPath]: financeApis.reducer,
     [connectorsApi.reducerPath]: connectorsApi.reducer,
   },
@@ -27,7 +25,6 @@ export const store = configureStore({
       repositoryApis.middleware,
       accountApis.middleware,
       examApis.middleware,
-      jiraApis.middleware,
       financeApis.middleware,
       connectorsApi.middleware,
     ),
