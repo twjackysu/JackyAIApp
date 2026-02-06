@@ -24,4 +24,4 @@ export const PDF_UNLOCKER = {
 };
 
 // Application definitions used for both the app bar and the user profile menu
-export const apps = [FINANCE, ENGLISH_LEARNING, PDF_UNLOCKER];
+export const apps = [FINANCE, ENGLISH_LEARNING];
