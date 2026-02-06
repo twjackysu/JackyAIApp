@@ -15,9 +15,8 @@ import RequireAuth from './auth/RequireAuth';
 import FloatingChatbot from './components/FloatingChatbot';
 import UserProfileMenu from './components/UserProfileMenu';
 import Connectors from './Connectors';
-import { apps, FINANCE, EFFORT_PLANNER, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
+import { apps, FINANCE, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
 import Dictionary from './Dictionary';
-import EffortPlanner from './EffortPlanner';
 import Exam from './Exam';
 import Finance from './Finance';
 import useRouteMatch from './hooks/useRouteMatch';
@@ -27,7 +26,6 @@ import Repository from './Repository';
 // Helper function to determine current app section based on route
 const getCurrentAppSection = (path: string): string => {
   if (path === '/' || path === FINANCE.path) return FINANCE.name;
-  if (path === EFFORT_PLANNER.path) return EFFORT_PLANNER.name;
   if (path === PDF_UNLOCKER.path) return PDF_UNLOCKER.name;
   if (ENGLISH_LEARNING.allPaths.some((route) => path.startsWith(route)))
     return ENGLISH_LEARNING.name;
@@ -41,7 +39,6 @@ function App() {
 
   const routeMatch = useRouteMatch(
     FINANCE.allPaths
-      .concat(EFFORT_PLANNER.allPaths)
       .concat(PDF_UNLOCKER.allPaths)
       .concat(ENGLISH_LEARNING.allPaths),
   );
@@ -176,14 +173,6 @@ function App() {
       <Box sx={{ p: 2 }}>
         <Routes>
           <Route path={PDF_UNLOCKER.path} element={<PDFUnlocker />} />
-          <Route
-            path={EFFORT_PLANNER.path}
-            element={
-              <RequireAuth>
-                <EffortPlanner />
-              </RequireAuth>
-            }
-          />
           <Route path={ENGLISH_LEARNING.path} element={<Dictionary />} />
           <Route
             path="/repository"

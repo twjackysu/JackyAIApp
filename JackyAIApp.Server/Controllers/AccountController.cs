@@ -78,7 +78,6 @@ namespace JackyAIApp.Server.Controllers
         {
             var userId = _userService.GetUserId();
             var user = await _DBContext.Users
-                .Include(u => u.JiraConfigs)
                 .SingleOrDefaultAsync(x => x.Id == userId);
                 
             if (user == null)

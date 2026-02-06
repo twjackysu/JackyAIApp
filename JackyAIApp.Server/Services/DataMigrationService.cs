@@ -68,23 +68,6 @@ namespace JackyAIApp.Server.Services
                         IsAdmin = cosmosUser.IsAdmin
                     };
                     
-                    // Migrate Jira configs if any
-                    if (cosmosUser.JiraConfigs != null && cosmosUser.JiraConfigs.Count > 0)
-                    {
-                        foreach (var cosmosJiraConfig in cosmosUser.JiraConfigs)
-                        {
-                            var jiraConfigId = Guid.NewGuid().ToString();
-                            sqlUser.JiraConfigs.Add(new JiraConfig
-                            {
-                                Id = jiraConfigId,
-                                Domain = cosmosJiraConfig.Domain,
-                                Email = cosmosJiraConfig.Email,
-                                Token = cosmosJiraConfig.Token,
-                                UserId = sqlUser.Id
-                            });
-                        }
-                    }
-                    
                     await _sqlDbContext.Users.AddAsync(sqlUser);
                 }
                 catch (Exception ex)

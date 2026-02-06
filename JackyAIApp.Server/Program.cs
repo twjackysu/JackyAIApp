@@ -7,7 +7,6 @@ using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance;
-using JackyAIApp.Server.Services.Jira;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
@@ -107,7 +106,6 @@ try
     builder.Services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
     builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
     builder.Services.AddScoped<IUserService, UserService>();
-    builder.Services.AddScoped<IJiraRestApiService, JiraRestApiService>();
     builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();

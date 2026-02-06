@@ -1,7 +1,6 @@
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import DescriptionIcon from '@mui/icons-material/Description';
 import SchoolIcon from '@mui/icons-material/School';
-import WorkIcon from '@mui/icons-material/Work';
 
 export const FINANCE = {
   name: 'Finance Dashboard',
@@ -17,13 +16,6 @@ export const ENGLISH_LEARNING = {
   allPaths: ['/dictionary', '/repository', '/exam'],
 };
 
-export const EFFORT_PLANNER = {
-  name: 'Effort Planner',
-  path: '/effortPlanner',
-  icon: <WorkIcon fontSize="small" />,
-  allPaths: ['/effortPlanner'],
-};
-
 export const PDF_UNLOCKER = {
   name: 'PDF Unlocker & Compressor',
   path: '/pdf',
@@ -31,6 +23,5 @@ export const PDF_UNLOCKER = {
   allPaths: ['/pdf'],
 };
 
-// Application definitions used for navigation menu
-// Note: PDF_UNLOCKER is hidden from navigation but still accessible via direct URL
-export const apps = [FINANCE, ENGLISH_LEARNING, EFFORT_PLANNER];
+// Application definitions used for both the app bar and the user profile menu
+export const apps = [FINANCE, ENGLISH_LEARNING];
