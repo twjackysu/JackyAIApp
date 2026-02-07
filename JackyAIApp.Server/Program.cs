@@ -109,6 +109,7 @@ try
     builder.Services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
     builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
     builder.Services.AddScoped<IUserService, UserService>();
+    builder.Services.AddScoped<ICreditService, CreditService>();
     builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();

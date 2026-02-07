@@ -2,11 +2,13 @@
 import LinkIcon from '@mui/icons-material/Link';
 import LoginIcon from '@mui/icons-material/Login';
 import LogoutIcon from '@mui/icons-material/Logout';
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import PersonIcon from '@mui/icons-material/Person';
 import {
   Avatar,
   Box,
   Button,
+  Chip,
   Divider,
   IconButton,
   Menu,
@@ -18,6 +20,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
+import { useGetCreditBalanceQuery } from '@/apis/creditApis';
 
 import { apps } from '../constants/apps';
 
@@ -26,6 +29,9 @@ function UserProfileMenu() {
   const open = Boolean(anchorEl);
 
   const { data: user, isLoading } = useGetUserInfoQuery();
+  const { data: creditData } = useGetCreditBalanceQuery(undefined, {
+    skip: !user?.data,
+  });
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -52,6 +58,7 @@ function UserProfileMenu() {
 
   const displayName = user?.data.name || user?.data.email || '';
   const isAuthenticated = !!displayName;
+  const creditBalance = creditData?.data?.balance ?? user?.data?.creditBalance ?? 0;
 
   return (
     <Box sx={{ ml: 2, display: 'flex', alignItems: 'center' }}>
@@ -61,6 +68,16 @@ function UserProfileMenu() {
         </Typography>
       ) : isAuthenticated ? (
         <>
+          <Tooltip title={`Credits: ${creditBalance}`}>
+            <Chip
+              icon={<MonetizationOnIcon />}
+              label={creditBalance}
+              size="small"
+              color={creditBalance > 0 ? 'success' : 'error'}
+              variant="outlined"
+              sx={{ mr: 1 }}
+            />
+          </Tooltip>
           <Tooltip title="Account menu">
             <IconButton
               onClick={handleClick}
@@ -100,6 +117,17 @@ function UserProfileMenu() {
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <PersonIcon sx={{ mr: 1 }} />
               <Typography variant="body2">{displayName}</Typography>
+            </Box>
+          </MenuItem>
+        )}
+
+        {isAuthenticated && (
+          <MenuItem disabled>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <MonetizationOnIcon sx={{ mr: 1 }} />
+              <Typography variant="body2">
+                Credits: <strong>{creditBalance}</strong>
+              </Typography>
             </Box>
           </MenuItem>
         )}
