@@ -103,6 +103,21 @@ namespace JackyAIApp.Server.Data
             modelBuilder.Entity<UserConnector>()
                 .HasIndex(uc => new { uc.UserId, uc.ProviderName })
                 .IsUnique();
+
+            // Configure CreditTransaction relationship
+            modelBuilder.Entity<CreditTransaction>()
+                .HasOne(ct => ct.User)
+                .WithMany(u => u.CreditTransactions)
+                .HasForeignKey(ct => ct.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Index for faster queries by user
+            modelBuilder.Entity<CreditTransaction>()
+                .HasIndex(ct => ct.UserId);
+
+            // Index for faster queries by date
+            modelBuilder.Entity<CreditTransaction>()
+                .HasIndex(ct => ct.CreatedAt);
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -118,5 +133,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<UserWord> UserWords { get; set; }
         public virtual DbSet<JiraConfig> JiraConfigs { get; set; }
         public virtual DbSet<UserConnector> UserConnectors { get; set; }
+        public virtual DbSet<CreditTransaction> CreditTransactions { get; set; }
     }
 }

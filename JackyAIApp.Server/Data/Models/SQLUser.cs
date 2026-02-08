@@ -42,6 +42,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public ICollection<UserWord> UserWords { get; set; } = [];
         public ICollection<JiraConfig> JiraConfigs { get; set; } = [];
         public ICollection<UserConnector> UserConnectors { get; set; } = [];
+        public ICollection<CreditTransaction> CreditTransactions { get; set; } = [];
     }
 
     /// <summary>

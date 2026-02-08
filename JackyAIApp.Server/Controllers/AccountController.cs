@@ -55,12 +55,26 @@ namespace JackyAIApp.Server.Controllers
                     Name = _userService.GetUserName(),
                     Email = _userService.GetUserEmail(),
                     LastUpdated = DateTime.UtcNow,
-                    CreditBalance = 20,
+                    CreditBalance = ICreditService.DefaultInitialCredits,
                     TotalCreditsUsed = 0
                 };
                 _DBContext.Users.Add(user);
+
+                // Record initial credit transaction
+                var initialTransaction = new CreditTransaction
+                {
+                    UserId = userId,
+                    Amount = (long)ICreditService.DefaultInitialCredits,
+                    BalanceAfter = ICreditService.DefaultInitialCredits,
+                    TransactionType = CreditTransactionType.Initial,
+                    Reason = "new_user_bonus",
+                    Description = "Welcome bonus for new users",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _DBContext.CreditTransactions.Add(initialTransaction);
+
                 await _DBContext.SaveChangesAsync();
-                _logger.LogInformation("New user created: {UserId}", userId);
+                _logger.LogInformation("New user created: {UserId} with {Credits} initial credits", userId, ICreditService.DefaultInitialCredits);
             }
 
             return LocalRedirect("~/");
