@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-import { ConnectorStatus, ConnectResponse, RefreshResponse, DisconnectResponse } from './types';
+import { ConnectorStatus, ConnectResponse, RefreshResponse, DisconnectResponse, AccessTokenResponse } from './types';
 
 export const connectorsApi = createApi({
   reducerPath: 'connectorsApi',
@@ -35,6 +35,9 @@ export const connectorsApi = createApi({
       }),
       invalidatesTags: ['ConnectorStatus'],
     }),
+    getAccessToken: builder.query<AccessTokenResponse, string>({
+      query: (provider) => `${provider}/token`,
+    }),
   }),
 });
 
@@ -43,4 +46,5 @@ export const {
   useConnectProviderMutation,
   useDisconnectProviderMutation,
   useRefreshProviderTokensMutation,
+  useLazyGetAccessTokenQuery,
 } = connectorsApi;
