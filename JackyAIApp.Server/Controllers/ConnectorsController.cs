@@ -74,7 +74,8 @@ namespace JackyAIApp.Server.Controllers
                 }
 
                 var redirectUrl = await _connectorService.StartConnectAsync(userId, provider);
-                // google���p�Glocalhost�Q���խn��^ ���ժ� �_�h�o����L�k��localhost https://console.cloud.google.com/auth/audience?project=fleet-breaker-423004-t2
+                // Note: For Google OAuth with localhost, you may need to configure the OAuth consent screen
+                // See: https://console.cloud.google.com/auth/audience
                 return Ok(new ConnectResponseDto { RedirectUrl = redirectUrl });
             }
             catch (ArgumentException ex)
