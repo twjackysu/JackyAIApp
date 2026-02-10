@@ -324,5 +324,46 @@ namespace JackyAIApp.Server.Services
 
             await _context.SaveChangesAsync();
         }
+
+        public async Task<string?> GetAccessTokenAsync(string userId, string provider)
+        {
+            try
+            {
+                var userConnector = await _context.UserConnectors
+                    .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.ProviderName == provider && uc.IsActive);
+
+                if (userConnector == null || string.IsNullOrEmpty(userConnector.EncryptedAccessToken))
+                {
+                    return null;
+                }
+
+                // Check if token is expired and try to refresh
+                if (userConnector.TokenExpiresAt.HasValue && userConnector.TokenExpiresAt.Value <= DateTime.UtcNow)
+                {
+                    var refreshed = await RefreshTokenIfNeededAsync(userId, provider);
+                    if (!refreshed)
+                    {
+                        _logger.LogWarning("Token expired and refresh failed for user {UserId} and provider {Provider}", userId, provider);
+                        return null;
+                    }
+
+                    // Re-fetch the connector after refresh
+                    userConnector = await _context.UserConnectors
+                        .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.ProviderName == provider && uc.IsActive);
+
+                    if (userConnector == null || string.IsNullOrEmpty(userConnector.EncryptedAccessToken))
+                    {
+                        return null;
+                    }
+                }
+
+                return _tokenEncryption.DecryptToken(userConnector.EncryptedAccessToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting access token for user {UserId} and provider {Provider}", userId, provider);
+                return null;
+            }
+        }
     }
 }

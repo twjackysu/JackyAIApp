@@ -18,3 +18,9 @@ export interface RefreshResponse {
 export interface DisconnectResponse {
   message: string;
 }
+
+export interface AccessTokenResponse {
+  provider: string;
+  accessToken: string;
+  retrievedAt: string;
+}

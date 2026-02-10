@@ -74,7 +74,8 @@ namespace JackyAIApp.Server.Controllers
                 }
 
                 var redirectUrl = await _connectorService.StartConnectAsync(userId, provider);
-                // google的如果localhost想測試要改回 測試版 否則發布後無法用localhost https://console.cloud.google.com/auth/audience?project=fleet-breaker-423004-t2
+                // Note: For Google OAuth with localhost, you may need to configure the OAuth consent screen
+                // See: https://console.cloud.google.com/auth/audience
                 return Ok(new ConnectResponseDto { RedirectUrl = redirectUrl });
             }
             catch (ArgumentException ex)
@@ -168,6 +169,49 @@ namespace JackyAIApp.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error refreshing tokens for provider {Provider}", provider);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Gets the access token for a specific provider (for MCP Server usage)
+        /// </summary>
+        /// <param name="provider">The provider name</param>
+        /// <returns>The access token</returns>
+        [HttpGet("{provider}/token")]
+        public async Task<ActionResult> GetAccessToken(string provider)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized("User ID not found in claims");
+                }
+
+                provider = NormalizeProviderName(provider);
+                if (provider == null)
+                {
+                    return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
+                }
+
+                var accessToken = await _connectorService.GetAccessTokenAsync(userId, provider);
+                if (string.IsNullOrEmpty(accessToken))
+                {
+                    return NotFound($"No active connection found for {provider}. Please connect first.");
+                }
+
+                _logger.LogInformation("Access token retrieved for user {UserId} and provider {Provider}", userId, provider);
+
+                return Ok(new { 
+                    provider,
+                    accessToken,
+                    retrievedAt = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting access token for provider {Provider}", provider);
                 return StatusCode(500, "Internal server error");
             }
         }

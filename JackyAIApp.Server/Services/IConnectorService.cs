@@ -46,5 +46,13 @@ namespace JackyAIApp.Server.Services
         /// <param name="provider">The provider name</param>
         /// <returns>True if token was refreshed or still valid, false if refresh failed</returns>
         Task<bool> RefreshTokenIfNeededAsync(string userId, string provider);
+
+        /// <summary>
+        /// Gets the decrypted access token for a user and provider
+        /// </summary>
+        /// <param name="userId">The user ID</param>
+        /// <param name="provider">The provider name</param>
+        /// <returns>The access token if available, null otherwise</returns>
+        Task<string?> GetAccessTokenAsync(string userId, string provider);
     }
 }
