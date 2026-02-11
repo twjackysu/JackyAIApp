@@ -1,5 +1,8 @@
-import { ContentCopy, Refresh } from '@mui/icons-material';
+import { ContentCopy, ExpandMore, Refresh } from '@mui/icons-material';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -10,6 +13,7 @@ import {
   IconButton,
   Snackbar,
   Switch,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -19,9 +23,9 @@ import {
   useLazyGetAccessTokenQuery,
   useRefreshProviderTokensMutation,
 } from '@/apis/connectorsApis/connectorsApis';
-import { ConnectorStatus } from '@/apis/connectorsApis/types';
+import { ConnectorStatus, CustomConnectRequest } from '@/apis/connectorsApis/types';
 
-// Provider icons (you can replace these with actual icons)
+// Provider icons
 const getProviderIcon = (provider: string) => {
   switch (provider) {
     case 'Microsoft':
@@ -37,7 +41,7 @@ const getProviderIcon = (provider: string) => {
 
 interface ConnectorCardProps {
   connector: ConnectorStatus;
-  onToggle: (provider: string, isConnected: boolean) => void;
+  onToggle: (provider: string, isConnected: boolean, customConfig?: CustomConnectRequest) => void;
   isLoading: boolean;
   onRefreshSuccess?: () => void;
   onRefreshError?: () => void;
@@ -56,6 +60,14 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
     open: false,
     message: '',
     severity: 'success',
+  });
+
+  // Custom config state
+  const [customConfig, setCustomConfig] = useState<CustomConnectRequest>({
+    clientId: '',
+    clientSecret: '',
+    tenantId: '',
+    scopes: '',
   });
 
   const handleRefresh = async () => {
@@ -87,6 +99,18 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
 
   const handleCloseSnackbar = () => {
     setSnackbar((prev) => ({ ...prev, open: false }));
+  };
+
+  const handleToggle = (isConnected: boolean) => {
+    // Only pass custom config if any field is filled
+    const hasCustomConfig = Object.values(customConfig).some((v) => v && v.trim() !== '');
+    onToggle(connector.provider, isConnected, hasCustomConfig ? customConfig : undefined);
+  };
+
+  const handleCustomConfigChange = (field: keyof CustomConnectRequest) => (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setCustomConfig((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
   return (
@@ -127,7 +151,7 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
             control={
               <Switch
                 checked={connector.isConnected}
-                onChange={(e) => onToggle(connector.provider, e.target.checked)}
+                onChange={(e) => handleToggle(e.target.checked)}
                 disabled={isLoading}
               />
             }
@@ -162,15 +186,65 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
           )}
 
           {connector.isConnected && connector.expiresAt && (
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
               Expires: {new Date(connector.expiresAt).toLocaleDateString()}
             </Typography>
           )}
 
           {connector.requiresReconnection && (
-            <Alert severity="warning" sx={{ mt: 1 }}>
+            <Alert severity="warning" sx={{ mt: 1, mb: 1 }}>
               Connection expires soon. Please reconnect.
             </Alert>
+          )}
+
+          {/* Custom OAuth Config - Only show when not connected */}
+          {!connector.isConnected && (
+            <Accordion sx={{ mt: 1 }}>
+              <AccordionSummary expandIcon={<ExpandMore />}>
+                <Typography variant="body2">Advanced Settings</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+                  Leave empty to use system defaults
+                </Typography>
+                <TextField
+                  label="Client ID"
+                  size="small"
+                  fullWidth
+                  value={customConfig.clientId}
+                  onChange={handleCustomConfigChange('clientId')}
+                  sx={{ mb: 1.5 }}
+                />
+                <TextField
+                  label="Client Secret"
+                  size="small"
+                  fullWidth
+                  type="password"
+                  value={customConfig.clientSecret}
+                  onChange={handleCustomConfigChange('clientSecret')}
+                  sx={{ mb: 1.5 }}
+                />
+                {connector.provider === 'Microsoft' && (
+                  <TextField
+                    label="Tenant ID"
+                    size="small"
+                    fullWidth
+                    value={customConfig.tenantId}
+                    onChange={handleCustomConfigChange('tenantId')}
+                    sx={{ mb: 1.5 }}
+                  />
+                )}
+                <TextField
+                  label="Scopes"
+                  size="small"
+                  fullWidth
+                  placeholder="space-separated scopes"
+                  value={customConfig.scopes}
+                  onChange={handleCustomConfigChange('scopes')}
+                  helperText="Optional: Override default OAuth scopes"
+                />
+              </AccordionDetails>
+            </Accordion>
           )}
         </CardContent>
       </Card>
