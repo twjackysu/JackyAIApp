@@ -24,3 +24,10 @@ export interface AccessTokenResponse {
   accessToken: string;
   retrievedAt: string;
 }
+
+export interface CustomConnectRequest {
+  clientId?: string;
+  clientSecret?: string;
+  tenantId?: string;
+  scopes?: string;
+}

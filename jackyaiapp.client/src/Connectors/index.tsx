@@ -10,6 +10,7 @@ import {
   useDisconnectProviderMutation,
   useGetConnectorStatusQuery,
 } from '@/apis/connectorsApis/connectorsApis';
+import { CustomConnectRequest } from '@/apis/connectorsApis/types';
 
 import ConnectorCard from './ConnectorCard';
 
@@ -68,10 +69,10 @@ const Connectors: React.FC = () => {
     }
   }, [searchParams, refetch]);
 
-  const handleToggle = async (provider: string, shouldConnect: boolean) => {
+  const handleToggle = async (provider: string, shouldConnect: boolean, customConfig?: CustomConnectRequest) => {
     try {
       if (shouldConnect) {
-        const result = await connectProvider(provider).unwrap();
+        const result = await connectProvider({ provider, customConfig }).unwrap();
         // Redirect to OAuth provider
         window.location.href = result.redirectUrl;
       } else {

@@ -49,9 +49,10 @@ namespace JackyAIApp.Server.Controllers
         /// Initiates OAuth flow for a specific provider
         /// </summary>
         /// <param name="provider">The provider name (Microsoft, Atlassian, Google)</param>
+        /// <param name="customConfig">Optional custom OAuth configuration</param>
         /// <returns>OAuth authorization URL</returns>
         [HttpPost("{provider}/connect")]
-        public async Task<ActionResult<ConnectResponseDto>> Connect(string provider)
+        public async Task<ActionResult<ConnectResponseDto>> Connect(string provider, [FromBody] CustomConnectRequestDto? customConfig = null)
         {
             try
             {
@@ -73,7 +74,7 @@ namespace JackyAIApp.Server.Controllers
                     return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
                 }
 
-                var redirectUrl = await _connectorService.StartConnectAsync(userId, provider);
+                var redirectUrl = await _connectorService.StartConnectAsync(userId, provider, customConfig);
                 // Note: For Google OAuth with localhost, you may need to configure the OAuth consent screen
                 // See: https://console.cloud.google.com/auth/audience
                 return Ok(new ConnectResponseDto { RedirectUrl = redirectUrl });

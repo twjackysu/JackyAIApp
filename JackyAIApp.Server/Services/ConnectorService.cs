@@ -72,20 +72,33 @@ namespace JackyAIApp.Server.Services
             return statuses.ToArray();
         }
 
-        public async Task<string> StartConnectAsync(string userId, string provider)
+        public async Task<string> StartConnectAsync(string userId, string provider, CustomConnectRequestDto? customConfig = null)
         {
             if (!_connectorOptions.Providers.TryGetValue(provider, out var config))
             {
                 throw new ArgumentException($"Unknown provider: {provider}");
             }
 
+            // Use custom config if provided, otherwise use system defaults
+            var clientId = !string.IsNullOrWhiteSpace(customConfig?.ClientId) ? customConfig.ClientId : config.ClientId;
+            var scopes = !string.IsNullOrWhiteSpace(customConfig?.Scopes) ? customConfig.Scopes : config.Scopes;
+            var tenantId = customConfig?.TenantId;
+
+            // Build auth URL based on provider
+            var authUrl = config.AuthUrl;
+            
+            // For Microsoft, replace tenant ID placeholder if custom tenant provided
+            if (provider == "Microsoft" && !string.IsNullOrWhiteSpace(tenantId))
+            {
+                authUrl = authUrl.Replace("{YOUR_TENANT_ID}", tenantId);
+            }
+
             var state = _stateService.GenerateState(userId, provider);
             var callbackUrl = $"{_connectorOptions.CallbackBaseUrl}/{provider}";
 
-            var authUrl = config.AuthUrl +
-                $"?client_id={Uri.EscapeDataString(config.ClientId)}" +
+            authUrl += $"?client_id={Uri.EscapeDataString(clientId)}" +
                 $"&redirect_uri={Uri.EscapeDataString(callbackUrl)}" +
-                $"&scope={Uri.EscapeDataString(config.Scopes)}" +
+                $"&scope={Uri.EscapeDataString(scopes)}" +
                 $"&response_type=code" +
                 $"&state={Uri.EscapeDataString(state)}";
 
@@ -103,8 +116,62 @@ namespace JackyAIApp.Server.Services
                 authUrl += "&access_type=offline&prompt=consent";
             }
 
-            _logger.LogInformation("Generated OAuth URL for user {UserId} and provider {Provider}", userId, provider);
+            // Save custom config to UserConnector for use during callback
+            if (customConfig != null && HasCustomConfig(customConfig))
+            {
+                await SaveCustomConfigAsync(userId, provider, customConfig);
+            }
+
+            _logger.LogInformation("Generated OAuth URL for user {UserId} and provider {Provider} (custom config: {HasCustom})", 
+                userId, provider, customConfig != null && HasCustomConfig(customConfig));
             return authUrl;
+        }
+
+        private static bool HasCustomConfig(CustomConnectRequestDto config)
+        {
+            return !string.IsNullOrWhiteSpace(config.ClientId) ||
+                   !string.IsNullOrWhiteSpace(config.ClientSecret) ||
+                   !string.IsNullOrWhiteSpace(config.TenantId) ||
+                   !string.IsNullOrWhiteSpace(config.Scopes);
+        }
+
+        private async Task SaveCustomConfigAsync(string userId, string provider, CustomConnectRequestDto customConfig)
+        {
+            var existingConnector = await _context.UserConnectors
+                .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.ProviderName == provider);
+
+            if (existingConnector != null)
+            {
+                // Update existing connector with custom config
+                existingConnector.CustomClientId = customConfig.ClientId;
+                existingConnector.EncryptedCustomClientSecret = !string.IsNullOrWhiteSpace(customConfig.ClientSecret)
+                    ? _tokenEncryption.EncryptToken(customConfig.ClientSecret)
+                    : null;
+                existingConnector.CustomTenantId = customConfig.TenantId;
+                existingConnector.CustomScopes = customConfig.Scopes;
+                existingConnector.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                // Create new connector record with custom config (tokens will be added during callback)
+                var newConnector = new UserConnector
+                {
+                    UserId = userId,
+                    ProviderName = provider,
+                    CustomClientId = customConfig.ClientId,
+                    EncryptedCustomClientSecret = !string.IsNullOrWhiteSpace(customConfig.ClientSecret)
+                        ? _tokenEncryption.EncryptToken(customConfig.ClientSecret)
+                        : null,
+                    CustomTenantId = customConfig.TenantId,
+                    CustomScopes = customConfig.Scopes,
+                    IsActive = false, // Will be activated after successful callback
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.UserConnectors.Add(newConnector);
+            }
+
+            await _context.SaveChangesAsync();
         }
 
         public async Task<bool> HandleCallbackAsync(string provider, string code, string state)
@@ -131,8 +198,27 @@ namespace JackyAIApp.Server.Services
                     return false;
                 }
 
+                // Check if user has custom config
+                var userConnector = await _context.UserConnectors
+                    .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.ProviderName == provider);
+
+                // Use custom config if available, otherwise use system defaults
+                var clientId = !string.IsNullOrWhiteSpace(userConnector?.CustomClientId) 
+                    ? userConnector.CustomClientId 
+                    : config.ClientId;
+                var clientSecret = !string.IsNullOrWhiteSpace(userConnector?.EncryptedCustomClientSecret)
+                    ? _tokenEncryption.DecryptToken(userConnector.EncryptedCustomClientSecret)
+                    : config.ClientSecret;
+                var tokenUrl = config.TokenUrl;
+
+                // For Microsoft, use custom tenant ID if available
+                if (provider == "Microsoft" && !string.IsNullOrWhiteSpace(userConnector?.CustomTenantId))
+                {
+                    tokenUrl = tokenUrl.Replace("{YOUR_TENANT_ID}", userConnector.CustomTenantId);
+                }
+
                 // Exchange authorization code for tokens
-                var tokenResponse = await ExchangeCodeForTokensAsync(config, code, provider);
+                var tokenResponse = await ExchangeCodeForTokensAsync(clientId, clientSecret, tokenUrl, code, provider);
                 if (tokenResponse == null)
                 {
                     _logger.LogError("Failed to exchange code for tokens for provider {Provider}", provider);
@@ -205,8 +291,21 @@ namespace JackyAIApp.Server.Services
                     return false;
                 }
 
+                // Use custom config if available
+                var clientId = !string.IsNullOrWhiteSpace(userConnector.CustomClientId)
+                    ? userConnector.CustomClientId
+                    : config.ClientId;
+                var clientSecret = !string.IsNullOrWhiteSpace(userConnector.EncryptedCustomClientSecret)
+                    ? _tokenEncryption.DecryptToken(userConnector.EncryptedCustomClientSecret)
+                    : config.ClientSecret;
+                var tokenUrl = config.TokenUrl;
+                if (provider == "Microsoft" && !string.IsNullOrWhiteSpace(userConnector.CustomTenantId))
+                {
+                    tokenUrl = tokenUrl.Replace("{YOUR_TENANT_ID}", userConnector.CustomTenantId);
+                }
+
                 var refreshToken = _tokenEncryption.DecryptToken(userConnector.EncryptedRefreshToken);
-                var tokenResponse = await RefreshAccessTokenAsync(config, refreshToken);
+                var tokenResponse = await RefreshAccessTokenAsync(clientId, clientSecret, tokenUrl, refreshToken);
 
                 if (tokenResponse != null)
                 {
@@ -225,21 +324,21 @@ namespace JackyAIApp.Server.Services
             }
         }
 
-        private async Task<OAuthTokenResponse?> ExchangeCodeForTokensAsync(ProviderConfig config, string code, string provider)
+        private async Task<OAuthTokenResponse?> ExchangeCodeForTokensAsync(string clientId, string clientSecret, string tokenUrl, string code, string provider)
         {
             var callbackUrl = $"{_connectorOptions.CallbackBaseUrl}/{provider}";
 
             var requestBody = new Dictionary<string, string>
             {
                 ["grant_type"] = "authorization_code",
-                ["client_id"] = config.ClientId,
-                ["client_secret"] = config.ClientSecret,
+                ["client_id"] = clientId,
+                ["client_secret"] = clientSecret,
                 ["code"] = code,
                 ["redirect_uri"] = callbackUrl
             };
 
             var formContent = new FormUrlEncodedContent(requestBody);
-            var response = await _httpClient.PostAsync(config.TokenUrl, formContent);
+            var response = await _httpClient.PostAsync(tokenUrl, formContent);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -252,18 +351,18 @@ namespace JackyAIApp.Server.Services
             return JsonSerializer.Deserialize<OAuthTokenResponse>(json);
         }
 
-        private async Task<OAuthTokenResponse?> RefreshAccessTokenAsync(ProviderConfig config, string refreshToken)
+        private async Task<OAuthTokenResponse?> RefreshAccessTokenAsync(string clientId, string clientSecret, string tokenUrl, string refreshToken)
         {
             var requestBody = new Dictionary<string, string>
             {
                 ["grant_type"] = "refresh_token",
-                ["client_id"] = config.ClientId,
-                ["client_secret"] = config.ClientSecret,
+                ["client_id"] = clientId,
+                ["client_secret"] = clientSecret,
                 ["refresh_token"] = refreshToken
             };
 
             var formContent = new FormUrlEncodedContent(requestBody);
-            var response = await _httpClient.PostAsync(config.TokenUrl, formContent);
+            var response = await _httpClient.PostAsync(tokenUrl, formContent);
 
             if (!response.IsSuccessStatusCode)
             {

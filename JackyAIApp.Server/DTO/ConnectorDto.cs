@@ -22,6 +22,32 @@ namespace JackyAIApp.Server.DTO
     }
 
     /// <summary>
+    /// DTO for custom OAuth configuration (user-provided credentials)
+    /// </summary>
+    public class CustomConnectRequestDto
+    {
+        /// <summary>
+        /// Custom OAuth Client ID (optional, uses system default if empty)
+        /// </summary>
+        public string? ClientId { get; set; }
+
+        /// <summary>
+        /// Custom OAuth Client Secret (optional, uses system default if empty)
+        /// </summary>
+        public string? ClientSecret { get; set; }
+
+        /// <summary>
+        /// Custom Tenant ID for Microsoft (optional, uses system default if empty)
+        /// </summary>
+        public string? TenantId { get; set; }
+
+        /// <summary>
+        /// Custom OAuth Scopes (optional, uses system default if empty)
+        /// </summary>
+        public string? Scopes { get; set; }
+    }
+
+    /// <summary>
     /// OAuth token response from provider
     /// </summary>
     public class OAuthTokenResponse
