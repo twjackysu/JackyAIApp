@@ -153,5 +153,27 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// When this connector was last updated
         /// </summary>
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        // Custom OAuth configuration (optional, overrides system defaults)
+
+        /// <summary>
+        /// Custom OAuth Client ID (encrypted)
+        /// </summary>
+        public string? CustomClientId { get; set; }
+
+        /// <summary>
+        /// Custom OAuth Client Secret (encrypted)
+        /// </summary>
+        public string? EncryptedCustomClientSecret { get; set; }
+
+        /// <summary>
+        /// Custom Tenant ID for Microsoft
+        /// </summary>
+        public string? CustomTenantId { get; set; }
+
+        /// <summary>
+        /// Custom OAuth Scopes
+        /// </summary>
+        public string? CustomScopes { get; set; }
     }
 }
