@@ -1,55 +1,60 @@
-using Betalgo.Ranul.OpenAI.Interfaces;
-using Betalgo.Ranul.OpenAI.ObjectModels;
-using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
-using System.Text.RegularExpressions;
 using WeCantSpell.Hunspell;
 
 namespace JackyAIApp.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class DictionaryController(ILogger<DictionaryController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, AzureSQLDBContext DBContext, IOpenAIService openAIService, IExtendedMemoryCache memoryCache) : ControllerBase
+    public class DictionaryController : ControllerBase
     {
-        private readonly ILogger<DictionaryController> _logger = logger ?? throw new ArgumentNullException();
-        private readonly IOptionsMonitor<Settings> _settings = settings;
-        private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
-        private readonly AzureSQLDBContext _DBContext = DBContext;
-        private readonly IOpenAIService _openAIService = openAIService;
-        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+        private readonly ILogger<DictionaryController> _logger;
+        private readonly IMyResponseFactory _responseFactory;
+        private readonly AzureSQLDBContext _DBContext;
+        private readonly IOpenAIPromptService _promptService;
+        private readonly IExtendedMemoryCache _memoryCache;
+
+        public DictionaryController(
+            ILogger<DictionaryController> logger,
+            IMyResponseFactory responseFactory,
+            AzureSQLDBContext DBContext,
+            IOpenAIPromptService promptService,
+            IExtendedMemoryCache memoryCache)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
+            _DBContext = DBContext ?? throw new ArgumentNullException(nameof(DBContext));
+            _promptService = promptService ?? throw new ArgumentNullException(nameof(promptService));
+            _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+        }
 
         [HttpGet("{word}", Name = "Search word")]
         public async Task<IActionResult> Get(string word)
         {
-            var CleanInput = (string input) =>
-            {
-                // remove start with ```json or ```, and end with ```
-                string pattern = @"^\s*```\s*json\s*|^\s*```\s*|```\s*$";
-                string replacement = "";
-                string result = Regex.Replace(input, pattern, replacement, RegexOptions.IgnoreCase);
-                return result.Trim();
-            };
-
             var lowerWord = word.Trim().ToLower();
 
+            // Validate word against dictionary
             var dictionary = WordList.CreateFromFiles("Dictionary/en_US.dic");
-            bool isValid = dictionary.Check(lowerWord);
-            if (!isValid)
+            if (!dictionary.Check(lowerWord))
             {
-                return responseFactory.CreateErrorResponse(ErrorCodes.TheWordCannotBeFound, "This is not a valid word.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.TheWordCannotBeFound, "This is not a valid word.");
             }
-            var cacheKey = $"Get_Dictionary_{lowerWord}";
-            if (!_memoryCache.TryGetValue(cacheKey, out Data.Models.SQL.Word? dbWord))
 
+            // Check cache first
+            var cacheKey = $"Get_Dictionary_{lowerWord}";
+            Data.Models.SQL.Word? dbWord = null;
+            
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedWord) && cachedWord is Data.Models.SQL.Word cachedDbWord)
+            {
+                dbWord = cachedDbWord;
+            }
+            else
             {
                 dbWord = await _DBContext.Words
                     .Where(x => x.WordText == lowerWord)
@@ -64,181 +69,46 @@ namespace JackyAIApp.Server.Controllers
                 _memoryCache.Set(cacheKey, dbWord, TimeSpan.FromDays(1));
             }
             
-            if(dbWord != null && (!dbWord.DataInvalid.HasValue || !dbWord.DataInvalid.Value))
+            // Return cached/DB result if valid
+            if (dbWord != null && (!dbWord.DataInvalid.HasValue || !dbWord.DataInvalid.Value))
             {
-                // Convert SQL entity to DTO to avoid circular reference
-                var wordDto = ConvertToDto(dbWord);
-                return _responseFactory.CreateOKResponse(wordDto);
+                return _responseFactory.CreateOKResponse(ConvertToDto(dbWord));
+            }
+
+            // Generate word definition using OpenAI
+            var example = CreateFewShotExample();
+            var (wordbase, error) = await _promptService.GetCompletionAsync<WordBase>(
+                "Prompt/WordBase/System.txt",
+                lowerWord,
+                examples: new[] { example });
+
+            if (wordbase == null)
+            {
+                _logger.LogError("Failed to generate word definition for {Word}: {Error}", lowerWord, error);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, 
+                    "Query failed, OpenAI could not generate the corresponding word.");
+            }
+
+            _logger.LogInformation("Generated word definition for: {Word}", lowerWord);
+
+            // Update or create word in DB
+            if (dbWord != null && dbWord.DataInvalid == true)
+            {
+                UpdateExistingWord(dbWord, wordbase);
+            }
+            else
+            {
+                dbWord = CreateNewWord(wordbase);
+                await _DBContext.Words.AddAsync(dbWord);
             }
             
-            string systemChatMessage = System.IO.File.ReadAllText("Prompt/WordBase/System.txt");
-            var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
-            {
-                Messages =
-                [
-                    ChatMessage.FromSystem(systemChatMessage),
-                    ChatMessage.FromUser("set"),
-                    ChatMessage.FromAssistant(JsonConvert.SerializeObject(new DTO.WordBase()
-                    {
-                        Word = "set",
-                        KKPhonics = "/sɛt/",
-                        Meanings =
-                        [
-                            new DTO.WordMeaning()
-                            {
-                                PartOfSpeech = "noun",
-                                Definitions =
-                                [
-                                    new DTO.Definition()
-                                    {
-                                        English = "A collection of objects that belong together or are used together.",
-                                        Chinese = "一組屬於或一起使用的物件。"
-                                    },
-                                    new DTO.Definition()
-                                    {
-                                        English = "The way in which something is set, positioned, or arranged.",
-                                        Chinese = "某物被設置、定位或排列的方式。"
-                                    }
-                                ],
-                                ExampleSentences =
-                                [
-                                    new DTO.ExampleSentence()
-                                    {
-                                        English = "He bought a chess set.",
-                                        Chinese = "他買了一套西洋棋。"
-                                    },
-                                    new DTO.ExampleSentence()
-                                    {
-                                        English = "The set of her skirt is perfect.",
-                                        Chinese = "她的裙子的設置是完美的。"
-                                    }
-                                ],
-                                Synonyms = ["group", "collection"],
-                                Antonyms = ["single"],
-                                RelatedWords = ["kit", "assembly"]
-                            },
-                            new DTO.WordMeaning()
-                            {
-                                PartOfSpeech = "verb",
-                                Definitions =
-                                [
-                                    new DTO.Definition()
-                                    {
-                                        English = "To put something in a specified place or position.",
-                                        Chinese = "將某物放在指定的地方或位置。"
-                                    },
-                                    new DTO.Definition()
-                                    {
-                                        English = "To fix firmly or to make stable.",
-                                        Chinese = "固定或使穩定。"
-                                    }
-                                ],
-                                ExampleSentences =
-                                [
-                                    new DTO.ExampleSentence()
-                                    {
-                                        English = "She set the book on the table.",
-                                        Chinese = "她將書放在桌上。"
-                                    },
-                                    new DTO.ExampleSentence()
-                                    {
-                                        English = "The concrete will set within a few hours.",
-                                        Chinese = "混凝土幾小時內就會凝固。"
-                                    }
-                                ],
-                                Synonyms = ["place", "position"],
-                                Antonyms = ["remove"],
-                                RelatedWords = ["install", "establish"]
-                            }
-                        ],
-                    })),
-                    ChatMessage.FromUser(lowerWord)
-                ],
-                Model = NewModels.GPT_5_NANO,
-            });
-            var errorMessage = "Query failed, OpenAI could not generate the corresponding word.";
-            if (completionResult.Successful)
-            {
-                _logger.LogInformation("Query OpenAI word: {lowerWord}, result: {json}", lowerWord, JsonConvert.SerializeObject(completionResult, Formatting.Indented));
-                var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
-                if (string.IsNullOrEmpty(content))
-                {
-                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
-                }
-                WordBase? wordbase = null;
-                try
-                {
-                    wordbase = JsonConvert.DeserializeObject<WordBase>(CleanInput(content));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to deserialize the content: {content}", content);
-                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
-                }
-                if(wordbase == null)
-                {
-                    return responseFactory.CreateErrorResponse(ErrorCodes.QueryOpenAIFailed, errorMessage);
-                }
-                
-                if(dbWord != null && (dbWord.DataInvalid.HasValue && dbWord.DataInvalid.Value))
-                {
-                    // Update existing word
-                    dbWord.DataInvalid = null;
-                    dbWord.WordText = wordbase.Word;
-                    dbWord.KKPhonics = wordbase.KKPhonics;
-                    
-                    // Clear existing meanings and recreate
-                    if (dbWord.Meanings != null)
-                    {
-                        foreach (var meaning in dbWord.Meanings.ToList())
-                        {
-                            _DBContext.WordMeanings.Remove(meaning);
-                        }
-                        dbWord.Meanings.Clear();
-                    }
-                    else
-                    {
-                        dbWord.Meanings = new List<Data.Models.SQL.WordMeaning>();
-                    }
-                    
-                    // Create new meanings from WordBase data
-                    foreach (var meaningData in wordbase.Meanings)
-                    {
-                        dbWord.Meanings.Add(CreateMeaningFromDto(meaningData, dbWord.Id, dbWord));
-                    }
-                    
-                    dbWord.LastUpdated = DateTime.Now;
-                }
-                else
-                {
-                    // Create new word
-                    var newWordId = Guid.NewGuid().ToString();
-                    var newWord = new Data.Models.SQL.Word
-                    {
-                        Id = newWordId,
-                        WordText = wordbase.Word,
-                        KKPhonics = wordbase.KKPhonics,
-                        DateAdded = DateTime.Now,
-                        LastUpdated = DateTime.Now,
-                        Meanings = new List<Data.Models.SQL.WordMeaning>()
-                    };
-                    
-                    // Create meanings
-                    foreach (var meaningData in wordbase.Meanings)
-                    {
-                        newWord.Meanings.Add(CreateMeaningFromDto(meaningData, newWordId, newWord));
-                    }
-                    
-                    await _DBContext.Words.AddAsync(newWord);
-                    dbWord = newWord;
-                }
-                
-                await _DBContext.SaveChangesAsync();
-                _logger.LogInformation("word: {lowerWord} added to DB.", lowerWord);
-                var wordDto = ConvertToDto(dbWord);
-                return responseFactory.CreateOKResponse(wordDto);
-            }
-            return responseFactory.CreateErrorResponse(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
+            await _DBContext.SaveChangesAsync();
+            _logger.LogInformation("Word {Word} saved to DB", lowerWord);
+
+            // Update cache
+            _memoryCache.Set(cacheKey, dbWord, TimeSpan.FromDays(1));
+
+            return _responseFactory.CreateOKResponse(ConvertToDto(dbWord));
         }
 
         [HttpPut("{word}/invalid", Name = "Make a word invalid")]
@@ -257,21 +127,119 @@ namespace JackyAIApp.Server.Controllers
                 .Include(w => w.Meanings)
                     .ThenInclude(m => m.Tags)
                 .SingleOrDefaultAsync();
-            if (result != null)
+
+            if (result == null)
             {
-                result.DataInvalid = true;
-                result.LastUpdated = DateTime.Now;
-                await _DBContext.SaveChangesAsync();
-                var wordDto = ConvertToDto(result);
-                return responseFactory.CreateOKResponse(wordDto);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.TheWordCannotBeFound, "Word not found");
             }
-            return responseFactory.CreateErrorResponse(ErrorCodes.TheWordCannotBeFound, "Word not found");
+
+            result.DataInvalid = true;
+            result.LastUpdated = DateTime.Now;
+            await _DBContext.SaveChangesAsync();
+
+            return _responseFactory.CreateOKResponse(ConvertToDto(result));
         }
 
-        /// <summary>
-        /// Creates a WordMeaning entity from DTO data
-        /// </summary>
-        private Data.Models.SQL.WordMeaning CreateMeaningFromDto(DTO.WordMeaning meaningData, string wordId, Data.Models.SQL.Word word)
+        #region Private Helper Methods
+
+        private static (string User, string Assistant) CreateFewShotExample()
+        {
+            var exampleWord = new WordBase
+            {
+                Word = "set",
+                KKPhonics = "/sɛt/",
+                Meanings = new List<WordMeaning>
+                {
+                    new()
+                    {
+                        PartOfSpeech = "noun",
+                        Definitions = new List<Definition>
+                        {
+                            new() { English = "A collection of objects that belong together or are used together.", Chinese = "一組屬於或一起使用的物件。" },
+                            new() { English = "The way in which something is set, positioned, or arranged.", Chinese = "某物被設置、定位或排列的方式。" }
+                        },
+                        ExampleSentences = new List<ExampleSentence>
+                        {
+                            new() { English = "He bought a chess set.", Chinese = "他買了一套西洋棋。" },
+                            new() { English = "The set of her skirt is perfect.", Chinese = "她的裙子的設置是完美的。" }
+                        },
+                        Synonyms = new List<string> { "group", "collection" },
+                        Antonyms = new List<string> { "single" },
+                        RelatedWords = new List<string> { "kit", "assembly" }
+                    },
+                    new()
+                    {
+                        PartOfSpeech = "verb",
+                        Definitions = new List<Definition>
+                        {
+                            new() { English = "To put something in a specified place or position.", Chinese = "將某物放在指定的地方或位置。" },
+                            new() { English = "To fix firmly or to make stable.", Chinese = "固定或使穩定。" }
+                        },
+                        ExampleSentences = new List<ExampleSentence>
+                        {
+                            new() { English = "She set the book on the table.", Chinese = "她將書放在桌上。" },
+                            new() { English = "The concrete will set within a few hours.", Chinese = "混凝土幾小時內就會凝固。" }
+                        },
+                        Synonyms = new List<string> { "place", "position" },
+                        Antonyms = new List<string> { "remove" },
+                        RelatedWords = new List<string> { "install", "establish" }
+                    }
+                }
+            };
+
+            return ("set", JsonConvert.SerializeObject(exampleWord));
+        }
+
+        private void UpdateExistingWord(Data.Models.SQL.Word dbWord, WordBase wordbase)
+        {
+            dbWord.DataInvalid = null;
+            dbWord.WordText = wordbase.Word;
+            dbWord.KKPhonics = wordbase.KKPhonics;
+            dbWord.LastUpdated = DateTime.Now;
+            
+            // Clear existing meanings
+            if (dbWord.Meanings != null)
+            {
+                foreach (var meaning in dbWord.Meanings.ToList())
+                {
+                    _DBContext.WordMeanings.Remove(meaning);
+                }
+                dbWord.Meanings.Clear();
+            }
+            else
+            {
+                dbWord.Meanings = new List<Data.Models.SQL.WordMeaning>();
+            }
+            
+            // Create new meanings
+            foreach (var meaningData in wordbase.Meanings)
+            {
+                dbWord.Meanings.Add(CreateMeaningFromDto(meaningData, dbWord.Id, dbWord));
+            }
+        }
+
+        private static Data.Models.SQL.Word CreateNewWord(WordBase wordbase)
+        {
+            var newWordId = Guid.NewGuid().ToString();
+            var newWord = new Data.Models.SQL.Word
+            {
+                Id = newWordId,
+                WordText = wordbase.Word,
+                KKPhonics = wordbase.KKPhonics,
+                DateAdded = DateTime.Now,
+                LastUpdated = DateTime.Now,
+                Meanings = new List<Data.Models.SQL.WordMeaning>()
+            };
+            
+            foreach (var meaningData in wordbase.Meanings)
+            {
+                newWord.Meanings.Add(CreateMeaningFromDto(meaningData, newWordId, newWord));
+            }
+            
+            return newWord;
+        }
+
+        private static Data.Models.SQL.WordMeaning CreateMeaningFromDto(WordMeaning meaningData, string wordId, Data.Models.SQL.Word word)
         {
             var meaningId = Guid.NewGuid().ToString();
             var meaning = new Data.Models.SQL.WordMeaning
@@ -317,47 +285,37 @@ namespace JackyAIApp.Server.Controllers
                 }
             }
 
-            // Add Synonyms as tags
+            // Add tags
             AddTagsToMeaning(meaning, meaningId, meaningData.Synonyms, Constants.TagTypes.Synonym);
-
-            // Add Antonyms as tags
             AddTagsToMeaning(meaning, meaningId, meaningData.Antonyms, Constants.TagTypes.Antonym);
-
-            // Add RelatedWords as tags
             AddTagsToMeaning(meaning, meaningId, meaningData.RelatedWords, Constants.TagTypes.Related);
 
             return meaning;
         }
 
-        /// <summary>
-        /// Adds tags of a specific type to a word meaning
-        /// </summary>
         private static void AddTagsToMeaning(Data.Models.SQL.WordMeaning meaning, string meaningId, List<string>? words, string tagType)
         {
             if (words == null) return;
 
-            foreach (var word in words)
+            foreach (var w in words)
             {
                 meaning.Tags.Add(new Data.Models.SQL.WordMeaningTag
                 {
                     Id = Guid.NewGuid().ToString(),
                     TagType = tagType,
-                    Word = word,
+                    Word = w,
                     WordMeaningId = meaningId,
                     WordMeaning = meaning
                 });
             }
         }
 
-        /// <summary>
-        /// Converts SQL entity to DTO to avoid circular reference issues
-        /// </summary>
-        private DTO.Word ConvertToDto(Data.Models.SQL.Word sqlWord)
+        private static DTO.Word ConvertToDto(Data.Models.SQL.Word sqlWord)
         {
             return new DTO.Word
             {
                 Id = sqlWord.Id,
-                PartitionKey = sqlWord.WordText, // Using WordText as partition key
+                PartitionKey = sqlWord.WordText,
                 Word = sqlWord.WordText,
                 KKPhonics = sqlWord.KKPhonics,
                 DateAdded = sqlWord.DateAdded,
@@ -382,5 +340,7 @@ namespace JackyAIApp.Server.Controllers
                 }).ToList()
             };
         }
+
+        #endregion
     }
 }
