@@ -1,5 +1,3 @@
-# .github/workflows/ci.yml
-
 name: CI
 
 on:
@@ -24,11 +22,14 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore JackyAIApp.Server/JackyAIApp.Server.csproj
 
-    - name: Build
-      run: dotnet build JackyAIApp.Server/JackyAIApp.Server.csproj --configuration Release --no-restore
-
     - name: Restore test dependencies
       run: dotnet restore JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj
+
+    - name: Build Server
+      run: dotnet build JackyAIApp.Server/JackyAIApp.Server.csproj --configuration Release --no-restore
+
+    - name: Build Tests
+      run: dotnet build JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release --no-restore
 
     - name: Run tests
       run: dotnet test JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
