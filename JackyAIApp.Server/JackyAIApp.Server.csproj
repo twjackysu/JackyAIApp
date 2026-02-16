@@ -44,47 +44,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Prompt\Finance\" />
-    <Folder Include="Prompt\WordBase\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="Dictionary\en_US.aff">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="Dictionary\en_US.dic">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="Prompt\Exam\ClozeSystem.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Prompt\Exam\TranslationQualityGradingSystem.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Prompt\Exam\TranslationSystem.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Prompt\Exam\ConversationResponseSystem.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Prompt\Exam\ConversationStartSystem.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Prompt\Exam\SentenceSystem.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Prompt\Exam\SentenceEvaluationSystem.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Prompt\Finance\DailyImportantInfoSystem.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Prompt\Finance\StockAnalysisSystem.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Prompt\WordBase\System.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+  </ItemGroup>
+
+  <!-- Prompt files as embedded resources -->
+  <ItemGroup>
+    <EmbeddedResource Include="Prompt\**\*.txt" />
   </ItemGroup>
 
 </Project>

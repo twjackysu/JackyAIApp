@@ -2,6 +2,7 @@ using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.Prompt;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
 
@@ -10,11 +11,16 @@ namespace JackyAIApp.Server.Services.OpenAI
     public class OpenAIPromptService : IOpenAIPromptService
     {
         private readonly IOpenAIService _openAIService;
+        private readonly IPromptLoader _promptLoader;
         private readonly ILogger<OpenAIPromptService> _logger;
 
-        public OpenAIPromptService(IOpenAIService openAIService, ILogger<OpenAIPromptService> logger)
+        public OpenAIPromptService(
+            IOpenAIService openAIService,
+            IPromptLoader promptLoader,
+            ILogger<OpenAIPromptService> logger)
         {
             _openAIService = openAIService ?? throw new ArgumentNullException(nameof(openAIService));
+            _promptLoader = promptLoader ?? throw new ArgumentNullException(nameof(promptLoader));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -24,13 +30,13 @@ namespace JackyAIApp.Server.Services.OpenAI
             string? model = null,
             IEnumerable<(string User, string Assistant)>? examples = null) where T : class
         {
-            if (!File.Exists(systemPromptPath))
+            var systemPrompt = await _promptLoader.GetPromptAsync(systemPromptPath);
+            if (systemPrompt == null)
             {
-                _logger.LogError("System prompt file not found: {Path}", systemPromptPath);
-                return (null, $"System prompt file not found: {systemPromptPath}");
+                _logger.LogError("System prompt not found: {Path}", systemPromptPath);
+                return (null, $"System prompt not found: {systemPromptPath}");
             }
 
-            var systemPrompt = await File.ReadAllTextAsync(systemPromptPath);
             return await GetCompletionWithSystemPromptAsync<T>(systemPrompt, userMessage, model, examples);
         }
 
