@@ -1,4 +1,3 @@
-﻿using DotnetSdkUtilities.Factory.ResponseFactory;
 using Newtonsoft.Json;
 using System.Net;
 using System.Text;
@@ -18,56 +17,71 @@ namespace JackyAIApp.Server.Common
 
         public async Task InvokeAsync(HttpContext httpContext)
         {
-            var factory = httpContext.RequestServices.GetService<IApiResponseFactory>();
             try
             {
+                httpContext.Request.EnableBuffering();
                 await _next(httpContext);
             }
             catch (Exception ex)
             {
-                await HandleExceptionAsync(httpContext, ex, factory);
+                await HandleExceptionAsync(httpContext, ex);
             }
         }
 
-        private async Task HandleExceptionAsync(HttpContext context, Exception exception, IApiResponseFactory? apiResponseFactory)
+        private async Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
+            var responseFactory = context.RequestServices.GetService<IMyResponseFactory>();
+            
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-            var response = apiResponseFactory?.CreateErrorResponse(ErrorCodes.InternalServerError, exception.Message);
             var requestId = Guid.NewGuid().ToString();
-            // Log exception
-            _logger.LogError(exception, $"An unhandled exception has occurred while executing the request. Request ID: {requestId}");
+            
+            // Log exception with request details
+            _logger.LogError(exception, "Unhandled exception. Request ID: {RequestId}", requestId);
+            await LogRequestDetailsAsync(context, requestId);
 
-            // Log request data
+            // Create standardized error response
+            var response = responseFactory?.CreateErrorResponse(
+                ErrorCodes.InternalServerError, 
+                $"An unexpected error occurred. Request ID: {requestId}");
+
+            await context.Response.WriteAsync(JsonConvert.SerializeObject(response));
+        }
+
+        private async Task LogRequestDetailsAsync(HttpContext context, string requestId)
+        {
             var request = context.Request;
-            var informationSB = new StringBuilder();
-            informationSB.AppendLine($"Request path: {request.Path}");
-            informationSB.AppendLine($"Request method: {request.Method}");
-            informationSB.AppendLine($"Request ID: {requestId}");
+            var sb = new StringBuilder();
+            
+            sb.AppendLine($"Request ID: {requestId}");
+            sb.AppendLine($"Request path: {request.Path}");
+            sb.AppendLine($"Request method: {request.Method}");
 
             if (request.QueryString.HasValue)
             {
-                informationSB.AppendLine($"Request query string: {request.QueryString}");
+                sb.AppendLine($"Query string: {request.QueryString}");
             }
 
             if (request.HasFormContentType && request.Form != null)
             {
                 foreach (var formField in request.Form)
                 {
-                    informationSB.AppendLine($"Form field {formField.Key}: {formField.Value}");
+                    sb.AppendLine($"Form field {formField.Key}: {formField.Value}");
                 }
             }
             else if (request.ContentType != null && request.ContentType.Contains("application/json"))
             {
-                if (request.Body.CanSeek) request.Body.Position = 0; // Reset the request body stream position
-                using var reader = new StreamReader(request.Body);
-                var body = await reader.ReadToEndAsync();
-                informationSB.AppendLine($"Request body: {body}");
+                if (request.Body.CanSeek)
+                {
+                    request.Body.Position = 0;
+                    using var reader = new StreamReader(request.Body, leaveOpen: true);
+                    var body = await reader.ReadToEndAsync();
+                    sb.AppendLine($"Request body: {body}");
+                }
             }
-            _logger.LogInformation(informationSB.ToString());
-
-            await context.Response.WriteAsync(JsonConvert.SerializeObject(response));
+            
+            _logger.LogInformation(sb.ToString());
         }
     }
 }

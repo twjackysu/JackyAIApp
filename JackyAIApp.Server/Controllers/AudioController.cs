@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
@@ -32,30 +32,22 @@ namespace JackyAIApp.Server.Controllers
                 return BadRequest("Text parameter is required");
             }
 
-            try
+            var response = await _openAIService.Audio.CreateSpeech<byte[]>(new AudioCreateSpeechRequest
             {
-                var response = await _openAIService.Audio.CreateSpeech<byte[]>(new AudioCreateSpeechRequest
-                {
-                    Model = Models.Tts_1,
-                    Voice = GetVoiceType(voice),
-                    Input = text,
-                    ResponseFormat = "mp3",
-                    Speed = 1.0f
-                });
+                Model = Models.Tts_1,
+                Voice = GetVoiceType(voice),
+                Input = text,
+                ResponseFormat = "mp3",
+                Speed = 1.0f
+            });
 
-                if (!response.Successful)
-                {
-                    _logger.LogError("OpenAI TTS failed: {error}", response.Error?.Message);
-                    return StatusCode(500, "Failed to generate speech");
-                }
-
-                return File(response.Data, "audio/mpeg");
-            }
-            catch (Exception ex)
+            if (!response.Successful || response.Data == null)
             {
-                _logger.LogError(ex, "Failed to generate TTS audio for text: {text}", text);
-                return StatusCode(500, "Internal Server Error");
+                _logger.LogError("OpenAI TTS failed: {Error}", response.Error?.Message);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to generate speech");
             }
+
+            return File(response.Data, "audio/mpeg");
         }
 
         [HttpGet("slow")]
@@ -66,30 +58,22 @@ namespace JackyAIApp.Server.Controllers
                 return BadRequest("Text parameter is required");
             }
 
-            try
+            var response = await _openAIService.Audio.CreateSpeech<byte[]>(new AudioCreateSpeechRequest
             {
-                var response = await _openAIService.Audio.CreateSpeech<byte[]>(new AudioCreateSpeechRequest
-                {
-                    Model = Models.Tts_1,
-                    Voice = GetVoiceType(voice),
-                    Input = text,
-                    ResponseFormat = "mp3",
-                    Speed = 0.5f // Slower speed for "slow" endpoint
-                });
+                Model = Models.Tts_1,
+                Voice = GetVoiceType(voice),
+                Input = text,
+                ResponseFormat = "mp3",
+                Speed = 0.5f
+            });
 
-                if (!response.Successful)
-                {
-                    _logger.LogError("OpenAI TTS failed: {error}", response.Error?.Message);
-                    return StatusCode(500, "Failed to generate speech");
-                }
-
-                return File(response.Data, "audio/mpeg");
-            }
-            catch (Exception ex)
+            if (!response.Successful || response.Data == null)
             {
-                _logger.LogError(ex, "Failed to generate slow TTS audio for text: {text}", text);
-                return StatusCode(500, "Internal Server Error");
+                _logger.LogError("OpenAI TTS failed: {Error}", response.Error?.Message);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to generate speech");
             }
+
+            return File(response.Data, "audio/mpeg");
         }
 
         [HttpGet("hd")]
@@ -100,30 +84,22 @@ namespace JackyAIApp.Server.Controllers
                 return BadRequest("Text parameter is required");
             }
 
-            try
+            var response = await _openAIService.Audio.CreateSpeech<byte[]>(new AudioCreateSpeechRequest
             {
-                var response = await _openAIService.Audio.CreateSpeech<byte[]>(new AudioCreateSpeechRequest
-                {
-                    Model = Models.Tts_1_hd, // High-definition model
-                    Voice = GetVoiceType(voice),
-                    Input = text,
-                    ResponseFormat = "mp3",
-                    Speed = 1.0f
-                });
+                Model = Models.Tts_1_hd,
+                Voice = GetVoiceType(voice),
+                Input = text,
+                ResponseFormat = "mp3",
+                Speed = 1.0f
+            });
 
-                if (!response.Successful)
-                {
-                    _logger.LogError("OpenAI TTS HD failed: {error}", response.Error?.Message);
-                    return StatusCode(500, "Failed to generate high-definition speech");
-                }
-
-                return File(response.Data, "audio/mpeg");
-            }
-            catch (Exception ex)
+            if (!response.Successful || response.Data == null)
             {
-                _logger.LogError(ex, "Failed to generate HD TTS audio for text: {text}", text);
-                return StatusCode(500, "Internal Server Error");
+                _logger.LogError("OpenAI TTS HD failed: {Error}", response.Error?.Message);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to generate high-definition speech");
             }
+
+            return File(response.Data, "audio/mpeg");
         }
 
         private static string GetVoiceType(string? voice)
@@ -136,7 +112,7 @@ namespace JackyAIApp.Server.Controllers
                 "onyx" => "onyx",
                 "nova" => "nova",
                 "shimmer" => "shimmer",
-                _ => "alloy" // Default voice
+                _ => "alloy"
             };
         }
     }
