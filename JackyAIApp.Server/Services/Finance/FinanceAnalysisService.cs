@@ -3,6 +3,7 @@ using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.Prompt;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -17,6 +18,7 @@ namespace JackyAIApp.Server.Services.Finance
     public class FinanceAnalysisService : IFinanceAnalysisService
     {
         private readonly IOpenAIService _openAIService;
+        private readonly IPromptLoader _promptLoader;
         private readonly ILogger<FinanceAnalysisService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IOptionsMonitor<Settings> _settings;
@@ -27,11 +29,13 @@ namespace JackyAIApp.Server.Services.Finance
 
         public FinanceAnalysisService(
             IOpenAIService openAIService,
+            IPromptLoader promptLoader,
             ILogger<FinanceAnalysisService> logger,
             IHttpClientFactory httpClientFactory,
             IOptionsMonitor<Settings> settings)
         {
             _openAIService = openAIService ?? throw new ArgumentNullException(nameof(openAIService));
+            _promptLoader = promptLoader ?? throw new ArgumentNullException(nameof(promptLoader));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -303,7 +307,12 @@ namespace JackyAIApp.Server.Services.Finance
                 var chunks = SplitJsonArraySafely(rawData, MAX_ITEMS_PER_CHUNK);
                 var allInsights = new List<StrategicInsight>();
 
-                var systemPrompt = await System.IO.File.ReadAllTextAsync("Prompt/Finance/DailyImportantInfoSystem.txt", cancellationToken);
+                var systemPrompt = _promptLoader.GetPrompt("Prompt/Finance/DailyImportantInfoSystem.txt");
+                if (string.IsNullOrEmpty(systemPrompt))
+                {
+                    _logger.LogError("Failed to load DailyImportantInfoSystem.txt prompt");
+                    return null;
+                }
 
                 // Process each chunk
                 foreach (var chunk in chunks)
