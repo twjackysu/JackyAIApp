@@ -87,12 +87,12 @@ namespace JackyAIApp.Server.Controllers
                     return;
                 }
 
-                // 設置正確的 SSE headers（參考 Node.js 版本）
+                // Set SSE headers
                 Response.ContentType = "text/event-stream";
-                Response.Headers.Add("Cache-Control", "no-cache");
-                Response.Headers.Add("Connection", "keep-alive");
-                Response.Headers.Add("Access-Control-Allow-Origin", "*");
-                Response.Headers.Add("Access-Control-Allow-Headers", "Cache-Control");
+                Response.Headers.Append("Cache-Control", "no-cache");
+                Response.Headers.Append("Connection", "keep-alive");
+                Response.Headers.Append("Access-Control-Allow-Origin", "*");
+                Response.Headers.Append("Access-Control-Allow-Headers", "Cache-Control");
                 
                 // 禁用 buffering（重要！）
                 var bufferingFeature = HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpResponseBodyFeature>();

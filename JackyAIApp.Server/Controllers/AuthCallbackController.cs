@@ -54,12 +54,13 @@ namespace JackyAIApp.Server.Controllers
                 }
 
                 // Normalize provider name
-                provider = NormalizeProviderName(provider);
-                if (provider == null)
+                var normalizedProvider = NormalizeProviderName(provider);
+                if (normalizedProvider == null)
                 {
                     _logger.LogWarning("Invalid provider name in callback: {Provider}", provider);
                     return Redirect($"{frontendBaseUrl}/connectors?error=invalid_provider");
                 }
+                provider = normalizedProvider;
 
                 // Handle the callback
                 var success = await _connectorService.HandleCallbackAsync(provider, code, state);

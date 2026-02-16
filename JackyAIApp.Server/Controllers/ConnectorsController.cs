@@ -12,12 +12,10 @@ namespace JackyAIApp.Server.Controllers
     public class ConnectorsController : ControllerBase
     {
         private readonly IConnectorService _connectorService;
-        private readonly ILogger<ConnectorsController> _logger;
 
-        public ConnectorsController(IConnectorService connectorService, ILogger<ConnectorsController> logger)
+        public ConnectorsController(IConnectorService connectorService)
         {
             _connectorService = connectorService;
-            _logger = logger;
         }
 
         /// <summary>
@@ -27,22 +25,14 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("status")]
         public async Task<ActionResult<ConnectorStatusDto[]>> GetStatus()
         {
-            try
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
             {
-                var userId = GetCurrentUserId();
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized("User ID not found in claims");
-                }
+                return Unauthorized("User ID not found in claims");
+            }
 
-                var statuses = await _connectorService.GetUserConnectorStatusAsync(userId);
-                return Ok(statuses);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting connector status");
-                return StatusCode(500, "Internal server error");
-            }
+            var statuses = await _connectorService.GetUserConnectorStatusAsync(userId);
+            return Ok(statuses);
         }
 
         /// <summary>
@@ -54,41 +44,26 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("{provider}/connect")]
         public async Task<ActionResult<ConnectResponseDto>> Connect(string provider, [FromBody] CustomConnectRequestDto? customConfig = null)
         {
-            try
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
             {
-                var userId = GetCurrentUserId();
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized("User ID not found in claims");
-                }
-
-                if (string.IsNullOrEmpty(provider))
-                {
-                    return BadRequest("Provider name is required");
-                }
-
-                // Normalize provider name
-                provider = NormalizeProviderName(provider);
-                if (provider == null)
-                {
-                    return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
-                }
-
-                var redirectUrl = await _connectorService.StartConnectAsync(userId, provider, customConfig);
-                // Note: For Google OAuth with localhost, you may need to configure the OAuth consent screen
-                // See: https://console.cloud.google.com/auth/audience
-                return Ok(new ConnectResponseDto { RedirectUrl = redirectUrl });
+                return Unauthorized("User ID not found in claims");
             }
-            catch (ArgumentException ex)
+
+            if (string.IsNullOrEmpty(provider))
             {
-                _logger.LogWarning(ex, "Invalid provider request: {Provider}", provider);
-                return BadRequest(ex.Message);
+                return BadRequest("Provider name is required");
             }
-            catch (Exception ex)
+
+            // Normalize provider name
+            var normalizedProvider = NormalizeProviderName(provider);
+            if (normalizedProvider == null)
             {
-                _logger.LogError(ex, "Error starting OAuth flow for provider {Provider}", provider);
-                return StatusCode(500, "Internal server error");
+                return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
             }
+
+            var redirectUrl = await _connectorService.StartConnectAsync(userId, normalizedProvider, customConfig);
+            return Ok(new ConnectResponseDto { RedirectUrl = redirectUrl });
         }
 
         /// <summary>
@@ -99,40 +74,30 @@ namespace JackyAIApp.Server.Controllers
         [HttpDelete("{provider}")]
         public async Task<ActionResult> Disconnect(string provider)
         {
-            try
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
             {
-                var userId = GetCurrentUserId();
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized("User ID not found in claims");
-                }
-
-                if (string.IsNullOrEmpty(provider))
-                {
-                    return BadRequest("Provider name is required");
-                }
-
-                provider = NormalizeProviderName(provider);
-                if (provider == null)
-                {
-                    return BadRequest("Invalid provider name");
-                }
-
-                var success = await _connectorService.DisconnectAsync(userId, provider);
-                if (success)
-                {
-                    return Ok(new { message = $"Successfully disconnected from {provider}" });
-                }
-                else
-                {
-                    return StatusCode(500, "Failed to disconnect provider");
-                }
+                return Unauthorized("User ID not found in claims");
             }
-            catch (Exception ex)
+
+            if (string.IsNullOrEmpty(provider))
             {
-                _logger.LogError(ex, "Error disconnecting provider {Provider}", provider);
-                return StatusCode(500, "Internal server error");
+                return BadRequest("Provider name is required");
             }
+
+            var normalizedProvider = NormalizeProviderName(provider);
+            if (normalizedProvider == null)
+            {
+                return BadRequest("Invalid provider name");
+            }
+
+            var success = await _connectorService.DisconnectAsync(userId, normalizedProvider);
+            if (success)
+            {
+                return Ok(new { message = $"Successfully disconnected from {normalizedProvider}" });
+            }
+            
+            return StatusCode(500, "Failed to disconnect provider");
         }
 
         /// <summary>
@@ -143,35 +108,25 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("{provider}/refresh")]
         public async Task<ActionResult> RefreshTokens(string provider)
         {
-            try
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
             {
-                var userId = GetCurrentUserId();
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized("User ID not found in claims");
-                }
-
-                provider = NormalizeProviderName(provider);
-                if (provider == null)
-                {
-                    return BadRequest("Invalid provider name");
-                }
-
-                var success = await _connectorService.RefreshTokenIfNeededAsync(userId, provider);
-                if (success)
-                {
-                    return Ok(new { message = $"Tokens refreshed successfully for {provider}" });
-                }
-                else
-                {
-                    return BadRequest($"Failed to refresh tokens for {provider}. May need to reconnect.");
-                }
+                return Unauthorized("User ID not found in claims");
             }
-            catch (Exception ex)
+
+            var normalizedProvider = NormalizeProviderName(provider);
+            if (normalizedProvider == null)
             {
-                _logger.LogError(ex, "Error refreshing tokens for provider {Provider}", provider);
-                return StatusCode(500, "Internal server error");
+                return BadRequest("Invalid provider name");
             }
+
+            var success = await _connectorService.RefreshTokenIfNeededAsync(userId, normalizedProvider);
+            if (success)
+            {
+                return Ok(new { message = $"Tokens refreshed successfully for {normalizedProvider}" });
+            }
+            
+            return BadRequest($"Failed to refresh tokens for {normalizedProvider}. May need to reconnect.");
         }
 
         /// <summary>
@@ -182,39 +137,29 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("{provider}/token")]
         public async Task<ActionResult> GetAccessToken(string provider)
         {
-            try
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
             {
-                var userId = GetCurrentUserId();
-                if (string.IsNullOrEmpty(userId))
-                {
-                    return Unauthorized("User ID not found in claims");
-                }
-
-                provider = NormalizeProviderName(provider);
-                if (provider == null)
-                {
-                    return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
-                }
-
-                var accessToken = await _connectorService.GetAccessTokenAsync(userId, provider);
-                if (string.IsNullOrEmpty(accessToken))
-                {
-                    return NotFound($"No active connection found for {provider}. Please connect first.");
-                }
-
-                _logger.LogInformation("Access token retrieved for user {UserId} and provider {Provider}", userId, provider);
-
-                return Ok(new { 
-                    provider,
-                    accessToken,
-                    retrievedAt = DateTime.UtcNow
-                });
+                return Unauthorized("User ID not found in claims");
             }
-            catch (Exception ex)
+
+            var normalizedProvider = NormalizeProviderName(provider);
+            if (normalizedProvider == null)
             {
-                _logger.LogError(ex, "Error getting access token for provider {Provider}", provider);
-                return StatusCode(500, "Internal server error");
+                return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
             }
+
+            var accessToken = await _connectorService.GetAccessTokenAsync(userId, normalizedProvider);
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                return NotFound($"No active connection found for {normalizedProvider}. Please connect first.");
+            }
+
+            return Ok(new { 
+                provider = normalizedProvider,
+                accessToken,
+                retrievedAt = DateTime.UtcNow
+            });
         }
 
         private string? GetCurrentUserId()
