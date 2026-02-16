@@ -62,8 +62,15 @@ namespace JackyAIApp.Server.Controllers
                 return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
             }
 
-            var redirectUrl = await _connectorService.StartConnectAsync(userId, normalizedProvider, customConfig);
-            return Ok(new ConnectResponseDto { RedirectUrl = redirectUrl });
+            try
+            {
+                var redirectUrl = await _connectorService.StartConnectAsync(userId, normalizedProvider, customConfig);
+                return Ok(new ConnectResponseDto { RedirectUrl = redirectUrl });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         /// <summary>
