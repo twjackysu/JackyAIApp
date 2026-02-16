@@ -105,7 +105,8 @@ try
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
 
-    // Configure OpenAI services
+    // Configure Prompt and OpenAI services
+    builder.Services.AddSingleton<JackyAIApp.Server.Services.Prompt.IPromptLoader, JackyAIApp.Server.Services.Prompt.PromptLoader>();
     builder.Services.AddScoped<JackyAIApp.Server.Services.OpenAI.IOpenAIPromptService, JackyAIApp.Server.Services.OpenAI.OpenAIPromptService>();
 
     // Configure Connectors services
