@@ -6,6 +6,7 @@ using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.Prompt;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         private readonly Mock<IUserService> _userServiceMock;
         private readonly Mock<IOpenAIService> _openAIServiceMock;
         private readonly Mock<IOpenAIPromptService> _promptServiceMock;
+        private readonly Mock<IPromptLoader> _promptLoaderMock;
         private readonly AzureSQLDBContext _dbContext;
         private readonly ExamController _controller;
         private readonly string _testUserId = "test-user-123";
@@ -32,6 +34,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             _userServiceMock = new Mock<IUserService>();
             _openAIServiceMock = new Mock<IOpenAIService>();
             _promptServiceMock = new Mock<IOpenAIPromptService>();
+            _promptLoaderMock = new Mock<IPromptLoader>();
 
             // Setup in-memory database
             var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
@@ -54,7 +57,8 @@ namespace JackyAIApp.Server.Tests.Controllers
                 _dbContext,
                 _userServiceMock.Object,
                 _openAIServiceMock.Object,
-                _promptServiceMock.Object);
+                _promptServiceMock.Object,
+                _promptLoaderMock.Object);
         }
 
         public void Dispose()
