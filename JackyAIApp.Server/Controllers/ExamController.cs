@@ -8,6 +8,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.Prompt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IUserService _userService;
         private readonly IOpenAIService _openAIService;
         private readonly IOpenAIPromptService _promptService;
+        private readonly IPromptLoader _promptLoader;
 
         public ExamController(
             ILogger<ExamController> logger,
@@ -34,7 +36,8 @@ namespace JackyAIApp.Server.Controllers
             AzureSQLDBContext DBContext,
             IUserService userService,
             IOpenAIService openAIService,
-            IOpenAIPromptService promptService)
+            IOpenAIPromptService promptService,
+            IPromptLoader promptLoader)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
@@ -42,6 +45,7 @@ namespace JackyAIApp.Server.Controllers
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _openAIService = openAIService ?? throw new ArgumentNullException(nameof(openAIService));
             _promptService = promptService ?? throw new ArgumentNullException(nameof(promptService));
+            _promptLoader = promptLoader ?? throw new ArgumentNullException(nameof(promptLoader));
         }
 
         /// <summary>
@@ -298,9 +302,12 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Scenario, UserRole, and AiRole are required.");
             }
 
-            // This endpoint uses Gpt_4o_mini with Temperature=0.8, which the current service doesn't support
-            // Keeping original implementation for now
-            string systemChatMessage = System.IO.File.ReadAllText("Prompt/Exam/ConversationStartSystem.txt");
+            var systemChatMessage = _promptLoader.GetPrompt("Prompt/Exam/ConversationStartSystem.txt");
+            if (string.IsNullOrEmpty(systemChatMessage))
+            {
+                _logger.LogError("Failed to load ConversationStartSystem.txt prompt");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Failed to load conversation prompt.");
+            }
             
             var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
             {
