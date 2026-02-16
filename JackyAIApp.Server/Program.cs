@@ -35,15 +35,6 @@ try
     }
 
     var configuration = builder.Configuration;
-    
-    // Add Cosmos DB context
-    var cosmosConnectionString = configuration.GetConnectionString("DefaultConnection") ?? "";
-    var cosmosDatabaseName = configuration.GetValue<string>("Settings:AzureCosmosDatabaseName") ?? "";
-    builder.Services.AddDbContext<AzureCosmosDBContext>(
-        options => options.UseCosmos(cosmosConnectionString, cosmosDatabaseName));
-        
-    // Register the migration service
-    builder.Services.AddScoped<DataMigrationService>();
 
     // Configure SQL Database Context
     var sqlConnectionString = configuration.GetConnectionString("SQLConnection") ?? "";

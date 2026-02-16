@@ -8,13 +8,13 @@ namespace JackyAIApp.Server.DTO
     public class Word : WordBase
     {
         /// <summary>
-        /// Unique identifier for a WordDefinition document in Cosmos DB.
+        /// Unique identifier for a Word.
         /// </summary>
         [JsonProperty(PropertyName = "id")]
         public required string Id { get; set; }
 
         /// <summary>
-        /// Partition key used by Cosmos DB to distribute data across multiple partitions. It's calculated based on specific business logic to ensure efficient data distribution and query performance.
+        /// Partition key for data distribution.
         /// </summary>
         [JsonProperty(PropertyName = "partitionKey")]
         public required string PartitionKey { get; set; }
