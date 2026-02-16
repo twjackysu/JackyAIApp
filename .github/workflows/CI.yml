@@ -1,0 +1,41 @@
+# .github/workflows/ci.yml
+
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore JackyAIApp.Server/JackyAIApp.Server.csproj
+
+    - name: Build
+      run: dotnet build JackyAIApp.Server/JackyAIApp.Server.csproj --configuration Release --no-restore
+
+    - name: Restore test dependencies
+      run: dotnet restore JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj
+
+    - name: Run tests
+      run: dotnet test JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: JackyAIApp.Server.Tests/TestResults/test-results.trx
