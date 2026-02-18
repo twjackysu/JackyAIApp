@@ -18,8 +18,8 @@ namespace JackyAIApp.Server.Services.Finance
             // Register TWStockLib services
             services.AddStockServices();
 
-            // Register all indicator calculators (Strategy Pattern)
-            // Adding a new indicator = add one line here (or use assembly scanning)
+            // === Register all indicator calculators (Strategy Pattern) ===
+            // Technical indicators
             services.AddSingleton<IIndicatorCalculator, MACalculator>();
             services.AddSingleton<IIndicatorCalculator, RSICalculator>();
             services.AddSingleton<IIndicatorCalculator, MACDCalculator>();
@@ -27,10 +27,16 @@ namespace JackyAIApp.Server.Services.Finance
             services.AddSingleton<IIndicatorCalculator, VolumeRatioCalculator>();
             services.AddSingleton<IIndicatorCalculator, BollingerBandCalculator>();
 
+            // Chip indicators
+            services.AddSingleton<IIndicatorCalculator, MarginIndicatorCalculator>();
+            services.AddSingleton<IIndicatorCalculator, ForeignHoldingCalculator>();
+            services.AddSingleton<IIndicatorCalculator, DirectorPledgeCalculator>();
+
             // Register indicator engine
             services.AddSingleton<IIndicatorEngine, IndicatorEngine>();
 
-            // Register data providers
+            // === Register data providers ===
+            // Historical price provider (TWStockLib) with cache decorator
             services.AddScoped<TWStockLibHistoricalProvider>();
             services.AddScoped<IMarketDataProvider>(sp =>
             {
@@ -39,6 +45,9 @@ namespace JackyAIApp.Server.Services.Finance
                 var logger = sp.GetRequiredService<ILogger<CachedMarketDataProvider>>();
                 return new CachedMarketDataProvider(inner, cache, logger);
             });
+
+            // Chip data provider (TWSE OpenAPI) — registered as named/typed for explicit resolution
+            services.AddScoped<TWSEChipDataProvider>();
 
             return services;
         }
