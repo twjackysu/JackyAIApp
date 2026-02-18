@@ -68,20 +68,42 @@ namespace JackyAIApp.Server.DTO.Finance
     /// </summary>
     public class ChipData
     {
+        // === 融資 (Margin Trading) ===
+
+        /// <summary>融資買進 (張)</summary>
+        public long MarginBuyVolume { get; set; }
+
+        /// <summary>融資賣出 (張)</summary>
+        public long MarginSellVolume { get; set; }
+
+        /// <summary>融資現金償還 (張)</summary>
+        public long MarginCashRepayment { get; set; }
+
+        /// <summary>融資前日餘額 (張)</summary>
+        public long? MarginPreviousBalance { get; set; }
+
         /// <summary>融資今日餘額 (張)</summary>
         public long? MarginBalance { get; set; }
-
-        /// <summary>融資昨日餘額 (張)</summary>
-        public long? MarginPreviousBalance { get; set; }
 
         /// <summary>融資限額 (張)</summary>
         public long? MarginLimit { get; set; }
 
+        // === 融券 (Short Selling) ===
+
+        /// <summary>融券買進 (張)</summary>
+        public long ShortBuyVolume { get; set; }
+
+        /// <summary>融券賣出 (張)</summary>
+        public long ShortSellVolume { get; set; }
+
+        /// <summary>融券現券償還 (張)</summary>
+        public long ShortCashRepayment { get; set; }
+
+        /// <summary>融券前日餘額 (張)</summary>
+        public long? ShortPreviousBalance { get; set; }
+
         /// <summary>融券今日餘額 (張)</summary>
         public long? ShortBalance { get; set; }
-
-        /// <summary>融券昨日餘額 (張)</summary>
-        public long? ShortPreviousBalance { get; set; }
 
         /// <summary>融券限額 (張)</summary>
         public long? ShortLimit { get; set; }
@@ -89,10 +111,68 @@ namespace JackyAIApp.Server.DTO.Finance
         /// <summary>資券互抵 (張)</summary>
         public long? OffsetVolume { get; set; }
 
+        // === 外資 (Foreign Investors) ===
+
         /// <summary>外資持股比率 (%)</summary>
         public decimal? ForeignHoldingPercentage { get; set; }
 
+        /// <summary>外資持股數</summary>
+        public long? ForeignHoldingShares { get; set; }
+
+        /// <summary>外資可投資股數</summary>
+        public long? ForeignAvailableShares { get; set; }
+
+        /// <summary>外資投資上限 (%)</summary>
+        public decimal? ForeignUpperLimit { get; set; }
+
+        // === 借券 (Securities Borrowing & Lending) ===
+
         /// <summary>借券賣出可用餘額</summary>
         public long? SBLAvailableVolume { get; set; }
+
+        // === 董監事 (Director/Supervisor Holdings) ===
+
+        /// <summary>董監事持股明細</summary>
+        public List<DirectorHolding>? DirectorHoldings { get; set; }
+
+        /// <summary>董監事持股合計</summary>
+        public long TotalDirectorShares { get; set; }
+
+        /// <summary>董監事設質合計</summary>
+        public long TotalDirectorPledged { get; set; }
+
+        /// <summary>董監事設質比率 (%)</summary>
+        public decimal DirectorPledgeRatio { get; set; }
+
+        // === 大股東 (Major Shareholders) ===
+
+        /// <summary>持股逾10%大股東名單</summary>
+        public List<string>? MajorShareholders { get; set; }
+
+        // === 當沖 (Day Trading) ===
+
+        /// <summary>是否暫停當沖</summary>
+        public bool DayTradingSuspended { get; set; }
+    }
+
+    /// <summary>
+    /// Director/Supervisor individual holding record.
+    /// </summary>
+    public class DirectorHolding
+    {
+        /// <summary>職稱 (e.g., 董事長本人, 董事之法人代表人)</summary>
+        public string Title { get; set; } = string.Empty;
+
+        /// <summary>姓名</summary>
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>目前持股</summary>
+        public long CurrentShares { get; set; }
+
+        /// <summary>設質股數</summary>
+        public long PledgedShares { get; set; }
+
+        /// <summary>設質比例</summary>
+        public string PledgeRatio { get; set; } = string.Empty;
     }
 }

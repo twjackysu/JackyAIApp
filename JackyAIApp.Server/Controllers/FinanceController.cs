@@ -26,7 +26,8 @@ namespace JackyAIApp.Server.Controllers
         IFinanceAnalysisService financeAnalysisService,
         IExtendedMemoryCache memoryCache,
         IMarketDataProvider marketDataProvider,
-        IIndicatorEngine indicatorEngine) : ControllerBase
+        IIndicatorEngine indicatorEngine,
+        TWSEChipDataProvider chipDataProvider) : ControllerBase
     {
         private readonly ILogger<FinanceController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         private readonly IOptionsMonitor<Settings> _settings = settings;
@@ -39,6 +40,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IExtendedMemoryCache _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         private readonly IMarketDataProvider _marketDataProvider = marketDataProvider ?? throw new ArgumentNullException(nameof(marketDataProvider));
         private readonly IIndicatorEngine _indicatorEngine = indicatorEngine ?? throw new ArgumentNullException(nameof(indicatorEngine));
+        private readonly TWSEChipDataProvider _chipDataProvider = chipDataProvider ?? throw new ArgumentNullException(nameof(chipDataProvider));
 
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
         private const int CACHE_HOURS = 12; // Cache duration in hours
@@ -253,6 +255,84 @@ namespace JackyAIApp.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting technical indicators for {stockCode}", stockCode);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Gets chip analysis (籌碼面) indicators for a specific stock.
+        /// Includes margin trading, foreign holdings, director pledges, and major shareholders.
+        /// </summary>
+        /// <param name="stockCode">Stock code (e.g., "2330")</param>
+        /// <param name="cancellationToken">Cancellation token for timeout control.</param>
+        /// <returns>Chip analysis with all calculated indicators.</returns>
+        [HttpGet("chip-analysis/{stockCode}")]
+        public async Task<IActionResult> GetChipAnalysis(string stockCode, CancellationToken cancellationToken = default)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(OPERATION_TIMEOUT_SECONDS));
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(stockCode))
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
+                }
+
+                // Resolve stock code if needed
+                var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(stockCode, timeoutCts.Token);
+                if (string.IsNullOrEmpty(resolvedStockCode))
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
+                }
+
+                // Check cache
+                var currentDate = DateTime.Now.ToString("yyyyMMdd");
+                var cacheKey = $"ChipAnalysis_{resolvedStockCode}_{currentDate}";
+                if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+                {
+                    return _responseFactory.CreateOKResponse(cachedResult);
+                }
+
+                // Fetch chip data from TWSE APIs
+                var chipMarketData = await _chipDataProvider.FetchAsync(resolvedStockCode, timeoutCts.Token);
+
+                if (chipMarketData.Chips == null)
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"No chip data available for stock '{resolvedStockCode}'.");
+                }
+
+                // Build indicator context with chip data
+                var context = new IndicatorContext
+                {
+                    StockCode = resolvedStockCode,
+                    Chips = chipMarketData.Chips
+                };
+
+                // Calculate chip indicators
+                var indicators = _indicatorEngine.CalculateByCategory(context, IndicatorCategory.Chip);
+
+                var response = new ChipAnalysisResponse
+                {
+                    StockCode = resolvedStockCode,
+                    CompanyName = chipMarketData.CompanyName,
+                    ChipData = chipMarketData.Chips,
+                    Indicators = indicators,
+                    GeneratedAt = DateTime.UtcNow
+                };
+
+                // Cache for 4 hours
+                _memoryCache.Set(cacheKey, response, TimeSpan.FromHours(CACHE_HOURS));
+
+                return _responseFactory.CreateOKResponse(response);
+            }
+            catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Chip analysis timed out for stock '{stockCode}'.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting chip analysis for {stockCode}", stockCode);
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Error: {ex.Message}");
             }
         }
