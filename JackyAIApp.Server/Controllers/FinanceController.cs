@@ -190,73 +190,58 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("technical-indicators/{stockCode}")]
         public async Task<IActionResult> GetTechnicalIndicators(string stockCode, CancellationToken cancellationToken = default)
         {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(OPERATION_TIMEOUT_SECONDS));
-
-            try
+            if (string.IsNullOrWhiteSpace(stockCode))
             {
-                if (string.IsNullOrWhiteSpace(stockCode))
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
-                }
-
-                // Resolve stock code if needed
-                var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(stockCode, timeoutCts.Token);
-                if (string.IsNullOrEmpty(resolvedStockCode))
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
-                }
-
-                // Check cache
-                var currentDate = DateTime.Now.ToString("yyyyMMdd");
-                var cacheKey = $"TechnicalIndicators_{resolvedStockCode}_{currentDate}";
-                if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
-                {
-                    return _responseFactory.CreateOKResponse(cachedResult);
-                }
-
-                // Fetch historical data via TWStockLib (cached by CachedMarketDataProvider)
-                var marketData = await _marketDataProvider.FetchAsync(resolvedStockCode, timeoutCts.Token);
-                if (marketData.HistoricalPrices.Count == 0)
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"No historical data available for stock '{resolvedStockCode}'.");
-                }
-
-                // Build indicator context
-                var context = new IndicatorContext
-                {
-                    StockCode = resolvedStockCode,
-                    Prices = marketData.HistoricalPrices
-                };
-
-                // Calculate all technical indicators
-                var indicators = _indicatorEngine.CalculateByCategory(context, IndicatorCategory.Technical);
-
-                var response = new TechnicalAnalysisResponse
-                {
-                    StockCode = resolvedStockCode,
-                    CompanyName = marketData.CompanyName,
-                    LatestClose = context.LatestClose,
-                    DataPointCount = marketData.HistoricalPrices.Count,
-                    DataRange = $"{marketData.HistoricalPrices.First().Date:yyyy-MM-dd} ~ {marketData.HistoricalPrices.Last().Date:yyyy-MM-dd}",
-                    Indicators = indicators,
-                    GeneratedAt = DateTime.UtcNow
-                };
-
-                // Cache for 4 hours
-                _memoryCache.Set(cacheKey, response, TimeSpan.FromHours(CACHE_HOURS));
-
-                return _responseFactory.CreateOKResponse(response);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
             }
-            catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
+
+            // Resolve stock code if needed
+            var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(stockCode, cancellationToken);
+            if (string.IsNullOrEmpty(resolvedStockCode))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Technical analysis timed out for stock '{stockCode}'.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
             }
-            catch (Exception ex)
+
+            // Check cache
+            var currentDate = DateTime.Now.ToString("yyyyMMdd");
+            var cacheKey = $"TechnicalIndicators_{resolvedStockCode}_{currentDate}";
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
             {
-                _logger.LogError(ex, "Error getting technical indicators for {stockCode}", stockCode);
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Error: {ex.Message}");
+                return _responseFactory.CreateOKResponse(cachedResult);
             }
+
+            // Fetch historical data via TWStockLib (cached by CachedMarketDataProvider)
+            var marketData = await _marketDataProvider.FetchAsync(resolvedStockCode, cancellationToken);
+            if (marketData.HistoricalPrices.Count == 0)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"No historical data available for stock '{resolvedStockCode}'.");
+            }
+
+            // Build indicator context
+            var context = new IndicatorContext
+            {
+                StockCode = resolvedStockCode,
+                Prices = marketData.HistoricalPrices
+            };
+
+            // Calculate all technical indicators
+            var indicators = _indicatorEngine.CalculateByCategory(context, IndicatorCategory.Technical);
+
+            var response = new TechnicalAnalysisResponse
+            {
+                StockCode = resolvedStockCode,
+                CompanyName = marketData.CompanyName,
+                LatestClose = context.LatestClose,
+                DataPointCount = marketData.HistoricalPrices.Count,
+                DataRange = $"{marketData.HistoricalPrices.First().Date:yyyy-MM-dd} ~ {marketData.HistoricalPrices.Last().Date:yyyy-MM-dd}",
+                Indicators = indicators,
+                GeneratedAt = DateTime.UtcNow
+            };
+
+            // Cache for 4 hours
+            _memoryCache.Set(cacheKey, response, TimeSpan.FromHours(CACHE_HOURS));
+
+            return _responseFactory.CreateOKResponse(response);
         }
 
         /// <summary>
@@ -269,72 +254,57 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("chip-analysis/{stockCode}")]
         public async Task<IActionResult> GetChipAnalysis(string stockCode, CancellationToken cancellationToken = default)
         {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(OPERATION_TIMEOUT_SECONDS));
-
-            try
+            if (string.IsNullOrWhiteSpace(stockCode))
             {
-                if (string.IsNullOrWhiteSpace(stockCode))
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
-                }
-
-                // Resolve stock code if needed
-                var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(stockCode, timeoutCts.Token);
-                if (string.IsNullOrEmpty(resolvedStockCode))
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
-                }
-
-                // Check cache
-                var currentDate = DateTime.Now.ToString("yyyyMMdd");
-                var cacheKey = $"ChipAnalysis_{resolvedStockCode}_{currentDate}";
-                if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
-                {
-                    return _responseFactory.CreateOKResponse(cachedResult);
-                }
-
-                // Fetch chip data from TWSE APIs
-                var chipMarketData = await _chipDataProvider.FetchAsync(resolvedStockCode, timeoutCts.Token);
-
-                if (chipMarketData.Chips == null)
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"No chip data available for stock '{resolvedStockCode}'.");
-                }
-
-                // Build indicator context with chip data
-                var context = new IndicatorContext
-                {
-                    StockCode = resolvedStockCode,
-                    Chips = chipMarketData.Chips
-                };
-
-                // Calculate chip indicators
-                var indicators = _indicatorEngine.CalculateByCategory(context, IndicatorCategory.Chip);
-
-                var response = new ChipAnalysisResponse
-                {
-                    StockCode = resolvedStockCode,
-                    CompanyName = chipMarketData.CompanyName,
-                    ChipData = chipMarketData.Chips,
-                    Indicators = indicators,
-                    GeneratedAt = DateTime.UtcNow
-                };
-
-                // Cache for 4 hours
-                _memoryCache.Set(cacheKey, response, TimeSpan.FromHours(CACHE_HOURS));
-
-                return _responseFactory.CreateOKResponse(response);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
             }
-            catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
+
+            // Resolve stock code if needed
+            var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(stockCode, cancellationToken);
+            if (string.IsNullOrEmpty(resolvedStockCode))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Chip analysis timed out for stock '{stockCode}'.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
             }
-            catch (Exception ex)
+
+            // Check cache
+            var currentDate = DateTime.Now.ToString("yyyyMMdd");
+            var cacheKey = $"ChipAnalysis_{resolvedStockCode}_{currentDate}";
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
             {
-                _logger.LogError(ex, "Error getting chip analysis for {stockCode}", stockCode);
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Error: {ex.Message}");
+                return _responseFactory.CreateOKResponse(cachedResult);
             }
+
+            // Fetch chip data from TWSE APIs
+            var chipMarketData = await _chipDataProvider.FetchAsync(resolvedStockCode, cancellationToken);
+
+            if (chipMarketData.Chips == null)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"No chip data available for stock '{resolvedStockCode}'.");
+            }
+
+            // Build indicator context with chip data
+            var context = new IndicatorContext
+            {
+                StockCode = resolvedStockCode,
+                Chips = chipMarketData.Chips
+            };
+
+            // Calculate chip indicators
+            var indicators = _indicatorEngine.CalculateByCategory(context, IndicatorCategory.Chip);
+
+            var response = new ChipAnalysisResponse
+            {
+                StockCode = resolvedStockCode,
+                CompanyName = chipMarketData.CompanyName,
+                ChipData = chipMarketData.Chips,
+                Indicators = indicators,
+                GeneratedAt = DateTime.UtcNow
+            };
+
+            // Cache for 4 hours
+            _memoryCache.Set(cacheKey, response, TimeSpan.FromHours(CACHE_HOURS));
+
+            return _responseFactory.CreateOKResponse(response);
         }
     }
 }
