@@ -7,6 +7,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Finance.Indicators;
+using JackyAIApp.Server.Services.Finance.Scoring;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using DotnetSdkUtilities.Services;
@@ -27,7 +28,8 @@ namespace JackyAIApp.Server.Controllers
         IExtendedMemoryCache memoryCache,
         IMarketDataProvider marketDataProvider,
         IIndicatorEngine indicatorEngine,
-        TWSEChipDataProvider chipDataProvider) : ControllerBase
+        TWSEChipDataProvider chipDataProvider,
+        IStockScoreService stockScoreService) : ControllerBase
     {
         private readonly ILogger<FinanceController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         private readonly IOptionsMonitor<Settings> _settings = settings;
@@ -41,6 +43,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IMarketDataProvider _marketDataProvider = marketDataProvider ?? throw new ArgumentNullException(nameof(marketDataProvider));
         private readonly IIndicatorEngine _indicatorEngine = indicatorEngine ?? throw new ArgumentNullException(nameof(indicatorEngine));
         private readonly TWSEChipDataProvider _chipDataProvider = chipDataProvider ?? throw new ArgumentNullException(nameof(chipDataProvider));
+        private readonly IStockScoreService _stockScoreService = stockScoreService ?? throw new ArgumentNullException(nameof(stockScoreService));
 
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
         private const int CACHE_HOURS = 12; // Cache duration in hours
@@ -305,6 +308,52 @@ namespace JackyAIApp.Server.Controllers
             _memoryCache.Set(cacheKey, response, TimeSpan.FromHours(CACHE_HOURS));
 
             return _responseFactory.CreateOKResponse(response);
+        }
+
+        /// <summary>
+        /// Gets a comprehensive stock score combining technical, chip, and fundamental indicators.
+        /// Returns a weighted composite score (0-100) with risk assessment and recommendation.
+        /// </summary>
+        /// <param name="stockCode">Stock code (e.g., "2330")</param>
+        /// <param name="cancellationToken">Cancellation token for timeout control.</param>
+        /// <returns>Comprehensive stock scoring with breakdown by category.</returns>
+        [HttpGet("score/{stockCode}")]
+        public async Task<IActionResult> GetStockScore(string stockCode, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(stockCode))
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
+            }
+
+            // Resolve stock code if needed
+            var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(stockCode, cancellationToken);
+            if (string.IsNullOrEmpty(resolvedStockCode))
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
+            }
+
+            // Check cache
+            var currentDate = DateTime.Now.ToString("yyyyMMdd");
+            var cacheKey = $"StockScore_{resolvedStockCode}_{currentDate}";
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+            {
+                return _responseFactory.CreateOKResponse(cachedResult);
+            }
+
+            try
+            {
+                var scoreResponse = await _stockScoreService.ScoreAsync(resolvedStockCode, cancellationToken);
+
+                // Cache for 4 hours
+                _memoryCache.Set(cacheKey, scoreResponse, TimeSpan.FromHours(CACHE_HOURS));
+
+                return _responseFactory.CreateOKResponse(scoreResponse);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error scoring stock {stockCode}", resolvedStockCode);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Failed to score stock '{resolvedStockCode}': {ex.Message}");
+            }
         }
     }
 }
