@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Finance.Indicators;
+using JackyAIApp.Server.Services.Finance.Scoring;
 using TWStockLib.Services;
 
 namespace JackyAIApp.Server.Services.Finance
@@ -48,6 +49,10 @@ namespace JackyAIApp.Server.Services.Finance
 
             // Chip data provider (TWSE OpenAPI) — registered as named/typed for explicit resolution
             services.AddScoped<TWSEChipDataProvider>();
+
+            // === Register scoring system ===
+            services.AddSingleton<CategoryWeightConfig>();
+            services.AddScoped<IStockScoreService, StockScoreService>();
 
             return services;
         }
