@@ -2,8 +2,11 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance;
+using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Finance.Indicators;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using DotnetSdkUtilities.Services;
@@ -21,7 +24,9 @@ namespace JackyAIApp.Server.Controllers
         ITWSEOpenAPIService twseApiService,
         ITWSEDataService twseDataService,
         IFinanceAnalysisService financeAnalysisService,
-        IExtendedMemoryCache memoryCache) : ControllerBase
+        IExtendedMemoryCache memoryCache,
+        IMarketDataProvider marketDataProvider,
+        IIndicatorEngine indicatorEngine) : ControllerBase
     {
         private readonly ILogger<FinanceController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         private readonly IOptionsMonitor<Settings> _settings = settings;
@@ -32,6 +37,8 @@ namespace JackyAIApp.Server.Controllers
         private readonly ITWSEDataService _twseDataService = twseDataService ?? throw new ArgumentNullException(nameof(twseDataService));
         private readonly IFinanceAnalysisService _financeAnalysisService = financeAnalysisService ?? throw new ArgumentNullException(nameof(financeAnalysisService));
         private readonly IExtendedMemoryCache _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+        private readonly IMarketDataProvider _marketDataProvider = marketDataProvider ?? throw new ArgumentNullException(nameof(marketDataProvider));
+        private readonly IIndicatorEngine _indicatorEngine = indicatorEngine ?? throw new ArgumentNullException(nameof(indicatorEngine));
 
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
         private const int CACHE_HOURS = 12; // Cache duration in hours
@@ -168,6 +175,85 @@ namespace JackyAIApp.Server.Controllers
                     detailedError += $" Inner exception: {ex.InnerException.Message}";
                 }
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, detailedError);
+            }
+        }
+
+        /// <summary>
+        /// Gets technical indicators for a specific stock using historical data.
+        /// Uses TWStockLib for data and calculates MA, RSI, MACD, KD, Volume, Bollinger Bands.
+        /// </summary>
+        /// <param name="stockCode">Stock code (e.g., "2330")</param>
+        /// <param name="cancellationToken">Cancellation token for timeout control.</param>
+        /// <returns>Technical analysis with all calculated indicators.</returns>
+        [HttpGet("technical-indicators/{stockCode}")]
+        public async Task<IActionResult> GetTechnicalIndicators(string stockCode, CancellationToken cancellationToken = default)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(OPERATION_TIMEOUT_SECONDS));
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(stockCode))
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
+                }
+
+                // Resolve stock code if needed
+                var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(stockCode, timeoutCts.Token);
+                if (string.IsNullOrEmpty(resolvedStockCode))
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
+                }
+
+                // Check cache
+                var currentDate = DateTime.Now.ToString("yyyyMMdd");
+                var cacheKey = $"TechnicalIndicators_{resolvedStockCode}_{currentDate}";
+                if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+                {
+                    return _responseFactory.CreateOKResponse(cachedResult);
+                }
+
+                // Fetch historical data via TWStockLib (cached by CachedMarketDataProvider)
+                var marketData = await _marketDataProvider.FetchAsync(resolvedStockCode, timeoutCts.Token);
+                if (marketData.HistoricalPrices.Count == 0)
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"No historical data available for stock '{resolvedStockCode}'.");
+                }
+
+                // Build indicator context
+                var context = new IndicatorContext
+                {
+                    StockCode = resolvedStockCode,
+                    Prices = marketData.HistoricalPrices
+                };
+
+                // Calculate all technical indicators
+                var indicators = _indicatorEngine.CalculateByCategory(context, IndicatorCategory.Technical);
+
+                var response = new TechnicalAnalysisResponse
+                {
+                    StockCode = resolvedStockCode,
+                    CompanyName = marketData.CompanyName,
+                    LatestClose = context.LatestClose,
+                    DataPointCount = marketData.HistoricalPrices.Count,
+                    DataRange = $"{marketData.HistoricalPrices.First().Date:yyyy-MM-dd} ~ {marketData.HistoricalPrices.Last().Date:yyyy-MM-dd}",
+                    Indicators = indicators,
+                    GeneratedAt = DateTime.UtcNow
+                };
+
+                // Cache for 4 hours
+                _memoryCache.Set(cacheKey, response, TimeSpan.FromHours(CACHE_HOURS));
+
+                return _responseFactory.CreateOKResponse(response);
+            }
+            catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Technical analysis timed out for stock '{stockCode}'.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting technical indicators for {stockCode}", stockCode);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Error: {ex.Message}");
             }
         }
     }

@@ -105,6 +105,9 @@ try
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
 
+    // Register finance indicator engine, TWStockLib, and data providers
+    builder.Services.AddFinanceAnalysisServices();
+
     // Configure Prompt and OpenAI services
     builder.Services.AddSingleton<JackyAIApp.Server.Services.Prompt.IPromptLoader, JackyAIApp.Server.Services.Prompt.PromptLoader>();
     builder.Services.AddScoped<JackyAIApp.Server.Services.OpenAI.IOpenAIPromptService, JackyAIApp.Server.Services.OpenAI.OpenAIPromptService>();
