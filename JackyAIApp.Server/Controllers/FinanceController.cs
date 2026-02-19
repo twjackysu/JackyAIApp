@@ -12,6 +12,7 @@ using JackyAIApp.Server.Services.Finance.Scoring;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using DotnetSdkUtilities.Services;
+using System.Text;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -151,6 +152,25 @@ namespace JackyAIApp.Server.Controllers
                 if (string.IsNullOrEmpty(stockData))
                 {
                     return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Failed to retrieve stock data from TWSE APIs for stock code '{resolvedStockCode}'. TWSE API endpoints may be unavailable or returned empty data.");
+                }
+
+                // Append quantitative analysis results to provide AI with structured indicators
+                try
+                {
+                    var quantResult = await _analysisBuilder
+                        .ForStock(resolvedStockCode)
+                        .WithTechnical(true)
+                        .WithChip(true)
+                        .WithFundamental(true)
+                        .WithScoring(true)
+                        .WithRisk(true)
+                        .BuildAsync(timeoutCts.Token);
+
+                    stockData += FormatQuantitativeContext(quantResult);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Quantitative analysis failed for {stockCode}, proceeding with raw data only", resolvedStockCode);
                 }
 
                 // Get user ID for Dify API
@@ -407,6 +427,66 @@ namespace JackyAIApp.Server.Controllers
                 _logger.LogError(ex, "Comprehensive analysis failed for {stockCode}", resolvedStockCode);
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Analysis failed for '{resolvedStockCode}': {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Formats quantitative analysis results into a text block for AI context.
+        /// </summary>
+        private static string FormatQuantitativeContext(StockAnalysisResult result)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine();
+            sb.AppendLine("=== QUANTITATIVE INDICATOR ANALYSIS (量化指標分析) ===");
+            sb.AppendLine($"Stock: {result.CompanyName} ({result.StockCode})");
+            sb.AppendLine($"Latest Close: {result.LatestClose?.ToString("F2") ?? "N/A"}");
+            sb.AppendLine($"Data Range: {result.DataRange}");
+            sb.AppendLine();
+
+            // Group indicators by category
+            var grouped = result.Indicators
+                .GroupBy(i => i.Category)
+                .OrderBy(g => g.Key);
+
+            foreach (var group in grouped)
+            {
+                sb.AppendLine($"--- {group.Key} Indicators ---");
+                foreach (var ind in group)
+                {
+                    sb.AppendLine($"  {ind.Name}: Value={ind.Value:F2}, Score={ind.Score}/100, Direction={ind.Direction}, Signal={ind.Signal}");
+                    if (!string.IsNullOrEmpty(ind.Reason))
+                        sb.AppendLine($"    Reason: {ind.Reason}");
+                }
+                sb.AppendLine();
+            }
+
+            // Scoring summary
+            if (result.Scoring != null)
+            {
+                sb.AppendLine("--- Overall Scoring ---");
+                sb.AppendLine($"  Overall Score: {result.Scoring.OverallScore}/100");
+                sb.AppendLine($"  Overall Direction: {result.Scoring.OverallDirection}");
+                sb.AppendLine($"  Recommendation: {result.Scoring.Recommendation}");
+                foreach (var cs in result.Scoring.CategoryScores)
+                {
+                    sb.AppendLine($"  {cs.Category}: Score={cs.Score}, Weight={cs.Weight:P0}, Weighted={cs.WeightedScore:F1}");
+                }
+                sb.AppendLine();
+            }
+
+            // Risk assessment
+            if (result.Risk != null)
+            {
+                sb.AppendLine("--- Risk Assessment ---");
+                sb.AppendLine($"  Risk Level: {result.Risk.Level}");
+                sb.AppendLine($"  Divergence Score: {result.Risk.DivergenceScore:F2}");
+                foreach (var factor in result.Risk.Factors)
+                {
+                    sb.AppendLine($"  ⚠ {factor}");
+                }
+                sb.AppendLine();
+            }
+
+            return sb.ToString();
         }
     }
 }
