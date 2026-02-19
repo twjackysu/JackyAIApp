@@ -20,6 +20,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         private const string BWIBBU_URL = "https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_d";
         private const string REVENUE_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap05_L";
         private const string EPS_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap14_L";
+        private const string STOCK_DAY_ALL_URL = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
         private const int CACHE_HOURS = 4;
 
         public TWSEFundamentalDataProvider(
@@ -41,8 +42,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             var peTask = FetchValuationData(stockCode, cancellationToken);
             var revenueTask = FetchRevenueData(stockCode, cancellationToken);
             var epsTask = FetchEPSData(stockCode, cancellationToken);
+            var priceTask = FetchLatestPrice(stockCode, cancellationToken);
 
-            await Task.WhenAll(peTask, revenueTask, epsTask);
+            await Task.WhenAll(peTask, revenueTask, epsTask, priceTask);
 
             // Merge P/E, P/B, Dividend Yield
             var valuation = await peTask;
@@ -66,7 +68,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 hasData = true;
             }
 
-            // Merge EPS
+            // Merge EPS — prefer direct report, fallback to Price/PE derived
             var eps = await epsTask;
             if (eps != null)
             {
@@ -74,6 +76,19 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 result.OperatingIncome = eps.OperatingIncome;
                 result.NetIncome = eps.NetIncome;
                 hasData = true;
+            }
+            else if (result.PERatio > 0)
+            {
+                // Derive trailing EPS from closing price and P/E ratio
+                var latestPrice = await priceTask;
+                if (latestPrice > 0)
+                {
+                    result.TrailingEPS = Math.Round(latestPrice / result.PERatio.Value, 2);
+                    result.EPS = result.TrailingEPS;
+                    hasData = true;
+                    _logger.LogInformation("Derived EPS for {stockCode}: {eps} (price={price}, PE={pe})",
+                        stockCode, result.TrailingEPS, latestPrice, result.PERatio);
+                }
             }
 
             return hasData ? result : null;
@@ -153,6 +168,25 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             {
                 _logger.LogWarning(ex, "Failed to fetch EPS data for {stockCode}", stockCode);
                 return null;
+            }
+        }
+
+        private async Task<decimal> FetchLatestPrice(string stockCode, CancellationToken ct)
+        {
+            try
+            {
+                var data = await FetchJsonArrayCached<JsonElement>(STOCK_DAY_ALL_URL, "STOCK_DAY_ALL", ct);
+                if (data == null) return 0;
+                var stock = data.FirstOrDefault(r =>
+                    r.TryGetProperty("Code", out var code) && code.GetString() == stockCode);
+
+                if (stock.ValueKind == JsonValueKind.Undefined) return 0;
+                return ParseDecimal(stock, "ClosingPrice") ?? 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch latest price for {stockCode}", stockCode);
+                return 0;
             }
         }
 
