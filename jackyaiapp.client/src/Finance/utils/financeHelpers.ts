@@ -203,3 +203,26 @@ export const getScoreColor = (score: number): string => {
   if (score >= 30) return orange[700];
   return red[500];
 };
+
+export const getIndicatorDisplayName = (name: string): string => {
+  const map: Record<string, string> = {
+    // Technical
+    MA: '均線 (MA)',
+    RSI: '相對強弱指標 (RSI)',
+    MACD: 'MACD',
+    KD: 'KD 隨機指標',
+    BollingerBands: '布林通道',
+    VolumeRatio: '量能比',
+    // Chip
+    MarginIndicator: '融資融券',
+    ForeignHolding: '外資持股',
+    DirectorPledge: '董監設質',
+    // Fundamental
+    PERatio: '本益比 (P/E)',
+    PBRatio: '股價淨值比 (P/B)',
+    DividendYield: '殖利率',
+    RevenueGrowth: '月營收成長',
+    EPS: '每股盈餘 (EPS)',
+  };
+  return map[name] ?? name;
+};

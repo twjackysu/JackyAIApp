@@ -12,6 +12,7 @@ namespace JackyAIApp.Server.Services.Finance.Scoring
     {
         private readonly IMarketDataProvider _marketDataProvider;
         private readonly IChipDataProvider _chipDataProvider;
+        private readonly IFundamentalDataProvider _fundamentalDataProvider;
         private readonly IIndicatorEngine _indicatorEngine;
         private readonly CategoryWeightConfig _weightConfig;
         private readonly ILogger<StockScoreService> _logger;
@@ -19,12 +20,14 @@ namespace JackyAIApp.Server.Services.Finance.Scoring
         public StockScoreService(
             IMarketDataProvider marketDataProvider,
             IChipDataProvider chipDataProvider,
+            IFundamentalDataProvider fundamentalDataProvider,
             IIndicatorEngine indicatorEngine,
             CategoryWeightConfig weightConfig,
             ILogger<StockScoreService> logger)
         {
             _marketDataProvider = marketDataProvider ?? throw new ArgumentNullException(nameof(marketDataProvider));
             _chipDataProvider = chipDataProvider ?? throw new ArgumentNullException(nameof(chipDataProvider));
+            _fundamentalDataProvider = fundamentalDataProvider ?? throw new ArgumentNullException(nameof(fundamentalDataProvider));
             _indicatorEngine = indicatorEngine ?? throw new ArgumentNullException(nameof(indicatorEngine));
             _weightConfig = weightConfig ?? throw new ArgumentNullException(nameof(weightConfig));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -37,18 +40,20 @@ namespace JackyAIApp.Server.Services.Finance.Scoring
             // 1. Fetch all data in parallel
             var priceTask = _marketDataProvider.FetchAsync(stockCode, cancellationToken);
             var chipTask = FetchChipDataSafe(stockCode, cancellationToken);
+            var fundamentalTask = FetchFundamentalDataSafe(stockCode, cancellationToken);
 
-            await Task.WhenAll(priceTask, chipTask as Task);
+            await Task.WhenAll(priceTask, chipTask as Task, fundamentalTask as Task);
 
             var priceData = await priceTask;
             var chipData = await chipTask;
+            var fundamentalData = await fundamentalTask;
 
             // 2. Build unified context
             var context = new IndicatorContext
             {
                 StockCode = stockCode,
                 Prices = priceData.HistoricalPrices,
-                Fundamentals = priceData.Fundamentals,
+                Fundamentals = fundamentalData ?? priceData.Fundamentals,
                 Chips = chipData?.Chips
             };
 
@@ -115,6 +120,19 @@ namespace JackyAIApp.Server.Services.Finance.Scoring
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to fetch chip data for {stockCode}, proceeding without it", stockCode);
+                return null;
+            }
+        }
+
+        private async Task<FundamentalData?> FetchFundamentalDataSafe(string stockCode, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await _fundamentalDataProvider.FetchAsync(stockCode, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch fundamental data for {stockCode}, proceeding without it", stockCode);
                 return null;
             }
         }

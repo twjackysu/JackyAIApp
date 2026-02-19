@@ -26,7 +26,7 @@ import type { StockAnalysisResultData, CategoryScore, IndicatorResult, Indicator
 import {
   getDirectionColor, getDirectionLabel, getDirectionChipColor, getDirectionEmoji,
   getRiskLabel, getRiskChipColor, getRiskColor,
-  getCategoryLabel, getCategoryEmoji, getScoreColor,
+  getCategoryLabel, getCategoryEmoji, getScoreColor, getIndicatorDisplayName,
 } from '../utils/financeHelpers';
 import ScoreGauge from './ScoreGauge';
 
@@ -145,7 +145,7 @@ const IndicatorTable = ({ indicators, category }: { indicators: IndicatorResult[
             <TableBody>
               {filtered.map(ind => (
                 <TableRow key={ind.name} hover>
-                  <TableCell><Typography variant="body2" fontWeight="bold">{ind.name}</Typography></TableCell>
+                  <TableCell><Typography variant="body2" fontWeight="bold">{getIndicatorDisplayName(ind.name)}</Typography></TableCell>
                   <TableCell align="center">{ind.value.toFixed(2)}</TableCell>
                   <TableCell align="center"><Chip label={getDirectionLabel(ind.direction)} color={getDirectionChipColor(ind.direction)} size="small" variant="outlined" /></TableCell>
                   <TableCell align="center"><Typography variant="body2" fontWeight="bold" sx={{ color: getScoreColor(ind.score) }}>{ind.score}</Typography></TableCell>
