@@ -33,27 +33,34 @@ import ScoreGauge from './ScoreGauge';
 interface Props { data: StockAnalysisResultData; }
 
 const OverallScoreSection = ({ data }: Props) => {
-  if (!data.scoring) return null;
   const { scoring } = data;
   return (
     <Card sx={{ mb: 3, border: '2px solid', borderColor: 'primary.main' }}>
       <CardContent>
         <Grid container spacing={3} alignItems="center">
-          <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: 'center' }}>
-            <ScoreGauge score={scoring.overallScore} label="綜合評分" />
-          </Grid>
-          <Grid item xs={12} md={9}>
+          {/* Score gauge — only when scoring is enabled */}
+          {scoring && (
+            <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: 'center' }}>
+              <ScoreGauge score={scoring.overallScore} label="綜合評分" />
+            </Grid>
+          )}
+          <Grid item xs={12} md={scoring ? 9 : 12}>
             <Stack spacing={2}>
-              <Stack direction="row" spacing={2} alignItems="center">
+              <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
                 <Typography variant="h5" fontWeight="bold">{data.companyName} ({data.stockCode})</Typography>
-                <Chip label={`${getDirectionEmoji(scoring.overallDirection)} ${getDirectionLabel(scoring.overallDirection)}`} color={getDirectionChipColor(scoring.overallDirection)} variant="filled" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }} />
+                {scoring && (
+                  <Chip label={`${getDirectionEmoji(scoring.overallDirection)} ${getDirectionLabel(scoring.overallDirection)}`} color={getDirectionChipColor(scoring.overallDirection)} variant="filled" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }} />
+                )}
               </Stack>
               {data.latestClose && <Typography variant="h6" color="text.secondary">最新收盤價: NT${data.latestClose.toFixed(2)}</Typography>}
-              <Paper sx={{ p: 2, bgcolor: getDirectionColor(scoring.overallDirection, 0.08) }}>
-                <Typography variant="body1">{scoring.recommendation}</Typography>
-              </Paper>
+              {scoring && (
+                <Paper sx={{ p: 2, bgcolor: getDirectionColor(scoring.overallDirection, 0.08) }}>
+                  <Typography variant="body1">{scoring.recommendation}</Typography>
+                </Paper>
+              )}
               <Typography variant="caption" color="text.secondary">
                 資料範圍: {data.dataRange} | 分析時間: {new Date(data.generatedAt).toLocaleString('zh-TW')}
+                {' | '}指標數量: {data.indicators.length}
               </Typography>
             </Stack>
           </Grid>
