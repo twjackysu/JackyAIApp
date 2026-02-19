@@ -1,4 +1,6 @@
-import { green, red, blue, orange } from '@mui/material/colors';
+import { green, red, blue, orange, grey } from '@mui/material/colors';
+
+import type { SignalDirection, RiskLevel, IndicatorCategory } from '@/apis/financeApis/types';
 
 /**
  * Get the current date in YYYY-MM-DD format
@@ -134,4 +136,70 @@ export const getImplicationLabel = (implication: string): string => {
     default:
       return '中性';
   }
+};
+
+// === Comprehensive Analysis Helpers ===
+
+export const getDirectionLabel = (d: SignalDirection): string => {
+  const map: Record<SignalDirection, string> = {
+    StrongBullish: '強勢看多', Bullish: '偏多', Neutral: '中性', Bearish: '偏空', StrongBearish: '強勢看空',
+  };
+  return map[d] ?? '未知';
+};
+
+export const getDirectionChipColor = (d: SignalDirection): 'success' | 'error' | 'default' => {
+  if (d === 'StrongBullish' || d === 'Bullish') return 'success';
+  if (d === 'Bearish' || d === 'StrongBearish') return 'error';
+  return 'default';
+};
+
+export const getDirectionColor = (d: SignalDirection, alpha = 1): string => {
+  const colors: Record<SignalDirection, [string, string]> = {
+    StrongBullish: [green[700], `rgba(46,125,50,${alpha})`],
+    Bullish: [green[500], `rgba(76,175,80,${alpha})`],
+    Neutral: [grey[500], `rgba(158,158,158,${alpha})`],
+    Bearish: [red[500], `rgba(244,67,54,${alpha})`],
+    StrongBearish: [red[700], `rgba(211,47,47,${alpha})`],
+  };
+  return alpha === 1 ? (colors[d]?.[0] ?? blue[500]) : (colors[d]?.[1] ?? `rgba(33,150,243,${alpha})`);
+};
+
+export const getDirectionEmoji = (d: SignalDirection): string => {
+  const map: Record<SignalDirection, string> = {
+    StrongBullish: '🚀', Bullish: '📈', Neutral: '➡️', Bearish: '📉', StrongBearish: '⚠️',
+  };
+  return map[d] ?? '❓';
+};
+
+export const getRiskLabel = (l: RiskLevel): string => {
+  const map: Record<RiskLevel, string> = { Low: '低風險', Medium: '中等風險', High: '高風險', VeryHigh: '極高風險' };
+  return map[l] ?? '未知';
+};
+
+export const getRiskChipColor = (l: RiskLevel): 'success' | 'warning' | 'error' | 'default' => {
+  if (l === 'Low') return 'success';
+  if (l === 'Medium') return 'warning';
+  return 'error';
+};
+
+export const getRiskColor = (l: RiskLevel): string => {
+  const map: Record<RiskLevel, string> = { Low: green[500], Medium: orange[500], High: red[500], VeryHigh: red[900] };
+  return map[l] ?? grey[500];
+};
+
+export const getCategoryLabel = (c: IndicatorCategory): string => {
+  const map: Record<IndicatorCategory, string> = { Technical: '技術面', Chip: '籌碼面', Fundamental: '基本面' };
+  return map[c] ?? c;
+};
+
+export const getCategoryEmoji = (c: IndicatorCategory): string => {
+  const map: Record<IndicatorCategory, string> = { Technical: '📊', Chip: '🏦', Fundamental: '📋' };
+  return map[c] ?? '📌';
+};
+
+export const getScoreColor = (score: number): string => {
+  if (score >= 70) return green[500];
+  if (score >= 50) return orange[500];
+  if (score >= 30) return orange[700];
+  return red[500];
 };

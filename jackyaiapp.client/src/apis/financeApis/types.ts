@@ -32,3 +32,84 @@ export interface StockTrendAnalysis {
 export interface StockSearchRequest {
   stockCodeOrName: string; // Stock code or company name to search
 }
+
+// === Indicator & Scoring Types ===
+
+export type IndicatorCategory = 'Technical' | 'Chip' | 'Fundamental';
+export type SignalDirection = 'StrongBullish' | 'Bullish' | 'Neutral' | 'Bearish' | 'StrongBearish';
+export type RiskLevel = 'Low' | 'Medium' | 'High' | 'VeryHigh';
+
+export interface IndicatorResult {
+  name: string;
+  category: IndicatorCategory;
+  value: number;
+  subValues: Record<string, number>;
+  signal: string;
+  direction: SignalDirection;
+  score: number;
+  reason: string;
+}
+
+export interface CategoryScore {
+  category: IndicatorCategory;
+  score: number;
+  weight: number;
+  weightedScore: number;
+  direction: SignalDirection;
+  summary: string;
+  indicatorCount: number;
+}
+
+export interface RiskAssessment {
+  level: RiskLevel;
+  factors: string[];
+  divergenceScore: number;
+}
+
+export interface StockScoreResponse {
+  stockCode: string;
+  companyName: string;
+  latestClose: number | null;
+  overallScore: number;
+  overallDirection: SignalDirection;
+  recommendation: string;
+  categoryScores: CategoryScore[];
+  indicators: IndicatorResult[];
+  risk: RiskAssessment;
+  dataRange: string;
+  generatedAt: string;
+}
+
+export interface StockAnalysisResultData {
+  stockCode: string;
+  companyName: string;
+  latestClose: number | null;
+  indicators: IndicatorResult[];
+  scoring: StockScoreResponse | null;
+  risk: RiskAssessment | null;
+  dataRange: string;
+  configuration: {
+    includeTechnical: boolean;
+    includeChip: boolean;
+    includeFundamental: boolean;
+    includeScoring: boolean;
+    includeRisk: boolean;
+    onlyIndicators: string[];
+    excludeIndicators: string[];
+  };
+  generatedAt: string;
+}
+
+export interface StockAnalysisRequest {
+  stockCode: string;
+  includeTechnical?: boolean;
+  includeChip?: boolean;
+  includeFundamental?: boolean;
+  includeScoring?: boolean;
+  includeRisk?: boolean;
+  onlyIndicators?: string[];
+  excludeIndicators?: string[];
+  technicalWeight?: number;
+  chipWeight?: number;
+  fundamentalWeight?: number;
+}
