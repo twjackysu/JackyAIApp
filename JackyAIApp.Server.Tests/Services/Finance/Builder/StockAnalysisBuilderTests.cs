@@ -12,6 +12,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Builder
     {
         private readonly Mock<IMarketDataProvider> _mockMarketDataProvider = new();
         private readonly Mock<IChipDataProvider> _mockChipDataProvider = new();
+        private readonly Mock<IFundamentalDataProvider> _mockFundamentalDataProvider = new();
         private readonly Mock<IIndicatorEngine> _mockIndicatorEngine = new();
         private readonly CategoryWeightConfig _weightConfig = new();
         private readonly Mock<ILogger<StockAnalysisBuilder>> _mockLogger = new();
@@ -19,6 +20,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Builder
         private StockAnalysisBuilder CreateBuilder() => new(
             _mockMarketDataProvider.Object,
             _mockChipDataProvider.Object,
+            _mockFundamentalDataProvider.Object,
             _mockIndicatorEngine.Object,
             _weightConfig,
             _mockLogger.Object);
@@ -46,6 +48,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Builder
                 .ReturnsAsync(CreateMockMarketData());
             _mockChipDataProvider.Setup(p => p.FetchAsync("2330", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new MarketData { Chips = new ChipData() });
+            _mockFundamentalDataProvider.Setup(p => p.FetchAsync("2330", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new FundamentalData { PERatio = 20, PBRatio = 3.5m, DividendYield = 2.5m });
             _mockIndicatorEngine.Setup(e => e.CalculateAll(It.IsAny<IndicatorContext>()))
                 .Returns(CreateMockIndicators());
         }

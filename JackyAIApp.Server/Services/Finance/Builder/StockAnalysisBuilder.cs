@@ -13,6 +13,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
     {
         private readonly IMarketDataProvider _marketDataProvider;
         private readonly IChipDataProvider _chipDataProvider;
+        private readonly IFundamentalDataProvider _fundamentalDataProvider;
         private readonly IIndicatorEngine _indicatorEngine;
         private readonly CategoryWeightConfig _weightConfig;
         private readonly ILogger<StockAnalysisBuilder> _logger;
@@ -30,12 +31,14 @@ namespace JackyAIApp.Server.Services.Finance.Builder
         public StockAnalysisBuilder(
             IMarketDataProvider marketDataProvider,
             IChipDataProvider chipDataProvider,
+            IFundamentalDataProvider fundamentalDataProvider,
             IIndicatorEngine indicatorEngine,
             CategoryWeightConfig weightConfig,
             ILogger<StockAnalysisBuilder> logger)
         {
             _marketDataProvider = marketDataProvider;
             _chipDataProvider = chipDataProvider;
+            _fundamentalDataProvider = fundamentalDataProvider;
             _indicatorEngine = indicatorEngine;
             _weightConfig = weightConfig;
             _logger = logger;
@@ -78,6 +81,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             // 1. Fetch data in parallel
             MarketData? priceData = null;
             MarketData? chipData = null;
+            FundamentalData? fundamentalData = null;
 
             var tasks = new List<Task>();
             if (_includeTechnical || _includeFundamental)
@@ -90,6 +94,11 @@ namespace JackyAIApp.Server.Services.Finance.Builder
                 tasks.Add(FetchChipSafe(_stockCode, cancellationToken)
                     .ContinueWith(t => chipData = t.Result, TaskScheduler.Default));
             }
+            if (_includeFundamental)
+            {
+                tasks.Add(FetchFundamentalSafe(_stockCode, cancellationToken)
+                    .ContinueWith(t => fundamentalData = t.Result, TaskScheduler.Default));
+            }
             await Task.WhenAll(tasks);
 
             // 2. Build context
@@ -97,7 +106,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             {
                 StockCode = _stockCode,
                 Prices = priceData?.HistoricalPrices ?? new List<DailyPrice>(),
-                Fundamentals = priceData?.Fundamentals,
+                Fundamentals = fundamentalData ?? priceData?.Fundamentals,
                 Chips = chipData?.Chips
             };
 
@@ -186,6 +195,16 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Chip data fetch failed for {stockCode}", stockCode);
+                return null;
+            }
+        }
+
+        private async Task<FundamentalData?> FetchFundamentalSafe(string stockCode, CancellationToken ct)
+        {
+            try { return await _fundamentalDataProvider.FetchAsync(stockCode, ct); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Fundamental data fetch failed for {stockCode}", stockCode);
                 return null;
             }
         }

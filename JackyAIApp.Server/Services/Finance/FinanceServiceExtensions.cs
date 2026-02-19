@@ -34,6 +34,13 @@ namespace JackyAIApp.Server.Services.Finance
             services.AddSingleton<IIndicatorCalculator, ForeignHoldingCalculator>();
             services.AddSingleton<IIndicatorCalculator, DirectorPledgeCalculator>();
 
+            // Fundamental indicators
+            services.AddSingleton<IIndicatorCalculator, PERatioCalculator>();
+            services.AddSingleton<IIndicatorCalculator, PBRatioCalculator>();
+            services.AddSingleton<IIndicatorCalculator, DividendYieldCalculator>();
+            services.AddSingleton<IIndicatorCalculator, RevenueGrowthCalculator>();
+            services.AddSingleton<IIndicatorCalculator, EPSCalculator>();
+
             // Register indicator engine
             services.AddSingleton<IIndicatorEngine, IndicatorEngine>();
 
@@ -51,6 +58,9 @@ namespace JackyAIApp.Server.Services.Finance
             // Chip data provider (TWSE OpenAPI)
             services.AddScoped<TWSEChipDataProvider>();
             services.AddScoped<IChipDataProvider>(sp => sp.GetRequiredService<TWSEChipDataProvider>());
+
+            // Fundamental data provider (TWSE OpenAPI)
+            services.AddScoped<IFundamentalDataProvider, TWSEFundamentalDataProvider>();
 
             // === Register scoring system ===
             services.AddSingleton<CategoryWeightConfig>();

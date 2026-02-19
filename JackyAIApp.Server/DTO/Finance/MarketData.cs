@@ -61,6 +61,24 @@ namespace JackyAIApp.Server.DTO.Finance
 
         /// <summary>月營收月增率 (%)</summary>
         public decimal? RevenueMoM { get; set; }
+
+        /// <summary>基本每股盈餘 (元)</summary>
+        public decimal? EPS { get; set; }
+
+        /// <summary>近四季累計 EPS (元)</summary>
+        public decimal? TrailingEPS { get; set; }
+
+        /// <summary>營業利益 (千元)</summary>
+        public decimal? OperatingIncome { get; set; }
+
+        /// <summary>稅後淨利 (千元)</summary>
+        public decimal? NetIncome { get; set; }
+
+        /// <summary>財報年度季別 (e.g., "2024Q3")</summary>
+        public string? FiscalYearQuarter { get; set; }
+
+        /// <summary>營收資料年月 (e.g., "11501")</summary>
+        public string? RevenueMonth { get; set; }
     }
 
     /// <summary>
