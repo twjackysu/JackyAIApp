@@ -32,12 +32,17 @@ import {
 import type { AnalysisConfig } from './components';
 import { getCurrentDate } from './utils/financeHelpers';
 
+// Tab indices
+const TAB_QUANTITATIVE = 0;
+const TAB_AI_TREND = 1;
+const TAB_MARKET_SUMMARY = 2;
+
 function Finance() {
   const [searchTerm, setSearchTerm] = useState('');
   const [stockSearchTerm, setStockSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<StockTrendAnalysis | null>(null);
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
-  const [analysisTab, setAnalysisTab] = useState<number>(0);
+  const [analysisTab, setAnalysisTab] = useState<number>(TAB_QUANTITATIVE);
   const [analysisConfig, setAnalysisConfig] = useState<AnalysisConfig>({
     includeTechnical: true,
     includeChip: true,
@@ -52,14 +57,15 @@ function Finance() {
 
   const {
     data: apiResponse,
-    isLoading,
-    isError,
-    error,
+    isLoading: isMarketLoading,
+    isError: isMarketError,
+    error: marketError,
     refetch,
-    isFetching,
+    isFetching: isMarketFetching,
   } = useGetDailyImportantInfoQuery(undefined, {
     refetchOnMountOrArgChange: true,
-    skip: false,
+    // Only fetch when market summary tab is active
+    skip: analysisTab !== TAB_MARKET_SUMMARY,
   });
 
   const [analyzeStock, { isLoading: isAnalyzing, error: analysisError, reset: resetAnalysis }] =
@@ -83,17 +89,7 @@ function Finance() {
   const handleStockSearch = async () => {
     if (!stockSearchTerm.trim()) return;
 
-    if (analysisTab === 0) {
-      try {
-        resetAnalysis();
-        setAnalysisResults(null);
-        const result = await analyzeStock({ stockCodeOrName: stockSearchTerm.trim() }).unwrap();
-        setSearchResults(result.data);
-      } catch (err) {
-        console.error('Stock analysis failed:', err);
-        setSearchResults(null);
-      }
-    } else {
+    if (analysisTab === TAB_QUANTITATIVE) {
       try {
         resetComprehensive();
         setSearchResults(null);
@@ -113,6 +109,16 @@ function Finance() {
         console.error('Comprehensive analysis failed:', err);
         setAnalysisResults(null);
       }
+    } else if (analysisTab === TAB_AI_TREND) {
+      try {
+        resetAnalysis();
+        setAnalysisResults(null);
+        const result = await analyzeStock({ stockCodeOrName: stockSearchTerm.trim() }).unwrap();
+        setSearchResults(result.data);
+      } catch (err) {
+        console.error('Stock analysis failed:', err);
+        setSearchResults(null);
+      }
     }
   };
 
@@ -124,86 +130,99 @@ function Finance() {
     resetComprehensive();
   };
 
-  const hasAnyResults = !!searchResults || !!analysisResults;
+  const handleTabChange = (_: unknown, newTab: number) => {
+    setAnalysisTab(newTab);
+    // Clear results when switching tabs
+    clearSearchResults();
+  };
+
+  const hasStockResults = !!searchResults || !!analysisResults;
   const isAnyAnalyzing = isAnalyzing || isComprehensiveLoading;
+  const isSearchTab = analysisTab === TAB_QUANTITATIVE || analysisTab === TAB_AI_TREND;
 
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" component="h1" fontWeight="bold">
-          {hasAnyResults ? '股票分析 (Stock Analysis)' : '今日市場摘要 (Market Summary)'}
+          📈 Finance Dashboard
         </Typography>
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <Typography variant="subtitle1" color="text.secondary">{currentDate}</Typography>
-          {!hasAnyResults && (
-            <IconButton onClick={() => refetch()} disabled={isFetching} size="small" sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}>
-              <RefreshIcon />
-            </IconButton>
-          )}
-        </Stack>
+        <Typography variant="subtitle1" color="text.secondary">{currentDate}</Typography>
       </Stack>
 
-      {/* Search Section with Tabs */}
-      <Paper sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
-        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-          股票分析搜尋 (Stock Analysis)
+      {/* Macro Economy Overview — placeholder */}
+      <Paper sx={{ p: 3, mb: 3, border: '1px dashed', borderColor: 'divider', bgcolor: 'action.hover' }}>
+        <Typography variant="h6" fontWeight="bold" color="text.secondary" gutterBottom>
+          🏛️ 總體經濟概覽 (Macro Economy Overview)
         </Typography>
-        <Tabs value={analysisTab} onChange={(_, v) => setAnalysisTab(v)} sx={{ mb: 2 }}>
-          <Tab label="🤖 AI 趨勢分析" />
+        <Typography variant="body2" color="text.secondary">
+          即將推出：大盤指數、成交量、外資動向、融資融券總量等總體經濟指標
+        </Typography>
+      </Paper>
+
+      {/* Tabs */}
+      <Paper sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
+        <Tabs value={analysisTab} onChange={handleTabChange} sx={{ mb: 2 }}>
           <Tab label="📊 綜合量化分析" />
+          <Tab label="🤖 AI 趨勢分析" />
+          <Tab label="📰 今日市場AI摘要" />
         </Tabs>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <TextField
-            fullWidth variant="outlined"
-            placeholder="輸入股票代碼或公司名稱 (例如: 2330, 台積電)"
-            value={stockSearchTerm}
-            onChange={(e) => setStockSearchTerm(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleStockSearch()}
-            disabled={isAnyAnalyzing}
-            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
-            sx={{ flexGrow: 1 }}
-          />
-          <Button variant="contained" onClick={handleStockSearch} disabled={isAnyAnalyzing || !stockSearchTerm.trim()} sx={{ minWidth: 120, height: 56 }}>
-            {isAnyAnalyzing ? <CircularProgress size={20} color="inherit" /> : '分析'}
-          </Button>
-          {hasAnyResults && (
-            <Button variant="outlined" onClick={clearSearchResults} disabled={isAnyAnalyzing} sx={{ height: 56 }}>清除</Button>
-          )}
-        </Stack>
-        {isAnyAnalyzing && (
-          <Box sx={{ mt: 2 }}>
-            <LinearProgress />
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              {analysisTab === 0 ? '正在分析股票資料並產生趨勢預測...這可能需要 1-2 分鐘' : '正在計算技術指標與籌碼分析...'}
-            </Typography>
-          </Box>
+
+        {/* Search bar for stock analysis tabs */}
+        {isSearchTab && (
+          <>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <TextField
+                fullWidth variant="outlined"
+                placeholder="輸入股票代碼或公司名稱 (例如: 2330, 台積電)"
+                value={stockSearchTerm}
+                onChange={(e) => setStockSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleStockSearch()}
+                disabled={isAnyAnalyzing}
+                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
+                sx={{ flexGrow: 1 }}
+              />
+              <Button variant="contained" onClick={handleStockSearch} disabled={isAnyAnalyzing || !stockSearchTerm.trim()} sx={{ minWidth: 120, height: 56 }}>
+                {isAnyAnalyzing ? <CircularProgress size={20} color="inherit" /> : '分析'}
+              </Button>
+              {hasStockResults && (
+                <Button variant="outlined" onClick={clearSearchResults} disabled={isAnyAnalyzing} sx={{ height: 56 }}>清除</Button>
+              )}
+            </Stack>
+            {isAnyAnalyzing && (
+              <Box sx={{ mt: 2 }}>
+                <LinearProgress />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  {analysisTab === TAB_AI_TREND
+                    ? '正在分析股票資料並產生趨勢預測...這可能需要 1-2 分鐘'
+                    : '正在計算技術指標與籌碼分析...'}
+                </Typography>
+              </Box>
+            )}
+            {analysisTab === TAB_QUANTITATIVE && (
+              <Box sx={{ mt: 2 }}><AnalysisConfigPanel config={analysisConfig} onChange={setAnalysisConfig} /></Box>
+            )}
+          </>
         )}
-        {analysisTab === 1 && (
-          <Box sx={{ mt: 2 }}><AnalysisConfigPanel config={analysisConfig} onChange={setAnalysisConfig} /></Box>
+
+        {/* Market summary search filter */}
+        {analysisTab === TAB_MARKET_SUMMARY && !isMarketLoading && !isMarketError && stockInsights.length > 0 && (
+          <Stack direction="row" spacing={2} alignItems="center">
+            <TextField
+              fullWidth variant="outlined"
+              placeholder="搜尋市場摘要..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
+            />
+            <IconButton onClick={() => refetch()} disabled={isMarketFetching} sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}>
+              <RefreshIcon />
+            </IconButton>
+          </Stack>
         )}
       </Paper>
 
-      {/* Market Summary Filter */}
-      {!hasAnyResults && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <TextField fullWidth variant="outlined" placeholder="搜尋今日市場摘要..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }} sx={{ mb: 1 }} />
-        </Paper>
-      )}
-
-      {/* Loading / Error States */}
-      {!hasAnyResults && (isLoading || isFetching) && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
-          <CircularProgress /><Typography variant="h6" sx={{ ml: 2 }}>{isFetching && !isLoading ? '正在重新載入市場數據...' : '正在獲取最新市場數據...'}</Typography>
-        </Box>
-      )}
-      {!hasAnyResults && isError && !isFetching && (
-        <Alert severity="error" sx={{ mb: 3 }} action={<IconButton color="inherit" size="small" onClick={() => refetch()} disabled={isFetching}><RefreshIcon /></IconButton>}>
-          <Typography variant="body1">無法載入市場數據，請點擊重新整理按鈕再試一次</Typography>
-          {error && 'status' in error && <Typography variant="caption" color="text.secondary">錯誤詳情: {error.status}</Typography>}
-        </Alert>
-      )}
+      {/* Error states */}
       {analysisError && !isAnalyzing && (
         <Alert severity="error" sx={{ mb: 3 }}>股票分析失敗，請檢查股票代碼是否正確</Alert>
       )}
@@ -211,17 +230,39 @@ function Finance() {
         <Alert severity="error" sx={{ mb: 3 }}>綜合分析失敗，請檢查股票代碼是否正確</Alert>
       )}
 
-      {/* Results */}
+      {/* Stock analysis results */}
       {searchResults && <StockAnalysisResult data={searchResults} />}
       {analysisResults && <ComprehensiveAnalysisResult data={analysisResults} />}
 
-      {/* Market Summary Cards */}
-      {!hasAnyResults && (
+      {/* Market Summary Tab Content */}
+      {analysisTab === TAB_MARKET_SUMMARY && (
         <>
-          {!isLoading && !isError && filteredData.length === 0 && <Alert severity="info" sx={{ mb: 3 }}>沒有找到符合搜尋條件的公司。</Alert>}
+          {(isMarketLoading || isMarketFetching) && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 5 }}>
+              <CircularProgress />
+              <Typography variant="h6" sx={{ ml: 2 }}>
+                {isMarketFetching && !isMarketLoading ? '正在重新載入市場數據...' : '正在獲取最新市場數據...'}
+              </Typography>
+            </Box>
+          )}
+          {isMarketError && !isMarketFetching && (
+            <Alert severity="error" sx={{ mb: 3 }} action={
+              <IconButton color="inherit" size="small" onClick={() => refetch()} disabled={isMarketFetching}><RefreshIcon /></IconButton>
+            }>
+              <Typography variant="body1">無法載入市場數據，請點擊重新整理按鈕再試一次</Typography>
+              {marketError && 'status' in marketError && (
+                <Typography variant="caption" color="text.secondary">錯誤詳情: {marketError.status}</Typography>
+              )}
+            </Alert>
+          )}
+          {!isMarketLoading && !isMarketError && filteredData.length === 0 && (
+            <Alert severity="info" sx={{ mb: 3 }}>沒有找到符合搜尋條件的公司。</Alert>
+          )}
           <Grid container spacing={3}>
             {filteredData.map((stock) => (
-              <Grid item xs={12} sm={6} md={4} key={stock.stockCode}><MarketSummaryCard stock={stock} /></Grid>
+              <Grid item xs={12} sm={6} md={4} key={stock.stockCode}>
+                <MarketSummaryCard stock={stock} />
+              </Grid>
             ))}
           </Grid>
         </>
