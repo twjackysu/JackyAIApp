@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Scoring;
@@ -47,12 +48,16 @@ namespace JackyAIApp.Server.Services.Finance
                 return new CachedMarketDataProvider(inner, cache, logger);
             });
 
-            // Chip data provider (TWSE OpenAPI) — registered as named/typed for explicit resolution
+            // Chip data provider (TWSE OpenAPI)
             services.AddScoped<TWSEChipDataProvider>();
+            services.AddScoped<IChipDataProvider>(sp => sp.GetRequiredService<TWSEChipDataProvider>());
 
             // === Register scoring system ===
             services.AddSingleton<CategoryWeightConfig>();
             services.AddScoped<IStockScoreService, StockScoreService>();
+
+            // === Register builder ===
+            services.AddScoped<StockAnalysisBuilder>();
 
             return services;
         }

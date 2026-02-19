@@ -6,6 +6,7 @@ using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Scoring;
 using Microsoft.AspNetCore.Mvc;
@@ -28,8 +29,9 @@ namespace JackyAIApp.Server.Controllers
         IExtendedMemoryCache memoryCache,
         IMarketDataProvider marketDataProvider,
         IIndicatorEngine indicatorEngine,
-        TWSEChipDataProvider chipDataProvider,
-        IStockScoreService stockScoreService) : ControllerBase
+        IChipDataProvider chipDataProvider,
+        IStockScoreService stockScoreService,
+        StockAnalysisBuilder analysisBuilder) : ControllerBase
     {
         private readonly ILogger<FinanceController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         private readonly IOptionsMonitor<Settings> _settings = settings;
@@ -42,8 +44,9 @@ namespace JackyAIApp.Server.Controllers
         private readonly IExtendedMemoryCache _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         private readonly IMarketDataProvider _marketDataProvider = marketDataProvider ?? throw new ArgumentNullException(nameof(marketDataProvider));
         private readonly IIndicatorEngine _indicatorEngine = indicatorEngine ?? throw new ArgumentNullException(nameof(indicatorEngine));
-        private readonly TWSEChipDataProvider _chipDataProvider = chipDataProvider ?? throw new ArgumentNullException(nameof(chipDataProvider));
+        private readonly IChipDataProvider _chipDataProvider = chipDataProvider ?? throw new ArgumentNullException(nameof(chipDataProvider));
         private readonly IStockScoreService _stockScoreService = stockScoreService ?? throw new ArgumentNullException(nameof(stockScoreService));
+        private readonly StockAnalysisBuilder _analysisBuilder = analysisBuilder ?? throw new ArgumentNullException(nameof(analysisBuilder));
 
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
         private const int CACHE_HOURS = 12; // Cache duration in hours
@@ -353,6 +356,56 @@ namespace JackyAIApp.Server.Controllers
             {
                 _logger.LogError(ex, "Error scoring stock {stockCode}", resolvedStockCode);
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Failed to score stock '{resolvedStockCode}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Comprehensive stock analysis with configurable indicator selection (Builder pattern).
+        /// </summary>
+        [HttpPost("comprehensive-analysis")]
+        public async Task<IActionResult> GetComprehensiveAnalysis(
+            [FromBody] StockAnalysisRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(request.StockCode))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
+
+            var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(request.StockCode, cancellationToken);
+            if (string.IsNullOrEmpty(resolvedStockCode))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{request.StockCode}'.");
+
+            var currentDate = DateTime.Now.ToString("yyyyMMdd");
+            var configHash = $"{request.IncludeTechnical}_{request.IncludeChip}_{request.IncludeFundamental}_{request.IncludeScoring}_{request.IncludeRisk}";
+            var cacheKey = $"ComprehensiveAnalysis_{resolvedStockCode}_{currentDate}_{configHash}";
+
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+                return _responseFactory.CreateOKResponse(cachedResult);
+
+            try
+            {
+                var builder = _analysisBuilder
+                    .ForStock(resolvedStockCode)
+                    .WithTechnical(request.IncludeTechnical)
+                    .WithChip(request.IncludeChip)
+                    .WithFundamental(request.IncludeFundamental)
+                    .WithScoring(request.IncludeScoring)
+                    .WithRisk(request.IncludeRisk);
+
+                if (request.OnlyIndicators?.Count > 0)
+                    builder.OnlyIndicators(request.OnlyIndicators.ToArray());
+                if (request.ExcludeIndicators?.Count > 0)
+                    builder.ExcludeIndicators(request.ExcludeIndicators.ToArray());
+                if (request.TechnicalWeight.HasValue || request.ChipWeight.HasValue || request.FundamentalWeight.HasValue)
+                    builder.WithCustomWeights(request.TechnicalWeight, request.ChipWeight, request.FundamentalWeight);
+
+                var result = await builder.BuildAsync(cancellationToken);
+                _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
+                return _responseFactory.CreateOKResponse(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Comprehensive analysis failed for {stockCode}", resolvedStockCode);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Analysis failed for '{resolvedStockCode}': {ex.Message}");
             }
         }
     }

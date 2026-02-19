@@ -8,7 +8,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     /// Fetches chip (籌碼面) data from TWSE OpenAPI endpoints.
     /// Includes margin trading, foreign holdings, short selling, and director holdings.
     /// </summary>
-    public class TWSEChipDataProvider : IMarketDataProvider
+    public class TWSEChipDataProvider : IMarketDataProvider, IChipDataProvider
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMemoryCache _cache;

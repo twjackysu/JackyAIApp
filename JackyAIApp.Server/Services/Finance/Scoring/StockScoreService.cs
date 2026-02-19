@@ -11,14 +11,14 @@ namespace JackyAIApp.Server.Services.Finance.Scoring
     public class StockScoreService : IStockScoreService
     {
         private readonly IMarketDataProvider _marketDataProvider;
-        private readonly TWSEChipDataProvider _chipDataProvider;
+        private readonly IChipDataProvider _chipDataProvider;
         private readonly IIndicatorEngine _indicatorEngine;
         private readonly CategoryWeightConfig _weightConfig;
         private readonly ILogger<StockScoreService> _logger;
 
         public StockScoreService(
             IMarketDataProvider marketDataProvider,
-            TWSEChipDataProvider chipDataProvider,
+            IChipDataProvider chipDataProvider,
             IIndicatorEngine indicatorEngine,
             CategoryWeightConfig weightConfig,
             ILogger<StockScoreService> logger)

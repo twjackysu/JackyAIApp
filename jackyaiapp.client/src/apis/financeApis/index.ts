@@ -4,7 +4,13 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 import { ApiOkResponse } from '../types';
 
-import { StrategicInsight, StockTrendAnalysis, StockSearchRequest } from './types';
+import {
+  StrategicInsight,
+  StockTrendAnalysis,
+  StockSearchRequest,
+  StockAnalysisResultData,
+  StockAnalysisRequest,
+} from './types';
 
 // Define a service using a base URL and expected endpoints
 export const financeApis = createApi({
@@ -40,7 +46,22 @@ export const financeApis = createApi({
         return response;
       },
     }),
+    getComprehensiveAnalysis: builder.mutation<ApiOkResponse<StockAnalysisResultData>, StockAnalysisRequest>({
+      query: (request) => ({
+        url: 'comprehensive-analysis',
+        method: 'POST',
+        body: request,
+      }),
+      transformErrorResponse: (response) => {
+        console.error('Comprehensive analysis error:', response);
+        return response;
+      },
+    }),
   }),
 });
 
-export const { useGetDailyImportantInfoQuery, useAnalyzeStockMutation } = financeApis;
+export const {
+  useGetDailyImportantInfoQuery,
+  useAnalyzeStockMutation,
+  useGetComprehensiveAnalysisMutation,
+} = financeApis;
