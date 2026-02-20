@@ -32,7 +32,8 @@ namespace JackyAIApp.Server.Controllers
         IIndicatorEngine indicatorEngine,
         IChipDataProvider chipDataProvider,
         IStockScoreService stockScoreService,
-        StockAnalysisBuilder analysisBuilder) : ControllerBase
+        StockAnalysisBuilder analysisBuilder,
+        IMacroEconomyProvider macroEconomyProvider) : ControllerBase
     {
         private readonly ILogger<FinanceController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         private readonly IOptionsMonitor<Settings> _settings = settings;
@@ -48,6 +49,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IChipDataProvider _chipDataProvider = chipDataProvider ?? throw new ArgumentNullException(nameof(chipDataProvider));
         private readonly IStockScoreService _stockScoreService = stockScoreService ?? throw new ArgumentNullException(nameof(stockScoreService));
         private readonly StockAnalysisBuilder _analysisBuilder = analysisBuilder ?? throw new ArgumentNullException(nameof(analysisBuilder));
+        private readonly IMacroEconomyProvider _macroEconomyProvider = macroEconomyProvider ?? throw new ArgumentNullException(nameof(macroEconomyProvider));
 
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
         private const int CACHE_HOURS = 12; // Cache duration in hours
@@ -426,6 +428,30 @@ namespace JackyAIApp.Server.Controllers
             {
                 _logger.LogError(ex, "Comprehensive analysis failed for {stockCode}", resolvedStockCode);
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Analysis failed for '{resolvedStockCode}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Gets macro economy overview data (market index, sectors, margin, FX rates, bank rates).
+        /// No AI/LLM token consumption.
+        /// </summary>
+        [HttpGet("macro-economy")]
+        public async Task<IActionResult> GetMacroEconomy(CancellationToken cancellationToken = default)
+        {
+            var cacheKey = $"MacroEconomy_{DateTime.Now:yyyyMMdd}";
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+                return _responseFactory.CreateOKResponse(cachedResult);
+
+            try
+            {
+                var result = await _macroEconomyProvider.FetchAsync(cancellationToken);
+                _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(2));
+                return _responseFactory.CreateOKResponse(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to fetch macro economy data");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Failed to fetch macro economy data: {ex.Message}");
             }
         }
 

@@ -62,6 +62,9 @@ namespace JackyAIApp.Server.Services.Finance
             // Fundamental data provider (TWSE OpenAPI)
             services.AddScoped<IFundamentalDataProvider, TWSEFundamentalDataProvider>();
 
+            // Macro economy provider (TWSE + BOT + CBC)
+            services.AddScoped<IMacroEconomyProvider, TWSEMacroEconomyProvider>();
+
             // === Register scoring system ===
             services.AddSingleton<CategoryWeightConfig>();
             services.AddScoped<IStockScoreService, StockScoreService>();

@@ -28,6 +28,7 @@ import {
   MarketSummaryCard,
   ComprehensiveAnalysisResult,
   AnalysisConfigPanel,
+  MacroEconomyOverview,
 } from './components';
 import type { AnalysisConfig } from './components';
 import { getCurrentDate } from './utils/financeHelpers';
@@ -150,15 +151,8 @@ function Finance() {
         <Typography variant="subtitle1" color="text.secondary">{currentDate}</Typography>
       </Stack>
 
-      {/* Macro Economy Overview — placeholder */}
-      <Paper sx={{ p: 3, mb: 3, border: '1px dashed', borderColor: 'divider', bgcolor: 'action.hover' }}>
-        <Typography variant="h6" fontWeight="bold" color="text.secondary" gutterBottom>
-          🏛️ 總體經濟概覽 (Macro Economy Overview)
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          即將推出：大盤指數、成交量、外資動向、融資融券總量等總體經濟指標
-        </Typography>
-      </Paper>
+      {/* Macro Economy Overview — shown before search results */}
+      {!hasStockResults && <MacroEconomyOverview />}
 
       {/* Tabs */}
       <Paper sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
