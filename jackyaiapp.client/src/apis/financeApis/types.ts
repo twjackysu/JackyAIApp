@@ -113,3 +113,55 @@ export interface StockAnalysisRequest {
   chipWeight?: number;
   fundamentalWeight?: number;
 }
+
+// === Macro Economy Types ===
+
+export interface MarketIndexDay {
+  date: string;
+  taiex: number;
+  change: number;
+  tradeVolume: number;
+  tradeValue: number;
+  transaction: number;
+}
+
+export interface SectorIndex {
+  name: string;
+  closeIndex: number;
+  direction: string;
+  changePoints: number;
+  changePercent: number;
+}
+
+export interface MarginSummary {
+  marginBuyTotal: number;
+  marginSellTotal: number;
+  marginBalanceTotal: number;
+  shortSellTotal: number;
+  shortBuyTotal: number;
+  shortBalanceTotal: number;
+}
+
+export interface ExchangeRate {
+  currency: string;
+  displayName: string;
+  buyRate: number | null;
+  sellRate: number | null;
+}
+
+export interface BankRate {
+  bankName: string;
+  period: string;
+  oneYearFixed: number | null;
+  oneYearFloating: number | null;
+  baseLendingRate: number | null;
+}
+
+export interface MacroEconomyData {
+  marketIndex: MarketIndexDay[];
+  sectorIndices: SectorIndex[];
+  margin: MarginSummary | null;
+  exchangeRates: ExchangeRate[];
+  bankRate: BankRate | null;
+  generatedAt: string;
+}

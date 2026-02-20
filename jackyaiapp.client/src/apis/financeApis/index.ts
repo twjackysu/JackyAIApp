@@ -10,6 +10,7 @@ import {
   StockSearchRequest,
   StockAnalysisResultData,
   StockAnalysisRequest,
+  MacroEconomyData,
 } from './types';
 
 // Define a service using a base URL and expected endpoints
@@ -57,6 +58,10 @@ export const financeApis = createApi({
         return response;
       },
     }),
+    getMacroEconomy: builder.query<ApiOkResponse<MacroEconomyData>, void>({
+      query: () => ({ url: 'macro-economy' }),
+      keepUnusedDataFor: 3600, // cache 1 hour client-side
+    }),
   }),
 });
 
@@ -64,4 +69,5 @@ export const {
   useGetDailyImportantInfoQuery,
   useAnalyzeStockMutation,
   useGetComprehensiveAnalysisMutation,
+  useGetMacroEconomyQuery,
 } = financeApis;
