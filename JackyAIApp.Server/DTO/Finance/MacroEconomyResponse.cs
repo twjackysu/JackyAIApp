@@ -1,7 +1,7 @@
 namespace JackyAIApp.Server.DTO.Finance
 {
     /// <summary>
-    /// Macro economy overview data for the Finance Dashboard.
+    /// Macro economy overview data for the Stock Intelligence / Market Analysis.
     /// </summary>
     public class MacroEconomyResponse
     {

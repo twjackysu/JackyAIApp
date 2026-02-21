@@ -3,7 +3,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import SchoolIcon from '@mui/icons-material/School';
 
 export const FINANCE = {
-  name: 'Finance Dashboard',
+  name: 'Stock Intelligence & Market Analysis',
   path: '/finance',
   icon: <AttachMoneyIcon fontSize="small" />,
   allPaths: ['/finance'],
