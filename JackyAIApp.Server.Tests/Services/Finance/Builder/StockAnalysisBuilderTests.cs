@@ -13,17 +13,26 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Builder
         private readonly Mock<IMarketDataProvider> _mockMarketDataProvider = new();
         private readonly Mock<IChipDataProvider> _mockChipDataProvider = new();
         private readonly Mock<IFundamentalDataProvider> _mockFundamentalDataProvider = new();
+        private readonly Mock<IMarketDataProviderFactory> _mockProviderFactory = new();
         private readonly Mock<IIndicatorEngine> _mockIndicatorEngine = new();
         private readonly CategoryWeightConfig _weightConfig = new();
         private readonly Mock<ILogger<StockAnalysisBuilder>> _mockLogger = new();
 
-        private StockAnalysisBuilder CreateBuilder() => new(
-            _mockMarketDataProvider.Object,
-            _mockChipDataProvider.Object,
-            _mockFundamentalDataProvider.Object,
-            _mockIndicatorEngine.Object,
-            _weightConfig,
-            _mockLogger.Object);
+        private StockAnalysisBuilder CreateBuilder()
+        {
+            // Default: detect as TW market, return the mock TW providers
+            _mockProviderFactory.Setup(f => f.DetectRegion(It.IsAny<string>())).Returns(MarketRegion.TW);
+            _mockProviderFactory.Setup(f => f.GetChipDataProvider(MarketRegion.TW)).Returns(_mockChipDataProvider.Object);
+
+            return new(
+                _mockMarketDataProvider.Object,
+                _mockChipDataProvider.Object,
+                _mockFundamentalDataProvider.Object,
+                _mockProviderFactory.Object,
+                _mockIndicatorEngine.Object,
+                _weightConfig,
+                _mockLogger.Object);
+        }
 
         private MarketData CreateMockMarketData()
         {

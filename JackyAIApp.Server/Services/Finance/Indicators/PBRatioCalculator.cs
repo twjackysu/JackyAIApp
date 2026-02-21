@@ -17,7 +17,19 @@ namespace JackyAIApp.Server.Services.Finance.Indicators
 
         public IndicatorResult Calculate(IndicatorContext context)
         {
-            var pb = context.Fundamentals!.PBRatio!.Value;
+            var pbOrBvps = context.Fundamentals!.PBRatio!.Value;
+
+            // If value looks like BVPS (book value per share) rather than P/B ratio,
+            // compute actual P/B using latest close price.
+            // Heuristic: if BVPS is high and we have a price, compute P/B
+            var pb = pbOrBvps;
+            if (context.LatestClose.HasValue && context.LatestClose.Value > 0 && pbOrBvps > 0 && pbOrBvps < context.LatestClose.Value)
+            {
+                // Could be BVPS — check if computing P/B gives a reasonable result
+                var computedPB = context.LatestClose.Value / pbOrBvps;
+                if (computedPB > 0.1m && computedPB < 200m)
+                    pb = computedPB;
+            }
             var (signal, direction, score) = Evaluate(pb);
 
             return new IndicatorResult

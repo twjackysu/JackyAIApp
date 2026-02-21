@@ -80,9 +80,12 @@ export interface StockScoreResponse {
   generatedAt: string;
 }
 
+export type MarketRegion = 'TW' | 'US';
+
 export interface StockAnalysisResultData {
   stockCode: string;
   companyName: string;
+  market: MarketRegion;
   latestClose: number | null;
   indicators: IndicatorResult[];
   scoring: StockScoreResponse | null;
@@ -102,6 +105,7 @@ export interface StockAnalysisResultData {
 
 export interface StockAnalysisRequest {
   stockCode: string;
+  market?: MarketRegion;
   includeTechnical?: boolean;
   includeChip?: boolean;
   includeFundamental?: boolean;

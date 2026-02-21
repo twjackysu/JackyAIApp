@@ -14,6 +14,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
         private readonly IMarketDataProvider _marketDataProvider;
         private readonly IChipDataProvider _chipDataProvider;
         private readonly IFundamentalDataProvider _fundamentalDataProvider;
+        private readonly IMarketDataProviderFactory _providerFactory;
         private readonly IIndicatorEngine _indicatorEngine;
         private readonly CategoryWeightConfig _weightConfig;
         private readonly ILogger<StockAnalysisBuilder> _logger;
@@ -24,6 +25,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
         private bool _includeFundamental = true;
         private bool _includeScoring = true;
         private bool _includeRisk = true;
+        private MarketRegion? _marketRegion;
         private readonly HashSet<string> _onlyIndicators = new();
         private readonly HashSet<string> _excludeIndicators = new();
         private readonly Dictionary<IndicatorCategory, decimal> _customWeights = new();
@@ -32,6 +34,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             IMarketDataProvider marketDataProvider,
             IChipDataProvider chipDataProvider,
             IFundamentalDataProvider fundamentalDataProvider,
+            IMarketDataProviderFactory providerFactory,
             IIndicatorEngine indicatorEngine,
             CategoryWeightConfig weightConfig,
             ILogger<StockAnalysisBuilder> logger)
@@ -39,12 +42,14 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             _marketDataProvider = marketDataProvider;
             _chipDataProvider = chipDataProvider;
             _fundamentalDataProvider = fundamentalDataProvider;
+            _providerFactory = providerFactory;
             _indicatorEngine = indicatorEngine;
             _weightConfig = weightConfig;
             _logger = logger;
         }
 
-        public StockAnalysisBuilder ForStock(string stockCode) { _stockCode = stockCode; return this; }
+        public StockAnalysisBuilder ForStock(string stockCode) { _stockCode = stockCode; _marketRegion = null; return this; }
+        public StockAnalysisBuilder ForMarket(MarketRegion region) { _marketRegion = region; return this; }
         public StockAnalysisBuilder WithTechnical(bool include = true) { _includeTechnical = include; return this; }
         public StockAnalysisBuilder WithChip(bool include = true) { _includeChip = include; return this; }
         public StockAnalysisBuilder WithFundamental(bool include = true) { _includeFundamental = include; return this; }
@@ -78,6 +83,15 @@ namespace JackyAIApp.Server.Services.Finance.Builder
 
             _logger.LogInformation("Building analysis for {stockCode}", _stockCode);
 
+            // Resolve providers based on market region
+            var region = _marketRegion ?? _providerFactory.DetectRegion(_stockCode);
+            var marketProvider = region == MarketRegion.TW ? _marketDataProvider : _providerFactory.GetMarketDataProvider(region);
+            var fundamentalProvider = region == MarketRegion.TW ? _fundamentalDataProvider : _providerFactory.GetFundamentalDataProvider(region);
+            var chipProvider = _providerFactory.GetChipDataProvider(region);
+
+            // US stocks don't have chip data
+            var effectiveIncludeChip = _includeChip && chipProvider != null;
+
             // 1. Fetch data in parallel
             MarketData? priceData = null;
             MarketData? chipData = null;
@@ -86,17 +100,17 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             var tasks = new List<Task>();
             if (_includeTechnical || _includeFundamental)
             {
-                tasks.Add(_marketDataProvider.FetchAsync(_stockCode, cancellationToken)
+                tasks.Add(marketProvider.FetchAsync(_stockCode, cancellationToken)
                     .ContinueWith(t => priceData = t.Result, TaskScheduler.Default));
             }
-            if (_includeChip)
+            if (effectiveIncludeChip)
             {
-                tasks.Add(FetchChipSafe(_stockCode, cancellationToken)
+                tasks.Add(FetchChipSafe(_stockCode, chipProvider!, cancellationToken)
                     .ContinueWith(t => chipData = t.Result, TaskScheduler.Default));
             }
             if (_includeFundamental)
             {
-                tasks.Add(FetchFundamentalSafe(_stockCode, cancellationToken)
+                tasks.Add(FetchFundamentalSafe(_stockCode, fundamentalProvider, cancellationToken)
                     .ContinueWith(t => fundamentalData = t.Result, TaskScheduler.Default));
             }
             await Task.WhenAll(tasks);
@@ -148,7 +162,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
                 Configuration = new AnalysisConfiguration
                 {
                     IncludeTechnical = _includeTechnical,
-                    IncludeChip = _includeChip,
+                    IncludeChip = effectiveIncludeChip,
                     IncludeFundamental = _includeFundamental,
                     IncludeScoring = _includeScoring,
                     IncludeRisk = _includeRisk,
@@ -189,9 +203,9 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             };
         }
 
-        private async Task<MarketData?> FetchChipSafe(string stockCode, CancellationToken ct)
+        private async Task<MarketData?> FetchChipSafe(string stockCode, IChipDataProvider provider, CancellationToken ct)
         {
-            try { return await _chipDataProvider.FetchAsync(stockCode, ct); }
+            try { return await provider.FetchAsync(stockCode, ct); }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Chip data fetch failed for {stockCode}", stockCode);
@@ -199,9 +213,9 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             }
         }
 
-        private async Task<FundamentalData?> FetchFundamentalSafe(string stockCode, CancellationToken ct)
+        private async Task<FundamentalData?> FetchFundamentalSafe(string stockCode, IFundamentalDataProvider provider, CancellationToken ct)
         {
-            try { return await _fundamentalDataProvider.FetchAsync(stockCode, ct); }
+            try { return await provider.FetchAsync(stockCode, ct); }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Fundamental data fetch failed for {stockCode}", stockCode);

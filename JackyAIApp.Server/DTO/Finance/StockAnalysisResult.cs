@@ -7,6 +7,7 @@ namespace JackyAIApp.Server.DTO.Finance
     {
         public string StockCode { get; set; } = string.Empty;
         public string CompanyName { get; set; } = string.Empty;
+        public string Market { get; set; } = "TW";
         public decimal? LatestClose { get; set; }
         public List<IndicatorResult> Indicators { get; set; } = new();
         public StockScoreResponse? Scoring { get; set; }
@@ -36,6 +37,10 @@ namespace JackyAIApp.Server.DTO.Finance
     public class StockAnalysisRequest
     {
         public string StockCode { get; set; } = string.Empty;
+
+        /// <summary>Market region: "TW" or "US". If null, auto-detected from stock code format.</summary>
+        public string? Market { get; set; }
+
         public bool IncludeTechnical { get; set; } = true;
         public bool IncludeChip { get; set; } = true;
         public bool IncludeFundamental { get; set; } = true;

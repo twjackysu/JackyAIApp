@@ -17,7 +17,18 @@ namespace JackyAIApp.Server.Services.Finance.Indicators
 
         public IndicatorResult Calculate(IndicatorContext context)
         {
-            var dy = context.Fundamentals!.DividendYield!.Value;
+            var dyOrDividend = context.Fundamentals!.DividendYield!.Value;
+
+            // If value looks like annual dividend amount (not percentage),
+            // compute yield = (annualDividend / price) * 100
+            var dy = dyOrDividend;
+            if (context.LatestClose.HasValue && context.LatestClose.Value > 0 && dyOrDividend > 0 && dyOrDividend < 50)
+            {
+                // If it's a small number and < price, it's likely annual dividend in dollars
+                var computedYield = (dyOrDividend / context.LatestClose.Value) * 100;
+                if (computedYield > 0 && computedYield < 30)
+                    dy = computedYield;
+            }
             var (signal, direction, score) = Evaluate(dy);
 
             return new IndicatorResult

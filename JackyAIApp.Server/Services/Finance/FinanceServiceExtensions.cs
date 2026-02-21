@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Finance.DataProviders.US;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Scoring;
 using TWStockLib.Services;
@@ -64,6 +65,13 @@ namespace JackyAIApp.Server.Services.Finance
 
             // Macro economy provider (TWSE + BOT + CBC)
             services.AddScoped<IMacroEconomyProvider, TWSEMacroEconomyProvider>();
+
+            // === US market data providers ===
+            services.AddScoped<YahooFinanceMarketDataProvider>();
+            services.AddScoped<SECFundamentalDataProvider>();
+
+            // Market data provider factory (routes TW/US)
+            services.AddScoped<IMarketDataProviderFactory, MarketDataProviderFactory>();
 
             // === Register scoring system ===
             services.AddSingleton<CategoryWeightConfig>();

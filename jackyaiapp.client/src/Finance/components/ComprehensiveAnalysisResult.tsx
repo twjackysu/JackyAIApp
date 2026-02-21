@@ -47,12 +47,22 @@ const OverallScoreSection = ({ data }: Props) => {
           <Grid item xs={12} md={scoring ? 9 : 12}>
             <Stack spacing={2}>
               <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                <Chip
+                  label={data.market === 'US' ? '🇺🇸 US' : '🇹🇼 TW'}
+                  size="small"
+                  variant="outlined"
+                  sx={{ fontWeight: 'bold' }}
+                />
                 <Typography variant="h5" fontWeight="bold">{data.companyName} ({data.stockCode})</Typography>
                 {scoring && (
                   <Chip label={`${getDirectionEmoji(scoring.overallDirection)} ${getDirectionLabel(scoring.overallDirection)}`} color={getDirectionChipColor(scoring.overallDirection)} variant="filled" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }} />
                 )}
               </Stack>
-              {data.latestClose && <Typography variant="h6" color="text.secondary">最新收盤價: NT${data.latestClose.toFixed(2)}</Typography>}
+              {data.latestClose && (
+                <Typography variant="h6" color="text.secondary">
+                  最新收盤價: {data.market === 'US' ? '$' : 'NT$'}{data.latestClose.toFixed(2)}
+                </Typography>
+              )}
               {scoring && (
                 <Paper sx={{ p: 2, bgcolor: getDirectionColor(scoring.overallDirection, 0.08) }}>
                   <Typography variant="body1">{scoring.recommendation}</Typography>
