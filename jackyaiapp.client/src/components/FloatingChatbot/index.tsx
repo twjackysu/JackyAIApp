@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
 import { useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
 
@@ -189,4 +190,11 @@ function FloatingChatbot() {
   );
 }
 
-export default FloatingChatbot;
+/** Wrapper that only renders chatbot when user is authenticated (no redirect) */
+function AuthAwareFloatingChatbot() {
+  const { data: userInfo, isLoading } = useGetUserInfoQuery();
+  if (isLoading || !userInfo?.data) return null;
+  return <FloatingChatbot />;
+}
+
+export default AuthAwareFloatingChatbot;

@@ -205,10 +205,8 @@ function App() {
         </Routes>
       </Box>
 
-      {/* 懸浮 Chatbot */}
-      <RequireAuth>
-        <FloatingChatbot />
-      </RequireAuth>
+      {/* 懸浮 Chatbot — only shown when logged in, no forced redirect */}
+      <FloatingChatbot />
     </>
   );
 }
