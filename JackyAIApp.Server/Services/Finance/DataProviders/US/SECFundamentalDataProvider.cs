@@ -1,0 +1,352 @@
+using JackyAIApp.Server.DTO.Finance;
+using Microsoft.Extensions.Caching.Memory;
+using System.Globalization;
+using System.Text.Json;
+
+namespace JackyAIApp.Server.Services.Finance.DataProviders.US
+{
+    /// <summary>
+    /// Fetches US stock fundamental data from SEC EDGAR XBRL API.
+    /// Free, no API key. Requires User-Agent with company name and contact email.
+    /// Rate limit: 10 requests/second.
+    /// </summary>
+    public class SECFundamentalDataProvider : IFundamentalDataProvider
+    {
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IMemoryCache _cache;
+        private readonly ILogger<SECFundamentalDataProvider> _logger;
+
+        private const string TICKERS_URL = "https://www.sec.gov/files/company_tickers.json";
+        private const string FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{0}.json";
+        private const string USER_AGENT = "JackyAIApp/1.0 jackysu@example.com";
+        private const int CACHE_HOURS = 12;
+
+        public SECFundamentalDataProvider(
+            IHttpClientFactory httpClientFactory,
+            IMemoryCache cache,
+            ILogger<SECFundamentalDataProvider> logger)
+        {
+            _httpClientFactory = httpClientFactory;
+            _cache = cache;
+            _logger = logger;
+        }
+
+        public async Task<FundamentalData?> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
+        {
+            var symbol = stockCode.ToUpperInvariant();
+            var cacheKey = $"SEC_Fundamental_{symbol}";
+            if (_cache.TryGetValue(cacheKey, out FundamentalData? cached))
+                return cached;
+
+            try
+            {
+                // 1. Resolve ticker to CIK
+                var cik = await ResolveCIK(symbol, cancellationToken);
+                if (cik == null)
+                {
+                    _logger.LogWarning("Could not find CIK for ticker {symbol}", symbol);
+                    return null;
+                }
+
+                // 2. Fetch company facts
+                var facts = await FetchCompanyFacts(cik, cancellationToken);
+                if (facts == null) return null;
+
+                // 3. Extract fundamental data
+                var result = ExtractFundamentals(facts, symbol);
+
+                if (result != null)
+                    _cache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch SEC fundamental data for {symbol}", symbol);
+                return null;
+            }
+        }
+
+        private async Task<string?> ResolveCIK(string ticker, CancellationToken ct)
+        {
+            var tickers = await FetchTickersCached(ct);
+            if (tickers == null) return null;
+
+            foreach (var prop in tickers.RootElement.EnumerateObject())
+            {
+                var entry = prop.Value;
+                if (entry.TryGetProperty("ticker", out var t) &&
+                    t.GetString()?.Equals(ticker, StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    var cikNum = entry.GetProperty("cik_str").GetInt64();
+                    return cikNum.ToString("D10");
+                }
+            }
+
+            return null;
+        }
+
+        private async Task<JsonDocument?> FetchTickersCached(CancellationToken ct)
+        {
+            if (_cache.TryGetValue("SEC_Tickers", out JsonDocument? cached))
+                return cached;
+
+            var client = CreateClient();
+            var response = await client.GetAsync(TICKERS_URL, ct);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            var doc = JsonDocument.Parse(json);
+
+            _cache.Set("SEC_Tickers", doc, TimeSpan.FromHours(24));
+            return doc;
+        }
+
+        private async Task<JsonElement?> FetchCompanyFacts(string cik, CancellationToken ct)
+        {
+            var cacheKey = $"SEC_Facts_{cik}";
+            if (_cache.TryGetValue(cacheKey, out JsonDocument? cached))
+                return cached?.RootElement;
+
+            var url = string.Format(FACTS_URL, cik);
+            var client = CreateClient();
+            var response = await client.GetAsync(url, ct);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync(ct);
+            var doc = JsonDocument.Parse(json);
+
+            _cache.Set(cacheKey, doc, TimeSpan.FromHours(CACHE_HOURS));
+            return doc.RootElement;
+        }
+
+        private FundamentalData? ExtractFundamentals(JsonElement? factsRoot, string symbol)
+        {
+            if (factsRoot == null) return null;
+            var root = factsRoot.Value;
+
+            if (!root.TryGetProperty("facts", out var facts)) return null;
+            if (!facts.TryGetProperty("us-gaap", out var usgaap)) return null;
+
+            var result = new FundamentalData();
+            var hasData = false;
+
+            // EPS (Diluted) — get latest quarterly
+            var latestQuarterlyEps = GetLatestQuarterlyValue(usgaap, "EarningsPerShareDiluted", "USD/shares");
+            if (latestQuarterlyEps.HasValue)
+            {
+                result.EPS = latestQuarterlyEps.Value;
+                hasData = true;
+            }
+
+            // Trailing EPS (annual) — get latest 10-K or sum of last 4 quarters
+            var trailingEps = GetLatestAnnualValue(usgaap, "EarningsPerShareDiluted", "USD/shares");
+            if (trailingEps.HasValue)
+            {
+                result.TrailingEPS = trailingEps.Value;
+                hasData = true;
+            }
+
+            // Revenue — latest quarterly
+            var revenue = GetLatestQuarterlyValue(usgaap, "RevenueFromContractWithCustomerExcludingAssessedTax", "USD")
+                       ?? GetLatestQuarterlyValue(usgaap, "Revenues", "USD");
+            if (revenue.HasValue)
+            {
+                result.MonthlyRevenue = revenue.Value / 1000; // Convert to thousands for consistency
+                hasData = true;
+            }
+
+            // Net Income
+            var netIncome = GetLatestQuarterlyValue(usgaap, "NetIncomeLoss", "USD");
+            if (netIncome.HasValue)
+            {
+                result.NetIncome = netIncome.Value / 1000;
+                hasData = true;
+            }
+
+            // Operating Income
+            var opIncome = GetLatestQuarterlyValue(usgaap, "OperatingIncomeLoss", "USD");
+            if (opIncome.HasValue)
+            {
+                result.OperatingIncome = opIncome.Value / 1000;
+                hasData = true;
+            }
+
+            // Dividend per share
+            var dividend = GetLatestQuarterlyValue(usgaap, "CommonStockDividendsPerShareDeclared", "USD/shares");
+
+            // Shares outstanding
+            var shares = GetLatestValue(usgaap, "CommonStockSharesOutstanding", "shares");
+
+            // Stockholders' equity for book value
+            var equity = GetLatestValue(usgaap, "StockholdersEquity", "USD");
+
+            // Compute P/B from equity and shares (P/E needs market price, done at higher level)
+            if (equity.HasValue && shares.HasValue && shares.Value > 0)
+            {
+                var bookValuePerShare = equity.Value / shares.Value;
+                // P/B will be computed by the indicator calculator using market price
+                // Store book value per share in a field — we'll use PBRatio field for BVPS temporarily
+                // Actually, let's compute it if we can get price from the caller
+                result.PBRatio = bookValuePerShare; // Store BVPS; indicator will compute actual P/B
+                hasData = true;
+            }
+
+            // Dividend yield needs market price too — store annual dividend
+            if (dividend.HasValue)
+            {
+                // Store annual dividend in DividendYield field temporarily
+                // The actual yield = (annualDividend / price) * 100, computed at indicator level
+                result.DividendYield = dividend.Value * 4; // Annualize quarterly dividend
+                hasData = true;
+            }
+
+            // Fiscal quarter info
+            var latestFilingEnd = GetLatestFilingPeriod(usgaap, "EarningsPerShareDiluted", "USD/shares");
+            if (latestFilingEnd != null)
+            {
+                result.FiscalYearQuarter = latestFilingEnd;
+                hasData = true;
+            }
+
+            return hasData ? result : null;
+        }
+
+        /// <summary>Get latest quarterly value (single-quarter, not cumulative)</summary>
+        private decimal? GetLatestQuarterlyValue(JsonElement usgaap, string concept, string unitType)
+        {
+            if (!usgaap.TryGetProperty(concept, out var conceptEl)) return null;
+            if (!conceptEl.TryGetProperty("units", out var units)) return null;
+            if (!units.TryGetProperty(unitType, out var entries)) return null;
+
+            // Get entries from 10-Q and 10-K, prefer single-quarter periods
+            var filings = new List<(string start, string end, string form, decimal val)>();
+            foreach (var entry in entries.EnumerateArray())
+            {
+                if (!entry.TryGetProperty("form", out var formEl)) continue;
+                var form = formEl.GetString();
+                if (form != "10-Q" && form != "10-K") continue;
+
+                var endDate = entry.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "";
+                var startDate = entry.TryGetProperty("start", out var s) ? s.GetString() ?? "" : "";
+                var val = entry.TryGetProperty("val", out var v) ? GetDecimal(v) : null;
+
+                if (val.HasValue && !string.IsNullOrEmpty(endDate))
+                    filings.Add((startDate, endDate, form ?? "", val.Value));
+            }
+
+            if (filings.Count == 0) return null;
+
+            // Prefer entries with shorter periods (quarterly, ~90 days)
+            var quarterly = filings
+                .Where(f => !string.IsNullOrEmpty(f.start))
+                .Where(f =>
+                {
+                    if (DateTime.TryParse(f.start, out var s) && DateTime.TryParse(f.end, out var e))
+                        return (e - s).TotalDays < 120;
+                    return false;
+                })
+                .OrderByDescending(f => f.end)
+                .FirstOrDefault();
+
+            if (quarterly != default) return quarterly.val;
+
+            // Fallback to latest entry
+            return filings.OrderByDescending(f => f.end).First().val;
+        }
+
+        /// <summary>Get latest annual (10-K or full-year cumulative) value</summary>
+        private decimal? GetLatestAnnualValue(JsonElement usgaap, string concept, string unitType)
+        {
+            if (!usgaap.TryGetProperty(concept, out var conceptEl)) return null;
+            if (!conceptEl.TryGetProperty("units", out var units)) return null;
+            if (!units.TryGetProperty(unitType, out var entries)) return null;
+
+            decimal? latest = null;
+            string latestEnd = "";
+
+            foreach (var entry in entries.EnumerateArray())
+            {
+                if (!entry.TryGetProperty("form", out var formEl)) continue;
+                var form = formEl.GetString();
+                if (form != "10-K") continue;
+
+                var endDate = entry.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "";
+                var val = entry.TryGetProperty("val", out var v) ? GetDecimal(v) : null;
+
+                if (val.HasValue && string.Compare(endDate, latestEnd) > 0)
+                {
+                    latest = val;
+                    latestEnd = endDate;
+                }
+            }
+
+            return latest;
+        }
+
+        /// <summary>Get latest value regardless of form type</summary>
+        private decimal? GetLatestValue(JsonElement usgaap, string concept, string unitType)
+        {
+            if (!usgaap.TryGetProperty(concept, out var conceptEl)) return null;
+            if (!conceptEl.TryGetProperty("units", out var units)) return null;
+            if (!units.TryGetProperty(unitType, out var entries)) return null;
+
+            decimal? latest = null;
+            string latestEnd = "";
+
+            foreach (var entry in entries.EnumerateArray())
+            {
+                var form = entry.TryGetProperty("form", out var f) ? f.GetString() : "";
+                if (form != "10-Q" && form != "10-K") continue;
+
+                var endDate = entry.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "";
+                var val = entry.TryGetProperty("val", out var v) ? GetDecimal(v) : null;
+
+                if (val.HasValue && string.Compare(endDate, latestEnd) > 0)
+                {
+                    latest = val;
+                    latestEnd = endDate;
+                }
+            }
+
+            return latest;
+        }
+
+        private string? GetLatestFilingPeriod(JsonElement usgaap, string concept, string unitType)
+        {
+            if (!usgaap.TryGetProperty(concept, out var conceptEl)) return null;
+            if (!conceptEl.TryGetProperty("units", out var units)) return null;
+            if (!units.TryGetProperty(unitType, out var entries)) return null;
+
+            string latest = "";
+            foreach (var entry in entries.EnumerateArray())
+            {
+                var form = entry.TryGetProperty("form", out var f) ? f.GetString() : "";
+                if (form != "10-Q" && form != "10-K") continue;
+                var endDate = entry.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "";
+                if (string.Compare(endDate, latest) > 0) latest = endDate;
+            }
+
+            return string.IsNullOrEmpty(latest) ? null : latest;
+        }
+
+        private HttpClient CreateClient()
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Add("User-Agent", USER_AGENT);
+            return client;
+        }
+
+        private static decimal? GetDecimal(JsonElement el)
+        {
+            if (el.ValueKind == JsonValueKind.Number)
+                return el.TryGetDecimal(out var d) ? d : (decimal?)el.GetDouble();
+            if (el.ValueKind == JsonValueKind.String)
+            {
+                var s = el.GetString()?.Trim();
+                return decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : null;
+            }
+            return null;
+        }
+    }
+}

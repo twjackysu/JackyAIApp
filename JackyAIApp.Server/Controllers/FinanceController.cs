@@ -386,6 +386,8 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>
         /// Comprehensive stock analysis with configurable indicator selection (Builder pattern).
+        /// Supports both TW and US markets. Market is auto-detected from stock code format
+        /// (numeric = TW, alphabetic = US) or can be explicitly set via request.Market.
         /// </summary>
         [HttpPost("comprehensive-analysis")]
         public async Task<IActionResult> GetComprehensiveAnalysis(
@@ -395,12 +397,28 @@ namespace JackyAIApp.Server.Controllers
             if (string.IsNullOrWhiteSpace(request.StockCode))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
 
-            var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(request.StockCode, cancellationToken);
-            if (string.IsNullOrEmpty(resolvedStockCode))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{request.StockCode}'.");
+            // Determine market region
+            var providerFactory = HttpContext.RequestServices.GetRequiredService<IMarketDataProviderFactory>();
+            var region = !string.IsNullOrEmpty(request.Market)
+                ? Enum.TryParse<MarketRegion>(request.Market, true, out var m) ? m : providerFactory.DetectRegion(request.StockCode)
+                : providerFactory.DetectRegion(request.StockCode);
+
+            // Resolve stock code — only TW market needs TWSE resolution
+            string resolvedStockCode;
+            if (region == MarketRegion.TW)
+            {
+                resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(request.StockCode, cancellationToken) ?? "";
+                if (string.IsNullOrEmpty(resolvedStockCode))
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{request.StockCode}'.");
+            }
+            else
+            {
+                // US stocks: use ticker as-is (uppercase)
+                resolvedStockCode = request.StockCode.Trim().ToUpperInvariant();
+            }
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
-            var configHash = $"{request.IncludeTechnical}_{request.IncludeChip}_{request.IncludeFundamental}_{request.IncludeScoring}_{request.IncludeRisk}";
+            var configHash = $"{region}_{request.IncludeTechnical}_{request.IncludeChip}_{request.IncludeFundamental}_{request.IncludeScoring}_{request.IncludeRisk}";
             var cacheKey = $"ComprehensiveAnalysis_{resolvedStockCode}_{currentDate}_{configHash}";
 
             if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
@@ -410,6 +428,7 @@ namespace JackyAIApp.Server.Controllers
             {
                 var builder = _analysisBuilder
                     .ForStock(resolvedStockCode)
+                    .ForMarket(region)
                     .WithTechnical(request.IncludeTechnical)
                     .WithChip(request.IncludeChip)
                     .WithFundamental(request.IncludeFundamental)
@@ -424,12 +443,13 @@ namespace JackyAIApp.Server.Controllers
                     builder.WithCustomWeights(request.TechnicalWeight, request.ChipWeight, request.FundamentalWeight);
 
                 var result = await builder.BuildAsync(cancellationToken);
+                result.Market = region.ToString();
                 _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
                 return _responseFactory.CreateOKResponse(result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Comprehensive analysis failed for {stockCode}", resolvedStockCode);
+                _logger.LogError(ex, "Comprehensive analysis failed for {stockCode} ({region})", resolvedStockCode, region);
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, $"Analysis failed for '{resolvedStockCode}': {ex.Message}");
             }
         }
