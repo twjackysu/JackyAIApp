@@ -163,7 +163,7 @@ function Finance() {
 
       {/* Tabs */}
       <Paper sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
-        <Tabs value={analysisTab} onChange={handleTabChange} sx={{ mb: 2 }}>
+        <Tabs value={analysisTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ mb: 2 }}>
           <Tab label="📊 綜合量化分析" />
           <Tab label="🤖 AI 趨勢分析" />
           <Tab label="📰 今日市場AI摘要" />
