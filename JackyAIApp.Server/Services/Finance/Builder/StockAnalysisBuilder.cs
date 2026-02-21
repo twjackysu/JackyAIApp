@@ -1,5 +1,6 @@
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Finance.DataProviders.US;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Scoring;
 
@@ -18,6 +19,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
         private readonly IIndicatorEngine _indicatorEngine;
         private readonly CategoryWeightConfig _weightConfig;
         private readonly ILogger<StockAnalysisBuilder> _logger;
+        private readonly SECInsiderTradingProvider? _insiderTradingProvider;
 
         private string _stockCode = string.Empty;
         private bool _includeTechnical = true;
@@ -37,7 +39,8 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             IMarketDataProviderFactory providerFactory,
             IIndicatorEngine indicatorEngine,
             CategoryWeightConfig weightConfig,
-            ILogger<StockAnalysisBuilder> logger)
+            ILogger<StockAnalysisBuilder> logger,
+            SECInsiderTradingProvider insiderTradingProvider)
         {
             _marketDataProvider = marketDataProvider;
             _chipDataProvider = chipDataProvider;
@@ -46,6 +49,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             _indicatorEngine = indicatorEngine;
             _weightConfig = weightConfig;
             _logger = logger;
+            _insiderTradingProvider = insiderTradingProvider;
         }
 
         public StockAnalysisBuilder ForStock(string stockCode) { _stockCode = stockCode; _marketRegion = null; return this; }
@@ -96,6 +100,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             MarketData? priceData = null;
             MarketData? chipData = null;
             FundamentalData? fundamentalData = null;
+            InsiderTradingSummary? insiderTrading = null;
 
             var tasks = new List<Task>();
             if (_includeTechnical || _includeFundamental)
@@ -113,6 +118,12 @@ namespace JackyAIApp.Server.Services.Finance.Builder
                 tasks.Add(FetchFundamentalSafe(_stockCode, fundamentalProvider, cancellationToken)
                     .ContinueWith(t => fundamentalData = t.Result, TaskScheduler.Default));
             }
+            // US stocks: fetch insider trading
+            if (region == MarketRegion.US && effectiveIncludeChip && _insiderTradingProvider != null)
+            {
+                tasks.Add(FetchInsiderTradingSafe(_stockCode, cancellationToken)
+                    .ContinueWith(t => insiderTrading = t.Result, TaskScheduler.Default));
+            }
             await Task.WhenAll(tasks);
 
             // 2. Build context
@@ -121,7 +132,8 @@ namespace JackyAIApp.Server.Services.Finance.Builder
                 StockCode = _stockCode,
                 Prices = priceData?.HistoricalPrices ?? new List<DailyPrice>(),
                 Fundamentals = fundamentalData ?? priceData?.Fundamentals,
-                Chips = chipData?.Chips
+                Chips = chipData?.Chips,
+                InsiderTrading = insiderTrading
             };
 
             // 2.5 Let provider enrich fundamental data with derived ratios using market price
@@ -224,6 +236,57 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Fundamental data fetch failed for {stockCode}", stockCode);
+                return null;
+            }
+        }
+
+        private async Task<InsiderTradingSummary?> FetchInsiderTradingSafe(string stockCode, CancellationToken ct)
+        {
+            if (_insiderTradingProvider == null) return null;
+
+            try
+            {
+                // Need to resolve ticker to CIK first
+                var cik = await ResolveCIK(stockCode, ct);
+                if (string.IsNullOrEmpty(cik)) return null;
+
+                return await _insiderTradingProvider.FetchAsync(cik, stockCode, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Insider trading fetch failed for {stockCode}", stockCode);
+                return null;
+            }
+        }
+
+        /// <summary>Resolve US ticker to SEC CIK (Central Index Key)</summary>
+        private async Task<string?> ResolveCIK(string ticker, CancellationToken ct)
+        {
+            try
+            {
+                // Fetch SEC company tickers JSON
+                var client = new HttpClient();
+                client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "JackyAIApp/1.0 jacky19918@gmail.com");
+                var response = await client.GetAsync("https://www.sec.gov/files/company_tickers.json", ct);
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync(ct);
+                var doc = System.Text.Json.JsonDocument.Parse(json);
+
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    var entry = prop.Value;
+                    if (entry.TryGetProperty("ticker", out var t) &&
+                        t.GetString()?.Equals(ticker, StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        var cikNum = entry.GetProperty("cik_str").GetInt64();
+                        return cikNum.ToString("D10");
+                    }
+                }
+
+                return null;
+            }
+            catch
+            {
                 return null;
             }
         }

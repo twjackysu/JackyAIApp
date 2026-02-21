@@ -1,6 +1,7 @@
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Finance.DataProviders.US;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Scoring;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,11 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Builder
             _mockProviderFactory.Setup(f => f.DetectRegion(It.IsAny<string>())).Returns(MarketRegion.TW);
             _mockProviderFactory.Setup(f => f.GetChipDataProvider(MarketRegion.TW)).Returns(_mockChipDataProvider.Object);
 
+            var mockInsiderProvider = new Mock<SECInsiderTradingProvider>(
+                Mock.Of<IHttpClientFactory>(),
+                Mock.Of<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
+                Mock.Of<ILogger<SECInsiderTradingProvider>>());
+
             return new(
                 _mockMarketDataProvider.Object,
                 _mockChipDataProvider.Object,
@@ -31,7 +37,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Builder
                 _mockProviderFactory.Object,
                 _mockIndicatorEngine.Object,
                 _weightConfig,
-                _mockLogger.Object);
+                _mockLogger.Object,
+                mockInsiderProvider.Object);
         }
 
         private MarketData CreateMockMarketData()
