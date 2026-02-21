@@ -158,20 +158,20 @@ function Finance() {
   const isSearchTab = analysisTab === TAB_QUANTITATIVE || analysisTab === TAB_AI_TREND;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
       {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h5" component="h1" fontWeight="bold" sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
           📈 Finance Dashboard
         </Typography>
-        <Typography variant="subtitle1" color="text.secondary">{currentDate}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>{currentDate}</Typography>
       </Stack>
 
       {/* Macro Economy Overview — shown before search results */}
       {!hasStockResults && <MacroEconomyOverview />}
 
       {/* Tabs */}
-      <Paper sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider' }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 2, border: '1px solid', borderColor: 'divider' }}>
         <Tabs value={analysisTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ mb: 2 }}>
           <Tab label="📊 綜合量化分析" />
           <Tab label="🤖 AI 趨勢分析" />
@@ -190,23 +190,34 @@ function Finance() {
         {/* Search bar for stock analysis tabs */}
         {isSearchTab && (
           <>
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Stack direction="row" spacing={1} alignItems="center">
               <TextField
-                fullWidth variant="outlined"
-                placeholder="輸入股票代碼 (例如: 2330, 台積電, AAPL, TSLA)"
+                fullWidth variant="outlined" size="small"
+                placeholder="股票代碼 (2330, AAPL...)"
                 value={stockSearchTerm}
                 onChange={(e) => setStockSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleStockSearch()}
                 disabled={isAnyAnalyzing || (analysisTab === TAB_AI_TREND && !isAuthenticated)}
-                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
+                  endAdornment: hasStockResults ? (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={clearSearchResults} disabled={isAnyAnalyzing} edge="end">
+                        <RefreshIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : undefined,
+                }}
                 sx={{ flexGrow: 1 }}
               />
-              <Button variant="contained" onClick={handleStockSearch} disabled={isAnyAnalyzing || !stockSearchTerm.trim() || (analysisTab === TAB_AI_TREND && !isAuthenticated)} sx={{ minWidth: 120, height: 56 }}>
-                {isAnyAnalyzing ? <CircularProgress size={20} color="inherit" /> : '分析'}
+              <Button
+                variant="contained"
+                onClick={handleStockSearch}
+                disabled={isAnyAnalyzing || !stockSearchTerm.trim() || (analysisTab === TAB_AI_TREND && !isAuthenticated)}
+                sx={{ minWidth: { xs: 56, sm: 100 }, height: 40, px: { xs: 1, sm: 3 } }}
+              >
+                {isAnyAnalyzing ? <CircularProgress size={18} color="inherit" /> : <>{<Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>分析</Box>}<Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}><SearchIcon fontSize="small" /></Box></>}
               </Button>
-              {hasStockResults && (
-                <Button variant="outlined" onClick={clearSearchResults} disabled={isAnyAnalyzing} sx={{ height: 56 }}>清除</Button>
-              )}
             </Stack>
             {isAnyAnalyzing && (
               <Box sx={{ mt: 2 }}>
