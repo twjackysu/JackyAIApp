@@ -30,10 +30,13 @@ namespace JackyAIApp.Server.Services.Finance
             services.AddSingleton<IIndicatorCalculator, VolumeRatioCalculator>();
             services.AddSingleton<IIndicatorCalculator, BollingerBandCalculator>();
 
-            // Chip indicators
+            // Chip indicators (TW)
             services.AddSingleton<IIndicatorCalculator, MarginIndicatorCalculator>();
             services.AddSingleton<IIndicatorCalculator, ForeignHoldingCalculator>();
             services.AddSingleton<IIndicatorCalculator, DirectorPledgeCalculator>();
+
+            // Chip indicators (US)
+            services.AddSingleton<IIndicatorCalculator, InsiderTradingCalculator>();
 
             // Fundamental indicators
             services.AddSingleton<IIndicatorCalculator, PERatioCalculator>();
@@ -69,6 +72,7 @@ namespace JackyAIApp.Server.Services.Finance
             // === US market data providers ===
             services.AddScoped<YahooFinanceMarketDataProvider>();
             services.AddScoped<SECFundamentalDataProvider>();
+            services.AddScoped<SECInsiderTradingProvider>();
 
             // Market data provider factory (routes TW/US)
             services.AddScoped<IMarketDataProviderFactory, MarketDataProviderFactory>();

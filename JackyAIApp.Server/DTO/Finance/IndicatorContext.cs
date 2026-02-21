@@ -17,6 +17,9 @@ namespace JackyAIApp.Server.DTO.Finance
         /// <summary>Chip data (may be null if not fetched)</summary>
         public ChipData? Chips { get; set; }
 
+        /// <summary>Insider trading summary (US stocks only, may be null)</summary>
+        public InsiderTradingSummary? InsiderTrading { get; set; }
+
         /// <summary>
         /// Convenience: get the latest closing price.
         /// </summary>
