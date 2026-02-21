@@ -21,6 +21,7 @@ import {
   useAnalyzeStockMutation,
   useGetComprehensiveAnalysisMutation,
 } from '@/apis/financeApis';
+import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { StockTrendAnalysis, StockAnalysisResultData } from '@/apis/financeApis/types';
 
 import {
@@ -55,6 +56,8 @@ function Finance() {
     fundamentalWeight: 0.2,
   });
   const currentDate = useMemo(() => getCurrentDate(), []);
+  const { data: userInfo } = useGetUserInfoQuery();
+  const isAuthenticated = !!userInfo?.data;
 
   const {
     data: apiResponse,
@@ -65,8 +68,8 @@ function Finance() {
     isFetching: isMarketFetching,
   } = useGetDailyImportantInfoQuery(undefined, {
     refetchOnMountOrArgChange: true,
-    // Only fetch when market summary tab is active
-    skip: analysisTab !== TAB_MARKET_SUMMARY,
+    // Only fetch when market summary tab is active AND user is authenticated
+    skip: analysisTab !== TAB_MARKET_SUMMARY || !isAuthenticated,
   });
 
   const [analyzeStock, { isLoading: isAnalyzing, error: analysisError, reset: resetAnalysis }] =
@@ -111,6 +114,10 @@ function Finance() {
         setAnalysisResults(null);
       }
     } else if (analysisTab === TAB_AI_TREND) {
+      if (!isAuthenticated) {
+        window.location.href = `/api/account/login/Google?ReturnUrl=${encodeURIComponent(window.location.pathname)}`;
+        return;
+      }
       try {
         resetAnalysis();
         setAnalysisResults(null);
@@ -162,6 +169,15 @@ function Finance() {
           <Tab label="📰 今日市場AI摘要" />
         </Tabs>
 
+        {/* Login prompt for AI tabs */}
+        {!isAuthenticated && analysisTab === TAB_AI_TREND && (
+          <Alert severity="info" sx={{ mb: 2 }} action={
+            <Button color="inherit" size="small" onClick={() => { window.location.href = '/api/account/login/Google'; }}>登入</Button>
+          }>
+            AI 趨勢分析需要登入才能使用（會消耗 AI token）
+          </Alert>
+        )}
+
         {/* Search bar for stock analysis tabs */}
         {isSearchTab && (
           <>
@@ -172,11 +188,11 @@ function Finance() {
                 value={stockSearchTerm}
                 onChange={(e) => setStockSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleStockSearch()}
-                disabled={isAnyAnalyzing}
+                disabled={isAnyAnalyzing || (analysisTab === TAB_AI_TREND && !isAuthenticated)}
                 InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
                 sx={{ flexGrow: 1 }}
               />
-              <Button variant="contained" onClick={handleStockSearch} disabled={isAnyAnalyzing || !stockSearchTerm.trim()} sx={{ minWidth: 120, height: 56 }}>
+              <Button variant="contained" onClick={handleStockSearch} disabled={isAnyAnalyzing || !stockSearchTerm.trim() || (analysisTab === TAB_AI_TREND && !isAuthenticated)} sx={{ minWidth: 120, height: 56 }}>
                 {isAnyAnalyzing ? <CircularProgress size={20} color="inherit" /> : '分析'}
               </Button>
               {hasStockResults && (
@@ -229,7 +245,14 @@ function Finance() {
       {analysisResults && <ComprehensiveAnalysisResult data={analysisResults} />}
 
       {/* Market Summary Tab Content */}
-      {analysisTab === TAB_MARKET_SUMMARY && (
+      {analysisTab === TAB_MARKET_SUMMARY && !isAuthenticated && (
+        <Alert severity="info" sx={{ mb: 3 }} action={
+          <Button color="inherit" size="small" onClick={() => { window.location.href = '/api/account/login/Google'; }}>登入</Button>
+        }>
+          今日市場AI摘要需要登入才能使用（會消耗 AI token）
+        </Alert>
+      )}
+      {analysisTab === TAB_MARKET_SUMMARY && isAuthenticated && (
         <>
           {(isMarketLoading || isMarketFetching) && (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 5 }}>

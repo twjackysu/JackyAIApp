@@ -61,6 +61,17 @@ try
         options.Cookie.MaxAge = TimeSpan.FromDays(1);
         options.ExpireTimeSpan = TimeSpan.FromDays(1);
         options.SlidingExpiration = true; // Auto-renew while active
+        // For API requests, return 401 instead of redirecting to login page
+        options.Events.OnRedirectToLogin = context =>
+        {
+            if (context.Request.Path.StartsWithSegments("/api"))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            }
+            context.Response.Redirect(context.RedirectUri);
+            return Task.CompletedTask;
+        };
         options.LoginPath = "/api/account/login/Google";
     })
     .AddGoogle(googleOptions =>
