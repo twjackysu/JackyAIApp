@@ -12,33 +12,46 @@ namespace JackyAIApp.Server.Services.Finance.Indicators
 
         public bool CanCalculate(IndicatorContext context)
         {
-            return context.Fundamentals?.MonthlyRevenue != null;
+            // Need revenue AND at least YoY to be meaningful
+            return context.Fundamentals?.MonthlyRevenue != null
+                && context.Fundamentals.RevenueYoY != null;
         }
 
         public IndicatorResult Calculate(IndicatorContext context)
         {
             var fund = context.Fundamentals!;
-            var yoy = fund.RevenueYoY ?? 0;
+            var yoy = fund.RevenueYoY!.Value;
             var mom = fund.RevenueMoM ?? 0;
             var revenue = fund.MonthlyRevenue!.Value;
+            var hasMoM = fund.RevenueMoM.HasValue;
 
             var (signal, direction, score) = Evaluate(yoy, mom);
+
+            var subValues = new Dictionary<string, decimal>
+            {
+                ["Revenue"] = revenue,
+                ["RevenueYoY"] = yoy,
+            };
+            if (hasMoM) subValues["RevenueMoM"] = mom;
+
+            // Build reason — adapt for TW (monthly, 千元) vs US (quarterly, millions)
+            var period = !string.IsNullOrEmpty(fund.RevenueMonth) ? $"（{fund.RevenueMonth}）" : "";
+            var revenueLabel = revenue >= 1000
+                ? $"營收={revenue / 1000:F0}B{period}"
+                : $"營收={revenue:F0}M{period}";
+            var growthParts = $"年增={yoy:F1}%";
+            if (hasMoM) growthParts += $"，月增={mom:F1}%";
 
             return new IndicatorResult
             {
                 Name = Name,
                 Category = Category,
                 Value = yoy,
-                SubValues = new Dictionary<string, decimal>
-                {
-                    ["MonthlyRevenue"] = revenue,
-                    ["RevenueYoY"] = yoy,
-                    ["RevenueMoM"] = mom
-                },
+                SubValues = subValues,
                 Signal = signal,
                 Direction = direction,
                 Score = score,
-                Reason = $"月營收={revenue / 1000:F0}百萬，年增={yoy:F1}%，月增={mom:F1}%，{signal}"
+                Reason = $"{revenueLabel}，{growthParts}，{signal}"
             };
         }
 
