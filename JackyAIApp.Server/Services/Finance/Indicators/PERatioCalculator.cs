@@ -24,12 +24,14 @@ namespace JackyAIApp.Server.Services.Finance.Indicators
             var subValues = new Dictionary<string, decimal> { ["PERatio"] = pe };
             if (fund.TrailingEPS.HasValue) subValues["TrailingEPS"] = fund.TrailingEPS.Value;
 
+            // P/E uses TrailingEPS (TTM/annual), so show TrailingEpsDataPeriod
+            var epsPeriod = fund.TrailingEpsDataPeriod ?? fund.EpsDataPeriod;
             var reason = $"本益比={pe:F2}";
             if (fund.TrailingEPS.HasValue)
                 reason += $"（EPS={fund.TrailingEPS.Value:F2}";
-            if (!string.IsNullOrEmpty(fund.EpsDataPeriod))
-                reason += fund.TrailingEPS.HasValue ? $", {fund.EpsDataPeriod}" : $"（{fund.EpsDataPeriod}";
-            if (fund.TrailingEPS.HasValue || !string.IsNullOrEmpty(fund.EpsDataPeriod))
+            if (!string.IsNullOrEmpty(epsPeriod))
+                reason += fund.TrailingEPS.HasValue ? $", {epsPeriod}" : $"（{epsPeriod}";
+            if (fund.TrailingEPS.HasValue || !string.IsNullOrEmpty(epsPeriod))
                 reason += "）";
             reason += $"，{signal}";
 
