@@ -68,8 +68,11 @@ namespace JackyAIApp.Server.DTO.Finance
         /// <summary>近四季累計 EPS (元)</summary>
         public decimal? TrailingEPS { get; set; }
 
-        /// <summary>EPS 資料期間描述 (e.g., "114年Q4", "Q1 FY2026 ending 2025-12-27")</summary>
+        /// <summary>單季 EPS 資料期間描述 (e.g., "114年Q4", "2025-10-01 ~ 2025-12-31")</summary>
         public string? EpsDataPeriod { get; set; }
+
+        /// <summary>TTM/年度 EPS 資料期間描述 (e.g., "TTM 2025-01-01 ~ 2025-12-31")</summary>
+        public string? TrailingEpsDataPeriod { get; set; }
 
         /// <summary>營業利益 (千元)</summary>
         public decimal? OperatingIncome { get; set; }

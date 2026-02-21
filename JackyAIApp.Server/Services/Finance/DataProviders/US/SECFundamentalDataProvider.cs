@@ -168,7 +168,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             if (ttmResult.HasValue)
             {
                 result.TrailingEPS = ttmResult.Value.ttmEps;
-                result.EpsDataPeriod = ttmResult.Value.period;
+                result.TrailingEpsDataPeriod = ttmResult.Value.period;
                 hasData = true;
             }
             else
@@ -178,7 +178,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
                 if (annualEntry.HasValue)
                 {
                     result.TrailingEPS = annualEntry.Value.val;
-                    result.EpsDataPeriod ??= FormatEpsPeriod(annualEntry.Value);
+                    result.TrailingEpsDataPeriod = FormatEpsPeriod(annualEntry.Value);
                     hasData = true;
                 }
             }
