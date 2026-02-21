@@ -18,7 +18,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
 
         private const string TICKERS_URL = "https://www.sec.gov/files/company_tickers.json";
         private const string FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{0}.json";
-        private const string USER_AGENT = "JackyAIApp/1.0 jackysu@example.com";
+        private const string USER_AGENT = "JackyAIApp/1.0 jacky19918@gmail.com";
         private const int CACHE_HOURS = 12;
 
         public SECFundamentalDataProvider(
