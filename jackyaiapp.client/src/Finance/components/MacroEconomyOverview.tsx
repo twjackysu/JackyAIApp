@@ -278,16 +278,16 @@ export const MacroEconomyOverview = () => {
         🏛️ 總體經濟概覽
       </Typography>
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} md={6}>
           <MarketIndexSection data={data.marketIndex} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} md={6}>
           <SectorSection sectors={data.sectorIndices} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} md={6}>
           <MarginSection data={data} />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} md={6}>
           <FxAndRateSection data={data} />
         </Grid>
       </Grid>
