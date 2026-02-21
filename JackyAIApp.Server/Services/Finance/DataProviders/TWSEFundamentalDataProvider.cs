@@ -75,6 +75,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 result.EPS = eps.EPS;
                 result.OperatingIncome = eps.OperatingIncome;
                 result.NetIncome = eps.NetIncome;
+                result.EpsDataPeriod = eps.EpsDataPeriod;
                 hasData = true;
             }
             else if (result.PERatio > 0)
@@ -157,11 +158,22 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
                 if (stock.ValueKind == JsonValueKind.Undefined) return null;
 
+                // Build EPS data period from 年度 + 季別 fields
+                var year = stock.TryGetProperty("年度", out var y) ? y.GetString()?.Trim() : null;
+                var quarter = stock.TryGetProperty("季別", out var q) ? q.GetString()?.Trim() : null;
+                string? epsPeriod = (year, quarter) switch
+                {
+                    (not null, not null) => $"{year}年Q{quarter}",
+                    (not null, _) => $"{year}年",
+                    _ => null
+                };
+
                 return new FundamentalData
                 {
                     EPS = ParseDecimalFromChinese(stock, "基本每股盈餘(元)"),
                     OperatingIncome = ParseDecimalFromChinese(stock, "營業利益"),
-                    NetIncome = ParseDecimalFromChinese(stock, "稅後淨利")
+                    NetIncome = ParseDecimalFromChinese(stock, "稅後淨利"),
+                    EpsDataPeriod = epsPeriod
                 };
             }
             catch (Exception ex)

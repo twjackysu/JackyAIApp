@@ -154,19 +154,22 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             var result = new FundamentalData();
             var hasData = false;
 
-            // EPS (Diluted) — get latest quarterly
-            var latestQuarterlyEps = GetLatestQuarterlyValue(usgaap, "EarningsPerShareDiluted", "USD/shares");
+            // EPS (Diluted) — get latest quarterly + period info
+            var latestQuarterlyEps = GetLatestQuarterlyEntry(usgaap, "EarningsPerShareDiluted", "USD/shares");
             if (latestQuarterlyEps.HasValue)
             {
-                result.EPS = latestQuarterlyEps.Value;
+                result.EPS = latestQuarterlyEps.Value.val;
+                result.EpsDataPeriod = FormatEpsPeriod(latestQuarterlyEps.Value);
                 hasData = true;
             }
 
-            // Trailing EPS (annual) — get latest 10-K or sum of last 4 quarters
-            var trailingEps = GetLatestAnnualValue(usgaap, "EarningsPerShareDiluted", "USD/shares");
-            if (trailingEps.HasValue)
+            // Trailing EPS (annual) — get latest 10-K
+            var trailingEpsEntry = GetLatestAnnualEntry(usgaap, "EarningsPerShareDiluted", "USD/shares");
+            if (trailingEpsEntry.HasValue)
             {
-                result.TrailingEPS = trailingEps.Value;
+                result.TrailingEPS = trailingEpsEntry.Value.val;
+                // If no quarterly EPS period, use annual
+                result.EpsDataPeriod ??= FormatEpsPeriod(trailingEpsEntry.Value);
                 hasData = true;
             }
 
@@ -237,75 +240,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
 
         /// <summary>Get latest quarterly value (single-quarter, not cumulative)</summary>
         private decimal? GetLatestQuarterlyValue(JsonElement usgaap, string concept, string unitType)
-        {
-            if (!usgaap.TryGetProperty(concept, out var conceptEl)) return null;
-            if (!conceptEl.TryGetProperty("units", out var units)) return null;
-            if (!units.TryGetProperty(unitType, out var entries)) return null;
-
-            // Get entries from 10-Q and 10-K, prefer single-quarter periods
-            var filings = new List<(string start, string end, string form, decimal val)>();
-            foreach (var entry in entries.EnumerateArray())
-            {
-                if (!entry.TryGetProperty("form", out var formEl)) continue;
-                var form = formEl.GetString();
-                if (form != "10-Q" && form != "10-K") continue;
-
-                var endDate = entry.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "";
-                var startDate = entry.TryGetProperty("start", out var s) ? s.GetString() ?? "" : "";
-                var val = entry.TryGetProperty("val", out var v) ? GetDecimal(v) : null;
-
-                if (val.HasValue && !string.IsNullOrEmpty(endDate))
-                    filings.Add((startDate, endDate, form ?? "", val.Value));
-            }
-
-            if (filings.Count == 0) return null;
-
-            // Prefer entries with shorter periods (quarterly, ~90 days)
-            var quarterly = filings
-                .Where(f => !string.IsNullOrEmpty(f.start))
-                .Where(f =>
-                {
-                    if (DateTime.TryParse(f.start, out var s) && DateTime.TryParse(f.end, out var e))
-                        return (e - s).TotalDays < 120;
-                    return false;
-                })
-                .OrderByDescending(f => f.end)
-                .FirstOrDefault();
-
-            if (quarterly != default) return quarterly.val;
-
-            // Fallback to latest entry
-            return filings.OrderByDescending(f => f.end).First().val;
-        }
+            => GetLatestQuarterlyEntry(usgaap, concept, unitType)?.val;
 
         /// <summary>Get latest annual (10-K or full-year cumulative) value</summary>
         private decimal? GetLatestAnnualValue(JsonElement usgaap, string concept, string unitType)
-        {
-            if (!usgaap.TryGetProperty(concept, out var conceptEl)) return null;
-            if (!conceptEl.TryGetProperty("units", out var units)) return null;
-            if (!units.TryGetProperty(unitType, out var entries)) return null;
-
-            decimal? latest = null;
-            string latestEnd = "";
-
-            foreach (var entry in entries.EnumerateArray())
-            {
-                if (!entry.TryGetProperty("form", out var formEl)) continue;
-                var form = formEl.GetString();
-                if (form != "10-K") continue;
-
-                var endDate = entry.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "";
-                var val = entry.TryGetProperty("val", out var v) ? GetDecimal(v) : null;
-
-                if (val.HasValue && string.Compare(endDate, latestEnd) > 0)
-                {
-                    latest = val;
-                    latestEnd = endDate;
-                }
-            }
-
-            return latest;
-        }
+            => GetLatestAnnualEntry(usgaap, concept, unitType)?.val;
 
         /// <summary>Get latest value regardless of form type</summary>
         private decimal? GetLatestValue(JsonElement usgaap, string concept, string unitType)
@@ -333,6 +272,91 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             }
 
             return latest;
+        }
+
+        private record struct FilingEntry(string start, string end, string form, decimal val);
+
+        /// <summary>Get latest quarterly filing entry with full period info</summary>
+        private FilingEntry? GetLatestQuarterlyEntry(JsonElement usgaap, string concept, string unitType)
+        {
+            if (!usgaap.TryGetProperty(concept, out var conceptEl)) return null;
+            if (!conceptEl.TryGetProperty("units", out var units)) return null;
+            if (!units.TryGetProperty(unitType, out var entries)) return null;
+
+            var filings = new List<FilingEntry>();
+            foreach (var entry in entries.EnumerateArray())
+            {
+                if (!entry.TryGetProperty("form", out var formEl)) continue;
+                var form = formEl.GetString();
+                if (form != "10-Q" && form != "10-K") continue;
+
+                var endDate = entry.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "";
+                var startDate = entry.TryGetProperty("start", out var s) ? s.GetString() ?? "" : "";
+                var val = entry.TryGetProperty("val", out var v) ? GetDecimal(v) : null;
+
+                if (val.HasValue && !string.IsNullOrEmpty(endDate))
+                    filings.Add(new FilingEntry(startDate, endDate, form ?? "", val.Value));
+            }
+
+            if (filings.Count == 0) return null;
+
+            // Prefer single-quarter entries (~90 days)
+            var quarterly = filings
+                .Where(f => !string.IsNullOrEmpty(f.start))
+                .Where(f =>
+                {
+                    if (DateTime.TryParse(f.start, out var s) && DateTime.TryParse(f.end, out var e))
+                        return (e - s).TotalDays < 120;
+                    return false;
+                })
+                .OrderByDescending(f => f.end)
+                .FirstOrDefault();
+
+            return quarterly != default ? quarterly : filings.OrderByDescending(f => f.end).First();
+        }
+
+        /// <summary>Get latest annual (10-K) filing entry with full period info</summary>
+        private FilingEntry? GetLatestAnnualEntry(JsonElement usgaap, string concept, string unitType)
+        {
+            if (!usgaap.TryGetProperty(concept, out var conceptEl)) return null;
+            if (!conceptEl.TryGetProperty("units", out var units)) return null;
+            if (!units.TryGetProperty(unitType, out var entries)) return null;
+
+            FilingEntry? latest = null;
+
+            foreach (var entry in entries.EnumerateArray())
+            {
+                if (!entry.TryGetProperty("form", out var formEl)) continue;
+                if (formEl.GetString() != "10-K") continue;
+
+                var endDate = entry.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "";
+                var startDate = entry.TryGetProperty("start", out var s) ? s.GetString() ?? "" : "";
+                var val = entry.TryGetProperty("val", out var v) ? GetDecimal(v) : null;
+
+                if (val.HasValue && (latest == null || string.Compare(endDate, latest.Value.end) > 0))
+                    latest = new FilingEntry(startDate, endDate, "10-K", val.Value);
+            }
+
+            return latest;
+        }
+
+        /// <summary>Format filing entry into human-readable EPS period description</summary>
+        private static string FormatEpsPeriod(FilingEntry entry)
+        {
+            var isAnnual = entry.form == "10-K";
+            if (isAnnual)
+                return $"FY ending {entry.end}";
+
+            // Quarterly: determine Q number from end date month
+            if (DateTime.TryParse(entry.end, out var endDate))
+            {
+                var periodLabel = $"Q ending {entry.end}";
+                if (DateTime.TryParse(entry.start, out var startDate))
+                    periodLabel = $"{entry.start} ~ {entry.end}";
+                return periodLabel;
+            }
+
+            return $"{entry.form} ending {entry.end}";
         }
 
         private string? GetLatestFilingPeriod(JsonElement usgaap, string concept, string unitType)

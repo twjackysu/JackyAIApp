@@ -36,7 +36,9 @@ namespace JackyAIApp.Server.Services.Finance.Indicators
                 Signal = signal,
                 Direction = direction,
                 Score = score,
-                Reason = $"每股盈餘={eps:F2}元，{signal}"
+                Reason = string.IsNullOrEmpty(fund.EpsDataPeriod)
+                    ? $"每股盈餘={eps:F2}元，{signal}"
+                    : $"每股盈餘={eps:F2}元（{fund.EpsDataPeriod}），{signal}"
             };
         }
 
