@@ -17,19 +17,32 @@ namespace JackyAIApp.Server.Services.Finance.Indicators
 
         public IndicatorResult Calculate(IndicatorContext context)
         {
-            var pe = context.Fundamentals!.PERatio!.Value;
+            var fund = context.Fundamentals!;
+            var pe = fund.PERatio!.Value;
             var (signal, direction, score) = Evaluate(pe);
+
+            var subValues = new Dictionary<string, decimal> { ["PERatio"] = pe };
+            if (fund.TrailingEPS.HasValue) subValues["TrailingEPS"] = fund.TrailingEPS.Value;
+
+            var reason = $"本益比={pe:F2}";
+            if (fund.TrailingEPS.HasValue)
+                reason += $"（EPS={fund.TrailingEPS.Value:F2}";
+            if (!string.IsNullOrEmpty(fund.EpsDataPeriod))
+                reason += fund.TrailingEPS.HasValue ? $", {fund.EpsDataPeriod}" : $"（{fund.EpsDataPeriod}";
+            if (fund.TrailingEPS.HasValue || !string.IsNullOrEmpty(fund.EpsDataPeriod))
+                reason += "）";
+            reason += $"，{signal}";
 
             return new IndicatorResult
             {
                 Name = Name,
                 Category = Category,
                 Value = pe,
-                SubValues = new Dictionary<string, decimal> { ["PERatio"] = pe },
+                SubValues = subValues,
                 Signal = signal,
                 Direction = direction,
                 Score = score,
-                Reason = $"本益比={pe:F2}，{signal}"
+                Reason = reason
             };
         }
 
