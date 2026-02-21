@@ -183,12 +183,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
                 }
             }
 
-            // Revenue — latest quarterly
-            var revenue = GetLatestQuarterlyValue(usgaap, "RevenueFromContractWithCustomerExcludingAssessedTax", "USD")
-                       ?? GetLatestQuarterlyValue(usgaap, "Revenues", "USD");
-            if (revenue.HasValue)
+            // Revenue — latest quarterly + YoY computation
+            var revenueResult = ComputeQuarterlyRevenueWithYoY(usgaap);
+            if (revenueResult.HasValue)
             {
-                result.MonthlyRevenue = revenue.Value / 1000; // Convert to thousands for consistency
+                result.MonthlyRevenue = revenueResult.Value.revenue / 1_000_000; // Store in millions (USD)
+                result.RevenueYoY = revenueResult.Value.yoy;
+                result.RevenueMonth = revenueResult.Value.period;
                 hasData = true;
             }
 
@@ -286,16 +287,74 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
 
         /// <summary>
         /// Compute TTM (Trailing Twelve Months) EPS by summing the last 4 single-quarter EPS values.
-        /// Deduplicates by period (start~end) to handle amended filings.
+        /// Uses GetAllSingleQuarterEntries which handles non-calendar fiscal years.
         /// </summary>
         private (decimal ttmEps, string period)? ComputeTTMEps(JsonElement usgaap)
         {
-            if (!usgaap.TryGetProperty("EarningsPerShareDiluted", out var conceptEl)) return null;
-            if (!conceptEl.TryGetProperty("units", out var units)) return null;
-            if (!units.TryGetProperty("USD/shares", out var entries)) return null;
+            var quarterlyEntries = GetAllSingleQuarterEntries(usgaap, "EarningsPerShareDiluted", "USD/shares");
+
+            if (quarterlyEntries.Count < 4) return null;
+
+            quarterlyEntries.Sort((a, b) => string.Compare(a.end, b.end));
+            var last4 = quarterlyEntries.Skip(quarterlyEntries.Count - 4).ToList();
+
+            var ttm = last4.Sum(q => q.val);
+            var period = $"TTM {last4[0].start} ~ {last4[3].end}";
+
+            return (Math.Round(ttm, 2), period);
+        }
+
+        /// <summary>
+        /// Get latest quarterly revenue with YoY growth computed from same quarter last year.
+        /// Derives Q4 from 10-K minus cumulative Q3 for non-calendar fiscal years.
+        /// </summary>
+        private (decimal revenue, decimal? yoy, string period)? ComputeQuarterlyRevenueWithYoY(JsonElement usgaap)
+        {
+            // Try both common revenue concept names
+            var concept = "RevenueFromContractWithCustomerExcludingAssessedTax";
+            if (!usgaap.TryGetProperty(concept, out _))
+            {
+                concept = "Revenues";
+                if (!usgaap.TryGetProperty(concept, out _)) return null;
+            }
+
+            var quarterlyEntries = GetAllSingleQuarterEntries(usgaap, concept, "USD");
+            if (quarterlyEntries.Count == 0) return null;
+
+            quarterlyEntries.Sort((a, b) => string.Compare(a.end, b.end));
+            var latest = quarterlyEntries[^1];
+
+            // Find same quarter last year (~4 quarters back, match by similar month)
+            decimal? yoy = null;
+            if (DateTime.TryParse(latest.end, out var latestEnd))
+            {
+                var targetEnd = latestEnd.AddYears(-1);
+                var prevYear = quarterlyEntries
+                    .Where(q => q.end != latest.end && DateTime.TryParse(q.end, out var qEnd)
+                        && Math.Abs((qEnd - targetEnd).TotalDays) < 45)
+                    .OrderBy(q => DateTime.TryParse(q.end, out var qEnd) ? Math.Abs((qEnd - targetEnd).TotalDays) : 999)
+                    .FirstOrDefault();
+
+                if (prevYear != default && prevYear.val > 0)
+                    yoy = Math.Round(((latest.val - prevYear.val) / prevYear.val) * 100, 1);
+            }
+
+            var period = $"{latest.start} ~ {latest.end}";
+            return (latest.val, yoy, period);
+        }
+
+        /// <summary>
+        /// Parse all single-quarter entries for a concept, including Q4 derived from 10-K minus cumulative Q3.
+        /// Handles non-calendar fiscal years (e.g. MSFT Jul-Jun, AAPL Oct-Sep).
+        /// </summary>
+        private List<FilingEntry> GetAllSingleQuarterEntries(JsonElement usgaap, string concept, string unitType)
+        {
+            if (!usgaap.TryGetProperty(concept, out var conceptEl)) return new();
+            if (!conceptEl.TryGetProperty("units", out var units)) return new();
+            if (!units.TryGetProperty(unitType, out var entries)) return new();
 
             var seen = new HashSet<string>();
-            var quarterlyEntries = new List<FilingEntry>();
+            var allEntries = new List<FilingEntry>();
 
             foreach (var entry in entries.EnumerateArray())
             {
@@ -309,31 +368,54 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
 
                 if (!val.HasValue || string.IsNullOrEmpty(startDate) || string.IsNullOrEmpty(endDate)) continue;
 
-                // Only single-quarter periods (60-120 days)
-                if (DateTime.TryParse(startDate, out var sd) && DateTime.TryParse(endDate, out var ed))
-                {
-                    var days = (ed - sd).TotalDays;
-                    if (days < 60 || days > 120) continue;
-                }
-                else continue;
-
-                // Deduplicate by period (amended filings have same period)
                 var periodKey = $"{startDate}~{endDate}";
                 if (!seen.Add(periodKey)) continue;
 
-                quarterlyEntries.Add(new FilingEntry(startDate, endDate, form ?? "", val.Value));
+                allEntries.Add(new FilingEntry(startDate, endDate, form ?? "", val.Value));
             }
 
-            if (quarterlyEntries.Count < 4) return null;
+            var quarterlyEntries = new List<FilingEntry>();
+            var annualEntries = new List<FilingEntry>();
+            var cumulativeQ3 = new List<FilingEntry>();
 
-            // Sort by end date, take last 4
-            quarterlyEntries.Sort((a, b) => string.Compare(a.end, b.end));
-            var last4 = quarterlyEntries.Skip(quarterlyEntries.Count - 4).ToList();
+            foreach (var e in allEntries)
+            {
+                if (!DateTime.TryParse(e.start, out var sd) || !DateTime.TryParse(e.end, out var ed)) continue;
+                var days = (ed - sd).TotalDays;
 
-            var ttm = last4.Sum(q => q.val);
-            var period = $"TTM {last4[0].start} ~ {last4[3].end}";
+                if (days > 60 && days < 120)
+                    quarterlyEntries.Add(e);
+                else if (days > 330 && days < 400 && e.form == "10-K")
+                    annualEntries.Add(e);
+                else if (days > 240 && days < 300)
+                    cumulativeQ3.Add(e);
+            }
 
-            return (Math.Round(ttm, 2), period);
+            // Derive missing Q4: Q4 = 10-K annual - cumulative Q3 (same fiscal year start)
+            foreach (var annual in annualEntries)
+            {
+                var matchingQ3 = cumulativeQ3
+                    .Where(q => q.start == annual.start)
+                    .OrderByDescending(q => q.end)
+                    .FirstOrDefault();
+
+                if (matchingQ3 == default) continue;
+
+                if (DateTime.TryParse(matchingQ3.end, out var q3End))
+                {
+                    var q4Start = q3End.AddDays(1).ToString("yyyy-MM-dd");
+                    var q4Exists = quarterlyEntries.Any(q =>
+                        q.start == q4Start || q.start == matchingQ3.end);
+
+                    if (!q4Exists)
+                    {
+                        var derivedQ4 = Math.Round(annual.val - matchingQ3.val, 2);
+                        quarterlyEntries.Add(new FilingEntry(q4Start, annual.end, "10-K-derived", derivedQ4));
+                    }
+                }
+            }
+
+            return quarterlyEntries;
         }
 
         private record struct FilingEntry(string start, string end, string form, decimal val);
