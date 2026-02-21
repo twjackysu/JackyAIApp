@@ -31,6 +31,29 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             _logger = logger;
         }
 
+        /// <summary>
+        /// Compute derived ratios from SEC raw values using market price.
+        /// SEC provides EPS, BVPS, annual dividend — not P/E, P/B, yield%.
+        /// </summary>
+        public void EnrichWithMarketPrice(FundamentalData data, decimal latestPrice)
+        {
+            if (latestPrice <= 0) return;
+
+            // P/E = Price / Trailing EPS (annual)
+            if (data.PERatio == null && data.TrailingEPS.HasValue && data.TrailingEPS.Value > 0)
+                data.PERatio = Math.Round(latestPrice / data.TrailingEPS.Value, 2);
+
+            // P/B = Price / Book Value Per Share
+            // SEC provider stores BVPS in PBRatio field
+            if (data.PBRatio.HasValue && data.PBRatio.Value > 0 && data.PBRatio.Value < latestPrice)
+                data.PBRatio = Math.Round(latestPrice / data.PBRatio.Value, 2);
+
+            // Dividend Yield % = (Annual Dividend / Price) * 100
+            // SEC provider stores annualized dividend amount in DividendYield field
+            if (data.DividendYield.HasValue && data.DividendYield.Value > 0 && data.DividendYield.Value < latestPrice)
+                data.DividendYield = Math.Round((data.DividendYield.Value / latestPrice) * 100, 2);
+        }
+
         public async Task<FundamentalData?> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
         {
             var symbol = stockCode.ToUpperInvariant();
