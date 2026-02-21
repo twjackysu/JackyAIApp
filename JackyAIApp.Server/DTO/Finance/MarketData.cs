@@ -82,6 +82,9 @@ namespace JackyAIApp.Server.DTO.Finance
 
         /// <summary>營收資料年月 (e.g., "11501")</summary>
         public string? RevenueMonth { get; set; }
+
+        /// <summary>營收描述標籤，由 Provider 組好 (e.g., "月營收=1234百萬", "季營收=81.3B")</summary>
+        public string? RevenueLabel { get; set; }
     }
 
     /// <summary>

@@ -34,11 +34,8 @@ namespace JackyAIApp.Server.Services.Finance.Indicators
             };
             if (hasMoM) subValues["RevenueMoM"] = mom;
 
-            // Build reason — adapt for TW (monthly, 千元) vs US (quarterly, millions)
-            var period = !string.IsNullOrEmpty(fund.RevenueMonth) ? $"（{fund.RevenueMonth}）" : "";
-            var revenueLabel = revenue >= 1000
-                ? $"營收={revenue / 1000:F0}B{period}"
-                : $"營收={revenue:F0}M{period}";
+            // Use provider-supplied label, no market-specific logic here
+            var revenueLabel = fund.RevenueLabel ?? $"營收={revenue:F0}";
             var growthParts = $"年增={yoy:F1}%";
             if (hasMoM) growthParts += $"，月增={mom:F1}%";
 

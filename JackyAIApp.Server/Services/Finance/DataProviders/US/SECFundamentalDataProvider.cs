@@ -187,9 +187,16 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             var revenueResult = ComputeQuarterlyRevenueWithYoY(usgaap);
             if (revenueResult.HasValue)
             {
-                result.MonthlyRevenue = revenueResult.Value.revenue / 1_000_000; // Store in millions (USD)
+                var revUsd = revenueResult.Value.revenue;
+                result.MonthlyRevenue = revUsd / 1_000_000; // Store in millions for calculations
                 result.RevenueYoY = revenueResult.Value.yoy;
                 result.RevenueMonth = revenueResult.Value.period;
+
+                // Build label with appropriate unit
+                var periodSuffix = $"（{revenueResult.Value.period}）";
+                result.RevenueLabel = revUsd >= 1_000_000_000
+                    ? $"季營收={revUsd / 1_000_000_000m:F1}B{periodSuffix}"
+                    : $"季營收={revUsd / 1_000_000m:F0}M{periodSuffix}";
                 hasData = true;
             }
 

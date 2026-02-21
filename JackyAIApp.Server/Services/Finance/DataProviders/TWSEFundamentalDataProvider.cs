@@ -65,6 +65,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 result.RevenueYoY = revenue.RevenueYoY;
                 result.RevenueMoM = revenue.RevenueMoM;
                 result.RevenueMonth = revenue.RevenueMonth;
+                result.RevenueLabel = revenue.RevenueLabel;
                 hasData = true;
             }
 
@@ -132,12 +133,25 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
                 if (stock.ValueKind == JsonValueKind.Undefined) return null;
 
+                var monthlyRevenue = ParseDecimalFromChinese(stock, "營業收入-當月營收");
+                var revenueMonth = stock.TryGetProperty("資料年月", out var rm) ? rm.GetString() : null;
+
+                // Build label: 月營收=XXX百萬（11501）
+                string? revenueLabel = null;
+                if (monthlyRevenue.HasValue)
+                {
+                    var millions = monthlyRevenue.Value / 1000;
+                    var periodSuffix = !string.IsNullOrEmpty(revenueMonth) ? $"（{revenueMonth}）" : "";
+                    revenueLabel = $"月營收={millions:F0}百萬{periodSuffix}";
+                }
+
                 return new FundamentalData
                 {
-                    MonthlyRevenue = ParseDecimalFromChinese(stock, "營業收入-當月營收"),
+                    MonthlyRevenue = monthlyRevenue,
                     RevenueYoY = ParseDecimalFromChinese(stock, "營業收入-去年同月增減(%)"),
                     RevenueMoM = ParseDecimalFromChinese(stock, "營業收入-上月比較增減(%)"),
-                    RevenueMonth = stock.TryGetProperty("資料年月", out var rm) ? rm.GetString() : null
+                    RevenueMonth = revenueMonth,
+                    RevenueLabel = revenueLabel
                 };
             }
             catch (Exception ex)
