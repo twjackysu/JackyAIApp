@@ -356,7 +356,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
         private HttpClient CreateClient()
         {
             var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("User-Agent", USER_AGENT);
+            // Must use TryAddWithoutValidation — .NET's strict header parser
+            // rejects User-Agent values containing '@' (email format).
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", USER_AGENT);
             return client;
         }
 
