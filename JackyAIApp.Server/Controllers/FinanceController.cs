@@ -418,7 +418,7 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
-            var configHash = $"{region}_{request.IncludeTechnical}_{request.IncludeChip}_{request.IncludeFundamental}_{request.IncludeScoring}_{request.IncludeRisk}";
+            var configHash = $"{region}_{request.IncludeTechnical}_{request.IncludeChip}_{request.IncludeFundamental}_{request.IncludeScoring}_{request.IncludeRisk}_{request.TechnicalWeight}_{request.ChipWeight}_{request.FundamentalWeight}";
             var cacheKey = $"ComprehensiveAnalysis_{resolvedStockCode}_{currentDate}_{configHash}";
 
             if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
