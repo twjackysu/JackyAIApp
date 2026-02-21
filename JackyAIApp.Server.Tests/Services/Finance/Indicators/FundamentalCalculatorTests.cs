@@ -121,7 +121,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Indicators
         public void RevenueGrowth_CanCalculate_ReturnsTrueWhenRevenuePresent()
         {
             var calc = new RevenueGrowthCalculator();
-            var ctx = new IndicatorContext { Fundamentals = new FundamentalData { MonthlyRevenue = 1000000 } };
+            var ctx = new IndicatorContext { Fundamentals = new FundamentalData { MonthlyRevenue = 1000000, RevenueYoY = 10 } };
             Assert.True(calc.CanCalculate(ctx));
         }
 

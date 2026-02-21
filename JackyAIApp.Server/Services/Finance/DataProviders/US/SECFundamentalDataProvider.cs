@@ -183,12 +183,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
                 }
             }
 
-            // Revenue — latest quarterly
-            var revenue = GetLatestQuarterlyValue(usgaap, "RevenueFromContractWithCustomerExcludingAssessedTax", "USD")
-                       ?? GetLatestQuarterlyValue(usgaap, "Revenues", "USD");
-            if (revenue.HasValue)
+            // Revenue — latest quarterly + YoY computation
+            var revenueResult = ComputeQuarterlyRevenueWithYoY(usgaap);
+            if (revenueResult.HasValue)
             {
-                result.MonthlyRevenue = revenue.Value / 1000; // Convert to thousands for consistency
+                result.MonthlyRevenue = revenueResult.Value.revenue / 1_000_000; // Store in millions (USD)
+                result.RevenueYoY = revenueResult.Value.yoy;
+                result.RevenueMonth = revenueResult.Value.period;
                 hasData = true;
             }
 
@@ -334,6 +335,76 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             var period = $"TTM {last4[0].start} ~ {last4[3].end}";
 
             return (Math.Round(ttm, 2), period);
+        }
+
+        /// <summary>
+        /// Get latest quarterly revenue with YoY growth computed from same quarter last year.
+        /// </summary>
+        private (decimal revenue, decimal? yoy, string period)? ComputeQuarterlyRevenueWithYoY(JsonElement usgaap)
+        {
+            // Try both common revenue concept names
+            var concept = "RevenueFromContractWithCustomerExcludingAssessedTax";
+            if (!usgaap.TryGetProperty(concept, out _))
+            {
+                concept = "Revenues";
+                if (!usgaap.TryGetProperty(concept, out _)) return null;
+            }
+
+            if (!usgaap.TryGetProperty(concept, out var conceptEl)) return null;
+            if (!conceptEl.TryGetProperty("units", out var units)) return null;
+            if (!units.TryGetProperty("USD", out var entries)) return null;
+
+            var seen = new HashSet<string>();
+            var quarterlyEntries = new List<FilingEntry>();
+
+            foreach (var entry in entries.EnumerateArray())
+            {
+                if (!entry.TryGetProperty("form", out var formEl)) continue;
+                var form = formEl.GetString();
+                if (form != "10-Q" && form != "10-K") continue;
+
+                var startDate = entry.TryGetProperty("start", out var s) ? s.GetString() ?? "" : "";
+                var endDate = entry.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "";
+                var val = entry.TryGetProperty("val", out var v) ? GetDecimal(v) : null;
+
+                if (!val.HasValue || string.IsNullOrEmpty(startDate) || string.IsNullOrEmpty(endDate)) continue;
+
+                if (DateTime.TryParse(startDate, out var sd) && DateTime.TryParse(endDate, out var ed))
+                {
+                    var days = (ed - sd).TotalDays;
+                    if (days < 60 || days > 120) continue;
+                }
+                else continue;
+
+                var periodKey = $"{startDate}~{endDate}";
+                if (!seen.Add(periodKey)) continue;
+
+                quarterlyEntries.Add(new FilingEntry(startDate, endDate, form ?? "", val.Value));
+            }
+
+            if (quarterlyEntries.Count == 0) return null;
+
+            quarterlyEntries.Sort((a, b) => string.Compare(a.end, b.end));
+            var latest = quarterlyEntries[^1];
+
+            // Find same quarter last year (~4 quarters back, match by similar month)
+            decimal? yoy = null;
+            if (DateTime.TryParse(latest.end, out var latestEnd))
+            {
+                var targetEnd = latestEnd.AddYears(-1);
+                // Find closest quarter to target (within 45 days)
+                var prevYear = quarterlyEntries
+                    .Where(q => q.end != latest.end && DateTime.TryParse(q.end, out var qEnd)
+                        && Math.Abs((qEnd - targetEnd).TotalDays) < 45)
+                    .OrderBy(q => DateTime.TryParse(q.end, out var qEnd) ? Math.Abs((qEnd - targetEnd).TotalDays) : 999)
+                    .FirstOrDefault();
+
+                if (prevYear != default && prevYear.val > 0)
+                    yoy = Math.Round(((latest.val - prevYear.val) / prevYear.val) * 100, 1);
+            }
+
+            var period = $"{latest.start} ~ {latest.end}";
+            return (latest.val, yoy, period);
         }
 
         private record struct FilingEntry(string start, string end, string form, decimal val);
