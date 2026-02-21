@@ -12,7 +12,6 @@ import { useState, useEffect } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 
 import RequireAuth from './auth/RequireAuth';
-import FloatingChatbot from './components/FloatingChatbot';
 import LoginError from './components/LoginError';
 import UserProfileMenu from './components/UserProfileMenu';
 import Connectors from './Connectors';
@@ -205,8 +204,8 @@ function App() {
         </Routes>
       </Box>
 
-      {/* 懸浮 Chatbot — only shown when logged in, no forced redirect */}
-      <FloatingChatbot />
+      {/* 懸浮 Chatbot — only shown on AI trend analysis tab */}
+      {/* Rendered inside Finance component instead */}
     </>
   );
 }

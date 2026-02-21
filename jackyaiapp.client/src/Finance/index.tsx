@@ -16,6 +16,8 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState, useMemo } from 'react';
 
+import FloatingChatbot from '@/components/FloatingChatbot';
+
 import {
   useGetDailyImportantInfoQuery,
   useAnalyzeStockMutation,
@@ -291,6 +293,9 @@ function Finance() {
           </Grid>
         </>
       )}
+
+      {/* FloatingChatbot — only shown on AI trend analysis tab */}
+      {analysisTab === TAB_AI_TREND && <FloatingChatbot />}
     </Box>
   );
 }
