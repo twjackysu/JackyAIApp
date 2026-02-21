@@ -124,29 +124,10 @@ namespace JackyAIApp.Server.Services.Finance.Builder
                 Chips = chipData?.Chips
             };
 
-            // 2.5 For US stocks, compute derived fundamental ratios using market price
-            if (region == MarketRegion.US && context.Fundamentals != null && context.LatestClose.HasValue && context.LatestClose.Value > 0)
-            {
-                var price = context.LatestClose.Value;
-                var f = context.Fundamentals;
-
-                // P/E = Price / Trailing EPS (annual)
-                if (f.PERatio == null && f.TrailingEPS.HasValue && f.TrailingEPS.Value > 0)
-                    f.PERatio = Math.Round(price / f.TrailingEPS.Value, 2);
-
-                // P/B = Price / Book Value Per Share (stored in PBRatio field from SEC provider)
-                if (f.PBRatio.HasValue && f.PBRatio.Value > 0 && f.PBRatio.Value < price)
-                {
-                    var bvps = f.PBRatio.Value;
-                    f.PBRatio = Math.Round(price / bvps, 2);
-                }
-
-                // Dividend Yield % = (Annual Dividend / Price) * 100 (stored as annual dividend amount from SEC)
-                if (f.DividendYield.HasValue && f.DividendYield.Value > 0 && f.DividendYield.Value < price)
-                    f.DividendYield = Math.Round((f.DividendYield.Value / price) * 100, 2);
-
-                // Revenue YoY — SEC doesn't provide this directly, skip for now
-            }
+            // 2.5 Let provider enrich fundamental data with derived ratios using market price
+            // Each provider implements its own logic (e.g., SEC computes P/E from EPS, TWSE is no-op)
+            if (context.Fundamentals != null && context.LatestClose.HasValue && context.LatestClose.Value > 0)
+                fundamentalProvider.EnrichWithMarketPrice(context.Fundamentals, context.LatestClose.Value);
 
             // 3. Calculate & filter indicators
             var allIndicators = _indicatorEngine.CalculateAll(context);
