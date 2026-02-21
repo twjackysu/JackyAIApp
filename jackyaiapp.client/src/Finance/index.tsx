@@ -57,9 +57,9 @@ function Finance() {
     includeFundamental: true,
     includeScoring: true,
     includeRisk: true,
-    technicalWeight: 0.5,
+    technicalWeight: 0.2,
     chipWeight: 0.3,
-    fundamentalWeight: 0.2,
+    fundamentalWeight: 0.5,
   });
   const currentDate = useMemo(() => getCurrentDate(), []);
   const { data: userInfo } = useGetUserInfoQuery();
