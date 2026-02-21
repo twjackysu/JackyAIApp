@@ -154,7 +154,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             var result = new FundamentalData();
             var hasData = false;
 
-            // EPS (Diluted) — get latest quarterly + period info
+            // EPS — latest single quarter
             var latestQuarterlyEps = GetLatestQuarterlyEntry(usgaap, "EarningsPerShareDiluted", "USD/shares");
             if (latestQuarterlyEps.HasValue)
             {
@@ -163,14 +163,24 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
                 hasData = true;
             }
 
-            // Trailing EPS (annual) — get latest 10-K
-            var trailingEpsEntry = GetLatestAnnualEntry(usgaap, "EarningsPerShareDiluted", "USD/shares");
-            if (trailingEpsEntry.HasValue)
+            // Trailing EPS — TTM (sum of last 4 single-quarter EPS)
+            var ttmResult = ComputeTTMEps(usgaap);
+            if (ttmResult.HasValue)
             {
-                result.TrailingEPS = trailingEpsEntry.Value.val;
-                // If no quarterly EPS period, use annual
-                result.EpsDataPeriod ??= FormatEpsPeriod(trailingEpsEntry.Value);
+                result.TrailingEPS = ttmResult.Value.ttmEps;
+                result.EpsDataPeriod = ttmResult.Value.period;
                 hasData = true;
+            }
+            else
+            {
+                // Fallback: use latest 10-K annual EPS
+                var annualEntry = GetLatestAnnualEntry(usgaap, "EarningsPerShareDiluted", "USD/shares");
+                if (annualEntry.HasValue)
+                {
+                    result.TrailingEPS = annualEntry.Value.val;
+                    result.EpsDataPeriod ??= FormatEpsPeriod(annualEntry.Value);
+                    hasData = true;
+                }
             }
 
             // Revenue — latest quarterly
@@ -272,6 +282,58 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             }
 
             return latest;
+        }
+
+        /// <summary>
+        /// Compute TTM (Trailing Twelve Months) EPS by summing the last 4 single-quarter EPS values.
+        /// Deduplicates by period (start~end) to handle amended filings.
+        /// </summary>
+        private (decimal ttmEps, string period)? ComputeTTMEps(JsonElement usgaap)
+        {
+            if (!usgaap.TryGetProperty("EarningsPerShareDiluted", out var conceptEl)) return null;
+            if (!conceptEl.TryGetProperty("units", out var units)) return null;
+            if (!units.TryGetProperty("USD/shares", out var entries)) return null;
+
+            var seen = new HashSet<string>();
+            var quarterlyEntries = new List<FilingEntry>();
+
+            foreach (var entry in entries.EnumerateArray())
+            {
+                if (!entry.TryGetProperty("form", out var formEl)) continue;
+                var form = formEl.GetString();
+                if (form != "10-Q" && form != "10-K") continue;
+
+                var startDate = entry.TryGetProperty("start", out var s) ? s.GetString() ?? "" : "";
+                var endDate = entry.TryGetProperty("end", out var e) ? e.GetString() ?? "" : "";
+                var val = entry.TryGetProperty("val", out var v) ? GetDecimal(v) : null;
+
+                if (!val.HasValue || string.IsNullOrEmpty(startDate) || string.IsNullOrEmpty(endDate)) continue;
+
+                // Only single-quarter periods (60-120 days)
+                if (DateTime.TryParse(startDate, out var sd) && DateTime.TryParse(endDate, out var ed))
+                {
+                    var days = (ed - sd).TotalDays;
+                    if (days < 60 || days > 120) continue;
+                }
+                else continue;
+
+                // Deduplicate by period (amended filings have same period)
+                var periodKey = $"{startDate}~{endDate}";
+                if (!seen.Add(periodKey)) continue;
+
+                quarterlyEntries.Add(new FilingEntry(startDate, endDate, form ?? "", val.Value));
+            }
+
+            if (quarterlyEntries.Count < 4) return null;
+
+            // Sort by end date, take last 4
+            quarterlyEntries.Sort((a, b) => string.Compare(a.end, b.end));
+            var last4 = quarterlyEntries.Skip(quarterlyEntries.Count - 4).ToList();
+
+            var ttm = last4.Sum(q => q.val);
+            var period = $"TTM {last4[0].start} ~ {last4[3].end}";
+
+            return (Math.Round(ttm, 2), period);
         }
 
         private record struct FilingEntry(string start, string end, string form, decimal val);
