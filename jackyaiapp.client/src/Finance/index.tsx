@@ -37,7 +37,8 @@ import type { AnalysisConfig } from './components';
 import { getCurrentDate } from './utils/financeHelpers';
 
 /** Detect market from stock code: numeric (with optional trailing letter) = TW, otherwise US */
-const detectMarket = (code: string): 'TW' | 'US' => /^\d{4,6}[A-Za-z]?$/.test(code.trim()) ? 'TW' : 'US';
+const detectMarket = (code: string): 'TW' | 'US' =>
+  /^\d{4,6}[A-Za-z]?$/.test(code.trim()) ? 'TW' : 'US';
 
 // Tab indices
 const TAB_QUANTITATIVE = 0;
@@ -161,10 +162,21 @@ function Finance() {
     <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h5" component="h1" fontWeight="bold" sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
-          📈 Finance Dashboard
+        <Typography
+          variant="h5"
+          component="h1"
+          fontWeight="bold"
+          sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }}
+        >
+          📈 Stock Intelligence & Market Analysis
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>{currentDate}</Typography>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ display: { xs: 'none', sm: 'block' } }}
+        >
+          {currentDate}
+        </Typography>
       </Stack>
 
       {/* Macro Economy Overview — shown before search results */}
@@ -172,7 +184,14 @@ function Finance() {
 
       {/* Tabs */}
       <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 2, border: '1px solid', borderColor: 'divider' }}>
-        <Tabs value={analysisTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ mb: 2 }}>
+        <Tabs
+          value={analysisTab}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{ mb: 2 }}
+        >
           <Tab label="📊 綜合量化分析" />
           <Tab label="🤖 AI 趨勢分析" />
           <Tab label="📰 今日市場AI摘要" />
@@ -180,9 +199,21 @@ function Finance() {
 
         {/* Login prompt for AI tabs */}
         {!isAuthenticated && analysisTab === TAB_AI_TREND && (
-          <Alert severity="info" sx={{ mb: 2 }} action={
-            <Button color="inherit" size="small" onClick={() => { window.location.href = '/api/account/login/Google'; }}>登入</Button>
-          }>
+          <Alert
+            severity="info"
+            sx={{ mb: 2 }}
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  window.location.href = '/api/account/login/Google';
+                }}
+              >
+                登入
+              </Button>
+            }
+          >
             AI 趨勢分析需要登入才能使用（會消耗 AI token）
           </Alert>
         )}
@@ -192,17 +223,28 @@ function Finance() {
           <>
             <Stack direction="row" spacing={1} alignItems="center">
               <TextField
-                fullWidth variant="outlined" size="small"
+                fullWidth
+                variant="outlined"
+                size="small"
                 placeholder="股票代碼 (2330, AAPL...)"
                 value={stockSearchTerm}
                 onChange={(e) => setStockSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleStockSearch()}
                 disabled={isAnyAnalyzing || (analysisTab === TAB_AI_TREND && !isAuthenticated)}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
                   endAdornment: hasStockResults ? (
                     <InputAdornment position="end">
-                      <IconButton size="small" onClick={clearSearchResults} disabled={isAnyAnalyzing} edge="end">
+                      <IconButton
+                        size="small"
+                        onClick={clearSearchResults}
+                        disabled={isAnyAnalyzing}
+                        edge="end"
+                      >
                         <RefreshIcon fontSize="small" />
                       </IconButton>
                     </InputAdornment>
@@ -213,10 +255,27 @@ function Finance() {
               <Button
                 variant="contained"
                 onClick={handleStockSearch}
-                disabled={isAnyAnalyzing || !stockSearchTerm.trim() || (analysisTab === TAB_AI_TREND && !isAuthenticated)}
+                disabled={
+                  isAnyAnalyzing ||
+                  !stockSearchTerm.trim() ||
+                  (analysisTab === TAB_AI_TREND && !isAuthenticated)
+                }
                 sx={{ minWidth: { xs: 56, sm: 100 }, height: 40, px: { xs: 1, sm: 3 } }}
               >
-                {isAnyAnalyzing ? <CircularProgress size={18} color="inherit" /> : <>{<Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>分析</Box>}<Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}><SearchIcon fontSize="small" /></Box></>}
+                {isAnyAnalyzing ? (
+                  <CircularProgress size={18} color="inherit" />
+                ) : (
+                  <>
+                    {
+                      <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                        分析
+                      </Box>
+                    }
+                    <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                      <SearchIcon fontSize="small" />
+                    </Box>
+                  </>
+                )}
               </Button>
             </Stack>
             {isAnyAnalyzing && (
@@ -230,34 +289,54 @@ function Finance() {
               </Box>
             )}
             {analysisTab === TAB_QUANTITATIVE && (
-              <Box sx={{ mt: 2 }}><AnalysisConfigPanel config={analysisConfig} onChange={setAnalysisConfig} /></Box>
+              <Box sx={{ mt: 2 }}>
+                <AnalysisConfigPanel config={analysisConfig} onChange={setAnalysisConfig} />
+              </Box>
             )}
           </>
         )}
 
         {/* Market summary search filter */}
-        {analysisTab === TAB_MARKET_SUMMARY && !isMarketLoading && !isMarketError && stockInsights.length > 0 && (
-          <Stack direction="row" spacing={2} alignItems="center">
-            <TextField
-              fullWidth variant="outlined"
-              placeholder="搜尋市場摘要..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
-            />
-            <IconButton onClick={() => refetch()} disabled={isMarketFetching} sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}>
-              <RefreshIcon />
-            </IconButton>
-          </Stack>
-        )}
+        {analysisTab === TAB_MARKET_SUMMARY &&
+          !isMarketLoading &&
+          !isMarketError &&
+          stockInsights.length > 0 && (
+            <Stack direction="row" spacing={2} alignItems="center">
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="搜尋市場摘要..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <IconButton
+                onClick={() => refetch()}
+                disabled={isMarketFetching}
+                sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}
+              >
+                <RefreshIcon />
+              </IconButton>
+            </Stack>
+          )}
       </Paper>
 
       {/* Error states */}
       {analysisError && !isAnalyzing && (
-        <Alert severity="error" sx={{ mb: 3 }}>股票分析失敗，請檢查股票代碼是否正確</Alert>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          股票分析失敗，請檢查股票代碼是否正確
+        </Alert>
       )}
       {comprehensiveError && !isComprehensiveLoading && (
-        <Alert severity="error" sx={{ mb: 3 }}>綜合分析失敗，請檢查股票代碼是否正確</Alert>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          綜合分析失敗，請檢查股票代碼是否正確
+        </Alert>
       )}
 
       {/* Stock analysis results */}
@@ -266,9 +345,21 @@ function Finance() {
 
       {/* Market Summary Tab Content */}
       {analysisTab === TAB_MARKET_SUMMARY && !isAuthenticated && (
-        <Alert severity="info" sx={{ mb: 3 }} action={
-          <Button color="inherit" size="small" onClick={() => { window.location.href = '/api/account/login/Google'; }}>登入</Button>
-        }>
+        <Alert
+          severity="info"
+          sx={{ mb: 3 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                window.location.href = '/api/account/login/Google';
+              }}
+            >
+              登入
+            </Button>
+          }
+        >
           今日市場AI摘要需要登入才能使用（會消耗 AI token）
         </Alert>
       )}
@@ -278,22 +369,39 @@ function Finance() {
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 5 }}>
               <CircularProgress />
               <Typography variant="h6" sx={{ ml: 2 }}>
-                {isMarketFetching && !isMarketLoading ? '正在重新載入市場數據...' : '正在獲取最新市場數據...'}
+                {isMarketFetching && !isMarketLoading
+                  ? '正在重新載入市場數據...'
+                  : '正在獲取最新市場數據...'}
               </Typography>
             </Box>
           )}
           {isMarketError && !isMarketFetching && (
-            <Alert severity="error" sx={{ mb: 3 }} action={
-              <IconButton color="inherit" size="small" onClick={() => refetch()} disabled={isMarketFetching}><RefreshIcon /></IconButton>
-            }>
+            <Alert
+              severity="error"
+              sx={{ mb: 3 }}
+              action={
+                <IconButton
+                  color="inherit"
+                  size="small"
+                  onClick={() => refetch()}
+                  disabled={isMarketFetching}
+                >
+                  <RefreshIcon />
+                </IconButton>
+              }
+            >
               <Typography variant="body1">無法載入市場數據，請點擊重新整理按鈕再試一次</Typography>
               {marketError && 'status' in marketError && (
-                <Typography variant="caption" color="text.secondary">錯誤詳情: {marketError.status}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  錯誤詳情: {marketError.status}
+                </Typography>
               )}
             </Alert>
           )}
           {!isMarketLoading && !isMarketError && filteredData.length === 0 && (
-            <Alert severity="info" sx={{ mb: 3 }}>沒有找到符合搜尋條件的公司。</Alert>
+            <Alert severity="info" sx={{ mb: 3 }}>
+              沒有找到符合搜尋條件的公司。
+            </Alert>
           )}
           <Grid container spacing={3}>
             {filteredData.map((stock) => (
