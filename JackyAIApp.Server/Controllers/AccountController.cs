@@ -90,11 +90,15 @@ namespace JackyAIApp.Server.Controllers
             return NoContent();
         }
 
-        [Authorize]
         [HttpGet("info")]
         public async Task<IActionResult> GetUserInfo()
         {
             var userId = _userService.GetUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { error = "Not authenticated" });
+            }
+
             var user = await _DBContext.Users
                 .SingleOrDefaultAsync(x => x.Id == userId);
 

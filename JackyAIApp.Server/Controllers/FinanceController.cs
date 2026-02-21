@@ -9,6 +9,7 @@ using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Scoring;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using DotnetSdkUtilities.Services;
@@ -59,6 +60,7 @@ namespace JackyAIApp.Server.Controllers
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for request timeout control.</param>
         /// <returns>An IActionResult containing the strategic insights or an error response.</returns>
+        [Authorize]
         [HttpGet("dailyimportantinfo")]
         public async Task<IActionResult> GetDailyImportantInfo(CancellationToken cancellationToken = default)
         {
@@ -116,6 +118,7 @@ namespace JackyAIApp.Server.Controllers
         /// <param name="request">Stock search request containing stock code or company name.</param>
         /// <param name="cancellationToken">Cancellation token for timeout control.</param>
         /// <returns>Stock trend analysis with short, medium, and long-term predictions.</returns>
+        [Authorize]
         [HttpPost("analyze-stock")]
         public async Task<IActionResult> AnalyzeStock([FromBody] StockSearchRequest request, CancellationToken cancellationToken = default)
         {
