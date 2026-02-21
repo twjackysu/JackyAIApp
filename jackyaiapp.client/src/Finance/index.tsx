@@ -13,9 +13,6 @@ import Stack from '@mui/material/Stack';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState, useMemo } from 'react';
 
@@ -25,7 +22,7 @@ import {
   useGetComprehensiveAnalysisMutation,
 } from '@/apis/financeApis';
 import { useGetUserInfoQuery } from '@/apis/accountApis';
-import { StockTrendAnalysis, StockAnalysisResultData, MarketRegion } from '@/apis/financeApis/types';
+import { StockTrendAnalysis, StockAnalysisResultData } from '@/apis/financeApis/types';
 
 import {
   StockAnalysisResult,
@@ -37,6 +34,9 @@ import {
 import type { AnalysisConfig } from './components';
 import { getCurrentDate } from './utils/financeHelpers';
 
+/** Detect market from stock code: numeric (with optional trailing letter) = TW, otherwise US */
+const detectMarket = (code: string): 'TW' | 'US' => /^\d{4,6}[A-Za-z]?$/.test(code.trim()) ? 'TW' : 'US';
+
 // Tab indices
 const TAB_QUANTITATIVE = 0;
 const TAB_AI_TREND = 1;
@@ -45,7 +45,6 @@ const TAB_MARKET_SUMMARY = 2;
 function Finance() {
   const [searchTerm, setSearchTerm] = useState('');
   const [stockSearchTerm, setStockSearchTerm] = useState('');
-  const [selectedMarket, setSelectedMarket] = useState<MarketRegion>('TW');
   const [searchResults, setSearchResults] = useState<StockTrendAnalysis | null>(null);
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
   const [analysisTab, setAnalysisTab] = useState<number>(TAB_QUANTITATIVE);
@@ -101,16 +100,19 @@ function Finance() {
       try {
         resetComprehensive();
         setSearchResults(null);
+        const code = stockSearchTerm.trim();
+        const market = detectMarket(code);
+        const isUS = market === 'US';
         const result = await getComprehensiveAnalysis({
-          stockCode: stockSearchTerm.trim(),
-          market: selectedMarket,
+          stockCode: code,
+          market,
           includeTechnical: analysisConfig.includeTechnical,
-          includeChip: selectedMarket === 'TW' ? analysisConfig.includeChip : false,
+          includeChip: isUS ? false : analysisConfig.includeChip,
           includeFundamental: analysisConfig.includeFundamental,
           includeScoring: analysisConfig.includeScoring,
           includeRisk: analysisConfig.includeRisk,
           technicalWeight: analysisConfig.technicalWeight,
-          chipWeight: selectedMarket === 'TW' ? analysisConfig.chipWeight : 0,
+          chipWeight: isUS ? 0 : analysisConfig.chipWeight,
           fundamentalWeight: analysisConfig.fundamentalWeight,
         }).unwrap();
         setAnalysisResults(result.data);
@@ -187,27 +189,9 @@ function Finance() {
         {isSearchTab && (
           <>
             <Stack direction="row" spacing={2} alignItems="center">
-              {analysisTab === TAB_QUANTITATIVE && (
-                <Tooltip title={selectedMarket === 'TW' ? '台股' : '美股'}>
-                  <ToggleButtonGroup
-                    value={selectedMarket}
-                    exclusive
-                    onChange={(_, v) => { if (v) { setSelectedMarket(v); clearSearchResults(); } }}
-                    size="small"
-                    sx={{ height: 56 }}
-                  >
-                    <ToggleButton value="TW" sx={{ px: 2 }}>🇹🇼</ToggleButton>
-                    <ToggleButton value="US" sx={{ px: 2 }}>🇺🇸</ToggleButton>
-                  </ToggleButtonGroup>
-                </Tooltip>
-              )}
               <TextField
                 fullWidth variant="outlined"
-                placeholder={
-                  selectedMarket === 'US'
-                    ? 'Enter US stock ticker (e.g., AAPL, TSLA, MSFT)'
-                    : '輸入股票代碼或公司名稱 (例如: 2330, 台積電)'
-                }
+                placeholder="輸入股票代碼 (例如: 2330, 台積電, AAPL, TSLA)"
                 value={stockSearchTerm}
                 onChange={(e) => setStockSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleStockSearch()}
@@ -228,9 +212,7 @@ function Finance() {
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                   {analysisTab === TAB_AI_TREND
                     ? '正在分析股票資料並產生趨勢預測...這可能需要 1-2 分鐘'
-                    : selectedMarket === 'US'
-                      ? 'Fetching data from Yahoo Finance & SEC EDGAR...'
-                      : '正在計算技術指標與籌碼分析...'}
+                    : '正在計算技術指標與分析...'}
                 </Typography>
               </Box>
             )}
