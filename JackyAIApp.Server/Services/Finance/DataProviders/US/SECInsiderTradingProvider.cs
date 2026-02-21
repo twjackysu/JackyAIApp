@@ -107,24 +107,48 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
                 try
                 {
                     var cells = row.SelectNodes(".//td")?.Select(c => c.InnerText.Trim()).ToArray();
-                    if (cells == null || cells.Length < 7) continue;
+                    if (cells == null || cells.Length < 9) continue;
 
-                    // Columns: Owner, Relationship, TxDate, TxCode, Shares, PricePerShare, SharesOwnedAfter, [FilingDate, AccessionNo]
+                    // Actual columns (from SEC insider table):
+                    // 0: Acquisition/Disposition (A/D)
+                    // 1: Transaction Date
+                    // 2: Deemed Execution Date (usually empty)
+                    // 3: Reporting Owner (name)
+                    // 4: Form (link to filing)
+                    // 5: Transaction Type (code, e.g., "M-Exempt", "S-Sale", "P-Purchase")
+                    // 6: Direct/Indirect
+                    // 7: Number of Securities (shares)
+                    // 8: Number Owned After
+                    // 9: Line Number
+                    // 10: Owner CIK
+                    // 11: Security Name
+
+                    var ownerName = cells.ElementAtOrDefault(3) ?? "";
+                    var txDate = cells.ElementAtOrDefault(1) ?? "";
+                    var txTypeRaw = cells.ElementAtOrDefault(5) ?? "";
+                    var sharesStr = cells.ElementAtOrDefault(7) ?? "";
+                    var ownedAfterStr = cells.ElementAtOrDefault(8) ?? "";
+
+                    // Extract simple transaction code (P/S/M/A) from full type string
+                    var txCode = ExtractTransactionCode(txTypeRaw);
+                    if (string.IsNullOrEmpty(txCode)) continue;
+
+                    var shares = ParseDecimal(sharesStr) ?? 0;
+                    if (shares <= 0) continue;
+
                     var tx = new InsiderTransaction
                     {
-                        OwnerName = cells.ElementAtOrDefault(0) ?? "",
-                        Relationship = cells.ElementAtOrDefault(1) ?? "",
-                        TransactionDate = NormalizeDate(cells.ElementAtOrDefault(2) ?? ""),
-                        TransactionCode = cells.ElementAtOrDefault(3) ?? "",
-                        Shares = ParseDecimal(cells.ElementAtOrDefault(4)) ?? 0,
-                        PricePerShare = ParseDecimal(cells.ElementAtOrDefault(5)),
-                        SharesOwnedAfter = ParseDecimal(cells.ElementAtOrDefault(6)),
-                        FilingDate = NormalizeDate(cells.ElementAtOrDefault(7) ?? ""),
-                        AccessionNumber = cells.ElementAtOrDefault(8) ?? ""
+                        OwnerName = ownerName,
+                        Relationship = "", // Not available in this table format
+                        TransactionDate = NormalizeDate(txDate),
+                        TransactionCode = txCode,
+                        Shares = shares,
+                        PricePerShare = null, // Price not in this table
+                        SharesOwnedAfter = ParseDecimal(ownedAfterStr),
+                        TransactionValue = null, // Can't compute without price
+                        FilingDate = txDate, // Use tx date as proxy
+                        AccessionNumber = ""
                     };
-
-                    if (tx.PricePerShare.HasValue && tx.PricePerShare.Value > 0)
-                        tx.TransactionValue = tx.Shares * tx.PricePerShare.Value;
 
                     transactions.Add(tx);
                 }
@@ -135,6 +159,16 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             }
 
             return transactions;
+        }
+
+        /// <summary>Extract transaction code from SEC type string (e.g., "M-Exempt" → "M", "S-Sale" → "S")</summary>
+        private static string ExtractTransactionCode(string typeString)
+        {
+            if (string.IsNullOrWhiteSpace(typeString)) return "";
+            var parts = typeString.Split('-', ' ');
+            var code = parts[0].Trim().ToUpperInvariant();
+            // P=Purchase, S=Sale, M=Exercise, A=Award, D=Disposition
+            return code.Length == 1 && "PSMAD".Contains(code) ? code : "";
         }
 
         private static decimal? ParseDecimal(string? value)

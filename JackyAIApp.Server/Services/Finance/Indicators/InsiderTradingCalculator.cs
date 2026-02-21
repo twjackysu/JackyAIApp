@@ -48,33 +48,38 @@ namespace JackyAIApp.Server.Services.Finance.Indicators
 
         private static (string signal, SignalDirection direction, int score) Evaluate(InsiderTradingSummary insider)
         {
-            var netBuyingValue = insider.NetBuyingValue ?? 0;
             var netBuyingShares = insider.NetBuyingShares;
             var totalActivity = insider.PurchaseCount + insider.SaleCount;
 
-            // Strong buying signal
-            if (netBuyingShares > 100_000 && netBuyingValue > 5_000_000 && insider.PurchaseCount > insider.SaleCount)
-                return ("內部人大量買進，高度看好公司前景", SignalDirection.StrongBullish, 80);
-
-            if (netBuyingShares > 50_000 && netBuyingValue > 1_000_000)
-                return ("內部人持續買進，看好公司", SignalDirection.Bullish, 70);
-
-            if (netBuyingShares > 10_000 && netBuyingValue > 0)
-                return ("內部人淨買進，偏多訊號", SignalDirection.Bullish, 62);
-
-            // Neutral — mixed or low activity
-            if (Math.Abs(netBuyingShares) < 10_000 || totalActivity < 3)
+            // Low activity → neutral
+            if (totalActivity < 3 && Math.Abs(netBuyingShares) < 5_000)
                 return ("內部人交易活動低，訊號不明", SignalDirection.Neutral, 50);
 
-            // Selling signals
-            if (netBuyingShares < -50_000 && netBuyingValue < -1_000_000)
-                return ("內部人持續賣出，看淡公司", SignalDirection.Bearish, 35);
+            // Strong buying signals (share-based, no price needed)
+            if (netBuyingShares > 100_000 && insider.PurchaseCount > insider.SaleCount * 2)
+                return ("內部人大量買進，高度看好公司前景", SignalDirection.StrongBullish, 80);
 
-            if (netBuyingShares < -100_000 && netBuyingValue < -5_000_000)
+            if (netBuyingShares > 50_000 && insider.PurchaseCount > insider.SaleCount)
+                return ("內部人持續買進，看好公司", SignalDirection.Bullish, 70);
+
+            if (netBuyingShares > 10_000)
+                return ("內部人淨買進，偏多訊號", SignalDirection.Bullish, 62);
+
+            if (netBuyingShares > 0)
+                return ("內部人小幅淨買進", SignalDirection.Neutral, 55);
+
+            // Selling signals
+            if (netBuyingShares < -100_000 && insider.SaleCount > insider.PurchaseCount * 2)
                 return ("內部人大量賣出，高度看淡", SignalDirection.StrongBearish, 25);
 
-            // Default: slight selling
-            return ("內部人淨賣出，偏空訊號", SignalDirection.Bearish, 40);
+            if (netBuyingShares < -50_000 && insider.SaleCount > insider.PurchaseCount)
+                return ("內部人持續賣出，看淡公司", SignalDirection.Bearish, 35);
+
+            if (netBuyingShares < -10_000)
+                return ("內部人淨賣出，偏空訊號", SignalDirection.Bearish, 40);
+
+            // Default: slight selling or neutral
+            return ("內部人小幅淨賣出", SignalDirection.Neutral, 45);
         }
 
         private static string BuildReason(InsiderTradingSummary insider, string signal)
