@@ -1,6 +1,9 @@
 name: Build and deploy
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
 env:
   AZURE_WEBAPP_NAME: JackyAI
   AZURE_WEBAPP_PACKAGE_PATH: JackyAIApp.Server\publish
