@@ -93,8 +93,8 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             var fundamentalProvider = region == MarketRegion.TW ? _fundamentalDataProvider : _providerFactory.GetFundamentalDataProvider(region);
             var chipProvider = _providerFactory.GetChipDataProvider(region);
 
-            // US stocks don't have chip data
-            var effectiveIncludeChip = _includeChip && chipProvider != null;
+            // US stocks use insider trading data as chip data equivalent
+            var effectiveIncludeChip = _includeChip && (chipProvider != null || (region == MarketRegion.US && _insiderTradingProvider != null));
 
             // 1. Fetch data in parallel
             MarketData? priceData = null;
