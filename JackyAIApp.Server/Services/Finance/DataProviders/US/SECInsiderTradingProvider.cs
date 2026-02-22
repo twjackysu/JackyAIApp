@@ -59,15 +59,23 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
                     FetchedAt = DateTime.UtcNow
                 };
 
-                // Compute aggregates (only P=Purchase, S=Sale with known prices)
-                var purchases = recent.Where(t => t.TransactionCode == "P" && t.TransactionValue.HasValue).ToList();
-                var sales = recent.Where(t => t.TransactionCode == "S" && t.TransactionValue.HasValue).ToList();
+                // Compute aggregates (P=Purchase, S=Sale)
+                var purchases = recent.Where(t => t.TransactionCode == "P").ToList();
+                var sales = recent.Where(t => t.TransactionCode == "S").ToList();
 
                 summary.PurchaseCount = purchases.Count;
                 summary.SaleCount = sales.Count;
-                summary.TotalPurchaseValue = purchases.Sum(t => t.TransactionValue ?? 0);
-                summary.TotalSaleValue = sales.Sum(t => t.TransactionValue ?? 0);
-                summary.NetBuyingValue = summary.TotalPurchaseValue - summary.TotalSaleValue;
+
+                // Value-based metrics (only if prices available)
+                var purchasesWithValue = purchases.Where(t => t.TransactionValue.HasValue).ToList();
+                var salesWithValue = sales.Where(t => t.TransactionValue.HasValue).ToList();
+                summary.TotalPurchaseValue = purchasesWithValue.Sum(t => t.TransactionValue ?? 0);
+                summary.TotalSaleValue = salesWithValue.Sum(t => t.TransactionValue ?? 0);
+                summary.NetBuyingValue = purchasesWithValue.Any() || salesWithValue.Any()
+                    ? summary.TotalPurchaseValue - summary.TotalSaleValue
+                    : null;
+
+                // Share-based metrics (always available)
                 summary.NetBuyingShares = purchases.Sum(t => t.Shares) - sales.Sum(t => t.Shares);
 
                 _cache.Set(cacheKey, summary, TimeSpan.FromHours(CACHE_HOURS));

@@ -86,7 +86,7 @@ function Finance() {
     { isLoading: isComprehensiveLoading, error: comprehensiveError, reset: resetComprehensive },
   ] = useGetComprehensiveAnalysisMutation();
 
-  const stockInsights = apiResponse?.data || [];
+  const stockInsights = useMemo(() => apiResponse?.data || [], [apiResponse?.data]);
   const filteredData = useMemo(() => {
     return stockInsights.filter(
       (item) =>
@@ -105,17 +105,16 @@ function Finance() {
         setSearchResults(null);
         const code = stockSearchTerm.trim();
         const market = detectMarket(code);
-        const isUS = market === 'US';
         const result = await getComprehensiveAnalysis({
           stockCode: code,
           market,
           includeTechnical: analysisConfig.includeTechnical,
-          includeChip: isUS ? false : analysisConfig.includeChip,
+          includeChip: analysisConfig.includeChip,
           includeFundamental: analysisConfig.includeFundamental,
           includeScoring: analysisConfig.includeScoring,
           includeRisk: analysisConfig.includeRisk,
           technicalWeight: analysisConfig.technicalWeight,
-          chipWeight: isUS ? 0 : analysisConfig.chipWeight,
+          chipWeight: analysisConfig.chipWeight,
           fundamentalWeight: analysisConfig.fundamentalWeight,
         }).unwrap();
         setAnalysisResults(result.data);
