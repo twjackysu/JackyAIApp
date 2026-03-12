@@ -37,10 +37,10 @@ The credit system already exists. The simplest path to revenue:
 ## Implementation Phases
 
 ### Phase 1: Credit Purchase (Week 1-2) ✅ Priority
-- [ ] Integrate Stripe Checkout (simplest payment flow)
-- [ ] Create pricing page with credit pack options
-- [ ] Credit packs: $5 (500 credits), $10 (1100 credits), $20 (2400 credits)
-- [ ] Stripe webhook → `AddCreditsAsync` on successful payment
+- [x] Integrate Stripe Checkout (simplest payment flow)
+- [x] Create pricing page with credit pack options
+- [x] Credit packs: $5 (500 credits), $10 (1100 credits), $20 (2400 credits)
+- [x] Stripe webhook → `AddCreditsAsync` on successful payment
 - [ ] Purchase history in user profile
 
 ### Phase 2: Credit Consumption Gates (Week 2-3)
@@ -48,7 +48,8 @@ The credit system already exists. The simplest path to revenue:
 - [ ] AI Conversation Test → 3 credits per session
 - [ ] AI Exam Generation → 2 credits per exam
 - [ ] Dictionary AI lookup → 1 credit per word
-- [ ] Show remaining credits in navbar
+- [x] Show remaining credits in navbar (already existed, added clickable link to /credits)
+- [x] "Buy Credits" menu item in user profile dropdown
 - [ ] "Insufficient credits" modal → link to pricing page
 
 ### Phase 3: Growth & Conversion (Week 3-4)
@@ -86,7 +87,11 @@ The credit system already exists. The simplest path to revenue:
 ### 2026-03-12
 - [x] Analyzed existing codebase
 - [x] Created monetization plan
-- [ ] Starting Phase 1 implementation
+- [x] Phase 1: Stripe backend (StripeService, StripeController, webhook)
+- [x] Phase 1: Frontend Credits page with pricing cards
+- [x] Fixed TypeScript build error (ApiOkResponse casing)
+- [ ] Phase 1 remaining: Purchase history in user profile
+- [ ] Starting Phase 2: Credit navbar + consumption gates
 
 ---
 
