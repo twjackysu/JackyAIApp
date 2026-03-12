@@ -41,6 +41,9 @@ The credit system already exists. The simplest path to revenue:
 - [x] Create pricing page with credit pack options
 - [x] Credit packs: $5 (500 credits), $10 (1100 credits), $20 (2400 credits)
 - [x] Stripe webhook → `AddCreditsAsync` on successful payment
+- [x] PayPal integration (REST API v2 Orders, raw HttpClient)
+- [x] ECPay 綠界 integration (form POST + HMAC-SHA256 CheckMacValue, TWD pricing)
+- [x] Credits page payment method tabs (PayPal / 綠界 ECPay / Stripe)
 - [ ] Purchase history in user profile
 
 ### Phase 2: Credit Consumption Gates (Week 2-3)
@@ -91,7 +94,11 @@ The credit system already exists. The simplest path to revenue:
 - [x] Phase 1: Frontend Credits page with pricing cards
 - [x] Fixed TypeScript build error (ApiOkResponse casing)
 - [ ] Phase 1 remaining: Purchase history in user profile
-- [ ] Starting Phase 2: Credit navbar + consumption gates
+- [x] Added PayPal integration (create order + capture, raw HttpClient)
+- [x] Added ECPay 綠界 integration (form POST, HMAC-SHA256, TWD: NT$150/300/600)
+- [x] Credits page: 3 payment method tabs
+- [x] "Buy Credits" menu item + clickable credit chip in navbar
+- [ ] Starting Phase 2: Credit consumption gates
 
 ---
 
