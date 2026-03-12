@@ -7,6 +7,7 @@ import { dictionaryApis } from '@/apis/dictionaryApis';
 import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
 import { repositoryApis } from '@/apis/repositoryApis';
+import { stripeApi } from '@/apis/stripeApis';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     [financeApis.reducerPath]: financeApis.reducer,
     [connectorsApi.reducerPath]: connectorsApi.reducer,
     [creditApis.reducerPath]: creditApis.reducer,
+    [stripeApi.reducerPath]: stripeApi.reducer,
   },
   // Adding the api middleware enables caching, invalidation, polling,
   // and other useful features of `rtk-query`.
@@ -30,6 +32,7 @@ export const store = configureStore({
       financeApis.middleware,
       connectorsApi.middleware,
       creditApis.middleware,
+      stripeApi.middleware,
     ),
 });
 

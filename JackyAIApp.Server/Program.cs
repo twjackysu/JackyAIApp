@@ -129,6 +129,9 @@ try
     builder.Services.AddScoped<ITokenEncryptionService, TokenEncryptionService>();
     builder.Services.AddScoped<IStateService, StateService>();
     builder.Services.AddScoped<IConnectorService, ConnectorService>();
+    builder.Services.Configure<JackyAIApp.Server.Configuration.StripeOptions>(
+        builder.Configuration.GetSection(JackyAIApp.Server.Configuration.StripeOptions.SectionName));
+    builder.Services.AddScoped<IStripeService, StripeService>();
 
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options =>
