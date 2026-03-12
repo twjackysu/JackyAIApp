@@ -25,6 +25,12 @@ export interface AccessTokenResponse {
   retrievedAt: string;
 }
 
+export interface RefreshTokenResponse {
+  provider: string;
+  refreshToken: string;
+  retrievedAt: string;
+}
+
 export interface CustomConnectRequest {
   clientId?: string;
   clientSecret?: string;

@@ -21,6 +21,7 @@ import { useState } from 'react';
 
 import {
   useLazyGetAccessTokenQuery,
+  useLazyGetRefreshTokenQuery,
   useRefreshProviderTokensMutation,
 } from '@/apis/connectorsApis/connectorsApis';
 import { ConnectorStatus, CustomConnectRequest } from '@/apis/connectorsApis/types';
@@ -56,6 +57,7 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
 }) => {
   const [refreshTokens] = useRefreshProviderTokensMutation();
   const [getAccessToken, { isFetching: isGettingToken }] = useLazyGetAccessTokenQuery();
+  const [getRefreshToken, { isFetching: isGettingRefreshToken }] = useLazyGetRefreshTokenQuery();
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -92,6 +94,24 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
       setSnackbar({
         open: true,
         message: 'Failed to get access token. Please try reconnecting.',
+        severity: 'error',
+      });
+    }
+  };
+
+  const handleCopyRefreshToken = async () => {
+    try {
+      const result = await getRefreshToken(connector.provider).unwrap();
+      await navigator.clipboard.writeText(result.refreshToken);
+      setSnackbar({
+        open: true,
+        message: 'Refresh token copied to clipboard!',
+        severity: 'success',
+      });
+    } catch {
+      setSnackbar({
+        open: true,
+        message: 'Failed to get refresh token.',
         severity: 'error',
       });
     }
@@ -172,17 +192,28 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
           </Box>
 
           {connector.isConnected && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<ContentCopy />}
-              onClick={handleCopyToken}
-              disabled={isGettingToken}
-              fullWidth
-              sx={{ mb: 1 }}
-            >
-              {isGettingToken ? 'Getting Token...' : 'Copy Access Token'}
-            </Button>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ContentCopy />}
+                onClick={handleCopyToken}
+                disabled={isGettingToken}
+                fullWidth
+              >
+                {isGettingToken ? 'Getting Token...' : 'Copy Access Token'}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ContentCopy />}
+                onClick={handleCopyRefreshToken}
+                disabled={isGettingRefreshToken}
+                fullWidth
+              >
+                {isGettingRefreshToken ? 'Getting Token...' : 'Copy Refresh Token'}
+              </Button>
+            </Box>
           )}
 
           {connector.isConnected && connector.expiresAt && (

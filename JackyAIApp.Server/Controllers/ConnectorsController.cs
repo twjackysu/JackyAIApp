@@ -169,6 +169,40 @@ namespace JackyAIApp.Server.Controllers
             });
         }
 
+        /// <summary>
+        /// Gets the refresh token for a specific provider
+        /// </summary>
+        /// <param name="provider">The provider name</param>
+        /// <returns>The refresh token</returns>
+        [HttpGet("{provider}/refresh-token")]
+        public async Task<ActionResult> GetRefreshToken(string provider)
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("User ID not found in claims");
+            }
+
+            var normalizedProvider = NormalizeProviderName(provider);
+            if (normalizedProvider == null)
+            {
+                return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
+            }
+
+            var refreshToken = await _connectorService.GetRefreshTokenAsync(userId, normalizedProvider);
+            if (string.IsNullOrEmpty(refreshToken))
+            {
+                return NotFound($"No refresh token found for {normalizedProvider}. Please connect first.");
+            }
+
+            return Ok(new
+            {
+                provider = normalizedProvider,
+                refreshToken,
+                retrievedAt = DateTime.UtcNow
+            });
+        }
+
         private string? GetCurrentUserId()
         {
             return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
