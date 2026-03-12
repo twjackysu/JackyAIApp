@@ -15,6 +15,7 @@ import RequireAuth from './auth/RequireAuth';
 import LoginError from './components/LoginError';
 import UserProfileMenu from './components/UserProfileMenu';
 import Connectors from './Connectors';
+import Credits from './Credits';
 import { apps, FINANCE, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
 import Dictionary from './Dictionary';
 import Exam from './Exam';
@@ -195,6 +196,14 @@ function App() {
             element={
               <RequireAuth>
                 <Connectors />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/credits"
+            element={
+              <RequireAuth>
+                <Credits />
               </RequireAuth>
             }
           />
