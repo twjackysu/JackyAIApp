@@ -464,5 +464,26 @@ namespace JackyAIApp.Server.Services
                 return null;
             }
         }
+
+        public async Task<string?> GetRefreshTokenAsync(string userId, string provider)
+        {
+            try
+            {
+                var userConnector = await _context.UserConnectors
+                    .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.ProviderName == provider && uc.IsActive);
+
+                if (userConnector == null || string.IsNullOrEmpty(userConnector.EncryptedRefreshToken))
+                {
+                    return null;
+                }
+
+                return _tokenEncryption.DecryptToken(userConnector.EncryptedRefreshToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting refresh token for user {UserId} and provider {Provider}", userId, provider);
+                return null;
+            }
+        }
     }
 }
