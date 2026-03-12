@@ -7,16 +7,24 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Divider,
   Grid,
+  Pagination,
   Snackbar,
   Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Tabs,
   Typography,
 } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { useGetCreditBalanceQuery } from '@/apis/creditApis';
+import { useGetCreditBalanceQuery, useGetCreditHistoryQuery } from '@/apis/creditApis';
 import { useCreateECPayPaymentMutation, useGetECPayPacksQuery } from '@/apis/ecpayApis';
 import { useCreatePayPalOrderMutation, useGetPayPalPacksQuery } from '@/apis/paypalApis';
 import { useCreateCheckoutMutation, useGetCreditPacksQuery } from '@/apis/stripeApis';
@@ -42,6 +50,8 @@ const Credits: React.FC = () => {
   const [createECPayPayment, { isLoading: ecpayPaymentLoading }] = useCreateECPayPaymentMutation();
 
   const ecpayFormRef = useRef<HTMLFormElement>(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const { data: historyData } = useGetCreditHistoryQuery({ pageNumber: historyPage, pageSize: 10 });
 
   // Handle return from payment provider
   useEffect(() => {
@@ -187,6 +197,62 @@ const Credits: React.FC = () => {
             : 'Payments are processed securely. Credits are added instantly after payment.'}
         </Typography>
       </Box>
+
+      {/* Transaction History */}
+      {historyData?.data && historyData.data.transactions.length > 0 && (
+        <Box sx={{ mt: 6 }}>
+          <Divider sx={{ mb: 3 }} />
+          <Typography variant="h5" fontWeight="bold" gutterBottom>
+            Transaction History
+          </Typography>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Reason</TableCell>
+                  <TableCell align="right">Amount</TableCell>
+                  <TableCell align="right">Balance</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {historyData.data.transactions.map((tx) => (
+                  <TableRow key={tx.id}>
+                    <TableCell>{new Date(tx.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={tx.transactionType}
+                        size="small"
+                        color={
+                          tx.transactionType === 'consume' ? 'error'
+                          : tx.transactionType === 'initial' ? 'default'
+                          : 'success'
+                        }
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>{tx.reason}</TableCell>
+                    <TableCell align="right" sx={{ color: tx.transactionType === 'consume' ? 'error.main' : 'success.main', fontWeight: 'bold' }}>
+                      {tx.transactionType === 'consume' ? '-' : '+'}{tx.amount}
+                    </TableCell>
+                    <TableCell align="right">{tx.balanceAfter}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {historyData.data.pagination.totalPages > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Pagination
+                count={historyData.data.pagination.totalPages}
+                page={historyPage}
+                onChange={(_, page) => setHistoryPage(page)}
+              />
+            </Box>
+          )}
+        </Box>
+      )}
 
       {/* Hidden form for ECPay POST */}
       <form ref={ecpayFormRef} method="POST" style={{ display: 'none' }} />

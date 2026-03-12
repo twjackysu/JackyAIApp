@@ -44,7 +44,7 @@ The credit system already exists. The simplest path to revenue:
 - [x] PayPal integration (REST API v2 Orders, raw HttpClient)
 - [x] ECPay 綠界 integration (form POST + HMAC-SHA256 CheckMacValue, TWD pricing)
 - [x] Credits page payment method tabs (PayPal / 綠界 ECPay / Stripe)
-- [ ] Purchase history in user profile
+- [x] Purchase history on Credits page (table with pagination)
 
 ### Phase 2: Credit Consumption Gates (Week 2-3)
 - [ ] AI Stock Analysis → 5 credits per analysis
@@ -98,6 +98,7 @@ The credit system already exists. The simplest path to revenue:
 - [x] Added ECPay 綠界 integration (form POST, HMAC-SHA256, TWD: NT$150/300/600)
 - [x] Credits page: 3 payment method tabs
 - [x] "Buy Credits" menu item + clickable credit chip in navbar
+- [x] Purchase/transaction history table on Credits page
 - [ ] Starting Phase 2: Credit consumption gates
 
 ---
