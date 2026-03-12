@@ -67,9 +67,9 @@ const Credits: React.FC = () => {
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
           Credits power AI features like stock analysis, conversation tests, and more.
         </Typography>
-        {balanceData?.Data && (
+        {balanceData?.data && (
           <Chip
-            label={`Current Balance: ${balanceData.Data.balance.toLocaleString()} credits`}
+            label={`Current Balance: ${balanceData.data.balance.toLocaleString()} credits`}
             color="primary"
             variant="outlined"
             sx={{ fontSize: '1rem', py: 2, px: 1 }}
