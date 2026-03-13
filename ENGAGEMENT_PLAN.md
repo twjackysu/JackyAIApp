@@ -238,4 +238,13 @@ _This plan is reviewed and updated on each development cycle._
   - Streak milestones: +50 credits at 7, 30, 100 days
   - Frontend: ResultScreen shows credits awarded, claimDailyBonus API
 - 0 lint/TS/build errors
-- **Next:** Phase 4 (Weekly report + leaderboard), credit gates on remaining AI endpoints (Dictionary, Finance, Audio)
+### 2026-03-13 (Session 4 — Heartbeat)
+- [x] **Phase 4: Weekly Report + Leaderboard — COMPLETE**
+  - StatsController: GET /weekly-report + GET /leaderboard
+  - Weekly report: challenges done (x/7), accuracy %, new words, reviews, XP, percentile
+  - Leaderboard: top users by XP, anonymized names (J****), current user position
+  - Frontend: `/stats` route with tabbed UI, 6-card stat grid, percentile banner
+  - Leaderboard: ranked list with 🥇🥈🥉 medals, current user highlight
+- 0 lint/TS/build errors
+- **All 5 phases COMPLETE** 🎉
+- **Remaining polish:** credit gates on Dictionary/Finance/Audio controllers, EF migration generation, UI testing
