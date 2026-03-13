@@ -23,6 +23,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         private readonly Mock<IOpenAIService> _openAIServiceMock;
         private readonly Mock<IOpenAIPromptService> _promptServiceMock;
         private readonly Mock<IPromptLoader> _promptLoaderMock;
+        private readonly Mock<ICreditService> _creditServiceMock;
         private readonly AzureSQLDBContext _dbContext;
         private readonly ExamController _controller;
         private readonly string _testUserId = "test-user-123";
@@ -35,6 +36,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             _openAIServiceMock = new Mock<IOpenAIService>();
             _promptServiceMock = new Mock<IOpenAIPromptService>();
             _promptLoaderMock = new Mock<IPromptLoader>();
+            _creditServiceMock = new Mock<ICreditService>();
 
             // Setup in-memory database
             var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
@@ -44,6 +46,10 @@ namespace JackyAIApp.Server.Tests.Controllers
 
             // Setup user service
             _userServiceMock.Setup(x => x.GetUserId()).Returns(_testUserId);
+
+            // Setup credit service - default to always having sufficient credits
+            _creditServiceMock.Setup(x => x.ConsumeCreditsAsync(It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync(true);
 
             // Setup response factory
             _responseFactoryMock.Setup(x => x.CreateOKResponse(It.IsAny<object>()))
@@ -58,7 +64,8 @@ namespace JackyAIApp.Server.Tests.Controllers
                 _userServiceMock.Object,
                 _openAIServiceMock.Object,
                 _promptServiceMock.Object,
-                _promptLoaderMock.Object);
+                _promptLoaderMock.Object,
+                _creditServiceMock.Object);
         }
 
         public void Dispose()

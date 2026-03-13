@@ -1,4 +1,5 @@
 // filepath: e:\Users\jacky\Documents\Repo\JackyAIApp\jackyaiapp.client\src\components\UserProfileMenu.tsx
+import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import LinkIcon from '@mui/icons-material/Link';
 import LoginIcon from '@mui/icons-material/Login';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -68,13 +69,16 @@ function UserProfileMenu() {
         </Typography>
       ) : isAuthenticated ? (
         <>
-          <Tooltip title={`Credits: ${creditBalance}`}>
+          <Tooltip title={`Credits: ${creditBalance} — Click to buy more`}>
             <Chip
               icon={<MonetizationOnIcon />}
               label={creditBalance}
               size="small"
               color={creditBalance > 0 ? 'success' : 'error'}
               variant="outlined"
+              component={Link}
+              to="/credits"
+              clickable
               sx={{ mr: 1 }}
             />
           </Tooltip>
@@ -131,6 +135,23 @@ function UserProfileMenu() {
             </Box>
           </MenuItem>
         )}
+
+        <MenuItem
+          component={Link}
+          to="/credits"
+          onClick={handleClose}
+          sx={{
+            minWidth: 200,
+            '&:hover': { backgroundColor: 'action.hover' },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <AddShoppingCartIcon sx={{ mr: 1 }} color="primary" />
+            <Typography variant="body2" sx={{ ml: 1 }} color="primary">
+              Buy Credits
+            </Typography>
+          </Box>
+        </MenuItem>
 
         <Divider />
 

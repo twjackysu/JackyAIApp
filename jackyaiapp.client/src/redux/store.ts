@@ -5,11 +5,14 @@ import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
 import { creditApis } from '@/apis/creditApis';
 import { dailyChallengeApis } from '@/apis/dailyChallengeApis';
 import { dictionaryApis } from '@/apis/dictionaryApis';
+import { ecpayApi } from '@/apis/ecpayApis';
 import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
+import { paypalApi } from '@/apis/paypalApis';
 import { repositoryApis } from '@/apis/repositoryApis';
 import { reviewApis } from '@/apis/reviewApis';
 import { statsApis } from '@/apis/statsApis';
+import { stripeApi } from '@/apis/stripeApis';
 
 export const store = configureStore({
   reducer: {
@@ -21,6 +24,9 @@ export const store = configureStore({
     [financeApis.reducerPath]: financeApis.reducer,
     [connectorsApi.reducerPath]: connectorsApi.reducer,
     [creditApis.reducerPath]: creditApis.reducer,
+    [stripeApi.reducerPath]: stripeApi.reducer,
+    [paypalApi.reducerPath]: paypalApi.reducer,
+    [ecpayApi.reducerPath]: ecpayApi.reducer,
     [dailyChallengeApis.reducerPath]: dailyChallengeApis.reducer,
     [reviewApis.reducerPath]: reviewApis.reducer,
     [statsApis.reducerPath]: statsApis.reducer,
@@ -36,6 +42,9 @@ export const store = configureStore({
       financeApis.middleware,
       connectorsApi.middleware,
       creditApis.middleware,
+      stripeApi.middleware,
+      paypalApi.middleware,
+      ecpayApi.middleware,
       dailyChallengeApis.middleware,
       reviewApis.middleware,
       statsApis.middleware,

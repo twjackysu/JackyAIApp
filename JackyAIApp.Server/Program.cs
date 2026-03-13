@@ -129,6 +129,15 @@ try
     builder.Services.AddScoped<ITokenEncryptionService, TokenEncryptionService>();
     builder.Services.AddScoped<IStateService, StateService>();
     builder.Services.AddScoped<IConnectorService, ConnectorService>();
+    builder.Services.Configure<JackyAIApp.Server.Configuration.StripeOptions>(
+        builder.Configuration.GetSection(JackyAIApp.Server.Configuration.StripeOptions.SectionName));
+    builder.Services.AddScoped<IStripeService, StripeService>();
+    builder.Services.Configure<JackyAIApp.Server.Configuration.PayPalOptions>(
+        builder.Configuration.GetSection(JackyAIApp.Server.Configuration.PayPalOptions.SectionName));
+    builder.Services.AddHttpClient<IPayPalService, PayPalService>();
+    builder.Services.Configure<JackyAIApp.Server.Configuration.ECPayOptions>(
+        builder.Configuration.GetSection(JackyAIApp.Server.Configuration.ECPayOptions.SectionName));
+    builder.Services.AddScoped<IECPayService, ECPayService>();
 
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options =>
