@@ -24,6 +24,7 @@ import useRouteMatch from './hooks/useRouteMatch';
 import PDFUnlocker from './PDFUnlocker';
 import Repository from './Repository';
 import Review from './Review';
+import Stats from './Stats';
 
 // Helper function to determine current app section based on route
 const getCurrentAppSection = (path: string): string => {
@@ -175,6 +176,7 @@ function App() {
             />
             <Tab label="考試 (Exam)" value="/exam" to="/exam" component={Link} />
             <Tab label="🧠 複習 (Review)" value="/review" to="/review" component={Link} />
+            <Tab label="📊 進度 (Stats)" value="/stats" to="/stats" component={Link} />
           </Tabs>
         </Box>
       )}
@@ -196,6 +198,14 @@ function App() {
             element={
               <RequireAuth>
                 <Review />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/stats"
+            element={
+              <RequireAuth>
+                <Stats />
               </RequireAuth>
             }
           />

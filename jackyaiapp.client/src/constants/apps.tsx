@@ -13,7 +13,7 @@ export const ENGLISH_LEARNING = {
   name: 'English Learning',
   path: '/dictionary',
   icon: <SchoolIcon fontSize="small" />,
-  allPaths: ['/dictionary', '/repository', '/exam', '/daily', '/review'],
+  allPaths: ['/dictionary', '/repository', '/exam', '/daily', '/review', '/stats'],
 };
 
 export const PDF_UNLOCKER = {
