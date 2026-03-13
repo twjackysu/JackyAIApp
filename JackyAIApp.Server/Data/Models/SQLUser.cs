@@ -87,6 +87,33 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// The date when the word was added to the user's collection.
         /// </summary>
         public DateTime DateAdded { get; set; }
+
+        // SM-2 Spaced Repetition fields
+
+        /// <summary>
+        /// Next review date (UTC). Null means never reviewed — due immediately.
+        /// </summary>
+        public DateTime? NextReviewDate { get; set; }
+
+        /// <summary>
+        /// Current review interval in days. Starts at 1.
+        /// </summary>
+        public double ReviewIntervalDays { get; set; } = 1;
+
+        /// <summary>
+        /// SM-2 ease factor. Starts at 2.5, minimum 1.3.
+        /// </summary>
+        public double EaseFactor { get; set; } = 2.5;
+
+        /// <summary>
+        /// Total number of reviews completed for this word.
+        /// </summary>
+        public int ReviewCount { get; set; } = 0;
+
+        /// <summary>
+        /// Number of consecutive correct reviews.
+        /// </summary>
+        public int ConsecutiveCorrect { get; set; } = 0;
     }
 
     /// <summary>
