@@ -194,4 +194,27 @@ User Journey:
 ---
 
 _This plan is reviewed and updated on each development cycle._
-_Next step: Start Phase 0 — Daily Challenge System_
+
+---
+
+## Progress Log
+
+### 2026-03-13 (Session 1)
+- [x] Created ENGAGEMENT_PLAN.md
+- [x] Opened PR #50
+- [x] **Phase 0: Daily Challenge System — COMPLETE**
+  - Backend: `DailyChallengeController` with 3 endpoints (GET challenge, POST submit, GET stats)
+  - 5 question types generated from Word DB (no AI calls = zero token cost)
+  - Date-seeded deterministic generation (same questions for everyone per day)
+  - Frontend: `/daily` route with QuestionCard, StatsBar, ResultScreen
+  - RTK Query API slice with cache invalidation
+  - Added "🔥 每日挑戰 (Daily)" tab to English Learning nav
+- [x] **Phase 1: Streak & XP — Backend COMPLETE**
+  - User model: CurrentStreak, LongestStreak, LastStreakDate, TotalXP
+  - DailyChallengeResult entity with unique (UserId, Date) constraint
+  - Streak logic: auto-increment, auto-reset, longest tracking
+  - XP: perfect = 50, else score × 8
+  - Level system: Beginner 🌱 → Master 👑
+  - Stats endpoint with live streak validation
+- 0 lint errors, TypeScript strict pass, .NET build pass
+- **Next:** Phase 2 (Spaced Repetition) + Phase 1 frontend polish (streak freeze)
