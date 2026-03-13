@@ -217,4 +217,16 @@ _This plan is reviewed and updated on each development cycle._
   - Level system: Beginner 🌱 → Master 👑
   - Stats endpoint with live streak validation
 - 0 lint errors, TypeScript strict pass, .NET build pass
-- **Next:** Phase 2 (Spaced Repetition) + Phase 1 frontend polish (streak freeze)
+### 2026-03-13 (Session 2 — Heartbeat)
+- [x] **Phase 2: Spaced Repetition (SM-2) — COMPLETE**
+  - Backend: `ReviewController` with 3 endpoints (GET /due, POST /submit, GET /count)
+  - SM-2 algorithm: ease factor (min 1.3, default 2.5), interval scheduling
+  - Quality ratings 0-5: wrong resets to 1 day, correct multiplies interval by ease factor
+  - UserWord model extended with 5 new fields for review tracking
+  - XP: 3 per correct review word
+  - Batch review: max 20 words per session
+  - Frontend: `/review` route with flashcard UI (reveal → rate)
+  - Result screen with retention rate
+  - Added "🧠 複習 (Review)" tab
+- 0 lint errors, 0 TS errors, 0 .NET warnings
+- **Next:** Phase 3 (Credit gates + daily bonus) or Phase 4 (Weekly report)
