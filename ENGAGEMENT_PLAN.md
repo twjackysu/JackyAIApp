@@ -229,4 +229,13 @@ _This plan is reviewed and updated on each development cycle._
   - Result screen with retention rate
   - Added "🧠 複習 (Review)" tab
 - 0 lint errors, 0 TS errors, 0 .NET warnings
-- **Next:** Phase 3 (Credit gates + daily bonus) or Phase 4 (Weekly report)
+### 2026-03-13 (Session 3 — Heartbeat)
+- [x] **Phase 3: Credit Gates + Daily Bonus — COMPLETE**
+  - CreditCosts.cs: centralized cost constants (Dictionary=1, Cloze=2, Translation=2, Conversation=3, Stock=5, TTS=1)
+  - Credit gates on ExamController: cloze, translation, conversation start
+  - Daily login bonus: POST /claim-daily-bonus → 10 credits/day
+  - Challenge completion: +5 credits
+  - Streak milestones: +50 credits at 7, 30, 100 days
+  - Frontend: ResultScreen shows credits awarded, claimDailyBonus API
+- 0 lint/TS/build errors
+- **Next:** Phase 4 (Weekly report + leaderboard), credit gates on remaining AI endpoints (Dictionary, Finance, Audio)
