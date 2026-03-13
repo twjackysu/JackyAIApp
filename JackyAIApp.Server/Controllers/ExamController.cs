@@ -263,6 +263,13 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("translation/quality_grading")]
         public async Task<IActionResult> GetTranslationQualityGrading([FromBody] TranslationTestUserResponse userResponse)
         {
+            // Credit gate
+            var gradingUserId = _userService.GetUserId();
+            if (!string.IsNullOrEmpty(gradingUserId) && !await _creditService.ConsumeCreditsAsync(gradingUserId, CreditCosts.TranslationGrading, "translation_grading", "Translation quality grading"))
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits.");
+            }
+
             if (userResponse == null || string.IsNullOrEmpty(userResponse.Translation) || 
                 string.IsNullOrEmpty(userResponse.ExaminationQuestion) || string.IsNullOrEmpty(userResponse.UnfamiliarWords))
             {
@@ -383,6 +390,12 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var userId = _userService.GetUserId();
+
+            // Credit gate: each conversation turn costs credits
+            if (!string.IsNullOrEmpty(userId) && !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.ConversationResponse, "conversation_response", "Conversation turn"))
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits.");
+            }
             var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
@@ -449,6 +462,12 @@ namespace JackyAIApp.Server.Controllers
             if (user == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            // Credit gate
+            if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.SentenceTest, "sentence_test", "Sentence test generation"))
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits.");
             }
 
             var userWords = await _DBContext.UserWords

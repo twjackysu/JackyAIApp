@@ -34,7 +34,8 @@ namespace JackyAIApp.Server.Controllers
         IChipDataProvider chipDataProvider,
         IStockScoreService stockScoreService,
         StockAnalysisBuilder analysisBuilder,
-        IMacroEconomyProvider macroEconomyProvider) : ControllerBase
+        IMacroEconomyProvider macroEconomyProvider,
+        ICreditService creditService) : ControllerBase
     {
         private readonly ILogger<FinanceController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         private readonly IOptionsMonitor<Settings> _settings = settings;
@@ -51,6 +52,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IStockScoreService _stockScoreService = stockScoreService ?? throw new ArgumentNullException(nameof(stockScoreService));
         private readonly StockAnalysisBuilder _analysisBuilder = analysisBuilder ?? throw new ArgumentNullException(nameof(analysisBuilder));
         private readonly IMacroEconomyProvider _macroEconomyProvider = macroEconomyProvider ?? throw new ArgumentNullException(nameof(macroEconomyProvider));
+        private readonly ICreditService _creditService = creditService ?? throw new ArgumentNullException(nameof(creditService));
 
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
         private const int CACHE_HOURS = 12; // Cache duration in hours
@@ -122,6 +124,16 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("analyze-stock")]
         public async Task<IActionResult> AnalyzeStock([FromBody] StockSearchRequest request, CancellationToken cancellationToken = default)
         {
+            // Credit gate: AI stock analysis
+            var creditUserId = _userService.GetUserId();
+            if (!string.IsNullOrEmpty(creditUserId))
+            {
+                if (!await _creditService.ConsumeCreditsAsync(creditUserId, CreditCosts.StockAnalysis, "stock_analysis", "AI stock analysis"))
+                {
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits. Please purchase more credits to continue.");
+                }
+            }
+
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(OPERATION_TIMEOUT_SECONDS));
 
