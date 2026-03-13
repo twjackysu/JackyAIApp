@@ -118,6 +118,18 @@ namespace JackyAIApp.Server.Data
             // Index for faster queries by date
             modelBuilder.Entity<CreditTransaction>()
                 .HasIndex(ct => ct.CreatedAt);
+
+            // Configure DailyChallengeResult relationship
+            modelBuilder.Entity<DailyChallengeResult>()
+                .HasOne(dc => dc.User)
+                .WithMany(u => u.DailyChallengeResults)
+                .HasForeignKey(dc => dc.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Index for faster queries: one result per user per day
+            modelBuilder.Entity<DailyChallengeResult>()
+                .HasIndex(dc => new { dc.UserId, dc.ChallengeDate })
+                .IsUnique();
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -134,5 +146,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<JiraConfig> JiraConfigs { get; set; }
         public virtual DbSet<UserConnector> UserConnectors { get; set; }
         public virtual DbSet<CreditTransaction> CreditTransactions { get; set; }
+        public virtual DbSet<DailyChallengeResult> DailyChallengeResults { get; set; }
     }
 }

@@ -16,6 +16,7 @@ import LoginError from './components/LoginError';
 import UserProfileMenu from './components/UserProfileMenu';
 import Connectors from './Connectors';
 import { apps, FINANCE, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
+import DailyChallenge from './DailyChallenge';
 import Dictionary from './Dictionary';
 import Exam from './Exam';
 import Finance from './Finance';
@@ -154,6 +155,12 @@ function App() {
             }}
           >
             <Tab
+              label="🔥 每日挑戰 (Daily)"
+              value="/daily"
+              to="/daily"
+              component={Link}
+            />
+            <Tab
               label="字典 (Dictionary)"
               value={ENGLISH_LEARNING.path}
               to={ENGLISH_LEARNING.path}
@@ -174,6 +181,14 @@ function App() {
         <Routes>
           <Route path={PDF_UNLOCKER.path} element={<PDFUnlocker />} />
           <Route path={ENGLISH_LEARNING.path} element={<Dictionary />} />
+          <Route
+            path="/daily"
+            element={
+              <RequireAuth>
+                <DailyChallenge />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/repository"
             element={

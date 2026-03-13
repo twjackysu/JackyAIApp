@@ -38,11 +38,34 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// </summary>
         public bool? IsAdmin { get; set; }
 
+        // Engagement / Gamification fields
+
+        /// <summary>
+        /// Current consecutive daily challenge streak.
+        /// </summary>
+        public int CurrentStreak { get; set; } = 0;
+
+        /// <summary>
+        /// Longest streak ever achieved.
+        /// </summary>
+        public int LongestStreak { get; set; } = 0;
+
+        /// <summary>
+        /// The last date the user completed a daily challenge (UTC date only).
+        /// </summary>
+        public DateTime? LastStreakDate { get; set; }
+
+        /// <summary>
+        /// Total experience points earned.
+        /// </summary>
+        public int TotalXP { get; set; } = 0;
+
         // Navigation properties
         public ICollection<UserWord> UserWords { get; set; } = [];
         public ICollection<JiraConfig> JiraConfigs { get; set; } = [];
         public ICollection<UserConnector> UserConnectors { get; set; } = [];
         public ICollection<CreditTransaction> CreditTransactions { get; set; } = [];
+        public ICollection<DailyChallengeResult> DailyChallengeResults { get; set; } = [];
     }
 
     /// <summary>

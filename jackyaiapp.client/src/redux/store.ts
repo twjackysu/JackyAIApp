@@ -3,6 +3,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { accountApis } from '@/apis/accountApis';
 import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
 import { creditApis } from '@/apis/creditApis';
+import { dailyChallengeApis } from '@/apis/dailyChallengeApis';
 import { dictionaryApis } from '@/apis/dictionaryApis';
 import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
@@ -18,6 +19,7 @@ export const store = configureStore({
     [financeApis.reducerPath]: financeApis.reducer,
     [connectorsApi.reducerPath]: connectorsApi.reducer,
     [creditApis.reducerPath]: creditApis.reducer,
+    [dailyChallengeApis.reducerPath]: dailyChallengeApis.reducer,
   },
   // Adding the api middleware enables caching, invalidation, polling,
   // and other useful features of `rtk-query`.
@@ -30,6 +32,7 @@ export const store = configureStore({
       financeApis.middleware,
       connectorsApi.middleware,
       creditApis.middleware,
+      dailyChallengeApis.middleware,
     ),
 });
 
