@@ -247,4 +247,9 @@ _This plan is reviewed and updated on each development cycle._
   - Leaderboard: ranked list with 🥇🥈🥉 medals, current user highlight
 - 0 lint/TS/build errors
 - **All 5 phases COMPLETE** 🎉
-- **Remaining polish:** credit gates on Dictionary/Finance/Audio controllers, EF migration generation, UI testing
+### 2026-03-13 (Session 5 — Heartbeat)
+- [x] **Credit gates on all AI endpoints — COMPLETE**
+  - ExamController: cloze (2), translation (2), grading (1), conversation start (3), conversation turn (1), sentence (2)
+  - FinanceController: stock analysis (5)
+  - Skipped public endpoints: Dictionary lookup, Audio TTS (free, retention hooks)
+- **Remaining:** EF migration (needs SQL Server connection at deploy), end-to-end testing
