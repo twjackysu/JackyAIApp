@@ -141,6 +141,7 @@ function DailyChallenge() {
           xpEarned={submitResult.xpEarned}
           newStreak={submitResult.newStreak}
           alreadyCompleted={submitResult.alreadyCompleted}
+          creditsAwarded={submitResult.creditsAwarded}
           onReview={handleReview}
         />
       )}

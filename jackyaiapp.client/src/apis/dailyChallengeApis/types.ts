@@ -37,6 +37,7 @@ export interface DailyChallengeSubmitResponse {
   streakUpdated: boolean;
   newStreak: number;
   alreadyCompleted: boolean;
+  creditsAwarded: number;
 }
 
 export interface DailyChallengeStatsResponse {

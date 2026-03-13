@@ -25,17 +25,20 @@ namespace JackyAIApp.Server.Controllers
         private readonly IMyResponseFactory _responseFactory;
         private readonly AzureSQLDBContext _dbContext;
         private readonly IUserService _userService;
+        private readonly ICreditService _creditService;
 
         public DailyChallengeController(
             ILogger<DailyChallengeController> logger,
             IMyResponseFactory responseFactory,
             AzureSQLDBContext dbContext,
-            IUserService userService)
+            IUserService userService,
+            ICreditService creditService)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
             _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _creditService = creditService ?? throw new ArgumentNullException(nameof(creditService));
         }
 
         /// <summary>
@@ -192,6 +195,24 @@ namespace JackyAIApp.Server.Controllers
 
             await _dbContext.SaveChangesAsync();
 
+            // Award credit bonuses (after SaveChanges to avoid transaction conflicts)
+            ulong creditsAwarded = 0;
+
+            // Daily challenge completion bonus: 5 credits
+            await _creditService.AddCreditsAsync(userId, CreditCosts.DailyChallengeBonus,
+                CreditTransactionType.Bonus, "daily_challenge",
+                $"Daily challenge completed ({score}/{QUESTIONS_PER_CHALLENGE})");
+            creditsAwarded += CreditCosts.DailyChallengeBonus;
+
+            // 7-day streak milestone bonus: 50 credits
+            if (user.CurrentStreak == 7 || user.CurrentStreak == 30 || user.CurrentStreak == 100)
+            {
+                await _creditService.AddCreditsAsync(userId, CreditCosts.StreakMilestone7Day,
+                    CreditTransactionType.Bonus, "streak_milestone",
+                    $"🔥 {user.CurrentStreak}-day streak milestone!");
+                creditsAwarded += CreditCosts.StreakMilestone7Day;
+            }
+
             return _responseFactory.CreateOKResponse(new DailyChallengeSubmitResponse
             {
                 Score = score,
@@ -199,7 +220,8 @@ namespace JackyAIApp.Server.Controllers
                 XPEarned = xpEarned,
                 StreakUpdated = streakUpdated,
                 NewStreak = user.CurrentStreak,
-                AlreadyCompleted = false
+                AlreadyCompleted = false,
+                CreditsAwarded = creditsAwarded
             });
         }
 
@@ -242,6 +264,36 @@ namespace JackyAIApp.Server.Controllers
                 TodayCompleted = todayResult != null,
                 TodayScore = todayResult?.Score
             });
+        }
+
+        /// <summary>
+        /// Claim daily login bonus credits (10 credits, once per day).
+        /// </summary>
+        [HttpPost("claim-daily-bonus")]
+        public async Task<IActionResult> ClaimDailyBonus()
+        {
+            var userId = _userService.GetUserId();
+            if (userId == null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "User not found.");
+
+            var today = DateTime.UtcNow.Date;
+
+            // Check if already claimed today by looking at credit transactions
+            var alreadyClaimed = await _dbContext.CreditTransactions
+                .AnyAsync(t => t.UserId == userId
+                    && t.Reason == "daily_login_bonus"
+                    && t.CreatedAt >= today && t.CreatedAt < today.AddDays(1));
+
+            if (alreadyClaimed)
+            {
+                return _responseFactory.CreateOKResponse(new { claimed = false, message = "Already claimed today" });
+            }
+
+            await _creditService.AddCreditsAsync(userId, CreditCosts.DailyLoginBonus,
+                CreditTransactionType.Bonus, "daily_login_bonus",
+                "Daily login bonus");
+
+            return _responseFactory.CreateOKResponse(new { claimed = true, credits = CreditCosts.DailyLoginBonus });
         }
 
         private static string GetLevel(int xp) => xp switch

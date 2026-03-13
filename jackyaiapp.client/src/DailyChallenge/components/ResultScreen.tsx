@@ -12,6 +12,7 @@ interface ResultScreenProps {
   xpEarned: number;
   newStreak: number;
   alreadyCompleted: boolean;
+  creditsAwarded: number;
   onReview: () => void;
 }
 
@@ -21,6 +22,7 @@ function ResultScreen({
   xpEarned,
   newStreak,
   alreadyCompleted,
+  creditsAwarded,
   onReview,
 }: ResultScreenProps) {
   const isPerfect = score === totalQuestions;
@@ -72,9 +74,9 @@ function ResultScreen({
         {score} / {totalQuestions}
       </Typography>
 
-      {/* XP + Streak */}
+      {/* XP + Streak + Credits */}
       {!alreadyCompleted && (
-        <Stack direction="row" spacing={4} justifyContent="center" sx={{ mb: 3 }}>
+        <Stack direction="row" spacing={3} justifyContent="center" sx={{ mb: 3 }} flexWrap="wrap">
           <Box textAlign="center">
             <EmojiEventsIcon sx={{ color: '#FFD700', fontSize: 36 }} />
             <Typography variant="h6" fontWeight="bold" color="#FFD700">
@@ -87,6 +89,14 @@ function ResultScreen({
               {newStreak} day streak
             </Typography>
           </Box>
+          {creditsAwarded > 0 && (
+            <Box textAlign="center">
+              <Typography variant="h4">💰</Typography>
+              <Typography variant="h6" fontWeight="bold" color="#4CAF50">
+                +{creditsAwarded} credits
+              </Typography>
+            </Box>
+          )}
         </Stack>
       )}
 

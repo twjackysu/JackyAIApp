@@ -46,6 +46,7 @@ namespace JackyAIApp.Server.DTO
         public bool StreakUpdated { get; set; }
         public int NewStreak { get; set; }
         public bool AlreadyCompleted { get; set; }
+        public ulong CreditsAwarded { get; set; }
     }
 
     public class DailyChallengeStatsResponse

@@ -29,6 +29,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IOpenAIService _openAIService;
         private readonly IOpenAIPromptService _promptService;
         private readonly IPromptLoader _promptLoader;
+        private readonly ICreditService _creditService;
 
         public ExamController(
             ILogger<ExamController> logger,
@@ -37,7 +38,8 @@ namespace JackyAIApp.Server.Controllers
             IUserService userService,
             IOpenAIService openAIService,
             IOpenAIPromptService promptService,
-            IPromptLoader promptLoader)
+            IPromptLoader promptLoader,
+            ICreditService creditService)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
@@ -46,6 +48,7 @@ namespace JackyAIApp.Server.Controllers
             _openAIService = openAIService ?? throw new ArgumentNullException(nameof(openAIService));
             _promptService = promptService ?? throw new ArgumentNullException(nameof(promptService));
             _promptLoader = promptLoader ?? throw new ArgumentNullException(nameof(promptLoader));
+            _creditService = creditService ?? throw new ArgumentNullException(nameof(creditService));
         }
 
         /// <summary>
@@ -60,6 +63,12 @@ namespace JackyAIApp.Server.Controllers
             if (user == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            // Credit gate: consume credits for AI exam generation
+            if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.ClozeTest, "cloze_test", "Cloze test generation"))
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits. Please purchase more credits to continue.");
             }
 
             // Get a random word from the user's collection
@@ -167,6 +176,12 @@ namespace JackyAIApp.Server.Controllers
             if (user == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            // Credit gate
+            if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.TranslationTest, "translation_test", "Translation test generation"))
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits. Please purchase more credits to continue.");
             }
 
             var userWords = await _DBContext.UserWords
@@ -294,6 +309,12 @@ namespace JackyAIApp.Server.Controllers
             if (user == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            // Credit gate
+            if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.ConversationStart, "conversation_start", "Conversation test started"))
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits. Please purchase more credits to continue.");
             }
 
             if (request == null || string.IsNullOrEmpty(request.Scenario) || 
