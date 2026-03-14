@@ -1,4 +1,7 @@
+import BarChartIcon from '@mui/icons-material/BarChart';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -158,7 +161,9 @@ function App() {
             }}
           >
             <Tab
-              label="🔥 每日挑戰 (Daily)"
+              icon={<LocalFireDepartmentIcon />}
+              iconPosition="start"
+              label="每日挑戰 (Daily)"
               value="/daily"
               to="/daily"
               component={Link}
@@ -176,8 +181,22 @@ function App() {
               component={Link}
             />
             <Tab label="考試 (Exam)" value="/exam" to="/exam" component={Link} />
-            <Tab label="🧠 複習 (Review)" value="/review" to="/review" component={Link} />
-            <Tab label="📊 進度 (Stats)" value="/stats" to="/stats" component={Link} />
+            <Tab
+              icon={<PsychologyIcon />}
+              iconPosition="start"
+              label="複習 (Review)"
+              value="/review"
+              to="/review"
+              component={Link}
+            />
+            <Tab
+              icon={<BarChartIcon />}
+              iconPosition="start"
+              label="進度 (Stats)"
+              value="/stats"
+              to="/stats"
+              component={Link}
+            />
           </Tabs>
         </Box>
       )}
