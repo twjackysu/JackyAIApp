@@ -31,7 +31,7 @@ try
     {
         builder.Configuration.AddAzureKeyVault(
             new Uri($"https://{builder.Configuration["KeyVaultName"]}.vault.azure.net/"),
-            new ManagedIdentityCredential());
+            new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
     }
 
     var configuration = builder.Configuration;
