@@ -1,7 +1,10 @@
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import PsychologyIcon from '@mui/icons-material/Psychology';
+import QuizIcon from '@mui/icons-material/Quiz';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -169,18 +172,29 @@ function App() {
               component={Link}
             />
             <Tab
+              icon={<AutoStoriesIcon />}
+              iconPosition="start"
               label="字典 (Dictionary)"
               value={ENGLISH_LEARNING.path}
               to={ENGLISH_LEARNING.path}
               component={Link}
             />
             <Tab
+              icon={<BookmarkIcon />}
+              iconPosition="start"
               label="儲存庫 (Repository)"
               value="/repository"
               to="/repository"
               component={Link}
             />
-            <Tab label="考試 (Exam)" value="/exam" to="/exam" component={Link} />
+            <Tab
+              icon={<QuizIcon />}
+              iconPosition="start"
+              label="考試 (Exam)"
+              value="/exam"
+              to="/exam"
+              component={Link}
+            />
             <Tab
               icon={<PsychologyIcon />}
               iconPosition="start"
