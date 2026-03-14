@@ -35,6 +35,10 @@ jobs:
   deploy:
     runs-on: windows-latest
     needs: build
+    env:
+      # azure/webapps-deploy@v3 still runs on Node.js 20; no v4 available yet.
+      # Remove once a Node.js 24 compatible version is released.
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
     - name: Download artifact from build job
       uses: actions/download-artifact@v8
