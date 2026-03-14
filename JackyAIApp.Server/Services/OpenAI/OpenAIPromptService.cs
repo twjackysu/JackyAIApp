@@ -125,7 +125,7 @@ namespace JackyAIApp.Server.Services.OpenAI
             try
             {
                 var audioBytes = new byte[audioStream.Length];
-                await audioStream.ReadAsync(audioBytes, 0, (int)audioStream.Length);
+                await audioStream.ReadExactlyAsync(audioBytes);
 
                 var response = await _openAIService.Audio.CreateTranscription(new AudioCreateTranscriptionRequest
                 {
