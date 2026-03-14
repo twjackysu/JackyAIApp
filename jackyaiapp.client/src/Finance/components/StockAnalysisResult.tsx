@@ -88,10 +88,13 @@ export const StockAnalysisResult = ({ data }: StockAnalysisResultProps) => {
           當前股價: ${data.currentPrice}
         </Typography>
       )}
-
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Short Term */}
-        <Grid item xs={12} md={4}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 4
+          }}>
           <TrendCard
             title="短期趨勢 (1-3個月)"
             trend={data.shortTermTrend}
@@ -100,7 +103,11 @@ export const StockAnalysisResult = ({ data }: StockAnalysisResultProps) => {
         </Grid>
 
         {/* Medium Term */}
-        <Grid item xs={12} md={4}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 4
+          }}>
           <TrendCard
             title="中期趨勢 (3-12個月)"
             trend={data.mediumTermTrend}
@@ -109,7 +116,11 @@ export const StockAnalysisResult = ({ data }: StockAnalysisResultProps) => {
         </Grid>
 
         {/* Long Term */}
-        <Grid item xs={12} md={4}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 4
+          }}>
           <TrendCard
             title="長期趨勢 (1-3年)"
             trend={data.longTermTrend}
@@ -118,17 +129,25 @@ export const StockAnalysisResult = ({ data }: StockAnalysisResultProps) => {
         </Grid>
 
         {/* Key Factors */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <ChipListCard title="關鍵因素" items={data.keyFactors} color="primary" />
         </Grid>
 
         {/* Risk Factors */}
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <ChipListCard title="風險因素" items={data.riskFactors} color="warning" />
         </Grid>
 
         {/* Investment Recommendation */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Card sx={{ bgcolor: getRecommendationColor(data.recommendation, 0.1) }}>
             <CardHeader
               title="投資建議"

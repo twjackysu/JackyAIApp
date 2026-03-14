@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { orange } from '@mui/material/colors';
 import IconButton from '@mui/material/IconButton';
-import { alpha, useTheme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
@@ -58,10 +58,10 @@ function Exam() {
                 top: 16,
                 left: 16,
                 zIndex: 10,
-                backgroundColor: alpha(theme.palette.background.paper, 0.9),
+                backgroundColor: theme.alpha(theme.palette.background.paper, 0.9),
                 boxShadow: 2,
                 '&:hover': {
-                  backgroundColor: alpha(theme.palette.background.paper, 1),
+                  backgroundColor: theme.alpha(theme.palette.background.paper, 1),
                   boxShadow: 4,
                 },
               }}

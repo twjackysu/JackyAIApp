@@ -161,7 +161,7 @@ const MarginSection = ({ data }: { data: MacroEconomyData }) => {
       <CardContent>
         <Typography variant="subtitle2" color="text.secondary" gutterBottom>💰 融資融券</Typography>
         <Grid container spacing={2}>
-          <Grid item xs={6}>
+          <Grid size={6}>
             <Typography variant="caption" color="text.secondary">融資</Typography>
             <Stack spacing={0.3}>
               <Typography variant="body2">買進: {formatNumber(m.marginBuyTotal)}</Typography>
@@ -173,7 +173,7 @@ const MarginSection = ({ data }: { data: MacroEconomyData }) => {
               <Typography variant="body2" fontWeight="bold">餘額: {formatNumber(m.marginBalanceTotal)}</Typography>
             </Stack>
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={6}>
             <Typography variant="caption" color="text.secondary">融券</Typography>
             <Stack spacing={0.3}>
               <Typography variant="body2">賣出: {formatNumber(m.shortSellTotal)}</Typography>
@@ -253,7 +253,13 @@ const FxAndRateSection = ({ data }: { data: MacroEconomyData }) => {
 const MacroSkeleton = () => (
   <Grid container spacing={2}>
     {[1, 2, 3, 4].map(i => (
-      <Grid item xs={12} sm={6} md={3} key={i}>
+      <Grid
+        key={i}
+        size={{
+          xs: 12,
+          sm: 6,
+          md: 3
+        }}>
         <Paper sx={{ p: 2 }}>
           <Skeleton variant="text" width="60%" />
           <Skeleton variant="rectangular" height={120} sx={{ mt: 1 }} />
@@ -278,16 +284,32 @@ export const MacroEconomyOverview = () => {
         🏛️ 總體經濟概覽
       </Typography>
       <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <MarketIndexSection data={data.marketIndex} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <SectorSection sectors={data.sectorIndices} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <MarginSection data={data} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
           <FxAndRateSection data={data} />
         </Grid>
       </Grid>

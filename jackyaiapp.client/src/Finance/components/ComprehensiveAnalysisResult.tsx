@@ -40,11 +40,20 @@ const OverallScoreSection = ({ data }: Props) => {
         <Grid container spacing={3} alignItems="center">
           {/* Score gauge — only when scoring is enabled */}
           {scoring && (
-            <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Grid
+              sx={{ display: 'flex', justifyContent: 'center' }}
+              size={{
+                xs: 12,
+                md: 3
+              }}>
               <ScoreGauge score={scoring.overallScore} label="綜合評分" />
             </Grid>
           )}
-          <Grid item xs={12} md={scoring ? 9 : 12}>
+          <Grid
+            size={{
+              xs: 12,
+              md: scoring ? 9 : 12
+            }}>
             <Stack spacing={2}>
               <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
                 <Chip
@@ -180,7 +189,12 @@ export const ComprehensiveAnalysisResult = ({ data }: Props) => {
       {data.scoring && data.scoring.categoryScores.length > 0 && (
         <Grid container spacing={3} sx={{ mb: 3 }}>
           {data.scoring.categoryScores.map(cs => (
-            <Grid item xs={12} md={4} key={cs.category}><CategoryScoreCard cs={cs} /></Grid>
+            <Grid
+              key={cs.category}
+              size={{
+                xs: 12,
+                md: 4
+              }}><CategoryScoreCard cs={cs} /></Grid>
           ))}
         </Grid>
       )}

@@ -177,10 +177,8 @@ function Finance() {
           {currentDate}
         </Typography>
       </Stack>
-
       {/* Macro Economy Overview — shown before search results */}
       {!hasStockResults && <MacroEconomyOverview />}
-
       {/* Tabs */}
       <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 2, border: '1px solid', borderColor: 'divider' }}>
         <Tabs
@@ -325,7 +323,6 @@ function Finance() {
             </Stack>
           )}
       </Paper>
-
       {/* Error states */}
       {analysisError && !isAnalyzing && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -337,11 +334,9 @@ function Finance() {
           綜合分析失敗，請檢查股票代碼是否正確
         </Alert>
       )}
-
       {/* Stock analysis results */}
       {searchResults && <StockAnalysisResult data={searchResults} />}
       {analysisResults && <ComprehensiveAnalysisResult data={analysisResults} />}
-
       {/* Market Summary Tab Content */}
       {analysisTab === TAB_MARKET_SUMMARY && !isAuthenticated && (
         <Alert
@@ -404,14 +399,19 @@ function Finance() {
           )}
           <Grid container spacing={3}>
             {filteredData.map((stock) => (
-              <Grid item xs={12} sm={6} md={4} key={stock.stockCode}>
+              <Grid
+                key={stock.stockCode}
+                size={{
+                  xs: 12,
+                  sm: 6,
+                  md: 4
+                }}>
                 <MarketSummaryCard stock={stock} />
               </Grid>
             ))}
           </Grid>
         </>
       )}
-
       {/* FloatingChatbot — only shown on AI trend analysis tab */}
       {analysisTab === TAB_AI_TREND && <FloatingChatbot />}
     </Box>

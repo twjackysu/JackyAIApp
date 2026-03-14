@@ -148,14 +148,18 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
       <Typography variant="h5" gutterBottom textAlign="center">
         選擇對話情境
       </Typography>
-
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
         選擇預設情境模板或自定義場景開始練習
       </Typography>
-
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {SCENARIO_TEMPLATES.map((template) => (
-          <Grid item xs={12} sm={6} md={4} key={template.id}>
+          <Grid
+            key={template.id}
+            size={{
+              xs: 12,
+              sm: 6,
+              md: 4
+            }}>
             <Card
               sx={{
                 cursor: 'pointer',
@@ -191,13 +195,11 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
           </Grid>
         ))}
       </Grid>
-
       <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 3 }}>
         <Button variant="outlined" onClick={() => setShowCustomDialog(true)} disabled={disabled}>
           自定義情境
         </Button>
       </Box>
-
       {selectedTemplate && (
         <Box
           sx={{
@@ -237,7 +239,6 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
           </Button>
         </Box>
       )}
-
       {/* 自定義情境對話框 */}
       <Dialog
         open={showCustomDialog}

@@ -41,7 +41,12 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
     return (
       <Grid container spacing={2}>
         {[1, 2, 3, 4, 5, 6].map((i) => (
-          <Grid item xs={6} sm={4} key={i}>
+          <Grid
+            key={i}
+            size={{
+              xs: 6,
+              sm: 4
+            }}>
             <Skeleton variant="rounded" height={120} />
           </Grid>
         ))}
@@ -61,9 +66,12 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
       <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 2 }}>
         {data.weekStart} ~ {data.weekEnd}
       </Typography>
-
       <Grid container spacing={2}>
-        <Grid item xs={6} sm={4}>
+        <Grid
+          size={{
+            xs: 6,
+            sm: 4
+          }}>
           <StatCard
             icon={<LocalFireDepartmentIcon sx={{ fontSize: 36 }} />}
             label="Current Streak"
@@ -71,7 +79,11 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
             color="#FF5722"
           />
         </Grid>
-        <Grid item xs={6} sm={4}>
+        <Grid
+          size={{
+            xs: 6,
+            sm: 4
+          }}>
           <StatCard
             icon={<EmojiEventsIcon sx={{ fontSize: 36 }} />}
             label="XP This Week"
@@ -79,7 +91,11 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
             color="#FFD700"
           />
         </Grid>
-        <Grid item xs={6} sm={4}>
+        <Grid
+          size={{
+            xs: 6,
+            sm: 4
+          }}>
           <StatCard
             icon={<QuizIcon sx={{ fontSize: 36 }} />}
             label="Challenges Done"
@@ -87,7 +103,11 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
             color="#2196F3"
           />
         </Grid>
-        <Grid item xs={6} sm={4}>
+        <Grid
+          size={{
+            xs: 6,
+            sm: 4
+          }}>
           <StatCard
             icon={<Typography variant="h5">🎯</Typography>}
             label="Accuracy"
@@ -95,7 +115,11 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
             color="#4CAF50"
           />
         </Grid>
-        <Grid item xs={6} sm={4}>
+        <Grid
+          size={{
+            xs: 6,
+            sm: 4
+          }}>
           <StatCard
             icon={<MenuBookIcon sx={{ fontSize: 36 }} />}
             label="New Words"
@@ -103,7 +127,11 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
             color="#9C27B0"
           />
         </Grid>
-        <Grid item xs={6} sm={4}>
+        <Grid
+          size={{
+            xs: 6,
+            sm: 4
+          }}>
           <StatCard
             icon={<Typography variant="h5">🧠</Typography>}
             label="Words Reviewed"
@@ -112,7 +140,6 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
           />
         </Grid>
       </Grid>
-
       {/* Percentile */}
       <Paper sx={{ mt: 2, p: 2, textAlign: 'center', borderRadius: 2, bgcolor: 'primary.dark' }}>
         <Typography variant="h6" color="white">
