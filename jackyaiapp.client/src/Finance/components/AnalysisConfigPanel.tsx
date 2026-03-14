@@ -39,7 +39,11 @@ export const AnalysisConfigPanel = ({ config, onChange }: Props) => {
       </AccordionSummary>
       <AccordionDetails>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 6
+            }}>
             <Typography variant="subtitle2" gutterBottom fontWeight="bold">分析項目</Typography>
             <FormGroup>
               <FormControlLabel control={<Checkbox checked={config.includeTechnical} onChange={() => toggle('includeTechnical')} />} label="📊 技術面指標" />
@@ -49,7 +53,11 @@ export const AnalysisConfigPanel = ({ config, onChange }: Props) => {
               <FormControlLabel control={<Checkbox checked={config.includeRisk} onChange={() => toggle('includeRisk')} />} label="⚠️ 風險評估" />
             </FormGroup>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 6
+            }}>
             <Typography variant="subtitle2" gutterBottom fontWeight="bold">類別權重</Typography>
             <Stack spacing={2}>
               {(['technicalWeight', 'chipWeight', 'fundamentalWeight'] as const).map((f) => {

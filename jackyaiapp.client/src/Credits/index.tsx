@@ -128,7 +128,6 @@ const Credits: React.FC = () => {
           />
         )}
       </Box>
-
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
         <Tabs value={method} onChange={(_, v) => setMethod(v as PaymentMethod)}>
           <Tab label="PayPal" value="paypal" />
@@ -136,7 +135,6 @@ const Credits: React.FC = () => {
           <Tab label="Stripe" value="stripe" />
         </Tabs>
       </Box>
-
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
@@ -144,7 +142,13 @@ const Credits: React.FC = () => {
       ) : (
         <Grid container spacing={3} justifyContent="center">
           {packs?.map((pack) => (
-            <Grid item xs={12} sm={6} md={4} key={pack.id}>
+            <Grid
+              key={pack.id}
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 4
+              }}>
               <Card
                 sx={{
                   height: '100%',
@@ -189,7 +193,6 @@ const Credits: React.FC = () => {
           ))}
         </Grid>
       )}
-
       <Box sx={{ textAlign: 'center', mt: 5 }}>
         <Typography variant="body2" color="text.secondary">
           {isECPay
@@ -197,7 +200,6 @@ const Credits: React.FC = () => {
             : 'Payments are processed securely. Credits are added instantly after payment.'}
         </Typography>
       </Box>
-
       {/* Transaction History */}
       {historyData?.data && historyData.data.transactions.length > 0 && (
         <Box sx={{ mt: 6 }}>
@@ -253,10 +255,8 @@ const Credits: React.FC = () => {
           )}
         </Box>
       )}
-
       {/* Hidden form for ECPay POST */}
       <form ref={ecpayFormRef} method="POST" style={{ display: 'none' }} />
-
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

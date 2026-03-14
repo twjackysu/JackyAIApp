@@ -120,10 +120,15 @@ const Connectors: React.FC = () => {
           </IconButton>
         </Tooltip>
       </Box>
-
       <Grid container spacing={3}>
         {connectors?.map((connector) => (
-          <Grid item xs={12} sm={6} md={4} key={connector.provider}>
+          <Grid
+            key={connector.provider}
+            size={{
+              xs: 12,
+              sm: 6,
+              md: 4
+            }}>
             <ConnectorCard
               connector={connector}
               onToggle={handleToggle}
@@ -146,7 +151,6 @@ const Connectors: React.FC = () => {
           </Grid>
         ))}
       </Grid>
-
       {connectors?.length === 0 && (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <Typography variant="h6" color="text.secondary">
