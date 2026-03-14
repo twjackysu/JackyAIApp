@@ -60,7 +60,7 @@ namespace JackyAIApp.Server.Services.OpenAI
 
             messages.Add(ChatMessage.FromUser(userMessage));
 
-            var messagesTuples = messages.Select(m => (m.Role ?? "user", m.Content ?? "")).ToList();
+            var messagesTuples = messages.Select(m => (m.Role?.ToString().ToLower() ?? "user", m.Content ?? "")).ToList();
             return await GetCompletionWithMessagesAsync<T>(messagesTuples, model);
         }
 
