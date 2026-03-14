@@ -105,9 +105,7 @@ const ChatDialogWithPreview = ({
       }}
     >
       <ChatHeader statusText={statusText} statusColor={statusColor} onClose={onClose} />
-
       <ProgressIndicator streamingStatus={streamingStatus} />
-
       {/* 主要內容區域 */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {showHtmlViewer ? (
@@ -142,7 +140,7 @@ const ChatDialogWithPreview = ({
           </Allotment>
         ) : (
           // 沒有 HTML 預覽時的原有布局
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+          (<div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
             <MessageAreaWithBlocks
               messages={messages}
               ref={messagesEndRef}
@@ -156,7 +154,7 @@ const ChatDialogWithPreview = ({
               onKeyPress={onKeyPress}
               disabled={streamingStatus.isLoading}
             />
-          </div>
+          </div>)
         )}
       </div>
     </Dialog>

@@ -51,7 +51,7 @@ function Exam() {
         <>
           {isOnTestPage && (
             // Floating back button when on a specific test
-            <IconButton
+            (<IconButton
               onClick={() => navigate('/exam')}
               sx={{
                 position: 'absolute',
@@ -67,11 +67,11 @@ function Exam() {
               }}
             >
               <ArrowBackIcon />
-            </IconButton>
+            </IconButton>)
           )}
           {!isOnTestPage && (
             // Test selection buttons when on main exam page
-            <Box
+            (<Box
               sx={{
                 mb: 3,
                 display: 'flex',
@@ -123,7 +123,7 @@ function Exam() {
               >
                 造句測驗 (Sentence Formation Test)
               </Button>
-            </Box>
+            </Box>)
           )}
           {isRepositoryNoWord && !isOnConversationTest && <RepositoryNoWordAlert />}
           <Routes>
