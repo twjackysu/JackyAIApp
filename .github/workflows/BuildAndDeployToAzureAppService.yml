@@ -8,7 +8,7 @@ env:
   AZURE_WEBAPP_NAME: JackyAI
   AZURE_WEBAPP_PACKAGE_PATH: JackyAIApp.Server\publish
   CONFIGURATION: Release
-  DOTNET_CORE_VERSION: 8.0.x
+  DOTNET_CORE_VERSION: 10.0.x
   WORKING_DIRECTORY: JackyAIApp.Server
 jobs:
   build:
