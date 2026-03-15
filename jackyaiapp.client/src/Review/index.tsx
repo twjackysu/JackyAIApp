@@ -6,12 +6,20 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 
 import { useGetDueReviewsQuery, useSubmitReviewsMutation } from '@/apis/reviewApis';
 import { ReviewAnswerRequest, ReviewSubmitResponse } from '@/apis/reviewApis/types';
 
 import Flashcard from './components/Flashcard';
+
+const REVIEW_STORAGE_KEY = 'review_progress';
+
+interface ReviewProgress {
+  wordIds: number[];
+  currentIndex: number;
+  ratings: ReviewAnswerRequest[];
+}
 
 function Review() {
   const { data: dueData, isLoading, error } = useGetDueReviewsQuery();
@@ -20,25 +28,66 @@ function Review() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [ratings, setRatings] = useState<ReviewAnswerRequest[]>([]);
   const [result, setResult] = useState<ReviewSubmitResponse | null>(null);
+  const restoredRef = useRef(false);
 
   const dueWords = useMemo(() => dueData?.data?.dueWords ?? [], [dueData?.data?.dueWords]);
   const totalDue = dueData?.data?.totalDueCount ?? 0;
+
+  // Restore progress from localStorage once words are loaded
+  useEffect(() => {
+    if (dueWords.length === 0 || restoredRef.current) return;
+    restoredRef.current = true;
+
+    try {
+      const saved = localStorage.getItem(REVIEW_STORAGE_KEY);
+      if (!saved) return;
+      const { wordIds, currentIndex: savedIndex, ratings: savedRatings }: ReviewProgress =
+        JSON.parse(saved);
+      const currentWordIds = dueWords.map((w) => w.userWordId);
+      // Only restore if the word set matches and progress is still valid
+      if (
+        JSON.stringify(wordIds) === JSON.stringify(currentWordIds) &&
+        savedIndex < dueWords.length
+      ) {
+        setCurrentIndex(savedIndex);
+        setRatings(savedRatings);
+      }
+    } catch {
+      localStorage.removeItem(REVIEW_STORAGE_KEY);
+    }
+  }, [dueWords]);
+
+  // Save progress to localStorage on each change
+  useEffect(() => {
+    if (dueWords.length === 0 || result) return;
+    if (currentIndex === 0 && ratings.length === 0) return; // skip initial state
+    const progress: ReviewProgress = {
+      wordIds: dueWords.map((w) => w.userWordId),
+      currentIndex,
+      ratings,
+    };
+    localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(progress));
+  }, [currentIndex, ratings, dueWords, result]);
 
   const handleRate = useCallback(
     (quality: number) => {
       const word = dueWords[currentIndex];
       if (!word) return;
 
-      setRatings((prev) => [...prev, { userWordId: word.userWordId, quality }]);
+      const newRating: ReviewAnswerRequest = { userWordId: word.userWordId, quality };
 
       if (currentIndex < dueWords.length - 1) {
+        setRatings((prev) => [...prev, newRating]);
         setCurrentIndex((prev) => prev + 1);
       } else {
         // All reviewed — submit
-        const allRatings = [...ratings, { userWordId: word.userWordId, quality }];
+        const allRatings = [...ratings, newRating];
         submitReviews({ reviews: allRatings })
           .unwrap()
-          .then((res) => setResult(res.data))
+          .then((res) => {
+            localStorage.removeItem(REVIEW_STORAGE_KEY);
+            setResult(res.data);
+          })
           .catch((err) => console.error('Failed to submit reviews:', err));
       }
     },
@@ -117,11 +166,13 @@ function Review() {
   // Active review
   return (
     <Box sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}>
-      <Typography variant="h4" fontWeight="bold" textAlign="center" sx={{ mb: 1 }}>
-        🧠 Review
-      </Typography>
       <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
         {totalDue} word{totalDue !== 1 ? 's' : ''} due for review
+        {ratings.length > 0 && (
+          <Typography component="span" color="success.main" sx={{ ml: 1 }}>
+            · {ratings.length} done
+          </Typography>
+        )}
       </Typography>
 
       {isSubmitting ? (
@@ -129,7 +180,9 @@ function Review() {
           <CircularProgress />
         </Box>
       ) : (
+        // key={currentIndex} forces remount on card change, resetting revealed state
         <Flashcard
+          key={currentIndex}
           word={dueWords[currentIndex]}
           cardNumber={currentIndex + 1}
           totalCards={dueWords.length}

@@ -3,7 +3,6 @@ import SummarizeIcon from '@mui/icons-material/Summarize';
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 import { useGetWeeklyReportQuery, useGetLeaderboardQuery } from '@/apis/statsApis';
@@ -18,10 +17,6 @@ function Stats() {
 
   return (
     <Box sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}>
-      <Typography variant="h4" fontWeight="bold" textAlign="center" sx={{ mb: 2 }}>
-        📊 Progress
-      </Typography>
-
       <Tabs value={tab} onChange={(_, v) => setTab(v)} centered sx={{ mb: 3 }}>
         <Tab icon={<SummarizeIcon />} label="Weekly Report" />
         <Tab icon={<LeaderboardIcon />} label="Leaderboard" />
