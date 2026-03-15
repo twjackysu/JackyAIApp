@@ -8,7 +8,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import MobileStepper from '@mui/material/MobileStepper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 
 import {
   useGetChallengeQuery,
@@ -23,6 +23,13 @@ import StatsBar from './components/StatsBar';
 
 type ViewMode = 'challenge' | 'result' | 'review';
 
+const getDailyChallengeKey = (date: string) => `daily_challenge_${date}`;
+
+interface DailyChallengeProgress {
+  answers: Record<number, number>;
+  currentQuestion: number;
+}
+
 function DailyChallenge() {
   const {
     data: challengeData,
@@ -36,14 +43,40 @@ function DailyChallenge() {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [viewMode, setViewMode] = useState<ViewMode>('challenge');
   const [submitResult, setSubmitResult] = useState<DailyChallengeSubmitResponse | null>(null);
+  const restoredRef = useRef(false);
 
   const challenge = challengeData?.data;
   const stats = statsData?.data;
   const questions = useMemo(() => challenge?.questions ?? [], [challenge?.questions]);
   const totalQuestions = questions.length;
-
-  // If already completed, show result immediately
   const alreadyCompleted = challenge?.alreadyCompleted ?? false;
+
+  // Restore progress from localStorage once challenge is loaded
+  useEffect(() => {
+    if (!challenge?.challengeDate || alreadyCompleted || restoredRef.current) return;
+    restoredRef.current = true;
+
+    try {
+      const key = getDailyChallengeKey(challenge.challengeDate);
+      const saved = localStorage.getItem(key);
+      if (!saved) return;
+      const { answers: savedAnswers, currentQuestion: savedQuestion }: DailyChallengeProgress =
+        JSON.parse(saved);
+      setAnswers(savedAnswers);
+      setCurrentQuestion(savedQuestion);
+    } catch {
+      // Corrupted data — ignore
+    }
+  }, [challenge?.challengeDate, alreadyCompleted]);
+
+  // Save progress to localStorage on each change (only during active challenge)
+  useEffect(() => {
+    if (!challenge?.challengeDate || alreadyCompleted || viewMode !== 'challenge') return;
+    if (Object.keys(answers).length === 0 && currentQuestion === 0) return; // skip initial
+    const key = getDailyChallengeKey(challenge.challengeDate);
+    const progress: DailyChallengeProgress = { answers, currentQuestion };
+    localStorage.setItem(key, JSON.stringify(progress));
+  }, [answers, currentQuestion, challenge?.challengeDate, alreadyCompleted, viewMode]);
 
   const handleSelect = useCallback(
     (index: number) => {
@@ -75,12 +108,16 @@ function DailyChallenge() {
 
     try {
       const result = await submitChallenge({ answers: answerList }).unwrap();
+      // Clear saved progress after successful submit
+      if (challenge?.challengeDate) {
+        localStorage.removeItem(getDailyChallengeKey(challenge.challengeDate));
+      }
       setSubmitResult(result.data);
       setViewMode('result');
     } catch (err) {
       console.error('Failed to submit challenge:', err);
     }
-  }, [answers, questions, submitChallenge]);
+  }, [answers, challenge?.challengeDate, questions, submitChallenge]);
 
   const handleReview = useCallback(() => {
     setCurrentQuestion(0);
@@ -88,6 +125,7 @@ function DailyChallenge() {
   }, []);
 
   const allAnswered = questions.every((q) => answers[q.id] !== undefined);
+  const answeredCount = questions.filter((q) => answers[q.id] !== undefined).length;
 
   // Loading state
   if (isChallengeLoading) {
@@ -109,10 +147,6 @@ function DailyChallenge() {
 
   return (
     <Box sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}>
-      {/* Header */}
-      <Typography variant="h4" fontWeight="bold" textAlign="center" sx={{ mb: 2 }}>
-        🎯 Daily Challenge
-      </Typography>
       <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 2 }}>
         {challenge?.challengeDate}
       </Typography>
@@ -203,11 +237,12 @@ function DailyChallenge() {
             }
           />
 
-          {/* Quick nav hint */}
+          {/* Progress hint */}
           {viewMode === 'challenge' && !alreadyCompleted && (
             <Stack direction="row" justifyContent="center" sx={{ mt: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                Answer all {totalQuestions} questions, then submit
+                {answeredCount} / {totalQuestions} answered
+                {answeredCount > 0 && answeredCount < totalQuestions && ' · progress saved'}
               </Typography>
             </Stack>
           )}

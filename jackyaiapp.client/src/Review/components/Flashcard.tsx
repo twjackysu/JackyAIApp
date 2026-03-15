@@ -1,4 +1,5 @@
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -45,24 +46,23 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
           {word.kkPhonics}
         </Typography>
 
-        {/* Reveal button or definitions */}
-        {!revealed ? (
-          <Box textAlign="center">
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<VisibilityIcon />}
-              onClick={() => setRevealed(true)}
-              sx={{ borderRadius: 3, px: 4 }}
-            >
-              Show Answer
-            </Button>
-          </Box>
-        ) : (
+        {/* Toggle answer button */}
+        <Box textAlign="center" sx={{ mb: 2 }}>
+          <Button
+            variant={revealed ? 'outlined' : 'contained'}
+            size="large"
+            startIcon={revealed ? <VisibilityOffIcon /> : <VisibilityIcon />}
+            onClick={() => setRevealed((r) => !r)}
+            sx={{ borderRadius: 3, px: 4 }}
+          >
+            {revealed ? 'Hide Answer' : 'Show Answer'}
+          </Button>
+        </Box>
+
+        {/* Definitions — only shown when revealed */}
+        {revealed && (
           <>
             <Divider sx={{ mb: 2 }} />
-
-            {/* Definitions */}
             {word.meanings.map((meaning, mIdx) => (
               <Box key={mIdx} sx={{ mb: 2 }}>
                 <Chip label={meaning.partOfSpeech} size="small" color="primary" sx={{ mb: 1 }} />
@@ -86,49 +86,49 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
                 )}
               </Box>
             ))}
-
-            <Divider sx={{ my: 2 }} />
-
-            {/* Rating buttons */}
-            <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 1.5 }}>
-              How well did you know this?
-            </Typography>
-            <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap">
-              <Button
-                variant="contained"
-                color="error"
-                onClick={() => onRate(1)}
-                sx={{ minWidth: 100 }}
-              >
-                😵 Forgot
-              </Button>
-              <Button
-                variant="contained"
-                color="warning"
-                onClick={() => onRate(3)}
-                sx={{ minWidth: 100 }}
-              >
-                🤔 Hard
-              </Button>
-              <Button
-                variant="contained"
-                color="success"
-                onClick={() => onRate(4)}
-                sx={{ minWidth: 100 }}
-              >
-                👍 Good
-              </Button>
-              <Button
-                variant="contained"
-                color="info"
-                onClick={() => onRate(5)}
-                sx={{ minWidth: 100 }}
-              >
-                ⚡ Easy
-              </Button>
-            </Stack>
           </>
         )}
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* Rating buttons — always visible */}
+        <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 1.5 }}>
+          How well did you know this?
+        </Typography>
+        <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap">
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => onRate(1)}
+            sx={{ minWidth: 100 }}
+          >
+            😵 Forgot
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => onRate(3)}
+            sx={{ minWidth: 100 }}
+          >
+            🤔 Hard
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={() => onRate(4)}
+            sx={{ minWidth: 100 }}
+          >
+            👍 Good
+          </Button>
+          <Button
+            variant="contained"
+            color="info"
+            onClick={() => onRate(5)}
+            sx={{ minWidth: 100 }}
+          >
+            ⚡ Easy
+          </Button>
+        </Stack>
       </CardContent>
     </Card>
   );
