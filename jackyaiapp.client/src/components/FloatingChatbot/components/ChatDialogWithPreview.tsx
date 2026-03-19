@@ -25,7 +25,7 @@ interface ChatDialogWithPreviewProps {
   streamingStatus: StreamingStatus;
   statusText: string;
   statusColor: string;
-  messagesEndRef: React.RefObject<HTMLDivElement>;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
   // 新增的 HTML 預覽相關 props
   currentHtmlBlock: ParsedBlock | null;
   showHtmlViewer: boolean;

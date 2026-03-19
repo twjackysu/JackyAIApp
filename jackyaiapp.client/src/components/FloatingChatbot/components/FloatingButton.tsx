@@ -6,7 +6,7 @@ import { Position } from '../types';
 interface FloatingButtonProps {
   position: Position;
   isDragging: boolean;
-  fabRef: React.RefObject<HTMLButtonElement>;
+  fabRef: React.RefObject<HTMLButtonElement | null>;
   onMouseDown: (e: React.MouseEvent) => void;
   onClick: (e: React.MouseEvent) => void;
 }
