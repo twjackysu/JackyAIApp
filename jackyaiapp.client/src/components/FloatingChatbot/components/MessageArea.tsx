@@ -2,7 +2,6 @@ import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { Avatar, Box, Paper, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { forwardRef } from 'react';
 
 import MarkdownMessage from '@/components/MarkdownMessage';
 
@@ -10,9 +9,10 @@ import { Message } from '../types';
 
 interface MessageAreaProps {
   messages: Message[];
+  ref?: React.Ref<HTMLDivElement>;
 }
 
-const MessageArea = forwardRef<HTMLDivElement, MessageAreaProps>(({ messages }, messagesEndRef) => {
+function MessageArea({ messages, ref }: MessageAreaProps) {
   const theme = useTheme();
 
   return (
@@ -171,12 +171,10 @@ const MessageArea = forwardRef<HTMLDivElement, MessageAreaProps>(({ messages }, 
         })}
 
         {/* 自動滾動參考點 */}
-        <div ref={messagesEndRef} />
+        <div ref={ref} />
       </Stack>
     </Box>
   );
-});
-
-MessageArea.displayName = 'MessageArea';
+}
 
 export default MessageArea;
