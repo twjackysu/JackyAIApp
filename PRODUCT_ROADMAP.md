@@ -43,7 +43,7 @@ Referral    → 無推薦機制
 現有用戶最大的問題是「忘了回來」。先解決這個，才有意義拉新用戶進來。
 
 #### Sprint 1: Smart Upsell & Credit Experience
-- [ ] **Insufficient credits modal**: 點 AI 功能時 credits 不足 → 彈出 modal，顯示目前餘額、功能費用、直接跳到購買頁的 CTA（現在是直接 error，體驗很差）
+- [x] **Insufficient credits modal** (done: 2026-04-04): 點 AI 功能時 credits 不足 → 彈出 modal，顯示目前餘額、功能費用、直接跳到購買頁的 CTA（現在是直接 error，體驗很差）
 - [ ] **Credits running low banner**: 餘額 < 50 credits → navbar 顯示橙色警示 + "Buy Credits" 按鈕（讓用戶在用完前就知道）
 - [ ] **Credit cost preview**: 在每個 AI 功能按鈕旁顯示小 chip 說明費用，例如 "5 💎" (目前用戶不知道要花多少，點了才發現不夠)
 

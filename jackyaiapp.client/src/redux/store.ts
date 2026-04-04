@@ -13,9 +13,12 @@ import { repositoryApis } from '@/apis/repositoryApis';
 import { reviewApis } from '@/apis/reviewApis';
 import { statsApis } from '@/apis/statsApis';
 import { stripeApi } from '@/apis/stripeApis';
+import { rtkQueryErrorLogger } from '@/redux/errorMiddleware';
+import uiReducer from '@/redux/uiSlice';
 
 export const store = configureStore({
   reducer: {
+    ui: uiReducer,
     // Add the generated reducer as a specific top-level slice
     [dictionaryApis.reducerPath]: dictionaryApis.reducer,
     [repositoryApis.reducerPath]: repositoryApis.reducer,
@@ -48,6 +51,7 @@ export const store = configureStore({
       dailyChallengeApis.middleware,
       reviewApis.middleware,
       statsApis.middleware,
+      rtkQueryErrorLogger,
     ),
 });
 

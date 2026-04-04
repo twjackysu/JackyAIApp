@@ -130,7 +130,7 @@ namespace JackyAIApp.Server.Controllers
             {
                 if (!await _creditService.ConsumeCreditsAsync(creditUserId, CreditCosts.StockAnalysis, "stock_analysis", "AI stock analysis"))
                 {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits. Please purchase more credits to continue.");
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.StockAnalysis}. Please purchase more credits to continue.");
                 }
             }
 

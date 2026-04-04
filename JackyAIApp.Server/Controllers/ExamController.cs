@@ -68,7 +68,7 @@ namespace JackyAIApp.Server.Controllers
             // Credit gate: consume credits for AI exam generation
             if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.ClozeTest, "cloze_test", "Cloze test generation"))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits. Please purchase more credits to continue.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.ClozeTest}. Please purchase more credits to continue.");
             }
 
             // Get a random word from the user's collection
@@ -181,7 +181,7 @@ namespace JackyAIApp.Server.Controllers
             // Credit gate
             if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.TranslationTest, "translation_test", "Translation test generation"))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits. Please purchase more credits to continue.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.TranslationTest}. Please purchase more credits to continue.");
             }
 
             var userWords = await _DBContext.UserWords
@@ -267,7 +267,7 @@ namespace JackyAIApp.Server.Controllers
             var gradingUserId = _userService.GetUserId();
             if (!string.IsNullOrEmpty(gradingUserId) && !await _creditService.ConsumeCreditsAsync(gradingUserId, CreditCosts.TranslationGrading, "translation_grading", "Translation quality grading"))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.TranslationGrading}.");
             }
 
             if (userResponse == null || string.IsNullOrEmpty(userResponse.Translation) || 
@@ -321,7 +321,7 @@ namespace JackyAIApp.Server.Controllers
             // Credit gate
             if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.ConversationStart, "conversation_start", "Conversation test started"))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits. Please purchase more credits to continue.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.ConversationStart}. Please purchase more credits to continue.");
             }
 
             if (request == null || string.IsNullOrEmpty(request.Scenario) || 
@@ -394,7 +394,7 @@ namespace JackyAIApp.Server.Controllers
             // Credit gate: each conversation turn costs credits
             if (!string.IsNullOrEmpty(userId) && !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.ConversationResponse, "conversation_response", "Conversation turn"))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.ConversationResponse}.");
             }
             var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
@@ -467,7 +467,7 @@ namespace JackyAIApp.Server.Controllers
             // Credit gate
             if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.SentenceTest, "sentence_test", "Sentence test generation"))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Insufficient credits.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.SentenceTest}.");
             }
 
             var userWords = await _DBContext.UserWords
