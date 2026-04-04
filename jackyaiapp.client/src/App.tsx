@@ -19,10 +19,11 @@ import { Link, Route, Routes, useLocation } from 'react-router-dom';
 
 import RequireAuth from './auth/RequireAuth';
 import LoginError from './components/LoginError';
+import InsufficientCreditsModal from './components/Modals/InsufficientCreditsModal';
 import UserProfileMenu from './components/UserProfileMenu';
 import Connectors from './Connectors';
-import Credits from './Credits';
 import { apps, FINANCE, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
+import Credits from './Credits';
 import DailyChallenge from './DailyChallenge';
 import Dictionary from './Dictionary';
 import Exam from './Exam';
@@ -48,9 +49,7 @@ function App() {
   const location = useLocation();
 
   const routeMatch = useRouteMatch(
-    FINANCE.allPaths
-      .concat(PDF_UNLOCKER.allPaths)
-      .concat(ENGLISH_LEARNING.allPaths),
+    FINANCE.allPaths.concat(PDF_UNLOCKER.allPaths).concat(ENGLISH_LEARNING.allPaths),
   );
   const _currentTab = routeMatch?.pattern?.path || '/';
   const currentTab = _currentTab === '/' ? FINANCE.path : _currentTab;
@@ -283,6 +282,7 @@ function App() {
 
       {/* 懸浮 Chatbot — only shown on AI trend analysis tab */}
       {/* Rendered inside Finance component instead */}
+      <InsufficientCreditsModal />
     </>
   );
 }
