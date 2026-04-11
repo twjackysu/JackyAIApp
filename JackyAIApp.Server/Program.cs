@@ -10,6 +10,7 @@ using JackyAIApp.Server.Services.Finance;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 using NLog;
 using NLog.Web;
 using System.Reflection;

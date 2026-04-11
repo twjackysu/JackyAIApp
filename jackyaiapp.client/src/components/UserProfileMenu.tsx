@@ -69,12 +69,27 @@ function UserProfileMenu() {
         </Typography>
       ) : isAuthenticated ? (
         <>
+          {creditBalance < 50 && (
+            <Tooltip title="Credits running low!">
+              <Button
+                component={Link}
+                to="/credits"
+                variant="contained"
+                color="warning"
+                size="small"
+                sx={{ mr: 1, px: 1, minWidth: 'unset' }}
+                startIcon={<MonetizationOnIcon />}
+              >
+                Buy Credits
+              </Button>
+            </Tooltip>
+          )}
           <Tooltip title={`Credits: ${creditBalance} — Click to buy more`}>
             <Chip
               icon={<MonetizationOnIcon />}
               label={creditBalance}
               size="small"
-              color={creditBalance > 0 ? 'success' : 'error'}
+              color={creditBalance < 50 ? 'warning' : creditBalance > 0 ? 'success' : 'error'}
               variant="outlined"
               component={Link}
               to="/credits"
