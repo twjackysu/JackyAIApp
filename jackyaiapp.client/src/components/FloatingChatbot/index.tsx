@@ -40,42 +40,39 @@ function FloatingChatbot() {
       // 如果有 HTML 區塊但面板還沒開啟，自動開啟
       const latestHtmlBlock = blocks.filter((block) => block.contentType === 'html').pop();
       if (latestHtmlBlock) {
-        setTimeout(() => {
-          setSelectedHtmlContent(latestHtmlBlock.content);
-          setShowHtmlViewer(true);
-        }, 0);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelectedHtmlContent(latestHtmlBlock.content);
+
+        setShowHtmlViewer(true);
       }
     } else if (currentHtmlBlock && showHtmlViewer) {
       // 如果面板已開啟且有 streaming HTML，更新內容
-      setTimeout(() => {
-        setSelectedHtmlContent(currentHtmlBlock.content);
-      }, 0);
+
+      setSelectedHtmlContent(currentHtmlBlock.content);
     }
   }, [blocks, currentHtmlBlock, isStreamingHtml, showHtmlViewer]);
 
   // 實時更新右側預覽內容（如果正在顯示且有 streaming HTML）
   useEffect(() => {
     if (showHtmlViewer && currentHtmlBlock) {
-      setTimeout(() => {
-        setSelectedHtmlContent(currentHtmlBlock.content);
-      }, 0);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedHtmlContent(currentHtmlBlock.content);
     }
   }, [currentHtmlBlock, currentHtmlBlock?.content, showHtmlViewer]);
 
   // 實時更新最後一條 bot 消息的 parsedBlocks
   useEffect(() => {
     if (blocks.length > 0) {
-      setTimeout(() => {
-        setMessages((prev) => {
-          const lastMessage = prev[prev.length - 1];
-          if (lastMessage && !lastMessage.isUser) {
-            return prev.map((msg, index) =>
-              index === prev.length - 1 ? { ...msg, parsedBlocks: blocks } : msg,
-            );
-          }
-          return prev;
-        });
-      }, 0);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMessages((prev) => {
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage && !lastMessage.isUser) {
+          return prev.map((msg, index) =>
+            index === prev.length - 1 ? { ...msg, parsedBlocks: blocks } : msg,
+          );
+        }
+        return prev;
+      });
     }
   }, [blocks]);
 
