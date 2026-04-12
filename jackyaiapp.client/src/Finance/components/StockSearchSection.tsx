@@ -75,12 +75,7 @@ export const StockSearchSection = ({
           {isAnalyzing ? <CircularProgress size={20} color="inherit" /> : '分析'}
         </Button>
         {hasResults && (
-          <Button
-            variant="outlined"
-            onClick={onClear}
-            disabled={isAnalyzing}
-            sx={{ height: 56 }}
-          >
+          <Button variant="outlined" onClick={onClear} disabled={isAnalyzing} sx={{ height: 56 }}>
             清除
           </Button>
         )}

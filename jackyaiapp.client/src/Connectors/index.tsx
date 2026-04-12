@@ -69,7 +69,11 @@ const Connectors: React.FC = () => {
     }
   }, [searchParams, refetch]);
 
-  const handleToggle = async (provider: string, shouldConnect: boolean, customConfig?: CustomConnectRequest) => {
+  const handleToggle = async (
+    provider: string,
+    shouldConnect: boolean,
+    customConfig?: CustomConnectRequest,
+  ) => {
     try {
       if (shouldConnect) {
         const result = await connectProvider({ provider, customConfig }).unwrap();
@@ -127,8 +131,9 @@ const Connectors: React.FC = () => {
             size={{
               xs: 12,
               sm: 6,
-              md: 4
-            }}>
+              md: 4,
+            }}
+          >
             <ConnectorCard
               connector={connector}
               onToggle={handleToggle}

@@ -67,7 +67,12 @@ const BlockRenderer = ({
   }
 };
 
-function MessageAreaWithBlocks({ messages, onHtmlPreview, style, ref }: MessageAreaWithBlocksProps) {
+function MessageAreaWithBlocks({
+  messages,
+  onHtmlPreview,
+  style,
+  ref,
+}: MessageAreaWithBlocksProps) {
   const theme = useTheme();
 
   return (
@@ -196,22 +201,18 @@ function MessageAreaWithBlocks({ messages, onHtmlPreview, style, ref }: MessageA
                   {/* 渲染消息內容 */}
                   {isOwnMessage || !message.parsedBlocks ? (
                     // 用戶消息或沒有解析區塊的消息，使用原有方式
-                    (<MarkdownMessage
+                    <MarkdownMessage
                       content={message.content}
                       isOwnMessage={isOwnMessage}
                       theme={theme}
-                    />)
+                    />
                   ) : (
                     // Bot 消息且有解析區塊，使用新的區塊渲染
-                    (<Box>
+                    <Box>
                       {message.parsedBlocks.map((block) => (
-                        <BlockRenderer
-                          key={block.id}
-                          block={block}
-                          onHtmlPreview={onHtmlPreview}
-                        />
+                        <BlockRenderer key={block.id} block={block} onHtmlPreview={onHtmlPreview} />
                       ))}
-                    </Box>)
+                    </Box>
                   )}
 
                   <Typography

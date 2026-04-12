@@ -140,7 +140,7 @@ const ChatDialogWithPreview = ({
           </Allotment>
         ) : (
           // 沒有 HTML 預覽時的原有布局
-          (<div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
             <MessageAreaWithBlocks
               messages={messages}
               ref={messagesEndRef}
@@ -154,7 +154,7 @@ const ChatDialogWithPreview = ({
               onKeyPress={onKeyPress}
               disabled={streamingStatus.isLoading}
             />
-          </div>)
+          </div>
         )}
       </div>
     </Dialog>

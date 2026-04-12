@@ -18,4 +18,8 @@ export const paypalApi = createApi({
   }),
 });
 
-export const { useGetPayPalPacksQuery, useCreatePayPalOrderMutation, useCapturePayPalOrderMutation } = paypalApi;
+export const {
+  useGetPayPalPacksQuery,
+  useCreatePayPalOrderMutation,
+  useCapturePayPalOrderMutation,
+} = paypalApi;

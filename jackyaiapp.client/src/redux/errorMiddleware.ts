@@ -6,7 +6,10 @@ import { openCreditModal } from './uiSlice';
 
 export const rtkQueryErrorLogger: Middleware = (api: MiddlewareAPI) => (next) => (action) => {
   if (isRejectedWithValue(action)) {
-    const payload = action.payload as { status?: number; data?: { error?: { code?: number; message?: string } } };
+    const payload = action.payload as {
+      status?: number;
+      data?: { error?: { code?: number; message?: string } };
+    };
 
     // Check if it's a 403 Forbidden with Insufficient Credits error code
     if (

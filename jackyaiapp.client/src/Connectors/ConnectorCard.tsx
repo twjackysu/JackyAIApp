@@ -58,7 +58,11 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
   const [refreshTokens] = useRefreshProviderTokensMutation();
   const [getAccessToken, { isFetching: isGettingToken }] = useLazyGetAccessTokenQuery();
   const [getRefreshToken, { isFetching: isGettingRefreshToken }] = useLazyGetRefreshTokenQuery();
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({
     open: false,
     message: '',
     severity: 'success',
@@ -127,11 +131,10 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
     onToggle(connector.provider, isConnected, hasCustomConfig ? customConfig : undefined);
   };
 
-  const handleCustomConfigChange = (field: keyof CustomConnectRequest) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setCustomConfig((prev) => ({ ...prev, [field]: e.target.value }));
-  };
+  const handleCustomConfigChange =
+    (field: keyof CustomConnectRequest) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      setCustomConfig((prev) => ({ ...prev, [field]: e.target.value }));
+    };
 
   return (
     <>
@@ -235,7 +238,11 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
                 <Typography variant="body2">Advanced Settings</Typography>
               </AccordionSummary>
               <AccordionDetails>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mb: 2, display: 'block' }}
+                >
                   Leave empty to use system defaults
                 </Typography>
                 <TextField

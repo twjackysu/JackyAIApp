@@ -45,8 +45,9 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
             key={i}
             size={{
               xs: 6,
-              sm: 4
-            }}>
+              sm: 4,
+            }}
+          >
             <Skeleton variant="rounded" height={120} />
           </Grid>
         ))}
@@ -70,8 +71,9 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
         <Grid
           size={{
             xs: 6,
-            sm: 4
-          }}>
+            sm: 4,
+          }}
+        >
           <StatCard
             icon={<LocalFireDepartmentIcon sx={{ fontSize: 36 }} />}
             label="Current Streak"
@@ -82,8 +84,9 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
         <Grid
           size={{
             xs: 6,
-            sm: 4
-          }}>
+            sm: 4,
+          }}
+        >
           <StatCard
             icon={<EmojiEventsIcon sx={{ fontSize: 36 }} />}
             label="XP This Week"
@@ -94,8 +97,9 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
         <Grid
           size={{
             xs: 6,
-            sm: 4
-          }}>
+            sm: 4,
+          }}
+        >
           <StatCard
             icon={<QuizIcon sx={{ fontSize: 36 }} />}
             label="Challenges Done"
@@ -106,8 +110,9 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
         <Grid
           size={{
             xs: 6,
-            sm: 4
-          }}>
+            sm: 4,
+          }}
+        >
           <StatCard
             icon={<Typography variant="h5">🎯</Typography>}
             label="Accuracy"
@@ -118,8 +123,9 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
         <Grid
           size={{
             xs: 6,
-            sm: 4
-          }}>
+            sm: 4,
+          }}
+        >
           <StatCard
             icon={<MenuBookIcon sx={{ fontSize: 36 }} />}
             label="New Words"
@@ -130,8 +136,9 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
         <Grid
           size={{
             xs: 6,
-            sm: 4
-          }}>
+            sm: 4,
+          }}
+        >
           <StatCard
             icon={<Typography variant="h5">🧠</Typography>}
             label="Words Reviewed"

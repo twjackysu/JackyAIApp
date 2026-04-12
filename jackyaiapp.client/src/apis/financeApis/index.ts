@@ -47,7 +47,10 @@ export const financeApis = createApi({
         return response;
       },
     }),
-    getComprehensiveAnalysis: builder.mutation<ApiOkResponse<StockAnalysisResultData>, StockAnalysisRequest>({
+    getComprehensiveAnalysis: builder.mutation<
+      ApiOkResponse<StockAnalysisResultData>,
+      StockAnalysisRequest
+    >({
       query: (request) => ({
         url: 'comprehensive-analysis',
         method: 'POST',

@@ -158,8 +158,9 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
             size={{
               xs: 12,
               sm: 6,
-              md: 4
-            }}>
+              md: 4,
+            }}
+          >
             <Card
               sx={{
                 cursor: 'pointer',
