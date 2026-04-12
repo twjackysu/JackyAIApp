@@ -52,10 +52,10 @@ function Review() {
         JSON.stringify(wordIds) === JSON.stringify(currentWordIds) &&
         savedIndex < dueWords.length
       ) {
-        setTimeout(() => {
-          setCurrentIndex(savedIndex);
-          setRatings(savedRatings);
-        }, 0);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCurrentIndex(savedIndex);
+
+        setRatings(savedRatings);
       }
     } catch {
       localStorage.removeItem(REVIEW_STORAGE_KEY);

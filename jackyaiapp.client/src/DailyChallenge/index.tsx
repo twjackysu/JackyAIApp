@@ -62,10 +62,10 @@ function DailyChallenge() {
       if (!saved) return;
       const { answers: savedAnswers, currentQuestion: savedQuestion }: DailyChallengeProgress =
         JSON.parse(saved);
-      setTimeout(() => {
-        setAnswers(savedAnswers);
-        setCurrentQuestion(savedQuestion);
-      }, 0);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAnswers(savedAnswers);
+
+      setCurrentQuestion(savedQuestion);
     } catch {
       // Corrupted data — ignore
     }

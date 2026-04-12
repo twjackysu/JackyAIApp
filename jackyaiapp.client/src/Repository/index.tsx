@@ -38,18 +38,17 @@ function Repository() {
 
   useEffect(() => {
     if (!isFetching && data) {
-      setTimeout(() => {
-        setAccumulatedData((prev) => {
-          return {
-            ...prev,
-            [pageNumber]: data.data ?? [],
-          };
-        });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAccumulatedData((prev) => {
+        return {
+          ...prev,
+          [pageNumber]: data.data ?? [],
+        };
+      });
 
-        if (data.data.length < pageSize) {
-          hasMoreRef.current = false;
-        }
-      }, 0);
+      if (data.data.length < pageSize) {
+        hasMoreRef.current = false;
+      }
     }
   }, [isFetching, data, pageNumber, pageSize, setAccumulatedData]);
 
