@@ -15,6 +15,7 @@ import {
   getImplicationChipColor,
   getImplicationLabel,
 } from '../utils/financeHelpers';
+
 import TrendIcon from './TrendIcon';
 
 interface MarketSummaryCardProps {

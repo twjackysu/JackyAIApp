@@ -96,7 +96,8 @@ function WordCard({
             {word?.meanings.map((meaning) => (
               <Grid
                 key={meaning.partOfSpeech}
-                size={isOneWordFullWidth || word?.meanings.length === 1 ? 12 : 6}>
+                size={isOneWordFullWidth || word?.meanings.length === 1 ? 12 : 6}
+              >
                 <DividerWithText text="Part of speech" />
                 <Typography variant="h6" color={lime[200]}>
                   {meaning.partOfSpeech}

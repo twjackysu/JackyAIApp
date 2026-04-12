@@ -1,6 +1,14 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-import { ConnectorStatus, ConnectResponse, RefreshResponse, DisconnectResponse, AccessTokenResponse, RefreshTokenResponse, CustomConnectRequest } from './types';
+import {
+  ConnectorStatus,
+  ConnectResponse,
+  RefreshResponse,
+  DisconnectResponse,
+  AccessTokenResponse,
+  RefreshTokenResponse,
+  CustomConnectRequest,
+} from './types';
 
 export const connectorsApi = createApi({
   reducerPath: 'connectorsApi',
@@ -14,7 +22,10 @@ export const connectorsApi = createApi({
       query: () => 'status',
       providesTags: ['ConnectorStatus'],
     }),
-    connectProvider: builder.mutation<ConnectResponse, { provider: string; customConfig?: CustomConnectRequest }>({
+    connectProvider: builder.mutation<
+      ConnectResponse,
+      { provider: string; customConfig?: CustomConnectRequest }
+    >({
       query: ({ provider, customConfig }) => ({
         url: `${provider}/connect`,
         method: 'POST',

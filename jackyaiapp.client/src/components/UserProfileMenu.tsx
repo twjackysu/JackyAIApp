@@ -60,7 +60,7 @@ function UserProfileMenu() {
   const displayName = user?.data.name || user?.data.email || '';
   const isAuthenticated = !!displayName;
   const creditBalance = creditData?.data?.balance ?? user?.data?.creditBalance ?? 0;
-  
+
   const isCreditLow = creditBalance > 0 && creditBalance < 50;
 
   return (
@@ -84,7 +84,7 @@ function UserProfileMenu() {
               Buy Credits
             </Button>
           )}
-          
+
           <Tooltip title={`Credits: ${creditBalance} — Click to buy more`}>
             <Chip
               icon={<MonetizationOnIcon />}
@@ -95,7 +95,17 @@ function UserProfileMenu() {
               component={Link}
               to="/credits"
               clickable
-              sx={{ mr: 1, ...(isCreditLow ? { bgcolor: 'warning.light', color: 'warning.dark', borderColor: 'warning.main', '& .MuiChip-icon': { color: 'warning.dark' } } : {}) }}
+              sx={{
+                mr: 1,
+                ...(isCreditLow
+                  ? {
+                      bgcolor: 'warning.light',
+                      color: 'warning.dark',
+                      borderColor: 'warning.main',
+                      '& .MuiChip-icon': { color: 'warning.dark' },
+                    }
+                  : {}),
+              }}
             />
           </Tooltip>
           <Tooltip title="Account menu">

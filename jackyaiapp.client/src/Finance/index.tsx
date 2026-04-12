@@ -16,15 +16,14 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState, useMemo } from 'react';
 
-import FloatingChatbot from '@/components/FloatingChatbot';
-
+import { useGetUserInfoQuery } from '@/apis/accountApis';
 import {
   useGetDailyImportantInfoQuery,
   useAnalyzeStockMutation,
   useGetComprehensiveAnalysisMutation,
 } from '@/apis/financeApis';
-import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { StockTrendAnalysis, StockAnalysisResultData } from '@/apis/financeApis/types';
+import FloatingChatbot from '@/components/FloatingChatbot';
 
 import {
   StockAnalysisResult,
@@ -33,8 +32,9 @@ import {
   AnalysisConfigPanel,
   MacroEconomyOverview,
 } from './components';
-import type { AnalysisConfig } from './components';
 import { getCurrentDate } from './utils/financeHelpers';
+
+import type { AnalysisConfig } from './components';
 
 /** Detect market from stock code: numeric (with optional trailing letter) = TW, otherwise US */
 const detectMarket = (code: string): 'TW' | 'US' =>
@@ -404,8 +404,9 @@ function Finance() {
                 size={{
                   xs: 12,
                   sm: 6,
-                  md: 4
-                }}>
+                  md: 4,
+                }}
+              >
                 <MarketSummaryCard stock={stock} />
               </Grid>
             ))}

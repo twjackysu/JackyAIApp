@@ -57,7 +57,11 @@ const Credits: React.FC = () => {
   useEffect(() => {
     const status = searchParams.get('status');
     if (status === 'success') {
-      setSnackbar({ open: true, message: 'Payment successful! Credits have been added.', severity: 'success' });
+      setSnackbar({
+        open: true,
+        message: 'Payment successful! Credits have been added.',
+        severity: 'success',
+      });
       refetchBalance();
       window.history.replaceState({}, '', '/credits');
     } else if (status === 'cancelled') {
@@ -95,20 +99,38 @@ const Credits: React.FC = () => {
         form.submit();
       }
     } catch {
-      setSnackbar({ open: true, message: 'Failed to start checkout. Please try again.', severity: 'error' });
+      setSnackbar({
+        open: true,
+        message: 'Failed to start checkout. Please try again.',
+        severity: 'error',
+      });
     }
   };
 
-  const isLoading = method === 'stripe' ? stripeLoading : method === 'paypal' ? paypalLoading : ecpayLoading;
+  const isLoading =
+    method === 'stripe' ? stripeLoading : method === 'paypal' ? paypalLoading : ecpayLoading;
   const isCheckoutLoading = stripeCheckoutLoading || paypalOrderLoading || ecpayPaymentLoading;
   const isECPay = method === 'ecpay';
 
   // Normalize packs for display
-  const packs = method === 'ecpay'
-    ? ecpayPacks?.map((p) => ({ id: p.id, name: p.name, price: p.priceTWD, credits: p.credits, badge: p.badge, currency: 'NT$' }))
-    : (method === 'stripe' ? stripePacks : paypalPacks)?.map((p) => ({
-        id: p.id, name: p.name, price: p.priceInCents / 100, credits: p.credits, badge: p.badge, currency: '$',
-      }));
+  const packs =
+    method === 'ecpay'
+      ? ecpayPacks?.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.priceTWD,
+          credits: p.credits,
+          badge: p.badge,
+          currency: 'NT$',
+        }))
+      : (method === 'stripe' ? stripePacks : paypalPacks)?.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.priceInCents / 100,
+          credits: p.credits,
+          badge: p.badge,
+          currency: '$',
+        }));
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
@@ -147,8 +169,9 @@ const Credits: React.FC = () => {
               size={{
                 xs: 12,
                 sm: 6,
-                md: 4
-              }}>
+                md: 4,
+              }}
+            >
               <Card
                 sx={{
                   height: '100%',
@@ -169,9 +192,12 @@ const Credits: React.FC = () => {
                   />
                 )}
                 <CardContent sx={{ flexGrow: 1, textAlign: 'center', pt: 4 }}>
-                  <Typography variant="h6" gutterBottom>{pack.name}</Typography>
+                  <Typography variant="h6" gutterBottom>
+                    {pack.name}
+                  </Typography>
                   <Typography variant="h3" fontWeight="bold" color="primary" sx={{ my: 2 }}>
-                    {pack.currency}{pack.price}
+                    {pack.currency}
+                    {pack.price}
                   </Typography>
                   <Typography variant="h5" color="text.secondary">
                     {pack.credits.toLocaleString()} credits
@@ -227,16 +253,25 @@ const Credits: React.FC = () => {
                         label={tx.transactionType}
                         size="small"
                         color={
-                          tx.transactionType === 'consume' ? 'error'
-                          : tx.transactionType === 'initial' ? 'default'
-                          : 'success'
+                          tx.transactionType === 'consume'
+                            ? 'error'
+                            : tx.transactionType === 'initial'
+                              ? 'default'
+                              : 'success'
                         }
                         variant="outlined"
                       />
                     </TableCell>
                     <TableCell>{tx.reason}</TableCell>
-                    <TableCell align="right" sx={{ color: tx.transactionType === 'consume' ? 'error.main' : 'success.main', fontWeight: 'bold' }}>
-                      {tx.transactionType === 'consume' ? '-' : '+'}{tx.amount}
+                    <TableCell
+                      align="right"
+                      sx={{
+                        color: tx.transactionType === 'consume' ? 'error.main' : 'success.main',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {tx.transactionType === 'consume' ? '-' : '+'}
+                      {tx.amount}
                     </TableCell>
                     <TableCell align="right">{tx.balanceAfter}</TableCell>
                   </TableRow>

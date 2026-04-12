@@ -18,6 +18,7 @@ import {
   getRecommendationChipColor,
   getConfidenceLabel,
 } from '../utils/financeHelpers';
+
 import TrendIcon from './TrendIcon';
 
 interface StockAnalysisResultProps {
@@ -93,8 +94,9 @@ export const StockAnalysisResult = ({ data }: StockAnalysisResultProps) => {
         <Grid
           size={{
             xs: 12,
-            md: 4
-          }}>
+            md: 4,
+          }}
+        >
           <TrendCard
             title="短期趨勢 (1-3個月)"
             trend={data.shortTermTrend}
@@ -106,8 +108,9 @@ export const StockAnalysisResult = ({ data }: StockAnalysisResultProps) => {
         <Grid
           size={{
             xs: 12,
-            md: 4
-          }}>
+            md: 4,
+          }}
+        >
           <TrendCard
             title="中期趨勢 (3-12個月)"
             trend={data.mediumTermTrend}
@@ -119,8 +122,9 @@ export const StockAnalysisResult = ({ data }: StockAnalysisResultProps) => {
         <Grid
           size={{
             xs: 12,
-            md: 4
-          }}>
+            md: 4,
+          }}
+        >
           <TrendCard
             title="長期趨勢 (1-3年)"
             trend={data.longTermTrend}
@@ -132,8 +136,9 @@ export const StockAnalysisResult = ({ data }: StockAnalysisResultProps) => {
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <ChipListCard title="關鍵因素" items={data.keyFactors} color="primary" />
         </Grid>
 
@@ -141,8 +146,9 @@ export const StockAnalysisResult = ({ data }: StockAnalysisResultProps) => {
         <Grid
           size={{
             xs: 12,
-            md: 6
-          }}>
+            md: 6,
+          }}
+        >
           <ChipListCard title="風險因素" items={data.riskFactors} color="warning" />
         </Grid>
 

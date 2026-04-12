@@ -83,7 +83,9 @@ export const getRecommendationLabel = (recommendation: string): string => {
 /**
  * Get MUI chip color for recommendation
  */
-export const getRecommendationChipColor = (recommendation: string): 'success' | 'error' | 'warning' => {
+export const getRecommendationChipColor = (
+  recommendation: string,
+): 'success' | 'error' | 'warning' => {
   switch (recommendation) {
     case 'buy':
       return 'success';
@@ -142,7 +144,11 @@ export const getImplicationLabel = (implication: string): string => {
 
 export const getDirectionLabel = (d: SignalDirection): string => {
   const map: Record<SignalDirection, string> = {
-    StrongBullish: '強勢看多', Bullish: '偏多', Neutral: '中性', Bearish: '偏空', StrongBearish: '強勢看空',
+    StrongBullish: '強勢看多',
+    Bullish: '偏多',
+    Neutral: '中性',
+    Bearish: '偏空',
+    StrongBearish: '強勢看空',
   };
   return map[d] ?? '未知';
 };
@@ -161,18 +167,29 @@ export const getDirectionColor = (d: SignalDirection, alpha = 1): string => {
     Bearish: [red[500], `rgba(244,67,54,${alpha})`],
     StrongBearish: [red[700], `rgba(211,47,47,${alpha})`],
   };
-  return alpha === 1 ? (colors[d]?.[0] ?? blue[500]) : (colors[d]?.[1] ?? `rgba(33,150,243,${alpha})`);
+  return alpha === 1
+    ? (colors[d]?.[0] ?? blue[500])
+    : (colors[d]?.[1] ?? `rgba(33,150,243,${alpha})`);
 };
 
 export const getDirectionEmoji = (d: SignalDirection): string => {
   const map: Record<SignalDirection, string> = {
-    StrongBullish: '🚀', Bullish: '📈', Neutral: '➡️', Bearish: '📉', StrongBearish: '⚠️',
+    StrongBullish: '🚀',
+    Bullish: '📈',
+    Neutral: '➡️',
+    Bearish: '📉',
+    StrongBearish: '⚠️',
   };
   return map[d] ?? '❓';
 };
 
 export const getRiskLabel = (l: RiskLevel): string => {
-  const map: Record<RiskLevel, string> = { Low: '低風險', Medium: '中等風險', High: '高風險', VeryHigh: '極高風險' };
+  const map: Record<RiskLevel, string> = {
+    Low: '低風險',
+    Medium: '中等風險',
+    High: '高風險',
+    VeryHigh: '極高風險',
+  };
   return map[l] ?? '未知';
 };
 
@@ -183,12 +200,21 @@ export const getRiskChipColor = (l: RiskLevel): 'success' | 'warning' | 'error' 
 };
 
 export const getRiskColor = (l: RiskLevel): string => {
-  const map: Record<RiskLevel, string> = { Low: green[500], Medium: orange[500], High: red[500], VeryHigh: red[900] };
+  const map: Record<RiskLevel, string> = {
+    Low: green[500],
+    Medium: orange[500],
+    High: red[500],
+    VeryHigh: red[900],
+  };
   return map[l] ?? grey[500];
 };
 
 export const getCategoryLabel = (c: IndicatorCategory): string => {
-  const map: Record<IndicatorCategory, string> = { Technical: '技術面', Chip: '籌碼面', Fundamental: '基本面' };
+  const map: Record<IndicatorCategory, string> = {
+    Technical: '技術面',
+    Chip: '籌碼面',
+    Fundamental: '基本面',
+  };
   return map[c] ?? c;
 };
 

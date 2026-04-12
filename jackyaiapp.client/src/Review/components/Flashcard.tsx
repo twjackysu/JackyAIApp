@@ -120,12 +120,7 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
           >
             👍 Good
           </Button>
-          <Button
-            variant="contained"
-            color="info"
-            onClick={() => onRate(5)}
-            sx={{ minWidth: 100 }}
-          >
+          <Button variant="contained" color="info" onClick={() => onRate(5)} sx={{ minWidth: 100 }}>
             ⚡ Easy
           </Button>
         </Stack>

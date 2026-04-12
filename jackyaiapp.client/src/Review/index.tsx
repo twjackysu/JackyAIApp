@@ -41,8 +41,11 @@ function Review() {
     try {
       const saved = localStorage.getItem(REVIEW_STORAGE_KEY);
       if (!saved) return;
-      const { wordIds, currentIndex: savedIndex, ratings: savedRatings }: ReviewProgress =
-        JSON.parse(saved);
+      const {
+        wordIds,
+        currentIndex: savedIndex,
+        ratings: savedRatings,
+      }: ReviewProgress = JSON.parse(saved);
       const currentWordIds = dueWords.map((w) => w.userWordId);
       // Only restore if the word set matches and progress is still valid
       if (
