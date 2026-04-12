@@ -44,12 +44,15 @@ const Connectors: React.FC = () => {
     const provider = searchParams.get('provider');
 
     if (success === 'true' && provider) {
-      setState({
-        open: true,
-        message: `Successfully connected to ${provider}`,
-        severity: 'success',
-      });
-      refetch(); // Refresh the connector status
+      setTimeout(() => {
+        setState({
+          open: true,
+          message: `Successfully connected to ${provider}`,
+          severity: 'success',
+        });
+        refetch();
+      }, 0);
+      //(); // Refresh the connector status
     } else if (error && provider) {
       const errorMessages: Record<string, string> = {
         access_denied: 'Access was denied by the user',
@@ -60,7 +63,8 @@ const Connectors: React.FC = () => {
         invalid_provider: 'Invalid provider specified',
       };
       const message = errorMessages[error] || `Failed to connect to ${provider}`;
-      setState({ open: true, message, severity: 'error' });
+      setTimeout(() => setState({ open: true, message, severity: 'error' }), 0);
+      // setState({ open: true, message, severity: 'error' });
     }
 
     // Clean up URL parameters

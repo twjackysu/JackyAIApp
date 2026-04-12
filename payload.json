@@ -1,0 +1,6 @@
+{
+  "title": "[Bot Refactor] Enhance API health checks, response compression and CI pipeline",
+  "body": "## Summary\n\nThis PR introduces performance optimizations and reliability enhancements for the .NET Server and adds robust frontend validation to the CI pipeline.\n\n## Changes\n\n- **Response Compression**: Added `app.UseResponseCompression()` which was configured but never enabled in the middleware pipeline, improving data transfer efficiency.\n- **Health Checks**: Implemented `AddHealthChecks()` and `MapHealthChecks(\"/api/health\")` for better monitoring and Azure App Service integration.\n- **GitHub Actions Improvements**: \n  - Updated Actions versions from deprecated `actions/setup-dotnet@v5` and `upload-artifact@v7` to stable `@v4`.\n  - Added a dedicated job `lint-and-build-client` to statically check and build the React Vite frontend upon pull requests, preventing broken UI changes from passing CI.\n\n## Testing\n\n- [ ] Unit tests pass\n- [ ] Manual testing completed\n\n---\n🦞 *This PR was created by JackyOpenClaw Bot*",
+  "head": "bot-refactor/ci-and-health-checks",
+  "base": "master"
+}

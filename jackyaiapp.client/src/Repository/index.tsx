@@ -25,7 +25,9 @@ function Repository() {
   const hasMoreRef = useRef(true);
 
   // 更新 refs 以便在事件處理器中使用最新值
-  isFetchingRef.current = isFetching;
+  useEffect(() => {
+    isFetchingRef.current = isFetching;
+  }, [isFetching]);
 
   const handleListItemClick = (
     _: MouseEvent<HTMLDivElement, globalThis.MouseEvent>,
@@ -36,18 +38,20 @@ function Repository() {
 
   useEffect(() => {
     if (!isFetching && data) {
-      setAccumulatedData((prev) => {
-        return {
-          ...prev,
-          [pageNumber]: data.data ?? [],
-        };
-      });
+      setTimeout(() => {
+        setAccumulatedData((prev) => {
+          return {
+            ...prev,
+            [pageNumber]: data.data ?? [],
+          };
+        });
 
-      if (data.data.length < pageSize) {
-        hasMoreRef.current = false;
-      }
+        if (data.data.length < pageSize) {
+          hasMoreRef.current = false;
+        }
+      }, 0);
     }
-  }, [isFetching, data, pageNumber, pageSize]);
+  }, [isFetching, data, pageNumber, pageSize, setAccumulatedData]);
 
   const allWords = Object.values(accumulatedData).reduce((acc, words) => acc.concat(words), []);
 

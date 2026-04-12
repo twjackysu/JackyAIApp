@@ -52,8 +52,10 @@ function Review() {
         JSON.stringify(wordIds) === JSON.stringify(currentWordIds) &&
         savedIndex < dueWords.length
       ) {
-        setCurrentIndex(savedIndex);
-        setRatings(savedRatings);
+        setTimeout(() => {
+          setCurrentIndex(savedIndex);
+          setRatings(savedRatings);
+        }, 0);
       }
     } catch {
       localStorage.removeItem(REVIEW_STORAGE_KEY);

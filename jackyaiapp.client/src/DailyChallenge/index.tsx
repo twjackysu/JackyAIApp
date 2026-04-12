@@ -62,8 +62,10 @@ function DailyChallenge() {
       if (!saved) return;
       const { answers: savedAnswers, currentQuestion: savedQuestion }: DailyChallengeProgress =
         JSON.parse(saved);
-      setAnswers(savedAnswers);
-      setCurrentQuestion(savedQuestion);
+      setTimeout(() => {
+        setAnswers(savedAnswers);
+        setCurrentQuestion(savedQuestion);
+      }, 0);
     } catch {
       // Corrupted data — ignore
     }
@@ -100,7 +102,7 @@ function DailyChallenge() {
     }
   }, [currentQuestion]);
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = async () => {
     const answerList = questions.map((q) => ({
       questionId: q.id,
       selectedIndex: answers[q.id] ?? -1,
@@ -117,7 +119,7 @@ function DailyChallenge() {
     } catch (err) {
       console.error('Failed to submit challenge:', err);
     }
-  }, [answers, challenge?.challengeDate, questions, submitChallenge]);
+  };
 
   const handleReview = useCallback(() => {
     setCurrentQuestion(0);
