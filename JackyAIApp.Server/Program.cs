@@ -147,8 +147,10 @@ try
     });
 
     builder.Services.AddOptions().Configure<Settings>(builder.Configuration.GetSection("Settings"));
+    builder.Services.AddHealthChecks();
     var app = builder.Build();
 
+    app.UseResponseCompression();
     app.UseMiddleware<ExceptionMiddleware>();
     app.UseDefaultFiles();
     app.UseStaticFiles();
@@ -165,6 +167,7 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+    app.MapHealthChecks("/api/health");
 
     app.MapFallbackToFile("/index.html");
 
