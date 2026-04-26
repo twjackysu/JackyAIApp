@@ -32,108 +32,117 @@ namespace JackyAIApp.Server.Services
 
         public async Task<bool> ConsumeCreditsAsync(string userId, ulong credits, string reason, string? description = null)
         {
-            // Use a transaction to ensure atomicity
-            using var transaction = await _dbContext.Database.BeginTransactionAsync();
-            
-            try
+            var strategy = _dbContext.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
             {
-                var user = await _dbContext.Users
-                    .FirstOrDefaultAsync(u => u.Id == userId);
+                using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-                if (user == null)
+                try
                 {
-                    _logger.LogWarning("Attempt to consume credits for non-existent user: {UserId}", userId);
-                    return false;
+                    var user = await _dbContext.Users
+                        .FirstOrDefaultAsync(u => u.Id == userId);
+
+                    if (user == null)
+                    {
+                        _logger.LogWarning("Attempt to consume credits for non-existent user: {UserId}", userId);
+                        return false;
+                    }
+
+                    if (user.CreditBalance < credits)
+                    {
+                        _logger.LogWarning("Insufficient credits for user {UserId}. Required: {Required}, Available: {Available}",
+                            userId, credits, user.CreditBalance);
+                        return false;
+                    }
+
+                    // Deduct credits
+                    user.CreditBalance -= credits;
+                    user.TotalCreditsUsed += credits;
+                    user.LastUpdated = DateTime.UtcNow;
+
+                    // Record transaction
+                    var creditTransaction = new CreditTransaction
+                    {
+                        UserId = userId,
+                        Amount = -(long)credits,
+                        BalanceAfter = user.CreditBalance,
+                        TransactionType = CreditTransactionType.Consume,
+                        Reason = reason,
+                        Description = description,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _dbContext.CreditTransactions.Add(creditTransaction);
+                    await _dbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation("User {UserId} consumed {Credits} credits for {Reason}. New balance: {Balance}",
+                        userId, credits, reason, user.CreditBalance);
+
+                    return true;
                 }
-
-                if (user.CreditBalance < credits)
+                catch (Exception ex)
                 {
-                    _logger.LogWarning("Insufficient credits for user {UserId}. Required: {Required}, Available: {Available}",
-                        userId, credits, user.CreditBalance);
-                    return false;
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error consuming credits for user {UserId}", userId);
+                    throw;
                 }
-
-                // Deduct credits
-                user.CreditBalance -= credits;
-                user.TotalCreditsUsed += credits;
-                user.LastUpdated = DateTime.UtcNow;
-
-                // Record transaction
-                var creditTransaction = new CreditTransaction
-                {
-                    UserId = userId,
-                    Amount = -(long)credits,
-                    BalanceAfter = user.CreditBalance,
-                    TransactionType = CreditTransactionType.Consume,
-                    Reason = reason,
-                    Description = description,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                _dbContext.CreditTransactions.Add(creditTransaction);
-                await _dbContext.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                _logger.LogInformation("User {UserId} consumed {Credits} credits for {Reason}. New balance: {Balance}",
-                    userId, credits, reason, user.CreditBalance);
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error consuming credits for user {UserId}", userId);
-                throw;
-            }
+            });
         }
 
         public async Task<bool> AddCreditsAsync(string userId, ulong credits, string transactionType, string reason, string? description = null, string? referenceId = null)
         {
-            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            var strategy = _dbContext.Database.CreateExecutionStrategy();
 
-            try
+            return await strategy.ExecuteAsync(async () =>
             {
-                var user = await _dbContext.Users
-                    .FirstOrDefaultAsync(u => u.Id == userId);
+                using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
-                if (user == null)
+                try
                 {
-                    _logger.LogWarning("Attempt to add credits for non-existent user: {UserId}", userId);
-                    return false;
+                    var user = await _dbContext.Users
+                        .FirstOrDefaultAsync(u => u.Id == userId);
+
+                    if (user == null)
+                    {
+                        _logger.LogWarning("Attempt to add credits for non-existent user: {UserId}", userId);
+                        return false;
+                    }
+
+                    // Add credits
+                    user.CreditBalance += credits;
+                    user.LastUpdated = DateTime.UtcNow;
+
+                    // Record transaction
+                    var creditTransaction = new CreditTransaction
+                    {
+                        UserId = userId,
+                        Amount = (long)credits,
+                        BalanceAfter = user.CreditBalance,
+                        TransactionType = transactionType,
+                        Reason = reason,
+                        Description = description,
+                        ReferenceId = referenceId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _dbContext.CreditTransactions.Add(creditTransaction);
+                    await _dbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation("User {UserId} received {Credits} credits ({Type}) for {Reason}. New balance: {Balance}",
+                        userId, credits, transactionType, reason, user.CreditBalance);
+
+                    return true;
                 }
-
-                // Add credits
-                user.CreditBalance += credits;
-                user.LastUpdated = DateTime.UtcNow;
-
-                // Record transaction
-                var creditTransaction = new CreditTransaction
+                catch (Exception ex)
                 {
-                    UserId = userId,
-                    Amount = (long)credits,
-                    BalanceAfter = user.CreditBalance,
-                    TransactionType = transactionType,
-                    Reason = reason,
-                    Description = description,
-                    ReferenceId = referenceId,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                _dbContext.CreditTransactions.Add(creditTransaction);
-                await _dbContext.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                _logger.LogInformation("User {UserId} received {Credits} credits ({Type}) for {Reason}. New balance: {Balance}",
-                    userId, credits, transactionType, reason, user.CreditBalance);
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error adding credits for user {UserId}", userId);
-                throw;
-            }
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error adding credits for user {UserId}", userId);
+                    throw;
+                }
+            });
         }
 
         public async Task<List<CreditTransaction>> GetTransactionHistoryAsync(string userId, int pageNumber = 1, int pageSize = 20)
