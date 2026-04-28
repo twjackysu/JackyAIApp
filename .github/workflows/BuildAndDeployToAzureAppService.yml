@@ -11,8 +11,12 @@ env:
   DOTNET_CORE_VERSION: 10.0.x
   WORKING_DIRECTORY: JackyAIApp.Server
 jobs:
-  build:
+  build-and-deploy:
     runs-on: windows-latest
+    env:
+      # azure/webapps-deploy@v3 still runs on Node.js 20; no v4 available yet.
+      # Remove once a Node.js 24 compatible version is released.
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
     - uses: actions/checkout@v6
     - name: Setup .NET SDK
@@ -27,24 +31,6 @@ jobs:
       run: dotnet test "${{ env.WORKING_DIRECTORY }}" --no-build
     - name: Publish
       run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}"
-    - name: Publish Artifacts
-      uses: actions/upload-artifact@v7
-      with:
-        name: webapp
-        path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    env:
-      # azure/webapps-deploy@v3 still runs on Node.js 20; no v4 available yet.
-      # Remove once a Node.js 24 compatible version is released.
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-    steps:
-    - name: Download artifact from build job
-      uses: actions/download-artifact@v8
-      with:
-        name: webapp
-        path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
     - name: Deploy to Azure WebApp
       uses: azure/webapps-deploy@v3
       with:
