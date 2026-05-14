@@ -128,11 +128,7 @@ function JobSearch() {
         </Stack>
 
         {/* Strategy toggle + platform chips */}
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          alignItems={{ sm: 'center' }}
-        >
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
           {/* AND / OR */}
           <Stack direction="row" alignItems="center" spacing={1} flexShrink={0}>
             <Typography variant="body2" color="text.secondary">
