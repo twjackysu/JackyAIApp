@@ -1,6 +1,7 @@
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import DescriptionIcon from '@mui/icons-material/Description';
 import SchoolIcon from '@mui/icons-material/School';
+import WorkIcon from '@mui/icons-material/Work';
 
 export const FINANCE = {
   name: 'Stock Intelligence & Market Analysis',
@@ -23,5 +24,12 @@ export const PDF_UNLOCKER = {
   allPaths: ['/pdf'],
 };
 
+export const JOB_SEARCH = {
+  name: '職缺搜尋 (Job Search)',
+  path: '/jobs',
+  icon: <WorkIcon fontSize="small" />,
+  allPaths: ['/jobs'],
+};
+
 // Application definitions used for both the app bar and the user profile menu
-export const apps = [FINANCE, ENGLISH_LEARNING];
+export const apps = [FINANCE, ENGLISH_LEARNING, JOB_SEARCH];

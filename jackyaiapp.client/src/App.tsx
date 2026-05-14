@@ -22,12 +22,13 @@ import LoginError from './components/LoginError';
 import InsufficientCreditsModal from './components/Modals/InsufficientCreditsModal';
 import UserProfileMenu from './components/UserProfileMenu';
 import Connectors from './Connectors';
-import { apps, FINANCE, PDF_UNLOCKER, ENGLISH_LEARNING } from './constants/apps';
+import { apps, FINANCE, PDF_UNLOCKER, ENGLISH_LEARNING, JOB_SEARCH } from './constants/apps';
 import Credits from './Credits';
 import DailyChallenge from './DailyChallenge';
 import Dictionary from './Dictionary';
 import Exam from './Exam';
 import Finance from './Finance';
+import JobSearch from './JobSearch';
 import useRouteMatch from './hooks/useRouteMatch';
 import PDFUnlocker from './PDFUnlocker';
 import Repository from './Repository';
@@ -38,6 +39,7 @@ import Stats from './Stats';
 const getCurrentAppSection = (path: string): string => {
   if (path === '/' || path === FINANCE.path) return FINANCE.name;
   if (path === PDF_UNLOCKER.path) return PDF_UNLOCKER.name;
+  if (JOB_SEARCH.allPaths.some((route) => path.startsWith(route))) return JOB_SEARCH.name;
   if (ENGLISH_LEARNING.allPaths.some((route) => path.startsWith(route)))
     return ENGLISH_LEARNING.name;
   return FINANCE.name;
@@ -49,7 +51,10 @@ function App() {
   const location = useLocation();
 
   const routeMatch = useRouteMatch(
-    FINANCE.allPaths.concat(PDF_UNLOCKER.allPaths).concat(ENGLISH_LEARNING.allPaths),
+    FINANCE.allPaths
+      .concat(PDF_UNLOCKER.allPaths)
+      .concat(ENGLISH_LEARNING.allPaths)
+      .concat(JOB_SEARCH.allPaths),
   );
   const _currentTab = routeMatch?.pattern?.path || '/';
   const currentTab = _currentTab === '/' ? FINANCE.path : _currentTab;
@@ -275,6 +280,7 @@ function App() {
             }
           />
           <Route path={FINANCE.path} element={<Finance />} />
+          <Route path={JOB_SEARCH.path} element={<JobSearch />} />
           <Route path="/login-error" element={<LoginError />} />
           <Route path="/" element={<Finance />} />
         </Routes>

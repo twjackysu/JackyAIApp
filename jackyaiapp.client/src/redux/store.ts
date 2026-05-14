@@ -8,6 +8,7 @@ import { dictionaryApis } from '@/apis/dictionaryApis';
 import { ecpayApi } from '@/apis/ecpayApis';
 import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
+import { jobApis } from '@/apis/jobApis';
 import { paypalApi } from '@/apis/paypalApis';
 import { repositoryApis } from '@/apis/repositoryApis';
 import { reviewApis } from '@/apis/reviewApis';
@@ -25,6 +26,7 @@ export const store = configureStore({
     [accountApis.reducerPath]: accountApis.reducer,
     [examApis.reducerPath]: examApis.reducer,
     [financeApis.reducerPath]: financeApis.reducer,
+    [jobApis.reducerPath]: jobApis.reducer,
     [connectorsApi.reducerPath]: connectorsApi.reducer,
     [creditApis.reducerPath]: creditApis.reducer,
     [stripeApi.reducerPath]: stripeApi.reducer,
@@ -43,6 +45,7 @@ export const store = configureStore({
       accountApis.middleware,
       examApis.middleware,
       financeApis.middleware,
+      jobApis.middleware,
       connectorsApi.middleware,
       creditApis.middleware,
       stripeApi.middleware,
