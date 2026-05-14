@@ -18,11 +18,12 @@ import { useState, useCallback } from 'react';
 
 import { useGetListingsQuery } from '@/apis/jobApis';
 import { JobSearchParams } from '@/apis/jobApis/types';
+
 import JobCard from './components/JobCard';
 
 const ALL_PLATFORMS = [
-  { id: '104',              label: '104 人力銀行' },
-  { id: 'github-f2etw',    label: 'f2etw (前端)' },
+  { id: '104', label: '104 人力銀行' },
+  { id: 'github-f2etw', label: 'f2etw (前端)' },
   { id: 'github-golangtw', label: 'golangTW (Go)' },
   { id: 'github-devopstw', label: 'DevOpsTW' },
 ];
@@ -36,6 +37,7 @@ function JobSearch() {
     strategy: 'AND',
     platforms: ALL_PLATFORMS.map((p) => p.id),
   });
+
   const { data, isFetching, isError, error, refetch } = useGetListingsQuery(searchParams, {
     refetchOnMountOrArgChange: true,
   });
@@ -46,7 +48,6 @@ function JobSearch() {
     if (!inputKeywords.trim()) return;
     const trimmed = inputKeywords.trim();
     if (trimmed === searchParams.keywords) {
-      // Same keywords — force refetch to bypass cache
       refetch();
     } else {
       setSearchParams((prev) => ({ ...prev, keywords: trimmed }));
@@ -60,10 +61,7 @@ function JobSearch() {
   const togglePlatform = useCallback((id: string) => {
     setSearchParams((prev) => {
       const has = prev.platforms.includes(id);
-      const next = has
-        ? prev.platforms.filter((p) => p !== id)
-        : [...prev.platforms, id];
-      // Keep at least one platform selected
+      const next = has ? prev.platforms.filter((p) => p !== id) : [...prev.platforms, id];
       return next.length > 0 ? { ...prev, platforms: next } : prev;
     });
   }, []);
@@ -130,7 +128,11 @@ function JobSearch() {
         </Stack>
 
         {/* Strategy toggle + platform chips */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          alignItems={{ sm: 'center' }}
+        >
           {/* AND / OR */}
           <Stack direction="row" alignItems="center" spacing={1} flexShrink={0}>
             <Typography variant="body2" color="text.secondary">
@@ -215,8 +217,7 @@ function JobSearch() {
 
           {jobs.length === 0 ? (
             <Alert severity="info">
-              沒有找到符合「{searchParams.keywords}」的職缺。
-              試試 OR 策略，或調整關鍵字。
+              沒有找到符合「{searchParams.keywords}」的職缺。 試試 OR 策略，或調整關鍵字。
             </Alert>
           ) : (
             <Stack spacing={1.5}>

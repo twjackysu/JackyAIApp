@@ -27,7 +27,7 @@ public class JobController(
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(keywords))
-            return responseFactory.CreateBadRequestResponse("Keywords cannot be empty.");
+            return responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Keywords cannot be empty.");
 
         var strategyNorm = strategy.Equals("OR", StringComparison.OrdinalIgnoreCase) ? "OR" : "AND";
 

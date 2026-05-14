@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
 import { ApiOkResponse } from '../types';
 import { JobListing, JobSearchParams, PlatformInfo } from './types';
 
