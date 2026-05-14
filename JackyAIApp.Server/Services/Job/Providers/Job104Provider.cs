@@ -6,8 +6,7 @@ namespace JackyAIApp.Server.Services.Job.Providers;
 
 /// <summary>
 /// Fetches job listings from 104.com.tw via its unofficial (but stable) JSON search API.
-/// area=6001001000 = 全台灣
-/// order=1&asc=0   = sorted by date desc
+/// area=6001001000 = 全台灣; order=1, asc=0 = sorted by date desc
 /// </summary>
 public class Job104Provider(IHttpClientFactory httpClientFactory, ILogger<Job104Provider> logger) : IJobProvider
 {
