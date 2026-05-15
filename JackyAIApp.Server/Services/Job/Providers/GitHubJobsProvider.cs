@@ -25,44 +25,48 @@ public class GitHubJobsProvider(
 {
     public string PlatformId => platformId;
 
-    private static readonly string[] JobLabels = ["求才", "徵才", "hiring", "job"];
-
     public async Task<IReadOnlyList<JobListingDto>> FetchAsync(string keywords, string searchStrategy, CancellationToken ct = default)
     {
-        var url = $"https://api.github.com/repos/{owner}/{repo}/issues" +
-                  "?state=open&sort=created&direction=desc&per_page=50";
+        // Use GitHub Search API to search across ALL issues in the repo (not just first page).
+        // Supports AND (space-separated) and OR keywords natively.
+        var terms = keywords
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToArray();
+
+        var keywordQuery = searchStrategy.Equals("OR", StringComparison.OrdinalIgnoreCase)
+            ? string.Join("+OR+", terms.Select(Uri.EscapeDataString))
+            : string.Join("+", terms.Select(Uri.EscapeDataString));
+
+        // Search within title and body of open issues in this specific repo
+        var q = Uri.EscapeDataString($"repo:{owner}/{repo} is:open is:issue") +
+                $"+{keywordQuery}+in:title,body";
+        var url = $"https://api.github.com/search/issues?q={q}&sort=created&order=desc&per_page=50";
 
         using var client = httpClientFactory.CreateClient("GitHub");
         using var response = await client.GetAsync(url, ct);
         response.EnsureSuccessStatusCode();
 
         using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+        var root = doc.RootElement;
 
-        var terms = keywords.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                            .Select(t => t.ToLowerInvariant())
-                            .ToArray();
+        // Search API response: { total_count, items: [...] }
+        if (!root.TryGetProperty("items", out var itemsEl))
+        {
+            logger.LogWarning("GitHub Search API returned unexpected shape for {owner}/{repo}", owner, repo);
+            return [];
+        }
 
         var jobs = new List<JobListingDto>();
-        foreach (var issue in doc.RootElement.EnumerateArray())
+        foreach (var issue in itemsEl.EnumerateArray())
         {
-            // Skip pull requests (GitHub API returns PRs in issues endpoint)
-            if (issue.TryGetProperty("pull_request", out _)) continue;
-
             var title = issue.TryGetProperty("title", out var titleEl) ? titleEl.GetString() ?? "" : "";
             var body = issue.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "" : "";
-            var combined = (title + " " + body).ToLowerInvariant();
-
-            // Keyword filter
-            bool matches = searchStrategy.Equals("OR", StringComparison.OrdinalIgnoreCase)
-                ? terms.Any(t => combined.Contains(t))
-                : terms.All(t => combined.Contains(t));
-
-            if (!matches && terms.Length > 0) continue;
-
             try { jobs.Add(ParseIssue(issue, title, body)); }
             catch (Exception ex) { logger.LogWarning(ex, "Failed to parse GitHub issue in {owner}/{repo}", owner, repo); }
         }
 
+        logger.LogInformation("GitHub {owner}/{repo} search returned {count} results for '{kw}'",
+            owner, repo, jobs.Count, keywords);
         return jobs;
     }
 

@@ -12,36 +12,62 @@ public class Job104Provider(IHttpClientFactory httpClientFactory, ILogger<Job104
 {
     public string PlatformId => "104";
 
-    private const string SearchUrl =
+    // Fetch up to this many pages (32 jobs/page). 3 pages ≈ last few days of postings.
+    private const int MaxPages = 3;
+
+    private const string SearchUrlTemplate =
         "https://www.104.com.tw/jobs/search/api/jobs" +
-        "?area=6001001000&order=1&asc=0&ro=0&mode=s&jobsource=2018indexpoc&page=1&keyword={0}";
+        "?area=6001001000&order=1&asc=0&ro=0&mode=s&jobsource=2018indexpoc&page={0}&keyword={1}";
 
     public async Task<IReadOnlyList<JobListingDto>> FetchAsync(string keywords, string searchStrategy, CancellationToken ct = default)
     {
         var keywordParam = BuildKeywordParam(keywords, searchStrategy);
-        var url = string.Format(SearchUrl, HttpUtility.UrlEncode(keywordParam));
+        var encoded = HttpUtility.UrlEncode(keywordParam);
 
         using var client = httpClientFactory.CreateClient("104");
-        using var response = await client.GetAsync(url, ct);
-        response.EnsureSuccessStatusCode();
-
-        using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-        var root = doc.RootElement;
-
-        if (!root.TryGetProperty("data", out var dataEl) ||
-            !dataEl.TryGetProperty("list", out var listEl))
-        {
-            logger.LogWarning("104 API returned unexpected shape");
-            return [];
-        }
-
         var jobs = new List<JobListingDto>();
-        foreach (var item in listEl.EnumerateArray())
+
+        for (var page = 1; page <= MaxPages; page++)
         {
-            try { jobs.Add(ParseJob(item)); }
-            catch (Exception ex) { logger.LogWarning(ex, "Failed to parse 104 job item"); }
+            var url = string.Format(SearchUrlTemplate, page, encoded);
+            using var response = await client.GetAsync(url, ct);
+            if (!response.IsSuccessStatusCode) break;
+
+            using var doc = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            var root = doc.RootElement;
+
+            // API v2: root.data is a JSON array directly (not data.list)
+            if (!root.TryGetProperty("data", out var dataEl)) break;
+
+            var listEl = dataEl.ValueKind == JsonValueKind.Array
+                ? dataEl                                    // new format: data is the array
+                : dataEl.TryGetProperty("list", out var nested) ? nested : default; // legacy
+
+            if (listEl.ValueKind != JsonValueKind.Array) break;
+
+            var pageJobs = new List<JobListingDto>();
+            foreach (var item in listEl.EnumerateArray())
+            {
+                try { pageJobs.Add(ParseJob(item)); }
+                catch (Exception ex) { logger.LogWarning(ex, "Failed to parse 104 job item on page {page}", page); }
+            }
+
+            jobs.AddRange(pageJobs);
+
+            // Stop early if this page had fewer items than expected (last page)
+            if (pageJobs.Count < 30) break;
+
+            // Check pagination metadata to avoid unnecessary requests
+            if (root.TryGetProperty("metadata", out var meta) &&
+                meta.TryGetProperty("pagination", out var pag) &&
+                pag.TryGetProperty("lastPage", out var lastPageEl) &&
+                lastPageEl.TryGetInt32(out var lastPage) &&
+                page >= lastPage)
+                break;
         }
 
+        logger.LogInformation("104 fetched {count} jobs for keywords='{kw}'", jobs.Count, keywords);
         return jobs;
     }
 
