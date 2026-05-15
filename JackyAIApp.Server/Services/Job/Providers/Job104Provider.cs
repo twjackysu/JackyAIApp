@@ -114,16 +114,17 @@ public class Job104Provider(IHttpClientFactory httpClientFactory, ILogger<Job104
             ? jobLink
             : $"https://www.104.com.tw/job/{jobNo}";
 
-        // Tags
+        // Tags: prefer pcSkills[].description (human-readable skill names).
+        // The legacy "tags" field changed from array → dict in API v2 and desc values are
+        // now empty, so it is no longer useful as a tag source.
         var tags = new List<string>();
-        if (item.TryGetProperty("tags", out var tagsEl))
+        if (item.TryGetProperty("pcSkills", out var skillsEl) && skillsEl.ValueKind == JsonValueKind.Array)
         {
-            foreach (var tag in tagsEl.EnumerateArray())
+            foreach (var skill in skillsEl.EnumerateArray())
             {
-                if (tag.TryGetProperty("name", out var tagName) && tagName.GetString() is { Length: > 0 } tn)
-                    tags.Add(tn);
-                else if (tag.ValueKind == JsonValueKind.String && tag.GetString() is { Length: > 0 } ts)
-                    tags.Add(ts);
+                if (skill.TryGetProperty("description", out var skillDesc) &&
+                    skillDesc.GetString() is { Length: > 0 } sn)
+                    tags.Add(sn);
             }
         }
 
