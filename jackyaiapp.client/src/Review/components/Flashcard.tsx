@@ -1,16 +1,20 @@
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 import { ReviewWordItem } from '@/apis/reviewApis/types';
+import { playVoiceTube } from '@/Dictionary/utils/audio';
 
 interface FlashcardProps {
   word: ReviewWordItem;
@@ -39,9 +43,21 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
         </Box>
 
         {/* Word */}
-        <Typography variant="h3" fontWeight="bold" textAlign="center" sx={{ mb: 1 }}>
-          {word.wordText}
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, mb: 1 }}>
+          <Typography variant="h3" fontWeight="bold" textAlign="center">
+            {word.wordText}
+          </Typography>
+          <Tooltip title="Play pronunciation">
+            <IconButton
+              onClick={() => playVoiceTube(word.wordText)}
+              color="primary"
+              size="medium"
+              aria-label={`Play pronunciation of ${word.wordText}`}
+            >
+              <VolumeUpIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
         <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
           {word.kkPhonics}
         </Typography>
