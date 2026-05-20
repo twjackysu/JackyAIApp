@@ -43,7 +43,9 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
         </Box>
 
         {/* Word */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Box
+          sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, mb: 1 }}
+        >
           <Typography variant="h3" fontWeight="bold" textAlign="center">
             {word.wordText}
           </Typography>
