@@ -1,139 +1,102 @@
-import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import TextField from '@mui/material/TextField';
-import { useState } from 'react';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 
-import type { DateGranularity, FieldDefinition, GroupFieldType } from '../../apis/dataAnalysisApis/types';
-import { DATE_GRANULARITIES, GROUP_FIELD_TYPE_LABELS } from '../constants';
-import type { ViewByEntry } from '../types';
-import { NumericBinDialog } from './NumericBinDialog';
-import { StringGroupingDialog } from './StringGroupingDialog';
+import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
+import { VIEW_BY_TYPE_LABELS } from '../constants';
+import type { FieldTransformDef, ViewByEntry } from '../types';
 
 interface ViewByRowProps {
-  entry: ViewByEntry;
-  fields: FieldDefinition[];
-  onUpdate: (e: ViewByEntry) => void;
-  onRemove: () => void;
-  sourceId?: string;
-  tableName?: string;
+  entry:      ViewByEntry;
+  fields:     FieldDefinition[];
+  transforms: FieldTransformDef[];
+  onUpdate:   (e: ViewByEntry) => void;
+  onRemove:   () => void;
 }
 
-export function ViewByRow({ entry, fields, onUpdate, onRemove, sourceId, tableName }: ViewByRowProps) {
-  const [binsOpen, setBinsOpen]     = useState(false);
-  const [groupsOpen, setGroupsOpen] = useState(false);
+export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: ViewByRowProps) {
+  const fieldTransforms = transforms.filter((t) => t.fieldName === entry.fieldName);
+  const hasTransforms   = fieldTransforms.length > 0;
+
+  const handleFieldChange = (fieldName: string) => {
+    const newFieldTransforms = transforms.filter((t) => t.fieldName === fieldName);
+    const newType: ViewByEntry['type'] =
+      entry.type === 'Transform' && newFieldTransforms.length === 0 ? 'Plain' : entry.type;
+    const newTransformId = newType === 'Transform' ? (newFieldTransforms[0]?.id ?? null) : null;
+    onUpdate({ ...entry, fieldName, type: newType, transformId: newTransformId });
+  };
+
+  const handleTypeChange = (type: ViewByEntry['type']) => {
+    const transformId = type === 'Transform' ? (fieldTransforms[0]?.id ?? null) : null;
+    onUpdate({ ...entry, type, transformId });
+  };
 
   return (
     <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      {/* Field selector */}
+      {/* Field */}
       <FormControl size="small" sx={{ flex: '0 0 160px' }}>
         <InputLabel>Field</InputLabel>
         <Select
           value={entry.fieldName} label="Field"
-          onChange={(e) => onUpdate({ ...entry, fieldName: e.target.value as string })}
+          onChange={(e) => handleFieldChange(e.target.value as string)}
         >
           {fields.map((f) => <MenuItem key={f.name} value={f.name}>{f.name}</MenuItem>)}
         </Select>
       </FormControl>
 
-      {/* Type selector */}
-      <FormControl size="small" sx={{ flex: '0 0 140px' }}>
+      {/* Type */}
+      <FormControl size="small" sx={{ flex: '0 0 150px' }}>
         <InputLabel>Type</InputLabel>
         <Select
           value={entry.type} label="Type"
-          onChange={(e) => onUpdate({ ...entry, type: e.target.value as GroupFieldType })}
+          onChange={(e) => handleTypeChange(e.target.value as ViewByEntry['type'])}
         >
-          {(Object.keys(GROUP_FIELD_TYPE_LABELS) as GroupFieldType[]).map((t) => (
-            <MenuItem key={t} value={t}>{GROUP_FIELD_TYPE_LABELS[t]}</MenuItem>
+          {(Object.keys(VIEW_BY_TYPE_LABELS) as ViewByEntry['type'][]).map((t) => (
+            <MenuItem key={t} value={t} disabled={t === 'Transform' && !hasTransforms}>
+              <Tooltip
+                title={t === 'Transform' && !hasTransforms ? 'No transforms defined for this field' : ''}
+                placement="right"
+              >
+                <span style={{ width: '100%' }}>{VIEW_BY_TYPE_LABELS[t]}</span>
+              </Tooltip>
+            </MenuItem>
           ))}
         </Select>
       </FormControl>
 
-      {/* Type-specific transformation controls */}
-      {entry.type === 'DateTrunc' && (
-        <FormControl size="small" sx={{ flex: '0 0 130px' }}>
-          <InputLabel>Granularity</InputLabel>
-          <Select
-            value={entry.granularity} label="Granularity"
-            onChange={(e) => onUpdate({ ...entry, granularity: e.target.value as DateGranularity })}
-          >
-            {DATE_GRANULARITIES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
-          </Select>
-        </FormControl>
+      {/* Transform selector (when type === Transform) */}
+      {entry.type === 'Transform' && (
+        fieldTransforms.length === 0 ? (
+          <Typography variant="caption" color="warning.main" sx={{ mt: 1 }}>
+            No transforms for this field — define one in Field Transforms above.
+          </Typography>
+        ) : (
+          <FormControl size="small" sx={{ flex: '1 1 160px' }}>
+            <InputLabel>Transform</InputLabel>
+            <Select
+              value={entry.transformId ?? ''}
+              label="Transform"
+              onChange={(e) => onUpdate({ ...entry, transformId: e.target.value as number })}
+            >
+              {fieldTransforms.map((t) => (
+                <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )
       )}
 
-      {entry.type === 'NumericBin' && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
-          {entry.bins.length > 0 && (
-            <Chip
-              label={`${entry.bins.length} bin${entry.bins.length > 1 ? 's' : ''}`}
-              size="small" color="primary"
-            />
-          )}
-          <Button
-            size="small" variant="outlined"
-            startIcon={<EditIcon fontSize="small" />}
-            onClick={() => setBinsOpen(true)}
-          >
-            {entry.bins.length === 0 ? 'Configure Bins' : 'Edit Bins'}
-          </Button>
-          <NumericBinDialog
-            open={binsOpen}
-            onClose={() => setBinsOpen(false)}
-            onSave={(bins, fallback) => {
-              onUpdate({ ...entry, bins, fallback });
-              setBinsOpen(false);
-            }}
-            fieldName={entry.fieldName}
-            initialBins={entry.bins}
-            initialFallback={entry.fallback}
-          />
-        </Box>
-      )}
-
-      {entry.type === 'StringGrouping' && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
-          {entry.groups.length > 0 && (
-            <Chip
-              label={`${entry.groups.length} group${entry.groups.length > 1 ? 's' : ''}`}
-              size="small" color="secondary"
-            />
-          )}
-          <Button
-            size="small" variant="outlined"
-            startIcon={<EditIcon fontSize="small" />}
-            onClick={() => setGroupsOpen(true)}
-          >
-            {entry.groups.length === 0 ? 'Configure Groups' : 'Edit Groups'}
-          </Button>
-          <StringGroupingDialog
-            open={groupsOpen}
-            onClose={() => setGroupsOpen(false)}
-            onSave={(groups, fallback) => {
-              onUpdate({ ...entry, groups, fallback });
-              setGroupsOpen(false);
-            }}
-            fieldName={entry.fieldName}
-            initialGroups={entry.groups}
-            initialFallback={entry.fallback}
-            sourceId={sourceId}
-            tableName={tableName}
-          />
-        </Box>
-      )}
-
-      {/* Alias — available on all types; renames the output column in results */}
+      {/* Alias */}
       <TextField
         size="small" label="Alias" placeholder="output col name"
-        value={entry.alias}
-        sx={{ flex: '0 0 140px' }}
+        value={entry.alias} sx={{ flex: '0 0 130px' }}
         onChange={(e) => onUpdate({ ...entry, alias: e.target.value })}
       />
 

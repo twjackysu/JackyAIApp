@@ -21,37 +21,43 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 import type { FieldDefinition, MeasureFieldDto } from '../../apis/dataAnalysisApis/types';
-import type { ActiveFilter, ViewByEntry } from '../types';
+import type { ActiveFilter, FieldTransformDef, ViewByEntry } from '../types';
 import { formatCellValue } from '../utils/formatters';
+import { FieldTransformEditor } from './FieldTransformEditor';
 import { FilterEditor } from './FilterEditor';
 import { MeasureEditor } from './MeasureEditor';
 import { SummarizeChart, type ChartViewType } from './SummarizeChart';
 import { ViewByEditor } from './ViewByEditor';
 
 interface SummarizeTabProps {
+  // Transforms
+  fieldTransforms:  FieldTransformDef[];
+  onTransformAdd:   (t: Omit<FieldTransformDef, 'id'>) => void;
+  onTransformUpdate:(t: FieldTransformDef) => void;
+  onTransformRemove:(id: number) => void;
   // ViewBy
-  viewByEntries: ViewByEntry[];
-  onViewByAdd: () => void;
-  onViewByUpdate: (entry: ViewByEntry) => void;
-  onViewByRemove: (id: number) => void;
+  viewByEntries:    ViewByEntry[];
+  onViewByAdd:      () => void;
+  onViewByUpdate:   (entry: ViewByEntry) => void;
+  onViewByRemove:   (id: number) => void;
   // Measures
-  measures: MeasureFieldDto[];
-  onMeasureAdd: () => void;
-  onMeasureRemove: (i: number) => void;
-  onMeasureUpdate: (i: number, patch: Partial<MeasureFieldDto>) => void;
+  measures:         MeasureFieldDto[];
+  onMeasureAdd:     () => void;
+  onMeasureRemove:  (i: number) => void;
+  onMeasureUpdate:  (i: number, patch: Partial<MeasureFieldDto>) => void;
   // Filters
-  summarizeFilters: ActiveFilter[];
-  onSummarizeFiltersChange: (filters: ActiveFilter[]) => void;
+  summarizeFilters:        ActiveFilter[];
+  onSummarizeFiltersChange:(filters: ActiveFilter[]) => void;
   // Run
   onRunSummarize: () => void;
-  isLoading: boolean;
-  error: unknown;
+  isLoading:      boolean;
+  error:          unknown;
   // Results
-  summarizeRows: Record<string, unknown>[];
+  summarizeRows:    Record<string, unknown>[];
   summarizeHeaders: string[];
   // Context
-  fields: FieldDefinition[];
-  sourceId?: string;
+  fields:     FieldDefinition[];
+  sourceId?:  string;
   tableName?: string;
 }
 
@@ -60,22 +66,23 @@ interface SummarizeTabProps {
 interface ChartOption {
   value: ChartViewType;
   label: string;
-  icon: React.ReactNode;
+  icon:  React.ReactNode;
 }
 
 const CHART_OPTIONS: ChartOption[] = [
-  { value: 'table',        label: 'Table',         icon: <TableChartIcon fontSize="small" /> },
-  { value: 'column',       label: 'Column',        icon: <BarChartIcon fontSize="small" /> },
-  { value: 'bar',          label: 'Bar (horiz.)',   icon: <BarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} /> },
-  { value: 'line',         label: 'Line',           icon: <ShowChartIcon fontSize="small" /> },
-  { value: 'pie',          label: 'Pie',            icon: <PieChartIcon fontSize="small" /> },
-  { value: 'stackedColumn',label: 'Stacked Column', icon: <StackedBarChartIcon fontSize="small" /> },
-  { value: 'stackedBar',   label: 'Stacked Bar',    icon: <StackedBarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} /> },
+  { value: 'table',         label: 'Table',          icon: <TableChartIcon fontSize="small" /> },
+  { value: 'column',        label: 'Column',         icon: <BarChartIcon fontSize="small" /> },
+  { value: 'bar',           label: 'Bar (horiz.)',   icon: <BarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} /> },
+  { value: 'line',          label: 'Line',            icon: <ShowChartIcon fontSize="small" /> },
+  { value: 'pie',           label: 'Pie',             icon: <PieChartIcon fontSize="small" /> },
+  { value: 'stackedColumn', label: 'Stacked Column',  icon: <StackedBarChartIcon fontSize="small" /> },
+  { value: 'stackedBar',    label: 'Stacked Bar',     icon: <StackedBarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} /> },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function SummarizeTab({
+  fieldTransforms, onTransformAdd, onTransformUpdate, onTransformRemove,
   viewByEntries, onViewByAdd, onViewByUpdate, onViewByRemove,
   measures, onMeasureAdd, onMeasureRemove, onMeasureUpdate,
   summarizeFilters, onSummarizeFiltersChange,
@@ -92,18 +99,32 @@ export function SummarizeTab({
       </Typography>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-        <ViewByEditor
-          entries={viewByEntries}
+        {/* ── Field Transforms ── */}
+        <FieldTransformEditor
+          transforms={fieldTransforms}
+          onAdd={onTransformAdd}
+          onUpdate={onTransformUpdate}
+          onRemove={onTransformRemove}
           fields={fields}
-          onAdd={onViewByAdd}
-          onUpdate={onViewByUpdate}
-          onRemove={onViewByRemove}
           sourceId={sourceId}
           tableName={tableName}
         />
 
         <Divider sx={{ my: 2 }} />
 
+        {/* ── Group By ── */}
+        <ViewByEditor
+          entries={viewByEntries}
+          fields={fields}
+          transforms={fieldTransforms}
+          onAdd={onViewByAdd}
+          onUpdate={onViewByUpdate}
+          onRemove={onViewByRemove}
+        />
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* ── Measures ── */}
         <MeasureEditor
           measures={measures}
           fields={fields}
@@ -114,9 +135,11 @@ export function SummarizeTab({
 
         <Divider sx={{ my: 2 }} />
 
+        {/* ── Filters ── */}
         <FilterEditor
           filters={summarizeFilters}
           fields={fields}
+          transforms={fieldTransforms}
           onChange={onSummarizeFiltersChange}
           sourceId={sourceId}
           tableName={tableName}
@@ -139,7 +162,7 @@ export function SummarizeTab({
 
       {summarizeHeaders.length > 0 && (
         <>
-          {/* ── Results header: row count + view toggle ── */}
+          {/* ── Results header ── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <Typography variant="caption" color="text.secondary">
               {summarizeRows.length} rows returned

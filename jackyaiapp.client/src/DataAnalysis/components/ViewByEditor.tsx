@@ -4,21 +4,20 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
-import type { ViewByEntry } from '../types';
+import type { FieldTransformDef, ViewByEntry } from '../types';
 import { ViewByRow } from './ViewByRow';
 
 interface ViewByEditorProps {
-  entries: ViewByEntry[];
-  fields: FieldDefinition[];
-  onAdd: () => void;
-  onUpdate: (entry: ViewByEntry) => void;
-  onRemove: (id: number) => void;
-  sourceId?: string;
-  tableName?: string;
+  entries:    ViewByEntry[];
+  fields:     FieldDefinition[];
+  transforms: FieldTransformDef[];
+  onAdd:      () => void;
+  onUpdate:   (entry: ViewByEntry) => void;
+  onRemove:   (id: number) => void;
 }
 
 export function ViewByEditor({
-  entries, fields, onAdd, onUpdate, onRemove, sourceId, tableName,
+  entries, fields, transforms, onAdd, onUpdate, onRemove,
 }: ViewByEditorProps) {
   return (
     <Box>
@@ -40,10 +39,9 @@ export function ViewByEditor({
           key={entry.id}
           entry={entry}
           fields={fields}
+          transforms={transforms}
           onUpdate={onUpdate}
           onRemove={() => onRemove(entry.id)}
-          sourceId={sourceId}
-          tableName={tableName}
         />
       ))}
     </Box>

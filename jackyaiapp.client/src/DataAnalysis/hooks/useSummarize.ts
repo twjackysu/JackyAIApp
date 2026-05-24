@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSummarizeMutation } from '../../apis/dataAnalysisApis';
 import type { FieldDefinition, MeasureFieldDto } from '../../apis/dataAnalysisApis/types';
-import type { ActiveFilter, ViewByEntry } from '../types';
+import type { ActiveFilter, FieldTransformDef, ViewByEntry } from '../types';
 import { makeViewByEntry, toFilterDtos, toGroupFieldDto } from '../utils/groupField';
 
 interface UseSummarizeParams {
@@ -11,6 +11,10 @@ interface UseSummarizeParams {
 }
 
 export function useSummarize({ ctxSourceId, ctxTableName, fields }: UseSummarizeParams) {
+  // ── Field Transforms (shared by ViewBy and Filters) ───────────────────────
+  const [fieldTransforms, setFieldTransforms] = useState<FieldTransformDef[]>([]);
+
+  // ── ViewBy / Measures / Filters ───────────────────────────────────────────
   const [viewByEntries, setViewByEntries] = useState<ViewByEntry[]>([
     makeViewByEntry('Region'),
   ]);
@@ -22,16 +26,48 @@ export function useSummarize({ ctxSourceId, ctxTableName, fields }: UseSummarize
   const [summarize, { data: summarizeData, isLoading: summarizeLoading, error: summarizeError }] =
     useSummarizeMutation();
 
+  // ── Run ───────────────────────────────────────────────────────────────────
   const handleRunSummarize = () => {
     if (viewByEntries.length === 0 || measures.length === 0) return;
     summarize({
       context: ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
-      viewBy:  viewByEntries.map(toGroupFieldDto),
+      viewBy:  viewByEntries.map((e) => toGroupFieldDto(e, fieldTransforms)),
       measures,
-      filters: toFilterDtos(summarizeFilters),
+      filters: toFilterDtos(summarizeFilters, fieldTransforms),
     });
   };
 
+  // ── FieldTransform CRUD ───────────────────────────────────────────────────
+  const addTransform = (t: Omit<FieldTransformDef, 'id'>) =>
+    setFieldTransforms((prev) => [
+      ...prev,
+      { ...t, id: Date.now() + Math.random() },
+    ]);
+
+  const updateTransform = (updated: FieldTransformDef) =>
+    setFieldTransforms((prev) =>
+      prev.map((t) => (t.id === updated.id ? updated : t)),
+    );
+
+  const removeTransform = (id: number) => {
+    setFieldTransforms((prev) => prev.filter((t) => t.id !== id));
+    // Reset ViewBy entries referencing this transform → Plain
+    setViewByEntries((prev) =>
+      prev.map((e) =>
+        e.transformId === id ? { ...e, type: 'Plain', transformId: null } : e,
+      ),
+    );
+    // Reset filter entries referencing this transform → raw-value mode
+    setSummarizeFilters((prev) =>
+      prev.map((f) =>
+        f.transformId === id
+          ? { ...f, useTransform: false, transformId: null, values: [] }
+          : f,
+      ),
+    );
+  };
+
+  // ── Measure CRUD ──────────────────────────────────────────────────────────
   const addMeasure = () =>
     setMeasures((prev) => [
       ...prev,
@@ -44,7 +80,9 @@ export function useSummarize({ ctxSourceId, ctxTableName, fields }: UseSummarize
   const updateMeasure = (i: number, patch: Partial<MeasureFieldDto>) =>
     setMeasures((prev) => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
 
+  // ── Reset (source change) ─────────────────────────────────────────────────
   const reset = () => {
+    setFieldTransforms([]);
     setViewByEntries([]);
     setMeasures([{ fieldName: '', aggregation: 'Sum' }]);
     setSummarizeFilters([]);
@@ -54,6 +92,7 @@ export function useSummarize({ ctxSourceId, ctxTableName, fields }: UseSummarize
   const summarizeHeaders = summarizeRows.length > 0 ? Object.keys(summarizeRows[0]) : [];
 
   return {
+    fieldTransforms,  addTransform, updateTransform, removeTransform,
     viewByEntries,    setViewByEntries,
     measures,         addMeasure, removeMeasure, updateMeasure,
     summarizeFilters, setSummarizeFilters,

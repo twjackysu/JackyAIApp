@@ -157,6 +157,10 @@ export default function DataAnalysis() {
 
       <TabPanel value={tab} index={1}>
         <SummarizeTab
+          fieldTransforms={summarize.fieldTransforms}
+          onTransformAdd={summarize.addTransform}
+          onTransformUpdate={summarize.updateTransform}
+          onTransformRemove={summarize.removeTransform}
           viewByEntries={summarize.viewByEntries}
           onViewByAdd={() =>
             summarize.setViewByEntries((prev) => [...prev, makeViewByEntry(fields[0]?.name ?? '')])

@@ -26,7 +26,7 @@ export function useDetails({ ctxSourceId, ctxTableName, tab, dateField }: UseDet
       orderBy: dateField ? [{ fieldName: dateField, descending: true }] : [],
       skip:    page * ROWS_PER_PAGE,
       take:    ROWS_PER_PAGE,
-      filters: toFilterDtos(detailsFilters),
+      filters: toFilterDtos(detailsFilters, []),  // Details tab has no field transforms
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, page, detailsFilters, ctxSourceId, ctxTableName, dateField]);

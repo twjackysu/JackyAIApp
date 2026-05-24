@@ -6,27 +6,32 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
-import type { ActiveFilter } from '../types';
+import type { ActiveFilter, FieldTransformDef } from '../types';
 import { toFilterDtos } from '../utils/groupField';
 import { FilterRow } from './FilterRow';
 
 interface FilterEditorProps {
-  filters: ActiveFilter[];
-  fields: FieldDefinition[];
-  onChange: (filters: ActiveFilter[]) => void;
-  sourceId?: string;
-  tableName?: string;
+  filters:     ActiveFilter[];
+  fields:      FieldDefinition[];
+  transforms?: FieldTransformDef[];   // optional; Details tab passes nothing
+  onChange:    (filters: ActiveFilter[]) => void;
+  sourceId?:   string;
+  tableName?:  string;
 }
 
 export function FilterEditor({
-  filters, fields, onChange, sourceId, tableName,
+  filters, fields, transforms = [], onChange, sourceId, tableName,
 }: FilterEditorProps) {
-  const addFilter    = () => onChange([...filters, { id: Date.now(), fieldName: '', values: [] }]);
+  const addFilter    = () =>
+    onChange([
+      ...filters,
+      { id: Date.now(), fieldName: '', values: [], useTransform: false, transformId: null },
+    ]);
   const removeFilter = (id: number) => onChange(filters.filter((f) => f.id !== id));
   const updateFilter = (updated: ActiveFilter) =>
     onChange(filters.map((f) => (f.id === updated.id ? updated : f)));
 
-  const activeCount = toFilterDtos(filters).length;
+  const activeCount = toFilterDtos(filters, transforms).length;
 
   return (
     <Box>
@@ -56,6 +61,7 @@ export function FilterEditor({
           key={f.id}
           filter={f}
           fields={fields}
+          transforms={transforms}
           onUpdate={updateFilter}
           onRemove={() => removeFilter(f.id)}
           sourceId={sourceId}
