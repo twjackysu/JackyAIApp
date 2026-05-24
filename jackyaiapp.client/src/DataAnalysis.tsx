@@ -791,17 +791,17 @@ export default function DataAnalysis() {
               {activeTableName && (
                 <>
                   {' → '}
-                  <code style={{ background: '#f0f0f0', padding: '0 4px', borderRadius: 3 }}>
+                  <Box component="code" sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace', fontSize: '0.875em' }}>
                     {activeTableName}
-                  </code>
+                  </Box>
                 </>
               )}
             </>
           : <>
               All 4 query types demonstrated against{' '}
-              <code style={{ background: '#f0f0f0', padding: '0 4px', borderRadius: 3 }}>
+              <Box component="code" sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace', fontSize: '0.875em' }}>
                 {activeTableName || DEFAULT_TABLE}
-              </code>
+              </Box>
             </>
         }
       </Typography>
