@@ -125,5 +125,10 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
     {
         public required string       FieldName { get; init; }
         public required List<string> Values    { get; init; }
+        /// <summary>
+        /// Filter operator: "In" | "NotIn" | "Equals" | "GreaterThan" | "LessThan" | "Between" | "Contains".
+        /// Defaults to "In" when absent or unrecognised.
+        /// </summary>
+        public string? Op { get; init; }
     }
 }

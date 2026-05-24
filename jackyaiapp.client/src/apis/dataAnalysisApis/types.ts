@@ -131,6 +131,12 @@ export interface MeasureFieldDto {
 export interface FilterDimensionDto {
   fieldName: string;
   values: string[];
+  /**
+   * Filter operator — matches C# FilterOperator enum (serialised as string).
+   * "In" | "NotIn" | "Equals" | "GreaterThan" | "LessThan" | "Between" | "Contains"
+   * Defaults to "In" when omitted.
+   */
+  op?: string;
 }
 
 export interface SummarizeRequest {

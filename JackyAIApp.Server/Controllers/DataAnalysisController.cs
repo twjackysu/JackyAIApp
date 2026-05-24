@@ -421,7 +421,7 @@ namespace JackyAIApp.Server.Controllers
                 TableName = ctx.TableName,
                 ViewBy    = dto.ViewBy.Select(MapGroupField).ToList(),
                 Measures  = dto.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation)).ToList(),
-                Filters   = dto.Filters?.Select(f => new FilterDimension(f.FieldName, f.Values)).ToList() ?? [],
+                Filters   = dto.Filters?.Select(MapFilter).ToList() ?? [],
             }, ct);
 
             return result.IsSuccess
@@ -449,7 +449,7 @@ namespace JackyAIApp.Server.Controllers
                 OrderBy      = dto.OrderBy?.Select(o => new SortField(o.FieldName, o.Descending)).ToList() ?? [],
                 Skip         = dto.Skip,
                 Take         = Math.Min(dto.Take, 200),
-                Filters      = dto.Filters?.Select(f => new FilterDimension(f.FieldName, f.Values)).ToList() ?? [],
+                Filters      = dto.Filters?.Select(MapFilter).ToList() ?? [],
             }, ct);
 
             return result.IsSuccess
@@ -458,6 +458,22 @@ namespace JackyAIApp.Server.Controllers
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────
+
+        /// <summary>Maps a <see cref="FilterDimensionDto"/> to a <see cref="FilterDimension"/>, honouring the optional Op.</summary>
+        private static FilterDimension MapFilter(FilterDimensionDto f)
+        {
+            var op = f.Op switch
+            {
+                "NotIn"       => FilterOperator.NotIn,
+                "Equals"      => FilterOperator.Equals,
+                "GreaterThan" => FilterOperator.GreaterThan,
+                "LessThan"    => FilterOperator.LessThan,
+                "Between"     => FilterOperator.Between,
+                "Contains"    => FilterOperator.Contains,
+                _             => FilterOperator.In,   // default, also handles "In" and null
+            };
+            return new FilterDimension(f.FieldName, f.Values, op);
+        }
 
         /// <summary>Maps a <see cref="GroupFieldDto"/> to the appropriate <see cref="GroupFieldBase"/> subtype.</summary>
         private static GroupFieldBase MapGroupField(GroupFieldDto f) => f.Type switch

@@ -14,11 +14,12 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TableSortLabel from '@mui/material/TableSortLabel';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { FieldDefinition, MeasureFieldDto } from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef, ViewByEntry } from '../types';
@@ -91,6 +92,44 @@ export function SummarizeTab({
   fields, sourceId, tableName,
 }: SummarizeTabProps) {
   const [chartType, setChartType] = useState<ChartViewType>('table');
+
+  // ── Column sort ────────────────────────────────────────────────────────────
+  const [sortCol, setSortCol]     = useState<string | null>(null);
+  const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc');
+
+  // Reset sort whenever a new result set arrives
+  useEffect(() => {
+    setSortCol(null);
+    setSortDir('asc');
+  }, [summarizeHeaders]);
+
+  const handleSortClick = (col: string) => {
+    if (sortCol === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedRows = useMemo(() => {
+    if (!sortCol) return summarizeRows;
+    return [...summarizeRows].sort((a, b) => {
+      const av = a[sortCol];
+      const bv = b[sortCol];
+      // nulls/undefined always last
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      // numeric comparison when both values are numbers
+      if (typeof av === 'number' && typeof bv === 'number') {
+        return sortDir === 'asc' ? av - bv : bv - av;
+      }
+      // fall back to locale string comparison
+      const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [summarizeRows, sortCol, sortDir]);
 
   return (
     <>
@@ -191,11 +230,25 @@ export function SummarizeTab({
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    {summarizeHeaders.map((h) => <TableCell key={h}>{h}</TableCell>)}
+                    {summarizeHeaders.map((h) => (
+                      <TableCell
+                        key={h}
+                        sortDirection={sortCol === h ? sortDir : false}
+                        sx={{ whiteSpace: 'nowrap', userSelect: 'none' }}
+                      >
+                        <TableSortLabel
+                          active={sortCol === h}
+                          direction={sortCol === h ? sortDir : 'asc'}
+                          onClick={() => handleSortClick(h)}
+                        >
+                          {h}
+                        </TableSortLabel>
+                      </TableCell>
+                    ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {summarizeRows.map((row, i) => (
+                  {sortedRows.map((row, i) => (
                     <TableRow key={i} hover>
                       {summarizeHeaders.map((h) => (
                         <TableCell key={h}>{formatCellValue(row[h])}</TableCell>
