@@ -19,6 +19,64 @@ export type ColumnDataType =
   | 'Json'
   | 'Xml';
 
+// ── Data-source management ─────────────────────────────────────────────────
+
+export type DataSourceConnectorType = 'MsSql' | 'Adx';
+
+/** Optional query context — null/omitted = use the default JackyAI SQL source. */
+export interface QueryContextDto {
+  sourceId?: string;
+  tableName?: string;
+}
+
+export interface MsSqlSourceConfig {
+  connectionString: string;
+}
+
+export interface AdxSourceConfig {
+  clusterUri: string;
+  database: string;
+  tenantId?: string | null;
+  clientId?: string | null;
+  /** Returned as "***" when masked; send "***" back to keep existing secret. */
+  clientSecret?: string | null;
+  /** Optional raw ADX connection string that overrides all SP fields above. */
+  connectionString?: string | null;
+}
+
+export interface DataSourceConfigDto {
+  id: string;
+  name: string;
+  connectorType: DataSourceConnectorType;
+  /** Secrets are masked ("***") in this field. */
+  config: Record<string, unknown>;
+  defaultTableName?: string | null;
+  createdAt: string;
+}
+
+export interface SaveDataSourceConfigDto {
+  name: string;
+  connectorType: DataSourceConnectorType;
+  config: MsSqlSourceConfig | AdxSourceConfig;
+  defaultTableName?: string | null;
+}
+
+// ── Shared query-param shapes (GET endpoints) ──────────────────────────────
+
+export interface SourceQueryParams {
+  sourceId?: string;
+  tableName?: string;
+}
+
+export interface MaxDateQueryParams extends SourceQueryParams {
+  /** The date column to compute MAX on. Defaults to "OrderDate" server-side if omitted. */
+  dateField?: string;
+}
+
+export interface DistinctValuesQueryParams extends SourceQueryParams {
+  field: string;
+}
+
 // ── Schema ──────────────────────────────────────────────────────────────────
 
 export interface FieldDefinition {
@@ -45,6 +103,7 @@ export interface FilterDimensionDto {
 }
 
 export interface SummarizeRequest {
+  context?: QueryContextDto;
   viewBy: string[];
   measures: MeasureFieldDto[];
   filters?: FilterDimensionDto[];
@@ -62,6 +121,7 @@ export interface SortFieldDto {
 }
 
 export interface DetailsRequest {
+  context?: QueryContextDto;
   selectFields?: string[];
   orderBy?: SortFieldDto[];
   skip?: number;

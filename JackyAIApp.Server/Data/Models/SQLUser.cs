@@ -66,6 +66,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public ICollection<UserConnector> UserConnectors { get; set; } = [];
         public ICollection<CreditTransaction> CreditTransactions { get; set; } = [];
         public ICollection<DailyChallengeResult> DailyChallengeResults { get; set; } = [];
+        public ICollection<DataSourceConfig> DataSourceConfigs { get; set; } = [];
     }
 
     /// <summary>

@@ -1,57 +1,95 @@
 using DataAnalysisLibrary.Core.Enums;
+using JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.DTO.DataAnalysis
 {
-    /// <summary>Request body for the Summarize endpoint.</summary>
+    // ── Source management ──────────────────────────────────────────────────────
+
+    public sealed record DataSourceConfigResponseDto
+    {
+        public Guid                    Id               { get; init; }
+        public required string         Name             { get; init; }
+        public DataSourceConnectorType ConnectorType    { get; init; }
+        /// <summary>Config with secrets masked (ClientSecret / Password shown as "***").</summary>
+        public required object         Config           { get; init; }
+        public string?                 DefaultTableName { get; init; }
+        public DateTimeOffset          CreatedAt        { get; init; }
+    }
+
+    public sealed record SaveDataSourceConfigDto
+    {
+        public required string                Name             { get; init; }
+        public required DataSourceConnectorType ConnectorType  { get; init; }
+        /// <summary>Type-specific config — see MsSqlSourceConfigDto / AdxSourceConfigDto.</summary>
+        public required object                 Config          { get; init; }
+        public string?                         DefaultTableName { get; init; }
+    }
+
+    // ── Connector-specific config shapes ──────────────────────────────────────
+
+    public sealed record MsSqlSourceConfigDto
+    {
+        public required string ConnectionString { get; init; }
+    }
+
+    public sealed record AdxSourceConfigDto
+    {
+        public required string ClusterUri   { get; init; }
+        public required string Database     { get; init; }
+        public string?         TenantId     { get; init; }
+        public string?         ClientId     { get; init; }
+        public string?         ClientSecret { get; init; }
+        /// <summary>If set, overrides SP fields (for Managed Identity etc.).</summary>
+        public string?         ConnectionString { get; init; }
+    }
+
+    // ── Shared query context ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Optional context added to every query request body.
+    /// If SourceId is null the default engine (JackyAI SQL → dbo.Orders) is used.
+    /// </summary>
+    public sealed record QueryContextDto
+    {
+        public Guid?   SourceId  { get; init; }
+        public string? TableName { get; init; }
+    }
+
+    // ── Query request DTOs ────────────────────────────────────────────────────
+
     public sealed record SummarizeRequestDto
     {
-        /// <summary>Fields to group by.</summary>
-        public required List<string> ViewBy { get; init; }
-
-        /// <summary>Measures to compute for each group.</summary>
+        public QueryContextDto?          Context  { get; init; }
+        public required List<string>     ViewBy   { get; init; }
         public required List<MeasureFieldDto> Measures { get; init; }
-
-        /// <summary>Optional dimension filters.</summary>
-        public List<FilterDimensionDto>? Filters { get; init; }
+        public List<FilterDimensionDto>? Filters  { get; init; }
     }
 
-    /// <summary>A single measure: field + aggregation type.</summary>
     public sealed record MeasureFieldDto
     {
-        public required string FieldName { get; init; }
-        public AggregationType Aggregation { get; init; }
+        public required string          FieldName   { get; init; }
+        public AggregationType          Aggregation { get; init; }
     }
 
-    /// <summary>Request body for the Details endpoint.</summary>
     public sealed record DetailsRequestDto
     {
-        /// <summary>Columns to return; empty = all columns.</summary>
-        public List<string>? SelectFields { get; init; }
-
-        /// <summary>Sort order.</summary>
-        public List<SortFieldDto>? OrderBy { get; init; }
-
-        /// <summary>Rows to skip (pagination).</summary>
-        public int Skip { get; init; } = 0;
-
-        /// <summary>Max rows to return.</summary>
-        public int Take { get; init; } = 50;
-
-        /// <summary>Optional dimension filters.</summary>
-        public List<FilterDimensionDto>? Filters { get; init; }
+        public QueryContextDto?          Context      { get; init; }
+        public List<string>?             SelectFields { get; init; }
+        public List<SortFieldDto>?       OrderBy      { get; init; }
+        public int                       Skip         { get; init; } = 0;
+        public int                       Take         { get; init; } = 50;
+        public List<FilterDimensionDto>? Filters      { get; init; }
     }
 
-    /// <summary>A single sort rule.</summary>
     public sealed record SortFieldDto
     {
-        public required string FieldName { get; init; }
-        public bool Descending { get; init; } = false;
+        public required string FieldName   { get; init; }
+        public bool            Descending  { get; init; } = false;
     }
 
-    /// <summary>A dimension filter: field + list of accepted values.</summary>
     public sealed record FilterDimensionDto
     {
-        public required string FieldName { get; init; }
-        public required List<string> Values { get; init; }
+        public required string       FieldName { get; init; }
+        public required List<string> Values    { get; init; }
     }
 }

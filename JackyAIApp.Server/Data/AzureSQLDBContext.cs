@@ -130,6 +130,17 @@ namespace JackyAIApp.Server.Data
             modelBuilder.Entity<DailyChallengeResult>()
                 .HasIndex(dc => new { dc.UserId, dc.ChallengeDate })
                 .IsUnique();
+
+            // Configure DataSourceConfig relationship (per-user)
+            modelBuilder.Entity<DataSourceConfig>()
+                .HasOne(ds => ds.User)
+                .WithMany(u => u.DataSourceConfigs)
+                .HasForeignKey(ds => ds.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Index for fast per-user listing
+            modelBuilder.Entity<DataSourceConfig>()
+                .HasIndex(ds => ds.UserId);
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -147,5 +158,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<UserConnector> UserConnectors { get; set; }
         public virtual DbSet<CreditTransaction> CreditTransactions { get; set; }
         public virtual DbSet<DailyChallengeResult> DailyChallengeResults { get; set; }
+        public virtual DbSet<DataSourceConfig> DataSourceConfigs { get; set; }
     }
 }
