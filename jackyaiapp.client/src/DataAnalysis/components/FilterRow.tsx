@@ -62,7 +62,7 @@ export function FilterRow({
         fieldName:   activeTransform.fieldName,
         granularity: activeTransform.granularity,
       }],
-      measures: [{ fieldName: activeTransform.fieldName, aggregation: 'Count' }],
+      measures: [{ fieldName: activeTransform.fieldName, aggregation: 'Count', alias: '_cnt' }],
     }).then(
       (result) => {
         if ('data' in result && result.data?.data?.rows) {

@@ -103,6 +103,8 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
     {
         public required string          FieldName   { get; init; }
         public AggregationType          Aggregation { get; init; }
+        /// <summary>Output column alias. Defaults to FieldName when omitted.</summary>
+        public string?                  Alias       { get; init; }
     }
 
     public sealed record DetailsRequestDto

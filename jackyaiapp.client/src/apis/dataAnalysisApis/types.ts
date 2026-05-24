@@ -126,6 +126,8 @@ export interface GroupFieldDto {
 export interface MeasureFieldDto {
   fieldName: string;
   aggregation: AggregationType;
+  /** Output column alias. Defaults to fieldName when omitted. */
+  alias?: string;
 }
 
 export interface FilterDimensionDto {

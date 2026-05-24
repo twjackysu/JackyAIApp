@@ -420,7 +420,7 @@ namespace JackyAIApp.Server.Controllers
                 SourceKey = ctx.SourceKey,
                 TableName = ctx.TableName,
                 ViewBy    = dto.ViewBy.Select(MapGroupField).ToList(),
-                Measures  = dto.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation)).ToList(),
+                Measures  = dto.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias))).ToList(),
                 Filters   = dto.Filters?.Select(MapFilter).ToList() ?? [],
             }, ct);
 
