@@ -55,14 +55,48 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public string? TableName { get; init; }
     }
 
+    // ── GroupField DTOs ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Discriminated-union DTO for all GroupFieldBase subtypes.
+    /// <c>Type</c> is "Plain" | "DateTrunc" | "NumericBin" | "StringGrouping".
+    /// </summary>
+    public sealed record GroupFieldDto
+    {
+        public string  Type        { get; init; } = "Plain";
+        public required string FieldName { get; init; }
+        public string? Alias       { get; init; }
+        /// <summary>DateTrunc only — "Year" | "Quarter" | "Month" | "Week" | "Day" | "Hour".</summary>
+        public string? Granularity { get; init; }
+        /// <summary>NumericBin / StringGrouping — label for unmatched rows (default "Other").</summary>
+        public string? Fallback    { get; init; }
+        /// <summary>NumericBin only.</summary>
+        public List<NumericBinDto>?   Bins   { get; init; }
+        /// <summary>StringGrouping only.</summary>
+        public List<StringGroupDto>?  Groups { get; init; }
+    }
+
+    public sealed record NumericBinDto
+    {
+        public double? Min   { get; init; }
+        public double? Max   { get; init; }
+        public required string Label { get; init; }
+    }
+
+    public sealed record StringGroupDto
+    {
+        public required string       Label  { get; init; }
+        public required List<string> Values { get; init; }
+    }
+
     // ── Query request DTOs ────────────────────────────────────────────────────
 
     public sealed record SummarizeRequestDto
     {
-        public QueryContextDto?          Context  { get; init; }
-        public required List<string>     ViewBy   { get; init; }
+        public QueryContextDto?               Context  { get; init; }
+        public required List<GroupFieldDto>   ViewBy   { get; init; }
         public required List<MeasureFieldDto> Measures { get; init; }
-        public List<FilterDimensionDto>? Filters  { get; init; }
+        public List<FilterDimensionDto>?      Filters  { get; init; }
     }
 
     public sealed record MeasureFieldDto

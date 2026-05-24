@@ -2,6 +2,9 @@
 
 export type AggregationType = 'Count' | 'DistinctCount' | 'Sum' | 'Average' | 'Max' | 'Min';
 
+export type GroupFieldType = 'Plain' | 'DateTrunc' | 'NumericBin' | 'StringGrouping';
+export type DateGranularity = 'Year' | 'Quarter' | 'Month' | 'Week' | 'Day' | 'Hour';
+
 export type ColumnDataType =
   | 'Unknown'
   | 'String'
@@ -90,6 +93,34 @@ export interface FieldListResult {
   fields: FieldDefinition[];
 }
 
+// ── GroupField DTOs ──────────────────────────────────────────────────────────
+
+export interface NumericBinDto {
+  min: number | null;
+  max: number | null;
+  label: string;
+}
+
+export interface StringGroupDto {
+  label: string;
+  values: string[];
+}
+
+/** Discriminated-union DTO for all GroupFieldBase subtypes. */
+export interface GroupFieldDto {
+  type: GroupFieldType;
+  fieldName: string;
+  alias?: string | null;
+  /** DateTrunc only */
+  granularity?: DateGranularity | null;
+  /** NumericBin / StringGrouping only */
+  fallback?: string | null;
+  /** NumericBin only */
+  bins?: NumericBinDto[] | null;
+  /** StringGrouping only */
+  groups?: StringGroupDto[] | null;
+}
+
 // ── Summarize ───────────────────────────────────────────────────────────────
 
 export interface MeasureFieldDto {
@@ -104,7 +135,7 @@ export interface FilterDimensionDto {
 
 export interface SummarizeRequest {
   context?: QueryContextDto;
-  viewBy: string[];
+  viewBy: GroupFieldDto[];
   measures: MeasureFieldDto[];
   filters?: FilterDimensionDto[];
 }

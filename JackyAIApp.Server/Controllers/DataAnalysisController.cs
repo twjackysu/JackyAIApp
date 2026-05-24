@@ -419,7 +419,7 @@ namespace JackyAIApp.Server.Controllers
             {
                 SourceKey = ctx.SourceKey,
                 TableName = ctx.TableName,
-                ViewBy    = dto.ViewBy.Select(f => new GroupField(f)).ToList(),
+                ViewBy    = dto.ViewBy.Select(MapGroupField).ToList(),
                 Measures  = dto.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation)).ToList(),
                 Filters   = dto.Filters?.Select(f => new FilterDimension(f.FieldName, f.Values)).ToList() ?? [],
             }, ct);
@@ -456,5 +456,33 @@ namespace JackyAIApp.Server.Controllers
                 ? _responseFactory.CreateOKResponse(new { rows = result.Value!.Rows, totalCount = result.Value!.TotalCount })
                 : _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Details failed.");
         }
+
+        // ── Helpers ───────────────────────────────────────────────────────────────
+
+        /// <summary>Maps a <see cref="GroupFieldDto"/> to the appropriate <see cref="GroupFieldBase"/> subtype.</summary>
+        private static GroupFieldBase MapGroupField(GroupFieldDto f) => f.Type switch
+        {
+            "DateTrunc" => new DateTruncGroupField(
+                f.FieldName,
+                Enum.Parse<DateGranularity>(f.Granularity ?? "Day"),
+                NullIfEmpty(f.Alias)),
+
+            "NumericBin" => new NumericBinGroupField(
+                f.FieldName,
+                (f.Bins ?? []).Select(b => new NumericBin(b.Min, b.Max, b.Label)).ToList(),
+                NullIfEmpty(f.Alias),
+                f.Fallback ?? "Other"),
+
+            "StringGrouping" => new StringGroupingField(
+                f.FieldName,
+                (f.Groups ?? []).Select(g => new StringGroup(g.Label, g.Values)).ToList(),
+                NullIfEmpty(f.Alias),
+                f.Fallback ?? "Other"),
+
+            _ => new GroupField(f.FieldName, NullIfEmpty(f.Alias)),
+        };
+
+        private static string? NullIfEmpty(string? s) =>
+            string.IsNullOrWhiteSpace(s) ? null : s;
     }
 }

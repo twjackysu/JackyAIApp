@@ -56,8 +56,11 @@ import type {
   ColumnDataType,
   DataSourceConfigDto,
   DataSourceConnectorType,
+  DateGranularity,
   FieldDefinition,
   FilterDimensionDto,
+  GroupFieldDto,
+  GroupFieldType,
   MeasureFieldDto,
   MsSqlSourceConfig,
   SaveDataSourceConfigDto,
@@ -76,12 +79,58 @@ const AGGREGATION_TYPES: AggregationType[] = [
 const ROWS_PER_PAGE = 50;
 const DEFAULT_TABLE = 'dbo.Orders';
 
+const DATE_GRANULARITIES: DateGranularity[] = [
+  'Year', 'Quarter', 'Month', 'Week', 'Day', 'Hour',
+];
+const GROUP_FIELD_TYPE_LABELS: Record<GroupFieldType, string> = {
+  Plain:          'Plain',
+  DateTrunc:      'Date Trunc',
+  NumericBin:     'Numeric Bins',
+  StringGrouping: 'String Groups',
+};
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ActiveFilter {
   id: number;
   fieldName: string;
   values: string[];
+}
+
+// ViewBy entry — UI state for one GroupField row
+interface BinEntry   { id: number; min: string; max: string; label: string; }
+interface GroupEntry { id: number; label: string; values: string[]; }
+interface ViewByEntry {
+  id: number;
+  fieldName: string;
+  type: GroupFieldType;
+  alias: string;
+  granularity: DateGranularity;
+  fallback: string;
+  bins: BinEntry[];
+  groups: GroupEntry[];
+}
+
+function makeViewByEntry(fieldName = ''): ViewByEntry {
+  return { id: Date.now() + Math.random(), fieldName, type: 'Plain', alias: '', granularity: 'Month', fallback: 'Other', bins: [], groups: [] };
+}
+
+function toGroupFieldDto(e: ViewByEntry): GroupFieldDto {
+  return {
+    type:        e.type,
+    fieldName:   e.fieldName,
+    alias:       e.alias     || null,
+    granularity: e.type === 'DateTrunc'      ? e.granularity : null,
+    fallback:    (e.type === 'NumericBin' || e.type === 'StringGrouping') ? (e.fallback || 'Other') : null,
+    bins:        e.type === 'NumericBin' ? e.bins.map(b => ({
+      min:   b.min === '' ? null : parseFloat(b.min),
+      max:   b.max === '' ? null : parseFloat(b.max),
+      label: b.label,
+    })) : null,
+    groups: e.type === 'StringGrouping'
+      ? e.groups.map(g => ({ label: g.label, values: g.values }))
+      : null,
+  };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -253,6 +302,315 @@ function FilterEditor({ filters, fields, onChange, sourceId, tableName }: Filter
           tableName={tableName}
         />
       ))}
+    </Box>
+  );
+}
+
+// ── NumericBinDialog ──────────────────────────────────────────────────────────
+
+interface NumericBinDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (bins: BinEntry[], fallback: string) => void;
+  fieldName: string;
+  initialBins: BinEntry[];
+  initialFallback: string;
+}
+function NumericBinDialog({ open, onClose, onSave, fieldName, initialBins, initialFallback }: NumericBinDialogProps) {
+  const [bins, setBins]         = useState<BinEntry[]>([]);
+  const [fallback, setFallback] = useState('Other');
+
+  useEffect(() => {
+    if (open) { setBins(initialBins.map(b => ({ ...b }))); setFallback(initialFallback || 'Other'); }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addBin    = () => setBins(prev => [...prev, { id: Date.now(), min: '', max: '', label: '' }]);
+  const removeBin = (id: number) => setBins(prev => prev.filter(b => b.id !== id));
+  const updateBin = (id: number, patch: Partial<BinEntry>) =>
+    setBins(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        Numeric Bins —{' '}
+        <Box component="code" sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace' }}>
+          {fieldName}
+        </Box>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+          Intervals are left-closed, right-open [Min, Max). Leave a bound empty for an open end.
+        </Typography>
+
+        {bins.length === 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            No bins yet — click <strong>Add Bin</strong> to start.
+          </Typography>
+        )}
+
+        {bins.map((b, i) => (
+          <Box key={b.id} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 18, textAlign: 'right' }}>
+              {i + 1}.
+            </Typography>
+            <TextField
+              size="small" label="Min (incl.)" placeholder="open"
+              value={b.min} inputProps={{ type: 'number' }} sx={{ flex: 1 }}
+              onChange={(e) => updateBin(b.id, { min: e.target.value })}
+            />
+            <Typography variant="body2" color="text.secondary">–</Typography>
+            <TextField
+              size="small" label="Max (excl.)" placeholder="open"
+              value={b.max} inputProps={{ type: 'number' }} sx={{ flex: 1 }}
+              onChange={(e) => updateBin(b.id, { max: e.target.value })}
+            />
+            <TextField
+              size="small" label="Label" value={b.label} sx={{ flex: 1 }}
+              onChange={(e) => updateBin(b.id, { label: e.target.value })}
+            />
+            <IconButton size="small" onClick={() => removeBin(b.id)}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        ))}
+
+        <Button size="small" startIcon={<AddIcon />} onClick={addBin} sx={{ mt: 1 }}>
+          Add Bin
+        </Button>
+        <Divider sx={{ my: 2 }} />
+        <TextField
+          size="small" fullWidth
+          label="Fallback label (rows matching no bin)"
+          value={fallback} onChange={(e) => setFallback(e.target.value)}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="contained" onClick={() => onSave(bins, fallback)}>Apply</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── StringGroupingDialog ──────────────────────────────────────────────────────
+
+interface StringGroupingDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (groups: GroupEntry[], fallback: string) => void;
+  fieldName: string;
+  initialGroups: GroupEntry[];
+  initialFallback: string;
+  sourceId?: string;
+  tableName?: string;
+}
+function StringGroupingDialog({
+  open, onClose, onSave, fieldName, initialGroups, initialFallback, sourceId, tableName,
+}: StringGroupingDialogProps) {
+  const [groups, setGroups]     = useState<GroupEntry[]>([]);
+  const [fallback, setFallback] = useState('Other');
+
+  useEffect(() => {
+    if (open) { setGroups(initialGroups.map(g => ({ ...g, values: [...g.values] }))); setFallback(initialFallback || 'Other'); }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { data: lvData, isFetching } = useGetDistinctValuesQuery(
+    { field: fieldName, sourceId, tableName },
+    { skip: !fieldName || !open },
+  );
+  const allValues = lvData?.data?.values ?? [];
+
+  const addGroup    = () => setGroups(prev => [...prev, { id: Date.now(), label: '', values: [] }]);
+  const removeGroup = (id: number) => setGroups(prev => prev.filter(g => g.id !== id));
+  const updateGroup = (id: number, patch: Partial<GroupEntry>) =>
+    setGroups(prev => prev.map(g => g.id === id ? { ...g, ...patch } : g));
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        String Groups —{' '}
+        <Box component="code" sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace' }}>
+          {fieldName}
+        </Box>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+          Map raw values into logical groups. Unmatched rows fall back to the Fallback label.
+        </Typography>
+
+        {groups.length === 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            No groups yet — click <strong>Add Group</strong> to start.
+          </Typography>
+        )}
+
+        {groups.map((g) => (
+          <Box key={g.id} sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'flex-start' }}>
+            <TextField
+              size="small" label="Group label" value={g.label}
+              sx={{ flex: '0 0 150px' }}
+              onChange={(e) => updateGroup(g.id, { label: e.target.value })}
+            />
+            <FormControl size="small" sx={{ flex: 1 }}>
+              <InputLabel>{isFetching ? 'Loading…' : 'Values'}</InputLabel>
+              <Select
+                multiple value={g.values} disabled={isFetching}
+                onChange={(e) => updateGroup(g.id, {
+                  values: typeof e.target.value === 'string'
+                    ? e.target.value.split(',')
+                    : (e.target.value as string[]),
+                })}
+                input={<OutlinedInput label={isFetching ? 'Loading…' : 'Values'} />}
+                renderValue={(sel) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {sel.map(v => <Chip key={v} label={v} size="small" />)}
+                  </Box>
+                )}
+              >
+                {isFetching
+                  ? <MenuItem disabled><em>Loading…</em></MenuItem>
+                  : allValues.length === 0
+                    ? <MenuItem disabled><em>No values found</em></MenuItem>
+                    : allValues.map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)
+                }
+              </Select>
+            </FormControl>
+            <IconButton size="small" onClick={() => removeGroup(g.id)} sx={{ mt: 0.5 }}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        ))}
+
+        <Button size="small" startIcon={<AddIcon />} onClick={addGroup} sx={{ mt: 1 }}>
+          Add Group
+        </Button>
+        <Divider sx={{ my: 2 }} />
+        <TextField
+          size="small" fullWidth
+          label="Fallback label (values matching no group)"
+          value={fallback} onChange={(e) => setFallback(e.target.value)}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="contained" onClick={() => onSave(groups, fallback)}>Apply</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── ViewByRow ─────────────────────────────────────────────────────────────────
+
+interface ViewByRowProps {
+  entry: ViewByEntry;
+  fields: FieldDefinition[];
+  onUpdate: (e: ViewByEntry) => void;
+  onRemove: () => void;
+  sourceId?: string;
+  tableName?: string;
+}
+function ViewByRow({ entry, fields, onUpdate, onRemove, sourceId, tableName }: ViewByRowProps) {
+  const [binsOpen, setBinsOpen]     = useState(false);
+  const [groupsOpen, setGroupsOpen] = useState(false);
+
+  return (
+    <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      {/* Field selector */}
+      <FormControl size="small" sx={{ flex: '0 0 160px' }}>
+        <InputLabel>Field</InputLabel>
+        <Select
+          value={entry.fieldName} label="Field"
+          onChange={(e) => onUpdate({ ...entry, fieldName: e.target.value as string })}
+        >
+          {fields.map(f => <MenuItem key={f.name} value={f.name}>{f.name}</MenuItem>)}
+        </Select>
+      </FormControl>
+
+      {/* Type selector */}
+      <FormControl size="small" sx={{ flex: '0 0 140px' }}>
+        <InputLabel>Type</InputLabel>
+        <Select
+          value={entry.type} label="Type"
+          onChange={(e) => onUpdate({ ...entry, type: e.target.value as GroupFieldType })}
+        >
+          {(Object.keys(GROUP_FIELD_TYPE_LABELS) as GroupFieldType[]).map(t => (
+            <MenuItem key={t} value={t}>{GROUP_FIELD_TYPE_LABELS[t]}</MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      {/* Type-specific controls */}
+      {entry.type === 'Plain' && (
+        <TextField
+          size="small" label="Alias (optional)" value={entry.alias}
+          sx={{ flex: 1, minWidth: 120 }}
+          onChange={(e) => onUpdate({ ...entry, alias: e.target.value })}
+        />
+      )}
+
+      {entry.type === 'DateTrunc' && (
+        <FormControl size="small" sx={{ flex: 1, minWidth: 130 }}>
+          <InputLabel>Granularity</InputLabel>
+          <Select
+            value={entry.granularity} label="Granularity"
+            onChange={(e) => onUpdate({ ...entry, granularity: e.target.value as DateGranularity })}
+          >
+            {DATE_GRANULARITIES.map(g => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+          </Select>
+        </FormControl>
+      )}
+
+      {entry.type === 'NumericBin' && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, mt: 0.25 }}>
+          {entry.bins.length > 0 && (
+            <Chip label={`${entry.bins.length} bin${entry.bins.length > 1 ? 's' : ''}`} size="small" color="primary" />
+          )}
+          <Button
+            size="small" variant="outlined"
+            startIcon={<EditIcon fontSize="small" />}
+            onClick={() => setBinsOpen(true)}
+          >
+            {entry.bins.length === 0 ? 'Configure Bins' : 'Edit Bins'}
+          </Button>
+          <NumericBinDialog
+            open={binsOpen}
+            onClose={() => setBinsOpen(false)}
+            onSave={(bins, fallback) => { onUpdate({ ...entry, bins, fallback }); setBinsOpen(false); }}
+            fieldName={entry.fieldName}
+            initialBins={entry.bins}
+            initialFallback={entry.fallback}
+          />
+        </Box>
+      )}
+
+      {entry.type === 'StringGrouping' && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, mt: 0.25 }}>
+          {entry.groups.length > 0 && (
+            <Chip label={`${entry.groups.length} group${entry.groups.length > 1 ? 's' : ''}`} size="small" color="secondary" />
+          )}
+          <Button
+            size="small" variant="outlined"
+            startIcon={<EditIcon fontSize="small" />}
+            onClick={() => setGroupsOpen(true)}
+          >
+            {entry.groups.length === 0 ? 'Configure Groups' : 'Edit Groups'}
+          </Button>
+          <StringGroupingDialog
+            open={groupsOpen}
+            onClose={() => setGroupsOpen(false)}
+            onSave={(groups, fallback) => { onUpdate({ ...entry, groups, fallback }); setGroupsOpen(false); }}
+            fieldName={entry.fieldName}
+            initialGroups={entry.groups}
+            initialFallback={entry.fallback}
+            sourceId={sourceId}
+            tableName={tableName}
+          />
+        </Box>
+      )}
+
+      <IconButton size="small" onClick={onRemove} title="Remove" sx={{ mt: 0.25 }}>
+        <DeleteIcon fontSize="small" />
+      </IconButton>
     </Box>
   );
 }
@@ -581,7 +939,7 @@ export default function DataAnalysis() {
 
   // ── Summarize ──
   const [tab, setTab] = useState(0);
-  const [viewByFields, setViewByFields] = useState<string[]>(['Region']);
+  const [viewByEntries, setViewByEntries] = useState<ViewByEntry[]>([makeViewByEntry('Region')]);
   const [measures, setMeasures] = useState<MeasureFieldDto[]>([
     { fieldName: 'Revenue', aggregation: 'Sum' },
   ]);
@@ -641,7 +999,7 @@ export default function DataAnalysis() {
       setActiveTableName(tbl);
     }
     // Reset query config so stale field names don't confuse the new source
-    setViewByFields([]);
+    setViewByEntries([]);
     setMeasures([{ fieldName: '', aggregation: 'Sum' }]);
     setSummarizeFilters([]);
     setDetailsFilters([]);
@@ -654,10 +1012,10 @@ export default function DataAnalysis() {
   // ── Summarize handlers ──
 
   const handleRunSummarize = () => {
-    if (viewByFields.length === 0 || measures.length === 0) return;
+    if (viewByEntries.length === 0 || measures.length === 0) return;
     summarize({
       context:  ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
-      viewBy:   viewByFields,
+      viewBy:   viewByEntries.map(toGroupFieldDto),
       measures,
       filters:  toFilterDtos(summarizeFilters),
     });
@@ -891,29 +1249,38 @@ export default function DataAnalysis() {
 
         <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
           {/* ViewBy */}
-          <Typography variant="subtitle2" gutterBottom>Group By (ViewBy)</Typography>
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Select fields to group by</InputLabel>
-            <Select
-              multiple
-              value={viewByFields}
-              onChange={(e) =>
-                setViewByFields(
-                  typeof e.target.value === 'string'
-                    ? e.target.value.split(',')
-                    : (e.target.value as string[]),
-                )
-              }
-              input={<OutlinedInput label="Select fields to group by" />}
-              renderValue={(sel) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {sel.map((v) => <Chip key={v} label={v} size="small" />)}
-                </Box>
-              )}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="subtitle2">Group By (ViewBy)</Typography>
+            <IconButton
+              size="small"
+              onClick={() => setViewByEntries((prev) => [...prev, makeViewByEntry(fields[0]?.name ?? '')])}
+              title="Add group field"
             >
-              {fields.map((f) => <MenuItem key={f.name} value={f.name}>{f.name}</MenuItem>)}
-            </Select>
-          </FormControl>
+              <AddIcon fontSize="small" />
+            </IconButton>
+          </Box>
+
+          {viewByEntries.length === 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              No group fields — click <strong>+</strong> to add one.
+            </Typography>
+          )}
+
+          {viewByEntries.map((entry) => (
+            <ViewByRow
+              key={entry.id}
+              entry={entry}
+              fields={fields}
+              onUpdate={(updated) =>
+                setViewByEntries((prev) => prev.map((e) => e.id === updated.id ? updated : e))
+              }
+              onRemove={() =>
+                setViewByEntries((prev) => prev.filter((e) => e.id !== entry.id))
+              }
+              sourceId={ctxSourceId}
+              tableName={ctxTableName}
+            />
+          ))}
 
           <Divider sx={{ my: 2 }} />
 
@@ -968,7 +1335,7 @@ export default function DataAnalysis() {
             variant="contained"
             startIcon={<PlayArrowIcon />}
             onClick={handleRunSummarize}
-            disabled={summarizeLoading || viewByFields.length === 0 || measures.length === 0}
+            disabled={summarizeLoading || viewByEntries.length === 0 || measures.length === 0}
             sx={{ mt: 2 }}
           >
             {summarizeLoading ? 'Running…' : 'Run Query'}
