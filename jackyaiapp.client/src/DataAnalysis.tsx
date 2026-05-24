@@ -299,10 +299,10 @@ function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps) {
       setFormType(editTarget.connectorType);
       setFormDefaultTable(editTarget.defaultTableName ?? '');
       if (editTarget.connectorType === 'MsSql') {
-        const c = editTarget.config as MsSqlSourceConfig;
+        const c = editTarget.config as unknown as MsSqlSourceConfig;
         setFormConnStr(c.connectionString ?? '');
       } else {
-        const c = editTarget.config as AdxSourceConfig;
+        const c = editTarget.config as unknown as AdxSourceConfig;
         setFormClusterUri(c.clusterUri ?? '');
         setFormDatabase(c.database ?? '');
         setFormTenantId(c.tenantId ?? '');
