@@ -1,16 +1,17 @@
 import DeleteIcon from '@mui/icons-material/Delete';
 import Box from '@mui/material/Box';
 import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
-import { VIEW_BY_TYPE_LABELS } from '../constants';
 import type { FieldTransformDef, ViewByEntry } from '../types';
 
 interface ViewByRowProps {
@@ -27,15 +28,26 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
 
   const handleFieldChange = (fieldName: string) => {
     const newFieldTransforms = transforms.filter((t) => t.fieldName === fieldName);
-    const newType: ViewByEntry['type'] =
-      entry.type === 'Transform' && newFieldTransforms.length === 0 ? 'Plain' : entry.type;
-    const newTransformId = newType === 'Transform' ? (newFieldTransforms[0]?.id ?? null) : null;
-    onUpdate({ ...entry, fieldName, type: newType, transformId: newTransformId });
+    // Keep transform mode only if the new field also has transforms
+    const keepTransform = entry.type === 'Transform' && newFieldTransforms.length > 0;
+    onUpdate({
+      ...entry,
+      fieldName,
+      type:        keepTransform ? 'Transform' : 'Plain',
+      transformId: keepTransform ? (newFieldTransforms[0]?.id ?? null) : null,
+    });
   };
 
-  const handleTypeChange = (type: ViewByEntry['type']) => {
-    const transformId = type === 'Transform' ? (fieldTransforms[0]?.id ?? null) : null;
-    onUpdate({ ...entry, type, transformId });
+  const handleToggle = (checked: boolean) => {
+    if (checked) {
+      onUpdate({ ...entry, type: 'Transform', transformId: fieldTransforms[0]?.id ?? null });
+    } else {
+      onUpdate({ ...entry, type: 'Plain', transformId: null });
+    }
+  };
+
+  const handleTransformSelect = (transformId: number) => {
+    onUpdate({ ...entry, transformId });
   };
 
   return (
@@ -51,45 +63,52 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
         </Select>
       </FormControl>
 
-      {/* Type */}
-      <FormControl size="small" sx={{ flex: '0 0 150px' }}>
-        <InputLabel>Type</InputLabel>
-        <Select
-          value={entry.type} label="Type"
-          onChange={(e) => handleTypeChange(e.target.value as ViewByEntry['type'])}
-        >
-          {(Object.keys(VIEW_BY_TYPE_LABELS) as ViewByEntry['type'][]).map((t) => (
-            <MenuItem key={t} value={t} disabled={t === 'Transform' && !hasTransforms}>
-              <Tooltip
-                title={t === 'Transform' && !hasTransforms ? 'No transforms defined for this field' : ''}
-                placement="right"
-              >
-                <span style={{ width: '100%' }}>{VIEW_BY_TYPE_LABELS[t]}</span>
-              </Tooltip>
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      {/* Transform selector (when type === Transform) */}
-      {entry.type === 'Transform' && (
-        fieldTransforms.length === 0 ? (
-          <Typography variant="caption" color="warning.main" sx={{ mt: 1 }}>
-            No transforms for this field — define one in Field Transforms above.
-          </Typography>
-        ) : (
-          <FormControl size="small" sx={{ flex: '1 1 160px' }}>
-            <InputLabel>Transform</InputLabel>
-            <Select
-              value={entry.transformId ?? ''}
-              label="Transform"
-              onChange={(e) => onUpdate({ ...entry, transformId: e.target.value as number })}
+      {/* Use transform toggle — only shown when transforms exist for this field */}
+      {entry.fieldName && (
+        hasTransforms ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Tooltip
+              title={entry.type === 'Transform'
+                ? 'Group values will be bucketed / renamed by the selected transform'
+                : 'Switch on to apply a field transform when grouping'}
+              placement="top"
             >
-              {fieldTransforms.map((t) => (
-                <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <FormControlLabel
+                sx={{ m: 0 }}
+                control={
+                  <Switch
+                    size="small"
+                    checked={entry.type === 'Transform'}
+                    onChange={(e) => handleToggle(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="caption" color="text.secondary">
+                    Use transform
+                  </Typography>
+                }
+              />
+            </Tooltip>
+
+            {/* Transform picker — shown when toggle is ON and multiple choices exist */}
+            {entry.type === 'Transform' && fieldTransforms.length > 1 && (
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Transform</InputLabel>
+                <Select
+                  value={entry.transformId ?? ''}
+                  label="Transform"
+                  onChange={(e) => handleTransformSelect(e.target.value as number)}
+                >
+                  {fieldTransforms.map((t) => (
+                    <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </Box>
+        ) : (
+          /* Field selected but no transforms defined — silent, no clutter */
+          null
         )
       )}
 

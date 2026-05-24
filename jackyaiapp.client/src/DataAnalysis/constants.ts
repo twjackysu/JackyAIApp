@@ -1,5 +1,5 @@
 import type { AggregationType, ColumnDataType, DateGranularity } from '../apis/dataAnalysisApis/types';
-import type { FieldTransformDef, ViewByEntry } from './types';
+import type { FieldTransformDef } from './types';
 
 export const DATE_CANONICAL_TYPES: ColumnDataType[]    = ['DateTime', 'DateTimeOffset', 'Date'];
 export const NUMERIC_CANONICAL_TYPES: ColumnDataType[] = ['Integer', 'Float', 'Decimal'];
@@ -11,12 +11,6 @@ export const AGGREGATION_TYPES: AggregationType[] = [
 export const DATE_GRANULARITIES: DateGranularity[] = [
   'Year', 'Quarter', 'Month', 'Week', 'Day', 'Hour',
 ];
-
-/** Labels for ViewByEntry.type shown in the Group By type selector. */
-export const VIEW_BY_TYPE_LABELS: Record<ViewByEntry['type'], string> = {
-  Plain:     'Plain',
-  Transform: 'Apply Transform',
-};
 
 /** Labels for FieldTransformDef.type shown in chips and selectors. */
 export const TRANSFORM_TYPE_LABELS: Record<FieldTransformDef['type'], string> = {
