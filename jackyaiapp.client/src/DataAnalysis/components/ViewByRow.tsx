@@ -56,17 +56,9 @@ export function ViewByRow({ entry, fields, onUpdate, onRemove, sourceId, tableNa
         </Select>
       </FormControl>
 
-      {/* Type-specific controls */}
-      {entry.type === 'Plain' && (
-        <TextField
-          size="small" label="Alias (optional)" value={entry.alias}
-          sx={{ flex: 1, minWidth: 120 }}
-          onChange={(e) => onUpdate({ ...entry, alias: e.target.value })}
-        />
-      )}
-
+      {/* Type-specific transformation controls */}
       {entry.type === 'DateTrunc' && (
-        <FormControl size="small" sx={{ flex: 1, minWidth: 130 }}>
+        <FormControl size="small" sx={{ flex: '0 0 130px' }}>
           <InputLabel>Granularity</InputLabel>
           <Select
             value={entry.granularity} label="Granularity"
@@ -78,7 +70,7 @@ export function ViewByRow({ entry, fields, onUpdate, onRemove, sourceId, tableNa
       )}
 
       {entry.type === 'NumericBin' && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, mt: 0.25 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
           {entry.bins.length > 0 && (
             <Chip
               label={`${entry.bins.length} bin${entry.bins.length > 1 ? 's' : ''}`}
@@ -107,7 +99,7 @@ export function ViewByRow({ entry, fields, onUpdate, onRemove, sourceId, tableNa
       )}
 
       {entry.type === 'StringGrouping' && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, mt: 0.25 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
           {entry.groups.length > 0 && (
             <Chip
               label={`${entry.groups.length} group${entry.groups.length > 1 ? 's' : ''}`}
@@ -136,6 +128,14 @@ export function ViewByRow({ entry, fields, onUpdate, onRemove, sourceId, tableNa
           />
         </Box>
       )}
+
+      {/* Alias — available on all types; renames the output column in results */}
+      <TextField
+        size="small" label="Alias" placeholder="output col name"
+        value={entry.alias}
+        sx={{ flex: '0 0 140px' }}
+        onChange={(e) => onUpdate({ ...entry, alias: e.target.value })}
+      />
 
       <IconButton size="small" onClick={onRemove} title="Remove" sx={{ mt: 0.25 }}>
         <DeleteIcon fontSize="small" />
