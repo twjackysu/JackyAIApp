@@ -22,11 +22,12 @@ import LoginError from './components/LoginError';
 import InsufficientCreditsModal from './components/Modals/InsufficientCreditsModal';
 import UserProfileMenu from './components/UserProfileMenu';
 import Connectors from './Connectors';
-import { apps, FINANCE, PDF_UNLOCKER, ENGLISH_LEARNING, JOB_SEARCH } from './constants/apps';
+import { apps, DATA_ANALYSIS, FINANCE, PDF_UNLOCKER, ENGLISH_LEARNING, JOB_SEARCH } from './constants/apps';
 import Credits from './Credits';
 import DailyChallenge from './DailyChallenge';
 import Dictionary from './Dictionary';
 import Exam from './Exam';
+import DataAnalysis from './DataAnalysis';
 import Finance from './Finance';
 import useRouteMatch from './hooks/useRouteMatch';
 import JobSearch from './JobSearch';
@@ -42,6 +43,7 @@ const getCurrentAppSection = (path: string): string => {
   if (JOB_SEARCH.allPaths.some((route) => path.startsWith(route))) return JOB_SEARCH.name;
   if (ENGLISH_LEARNING.allPaths.some((route) => path.startsWith(route)))
     return ENGLISH_LEARNING.name;
+  if (DATA_ANALYSIS.allPaths.some((route) => path.startsWith(route))) return DATA_ANALYSIS.name;
   return FINANCE.name;
 };
 
@@ -54,7 +56,8 @@ function App() {
     FINANCE.allPaths
       .concat(PDF_UNLOCKER.allPaths)
       .concat(ENGLISH_LEARNING.allPaths)
-      .concat(JOB_SEARCH.allPaths),
+      .concat(JOB_SEARCH.allPaths)
+      .concat(DATA_ANALYSIS.allPaths),
   );
   const _currentTab = routeMatch?.pattern?.path || '/';
   const currentTab = _currentTab === '/' ? FINANCE.path : _currentTab;
@@ -281,6 +284,7 @@ function App() {
           />
           <Route path={FINANCE.path} element={<Finance />} />
           <Route path={JOB_SEARCH.path} element={<JobSearch />} />
+          <Route path={DATA_ANALYSIS.path} element={<DataAnalysis />} />
           <Route path="/login-error" element={<LoginError />} />
           <Route path="/" element={<Finance />} />
         </Routes>

@@ -1,5 +1,7 @@
 ﻿using Azure.Identity;
 using Betalgo.Ranul.OpenAI.Extensions;
+using DataAnalysisLibrary.Connectors.MsSql;
+using DataAnalysisLibrary.Core.Engine;
 using DotnetSdkUtilities.Extensions.ServiceCollectionExtensions;
 using DotnetSdkUtilities.Factory.ResponseFactory;
 using JackyAIApp.Server.Common;
@@ -177,6 +179,17 @@ try
     });
 
     builder.Services.AddOptions().Configure<Settings>(builder.Configuration.GetSection("Settings"));
+
+    // Register DataAnalysisEngine (singleton — engine itself is stateless; connections are per-query)
+    builder.Services.AddSingleton(_ =>
+        new DataAnalysisEngineBuilder()
+            .AddSource(new MsSqlDataSourceFactory(new MsSqlConfig
+            {
+                SourceKey = "mssql",
+                ConnectionString = sqlConnectionString
+            }))
+            .Build());
+
     builder.Services.AddHealthChecks();
     var app = builder.Build();
 
