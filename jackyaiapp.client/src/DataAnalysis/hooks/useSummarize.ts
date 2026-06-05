@@ -8,9 +8,10 @@ interface UseSummarizeParams {
   ctxSourceId?: string;
   ctxTableName?: string;
   fields: FieldDefinition[];
+  sessionId?: string;
 }
 
-export function useSummarize({ ctxSourceId, ctxTableName, fields }: UseSummarizeParams) {
+export function useSummarize({ ctxSourceId, ctxTableName, fields, sessionId }: UseSummarizeParams) {
   // ── Field Transforms (shared by ViewBy and Filters) ───────────────────────
   const [fieldTransforms, setFieldTransforms] = useState<FieldTransformDef[]>([]);
 
@@ -30,7 +31,8 @@ export function useSummarize({ ctxSourceId, ctxTableName, fields }: UseSummarize
   const handleRunSummarize = () => {
     if (viewByEntries.length === 0 || measures.length === 0) return;
     summarize({
-      context: ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
+      sessionId,
+      context: !sessionId && ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
       viewBy:  viewByEntries.map((e) => toGroupFieldDto(e, fieldTransforms)),
       measures,
       filters: toFilterDtos(summarizeFilters, fieldTransforms),

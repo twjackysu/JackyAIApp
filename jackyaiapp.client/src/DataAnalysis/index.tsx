@@ -23,6 +23,7 @@ import { SourceManagerDialog } from './components/SourceManagerDialog';
 import { SourcePanel } from './components/SourcePanel';
 import { SummarizeTab } from './components/SummarizeTab';
 import { TabPanel } from './components/TabPanel';
+import { UploadDataDialog } from './components/UploadDataDialog';
 
 export default function DataAnalysis() {
   const [tab, setTab] = useState(0);
@@ -40,25 +41,41 @@ export default function DataAnalysis() {
     sources, activeSource,
     ctxSourceId, ctxTableName,
     applyTableName,
+    sessionInfo, setSessionInfo, clearSession,
+    uploadOpen, setUploadOpen,
   } = useSourceContext(isLoggedIn);
+
+  const sessionId = sessionInfo?.sessionId;
 
   // ── Schema ────────────────────────────────────────────────────────────────
   const { data: schemaData, isLoading: schemaLoading, error: schemaError } =
-    useGetSchemaQuery({ sourceId: ctxSourceId, tableName: ctxTableName });
-  const fields = schemaData?.data?.fields ?? [];
+    useGetSchemaQuery(
+      { sourceId: ctxSourceId, tableName: ctxTableName },
+      { skip: !!sessionId },  // skip regular schema call when in session mode
+    );
+
+  // When in session mode, use the schema that came back with the upload response
+  const fields = sessionId
+    ? (sessionInfo?.schema ?? [])
+    : (schemaData?.data?.fields ?? []);
 
   // ── Date field ────────────────────────────────────────────────────────────
   const { dateField, setDateField } = useDateField(fields);
 
   // ── Summarize ─────────────────────────────────────────────────────────────
-  const summarize = useSummarize({ ctxSourceId, ctxTableName, fields });
+  const summarize = useSummarize({ ctxSourceId, ctxTableName, fields, sessionId });
 
   // ── Details ───────────────────────────────────────────────────────────────
-  const details = useDetails({ ctxSourceId, ctxTableName, tab, dateField });
+  const details = useDetails({ ctxSourceId, ctxTableName, tab, dateField, sessionId });
 
   // ── Max Date ──────────────────────────────────────────────────────────────
   const { data: maxDateData, isLoading: maxDateLoading } =
-    useGetMaxDateQuery({ sourceId: ctxSourceId, tableName: ctxTableName, dateField });
+    useGetMaxDateQuery({
+      sessionId,
+      sourceId: ctxSourceId,
+      tableName: ctxTableName,
+      dateField,
+    });
   const maxDate = maxDateData?.data?.maxDate;
 
   // ── Source change: reset all query config ─────────────────────────────────
@@ -79,6 +96,12 @@ export default function DataAnalysis() {
     setDateField('OrderDate');
   };
 
+  const handleClearSession = () => {
+    clearSession();
+    summarize.reset();
+    details.reset();
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Box>
@@ -91,13 +114,16 @@ export default function DataAnalysis() {
         sources={sources}
         activeSourceId={activeSourceId}
         tableNameInput={tableNameInput}
+        sessionInfo={sessionInfo ?? null}
         onSourceChange={handleSourceChange}
         onTableNameChange={setTableNameInput}
         onApplyTableName={applyTableName}
         onOpenManager={() => setManagerOpen(true)}
+        onOpenUpload={() => setUploadOpen(true)}
+        onClearSession={handleClearSession}
       />
 
-      {activeSourceId && (
+      {!sessionId && activeSourceId && (
         <Alert severity="info" icon={<WarningAmberIcon />} sx={{ mb: 2 }}>
           <strong>Custom data source selected</strong> — querying{' '}
           <em>{activeSource?.name ?? activeSourceId}</em>.
@@ -107,34 +133,36 @@ export default function DataAnalysis() {
         </Alert>
       )}
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {activeSourceId ? (
-          <>
-            Querying <strong>{activeSource?.name}</strong>
-            {activeTableName && (
-              <>
-                {' → '}
-                <Box
-                  component="code"
-                  sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace', fontSize: '0.875em' }}
-                >
-                  {activeTableName}
-                </Box>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            All 4 query types demonstrated against{' '}
-            <Box
-              component="code"
-              sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace', fontSize: '0.875em' }}
-            >
-              {activeTableName || DEFAULT_TABLE}
-            </Box>
-          </>
-        )}
-      </Typography>
+      {!sessionId && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {activeSourceId ? (
+            <>
+              Querying <strong>{activeSource?.name}</strong>
+              {activeTableName && (
+                <>
+                  {' → '}
+                  <Box
+                    component="code"
+                    sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace', fontSize: '0.875em' }}
+                  >
+                    {activeTableName}
+                  </Box>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              All 4 query types demonstrated against{' '}
+              <Box
+                component="code"
+                sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace', fontSize: '0.875em' }}
+              >
+                {activeTableName || DEFAULT_TABLE}
+              </Box>
+            </>
+          )}
+        </Typography>
+      )}
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tab} onChange={(_, v: number) => setTab(v)}>
@@ -148,8 +176,8 @@ export default function DataAnalysis() {
       <TabPanel value={tab} index={0}>
         <SchemaTab
           fields={fields}
-          isLoading={schemaLoading}
-          error={schemaError}
+          isLoading={!sessionId && schemaLoading}
+          error={!sessionId ? schemaError : undefined}
           dateField={dateField}
           onDateFieldChange={setDateField}
         />
@@ -218,6 +246,17 @@ export default function DataAnalysis() {
       </TabPanel>
 
       <SourceManagerDialog open={managerOpen} onClose={() => setManagerOpen(false)} />
+
+      <UploadDataDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onSessionCreated={(info) => {
+          setSessionInfo(info);
+          setUploadOpen(false);
+          summarize.reset();
+          details.reset();
+        }}
+      />
     </Box>
   );
 }

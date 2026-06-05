@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGetSourcesQuery } from '../../apis/dataAnalysisApis';
+import type { SessionInfo } from '../../apis/dataAnalysisApis/types';
 import { DEFAULT_TABLE } from '../constants';
 
 export function useSourceContext(isLoggedIn: boolean) {
@@ -7,6 +8,8 @@ export function useSourceContext(isLoggedIn: boolean) {
   const [activeTableName, setActiveTableName] = useState(DEFAULT_TABLE);
   const [tableNameInput, setTableNameInput]   = useState(DEFAULT_TABLE);
   const [managerOpen, setManagerOpen]         = useState(false);
+  const [sessionInfo, setSessionInfo]         = useState<SessionInfo | null>(null);
+  const [uploadOpen, setUploadOpen]           = useState(false);
 
   const { data: sourcesRes } = useGetSourcesQuery(undefined, { skip: !isLoggedIn });
   const sources = sourcesRes?.data ?? [];
@@ -26,6 +29,8 @@ export function useSourceContext(isLoggedIn: boolean) {
 
   const applyTableName = () => setActiveTableName(tableNameInput);
 
+  const clearSession = () => setSessionInfo(null);
+
   const ctxSourceId  = activeSourceId ?? undefined;
   const ctxTableName = activeTableName || undefined;
   const activeSource = sources.find((s) => s.id === activeSourceId);
@@ -38,5 +43,7 @@ export function useSourceContext(isLoggedIn: boolean) {
     sources,         activeSource,
     ctxSourceId,     ctxTableName,
     applyTableName,
+    sessionInfo,     setSessionInfo, clearSession,
+    uploadOpen,      setUploadOpen,
   };
 }

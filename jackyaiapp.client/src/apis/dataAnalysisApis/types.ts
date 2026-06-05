@@ -184,3 +184,26 @@ export interface MaxDateResult {
 export interface DistinctValuesResult {
   values: string[];
 }
+
+// ── Session upload ────────────────────────────────────────────────────────────
+
+export interface SessionUploadRequest {
+  name?: string;
+  rows: Record<string, string>[];
+}
+
+export interface SessionUploadResponse {
+  sessionId: string;
+  name: string;
+  rowCount: number;
+  expiresAt: string;  // ISO-8601
+  schema: FieldDefinition[];
+}
+
+export interface SessionInfo {
+  sessionId: string;
+  name: string;
+  rowCount: number;
+  expiresAt: string;
+  schema: FieldDefinition[];
+}

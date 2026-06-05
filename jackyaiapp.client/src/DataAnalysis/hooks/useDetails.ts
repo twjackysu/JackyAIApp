@@ -9,9 +9,10 @@ interface UseDetailsParams {
   ctxTableName?: string;
   tab: number;
   dateField: string;
+  sessionId?: string;
 }
 
-export function useDetails({ ctxSourceId, ctxTableName, tab, dateField }: UseDetailsParams) {
+export function useDetails({ ctxSourceId, ctxTableName, tab, dateField, sessionId }: UseDetailsParams) {
   const [page, setPage]                     = useState(0);
   const [detailsFilters, setDetailsFilters] = useState<ActiveFilter[]>([]);
 
@@ -22,14 +23,15 @@ export function useDetails({ ctxSourceId, ctxTableName, tab, dateField }: UseDet
   useEffect(() => {
     if (tab !== 2) return;
     details({
-      context: ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
+      sessionId,
+      context: !sessionId && ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
       orderBy: dateField ? [{ fieldName: dateField, descending: true }] : [],
       skip:    page * ROWS_PER_PAGE,
       take:    ROWS_PER_PAGE,
       filters: toFilterDtos(detailsFilters, []),  // Details tab has no field transforms
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, page, detailsFilters, ctxSourceId, ctxTableName, dateField]);
+  }, [tab, page, detailsFilters, ctxSourceId, ctxTableName, dateField, sessionId]);
 
   const handleDetailsFiltersChange = (newFilters: ActiveFilter[]) => {
     setDetailsFilters(newFilters);

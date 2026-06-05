@@ -1,26 +1,34 @@
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import ClearIcon from '@mui/icons-material/Clear';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import SettingsIcon from '@mui/icons-material/Settings';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import FormControl from '@mui/material/FormControl';
+import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
-import type { DataSourceConfigDto } from '../../apis/dataAnalysisApis/types';
+import type { DataSourceConfigDto, SessionInfo } from '../../apis/dataAnalysisApis/types';
 
 interface SourcePanelProps {
   isLoggedIn: boolean;
   sources: DataSourceConfigDto[];
   activeSourceId: string | null;
   tableNameInput: string;
+  sessionInfo: SessionInfo | null;
   onSourceChange: (id: string) => void;
   onTableNameChange: (val: string) => void;
   onApplyTableName: () => void;
   onOpenManager: () => void;
+  onOpenUpload: () => void;
+  onClearSession: () => void;
 }
 
 export function SourcePanel({
@@ -28,18 +36,56 @@ export function SourcePanel({
   sources,
   activeSourceId,
   tableNameInput,
+  sessionInfo,
   onSourceChange,
   onTableNameChange,
   onApplyTableName,
   onOpenManager,
+  onOpenUpload,
+  onClearSession,
 }: SourcePanelProps) {
+
+  const expiresLabel = sessionInfo
+    ? (() => {
+        const diffMs = new Date(sessionInfo.expiresAt).getTime() - Date.now();
+        const diffMin = Math.round(diffMs / 60_000);
+        if (diffMin <= 0) return 'expired';
+        if (diffMin < 60) return `expires in ${diffMin}m`;
+        return `expires in ${Math.round(diffMin / 60)}h`;
+      })()
+    : '';
+
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
       <Typography variant="subtitle2" gutterBottom sx={{ color: 'text.secondary' }}>
         Data Source
       </Typography>
 
-      {isLoggedIn ? (
+      {/* ── Session mode ──────────────────────────────────────────────────── */}
+      {sessionInfo ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Chip
+            icon={<AccessTimeIcon />}
+            label={`${sessionInfo.name} — ${sessionInfo.rowCount.toLocaleString()} rows`}
+            color="warning"
+            variant="outlined"
+          />
+          <Chip
+            label={expiresLabel}
+            color="warning"
+            size="small"
+          />
+          <Typography variant="caption" color="text.secondary">
+            Temporary data — not saved to any database
+          </Typography>
+          <Tooltip title="Clear session and return to database sources">
+            <IconButton size="small" onClick={onClearSession}>
+              <ClearIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ) : isLoggedIn ? (
+        /* ── Logged-in normal mode ──────────────────────────────────────── */
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <FormControl size="small" sx={{ minWidth: 260 }}>
             <InputLabel>Source</InputLabel>
@@ -82,8 +128,19 @@ export function SourcePanel({
           >
             Manage Sources
           </Button>
+
+          <Button
+            size="small" variant="outlined"
+            color="warning"
+            startIcon={<CloudUploadIcon />}
+            onClick={onOpenUpload}
+            sx={{ mt: 0.25 }}
+          >
+            Upload Data
+          </Button>
         </Box>
       ) : (
+        /* ── Not logged in ──────────────────────────────────────────────── */
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Chip label="Default (JackyAI SQL / dbo.Orders)" color="default" size="small" />
           <Typography variant="body2" color="text.secondary">
@@ -94,8 +151,16 @@ export function SourcePanel({
             >
               Sign in
             </a>
-            {' '}to configure and use custom data sources.
+            {' '}to configure custom data sources.
           </Typography>
+          <Button
+            size="small" variant="outlined"
+            color="warning"
+            startIcon={<CloudUploadIcon />}
+            onClick={onOpenUpload}
+          >
+            Upload Data (temp)
+          </Button>
         </Box>
       )}
     </Paper>

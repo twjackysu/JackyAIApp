@@ -12,6 +12,8 @@ using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using System.Globalization;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -29,13 +31,18 @@ namespace JackyAIApp.Server.Controllers
         IMyResponseFactory responseFactory,
         DataAnalysisEngine defaultEngine,
         AzureSQLDBContext dbContext,
-        ITokenEncryptionService encryptionService) : ControllerBase
+        ITokenEncryptionService encryptionService,
+        IMemoryCache memoryCache) : ControllerBase
     {
         private readonly ILogger<DataAnalysisController> _logger             = logger;
         private readonly IMyResponseFactory              _responseFactory    = responseFactory;
         private readonly DataAnalysisEngine              _defaultEngine      = defaultEngine;
         private readonly AzureSQLDBContext               _dbContext          = dbContext;
         private readonly ITokenEncryptionService         _encryptionService  = encryptionService;
+        private readonly IMemoryCache                    _cache              = memoryCache;
+
+        private const string     SessionCachePrefix = "da_session_";
+        private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(2);
 
         // ── Default source constants ───────────────────────────────────────────
         private const string DefaultMsSqlKey   = "mssql";
@@ -500,5 +507,394 @@ namespace JackyAIApp.Server.Controllers
 
         private static string? NullIfEmpty(string? s) =>
             string.IsNullOrWhiteSpace(s) ? null : s;
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Session upload — temporary in-memory data source
+        // Data is stored for 2 hours and never persisted to the database.
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Upload tabular data (all values as strings) into a temporary in-memory session.
+        /// Returns a sessionId that can be used with the session query endpoints.
+        /// The session expires after 2 hours and is never persisted to disk.
+        /// </summary>
+        [HttpPost("session")]
+        public IActionResult UploadSession([FromBody] SessionUploadDto dto)
+        {
+            if (dto.Rows is null || dto.Rows.Count == 0)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "No rows provided.");
+
+            if (dto.Rows.Count > 50_000)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Maximum 50,000 rows per session.");
+
+            var schema  = InferSchema(dto.Rows);
+            var expires = DateTimeOffset.UtcNow.Add(SessionTtl);
+            var id      = Guid.NewGuid().ToString("N");
+
+            _cache.Set(SessionCachePrefix + id, new SessionData
+            {
+                Name      = dto.Name?.Trim() is { Length: > 0 } n ? n : "Uploaded Data",
+                Rows      = dto.Rows,
+                Schema    = schema,
+                ExpiresAt = expires,
+            }, SessionTtl);
+
+            _logger.LogInformation("Session {id} created with {n} rows", id, dto.Rows.Count);
+
+            return _responseFactory.CreateOKResponse(new SessionUploadResponseDto
+            {
+                SessionId = id,
+                Name      = dto.Name?.Trim() is { Length: > 0 } n2 ? n2 : "Uploaded Data",
+                RowCount  = dto.Rows.Count,
+                ExpiresAt = expires,
+                Schema    = schema,
+            });
+        }
+
+        /// <summary>Returns the schema of a session (same shape as /schema for regular sources).</summary>
+        [HttpGet("session/{sessionId}/schema")]
+        public IActionResult GetSessionSchema(string sessionId)
+        {
+            if (!TryGetSession(sessionId, out var session))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Session not found or expired.");
+
+            return _responseFactory.CreateOKResponse(new { fields = session!.Schema });
+        }
+
+        /// <summary>MAX value of a date column in the session data.</summary>
+        [HttpGet("session/{sessionId}/maxdate")]
+        public IActionResult GetSessionMaxDate(string sessionId, [FromQuery] string dateField = "Date")
+        {
+            if (!TryGetSession(sessionId, out var session))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Session not found or expired.");
+
+            var values = session!.Rows
+                .Select(r => r.GetValueOrDefault(dateField))
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Select(v => TryParseDate(v!) ? DateTimeOffset.Parse(v!, CultureInfo.InvariantCulture) : (DateTimeOffset?)null)
+                .Where(d => d.HasValue)
+                .Select(d => d!.Value)
+                .ToList();
+
+            var maxDate = values.Count > 0 ? values.Max().ToString("o") : null;
+            return _responseFactory.CreateOKResponse(new { maxDate });
+        }
+
+        /// <summary>Distinct values for a column in the session data (for filter dropdowns).</summary>
+        [HttpGet("session/{sessionId}/distinctvalues")]
+        public IActionResult GetSessionDistinctValues(string sessionId, [FromQuery] string field)
+        {
+            if (!TryGetSession(sessionId, out var session))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Session not found or expired.");
+
+            var values = session!.Rows
+                .Select(r => r.GetValueOrDefault(field))
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Order()
+                .Take(200)
+                .ToList();
+
+            return _responseFactory.CreateOKResponse(new { values });
+        }
+
+        /// <summary>GroupBy + Measures aggregation on session data. Uses the same request shape as /summarize.</summary>
+        [HttpPost("session/{sessionId}/summarize")]
+        public IActionResult SessionSummarize(string sessionId, [FromBody] SummarizeRequestDto dto)
+        {
+            if (!TryGetSession(sessionId, out var session))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Session not found or expired.");
+
+            var schemaLookup = session!.Schema.ToDictionary(s => s.Name, s => s.CanonicalType, StringComparer.OrdinalIgnoreCase);
+
+            var filtered = session.Rows.Where(row =>
+                (dto.Filters ?? []).All(f => SessionMatchesFilter(row, f))).ToList();
+
+            IEnumerable<IGrouping<string, Dictionary<string, string>>> groups;
+            if (dto.ViewBy.Count == 0)
+            {
+                // No group-by: treat all rows as a single group
+                groups = filtered.GroupBy(_ => "");
+            }
+            else
+            {
+                groups = filtered.GroupBy(row =>
+                    string.Join("\0", dto.ViewBy.Select(vb =>
+                        SessionGetGroupKey(row, vb, schemaLookup))));
+            }
+
+            var rows = groups.Select(g =>
+            {
+                var dict = new Dictionary<string, object?>();
+
+                // Group key fields
+                var keyParts = g.Key.Split('\0');
+                for (var i = 0; i < dto.ViewBy.Count; i++)
+                {
+                    var vb    = dto.ViewBy[i];
+                    var alias = NullIfEmpty(vb.Alias) ?? vb.FieldName;
+                    dict[alias] = i < keyParts.Length ? keyParts[i] : null;
+                }
+
+                // Aggregations
+                foreach (var measure in dto.Measures)
+                {
+                    var alias        = NullIfEmpty(measure.Alias) ?? measure.FieldName;
+                    var canonType    = schemaLookup.GetValueOrDefault(measure.FieldName, "String");
+                    var cellValues   = g.Select(row => row.GetValueOrDefault(measure.FieldName));
+                    dict[alias]      = SessionAggregate(cellValues, measure.Aggregation, canonType);
+                }
+
+                return dict;
+            }).ToList();
+
+            return _responseFactory.CreateOKResponse(new { rows });
+        }
+
+        /// <summary>Paginated row-level data for session. Uses the same request shape as /details.</summary>
+        [HttpPost("session/{sessionId}/details")]
+        public IActionResult SessionDetails(string sessionId, [FromBody] DetailsRequestDto dto)
+        {
+            if (!TryGetSession(sessionId, out var session))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Session not found or expired.");
+
+            var filtered = session!.Rows
+                .Where(row => (dto.Filters ?? []).All(f => SessionMatchesFilter(row, f)))
+                .ToList();
+
+            // Sorting
+            var schemaLookup = session.Schema.ToDictionary(s => s.Name, s => s.CanonicalType, StringComparer.OrdinalIgnoreCase);
+            if (dto.OrderBy is { Count: > 0 })
+            {
+                var sort = dto.OrderBy[0];
+                filtered = sort.Descending
+                    ? filtered.OrderByDescending(r => SessionSortKey(r, sort.FieldName, schemaLookup)).ToList()
+                    : filtered.OrderBy(r => SessionSortKey(r, sort.FieldName, schemaLookup)).ToList();
+            }
+
+            var totalCount = filtered.Count;
+            var skip       = dto.Skip;
+            var take       = Math.Min(dto.Take, 200);
+            var page       = filtered.Skip(skip).Take(take).ToList();
+
+            // Convert to Record<string, object?> to match regular details shape
+            var rows = page.Select(r => r.ToDictionary(
+                kvp => kvp.Key,
+                kvp => (object?)kvp.Value)).ToList();
+
+            return _responseFactory.CreateOKResponse(new { rows, totalCount });
+        }
+
+        // ── Session helpers ───────────────────────────────────────────────────
+
+        private bool TryGetSession(string sessionId, out SessionData? session)
+        {
+            session = null;
+            if (string.IsNullOrWhiteSpace(sessionId)) return false;
+            return _cache.TryGetValue(SessionCachePrefix + sessionId, out session) && session is not null;
+        }
+
+        private static List<SessionFieldDefDto> InferSchema(List<Dictionary<string, string>> rows)
+        {
+            if (rows.Count == 0) return [];
+            var columns = rows[0].Keys.ToList();
+            var sample  = rows.Take(200).ToList();
+
+            return columns.Select(col =>
+            {
+                var values = sample
+                    .Select(r => r.GetValueOrDefault(col))
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .ToList();
+
+                var canonType = InferColumnType(values!);
+                var dataType  = canonType switch
+                {
+                    "DateTimeOffset" or "DateTime" => "datetime",
+                    "Integer"                      => "bigint",
+                    "Decimal"                      => "decimal",
+                    "Boolean"                      => "bit",
+                    _                              => "nvarchar"
+                };
+                return new SessionFieldDefDto
+                {
+                    Name          = col,
+                    DataType      = dataType,
+                    IsNullable    = true,
+                    CanonicalType = canonType,
+                };
+            }).ToList();
+        }
+
+        private static string InferColumnType(List<string> values)
+        {
+            if (values.Count == 0) return "String";
+
+            // DateTime: must look like a date (min 8 chars) and parse successfully
+            if (values.All(v => v.Length >= 6 && TryParseDate(v)))
+                return "DateTimeOffset";
+
+            // Integer
+            if (values.All(v => long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)))
+                return "Integer";
+
+            // Decimal (allow thousand separators)
+            if (values.All(v => decimal.TryParse(v.Replace(",", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out _)))
+                return "Decimal";
+
+            // Boolean
+            var bools = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "true", "false", "yes", "no", "1", "0" };
+            if (values.All(v => bools.Contains(v)))
+                return "Boolean";
+
+            return "String";
+        }
+
+        private static bool TryParseDate(string v) =>
+            DateTimeOffset.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.None, out _) ||
+            DateTimeOffset.TryParse(v, CultureInfo.GetCultureInfo("zh-TW"), DateTimeStyles.None, out _);
+
+        private static string SessionGetGroupKey(
+            Dictionary<string, string> row,
+            GroupFieldDto field,
+            Dictionary<string, string> schemaLookup)
+        {
+            var raw = row.GetValueOrDefault(field.FieldName);
+            if (raw is null) return "(null)";
+
+            if (field.Type == "DateTrunc")
+            {
+                var canonType = schemaLookup.GetValueOrDefault(field.FieldName, "String");
+                if (canonType is "DateTimeOffset" or "DateTime" && TryParseDate(raw) &&
+                    DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+                {
+                    return TruncateDate(dt, field.Granularity ?? "Day");
+                }
+            }
+
+            return raw;
+        }
+
+        private static string TruncateDate(DateTimeOffset dt, string granularity) => granularity switch
+        {
+            "Year"    => $"{dt.Year}",
+            "Quarter" => $"{dt.Year}-Q{((dt.Month - 1) / 3) + 1}",
+            "Month"   => dt.ToString("yyyy-MM"),
+            "Week"    => $"{dt.Year}-W{ISOWeek.GetWeekOfYear(dt.DateTime):D2}",
+            "Hour"    => dt.ToString("yyyy-MM-dd HH:00"),
+            _         => dt.ToString("yyyy-MM-dd")  // Day
+        };
+
+        private static bool SessionMatchesFilter(Dictionary<string, string> row, FilterDimensionDto filter)
+        {
+            var raw = row.GetValueOrDefault(filter.FieldName) ?? "";
+            return filter.Op switch
+            {
+                "NotIn"       => !filter.Values.Contains(raw, StringComparer.OrdinalIgnoreCase),
+                "Equals"      => filter.Values.Count > 0 && raw.Equals(filter.Values[0], StringComparison.OrdinalIgnoreCase),
+                "Contains"    => filter.Values.Any(v => raw.Contains(v, StringComparison.OrdinalIgnoreCase)),
+                "GreaterThan" => filter.Values.Count > 0 && SessionCompare(raw, filter.Values[0]) > 0,
+                "LessThan"    => filter.Values.Count > 0 && SessionCompare(raw, filter.Values[0]) < 0,
+                "Between"     => filter.Values.Count >= 2 &&
+                                 SessionCompare(raw, filter.Values[0]) >= 0 &&
+                                 SessionCompare(raw, filter.Values[1]) <= 0,
+                _             => filter.Values.Contains(raw, StringComparer.OrdinalIgnoreCase)  // "In"
+            };
+        }
+
+        private static int SessionCompare(string a, string b)
+        {
+            if (decimal.TryParse(a.Replace(",", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out var da) &&
+                decimal.TryParse(b.Replace(",", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out var db))
+                return da.CompareTo(db);
+
+            if (DateTimeOffset.TryParse(a, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dta) &&
+                DateTimeOffset.TryParse(b, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dtb))
+                return dta.CompareTo(dtb);
+
+            return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static object? SessionAggregate(
+            IEnumerable<string?> rawValues,
+            AggregationType aggregation,
+            string canonicalType)
+        {
+            var values = rawValues.ToList();
+
+            if (aggregation == AggregationType.Count)
+                return (long)values.Count;
+
+            if (aggregation == AggregationType.DistinctCount)
+                return (long)values
+                    .Where(v => !string.IsNullOrEmpty(v))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count();
+
+            // Numeric aggregations
+            if (aggregation is AggregationType.Sum or AggregationType.Average)
+            {
+                var nums = values
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .Select(v => decimal.TryParse(v!.Replace(",", ""), NumberStyles.Any,
+                        CultureInfo.InvariantCulture, out var d) ? d : (decimal?)null)
+                    .Where(d => d.HasValue)
+                    .Select(d => d!.Value)
+                    .ToList();
+
+                if (nums.Count == 0) return null;
+                return aggregation == AggregationType.Sum
+                    ? nums.Sum()
+                    : Math.Round(nums.Average(), 6);
+            }
+
+            // Max / Min — type-aware comparison
+            var nonEmpty = values.Where(v => !string.IsNullOrEmpty(v)).ToList();
+            if (nonEmpty.Count == 0) return null;
+
+            if (canonicalType is "DateTimeOffset" or "DateTime")
+            {
+                var dates = nonEmpty
+                    .Select(v => DateTimeOffset.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : (DateTimeOffset?)null)
+                    .Where(d => d.HasValue).Select(d => d!.Value).ToList();
+                if (dates.Count == 0) return null;
+                return aggregation == AggregationType.Max
+                    ? dates.Max().ToString("yyyy-MM-dd")
+                    : dates.Min().ToString("yyyy-MM-dd");
+            }
+
+            if (canonicalType is "Integer" or "Decimal")
+            {
+                var nums2 = nonEmpty
+                    .Select(v => decimal.TryParse(v!.Replace(",", ""), NumberStyles.Any,
+                        CultureInfo.InvariantCulture, out var d) ? d : (decimal?)null)
+                    .Where(d => d.HasValue).Select(d => d!.Value).ToList();
+                if (nums2.Count == 0) return null;
+                return aggregation == AggregationType.Max ? nums2.Max() : nums2.Min();
+            }
+
+            return aggregation == AggregationType.Max
+                ? nonEmpty.Max(StringComparer.OrdinalIgnoreCase)
+                : nonEmpty.Min(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static IComparable SessionSortKey(
+            Dictionary<string, string> row,
+            string fieldName,
+            Dictionary<string, string> schemaLookup)
+        {
+            var raw       = row.GetValueOrDefault(fieldName) ?? "";
+            var canonType = schemaLookup.GetValueOrDefault(fieldName, "String");
+
+            if (canonType is "DateTimeOffset" or "DateTime" &&
+                DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+                return dt;
+
+            if (canonType is "Integer" or "Decimal" &&
+                decimal.TryParse(raw.Replace(",", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
+                return d;
+
+            return raw;
+        }
     }
 }
