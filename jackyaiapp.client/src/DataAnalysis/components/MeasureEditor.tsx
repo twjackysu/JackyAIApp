@@ -8,8 +8,13 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 
-import type { AggregationType, FieldDefinition, MeasureFieldDto } from '../../apis/dataAnalysisApis/types';
 import { AGGREGATION_TYPES } from '../constants';
+
+import type {
+  AggregationType,
+  FieldDefinition,
+  MeasureFieldDto,
+} from '../../apis/dataAnalysisApis/types';
 
 interface MeasureEditorProps {
   measures: MeasureFieldDto[];
@@ -39,7 +44,9 @@ export function MeasureEditor({ measures, fields, onAdd, onRemove, onUpdate }: M
               onChange={(e) => onUpdate(i, { fieldName: e.target.value as string })}
             >
               {fields.map((f) => (
-                <MenuItem key={f.name} value={f.name}>{f.name}</MenuItem>
+                <MenuItem key={f.name} value={f.name}>
+                  {f.name}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -52,16 +59,14 @@ export function MeasureEditor({ measures, fields, onAdd, onRemove, onUpdate }: M
               onChange={(e) => onUpdate(i, { aggregation: e.target.value as AggregationType })}
             >
               {AGGREGATION_TYPES.map((a) => (
-                <MenuItem key={a} value={a}>{a}</MenuItem>
+                <MenuItem key={a} value={a}>
+                  {a}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
 
-          <IconButton
-            size="small"
-            onClick={() => onRemove(i)}
-            disabled={measures.length === 1}
-          >
+          <IconButton size="small" onClick={() => onRemove(i)} disabled={measures.length === 1}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Box>

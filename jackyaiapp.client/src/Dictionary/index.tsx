@@ -3,13 +3,13 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { useRef, useState } from 'react';
 
-import { useGetWordQuery } from '@/apis/dictionaryApis';
-
 import { useGetRepositoryWordsByWordIdQuery } from '../apis/repositoryApis';
 import WordCard from '../components/WordCard';
 
 import RecentlySearched, { RecentlySearchedRef } from './components/RecentlySearched';
 import WordOfTheDay from './components/WordOfTheDay';
+
+import { useGetWordQuery } from '@/apis/dictionaryApis';
 
 function Dictionary() {
   const [text, setText] = useState<string>('');
@@ -32,7 +32,13 @@ function Dictionary() {
     setText(recentlySearchedText);
   };
   return (
-    <Stack direction="column" justifyContent={word ? 'flex-start' : 'center'} alignItems="center">
+    <Stack
+      direction="column"
+      sx={{
+        justifyContent: word ? 'flex-start' : 'center',
+        alignItems: 'center',
+      }}
+    >
       <TextField
         label="Search"
         variant="outlined"
@@ -53,7 +59,11 @@ function Dictionary() {
       )}
       {!word && <WordOfTheDay />}
       {word && (
-        <Box width={data?.data.meanings.length == 1 ? '80%' : '100%'}>
+        <Box
+          sx={{
+            width: data?.data.meanings.length == 1 ? '80%' : '100%',
+          }}
+        >
           <WordCard
             word={data?.data}
             isFetching={isFetching || personalWordsIsFetching}

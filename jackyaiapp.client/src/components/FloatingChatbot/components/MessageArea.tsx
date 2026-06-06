@@ -3,9 +3,9 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { Avatar, Box, Paper, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
-import MarkdownMessage from '@/components/MarkdownMessage';
-
 import { Message } from '../types';
+
+import MarkdownMessage from '@/components/MarkdownMessage';
 
 interface MessageAreaProps {
   messages: Message[];
@@ -59,8 +59,10 @@ function MessageArea({ messages, ref }: MessageAreaProps) {
               <Stack direction="column" spacing={0.5}>
                 <Typography
                   variant="caption"
-                  fontWeight="bold"
-                  sx={{ color: theme.palette.success.main }}
+                  sx={{
+                    fontWeight: 'bold',
+                    color: theme.palette.success.main,
+                  }}
                 >
                   AI 助手
                 </Typography>
@@ -130,8 +132,10 @@ function MessageArea({ messages, ref }: MessageAreaProps) {
                   {!isOwnMessage && (
                     <Typography
                       variant="caption"
-                      fontWeight="bold"
-                      sx={{ color: theme.palette.success.main }}
+                      sx={{
+                        fontWeight: 'bold',
+                        color: theme.palette.success.main,
+                      }}
                     >
                       AI 助手
                     </Typography>

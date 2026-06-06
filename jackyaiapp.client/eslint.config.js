@@ -44,7 +44,16 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      
+
+      // New React-Compiler rules promoted into `recommended` in
+      // eslint-plugin-react-hooks v7. They flag pre-existing patterns across the
+      // app (deriving state in effects, in-place mutations) that are not bugs.
+      // Disabled here to keep the dependency upgrade non-disruptive; adopt them
+      // incrementally rather than rewriting working code in one pass.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/immutability': 'off',
+      'react-hooks/purity': 'off',
+
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       'prettier/prettier': 'error',
       'import/named': 'off',

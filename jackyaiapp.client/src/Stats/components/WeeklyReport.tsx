@@ -26,7 +26,12 @@ function StatCard({ icon, label, value, color }: StatCardProps) {
   return (
     <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
       <Box sx={{ color, mb: 0.5 }}>{icon}</Box>
-      <Typography variant="h5" fontWeight="bold">
+      <Typography
+        variant="h5"
+        sx={{
+          fontWeight: 'bold',
+        }}
+      >
         {value}
       </Typography>
       <Typography variant="body2" color="text.secondary">
@@ -48,7 +53,12 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
               sm: 4,
             }}
           >
-            <Skeleton variant="rounded" height={120} />
+            <Skeleton
+              variant="rounded"
+              sx={{
+                height: 120,
+              }}
+            />
           </Grid>
         ))}
       </Grid>
@@ -64,7 +74,14 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
 
   return (
     <Box>
-      <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{
+          textAlign: 'center',
+          mb: 2,
+        }}
+      >
         {data.weekStart} ~ {data.weekEnd}
       </Typography>
       <Grid container spacing={2}>
@@ -151,7 +168,14 @@ function WeeklyReport({ data, isLoading }: WeeklyReportProps) {
       <Paper sx={{ mt: 2, p: 2, textAlign: 'center', borderRadius: 2, bgcolor: 'primary.dark' }}>
         <Typography variant="h6" color="white">
           You&apos;re more active than{' '}
-          <Typography component="span" variant="h5" fontWeight="bold" color="#FFD700">
+          <Typography
+            component="span"
+            variant="h5"
+            color="#FFD700"
+            sx={{
+              fontWeight: 'bold',
+            }}
+          >
             {data.percentile}%
           </Typography>{' '}
           of learners!

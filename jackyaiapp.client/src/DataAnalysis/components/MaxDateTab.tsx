@@ -14,7 +14,11 @@ interface MaxDateTabProps {
 }
 
 export function MaxDateTab({
-  dateField, activeTableName, defaultTable, maxDate, isLoading,
+  dateField,
+  activeTableName,
+  defaultTable,
+  maxDate,
+  isLoading,
 }: MaxDateTabProps) {
   return (
     <>
@@ -29,15 +33,18 @@ export function MaxDateTab({
           <CardContent sx={{ py: 4 }}>
             <CalendarTodayIcon sx={{ fontSize: 56, color: 'primary.main', mb: 2 }} />
             <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-              MAX(<code>{dateField}</code>) in{' '}
-              <code>{activeTableName || defaultTable}</code>
+              MAX(<code>{dateField}</code>) in <code>{activeTableName || defaultTable}</code>
             </Typography>
             <Typography variant="h3" color="primary" sx={{ fontWeight: 700 }}>
               {maxDate
                 ? new Date(maxDate).toLocaleDateString('en-US', {
-                    year: 'numeric', month: 'short', day: 'numeric',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
                   })
-                : isLoading ? '…' : '—'}
+                : isLoading
+                  ? '…'
+                  : '—'}
             </Typography>
             {maxDate && (
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>

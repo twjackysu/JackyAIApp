@@ -5,24 +5,31 @@ import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
-import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
-import type { ActiveFilter, FieldTransformDef } from '../types';
 import { toFilterDtos } from '../utils/groupField';
+
 import { FilterRow } from './FilterRow';
 
+import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
+import type { ActiveFilter, FieldTransformDef } from '../types';
+
 interface FilterEditorProps {
-  filters:     ActiveFilter[];
-  fields:      FieldDefinition[];
-  transforms?: FieldTransformDef[];   // optional; Details tab passes nothing
-  onChange:    (filters: ActiveFilter[]) => void;
-  sourceId?:   string;
-  tableName?:  string;
+  filters: ActiveFilter[];
+  fields: FieldDefinition[];
+  transforms?: FieldTransformDef[]; // optional; Details tab passes nothing
+  onChange: (filters: ActiveFilter[]) => void;
+  sourceId?: string;
+  tableName?: string;
 }
 
 export function FilterEditor({
-  filters, fields, transforms = [], onChange, sourceId, tableName,
+  filters,
+  fields,
+  transforms = [],
+  onChange,
+  sourceId,
+  tableName,
 }: FilterEditorProps) {
-  const addFilter    = () =>
+  const addFilter = () =>
     onChange([
       ...filters,
       { id: Date.now(), fieldName: '', values: [], useTransform: false, transformId: null },

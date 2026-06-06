@@ -44,7 +44,6 @@ export function SourcePanel({
   onOpenUpload,
   onClearSession,
 }: SourcePanelProps) {
-
   const expiresLabel = sessionInfo
     ? (() => {
         const diffMs = new Date(sessionInfo.expiresAt).getTime() - Date.now();
@@ -70,11 +69,7 @@ export function SourcePanel({
             color="warning"
             variant="outlined"
           />
-          <Chip
-            label={expiresLabel}
-            color="warning"
-            size="small"
-          />
+          <Chip label={expiresLabel} color="warning" size="small" />
           <Typography variant="caption" color="text.secondary">
             Temporary data — not saved to any database
           </Typography>
@@ -101,7 +96,8 @@ export function SourcePanel({
                 <MenuItem key={s.id} value={s.id}>
                   {s.name}&nbsp;
                   <Chip
-                    label={s.connectorType} size="small"
+                    label={s.connectorType}
+                    size="small"
                     color={s.connectorType === 'Adx' ? 'secondary' : 'primary'}
                     sx={{ ml: 0.5 }}
                   />
@@ -111,17 +107,21 @@ export function SourcePanel({
           </FormControl>
 
           <TextField
-            size="small" label="Table"
+            size="small"
+            label="Table"
             value={tableNameInput}
             onChange={(e) => onTableNameChange(e.target.value)}
             onBlur={onApplyTableName}
-            onKeyDown={(e) => { if (e.key === 'Enter') onApplyTableName(); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onApplyTableName();
+            }}
             sx={{ width: 220 }}
             helperText="Press Enter or click away to apply"
           />
 
           <Button
-            size="small" variant="outlined"
+            size="small"
+            variant="outlined"
             startIcon={<SettingsIcon />}
             onClick={onOpenManager}
             sx={{ mt: 0.25 }}
@@ -130,7 +130,8 @@ export function SourcePanel({
           </Button>
 
           <Button
-            size="small" variant="outlined"
+            size="small"
+            variant="outlined"
             color="warning"
             startIcon={<CloudUploadIcon />}
             onClick={onOpenUpload}
@@ -150,11 +151,12 @@ export function SourcePanel({
               style={{ color: 'inherit' }}
             >
               Sign in
-            </a>
-            {' '}to configure custom data sources.
+            </a>{' '}
+            to configure custom data sources.
           </Typography>
           <Button
-            size="small" variant="outlined"
+            size="small"
+            variant="outlined"
             color="warning"
             startIcon={<CloudUploadIcon />}
             onClick={onOpenUpload}

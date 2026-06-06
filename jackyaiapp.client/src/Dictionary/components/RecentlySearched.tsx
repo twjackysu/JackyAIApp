@@ -62,7 +62,12 @@ function RecentlySearched({ onClickRecentlySearchedText, ref }: RecentlySearched
     return null;
   }
   return (
-    <Box width="50%" sx={{ p: 2 }}>
+    <Box
+      sx={{
+        width: '50%',
+        p: 2,
+      }}
+    >
       <Typography variant="h6" gutterBottom>
         最近搜尋 (Recently searched)
       </Typography>

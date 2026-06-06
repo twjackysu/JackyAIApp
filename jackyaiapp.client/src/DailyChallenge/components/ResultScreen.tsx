@@ -58,48 +58,90 @@ function ResultScreen({
       <Typography variant="h1" sx={{ mb: 1 }}>
         {getEmoji()}
       </Typography>
-
       {/* Message */}
-      <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
+      <Typography
+        variant="h5"
+        sx={{
+          fontWeight: 'bold',
+          mb: 3,
+        }}
+      >
         {getMessage()}
       </Typography>
-
       {/* Score */}
       <Typography
         variant="h2"
-        fontWeight="bold"
         color={isPerfect ? 'success.main' : percentage >= 60 ? 'primary.main' : 'warning.main'}
-        sx={{ mb: 3 }}
+        sx={{
+          fontWeight: 'bold',
+          mb: 3,
+        }}
       >
         {score} / {totalQuestions}
       </Typography>
-
       {/* XP + Streak + Credits */}
       {!alreadyCompleted && (
-        <Stack direction="row" spacing={3} justifyContent="center" sx={{ mb: 3 }} flexWrap="wrap">
-          <Box textAlign="center">
+        <Stack
+          direction="row"
+          spacing={3}
+          sx={{
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            mb: 3,
+          }}
+        >
+          <Box
+            sx={{
+              textAlign: 'center',
+            }}
+          >
             <EmojiEventsIcon sx={{ color: '#FFD700', fontSize: 36 }} />
-            <Typography variant="h6" fontWeight="bold" color="#FFD700">
+            <Typography
+              variant="h6"
+              color="#FFD700"
+              sx={{
+                fontWeight: 'bold',
+              }}
+            >
               +{xpEarned} XP
             </Typography>
           </Box>
-          <Box textAlign="center">
+          <Box
+            sx={{
+              textAlign: 'center',
+            }}
+          >
             <LocalFireDepartmentIcon sx={{ color: '#FF5722', fontSize: 36 }} />
-            <Typography variant="h6" fontWeight="bold" color="#FF5722">
+            <Typography
+              variant="h6"
+              color="#FF5722"
+              sx={{
+                fontWeight: 'bold',
+              }}
+            >
               {newStreak} day streak
             </Typography>
           </Box>
           {creditsAwarded > 0 && (
-            <Box textAlign="center">
+            <Box
+              sx={{
+                textAlign: 'center',
+              }}
+            >
               <Typography variant="h4">💰</Typography>
-              <Typography variant="h6" fontWeight="bold" color="#4CAF50">
+              <Typography
+                variant="h6"
+                color="#4CAF50"
+                sx={{
+                  fontWeight: 'bold',
+                }}
+              >
                 +{creditsAwarded} credits
               </Typography>
             </Box>
           )}
         </Stack>
       )}
-
       <Button variant="outlined" size="large" onClick={onReview} sx={{ mt: 1 }}>
         Review Answers
       </Button>

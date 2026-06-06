@@ -46,7 +46,13 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
         <Box
           sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1, mb: 1 }}
         >
-          <Typography variant="h3" fontWeight="bold" textAlign="center">
+          <Typography
+            variant="h3"
+            sx={{
+              fontWeight: 'bold',
+              textAlign: 'center',
+            }}
+          >
             {word.wordText}
           </Typography>
           <Tooltip title="Play pronunciation">
@@ -60,12 +66,24 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
             </IconButton>
           </Tooltip>
         </Box>
-        <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{
+            textAlign: 'center',
+            mb: 3,
+          }}
+        >
           {word.kkPhonics}
         </Typography>
 
         {/* Toggle answer button */}
-        <Box textAlign="center" sx={{ mb: 2 }}>
+        <Box
+          sx={{
+            textAlign: 'center',
+            mb: 2,
+          }}
+        >
           <Button
             variant={revealed ? 'outlined' : 'contained'}
             size="large"
@@ -94,7 +112,12 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
                 ))}
                 {meaning.exampleSentences.length > 0 && (
                   <Box sx={{ ml: 1, mt: 1, p: 1, borderRadius: 1, bgcolor: 'action.hover' }}>
-                    <Typography variant="body2" fontStyle="italic">
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontStyle: 'italic',
+                      }}
+                    >
                       {meaning.exampleSentences[0].english}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -110,10 +133,24 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
         <Divider sx={{ my: 2 }} />
 
         {/* Rating buttons — always visible */}
-        <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 1.5 }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
+            textAlign: 'center',
+            mb: 1.5,
+          }}
+        >
           How well did you know this?
         </Typography>
-        <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
           <Button
             variant="contained"
             color="error"

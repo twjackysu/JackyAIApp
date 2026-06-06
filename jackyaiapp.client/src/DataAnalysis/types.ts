@@ -43,10 +43,10 @@ export interface FieldTransformDef {
   /** User-facing name shown in selectors, e.g. "Order Month" or "Age Groups". */
   name: string;
   type: 'DateTrunc' | 'NumericBin' | 'StringGrouping';
-  granularity: DateGranularity;  // DateTrunc
-  bins: BinEntry[];              // NumericBin
-  groups: GroupEntry[];          // StringGrouping
-  fallback: string;              // NumericBin / StringGrouping fallback label
+  granularity: DateGranularity; // DateTrunc
+  bins: BinEntry[]; // NumericBin
+  groups: GroupEntry[]; // StringGrouping
+  fallback: string; // NumericBin / StringGrouping fallback label
 }
 
 // ── ViewBy ────────────────────────────────────────────────────────────────────
@@ -60,5 +60,5 @@ export interface ViewByEntry {
    */
   type: 'Plain' | 'Transform';
   alias: string;
-  transformId: number | null;   // used when type === 'Transform'
+  transformId: number | null; // used when type === 'Transform'
 }

@@ -21,6 +21,7 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
 
 import { useGetDistinctValuesQuery } from '../../apis/dataAnalysisApis';
+
 import type { GroupEntry } from '../types';
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -40,7 +41,7 @@ interface GroupValidation {
 function validateGroups(groups: GroupEntry[]): GroupValidation {
   const perGroup: GroupError[] = groups.map((g) => ({
     emptyLabel: !g.label.trim(),
-    noValues:   g.values.length === 0,
+    noValues: g.values.length === 0,
   }));
 
   // Detect values that are assigned to multiple groups
@@ -57,8 +58,7 @@ function validateGroups(groups: GroupEntry[]): GroupValidation {
     if (indices.length > 1) duplicates.set(v, indices);
   });
 
-  const hasErrors =
-    perGroup.some((e) => e.emptyLabel || e.noValues) || duplicates.size > 0;
+  const hasErrors = perGroup.some((e) => e.emptyLabel || e.noValues) || duplicates.size > 0;
 
   return { perGroup, duplicates, hasErrors };
 }
@@ -77,9 +77,16 @@ interface StringGroupingDialogProps {
 }
 
 export function StringGroupingDialog({
-  open, onClose, onSave, fieldName, initialGroups, initialFallback, sourceId, tableName,
+  open,
+  onClose,
+  onSave,
+  fieldName,
+  initialGroups,
+  initialFallback,
+  sourceId,
+  tableName,
 }: StringGroupingDialogProps) {
-  const [groups, setGroups]     = useState<GroupEntry[]>([]);
+  const [groups, setGroups] = useState<GroupEntry[]>([]);
   const [fallback, setFallback] = useState('Other');
 
   useEffect(() => {
@@ -95,7 +102,7 @@ export function StringGroupingDialog({
   );
   const allValues = lvData?.data?.values ?? [];
 
-  const addGroup    = () => setGroups((prev) => [...prev, { id: Date.now(), label: '', values: [] }]);
+  const addGroup = () => setGroups((prev) => [...prev, { id: Date.now(), label: '', values: [] }]);
   const removeGroup = (id: number) => setGroups((prev) => prev.filter((g) => g.id !== id));
   const updateGroup = (id: number, patch: Partial<GroupEntry>) =>
     setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g)));
@@ -177,9 +184,10 @@ export function StringGroupingDialog({
                     disabled={isFetching}
                     onChange={(ev) =>
                       updateGroup(g.id, {
-                        values: typeof ev.target.value === 'string'
-                          ? ev.target.value.split(',')
-                          : (ev.target.value as string[]),
+                        values:
+                          typeof ev.target.value === 'string'
+                            ? ev.target.value.split(',')
+                            : (ev.target.value as string[]),
                       })
                     }
                     input={<OutlinedInput label={isFetching ? 'Loading…' : 'Values *'} />}
@@ -196,36 +204,35 @@ export function StringGroupingDialog({
                       </Box>
                     )}
                   >
-                    {isFetching
-                      ? <MenuItem disabled><em>Loading…</em></MenuItem>
-                      : allValues.length === 0
-                        ? <MenuItem disabled><em>No values found</em></MenuItem>
-                        : allValues.map((v) => (
-                            <MenuItem
-                              key={v}
-                              value={v}
-                              sx={{
-                                // Visually mark values already assigned to OTHER groups
-                                opacity: assignedValues.has(v) && !g.values.includes(v) ? 0.45 : 1,
-                              }}
-                            >
-                              {v}
-                              {assignedValues.has(v) && !g.values.includes(v) && (
-                                <Typography
-                                  variant="caption"
-                                  color="warning.main"
-                                  sx={{ ml: 1 }}
-                                >
-                                  (already mapped)
-                                </Typography>
-                              )}
-                            </MenuItem>
-                          ))
-                    }
+                    {isFetching ? (
+                      <MenuItem disabled>
+                        <em>Loading…</em>
+                      </MenuItem>
+                    ) : allValues.length === 0 ? (
+                      <MenuItem disabled>
+                        <em>No values found</em>
+                      </MenuItem>
+                    ) : (
+                      allValues.map((v) => (
+                        <MenuItem
+                          key={v}
+                          value={v}
+                          sx={{
+                            // Visually mark values already assigned to OTHER groups
+                            opacity: assignedValues.has(v) && !g.values.includes(v) ? 0.45 : 1,
+                          }}
+                        >
+                          {v}
+                          {assignedValues.has(v) && !g.values.includes(v) && (
+                            <Typography variant="caption" color="warning.main" sx={{ ml: 1 }}>
+                              (already mapped)
+                            </Typography>
+                          )}
+                        </MenuItem>
+                      ))
+                    )}
                   </Select>
-                  <FormHelperText>
-                    {e.noValues ? 'Select at least one value.' : ' '}
-                  </FormHelperText>
+                  <FormHelperText>{e.noValues ? 'Select at least one value.' : ' '}</FormHelperText>
                 </FormControl>
 
                 <IconButton size="small" onClick={() => removeGroup(g.id)} sx={{ mt: 0.5 }}>
@@ -243,7 +250,8 @@ export function StringGroupingDialog({
         <Divider sx={{ my: 2 }} />
 
         <TextField
-          size="small" fullWidth
+          size="small"
+          fullWidth
           label="Fallback label (values matching no group)"
           value={fallback}
           onChange={(e) => setFallback(e.target.value)}

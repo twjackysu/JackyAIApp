@@ -8,10 +8,10 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 
+import Flashcard from './components/Flashcard';
+
 import { useGetDueReviewsQuery, useSubmitReviewsMutation } from '@/apis/reviewApis';
 import { ReviewAnswerRequest, ReviewSubmitResponse } from '@/apis/reviewApis/types';
-
-import Flashcard from './components/Flashcard';
 
 const REVIEW_STORAGE_KEY = 'review_progress';
 
@@ -52,7 +52,6 @@ function Review() {
         JSON.stringify(wordIds) === JSON.stringify(currentWordIds) &&
         savedIndex < dueWords.length
       ) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCurrentIndex(savedIndex);
 
         setRatings(savedRatings);
@@ -124,7 +123,13 @@ function Review() {
         <Typography variant="h1" sx={{ mb: 2 }}>
           ✅
         </Typography>
-        <Typography variant="h5" fontWeight="bold" sx={{ mb: 1 }}>
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 'bold',
+            mb: 1,
+          }}
+        >
           All caught up!
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -142,19 +147,49 @@ function Review() {
         <Typography variant="h1" sx={{ mb: 1 }}>
           🧠
         </Typography>
-        <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 'bold',
+            mb: 2,
+          }}
+        >
           Review Complete!
         </Typography>
-        <Typography variant="h3" fontWeight="bold" color="primary.main" sx={{ mb: 2 }}>
+        <Typography
+          variant="h3"
+          color="primary.main"
+          sx={{
+            fontWeight: 'bold',
+            mb: 2,
+          }}
+        >
           {result.correctCount} / {result.wordsReviewed}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
           {percentage}% retention rate
         </Typography>
-        <Stack direction="row" spacing={2} justifyContent="center" sx={{ mb: 2 }}>
-          <Box textAlign="center">
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{
+            justifyContent: 'center',
+            mb: 2,
+          }}
+        >
+          <Box
+            sx={{
+              textAlign: 'center',
+            }}
+          >
             <EmojiEventsIcon sx={{ color: '#FFD700', fontSize: 32 }} />
-            <Typography variant="h6" fontWeight="bold" color="#FFD700">
+            <Typography
+              variant="h6"
+              color="#FFD700"
+              sx={{
+                fontWeight: 'bold',
+              }}
+            >
               +{result.xpEarned} XP
             </Typography>
           </Box>
@@ -171,7 +206,14 @@ function Review() {
   // Active review
   return (
     <Box sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}>
-      <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{
+          textAlign: 'center',
+          mb: 3,
+        }}
+      >
         {totalDue} word{totalDue !== 1 ? 's' : ''} due for review
         {ratings.length > 0 && (
           <Typography component="span" color="success.main" sx={{ ml: 1 }}>
@@ -179,7 +221,6 @@ function Review() {
           </Typography>
         )}
       </Typography>
-
       {isSubmitting ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />

@@ -135,7 +135,13 @@ const Credits: React.FC = () => {
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
       <Box sx={{ textAlign: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold" gutterBottom>
+        <Typography
+          variant="h4"
+          gutterBottom
+          sx={{
+            fontWeight: 'bold',
+          }}
+        >
           Buy Credits
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
@@ -162,7 +168,13 @@ const Credits: React.FC = () => {
           <CircularProgress />
         </Box>
       ) : (
-        <Grid container spacing={3} justifyContent="center">
+        <Grid
+          container
+          spacing={3}
+          sx={{
+            justifyContent: 'center',
+          }}
+        >
           {packs?.map((pack) => (
             <Grid
               key={pack.id}
@@ -195,7 +207,14 @@ const Credits: React.FC = () => {
                   <Typography variant="h6" gutterBottom>
                     {pack.name}
                   </Typography>
-                  <Typography variant="h3" fontWeight="bold" color="primary" sx={{ my: 2 }}>
+                  <Typography
+                    variant="h3"
+                    color="primary"
+                    sx={{
+                      fontWeight: 'bold',
+                      my: 2,
+                    }}
+                  >
                     {pack.currency}
                     {pack.price}
                   </Typography>
@@ -230,7 +249,13 @@ const Credits: React.FC = () => {
       {historyData?.data && historyData.data.transactions.length > 0 && (
         <Box sx={{ mt: 6 }}>
           <Divider sx={{ mb: 3 }} />
-          <Typography variant="h5" fontWeight="bold" gutterBottom>
+          <Typography
+            variant="h5"
+            gutterBottom
+            sx={{
+              fontWeight: 'bold',
+            }}
+          >
             Transaction History
           </Typography>
           <TableContainer>

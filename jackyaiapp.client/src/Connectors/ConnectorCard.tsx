@@ -220,7 +220,14 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
           )}
 
           {connector.isConnected && connector.expiresAt && (
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                display: 'block',
+                mb: 1,
+              }}
+            >
               Expires: {new Date(connector.expiresAt).toLocaleDateString()}
             </Typography>
           )}
@@ -286,7 +293,6 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
           )}
         </CardContent>
       </Card>
-
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}

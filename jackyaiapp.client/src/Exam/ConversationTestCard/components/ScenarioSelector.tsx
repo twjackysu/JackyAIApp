@@ -145,7 +145,13 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
 
   return (
     <Box sx={{ maxWidth: 800, margin: 'auto', padding: 2 }}>
-      <Typography variant="h5" gutterBottom textAlign="center">
+      <Typography
+        variant="h5"
+        gutterBottom
+        sx={{
+          textAlign: 'center',
+        }}
+      >
         選擇對話情境
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
@@ -180,10 +186,22 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                   {template.description}
                 </Typography>
-                <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    mb: 1,
+                  }}
+                >
                   你的角色: {template.userRole}
                 </Typography>
-                <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    mb: 1,
+                  }}
+                >
                   AI角色: {template.aiRole}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>

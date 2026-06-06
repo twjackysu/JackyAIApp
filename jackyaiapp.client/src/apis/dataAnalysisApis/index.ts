@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 import { ApiOkResponse } from '../types';
+
 import {
   DataSourceConfigDto,
   DetailsRequest,
@@ -59,14 +60,17 @@ export const dataAnalysisApis = createApi({
       query: ({ sourceId, tableName }) => ({
         url: 'schema',
         params: {
-          ...(sourceId  && { sourceId }),
+          ...(sourceId && { sourceId }),
           ...(tableName && { tableName }),
         },
       }),
     }),
 
     /** Summarize — GroupBy + Measures aggregation. Pass sessionId to query in-memory session data. */
-    summarize: builder.mutation<ApiOkResponse<SummarizeResult>, SummarizeRequest & { sessionId?: string }>({
+    summarize: builder.mutation<
+      ApiOkResponse<SummarizeResult>,
+      SummarizeRequest & { sessionId?: string }
+    >({
       query: ({ sessionId, ...body }) => ({
         url: sessionId ? `session/${sessionId}/summarize` : 'summarize',
         method: 'POST',
@@ -75,7 +79,10 @@ export const dataAnalysisApis = createApi({
     }),
 
     /** Details — paginated raw rows. Pass sessionId to query in-memory session data. */
-    details: builder.mutation<ApiOkResponse<DetailsResult>, DetailsRequest & { sessionId?: string }>({
+    details: builder.mutation<
+      ApiOkResponse<DetailsResult>,
+      DetailsRequest & { sessionId?: string }
+    >({
       query: ({ sessionId, ...body }) => ({
         url: sessionId ? `session/${sessionId}/details` : 'details',
         method: 'POST',
@@ -84,24 +91,30 @@ export const dataAnalysisApis = createApi({
     }),
 
     /** MaxDate — MAX value of the chosen date field. Pass sessionId for session data. */
-    getMaxDate: builder.query<ApiOkResponse<MaxDateResult>, MaxDateQueryParams & { sessionId?: string }>({
+    getMaxDate: builder.query<
+      ApiOkResponse<MaxDateResult>,
+      MaxDateQueryParams & { sessionId?: string }
+    >({
       query: ({ sessionId, sourceId, tableName, dateField }) => ({
         url: sessionId ? `session/${sessionId}/maxdate` : 'maxdate',
         params: {
-          ...(dateField  && { dateField }),
-          ...(!sessionId && sourceId  && { sourceId }),
+          ...(dateField && { dateField }),
+          ...(!sessionId && sourceId && { sourceId }),
           ...(!sessionId && tableName && { tableName }),
         },
       }),
     }),
 
     /** DistinctValues — unique values for a given column (filter LoV). Pass sessionId for session data. */
-    getDistinctValues: builder.query<ApiOkResponse<DistinctValuesResult>, DistinctValuesQueryParams & { sessionId?: string }>({
+    getDistinctValues: builder.query<
+      ApiOkResponse<DistinctValuesResult>,
+      DistinctValuesQueryParams & { sessionId?: string }
+    >({
       query: ({ sessionId, field, sourceId, tableName }) => ({
         url: sessionId ? `session/${sessionId}/distinctvalues` : 'distinctvalues',
         params: {
           field,
-          ...(!sessionId && sourceId  && { sourceId }),
+          ...(!sessionId && sourceId && { sourceId }),
           ...(!sessionId && tableName && { tableName }),
         },
       }),

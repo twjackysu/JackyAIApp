@@ -1,6 +1,6 @@
-import { StreamingStatus } from '@/hooks/useChatStreaming';
-
 import { AgentStatus } from '../types';
+
+import { StreamingStatus } from '@/hooks/useChatStreaming';
 
 export const useAgentStatus = (streamingStatus: StreamingStatus) => {
   const getAgentStatus = (): AgentStatus => {

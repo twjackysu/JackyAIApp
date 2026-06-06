@@ -8,8 +8,6 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
-import { StockTrendAnalysis } from '@/apis/financeApis/types';
-
 import {
   getTrendColor,
   getTrendLabel,
@@ -20,6 +18,8 @@ import {
 } from '../utils/financeHelpers';
 
 import TrendIcon from './TrendIcon';
+
+import { StockTrendAnalysis } from '@/apis/financeApis/types';
 
 interface StockAnalysisResultProps {
   data: StockTrendAnalysis;
@@ -167,7 +167,13 @@ export const StockAnalysisResult = ({ data }: StockAnalysisResultProps) => {
               }
             />
             <CardContent>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Stack
+                direction="row"
+                sx={{
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
                 <Typography variant="body1">
                   信心水平: <strong>{getConfidenceLabel(data.confidenceLevel)}</strong>
                 </Typography>

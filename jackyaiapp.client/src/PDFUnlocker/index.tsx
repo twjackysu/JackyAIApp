@@ -61,7 +61,11 @@ function PDFUnlocker() {
         Unlock PDF & Compress PDF
       </Typography>
       <form onSubmit={handleSubmit}>
-        <Box mb={2}>
+        <Box
+          sx={{
+            mb: 2,
+          }}
+        >
           <input
             type="file"
             accept="application/pdf"
@@ -75,7 +79,11 @@ function PDFUnlocker() {
             </Button>
           </label>
         </Box>
-        <Box mb={2}>
+        <Box
+          sx={{
+            mb: 2,
+          }}
+        >
           <TextField
             fullWidth
             variant="outlined"

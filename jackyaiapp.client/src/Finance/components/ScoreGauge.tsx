@@ -41,7 +41,14 @@ export const ScoreGauge = ({ score, size = 120, label }: ScoreGaugeProps) => {
           justifyContent: 'center',
         }}
       >
-        <Typography variant="h4" fontWeight="bold" sx={{ color, lineHeight: 1 }}>
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 'bold',
+            color,
+            lineHeight: 1,
+          }}
+        >
           {Math.round(score)}
         </Typography>
         {label && (

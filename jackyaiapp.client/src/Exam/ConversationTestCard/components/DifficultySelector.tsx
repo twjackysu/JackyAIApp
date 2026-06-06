@@ -43,7 +43,6 @@ function DifficultySelector({ onSelectDifficulty, disabled = false }: Difficulty
       >
         開始對話
       </Button>
-
       <Popover
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
@@ -83,7 +82,13 @@ function DifficultySelector({ onSelectDifficulty, disabled = false }: Difficulty
                 }}
               >
                 <Box sx={{ width: '100%' }}>
-                  <Typography variant="body1" fontWeight="bold" gutterBottom>
+                  <Typography
+                    variant="body1"
+                    gutterBottom
+                    sx={{
+                      fontWeight: 'bold',
+                    }}
+                  >
                     {option.label}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">

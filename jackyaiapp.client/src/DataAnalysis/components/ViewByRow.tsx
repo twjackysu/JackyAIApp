@@ -15,16 +15,16 @@ import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { FieldTransformDef, ViewByEntry } from '../types';
 
 interface ViewByRowProps {
-  entry:      ViewByEntry;
-  fields:     FieldDefinition[];
+  entry: ViewByEntry;
+  fields: FieldDefinition[];
   transforms: FieldTransformDef[];
-  onUpdate:   (e: ViewByEntry) => void;
-  onRemove:   () => void;
+  onUpdate: (e: ViewByEntry) => void;
+  onRemove: () => void;
 }
 
 export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: ViewByRowProps) {
   const fieldTransforms = transforms.filter((t) => t.fieldName === entry.fieldName);
-  const hasTransforms   = fieldTransforms.length > 0;
+  const hasTransforms = fieldTransforms.length > 0;
 
   const handleFieldChange = (fieldName: string) => {
     const newFieldTransforms = transforms.filter((t) => t.fieldName === fieldName);
@@ -33,7 +33,7 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
     onUpdate({
       ...entry,
       fieldName,
-      type:        keepTransform ? 'Transform' : 'Plain',
+      type: keepTransform ? 'Transform' : 'Plain',
       transformId: keepTransform ? (newFieldTransforms[0]?.id ?? null) : null,
     });
   };
@@ -56,21 +56,28 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
       <FormControl size="small" sx={{ flex: '0 0 160px' }}>
         <InputLabel>Field</InputLabel>
         <Select
-          value={entry.fieldName} label="Field"
+          value={entry.fieldName}
+          label="Field"
           onChange={(e) => handleFieldChange(e.target.value as string)}
         >
-          {fields.map((f) => <MenuItem key={f.name} value={f.name}>{f.name}</MenuItem>)}
+          {fields.map((f) => (
+            <MenuItem key={f.name} value={f.name}>
+              {f.name}
+            </MenuItem>
+          ))}
         </Select>
       </FormControl>
 
       {/* Use transform toggle — only shown when transforms exist for this field */}
-      {entry.fieldName && (
-        hasTransforms ? (
+      {entry.fieldName &&
+        (hasTransforms ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Tooltip
-              title={entry.type === 'Transform'
-                ? 'Group values will be bucketed / renamed by the selected transform'
-                : 'Switch on to apply a field transform when grouping'}
+              title={
+                entry.type === 'Transform'
+                  ? 'Group values will be bucketed / renamed by the selected transform'
+                  : 'Switch on to apply a field transform when grouping'
+              }
               placement="top"
             >
               <FormControlLabel
@@ -100,22 +107,24 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
                   onChange={(e) => handleTransformSelect(e.target.value as number)}
                 >
                   {fieldTransforms.map((t) => (
-                    <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                    <MenuItem key={t.id} value={t.id}>
+                      {t.name}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             )}
           </Box>
-        ) : (
-          /* Field selected but no transforms defined — silent, no clutter */
-          null
-        )
-      )}
+        ) : /* Field selected but no transforms defined — silent, no clutter */
+        null)}
 
       {/* Alias */}
       <TextField
-        size="small" label="Alias" placeholder="output col name"
-        value={entry.alias} sx={{ flex: '0 0 130px' }}
+        size="small"
+        label="Alias"
+        placeholder="output col name"
+        value={entry.alias}
+        sx={{ flex: '0 0 130px' }}
         onChange={(e) => onUpdate({ ...entry, alias: e.target.value })}
       />
 

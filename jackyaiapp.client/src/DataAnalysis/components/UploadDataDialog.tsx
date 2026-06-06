@@ -24,6 +24,7 @@ import Typography from '@mui/material/Typography';
 import { useRef, useState } from 'react';
 
 import { useUploadSessionMutation } from '../../apis/dataAnalysisApis';
+
 import type { SessionInfo } from '../../apis/dataAnalysisApis/types';
 
 interface UploadDataDialogProps {
@@ -36,8 +37,8 @@ interface UploadDataDialogProps {
 
 function detectSep(text: string): string {
   const firstLine = text.split('\n')[0] ?? '';
-  const tabs   = (firstLine.match(/\t/g)  ?? []).length;
-  const commas = (firstLine.match(/,/g)   ?? []).length;
+  const tabs = (firstLine.match(/\t/g) ?? []).length;
+  const commas = (firstLine.match(/,/g) ?? []).length;
   return tabs >= commas ? '\t' : ',';
 }
 
@@ -51,8 +52,10 @@ function parseLine(line: string, sep: string): string[] {
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-      else inQuotes = !inQuotes;
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else inQuotes = !inQuotes;
     } else if (ch === ',' && !inQuotes) {
       result.push(current.trim());
       current = '';
@@ -65,17 +68,20 @@ function parseLine(line: string, sep: string): string[] {
 }
 
 function parseTabular(text: string): { headers: string[]; rows: Record<string, string>[] } | null {
-  const lines = text.trim().split('\n').filter((l) => l.trim().length > 0);
+  const lines = text
+    .trim()
+    .split('\n')
+    .filter((l) => l.trim().length > 0);
   if (lines.length < 2) return null;
 
-  const sep     = detectSep(text);
+  const sep = detectSep(text);
   const headers = parseLine(lines[0], sep).map((h) => h.replace(/^"|"$/g, '').trim());
   if (headers.length < 2) return null;
 
   const rows = lines.slice(1).map((line) => {
     const cells = parseLine(line, sep);
     return Object.fromEntries(
-      headers.map((h, i) => [h, (cells[i] ?? '').replace(/^"|"$/g, '').trim()])
+      headers.map((h, i) => [h, (cells[i] ?? '').replace(/^"|"$/g, '').trim()]),
     );
   });
 
@@ -85,22 +91,30 @@ function parseTabular(text: string): { headers: string[]; rows: Record<string, s
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadDataDialogProps) {
-  const [tab, setTab]         = useState(0);  // 0 = paste, 1 = file
+  const [tab, setTab] = useState(0); // 0 = paste, 1 = file
   const [pasteText, setPaste] = useState('');
   const [datasetName, setName] = useState('');
-  const [parsed, setParsed]   = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null);
-  const [parseError, setErr]  = useState('');
-  const fileRef               = useRef<HTMLInputElement>(null);
+  const [parsed, setParsed] = useState<{
+    headers: string[];
+    rows: Record<string, string>[];
+  } | null>(null);
+  const [parseError, setErr] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [upload, { isLoading }] = useUploadSessionMutation();
 
   const handlePasteChange = (text: string) => {
     setPaste(text);
     setErr('');
-    if (!text.trim()) { setParsed(null); return; }
+    if (!text.trim()) {
+      setParsed(null);
+      return;
+    }
     const result = parseTabular(text);
-    if (!result) { setErr('Could not detect columns — make sure the first row contains headers.'); setParsed(null); }
-    else setParsed(result);
+    if (!result) {
+      setErr('Could not detect columns — make sure the first row contains headers.');
+      setParsed(null);
+    } else setParsed(result);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,7 +126,10 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
       const text = ev.target?.result as string;
       const result = parseTabular(text);
       if (!result) setErr('Could not parse file — ensure it is a valid CSV/TSV with headers.');
-      else { setParsed(result); if (!datasetName) setName(file.name.replace(/\.[^.]+$/, '')); }
+      else {
+        setParsed(result);
+        if (!datasetName) setName(file.name.replace(/\.[^.]+$/, ''));
+      }
     };
     reader.readAsText(file, 'UTF-8');
   };
@@ -158,7 +175,6 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
           sx={{ ml: 1 }}
         />
       </DialogTitle>
-
       <DialogContent>
         <Alert severity="warning" sx={{ mb: 2 }}>
           <strong>Temporary session only.</strong> This data is stored in server memory and will be
@@ -177,7 +193,7 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
 
         <Tabs value={tab} onChange={(_, v: number) => setTab(v)} sx={{ mb: 2 }}>
           <Tab icon={<ContentPasteIcon />} iconPosition="start" label="Paste from Excel" />
-          <Tab icon={<CloudUploadIcon />} iconPosition="start"  label="Upload CSV / TSV" />
+          <Tab icon={<CloudUploadIcon />} iconPosition="start" label="Upload CSV / TSV" />
         </Tabs>
 
         {tab === 0 && (
@@ -192,7 +208,9 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
             }
             value={pasteText}
             onChange={(e) => handlePasteChange(e.target.value)}
-            inputProps={{ style: { fontFamily: 'monospace', fontSize: 12 } }}
+            slotProps={{
+              htmlInput: { style: { fontFamily: 'monospace', fontSize: 12 } },
+            }}
           />
         )}
 
@@ -238,7 +256,15 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
                   {previewRows.map((row, i) => (
                     <TableRow key={i}>
                       {parsed.headers.map((h) => (
-                        <TableCell key={h} sx={{ whiteSpace: 'nowrap', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <TableCell
+                          key={h}
+                          sx={{
+                            whiteSpace: 'nowrap',
+                            maxWidth: 160,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
                           {row[h]}
                         </TableCell>
                       ))}
@@ -250,9 +276,10 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
           </Box>
         )}
       </DialogContent>
-
       <DialogActions>
-        <Button onClick={handleClose} disabled={isLoading}>Cancel</Button>
+        <Button onClick={handleClose} disabled={isLoading}>
+          Cancel
+        </Button>
         <Button
           variant="contained"
           onClick={handleSubmit}

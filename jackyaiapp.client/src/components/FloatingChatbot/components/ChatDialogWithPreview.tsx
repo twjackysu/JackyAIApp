@@ -2,9 +2,6 @@ import { Dialog, useMediaQuery, useTheme } from '@mui/material';
 import { Allotment } from 'allotment';
 
 import 'allotment/dist/style.css';
-import HtmlViewer from '@/components/HtmlViewer';
-import { StreamingStatus } from '@/hooks/useChatStreaming';
-import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 
 import { Message } from '../types';
 
@@ -13,6 +10,10 @@ import ChatInput from './ChatInput';
 import MessageArea from './MessageArea';
 import MessageAreaWithBlocks from './MessageAreaWithBlocks';
 import ProgressIndicator from './ProgressIndicator';
+
+import HtmlViewer from '@/components/HtmlViewer';
+import { StreamingStatus } from '@/hooks/useChatStreaming';
+import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 
 interface ChatDialogWithPreviewProps {
   open: boolean;
@@ -61,21 +62,20 @@ const ChatDialogWithPreview = ({
         onClose={onClose}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: {
-            height: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: 'background.default',
+        slotProps={{
+          paper: {
+            sx: {
+              height: '100vh',
+              display: 'flex',
+              flexDirection: 'column',
+              bgcolor: 'background.default',
+            },
           },
         }}
       >
         <ChatHeader statusText={statusText} statusColor={statusColor} onClose={onClose} />
-
         <ProgressIndicator streamingStatus={streamingStatus} />
-
         <MessageArea messages={messages} ref={messagesEndRef} />
-
         <ChatInput
           value={inputValue}
           onChange={onInputChange}
@@ -93,14 +93,16 @@ const ChatDialogWithPreview = ({
       onClose={onClose}
       maxWidth={showHtmlViewer ? 'xl' : 'sm'}
       fullWidth
-      PaperProps={{
-        sx: {
-          height: '600px',
-          display: 'flex',
-          flexDirection: 'column',
-          bgcolor: 'background.default',
-          // 當顯示 HTML 預覽時，調整寬度
-          width: showHtmlViewer ? '90vw' : undefined,
+      slotProps={{
+        paper: {
+          sx: {
+            height: '600px',
+            display: 'flex',
+            flexDirection: 'column',
+            bgcolor: 'background.default',
+            // 當顯示 HTML 預覽時，調整寬度
+            width: showHtmlViewer ? '90vw' : undefined,
+          },
         },
       }}
     >

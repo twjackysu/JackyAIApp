@@ -21,44 +21,46 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useEffect, useMemo, useState } from 'react';
 
-import type { FieldDefinition, MeasureFieldDto } from '../../apis/dataAnalysisApis/types';
-import type { ActiveFilter, FieldTransformDef, ViewByEntry } from '../types';
 import { formatCellValue } from '../utils/formatters';
+
 import { FieldTransformEditor } from './FieldTransformEditor';
 import { FilterEditor } from './FilterEditor';
 import { MeasureEditor } from './MeasureEditor';
 import { SummarizeChart, type ChartViewType } from './SummarizeChart';
 import { ViewByEditor } from './ViewByEditor';
 
+import type { FieldDefinition, MeasureFieldDto } from '../../apis/dataAnalysisApis/types';
+import type { ActiveFilter, FieldTransformDef, ViewByEntry } from '../types';
+
 interface SummarizeTabProps {
   // Transforms
-  fieldTransforms:  FieldTransformDef[];
-  onTransformAdd:   (t: Omit<FieldTransformDef, 'id'>) => void;
-  onTransformUpdate:(t: FieldTransformDef) => void;
-  onTransformRemove:(id: number) => void;
+  fieldTransforms: FieldTransformDef[];
+  onTransformAdd: (t: Omit<FieldTransformDef, 'id'>) => void;
+  onTransformUpdate: (t: FieldTransformDef) => void;
+  onTransformRemove: (id: number) => void;
   // ViewBy
-  viewByEntries:    ViewByEntry[];
-  onViewByAdd:      () => void;
-  onViewByUpdate:   (entry: ViewByEntry) => void;
-  onViewByRemove:   (id: number) => void;
+  viewByEntries: ViewByEntry[];
+  onViewByAdd: () => void;
+  onViewByUpdate: (entry: ViewByEntry) => void;
+  onViewByRemove: (id: number) => void;
   // Measures
-  measures:         MeasureFieldDto[];
-  onMeasureAdd:     () => void;
-  onMeasureRemove:  (i: number) => void;
-  onMeasureUpdate:  (i: number, patch: Partial<MeasureFieldDto>) => void;
+  measures: MeasureFieldDto[];
+  onMeasureAdd: () => void;
+  onMeasureRemove: (i: number) => void;
+  onMeasureUpdate: (i: number, patch: Partial<MeasureFieldDto>) => void;
   // Filters
-  summarizeFilters:        ActiveFilter[];
-  onSummarizeFiltersChange:(filters: ActiveFilter[]) => void;
+  summarizeFilters: ActiveFilter[];
+  onSummarizeFiltersChange: (filters: ActiveFilter[]) => void;
   // Run
   onRunSummarize: () => void;
-  isLoading:      boolean;
-  error:          unknown;
+  isLoading: boolean;
+  error: unknown;
   // Results
-  summarizeRows:    Record<string, unknown>[];
+  summarizeRows: Record<string, unknown>[];
   summarizeHeaders: string[];
   // Context
-  fields:     FieldDefinition[];
-  sourceId?:  string;
+  fields: FieldDefinition[];
+  sourceId?: string;
   tableName?: string;
 }
 
@@ -67,35 +69,62 @@ interface SummarizeTabProps {
 interface ChartOption {
   value: ChartViewType;
   label: string;
-  icon:  React.ReactNode;
+  icon: React.ReactNode;
 }
 
 const CHART_OPTIONS: ChartOption[] = [
-  { value: 'table',         label: 'Table',          icon: <TableChartIcon fontSize="small" /> },
-  { value: 'column',        label: 'Column',         icon: <BarChartIcon fontSize="small" /> },
-  { value: 'bar',           label: 'Bar (horiz.)',   icon: <BarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} /> },
-  { value: 'line',          label: 'Line',            icon: <ShowChartIcon fontSize="small" /> },
-  { value: 'pie',           label: 'Pie',             icon: <PieChartIcon fontSize="small" /> },
-  { value: 'stackedColumn', label: 'Stacked Column',  icon: <StackedBarChartIcon fontSize="small" /> },
-  { value: 'stackedBar',    label: 'Stacked Bar',     icon: <StackedBarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} /> },
+  { value: 'table', label: 'Table', icon: <TableChartIcon fontSize="small" /> },
+  { value: 'column', label: 'Column', icon: <BarChartIcon fontSize="small" /> },
+  {
+    value: 'bar',
+    label: 'Bar (horiz.)',
+    icon: <BarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} />,
+  },
+  { value: 'line', label: 'Line', icon: <ShowChartIcon fontSize="small" /> },
+  { value: 'pie', label: 'Pie', icon: <PieChartIcon fontSize="small" /> },
+  {
+    value: 'stackedColumn',
+    label: 'Stacked Column',
+    icon: <StackedBarChartIcon fontSize="small" />,
+  },
+  {
+    value: 'stackedBar',
+    label: 'Stacked Bar',
+    icon: <StackedBarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} />,
+  },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function SummarizeTab({
-  fieldTransforms, onTransformAdd, onTransformUpdate, onTransformRemove,
-  viewByEntries, onViewByAdd, onViewByUpdate, onViewByRemove,
-  measures, onMeasureAdd, onMeasureRemove, onMeasureUpdate,
-  summarizeFilters, onSummarizeFiltersChange,
-  onRunSummarize, isLoading, error,
-  summarizeRows, summarizeHeaders,
-  fields, sourceId, tableName,
+  fieldTransforms,
+  onTransformAdd,
+  onTransformUpdate,
+  onTransformRemove,
+  viewByEntries,
+  onViewByAdd,
+  onViewByUpdate,
+  onViewByRemove,
+  measures,
+  onMeasureAdd,
+  onMeasureRemove,
+  onMeasureUpdate,
+  summarizeFilters,
+  onSummarizeFiltersChange,
+  onRunSummarize,
+  isLoading,
+  error,
+  summarizeRows,
+  summarizeHeaders,
+  fields,
+  sourceId,
+  tableName,
 }: SummarizeTabProps) {
   const [chartType, setChartType] = useState<ChartViewType>('table');
 
   // ── Column sort ────────────────────────────────────────────────────────────
-  const [sortCol, setSortCol]     = useState<string | null>(null);
-  const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('asc');
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // Reset sort whenever a new result set arrives
   useEffect(() => {
@@ -126,7 +155,10 @@ export function SummarizeTab({
         return sortDir === 'asc' ? av - bv : bv - av;
       }
       // fall back to locale string comparison
-      const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
+      const cmp = String(av).localeCompare(String(bv), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
       return sortDir === 'asc' ? cmp : -cmp;
     });
   }, [summarizeRows, sortCol, sortDir]);
@@ -196,13 +228,22 @@ export function SummarizeTab({
       </Paper>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>Query failed. Check console for details.</Alert>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Query failed. Check console for details.
+        </Alert>
       )}
 
       {summarizeHeaders.length > 0 && (
         <>
           {/* ── Results header ── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 8,
+            }}
+          >
             <Typography variant="caption" color="text.secondary">
               {summarizeRows.length} rows returned
             </Typography>
@@ -211,7 +252,9 @@ export function SummarizeTab({
               size="small"
               exclusive
               value={chartType}
-              onChange={(_e, v) => { if (v !== null) setChartType(v); }}
+              onChange={(_e, v) => {
+                if (v !== null) setChartType(v);
+              }}
               aria-label="view type"
             >
               {CHART_OPTIONS.map(({ value, label, icon }) => (
@@ -262,11 +305,7 @@ export function SummarizeTab({
 
           {/* ── Chart view ── */}
           {chartType !== 'table' && (
-            <SummarizeChart
-              chartType={chartType}
-              rows={summarizeRows}
-              headers={summarizeHeaders}
-            />
+            <SummarizeChart chartType={chartType} rows={summarizeRows} headers={summarizeHeaders} />
           )}
         </>
       )}

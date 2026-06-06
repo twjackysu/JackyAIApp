@@ -84,7 +84,7 @@ export interface DistinctValuesQueryParams extends SourceQueryParams {
 
 export interface FieldDefinition {
   name: string;
-  dataType: string;       // native SQL type string, e.g. "nvarchar", "decimal"
+  dataType: string; // native SQL type string, e.g. "nvarchar", "decimal"
   isNullable: boolean;
   canonicalType: ColumnDataType;
 }
@@ -196,7 +196,7 @@ export interface SessionUploadResponse {
   sessionId: string;
   name: string;
   rowCount: number;
-  expiresAt: string;  // ISO-8601
+  expiresAt: string; // ISO-8601
   schema: FieldDefinition[];
 }
 

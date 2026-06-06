@@ -1,4 +1,8 @@
-import type { DateGranularity, FilterDimensionDto, GroupFieldDto } from '../../apis/dataAnalysisApis/types';
+import type {
+  DateGranularity,
+  FilterDimensionDto,
+  GroupFieldDto,
+} from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef, ViewByEntry } from '../types';
 
 export function makeViewByEntry(fieldName = ''): ViewByEntry {
@@ -16,27 +20,22 @@ export function makeViewByEntry(fieldName = ''): ViewByEntry {
  * When type === 'Transform', resolves the referenced FieldTransformDef.
  * Falls back to Plain if the transform is missing or the entry is misconfigured.
  */
-export function toGroupFieldDto(
-  e: ViewByEntry,
-  transforms: FieldTransformDef[],
-): GroupFieldDto {
+export function toGroupFieldDto(e: ViewByEntry, transforms: FieldTransformDef[]): GroupFieldDto {
   if (e.type === 'Transform' && e.transformId !== null) {
     const t = transforms.find((t) => t.id === e.transformId);
     if (t) {
       return {
-        type:       t.type,
-        fieldName:  e.fieldName,
-        alias:      e.alias || null,
+        type: t.type,
+        fieldName: e.fieldName,
+        alias: e.alias || null,
         granularity: t.type === 'DateTrunc' ? t.granularity : null,
         fallback:
-          t.type === 'NumericBin' || t.type === 'StringGrouping'
-            ? t.fallback || 'Other'
-            : null,
+          t.type === 'NumericBin' || t.type === 'StringGrouping' ? t.fallback || 'Other' : null,
         bins:
           t.type === 'NumericBin'
             ? t.bins.map((b) => ({
-                min:   b.min === '' ? null : parseFloat(b.min),
-                max:   b.max === '' ? null : parseFloat(b.max),
+                min: b.min === '' ? null : parseFloat(b.min),
+                max: b.max === '' ? null : parseFloat(b.max),
                 label: b.label,
               }))
             : null,
@@ -50,13 +49,13 @@ export function toGroupFieldDto(
 
   // Plain (also the fallback when a Transform reference is broken)
   return {
-    type:       'Plain',
-    fieldName:  e.fieldName,
-    alias:      e.alias || null,
+    type: 'Plain',
+    fieldName: e.fieldName,
+    alias: e.alias || null,
     granularity: null,
-    fallback:   null,
-    bins:       null,
-    groups:     null,
+    fallback: null,
+    bins: null,
+    groups: null,
   };
 }
 
@@ -89,8 +88,8 @@ function periodToDateRange(label: string, granularity: DateGranularity): [string
         const y = parseInt(m[1], 10);
         const q = parseInt(m[2], 10);
         const startMonth = (q - 1) * 3 + 1;
-        const endMonth   = q * 3;
-        const lastDay    = new Date(y, endMonth, 0).getDate();
+        const endMonth = q * 3;
+        const lastDay = new Date(y, endMonth, 0).getDate();
         return [
           `${y}-${String(startMonth).padStart(2, '0')}-01`,
           `${y}-${String(endMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`,
@@ -99,8 +98,8 @@ function periodToDateRange(label: string, granularity: DateGranularity): [string
       case 'Month': {
         const m = /^(\d{4})-(\d{2})$/.exec(label);
         if (!m) return null;
-        const y       = parseInt(m[1], 10);
-        const mo      = parseInt(m[2], 10);
+        const y = parseInt(m[1], 10);
+        const mo = parseInt(m[2], 10);
         const lastDay = new Date(y, mo, 0).getDate();
         return [`${label}-01`, `${label}-${String(lastDay).padStart(2, '0')}`];
       }
@@ -110,15 +109,15 @@ function periodToDateRange(label: string, granularity: DateGranularity): [string
         if (!m) return null;
         const y = parseInt(m[1], 10);
         const w = parseInt(m[2], 10);
-        const jan4     = new Date(y, 0, 4);
-        const dow      = jan4.getDay() || 7;            // Mon=1 … Sun=7
+        const jan4 = new Date(y, 0, 4);
+        const dow = jan4.getDay() || 7; // Mon=1 … Sun=7
         const week1Mon = new Date(jan4.getTime() - (dow - 1) * 86_400_000);
         const weekStart = new Date(week1Mon.getTime() + (w - 1) * 7 * 86_400_000);
-        const weekEnd   = new Date(weekStart.getTime() + 6 * 86_400_000);
+        const weekEnd = new Date(weekStart.getTime() + 6 * 86_400_000);
         return [weekStart.toISOString().slice(0, 10), weekEnd.toISOString().slice(0, 10)];
       }
       case 'Day':
-        return [label, label];   // "2024-03-15" → same start and end
+        return [label, label]; // "2024-03-15" → same start and end
       case 'Hour': {
         const m = /^(\d{4}-\d{2}-\d{2}) (\d{2}):00$/.exec(label);
         if (!m) return null;
@@ -161,17 +160,17 @@ export function toFilterDtos(
 
         // ── NumericBin: merge selected bins into a single range ────────────
         if (t?.type === 'NumericBin') {
-          const selected  = t.bins.filter((b) => f.values.includes(b.label));
+          const selected = t.bins.filter((b) => f.values.includes(b.label));
           if (selected.length > 0) {
             const hasOpenMin = selected.some((b) => b.min === '');
             const hasOpenMax = selected.some((b) => b.max === '');
             // All-open range = every row passes = skip filter entirely
             if (hasOpenMin && hasOpenMax) return [];
 
-            const mins  = selected.filter((b) => b.min !== '').map((b) => parseFloat(b.min));
+            const mins = selected.filter((b) => b.min !== '').map((b) => parseFloat(b.min));
             const maxes = selected.filter((b) => b.max !== '').map((b) => parseFloat(b.max));
-            const lo    = mins.length  > 0 ? Math.min(...mins)  : null;
-            const hi    = maxes.length > 0 ? Math.max(...maxes) : null;
+            const lo = mins.length > 0 ? Math.min(...mins) : null;
+            const hi = maxes.length > 0 ? Math.max(...maxes) : null;
 
             if (hasOpenMin && hi !== null)
               return [{ fieldName: f.fieldName, values: [String(hi)], op: 'LessThan' }];
@@ -189,12 +188,14 @@ export function toFilterDtos(
             .filter((r): r is [string, string] => r !== null);
           if (ranges.length > 0) {
             const starts = ranges.map((r) => r[0]).sort();
-            const ends   = ranges.map((r) => r[1]).sort();
-            return [{
-              fieldName: f.fieldName,
-              values:    [starts[0], ends[ends.length - 1]],
-              op:        'Between',
-            }];
+            const ends = ranges.map((r) => r[1]).sort();
+            return [
+              {
+                fieldName: f.fieldName,
+                values: [starts[0], ends[ends.length - 1]],
+                op: 'Between',
+              },
+            ];
           }
         }
       }

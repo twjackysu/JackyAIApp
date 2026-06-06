@@ -20,9 +20,9 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 
-import { useGetMacroEconomyQuery } from '@/apis/financeApis';
-
 import type { MacroEconomyData, MarketIndexDay, SectorIndex } from '@/apis/financeApis/types';
+
+import { useGetMacroEconomyQuery } from '@/apis/financeApis';
 
 const formatNumber = (n: number): string => n.toLocaleString('zh-TW');
 const formatBillion = (n: number): string => `${(n / 1_000_000_000).toFixed(1)}B`;
@@ -38,7 +38,13 @@ const ChangeText = ({ value, suffix = '' }: { value: number; suffix?: string }) 
   const color = value > 0 ? green[600] : value < 0 ? red[600] : grey[600];
   const prefix = value > 0 ? '+' : '';
   return (
-    <Typography variant="body2" fontWeight="bold" sx={{ color }}>
+    <Typography
+      variant="body2"
+      sx={{
+        fontWeight: 'bold',
+        color,
+      }}
+    >
       {prefix}
       {value.toFixed(2)}
       {suffix}
@@ -66,10 +72,22 @@ const MarketIndexSection = ({ data }: { data: MarketIndexDay[] }) => {
         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
           📈 加權指數 (TAIEX)
         </Typography>
-        <Typography variant="h4" fontWeight="bold">
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 'bold',
+          }}
+        >
           {formatNumber(Math.round(latest.taiex))}
         </Typography>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: 'center',
+            mt: 0.5,
+          }}
+        >
           <ChangeText value={latest.change} />
           <ChangeText value={changePercent} suffix="%" />
         </Stack>
@@ -88,7 +106,13 @@ const MarketIndexSection = ({ data }: { data: MarketIndexDay[] }) => {
         {data.length > 1 && (
           <>
             <Divider sx={{ my: 1.5 }} />
-            <Typography variant="caption" color="text.secondary" fontWeight="bold">
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                fontWeight: 'bold',
+              }}
+            >
               近期走勢
             </Typography>
             <Stack spacing={0.3} sx={{ mt: 0.5 }}>
@@ -96,8 +120,10 @@ const MarketIndexSection = ({ data }: { data: MarketIndexDay[] }) => {
                 <Stack
                   key={d.date}
                   direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
+                  sx={{
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
                 >
                   <Typography variant="caption" color="text.secondary">
                     {formatROCDate(d.date)}
@@ -151,7 +177,13 @@ const SectorSection = ({ sectors }: { sectors: SectorIndex[] }) => {
               {filtered.map((s) => (
                 <TableRow key={s.name} hover>
                   <TableCell>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      sx={{
+                        alignItems: 'center',
+                      }}
+                    >
                       <DirectionIcon direction={s.direction} />
                       <Typography variant="body2">
                         {sectorDisplayNames[s.name] ?? s.name}
@@ -202,11 +234,22 @@ const MarginSection = ({ data }: { data: MacroEconomyData }) => {
             <Stack spacing={0.3}>
               <Typography variant="body2">買進: {formatNumber(m.marginBuyTotal)}</Typography>
               <Typography variant="body2">賣出: {formatNumber(m.marginSellTotal)}</Typography>
-              <Stack direction="row" spacing={0.5} alignItems="center">
+              <Stack
+                direction="row"
+                spacing={0.5}
+                sx={{
+                  alignItems: 'center',
+                }}
+              >
                 <Typography variant="body2">增減:</Typography>
                 <ChangeText value={marginNet} />
               </Stack>
-              <Typography variant="body2" fontWeight="bold">
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 'bold',
+                }}
+              >
                 餘額: {formatNumber(m.marginBalanceTotal)}
               </Typography>
             </Stack>
@@ -218,11 +261,22 @@ const MarginSection = ({ data }: { data: MacroEconomyData }) => {
             <Stack spacing={0.3}>
               <Typography variant="body2">賣出: {formatNumber(m.shortSellTotal)}</Typography>
               <Typography variant="body2">買進: {formatNumber(m.shortBuyTotal)}</Typography>
-              <Stack direction="row" spacing={0.5} alignItems="center">
+              <Stack
+                direction="row"
+                spacing={0.5}
+                sx={{
+                  alignItems: 'center',
+                }}
+              >
                 <Typography variant="body2">增減:</Typography>
                 <ChangeText value={shortNet} />
               </Stack>
-              <Typography variant="body2" fontWeight="bold">
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 'bold',
+                }}
+              >
                 餘額: {formatNumber(m.shortBalanceTotal)}
               </Typography>
             </Stack>
@@ -273,11 +327,22 @@ const FxAndRateSection = ({ data }: { data: MacroEconomyData }) => {
         {data.bankRate && (
           <>
             <Divider sx={{ my: 1.5 }} />
-            <Typography variant="caption" color="text.secondary" fontWeight="bold">
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                fontWeight: 'bold',
+              }}
+            >
               銀行利率 ({data.bankRate.bankName})
             </Typography>
             <Stack spacing={0.3} sx={{ mt: 0.5 }}>
-              <Stack direction="row" justifyContent="space-between">
+              <Stack
+                direction="row"
+                sx={{
+                  justifyContent: 'space-between',
+                }}
+              >
                 <Typography variant="body2">一年期定存(固定)</Typography>
                 <Chip
                   label={`${data.bankRate.oneYearFixed?.toFixed(3) ?? '-'}%`}
@@ -285,7 +350,12 @@ const FxAndRateSection = ({ data }: { data: MacroEconomyData }) => {
                   variant="outlined"
                 />
               </Stack>
-              <Stack direction="row" justifyContent="space-between">
+              <Stack
+                direction="row"
+                sx={{
+                  justifyContent: 'space-between',
+                }}
+              >
                 <Typography variant="body2">一年期定存(機動)</Typography>
                 <Chip
                   label={`${data.bankRate.oneYearFloating?.toFixed(3) ?? '-'}%`}
@@ -294,7 +364,12 @@ const FxAndRateSection = ({ data }: { data: MacroEconomyData }) => {
                 />
               </Stack>
               {data.bankRate.baseLendingRate && (
-                <Stack direction="row" justifyContent="space-between">
+                <Stack
+                  direction="row"
+                  sx={{
+                    justifyContent: 'space-between',
+                  }}
+                >
                   <Typography variant="body2">基準利率</Typography>
                   <Chip
                     label={`${data.bankRate.baseLendingRate.toFixed(3)}%`}
@@ -325,8 +400,19 @@ const MacroSkeleton = () => (
         }}
       >
         <Paper sx={{ p: 2 }}>
-          <Skeleton variant="text" width="60%" />
-          <Skeleton variant="rectangular" height={120} sx={{ mt: 1 }} />
+          <Skeleton
+            variant="text"
+            sx={{
+              width: '60%',
+            }}
+          />
+          <Skeleton
+            variant="rectangular"
+            sx={{
+              height: 120,
+              mt: 1,
+            }}
+          />
         </Paper>
       </Grid>
     ))}
@@ -349,7 +435,13 @@ export const MacroEconomyOverview = () => {
 
   return (
     <Box sx={{ mb: 3 }}>
-      <Typography variant="h6" fontWeight="bold" gutterBottom>
+      <Typography
+        variant="h6"
+        gutterBottom
+        sx={{
+          fontWeight: 'bold',
+        }}
+      >
         🏛️ 總體經濟概覽
       </Typography>
       <Grid container spacing={2}>

@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { useGetUserInfoQuery } from '@/apis/accountApis';
-import { useChatStreaming } from '@/hooks/useChatStreaming';
-import { useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
-
 import ChatDialogWithPreview from './components/ChatDialogWithPreview';
 import FloatingButton from './components/FloatingButton';
 import { useAgentStatus } from './hooks/useAgentStatus';
 import { useDraggable } from './hooks/useDraggable';
 import { Message } from './types';
+
+import { useGetUserInfoQuery } from '@/apis/accountApis';
+import { useChatStreaming } from '@/hooks/useChatStreaming';
+import { useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
 
 function FloatingChatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -40,7 +40,6 @@ function FloatingChatbot() {
       // 如果有 HTML 區塊但面板還沒開啟，自動開啟
       const latestHtmlBlock = blocks.filter((block) => block.contentType === 'html').pop();
       if (latestHtmlBlock) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedHtmlContent(latestHtmlBlock.content);
 
         setShowHtmlViewer(true);
@@ -55,7 +54,6 @@ function FloatingChatbot() {
   // 實時更新右側預覽內容（如果正在顯示且有 streaming HTML）
   useEffect(() => {
     if (showHtmlViewer && currentHtmlBlock) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedHtmlContent(currentHtmlBlock.content);
     }
   }, [currentHtmlBlock, currentHtmlBlock?.content, showHtmlViewer]);
@@ -63,7 +61,6 @@ function FloatingChatbot() {
   // 實時更新最後一條 bot 消息的 parsedBlocks
   useEffect(() => {
     if (blocks.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessages((prev) => {
         const lastMessage = prev[prev.length - 1];
         if (lastMessage && !lastMessage.isUser) {

@@ -139,7 +139,13 @@ function TranslationCard() {
       </Typography>
       <FormControl component="fieldset">
         <FormLabel component="legend">輸入對應的英文句子:</FormLabel>
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{
+            alignItems: 'center',
+          }}
+        >
           <TextField
             value={input || ''}
             onChange={handleTextFieldInputChange}

@@ -47,6 +47,31 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  // Pre-bundle the heavy libraries on cold start so Vite doesn't discover them
+  // incrementally and re-optimize mid-session (which causes the browser to
+  // request stale dep chunks -> "optimized info should be defined" errors).
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react-redux',
+      '@reduxjs/toolkit',
+      'react-router-dom',
+      '@mui/material',
+      '@mui/material/styles',
+      '@mui/icons-material',
+      '@emotion/react',
+      '@emotion/styled',
+      'echarts',
+      'echarts-for-react',
+      'react-markdown',
+      'remark-gfm',
+      'rehype-highlight',
+      'highlight.js',
+      'allotment',
+    ],
+  },
   server: isDev? {
     proxy: {
       '/api': {

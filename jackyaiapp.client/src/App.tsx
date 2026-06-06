@@ -22,12 +22,19 @@ import LoginError from './components/LoginError';
 import InsufficientCreditsModal from './components/Modals/InsufficientCreditsModal';
 import UserProfileMenu from './components/UserProfileMenu';
 import Connectors from './Connectors';
-import { apps, DATA_ANALYSIS, FINANCE, PDF_UNLOCKER, ENGLISH_LEARNING, JOB_SEARCH } from './constants/apps';
+import {
+  apps,
+  DATA_ANALYSIS,
+  FINANCE,
+  PDF_UNLOCKER,
+  ENGLISH_LEARNING,
+  JOB_SEARCH,
+} from './constants/apps';
 import Credits from './Credits';
 import DailyChallenge from './DailyChallenge';
+import DataAnalysis from './DataAnalysis';
 import Dictionary from './Dictionary';
 import Exam from './Exam';
-import DataAnalysis from './DataAnalysis';
 import Finance from './Finance';
 import useRouteMatch from './hooks/useRouteMatch';
 import JobSearch from './JobSearch';
@@ -124,8 +131,10 @@ function App() {
               anchorEl={appMenuAnchorEl}
               open={appMenuOpen}
               onClose={handleAppMenuClose}
-              MenuListProps={{
-                'aria-labelledby': 'app-switcher-button',
+              slotProps={{
+                list: {
+                  'aria-labelledby': 'app-switcher-button',
+                },
               }}
             >
               {apps.map((app) => (
@@ -156,7 +165,6 @@ function App() {
           <UserProfileMenu />
         </Toolbar>
       </AppBar>
-
       {isEnglishLearningSection && (
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
@@ -221,7 +229,6 @@ function App() {
           </Tabs>
         </Box>
       )}
-
       <Box sx={{ p: 2 }}>
         <Routes>
           <Route path={PDF_UNLOCKER.path} element={<PDFUnlocker />} />
@@ -289,7 +296,6 @@ function App() {
           <Route path="/" element={<Finance />} />
         </Routes>
       </Box>
-
       {/* 懸浮 Chatbot — only shown on AI trend analysis tab */}
       {/* Rendered inside Finance component instead */}
       <InsufficientCreditsModal />

@@ -3,21 +3,27 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
-import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
-import type { FieldTransformDef, ViewByEntry } from '../types';
 import { ViewByRow } from './ViewByRow';
 
+import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
+import type { FieldTransformDef, ViewByEntry } from '../types';
+
 interface ViewByEditorProps {
-  entries:    ViewByEntry[];
-  fields:     FieldDefinition[];
+  entries: ViewByEntry[];
+  fields: FieldDefinition[];
   transforms: FieldTransformDef[];
-  onAdd:      () => void;
-  onUpdate:   (entry: ViewByEntry) => void;
-  onRemove:   (id: number) => void;
+  onAdd: () => void;
+  onUpdate: (entry: ViewByEntry) => void;
+  onRemove: (id: number) => void;
 }
 
 export function ViewByEditor({
-  entries, fields, transforms, onAdd, onUpdate, onRemove,
+  entries,
+  fields,
+  transforms,
+  onAdd,
+  onUpdate,
+  onRemove,
 }: ViewByEditorProps) {
   return (
     <Box>

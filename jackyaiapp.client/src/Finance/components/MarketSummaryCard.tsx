@@ -8,8 +8,6 @@ import { grey } from '@mui/material/colors';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 
-import { StrategicInsight } from '@/apis/financeApis/types';
-
 import {
   getImplicationColor,
   getImplicationChipColor,
@@ -17,6 +15,8 @@ import {
 } from '../utils/financeHelpers';
 
 import TrendIcon from './TrendIcon';
+
+import { StrategicInsight } from '@/apis/financeApis/types';
 
 interface MarketSummaryCardProps {
   stock: StrategicInsight;
@@ -67,13 +67,12 @@ export const MarketSummaryCard = ({ stock }: MarketSummaryCardProps) => {
           />
         }
       />
-
       <CardContent sx={{ flexGrow: 1 }}>
         <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
           {stock.title}
         </Typography>
 
-        <Typography variant="body2" color="text.secondary" paragraph>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {stock.summary}
         </Typography>
 
@@ -81,7 +80,13 @@ export const MarketSummaryCard = ({ stock }: MarketSummaryCardProps) => {
           <>
             <Divider sx={{ my: 1.5 }} />
             <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" fontWeight="bold" color="primary">
+              <Typography
+                variant="subtitle2"
+                color="primary"
+                sx={{
+                  fontWeight: 'bold',
+                }}
+              >
                 投資建議:
               </Typography>
               <Typography variant="body2">{stock.suggestedAction}</Typography>
@@ -89,7 +94,6 @@ export const MarketSummaryCard = ({ stock }: MarketSummaryCardProps) => {
           </>
         )}
       </CardContent>
-
       <Box
         sx={{
           bgcolor: grey[900],

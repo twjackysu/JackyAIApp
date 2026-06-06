@@ -12,11 +12,6 @@ import { SerializedError } from '@reduxjs/toolkit';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { Fragment } from 'react/jsx-runtime';
 
-import {
-  useDeleteRepositoryWordMutation,
-  usePutRepositoryWordMutation,
-} from '@/apis/repositoryApis';
-
 import { Word } from '../apis/dictionaryApis/types';
 import { playGoogleNormal, playVoiceTube } from '../Dictionary/utils/audio';
 
@@ -24,6 +19,11 @@ import AdminInvalidWordButton from './AdminInvalidWordButton';
 import AILoading from './AILoading';
 import DividerWithText from './DividerWithText';
 import FetchBaseQueryErrorMessage from './FetchBaseQueryErrorMessage';
+
+import {
+  useDeleteRepositoryWordMutation,
+  usePutRepositoryWordMutation,
+} from '@/apis/repositoryApis';
 
 interface Props {
   word?: Word | null;
@@ -63,8 +63,19 @@ function WordCard({
   return (
     <Card sx={{ width: '100%' }}>
       <Stack sx={{ pl: 2 }}>
-        <Stack direction="row" justifyContent="space-between">
-          <Stack direction="row" spacing={2} alignItems="center">
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: 'space-between',
+          }}
+        >
+          <Stack
+            direction="row"
+            spacing={2}
+            sx={{
+              alignItems: 'center',
+            }}
+          >
             <Typography variant="h2">{word?.word}</Typography>
             {word && (
               <IconButton sx={{ m: 2, p: 2 }} onClick={handleWordClick}>
@@ -73,7 +84,13 @@ function WordCard({
             )}
           </Stack>
           {word && !isHideFavoriteButton && (
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Stack
+              direction="row"
+              spacing={2}
+              sx={{
+                alignItems: 'center',
+              }}
+            >
               <IconButton sx={{ m: 2, p: 2 }} disabled={isFetching}>
                 {isFavorite ? (
                   <FavoriteIcon onClick={handleDeleteFavoriteClick} />

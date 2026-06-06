@@ -9,13 +9,6 @@ import { useState } from 'react';
 import { useGetUserInfoQuery } from '../apis/accountApis';
 import { useGetMaxDateQuery, useGetSchemaQuery } from '../apis/dataAnalysisApis';
 
-import { DEFAULT_TABLE } from './constants';
-import { useDetails } from './hooks/useDetails';
-import { useDateField } from './hooks/useDateField';
-import { useSourceContext } from './hooks/useSourceContext';
-import { useSummarize } from './hooks/useSummarize';
-import { makeViewByEntry } from './utils/groupField';
-
 import { DetailsTab } from './components/DetailsTab';
 import { MaxDateTab } from './components/MaxDateTab';
 import { SchemaTab } from './components/SchemaTab';
@@ -24,6 +17,12 @@ import { SourcePanel } from './components/SourcePanel';
 import { SummarizeTab } from './components/SummarizeTab';
 import { TabPanel } from './components/TabPanel';
 import { UploadDataDialog } from './components/UploadDataDialog';
+import { DEFAULT_TABLE } from './constants';
+import { useDateField } from './hooks/useDateField';
+import { useDetails } from './hooks/useDetails';
+import { useSourceContext } from './hooks/useSourceContext';
+import { useSummarize } from './hooks/useSummarize';
+import { makeViewByEntry } from './utils/groupField';
 
 export default function DataAnalysis() {
   const [tab, setTab] = useState(0);
@@ -34,30 +33,40 @@ export default function DataAnalysis() {
 
   // ── Source context ────────────────────────────────────────────────────────
   const {
-    activeSourceId, setActiveSourceId,
-    activeTableName, setActiveTableName,
-    tableNameInput, setTableNameInput,
-    managerOpen, setManagerOpen,
-    sources, activeSource,
-    ctxSourceId, ctxTableName,
+    activeSourceId,
+    setActiveSourceId,
+    activeTableName,
+    setActiveTableName,
+    tableNameInput,
+    setTableNameInput,
+    managerOpen,
+    setManagerOpen,
+    sources,
+    activeSource,
+    ctxSourceId,
+    ctxTableName,
     applyTableName,
-    sessionInfo, setSessionInfo, clearSession,
-    uploadOpen, setUploadOpen,
+    sessionInfo,
+    setSessionInfo,
+    clearSession,
+    uploadOpen,
+    setUploadOpen,
   } = useSourceContext(isLoggedIn);
 
   const sessionId = sessionInfo?.sessionId;
 
   // ── Schema ────────────────────────────────────────────────────────────────
-  const { data: schemaData, isLoading: schemaLoading, error: schemaError } =
-    useGetSchemaQuery(
-      { sourceId: ctxSourceId, tableName: ctxTableName },
-      { skip: !!sessionId },  // skip regular schema call when in session mode
-    );
+  const {
+    data: schemaData,
+    isLoading: schemaLoading,
+    error: schemaError,
+  } = useGetSchemaQuery(
+    { sourceId: ctxSourceId, tableName: ctxTableName },
+    { skip: !!sessionId }, // skip regular schema call when in session mode
+  );
 
   // When in session mode, use the schema that came back with the upload response
-  const fields = sessionId
-    ? (sessionInfo?.schema ?? [])
-    : (schemaData?.data?.fields ?? []);
+  const fields = sessionId ? (sessionInfo?.schema ?? []) : (schemaData?.data?.fields ?? []);
 
   // ── Date field ────────────────────────────────────────────────────────────
   const { dateField, setDateField } = useDateField(fields);
@@ -69,13 +78,12 @@ export default function DataAnalysis() {
   const details = useDetails({ ctxSourceId, ctxTableName, tab, dateField, sessionId });
 
   // ── Max Date ──────────────────────────────────────────────────────────────
-  const { data: maxDateData, isLoading: maxDateLoading } =
-    useGetMaxDateQuery({
-      sessionId,
-      sourceId: ctxSourceId,
-      tableName: ctxTableName,
-      dateField,
-    });
+  const { data: maxDateData, isLoading: maxDateLoading } = useGetMaxDateQuery({
+    sessionId,
+    sourceId: ctxSourceId,
+    tableName: ctxTableName,
+    dateField,
+  });
   const maxDate = maxDateData?.data?.maxDate;
 
   // ── Source change: reset all query config ─────────────────────────────────
@@ -126,10 +134,9 @@ export default function DataAnalysis() {
       {!sessionId && activeSourceId && (
         <Alert severity="info" icon={<WarningAmberIcon />} sx={{ mb: 2 }}>
           <strong>Custom data source selected</strong> — querying{' '}
-          <em>{activeSource?.name ?? activeSourceId}</em>.
-          {' '}Credentials are encrypted and stored securely, and transmitted over HTTPS.
-          Note: if this server is not reachable from the public internet, connections to
-          external databases may fail.
+          <em>{activeSource?.name ?? activeSourceId}</em>. Credentials are encrypted and stored
+          securely, and transmitted over HTTPS. Note: if this server is not reachable from the
+          public internet, connections to external databases may fail.
         </Alert>
       )}
 
@@ -143,7 +150,13 @@ export default function DataAnalysis() {
                   {' → '}
                   <Box
                     component="code"
-                    sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace', fontSize: '0.875em' }}
+                    sx={{
+                      bgcolor: 'action.selected',
+                      px: 0.5,
+                      borderRadius: '3px',
+                      fontFamily: 'monospace',
+                      fontSize: '0.875em',
+                    }}
                   >
                     {activeTableName}
                   </Box>
@@ -155,7 +168,13 @@ export default function DataAnalysis() {
               All 4 query types demonstrated against{' '}
               <Box
                 component="code"
-                sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace', fontSize: '0.875em' }}
+                sx={{
+                  bgcolor: 'action.selected',
+                  px: 0.5,
+                  borderRadius: '3px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.875em',
+                }}
               >
                 {activeTableName || DEFAULT_TABLE}
               </Box>
@@ -194,9 +213,7 @@ export default function DataAnalysis() {
             summarize.setViewByEntries((prev) => [...prev, makeViewByEntry(fields[0]?.name ?? '')])
           }
           onViewByUpdate={(entry) =>
-            summarize.setViewByEntries((prev) =>
-              prev.map((e) => (e.id === entry.id ? entry : e)),
-            )
+            summarize.setViewByEntries((prev) => prev.map((e) => (e.id === entry.id ? entry : e)))
           }
           onViewByRemove={(id) =>
             summarize.setViewByEntries((prev) => prev.filter((e) => e.id !== id))

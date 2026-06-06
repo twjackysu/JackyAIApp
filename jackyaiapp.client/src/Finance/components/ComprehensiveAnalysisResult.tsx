@@ -53,7 +53,13 @@ const OverallScoreSection = ({ data }: Props) => {
   return (
     <Card sx={{ mb: 3, border: '2px solid', borderColor: 'primary.main' }}>
       <CardContent>
-        <Grid container spacing={3} alignItems="center">
+        <Grid
+          container
+          spacing={3}
+          sx={{
+            alignItems: 'center',
+          }}
+        >
           {/* Score gauge — only when scoring is enabled */}
           {scoring && (
             <Grid
@@ -73,14 +79,26 @@ const OverallScoreSection = ({ data }: Props) => {
             }}
           >
             <Stack spacing={2}>
-              <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+              <Stack
+                direction="row"
+                spacing={2}
+                sx={{
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                }}
+              >
                 <Chip
                   label={data.market === 'US' ? '🇺🇸 US' : '🇹🇼 TW'}
                   size="small"
                   variant="outlined"
                   sx={{ fontWeight: 'bold' }}
                 />
-                <Typography variant="h5" fontWeight="bold">
+                <Typography
+                  variant="h5"
+                  sx={{
+                    fontWeight: 'bold',
+                  }}
+                >
                   {data.companyName} ({data.stockCode})
                 </Typography>
                 {scoring && (
@@ -122,8 +140,19 @@ const CategoryScoreCard = ({ cs }: { cs: CategoryScore }) => {
     <Card sx={{ height: '100%' }}>
       <CardContent>
         <Stack spacing={1.5}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6" fontWeight="bold">
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 'bold',
+              }}
+            >
               {getCategoryEmoji(cs.category)} {getCategoryLabel(cs.category)}
             </Typography>
             <Chip
@@ -133,7 +162,13 @@ const CategoryScoreCard = ({ cs }: { cs: CategoryScore }) => {
             />
           </Stack>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="h4" fontWeight="bold" sx={{ color }}>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: 'bold',
+                color,
+              }}
+            >
               {Math.round(cs.score)}
             </Typography>
             <Box sx={{ flexGrow: 1 }}>
@@ -147,7 +182,12 @@ const CategoryScoreCard = ({ cs }: { cs: CategoryScore }) => {
           <Typography variant="body2" color="text.secondary">
             {cs.summary}
           </Typography>
-          <Stack direction="row" justifyContent="space-between">
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: 'space-between',
+            }}
+          >
             <Typography variant="caption" color="text.secondary">
               權重: {(cs.weight * 100).toFixed(0)}%
             </Typography>
@@ -167,9 +207,21 @@ const RiskSection = ({ data }: Props) => {
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{
+            alignItems: 'center',
+            mb: 2,
+          }}
+        >
           <WarningIcon sx={{ color: getRiskColor(risk.level) }} />
-          <Typography variant="h6" fontWeight="bold">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 'bold',
+            }}
+          >
             風險評估
           </Typography>
           <Chip
@@ -211,7 +263,12 @@ const IndicatorTable = ({
   return (
     <Accordion defaultExpanded={category === 'Technical'}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography variant="h6" fontWeight="bold">
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 'bold',
+          }}
+        >
           {getCategoryEmoji(category)} {getCategoryLabel(category)}指標明細 ({filtered.length})
         </Typography>
       </AccordionSummary>
@@ -232,7 +289,12 @@ const IndicatorTable = ({
               {filtered.map((ind) => (
                 <TableRow key={ind.name} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight="bold">
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 'bold',
+                      }}
+                    >
                       {getIndicatorDisplayName(ind.name)}
                     </Typography>
                   </TableCell>
@@ -248,8 +310,10 @@ const IndicatorTable = ({
                   <TableCell align="center">
                     <Typography
                       variant="body2"
-                      fontWeight="bold"
-                      sx={{ color: getScoreColor(ind.score) }}
+                      sx={{
+                        fontWeight: 'bold',
+                        color: getScoreColor(ind.score),
+                      }}
                     >
                       {ind.score}
                     </Typography>
@@ -293,7 +357,13 @@ export const ComprehensiveAnalysisResult = ({ data }: Props) => {
       )}
       <RiskSection data={data} />
       <Divider sx={{ my: 3 }} />
-      <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: 'bold',
+          mb: 2,
+        }}
+      >
         📋 指標明細
       </Typography>
       <Stack spacing={1}>

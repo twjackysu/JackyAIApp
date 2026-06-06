@@ -10,16 +10,16 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 
+import QuestionCard from './components/QuestionCard';
+import ResultScreen from './components/ResultScreen';
+import StatsBar from './components/StatsBar';
+
 import {
   useGetChallengeQuery,
   useSubmitChallengeMutation,
   useGetStatsQuery,
 } from '@/apis/dailyChallengeApis';
 import { DailyChallengeSubmitResponse } from '@/apis/dailyChallengeApis/types';
-
-import QuestionCard from './components/QuestionCard';
-import ResultScreen from './components/ResultScreen';
-import StatsBar from './components/StatsBar';
 
 type ViewMode = 'challenge' | 'result' | 'review';
 
@@ -62,7 +62,7 @@ function DailyChallenge() {
       if (!saved) return;
       const { answers: savedAnswers, currentQuestion: savedQuestion }: DailyChallengeProgress =
         JSON.parse(saved);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+
       setAnswers(savedAnswers);
 
       setCurrentQuestion(savedQuestion);
@@ -149,10 +149,16 @@ function DailyChallenge() {
 
   return (
     <Box sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}>
-      <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{
+          textAlign: 'center',
+          mb: 2,
+        }}
+      >
         {challenge?.challengeDate}
       </Typography>
-
       {/* Stats bar */}
       <StatsBar
         currentStreak={stats?.currentStreak ?? 0}
@@ -160,7 +166,6 @@ function DailyChallenge() {
         level={stats?.level ?? 'Beginner 🌱'}
         isLoading={isStatsLoading}
       />
-
       {/* Already completed notice */}
       {alreadyCompleted && viewMode === 'challenge' && (
         <Alert severity="success" sx={{ mb: 2 }}>
@@ -168,7 +173,6 @@ function DailyChallenge() {
           {totalQuestions}. Come back tomorrow for a new challenge!
         </Alert>
       )}
-
       {/* Result screen */}
       {viewMode === 'result' && submitResult && (
         <ResultScreen
@@ -181,7 +185,6 @@ function DailyChallenge() {
           onReview={handleReview}
         />
       )}
-
       {/* Challenge questions or review */}
       {(viewMode === 'challenge' || viewMode === 'review') && questions.length > 0 && (
         <>
@@ -241,7 +244,13 @@ function DailyChallenge() {
 
           {/* Progress hint */}
           {viewMode === 'challenge' && !alreadyCompleted && (
-            <Stack direction="row" justifyContent="center" sx={{ mt: 1 }}>
+            <Stack
+              direction="row"
+              sx={{
+                justifyContent: 'center',
+                mt: 1,
+              }}
+            >
               <Typography variant="caption" color="text.secondary">
                 {answeredCount} / {totalQuestions} answered
                 {answeredCount > 0 && answeredCount < totalQuestions && ' · progress saved'}

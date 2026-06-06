@@ -1,13 +1,13 @@
 import { Dialog, useMediaQuery, useTheme } from '@mui/material';
 
-import { StreamingStatus } from '@/hooks/useChatStreaming';
-
 import { Message } from '../types';
 
 import ChatHeader from './ChatHeader';
 import ChatInput from './ChatInput';
 import MessageArea from './MessageArea';
 import ProgressIndicator from './ProgressIndicator';
+
+import { StreamingStatus } from '@/hooks/useChatStreaming';
 
 interface ChatDialogProps {
   open: boolean;
@@ -45,21 +45,20 @@ const ChatDialog = ({
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      PaperProps={{
-        sx: {
-          height: isSmallScreen ? '100vh' : '600px',
-          display: 'flex',
-          flexDirection: 'column',
-          bgcolor: 'background.default',
+      slotProps={{
+        paper: {
+          sx: {
+            height: isSmallScreen ? '100vh' : '600px',
+            display: 'flex',
+            flexDirection: 'column',
+            bgcolor: 'background.default',
+          },
         },
       }}
     >
       <ChatHeader statusText={statusText} statusColor={statusColor} onClose={onClose} />
-
       <ProgressIndicator streamingStatus={streamingStatus} />
-
       <MessageArea messages={messages} ref={messagesEndRef} />
-
       <ChatInput
         value={inputValue}
         onChange={onInputChange}

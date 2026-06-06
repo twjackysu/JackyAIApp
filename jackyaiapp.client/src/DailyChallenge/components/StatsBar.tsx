@@ -24,7 +24,14 @@ const LEVEL_THRESHOLDS = [
 
 function StatsBar({ currentStreak, totalXP, level, isLoading }: StatsBarProps) {
   if (isLoading) {
-    return <Skeleton variant="rounded" height={80} />;
+    return (
+      <Skeleton
+        variant="rounded"
+        sx={{
+          height: 80,
+        }}
+      />
+    );
   }
 
   // Calculate progress within current level
@@ -51,14 +58,28 @@ function StatsBar({ currentStreak, totalXP, level, isLoading }: StatsBarProps) {
       <Stack
         direction="row"
         spacing={3}
-        alignItems="center"
-        justifyContent="center"
-        flexWrap="wrap"
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
+        }}
       >
         {/* Streak */}
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: 'center',
+          }}
+        >
           <LocalFireDepartmentIcon sx={{ color: streakColor, fontSize: 32 }} />
-          <Typography variant="h5" fontWeight="bold" color={streakColor}>
+          <Typography
+            variant="h5"
+            color={streakColor}
+            sx={{
+              fontWeight: 'bold',
+            }}
+          >
             {currentStreak}
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -71,7 +92,13 @@ function StatsBar({ currentStreak, totalXP, level, isLoading }: StatsBarProps) {
 
         {/* XP */}
         <Stack spacing={0.5} sx={{ minWidth: 150 }}>
-          <Typography variant="body2" color="text.secondary" textAlign="center">
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              textAlign: 'center',
+            }}
+          >
             {totalXP} XP
           </Typography>
           <LinearProgress

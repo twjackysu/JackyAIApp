@@ -5,10 +5,10 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import { useState } from 'react';
 
-import { useGetWeeklyReportQuery, useGetLeaderboardQuery } from '@/apis/statsApis';
-
 import Leaderboard from './components/Leaderboard';
 import WeeklyReport from './components/WeeklyReport';
+
+import { useGetWeeklyReportQuery, useGetLeaderboardQuery } from '@/apis/statsApis';
 
 function Stats() {
   const [tab, setTab] = useState(0);

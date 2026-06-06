@@ -19,7 +19,7 @@ import type { BinEntry } from '../types';
 
 interface BinError {
   emptyLabel: boolean;
-  invalidRange: boolean;  // both bounds set, but min >= max
+  invalidRange: boolean; // both bounds set, but min >= max
   overlapsWith: number[]; // indices of other bins that overlap THIS one
 }
 
@@ -33,9 +33,7 @@ function computeBinErrors(bins: BinEntry[]): BinError[] {
     const p = parsed[i];
 
     const invalidRange =
-      b.min !== '' && b.max !== '' &&
-      !isNaN(+b.min) && !isNaN(+b.max) &&
-      +b.min >= +b.max;
+      b.min !== '' && b.max !== '' && !isNaN(+b.min) && !isNaN(+b.max) && +b.min >= +b.max;
 
     // Two [a, b) intervals overlap when a.max > b.min AND b.max > a.min
     const overlapsWith: number[] = [];
@@ -63,7 +61,7 @@ function computeBinErrors(bins: BinEntry[]): BinError[] {
 function conditionText(min: string, max: string): string {
   const hasMin = min !== '' && !isNaN(+min);
   const hasMax = max !== '' && !isNaN(+max);
-  if (hasMin && hasMax)  return `${+min} ≤ x < ${+max}`;
+  if (hasMin && hasMax) return `${+min} ≤ x < ${+max}`;
   if (hasMin && !hasMax) return `x ≥ ${+min}`;
   if (!hasMin && hasMax) return `x < ${+max}`;
   return '(all values — no bounds set)';
@@ -81,9 +79,14 @@ interface NumericBinDialogProps {
 }
 
 export function NumericBinDialog({
-  open, onClose, onSave, fieldName, initialBins, initialFallback,
+  open,
+  onClose,
+  onSave,
+  fieldName,
+  initialBins,
+  initialFallback,
 }: NumericBinDialogProps) {
-  const [bins, setBins]         = useState<BinEntry[]>([]);
+  const [bins, setBins] = useState<BinEntry[]>([]);
   const [fallback, setFallback] = useState('Other');
 
   useEffect(() => {
@@ -93,16 +96,15 @@ export function NumericBinDialog({
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const addBin    = () => setBins((prev) => [...prev, { id: Date.now(), min: '', max: '', label: '' }]);
+  const addBin = () =>
+    setBins((prev) => [...prev, { id: Date.now(), min: '', max: '', label: '' }]);
   const removeBin = (id: number) => setBins((prev) => prev.filter((b) => b.id !== id));
   const updateBin = (id: number, patch: Partial<BinEntry>) =>
     setBins((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
 
   // Live validation — recomputed every render (bins are small)
-  const errors    = computeBinErrors(bins);
-  const hasErrors = errors.some(
-    (e) => e.emptyLabel || e.invalidRange || e.overlapsWith.length > 0,
-  );
+  const errors = computeBinErrors(bins);
+  const hasErrors = errors.some((e) => e.emptyLabel || e.invalidRange || e.overlapsWith.length > 0);
 
   // Collect global overlap messages (deduplicated by pair)
   const overlapPairs: string[] = [];
@@ -132,12 +134,11 @@ export function NumericBinDialog({
           {fieldName}
         </Box>
       </DialogTitle>
-
       <DialogContent dividers>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
           Intervals are <strong>left-closed, right-open</strong>: a row matches bin [Min, Max) when{' '}
-          <code>Min ≤ value &lt; Max</code>. Leave Min blank for <em>−∞</em> (no lower bound);
-          leave Max blank for <em>+∞</em> (no upper bound).
+          <code>Min ≤ value &lt; Max</code>. Leave Min blank for <em>−∞</em> (no lower bound); leave
+          Max blank for <em>+∞</em> (no upper bound).
         </Typography>
 
         {bins.length === 0 && (
@@ -161,12 +162,16 @@ export function NumericBinDialog({
                 </Typography>
 
                 <TextField
-                  size="small" label="Min" placeholder="−∞"
+                  size="small"
+                  label="Min"
+                  placeholder="−∞"
                   value={b.min}
-                  inputProps={{ type: 'number' }}
                   sx={{ flex: 1 }}
                   error={e.invalidRange}
                   onChange={(ev) => updateBin(b.id, { min: ev.target.value })}
+                  slotProps={{
+                    htmlInput: { type: 'number' },
+                  }}
                 />
 
                 <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
@@ -174,16 +179,22 @@ export function NumericBinDialog({
                 </Typography>
 
                 <TextField
-                  size="small" label="Max" placeholder="+∞"
+                  size="small"
+                  label="Max"
+                  placeholder="+∞"
                   value={b.max}
-                  inputProps={{ type: 'number' }}
                   sx={{ flex: 1 }}
                   error={e.invalidRange}
                   onChange={(ev) => updateBin(b.id, { max: ev.target.value })}
+                  slotProps={{
+                    htmlInput: { type: 'number' },
+                  }}
                 />
 
                 <TextField
-                  size="small" label="Label *" value={b.label}
+                  size="small"
+                  label="Label *"
+                  value={b.label}
                   sx={{ flex: 1.2 }}
                   error={e.emptyLabel}
                   onChange={(ev) => updateBin(b.id, { label: ev.target.value })}
@@ -193,20 +204,38 @@ export function NumericBinDialog({
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Box>
-
               {/* ── Condition preview + per-bin errors ── */}
-              <Box sx={{ pl: '28px', mt: 0.25, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Box
+                sx={{
+                  pl: '28px',
+                  mt: 0.25,
+                  display: 'flex',
+                  gap: 1,
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                }}
+              >
                 <Typography
                   variant="caption"
-                  sx={{ fontFamily: 'monospace', color: 'text.disabled', bgcolor: 'action.hover', px: 0.75, borderRadius: '3px' }}
+                  sx={{
+                    fontFamily: 'monospace',
+                    color: 'text.disabled',
+                    bgcolor: 'action.hover',
+                    px: 0.75,
+                    borderRadius: '3px',
+                  }}
                 >
                   {conditionText(b.min, b.max)}
                 </Typography>
                 {e.emptyLabel && (
-                  <Typography variant="caption" color="error">Label is required.</Typography>
+                  <Typography variant="caption" color="error">
+                    Label is required.
+                  </Typography>
                 )}
                 {e.invalidRange && (
-                  <Typography variant="caption" color="error">Min must be less than Max.</Typography>
+                  <Typography variant="caption" color="error">
+                    Min must be less than Max.
+                  </Typography>
                 )}
               </Box>
             </Box>
@@ -222,7 +251,9 @@ export function NumericBinDialog({
           <Alert severity="error" sx={{ mt: 2 }}>
             <strong>Overlapping intervals detected:</strong>
             <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
-              {overlapPairs.map((msg) => <li key={msg}>{msg}</li>)}
+              {overlapPairs.map((msg) => (
+                <li key={msg}>{msg}</li>
+              ))}
             </ul>
           </Alert>
         )}
@@ -230,13 +261,13 @@ export function NumericBinDialog({
         <Divider sx={{ my: 2 }} />
 
         <TextField
-          size="small" fullWidth
+          size="small"
+          fullWidth
           label="Fallback label (rows matching no bin)"
           value={fallback}
           onChange={(e) => setFallback(e.target.value)}
         />
       </DialogContent>
-
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button

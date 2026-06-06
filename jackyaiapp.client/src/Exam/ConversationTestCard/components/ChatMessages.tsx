@@ -4,10 +4,10 @@ import { Avatar, Box, IconButton, Paper, Stack, Tooltip, Typography } from '@mui
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useRef } from 'react';
 
+import { useAudioPlayback } from '../hooks/useAudioPlayback';
+
 import { ConversationTurn } from '@/apis/examApis/types';
 import MarkdownMessage from '@/components/MarkdownMessage';
-
-import { useAudioPlayback } from '../hooks/useAudioPlayback';
 
 interface ChatMessagesProps {
   messages: ConversationTurn[];
@@ -115,8 +115,10 @@ function ChatMessages({ messages, isResponding, ref }: ChatMessagesProps) {
                   {!isOwnMessage && (
                     <Typography
                       variant="caption"
-                      fontWeight="bold"
-                      sx={{ color: theme.palette.success.main }}
+                      sx={{
+                        fontWeight: 'bold',
+                        color: theme.palette.success.main,
+                      }}
                     >
                       AI Assistant
                     </Typography>

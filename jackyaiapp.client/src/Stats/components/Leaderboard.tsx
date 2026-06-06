@@ -29,7 +29,14 @@ function Leaderboard({ data, isLoading }: LeaderboardProps) {
     return (
       <Box>
         {[1, 2, 3, 4, 5].map((i) => (
-          <Skeleton key={i} variant="rounded" height={60} sx={{ mb: 1 }} />
+          <Skeleton
+            key={i}
+            variant="rounded"
+            sx={{
+              height: 60,
+              mb: 1,
+            }}
+          />
         ))}
       </Box>
     );
@@ -66,10 +73,18 @@ function Leaderboard({ data, isLoading }: LeaderboardProps) {
 
               <ListItemText
                 primary={
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      alignItems: 'center',
+                    }}
+                  >
                     <Typography
                       variant="body1"
-                      fontWeight={entry.isCurrentUser ? 'bold' : 'normal'}
+                      sx={{
+                        fontWeight: entry.isCurrentUser ? 'bold' : 'normal',
+                      }}
                     >
                       {entry.displayName}
                       {entry.isCurrentUser && ' (You)'}
@@ -78,12 +93,31 @@ function Leaderboard({ data, isLoading }: LeaderboardProps) {
                   </Stack>
                 }
                 secondary={
-                  <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 0.5 }}>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Stack
+                    direction="row"
+                    spacing={2}
+                    sx={{
+                      alignItems: 'center',
+                      mt: 0.5,
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      sx={{
+                        alignItems: 'center',
+                      }}
+                    >
                       <EmojiEventsIcon sx={{ fontSize: 16, color: '#FFD700' }} />
                       <Typography variant="caption">{entry.totalXP} XP</Typography>
                     </Stack>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      sx={{
+                        alignItems: 'center',
+                      }}
+                    >
                       <LocalFireDepartmentIcon sx={{ fontSize: 16, color: '#FF5722' }} />
                       <Typography variant="caption">{entry.currentStreak} days</Typography>
                     </Stack>
@@ -95,7 +129,6 @@ function Leaderboard({ data, isLoading }: LeaderboardProps) {
           </Box>
         ))}
       </List>
-
       {/* Current user if not in top list */}
       {data.currentUserEntry && !data.entries.some((e) => e.isCurrentUser) && (
         <Box sx={{ mt: 2 }}>
@@ -123,8 +156,14 @@ function Leaderboard({ data, isLoading }: LeaderboardProps) {
           </ListItem>
         </Box>
       )}
-
-      <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mt: 2 }}>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{
+          textAlign: 'center',
+          mt: 2,
+        }}
+      >
         {data.totalUsers} active learner{data.totalUsers !== 1 ? 's' : ''}
       </Typography>
     </Box>

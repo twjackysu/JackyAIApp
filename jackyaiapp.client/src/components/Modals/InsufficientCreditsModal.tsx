@@ -40,20 +40,27 @@ export default function InsufficientCreditsModal() {
       onClose={handleClose}
       maxWidth="xs"
       fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 3,
-          p: 1,
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: 3,
+            p: 1,
+          },
         },
       }}
     >
       <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
         <WarningAmberIcon color="warning" sx={{ fontSize: 48, mb: 1 }} />
-        <Typography variant="h5" component="div" fontWeight="bold">
+        <Typography
+          variant="h5"
+          component="div"
+          sx={{
+            fontWeight: 'bold',
+          }}
+        >
           額度不足 (Insufficient Credits)
         </Typography>
       </DialogTitle>
-
       <DialogContent sx={{ textAlign: 'center', pb: 2 }}>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
           您目前沒有足夠的積分來使用此 AI 功能。請購買更多積分以繼續。
@@ -76,7 +83,12 @@ export default function InsufficientCreditsModal() {
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 0.5 }}>
               <MonetizationOnIcon color="primary" fontSize="small" sx={{ mr: 0.5 }} />
-              <Typography variant="h6" fontWeight="bold">
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 'bold',
+                }}
+              >
                 {currentBalance.toLocaleString()}
               </Typography>
             </Box>
@@ -91,7 +103,13 @@ export default function InsufficientCreditsModal() {
                 sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 0.5 }}
               >
                 <MonetizationOnIcon color="error" fontSize="small" sx={{ mr: 0.5 }} />
-                <Typography variant="h6" fontWeight="bold" color="error.main">
+                <Typography
+                  variant="h6"
+                  color="error.main"
+                  sx={{
+                    fontWeight: 'bold',
+                  }}
+                >
                   {requiredCredits.toLocaleString()}
                 </Typography>
               </Box>
@@ -99,7 +117,6 @@ export default function InsufficientCreditsModal() {
           )}
         </Box>
       </DialogContent>
-
       <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'center', gap: 2 }}>
         <Button onClick={handleClose} color="inherit" variant="text" sx={{ px: 3 }}>
           取消

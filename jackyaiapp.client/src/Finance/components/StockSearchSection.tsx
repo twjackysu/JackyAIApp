@@ -48,7 +48,13 @@ export const StockSearchSection = ({
       <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
         股票分析搜尋 (Stock Analysis)
       </Typography>
-      <Stack direction="row" spacing={2} alignItems="center">
+      <Stack
+        direction="row"
+        spacing={2}
+        sx={{
+          alignItems: 'center',
+        }}
+      >
         <TextField
           fullWidth
           variant="outlined"
@@ -57,14 +63,16 @@ export const StockSearchSection = ({
           onChange={(e) => onSearchTermChange(e.target.value)}
           onKeyPress={handleKeyPress}
           disabled={isAnalyzing}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
           sx={{ flexGrow: 1 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            },
+          }}
         />
         <Button
           variant="contained"

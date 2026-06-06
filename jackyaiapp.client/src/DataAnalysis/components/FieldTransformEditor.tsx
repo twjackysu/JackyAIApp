@@ -22,26 +22,37 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import type { ColumnDataType, DateGranularity, FieldDefinition } from '../../apis/dataAnalysisApis/types';
-import { DATE_CANONICAL_TYPES, DATE_GRANULARITIES, NUMERIC_CANONICAL_TYPES, TRANSFORM_TYPE_LABELS } from '../constants';
-import type { BinEntry, FieldTransformDef, GroupEntry } from '../types';
+import {
+  DATE_CANONICAL_TYPES,
+  DATE_GRANULARITIES,
+  NUMERIC_CANONICAL_TYPES,
+  TRANSFORM_TYPE_LABELS,
+} from '../constants';
+
 import { NumericBinDialog } from './NumericBinDialog';
 import { StringGroupingDialog } from './StringGroupingDialog';
 
+import type {
+  ColumnDataType,
+  DateGranularity,
+  FieldDefinition,
+} from '../../apis/dataAnalysisApis/types';
+import type { BinEntry, FieldTransformDef, GroupEntry } from '../types';
+
 interface FieldTransformEditorProps {
   transforms: FieldTransformDef[];
-  onAdd:    (t: Omit<FieldTransformDef, 'id'>) => void;
+  onAdd: (t: Omit<FieldTransformDef, 'id'>) => void;
   onUpdate: (t: FieldTransformDef) => void;
   onRemove: (id: number) => void;
-  fields:   FieldDefinition[];
-  sourceId?:  string;
+  fields: FieldDefinition[];
+  sourceId?: string;
   tableName?: string;
 }
 
 // ── Type inference from CanonicalType ─────────────────────────────────────────
 
 function inferTransformType(canonicalType: ColumnDataType): FieldTransformDef['type'] {
-  if ((DATE_CANONICAL_TYPES as ColumnDataType[]).includes(canonicalType))    return 'DateTrunc';
+  if ((DATE_CANONICAL_TYPES as ColumnDataType[]).includes(canonicalType)) return 'DateTrunc';
   if ((NUMERIC_CANONICAL_TYPES as ColumnDataType[]).includes(canonicalType)) return 'NumericBin';
   return 'StringGrouping';
 }
@@ -49,30 +60,30 @@ function inferTransformType(canonicalType: ColumnDataType): FieldTransformDef['t
 // ── Draft (add-form) state ────────────────────────────────────────────────────
 
 interface DraftState {
-  fieldName:   string;
-  name:        string;
+  fieldName: string;
+  name: string;
   /** Auto-derived from the field's canonicalType; not user-editable. */
-  type:        FieldTransformDef['type'];
+  type: FieldTransformDef['type'];
   granularity: DateGranularity;
 }
 
 const emptyDraft = (): DraftState => ({
-  fieldName:   '',
-  name:        '',
-  type:        'StringGrouping',
+  fieldName: '',
+  name: '',
+  type: 'StringGrouping',
   granularity: 'Month',
 });
 
 // ── Display helpers ───────────────────────────────────────────────────────────
 
 const typeChipColor = (type: FieldTransformDef['type']) => {
-  if (type === 'DateTrunc')  return 'info'      as const;
-  if (type === 'NumericBin') return 'warning'   as const;
-  return                            'secondary' as const;
+  if (type === 'DateTrunc') return 'info' as const;
+  if (type === 'NumericBin') return 'warning' as const;
+  return 'secondary' as const;
 };
 
 const summary = (t: FieldTransformDef): string => {
-  if (t.type === 'DateTrunc')  return t.granularity;
+  if (t.type === 'DateTrunc') return t.granularity;
   if (t.type === 'NumericBin') return `${t.bins.length} bin${t.bins.length !== 1 ? 's' : ''}`;
   return `${t.groups.length} group${t.groups.length !== 1 ? 's' : ''}`;
 };
@@ -80,10 +91,16 @@ const summary = (t: FieldTransformDef): string => {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function FieldTransformEditor({
-  transforms, onAdd, onUpdate, onRemove, fields, sourceId, tableName,
+  transforms,
+  onAdd,
+  onUpdate,
+  onRemove,
+  fields,
+  sourceId,
+  tableName,
 }: FieldTransformEditorProps) {
   const [showAddForm, setShowAddForm] = useState(false);
-  const [draft, setDraft]             = useState<DraftState>(emptyDraft);
+  const [draft, setDraft] = useState<DraftState>(emptyDraft);
 
   // Target for NumericBin / StringGrouping configure dialogs
   const [configTarget, setConfigTarget] = useState<FieldTransformDef | null>(null);
@@ -110,13 +127,13 @@ export function FieldTransformEditor({
 
   const handleSaveDateTruncNew = () => {
     onAdd({
-      fieldName:   draft.fieldName,
-      name:        effectiveName(draft),
-      type:        'DateTrunc',
+      fieldName: draft.fieldName,
+      name: effectiveName(draft),
+      type: 'DateTrunc',
       granularity: draft.granularity,
-      bins:        [],
-      groups:      [],
-      fallback:    '',
+      bins: [],
+      groups: [],
+      fallback: '',
     });
     setShowAddForm(false);
     setDraft(emptyDraft());
@@ -126,14 +143,14 @@ export function FieldTransformEditor({
 
   const handleOpenConfigure = () => {
     setConfigTarget({
-      id:          -1,
-      fieldName:   draft.fieldName,
-      name:        effectiveName(draft),
-      type:        draft.type as 'NumericBin' | 'StringGrouping',
+      id: -1,
+      fieldName: draft.fieldName,
+      name: effectiveName(draft),
+      type: draft.type as 'NumericBin' | 'StringGrouping',
       granularity: 'Month',
-      bins:        [],
-      groups:      [],
-      fallback:    'Other',
+      bins: [],
+      groups: [],
+      fallback: 'Other',
     });
   };
 
@@ -173,7 +190,7 @@ export function FieldTransformEditor({
 
   const handleEdit = (t: FieldTransformDef) => {
     if (t.type === 'DateTrunc') setDateTruncEditTarget({ ...t });
-    else                        setConfigTarget({ ...t });
+    else setConfigTarget({ ...t });
   };
 
   // ── DateTrunc edit dialog save ────────────────────────────────────────────
@@ -210,9 +227,8 @@ export function FieldTransformEditor({
       {/* Empty state */}
       {transforms.length === 0 && !showAddForm && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-          No transforms — click <strong>+</strong> to create one.
-          Transforms define how a field's values are bucketed or renamed,
-          and can be applied to both Group By and Filters.
+          No transforms — click <strong>+</strong> to create one. Transforms define how a field's
+          values are bucketed or renamed, and can be applied to both Group By and Filters.
         </Typography>
       )}
 
@@ -221,46 +237,89 @@ export function FieldTransformEditor({
         <Paper
           key={t.id}
           variant="outlined"
-          sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.75, mb: 0.75, flexWrap: 'wrap' }}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            px: 1.5,
+            py: 0.75,
+            mb: 0.75,
+            flexWrap: 'wrap',
+          }}
         >
-          <Box component="code" sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace', fontSize: '0.8rem', flexShrink: 0 }}>
+          <Box
+            component="code"
+            sx={{
+              bgcolor: 'action.selected',
+              px: 0.5,
+              borderRadius: '3px',
+              fontFamily: 'monospace',
+              fontSize: '0.8rem',
+              flexShrink: 0,
+            }}
+          >
             {t.fieldName}
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>→</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+            →
+          </Typography>
           <Typography variant="body2" sx={{ fontWeight: 500, flex: 1, minWidth: 80 }}>
             {t.name}
           </Typography>
-          <Chip label={TRANSFORM_TYPE_LABELS[t.type]} size="small" color={typeChipColor(t.type)} variant="outlined" sx={{ flexShrink: 0 }} />
+          <Chip
+            label={TRANSFORM_TYPE_LABELS[t.type]}
+            size="small"
+            color={typeChipColor(t.type)}
+            variant="outlined"
+            sx={{ flexShrink: 0 }}
+          />
           <Chip label={summary(t)} size="small" variant="outlined" sx={{ flexShrink: 0 }} />
-          <IconButton size="small" onClick={() => handleEdit(t)} title="Edit"><EditIcon fontSize="small" /></IconButton>
-          <IconButton size="small" onClick={() => onRemove(t.id)} title="Delete"><DeleteIcon fontSize="small" /></IconButton>
+          <IconButton size="small" onClick={() => handleEdit(t)} title="Edit">
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={() => onRemove(t.id)} title="Delete">
+            <DeleteIcon fontSize="small" />
+          </IconButton>
         </Paper>
       ))}
 
       {/* Add form */}
       {showAddForm && (
-        <Paper variant="outlined" sx={{ p: 1.5, mt: 1, display: 'flex', gap: 1, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <Paper
+          variant="outlined"
+          sx={{ p: 1.5, mt: 1, display: 'flex', gap: 1, alignItems: 'flex-end', flexWrap: 'wrap' }}
+        >
           {/* Field selector — drives type auto-detection */}
           <FormControl size="small" sx={{ flex: '0 0 160px' }}>
             <InputLabel>Field</InputLabel>
             <Select
-              value={draft.fieldName} label="Field"
+              value={draft.fieldName}
+              label="Field"
               onChange={(e) => handleDraftFieldChange(e.target.value as string)}
             >
-              {fields.map((f) => <MenuItem key={f.name} value={f.name}>{f.name}</MenuItem>)}
+              {fields.map((f) => (
+                <MenuItem key={f.name} value={f.name}>
+                  {f.name}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 
           {/* Name */}
           <TextField
-            size="small" label="Name"
+            size="small"
+            label="Name"
             placeholder={
-              !draft.fieldName ? 'Select a field first'
-              : draft.type === 'DateTrunc' ? 'e.g. Order Month'
-              : draft.type === 'NumericBin' ? 'e.g. Age Groups'
-              : 'e.g. Country → Region'
+              !draft.fieldName
+                ? 'Select a field first'
+                : draft.type === 'DateTrunc'
+                  ? 'e.g. Order Month'
+                  : draft.type === 'NumericBin'
+                    ? 'e.g. Age Groups'
+                    : 'e.g. Country → Region'
             }
-            value={draft.name} sx={{ flex: '1 1 150px' }}
+            value={draft.name}
+            sx={{ flex: '1 1 150px' }}
             onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
           />
 
@@ -282,13 +341,25 @@ export function FieldTransformEditor({
               <FormControl size="small" sx={{ flex: '0 0 110px' }}>
                 <InputLabel>Granularity</InputLabel>
                 <Select
-                  value={draft.granularity} label="Granularity"
-                  onChange={(e) => setDraft((d) => ({ ...d, granularity: e.target.value as DateGranularity }))}
+                  value={draft.granularity}
+                  label="Granularity"
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, granularity: e.target.value as DateGranularity }))
+                  }
                 >
-                  {DATE_GRANULARITIES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                  {DATE_GRANULARITIES.map((g) => (
+                    <MenuItem key={g} value={g}>
+                      {g}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
-              <Button size="small" variant="contained" startIcon={<SaveIcon fontSize="small" />} onClick={handleSaveDateTruncNew}>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<SaveIcon fontSize="small" />}
+                onClick={handleSaveDateTruncNew}
+              >
                 Save
               </Button>
             </>
@@ -296,7 +367,12 @@ export function FieldTransformEditor({
 
           {/* NumericBin / StringGrouping: Configure button */}
           {draft.type !== 'DateTrunc' && draft.fieldName && (
-            <Button size="small" variant="contained" startIcon={<EditIcon fontSize="small" />} onClick={handleOpenConfigure}>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<EditIcon fontSize="small" />}
+              onClick={handleOpenConfigure}
+            >
               Configure
             </Button>
           )}
@@ -310,17 +386,26 @@ export function FieldTransformEditor({
       {/* NumericBin dialog */}
       {configTarget?.type === 'NumericBin' && (
         <NumericBinDialog
-          open onClose={() => setConfigTarget(null)} onSave={handleSaveNumericBin}
-          fieldName={configTarget.fieldName} initialBins={configTarget.bins} initialFallback={configTarget.fallback}
+          open
+          onClose={() => setConfigTarget(null)}
+          onSave={handleSaveNumericBin}
+          fieldName={configTarget.fieldName}
+          initialBins={configTarget.bins}
+          initialFallback={configTarget.fallback}
         />
       )}
 
       {/* StringGrouping dialog */}
       {configTarget?.type === 'StringGrouping' && (
         <StringGroupingDialog
-          open onClose={() => setConfigTarget(null)} onSave={handleSaveStringGrouping}
-          fieldName={configTarget.fieldName} initialGroups={configTarget.groups} initialFallback={configTarget.fallback}
-          sourceId={sourceId} tableName={tableName}
+          open
+          onClose={() => setConfigTarget(null)}
+          onSave={handleSaveStringGrouping}
+          fieldName={configTarget.fieldName}
+          initialGroups={configTarget.groups}
+          initialFallback={configTarget.fallback}
+          sourceId={sourceId}
+          tableName={tableName}
         />
       )}
 
@@ -329,29 +414,50 @@ export function FieldTransformEditor({
         <Dialog open onClose={() => setDateTruncEditTarget(null)} maxWidth="xs" fullWidth>
           <DialogTitle>
             Edit DateTrunc —{' '}
-            <Box component="code" sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace' }}>
+            <Box
+              component="code"
+              sx={{
+                bgcolor: 'action.selected',
+                px: 0.5,
+                borderRadius: '3px',
+                fontFamily: 'monospace',
+              }}
+            >
               {dateTruncEditTarget.fieldName}
             </Box>
           </DialogTitle>
           <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
             <TextField
-              size="small" fullWidth label="Name"
+              size="small"
+              fullWidth
+              label="Name"
               value={dateTruncEditTarget.name}
-              onChange={(e) => setDateTruncEditTarget((t) => t && ({ ...t, name: e.target.value }))}
+              onChange={(e) => setDateTruncEditTarget((t) => t && { ...t, name: e.target.value })}
             />
             <FormControl size="small" fullWidth>
               <InputLabel>Granularity</InputLabel>
               <Select
-                value={dateTruncEditTarget.granularity} label="Granularity"
-                onChange={(e) => setDateTruncEditTarget((t) => t && ({ ...t, granularity: e.target.value as DateGranularity }))}
+                value={dateTruncEditTarget.granularity}
+                label="Granularity"
+                onChange={(e) =>
+                  setDateTruncEditTarget(
+                    (t) => t && { ...t, granularity: e.target.value as DateGranularity },
+                  )
+                }
               >
-                {DATE_GRANULARITIES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                {DATE_GRANULARITIES.map((g) => (
+                  <MenuItem key={g} value={g}>
+                    {g}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setDateTruncEditTarget(null)}>Cancel</Button>
-            <Button variant="contained" onClick={handleSaveDateTruncEdit}>Save</Button>
+            <Button variant="contained" onClick={handleSaveDateTruncEdit}>
+              Save
+            </Button>
           </DialogActions>
         </Dialog>
       )}

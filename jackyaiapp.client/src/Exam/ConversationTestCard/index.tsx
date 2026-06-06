@@ -1,6 +1,13 @@
 import { Box, Button, useMediaQuery, useTheme } from '@mui/material';
 import { useState } from 'react';
 
+import ChatMessages from './components/ChatMessages';
+import ConversationHeader from './components/ConversationHeader';
+import CorrectionAlert from './components/CorrectionAlert';
+import MessageInput from './components/MessageInput';
+import ScenarioSelector from './components/ScenarioSelector';
+import { useVoiceRecording, useAutoScroll } from './hooks';
+
 import {
   useStartConversationTestMutation,
   useRespondToConversationMutation,
@@ -12,13 +19,6 @@ import {
 } from '@/apis/examApis/types';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
-
-import ChatMessages from './components/ChatMessages';
-import ConversationHeader from './components/ConversationHeader';
-import CorrectionAlert from './components/CorrectionAlert';
-import MessageInput from './components/MessageInput';
-import ScenarioSelector from './components/ScenarioSelector';
-import { useVoiceRecording, useAutoScroll } from './hooks';
 
 interface ConversationState {
   context: ConversationContext;

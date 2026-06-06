@@ -5,14 +5,14 @@ import Snackbar, { SnackbarCloseReason } from '@mui/material/Snackbar';
 import React, { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import ConnectorCard from './ConnectorCard';
+
 import {
   useConnectProviderMutation,
   useDisconnectProviderMutation,
   useGetConnectorStatusQuery,
 } from '@/apis/connectorsApis/connectorsApis';
 import { CustomConnectRequest } from '@/apis/connectorsApis/types';
-
-import ConnectorCard from './ConnectorCard';
 
 interface State {
   open: boolean;
@@ -44,7 +44,6 @@ const Connectors: React.FC = () => {
     const provider = searchParams.get('provider');
 
     if (success === 'true' && provider) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState({
         open: true,
         message: `Successfully connected to ${provider}`,

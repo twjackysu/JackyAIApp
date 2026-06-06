@@ -33,6 +33,7 @@ import {
   useGetSourcesQuery,
   useUpdateSourceMutation,
 } from '../../apis/dataAnalysisApis';
+
 import type {
   AdxSourceConfig,
   DataSourceConfigDto,
@@ -52,23 +53,23 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
   const [updateSource, { isLoading: updating }] = useUpdateSourceMutation();
   const [deleteSource] = useDeleteSourceMutation();
 
-  const [view, setView]             = useState<'list' | 'form'>('list');
+  const [view, setView] = useState<'list' | 'form'>('list');
   const [editTarget, setEditTarget] = useState<DataSourceConfigDto | null>(null);
 
   // Form state
-  const [formName, setFormName]               = useState('');
-  const [formType, setFormType]               = useState<DataSourceConnectorType>('MsSql');
+  const [formName, setFormName] = useState('');
+  const [formType, setFormType] = useState<DataSourceConnectorType>('MsSql');
   const [formDefaultTable, setFormDefaultTable] = useState('');
-  const [formConnStr, setFormConnStr]         = useState('');
-  const [formClusterUri, setFormClusterUri]   = useState('');
-  const [formDatabase, setFormDatabase]       = useState('');
-  const [formTenantId, setFormTenantId]       = useState('');
-  const [formClientId, setFormClientId]       = useState('');
+  const [formConnStr, setFormConnStr] = useState('');
+  const [formClusterUri, setFormClusterUri] = useState('');
+  const [formDatabase, setFormDatabase] = useState('');
+  const [formTenantId, setFormTenantId] = useState('');
+  const [formClientId, setFormClientId] = useState('');
   const [formClientSecret, setFormClientSecret] = useState('');
-  const [saveError, setSaveError]             = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const sources = sourcesRes?.data ?? [];
-  const saving  = creating || updating;
+  const saving = creating || updating;
 
   useEffect(() => {
     if (view !== 'form') return;
@@ -89,19 +90,34 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
         setFormClientSecret(c.clientSecret ?? '');
       }
     } else {
-      setFormName(''); setFormType('MsSql'); setFormDefaultTable('');
-      setFormConnStr(''); setFormClusterUri(''); setFormDatabase('');
-      setFormTenantId(''); setFormClientId(''); setFormClientSecret('');
+      setFormName('');
+      setFormType('MsSql');
+      setFormDefaultTable('');
+      setFormConnStr('');
+      setFormClusterUri('');
+      setFormDatabase('');
+      setFormTenantId('');
+      setFormClientId('');
+      setFormClientSecret('');
     }
   }, [view, editTarget]);
 
-  const openNewForm  = () => { setEditTarget(null); setView('form'); };
-  const openEditForm = (s: DataSourceConfigDto) => { setEditTarget(s); setView('form'); };
+  const openNewForm = () => {
+    setEditTarget(null);
+    setView('form');
+  };
+  const openEditForm = (s: DataSourceConfigDto) => {
+    setEditTarget(s);
+    setView('form');
+  };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this data source? This action cannot be undone.')) return;
-    try { await deleteSource(id).unwrap(); }
-    catch { /* RTK Query logs it */ }
+    try {
+      await deleteSource(id).unwrap();
+    } catch {
+      /* RTK Query logs it */
+    }
   };
 
   const handleSave = async () => {
@@ -110,17 +126,17 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
       formType === 'MsSql'
         ? { connectionString: formConnStr }
         : {
-            clusterUri:       formClusterUri,
-            database:         formDatabase,
-            tenantId:         formTenantId     || null,
-            clientId:         formClientId     || null,
-            clientSecret:     formClientSecret || null,
+            clusterUri: formClusterUri,
+            database: formDatabase,
+            tenantId: formTenantId || null,
+            clientId: formClientId || null,
+            clientSecret: formClientSecret || null,
             connectionString: null,
           };
 
     const dto: SaveDataSourceConfigDto = {
-      name:             formName,
-      connectorType:    formType,
+      name: formName,
+      connectorType: formType,
       config,
       defaultTableName: formDefaultTable || null,
     };
@@ -137,11 +153,14 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
     }
   };
 
-  const handleClose = () => { setView('list'); setEditTarget(null); onClose(); };
+  const handleClose = () => {
+    setView('list');
+    setEditTarget(null);
+    onClose();
+  };
 
   const canSave =
-    !!formName &&
-    (formType === 'MsSql' ? !!formConnStr : !!formClusterUri && !!formDatabase);
+    !!formName && (formType === 'MsSql' ? !!formConnStr : !!formClusterUri && !!formDatabase);
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -149,9 +168,10 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
         <SettingsIcon fontSize="small" />
         {view === 'list'
           ? 'Manage Data Sources'
-          : editTarget ? `Edit Source — ${editTarget.name}` : 'New Data Source'}
+          : editTarget
+            ? `Edit Source — ${editTarget.name}`
+            : 'New Data Source'}
       </DialogTitle>
-
       <DialogContent dividers sx={{ minHeight: 320 }}>
         {/* List view */}
         {view === 'list' && (
@@ -180,7 +200,8 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
                         <TableCell sx={{ fontWeight: 500 }}>{s.name}</TableCell>
                         <TableCell>
                           <Chip
-                            label={s.connectorType} size="small"
+                            label={s.connectorType}
+                            size="small"
                             color={s.connectorType === 'Adx' ? 'secondary' : 'primary'}
                           />
                         </TableCell>
@@ -191,8 +212,10 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
                             <EditIcon fontSize="small" />
                           </IconButton>
                           <IconButton
-                            size="small" color="error"
-                            onClick={() => handleDelete(s.id)} title="Delete"
+                            size="small"
+                            color="error"
+                            onClick={() => handleDelete(s.id)}
+                            title="Delete"
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -210,15 +233,20 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
         {view === 'form' && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField
-              label="Source Name" size="small" fullWidth required
-              value={formName} onChange={(e) => setFormName(e.target.value)}
+              label="Source Name"
+              size="small"
+              fullWidth
+              required
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
               placeholder="e.g. My Production DB"
             />
 
             <FormControl size="small" fullWidth>
               <InputLabel>Connector Type</InputLabel>
               <Select
-                value={formType} label="Connector Type"
+                value={formType}
+                label="Connector Type"
                 onChange={(e) => setFormType(e.target.value as DataSourceConnectorType)}
                 disabled={!!editTarget}
               >
@@ -229,28 +257,43 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
 
             {formType === 'MsSql' && (
               <TextField
-                label="Connection String" size="small" fullWidth required
-                value={formConnStr} onChange={(e) => setFormConnStr(e.target.value)}
-                type="password" inputProps={{ autoComplete: 'new-password' }}
+                label="Connection String"
+                size="small"
+                fullWidth
+                required
+                value={formConnStr}
+                onChange={(e) => setFormConnStr(e.target.value)}
+                type="password"
                 placeholder="Server=myserver;Database=mydb;User Id=sa;Password=..."
                 helperText={
                   editTarget
                     ? "Leave as 'Password=***' to keep the existing password unchanged."
                     : 'Full ADO.NET connection string including credentials.'
                 }
+                slotProps={{
+                  htmlInput: { autoComplete: 'new-password' },
+                }}
               />
             )}
 
             {formType === 'Adx' && (
               <>
                 <TextField
-                  label="Cluster URI" size="small" fullWidth required
-                  value={formClusterUri} onChange={(e) => setFormClusterUri(e.target.value)}
+                  label="Cluster URI"
+                  size="small"
+                  fullWidth
+                  required
+                  value={formClusterUri}
+                  onChange={(e) => setFormClusterUri(e.target.value)}
                   placeholder="https://mycluster.eastus.kusto.windows.net"
                 />
                 <TextField
-                  label="Database" size="small" fullWidth required
-                  value={formDatabase} onChange={(e) => setFormDatabase(e.target.value)}
+                  label="Database"
+                  size="small"
+                  fullWidth
+                  required
+                  value={formDatabase}
+                  onChange={(e) => setFormDatabase(e.target.value)}
                 />
                 <Divider>
                   <Typography variant="caption" color="text.secondary">
@@ -258,18 +301,32 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
                   </Typography>
                 </Divider>
                 <TextField
-                  label="Tenant ID" size="small" fullWidth
-                  value={formTenantId} onChange={(e) => setFormTenantId(e.target.value)}
+                  label="Tenant ID"
+                  size="small"
+                  fullWidth
+                  value={formTenantId}
+                  onChange={(e) => setFormTenantId(e.target.value)}
                 />
                 <TextField
-                  label="Client ID / App ID" size="small" fullWidth
-                  value={formClientId} onChange={(e) => setFormClientId(e.target.value)}
+                  label="Client ID / App ID"
+                  size="small"
+                  fullWidth
+                  value={formClientId}
+                  onChange={(e) => setFormClientId(e.target.value)}
                 />
                 <TextField
-                  label="Client Secret" size="small" fullWidth
-                  type="password" inputProps={{ autoComplete: 'new-password' }}
-                  value={formClientSecret} onChange={(e) => setFormClientSecret(e.target.value)}
-                  helperText={editTarget ? "Leave as '***' to keep the existing secret." : undefined}
+                  label="Client Secret"
+                  size="small"
+                  fullWidth
+                  type="password"
+                  value={formClientSecret}
+                  onChange={(e) => setFormClientSecret(e.target.value)}
+                  helperText={
+                    editTarget ? "Leave as '***' to keep the existing secret." : undefined
+                  }
+                  slotProps={{
+                    htmlInput: { autoComplete: 'new-password' },
+                  }}
                 />
               </>
             )}
@@ -277,8 +334,11 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
             <Divider />
 
             <TextField
-              label="Default Table Name (optional)" size="small" fullWidth
-              value={formDefaultTable} onChange={(e) => setFormDefaultTable(e.target.value)}
+              label="Default Table Name (optional)"
+              size="small"
+              fullWidth
+              value={formDefaultTable}
+              onChange={(e) => setFormDefaultTable(e.target.value)}
               placeholder="e.g. dbo.Orders or mydb.myTable"
               helperText="Pre-filled in the Table field when this source is selected."
             />
@@ -287,7 +347,6 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
           </Box>
         )}
       </DialogContent>
-
       <DialogActions>
         {view === 'list' ? (
           <>

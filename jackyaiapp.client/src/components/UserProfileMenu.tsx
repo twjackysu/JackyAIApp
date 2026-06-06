@@ -20,10 +20,10 @@ import {
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { apps } from '../constants/apps';
+
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useGetCreditBalanceQuery } from '@/apis/creditApis';
-
-import { apps } from '../constants/apps';
 
 function UserProfileMenu() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -130,17 +130,18 @@ function UserProfileMenu() {
           Login
         </Button>
       )}
-
       <Menu
         id="user-menu"
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
-        MenuListProps={{
-          'aria-labelledby': 'user-button',
-        }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        slotProps={{
+          list: {
+            'aria-labelledby': 'user-button',
+          },
+        }}
       >
         {isAuthenticated && (
           <MenuItem disabled>

@@ -37,7 +37,12 @@ export const AnalysisConfigPanel = ({ config, onChange }: Props) => {
   return (
     <Accordion>
       <AccordionSummary expandIcon={<SettingsIcon />}>
-        <Typography variant="subtitle1" fontWeight="bold">
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 'bold',
+          }}
+        >
           ⚙️ 分析設定
         </Typography>
       </AccordionSummary>
@@ -49,7 +54,13 @@ export const AnalysisConfigPanel = ({ config, onChange }: Props) => {
               md: 6,
             }}
           >
-            <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+            <Typography
+              variant="subtitle2"
+              gutterBottom
+              sx={{
+                fontWeight: 'bold',
+              }}
+            >
               分析項目
             </Typography>
             <FormGroup>
@@ -100,7 +111,13 @@ export const AnalysisConfigPanel = ({ config, onChange }: Props) => {
               md: 6,
             }}
           >
-            <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+            <Typography
+              variant="subtitle2"
+              gutterBottom
+              sx={{
+                fontWeight: 'bold',
+              }}
+            >
               類別權重
             </Typography>
             <Stack spacing={2}>

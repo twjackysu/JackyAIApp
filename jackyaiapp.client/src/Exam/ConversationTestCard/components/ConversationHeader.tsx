@@ -52,17 +52,18 @@ function ConversationHeader({ context, difficultyLevel }: ConversationHeaderProp
           </IconButton>
         </Toolbar>
       </AppBar>
-
       <Stack
         direction="row"
         spacing={1}
-        flexWrap="wrap"
         sx={{
+          flexWrap: 'wrap',
           p: 2,
+
           bgcolor:
             theme.palette.mode === 'dark'
               ? 'rgba(144, 202, 249, 0.08)'
               : 'rgba(144, 202, 249, 0.12)',
+
           borderBottom: '1px solid',
           borderColor: 'divider',
         }}

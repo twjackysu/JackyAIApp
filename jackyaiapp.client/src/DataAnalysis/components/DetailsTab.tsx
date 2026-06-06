@@ -10,11 +10,13 @@ import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 
-import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import { ROWS_PER_PAGE } from '../constants';
-import type { ActiveFilter } from '../types';
 import { formatCellValue } from '../utils/formatters';
+
 import { FilterEditor } from './FilterEditor';
+
+import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
+import type { ActiveFilter } from '../types';
 
 interface DetailsTabProps {
   fields: FieldDefinition[];
@@ -32,11 +34,18 @@ interface DetailsTabProps {
 }
 
 export function DetailsTab({
-  fields, detailsFilters, onFiltersChange,
-  detailsLoading, detailsError,
-  detailsRows, detailsHeaders, detailsTotalCount,
-  page, onPageChange,
-  sourceId, tableName,
+  fields,
+  detailsFilters,
+  onFiltersChange,
+  detailsLoading,
+  detailsError,
+  detailsRows,
+  detailsHeaders,
+  detailsTotalCount,
+  page,
+  onPageChange,
+  sourceId,
+  tableName,
 }: DetailsTabProps) {
   return (
     <>
@@ -55,7 +64,11 @@ export function DetailsTab({
       </Paper>
 
       {detailsLoading && <CircularProgress size={24} sx={{ mb: 1 }} />}
-      {detailsError  && <Alert severity="error" sx={{ mb: 2 }}>Failed to load rows.</Alert>}
+      {detailsError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Failed to load rows.
+        </Alert>
+      )}
 
       {detailsHeaders.length > 0 && (
         <Paper variant="outlined">
@@ -64,7 +77,9 @@ export function DetailsTab({
               <TableHead>
                 <TableRow>
                   {detailsHeaders.map((h) => (
-                    <TableCell key={h} sx={{ whiteSpace: 'nowrap' }}>{h}</TableCell>
+                    <TableCell key={h} sx={{ whiteSpace: 'nowrap' }}>
+                      {h}
+                    </TableCell>
                   ))}
                 </TableRow>
               </TableHead>
@@ -74,7 +89,12 @@ export function DetailsTab({
                     {detailsHeaders.map((h) => (
                       <TableCell
                         key={h}
-                        sx={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        sx={{
+                          maxWidth: 160,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
                         title={String((row as Record<string, unknown>)[h] ?? '')}
                       >
                         {formatCellValue((row as Record<string, unknown>)[h])}

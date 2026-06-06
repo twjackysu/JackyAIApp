@@ -44,7 +44,13 @@ function MessageInput({
         backgroundColor: theme.palette.background.paper,
       }}
     >
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+        }}
+      >
         <TextField
           fullWidth
           multiline

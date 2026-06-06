@@ -1,10 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit';
 
 import { accountApis } from '@/apis/accountApis';
-import { dataAnalysisApis } from '@/apis/dataAnalysisApis';
 import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
 import { creditApis } from '@/apis/creditApis';
 import { dailyChallengeApis } from '@/apis/dailyChallengeApis';
+import { dataAnalysisApis } from '@/apis/dataAnalysisApis';
 import { dictionaryApis } from '@/apis/dictionaryApis';
 import { ecpayApi } from '@/apis/ecpayApis';
 import { examApis } from '@/apis/examApis';

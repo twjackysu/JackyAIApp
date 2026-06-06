@@ -16,10 +16,10 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState, useCallback } from 'react';
 
+import JobCard from './components/JobCard';
+
 import { useGetListingsQuery } from '@/apis/jobApis';
 import { JobSearchParams } from '@/apis/jobApis/types';
-
-import JobCard from './components/JobCard';
 
 const ALL_PLATFORMS = [
   { id: '104', label: '104 人力銀行' },
@@ -71,16 +71,27 @@ function JobSearch() {
   return (
     <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 900, mx: 'auto' }}>
       {/* Header */}
-      <Stack direction="row" alignItems="center" spacing={1} mb={3}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+          mb: 3,
+        }}
+      >
         <WorkIcon color="primary" />
-        <Typography variant="h5" fontWeight="bold">
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 'bold',
+          }}
+        >
           職缺搜尋
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
           台灣 · 按發布時間排序
         </Typography>
       </Stack>
-
       {/* Search controls */}
       <Box
         sx={{
@@ -92,7 +103,13 @@ function JobSearch() {
         }}
       >
         {/* Keyword input + search */}
-        <Stack direction="row" spacing={1} mb={2}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            mb: 2,
+          }}
+        >
           <TextField
             fullWidth
             size="small"
@@ -100,12 +117,14 @@ function JobSearch() {
             value={inputKeywords}
             onChange={(e) => setInputKeywords(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
             }}
           />
           <Button
@@ -126,9 +145,22 @@ function JobSearch() {
         </Stack>
 
         {/* Strategy toggle + platform chips */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          sx={{
+            alignItems: { sm: 'center' },
+          }}
+        >
           {/* AND / OR */}
-          <Stack direction="row" alignItems="center" spacing={1} flexShrink={0}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+          >
             <Typography variant="body2" color="text.secondary">
               策略
             </Typography>
@@ -154,8 +186,21 @@ function JobSearch() {
           <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
 
           {/* Platform chips */}
-          <Stack direction="row" flexWrap="wrap" gap={0.75} alignItems="center">
-            <Typography variant="body2" color="text.secondary" flexShrink={0}>
+          <Stack
+            direction="row"
+            sx={{
+              gap: 0.75,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+            }}
+          >
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                flexShrink: 0,
+              }}
+            >
               來源
             </Typography>
             {ALL_PLATFORMS.map((p) => {
@@ -175,7 +220,6 @@ function JobSearch() {
           </Stack>
         </Stack>
       </Box>
-
       {/* Results */}
       {isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -183,19 +227,30 @@ function JobSearch() {
           {error && 'status' in error ? ` HTTP ${error.status}` : '請稍後再試'}
         </Alert>
       )}
-
       {isFetching && (
-        <Stack alignItems="center" py={6} spacing={2}>
+        <Stack
+          spacing={2}
+          sx={{
+            py: 6,
+            alignItems: 'center',
+          }}
+        >
           <CircularProgress />
           <Typography variant="body2" color="text.secondary">
             正在從各平台抓取最新職缺...
           </Typography>
         </Stack>
       )}
-
       {!isFetching && !isError && (
         <>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 1.5,
+            }}
+          >
             <Typography variant="body2" color="text.secondary">
               共 {jobs.length} 筆結果
               {jobs.length > 0 && (

@@ -5,11 +5,11 @@ import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import { MouseEvent, useEffect, useRef, useState } from 'react';
 
-import { useGetRepositoryWordsQuery } from '@/apis/repositoryApis';
-
 import { Word } from '../apis/dictionaryApis/types';
 import RepositoryNoWordAlert from '../components/RepositoryNoWordAlert';
 import WordCard from '../components/WordCard';
+
+import { useGetRepositoryWordsQuery } from '@/apis/repositoryApis';
 
 function Repository() {
   const [pageNumber, setPageNumber] = useState(1);
@@ -38,7 +38,6 @@ function Repository() {
 
   useEffect(() => {
     if (!isFetching && data) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAccumulatedData((prev) => {
         return {
           ...prev,
@@ -79,7 +78,11 @@ function Repository() {
     <Box>
       <Stack direction="row">
         {allWords.length === 0 ? (
-          <Box p={2}>
+          <Box
+            sx={{
+              p: 2,
+            }}
+          >
             <RepositoryNoWordAlert />
           </Box>
         ) : (

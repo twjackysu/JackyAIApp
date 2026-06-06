@@ -6,8 +6,7 @@ export function formatCellValue(value: unknown): string {
     if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return value.substring(0, 10);
     return value;
   }
-  if (typeof value === 'number')
-    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2);
   return String(value);
 }
 

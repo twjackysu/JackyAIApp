@@ -46,8 +46,21 @@ export default function JobCard({ job }: JobCardProps) {
       }}
     >
       {/* Header row: title + open link */}
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-        <Typography variant="subtitle1" fontWeight="bold" sx={{ lineHeight: 1.3 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+        }}
+      >
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 'bold',
+            lineHeight: 1.3,
+          }}
+        >
           {job.title || '（未提供職位名稱）'}
         </Typography>
         <Tooltip title="在新分頁開啟">
@@ -63,11 +76,24 @@ export default function JobCard({ job }: JobCardProps) {
           </IconButton>
         </Tooltip>
       </Stack>
-
       {/* Meta row */}
-      <Stack direction="row" flexWrap="wrap" gap={1.5} mt={0.75} mb={1}>
+      <Stack
+        direction="row"
+        sx={{
+          gap: 1.5,
+          mt: 0.75,
+          flexWrap: 'wrap',
+          mb: 1,
+        }}
+      >
         {job.company && (
-          <Stack direction="row" alignItems="center" spacing={0.5}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: 'center',
+            }}
+          >
             <BusinessIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
             <Typography variant="body2" color="text.secondary">
               {job.company}
@@ -75,7 +101,13 @@ export default function JobCard({ job }: JobCardProps) {
           </Stack>
         )}
         {job.location && (
-          <Stack direction="row" alignItems="center" spacing={0.5}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: 'center',
+            }}
+          >
             <LocationOnIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
             <Typography variant="body2" color="text.secondary">
               {job.location}
@@ -83,15 +115,26 @@ export default function JobCard({ job }: JobCardProps) {
           </Stack>
         )}
         {job.salaryRange && (
-          <Stack direction="row" alignItems="center" spacing={0.5}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            sx={{
+              alignItems: 'center',
+            }}
+          >
             <MonetizationOnIcon sx={{ fontSize: 14, color: 'success.main' }} />
-            <Typography variant="body2" color="success.main" fontWeight="medium">
+            <Typography
+              variant="body2"
+              color="success.main"
+              sx={{
+                fontWeight: 'medium',
+              }}
+            >
               {job.salaryRange}
             </Typography>
           </Stack>
         )}
       </Stack>
-
       {/* Description snippet */}
       {job.description && (
         <Typography
@@ -108,16 +151,23 @@ export default function JobCard({ job }: JobCardProps) {
           {job.description}
         </Typography>
       )}
-
       {/* Footer: platform + tags + time */}
       <Stack
         direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        flexWrap="wrap"
-        gap={1}
+        sx={{
+          gap: 1,
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
       >
-        <Stack direction="row" flexWrap="wrap" gap={0.5}>
+        <Stack
+          direction="row"
+          sx={{
+            gap: 0.5,
+            flexWrap: 'wrap',
+          }}
+        >
           <Chip
             label={job.platform}
             size="small"
@@ -140,7 +190,13 @@ export default function JobCard({ job }: JobCardProps) {
             />
           ))}
         </Stack>
-        <Stack direction="row" alignItems="center" spacing={0.5}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: 'center',
+          }}
+        >
           <AccessTimeIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
           <Typography variant="caption" color="text.disabled">
             {formatRelativeTime(job.postedAt)}

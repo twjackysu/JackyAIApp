@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
+
 import { DATE_CANONICAL_TYPES } from '../constants';
+
+import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 
 export function useDateField(fields: FieldDefinition[]) {
   const [dateField, setDateField] = useState('OrderDate');
@@ -11,9 +13,7 @@ export function useDateField(fields: FieldDefinition[]) {
     if (fields.length === 0) return;
     const exists = fields.some((f) => f.name === dateField);
     if (!exists) {
-      const firstDate = fields.find((f) =>
-        DATE_CANONICAL_TYPES.includes(f.canonicalType),
-      )?.name;
+      const firstDate = fields.find((f) => DATE_CANONICAL_TYPES.includes(f.canonicalType))?.name;
       setDateField(firstDate ?? fields[0].name);
     }
   }, [fields]); // eslint-disable-line react-hooks/exhaustive-deps

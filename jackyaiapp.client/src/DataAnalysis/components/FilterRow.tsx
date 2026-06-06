@@ -14,34 +14,42 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
 
 import { useSummarizeMutation, useGetDistinctValuesQuery } from '../../apis/dataAnalysisApis';
+
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef } from '../types';
 
 interface FilterRowProps {
-  filter:     ActiveFilter;
-  fields:     FieldDefinition[];
+  filter: ActiveFilter;
+  fields: FieldDefinition[];
   transforms: FieldTransformDef[];
-  onUpdate:   (f: ActiveFilter) => void;
-  onRemove:   () => void;
-  sourceId?:  string;
+  onUpdate: (f: ActiveFilter) => void;
+  onRemove: () => void;
+  sourceId?: string;
   tableName?: string;
 }
 
 export function FilterRow({
-  filter, fields, transforms, onUpdate, onRemove, sourceId, tableName,
+  filter,
+  fields,
+  transforms,
+  onUpdate,
+  onRemove,
+  sourceId,
+  tableName,
 }: FilterRowProps) {
   // All transforms for this field (any type)
   const fieldTransforms = transforms.filter((t) => t.fieldName === filter.fieldName);
-  const hasTransforms   = fieldTransforms.length > 0;
+  const hasTransforms = fieldTransforms.length > 0;
 
   // Resolve the active transform (if any)
-  const activeTransform = filter.useTransform && filter.transformId !== null
-    ? transforms.find((t) => t.id === filter.transformId)
-    : undefined;
+  const activeTransform =
+    filter.useTransform && filter.transformId !== null
+      ? transforms.find((t) => t.id === filter.transformId)
+      : undefined;
 
   // ── DateTrunc: fetch distinct truncated period values via Summarize ────────
   const [fetchSummarize] = useSummarizeMutation();
-  const [dateTruncValues,   setDateTruncValues]   = useState<string[]>([]);
+  const [dateTruncValues, setDateTruncValues] = useState<string[]>([]);
   const [dateTruncFetching, setDateTruncFetching] = useState(false);
 
   useEffect(() => {
@@ -57,28 +65,27 @@ export function FilterRow({
     const done = () => setDateTruncFetching(false);
     fetchSummarize({
       context: ctx,
-      viewBy: [{
-        type:        'DateTrunc',
-        fieldName:   activeTransform.fieldName,
-        granularity: activeTransform.granularity,
-      }],
+      viewBy: [
+        {
+          type: 'DateTrunc',
+          fieldName: activeTransform.fieldName,
+          granularity: activeTransform.granularity,
+        },
+      ],
       measures: [{ fieldName: activeTransform.fieldName, aggregation: 'Count', alias: '_cnt' }],
-    }).then(
-      (result) => {
-        if ('data' in result && result.data?.data?.rows) {
-          const rows   = result.data.data.rows;
-          const dimKey = rows.length > 0 ? Object.keys(rows[0])[0] : activeTransform.fieldName;
-          const vals   = rows
-            .map((r) => String(r[dimKey] ?? ''))
-            .filter(Boolean)
-            .sort();
-          setDateTruncValues(vals);
-        }
-        done();
-      },
-      done,
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    }).then((result) => {
+      if ('data' in result && result.data?.data?.rows) {
+        const rows = result.data.data.rows;
+        const dimKey = rows.length > 0 ? Object.keys(rows[0])[0] : activeTransform.fieldName;
+        const vals = rows
+          .map((r) => String(r[dimKey] ?? ''))
+          .filter(Boolean)
+          .sort();
+        setDateTruncValues(vals);
+      }
+      done();
+    }, done);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter.useTransform, activeTransform?.id, filter.fieldName, sourceId, tableName]);
 
   // ── Raw distinct values (skipped while in transform mode) ─────────────────
@@ -92,33 +99,40 @@ export function FilterRow({
   const displayValues: string[] = (() => {
     if (!filter.useTransform || !activeTransform) return rawDistinctValues;
     switch (activeTransform.type) {
-      case 'StringGrouping': return activeTransform.groups.map((g) => g.label);
-      case 'NumericBin':     return activeTransform.bins.map((b) => b.label);
-      case 'DateTrunc':      return dateTruncValues;
-      default:               return rawDistinctValues;
+      case 'StringGrouping':
+        return activeTransform.groups.map((g) => g.label);
+      case 'NumericBin':
+        return activeTransform.bins.map((b) => b.label);
+      case 'DateTrunc':
+        return dateTruncValues;
+      default:
+        return rawDistinctValues;
     }
   })();
 
   const isLoadingValues = filter.useTransform
-    ? (activeTransform?.type === 'DateTrunc' && dateTruncFetching)
-    : (!filter.useTransform && isFetching);
+    ? activeTransform?.type === 'DateTrunc' && dateTruncFetching
+    : !filter.useTransform && isFetching;
 
   const valuesLabel = isLoadingValues
     ? 'Loading…'
     : filter.fieldName
       ? filter.useTransform
-        ? activeTransform?.type === 'NumericBin' ? 'Bin labels'
-          : activeTransform?.type === 'DateTrunc' ? 'Period labels'
-          : 'Group labels'
+        ? activeTransform?.type === 'NumericBin'
+          ? 'Bin labels'
+          : activeTransform?.type === 'DateTrunc'
+            ? 'Period labels'
+            : 'Group labels'
         : 'Values'
       : 'Select a field first';
 
   // ── Tooltip copy for the "Use transform" switch ────────────────────────────
-  const transformTooltip = activeTransform?.type === 'StringGrouping'
-    ? 'Filter by group labels (each label expands to its raw member values)'
-    : activeTransform?.type === 'NumericBin'
-      ? 'Filter by bin labels (selected bins are merged into a range filter)'
-      : 'Filter by period labels (selected periods are merged into a date range)';
+  const transformTooltip =
+    activeTransform?.type === 'StringGrouping'
+      ? 'Filter by group labels (each label expands to its raw member values)'
+      : activeTransform?.type === 'NumericBin'
+        ? 'Filter by bin labels (selected bins are merged into a range filter)'
+        : 'Filter by period labels (selected periods are merged into a date range)';
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -155,7 +169,9 @@ export function FilterRow({
           onChange={(e) => handleFieldChange(e.target.value as string)}
         >
           {fields.map((f) => (
-            <MenuItem key={f.name} value={f.name}>{f.name}</MenuItem>
+            <MenuItem key={f.name} value={f.name}>
+              {f.name}
+            </MenuItem>
           ))}
         </Select>
       </FormControl>
@@ -163,7 +179,12 @@ export function FilterRow({
       {/* ── Transform controls (when any transform exists for this field) ── */}
       {filter.fieldName && hasTransforms && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Tooltip title={filter.useTransform ? transformTooltip : 'Switch on to filter using transform labels'} placement="top">
+          <Tooltip
+            title={
+              filter.useTransform ? transformTooltip : 'Switch on to filter using transform labels'
+            }
+            placement="top"
+          >
             <FormControlLabel
               sx={{ m: 0 }}
               control={
@@ -191,7 +212,9 @@ export function FilterRow({
                 onChange={(e) => handleTransformSelect(e.target.value as number)}
               >
                 {fieldTransforms.map((t) => (
-                  <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                  <MenuItem key={t.id} value={t.id}>
+                    {t.name}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -210,17 +233,25 @@ export function FilterRow({
           input={<OutlinedInput label={valuesLabel} />}
           renderValue={(sel) => (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              {sel.map((v) => <Chip key={v} label={v} size="small" />)}
+              {sel.map((v) => (
+                <Chip key={v} label={v} size="small" />
+              ))}
             </Box>
           )}
         >
           {isLoadingValues ? (
-            <MenuItem disabled><em>Loading values…</em></MenuItem>
+            <MenuItem disabled>
+              <em>Loading values…</em>
+            </MenuItem>
           ) : displayValues.length === 0 ? (
-            <MenuItem disabled><em>No values found</em></MenuItem>
+            <MenuItem disabled>
+              <em>No values found</em>
+            </MenuItem>
           ) : (
             displayValues.map((v) => (
-              <MenuItem key={v} value={v}>{v}</MenuItem>
+              <MenuItem key={v} value={v}>
+                {v}
+              </MenuItem>
             ))
           )}
         </Select>

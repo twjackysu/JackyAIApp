@@ -16,15 +16,6 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState, useMemo } from 'react';
 
-import { useGetUserInfoQuery } from '@/apis/accountApis';
-import {
-  useGetDailyImportantInfoQuery,
-  useAnalyzeStockMutation,
-  useGetComprehensiveAnalysisMutation,
-} from '@/apis/financeApis';
-import { StockTrendAnalysis, StockAnalysisResultData } from '@/apis/financeApis/types';
-import FloatingChatbot from '@/components/FloatingChatbot';
-
 import {
   StockAnalysisResult,
   MarketSummaryCard,
@@ -35,6 +26,15 @@ import {
 import { getCurrentDate } from './utils/financeHelpers';
 
 import type { AnalysisConfig } from './components';
+
+import { useGetUserInfoQuery } from '@/apis/accountApis';
+import {
+  useGetDailyImportantInfoQuery,
+  useAnalyzeStockMutation,
+  useGetComprehensiveAnalysisMutation,
+} from '@/apis/financeApis';
+import { StockTrendAnalysis, StockAnalysisResultData } from '@/apis/financeApis/types';
+import FloatingChatbot from '@/components/FloatingChatbot';
 
 /** Detect market from stock code: numeric (with optional trailing letter) = TW, otherwise US */
 const detectMarket = (code: string): 'TW' | 'US' =>
@@ -160,12 +160,21 @@ function Finance() {
   return (
     <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
       {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 2,
+        }}
+      >
         <Typography
           variant="h5"
           component="h1"
-          fontWeight="bold"
-          sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }}
+          sx={{
+            fontWeight: 'bold',
+            fontSize: { xs: '1.2rem', sm: '1.5rem' },
+          }}
         >
           📈 Stock Intelligence & Market Analysis
         </Typography>
@@ -218,7 +227,13 @@ function Finance() {
         {/* Search bar for stock analysis tabs */}
         {isSearchTab && (
           <>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                alignItems: 'center',
+              }}
+            >
               <TextField
                 fullWidth
                 variant="outlined"
@@ -228,26 +243,28 @@ function Finance() {
                 onChange={(e) => setStockSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleStockSearch()}
                 disabled={isAnyAnalyzing || (analysisTab === TAB_AI_TREND && !isAuthenticated)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                  endAdornment: hasStockResults ? (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={clearSearchResults}
-                        disabled={isAnyAnalyzing}
-                        edge="end"
-                      >
-                        <RefreshIcon fontSize="small" />
-                      </IconButton>
-                    </InputAdornment>
-                  ) : undefined,
-                }}
                 sx={{ flexGrow: 1 }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                    endAdornment: hasStockResults ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={clearSearchResults}
+                          disabled={isAnyAnalyzing}
+                          edge="end"
+                        >
+                          <RefreshIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : undefined,
+                  },
+                }}
               />
               <Button
                 variant="contained"
@@ -298,19 +315,27 @@ function Finance() {
           !isMarketLoading &&
           !isMarketError &&
           stockInsights.length > 0 && (
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Stack
+              direction="row"
+              spacing={2}
+              sx={{
+                alignItems: 'center',
+              }}
+            >
               <TextField
                 fullWidth
                 variant="outlined"
                 placeholder="搜尋市場摘要..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
               />
               <IconButton
