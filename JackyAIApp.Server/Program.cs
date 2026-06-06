@@ -131,25 +131,15 @@ try
         client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
         client.Timeout = TimeSpan.FromSeconds(15);
     });
-    builder.Services.AddHttpClient("GitHub", client =>
+    builder.Services.AddHttpClient("Cake", client =>
     {
-        client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
-        client.DefaultRequestHeaders.Add("User-Agent", "JackyAIApp-JobAggregator/1.0");
+        client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml");
+        client.DefaultRequestHeaders.Add("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.8");
+        client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
         client.Timeout = TimeSpan.FromSeconds(15);
     });
-    builder.Services.AddSingleton<IJobProvider>(sp =>
-        GitHubJobsProviderFactory.F2etw(
-            sp.GetRequiredService<IHttpClientFactory>(),
-            sp.GetRequiredService<ILogger<GitHubJobsProvider>>()));
-    builder.Services.AddSingleton<IJobProvider>(sp =>
-        GitHubJobsProviderFactory.GolangTW(
-            sp.GetRequiredService<IHttpClientFactory>(),
-            sp.GetRequiredService<ILogger<GitHubJobsProvider>>()));
-    builder.Services.AddSingleton<IJobProvider>(sp =>
-        GitHubJobsProviderFactory.DevOpsTW(
-            sp.GetRequiredService<IHttpClientFactory>(),
-            sp.GetRequiredService<ILogger<GitHubJobsProvider>>()));
     builder.Services.AddSingleton<IJobProvider, Job104Provider>();
+    builder.Services.AddSingleton<IJobProvider, CakeJobsProvider>();
     builder.Services.AddSingleton<IJobAggregatorService, JobAggregatorService>();
 
     // Configure Prompt and OpenAI services

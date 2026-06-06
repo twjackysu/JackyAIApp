@@ -13,7 +13,7 @@ public class JobController(
     ILogger<JobController> logger) : ControllerBase
 {
     private static readonly string[] DefaultPlatforms =
-        ["104", "github-f2etw", "github-golangtw", "github-devopstw"];
+        ["104", "cake"];
 
     /// <summary>
     /// Search job listings across multiple platforms.
@@ -52,10 +52,8 @@ public class JobController(
     {
         var platforms = new[]
         {
-            new { Id = "104",              DisplayName = "104人力銀行" },
-            new { Id = "github-f2etw",    DisplayName = "GitHub · f2etw/jobs (前端台灣)" },
-            new { Id = "github-golangtw", DisplayName = "GitHub · golangTW/jobs (Golang 台灣)" },
-            new { Id = "github-devopstw", DisplayName = "GitHub · DevOpsTW/jobs (DevOps 台灣)" },
+            new { Id = "104",  DisplayName = "104人力銀行" },
+            new { Id = "cake", DisplayName = "Cake (cake.me)" },
         };
         return responseFactory.CreateOKResponse(platforms);
     }

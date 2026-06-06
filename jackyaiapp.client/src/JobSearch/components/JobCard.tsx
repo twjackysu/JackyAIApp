@@ -32,9 +32,6 @@ function formatRelativeTime(isoDate: string): string {
 
 function platformColor(platform: string): 'primary' | 'secondary' | 'success' | 'info' | 'warning' {
   if (platform.includes('104')) return 'primary';
-  if (platform.includes('f2etw')) return 'success';
-  if (platform.includes('golang') || platform.includes('Golang')) return 'info';
-  if (platform.includes('DevOps')) return 'warning';
   return 'secondary';
 }
 
@@ -124,9 +121,14 @@ export default function JobCard({ job }: JobCardProps) {
           <Chip
             label={job.platform}
             size="small"
-            color={platformColor(job.platform)}
+            color={job.platform.includes('Cake') ? 'default' : platformColor(job.platform)}
             variant="outlined"
-            sx={{ height: 20, fontSize: '0.7rem' }}
+            sx={{
+              height: 20,
+              fontSize: '0.7rem',
+              // Cake brand teal as a subtle outline (palette has no teal)
+              ...(job.platform.includes('Cake') && { borderColor: '#00b3a4', color: '#00897b' }),
+            }}
           />
           {job.tags.slice(0, 4).map((tag) => (
             <Chip

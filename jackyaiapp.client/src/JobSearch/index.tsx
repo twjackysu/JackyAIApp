@@ -23,9 +23,7 @@ import JobCard from './components/JobCard';
 
 const ALL_PLATFORMS = [
   { id: '104', label: '104 人力銀行' },
-  { id: 'github-f2etw', label: 'f2etw (前端)' },
-  { id: 'github-golangtw', label: 'golangTW (Go)' },
-  { id: 'github-devopstw', label: 'DevOpsTW' },
+  { id: 'cake', label: 'Cake' },
 ];
 
 const DEFAULT_KEYWORDS = 'senior software engineer';
