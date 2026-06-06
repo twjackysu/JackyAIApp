@@ -12,7 +12,7 @@ function DividerWithText(props: Props) {
   return (
     <Grid container>
       <Grid size="auto">
-        <Typography variant="subtitle2" color={grey[700]}>
+        <Typography variant="subtitle2" sx={{ color: grey[700] }}>
           {text}
         </Typography>
       </Grid>

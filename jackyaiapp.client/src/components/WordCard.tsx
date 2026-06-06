@@ -103,7 +103,7 @@ function WordCard({
           )}
         </Stack>
         {isFetching && <AILoading />}
-        <Typography color={lightBlue[200]}>{word?.kkPhonics}</Typography>
+        <Typography sx={{ color: lightBlue[200] }}>{word?.kkPhonics}</Typography>
       </Stack>
       <CardContent>
         {isError ? (
@@ -116,16 +116,16 @@ function WordCard({
                 size={isOneWordFullWidth || word?.meanings.length === 1 ? 12 : 6}
               >
                 <DividerWithText text="Part of speech" />
-                <Typography variant="h6" color={lime[200]}>
+                <Typography variant="h6" sx={{ color: lime[200] }}>
                   {meaning.partOfSpeech}
                 </Typography>
                 <DividerWithText text="Definitions" />
                 {meaning.definitions.map((definition) => (
                   <Fragment key={definition.english}>
-                    <Typography variant="body1" color={deepPurple[200]}>
+                    <Typography variant="body1" sx={{ color: deepPurple[200] }}>
                       {definition.english}
                     </Typography>
-                    <Typography variant="body1" color={deepPurple[200]}>
+                    <Typography variant="body1" sx={{ color: deepPurple[200] }}>
                       {definition.chinese}
                     </Typography>
                   </Fragment>
@@ -134,7 +134,7 @@ function WordCard({
                 {meaning.exampleSentences.map((exampleSentence) => (
                   <Fragment key={exampleSentence.english}>
                     <Stack direction="row" spacing={2}>
-                      <Typography variant="body2" color={lightGreen[200]}>
+                      <Typography variant="body2" sx={{ color: lightGreen[200] }}>
                         {exampleSentence.english}
                       </Typography>
                       <IconButton
@@ -146,7 +146,7 @@ function WordCard({
                         <PlayCircleIcon />
                       </IconButton>
                     </Stack>
-                    <Typography variant="body2" color={lightGreen[200]}>
+                    <Typography variant="body2" sx={{ color: lightGreen[200] }}>
                       {exampleSentence.chinese}
                     </Typography>
                   </Fragment>
