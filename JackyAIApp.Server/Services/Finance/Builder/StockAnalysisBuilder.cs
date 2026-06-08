@@ -96,35 +96,30 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             // US stocks use insider trading data as chip data equivalent
             var effectiveIncludeChip = _includeChip && (chipProvider != null || (region == MarketRegion.US && _insiderTradingProvider != null));
 
-            // 1. Fetch data in parallel
-            MarketData? priceData = null;
-            MarketData? chipData = null;
-            FundamentalData? fundamentalData = null;
-            InsiderTradingSummary? insiderTrading = null;
+            // 1. Fetch data in parallel. Capture typed tasks, await them together,
+            // then read each result (awaiting a completed task unwraps exceptions
+            // cleanly, unlike ContinueWith + .Result which surfaces AggregateException).
+            var priceTask = (_includeTechnical || _includeFundamental)
+                ? marketProvider.FetchAsync(_stockCode, cancellationToken)
+                : null;
+            var chipTask = effectiveIncludeChip
+                ? FetchChipSafe(_stockCode, chipProvider!, cancellationToken)
+                : null;
+            var fundamentalTask = _includeFundamental
+                ? FetchFundamentalSafe(_stockCode, fundamentalProvider, cancellationToken)
+                : null;
+            var insiderTask = (region == MarketRegion.US && effectiveIncludeChip && _insiderTradingProvider != null)
+                ? FetchInsiderTradingSafe(_stockCode, cancellationToken)
+                : null;
 
-            var tasks = new List<Task>();
-            if (_includeTechnical || _includeFundamental)
-            {
-                tasks.Add(marketProvider.FetchAsync(_stockCode, cancellationToken)
-                    .ContinueWith(t => priceData = t.Result, TaskScheduler.Default));
-            }
-            if (effectiveIncludeChip)
-            {
-                tasks.Add(FetchChipSafe(_stockCode, chipProvider!, cancellationToken)
-                    .ContinueWith(t => chipData = t.Result, TaskScheduler.Default));
-            }
-            if (_includeFundamental)
-            {
-                tasks.Add(FetchFundamentalSafe(_stockCode, fundamentalProvider, cancellationToken)
-                    .ContinueWith(t => fundamentalData = t.Result, TaskScheduler.Default));
-            }
-            // US stocks: fetch insider trading
-            if (region == MarketRegion.US && effectiveIncludeChip && _insiderTradingProvider != null)
-            {
-                tasks.Add(FetchInsiderTradingSafe(_stockCode, cancellationToken)
-                    .ContinueWith(t => insiderTrading = t.Result, TaskScheduler.Default));
-            }
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(
+                new Task?[] { priceTask, chipTask, fundamentalTask, insiderTask }
+                    .Where(t => t is not null)!);
+
+            MarketData? priceData = priceTask is not null ? await priceTask : null;
+            MarketData? chipData = chipTask is not null ? await chipTask : null;
+            FundamentalData? fundamentalData = fundamentalTask is not null ? await fundamentalTask : null;
+            InsiderTradingSummary? insiderTrading = insiderTask is not null ? await insiderTask : null;
 
             // 2. Build context
             var context = new IndicatorContext
