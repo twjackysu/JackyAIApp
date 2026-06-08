@@ -131,6 +131,14 @@ try
         JackyAIApp.Server.Services.Exam.Generators.SentenceExamGenerator>();
     builder.Services.AddScoped<JackyAIApp.Server.Services.Exam.IExamService,
         JackyAIApp.Server.Services.Exam.ExamService>();
+    builder.Services.AddScoped<JackyAIApp.Server.Services.Repository.IRepositoryService,
+        JackyAIApp.Server.Services.Repository.RepositoryService>();
+    builder.Services.AddScoped<JackyAIApp.Server.Services.WordOfTheDay.IWordOfTheDayService,
+        JackyAIApp.Server.Services.WordOfTheDay.WordOfTheDayService>();
+    builder.Services.AddSingleton<JackyAIApp.Server.Services.DailyChallenge.IDailyChallengeQuestionGenerator,
+        JackyAIApp.Server.Services.DailyChallenge.DailyChallengeQuestionGenerator>();
+    builder.Services.AddScoped<JackyAIApp.Server.Services.DailyChallenge.IDailyChallengeService,
+        JackyAIApp.Server.Services.DailyChallenge.DailyChallengeService>();
     builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();

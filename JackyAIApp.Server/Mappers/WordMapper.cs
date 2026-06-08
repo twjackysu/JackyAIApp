@@ -95,6 +95,17 @@ namespace JackyAIApp.Server.Mappers
                 DateAdded = sqlWord.DateAdded,
                 LastUpdated = sqlWord.LastUpdated,
                 DataInvalid = sqlWord.DataInvalid,
+                ClozeTests = sqlWord.ClozeTests?.Select(ct => new DTO.ClozeTest
+                {
+                    Question = ct.Question,
+                    Answer = ct.Answer,
+                    Options = ct.Options.Select(o => o.OptionText).ToList()
+                }).ToList(),
+                TranslationTests = sqlWord.TranslationTests?.Select(tt => new DTO.TranslationTest
+                {
+                    Chinese = tt.Chinese,
+                    English = tt.English
+                }).ToList(),
                 Meanings = sqlWord.Meanings.Select(m => new DTO.WordMeaning
                 {
                     PartOfSpeech = m.PartOfSpeech,
