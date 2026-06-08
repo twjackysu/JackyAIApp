@@ -3,10 +3,10 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.SpellChecker;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using WeCantSpell.Hunspell;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -19,19 +19,22 @@ namespace JackyAIApp.Server.Controllers
         private readonly AzureSQLDBContext _DBContext;
         private readonly IOpenAIPromptService _promptService;
         private readonly IExtendedMemoryCache _memoryCache;
+        private readonly ISpellChecker _spellChecker;
 
         public DictionaryController(
             ILogger<DictionaryController> logger,
             IMyResponseFactory responseFactory,
             AzureSQLDBContext DBContext,
             IOpenAIPromptService promptService,
-            IExtendedMemoryCache memoryCache)
+            IExtendedMemoryCache memoryCache,
+            ISpellChecker spellChecker)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
             _DBContext = DBContext ?? throw new ArgumentNullException(nameof(DBContext));
             _promptService = promptService ?? throw new ArgumentNullException(nameof(promptService));
             _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+            _spellChecker = spellChecker ?? throw new ArgumentNullException(nameof(spellChecker));
         }
 
         [HttpGet("{word}", Name = "Search word")]
@@ -39,9 +42,8 @@ namespace JackyAIApp.Server.Controllers
         {
             var lowerWord = word.Trim().ToLower();
 
-            // Validate word against dictionary
-            var dictionary = WordList.CreateFromFiles("Dictionary/en_US.dic");
-            if (!dictionary.Check(lowerWord))
+            // Validate word against dictionary (shared singleton checker)
+            if (!_spellChecker.Check(lowerWord))
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.TheWordCannotBeFound, "This is not a valid word.");
             }
