@@ -72,18 +72,11 @@ namespace JackyAIApp.Server.Controllers
             }
 
             // Get a random word from the user's collection
-            var userWords = await _DBContext.UserWords
-                .Where(uw => uw.UserId == userId)
-                .ToListAsync();
-
-            if (userWords.Count == 0)
+            var randomWordId = await GetRandomUserWordIdAsync(userId!);
+            if (randomWordId == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.");
             }
-
-            var random = new Random();
-            var randomIndex = random.Next(userWords.Count);
-            string randomWordId = userWords[randomIndex].WordId;
 
             var word = await _DBContext.Words
                 .Include(w => w.ClozeTests)
@@ -97,7 +90,7 @@ namespace JackyAIApp.Server.Controllers
 
             if (word.ClozeTests != null && word.ClozeTests.Count > 3)
             {
-                var randomTestIndex = random.Next(word.ClozeTests.Count);
+                var randomTestIndex = Random.Shared.Next(word.ClozeTests.Count);
                 var randomTest = word.ClozeTests.ElementAt(randomTestIndex);
                 return _responseFactory.CreateOKResponse(ConvertClozeTestToDto(randomTest));
             }
@@ -128,7 +121,7 @@ namespace JackyAIApp.Server.Controllers
             _logger.LogInformation("Generated cloze test for word: {Word}", word.WordText);
 
             // Randomize options order
-            var optionsList = clozeTestDTO.Options.OrderBy(_ => random.NextDouble()).ToList();
+            var optionsList = clozeTestDTO.Options.OrderBy(_ => Random.Shared.NextDouble()).ToList();
 
             // Create SQL entity
             var clozeTestId = Guid.NewGuid().ToString();
@@ -184,18 +177,11 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.TranslationTest}. Please purchase more credits to continue.");
             }
 
-            var userWords = await _DBContext.UserWords
-                .Where(uw => uw.UserId == userId)
-                .ToListAsync();
-
-            if (userWords.Count == 0)
+            var randomWordId = await GetRandomUserWordIdAsync(userId!);
+            if (randomWordId == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.");
             }
-
-            var random = new Random();
-            var randomIndex = random.Next(userWords.Count);
-            string randomWordId = userWords[randomIndex].WordId;
 
             var word = await _DBContext.Words
                 .Include(w => w.TranslationTests)
@@ -208,7 +194,7 @@ namespace JackyAIApp.Server.Controllers
 
             if (word.TranslationTests != null && word.TranslationTests.Count > 3)
             {
-                var randomTestIndex = random.Next(word.TranslationTests.Count);
+                var randomTestIndex = Random.Shared.Next(word.TranslationTests.Count);
                 var randomTest = word.TranslationTests.ElementAt(randomTestIndex);
                 return _responseFactory.CreateOKResponse(ConvertTranslationTestToDto(randomTest, word.WordText));
             }
@@ -470,18 +456,11 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.SentenceTest}.");
             }
 
-            var userWords = await _DBContext.UserWords
-                .Where(uw => uw.UserId == userId)
-                .ToListAsync();
-
-            if (userWords.Count == 0)
+            var randomWordId = await GetRandomUserWordIdAsync(userId!);
+            if (randomWordId == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.");
             }
-
-            var random = new Random();
-            var randomIndex = random.Next(userWords.Count);
-            string randomWordId = userWords[randomIndex].WordId;
 
             var word = await _DBContext.Words
                 .Include(w => w.SentenceTests)
@@ -494,7 +473,7 @@ namespace JackyAIApp.Server.Controllers
 
             if (word.SentenceTests != null && word.SentenceTests.Count > 3)
             {
-                var randomTestIndex = random.Next(word.SentenceTests.Count);
+                var randomTestIndex = Random.Shared.Next(word.SentenceTests.Count);
                 var randomTest = word.SentenceTests.ElementAt(randomTestIndex);
                 return _responseFactory.CreateOKResponse(ConvertSentenceTestToDto(randomTest, word.WordText));
             }
@@ -596,6 +575,28 @@ namespace JackyAIApp.Server.Controllers
 
             _logger.LogInformation("Generated sentence evaluation for word: {Word}", userResponse.Word);
             return _responseFactory.CreateOKResponse(evaluation);
+        }
+
+        /// <summary>
+        /// Picks a random WordId from the user's saved words at the database level
+        /// (COUNT + OFFSET) instead of loading the whole collection into memory.
+        /// Returns null when the user has no saved words.
+        /// </summary>
+        private async Task<string?> GetRandomUserWordIdAsync(string userId)
+        {
+            var query = _DBContext.UserWords.Where(uw => uw.UserId == userId);
+            var count = await query.CountAsync();
+            if (count == 0)
+            {
+                return null;
+            }
+
+            var skip = Random.Shared.Next(count);
+            return await query
+                .OrderBy(uw => uw.WordId)
+                .Skip(skip)
+                .Select(uw => uw.WordId)
+                .FirstOrDefaultAsync();
         }
 
         private static ClozeTest ConvertClozeTestToDto(Data.Models.SQL.ClozeTest sqlClozeTest)
