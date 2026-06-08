@@ -14,9 +14,9 @@ namespace JackyAIApp.Server.Controllers
     [ApiController]
     public class PDFController(ILogger<PDFController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IUserService userService, IExtendedMemoryCache memoryCache) : ControllerBase
     {
-        private readonly ILogger<PDFController> _logger = logger ?? throw new ArgumentNullException();
+        private readonly ILogger<PDFController> _logger = logger;
         private readonly IOptionsMonitor<Settings> _settings = settings;
-        private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
+        private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IUserService _userService = userService;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         [HttpPost("unlock")]

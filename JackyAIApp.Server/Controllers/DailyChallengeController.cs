@@ -15,31 +15,22 @@ namespace JackyAIApp.Server.Controllers
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class DailyChallengeController : ControllerBase
+    public class DailyChallengeController(
+        ILogger<DailyChallengeController> logger,
+        IMyResponseFactory responseFactory,
+        AzureSQLDBContext dbContext,
+        IUserService userService,
+        ICreditService creditService) : ControllerBase
     {
         private const int QUESTIONS_PER_CHALLENGE = 5;
         private const int MIN_WORDS_FOR_CHALLENGE = 20; // Minimum words in DB to generate challenge
         private const int OPTIONS_PER_QUESTION = 4;
 
-        private readonly ILogger<DailyChallengeController> _logger;
-        private readonly IMyResponseFactory _responseFactory;
-        private readonly AzureSQLDBContext _dbContext;
-        private readonly IUserService _userService;
-        private readonly ICreditService _creditService;
-
-        public DailyChallengeController(
-            ILogger<DailyChallengeController> logger,
-            IMyResponseFactory responseFactory,
-            AzureSQLDBContext dbContext,
-            IUserService userService,
-            ICreditService creditService)
-        {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
-            _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
-            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
-            _creditService = creditService ?? throw new ArgumentNullException(nameof(creditService));
-        }
+        private readonly ILogger<DailyChallengeController> _logger = logger;
+        private readonly IMyResponseFactory _responseFactory = responseFactory;
+        private readonly AzureSQLDBContext _dbContext = dbContext;
+        private readonly IUserService _userService = userService;
+        private readonly ICreditService _creditService = creditService;
 
         /// <summary>
         /// Get today's daily challenge. Same questions for all users on the same day (date-seeded).

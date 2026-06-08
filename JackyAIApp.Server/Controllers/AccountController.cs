@@ -14,10 +14,10 @@ namespace JackyAIApp.Server.Controllers
     [ApiController]
     public class AccountController(ILogger<AccountController> logger, AzureSQLDBContext DBContext, IUserService userService, IMyResponseFactory responseFactory) : ControllerBase
     {
-        private readonly ILogger<AccountController> _logger = logger ?? throw new ArgumentNullException();
+        private readonly ILogger<AccountController> _logger = logger;
         private readonly AzureSQLDBContext _DBContext = DBContext;
         private readonly IUserService _userService = userService;
-        private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
+        private readonly IMyResponseFactory _responseFactory = responseFactory;
 
         [HttpGet("login/{provider}")]
         public IActionResult Login(string provider)

@@ -12,30 +12,20 @@ namespace JackyAIApp.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class DictionaryController : ControllerBase
+    public class DictionaryController(
+        ILogger<DictionaryController> logger,
+        IMyResponseFactory responseFactory,
+        AzureSQLDBContext DBContext,
+        IOpenAIPromptService promptService,
+        IExtendedMemoryCache memoryCache,
+        ISpellChecker spellChecker) : ControllerBase
     {
-        private readonly ILogger<DictionaryController> _logger;
-        private readonly IMyResponseFactory _responseFactory;
-        private readonly AzureSQLDBContext _DBContext;
-        private readonly IOpenAIPromptService _promptService;
-        private readonly IExtendedMemoryCache _memoryCache;
-        private readonly ISpellChecker _spellChecker;
-
-        public DictionaryController(
-            ILogger<DictionaryController> logger,
-            IMyResponseFactory responseFactory,
-            AzureSQLDBContext DBContext,
-            IOpenAIPromptService promptService,
-            IExtendedMemoryCache memoryCache,
-            ISpellChecker spellChecker)
-        {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
-            _DBContext = DBContext ?? throw new ArgumentNullException(nameof(DBContext));
-            _promptService = promptService ?? throw new ArgumentNullException(nameof(promptService));
-            _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
-            _spellChecker = spellChecker ?? throw new ArgumentNullException(nameof(spellChecker));
-        }
+        private readonly ILogger<DictionaryController> _logger = logger;
+        private readonly IMyResponseFactory _responseFactory = responseFactory;
+        private readonly AzureSQLDBContext _DBContext = DBContext;
+        private readonly IOpenAIPromptService _promptService = promptService;
+        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+        private readonly ISpellChecker _spellChecker = spellChecker;
 
         [HttpGet("{word}", Name = "Search word")]
         public async Task<IActionResult> Get(string word)

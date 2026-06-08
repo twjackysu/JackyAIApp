@@ -14,11 +14,11 @@ namespace JackyAIApp.Server.Controllers
     [ApiController]
     public class ChatbotController(ILogger<ChatbotController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IUserService userService, IHttpClientFactory httpClientFactory) : ControllerBase
     {
-        private readonly ILogger<ChatbotController> _logger = logger ?? throw new ArgumentNullException();
+        private readonly ILogger<ChatbotController> _logger = logger;
         private readonly IOptionsMonitor<Settings> _settings = settings;
-        private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
+        private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IUserService _userService = userService;
-        private readonly IHttpClientFactory _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException();
+        private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 
         /// <summary>
         /// Forwards chat messages to Dify API and streams the response back to the client.
