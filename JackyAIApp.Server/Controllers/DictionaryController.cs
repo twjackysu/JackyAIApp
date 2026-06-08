@@ -27,9 +27,9 @@ namespace JackyAIApp.Server.Controllers
             return ToActionResult(result);
         }
 
-        private IActionResult ToActionResult(DictionaryResult result) =>
+        private IActionResult ToActionResult(ServiceResult result) =>
             result.IsSuccess
-                ? _responseFactory.CreateOKResponse(result.Word!)
+                ? _responseFactory.CreateOKResponse(result.Data)
                 : _responseFactory.CreateErrorResponse(result.Error!.Value, result.ErrorMessage!);
     }
 }

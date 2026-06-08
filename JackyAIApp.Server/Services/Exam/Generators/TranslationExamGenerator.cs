@@ -18,12 +18,12 @@ namespace JackyAIApp.Server.Services.Exam.Generators
 
         public ExamType Type => ExamType.Translation;
 
-        public async Task<ExamResult> GenerateAsync(SQL.Word word)
+        public async Task<ServiceResult> GenerateAsync(SQL.Word word)
         {
             if (word.TranslationTests != null && word.TranslationTests.Count > 3)
             {
                 var randomTest = word.TranslationTests.ElementAt(Random.Shared.Next(word.TranslationTests.Count));
-                return ExamResult.Ok(ToDto(randomTest, word.WordText));
+                return ServiceResult.Ok(ToDto(randomTest, word.WordText));
             }
 
             var example = (
@@ -41,7 +41,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
             if (dto == null)
             {
                 _logger.LogError("Failed to generate translation test for word {Word}: {Error}", word.WordText, error);
-                return ExamResult.Fail(ErrorCodes.QueryOpenAIFailed,
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
                     "Query failed, OpenAI could not generate the corresponding translation test.");
             }
 
@@ -65,7 +65,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
                 _logger.LogInformation("TranslationTest added to DB for word: {Word}", word.WordText);
             }
 
-            return ExamResult.Ok(ToDto(translationTest, word.WordText));
+            return ServiceResult.Ok(ToDto(translationTest, word.WordText));
         }
 
         private static TranslationTestResponse ToDto(SQL.TranslationTest sql, string wordText) => new()
