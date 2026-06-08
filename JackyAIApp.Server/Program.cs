@@ -120,6 +120,8 @@ try
     // Spell-checker dictionary is expensive to load from disk; share one instance.
     builder.Services.AddSingleton<JackyAIApp.Server.Services.SpellChecker.ISpellChecker,
         JackyAIApp.Server.Services.SpellChecker.HunspellSpellChecker>();
+    builder.Services.AddScoped<JackyAIApp.Server.Services.Dictionary.IDictionaryService,
+        JackyAIApp.Server.Services.Dictionary.DictionaryService>();
     builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
