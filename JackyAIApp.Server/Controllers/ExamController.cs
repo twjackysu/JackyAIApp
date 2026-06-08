@@ -20,36 +20,24 @@ namespace JackyAIApp.Server.Controllers
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class ExamController : ControllerBase
+    public class ExamController(
+        ILogger<ExamController> logger,
+        IMyResponseFactory responseFactory,
+        AzureSQLDBContext DBContext,
+        IUserService userService,
+        IOpenAIService openAIService,
+        IOpenAIPromptService promptService,
+        IPromptLoader promptLoader,
+        ICreditService creditService) : ControllerBase
     {
-        private readonly ILogger<ExamController> _logger;
-        private readonly IMyResponseFactory _responseFactory;
-        private readonly AzureSQLDBContext _DBContext;
-        private readonly IUserService _userService;
-        private readonly IOpenAIService _openAIService;
-        private readonly IOpenAIPromptService _promptService;
-        private readonly IPromptLoader _promptLoader;
-        private readonly ICreditService _creditService;
-
-        public ExamController(
-            ILogger<ExamController> logger,
-            IMyResponseFactory responseFactory,
-            AzureSQLDBContext DBContext,
-            IUserService userService,
-            IOpenAIService openAIService,
-            IOpenAIPromptService promptService,
-            IPromptLoader promptLoader,
-            ICreditService creditService)
-        {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
-            _DBContext = DBContext ?? throw new ArgumentNullException(nameof(DBContext));
-            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
-            _openAIService = openAIService ?? throw new ArgumentNullException(nameof(openAIService));
-            _promptService = promptService ?? throw new ArgumentNullException(nameof(promptService));
-            _promptLoader = promptLoader ?? throw new ArgumentNullException(nameof(promptLoader));
-            _creditService = creditService ?? throw new ArgumentNullException(nameof(creditService));
-        }
+        private readonly ILogger<ExamController> _logger = logger;
+        private readonly IMyResponseFactory _responseFactory = responseFactory;
+        private readonly AzureSQLDBContext _DBContext = DBContext;
+        private readonly IUserService _userService = userService;
+        private readonly IOpenAIService _openAIService = openAIService;
+        private readonly IOpenAIPromptService _promptService = promptService;
+        private readonly IPromptLoader _promptLoader = promptLoader;
+        private readonly ICreditService _creditService = creditService;
 
         /// <summary>
         /// Generates a cloze test for the user based on their unfamiliar words.

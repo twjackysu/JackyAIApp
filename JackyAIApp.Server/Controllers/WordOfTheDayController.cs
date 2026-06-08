@@ -17,9 +17,9 @@ namespace JackyAIApp.Server.Controllers
         IMyResponseFactory responseFactory, IUserService userService, IExtendedMemoryCache memoryCache, AzureSQLDBContext DBContext
         ) : ControllerBase
     {
-        private readonly ILogger<WordOfTheDayController> _logger = logger ?? throw new ArgumentNullException();
+        private readonly ILogger<WordOfTheDayController> _logger = logger;
         private readonly IOptionsMonitor<Settings> _settings = settings;
-        private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException();
+        private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IUserService _userService = userService;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         private readonly AzureSQLDBContext _DBContext = DBContext;

@@ -37,22 +37,22 @@ namespace JackyAIApp.Server.Controllers
         IMacroEconomyProvider macroEconomyProvider,
         ICreditService creditService) : ControllerBase
     {
-        private readonly ILogger<FinanceController> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        private readonly ILogger<FinanceController> _logger = logger;
         private readonly IOptionsMonitor<Settings> _settings = settings;
-        private readonly IMyResponseFactory _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
+        private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly AzureSQLDBContext _DBContext = DBContext;
         private readonly IUserService _userService = userService;
-        private readonly ITWSEOpenAPIService _twseApiService = twseApiService ?? throw new ArgumentNullException(nameof(twseApiService));
-        private readonly ITWSEDataService _twseDataService = twseDataService ?? throw new ArgumentNullException(nameof(twseDataService));
-        private readonly IFinanceAnalysisService _financeAnalysisService = financeAnalysisService ?? throw new ArgumentNullException(nameof(financeAnalysisService));
-        private readonly IExtendedMemoryCache _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
-        private readonly IMarketDataProvider _marketDataProvider = marketDataProvider ?? throw new ArgumentNullException(nameof(marketDataProvider));
-        private readonly IIndicatorEngine _indicatorEngine = indicatorEngine ?? throw new ArgumentNullException(nameof(indicatorEngine));
-        private readonly IChipDataProvider _chipDataProvider = chipDataProvider ?? throw new ArgumentNullException(nameof(chipDataProvider));
-        private readonly IStockScoreService _stockScoreService = stockScoreService ?? throw new ArgumentNullException(nameof(stockScoreService));
-        private readonly StockAnalysisBuilder _analysisBuilder = analysisBuilder ?? throw new ArgumentNullException(nameof(analysisBuilder));
-        private readonly IMacroEconomyProvider _macroEconomyProvider = macroEconomyProvider ?? throw new ArgumentNullException(nameof(macroEconomyProvider));
-        private readonly ICreditService _creditService = creditService ?? throw new ArgumentNullException(nameof(creditService));
+        private readonly ITWSEOpenAPIService _twseApiService = twseApiService;
+        private readonly ITWSEDataService _twseDataService = twseDataService;
+        private readonly IFinanceAnalysisService _financeAnalysisService = financeAnalysisService;
+        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+        private readonly IMarketDataProvider _marketDataProvider = marketDataProvider;
+        private readonly IIndicatorEngine _indicatorEngine = indicatorEngine;
+        private readonly IChipDataProvider _chipDataProvider = chipDataProvider;
+        private readonly IStockScoreService _stockScoreService = stockScoreService;
+        private readonly StockAnalysisBuilder _analysisBuilder = analysisBuilder;
+        private readonly IMacroEconomyProvider _macroEconomyProvider = macroEconomyProvider;
+        private readonly ICreditService _creditService = creditService;
 
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
         private const int CACHE_HOURS = 12; // Cache duration in hours

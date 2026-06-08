@@ -8,21 +8,14 @@ namespace JackyAIApp.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AudioController : ControllerBase
+    public class AudioController(
+        IOpenAIService openAIService,
+        ILogger<AudioController> logger,
+        IMyResponseFactory responseFactory) : ControllerBase
     {
-        private readonly IOpenAIService _openAIService;
-        private readonly ILogger<AudioController> _logger;
-        private readonly IMyResponseFactory _responseFactory;
-
-        public AudioController(
-            IOpenAIService openAIService,
-            ILogger<AudioController> logger,
-            IMyResponseFactory responseFactory)
-        {
-            _openAIService = openAIService ?? throw new ArgumentNullException(nameof(openAIService));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
-        }
+        private readonly IOpenAIService _openAIService = openAIService;
+        private readonly ILogger<AudioController> _logger = logger;
+        private readonly IMyResponseFactory _responseFactory = responseFactory;
 
         [HttpGet("normal")]
         public async Task<IActionResult> Normal([FromQuery] string text, [FromQuery] string? voice = "alloy")
