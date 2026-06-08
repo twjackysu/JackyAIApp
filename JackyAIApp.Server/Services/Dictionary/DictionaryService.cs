@@ -26,14 +26,14 @@ namespace JackyAIApp.Server.Services.Dictionary
 
         private static string CacheKey(string lowerWord) => $"Get_Dictionary_{lowerWord}";
 
-        public async Task<DictionaryResult> GetWordAsync(string word)
+        public async Task<ServiceResult> GetWordAsync(string word)
         {
             var lowerWord = word.Trim().ToLower();
 
             // Validate word against dictionary (shared singleton checker)
             if (!_spellChecker.Check(lowerWord))
             {
-                return DictionaryResult.Fail(ErrorCodes.TheWordCannotBeFound, "This is not a valid word.");
+                return ServiceResult.Fail(ErrorCodes.TheWordCannotBeFound, "This is not a valid word.");
             }
 
             var cacheKey = CacheKey(lowerWord);
@@ -52,7 +52,7 @@ namespace JackyAIApp.Server.Services.Dictionary
             // Return cached/DB result if valid
             if (dbWord != null && (!dbWord.DataInvalid.HasValue || !dbWord.DataInvalid.Value))
             {
-                return DictionaryResult.Ok(WordMapper.ToDto(dbWord));
+                return ServiceResult.Ok(WordMapper.ToDto(dbWord));
             }
 
             // Generate word definition using OpenAI
@@ -65,7 +65,7 @@ namespace JackyAIApp.Server.Services.Dictionary
             if (wordbase == null)
             {
                 _logger.LogError("Failed to generate word definition for {Word}: {Error}", lowerWord, error);
-                return DictionaryResult.Fail(ErrorCodes.QueryOpenAIFailed,
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
                     "Query failed, OpenAI could not generate the corresponding word.");
             }
 
@@ -87,10 +87,10 @@ namespace JackyAIApp.Server.Services.Dictionary
 
             _memoryCache.Set(cacheKey, dbWord, TimeSpan.FromDays(1));
 
-            return DictionaryResult.Ok(WordMapper.ToDto(dbWord));
+            return ServiceResult.Ok(WordMapper.ToDto(dbWord));
         }
 
-        public async Task<DictionaryResult> InvalidateWordAsync(string word)
+        public async Task<ServiceResult> InvalidateWordAsync(string word)
         {
             var lowerWord = word.Trim().ToLower();
             _memoryCache.Remove(CacheKey(lowerWord));
@@ -98,14 +98,14 @@ namespace JackyAIApp.Server.Services.Dictionary
             var result = await LoadWordAsync(lowerWord);
             if (result == null)
             {
-                return DictionaryResult.Fail(ErrorCodes.TheWordCannotBeFound, "Word not found");
+                return ServiceResult.Fail(ErrorCodes.TheWordCannotBeFound, "Word not found");
             }
 
             result.DataInvalid = true;
             result.LastUpdated = DateTime.Now;
             await _dbContext.SaveChangesAsync();
 
-            return DictionaryResult.Ok(WordMapper.ToDto(result));
+            return ServiceResult.Ok(WordMapper.ToDto(result));
         }
 
         private Task<SQL.Word?> LoadWordAsync(string lowerWord) =>
