@@ -8,20 +8,20 @@ import QuizIcon from '@mui/icons-material/Quiz';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 
 import RequireAuth from './auth/RequireAuth';
 import LoginError from './components/LoginError';
 import InsufficientCreditsModal from './components/Modals/InsufficientCreditsModal';
 import UserProfileMenu from './components/UserProfileMenu';
-import Connectors from './Connectors';
 import {
   apps,
   DATA_ANALYSIS,
@@ -30,18 +30,21 @@ import {
   ENGLISH_LEARNING,
   JOB_SEARCH,
 } from './constants/apps';
-import Credits from './Credits';
-import DailyChallenge from './DailyChallenge';
-import DataAnalysis from './DataAnalysis';
-import Dictionary from './Dictionary';
-import Exam from './Exam';
-import Finance from './Finance';
 import useRouteMatch from './hooks/useRouteMatch';
-import JobSearch from './JobSearch';
-import PDFUnlocker from './PDFUnlocker';
-import Repository from './Repository';
-import Review from './Review';
-import Stats from './Stats';
+
+// Feature pages are code-split so each route loads its own chunk on demand.
+const Connectors = lazy(() => import('./Connectors'));
+const Credits = lazy(() => import('./Credits'));
+const DailyChallenge = lazy(() => import('./DailyChallenge'));
+const DataAnalysis = lazy(() => import('./DataAnalysis'));
+const Dictionary = lazy(() => import('./Dictionary'));
+const Exam = lazy(() => import('./Exam'));
+const Finance = lazy(() => import('./Finance'));
+const JobSearch = lazy(() => import('./JobSearch'));
+const PDFUnlocker = lazy(() => import('./PDFUnlocker'));
+const Repository = lazy(() => import('./Repository'));
+const Review = lazy(() => import('./Review'));
+const Stats = lazy(() => import('./Stats'));
 
 // Helper function to determine current app section based on route
 const getCurrentAppSection = (path: string): string => {
@@ -230,71 +233,79 @@ function App() {
         </Box>
       )}
       <Box sx={{ p: 2 }}>
-        <Routes>
-          <Route path={PDF_UNLOCKER.path} element={<PDFUnlocker />} />
-          <Route path={ENGLISH_LEARNING.path} element={<Dictionary />} />
-          <Route
-            path="/daily"
-            element={
-              <RequireAuth>
-                <DailyChallenge />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/review"
-            element={
-              <RequireAuth>
-                <Review />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/stats"
-            element={
-              <RequireAuth>
-                <Stats />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/repository"
-            element={
-              <RequireAuth>
-                <Repository />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/exam/*"
-            element={
-              <RequireAuth>
-                <Exam />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/connectors"
-            element={
-              <RequireAuth>
-                <Connectors />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/credits"
-            element={
-              <RequireAuth>
-                <Credits />
-              </RequireAuth>
-            }
-          />
-          <Route path={FINANCE.path} element={<Finance />} />
-          <Route path={JOB_SEARCH.path} element={<JobSearch />} />
-          <Route path={DATA_ANALYSIS.path} element={<DataAnalysis />} />
-          <Route path="/login-error" element={<LoginError />} />
-          <Route path="/" element={<Finance />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          }
+        >
+          <Routes>
+            <Route path={PDF_UNLOCKER.path} element={<PDFUnlocker />} />
+            <Route path={ENGLISH_LEARNING.path} element={<Dictionary />} />
+            <Route
+              path="/daily"
+              element={
+                <RequireAuth>
+                  <DailyChallenge />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/review"
+              element={
+                <RequireAuth>
+                  <Review />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/stats"
+              element={
+                <RequireAuth>
+                  <Stats />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/repository"
+              element={
+                <RequireAuth>
+                  <Repository />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/exam/*"
+              element={
+                <RequireAuth>
+                  <Exam />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/connectors"
+              element={
+                <RequireAuth>
+                  <Connectors />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/credits"
+              element={
+                <RequireAuth>
+                  <Credits />
+                </RequireAuth>
+              }
+            />
+            <Route path={FINANCE.path} element={<Finance />} />
+            <Route path={JOB_SEARCH.path} element={<JobSearch />} />
+            <Route path={DATA_ANALYSIS.path} element={<DataAnalysis />} />
+            <Route path="/login-error" element={<LoginError />} />
+            <Route path="/" element={<Finance />} />
+          </Routes>
+        </Suspense>
       </Box>
       {/* 懸浮 Chatbot — only shown on AI trend analysis tab */}
       {/* Rendered inside Finance component instead */}
