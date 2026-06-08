@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 
 namespace JackyAIApp.Server.Services.Exam
@@ -9,16 +10,16 @@ namespace JackyAIApp.Server.Services.Exam
     public interface IExamService
     {
         /// <summary>Generates (or returns a cached) vocabulary-based exam for the current user.</summary>
-        Task<ExamResult> GenerateWordExamAsync(ExamType type);
+        Task<ServiceResult> GenerateWordExamAsync(ExamType type);
 
-        Task<ExamResult> GradeTranslationAsync(TranslationTestUserResponse userResponse);
+        Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse);
 
-        Task<ExamResult> StartConversationAsync(ConversationStartRequest request);
+        Task<ServiceResult> StartConversationAsync(ConversationStartRequest request);
 
-        Task<ExamResult> RespondToConversationAsync(ConversationResponseRequest request);
+        Task<ServiceResult> RespondToConversationAsync(ConversationResponseRequest request);
 
-        Task<ExamResult> TranscribeAudioAsync(Stream audioStream, string fileName);
+        Task<ServiceResult> TranscribeAudioAsync(Stream audioStream, string fileName);
 
-        Task<ExamResult> EvaluateSentenceAsync(SentenceTestUserResponse userResponse);
+        Task<ServiceResult> EvaluateSentenceAsync(SentenceTestUserResponse userResponse);
     }
 }

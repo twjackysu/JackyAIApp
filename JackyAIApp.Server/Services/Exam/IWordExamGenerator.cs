@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Exam
@@ -16,6 +17,6 @@ namespace JackyAIApp.Server.Services.Exam
         /// Returns an exam DTO for <paramref name="word"/>. The word is expected to be
         /// loaded together with its related test collections.
         /// </summary>
-        Task<ExamResult> GenerateAsync(SQL.Word word);
+        Task<ServiceResult> GenerateAsync(SQL.Word word);
     }
 }

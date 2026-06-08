@@ -85,7 +85,7 @@ namespace JackyAIApp.Server.Tests.Services
 
             // Assert
             Assert.True(result.IsSuccess);
-            Assert.Equal("hello", result.Word!.Word);
+            Assert.Equal("hello", ((DTO.Word)result.Data!).Word);
 
             // Should NOT call OpenAI since word exists
             _promptServiceMock.Verify(x => x.GetCompletionAsync<WordBase>(
@@ -131,7 +131,7 @@ namespace JackyAIApp.Server.Tests.Services
 
             // Assert
             Assert.True(result.IsSuccess);
-            Assert.Equal("test", result.Word!.Word);
+            Assert.Equal("test", ((DTO.Word)result.Data!).Word);
 
             // Verify saved to DB
             var savedWord = await _dbContext.Words
@@ -219,7 +219,7 @@ namespace JackyAIApp.Server.Tests.Services
 
             // Assert
             Assert.True(result.IsSuccess);
-            Assert.True(result.Word!.DataInvalid);
+            Assert.True(((DTO.Word)result.Data!).DataInvalid);
 
             // Verify DB updated
             var updatedWord = await _dbContext.Words.FirstAsync(w => w.WordText == "hello");
