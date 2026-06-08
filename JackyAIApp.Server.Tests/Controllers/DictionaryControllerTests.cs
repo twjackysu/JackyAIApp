@@ -5,6 +5,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.SpellChecker;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         private readonly Mock<IMyResponseFactory> _responseFactoryMock;
         private readonly Mock<IOpenAIPromptService> _promptServiceMock;
         private readonly Mock<IExtendedMemoryCache> _memoryCacheMock;
+        private readonly Mock<ISpellChecker> _spellCheckerMock;
         private readonly AzureSQLDBContext _dbContext;
         private readonly DictionaryController _controller;
 
@@ -30,6 +32,10 @@ namespace JackyAIApp.Server.Tests.Controllers
             _responseFactoryMock = new Mock<IMyResponseFactory>();
             _promptServiceMock = new Mock<IOpenAIPromptService>();
             _memoryCacheMock = new Mock<IExtendedMemoryCache>();
+            _spellCheckerMock = new Mock<ISpellChecker>();
+
+            // By default treat words as valid; invalid-word tests override per word.
+            _spellCheckerMock.Setup(x => x.Check(It.IsAny<string>())).Returns(true);
 
             // Setup in-memory database
             var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
@@ -52,7 +58,8 @@ namespace JackyAIApp.Server.Tests.Controllers
                 _responseFactoryMock.Object,
                 _dbContext,
                 _promptServiceMock.Object,
-                _memoryCacheMock.Object);
+                _memoryCacheMock.Object,
+                _spellCheckerMock.Object);
         }
 
         public void Dispose()
@@ -66,6 +73,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         public async Task Get_InvalidWord_ReturnsError()
         {
             // Arrange - "xyz123" is not a valid English word
+            _spellCheckerMock.Setup(x => x.Check("xyz123invalidword")).Returns(false);
 
             // Act
             var result = await _controller.Get("xyz123invalidword");
