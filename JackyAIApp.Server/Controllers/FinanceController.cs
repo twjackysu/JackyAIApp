@@ -34,8 +34,7 @@ namespace JackyAIApp.Server.Controllers
         IChipDataProvider chipDataProvider,
         IStockScoreService stockScoreService,
         StockAnalysisBuilder analysisBuilder,
-        IMacroEconomyProvider macroEconomyProvider,
-        ICreditService creditService) : ControllerBase
+        IMacroEconomyProvider macroEconomyProvider) : ControllerBase
     {
         private readonly ILogger<FinanceController> _logger = logger;
         private readonly IOptionsMonitor<Settings> _settings = settings;
@@ -52,7 +51,6 @@ namespace JackyAIApp.Server.Controllers
         private readonly IStockScoreService _stockScoreService = stockScoreService;
         private readonly StockAnalysisBuilder _analysisBuilder = analysisBuilder;
         private readonly IMacroEconomyProvider _macroEconomyProvider = macroEconomyProvider;
-        private readonly ICreditService _creditService = creditService;
 
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
         private const int CACHE_HOURS = 12; // Cache duration in hours
@@ -122,18 +120,9 @@ namespace JackyAIApp.Server.Controllers
         /// <returns>Stock trend analysis with short, medium, and long-term predictions.</returns>
         [Authorize]
         [HttpPost("analyze-stock")]
+        [ConsumeCredits(CreditCosts.StockAnalysis, "stock_analysis", "AI stock analysis")]
         public async Task<IActionResult> AnalyzeStock([FromBody] StockSearchRequest request, CancellationToken cancellationToken = default)
         {
-            // Credit gate: AI stock analysis
-            var creditUserId = _userService.GetUserId();
-            if (!string.IsNullOrEmpty(creditUserId))
-            {
-                if (!await _creditService.ConsumeCreditsAsync(creditUserId, CreditCosts.StockAnalysis, "stock_analysis", "AI stock analysis"))
-                {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.StockAnalysis}. Please purchase more credits to continue.");
-                }
-            }
-
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(OPERATION_TIMEOUT_SECONDS));
 
@@ -141,7 +130,7 @@ namespace JackyAIApp.Server.Controllers
             {
                 if (string.IsNullOrWhiteSpace(request.StockCodeOrName))
                 {
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code or name is required.");
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Stock code or name is required.");
                 }
 
                 // First, resolve user input to a valid stock code
@@ -235,7 +224,7 @@ namespace JackyAIApp.Server.Controllers
         {
             if (string.IsNullOrWhiteSpace(stockCode))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Stock code is required.");
             }
 
             // Resolve stock code if needed
@@ -299,7 +288,7 @@ namespace JackyAIApp.Server.Controllers
         {
             if (string.IsNullOrWhiteSpace(stockCode))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Stock code is required.");
             }
 
             // Resolve stock code if needed
@@ -362,7 +351,7 @@ namespace JackyAIApp.Server.Controllers
         {
             if (string.IsNullOrWhiteSpace(stockCode))
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Stock code is required.");
             }
 
             // Resolve stock code if needed
@@ -407,7 +396,7 @@ namespace JackyAIApp.Server.Controllers
             CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(request.StockCode))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Stock code is required.");
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Stock code is required.");
 
             // Determine market region
             var providerFactory = HttpContext.RequestServices.GetRequiredService<IMarketDataProviderFactory>();
