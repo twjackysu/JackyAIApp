@@ -122,6 +122,15 @@ try
         JackyAIApp.Server.Services.SpellChecker.HunspellSpellChecker>();
     builder.Services.AddScoped<JackyAIApp.Server.Services.Dictionary.IDictionaryService,
         JackyAIApp.Server.Services.Dictionary.DictionaryService>();
+    // Exam services + per-type generator strategies
+    builder.Services.AddScoped<JackyAIApp.Server.Services.Exam.IWordExamGenerator,
+        JackyAIApp.Server.Services.Exam.Generators.ClozeExamGenerator>();
+    builder.Services.AddScoped<JackyAIApp.Server.Services.Exam.IWordExamGenerator,
+        JackyAIApp.Server.Services.Exam.Generators.TranslationExamGenerator>();
+    builder.Services.AddScoped<JackyAIApp.Server.Services.Exam.IWordExamGenerator,
+        JackyAIApp.Server.Services.Exam.Generators.SentenceExamGenerator>();
+    builder.Services.AddScoped<JackyAIApp.Server.Services.Exam.IExamService,
+        JackyAIApp.Server.Services.Exam.ExamService>();
     builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
