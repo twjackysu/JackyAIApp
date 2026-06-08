@@ -44,6 +44,7 @@ namespace JackyAIApp.Server.Controllers
         /// </summary>
         /// <returns>An IActionResult containing the cloze test or an error response.</returns>
         [HttpGet("cloze")]
+        [ConsumeCredits(CreditCosts.ClozeTest, "cloze_test", "Cloze test generation")]
         public async Task<IActionResult> GetClozeTest()
         {
             var userId = _userService.GetUserId();
@@ -51,12 +52,6 @@ namespace JackyAIApp.Server.Controllers
             if (user == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
-            }
-
-            // Credit gate: consume credits for AI exam generation
-            if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.ClozeTest, "cloze_test", "Cloze test generation"))
-            {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.ClozeTest}. Please purchase more credits to continue.");
             }
 
             // Get a random word from the user's collection
@@ -150,6 +145,7 @@ namespace JackyAIApp.Server.Controllers
         /// Generates a translation test for the user based on their unfamiliar words.
         /// </summary>
         [HttpGet("translation")]
+        [ConsumeCredits(CreditCosts.TranslationTest, "translation_test", "Translation test generation")]
         public async Task<IActionResult> GetTranslationTest()
         {
             var userId = _userService.GetUserId();
@@ -157,12 +153,6 @@ namespace JackyAIApp.Server.Controllers
             if (user == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
-            }
-
-            // Credit gate
-            if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.TranslationTest, "translation_test", "Translation test generation"))
-            {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.TranslationTest}. Please purchase more credits to continue.");
             }
 
             var randomWordId = await GetRandomUserWordIdAsync(userId!);
@@ -283,6 +273,7 @@ namespace JackyAIApp.Server.Controllers
         /// Starts a new conversation test by generating a scenario and first message.
         /// </summary>
         [HttpPost("conversation/start")]
+        [ConsumeCredits(CreditCosts.ConversationStart, "conversation_start", "Conversation test started")]
         public async Task<IActionResult> StartConversationTest([FromBody] ConversationStartRequest request)
         {
             var userId = _userService.GetUserId();
@@ -292,13 +283,7 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
             }
 
-            // Credit gate
-            if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.ConversationStart, "conversation_start", "Conversation test started"))
-            {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.ConversationStart}. Please purchase more credits to continue.");
-            }
-
-            if (request == null || string.IsNullOrEmpty(request.Scenario) || 
+            if (request == null || string.IsNullOrEmpty(request.Scenario) ||
                 string.IsNullOrEmpty(request.UserRole) || string.IsNullOrEmpty(request.AiRole))
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Scenario, UserRole, and AiRole are required.");
@@ -429,6 +414,7 @@ namespace JackyAIApp.Server.Controllers
         /// Generates a sentence formation test for the user based on their unfamiliar words.
         /// </summary>
         [HttpGet("sentence")]
+        [ConsumeCredits(CreditCosts.SentenceTest, "sentence_test", "Sentence test generation")]
         public async Task<IActionResult> GetSentenceTest()
         {
             var userId = _userService.GetUserId();
@@ -436,12 +422,6 @@ namespace JackyAIApp.Server.Controllers
             if (user == null)
             {
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
-            }
-
-            // Credit gate
-            if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.SentenceTest, "sentence_test", "Sentence test generation"))
-            {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.SentenceTest}.");
             }
 
             var randomWordId = await GetRandomUserWordIdAsync(userId!);
