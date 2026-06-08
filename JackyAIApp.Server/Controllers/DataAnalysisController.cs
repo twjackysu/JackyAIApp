@@ -14,7 +14,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
-using System.Security.Claims;
 using System.Text.Json;
 
 namespace JackyAIApp.Server.Controllers
@@ -32,7 +31,7 @@ namespace JackyAIApp.Server.Controllers
         DataAnalysisEngine defaultEngine,
         AzureSQLDBContext dbContext,
         ITokenEncryptionService encryptionService,
-        IMemoryCache memoryCache) : ControllerBase
+        IMemoryCache memoryCache) : ApiControllerBase
     {
         private readonly ILogger<DataAnalysisController> _logger             = logger;
         private readonly IMyResponseFactory              _responseFactory    = responseFactory;
@@ -49,12 +48,6 @@ namespace JackyAIApp.Server.Controllers
         private const string DefaultAdxKey     = "adx";
         private const string DefaultTableName  = "dbo.Orders";
 
-        // ── Auth helper ────────────────────────────────────────────────────────
-
-        private string? GetCurrentUserId() =>
-            User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-
         // ── Engine resolution ──────────────────────────────────────────────────
 
         private sealed record ResolvedCtx(DataAnalysisEngine Engine, string SourceKey, string TableName);
@@ -65,7 +58,7 @@ namespace JackyAIApp.Server.Controllers
             if (ctx?.SourceId is null)
                 return new ResolvedCtx(_defaultEngine, DefaultMsSqlKey, ctx?.TableName ?? DefaultTableName);
 
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             // Custom sources require an authenticated user who owns the record.
             if (userId is null) return null;
 
@@ -177,7 +170,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("sources")]
         public async Task<IActionResult> GetSources(CancellationToken ct = default)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             if (userId is null)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
 
@@ -195,7 +188,7 @@ namespace JackyAIApp.Server.Controllers
             [FromBody] SaveDataSourceConfigDto dto,
             CancellationToken ct = default)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             if (userId is null)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
 
@@ -223,7 +216,7 @@ namespace JackyAIApp.Server.Controllers
             [FromBody] SaveDataSourceConfigDto dto,
             CancellationToken ct = default)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             if (userId is null)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
 
@@ -253,7 +246,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpDelete("sources/{id:guid}")]
         public async Task<IActionResult> DeleteSource(Guid id, CancellationToken ct = default)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             if (userId is null)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
 
