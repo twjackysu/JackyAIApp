@@ -1,12 +1,11 @@
 using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.Controllers;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.Dictionary;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.SpellChecker;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -14,22 +13,20 @@ using SQLWord = JackyAIApp.Server.Data.Models.SQL.Word;
 using SQLWordMeaning = JackyAIApp.Server.Data.Models.SQL.WordMeaning;
 using SQLDefinition = JackyAIApp.Server.Data.Models.SQL.Definition;
 
-namespace JackyAIApp.Server.Tests.Controllers
+namespace JackyAIApp.Server.Tests.Services
 {
-    public class DictionaryControllerTests : IDisposable
+    public class DictionaryServiceTests : IDisposable
     {
-        private readonly Mock<ILogger<DictionaryController>> _loggerMock;
-        private readonly Mock<IMyResponseFactory> _responseFactoryMock;
+        private readonly Mock<ILogger<DictionaryService>> _loggerMock;
         private readonly Mock<IOpenAIPromptService> _promptServiceMock;
         private readonly Mock<IExtendedMemoryCache> _memoryCacheMock;
         private readonly Mock<ISpellChecker> _spellCheckerMock;
         private readonly AzureSQLDBContext _dbContext;
-        private readonly DictionaryController _controller;
+        private readonly DictionaryService _service;
 
-        public DictionaryControllerTests()
+        public DictionaryServiceTests()
         {
-            _loggerMock = new Mock<ILogger<DictionaryController>>();
-            _responseFactoryMock = new Mock<IMyResponseFactory>();
+            _loggerMock = new Mock<ILogger<DictionaryService>>();
             _promptServiceMock = new Mock<IOpenAIPromptService>();
             _memoryCacheMock = new Mock<IExtendedMemoryCache>();
             _spellCheckerMock = new Mock<ISpellChecker>();
@@ -43,19 +40,12 @@ namespace JackyAIApp.Server.Tests.Controllers
                 .Options;
             _dbContext = new AzureSQLDBContext(options);
 
-            // Setup response factory
-            _responseFactoryMock.Setup(x => x.CreateOKResponse(It.IsAny<object>()))
-                .Returns<object>(data => new OkObjectResult(new { Success = true, Data = data }));
-            _responseFactoryMock.Setup(x => x.CreateErrorResponse(It.IsAny<ErrorCodes>(), It.IsAny<string>()))
-                .Returns<ErrorCodes, string>((code, msg) => new BadRequestObjectResult(new { Success = false, Code = code, Message = msg }));
-
             // Setup cache to always miss by default
             _memoryCacheMock.Setup(x => x.TryGetValue(It.IsAny<string>(), out It.Ref<object?>.IsAny))
                 .Returns(false);
 
-            _controller = new DictionaryController(
+            _service = new DictionaryService(
                 _loggerMock.Object,
-                _responseFactoryMock.Object,
                 _dbContext,
                 _promptServiceMock.Object,
                 _memoryCacheMock.Object,
@@ -67,36 +57,36 @@ namespace JackyAIApp.Server.Tests.Controllers
             _dbContext.Dispose();
         }
 
-        #region Get Tests
+        #region GetWord Tests
 
         [Fact]
-        public async Task Get_InvalidWord_ReturnsError()
+        public async Task GetWord_InvalidWord_ReturnsError()
         {
-            // Arrange - "xyz123" is not a valid English word
+            // Arrange
             _spellCheckerMock.Setup(x => x.Check("xyz123invalidword")).Returns(false);
 
             // Act
-            var result = await _controller.Get("xyz123invalidword");
+            var result = await _service.GetWordAsync("xyz123invalidword");
 
             // Assert
-            _responseFactoryMock.Verify(x => x.CreateErrorResponse(
-                ErrorCodes.TheWordCannotBeFound, 
-                "This is not a valid word."), Times.Once);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.TheWordCannotBeFound, result.Error);
+            Assert.Equal("This is not a valid word.", result.ErrorMessage);
         }
 
         [Fact]
-        public async Task Get_WordExistsInDb_ReturnsFromDb()
+        public async Task GetWord_WordExistsInDb_ReturnsFromDb()
         {
             // Arrange
-            var word = await SeedWordAsync("hello");
+            await SeedWordAsync("hello");
 
             // Act
-            var result = await _controller.Get("hello");
+            var result = await _service.GetWordAsync("hello");
 
             // Assert
-            _responseFactoryMock.Verify(x => x.CreateOKResponse(
-                It.Is<DTO.Word>(w => w.Word == "hello")), Times.Once);
-            
+            Assert.True(result.IsSuccess);
+            Assert.Equal("hello", result.Word!.Word);
+
             // Should NOT call OpenAI since word exists
             _promptServiceMock.Verify(x => x.GetCompletionAsync<WordBase>(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
@@ -104,7 +94,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task Get_WordNotInDb_GeneratesAndSaves()
+        public async Task GetWord_WordNotInDb_GeneratesAndSaves()
         {
             // Arrange
             var generatedWord = new WordBase
@@ -137,11 +127,11 @@ namespace JackyAIApp.Server.Tests.Controllers
                 .ReturnsAsync((generatedWord, (string?)null));
 
             // Act
-            var result = await _controller.Get("test");
+            var result = await _service.GetWordAsync("test");
 
             // Assert
-            _responseFactoryMock.Verify(x => x.CreateOKResponse(
-                It.Is<DTO.Word>(w => w.Word == "test")), Times.Once);
+            Assert.True(result.IsSuccess);
+            Assert.Equal("test", result.Word!.Word);
 
             // Verify saved to DB
             var savedWord = await _dbContext.Words
@@ -152,11 +142,11 @@ namespace JackyAIApp.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task Get_WordMarkedInvalid_RegeneratesFromOpenAI()
+        public async Task GetWord_WordMarkedInvalid_RegeneratesFromOpenAI()
         {
             // Arrange
-            var invalidWord = await SeedWordAsync("book", isInvalid: true);
-            
+            await SeedWordAsync("book", isInvalid: true);
+
             var generatedWord = new WordBase
             {
                 Word = "book",
@@ -184,9 +174,10 @@ namespace JackyAIApp.Server.Tests.Controllers
                 .ReturnsAsync((generatedWord, (string?)null));
 
             // Act
-            var result = await _controller.Get("book");
+            var result = await _service.GetWordAsync("book");
 
             // Assert
+            Assert.True(result.IsSuccess);
             _promptServiceMock.Verify(x => x.GetCompletionAsync<WordBase>(
                 It.IsAny<string>(), "book", It.IsAny<string>(),
                 It.IsAny<IEnumerable<(string, string)>>()), Times.Once);
@@ -197,7 +188,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task Get_OpenAIFails_ReturnsError()
+        public async Task GetWord_OpenAIFails_ReturnsError()
         {
             // Arrange
             _promptServiceMock.Setup(x => x.GetCompletionAsync<WordBase>(
@@ -206,30 +197,29 @@ namespace JackyAIApp.Server.Tests.Controllers
                 .ReturnsAsync(((WordBase?)null, "OpenAI error"));
 
             // Act
-            var result = await _controller.Get("test");
+            var result = await _service.GetWordAsync("test");
 
             // Assert
-            _responseFactoryMock.Verify(x => x.CreateErrorResponse(
-                ErrorCodes.QueryOpenAIFailed, 
-                It.IsAny<string>()), Times.Once);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.QueryOpenAIFailed, result.Error);
         }
 
         #endregion
 
-        #region Invalid Tests
+        #region InvalidateWord Tests
 
         [Fact]
-        public async Task Invalid_WordExists_MarksAsInvalid()
+        public async Task InvalidateWord_WordExists_MarksAsInvalid()
         {
             // Arrange
-            var word = await SeedWordAsync("hello");
+            await SeedWordAsync("hello");
 
             // Act
-            var result = await _controller.Invalid("hello");
+            var result = await _service.InvalidateWordAsync("hello");
 
             // Assert
-            _responseFactoryMock.Verify(x => x.CreateOKResponse(
-                It.Is<DTO.Word>(w => w.DataInvalid == true)), Times.Once);
+            Assert.True(result.IsSuccess);
+            Assert.True(result.Word!.DataInvalid);
 
             // Verify DB updated
             var updatedWord = await _dbContext.Words.FirstAsync(w => w.WordText == "hello");
@@ -237,15 +227,15 @@ namespace JackyAIApp.Server.Tests.Controllers
         }
 
         [Fact]
-        public async Task Invalid_WordNotFound_ReturnsError()
+        public async Task InvalidateWord_WordNotFound_ReturnsError()
         {
             // Act
-            var result = await _controller.Invalid("nonexistent");
+            var result = await _service.InvalidateWordAsync("nonexistent");
 
             // Assert
-            _responseFactoryMock.Verify(x => x.CreateErrorResponse(
-                ErrorCodes.TheWordCannotBeFound, 
-                "Word not found"), Times.Once);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.TheWordCannotBeFound, result.Error);
+            Assert.Equal("Word not found", result.ErrorMessage);
         }
 
         #endregion
