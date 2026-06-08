@@ -7,6 +7,7 @@ using DotnetSdkUtilities.Factory.ResponseFactory;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
+using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Job;
@@ -117,28 +118,10 @@ try
     builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<ICreditService, CreditService>();
-    // Spell-checker dictionary is expensive to load from disk; share one instance.
-    builder.Services.AddSingleton<JackyAIApp.Server.Services.SpellChecker.ISpellChecker,
-        JackyAIApp.Server.Services.SpellChecker.HunspellSpellChecker>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.Dictionary.IDictionaryService,
-        JackyAIApp.Server.Services.Dictionary.DictionaryService>();
-    // Exam services + per-type generator strategies
-    builder.Services.AddScoped<JackyAIApp.Server.Services.Exam.IWordExamGenerator,
-        JackyAIApp.Server.Services.Exam.Generators.ClozeExamGenerator>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.Exam.IWordExamGenerator,
-        JackyAIApp.Server.Services.Exam.Generators.TranslationExamGenerator>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.Exam.IWordExamGenerator,
-        JackyAIApp.Server.Services.Exam.Generators.SentenceExamGenerator>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.Exam.IExamService,
-        JackyAIApp.Server.Services.Exam.ExamService>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.Repository.IRepositoryService,
-        JackyAIApp.Server.Services.Repository.RepositoryService>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.WordOfTheDay.IWordOfTheDayService,
-        JackyAIApp.Server.Services.WordOfTheDay.WordOfTheDayService>();
-    builder.Services.AddSingleton<JackyAIApp.Server.Services.DailyChallenge.IDailyChallengeQuestionGenerator,
-        JackyAIApp.Server.Services.DailyChallenge.DailyChallengeQuestionGenerator>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.DailyChallenge.IDailyChallengeService,
-        JackyAIApp.Server.Services.DailyChallenge.DailyChallengeService>();
+
+    // English-learning domain (dictionary / exam / repository / word-of-the-day / daily challenge)
+    builder.Services.AddVocabularyServices();
+
     builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
@@ -146,42 +129,13 @@ try
     // Register finance indicator engine, TWStockLib, and data providers
     builder.Services.AddFinanceAnalysisServices();
 
-    // Configure Job Aggregator services
-    builder.Services.AddHttpClient("104", client =>
-    {
-        client.DefaultRequestHeaders.Add("Referer", "https://www.104.com.tw/");
-        client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-        client.Timeout = TimeSpan.FromSeconds(15);
-    });
-    builder.Services.AddHttpClient("Cake", client =>
-    {
-        client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml");
-        client.DefaultRequestHeaders.Add("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.8");
-        client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-        client.Timeout = TimeSpan.FromSeconds(15);
-    });
-    builder.Services.AddSingleton<IJobProvider, Job104Provider>();
-    builder.Services.AddSingleton<IJobProvider, CakeJobsProvider>();
-    builder.Services.AddSingleton<IJobAggregatorService, JobAggregatorService>();
+    builder.Services.AddJobAggregatorServices();
 
     // Configure Prompt and OpenAI services
     builder.Services.AddSingleton<JackyAIApp.Server.Services.Prompt.IPromptLoader, JackyAIApp.Server.Services.Prompt.PromptLoader>();
     builder.Services.AddScoped<JackyAIApp.Server.Services.OpenAI.IOpenAIPromptService, JackyAIApp.Server.Services.OpenAI.OpenAIPromptService>();
 
-    // Configure Connectors services
-    builder.Services.Configure<ConnectorOptions>(builder.Configuration.GetSection(ConnectorOptions.SectionName));
-    builder.Services.AddScoped<ITokenEncryptionService, TokenEncryptionService>();
-    builder.Services.AddScoped<IStateService, StateService>();
-    builder.Services.AddScoped<IConnectorService, ConnectorService>();
-    builder.Services.Configure<JackyAIApp.Server.Configuration.StripeOptions>(
-        builder.Configuration.GetSection(JackyAIApp.Server.Configuration.StripeOptions.SectionName));
-    builder.Services.AddScoped<IStripeService, StripeService>();
-    builder.Services.Configure<JackyAIApp.Server.Configuration.PayPalOptions>(
-        builder.Configuration.GetSection(JackyAIApp.Server.Configuration.PayPalOptions.SectionName));
-    builder.Services.AddHttpClient<IPayPalService, PayPalService>();
-    builder.Services.Configure<JackyAIApp.Server.Configuration.ECPayOptions>(
-        builder.Configuration.GetSection(JackyAIApp.Server.Configuration.ECPayOptions.SectionName));
-    builder.Services.AddScoped<IECPayService, ECPayService>();
+    builder.Services.AddConnectorAndPaymentServices(builder.Configuration);
 
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options =>
