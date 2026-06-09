@@ -137,6 +137,12 @@ try
 
     builder.Services.AddConnectorAndPaymentServices(builder.Configuration);
 
+    // DataAnalysis: config/engine codec + in-memory session store (uploaded tabular data)
+    builder.Services.AddScoped<JackyAIApp.Server.Services.DataAnalysis.IDataSourceConfigService,
+        JackyAIApp.Server.Services.DataAnalysis.DataSourceConfigService>();
+    builder.Services.AddScoped<JackyAIApp.Server.Services.DataAnalysis.ISessionDataStore,
+        JackyAIApp.Server.Services.DataAnalysis.SessionDataStore>();
+
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options =>
     {
