@@ -101,6 +101,18 @@ namespace JackyAIApp.Server.Services
 
                 try
                 {
+                    // Idempotency: if this external payment reference was already processed,
+                    // do not credit again (protects against payment-callback replay and
+                    // at-least-once webhook redelivery). Internal grants pass no referenceId.
+                    if (!string.IsNullOrEmpty(referenceId) &&
+                        await _dbContext.CreditTransactions.AnyAsync(t => t.ReferenceId == referenceId))
+                    {
+                        _logger.LogWarning("Duplicate credit reference {ReferenceId} ignored for user {UserId}",
+                            referenceId, userId);
+                        await transaction.CommitAsync();
+                        return true;
+                    }
+
                     var user = await _dbContext.Users
                         .FirstOrDefaultAsync(u => u.Id == userId);
 
