@@ -84,6 +84,9 @@ namespace JackyAIApp.Server.Services.Finance
             // === Register builder ===
             services.AddScoped<StockAnalysisBuilder>();
 
+            // === Finance query orchestration (used by FinanceController) ===
+            services.AddScoped<IFinanceQueryService, FinanceQueryService>();
+
             return services;
         }
     }
