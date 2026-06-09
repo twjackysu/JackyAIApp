@@ -56,7 +56,10 @@ namespace JackyAIApp.Server.Controllers
             QueryContextDto? ctx, CancellationToken ct)
         {
             if (ctx?.SourceId is null)
-                return new ResolvedCtx(_defaultEngine, DefaultMsSqlKey, ctx?.TableName ?? DefaultTableName);
+                // The default source is the application's own database. Never honor a
+                // caller-supplied table name here — it is pinned to the demo table so
+                // the default source cannot be used to read arbitrary app tables.
+                return new ResolvedCtx(_defaultEngine, DefaultMsSqlKey, DefaultTableName);
 
             var userId = CurrentUserId;
             // Custom sources require an authenticated user who owns the record.
