@@ -1,0 +1,180 @@
+import { useMemo, useState } from 'react';
+
+import { getCurrentDate } from '../utils/financeHelpers';
+
+import type { AnalysisConfig } from '../components';
+
+import { useGetUserInfoQuery } from '@/apis/accountApis';
+import {
+  useGetDailyImportantInfoQuery,
+  useAnalyzeStockMutation,
+  useGetComprehensiveAnalysisMutation,
+} from '@/apis/financeApis';
+import { StockTrendAnalysis, StockAnalysisResultData } from '@/apis/financeApis/types';
+
+/** Detect market from stock code: numeric (with optional trailing letter) = TW, otherwise US */
+const detectMarket = (code: string): 'TW' | 'US' =>
+  /^\d{4,6}[A-Za-z]?$/.test(code.trim()) ? 'TW' : 'US';
+
+// Tab indices
+export const TAB_QUANTITATIVE = 0;
+export const TAB_AI_TREND = 1;
+export const TAB_MARKET_SUMMARY = 2;
+
+const DEFAULT_CONFIG: AnalysisConfig = {
+  includeTechnical: true,
+  includeChip: true,
+  includeFundamental: true,
+  includeScoring: true,
+  includeRisk: true,
+  technicalWeight: 0.2,
+  chipWeight: 0.3,
+  fundamentalWeight: 0.5,
+};
+
+/**
+ * Owns all Finance page state: search terms, stock/comprehensive analysis,
+ * the active tab, analysis config, and the daily market-summary query.
+ */
+export function useFinanceAnalysis() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stockSearchTerm, setStockSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<StockTrendAnalysis | null>(null);
+  const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
+  const [analysisTab, setAnalysisTab] = useState<number>(TAB_QUANTITATIVE);
+  const [analysisConfig, setAnalysisConfig] = useState<AnalysisConfig>(DEFAULT_CONFIG);
+
+  const currentDate = useMemo(() => getCurrentDate(), []);
+  const { data: userInfo } = useGetUserInfoQuery();
+  const isAuthenticated = !!userInfo?.data;
+
+  const {
+    data: apiResponse,
+    isLoading: isMarketLoading,
+    isError: isMarketError,
+    error: marketError,
+    refetch,
+    isFetching: isMarketFetching,
+  } = useGetDailyImportantInfoQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+    // Only fetch when market summary tab is active AND user is authenticated
+    skip: analysisTab !== TAB_MARKET_SUMMARY || !isAuthenticated,
+  });
+
+  const [analyzeStock, { isLoading: isAnalyzing, error: analysisError, reset: resetAnalysis }] =
+    useAnalyzeStockMutation();
+
+  const [
+    getComprehensiveAnalysis,
+    { isLoading: isComprehensiveLoading, error: comprehensiveError, reset: resetComprehensive },
+  ] = useGetComprehensiveAnalysisMutation();
+
+  const stockInsights = useMemo(() => apiResponse?.data || [], [apiResponse?.data]);
+  const filteredData = useMemo(() => {
+    return stockInsights.filter(
+      (item) =>
+        item.stockCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+  }, [searchTerm, stockInsights]);
+
+  const handleStockSearch = async () => {
+    if (!stockSearchTerm.trim()) return;
+
+    if (analysisTab === TAB_QUANTITATIVE) {
+      try {
+        resetComprehensive();
+        setSearchResults(null);
+        const code = stockSearchTerm.trim();
+        const market = detectMarket(code);
+        const result = await getComprehensiveAnalysis({
+          stockCode: code,
+          market,
+          includeTechnical: analysisConfig.includeTechnical,
+          includeChip: analysisConfig.includeChip,
+          includeFundamental: analysisConfig.includeFundamental,
+          includeScoring: analysisConfig.includeScoring,
+          includeRisk: analysisConfig.includeRisk,
+          technicalWeight: analysisConfig.technicalWeight,
+          chipWeight: analysisConfig.chipWeight,
+          fundamentalWeight: analysisConfig.fundamentalWeight,
+        }).unwrap();
+        setAnalysisResults(result.data);
+      } catch (err) {
+        console.error('Comprehensive analysis failed:', err);
+        setAnalysisResults(null);
+      }
+    } else if (analysisTab === TAB_AI_TREND) {
+      if (!isAuthenticated) {
+        window.location.href = `/api/account/login/Google?ReturnUrl=${encodeURIComponent(window.location.pathname)}`;
+        return;
+      }
+      try {
+        resetAnalysis();
+        setAnalysisResults(null);
+        const result = await analyzeStock({ stockCodeOrName: stockSearchTerm.trim() }).unwrap();
+        setSearchResults(result.data);
+      } catch (err) {
+        console.error('Stock analysis failed:', err);
+        setSearchResults(null);
+      }
+    }
+  };
+
+  const clearSearchResults = () => {
+    setSearchResults(null);
+    setAnalysisResults(null);
+    setStockSearchTerm('');
+    resetAnalysis();
+    resetComprehensive();
+  };
+
+  const handleTabChange = (_: unknown, newTab: number) => {
+    setAnalysisTab(newTab);
+    // Clear results when switching tabs
+    clearSearchResults();
+  };
+
+  const hasStockResults = !!searchResults || !!analysisResults;
+  const isAnyAnalyzing = isAnalyzing || isComprehensiveLoading;
+  const isSearchTab = analysisTab === TAB_QUANTITATIVE || analysisTab === TAB_AI_TREND;
+
+  return {
+    // search / config state
+    searchTerm,
+    setSearchTerm,
+    stockSearchTerm,
+    setStockSearchTerm,
+    analysisConfig,
+    setAnalysisConfig,
+    // results
+    searchResults,
+    analysisResults,
+    // tab
+    analysisTab,
+    handleTabChange,
+    // auth / misc
+    isAuthenticated,
+    currentDate,
+    // market summary query
+    stockInsights,
+    filteredData,
+    isMarketLoading,
+    isMarketError,
+    marketError,
+    isMarketFetching,
+    refetch,
+    // analysis status
+    analysisError,
+    isAnalyzing,
+    comprehensiveError,
+    isComprehensiveLoading,
+    // actions / derived
+    handleStockSearch,
+    clearSearchResults,
+    hasStockResults,
+    isAnyAnalyzing,
+    isSearchTab,
+  };
+}
