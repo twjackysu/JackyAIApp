@@ -26,7 +26,11 @@ import { useSearchParams } from 'react-router-dom';
 
 import { useGetCreditBalanceQuery, useGetCreditHistoryQuery } from '@/apis/creditApis';
 import { useCreateECPayPaymentMutation, useGetECPayPacksQuery } from '@/apis/ecpayApis';
-import { useCreatePayPalOrderMutation, useGetPayPalPacksQuery } from '@/apis/paypalApis';
+import {
+  useCapturePayPalOrderMutation,
+  useCreatePayPalOrderMutation,
+  useGetPayPalPacksQuery,
+} from '@/apis/paypalApis';
 import { useCreateCheckoutMutation, useGetCreditPacksQuery } from '@/apis/stripeApis';
 
 type PaymentMethod = 'stripe' | 'paypal' | 'ecpay';
@@ -47,28 +51,78 @@ const Credits: React.FC = () => {
 
   const [createStripeCheckout, { isLoading: stripeCheckoutLoading }] = useCreateCheckoutMutation();
   const [createPayPalOrder, { isLoading: paypalOrderLoading }] = useCreatePayPalOrderMutation();
+  const [capturePayPalOrder] = useCapturePayPalOrderMutation();
   const [createECPayPayment, { isLoading: ecpayPaymentLoading }] = useCreateECPayPaymentMutation();
 
   const ecpayFormRef = useRef<HTMLFormElement>(null);
+  // Guards the one-time handling of the payment-return query params (also avoids a
+  // double PayPal capture under React StrictMode's double-invoked effects).
+  const handledReturnRef = useRef(false);
   const [historyPage, setHistoryPage] = useState(1);
-  const { data: historyData } = useGetCreditHistoryQuery({ pageNumber: historyPage, pageSize: 10 });
+  const { data: historyData, refetch: refetchHistory } = useGetCreditHistoryQuery({
+    pageNumber: historyPage,
+    pageSize: 10,
+  });
 
   // Handle return from payment provider
   useEffect(() => {
     const status = searchParams.get('status');
-    if (status === 'success') {
+    if (!status || handledReturnRef.current) return;
+    handledReturnRef.current = true;
+
+    if (status === 'cancelled') {
+      setSnackbar({ open: true, message: 'Payment was cancelled.', severity: 'info' });
+      window.history.replaceState({}, '', '/credits');
+      return;
+    }
+
+    if (status !== 'success') return;
+
+    const provider = searchParams.get('provider');
+    // Clean the URL up-front so a refresh can't re-trigger handling/capture.
+    window.history.replaceState({}, '', '/credits');
+
+    const onCredited = () => {
       setSnackbar({
         open: true,
         message: 'Payment successful! Credits have been added.',
         severity: 'success',
       });
       refetchBalance();
-      window.history.replaceState({}, '', '/credits');
-    } else if (status === 'cancelled') {
-      setSnackbar({ open: true, message: 'Payment was cancelled.', severity: 'info' });
-      window.history.replaceState({}, '', '/credits');
+      refetchHistory();
+    };
+
+    if (provider === 'paypal') {
+      // PayPal Orders v2 is two-step: the buyer approved the order, now we must
+      // capture it server-side — that's what actually charges and grants credits.
+      // PayPal appends the order id as `token` on the return URL.
+      const orderId = searchParams.get('token');
+      if (!orderId) {
+        setSnackbar({
+          open: true,
+          message: 'Payment could not be verified (missing order id).',
+          severity: 'error',
+        });
+        return;
+      }
+      setSnackbar({ open: true, message: 'Finalizing your payment…', severity: 'info' });
+      capturePayPalOrder(orderId)
+        .unwrap()
+        .then(onCredited)
+        .catch(() => {
+          setSnackbar({
+            open: true,
+            message:
+              'We could not finalize your PayPal payment. If you were charged, please contact support.',
+            severity: 'error',
+          });
+        });
+    } else {
+      // Stripe / ECPay confirm the payment server-side (webhook / callback),
+      // so by the time we land here the credits are already granted.
+      onCredited();
     }
-  }, [searchParams, refetchBalance]);
+  }, [searchParams, refetchBalance, refetchHistory, capturePayPalOrder]);
 
   const handlePurchase = async (packId: string) => {
     try {
