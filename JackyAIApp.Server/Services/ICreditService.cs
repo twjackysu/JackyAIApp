@@ -7,7 +7,7 @@ namespace JackyAIApp.Server.Services
         /// <summary>
         /// Default credit balance for new users
         /// </summary>
-        const ulong DefaultInitialCredits = 200;
+        const ulong DefaultInitialCredits = 50;
 
         /// <summary>
         /// Get the current credit balance for a user
