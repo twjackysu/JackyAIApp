@@ -28,8 +28,6 @@ import {
   TAB_MARKET_SUMMARY,
 } from './hooks/useFinanceAnalysis';
 
-import FloatingChatbot from '@/components/FloatingChatbot';
-
 function Finance() {
   const {
     searchTerm,
@@ -279,8 +277,6 @@ function Finance() {
           refetch={refetch}
         />
       )}
-      {/* FloatingChatbot — only shown on AI trend analysis tab */}
-      {analysisTab === TAB_AI_TREND && <FloatingChatbot />}
     </Box>
   );
 }
