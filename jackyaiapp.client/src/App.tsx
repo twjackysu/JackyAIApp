@@ -46,6 +46,9 @@ const Repository = lazy(() => import('./Repository'));
 const Review = lazy(() => import('./Review'));
 const Stats = lazy(() => import('./Stats'));
 
+// Floating AI chatbot — available on every page (auth-gated internally).
+const FloatingChatbot = lazy(() => import('./components/FloatingChatbot'));
+
 // Helper function to determine current app section based on route
 const getCurrentAppSection = (path: string): string => {
   if (path === '/' || path === FINANCE.path) return FINANCE.name;
@@ -307,8 +310,10 @@ function App() {
           </Routes>
         </Suspense>
       </Box>
-      {/* 懸浮 Chatbot — only shown on AI trend analysis tab */}
-      {/* Rendered inside Finance component instead */}
+      {/* 懸浮 Chatbot — available on every page (auth-gated internally) */}
+      <Suspense fallback={null}>
+        <FloatingChatbot />
+      </Suspense>
       <InsufficientCreditsModal />
     </>
   );
