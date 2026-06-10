@@ -41,7 +41,21 @@ namespace JackyAIApp.Server.Controllers
 
         // ── Engine resolution ──────────────────────────────────────────────────
 
-        private sealed record ResolvedCtx(DataAnalysisEngine Engine, string SourceKey, string TableName);
+        /// <summary>
+        /// Resolved query context.  When <c>OwnsEngine</c> is <c>true</c> the engine was
+        /// built on-the-fly for a custom source and <em>must</em> be disposed after the
+        /// request completes to release the underlying connector resources (e.g. Kusto client).
+        /// The singleton default engine has <c>OwnsEngine = false</c> and must NOT be disposed
+        /// here — its lifetime is managed by the DI container.
+        /// </summary>
+        private sealed record ResolvedCtx(
+            DataAnalysisEngine Engine,
+            string             SourceKey,
+            string             TableName,
+            bool               OwnsEngine) : IDisposable
+        {
+            public void Dispose() { if (OwnsEngine) Engine.Dispose(); }
+        }
 
         private async Task<ResolvedCtx?> TryResolveAsync(
             QueryContextDto? ctx, CancellationToken ct)
@@ -50,7 +64,7 @@ namespace JackyAIApp.Server.Controllers
                 // The default source is the application's own database. Never honor a
                 // caller-supplied table name here — it is pinned to the demo table so
                 // the default source cannot be used to read arbitrary app tables.
-                return new ResolvedCtx(_defaultEngine, DefaultMsSqlKey, DefaultTableName);
+                return new ResolvedCtx(_defaultEngine, DefaultMsSqlKey, DefaultTableName, OwnsEngine: false);
 
             var userId = CurrentUserId;
             // Custom sources require an authenticated user who owns the record.
@@ -63,7 +77,7 @@ namespace JackyAIApp.Server.Controllers
             var engine = _configService.BuildEngine(source);
             var sourceKey = _configService.SourceKey(source.ConnectorType);
             var tableName = ctx.TableName ?? source.DefaultTableName ?? "";
-            return new ResolvedCtx(engine, sourceKey, tableName);
+            return new ResolvedCtx(engine, sourceKey, tableName, OwnsEngine: true);
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -176,7 +190,7 @@ namespace JackyAIApp.Server.Controllers
             [FromQuery] string? tableName = null,
             CancellationToken   ct        = default)
         {
-            var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
+            using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
             _logger.LogInformation("FieldList: source={sid} table={t}", sourceId, ctx.TableName);
@@ -198,7 +212,7 @@ namespace JackyAIApp.Server.Controllers
             [FromQuery] string  dateField  = "OrderDate",
             CancellationToken   ct         = default)
         {
-            var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
+            using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
             _logger.LogInformation("MaxDate: source={sid} table={t} field={f}", sourceId, ctx.TableName, dateField);
@@ -223,7 +237,7 @@ namespace JackyAIApp.Server.Controllers
             if (string.IsNullOrWhiteSpace(field))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "field is required.");
 
-            var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
+            using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
             var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
@@ -251,7 +265,7 @@ namespace JackyAIApp.Server.Controllers
             [FromBody] SummarizeRequestDto dto,
             CancellationToken ct = default)
         {
-            var ctx = await TryResolveAsync(dto.Context, ct);
+            using var ctx = await TryResolveAsync(dto.Context, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
             _logger.LogInformation("Summarize: source={sid} table={t}", dto.Context?.SourceId, ctx.TableName);
@@ -275,7 +289,7 @@ namespace JackyAIApp.Server.Controllers
             [FromBody] DetailsRequestDto dto,
             CancellationToken ct = default)
         {
-            var ctx = await TryResolveAsync(dto.Context, ct);
+            using var ctx = await TryResolveAsync(dto.Context, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
             _logger.LogInformation("Details: source={sid} table={t} skip={s} take={tk}",
