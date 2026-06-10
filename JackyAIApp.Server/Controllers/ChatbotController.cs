@@ -14,13 +14,14 @@ namespace JackyAIApp.Server.Controllers
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class ChatbotController(ILogger<ChatbotController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IUserService userService, IHttpClientFactory httpClientFactory) : ControllerBase
+    public class ChatbotController(ILogger<ChatbotController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IUserService userService, IHttpClientFactory httpClientFactory, ICreditService creditService) : ControllerBase
     {
         private readonly ILogger<ChatbotController> _logger = logger;
         private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IUserService _userService = userService;
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+        private readonly ICreditService _creditService = creditService;
 
         private const string DifyBaseUrl = "https://api.dify.ai/v1";
 
@@ -40,8 +41,34 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var userId = _userService.GetUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                Response.StatusCode = 401;
+                await Response.WriteAsync("Not authenticated.");
+                return;
+            }
             _logger.LogInformation("User {UserId} started chat", userId);
 
+            var difyApiKey = _settings.CurrentValue.DifyApiKey;
+            if (string.IsNullOrEmpty(difyApiKey))
+            {
+                // Server misconfiguration — do not charge the user.
+                Response.StatusCode = 500;
+                await Response.WriteAsync("API key not configured");
+                return;
+            }
+
+            // Charge per message up front (anti-abuse / cost control). Refunded below
+            // if Dify never starts responding, so users aren't charged for nothing.
+            if (!await _creditService.ConsumeCreditsAsync(
+                    userId, CreditCosts.ChatMessage, "chatbot_message", "Chatbot conversation message"))
+            {
+                Response.StatusCode = 402; // Payment Required
+                await Response.WriteAsync($"Insufficient credits. Each message costs {CreditCosts.ChatMessage} credits.");
+                return;
+            }
+
+            var streamingStarted = false;
             try
             {
                 // 準備 Dify API 請求
@@ -57,24 +84,14 @@ namespace JackyAIApp.Server.Controllers
                 var jsonContent = JsonSerializer.Serialize(difyRequest);
                 var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-                // Dify Cloud API 設定
                 var difyApiUrl = $"{DifyBaseUrl}/chat-messages";
-                var difyApiKey = _settings.CurrentValue.DifyApiKey;
-                
                 _logger.LogInformation("Sending to Dify: {Request}", jsonContent);
-
-                if (string.IsNullOrEmpty(difyApiKey))
-                {
-                    Response.StatusCode = 500;
-                    await Response.WriteAsync("API key not configured");
-                    return;
-                }
 
                 using var httpClient = _httpClientFactory.CreateClient();
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {difyApiKey}");
                 httpClient.DefaultRequestHeaders.Add("Accept", "text/event-stream");
                 httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
-                
+
                 // 使用正確的 SendAsync 方法以支援 streaming
                 var requestMessage = new HttpRequestMessage(HttpMethod.Post, difyApiUrl)
                 {
@@ -86,6 +103,7 @@ namespace JackyAIApp.Server.Controllers
                 {
                     var errorContent = await difyResponse.Content.ReadAsStringAsync();
                     _logger.LogError("Dify API error: {StatusCode}, {Error}", difyResponse.StatusCode, errorContent);
+                    await RefundChatMessageAsync(userId); // provider failed before any answer
                     Response.StatusCode = (int)difyResponse.StatusCode;
                     await Response.WriteAsync(errorContent);
                     return;
@@ -105,7 +123,8 @@ namespace JackyAIApp.Server.Controllers
                 // 直接透傳 chunk，就像 Node.js 的 res.write(chunk)
                 using var difyStream = await difyResponse.Content.ReadAsStreamAsync();
                 var buffer = new byte[1024];
-                
+                streamingStarted = true; // past this point a (partial) answer is delivered — no refund
+
                 while (true)
                 {
                     var bytesRead = await difyStream.ReadAsync(buffer, 0, buffer.Length);
@@ -126,10 +145,19 @@ namespace JackyAIApp.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during chat streaming");
-                Response.StatusCode = 500;
-                await Response.WriteAsync("Internal server error");
+                if (!streamingStarted)
+                {
+                    await RefundChatMessageAsync(userId);
+                    Response.StatusCode = 500;
+                    await Response.WriteAsync("Internal server error");
+                }
             }
         }
+
+        /// <summary>Refunds a chat message charge when no answer was delivered.</summary>
+        private Task RefundChatMessageAsync(string userId) =>
+            _creditService.AddCreditsAsync(
+                userId, CreditCosts.ChatMessage, "refund", "Chatbot message refund (no response delivered)");
 
         /// <summary>
         /// Lists the current user's Dify conversations (most-recently updated first).

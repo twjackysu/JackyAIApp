@@ -45,7 +45,9 @@ export const useChatStreaming = () => {
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          // Surface the server's message (e.g. the 402 "Insufficient credits" text).
+          const text = await response.text().catch(() => '');
+          throw new Error(text || `HTTP error! status: ${response.status}`);
         }
 
         if (!response.body) {

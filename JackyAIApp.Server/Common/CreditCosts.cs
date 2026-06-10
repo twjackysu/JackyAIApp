@@ -30,6 +30,9 @@ namespace JackyAIApp.Server.Common
         /// <summary>Stock analysis (AI-powered)</summary>
         public const ulong StockAnalysis = 5;
 
+        /// <summary>Floating AI chatbot — charged per message sent</summary>
+        public const ulong ChatMessage = 5;
+
         /// <summary>Text-to-speech synthesis</summary>
         public const ulong TextToSpeech = 1;
 
