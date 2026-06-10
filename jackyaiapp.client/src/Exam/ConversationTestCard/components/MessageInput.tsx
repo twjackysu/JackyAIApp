@@ -3,6 +3,8 @@ import SendIcon from '@mui/icons-material/Send';
 import { IconButton, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
+import { CREDIT_COSTS } from '@/constants/creditCosts';
+
 interface MessageInputProps {
   input: string;
   onInputChange: (value: string) => void;
@@ -105,6 +107,13 @@ function MessageInput({
           正在轉換語音為文字...
         </Typography>
       )}
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}
+      >
+        每輪 AI 回應消耗 {CREDIT_COSTS.CONVERSATION_RESPONSE} credits
+      </Typography>
     </Paper>
   );
 }

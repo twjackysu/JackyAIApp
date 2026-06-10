@@ -9,6 +9,8 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
+import { CREDIT_COSTS } from '@/constants/creditCosts';
+
 interface StockSearchSectionProps {
   stockSearchTerm: string;
   onSearchTermChange: (value: string) => void;
@@ -88,8 +90,11 @@ export const StockSearchSection = ({
           </Button>
         )}
       </Stack>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+        每次 AI 分析消耗 {CREDIT_COSTS.STOCK_ANALYSIS} credits
+      </Typography>
       {isAnalyzing && (
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mt: 1 }}>
           <LinearProgress />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             正在分析股票資料並產生趨勢預測...這可能需要 1-2 分鐘

@@ -2,8 +2,7 @@ import SendIcon from '@mui/icons-material/Send';
 import { Box, IconButton, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
-// Mirrors the backend CreditCosts.ChatMessage cost (server is the source of truth).
-const CHAT_CREDIT_COST = 5;
+import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 interface ChatInputProps {
   value: string;
@@ -68,7 +67,7 @@ const ChatInput = ({ value, onChange, onSend, onKeyPress, disabled }: ChatInputP
         color="text.secondary"
         sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}
       >
-        每則對話消耗 {CHAT_CREDIT_COST} credits
+        每則對話消耗 {CREDIT_COSTS.CHAT_MESSAGE} credits
       </Typography>
     </Box>
   );

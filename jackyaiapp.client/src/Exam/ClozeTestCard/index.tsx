@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { useGetClozeTestQuery } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
+import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 const CORRECT_TEXT = 'Correct!';
 function ClozeTestCard() {
@@ -68,9 +69,14 @@ function ClozeTestCard() {
         </Typography>
       )}
       {feedback === CORRECT_TEXT && (
-        <Button variant="contained" color="primary" onClick={handleNext}>
-          Next
-        </Button>
+        <Box sx={{ mt: 1 }}>
+          <Button variant="contained" color="primary" onClick={handleNext}>
+            Next
+          </Button>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            下一題消耗 {CREDIT_COSTS.CLOZE_TEST} credits
+          </Typography>
+        </Box>
       )}
     </Box>
   );
