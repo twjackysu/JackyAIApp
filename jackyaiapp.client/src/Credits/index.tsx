@@ -213,8 +213,9 @@ const Credits: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
         <Tabs value={method} onChange={(_, v) => setMethod(v as PaymentMethod)}>
           <Tab label="PayPal" value="paypal" />
-          <Tab label="綠界 ECPay" value="ecpay" />
-          <Tab label="Stripe" value="stripe" />
+          {/* ECPay / Stripe are not enabled yet — disabled until they go live. */}
+          <Tab label="綠界 ECPay（即將開放）" value="ecpay" disabled />
+          <Tab label="Stripe（即將開放）" value="stripe" disabled />
         </Tabs>
       </Box>
       {isLoading ? (
