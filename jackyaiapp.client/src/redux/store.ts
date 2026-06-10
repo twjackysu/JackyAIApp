@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 
 import { accountApis } from '@/apis/accountApis';
+import { chatbotApis } from '@/apis/chatbotApis';
 import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
 import { creditApis } from '@/apis/creditApis';
 import { dailyChallengeApis } from '@/apis/dailyChallengeApis';
@@ -37,6 +38,7 @@ export const store = configureStore({
     [reviewApis.reducerPath]: reviewApis.reducer,
     [statsApis.reducerPath]: statsApis.reducer,
     [dataAnalysisApis.reducerPath]: dataAnalysisApis.reducer,
+    [chatbotApis.reducerPath]: chatbotApis.reducer,
   },
   // Adding the api middleware enables caching, invalidation, polling,
   // and other useful features of `rtk-query`.
@@ -57,6 +59,7 @@ export const store = configureStore({
       reviewApis.middleware,
       statsApis.middleware,
       dataAnalysisApis.middleware,
+      chatbotApis.middleware,
       rtkQueryErrorLogger,
     ),
 });
