@@ -22,7 +22,7 @@ namespace JackyAIApp.Server.Common
         public const ulong ConversationStart = 3;
 
         /// <summary>Conversation response (each turn)</summary>
-        public const ulong ConversationResponse = 1;
+        public const ulong ConversationResponse = 2;
 
         /// <summary>Sentence test generation</summary>
         public const ulong SentenceTest = 2;

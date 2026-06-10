@@ -9,6 +9,7 @@ import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
 import { useGetRepositoryWordsQuery } from '../apis/repositoryApis';
 import RepositoryNoWordAlert from '../components/RepositoryNoWordAlert';
+import { CREDIT_COSTS } from '../constants/creditCosts';
 
 import ClozeTestCard from './ClozeTestCard';
 import ConversationTestCard from './ConversationTestCard';
@@ -88,7 +89,12 @@ function Exam() {
                 sx={styles.button}
                 disabled={isRepositoryNoWord}
               >
-                克漏字測驗 (Cloze Test)
+                <Box sx={{ textAlign: 'center' }}>
+                  克漏字測驗 (Cloze Test)
+                  <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
+                    每次生成 {CREDIT_COSTS.CLOZE_TEST} credits
+                  </Typography>
+                </Box>
               </Button>
               <Button
                 component={Link}
@@ -98,7 +104,13 @@ function Exam() {
                 sx={styles.button}
                 disabled={isRepositoryNoWord}
               >
-                翻譯測驗 (Translation Test)
+                <Box sx={{ textAlign: 'center' }}>
+                  翻譯測驗 (Translation Test)
+                  <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
+                    生成 {CREDIT_COSTS.TRANSLATION_TEST} credits・批改{' '}
+                    {CREDIT_COSTS.TRANSLATION_GRADING} credit
+                  </Typography>
+                </Box>
               </Button>
               <Button
                 component={Link}
@@ -107,7 +119,13 @@ function Exam() {
                 color="success"
                 sx={styles.button}
               >
-                情境對話測驗 (Conversation Test)
+                <Box sx={{ textAlign: 'center' }}>
+                  情境對話測驗 (Conversation Test)
+                  <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
+                    開始 {CREDIT_COSTS.CONVERSATION_START} credits・每輪{' '}
+                    {CREDIT_COSTS.CONVERSATION_RESPONSE} credits
+                  </Typography>
+                </Box>
               </Button>
               <Button
                 component={Link}
@@ -121,7 +139,12 @@ function Exam() {
                 }}
                 disabled={isRepositoryNoWord}
               >
-                造句測驗 (Sentence Formation Test)
+                <Box sx={{ textAlign: 'center' }}>
+                  造句測驗 (Sentence Formation Test)
+                  <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
+                    每次生成 {CREDIT_COSTS.SENTENCE_TEST} credits
+                  </Typography>
+                </Box>
               </Button>
             </Box>
           )}

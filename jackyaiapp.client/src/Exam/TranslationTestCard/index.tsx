@@ -19,6 +19,7 @@ import {
 } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
+import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 function TranslationCard() {
   const theme = useTheme();
@@ -197,6 +198,9 @@ function TranslationCard() {
           >
             Submit
           </Button>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            AI 批改消耗 {CREDIT_COSTS.TRANSLATION_GRADING} credit
+          </Typography>
         </Box>
       )}
       <Typography variant="h6" sx={{ marginTop: 2, display: 'flex', alignItems: 'center' }}>
@@ -222,9 +226,14 @@ function TranslationCard() {
         </Typography>
       )}
       {(showAnswer || !feedback) && (
-        <Button variant="contained" color="primary" onClick={handleNext}>
-          Next
-        </Button>
+        <Box sx={{ mt: 1 }}>
+          <Button variant="contained" color="primary" onClick={handleNext}>
+            Next
+          </Button>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            下一題消耗 {CREDIT_COSTS.TRANSLATION_TEST} credits
+          </Typography>
+        </Box>
       )}
       {showAnswer || (
         <Box sx={{ marginTop: 2 }}>

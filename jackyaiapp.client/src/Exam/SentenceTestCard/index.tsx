@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { useGetSentenceTestQuery, useEvaluateSentenceMutation } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
+import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 interface EvaluationResult {
   score: number;
@@ -123,16 +124,24 @@ function SentenceTestCard() {
             sx={{ mb: 2 }}
           />
 
-          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={!userSentence.trim() || isEvaluating}
-            >
-              {isEvaluating ? '評分中...' : '提交答案'}
-            </Button>
-
-            <Button variant="outlined" onClick={() => setShowSample(!showSample)}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 1, alignItems: 'flex-end' }}>
+            <Box>
+              <Button
+                variant="contained"
+                onClick={handleSubmit}
+                disabled={!userSentence.trim() || isEvaluating}
+              >
+                {isEvaluating ? '評分中...' : '提交答案'}
+              </Button>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 0.5 }}
+              >
+                AI 評分消耗 {CREDIT_COSTS.SENTENCE_TEST} credits
+              </Typography>
+            </Box>
+            <Button variant="outlined" onClick={() => setShowSample(!showSample)} sx={{ mb: 0.5 }}>
               {showSample ? '隱藏' : '顯示'}範例答案
             </Button>
           </Box>
@@ -204,9 +213,18 @@ function SentenceTestCard() {
               </Box>
             )}
 
-            <Button variant="contained" onClick={handleNext} sx={{ mt: 2 }}>
-              下一題
-            </Button>
+            <Box sx={{ mt: 2 }}>
+              <Button variant="contained" onClick={handleNext}>
+                下一題
+              </Button>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 0.5 }}
+              >
+                下一題消耗 {CREDIT_COSTS.SENTENCE_TEST} credits
+              </Typography>
+            </Box>
           </CardContent>
         </Card>
       )}
