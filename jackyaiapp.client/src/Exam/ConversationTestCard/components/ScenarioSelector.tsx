@@ -15,8 +15,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Alert,
 } from '@mui/material';
 import { useState } from 'react';
+
+import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 interface ScenarioTemplate {
   id: string;
@@ -248,6 +251,10 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
             </Select>
           </FormControl>
 
+          <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
+            開始對話消耗 <strong>{CREDIT_COSTS.CONVERSATION_START} credits</strong>， 之後每輪 AI
+            回應再消耗 <strong>{CREDIT_COSTS.CONVERSATION_RESPONSE} credits</strong>。
+          </Alert>
           <Button
             variant="contained"
             onClick={handleStartConversation}
