@@ -1,5 +1,6 @@
 import { Code, Preview } from '@mui/icons-material';
-import { Box, ToggleButton, ToggleButtonGroup, Typography, Paper } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import { Box, IconButton, ToggleButton, ToggleButtonGroup, Typography, Paper } from '@mui/material';
 import hljs from 'highlight.js';
 import { useState, useEffect, useRef } from 'react';
 
@@ -7,11 +8,13 @@ interface HtmlViewerProps {
   content: string;
   isComplete?: boolean;
   title?: string;
+  /** When provided, a close button is rendered in the header (used by the preview modal). */
+  onClose?: () => void;
 }
 
 type ViewMode = 'preview' | 'code';
 
-function HtmlViewer({ content, isComplete = false, title }: HtmlViewerProps) {
+function HtmlViewer({ content, isComplete = false, title, onClose }: HtmlViewerProps) {
   // 根據 isComplete 初始化模式，但不會強制切換
   const [viewMode, setViewMode] = useState<ViewMode>(() => (isComplete ? 'preview' : 'code'));
 
@@ -64,16 +67,23 @@ function HtmlViewer({ content, isComplete = false, title }: HtmlViewerProps) {
           {title || 'HTML Preview'}
         </Typography>
 
-        <ToggleButtonGroup value={viewMode} exclusive onChange={handleModeChange} size="small">
-          <ToggleButton value="preview" disabled={!isComplete} sx={{ px: 1.5 }}>
-            <Preview sx={{ mr: 0.5, fontSize: '1rem' }} />
-            Preview
-          </ToggleButton>
-          <ToggleButton value="code" sx={{ px: 1.5 }}>
-            <Code sx={{ mr: 0.5, fontSize: '1rem' }} />
-            Code
-          </ToggleButton>
-        </ToggleButtonGroup>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ToggleButtonGroup value={viewMode} exclusive onChange={handleModeChange} size="small">
+            <ToggleButton value="preview" disabled={!isComplete} sx={{ px: 1.5 }}>
+              <Preview sx={{ mr: 0.5, fontSize: '1rem' }} />
+              Preview
+            </ToggleButton>
+            <ToggleButton value="code" sx={{ px: 1.5 }}>
+              <Code sx={{ mr: 0.5, fontSize: '1rem' }} />
+              Code
+            </ToggleButton>
+          </ToggleButtonGroup>
+          {onClose && (
+            <IconButton size="small" onClick={onClose} aria-label="關閉預覽">
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          )}
+        </Box>
       </Box>
 
       {/* Content Area */}

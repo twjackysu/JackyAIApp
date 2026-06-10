@@ -8,7 +8,7 @@ import { Message } from './types';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
-import { useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
+import { ParsedBlock, useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
 
 function FloatingChatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,47 +16,37 @@ function FloatingChatbot() {
   const [inputValue, setInputValue] = useState('');
   const [conversationId, setConversationId] = useState<string>('');
   const [currentStreamingContent, setCurrentStreamingContent] = useState<string>('');
-  const [showHtmlViewer, setShowHtmlViewer] = useState(false);
-  const [selectedHtmlContent, setSelectedHtmlContent] = useState<string>('');
+
+  // On-demand preview (HTML / Markdown) — opened from a button inside a message.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewBlock, setPreviewBlock] = useState<ParsedBlock | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { sendStreamingMessage, streamingStatus } = useChatStreaming();
   const { position, isDragging, fabRef, handleMouseDown } = useDraggable();
   const { statusText, statusColor } = useAgentStatus(streamingStatus);
-  const { blocks, currentHtmlBlock, isStreamingHtml } =
-    useStreamingHtmlParser(currentStreamingContent);
+  const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
 
-  // 處理 HTML 預覽
-  const handleHtmlPreview = (content: string) => {
-    setSelectedHtmlContent(content);
-    setShowHtmlViewer(true);
+  const handlePreview = (block: ParsedBlock) => {
+    setPreviewBlock(block);
+    setPreviewOpen(true);
   };
 
-  // 當檢測到 HTML 區塊時自動開啟預覽面板
+  const handleClosePreview = () => setPreviewOpen(false);
+
+  // While a preview is open on a still-streaming HTML block, keep it in sync with
+  // the latest parsed content (guarded by content/completeness to avoid render loops).
   useEffect(() => {
-    const hasHtmlBlocks = blocks.some((block) => block.contentType === 'html');
-
-    if (hasHtmlBlocks && !showHtmlViewer) {
-      // 如果有 HTML 區塊但面板還沒開啟，自動開啟
-      const latestHtmlBlock = blocks.filter((block) => block.contentType === 'html').pop();
-      if (latestHtmlBlock) {
-        setSelectedHtmlContent(latestHtmlBlock.content);
-
-        setShowHtmlViewer(true);
-      }
-    } else if (currentHtmlBlock && showHtmlViewer) {
-      // 如果面板已開啟且有 streaming HTML，更新內容
-
-      setSelectedHtmlContent(currentHtmlBlock.content);
+    if (!previewOpen || !previewBlock || previewBlock.isComplete) return;
+    const live = currentHtmlBlock ?? blocks.find((b) => b.contentType === 'html');
+    if (
+      live &&
+      (live.content !== previewBlock.content || live.isComplete !== previewBlock.isComplete)
+    ) {
+      setPreviewBlock(live);
     }
-  }, [blocks, currentHtmlBlock, isStreamingHtml, showHtmlViewer]);
-
-  // 實時更新右側預覽內容（如果正在顯示且有 streaming HTML）
-  useEffect(() => {
-    if (showHtmlViewer && currentHtmlBlock) {
-      setSelectedHtmlContent(currentHtmlBlock.content);
-    }
-  }, [currentHtmlBlock, currentHtmlBlock?.content, showHtmlViewer]);
+  }, [currentHtmlBlock, blocks, previewOpen, previewBlock]);
 
   // 實時更新最後一條 bot 消息的 parsedBlocks
   useEffect(() => {
@@ -161,6 +151,7 @@ function FloatingChatbot() {
       handleSendMessage();
     }
   };
+
   return (
     <>
       <FloatingButton
@@ -183,10 +174,10 @@ function FloatingChatbot() {
         statusText={statusText}
         statusColor={statusColor}
         messagesEndRef={messagesEndRef}
-        currentHtmlBlock={currentHtmlBlock}
-        showHtmlViewer={showHtmlViewer}
-        selectedHtmlContent={selectedHtmlContent}
-        onHtmlPreview={handleHtmlPreview}
+        onPreview={handlePreview}
+        previewBlock={previewBlock}
+        previewOpen={previewOpen}
+        onClosePreview={handleClosePreview}
       />
     </>
   );

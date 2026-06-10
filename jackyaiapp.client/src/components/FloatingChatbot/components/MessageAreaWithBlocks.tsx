@@ -1,7 +1,7 @@
-import { Visibility } from '@mui/icons-material';
+import { OpenInFull, Visibility } from '@mui/icons-material';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import { Avatar, Box, Paper, Stack, Typography, Button } from '@mui/material';
+import { Avatar, Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 import { Message } from '../types';
@@ -11,7 +11,7 @@ import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 
 interface MessageAreaWithBlocksProps {
   messages: Message[];
-  onHtmlPreview: (content: string) => void;
+  onPreview: (block: ParsedBlock) => void;
   style?: React.CSSProperties;
   ref?: React.Ref<HTMLDivElement>;
 }
@@ -19,111 +19,89 @@ interface MessageAreaWithBlocksProps {
 // 單個區塊渲染組件
 const BlockRenderer = ({
   block,
-  onHtmlPreview,
+  onPreview,
 }: {
   block: ParsedBlock;
-  onHtmlPreview: (content: string) => void;
+  onPreview: (block: ParsedBlock) => void;
 }) => {
   const theme = useTheme();
 
   if (block.contentType === 'markdown') {
     return <MarkdownMessage content={block.content} isOwnMessage={false} theme={theme} />;
-  } else {
-    // HTML 區塊顯示為預覽按鈕
-    return (
-      <Box sx={{ my: 1 }}>
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<Visibility />}
-          onClick={() => onHtmlPreview(block.content)}
-          sx={{
-            textTransform: 'none',
-            borderColor: theme.palette.divider,
-            color: theme.palette.text.secondary,
-            '&:hover': {
-              borderColor: theme.palette.primary.main,
-              color: theme.palette.primary.main,
-            },
-          }}
-        >
-          View HTML {block.isComplete ? 'Preview' : '(Streaming...)'}
-        </Button>
-        {!block.isComplete && (
-          <Typography
-            variant="caption"
-            sx={{
-              display: 'block',
-              mt: 0.5,
-              color: theme.palette.text.secondary,
-              fontSize: '0.7rem',
-            }}
-          >
-            HTML content is still loading...
-          </Typography>
-        )}
-      </Box>
-    );
   }
+
+  // HTML 區塊：顯示為「預覽」按鈕，點擊後另開寬闊的預覽視窗
+  const streaming = !block.isComplete;
+  return (
+    <Box sx={{ my: 1 }}>
+      <Button
+        variant="contained"
+        size="small"
+        disableElevation
+        startIcon={streaming ? <Visibility /> : <OpenInFull />}
+        onClick={() => onPreview(block)}
+        sx={{
+          textTransform: 'none',
+          borderRadius: 2,
+          bgcolor: theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.main',
+          '&:hover': { bgcolor: 'primary.dark' },
+        }}
+      >
+        {streaming ? 'HTML 產生中…點擊預覽' : '開啟 HTML 預覽'}
+      </Button>
+    </Box>
+  );
 };
 
-function MessageAreaWithBlocks({
-  messages,
-  onHtmlPreview,
-  style,
-  ref,
-}: MessageAreaWithBlocksProps) {
+function MessageAreaWithBlocks({ messages, onPreview, style, ref }: MessageAreaWithBlocksProps) {
   const theme = useTheme();
+
+  const scrollbarSx = {
+    '&::-webkit-scrollbar': { width: '8px' },
+    '&::-webkit-scrollbar-track': { backgroundColor: 'transparent' },
+    '&::-webkit-scrollbar-thumb': {
+      backgroundColor:
+        theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+      borderRadius: '4px',
+      '&:hover': {
+        backgroundColor:
+          theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)',
+      },
+    },
+  };
 
   return (
     <Box
       sx={{
         flexGrow: 1,
-        p: 3,
+        px: { xs: 2, sm: 4 },
+        py: 3,
         overflowY: 'auto',
         bgcolor: 'background.default',
-        // 更精美的聊天區域 scrollbar
-        '&::-webkit-scrollbar': {
-          width: '6px',
-        },
-        '&::-webkit-scrollbar-track': {
-          backgroundColor: 'transparent',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          backgroundColor:
-            theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
-          borderRadius: '3px',
-          '&:hover': {
-            backgroundColor:
-              theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)',
-          },
-        },
+        ...scrollbarSx,
         ...style,
       }}
     >
-      <Stack spacing={1}>
+      <Stack spacing={2.5}>
         {messages.length === 0 && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
-            <Avatar sx={{ mr: 1, bgcolor: theme.palette.success.main, width: 40, height: 40 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <Avatar sx={{ mr: 1.5, bgcolor: theme.palette.success.main, width: 38, height: 38 }}>
               <SmartToyIcon />
             </Avatar>
             <Paper
               variant="outlined"
               sx={{
-                p: 1.5,
-                maxWidth: '70%',
-                borderRadius: '16px 16px 16px 0',
+                p: 2,
+                maxWidth: '85%',
+                borderRadius: '4px 16px 16px 16px',
                 backgroundColor: theme.palette.background.paper,
-                boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
               }}
             >
               <Stack direction="column" spacing={0.5}>
                 <Typography
                   variant="caption"
-                  sx={{
-                    fontWeight: 'bold',
-                    color: theme.palette.success.main,
-                  }}
+                  sx={{ fontWeight: 700, color: theme.palette.success.main }}
                 >
                   AI 助手
                 </Typography>
@@ -132,15 +110,6 @@ function MessageAreaWithBlocks({
                   isOwnMessage={false}
                   theme={theme}
                 />
-                <Typography
-                  variant="caption"
-                  sx={{
-                    alignSelf: 'flex-end',
-                    color: theme.palette.text.secondary,
-                  }}
-                >
-                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Typography>
               </Stack>
             </Paper>
           </Box>
@@ -159,17 +128,12 @@ function MessageAreaWithBlocks({
               sx={{
                 display: 'flex',
                 justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
-                mb: 2,
+                alignItems: 'flex-start',
               }}
             >
               {!isOwnMessage && (
                 <Avatar
-                  sx={{
-                    mr: 1,
-                    bgcolor: theme.palette.success.main,
-                    width: 40,
-                    height: 40,
-                  }}
+                  sx={{ mr: 1.5, bgcolor: theme.palette.success.main, width: 38, height: 38 }}
                 >
                   <SmartToyIcon />
                 </Avatar>
@@ -177,26 +141,27 @@ function MessageAreaWithBlocks({
               <Paper
                 variant="outlined"
                 sx={{
-                  p: 1.5,
-                  maxWidth: '70%',
-                  borderRadius: isOwnMessage ? '16px 16px 0 16px' : '16px 16px 16px 0',
+                  px: 2,
+                  py: 1.5,
+                  maxWidth: '85%',
+                  borderRadius: isOwnMessage ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
+                  border: isOwnMessage ? 'none' : `1px solid ${theme.palette.divider}`,
                   backgroundColor: isOwnMessage
                     ? theme.palette.primary.main
                     : theme.palette.background.paper,
                   color: isOwnMessage
                     ? theme.palette.primary.contrastText
                     : theme.palette.text.primary,
-                  boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+                  boxShadow: isOwnMessage
+                    ? '0 2px 8px rgba(25, 118, 210, 0.25)'
+                    : '0 2px 8px rgba(0, 0, 0, 0.06)',
                 }}
               >
                 <Stack direction="column" spacing={0.5}>
                   {!isOwnMessage && (
                     <Typography
                       variant="caption"
-                      sx={{
-                        fontWeight: 'bold',
-                        color: theme.palette.success.main,
-                      }}
+                      sx={{ fontWeight: 700, color: theme.palette.success.main }}
                     >
                       AI 助手
                     </Typography>
@@ -204,17 +169,15 @@ function MessageAreaWithBlocks({
 
                   {/* 渲染消息內容 */}
                   {isOwnMessage || !message.parsedBlocks ? (
-                    // 用戶消息或沒有解析區塊的消息，使用原有方式
                     <MarkdownMessage
                       content={message.content}
                       isOwnMessage={isOwnMessage}
                       theme={theme}
                     />
                   ) : (
-                    // Bot 消息且有解析區塊，使用新的區塊渲染
                     <Box>
                       {message.parsedBlocks.map((block) => (
-                        <BlockRenderer key={block.id} block={block} onHtmlPreview={onHtmlPreview} />
+                        <BlockRenderer key={block.id} block={block} onPreview={onPreview} />
                       ))}
                     </Box>
                   )}
@@ -223,6 +186,7 @@ function MessageAreaWithBlocks({
                     variant="caption"
                     sx={{
                       alignSelf: 'flex-end',
+                      opacity: 0.7,
                       color: isOwnMessage
                         ? theme.palette.primary.contrastText
                         : theme.palette.text.secondary,
@@ -234,12 +198,7 @@ function MessageAreaWithBlocks({
               </Paper>
               {isOwnMessage && (
                 <Avatar
-                  sx={{
-                    ml: 1,
-                    bgcolor: theme.palette.primary.main,
-                    width: 40,
-                    height: 40,
-                  }}
+                  sx={{ ml: 1.5, bgcolor: theme.palette.primary.main, width: 38, height: 38 }}
                 >
                   <PersonIcon />
                 </Avatar>
