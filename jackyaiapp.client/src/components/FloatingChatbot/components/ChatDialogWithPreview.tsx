@@ -1,17 +1,13 @@
-import { Dialog, useMediaQuery, useTheme } from '@mui/material';
-import { Allotment } from 'allotment';
-
-import 'allotment/dist/style.css';
+import { Dialog } from '@mui/material';
 
 import { Message } from '../types';
 
 import ChatHeader from './ChatHeader';
 import ChatInput from './ChatInput';
-import MessageArea from './MessageArea';
 import MessageAreaWithBlocks from './MessageAreaWithBlocks';
+import PreviewDialog from './PreviewDialog';
 import ProgressIndicator from './ProgressIndicator';
 
-import HtmlViewer from '@/components/HtmlViewer';
 import { StreamingStatus } from '@/hooks/useChatStreaming';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 
@@ -27,11 +23,11 @@ interface ChatDialogWithPreviewProps {
   statusText: string;
   statusColor: string;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
-  // 新增的 HTML 預覽相關 props
-  currentHtmlBlock: ParsedBlock | null;
-  showHtmlViewer: boolean;
-  selectedHtmlContent: string;
-  onHtmlPreview: (content: string) => void;
+  // Preview modal (HTML / Markdown) — opened on demand from a message button.
+  onPreview: (block: ParsedBlock) => void;
+  previewBlock: ParsedBlock | null;
+  previewOpen: boolean;
+  onClosePreview: () => void;
 }
 
 const ChatDialogWithPreview = ({
@@ -46,28 +42,27 @@ const ChatDialogWithPreview = ({
   statusText,
   statusColor,
   messagesEndRef,
-  currentHtmlBlock,
-  showHtmlViewer,
-  selectedHtmlContent,
-  onHtmlPreview,
+  onPreview,
+  previewBlock,
+  previewOpen,
+  onClosePreview,
 }: ChatDialogWithPreviewProps) => {
-  const theme = useTheme();
-  const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
-
-  // 手機版不顯示分割面板，保持原有行為
-  if (isSmallScreen) {
-    return (
+  return (
+    <>
       <Dialog
         open={open}
         onClose={onClose}
-        maxWidth="sm"
-        fullWidth
+        maxWidth={false}
         slotProps={{
           paper: {
             sx: {
-              height: '100vh',
+              width: { xs: '100vw', sm: 'min(840px, 95vw)' },
+              height: { xs: '100dvh', sm: 'min(82vh, 760px)' },
+              m: { xs: 0, sm: 2 },
+              borderRadius: { xs: 0, sm: 3 },
               display: 'flex',
               flexDirection: 'column',
+              overflow: 'hidden',
               bgcolor: 'background.default',
             },
           },
@@ -75,7 +70,12 @@ const ChatDialogWithPreview = ({
       >
         <ChatHeader statusText={statusText} statusColor={statusColor} onClose={onClose} />
         <ProgressIndicator streamingStatus={streamingStatus} />
-        <MessageArea messages={messages} ref={messagesEndRef} />
+        <MessageAreaWithBlocks
+          messages={messages}
+          ref={messagesEndRef}
+          onPreview={onPreview}
+          style={{ flex: 1, minHeight: 0 }}
+        />
         <ChatInput
           value={inputValue}
           onChange={onInputChange}
@@ -84,82 +84,9 @@ const ChatDialogWithPreview = ({
           disabled={streamingStatus.isLoading}
         />
       </Dialog>
-    );
-  }
 
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth={showHtmlViewer ? 'xl' : 'sm'}
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            height: '600px',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: 'background.default',
-            // 當顯示 HTML 預覽時，調整寬度
-            width: showHtmlViewer ? '90vw' : undefined,
-          },
-        },
-      }}
-    >
-      <ChatHeader statusText={statusText} statusColor={statusColor} onClose={onClose} />
-      <ProgressIndicator streamingStatus={streamingStatus} />
-      {/* 主要內容區域 */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {showHtmlViewer ? (
-          <Allotment defaultSizes={[70, 30]}>
-            {/* 左側：聊天區域 */}
-            <Allotment.Pane minSize={300}>
-              <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <MessageAreaWithBlocks
-                  messages={messages}
-                  ref={messagesEndRef}
-                  onHtmlPreview={onHtmlPreview}
-                  style={{ flex: 1 }}
-                />
-                <ChatInput
-                  value={inputValue}
-                  onChange={onInputChange}
-                  onSend={onSendMessage}
-                  onKeyPress={onKeyPress}
-                  disabled={streamingStatus.isLoading}
-                />
-              </div>
-            </Allotment.Pane>
-
-            {/* 右側：HTML 預覽 */}
-            <Allotment.Pane minSize={250}>
-              <HtmlViewer
-                content={selectedHtmlContent}
-                isComplete={!currentHtmlBlock || currentHtmlBlock.isComplete}
-                title="HTML Preview"
-              />
-            </Allotment.Pane>
-          </Allotment>
-        ) : (
-          // 沒有 HTML 預覽時的原有布局
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-            <MessageAreaWithBlocks
-              messages={messages}
-              ref={messagesEndRef}
-              onHtmlPreview={onHtmlPreview}
-              style={{ flex: 1 }}
-            />
-            <ChatInput
-              value={inputValue}
-              onChange={onInputChange}
-              onSend={onSendMessage}
-              onKeyPress={onKeyPress}
-              disabled={streamingStatus.isLoading}
-            />
-          </div>
-        )}
-      </div>
-    </Dialog>
+      <PreviewDialog open={previewOpen} onClose={onClosePreview} block={previewBlock} />
+    </>
   );
 };
 
