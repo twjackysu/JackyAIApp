@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import ChatDialogWithPreview from './components/ChatDialogWithPreview';
-import ConversationDrawer from './components/ConversationDrawer';
 import FloatingButton from './components/FloatingButton';
 import { useAgentStatus } from './hooks/useAgentStatus';
 import { useDraggable } from './hooks/useDraggable';
@@ -134,6 +133,7 @@ function FloatingChatbot() {
 
   const handleClose = () => {
     setIsOpen(false);
+    setHistoryOpen(false);
   };
 
   const handleSendMessage = async () => {
@@ -219,18 +219,14 @@ function FloatingChatbot() {
         messagesEndRef={messagesEndRef}
         onOpenHistory={() => setHistoryOpen(true)}
         onNewChat={handleNewChat}
+        historyOpen={historyOpen}
+        onCloseHistory={() => setHistoryOpen(false)}
+        activeConversationId={conversationId}
+        onSelectConversation={handleSelectConversation}
         onPreview={handlePreview}
         previewBlock={previewBlock}
         previewOpen={previewOpen}
         onClosePreview={handleClosePreview}
-      />
-
-      <ConversationDrawer
-        open={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        activeConversationId={conversationId}
-        onSelect={handleSelectConversation}
-        onNewChat={handleNewChat}
       />
     </>
   );

@@ -21,6 +21,12 @@ interface ConversationDrawerProps {
   activeConversationId: string;
   onSelect: (conversationId: string) => void;
   onNewChat: () => void;
+  /**
+   * When provided, the drawer renders inside this element (the chat dialog's
+   * paper) instead of the whole screen — so its backdrop dims only the chat
+   * window rather than stacking a second full-screen backdrop over the dialog.
+   */
+  containerEl?: HTMLElement | null;
 }
 
 const formatTime = (epochSeconds: number) => {
@@ -39,6 +45,7 @@ const ConversationDrawer = ({
   activeConversationId,
   onSelect,
   onNewChat,
+  containerEl,
 }: ConversationDrawerProps) => {
   const theme = useTheme();
   const { data, isFetching } = useGetConversationsQuery(undefined, {
@@ -55,12 +62,26 @@ const ConversationDrawer = ({
     if (id === activeConversationId) onNewChat();
   };
 
+  // When scoped to a container, position the modal/backdrop/paper absolutely so
+  // they stay within the chat dialog instead of covering the whole viewport.
+  const scoped = Boolean(containerEl);
+
   return (
     <Drawer
       anchor="left"
       open={open}
       onClose={onClose}
-      slotProps={{ paper: { sx: { width: { xs: '85vw', sm: 320 } } } }}
+      variant="temporary"
+      slotProps={{
+        root: scoped ? { container: containerEl, style: { position: 'absolute' } } : undefined,
+        backdrop: scoped ? { style: { position: 'absolute' } } : undefined,
+        paper: {
+          sx: {
+            width: { xs: '85%', sm: 280 },
+            ...(scoped ? { position: 'absolute' } : {}),
+          },
+        },
+      }}
     >
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
