@@ -1,14 +1,28 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import ChatDialogWithPreview from './components/ChatDialogWithPreview';
+import ConversationDrawer from './components/ConversationDrawer';
 import FloatingButton from './components/FloatingButton';
 import { useAgentStatus } from './hooks/useAgentStatus';
 import { useDraggable } from './hooks/useDraggable';
 import { Message } from './types';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
+import { useLazyGetConversationMessagesQuery } from '@/apis/chatbotApis';
+import { ChatHistoryMessage } from '@/apis/chatbotApis/types';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
 import { ParsedBlock, useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
+
+/** Flattens Dify's per-exchange history (query + answer) into chat bubbles. */
+const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] => {
+  const out: Message[] = [];
+  for (const m of items) {
+    const ts = new Date(m.createdAt * 1000);
+    if (m.query) out.push({ id: `${m.id}-q`, content: m.query, isUser: true, timestamp: ts });
+    if (m.answer) out.push({ id: `${m.id}-a`, content: m.answer, isUser: false, timestamp: ts });
+  }
+  return out;
+};
 
 function FloatingChatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -21,8 +35,12 @@ function FloatingChatbot() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBlock, setPreviewBlock] = useState<ParsedBlock | null>(null);
 
+  // Conversation history drawer.
+  const [historyOpen, setHistoryOpen] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const [fetchConversationMessages] = useLazyGetConversationMessagesQuery();
   const { sendStreamingMessage, streamingStatus } = useChatStreaming();
   const { position, isDragging, fabRef, handleMouseDown } = useDraggable();
   const { statusText, statusColor } = useAgentStatus(streamingStatus);
@@ -34,6 +52,31 @@ function FloatingChatbot() {
   };
 
   const handleClosePreview = () => setPreviewOpen(false);
+
+  // Start a fresh conversation (Dify assigns a new id on the next message).
+  const handleNewChat = useCallback(() => {
+    setMessages([]);
+    setConversationId('');
+    setCurrentStreamingContent('');
+    setPreviewOpen(false);
+  }, []);
+
+  // Resume an existing conversation: load its history from Dify and make it active.
+  const handleSelectConversation = useCallback(
+    async (id: string) => {
+      if (streamingStatus.isLoading) return;
+      try {
+        const res = await fetchConversationMessages(id).unwrap();
+        setMessages(mapHistoryToMessages(res.data));
+        setConversationId(id);
+        setCurrentStreamingContent('');
+        setPreviewOpen(false);
+      } catch (e) {
+        console.error('Failed to load conversation messages:', e);
+      }
+    },
+    [fetchConversationMessages, streamingStatus.isLoading],
+  );
 
   // While a preview is open on a still-streaming HTML block, keep it in sync with
   // the latest parsed content (guarded by content/completeness to avoid render loops).
@@ -174,10 +217,20 @@ function FloatingChatbot() {
         statusText={statusText}
         statusColor={statusColor}
         messagesEndRef={messagesEndRef}
+        onOpenHistory={() => setHistoryOpen(true)}
+        onNewChat={handleNewChat}
         onPreview={handlePreview}
         previewBlock={previewBlock}
         previewOpen={previewOpen}
         onClosePreview={handleClosePreview}
+      />
+
+      <ConversationDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        activeConversationId={conversationId}
+        onSelect={handleSelectConversation}
+        onNewChat={handleNewChat}
       />
     </>
   );

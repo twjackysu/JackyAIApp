@@ -23,6 +23,9 @@ interface ChatDialogWithPreviewProps {
   statusText: string;
   statusColor: string;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  // Conversation history controls (rendered in the header).
+  onOpenHistory: () => void;
+  onNewChat: () => void;
   // Preview modal (HTML / Markdown) — opened on demand from a message button.
   onPreview: (block: ParsedBlock) => void;
   previewBlock: ParsedBlock | null;
@@ -42,6 +45,8 @@ const ChatDialogWithPreview = ({
   statusText,
   statusColor,
   messagesEndRef,
+  onOpenHistory,
+  onNewChat,
   onPreview,
   previewBlock,
   previewOpen,
@@ -68,7 +73,13 @@ const ChatDialogWithPreview = ({
           },
         }}
       >
-        <ChatHeader statusText={statusText} statusColor={statusColor} onClose={onClose} />
+        <ChatHeader
+          statusText={statusText}
+          statusColor={statusColor}
+          onClose={onClose}
+          onOpenHistory={onOpenHistory}
+          onNewChat={onNewChat}
+        />
         <ProgressIndicator streamingStatus={streamingStatus} />
         <MessageAreaWithBlocks
           messages={messages}

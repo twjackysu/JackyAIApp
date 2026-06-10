@@ -1,15 +1,35 @@
+import AddCommentIcon from '@mui/icons-material/AddComment';
 import CloseIcon from '@mui/icons-material/Close';
+import HistoryIcon from '@mui/icons-material/History';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import { AppBar, Avatar, Badge, Box, IconButton, Stack, Toolbar, Typography } from '@mui/material';
+import {
+  AppBar,
+  Avatar,
+  Badge,
+  Box,
+  IconButton,
+  Stack,
+  Toolbar,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 interface ChatHeaderProps {
   statusText: string;
   statusColor: string;
   onClose: () => void;
+  onOpenHistory: () => void;
+  onNewChat: () => void;
 }
 
-const ChatHeader = ({ statusText, statusColor, onClose }: ChatHeaderProps) => {
+const ChatHeader = ({
+  statusText,
+  statusColor,
+  onClose,
+  onOpenHistory,
+  onNewChat,
+}: ChatHeaderProps) => {
   const theme = useTheme();
 
   return (
@@ -55,6 +75,16 @@ const ChatHeader = ({ statusText, statusColor, onClose }: ChatHeaderProps) => {
           </Typography>
         </Stack>
         <Box sx={{ flexGrow: 1 }} />
+        <Tooltip title="對話紀錄">
+          <IconButton onClick={onOpenHistory} color="inherit" aria-label="對話紀錄">
+            <HistoryIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="新對話">
+          <IconButton onClick={onNewChat} color="inherit" aria-label="新對話">
+            <AddCommentIcon />
+          </IconButton>
+        </Tooltip>
         <IconButton onClick={onClose} color="inherit" aria-label="關閉">
           <CloseIcon />
         </IconButton>
