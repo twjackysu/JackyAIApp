@@ -30,6 +30,23 @@ StringGrouping (use when user wants to merge/group categories):
   - "op" defaults to "In" when omitted.
   - For GreaterThan/LessThan/Between, put the threshold(s) in "values" as strings.
 
+## Field Transforms — how to reshape a raw column into a group dimension
+
+A raw column is rarely useful as-is for grouping. Pick the transform that matches the column's TYPE:
+
+- DATE / DATETIME / DATETIMEOFFSET column → use **DateTrunc** to bucket by a calendar period.
+  Allowed granularities: Year, Quarter, Month, Week, Day, Hour. (A raw timestamp has thousands of
+  distinct values — never group by it Plainly; always DateTrunc it.)
+- NUMERIC column (Integer / Float / Decimal) → use **NumericBin** to bucket into value RANGES.
+  Each bin is {min, max, label}; min/max may be null for open-ended ends (e.g. {"min":null,"max":100}
+  = "under 100", {"min":1000,"max":null} = "1000+"). Use this for "price ranges", "age groups",
+  "order-size tiers", etc. Group a numeric column Plainly only if it is a small discrete code.
+- STRING column with many values you want to merge → use **StringGrouping** to map several raw
+  values into one label (e.g. merge countries into continents). A normal category column uses Plain.
+
+A measure can aggregate a numeric column WITHOUT any transform — transforms are only for the
+viewBy (group) dimensions, not for measures.
+
 ## Rules
 
 1. ONLY use field names from the AVAILABLE COLUMNS list provided in the user message.
@@ -53,8 +70,17 @@ StringGrouping (use when user wants to merge/group categories):
    (match the user's wording to the closest real value, e.g. user "US"/"America" → "NAMER" if that
    is the actual value). NEVER invent a filter value that is not in the list. If the user's intent
    matches no available value, OMIT that filter rather than guessing.
-6. If a date range is mentioned (e.g. "last quarter", "2024"), add a Between or GreaterThan/LessThan
-   filter on the date field using TODAY provided. Date filters do not need an ACTUAL VALUES list.
+6. DATES — when the user restricts or refers to time, add a date filter on the date column. Use the
+   "DATA DATE RANGE" block (the real latest date in the data) — NOT today's date — to resolve
+   relative phrases. Date filters do not need an ACTUAL VALUES list. Put dates as "yyyy-MM-dd" strings.
+   - "latest" / "most recent" / "current" / "最新" + month → Between [first day of the latest month,
+     the latest date]. e.g. latest date 2024-09-18 → {"op":"Between","values":["2024-09-01","2024-09-18"]}.
+   - "latest" / "最新" with no period word → treat as the latest MONTH (as above).
+   - "this/last year" → Between [Jan 1 of that year, Dec 31 of that year] relative to the latest date.
+   - "last quarter", "Q3 2024", "in 2023" → the matching Between range.
+   - An explicit absolute range the user gives (e.g. "2024") is used verbatim.
+   - If there is no DATA DATE RANGE block and the phrase is relative, OMIT the date filter rather than
+     guessing a year.
 7. If the question is ambiguous or cannot be answered with available fields, return: {"viewBy":[],"measures":[],"filters":[]}
 
 ## Few-shot Examples
@@ -83,5 +109,14 @@ USER: "quarterly revenue for the enterprise segment"
 COLUMNS: Revenue(Decimal), OrderDate(DateTime), CustomerSegment(String)
 ACTUAL VALUES: CustomerSegment: Enterprise | Mid-Market | SMB
 ASSISTANT: {"viewBy":[{"type":"DateTrunc","fieldName":"OrderDate","granularity":"Quarter","alias":"Quarter"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"Total Revenue"}],"filters":[{"fieldName":"CustomerSegment","values":["Enterprise"],"op":"In"}]}
+
+USER: "latest revenue by product"   (asks for the most recent month; uses DATA DATE RANGE, not today)
+COLUMNS: ProductName(String), Revenue(Decimal), OrderDate(DateTime)
+DATA DATE RANGE: OrderDate latest = 2024-09-18
+ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"ProductName"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"Total Revenue"}],"filters":[{"fieldName":"OrderDate","values":["2024-09-01","2024-09-18"],"op":"Between"}]}
+
+USER: "average order value by price range"   (numeric column → NumericBin)
+COLUMNS: UnitPrice(Decimal), Revenue(Decimal), ProductName(String)
+ASSISTANT: {"viewBy":[{"type":"NumericBin","fieldName":"UnitPrice","bins":[{"min":null,"max":50,"label":"<50"},{"min":50,"max":200,"label":"50-200"},{"min":200,"max":null,"label":"200+"}],"fallback":"Other","alias":"Price Range"}],"measures":[{"fieldName":"Revenue","aggregation":"Average","alias":"Avg Order Value"}],"filters":[]}
 
 Now translate the user's question into the JSON format. Output ONLY valid JSON, no explanation.
