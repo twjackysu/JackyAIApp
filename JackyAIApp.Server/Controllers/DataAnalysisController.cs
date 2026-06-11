@@ -312,9 +312,10 @@ namespace JackyAIApp.Server.Controllers
         /// distinct values (List-of-Values) for only those columns, (3) ask the LLM to produce the
         /// final query plan using those real values, then execute it. This stops the LLM from
         /// inventing filter values that don't exist in the data.
-        /// Returns <c>{ plan, interpretation, rows }</c>. Anonymous users (demo default source) are not charged.
+        /// Returns <c>{ plan, interpretation, rows }</c>. Requires login — every call consumes credits.
         /// </summary>
         [HttpPost("summarize/nl")]
+        [Authorize]
         public async Task<IActionResult> NlSummarize(
             [FromBody] NlSummarizeRequestDto dto,
             CancellationToken ct = default)
@@ -341,7 +342,8 @@ namespace JackyAIApp.Server.Controllers
 
                 var planResult = await BuildNlPlanAsync(
                     fields, dto.Query, filterPlanPrompt, summarizePrompt,
-                    col => Task.FromResult(GetSessionLov(dto.SessionId!, col)), ct);
+                    col => Task.FromResult(GetSessionLov(dto.SessionId!, col)),
+                    col => Task.FromResult(GetSessionMaxDateValue(dto.SessionId!, col)), ct);
                 if (planResult.Plan is null)
                     return _responseFactory.CreateErrorResponse(planResult.Error!.Value, planResult.ErrorMessage!);
 
@@ -376,7 +378,8 @@ namespace JackyAIApp.Server.Controllers
 
             var enginePlanResult = await BuildNlPlanAsync(
                 engineFields, dto.Query, filterPlanPrompt, summarizePrompt,
-                col => FetchEngineDistinctValuesAsync(ctx, col, ct), ct);
+                col => FetchEngineDistinctValuesAsync(ctx, col, ct),
+                col => FetchEngineMaxDateAsync(ctx, col, ct), ct);
             if (enginePlanResult.Plan is null)
                 return _responseFactory.CreateErrorResponse(enginePlanResult.Error!.Value, enginePlanResult.ErrorMessage!);
 
@@ -406,6 +409,8 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>
         /// The shared two-phase LLM pipeline: plan which columns to filter → fetch their real
         /// values via <paramref name="distinctValuesFetcher"/> → generate &amp; validate the final plan.
+        /// Date columns' max value is fetched via <paramref name="maxDateFetcher"/> and injected so the
+        /// LLM can resolve "latest / most recent" requests against the data's real date range.
         /// Returns the validated plan, or an error code + friendly message on failure.
         /// </summary>
         private async Task<(SummarizeRequestDto? Plan, ErrorCodes? Error, string? ErrorMessage)> BuildNlPlanAsync(
@@ -414,6 +419,7 @@ namespace JackyAIApp.Server.Controllers
             string filterPlanPrompt,
             string summarizePrompt,
             Func<string, Task<List<string>>> distinctValuesFetcher,
+            Func<string, Task<string?>> maxDateFetcher,
             CancellationToken ct)
         {
             if (fields.Count == 0)
@@ -426,6 +432,12 @@ namespace JackyAIApp.Server.Controllers
                 .Where(f => string.Equals(f.CanonicalType, "String", StringComparison.OrdinalIgnoreCase))
                 .Select(f => f.Name)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            // Date columns — their max value lets the LLM resolve relative dates ("latest", "this month").
+            var dateFields = fields
+                .Where(f => f.CanonicalType is "DateTime" or "DateTimeOffset" or "Date")
+                .Select(f => f.Name)
+                .Take(3) // bound the number of extra MAX(date) queries
+                .ToList();
 
             // ── Phase 1: which string columns does the query want to filter on? ──
             var phase1System = $"{filterPlanPrompt}\n\nAVAILABLE COLUMNS:\n{fieldList}";
@@ -456,9 +468,26 @@ namespace JackyAIApp.Server.Controllers
 
             _logger.LogInformation("NlSummarize Phase2 lovBlock: {lov}", lovBlock.Length > 0 ? lovBlock : "(none)");
 
+            // ── Fetch the latest date per date column (for "latest / most recent" queries) ──
+            var dateLines = new List<string>();
+            foreach (var col in dateFields)
+            {
+                ct.ThrowIfCancellationRequested();
+                var maxDate = await maxDateFetcher(col);
+                if (!string.IsNullOrEmpty(maxDate))
+                    dateLines.Add($"- {col}: latest = {maxDate}");
+            }
+            var dateBlock = dateLines.Count > 0
+                ? "\n\nDATA DATE RANGE — the most recent date present in each date column. Use these (NOT today's date) "
+                  + "to resolve relative ranges like \"latest\", \"most recent\", \"this month\", \"last quarter\":\n"
+                  + string.Join("\n", dateLines)
+                : "";
+
+            _logger.LogInformation("NlSummarize Phase2 dateBlock: {db}", dateBlock.Length > 0 ? dateBlock : "(none)");
+
             // ── Phase 2: produce the final query plan using the real values ──
             var today = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
-            var phase2System = $"{summarizePrompt}\n\nAVAILABLE COLUMNS:\n{fieldList}\nTODAY: {today}{lovBlock}";
+            var phase2System = $"{summarizePrompt}\n\nAVAILABLE COLUMNS:\n{fieldList}\nTODAY: {today}{lovBlock}{dateBlock}";
             var (plan, llmError) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<SummarizeRequestDto>(
                 phase2System, query, NewModels.GPT_5_NANO);
 
@@ -482,7 +511,7 @@ namespace JackyAIApp.Server.Controllers
             return (plan, null, null);
         }
 
-        /// <summary>Charges NlSummarize credits for an authenticated user; anonymous callers are free. Returns an error result on insufficient credits, else null.</summary>
+        /// <summary>Charges NlSummarize credits. The endpoint is <c>[Authorize]</c>d so a user is always present; returns an error result on insufficient credits, else null.</summary>
         private async Task<IActionResult?> TryChargeNlSummarizeAsync(string? userId)
         {
             if (userId is not null &&
@@ -534,6 +563,28 @@ namespace JackyAIApp.Server.Controllers
             var result = _sessionStore.GetDistinctValues(sessionId, field);
             if (!result.IsSuccess) return [];
             return ((IEnumerable<string>)((dynamic)result.Data!).values).ToList();
+        }
+
+        /// <summary>Returns the max (latest) value of a date column on the resolved engine, as an ISO string, or null.</summary>
+        private async Task<string?> FetchEngineMaxDateAsync(ResolvedCtx ctx, string field, CancellationToken ct)
+        {
+            var result = await ctx.Engine.MaxDateAsync(
+                new MaxDateRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName, DateFieldName = field }, ct);
+
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("FetchEngineMaxDate: field={field} failed: {err}", field, result.ErrorMessage);
+                return null;
+            }
+            return result.Value!.MaxDate?.ToString("yyyy-MM-dd");
+        }
+
+        /// <summary>Returns the max (latest) value of a date column in session data, as an ISO string, or null.</summary>
+        private string? GetSessionMaxDateValue(string sessionId, string field)
+        {
+            var result = _sessionStore.GetMaxDate(sessionId, field);
+            if (!result.IsSuccess) return null;
+            return (string?)((dynamic)result.Data!).maxDate;
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────

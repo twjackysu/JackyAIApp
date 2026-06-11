@@ -1,5 +1,6 @@
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import LoginIcon from '@mui/icons-material/Login';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -71,6 +72,7 @@ interface SummarizeTabProps {
   nlError: unknown;
   nlRows: Record<string, unknown>[];
   nlInterpretation?: string;
+  isLoggedIn: boolean;
   // Context
   fields: FieldDefinition[];
   sourceId?: string;
@@ -141,11 +143,12 @@ export function SummarizeTab({
   nlError,
   nlRows,
   nlInterpretation,
+  isLoggedIn,
   fields,
   sourceId,
   tableName,
 }: SummarizeTabProps) {
-  const [mode, setMode] = useState<SummarizeMode>('manual');
+  const [mode, setMode] = useState<SummarizeMode>('ai');
   const [nlQuery, setNlQuery] = useState('');
   const [chartType, setChartType] = useState<ChartViewType>('table');
 
@@ -198,6 +201,18 @@ export function SummarizeTab({
   // True once an NL query has completed (success with any row count, including 0)
   const nlQueryRan = mode === 'ai' && nlInterpretation != null;
   const showResultsArea = activeHeaders.length > 0 || nlQueryRan;
+
+  // Ask AI requires login (every call consumes credits). When logged out, the Generate
+  // button sends the user to sign in instead of firing a request that would 401.
+  const handleGenerate = () => {
+    if (!isLoggedIn) {
+      window.location.href = `/api/account/login/Google?ReturnUrl=${encodeURIComponent(
+        window.location.pathname,
+      )}`;
+      return;
+    }
+    if (nlQuery.trim()) onRunNlSummarize(nlQuery.trim());
+  };
 
   return (
     <>
@@ -301,7 +316,7 @@ export function SummarizeTab({
             onChange={(e) => setNlQuery(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && nlQuery.trim()) {
-                onRunNlSummarize(nlQuery.trim());
+                handleGenerate();
               }
             }}
             sx={{ mb: 1.5 }}
@@ -322,15 +337,17 @@ export function SummarizeTab({
 
           <Button
             variant="contained"
-            startIcon={<AutoAwesomeIcon />}
-            onClick={() => onRunNlSummarize(nlQuery.trim())}
-            disabled={nlIsLoading || !nlQuery.trim()}
+            startIcon={isLoggedIn ? <AutoAwesomeIcon /> : <LoginIcon />}
+            onClick={handleGenerate}
+            disabled={isLoggedIn && (nlIsLoading || !nlQuery.trim())}
           >
-            {nlIsLoading ? 'Generating…' : 'Generate'}
+            {!isLoggedIn ? 'Sign in to use AI' : nlIsLoading ? 'Generating…' : 'Generate'}
           </Button>
 
           <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5 }}>
-            Costs 2 credits for logged-in users · anonymous demo is free
+            {isLoggedIn
+              ? 'Costs 2 credits per query'
+              : 'Requires login · costs 2 credits per query'}
           </Typography>
         </Paper>
       )}
