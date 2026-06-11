@@ -110,8 +110,8 @@ const CHART_OPTIONS: ChartOption[] = [
 const NL_EXAMPLES = [
   'Total revenue by region',
   'Monthly order count trend',
-  'Average order amount by product category',
-  'Top regions by total amount',
+  'Revenue breakdown by product category',
+  'Average order value by customer segment',
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -195,6 +195,9 @@ export function SummarizeTab({
   }, [activeRows, sortCol, sortDir]);
 
   const activeError = mode === 'ai' ? nlError : error;
+  // True once an NL query has completed (success with any row count, including 0)
+  const nlQueryRan = mode === 'ai' && nlInterpretation != null;
+  const showResultsArea = activeHeaders.length > 0 || nlQueryRan;
 
   return (
     <>
@@ -340,7 +343,7 @@ export function SummarizeTab({
         </Alert>
       )}
 
-      {activeHeaders.length > 0 && (
+      {showResultsArea && (
         <>
           {/* ── Results header ── */}
           <div
@@ -386,8 +389,16 @@ export function SummarizeTab({
             </ToggleButtonGroup>
           </div>
 
+          {/* ── Empty state ── */}
+          {activeHeaders.length === 0 && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              No data returned. The filter values may not match any records — try a broader query
+              without specific filter values.
+            </Alert>
+          )}
+
           {/* ── Table view ── */}
-          {chartType === 'table' && (
+          {activeHeaders.length > 0 && chartType === 'table' && (
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
@@ -423,7 +434,7 @@ export function SummarizeTab({
           )}
 
           {/* ── Chart view ── */}
-          {chartType !== 'table' && (
+          {activeHeaders.length > 0 && chartType !== 'table' && (
             <SummarizeChart chartType={chartType} rows={activeRows} headers={activeHeaders} />
           )}
         </>

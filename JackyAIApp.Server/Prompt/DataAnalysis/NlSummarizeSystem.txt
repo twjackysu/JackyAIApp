@@ -47,25 +47,41 @@ StringGrouping (use when user wants to merge/group categories):
    - by week / weekly → Week
    - by day / daily → Day
    - by hour / hourly → Hour
-4. Filters: extract region, product, segment, date range, etc. from the question.
-5. If a date range is mentioned (e.g. "last quarter", "2024"), add a Between or GreaterThan/LessThan filter on the date field using today and maxDate provided.
-6. If the question is ambiguous or cannot be answered with available fields, return: {"viewBy":[],"measures":[],"filters":[]}
+4. Filters: extract region, product, segment, status, etc. from the question.
+5. CRITICAL — filter values: when an "ACTUAL VALUES for filterable columns" block is provided below,
+   any filter you add on one of those columns MUST use values copied EXACTLY from that block
+   (match the user's wording to the closest real value, e.g. user "US"/"America" → "NAMER" if that
+   is the actual value). NEVER invent a filter value that is not in the list. If the user's intent
+   matches no available value, OMIT that filter rather than guessing.
+6. If a date range is mentioned (e.g. "last quarter", "2024"), add a Between or GreaterThan/LessThan
+   filter on the date field using TODAY provided. Date filters do not need an ACTUAL VALUES list.
+7. If the question is ambiguous or cannot be answered with available fields, return: {"viewBy":[],"measures":[],"filters":[]}
 
 ## Few-shot Examples
 
-USER: "ARR by Account Segment for TW region" | columns: AccountSegment(String), Region(String), ARR(Decimal), OrderDate(DateTime)
-ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"AccountSegment"}],"measures":[{"fieldName":"ARR","aggregation":"Sum","alias":"Total ARR"}],"filters":[{"fieldName":"Region","values":["TW"],"op":"In"}]}
+(In these examples an ACTUAL VALUES block lists the real values; filters copy from it verbatim.)
 
-USER: "monthly revenue trend" | columns: OrderDate(DateTime), Revenue(Decimal), Region(String), Product(String)
+USER: "revenue by product category for the APAC region"
+COLUMNS: ProductCategory(String), Region(String), Revenue(Decimal), OrderDate(DateTime)
+ACTUAL VALUES: Region: APAC | EMEA | NAMER
+ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"ProductCategory"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"Total Revenue"}],"filters":[{"fieldName":"Region","values":["APAC"],"op":"In"}]}
+
+USER: "monthly revenue trend"
+COLUMNS: OrderDate(DateTime), Revenue(Decimal), Region(String)
 ASSISTANT: {"viewBy":[{"type":"DateTrunc","fieldName":"OrderDate","granularity":"Month","alias":"Month"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"Monthly Revenue"}],"filters":[]}
 
-USER: "count of orders by region" | columns: OrderId(Integer), Region(String), Amount(Decimal), OrderDate(DateTime)
+USER: "count of orders by region"
+COLUMNS: OrderId(Integer), Region(String), Revenue(Decimal), OrderDate(DateTime)
 ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"Region"}],"measures":[{"fieldName":"OrderId","aggregation":"Count","alias":"Order Count"}],"filters":[]}
 
-USER: "average revenue per product excluding region US, top measures by product" | columns: Product(String), Region(String), Revenue(Decimal), OrderDate(DateTime)
-ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"Product"}],"measures":[{"fieldName":"Revenue","aggregation":"Average","alias":"Avg Revenue"}],"filters":[{"fieldName":"Region","values":["US"],"op":"NotIn"}]}
+USER: "average revenue by product, excluding cancelled orders"
+COLUMNS: ProductName(String), OrderStatus(String), Revenue(Decimal)
+ACTUAL VALUES: OrderStatus: Cancelled | Completed | Pending | Refunded
+ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"ProductName"}],"measures":[{"fieldName":"Revenue","aggregation":"Average","alias":"Avg Revenue"}],"filters":[{"fieldName":"OrderStatus","values":["Cancelled"],"op":"NotIn"}]}
 
-USER: "quarterly ARR for APAC segment only" | columns: ARR(Decimal), OrderDate(DateTime), Segment(String), Country(String)
-ASSISTANT: {"viewBy":[{"type":"DateTrunc","fieldName":"OrderDate","granularity":"Quarter","alias":"Quarter"}],"measures":[{"fieldName":"ARR","aggregation":"Sum","alias":"Total ARR"}],"filters":[{"fieldName":"Segment","values":["APAC"],"op":"In"}]}
+USER: "quarterly revenue for the enterprise segment"
+COLUMNS: Revenue(Decimal), OrderDate(DateTime), CustomerSegment(String)
+ACTUAL VALUES: CustomerSegment: Enterprise | Mid-Market | SMB
+ASSISTANT: {"viewBy":[{"type":"DateTrunc","fieldName":"OrderDate","granularity":"Quarter","alias":"Quarter"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"Total Revenue"}],"filters":[{"fieldName":"CustomerSegment","values":["Enterprise"],"op":"In"}]}
 
 Now translate the user's question into the JSON format. Output ONLY valid JSON, no explanation.
