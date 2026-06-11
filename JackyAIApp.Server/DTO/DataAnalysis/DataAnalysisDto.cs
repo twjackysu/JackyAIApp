@@ -133,4 +133,26 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         /// </summary>
         public string? Op { get; init; }
     }
+
+    // ── NL Summarize ─────────────────────────────────────────────────────────
+
+    /// <summary>Request body for the natural-language summarize endpoint.</summary>
+    public sealed record NlSummarizeRequestDto
+    {
+        public QueryContextDto? Context   { get; init; }
+        public string?          SessionId { get; init; }
+        /// <summary>Free-text user query, e.g. "ARR by Account Segment for TW region".</summary>
+        public required string  Query     { get; init; }
+    }
+
+    /// <summary>Response from the natural-language summarize endpoint.</summary>
+    public sealed record NlSummarizeResponseDto
+    {
+        /// <summary>The SummarizeRequestDto parameters the LLM generated (for display / audit).</summary>
+        public required SummarizeRequestDto Plan           { get; init; }
+        /// <summary>One-liner describing what the AI understood.</summary>
+        public string?                       Interpretation { get; init; }
+        /// <summary>The aggregated result rows.</summary>
+        public required IEnumerable<object>  Rows           { get; init; }
+    }
 }
