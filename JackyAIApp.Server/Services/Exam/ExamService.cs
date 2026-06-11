@@ -223,6 +223,11 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
             }
 
+            if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.AudioTranscription, "audio_transcription", "Whisper audio transcription"))
+            {
+                return ServiceResult.Fail(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.AudioTranscription}.");
+            }
+
             var (transcription, error) = await _promptService.TranscribeAudioAsync(audioStream, fileName);
 
             if (transcription == null)
@@ -241,6 +246,13 @@ namespace JackyAIApp.Server.Services.Exam
                 string.IsNullOrEmpty(userResponse.Word) || string.IsNullOrEmpty(userResponse.Prompt))
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Input cannot be null or empty.");
+            }
+
+            var userId = _userService.GetUserId();
+            if (!string.IsNullOrEmpty(userId) &&
+                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.SentenceEvaluation, "sentence_evaluation", "Sentence AI evaluation"))
+            {
+                return ServiceResult.Fail(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.SentenceEvaluation}.");
             }
 
             var example = (
