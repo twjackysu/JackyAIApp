@@ -358,6 +358,7 @@ namespace JackyAIApp.Server.Controllers
                     Plan           = planResult.Plan,
                     Interpretation = BuildInterpretation(planResult.Plan),
                     Rows           = sessionRows,
+                    Notes          = planResult.Notes.Count > 0 ? planResult.Notes : null,
                 });
             }
 
@@ -403,6 +404,7 @@ namespace JackyAIApp.Server.Controllers
                 Plan           = plan,
                 Interpretation = BuildInterpretation(plan),
                 Rows           = result.Value!.Rows.Select(r => (object)r.Data),
+                Notes          = enginePlanResult.Notes.Count > 0 ? enginePlanResult.Notes : null,
             });
         }
 
@@ -411,9 +413,10 @@ namespace JackyAIApp.Server.Controllers
         /// values via <paramref name="distinctValuesFetcher"/> → generate &amp; validate the final plan.
         /// Date columns' max value is fetched via <paramref name="maxDateFetcher"/> and injected so the
         /// LLM can resolve "latest / most recent" requests against the data's real date range.
-        /// Returns the validated plan, or an error code + friendly message on failure.
+        /// Returns the validated plan plus any soft notes (e.g. a requested filter value that didn't
+        /// exist and was dropped), or an error code + friendly message on failure.
         /// </summary>
-        private async Task<(SummarizeRequestDto? Plan, ErrorCodes? Error, string? ErrorMessage)> BuildNlPlanAsync(
+        private async Task<(SummarizeRequestDto? Plan, ErrorCodes? Error, string? ErrorMessage, List<string> Notes)> BuildNlPlanAsync(
             List<(string Name, string CanonicalType)> fields,
             string query,
             string filterPlanPrompt,
@@ -423,7 +426,7 @@ namespace JackyAIApp.Server.Controllers
             CancellationToken ct)
         {
             if (fields.Count == 0)
-                return (null, ErrorCodes.BadRequest, "No fields found in source.");
+                return (null, ErrorCodes.BadRequest, "No fields found in source.", []);
 
             var fieldList    = string.Join(", ", fields.Select(f => $"{f.Name}({f.CanonicalType})"));
             var fieldNames   = fields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -453,13 +456,17 @@ namespace JackyAIApp.Server.Controllers
                 query, string.Join(", ", filterColumns));
 
             // ── Fetch List-of-Values for only the columns we'll filter on ──
-            var lovLines = new List<string>();
+            var lovLines   = new List<string>();
+            var lovColumns = new List<string>(); // columns we actually injected real values for
             foreach (var col in filterColumns)
             {
                 ct.ThrowIfCancellationRequested();
                 var values = await distinctValuesFetcher(col);
                 if (values.Count > 0)
+                {
                     lovLines.Add($"- {col}: {string.Join(" | ", values.Take(100))}");
+                    lovColumns.Add(col);
+                }
             }
             var lovBlock = lovLines.Count > 0
                 ? "\n\nACTUAL VALUES for filterable columns — when filtering on these columns you MUST use exactly these values (match the user's intent to the closest value; if none matches, omit that filter):\n"
@@ -494,7 +501,7 @@ namespace JackyAIApp.Server.Controllers
             if (plan is null || plan.ViewBy.Count == 0 || plan.Measures.Count == 0)
             {
                 _logger.LogWarning("NlSummarize: empty plan. LLM error={e}", llmError);
-                return (null, ErrorCodes.BadRequest, "AI could not interpret your query. Please try rephrasing.");
+                return (null, ErrorCodes.BadRequest, "AI could not interpret your query. Please try rephrasing.", []);
             }
 
             // Validate field names against schema (block hallucinated field names)
@@ -505,10 +512,24 @@ namespace JackyAIApp.Server.Controllers
             if (unknownField is not null)
             {
                 _logger.LogWarning("NlSummarize: LLM hallucinated field '{f}'", unknownField);
-                return (null, ErrorCodes.BadRequest, "AI referenced an unknown field. Please try rephrasing.");
+                return (null, ErrorCodes.BadRequest, "AI referenced an unknown field. Please try rephrasing.", []);
             }
 
-            return (plan, null, null);
+            // Soft notes: a column we offered real values for, but which the final plan does NOT filter
+            // on, means the user's requested value matched nothing and was dropped — tell them so the
+            // result set (which is unfiltered on that column) isn't silently misleading.
+            var appliedFilterCols = (plan.Filters ?? [])
+                .Select(f => f.FieldName)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var notes = lovColumns
+                .Where(col => !appliedFilterCols.Contains(col))
+                .Select(col => $"No matching value for \"{col}\" was found in this data, so that filter was ignored.")
+                .ToList();
+
+            if (notes.Count > 0)
+                _logger.LogInformation("NlSummarize: dropped filters → {notes}", string.Join("; ", notes));
+
+            return (plan, null, null, notes);
         }
 
         /// <summary>Charges NlSummarize credits. The endpoint is <c>[Authorize]</c>d so a user is always present; returns an error result on insufficient credits, else null.</summary>

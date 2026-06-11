@@ -258,6 +258,7 @@ export default function DataAnalysis() {
           nlError={nlError}
           nlRows={nlResult?.rows ?? []}
           nlInterpretation={nlResult?.interpretation}
+          nlNotes={nlResult?.notes}
           isLoggedIn={isLoggedIn}
           fields={fields}
           sourceId={ctxSourceId}

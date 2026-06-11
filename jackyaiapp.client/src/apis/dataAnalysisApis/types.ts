@@ -220,4 +220,6 @@ export interface NlSummarizeResult {
   plan: SummarizeRequest;
   interpretation?: string;
   rows: Record<string, unknown>[];
+  /** Soft caveats, e.g. a requested filter value that didn't exist and was ignored. */
+  notes?: string[];
 }
