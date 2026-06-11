@@ -207,3 +207,17 @@ export interface SessionInfo {
   expiresAt: string;
   schema: FieldDefinition[];
 }
+
+// ── NL Summarize ─────────────────────────────────────────────────────────────
+
+export interface NlSummarizeRequest {
+  context?: QueryContextDto;
+  sessionId?: string;
+  query: string;
+}
+
+export interface NlSummarizeResult {
+  plan: SummarizeRequest;
+  interpretation?: string;
+  rows: Record<string, unknown>[];
+}

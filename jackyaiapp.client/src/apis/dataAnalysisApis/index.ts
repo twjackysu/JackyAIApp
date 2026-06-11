@@ -11,6 +11,8 @@ import {
   FieldListResult,
   MaxDateQueryParams,
   MaxDateResult,
+  NlSummarizeRequest,
+  NlSummarizeResult,
   SaveDataSourceConfigDto,
   SessionUploadRequest,
   SessionUploadResponse,
@@ -124,6 +126,11 @@ export const dataAnalysisApis = createApi({
     uploadSession: builder.mutation<ApiOkResponse<SessionUploadResponse>, SessionUploadRequest>({
       query: (body) => ({ url: 'session', method: 'POST', body }),
     }),
+
+    /** NL Summarize — translates a free-text query to parameters via LLM, then executes. */
+    nlSummarize: builder.mutation<ApiOkResponse<NlSummarizeResult>, NlSummarizeRequest>({
+      query: (body) => ({ url: 'summarize/nl', method: 'POST', body }),
+    }),
   }),
 });
 
@@ -138,4 +145,5 @@ export const {
   useGetMaxDateQuery,
   useGetDistinctValuesQuery,
   useUploadSessionMutation,
+  useNlSummarizeMutation,
 } = dataAnalysisApis;

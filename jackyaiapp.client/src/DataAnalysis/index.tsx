@@ -7,7 +7,11 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 import { useGetUserInfoQuery } from '../apis/accountApis';
-import { useGetMaxDateQuery, useGetSchemaQuery } from '../apis/dataAnalysisApis';
+import {
+  useGetMaxDateQuery,
+  useGetSchemaQuery,
+  useNlSummarizeMutation,
+} from '../apis/dataAnalysisApis';
 
 import { DetailsTab } from './components/DetailsTab';
 import { MaxDateTab } from './components/MaxDateTab';
@@ -23,6 +27,8 @@ import { useDetails } from './hooks/useDetails';
 import { useSourceContext } from './hooks/useSourceContext';
 import { useSummarize } from './hooks/useSummarize';
 import { makeViewByEntry } from './utils/groupField';
+
+import type { NlSummarizeResult } from '../apis/dataAnalysisApis/types';
 
 export default function DataAnalysis() {
   const [tab, setTab] = useState(0);
@@ -74,6 +80,22 @@ export default function DataAnalysis() {
   // ── Summarize ─────────────────────────────────────────────────────────────
   const summarize = useSummarize({ ctxSourceId, ctxTableName, fields, sessionId });
 
+  // ── NL Summarize ──────────────────────────────────────────────────────────
+  const [nlSummarize, { isLoading: nlIsLoading, error: nlError }] = useNlSummarizeMutation();
+  const [nlResult, setNlResult] = useState<NlSummarizeResult | null>(null);
+
+  const handleRunNlSummarize = async (query: string) => {
+    setNlResult(null);
+    const res = await nlSummarize({
+      context: ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
+      sessionId,
+      query,
+    });
+    if ('data' in res && res.data?.data) {
+      setNlResult(res.data.data);
+    }
+  };
+
   // ── Details ───────────────────────────────────────────────────────────────
   const details = useDetails({ ctxSourceId, ctxTableName, tab, dateField, sessionId });
 
@@ -102,12 +124,14 @@ export default function DataAnalysis() {
     summarize.reset();
     details.reset();
     setDateField('OrderDate');
+    setNlResult(null);
   };
 
   const handleClearSession = () => {
     clearSession();
     summarize.reset();
     details.reset();
+    setNlResult(null);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -229,6 +253,11 @@ export default function DataAnalysis() {
           error={summarize.summarizeError}
           summarizeRows={summarize.summarizeRows}
           summarizeHeaders={summarize.summarizeHeaders}
+          onRunNlSummarize={handleRunNlSummarize}
+          nlIsLoading={nlIsLoading}
+          nlError={nlError}
+          nlRows={nlResult?.rows ?? []}
+          nlInterpretation={nlResult?.interpretation}
           fields={fields}
           sourceId={ctxSourceId}
           tableName={ctxTableName}

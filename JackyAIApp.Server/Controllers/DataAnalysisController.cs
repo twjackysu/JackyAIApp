@@ -5,8 +5,12 @@ using DataAnalysisLibrary.Core.Models.Requests;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
+using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.DataAnalysis;
+using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.DataAnalysis;
+using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.Prompt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,14 +30,20 @@ namespace JackyAIApp.Server.Controllers
         DataAnalysisEngine defaultEngine,
         AzureSQLDBContext dbContext,
         IDataSourceConfigService configService,
-        ISessionDataStore sessionStore) : ApiControllerBase
+        ISessionDataStore sessionStore,
+        IOpenAIPromptService openAIPromptService,
+        ICreditService creditService,
+        IPromptLoader promptLoader) : ApiControllerBase
     {
-        private readonly ILogger<DataAnalysisController> _logger             = logger;
-        private readonly IMyResponseFactory              _responseFactory    = responseFactory;
-        private readonly DataAnalysisEngine              _defaultEngine      = defaultEngine;
-        private readonly AzureSQLDBContext               _dbContext          = dbContext;
-        private readonly IDataSourceConfigService        _configService      = configService;
-        private readonly ISessionDataStore               _sessionStore       = sessionStore;
+        private readonly ILogger<DataAnalysisController> _logger               = logger;
+        private readonly IMyResponseFactory              _responseFactory       = responseFactory;
+        private readonly DataAnalysisEngine              _defaultEngine         = defaultEngine;
+        private readonly AzureSQLDBContext               _dbContext             = dbContext;
+        private readonly IDataSourceConfigService        _configService         = configService;
+        private readonly ISessionDataStore               _sessionStore          = sessionStore;
+        private readonly IOpenAIPromptService            _openAIPromptService   = openAIPromptService;
+        private readonly ICreditService                  _creditService         = creditService;
+        private readonly IPromptLoader                   _promptLoader          = promptLoader;
 
         // ── Default source constants ───────────────────────────────────────────
         private const string DefaultMsSqlKey   = "mssql";
@@ -311,6 +321,128 @@ namespace JackyAIApp.Server.Controllers
                 : _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Details failed.");
         }
 
+        /// <summary>
+        /// Natural-language summarize: translates a free-text query to parameters via LLM, then executes.
+        /// Returns <c>{ plan, interpretation, rows }</c>. Anonymous users (demo default source) are not charged.
+        /// </summary>
+        [HttpPost("summarize/nl")]
+        public async Task<IActionResult> NlSummarize(
+            [FromBody] NlSummarizeRequestDto dto,
+            CancellationToken ct = default)
+        {
+            // 1. Resolve field schema
+            List<(string Name, string CanonicalType)> fields;
+
+            if (!string.IsNullOrWhiteSpace(dto.SessionId))
+            {
+                var schemaResult = _sessionStore.GetSchema(dto.SessionId);
+                if (!schemaResult.IsSuccess)
+                    return _responseFactory.CreateErrorResponse(schemaResult.Error!.Value, schemaResult.ErrorMessage!);
+
+                var sessionFields = (List<SessionFieldDefDto>)((dynamic)schemaResult.Data!).fields;
+                fields = sessionFields.Select(f => (f.Name, f.CanonicalType)).ToList();
+            }
+            else
+            {
+                using var schemaCtx = await TryResolveAsync(dto.Context, ct);
+                if (schemaCtx is null)
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+
+                var fieldResult = await schemaCtx.Engine.FieldListAsync(
+                    new FieldListRequest { SourceKey = schemaCtx.SourceKey, TableName = schemaCtx.TableName }, ct);
+                if (!fieldResult.IsSuccess)
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, fieldResult.ErrorMessage ?? "Schema query failed.");
+
+                fields = fieldResult.Value!.Fields.Select(f => (f.Name, f.CanonicalType.ToString())).ToList();
+            }
+
+            if (fields.Count == 0)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "No fields found in source.");
+
+            // 2. Build dynamic system prompt
+            var staticPrompt = _promptLoader.GetPrompt("Prompt/DataAnalysis/NlSummarizeSystem.txt");
+            if (staticPrompt is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Prompt configuration error.");
+
+            var fieldList   = string.Join(", ", fields.Select(f => $"{f.Name}({f.CanonicalType})"));
+            var today       = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
+            var systemPrompt = $"{staticPrompt}\n\nAVAILABLE COLUMNS FOR THIS REQUEST:\n{fieldList}\nTODAY: {today}";
+
+            // 3. Credit gate (logged-in users only; anonymous / default source is free)
+            var userId = CurrentUserId;
+            if (userId is not null &&
+                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.NlSummarize, "nl_summarize", "NL Summarize"))
+            {
+                return _responseFactory.CreateErrorResponse(
+                    ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.NlSummarize}.");
+            }
+
+            // 4. LLM → SummarizeRequestDto
+            var (plan, llmError) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<SummarizeRequestDto>(
+                systemPrompt, dto.Query, NewModels.GPT_5_NANO);
+
+            if (plan is null || plan.ViewBy.Count == 0 || plan.Measures.Count == 0)
+            {
+                _logger.LogWarning("NlSummarize: empty plan. LLM error={e}", llmError);
+                return _responseFactory.CreateErrorResponse(
+                    ErrorCodes.BadRequest, "AI could not interpret your query. Please try rephrasing.");
+            }
+
+            // 5. Validate field names against schema (block hallucinated field names)
+            var fieldNames   = fields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var allFieldRefs = plan.ViewBy.Select(v => v.FieldName)
+                .Concat(plan.Measures.Select(m => m.FieldName))
+                .Concat(plan.Filters?.Select(f => f.FieldName) ?? []);
+            var unknownField = allFieldRefs.FirstOrDefault(n => !fieldNames.Contains(n));
+            if (unknownField is not null)
+            {
+                _logger.LogWarning("NlSummarize: LLM hallucinated field '{f}'", unknownField);
+                return _responseFactory.CreateErrorResponse(
+                    ErrorCodes.BadRequest, "AI referenced an unknown field. Please try rephrasing.");
+            }
+
+            // 6. Execute
+            IEnumerable<object> rows;
+
+            if (!string.IsNullOrWhiteSpace(dto.SessionId))
+            {
+                var sessionResult = _sessionStore.Summarize(dto.SessionId, plan);
+                if (!sessionResult.IsSuccess)
+                    return _responseFactory.CreateErrorResponse(sessionResult.Error!.Value, sessionResult.ErrorMessage!);
+
+                rows = ((IEnumerable<Dictionary<string, object?>>)((dynamic)sessionResult.Data!).rows).Cast<object>();
+            }
+            else
+            {
+                using var execCtx = await TryResolveAsync(dto.Context, ct);
+                if (execCtx is null)
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+
+                var result = await execCtx.Engine.SummarizeAsync(new SummarizeRequest
+                {
+                    SourceKey = execCtx.SourceKey,
+                    TableName = execCtx.TableName,
+                    ViewBy    = plan.ViewBy.Select(MapGroupField).ToList(),
+                    Measures  = plan.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias))).ToList(),
+                    Filters   = plan.Filters?.Select(MapFilter).ToList() ?? [],
+                }, ct);
+
+                if (!result.IsSuccess)
+                    return _responseFactory.CreateErrorResponse(
+                        ErrorCodes.InternalServerError, result.ErrorMessage ?? "Query execution failed.");
+
+                rows = result.Value!.Rows.Select(r => (object)r.Data);
+            }
+
+            _logger.LogInformation("NlSummarize: user={uid} query={q}", userId ?? "anon", dto.Query);
+            return _responseFactory.CreateOKResponse(new NlSummarizeResponseDto
+            {
+                Plan           = plan,
+                Interpretation = BuildInterpretation(plan),
+                Rows           = rows,
+            });
+        }
+
         // ── Helpers ───────────────────────────────────────────────────────────────
 
         /// <summary>Maps a <see cref="FilterDimensionDto"/> to a <see cref="FilterDimension"/>, honouring the optional Op.</summary>
@@ -354,6 +486,17 @@ namespace JackyAIApp.Server.Controllers
 
         private static string? NullIfEmpty(string? s) =>
             string.IsNullOrWhiteSpace(s) ? null : s;
+
+        private static string BuildInterpretation(SummarizeRequestDto plan)
+        {
+            var viewBy   = string.Join(", ", plan.ViewBy.Select(v => v.Alias ?? v.FieldName));
+            var measures = string.Join(", ", plan.Measures.Select(m => $"{m.Aggregation}({m.Alias ?? m.FieldName})"));
+            var filters  = plan.Filters is { Count: > 0 }
+                ? " | Filters: " + string.Join("; ", plan.Filters.Select(f =>
+                    $"{f.FieldName} {f.Op ?? "In"} [{string.Join(", ", f.Values.Take(3))}{(f.Values.Count > 3 ? ", …" : "")}]"))
+                : "";
+            return $"Grouped by {viewBy}, {measures}{filters}";
+        }
 
         // ═══════════════════════════════════════════════════════════════════════
         // Session upload — temporary in-memory data source (see ISessionDataStore).

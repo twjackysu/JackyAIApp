@@ -1,11 +1,15 @@
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import SettingsIcon from '@mui/icons-material/Settings';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import StackedBarChartIcon from '@mui/icons-material/StackedBarChart';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -15,6 +19,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TableSortLabel from '@mui/material/TableSortLabel';
+import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
@@ -31,6 +36,8 @@ import { ViewByEditor } from './ViewByEditor';
 
 import type { FieldDefinition, MeasureFieldDto } from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef, ViewByEntry } from '../types';
+
+type SummarizeMode = 'manual' | 'ai';
 
 interface SummarizeTabProps {
   // Transforms
@@ -51,13 +58,19 @@ interface SummarizeTabProps {
   // Filters
   summarizeFilters: ActiveFilter[];
   onSummarizeFiltersChange: (filters: ActiveFilter[]) => void;
-  // Run
+  // Run (manual)
   onRunSummarize: () => void;
   isLoading: boolean;
   error: unknown;
-  // Results
+  // Results (manual)
   summarizeRows: Record<string, unknown>[];
   summarizeHeaders: string[];
+  // NL mode
+  onRunNlSummarize: (query: string) => void;
+  nlIsLoading: boolean;
+  nlError: unknown;
+  nlRows: Record<string, unknown>[];
+  nlInterpretation?: string;
   // Context
   fields: FieldDefinition[];
   sourceId?: string;
@@ -94,6 +107,13 @@ const CHART_OPTIONS: ChartOption[] = [
   },
 ];
 
+const NL_EXAMPLES = [
+  'Total revenue by region',
+  'Monthly order count trend',
+  'Average order amount by product category',
+  'Top regions by total amount',
+];
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function SummarizeTab({
@@ -116,11 +136,25 @@ export function SummarizeTab({
   error,
   summarizeRows,
   summarizeHeaders,
+  onRunNlSummarize,
+  nlIsLoading,
+  nlError,
+  nlRows,
+  nlInterpretation,
   fields,
   sourceId,
   tableName,
 }: SummarizeTabProps) {
+  const [mode, setMode] = useState<SummarizeMode>('manual');
+  const [nlQuery, setNlQuery] = useState('');
   const [chartType, setChartType] = useState<ChartViewType>('table');
+
+  // Derive active result set based on current mode
+  const activeRows = mode === 'ai' ? nlRows : summarizeRows;
+  const activeHeaders = useMemo(
+    () => (mode === 'ai' ? (nlRows.length > 0 ? Object.keys(nlRows[0]) : []) : summarizeHeaders),
+    [mode, nlRows, summarizeHeaders],
+  );
 
   // ── Column sort ────────────────────────────────────────────────────────────
   const [sortCol, setSortCol] = useState<string | null>(null);
@@ -130,7 +164,7 @@ export function SummarizeTab({
   useEffect(() => {
     setSortCol(null);
     setSortDir('asc');
-  }, [summarizeHeaders]);
+  }, [activeHeaders]);
 
   const handleSortClick = (col: string) => {
     if (sortCol === col) {
@@ -142,26 +176,25 @@ export function SummarizeTab({
   };
 
   const sortedRows = useMemo(() => {
-    if (!sortCol) return summarizeRows;
-    return [...summarizeRows].sort((a, b) => {
+    if (!sortCol) return activeRows;
+    return [...activeRows].sort((a, b) => {
       const av = a[sortCol];
       const bv = b[sortCol];
-      // nulls/undefined always last
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
-      // numeric comparison when both values are numbers
       if (typeof av === 'number' && typeof bv === 'number') {
         return sortDir === 'asc' ? av - bv : bv - av;
       }
-      // fall back to locale string comparison
       const cmp = String(av).localeCompare(String(bv), undefined, {
         numeric: true,
         sensitivity: 'base',
       });
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [summarizeRows, sortCol, sortDir]);
+  }, [activeRows, sortCol, sortDir]);
+
+  const activeError = mode === 'ai' ? nlError : error;
 
   return (
     <>
@@ -169,71 +202,145 @@ export function SummarizeTab({
         <strong>SummarizeAsync</strong> — GroupBy + aggregated Measures, with optional Filters.
       </Typography>
 
-      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-        {/* ── Field Transforms ── */}
-        <FieldTransformEditor
-          transforms={fieldTransforms}
-          onAdd={onTransformAdd}
-          onUpdate={onTransformUpdate}
-          onRemove={onTransformRemove}
-          fields={fields}
-          sourceId={sourceId}
-          tableName={tableName}
-        />
+      {/* ── Mode toggle ────────────────────────────────────────────────────── */}
+      <ToggleButtonGroup
+        size="small"
+        exclusive
+        value={mode}
+        onChange={(_e, v) => {
+          if (v !== null) setMode(v);
+        }}
+        aria-label="summarize mode"
+        sx={{ mb: 2 }}
+      >
+        <ToggleButton value="manual" aria-label="manual mode">
+          <SettingsIcon fontSize="small" sx={{ mr: 0.5 }} />
+          Manual
+        </ToggleButton>
+        <ToggleButton value="ai" aria-label="ask AI">
+          <AutoAwesomeIcon fontSize="small" sx={{ mr: 0.5 }} />
+          Ask AI
+        </ToggleButton>
+      </ToggleButtonGroup>
 
-        <Divider sx={{ my: 2 }} />
+      {/* ── Manual mode ────────────────────────────────────────────────────── */}
+      {mode === 'manual' && (
+        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+          <FieldTransformEditor
+            transforms={fieldTransforms}
+            onAdd={onTransformAdd}
+            onUpdate={onTransformUpdate}
+            onRemove={onTransformRemove}
+            fields={fields}
+            sourceId={sourceId}
+            tableName={tableName}
+          />
 
-        {/* ── Group By ── */}
-        <ViewByEditor
-          entries={viewByEntries}
-          fields={fields}
-          transforms={fieldTransforms}
-          onAdd={onViewByAdd}
-          onUpdate={onViewByUpdate}
-          onRemove={onViewByRemove}
-        />
+          <Divider sx={{ my: 2 }} />
 
-        <Divider sx={{ my: 2 }} />
+          <ViewByEditor
+            entries={viewByEntries}
+            fields={fields}
+            transforms={fieldTransforms}
+            onAdd={onViewByAdd}
+            onUpdate={onViewByUpdate}
+            onRemove={onViewByRemove}
+          />
 
-        {/* ── Measures ── */}
-        <MeasureEditor
-          measures={measures}
-          fields={fields}
-          onAdd={onMeasureAdd}
-          onRemove={onMeasureRemove}
-          onUpdate={onMeasureUpdate}
-        />
+          <Divider sx={{ my: 2 }} />
 
-        <Divider sx={{ my: 2 }} />
+          <MeasureEditor
+            measures={measures}
+            fields={fields}
+            onAdd={onMeasureAdd}
+            onRemove={onMeasureRemove}
+            onUpdate={onMeasureUpdate}
+          />
 
-        {/* ── Filters ── */}
-        <FilterEditor
-          filters={summarizeFilters}
-          fields={fields}
-          transforms={fieldTransforms}
-          onChange={onSummarizeFiltersChange}
-          sourceId={sourceId}
-          tableName={tableName}
-        />
+          <Divider sx={{ my: 2 }} />
 
-        <Button
-          variant="contained"
-          startIcon={<PlayArrowIcon />}
-          onClick={onRunSummarize}
-          disabled={isLoading || viewByEntries.length === 0 || measures.length === 0}
-          sx={{ mt: 2 }}
-        >
-          {isLoading ? 'Running…' : 'Run Query'}
-        </Button>
-      </Paper>
+          <FilterEditor
+            filters={summarizeFilters}
+            fields={fields}
+            transforms={fieldTransforms}
+            onChange={onSummarizeFiltersChange}
+            sourceId={sourceId}
+            tableName={tableName}
+          />
 
-      {error && (
+          <Button
+            variant="contained"
+            startIcon={<PlayArrowIcon />}
+            onClick={onRunSummarize}
+            disabled={isLoading || viewByEntries.length === 0 || measures.length === 0}
+            sx={{ mt: 2 }}
+          >
+            {isLoading ? 'Running…' : 'Run Query'}
+          </Button>
+        </Paper>
+      )}
+
+      {/* ── AI mode ────────────────────────────────────────────────────────── */}
+      {mode === 'ai' && (
+        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Describe what you want to see in plain language. The AI will translate your request into
+            a query and return the results.
+          </Typography>
+
+          <TextField
+            multiline
+            minRows={2}
+            maxRows={5}
+            fullWidth
+            placeholder='e.g. "Give me total revenue by region for the TW area"'
+            value={nlQuery}
+            onChange={(e) => setNlQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && nlQuery.trim()) {
+                onRunNlSummarize(nlQuery.trim());
+              }
+            }}
+            sx={{ mb: 1.5 }}
+          />
+
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
+            {NL_EXAMPLES.map((ex) => (
+              <Chip
+                key={ex}
+                label={ex}
+                size="small"
+                variant="outlined"
+                onClick={() => setNlQuery(ex)}
+                clickable
+              />
+            ))}
+          </Box>
+
+          <Button
+            variant="contained"
+            startIcon={<AutoAwesomeIcon />}
+            onClick={() => onRunNlSummarize(nlQuery.trim())}
+            disabled={nlIsLoading || !nlQuery.trim()}
+          >
+            {nlIsLoading ? 'Generating…' : 'Generate'}
+          </Button>
+
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5 }}>
+            Costs 2 credits for logged-in users · anonymous demo is free
+          </Typography>
+        </Paper>
+      )}
+
+      {activeError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Query failed. Check console for details.
+          {mode === 'ai'
+            ? 'AI could not interpret your query. Please try rephrasing.'
+            : 'Query failed. Check console for details.'}
         </Alert>
       )}
 
-      {summarizeHeaders.length > 0 && (
+      {activeHeaders.length > 0 && (
         <>
           {/* ── Results header ── */}
           <div
@@ -244,9 +351,21 @@ export function SummarizeTab({
               marginBottom: 8,
             }}
           >
-            <Typography variant="caption" color="text.secondary">
-              {summarizeRows.length} rows returned
-            </Typography>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                {activeRows.length} rows returned
+              </Typography>
+              {mode === 'ai' && nlInterpretation && (
+                <Typography
+                  component="p"
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontStyle: 'italic', display: 'block' }}
+                >
+                  {nlInterpretation}
+                </Typography>
+              )}
+            </Box>
 
             <ToggleButtonGroup
               size="small"
@@ -273,7 +392,7 @@ export function SummarizeTab({
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    {summarizeHeaders.map((h) => (
+                    {activeHeaders.map((h) => (
                       <TableCell
                         key={h}
                         sortDirection={sortCol === h ? sortDir : false}
@@ -293,7 +412,7 @@ export function SummarizeTab({
                 <TableBody>
                   {sortedRows.map((row, i) => (
                     <TableRow key={i} hover>
-                      {summarizeHeaders.map((h) => (
+                      {activeHeaders.map((h) => (
                         <TableCell key={h}>{formatCellValue(row[h])}</TableCell>
                       ))}
                     </TableRow>
@@ -305,7 +424,7 @@ export function SummarizeTab({
 
           {/* ── Chart view ── */}
           {chartType !== 'table' && (
-            <SummarizeChart chartType={chartType} rows={summarizeRows} headers={summarizeHeaders} />
+            <SummarizeChart chartType={chartType} rows={activeRows} headers={activeHeaders} />
           )}
         </>
       )}

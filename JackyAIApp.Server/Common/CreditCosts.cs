@@ -42,6 +42,9 @@ namespace JackyAIApp.Server.Common
         /// <summary>Text-to-speech synthesis</summary>
         public const ulong TextToSpeech = 1;
 
+        /// <summary>Natural-language summarize (LLM translates query to parameters + executes)</summary>
+        public const ulong NlSummarize = 2;
+
         /// <summary>Daily login bonus</summary>
         public const ulong DailyLoginBonus = 10;
 
