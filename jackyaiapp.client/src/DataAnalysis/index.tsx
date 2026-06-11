@@ -31,7 +31,7 @@ import { makeViewByEntry } from './utils/groupField';
 import type { NlSummarizeResult } from '../apis/dataAnalysisApis/types';
 
 export default function DataAnalysis() {
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(1);
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const { data: userInfoRes } = useGetUserInfoQuery();
