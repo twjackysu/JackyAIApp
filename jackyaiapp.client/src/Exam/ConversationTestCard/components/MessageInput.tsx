@@ -74,9 +74,9 @@ function MessageInput({
           title={
             mediaRecorder
               ? isRecording
-                ? 'Click to stop recording'
-                : 'Click to start recording'
-              : 'Microphone not available'
+                ? '點擊停止錄音'
+                : `點擊開始錄音（轉錄消耗 ${CREDIT_COSTS.AUDIO_TRANSCRIPTION} credit）`
+              : '麥克風無法使用'
           }
           arrow
         >

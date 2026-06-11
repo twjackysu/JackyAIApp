@@ -27,6 +27,12 @@ namespace JackyAIApp.Server.Common
         /// <summary>Sentence test generation</summary>
         public const ulong SentenceTest = 2;
 
+        /// <summary>Sentence AI evaluation/grading</summary>
+        public const ulong SentenceEvaluation = 2;
+
+        /// <summary>Whisper audio transcription</summary>
+        public const ulong AudioTranscription = 1;
+
         /// <summary>Stock analysis (AI-powered)</summary>
         public const ulong StockAnalysis = 5;
 
