@@ -17,6 +17,10 @@ export const CREDIT_COSTS = {
   CONVERSATION_RESPONSE: 2,
   /** Sentence test generation */
   SENTENCE_TEST: 2,
+  /** Sentence AI evaluation/grading */
+  SENTENCE_EVALUATION: 2,
+  /** Whisper audio transcription */
+  AUDIO_TRANSCRIPTION: 1,
   /** Stock analysis (AI-powered) */
   STOCK_ANALYSIS: 5,
   /** Floating AI chatbot — charged per message sent */
