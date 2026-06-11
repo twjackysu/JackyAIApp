@@ -1,5 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
-
 import { Code, Preview } from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Paper, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
@@ -7,6 +5,7 @@ import hljs from 'highlight.js/lib/core';
 import css from 'highlight.js/lib/languages/css';
 import javascript from 'highlight.js/lib/languages/javascript';
 import xml from 'highlight.js/lib/languages/xml';
+import { useEffect, useRef, useState } from 'react';
 
 hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('javascript', javascript);
