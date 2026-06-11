@@ -73,10 +73,7 @@ export const SectorSection = ({ sectors }: { sectors: SectorIndex[] }) => {
                     <ChangeText value={s.direction === '-' ? -s.changePoints : s.changePoints} />
                   </TableCell>
                   <TableCell align="right">
-                    <ChangeText
-                      value={s.direction === '-' ? -s.changePercent : s.changePercent}
-                      suffix="%"
-                    />
+                    <ChangeText value={s.changePercent} suffix="%" />
                   </TableCell>
                 </TableRow>
               ))}
