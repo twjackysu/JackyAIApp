@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
 
+import { handleDifyEvent } from './difyEventHandlers';
+
 import { CREDIT_COSTS } from '@/constants/creditCosts';
 import { useAppDispatch } from '@/redux/hooks';
 import { openCreditModal } from '@/redux/uiSlice';
-
-import { handleDifyEvent } from './difyEventHandlers';
 
 export interface StreamingStatus {
   isLoading: boolean;
@@ -47,7 +47,12 @@ export const useChatStreaming = () => {
         if (!response.ok) {
           const text = await response.text().catch(() => '');
           if (response.status === 402) {
-            dispatch(openCreditModal({ message: text || undefined, requiredCredits: CREDIT_COSTS.CHAT_MESSAGE }));
+            dispatch(
+              openCreditModal({
+                message: text || undefined,
+                requiredCredits: CREDIT_COSTS.CHAT_MESSAGE,
+              }),
+            );
           }
           throw new Error(text || `HTTP error! status: ${response.status}`);
         }
@@ -79,7 +84,7 @@ export const useChatStreaming = () => {
           fail: (error: string) => onError(error),
         };
 
-        outer: while (true) {
+        while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 

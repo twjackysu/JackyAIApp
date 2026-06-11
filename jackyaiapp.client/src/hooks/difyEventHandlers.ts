@@ -9,7 +9,6 @@ export interface DifyEventContext {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DifyEvent = Record<string, any>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const handlers: Record<string, (data: DifyEvent, ctx: DifyEventContext) => void> = {
   workflow_started: (_data, ctx) => {
     ctx.setStatus('workflow_started', '工作流程已開始');
@@ -33,7 +32,8 @@ const handlers: Record<string, (data: DifyEvent, ctx: DifyEventContext) => void>
   agent_log: (data, ctx) => {
     const label = data.data?.label || '';
     const status = data.data?.status || '';
-    const emoji = status === 'start' ? '🔄' : status === 'success' ? '✅' : status === 'error' ? '❌' : '';
+    const emoji =
+      status === 'start' ? '🔄' : status === 'success' ? '✅' : status === 'error' ? '❌' : '';
     ctx.setStatus('agent_log', emoji ? `${emoji} ${label}` : label);
 
     if (status === 'success' && data.data?.data?.output) {
@@ -70,7 +70,7 @@ const handlers: Record<string, (data: DifyEvent, ctx: DifyEventContext) => void>
     ctx.fail(data.message || 'Unknown error');
   },
 
-  ping: (_data, _ctx) => {
+  ping: () => {
     // keep-alive, no state update needed
   },
 };
