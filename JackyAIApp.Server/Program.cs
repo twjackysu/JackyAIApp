@@ -118,11 +118,13 @@ try
     builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<ICreditService, CreditService>();
+    builder.Services.AddScoped<JackyAIApp.Server.Services.Dify.IDifyApiClient, JackyAIApp.Server.Services.Dify.DifyApiClient>();
 
     // English-learning domain (dictionary / exam / repository / word-of-the-day / daily challenge)
     builder.Services.AddVocabularyServices();
 
     builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
+    builder.Services.AddScoped<IStockCodeResolver, StockCodeResolver>();
     builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
     builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
 
