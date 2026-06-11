@@ -1,8 +1,9 @@
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, Dialog, IconButton, Typography } from '@mui/material';
+import { Box, CircularProgress, Dialog, IconButton, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { lazy, Suspense } from 'react';
 
-import HtmlViewer from '@/components/HtmlViewer';
+const HtmlViewer = lazy(() => import('@/components/HtmlViewer'));
 import MarkdownMessage from '@/components/MarkdownMessage';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 
@@ -44,12 +45,20 @@ const PreviewDialog = ({ open, onClose, block }: PreviewDialogProps) => {
       }}
     >
       {isHtml ? (
-        <HtmlViewer
-          content={block?.content ?? ''}
-          isComplete={isComplete}
-          title="HTML 預覽"
-          onClose={onClose}
-        />
+        <Suspense
+          fallback={
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+              <CircularProgress size={32} />
+            </Box>
+          }
+        >
+          <HtmlViewer
+            content={block?.content ?? ''}
+            isComplete={isComplete}
+            title="HTML 預覽"
+            onClose={onClose}
+          />
+        </Suspense>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           {/* Header */}
