@@ -27,4 +27,6 @@ export const CREDIT_COSTS = {
   CHAT_MESSAGE: 5,
   /** Text-to-speech synthesis */
   TEXT_TO_SPEECH: 1,
+  /** Natural-language summarize (LLM translates query to parameters + executes) */
+  NL_SUMMARIZE: 2,
 } as const;
