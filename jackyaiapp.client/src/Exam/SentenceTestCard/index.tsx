@@ -138,7 +138,7 @@ function SentenceTestCard() {
                 color="text.secondary"
                 sx={{ display: 'block', mt: 0.5 }}
               >
-                AI 評分消耗 {CREDIT_COSTS.SENTENCE_TEST} credits
+                AI 評分消耗 {CREDIT_COSTS.SENTENCE_EVALUATION} credits
               </Typography>
             </Box>
             <Button variant="outlined" onClick={() => setShowSample(!showSample)} sx={{ mb: 0.5 }}>
