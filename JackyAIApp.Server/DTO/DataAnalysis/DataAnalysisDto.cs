@@ -163,5 +163,10 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public string?                       Interpretation { get; init; }
         /// <summary>The aggregated result rows.</summary>
         public required IEnumerable<object>  Rows           { get; init; }
+        /// <summary>
+        /// Soft caveats to surface to the user, e.g. a requested filter value that didn't exist in the
+        /// data and was therefore ignored. Empty/null when the plan matched the question cleanly.
+        /// </summary>
+        public List<string>?                 Notes          { get; init; }
     }
 }
