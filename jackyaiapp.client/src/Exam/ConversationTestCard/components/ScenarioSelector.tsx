@@ -19,9 +19,9 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 
-import { CREDIT_COSTS } from '@/constants/creditCosts';
-
 import { SCENARIO_TEMPLATES, ScenarioTemplate } from './scenarioTemplates';
+
+import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 interface ScenarioSelectorProps {
   onSelectScenario: (
