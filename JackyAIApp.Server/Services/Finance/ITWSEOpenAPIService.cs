@@ -84,12 +84,5 @@ namespace JackyAIApp.Server.Services.Finance
         /// <returns>Balance sheet data.</returns>
         Task<string> GetBalanceSheetAsync(string stockCode, CancellationToken cancellationToken = default);
 
-        /// <summary>
-        /// Resolves user input to a valid stock code using AI and company database.
-        /// </summary>
-        /// <param name="userInput">User input (could be stock code, company name, or partial name).</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>Valid stock code or empty string if not found.</returns>
-        Task<string> ResolveStockCodeAsync(string userInput, CancellationToken cancellationToken = default);
     }
 }

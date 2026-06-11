@@ -1,35 +1,32 @@
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.Dify;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Text;
 
 namespace JackyAIApp.Server.Controllers
 {
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class ChatbotController(ILogger<ChatbotController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IUserService userService, IHttpClientFactory httpClientFactory, ICreditService creditService) : ControllerBase
+    public class ChatbotController(
+        ILogger<ChatbotController> logger,
+        IMyResponseFactory responseFactory,
+        IUserService userService,
+        IDifyApiClient difyApiClient,
+        ICreditService creditService) : ControllerBase
     {
         private readonly ILogger<ChatbotController> _logger = logger;
-        private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IUserService _userService = userService;
-        private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+        private readonly IDifyApiClient _difyApiClient = difyApiClient;
         private readonly ICreditService _creditService = creditService;
-
-        private const string DifyBaseUrl = "https://api.dify.ai/v1";
 
         /// <summary>
         /// Forwards chat messages to Dify API and streams the response back to the client.
         /// </summary>
-        /// <param name="request">The chat request containing the user's message</param>
-        /// <returns>A streaming response from Dify API</returns>
         [HttpPost("chat")]
         public async Task Chat([FromBody] ChatRequest request)
         {
@@ -49,15 +46,6 @@ namespace JackyAIApp.Server.Controllers
             }
             _logger.LogInformation("User {UserId} started chat", userId);
 
-            var difyApiKey = _settings.CurrentValue.DifyApiKey;
-            if (string.IsNullOrEmpty(difyApiKey))
-            {
-                // Server misconfiguration — do not charge the user.
-                Response.StatusCode = 500;
-                await Response.WriteAsync("API key not configured");
-                return;
-            }
-
             // Charge per message up front (anti-abuse / cost control). Refunded below
             // if Dify never starts responding, so users aren't charged for nothing.
             if (!await _creditService.ConsumeCreditsAsync(
@@ -71,39 +59,14 @@ namespace JackyAIApp.Server.Controllers
             var streamingStarted = false;
             try
             {
-                // 準備 Dify API 請求
-                var difyRequest = new
-                {
-                    inputs = new { },
-                    query = request.Message,
-                    response_mode = "streaming",
-                    conversation_id = request.ConversationId ?? "",
-                    user = userId
-                };
-
-                var jsonContent = JsonSerializer.Serialize(difyRequest);
-                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-                var difyApiUrl = $"{DifyBaseUrl}/chat-messages";
-                _logger.LogInformation("Sending to Dify: {Request}", jsonContent);
-
-                using var httpClient = _httpClientFactory.CreateClient();
-                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {difyApiKey}");
-                httpClient.DefaultRequestHeaders.Add("Accept", "text/event-stream");
-                httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
-
-                // 使用正確的 SendAsync 方法以支援 streaming
-                var requestMessage = new HttpRequestMessage(HttpMethod.Post, difyApiUrl)
-                {
-                    Content = content
-                };
-                using var difyResponse = await httpClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead);
+                using var difyResponse = await _difyApiClient.SendChatStreamAsync(
+                    request.Message, request.ConversationId, userId, HttpContext.RequestAborted);
 
                 if (!difyResponse.IsSuccessStatusCode)
                 {
                     var errorContent = await difyResponse.Content.ReadAsStringAsync();
                     _logger.LogError("Dify API error: {StatusCode}, {Error}", difyResponse.StatusCode, errorContent);
-                    await RefundChatMessageAsync(userId); // provider failed before any answer
+                    await RefundChatMessageAsync(userId);
                     Response.StatusCode = (int)difyResponse.StatusCode;
                     await Response.WriteAsync(errorContent);
                     return;
@@ -115,26 +78,22 @@ namespace JackyAIApp.Server.Controllers
                 Response.Headers.Append("Connection", "keep-alive");
                 Response.Headers.Append("Access-Control-Allow-Origin", "*");
                 Response.Headers.Append("Access-Control-Allow-Headers", "Cache-Control");
-                
-                // 禁用 buffering（重要！）
+
                 var bufferingFeature = HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpResponseBodyFeature>();
                 bufferingFeature?.DisableBuffering();
-                
-                // 直接透傳 chunk，就像 Node.js 的 res.write(chunk)
+
                 using var difyStream = await difyResponse.Content.ReadAsStreamAsync();
                 var buffer = new byte[1024];
-                streamingStarted = true; // past this point a (partial) answer is delivered — no refund
+                streamingStarted = true;
 
                 while (true)
                 {
                     var bytesRead = await difyStream.ReadAsync(buffer, 0, buffer.Length);
                     if (bytesRead == 0) break;
-                    
-                    // 直接寫入原始 bytes，不做任何處理
+
                     await Response.Body.WriteAsync(buffer, 0, bytesRead);
                     await Response.Body.FlushAsync();
-                    
-                    // 檢查客戶端是否斷線
+
                     if (HttpContext.RequestAborted.IsCancellationRequested)
                     {
                         _logger.LogInformation("Client disconnected from stream");
@@ -161,7 +120,6 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>
         /// Lists the current user's Dify conversations (most-recently updated first).
-        /// Titles are auto-generated by Dify; conversation content lives in Dify.
         /// </summary>
         [HttpGet("conversations")]
         public async Task<IActionResult> GetConversations(CancellationToken ct = default)
@@ -170,8 +128,7 @@ namespace JackyAIApp.Server.Controllers
             if (string.IsNullOrEmpty(userId))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
 
-            var url = $"{DifyBaseUrl}/conversations?user={Uri.EscapeDataString(userId)}&limit=100&sort_by=-updated_at";
-            var (ok, body) = await SendDifyGetAsync(url, ct);
+            var (ok, body) = await _difyApiClient.GetConversationsAsync(userId, ct);
             if (!ok)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Failed to load conversations.");
 
@@ -200,14 +157,13 @@ namespace JackyAIApp.Server.Controllers
             if (string.IsNullOrWhiteSpace(conversationId))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "conversationId is required.");
 
-            var url = $"{DifyBaseUrl}/messages?conversation_id={Uri.EscapeDataString(conversationId)}&user={Uri.EscapeDataString(userId)}&limit=100";
-            var (ok, body) = await SendDifyGetAsync(url, ct);
+            var (ok, body) = await _difyApiClient.GetMessagesAsync(conversationId, userId, ct);
             if (!ok)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Failed to load conversation messages.");
 
             var parsed = JsonSerializer.Deserialize<DifyMessageListResponse>(body) ?? new();
             var result = parsed.Data
-                .OrderBy(m => m.CreatedAt) // oldest → newest for top-to-bottom rendering
+                .OrderBy(m => m.CreatedAt)
                 .Select(m => new ChatMessageDto
                 {
                     Id = m.Id,
@@ -229,80 +185,11 @@ namespace JackyAIApp.Server.Controllers
             if (string.IsNullOrWhiteSpace(conversationId))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "conversationId is required.");
 
-            using var httpClient = _httpClientFactory.CreateClient();
-            httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", _settings.CurrentValue.DifyApiKey);
-
-            var request = new HttpRequestMessage(HttpMethod.Delete,
-                $"{DifyBaseUrl}/conversations/{Uri.EscapeDataString(conversationId)}")
-            {
-                Content = new StringContent(
-                    JsonSerializer.Serialize(new { user = userId }), Encoding.UTF8, "application/json"),
-            };
-
-            var response = await httpClient.SendAsync(request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                var err = await response.Content.ReadAsStringAsync(ct);
-                _logger.LogError("Dify delete conversation failed: {Status} {Error}", response.StatusCode, err);
+            var success = await _difyApiClient.DeleteConversationAsync(conversationId, userId, ct);
+            if (!success)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Failed to delete conversation.");
-            }
+
             return _responseFactory.CreateOKResponse();
         }
-
-        /// <summary>Performs an authenticated GET against the Dify Service API.</summary>
-        private async Task<(bool ok, string body)> SendDifyGetAsync(string url, CancellationToken ct)
-        {
-            var apiKey = _settings.CurrentValue.DifyApiKey;
-            if (string.IsNullOrEmpty(apiKey))
-            {
-                _logger.LogError("Dify API key not configured");
-                return (false, string.Empty);
-            }
-
-            using var httpClient = _httpClientFactory.CreateClient();
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-
-            try
-            {
-                var response = await httpClient.GetAsync(url, ct);
-                var body = await response.Content.ReadAsStringAsync(ct);
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogError("Dify GET failed: {Status} {Body}", response.StatusCode, body);
-                    return (false, body);
-                }
-                return (true, body);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Dify GET request error for {Url}", url);
-                return (false, string.Empty);
-            }
-        }
-    }
-
-    public class ChatRequest
-    {
-        public string Message { get; set; } = string.Empty;
-        public string? ConversationId { get; set; }
-    }
-
-    /// <summary>A conversation summary returned to the client (title from Dify).</summary>
-    public class ChatConversationDto
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public long CreatedAt { get; set; }
-        public long UpdatedAt { get; set; }
-    }
-
-    /// <summary>One historical exchange (user query + assistant answer).</summary>
-    public class ChatMessageDto
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Query { get; set; } = string.Empty;
-        public string Answer { get; set; } = string.Empty;
-        public long CreatedAt { get; set; }
     }
 }

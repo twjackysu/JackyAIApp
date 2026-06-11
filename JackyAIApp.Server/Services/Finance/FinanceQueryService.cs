@@ -14,6 +14,7 @@ namespace JackyAIApp.Server.Services.Finance
         ILogger<FinanceQueryService> logger,
         IUserService userService,
         ITWSEOpenAPIService twseApiService,
+        IStockCodeResolver stockCodeResolver,
         ITWSEDataService twseDataService,
         IFinanceAnalysisService financeAnalysisService,
         IExtendedMemoryCache memoryCache,
@@ -28,6 +29,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly ILogger<FinanceQueryService> _logger = logger;
         private readonly IUserService _userService = userService;
         private readonly ITWSEOpenAPIService _twseApiService = twseApiService;
+        private readonly IStockCodeResolver _stockCodeResolver = stockCodeResolver;
         private readonly ITWSEDataService _twseDataService = twseDataService;
         private readonly IFinanceAnalysisService _financeAnalysisService = financeAnalysisService;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
@@ -98,7 +100,7 @@ namespace JackyAIApp.Server.Services.Finance
                     return ServiceResult.Fail(ErrorCodes.BadRequest, "Stock code or name is required.");
                 }
 
-                var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(request.StockCodeOrName, timeoutCts.Token);
+                var resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(request.StockCodeOrName, timeoutCts.Token);
                 if (string.IsNullOrEmpty(resolvedStockCode))
                 {
                     return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Unable to find stock code for '{request.StockCodeOrName}'. Please verify the company name or stock code. Searched in TWSE company database but found no matches.");
@@ -176,7 +178,7 @@ namespace JackyAIApp.Server.Services.Finance
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Stock code is required.");
             }
 
-            var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(stockCode, cancellationToken);
+            var resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(stockCode, cancellationToken);
             if (string.IsNullOrEmpty(resolvedStockCode))
             {
                 return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
@@ -225,7 +227,7 @@ namespace JackyAIApp.Server.Services.Finance
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Stock code is required.");
             }
 
-            var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(stockCode, cancellationToken);
+            var resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(stockCode, cancellationToken);
             if (string.IsNullOrEmpty(resolvedStockCode))
             {
                 return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
@@ -272,7 +274,7 @@ namespace JackyAIApp.Server.Services.Finance
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Stock code is required.");
             }
 
-            var resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(stockCode, cancellationToken);
+            var resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(stockCode, cancellationToken);
             if (string.IsNullOrEmpty(resolvedStockCode))
             {
                 return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
@@ -310,7 +312,7 @@ namespace JackyAIApp.Server.Services.Finance
             string resolvedStockCode;
             if (region == MarketRegion.TW)
             {
-                resolvedStockCode = await _twseApiService.ResolveStockCodeAsync(request.StockCode, cancellationToken) ?? "";
+                resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(request.StockCode, cancellationToken) ?? "";
                 if (string.IsNullOrEmpty(resolvedStockCode))
                     return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{request.StockCode}'.");
             }
