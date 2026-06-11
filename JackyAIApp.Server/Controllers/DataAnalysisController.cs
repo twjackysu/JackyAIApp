@@ -250,22 +250,7 @@ namespace JackyAIApp.Server.Controllers
             using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
-            var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
-            {
-                SourceKey = ctx.SourceKey,
-                TableName = ctx.TableName,
-                ViewBy    = [new GroupField(field)],
-                Measures  = [new MeasureField(field, AggregationType.Count, "_cnt")],
-            }, ct);
-
-            if (!result.IsSuccess)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Query failed.");
-
-            var values = result.Value!.Rows
-                .Select(r => r[field]?.ToString())
-                .Where(v => v is not null && v.Length > 0)
-                .Order().Take(200).ToList();
-
+            var values = await FetchEngineDistinctValuesAsync(ctx, field, ct);
             return _responseFactory.CreateOKResponse(new { values });
         }
 
@@ -391,7 +376,7 @@ namespace JackyAIApp.Server.Controllers
 
             var enginePlanResult = await BuildNlPlanAsync(
                 engineFields, dto.Query, filterPlanPrompt, summarizePrompt,
-                col => GetEngineLovAsync(ctx, col, ct), ct);
+                col => FetchEngineDistinctValuesAsync(ctx, col, ct), ct);
             if (enginePlanResult.Plan is null)
                 return _responseFactory.CreateErrorResponse(enginePlanResult.Error!.Value, enginePlanResult.ErrorMessage!);
 
@@ -452,6 +437,9 @@ namespace JackyAIApp.Server.Controllers
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
+            _logger.LogInformation("NlSummarize Phase1: query={q} → filterColumns=[{cols}]",
+                query, string.Join(", ", filterColumns));
+
             // ── Fetch List-of-Values for only the columns we'll filter on ──
             var lovLines = new List<string>();
             foreach (var col in filterColumns)
@@ -465,6 +453,8 @@ namespace JackyAIApp.Server.Controllers
                 ? "\n\nACTUAL VALUES for filterable columns — when filtering on these columns you MUST use exactly these values (match the user's intent to the closest value; if none matches, omit that filter):\n"
                   + string.Join("\n", lovLines)
                 : "";
+
+            _logger.LogInformation("NlSummarize Phase2 lovBlock: {lov}", lovBlock.Length > 0 ? lovBlock : "(none)");
 
             // ── Phase 2: produce the final query plan using the real values ──
             var today = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
@@ -504,8 +494,11 @@ namespace JackyAIApp.Server.Controllers
             return null;
         }
 
-        /// <summary>Returns up to 200 distinct values for a column on the resolved engine (List-of-Values for filter planning).</summary>
-        private static async Task<List<string>> GetEngineLovAsync(ResolvedCtx ctx, string field, CancellationToken ct)
+        /// <summary>
+        /// Shared LoV helper used by both <see cref="GetDistinctValues"/> and the NL summarize agent.
+        /// Groups by <paramref name="field"/> with a Count measure to get distinct values, up to 200.
+        /// </summary>
+        private async Task<List<string>> FetchEngineDistinctValuesAsync(ResolvedCtx ctx, string field, CancellationToken ct)
         {
             var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
             {
@@ -515,15 +508,24 @@ namespace JackyAIApp.Server.Controllers
                 Measures  = [new MeasureField(field, AggregationType.Count, "_cnt")],
             }, ct);
 
-            if (!result.IsSuccess) return [];
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("FetchEngineDistinctValues: field={field} failed: {err}", field, result.ErrorMessage);
+                return [];
+            }
 
-            return result.Value!.Rows
+            var values = result.Value!.Rows
                 .Select(r => r[field]?.ToString())
                 .Where(v => !string.IsNullOrEmpty(v))
                 .Order()
                 .Take(200)
                 .Select(v => v!)
                 .ToList();
+
+            _logger.LogDebug("FetchEngineDistinctValues: field={field} count={n} values=[{vals}]",
+                field, values.Count, string.Join(", ", values.Take(20)));
+
+            return values;
         }
 
         /// <summary>Returns distinct values for a column in session data (List-of-Values for filter planning).</summary>
