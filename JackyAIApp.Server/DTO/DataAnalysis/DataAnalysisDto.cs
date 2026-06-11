@@ -145,6 +145,15 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public required string  Query     { get; init; }
     }
 
+    /// <summary>
+    /// Phase-1 output of the NL summarize agent: the string columns the query wants to filter on,
+    /// so the backend can fetch their real values before generating the final plan.
+    /// </summary>
+    public sealed record NlFilterPlanDto
+    {
+        public List<string> FilterColumns { get; init; } = [];
+    }
+
     /// <summary>Response from the natural-language summarize endpoint.</summary>
     public sealed record NlSummarizeResponseDto
     {

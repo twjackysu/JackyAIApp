@@ -322,7 +322,11 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
-        /// Natural-language summarize: translates a free-text query to parameters via LLM, then executes.
+        /// Natural-language summarize. A two-phase "agent" pipeline:
+        /// (1) ask the LLM which string columns the query wants to filter on, (2) fetch the actual
+        /// distinct values (List-of-Values) for only those columns, (3) ask the LLM to produce the
+        /// final query plan using those real values, then execute it. This stops the LLM from
+        /// inventing filter values that don't exist in the data.
         /// Returns <c>{ plan, interpretation, rows }</c>. Anonymous users (demo default source) are not charged.
         /// </summary>
         [HttpPost("summarize/nl")]
@@ -330,9 +334,14 @@ namespace JackyAIApp.Server.Controllers
             [FromBody] NlSummarizeRequestDto dto,
             CancellationToken ct = default)
         {
-            // 1. Resolve field schema
-            List<(string Name, string CanonicalType)> fields;
+            var filterPlanPrompt = _promptLoader.GetPrompt("Prompt/DataAnalysis/NlFilterPlanSystem.txt");
+            var summarizePrompt  = _promptLoader.GetPrompt("Prompt/DataAnalysis/NlSummarizeSystem.txt");
+            if (filterPlanPrompt is null || summarizePrompt is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Prompt configuration error.");
 
+            var userId = CurrentUserId;
+
+            // ── Session data source ────────────────────────────────────────────
             if (!string.IsNullOrWhiteSpace(dto.SessionId))
             {
                 var schemaResult = _sessionStore.GetSchema(dto.SessionId);
@@ -340,56 +349,136 @@ namespace JackyAIApp.Server.Controllers
                     return _responseFactory.CreateErrorResponse(schemaResult.Error!.Value, schemaResult.ErrorMessage!);
 
                 var sessionFields = (List<SessionFieldDefDto>)((dynamic)schemaResult.Data!).fields;
-                fields = sessionFields.Select(f => (f.Name, f.CanonicalType)).ToList();
+                var fields = sessionFields.Select(f => (f.Name, f.CanonicalType)).ToList();
+
+                var charge = await TryChargeNlSummarizeAsync(userId);
+                if (charge is not null) return charge;
+
+                var planResult = await BuildNlPlanAsync(
+                    fields, dto.Query, filterPlanPrompt, summarizePrompt,
+                    col => Task.FromResult(GetSessionLov(dto.SessionId!, col)), ct);
+                if (planResult.Plan is null)
+                    return _responseFactory.CreateErrorResponse(planResult.Error!.Value, planResult.ErrorMessage!);
+
+                var sessionResult = _sessionStore.Summarize(dto.SessionId!, planResult.Plan);
+                if (!sessionResult.IsSuccess)
+                    return _responseFactory.CreateErrorResponse(sessionResult.Error!.Value, sessionResult.ErrorMessage!);
+
+                var sessionRows = ((IEnumerable<Dictionary<string, object?>>)((dynamic)sessionResult.Data!).rows).Cast<object>();
+                _logger.LogInformation("NlSummarize: user={uid} session query={q}", userId ?? "anon", dto.Query);
+                return _responseFactory.CreateOKResponse(new NlSummarizeResponseDto
+                {
+                    Plan           = planResult.Plan,
+                    Interpretation = BuildInterpretation(planResult.Plan),
+                    Rows           = sessionRows,
+                });
             }
-            else
+
+            // ── Engine data source (default or custom) ─────────────────────────
+            using var ctx = await TryResolveAsync(dto.Context, ct);
+            if (ctx is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+
+            var fieldResult = await ctx.Engine.FieldListAsync(
+                new FieldListRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName }, ct);
+            if (!fieldResult.IsSuccess)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, fieldResult.ErrorMessage ?? "Schema query failed.");
+
+            var engineFields = fieldResult.Value!.Fields.Select(f => (f.Name, f.CanonicalType.ToString())).ToList();
+
+            var engineCharge = await TryChargeNlSummarizeAsync(userId);
+            if (engineCharge is not null) return engineCharge;
+
+            var enginePlanResult = await BuildNlPlanAsync(
+                engineFields, dto.Query, filterPlanPrompt, summarizePrompt,
+                col => GetEngineLovAsync(ctx, col, ct), ct);
+            if (enginePlanResult.Plan is null)
+                return _responseFactory.CreateErrorResponse(enginePlanResult.Error!.Value, enginePlanResult.ErrorMessage!);
+
+            var plan = enginePlanResult.Plan;
+            var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
             {
-                using var schemaCtx = await TryResolveAsync(dto.Context, ct);
-                if (schemaCtx is null)
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+                SourceKey = ctx.SourceKey,
+                TableName = ctx.TableName,
+                ViewBy    = plan.ViewBy.Select(MapGroupField).ToList(),
+                Measures  = plan.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias))).ToList(),
+                Filters   = plan.Filters?.Select(MapFilter).ToList() ?? [],
+            }, ct);
 
-                var fieldResult = await schemaCtx.Engine.FieldListAsync(
-                    new FieldListRequest { SourceKey = schemaCtx.SourceKey, TableName = schemaCtx.TableName }, ct);
-                if (!fieldResult.IsSuccess)
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, fieldResult.ErrorMessage ?? "Schema query failed.");
-
-                fields = fieldResult.Value!.Fields.Select(f => (f.Name, f.CanonicalType.ToString())).ToList();
-            }
-
-            if (fields.Count == 0)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "No fields found in source.");
-
-            // 2. Build dynamic system prompt
-            var staticPrompt = _promptLoader.GetPrompt("Prompt/DataAnalysis/NlSummarizeSystem.txt");
-            if (staticPrompt is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Prompt configuration error.");
-
-            var fieldList   = string.Join(", ", fields.Select(f => $"{f.Name}({f.CanonicalType})"));
-            var today       = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
-            var systemPrompt = $"{staticPrompt}\n\nAVAILABLE COLUMNS FOR THIS REQUEST:\n{fieldList}\nTODAY: {today}";
-
-            // 3. Credit gate (logged-in users only; anonymous / default source is free)
-            var userId = CurrentUserId;
-            if (userId is not null &&
-                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.NlSummarize, "nl_summarize", "NL Summarize"))
-            {
+            if (!result.IsSuccess)
                 return _responseFactory.CreateErrorResponse(
-                    ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.NlSummarize}.");
-            }
+                    ErrorCodes.InternalServerError, result.ErrorMessage ?? "Query execution failed.");
 
-            // 4. LLM → SummarizeRequestDto
+            _logger.LogInformation("NlSummarize: user={uid} query={q}", userId ?? "anon", dto.Query);
+            return _responseFactory.CreateOKResponse(new NlSummarizeResponseDto
+            {
+                Plan           = plan,
+                Interpretation = BuildInterpretation(plan),
+                Rows           = result.Value!.Rows.Select(r => (object)r.Data),
+            });
+        }
+
+        /// <summary>
+        /// The shared two-phase LLM pipeline: plan which columns to filter → fetch their real
+        /// values via <paramref name="distinctValuesFetcher"/> → generate &amp; validate the final plan.
+        /// Returns the validated plan, or an error code + friendly message on failure.
+        /// </summary>
+        private async Task<(SummarizeRequestDto? Plan, ErrorCodes? Error, string? ErrorMessage)> BuildNlPlanAsync(
+            List<(string Name, string CanonicalType)> fields,
+            string query,
+            string filterPlanPrompt,
+            string summarizePrompt,
+            Func<string, Task<List<string>>> distinctValuesFetcher,
+            CancellationToken ct)
+        {
+            if (fields.Count == 0)
+                return (null, ErrorCodes.BadRequest, "No fields found in source.");
+
+            var fieldList    = string.Join(", ", fields.Select(f => $"{f.Name}({f.CanonicalType})"));
+            var fieldNames   = fields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            // Only String columns are candidates for value-based filtering; numbers/dates use ranges.
+            var stringFields = fields
+                .Where(f => string.Equals(f.CanonicalType, "String", StringComparison.OrdinalIgnoreCase))
+                .Select(f => f.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // ── Phase 1: which string columns does the query want to filter on? ──
+            var phase1System = $"{filterPlanPrompt}\n\nAVAILABLE COLUMNS:\n{fieldList}";
+            var (filterPlan, _) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<NlFilterPlanDto>(
+                phase1System, query, NewModels.GPT_5_NANO);
+
+            var filterColumns = (filterPlan?.FilterColumns ?? [])
+                .Where(c => stringFields.Contains(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // ── Fetch List-of-Values for only the columns we'll filter on ──
+            var lovLines = new List<string>();
+            foreach (var col in filterColumns)
+            {
+                ct.ThrowIfCancellationRequested();
+                var values = await distinctValuesFetcher(col);
+                if (values.Count > 0)
+                    lovLines.Add($"- {col}: {string.Join(" | ", values.Take(100))}");
+            }
+            var lovBlock = lovLines.Count > 0
+                ? "\n\nACTUAL VALUES for filterable columns — when filtering on these columns you MUST use exactly these values (match the user's intent to the closest value; if none matches, omit that filter):\n"
+                  + string.Join("\n", lovLines)
+                : "";
+
+            // ── Phase 2: produce the final query plan using the real values ──
+            var today = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
+            var phase2System = $"{summarizePrompt}\n\nAVAILABLE COLUMNS:\n{fieldList}\nTODAY: {today}{lovBlock}";
             var (plan, llmError) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<SummarizeRequestDto>(
-                systemPrompt, dto.Query, NewModels.GPT_5_NANO);
+                phase2System, query, NewModels.GPT_5_NANO);
 
             if (plan is null || plan.ViewBy.Count == 0 || plan.Measures.Count == 0)
             {
                 _logger.LogWarning("NlSummarize: empty plan. LLM error={e}", llmError);
-                return _responseFactory.CreateErrorResponse(
-                    ErrorCodes.BadRequest, "AI could not interpret your query. Please try rephrasing.");
+                return (null, ErrorCodes.BadRequest, "AI could not interpret your query. Please try rephrasing.");
             }
 
-            // 5. Validate field names against schema (block hallucinated field names)
-            var fieldNames   = fields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            // Validate field names against schema (block hallucinated field names)
             var allFieldRefs = plan.ViewBy.Select(v => v.FieldName)
                 .Concat(plan.Measures.Select(m => m.FieldName))
                 .Concat(plan.Filters?.Select(f => f.FieldName) ?? []);
@@ -397,50 +486,52 @@ namespace JackyAIApp.Server.Controllers
             if (unknownField is not null)
             {
                 _logger.LogWarning("NlSummarize: LLM hallucinated field '{f}'", unknownField);
+                return (null, ErrorCodes.BadRequest, "AI referenced an unknown field. Please try rephrasing.");
+            }
+
+            return (plan, null, null);
+        }
+
+        /// <summary>Charges NlSummarize credits for an authenticated user; anonymous callers are free. Returns an error result on insufficient credits, else null.</summary>
+        private async Task<IActionResult?> TryChargeNlSummarizeAsync(string? userId)
+        {
+            if (userId is not null &&
+                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.NlSummarize, "nl_summarize", "NL Summarize"))
+            {
                 return _responseFactory.CreateErrorResponse(
-                    ErrorCodes.BadRequest, "AI referenced an unknown field. Please try rephrasing.");
+                    ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.NlSummarize}.");
             }
+            return null;
+        }
 
-            // 6. Execute
-            IEnumerable<object> rows;
-
-            if (!string.IsNullOrWhiteSpace(dto.SessionId))
+        /// <summary>Returns up to 200 distinct values for a column on the resolved engine (List-of-Values for filter planning).</summary>
+        private static async Task<List<string>> GetEngineLovAsync(ResolvedCtx ctx, string field, CancellationToken ct)
+        {
+            var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
             {
-                var sessionResult = _sessionStore.Summarize(dto.SessionId, plan);
-                if (!sessionResult.IsSuccess)
-                    return _responseFactory.CreateErrorResponse(sessionResult.Error!.Value, sessionResult.ErrorMessage!);
+                SourceKey = ctx.SourceKey,
+                TableName = ctx.TableName,
+                ViewBy    = [new GroupField(field)],
+                Measures  = [new MeasureField(field, AggregationType.Count, "_cnt")],
+            }, ct);
 
-                rows = ((IEnumerable<Dictionary<string, object?>>)((dynamic)sessionResult.Data!).rows).Cast<object>();
-            }
-            else
-            {
-                using var execCtx = await TryResolveAsync(dto.Context, ct);
-                if (execCtx is null)
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+            if (!result.IsSuccess) return [];
 
-                var result = await execCtx.Engine.SummarizeAsync(new SummarizeRequest
-                {
-                    SourceKey = execCtx.SourceKey,
-                    TableName = execCtx.TableName,
-                    ViewBy    = plan.ViewBy.Select(MapGroupField).ToList(),
-                    Measures  = plan.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias))).ToList(),
-                    Filters   = plan.Filters?.Select(MapFilter).ToList() ?? [],
-                }, ct);
+            return result.Value!.Rows
+                .Select(r => r[field]?.ToString())
+                .Where(v => !string.IsNullOrEmpty(v))
+                .Order()
+                .Take(200)
+                .Select(v => v!)
+                .ToList();
+        }
 
-                if (!result.IsSuccess)
-                    return _responseFactory.CreateErrorResponse(
-                        ErrorCodes.InternalServerError, result.ErrorMessage ?? "Query execution failed.");
-
-                rows = result.Value!.Rows.Select(r => (object)r.Data);
-            }
-
-            _logger.LogInformation("NlSummarize: user={uid} query={q}", userId ?? "anon", dto.Query);
-            return _responseFactory.CreateOKResponse(new NlSummarizeResponseDto
-            {
-                Plan           = plan,
-                Interpretation = BuildInterpretation(plan),
-                Rows           = rows,
-            });
+        /// <summary>Returns distinct values for a column in session data (List-of-Values for filter planning).</summary>
+        private List<string> GetSessionLov(string sessionId, string field)
+        {
+            var result = _sessionStore.GetDistinctValues(sessionId, field);
+            if (!result.IsSuccess) return [];
+            return ((IEnumerable<string>)((dynamic)result.Data!).values).ToList();
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────
