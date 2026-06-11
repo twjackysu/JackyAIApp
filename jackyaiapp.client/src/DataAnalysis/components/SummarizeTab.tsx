@@ -72,6 +72,7 @@ interface SummarizeTabProps {
   nlError: unknown;
   nlRows: Record<string, unknown>[];
   nlInterpretation?: string;
+  nlNotes?: string[];
   isLoggedIn: boolean;
   // Context
   fields: FieldDefinition[];
@@ -143,6 +144,7 @@ export function SummarizeTab({
   nlError,
   nlRows,
   nlInterpretation,
+  nlNotes,
   isLoggedIn,
   fields,
   sourceId,
@@ -213,6 +215,23 @@ export function SummarizeTab({
     }
     if (nlQuery.trim()) onRunNlSummarize(nlQuery.trim());
   };
+
+  // Clickable example questions — shown both in the input panel and in the "no data" guidance,
+  // so a user whose question matched nothing can fall back to a known-good query.
+  const suggestionChips = (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
+      {NL_EXAMPLES.map((ex) => (
+        <Chip
+          key={ex}
+          label={ex}
+          size="small"
+          variant="outlined"
+          clickable
+          onClick={() => setNlQuery(ex)}
+        />
+      ))}
+    </Box>
+  );
 
   return (
     <>
@@ -352,11 +371,19 @@ export function SummarizeTab({
         </Paper>
       )}
 
-      {activeError && (
+      {activeError && mode === 'manual' && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {mode === 'ai'
-            ? 'AI could not interpret your query. Please try rephrasing.'
-            : 'Query failed. Check console for details.'}
+          Query failed. Check console for details.
+        </Alert>
+      )}
+
+      {activeError && mode === 'ai' && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            The AI couldn&apos;t answer this question — this data may not have a field or value that
+            matches it. Try one of these instead:
+          </Typography>
+          {suggestionChips}
         </Alert>
       )}
 
@@ -406,11 +433,23 @@ export function SummarizeTab({
             </ToggleButtonGroup>
           </div>
 
+          {/* ── Dropped-filter notes (rows came back, but a requested value didn't exist) ── */}
+          {mode === 'ai' && nlNotes && nlNotes.length > 0 && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {nlNotes.map((note) => (
+                <div key={note}>{note}</div>
+              ))}
+            </Alert>
+          )}
+
           {/* ── Empty state ── */}
           {activeHeaders.length === 0 && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              No data returned. The filter values may not match any records — try a broader query
-              without specific filter values.
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                No matching data for this question — the date or value you asked for may not exist
+                in this data. Try one of these instead:
+              </Typography>
+              {suggestionChips}
             </Alert>
           )}
 
