@@ -10,16 +10,16 @@ import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import {
   useGetTranslationTestQuery,
   useLazyGetTranslationQualityGradingQuery,
-  useTranscribeAudioMutation,
 } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
+import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 
 function TranslationCard() {
   const theme = useTheme();
@@ -28,59 +28,12 @@ function TranslationCard() {
   const [showAnswer, setShowAnswer] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-
-  useEffect(() => {
-    // Setup MediaRecorder for audio recording
-    const setupMediaRecorder = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream);
-
-        const chunks: Blob[] = [];
-
-        recorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            chunks.push(event.data);
-          }
-        };
-
-        recorder.onstop = async () => {
-          if (chunks.length > 0) {
-            const audioBlob = new Blob(chunks, { type: 'audio/wav' });
-            await handleAudioTranscription(audioBlob);
-            chunks.length = 0; // Clear chunks
-          }
-        };
-
-        setMediaRecorder(recorder);
-      } catch (error) {
-        console.error('Error accessing microphone:', error);
-      }
-    };
-
-    setupMediaRecorder();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleAudioTranscription = async (audioBlob: Blob) => {
-    try {
-      const formData = new FormData();
-      formData.append('audioFile', audioBlob, 'recording.wav');
-
-      const response = await transcribeAudio(formData).unwrap();
-      if (response.data.text) {
-        setInput(response.data.text);
-      }
-    } catch (error) {
-      console.error('Error transcribing audio:', error);
-    }
-  };
+  const { isRecording, isTranscribing, mediaRecorder, toggleRecording } = useVoiceRecording({
+    onTranscriptionComplete: (text) => setInput(text),
+  });
 
   const [getTranslationQualityGrading, { isFetching: isTranslationQualityGradingFetching }] =
     useLazyGetTranslationQualityGradingQuery();
-  const [transcribeAudio, { isLoading: isTranscribing }] = useTranscribeAudioMutation();
 
   const handleTextFieldInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setInput(event.target.value);
@@ -112,21 +65,6 @@ function TranslationCard() {
     setShowAnswer(true);
   };
 
-  const handleToggleRecording = () => {
-    if (!mediaRecorder) return;
-
-    if (isRecording) {
-      // Stop recording and transcribe
-      mediaRecorder.stop();
-      setIsRecording(false);
-    } else {
-      // Start recording
-      if (mediaRecorder.state === 'inactive') {
-        mediaRecorder.start();
-        setIsRecording(true);
-      }
-    }
-  };
   if (isFetching) {
     return <AILoading />;
   }
@@ -156,14 +94,14 @@ function TranslationCard() {
             title={
               mediaRecorder
                 ? isRecording
-                  ? 'Click to stop recording'
-                  : 'Click to start recording'
-                : 'Microphone not available'
+                  ? '點擊停止錄音'
+                  : `點擊開始錄音（轉錄消耗 ${CREDIT_COSTS.AUDIO_TRANSCRIPTION} credit）`
+                : '麥克風無法使用'
             }
             arrow
           >
             <IconButton
-              onClick={handleToggleRecording}
+              onClick={toggleRecording}
               sx={{
                 color: isRecording
                   ? theme.palette.error.main
