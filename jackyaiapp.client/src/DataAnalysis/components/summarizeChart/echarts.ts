@@ -24,6 +24,47 @@ echarts.use([
 
 export { echarts };
 
+// ── Custom dark theme matched to the DataAnalysis page design tokens ─────────
+// (ECharts' built-in "dark" theme brings its own navy background and palette,
+// which clashes with the page's near-black Linear-style surfaces.)
+
+const TEXT_MUTED = '#9B9DA5';
+const TEXT_BRIGHT = '#EEEFF1';
+const AXIS_LINE = 'rgba(255, 255, 255, 0.15)';
+const SPLIT_LINE = 'rgba(255, 255, 255, 0.07)';
+
+export const ECHARTS_THEME = 'data-analysis-dark';
+
+const axisCommon = {
+  axisLine: { lineStyle: { color: AXIS_LINE } },
+  axisTick: { lineStyle: { color: AXIS_LINE } },
+  axisLabel: { color: TEXT_MUTED },
+  splitLine: { lineStyle: { color: SPLIT_LINE } },
+  nameTextStyle: { color: TEXT_MUTED },
+};
+
+echarts.registerTheme(ECHARTS_THEME, {
+  darkMode: true,
+  backgroundColor: 'transparent',
+  textStyle: { color: TEXT_MUTED },
+  categoryAxis: axisCommon,
+  valueAxis: axisCommon,
+  logAxis: axisCommon,
+  timeAxis: axisCommon,
+  legend: {
+    textStyle: { color: TEXT_MUTED },
+    pageTextStyle: { color: TEXT_MUTED },
+    pageIconColor: TEXT_BRIGHT,
+    pageIconInactiveColor: 'rgba(255, 255, 255, 0.25)',
+    inactiveColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  tooltip: {
+    backgroundColor: '#26272D',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    textStyle: { color: TEXT_BRIGHT },
+  },
+});
+
 export type ECOption = ComposeOption<
   | BarSeriesOption
   | LineSeriesOption
@@ -45,7 +86,7 @@ export type ChartViewType =
 export type ActiveChart = Exclude<ChartViewType, 'table'>;
 
 export const PALETTE = [
-  '#6366f1',
+  '#5E6AD2',
   '#22d3ee',
   '#f59e0b',
   '#10b981',
