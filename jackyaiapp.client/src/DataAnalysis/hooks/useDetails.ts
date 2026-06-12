@@ -36,7 +36,9 @@ export function useDetails({
         !sessionId && ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
       orderBy: dateField ? [{ fieldName: dateField, descending: true }] : [],
       skip: page * ROWS_PER_PAGE,
-      take: ROWS_PER_PAGE,
+      // +1 row to detect whether a next page exists — the library's TotalCount
+      // is just the returned page size, not a real COUNT over the table.
+      take: ROWS_PER_PAGE + 1,
       filters: toFilterDtos(detailsFilters, []), // Details tab has no field transforms
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -52,9 +54,13 @@ export function useDetails({
     setPage(0);
   };
 
-  const detailsRows = detailsData?.data?.rows ?? [];
+  const fetchedRows = detailsData?.data?.rows ?? [];
+  const hasMore = fetchedRows.length > ROWS_PER_PAGE;
+  const detailsRows = hasMore ? fetchedRows.slice(0, ROWS_PER_PAGE) : fetchedRows;
   const detailsHeaders = detailsRows.length > 0 ? Object.keys(detailsRows[0]) : [];
-  const detailsTotalCount = detailsData?.data?.totalCount ?? 0;
+  // -1 tells TablePagination the total is unknown ("more than N"); on the last
+  // page we can compute the exact total from what came back.
+  const detailsTotalCount = hasMore ? -1 : page * ROWS_PER_PAGE + fetchedRows.length;
 
   return {
     page,

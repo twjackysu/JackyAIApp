@@ -39,7 +39,8 @@ function StatCard({ label, value, hint, loading }: StatCardProps) {
 }
 
 interface OverviewStripProps {
-  rowCount: number | undefined;
+  /** Pre-formatted row count, e.g. "1,234" or "200+"; undefined while unknown. */
+  rowCountDisplay: string | undefined;
   rowCountLoading: boolean;
   columnCount: number;
   schemaLoading: boolean;
@@ -53,7 +54,7 @@ interface OverviewStripProps {
  * count, and the most recent date. Absorbs what used to be the Max Date tab.
  */
 export function OverviewStrip({
-  rowCount,
+  rowCountDisplay,
   rowCountLoading,
   columnCount,
   schemaLoading,
@@ -63,11 +64,7 @@ export function OverviewStrip({
 }: OverviewStripProps) {
   return (
     <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
-      <StatCard
-        label="Rows"
-        value={rowCount != null ? rowCount.toLocaleString() : '—'}
-        loading={rowCountLoading}
-      />
+      <StatCard label="Rows" value={rowCountDisplay ?? '—'} loading={rowCountLoading} />
       <StatCard
         label="Columns"
         value={columnCount > 0 ? columnCount : '—'}
