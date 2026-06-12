@@ -1,5 +1,8 @@
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import CheckIcon from '@mui/icons-material/Check';
+import CodeIcon from '@mui/icons-material/Code';
+import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -11,7 +14,10 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
+import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -33,9 +39,14 @@ import { FieldTransformEditor } from './FieldTransformEditor';
 import { FilterEditor } from './FilterEditor';
 import { MeasureEditor } from './MeasureEditor';
 import { SummarizeChart, type ChartViewType } from './SummarizeChart';
+import { inferColumns } from './summarizeChart/dataPrep';
 import { ViewByEditor } from './ViewByEditor';
 
-import type { FieldDefinition, MeasureFieldDto } from '../../apis/dataAnalysisApis/types';
+import type {
+  FieldDefinition,
+  MeasureFieldDto,
+  SummarizeRequest,
+} from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef, ViewByEntry } from '../types';
 
 type SummarizeMode = 'manual' | 'ai';
@@ -72,6 +83,7 @@ interface SummarizeTabProps {
   nlError: unknown;
   nlRows: Record<string, unknown>[];
   nlInterpretation?: string;
+  nlPlan?: SummarizeRequest;
   nlNotes?: string[];
   isLoggedIn: boolean;
   // Context
@@ -117,6 +129,15 @@ const NL_EXAMPLES = [
   'Average order value by customer segment',
 ];
 
+// Staged progress shown while the NL agent runs. Mirrors the backend's real
+// phases (plan → fetch live values → execute); timing is simulated locally
+// since the request is a single HTTP call.
+const NL_STEPS = [
+  'Understanding your question',
+  'Checking real values in your data',
+  'Running the query',
+];
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function SummarizeTab({
@@ -144,6 +165,7 @@ export function SummarizeTab({
   nlError,
   nlRows,
   nlInterpretation,
+  nlPlan,
   nlNotes,
   isLoggedIn,
   fields,
@@ -153,6 +175,60 @@ export function SummarizeTab({
   const [mode, setMode] = useState<SummarizeMode>('ai');
   const [nlQuery, setNlQuery] = useState('');
   const [chartType, setChartType] = useState<ChartViewType>('table');
+  const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const [planOpen, setPlanOpen] = useState(false);
+  const [loadStep, setLoadStep] = useState(0);
+
+  // Advance the simulated NL progress steps while the request is in flight
+  useEffect(() => {
+    if (!nlIsLoading) return;
+    setLoadStep(0);
+    const t1 = setTimeout(() => setLoadStep(1), 2200);
+    const t2 = setTimeout(() => setLoadStep(2), 5500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [nlIsLoading]);
+
+  // When a new AI result arrives, pick a sensible default view from its shape:
+  // temporal dimension → line, two dimensions → stacked column,
+  // one dimension → column, anything else → table.
+  useEffect(() => {
+    if (nlRows.length === 0) return;
+    setPlanOpen(false);
+    const headers = Object.keys(nlRows[0]);
+    const { groupKeys, measureKeys } = inferColumns(headers, nlRows);
+    let suggested: ChartViewType = 'table';
+    if (measureKeys.length > 0 && groupKeys.length > 0 && nlRows.length > 1) {
+      const firstVal = String(nlRows[0][groupKeys[0]] ?? '');
+      const looksTemporal =
+        /date|month|year|week|quarter|day|time/i.test(groupKeys[0]) ||
+        /^\d{4}([-/]\d{1,2})?/.test(firstVal);
+      suggested = groupKeys.length >= 2 ? 'stackedColumn' : looksTemporal ? 'line' : 'column';
+    }
+    setChartType(suggested);
+  }, [nlRows]);
+
+  // Human-readable rendering of the query plan the AI generated
+  const planChips = useMemo(() => {
+    if (!nlPlan) return [];
+    const chips: string[] = [];
+    for (const g of nlPlan.viewBy ?? []) {
+      if (g.type === 'DateTrunc' && g.granularity)
+        chips.push(`by ${g.granularity}(${g.fieldName})`);
+      else if (g.type === 'NumericBin') chips.push(`by ${g.fieldName} (ranges)`);
+      else if (g.type === 'StringGrouping') chips.push(`by ${g.fieldName} (grouped)`);
+      else chips.push(`by ${g.fieldName}`);
+    }
+    for (const m of nlPlan.measures ?? []) chips.push(`${m.aggregation}(${m.fieldName})`);
+    for (const f of nlPlan.filters ?? []) {
+      const shown = f.values.slice(0, 3).join(', ');
+      const extra = f.values.length > 3 ? ` +${f.values.length - 3}` : '';
+      chips.push(`${f.fieldName} ${f.op ?? 'In'} [${shown}${extra}]`);
+    }
+    return chips;
+  }, [nlPlan]);
 
   // Derive active result set based on current mode
   const activeRows = mode === 'ai' ? nlRows : summarizeRows;
@@ -213,7 +289,11 @@ export function SummarizeTab({
       )}`;
       return;
     }
-    if (nlQuery.trim()) onRunNlSummarize(nlQuery.trim());
+    const q = nlQuery.trim();
+    if (q) {
+      setRecentQueries((prev) => [q, ...prev.filter((p) => p !== q)].slice(0, 5));
+      onRunNlSummarize(q);
+    }
   };
 
   // Clickable example questions — shown both in the input panel and in the "no data" guidance,
@@ -235,9 +315,11 @@ export function SummarizeTab({
 
   return (
     <>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        <strong>SummarizeAsync</strong> — GroupBy + aggregated Measures, with optional Filters.
-      </Typography>
+      {mode === 'manual' && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <strong>SummarizeAsync</strong> — GroupBy + aggregated Measures, with optional Filters.
+        </Typography>
+      )}
 
       {/* ── Mode toggle ────────────────────────────────────────────────────── */}
       <ToggleButtonGroup
@@ -362,6 +444,24 @@ export function SummarizeTab({
             ))}
           </Box>
 
+          {recentQueries.length > 0 && (
+            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
+              <Tooltip title="Recent questions">
+                <HistoryIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              </Tooltip>
+              {recentQueries.map((q) => (
+                <Chip
+                  key={q}
+                  label={q}
+                  size="small"
+                  onClick={() => setNlQuery(q)}
+                  clickable
+                  sx={{ maxWidth: 320 }}
+                />
+              ))}
+            </Box>
+          )}
+
           <Button
             variant="contained"
             startIcon={isLoggedIn ? <AutoAwesomeIcon /> : <LoginIcon />}
@@ -376,6 +476,33 @@ export function SummarizeTab({
               ? 'Costs 2 credits per query'
               : 'Requires login · costs 2 credits per query'}
           </Typography>
+        </Paper>
+      )}
+
+      {/* ── Staged AI progress ─────────────────────────────────────────────── */}
+      {mode === 'ai' && nlIsLoading && (
+        <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+          {NL_STEPS.map((step, i) => (
+            <Box key={step} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 0.5 }}>
+              {i < loadStep ? (
+                <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />
+              ) : i === loadStep ? (
+                <CircularProgress size={14} thickness={5} />
+              ) : (
+                <Box sx={{ width: 16, display: 'flex', justifyContent: 'center' }}>
+                  <Box
+                    sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'text.disabled' }}
+                  />
+                </Box>
+              )}
+              <Typography
+                variant="body2"
+                sx={{ color: i <= loadStep ? 'text.primary' : 'text.disabled' }}
+              >
+                {step}
+              </Typography>
+            </Box>
+          ))}
         </Paper>
       )}
 
@@ -440,6 +567,39 @@ export function SummarizeTab({
               ))}
             </ToggleButtonGroup>
           </div>
+
+          {/* ── How the AI queried this (plan rendered as readable chips) ── */}
+          {mode === 'ai' && planChips.length > 0 && (
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}
+            >
+              {planChips.map((c) => (
+                <Chip key={c} label={c} size="small" variant="outlined" />
+              ))}
+              <Tooltip title="View the raw query plan">
+                <IconButton size="small" onClick={() => setPlanOpen((o) => !o)}>
+                  <CodeIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+          {mode === 'ai' && nlPlan && (
+            <Collapse in={planOpen}>
+              <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5, overflow: 'auto' }}>
+                <Box
+                  component="pre"
+                  sx={{
+                    m: 0,
+                    fontSize: '0.72rem',
+                    fontFamily: 'monospace',
+                    color: 'text.secondary',
+                  }}
+                >
+                  {JSON.stringify(nlPlan, null, 2)}
+                </Box>
+              </Paper>
+            </Collapse>
+          )}
 
           {/* ── Dropped-filter notes (rows came back, but a requested value didn't exist) ── */}
           {mode === 'ai' && nlNotes && nlNotes.length > 0 && (
