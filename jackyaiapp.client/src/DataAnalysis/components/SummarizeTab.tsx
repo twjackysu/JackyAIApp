@@ -220,26 +220,6 @@ export function SummarizeTab({
     setChartType(suggested);
   }, [nlRows]);
 
-  // Human-readable rendering of the query plan the AI generated
-  const planChips = useMemo(() => {
-    if (!nlPlan) return [];
-    const chips: string[] = [];
-    for (const g of nlPlan.viewBy ?? []) {
-      if (g.type === 'DateTrunc' && g.granularity)
-        chips.push(`by ${g.granularity}(${g.fieldName})`);
-      else if (g.type === 'NumericBin') chips.push(`by ${g.fieldName} (ranges)`);
-      else if (g.type === 'StringGrouping') chips.push(`by ${g.fieldName} (grouped)`);
-      else chips.push(`by ${g.fieldName}`);
-    }
-    for (const m of nlPlan.measures ?? []) chips.push(`${m.aggregation}(${m.fieldName})`);
-    for (const f of nlPlan.filters ?? []) {
-      const shown = f.values.slice(0, 3).join(', ');
-      const extra = f.values.length > 3 ? ` +${f.values.length - 3}` : '';
-      chips.push(`${f.fieldName} ${f.op ?? 'In'} [${shown}${extra}]`);
-    }
-    return chips;
-  }, [nlPlan]);
-
   // Derive active result set based on current mode
   const activeRows = mode === 'ai' ? nlRows : summarizeRows;
   const activeHeaders = useMemo(
@@ -560,12 +540,29 @@ export function SummarizeTab({
               marginBottom: 8,
             }}
           >
-            {/* The LLM interpretation text is intentionally not shown — the plan
-                chips below are derived from the actually-executed plan and say
-                the same thing authoritatively. */}
-            <Typography variant="caption" color="text.secondary">
-              {activeRows.length} rows returned
-            </Typography>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                {activeRows.length} rows returned
+              </Typography>
+              {mode === 'ai' && nlInterpretation && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                    {nlInterpretation}
+                  </Typography>
+                  {nlPlan && (
+                    <Tooltip title="View the raw query plan">
+                      <IconButton
+                        size="small"
+                        onClick={() => setPlanOpen((o) => !o)}
+                        sx={{ p: 0.25 }}
+                      >
+                        <CodeIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+              )}
+            </Box>
 
             <ToggleButtonGroup
               size="small"
@@ -586,21 +583,7 @@ export function SummarizeTab({
             </ToggleButtonGroup>
           </div>
 
-          {/* ── How the AI queried this (plan rendered as readable chips) ── */}
-          {mode === 'ai' && planChips.length > 0 && (
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}
-            >
-              {planChips.map((c) => (
-                <Chip key={c} label={c} size="small" variant="outlined" />
-              ))}
-              <Tooltip title="View the raw query plan">
-                <IconButton size="small" onClick={() => setPlanOpen((o) => !o)}>
-                  <CodeIcon sx={{ fontSize: 16 }} />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          )}
+          {/* ── Raw query plan (developer detail, toggled from the code icon) ── */}
           {mode === 'ai' && nlPlan && (
             <Collapse in={planOpen}>
               <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5, overflow: 'auto' }}>
