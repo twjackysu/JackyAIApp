@@ -2,6 +2,8 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import CheckIcon from '@mui/icons-material/Check';
 import CodeIcon from '@mui/icons-material/Code';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
 import PieChartIcon from '@mui/icons-material/PieChart';
@@ -183,6 +185,7 @@ export function SummarizeTab({
   const [nlQuery, setNlQuery] = useState('');
   const [chartType, setChartType] = useState<ChartViewType>('table');
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const [recentOpen, setRecentOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
   const [loadStep, setLoadStep] = useState(0);
 
@@ -452,20 +455,37 @@ export function SummarizeTab({
           </Box>
 
           {recentQueries.length > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
-              <Tooltip title="Recent questions">
-                <HistoryIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-              </Tooltip>
-              {recentQueries.map((q) => (
-                <Chip
-                  key={q}
-                  label={q}
-                  size="small"
-                  onClick={() => setNlQuery(q)}
-                  clickable
-                  sx={{ maxWidth: 320 }}
-                />
-              ))}
+            <Box sx={{ mb: 2 }}>
+              {/* Collapsed by default so recents don't blend into the examples above */}
+              <Button
+                size="small"
+                startIcon={<HistoryIcon sx={{ fontSize: 16 }} />}
+                endIcon={
+                  recentOpen ? (
+                    <ExpandLessIcon sx={{ fontSize: 16 }} />
+                  ) : (
+                    <ExpandMoreIcon sx={{ fontSize: 16 }} />
+                  )
+                }
+                onClick={() => setRecentOpen((o) => !o)}
+                sx={{ color: 'text.secondary', px: 1, minWidth: 0 }}
+              >
+                Recent ({recentQueries.length})
+              </Button>
+              <Collapse in={recentOpen}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1, pl: 0.5 }}>
+                  {recentQueries.map((q) => (
+                    <Chip
+                      key={q}
+                      label={q}
+                      size="small"
+                      onClick={() => setNlQuery(q)}
+                      clickable
+                      sx={{ maxWidth: 360 }}
+                    />
+                  ))}
+                </Box>
+              </Collapse>
             </Box>
           )}
 
