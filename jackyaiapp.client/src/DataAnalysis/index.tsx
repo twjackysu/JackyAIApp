@@ -1,6 +1,11 @@
+import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
+import TableRowsOutlinedIcon from '@mui/icons-material/TableRowsOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import { ThemeProvider } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
@@ -26,6 +31,7 @@ import { useDateField } from './hooks/useDateField';
 import { useDetails } from './hooks/useDetails';
 import { useSourceContext } from './hooks/useSourceContext';
 import { useSummarize } from './hooks/useSummarize';
+import { dataAnalysisTheme } from './theme';
 import { makeViewByEntry } from './utils/groupField';
 
 import type { NlSummarizeResult } from '../apis/dataAnalysisApis/types';
@@ -136,175 +142,220 @@ export default function DataAnalysis() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <Box>
-      <Typography variant="h5" gutterBottom>
-        DataAnalysis Library — Live Demo
-      </Typography>
+    <ThemeProvider theme={dataAnalysisTheme}>
+      <Box>
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              background: 'linear-gradient(90deg, #E2E8F0 0%, #A5B4FC 55%, #22D3EE 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              width: 'fit-content',
+            }}
+          >
+            DataAnalysis Library
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Live demo — explore schema, run AI-powered summaries, and drill into details on real
+            data sources.
+          </Typography>
+        </Box>
 
-      <SourcePanel
-        isLoggedIn={isLoggedIn}
-        sources={sources}
-        activeSourceId={activeSourceId}
-        tableNameInput={tableNameInput}
-        sessionInfo={sessionInfo ?? null}
-        onSourceChange={handleSourceChange}
-        onTableNameChange={setTableNameInput}
-        onApplyTableName={applyTableName}
-        onOpenManager={() => setManagerOpen(true)}
-        onOpenUpload={() => setUploadOpen(true)}
-        onClearSession={handleClearSession}
-      />
-
-      {!sessionId && activeSourceId && (
-        <Alert severity="info" icon={<WarningAmberIcon />} sx={{ mb: 2 }}>
-          <strong>Custom data source selected</strong> — querying{' '}
-          <em>{activeSource?.name ?? activeSourceId}</em>. Credentials are encrypted and stored
-          securely, and transmitted over HTTPS. Note: if this server is not reachable from the
-          public internet, connections to external databases may fail.
-        </Alert>
-      )}
-
-      {!sessionId && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {activeSourceId ? (
-            <>
-              Querying <strong>{activeSource?.name}</strong>
-              {activeTableName && (
-                <>
-                  {' → '}
-                  <Box
-                    component="code"
-                    sx={{
-                      bgcolor: 'action.selected',
-                      px: 0.5,
-                      borderRadius: '3px',
-                      fontFamily: 'monospace',
-                      fontSize: '0.875em',
-                    }}
-                  >
-                    {activeTableName}
-                  </Box>
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              All 4 query types demonstrated against{' '}
-              <Box
-                component="code"
-                sx={{
-                  bgcolor: 'action.selected',
-                  px: 0.5,
-                  borderRadius: '3px',
-                  fontFamily: 'monospace',
-                  fontSize: '0.875em',
-                }}
-              >
-                {activeTableName || DEFAULT_TABLE}
-              </Box>
-            </>
-          )}
-        </Typography>
-      )}
-
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tab} onChange={(_, v: number) => setTab(v)}>
-          <Tab label="① Schema" />
-          <Tab label="② Summarize" />
-          <Tab label="③ Details" />
-          <Tab label="④ Max Date" />
-        </Tabs>
-      </Box>
-
-      <TabPanel value={tab} index={0}>
-        <SchemaTab
-          fields={fields}
-          isLoading={!sessionId && schemaLoading}
-          error={!sessionId ? schemaError : undefined}
-          dateField={dateField}
-          onDateFieldChange={setDateField}
-        />
-      </TabPanel>
-
-      <TabPanel value={tab} index={1}>
-        <SummarizeTab
-          fieldTransforms={summarize.fieldTransforms}
-          onTransformAdd={summarize.addTransform}
-          onTransformUpdate={summarize.updateTransform}
-          onTransformRemove={summarize.removeTransform}
-          viewByEntries={summarize.viewByEntries}
-          onViewByAdd={() =>
-            summarize.setViewByEntries((prev) => [...prev, makeViewByEntry(fields[0]?.name ?? '')])
-          }
-          onViewByUpdate={(entry) =>
-            summarize.setViewByEntries((prev) => prev.map((e) => (e.id === entry.id ? entry : e)))
-          }
-          onViewByRemove={(id) =>
-            summarize.setViewByEntries((prev) => prev.filter((e) => e.id !== id))
-          }
-          measures={summarize.measures}
-          onMeasureAdd={summarize.addMeasure}
-          onMeasureRemove={summarize.removeMeasure}
-          onMeasureUpdate={summarize.updateMeasure}
-          summarizeFilters={summarize.summarizeFilters}
-          onSummarizeFiltersChange={summarize.setSummarizeFilters}
-          onRunSummarize={summarize.handleRunSummarize}
-          isLoading={summarize.summarizeLoading}
-          error={summarize.summarizeError}
-          summarizeRows={summarize.summarizeRows}
-          summarizeHeaders={summarize.summarizeHeaders}
-          onRunNlSummarize={handleRunNlSummarize}
-          nlIsLoading={nlIsLoading}
-          nlError={nlError}
-          nlRows={nlResult?.rows ?? []}
-          nlInterpretation={nlResult?.interpretation}
-          nlNotes={nlResult?.notes}
+        <SourcePanel
           isLoggedIn={isLoggedIn}
-          fields={fields}
-          sourceId={ctxSourceId}
-          tableName={ctxTableName}
+          sources={sources}
+          activeSourceId={activeSourceId}
+          tableNameInput={tableNameInput}
+          sessionInfo={sessionInfo ?? null}
+          onSourceChange={handleSourceChange}
+          onTableNameChange={setTableNameInput}
+          onApplyTableName={applyTableName}
+          onOpenManager={() => setManagerOpen(true)}
+          onOpenUpload={() => setUploadOpen(true)}
+          onClearSession={handleClearSession}
         />
-      </TabPanel>
 
-      <TabPanel value={tab} index={2}>
-        <DetailsTab
-          fields={fields}
-          detailsFilters={details.detailsFilters}
-          onFiltersChange={details.handleDetailsFiltersChange}
-          detailsLoading={details.detailsLoading}
-          detailsError={details.detailsError}
-          detailsRows={details.detailsRows}
-          detailsHeaders={details.detailsHeaders}
-          detailsTotalCount={details.detailsTotalCount}
-          page={details.page}
-          onPageChange={details.setPage}
-          sourceId={ctxSourceId}
-          tableName={ctxTableName}
+        {!sessionId && activeSourceId && (
+          <Alert severity="info" icon={<WarningAmberIcon />} sx={{ mb: 2 }}>
+            <strong>Custom data source selected</strong> — querying{' '}
+            <em>{activeSource?.name ?? activeSourceId}</em>. Credentials are encrypted and stored
+            securely, and transmitted over HTTPS. Note: if this server is not reachable from the
+            public internet, connections to external databases may fail.
+          </Alert>
+        )}
+
+        {!sessionId && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {activeSourceId ? (
+              <>
+                Querying <strong>{activeSource?.name}</strong>
+                {activeTableName && (
+                  <>
+                    {' → '}
+                    <Box
+                      component="code"
+                      sx={{
+                        bgcolor: 'action.selected',
+                        px: 0.5,
+                        borderRadius: '3px',
+                        fontFamily: 'monospace',
+                        fontSize: '0.875em',
+                      }}
+                    >
+                      {activeTableName}
+                    </Box>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                All 4 query types demonstrated against{' '}
+                <Box
+                  component="code"
+                  sx={{
+                    bgcolor: 'action.selected',
+                    px: 0.5,
+                    borderRadius: '3px',
+                    fontFamily: 'monospace',
+                    fontSize: '0.875em',
+                  }}
+                >
+                  {activeTableName || DEFAULT_TABLE}
+                </Box>
+              </>
+            )}
+          </Typography>
+        )}
+
+        <Box
+          sx={{
+            display: 'inline-flex',
+            bgcolor: 'rgba(148, 163, 184, 0.07)',
+            borderRadius: 3,
+            px: 0.5,
+            border: '1px solid rgba(148, 163, 184, 0.1)',
+          }}
+        >
+          <Tabs value={tab} onChange={(_, v: number) => setTab(v)}>
+            <Tab
+              icon={<AccountTreeOutlinedIcon fontSize="small" />}
+              iconPosition="start"
+              label="Schema"
+            />
+            <Tab
+              icon={<AutoAwesomeIcon fontSize="small" />}
+              iconPosition="start"
+              label="Summarize"
+            />
+            <Tab
+              icon={<TableRowsOutlinedIcon fontSize="small" />}
+              iconPosition="start"
+              label="Details"
+            />
+            <Tab
+              icon={<EventOutlinedIcon fontSize="small" />}
+              iconPosition="start"
+              label="Max Date"
+            />
+          </Tabs>
+        </Box>
+
+        <TabPanel value={tab} index={0}>
+          <SchemaTab
+            fields={fields}
+            isLoading={!sessionId && schemaLoading}
+            error={!sessionId ? schemaError : undefined}
+            dateField={dateField}
+            onDateFieldChange={setDateField}
+          />
+        </TabPanel>
+
+        <TabPanel value={tab} index={1}>
+          <SummarizeTab
+            fieldTransforms={summarize.fieldTransforms}
+            onTransformAdd={summarize.addTransform}
+            onTransformUpdate={summarize.updateTransform}
+            onTransformRemove={summarize.removeTransform}
+            viewByEntries={summarize.viewByEntries}
+            onViewByAdd={() =>
+              summarize.setViewByEntries((prev) => [
+                ...prev,
+                makeViewByEntry(fields[0]?.name ?? ''),
+              ])
+            }
+            onViewByUpdate={(entry) =>
+              summarize.setViewByEntries((prev) => prev.map((e) => (e.id === entry.id ? entry : e)))
+            }
+            onViewByRemove={(id) =>
+              summarize.setViewByEntries((prev) => prev.filter((e) => e.id !== id))
+            }
+            measures={summarize.measures}
+            onMeasureAdd={summarize.addMeasure}
+            onMeasureRemove={summarize.removeMeasure}
+            onMeasureUpdate={summarize.updateMeasure}
+            summarizeFilters={summarize.summarizeFilters}
+            onSummarizeFiltersChange={summarize.setSummarizeFilters}
+            onRunSummarize={summarize.handleRunSummarize}
+            isLoading={summarize.summarizeLoading}
+            error={summarize.summarizeError}
+            summarizeRows={summarize.summarizeRows}
+            summarizeHeaders={summarize.summarizeHeaders}
+            onRunNlSummarize={handleRunNlSummarize}
+            nlIsLoading={nlIsLoading}
+            nlError={nlError}
+            nlRows={nlResult?.rows ?? []}
+            nlInterpretation={nlResult?.interpretation}
+            nlNotes={nlResult?.notes}
+            isLoggedIn={isLoggedIn}
+            fields={fields}
+            sourceId={ctxSourceId}
+            tableName={ctxTableName}
+          />
+        </TabPanel>
+
+        <TabPanel value={tab} index={2}>
+          <DetailsTab
+            fields={fields}
+            detailsFilters={details.detailsFilters}
+            onFiltersChange={details.handleDetailsFiltersChange}
+            detailsLoading={details.detailsLoading}
+            detailsError={details.detailsError}
+            detailsRows={details.detailsRows}
+            detailsHeaders={details.detailsHeaders}
+            detailsTotalCount={details.detailsTotalCount}
+            page={details.page}
+            onPageChange={details.setPage}
+            sourceId={ctxSourceId}
+            tableName={ctxTableName}
+          />
+        </TabPanel>
+
+        <TabPanel value={tab} index={3}>
+          <MaxDateTab
+            dateField={dateField}
+            activeTableName={activeTableName}
+            defaultTable={DEFAULT_TABLE}
+            maxDate={maxDate}
+            isLoading={maxDateLoading}
+          />
+        </TabPanel>
+
+        <SourceManagerDialog open={managerOpen} onClose={() => setManagerOpen(false)} />
+
+        <UploadDataDialog
+          open={uploadOpen}
+          onClose={() => setUploadOpen(false)}
+          onSessionCreated={(info) => {
+            setSessionInfo(info);
+            setUploadOpen(false);
+            summarize.reset();
+            details.reset();
+          }}
         />
-      </TabPanel>
-
-      <TabPanel value={tab} index={3}>
-        <MaxDateTab
-          dateField={dateField}
-          activeTableName={activeTableName}
-          defaultTable={DEFAULT_TABLE}
-          maxDate={maxDate}
-          isLoading={maxDateLoading}
-        />
-      </TabPanel>
-
-      <SourceManagerDialog open={managerOpen} onClose={() => setManagerOpen(false)} />
-
-      <UploadDataDialog
-        open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        onSessionCreated={(info) => {
-          setSessionInfo(info);
-          setUploadOpen(false);
-          summarize.reset();
-          details.reset();
-        }}
-      />
-    </Box>
+      </Box>
+    </ThemeProvider>
   );
 }

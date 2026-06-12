@@ -52,7 +52,7 @@ export function MaxDateTab({
               </Typography>
             )}
             <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-              To change the date field, go to the <strong>① Schema</strong> tab.
+              To change the date field, go to the <strong>Schema</strong> tab.
             </Typography>
           </CardContent>
         </Card>
