@@ -560,21 +560,12 @@ export function SummarizeTab({
               marginBottom: 8,
             }}
           >
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {activeRows.length} rows returned
-              </Typography>
-              {mode === 'ai' && nlInterpretation && (
-                <Typography
-                  component="p"
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ fontStyle: 'italic', display: 'block' }}
-                >
-                  {nlInterpretation}
-                </Typography>
-              )}
-            </Box>
+            {/* The LLM interpretation text is intentionally not shown — the plan
+                chips below are derived from the actually-executed plan and say
+                the same thing authoritatively. */}
+            <Typography variant="caption" color="text.secondary">
+              {activeRows.length} rows returned
+            </Typography>
 
             <ToggleButtonGroup
               size="small"
