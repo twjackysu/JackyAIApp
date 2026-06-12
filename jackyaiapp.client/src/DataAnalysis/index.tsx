@@ -145,22 +145,30 @@ export default function DataAnalysis() {
     <ThemeProvider theme={dataAnalysisTheme}>
       <Box>
         <Box sx={{ mb: 3 }}>
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: 800,
-              letterSpacing: '-0.02em',
-              background: 'linear-gradient(90deg, #E2E8F0 0%, #A5B4FC 55%, #22D3EE 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              width: 'fit-content',
-            }}
-          >
-            DataAnalysis Library
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Typography variant="h5" sx={{ color: 'text.primary' }}>
+              DataAnalysis Library
+            </Typography>
+            <Box
+              component="span"
+              sx={{
+                fontSize: '0.7rem',
+                fontWeight: 500,
+                letterSpacing: '0.02em',
+                color: 'text.secondary',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: '6px',
+                px: 0.75,
+                py: 0.25,
+                lineHeight: 1.4,
+              }}
+            >
+              Live Demo
+            </Box>
+          </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Live demo — explore schema, run AI-powered summaries, and drill into details on real
-            data sources.
+            Explore schema, run AI-powered summaries, and drill into details on real data sources.
           </Typography>
         </Box>
 
@@ -233,10 +241,11 @@ export default function DataAnalysis() {
         <Box
           sx={{
             display: 'inline-flex',
-            bgcolor: 'rgba(148, 163, 184, 0.07)',
-            borderRadius: 3,
+            bgcolor: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '10px',
             px: 0.5,
-            border: '1px solid rgba(148, 163, 184, 0.1)',
+            border: '1px solid',
+            borderColor: 'divider',
           }}
         >
           <Tabs value={tab} onChange={(_, v: number) => setTab(v)}>
