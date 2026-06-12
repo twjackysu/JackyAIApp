@@ -69,8 +69,8 @@ export function SchemaTab({
               </Select>
             </FormControl>
             <Typography variant="caption" color="text.secondary">
-              Auto-detected from schema — used by <strong>Max Date</strong> and{' '}
-              <strong>Details</strong> (default sort order).
+              Auto-detected from schema — drives the <strong>Latest date</strong> stat above and
+              the default sort order in <strong>Details</strong>.
             </Typography>
           </Paper>
 
