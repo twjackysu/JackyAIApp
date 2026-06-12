@@ -115,18 +115,27 @@ export default function DataAnalysis() {
   const maxDate = maxDateData?.data?.maxDate;
 
   // ── Row count (for the overview strip) ────────────────────────────────────
-  // Session uploads already know their row count; otherwise fetch a 1-row
-  // details page just for totalCount.
+  // Session uploads already know their row count. For DB sources the library's
+  // DetailsResult.TotalCount is just the returned page size (no real COUNT
+  // query), so fetch up to the 200-row server cap: below the cap the count is
+  // exact, at the cap we show "200+".
   const [fetchRowCount, { data: rowCountData, isLoading: rowCountLoading }] = useDetailsMutation();
   useEffect(() => {
     if (sessionId) return;
     fetchRowCount({
       context: ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
-      take: 1,
+      take: 200,
       skip: 0,
     });
   }, [ctxSourceId, ctxTableName, sessionId, fetchRowCount]);
-  const rowCount = sessionId ? sessionInfo?.rowCount : rowCountData?.data?.totalCount;
+  const dbRowCount = rowCountData?.data?.totalCount;
+  const rowCountDisplay = sessionId
+    ? sessionInfo?.rowCount.toLocaleString()
+    : dbRowCount == null
+      ? undefined
+      : dbRowCount >= 200
+        ? '200+'
+        : dbRowCount.toLocaleString();
 
   // ── Source change: reset all query config ─────────────────────────────────
   const handleSourceChange = (id: string) => {
@@ -253,7 +262,7 @@ export default function DataAnalysis() {
         )}
 
         <OverviewStrip
-          rowCount={rowCount}
+          rowCountDisplay={rowCountDisplay}
           rowCountLoading={!sessionId && rowCountLoading}
           columnCount={fields.length}
           schemaLoading={!sessionId && schemaLoading}
