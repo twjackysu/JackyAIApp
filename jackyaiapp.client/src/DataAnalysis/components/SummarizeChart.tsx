@@ -1,7 +1,7 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
-import ReactEChartsCore from 'echarts-for-react/lib/core';
+import EChartsCoreModule from 'echarts-for-react/lib/core';
 
 import { buildCartesianOption, buildPieOption } from './summarizeChart/buildOptions';
 import { inferColumns, prepareCartesian, preparePie } from './summarizeChart/dataPrep';
@@ -13,6 +13,13 @@ import {
 } from './summarizeChart/echarts';
 
 export type { ChartViewType } from './summarizeChart/echarts';
+
+// echarts-for-react ships CJS only; depending on how the bundler pre-optimizes it,
+// the default import may arrive as the component itself or as a module namespace
+// object wrapping it ({ default: Component }).
+const ReactEChartsCore =
+  (EChartsCoreModule as unknown as { default?: typeof EChartsCoreModule }).default ??
+  EChartsCoreModule;
 
 interface SummarizeChartProps {
   chartType: ActiveChart;
