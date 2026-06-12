@@ -324,9 +324,8 @@ export function SummarizeTab({
           sx={{
             p: 2.5,
             mb: 3,
-            border: '1px solid rgba(129, 140, 248, 0.35)',
-            background:
-              'linear-gradient(180deg, rgba(99, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.03) 100%)',
+            borderColor: 'rgba(94, 106, 210, 0.35)',
+            backgroundColor: 'rgba(94, 106, 210, 0.05)',
           }}
         >
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
