@@ -1,6 +1,5 @@
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
 import TableRowsOutlinedIcon from '@mui/icons-material/TableRowsOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Alert from '@mui/material/Alert';
@@ -9,17 +8,18 @@ import { ThemeProvider } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useGetUserInfoQuery } from '../apis/accountApis';
 import {
+  useDetailsMutation,
   useGetMaxDateQuery,
   useGetSchemaQuery,
   useNlSummarizeMutation,
 } from '../apis/dataAnalysisApis';
 
 import { DetailsTab } from './components/DetailsTab';
-import { MaxDateTab } from './components/MaxDateTab';
+import { OverviewStrip } from './components/OverviewStrip';
 import { SchemaTab } from './components/SchemaTab';
 import { SourceManagerDialog } from './components/SourceManagerDialog';
 import { SourcePanel } from './components/SourcePanel';
@@ -113,6 +113,20 @@ export default function DataAnalysis() {
     dateField,
   });
   const maxDate = maxDateData?.data?.maxDate;
+
+  // ── Row count (for the overview strip) ────────────────────────────────────
+  // Session uploads already know their row count; otherwise fetch a 1-row
+  // details page just for totalCount.
+  const [fetchRowCount, { data: rowCountData, isLoading: rowCountLoading }] = useDetailsMutation();
+  useEffect(() => {
+    if (sessionId) return;
+    fetchRowCount({
+      context: ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
+      take: 1,
+      skip: 0,
+    });
+  }, [ctxSourceId, ctxTableName, sessionId, fetchRowCount]);
+  const rowCount = sessionId ? sessionInfo?.rowCount : rowCountData?.data?.totalCount;
 
   // ── Source change: reset all query config ─────────────────────────────────
   const handleSourceChange = (id: string) => {
@@ -220,7 +234,7 @@ export default function DataAnalysis() {
               </>
             ) : (
               <>
-                All 4 query types demonstrated against{' '}
+                Querying{' '}
                 <Box
                   component="code"
                   sx={{
@@ -237,6 +251,16 @@ export default function DataAnalysis() {
             )}
           </Typography>
         )}
+
+        <OverviewStrip
+          rowCount={rowCount}
+          rowCountLoading={!sessionId && rowCountLoading}
+          columnCount={fields.length}
+          schemaLoading={!sessionId && schemaLoading}
+          dateField={dateField}
+          maxDate={maxDate}
+          maxDateLoading={maxDateLoading}
+        />
 
         <Box
           sx={{
@@ -263,11 +287,6 @@ export default function DataAnalysis() {
               icon={<TableRowsOutlinedIcon fontSize="small" />}
               iconPosition="start"
               label="Details"
-            />
-            <Tab
-              icon={<EventOutlinedIcon fontSize="small" />}
-              iconPosition="start"
-              label="Max Date"
             />
           </Tabs>
         </Box>
@@ -317,6 +336,7 @@ export default function DataAnalysis() {
             nlError={nlError}
             nlRows={nlResult?.rows ?? []}
             nlInterpretation={nlResult?.interpretation}
+            nlPlan={nlResult?.plan}
             nlNotes={nlResult?.notes}
             isLoggedIn={isLoggedIn}
             fields={fields}
@@ -339,16 +359,6 @@ export default function DataAnalysis() {
             onPageChange={details.setPage}
             sourceId={ctxSourceId}
             tableName={ctxTableName}
-          />
-        </TabPanel>
-
-        <TabPanel value={tab} index={3}>
-          <MaxDateTab
-            dateField={dateField}
-            activeTableName={activeTableName}
-            defaultTable={DEFAULT_TABLE}
-            maxDate={maxDate}
-            isLoading={maxDateLoading}
           />
         </TabPanel>
 
