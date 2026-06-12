@@ -122,11 +122,15 @@ const CHART_OPTIONS: ChartOption[] = [
   },
 ];
 
+// Mix of starter and realistic "what a sales/finance team would actually ask"
+// questions — the complex ones exercise multi-dimension group-bys, filters,
+// NumericBin tiers, and weekly DateTrunc with relative dates.
 const NL_EXAMPLES = [
   'Total revenue by region',
   'Monthly order count trend',
-  'Revenue breakdown by product category',
-  'Average order value by customer segment',
+  'Quarterly revenue by sales channel for Enterprise customers in EMEA',
+  'Orders and revenue by deal size tier (<10K, 10K–100K, >100K)',
+  'Weekly closed-order revenue for Cloud Security this year',
 ];
 
 // Staged progress shown while the NL agent runs. Mirrors the backend's real
