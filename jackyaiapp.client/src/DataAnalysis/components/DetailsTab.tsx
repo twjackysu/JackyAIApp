@@ -50,7 +50,7 @@ export function DetailsTab({
   return (
     <>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        <strong>DetailsAsync</strong> — paginated row-level data. Filters apply immediately.
+        Browse the raw rows behind the numbers. Filters apply immediately.
       </Typography>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
