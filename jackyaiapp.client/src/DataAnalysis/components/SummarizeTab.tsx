@@ -125,12 +125,15 @@ const CHART_OPTIONS: ChartOption[] = [
 // Mix of starter and realistic "what a sales/finance team would actually ask"
 // questions — the complex ones exercise multi-dimension group-bys, filters,
 // NumericBin tiers, and weekly DateTrunc with relative dates.
+// Values and tier boundaries verified against the live dbo.Orders data
+// (Revenue spans ~1K–10K; categories are Consulting/Hardware/Software/
+// Support/Training; statuses are Completed/Pending/Cancelled).
 const NL_EXAMPLES = [
   'Total revenue by region',
   'Monthly order count trend',
   'Quarterly revenue by sales channel for Enterprise customers in EMEA',
-  'Orders and revenue by deal size tier (<10K, 10K–100K, >100K)',
-  'Weekly closed-order revenue for Cloud Security this year',
+  'Orders and revenue by deal size tier (<3K, 3K–6K, >6K)',
+  'Weekly completed-order revenue for Software this year',
 ];
 
 // Staged progress shown while the NL agent runs. Mirrors the backend's real
