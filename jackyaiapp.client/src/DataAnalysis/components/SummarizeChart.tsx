@@ -8,6 +8,7 @@ import { inferColumns, prepareCartesian, preparePie } from './summarizeChart/dat
 import {
   CHART_HEIGHT,
   CLUTTER_THRESHOLD,
+  ECHARTS_THEME,
   echarts,
   type ActiveChart,
 } from './summarizeChart/echarts';
@@ -61,6 +62,7 @@ export function SummarizeChart({ chartType, rows, headers }: SummarizeChartProps
           <ReactEChartsCore
             echarts={echarts}
             option={option}
+            theme={ECHARTS_THEME}
             style={{ height: CHART_HEIGHT }}
             opts={{ renderer: 'canvas' }}
             notMerge
@@ -98,6 +100,7 @@ export function SummarizeChart({ chartType, rows, headers }: SummarizeChartProps
         <ReactEChartsCore
           echarts={echarts}
           option={option}
+          theme={ECHARTS_THEME}
           style={{ height: CHART_HEIGHT }}
           opts={{ renderer: 'canvas' }}
           notMerge
