@@ -60,6 +60,17 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// </summary>
         public int TotalXP { get; set; } = 0;
 
+        /// <summary>
+        /// Streak freezes available. One missed day is forgiven per freeze so a single slip
+        /// doesn't reset the streak. Refilled to 1 at the start of each week.
+        /// </summary>
+        public int StreakFreezesAvailable { get; set; } = 1;
+
+        /// <summary>
+        /// The last date (UTC) a weekly streak freeze was granted, used to refill weekly.
+        /// </summary>
+        public DateTime? LastFreezeGrantDate { get; set; }
+
         // Navigation properties
         public ICollection<UserWord> UserWords { get; set; } = [];
         public ICollection<JiraConfig> JiraConfigs { get; set; } = [];

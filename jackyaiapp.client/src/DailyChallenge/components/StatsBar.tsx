@@ -1,9 +1,11 @@
+import AcUnitIcon from '@mui/icons-material/AcUnit';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import LinearProgress from '@mui/material/LinearProgress';
 import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 interface StatsBarProps {
@@ -11,6 +13,7 @@ interface StatsBarProps {
   totalXP: number;
   level: string;
   isLoading: boolean;
+  streakFreezes?: number;
 }
 
 // XP thresholds for level progress bar
@@ -22,7 +25,7 @@ const LEVEL_THRESHOLDS = [
   { min: 5000, max: 10000, label: 'Master 👑' },
 ];
 
-function StatsBar({ currentStreak, totalXP, level, isLoading }: StatsBarProps) {
+function StatsBar({ currentStreak, totalXP, level, isLoading, streakFreezes = 0 }: StatsBarProps) {
   if (isLoading) {
     return (
       <Skeleton
@@ -85,6 +88,17 @@ function StatsBar({ currentStreak, totalXP, level, isLoading }: StatsBarProps) {
           <Typography variant="body2" color="text.secondary">
             day streak
           </Typography>
+          {streakFreezes > 0 && (
+            <Tooltip title="Streak freeze — one missed day a week won't break your streak">
+              <Chip
+                icon={<AcUnitIcon sx={{ fontSize: 16 }} />}
+                label={streakFreezes}
+                size="small"
+                variant="outlined"
+                sx={{ ml: 0.5, color: 'info.main', borderColor: 'info.main' }}
+              />
+            </Tooltip>
+          )}
         </Stack>
 
         {/* Level */}

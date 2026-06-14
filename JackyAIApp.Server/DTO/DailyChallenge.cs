@@ -51,6 +51,10 @@ namespace JackyAIApp.Server.DTO
         public int NewStreak { get; set; }
         public bool AlreadyCompleted { get; set; }
         public ulong CreditsAwarded { get; set; }
+        /// <summary>True when a missed day was forgiven by spending a streak freeze.</summary>
+        public bool StreakFreezeUsed { get; set; }
+        /// <summary>Streak freezes remaining this week.</summary>
+        public int StreakFreezesAvailable { get; set; }
     }
 
     public class DailyChallengeStatsResponse
@@ -61,5 +65,7 @@ namespace JackyAIApp.Server.DTO
         public required string Level { get; set; }
         public bool TodayCompleted { get; set; }
         public int? TodayScore { get; set; }
+        /// <summary>Streak freezes available this week (one missed day each).</summary>
+        public int StreakFreezesAvailable { get; set; }
     }
 }
