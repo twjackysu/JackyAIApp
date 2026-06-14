@@ -42,6 +42,10 @@ export interface DailyChallengeSubmitResponse {
   newStreak: number;
   alreadyCompleted: boolean;
   creditsAwarded: number;
+  /** True when a missed day was forgiven by spending a streak freeze. */
+  streakFreezeUsed: boolean;
+  /** Streak freezes remaining this week. */
+  streakFreezesAvailable: number;
 }
 
 export interface DailyChallengeStatsResponse {
@@ -51,4 +55,6 @@ export interface DailyChallengeStatsResponse {
   level: string;
   todayCompleted: boolean;
   todayScore: number | null;
+  /** Streak freezes available this week (one missed day each). */
+  streakFreezesAvailable: number;
 }

@@ -190,6 +190,7 @@ function DailyChallenge() {
         totalXP={stats?.totalXP ?? 0}
         level={stats?.level ?? 'Beginner 🌱'}
         isLoading={isStatsLoading}
+        streakFreezes={stats?.streakFreezesAvailable ?? 0}
       />
       {/* "Today" landing — only on the challenge view, not result/review screens */}
       {viewMode === 'challenge' && (
@@ -214,6 +215,7 @@ function DailyChallenge() {
           newStreak={submitResult.newStreak}
           alreadyCompleted={submitResult.alreadyCompleted}
           creditsAwarded={submitResult.creditsAwarded}
+          streakFreezeUsed={submitResult.streakFreezeUsed}
           onReview={handleReview}
         />
       )}

@@ -74,9 +74,9 @@ namespace JackyAIApp.Server.Controllers
             int usersWithLessXP = await _dbContext.Users.CountAsync(u => u.TotalXP > 0 && u.TotalXP < user.TotalXP);
             int percentile = totalUsers > 0 ? (int)Math.Round((double)usersWithLessXP / totalUsers * 100) : 50;
 
-            // Validate streak is current
+            // Validate streak is current (forgive a single missed day, matching the streak freeze)
             int displayStreak = user.CurrentStreak;
-            if (user.LastStreakDate.HasValue && (today - user.LastStreakDate.Value).Days > 1)
+            if (user.LastStreakDate.HasValue && (today - user.LastStreakDate.Value).Days > 2)
                 displayStreak = 0;
 
             return _responseFactory.CreateOKResponse(new WeeklyReportResponse
@@ -124,9 +124,9 @@ namespace JackyAIApp.Server.Controllers
             var entries = topUsers.Select(u =>
             {
                 rank++;
-                // Validate streak
+                // Validate streak (forgive a single missed day, matching the streak freeze)
                 int streak = u.CurrentStreak;
-                if (u.LastStreakDate.HasValue && (today - u.LastStreakDate.Value).Days > 1)
+                if (u.LastStreakDate.HasValue && (today - u.LastStreakDate.Value).Days > 2)
                     streak = 0;
 
                 return new LeaderboardEntry
@@ -149,7 +149,7 @@ namespace JackyAIApp.Server.Controllers
                 {
                     int userRank = await _dbContext.Users.CountAsync(u => u.TotalXP > user.TotalXP) + 1;
                     int streak = user.CurrentStreak;
-                    if (user.LastStreakDate.HasValue && (today - user.LastStreakDate.Value).Days > 1)
+                    if (user.LastStreakDate.HasValue && (today - user.LastStreakDate.Value).Days > 2)
                         streak = 0;
 
                     currentUserEntry = new LeaderboardEntry

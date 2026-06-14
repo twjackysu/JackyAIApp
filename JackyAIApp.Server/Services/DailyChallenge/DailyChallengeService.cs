@@ -103,18 +103,43 @@ namespace JackyAIApp.Server.Services.DailyChallenge
             if (user == null)
                 return ServiceResult.Fail(ErrorCodes.Unauthorized, "User not found.");
 
-            bool streakUpdated = false;
-            var yesterday = today.AddDays(-1);
+            // Refill one streak freeze at the start of each week (forgiving, not punishing).
+            if (user.LastFreezeGrantDate == null || WeekStart(user.LastFreezeGrantDate.Value) != WeekStart(today))
+            {
+                user.StreakFreezesAvailable = 1;
+                user.LastFreezeGrantDate = today;
+            }
 
-            if (user.LastStreakDate == null || user.LastStreakDate < yesterday)
+            bool streakUpdated = false;
+            bool streakFreezeUsed = false;
+
+            if (user.LastStreakDate == null)
             {
                 user.CurrentStreak = 1;
                 streakUpdated = true;
             }
-            else if (user.LastStreakDate == yesterday)
+            else
             {
-                user.CurrentStreak++;
-                streakUpdated = true;
+                int gap = (today - user.LastStreakDate.Value).Days;
+                if (gap == 1)
+                {
+                    user.CurrentStreak++;
+                    streakUpdated = true;
+                }
+                else if (gap == 2 && user.StreakFreezesAvailable > 0)
+                {
+                    // Exactly one missed day — spend a freeze to keep the streak alive.
+                    user.StreakFreezesAvailable--;
+                    user.CurrentStreak++;
+                    streakUpdated = true;
+                    streakFreezeUsed = true;
+                }
+                else if (gap > 1)
+                {
+                    user.CurrentStreak = 1;
+                    streakUpdated = true;
+                }
+                // gap == 0 means already completed today (guarded above) — no change.
             }
 
             if (streakUpdated)
@@ -154,7 +179,9 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 StreakUpdated = streakUpdated,
                 NewStreak = user.CurrentStreak,
                 AlreadyCompleted = false,
-                CreditsAwarded = creditsAwarded
+                CreditsAwarded = creditsAwarded,
+                StreakFreezeUsed = streakFreezeUsed,
+                StreakFreezesAvailable = user.StreakFreezesAvailable
             });
         }
 
@@ -172,11 +199,13 @@ namespace JackyAIApp.Server.Services.DailyChallenge
             var todayResult = await _dbContext.DailyChallengeResults
                 .FirstOrDefaultAsync(r => r.UserId == userId && r.ChallengeDate == today);
 
+            // Forgive a single missed day: the streak only reads as broken after a 2-day gap,
+            // mirroring the weekly streak-freeze applied on the next submit.
             int displayStreak = user.CurrentStreak;
             if (user.LastStreakDate.HasValue)
             {
                 var daysSinceLastStreak = (today - user.LastStreakDate.Value).Days;
-                if (daysSinceLastStreak > 1)
+                if (daysSinceLastStreak > 2)
                 {
                     displayStreak = 0;
                 }
@@ -189,7 +218,8 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 TotalXP = user.TotalXP,
                 Level = GetLevel(user.TotalXP),
                 TodayCompleted = todayResult != null,
-                TodayScore = todayResult?.Score
+                TodayScore = todayResult?.Score,
+                StreakFreezesAvailable = user.StreakFreezesAvailable
             });
         }
 
@@ -238,5 +268,13 @@ namespace JackyAIApp.Server.Services.DailyChallenge
             >= 100 => "Learner 📖",
             _ => "Beginner 🌱"
         };
+
+        /// <summary>Monday-based start of the week containing <paramref name="date"/> (UTC date).</summary>
+        private static DateTime WeekStart(DateTime date)
+        {
+            var d = date.Date;
+            int daysSinceMonday = ((int)d.DayOfWeek + 6) % 7;
+            return d.AddDays(-daysSinceMonday);
+        }
     }
 }

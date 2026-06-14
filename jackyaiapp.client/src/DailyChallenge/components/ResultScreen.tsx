@@ -13,6 +13,7 @@ interface ResultScreenProps {
   newStreak: number;
   alreadyCompleted: boolean;
   creditsAwarded: number;
+  streakFreezeUsed?: boolean;
   onReview: () => void;
 }
 
@@ -23,6 +24,7 @@ function ResultScreen({
   newStreak,
   alreadyCompleted,
   creditsAwarded,
+  streakFreezeUsed,
   onReview,
 }: ResultScreenProps) {
   const isPerfect = score === totalQuestions;
@@ -141,6 +143,11 @@ function ResultScreen({
             </Box>
           )}
         </Stack>
+      )}
+      {streakFreezeUsed && (
+        <Typography variant="body2" sx={{ mb: 2, color: 'info.main', fontWeight: 500 }}>
+          🛡️ You missed a day, so a streak freeze kept your streak alive. No worries!
+        </Typography>
       )}
       <Button variant="outlined" size="large" onClick={onReview} sx={{ mt: 1 }}>
         Review Answers
