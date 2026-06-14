@@ -8,6 +8,7 @@ using JackyAIApp.Server.Services.Exam;
 using JackyAIApp.Server.Services.Exam.Generators;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Prompt;
+using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -59,6 +60,7 @@ namespace JackyAIApp.Server.Tests.Services
                 _promptServiceMock.Object,
                 _promptLoaderMock.Object,
                 _creditServiceMock.Object,
+                new SpacedRepetitionService(),
                 generators);
         }
 
@@ -96,8 +98,9 @@ namespace JackyAIApp.Server.Tests.Services
             var result = await _service.GenerateWordExamAsync(ExamType.Cloze);
 
             Assert.True(result.IsSuccess);
-            var dto = Assert.IsType<DTO.ClozeTest>(result.Data);
+            var dto = Assert.IsType<DTO.ClozeTestResponse>(result.Data);
             Assert.NotNull(dto.Question);
+            Assert.NotNull(dto.WordId);
             _promptServiceMock.Verify(x => x.GetCompletionAsync<DTO.ClozeTest>(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<IEnumerable<(string, string)>>()), Times.Never);
@@ -121,8 +124,9 @@ namespace JackyAIApp.Server.Tests.Services
             var result = await _service.GenerateWordExamAsync(ExamType.Cloze);
 
             Assert.True(result.IsSuccess);
-            var dto = Assert.IsType<DTO.ClozeTest>(result.Data);
+            var dto = Assert.IsType<DTO.ClozeTestResponse>(result.Data);
             Assert.Equal(generatedTest.Question, dto.Question);
+            Assert.Equal(word.Id, dto.WordId);
 
             var savedWord = await _dbContext.Words
                 .Include(w => w.ClozeTests).ThenInclude(ct => ct.Options)
