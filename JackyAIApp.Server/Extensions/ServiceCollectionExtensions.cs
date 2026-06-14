@@ -7,6 +7,7 @@ using JackyAIApp.Server.Services.Exam.Generators;
 using JackyAIApp.Server.Services.Job;
 using JackyAIApp.Server.Services.Job.Providers;
 using JackyAIApp.Server.Services.Repository;
+using JackyAIApp.Server.Services.SpacedRepetition;
 using JackyAIApp.Server.Services.SpellChecker;
 using JackyAIApp.Server.Services.WordOfTheDay;
 
@@ -35,6 +36,9 @@ namespace JackyAIApp.Server.Extensions
 
             services.AddScoped<IRepositoryService, RepositoryService>();
             services.AddScoped<IWordOfTheDayService, WordOfTheDayService>();
+
+            // Shared SM-2 scheduling (Review flow + exam-result feedback)
+            services.AddScoped<ISpacedRepetitionService, SpacedRepetitionService>();
 
             services.AddSingleton<IDailyChallengeQuestionGenerator, DailyChallengeQuestionGenerator>();
             services.AddScoped<IDailyChallengeService, DailyChallengeService>();

@@ -2,6 +2,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,24 +19,25 @@ namespace JackyAIApp.Server.Controllers
     public class ReviewController : ControllerBase
     {
         private const int MAX_REVIEW_BATCH = 20;
-        private const double MIN_EASE_FACTOR = 1.3;
-        private const double DEFAULT_EASE_FACTOR = 2.5;
 
         private readonly ILogger<ReviewController> _logger;
         private readonly IMyResponseFactory _responseFactory;
         private readonly AzureSQLDBContext _dbContext;
         private readonly IUserService _userService;
+        private readonly ISpacedRepetitionService _srs;
 
         public ReviewController(
             ILogger<ReviewController> logger,
             IMyResponseFactory responseFactory,
             AzureSQLDBContext dbContext,
-            IUserService userService)
+            IUserService userService,
+            ISpacedRepetitionService srs)
         {
             _logger = logger;
             _responseFactory = responseFactory;
             _dbContext = dbContext;
             _userService = userService;
+            _srs = srs;
         }
 
         /// <summary>
@@ -131,48 +133,10 @@ namespace JackyAIApp.Server.Controllers
                 var userWord = userWords.FirstOrDefault(uw => uw.Id == review.UserWordId);
                 if (userWord == null) continue;
 
-                int quality = Math.Clamp(review.Quality, 0, 5);
-                userWord.ReviewCount++;
-
-                if (quality >= 3)
+                if (_srs.ApplyResult(userWord, review.Quality, today))
                 {
-                    // Correct answer
                     correctCount++;
-                    userWord.ConsecutiveCorrect++;
-
-                    // SM-2: update ease factor
-                    userWord.EaseFactor = Math.Max(
-                        MIN_EASE_FACTOR,
-                        userWord.EaseFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
-                    );
-
-                    // SM-2: update interval
-                    if (userWord.ConsecutiveCorrect == 1)
-                    {
-                        userWord.ReviewIntervalDays = 1;
-                    }
-                    else if (userWord.ConsecutiveCorrect == 2)
-                    {
-                        userWord.ReviewIntervalDays = 6;
-                    }
-                    else
-                    {
-                        userWord.ReviewIntervalDays = Math.Round(userWord.ReviewIntervalDays * userWord.EaseFactor, 1);
-                    }
                 }
-                else
-                {
-                    // Incorrect answer — reset
-                    userWord.ConsecutiveCorrect = 0;
-                    userWord.ReviewIntervalDays = 1;
-                    // Ease factor still decreases on wrong answers
-                    userWord.EaseFactor = Math.Max(
-                        MIN_EASE_FACTOR,
-                        userWord.EaseFactor - 0.2
-                    );
-                }
-
-                userWord.NextReviewDate = today.AddDays(userWord.ReviewIntervalDays);
             }
 
             // Award XP: 3 XP per correct review

@@ -24,7 +24,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
             if (word.ClozeTests != null && word.ClozeTests.Count > 3)
             {
                 var randomTest = word.ClozeTests.ElementAt(Random.Shared.Next(word.ClozeTests.Count));
-                return ServiceResult.Ok(ToDto(randomTest));
+                return ServiceResult.Ok(ToDto(randomTest, word.Id));
             }
 
             var example = (
@@ -81,14 +81,15 @@ namespace JackyAIApp.Server.Services.Exam.Generators
                 _logger.LogInformation("ClozeTest added to DB for word: {Word}", word.WordText);
             }
 
-            return ServiceResult.Ok(ToDto(newClozeTest));
+            return ServiceResult.Ok(ToDto(newClozeTest, word.Id));
         }
 
-        private static ClozeTest ToDto(SQL.ClozeTest sql) => new()
+        private static ClozeTestResponse ToDto(SQL.ClozeTest sql, string wordId) => new()
         {
             Question = sql.Question,
             Answer = sql.Answer,
-            Options = sql.Options.Select(o => o.OptionText).ToList()
+            Options = sql.Options.Select(o => o.OptionText).ToList(),
+            WordId = wordId
         };
     }
 }

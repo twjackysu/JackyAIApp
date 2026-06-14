@@ -1,0 +1,40 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using JackyAIApp.Server.Data.Models.SQL;
+
+namespace JackyAIApp.Server.Data.Models.SQL
+{
+    /// <summary>
+    /// Records a single exam attempt against a word. Drives the learning loop: each attempt
+    /// feeds the word's spaced-repetition schedule and builds per-word performance history.
+    /// </summary>
+    public class ExamAttempt
+    {
+        [Key]
+        public int Id { get; set; }
+
+        /// <summary>The user who attempted the exam.</summary>
+        public required string UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User User { get; set; } = null!;
+
+        /// <summary>The word the exam targeted.</summary>
+        public required string WordId { get; set; }
+
+        [ForeignKey(nameof(WordId))]
+        public Word Word { get; set; } = null!;
+
+        /// <summary>Exam type: "Cloze" | "Translation" | "Sentence".</summary>
+        public required string ExamType { get; set; }
+
+        /// <summary>Whether the attempt counted as correct.</summary>
+        public required bool IsCorrect { get; set; }
+
+        /// <summary>Numeric score 0–100 for graded types (Sentence); null otherwise.</summary>
+        public int? Score { get; set; }
+
+        /// <summary>When the attempt happened (UTC).</summary>
+        public required DateTime CreatedAt { get; set; }
+    }
+}

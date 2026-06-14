@@ -23,7 +23,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
             if (word.SentenceTests != null && word.SentenceTests.Count > 3)
             {
                 var randomTest = word.SentenceTests.ElementAt(Random.Shared.Next(word.SentenceTests.Count));
-                return ServiceResult.Ok(ToDto(randomTest, word.WordText));
+                return ServiceResult.Ok(ToDto(randomTest, word.WordText, word.Id));
             }
 
             var example = (
@@ -71,17 +71,18 @@ namespace JackyAIApp.Server.Services.Exam.Generators
                 _logger.LogInformation("SentenceTest added to DB for word: {Word}", word.WordText);
             }
 
-            return ServiceResult.Ok(ToDto(sentenceTest, word.WordText));
+            return ServiceResult.Ok(ToDto(sentenceTest, word.WordText, word.Id));
         }
 
-        private static SentenceTestResponse ToDto(SQL.SentenceTest sql, string wordText) => new()
+        private static SentenceTestResponse ToDto(SQL.SentenceTest sql, string wordText, string wordId) => new()
         {
             Word = wordText,
             Prompt = sql.Prompt,
             SampleAnswer = sql.SampleAnswer,
             Context = sql.Context,
             DifficultyLevel = sql.DifficultyLevel,
-            GrammarPattern = sql.GrammarPattern
+            GrammarPattern = sql.GrammarPattern,
+            WordId = wordId
         };
     }
 }

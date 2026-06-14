@@ -13,7 +13,11 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import { useGetSentenceTestQuery, useEvaluateSentenceMutation } from '@/apis/examApis';
+import {
+  useGetSentenceTestQuery,
+  useEvaluateSentenceMutation,
+  useRecordExamResultMutation,
+} from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
@@ -34,6 +38,8 @@ function SentenceTestCard() {
 
   const { data, isFetching, refetch, isError, error } = useGetSentenceTestQuery();
   const [evaluateSentence, { isLoading: isEvaluating }] = useEvaluateSentenceMutation();
+  const [recordExamResult] = useRecordExamResultMutation();
+  const [srsNote, setSrsNote] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!userSentence.trim() || !data?.data) return;
@@ -49,6 +55,25 @@ function SentenceTestCard() {
       }).unwrap();
 
       setEvaluationResult(result.data);
+
+      // Feed the score back into spaced repetition (free). Pass ≥60 as correct.
+      const wordId = data.data.wordId;
+      const score = result.data.score;
+      if (wordId) {
+        const correct = score >= 60;
+        recordExamResult({ wordId, examType: 'Sentence', correct, score })
+          .unwrap()
+          .then((r) => {
+            if (r.data.scheduleUpdated) {
+              setSrsNote(
+                correct ? '✓ 已記錄，這個字會延後再複習' : '↻ 已記錄，這個字會盡快回到複習清單',
+              );
+            }
+          })
+          .catch(() => {
+            /* best-effort */
+          });
+      }
     } catch (error) {
       console.error('Error evaluating sentence:', error);
     }
@@ -57,6 +82,7 @@ function SentenceTestCard() {
   const handleNext = () => {
     setUserSentence('');
     setEvaluationResult(null);
+    setSrsNote(null);
     setShowSample(false);
     refetch();
   };
@@ -170,6 +196,12 @@ function SentenceTestCard() {
               <AlertTitle>總體評價</AlertTitle>
               {evaluationResult.overallFeedback}
             </Alert>
+
+            {srsNote && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                {srsNote}
+              </Typography>
+            )}
 
             <Box sx={{ mb: 2 }}>
               <Accordion>

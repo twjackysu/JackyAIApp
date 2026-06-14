@@ -15,6 +15,7 @@ import { useState } from 'react';
 import {
   useGetTranslationTestQuery,
   useLazyGetTranslationQualityGradingQuery,
+  useRecordExamResultMutation,
 } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
@@ -34,6 +35,8 @@ function TranslationCard() {
 
   const [getTranslationQualityGrading, { isFetching: isTranslationQualityGradingFetching }] =
     useLazyGetTranslationQualityGradingQuery();
+  const [recordExamResult] = useRecordExamResultMutation();
+  const [srsNote, setSrsNote] = useState<string | null>(null);
 
   const handleTextFieldInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setInput(event.target.value);
@@ -46,7 +49,27 @@ function TranslationCard() {
         unfamiliarWords: data.data.word,
       }).then((res) => {
         if (res.data) {
-          setFeedback(res.data.data.translationQualityGrading);
+          const grading = res.data.data.translationQualityGrading;
+          setFeedback(grading);
+
+          // Grade letters A/B count as correct; C/D/E as needs-work. Feed back into SRS (free).
+          const wordId = data?.data.wordId;
+          const letter = grading.match(/[A-E]/)?.[0];
+          if (wordId && letter) {
+            const correct = letter === 'A' || letter === 'B';
+            recordExamResult({ wordId, examType: 'Translation', correct })
+              .unwrap()
+              .then((r) => {
+                if (r.data.scheduleUpdated) {
+                  setSrsNote(
+                    correct ? '✓ 已記錄，這個字會延後再複習' : '↻ 已記錄，這個字會盡快回到複習清單',
+                  );
+                }
+              })
+              .catch(() => {
+                /* best-effort */
+              });
+          }
         } else {
           setFeedback('Error in grading the translation');
         }
@@ -58,6 +81,7 @@ function TranslationCard() {
   const handleNext = () => {
     setInput(null);
     setFeedback(null);
+    setSrsNote(null);
     setShowAnswer(false);
     refetch();
   };
@@ -161,6 +185,11 @@ function TranslationCard() {
       {feedback && (
         <Typography variant="h6" sx={{ marginTop: 2 }}>
           評級: {feedback}
+        </Typography>
+      )}
+      {srsNote && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          {srsNote}
         </Typography>
       )}
       {(showAnswer || !feedback) && (

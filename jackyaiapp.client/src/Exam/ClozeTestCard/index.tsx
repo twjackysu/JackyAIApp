@@ -8,7 +8,7 @@ import RadioGroup from '@mui/material/RadioGroup';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import { useGetClozeTestQuery } from '@/apis/examApis';
+import { useGetClozeTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
@@ -18,20 +18,40 @@ function ClozeTestCard() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const { data, isFetching, refetch, isError, error } = useGetClozeTestQuery();
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [recordExamResult] = useRecordExamResultMutation();
+  const [recorded, setRecorded] = useState(false);
+  const [srsNote, setSrsNote] = useState<string | null>(null);
 
   const handleOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedOption(event.target.value);
   };
   const handleSubmit = () => {
-    if (selectedOption === data?.data.answer) {
-      setFeedback(CORRECT_TEXT);
-    } else {
-      setFeedback('Incorrect, try again!');
+    const correct = selectedOption === data?.data.answer;
+    setFeedback(correct ? CORRECT_TEXT : 'Incorrect, try again!');
+
+    // Feed the result back into spaced repetition (free; record only the first check per question).
+    const wordId = data?.data.wordId;
+    if (wordId && !recorded) {
+      setRecorded(true);
+      recordExamResult({ wordId, examType: 'Cloze', correct })
+        .unwrap()
+        .then((res) => {
+          if (res.data.scheduleUpdated) {
+            setSrsNote(
+              correct ? '✓ 已記錄，這個字會延後再複習' : '↻ 已記錄，這個字會盡快回到複習清單',
+            );
+          }
+        })
+        .catch(() => {
+          /* recording is best-effort; ignore failures */
+        });
     }
   };
   const handleNext = () => {
     setSelectedOption(null);
     setFeedback(null);
+    setRecorded(false);
+    setSrsNote(null);
     refetch();
   };
   if (isFetching) {
@@ -66,6 +86,11 @@ function ClozeTestCard() {
       {feedback && (
         <Typography variant="h6" sx={{ marginTop: 2 }}>
           {feedback}
+        </Typography>
+      )}
+      {srsNote && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          {srsNote}
         </Typography>
       )}
       {feedback === CORRECT_TEXT && (

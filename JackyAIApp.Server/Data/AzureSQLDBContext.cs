@@ -141,6 +141,25 @@ namespace JackyAIApp.Server.Data
             // Index for fast per-user listing
             modelBuilder.Entity<DataSourceConfig>()
                 .HasIndex(ds => ds.UserId);
+
+            // Configure ExamAttempt relationships
+            modelBuilder.Entity<ExamAttempt>()
+                .HasOne(ea => ea.User)
+                .WithMany()
+                .HasForeignKey(ea => ea.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ExamAttempt>()
+                .HasOne(ea => ea.Word)
+                .WithMany()
+                .HasForeignKey(ea => ea.WordId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Indexes for per-word history and recent-activity queries
+            modelBuilder.Entity<ExamAttempt>()
+                .HasIndex(ea => new { ea.UserId, ea.WordId });
+            modelBuilder.Entity<ExamAttempt>()
+                .HasIndex(ea => new { ea.UserId, ea.CreatedAt });
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -159,5 +178,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<CreditTransaction> CreditTransactions { get; set; }
         public virtual DbSet<DailyChallengeResult> DailyChallengeResults { get; set; }
         public virtual DbSet<DataSourceConfig> DataSourceConfigs { get; set; }
+        public virtual DbSet<ExamAttempt> ExamAttempts { get; set; }
     }
 }

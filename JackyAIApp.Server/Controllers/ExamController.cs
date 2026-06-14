@@ -68,6 +68,11 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> EvaluateSentence([FromBody] SentenceTestUserResponse userResponse) =>
             ToActionResult(await _examService.EvaluateSentenceAsync(userResponse));
 
+        /// <summary>Records an exam outcome to feed spaced repetition + per-word history. Free (no credits).</summary>
+        [HttpPost("record-result")]
+        public async Task<IActionResult> RecordExamResult([FromBody] RecordExamResultRequest request) =>
+            ToActionResult(await _examService.RecordExamResultAsync(request));
+
         private IActionResult ToActionResult(ServiceResult result) =>
             result.IsSuccess
                 ? _responseFactory.CreateOKResponse(result.Data!)
