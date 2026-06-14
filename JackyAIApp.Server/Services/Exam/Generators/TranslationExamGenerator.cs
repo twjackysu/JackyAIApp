@@ -23,7 +23,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
             if (word.TranslationTests != null && word.TranslationTests.Count > 3)
             {
                 var randomTest = word.TranslationTests.ElementAt(Random.Shared.Next(word.TranslationTests.Count));
-                return ServiceResult.Ok(ToDto(randomTest, word.WordText));
+                return ServiceResult.Ok(ToDto(randomTest, word.WordText, word.Id));
             }
 
             var example = (
@@ -65,14 +65,15 @@ namespace JackyAIApp.Server.Services.Exam.Generators
                 _logger.LogInformation("TranslationTest added to DB for word: {Word}", word.WordText);
             }
 
-            return ServiceResult.Ok(ToDto(translationTest, word.WordText));
+            return ServiceResult.Ok(ToDto(translationTest, word.WordText, word.Id));
         }
 
-        private static TranslationTestResponse ToDto(SQL.TranslationTest sql, string wordText) => new()
+        private static TranslationTestResponse ToDto(SQL.TranslationTest sql, string wordText, string wordId) => new()
         {
             Word = wordText,
             Chinese = sql.Chinese,
-            English = sql.English
+            English = sql.English,
+            WordId = wordId
         };
     }
 }

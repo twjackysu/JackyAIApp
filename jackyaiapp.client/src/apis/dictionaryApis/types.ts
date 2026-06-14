@@ -37,10 +37,13 @@ export interface ClozeTest {
   question: string;
   options: string[];
   answer: string;
+  /** Present on exam responses (not on words' embedded cloze tests). */
+  wordId?: string;
 }
 
 export interface TranslationTestResponse {
   word: string;
+  wordId: string;
   chinese: string;
   english: string;
 }

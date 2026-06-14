@@ -21,5 +21,11 @@ namespace JackyAIApp.Server.Services.Exam
         Task<ServiceResult> TranscribeAudioAsync(Stream audioStream, string fileName);
 
         Task<ServiceResult> EvaluateSentenceAsync(SentenceTestUserResponse userResponse);
+
+        /// <summary>
+        /// Records an exam outcome: logs an <see cref="Data.Models.SQL.ExamAttempt"/> and feeds the
+        /// word's spaced-repetition schedule (wrong → relearn soon, right → mild boost). Free.
+        /// </summary>
+        Task<ServiceResult> RecordExamResultAsync(RecordExamResultRequest request);
     }
 }

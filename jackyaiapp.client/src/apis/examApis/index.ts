@@ -11,6 +11,8 @@ import {
   SentenceTestResponse,
   SentenceTestUserResponse,
   SentenceTestGradingResponse,
+  RecordExamResultRequest,
+  RecordExamResultResponse,
 } from './types';
 
 import {
@@ -89,6 +91,16 @@ export const examApis = createApi({
         body,
       }),
     }),
+    recordExamResult: builder.mutation<
+      ApiOkResponse<RecordExamResultResponse>,
+      RecordExamResultRequest
+    >({
+      query: (body) => ({
+        url: 'record-result',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 });
 
@@ -101,4 +113,5 @@ export const {
   useTranscribeAudioMutation,
   useGetSentenceTestQuery,
   useEvaluateSentenceMutation,
+  useRecordExamResultMutation,
 } = examApis;

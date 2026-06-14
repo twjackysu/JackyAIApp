@@ -49,11 +49,27 @@ export interface WhisperTranscriptionResponse {
 
 export interface SentenceTestResponse {
   word: string;
+  wordId: string;
   prompt: string;
   sampleAnswer: string;
   context: string;
   difficultyLevel: number;
   grammarPattern?: string;
+}
+
+export type ExamType = 'Cloze' | 'Translation' | 'Sentence';
+
+export interface RecordExamResultRequest {
+  wordId: string;
+  examType: ExamType;
+  correct: boolean;
+  /** Optional 0–100 score for graded types (Sentence). */
+  score?: number;
+}
+
+export interface RecordExamResultResponse {
+  scheduleUpdated: boolean;
+  nextReviewDate?: string | null;
 }
 
 export interface SentenceTestUserResponse {

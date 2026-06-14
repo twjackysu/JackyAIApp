@@ -6,8 +6,10 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Prompt;
+using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Exam
 {
@@ -19,6 +21,7 @@ namespace JackyAIApp.Server.Services.Exam
         IOpenAIPromptService promptService,
         IPromptLoader promptLoader,
         ICreditService creditService,
+        ISpacedRepetitionService spacedRepetition,
         IEnumerable<IWordExamGenerator> generators) : IExamService
     {
         private readonly ILogger<ExamService> _logger = logger;
@@ -28,6 +31,7 @@ namespace JackyAIApp.Server.Services.Exam
         private readonly IOpenAIPromptService _promptService = promptService;
         private readonly IPromptLoader _promptLoader = promptLoader;
         private readonly ICreditService _creditService = creditService;
+        private readonly ISpacedRepetitionService _spacedRepetition = spacedRepetition;
         private readonly IReadOnlyDictionary<ExamType, IWordExamGenerator> _generators =
             generators.ToDictionary(g => g.Type);
 
@@ -290,6 +294,60 @@ namespace JackyAIApp.Server.Services.Exam
 
             _logger.LogInformation("Generated sentence evaluation for word: {Word}", userResponse.Word);
             return ServiceResult.Ok(evaluation);
+        }
+
+        public async Task<ServiceResult> RecordExamResultAsync(RecordExamResultRequest request)
+        {
+            var userId = _userService.GetUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            if (request == null || string.IsNullOrEmpty(request.WordId) || string.IsNullOrEmpty(request.ExamType))
+            {
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "WordId and ExamType are required.");
+            }
+
+            // Log the attempt regardless of whether the word is still in the user's repository.
+            _dbContext.ExamAttempts.Add(new SQL.ExamAttempt
+            {
+                UserId = userId,
+                WordId = request.WordId,
+                ExamType = request.ExamType,
+                IsCorrect = request.Correct,
+                Score = request.Score,
+                CreatedAt = DateTime.UtcNow,
+            });
+
+            // Feed the spaced-repetition schedule for this word, if the user has it saved.
+            var userWord = await _dbContext.UserWords
+                .SingleOrDefaultAsync(uw => uw.UserId == userId && uw.WordId == request.WordId);
+
+            bool scheduleUpdated = false;
+            if (userWord != null)
+            {
+                _spacedRepetition.ApplyResult(userWord, MapQuality(request.Correct, request.Score), DateTime.UtcNow.Date);
+                scheduleUpdated = true;
+            }
+
+            await _dbContext.SaveChangesAsync();
+
+            return ServiceResult.Ok(new RecordExamResultResponse
+            {
+                ScheduleUpdated = scheduleUpdated,
+                NextReviewDate = userWord?.NextReviewDate,
+            });
+        }
+
+        /// <summary>
+        /// Maps an exam outcome to an SM-2 quality (0–5):
+        /// wrong → 2 (relearn soon), correct → 4, correct with a high score (≥85) → 5.
+        /// </summary>
+        private static int MapQuality(bool correct, int? score)
+        {
+            if (!correct) return 2;
+            return score.HasValue && score.Value >= 85 ? 5 : 4;
         }
 
         /// <summary>

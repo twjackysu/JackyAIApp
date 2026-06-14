@@ -22,6 +22,14 @@ namespace JackyAIApp.Server.DTO
     }
 
     /// <summary>
+    /// Cloze test response including the target word id so the client can report the result.
+    /// </summary>
+    public class ClozeTestResponse : ClozeTest
+    {
+        public required string WordId { get; set; }
+    }
+
+    /// <summary>
     /// Translation test
     /// </summary>
     public class TranslationTest
@@ -36,6 +44,7 @@ namespace JackyAIApp.Server.DTO
     public class TranslationTestResponse : TranslationTest
     {
         public required string Word { get; set; }
+        public required string WordId { get; set; }
     }
 
     /// <summary>
@@ -88,6 +97,7 @@ namespace JackyAIApp.Server.DTO
     public class SentenceTestResponse : SentenceTest
     {
         public required string Word { get; set; }
+        public required string WordId { get; set; }
     }
 
     /// <summary>
@@ -114,5 +124,28 @@ namespace JackyAIApp.Server.DTO
         public required string CreativityFeedback { get; set; }
         public required string OverallFeedback { get; set; }
         public required List<string> Suggestions { get; set; }
+    }
+
+    /// <summary>
+    /// Client-reported exam outcome. Feeds the word's spaced-repetition schedule
+    /// and the per-word exam history. No credits charged (generation/grading already were).
+    /// </summary>
+    public class RecordExamResultRequest
+    {
+        public required string WordId { get; set; }
+        /// <summary>"Cloze" | "Translation" | "Sentence".</summary>
+        public required string ExamType { get; set; }
+        public required bool Correct { get; set; }
+        /// <summary>Optional 0–100 score for graded types (Sentence).</summary>
+        public int? Score { get; set; }
+    }
+
+    /// <summary>Result of recording an exam attempt.</summary>
+    public class RecordExamResultResponse
+    {
+        /// <summary>True if the word is in the user's repository and its schedule was updated.</summary>
+        public required bool ScheduleUpdated { get; set; }
+        /// <summary>The word's next review date after applying the result (null if not scheduled).</summary>
+        public DateTime? NextReviewDate { get; set; }
     }
 }
