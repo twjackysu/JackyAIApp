@@ -1,5 +1,4 @@
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
-import LinkIcon from '@mui/icons-material/Link';
 import LoginIcon from '@mui/icons-material/Login';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
@@ -19,8 +18,6 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-
-import { apps } from '../constants/apps';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useGetCreditBalanceQuery } from '@/apis/creditApis';
@@ -180,51 +177,8 @@ function UserProfileMenu() {
           </Box>
         </MenuItem>
 
-        <Divider />
-
-        <Typography variant="subtitle2" sx={{ px: 2, py: 1, fontWeight: 'bold' }}>
-          Applications
-        </Typography>
-
-        {apps.map((app) => (
-          <MenuItem
-            key={app.path}
-            component={Link}
-            to={app.path}
-            onClick={handleClose}
-            sx={{
-              minWidth: 200,
-              '&:hover': { backgroundColor: 'action.hover' },
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              {app.icon}
-              <Typography variant="body2" sx={{ ml: 1 }}>
-                {app.name}
-              </Typography>
-            </Box>
-          </MenuItem>
-        ))}
-
         {isAuthenticated && (
           <>
-            <Divider />
-            <MenuItem
-              component={Link}
-              to="/connectors"
-              onClick={handleClose}
-              sx={{
-                minWidth: 200,
-                '&:hover': { backgroundColor: 'action.hover' },
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <LinkIcon sx={{ mr: 1 }} />
-                <Typography variant="body2" sx={{ ml: 1 }}>
-                  Connected Services
-                </Typography>
-              </Box>
-            </MenuItem>
             <Divider />
             <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
               <LogoutIcon sx={{ mr: 1 }} />
