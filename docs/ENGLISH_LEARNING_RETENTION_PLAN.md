@@ -235,8 +235,14 @@ The current split is healthy and must be preserved while doing this work:
 ## Progress checklist
 
 - [x] Plan doc (this file)
-- [ ] P0.1 — Exam → SRS feedback + `ExamAttempt`
-- [ ] P0.2 — Topic word packs + add-from-challenge
-- [ ] P1.1 — Nav due-count badge + Today card
-- [ ] P1.2 — Activity heatmap
-- [ ] P1.3 — Forgiving streak
+- [x] P0.1 — Exam → SRS feedback + `ExamAttempt`
+- [x] P0.2 — Topic word packs + add-from-challenge
+- [x] P1.1 — Nav due-count badge + Today card
+- [x] P1.2 — Activity heatmap
+- [x] P1.3 — Forgiving streak
+- [ ] P2 — weekly email digest, mastery buckets, adaptive daily challenge
+- [ ] P3 — achievement badges, social/sharing
+
+### Live-DB scripts to run for this PR (EnsureCreated covers fresh DBs only)
+- `scripts/add_examattempt_table.sql`
+- `scripts/add_streak_freeze_columns.sql`
