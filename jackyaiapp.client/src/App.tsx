@@ -6,6 +6,7 @@ import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import QuizIcon from '@mui/icons-material/Quiz';
 import AppBar from '@mui/material/AppBar';
+import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -18,6 +19,8 @@ import Typography from '@mui/material/Typography';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 
+import { useGetUserInfoQuery } from './apis/accountApis';
+import { useGetDueCountQuery } from './apis/reviewApis';
 import RequireAuth from './auth/RequireAuth';
 import LoginError from './components/LoginError';
 import InsufficientCreditsModal from './components/Modals/InsufficientCreditsModal';
@@ -79,6 +82,15 @@ function App() {
   const isEnglishLearningSection = ENGLISH_LEARNING.allPaths.some((path) =>
     currentTab.startsWith(path),
   );
+
+  // Due-review count for the Review tab badge (pull, not push — only while signed in
+  // and viewing the English-learning section).
+  const { data: userInfoRes } = useGetUserInfoQuery();
+  const isLoggedIn = !!userInfoRes?.data;
+  const { data: dueCountRes } = useGetDueCountQuery(undefined, {
+    skip: !isLoggedIn || !isEnglishLearningSection,
+  });
+  const dueCount = dueCountRes?.data?.dueCount ?? 0;
 
   // Get current section title for the app bar
   const currentAppSection = getCurrentAppSection(currentTab);
@@ -217,7 +229,17 @@ function App() {
               component={Link}
             />
             <Tab
-              icon={<PsychologyIcon />}
+              icon={
+                <Badge
+                  badgeContent={dueCount}
+                  color="error"
+                  max={99}
+                  overlap="circular"
+                  sx={{ '& .MuiBadge-badge': { right: -3, top: -2 } }}
+                >
+                  <PsychologyIcon />
+                </Badge>
+              }
               iconPosition="start"
               label="複習 (Review)"
               value="/review"
