@@ -81,6 +81,62 @@ public class Job104Provider(IHttpClientFactory httpClientFactory, ILogger<Job104
             : string.Join(" ", terms);
     }
 
+    /// <summary>
+    /// Builds a human-readable salary string from a 104 job item.
+    /// The v2 search API exposes numeric <c>salaryLow</c>/<c>salaryHigh</c> plus a
+    /// <c>salaryType</c> code (10=面議, 30=時薪, 50=月薪, 60=年薪, 70=部分工時), and no
+    /// longer includes the old <c>salaryDesc</c> string, so we derive it ourselves.
+    /// Returns null only when nothing usable is present.
+    /// </summary>
+    private static string? BuildSalaryRange(JsonElement item)
+    {
+        string? typeLabel = null;
+        if (item.TryGetProperty("salaryType", out var typeEl))
+        {
+            var typeCode = typeEl.ValueKind == JsonValueKind.Number
+                ? typeEl.GetInt32().ToString()
+                : typeEl.GetString();
+            switch (typeCode)
+            {
+                case "10": return "面議";          // negotiable
+                case "30": typeLabel = "時薪"; break; // hourly
+                case "50": typeLabel = "月薪"; break; // monthly
+                case "60": typeLabel = "年薪"; break; // yearly
+                case "70": typeLabel = "月薪"; break; // part-time (monthly)
+            }
+        }
+
+        // Prefer a ready-made description if the API happens to provide one.
+        if (item.TryGetProperty("salaryDesc", out var descEl) &&
+            descEl.GetString() is { Length: > 0 } desc && desc != "待遇面議")
+            return desc;
+
+        var low = ReadLong(item, "salaryLow");
+        var high = ReadLong(item, "salaryHigh");
+
+        // 104 uses a large sentinel (e.g. 9,999,999) for the open-ended upper bound.
+        string range;
+        if (low > 0 && high > 0 && high < 9_999_999)
+            range = $"{low:N0} - {high:N0} 元";
+        else if (low > 0)
+            range = $"{low:N0} 元以上";
+        else
+            return "面議";
+
+        return typeLabel is { Length: > 0 } ? $"{typeLabel} {range}" : range;
+    }
+
+    private static long ReadLong(JsonElement item, string property)
+    {
+        if (!item.TryGetProperty(property, out var el)) return 0;
+        return el.ValueKind switch
+        {
+            JsonValueKind.Number when el.TryGetInt64(out var n) => n,
+            JsonValueKind.String when long.TryParse(el.GetString(), out var n) => n,
+            _ => 0,
+        };
+    }
+
     private static JobListingDto ParseJob(JsonElement item)
     {
         var jobNo = item.GetProperty("jobNo").GetString() ?? "";
@@ -93,9 +149,7 @@ public class Job104Provider(IHttpClientFactory httpClientFactory, ILogger<Job104
             : item.TryGetProperty("jobAddress", out var addr) ? addr.GetString() ?? "" : "";
 
         // Salary
-        string? salaryRange = null;
-        if (item.TryGetProperty("salaryDesc", out var salaryDescEl) && salaryDescEl.GetString() is { Length: > 0 } sd)
-            salaryRange = sd;
+        var salaryRange = BuildSalaryRange(item);
 
         // Date: "20260508" → DateTime
         var postedAt = DateTime.UtcNow;
