@@ -1,22 +1,20 @@
+import AppsIcon from '@mui/icons-material/Apps';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import QuizIcon from '@mui/icons-material/Quiz';
 import AppBar from '@mui/material/AppBar';
 import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
+import { getContrastRatio } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 
 import { useGetUserInfoQuery } from './apis/accountApis';
@@ -26,14 +24,13 @@ import LoginError from './components/LoginError';
 import InsufficientCreditsModal from './components/Modals/InsufficientCreditsModal';
 import UserProfileMenu from './components/UserProfileMenu';
 import {
-  apps,
   DATA_ANALYSIS,
-  FINANCE,
-  PDF_UNLOCKER,
   ENGLISH_LEARNING,
+  FINANCE,
   JOB_SEARCH,
+  PDF_UNLOCKER,
+  getCurrentApp,
 } from './constants/apps';
-import useRouteMatch from './hooks/useRouteMatch';
 
 // Feature pages are code-split so each route loads its own chunk on demand.
 const Connectors = lazy(() => import('./Connectors'));
@@ -45,6 +42,7 @@ const Exam = lazy(() => import('./Exam'));
 const Finance = lazy(() => import('./Finance'));
 const JobSearch = lazy(() => import('./JobSearch'));
 const PDFUnlocker = lazy(() => import('./PDFUnlocker'));
+const Portal = lazy(() => import('./Portal'));
 const Repository = lazy(() => import('./Repository'));
 const Review = lazy(() => import('./Review'));
 const Stats = lazy(() => import('./Stats'));
@@ -52,36 +50,15 @@ const Stats = lazy(() => import('./Stats'));
 // Floating AI chatbot — available on every page (auth-gated internally).
 const FloatingChatbot = lazy(() => import('./components/FloatingChatbot'));
 
-// Helper function to determine current app section based on route
-const getCurrentAppSection = (path: string): string => {
-  if (path === '/' || path === FINANCE.path) return FINANCE.name;
-  if (path === PDF_UNLOCKER.path) return PDF_UNLOCKER.name;
-  if (JOB_SEARCH.allPaths.some((route) => path.startsWith(route))) return JOB_SEARCH.name;
-  if (ENGLISH_LEARNING.allPaths.some((route) => path.startsWith(route)))
-    return ENGLISH_LEARNING.name;
-  if (DATA_ANALYSIS.allPaths.some((route) => path.startsWith(route))) return DATA_ANALYSIS.name;
-  return FINANCE.name;
-};
-
 function App() {
-  const [appMenuAnchorEl, setAppMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const appMenuOpen = Boolean(appMenuAnchorEl);
   const location = useLocation();
+  const path = location.pathname;
 
-  const routeMatch = useRouteMatch(
-    FINANCE.allPaths
-      .concat(PDF_UNLOCKER.allPaths)
-      .concat(ENGLISH_LEARNING.allPaths)
-      .concat(JOB_SEARCH.allPaths)
-      .concat(DATA_ANALYSIS.allPaths),
-  );
-  const _currentTab = routeMatch?.pattern?.path || '/';
-  const currentTab = _currentTab === '/' ? FINANCE.path : _currentTab;
+  // The home portal ("/") is the ONLY place users switch between apps.
+  const isPortal = path === '/';
+  const currentApp = getCurrentApp(path);
 
-  // Determine if we're in the English Learning section
-  const isEnglishLearningSection = ENGLISH_LEARNING.allPaths.some((path) =>
-    currentTab.startsWith(path),
-  );
+  const isEnglishLearningSection = currentApp?.name === ENGLISH_LEARNING.name;
 
   // Due-review count for the Review tab badge (pull, not push — only while signed in
   // and viewing the English-learning section).
@@ -92,93 +69,32 @@ function App() {
   });
   const dueCount = dueCountRes?.data?.dueCount ?? 0;
 
-  // Get current section title for the app bar
-  const currentAppSection = getCurrentAppSection(currentTab);
+  const currentTab = isEnglishLearningSection ? path : ENGLISH_LEARNING.path;
 
-  // Get current app object
-  const currentApp = apps.find(
-    (app) =>
-      app.name === currentAppSection ||
-      (app.name === ENGLISH_LEARNING.name && isEnglishLearningSection),
-  );
-
-  const handleAppMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAppMenuAnchorEl(event.currentTarget);
-  };
-
-  const handleAppMenuClose = () => {
-    setAppMenuAnchorEl(null);
-  };
-
-  // Update document title when route changes
+  // Keep the document title in sync with the current site so each feels standalone.
   useEffect(() => {
-    const appSection = getCurrentAppSection(currentTab);
-    document.title = appSection;
-  }, [currentTab, location.pathname]);
+    document.title = currentApp?.name ?? "Jacky's Studio";
+  }, [currentApp]);
+
+  // Pick readable text colour against the app's brand colour.
+  const barColor = currentApp?.color;
+  const onBarColor =
+    barColor && getContrastRatio(barColor, '#fff') >= 3 ? '#fff' : 'rgba(0, 0, 0, 0.87)';
 
   return (
     <>
-      <AppBar position="static" color="primary" elevation={1}>
+      <AppBar
+        position="static"
+        elevation={1}
+        sx={barColor ? { bgcolor: barColor, color: onBarColor } : undefined}
+      >
         <Toolbar variant="dense">
-          <Box
-            sx={{
-              flexGrow: 1,
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <Button
-              id="app-switcher-button"
-              aria-controls={appMenuOpen ? 'app-switcher-menu' : undefined}
-              aria-haspopup="true"
-              aria-expanded={appMenuOpen ? 'true' : undefined}
-              onClick={handleAppMenuOpen}
-              color="inherit"
-              sx={{
-                textTransform: 'none',
-                fontWeight: 'bold',
-                fontSize: 'h6.fontSize',
-              }}
-              startIcon={currentApp?.icon}
-              endIcon={<KeyboardArrowDownIcon />}
-            >
-              {currentAppSection}
-            </Button>
-            <Menu
-              id="app-switcher-menu"
-              anchorEl={appMenuAnchorEl}
-              open={appMenuOpen}
-              onClose={handleAppMenuClose}
-              slotProps={{
-                list: {
-                  'aria-labelledby': 'app-switcher-button',
-                },
-              }}
-            >
-              {apps.map((app) => (
-                <MenuItem
-                  key={app.path}
-                  component={Link}
-                  to={app.path}
-                  onClick={handleAppMenuClose}
-                  selected={
-                    app.name === currentAppSection ||
-                    (app.name === ENGLISH_LEARNING.name && isEnglishLearningSection)
-                  }
-                  sx={{
-                    minWidth: 200,
-                    '&:hover': { backgroundColor: 'action.hover' },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    {app.icon}
-                    <Typography variant="body1" sx={{ ml: 1 }}>
-                      {app.name}
-                    </Typography>
-                  </Box>
-                </MenuItem>
-              ))}
-            </Menu>
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Brand label only — never a switcher. Apps are only reachable from "/". */}
+            {!isPortal && (currentApp?.icon ?? <AppsIcon fontSize="small" />)}
+            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.5 }}>
+              {isPortal ? "Jacky's Studio" : (currentApp?.name ?? "Jacky's Studio")}
+            </Typography>
           </Box>
           <UserProfileMenu />
         </Toolbar>
@@ -266,6 +182,7 @@ function App() {
           }
         >
           <Routes>
+            <Route path="/" element={<Portal />} />
             <Route path={PDF_UNLOCKER.path} element={<PDFUnlocker />} />
             <Route path={ENGLISH_LEARNING.path} element={<Dictionary />} />
             <Route
@@ -328,7 +245,6 @@ function App() {
             <Route path={JOB_SEARCH.path} element={<JobSearch />} />
             <Route path={DATA_ANALYSIS.path} element={<DataAnalysis />} />
             <Route path="/login-error" element={<LoginError />} />
-            <Route path="/" element={<Finance />} />
           </Routes>
         </Suspense>
       </Box>
