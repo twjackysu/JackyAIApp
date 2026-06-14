@@ -17,6 +17,10 @@ namespace JackyAIApp.Server.DTO
         public required List<string> Options { get; set; }
         public int CorrectIndex { get; set; }
         public required string Explanation { get; set; }
+        /// <summary>The source word's id, so the client can offer "save to repository".</summary>
+        public string? WordId { get; set; }
+        /// <summary>The source word's text (display).</summary>
+        public string? Word { get; set; }
     }
 
     public class DailyChallengeResponse

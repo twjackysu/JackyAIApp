@@ -12,6 +12,10 @@ export interface DailyChallengeQuestion {
   options: string[];
   correctIndex: number;
   explanation: string;
+  /** Source word id, so wrong answers can be saved to the repository. */
+  wordId?: string;
+  /** Source word text (display). */
+  word?: string;
 }
 
 export interface DailyChallengeResponse {
