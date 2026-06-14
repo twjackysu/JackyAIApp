@@ -5,6 +5,7 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import { useState } from 'react';
 
+import ActivityHeatmap from './components/ActivityHeatmap';
 import Leaderboard from './components/Leaderboard';
 import WeeklyReport from './components/WeeklyReport';
 
@@ -17,6 +18,10 @@ function Stats() {
 
   return (
     <Box sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}>
+      <Box sx={{ mb: 3 }}>
+        <ActivityHeatmap />
+      </Box>
+
       <Tabs value={tab} onChange={(_, v) => setTab(v)} centered sx={{ mb: 3 }}>
         <Tab icon={<SummarizeIcon />} label="Weekly Report" />
         <Tab icon={<LeaderboardIcon />} label="Leaderboard" />

@@ -174,6 +174,60 @@ namespace JackyAIApp.Server.Controllers
             });
         }
 
+        /// <summary>
+        /// Per-day learning activity for a calendar heatmap (challenges + exam attempts).
+        /// </summary>
+        [HttpGet("activity")]
+        public async Task<IActionResult> GetActivity([FromQuery] int days = 365)
+        {
+            var userId = _userService.GetUserId();
+            if (userId == null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "User not found.");
+
+            if (days < 1) days = 365;
+            if (days > 366) days = 366;
+
+            var today = DateTime.UtcNow.Date;
+            var start = today.AddDays(-(days - 1));
+
+            // Daily challenges (one row per completed day)
+            var challengeDays = await _dbContext.DailyChallengeResults
+                .Where(r => r.UserId == userId && r.ChallengeDate >= start)
+                .Select(r => r.ChallengeDate)
+                .ToListAsync();
+
+            // Exam attempts (multiple per day)
+            var examDates = await _dbContext.ExamAttempts
+                .Where(e => e.UserId == userId && e.CreatedAt >= start)
+                .Select(e => e.CreatedAt)
+                .ToListAsync();
+
+            var counts = new Dictionary<DateTime, int>();
+            void Bump(DateTime d)
+            {
+                var day = d.Date;
+                counts[day] = counts.TryGetValue(day, out var c) ? c + 1 : 1;
+            }
+            foreach (var d in challengeDays) Bump(d);
+            foreach (var d in examDates) Bump(d);
+
+            var allDays = new List<ActivityDay>(days);
+            for (var d = start; d <= today; d = d.AddDays(1))
+            {
+                allDays.Add(new ActivityDay
+                {
+                    Date = d.ToString("yyyy-MM-dd"),
+                    Count = counts.TryGetValue(d, out var c) ? c : 0,
+                });
+            }
+
+            return _responseFactory.CreateOKResponse(new ActivityResponse
+            {
+                Days = allDays,
+                ActiveDays = counts.Count,
+            });
+        }
+
         private static string GetLevel(int xp) => xp switch
         {
             >= 5000 => "Master 👑",
