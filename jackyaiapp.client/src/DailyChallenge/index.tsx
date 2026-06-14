@@ -13,6 +13,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import QuestionCard from './components/QuestionCard';
 import ResultScreen from './components/ResultScreen';
 import StatsBar from './components/StatsBar';
+import TodayCard from './components/TodayCard';
 
 import {
   useGetChallengeQuery,
@@ -21,6 +22,7 @@ import {
 } from '@/apis/dailyChallengeApis';
 import { DailyChallengeSubmitResponse } from '@/apis/dailyChallengeApis/types';
 import { usePutRepositoryWordMutation } from '@/apis/repositoryApis';
+import { useGetDueCountQuery } from '@/apis/reviewApis';
 
 type ViewMode = 'challenge' | 'result' | 'review';
 
@@ -38,6 +40,7 @@ function DailyChallenge() {
     error: challengeError,
   } = useGetChallengeQuery();
   const { data: statsData, isLoading: isStatsLoading } = useGetStatsQuery();
+  const { data: dueCountData } = useGetDueCountQuery();
   const [submitChallenge, { isLoading: isSubmitting }] = useSubmitChallengeMutation();
 
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -188,6 +191,13 @@ function DailyChallenge() {
         level={stats?.level ?? 'Beginner 🌱'}
         isLoading={isStatsLoading}
       />
+      {/* "Today" landing — only on the challenge view, not result/review screens */}
+      {viewMode === 'challenge' && (
+        <TodayCard
+          dueCount={dueCountData?.data?.dueCount ?? 0}
+          todayChallengeDone={stats?.todayCompleted ?? false}
+        />
+      )}
       {/* Already completed notice */}
       {alreadyCompleted && viewMode === 'challenge' && (
         <Alert severity="success" sx={{ mb: 2 }}>
