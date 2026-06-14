@@ -9,6 +9,8 @@ import { Word } from '../apis/dictionaryApis/types';
 import RepositoryNoWordAlert from '../components/RepositoryNoWordAlert';
 import WordCard from '../components/WordCard';
 
+import StarterPacks from './StarterPacks';
+
 import { useGetRepositoryWordsQuery } from '@/apis/repositoryApis';
 
 function Repository() {
@@ -81,9 +83,19 @@ function Repository() {
           <Box
             sx={{
               p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3,
             }}
           >
             <RepositoryNoWordAlert />
+            <StarterPacks
+              onAdded={() => {
+                setAccumulatedData({});
+                setPageNumber(1);
+                hasMoreRef.current = true;
+              }}
+            />
           </Box>
         ) : (
           <>

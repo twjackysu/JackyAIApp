@@ -31,6 +31,16 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> DeleteWord(string wordId) =>
             ToActionResult(await _repositoryService.DeleteWordAsync(wordId));
 
+        /// <summary>Lists the built-in starter word packs (metadata only).</summary>
+        [HttpGet("packs")]
+        public IActionResult GetWordPacks() =>
+            ToActionResult(_repositoryService.GetWordPacks());
+
+        /// <summary>Adds a starter word pack to the current user's repository. Free (no credits).</summary>
+        [HttpPost("packs/{packId}")]
+        public async Task<IActionResult> AddWordPack(string packId) =>
+            ToActionResult(await _repositoryService.AddWordPackAsync(packId));
+
         private IActionResult ToActionResult(ServiceResult result) =>
             result.IsSuccess
                 ? _responseFactory.CreateOKResponse(result.Data)

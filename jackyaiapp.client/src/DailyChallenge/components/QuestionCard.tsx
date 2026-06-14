@@ -1,3 +1,5 @@
+import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
+import BookmarkAddedIcon from '@mui/icons-material/BookmarkAdded';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import Box from '@mui/material/Box';
@@ -27,6 +29,12 @@ interface QuestionCardProps {
   selectedIndex: number | null;
   onSelect: (index: number) => void;
   showResult: boolean;
+  /** Save the question's source word to the repository (review mode only). */
+  onSaveWord?: (wordId: string, word: string) => void;
+  /** Whether the source word has already been saved this session. */
+  isSaved?: boolean;
+  /** Whether a save request is in flight for this word. */
+  isSaving?: boolean;
 }
 
 function QuestionCard({
@@ -36,6 +44,9 @@ function QuestionCard({
   selectedIndex,
   onSelect,
   showResult,
+  onSaveWord,
+  isSaved,
+  isSaving,
 }: QuestionCardProps) {
   const typeInfo = TYPE_LABELS[question.type] ?? {
     label: question.type,
@@ -127,6 +138,26 @@ function QuestionCard({
             <Typography variant="body2" color="white">
               {question.explanation}
             </Typography>
+          </Box>
+        )}
+
+        {/* Save the source word to the repository — the natural moment to capture an unknown word */}
+        {showResult && question.wordId && question.word && onSaveWord && (
+          <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
+            {isSaved ? (
+              <Button size="small" startIcon={<BookmarkAddedIcon />} color="success" disabled>
+                已加入「{question.word}」
+              </Button>
+            ) : (
+              <Button
+                size="small"
+                startIcon={<BookmarkAddIcon />}
+                onClick={() => onSaveWord(question.wordId!, question.word!)}
+                disabled={isSaving}
+              >
+                收藏「{question.word}」到儲存庫
+              </Button>
+            )}
           </Box>
         )}
       </CardContent>

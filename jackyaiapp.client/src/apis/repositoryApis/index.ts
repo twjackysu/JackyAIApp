@@ -2,7 +2,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 import { ApiOkResponse } from '../types';
 
-import { GetRepositoryWordRequest, PersonalWord } from './types';
+import { AddWordPackResult, GetRepositoryWordRequest, PersonalWord, WordPack } from './types';
 
 import { Word } from '@/apis/dictionaryApis/types';
 
@@ -47,6 +47,16 @@ export const repositoryApis = createApi({
       }),
       invalidatesTags: (_, __, arg) => [{ type: 'PersonalWord', id: arg }],
     }),
+    getWordPacks: builder.query<ApiOkResponse<WordPack[]>, void>({
+      query: () => ({ url: 'packs' }),
+    }),
+    addWordPack: builder.mutation<ApiOkResponse<AddWordPackResult>, string>({
+      query: (packId) => ({
+        url: `packs/${packId}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['PersonalWord'],
+    }),
   }),
 });
 
@@ -55,4 +65,6 @@ export const {
   useGetRepositoryWordsByWordIdQuery,
   usePutRepositoryWordMutation,
   useDeleteRepositoryWordMutation,
+  useGetWordPacksQuery,
+  useAddWordPackMutation,
 } = repositoryApis;

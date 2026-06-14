@@ -78,7 +78,9 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 Prompt = $"What is the meaning of \"{word.WordText}\"?",
                 Options = options,
                 CorrectIndex = correctIndex,
-                Explanation = $"{word.WordText}: {correctAnswer}" + (string.IsNullOrEmpty(explanation) ? "" : $" ({explanation})")
+                Explanation = $"{word.WordText}: {correctAnswer}" + (string.IsNullOrEmpty(explanation) ? "" : $" ({explanation})"),
+                WordId = word.Id,
+                Word = word.WordText
             };
         }
 
@@ -115,7 +117,9 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 Options = options,
                 CorrectIndex = correctIndex,
                 Explanation = $"Answer: {word.WordText}. Full sentence: {example.English}" +
-                    (string.IsNullOrEmpty(example.Chinese) ? "" : $" ({example.Chinese})")
+                    (string.IsNullOrEmpty(example.Chinese) ? "" : $" ({example.Chinese})"),
+                WordId = word.Id,
+                Word = word.WordText
             };
         }
 
@@ -148,7 +152,9 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 Prompt = $"Which English word means \"{definition.Chinese}\"?",
                 Options = options,
                 CorrectIndex = correctIndex,
-                Explanation = $"{definition.Chinese} = {word.WordText}: {definition.English}"
+                Explanation = $"{definition.Chinese} = {word.WordText}: {definition.English}",
+                WordId = word.Id,
+                Word = word.WordText
             };
         }
 
@@ -187,7 +193,9 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 Prompt = $"Which word is a {label} of \"{word.WordText}\"?",
                 Options = options,
                 CorrectIndex = correctIndex,
-                Explanation = $"{correctAnswer} is a {label} of {word.WordText}"
+                Explanation = $"{correctAnswer} is a {label} of {word.WordText}",
+                WordId = word.Id,
+                Word = word.WordText
             };
         }
     }

@@ -3,6 +3,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.Mappers;
+using JackyAIApp.Server.Services.Dictionary;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -12,11 +13,13 @@ namespace JackyAIApp.Server.Services.Repository
         ILogger<RepositoryService> logger,
         AzureSQLDBContext dbContext,
         IUserService userService,
+        IDictionaryService dictionaryService,
         IExtendedMemoryCache memoryCache) : IRepositoryService
     {
         private readonly ILogger<RepositoryService> _logger = logger;
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly IUserService _userService = userService;
+        private readonly IDictionaryService _dictionaryService = dictionaryService;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
 
         public async Task<ServiceResult> GetWordsAsync(int pageNumber, int pageSize)
@@ -129,6 +132,84 @@ namespace JackyAIApp.Server.Services.Repository
             _memoryCache.ClearCacheByContains($"GetWords_{userId}");
 
             return ServiceResult.Ok(user);
+        }
+
+        public ServiceResult GetWordPacks()
+        {
+            var packs = WordPacks.All
+                .Select(p => new DTO.WordPackDto
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description,
+                    WordCount = p.Words.Count,
+                })
+                .ToList();
+            return ServiceResult.Ok(packs);
+        }
+
+        public async Task<ServiceResult> AddWordPackAsync(string packId)
+        {
+            var pack = WordPacks.Find(packId);
+            if (pack == null)
+            {
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "Unknown word pack.");
+            }
+
+            var userId = _userService.GetUserId();
+            var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+            {
+                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            int added = 0, alreadyHad = 0, failed = 0;
+
+            foreach (var text in pack.Words)
+            {
+                // Ensure the (shared) dictionary entry exists; generates it via OpenAI if missing. Free.
+                var wordResult = await _dictionaryService.GetWordAsync(text);
+                if (!wordResult.IsSuccess || wordResult.Data is not DTO.Word dto || string.IsNullOrEmpty(dto.Id))
+                {
+                    _logger.LogWarning("Word pack {Pack}: could not resolve word '{Word}'", packId, text);
+                    failed++;
+                    continue;
+                }
+
+                var exists = await _dbContext.UserWords
+                    .AnyAsync(uw => uw.UserId == userId && uw.WordId == dto.Id);
+                if (exists)
+                {
+                    alreadyHad++;
+                    continue;
+                }
+
+                await _dbContext.UserWords.AddAsync(new UserWord
+                {
+                    UserId = userId!,
+                    WordId = dto.Id,
+                    DateAdded = DateTime.UtcNow,
+                });
+                added++;
+            }
+
+            if (added > 0)
+            {
+                user.LastUpdated = DateTime.UtcNow;
+                await _dbContext.SaveChangesAsync();
+                _memoryCache.ClearCacheByContains($"GetWords_{userId}");
+            }
+
+            _logger.LogInformation(
+                "User {User} added word pack {Pack}: {Added} added, {AlreadyHad} already had, {Failed} failed",
+                userId, packId, added, alreadyHad, failed);
+
+            return ServiceResult.Ok(new DTO.AddWordPackResultDto
+            {
+                Added = added,
+                AlreadyHad = alreadyHad,
+                Failed = failed,
+            });
         }
 
         public async Task<ServiceResult> DeleteWordAsync(string wordId)

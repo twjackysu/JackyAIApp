@@ -20,6 +20,7 @@ import {
   useGetStatsQuery,
 } from '@/apis/dailyChallengeApis';
 import { DailyChallengeSubmitResponse } from '@/apis/dailyChallengeApis/types';
+import { usePutRepositoryWordMutation } from '@/apis/repositoryApis';
 
 type ViewMode = 'challenge' | 'result' | 'review';
 
@@ -44,6 +45,27 @@ function DailyChallenge() {
   const [viewMode, setViewMode] = useState<ViewMode>('challenge');
   const [submitResult, setSubmitResult] = useState<DailyChallengeSubmitResponse | null>(null);
   const restoredRef = useRef(false);
+
+  // Save-to-repository (review mode): track which words are saved / in flight this session.
+  const [putRepositoryWord] = usePutRepositoryWordMutation();
+  const [savedWordIds, setSavedWordIds] = useState<Set<string>>(new Set());
+  const [savingWordId, setSavingWordId] = useState<string | null>(null);
+
+  const handleSaveWord = useCallback(
+    async (wordId: string) => {
+      setSavingWordId(wordId);
+      try {
+        await putRepositoryWord(wordId).unwrap();
+        setSavedWordIds((prev) => new Set(prev).add(wordId));
+      } catch {
+        // Word may already be saved — treat as saved so the UI settles.
+        setSavedWordIds((prev) => new Set(prev).add(wordId));
+      } finally {
+        setSavingWordId(null);
+      }
+    },
+    [putRepositoryWord],
+  );
 
   const challenge = challengeData?.data;
   const stats = statsData?.data;
@@ -195,6 +217,12 @@ function DailyChallenge() {
             selectedIndex={answers[questions[currentQuestion].id] ?? null}
             onSelect={handleSelect}
             showResult={viewMode === 'review' || alreadyCompleted}
+            onSaveWord={handleSaveWord}
+            isSaved={
+              !!questions[currentQuestion].wordId &&
+              savedWordIds.has(questions[currentQuestion].wordId!)
+            }
+            isSaving={savingWordId === questions[currentQuestion].wordId}
           />
 
           {/* Navigation */}
