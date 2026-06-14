@@ -27,3 +27,13 @@ export interface LeaderboardResponse {
   currentUserEntry: LeaderboardEntry | null;
   totalUsers: number;
 }
+
+export interface ActivityDay {
+  date: string; // yyyy-MM-dd
+  count: number;
+}
+
+export interface ActivityResponse {
+  days: ActivityDay[];
+  activeDays: number;
+}

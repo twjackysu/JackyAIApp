@@ -55,4 +55,21 @@ namespace JackyAIApp.Server.DTO
         public LeaderboardEntry? CurrentUserEntry { get; set; }
         public int TotalUsers { get; set; }
     }
+
+    /// <summary>One day in the activity heatmap.</summary>
+    public class ActivityDay
+    {
+        /// <summary>Date (yyyy-MM-dd, UTC).</summary>
+        public required string Date { get; set; }
+        /// <summary>Total activity events that day (challenges + exam attempts).</summary>
+        public int Count { get; set; }
+    }
+
+    public class ActivityResponse
+    {
+        /// <summary>Per-day counts, oldest first, covering the requested window.</summary>
+        public required List<ActivityDay> Days { get; set; }
+        /// <summary>Number of distinct active days in the window.</summary>
+        public int ActiveDays { get; set; }
+    }
 }
