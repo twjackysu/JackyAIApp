@@ -9,7 +9,7 @@ import AppBar from '@mui/material/AppBar';
 import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
-import { getContrastRatio } from '@mui/material/styles';
+import { alpha } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Toolbar from '@mui/material/Toolbar';
@@ -76,23 +76,44 @@ function App() {
     document.title = currentApp?.name ?? "Jacky's Studio";
   }, [currentApp]);
 
-  // Pick readable text colour against the app's brand colour.
-  const barColor = currentApp?.color;
-  const onBarColor =
-    barColor && getContrastRatio(barColor, '#fff') >= 3 ? '#fff' : 'rgba(0, 0, 0, 0.87)';
+  // The app's accent colour is used only as a subtle tint behind the icon —
+  // enough to give each site an identity without painting the whole bar.
+  const accent = currentApp?.color ?? '#5E6AD2';
 
   return (
     <>
       <AppBar
         position="static"
-        elevation={1}
-        sx={barColor ? { bgcolor: barColor, color: onBarColor } : undefined}
+        elevation={0}
+        color="transparent"
+        sx={{
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          backgroundColor: alpha('#0B0B0D', 0.6),
+          backdropFilter: 'blur(8px)',
+        }}
       >
         <Toolbar variant="dense">
-          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: 1.25 }}>
             {/* Brand label only — never a switcher. Apps are only reachable from "/". */}
-            {!isPortal && (currentApp?.icon ?? <AppsIcon fontSize="small" />)}
-            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.5 }}>
+            {!isPortal && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 28,
+                  height: 28,
+                  borderRadius: 1.5,
+                  color: accent,
+                  bgcolor: alpha(accent, 0.14),
+                  '& svg': { fontSize: 18 },
+                }}
+              >
+                {currentApp?.icon ?? <AppsIcon fontSize="small" />}
+              </Box>
+            )}
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, letterSpacing: 0.2 }}>
               {isPortal ? "Jacky's Studio" : (currentApp?.name ?? "Jacky's Studio")}
             </Typography>
           </Box>
