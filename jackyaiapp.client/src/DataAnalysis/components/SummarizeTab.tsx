@@ -1,17 +1,12 @@
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import BarChartIcon from '@mui/icons-material/BarChart';
 import CheckIcon from '@mui/icons-material/Check';
 import CodeIcon from '@mui/icons-material/Code';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
-import PieChartIcon from '@mui/icons-material/PieChart';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SettingsIcon from '@mui/icons-material/Settings';
-import ShowChartIcon from '@mui/icons-material/ShowChart';
-import StackedBarChartIcon from '@mui/icons-material/StackedBarChart';
-import TableChartIcon from '@mui/icons-material/TableChart';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -21,13 +16,6 @@ import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TableSortLabel from '@mui/material/TableSortLabel';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -35,13 +23,11 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useEffect, useMemo, useState } from 'react';
 
-import { formatCellValue } from '../utils/formatters';
+import { VizSwitcher } from '../viz/VizSwitcher';
 
 import { FieldTransformEditor } from './FieldTransformEditor';
 import { FilterEditor } from './FilterEditor';
 import { MeasureEditor } from './MeasureEditor';
-import { SummarizeChart, type ChartViewType } from './SummarizeChart';
-import { inferColumns } from './summarizeChart/dataPrep';
 import { ViewByEditor } from './ViewByEditor';
 
 import type {
@@ -93,36 +79,6 @@ interface SummarizeTabProps {
   sourceId?: string;
   tableName?: string;
 }
-
-// ── Chart-type toggle metadata ─────────────────────────────────────────────────
-
-interface ChartOption {
-  value: ChartViewType;
-  label: string;
-  icon: React.ReactNode;
-}
-
-const CHART_OPTIONS: ChartOption[] = [
-  { value: 'table', label: 'Table', icon: <TableChartIcon fontSize="small" /> },
-  { value: 'column', label: 'Column', icon: <BarChartIcon fontSize="small" /> },
-  {
-    value: 'bar',
-    label: 'Bar (horiz.)',
-    icon: <BarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} />,
-  },
-  { value: 'line', label: 'Line', icon: <ShowChartIcon fontSize="small" /> },
-  { value: 'pie', label: 'Pie', icon: <PieChartIcon fontSize="small" /> },
-  {
-    value: 'stackedColumn',
-    label: 'Stacked Column',
-    icon: <StackedBarChartIcon fontSize="small" />,
-  },
-  {
-    value: 'stackedBar',
-    label: 'Stacked Bar',
-    icon: <StackedBarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} />,
-  },
-];
 
 // Mix of starter and realistic "what a sales/finance team would actually ask"
 // questions — the complex ones exercise multi-dimension group-bys, filters,
@@ -183,7 +139,6 @@ export function SummarizeTab({
 }: SummarizeTabProps) {
   const [mode, setMode] = useState<SummarizeMode>('ai');
   const [nlQuery, setNlQuery] = useState('');
-  const [chartType, setChartType] = useState<ChartViewType>('table');
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [recentOpen, setRecentOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
@@ -201,23 +156,9 @@ export function SummarizeTab({
     };
   }, [nlIsLoading]);
 
-  // When a new AI result arrives, pick a sensible default view from its shape:
-  // temporal dimension → line, two dimensions → stacked column,
-  // one dimension → column, anything else → table.
+  // Close the raw-plan panel whenever a new AI result arrives.
   useEffect(() => {
-    if (nlRows.length === 0) return;
-    setPlanOpen(false);
-    const headers = Object.keys(nlRows[0]);
-    const { groupKeys, measureKeys } = inferColumns(headers, nlRows);
-    let suggested: ChartViewType = 'table';
-    if (measureKeys.length > 0 && groupKeys.length > 0 && nlRows.length > 1) {
-      const firstVal = String(nlRows[0][groupKeys[0]] ?? '');
-      const looksTemporal =
-        /date|month|year|week|quarter|day|time/i.test(groupKeys[0]) ||
-        /^\d{4}([-/]\d{1,2})?/.test(firstVal);
-      suggested = groupKeys.length >= 2 ? 'stackedColumn' : looksTemporal ? 'line' : 'column';
-    }
-    setChartType(suggested);
+    if (nlRows.length > 0) setPlanOpen(false);
   }, [nlRows]);
 
   // Derive active result set based on current mode
@@ -227,43 +168,17 @@ export function SummarizeTab({
     [mode, nlRows, summarizeHeaders],
   );
 
-  // ── Column sort ────────────────────────────────────────────────────────────
-  const [sortCol, setSortCol] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-
-  // Reset sort whenever a new result set arrives
-  useEffect(() => {
-    setSortCol(null);
-    setSortDir('asc');
-  }, [activeHeaders]);
-
-  const handleSortClick = (col: string) => {
-    if (sortCol === col) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortCol(col);
-      setSortDir('asc');
-    }
-  };
-
-  const sortedRows = useMemo(() => {
-    if (!sortCol) return activeRows;
-    return [...activeRows].sort((a, b) => {
-      const av = a[sortCol];
-      const bv = b[sortCol];
-      if (av == null && bv == null) return 0;
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      if (typeof av === 'number' && typeof bv === 'number') {
-        return sortDir === 'asc' ? av - bv : bv - av;
-      }
-      const cmp = String(av).localeCompare(String(bv), undefined, {
-        numeric: true,
-        sensitivity: 'base',
-      });
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
-  }, [activeRows, sortCol, sortDir]);
+  // Output columns that are DateTrunc group-bys, so the viz matcher can detect a
+  // temporal dimension precisely (AI mode); manual mode falls back to a heuristic.
+  const temporalHints = useMemo(
+    () =>
+      mode === 'ai'
+        ? (nlPlan?.viewBy ?? [])
+            .filter((g) => g.type === 'DateTrunc')
+            .map((g) => g.alias || g.fieldName)
+        : [],
+    [mode, nlPlan],
+  );
 
   const activeError = mode === 'ai' ? nlError : error;
   // True once an NL query has completed (success with any row count, including 0)
@@ -563,24 +478,6 @@ export function SummarizeTab({
                 </Box>
               )}
             </Box>
-
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={chartType}
-              onChange={(_e, v) => {
-                if (v !== null) setChartType(v);
-              }}
-              aria-label="view type"
-            >
-              {CHART_OPTIONS.map(({ value, label, icon }) => (
-                <Tooltip key={value} title={label} placement="top">
-                  <ToggleButton value={value} aria-label={label}>
-                    {icon}
-                  </ToggleButton>
-                </Tooltip>
-              ))}
-            </ToggleButtonGroup>
           </div>
 
           {/* ── Raw query plan (developer detail, toggled from the code icon) ── */}
@@ -622,45 +519,9 @@ export function SummarizeTab({
             </Alert>
           )}
 
-          {/* ── Table view ── */}
-          {activeHeaders.length > 0 && chartType === 'table' && (
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    {activeHeaders.map((h) => (
-                      <TableCell
-                        key={h}
-                        sortDirection={sortCol === h ? sortDir : false}
-                        sx={{ whiteSpace: 'nowrap', userSelect: 'none' }}
-                      >
-                        <TableSortLabel
-                          active={sortCol === h}
-                          direction={sortCol === h ? sortDir : 'asc'}
-                          onClick={() => handleSortClick(h)}
-                        >
-                          {h}
-                        </TableSortLabel>
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortedRows.map((row, i) => (
-                    <TableRow key={i} hover>
-                      {activeHeaders.map((h) => (
-                        <TableCell key={h}>{formatCellValue(row[h])}</TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-
-          {/* ── Chart view ── */}
-          {activeHeaders.length > 0 && chartType !== 'table' && (
-            <SummarizeChart chartType={chartType} rows={activeRows} headers={activeHeaders} />
+          {/* ── Visualization: switch between any viz whose constraints fit the result ── */}
+          {activeHeaders.length > 0 && (
+            <VizSwitcher rows={activeRows} headers={activeHeaders} temporalHints={temporalHints} />
           )}
         </>
       )}
