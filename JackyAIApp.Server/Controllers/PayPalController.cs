@@ -20,7 +20,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("packs")]
         public IActionResult GetPacks()
         {
-            var packs = StripeService.CreditPacks.Select(p => new
+            var packs = CreditPacks.All.Select(p => new
             {
                 p.Id, p.Name, priceInCents = p.PriceInCents, p.Credits, p.Badge,
             });

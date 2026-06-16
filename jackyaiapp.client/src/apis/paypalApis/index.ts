@@ -1,8 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-import { CreditPack } from '../stripeApis/types';
-
-import { PayPalCaptureResponse, PayPalOrderResponse } from './types';
+import { CreditPack, PayPalCaptureResponse, PayPalOrderResponse } from './types';
 
 export const paypalApi = createApi({
   reducerPath: 'paypalApi',

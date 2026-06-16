@@ -45,7 +45,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public string? Description { get; set; }
 
         /// <summary>
-        /// External reference ID (e.g., Stripe payment ID)
+        /// External reference ID (e.g., PayPal payment ID)
         /// </summary>
         public string? ReferenceId { get; set; }
 
