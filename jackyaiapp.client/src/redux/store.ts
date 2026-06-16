@@ -15,7 +15,6 @@ import { paypalApi } from '@/apis/paypalApis';
 import { repositoryApis } from '@/apis/repositoryApis';
 import { reviewApis } from '@/apis/reviewApis';
 import { statsApis } from '@/apis/statsApis';
-import { stripeApi } from '@/apis/stripeApis';
 import { rtkQueryErrorLogger } from '@/redux/errorMiddleware';
 import uiReducer from '@/redux/uiSlice';
 
@@ -31,7 +30,6 @@ export const store = configureStore({
     [jobApis.reducerPath]: jobApis.reducer,
     [connectorsApi.reducerPath]: connectorsApi.reducer,
     [creditApis.reducerPath]: creditApis.reducer,
-    [stripeApi.reducerPath]: stripeApi.reducer,
     [paypalApi.reducerPath]: paypalApi.reducer,
     [ecpayApi.reducerPath]: ecpayApi.reducer,
     [dailyChallengeApis.reducerPath]: dailyChallengeApis.reducer,
@@ -52,7 +50,6 @@ export const store = configureStore({
       jobApis.middleware,
       connectorsApi.middleware,
       creditApis.middleware,
-      stripeApi.middleware,
       paypalApi.middleware,
       ecpayApi.middleware,
       dailyChallengeApis.middleware,

@@ -69,7 +69,7 @@ namespace JackyAIApp.Server.Extensions
             return services;
         }
 
-        /// <summary>Connector storage + payment providers (Stripe / PayPal / ECPay).</summary>
+        /// <summary>Connector storage + payment providers (PayPal / ECPay).</summary>
         public static IServiceCollection AddConnectorAndPaymentServices(
             this IServiceCollection services, IConfiguration configuration)
         {
@@ -77,9 +77,6 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<ITokenEncryptionService, TokenEncryptionService>();
             services.AddScoped<IStateService, StateService>();
             services.AddScoped<IConnectorService, ConnectorService>();
-
-            services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
-            services.AddScoped<IStripeService, StripeService>();
 
             services.Configure<PayPalOptions>(configuration.GetSection(PayPalOptions.SectionName));
             services.AddHttpClient<IPayPalService, PayPalService>();

@@ -27,7 +27,7 @@ namespace JackyAIApp.Server.Services
 
         public async Task<string> CreateOrderAsync(string userId, string packId)
         {
-            var pack = StripeService.CreditPacks.FirstOrDefault(p => p.Id == packId)
+            var pack = CreditPacks.All.FirstOrDefault(p => p.Id == packId)
                 ?? throw new ArgumentException($"Unknown pack: {packId}");
 
             var accessToken = await GetAccessTokenAsync();
