@@ -29,6 +29,7 @@ export function evaluate(cap: VizCapability, shape: DataShape): EligibilityResul
       reason: `需要至少 ${cap.minTemporalPoints} 個時間點（目前 ${shape.temporalPoints ?? 0}）`,
     };
   }
+  if (cap.customEligible) return cap.customEligible(shape);
   return { ok: true };
 }
 
@@ -40,6 +41,9 @@ export function evaluate(cap: VizCapability, shape: DataShape): EligibilityResul
 export function pickDefault(shape: DataShape, capabilities: VizCapability[]): VizId {
   const eligible = new Set(capabilities.filter((c) => evaluate(c, shape).ok).map((c) => c.id));
   const prefer = (id: VizId): boolean => eligible.has(id);
+
+  // Single aggregate value (no dimension) → headline number.
+  if (shape.groupCount === 0 && shape.measureCount > 0 && prefer('kpi')) return 'kpi';
 
   if (shape.measureCount > 0 && shape.groupCount > 0 && shape.rowCount > 1) {
     if (shape.temporalKey && prefer('line')) return 'line';

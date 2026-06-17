@@ -1,9 +1,25 @@
-import { BarChart, LineChart, PieChart } from 'echarts/charts';
+import {
+  BarChart,
+  LineChart,
+  PieChart,
+  SankeyChart,
+  SunburstChart,
+  TreeChart,
+  TreemapChart,
+} from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 
-import type { BarSeriesOption, LineSeriesOption, PieSeriesOption } from 'echarts/charts';
+import type {
+  BarSeriesOption,
+  LineSeriesOption,
+  PieSeriesOption,
+  SankeySeriesOption,
+  SunburstSeriesOption,
+  TreeSeriesOption,
+  TreemapSeriesOption,
+} from 'echarts/charts';
 import type {
   GridComponentOption,
   LegendComponentOption,
@@ -16,6 +32,10 @@ echarts.use([
   BarChart,
   LineChart,
   PieChart,
+  TreemapChart,
+  SunburstChart,
+  TreeChart,
+  SankeyChart,
   GridComponent,
   LegendComponent,
   TooltipComponent,
@@ -69,6 +89,10 @@ export type ECOption = ComposeOption<
   | BarSeriesOption
   | LineSeriesOption
   | PieSeriesOption
+  | TreemapSeriesOption
+  | SunburstSeriesOption
+  | TreeSeriesOption
+  | SankeySeriesOption
   | GridComponentOption
   | LegendComponentOption
   | TooltipComponentOption
