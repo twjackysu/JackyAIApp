@@ -83,7 +83,7 @@ export function VizSwitcher({ rows, headers, temporalHints }: VizSwitcherProps) 
         </ToggleButtonGroup>
       </Box>
 
-      <ResizableWidget key={selected} defaultSize={cap.defaultSize}>
+      <ResizableWidget key={selected} gridDefault={cap.gridDefault}>
         {renderViz(selected, rows, headers, shape)}
       </ResizableWidget>
     </>

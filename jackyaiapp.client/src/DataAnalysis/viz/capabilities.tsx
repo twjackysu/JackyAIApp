@@ -16,7 +16,7 @@ import type { VizCapability, VizId } from './types';
 const INF = Number.POSITIVE_INFINITY;
 
 // Each viz declares its own constraints; the matcher reads these so eligibility
-// logic lives in exactly one place.
+// logic lives in exactly one place. gridDefault is in grid units (cols of 12, rows).
 export const VIZ_CAPABILITIES: VizCapability[] = [
   {
     id: 'table',
@@ -26,7 +26,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     maxGroups: INF,
     minMeasures: 0,
     maxMeasures: INF,
-    defaultSize: { w: 760, h: 380 },
+    gridDefault: { w: 12, h: 9 },
   },
   {
     id: 'kpi',
@@ -42,7 +42,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
       shape.groupCount === 0 || shape.temporalKey
         ? { ok: true }
         : { ok: false, reason: '需要單一總數，或一個時間維度（顯示最新值）' },
-    defaultSize: { w: 300, h: 180 },
+    gridDefault: { w: 3, h: 4 },
   },
   {
     id: 'column',
@@ -52,7 +52,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     maxGroups: 2,
     minMeasures: 1,
     maxMeasures: INF,
-    defaultSize: { w: 640, h: 380 },
+    gridDefault: { w: 8, h: 9 },
   },
   {
     id: 'bar',
@@ -62,7 +62,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     maxGroups: 2,
     minMeasures: 1,
     maxMeasures: INF,
-    defaultSize: { w: 640, h: 420 },
+    gridDefault: { w: 8, h: 10 },
   },
   {
     id: 'line',
@@ -72,7 +72,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     maxGroups: 2,
     minMeasures: 1,
     maxMeasures: INF,
-    defaultSize: { w: 680, h: 360 },
+    gridDefault: { w: 9, h: 8 },
   },
   {
     id: 'pie',
@@ -82,7 +82,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     maxGroups: 1,
     minMeasures: 1,
     maxMeasures: 1,
-    defaultSize: { w: 460, h: 420 },
+    gridDefault: { w: 5, h: 10 },
   },
   {
     id: 'donut',
@@ -92,7 +92,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     maxGroups: 1,
     minMeasures: 1,
     maxMeasures: 1,
-    defaultSize: { w: 460, h: 420 },
+    gridDefault: { w: 5, h: 10 },
   },
   {
     id: 'stackedColumn',
@@ -102,7 +102,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     maxGroups: 2,
     minMeasures: 1,
     maxMeasures: INF,
-    defaultSize: { w: 680, h: 400 },
+    gridDefault: { w: 9, h: 9 },
   },
   {
     id: 'stackedBar',
@@ -112,7 +112,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     maxGroups: 2,
     minMeasures: 1,
     maxMeasures: INF,
-    defaultSize: { w: 680, h: 440 },
+    gridDefault: { w: 9, h: 10 },
   },
   {
     id: 'treemap',
@@ -123,7 +123,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     minMeasures: 1,
     maxMeasures: 1,
     hierarchical: true,
-    defaultSize: { w: 560, h: 420 },
+    gridDefault: { w: 8, h: 10 },
   },
   {
     id: 'sunburst',
@@ -134,7 +134,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     minMeasures: 1,
     maxMeasures: 1,
     hierarchical: true,
-    defaultSize: { w: 480, h: 480 },
+    gridDefault: { w: 6, h: 11 },
   },
   {
     id: 'tree',
@@ -145,7 +145,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     minMeasures: 1,
     maxMeasures: 1,
     hierarchical: true,
-    defaultSize: { w: 700, h: 480 },
+    gridDefault: { w: 10, h: 11 },
   },
   {
     id: 'waterfall',
@@ -157,7 +157,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     maxMeasures: 1,
     requiresTemporal: true,
     minTemporalPoints: 2,
-    defaultSize: { w: 700, h: 380 },
+    gridDefault: { w: 10, h: 9 },
   },
   {
     id: 'sankey',
@@ -168,7 +168,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     minMeasures: 1,
     maxMeasures: 1,
     hierarchical: true,
-    defaultSize: { w: 700, h: 480 },
+    gridDefault: { w: 10, h: 11 },
   },
 ];
 
