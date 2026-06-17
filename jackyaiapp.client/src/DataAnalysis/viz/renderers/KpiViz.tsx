@@ -5,8 +5,6 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 
-import { inferColumns } from '../../components/summarizeChart/dataPrep';
-
 const num = (v: unknown): number => (typeof v === 'number' ? v : parseFloat(String(v ?? '')) || 0);
 
 /** Compact number: 1.2B / 3.4M / 56.7K / 890. */
@@ -27,7 +25,7 @@ function priorYearLabel(label: string): string | null {
 
 interface KpiVizProps {
   rows: Record<string, unknown>[];
-  headers: string[];
+  measureKeys: string[];
   temporalKey?: string;
 }
 
@@ -36,8 +34,7 @@ interface KpiVizProps {
  * value plus a change badge — year-over-year when the prior-year period exists,
  * otherwise vs the previous period.
  */
-export function KpiViz({ rows, headers, temporalKey }: KpiVizProps) {
-  const { measureKeys } = inferColumns(headers, rows);
+export function KpiViz({ rows, measureKeys, temporalKey }: KpiVizProps) {
   const measure = measureKeys[0];
   if (!measure || rows.length === 0) return <Alert severity="info">No measure to show.</Alert>;
 

@@ -1,6 +1,5 @@
 import Alert from '@mui/material/Alert';
 
-import { inferColumns } from '../../components/summarizeChart/dataPrep';
 import { PALETTE, type ECOption } from '../../components/summarizeChart/echarts';
 import { buildHierarchy } from '../dataPrep';
 
@@ -11,11 +10,11 @@ type HierarchyMode = 'treemap' | 'sunburst' | 'tree';
 interface HierarchyVizProps {
   mode: HierarchyMode;
   rows: Record<string, unknown>[];
-  headers: string[];
+  groupKeys: string[];
+  measureKeys: string[];
 }
 
-export function HierarchyViz({ mode, rows, headers }: HierarchyVizProps) {
-  const { groupKeys, measureKeys } = inferColumns(headers, rows);
+export function HierarchyViz({ mode, rows, groupKeys, measureKeys }: HierarchyVizProps) {
   const measure = measureKeys[0];
   if (!measure || groupKeys.length === 0)
     return <Alert severity="info">Need at least one group-by and a measure.</Alert>;

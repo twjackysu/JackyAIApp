@@ -1,6 +1,5 @@
 import Alert from '@mui/material/Alert';
 
-import { inferColumns } from '../../components/summarizeChart/dataPrep';
 import { PALETTE, type ECOption } from '../../components/summarizeChart/echarts';
 import { buildSankey } from '../dataPrep';
 
@@ -8,14 +7,14 @@ import { EChart } from './EChart';
 
 interface SankeyVizProps {
   rows: Record<string, unknown>[];
-  headers: string[];
+  groupKeys: string[];
+  measureKeys: string[];
 }
 
 /** Strips the level prefix (`"1␟Asia"` → `"Asia"`) for display. */
 const strip = (name: string, sep: string): string => name.split(sep).pop() ?? name;
 
-export function SankeyViz({ rows, headers }: SankeyVizProps) {
-  const { groupKeys, measureKeys } = inferColumns(headers, rows);
+export function SankeyViz({ rows, groupKeys, measureKeys }: SankeyVizProps) {
   const measure = measureKeys[0];
   if (!measure || groupKeys.length < 2)
     return <Alert severity="info">Sankey needs at least two group-by dimensions.</Alert>;

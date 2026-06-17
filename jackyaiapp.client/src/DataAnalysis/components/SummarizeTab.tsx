@@ -168,17 +168,27 @@ export function SummarizeTab({
     [mode, nlRows, summarizeHeaders],
   );
 
-  // Output columns that are DateTrunc group-bys, so the viz matcher can detect a
-  // temporal dimension precisely (AI mode); manual mode falls back to a heuristic.
-  const temporalHints = useMemo(
-    () =>
-      mode === 'ai'
-        ? (nlPlan?.viewBy ?? [])
-            .filter((g) => g.type === 'DateTrunc')
-            .map((g) => g.alias || g.fieldName)
-        : [],
-    [mode, nlPlan],
-  );
+  // Tell the viz layer which result columns are dimensions (group-bys) and which
+  // are temporal, straight from the query — so a numeric-valued dimension (e.g.
+  // DateTrunc/Year → 2024) isn't mistaken for a measure. Output column name is
+  // alias ?? fieldName for both modes.
+  const { groupHints, temporalHints } = useMemo(() => {
+    if (mode === 'ai') {
+      const vb = nlPlan?.viewBy ?? [];
+      return {
+        groupHints: vb.map((g) => g.alias || g.fieldName),
+        temporalHints: vb.filter((g) => g.type === 'DateTrunc').map((g) => g.alias || g.fieldName),
+      };
+    }
+    const isDateTrunc = (e: ViewByEntry) =>
+      e.type === 'Transform' &&
+      e.transformId != null &&
+      fieldTransforms.find((t) => t.id === e.transformId)?.type === 'DateTrunc';
+    return {
+      groupHints: viewByEntries.map((e) => e.alias || e.fieldName),
+      temporalHints: viewByEntries.filter(isDateTrunc).map((e) => e.alias || e.fieldName),
+    };
+  }, [mode, nlPlan, viewByEntries, fieldTransforms]);
 
   const activeError = mode === 'ai' ? nlError : error;
   // True once an NL query has completed (success with any row count, including 0)
@@ -521,7 +531,12 @@ export function SummarizeTab({
 
           {/* ── Visualization: switch between any viz whose constraints fit the result ── */}
           {activeHeaders.length > 0 && (
-            <VizSwitcher rows={activeRows} headers={activeHeaders} temporalHints={temporalHints} />
+            <VizSwitcher
+              rows={activeRows}
+              headers={activeHeaders}
+              groupHints={groupHints}
+              temporalHints={temporalHints}
+            />
           )}
         </>
       )}
