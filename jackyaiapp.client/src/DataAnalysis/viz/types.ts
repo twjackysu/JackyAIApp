@@ -17,8 +17,8 @@ export type VizId =
   | 'waterfall'
   | 'sankey';
 
-/** Pixel size of a widget. */
-export interface VizSize {
+/** Widget size in grid units: w = columns (out of 12), h = rows (of ROW_HEIGHT px). */
+export interface GridSize {
   w: number;
   h: number;
 }
@@ -51,8 +51,8 @@ export interface VizCapability {
    * temporal dimension). Runs after the generic checks pass.
    */
   customEligible?: (shape: DataShape) => EligibilityResult;
-  /** Initial widget size when this viz is first shown. */
-  defaultSize: VizSize;
+  /** Initial widget size (grid units) when this viz is first shown. */
+  gridDefault: GridSize;
 }
 
 /**
