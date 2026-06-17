@@ -8,10 +8,14 @@ import { VIZ_CAPABILITIES, getCapability } from './capabilities';
 import { computeDataShape } from './dataShape';
 import { evaluate, pickDefault } from './matcher';
 import { ChartViz } from './renderers/ChartViz';
+import { HierarchyViz } from './renderers/HierarchyViz';
+import { KpiViz } from './renderers/KpiViz';
+import { SankeyViz } from './renderers/SankeyViz';
 import { TableViz } from './renderers/TableViz';
+import { WaterfallViz } from './renderers/WaterfallViz';
 import { ResizableWidget } from './ResizableWidget';
 
-import type { VizId } from './types';
+import type { DataShape, VizId } from './types';
 
 interface VizSwitcherProps {
   rows: Record<string, unknown>[];
@@ -60,6 +64,7 @@ export function VizSwitcher({ rows, headers, temporalHints }: VizSwitcherProps) 
             if (v !== null) setSelected(v);
           }}
           aria-label="visualization type"
+          sx={{ flexWrap: 'wrap' }}
         >
           {VIZ_CAPABILITIES.map((c) => {
             const e = eligibility.get(c.id);
@@ -79,12 +84,33 @@ export function VizSwitcher({ rows, headers, temporalHints }: VizSwitcherProps) 
       </Box>
 
       <ResizableWidget key={selected} defaultSize={cap.defaultSize}>
-        {selected === 'table' ? (
-          <TableViz rows={rows} headers={headers} />
-        ) : (
-          <ChartViz chartType={selected} rows={rows} headers={headers} />
-        )}
+        {renderViz(selected, rows, headers, shape)}
       </ResizableWidget>
     </>
   );
+}
+
+function renderViz(
+  id: VizId,
+  rows: Record<string, unknown>[],
+  headers: string[],
+  shape: DataShape,
+) {
+  switch (id) {
+    case 'table':
+      return <TableViz rows={rows} headers={headers} />;
+    case 'kpi':
+      return <KpiViz rows={rows} headers={headers} temporalKey={shape.temporalKey} />;
+    case 'treemap':
+    case 'sunburst':
+    case 'tree':
+      return <HierarchyViz mode={id} rows={rows} headers={headers} />;
+    case 'waterfall':
+      return <WaterfallViz rows={rows} headers={headers} temporalKey={shape.temporalKey} />;
+    case 'sankey':
+      return <SankeyViz rows={rows} headers={headers} />;
+    default:
+      // column / bar / line / pie / donut / stackedColumn / stackedBar
+      return <ChartViz chartType={id} rows={rows} headers={headers} />;
+  }
 }

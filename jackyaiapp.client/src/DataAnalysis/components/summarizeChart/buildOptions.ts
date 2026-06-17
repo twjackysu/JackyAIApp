@@ -4,7 +4,10 @@ import type { CartesianData, PieData } from './dataPrep';
 import type { BarSeriesOption, LineSeriesOption, PieSeriesOption } from 'echarts/charts';
 import type { GridComponentOption, LegendComponentOption } from 'echarts/components';
 
-export function buildPieOption(slices: PieData['slices']): ECOption {
+export function buildPieOption(
+  slices: PieData['slices'],
+  opts: { donut?: boolean } = {},
+): ECOption {
   return {
     color: PALETTE,
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
@@ -12,7 +15,7 @@ export function buildPieOption(slices: PieData['slices']): ECOption {
     series: [
       {
         type: 'pie',
-        radius: '65%',
+        radius: opts.donut ? ['42%', '68%'] : '65%',
         center: ['50%', '46%'],
         data: slices,
         label: { formatter: '{b}: {d}%' },

@@ -1,9 +1,21 @@
 import type { ReactNode } from 'react';
 
 // ── Visualization identifiers ──────────────────────────────────────────────────
-// Phase 1 set. Phase 2 will extend this union (kpi, treemap, sunburst, tree,
-// waterfall, sankey, donut).
-export type VizId = 'table' | 'column' | 'bar' | 'line' | 'pie' | 'stackedColumn' | 'stackedBar';
+export type VizId =
+  | 'table'
+  | 'kpi'
+  | 'column'
+  | 'bar'
+  | 'line'
+  | 'pie'
+  | 'donut'
+  | 'stackedColumn'
+  | 'stackedBar'
+  | 'treemap'
+  | 'sunburst'
+  | 'tree'
+  | 'waterfall'
+  | 'sankey';
 
 /** Pixel size of a widget. */
 export interface VizSize {
@@ -33,6 +45,12 @@ export interface VizCapability {
   minTemporalPoints?: number;
   /** Hierarchical viz — consumes each group-by as one nesting level. */
   hierarchical?: boolean;
+  /**
+   * Extra eligibility rule beyond the numeric bounds above, for constraints that
+   * can't be expressed as ranges (e.g. KPI needs either zero groups or a
+   * temporal dimension). Runs after the generic checks pass.
+   */
+  customEligible?: (shape: DataShape) => EligibilityResult;
   /** Initial widget size when this viz is first shown. */
   defaultSize: VizSize;
 }
