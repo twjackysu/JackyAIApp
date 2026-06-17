@@ -1,11 +1,7 @@
 import Alert from '@mui/material/Alert';
 
 import { buildCartesianOption, buildPieOption } from '../../components/summarizeChart/buildOptions';
-import {
-  inferColumns,
-  prepareCartesian,
-  preparePie,
-} from '../../components/summarizeChart/dataPrep';
+import { prepareCartesian, preparePie } from '../../components/summarizeChart/dataPrep';
 import { type ActiveChart } from '../../components/summarizeChart/echarts';
 
 import { EChart } from './EChart';
@@ -16,16 +12,16 @@ type ChartVizType = ActiveChart | 'donut';
 interface ChartVizProps {
   chartType: ChartVizType;
   rows: Record<string, unknown>[];
-  headers: string[];
+  /** Authoritative column classification from the shape (hint-aware). */
+  groupKeys: string[];
+  measureKeys: string[];
 }
 
 /**
  * Renders the cartesian (column/bar/line/stacked) and pie/donut charts.
  * Eligibility is already enforced upstream by the matcher, so this only renders.
  */
-export function ChartViz({ chartType, rows, headers }: ChartVizProps) {
-  const { groupKeys, measureKeys } = inferColumns(headers, rows);
-
+export function ChartViz({ chartType, rows, groupKeys, measureKeys }: ChartVizProps) {
   if (measureKeys.length === 0)
     return <Alert severity="info">No numeric measure columns — cannot render chart.</Alert>;
   if (rows.length === 0) return <Alert severity="info">No data to chart.</Alert>;

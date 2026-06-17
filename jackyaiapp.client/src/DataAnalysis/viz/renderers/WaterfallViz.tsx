@@ -1,6 +1,5 @@
 import Alert from '@mui/material/Alert';
 
-import { inferColumns } from '../../components/summarizeChart/dataPrep';
 import { type ECOption } from '../../components/summarizeChart/echarts';
 import { buildWaterfall } from '../dataPrep';
 
@@ -8,7 +7,7 @@ import { EChart } from './EChart';
 
 interface WaterfallVizProps {
   rows: Record<string, unknown>[];
-  headers: string[];
+  measureKeys: string[];
   temporalKey?: string;
 }
 
@@ -17,8 +16,7 @@ interface WaterfallVizProps {
  * each period is the signed change from the previous one (green up / red down).
  * Drawn with a transparent base series so the change bars float.
  */
-export function WaterfallViz({ rows, headers, temporalKey }: WaterfallVizProps) {
-  const { measureKeys } = inferColumns(headers, rows);
+export function WaterfallViz({ rows, measureKeys, temporalKey }: WaterfallVizProps) {
   const measure = measureKeys[0];
   if (!measure || !temporalKey)
     return <Alert severity="info">Need a time dimension and a measure.</Alert>;

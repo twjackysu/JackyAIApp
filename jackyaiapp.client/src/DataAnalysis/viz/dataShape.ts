@@ -25,17 +25,37 @@ function detectTemporalKey(
   });
 }
 
+interface ShapeHints {
+  /**
+   * Output column names (alias ?? fieldName) of ALL group-bys in the query.
+   * These are forced to be dimensions regardless of value type — without this a
+   * numeric-valued dimension (e.g. DateTrunc/Year → 2024) is mistaken for a
+   * measure.
+   */
+  groupHints?: string[];
+  /** Subset of groupHints that are DateTrunc group-bys, for temporal detection. */
+  temporalHints?: string[];
+}
+
 /**
- * Derive the {@link DataShape} of a summarize result. `temporalHints` should be
- * the output column names (alias ?? fieldName) of any DateTrunc group-bys in the
- * query plan, for precise temporal detection; the heuristic is the fallback.
+ * Derive the {@link DataShape} of a summarize result. Hints come from the query
+ * plan (authoritative); the value-type heuristic is only a fallback for columns
+ * not covered by hints.
  */
 export function computeDataShape(
   headers: string[],
   rows: Record<string, unknown>[],
-  temporalHints: string[] = [],
+  hints: ShapeHints = {},
 ): DataShape {
-  const { groupKeys, measureKeys } = inferColumns(headers, rows);
+  const { groupHints = [], temporalHints = [] } = hints;
+  const { groupKeys: groupsByType } = inferColumns(headers, rows);
+
+  // A column is a dimension if the query says so (groupHints) OR the value-type
+  // heuristic classified it as one. Everything else is a measure.
+  const groupSet = new Set([...groupHints.filter((h) => headers.includes(h)), ...groupsByType]);
+  const groupKeys = headers.filter((h) => groupSet.has(h));
+  const measureKeys = headers.filter((h) => !groupSet.has(h));
+
   const temporalKey = detectTemporalKey(groupKeys, rows, temporalHints);
 
   let temporalPoints: number | undefined;

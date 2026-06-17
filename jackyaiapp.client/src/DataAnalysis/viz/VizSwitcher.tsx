@@ -20,6 +20,8 @@ import type { DataShape, VizId } from './types';
 interface VizSwitcherProps {
   rows: Record<string, unknown>[];
   headers: string[];
+  /** Output column names of ALL group-bys (so numeric dimensions aren't mistaken for measures). */
+  groupHints?: string[];
   /** Output column names of DateTrunc group-bys, for precise temporal detection. */
   temporalHints?: string[];
 }
@@ -30,11 +32,11 @@ interface VizSwitcherProps {
  * reason in their tooltip. The chosen viz renders inside a resizable widget that
  * starts at the viz's default size.
  */
-export function VizSwitcher({ rows, headers, temporalHints }: VizSwitcherProps) {
-  const hintKey = (temporalHints ?? []).join('|');
+export function VizSwitcher({ rows, headers, groupHints, temporalHints }: VizSwitcherProps) {
+  const hintKey = `${(groupHints ?? []).join('|')}#${(temporalHints ?? []).join('|')}`;
   const shape = useMemo(
-    () => computeDataShape(headers, rows, temporalHints ?? []),
-    // hintKey captures temporalHints content without depending on array identity
+    () => computeDataShape(headers, rows, { groupHints, temporalHints }),
+    // hintKey captures hint content without depending on array identity
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [headers, rows, hintKey],
   );
@@ -96,21 +98,26 @@ function renderViz(
   headers: string[],
   shape: DataShape,
 ) {
+  // Use the authoritative classification from the shape (hint-aware) so numeric
+  // dimensions (e.g. DateTrunc/Year) aren't treated as measures.
+  const { groupKeys, measureKeys, temporalKey } = shape;
   switch (id) {
     case 'table':
       return <TableViz rows={rows} headers={headers} />;
     case 'kpi':
-      return <KpiViz rows={rows} headers={headers} temporalKey={shape.temporalKey} />;
+      return <KpiViz rows={rows} measureKeys={measureKeys} temporalKey={temporalKey} />;
     case 'treemap':
     case 'sunburst':
     case 'tree':
-      return <HierarchyViz mode={id} rows={rows} headers={headers} />;
+      return <HierarchyViz mode={id} rows={rows} groupKeys={groupKeys} measureKeys={measureKeys} />;
     case 'waterfall':
-      return <WaterfallViz rows={rows} headers={headers} temporalKey={shape.temporalKey} />;
+      return <WaterfallViz rows={rows} measureKeys={measureKeys} temporalKey={temporalKey} />;
     case 'sankey':
-      return <SankeyViz rows={rows} headers={headers} />;
+      return <SankeyViz rows={rows} groupKeys={groupKeys} measureKeys={measureKeys} />;
     default:
       // column / bar / line / pie / donut / stackedColumn / stackedBar
-      return <ChartViz chartType={id} rows={rows} headers={headers} />;
+      return (
+        <ChartViz chartType={id} rows={rows} groupKeys={groupKeys} measureKeys={measureKeys} />
+      );
   }
 }
