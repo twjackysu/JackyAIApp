@@ -6,7 +6,7 @@ import Chip from '@mui/material/Chip';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 const num = (v: unknown): number => (typeof v === 'number' ? v : parseFloat(String(v ?? '')) || 0);
 
@@ -43,9 +43,14 @@ interface KpiVizProps {
 export function KpiViz({ rows, measureKeys, temporalKey }: KpiVizProps) {
   const [sel, setSel] = useState(0);
 
-  // Reset selection when a new result arrives.
+  // Reset selection when a new result arrives — adjust state during render
+  // instead of an effect (avoids an extra render / sync effect).
   const measuresKey = measureKeys.join('|');
-  useEffect(() => setSel(0), [measuresKey]);
+  const [prevMeasuresKey, setPrevMeasuresKey] = useState(measuresKey);
+  if (prevMeasuresKey !== measuresKey) {
+    setPrevMeasuresKey(measuresKey);
+    setSel(0);
+  }
 
   const measure = measureKeys[Math.min(sel, measureKeys.length - 1)];
   if (!measure || rows.length === 0) return <Alert severity="info">No measure to show.</Alert>;
