@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { VIZ_CAPABILITIES, getCapability } from './capabilities';
 import { computeDataShape } from './dataShape';
@@ -46,12 +46,16 @@ export function VizSwitcher({ rows, headers, groupHints, temporalHints }: VizSwi
     [shape],
   );
 
-  const [selected, setSelected] = useState<VizId>('table');
+  const [selected, setSelected] = useState<VizId>(() => pickDefault(shape, VIZ_CAPABILITIES));
 
-  // Re-pick a sensible default whenever the result shape changes.
-  useEffect(() => {
+  // Re-pick a sensible default whenever the result shape changes — adjust state
+  // during render (shape is a stable memo, so this only fires on a new result)
+  // instead of a sync useEffect.
+  const [prevShape, setPrevShape] = useState(shape);
+  if (prevShape !== shape) {
+    setPrevShape(shape);
     setSelected(pickDefault(shape, VIZ_CAPABILITIES));
-  }, [shape]);
+  }
 
   const cap = getCapability(selected);
 

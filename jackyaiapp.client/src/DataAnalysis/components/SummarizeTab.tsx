@@ -156,11 +156,6 @@ export function SummarizeTab({
     };
   }, [nlIsLoading]);
 
-  // Close the raw-plan panel whenever a new AI result arrives.
-  useEffect(() => {
-    if (nlRows.length > 0) setPlanOpen(false);
-  }, [nlRows]);
-
   // Derive active result set based on current mode
   const activeRows = mode === 'ai' ? nlRows : summarizeRows;
   const activeHeaders = useMemo(
@@ -207,6 +202,7 @@ export function SummarizeTab({
     const q = nlQuery.trim();
     if (q) {
       setRecentQueries((prev) => [q, ...prev.filter((p) => p !== q)].slice(0, 5));
+      setPlanOpen(false); // collapse the raw-plan panel for the incoming result
       onRunNlSummarize(q);
     }
   };
