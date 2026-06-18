@@ -63,7 +63,7 @@ export const DATA_ANALYSIS: AppDef = {
   name: 'Data Analysis Demo',
   path: '/data-analysis',
   icon: <AssessmentIcon fontSize="small" />,
-  allPaths: ['/data-analysis'],
+  allPaths: ['/data-analysis', '/dashboards'],
   color: '#5E6AD2',
   description: '用自然語言查詢與視覺化資料的即時 Demo。',
 };

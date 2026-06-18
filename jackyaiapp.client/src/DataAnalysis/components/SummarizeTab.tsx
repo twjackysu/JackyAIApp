@@ -76,6 +76,10 @@ interface SummarizeTabProps {
   /** Bumped per AI / manual result so the result view can be remounted to reset its UI state. */
   nlResultVersion: number;
   summarizeVersion: number;
+  /** Re-runnable plan behind the current manual result (null in session mode). */
+  summarizeLastRequest: SummarizeRequest | null;
+  /** Whether "Add to dashboard" is available (logged in, persistent source — not a session). */
+  canAddToDashboard: boolean;
   isLoggedIn: boolean;
   // Context
   fields: FieldDefinition[];
@@ -137,6 +141,8 @@ export function SummarizeTab({
   nlNotes,
   nlResultVersion,
   summarizeVersion,
+  summarizeLastRequest,
+  canAddToDashboard,
   isLoggedIn,
   fields,
   sourceId,
@@ -189,6 +195,21 @@ export function SummarizeTab({
       temporalHints: viewByEntries.filter(isDateTrunc).map((e) => e.alias || e.fieldName),
     };
   }, [mode, nlPlan, viewByEntries, fieldTransforms]);
+
+  // The re-runnable plan behind the current result, for "Add to dashboard". AI:
+  // the returned plan + the page's source context. Manual: the exact last run.
+  const currentPlan = useMemo<SummarizeRequest | null>(() => {
+    if (mode === 'ai') {
+      if (!nlPlan) return null;
+      return {
+        context: sourceId ? { sourceId, tableName } : undefined,
+        viewBy: nlPlan.viewBy,
+        measures: nlPlan.measures,
+        filters: nlPlan.filters,
+      };
+    }
+    return summarizeLastRequest;
+  }, [mode, nlPlan, summarizeLastRequest, sourceId, tableName]);
 
   const activeError = mode === 'ai' ? nlError : error;
   // True once an NL query has completed (success with any row count, including 0)
@@ -538,6 +559,8 @@ export function SummarizeTab({
               headers={activeHeaders}
               groupHints={groupHints}
               temporalHints={temporalHints}
+              currentPlan={currentPlan}
+              canAddToDashboard={canAddToDashboard}
             />
           )}
         </>

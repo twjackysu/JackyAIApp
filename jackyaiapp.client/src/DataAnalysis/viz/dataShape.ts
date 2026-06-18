@@ -1,6 +1,21 @@
 import { inferColumns } from '../components/summarizeChart/dataPrep';
 
 import type { DataShape } from './types';
+import type { GroupFieldDto } from '../../apis/dataAnalysisApis/types';
+
+/**
+ * Derive viz hints from a query plan's viewBy list: every group-by output column
+ * (alias ?? fieldName) is a dimension, and DateTrunc ones are temporal.
+ */
+export function deriveViewByHints(viewBy: GroupFieldDto[]): {
+  groupHints: string[];
+  temporalHints: string[];
+} {
+  return {
+    groupHints: viewBy.map((g) => g.alias || g.fieldName),
+    temporalHints: viewBy.filter((g) => g.type === 'DateTrunc').map((g) => g.alias || g.fieldName),
+  };
+}
 
 const TEMPORAL_NAME_RE = /date|month|year|week|quarter|day|time|時間|日期|月|季|年|週/i;
 const TEMPORAL_VALUE_RE = /^\d{4}([-/]\d{1,2})?/; // 2024, 2024-03, 2024/03, 2024Q1…

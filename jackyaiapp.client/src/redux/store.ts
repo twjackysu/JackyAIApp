@@ -5,6 +5,7 @@ import { chatbotApis } from '@/apis/chatbotApis';
 import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
 import { creditApis } from '@/apis/creditApis';
 import { dailyChallengeApis } from '@/apis/dailyChallengeApis';
+import { dashboardApis } from '@/apis/dashboardApis';
 import { dataAnalysisApis } from '@/apis/dataAnalysisApis';
 import { dictionaryApis } from '@/apis/dictionaryApis';
 import { ecpayApi } from '@/apis/ecpayApis';
@@ -30,6 +31,7 @@ export const store = configureStore({
     [jobApis.reducerPath]: jobApis.reducer,
     [connectorsApi.reducerPath]: connectorsApi.reducer,
     [creditApis.reducerPath]: creditApis.reducer,
+    [dashboardApis.reducerPath]: dashboardApis.reducer,
     [paypalApi.reducerPath]: paypalApi.reducer,
     [ecpayApi.reducerPath]: ecpayApi.reducer,
     [dailyChallengeApis.reducerPath]: dailyChallengeApis.reducer,
@@ -50,6 +52,7 @@ export const store = configureStore({
       jobApis.middleware,
       connectorsApi.middleware,
       creditApis.middleware,
+      dashboardApis.middleware,
       paypalApi.middleware,
       ecpayApi.middleware,
       dailyChallengeApis.middleware,
