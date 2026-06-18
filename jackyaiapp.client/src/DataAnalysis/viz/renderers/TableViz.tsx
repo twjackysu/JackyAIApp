@@ -6,7 +6,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TableSortLabel from '@mui/material/TableSortLabel';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { formatCellValue } from '../../utils/formatters';
 
@@ -19,11 +19,15 @@ export function TableViz({ rows, headers }: TableVizProps) {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  // Reset sorting whenever a new result arrives.
-  useEffect(() => {
+  // Reset sorting whenever a new result arrives — adjust state during render
+  // (keyed on the header set) instead of a sync useEffect.
+  const headersKey = headers.join('|');
+  const [prevHeadersKey, setPrevHeadersKey] = useState(headersKey);
+  if (prevHeadersKey !== headersKey) {
+    setPrevHeadersKey(headersKey);
     setSortCol(null);
     setSortDir('asc');
-  }, [headers]);
+  }
 
   const handleSortClick = (col: string) => {
     if (sortCol === col) {
