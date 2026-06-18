@@ -27,17 +27,28 @@ export function useSummarize({ ctxSourceId, ctxTableName, fields, sessionId }: U
   const [summarize, { data: summarizeData, isLoading: summarizeLoading, error: summarizeError }] =
     useSummarizeMutation();
 
+  // Bumped each time a new manual result arrives, so the result view can be
+  // remounted (keyed) to reset its per-result UI state.
+  const [resultVersion, setResultVersion] = useState(0);
+
   // ── Run ───────────────────────────────────────────────────────────────────
-  const handleRunSummarize = () => {
+  const handleRunSummarize = async () => {
     if (viewByEntries.length === 0 || measures.length === 0) return;
-    summarize({
-      sessionId,
-      context:
-        !sessionId && ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
-      viewBy: viewByEntries.map((e) => toGroupFieldDto(e, fieldTransforms)),
-      measures,
-      filters: toFilterDtos(summarizeFilters, fieldTransforms),
-    });
+    try {
+      await summarize({
+        sessionId,
+        context:
+          !sessionId && ctxSourceId
+            ? { sourceId: ctxSourceId, tableName: ctxTableName }
+            : undefined,
+        viewBy: viewByEntries.map((e) => toGroupFieldDto(e, fieldTransforms)),
+        measures,
+        filters: toFilterDtos(summarizeFilters, fieldTransforms),
+      }).unwrap();
+      setResultVersion((v) => v + 1);
+    } catch {
+      // Error is surfaced via summarizeError.
+    }
   };
 
   // ── FieldTransform CRUD ───────────────────────────────────────────────────
@@ -99,6 +110,7 @@ export function useSummarize({ ctxSourceId, ctxTableName, fields, sessionId }: U
     summarizeError,
     summarizeRows,
     summarizeHeaders,
+    resultVersion,
     reset,
   };
 }

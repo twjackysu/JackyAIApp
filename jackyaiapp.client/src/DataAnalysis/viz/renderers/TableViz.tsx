@@ -16,18 +16,10 @@ interface TableVizProps {
 }
 
 export function TableViz({ rows, headers }: TableVizProps) {
+  // Sort state resets naturally: the result subtree is remounted (keyed per
+  // result by the parent) when a new result arrives.
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-
-  // Reset sorting whenever a new result arrives — adjust state during render
-  // (keyed on the header set) instead of a sync useEffect.
-  const headersKey = headers.join('|');
-  const [prevHeadersKey, setPrevHeadersKey] = useState(headersKey);
-  if (prevHeadersKey !== headersKey) {
-    setPrevHeadersKey(headersKey);
-    setSortCol(null);
-    setSortDir('asc');
-  }
 
   const handleSortClick = (col: string) => {
     if (sortCol === col) {

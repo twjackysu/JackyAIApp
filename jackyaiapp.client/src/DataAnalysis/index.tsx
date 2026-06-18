@@ -89,6 +89,9 @@ export default function DataAnalysis() {
   // ── NL Summarize ──────────────────────────────────────────────────────────
   const [nlSummarize, { isLoading: nlIsLoading, error: nlError }] = useNlSummarizeMutation();
   const [nlResult, setNlResult] = useState<NlSummarizeResult | null>(null);
+  // Bumped when a new AI result arrives, so the result view can be remounted
+  // (keyed) to reset its per-result UI state.
+  const [nlResultVersion, setNlResultVersion] = useState(0);
 
   const handleRunNlSummarize = async (query: string) => {
     setNlResult(null);
@@ -99,6 +102,7 @@ export default function DataAnalysis() {
     });
     if ('data' in res && res.data?.data) {
       setNlResult(res.data.data);
+      setNlResultVersion((v) => v + 1);
     }
   };
 
@@ -347,6 +351,8 @@ export default function DataAnalysis() {
             nlInterpretation={nlResult?.interpretation}
             nlPlan={nlResult?.plan}
             nlNotes={nlResult?.notes}
+            nlResultVersion={nlResultVersion}
+            summarizeVersion={summarize.resultVersion}
             isLoggedIn={isLoggedIn}
             fields={fields}
             sourceId={ctxSourceId}

@@ -73,6 +73,9 @@ interface SummarizeTabProps {
   nlInterpretation?: string;
   nlPlan?: SummarizeRequest;
   nlNotes?: string[];
+  /** Bumped per AI / manual result so the result view can be remounted to reset its UI state. */
+  nlResultVersion: number;
+  summarizeVersion: number;
   isLoggedIn: boolean;
   // Context
   fields: FieldDefinition[];
@@ -132,6 +135,8 @@ export function SummarizeTab({
   nlInterpretation,
   nlPlan,
   nlNotes,
+  nlResultVersion,
+  summarizeVersion,
   isLoggedIn,
   fields,
   sourceId,
@@ -528,6 +533,7 @@ export function SummarizeTab({
           {/* ── Visualization: switch between any viz whose constraints fit the result ── */}
           {activeHeaders.length > 0 && (
             <VizSwitcher
+              key={`${mode}-${mode === 'ai' ? nlResultVersion : summarizeVersion}`}
               rows={activeRows}
               headers={activeHeaders}
               groupHints={groupHints}
