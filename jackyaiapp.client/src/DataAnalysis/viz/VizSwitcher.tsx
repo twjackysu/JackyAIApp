@@ -46,16 +46,10 @@ export function VizSwitcher({ rows, headers, groupHints, temporalHints }: VizSwi
     [shape],
   );
 
+  // Default to the best-fit viz for this result. The parent remounts this
+  // component (via a `key` per result), so the initializer re-runs on each new
+  // result — no effect or in-render setState needed to "reset".
   const [selected, setSelected] = useState<VizId>(() => pickDefault(shape, VIZ_CAPABILITIES));
-
-  // Re-pick a sensible default whenever the result shape changes — adjust state
-  // during render (shape is a stable memo, so this only fires on a new result)
-  // instead of a sync useEffect.
-  const [prevShape, setPrevShape] = useState(shape);
-  if (prevShape !== shape) {
-    setPrevShape(shape);
-    setSelected(pickDefault(shape, VIZ_CAPABILITIES));
-  }
 
   const cap = getCapability(selected);
 
