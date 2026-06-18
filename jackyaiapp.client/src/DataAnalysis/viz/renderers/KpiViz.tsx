@@ -3,7 +3,10 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
+import { useEffect, useState } from 'react';
 
 const num = (v: unknown): number => (typeof v === 'number' ? v : parseFloat(String(v ?? '')) || 0);
 
@@ -30,16 +33,25 @@ interface KpiVizProps {
 }
 
 /**
- * Single headline number. With a temporal dimension it shows the latest period's
- * value plus a change badge — year-over-year when the prior-year period exists,
- * otherwise vs the previous period.
+ * Single headline number for the chosen measure (a dropdown switches measure
+ * when there's more than one). Behaviour by shape:
+ *  - time series      → latest period's value + change badge (YoY when the
+ *                       prior-year period exists, else vs the previous period)
+ *  - single row       → that value
+ *  - grouped (non-time) → total of the measure across all rows
  */
 export function KpiViz({ rows, measureKeys, temporalKey }: KpiVizProps) {
-  const measure = measureKeys[0];
+  const [sel, setSel] = useState(0);
+
+  // Reset selection when a new result arrives.
+  const measuresKey = measureKeys.join('|');
+  useEffect(() => setSel(0), [measuresKey]);
+
+  const measure = measureKeys[Math.min(sel, measureKeys.length - 1)];
   if (!measure || rows.length === 0) return <Alert severity="info">No measure to show.</Alert>;
 
   let value: number;
-  let periodLabel: string | undefined;
+  let subLabel: string | undefined;
   let compare: { abs: number; pct: number | null; kind: 'YoY' | '前期' } | null = null;
 
   if (temporalKey) {
@@ -48,10 +60,10 @@ export function KpiViz({ rows, measureKeys, temporalKey }: KpiVizProps) {
     );
     const latest = sorted[sorted.length - 1];
     value = num(latest[measure]);
-    periodLabel = String(latest[temporalKey] ?? '');
+    subLabel = String(latest[temporalKey] ?? '');
 
     const byLabel = new Map(sorted.map((r) => [String(r[temporalKey] ?? ''), num(r[measure])]));
-    const py = priorYearLabel(periodLabel);
+    const py = priorYearLabel(subLabel);
     let prev: number | undefined;
     let kind: 'YoY' | '前期' = '前期';
     if (py && byLabel.has(py)) {
@@ -64,8 +76,12 @@ export function KpiViz({ rows, measureKeys, temporalKey }: KpiVizProps) {
       const abs = value - prev;
       compare = { abs, pct: prev !== 0 ? (abs / Math.abs(prev)) * 100 : null, kind };
     }
-  } else {
+  } else if (rows.length === 1) {
     value = num(rows[0][measure]);
+  } else {
+    // Grouped, non-temporal → headline = total across all categories.
+    value = rows.reduce((s, r) => s + num(r[measure]), 0);
+    subLabel = `合計（${rows.length} 項）`;
   }
 
   const up = (compare?.abs ?? 0) >= 0;
@@ -84,17 +100,44 @@ export function KpiViz({ rows, measureKeys, temporalKey }: KpiVizProps) {
         p: 2,
       }}
     >
-      <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 1 }}>
-        {measure}
-      </Typography>
+      {measureKeys.length > 1 ? (
+        <Select
+          value={String(Math.min(sel, measureKeys.length - 1))}
+          onChange={(e) => setSel(Number(e.target.value))}
+          variant="standard"
+          disableUnderline
+          sx={{
+            '& .MuiSelect-select': {
+              py: 0,
+              fontSize: '0.75rem',
+              letterSpacing: 1,
+              color: 'text.secondary',
+              textTransform: 'uppercase',
+            },
+          }}
+        >
+          {measureKeys.map((m, i) => (
+            <MenuItem key={m} value={String(i)} sx={{ fontSize: '0.85rem' }}>
+              {m}
+            </MenuItem>
+          ))}
+        </Select>
+      ) : (
+        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 1 }}>
+          {measure}
+        </Typography>
+      )}
+
       <Typography variant="h3" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
         {formatBig(value)}
       </Typography>
-      {periodLabel && (
+
+      {subLabel && (
         <Typography variant="caption" color="text.secondary">
-          {periodLabel}
+          {subLabel}
         </Typography>
       )}
+
       {compare && (
         <Chip
           size="small"
