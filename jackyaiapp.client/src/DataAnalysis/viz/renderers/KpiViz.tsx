@@ -41,17 +41,10 @@ interface KpiVizProps {
  *  - grouped (non-time) → total of the measure across all rows
  */
 export function KpiViz({ rows, measureKeys, temporalKey }: KpiVizProps) {
+  // Selected measure index. Resets to the first measure on a new result because
+  // the result view is remounted (keyed per result by SummarizeTab) — no effect
+  // or in-render reset needed. Clamped in case the measure count shrinks.
   const [sel, setSel] = useState(0);
-
-  // Reset selection when a new result arrives — adjust state during render
-  // instead of an effect (avoids an extra render / sync effect).
-  const measuresKey = measureKeys.join('|');
-  const [prevMeasuresKey, setPrevMeasuresKey] = useState(measuresKey);
-  if (prevMeasuresKey !== measuresKey) {
-    setPrevMeasuresKey(measuresKey);
-    setSel(0);
-  }
-
   const measure = measureKeys[Math.min(sel, measureKeys.length - 1)];
   if (!measure || rows.length === 0) return <Alert severity="info">No measure to show.</Alert>;
 
