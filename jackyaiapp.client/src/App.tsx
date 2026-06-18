@@ -37,6 +37,8 @@ const Connectors = lazy(() => import('./Connectors'));
 const Credits = lazy(() => import('./Credits'));
 const DailyChallenge = lazy(() => import('./DailyChallenge'));
 const DataAnalysis = lazy(() => import('./DataAnalysis'));
+const DashboardList = lazy(() => import('./Dashboard/DashboardList'));
+const DashboardView = lazy(() => import('./Dashboard/DashboardView'));
 const Dictionary = lazy(() => import('./Dictionary'));
 const Exam = lazy(() => import('./Exam'));
 const Finance = lazy(() => import('./Finance'));
@@ -265,6 +267,22 @@ function App() {
             <Route path={FINANCE.path} element={<Finance />} />
             <Route path={JOB_SEARCH.path} element={<JobSearch />} />
             <Route path={DATA_ANALYSIS.path} element={<DataAnalysis />} />
+            <Route
+              path="/dashboards"
+              element={
+                <RequireAuth>
+                  <DashboardList />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/dashboards/:id"
+              element={
+                <RequireAuth>
+                  <DashboardView />
+                </RequireAuth>
+              }
+            />
             <Route path="/login-error" element={<LoginError />} />
           </Routes>
         </Suspense>

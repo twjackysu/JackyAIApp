@@ -160,6 +160,23 @@ namespace JackyAIApp.Server.Data
                 .HasIndex(ea => new { ea.UserId, ea.WordId });
             modelBuilder.Entity<ExamAttempt>()
                 .HasIndex(ea => new { ea.UserId, ea.CreatedAt });
+
+            // Configure Dashboard relationships
+            modelBuilder.Entity<Dashboard>()
+                .HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Dashboard>()
+                .HasIndex(d => d.UserId);
+
+            modelBuilder.Entity<DashboardWidget>()
+                .HasOne(w => w.Dashboard)
+                .WithMany(d => d.Widgets)
+                .HasForeignKey(w => w.DashboardId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<DashboardWidget>()
+                .HasIndex(w => w.DashboardId);
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -179,5 +196,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<DailyChallengeResult> DailyChallengeResults { get; set; }
         public virtual DbSet<DataSourceConfig> DataSourceConfigs { get; set; }
         public virtual DbSet<ExamAttempt> ExamAttempts { get; set; }
+        public virtual DbSet<Dashboard> Dashboards { get; set; }
+        public virtual DbSet<DashboardWidget> DashboardWidgets { get; set; }
     }
 }

@@ -1,21 +1,20 @@
+import AddIcon from '@mui/icons-material/Add';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import { useMemo, useState } from 'react';
 
+import { AddToDashboardDialog } from './AddToDashboardDialog';
 import { VIZ_CAPABILITIES, getCapability } from './capabilities';
 import { computeDataShape } from './dataShape';
 import { evaluate, pickDefault } from './matcher';
-import { ChartViz } from './renderers/ChartViz';
-import { HierarchyViz } from './renderers/HierarchyViz';
-import { KpiViz } from './renderers/KpiViz';
-import { SankeyViz } from './renderers/SankeyViz';
-import { TableViz } from './renderers/TableViz';
-import { WaterfallViz } from './renderers/WaterfallViz';
+import { renderViz } from './renderViz';
 import { ResizableWidget } from './ResizableWidget';
 
-import type { DataShape, VizId } from './types';
+import type { VizId } from './types';
+import type { SummarizeRequest } from '../../apis/dataAnalysisApis/types';
 
 interface VizSwitcherProps {
   rows: Record<string, unknown>[];
@@ -24,6 +23,9 @@ interface VizSwitcherProps {
   groupHints?: string[];
   /** Output column names of DateTrunc group-bys, for precise temporal detection. */
   temporalHints?: string[];
+  /** The re-runnable plan for the current result; enables "Add to dashboard" when provided. */
+  currentPlan?: SummarizeRequest | null;
+  canAddToDashboard?: boolean;
 }
 
 /**
@@ -32,7 +34,14 @@ interface VizSwitcherProps {
  * reason in their tooltip. The chosen viz renders inside a resizable widget that
  * starts at the viz's default size.
  */
-export function VizSwitcher({ rows, headers, groupHints, temporalHints }: VizSwitcherProps) {
+export function VizSwitcher({
+  rows,
+  headers,
+  groupHints,
+  temporalHints,
+  currentPlan,
+  canAddToDashboard,
+}: VizSwitcherProps) {
   const hintKey = `${(groupHints ?? []).join('|')}#${(temporalHints ?? []).join('|')}`;
   const shape = useMemo(
     () => computeDataShape(headers, rows, { groupHints, temporalHints }),
@@ -50,12 +59,33 @@ export function VizSwitcher({ rows, headers, groupHints, temporalHints }: VizSwi
   // component (via a `key` per result), so the initializer re-runs on each new
   // result — no effect or in-render setState needed to "reset".
   const [selected, setSelected] = useState<VizId>(() => pickDefault(shape, VIZ_CAPABILITIES));
+  const [dashboardOpen, setDashboardOpen] = useState(false);
 
   const cap = getCapability(selected);
+  const showAdd = !!canAddToDashboard && !!currentPlan;
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: showAdd ? 'space-between' : 'flex-end',
+          alignItems: 'center',
+          gap: 1,
+          mb: 1.5,
+          flexWrap: 'wrap',
+        }}
+      >
+        {showAdd && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setDashboardOpen(true)}
+          >
+            加入 Dashboard
+          </Button>
+        )}
         <ToggleButtonGroup
           size="small"
           exclusive
@@ -86,36 +116,16 @@ export function VizSwitcher({ rows, headers, groupHints, temporalHints }: VizSwi
       <ResizableWidget key={selected} gridDefault={cap.gridDefault}>
         {renderViz(selected, rows, headers, shape)}
       </ResizableWidget>
+
+      {showAdd && currentPlan && (
+        <AddToDashboardDialog
+          open={dashboardOpen}
+          onClose={() => setDashboardOpen(false)}
+          vizType={selected}
+          plan={currentPlan}
+          gridDefault={cap.gridDefault}
+        />
+      )}
     </>
   );
-}
-
-function renderViz(
-  id: VizId,
-  rows: Record<string, unknown>[],
-  headers: string[],
-  shape: DataShape,
-) {
-  // Use the authoritative classification from the shape (hint-aware) so numeric
-  // dimensions (e.g. DateTrunc/Year) aren't treated as measures.
-  const { groupKeys, measureKeys, temporalKey } = shape;
-  switch (id) {
-    case 'table':
-      return <TableViz rows={rows} headers={headers} />;
-    case 'kpi':
-      return <KpiViz rows={rows} measureKeys={measureKeys} temporalKey={temporalKey} />;
-    case 'treemap':
-    case 'sunburst':
-    case 'tree':
-      return <HierarchyViz mode={id} rows={rows} groupKeys={groupKeys} measureKeys={measureKeys} />;
-    case 'waterfall':
-      return <WaterfallViz rows={rows} measureKeys={measureKeys} temporalKey={temporalKey} />;
-    case 'sankey':
-      return <SankeyViz rows={rows} groupKeys={groupKeys} measureKeys={measureKeys} />;
-    default:
-      // column / bar / line / pie / donut / stackedColumn / stackedBar
-      return (
-        <ChartViz chartType={id} rows={rows} groupKeys={groupKeys} measureKeys={measureKeys} />
-      );
-  }
 }

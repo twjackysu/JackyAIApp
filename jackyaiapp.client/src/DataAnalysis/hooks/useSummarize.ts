@@ -3,7 +3,11 @@ import { useState } from 'react';
 import { useSummarizeMutation } from '../../apis/dataAnalysisApis';
 import { makeViewByEntry, toFilterDtos, toGroupFieldDto } from '../utils/groupField';
 
-import type { FieldDefinition, MeasureFieldDto } from '../../apis/dataAnalysisApis/types';
+import type {
+  FieldDefinition,
+  MeasureFieldDto,
+  SummarizeRequest,
+} from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef, ViewByEntry } from '../types';
 
 interface UseSummarizeParams {
@@ -31,20 +35,24 @@ export function useSummarize({ ctxSourceId, ctxTableName, fields, sessionId }: U
   // remounted (keyed) to reset its per-result UI state.
   const [resultVersion, setResultVersion] = useState(0);
 
+  // The exact re-runnable plan (no sessionId) behind the current result, for
+  // "Add to dashboard". Null until a query runs / when the result came from a
+  // session (sessions are ephemeral and can't be saved).
+  const [lastRequest, setLastRequest] = useState<SummarizeRequest | null>(null);
+
   // ── Run ───────────────────────────────────────────────────────────────────
   const handleRunSummarize = async () => {
     if (viewByEntries.length === 0 || measures.length === 0) return;
+    const plan: SummarizeRequest = {
+      context:
+        !sessionId && ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
+      viewBy: viewByEntries.map((e) => toGroupFieldDto(e, fieldTransforms)),
+      measures,
+      filters: toFilterDtos(summarizeFilters, fieldTransforms),
+    };
     try {
-      await summarize({
-        sessionId,
-        context:
-          !sessionId && ctxSourceId
-            ? { sourceId: ctxSourceId, tableName: ctxTableName }
-            : undefined,
-        viewBy: viewByEntries.map((e) => toGroupFieldDto(e, fieldTransforms)),
-        measures,
-        filters: toFilterDtos(summarizeFilters, fieldTransforms),
-      }).unwrap();
+      await summarize({ sessionId, ...plan }).unwrap();
+      setLastRequest(sessionId ? null : plan);
       setResultVersion((v) => v + 1);
     } catch {
       // Error is surfaced via summarizeError.
@@ -111,6 +119,7 @@ export function useSummarize({ ctxSourceId, ctxTableName, fields, sessionId }: U
     summarizeRows,
     summarizeHeaders,
     resultVersion,
+    lastRequest,
     reset,
   };
 }
