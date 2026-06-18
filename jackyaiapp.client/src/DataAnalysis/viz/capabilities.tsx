@@ -33,16 +33,11 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
     label: 'KPI 大數字',
     icon: <NumbersIcon fontSize="small" />,
     minGroups: 0,
-    maxGroups: 1,
+    maxGroups: INF,
+    // Any number of measures — the card shows one at a time with a switcher.
     minMeasures: 1,
-    maxMeasures: 1,
-    // KPI shows a single number: only meaningful for a lone total, or a time
-    // series (where it shows the latest value + YoY).
-    customEligible: (shape) =>
-      shape.groupCount === 0 || shape.temporalKey
-        ? { ok: true }
-        : { ok: false, reason: '需要單一總數，或一個時間維度（顯示最新值）' },
-    gridDefault: { w: 3, h: 4 },
+    maxMeasures: INF,
+    gridDefault: { w: 4, h: 4 },
   },
   {
     id: 'column',
