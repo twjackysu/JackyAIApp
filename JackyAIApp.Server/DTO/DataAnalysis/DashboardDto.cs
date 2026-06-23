@@ -46,4 +46,24 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public int W { get; init; } = 6;
         public int H { get; init; } = 8;
     }
+
+    public sealed record RenameDashboardRequest
+    {
+        public required string Name { get; init; }
+    }
+
+    /// <summary>Batch grid layout update for a dashboard's widgets.</summary>
+    public sealed record UpdateLayoutRequest
+    {
+        public required List<WidgetLayoutDto> Items { get; init; }
+    }
+
+    public sealed record WidgetLayoutDto
+    {
+        public required Guid Id { get; init; }
+        public int X { get; init; }
+        public int Y { get; init; }
+        public int W { get; init; }
+        public int H { get; init; }
+    }
 }

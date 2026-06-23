@@ -32,3 +32,11 @@ export interface AddWidgetRequest {
   w: number;
   h: number;
 }
+
+export interface WidgetLayout {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
