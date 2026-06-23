@@ -1,6 +1,8 @@
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import Chip from '@mui/material/Chip';
@@ -30,9 +32,38 @@ export default function DashboardList() {
         ) : isError ? (
           <Alert severity="error">無法載入 dashboards。</Alert>
         ) : dashboards.length === 0 ? (
-          <Alert severity="info">
-            還沒有 dashboard。到 Data Analysis 查詢後按「加入 Dashboard」即可建立第一個。
-          </Alert>
+          <Box
+            sx={{
+              textAlign: 'center',
+              border: '1px dashed',
+              borderColor: 'divider',
+              borderRadius: 3,
+              px: 3,
+              py: 8,
+              mt: 2,
+            }}
+          >
+            <DashboardIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1.5 }} />
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+              還沒有任何 Dashboard
+            </Typography>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ maxWidth: 420, mx: 'auto', mb: 3 }}
+            >
+              到 Data Analysis 用自然語言或手動查詢資料，得到結果後按「加入
+              Dashboard」，就能組出你的第一個儀表板。
+            </Typography>
+            <Button
+              component={Link}
+              to="/data-analysis"
+              variant="contained"
+              startIcon={<AssessmentIcon />}
+            >
+              前往 Data Analysis
+            </Button>
+          </Box>
         ) : (
           <Box
             sx={{
