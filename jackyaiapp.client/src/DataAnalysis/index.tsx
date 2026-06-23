@@ -1,17 +1,14 @@
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import DashboardIcon from '@mui/icons-material/Dashboard';
 import TableRowsOutlinedIcon from '@mui/icons-material/TableRowsOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import { ThemeProvider } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 
 import { useGetUserInfoQuery } from '../apis/accountApis';
 import {
@@ -20,6 +17,7 @@ import {
   useGetSchemaQuery,
   useNlSummarizeMutation,
 } from '../apis/dataAnalysisApis';
+import { DataAnalysisNav } from '../components/DataAnalysisNav';
 
 import { DetailsTab } from './components/DetailsTab';
 import { OverviewStrip } from './components/OverviewStrip';
@@ -174,54 +172,33 @@ export default function DataAnalysis() {
   return (
     <ThemeProvider theme={dataAnalysisTheme}>
       <Box>
-        <Box
-          sx={{
-            mb: 3,
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: 2,
-          }}
-        >
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-              <Typography variant="h5" sx={{ color: 'text.primary' }}>
-                DataAnalysis Library
-              </Typography>
-              <Box
-                component="span"
-                sx={{
-                  fontSize: '0.7rem',
-                  fontWeight: 500,
-                  letterSpacing: '0.02em',
-                  color: 'text.secondary',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: '6px',
-                  px: 0.75,
-                  py: 0.25,
-                  lineHeight: 1.4,
-                }}
-              >
-                Live Demo
-              </Box>
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Explore schema, run AI-powered summaries, and drill into details on real data sources.
+        <DataAnalysisNav />
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Typography variant="h5" sx={{ color: 'text.primary' }}>
+              DataAnalysis Library
             </Typography>
-          </Box>
-          {isLoggedIn && (
-            <Button
-              component={Link}
-              to="/dashboards"
-              size="small"
-              variant="outlined"
-              startIcon={<DashboardIcon />}
-              sx={{ flexShrink: 0 }}
+            <Box
+              component="span"
+              sx={{
+                fontSize: '0.7rem',
+                fontWeight: 500,
+                letterSpacing: '0.02em',
+                color: 'text.secondary',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: '6px',
+                px: 0.75,
+                py: 0.25,
+                lineHeight: 1.4,
+              }}
             >
-              My Dashboards
-            </Button>
-          )}
+              Live Demo
+            </Box>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Explore schema, run AI-powered summaries, and drill into details on real data sources.
+          </Typography>
         </Box>
 
         <SourcePanel

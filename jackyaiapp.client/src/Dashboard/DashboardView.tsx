@@ -32,6 +32,7 @@ import {
   useRenameDashboardMutation,
   useUpdateLayoutMutation,
 } from '@/apis/dashboardApis';
+import { DataAnalysisNav } from '@/components/DataAnalysisNav';
 import { dataAnalysisTheme } from '@/DataAnalysis/theme';
 import { GRID_COLS, GRID_ROW_HEIGHT } from '@/DataAnalysis/viz/ResizableWidget';
 
@@ -129,6 +130,7 @@ export default function DashboardView() {
   return (
     <ThemeProvider theme={dataAnalysisTheme}>
       <Box>
+        <DataAnalysisNav />
         <Button
           component={Link}
           to="/dashboards"
