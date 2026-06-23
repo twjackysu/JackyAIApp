@@ -1,5 +1,6 @@
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import DashboardIcon from '@mui/icons-material/Dashboard';
 import DescriptionIcon from '@mui/icons-material/Description';
 import LinkIcon from '@mui/icons-material/Link';
 import SchoolIcon from '@mui/icons-material/School';
@@ -63,9 +64,18 @@ export const DATA_ANALYSIS: AppDef = {
   name: 'Data Analysis Demo',
   path: '/data-analysis',
   icon: <AssessmentIcon fontSize="small" />,
-  allPaths: ['/data-analysis', '/dashboards'],
+  allPaths: ['/data-analysis'],
   color: '#5E6AD2',
   description: '用自然語言查詢與視覺化資料的即時 Demo。',
+};
+
+export const DASHBOARDS: AppDef = {
+  name: 'Dashboards',
+  path: '/dashboards',
+  icon: <DashboardIcon fontSize="small" />,
+  allPaths: ['/dashboards'],
+  color: '#0EA5E9',
+  description: '把 Data Analysis 的分析結果組成可分享的儀表板。',
 };
 
 export const CONNECTORS: AppDef = {
@@ -81,7 +91,7 @@ export const CONNECTORS: AppDef = {
 export const apps: AppDef[] = [FINANCE, ENGLISH_LEARNING, JOB_SEARCH, DATA_ANALYSIS];
 
 // Everything reachable from the home portal — the ONLY place users switch between sites.
-export const portalDestinations: AppDef[] = [...apps, CONNECTORS];
+export const portalDestinations: AppDef[] = [...apps, DASHBOARDS, CONNECTORS];
 
 // Every brandable destination, including ones not surfaced in the portal (e.g. PDF).
 const allAppDefs: AppDef[] = [...portalDestinations, PDF_UNLOCKER];
