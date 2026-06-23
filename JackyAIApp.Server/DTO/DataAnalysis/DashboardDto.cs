@@ -8,6 +8,9 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public Guid Id { get; init; }
         public required string Name { get; init; }
         public int WidgetCount { get; init; }
+        public required string Visibility { get; init; }
+        /// <summary>True when the current user owns this dashboard (vs shared with them).</summary>
+        public bool IsOwner { get; init; }
         public DateTimeOffset CreatedAt { get; init; }
     }
 
@@ -16,7 +19,30 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
     {
         public Guid Id { get; init; }
         public required string Name { get; init; }
+        public required string Visibility { get; init; }
+        public bool IsOwner { get; init; }
         public required List<DashboardWidgetDto> Widgets { get; init; }
+    }
+
+    /// <summary>Sharing settings (owner view).</summary>
+    public sealed record ShareSettingsDto
+    {
+        public required string Visibility { get; init; }
+        public required List<ShareMemberDto> Members { get; init; }
+    }
+
+    public sealed record ShareMemberDto
+    {
+        public required string UserId { get; init; }
+        public string? Email { get; init; }
+        public string? Name { get; init; }
+    }
+
+    /// <summary>Set visibility and (for Restricted) the full set of allowed users by email.</summary>
+    public sealed record UpdateShareRequest
+    {
+        public required string Visibility { get; init; }
+        public List<string>? Emails { get; init; }
     }
 
     public sealed record DashboardWidgetDto

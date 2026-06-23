@@ -6,7 +6,9 @@ import type {
   AddWidgetRequest,
   DashboardDetail,
   DashboardSummary,
+  DashboardVisibility,
   DashboardWidget,
+  ShareSettings,
   WidgetLayout,
 } from './types';
 import type { SummarizeRequest, SummarizeResult } from '../dataAnalysisApis/types';
@@ -68,6 +70,21 @@ export const dashboardApis = createApi({
         'Dashboards',
       ],
     }),
+    getShareSettings: builder.query<ApiOkResponse<ShareSettings>, string>({
+      query: (id) => `dashboard/${id}/share`,
+      providesTags: (_r, _e, id) => [{ type: 'Dashboard', id }],
+    }),
+    updateShareSettings: builder.mutation<
+      ApiOkResponse<ShareSettings>,
+      { id: string; visibility: DashboardVisibility; emails: string[] }
+    >({
+      query: ({ id, visibility, emails }) => ({
+        url: `dashboard/${id}/share`,
+        method: 'PUT',
+        body: { visibility, emails },
+      }),
+      invalidatesTags: (_r, _e, { id }) => [{ type: 'Dashboard', id }, 'Dashboards'],
+    }),
   }),
 });
 
@@ -81,4 +98,6 @@ export const {
   useDeleteDashboardMutation,
   useUpdateLayoutMutation,
   useRemoveWidgetMutation,
+  useGetShareSettingsQuery,
+  useUpdateShareSettingsMutation,
 } = dashboardApis;

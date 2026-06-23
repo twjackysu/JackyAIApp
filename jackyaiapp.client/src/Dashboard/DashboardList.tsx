@@ -3,6 +3,7 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
+import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import { ThemeProvider } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
@@ -49,9 +50,19 @@ export default function DashboardList() {
                       {d.name}
                     </Typography>
                   </Box>
-                  <Typography variant="caption" color="text.secondary">
-                    {d.widgetCount} 個 widget
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {d.widgetCount} 個 widget
+                    </Typography>
+                    {!d.isOwner && <Chip size="small" variant="outlined" label="共享給我" />}
+                    {d.isOwner && d.visibility !== 'Private' && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={d.visibility === 'Public' ? '公開' : '指定使用者'}
+                      />
+                    )}
+                  </Box>
                 </CardActionArea>
               </Card>
             ))}

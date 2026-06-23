@@ -177,6 +177,21 @@ namespace JackyAIApp.Server.Data
                 .OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<DashboardWidget>()
                 .HasIndex(w => w.DashboardId);
+
+            modelBuilder.Entity<DashboardShare>()
+                .HasOne(s => s.Dashboard)
+                .WithMany(d => d.Shares)
+                .HasForeignKey(s => s.DashboardId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // Grantee user — NoAction to avoid multiple cascade paths (User → Dashboard → Share).
+            modelBuilder.Entity<DashboardShare>()
+                .HasOne(s => s.User)
+                .WithMany()
+                .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<DashboardShare>()
+                .HasIndex(s => new { s.DashboardId, s.UserId })
+                .IsUnique();
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -198,5 +213,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<ExamAttempt> ExamAttempts { get; set; }
         public virtual DbSet<Dashboard> Dashboards { get; set; }
         public virtual DbSet<DashboardWidget> DashboardWidgets { get; set; }
+        public virtual DbSet<DashboardShare> DashboardShares { get; set; }
     }
 }
