@@ -7,16 +7,16 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
+import Skeleton from '@mui/material/Skeleton';
 import { ThemeProvider } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { GridLayout, verticalCompactor } from 'react-grid-layout';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
@@ -52,6 +52,23 @@ interface LayoutItem {
   h: number;
 }
 
+/** Placeholder grid shown while the dashboard / its container width is loading. */
+function GridSkeleton() {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gap: 1.5,
+        gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
+      }}
+    >
+      {[0, 1, 2, 3].map((i) => (
+        <Skeleton key={i} variant="rounded" height={240} />
+      ))}
+    </Box>
+  );
+}
+
 export default function DashboardView() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -71,17 +88,21 @@ export default function DashboardView() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
-  // width for react-grid-layout's base GridLayout
-  const containerRef = useRef<HTMLDivElement>(null);
+  // width for react-grid-layout's base GridLayout. A callback ref measures the
+  // moment the container mounts — important because it's rendered only AFTER the
+  // dashboard finishes loading (a plain mount-effect would run too early, find
+  // no node, and leave width at 0 → an empty grid).
   const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const measure = () => setWidth(el.clientWidth);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
+  const roRef = useRef<ResizeObserver | null>(null);
+  const measureRef = useCallback((node: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    roRef.current = null;
+    if (!node) return;
+    setWidth(node.clientWidth);
+    if (typeof ResizeObserver !== 'undefined') {
+      roRef.current = new ResizeObserver(() => setWidth(node.clientWidth));
+      roRef.current.observe(node);
+    }
   }, []);
 
   const enterEdit = () => {
@@ -142,9 +163,7 @@ export default function DashboardView() {
         </Button>
 
         {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
-            <CircularProgress />
-          </Box>
+          <GridSkeleton />
         ) : isError || !dashboard ? (
           <Alert severity="error">找不到這個 dashboard，或你沒有存取權限。</Alert>
         ) : (
@@ -228,8 +247,10 @@ export default function DashboardView() {
                 這個 dashboard 還沒有 widget。到 Data Analysis 查詢後按「加入 Dashboard」即可。
               </Alert>
             ) : (
-              <Box ref={containerRef}>
-                {width > 0 && (
+              <Box ref={measureRef}>
+                {width === 0 ? (
+                  <GridSkeleton />
+                ) : (
                   <GridLayout
                     width={width}
                     layout={layout}
