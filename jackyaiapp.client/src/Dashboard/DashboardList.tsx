@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import { Link } from 'react-router-dom';
 
 import { useGetDashboardsQuery } from '@/apis/dashboardApis';
+import { DataAnalysisNav } from '@/components/DataAnalysisNav';
 import { dataAnalysisTheme } from '@/DataAnalysis/theme';
 
 export default function DashboardList() {
@@ -21,6 +22,7 @@ export default function DashboardList() {
   return (
     <ThemeProvider theme={dataAnalysisTheme}>
       <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+        <DataAnalysisNav />
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
           My Dashboards
         </Typography>
