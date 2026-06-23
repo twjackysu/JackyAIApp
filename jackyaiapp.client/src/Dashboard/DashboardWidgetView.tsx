@@ -1,6 +1,6 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
+import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
 
@@ -62,11 +62,7 @@ export function DashboardWidgetView({ widget }: DashboardWidgetViewProps) {
       </Typography>
       <Box sx={{ flexGrow: 1, minHeight: 0, p: 1 }}>
         {isLoading ? (
-          <Box
-            sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}
-          >
-            <CircularProgress size={22} />
-          </Box>
+          <Skeleton variant="rounded" sx={{ height: '100%', minHeight: 120 }} />
         ) : isError ? (
           <Alert severity="error" sx={{ m: 1 }}>
             無法載入此 widget 的資料。
