@@ -146,6 +146,93 @@ namespace JackyAIApp.Server.Controllers
             return _responseFactory.CreateOKResponse(ToWidgetDto(widget));
         }
 
+        /// <summary>Rename a dashboard (owner only).</summary>
+        [HttpPut("{id:guid}")]
+        public async Task<IActionResult> Rename(Guid id, [FromBody] RenameDashboardRequest dto, CancellationToken ct = default)
+        {
+            var userId = CurrentUserId;
+            if (userId is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+
+            var name = dto.Name?.Trim();
+            if (string.IsNullOrEmpty(name))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Name is required.");
+
+            var dash = await _dbContext.Dashboards
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId, ct);
+            if (dash is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Dashboard not found.");
+
+            dash.Name = name;
+            dash.UpdatedAt = DateTimeOffset.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+            return _responseFactory.CreateOKResponse();
+        }
+
+        /// <summary>Delete a dashboard and its widgets (owner only).</summary>
+        [HttpDelete("{id:guid}")]
+        public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
+        {
+            var userId = CurrentUserId;
+            if (userId is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+
+            var dash = await _dbContext.Dashboards
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId, ct);
+            if (dash is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Dashboard not found.");
+
+            _dbContext.Dashboards.Remove(dash); // widgets cascade
+            await _dbContext.SaveChangesAsync(ct);
+            return _responseFactory.CreateOKResponse();
+        }
+
+        /// <summary>Persist the grid positions/sizes of a dashboard's widgets (owner only).</summary>
+        [HttpPut("{id:guid}/layout")]
+        public async Task<IActionResult> UpdateLayout(Guid id, [FromBody] UpdateLayoutRequest dto, CancellationToken ct = default)
+        {
+            var userId = CurrentUserId;
+            if (userId is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+
+            var dash = await _dbContext.Dashboards
+                .Include(d => d.Widgets)
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId, ct);
+            if (dash is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Dashboard not found.");
+
+            var byId = dash.Widgets.ToDictionary(w => w.Id);
+            foreach (var item in dto.Items)
+            {
+                if (!byId.TryGetValue(item.Id, out var widget)) continue; // only widgets in this dashboard
+                widget.X = item.X;
+                widget.Y = item.Y;
+                widget.W = Math.Clamp(item.W <= 0 ? 1 : item.W, 1, 12);
+                widget.H = item.H <= 0 ? 1 : item.H;
+            }
+            dash.UpdatedAt = DateTimeOffset.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+            return _responseFactory.CreateOKResponse();
+        }
+
+        /// <summary>Remove a widget from a dashboard (owner only).</summary>
+        [HttpDelete("{id:guid}/widgets/{widgetId:guid}")]
+        public async Task<IActionResult> RemoveWidget(Guid id, Guid widgetId, CancellationToken ct = default)
+        {
+            var userId = CurrentUserId;
+            if (userId is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+
+            var widget = await _dbContext.DashboardWidgets
+                .FirstOrDefaultAsync(w => w.Id == widgetId && w.DashboardId == id && w.Dashboard.UserId == userId, ct);
+            if (widget is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Widget not found.");
+
+            _dbContext.DashboardWidgets.Remove(widget);
+            await _dbContext.SaveChangesAsync(ct);
+            return _responseFactory.CreateOKResponse();
+        }
+
         private static DashboardWidgetDto ToWidgetDto(DashboardWidget w) => new()
         {
             Id = w.Id,
