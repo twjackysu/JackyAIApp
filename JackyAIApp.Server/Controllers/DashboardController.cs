@@ -26,7 +26,9 @@ namespace JackyAIApp.Server.Controllers
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly AzureSQLDBContext _dbContext = dbContext;
 
-        /// <summary>List the current user's dashboards.</summary>
+        private static readonly string[] ValidVisibilities = ["Private", "Public", "Restricted"];
+
+        /// <summary>List dashboards the user owns or has been granted access to (restricted shares).</summary>
         [HttpGet]
         public async Task<IActionResult> List(CancellationToken ct = default)
         {
@@ -35,13 +37,17 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
 
             var items = await _dbContext.Dashboards
-                .Where(d => d.UserId == userId)
+                .Where(d =>
+                    d.UserId == userId ||
+                    (d.Visibility == "Restricted" && d.Shares.Any(s => s.UserId == userId)))
                 .OrderByDescending(d => d.UpdatedAt ?? d.CreatedAt)
                 .Select(d => new DashboardSummaryDto
                 {
                     Id = d.Id,
                     Name = d.Name,
                     WidgetCount = d.Widgets.Count,
+                    Visibility = d.Visibility,
+                    IsOwner = d.UserId == userId,
                     CreatedAt = d.CreatedAt,
                 })
                 .ToListAsync(ct);
@@ -76,11 +82,13 @@ namespace JackyAIApp.Server.Controllers
                 Id = entity.Id,
                 Name = entity.Name,
                 WidgetCount = 0,
+                Visibility = entity.Visibility,
+                IsOwner = true,
                 CreatedAt = entity.CreatedAt,
             });
         }
 
-        /// <summary>Get a dashboard and its widgets (owner only).</summary>
+        /// <summary>Get a dashboard and its widgets (owner, or a viewer allowed by visibility).</summary>
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> Get(Guid id, CancellationToken ct = default)
         {
@@ -90,20 +98,118 @@ namespace JackyAIApp.Server.Controllers
 
             var dash = await _dbContext.Dashboards
                 .Include(d => d.Widgets)
-                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId, ct);
-            if (dash is null)
+                .Include(d => d.Shares)
+                .FirstOrDefaultAsync(d => d.Id == id, ct);
+
+            var isOwner = dash is not null && dash.UserId == userId;
+            var canView = dash is not null && (
+                isOwner ||
+                dash.Visibility == "Public" ||
+                (dash.Visibility == "Restricted" && dash.Shares.Any(s => s.UserId == userId)));
+            // Use NotFound (not Forbidden) so a private dashboard's existence isn't leaked.
+            if (dash is null || !canView)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Dashboard not found.");
 
             return _responseFactory.CreateOKResponse(new DashboardDetailDto
             {
                 Id = dash.Id,
                 Name = dash.Name,
+                Visibility = dash.Visibility,
+                IsOwner = isOwner,
                 Widgets = dash.Widgets
                     .OrderBy(w => w.Y).ThenBy(w => w.X)
                     .Select(ToWidgetDto)
                     .ToList(),
             });
         }
+
+        /// <summary>Get sharing settings for a dashboard (owner only).</summary>
+        [HttpGet("{id:guid}/share")]
+        public async Task<IActionResult> GetShare(Guid id, CancellationToken ct = default)
+        {
+            var userId = CurrentUserId;
+            if (userId is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+
+            var dash = await _dbContext.Dashboards
+                .Include(d => d.Shares).ThenInclude(s => s.User)
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId, ct);
+            if (dash is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Dashboard not found.");
+
+            return _responseFactory.CreateOKResponse(ToShareDto(dash));
+        }
+
+        /// <summary>Set visibility and, for Restricted, the full set of allowed users by email (owner only).</summary>
+        [HttpPut("{id:guid}/share")]
+        public async Task<IActionResult> UpdateShare(Guid id, [FromBody] UpdateShareRequest dto, CancellationToken ct = default)
+        {
+            var userId = CurrentUserId;
+            if (userId is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+
+            if (!ValidVisibilities.Contains(dto.Visibility))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Invalid visibility.");
+
+            var dash = await _dbContext.Dashboards
+                .Include(d => d.Shares).ThenInclude(s => s.User)
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId, ct);
+            if (dash is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Dashboard not found.");
+
+            dash.Visibility = dto.Visibility;
+
+            if (dto.Visibility == "Restricted")
+            {
+                var emails = (dto.Emails ?? [])
+                    .Select(e => e.Trim())
+                    .Where(e => e.Length > 0)
+                    .ToList();
+                var users = emails.Count == 0
+                    ? []
+                    : await _dbContext.Users
+                        .Where(u => u.Email != null && emails.Contains(u.Email))
+                        .ToListAsync(ct);
+                // Owner always has access — never store a share for them.
+                var desiredIds = users.Select(u => u.Id).Where(uid => uid != userId).ToHashSet();
+
+                _dbContext.DashboardShares.RemoveRange(
+                    dash.Shares.Where(s => !desiredIds.Contains(s.UserId)));
+                var existingIds = dash.Shares.Select(s => s.UserId).ToHashSet();
+                foreach (var uid in desiredIds.Where(uid => !existingIds.Contains(uid)))
+                {
+                    _dbContext.DashboardShares.Add(new DashboardShare
+                    {
+                        Id = Guid.NewGuid(),
+                        DashboardId = dash.Id,
+                        UserId = uid,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                    });
+                }
+            }
+            else
+            {
+                // Private / Public — shares are irrelevant; clear them.
+                _dbContext.DashboardShares.RemoveRange(dash.Shares);
+            }
+
+            dash.UpdatedAt = DateTimeOffset.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+
+            // Re-load to return the resolved members.
+            var fresh = await _dbContext.Dashboards
+                .Include(d => d.Shares).ThenInclude(s => s.User)
+                .FirstAsync(d => d.Id == id, ct);
+            return _responseFactory.CreateOKResponse(ToShareDto(fresh));
+        }
+
+        private static ShareSettingsDto ToShareDto(Dashboard dash) => new()
+        {
+            Visibility = dash.Visibility,
+            Members = dash.Shares
+                .Select(s => new ShareMemberDto { UserId = s.UserId, Email = s.User?.Email, Name = s.User?.Name })
+                .ToList(),
+        };
 
         /// <summary>Add a widget to a dashboard (owner only). Auto-placed below existing widgets.</summary>
         [HttpPost("{id:guid}/widgets")]

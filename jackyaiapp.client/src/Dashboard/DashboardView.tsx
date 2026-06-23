@@ -2,9 +2,11 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import ShareIcon from '@mui/icons-material/Share';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -19,6 +21,9 @@ import { GridLayout, verticalCompactor } from 'react-grid-layout';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { DashboardWidgetView } from './DashboardWidgetView';
+import { ShareDialog } from './ShareDialog';
+
+import type { DashboardVisibility } from '@/apis/dashboardApis/types';
 
 import {
   useDeleteDashboardMutation,
@@ -31,6 +36,12 @@ import { dataAnalysisTheme } from '@/DataAnalysis/theme';
 import { GRID_COLS, GRID_ROW_HEIGHT } from '@/DataAnalysis/viz/ResizableWidget';
 
 import 'react-grid-layout/css/styles.css';
+
+const VISIBILITY_LABEL: Record<DashboardVisibility, string> = {
+  Private: '私人',
+  Public: '公開',
+  Restricted: '指定使用者',
+};
 
 interface LayoutItem {
   i: string;
@@ -46,6 +57,7 @@ export default function DashboardView() {
   const { data, isLoading, isError } = useGetDashboardQuery(id, { skip: !id });
   const dashboard = data?.data;
   const widgets = dashboard?.widgets ?? [];
+  const isOwner = dashboard?.isOwner ?? false;
 
   const [renameDashboard] = useRenameDashboardMutation();
   const [deleteDashboard, { isLoading: deleting }] = useDeleteDashboardMutation();
@@ -56,6 +68,7 @@ export default function DashboardView() {
   const [nameInput, setNameInput] = useState('');
   const [localLayout, setLocalLayout] = useState<LayoutItem[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // width for react-grid-layout's base GridLayout
   const containerRef = useRef<HTMLDivElement>(null);
@@ -154,9 +167,17 @@ export default function DashboardView() {
                   sx={{ flexGrow: 1, maxWidth: 360 }}
                 />
               ) : (
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                  {dashboard.name}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }} noWrap>
+                    {dashboard.name}
+                  </Typography>
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={VISIBILITY_LABEL[dashboard.visibility]}
+                  />
+                  {!isOwner && <Chip size="small" variant="outlined" label="共享給我" />}
+                </Box>
               )}
 
               <Box sx={{ display: 'flex', gap: 1 }}>
@@ -180,10 +201,21 @@ export default function DashboardView() {
                     </Button>
                   </>
                 ) : (
-                  widgets.length > 0 && (
-                    <Button size="small" startIcon={<EditIcon />} onClick={enterEdit}>
-                      編輯版面
-                    </Button>
+                  isOwner && (
+                    <>
+                      <Button
+                        size="small"
+                        startIcon={<ShareIcon />}
+                        onClick={() => setShareOpen(true)}
+                      >
+                        分享
+                      </Button>
+                      {widgets.length > 0 && (
+                        <Button size="small" startIcon={<EditIcon />} onClick={enterEdit}>
+                          編輯版面
+                        </Button>
+                      )}
+                    </>
                   )
                 )}
               </Box>
@@ -266,6 +298,10 @@ export default function DashboardView() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {isOwner && (
+          <ShareDialog open={shareOpen} onClose={() => setShareOpen(false)} dashboardId={id} />
+        )}
       </Box>
     </ThemeProvider>
   );
