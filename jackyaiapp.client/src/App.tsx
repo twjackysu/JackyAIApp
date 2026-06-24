@@ -275,14 +275,9 @@ function App() {
                 </RequireAuth>
               }
             />
-            <Route
-              path="/dashboards/:id"
-              element={
-                <RequireAuth>
-                  <DashboardView />
-                </RequireAuth>
-              }
-            />
+            {/* No RequireAuth: "Anyone"-visibility dashboards are viewable without login.
+                Other visibilities still return NotFound from the API for anonymous users. */}
+            <Route path="/dashboards/:id" element={<DashboardView />} />
             <Route path="/login-error" element={<LoginError />} />
           </Routes>
         </Suspense>

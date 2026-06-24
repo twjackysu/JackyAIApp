@@ -1,6 +1,6 @@
 import type { SummarizeRequest } from '../dataAnalysisApis/types';
 
-export type DashboardVisibility = 'Private' | 'Public' | 'Restricted';
+export type DashboardVisibility = 'Private' | 'Public' | 'Restricted' | 'Anyone';
 
 export interface DashboardSummary {
   id: string;

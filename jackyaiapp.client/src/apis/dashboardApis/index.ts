@@ -11,7 +11,7 @@ import type {
   ShareSettings,
   WidgetLayout,
 } from './types';
-import type { SummarizeRequest, SummarizeResult } from '../dataAnalysisApis/types';
+import type { SummarizeResult } from '../dataAnalysisApis/types';
 
 export const dashboardApis = createApi({
   reducerPath: 'dashboardApis',
@@ -44,9 +44,16 @@ export const dashboardApis = createApi({
         'Dashboards',
       ],
     }),
-    /** Re-run a saved widget's plan to produce its data (auto-runs on view). */
-    runWidget: builder.query<ApiOkResponse<SummarizeResult>, SummarizeRequest>({
-      query: (plan) => ({ url: 'dataanalysis/summarize', method: 'POST', body: plan }),
+    /**
+     * Re-run a saved widget's plan to produce its data (auto-runs on view). Goes through the
+     * dashboard-scoped endpoint so access is gated by the dashboard's visibility/shares and the
+     * engine is resolved as the dashboard owner (works for shared viewers + custom sources).
+     */
+    getWidgetData: builder.query<
+      ApiOkResponse<SummarizeResult>,
+      { dashboardId: string; widgetId: string }
+    >({
+      query: ({ dashboardId, widgetId }) => `dashboard/${dashboardId}/widgets/${widgetId}/data`,
     }),
     renameDashboard: builder.mutation<ApiOkResponse<void>, { id: string; name: string }>({
       query: ({ id, name }) => ({ url: `dashboard/${id}`, method: 'PUT', body: { name } }),
@@ -93,7 +100,7 @@ export const {
   useGetDashboardQuery,
   useCreateDashboardMutation,
   useAddWidgetMutation,
-  useRunWidgetQuery,
+  useGetWidgetDataQuery,
   useRenameDashboardMutation,
   useDeleteDashboardMutation,
   useUpdateLayoutMutation,

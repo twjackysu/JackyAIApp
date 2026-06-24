@@ -40,8 +40,9 @@ import 'react-grid-layout/css/styles.css';
 
 const VISIBILITY_LABEL: Record<DashboardVisibility, string> = {
   Private: '私人',
-  Public: '公開',
+  Public: '登入可看',
   Restricted: '指定使用者',
+  Anyone: '完全公開',
 };
 
 interface LayoutItem {
@@ -288,7 +289,7 @@ export default function DashboardView() {
                           {/* During edit, block content interaction so the chart canvas
                               doesn't swallow drag/resize gestures. */}
                           <Box sx={{ height: '100%', pointerEvents: editing ? 'none' : 'auto' }}>
-                            <DashboardWidgetView widget={w} />
+                            <DashboardWidgetView dashboardId={id} widget={w} />
                           </Box>
                         </Box>
                       </div>
