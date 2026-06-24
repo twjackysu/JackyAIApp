@@ -14,6 +14,7 @@ using JackyAIApp.Server.Services.Prompt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using static JackyAIApp.Server.Common.DataAnalysisMapping;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -609,48 +610,6 @@ namespace JackyAIApp.Server.Controllers
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────
-
-        /// <summary>Maps a <see cref="FilterDimensionDto"/> to a <see cref="FilterDimension"/>, honouring the optional Op.</summary>
-        private static FilterDimension MapFilter(FilterDimensionDto f)
-        {
-            var op = f.Op switch
-            {
-                "NotIn"       => FilterOperator.NotIn,
-                "Equals"      => FilterOperator.Equals,
-                "GreaterThan" => FilterOperator.GreaterThan,
-                "LessThan"    => FilterOperator.LessThan,
-                "Between"     => FilterOperator.Between,
-                "Contains"    => FilterOperator.Contains,
-                _             => FilterOperator.In,   // default, also handles "In" and null
-            };
-            return new FilterDimension(f.FieldName, f.Values, op);
-        }
-
-        /// <summary>Maps a <see cref="GroupFieldDto"/> to the appropriate <see cref="GroupFieldBase"/> subtype.</summary>
-        private static GroupFieldBase MapGroupField(GroupFieldDto f) => f.Type switch
-        {
-            "DateTrunc" => new DateTruncGroupField(
-                f.FieldName,
-                Enum.Parse<DateGranularity>(f.Granularity ?? "Day"),
-                NullIfEmpty(f.Alias)),
-
-            "NumericBin" => new NumericBinGroupField(
-                f.FieldName,
-                (f.Bins ?? []).Select(b => new NumericBin(b.Min, b.Max, b.Label)).ToList(),
-                NullIfEmpty(f.Alias),
-                f.Fallback ?? "Other"),
-
-            "StringGrouping" => new StringGroupingField(
-                f.FieldName,
-                (f.Groups ?? []).Select(g => new StringGroup(g.Label, g.Values)).ToList(),
-                NullIfEmpty(f.Alias),
-                f.Fallback ?? "Other"),
-
-            _ => new GroupField(f.FieldName, NullIfEmpty(f.Alias)),
-        };
-
-        private static string? NullIfEmpty(string? s) =>
-            string.IsNullOrWhiteSpace(s) ? null : s;
 
         private static string BuildInterpretation(SummarizeRequestDto plan)
         {

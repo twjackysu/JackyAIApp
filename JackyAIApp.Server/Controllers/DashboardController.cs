@@ -1,18 +1,26 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using DataAnalysisLibrary.Core.Engine;
+using DataAnalysisLibrary.Core.Models.Common;
+using DataAnalysisLibrary.Core.Models.Requests;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.DataAnalysis;
+using JackyAIApp.Server.Services.DataAnalysis;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using static JackyAIApp.Server.Common.DataAnalysisMapping;
 
 namespace JackyAIApp.Server.Controllers
 {
     /// <summary>
     /// User-owned dashboards built from DataAnalysis summarize results. Each widget stores a
-    /// re-runnable summarize plan; the data is re-fetched (via the summarize endpoint) on view.
+    /// re-runnable summarize plan; the data is re-fetched on view via the dashboard-scoped
+    /// widget-data endpoint, which authorizes by the dashboard's visibility/shares and resolves
+    /// the engine as the dashboard owner (so shared/custom-source widgets work for viewers).
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
@@ -20,13 +28,35 @@ namespace JackyAIApp.Server.Controllers
     public class DashboardController(
         ILogger<DashboardController> logger,
         IMyResponseFactory responseFactory,
-        AzureSQLDBContext dbContext) : ApiControllerBase
+        AzureSQLDBContext dbContext,
+        DataAnalysisEngine defaultEngine,
+        IDataSourceConfigService configService) : ApiControllerBase
     {
         private readonly ILogger<DashboardController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly AzureSQLDBContext _dbContext = dbContext;
+        private readonly DataAnalysisEngine _defaultEngine = defaultEngine;
+        private readonly IDataSourceConfigService _configService = configService;
 
-        private static readonly string[] ValidVisibilities = ["Private", "Public", "Restricted"];
+        // Built-in default source (matches DataAnalysisController).
+        private const string DefaultMsSqlKey = "mssql";
+        private const string DefaultTableName = "dbo.Orders";
+
+        // "Anyone" = fully public (no login required); "Public" = any logged-in user.
+        private static readonly string[] ValidVisibilities = ["Private", "Public", "Restricted", "Anyone"];
+
+        private static readonly JsonSerializerOptions PlanJsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new JsonStringEnumConverter() },
+        };
+
+        /// <summary>Whether a (possibly anonymous) user may view this dashboard.</summary>
+        private static bool CanView(Dashboard d, string? userId) =>
+            d.Visibility == "Anyone" ||
+            (userId != null && d.UserId == userId) ||
+            (userId != null && d.Visibility == "Public") ||
+            (userId != null && d.Visibility == "Restricted" && d.Shares.Any(s => s.UserId == userId));
 
         /// <summary>List dashboards the user owns or has been granted access to (restricted shares).</summary>
         [HttpGet]
@@ -88,27 +118,23 @@ namespace JackyAIApp.Server.Controllers
             });
         }
 
-        /// <summary>Get a dashboard and its widgets (owner, or a viewer allowed by visibility).</summary>
+        /// <summary>Get a dashboard and its widgets (owner, or a viewer allowed by visibility — incl. anonymous for "Anyone").</summary>
+        [AllowAnonymous]
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> Get(Guid id, CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+            var userId = CurrentUserId; // may be null for anonymous (allowed only for "Anyone")
 
             var dash = await _dbContext.Dashboards
                 .Include(d => d.Widgets)
                 .Include(d => d.Shares)
                 .FirstOrDefaultAsync(d => d.Id == id, ct);
 
-            var isOwner = dash is not null && dash.UserId == userId;
-            var canView = dash is not null && (
-                isOwner ||
-                dash.Visibility == "Public" ||
-                (dash.Visibility == "Restricted" && dash.Shares.Any(s => s.UserId == userId)));
             // Use NotFound (not Forbidden) so a private dashboard's existence isn't leaked.
-            if (dash is null || !canView)
+            if (dash is null || !CanView(dash, userId))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Dashboard not found.");
+
+            var isOwner = userId != null && dash.UserId == userId;
 
             return _responseFactory.CreateOKResponse(new DashboardDetailDto
             {
@@ -210,6 +236,86 @@ namespace JackyAIApp.Server.Controllers
                 .Select(s => new ShareMemberDto { UserId = s.UserId, Email = s.User?.Email, Name = s.User?.Name })
                 .ToList(),
         };
+
+        /// <summary>
+        /// Re-run a widget's saved plan and return its rows. Access is gated by the dashboard's
+        /// visibility/shares (anonymous allowed only for "Anyone"); the engine is resolved as the
+        /// dashboard OWNER, so custom-source widgets work for any allowed viewer.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpGet("{id:guid}/widgets/{widgetId:guid}/data")]
+        public async Task<IActionResult> WidgetData(Guid id, Guid widgetId, CancellationToken ct = default)
+        {
+            var userId = CurrentUserId; // may be null (allowed only for "Anyone")
+
+            var dash = await _dbContext.Dashboards
+                .Include(d => d.Shares)
+                .Include(d => d.Widgets)
+                .FirstOrDefaultAsync(d => d.Id == id, ct);
+            if (dash is null || !CanView(dash, userId))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Dashboard not found.");
+
+            var widget = dash.Widgets.FirstOrDefault(w => w.Id == widgetId);
+            if (widget is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Widget not found.");
+
+            SummarizeRequestDto? plan;
+            try
+            {
+                plan = JsonSerializer.Deserialize<SummarizeRequestDto>(widget.PlanJson, PlanJsonOptions);
+            }
+            catch
+            {
+                plan = null;
+            }
+            if (plan is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Invalid widget plan.");
+
+            // Resolve the engine as the dashboard owner (not the viewer).
+            DataAnalysisEngine engine;
+            string sourceKey;
+            string tableName;
+            var ownsEngine = false;
+            if (plan.Context?.SourceId is null)
+            {
+                engine = _defaultEngine;
+                sourceKey = DefaultMsSqlKey;
+                tableName = DefaultTableName;
+            }
+            else
+            {
+                var source = await _dbContext.DataSourceConfigs
+                    .FirstOrDefaultAsync(s => s.Id == plan.Context.SourceId.Value && s.UserId == dash.UserId, ct);
+                if (source is null)
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Data source not found.");
+                engine = _configService.BuildEngine(source);
+                sourceKey = _configService.SourceKey(source.ConnectorType);
+                tableName = plan.Context.TableName ?? source.DefaultTableName ?? "";
+                ownsEngine = true;
+            }
+
+            try
+            {
+                var result = await engine.SummarizeAsync(new SummarizeRequest
+                {
+                    SourceKey = sourceKey,
+                    TableName = tableName,
+                    ViewBy = plan.ViewBy.Select(MapGroupField).ToList(),
+                    Measures = plan.Measures
+                        .Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias)))
+                        .ToList(),
+                    Filters = plan.Filters?.Select(MapFilter).ToList() ?? [],
+                }, ct);
+
+                return result.IsSuccess
+                    ? _responseFactory.CreateOKResponse(new { rows = result.Value!.Rows.Select(r => r.Data) })
+                    : _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Query failed.");
+            }
+            finally
+            {
+                if (ownsEngine) engine.Dispose();
+            }
+        }
 
         /// <summary>Add a widget to a dashboard (owner only). Auto-placed below existing widgets.</summary>
         [HttpPost("{id:guid}/widgets")]

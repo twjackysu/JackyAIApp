@@ -92,7 +92,13 @@ export default function DashboardList() {
                       <Chip
                         size="small"
                         variant="outlined"
-                        label={d.visibility === 'Public' ? '公開' : '指定使用者'}
+                        label={
+                          d.visibility === 'Public'
+                            ? '登入可看'
+                            : d.visibility === 'Anyone'
+                              ? '完全公開'
+                              : '指定使用者'
+                        }
                       />
                     )}
                   </Box>

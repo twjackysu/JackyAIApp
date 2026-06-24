@@ -103,11 +103,22 @@ function ShareForm({
             label="所有登入的使用者"
           />
           <FormControlLabel
+            value="Anyone"
+            control={<Radio size="small" />}
+            label="任何人（免登入，知道連結即可看）"
+          />
+          <FormControlLabel
             value="Restricted"
             control={<Radio size="small" />}
             label="指定使用者"
           />
         </RadioGroup>
+
+        {visibility === 'Anyone' && (
+          <Alert severity="info" sx={{ mt: 1 }}>
+            任何拿到連結的人都能檢視此 dashboard，不需登入。
+          </Alert>
+        )}
 
         {visibility === 'Restricted' && (
           <Box sx={{ mt: 1, ml: 4 }}>

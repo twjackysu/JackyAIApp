@@ -7,17 +7,21 @@ import { useMemo } from 'react';
 import type { DashboardWidget } from '@/apis/dashboardApis/types';
 import type { VizId } from '@/DataAnalysis/viz/types';
 
-import { useRunWidgetQuery } from '@/apis/dashboardApis';
+import { useGetWidgetDataQuery } from '@/apis/dashboardApis';
 import { computeDataShape, deriveViewByHints } from '@/DataAnalysis/viz/dataShape';
 import { renderViz } from '@/DataAnalysis/viz/renderViz';
 
 interface DashboardWidgetViewProps {
+  dashboardId: string;
   widget: DashboardWidget;
 }
 
 /** Renders one saved dashboard widget by re-running its plan and drawing its viz. */
-export function DashboardWidgetView({ widget }: DashboardWidgetViewProps) {
-  const { data, isLoading, isError } = useRunWidgetQuery(widget.plan);
+export function DashboardWidgetView({ dashboardId, widget }: DashboardWidgetViewProps) {
+  const { data, isLoading, isError } = useGetWidgetDataQuery({
+    dashboardId,
+    widgetId: widget.id,
+  });
   const rows = useMemo(() => data?.data?.rows ?? [], [data]);
   const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
 
