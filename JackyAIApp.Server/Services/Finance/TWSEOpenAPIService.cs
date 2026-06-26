@@ -1,4 +1,3 @@
-using JackyAIApp.Server.DTO;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text;
 using System.Text.Json;
@@ -15,6 +14,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly IMemoryCache _memoryCache;
         private const string BaseUrl = "https://openapi.twse.com.tw/v1";
         private const string UserAgent = "stock-analysis/1.0";
+        private const int CacheHours = 4;
 
         public TWSEOpenAPIService(
             IHttpClientFactory httpClientFactory,
@@ -33,6 +33,23 @@ namespace JackyAIApp.Server.Services.Finance
         {
             try
             {
+                // Launch every section in parallel. Each endpoint is a market-wide array that is
+                // cached by date and shared across all stocks, so the first call of the day pays
+                // the download and the rest are cache hits.
+                var dailyTradingTask = GetStockDailyTradingAsync(stockCode, cancellationToken);
+                var marketIndexTask = GetMarketIndexInfoAsync(cancellationToken);
+                var monthlyAvgTask = GetStockMonthlyAverageAsync(stockCode, cancellationToken);
+                var monthlyRevenueTask = GetMonthlyRevenueAsync(stockCode, cancellationToken);
+                var incomeStatementTask = GetIncomeStatementAsync(stockCode, cancellationToken);
+                var balanceSheetTask = GetBalanceSheetAsync(stockCode, cancellationToken);
+                var dividendTask = GetCompanyDividendAsync(stockCode, cancellationToken);
+                var valuationTask = GetStockValuationRatiosAsync(stockCode, cancellationToken);
+                var companyProfileTask = GetCompanyProfileAsync(stockCode, cancellationToken);
+
+                await Task.WhenAll(
+                    dailyTradingTask, marketIndexTask, monthlyAvgTask, monthlyRevenueTask,
+                    incomeStatementTask, balanceSheetTask, dividendTask, valuationTask, companyProfileTask);
+
                 var stockData = new StringBuilder();
                 stockData.AppendLine($"=== Comprehensive Stock Analysis for {stockCode} ===");
                 stockData.AppendLine();
@@ -41,98 +58,31 @@ namespace JackyAIApp.Server.Services.Finance
                 stockData.AppendLine("=== SHORT-TERM ANALYSIS (1-3 months) ===");
                 stockData.AppendLine("Data Sources: Technical indicators and market sentiment");
                 stockData.AppendLine();
-
-                var shortTermTasks = new[]
-                {
-                    GetStockDailyTradingAsync(stockCode, cancellationToken),
-                    GetMarketIndexInfoAsync(cancellationToken)
-                };
-
-                var shortTermResults = await Task.WhenAll(shortTermTasks);
-                var shortTermTypes = new[] { "Daily Trading Data (Technical)", "Market Index & Institutional Activity (Chip)" };
-
-                for (int i = 0; i < shortTermResults.Length; i++)
-                {
-                    if (!string.IsNullOrEmpty(shortTermResults[i]))
-                    {
-                        stockData.AppendLine($"--- {shortTermTypes[i]} ---");
-                        stockData.AppendLine(shortTermResults[i]);
-                        stockData.AppendLine();
-                    }
-                }
+                AppendSection(stockData, "Daily Trading Data (Technical)", await dailyTradingTask);
+                AppendSection(stockData, "Market Index & Institutional Activity (Chip)", await marketIndexTask);
 
                 // Medium-Term Analysis (3-12 months) - Technical & Fundamental
                 stockData.AppendLine("=== MEDIUM-TERM ANALYSIS (3-12 months) ===");
                 stockData.AppendLine("Data Sources: Monthly trends and fundamental performance");
                 stockData.AppendLine();
-
-                var mediumTermTasks = new[]
-                {
-                    GetStockMonthlyAverageAsync(stockCode, cancellationToken),
-                    GetMonthlyRevenueAsync(stockCode, cancellationToken),
-                    GetIncomeStatementAsync(stockCode, cancellationToken),
-                    GetBalanceSheetAsync(stockCode, cancellationToken)
-                };
-
-                var mediumTermResults = await Task.WhenAll(mediumTermTasks);
-                var mediumTermTypes = new[] 
-                { 
-                    "Monthly Average Prices (Technical)", 
-                    "Monthly Revenue (Fundamental)", 
-                    "Income Statement (Fundamental)", 
-                    "Balance Sheet (Fundamental)" 
-                };
-
-                for (int i = 0; i < mediumTermResults.Length; i++)
-                {
-                    if (!string.IsNullOrEmpty(mediumTermResults[i]))
-                    {
-                        stockData.AppendLine($"--- {mediumTermTypes[i]} ---");
-                        stockData.AppendLine(mediumTermResults[i]);
-                        stockData.AppendLine();
-                    }
-                }
+                AppendSection(stockData, "Monthly Average Prices (Technical)", await monthlyAvgTask);
+                AppendSection(stockData, "Monthly Revenue (Fundamental)", await monthlyRevenueTask);
+                AppendSection(stockData, "Income Statement (Fundamental)", await incomeStatementTask);
+                AppendSection(stockData, "Balance Sheet (Fundamental)", await balanceSheetTask);
 
                 // Long-Term Analysis (1-3 years) - Valuation & Fundamentals
                 stockData.AppendLine("=== LONG-TERM ANALYSIS (1-3 years) ===");
                 stockData.AppendLine("Data Sources: Valuation metrics and dividend policy");
                 stockData.AppendLine();
-
-                var longTermTasks = new[]
-                {
-                    GetCompanyDividendAsync(stockCode, cancellationToken),
-                    GetStockValuationRatiosAsync(stockCode, cancellationToken)
-                };
-
-                var longTermResults = await Task.WhenAll(longTermTasks);
-                var longTermTypes = new[] 
-                { 
-                    "Dividend Distribution (Fundamental)", 
-                    "Valuation Ratios (P/E, P/B, Dividend Yield)" 
-                };
-
-                for (int i = 0; i < longTermResults.Length; i++)
-                {
-                    if (!string.IsNullOrEmpty(longTermResults[i]))
-                    {
-                        stockData.AppendLine($"--- {longTermTypes[i]} ---");
-                        stockData.AppendLine(longTermResults[i]);
-                        stockData.AppendLine();
-                    }
-                }
+                AppendSection(stockData, "Dividend Distribution (Fundamental)", await dividendTask);
+                AppendSection(stockData, "Valuation Ratios (P/E, P/B, Dividend Yield)", await valuationTask);
 
                 // Company Profile for context
                 stockData.AppendLine("=== COMPANY CONTEXT ===");
-                var companyProfile = await GetCompanyProfileAsync(stockCode, cancellationToken);
-                if (!string.IsNullOrEmpty(companyProfile))
-                {
-                    stockData.AppendLine("--- Company Profile ---");
-                    stockData.AppendLine(companyProfile);
-                    stockData.AppendLine();
-                }
+                AppendSection(stockData, "Company Profile", await companyProfileTask);
 
                 var result = stockData.ToString();
-                
+
                 if (string.IsNullOrWhiteSpace(result) || result.Length < 200)
                 {
                     _logger.LogWarning("Insufficient stock data retrieved from TWSE APIs for {stockCode}", stockCode);
@@ -148,28 +98,21 @@ namespace JackyAIApp.Server.Services.Finance
             }
         }
 
+        private static void AppendSection(StringBuilder sb, string title, string content)
+        {
+            if (string.IsNullOrEmpty(content)) return;
+            sb.AppendLine($"--- {title} ---");
+            sb.AppendLine(content);
+            sb.AppendLine();
+        }
+
         /// <summary>
         /// Gets stock daily trading data from TWSE API.
         /// </summary>
         public async Task<string> GetStockDailyTradingAsync(string stockCode, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var apiUrl = $"{BaseUrl}/exchangeReport/STOCK_DAY_ALL";
-                
-                SetUserAgent();
-                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return FilterStockDataByCode(content, stockCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get daily trading data for stock {stockCode}", stockCode);
-            }
-            return string.Empty;
+            var content = await FetchRawWithCacheAsync($"{BaseUrl}/exchangeReport/STOCK_DAY_ALL", "STOCK_DAY_ALL", cancellationToken);
+            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
         }
 
         /// <summary>
@@ -177,23 +120,8 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         public async Task<string> GetCompanyProfileAsync(string stockCode, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var apiUrl = $"{BaseUrl}/opendata/t187ap03_L";
-                
-                SetUserAgent();
-                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return FilterStockDataByCode(content, stockCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get company profile for stock {stockCode}", stockCode);
-            }
-            return string.Empty;
+            var content = await FetchRawWithCacheAsync($"{BaseUrl}/opendata/t187ap03_L", "t187ap03_L", cancellationToken);
+            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
         }
 
         /// <summary>
@@ -201,23 +129,8 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         public async Task<string> GetStockMonthlyAverageAsync(string stockCode, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var apiUrl = $"{BaseUrl}/exchangeReport/STOCK_DAY_AVG_ALL";
-                
-                SetUserAgent();
-                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return FilterStockDataByCode(content, stockCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get monthly average for stock {stockCode}", stockCode);
-            }
-            return string.Empty;
+            var content = await FetchRawWithCacheAsync($"{BaseUrl}/exchangeReport/STOCK_DAY_AVG_ALL", "STOCK_DAY_AVG_ALL", cancellationToken);
+            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
         }
 
         /// <summary>
@@ -225,23 +138,8 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         public async Task<string> GetStockValuationRatiosAsync(string stockCode, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var apiUrl = $"{BaseUrl}/exchangeReport/BWIBBU_ALL";
-                
-                SetUserAgent();
-                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return FilterStockDataByCode(content, stockCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get valuation ratios for stock {stockCode}", stockCode);
-            }
-            return string.Empty;
+            var content = await FetchRawWithCacheAsync($"{BaseUrl}/exchangeReport/BWIBBU_ALL", "BWIBBU_ALL", cancellationToken);
+            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
         }
 
         /// <summary>
@@ -249,23 +147,8 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         public async Task<string> GetCompanyDividendAsync(string stockCode, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var apiUrl = $"{BaseUrl}/opendata/t187ap45_L";
-                
-                SetUserAgent();
-                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return FilterStockDataByCode(content, stockCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get dividend info for stock {stockCode}", stockCode);
-            }
-            return string.Empty;
+            var content = await FetchRawWithCacheAsync($"{BaseUrl}/opendata/t187ap45_L", "t187ap45_L", cancellationToken);
+            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
         }
 
         /// <summary>
@@ -273,26 +156,11 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         public async Task<string> GetMarketIndexInfoAsync(CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var apiUrl = $"{BaseUrl}/exchangeReport/MI_INDEX";
-                var today = DateTime.Now.ToString("yyyyMMdd");
-                var requestUrl = $"{apiUrl}?response=json&date={today}&type=ALLBUT0999";
-                
-                SetUserAgent();
-                using var response = await _httpClient.GetAsync(requestUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    // Return first 1000 characters to avoid overwhelming the analysis
-                    return content.Length > 1000 ? content.Substring(0, 1000) + "..." : content;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get market index info");
-            }
-            return string.Empty;
+            var today = DateTime.Now.ToString("yyyyMMdd");
+            var requestUrl = $"{BaseUrl}/exchangeReport/MI_INDEX?response=json&date={today}&type=ALLBUT0999";
+            var content = await FetchRawWithCacheAsync(requestUrl, "MI_INDEX", cancellationToken);
+            // Truncate to avoid overwhelming the analysis.
+            return content.Length > 1000 ? content.Substring(0, 1000) + "..." : content;
         }
 
         /// <summary>
@@ -300,23 +168,8 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         public async Task<string> GetMonthlyRevenueAsync(string stockCode, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var apiUrl = $"{BaseUrl}/opendata/t187ap05_L";
-                
-                SetUserAgent();
-                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return FilterStockDataByCode(content, stockCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get monthly revenue for stock {stockCode}", stockCode);
-            }
-            return string.Empty;
+            var content = await FetchRawWithCacheAsync($"{BaseUrl}/opendata/t187ap05_L", "t187ap05_L", cancellationToken);
+            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
         }
 
         /// <summary>
@@ -324,23 +177,8 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         public async Task<string> GetIncomeStatementAsync(string stockCode, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var apiUrl = $"{BaseUrl}/opendata/t187ap06_L_ci";
-                
-                SetUserAgent();
-                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return FilterStockDataByCode(content, stockCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get income statement for stock {stockCode}", stockCode);
-            }
-            return string.Empty;
+            var content = await FetchRawWithCacheAsync($"{BaseUrl}/opendata/t187ap06_L_ci", "t187ap06_L_ci", cancellationToken);
+            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
         }
 
         /// <summary>
@@ -348,32 +186,48 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         public async Task<string> GetBalanceSheetAsync(string stockCode, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var apiUrl = $"{BaseUrl}/opendata/t187ap07_L_ci";
-                
-                SetUserAgent();
-                using var response = await _httpClient.GetAsync(apiUrl, cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return FilterStockDataByCode(content, stockCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get balance sheet for stock {stockCode}", stockCode);
-            }
-            return string.Empty;
+            var content = await FetchRawWithCacheAsync($"{BaseUrl}/opendata/t187ap07_L_ci", "t187ap07_L_ci", cancellationToken);
+            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
         }
 
         /// <summary>
-        /// Sets the User-Agent header for HTTP requests.
+        /// Fetches a TWSE endpoint's raw JSON, cached by date. The arrays are market-wide and
+        /// identical across stocks, so caching here removes repeated full-market downloads.
+        /// User-Agent is set per-request (not on the shared HttpClient) so concurrent calls are
+        /// thread-safe — mutating DefaultRequestHeaders while parallel requests are in flight races.
         /// </summary>
-        private void SetUserAgent()
+        private async Task<string> FetchRawWithCacheAsync(string url, string cacheKey, CancellationToken ct)
         {
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent);
+            var datedKey = $"TWSERaw_{cacheKey}_{DateTime.Today:yyyyMMdd}";
+            if (_memoryCache.TryGetValue(datedKey, out string? cached) && !string.IsNullOrEmpty(cached))
+            {
+                return cached;
+            }
+
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
+
+                using var response = await _httpClient.SendAsync(request, ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("TWSE API {cacheKey} returned {status}", cacheKey, response.StatusCode);
+                    return string.Empty;
+                }
+
+                var content = await response.Content.ReadAsStringAsync(ct);
+                if (!string.IsNullOrWhiteSpace(content))
+                {
+                    _memoryCache.Set(datedKey, content, TimeSpan.FromHours(CacheHours));
+                }
+                return content;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch TWSE API {cacheKey}", cacheKey);
+                return string.Empty;
+            }
         }
 
         /// <summary>
@@ -384,19 +238,19 @@ namespace JackyAIApp.Server.Services.Finance
             try
             {
                 var jsonDoc = JsonDocument.Parse(jsonContent);
-                
+
                 // Handle direct array response
                 if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
                 {
                     return FilterArrayData(jsonDoc.RootElement, stockCode);
                 }
-                
+
                 // Handle object with data property
                 if (jsonDoc.RootElement.TryGetProperty("data", out var dataArray) && dataArray.ValueKind == JsonValueKind.Array)
                 {
                     return FilterArrayData(dataArray, stockCode);
                 }
-                
+
                 // If no filtering possible, return original content truncated
                 return jsonContent.Length > 1000 ? jsonContent.Substring(0, 1000) + "..." : jsonContent;
             }
@@ -424,7 +278,7 @@ namespace JackyAIApp.Server.Services.Finance
                             return FormatJsonAsKeyValuePairs(item);
                         }
                     }
-                    
+
                     // Also check for "Code" field (some APIs use English)
                     if (item.TryGetProperty("Code", out var codeField))
                     {
@@ -433,7 +287,7 @@ namespace JackyAIApp.Server.Services.Finance
                             return FormatJsonAsKeyValuePairs(item);
                         }
                     }
-                    
+
                     // Check for stock symbol/number fields
                     if (item.TryGetProperty("證券代號", out var stockSymbol))
                     {
@@ -444,7 +298,7 @@ namespace JackyAIApp.Server.Services.Finance
                     }
                 }
             }
-            
+
             // No exact match found
             return $"No data found for stock code: {stockCode}";
         }
@@ -455,7 +309,7 @@ namespace JackyAIApp.Server.Services.Finance
         private string FormatJsonAsKeyValuePairs(JsonElement jsonElement)
         {
             var result = new StringBuilder();
-            
+
             foreach (var property in jsonElement.EnumerateObject())
             {
                 var value = property.Value.ValueKind switch
@@ -467,12 +321,11 @@ namespace JackyAIApp.Server.Services.Finance
                     JsonValueKind.Null => "null",
                     _ => property.Value.GetRawText()
                 };
-                
+
                 result.AppendLine($"{property.Name}: {value}");
             }
-            
+
             return result.ToString();
         }
-
     }
 }

@@ -117,29 +117,23 @@ namespace JackyAIApp.Server.Services.Finance
 
                 _logger.LogInformation("Fetching new stock analysis for stock: {stockCode}, date: {date}", resolvedStockCode, currentDate);
 
-                var stockData = await _twseApiService.GetStockDataAsync(resolvedStockCode, timeoutCts.Token);
+                // Gather the raw TWSE data and the quantitative indicators concurrently — they are
+                // independent (and share a date-keyed cache), so there's no reason to run them in
+                // series. The quant build is best-effort: failure just omits the structured context.
+                var stockDataTask = _twseApiService.GetStockDataAsync(resolvedStockCode, timeoutCts.Token);
+                var quantTask = BuildQuantitativeContextSafeAsync(resolvedStockCode, timeoutCts.Token);
+                await Task.WhenAll(stockDataTask, quantTask);
+
+                var stockData = await stockDataTask;
                 if (string.IsNullOrEmpty(stockData))
                 {
                     return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Failed to retrieve stock data from TWSE APIs for stock code '{resolvedStockCode}'. TWSE API endpoints may be unavailable or returned empty data.");
                 }
 
-                // Append quantitative analysis results to provide AI with structured indicators
-                try
+                var quantResult = await quantTask;
+                if (quantResult != null)
                 {
-                    var quantResult = await _analysisBuilder
-                        .ForStock(resolvedStockCode)
-                        .WithTechnical(true)
-                        .WithChip(true)
-                        .WithFundamental(true)
-                        .WithScoring(true)
-                        .WithRisk(true)
-                        .BuildAsync(timeoutCts.Token);
-
                     stockData += FormatQuantitativeContext(quantResult);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Quantitative analysis failed for {stockCode}, proceeding with raw data only", resolvedStockCode);
                 }
 
                 var userId = _userService.GetUserId() ?? "anonymous";
@@ -374,6 +368,30 @@ namespace JackyAIApp.Server.Services.Finance
             {
                 _logger.LogError(ex, "Failed to fetch macro economy data");
                 return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to fetch macro economy data: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Builds the full quantitative analysis for AI context. Best-effort: returns null (and
+        /// logs) on failure so the AI analysis can still proceed with the raw TWSE data.
+        /// </summary>
+        private async Task<StockAnalysisResult?> BuildQuantitativeContextSafeAsync(string stockCode, CancellationToken ct)
+        {
+            try
+            {
+                return await _analysisBuilder
+                    .ForStock(stockCode)
+                    .WithTechnical(true)
+                    .WithChip(true)
+                    .WithFundamental(true)
+                    .WithScoring(true)
+                    .WithRisk(true)
+                    .BuildAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Quantitative analysis failed for {stockCode}, proceeding with raw data only", stockCode);
+                return null;
             }
         }
 
