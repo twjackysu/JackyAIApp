@@ -3,6 +3,7 @@ using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Prompt;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
@@ -22,133 +23,69 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly ILogger<FinanceAnalysisService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IOptionsMonitor<Settings> _settings;
+        private readonly IOpenAIPromptService _openAIPromptService;
         private const string ASSISTANT_ID = "asst_5vCsMPtNXvVfsbptyZakpr2m";
         private const int MAX_RETRY_ATTEMPTS = 3;
         private const int MAX_ITEMS_PER_CHUNK = 30; // Adjustable chunk size
-        private const string DIFY_API_URL = "https://api.dify.ai/v1/chat-messages";
+
+        /// <summary>
+        /// Model used for per-stock AI trend analysis. Swap to <see cref="NewModels.GPT_5_NANO"/>
+        /// for a stronger (but pricier) analyst. GPT_4_1_NANO is currently the cheapest.
+        /// </summary>
+        private const string TrendAnalysisModel = NewModels.GPT_4_1_NANO;
 
         public FinanceAnalysisService(
             IOpenAIService openAIService,
             IPromptLoader promptLoader,
             ILogger<FinanceAnalysisService> logger,
             IHttpClientFactory httpClientFactory,
-            IOptionsMonitor<Settings> settings)
+            IOptionsMonitor<Settings> settings,
+            IOpenAIPromptService openAIPromptService)
         {
             _openAIService = openAIService ?? throw new ArgumentNullException(nameof(openAIService));
             _promptLoader = promptLoader ?? throw new ArgumentNullException(nameof(promptLoader));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _openAIPromptService = openAIPromptService ?? throw new ArgumentNullException(nameof(openAIPromptService));
         }
 
         /// <summary>
-        /// Analyzes stock data using Dify AI to generate trend predictions.
+        /// Analyzes stock data with OpenAI to generate a fixed-format trend prediction.
+        /// The system prompt (StockAnalysisSystem.txt) constrains the model to return the exact
+        /// <see cref="StockTrendAnalysis"/> JSON shape, so no chat/streaming is involved.
         /// </summary>
         public async Task<(StockTrendAnalysis? analysis, string? errorDetail)> AnalyzeStockWithAIAsync(string stockCodeOrName, string stockData, string userId, CancellationToken cancellationToken = default)
         {
-            var difyApiKey = _settings.CurrentValue.DifyApiKey2;
-            if (string.IsNullOrEmpty(difyApiKey))
-            {
-                return (null, "DifyApiKey2 is not configured in settings");
-            }
+            // The system prompt references the data sections (technical/chip/fundamental by
+            // timeframe) that GetStockDataAsync produced; pass them as the user message.
+            var userMessage = $"請分析股票「{stockCodeOrName}」，以下是依時間維度整理的資料：\n\n{stockData}";
 
+            string? lastError = null;
             for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++)
             {
-                try
+                var (analysis, error) = await _openAIPromptService.GetCompletionAsync<StockTrendAnalysis>(
+                    "Prompt/Finance/StockAnalysisSystem.txt",
+                    userMessage,
+                    TrendAnalysisModel);
+
+                if (analysis != null)
                 {
-                    var httpClient = _httpClientFactory.CreateClient();
-
-                    var request = new DifyChatRequest
-                    {
-                        Inputs = new Dictionary<string, string>
-                        {
-                            { "company_context", stockData }
-                        },
-                        Query = stockCodeOrName,
-                        ResponseMode = "blocking",
-                        ConversationId = "",
-                        User = userId,
-                        Files = new List<object>()
-                    };
-
-                    var jsonContent = System.Text.Json.JsonSerializer.Serialize(request);
-                    var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-                    var httpRequestMessage = new HttpRequestMessage(HttpMethod.Post, DIFY_API_URL)
-                    {
-                        Content = httpContent
-                    };
-                    httpRequestMessage.Headers.Add("Authorization", $"Bearer {difyApiKey}");
-
-                    var response = await httpClient.SendAsync(httpRequestMessage, cancellationToken);
-                    var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        var errorDetail = $"Dify API failed (Attempt {attempt}/{MAX_RETRY_ATTEMPTS}): Status {response.StatusCode}, Response: {responseContent}";
-                        _logger.LogError("Dify API call failed for stock {stockCode}: {error}", stockCodeOrName, errorDetail);
-                        if (attempt == MAX_RETRY_ATTEMPTS)
-                        {
-                            return (null, errorDetail);
-                        }
-                        await Task.Delay(1000 * attempt, cancellationToken);
-                        continue;
-                    }
-
-                    var difyResponse = System.Text.Json.JsonSerializer.Deserialize<DifyChatResponse>(responseContent);
-                    var content = difyResponse?.Answer ?? "";
-                    content = content.Replace("```json", "").Replace("```", "").Trim();
-
-                    if (string.IsNullOrEmpty(content))
-                    {
-                        var errorDetail = $"Dify API returned empty content (Attempt {attempt}/{MAX_RETRY_ATTEMPTS})";
-                        if (attempt == MAX_RETRY_ATTEMPTS)
-                        {
-                            return (null, errorDetail);
-                        }
-                        continue;
-                    }
-
-                    try
-                    {
-                        var analysis = JsonConvert.DeserializeObject<StockTrendAnalysis>(content);
-                        if (analysis != null)
-                        {
-                            analysis.LastUpdated = DateTime.UtcNow;
-                            _logger.LogInformation("Successfully analyzed stock {stockCode} using Dify API", stockCodeOrName);
-                            return (analysis, null);
-                        }
-                        else
-                        {
-                            var errorDetail = $"Failed to deserialize Dify response to StockTrendAnalysis (Attempt {attempt}/{MAX_RETRY_ATTEMPTS}). Content: {content.Substring(0, Math.Min(content.Length, 200))}...";
-                            if (attempt == MAX_RETRY_ATTEMPTS)
-                            {
-                                return (null, errorDetail);
-                            }
-                        }
-                    }
-                    catch (Newtonsoft.Json.JsonException jsonEx)
-                    {
-                        var errorDetail = $"JSON deserialization failed (Attempt {attempt}/{MAX_RETRY_ATTEMPTS}): {jsonEx.Message}. Content: {content.Substring(0, Math.Min(content.Length, 200))}...";
-                        if (attempt == MAX_RETRY_ATTEMPTS)
-                        {
-                            return (null, errorDetail);
-                        }
-                    }
+                    analysis.LastUpdated = DateTime.UtcNow;
+                    _logger.LogInformation("Successfully analyzed stock {stockCode} using OpenAI ({model})",
+                        stockCodeOrName, TrendAnalysisModel);
+                    return (analysis, null);
                 }
-                catch (Exception ex)
-                {
-                    var errorDetail = $"Unexpected error (Attempt {attempt}/{MAX_RETRY_ATTEMPTS}): {ex.Message}. Stack trace: {ex.StackTrace}";
-                    _logger.LogWarning(ex, "Stock analysis attempt {attempt} failed for {stockCode}", attempt, stockCodeOrName);
-                    if (attempt == MAX_RETRY_ATTEMPTS)
-                    {
-                        return (null, errorDetail);
-                    }
+
+                lastError = error ?? "OpenAI returned no analysis";
+                _logger.LogWarning("Stock analysis attempt {attempt}/{max} failed for {stockCode}: {error}",
+                    attempt, MAX_RETRY_ATTEMPTS, stockCodeOrName, lastError);
+
+                if (attempt < MAX_RETRY_ATTEMPTS)
                     await Task.Delay(1000 * attempt, cancellationToken);
-                }
             }
 
-            return (null, "Analysis failed after all retry attempts");
+            return (null, lastError ?? "Analysis failed after all retry attempts");
         }
 
         /// <summary>
