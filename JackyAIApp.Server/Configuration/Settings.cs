@@ -4,7 +4,6 @@
     {
         public required Google Google { get; set; }
         public string? DifyApiKey { get; set; }
-        public string? DifyApiKey2 { get; set; }
     }
     public class Google
     {
