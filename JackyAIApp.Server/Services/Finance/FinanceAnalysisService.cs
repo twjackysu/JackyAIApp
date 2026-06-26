@@ -21,6 +21,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly IOpenAIPromptService _openAIPromptService;
         private const int MAX_RETRY_ATTEMPTS = 3;
         private const int MAX_ITEMS_PER_CHUNK = 30; // Adjustable chunk size
+        private const int MAX_PARALLEL_CHUNKS = 5;  // Cap concurrent gpt calls (OpenAI rate limits)
 
         /// <summary>
         /// Model used for per-stock AI trend analysis. Swap to <see cref="NewModels.GPT_5_NANO"/>
@@ -87,7 +88,6 @@ namespace JackyAIApp.Server.Services.Finance
             {
                 // Split data into safe chunks
                 var chunks = SplitJsonArraySafely(rawData, MAX_ITEMS_PER_CHUNK);
-                var allInsights = new List<StrategicInsight>();
 
                 var systemPrompt = _promptLoader.GetPrompt("Prompt/Finance/DailyImportantInfoSystem.txt");
                 if (string.IsNullOrEmpty(systemPrompt))
@@ -96,15 +96,28 @@ namespace JackyAIApp.Server.Services.Finance
                     return null;
                 }
 
-                // Process each chunk
-                foreach (var chunk in chunks)
+                // Process chunks in parallel — they're independent gpt calls, so running them in
+                // series (the old behaviour) made the daily summary as slow as the sum of all
+                // chunks. A semaphore caps concurrency to stay within OpenAI rate limits.
+                using var gate = new SemaphoreSlim(MAX_PARALLEL_CHUNKS);
+                var chunkTasks = chunks.Select(async chunk =>
                 {
-                    var chunkInsights = await ProcessChunkWithRetry(systemPrompt, chunk, cancellationToken);
-                    if (chunkInsights != null)
+                    await gate.WaitAsync(cancellationToken);
+                    try
                     {
-                        allInsights.AddRange(chunkInsights);
+                        return await ProcessChunkWithRetry(systemPrompt, chunk, cancellationToken);
                     }
-                }
+                    finally
+                    {
+                        gate.Release();
+                    }
+                });
+                var chunkResults = await Task.WhenAll(chunkTasks);
+
+                var allInsights = chunkResults
+                    .Where(r => r != null)
+                    .SelectMany(r => r!)
+                    .ToList();
 
                 return allInsights.Count > 0 ? allInsights : null;
             }
