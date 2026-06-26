@@ -1,30 +1,24 @@
 using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
-using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Prompt;
-using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Text;
-using System.Text.Json;
 
 namespace JackyAIApp.Server.Services.Finance
 {
     /// <summary>
-    /// Service for financial analysis using OpenAI and Dify.
+    /// Service for financial analysis using OpenAI: per-stock trend analysis (structured JSON)
+    /// and the daily market summary (chunked chat completions).
     /// </summary>
     public class FinanceAnalysisService : IFinanceAnalysisService
     {
         private readonly IOpenAIService _openAIService;
         private readonly IPromptLoader _promptLoader;
         private readonly ILogger<FinanceAnalysisService> _logger;
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IOptionsMonitor<Settings> _settings;
         private readonly IOpenAIPromptService _openAIPromptService;
-        private const string ASSISTANT_ID = "asst_5vCsMPtNXvVfsbptyZakpr2m";
         private const int MAX_RETRY_ATTEMPTS = 3;
         private const int MAX_ITEMS_PER_CHUNK = 30; // Adjustable chunk size
 
@@ -38,15 +32,11 @@ namespace JackyAIApp.Server.Services.Finance
             IOpenAIService openAIService,
             IPromptLoader promptLoader,
             ILogger<FinanceAnalysisService> logger,
-            IHttpClientFactory httpClientFactory,
-            IOptionsMonitor<Settings> settings,
             IOpenAIPromptService openAIPromptService)
         {
             _openAIService = openAIService ?? throw new ArgumentNullException(nameof(openAIService));
             _promptLoader = promptLoader ?? throw new ArgumentNullException(nameof(promptLoader));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
-            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _openAIPromptService = openAIPromptService ?? throw new ArgumentNullException(nameof(openAIPromptService));
         }
 
@@ -86,151 +76,6 @@ namespace JackyAIApp.Server.Services.Finance
             }
 
             return (null, lastError ?? "Analysis failed after all retry attempts");
-        }
-
-        /// <summary>
-        /// Runs financial analysis with timeout and retry mechanism.
-        /// </summary>
-        public async Task<List<StrategicInsight>?> RunFinancialAnalysisAsync(string fileId, CancellationToken cancellationToken = default)
-        {
-            for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++)
-            {
-                try
-                {
-                    var createThreadAndRunResponse = await _openAIService.Beta.Runs.CreateThreadAndRun(new CreateThreadAndRunRequest
-                    {
-                        AssistantId = ASSISTANT_ID,
-                        Thread = new ThreadCreateRequest
-                        {
-                            Messages = new List<MessageCreateRequest>
-                            {
-                                new MessageCreateRequest
-                                {
-                                    Role = "user",
-                                    Content = new MessageContentOneOfType(new List<MessageContent>
-                                    {
-                                        MessageContent.TextContent("Analyze today's major news about listed companies and provide strategic insights for all companies with significant investment implications.")
-                                    }),
-                                    Attachments = new List<Attachment>
-                                    {
-                                        new Attachment
-                                        {
-                                            FileId = fileId,
-                                            Tools = new List<ToolDefinition>
-                                            {
-                                                new ToolDefinition { Type = "file_search" }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-
-                    if (!createThreadAndRunResponse.Successful)
-                    {
-                        if (attempt == MAX_RETRY_ATTEMPTS) return null;
-                        await Task.Delay(1000 * attempt, cancellationToken);
-                        continue;
-                    }
-
-                    string threadId = createThreadAndRunResponse.ThreadId;
-                    string runId = createThreadAndRunResponse.Id;
-
-                    // Monitor run status with timeout
-                    var maxAnalysisTime = TimeSpan.FromMinutes(5);
-                    var startTime = DateTime.UtcNow;
-                    var delay = TimeSpan.FromSeconds(3);
-                    var maxDelay = TimeSpan.FromSeconds(15);
-
-                    while (DateTime.UtcNow - startTime < maxAnalysisTime)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        await Task.Delay(delay, cancellationToken);
-
-                        var runStatusResponse = await _openAIService.Beta.Runs.RunRetrieve(threadId, runId);
-
-                        if (runStatusResponse.Status == "completed")
-                        {
-                            return await ProcessAnalysisResultAsync(threadId);
-                        }
-
-                        if (runStatusResponse.Status == "failed" || runStatusResponse.Status == "cancelled")
-                        {
-                            _logger.LogWarning("Analysis run failed with status: {status}", runStatusResponse.Status);
-                            break;
-                        }
-
-                        // Exponential backoff
-                        delay = TimeSpan.FromMilliseconds(Math.Min(delay.TotalMilliseconds * 1.2, maxDelay.TotalMilliseconds));
-                    }
-
-                    if (attempt == MAX_RETRY_ATTEMPTS)
-                    {
-                        _logger.LogError("Analysis timed out after {minutes} minutes", maxAnalysisTime.TotalMinutes);
-                        return null;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Analysis attempt {attempt} failed", attempt);
-                    if (attempt == MAX_RETRY_ATTEMPTS) return null;
-                    await Task.Delay(1000 * attempt, cancellationToken);
-                }
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Processes the analysis result from OpenAI messages.
-        /// </summary>
-        public async Task<List<StrategicInsight>?> ProcessAnalysisResultAsync(string threadId)
-        {
-            try
-            {
-                var getMessageListResponse = await _openAIService.Beta.Messages.ListMessages(threadId);
-
-                if (!getMessageListResponse.Successful)
-                {
-                    return null;
-                }
-
-                _logger.LogInformation("Generate financial analysis result: {json}",
-                    JsonConvert.SerializeObject(getMessageListResponse.Data, Formatting.Indented));
-
-                var content = getMessageListResponse.Data?.FirstOrDefault()?.Content?.FirstOrDefault()?.Text?.Value ?? "";
-                content = content.Replace("```json", "").Replace("```", "").Trim();
-
-                if (string.IsNullOrEmpty(content))
-                {
-                    return null;
-                }
-
-                // Handle both direct array format and wrapped object format
-                try
-                {
-                    // Try direct array format first
-                    return JsonConvert.DeserializeObject<List<StrategicInsight>>(content);
-                }
-                catch (Newtonsoft.Json.JsonException)
-                {
-                    // If that fails, try wrapped object format
-                    var wrappedResult = JsonConvert.DeserializeObject<dynamic>(content);
-                    if (wrappedResult?.result != null)
-                    {
-                        var resultArray = wrappedResult.result.ToString();
-                        return JsonConvert.DeserializeObject<List<StrategicInsight>>(resultArray);
-                    }
-                    throw;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to process analysis result");
-                return null;
-            }
         }
 
         /// <summary>
