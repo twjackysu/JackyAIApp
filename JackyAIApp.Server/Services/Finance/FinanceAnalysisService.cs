@@ -176,9 +176,9 @@ namespace JackyAIApp.Server.Services.Finance
                             ChatMessage.FromSystem(systemPrompt),
                             ChatMessage.FromUser($"請分析以下台股重大訊息資料：\n\n{chunkData}")
                         },
-                        Model = Models.Gpt_4o_mini,
-                        Temperature = 0.3f,
-                        MaxTokens = 4000
+                        // GPT-5 nano: cheaper than 4o-mini and the codebase's nano standard.
+                        // Note: GPT-5 models reject custom Temperature/MaxTokens, so omit them.
+                        Model = NewModels.GPT_5_NANO
                     };
 
                     var completionResponse = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
