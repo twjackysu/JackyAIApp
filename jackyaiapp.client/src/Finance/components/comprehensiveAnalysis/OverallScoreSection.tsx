@@ -10,8 +10,8 @@ import {
   getDirectionColor,
   getDirectionLabel,
   getDirectionChipColor,
-  getDirectionEmoji,
 } from '../../utils/financeHelpers';
+import { DirectionIcon } from '../financeIcons';
 import ScoreGauge from '../ScoreGauge';
 
 import type { StockAnalysisResultData } from '@/apis/financeApis/types';
@@ -56,7 +56,7 @@ export const OverallScoreSection = ({ data }: { data: StockAnalysisResultData })
                 }}
               >
                 <Chip
-                  label={data.market === 'US' ? '🇺🇸 US' : '🇹🇼 TW'}
+                  label={data.market === 'US' ? 'US' : 'TW'}
                   size="small"
                   variant="outlined"
                   sx={{ fontWeight: 'bold' }}
@@ -71,7 +71,8 @@ export const OverallScoreSection = ({ data }: { data: StockAnalysisResultData })
                 </Typography>
                 {scoring && (
                   <Chip
-                    label={`${getDirectionEmoji(scoring.overallDirection)} ${getDirectionLabel(scoring.overallDirection)}`}
+                    icon={<DirectionIcon direction={scoring.overallDirection} />}
+                    label={getDirectionLabel(scoring.overallDirection)}
                     color={getDirectionChipColor(scoring.overallDirection)}
                     variant="filled"
                     sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}

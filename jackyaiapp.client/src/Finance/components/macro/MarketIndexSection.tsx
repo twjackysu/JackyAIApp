@@ -1,3 +1,4 @@
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Divider from '@mui/material/Divider';
@@ -18,9 +19,12 @@ export const MarketIndexSection = ({ data }: { data: MarketIndexDay[] }) => {
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          📈 加權指數 (TAIEX)
-        </Typography>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
+          <ShowChartIcon fontSize="small" color="action" />
+          <Typography variant="subtitle2" color="text.secondary">
+            加權指數 (TAIEX)
+          </Typography>
+        </Stack>
         <Typography
           variant="h4"
           sx={{

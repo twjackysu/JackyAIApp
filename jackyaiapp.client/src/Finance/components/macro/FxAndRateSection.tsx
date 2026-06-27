@@ -1,3 +1,4 @@
+import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
@@ -17,9 +18,12 @@ export const FxAndRateSection = ({ data }: { data: MacroEconomyData }) => {
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          💱 匯率與利率
-        </Typography>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
+          <CurrencyExchangeIcon fontSize="small" color="action" />
+          <Typography variant="subtitle2" color="text.secondary">
+            匯率與利率
+          </Typography>
+        </Stack>
         {data.exchangeRates.length > 0 && (
           <TableContainer>
             <Table size="small">

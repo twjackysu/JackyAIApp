@@ -1,8 +1,10 @@
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 import Box from '@mui/material/Box';
 import { green, grey, red } from '@mui/material/colors';
 import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
 import Skeleton from '@mui/material/Skeleton';
+import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import type { MarketQuote } from '@/apis/financeApis/types';
@@ -11,10 +13,10 @@ import { useGetMarketOverviewQuery } from '@/apis/financeApis';
 
 /** Display order + labels for the dashboard groups. */
 const GROUPS: { key: string; label: string }[] = [
-  { key: 'US', label: '📈 美國' },
-  { key: 'TW', label: '🇹🇼 台灣' },
-  { key: 'FX', label: '💵 匯率' },
-  { key: 'Other', label: '🪙 其他' },
+  { key: 'US', label: '美國' },
+  { key: 'TW', label: '台灣' },
+  { key: 'FX', label: '匯率' },
+  { key: 'Other', label: '其他' },
 ];
 
 const formatPrice = (price: number | null): string => {
@@ -63,9 +65,12 @@ export const MarketOverview = () => {
   if (isLoading) {
     return (
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
-          📊 市場儀表板
-        </Typography>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 1 }}>
+          <ShowChartIcon fontSize="small" />
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+            市場儀表板
+          </Typography>
+        </Stack>
         <Grid container spacing={1.5}>
           {Array.from({ length: 8 }).map((_, i) => (
             <Grid key={i} size={{ xs: 6, sm: 4, md: 3 }}>
@@ -82,9 +87,12 @@ export const MarketOverview = () => {
 
   return (
     <Box sx={{ mb: 3 }}>
-      <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
-        📊 市場儀表板
-      </Typography>
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 1 }}>
+        <ShowChartIcon fontSize="small" />
+        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+          市場儀表板
+        </Typography>
+      </Stack>
       {GROUPS.map(({ key, label }) => {
         const groupQuotes = quotes.filter((q) => q.group === key);
         if (groupQuotes.length === 0) return null;
