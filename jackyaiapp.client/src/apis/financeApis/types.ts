@@ -169,3 +169,21 @@ export interface MacroEconomyData {
   bankRate: BankRate | null;
   generatedAt: string;
 }
+
+// === Market Overview (dashboard) Types ===
+
+export type MarketGroup = 'US' | 'TW' | 'FX' | 'Other';
+
+export interface MarketQuote {
+  symbol: string;
+  name: string;
+  group: MarketGroup | string;
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+}
+
+export interface MarketOverviewData {
+  quotes: MarketQuote[];
+  generatedAt: string;
+}

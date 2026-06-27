@@ -19,6 +19,7 @@ import {
   ComprehensiveAnalysisResult,
   AnalysisConfigPanel,
   MacroEconomyOverview,
+  MarketOverview,
 } from './components';
 import { MarketSummaryTab } from './components/MarketSummaryTab';
 import {
@@ -89,8 +90,13 @@ function Finance() {
           {currentDate}
         </Typography>
       </Stack>
-      {/* Macro Economy Overview — shown before search results */}
-      {!hasStockResults && <MacroEconomyOverview />}
+      {/* Market dashboard + macro overview — the glanceable landing, shown before search results */}
+      {!hasStockResults && (
+        <>
+          <MarketOverview />
+          <MacroEconomyOverview />
+        </>
+      )}
       {/* Tabs */}
       <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 2, border: '1px solid', borderColor: 'divider' }}>
         <Tabs
