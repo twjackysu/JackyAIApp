@@ -20,6 +20,7 @@ import {
   AnalysisConfigPanel,
   MacroEconomyOverview,
   MarketOverview,
+  IndicatorExplorer,
 } from './components';
 import { MarketSummaryTab } from './components/MarketSummaryTab';
 import {
@@ -27,6 +28,7 @@ import {
   TAB_QUANTITATIVE,
   TAB_AI_TREND,
   TAB_MARKET_SUMMARY,
+  TAB_INDICATORS,
 } from './hooks/useFinanceAnalysis';
 
 function Finance() {
@@ -90,8 +92,9 @@ function Finance() {
           {currentDate}
         </Typography>
       </Stack>
-      {/* Market dashboard + macro overview — the glanceable landing, shown before search results */}
-      {!hasStockResults && (
+      {/* Market dashboard + macro overview — the glanceable landing, shown before search results
+          (hidden on the Indicators tab, which is its own focused explorer). */}
+      {!hasStockResults && analysisTab !== TAB_INDICATORS && (
         <>
           <MarketOverview />
           <MacroEconomyOverview />
@@ -110,6 +113,7 @@ function Finance() {
           <Tab label="📊 綜合量化分析" />
           <Tab label="🤖 AI 趨勢分析" />
           <Tab label="📰 今日市場AI摘要" />
+          <Tab label="📈 關鍵指標" />
         </Tabs>
 
         {/* Login prompt for AI tabs */}
@@ -271,6 +275,8 @@ function Finance() {
       {/* Stock analysis results */}
       {searchResults && <StockAnalysisResult data={searchResults} />}
       {analysisResults && <ComprehensiveAnalysisResult data={analysisResults} />}
+      {/* Indicator Explorer Tab Content */}
+      {analysisTab === TAB_INDICATORS && <IndicatorExplorer />}
       {/* Market Summary Tab Content */}
       {analysisTab === TAB_MARKET_SUMMARY && (
         <MarketSummaryTab
