@@ -27,6 +27,7 @@ namespace JackyAIApp.Server.Services.Finance
         IMacroEconomyProvider macroEconomyProvider,
         IMarketOverviewProvider marketOverviewProvider,
         IIndicatorProvider indicatorProvider,
+        IFinnhubNewsProvider finnhubNewsProvider,
         IOpenAIPromptService openAIPromptService,
         IMarketDataProviderFactory providerFactory) : IFinanceQueryService
     {
@@ -45,6 +46,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly IMacroEconomyProvider _macroEconomyProvider = macroEconomyProvider;
         private readonly IMarketOverviewProvider _marketOverviewProvider = marketOverviewProvider;
         private readonly IIndicatorProvider _indicatorProvider = indicatorProvider;
+        private readonly IFinnhubNewsProvider _finnhubNewsProvider = finnhubNewsProvider;
         private readonly IOpenAIPromptService _openAIPromptService = openAIPromptService;
         private readonly IMarketDataProviderFactory _providerFactory = providerFactory;
 
@@ -405,8 +407,15 @@ namespace JackyAIApp.Server.Services.Finance
             if (_memoryCache.TryGetValue(cacheKey, out object? cached))
                 return ServiceResult.Ok(cached);
 
-            // Ground the AI in the day's actual market data (reuses the cached overview).
-            var overviewResult = await GetMarketOverviewAsync(cancellationToken);
+            // Fetch market data and news in parallel (news is best-effort).
+            var overviewTask = GetMarketOverviewAsync(cancellationToken);
+            var newsTask = _finnhubNewsProvider.IsConfigured
+                ? _finnhubNewsProvider.FetchAsync(cancellationToken)
+                : Task.FromResult<IReadOnlyList<FinnhubNewsItem>>([]);
+
+            await Task.WhenAll(overviewTask, newsTask);
+
+            var overviewResult = overviewTask.Result;
             if (!overviewResult.IsSuccess)
                 return overviewResult;
 
@@ -423,12 +432,22 @@ namespace JackyAIApp.Server.Services.Finance
                 return $"{q.Name}: {price}{pct}";
             }));
 
+            var news = newsTask.Result;
+            var newsSection = news.Count > 0
+                ? "\n\n今日財經新聞（用於解讀市場移動原因）：\n" +
+                  string.Join("\n", news.Select((n, i) =>
+                      $"{i + 1}. [{n.Source}] {n.Headline}" +
+                      (string.IsNullOrWhiteSpace(n.Summary) ? "" : $"：{n.Summary}")))
+                : "";
+
             var systemPrompt =
-                "你是專業市場策略師。根據提供的『今日市場數據（含當日漲跌幅）』，挑出 3~5 個今天真正重要、" +
-                "值得投資人注意的重點。每個重點：一句精簡標題 + 一句白話說明，並標註偏多/偏空/中性。" +
-                "請務必只根據提供的數據推論，不要編造未提供的事件（例如財報、發言、新聞）。全部用繁體中文。" +
+                "你是專業市場策略師。根據提供的今日市場數據與財經新聞，寫出 3~5 個跨市場的因果觀察——" +
+                "不要逐項描述個別數字（使用者已看到數字），而是挖掘數字背後的訊號與原因：" +
+                "例如新聞事件如何驅動市場移動、多個指標同向代表什麼情緒、不同市場之間的牽動關係、對台灣投資人的實際含義。" +
+                "每個重點：一句點出關鍵訊號或原因的標題 + 一句說明因果或含義，並標註偏多/偏空/中性。" +
+                "只根據提供的數據與新聞推論，不編造未提供的事件。全部用繁體中文。" +
                 "只回傳 JSON：{\"points\":[{\"headline\":\"\",\"detail\":\"\",\"sentiment\":\"bullish|bearish|neutral\"}]}。";
-            var userMessage = $"今日市場數據：\n{dataText}";
+            var userMessage = $"今日市場數據：\n{dataText}{newsSection}";
 
             try
             {

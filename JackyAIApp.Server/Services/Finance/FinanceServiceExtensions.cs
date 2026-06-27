@@ -75,6 +75,9 @@ namespace JackyAIApp.Server.Services.Finance
             // Indicator Explorer provider (FRED)
             services.AddScoped<IIndicatorProvider, FredIndicatorProvider>();
 
+            // Market news provider (Finnhub) — used by Market Brief
+            services.AddScoped<IFinnhubNewsProvider, FinnhubNewsProvider>();
+
             // === US market data providers ===
             services.AddScoped<YahooFinanceMarketDataProvider>();
             services.AddScoped<SECFundamentalDataProvider>();
