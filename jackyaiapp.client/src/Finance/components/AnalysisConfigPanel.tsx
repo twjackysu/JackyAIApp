@@ -43,7 +43,7 @@ export const AnalysisConfigPanel = ({ config, onChange }: Props) => {
             fontWeight: 'bold',
           }}
         >
-          ⚙️ 分析設定
+          分析設定
         </Typography>
       </AccordionSummary>
       <AccordionDetails>
@@ -71,13 +71,13 @@ export const AnalysisConfigPanel = ({ config, onChange }: Props) => {
                     onChange={() => toggle('includeTechnical')}
                   />
                 }
-                label="📊 技術面指標"
+                label="技術面指標"
               />
               <FormControlLabel
                 control={
                   <Checkbox checked={config.includeChip} onChange={() => toggle('includeChip')} />
                 }
-                label="🏦 籌碼面指標"
+                label="籌碼面指標"
               />
               <FormControlLabel
                 control={
@@ -86,7 +86,7 @@ export const AnalysisConfigPanel = ({ config, onChange }: Props) => {
                     onChange={() => toggle('includeFundamental')}
                   />
                 }
-                label="📋 基本面指標"
+                label="基本面指標"
               />
               <FormControlLabel
                 control={
@@ -95,13 +95,13 @@ export const AnalysisConfigPanel = ({ config, onChange }: Props) => {
                     onChange={() => toggle('includeScoring')}
                   />
                 }
-                label="🎯 綜合評分"
+                label="綜合評分"
               />
               <FormControlLabel
                 control={
                   <Checkbox checked={config.includeRisk} onChange={() => toggle('includeRisk')} />
                 }
-                label="⚠️ 風險評估"
+                label="風險評估"
               />
             </FormGroup>
           </Grid>
@@ -123,9 +123,9 @@ export const AnalysisConfigPanel = ({ config, onChange }: Props) => {
             <Stack spacing={2}>
               {(['technicalWeight', 'chipWeight', 'fundamentalWeight'] as const).map((f) => {
                 const labels = {
-                  technicalWeight: '📊 技術面',
-                  chipWeight: '🏦 籌碼面',
-                  fundamentalWeight: '📋 基本面',
+                  technicalWeight: '技術面',
+                  chipWeight: '籌碼面',
+                  fundamentalWeight: '基本面',
                 };
                 const disabledMap = {
                   technicalWeight: !config.includeTechnical,

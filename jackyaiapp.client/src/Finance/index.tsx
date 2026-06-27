@@ -1,5 +1,10 @@
+import ArticleIcon from '@mui/icons-material/Article';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import InsightsIcon from '@mui/icons-material/Insights';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -74,16 +79,19 @@ function Finance() {
           mb: 2,
         }}
       >
-        <Typography
-          variant="h5"
-          component="h1"
-          sx={{
-            fontWeight: 'bold',
-            fontSize: { xs: '1.2rem', sm: '1.5rem' },
-          }}
-        >
-          📈 Stock Intelligence & Market Analysis
-        </Typography>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
+          <InsightsIcon sx={{ fontSize: { xs: '1.4rem', sm: '1.7rem' } }} />
+          <Typography
+            variant="h5"
+            component="h1"
+            sx={{
+              fontWeight: 'bold',
+              fontSize: { xs: '1.2rem', sm: '1.5rem' },
+            }}
+          >
+            Stock Intelligence & Market Analysis
+          </Typography>
+        </Stack>
         <Typography
           variant="body2"
           color="text.secondary"
@@ -110,10 +118,10 @@ function Finance() {
           allowScrollButtonsMobile
           sx={{ mb: 2 }}
         >
-          <Tab label="📊 綜合量化分析" />
-          <Tab label="🤖 AI 趨勢分析" />
-          <Tab label="📰 今日市場AI摘要" />
-          <Tab label="📈 關鍵指標" />
+          <Tab icon={<AssessmentIcon />} iconPosition="start" label="綜合量化分析" />
+          <Tab icon={<AutoAwesomeIcon />} iconPosition="start" label="AI 趨勢分析" />
+          <Tab icon={<ArticleIcon />} iconPosition="start" label="今日市場AI摘要" />
+          <Tab icon={<ShowChartIcon />} iconPosition="start" label="關鍵指標" />
         </Tabs>
 
         {/* Login prompt for AI tabs */}

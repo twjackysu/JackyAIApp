@@ -3,6 +3,7 @@ import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Chip from '@mui/material/Chip';
+import Stack from '@mui/material/Stack';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -15,10 +16,10 @@ import {
   getDirectionLabel,
   getDirectionChipColor,
   getCategoryLabel,
-  getCategoryEmoji,
   getScoreColor,
   getIndicatorDisplayName,
 } from '../../utils/financeHelpers';
+import { CategoryIcon } from '../financeIcons';
 
 import type { IndicatorResult, IndicatorCategory } from '@/apis/financeApis/types';
 
@@ -33,14 +34,12 @@ export const IndicatorTable = ({ indicators, category }: IndicatorTableProps) =>
   return (
     <Accordion defaultExpanded={category === 'Technical'}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 'bold',
-          }}
-        >
-          {getCategoryEmoji(category)} {getCategoryLabel(category)}指標明細 ({filtered.length})
-        </Typography>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          <CategoryIcon category={category} fontSize="small" />
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+            {getCategoryLabel(category)}指標明細 ({filtered.length})
+          </Typography>
+        </Stack>
       </AccordionSummary>
       <AccordionDetails>
         <TableContainer>

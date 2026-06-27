@@ -1,6 +1,8 @@
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
+import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
 import { FxAndRateSection } from './macro/FxAndRateSection';
@@ -26,15 +28,12 @@ export const MacroEconomyOverview = () => {
 
   return (
     <Box sx={{ mb: 3 }}>
-      <Typography
-        variant="h6"
-        gutterBottom
-        sx={{
-          fontWeight: 'bold',
-        }}
-      >
-        🏛️ 總體經濟概覽
-      </Typography>
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 1 }}>
+        <AccountBalanceIcon fontSize="small" />
+        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+          總體經濟概覽
+        </Typography>
+      </Stack>
       <Grid container spacing={2}>
         <Grid
           size={{

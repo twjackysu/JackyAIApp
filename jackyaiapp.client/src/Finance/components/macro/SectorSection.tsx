@@ -1,3 +1,4 @@
+import FactoryIcon from '@mui/icons-material/Factory';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Stack from '@mui/material/Stack';
@@ -34,9 +35,12 @@ export const SectorSection = ({ sectors }: { sectors: SectorIndex[] }) => {
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          🏭 產業類指數
-        </Typography>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
+          <FactoryIcon fontSize="small" color="action" />
+          <Typography variant="subtitle2" color="text.secondary">
+            產業類指數
+          </Typography>
+        </Stack>
         <TableContainer>
           <Table size="small">
             <TableHead>

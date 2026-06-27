@@ -172,17 +172,6 @@ export const getDirectionColor = (d: SignalDirection, alpha = 1): string => {
     : (colors[d]?.[1] ?? `rgba(33,150,243,${alpha})`);
 };
 
-export const getDirectionEmoji = (d: SignalDirection): string => {
-  const map: Record<SignalDirection, string> = {
-    StrongBullish: '🚀',
-    Bullish: '📈',
-    Neutral: '➡️',
-    Bearish: '📉',
-    StrongBearish: '⚠️',
-  };
-  return map[d] ?? '❓';
-};
-
 export const getRiskLabel = (l: RiskLevel): string => {
   const map: Record<RiskLevel, string> = {
     Low: '低風險',
@@ -216,11 +205,6 @@ export const getCategoryLabel = (c: IndicatorCategory): string => {
     Fundamental: '基本面',
   };
   return map[c] ?? c;
-};
-
-export const getCategoryEmoji = (c: IndicatorCategory): string => {
-  const map: Record<IndicatorCategory, string> = { Technical: '📊', Chip: '🏦', Fundamental: '📋' };
-  return map[c] ?? '📌';
 };
 
 export const getScoreColor = (score: number): string => {

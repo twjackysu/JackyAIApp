@@ -1,3 +1,4 @@
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
@@ -18,9 +19,12 @@ export const MarginSection = ({ data }: { data: MacroEconomyData }) => {
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          💰 融資融券
-        </Typography>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
+          <AccountBalanceWalletIcon fontSize="small" color="action" />
+          <Typography variant="subtitle2" color="text.secondary">
+            融資融券
+          </Typography>
+        </Stack>
         <Grid container spacing={2}>
           <Grid size={6}>
             <Typography variant="caption" color="text.secondary">

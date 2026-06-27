@@ -1,3 +1,4 @@
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
@@ -38,15 +39,12 @@ export const ComprehensiveAnalysisResult = ({ data }: Props) => {
       )}
       <RiskSection data={data} />
       <Divider sx={{ my: 3 }} />
-      <Typography
-        variant="h6"
-        sx={{
-          fontWeight: 'bold',
-          mb: 2,
-        }}
-      >
-        📋 指標明細
-      </Typography>
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 2 }}>
+        <ListAltIcon fontSize="small" />
+        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+          指標明細
+        </Typography>
+      </Stack>
       <Stack spacing={1}>
         {active.map((c) => (
           <IndicatorTable key={c} indicators={data.indicators} category={c} />

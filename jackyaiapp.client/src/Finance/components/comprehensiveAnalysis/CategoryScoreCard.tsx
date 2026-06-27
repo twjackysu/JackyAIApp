@@ -10,9 +10,9 @@ import {
   getDirectionLabel,
   getDirectionChipColor,
   getCategoryLabel,
-  getCategoryEmoji,
   getScoreColor,
 } from '../../utils/financeHelpers';
+import { CategoryIcon } from '../financeIcons';
 
 import type { CategoryScore } from '@/apis/financeApis/types';
 
@@ -29,14 +29,12 @@ export const CategoryScoreCard = ({ cs }: { cs: CategoryScore }) => {
               alignItems: 'center',
             }}
           >
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 'bold',
-              }}
-            >
-              {getCategoryEmoji(cs.category)} {getCategoryLabel(cs.category)}
-            </Typography>
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+              <CategoryIcon category={cs.category} fontSize="small" />
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                {getCategoryLabel(cs.category)}
+              </Typography>
+            </Stack>
             <Chip
               label={getDirectionLabel(cs.direction)}
               color={getDirectionChipColor(cs.direction)}
