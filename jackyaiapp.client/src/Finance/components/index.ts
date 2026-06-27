@@ -6,6 +6,5 @@ export { ComprehensiveAnalysisResult } from './ComprehensiveAnalysisResult';
 export { AnalysisConfigPanel } from './AnalysisConfigPanel';
 export type { AnalysisConfig } from './AnalysisConfigPanel';
 export { ScoreGauge } from './ScoreGauge';
-export { MacroEconomyOverview } from './MacroEconomyOverview';
 export { MarketOverview } from './MarketOverview';
 export { IndicatorExplorer } from './IndicatorExplorer';
