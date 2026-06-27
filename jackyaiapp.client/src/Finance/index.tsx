@@ -23,6 +23,7 @@ import {
   StockAnalysisResult,
   ComprehensiveAnalysisResult,
   AnalysisConfigPanel,
+  MarketBrief,
   MarketOverview,
   IndicatorExplorer,
 } from './components';
@@ -99,9 +100,14 @@ function Finance() {
           {currentDate}
         </Typography>
       </Stack>
-      {/* Unified market overview — the glanceable landing, shown before search results
-          (hidden on the Indicators tab, which is its own focused explorer). */}
-      {!hasStockResults && analysisTab !== TAB_INDICATORS && <MarketOverview />}
+      {/* AI brief + unified market overview — the glanceable landing, shown before search
+          results (hidden on the Indicators tab, which is its own focused explorer). */}
+      {!hasStockResults && analysisTab !== TAB_INDICATORS && (
+        <>
+          <MarketBrief />
+          <MarketOverview />
+        </>
+      )}
       {/* Tabs */}
       <Paper sx={{ p: { xs: 1.5, sm: 3 }, mb: 2, border: '1px solid', borderColor: 'divider' }}>
         <Tabs

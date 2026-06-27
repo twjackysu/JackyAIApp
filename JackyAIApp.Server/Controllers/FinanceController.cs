@@ -61,6 +61,11 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetMarketOverview(CancellationToken cancellationToken = default) =>
             ToActionResult(await _financeQueryService.GetMarketOverviewAsync(cancellationToken));
 
+        /// <summary>Gets the AI-synthesised "今日市場重點" brief (a few takeaways from the day's market data).</summary>
+        [HttpGet("market-brief")]
+        public async Task<IActionResult> GetMarketBrief(CancellationToken cancellationToken = default) =>
+            ToActionResult(await _financeQueryService.GetMarketBriefAsync(cancellationToken));
+
         /// <summary>Gets key macro indicators (FRED) with recent history for the Indicator Explorer.</summary>
         [HttpGet("indicators")]
         public async Task<IActionResult> GetIndicators(CancellationToken cancellationToken = default) =>

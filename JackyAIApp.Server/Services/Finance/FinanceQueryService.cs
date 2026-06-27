@@ -399,6 +399,56 @@ namespace JackyAIApp.Server.Services.Finance
             }
         }
 
+        public async Task<ServiceResult> GetMarketBriefAsync(CancellationToken cancellationToken)
+        {
+            const string cacheKey = "MarketBrief";
+            if (_memoryCache.TryGetValue(cacheKey, out object? cached))
+                return ServiceResult.Ok(cached);
+
+            // Ground the AI in the day's actual market data (reuses the cached overview).
+            var overviewResult = await GetMarketOverviewAsync(cancellationToken);
+            if (!overviewResult.IsSuccess)
+                return overviewResult;
+
+            var overview = (MarketOverviewResponse)overviewResult.Data!;
+            if (overview.Quotes.Count == 0)
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, "No market data available for the brief.");
+
+            var dataText = string.Join("\n", overview.Quotes.Select(q =>
+            {
+                var price = q.Price?.ToString("0.##") ?? "N/A";
+                var pct = q.ChangePercent.HasValue
+                    ? $" ({(q.ChangePercent.Value >= 0 ? "+" : "")}{q.ChangePercent.Value:F2}%)"
+                    : "";
+                return $"{q.Name}: {price}{pct}";
+            }));
+
+            var systemPrompt =
+                "你是專業市場策略師。根據提供的『今日市場數據（含當日漲跌幅）』，挑出 3~5 個今天真正重要、" +
+                "值得投資人注意的重點。每個重點：一句精簡標題 + 一句白話說明，並標註偏多/偏空/中性。" +
+                "請務必只根據提供的數據推論，不要編造未提供的事件（例如財報、發言、新聞）。全部用繁體中文。" +
+                "只回傳 JSON：{\"points\":[{\"headline\":\"\",\"detail\":\"\",\"sentiment\":\"bullish|bearish|neutral\"}]}。";
+            var userMessage = $"今日市場數據：\n{dataText}";
+
+            try
+            {
+                var (result, error) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<MarketBriefResponse>(
+                    systemPrompt, userMessage, NewModels.GPT_5_NANO);
+
+                if (result is null || result.Points.Count == 0)
+                    return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, error ?? "Failed to generate market brief.");
+
+                result.GeneratedAt = DateTime.UtcNow;
+                _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(3));
+                return ServiceResult.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to generate market brief");
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to generate market brief: {ex.Message}");
+            }
+        }
+
         public async Task<ServiceResult> GetIndicatorsAsync(CancellationToken cancellationToken)
         {
             if (!_indicatorProvider.IsConfigured)
