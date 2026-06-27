@@ -12,6 +12,7 @@ import {
   StockAnalysisRequest,
   MacroEconomyData,
   MarketOverviewData,
+  MarketBriefData,
   IndicatorExplorerData,
   IndicatorInsightData,
 } from './types';
@@ -72,6 +73,10 @@ export const financeApis = createApi({
       query: () => ({ url: 'market-overview' }),
       keepUnusedDataFor: 180, // intraday snapshot; refresh ~3 min
     }),
+    getMarketBrief: builder.query<ApiOkResponse<MarketBriefData>, void>({
+      query: () => ({ url: 'market-brief' }),
+      keepUnusedDataFor: 600,
+    }),
     getIndicators: builder.query<ApiOkResponse<IndicatorExplorerData>, void>({
       query: () => ({ url: 'indicators' }),
       keepUnusedDataFor: 3600,
@@ -89,6 +94,7 @@ export const {
   useGetComprehensiveAnalysisMutation,
   useGetMacroEconomyQuery,
   useGetMarketOverviewQuery,
+  useGetMarketBriefQuery,
   useGetIndicatorsQuery,
   useLazyGetIndicatorInsightQuery,
 } = financeApis;

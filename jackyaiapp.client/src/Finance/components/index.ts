@@ -7,4 +7,5 @@ export { AnalysisConfigPanel } from './AnalysisConfigPanel';
 export type { AnalysisConfig } from './AnalysisConfigPanel';
 export { ScoreGauge } from './ScoreGauge';
 export { MarketOverview } from './MarketOverview';
+export { MarketBrief } from './MarketBrief';
 export { IndicatorExplorer } from './IndicatorExplorer';

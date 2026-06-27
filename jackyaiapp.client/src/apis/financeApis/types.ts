@@ -188,6 +188,19 @@ export interface MarketOverviewData {
   generatedAt: string;
 }
 
+// === Market Brief (今日市場重點) Types ===
+
+export interface BriefPoint {
+  headline: string;
+  detail: string;
+  sentiment: 'bullish' | 'bearish' | 'neutral' | string;
+}
+
+export interface MarketBriefData {
+  points: BriefPoint[];
+  generatedAt: string;
+}
+
 // === Indicator Explorer Types ===
 
 export interface IndicatorPoint {
