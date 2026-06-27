@@ -7,6 +7,7 @@ using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Scoring;
+using JackyAIApp.Server.Services.OpenAI;
 
 namespace JackyAIApp.Server.Services.Finance
 {
@@ -25,6 +26,8 @@ namespace JackyAIApp.Server.Services.Finance
         StockAnalysisBuilder analysisBuilder,
         IMacroEconomyProvider macroEconomyProvider,
         IMarketOverviewProvider marketOverviewProvider,
+        IIndicatorProvider indicatorProvider,
+        IOpenAIPromptService openAIPromptService,
         IMarketDataProviderFactory providerFactory) : IFinanceQueryService
     {
         private readonly ILogger<FinanceQueryService> _logger = logger;
@@ -41,6 +44,8 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly StockAnalysisBuilder _analysisBuilder = analysisBuilder;
         private readonly IMacroEconomyProvider _macroEconomyProvider = macroEconomyProvider;
         private readonly IMarketOverviewProvider _marketOverviewProvider = marketOverviewProvider;
+        private readonly IIndicatorProvider _indicatorProvider = indicatorProvider;
+        private readonly IOpenAIPromptService _openAIPromptService = openAIPromptService;
         private readonly IMarketDataProviderFactory _providerFactory = providerFactory;
 
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
@@ -391,6 +396,77 @@ namespace JackyAIApp.Server.Services.Finance
             {
                 _logger.LogError(ex, "Failed to fetch market overview data");
                 return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to fetch market overview data: {ex.Message}");
+            }
+        }
+
+        public async Task<ServiceResult> GetIndicatorsAsync(CancellationToken cancellationToken)
+        {
+            if (!_indicatorProvider.IsConfigured)
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, "Indicator data source is not configured (FRED API key missing).");
+
+            const string cacheKey = "Indicators";
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+                return ServiceResult.Ok(cachedResult);
+
+            try
+            {
+                var result = await _indicatorProvider.FetchAsync(cancellationToken);
+                _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(6));
+                return ServiceResult.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to fetch indicators");
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to fetch indicators: {ex.Message}");
+            }
+        }
+
+        public async Task<ServiceResult> GetIndicatorInsightAsync(string id, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "Indicator id is required.");
+
+            var cacheKey = $"IndicatorInsight_{id}_{DateTime.Today:yyyyMMdd}";
+            if (_memoryCache.TryGetValue(cacheKey, out object? cached))
+                return ServiceResult.Ok(cached);
+
+            // Reuse the cached indicator set to build the prompt context.
+            var indicatorsResult = await GetIndicatorsAsync(cancellationToken);
+            if (!indicatorsResult.IsSuccess)
+                return indicatorsResult;
+
+            var indicators = (IndicatorExplorerResponse)indicatorsResult.Data!;
+            var series = indicators.Indicators.FirstOrDefault(i => i.Id == id);
+            if (series is null)
+                return ServiceResult.Fail(ErrorCodes.NotFound, $"Indicator '{id}' not found.");
+
+            // Summarise recent points (first / mid / last) so the prompt stays small.
+            var pts = series.Points;
+            var sampled = pts.Count <= 8 ? pts : new[] { pts[0], pts[pts.Count / 2], pts[^1] }.ToList();
+            var pointsText = string.Join("\n", sampled.Select(p => $"{p.Date}: {p.Value}{series.Unit}"));
+
+            var systemPrompt =
+                "你是專業總體經濟分析師。根據提供的單一指標近期數據，用繁體中文寫 2~3 句白話解讀：" +
+                "它目前在說什麼、趨勢方向、以及對市場或投資人的意涵。避免空泛、給具體含義。" +
+                "只回傳 JSON：{\"insight\":\"...\"}。";
+            var userMessage =
+                $"指標：{series.Name}（{series.Description}）\n單位：{series.Unit}\n最新：{series.LatestValue}（{series.LatestDate}）\n近期數據：\n{pointsText}";
+
+            try
+            {
+                var (result, error) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<IndicatorInsight>(
+                    systemPrompt, userMessage, NewModels.GPT_5_NANO);
+
+                if (result is null)
+                    return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, error ?? "Failed to generate insight.");
+
+                _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(24));
+                return ServiceResult.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to generate indicator insight for {id}", id);
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to generate insight: {ex.Message}");
             }
         }
 

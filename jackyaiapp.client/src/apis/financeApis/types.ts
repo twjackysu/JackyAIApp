@@ -187,3 +187,30 @@ export interface MarketOverviewData {
   quotes: MarketQuote[];
   generatedAt: string;
 }
+
+// === Indicator Explorer Types ===
+
+export interface IndicatorPoint {
+  date: string;
+  value: number;
+}
+
+export interface IndicatorSeries {
+  id: string;
+  name: string;
+  description: string;
+  unit: string;
+  latestValue: number | null;
+  latestDate: string | null;
+  previousValue: number | null;
+  points: IndicatorPoint[];
+}
+
+export interface IndicatorExplorerData {
+  indicators: IndicatorSeries[];
+  generatedAt: string;
+}
+
+export interface IndicatorInsightData {
+  insight: string;
+}

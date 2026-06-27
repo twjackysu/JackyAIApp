@@ -72,6 +72,9 @@ namespace JackyAIApp.Server.Services.Finance
             // Market overview / dashboard provider (Yahoo Finance quotes)
             services.AddScoped<IMarketOverviewProvider, MarketOverviewProvider>();
 
+            // Indicator Explorer provider (FRED)
+            services.AddScoped<IIndicatorProvider, FredIndicatorProvider>();
+
             // === US market data providers ===
             services.AddScoped<YahooFinanceMarketDataProvider>();
             services.AddScoped<SECFundamentalDataProvider>();
