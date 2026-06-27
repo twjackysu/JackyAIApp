@@ -74,7 +74,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 using var response = await client.GetAsync(url, ct);
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("FRED series {series} returned {status}", def.Series, response.StatusCode);
+                    // FRED returns a helpful body on failure (e.g. "api_key is not registered" /
+                    // "Bad Request"). Log it so live config issues are diagnosable.
+                    var body = await response.Content.ReadAsStringAsync(ct);
+                    _logger.LogWarning("FRED series {series} returned {status}: {body}",
+                        def.Series, response.StatusCode, body);
                     return null;
                 }
 

@@ -12,6 +12,7 @@ import EChartsCoreModule from 'echarts-for-react/lib/core';
 import { useMemo } from 'react';
 
 import type { IndicatorSeries } from '@/apis/financeApis/types';
+import type { ApiErrorResponse } from '@/apis/types';
 import type { ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
 
 import { useGetIndicatorsQuery, useLazyGetIndicatorInsightQuery } from '@/apis/financeApis';
@@ -126,8 +127,14 @@ const IndicatorCard = ({ series }: { series: IndicatorSeries }) => {
 };
 
 export const IndicatorExplorer = () => {
-  const { data: apiResponse, isLoading, isError } = useGetIndicatorsQuery();
+  const { data: apiResponse, isLoading, isError, error } = useGetIndicatorsQuery();
   const indicators = apiResponse?.data?.indicators ?? [];
+
+  // Surface the real server reason instead of always blaming the API key.
+  const serverMessage =
+    error && typeof error === 'object' && 'data' in error
+      ? (error as { data?: ApiErrorResponse }).data?.error?.message
+      : undefined;
 
   if (isLoading) {
     return (
@@ -142,7 +149,11 @@ export const IndicatorExplorer = () => {
   }
 
   if (isError || indicators.length === 0) {
-    return <Alert severity="warning">指標資料目前無法載入（可能尚未設定 FRED API key）。</Alert>;
+    return (
+      <Alert severity="warning">
+        {serverMessage || (isError ? '指標資料載入失敗，請稍後再試。' : '目前沒有指標資料。')}
+      </Alert>
+    );
   }
 
   return (
