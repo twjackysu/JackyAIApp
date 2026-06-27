@@ -7,6 +7,9 @@
 
         /// <summary>Free API key from https://fred.stlouisfed.org for the Indicator Explorer.</summary>
         public string? FredApiKey { get; set; }
+
+        /// <summary>Free API key from https://finnhub.io for market news in the Market Brief.</summary>
+        public string? FinnhubApiKey { get; set; }
     }
     public class Google
     {
