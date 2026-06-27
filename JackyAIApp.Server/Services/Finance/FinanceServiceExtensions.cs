@@ -69,6 +69,9 @@ namespace JackyAIApp.Server.Services.Finance
             // Macro economy provider (TWSE + BOT + CBC)
             services.AddScoped<IMacroEconomyProvider, TWSEMacroEconomyProvider>();
 
+            // Market overview / dashboard provider (Yahoo Finance quotes)
+            services.AddScoped<IMarketOverviewProvider, MarketOverviewProvider>();
+
             // === US market data providers ===
             services.AddScoped<YahooFinanceMarketDataProvider>();
             services.AddScoped<SECFundamentalDataProvider>();

@@ -56,6 +56,11 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetMacroEconomy(CancellationToken cancellationToken = default) =>
             ToActionResult(await _financeQueryService.GetMacroEconomyAsync(cancellationToken));
 
+        /// <summary>Gets the at-a-glance market dashboard (US/TW indices, FX, crypto, gold, yields).</summary>
+        [HttpGet("market-overview")]
+        public async Task<IActionResult> GetMarketOverview(CancellationToken cancellationToken = default) =>
+            ToActionResult(await _financeQueryService.GetMarketOverviewAsync(cancellationToken));
+
         private IActionResult ToActionResult(ServiceResult result) =>
             result.IsSuccess
                 ? _responseFactory.CreateOKResponse(result.Data)

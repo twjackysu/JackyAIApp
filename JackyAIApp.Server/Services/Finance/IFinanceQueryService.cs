@@ -17,5 +17,6 @@ namespace JackyAIApp.Server.Services.Finance
         Task<ServiceResult> GetStockScoreAsync(string stockCode, CancellationToken cancellationToken);
         Task<ServiceResult> GetComprehensiveAnalysisAsync(StockAnalysisRequest request, CancellationToken cancellationToken);
         Task<ServiceResult> GetMacroEconomyAsync(CancellationToken cancellationToken);
+        Task<ServiceResult> GetMarketOverviewAsync(CancellationToken cancellationToken);
     }
 }
