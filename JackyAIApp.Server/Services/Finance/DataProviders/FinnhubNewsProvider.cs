@@ -36,7 +36,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             _logger = logger;
         }
 
-        public bool IsConfigured => !string.IsNullOrWhiteSpace(_settings.CurrentValue.FinnhubApiKey);
+        public bool IsConfigured => !string.IsNullOrWhiteSpace(_settings.CurrentValue.FinnhubApiKey?.Trim());
 
         public async Task<IReadOnlyList<FinnhubNewsItem>> FetchAsync(CancellationToken cancellationToken = default)
         {
@@ -44,7 +44,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             if (_cache.TryGetValue(cacheKey, out IReadOnlyList<FinnhubNewsItem>? cached) && cached != null)
                 return cached;
 
-            var apiKey = _settings.CurrentValue.FinnhubApiKey;
+            var apiKey = _settings.CurrentValue.FinnhubApiKey?.Trim();
             if (string.IsNullOrWhiteSpace(apiKey))
                 return [];
 

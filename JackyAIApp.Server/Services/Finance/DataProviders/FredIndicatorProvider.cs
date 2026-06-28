@@ -41,11 +41,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public bool IsConfigured => !string.IsNullOrWhiteSpace(_settings.CurrentValue.FredApiKey);
+        public bool IsConfigured => !string.IsNullOrWhiteSpace(_settings.CurrentValue.FredApiKey?.Trim());
 
         public async Task<IndicatorExplorerResponse> FetchAsync(CancellationToken cancellationToken = default)
         {
-            var apiKey = _settings.CurrentValue.FredApiKey;
+            var apiKey = _settings.CurrentValue.FredApiKey?.Trim();
             if (string.IsNullOrWhiteSpace(apiKey))
                 throw new InvalidOperationException("FRED API key is not configured (Settings:FredApiKey).");
 
