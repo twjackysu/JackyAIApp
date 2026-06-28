@@ -95,6 +95,7 @@ export const {
   useGetMacroEconomyQuery,
   useGetMarketOverviewQuery,
   useGetMarketBriefQuery,
+  useLazyGetMarketBriefQuery,
   useGetIndicatorsQuery,
   useLazyGetIndicatorInsightQuery,
 } = financeApis;
