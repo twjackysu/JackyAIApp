@@ -100,9 +100,9 @@ function Finance() {
       </Stack>
       {!hasStockResults && (
         <>
-          <MarketBrief />
           <MarketOverview />
           <IndicatorExplorer />
+          <MarketBrief />
         </>
       )}
       {/* Tabs */}
