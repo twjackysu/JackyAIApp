@@ -20,7 +20,6 @@ const detectMarket = (code: string): 'TW' | 'US' =>
 export const TAB_QUANTITATIVE = 0;
 export const TAB_AI_TREND = 1;
 export const TAB_MARKET_SUMMARY = 2;
-export const TAB_INDICATORS = 3;
 
 const DEFAULT_CONFIG: AnalysisConfig = {
   includeTechnical: true,
