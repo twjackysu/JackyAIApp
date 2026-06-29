@@ -263,6 +263,51 @@ namespace JackyAIApp.Server.Services.Portfolio
             await db.SaveChangesAsync(ct);
         }
 
+        public async Task<HoldingPriceHistoryDto?> GetHoldingPriceHistoryAsync(
+            string userId, string market, string symbol, CancellationToken ct = default)
+        {
+            var txs = await db.PortfolioTransactions
+                .Where(t => t.UserId == userId &&
+                            t.Market == market.ToUpperInvariant() &&
+                            t.Symbol == symbol.ToUpperInvariant())
+                .OrderBy(t => t.Date)
+                .ToListAsync(ct);
+
+            if (txs.Count == 0) return null;
+
+            var allUserTxs = await db.PortfolioTransactions
+                .Where(t => t.UserId == userId)
+                .OrderBy(t => t.Date)
+                .ToListAsync(ct);
+
+            var holdingMap = DeriveHoldings(allUserTxs);
+            var key = (market.ToUpperInvariant(), symbol.ToUpperInvariant());
+            if (!holdingMap.TryGetValue(key, out var acc) || acc.Quantity <= 0) return null;
+
+            var region = providerFactory.DetectRegion(symbol);
+            var provider = providerFactory.GetMarketDataProvider(region);
+            var data = await provider.FetchAsync(symbol, ct);
+
+            return new HoldingPriceHistoryDto
+            {
+                Symbol = symbol.ToUpperInvariant(),
+                CompanyName = acc.CompanyName,
+                Market = market.ToUpperInvariant(),
+                Currency = acc.Currency,
+                AvgCost = acc.Quantity > 0 ? acc.TotalCost / acc.Quantity : 0,
+                Quantity = acc.Quantity,
+                Prices = data.HistoricalPrices
+                    .Select(p => new PricePoint
+                    {
+                        Date = p.Date.ToString("yyyy-MM-dd"),
+                        Close = p.Close,
+                        High = p.High,
+                        Low = p.Low,
+                    })
+                    .ToList(),
+            };
+        }
+
         // ── Helpers ────────────────────────────────────────────────────────────
 
         private static Dictionary<(string market, string symbol), HoldingAccumulator> DeriveHoldings(

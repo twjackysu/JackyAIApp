@@ -15,6 +15,7 @@ interface Props {
   holdings: HoldingDto[];
   usdTwdRate: number;
   loading?: boolean;
+  onRowClick?: (holding: HoldingDto) => void;
 }
 
 const fmt = (n: number, decimals = 0) =>
@@ -22,7 +23,7 @@ const fmt = (n: number, decimals = 0) =>
 
 const pnlColor = (n: number) => (n > 0 ? '#22c55e' : n < 0 ? '#ef4444' : 'text.secondary');
 
-export function HoldingsTable({ holdings, usdTwdRate, loading }: Props) {
+export function HoldingsTable({ holdings, usdTwdRate, loading, onRowClick }: Props) {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -55,7 +56,12 @@ export function HoldingsTable({ holdings, usdTwdRate, loading }: Props) {
         </TableHead>
         <TableBody>
           {holdings.map((h) => (
-            <TableRow key={`${h.market}-${h.symbol}`} hover>
+            <TableRow
+              key={`${h.market}-${h.symbol}`}
+              hover
+              onClick={() => onRowClick?.(h)}
+              sx={{ cursor: onRowClick ? 'pointer' : 'default' }}
+            >
               <TableCell>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Box>

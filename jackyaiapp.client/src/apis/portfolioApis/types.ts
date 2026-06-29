@@ -44,6 +44,23 @@ export interface HoldingDto {
   priceFetchFailed: boolean;
 }
 
+export interface PricePoint {
+  date: string;
+  close: number;
+  high: number;
+  low: number;
+}
+
+export interface HoldingPriceHistoryDto {
+  symbol: string;
+  companyName: string;
+  market: Market;
+  currency: string;
+  avgCost: number;
+  quantity: number;
+  prices: PricePoint[];
+}
+
 export interface NetWorthDataPoint {
   date: string;
   totalTWD: number;

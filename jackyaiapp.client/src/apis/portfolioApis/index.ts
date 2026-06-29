@@ -4,6 +4,7 @@ import { ApiOkResponse } from '../types';
 
 import {
   AddTransactionRequest,
+  HoldingPriceHistoryDto,
   NetWorthDataPoint,
   PortfolioSummaryDto,
   TransactionDto,
@@ -34,6 +35,12 @@ export const portfolioApis = createApi({
       query: (days) => `net-worth-history?days=${days}`,
       providesTags: ['Summary'],
     }),
+    getHoldingPriceHistory: builder.query<
+      ApiOkResponse<HoldingPriceHistoryDto>,
+      { market: string; symbol: string }
+    >({
+      query: ({ market, symbol }) => `holdings/${market}/${symbol}/price-history`,
+    }),
   }),
 });
 
@@ -43,4 +50,5 @@ export const {
   useAddTransactionMutation,
   useDeleteTransactionMutation,
   useGetNetWorthHistoryQuery,
+  useGetHoldingPriceHistoryQuery,
 } = portfolioApis;

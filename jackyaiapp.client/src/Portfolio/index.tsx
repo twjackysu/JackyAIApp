@@ -11,12 +11,14 @@ import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
+import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsTable } from './HoldingsTable';
 import { NetWorthChart } from './NetWorthChart';
 import { TransactionForm } from './TransactionForm';
 import { TransactionList } from './TransactionList';
 
 import { useGetPortfolioSummaryQuery } from '@/apis/portfolioApis';
+import { HoldingDto } from '@/apis/portfolioApis/types';
 
 const fmt = (n: number) =>
   n.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -155,6 +157,7 @@ export default function Portfolio() {
   const { data: summaryRes, isLoading, isError } = useGetPortfolioSummaryQuery();
   const summary = summaryRes?.data;
   const [tab, setTab] = useState(0);
+  const [selectedHolding, setSelectedHolding] = useState<HoldingDto | null>(null);
 
   return (
     <Box sx={{ maxWidth: 1100, mx: 'auto', py: 3 }}>
@@ -228,7 +231,11 @@ export default function Portfolio() {
             </Box>
             <CardContent sx={{ p: 2 }}>
               {tab === 0 && (
-                <HoldingsTable holdings={summary.holdings} usdTwdRate={summary.usdTwdRate} />
+                <HoldingsTable
+                  holdings={summary.holdings}
+                  usdTwdRate={summary.usdTwdRate}
+                  onRowClick={setSelectedHolding}
+                />
               )}
               {tab === 1 && <TransactionList />}
             </CardContent>
@@ -241,6 +248,12 @@ export default function Portfolio() {
           <Typography color="text.secondary">尚無持倉。點「新增交易」記錄第一筆交易。</Typography>
         </Box>
       )}
+
+      <HoldingDetailDrawer
+        holding={selectedHolding}
+        open={selectedHolding !== null}
+        onClose={() => setSelectedHolding(null)}
+      />
     </Box>
   );
 }
