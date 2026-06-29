@@ -1,10 +1,8 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
 import { ApiOkResponse } from '../types';
-import {
-  AddTransactionRequest,
-  PortfolioSummaryDto,
-  TransactionDto,
-} from './types';
+
+import { AddTransactionRequest, PortfolioSummaryDto, TransactionDto } from './types';
 
 export const portfolioApis = createApi({
   reducerPath: 'portfolioApis',

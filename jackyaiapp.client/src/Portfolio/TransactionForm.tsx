@@ -70,7 +70,9 @@ export function TransactionForm() {
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>新增交易紀錄</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
+        <DialogContent
+          sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}
+        >
           <FormControl size="small">
             <InputLabel>市場</InputLabel>
             <Select
@@ -160,7 +162,13 @@ export function TransactionForm() {
           <Button
             variant="contained"
             onClick={handleSubmit}
-            disabled={isLoading || !form.symbol || !form.companyName || form.quantity <= 0 || form.price <= 0}
+            disabled={
+              isLoading ||
+              !form.symbol ||
+              !form.companyName ||
+              form.quantity <= 0 ||
+              form.price <= 0
+            }
           >
             {isLoading ? '儲存中...' : '儲存'}
           </Button>

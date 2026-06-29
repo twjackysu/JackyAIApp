@@ -3,29 +3,22 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
-import Grid from '@mui/material/Grid';
-import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
+import Grid from '@mui/material/Grid';
 import { alpha } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
 
-import { useGetPortfolioSummaryQuery } from '@/apis/portfolioApis';
 import { HoldingsTable } from './HoldingsTable';
 import { TransactionForm } from './TransactionForm';
+
+import { useGetPortfolioSummaryQuery } from '@/apis/portfolioApis';
 
 const fmt = (n: number) =>
   n.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 const pnlColor = (n: number) => (n > 0 ? '#22c55e' : n < 0 ? '#ef4444' : 'inherit');
 
-function NetWorthCard({
-  total,
-  pnl,
-  pnlPct,
-}: {
-  total: number;
-  pnl: number;
-  pnlPct: number;
-}) {
+function NetWorthCard({ total, pnl, pnlPct }: { total: number; pnl: number; pnlPct: number }) {
   const isPositive = pnl >= 0;
   return (
     <Card
@@ -49,7 +42,11 @@ function NetWorthCard({
           NT${fmt(total)}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-          <Typography variant="body1" sx={{ color: pnlColor(pnl), fontWeight: 600 }} component="span">
+          <Typography
+            variant="body1"
+            sx={{ color: pnlColor(pnl), fontWeight: 600 }}
+            component="span"
+          >
             {isPositive ? '▲' : '▼'} NT${fmt(Math.abs(pnl))}
           </Typography>
           <Chip
@@ -86,7 +83,10 @@ function AllocationCard({
   const usPct = total > 0 ? (usStock / total) * 100 : 0;
 
   return (
-    <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
+    <Card
+      elevation={0}
+      sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}
+    >
       <CardContent sx={{ p: 3 }}>
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
           資產配置
@@ -205,10 +205,7 @@ export default function Portfolio() {
                 持倉明細
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <HoldingsTable
-                holdings={summary.holdings}
-                usdTwdRate={summary.usdTwdRate}
-              />
+              <HoldingsTable holdings={summary.holdings} usdTwdRate={summary.usdTwdRate} />
             </CardContent>
           </Card>
         </>
@@ -217,9 +214,7 @@ export default function Portfolio() {
       {/* Empty state (logged in but no holdings yet) */}
       {!isLoading && !isError && summary && summary.holdings.length === 0 && (
         <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography color="text.secondary">
-            尚無持倉。點「新增交易」記錄第一筆交易。
-          </Typography>
+          <Typography color="text.secondary">尚無持倉。點「新增交易」記錄第一筆交易。</Typography>
         </Box>
       )}
     </Box>
