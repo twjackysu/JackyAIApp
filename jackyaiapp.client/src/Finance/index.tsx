@@ -4,7 +4,6 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InsightsIcon from '@mui/icons-material/Insights';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
-import ShowChartIcon from '@mui/icons-material/ShowChart';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -23,7 +22,6 @@ import {
   StockAnalysisResult,
   ComprehensiveAnalysisResult,
   AnalysisConfigPanel,
-  MarketBrief,
   MarketOverview,
   IndicatorExplorer,
 } from './components';
@@ -33,13 +31,10 @@ import {
   TAB_QUANTITATIVE,
   TAB_AI_TREND,
   TAB_MARKET_SUMMARY,
-  TAB_INDICATORS,
 } from './hooks/useFinanceAnalysis';
 
 function Finance() {
   const {
-    searchTerm,
-    setSearchTerm,
     stockSearchTerm,
     setStockSearchTerm,
     analysisConfig,
@@ -50,8 +45,7 @@ function Finance() {
     handleTabChange,
     isAuthenticated,
     currentDate,
-    stockInsights,
-    filteredData,
+    digestPoints,
     isMarketLoading,
     isMarketError,
     marketError,
@@ -100,12 +94,10 @@ function Finance() {
           {currentDate}
         </Typography>
       </Stack>
-      {/* AI brief + unified market overview — the glanceable landing, shown before search
-          results (hidden on the Indicators tab, which is its own focused explorer). */}
-      {!hasStockResults && analysisTab !== TAB_INDICATORS && (
+      {!hasStockResults && (
         <>
-          <MarketBrief />
           <MarketOverview />
+          <IndicatorExplorer />
         </>
       )}
       {/* Tabs */}
@@ -121,7 +113,6 @@ function Finance() {
           <Tab icon={<AssessmentIcon />} iconPosition="start" label="綜合量化分析" />
           <Tab icon={<AutoAwesomeIcon />} iconPosition="start" label="AI 趨勢分析" />
           <Tab icon={<ArticleIcon />} iconPosition="start" label="今日市場AI摘要" />
-          <Tab icon={<ShowChartIcon />} iconPosition="start" label="關鍵指標" />
         </Tabs>
 
         {/* Login prompt for AI tabs */}
@@ -230,44 +221,6 @@ function Finance() {
             )}
           </>
         )}
-
-        {/* Market summary search filter */}
-        {analysisTab === TAB_MARKET_SUMMARY &&
-          !isMarketLoading &&
-          !isMarketError &&
-          stockInsights.length > 0 && (
-            <Stack
-              direction="row"
-              spacing={2}
-              sx={{
-                alignItems: 'center',
-              }}
-            >
-              <TextField
-                fullWidth
-                variant="outlined"
-                placeholder="搜尋市場摘要..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-              <IconButton
-                onClick={() => refetch()}
-                disabled={isMarketFetching}
-                sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}
-              >
-                <RefreshIcon />
-              </IconButton>
-            </Stack>
-          )}
       </Paper>
       {/* Error states */}
       {analysisError && !isAnalyzing && (
@@ -283,8 +236,6 @@ function Finance() {
       {/* Stock analysis results */}
       {searchResults && <StockAnalysisResult data={searchResults} />}
       {analysisResults && <ComprehensiveAnalysisResult data={analysisResults} />}
-      {/* Indicator Explorer Tab Content */}
-      {analysisTab === TAB_INDICATORS && <IndicatorExplorer />}
       {/* Market Summary Tab Content */}
       {analysisTab === TAB_MARKET_SUMMARY && (
         <MarketSummaryTab
@@ -293,7 +244,7 @@ function Finance() {
           isMarketFetching={isMarketFetching}
           isMarketError={isMarketError}
           marketError={marketError}
-          filteredData={filteredData}
+          digestPoints={digestPoints}
           refetch={refetch}
         />
       )}

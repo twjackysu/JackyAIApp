@@ -6,6 +6,7 @@ using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Finance.Indicators;
+using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.Scoring;
 using JackyAIApp.Server.Services.OpenAI;
 
@@ -29,6 +30,7 @@ namespace JackyAIApp.Server.Services.Finance
         IIndicatorProvider indicatorProvider,
         IFinnhubNewsProvider finnhubNewsProvider,
         IOpenAIPromptService openAIPromptService,
+        ICreditService creditService,
         IMarketDataProviderFactory providerFactory) : IFinanceQueryService
     {
         private readonly ILogger<FinanceQueryService> _logger = logger;
@@ -48,6 +50,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly IIndicatorProvider _indicatorProvider = indicatorProvider;
         private readonly IFinnhubNewsProvider _finnhubNewsProvider = finnhubNewsProvider;
         private readonly IOpenAIPromptService _openAIPromptService = openAIPromptService;
+        private readonly ICreditService _creditService = creditService;
         private readonly IMarketDataProviderFactory _providerFactory = providerFactory;
 
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
@@ -401,27 +404,71 @@ namespace JackyAIApp.Server.Services.Finance
             }
         }
 
-        public async Task<ServiceResult> GetMarketBriefAsync(CancellationToken cancellationToken)
+        /// <summary>
+        /// "今日市場AI摘要" — a unified daily digest grounding gpt-5-nano in three sources
+        /// (market overview + global news + TW major announcements) and synthesising a
+        /// global/Taiwan two-section narrative. The generated digest is shared (cached per
+        /// day), but each user is charged <see cref="CreditCosts.MarketDigest"/> once per day
+        /// to unlock it — repeat views the same day are free.
+        /// </summary>
+        public async Task<ServiceResult> GetMarketDigestAsync(CancellationToken cancellationToken)
         {
-            const string cacheKey = "MarketBrief";
-            if (_memoryCache.TryGetValue(cacheKey, out object? cached))
-                return ServiceResult.Ok(cached);
+            var userId = _userService.GetUserId();
+            if (string.IsNullOrEmpty(userId))
+                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
 
-            // Fetch market data and news in parallel (news is best-effort).
+            var today = DateTime.Now.ToString("yyyyMMdd");
+
+            // 1) Ensure today's digest content exists (shared across users).
+            var contentKey = $"MarketDigest_{today}";
+            var digest = _memoryCache.TryGetValue(contentKey, out object? cached) ? cached as MarketDigestResponse : null;
+            if (digest is null)
+            {
+                var (generated, error) = await GenerateMarketDigestAsync(cancellationToken);
+                if (generated is null)
+                    return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, error ?? "Failed to generate market digest.");
+                digest = generated;
+                _memoryCache.Set(contentKey, digest, TimeSpan.FromHours(CACHE_HOURS));
+            }
+
+            // 2) Charge once per user per day (cached reads the same day are free).
+            var chargeKey = $"MarketDigestCharged_{userId}_{today}";
+            if (!_memoryCache.TryGetValue(chargeKey, out object? _))
+            {
+                var ok = await _creditService.ConsumeCreditsAsync(
+                    userId, CreditCosts.MarketDigest, "market_digest", "Daily AI market digest");
+                if (!ok)
+                    return ServiceResult.Fail(ErrorCodes.Forbidden,
+                        $"Insufficient credits. Required: {CreditCosts.MarketDigest}. Please purchase more credits to continue.");
+                // Hold the guard until end of day so the user isn't charged again today.
+                _memoryCache.Set(chargeKey, true, DateTime.Today.AddDays(1) - DateTime.Now);
+            }
+
+            return ServiceResult.Ok(digest);
+        }
+
+        /// <summary>
+        /// Gathers the three grounding sources in parallel and calls gpt-5-nano to produce the
+        /// unified digest. Pure generation — no caching or credit logic.
+        /// </summary>
+        private async Task<(MarketDigestResponse? digest, string? error)> GenerateMarketDigestAsync(CancellationToken cancellationToken)
+        {
+            // Fetch the three sources in parallel. News + TW announcements are best-effort.
             var overviewTask = GetMarketOverviewAsync(cancellationToken);
             var newsTask = _finnhubNewsProvider.IsConfigured
                 ? _finnhubNewsProvider.FetchAsync(cancellationToken)
                 : Task.FromResult<IReadOnlyList<FinnhubNewsItem>>([]);
+            var twseTask = GetTwseMajorNewsTextSafeAsync(cancellationToken);
 
-            await Task.WhenAll(overviewTask, newsTask);
+            await Task.WhenAll(overviewTask, newsTask, twseTask);
 
             var overviewResult = overviewTask.Result;
             if (!overviewResult.IsSuccess)
-                return overviewResult;
+                return (null, overviewResult.ErrorMessage);
 
             var overview = (MarketOverviewResponse)overviewResult.Data!;
             if (overview.Quotes.Count == 0)
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, "No market data available for the brief.");
+                return (null, "No market data available for the digest.");
 
             var dataText = string.Join("\n", overview.Quotes.Select(q =>
             {
@@ -434,37 +481,90 @@ namespace JackyAIApp.Server.Services.Finance
 
             var news = newsTask.Result;
             var newsSection = news.Count > 0
-                ? "\n\n今日財經新聞（用於解讀市場移動原因）：\n" +
+                ? "\n\n全球財經新聞（用於解讀全球市場移動原因）：\n" +
                   string.Join("\n", news.Select((n, i) =>
                       $"{i + 1}. [{n.Source}] {n.Headline}" +
                       (string.IsNullOrWhiteSpace(n.Summary) ? "" : $"：{n.Summary}")))
                 : "";
 
+            var twseSection = string.IsNullOrWhiteSpace(twseTask.Result)
+                ? ""
+                : $"\n\n台股今日公司公告（證交所公開資訊觀測站重大訊息，多為更名/處分資產/董事會決議/契約等公開公告，非投資訊號；日期為民國年需 +1911 轉西元）：\n{twseTask.Result}";
+
             var systemPrompt =
-                "你是專業市場策略師。根據提供的今日市場數據與財經新聞，寫出 3~5 個跨市場的因果觀察——" +
-                "不要逐項描述個別數字（使用者已看到數字），而是挖掘數字背後的訊號與原因：" +
-                "例如新聞事件如何驅動市場移動、多個指標同向代表什麼情緒、不同市場之間的牽動關係、對台灣投資人的實際含義。" +
-                "每個重點：一句點出關鍵訊號或原因的標題 + 一句說明因果或含義，並標註偏多/偏空/中性。" +
-                "只根據提供的數據與新聞推論，不編造未提供的事件。全部用繁體中文。" +
-                "只回傳 JSON：{\"points\":[{\"headline\":\"\",\"detail\":\"\",\"sentiment\":\"bullish|bearish|neutral\"}]}。";
-            var userMessage = $"今日市場數據：\n{dataText}{newsSection}";
+                "你是專業市場策略師，為台灣投資人整理『今日市場AI摘要』。根據提供的三類資料（全球市場數據、全球財經新聞、台股公司公告），" +
+                "整理成兩區重點：\n" +
+                "- category=\"global\"（全球總經）：3~5 點，挖掘數字與新聞背後的因果與情緒，不要只複述數字。\n" +
+                "- category=\"taiwan\"（台股公司動態）：2~4 點。注意這些是公開公告（更名、處分股權/資產、董事會決議、重大契約、併購等），" +
+                "不是投資訊號；請挑出較具實質意義的（如併購、處分重大資產、重大契約、營運變動），過濾純例行（補充說明、財報公布日、更名等行政事項），" +
+                "並如實描述公告內容、不要誇大成買賣建議；多數情況 sentiment 用 neutral，除非公告明顯偏多或偏空。若是特定公司，填 stockCode。\n" +
+                "每點：headline（一句標題）+ detail（一句說明）+ sentiment（bullish|bearish|neutral）+ category。" +
+                "只根據提供的資料推論，不編造未提供的事件。全部用繁體中文。" +
+                "只回傳 JSON：{\"points\":[{\"category\":\"global|taiwan\",\"headline\":\"\",\"detail\":\"\",\"sentiment\":\"bullish|bearish|neutral\",\"stockCode\":\"\"}]}。";
+            var userMessage = $"全球市場數據：\n{dataText}{newsSection}{twseSection}";
 
             try
             {
-                var (result, error) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<MarketBriefResponse>(
+                var (result, error) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<MarketDigestResponse>(
                     systemPrompt, userMessage, NewModels.GPT_5_NANO);
 
                 if (result is null || result.Points.Count == 0)
-                    return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, error ?? "Failed to generate market brief.");
+                    return (null, error ?? "Failed to generate market digest.");
 
                 result.GeneratedAt = DateTime.UtcNow;
-                _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(3));
-                return ServiceResult.Ok(result);
+                return (result, null);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to generate market brief");
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to generate market brief: {ex.Message}");
+                _logger.LogError(ex, "Failed to generate market digest");
+                return (null, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Fetches today's TWSE major-announcement filings and trims them to a compact, token-bounded
+        /// text block for the digest prompt. Best-effort: returns empty on any failure.
+        /// </summary>
+        private async Task<string> GetTwseMajorNewsTextSafeAsync(CancellationToken cancellationToken)
+        {
+            const int MAX_ITEMS = 60;
+            try
+            {
+                var raw = await _twseDataService.GetRawMaterialInfoWithCacheAsync(cancellationToken);
+                if (string.IsNullOrWhiteSpace(raw))
+                    return "";
+
+                using var doc = System.Text.Json.JsonDocument.Parse(raw);
+                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array)
+                    return "";
+
+                var lines = new List<string>();
+                foreach (var item in doc.RootElement.EnumerateArray())
+                {
+                    if (lines.Count >= MAX_ITEMS) break;
+
+                    string Get(params string[] keys)
+                    {
+                        foreach (var k in keys)
+                            if (item.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String)
+                                return v.GetString() ?? "";
+                        return "";
+                    }
+
+                    var code = Get("公司代號", "Code", "CompanyCode");
+                    var name = Get("公司名稱", "Name", "CompanyName");
+                    var subject = Get("主旨", "Subject", "Title");
+                    if (string.IsNullOrWhiteSpace(subject)) continue;
+
+                    lines.Add($"{code} {name}：{subject}".Trim());
+                }
+
+                return string.Join("\n", lines);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to build TWSE major-news text for digest");
+                return "";
             }
         }
 

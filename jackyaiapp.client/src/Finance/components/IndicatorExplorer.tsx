@@ -157,9 +157,12 @@ export const IndicatorExplorer = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ mt: 3 }}>
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+        關鍵總經指標
+      </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        關鍵總體經濟與市場指標（資料來源：FRED）。點「AI 解讀」看白話分析。
+        資料來源：FRED。點「AI 解讀」看白話分析。
       </Typography>
       <Grid container spacing={2}>
         {indicators.map((series) => (

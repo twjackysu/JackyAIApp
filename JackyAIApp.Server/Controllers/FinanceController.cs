@@ -61,10 +61,16 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetMarketOverview(CancellationToken cancellationToken = default) =>
             ToActionResult(await _financeQueryService.GetMarketOverviewAsync(cancellationToken));
 
-        /// <summary>Gets the AI-synthesised "今日市場重點" brief (a few takeaways from the day's market data).</summary>
-        [HttpGet("market-brief")]
-        public async Task<IActionResult> GetMarketBrief(CancellationToken cancellationToken = default) =>
-            ToActionResult(await _financeQueryService.GetMarketBriefAsync(cancellationToken));
+        /// <summary>
+        /// Gets the AI-synthesised "今日市場AI摘要" daily digest (global macro + Taiwan focus),
+        /// grounded in market data, global news, and TW major announcements. Charged
+        /// <see cref="CreditCosts.MarketDigest"/> once per user per day (handled in-service so
+        /// cached same-day reads are free).
+        /// </summary>
+        [Authorize]
+        [HttpGet("market-digest")]
+        public async Task<IActionResult> GetMarketDigest(CancellationToken cancellationToken = default) =>
+            ToActionResult(await _financeQueryService.GetMarketDigestAsync(cancellationToken));
 
         /// <summary>Gets key macro indicators (FRED) with recent history for the Indicator Explorer.</summary>
         [HttpGet("indicators")]

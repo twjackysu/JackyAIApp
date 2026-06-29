@@ -5,14 +5,13 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { ApiOkResponse } from '../types';
 
 import {
-  StrategicInsight,
   StockTrendAnalysis,
   StockSearchRequest,
   StockAnalysisResultData,
   StockAnalysisRequest,
   MacroEconomyData,
   MarketOverviewData,
-  MarketBriefData,
+  MarketDigestData,
   IndicatorExplorerData,
   IndicatorInsightData,
 } from './types';
@@ -23,22 +22,8 @@ export const financeApis = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: '/api/finance',
   }),
-  tagTypes: ['DailyInfo', 'StockAnalysis'],
+  tagTypes: ['StockAnalysis'],
   endpoints: (builder) => ({
-    getDailyImportantInfo: builder.query<ApiOkResponse<StrategicInsight[]>, void>({
-      query: () => ({
-        url: `dailyimportantinfo`,
-      }),
-      providesTags: ['DailyInfo'],
-      // Force refetch on errors by not caching failed requests
-      keepUnusedDataFor: 0, // Don't cache failed requests
-      // Retry failed requests
-      transformErrorResponse: (response) => {
-        // Log error for debugging
-        console.error('Finance API error:', response);
-        return response;
-      },
-    }),
     analyzeStock: builder.mutation<ApiOkResponse<StockTrendAnalysis>, StockSearchRequest>({
       query: (request) => ({
         url: 'analyze-stock',
@@ -73,9 +58,11 @@ export const financeApis = createApi({
       query: () => ({ url: 'market-overview' }),
       keepUnusedDataFor: 180, // intraday snapshot; refresh ~3 min
     }),
-    getMarketBrief: builder.query<ApiOkResponse<MarketBriefData>, void>({
-      query: () => ({ url: 'market-brief' }),
-      keepUnusedDataFor: 600,
+    getMarketDigest: builder.query<ApiOkResponse<MarketDigestData>, void>({
+      query: () => ({ url: 'market-digest' }),
+      // Day-stable content; keep it cached so revisiting the tab within a session
+      // doesn't re-hit the server (and the per-day credit charge stays a once-a-day thing).
+      keepUnusedDataFor: 3600,
     }),
     getIndicators: builder.query<ApiOkResponse<IndicatorExplorerData>, void>({
       query: () => ({ url: 'indicators' }),
@@ -89,12 +76,11 @@ export const financeApis = createApi({
 });
 
 export const {
-  useGetDailyImportantInfoQuery,
   useAnalyzeStockMutation,
   useGetComprehensiveAnalysisMutation,
   useGetMacroEconomyQuery,
   useGetMarketOverviewQuery,
-  useGetMarketBriefQuery,
+  useGetMarketDigestQuery,
   useGetIndicatorsQuery,
   useLazyGetIndicatorInsightQuery,
 } = financeApis;
