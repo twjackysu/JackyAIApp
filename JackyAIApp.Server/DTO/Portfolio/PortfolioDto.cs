@@ -67,6 +67,14 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal UsStockTWD { get; set; }
     }
 
+    public class StockLookupDto
+    {
+        public string Symbol { get; set; } = "";
+        public string CompanyName { get; set; } = "";
+        public decimal CurrentPrice { get; set; }
+        public string Currency { get; set; } = "";
+    }
+
     public class PricePoint
     {
         public string Date { get; set; } = "";

@@ -44,6 +44,13 @@ export interface HoldingDto {
   priceFetchFailed: boolean;
 }
 
+export interface StockLookupDto {
+  symbol: string;
+  companyName: string;
+  currentPrice: number;
+  currency: string;
+}
+
 export interface PricePoint {
   date: string;
   close: number;

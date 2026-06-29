@@ -263,6 +263,30 @@ namespace JackyAIApp.Server.Services.Portfolio
             await db.SaveChangesAsync(ct);
         }
 
+        public async Task<StockLookupDto?> LookupStockAsync(string market, string symbol, CancellationToken ct = default)
+        {
+            try
+            {
+                var region = providerFactory.DetectRegion(symbol);
+                var provider = providerFactory.GetMarketDataProvider(region);
+                var data = await provider.FetchAsync(symbol, ct);
+                var lastPrice = data.HistoricalPrices.LastOrDefault()?.Close ?? 0;
+                var currency = market.ToUpperInvariant() == "US" ? "USD" : "TWD";
+                return new StockLookupDto
+                {
+                    Symbol = symbol.ToUpperInvariant(),
+                    CompanyName = data.CompanyName,
+                    CurrentPrice = lastPrice,
+                    Currency = currency,
+                };
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Lookup failed for {Market}:{Symbol}", market, symbol);
+                return null;
+            }
+        }
+
         public async Task<HoldingPriceHistoryDto?> GetHoldingPriceHistoryAsync(
             string userId, string market, string symbol, CancellationToken ct = default)
         {

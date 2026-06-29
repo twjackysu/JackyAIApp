@@ -63,6 +63,14 @@ namespace JackyAIApp.Server.Controllers
             return Ok(responseFactory.CreateOKResponse(result));
         }
 
+        [HttpGet("lookup/{market}/{symbol}")]
+        public async Task<IActionResult> LookupStock(string market, string symbol, CancellationToken ct)
+        {
+            var result = await portfolioService.LookupStockAsync(market, symbol, ct);
+            if (result == null) return NotFound();
+            return Ok(responseFactory.CreateOKResponse(result));
+        }
+
         [HttpGet("holdings/{market}/{symbol}/price-history")]
         public async Task<IActionResult> GetHoldingPriceHistory(string market, string symbol, CancellationToken ct)
         {

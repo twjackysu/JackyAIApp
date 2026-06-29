@@ -7,6 +7,7 @@ import {
   HoldingPriceHistoryDto,
   NetWorthDataPoint,
   PortfolioSummaryDto,
+  StockLookupDto,
   TransactionDto,
 } from './types';
 
@@ -41,6 +42,9 @@ export const portfolioApis = createApi({
     >({
       query: ({ market, symbol }) => `holdings/${market}/${symbol}/price-history`,
     }),
+    lookupStock: builder.query<ApiOkResponse<StockLookupDto>, { market: string; symbol: string }>({
+      query: ({ market, symbol }) => `lookup/${market}/${symbol}`,
+    }),
   }),
 });
 
@@ -51,4 +55,5 @@ export const {
   useDeleteTransactionMutation,
   useGetNetWorthHistoryQuery,
   useGetHoldingPriceHistoryQuery,
+  useLookupStockQuery,
 } = portfolioApis;
