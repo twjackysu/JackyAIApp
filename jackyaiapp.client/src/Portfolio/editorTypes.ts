@@ -36,7 +36,7 @@ export const makeRow = (assetType: AssetType): EditorRow => {
         assetType: 'FUND',
         symbol: '',
         name: '',
-        market: '',
+        market: 'FUND',
         currency: 'TWD',
         quantity: 0,
         unitPrice: null,

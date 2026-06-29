@@ -10,18 +10,25 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
+import { useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useEffect, useState } from 'react';
 
 import { EditorRow, makeRow, toRow } from './editorTypes';
+import { FundRow } from './FundRow';
 import { StockRow } from './StockRow';
+import { UpdateHistoryDialog } from './UpdateHistoryDialog';
 
 import { useGetHoldingsQuery, useSaveHoldingsMutation } from '@/apis/portfolioApis';
+import { PositionInput } from '@/apis/portfolioApis/types';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function HoldingsEditor() {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [open, setOpen] = useState(false);
   const { data: holdingsRes } = useGetHoldingsQuery();
   const [saveHoldings, { isLoading: isSaving }] = useSaveHoldingsMutation();
@@ -38,6 +45,13 @@ export function HoldingsEditor() {
     setEffectiveDate(today()); // new update defaults to today
     setRows((data?.positions ?? []).map(toRow));
   }, [open, holdingsRes]);
+
+  // Load an arbitrary past snapshot's positions into the editor (restore flow).
+  const loadFromSnapshot = (positions: PositionInput[]) => {
+    setEffectiveDate(today());
+    setRows(positions.map(toRow));
+    setOpen(true);
+  };
 
   const stocks = rows.filter((r) => r.assetType === 'STOCK');
   const cashes = rows.filter((r) => r.assetType === 'CASH');
@@ -56,15 +70,24 @@ export function HoldingsEditor() {
 
   return (
     <>
-      <Button
-        variant="contained"
-        startIcon={hasExisting ? <EditIcon /> : <AddIcon />}
-        onClick={() => setOpen(true)}
-      >
-        {hasExisting ? '更新持倉' : '建立持倉'}
-      </Button>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        {hasExisting && <UpdateHistoryDialog onLoadSnapshot={loadFromSnapshot} />}
+        <Button
+          variant="contained"
+          startIcon={hasExisting ? <EditIcon /> : <AddIcon />}
+          onClick={() => setOpen(true)}
+        >
+          {hasExisting ? '更新持倉' : '建立持倉'}
+        </Button>
+      </Box>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="md"
+        fullWidth
+        fullScreen={fullScreen}
+      >
         <DialogTitle>更新持倉</DialogTitle>
         <DialogContent
           sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: '16px !important' }}
@@ -146,54 +169,12 @@ export function HoldingsEditor() {
             empty={funds.length === 0}
           >
             {funds.map((r) => (
-              <Box
+              <FundRow
                 key={r._key}
-                sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}
-              >
-                <TextField
-                  size="small"
-                  label="基金名稱"
-                  value={r.name}
-                  onChange={(e) => patchRow(r._key, { name: e.target.value })}
-                  sx={{ flex: 1, minWidth: 140 }}
-                />
-                <TextField
-                  size="small"
-                  type="number"
-                  label="單位數"
-                  value={r.quantity || ''}
-                  onChange={(e) => patchRow(r._key, { quantity: parseFloat(e.target.value) || 0 })}
-                  slotProps={{ htmlInput: { min: 0, step: 0.0001 } }}
-                  sx={{ width: 110 }}
-                />
-                <TextField
-                  size="small"
-                  type="number"
-                  label="淨值 NAV"
-                  value={r.unitPrice ?? ''}
-                  onChange={(e) =>
-                    patchRow(r._key, {
-                      unitPrice: e.target.value === '' ? null : parseFloat(e.target.value),
-                    })
-                  }
-                  slotProps={{ htmlInput: { min: 0, step: 0.0001 } }}
-                  sx={{ width: 110 }}
-                />
-                <TextField
-                  size="small"
-                  select
-                  label="幣別"
-                  value={r.currency}
-                  onChange={(e) => patchRow(r._key, { currency: e.target.value })}
-                  sx={{ width: 90 }}
-                >
-                  <MenuItem value="TWD">TWD</MenuItem>
-                  <MenuItem value="USD">USD</MenuItem>
-                </TextField>
-                <IconButton onClick={() => removeRow(r._key)} size="small">
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </Box>
+                row={r}
+                onChange={(patch) => patchRow(r._key, patch)}
+                onRemove={() => removeRow(r._key)}
+              />
             ))}
           </Section>
         </DialogContent>

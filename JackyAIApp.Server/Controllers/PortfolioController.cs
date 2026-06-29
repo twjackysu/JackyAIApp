@@ -47,6 +47,24 @@ namespace JackyAIApp.Server.Controllers
             return Ok(responseFactory.CreateOKResponse(true));
         }
 
+        [HttpGet("holdings/{snapshotId:int}")]
+        public async Task<IActionResult> GetSnapshotHoldings(int snapshotId, CancellationToken ct)
+        {
+            var userId = RequireUserId();
+            var result = await portfolioService.GetSnapshotHoldingsAsync(userId, snapshotId, ct);
+            if (result == null) return NotFound();
+            return Ok(responseFactory.CreateOKResponse(result));
+        }
+
+        [HttpDelete("holdings/{snapshotId:int}")]
+        public async Task<IActionResult> DeleteSnapshot(int snapshotId, CancellationToken ct)
+        {
+            var userId = RequireUserId();
+            var ok = await portfolioService.DeleteSnapshotAsync(userId, snapshotId, ct);
+            if (!ok) return NotFound();
+            return Ok(responseFactory.CreateOKResponse(true));
+        }
+
         [HttpGet("update-history")]
         public async Task<IActionResult> GetUpdateHistory(CancellationToken ct)
         {
@@ -68,6 +86,13 @@ namespace JackyAIApp.Server.Controllers
         {
             var result = await portfolioService.LookupStockAsync(market, symbol, ct);
             if (result == null) return NotFound();
+            return Ok(responseFactory.CreateOKResponse(result));
+        }
+
+        [HttpGet("funds/search")]
+        public async Task<IActionResult> SearchFunds([FromQuery] string keyword, CancellationToken ct)
+        {
+            var result = await portfolioService.SearchFundsAsync(keyword ?? "", ct);
             return Ok(responseFactory.CreateOKResponse(result));
         }
 

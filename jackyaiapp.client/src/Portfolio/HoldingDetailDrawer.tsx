@@ -171,6 +171,7 @@ function PriceChart({ market, symbol }: { market: string; symbol: string }) {
 
 export function HoldingDetailDrawer({ position, open, onClose }: Props) {
   const hasPnl = position?.unrealizedPnlTWD != null && position?.unrealizedPnlPct != null;
+  const isFund = position?.assetType === 'FUND';
 
   return (
     <Drawer
@@ -196,9 +197,9 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
                   {position.symbol}
                 </Typography>
                 <Chip
-                  label={position.market}
+                  label={isFund ? '基金' : position.market}
                   size="small"
-                  color={position.market === 'TW' ? 'primary' : 'warning'}
+                  color={isFund ? 'info' : position.market === 'TW' ? 'primary' : 'warning'}
                   variant="outlined"
                 />
               </Box>
@@ -227,8 +228,14 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
               bgcolor: 'action.hover',
             }}
           >
-            <StatBlock label="持股數量" value={position.quantity.toLocaleString()} />
-            <StatBlock label="現價" value={`${position.currency} ${fmt(position.currentPrice)}`} />
+            <StatBlock
+              label={isFund ? '單位數' : '持股數量'}
+              value={position.quantity.toLocaleString()}
+            />
+            <StatBlock
+              label={isFund ? '淨值' : '現價'}
+              value={`${position.currency} ${fmt(position.currentPrice)}`}
+            />
             <StatBlock label="市值 (TWD)" value={`NT$${fmt(position.marketValueTWD, 0)}`} />
             {hasPnl ? (
               <>
@@ -254,9 +261,10 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
 
           {/* Price chart */}
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            近6個月走勢{hasPnl ? ' · 橘線 = 均攤成本' : ''}
+            {isFund ? '近一年淨值走勢' : '近6個月走勢'}
+            {hasPnl ? ' · 橘線 = 均攤成本' : ''}
           </Typography>
-          <PriceChart market={position.market} symbol={position.symbol} />
+          <PriceChart market={isFund ? 'FUND' : position.market} symbol={position.symbol} />
         </>
       )}
     </Drawer>

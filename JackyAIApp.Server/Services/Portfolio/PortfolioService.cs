@@ -10,6 +10,7 @@ namespace JackyAIApp.Server.Services.Portfolio
     public class PortfolioService(
         AzureSQLDBContext db,
         IMarketDataProviderFactory providerFactory,
+        IFundDataService fundData,
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
         ILogger<PortfolioService> logger) : IPortfolioService
@@ -80,6 +81,43 @@ namespace JackyAIApp.Server.Services.Portfolio
             };
         }
 
+        public async Task<SaveHoldingsRequest?> GetSnapshotHoldingsAsync(string userId, int snapshotId, CancellationToken ct = default)
+        {
+            var snapshot = await db.HoldingSnapshots
+                .Include(s => s.Positions)
+                .FirstOrDefaultAsync(s => s.Id == snapshotId && s.UserId == userId, ct);
+            if (snapshot == null) return null;
+
+            return new SaveHoldingsRequest
+            {
+                EffectiveDate = snapshot.EffectiveDate,
+                Positions = snapshot.Positions
+                    .Select(p => new PositionInput
+                    {
+                        AssetType = p.AssetType,
+                        Symbol = p.Symbol,
+                        Name = p.Name,
+                        Market = p.Market,
+                        Currency = p.Currency,
+                        Quantity = p.Quantity,
+                        UnitPrice = p.UnitPrice,
+                        CostBasis = p.CostBasis,
+                    })
+                    .ToList(),
+            };
+        }
+
+        public async Task<bool> DeleteSnapshotAsync(string userId, int snapshotId, CancellationToken ct = default)
+        {
+            var snapshot = await db.HoldingSnapshots
+                .FirstOrDefaultAsync(s => s.Id == snapshotId && s.UserId == userId, ct);
+            if (snapshot == null) return false;
+
+            db.HoldingSnapshots.Remove(snapshot); // cascade deletes positions
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+
         public async Task<List<UpdateHistoryItem>> GetUpdateHistoryAsync(string userId, CancellationToken ct = default)
         {
             return await db.HoldingSnapshots
@@ -130,7 +168,17 @@ namespace JackyAIApp.Server.Services.Portfolio
                 }
                 else if (p.AssetType == AssetType.FUND)
                 {
+                    // Prefer live NAV from FundRich; fall back to the value stored at save time.
                     currentPrice = p.UnitPrice ?? 0;
+                    if (!string.IsNullOrWhiteSpace(p.Symbol))
+                    {
+                        var nav = await fundData.GetFundNavHistoryAsync(p.Symbol, ct);
+                        var latest = nav?.Prices.LastOrDefault()?.Close;
+                        if (latest is > 0)
+                            currentPrice = latest.Value;
+                        else if (currentPrice <= 0)
+                            priceFailed = true;
+                    }
                 }
                 else // CASH
                 {
@@ -238,6 +286,21 @@ namespace JackyAIApp.Server.Services.Portfolio
                 }
             }
 
+            // Fund NAV histories — gives funds a real daily curve instead of a flat line.
+            var fundIds = snapshots
+                .SelectMany(s => s.Positions)
+                .Where(p => p.AssetType == AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol))
+                .Select(p => p.Symbol)
+                .Distinct()
+                .ToList();
+
+            var fundNavMap = new Dictionary<string, List<DTO.Portfolio.PricePoint>>();
+            foreach (var fid in fundIds)
+            {
+                var nav = await fundData.GetFundNavHistoryAsync(fid, ct);
+                if (nav != null) fundNavMap[fid] = nav.Prices;
+            }
+
             var result = new List<NetWorthDataPoint>();
             for (var date = startDate; date <= today; date = date.AddDays(1))
             {
@@ -260,7 +323,19 @@ namespace JackyAIApp.Server.Services.Portfolio
                     }
                     else if (p.AssetType == AssetType.FUND)
                     {
-                        fund += (p.UnitPrice ?? 0) * p.Quantity * fxMul;
+                        decimal nav = p.UnitPrice ?? 0; // fallback: flat value stored at save time
+                        if (!string.IsNullOrWhiteSpace(p.Symbol) &&
+                            fundNavMap.TryGetValue(p.Symbol, out var navPrices))
+                        {
+                            // Both sides are ISO yyyy-MM-dd strings → ordinal compare is chronological.
+                            var dayKey = date.ToString("yyyy-MM-dd");
+                            var navClose = navPrices
+                                .Where(x => string.CompareOrdinal(x.Date, dayKey) <= 0)
+                                .OrderByDescending(x => x.Date, StringComparer.Ordinal)
+                                .FirstOrDefault()?.Close ?? 0;
+                            if (navClose > 0) nav = navClose;
+                        }
+                        if (nav > 0) fund += nav * p.Quantity * fxMul;
                     }
                     else // STOCK
                     {
@@ -322,11 +397,33 @@ namespace JackyAIApp.Server.Services.Portfolio
             string userId, string market, string symbol, CancellationToken ct = default)
         {
             var snapshot = await LatestSnapshotAsync(userId, ct);
-            var pos = snapshot?.Positions.FirstOrDefault(p =>
-                p.AssetType == AssetType.STOCK &&
-                p.Market == market.ToUpperInvariant() &&
-                p.Symbol == symbol.ToUpperInvariant());
+            var sym = symbol.ToUpperInvariant();
+            var isFund = market.ToUpperInvariant() == "FUND";
+
+            var pos = snapshot?.Positions.FirstOrDefault(p => isFund
+                ? p.AssetType == AssetType.FUND && p.Symbol == sym
+                : p.AssetType == AssetType.STOCK && p.Market == market.ToUpperInvariant() && p.Symbol == sym);
             if (pos == null) return null;
+
+            var avgCost = pos.CostBasis.HasValue && pos.Quantity > 0
+                ? pos.CostBasis.Value / pos.Quantity
+                : (decimal?)null;
+
+            if (isFund)
+            {
+                var nav = await fundData.GetFundNavHistoryAsync(pos.Symbol, ct);
+                if (nav == null) return null;
+                return new HoldingPriceHistoryDto
+                {
+                    Symbol = pos.Symbol,
+                    CompanyName = pos.Name,
+                    Market = "FUND",
+                    Currency = nav.Currency,
+                    Quantity = pos.Quantity,
+                    AvgCost = avgCost,
+                    Prices = nav.Prices,
+                };
+            }
 
             var region = providerFactory.DetectRegion(symbol);
             var provider = providerFactory.GetMarketDataProvider(region);
@@ -339,9 +436,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 Market = pos.Market,
                 Currency = pos.Currency,
                 Quantity = pos.Quantity,
-                AvgCost = pos.CostBasis.HasValue && pos.Quantity > 0
-                    ? pos.CostBasis.Value / pos.Quantity
-                    : null,
+                AvgCost = avgCost,
                 Prices = data.HistoricalPrices
                     .Select(x => new PricePoint
                     {
@@ -353,6 +448,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                     .ToList(),
             };
         }
+
+        public Task<List<FundSearchItem>> SearchFundsAsync(string keyword, CancellationToken ct = default) =>
+            fundData.SearchFundsAsync(keyword, ct);
 
         // ── Helpers ──────────────────────────────────────────────────────────
 

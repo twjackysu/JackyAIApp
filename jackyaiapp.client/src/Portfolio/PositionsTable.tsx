@@ -53,13 +53,15 @@ export function PositionsTable({ positions, onStockClick }: Props) {
         <TableBody>
           {positions.map((p, i) => {
             const isStock = p.assetType === 'STOCK';
+            // Stocks and funds (with a fundId) have a price chart; cash does not.
+            const clickable = (isStock || (p.assetType === 'FUND' && !!p.symbol)) && !!onStockClick;
             const chip = TYPE_CHIP[p.assetType] ?? TYPE_CHIP.STOCK;
             return (
               <TableRow
                 key={`${p.assetType}-${p.symbol}-${p.name}-${i}`}
                 hover
-                onClick={() => isStock && onStockClick?.(p)}
-                sx={{ cursor: isStock && onStockClick ? 'pointer' : 'default' }}
+                onClick={() => clickable && onStockClick?.(p)}
+                sx={{ cursor: clickable ? 'pointer' : 'default' }}
               >
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

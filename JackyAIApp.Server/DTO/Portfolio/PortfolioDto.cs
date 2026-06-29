@@ -94,6 +94,15 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal Low { get; set; }
     }
 
+    // ── Fund search (FundRich) ───────────────────────────────────────────────
+
+    public class FundSearchItem
+    {
+        public string FundId { get; set; } = "";
+        public string Name { get; set; } = "";
+        public bool IsSell { get; set; }
+    }
+
     public class HoldingPriceHistoryDto
     {
         public string Symbol { get; set; } = "";
