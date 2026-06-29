@@ -10,7 +10,6 @@ namespace JackyAIApp.Server.Services.Finance
     /// </summary>
     public interface IFinanceQueryService
     {
-        Task<ServiceResult> GetDailyImportantInfoAsync(CancellationToken cancellationToken);
         Task<ServiceResult> AnalyzeStockAsync(StockSearchRequest request, CancellationToken cancellationToken);
         Task<ServiceResult> GetTechnicalIndicatorsAsync(string stockCode, CancellationToken cancellationToken);
         Task<ServiceResult> GetChipAnalysisAsync(string stockCode, CancellationToken cancellationToken);

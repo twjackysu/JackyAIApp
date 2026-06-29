@@ -16,12 +16,6 @@ namespace JackyAIApp.Server.Controllers
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IFinanceQueryService _financeQueryService = financeQueryService;
 
-        /// <summary>Gets the daily important financial information from Taiwan Stock Exchange.</summary>
-        [Authorize]
-        [HttpGet("dailyimportantinfo")]
-        public async Task<IActionResult> GetDailyImportantInfo(CancellationToken cancellationToken = default) =>
-            ToActionResult(await _financeQueryService.GetDailyImportantInfoAsync(cancellationToken));
-
         /// <summary>Analyzes a specific stock using TWSE APIs and OpenAI.</summary>
         [Authorize]
         [HttpPost("analyze-stock")]
