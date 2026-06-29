@@ -1,0 +1,129 @@
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import ButtonGroup from '@mui/material/ButtonGroup';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
+import ReactEcharts from 'echarts-for-react';
+import { useState } from 'react';
+
+import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
+import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
+
+const RANGES: { label: string; days: number }[] = [
+  { label: '1M', days: 30 },
+  { label: '3M', days: 90 },
+  { label: '6M', days: 180 },
+];
+
+const fmt = (n: number) =>
+  n >= 1_000_000
+    ? `${(n / 1_000_000).toFixed(2)}M`
+    : n.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
+
+export function NetWorthChart() {
+  const [days, setDays] = useState(90);
+  const { data: res, isLoading } = useGetNetWorthHistoryQuery(days);
+  const points = res?.data ?? [];
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (points.length === 0) {
+    return (
+      <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+        資料不足，新增交易後即可看到圖表
+      </Typography>
+    );
+  }
+
+  const dates = points.map((p) => p.date);
+  const totals = points.map((p) => p.totalTWD);
+  const twValues = points.map((p) => p.twStockTWD);
+  const usValues = points.map((p) => p.usStockTWD);
+
+  const option: ECOption = {
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params: unknown) => {
+        const p = params as { axisValue: string; seriesName: string; value: number }[];
+        const date = p[0]?.axisValue ?? '';
+        return [`<b>${date}</b>`, ...p.map((s) => `${s.seriesName}：NT$${fmt(s.value)}`)].join(
+          '<br/>',
+        );
+      },
+    },
+    legend: { bottom: 0, data: ['總資產', '台股', '美股'] },
+    grid: { top: 16, right: 16, bottom: 48, left: 70 },
+    xAxis: { type: 'category', data: dates, boundaryGap: false },
+    yAxis: {
+      type: 'value',
+      axisLabel: { formatter: (v: number) => `${fmt(v)}` },
+    },
+    series: [
+      {
+        name: '總資產',
+        type: 'line',
+        data: totals,
+        smooth: true,
+        lineStyle: { width: 2.5, color: '#F59E0B' },
+        itemStyle: { color: '#F59E0B' },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(245,158,11,0.25)' },
+              { offset: 1, color: 'rgba(245,158,11,0)' },
+            ],
+          },
+        },
+        symbol: 'none',
+      },
+      {
+        name: '台股',
+        type: 'line',
+        data: twValues,
+        smooth: true,
+        lineStyle: { width: 1.5, color: '#3B82F6', type: 'dashed' },
+        itemStyle: { color: '#3B82F6' },
+        symbol: 'none',
+      },
+      {
+        name: '美股',
+        type: 'line',
+        data: usValues,
+        smooth: true,
+        lineStyle: { width: 1.5, color: '#10B981', type: 'dashed' },
+        itemStyle: { color: '#10B981' },
+        symbol: 'none',
+      },
+    ],
+  };
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <ButtonGroup size="small" variant="outlined">
+          {RANGES.map((r) => (
+            <Button
+              key={r.days}
+              onClick={() => setDays(r.days)}
+              variant={days === r.days ? 'contained' : 'outlined'}
+            >
+              {r.label}
+            </Button>
+          ))}
+        </ButtonGroup>
+      </Box>
+      <ReactEcharts option={option} theme={ECHARTS_THEME} style={{ height: 280 }} />
+    </Box>
+  );
+}

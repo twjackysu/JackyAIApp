@@ -2,7 +2,12 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 import { ApiOkResponse } from '../types';
 
-import { AddTransactionRequest, PortfolioSummaryDto, TransactionDto } from './types';
+import {
+  AddTransactionRequest,
+  NetWorthDataPoint,
+  PortfolioSummaryDto,
+  TransactionDto,
+} from './types';
 
 export const portfolioApis = createApi({
   reducerPath: 'portfolioApis',
@@ -25,6 +30,10 @@ export const portfolioApis = createApi({
       query: (id) => ({ url: `transactions/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Transactions', 'Summary'],
     }),
+    getNetWorthHistory: builder.query<ApiOkResponse<NetWorthDataPoint[]>, number>({
+      query: (days) => `net-worth-history?days=${days}`,
+      providesTags: ['Summary'],
+    }),
   }),
 });
 
@@ -33,4 +42,5 @@ export const {
   useGetTransactionsQuery,
   useAddTransactionMutation,
   useDeleteTransactionMutation,
+  useGetNetWorthHistoryQuery,
 } = portfolioApis;

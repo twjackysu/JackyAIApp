@@ -54,5 +54,13 @@ namespace JackyAIApp.Server.Controllers
             await portfolioService.DeleteTransactionAsync(userId, id, ct);
             return Ok(responseFactory.CreateOKResponse(true));
         }
+
+        [HttpGet("net-worth-history")]
+        public async Task<IActionResult> GetNetWorthHistory([FromQuery] int days = 90, CancellationToken ct = default)
+        {
+            var userId = RequireUserId();
+            var result = await portfolioService.GetNetWorthHistoryAsync(userId, days, ct);
+            return Ok(responseFactory.CreateOKResponse(result));
+        }
     }
 }

@@ -6,10 +6,15 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import { alpha } from '@mui/material/styles';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
+import { useState } from 'react';
 
 import { HoldingsTable } from './HoldingsTable';
+import { NetWorthChart } from './NetWorthChart';
 import { TransactionForm } from './TransactionForm';
+import { TransactionList } from './TransactionList';
 
 import { useGetPortfolioSummaryQuery } from '@/apis/portfolioApis';
 
@@ -149,6 +154,7 @@ function AllocationRow({
 export default function Portfolio() {
   const { data: summaryRes, isLoading, isError } = useGetPortfolioSummaryQuery();
   const summary = summaryRes?.data;
+  const [tab, setTab] = useState(0);
 
   return (
     <Box sx={{ maxWidth: 1100, mx: 'auto', py: 3 }}>
@@ -198,20 +204,38 @@ export default function Portfolio() {
             </Grid>
           </Grid>
 
-          {/* Holdings */}
-          <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          {/* Net Worth Chart */}
+          <Card
+            elevation={0}
+            sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
+          >
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                持倉明細
+                資產淨值走勢
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <HoldingsTable holdings={summary.holdings} usdTwdRate={summary.usdTwdRate} />
+              <NetWorthChart />
+            </CardContent>
+          </Card>
+
+          {/* Tabs: Holdings / Transactions */}
+          <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+              <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+                <Tab label="持倉明細" />
+                <Tab label="交易紀錄" />
+              </Tabs>
+            </Box>
+            <CardContent sx={{ p: 2 }}>
+              {tab === 0 && (
+                <HoldingsTable holdings={summary.holdings} usdTwdRate={summary.usdTwdRate} />
+              )}
+              {tab === 1 && <TransactionList />}
             </CardContent>
           </Card>
         </>
       )}
 
-      {/* Empty state (logged in but no holdings yet) */}
       {!isLoading && !isError && summary && summary.holdings.length === 0 && (
         <Box sx={{ textAlign: 'center', py: 4 }}>
           <Typography color="text.secondary">尚無持倉。點「新增交易」記錄第一筆交易。</Typography>

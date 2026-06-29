@@ -58,4 +58,12 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal TotalUnrealizedPnlPct { get; set; }
         public List<HoldingDto> Holdings { get; set; } = [];
     }
+
+    public class NetWorthDataPoint
+    {
+        public string Date { get; set; } = "";
+        public decimal TotalTWD { get; set; }
+        public decimal TwStockTWD { get; set; }
+        public decimal UsStockTWD { get; set; }
+    }
 }
