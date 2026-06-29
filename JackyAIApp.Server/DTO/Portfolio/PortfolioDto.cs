@@ -66,4 +66,23 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal TwStockTWD { get; set; }
         public decimal UsStockTWD { get; set; }
     }
+
+    public class PricePoint
+    {
+        public string Date { get; set; } = "";
+        public decimal Close { get; set; }
+        public decimal High { get; set; }
+        public decimal Low { get; set; }
+    }
+
+    public class HoldingPriceHistoryDto
+    {
+        public string Symbol { get; set; } = "";
+        public string CompanyName { get; set; } = "";
+        public string Market { get; set; } = "";
+        public string Currency { get; set; } = "";
+        public decimal AvgCost { get; set; }
+        public decimal Quantity { get; set; }
+        public List<PricePoint> Prices { get; set; } = [];
+    }
 }
