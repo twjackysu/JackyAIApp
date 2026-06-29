@@ -195,24 +195,28 @@ namespace JackyAIApp.Server.Data
                 .IsUnique();
 
             // Portfolio
-            modelBuilder.Entity<PortfolioTransaction>()
-                .HasOne(pt => pt.User)
-                .WithMany(u => u.PortfolioTransactions)
-                .HasForeignKey(pt => pt.UserId)
+            modelBuilder.Entity<HoldingSnapshot>()
+                .HasOne(hs => hs.User)
+                .WithMany(u => u.HoldingSnapshots)
+                .HasForeignKey(hs => hs.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<PortfolioTransaction>()
-                .HasIndex(pt => pt.UserId);
-
-            modelBuilder.Entity<NetWorthSnapshot>()
-                .HasOne(ns => ns.User)
-                .WithMany(u => u.NetWorthSnapshots)
-                .HasForeignKey(ns => ns.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<NetWorthSnapshot>()
-                .HasIndex(ns => new { ns.UserId, ns.Date })
+            modelBuilder.Entity<HoldingSnapshot>()
+                .HasIndex(hs => new { hs.UserId, hs.EffectiveDate })
                 .IsUnique();
+
+            modelBuilder.Entity<HoldingPosition>()
+                .HasOne(hp => hp.Snapshot)
+                .WithMany(hs => hs.Positions)
+                .HasForeignKey(hp => hp.SnapshotId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<HoldingPosition>()
+                .Property(hp => hp.Quantity).HasPrecision(18, 6);
+            modelBuilder.Entity<HoldingPosition>()
+                .Property(hp => hp.UnitPrice).HasPrecision(18, 6);
+            modelBuilder.Entity<HoldingPosition>()
+                .Property(hp => hp.CostBasis).HasPrecision(18, 4);
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -235,7 +239,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<Dashboard> Dashboards { get; set; }
         public virtual DbSet<DashboardWidget> DashboardWidgets { get; set; }
         public virtual DbSet<DashboardShare> DashboardShares { get; set; }
-        public virtual DbSet<PortfolioTransaction> PortfolioTransactions { get; set; }
-        public virtual DbSet<NetWorthSnapshot> NetWorthSnapshots { get; set; }
+        public virtual DbSet<HoldingSnapshot> HoldingSnapshots { get; set; }
+        public virtual DbSet<HoldingPosition> HoldingPositions { get; set; }
     }
 }

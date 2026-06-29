@@ -4,9 +4,14 @@ using JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Data.Models.Portfolio
 {
-    public enum TransactionType { BUY, SELL, DIVIDEND }
+    public enum AssetType { STOCK, CASH, FUND }
 
-    public class PortfolioTransaction
+    /// <summary>
+    /// One full snapshot of a user's holdings as of an effective date.
+    /// History is reconstructed by carrying forward the most recent snapshot
+    /// whose EffectiveDate is on or before a given day.
+    /// </summary>
+    public class HoldingSnapshot
     {
         [Key]
         public int Id { get; set; }
@@ -15,32 +20,46 @@ namespace JackyAIApp.Server.Data.Models.Portfolio
         [ForeignKey(nameof(UserId))]
         public User User { get; set; } = null!;
 
-        public required string Symbol { get; set; }
-        public required string Market { get; set; }   // "TW" | "US"
-        public required string CompanyName { get; set; }
-        public required TransactionType Type { get; set; }
-        public required DateTime Date { get; set; }
-        public required decimal Quantity { get; set; }
-        public required decimal Price { get; set; }
-        public required string Currency { get; set; } // "TWD" | "USD"
-        public decimal Fee { get; set; } = 0;
-        public string? Note { get; set; }
+        public required DateOnly EffectiveDate { get; set; }
+
+        /// <summary>USD/TWD rate captured at save time; used for all valuation while this snapshot is active.</summary>
+        public decimal UsdTwdRate { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public ICollection<HoldingPosition> Positions { get; set; } = [];
     }
 
-    public class NetWorthSnapshot
+    public class HoldingPosition
     {
         [Key]
         public int Id { get; set; }
 
-        public required string UserId { get; set; }
-        [ForeignKey(nameof(UserId))]
-        public User User { get; set; } = null!;
+        public int SnapshotId { get; set; }
+        [ForeignKey(nameof(SnapshotId))]
+        public HoldingSnapshot Snapshot { get; set; } = null!;
 
-        public required DateOnly Date { get; set; }
-        public required decimal TotalTWD { get; set; }
-        public decimal TwStockTWD { get; set; }
-        public decimal UsStockTWD { get; set; }
-        public decimal UsdTwdRate { get; set; }
+        public required AssetType AssetType { get; set; }
+
+        /// <summary>Stock/fund code. Empty for cash.</summary>
+        public string Symbol { get; set; } = "";
+
+        /// <summary>Display name (company / fund / "現金").</summary>
+        public string Name { get; set; } = "";
+
+        /// <summary>"TW" | "US" for stocks; empty otherwise.</summary>
+        public string Market { get; set; } = "";
+
+        /// <summary>"TWD" | "USD".</summary>
+        public required string Currency { get; set; }
+
+        /// <summary>Shares (STOCK) / units (FUND) / amount (CASH).</summary>
+        public decimal Quantity { get; set; }
+
+        /// <summary>Manual NAV for funds. Ignored for stocks (live price), 1 for cash.</summary>
+        public decimal? UnitPrice { get; set; }
+
+        /// <summary>Optional total cost basis in position currency. Drives unrealized P&amp;L when present.</summary>
+        public decimal? CostBasis { get; set; }
     }
 }

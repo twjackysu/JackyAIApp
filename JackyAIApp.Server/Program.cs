@@ -136,7 +136,6 @@ try
     // Portfolio
     builder.Services.AddScoped<JackyAIApp.Server.Services.Portfolio.IPortfolioService,
         JackyAIApp.Server.Services.Portfolio.PortfolioService>();
-    builder.Services.AddHostedService<JackyAIApp.Server.Services.Portfolio.PortfolioSnapshotJob>();
 
     // Configure Prompt and OpenAI services
     builder.Services.AddSingleton<JackyAIApp.Server.Services.Prompt.IPromptLoader, JackyAIApp.Server.Services.Prompt.PromptLoader>();

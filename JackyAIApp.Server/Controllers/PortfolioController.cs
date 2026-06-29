@@ -31,28 +31,28 @@ namespace JackyAIApp.Server.Controllers
             return Ok(responseFactory.CreateOKResponse(result));
         }
 
-        [HttpGet("transactions")]
-        public async Task<IActionResult> GetTransactions(CancellationToken ct)
+        [HttpGet("holdings")]
+        public async Task<IActionResult> GetHoldings(CancellationToken ct)
         {
             var userId = RequireUserId();
-            var result = await portfolioService.GetTransactionsAsync(userId, ct);
+            var result = await portfolioService.GetLatestHoldingsAsync(userId, ct);
             return Ok(responseFactory.CreateOKResponse(result));
         }
 
-        [HttpPost("transactions")]
-        public async Task<IActionResult> AddTransaction([FromBody] AddTransactionRequest req, CancellationToken ct)
+        [HttpPut("holdings")]
+        public async Task<IActionResult> SaveHoldings([FromBody] SaveHoldingsRequest req, CancellationToken ct)
         {
             var userId = RequireUserId();
-            var result = await portfolioService.AddTransactionAsync(userId, req, ct);
-            return Ok(responseFactory.CreateOKResponse(result));
-        }
-
-        [HttpDelete("transactions/{id:int}")]
-        public async Task<IActionResult> DeleteTransaction(int id, CancellationToken ct)
-        {
-            var userId = RequireUserId();
-            await portfolioService.DeleteTransactionAsync(userId, id, ct);
+            await portfolioService.SaveHoldingsAsync(userId, req, ct);
             return Ok(responseFactory.CreateOKResponse(true));
+        }
+
+        [HttpGet("update-history")]
+        public async Task<IActionResult> GetUpdateHistory(CancellationToken ct)
+        {
+            var userId = RequireUserId();
+            var result = await portfolioService.GetUpdateHistoryAsync(userId, ct);
+            return Ok(responseFactory.CreateOKResponse(result));
         }
 
         [HttpGet("net-worth-history")]
@@ -60,6 +60,14 @@ namespace JackyAIApp.Server.Controllers
         {
             var userId = RequireUserId();
             var result = await portfolioService.GetNetWorthHistoryAsync(userId, days, ct);
+            return Ok(responseFactory.CreateOKResponse(result));
+        }
+
+        [HttpGet("lookup/{market}/{symbol}")]
+        public async Task<IActionResult> LookupStock(string market, string symbol, CancellationToken ct)
+        {
+            var result = await portfolioService.LookupStockAsync(market, symbol, ct);
+            if (result == null) return NotFound();
             return Ok(responseFactory.CreateOKResponse(result));
         }
 

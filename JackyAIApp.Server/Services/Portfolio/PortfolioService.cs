@@ -17,178 +17,224 @@ namespace JackyAIApp.Server.Services.Portfolio
         private const string BOT_FX_URL = "https://rate.bot.com.tw/xrt/flcsv/0/day";
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
 
-        public async Task<TransactionDto> AddTransactionAsync(string userId, AddTransactionRequest req, CancellationToken ct = default)
+        // ── Save / read holdings ─────────────────────────────────────────────
+
+        public async Task SaveHoldingsAsync(string userId, SaveHoldingsRequest req, CancellationToken ct = default)
         {
-            var tx = new PortfolioTransaction
+            var effectiveDate = req.EffectiveDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var usdTwdRate = await FetchUsdTwdRateAsync(ct);
+
+            // Replace any existing snapshot for that date (cascade deletes its positions)
+            var existing = await db.HoldingSnapshots
+                .FirstOrDefaultAsync(s => s.UserId == userId && s.EffectiveDate == effectiveDate, ct);
+            if (existing != null)
+                db.HoldingSnapshots.Remove(existing);
+
+            var snapshot = new HoldingSnapshot
             {
                 UserId = userId,
-                Symbol = req.Symbol.ToUpperInvariant(),
-                Market = req.Market.ToUpperInvariant(),
-                CompanyName = req.CompanyName,
-                Type = req.Type,
-                Date = req.Date.ToUniversalTime(),
-                Quantity = req.Quantity,
-                Price = req.Price,
-                Currency = req.Currency.ToUpperInvariant(),
-                Fee = req.Fee,
-                Note = req.Note,
+                EffectiveDate = effectiveDate,
+                UsdTwdRate = usdTwdRate,
+                Positions = req.Positions
+                    .Where(p => p.Quantity > 0)
+                    .Select(p => new HoldingPosition
+                    {
+                        AssetType = p.AssetType,
+                        Symbol = (p.Symbol ?? "").ToUpperInvariant(),
+                        Name = p.Name ?? "",
+                        Market = (p.Market ?? "").ToUpperInvariant(),
+                        Currency = string.IsNullOrWhiteSpace(p.Currency) ? "TWD" : p.Currency.ToUpperInvariant(),
+                        Quantity = p.Quantity,
+                        UnitPrice = p.AssetType == AssetType.FUND ? p.UnitPrice : null,
+                        CostBasis = p.AssetType == AssetType.STOCK ? p.CostBasis : null,
+                    })
+                    .ToList(),
             };
-            db.PortfolioTransactions.Add(tx);
+
+            db.HoldingSnapshots.Add(snapshot);
             await db.SaveChangesAsync(ct);
-            return MapToDto(tx);
         }
 
-        public async Task<List<TransactionDto>> GetTransactionsAsync(string userId, CancellationToken ct = default)
+        public async Task<SaveHoldingsRequest> GetLatestHoldingsAsync(string userId, CancellationToken ct = default)
         {
-            var txs = await db.PortfolioTransactions
-                .Where(t => t.UserId == userId)
-                .OrderByDescending(t => t.Date)
+            var snapshot = await LatestSnapshotAsync(userId, ct);
+            if (snapshot == null)
+                return new SaveHoldingsRequest { EffectiveDate = DateOnly.FromDateTime(DateTime.UtcNow) };
+
+            return new SaveHoldingsRequest
+            {
+                EffectiveDate = snapshot.EffectiveDate,
+                Positions = snapshot.Positions
+                    .Select(p => new PositionInput
+                    {
+                        AssetType = p.AssetType,
+                        Symbol = p.Symbol,
+                        Name = p.Name,
+                        Market = p.Market,
+                        Currency = p.Currency,
+                        Quantity = p.Quantity,
+                        UnitPrice = p.UnitPrice,
+                        CostBasis = p.CostBasis,
+                    })
+                    .ToList(),
+            };
+        }
+
+        public async Task<List<UpdateHistoryItem>> GetUpdateHistoryAsync(string userId, CancellationToken ct = default)
+        {
+            return await db.HoldingSnapshots
+                .Where(s => s.UserId == userId)
+                .OrderByDescending(s => s.EffectiveDate)
+                .Select(s => new UpdateHistoryItem
+                {
+                    SnapshotId = s.Id,
+                    EffectiveDate = s.EffectiveDate.ToString("yyyy-MM-dd"),
+                    PositionCount = s.Positions.Count,
+                    UsdTwdRate = s.UsdTwdRate,
+                })
                 .ToListAsync(ct);
-            return txs.Select(MapToDto).ToList();
         }
 
-        public async Task DeleteTransactionAsync(string userId, int id, CancellationToken ct = default)
-        {
-            var tx = await db.PortfolioTransactions
-                .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, ct)
-                ?? throw new KeyNotFoundException($"Transaction {id} not found");
-            db.PortfolioTransactions.Remove(tx);
-            await db.SaveChangesAsync(ct);
-        }
+        // ── Summary (current valuation) ──────────────────────────────────────
 
         public async Task<PortfolioSummaryDto> GetPortfolioSummaryAsync(string userId, CancellationToken ct = default)
         {
-            var txs = await db.PortfolioTransactions
-                .Where(t => t.UserId == userId)
-                .OrderBy(t => t.Date)
-                .ToListAsync(ct);
+            var snapshot = await LatestSnapshotAsync(userId, ct);
+            if (snapshot == null) return new PortfolioSummaryDto();
 
-            if (txs.Count == 0)
-                return new PortfolioSummaryDto();
+            var fx = snapshot.UsdTwdRate > 0 ? snapshot.UsdTwdRate : await FetchUsdTwdRateAsync(ct);
+            var positions = new List<PositionDto>();
+            decimal twStock = 0, usStock = 0, cash = 0, fund = 0;
+            decimal costBasisTWD = 0, pnlTWD = 0;
 
-            var holdingMap = DeriveHoldings(txs);
-            var usdTwdRate = await FetchUsdTwdRateAsync(ct);
-
-            var holdings = new List<HoldingDto>();
-            decimal twStockTWD = 0, usStockTWD = 0;
-
-            foreach (var (key, holding) in holdingMap)
+            foreach (var p in snapshot.Positions)
             {
-                if (holding.Quantity <= 0) continue;
-
-                var (market, symbol) = key;
-                decimal currentPrice = 0;
+                decimal currentPrice;
                 bool priceFailed = false;
 
-                try
+                if (p.AssetType == AssetType.STOCK)
                 {
-                    var region = providerFactory.DetectRegion(symbol);
-                    var provider = providerFactory.GetMarketDataProvider(region);
-                    var data = await provider.FetchAsync(symbol, ct);
-                    currentPrice = data.HistoricalPrices.LastOrDefault()?.Close ?? 0;
+                    currentPrice = 0;
+                    try
+                    {
+                        var region = providerFactory.DetectRegion(p.Symbol);
+                        var provider = providerFactory.GetMarketDataProvider(region);
+                        var data = await provider.FetchAsync(p.Symbol, ct);
+                        currentPrice = data.HistoricalPrices.LastOrDefault()?.Close ?? 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to fetch price for {Symbol}", p.Symbol);
+                        priceFailed = true;
+                    }
                 }
-                catch (Exception ex)
+                else if (p.AssetType == AssetType.FUND)
                 {
-                    logger.LogWarning(ex, "Failed to fetch price for {symbol}", symbol);
-                    priceFailed = true;
+                    currentPrice = p.UnitPrice ?? 0;
+                }
+                else // CASH
+                {
+                    currentPrice = 1;
                 }
 
-                var marketValueLocal = currentPrice * holding.Quantity;
-                var multiplier = market == "US" ? usdTwdRate : 1m;
-                var marketValueTWD = marketValueLocal * multiplier;
-                var costBasisTWD = holding.TotalCostTWD(usdTwdRate);
-                var unrealizedPnl = marketValueTWD - costBasisTWD;
-                var unrealizedPct = costBasisTWD > 0 ? unrealizedPnl / costBasisTWD * 100 : 0;
+                var fxMul = p.Currency == "USD" ? fx : 1m;
+                var valueLocal = p.AssetType == AssetType.CASH
+                    ? p.Quantity
+                    : currentPrice * p.Quantity;
+                var valueTWD = valueLocal * fxMul;
 
-                if (market == "TW") twStockTWD += marketValueTWD;
-                else usStockTWD += marketValueTWD;
-
-                holdings.Add(new HoldingDto
+                decimal? posCostTWD = null, posPnlTWD = null, posPnlPct = null;
+                if (p.AssetType == AssetType.STOCK && p.CostBasis.HasValue)
                 {
-                    Symbol = symbol,
-                    Market = market,
-                    CompanyName = holding.CompanyName,
-                    Currency = holding.Currency,
-                    Quantity = holding.Quantity,
-                    AvgCost = holding.Quantity > 0 ? holding.TotalCost / holding.Quantity : 0,
+                    posCostTWD = p.CostBasis.Value * fxMul;
+                    posPnlTWD = valueTWD - posCostTWD;
+                    posPnlPct = posCostTWD > 0 ? Math.Round(posPnlTWD.Value / posCostTWD.Value * 100, 2) : 0;
+                    costBasisTWD += posCostTWD.Value;
+                    pnlTWD += posPnlTWD.Value;
+                }
+
+                switch (p.AssetType)
+                {
+                    case AssetType.STOCK when p.Market == "US": usStock += valueTWD; break;
+                    case AssetType.STOCK: twStock += valueTWD; break;
+                    case AssetType.CASH: cash += valueTWD; break;
+                    case AssetType.FUND: fund += valueTWD; break;
+                }
+
+                positions.Add(new PositionDto
+                {
+                    AssetType = p.AssetType,
+                    Symbol = p.Symbol,
+                    Name = p.Name,
+                    Market = p.Market,
+                    Currency = p.Currency,
+                    Quantity = p.Quantity,
                     CurrentPrice = currentPrice,
-                    MarketValueLocal = marketValueLocal,
-                    MarketValueTWD = marketValueTWD,
-                    CostBasisTWD = costBasisTWD,
-                    UnrealizedPnlTWD = unrealizedPnl,
-                    UnrealizedPnlPct = Math.Round(unrealizedPct, 2),
+                    MarketValueLocal = valueLocal,
+                    MarketValueTWD = valueTWD,
+                    CostBasisTWD = posCostTWD,
+                    UnrealizedPnlTWD = posPnlTWD,
+                    UnrealizedPnlPct = posPnlPct,
                     PriceFetchFailed = priceFailed,
                 });
             }
 
-            var total = twStockTWD + usStockTWD;
-            var totalCost = holdings.Sum(h => h.CostBasisTWD);
-            var totalPnl = holdings.Sum(h => h.UnrealizedPnlTWD);
-            var totalPct = totalCost > 0 ? totalPnl / totalCost * 100 : 0;
-
             return new PortfolioSummaryDto
             {
-                TotalNetWorthTWD = total,
-                TwStockTWD = twStockTWD,
-                UsStockTWD = usStockTWD,
-                UsdTwdRate = usdTwdRate,
-                TotalUnrealizedPnlTWD = totalPnl,
-                TotalUnrealizedPnlPct = Math.Round(totalPct, 2),
-                Holdings = holdings.OrderByDescending(h => h.MarketValueTWD).ToList(),
+                EffectiveDate = snapshot.EffectiveDate,
+                UsdTwdRate = fx,
+                TotalNetWorthTWD = twStock + usStock + cash + fund,
+                TwStockTWD = twStock,
+                UsStockTWD = usStock,
+                CashTWD = cash,
+                FundTWD = fund,
+                CostBasisTWD = costBasisTWD,
+                UnrealizedPnlTWD = pnlTWD,
+                UnrealizedPnlPct = costBasisTWD > 0 ? Math.Round(pnlTWD / costBasisTWD * 100, 2) : 0,
+                Positions = positions.OrderByDescending(p => p.MarketValueTWD).ToList(),
             };
         }
+
+        // ── Net worth history ────────────────────────────────────────────────
 
         public async Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(string userId, int days, CancellationToken ct = default)
         {
             days = Math.Clamp(days, 7, 180);
 
-            var txs = await db.PortfolioTransactions
-                .Where(t => t.UserId == userId)
-                .OrderBy(t => t.Date)
+            var snapshots = await db.HoldingSnapshots
+                .Include(s => s.Positions)
+                .Where(s => s.UserId == userId)
+                .OrderBy(s => s.EffectiveDate)
                 .ToListAsync(ct);
 
-            if (txs.Count == 0) return [];
+            if (snapshots.Count == 0) return [];
 
-            // Try to serve from stored snapshots first (populated by daily job)
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var firstDate = snapshots[0].EffectiveDate;
             var startDate = today.AddDays(-days);
+            if (startDate < firstDate) startDate = firstDate;
 
-            var snapshots = await db.NetWorthSnapshots
-                .Where(s => s.UserId == userId && s.Date >= startDate)
-                .OrderBy(s => s.Date)
-                .ToListAsync(ct);
+            // Fetch price history for every distinct stock symbol that appears in any snapshot
+            var stockSymbols = snapshots
+                .SelectMany(s => s.Positions)
+                .Where(p => p.AssetType == AssetType.STOCK)
+                .Select(p => p.Symbol)
+                .Distinct()
+                .ToList();
 
-            // If we have ≥80% coverage use snapshots (avoids heavy price re-fetch)
-            var expectedTradingDays = days * 5 / 7; // rough estimate
-            if (snapshots.Count >= expectedTradingDays * 0.8)
-            {
-                return snapshots.Select(s => new NetWorthDataPoint
-                {
-                    Date = s.Date.ToString("yyyy-MM-dd"),
-                    TotalTWD = s.TotalTWD,
-                    TwStockTWD = s.TwStockTWD,
-                    UsStockTWD = s.UsStockTWD,
-                }).ToList();
-            }
-
-            // Otherwise reconstruct from price history (backfill)
-            var usdTwdRate = await FetchUsdTwdRateAsync(ct);
-            var symbols = txs.Select(t => (t.Market, t.Symbol)).Distinct().ToList();
-
-            // Fetch all price histories sequentially (Yahoo throttle-safe)
-            var priceMap = new Dictionary<(string market, string symbol), List<DTO.Finance.DailyPrice>>();
-            foreach (var sym in symbols)
+            var priceMap = new Dictionary<string, List<DTO.Finance.DailyPrice>>();
+            foreach (var symbol in stockSymbols)
             {
                 try
                 {
-                    var region = providerFactory.DetectRegion(sym.Symbol);
+                    var region = providerFactory.DetectRegion(symbol);
                     var provider = providerFactory.GetMarketDataProvider(region);
-                    var data = await provider.FetchAsync(sym.Symbol, ct);
-                    priceMap[sym] = data.HistoricalPrices;
+                    var data = await provider.FetchAsync(symbol, ct);
+                    priceMap[symbol] = data.HistoricalPrices;
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Price history unavailable for {Symbol}", sym.Symbol);
+                    logger.LogWarning(ex, "Price history unavailable for {Symbol}", symbol);
                 }
             }
 
@@ -197,92 +243,90 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday) continue;
 
-                var holdingMap = DeriveHoldings(txs.Where(t => DateOnly.FromDateTime(t.Date) <= date));
-                decimal twTWD = 0, usTWD = 0;
+                // active snapshot = latest with EffectiveDate <= date
+                var active = snapshots.LastOrDefault(s => s.EffectiveDate <= date);
+                if (active == null) continue;
 
-                foreach (var (key, holding) in holdingMap)
+                var fx = active.UsdTwdRate > 0 ? active.UsdTwdRate : 32m;
+                decimal twStock = 0, usStock = 0, cash = 0, fund = 0;
+
+                foreach (var p in active.Positions)
                 {
-                    if (holding.Quantity <= 0) continue;
-                    if (!priceMap.TryGetValue(key, out var prices)) continue;
+                    var fxMul = p.Currency == "USD" ? fx : 1m;
 
-                    var dateTime = date.ToDateTime(TimeOnly.MinValue);
-                    var price = prices
-                        .Where(p => p.Date.Date <= dateTime)
-                        .OrderByDescending(p => p.Date)
-                        .FirstOrDefault()?.Close ?? 0;
-
-                    if (price <= 0) continue;
-
-                    var value = price * holding.Quantity;
-                    if (key.market == "US") usTWD += value * usdTwdRate;
-                    else twTWD += value;
+                    if (p.AssetType == AssetType.CASH)
+                    {
+                        cash += p.Quantity * fxMul;
+                    }
+                    else if (p.AssetType == AssetType.FUND)
+                    {
+                        fund += (p.UnitPrice ?? 0) * p.Quantity * fxMul;
+                    }
+                    else // STOCK
+                    {
+                        if (!priceMap.TryGetValue(p.Symbol, out var prices)) continue;
+                        var dt = date.ToDateTime(TimeOnly.MinValue);
+                        var close = prices
+                            .Where(x => x.Date.Date <= dt)
+                            .OrderByDescending(x => x.Date)
+                            .FirstOrDefault()?.Close ?? 0;
+                        if (close <= 0) continue;
+                        var v = close * p.Quantity * fxMul;
+                        if (p.Market == "US") usStock += v; else twStock += v;
+                    }
                 }
 
-                if (twTWD + usTWD > 0)
-                    result.Add(new NetWorthDataPoint
-                    {
-                        Date = date.ToString("yyyy-MM-dd"),
-                        TotalTWD = twTWD + usTWD,
-                        TwStockTWD = twTWD,
-                        UsStockTWD = usTWD,
-                    });
+                var total = twStock + usStock + cash + fund;
+                if (total <= 0) continue;
+
+                result.Add(new NetWorthDataPoint
+                {
+                    Date = date.ToString("yyyy-MM-dd"),
+                    TotalTWD = total,
+                    TwStockTWD = twStock,
+                    UsStockTWD = usStock,
+                    CashTWD = cash,
+                    FundTWD = fund,
+                });
             }
 
             return result;
         }
 
-        public async Task TakeSnapshotAsync(string userId, CancellationToken ct = default)
+        // ── Lookup + price history ───────────────────────────────────────────
+
+        public async Task<StockLookupDto?> LookupStockAsync(string market, string symbol, CancellationToken ct = default)
         {
-            var summary = await GetPortfolioSummaryAsync(userId, ct);
-            if (summary.TotalNetWorthTWD <= 0) return;
-
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            var existing = await db.NetWorthSnapshots
-                .FirstOrDefaultAsync(s => s.UserId == userId && s.Date == today, ct);
-
-            if (existing != null)
+            try
             {
-                existing.TotalTWD = summary.TotalNetWorthTWD;
-                existing.TwStockTWD = summary.TwStockTWD;
-                existing.UsStockTWD = summary.UsStockTWD;
-                existing.UsdTwdRate = summary.UsdTwdRate;
-            }
-            else
-            {
-                db.NetWorthSnapshots.Add(new NetWorthSnapshot
+                var region = providerFactory.DetectRegion(symbol);
+                var provider = providerFactory.GetMarketDataProvider(region);
+                var data = await provider.FetchAsync(symbol, ct);
+                var lastPrice = data.HistoricalPrices.LastOrDefault()?.Close ?? 0;
+                return new StockLookupDto
                 {
-                    UserId = userId,
-                    Date = today,
-                    TotalTWD = summary.TotalNetWorthTWD,
-                    TwStockTWD = summary.TwStockTWD,
-                    UsStockTWD = summary.UsStockTWD,
-                    UsdTwdRate = summary.UsdTwdRate,
-                });
+                    Symbol = symbol.ToUpperInvariant(),
+                    CompanyName = data.CompanyName,
+                    CurrentPrice = lastPrice,
+                    Currency = market.ToUpperInvariant() == "US" ? "USD" : "TWD",
+                };
             }
-
-            await db.SaveChangesAsync(ct);
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Lookup failed for {Market}:{Symbol}", market, symbol);
+                return null;
+            }
         }
 
         public async Task<HoldingPriceHistoryDto?> GetHoldingPriceHistoryAsync(
             string userId, string market, string symbol, CancellationToken ct = default)
         {
-            var txs = await db.PortfolioTransactions
-                .Where(t => t.UserId == userId &&
-                            t.Market == market.ToUpperInvariant() &&
-                            t.Symbol == symbol.ToUpperInvariant())
-                .OrderBy(t => t.Date)
-                .ToListAsync(ct);
-
-            if (txs.Count == 0) return null;
-
-            var allUserTxs = await db.PortfolioTransactions
-                .Where(t => t.UserId == userId)
-                .OrderBy(t => t.Date)
-                .ToListAsync(ct);
-
-            var holdingMap = DeriveHoldings(allUserTxs);
-            var key = (market.ToUpperInvariant(), symbol.ToUpperInvariant());
-            if (!holdingMap.TryGetValue(key, out var acc) || acc.Quantity <= 0) return null;
+            var snapshot = await LatestSnapshotAsync(userId, ct);
+            var pos = snapshot?.Positions.FirstOrDefault(p =>
+                p.AssetType == AssetType.STOCK &&
+                p.Market == market.ToUpperInvariant() &&
+                p.Symbol == symbol.ToUpperInvariant());
+            if (pos == null) return null;
 
             var region = providerFactory.DetectRegion(symbol);
             var provider = providerFactory.GetMarketDataProvider(region);
@@ -290,61 +334,34 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             return new HoldingPriceHistoryDto
             {
-                Symbol = symbol.ToUpperInvariant(),
-                CompanyName = acc.CompanyName,
-                Market = market.ToUpperInvariant(),
-                Currency = acc.Currency,
-                AvgCost = acc.Quantity > 0 ? acc.TotalCost / acc.Quantity : 0,
-                Quantity = acc.Quantity,
+                Symbol = pos.Symbol,
+                CompanyName = pos.Name,
+                Market = pos.Market,
+                Currency = pos.Currency,
+                Quantity = pos.Quantity,
+                AvgCost = pos.CostBasis.HasValue && pos.Quantity > 0
+                    ? pos.CostBasis.Value / pos.Quantity
+                    : null,
                 Prices = data.HistoricalPrices
-                    .Select(p => new PricePoint
+                    .Select(x => new PricePoint
                     {
-                        Date = p.Date.ToString("yyyy-MM-dd"),
-                        Close = p.Close,
-                        High = p.High,
-                        Low = p.Low,
+                        Date = x.Date.ToString("yyyy-MM-dd"),
+                        Close = x.Close,
+                        High = x.High,
+                        Low = x.Low,
                     })
                     .ToList(),
             };
         }
 
-        // ── Helpers ────────────────────────────────────────────────────────────
+        // ── Helpers ──────────────────────────────────────────────────────────
 
-        private static Dictionary<(string market, string symbol), HoldingAccumulator> DeriveHoldings(
-            IEnumerable<PortfolioTransaction> txs)
-        {
-            var map = new Dictionary<(string, string), HoldingAccumulator>();
-
-            foreach (var tx in txs)
-            {
-                var key = (tx.Market, tx.Symbol);
-                if (!map.TryGetValue(key, out var acc))
-                {
-                    acc = new HoldingAccumulator(tx.CompanyName, tx.Currency);
-                    map[key] = acc;
-                }
-
-                if (tx.Type == TransactionType.BUY)
-                {
-                    acc.Quantity += tx.Quantity;
-                    acc.TotalCost += tx.Quantity * tx.Price + tx.Fee;
-                }
-                else if (tx.Type == TransactionType.SELL)
-                {
-                    // Reduce avg cost proportionally
-                    if (acc.Quantity > 0)
-                    {
-                        var avgCost = acc.TotalCost / acc.Quantity;
-                        acc.TotalCost -= avgCost * tx.Quantity;
-                    }
-                    acc.Quantity -= tx.Quantity;
-                    if (acc.Quantity < 0) acc.Quantity = 0;
-                    if (acc.TotalCost < 0) acc.TotalCost = 0;
-                }
-            }
-
-            return map;
-        }
+        private async Task<HoldingSnapshot?> LatestSnapshotAsync(string userId, CancellationToken ct) =>
+            await db.HoldingSnapshots
+                .Include(s => s.Positions)
+                .Where(s => s.UserId == userId)
+                .OrderByDescending(s => s.EffectiveDate)
+                .FirstOrDefaultAsync(ct);
 
         private async Task<decimal> FetchUsdTwdRateAsync(CancellationToken ct)
         {
@@ -374,32 +391,6 @@ namespace JackyAIApp.Server.Services.Portfolio
             }
 
             return 32m; // fallback
-        }
-
-        private static TransactionDto MapToDto(PortfolioTransaction tx) => new()
-        {
-            Id = tx.Id,
-            Symbol = tx.Symbol,
-            Market = tx.Market,
-            CompanyName = tx.CompanyName,
-            Type = tx.Type,
-            Date = tx.Date,
-            Quantity = tx.Quantity,
-            Price = tx.Price,
-            Currency = tx.Currency,
-            Fee = tx.Fee,
-            Note = tx.Note,
-        };
-
-        private class HoldingAccumulator(string companyName, string currency)
-        {
-            public string CompanyName { get; } = companyName;
-            public string Currency { get; } = currency;
-            public decimal Quantity { get; set; }
-            public decimal TotalCost { get; set; }
-
-            public decimal TotalCostTWD(decimal usdTwdRate) =>
-                Currency == "USD" ? TotalCost * usdTwdRate : TotalCost;
         }
     }
 }

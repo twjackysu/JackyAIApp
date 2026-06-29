@@ -36,7 +36,7 @@ export function NetWorthChart() {
   if (points.length === 0) {
     return (
       <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-        資料不足，新增交易後即可看到圖表
+        資料不足，更新持倉後即可看到圖表
       </Typography>
     );
   }
@@ -45,6 +45,15 @@ export function NetWorthChart() {
   const totals = points.map((p) => p.totalTWD);
   const twValues = points.map((p) => p.twStockTWD);
   const usValues = points.map((p) => p.usStockTWD);
+  const cashValues = points.map((p) => p.cashTWD);
+  const fundValues = points.map((p) => p.fundTWD);
+
+  const breakdown = [
+    { name: '台股', values: twValues, color: '#3B82F6' },
+    { name: '美股', values: usValues, color: '#10B981' },
+    { name: '現金', values: cashValues, color: '#A78BFA' },
+    { name: '基金', values: fundValues, color: '#EC4899' },
+  ].filter((s) => s.values.some((v) => v > 0));
 
   const option: ECOption = {
     tooltip: {
@@ -57,7 +66,7 @@ export function NetWorthChart() {
         );
       },
     },
-    legend: { bottom: 0, data: ['總資產', '台股', '美股'] },
+    legend: { bottom: 0, data: ['總資產', ...breakdown.map((s) => s.name)] },
     grid: { top: 16, right: 16, bottom: 48, left: 70 },
     xAxis: { type: 'category', data: dates, boundaryGap: false },
     yAxis: {
@@ -87,24 +96,15 @@ export function NetWorthChart() {
         },
         symbol: 'none',
       },
-      {
-        name: '台股',
-        type: 'line',
-        data: twValues,
+      ...breakdown.map((s) => ({
+        name: s.name,
+        type: 'line' as const,
+        data: s.values,
         smooth: true,
-        lineStyle: { width: 1.5, color: '#3B82F6', type: 'dashed' },
-        itemStyle: { color: '#3B82F6' },
-        symbol: 'none',
-      },
-      {
-        name: '美股',
-        type: 'line',
-        data: usValues,
-        smooth: true,
-        lineStyle: { width: 1.5, color: '#10B981', type: 'dashed' },
-        itemStyle: { color: '#10B981' },
-        symbol: 'none',
-      },
+        lineStyle: { width: 1.5, color: s.color, type: 'dashed' as const },
+        itemStyle: { color: s.color },
+        symbol: 'none' as const,
+      })),
     ],
   };
 

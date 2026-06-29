@@ -13,20 +13,17 @@ import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 
 import { useGetHoldingPriceHistoryQuery } from '@/apis/portfolioApis';
-import { HoldingDto } from '@/apis/portfolioApis/types';
+import { PositionDto } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
 
 interface Props {
-  holding: HoldingDto | null;
+  position: PositionDto | null;
   open: boolean;
   onClose: () => void;
 }
 
 const fmt = (n: number, decimals = 2) =>
-  n.toLocaleString('zh-TW', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
+  n.toLocaleString('zh-TW', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
 const pnlColor = (n: number) => (n > 0 ? '#22c55e' : n < 0 ? '#ef4444' : 'text.secondary');
 
@@ -47,15 +44,7 @@ function StatBlock({ label, value, color }: { label: string; value: string; colo
   );
 }
 
-function PriceChart({
-  market,
-  symbol,
-  avgCost,
-}: {
-  market: string;
-  symbol: string;
-  avgCost: number;
-}) {
+function PriceChart({ market, symbol }: { market: string; symbol: string }) {
   const { data: res, isLoading } = useGetHoldingPriceHistoryQuery({ market, symbol });
   const hist = res?.data;
 
@@ -78,7 +67,44 @@ function PriceChart({
   const dates = hist.prices.map((p) => p.date);
   const closes = hist.prices.map((p) => p.close);
   const currentPrice = closes[closes.length - 1] ?? 0;
-  const pnlPct = avgCost > 0 ? ((currentPrice - avgCost) / avgCost) * 100 : 0;
+  const avgCost = hist.avgCost ?? null;
+  const pnlPct = avgCost && avgCost > 0 ? ((currentPrice - avgCost) / avgCost) * 100 : null;
+
+  const series: ECOption['series'] = [
+    {
+      name: '收盤價',
+      type: 'line',
+      data: closes,
+      smooth: false,
+      lineStyle: { width: 2, color: '#3B82F6' },
+      itemStyle: { color: '#3B82F6' },
+      areaStyle: {
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(59,130,246,0.2)' },
+            { offset: 1, color: 'rgba(59,130,246,0)' },
+          ],
+        },
+      },
+      symbol: 'none',
+    },
+  ];
+
+  if (avgCost && avgCost > 0) {
+    series.push({
+      name: '均攤成本',
+      type: 'line',
+      data: dates.map(() => avgCost),
+      lineStyle: { width: 1.5, color: '#F59E0B', type: 'dashed' },
+      itemStyle: { color: '#F59E0B' },
+      symbol: 'none',
+    });
+  }
 
   const option: ECOption = {
     tooltip: {
@@ -93,14 +119,14 @@ function PriceChart({
         ].join('<br/>');
       },
     },
-    legend: { bottom: 0, data: ['收盤價', '均攤成本'] },
+    legend: { bottom: 0, data: series.map((s) => s.name as string) },
     grid: { top: 16, right: 16, bottom: 48, left: 72 },
     xAxis: {
       type: 'category',
       data: dates,
       boundaryGap: false,
       axisLabel: {
-        formatter: (v: string) => v.slice(5), // show MM-DD only
+        formatter: (v: string) => v.slice(5),
         interval: Math.floor(dates.length / 6),
       },
     },
@@ -109,38 +135,7 @@ function PriceChart({
       axisLabel: { formatter: (v: number) => fmt(v, 0) },
       scale: true,
     },
-    series: [
-      {
-        name: '收盤價',
-        type: 'line',
-        data: closes,
-        smooth: false,
-        lineStyle: { width: 2, color: '#3B82F6' },
-        itemStyle: { color: '#3B82F6' },
-        areaStyle: {
-          color: {
-            type: 'linear',
-            x: 0,
-            y: 0,
-            x2: 0,
-            y2: 1,
-            colorStops: [
-              { offset: 0, color: 'rgba(59,130,246,0.2)' },
-              { offset: 1, color: 'rgba(59,130,246,0)' },
-            ],
-          },
-        },
-        symbol: 'none',
-      },
-      {
-        name: '均攤成本',
-        type: 'line',
-        data: dates.map(() => avgCost),
-        lineStyle: { width: 1.5, color: '#F59E0B', type: 'dashed' },
-        itemStyle: { color: '#F59E0B' },
-        symbol: 'none',
-      },
-    ],
+    series,
   };
 
   return (
@@ -149,30 +144,34 @@ function PriceChart({
         <Typography variant="h5" sx={{ fontWeight: 800 }}>
           {hist.currency} {fmt(currentPrice)}
         </Typography>
-        <Chip
-          icon={
-            pnlPct >= 0 ? (
-              <TrendingUpIcon fontSize="small" />
-            ) : (
-              <TrendingDownIcon fontSize="small" />
-            )
-          }
-          label={`${pnlPct >= 0 ? '+' : ''}${fmt(pnlPct)}% vs 成本`}
-          size="small"
-          sx={{
-            bgcolor: alpha(pnlPct >= 0 ? '#22c55e' : '#ef4444', 0.15),
-            color: pnlPct >= 0 ? '#22c55e' : '#ef4444',
-            fontWeight: 700,
-            border: 'none',
-          }}
-        />
+        {pnlPct != null && (
+          <Chip
+            icon={
+              pnlPct >= 0 ? (
+                <TrendingUpIcon fontSize="small" />
+              ) : (
+                <TrendingDownIcon fontSize="small" />
+              )
+            }
+            label={`${pnlPct >= 0 ? '+' : ''}${fmt(pnlPct)}% vs 成本`}
+            size="small"
+            sx={{
+              bgcolor: alpha(pnlPct >= 0 ? '#22c55e' : '#ef4444', 0.15),
+              color: pnlPct >= 0 ? '#22c55e' : '#ef4444',
+              fontWeight: 700,
+              border: 'none',
+            }}
+          />
+        )}
       </Box>
       <ReactEcharts option={option} theme={ECHARTS_THEME} style={{ height: 260 }} />
     </Box>
   );
 }
 
-export function HoldingDetailDrawer({ holding, open, onClose }: Props) {
+export function HoldingDetailDrawer({ position, open, onClose }: Props) {
+  const hasPnl = position?.unrealizedPnlTWD != null && position?.unrealizedPnlPct != null;
+
   return (
     <Drawer
       anchor="right"
@@ -180,7 +179,7 @@ export function HoldingDetailDrawer({ holding, open, onClose }: Props) {
       onClose={onClose}
       slotProps={{ paper: { sx: { width: { xs: '100%', sm: 480 }, p: 3 } } }}
     >
-      {holding && (
+      {position && (
         <>
           {/* Header */}
           <Box
@@ -194,17 +193,17 @@ export function HoldingDetailDrawer({ holding, open, onClose }: Props) {
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                  {holding.symbol}
+                  {position.symbol}
                 </Typography>
                 <Chip
-                  label={holding.market}
+                  label={position.market}
                   size="small"
-                  color={holding.market === 'TW' ? 'primary' : 'warning'}
+                  color={position.market === 'TW' ? 'primary' : 'warning'}
                   variant="outlined"
                 />
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {holding.companyName}
+                {position.name}
               </Typography>
             </Box>
             <Tooltip title="關閉">
@@ -228,27 +227,36 @@ export function HoldingDetailDrawer({ holding, open, onClose }: Props) {
               bgcolor: 'action.hover',
             }}
           >
-            <StatBlock label="持股數量" value={holding.quantity.toLocaleString()} />
-            <StatBlock label="均攤成本" value={`${holding.currency} ${fmt(holding.avgCost)}`} />
-            <StatBlock label="市值 (TWD)" value={`NT$${fmt(holding.marketValueTWD, 0)}`} />
-            <StatBlock
-              label="未實現損益"
-              value={`NT$${fmt(holding.unrealizedPnlTWD, 0)}`}
-              color={pnlColor(holding.unrealizedPnlTWD)}
-            />
-            <StatBlock
-              label="損益%"
-              value={`${holding.unrealizedPnlPct >= 0 ? '+' : ''}${fmt(holding.unrealizedPnlPct)}%`}
-              color={pnlColor(holding.unrealizedPnlPct)}
-            />
-            <StatBlock label="成本基礎" value={`NT$${fmt(holding.costBasisTWD, 0)}`} />
+            <StatBlock label="持股數量" value={position.quantity.toLocaleString()} />
+            <StatBlock label="現價" value={`${position.currency} ${fmt(position.currentPrice)}`} />
+            <StatBlock label="市值 (TWD)" value={`NT$${fmt(position.marketValueTWD, 0)}`} />
+            {hasPnl ? (
+              <>
+                <StatBlock
+                  label="未實現損益"
+                  value={`NT$${fmt(position.unrealizedPnlTWD as number, 0)}`}
+                  color={pnlColor(position.unrealizedPnlTWD as number)}
+                />
+                <StatBlock
+                  label="損益%"
+                  value={`${(position.unrealizedPnlPct as number) >= 0 ? '+' : ''}${fmt(position.unrealizedPnlPct as number)}%`}
+                  color={pnlColor(position.unrealizedPnlPct as number)}
+                />
+                <StatBlock
+                  label="成本基礎"
+                  value={`NT$${fmt((position.costBasisTWD as number) ?? 0, 0)}`}
+                />
+              </>
+            ) : (
+              <StatBlock label="損益" value="未填成本" />
+            )}
           </Box>
 
           {/* Price chart */}
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            近6個月走勢 · 橘線 = 均攤成本
+            近6個月走勢{hasPnl ? ' · 橘線 = 均攤成本' : ''}
           </Typography>
-          <PriceChart market={holding.market} symbol={holding.symbol} avgCost={holding.avgCost} />
+          <PriceChart market={position.market} symbol={position.symbol} />
         </>
       )}
     </Drawer>
