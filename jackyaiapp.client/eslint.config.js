@@ -9,7 +9,15 @@ import prettierConfig from 'eslint-config-prettier';
 export default tseslint.config(
   // Ignore patterns
   {
-    ignores: ['dist/**', 'node_modules/**', '.eslintrc.cjs', '*.config.js', '*.config.ts'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      '.eslintrc.cjs',
+      '*.config.js',
+      '*.config.ts',
+      '*.config.d.ts',
+      '*.tsbuildinfo',
+    ],
   },
 
   // Base configurations

@@ -70,6 +70,12 @@ export interface StockLookupDto {
   currency: string;
 }
 
+export interface FundSearchItem {
+  fundId: string;
+  name: string;
+  isSell: boolean;
+}
+
 export interface PricePoint {
   date: string;
   close: number;

@@ -134,6 +134,8 @@ try
     builder.Services.AddJobAggregatorServices();
 
     // Portfolio
+    builder.Services.AddScoped<JackyAIApp.Server.Services.Portfolio.IFundDataService,
+        JackyAIApp.Server.Services.Portfolio.FundDataService>();
     builder.Services.AddScoped<JackyAIApp.Server.Services.Portfolio.IPortfolioService,
         JackyAIApp.Server.Services.Portfolio.PortfolioService>();
 
