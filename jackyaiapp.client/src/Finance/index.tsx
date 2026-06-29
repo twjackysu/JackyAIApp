@@ -22,7 +22,6 @@ import {
   StockAnalysisResult,
   ComprehensiveAnalysisResult,
   AnalysisConfigPanel,
-  MarketBrief,
   MarketOverview,
   IndicatorExplorer,
 } from './components';
@@ -36,8 +35,6 @@ import {
 
 function Finance() {
   const {
-    searchTerm,
-    setSearchTerm,
     stockSearchTerm,
     setStockSearchTerm,
     analysisConfig,
@@ -48,8 +45,7 @@ function Finance() {
     handleTabChange,
     isAuthenticated,
     currentDate,
-    stockInsights,
-    filteredData,
+    digestPoints,
     isMarketLoading,
     isMarketError,
     marketError,
@@ -102,7 +98,6 @@ function Finance() {
         <>
           <MarketOverview />
           <IndicatorExplorer />
-          <MarketBrief />
         </>
       )}
       {/* Tabs */}
@@ -226,44 +221,6 @@ function Finance() {
             )}
           </>
         )}
-
-        {/* Market summary search filter */}
-        {analysisTab === TAB_MARKET_SUMMARY &&
-          !isMarketLoading &&
-          !isMarketError &&
-          stockInsights.length > 0 && (
-            <Stack
-              direction="row"
-              spacing={2}
-              sx={{
-                alignItems: 'center',
-              }}
-            >
-              <TextField
-                fullWidth
-                variant="outlined"
-                placeholder="搜尋市場摘要..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-              <IconButton
-                onClick={() => refetch()}
-                disabled={isMarketFetching}
-                sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}
-              >
-                <RefreshIcon />
-              </IconButton>
-            </Stack>
-          )}
       </Paper>
       {/* Error states */}
       {analysisError && !isAnalyzing && (
@@ -287,7 +244,7 @@ function Finance() {
           isMarketFetching={isMarketFetching}
           isMarketError={isMarketError}
           marketError={marketError}
-          filteredData={filteredData}
+          digestPoints={digestPoints}
           refetch={refetch}
         />
       )}

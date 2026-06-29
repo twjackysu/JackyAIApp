@@ -6,7 +6,7 @@ import type { AnalysisConfig } from '../components';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import {
-  useGetDailyImportantInfoQuery,
+  useGetMarketDigestQuery,
   useAnalyzeStockMutation,
   useGetComprehensiveAnalysisMutation,
 } from '@/apis/financeApis';
@@ -37,7 +37,6 @@ const DEFAULT_CONFIG: AnalysisConfig = {
  * the active tab, analysis config, and the daily market-summary query.
  */
 export function useFinanceAnalysis() {
-  const [searchTerm, setSearchTerm] = useState('');
   const [stockSearchTerm, setStockSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<StockTrendAnalysis | null>(null);
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
@@ -49,15 +48,14 @@ export function useFinanceAnalysis() {
   const isAuthenticated = !!userInfo?.data;
 
   const {
-    data: apiResponse,
+    data: digestResponse,
     isLoading: isMarketLoading,
     isError: isMarketError,
     error: marketError,
     refetch,
     isFetching: isMarketFetching,
-  } = useGetDailyImportantInfoQuery(undefined, {
-    refetchOnMountOrArgChange: true,
-    // Only fetch when market summary tab is active AND user is authenticated
+  } = useGetMarketDigestQuery(undefined, {
+    // Only fetch when the digest tab is active AND user is authenticated (charges credits).
     skip: analysisTab !== TAB_MARKET_SUMMARY || !isAuthenticated,
   });
 
@@ -69,15 +67,7 @@ export function useFinanceAnalysis() {
     { isLoading: isComprehensiveLoading, error: comprehensiveError, reset: resetComprehensive },
   ] = useGetComprehensiveAnalysisMutation();
 
-  const stockInsights = useMemo(() => apiResponse?.data || [], [apiResponse?.data]);
-  const filteredData = useMemo(() => {
-    return stockInsights.filter(
-      (item) =>
-        item.stockCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.title.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-  }, [searchTerm, stockInsights]);
+  const digestPoints = useMemo(() => digestResponse?.data?.points || [], [digestResponse?.data]);
 
   const handleStockSearch = async () => {
     if (!stockSearchTerm.trim()) return;
@@ -142,8 +132,6 @@ export function useFinanceAnalysis() {
 
   return {
     // search / config state
-    searchTerm,
-    setSearchTerm,
     stockSearchTerm,
     setStockSearchTerm,
     analysisConfig,
@@ -157,9 +145,8 @@ export function useFinanceAnalysis() {
     // auth / misc
     isAuthenticated,
     currentDate,
-    // market summary query
-    stockInsights,
-    filteredData,
+    // market digest query
+    digestPoints,
     isMarketLoading,
     isMarketError,
     marketError,

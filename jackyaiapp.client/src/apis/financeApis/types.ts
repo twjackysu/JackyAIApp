@@ -1,16 +1,5 @@
 // filepath: e:\Users\jacky\Documents\Repo\JackyAIApp\jackyaiapp.client\src\apis\financeApis\types.ts
 
-export interface StrategicInsight {
-  stockCode: string;
-  companyName: string;
-  date: string;
-  title: string;
-  summary: string;
-  implication: 'bullish' | 'bearish' | 'neutral';
-  suggestedAction: string | null;
-  rawText: string;
-}
-
 export interface StockTrendAnalysis {
   stockCode: string; // Stock code, e.g., "2330"
   companyName: string; // Company name, e.g., "台積電"
@@ -188,16 +177,18 @@ export interface MarketOverviewData {
   generatedAt: string;
 }
 
-// === Market Brief (今日市場重點) Types ===
+// === Market Digest (今日市場AI摘要) Types ===
 
-export interface BriefPoint {
+export interface DigestPoint {
+  category: 'global' | 'taiwan' | string;
   headline: string;
   detail: string;
   sentiment: 'bullish' | 'bearish' | 'neutral' | string;
+  stockCode?: string | null;
 }
 
-export interface MarketBriefData {
-  points: BriefPoint[];
+export interface MarketDigestData {
+  points: DigestPoint[];
   generatedAt: string;
 }
 
