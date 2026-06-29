@@ -22,7 +22,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.NetWorthSnapshot", b =>
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.HoldingPosition", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -30,17 +30,60 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateOnly>("Date")
+                    b.Property<int>("AssetType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("CostBasis")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Market")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int>("SnapshotId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("UnitPrice")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SnapshotId");
+
+                    b.ToTable("HoldingPositions");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.HoldingSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("EffectiveDate")
                         .HasColumnType("date");
-
-                    b.Property<decimal>("TotalTWD")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("TwStockTWD")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("UsStockTWD")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("UsdTwdRate")
                         .HasColumnType("decimal(18,2)");
@@ -51,66 +94,10 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId", "Date")
+                    b.HasIndex("UserId", "EffectiveDate")
                         .IsUnique();
 
-                    b.ToTable("NetWorthSnapshots");
-                });
-
-            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.PortfolioTransaction", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CompanyName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("Fee")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("Market")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Note")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("Quantity")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("Symbol")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("PortfolioTransactions");
+                    b.ToTable("HoldingSnapshots");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ClozeTest", b =>
@@ -769,21 +756,21 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("WordMeaningTags");
                 });
 
-            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.NetWorthSnapshot", b =>
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.HoldingPosition", b =>
                 {
-                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany("NetWorthSnapshots")
-                        .HasForeignKey("UserId")
+                    b.HasOne("JackyAIApp.Server.Data.Models.Portfolio.HoldingSnapshot", "Snapshot")
+                        .WithMany("Positions")
+                        .HasForeignKey("SnapshotId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("User");
+                    b.Navigation("Snapshot");
                 });
 
-            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.PortfolioTransaction", b =>
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.HoldingSnapshot", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany("PortfolioTransactions")
+                        .WithMany("HoldingSnapshots")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1013,6 +1000,11 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Navigation("WordMeaning");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.HoldingSnapshot", b =>
+                {
+                    b.Navigation("Positions");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ClozeTest", b =>
                 {
                     b.Navigation("Options");
@@ -1033,11 +1025,9 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.Navigation("DataSourceConfigs");
 
+                    b.Navigation("HoldingSnapshots");
+
                     b.Navigation("JiraConfigs");
-
-                    b.Navigation("NetWorthSnapshots");
-
-                    b.Navigation("PortfolioTransactions");
 
                     b.Navigation("UserConnectors");
 

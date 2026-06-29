@@ -2,61 +2,60 @@ using JackyAIApp.Server.Data.Models.Portfolio;
 
 namespace JackyAIApp.Server.DTO.Portfolio
 {
-    public class AddTransactionRequest
+    // ── Save holdings (full snapshot replace) ────────────────────────────────
+
+    public class SaveHoldingsRequest
     {
-        public required string Symbol { get; set; }
-        public required string Market { get; set; }
-        public required string CompanyName { get; set; }
-        public required TransactionType Type { get; set; }
-        public required DateTime Date { get; set; }
-        public required decimal Quantity { get; set; }
-        public required decimal Price { get; set; }
+        /// <summary>Date these holdings take effect. Defaults to today if omitted.</summary>
+        public DateOnly? EffectiveDate { get; set; }
+        public List<PositionInput> Positions { get; set; } = [];
+    }
+
+    public class PositionInput
+    {
+        public required AssetType AssetType { get; set; }
+        public string Symbol { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Market { get; set; } = "";
         public required string Currency { get; set; }
-        public decimal Fee { get; set; } = 0;
-        public string? Note { get; set; }
+        public decimal Quantity { get; set; }
+        public decimal? UnitPrice { get; set; }   // fund NAV
+        public decimal? CostBasis { get; set; }   // optional
     }
 
-    public class TransactionDto
-    {
-        public int Id { get; set; }
-        public string Symbol { get; set; } = "";
-        public string Market { get; set; } = "";
-        public string CompanyName { get; set; } = "";
-        public TransactionType Type { get; set; }
-        public DateTime Date { get; set; }
-        public decimal Quantity { get; set; }
-        public decimal Price { get; set; }
-        public string Currency { get; set; } = "";
-        public decimal Fee { get; set; }
-        public string? Note { get; set; }
-    }
+    // ── Read models ──────────────────────────────────────────────────────────
 
-    public class HoldingDto
+    public class PositionDto
     {
+        public AssetType AssetType { get; set; }
         public string Symbol { get; set; } = "";
+        public string Name { get; set; } = "";
         public string Market { get; set; } = "";
-        public string CompanyName { get; set; } = "";
         public string Currency { get; set; } = "";
         public decimal Quantity { get; set; }
-        public decimal AvgCost { get; set; }
-        public decimal CurrentPrice { get; set; }
-        public decimal MarketValueLocal { get; set; }  // in original currency
+        public decimal CurrentPrice { get; set; }       // stock live / fund NAV / cash 1
+        public decimal MarketValueLocal { get; set; }
         public decimal MarketValueTWD { get; set; }
-        public decimal CostBasisTWD { get; set; }
-        public decimal UnrealizedPnlTWD { get; set; }
-        public decimal UnrealizedPnlPct { get; set; }
+        public decimal? CostBasisTWD { get; set; }       // null when no cost entered
+        public decimal? UnrealizedPnlTWD { get; set; }
+        public decimal? UnrealizedPnlPct { get; set; }
         public bool PriceFetchFailed { get; set; }
     }
 
     public class PortfolioSummaryDto
     {
+        public DateOnly? EffectiveDate { get; set; }
+        public decimal UsdTwdRate { get; set; }
         public decimal TotalNetWorthTWD { get; set; }
         public decimal TwStockTWD { get; set; }
         public decimal UsStockTWD { get; set; }
-        public decimal UsdTwdRate { get; set; }
-        public decimal TotalUnrealizedPnlTWD { get; set; }
-        public decimal TotalUnrealizedPnlPct { get; set; }
-        public List<HoldingDto> Holdings { get; set; } = [];
+        public decimal CashTWD { get; set; }
+        public decimal FundTWD { get; set; }
+        // P&L only over positions that have a cost basis
+        public decimal CostBasisTWD { get; set; }
+        public decimal UnrealizedPnlTWD { get; set; }
+        public decimal UnrealizedPnlPct { get; set; }
+        public List<PositionDto> Positions { get; set; } = [];
     }
 
     public class NetWorthDataPoint
@@ -65,6 +64,26 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal TotalTWD { get; set; }
         public decimal TwStockTWD { get; set; }
         public decimal UsStockTWD { get; set; }
+        public decimal CashTWD { get; set; }
+        public decimal FundTWD { get; set; }
+    }
+
+    public class UpdateHistoryItem
+    {
+        public int SnapshotId { get; set; }
+        public string EffectiveDate { get; set; } = "";
+        public int PositionCount { get; set; }
+        public decimal UsdTwdRate { get; set; }
+    }
+
+    // ── Stock lookup + price history ─────────────────────────────────────────
+
+    public class StockLookupDto
+    {
+        public string Symbol { get; set; } = "";
+        public string CompanyName { get; set; } = "";
+        public decimal CurrentPrice { get; set; }
+        public string Currency { get; set; } = "";
     }
 
     public class PricePoint
@@ -81,8 +100,8 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public string CompanyName { get; set; } = "";
         public string Market { get; set; } = "";
         public string Currency { get; set; } = "";
-        public decimal AvgCost { get; set; }
         public decimal Quantity { get; set; }
+        public decimal? AvgCost { get; set; }   // costBasis / quantity, null if no cost
         public List<PricePoint> Prices { get; set; } = [];
     }
 }

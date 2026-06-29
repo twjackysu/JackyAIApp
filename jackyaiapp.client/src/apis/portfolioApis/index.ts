@@ -3,37 +3,41 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { ApiOkResponse } from '../types';
 
 import {
-  AddTransactionRequest,
   HoldingPriceHistoryDto,
   NetWorthDataPoint,
   PortfolioSummaryDto,
-  TransactionDto,
+  SaveHoldingsRequest,
+  StockLookupDto,
+  UpdateHistoryItem,
 } from './types';
 
 export const portfolioApis = createApi({
   reducerPath: 'portfolioApis',
   baseQuery: fetchBaseQuery({ baseUrl: '/api/portfolio' }),
-  tagTypes: ['Transactions', 'Summary'],
+  tagTypes: ['Holdings', 'Summary'],
   endpoints: (builder) => ({
     getPortfolioSummary: builder.query<ApiOkResponse<PortfolioSummaryDto>, void>({
       query: () => 'summary',
       providesTags: ['Summary'],
     }),
-    getTransactions: builder.query<ApiOkResponse<TransactionDto[]>, void>({
-      query: () => 'transactions',
-      providesTags: ['Transactions'],
+    getHoldings: builder.query<ApiOkResponse<SaveHoldingsRequest>, void>({
+      query: () => 'holdings',
+      providesTags: ['Holdings'],
     }),
-    addTransaction: builder.mutation<ApiOkResponse<TransactionDto>, AddTransactionRequest>({
-      query: (body) => ({ url: 'transactions', method: 'POST', body }),
-      invalidatesTags: ['Transactions', 'Summary'],
+    saveHoldings: builder.mutation<ApiOkResponse<boolean>, SaveHoldingsRequest>({
+      query: (body) => ({ url: 'holdings', method: 'PUT', body }),
+      invalidatesTags: ['Holdings', 'Summary'],
     }),
-    deleteTransaction: builder.mutation<ApiOkResponse<boolean>, number>({
-      query: (id) => ({ url: `transactions/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['Transactions', 'Summary'],
+    getUpdateHistory: builder.query<ApiOkResponse<UpdateHistoryItem[]>, void>({
+      query: () => 'update-history',
+      providesTags: ['Holdings'],
     }),
     getNetWorthHistory: builder.query<ApiOkResponse<NetWorthDataPoint[]>, number>({
       query: (days) => `net-worth-history?days=${days}`,
       providesTags: ['Summary'],
+    }),
+    lookupStock: builder.query<ApiOkResponse<StockLookupDto>, { market: string; symbol: string }>({
+      query: ({ market, symbol }) => `lookup/${market}/${symbol}`,
     }),
     getHoldingPriceHistory: builder.query<
       ApiOkResponse<HoldingPriceHistoryDto>,
@@ -46,9 +50,10 @@ export const portfolioApis = createApi({
 
 export const {
   useGetPortfolioSummaryQuery,
-  useGetTransactionsQuery,
-  useAddTransactionMutation,
-  useDeleteTransactionMutation,
+  useGetHoldingsQuery,
+  useSaveHoldingsMutation,
+  useGetUpdateHistoryQuery,
   useGetNetWorthHistoryQuery,
+  useLookupStockQuery,
   useGetHoldingPriceHistoryQuery,
 } = portfolioApis;

@@ -6,26 +6,33 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import { alpha } from '@mui/material/styles';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
-import { HoldingsTable } from './HoldingsTable';
+import { HoldingsEditor } from './HoldingsEditor';
 import { NetWorthChart } from './NetWorthChart';
-import { TransactionForm } from './TransactionForm';
-import { TransactionList } from './TransactionList';
+import { PositionsTable } from './PositionsTable';
 
 import { useGetPortfolioSummaryQuery } from '@/apis/portfolioApis';
-import { HoldingDto } from '@/apis/portfolioApis/types';
+import { PositionDto } from '@/apis/portfolioApis/types';
 
 const fmt = (n: number) =>
   n.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 const pnlColor = (n: number) => (n > 0 ? '#22c55e' : n < 0 ? '#ef4444' : 'inherit');
 
-function NetWorthCard({ total, pnl, pnlPct }: { total: number; pnl: number; pnlPct: number }) {
+function NetWorthCard({
+  total,
+  pnl,
+  pnlPct,
+  hasPnl,
+}: {
+  total: number;
+  pnl: number;
+  pnlPct: number;
+  hasPnl: boolean;
+}) {
   const isPositive = pnl >= 0;
   return (
     <Card
@@ -48,63 +55,30 @@ function NetWorthCard({ total, pnl, pnlPct }: { total: number; pnl: number; pnlP
         <Typography variant="h3" sx={{ fontWeight: 800, mt: 0.5, letterSpacing: -1 }}>
           NT${fmt(total)}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-          <Typography
-            variant="body1"
-            sx={{ color: pnlColor(pnl), fontWeight: 600 }}
-            component="span"
-          >
-            {isPositive ? '▲' : '▼'} NT${fmt(Math.abs(pnl))}
-          </Typography>
-          <Chip
-            label={`${isPositive ? '+' : ''}${pnlPct.toFixed(2)}%`}
-            size="small"
-            sx={{
-              bgcolor: alpha(isPositive ? '#22c55e' : '#ef4444', 0.15),
-              color: isPositive ? '#22c55e' : '#ef4444',
-              fontWeight: 700,
-              border: 'none',
-            }}
-          />
-          <Typography variant="caption" color="text.secondary">
-            未實現損益
-          </Typography>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-}
-
-function AllocationCard({
-  twStock,
-  usStock,
-  total,
-  usdTwdRate,
-}: {
-  twStock: number;
-  usStock: number;
-  total: number;
-  usdTwdRate: number;
-}) {
-  const twPct = total > 0 ? (twStock / total) * 100 : 0;
-  const usPct = total > 0 ? (usStock / total) * 100 : 0;
-
-  return (
-    <Card
-      elevation={0}
-      sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}
-    >
-      <CardContent sx={{ p: 3 }}>
-        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
-          資產配置
-        </Typography>
-        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <AllocationRow label="台股" value={twStock} pct={twPct} color="#3B82F6" />
-          <AllocationRow label="美股" value={usStock} pct={usPct} color="#F59E0B" />
-        </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-          USD/TWD = {usdTwdRate.toFixed(2)}
-        </Typography>
+        {hasPnl && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Typography
+              variant="body1"
+              sx={{ color: pnlColor(pnl), fontWeight: 600 }}
+              component="span"
+            >
+              {isPositive ? '▲' : '▼'} NT${fmt(Math.abs(pnl))}
+            </Typography>
+            <Chip
+              label={`${isPositive ? '+' : ''}${pnlPct.toFixed(2)}%`}
+              size="small"
+              sx={{
+                bgcolor: alpha(isPositive ? '#22c55e' : '#ef4444', 0.15),
+                color: isPositive ? '#22c55e' : '#ef4444',
+                fontWeight: 700,
+                border: 'none',
+              }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              未實現損益(已填成本部分)
+            </Typography>
+          </Box>
+        )}
       </CardContent>
     </Card>
   );
@@ -121,6 +95,7 @@ function AllocationRow({
   pct: number;
   color: string;
 }) {
+  if (value <= 0) return null;
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -131,14 +106,7 @@ function AllocationRow({
           NT${fmt(value)} ({pct.toFixed(1)}%)
         </Typography>
       </Box>
-      <Box
-        sx={{
-          height: 6,
-          borderRadius: 3,
-          bgcolor: alpha(color, 0.15),
-          overflow: 'hidden',
-        }}
-      >
+      <Box sx={{ height: 6, borderRadius: 3, bgcolor: alpha(color, 0.15), overflow: 'hidden' }}>
         <Box
           sx={{
             height: '100%',
@@ -153,11 +121,52 @@ function AllocationRow({
   );
 }
 
+function AllocationCard({
+  twStock,
+  usStock,
+  cash,
+  fund,
+  total,
+  usdTwdRate,
+}: {
+  twStock: number;
+  usStock: number;
+  cash: number;
+  fund: number;
+  total: number;
+  usdTwdRate: number;
+}) {
+  const pct = (v: number) => (total > 0 ? (v / total) * 100 : 0);
+  return (
+    <Card
+      elevation={0}
+      sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}
+    >
+      <CardContent sx={{ p: 3 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
+          資產配置
+        </Typography>
+        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <AllocationRow label="台股" value={twStock} pct={pct(twStock)} color="#3B82F6" />
+          <AllocationRow label="美股" value={usStock} pct={pct(usStock)} color="#10B981" />
+          <AllocationRow label="現金" value={cash} pct={pct(cash)} color="#A78BFA" />
+          <AllocationRow label="基金" value={fund} pct={pct(fund)} color="#EC4899" />
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+          USD/TWD = {usdTwdRate.toFixed(2)}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Portfolio() {
   const { data: summaryRes, isLoading, isError } = useGetPortfolioSummaryQuery();
   const summary = summaryRes?.data;
-  const [tab, setTab] = useState(0);
-  const [selectedHolding, setSelectedHolding] = useState<HoldingDto | null>(null);
+  const [selected, setSelected] = useState<PositionDto | null>(null);
+
+  const hasHoldings = (summary?.positions?.length ?? 0) > 0;
+  const hasPnl = (summary?.costBasisTWD ?? 0) > 0;
 
   return (
     <Box sx={{ maxWidth: 1100, mx: 'auto', py: 3 }}>
@@ -168,10 +177,11 @@ export default function Portfolio() {
             My Portfolio
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            台股 · 美股持倉追蹤
+            台股 · 美股 · 現金 · 基金 統一以台幣淨值追蹤
+            {summary?.effectiveDate ? ` · 持倉生效日 ${summary.effectiveDate}` : ''}
           </Typography>
         </Box>
-        <TransactionForm />
+        <HoldingsEditor />
       </Box>
 
       {isLoading && (
@@ -186,28 +196,29 @@ export default function Portfolio() {
         </Typography>
       )}
 
-      {!isLoading && summary && (
+      {!isLoading && summary && hasHoldings && (
         <>
-          {/* Summary Cards */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid size={{ xs: 12, md: 8 }}>
               <NetWorthCard
                 total={summary.totalNetWorthTWD}
-                pnl={summary.totalUnrealizedPnlTWD}
-                pnlPct={summary.totalUnrealizedPnlPct}
+                pnl={summary.unrealizedPnlTWD}
+                pnlPct={summary.unrealizedPnlPct}
+                hasPnl={hasPnl}
               />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
               <AllocationCard
                 twStock={summary.twStockTWD}
                 usStock={summary.usStockTWD}
+                cash={summary.cashTWD}
+                fund={summary.fundTWD}
                 total={summary.totalNetWorthTWD}
                 usdTwdRate={summary.usdTwdRate}
               />
             </Grid>
           </Grid>
 
-          {/* Net Worth Chart */}
           <Card
             elevation={0}
             sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
@@ -221,38 +232,29 @@ export default function Portfolio() {
             </CardContent>
           </Card>
 
-          {/* Tabs: Holdings / Transactions */}
           <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
-              <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-                <Tab label="持倉明細" />
-                <Tab label="交易紀錄" />
-              </Tabs>
-            </Box>
             <CardContent sx={{ p: 2 }}>
-              {tab === 0 && (
-                <HoldingsTable
-                  holdings={summary.holdings}
-                  usdTwdRate={summary.usdTwdRate}
-                  onRowClick={setSelectedHolding}
-                />
-              )}
-              {tab === 1 && <TransactionList />}
+              <PositionsTable positions={summary.positions} onStockClick={setSelected} />
             </CardContent>
           </Card>
         </>
       )}
 
-      {!isLoading && !isError && summary && summary.holdings.length === 0 && (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography color="text.secondary">尚無持倉。點「新增交易」記錄第一筆交易。</Typography>
+      {!isLoading && !isError && summary && !hasHoldings && (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography color="text.secondary" sx={{ mb: 1 }}>
+            還沒有持倉紀錄
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            點右上「建立持倉」填入你的股票、現金和基金
+          </Typography>
         </Box>
       )}
 
       <HoldingDetailDrawer
-        holding={selectedHolding}
-        open={selectedHolding !== null}
-        onClose={() => setSelectedHolding(null)}
+        position={selected}
+        open={selected !== null}
+        onClose={() => setSelected(null)}
       />
     </Box>
   );

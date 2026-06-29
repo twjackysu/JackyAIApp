@@ -1,47 +1,73 @@
-export type TransactionType = 'BUY' | 'SELL' | 'DIVIDEND';
+export type AssetType = 'STOCK' | 'CASH' | 'FUND';
 export type Market = 'TW' | 'US';
 
-export interface AddTransactionRequest {
+export interface PositionInput {
+  assetType: AssetType;
   symbol: string;
-  market: Market;
-  companyName: string;
-  type: TransactionType;
-  date: string; // ISO date string
-  quantity: number;
-  price: number;
+  name: string;
+  market: string;
   currency: string;
-  fee: number;
-  note?: string;
+  quantity: number;
+  unitPrice?: number | null; // fund NAV
+  costBasis?: number | null; // optional, stocks only
 }
 
-export interface TransactionDto {
-  id: number;
-  symbol: string;
-  market: Market;
-  companyName: string;
-  type: TransactionType;
-  date: string;
-  quantity: number;
-  price: number;
-  currency: string;
-  fee: number;
-  note?: string;
+export interface SaveHoldingsRequest {
+  effectiveDate?: string | null; // yyyy-MM-dd
+  positions: PositionInput[];
 }
 
-export interface HoldingDto {
+export interface PositionDto {
+  assetType: AssetType;
   symbol: string;
-  market: Market;
-  companyName: string;
+  name: string;
+  market: string;
   currency: string;
   quantity: number;
-  avgCost: number;
   currentPrice: number;
   marketValueLocal: number;
   marketValueTWD: number;
+  costBasisTWD?: number | null;
+  unrealizedPnlTWD?: number | null;
+  unrealizedPnlPct?: number | null;
+  priceFetchFailed: boolean;
+}
+
+export interface PortfolioSummaryDto {
+  effectiveDate?: string | null;
+  usdTwdRate: number;
+  totalNetWorthTWD: number;
+  twStockTWD: number;
+  usStockTWD: number;
+  cashTWD: number;
+  fundTWD: number;
   costBasisTWD: number;
   unrealizedPnlTWD: number;
   unrealizedPnlPct: number;
-  priceFetchFailed: boolean;
+  positions: PositionDto[];
+}
+
+export interface NetWorthDataPoint {
+  date: string;
+  totalTWD: number;
+  twStockTWD: number;
+  usStockTWD: number;
+  cashTWD: number;
+  fundTWD: number;
+}
+
+export interface UpdateHistoryItem {
+  snapshotId: number;
+  effectiveDate: string;
+  positionCount: number;
+  usdTwdRate: number;
+}
+
+export interface StockLookupDto {
+  symbol: string;
+  companyName: string;
+  currentPrice: number;
+  currency: string;
 }
 
 export interface PricePoint {
@@ -56,24 +82,7 @@ export interface HoldingPriceHistoryDto {
   companyName: string;
   market: Market;
   currency: string;
-  avgCost: number;
   quantity: number;
+  avgCost?: number | null;
   prices: PricePoint[];
-}
-
-export interface NetWorthDataPoint {
-  date: string;
-  totalTWD: number;
-  twStockTWD: number;
-  usStockTWD: number;
-}
-
-export interface PortfolioSummaryDto {
-  totalNetWorthTWD: number;
-  twStockTWD: number;
-  usStockTWD: number;
-  usdTwdRate: number;
-  totalUnrealizedPnlTWD: number;
-  totalUnrealizedPnlPct: number;
-  holdings: HoldingDto[];
 }
