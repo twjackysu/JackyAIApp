@@ -1,4 +1,5 @@
 
+using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.Data.Models.SQL;
 using Microsoft.EntityFrameworkCore;
 
@@ -192,6 +193,26 @@ namespace JackyAIApp.Server.Data
             modelBuilder.Entity<DashboardShare>()
                 .HasIndex(s => new { s.DashboardId, s.UserId })
                 .IsUnique();
+
+            // Portfolio
+            modelBuilder.Entity<PortfolioTransaction>()
+                .HasOne(pt => pt.User)
+                .WithMany(u => u.PortfolioTransactions)
+                .HasForeignKey(pt => pt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PortfolioTransaction>()
+                .HasIndex(pt => pt.UserId);
+
+            modelBuilder.Entity<NetWorthSnapshot>()
+                .HasOne(ns => ns.User)
+                .WithMany(u => u.NetWorthSnapshots)
+                .HasForeignKey(ns => ns.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<NetWorthSnapshot>()
+                .HasIndex(ns => new { ns.UserId, ns.Date })
+                .IsUnique();
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -214,5 +235,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<Dashboard> Dashboards { get; set; }
         public virtual DbSet<DashboardWidget> DashboardWidgets { get; set; }
         public virtual DbSet<DashboardShare> DashboardShares { get; set; }
+        public virtual DbSet<PortfolioTransaction> PortfolioTransactions { get; set; }
+        public virtual DbSet<NetWorthSnapshot> NetWorthSnapshots { get; set; }
     }
 }

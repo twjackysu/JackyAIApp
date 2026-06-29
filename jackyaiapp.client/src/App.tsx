@@ -29,6 +29,7 @@ import {
   FINANCE,
   JOB_SEARCH,
   PDF_UNLOCKER,
+  PORTFOLIO,
   getCurrentApp,
 } from './constants/apps';
 
@@ -42,6 +43,7 @@ const DashboardView = lazy(() => import('./Dashboard/DashboardView'));
 const Dictionary = lazy(() => import('./Dictionary'));
 const Exam = lazy(() => import('./Exam'));
 const Finance = lazy(() => import('./Finance'));
+const Portfolio = lazy(() => import('./Portfolio'));
 const JobSearch = lazy(() => import('./JobSearch'));
 const PDFUnlocker = lazy(() => import('./PDFUnlocker'));
 const Portal = lazy(() => import('./Portal'));
@@ -261,6 +263,14 @@ function App() {
               element={
                 <RequireAuth>
                   <Credits />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path={PORTFOLIO.path}
+              element={
+                <RequireAuth>
+                  <Portfolio />
                 </RequireAuth>
               }
             />
