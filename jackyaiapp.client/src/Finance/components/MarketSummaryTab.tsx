@@ -1,3 +1,4 @@
+import BusinessIcon from '@mui/icons-material/Business';
 import PublicIcon from '@mui/icons-material/Public';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
@@ -165,7 +166,7 @@ export function MarketSummaryTab({
   return (
     <Stack spacing={2}>
       <Typography variant="caption" color="text.secondary">
-        AI 依今日全球市場數據、財經新聞與台股重大訊息整理，僅供參考
+        AI 依今日全球市場數據、財經新聞與台股公司公告整理，僅供參考
       </Typography>
       <Section
         icon={<PublicIcon fontSize="small" color="primary" />}
@@ -173,8 +174,8 @@ export function MarketSummaryTab({
         points={global}
       />
       <Section
-        icon={<TrendingUpIcon fontSize="small" color="primary" />}
-        title="台股焦點"
+        icon={<BusinessIcon fontSize="small" color="primary" />}
+        title="台股公司動態"
         points={taiwan}
       />
     </Stack>

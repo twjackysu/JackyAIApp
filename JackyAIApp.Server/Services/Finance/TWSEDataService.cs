@@ -46,8 +46,8 @@ namespace JackyAIApp.Server.Services.Finance
                 {
                     string jsonContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
-                    // Cache for 1 hour to avoid frequent API calls
-                    _memoryCache.Set(apiCacheKey, jsonContent, TimeSpan.FromHours(1));
+                    // Daily-published filings; cache 12h to avoid refetching the same data.
+                    _memoryCache.Set(apiCacheKey, jsonContent, TimeSpan.FromHours(12));
 
                     return jsonContent;
                 }
