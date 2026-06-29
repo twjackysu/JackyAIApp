@@ -489,15 +489,16 @@ namespace JackyAIApp.Server.Services.Finance
 
             var twseSection = string.IsNullOrWhiteSpace(twseTask.Result)
                 ? ""
-                : $"\n\n台股今日重大訊息公告（用於挑出台股焦點，日期為民國年需 +1911 轉西元）：\n{twseTask.Result}";
+                : $"\n\n台股今日公司公告（證交所公開資訊觀測站重大訊息，多為更名/處分資產/董事會決議/契約等公開公告，非投資訊號；日期為民國年需 +1911 轉西元）：\n{twseTask.Result}";
 
             var systemPrompt =
-                "你是專業市場策略師，為台灣投資人整理『今日市場AI摘要』。根據提供的三類資料（全球市場數據、全球財經新聞、台股重大訊息），" +
+                "你是專業市場策略師，為台灣投資人整理『今日市場AI摘要』。根據提供的三類資料（全球市場數據、全球財經新聞、台股公司公告），" +
                 "整理成兩區重點：\n" +
                 "- category=\"global\"（全球總經）：3~5 點，挖掘數字與新聞背後的因果與情緒，不要只複述數字。\n" +
-                "- category=\"taiwan\"（台股焦點）：3~5 點，從重大訊息中挑出真正可能影響股價的事件（策略合作、併購、營收劇變、重大產品/里程碑），" +
-                "過濾例行公告；若是特定公司，填 stockCode。\n" +
-                "每點：headline（一句標題）+ detail（一句因果或含義說明）+ sentiment（bullish|bearish|neutral）+ category。" +
+                "- category=\"taiwan\"（台股公司動態）：2~4 點。注意這些是公開公告（更名、處分股權/資產、董事會決議、重大契約、併購等），" +
+                "不是投資訊號；請挑出較具實質意義的（如併購、處分重大資產、重大契約、營運變動），過濾純例行（補充說明、財報公布日、更名等行政事項），" +
+                "並如實描述公告內容、不要誇大成買賣建議；多數情況 sentiment 用 neutral，除非公告明顯偏多或偏空。若是特定公司，填 stockCode。\n" +
+                "每點：headline（一句標題）+ detail（一句說明）+ sentiment（bullish|bearish|neutral）+ category。" +
                 "只根據提供的資料推論，不編造未提供的事件。全部用繁體中文。" +
                 "只回傳 JSON：{\"points\":[{\"category\":\"global|taiwan\",\"headline\":\"\",\"detail\":\"\",\"sentiment\":\"bullish|bearish|neutral\",\"stockCode\":\"\"}]}。";
             var userMessage = $"全球市場數據：\n{dataText}{newsSection}{twseSection}";
