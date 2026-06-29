@@ -1,3 +1,4 @@
+import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Table from '@mui/material/Table';
@@ -7,7 +8,6 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
 
 import { HoldingDto } from '@/apis/portfolioApis/types';
 
@@ -74,7 +74,13 @@ export function HoldingsTable({ holdings, usdTwdRate, loading }: Props) {
                     variant="outlined"
                   />
                   {h.priceFetchFailed && (
-                    <Chip label="報價失敗" size="small" color="error" variant="outlined" sx={{ fontSize: 10, height: 18 }} />
+                    <Chip
+                      label="報價失敗"
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      sx={{ fontSize: 10, height: 18 }}
+                    />
                   )}
                 </Box>
               </TableCell>
@@ -86,9 +92,7 @@ export function HoldingsTable({ holdings, usdTwdRate, loading }: Props) {
                 {h.priceFetchFailed ? '—' : `${h.currency} ${fmt(h.currentPrice, 2)}`}
               </TableCell>
               <TableCell align="right">
-                <Typography variant="body2">
-                  {fmt(h.marketValueTWD)}
-                </Typography>
+                <Typography variant="body2">{fmt(h.marketValueTWD)}</Typography>
                 {h.market === 'US' && (
                   <Typography variant="caption" color="text.secondary">
                     USD {fmt(h.marketValueLocal, 0)} × {usdTwdRate.toFixed(2)}
@@ -97,12 +101,14 @@ export function HoldingsTable({ holdings, usdTwdRate, loading }: Props) {
               </TableCell>
               <TableCell align="right">
                 <Typography variant="body2" sx={{ color: pnlColor(h.unrealizedPnlTWD) }}>
-                  {h.unrealizedPnlTWD >= 0 ? '+' : ''}{fmt(h.unrealizedPnlTWD)}
+                  {h.unrealizedPnlTWD >= 0 ? '+' : ''}
+                  {fmt(h.unrealizedPnlTWD)}
                 </Typography>
               </TableCell>
               <TableCell align="right">
                 <Typography variant="body2" sx={{ color: pnlColor(h.unrealizedPnlPct) }}>
-                  {h.unrealizedPnlPct >= 0 ? '+' : ''}{h.unrealizedPnlPct.toFixed(2)}%
+                  {h.unrealizedPnlPct >= 0 ? '+' : ''}
+                  {h.unrealizedPnlPct.toFixed(2)}%
                 </Typography>
               </TableCell>
             </TableRow>
