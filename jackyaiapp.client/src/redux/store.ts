@@ -11,6 +11,7 @@ import { dictionaryApis } from '@/apis/dictionaryApis';
 import { ecpayApi } from '@/apis/ecpayApis';
 import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
+import { portfolioApis } from '@/apis/portfolioApis';
 import { jobApis } from '@/apis/jobApis';
 import { paypalApi } from '@/apis/paypalApis';
 import { repositoryApis } from '@/apis/repositoryApis';
@@ -39,6 +40,7 @@ export const store = configureStore({
     [statsApis.reducerPath]: statsApis.reducer,
     [dataAnalysisApis.reducerPath]: dataAnalysisApis.reducer,
     [chatbotApis.reducerPath]: chatbotApis.reducer,
+    [portfolioApis.reducerPath]: portfolioApis.reducer,
   },
   // Adding the api middleware enables caching, invalidation, polling,
   // and other useful features of `rtk-query`.
@@ -60,6 +62,7 @@ export const store = configureStore({
       statsApis.middleware,
       dataAnalysisApis.middleware,
       chatbotApis.middleware,
+      portfolioApis.middleware,
       rtkQueryErrorLogger,
     ),
 });

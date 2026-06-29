@@ -17,10 +17,101 @@ namespace JackyAIApp.Server.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.17")
+                .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.NetWorthSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("TotalTWD")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TwStockTWD")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("UsStockTWD")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("UsdTwdRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("NetWorthSnapshots");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.PortfolioTransaction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Fee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Market")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PortfolioTransactions");
+                });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ClozeTest", b =>
                 {
@@ -145,6 +236,148 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("DailyChallengeResults");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Dashboard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Visibility")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Dashboards");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DashboardShare", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("DashboardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("DashboardId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("DashboardShares");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DashboardWidget", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("DashboardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("H")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PlanJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("VizType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("W")
+                        .HasColumnType("int");
+
+                    b.Property<int>("X")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Y")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DashboardId");
+
+                    b.ToTable("DashboardWidgets");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DataSourceConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ConnectorType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DefaultTableName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("DataSourceConfigs");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Definition", b =>
                 {
                     b.Property<string>("Id")
@@ -167,6 +400,46 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.HasIndex("WordMeaningId");
 
                     b.ToTable("Definitions");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ExamAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExamType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("WordId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WordId");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.HasIndex("UserId", "WordId");
+
+                    b.ToTable("ExamAttempts");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ExampleSentence", b =>
@@ -296,6 +569,9 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<bool?>("IsAdmin")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("LastFreezeGrantDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("LastStreakDate")
                         .HasColumnType("datetime2");
 
@@ -307,6 +583,9 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.Property<string>("Name")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("StreakFreezesAvailable")
+                        .HasColumnType("int");
 
                     b.Property<decimal>("TotalCreditsUsed")
                         .HasColumnType("decimal(20,0)");
@@ -490,6 +769,28 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("WordMeaningTags");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.NetWorthSnapshot", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
+                        .WithMany("NetWorthSnapshots")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.PortfolioTransaction", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
+                        .WithMany("PortfolioTransactions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ClozeTest", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.Word", "Word")
@@ -534,6 +835,58 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Dashboard", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DashboardShare", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.Dashboard", "Dashboard")
+                        .WithMany("Shares")
+                        .HasForeignKey("DashboardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Dashboard");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DashboardWidget", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.Dashboard", "Dashboard")
+                        .WithMany("Widgets")
+                        .HasForeignKey("DashboardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Dashboard");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DataSourceConfig", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
+                        .WithMany("DataSourceConfigs")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Definition", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.WordMeaning", "WordMeaning")
@@ -543,6 +896,25 @@ namespace JackyAIApp.Server.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("WordMeaning");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ExamAttempt", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.Word", "Word")
+                        .WithMany()
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("Word");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ExampleSentence", b =>
@@ -646,13 +1018,26 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Navigation("Options");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Dashboard", b =>
+                {
+                    b.Navigation("Shares");
+
+                    b.Navigation("Widgets");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.User", b =>
                 {
                     b.Navigation("CreditTransactions");
 
                     b.Navigation("DailyChallengeResults");
 
+                    b.Navigation("DataSourceConfigs");
+
                     b.Navigation("JiraConfigs");
+
+                    b.Navigation("NetWorthSnapshots");
+
+                    b.Navigation("PortfolioTransactions");
 
                     b.Navigation("UserConnectors");
 

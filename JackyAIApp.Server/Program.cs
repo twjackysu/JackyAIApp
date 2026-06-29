@@ -133,6 +133,10 @@ try
 
     builder.Services.AddJobAggregatorServices();
 
+    // Portfolio
+    builder.Services.AddScoped<JackyAIApp.Server.Services.Portfolio.IPortfolioService,
+        JackyAIApp.Server.Services.Portfolio.PortfolioService>();
+
     // Configure Prompt and OpenAI services
     builder.Services.AddSingleton<JackyAIApp.Server.Services.Prompt.IPromptLoader, JackyAIApp.Server.Services.Prompt.PromptLoader>();
     builder.Services.AddScoped<JackyAIApp.Server.Services.OpenAI.IOpenAIPromptService, JackyAIApp.Server.Services.OpenAI.OpenAIPromptService>();

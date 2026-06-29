@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using JackyAIApp.Server.Data.Models.Portfolio;
 
 namespace JackyAIApp.Server.Data.Models.SQL
 {
@@ -78,6 +79,8 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public ICollection<CreditTransaction> CreditTransactions { get; set; } = [];
         public ICollection<DailyChallengeResult> DailyChallengeResults { get; set; } = [];
         public ICollection<DataSourceConfig> DataSourceConfigs { get; set; } = [];
+        public ICollection<PortfolioTransaction> PortfolioTransactions { get; set; } = [];
+        public ICollection<NetWorthSnapshot> NetWorthSnapshots { get; set; } = [];
     }
 
     /// <summary>

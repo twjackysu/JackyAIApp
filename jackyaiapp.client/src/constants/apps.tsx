@@ -3,6 +3,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import DescriptionIcon from '@mui/icons-material/Description';
 import LinkIcon from '@mui/icons-material/Link';
+import PieChartIcon from '@mui/icons-material/PieChart';
 import SchoolIcon from '@mui/icons-material/School';
 import WorkIcon from '@mui/icons-material/Work';
 
@@ -23,6 +24,15 @@ export interface AppDef {
   /** Short description shown on the portal catalog card. */
   description: string;
 }
+
+export const PORTFOLIO: AppDef = {
+  name: 'My Portfolio',
+  path: '/portfolio',
+  icon: <PieChartIcon fontSize="small" />,
+  allPaths: ['/portfolio'],
+  color: '#F59E0B',
+  description: '追蹤台美股持倉、損益與資產淨值變化。',
+};
 
 export const FINANCE: AppDef = {
   name: 'Stock Intelligence & Market Analysis',
@@ -88,7 +98,7 @@ export const CONNECTORS: AppDef = {
 };
 
 // The four standalone applications.
-export const apps: AppDef[] = [FINANCE, ENGLISH_LEARNING, JOB_SEARCH, DATA_ANALYSIS];
+export const apps: AppDef[] = [PORTFOLIO, FINANCE, ENGLISH_LEARNING, JOB_SEARCH, DATA_ANALYSIS];
 
 // Everything reachable from the home portal — the ONLY place users switch between sites.
 export const portalDestinations: AppDef[] = [...apps, DASHBOARDS, CONNECTORS];
