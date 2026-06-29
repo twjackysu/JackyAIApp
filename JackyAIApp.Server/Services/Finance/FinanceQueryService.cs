@@ -56,50 +56,6 @@ namespace JackyAIApp.Server.Services.Finance
         private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
         private const int CACHE_HOURS = 12;
 
-        public async Task<ServiceResult> GetDailyImportantInfoAsync(CancellationToken cancellationToken)
-        {
-            var currentDate = DateTime.Now.ToString("yyyyMMdd");
-            var cacheKey = $"DailyImportantInfo_{currentDate}";
-
-            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
-            {
-                _logger.LogInformation("Returning cached daily important info for date: {date}", currentDate);
-                return ServiceResult.Ok(cachedResult);
-            }
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(OPERATION_TIMEOUT_SECONDS));
-
-            try
-            {
-                _logger.LogInformation("Fetching new daily important info for date: {date}", currentDate);
-                string rawMaterialInfo = await _twseDataService.GetRawMaterialInfoWithCacheAsync(timeoutCts.Token);
-                if (string.IsNullOrEmpty(rawMaterialInfo))
-                {
-                    return ServiceResult.Fail(ErrorCodes.ExternalApiError, "Failed to fetch data from Taiwan Stock Exchange API.");
-                }
-
-                var analysisResult = await _financeAnalysisService.AnalyzeWithChatAPIAsync(rawMaterialInfo, timeoutCts.Token);
-                if (analysisResult == null)
-                {
-                    return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, "Analysis failed or timed out.");
-                }
-
-                _memoryCache.Set(cacheKey, analysisResult, TimeSpan.FromHours(CACHE_HOURS));
-                return ServiceResult.Ok(analysisResult);
-            }
-            catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
-            {
-                _logger.LogWarning("Operation timed out after {seconds} seconds", OPERATION_TIMEOUT_SECONDS);
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, "Operation timed out.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while getting daily important information.");
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, "Internal server error occurred.");
-            }
-        }
-
         public async Task<ServiceResult> AnalyzeStockAsync(StockSearchRequest request, CancellationToken cancellationToken)
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
