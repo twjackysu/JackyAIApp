@@ -8,5 +8,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         Task<List<TransactionDto>> GetTransactionsAsync(string userId, CancellationToken ct = default);
         Task DeleteTransactionAsync(string userId, int id, CancellationToken ct = default);
         Task<PortfolioSummaryDto> GetPortfolioSummaryAsync(string userId, CancellationToken ct = default);
+        Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(string userId, int days, CancellationToken ct = default);
+        Task TakeSnapshotAsync(string userId, CancellationToken ct = default);
     }
 }

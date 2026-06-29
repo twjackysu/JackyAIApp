@@ -138,6 +138,131 @@ namespace JackyAIApp.Server.Services.Portfolio
             };
         }
 
+        public async Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(string userId, int days, CancellationToken ct = default)
+        {
+            days = Math.Clamp(days, 7, 180);
+
+            var txs = await db.PortfolioTransactions
+                .Where(t => t.UserId == userId)
+                .OrderBy(t => t.Date)
+                .ToListAsync(ct);
+
+            if (txs.Count == 0) return [];
+
+            // Try to serve from stored snapshots first (populated by daily job)
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var startDate = today.AddDays(-days);
+
+            var snapshots = await db.NetWorthSnapshots
+                .Where(s => s.UserId == userId && s.Date >= startDate)
+                .OrderBy(s => s.Date)
+                .ToListAsync(ct);
+
+            // If we have ≥80% coverage use snapshots (avoids heavy price re-fetch)
+            var expectedTradingDays = days * 5 / 7; // rough estimate
+            if (snapshots.Count >= expectedTradingDays * 0.8)
+            {
+                return snapshots.Select(s => new NetWorthDataPoint
+                {
+                    Date = s.Date.ToString("yyyy-MM-dd"),
+                    TotalTWD = s.TotalTWD,
+                    TwStockTWD = s.TwStockTWD,
+                    UsStockTWD = s.UsStockTWD,
+                }).ToList();
+            }
+
+            // Otherwise reconstruct from price history (backfill)
+            var usdTwdRate = await FetchUsdTwdRateAsync(ct);
+            var symbols = txs.Select(t => (t.Market, t.Symbol)).Distinct().ToList();
+
+            // Fetch all price histories sequentially (Yahoo throttle-safe)
+            var priceMap = new Dictionary<(string market, string symbol), List<DTO.Finance.DailyPrice>>();
+            foreach (var sym in symbols)
+            {
+                try
+                {
+                    var region = providerFactory.DetectRegion(sym.Symbol);
+                    var provider = providerFactory.GetMarketDataProvider(region);
+                    var data = await provider.FetchAsync(sym.Symbol, ct);
+                    priceMap[sym] = data.HistoricalPrices;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Price history unavailable for {Symbol}", sym.Symbol);
+                }
+            }
+
+            var result = new List<NetWorthDataPoint>();
+            for (var date = startDate; date <= today; date = date.AddDays(1))
+            {
+                if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday) continue;
+
+                var holdingMap = DeriveHoldings(txs.Where(t => DateOnly.FromDateTime(t.Date) <= date));
+                decimal twTWD = 0, usTWD = 0;
+
+                foreach (var (key, holding) in holdingMap)
+                {
+                    if (holding.Quantity <= 0) continue;
+                    if (!priceMap.TryGetValue(key, out var prices)) continue;
+
+                    var dateTime = date.ToDateTime(TimeOnly.MinValue);
+                    var price = prices
+                        .Where(p => p.Date.Date <= dateTime)
+                        .OrderByDescending(p => p.Date)
+                        .FirstOrDefault()?.Close ?? 0;
+
+                    if (price <= 0) continue;
+
+                    var value = price * holding.Quantity;
+                    if (key.market == "US") usTWD += value * usdTwdRate;
+                    else twTWD += value;
+                }
+
+                if (twTWD + usTWD > 0)
+                    result.Add(new NetWorthDataPoint
+                    {
+                        Date = date.ToString("yyyy-MM-dd"),
+                        TotalTWD = twTWD + usTWD,
+                        TwStockTWD = twTWD,
+                        UsStockTWD = usTWD,
+                    });
+            }
+
+            return result;
+        }
+
+        public async Task TakeSnapshotAsync(string userId, CancellationToken ct = default)
+        {
+            var summary = await GetPortfolioSummaryAsync(userId, ct);
+            if (summary.TotalNetWorthTWD <= 0) return;
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var existing = await db.NetWorthSnapshots
+                .FirstOrDefaultAsync(s => s.UserId == userId && s.Date == today, ct);
+
+            if (existing != null)
+            {
+                existing.TotalTWD = summary.TotalNetWorthTWD;
+                existing.TwStockTWD = summary.TwStockTWD;
+                existing.UsStockTWD = summary.UsStockTWD;
+                existing.UsdTwdRate = summary.UsdTwdRate;
+            }
+            else
+            {
+                db.NetWorthSnapshots.Add(new NetWorthSnapshot
+                {
+                    UserId = userId,
+                    Date = today,
+                    TotalTWD = summary.TotalNetWorthTWD,
+                    TwStockTWD = summary.TwStockTWD,
+                    UsStockTWD = summary.UsStockTWD,
+                    UsdTwdRate = summary.UsdTwdRate,
+                });
+            }
+
+            await db.SaveChangesAsync(ct);
+        }
+
         // ── Helpers ────────────────────────────────────────────────────────────
 
         private static Dictionary<(string market, string symbol), HoldingAccumulator> DeriveHoldings(

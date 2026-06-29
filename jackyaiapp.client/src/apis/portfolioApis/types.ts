@@ -44,6 +44,13 @@ export interface HoldingDto {
   priceFetchFailed: boolean;
 }
 
+export interface NetWorthDataPoint {
+  date: string;
+  totalTWD: number;
+  twStockTWD: number;
+  usStockTWD: number;
+}
+
 export interface PortfolioSummaryDto {
   totalNetWorthTWD: number;
   twStockTWD: number;
