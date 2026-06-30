@@ -1,3 +1,5 @@
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -5,7 +7,9 @@ import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
 import { alpha } from '@mui/material/styles';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
@@ -13,6 +17,8 @@ import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
 import { NetWorthChart } from './NetWorthChart';
 import { PositionsTable } from './PositionsTable';
+import { usePrivacy } from './privacy';
+import { PrivacyProvider } from './PrivacyContext';
 
 import { useGetPortfolioSummaryQuery } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
@@ -21,6 +27,17 @@ const fmt = (n: number) =>
   n.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 const pnlColor = (n: number) => (n > 0 ? '#22c55e' : n < 0 ? '#ef4444' : 'inherit');
+
+function PrivacyToggle() {
+  const { hidden, toggle } = usePrivacy();
+  return (
+    <Tooltip title={hidden ? '顯示金額' : '隱藏金額'}>
+      <IconButton onClick={toggle} size="small">
+        {hidden ? <VisibilityOffIcon /> : <VisibilityIcon />}
+      </IconButton>
+    </Tooltip>
+  );
+}
 
 function NetWorthCard({
   total,
@@ -34,6 +51,7 @@ function NetWorthCard({
   hasPnl: boolean;
 }) {
   const isPositive = pnl >= 0;
+  const { money } = usePrivacy();
   return (
     <Card
       elevation={0}
@@ -53,7 +71,7 @@ function NetWorthCard({
           總資產淨值
         </Typography>
         <Typography variant="h3" sx={{ fontWeight: 800, mt: 0.5, letterSpacing: -1 }}>
-          NT${fmt(total)}
+          NT${money(fmt(total))}
         </Typography>
         {hasPnl && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
@@ -62,7 +80,7 @@ function NetWorthCard({
               sx={{ color: pnlColor(pnl), fontWeight: 600 }}
               component="span"
             >
-              {isPositive ? '▲' : '▼'} NT${fmt(Math.abs(pnl))}
+              {isPositive ? '▲' : '▼'} NT${money(fmt(Math.abs(pnl)))}
             </Typography>
             <Chip
               label={`${isPositive ? '+' : ''}${pnlPct.toFixed(2)}%`}
@@ -95,6 +113,7 @@ function AllocationRow({
   pct: number;
   color: string;
 }) {
+  const { money } = usePrivacy();
   if (value <= 0) return null;
   return (
     <Box>
@@ -103,7 +122,7 @@ function AllocationRow({
           {label}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          NT${fmt(value)} ({pct.toFixed(1)}%)
+          NT${money(fmt(value))} ({pct.toFixed(1)}%)
         </Typography>
       </Box>
       <Box sx={{ height: 6, borderRadius: 3, bgcolor: alpha(color, 0.15), overflow: 'hidden' }}>
@@ -169,93 +188,101 @@ export default function Portfolio() {
   const hasPnl = (summary?.costBasisTWD ?? 0) > 0;
 
   return (
-    <Box sx={{ maxWidth: 1100, mx: 'auto', py: 3 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            My Portfolio
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            台股 · 美股 · 現金 · 基金 統一以台幣淨值追蹤
-            {summary?.effectiveDate ? ` · 持倉生效日 ${summary.effectiveDate}` : ''}
-          </Typography>
+    <PrivacyProvider>
+      <Box sx={{ maxWidth: 1100, mx: 'auto', py: 3 }}>
+        {/* Header */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+              My Portfolio
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              台股 · 美股 · 現金 · 基金 統一以台幣淨值追蹤
+              {summary?.effectiveDate ? ` · 持倉生效日 ${summary.effectiveDate}` : ''}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PrivacyToggle />
+            <HoldingsEditor />
+          </Box>
         </Box>
-        <HoldingsEditor />
+
+        {isLoading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        )}
+
+        {isError && (
+          <Typography color="error" sx={{ py: 4, textAlign: 'center' }}>
+            載入失敗，請重新整理
+          </Typography>
+        )}
+
+        {!isLoading && summary && hasHoldings && (
+          <>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid size={{ xs: 12, md: 8 }}>
+                <NetWorthCard
+                  total={summary.totalNetWorthTWD}
+                  pnl={summary.unrealizedPnlTWD}
+                  pnlPct={summary.unrealizedPnlPct}
+                  hasPnl={hasPnl}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <AllocationCard
+                  twStock={summary.twStockTWD}
+                  usStock={summary.usStockTWD}
+                  cash={summary.cashTWD}
+                  fund={summary.fundTWD}
+                  total={summary.totalNetWorthTWD}
+                  usdTwdRate={summary.usdTwdRate}
+                />
+              </Grid>
+            </Grid>
+
+            <Card
+              elevation={0}
+              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                  資產淨值走勢
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <NetWorthChart />
+              </CardContent>
+            </Card>
+
+            <Card
+              elevation={0}
+              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}
+            >
+              <CardContent sx={{ p: 2 }}>
+                <PositionsTable positions={summary.positions} onStockClick={setSelected} />
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {!isLoading && !isError && summary && !hasHoldings && (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography color="text.secondary" sx={{ mb: 1 }}>
+              還沒有持倉紀錄
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              點右上「建立持倉」填入你的股票、現金和基金
+            </Typography>
+          </Box>
+        )}
+
+        <HoldingDetailDrawer
+          position={selected}
+          open={selected !== null}
+          onClose={() => setSelected(null)}
+        />
       </Box>
-
-      {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      )}
-
-      {isError && (
-        <Typography color="error" sx={{ py: 4, textAlign: 'center' }}>
-          載入失敗，請重新整理
-        </Typography>
-      )}
-
-      {!isLoading && summary && hasHoldings && (
-        <>
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid size={{ xs: 12, md: 8 }}>
-              <NetWorthCard
-                total={summary.totalNetWorthTWD}
-                pnl={summary.unrealizedPnlTWD}
-                pnlPct={summary.unrealizedPnlPct}
-                hasPnl={hasPnl}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <AllocationCard
-                twStock={summary.twStockTWD}
-                usStock={summary.usStockTWD}
-                cash={summary.cashTWD}
-                fund={summary.fundTWD}
-                total={summary.totalNetWorthTWD}
-                usdTwdRate={summary.usdTwdRate}
-              />
-            </Grid>
-          </Grid>
-
-          <Card
-            elevation={0}
-            sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
-          >
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                資產淨值走勢
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <NetWorthChart />
-            </CardContent>
-          </Card>
-
-          <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-            <CardContent sx={{ p: 2 }}>
-              <PositionsTable positions={summary.positions} onStockClick={setSelected} />
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      {!isLoading && !isError && summary && !hasHoldings && (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography color="text.secondary" sx={{ mb: 1 }}>
-            還沒有持倉紀錄
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            點右上「建立持倉」填入你的股票、現金和基金
-          </Typography>
-        </Box>
-      )}
-
-      <HoldingDetailDrawer
-        position={selected}
-        open={selected !== null}
-        onClose={() => setSelected(null)}
-      />
-    </Box>
+    </PrivacyProvider>
   );
 }
