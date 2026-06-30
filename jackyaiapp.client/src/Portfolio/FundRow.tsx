@@ -111,15 +111,14 @@ export function FundRow({ row, onChange, onRemove }: Props) {
       <TextField
         size="small"
         type="number"
-        label="淨值(選填)"
-        placeholder="自動抓取"
-        value={row.unitPrice ?? ''}
+        label="總成本(選填)"
+        placeholder="留空不算損益"
+        value={row.costBasis ?? ''}
         onChange={(e) =>
-          onChange({ unitPrice: e.target.value === '' ? null : parseFloat(e.target.value) })
+          onChange({ costBasis: e.target.value === '' ? null : parseFloat(e.target.value) })
         }
-        slotProps={{ htmlInput: { min: 0, step: 0.0001 } }}
-        sx={{ width: 110 }}
-        helperText={picked ? '留空用即時淨值' : ' '}
+        slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+        sx={{ width: 140 }}
       />
       <TextField
         size="small"

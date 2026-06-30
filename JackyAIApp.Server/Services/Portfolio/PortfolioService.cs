@@ -47,8 +47,10 @@ namespace JackyAIApp.Server.Services.Portfolio
                         Market = (p.Market ?? "").ToUpperInvariant(),
                         Currency = string.IsNullOrWhiteSpace(p.Currency) ? "TWD" : p.Currency.ToUpperInvariant(),
                         Quantity = p.Quantity,
+                        // Fund NAV is fetched live; UnitPrice kept only as a fallback if ever supplied.
                         UnitPrice = p.AssetType == AssetType.FUND ? p.UnitPrice : null,
-                        CostBasis = p.AssetType == AssetType.STOCK ? p.CostBasis : null,
+                        // Optional cost basis drives P&L for both stocks and funds (not cash).
+                        CostBasis = p.AssetType == AssetType.CASH ? null : p.CostBasis,
                     })
                     .ToList(),
             };
@@ -193,7 +195,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 var valueTWD = valueLocal * fxMul;
 
                 decimal? posCostTWD = null, posPnlTWD = null, posPnlPct = null;
-                if (p.AssetType == AssetType.STOCK && p.CostBasis.HasValue)
+                if (p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
                 {
                     posCostTWD = p.CostBasis.Value * fxMul;
                     posPnlTWD = valueTWD - posCostTWD;
