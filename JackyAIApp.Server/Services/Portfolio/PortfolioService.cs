@@ -38,7 +38,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                 EffectiveDate = effectiveDate,
                 UsdTwdRate = usdTwdRate,
                 Positions = req.Positions
-                    .Where(p => p.Quantity > 0)
+                    // Defensive: a stock/fund row is meaningless without a symbol, even if the client skipped validation.
+                    .Where(p => p.Quantity > 0 && (p.AssetType == AssetType.CASH || !string.IsNullOrWhiteSpace(p.Symbol)))
                     .Select(p => new HoldingPosition
                     {
                         AssetType = p.AssetType,

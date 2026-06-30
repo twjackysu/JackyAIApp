@@ -45,3 +45,21 @@ export const makeRow = (assetType: AssetType): EditorRow => {
 };
 
 export const toRow = (p: PositionInput): EditorRow => ({ ...p, _key: nextKey() });
+
+/** A row the user added but never filled in — silently dropped on save. */
+export const isRowEmpty = (r: EditorRow): boolean =>
+  r.assetType === 'CASH' ? !r.quantity : !r.symbol && !r.quantity;
+
+/** Validation message for a non-empty row, or null when valid. */
+export const rowError = (r: EditorRow): string | null => {
+  if (r.assetType === 'CASH') {
+    return r.quantity > 0 ? null : '請輸入金額';
+  }
+  if (!r.symbol) {
+    return r.assetType === 'FUND' ? '請選擇基金' : '請選擇股票';
+  }
+  if (!(r.quantity > 0)) {
+    return r.assetType === 'FUND' ? '請輸入單位數' : '請輸入股數';
+  }
+  return null;
+};

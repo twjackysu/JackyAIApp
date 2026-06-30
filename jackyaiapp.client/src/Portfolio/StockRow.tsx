@@ -15,11 +15,12 @@ import { StockSearchItem } from '@/apis/portfolioApis/types';
 
 interface Props {
   row: EditorRow;
+  error?: string | null;
   onChange: (patch: Partial<EditorRow>) => void;
   onRemove: () => void;
 }
 
-export function StockRow({ row, onChange, onRemove }: Props) {
+export function StockRow({ row, error, onChange, onRemove }: Props) {
   const market = row.market || 'TW';
   const [input, setInput] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -112,6 +113,8 @@ export function StockRow({ row, onChange, onRemove }: Props) {
               {...params}
               label="股票 (股號或名稱)"
               placeholder={market === 'US' ? 'AAPL' : '2330'}
+              error={!!error}
+              helperText={error ?? undefined}
               slotProps={{
                 ...params.slotProps,
                 input: {
@@ -136,6 +139,7 @@ export function StockRow({ row, onChange, onRemove }: Props) {
         value={row.quantity || ''}
         onChange={(e) => onChange({ quantity: parseFloat(e.target.value) || 0 })}
         slotProps={{ htmlInput: { min: 0, step: 1 } }}
+        error={!!error && picked}
         sx={{ width: 100 }}
       />
       <TextField
