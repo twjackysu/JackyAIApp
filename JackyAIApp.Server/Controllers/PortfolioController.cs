@@ -28,7 +28,7 @@ namespace JackyAIApp.Server.Controllers
         {
             var userId = RequireUserId();
             var result = await portfolioService.GetPortfolioSummaryAsync(userId, ct);
-            return Ok(responseFactory.CreateOKResponse(result));
+            return responseFactory.CreateOKResponse(result);
         }
 
         [HttpGet("holdings")]
@@ -36,7 +36,7 @@ namespace JackyAIApp.Server.Controllers
         {
             var userId = RequireUserId();
             var result = await portfolioService.GetLatestHoldingsAsync(userId, ct);
-            return Ok(responseFactory.CreateOKResponse(result));
+            return responseFactory.CreateOKResponse(result);
         }
 
         [HttpPut("holdings")]
@@ -44,7 +44,7 @@ namespace JackyAIApp.Server.Controllers
         {
             var userId = RequireUserId();
             await portfolioService.SaveHoldingsAsync(userId, req, ct);
-            return Ok(responseFactory.CreateOKResponse(true));
+            return responseFactory.CreateOKResponse(true);
         }
 
         [HttpGet("holdings/{snapshotId:int}")]
@@ -53,7 +53,7 @@ namespace JackyAIApp.Server.Controllers
             var userId = RequireUserId();
             var result = await portfolioService.GetSnapshotHoldingsAsync(userId, snapshotId, ct);
             if (result == null) return NotFound();
-            return Ok(responseFactory.CreateOKResponse(result));
+            return responseFactory.CreateOKResponse(result);
         }
 
         [HttpDelete("holdings/{snapshotId:int}")]
@@ -62,7 +62,7 @@ namespace JackyAIApp.Server.Controllers
             var userId = RequireUserId();
             var ok = await portfolioService.DeleteSnapshotAsync(userId, snapshotId, ct);
             if (!ok) return NotFound();
-            return Ok(responseFactory.CreateOKResponse(true));
+            return responseFactory.CreateOKResponse(true);
         }
 
         [HttpGet("update-history")]
@@ -70,7 +70,7 @@ namespace JackyAIApp.Server.Controllers
         {
             var userId = RequireUserId();
             var result = await portfolioService.GetUpdateHistoryAsync(userId, ct);
-            return Ok(responseFactory.CreateOKResponse(result));
+            return responseFactory.CreateOKResponse(result);
         }
 
         [HttpGet("net-worth-history")]
@@ -78,7 +78,7 @@ namespace JackyAIApp.Server.Controllers
         {
             var userId = RequireUserId();
             var result = await portfolioService.GetNetWorthHistoryAsync(userId, days, ct);
-            return Ok(responseFactory.CreateOKResponse(result));
+            return responseFactory.CreateOKResponse(result);
         }
 
         [HttpGet("lookup/{market}/{symbol}")]
@@ -86,21 +86,21 @@ namespace JackyAIApp.Server.Controllers
         {
             var result = await portfolioService.LookupStockAsync(market, symbol, ct);
             if (result == null) return NotFound();
-            return Ok(responseFactory.CreateOKResponse(result));
+            return responseFactory.CreateOKResponse(result);
         }
 
         [HttpGet("stocks/search")]
         public async Task<IActionResult> SearchStocks([FromQuery] string market, [FromQuery] string keyword, CancellationToken ct)
         {
             var result = await portfolioService.SearchStocksAsync(market ?? "TW", keyword ?? "", ct);
-            return Ok(responseFactory.CreateOKResponse(result));
+            return responseFactory.CreateOKResponse(result);
         }
 
         [HttpGet("funds/search")]
         public async Task<IActionResult> SearchFunds([FromQuery] string keyword, CancellationToken ct)
         {
             var result = await portfolioService.SearchFundsAsync(keyword ?? "", ct);
-            return Ok(responseFactory.CreateOKResponse(result));
+            return responseFactory.CreateOKResponse(result);
         }
 
         [HttpGet("holdings/{market}/{symbol}/price-history")]
@@ -109,7 +109,7 @@ namespace JackyAIApp.Server.Controllers
             var userId = RequireUserId();
             var result = await portfolioService.GetHoldingPriceHistoryAsync(userId, market, symbol, ct);
             if (result == null) return NotFound();
-            return Ok(responseFactory.CreateOKResponse(result));
+            return responseFactory.CreateOKResponse(result);
         }
     }
 }
