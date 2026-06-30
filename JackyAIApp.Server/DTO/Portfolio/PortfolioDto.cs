@@ -55,6 +55,8 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal CostBasisTWD { get; set; }
         public decimal UnrealizedPnlTWD { get; set; }
         public decimal UnrealizedPnlPct { get; set; }
+        // Money-weighted annualized return (XIRR) over all snapshots; null when not computable.
+        public decimal? AnnualizedReturnPct { get; set; }
         public List<PositionDto> Positions { get; set; } = [];
     }
 

@@ -40,11 +40,13 @@ function NetWorthCard({
   pnl,
   pnlPct,
   hasPnl,
+  annualized,
 }: {
   total: number;
   pnl: number;
   pnlPct: number;
   hasPnl: boolean;
+  annualized?: number | null;
 }) {
   const isPositive = pnl >= 0;
   const { money } = usePrivacy();
@@ -90,6 +92,23 @@ function NetWorthCard({
             />
             <Typography variant="caption" color="text.secondary">
               未實現損益(已填成本部分)
+            </Typography>
+          </Box>
+        )}
+        {hasPnl && annualized != null && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+            <Chip
+              label={`年化 ${annualized >= 0 ? '+' : ''}${annualized.toFixed(2)}%`}
+              size="small"
+              variant="outlined"
+              sx={{
+                borderColor: alpha(annualized >= 0 ? '#22c55e' : '#ef4444', 0.5),
+                color: annualized >= 0 ? '#22c55e' : '#ef4444',
+                fontWeight: 700,
+              }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              年化報酬率 (XIRR · 估)
             </Typography>
           </Box>
         )}
@@ -224,6 +243,7 @@ export default function Portfolio() {
                   pnl={summary.unrealizedPnlTWD}
                   pnlPct={summary.unrealizedPnlPct}
                   hasPnl={hasPnl}
+                  annualized={summary.annualizedReturnPct}
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
