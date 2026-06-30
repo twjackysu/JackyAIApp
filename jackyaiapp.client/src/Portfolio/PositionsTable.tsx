@@ -8,6 +8,8 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 
+import { usePrivacy } from './privacy';
+
 import { PositionDto } from '@/apis/portfolioApis/types';
 
 interface Props {
@@ -30,6 +32,7 @@ const TYPE_CHIP: Record<
 };
 
 export function PositionsTable({ positions, onStockClick }: Props) {
+  const { money } = usePrivacy();
   if (positions.length === 0) {
     return (
       <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
@@ -97,13 +100,13 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                   {p.assetType === 'CASH' ? '—' : fmt(p.quantity, p.assetType === 'FUND' ? 2 : 0)}
                 </TableCell>
                 <TableCell align="right">
-                  {p.assetType === 'CASH' ? '—' : `${p.currency} ${fmt(p.currentPrice, 2)}`}
+                  {p.assetType === 'CASH' ? '—' : `${p.currency} ${money(fmt(p.currentPrice, 2))}`}
                 </TableCell>
                 <TableCell align="right">
-                  <Typography variant="body2">{fmt(p.marketValueTWD)}</Typography>
+                  <Typography variant="body2">{money(fmt(p.marketValueTWD))}</Typography>
                   {p.currency === 'USD' && (
                     <Typography variant="caption" color="text.secondary">
-                      USD {fmt(p.marketValueLocal, 0)}
+                      USD {money(fmt(p.marketValueLocal, 0))}
                     </Typography>
                   )}
                 </TableCell>
@@ -111,8 +114,7 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                   {p.unrealizedPnlTWD != null && p.unrealizedPnlPct != null ? (
                     <>
                       <Typography variant="body2" sx={{ color: pnlColor(p.unrealizedPnlTWD) }}>
-                        {p.unrealizedPnlTWD >= 0 ? '+' : ''}
-                        {fmt(p.unrealizedPnlTWD)}
+                        {money(`${p.unrealizedPnlTWD >= 0 ? '+' : ''}${fmt(p.unrealizedPnlTWD)}`)}
                       </Typography>
                       <Typography variant="caption" sx={{ color: pnlColor(p.unrealizedPnlPct) }}>
                         {p.unrealizedPnlPct >= 0 ? '+' : ''}
