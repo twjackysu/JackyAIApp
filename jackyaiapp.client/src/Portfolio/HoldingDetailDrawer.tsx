@@ -12,6 +12,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 
+import { fmtNum, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
 
 import { useGetHoldingPriceHistoryQuery } from '@/apis/portfolioApis';
@@ -24,10 +25,8 @@ interface Props {
   onClose: () => void;
 }
 
-const fmt = (n: number, decimals = 2) =>
-  n.toLocaleString('zh-TW', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-
-const pnlColor = (n: number) => (n > 0 ? '#22c55e' : n < 0 ? '#ef4444' : 'text.secondary');
+// Prices/NAV in this drawer default to 2 decimals; share other formatting with the rest of the module.
+const fmt = (n: number, decimals = 2) => fmtNum(n, decimals);
 
 function StatBlock({ label, value, color }: { label: string; value: string; color?: string }) {
   return (

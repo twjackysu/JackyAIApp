@@ -16,17 +16,13 @@ import { useState } from 'react';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
 import { NetWorthChart } from './NetWorthChart';
+import { fmtNum as fmt, pnlColor } from './portfolioUtils';
 import { PositionsTable } from './PositionsTable';
 import { usePrivacy } from './privacy';
 import { PrivacyProvider } from './PrivacyContext';
 
 import { useGetPortfolioSummaryQuery } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
-
-const fmt = (n: number) =>
-  n.toLocaleString('zh-TW', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-
-const pnlColor = (n: number) => (n > 0 ? '#22c55e' : n < 0 ? '#ef4444' : 'inherit');
 
 function PrivacyToggle() {
   const { hidden, toggle } = usePrivacy();
@@ -77,7 +73,7 @@ function NetWorthCard({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
             <Typography
               variant="body1"
-              sx={{ color: pnlColor(pnl), fontWeight: 600 }}
+              sx={{ color: pnlColor(pnl, 'inherit'), fontWeight: 600 }}
               component="span"
             >
               {isPositive ? '▲' : '▼'} NT${money(fmt(Math.abs(pnl)))}

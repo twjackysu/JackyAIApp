@@ -8,6 +8,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 
+import { fmtNum as fmt, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
 
 import { PositionDto } from '@/apis/portfolioApis/types';
@@ -16,11 +17,6 @@ interface Props {
   positions: PositionDto[];
   onStockClick?: (p: PositionDto) => void;
 }
-
-const fmt = (n: number, d = 0) =>
-  n.toLocaleString('zh-TW', { minimumFractionDigits: d, maximumFractionDigits: d });
-
-const pnlColor = (n: number) => (n > 0 ? '#22c55e' : n < 0 ? '#ef4444' : 'text.secondary');
 
 const TYPE_CHIP: Record<
   string,
