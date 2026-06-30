@@ -44,6 +44,7 @@ export interface PortfolioSummaryDto {
   costBasisTWD: number;
   unrealizedPnlTWD: number;
   unrealizedPnlPct: number;
+  annualizedReturnPct?: number | null;
   positions: PositionDto[];
 }
 

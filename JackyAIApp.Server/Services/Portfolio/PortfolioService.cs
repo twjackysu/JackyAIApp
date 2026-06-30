@@ -248,6 +248,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                 });
             }
 
+            var annualizedReturnPct = await ComputeAnnualizedReturnAsync(
+                userId, fx, costBasisTWD + pnlTWD, ct);
+
             return new PortfolioSummaryDto
             {
                 EffectiveDate = snapshot.EffectiveDate,
@@ -260,6 +263,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 CostBasisTWD = costBasisTWD,
                 UnrealizedPnlTWD = pnlTWD,
                 UnrealizedPnlPct = costBasisTWD > 0 ? Math.Round(pnlTWD / costBasisTWD * 100, 2) : 0,
+                AnnualizedReturnPct = annualizedReturnPct,
                 Positions = positions.OrderByDescending(p => p.MarketValueTWD).ToList(),
             };
         }
@@ -540,6 +544,43 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Where(s => s.UserId == userId)
                 .OrderByDescending(s => s.EffectiveDate)
                 .FirstOrDefaultAsync(ct);
+
+        /// <summary>
+        /// Money-weighted annualized return (XIRR) on invested capital. Changes in recorded cost
+        /// basis between snapshots are treated as dated contributions; the current value of
+        /// cost-bearing holdings is the terminal inflow. Returns null when not computable.
+        /// </summary>
+        private async Task<decimal?> ComputeAnnualizedReturnAsync(
+            string userId, decimal fallbackFx, decimal terminalValueTWD, CancellationToken ct)
+        {
+            if (terminalValueTWD <= 0) return null;
+
+            var snaps = await db.HoldingSnapshots
+                .Include(s => s.Positions)
+                .Where(s => s.UserId == userId)
+                .OrderBy(s => s.EffectiveDate)
+                .ToListAsync(ct);
+            if (snaps.Count == 0) return null;
+
+            var flows = new List<(DateOnly, double)>();
+            decimal prevCost = 0;
+            foreach (var s in snaps)
+            {
+                var snapFx = s.UsdTwdRate > 0 ? s.UsdTwdRate : fallbackFx;
+                var snapCost = s.Positions
+                    .Where(p => p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
+                    .Sum(p => p.CostBasis!.Value * (p.Currency == "USD" ? snapFx : 1m));
+                var delta = snapCost - prevCost;
+                if (delta != 0) flows.Add((s.EffectiveDate, (double)(-delta))); // contribution = outflow
+                prevCost = snapCost;
+            }
+
+            flows.Add((DateOnly.FromDateTime(DateTime.UtcNow), (double)terminalValueTWD));
+
+            var rate = Xirr.Compute(flows);
+            if (rate is null || double.IsNaN(rate.Value) || double.IsInfinity(rate.Value)) return null;
+            return Math.Round((decimal)(rate.Value * 100), 2);
+        }
 
         /// <summary>
         /// Fetch one stock's market data, cached for 30 min so the same symbol isn't refetched
