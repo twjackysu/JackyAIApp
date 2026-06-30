@@ -15,11 +15,12 @@ import { FundSearchItem } from '@/apis/portfolioApis/types';
 
 interface Props {
   row: EditorRow;
+  error?: string | null;
   onChange: (patch: Partial<EditorRow>) => void;
   onRemove: () => void;
 }
 
-export function FundRow({ row, onChange, onRemove }: Props) {
+export function FundRow({ row, error, onChange, onRemove }: Props) {
   const [input, setInput] = useState('');
   const [debounced, setDebounced] = useState('');
   const picked = !!row.symbol;
@@ -83,6 +84,8 @@ export function FundRow({ row, onChange, onRemove }: Props) {
               {...params}
               label="基金 (中文名或代號)"
               placeholder="例：安聯台灣科技 / ALI006"
+              error={!!error}
+              helperText={error ?? undefined}
               slotProps={{
                 ...params.slotProps,
                 input: {
@@ -106,6 +109,7 @@ export function FundRow({ row, onChange, onRemove }: Props) {
         value={row.quantity || ''}
         onChange={(e) => onChange({ quantity: parseFloat(e.target.value) || 0 })}
         slotProps={{ htmlInput: { min: 0, step: 0.0001 } }}
+        error={!!error && picked}
         sx={{ width: 110 }}
       />
       <TextField

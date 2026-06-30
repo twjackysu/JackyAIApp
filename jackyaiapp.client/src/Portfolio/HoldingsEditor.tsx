@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditIcon from '@mui/icons-material/Edit';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -16,7 +17,7 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useEffect, useState } from 'react';
 
-import { EditorRow, makeRow, toRow } from './editorTypes';
+import { EditorRow, isRowEmpty, makeRow, rowError, toRow } from './editorTypes';
 import { FundRow } from './FundRow';
 import { StockRow } from './StockRow';
 import { UpdateHistoryDialog } from './UpdateHistoryDialog';
@@ -35,6 +36,7 @@ export function HoldingsEditor() {
 
   const [effectiveDate, setEffectiveDate] = useState(today());
   const [rows, setRows] = useState<EditorRow[]>([]);
+  const [submitted, setSubmitted] = useState(false);
 
   const hasExisting = (holdingsRes?.data?.positions?.length ?? 0) > 0;
 
@@ -44,12 +46,14 @@ export function HoldingsEditor() {
     const data = holdingsRes?.data;
     setEffectiveDate(today()); // new update defaults to today
     setRows((data?.positions ?? []).map(toRow));
+    setSubmitted(false);
   }, [open, holdingsRes]);
 
   // Load an arbitrary past snapshot's positions into the editor (restore flow).
   const loadFromSnapshot = (positions: PositionInput[]) => {
     setEffectiveDate(today());
     setRows(positions.map(toRow));
+    setSubmitted(false);
     setOpen(true);
   };
 
@@ -62,8 +66,15 @@ export function HoldingsEditor() {
   const removeRow = (key: string) => setRows((rs) => rs.filter((r) => r._key !== key));
   const addRow = (type: 'STOCK' | 'CASH' | 'FUND') => setRows((rs) => [...rs, makeRow(type)]);
 
+  // Rows the user actually started filling in (blank ones are dropped silently).
+  const meaningfulRows = rows.filter((r) => !isRowEmpty(r));
+  const invalidRows = meaningfulRows.filter((r) => rowError(r) !== null);
+  const canSave = meaningfulRows.length > 0 && invalidRows.length === 0;
+
   const handleSave = async () => {
-    const positions = rows.filter((r) => r.quantity > 0).map(({ _key, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
+    setSubmitted(true);
+    if (!canSave) return;
+    const positions = meaningfulRows.map(({ _key, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
     await saveHoldings({ effectiveDate, positions });
     setOpen(false);
   };
@@ -92,6 +103,14 @@ export function HoldingsEditor() {
         <DialogContent
           sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: '16px !important' }}
         >
+          {submitted && !canSave && (
+            <Alert severity="error">
+              {meaningfulRows.length === 0
+                ? '請至少填入一筆持倉'
+                : '有欄位未填完整，請確認標紅的項目'}
+            </Alert>
+          )}
+
           <Box>
             <TextField
               size="small"
@@ -115,6 +134,7 @@ export function HoldingsEditor() {
               <StockRow
                 key={r._key}
                 row={r}
+                error={submitted ? rowError(r) : null}
                 onChange={(patch) => patchRow(r._key, patch)}
                 onRemove={() => removeRow(r._key)}
               />
@@ -150,6 +170,8 @@ export function HoldingsEditor() {
                   value={r.quantity || ''}
                   onChange={(e) => patchRow(r._key, { quantity: parseFloat(e.target.value) || 0 })}
                   slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                  error={submitted && rowError(r) !== null}
+                  helperText={submitted ? rowError(r) : undefined}
                   sx={{ flex: 1 }}
                 />
                 <IconButton onClick={() => removeRow(r._key)} size="small">
@@ -172,6 +194,7 @@ export function HoldingsEditor() {
               <FundRow
                 key={r._key}
                 row={r}
+                error={submitted ? rowError(r) : null}
                 onChange={(patch) => patchRow(r._key, patch)}
                 onRemove={() => removeRow(r._key)}
               />
