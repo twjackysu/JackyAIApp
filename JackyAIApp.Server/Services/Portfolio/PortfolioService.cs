@@ -189,6 +189,11 @@ namespace JackyAIApp.Server.Services.Portfolio
                     currentPrice = 1;
                 }
 
+                // A non-cash position with no usable price has no real market value.
+                // Treat it as "price unavailable" so we don't book a phantom loss of the full cost.
+                if (p.AssetType != AssetType.CASH && currentPrice <= 0)
+                    priceFailed = true;
+
                 var fxMul = p.Currency == "USD" ? fx : 1m;
                 var valueLocal = p.AssetType == AssetType.CASH
                     ? p.Quantity
@@ -199,10 +204,15 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
                 {
                     posCostTWD = p.CostBasis.Value * fxMul;
-                    posPnlTWD = valueTWD - posCostTWD;
-                    posPnlPct = posCostTWD > 0 ? Math.Round(posPnlTWD.Value / posCostTWD.Value * 100, 2) : 0;
-                    costBasisTWD += posCostTWD.Value;
-                    pnlTWD += posPnlTWD.Value;
+                    // Only compute P&L when we have a real price; otherwise valueTWD is 0
+                    // and we'd report a fake loss equal to the entire cost basis.
+                    if (!priceFailed)
+                    {
+                        posPnlTWD = valueTWD - posCostTWD;
+                        posPnlPct = posCostTWD > 0 ? Math.Round(posPnlTWD.Value / posCostTWD.Value * 100, 2) : 0;
+                        costBasisTWD += posCostTWD.Value;
+                        pnlTWD += posPnlTWD.Value;
+                    }
                 }
 
                 switch (p.AssetType)
