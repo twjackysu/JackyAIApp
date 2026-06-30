@@ -8,6 +8,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import { useEffect, useMemo, useState } from 'react';
 
+import { CostBasisInput } from './CostBasisInput';
 import { EditorRow } from './editorTypes';
 
 import { useSearchFundsQuery } from '@/apis/portfolioApis';
@@ -112,17 +113,13 @@ export function FundRow({ row, error, onChange, onRemove }: Props) {
         error={!!error && picked}
         sx={{ width: 110 }}
       />
-      <TextField
-        size="small"
-        type="number"
-        label="總成本(選填)"
-        placeholder="留空不算損益"
-        value={row.costBasis ?? ''}
-        onChange={(e) =>
-          onChange({ costBasis: e.target.value === '' ? null : parseFloat(e.target.value) })
-        }
-        slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-        sx={{ width: 140 }}
+      <CostBasisInput
+        quantity={row.quantity}
+        costBasis={row.costBasis ?? null}
+        currency={row.currency}
+        unitLabel="單位"
+        qtyStep={0.0001}
+        onChange={onChange}
       />
       <TextField
         size="small"
