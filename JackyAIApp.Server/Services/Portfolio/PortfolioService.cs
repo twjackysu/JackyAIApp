@@ -18,6 +18,8 @@ namespace JackyAIApp.Server.Services.Portfolio
     {
         private const string BOT_FX_URL = "https://rate.bot.com.tw/xrt/flcsv/0/day";
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
+        private const string STOCK_CACHE_PREFIX = "portfolio_stock_";
+        private static readonly TimeSpan StockCacheTtl = TimeSpan.FromMinutes(30);
 
         // ── Save / read holdings ─────────────────────────────────────────────
 
@@ -149,6 +151,16 @@ namespace JackyAIApp.Server.Services.Portfolio
             decimal twStock = 0, usStock = 0, cash = 0, fund = 0;
             decimal costBasisTWD = 0, pnlTWD = 0;
 
+            // Prefetch all stock prices and fund NAVs in parallel (cached) before the value loop,
+            // instead of awaiting one network call per position serially.
+            var stockTask = FetchStocksAsync(
+                snapshot.Positions.Where(p => p.AssetType == AssetType.STOCK).Select(p => p.Symbol), ct);
+            var fundTask = FetchFundsAsync(
+                snapshot.Positions.Where(p => p.AssetType == AssetType.FUND).Select(p => p.Symbol), ct);
+            await Task.WhenAll(stockTask, fundTask);
+            var stockMap = stockTask.Result;
+            var fundMap = fundTask.Result;
+
             foreach (var p in snapshot.Positions)
             {
                 decimal currentPrice;
@@ -156,17 +168,11 @@ namespace JackyAIApp.Server.Services.Portfolio
 
                 if (p.AssetType == AssetType.STOCK)
                 {
-                    currentPrice = 0;
-                    try
-                    {
-                        var region = providerFactory.DetectRegion(p.Symbol);
-                        var provider = providerFactory.GetMarketDataProvider(region);
-                        var data = await provider.FetchAsync(p.Symbol, ct);
+                    if (stockMap.TryGetValue(p.Symbol, out var data))
                         currentPrice = data.HistoricalPrices.LastOrDefault()?.Close ?? 0;
-                    }
-                    catch (Exception ex)
+                    else
                     {
-                        logger.LogWarning(ex, "Failed to fetch price for {Symbol}", p.Symbol);
+                        currentPrice = 0;
                         priceFailed = true;
                     }
                 }
@@ -176,8 +182,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                     currentPrice = p.UnitPrice ?? 0;
                     if (!string.IsNullOrWhiteSpace(p.Symbol))
                     {
-                        var nav = await fundData.GetFundNavHistoryAsync(p.Symbol, ct);
-                        var latest = nav?.Prices.LastOrDefault()?.Close;
+                        var latest = fundMap.TryGetValue(p.Symbol, out var nav)
+                            ? nav.Prices.LastOrDefault()?.Close
+                            : null;
                         if (latest is > 0)
                             currentPrice = latest.Value;
                         else if (currentPrice <= 0)
@@ -284,21 +291,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Distinct()
                 .ToList();
 
-            var priceMap = new Dictionary<string, List<DTO.Finance.DailyPrice>>();
-            foreach (var symbol in stockSymbols)
-            {
-                try
-                {
-                    var region = providerFactory.DetectRegion(symbol);
-                    var provider = providerFactory.GetMarketDataProvider(region);
-                    var data = await provider.FetchAsync(symbol, ct);
-                    priceMap[symbol] = data.HistoricalPrices;
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Price history unavailable for {Symbol}", symbol);
-                }
-            }
+            var priceMap = (await FetchStocksAsync(stockSymbols, ct))
+                .ToDictionary(kv => kv.Key, kv => kv.Value.HistoricalPrices);
 
             // Fund NAV histories — gives funds a real daily curve instead of a flat line.
             var fundIds = snapshots
@@ -308,12 +302,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Distinct()
                 .ToList();
 
-            var fundNavMap = new Dictionary<string, List<DTO.Portfolio.PricePoint>>();
-            foreach (var fid in fundIds)
-            {
-                var nav = await fundData.GetFundNavHistoryAsync(fid, ct);
-                if (nav != null) fundNavMap[fid] = nav.Prices;
-            }
+            var fundNavMap = (await FetchFundsAsync(fundIds, ct))
+                .ToDictionary(kv => kv.Key, kv => kv.Value.Prices);
 
             var result = new List<NetWorthDataPoint>();
             for (var date = startDate; date <= today; date = date.AddDays(1))
@@ -439,9 +429,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                 };
             }
 
-            var region = providerFactory.DetectRegion(symbol);
-            var provider = providerFactory.GetMarketDataProvider(region);
-            var data = await provider.FetchAsync(symbol, ct);
+            var data = await FetchStockDataAsync(symbol, ct);
+            if (data == null) return null;
 
             return new HoldingPriceHistoryDto
             {
@@ -551,6 +540,59 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Where(s => s.UserId == userId)
                 .OrderByDescending(s => s.EffectiveDate)
                 .FirstOrDefaultAsync(ct);
+
+        /// <summary>
+        /// Fetch one stock's market data, cached for 30 min so the same symbol isn't refetched
+        /// across the summary, the net-worth chart and the detail drawer. Returns null on failure.
+        /// </summary>
+        private async Task<DTO.Finance.MarketData?> FetchStockDataAsync(string symbol, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(symbol)) return null;
+
+            var key = STOCK_CACHE_PREFIX + symbol;
+            if (cache.TryGetValue(key, out DTO.Finance.MarketData? cached) && cached != null)
+                return cached;
+
+            try
+            {
+                var region = providerFactory.DetectRegion(symbol);
+                var provider = providerFactory.GetMarketDataProvider(region);
+                var data = await provider.FetchAsync(symbol, ct);
+                // Only cache a usable result; an empty fetch shouldn't suppress the next retry.
+                if (data.HistoricalPrices.Count > 0)
+                    cache.Set(key, data, StockCacheTtl);
+                return data;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to fetch price for {Symbol}", symbol);
+                return null;
+            }
+        }
+
+        /// <summary>Fetch every distinct stock symbol in parallel; failed symbols are omitted.</summary>
+        private async Task<Dictionary<string, DTO.Finance.MarketData>> FetchStocksAsync(
+            IEnumerable<string> symbols, CancellationToken ct)
+        {
+            var distinct = symbols.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+            var results = await Task.WhenAll(
+                distinct.Select(async s => (symbol: s, data: await FetchStockDataAsync(s, ct))));
+            return results
+                .Where(r => r.data != null)
+                .ToDictionary(r => r.symbol, r => r.data!);
+        }
+
+        /// <summary>Fetch every distinct fund's NAV history in parallel (FundDataService caches each).</summary>
+        private async Task<Dictionary<string, FundNavHistory>> FetchFundsAsync(
+            IEnumerable<string> fundIds, CancellationToken ct)
+        {
+            var distinct = fundIds.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+            var results = await Task.WhenAll(
+                distinct.Select(async f => (fundId: f, nav: await fundData.GetFundNavHistoryAsync(f, ct))));
+            return results
+                .Where(r => r.nav != null)
+                .ToDictionary(r => r.fundId, r => r.nav!);
+        }
 
         private async Task<decimal> FetchUsdTwdRateAsync(CancellationToken ct)
         {
