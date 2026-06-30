@@ -1,6 +1,7 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
@@ -19,8 +20,9 @@ interface Props {
 }
 
 export function FundRow({ row, onChange, onRemove }: Props) {
-  const [input, setInput] = useState(row.name);
+  const [input, setInput] = useState('');
   const [debounced, setDebounced] = useState('');
+  const picked = !!row.symbol;
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(input.trim()), 500);
@@ -28,66 +30,75 @@ export function FundRow({ row, onChange, onRemove }: Props) {
   }, [input]);
 
   const { data: res, isFetching } = useSearchFundsQuery(debounced, {
-    skip: debounced.length < 2,
+    skip: picked || debounced.length < 2,
   });
 
   const options = useMemo<FundSearchItem[]>(() => res?.data ?? [], [res]);
 
-  // Currently-selected fund, if the row already maps to a fundId
-  const selected = row.symbol ? { fundId: row.symbol, name: row.name, isSell: true } : null;
-
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <Autocomplete<FundSearchItem, false, false, true>
-        size="small"
-        freeSolo
-        sx={{ flex: 1, minWidth: 200 }}
-        options={options}
-        loading={isFetching}
-        value={selected}
-        filterOptions={(x) => x} // server-side filtering
-        getOptionLabel={(o) => (typeof o === 'string' ? o : o.name)}
-        isOptionEqualToValue={(o, v) => typeof v !== 'string' && o.fundId === v.fundId}
-        onInputChange={(_, v) => setInput(v)}
-        onChange={(_, v) => {
-          if (v && typeof v !== 'string') {
-            onChange({ symbol: v.fundId, name: v.name, market: 'FUND', currency: 'TWD' });
-            setInput(v.name);
-          }
-        }}
-        noOptionsText={debounced.length < 2 ? '輸入基金中文名搜尋' : '查無基金'}
-        renderOption={(props, o) => (
-          <li {...props} key={o.fundId}>
-            <Box>
-              <Box component="span" sx={{ fontSize: 14 }}>
-                {o.name}
-              </Box>
-              <Box component="span" sx={{ ml: 1, fontSize: 11, color: 'text.secondary' }}>
-                {o.fundId}
-              </Box>
-            </Box>
-          </li>
-        )}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label="基金 (搜尋中文名)"
-            placeholder="例：安聯台灣科技"
-            slotProps={{
-              ...params.slotProps,
-              input: {
-                ...params.slotProps.input,
-                endAdornment: (
-                  <>
-                    {isFetching ? <CircularProgress size={14} /> : null}
-                    {params.slotProps.input.endAdornment}
-                  </>
-                ),
-              },
+      {picked ? (
+        <Box sx={{ flex: 1, minWidth: 220, display: 'flex', alignItems: 'center', minHeight: 40 }}>
+          <Chip
+            color="info"
+            variant="outlined"
+            label={`${row.symbol} · ${row.name}`}
+            onDelete={() => {
+              setInput('');
+              onChange({ symbol: '', name: '' });
             }}
           />
-        )}
-      />
+        </Box>
+      ) : (
+        <Autocomplete<FundSearchItem>
+          size="small"
+          sx={{ flex: 1, minWidth: 220 }}
+          options={options}
+          loading={isFetching}
+          value={null}
+          filterOptions={(x) => x} // server-side filtering
+          getOptionLabel={(o) => o.name}
+          isOptionEqualToValue={(o, v) => o.fundId === v.fundId}
+          onInputChange={(_, v) => setInput(v)}
+          onChange={(_, v) => {
+            if (v) {
+              onChange({ symbol: v.fundId, name: v.name, market: 'FUND', currency: 'TWD' });
+              setInput('');
+            }
+          }}
+          slotProps={{ popper: { sx: { zIndex: (t) => t.zIndex.modal + 1 } } }}
+          noOptionsText={debounced.length < 2 ? '輸入基金中文名或代號' : '查無基金'}
+          renderOption={(props, o) => (
+            <li {...props} key={o.fundId}>
+              <Box component="span" sx={{ fontWeight: 700, fontSize: 12, minWidth: 56 }}>
+                {o.fundId}
+              </Box>
+              <Box component="span" sx={{ ml: 1, fontSize: 13 }}>
+                {o.name}
+              </Box>
+            </li>
+          )}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="基金 (中文名或代號)"
+              placeholder="例：安聯台灣科技 / ALI006"
+              slotProps={{
+                ...params.slotProps,
+                input: {
+                  ...params.slotProps.input,
+                  endAdornment: (
+                    <>
+                      {isFetching ? <CircularProgress size={14} /> : null}
+                      {params.slotProps.input.endAdornment}
+                    </>
+                  ),
+                },
+              }}
+            />
+          )}
+        />
+      )}
       <TextField
         size="small"
         type="number"
@@ -108,7 +119,7 @@ export function FundRow({ row, onChange, onRemove }: Props) {
         }
         slotProps={{ htmlInput: { min: 0, step: 0.0001 } }}
         sx={{ width: 110 }}
-        helperText={row.symbol ? '留空用即時淨值' : ' '}
+        helperText={picked ? '留空用即時淨值' : ' '}
       />
       <TextField
         size="small"
