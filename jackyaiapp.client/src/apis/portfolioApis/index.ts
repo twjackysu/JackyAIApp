@@ -9,6 +9,7 @@ import {
   PortfolioSummaryDto,
   SaveHoldingsRequest,
   StockLookupDto,
+  StockSearchItem,
   UpdateHistoryItem,
 } from './types';
 
@@ -50,6 +51,13 @@ export const portfolioApis = createApi({
     lookupStock: builder.query<ApiOkResponse<StockLookupDto>, { market: string; symbol: string }>({
       query: ({ market, symbol }) => `lookup/${market}/${symbol}`,
     }),
+    searchStocks: builder.query<
+      ApiOkResponse<StockSearchItem[]>,
+      { market: string; keyword: string }
+    >({
+      query: ({ market, keyword }) =>
+        `stocks/search?market=${market}&keyword=${encodeURIComponent(keyword)}`,
+    }),
     getHoldingPriceHistory: builder.query<
       ApiOkResponse<HoldingPriceHistoryDto>,
       { market: string; symbol: string }
@@ -69,5 +77,6 @@ export const {
   useSearchFundsQuery,
   useGetNetWorthHistoryQuery,
   useLookupStockQuery,
+  useSearchStocksQuery,
   useGetHoldingPriceHistoryQuery,
 } = portfolioApis;
