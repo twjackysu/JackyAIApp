@@ -89,6 +89,13 @@ namespace JackyAIApp.Server.Controllers
             return Ok(responseFactory.CreateOKResponse(result));
         }
 
+        [HttpGet("stocks/search")]
+        public async Task<IActionResult> SearchStocks([FromQuery] string market, [FromQuery] string keyword, CancellationToken ct)
+        {
+            var result = await portfolioService.SearchStocksAsync(market ?? "TW", keyword ?? "", ct);
+            return Ok(responseFactory.CreateOKResponse(result));
+        }
+
         [HttpGet("funds/search")]
         public async Task<IActionResult> SearchFunds([FromQuery] string keyword, CancellationToken ct)
         {

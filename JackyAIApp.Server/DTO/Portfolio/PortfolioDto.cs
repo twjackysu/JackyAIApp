@@ -103,6 +103,15 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public bool IsSell { get; set; }
     }
 
+    // ── Stock search (TWStockLib list / Yahoo) ───────────────────────────────
+
+    public class StockSearchItem
+    {
+        public string Symbol { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Market { get; set; } = "";
+    }
+
     public class HoldingPriceHistoryDto
     {
         public string Symbol { get; set; } = "";

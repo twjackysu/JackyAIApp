@@ -1,17 +1,16 @@
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import ErrorIcon from '@mui/icons-material/Error';
+import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { EditorRow } from './editorTypes';
 
-import { useLookupStockQuery } from '@/apis/portfolioApis';
+import { useSearchStocksQuery } from '@/apis/portfolioApis';
+import { StockSearchItem } from '@/apis/portfolioApis/types';
 
 interface Props {
   row: EditorRow;
@@ -20,42 +19,25 @@ interface Props {
 }
 
 export function StockRow({ row, onChange, onRemove }: Props) {
-  const [lookupKey, setLookupKey] = useState<{ market: string; symbol: string } | null>(null);
+  const market = row.market || 'TW';
+  const [input, setInput] = useState(row.symbol ? `${row.symbol} ${row.name}` : '');
+  const [debounced, setDebounced] = useState('');
 
   useEffect(() => {
-    if (!row.symbol) {
-      setLookupKey(null);
-      return;
-    }
-    const t = setTimeout(
-      () => setLookupKey({ market: row.market || 'TW', symbol: row.symbol.toUpperCase() }),
-      600,
-    );
+    const t = setTimeout(() => setDebounced(input.trim()), 400);
     return () => clearTimeout(t);
-  }, [row.symbol, row.market]);
+  }, [input]);
 
-  const {
-    data: res,
-    isFetching,
-    isError,
-  } = useLookupStockQuery(lookupKey ?? { market: '', symbol: '' }, { skip: !lookupKey });
+  const { data: res, isFetching } = useSearchStocksQuery(
+    { market, keyword: debounced },
+    { skip: debounced.length < 1 },
+  );
 
-  const looked = res?.data;
+  const options = useMemo<StockSearchItem[]>(() => res?.data ?? [], [res]);
 
-  useEffect(() => {
-    if (looked && looked.companyName) {
-      onChange({ name: looked.companyName });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [looked?.companyName]);
-
-  const adornment = isFetching ? (
-    <CircularProgress size={14} />
-  ) : looked ? (
-    <CheckCircleIcon fontSize="small" sx={{ color: 'success.main' }} />
-  ) : isError && lookupKey ? (
-    <ErrorIcon fontSize="small" sx={{ color: 'warning.main' }} />
-  ) : null;
+  const selected: StockSearchItem | null = row.symbol
+    ? { symbol: row.symbol, name: row.name, market }
+    : null;
 
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -63,35 +45,78 @@ export function StockRow({ row, onChange, onRemove }: Props) {
         size="small"
         select
         label="市場"
-        value={row.market || 'TW'}
-        onChange={(e) =>
-          onChange({ market: e.target.value, currency: e.target.value === 'US' ? 'USD' : 'TWD' })
-        }
+        value={market}
+        onChange={(e) => {
+          // switching market invalidates the picked stock
+          setInput('');
+          onChange({
+            market: e.target.value,
+            currency: e.target.value === 'US' ? 'USD' : 'TWD',
+            symbol: '',
+            name: '',
+          });
+        }}
         sx={{ width: 88 }}
       >
         <MenuItem value="TW">台股</MenuItem>
         <MenuItem value="US">美股</MenuItem>
       </TextField>
-      <TextField
+
+      <Autocomplete<StockSearchItem, false, false, true>
         size="small"
-        label="代號"
-        placeholder={row.market === 'US' ? 'AAPL' : '2330'}
-        value={row.symbol}
-        onChange={(e) => onChange({ symbol: e.target.value, name: '' })}
-        slotProps={{
-          input: {
-            endAdornment: adornment && <InputAdornment position="end">{adornment}</InputAdornment>,
-          },
+        freeSolo
+        sx={{ flex: 1, minWidth: 200 }}
+        options={options}
+        loading={isFetching}
+        value={selected}
+        filterOptions={(x) => x} // server-side filtering
+        getOptionLabel={(o) => (typeof o === 'string' ? o : `${o.symbol} ${o.name}`)}
+        isOptionEqualToValue={(o, v) => typeof v !== 'string' && o.symbol === v.symbol}
+        onInputChange={(_, v) => setInput(v)}
+        onChange={(_, v) => {
+          if (v && typeof v !== 'string') {
+            onChange({ symbol: v.symbol, name: v.name, market });
+            setInput(`${v.symbol} ${v.name}`);
+          }
         }}
-        sx={{ width: 120 }}
+        noOptionsText={
+          debounced.length < 1
+            ? market === 'US'
+              ? '輸入代號或公司名（如 AAPL / apple）'
+              : '輸入股號或名稱（如 2330 / 台積電）'
+            : '查無股票'
+        }
+        renderOption={(props, o) => (
+          <li {...props} key={o.symbol}>
+            <Box component="span" sx={{ fontWeight: 700, fontSize: 13, minWidth: 56 }}>
+              {o.symbol}
+            </Box>
+            <Box component="span" sx={{ ml: 1, fontSize: 13 }}>
+              {o.name}
+            </Box>
+          </li>
+        )}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="股票 (股號或名稱)"
+            placeholder={market === 'US' ? 'AAPL' : '2330'}
+            slotProps={{
+              ...params.slotProps,
+              input: {
+                ...params.slotProps.input,
+                endAdornment: (
+                  <>
+                    {isFetching ? <CircularProgress size={14} /> : null}
+                    {params.slotProps.input.endAdornment}
+                  </>
+                ),
+              },
+            }}
+          />
+        )}
       />
-      <TextField
-        size="small"
-        label="名稱"
-        value={row.name}
-        onChange={(e) => onChange({ name: e.target.value })}
-        sx={{ flex: 1, minWidth: 120 }}
-      />
+
       <TextField
         size="small"
         type="number"

@@ -76,6 +76,12 @@ export interface FundSearchItem {
   isSell: boolean;
 }
 
+export interface StockSearchItem {
+  symbol: string;
+  name: string;
+  market: string;
+}
+
 export interface PricePoint {
   date: string;
   close: number;
