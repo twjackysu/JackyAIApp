@@ -124,18 +124,6 @@ export function FundRow({ row, error, onChange, onRemove }: Props) {
       <TextField
         size="small"
         select
-        label="計價幣別"
-        value={row.currency}
-        onChange={(e) => onChange({ currency: e.target.value })}
-        helperText="NAV 幣別"
-        sx={{ width: 100 }}
-      >
-        <MenuItem value="TWD">TWD</MenuItem>
-        <MenuItem value="USD">USD</MenuItem>
-      </TextField>
-      <TextField
-        size="small"
-        select
         label="成本幣別"
         value={row.costCurrency || 'TWD'}
         onChange={(e) => onChange({ costCurrency: e.target.value })}
