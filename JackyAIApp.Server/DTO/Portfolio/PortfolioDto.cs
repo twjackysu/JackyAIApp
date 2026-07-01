@@ -41,6 +41,7 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal? CostBasisTWD { get; set; }       // null when no cost entered
         public decimal? UnrealizedPnlTWD { get; set; }
         public decimal? UnrealizedPnlPct { get; set; }
+        public decimal ExposureFactor { get; set; } = 1m; // market exposure multiplier (2 for 正2, 0 for bond/cash)
         public bool PriceFetchFailed { get; set; }
     }
 
@@ -59,6 +60,9 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal UnrealizedPnlPct { get; set; }
         // Money-weighted annualized return (XIRR) over all snapshots; null when not computable.
         public decimal? AnnualizedReturnPct { get; set; }
+        // Net market exposure: Σ market value × exposure factor (leveraged ETFs amplify, bonds count as 0).
+        public decimal MarketExposureTWD { get; set; }
+        public decimal ExposureRatioPct { get; set; } // exposure ÷ net worth × 100 (can exceed 100 with leverage)
         public List<PositionDto> Positions { get; set; } = [];
     }
 
