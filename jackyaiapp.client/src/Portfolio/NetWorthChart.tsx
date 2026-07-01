@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
-import { usePrivacy } from './privacy';
+import { MASK, usePrivacy } from './privacy';
 
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
@@ -24,7 +24,7 @@ const fmt = (n: number) =>
 
 export function NetWorthChart() {
   const [days, setDays] = useState(90);
-  const { hidden } = usePrivacy();
+  const { mode } = usePrivacy();
   const { data: res, isLoading } = useGetNetWorthHistoryQuery(days);
   const points = res?.data ?? [];
 
@@ -69,9 +69,10 @@ export function NetWorthChart() {
           dataIndex: number;
         }[];
         const date = p[0]?.axisValue ?? '';
-        // When hidden, show each series' share of that day's total instead of the amount.
         const line = (s: { seriesName: string; value: number; dataIndex: number }) => {
-          if (!hidden) return `${s.seriesName}：NT$${fmt(s.value)}`;
+          if (mode === 'full') return `${s.seriesName}：NT$${fmt(s.value)}`;
+          // 'changes' hides both amounts and ratios; 'hidden' shows share-of-total instead.
+          if (mode === 'changes') return `${s.seriesName}：${MASK}`;
           const dayTotal = totals[s.dataIndex] || 0;
           const pct = dayTotal > 0 ? (s.value / dayTotal) * 100 : 0;
           return `${s.seriesName}：${pct.toFixed(1)}%`;
@@ -80,12 +81,12 @@ export function NetWorthChart() {
       },
     },
     legend: { bottom: 0, data: ['總資產', ...breakdown.map((s) => s.name)] },
-    grid: { top: 16, right: 16, bottom: 48, left: hidden ? 24 : 70 },
+    grid: { top: 16, right: 16, bottom: 48, left: mode === 'full' ? 70 : 24 },
     xAxis: { type: 'category', data: dates, boundaryGap: false },
     yAxis: {
       type: 'value',
-      // Mask the scale numbers when hidden; the line heights/proportions stay accurate.
-      axisLabel: { formatter: (v: number) => (hidden ? '' : `${fmt(v)}`) },
+      // Mask the scale numbers unless fully visible; line heights/proportions stay accurate.
+      axisLabel: { formatter: (v: number) => (mode === 'full' ? `${fmt(v)}` : '') },
     },
     series: [
       {

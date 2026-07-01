@@ -28,7 +28,7 @@ const TYPE_CHIP: Record<
 };
 
 export function PositionsTable({ positions, onStockClick }: Props) {
-  const { money } = usePrivacy();
+  const { value, change, showRatio } = usePrivacy();
   if (positions.length === 0) {
     return (
       <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
@@ -105,13 +105,13 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                   {p.assetType === 'CASH' ? '—' : fmtQty(p.quantity)}
                 </TableCell>
                 <TableCell align="right">
-                  {p.assetType === 'CASH' ? '—' : `${p.currency} ${money(fmt(p.currentPrice, 2))}`}
+                  {p.assetType === 'CASH' ? '—' : `${p.currency} ${value(fmt(p.currentPrice, 2))}`}
                 </TableCell>
                 <TableCell align="right">
-                  <Typography variant="body2">{money(fmt(p.marketValueTWD))}</Typography>
+                  <Typography variant="body2">{value(fmt(p.marketValueTWD))}</Typography>
                   {p.currency === 'USD' && (
                     <Typography variant="caption" color="text.secondary">
-                      USD {money(fmt(p.marketValueLocal, 0))}
+                      USD {value(fmt(p.marketValueLocal, 0))}
                     </Typography>
                   )}
                 </TableCell>
@@ -119,12 +119,14 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                   {p.unrealizedPnlTWD != null && p.unrealizedPnlPct != null ? (
                     <>
                       <Typography variant="body2" sx={{ color: pnlColor(p.unrealizedPnlTWD) }}>
-                        {money(`${p.unrealizedPnlTWD >= 0 ? '+' : ''}${fmt(p.unrealizedPnlTWD)}`)}
+                        {change(`${p.unrealizedPnlTWD >= 0 ? '+' : ''}${fmt(p.unrealizedPnlTWD)}`)}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: pnlColor(p.unrealizedPnlPct) }}>
-                        {p.unrealizedPnlPct >= 0 ? '+' : ''}
-                        {p.unrealizedPnlPct.toFixed(2)}%
-                      </Typography>
+                      {showRatio && (
+                        <Typography variant="caption" sx={{ color: pnlColor(p.unrealizedPnlPct) }}>
+                          {p.unrealizedPnlPct >= 0 ? '+' : ''}
+                          {p.unrealizedPnlPct.toFixed(2)}%
+                        </Typography>
+                      )}
                     </>
                   ) : (
                     <Typography variant="caption" color="text.secondary">

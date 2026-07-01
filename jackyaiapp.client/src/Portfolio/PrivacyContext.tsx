@@ -1,25 +1,28 @@
-import { ReactNode, useCallback, useState } from 'react';
+import { ReactNode, useCallback, useMemo, useState } from 'react';
 
-import { MASK, PrivacyContext } from './privacy';
+import { MASK, PrivacyContext, PrivacyMode } from './privacy';
 
-const STORAGE_KEY = 'portfolio_amount_hidden';
+const STORAGE_KEY = 'portfolio_privacy_mode';
+const ORDER: PrivacyMode[] = ['full', 'changes', 'hidden'];
+
+function readMode(): PrivacyMode {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s === 'full' || s === 'changes' || s === 'hidden') return s;
+  } catch {
+    /* ignore */
+  }
+  return 'hidden'; // default: amounts private until revealed
+}
 
 export function PrivacyProvider({ children }: { children: ReactNode }) {
-  // Default to hidden — amounts are private until the user explicitly reveals them.
-  const [hidden, setHidden] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored === null ? true : stored === '1';
-    } catch {
-      return true;
-    }
-  });
+  const [mode, setMode] = useState<PrivacyMode>(readMode);
 
-  const toggle = useCallback(() => {
-    setHidden((h) => {
-      const next = !h;
+  const cycle = useCallback(() => {
+    setMode((m) => {
+      const next = ORDER[(ORDER.indexOf(m) + 1) % ORDER.length];
       try {
-        localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
+        localStorage.setItem(STORAGE_KEY, next);
       } catch {
         /* ignore storage failures (private mode, quota) */
       }
@@ -27,9 +30,16 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const money = useCallback((formatted: string) => (hidden ? MASK : formatted), [hidden]);
-
-  return (
-    <PrivacyContext.Provider value={{ hidden, toggle, money }}>{children}</PrivacyContext.Provider>
+  const ctx = useMemo(
+    () => ({
+      mode,
+      cycle,
+      value: (s: string) => (mode === 'full' ? s : MASK),
+      change: (s: string) => (mode === 'hidden' ? MASK : s),
+      showRatio: mode !== 'changes',
+    }),
+    [mode, cycle],
   );
+
+  return <PrivacyContext.Provider value={ctx}>{children}</PrivacyContext.Provider>;
 }

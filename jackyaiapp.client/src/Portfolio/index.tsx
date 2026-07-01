@@ -1,4 +1,5 @@
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import Box from '@mui/material/Box';
@@ -29,11 +30,16 @@ import { useGetPortfolioSummaryQuery, useLazyGetNetWorthHistoryQuery } from '@/a
 import { PortfolioSummaryDto, PositionDto } from '@/apis/portfolioApis/types';
 
 function PrivacyToggle() {
-  const { hidden, toggle } = usePrivacy();
+  const { mode, cycle } = usePrivacy();
+  const cfg = {
+    full: { icon: <VisibilityIcon />, title: '完整顯示（點擊：只看損益）' },
+    changes: { icon: <ShowChartIcon />, title: '只看損益（點擊：隱藏金額）' },
+    hidden: { icon: <VisibilityOffIcon />, title: '隱藏金額（點擊：完整顯示）' },
+  }[mode];
   return (
-    <Tooltip title={hidden ? '顯示金額' : '隱藏金額'}>
-      <IconButton onClick={toggle} size="small">
-        {hidden ? <VisibilityOffIcon /> : <VisibilityIcon />}
+    <Tooltip title={cfg.title}>
+      <IconButton onClick={cycle} size="small">
+        {cfg.icon}
       </IconButton>
     </Tooltip>
   );
@@ -88,7 +94,7 @@ function NetWorthCard({
   annualized?: number | null;
 }) {
   const isPositive = pnl >= 0;
-  const { money } = usePrivacy();
+  const { value, change, showRatio } = usePrivacy();
   return (
     <Card
       elevation={0}
@@ -108,7 +114,7 @@ function NetWorthCard({
           總資產淨值
         </Typography>
         <Typography variant="h3" sx={{ fontWeight: 800, mt: 0.5, letterSpacing: -1 }}>
-          NT${money(fmt(total))}
+          NT${value(fmt(total))}
         </Typography>
         {hasPnl && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
@@ -117,24 +123,26 @@ function NetWorthCard({
               sx={{ color: pnlColor(pnl, 'inherit'), fontWeight: 600 }}
               component="span"
             >
-              {isPositive ? '▲' : '▼'} NT${money(fmt(Math.abs(pnl)))}
+              {isPositive ? '▲' : '▼'} NT${change(fmt(Math.abs(pnl)))}
             </Typography>
-            <Chip
-              label={`${isPositive ? '+' : ''}${pnlPct.toFixed(2)}%`}
-              size="small"
-              sx={{
-                bgcolor: alpha(isPositive ? '#22c55e' : '#ef4444', 0.15),
-                color: isPositive ? '#22c55e' : '#ef4444',
-                fontWeight: 700,
-                border: 'none',
-              }}
-            />
+            {showRatio && (
+              <Chip
+                label={`${isPositive ? '+' : ''}${pnlPct.toFixed(2)}%`}
+                size="small"
+                sx={{
+                  bgcolor: alpha(isPositive ? '#22c55e' : '#ef4444', 0.15),
+                  color: isPositive ? '#22c55e' : '#ef4444',
+                  fontWeight: 700,
+                  border: 'none',
+                }}
+              />
+            )}
             <Typography variant="caption" color="text.secondary">
               未實現損益(已填成本部分)
             </Typography>
           </Box>
         )}
-        {hasPnl && annualized != null && (
+        {hasPnl && annualized != null && showRatio && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
             <Chip
               label={`年化 ${annualized >= 0 ? '+' : ''}${annualized.toFixed(2)}%`}
@@ -167,7 +175,7 @@ function AllocationRow({
   pct: number;
   color: string;
 }) {
-  const { money } = usePrivacy();
+  const { value: maskValue, showRatio } = usePrivacy();
   if (value <= 0) return null;
   return (
     <Box>
@@ -176,7 +184,8 @@ function AllocationRow({
           {label}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          NT${money(fmt(value))} ({pct.toFixed(1)}%)
+          NT${maskValue(fmt(value))}
+          {showRatio ? ` (${pct.toFixed(1)}%)` : ''}
         </Typography>
       </Box>
       <Box sx={{ height: 6, borderRadius: 3, bgcolor: alpha(color, 0.15), overflow: 'hidden' }}>
@@ -213,7 +222,7 @@ function AllocationCard({
   exposure: number;
   exposureRatio: number;
 }) {
-  const { money } = usePrivacy();
+  const { value, showRatio } = usePrivacy();
   const pct = (v: number) => (total > 0 ? (v / total) * 100 : 0);
   return (
     <Card
@@ -245,7 +254,8 @@ function AllocationCard({
             市場曝險
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            NT${money(fmt(exposure))} ({exposureRatio.toFixed(1)}%)
+            NT${value(fmt(exposure))}
+            {showRatio ? ` (${exposureRatio.toFixed(1)}%)` : ''}
           </Typography>
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>

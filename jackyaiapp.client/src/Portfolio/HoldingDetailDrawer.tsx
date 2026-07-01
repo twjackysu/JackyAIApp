@@ -49,7 +49,7 @@ function StatBlock({ label, value, color }: { label: string; value: string; colo
 }
 
 function PriceChart({ market, symbol }: { market: string; symbol: string }) {
-  const { hidden, money } = usePrivacy();
+  const { mode, value, showRatio } = usePrivacy();
   const { data: res, isLoading } = useGetHoldingPriceHistoryQuery({ market, symbol });
   const hist = res?.data;
 
@@ -120,7 +120,7 @@ function PriceChart({ market, symbol }: { market: string; symbol: string }) {
           `<b>${p[0]?.axisValue ?? ''}</b>`,
           ...p
             .filter((s) => typeof s.value === 'number')
-            .map((s) => `${s.seriesName}：${hist.currency} ${money(fmt(Number(s.value)))}`),
+            .map((s) => `${s.seriesName}：${hist.currency} ${value(fmt(Number(s.value)))}`),
         ].join('<br/>');
       },
     },
@@ -137,7 +137,7 @@ function PriceChart({ market, symbol }: { market: string; symbol: string }) {
     },
     yAxis: {
       type: 'value',
-      axisLabel: { formatter: (v: number) => (hidden ? '' : fmt(v, 0)) },
+      axisLabel: { formatter: (v: number) => (mode === 'full' ? fmt(v, 0) : '') },
       scale: true,
     },
     series,
@@ -147,9 +147,9 @@ function PriceChart({ market, symbol }: { market: string; symbol: string }) {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="h5" sx={{ fontWeight: 800 }}>
-          {hist.currency} {money(fmt(currentPrice))}
+          {hist.currency} {value(fmt(currentPrice))}
         </Typography>
-        {pnlPct != null && (
+        {pnlPct != null && showRatio && (
           <Chip
             icon={
               pnlPct >= 0 ? (
@@ -189,7 +189,7 @@ function AiTechSummary({ market, symbol }: { market: string; symbol: string }) {
         disabled={isFetching}
         fullWidth
       >
-        {isFetching ? 'AI 分析中…' : 'AI 技術總結（朱家泓觀點）'}
+        {isFetching ? 'AI 分析中…' : 'AI 技術面總結'}
       </Button>
 
       {isFetching && (
@@ -223,7 +223,7 @@ function AiTechSummary({ market, symbol }: { market: string; symbol: string }) {
           </Box>
           <MarkdownMessage content={summary.signals} isOwnMessage={false} theme={theme} />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-            以上為 AI 依技術面（朱家泓觀點）自動生成，僅供參考，非投資建議。
+            以上為 AI 依技術面自動生成，僅供參考，非投資建議。
           </Typography>
         </Box>
       )}
@@ -232,7 +232,7 @@ function AiTechSummary({ market, symbol }: { market: string; symbol: string }) {
 }
 
 export function HoldingDetailDrawer({ position, open, onClose }: Props) {
-  const { money } = usePrivacy();
+  const { value, change, showRatio } = usePrivacy();
   const hasPnl = position?.unrealizedPnlTWD != null && position?.unrealizedPnlPct != null;
   const isFund = position?.assetType === 'FUND';
 
@@ -294,24 +294,26 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
             <StatBlock label={isFund ? '單位數' : '持股數量'} value={fmtQty(position.quantity)} />
             <StatBlock
               label={isFund ? '淨值' : '現價'}
-              value={`${position.currency} ${money(fmt(position.currentPrice))}`}
+              value={`${position.currency} ${value(fmt(position.currentPrice))}`}
             />
-            <StatBlock label="市值 (TWD)" value={`NT$${money(fmt(position.marketValueTWD, 0))}`} />
+            <StatBlock label="市值 (TWD)" value={`NT$${value(fmt(position.marketValueTWD, 0))}`} />
             {hasPnl ? (
               <>
                 <StatBlock
                   label="未實現損益"
-                  value={`NT$${money(fmt(position.unrealizedPnlTWD as number, 0))}`}
+                  value={`NT$${change(fmt(position.unrealizedPnlTWD as number, 0))}`}
                   color={pnlColor(position.unrealizedPnlTWD as number)}
                 />
-                <StatBlock
-                  label="損益%"
-                  value={`${(position.unrealizedPnlPct as number) >= 0 ? '+' : ''}${fmt(position.unrealizedPnlPct as number)}%`}
-                  color={pnlColor(position.unrealizedPnlPct as number)}
-                />
+                {showRatio && (
+                  <StatBlock
+                    label="損益%"
+                    value={`${(position.unrealizedPnlPct as number) >= 0 ? '+' : ''}${fmt(position.unrealizedPnlPct as number)}%`}
+                    color={pnlColor(position.unrealizedPnlPct as number)}
+                  />
+                )}
                 <StatBlock
                   label="成本基礎"
-                  value={`NT$${money(fmt((position.costBasisTWD as number) ?? 0, 0))}`}
+                  value={`NT$${value(fmt((position.costBasisTWD as number) ?? 0, 0))}`}
                 />
               </>
             ) : (
