@@ -123,7 +123,8 @@ namespace JackyAIApp.Server.DTO.Portfolio
     public class PortfolioAiSummaryDto
     {
         public string TrendLabel { get; set; } = "";
-        public string Summary { get; set; } = "";
+        public string Action { get; set; } = "";
+        public string Signals { get; set; } = "";
     }
 
     public class HoldingPriceHistoryDto

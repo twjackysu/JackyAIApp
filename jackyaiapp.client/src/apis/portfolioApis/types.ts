@@ -97,7 +97,8 @@ export interface PricePoint {
 
 export interface PortfolioAiSummaryDto {
   trendLabel: string;
-  summary: string;
+  action: string;
+  signals: string;
 }
 
 export interface HoldingPriceHistoryDto {

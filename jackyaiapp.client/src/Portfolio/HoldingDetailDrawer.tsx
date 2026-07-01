@@ -206,15 +206,22 @@ function AiTechSummary({ market, symbol }: { market: string; symbol: string }) {
 
       {summary && !isFetching && (
         <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
-          {summary.trendLabel && (
-            <Chip
-              label={summary.trendLabel}
-              size="small"
-              color="primary"
-              sx={{ mb: 1, fontWeight: 700 }}
-            />
-          )}
-          <MarkdownMessage content={summary.summary} isOwnMessage={false} theme={theme} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+            {summary.trendLabel && (
+              <Chip
+                label={summary.trendLabel}
+                size="small"
+                color="primary"
+                sx={{ fontWeight: 700 }}
+              />
+            )}
+            {summary.action && (
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                建議：{summary.action}
+              </Typography>
+            )}
+          </Box>
+          <MarkdownMessage content={summary.signals} isOwnMessage={false} theme={theme} />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
             以上為 AI 依技術面（朱家泓觀點）自動生成，僅供參考，非投資建議。
           </Typography>
