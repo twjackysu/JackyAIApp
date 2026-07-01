@@ -138,7 +138,8 @@ export function StockRow({ row, error, onChange, onRemove }: Props) {
         label="股數"
         value={row.quantity || ''}
         onChange={(e) => onChange({ quantity: parseFloat(e.target.value) || 0 })}
-        slotProps={{ htmlInput: { min: 0, step: 1 } }}
+        // US allows fractional shares (碎股); TW steps by whole shares. Typing decimals works either way.
+        slotProps={{ htmlInput: { min: 0, step: market === 'US' ? 'any' : 1 } }}
         error={!!error && picked}
         sx={{ width: 100 }}
       />
