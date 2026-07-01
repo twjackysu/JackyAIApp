@@ -17,6 +17,8 @@ export const makeRow = (assetType: AssetType, market = 'TW'): EditorRow => {
         name: '',
         market,
         currency: market === 'US' ? 'USD' : 'TWD',
+        // Stocks are paid in their market currency.
+        costCurrency: market === 'US' ? 'USD' : 'TWD',
         quantity: 0,
         costBasis: null,
       };
@@ -38,6 +40,8 @@ export const makeRow = (assetType: AssetType, market = 'TW'): EditorRow => {
         name: '',
         market: 'FUND',
         currency: 'TWD',
+        // Funds are commonly bought with TWD even when the NAV is foreign-priced.
+        costCurrency: 'TWD',
         quantity: 0,
         costBasis: null,
       };

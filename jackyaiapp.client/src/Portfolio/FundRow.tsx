@@ -116,7 +116,7 @@ export function FundRow({ row, error, onChange, onRemove }: Props) {
       <CostBasisInput
         quantity={row.quantity}
         costBasis={row.costBasis ?? null}
-        currency={row.currency}
+        currency={row.costCurrency || 'TWD'}
         unitLabel="單位"
         qtyStep={0.0001}
         onChange={onChange}
@@ -124,10 +124,23 @@ export function FundRow({ row, error, onChange, onRemove }: Props) {
       <TextField
         size="small"
         select
-        label="幣別"
+        label="計價幣別"
         value={row.currency}
         onChange={(e) => onChange({ currency: e.target.value })}
-        sx={{ width: 90 }}
+        helperText="NAV 幣別"
+        sx={{ width: 100 }}
+      >
+        <MenuItem value="TWD">TWD</MenuItem>
+        <MenuItem value="USD">USD</MenuItem>
+      </TextField>
+      <TextField
+        size="small"
+        select
+        label="成本幣別"
+        value={row.costCurrency || 'TWD'}
+        onChange={(e) => onChange({ costCurrency: e.target.value })}
+        helperText="扣款幣別"
+        sx={{ width: 100 }}
       >
         <MenuItem value="TWD">TWD</MenuItem>
         <MenuItem value="USD">USD</MenuItem>

@@ -50,8 +50,14 @@ namespace JackyAIApp.Server.Data.Models.Portfolio
         /// <summary>"TW" | "US" for stocks; empty otherwise.</summary>
         public string Market { get; set; } = "";
 
-        /// <summary>"TWD" | "USD".</summary>
+        /// <summary>Pricing/NAV currency, "TWD" | "USD". Drives market-value conversion.</summary>
         public required string Currency { get; set; }
+
+        /// <summary>
+        /// Currency the cost basis was paid in, "TWD" | "USD". May differ from <see cref="Currency"/>
+        /// (e.g. a USD-priced fund bought with TWD). Null falls back to <see cref="Currency"/>.
+        /// </summary>
+        public string? CostCurrency { get; set; }
 
         /// <summary>Shares (STOCK) / units (FUND) / amount (CASH).</summary>
         public decimal Quantity { get; set; }

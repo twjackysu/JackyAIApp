@@ -18,6 +18,7 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public string Name { get; set; } = "";
         public string Market { get; set; } = "";
         public required string Currency { get; set; }
+        public string? CostCurrency { get; set; } // currency the cost basis was paid in; defaults to Currency
         public decimal Quantity { get; set; }
         public decimal? UnitPrice { get; set; }   // fund NAV
         public decimal? CostBasis { get; set; }   // optional
@@ -32,6 +33,7 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public string Name { get; set; } = "";
         public string Market { get; set; } = "";
         public string Currency { get; set; } = "";
+        public string? CostCurrency { get; set; }
         public decimal Quantity { get; set; }
         public decimal CurrentPrice { get; set; }       // stock live / fund NAV / cash 1
         public decimal MarketValueLocal { get; set; }
