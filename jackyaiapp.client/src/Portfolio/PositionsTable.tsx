@@ -29,6 +29,7 @@ const TYPE_CHIP: Record<
 
 export function PositionsTable({ positions, onStockClick }: Props) {
   const { value, change, showRatio } = usePrivacy();
+  const total = positions.reduce((s, p) => s + p.marketValueTWD, 0);
   if (positions.length === 0) {
     return (
       <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
@@ -46,6 +47,7 @@ export function PositionsTable({ positions, onStockClick }: Props) {
             <TableCell align="right">數量</TableCell>
             <TableCell align="right">現價/NAV</TableCell>
             <TableCell align="right">市值 (TWD)</TableCell>
+            <TableCell align="right">占比</TableCell>
             <TableCell align="right">未實現損益</TableCell>
           </TableRow>
         </TableHead>
@@ -114,6 +116,11 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                       USD {value(fmt(p.marketValueLocal, 0))}
                     </Typography>
                   )}
+                </TableCell>
+                <TableCell align="right">
+                  {showRatio && total > 0
+                    ? `${((p.marketValueTWD / total) * 100).toFixed(1)}%`
+                    : '—'}
                 </TableCell>
                 <TableCell align="right">
                   {p.unrealizedPnlTWD != null && p.unrealizedPnlPct != null ? (
