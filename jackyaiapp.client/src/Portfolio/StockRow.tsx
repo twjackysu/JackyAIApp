@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -126,11 +127,26 @@ export function StockRow({ row, error, onChange, onRemove }: Props) {
       <CostBasisInput
         quantity={row.quantity}
         costBasis={row.costBasis ?? null}
-        currency={market === 'US' ? 'USD' : 'TWD'}
+        currency={row.costCurrency || (market === 'US' ? 'USD' : 'TWD')}
         unitLabel="股"
-        qtyStep={1}
+        qtyStep={market === 'US' ? 0.0001 : 1}
         onChange={onChange}
       />
+      {/* US stocks can be settled in USD or bought via 複委託 with TWD; TW stocks are always TWD. */}
+      {market === 'US' && (
+        <TextField
+          size="small"
+          select
+          label="成本幣別"
+          value={row.costCurrency || 'USD'}
+          onChange={(e) => onChange({ costCurrency: e.target.value })}
+          helperText="扣款幣別"
+          sx={{ width: 100 }}
+        >
+          <MenuItem value="USD">USD</MenuItem>
+          <MenuItem value="TWD">TWD</MenuItem>
+        </TextField>
+      )}
       <IconButton onClick={onRemove} size="small" sx={{ mt: 0.5 }}>
         <DeleteOutlineIcon fontSize="small" />
       </IconButton>
