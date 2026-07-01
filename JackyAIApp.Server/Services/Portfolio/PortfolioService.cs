@@ -436,9 +436,19 @@ namespace JackyAIApp.Server.Services.Portfolio
                 : p.AssetType == AssetType.STOCK && p.Market == market.ToUpperInvariant() && p.Symbol == sym);
             if (pos == null) return null;
 
-            var avgCost = pos.CostBasis.HasValue && pos.Quantity > 0
+            var rawAvg = pos.CostBasis.HasValue && pos.Quantity > 0
                 ? pos.CostBasis.Value / pos.Quantity
                 : (decimal?)null;
+
+            // The chart's prices are in the pricing currency, but the cost may have been paid in
+            // another (e.g. USD-priced fund bought with TWD). Convert the average cost into the
+            // chart currency so the cost line and "% vs 成本" line up with the price axis.
+            var fx = await FetchUsdTwdRateAsync(ct);
+            var costCurrency = string.IsNullOrWhiteSpace(pos.CostCurrency) ? pos.Currency : pos.CostCurrency;
+            decimal? AvgInCurrency(string chartCurrency) =>
+                rawAvg == null
+                    ? null
+                    : rawAvg.Value * (costCurrency == "USD" ? fx : 1m) / (chartCurrency == "USD" ? fx : 1m);
 
             if (isFund)
             {
@@ -451,7 +461,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     Market = "FUND",
                     Currency = nav.Currency,
                     Quantity = pos.Quantity,
-                    AvgCost = avgCost,
+                    AvgCost = AvgInCurrency(nav.Currency),
                     Prices = nav.Prices,
                 };
             }
@@ -466,7 +476,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 Market = pos.Market,
                 Currency = pos.Currency,
                 Quantity = pos.Quantity,
-                AvgCost = avgCost,
+                AvgCost = AvgInCurrency(pos.Currency),
                 Prices = data.HistoricalPrices
                     .Select(x => new PricePoint
                     {
