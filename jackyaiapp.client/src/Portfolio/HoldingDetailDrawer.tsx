@@ -1,13 +1,15 @@
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CloseIcon from '@mui/icons-material/Close';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
-import { alpha } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
@@ -15,8 +17,9 @@ import ReactEcharts from 'echarts-for-react';
 import { fmtNum, fmtQty, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
 
-import { useGetHoldingPriceHistoryQuery } from '@/apis/portfolioApis';
+import { useGetHoldingPriceHistoryQuery, useLazyGetAiTechSummaryQuery } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
+import MarkdownMessage from '@/components/MarkdownMessage';
 import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
 
 interface Props {
@@ -171,6 +174,56 @@ function PriceChart({ market, symbol }: { market: string; symbol: string }) {
   );
 }
 
+function AiTechSummary({ market, symbol }: { market: string; symbol: string }) {
+  const theme = useTheme();
+  const [fetchAi, { data, isFetching, error }] = useLazyGetAiTechSummaryQuery();
+  const summary = data?.data;
+
+  return (
+    <Box sx={{ mt: 3 }}>
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<AutoAwesomeIcon />}
+        onClick={() => fetchAi({ market, symbol })}
+        disabled={isFetching}
+        fullWidth
+      >
+        {isFetching ? 'AI 分析中…' : 'AI 技術總結（朱家泓觀點）'}
+      </Button>
+
+      {isFetching && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+          <CircularProgress size={24} />
+        </Box>
+      )}
+
+      {error && !isFetching && (
+        <Typography color="error" variant="body2" sx={{ mt: 2 }}>
+          AI 總結失敗，請稍後再試
+        </Typography>
+      )}
+
+      {summary && !isFetching && (
+        <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+          {summary.trendLabel && (
+            <Chip
+              label={summary.trendLabel}
+              size="small"
+              color="primary"
+              sx={{ mb: 1, fontWeight: 700 }}
+            />
+          )}
+          <MarkdownMessage content={summary.summary} isOwnMessage={false} theme={theme} />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+            以上為 AI 依技術面（朱家泓觀點）自動生成，僅供參考，非投資建議。
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 export function HoldingDetailDrawer({ position, open, onClose }: Props) {
   const { money } = usePrivacy();
   const hasPnl = position?.unrealizedPnlTWD != null && position?.unrealizedPnlPct != null;
@@ -265,6 +318,8 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
             {hasPnl ? ' · 橘線 = 均攤成本' : ''}
           </Typography>
           <PriceChart market={isFund ? 'FUND' : position.market} symbol={position.symbol} />
+
+          <AiTechSummary market={isFund ? 'FUND' : position.market} symbol={position.symbol} />
         </>
       )}
     </Drawer>
