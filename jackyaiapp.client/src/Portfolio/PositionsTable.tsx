@@ -8,7 +8,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 
-import { fmtNum as fmt, pnlColor } from './portfolioUtils';
+import { fmtNum as fmt, fmtQty, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
 
 import { PositionDto } from '@/apis/portfolioApis/types';
@@ -93,7 +93,7 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                   </Box>
                 </TableCell>
                 <TableCell align="right">
-                  {p.assetType === 'CASH' ? '—' : fmt(p.quantity, p.assetType === 'FUND' ? 2 : 0)}
+                  {p.assetType === 'CASH' ? '—' : fmtQty(p.quantity)}
                 </TableCell>
                 <TableCell align="right">
                   {p.assetType === 'CASH' ? '—' : `${p.currency} ${money(fmt(p.currentPrice, 2))}`}

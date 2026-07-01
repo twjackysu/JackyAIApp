@@ -12,7 +12,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 
-import { fmtNum, pnlColor } from './portfolioUtils';
+import { fmtNum, fmtQty, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
 
 import { useGetHoldingPriceHistoryQuery } from '@/apis/portfolioApis';
@@ -231,10 +231,7 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
               bgcolor: 'action.hover',
             }}
           >
-            <StatBlock
-              label={isFund ? '單位數' : '持股數量'}
-              value={position.quantity.toLocaleString()}
-            />
+            <StatBlock label={isFund ? '單位數' : '持股數量'} value={fmtQty(position.quantity)} />
             <StatBlock
               label={isFund ? '淨值' : '現價'}
               value={`${position.currency} ${money(fmt(position.currentPrice))}`}
