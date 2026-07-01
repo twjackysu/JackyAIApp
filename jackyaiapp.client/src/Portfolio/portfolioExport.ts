@@ -1,4 +1,4 @@
-import { PortfolioSummaryDto } from '@/apis/portfolioApis/types';
+import { NetWorthDataPoint, PortfolioSummaryDto } from '@/apis/portfolioApis/types';
 
 const TYPE_LABEL: Record<string, string> = { STOCK: '股票', CASH: '現金', FUND: '基金' };
 
@@ -7,6 +7,21 @@ const csvCell = (v: string | number | null | undefined) => {
   const s = v == null ? '' : String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
+
+/** Build a UTF-8-BOM CSV string and trigger a download. */
+function downloadCsv(rows: (string | number | null | undefined)[][], filename: string) {
+  const bom = String.fromCharCode(0xfeff); // Excel needs a UTF-8 BOM to render Chinese
+  const csv = bom + rows.map((r) => r.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 /**
  * Export the current holdings as a CSV that opens cleanly in Excel.
@@ -46,17 +61,22 @@ export function exportPortfolioCsv(summary: PortfolioSummaryDto) {
     p.exposureFactor,
   ]);
 
-  const bom = String.fromCharCode(0xfeff); // Excel needs a UTF-8 BOM to render Chinese
-  const csv = bom + [headers, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
   const date = summary.effectiveDate ?? new Date().toISOString().slice(0, 10);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `portfolio_${date}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  downloadCsv([headers, ...rows], `portfolio_${date}.csv`);
+}
+
+/**
+ * Export the daily net-worth history (time series) as a CSV for trend analysis.
+ */
+export function exportNetWorthCsv(points: NetWorthDataPoint[]) {
+  const headers = ['日期', '總淨值(TWD)', '台股(TWD)', '美股(TWD)', '現金(TWD)', '基金(TWD)'];
+  const rows = points.map((p) => [
+    p.date,
+    p.totalTWD,
+    p.twStockTWD,
+    p.usStockTWD,
+    p.cashTWD,
+    p.fundTWD,
+  ]);
+  downloadCsv([headers, ...rows], `portfolio_networth_history.csv`);
 }
