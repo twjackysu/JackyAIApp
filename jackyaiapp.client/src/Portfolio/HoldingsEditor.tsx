@@ -57,14 +57,17 @@ export function HoldingsEditor() {
     setOpen(true);
   };
 
-  const stocks = rows.filter((r) => r.assetType === 'STOCK');
+  // Stocks are split by market so the user picks a section instead of a per-row market dropdown.
+  const twStocks = rows.filter((r) => r.assetType === 'STOCK' && (r.market || 'TW') !== 'US');
+  const usStocks = rows.filter((r) => r.assetType === 'STOCK' && r.market === 'US');
   const cashes = rows.filter((r) => r.assetType === 'CASH');
   const funds = rows.filter((r) => r.assetType === 'FUND');
 
   const patchRow = (key: string, patch: Partial<EditorRow>) =>
     setRows((rs) => rs.map((r) => (r._key === key ? { ...r, ...patch } : r)));
   const removeRow = (key: string) => setRows((rs) => rs.filter((r) => r._key !== key));
-  const addRow = (type: 'STOCK' | 'CASH' | 'FUND') => setRows((rs) => [...rs, makeRow(type)]);
+  const addRow = (type: 'STOCK' | 'CASH' | 'FUND', market?: string) =>
+    setRows((rs) => [...rs, makeRow(type, market)]);
 
   // Rows the user actually started filling in (blank ones are dropped silently).
   const meaningfulRows = rows.filter((r) => !isRowEmpty(r));
@@ -123,14 +126,34 @@ export function HoldingsEditor() {
             />
           </Box>
 
-          {/* Stocks */}
+          {/* TW stocks */}
           <Section
-            title="股票"
-            onAdd={() => addRow('STOCK')}
-            addLabel="新增股票"
-            empty={stocks.length === 0}
+            title="台股"
+            onAdd={() => addRow('STOCK', 'TW')}
+            addLabel="新增台股"
+            empty={twStocks.length === 0}
           >
-            {stocks.map((r) => (
+            {twStocks.map((r) => (
+              <StockRow
+                key={r._key}
+                row={r}
+                error={submitted ? rowError(r) : null}
+                onChange={(patch) => patchRow(r._key, patch)}
+                onRemove={() => removeRow(r._key)}
+              />
+            ))}
+          </Section>
+
+          <Divider />
+
+          {/* US stocks */}
+          <Section
+            title="美股"
+            onAdd={() => addRow('STOCK', 'US')}
+            addLabel="新增美股"
+            empty={usStocks.length === 0}
+          >
+            {usStocks.map((r) => (
               <StockRow
                 key={r._key}
                 row={r}
