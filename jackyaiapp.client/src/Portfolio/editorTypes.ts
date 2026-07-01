@@ -7,7 +7,7 @@ export interface EditorRow extends PositionInput {
 let counter = 0;
 const nextKey = () => `row_${Date.now()}_${counter++}`;
 
-export const makeRow = (assetType: AssetType): EditorRow => {
+export const makeRow = (assetType: AssetType, market = 'TW'): EditorRow => {
   switch (assetType) {
     case 'STOCK':
       return {
@@ -15,8 +15,8 @@ export const makeRow = (assetType: AssetType): EditorRow => {
         assetType: 'STOCK',
         symbol: '',
         name: '',
-        market: 'TW',
-        currency: 'TWD',
+        market,
+        currency: market === 'US' ? 'USD' : 'TWD',
         quantity: 0,
         costBasis: null,
       };

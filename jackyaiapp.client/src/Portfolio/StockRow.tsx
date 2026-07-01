@@ -4,7 +4,6 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
-import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -41,26 +40,6 @@ export function StockRow({ row, error, onChange, onRemove }: Props) {
 
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <TextField
-        size="small"
-        select
-        label="市場"
-        value={market}
-        onChange={(e) => {
-          setInput('');
-          onChange({
-            market: e.target.value,
-            currency: e.target.value === 'US' ? 'USD' : 'TWD',
-            symbol: '',
-            name: '',
-          });
-        }}
-        sx={{ width: 88 }}
-      >
-        <MenuItem value="TW">台股</MenuItem>
-        <MenuItem value="US">美股</MenuItem>
-      </TextField>
-
       {picked ? (
         <Box sx={{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', minHeight: 40 }}>
           <Chip
