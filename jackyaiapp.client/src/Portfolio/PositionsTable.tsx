@@ -81,6 +81,15 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                       variant="outlined"
                       sx={{ fontSize: 10, height: 18 }}
                     />
+                    {p.assetType !== 'CASH' && p.exposureFactor !== 1 && (
+                      <Chip
+                        label={p.exposureFactor === 0 ? '0曝險' : `曝險×${p.exposureFactor}`}
+                        size="small"
+                        color={p.exposureFactor === 0 ? 'default' : 'warning'}
+                        variant="outlined"
+                        sx={{ fontSize: 10, height: 18 }}
+                      />
+                    )}
                     {p.priceFetchFailed && (
                       <Chip
                         label="報價失敗"

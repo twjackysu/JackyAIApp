@@ -159,6 +159,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var positions = new List<PositionDto>();
             decimal twStock = 0, usStock = 0, cash = 0, fund = 0;
             decimal costBasisTWD = 0, pnlTWD = 0;
+            decimal equityExposureTWD = 0; // Σ market value × exposure factor (leverage/bond-adjusted)
 
             // Prefetch all stock prices and fund NAVs in parallel (cached) before the value loop,
             // instead of awaiting one network call per position serially.
@@ -251,6 +252,10 @@ namespace JackyAIApp.Server.Services.Portfolio
                     case AssetType.FUND: fund += valueTWD; break;
                 }
 
+                // Market exposure: leveraged ETFs amplify, bond/cash contribute nothing.
+                var exposureFactor = PortfolioExposure.Factor(p.AssetType, p.Name, p.Symbol, p.Market);
+                equityExposureTWD += valueTWD * exposureFactor;
+
                 positions.Add(new PositionDto
                 {
                     AssetType = p.AssetType,
@@ -266,9 +271,12 @@ namespace JackyAIApp.Server.Services.Portfolio
                     CostBasisTWD = posCostTWD,
                     UnrealizedPnlTWD = posPnlTWD,
                     UnrealizedPnlPct = posPnlPct,
+                    ExposureFactor = exposureFactor,
                     PriceFetchFailed = priceFailed,
                 });
             }
+
+            var netWorthTWD = twStock + usStock + cash + fund;
 
             var annualizedReturnPct = await ComputeAnnualizedReturnAsync(
                 userId, fx, costBasisTWD + pnlTWD, ct);
@@ -277,7 +285,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 EffectiveDate = snapshot.EffectiveDate,
                 UsdTwdRate = fx,
-                TotalNetWorthTWD = twStock + usStock + cash + fund,
+                TotalNetWorthTWD = netWorthTWD,
                 TwStockTWD = twStock,
                 UsStockTWD = usStock,
                 CashTWD = cash,
@@ -286,6 +294,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                 UnrealizedPnlTWD = pnlTWD,
                 UnrealizedPnlPct = costBasisTWD > 0 ? Math.Round(pnlTWD / costBasisTWD * 100, 2) : 0,
                 AnnualizedReturnPct = annualizedReturnPct,
+                MarketExposureTWD = equityExposureTWD,
+                ExposureRatioPct = netWorthTWD > 0 ? Math.Round(equityExposureTWD / netWorthTWD * 100, 1) : 0,
                 Positions = positions.OrderByDescending(p => p.MarketValueTWD).ToList(),
             };
         }

@@ -162,6 +162,8 @@ function AllocationCard({
   fund,
   total,
   usdTwdRate,
+  exposure,
+  exposureRatio,
 }: {
   twStock: number;
   usStock: number;
@@ -169,7 +171,10 @@ function AllocationCard({
   fund: number;
   total: number;
   usdTwdRate: number;
+  exposure: number;
+  exposureRatio: number;
 }) {
+  const { money } = usePrivacy();
   const pct = (v: number) => (total > 0 ? (v / total) * 100 : 0);
   return (
     <Card
@@ -186,7 +191,28 @@ function AllocationCard({
           <AllocationRow label="現金" value={cash} pct={pct(cash)} color="#A78BFA" />
           <AllocationRow label="基金" value={fund} pct={pct(fund)} color="#EC4899" />
         </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+        <Box
+          sx={{
+            mt: 2,
+            pt: 1.5,
+            borderTop: '1px dashed',
+            borderColor: 'divider',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            市場曝險
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            NT${money(fmt(exposure))} ({exposureRatio.toFixed(1)}%)
+          </Typography>
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+          正2 ×2、債券/現金 0；可 &gt;100% 表示槓桿
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
           USD/TWD = {usdTwdRate.toFixed(2)}
         </Typography>
       </CardContent>
@@ -248,6 +274,8 @@ export default function Portfolio() {
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
                 <AllocationCard
+                  exposure={summary.marketExposureTWD}
+                  exposureRatio={summary.exposureRatioPct}
                   twStock={summary.twStockTWD}
                   usStock={summary.usStockTWD}
                   cash={summary.cashTWD}

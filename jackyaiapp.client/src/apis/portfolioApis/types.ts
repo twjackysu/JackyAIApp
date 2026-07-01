@@ -32,6 +32,7 @@ export interface PositionDto {
   costBasisTWD?: number | null;
   unrealizedPnlTWD?: number | null;
   unrealizedPnlPct?: number | null;
+  exposureFactor: number;
   priceFetchFailed: boolean;
 }
 
@@ -47,6 +48,8 @@ export interface PortfolioSummaryDto {
   unrealizedPnlTWD: number;
   unrealizedPnlPct: number;
   annualizedReturnPct?: number | null;
+  marketExposureTWD: number;
+  exposureRatioPct: number;
   positions: PositionDto[];
 }
 
