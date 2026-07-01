@@ -6,6 +6,7 @@ import {
   FundSearchItem,
   HoldingPriceHistoryDto,
   NetWorthDataPoint,
+  PortfolioAiSummaryDto,
   PortfolioSummaryDto,
   SaveHoldingsRequest,
   StockLookupDto,
@@ -64,6 +65,12 @@ export const portfolioApis = createApi({
     >({
       query: ({ market, symbol }) => `holdings/${market}/${symbol}/price-history`,
     }),
+    getAiTechSummary: builder.query<
+      ApiOkResponse<PortfolioAiSummaryDto>,
+      { market: string; symbol: string }
+    >({
+      query: ({ market, symbol }) => `holdings/${market}/${symbol}/ai-summary`,
+    }),
   }),
 });
 
@@ -80,4 +87,5 @@ export const {
   useLookupStockQuery,
   useSearchStocksQuery,
   useGetHoldingPriceHistoryQuery,
+  useLazyGetAiTechSummaryQuery,
 } = portfolioApis;

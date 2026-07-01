@@ -111,5 +111,15 @@ namespace JackyAIApp.Server.Controllers
             if (result == null) return NotFound();
             return responseFactory.CreateOKResponse(result);
         }
+
+        [HttpGet("holdings/{market}/{symbol}/ai-summary")]
+        public async Task<IActionResult> GetAiTechSummary(string market, string symbol, CancellationToken ct)
+        {
+            var userId = RequireUserId();
+            var (result, error) = await portfolioService.GetAiTechSummaryAsync(userId, market, symbol, ct);
+            if (result == null)
+                return responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, error ?? "AI 總結失敗");
+            return responseFactory.CreateOKResponse(result);
+        }
     }
 }

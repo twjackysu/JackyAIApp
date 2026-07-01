@@ -95,6 +95,11 @@ export interface PricePoint {
   low: number;
 }
 
+export interface PortfolioAiSummaryDto {
+  trendLabel: string;
+  summary: string;
+}
+
 export interface HoldingPriceHistoryDto {
   symbol: string;
   companyName: string;
