@@ -7,6 +7,7 @@ export interface PositionInput {
   name: string;
   market: string;
   currency: string;
+  costCurrency?: string | null; // currency the cost was paid in; defaults to currency
   quantity: number;
   unitPrice?: number | null; // fund NAV
   costBasis?: number | null; // optional, stocks only
@@ -23,6 +24,7 @@ export interface PositionDto {
   name: string;
   market: string;
   currency: string;
+  costCurrency?: string | null;
   quantity: number;
   currentPrice: number;
   marketValueLocal: number;

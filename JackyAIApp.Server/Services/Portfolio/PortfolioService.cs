@@ -49,6 +49,13 @@ namespace JackyAIApp.Server.Services.Portfolio
                         Name = p.Name ?? "",
                         Market = (p.Market ?? "").ToUpperInvariant(),
                         Currency = string.IsNullOrWhiteSpace(p.Currency) ? "TWD" : p.Currency.ToUpperInvariant(),
+                        // Cost may be paid in a different currency than the NAV/price (e.g. USD-priced
+                        // fund bought with TWD). Default to the pricing currency when unspecified.
+                        CostCurrency = p.AssetType == AssetType.CASH
+                            ? null
+                            : (string.IsNullOrWhiteSpace(p.CostCurrency)
+                                ? (string.IsNullOrWhiteSpace(p.Currency) ? "TWD" : p.Currency)
+                                : p.CostCurrency).ToUpperInvariant(),
                         Quantity = p.Quantity,
                         // Fund NAV is fetched live; UnitPrice kept only as a fallback if ever supplied.
                         UnitPrice = p.AssetType == AssetType.FUND ? p.UnitPrice : null,
@@ -79,6 +86,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                         Name = p.Name,
                         Market = p.Market,
                         Currency = p.Currency,
+                        CostCurrency = p.CostCurrency,
                         Quantity = p.Quantity,
                         UnitPrice = p.UnitPrice,
                         CostBasis = p.CostBasis,
@@ -105,6 +113,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                         Name = p.Name,
                         Market = p.Market,
                         Currency = p.Currency,
+                        CostCurrency = p.CostCurrency,
                         Quantity = p.Quantity,
                         UnitPrice = p.UnitPrice,
                         CostBasis = p.CostBasis,
@@ -207,10 +216,13 @@ namespace JackyAIApp.Server.Services.Portfolio
                     : currentPrice * p.Quantity;
                 var valueTWD = valueLocal * fxMul;
 
+                // Cost is converted by its own currency, which may differ from the pricing currency.
+                var costFxMul = (p.CostCurrency ?? p.Currency) == "USD" ? fx : 1m;
+
                 decimal? posCostTWD = null, posPnlTWD = null, posPnlPct = null;
                 if (p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
                 {
-                    posCostTWD = p.CostBasis.Value * fxMul;
+                    posCostTWD = p.CostBasis.Value * costFxMul;
                     // Only compute P&L when we have a real price; otherwise valueTWD is 0
                     // and we'd report a fake loss equal to the entire cost basis.
                     if (!priceFailed)
@@ -237,6 +249,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     Name = p.Name,
                     Market = p.Market,
                     Currency = p.Currency,
+                    CostCurrency = p.CostCurrency,
                     Quantity = p.Quantity,
                     CurrentPrice = currentPrice,
                     MarketValueLocal = valueLocal,
@@ -569,7 +582,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 var snapFx = s.UsdTwdRate > 0 ? s.UsdTwdRate : fallbackFx;
                 var snapCost = s.Positions
                     .Where(p => p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
-                    .Sum(p => p.CostBasis!.Value * (p.Currency == "USD" ? snapFx : 1m));
+                    .Sum(p => p.CostBasis!.Value * ((p.CostCurrency ?? p.Currency) == "USD" ? snapFx : 1m));
                 var delta = snapCost - prevCost;
                 if (delta != 0) flows.Add((s.EffectiveDate, (double)(-delta))); // contribution = outflow
                 prevCost = snapCost;
