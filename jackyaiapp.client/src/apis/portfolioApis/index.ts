@@ -76,6 +76,7 @@ export const {
   useGetUpdateHistoryQuery,
   useSearchFundsQuery,
   useGetNetWorthHistoryQuery,
+  useLazyGetNetWorthHistoryQuery,
   useLookupStockQuery,
   useSearchStocksQuery,
   useGetHoldingPriceHistoryQuery,

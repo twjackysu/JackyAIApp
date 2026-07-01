@@ -9,6 +9,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import { alpha } from '@mui/material/styles';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -17,14 +19,14 @@ import { useState } from 'react';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
 import { NetWorthChart } from './NetWorthChart';
-import { exportPortfolioCsv } from './portfolioExport';
+import { exportNetWorthCsv, exportPortfolioCsv } from './portfolioExport';
 import { fmtNum as fmt, pnlColor } from './portfolioUtils';
 import { PositionsTable } from './PositionsTable';
 import { usePrivacy } from './privacy';
 import { PrivacyProvider } from './PrivacyContext';
 
-import { useGetPortfolioSummaryQuery } from '@/apis/portfolioApis';
-import { PositionDto } from '@/apis/portfolioApis/types';
+import { useGetPortfolioSummaryQuery, useLazyGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
+import { PortfolioSummaryDto, PositionDto } from '@/apis/portfolioApis/types';
 
 function PrivacyToggle() {
   const { hidden, toggle } = usePrivacy();
@@ -34,6 +36,41 @@ function PrivacyToggle() {
         {hidden ? <VisibilityOffIcon /> : <VisibilityIcon />}
       </IconButton>
     </Tooltip>
+  );
+}
+
+function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
+  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
+  const [fetchHistory, { isFetching }] = useLazyGetNetWorthHistoryQuery();
+
+  const close = () => setAnchor(null);
+
+  const exportHistory = async () => {
+    close();
+    // 180 = the widest range the backend supports; gives the full available series.
+    const res = await fetchHistory(180).unwrap();
+    exportNetWorthCsv(res.data ?? []);
+  };
+
+  return (
+    <>
+      <Tooltip title="匯出 CSV (Excel)">
+        <IconButton onClick={(e) => setAnchor(e.currentTarget)} size="small" disabled={isFetching}>
+          <FileDownloadOutlinedIcon />
+        </IconButton>
+      </Tooltip>
+      <Menu anchorEl={anchor} open={!!anchor} onClose={close}>
+        <MenuItem
+          onClick={() => {
+            close();
+            exportPortfolioCsv(summary);
+          }}
+        >
+          目前持倉
+        </MenuItem>
+        <MenuItem onClick={exportHistory}>淨值歷史 (時間序列)</MenuItem>
+      </Menu>
+    </>
   );
 }
 
@@ -245,13 +282,7 @@ export default function Portfolio() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {hasHoldings && summary && (
-              <Tooltip title="匯出 CSV (Excel)">
-                <IconButton onClick={() => exportPortfolioCsv(summary)} size="small">
-                  <FileDownloadOutlinedIcon />
-                </IconButton>
-              </Tooltip>
-            )}
+            {hasHoldings && summary && <ExportMenu summary={summary} />}
             <PrivacyToggle />
             <HoldingsEditor />
           </Box>
