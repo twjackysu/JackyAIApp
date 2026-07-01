@@ -16,7 +16,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         IMemoryCache cache,
         ILogger<PortfolioService> logger) : IPortfolioService
     {
-        private const string BOT_FX_URL = "https://rate.bot.com.tw/xrt/flcsv/0/day";
+        private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
         private const string STOCK_CACHE_PREFIX = "portfolio_stock_";
         private static readonly TimeSpan StockCacheTtl = TimeSpan.FromMinutes(30);
@@ -155,7 +155,9 @@ namespace JackyAIApp.Server.Services.Portfolio
             var snapshot = await LatestSnapshotAsync(userId, ct);
             if (snapshot == null) return new PortfolioSummaryDto();
 
-            var fx = snapshot.UsdTwdRate > 0 ? snapshot.UsdTwdRate : await FetchUsdTwdRateAsync(ct);
+            // Current valuation always uses the live rate; the rate stored on each snapshot is only
+            // for reconstructing historical net worth (a stale fallback-32 shouldn't stick forever).
+            var fx = await FetchUsdTwdRateAsync(ct);
             var positions = new List<PositionDto>();
             decimal twStock = 0, usStock = 0, cash = 0, fund = 0;
             decimal costBasisTWD = 0, pnlTWD = 0;
@@ -685,19 +687,17 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             try
             {
+                // BOT's flcsv endpoint now serves an anti-bot "Challenge Validation" HTML page to
+                // non-browser clients, so it always fell back to 32. Use a stable key-less JSON feed.
                 var client = httpClientFactory.CreateClient();
-                var csv = await client.GetStringAsync(BOT_FX_URL, ct);
-                var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                foreach (var line in lines.Skip(1))
+                var json = await client.GetStringAsync(FX_URL, ct);
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("rates", out var rates) &&
+                    rates.TryGetProperty("TWD", out var twd) &&
+                    twd.TryGetDecimal(out var rate) && rate > 0)
                 {
-                    var cols = line.Split(',');
-                    if (cols.Length < 14) continue;
-                    if (cols[0].Trim() != "USD") continue;
-                    if (decimal.TryParse(cols[13].Trim(), out var sell) && sell > 0)
-                    {
-                        cache.Set(FX_CACHE_KEY, sell, TimeSpan.FromHours(4));
-                        return sell;
-                    }
+                    cache.Set(FX_CACHE_KEY, rate, TimeSpan.FromHours(4));
+                    return rate;
                 }
             }
             catch (Exception ex)
