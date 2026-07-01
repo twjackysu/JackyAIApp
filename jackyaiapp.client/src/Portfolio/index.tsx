@@ -1,3 +1,4 @@
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import Box from '@mui/material/Box';
@@ -16,6 +17,7 @@ import { useState } from 'react';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
 import { NetWorthChart } from './NetWorthChart';
+import { exportPortfolioCsv } from './portfolioExport';
 import { fmtNum as fmt, pnlColor } from './portfolioUtils';
 import { PositionsTable } from './PositionsTable';
 import { usePrivacy } from './privacy';
@@ -243,6 +245,13 @@ export default function Portfolio() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {hasHoldings && summary && (
+              <Tooltip title="匯出 CSV (Excel)">
+                <IconButton onClick={() => exportPortfolioCsv(summary)} size="small">
+                  <FileDownloadOutlinedIcon />
+                </IconButton>
+              </Tooltip>
+            )}
             <PrivacyToggle />
             <HoldingsEditor />
           </Box>
