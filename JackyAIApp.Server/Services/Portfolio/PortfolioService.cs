@@ -174,6 +174,9 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 decimal currentPrice;
                 bool priceFailed = false;
+                // Pricing currency: stocks/cash use the stored currency; funds use the live NAV
+                // currency from FundRich (authoritative), not a manually-picked value.
+                var priceCurrency = p.Currency;
 
                 if (p.AssetType == AssetType.STOCK)
                 {
@@ -191,13 +194,19 @@ namespace JackyAIApp.Server.Services.Portfolio
                     currentPrice = p.UnitPrice ?? 0;
                     if (!string.IsNullOrWhiteSpace(p.Symbol))
                     {
-                        var latest = fundMap.TryGetValue(p.Symbol, out var nav)
-                            ? nav.Prices.LastOrDefault()?.Close
-                            : null;
-                        if (latest is > 0)
-                            currentPrice = latest.Value;
+                        if (fundMap.TryGetValue(p.Symbol, out var nav))
+                        {
+                            priceCurrency = nav.Currency;
+                            var latest = nav.Prices.LastOrDefault()?.Close;
+                            if (latest is > 0)
+                                currentPrice = latest.Value;
+                            else if (currentPrice <= 0)
+                                priceFailed = true;
+                        }
                         else if (currentPrice <= 0)
+                        {
                             priceFailed = true;
+                        }
                     }
                 }
                 else // CASH
@@ -210,7 +219,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (p.AssetType != AssetType.CASH && currentPrice <= 0)
                     priceFailed = true;
 
-                var fxMul = p.Currency == "USD" ? fx : 1m;
+                var fxMul = priceCurrency == "USD" ? fx : 1m;
                 var valueLocal = p.AssetType == AssetType.CASH
                     ? p.Quantity
                     : currentPrice * p.Quantity;
@@ -248,7 +257,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     Symbol = p.Symbol,
                     Name = p.Name,
                     Market = p.Market,
-                    Currency = p.Currency,
+                    Currency = priceCurrency,
                     CostCurrency = p.CostCurrency,
                     Quantity = p.Quantity,
                     CurrentPrice = currentPrice,
@@ -319,8 +328,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Distinct()
                 .ToList();
 
-            var fundNavMap = (await FetchFundsAsync(fundIds, ct))
-                .ToDictionary(kv => kv.Key, kv => kv.Value.Prices);
+            var fundNavMap = await FetchFundsAsync(fundIds, ct);
 
             var result = new List<NetWorthDataPoint>();
             for (var date = startDate; date <= today; date = date.AddDays(1))
@@ -345,18 +353,20 @@ namespace JackyAIApp.Server.Services.Portfolio
                     else if (p.AssetType == AssetType.FUND)
                     {
                         decimal nav = p.UnitPrice ?? 0; // fallback: flat value stored at save time
+                        var fundFxMul = fxMul; // default to stored currency until NAV tells us otherwise
                         if (!string.IsNullOrWhiteSpace(p.Symbol) &&
-                            fundNavMap.TryGetValue(p.Symbol, out var navPrices))
+                            fundNavMap.TryGetValue(p.Symbol, out var navHist))
                         {
+                            fundFxMul = navHist.Currency == "USD" ? fx : 1m;
                             // Both sides are ISO yyyy-MM-dd strings → ordinal compare is chronological.
                             var dayKey = date.ToString("yyyy-MM-dd");
-                            var navClose = navPrices
+                            var navClose = navHist.Prices
                                 .Where(x => string.CompareOrdinal(x.Date, dayKey) <= 0)
                                 .OrderByDescending(x => x.Date, StringComparer.Ordinal)
                                 .FirstOrDefault()?.Close ?? 0;
                             if (navClose > 0) nav = navClose;
                         }
-                        if (nav > 0) fund += nav * p.Quantity * fxMul;
+                        if (nav > 0) fund += nav * p.Quantity * fundFxMul;
                     }
                     else // STOCK
                     {
