@@ -53,7 +53,11 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly ICreditService _creditService = creditService;
         private readonly IMarketDataProviderFactory _providerFactory = providerFactory;
 
-        private const int OPERATION_TIMEOUT_SECONDS = 300; // 5 minutes
+        // Was 300s (5 min) — far longer than any user-facing request should ever take, and long
+        // enough for a stuck analysis to tie up a thread and pile up under load. Data fetches now
+        // run in parallel with a bounded per-call HTTP timeout, so 60s comfortably covers the
+        // slowest external call plus the OpenAI analysis (incl. its retries).
+        private const int OPERATION_TIMEOUT_SECONDS = 60;
         private const int CACHE_HOURS = 12;
 
         public async Task<ServiceResult> AnalyzeStockAsync(StockSearchRequest request, CancellationToken cancellationToken)
