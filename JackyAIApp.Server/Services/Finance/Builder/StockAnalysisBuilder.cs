@@ -20,6 +20,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
         private readonly CategoryWeightConfig _weightConfig;
         private readonly ILogger<StockAnalysisBuilder> _logger;
         private readonly SECInsiderTradingProvider? _insiderTradingProvider;
+        private readonly IHttpClientFactory _httpClientFactory;
 
         private string _stockCode = string.Empty;
         private bool _includeTechnical = true;
@@ -40,7 +41,8 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             IIndicatorEngine indicatorEngine,
             CategoryWeightConfig weightConfig,
             ILogger<StockAnalysisBuilder> logger,
-            SECInsiderTradingProvider insiderTradingProvider)
+            SECInsiderTradingProvider insiderTradingProvider,
+            IHttpClientFactory httpClientFactory)
         {
             _marketDataProvider = marketDataProvider;
             _chipDataProvider = chipDataProvider;
@@ -50,6 +52,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             _weightConfig = weightConfig;
             _logger = logger;
             _insiderTradingProvider = insiderTradingProvider;
+            _httpClientFactory = httpClientFactory;
         }
 
         public StockAnalysisBuilder ForStock(string stockCode) { _stockCode = stockCode; _marketRegion = null; return this; }
@@ -259,8 +262,10 @@ namespace JackyAIApp.Server.Services.Finance.Builder
         {
             try
             {
-                // Fetch SEC company tickers JSON
-                var client = new HttpClient();
+                // Fetch SEC company tickers JSON. Use the factory (pooled handler, bounded
+                // timeout) instead of `new HttpClient()`, which leaks sockets and never times out.
+                var client = _httpClientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromSeconds(15);
                 client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "JackyAIApp/1.0 jacky19918@gmail.com");
                 var response = await client.GetAsync("https://www.sec.gov/files/company_tickers.json", ct);
                 response.EnsureSuccessStatusCode();
@@ -280,8 +285,9 @@ namespace JackyAIApp.Server.Services.Finance.Builder
 
                 return null;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Failed to resolve SEC CIK for ticker {Ticker}", ticker);
                 return null;
             }
         }

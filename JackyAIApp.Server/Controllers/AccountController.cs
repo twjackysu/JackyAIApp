@@ -45,7 +45,6 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var userId = _userService.GetUserId();
-            await _DBContext.Database.EnsureCreatedAsync();
             var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null && userId != null)
             {
