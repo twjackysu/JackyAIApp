@@ -86,7 +86,14 @@ try
     });
     builder.Services.AddExtendedMemoryCache();
     builder.Services.AddMemoryCache();
+    // Default timeout for every HttpClient the app creates (named, typed, or the
+    // unnamed default from CreateClient()) — previously unbounded (~100s default),
+    // so one slow external API (TWSE/Yahoo/FundRich/SEC/FRED/...) could tie up a
+    // request thread far longer than a user will ever wait for a response.
+    // Individual AddHttpClient(...) registrations below can still override this.
     builder.Services.AddHttpClient();
+    builder.Services.ConfigureHttpClientDefaults(http =>
+        http.ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(20)));
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
         {
