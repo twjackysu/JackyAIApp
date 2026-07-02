@@ -78,7 +78,7 @@ function Repository() {
 
   return (
     <Box>
-      <Stack direction="row">
+      <Stack direction={{ xs: 'column', sm: 'row' }}>
         {allWords.length === 0 ? (
           <Box
             sx={{
@@ -103,7 +103,10 @@ function Repository() {
               component="nav"
               ref={listRef}
               sx={{
-                maxHeight: '80vh',
+                // Stacked above the word card on mobile — keep it short so the card isn't
+                // pushed off-screen; side-by-side on desktop can afford the full 80vh.
+                maxHeight: { xs: '35vh', sm: '80vh' },
+                minWidth: { sm: 240 },
                 overflowY: 'auto',
                 overflowX: 'hidden',
                 scrollbarWidth: 'thin', // For Firefox

@@ -45,9 +45,13 @@ export function PositionsTable({ positions, onStockClick }: Props) {
           <TableRow>
             <TableCell>項目</TableCell>
             <TableCell align="right">數量</TableCell>
-            <TableCell align="right">現價/NAV</TableCell>
+            <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+              現價/NAV
+            </TableCell>
             <TableCell align="right">市值 (TWD)</TableCell>
-            <TableCell align="right">占比</TableCell>
+            <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+              占比
+            </TableCell>
             <TableCell align="right">未實現損益</TableCell>
           </TableRow>
         </TableHead>
@@ -106,7 +110,7 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                 <TableCell align="right">
                   {p.assetType === 'CASH' ? '—' : fmtQty(p.quantity)}
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                   {p.assetType === 'CASH' ? '—' : `${p.currency} ${value(fmt(p.currentPrice, 2))}`}
                 </TableCell>
                 <TableCell align="right">
@@ -117,7 +121,7 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                     </Typography>
                   )}
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                   {showRatio && total > 0
                     ? `${((p.marketValueTWD / total) * 100).toFixed(1)}%`
                     : '—'}
