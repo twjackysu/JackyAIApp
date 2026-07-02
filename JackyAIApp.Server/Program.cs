@@ -1,17 +1,13 @@
 ﻿using Azure.Identity;
 using Betalgo.Ranul.OpenAI.Extensions;
-using DataAnalysisLibrary.Connectors.MsSql;
-using DataAnalysisLibrary.Core.Engine;
 using DotnetSdkUtilities.Extensions.ServiceCollectionExtensions;
-using DotnetSdkUtilities.Factory.ResponseFactory;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Extensions;
-using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.DataAnalysis;
 using JackyAIApp.Server.Services.Finance;
-using JackyAIApp.Server.Services.Job;
-using JackyAIApp.Server.Services.Job.Providers;
+using JackyAIApp.Server.Services.Portfolio;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
@@ -113,43 +109,16 @@ try
         options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
     });
 
-    builder.Services.AddHttpContextAccessor();
-    builder.Services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
-    builder.Services.AddScoped<IMyResponseFactory, ResponseFactory>();
-    builder.Services.AddScoped<IUserService, UserService>();
-    builder.Services.AddScoped<ICreditService, CreditService>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.Dify.IDifyApiClient, JackyAIApp.Server.Services.Dify.DifyApiClient>();
-
-    // English-learning domain (dictionary / exam / repository / word-of-the-day / daily challenge)
+    // Feature-grouped registrations (see Extensions/ServiceCollectionExtensions.cs and each
+    // module's own *ServiceExtensions.cs) — one call per domain instead of registrations
+    // scattered inline here, so the full DI graph is auditable module-by-module.
+    builder.Services.AddCoreServices();
     builder.Services.AddVocabularyServices();
-
-    builder.Services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
-    builder.Services.AddScoped<IStockCodeResolver, StockCodeResolver>();
-    builder.Services.AddScoped<ITWSEDataService, TWSEDataService>();
-    builder.Services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
-
-    // Register finance indicator engine, TWStockLib, and data providers
     builder.Services.AddFinanceAnalysisServices();
-
     builder.Services.AddJobAggregatorServices();
-
-    // Portfolio
-    builder.Services.AddScoped<JackyAIApp.Server.Services.Portfolio.IFundDataService,
-        JackyAIApp.Server.Services.Portfolio.FundDataService>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.Portfolio.IPortfolioService,
-        JackyAIApp.Server.Services.Portfolio.PortfolioService>();
-
-    // Configure Prompt and OpenAI services
-    builder.Services.AddSingleton<JackyAIApp.Server.Services.Prompt.IPromptLoader, JackyAIApp.Server.Services.Prompt.PromptLoader>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.OpenAI.IOpenAIPromptService, JackyAIApp.Server.Services.OpenAI.OpenAIPromptService>();
-
+    builder.Services.AddPortfolioServices();
     builder.Services.AddConnectorAndPaymentServices(builder.Configuration);
-
-    // DataAnalysis: config/engine codec + in-memory session store (uploaded tabular data)
-    builder.Services.AddScoped<JackyAIApp.Server.Services.DataAnalysis.IDataSourceConfigService,
-        JackyAIApp.Server.Services.DataAnalysis.DataSourceConfigService>();
-    builder.Services.AddScoped<JackyAIApp.Server.Services.DataAnalysis.ISessionDataStore,
-        JackyAIApp.Server.Services.DataAnalysis.SessionDataStore>();
+    builder.Services.AddDataAnalysisServices(sqlConnectionString);
 
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options =>
@@ -159,16 +128,6 @@ try
     });
 
     builder.Services.AddOptions().Configure<Settings>(builder.Configuration.GetSection("Settings"));
-
-    // Register DataAnalysisEngine (singleton — engine itself is stateless; connections are per-query)
-    builder.Services.AddSingleton(_ =>
-        new DataAnalysisEngineBuilder()
-            .AddSource(new MsSqlDataSourceFactory(new MsSqlConfig
-            {
-                SourceKey = "mssql",
-                ConnectionString = sqlConnectionString
-            }))
-            .Build());
 
     builder.Services.AddHealthChecks();
     var app = builder.Build();
