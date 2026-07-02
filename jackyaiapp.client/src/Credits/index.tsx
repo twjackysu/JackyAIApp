@@ -242,7 +242,9 @@ const Credits: React.FC = () => {
                   <TableCell>Type</TableCell>
                   <TableCell>Reason</TableCell>
                   <TableCell align="right">Amount</TableCell>
-                  <TableCell align="right">Balance</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                    Balance
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -274,7 +276,9 @@ const Credits: React.FC = () => {
                       {tx.transactionType === 'consume' ? '-' : '+'}
                       {tx.amount}
                     </TableCell>
-                    <TableCell align="right">{tx.balanceAfter}</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                      {tx.balanceAfter}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

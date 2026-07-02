@@ -84,7 +84,7 @@ export function SourcePanel({
       ) : isLoggedIn ? (
         /* ── Logged-in normal mode ──────────────────────────────────────── */
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <FormControl size="small" sx={{ minWidth: 260 }}>
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 260 } }}>
             <InputLabel>Source</InputLabel>
             <Select
               value={activeSourceId ?? ''}
@@ -117,7 +117,7 @@ export function SourcePanel({
             onKeyDown={(e) => {
               if (e.key === 'Enter') onApplyTableName();
             }}
-            sx={{ width: 220 }}
+            sx={{ width: { xs: '100%', sm: 220 } }}
             helperText="Press Enter or click away to apply"
           />
 

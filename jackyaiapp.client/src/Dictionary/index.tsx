@@ -46,7 +46,7 @@ function Dictionary() {
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         sx={{
-          width: '50%',
+          width: { xs: '100%', sm: '50%' },
           marginBottom: word ? '20px' : '0',
           transition: 'margin-bottom 0.3s ease',
         }}
@@ -61,7 +61,7 @@ function Dictionary() {
       {word && (
         <Box
           sx={{
-            width: data?.data.meanings.length == 1 ? '80%' : '100%',
+            width: { xs: '100%', sm: data?.data.meanings.length == 1 ? '80%' : '100%' },
           }}
         >
           <WordCard

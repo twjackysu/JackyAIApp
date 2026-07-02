@@ -47,8 +47,12 @@ export const IndicatorTable = ({ indicators, category }: IndicatorTableProps) =>
             <TableHead>
               <TableRow>
                 <TableCell>指標</TableCell>
-                <TableCell align="center">數值</TableCell>
-                <TableCell align="center">方向</TableCell>
+                <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                  數值
+                </TableCell>
+                <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                  方向
+                </TableCell>
                 <TableCell align="center">分數</TableCell>
                 <TableCell>訊號</TableCell>
                 <TableCell>說明</TableCell>
@@ -67,8 +71,10 @@ export const IndicatorTable = ({ indicators, category }: IndicatorTableProps) =>
                       {getIndicatorDisplayName(ind.name)}
                     </Typography>
                   </TableCell>
-                  <TableCell align="center">{ind.value.toFixed(2)}</TableCell>
-                  <TableCell align="center">
+                  <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                    {ind.value.toFixed(2)}
+                  </TableCell>
+                  <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <Chip
                       label={getDirectionLabel(ind.direction)}
                       color={getDirectionChipColor(ind.direction)}

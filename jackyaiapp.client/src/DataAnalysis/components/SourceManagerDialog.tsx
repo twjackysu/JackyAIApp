@@ -17,6 +17,7 @@ import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
+import { useTheme } from '@mui/material/styles';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -25,6 +26,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useEffect, useState } from 'react';
 
 import {
@@ -48,6 +50,8 @@ interface SourceManagerDialogProps {
 }
 
 export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { data: sourcesRes, isLoading } = useGetSourcesQuery(undefined, { skip: !open });
   const [createSource, { isLoading: creating }] = useCreateSourceMutation();
   const [updateSource, { isLoading: updating }] = useUpdateSourceMutation();
@@ -163,7 +167,7 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
     !!formName && (formType === 'MsSql' ? !!formConnStr : !!formClusterUri && !!formDatabase);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth fullScreen={fullScreen}>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <SettingsIcon fontSize="small" />
         {view === 'list'

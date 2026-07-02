@@ -11,6 +11,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Paper from '@mui/material/Paper';
+import { useTheme } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -21,6 +22,7 @@ import TableRow from '@mui/material/TableRow';
 import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useRef, useState } from 'react';
 
 import { useUploadSessionMutation } from '../../apis/dataAnalysisApis';
@@ -93,6 +95,8 @@ function parseTabular(text: string): { headers: string[]; rows: Record<string, s
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadDataDialogProps) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [tab, setTab] = useState(0); // 0 = paste, 1 = file
   const [pasteText, setPaste] = useState('');
   const [datasetName, setName] = useState('');
@@ -165,7 +169,7 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
   const previewRows = parsed?.rows.slice(0, 5) ?? [];
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth fullScreen={fullScreen}>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <CloudUploadIcon fontSize="small" />
         Upload Data
