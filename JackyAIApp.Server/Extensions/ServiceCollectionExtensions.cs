@@ -1,11 +1,16 @@
+using DotnetSdkUtilities.Factory.ResponseFactory;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.DailyChallenge;
 using JackyAIApp.Server.Services.Dictionary;
+using JackyAIApp.Server.Services.Dify;
 using JackyAIApp.Server.Services.Exam;
 using JackyAIApp.Server.Services.Exam.Generators;
 using JackyAIApp.Server.Services.Job;
 using JackyAIApp.Server.Services.Job.Providers;
+using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.Prompt;
 using JackyAIApp.Server.Services.Repository;
 using JackyAIApp.Server.Services.SpacedRepetition;
 using JackyAIApp.Server.Services.SpellChecker;
@@ -18,6 +23,26 @@ namespace JackyAIApp.Server.Extensions
     /// </summary>
     public static class ServiceCollectionExtensions
     {
+        /// <summary>
+        /// Cross-cutting services used across most feature modules: response
+        /// factories, current-user/credit access, the Dify client, and the
+        /// prompt-file-backed OpenAI wrapper.
+        /// </summary>
+        public static IServiceCollection AddCoreServices(this IServiceCollection services)
+        {
+            services.AddHttpContextAccessor();
+            services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
+            services.AddScoped<IMyResponseFactory, ResponseFactory>();
+            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<ICreditService, CreditService>();
+            services.AddScoped<IDifyApiClient, DifyApiClient>();
+
+            services.AddSingleton<IPromptLoader, PromptLoader>();
+            services.AddScoped<IOpenAIPromptService, OpenAIPromptService>();
+
+            return services;
+        }
+
         /// <summary>
         /// English-learning domain: dictionary, exam (+ generator strategies),
         /// repository, word-of-the-day, and daily challenge.

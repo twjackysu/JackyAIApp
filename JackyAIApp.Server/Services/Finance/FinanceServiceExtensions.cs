@@ -13,11 +13,17 @@ namespace JackyAIApp.Server.Services.Finance
     public static class FinanceServiceExtensions
     {
         /// <summary>
-        /// Registers all finance analysis services including TWStockLib,
-        /// indicator calculators, data providers, and the indicator engine.
+        /// Registers all finance-domain services: TWSE data access, stock code
+        /// resolution, AI trend analysis, TWStockLib, indicator calculators,
+        /// data providers, and the indicator engine.
         /// </summary>
         public static IServiceCollection AddFinanceAnalysisServices(this IServiceCollection services)
         {
+            services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
+            services.AddScoped<IStockCodeResolver, StockCodeResolver>();
+            services.AddScoped<ITWSEDataService, TWSEDataService>();
+            services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
+
             // Register TWStockLib services
             services.AddStockServices();
 
