@@ -1,12 +1,13 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import { ChatConversation, ChatHistoryMessage } from './types';
 
 export const chatbotApis = createApi({
   reducerPath: 'chatbotApis',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api/chatbot' }),
+  baseQuery: apiBaseQuery('/api/chatbot'),
   tagTypes: ['Conversations'],
   endpoints: (builder) => ({
     /** List the current user's conversations (most-recently updated first). */

@@ -1,5 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import {
@@ -23,7 +24,7 @@ import {
 
 export const dataAnalysisApis = createApi({
   reducerPath: 'dataAnalysisApis',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api/dataanalysis' }),
+  baseQuery: apiBaseQuery('/api/dataanalysis'),
   tagTypes: ['Sources'],
   endpoints: (builder) => ({
     // ── Source CRUD ─────────────────────────────────────────────────────────

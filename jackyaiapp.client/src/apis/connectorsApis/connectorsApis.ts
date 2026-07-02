@@ -1,4 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
+
+import { apiBaseQuery } from '../baseQuery';
 
 import {
   ConnectorStatus,
@@ -12,10 +14,7 @@ import {
 
 export const connectorsApi = createApi({
   reducerPath: 'connectorsApi',
-  baseQuery: fetchBaseQuery({
-    baseUrl: '/api/connectors/',
-    credentials: 'include', // Include cookies for authentication
-  }),
+  baseQuery: apiBaseQuery('/api/connectors/', 'include'), // Include cookies for authentication
   tagTypes: ['ConnectorStatus'],
   endpoints: (builder) => ({
     getConnectorStatus: builder.query<ConnectorStatus[], void>({

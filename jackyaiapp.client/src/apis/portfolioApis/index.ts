@@ -1,5 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import {
@@ -16,7 +17,7 @@ import {
 
 export const portfolioApis = createApi({
   reducerPath: 'portfolioApis',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api/portfolio' }),
+  baseQuery: apiBaseQuery('/api/portfolio'),
   tagTypes: ['Holdings', 'Summary'],
   endpoints: (builder) => ({
     getPortfolioSummary: builder.query<ApiOkResponse<PortfolioSummaryDto>, void>({
