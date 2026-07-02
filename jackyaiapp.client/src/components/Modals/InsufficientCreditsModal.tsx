@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGetCreditBalanceQuery } from '@/apis/creditApis';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { closeCreditModal } from '@/redux/uiSlice';
+import { fmtNum } from '@/utils/format';
 
 export default function InsufficientCreditsModal() {
   const dispatch = useAppDispatch();
@@ -89,7 +90,7 @@ export default function InsufficientCreditsModal() {
                   fontWeight: 'bold',
                 }}
               >
-                {currentBalance.toLocaleString()}
+                {fmtNum(currentBalance)}
               </Typography>
             </Box>
           </Box>
@@ -110,7 +111,7 @@ export default function InsufficientCreditsModal() {
                     fontWeight: 'bold',
                   }}
                 >
-                  {requiredCredits.toLocaleString()}
+                  {fmtNum(requiredCredits)}
                 </Typography>
               </Box>
             </Box>

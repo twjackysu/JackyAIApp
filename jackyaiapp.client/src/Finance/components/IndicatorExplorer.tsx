@@ -17,6 +17,7 @@ import type { ECOption } from '@/DataAnalysis/components/summarizeChart/echarts'
 
 import { useGetIndicatorsQuery, useLazyGetIndicatorInsightQuery } from '@/apis/financeApis';
 import { echarts } from '@/DataAnalysis/components/summarizeChart/echarts';
+import { fmtNum } from '@/utils/format';
 
 // echarts-for-react ships CJS only; the default import may arrive wrapped.
 const ReactECharts =
@@ -25,11 +26,9 @@ const ReactECharts =
 
 const formatValue = (v: number | null): string => {
   if (v == null) return '—';
+  // Large values (index/volume-scale) read cleaner with no decimals; smaller ones keep 2.
   const decimals = Math.abs(v) >= 1000 ? 0 : 2;
-  return v.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
+  return fmtNum(v, decimals);
 };
 
 const IndicatorCard = ({ series }: { series: IndicatorSeries }) => {

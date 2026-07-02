@@ -14,6 +14,7 @@ import { SectorSection } from './macro/SectorSection';
 import type { MarketQuote } from '@/apis/financeApis/types';
 
 import { useGetMacroEconomyQuery, useGetMarketOverviewQuery } from '@/apis/financeApis';
+import { fmtNum } from '@/utils/format';
 
 /** Display order + labels for the dashboard groups. */
 const GROUPS: { key: string; label: string }[] = [
@@ -25,11 +26,9 @@ const GROUPS: { key: string; label: string }[] = [
 
 const formatPrice = (price: number | null): string => {
   if (price == null) return '—';
+  // Sub-$1 quotes (e.g. some FX pairs) need finer precision than typical stock prices.
   const decimals = Math.abs(price) < 1 ? 4 : 2;
-  return price.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
+  return fmtNum(price, decimals);
 };
 
 const QuoteTile = ({ quote }: { quote: MarketQuote }) => {

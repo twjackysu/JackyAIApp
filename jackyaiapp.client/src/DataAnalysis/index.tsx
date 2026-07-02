@@ -37,6 +37,8 @@ import { makeViewByEntry } from './utils/groupField';
 
 import type { NlSummarizeResult } from '../apis/dataAnalysisApis/types';
 
+import { fmtNum } from '@/utils/format';
+
 export default function DataAnalysis() {
   const [tab, setTab] = useState(1);
 
@@ -135,12 +137,12 @@ export default function DataAnalysis() {
   }, [ctxSourceId, ctxTableName, sessionId, fetchRowCount]);
   const dbRowCount = rowCountData?.data?.totalCount;
   const rowCountDisplay = sessionId
-    ? sessionInfo?.rowCount.toLocaleString()
+    ? sessionInfo && fmtNum(sessionInfo.rowCount)
     : dbRowCount == null
       ? undefined
       : dbRowCount >= 200
         ? '200+'
-        : dbRowCount.toLocaleString();
+        : fmtNum(dbRowCount);
 
   // ── Source change: reset all query config ─────────────────────────────────
   const handleSourceChange = (id: string) => {
