@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.DTO;
@@ -23,7 +24,6 @@ namespace JackyAIApp.Server.Services.Portfolio
         private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
         private const string STOCK_CACHE_PREFIX = "portfolio_stock_";
-        private static readonly TimeSpan StockCacheTtl = TimeSpan.FromMinutes(30);
 
         // ── Save / read holdings ─────────────────────────────────────────────
 
@@ -740,7 +740,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 var data = await provider.FetchAsync(symbol, ct);
                 // Only cache a usable result; an empty fetch shouldn't suppress the next retry.
                 if (data.HistoricalPrices.Count > 0)
-                    cache.Set(key, data, StockCacheTtl);
+                    cache.Set(key, data, CacheTtl.Portfolio.StockPrice);
                 return data;
             }
             catch (Exception ex)
@@ -790,7 +790,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     rates.TryGetProperty("TWD", out var twd) &&
                     twd.TryGetDecimal(out var rate) && rate > 0)
                 {
-                    cache.Set(FX_CACHE_KEY, rate, TimeSpan.FromHours(4));
+                    cache.Set(FX_CACHE_KEY, rate, CacheTtl.Portfolio.Fx);
                     return rate;
                 }
             }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Portfolio;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -79,7 +80,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     }
                 }
 
-                cache.Set(cacheKey, items, TimeSpan.FromHours(6));
+                cache.Set(cacheKey, items, CacheTtl.Portfolio.FundRich);
                 return items;
             }
             catch (Exception ex)
@@ -145,7 +146,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 prices.Sort((a, b) => string.CompareOrdinal(a.Date, b.Date));
 
                 var result = new FundNavHistory(currency, prices);
-                cache.Set(cacheKey, result, TimeSpan.FromHours(6));
+                cache.Set(cacheKey, result, CacheTtl.Portfolio.FundRich);
                 return result;
             }
             catch (Exception ex)
