@@ -38,7 +38,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Builder
                 _mockIndicatorEngine.Object,
                 _weightConfig,
                 _mockLogger.Object,
-                mockInsiderProvider.Object);
+                mockInsiderProvider.Object,
+                Mock.Of<IHttpClientFactory>());
         }
 
         private MarketData CreateMockMarketData()

@@ -173,6 +173,14 @@ try
     builder.Services.AddHealthChecks();
     var app = builder.Build();
 
+    // Apply any pending EF Core migrations on startup so schema changes ship with the
+    // deploy instead of requiring a manual `dotnet ef database update` against prod.
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<AzureSQLDBContext>();
+        dbContext.Database.Migrate();
+    }
+
     app.UseResponseCompression();
     app.UseMiddleware<ExceptionMiddleware>();
     app.UseDefaultFiles();
