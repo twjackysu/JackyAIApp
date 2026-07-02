@@ -86,14 +86,19 @@ function NetWorthCard({
   pnlPct,
   hasPnl,
   annualized,
+  dayChange,
+  dayChangePct,
 }: {
   total: number;
   pnl: number;
   pnlPct: number;
   hasPnl: boolean;
   annualized?: number | null;
+  dayChange?: number | null;
+  dayChangePct?: number | null;
 }) {
   const isPositive = pnl >= 0;
+  const isDayPositive = (dayChange ?? 0) >= 0;
   const { value, change, showRatio } = usePrivacy();
   return (
     <Card
@@ -116,6 +121,32 @@ function NetWorthCard({
         <Typography variant="h3" sx={{ fontWeight: 800, mt: 0.5, letterSpacing: -1 }}>
           NT${value(fmt(total))}
         </Typography>
+        {dayChange != null && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Typography
+              variant="body1"
+              sx={{ color: pnlColor(dayChange, 'inherit'), fontWeight: 600 }}
+              component="span"
+            >
+              {isDayPositive ? '▲' : '▼'} NT${change(fmt(Math.abs(dayChange)))}
+            </Typography>
+            {showRatio && dayChangePct != null && (
+              <Chip
+                label={`${isDayPositive ? '+' : ''}${dayChangePct.toFixed(2)}%`}
+                size="small"
+                sx={{
+                  bgcolor: alpha(isDayPositive ? '#22c55e' : '#ef4444', 0.15),
+                  color: isDayPositive ? '#22c55e' : '#ef4444',
+                  fontWeight: 700,
+                  border: 'none',
+                }}
+              />
+            )}
+            <Typography variant="caption" color="text.secondary">
+              單日異動 (與前一交易日比)
+            </Typography>
+          </Box>
+        )}
         {hasPnl && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
             <Typography
@@ -320,6 +351,8 @@ export default function Portfolio() {
                   pnlPct={summary.unrealizedPnlPct}
                   hasPnl={hasPnl}
                   annualized={summary.annualizedReturnPct}
+                  dayChange={summary.dayChangeTWD}
+                  dayChangePct={summary.dayChangePct}
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>

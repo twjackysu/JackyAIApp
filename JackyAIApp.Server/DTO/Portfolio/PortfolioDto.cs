@@ -60,6 +60,10 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal UnrealizedPnlPct { get; set; }
         // Money-weighted annualized return (XIRR) over all snapshots; null when not computable.
         public decimal? AnnualizedReturnPct { get; set; }
+        // Change vs the previous trading day's close, holding today's exact holdings constant
+        // (isolates price movement). Null when no prior-day price is available for every holding.
+        public decimal? DayChangeTWD { get; set; }
+        public decimal? DayChangePct { get; set; }
         // Net market exposure: Σ market value × exposure factor (leveraged ETFs amplify, bonds count as 0).
         public decimal MarketExposureTWD { get; set; }
         public decimal ExposureRatioPct { get; set; } // exposure ÷ net worth × 100 (can exceed 100 with leverage)

@@ -50,6 +50,8 @@ export interface PortfolioSummaryDto {
   annualizedReturnPct?: number | null;
   marketExposureTWD: number;
   exposureRatioPct: number;
+  dayChangeTWD?: number | null;
+  dayChangePct?: number | null;
   positions: PositionDto[];
 }
 
