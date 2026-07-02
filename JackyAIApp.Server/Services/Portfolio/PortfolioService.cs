@@ -287,6 +287,17 @@ namespace JackyAIApp.Server.Services.Portfolio
             var annualizedReturnPct = await ComputeAnnualizedReturnAsync(
                 userId, fx, costBasisTWD + pnlTWD, ct);
 
+            // Day change: re-value today's exact holdings at the previous trading day's close,
+            // reusing the price histories already fetched above (no extra network calls). Holding
+            // quantities constant isolates price movement — same-day trades and FX drift are not
+            // modeled, matching the "just the total, skip the breakdown" scope this was asked for.
+            var prevTradingDay = PreviousTradingDay(DateOnly.FromDateTime(DateTime.UtcNow));
+            var prevNetWorthTWD = ValueAsOfDate(snapshot.Positions, prevTradingDay, fx, stockMap, fundMap);
+            decimal? dayChangeTWD = prevNetWorthTWD is > 0 ? netWorthTWD - prevNetWorthTWD.Value : null;
+            decimal? dayChangePct = dayChangeTWD.HasValue && prevNetWorthTWD is > 0
+                ? Math.Round(dayChangeTWD.Value / prevNetWorthTWD.Value * 100, 2)
+                : null;
+
             return new PortfolioSummaryDto
             {
                 EffectiveDate = snapshot.EffectiveDate,
@@ -302,6 +313,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                 AnnualizedReturnPct = annualizedReturnPct,
                 MarketExposureTWD = equityExposureTWD,
                 ExposureRatioPct = netWorthTWD > 0 ? Math.Round(equityExposureTWD / netWorthTWD * 100, 1) : 0,
+                DayChangeTWD = dayChangeTWD,
+                DayChangePct = dayChangePct,
                 Positions = positions.OrderByDescending(p => p.MarketValueTWD).ToList(),
             };
         }
@@ -719,6 +732,67 @@ namespace JackyAIApp.Server.Services.Portfolio
             var rate = Xirr.Compute(flows);
             if (rate is null || double.IsNaN(rate.Value) || double.IsInfinity(rate.Value)) return null;
             return Math.Round((decimal)(rate.Value * 100), 2);
+        }
+
+        /// <summary>Most recent weekday before <paramref name="from"/> (skips Sat/Sun only, not market holidays).</summary>
+        private static DateOnly PreviousTradingDay(DateOnly from)
+        {
+            var d = from.AddDays(-1);
+            while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(-1);
+            return d;
+        }
+
+        /// <summary>
+        /// Re-values a set of positions at their closing price as of <paramref name="date"/>, using
+        /// already-fetched price histories (no network calls). Returns null if any non-cash position
+        /// has no price on or before that date, so the caller can treat the whole total as unknown
+        /// rather than silently under-counting a position as worth 0.
+        /// </summary>
+        private static decimal? ValueAsOfDate(
+            IEnumerable<HoldingPosition> positions, DateOnly date, decimal fx,
+            Dictionary<string, DTO.Finance.MarketData> stockMap, Dictionary<string, FundNavHistory> fundMap)
+        {
+            var dt = date.ToDateTime(TimeOnly.MinValue);
+            var dayKey = date.ToString("yyyy-MM-dd");
+            decimal total = 0;
+
+            foreach (var p in positions)
+            {
+                if (p.AssetType == AssetType.CASH)
+                {
+                    total += p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                    continue;
+                }
+
+                decimal price = 0;
+                var priceCurrency = p.Currency;
+
+                if (p.AssetType == AssetType.STOCK)
+                {
+                    if (stockMap.TryGetValue(p.Symbol, out var data))
+                        price = data.HistoricalPrices
+                            .Where(x => x.Date.Date <= dt)
+                            .OrderByDescending(x => x.Date)
+                            .FirstOrDefault()?.Close ?? 0;
+                }
+                else // FUND
+                {
+                    if (!string.IsNullOrWhiteSpace(p.Symbol) && fundMap.TryGetValue(p.Symbol, out var nav))
+                    {
+                        priceCurrency = nav.Currency;
+                        price = nav.Prices
+                            .Where(x => string.CompareOrdinal(x.Date, dayKey) <= 0)
+                            .OrderByDescending(x => x.Date, StringComparer.Ordinal)
+                            .FirstOrDefault()?.Close ?? 0;
+                    }
+                    if (price <= 0) price = p.UnitPrice ?? 0; // fallback, mirrors the live valuation loop
+                }
+
+                if (price <= 0) return null;
+                total += price * p.Quantity * (priceCurrency == "USD" ? fx : 1m);
+            }
+
+            return total;
         }
 
         /// <summary>
