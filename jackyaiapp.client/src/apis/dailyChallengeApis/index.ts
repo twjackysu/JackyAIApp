@@ -1,5 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import {
@@ -11,9 +12,7 @@ import {
 
 export const dailyChallengeApis = createApi({
   reducerPath: 'dailyChallengeApis',
-  baseQuery: fetchBaseQuery({
-    baseUrl: '/api/dailychallenge',
-  }),
+  baseQuery: apiBaseQuery('/api/dailychallenge'),
   tagTypes: ['DailyChallenge', 'Stats'],
   endpoints: (builder) => ({
     getChallenge: builder.query<ApiOkResponse<DailyChallengeResponse>, void>({

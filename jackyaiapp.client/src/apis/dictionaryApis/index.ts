@@ -1,5 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import { Word } from './types';
@@ -7,7 +8,7 @@ import { Word } from './types';
 // Define a service using a base URL and expected endpoints
 export const dictionaryApis = createApi({
   reducerPath: 'dictionaryApis',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api/dictionary' }),
+  baseQuery: apiBaseQuery('/api/dictionary'),
   tagTypes: ['Word'],
   endpoints: (builder) => ({
     getWord: builder.query<ApiOkResponse<Word>, string>({

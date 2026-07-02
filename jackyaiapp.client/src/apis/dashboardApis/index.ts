@@ -1,5 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import type {
@@ -15,7 +16,7 @@ import type { SummarizeResult } from '../dataAnalysisApis/types';
 
 export const dashboardApis = createApi({
   reducerPath: 'dashboardApis',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api', credentials: 'include' }),
+  baseQuery: apiBaseQuery('/api', 'include'),
   tagTypes: ['Dashboards', 'Dashboard'],
   endpoints: (builder) => ({
     getDashboards: builder.query<ApiOkResponse<DashboardSummary[]>, void>({

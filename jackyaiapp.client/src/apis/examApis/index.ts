@@ -1,5 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import {
@@ -25,9 +26,7 @@ import {
 // Define a service using a base URL and expected endpoints
 export const examApis = createApi({
   reducerPath: 'examApis',
-  baseQuery: fetchBaseQuery({
-    baseUrl: '/api/exam',
-  }),
+  baseQuery: apiBaseQuery('/api/exam'),
   endpoints: (builder) => ({
     getClozeTest: builder.query<ApiOkResponse<ClozeTest>, void>({
       query: () => ({

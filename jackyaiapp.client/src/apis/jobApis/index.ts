@@ -1,12 +1,13 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import { JobListing, JobSearchParams, PlatformInfo } from './types';
 
 export const jobApis = createApi({
   reducerPath: 'jobApis',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api/job' }),
+  baseQuery: apiBaseQuery('/api/job'),
   tagTypes: ['Listings'],
   endpoints: (builder) => ({
     getListings: builder.query<ApiOkResponse<JobListing[]>, JobSearchParams>({

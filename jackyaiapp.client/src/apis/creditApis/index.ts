@@ -1,5 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import {
@@ -11,9 +12,7 @@ import {
 
 export const creditApis = createApi({
   reducerPath: 'creditApis',
-  baseQuery: fetchBaseQuery({
-    baseUrl: '/api/credit',
-  }),
+  baseQuery: apiBaseQuery('/api/credit'),
   tagTypes: ['CreditBalance', 'CreditHistory'],
   endpoints: (builder) => ({
     getCreditBalance: builder.query<ApiOkResponse<CreditBalanceResponse>, void>({

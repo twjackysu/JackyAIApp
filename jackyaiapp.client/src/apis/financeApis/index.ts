@@ -1,7 +1,8 @@
 // filepath: e:\Users\jacky\Documents\Repo\JackyAIApp\jackyaiapp.client\src\apis\financeApis\index.ts
 
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import {
@@ -19,9 +20,7 @@ import {
 // Define a service using a base URL and expected endpoints
 export const financeApis = createApi({
   reducerPath: 'financeApis',
-  baseQuery: fetchBaseQuery({
-    baseUrl: '/api/finance',
-  }),
+  baseQuery: apiBaseQuery('/api/finance'),
   tagTypes: ['StockAnalysis'],
   endpoints: (builder) => ({
     analyzeStock: builder.mutation<ApiOkResponse<StockTrendAnalysis>, StockSearchRequest>({

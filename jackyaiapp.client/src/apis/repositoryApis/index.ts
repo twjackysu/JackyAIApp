@@ -1,5 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import { AddWordPackResult, GetRepositoryWordRequest, PersonalWord, WordPack } from './types';
@@ -10,9 +11,7 @@ import { Word } from '@/apis/dictionaryApis/types';
 export const repositoryApis = createApi({
   reducerPath: 'repositoryApis',
   tagTypes: ['PersonalWord'],
-  baseQuery: fetchBaseQuery({
-    baseUrl: '/api/repository',
-  }),
+  baseQuery: apiBaseQuery('/api/repository'),
   endpoints: (builder) => ({
     getRepositoryWords: builder.query<ApiOkResponse<Word[]>, GetRepositoryWordRequest>({
       query: (request) => ({

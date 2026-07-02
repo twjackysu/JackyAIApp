@@ -1,14 +1,13 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import { WeeklyReportResponse, LeaderboardResponse, ActivityResponse } from './types';
 
 export const statsApis = createApi({
   reducerPath: 'statsApis',
-  baseQuery: fetchBaseQuery({
-    baseUrl: '/api/stats',
-  }),
+  baseQuery: apiBaseQuery('/api/stats'),
   endpoints: (builder) => ({
     getWeeklyReport: builder.query<ApiOkResponse<WeeklyReportResponse>, void>({
       query: () => 'weekly-report',

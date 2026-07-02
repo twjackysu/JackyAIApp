@@ -1,10 +1,12 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
+
+import { apiBaseQuery } from '../baseQuery';
 
 import { CreditPack, PayPalCaptureResponse, PayPalOrderResponse } from './types';
 
 export const paypalApi = createApi({
   reducerPath: 'paypalApi',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api/paypal/', credentials: 'include' }),
+  baseQuery: apiBaseQuery('/api/paypal/', 'include'),
   endpoints: (builder) => ({
     getPayPalPacks: builder.query<CreditPack[], void>({ query: () => 'packs' }),
     createPayPalOrder: builder.mutation<PayPalOrderResponse, string>({

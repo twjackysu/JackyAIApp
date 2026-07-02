@@ -1,5 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi } from '@reduxjs/toolkit/query/react';
 
+import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import {
@@ -11,9 +12,7 @@ import {
 
 export const reviewApis = createApi({
   reducerPath: 'reviewApis',
-  baseQuery: fetchBaseQuery({
-    baseUrl: '/api/review',
-  }),
+  baseQuery: apiBaseQuery('/api/review'),
   tagTypes: ['DueReviews', 'DueCount'],
   endpoints: (builder) => ({
     getDueReviews: builder.query<ApiOkResponse<DueReviewsResponse>, void>({
