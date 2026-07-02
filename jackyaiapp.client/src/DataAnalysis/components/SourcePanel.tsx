@@ -17,6 +17,8 @@ import Typography from '@mui/material/Typography';
 
 import type { DataSourceConfigDto, SessionInfo } from '../../apis/dataAnalysisApis/types';
 
+import { fmtNum } from '@/utils/format';
+
 interface SourcePanelProps {
   isLoggedIn: boolean;
   sources: DataSourceConfigDto[];
@@ -65,7 +67,7 @@ export function SourcePanel({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Chip
             icon={<AccessTimeIcon />}
-            label={`${sessionInfo.name} — ${sessionInfo.rowCount.toLocaleString()} rows`}
+            label={`${sessionInfo.name} — ${fmtNum(sessionInfo.rowCount)} rows`}
             color="warning"
             variant="outlined"
           />

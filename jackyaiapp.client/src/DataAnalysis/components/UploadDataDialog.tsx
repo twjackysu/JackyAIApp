@@ -27,6 +27,8 @@ import { useUploadSessionMutation } from '../../apis/dataAnalysisApis';
 
 import type { SessionInfo } from '../../apis/dataAnalysisApis/types';
 
+import { fmtNum } from '@/utils/format';
+
 interface UploadDataDialogProps {
   open: boolean;
   onClose: () => void;
@@ -238,7 +240,7 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
         {parsed && !parseError && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Detected <strong>{parsed.rows.length.toLocaleString()}</strong> rows ×{' '}
+              Detected <strong>{fmtNum(parsed.rows.length)}</strong> rows ×{' '}
               <strong>{parsed.headers.length}</strong> columns — preview (first 5 rows):
             </Typography>
             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 220 }}>

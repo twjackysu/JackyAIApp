@@ -30,6 +30,7 @@ import {
   useCreatePayPalOrderMutation,
   useGetPayPalPacksQuery,
 } from '@/apis/paypalApis';
+import { fmtNum } from '@/utils/format';
 
 // 'ecpay' is a disabled placeholder until a real ECPay merchant account is set up —
 // that will be the Taiwan-local payment method. PayPal is overseas-only.
@@ -145,7 +146,7 @@ const Credits: React.FC = () => {
         </Typography>
         {balanceData?.data && (
           <Chip
-            label={`Current Balance: ${balanceData.data.balance.toLocaleString()} credits`}
+            label={`Current Balance: ${fmtNum(balanceData.data.balance)} credits`}
             color="primary"
             variant="outlined"
             sx={{ fontSize: '1rem', py: 2, px: 1 }}
@@ -202,7 +203,7 @@ const Credits: React.FC = () => {
                     {pack.price}
                   </Typography>
                   <Typography variant="h5" color="text.secondary">
-                    {pack.credits.toLocaleString()} credits
+                    {fmtNum(pack.credits)} credits
                   </Typography>
                 </CardContent>
                 <CardActions sx={{ justifyContent: 'center', pb: 3 }}>
