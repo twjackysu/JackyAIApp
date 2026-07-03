@@ -54,6 +54,11 @@ export interface TranslationTestUserResponse {
   translation: string;
 }
 
+export type TranslationGrade = 'A' | 'B' | 'C' | 'D' | 'E';
+
 export interface TranslationQualityGradingAssistantResponse {
-  translationQualityGrading: string;
+  grade: TranslationGrade;
+  reason: string;
+  correctedTranslation: string;
+  wordUsed: boolean;
 }

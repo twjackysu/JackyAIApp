@@ -98,7 +98,10 @@ namespace JackyAIApp.Server.Services.Exam
                 }),
                 Assistant: JsonConvert.SerializeObject(new TranslationQualityGradingAssistantResponse
                 {
-                    TranslationQualityGrading = "A級 原因：這個翻譯完整保留了原文的所有語意，語法和拼寫完全正確，語句流暢且符合英文的表達習慣。"
+                    Grade = "A",
+                    Reason = "這個翻譯完整保留了原文的所有語意，語法和拼寫完全正確，語句流暢且符合英文的表達習慣。",
+                    CorrectedTranslation = "He was reading an interesting book attentively.",
+                    WordUsed = true
                 })
             );
 
@@ -354,6 +357,11 @@ namespace JackyAIApp.Server.Services.Exam
         /// Picks a random WordId from the user's saved words at the database level
         /// (COUNT + OFFSET) instead of loading the whole collection into memory.
         /// </summary>
+        /// <summary>
+        /// Picks a word for the next exam question, biased toward the SM-2 review schedule
+        /// instead of pure uniform random — otherwise exams and the Review flow drift apart
+        /// and well-known words get quizzed just as often as weak ones.
+        /// </summary>
         private async Task<string?> GetRandomUserWordIdAsync(string userId)
         {
             var query = _dbContext.UserWords.Where(uw => uw.UserId == userId);
@@ -363,12 +371,32 @@ namespace JackyAIApp.Server.Services.Exam
                 return null;
             }
 
-            var skip = Random.Shared.Next(count);
-            return await query
-                .OrderBy(uw => uw.WordId)
-                .Skip(skip)
+            var now = DateTime.UtcNow;
+
+            // Prefer words that are due (or have never been reviewed).
+            var dueQuery = query.Where(uw => uw.NextReviewDate == null || uw.NextReviewDate <= now);
+            var dueCount = await dueQuery.CountAsync();
+            if (dueCount > 0)
+            {
+                var skip = Random.Shared.Next(dueCount);
+                return await dueQuery
+                    .OrderBy(uw => uw.WordId)
+                    .Skip(skip)
+                    .Select(uw => uw.WordId)
+                    .FirstOrDefaultAsync();
+            }
+
+            // Nothing due yet — surface the weakest words (fewest consecutive-correct
+            // streaks) so struggling words still get practiced between scheduled reviews.
+            const int weakPoolSize = 10;
+            var weakestIds = await query
+                .OrderBy(uw => uw.ConsecutiveCorrect)
+                .ThenBy(uw => uw.ReviewCount)
                 .Select(uw => uw.WordId)
-                .FirstOrDefaultAsync();
+                .Take(Math.Min(weakPoolSize, count))
+                .ToListAsync();
+
+            return weakestIds[Random.Shared.Next(weakestIds.Count)];
         }
     }
 }

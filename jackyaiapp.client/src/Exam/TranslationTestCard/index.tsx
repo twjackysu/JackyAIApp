@@ -1,17 +1,19 @@
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MicIcon from '@mui/icons-material/Mic';
-import { TextField } from '@mui/material';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import FormControl from '@mui/material/FormControl';
-import FormLabel from '@mui/material/FormLabel';
+import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
+import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
+import { TranslationQualityGradingAssistantResponse } from '@/apis/dictionaryApis/types';
 import {
   useGetTranslationTestQuery,
   useLazyGetTranslationQualityGradingQuery,
@@ -22,71 +24,104 @@ import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage'
 import { CREDIT_COSTS } from '@/constants/creditCosts';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 
+type Phase = 'answering' | 'revealed' | 'graded';
+
+const GRADE_COLOR: Record<string, 'success' | 'info' | 'warning' | 'error'> = {
+  A: 'success',
+  B: 'success',
+  C: 'warning',
+  D: 'error',
+  E: 'error',
+};
+
 function TranslationCard() {
   const theme = useTheme();
-  const [input, setInput] = useState<string | null>(null);
+  const [input, setInput] = useState<string>('');
+  const [phase, setPhase] = useState<Phase>('answering');
+  const [grading, setGrading] = useState<TranslationQualityGradingAssistantResponse | null>(null);
+  const [showWordHint, setShowWordHint] = useState(false);
+  const [srsNote, setSrsNote] = useState<string | null>(null);
+  const [gradingError, setGradingError] = useState<string | null>(null);
+
   const { data, isFetching, refetch, isError, error } = useGetTranslationTestQuery();
-  const [showAnswer, setShowAnswer] = useState<boolean>(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
 
   const { isRecording, isTranscribing, mediaRecorder, toggleRecording } = useVoiceRecording({
     onTranscriptionComplete: (text) => setInput(text),
   });
 
-  const [getTranslationQualityGrading, { isFetching: isTranslationQualityGradingFetching }] =
+  const [getTranslationQualityGrading, { isFetching: isGrading }] =
     useLazyGetTranslationQualityGradingQuery();
   const [recordExamResult] = useRecordExamResultMutation();
-  const [srsNote, setSrsNote] = useState<string | null>(null);
 
-  const handleTextFieldInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setInput(event.target.value);
-  };
-  const handleSubmit = () => {
-    if (input && data?.data.chinese && data?.data.word) {
-      getTranslationQualityGrading({
-        translation: input,
-        examinationQuestion: data.data.chinese,
-        unfamiliarWords: data.data.word,
-      }).then((res) => {
-        if (res.data) {
-          const grading = res.data.data.translationQualityGrading;
-          setFeedback(grading);
-
-          // Grade letters A/B count as correct; C/D/E as needs-work. Feed back into SRS (free).
-          const wordId = data?.data.wordId;
-          const letter = grading.match(/[A-E]/)?.[0];
-          if (wordId && letter) {
-            const correct = letter === 'A' || letter === 'B';
-            recordExamResult({ wordId, examType: 'Translation', correct })
-              .unwrap()
-              .then((r) => {
-                if (r.data.scheduleUpdated) {
-                  setSrsNote(
-                    correct ? '✓ 已記錄，這個字會延後再複習' : '↻ 已記錄，這個字會盡快回到複習清單',
-                  );
-                }
-              })
-              .catch(() => {
-                /* best-effort */
-              });
-          }
-        } else {
-          setFeedback('Error in grading the translation');
-        }
-      });
-    } else {
-      setFeedback('Something went wrong, try again!');
-    }
-  };
-  const handleNext = () => {
-    setInput(null);
-    setFeedback(null);
+  const resetForNewQuestion = () => {
+    setInput('');
+    setPhase('answering');
+    setGrading(null);
+    setShowWordHint(false);
     setSrsNote(null);
-    setShowAnswer(false);
+    setGradingError(null);
+  };
+
+  const handleSubmit = () => {
+    if (!input.trim() || !data?.data.chinese || !data?.data.word) return;
+    setGradingError(null);
+
+    getTranslationQualityGrading({
+      translation: input,
+      examinationQuestion: data.data.chinese,
+      unfamiliarWords: data.data.word,
+    }).then((res) => {
+      if (!res.data) {
+        setGradingError('批改失敗，請稍後再試一次。');
+        return;
+      }
+      const result = res.data.data;
+      setGrading(result);
+      setPhase('graded');
+
+      // Grade A/B count as correct; C/D/E as needs-work.
+      const wordId = data?.data.wordId;
+      if (wordId) {
+        const correct = result.grade === 'A' || result.grade === 'B';
+        recordExamResult({ wordId, examType: 'Translation', correct })
+          .unwrap()
+          .then((r) => {
+            if (r.data.scheduleUpdated) {
+              setSrsNote(
+                correct ? '✓ 已記錄，這個字會延後再複習' : '↻ 已記錄，這個字會盡快回到複習清單',
+              );
+            }
+          })
+          .catch(() => {
+            /* best-effort */
+          });
+      }
+    });
+  };
+
+  const handleRetry = () => {
+    // Keep the user's current input so they can edit and resubmit for a new grading.
+    setPhase('answering');
+    setGrading(null);
+    setSrsNote(null);
+  };
+
+  const handleReveal = () => {
+    setPhase('revealed');
+  };
+
+  const handleNext = () => {
+    resetForNewQuestion();
     refetch();
   };
-  const handleShowAnswer = () => {
-    setShowAnswer(true);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (input.trim() && !isGrading) {
+        handleSubmit();
+      }
+    }
   };
 
   if (isFetching) {
@@ -95,118 +130,186 @@ function TranslationCard() {
   if (isError) {
     return <FetchBaseQueryErrorMessage error={error} />;
   }
+
   return (
     <Box sx={{ maxWidth: 600, margin: 'auto', padding: 2 }}>
       <Typography variant="h6" gutterBottom>
         {data?.data.chinese}
       </Typography>
-      <FormControl component="fieldset">
-        <FormLabel component="legend">輸入對應的英文句子:</FormLabel>
-        <Stack
-          direction="row"
-          spacing={2}
-          sx={{
-            alignItems: 'center',
-          }}
-        >
-          <TextField
-            value={input || ''}
-            onChange={handleTextFieldInputChange}
-            disabled={showAnswer}
-          />
-          <Tooltip
-            title={
-              mediaRecorder
-                ? isRecording
-                  ? '點擊停止錄音'
-                  : `點擊開始錄音（轉錄消耗 ${CREDIT_COSTS.AUDIO_TRANSCRIPTION} credit）`
-                : '麥克風無法使用'
-            }
-            arrow
-          >
-            <IconButton
-              onClick={toggleRecording}
-              sx={{
-                color: isRecording
-                  ? theme.palette.error.main
-                  : isTranscribing
-                    ? theme.palette.warning.main
-                    : theme.palette.action.active,
-              }}
-              disabled={!mediaRecorder || isTranscribing}
+
+      {showWordHint ? (
+        <Chip label={`提示: ${data?.data.word}`} size="small" sx={{ mb: 1 }} />
+      ) : (
+        <Chip
+          label="顯示目標單字提示"
+          size="small"
+          variant="outlined"
+          icon={<VisibilityIcon fontSize="small" />}
+          onClick={() => setShowWordHint(true)}
+          sx={{ mb: 1, cursor: 'pointer' }}
+        />
+      )}
+
+      {phase === 'answering' && (
+        <>
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', mt: 1 }}>
+            <TextField
+              fullWidth
+              multiline
+              minRows={2}
+              maxRows={6}
+              label="輸入對應的英文句子"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isGrading}
+              autoFocus
+            />
+            <Tooltip
+              title={
+                mediaRecorder
+                  ? isRecording
+                    ? '點擊停止錄音'
+                    : `點擊開始錄音（轉錄消耗 ${CREDIT_COSTS.AUDIO_TRANSCRIPTION} credit）`
+                  : '麥克風無法使用'
+              }
+              arrow
             >
-              <MicIcon />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-        {isTranscribing && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            正在轉換語音為文字...
-          </Typography>
-        )}
-      </FormControl>
-      {showAnswer && (
-        <Typography variant="h6" sx={{ marginTop: 2 }}>
-          {data?.data.english}
-        </Typography>
+              <IconButton
+                onClick={toggleRecording}
+                sx={{
+                  color: isRecording
+                    ? theme.palette.error.main
+                    : isTranscribing
+                      ? theme.palette.warning.main
+                      : theme.palette.action.active,
+                }}
+                disabled={!mediaRecorder || isTranscribing || isGrading}
+              >
+                <MicIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+          {isTranscribing && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              正在轉換語音為文字...
+            </Typography>
+          )}
+          {gradingError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {gradingError}
+            </Alert>
+          )}
+
+          <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+            <Box>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSubmit}
+                disabled={!input.trim() || isGrading}
+              >
+                {isGrading ? '批改中...' : '送出批改'}
+              </Button>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 0.5 }}
+              >
+                AI 批改消耗 {CREDIT_COSTS.TRANSLATION_GRADING} credit
+              </Typography>
+            </Box>
+            <Button variant="text" onClick={handleReveal} disabled={isGrading}>
+              直接看答案
+            </Button>
+          </Box>
+        </>
       )}
-      {showAnswer || (
-        <Box sx={{ marginTop: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSubmit}
-            disabled={isTranslationQualityGradingFetching || !!feedback || isTranscribing}
-          >
-            Submit
-          </Button>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-            AI 批改消耗 {CREDIT_COSTS.TRANSLATION_GRADING} credit
-          </Typography>
+
+      {phase === 'revealed' && (
+        <Box sx={{ mt: 2 }}>
+          <Alert severity="info">
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              參考答案
+            </Typography>
+            <Typography variant="body1">{data?.data.english}</Typography>
+          </Alert>
+          <Box sx={{ mt: 2 }}>
+            <Button variant="contained" color="primary" onClick={handleNext}>
+              下一題
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              下一題消耗 {CREDIT_COSTS.TRANSLATION_TEST} credits
+            </Typography>
+          </Box>
         </Box>
       )}
-      <Typography variant="h6" sx={{ marginTop: 2, display: 'flex', alignItems: 'center' }}>
-        翻譯評級
-        <Tooltip
-          title={
-            <ul style={{ margin: 0, padding: '0 16px' }}>
-              <li>A: 完美的翻譯，沒有任何語法、拼字或風格錯誤，並且完整保留了所有含義。</li>
-              <li>B: 高品質翻譯，文法或拼字錯誤很少，句子大多流暢。</li>
-              <li>C: 翻譯一般，有一些文法或拼字問題，但主要意義清晰。</li>
-              <li>D: 翻譯品質低下，有遺漏或重大錯誤，以及影響理解的文法問題。</li>
-              <li>E: 翻譯完全不正確，內容與原文不符或相矛盾，錯誤百出。</li>
-            </ul>
-          }
-          arrow
-        >
-          <InfoOutlinedIcon sx={{ marginLeft: 1, cursor: 'pointer' }} />
-        </Tooltip>
-      </Typography>
-      {feedback && (
-        <Typography variant="h6" sx={{ marginTop: 2 }}>
-          評級: {feedback}
-        </Typography>
-      )}
-      {srsNote && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-          {srsNote}
-        </Typography>
-      )}
-      {(showAnswer || !feedback) && (
-        <Box sx={{ mt: 1 }}>
-          <Button variant="contained" color="primary" onClick={handleNext}>
-            Next
-          </Button>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-            下一題消耗 {CREDIT_COSTS.TRANSLATION_TEST} credits
+
+      {phase === 'graded' && grading && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            你的翻譯
           </Typography>
-        </Box>
-      )}
-      {showAnswer || (
-        <Box sx={{ marginTop: 2 }}>
-          <Button variant="outlined" onClick={handleShowAnswer} disabled={showAnswer}>
-            Show Answer
-          </Button>
+          <Typography variant="body1" sx={{ mb: 1.5 }}>
+            {input}
+          </Typography>
+
+          <Typography variant="body2" color="text.secondary">
+            參考翻譯
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 1.5 }}>
+            {grading.correctedTranslation}
+          </Typography>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Chip label={`評級 ${grading.grade}`} color={GRADE_COLOR[grading.grade]} />
+            {!grading.wordUsed && (
+              <Chip
+                label={`未使用目標單字「${data?.data.word}」`}
+                size="small"
+                variant="outlined"
+              />
+            )}
+            <Tooltip
+              title={
+                <ul style={{ margin: 0, padding: '0 16px' }}>
+                  <li>A: 完美的翻譯，沒有任何語法、拼字或風格錯誤，並且完整保留了所有含義。</li>
+                  <li>B: 高品質翻譯，文法或拼字錯誤很少，句子大多流暢。</li>
+                  <li>C: 翻譯一般，有一些文法或拼字問題，但主要意義清晰。</li>
+                  <li>D: 翻譯品質低下，有遺漏或重大錯誤，以及影響理解的文法問題。</li>
+                  <li>E: 翻譯完全不正確，內容與原文不符或相矛盾，錯誤百出。</li>
+                </ul>
+              }
+              arrow
+            >
+              <InfoOutlinedIcon sx={{ cursor: 'pointer' }} fontSize="small" />
+            </Tooltip>
+          </Box>
+          <Typography variant="body2">{grading.reason}</Typography>
+
+          {srsNote && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              {srsNote}
+            </Typography>
+          )}
+
+          <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Box>
+              <Button variant="contained" color="primary" onClick={handleNext}>
+                下一題
+              </Button>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 0.5 }}
+              >
+                下一題消耗 {CREDIT_COSTS.TRANSLATION_TEST} credits
+              </Typography>
+            </Box>
+            <Button variant="outlined" onClick={handleRetry}>
+              修改重新送出
+            </Button>
+          </Box>
         </Box>
       )}
     </Box>
