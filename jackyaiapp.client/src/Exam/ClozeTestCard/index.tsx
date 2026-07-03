@@ -13,7 +13,10 @@ import { useGetClozeTestQuery, useRecordExamResultMutation } from '@/apis/examAp
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
+import RoundProgress from '@/Exam/components/RoundProgress';
+import RoundResultScreen from '@/Exam/components/RoundResultScreen';
 import WordRecap from '@/Exam/components/WordRecap';
+import { useExamRound } from '@/Exam/hooks/useExamRound';
 
 function shuffle<T>(items: T[]): T[] {
   const arr = [...items];
@@ -37,6 +40,7 @@ function ClozeTestCard() {
   const [submitted, setSubmitted] = useState(false);
   const [recordExamResult] = useRecordExamResultMutation();
   const [srsNote, setSrsNote] = useState<string | null>(null);
+  const round = useExamRound();
 
   // Options are stored in a fixed DB order; reshuffle on the client each time a
   // new question loads so repeat practice doesn't let users memorize positions.
@@ -58,6 +62,7 @@ function ClozeTestCard() {
     setSubmitted(true);
 
     const correct = selectedOption === data.data.answer;
+    round.recordAnswer(correct);
     const wordId = data.data.wordId;
     if (wordId) {
       recordExamResult({ wordId, examType: 'Cloze', correct })
@@ -79,12 +84,22 @@ function ClozeTestCard() {
     setSelectedOption(null);
     setSubmitted(false);
     setSrsNote(null);
+    if (round.advance()) {
+      refetch();
+    }
+  };
+
+  const handleRestartRound = () => {
+    round.resetRound();
+    setSelectedOption(null);
+    setSubmitted(false);
+    setSrsNote(null);
     refetch();
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (submitted || !data) return;
+      if (submitted || !data || round.roundComplete) return;
       const index = Number(e.key) - 1;
       if (index >= 0 && index < shuffledOptions.length) {
         setSelectedOption(shuffledOptions[index]);
@@ -95,7 +110,17 @@ function ClozeTestCard() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submitted, data, shuffledOptions, selectedOption]);
+  }, [submitted, data, shuffledOptions, selectedOption, round.roundComplete]);
+
+  if (round.roundComplete) {
+    return (
+      <RoundResultScreen
+        correct={round.correct}
+        total={round.answered}
+        onRestart={handleRestartRound}
+      />
+    );
+  }
 
   if (isFetching) {
     return <AILoading />;
@@ -105,6 +130,7 @@ function ClozeTestCard() {
   }
   return (
     <Box sx={{ maxWidth: 600, margin: 'auto', padding: 2 }}>
+      <RoundProgress answered={round.answered} total={round.roundSize} correct={round.correct} />
       <Typography variant="h6" gutterBottom>
         {data?.data.question}
       </Typography>
