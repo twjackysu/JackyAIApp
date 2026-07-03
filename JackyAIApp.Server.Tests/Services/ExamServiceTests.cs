@@ -204,7 +204,10 @@ namespace JackyAIApp.Server.Tests.Services
             };
             var expectedGrading = new TranslationQualityGradingAssistantResponse
             {
-                TranslationQualityGrading = "A級 原因：翻譯準確"
+                Grade = "A",
+                Reason = "翻譯準確",
+                CorrectedTranslation = "The sun is bright.",
+                WordUsed = true
             };
             _promptServiceMock.Setup(x => x.GetCompletionAsync<TranslationQualityGradingAssistantResponse>(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
