@@ -1,3 +1,7 @@
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import Accordion from '@mui/material/Accordion';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Table from '@mui/material/Table';
@@ -7,6 +11,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
+import { useState } from 'react';
 
 import { fmtNum as fmt, fmtQty, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
@@ -27,9 +32,30 @@ const TYPE_CHIP: Record<
   FUND: { label: '基金', color: 'info' },
 };
 
+type GroupKey = 'TW_STOCK' | 'US_STOCK' | 'FUND' | 'CASH' | 'OTHER';
+
+const GROUP_LABEL: Record<GroupKey, string> = {
+  TW_STOCK: '台股',
+  US_STOCK: '美股',
+  FUND: '基金',
+  CASH: '現金',
+  OTHER: '其他',
+};
+
+const GROUP_ORDER: GroupKey[] = ['TW_STOCK', 'US_STOCK', 'FUND', 'CASH', 'OTHER'];
+
+function groupKeyOf(p: PositionDto): GroupKey {
+  if (p.assetType === 'STOCK') return p.market === 'US' ? 'US_STOCK' : 'TW_STOCK';
+  if (p.assetType === 'FUND') return 'FUND';
+  if (p.assetType === 'CASH') return 'CASH';
+  return 'OTHER';
+}
+
 export function PositionsTable({ positions, onStockClick }: Props) {
-  const { value, change, showRatio } = usePrivacy();
+  const { value, showRatio } = usePrivacy();
   const total = positions.reduce((s, p) => s + p.marketValueTWD, 0);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
   if (positions.length === 0) {
     return (
       <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
@@ -37,6 +63,69 @@ export function PositionsTable({ positions, onStockClick }: Props) {
       </Typography>
     );
   }
+
+  const groups = GROUP_ORDER.map((key) => ({
+    key,
+    positions: positions.filter((p) => groupKeyOf(p) === key),
+  })).filter((g) => g.positions.length > 0);
+
+  return (
+    <Box>
+      {groups.map((g) => {
+        const groupTotal = g.positions.reduce((s, p) => s + p.marketValueTWD, 0);
+        const isExpanded = expanded[g.key] ?? true;
+        return (
+          <Accordion
+            key={g.key}
+            expanded={isExpanded}
+            onChange={(_, next) => setExpanded((prev) => ({ ...prev, [g.key]: next }))}
+            disableGutters
+          >
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  pr: 1,
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {GROUP_LABEL[g.key]}（{g.positions.length}）
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  {showRatio && total > 0 && (
+                    <Typography variant="caption" color="text.secondary">
+                      {((groupTotal / total) * 100).toFixed(1)}%
+                    </Typography>
+                  )}
+                  <Typography variant="body2">{value(fmt(groupTotal))}</Typography>
+                </Box>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0 }}>
+              <PositionsGroupTable
+                positions={g.positions}
+                total={total}
+                onStockClick={onStockClick}
+              />
+            </AccordionDetails>
+          </Accordion>
+        );
+      })}
+    </Box>
+  );
+}
+
+interface GroupTableProps {
+  positions: PositionDto[];
+  total: number;
+  onStockClick?: (p: PositionDto) => void;
+}
+
+function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps) {
+  const { value, change, showRatio } = usePrivacy();
 
   return (
     <TableContainer>
