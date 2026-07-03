@@ -79,7 +79,7 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         [Fact]
-        public async Task GenerateCloze_NoWords_ReturnsError()
+        public async Task GenerateCloze_NoWordsAnywhere_ReturnsError()
         {
             await SeedUserAsync();
 
@@ -87,7 +87,40 @@ namespace JackyAIApp.Server.Tests.Services
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ErrorCodes.Forbidden, result.Error);
-            Assert.Contains("haven't added any unfamiliar words", result.ErrorMessage);
+            Assert.Contains("No words are available", result.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task GenerateCloze_EmptyRepositoryButWordsExistGlobally_FallsBackToGlobalWord()
+        {
+            await SeedUserAsync();
+
+            // A word exists in the dictionary but isn't in this user's repository.
+            var word = new SQLWord
+            {
+                Id = Guid.NewGuid().ToString(),
+                WordText = "moon",
+                KKPhonics = "/muːn/",
+                DateAdded = DateTime.UtcNow,
+                LastUpdated = DateTime.UtcNow
+            };
+            _dbContext.Words.Add(word);
+            await _dbContext.SaveChangesAsync();
+
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<DTO.ClozeTest>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>()))
+                .ReturnsAsync((new DTO.ClozeTest
+                {
+                    Question = "The __________ was full tonight.",
+                    Answer = "moon",
+                    Options = new List<string> { "moon", "moan", "mood", "moot" }
+                }, (string?)null));
+
+            var result = await _service.GenerateWordExamAsync(ExamType.Cloze);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(word.Id, ((DTO.ClozeTestResponse)result.Data!).WordId);
         }
 
         [Fact]

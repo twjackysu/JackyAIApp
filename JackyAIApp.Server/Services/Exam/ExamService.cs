@@ -36,7 +36,7 @@ namespace JackyAIApp.Server.Services.Exam
             generators.ToDictionary(g => g.Type);
 
         private const string NoWordsMessage =
-            "You haven't added any unfamiliar words yet. Please use the favorite icon to add unfamiliar words to the Repository. The exam will generate questions based on the words you're unfamiliar with.";
+            "No words are available yet to generate an exam from. Try searching a word in the Dictionary first.";
 
         public async Task<ServiceResult> GenerateWordExamAsync(ExamType type)
         {
@@ -383,7 +383,9 @@ namespace JackyAIApp.Server.Services.Exam
         /// <summary>
         /// Picks a word for the next exam question, biased toward the SM-2 review schedule
         /// instead of pure uniform random — otherwise exams and the Review flow drift apart
-        /// and well-known words get quizzed just as often as weak ones.
+        /// and well-known words get quizzed just as often as weak ones. Falls back to a
+        /// random word from the whole dictionary when the user's repository is empty, so
+        /// exams work before anyone has favorited anything.
         /// </summary>
         private async Task<string?> GetRandomUserWordIdAsync(string userId)
         {
@@ -391,7 +393,7 @@ namespace JackyAIApp.Server.Services.Exam
             var count = await query.CountAsync();
             if (count == 0)
             {
-                return null;
+                return await GetRandomGlobalWordIdAsync();
             }
 
             var now = DateTime.UtcNow;
@@ -420,6 +422,24 @@ namespace JackyAIApp.Server.Services.Exam
                 .ToListAsync();
 
             return weakestIds[Random.Shared.Next(weakestIds.Count)];
+        }
+
+        /// <summary>Random word from the whole dictionary, used when the user has no repository words yet.</summary>
+        private async Task<string?> GetRandomGlobalWordIdAsync()
+        {
+            var query = _dbContext.Words.Where(w => w.DataInvalid != true);
+            var count = await query.CountAsync();
+            if (count == 0)
+            {
+                return null;
+            }
+
+            var skip = Random.Shared.Next(count);
+            return await query
+                .OrderBy(w => w.Id)
+                .Skip(skip)
+                .Select(w => w.Id)
+                .FirstOrDefaultAsync();
         }
     }
 }
