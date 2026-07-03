@@ -291,12 +291,24 @@ namespace JackyAIApp.Server.Services.Portfolio
             // reusing the price histories already fetched above (no extra network calls). Holding
             // quantities constant isolates price movement — same-day trades and FX drift are not
             // modeled, matching the "just the total, skip the breakdown" scope this was asked for.
+            //
+            // Guard: "today's" price is whatever the provider's most recent published bar is, which
+            // — before today's TWSE/NAV data has actually landed for the day — is still yesterday's
+            // close. In that case "today" and "previous trading day" resolve to the exact same data
+            // point and would silently show a guaranteed $0/0.00% change that reads as "flat" rather
+            // than "no new data yet". Only compute a day change once at least one holding has a
+            // price genuinely newer than the previous trading day.
             var prevTradingDay = PreviousTradingDay(DateOnly.FromDateTime(DateTime.UtcNow));
-            var prevNetWorthTWD = ValueAsOfDate(snapshot.Positions, prevTradingDay, fx, stockMap, fundMap);
-            decimal? dayChangeTWD = prevNetWorthTWD is > 0 ? netWorthTWD - prevNetWorthTWD.Value : null;
-            decimal? dayChangePct = dayChangeTWD.HasValue && prevNetWorthTWD is > 0
-                ? Math.Round(dayChangeTWD.Value / prevNetWorthTWD.Value * 100, 2)
-                : null;
+            decimal? dayChangeTWD = null, dayChangePct = null;
+            if (HasNewerPriceThan(snapshot.Positions, prevTradingDay, stockMap, fundMap))
+            {
+                var prevNetWorthTWD = ValueAsOfDate(snapshot.Positions, prevTradingDay, fx, stockMap, fundMap);
+                if (prevNetWorthTWD is > 0)
+                {
+                    dayChangeTWD = netWorthTWD - prevNetWorthTWD.Value;
+                    dayChangePct = Math.Round(dayChangeTWD.Value / prevNetWorthTWD.Value * 100, 2);
+                }
+            }
 
             return new PortfolioSummaryDto
             {
@@ -697,10 +709,21 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .OrderByDescending(s => s.EffectiveDate)
                 .FirstOrDefaultAsync(ct);
 
+        // XIRR annualizes whatever return happened over the observed window. Below this many days
+        // of history, even a small, perfectly real gain extrapolates into an absurd percentage
+        // (e.g. a 2% gain over 5 days compounds to 4-digit "annualized" — mathematically correct,
+        // practically meaningless). This also protects new adopters: this app has no transaction
+        // log, so a first-ever snapshot's entire cost basis is booked as a "contribution" dated on
+        // that snapshot's day — but that cost may represent years of actual prior purchases. Until
+        // enough real snapshot history accumulates, the implied holding period is far too short to
+        // annualize honestly, so we simply don't show a number rather than a misleading one.
+        private const int MinXirrHistoryDays = 30;
+
         /// <summary>
         /// Money-weighted annualized return (XIRR) on invested capital. Changes in recorded cost
         /// basis between snapshots are treated as dated contributions; the current value of
-        /// cost-bearing holdings is the terminal inflow. Returns null when not computable.
+        /// cost-bearing holdings is the terminal inflow. Returns null when not computable, or when
+        /// there isn't yet enough real history to annualize without being misleading.
         /// </summary>
         private async Task<decimal?> ComputeAnnualizedReturnAsync(
             string userId, decimal fallbackFx, decimal terminalValueTWD, CancellationToken ct)
@@ -713,6 +736,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .OrderBy(s => s.EffectiveDate)
                 .ToListAsync(ct);
             if (snaps.Count == 0) return null;
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            if (today.DayNumber - snaps[0].EffectiveDate.DayNumber < MinXirrHistoryDays) return null;
 
             var flows = new List<(DateOnly, double)>();
             decimal prevCost = 0;
@@ -727,7 +753,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 prevCost = snapCost;
             }
 
-            flows.Add((DateOnly.FromDateTime(DateTime.UtcNow), (double)terminalValueTWD));
+            flows.Add((today, (double)terminalValueTWD));
 
             var rate = Xirr.Compute(flows);
             if (rate is null || double.IsNaN(rate.Value) || double.IsInfinity(rate.Value)) return null;
@@ -740,6 +766,34 @@ namespace JackyAIApp.Server.Services.Portfolio
             var d = from.AddDays(-1);
             while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(-1);
             return d;
+        }
+
+        /// <summary>
+        /// True if at least one stock/fund position has a published price dated after
+        /// <paramref name="cutoff"/> — i.e. the data provider has actually posted something newer
+        /// than the previous trading day. Used to distinguish "the market genuinely hasn't moved"
+        /// from "there's simply no fresher bar yet", which would otherwise both look like a $0 change.
+        /// </summary>
+        private static bool HasNewerPriceThan(
+            IEnumerable<HoldingPosition> positions, DateOnly cutoff,
+            Dictionary<string, DTO.Finance.MarketData> stockMap, Dictionary<string, FundNavHistory> fundMap)
+        {
+            foreach (var p in positions)
+            {
+                if (p.AssetType == AssetType.STOCK && stockMap.TryGetValue(p.Symbol, out var data))
+                {
+                    var latest = data.HistoricalPrices.LastOrDefault()?.Date;
+                    if (latest.HasValue && DateOnly.FromDateTime(latest.Value) > cutoff) return true;
+                }
+                else if (p.AssetType == AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol) &&
+                         fundMap.TryGetValue(p.Symbol, out var nav))
+                {
+                    var latestStr = nav.Prices.LastOrDefault()?.Date;
+                    if (latestStr != null && DateOnly.TryParse(latestStr, out var latestDate) && latestDate > cutoff)
+                        return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>
