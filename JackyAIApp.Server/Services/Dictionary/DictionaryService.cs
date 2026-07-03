@@ -7,6 +7,7 @@ using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.SpellChecker;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using System.Linq;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Dictionary
@@ -106,6 +107,18 @@ namespace JackyAIApp.Server.Services.Dictionary
             await _dbContext.SaveChangesAsync();
 
             return ServiceResult.Ok(WordMapper.ToDto(result));
+        }
+
+        public ServiceResult SuggestWords(string word)
+        {
+            var lowerWord = word.Trim().ToLower();
+            if (string.IsNullOrEmpty(lowerWord))
+            {
+                return ServiceResult.Ok(new WordSuggestionsResponse { Suggestions = new List<string>() });
+            }
+
+            var suggestions = _spellChecker.Suggest(lowerWord);
+            return ServiceResult.Ok(new WordSuggestionsResponse { Suggestions = suggestions.ToList() });
         }
 
         private Task<SQL.Word?> LoadWordAsync(string lowerWord) =>

@@ -8,6 +8,7 @@ import { useGetRepositoryWordsByWordIdQuery } from '../apis/repositoryApis';
 import WordCard from '../components/WordCard';
 
 import RecentlySearched, { RecentlySearchedRef } from './components/RecentlySearched';
+import SpellSuggestions from './components/SpellSuggestions';
 import WordOfTheDay from './components/WordOfTheDay';
 
 import { useGetWordQuery } from '@/apis/dictionaryApis';
@@ -74,6 +75,9 @@ function Dictionary() {
             isFavorite={!!personalWordsData?.data}
             error={error}
           />
+          {isError && !isFetching && (
+            <SpellSuggestions word={word} onSelectSuggestion={handleClickRecentlySearchedText} />
+          )}
         </Box>
       )}
     </Stack>

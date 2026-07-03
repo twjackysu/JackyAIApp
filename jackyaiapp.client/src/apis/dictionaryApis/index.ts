@@ -3,7 +3,7 @@ import { createApi } from '@reduxjs/toolkit/query/react';
 import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
-import { Word } from './types';
+import { Word, WordSuggestionsResponse } from './types';
 
 // Define a service using a base URL and expected endpoints
 export const dictionaryApis = createApi({
@@ -19,6 +19,9 @@ export const dictionaryApis = createApi({
     getWordOfTheDay: builder.query<ApiOkResponse<Word>, void>({
       query: () => 'WordOfTheDay',
     }),
+    getWordSuggestions: builder.query<ApiOkResponse<WordSuggestionsResponse>, string>({
+      query: (word) => `${word}/suggestions`,
+    }),
     invalidWord: builder.mutation<ApiOkResponse<Word>, string>({
       query: (word) => ({
         url: `${word}/invalid`,
@@ -29,4 +32,9 @@ export const dictionaryApis = createApi({
   }),
 });
 
-export const { useGetWordQuery, useInvalidWordMutation, useGetWordOfTheDayQuery } = dictionaryApis;
+export const {
+  useGetWordQuery,
+  useInvalidWordMutation,
+  useGetWordOfTheDayQuery,
+  useGetWordSuggestionsQuery,
+} = dictionaryApis;

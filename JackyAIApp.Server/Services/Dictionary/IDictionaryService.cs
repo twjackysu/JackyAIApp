@@ -17,5 +17,11 @@ namespace JackyAIApp.Server.Services.Dictionary
 
         /// <summary>Marks a stored word as invalid so it will be regenerated next lookup.</summary>
         Task<ServiceResult> InvalidateWordAsync(string word);
+
+        /// <summary>
+        /// Returns Hunspell spelling suggestions for a word, for when a lookup fails
+        /// dictionary validation (typo recovery). Does not call OpenAI.
+        /// </summary>
+        ServiceResult SuggestWords(string word);
     }
 }

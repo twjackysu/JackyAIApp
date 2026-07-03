@@ -54,6 +54,10 @@ export interface TranslationTestUserResponse {
   translation: string;
 }
 
+export interface WordSuggestionsResponse {
+  suggestions: string[];
+}
+
 export type TranslationGrade = 'A' | 'B' | 'C' | 'D' | 'E';
 
 export interface TranslationQualityGradingAssistantResponse {

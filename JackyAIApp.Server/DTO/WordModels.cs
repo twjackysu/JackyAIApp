@@ -131,4 +131,12 @@ namespace JackyAIApp.Server.DTO
         /// </summary>
         public required string Chinese { get; set; }
     }
+
+    /// <summary>
+    /// Spelling suggestions for a word that failed dictionary validation.
+    /// </summary>
+    public class WordSuggestionsResponse
+    {
+        public required List<string> Suggestions { get; set; }
+    }
 }

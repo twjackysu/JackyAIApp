@@ -29,6 +29,10 @@ namespace JackyAIApp.Server.Controllers
             return ToActionResult(result);
         }
 
+        // Anonymous, no OpenAI call — pure Hunspell lookup, safe/cheap to expose publicly.
+        [HttpGet("{word}/suggestions", Name = "Suggest spelling")]
+        public IActionResult Suggest(string word) => ToActionResult(_dictionaryService.SuggestWords(word));
+
         // Mutates shared data and can trigger paid OpenAI regeneration on next lookup,
         // so this one endpoint (unlike Get) requires an authenticated admin.
         [Authorize]
