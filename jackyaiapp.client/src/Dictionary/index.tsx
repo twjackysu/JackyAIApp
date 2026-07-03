@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { useGetRepositoryWordsByWordIdQuery } from '../apis/repositoryApis';
 import WordCard from '../components/WordCard';
@@ -12,8 +13,10 @@ import WordOfTheDay from './components/WordOfTheDay';
 import { useGetWordQuery } from '@/apis/dictionaryApis';
 
 function Dictionary() {
-  const [text, setText] = useState<string>('');
-  const [word, setWord] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const initialWord = searchParams.get('word') ?? '';
+  const [text, setText] = useState<string>(initialWord);
+  const [word, setWord] = useState<string | null>(initialWord || null);
   const recentlySearchedRef = useRef<RecentlySearchedRef>(null);
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter') {

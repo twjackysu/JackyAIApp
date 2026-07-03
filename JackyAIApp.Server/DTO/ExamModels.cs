@@ -73,10 +73,17 @@ namespace JackyAIApp.Server.DTO
     /// </summary>
     public class TranslationQualityGradingAssistantResponse
     {
-        /// <summary>
-        /// Translation quality grading based on the user's input, along with the reason
-        /// </summary>
-        public required string TranslationQualityGrading { get; set; }
+        /// <summary>One of "A", "B", "C", "D", "E".</summary>
+        public required string Grade { get; set; }
+
+        /// <summary>Short explanation in Traditional Chinese.</summary>
+        public required string Reason { get; set; }
+
+        /// <summary>Corrected/natural English version of the sentence.</summary>
+        public required string CorrectedTranslation { get; set; }
+
+        /// <summary>Whether the translation correctly used the target unfamiliar word.</summary>
+        public required bool WordUsed { get; set; }
     }
 
     /// <summary>
