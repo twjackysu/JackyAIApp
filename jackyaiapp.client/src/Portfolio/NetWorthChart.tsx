@@ -69,58 +69,44 @@ export function NetWorthChart() {
           dataIndex: number;
         }[];
         const date = p[0]?.axisValue ?? '';
-        const line = (s: { seriesName: string; value: number; dataIndex: number }) => {
+        const dayTotal = totals[p[0]?.dataIndex ?? 0] || 0;
+        const line = (s: { seriesName: string; value: number }) => {
           if (mode === 'full') return `${s.seriesName}：NT$${fmt(s.value)}`;
           // 'changes' hides both amounts and ratios; 'hidden' shows share-of-total instead.
           if (mode === 'changes') return `${s.seriesName}：${MASK}`;
-          const dayTotal = totals[s.dataIndex] || 0;
           const pct = dayTotal > 0 ? (s.value / dayTotal) * 100 : 0;
           return `${s.seriesName}：${pct.toFixed(1)}%`;
         };
-        return [`<b>${date}</b>`, ...p.map(line)].join('<br/>');
+        // The stack already sums to the total, so no separate "總資產" series is rendered —
+        // just surface the number (or masked value) in the tooltip for a quick read.
+        const totalLine =
+          mode === 'full'
+            ? `<b>總資產：NT$${fmt(dayTotal)}</b>`
+            : mode === 'changes'
+              ? `<b>總資產：${MASK}</b>`
+              : null;
+        return [`<b>${date}</b>`, totalLine, ...p.map(line)].filter(Boolean).join('<br/>');
       },
     },
-    legend: { bottom: 0, data: ['總資產', ...breakdown.map((s) => s.name)] },
+    legend: { bottom: 0, data: breakdown.map((s) => s.name) },
     grid: { top: 16, right: 16, bottom: 48, left: mode === 'full' ? 70 : 24 },
     xAxis: { type: 'category', data: dates, boundaryGap: false },
     yAxis: {
       type: 'value',
-      // Mask the scale numbers unless fully visible; line heights/proportions stay accurate.
+      // Mask the scale numbers unless fully visible; stack height/proportions stay accurate.
       axisLabel: { formatter: (v: number) => (mode === 'full' ? `${fmt(v)}` : '') },
     },
-    series: [
-      {
-        name: '總資產',
-        type: 'line',
-        data: totals,
-        smooth: true,
-        lineStyle: { width: 2.5, color: '#F59E0B' },
-        itemStyle: { color: '#F59E0B' },
-        areaStyle: {
-          color: {
-            type: 'linear',
-            x: 0,
-            y: 0,
-            x2: 0,
-            y2: 1,
-            colorStops: [
-              { offset: 0, color: 'rgba(245,158,11,0.25)' },
-              { offset: 1, color: 'rgba(245,158,11,0)' },
-            ],
-          },
-        },
-        symbol: 'none',
-      },
-      ...breakdown.map((s) => ({
-        name: s.name,
-        type: 'line' as const,
-        data: s.values,
-        smooth: true,
-        lineStyle: { width: 1.5, color: s.color, type: 'dashed' as const },
-        itemStyle: { color: s.color },
-        symbol: 'none' as const,
-      })),
-    ],
+    series: breakdown.map((s) => ({
+      name: s.name,
+      type: 'line' as const,
+      stack: 'total',
+      data: s.values,
+      smooth: true,
+      lineStyle: { width: 1.5, color: s.color },
+      itemStyle: { color: s.color },
+      areaStyle: { color: s.color, opacity: 0.65 },
+      symbol: 'none' as const,
+    })),
   };
 
   return (
