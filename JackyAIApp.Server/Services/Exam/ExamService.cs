@@ -221,6 +221,29 @@ namespace JackyAIApp.Server.Services.Exam
             return ServiceResult.Ok(response);
         }
 
+        public async Task<ServiceResult> SummarizeConversationAsync(ConversationSummaryRequest request)
+        {
+            if (request == null || request.ConversationContext == null ||
+                request.ConversationHistory == null || request.ConversationHistory.Count == 0)
+            {
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "Invalid conversation summary request.");
+            }
+
+            var (summary, error) = await _promptService.GetCompletionAsync<ConversationSummaryResponse>(
+                "Prompt/Exam/ConversationSummarySystem.txt",
+                JsonConvert.SerializeObject(request));
+
+            if (summary == null)
+            {
+                _logger.LogError("Failed to generate conversation summary: {Error}", error);
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
+                    "Query failed, OpenAI could not generate the conversation summary.");
+            }
+
+            _logger.LogInformation("Generated conversation summary for scenario: {Scenario}", request.ConversationContext.Scenario);
+            return ServiceResult.Ok(summary);
+        }
+
         public async Task<ServiceResult> TranscribeAudioAsync(Stream audioStream, string fileName)
         {
             var userId = _userService.GetUserId();

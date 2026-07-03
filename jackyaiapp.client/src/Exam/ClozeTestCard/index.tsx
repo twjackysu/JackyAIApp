@@ -13,6 +13,7 @@ import { useGetClozeTestQuery, useRecordExamResultMutation } from '@/apis/examAp
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
+import WordRecap from '@/Exam/components/WordRecap';
 
 function shuffle<T>(items: T[]): T[] {
   const arr = [...items];
@@ -151,6 +152,7 @@ function ClozeTestCard() {
           >
             查看單字「{data.data.answer}」→
           </Link>
+          <WordRecap word={data.data.answer} />
           {srsNote && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
               {srsNote}

@@ -18,6 +18,9 @@ namespace JackyAIApp.Server.Services.Exam
 
         Task<ServiceResult> RespondToConversationAsync(ConversationResponseRequest request);
 
+        /// <summary>Produces an end-of-session recap (corrections, better phrasings, word suggestions).</summary>
+        Task<ServiceResult> SummarizeConversationAsync(ConversationSummaryRequest request);
+
         Task<ServiceResult> TranscribeAudioAsync(Stream audioStream, string fileName);
 
         Task<ServiceResult> EvaluateSentenceAsync(SentenceTestUserResponse userResponse);

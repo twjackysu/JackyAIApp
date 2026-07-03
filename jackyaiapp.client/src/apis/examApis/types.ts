@@ -23,6 +23,8 @@ export interface ConversationContext {
 export interface ConversationTurn {
   speaker: string;
   message: string;
+  /** Grammar correction for this turn, if the AI flagged one on the response that followed it. */
+  correction?: ConversationCorrection;
 }
 
 export interface ConversationResponseRequest {
@@ -45,6 +47,17 @@ export interface ConversationResponseResponse {
 
 export interface WhisperTranscriptionResponse {
   text: string;
+}
+
+export interface ConversationSummaryRequest {
+  conversationContext: ConversationContext;
+  conversationHistory: ConversationTurn[];
+}
+
+export interface ConversationSummaryResponse {
+  correctionsReview: string[];
+  betterPhrasings: string[];
+  suggestedWords: string[];
 }
 
 export interface SentenceTestResponse {

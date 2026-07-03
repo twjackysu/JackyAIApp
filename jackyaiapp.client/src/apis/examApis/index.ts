@@ -8,6 +8,8 @@ import {
   ConversationStartResponse,
   ConversationResponseRequest,
   ConversationResponseResponse,
+  ConversationSummaryRequest,
+  ConversationSummaryResponse,
   WhisperTranscriptionResponse,
   SentenceTestResponse,
   SentenceTestUserResponse,
@@ -68,6 +70,16 @@ export const examApis = createApi({
         body,
       }),
     }),
+    summarizeConversation: builder.mutation<
+      ApiOkResponse<ConversationSummaryResponse>,
+      ConversationSummaryRequest
+    >({
+      query: (body) => ({
+        url: 'conversation/summary',
+        method: 'POST',
+        body,
+      }),
+    }),
     transcribeAudio: builder.mutation<ApiOkResponse<WhisperTranscriptionResponse>, FormData>({
       query: (formData) => ({
         url: 'whisper/transcribe',
@@ -109,6 +121,7 @@ export const {
   useLazyGetTranslationQualityGradingQuery,
   useStartConversationTestMutation,
   useRespondToConversationMutation,
+  useSummarizeConversationMutation,
   useTranscribeAudioMutation,
   useGetSentenceTestQuery,
   useEvaluateSentenceMutation,

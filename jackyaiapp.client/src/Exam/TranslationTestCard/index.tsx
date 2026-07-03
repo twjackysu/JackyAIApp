@@ -22,6 +22,7 @@ import {
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
+import WordRecap from '@/Exam/components/WordRecap';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 
 type Phase = 'answering' | 'revealed' | 'graded';
@@ -234,6 +235,7 @@ function TranslationCard() {
             </Typography>
             <Typography variant="body1">{data?.data.english}</Typography>
           </Alert>
+          {data?.data.word && <WordRecap word={data.data.word} />}
           <Box sx={{ mt: 2 }}>
             <Button variant="contained" color="primary" onClick={handleNext}>
               下一題
@@ -286,6 +288,8 @@ function TranslationCard() {
             </Tooltip>
           </Box>
           <Typography variant="body2">{grading.reason}</Typography>
+
+          {data?.data.word && <WordRecap word={data.data.word} />}
 
           {srsNote && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>

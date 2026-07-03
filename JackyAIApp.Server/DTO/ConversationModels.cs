@@ -80,4 +80,24 @@ namespace JackyAIApp.Server.DTO
     {
         public required string Text { get; set; }
     }
+
+    /// <summary>
+    /// Request to summarize a finished (or in-progress) conversation
+    /// </summary>
+    public class ConversationSummaryRequest
+    {
+        public required ConversationContext ConversationContext { get; set; }
+        public required List<ConversationTurn> ConversationHistory { get; set; }
+    }
+
+    /// <summary>
+    /// End-of-conversation recap: corrections made, more natural phrasings, and
+    /// words worth adding to the user's Repository.
+    /// </summary>
+    public class ConversationSummaryResponse
+    {
+        public required List<string> CorrectionsReview { get; set; }
+        public required List<string> BetterPhrasings { get; set; }
+        public required List<string> SuggestedWords { get; set; }
+    }
 }
