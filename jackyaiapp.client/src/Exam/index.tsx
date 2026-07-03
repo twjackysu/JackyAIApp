@@ -1,4 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { orange } from '@mui/material/colors';
@@ -8,7 +9,6 @@ import Typography from '@mui/material/Typography';
 import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import { useGetRepositoryWordsQuery } from '../apis/repositoryApis';
-import RepositoryNoWordAlert from '../components/RepositoryNoWordAlert';
 import { CREDIT_COSTS } from '../constants/creditCosts';
 
 import ClozeTestCard from './ClozeTestCard';
@@ -36,17 +36,13 @@ function Exam() {
     pageNumber: 1,
     pageSize: 1,
   });
+  // Word-based tests fall back to a random dictionary word when the user's
+  // repository is empty (backend handles this), so this is informational only —
+  // it no longer blocks access to any test.
   const isRepositoryNoWord = !data?.data?.[0];
 
   // Check if we're on a specific test page
   const isOnTestPage = location.pathname !== '/exam' && location.pathname !== '/exam/';
-
-  // Check if we're on conversation test page
-  const isOnConversationTest = location.pathname.includes('/conversation');
-
-  // Conversation test doesn't depend on Repository words, so it should never be blocked
-  // by an empty word list — only gate the three word-based tests.
-  const isBlockedByNoWords = isRepositoryNoWord && !isOnConversationTest;
 
   return (
     <Box sx={{ p: 2, position: 'relative' }}>
@@ -82,13 +78,7 @@ function Exam() {
             px: 2,
           }}
         >
-          <Button
-            component={Link}
-            to="cloze"
-            variant="outlined"
-            sx={styles.button}
-            disabled={isBlockedByNoWords}
-          >
+          <Button component={Link} to="cloze" variant="outlined" sx={styles.button}>
             <Box sx={{ textAlign: 'center' }}>
               克漏字測驗 (Cloze Test)
               <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
@@ -102,7 +92,6 @@ function Exam() {
             variant="outlined"
             color="secondary"
             sx={styles.button}
-            disabled={isBlockedByNoWords}
           >
             <Box sx={{ textAlign: 'center' }}>
               翻譯測驗 (Translation Test)
@@ -137,7 +126,6 @@ function Exam() {
               borderColor: orange[500],
               ':hover': { borderColor: orange[100] },
             }}
-            disabled={isBlockedByNoWords}
           >
             <Box sx={{ textAlign: 'center' }}>
               造句測驗 (Sentence Formation Test)
@@ -148,21 +136,16 @@ function Exam() {
           </Button>
         </Box>
       )}
-      {isBlockedByNoWords && !isOnTestPage && <RepositoryNoWordAlert />}
+      {isRepositoryNoWord && !isOnTestPage && (
+        <Alert severity="info" sx={{ maxWidth: 800, mx: 'auto', mb: 3 }}>
+          你的儲存庫還沒有單字，測驗會從整本字典隨機出題。到字典搜尋單字並加入收藏後，測驗會優先針對你的單字出題。
+        </Alert>
+      )}
       <Routes>
-        <Route
-          path="cloze"
-          element={isBlockedByNoWords ? <RepositoryNoWordAlert /> : <ClozeTestCard />}
-        />
-        <Route
-          path="translation"
-          element={isBlockedByNoWords ? <RepositoryNoWordAlert /> : <TranslationTestCard />}
-        />
+        <Route path="cloze" element={<ClozeTestCard />} />
+        <Route path="translation" element={<TranslationTestCard />} />
         <Route path="conversation" element={<ConversationTestCard />} />
-        <Route
-          path="sentenceTest"
-          element={isBlockedByNoWords ? <RepositoryNoWordAlert /> : <SentenceTestCard />}
-        />
+        <Route path="sentenceTest" element={<SentenceTestCard />} />
         <Route
           path="/"
           element={
