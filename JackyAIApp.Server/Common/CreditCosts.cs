@@ -24,6 +24,9 @@ namespace JackyAIApp.Server.Common
         /// <summary>Conversation response (each turn)</summary>
         public const ulong ConversationResponse = 2;
 
+        /// <summary>Conversation end-of-session summary</summary>
+        public const ulong ConversationSummary = 2;
+
         /// <summary>Sentence test generation</summary>
         public const ulong SentenceTest = 2;
 

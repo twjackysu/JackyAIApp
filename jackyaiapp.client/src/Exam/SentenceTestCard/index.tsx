@@ -10,6 +10,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
@@ -21,6 +22,7 @@ import {
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
+import WordRecap from '@/Exam/components/WordRecap';
 
 interface EvaluationResult {
   score: number;
@@ -167,12 +169,21 @@ function SentenceTestCard() {
                 AI 評分消耗 {CREDIT_COSTS.SENTENCE_EVALUATION} credits
               </Typography>
             </Box>
-            <Button variant="outlined" onClick={() => setShowSample(!showSample)} sx={{ mb: 0.5 }}>
-              {showSample ? '隱藏' : '顯示'}範例答案
-            </Button>
+            <Tooltip title={evaluationResult ? '' : '請先提交答案，避免抄範例答案'}>
+              <span>
+                <Button
+                  variant="outlined"
+                  onClick={() => setShowSample(!showSample)}
+                  disabled={!evaluationResult}
+                  sx={{ mb: 0.5 }}
+                >
+                  {showSample ? '隱藏' : '顯示'}範例答案
+                </Button>
+              </span>
+            </Tooltip>
           </Box>
 
-          {showSample && (
+          {showSample && evaluationResult && (
             <Alert severity="info" sx={{ mb: 2 }}>
               <AlertTitle>範例答案</AlertTitle>
               {data?.data.sampleAnswer}
@@ -244,6 +255,8 @@ function SentenceTestCard() {
                 ))}
               </Box>
             )}
+
+            {data?.data.word && <WordRecap word={data.data.word} />}
 
             <Box sx={{ mt: 2 }}>
               <Button variant="contained" onClick={handleNext}>

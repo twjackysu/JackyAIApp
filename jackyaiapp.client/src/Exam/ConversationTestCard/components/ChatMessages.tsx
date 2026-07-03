@@ -2,9 +2,11 @@ import PauseIcon from '@mui/icons-material/Pause';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { Avatar, Box, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
+
+import CorrectionAlert from './CorrectionAlert';
 
 import { ConversationTurn } from '@/apis/examApis/types';
 import MarkdownMessage from '@/components/MarkdownMessage';
@@ -76,121 +78,129 @@ function ChatMessages({ messages, isResponding, ref }: ChatMessagesProps) {
           });
 
           return (
-            <Box
-              key={index}
-              sx={{
-                display: 'flex',
-                justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
-                mb: 2,
-              }}
-            >
-              {!isOwnMessage && (
-                <Avatar
-                  sx={{
-                    mr: 1,
-                    bgcolor: theme.palette.success.main,
-                    width: 40,
-                    height: 40,
-                  }}
-                >
-                  AI
-                </Avatar>
-              )}
-              <Paper
-                variant="outlined"
+            <Fragment key={index}>
+              <Box
                 sx={{
-                  p: 1.5,
-                  maxWidth: '70%',
-                  borderRadius: isOwnMessage ? '16px 16px 0 16px' : '16px 16px 16px 0',
-                  backgroundColor: isOwnMessage
-                    ? theme.palette.primary.main
-                    : theme.palette.background.paper,
-                  color: isOwnMessage
-                    ? theme.palette.primary.contrastText
-                    : theme.palette.text.primary,
-                  boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+                  display: 'flex',
+                  justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
+                  mb: 2,
                 }}
               >
-                <Stack direction="column" spacing={0.5}>
-                  {!isOwnMessage && (
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: 'bold',
-                        color: theme.palette.success.main,
-                      }}
-                    >
-                      AI Assistant
-                    </Typography>
-                  )}
-                  <MarkdownMessage
-                    content={turn.message}
-                    isOwnMessage={isOwnMessage}
-                    theme={theme}
-                  />
-                  <Box
+                {!isOwnMessage && (
+                  <Avatar
                     sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
+                      mr: 1,
+                      bgcolor: theme.palette.success.main,
+                      width: 40,
+                      height: 40,
                     }}
                   >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        alignSelf: 'flex-end',
-                        color: isOwnMessage
-                          ? theme.palette.primary.contrastText
-                          : theme.palette.text.secondary,
-                      }}
-                    >
-                      {timestamp}
-                    </Typography>
-                    {/* Audio control for AI messages */}
-                    {turn.speaker === 'ai' && (
-                      <Tooltip title={isPlaying ? '停止播放' : '播放語音'}>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            if (isPlaying) {
-                              stopPlaying();
-                            } else {
-                              playMessage(turn.message, messageId);
-                            }
-                          }}
-                          sx={{
-                            color: isPlaying
-                              ? theme.palette.primary.main
-                              : theme.palette.text.secondary,
-                            '&:hover': {
-                              color: theme.palette.primary.main,
-                            },
-                          }}
-                        >
-                          {isPlaying ? (
-                            <PauseIcon fontSize="small" />
-                          ) : (
-                            <VolumeUpIcon fontSize="small" />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Box>
-                </Stack>
-              </Paper>
-              {isOwnMessage && (
-                <Avatar
+                    AI
+                  </Avatar>
+                )}
+                <Paper
+                  variant="outlined"
                   sx={{
-                    ml: 1,
-                    bgcolor: theme.palette.primary.main,
-                    width: 40,
-                    height: 40,
+                    p: 1.5,
+                    maxWidth: '70%',
+                    borderRadius: isOwnMessage ? '16px 16px 0 16px' : '16px 16px 16px 0',
+                    backgroundColor: isOwnMessage
+                      ? theme.palette.primary.main
+                      : theme.palette.background.paper,
+                    color: isOwnMessage
+                      ? theme.palette.primary.contrastText
+                      : theme.palette.text.primary,
+                    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
                   }}
                 >
-                  U
-                </Avatar>
+                  <Stack direction="column" spacing={0.5}>
+                    {!isOwnMessage && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: 'bold',
+                          color: theme.palette.success.main,
+                        }}
+                      >
+                        AI Assistant
+                      </Typography>
+                    )}
+                    <MarkdownMessage
+                      content={turn.message}
+                      isOwnMessage={isOwnMessage}
+                      theme={theme}
+                    />
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          alignSelf: 'flex-end',
+                          color: isOwnMessage
+                            ? theme.palette.primary.contrastText
+                            : theme.palette.text.secondary,
+                        }}
+                      >
+                        {timestamp}
+                      </Typography>
+                      {/* Audio control for AI messages */}
+                      {turn.speaker === 'ai' && (
+                        <Tooltip title={isPlaying ? '停止播放' : '播放語音'}>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              if (isPlaying) {
+                                stopPlaying();
+                              } else {
+                                playMessage(turn.message, messageId);
+                              }
+                            }}
+                            sx={{
+                              color: isPlaying
+                                ? theme.palette.primary.main
+                                : theme.palette.text.secondary,
+                              '&:hover': {
+                                color: theme.palette.primary.main,
+                              },
+                            }}
+                          >
+                            {isPlaying ? (
+                              <PauseIcon fontSize="small" />
+                            ) : (
+                              <VolumeUpIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Stack>
+                </Paper>
+                {isOwnMessage && (
+                  <Avatar
+                    sx={{
+                      ml: 1,
+                      bgcolor: theme.palette.primary.main,
+                      width: 40,
+                      height: 40,
+                    }}
+                  >
+                    U
+                  </Avatar>
+                )}
+              </Box>
+              {isOwnMessage && turn.correction?.hasCorrection && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, mr: 6 }}>
+                  <Box sx={{ maxWidth: '70%' }}>
+                    <CorrectionAlert correction={turn.correction} />
+                  </Box>
+                </Box>
               )}
-            </Box>
+            </Fragment>
           );
         })}
         {isResponding && (

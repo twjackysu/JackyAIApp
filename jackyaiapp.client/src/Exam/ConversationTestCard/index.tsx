@@ -1,9 +1,9 @@
-import { Box, Button, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Button, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useState } from 'react';
 
 import ChatMessages from './components/ChatMessages';
 import ConversationHeader from './components/ConversationHeader';
-import CorrectionAlert from './components/CorrectionAlert';
+import ConversationSummary from './components/ConversationSummary';
 import MessageInput from './components/MessageInput';
 import ScenarioSelector from './components/ScenarioSelector';
 import { useVoiceRecording, useAutoScroll } from './hooks';
@@ -11,14 +11,12 @@ import { useVoiceRecording, useAutoScroll } from './hooks';
 import {
   useStartConversationTestMutation,
   useRespondToConversationMutation,
+  useSummarizeConversationMutation,
 } from '@/apis/examApis';
-import {
-  ConversationContext,
-  ConversationTurn,
-  ConversationCorrection,
-} from '@/apis/examApis/types';
+import { ConversationContext, ConversationTurn } from '@/apis/examApis/types';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
+import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 interface ConversationState {
   context: ConversationContext;
@@ -33,11 +31,15 @@ function ConversationTestCard() {
 
   const [conversationState, setConversationState] = useState<ConversationState | null>(null);
   const [input, setInput] = useState<string>('');
-  const [correction, setCorrection] = useState<ConversationCorrection | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   const [startConversation, { isLoading: isStarting, error: startError }] =
     useStartConversationTestMutation();
   const [respondToConversation, { isLoading: isResponding }] = useRespondToConversationMutation();
+  const [
+    summarizeConversation,
+    { data: summaryData, isLoading: isSummarizing, reset: resetSummary },
+  ] = useSummarizeConversationMutation();
 
   // Custom hooks
   const messagesEndRef = useAutoScroll(conversationState?.history, isResponding);
@@ -75,7 +77,6 @@ function ConversationTestCard() {
         isActive: true,
         difficultyLevel,
       });
-      setCorrection(null);
     } catch (error) {
       console.error('Failed to start conversation:', error);
     }
@@ -85,6 +86,7 @@ function ConversationTestCard() {
     if (!input.trim() || !conversationState || isResponding) return;
 
     const userMessage = input.trim();
+    const userTurnIndex = conversationState.history.length;
     setInput('');
 
     // First, immediately add user's message to the conversation
@@ -104,25 +106,45 @@ function ConversationTestCard() {
         userMessage,
       }).unwrap();
 
-      // Then add AI's response
-      setConversationState((prev) => ({
-        ...prev!,
-        history: [...prev!.history, { speaker: 'ai', message: response.data.aiResponse }],
-      }));
+      const { correction } = response.data;
 
-      // Set correction if any
-      setCorrection(response.data.correction.hasCorrection ? response.data.correction : null);
+      // Add AI's response and attach the correction (if any) to the user turn it
+      // applies to, so it stays visible in the transcript instead of being
+      // overwritten by the next turn's correction.
+      setConversationState((prev) => {
+        const history = [...prev!.history, { speaker: 'ai', message: response.data.aiResponse }];
+        if (correction.hasCorrection) {
+          history[userTurnIndex] = { ...history[userTurnIndex], correction };
+        }
+        return { ...prev!, history };
+      });
     } catch (error) {
       console.error('Failed to send message:', error);
       // If error occurs, you might want to remove the user message or show an error
     }
   };
 
+  const handleShowSummary = async () => {
+    if (!conversationState) return;
+    setShowSummary(true);
+    try {
+      await summarizeConversation({
+        conversationContext: conversationState.context,
+        conversationHistory: conversationState.history,
+      }).unwrap();
+    } catch (error) {
+      console.error('Failed to summarize conversation:', error);
+    }
+  };
+
   const handleNewConversation = () => {
     setConversationState(null);
     setInput('');
-    setCorrection(null);
+    setShowSummary(false);
+    resetSummary();
   };
+
+  const hasUserTurn = conversationState?.history.some((turn) => turn.speaker === 'user') ?? false;
 
   if (isStarting) {
     return <AILoading />;
@@ -162,12 +184,6 @@ function ConversationTestCard() {
         ref={messagesEndRef}
       />
 
-      {correction && (
-        <Box sx={{ px: 2 }}>
-          <CorrectionAlert correction={correction} />
-        </Box>
-      )}
-
       <MessageInput
         input={input}
         onInputChange={setInput}
@@ -179,7 +195,33 @@ function ConversationTestCard() {
         mediaRecorder={mediaRecorder}
       />
 
-      <Box sx={{ p: 2, textAlign: 'center', borderTop: '1px solid', borderColor: 'divider' }}>
+      <Box
+        sx={{
+          p: 2,
+          display: 'flex',
+          gap: 2,
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Tooltip title={hasUserTurn ? '' : '至少對話一輪後才能看總結'}>
+          <span>
+            <Button
+              variant="contained"
+              onClick={handleShowSummary}
+              disabled={isResponding || isTranscribing || !hasUserTurn}
+              sx={{ borderRadius: 2 }}
+            >
+              結束並看總結
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              消耗 {CREDIT_COSTS.CONVERSATION_SUMMARY} credits
+            </Typography>
+          </span>
+        </Tooltip>
         <Button
           variant="outlined"
           onClick={handleNewConversation}
@@ -189,6 +231,14 @@ function ConversationTestCard() {
           開始新對話
         </Button>
       </Box>
+
+      <ConversationSummary
+        open={showSummary}
+        summary={summaryData?.data ?? null}
+        isLoading={isSummarizing}
+        onClose={() => setShowSummary(false)}
+        onStartNew={handleNewConversation}
+      />
     </Box>
   );
 }

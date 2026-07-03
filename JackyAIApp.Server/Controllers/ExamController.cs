@@ -44,6 +44,12 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> RespondToConversation([FromBody] ConversationResponseRequest request) =>
             ToActionResult(await _examService.RespondToConversationAsync(request));
 
+        /// <summary>Generates an end-of-session recap for a conversation (corrections, phrasings, word suggestions).</summary>
+        [HttpPost("conversation/summary")]
+        [ConsumeCredits(CreditCosts.ConversationSummary, "conversation_summary", "Conversation summary")]
+        public async Task<IActionResult> SummarizeConversation([FromBody] ConversationSummaryRequest request) =>
+            ToActionResult(await _examService.SummarizeConversationAsync(request));
+
         /// <summary>Transcribes audio to text using OpenAI Whisper.</summary>
         [HttpPost("whisper/transcribe")]
         public async Task<IActionResult> TranscribeAudio(IFormFile audioFile)

@@ -15,6 +15,8 @@ export const CREDIT_COSTS = {
   CONVERSATION_START: 3,
   /** Conversation response (each turn) */
   CONVERSATION_RESPONSE: 2,
+  /** Conversation end-of-session summary */
+  CONVERSATION_SUMMARY: 2,
   /** Sentence test generation */
   SENTENCE_TEST: 2,
   /** Sentence AI evaluation/grading */
