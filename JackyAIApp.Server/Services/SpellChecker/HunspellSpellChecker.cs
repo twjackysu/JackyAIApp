@@ -1,3 +1,4 @@
+using System.Linq;
 using WeCantSpell.Hunspell;
 
 namespace JackyAIApp.Server.Services.SpellChecker
@@ -19,5 +20,7 @@ namespace JackyAIApp.Server.Services.SpellChecker
         }
 
         public bool Check(string word) => _wordList.Check(word);
+
+        public IReadOnlyList<string> Suggest(string word) => _wordList.Suggest(word).Take(5).ToList();
     }
 }

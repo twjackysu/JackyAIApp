@@ -240,6 +240,38 @@ namespace JackyAIApp.Server.Tests.Services
 
         #endregion
 
+        #region SuggestWords Tests
+
+        [Fact]
+        public void SuggestWords_MisspelledWord_ReturnsSpellCheckerSuggestions()
+        {
+            // Arrange
+            _spellCheckerMock.Setup(x => x.Suggest("aple")).Returns(new List<string> { "apple", "ample" });
+
+            // Act
+            var result = _service.SuggestWords("aple");
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            var suggestions = (WordSuggestionsResponse)result.Data!;
+            Assert.Equal(new[] { "apple", "ample" }, suggestions.Suggestions);
+        }
+
+        [Fact]
+        public void SuggestWords_EmptyWord_ReturnsEmptyWithoutCallingSpellChecker()
+        {
+            // Act
+            var result = _service.SuggestWords("   ");
+
+            // Assert
+            Assert.True(result.IsSuccess);
+            var suggestions = (WordSuggestionsResponse)result.Data!;
+            Assert.Empty(suggestions.Suggestions);
+            _spellCheckerMock.Verify(x => x.Suggest(It.IsAny<string>()), Times.Never);
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private async Task<SQLWord> SeedWordAsync(string wordText, bool isInvalid = false)

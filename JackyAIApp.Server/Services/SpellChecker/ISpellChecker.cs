@@ -8,5 +8,8 @@ namespace JackyAIApp.Server.Services.SpellChecker
     {
         /// <summary>Returns true when <paramref name="word"/> is a valid dictionary word.</summary>
         bool Check(string word);
+
+        /// <summary>Returns spelling suggestions for <paramref name="word"/>, closest match first.</summary>
+        IReadOnlyList<string> Suggest(string word);
     }
 }
