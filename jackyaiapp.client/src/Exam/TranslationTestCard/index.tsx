@@ -22,7 +22,10 @@ import {
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
+import RoundProgress from '@/Exam/components/RoundProgress';
+import RoundResultScreen from '@/Exam/components/RoundResultScreen';
 import WordRecap from '@/Exam/components/WordRecap';
+import { useExamRound } from '@/Exam/hooks/useExamRound';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 
 type Phase = 'answering' | 'revealed' | 'graded';
@@ -53,6 +56,7 @@ function TranslationCard() {
   const [getTranslationQualityGrading, { isFetching: isGrading }] =
     useLazyGetTranslationQualityGradingQuery();
   const [recordExamResult] = useRecordExamResultMutation();
+  const round = useExamRound();
 
   const resetForNewQuestion = () => {
     setInput('');
@@ -81,9 +85,10 @@ function TranslationCard() {
       setPhase('graded');
 
       // Grade A/B count as correct; C/D/E as needs-work.
+      const correct = result.grade === 'A' || result.grade === 'B';
+      round.recordAnswer(correct);
       const wordId = data?.data.wordId;
       if (wordId) {
-        const correct = result.grade === 'A' || result.grade === 'B';
         recordExamResult({ wordId, examType: 'Translation', correct })
           .unwrap()
           .then((r) => {
@@ -108,10 +113,21 @@ function TranslationCard() {
   };
 
   const handleReveal = () => {
+    // Skipping straight to the answer counts as not getting this one — keeps
+    // the round tally honest instead of letting skips vanish for free.
+    round.recordAnswer(false);
     setPhase('revealed');
   };
 
   const handleNext = () => {
+    resetForNewQuestion();
+    if (round.advance()) {
+      refetch();
+    }
+  };
+
+  const handleRestartRound = () => {
+    round.resetRound();
     resetForNewQuestion();
     refetch();
   };
@@ -125,6 +141,16 @@ function TranslationCard() {
     }
   };
 
+  if (round.roundComplete) {
+    return (
+      <RoundResultScreen
+        correct={round.correct}
+        total={round.answered}
+        onRestart={handleRestartRound}
+      />
+    );
+  }
+
   if (isFetching) {
     return <AILoading />;
   }
@@ -134,6 +160,7 @@ function TranslationCard() {
 
   return (
     <Box sx={{ maxWidth: 600, margin: 'auto', padding: 2 }}>
+      <RoundProgress answered={round.answered} total={round.roundSize} correct={round.correct} />
       <Typography variant="h6" gutterBottom>
         {data?.data.chinese}
       </Typography>

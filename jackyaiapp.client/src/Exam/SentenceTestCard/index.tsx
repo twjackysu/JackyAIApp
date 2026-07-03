@@ -22,7 +22,10 @@ import {
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
+import RoundProgress from '@/Exam/components/RoundProgress';
+import RoundResultScreen from '@/Exam/components/RoundResultScreen';
 import WordRecap from '@/Exam/components/WordRecap';
+import { useExamRound } from '@/Exam/hooks/useExamRound';
 
 interface EvaluationResult {
   score: number;
@@ -42,6 +45,7 @@ function SentenceTestCard() {
   const [evaluateSentence, { isLoading: isEvaluating }] = useEvaluateSentenceMutation();
   const [recordExamResult] = useRecordExamResultMutation();
   const [srsNote, setSrsNote] = useState<string | null>(null);
+  const round = useExamRound();
 
   const handleSubmit = async () => {
     if (!userSentence.trim() || !data?.data) return;
@@ -61,8 +65,9 @@ function SentenceTestCard() {
       // Feed the score back into spaced repetition (free). Pass ≥60 as correct.
       const wordId = data.data.wordId;
       const score = result.data.score;
+      const correct = score >= 60;
+      round.recordAnswer(correct);
       if (wordId) {
-        const correct = score >= 60;
         recordExamResult({ wordId, examType: 'Sentence', correct, score })
           .unwrap()
           .then((r) => {
@@ -86,6 +91,17 @@ function SentenceTestCard() {
     setEvaluationResult(null);
     setSrsNote(null);
     setShowSample(false);
+    if (round.advance()) {
+      refetch();
+    }
+  };
+
+  const handleRestartRound = () => {
+    round.resetRound();
+    setUserSentence('');
+    setEvaluationResult(null);
+    setSrsNote(null);
+    setShowSample(false);
     refetch();
   };
 
@@ -104,6 +120,16 @@ function SentenceTestCard() {
     return '需要改進';
   };
 
+  if (round.roundComplete) {
+    return (
+      <RoundResultScreen
+        correct={round.correct}
+        total={round.answered}
+        onRestart={handleRestartRound}
+      />
+    );
+  }
+
   if (isFetching) {
     return <AILoading />;
   }
@@ -114,6 +140,7 @@ function SentenceTestCard() {
 
   return (
     <Box sx={{ maxWidth: 800, margin: 'auto', padding: 2 }}>
+      <RoundProgress answered={round.answered} total={round.roundSize} correct={round.correct} />
       <Card sx={{ mb: 2 }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
