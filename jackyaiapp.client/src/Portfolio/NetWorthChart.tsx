@@ -50,13 +50,18 @@ export function NetWorthChart() {
   const usValues = points.map((p) => p.usStockTWD);
   const cashValues = points.map((p) => p.cashTWD);
   const fundValues = points.map((p) => p.fundTWD);
+  // Negative so the stack nets down to totalTWD — liabilityTWD itself is stored positive.
+  const liabilityValues = points.map((p) => -p.liabilityTWD);
 
   const breakdown = [
     { name: '台股', values: twValues, color: '#3B82F6' },
     { name: '美股', values: usValues, color: '#10B981' },
     { name: '現金', values: cashValues, color: '#A78BFA' },
     { name: '基金', values: fundValues, color: '#EC4899' },
-  ].filter((s) => s.values.some((v) => v > 0));
+    { name: '負債', values: liabilityValues, color: '#ef4444' },
+    // Liability is the only series that can be negative, so "has any value" (not "> 0")
+    // is the right presence check — otherwise it would always be filtered out below.
+  ].filter((s) => s.values.some((v) => v !== 0));
 
   const option: ECOption = {
     tooltip: {

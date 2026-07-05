@@ -1,6 +1,11 @@
 import { NetWorthDataPoint, PortfolioSummaryDto } from '@/apis/portfolioApis/types';
 
-const TYPE_LABEL: Record<string, string> = { STOCK: '股票', CASH: '現金', FUND: '基金' };
+const TYPE_LABEL: Record<string, string> = {
+  STOCK: '股票',
+  CASH: '現金',
+  FUND: '基金',
+  LIABILITY: '負債',
+};
 
 /** Quote a CSV cell only when it contains a comma, quote or newline. */
 const csvCell = (v: string | number | null | undefined) => {
@@ -53,7 +58,8 @@ export function exportPortfolioCsv(summary: PortfolioSummaryDto) {
     p.currency,
     p.costCurrency ?? '',
     p.quantity,
-    p.assetType === 'CASH' ? '' : p.currentPrice,
+    p.assetType === 'CASH' || p.assetType === 'LIABILITY' ? '' : p.currentPrice,
+    // Negative for LIABILITY (amount owed) — exported as-is, unmasked/unrounded.
     p.marketValueTWD,
     p.costBasisTWD ?? '',
     p.unrealizedPnlTWD ?? '',
@@ -69,7 +75,15 @@ export function exportPortfolioCsv(summary: PortfolioSummaryDto) {
  * Export the daily net-worth history (time series) as a CSV for trend analysis.
  */
 export function exportNetWorthCsv(points: NetWorthDataPoint[]) {
-  const headers = ['日期', '總淨值(TWD)', '台股(TWD)', '美股(TWD)', '現金(TWD)', '基金(TWD)'];
+  const headers = [
+    '日期',
+    '總淨值(TWD)',
+    '台股(TWD)',
+    '美股(TWD)',
+    '現金(TWD)',
+    '基金(TWD)',
+    '負債(TWD)',
+  ];
   const rows = points.map((p) => [
     p.date,
     p.totalTWD,
@@ -77,6 +91,7 @@ export function exportNetWorthCsv(points: NetWorthDataPoint[]) {
     p.usStockTWD,
     p.cashTWD,
     p.fundTWD,
+    p.liabilityTWD,
   ]);
   downloadCsv([headers, ...rows], `portfolio_networth_history.csv`);
 }

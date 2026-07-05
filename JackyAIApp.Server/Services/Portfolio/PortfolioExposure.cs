@@ -10,14 +10,14 @@ namespace JackyAIApp.Server.Services.Portfolio
     ///   <item>Leveraged 2x (正2 / 槓桿 / code …L) → 2</item>
     ///   <item>Inverse (反1 / 反向 / code …R) → -1  (反2 → -2)</item>
     ///   <item>Bond / money-market (含「債」/「貨幣」/ code …B) → 0, i.e. treated like cash</item>
-    ///   <item>Cash → 0; everything else → 1</item>
+    ///   <item>Cash / Liability → 0; everything else → 1</item>
     /// </list>
     /// </summary>
     public static class PortfolioExposure
     {
         public static decimal Factor(AssetType type, string? name, string? symbol, string? market)
         {
-            if (type == AssetType.CASH) return 0m;
+            if (type == AssetType.CASH || type == AssetType.LIABILITY) return 0m;
             name ??= "";
             symbol ??= "";
 

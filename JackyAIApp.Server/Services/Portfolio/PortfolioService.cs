@@ -45,7 +45,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                 UsdTwdRate = usdTwdRate,
                 Positions = req.Positions
                     // Defensive: a stock/fund row is meaningless without a symbol, even if the client skipped validation.
-                    .Where(p => p.Quantity > 0 && (p.AssetType == AssetType.CASH || !string.IsNullOrWhiteSpace(p.Symbol)))
+                    // CASH and LIABILITY are symbol-less by design (amount only).
+                    .Where(p => p.Quantity > 0 && (p.AssetType == AssetType.CASH || p.AssetType == AssetType.LIABILITY
+                        || !string.IsNullOrWhiteSpace(p.Symbol)))
                     .Select(p => new HoldingPosition
                     {
                         AssetType = p.AssetType,
@@ -55,7 +57,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                         Currency = string.IsNullOrWhiteSpace(p.Currency) ? "TWD" : p.Currency.ToUpperInvariant(),
                         // Cost may be paid in a different currency than the NAV/price (e.g. USD-priced
                         // fund bought with TWD). Default to the pricing currency when unspecified.
-                        CostCurrency = p.AssetType == AssetType.CASH
+                        // CASH/LIABILITY have no cost-basis concept, so no cost currency either.
+                        CostCurrency = p.AssetType is AssetType.CASH or AssetType.LIABILITY
                             ? null
                             : (string.IsNullOrWhiteSpace(p.CostCurrency)
                                 ? (string.IsNullOrWhiteSpace(p.Currency) ? "TWD" : p.Currency)
@@ -63,8 +66,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                         Quantity = p.Quantity,
                         // Fund NAV is fetched live; UnitPrice kept only as a fallback if ever supplied.
                         UnitPrice = p.AssetType == AssetType.FUND ? p.UnitPrice : null,
-                        // Optional cost basis drives P&L for both stocks and funds (not cash).
-                        CostBasis = p.AssetType == AssetType.CASH ? null : p.CostBasis,
+                        // Optional cost basis drives P&L for stocks/funds. Never set for CASH/LIABILITY —
+                        // debt has no cost basis and must never enter P&L or XIRR.
+                        CostBasis = p.AssetType is AssetType.CASH or AssetType.LIABILITY ? null : p.CostBasis,
                     })
                     .ToList(),
             };
@@ -163,7 +167,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // for reconstructing historical net worth (a stale fallback-32 shouldn't stick forever).
             var fx = await FetchUsdTwdRateAsync(ct);
             var positions = new List<PositionDto>();
-            decimal twStock = 0, usStock = 0, cash = 0, fund = 0;
+            decimal twStock = 0, usStock = 0, cash = 0, fund = 0, liability = 0;
             decimal costBasisTWD = 0, pnlTWD = 0;
             decimal equityExposureTWD = 0; // Σ market value × exposure factor (leverage/bond-adjusted)
 
@@ -216,26 +220,35 @@ namespace JackyAIApp.Server.Services.Portfolio
                         }
                     }
                 }
-                else // CASH
+                else // CASH or LIABILITY — always "priced" at 1, no external lookup needed.
                 {
                     currentPrice = 1;
                 }
 
-                // A non-cash position with no usable price has no real market value.
-                // Treat it as "price unavailable" so we don't book a phantom loss of the full cost.
-                if (p.AssetType != AssetType.CASH && currentPrice <= 0)
+                // A priceable (non-cash, non-liability) position with no usable price has no real
+                // market value. Treat it as "price unavailable" so we don't book a phantom loss of
+                // the full cost.
+                if (p.AssetType is not (AssetType.CASH or AssetType.LIABILITY) && currentPrice <= 0)
                     priceFailed = true;
 
                 var fxMul = priceCurrency == "USD" ? fx : 1m;
-                var valueLocal = p.AssetType == AssetType.CASH
-                    ? p.Quantity
-                    : currentPrice * p.Quantity;
+                // LIABILITY is the one place a position's value goes negative — this is the sole
+                // sign-flip point; every downstream sum (net worth, history, exports) just adds
+                // valueTWD and is correct with no special-casing.
+                var valueLocal = p.AssetType switch
+                {
+                    AssetType.CASH => p.Quantity,
+                    AssetType.LIABILITY => -p.Quantity,
+                    _ => currentPrice * p.Quantity,
+                };
                 var valueTWD = valueLocal * fxMul;
 
                 // Cost is converted by its own currency, which may differ from the pricing currency.
                 var costFxMul = (p.CostCurrency ?? p.Currency) == "USD" ? fx : 1m;
 
                 decimal? posCostTWD = null, posPnlTWD = null, posPnlPct = null;
+                // LIABILITY.CostBasis is always null (enforced at save time), so it naturally
+                // never enters P&L/XIRR without needing an explicit exclusion here.
                 if (p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
                 {
                     posCostTWD = p.CostBasis.Value * costFxMul;
@@ -256,6 +269,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                     case AssetType.STOCK: twStock += valueTWD; break;
                     case AssetType.CASH: cash += valueTWD; break;
                     case AssetType.FUND: fund += valueTWD; break;
+                    // valueTWD is already negative here — this is display total (owed amount),
+                    // shown positive by negating at the DTO boundary below.
+                    case AssetType.LIABILITY: liability += valueTWD; break;
                 }
 
                 // Market exposure: leveraged ETFs amplify, bond/cash contribute nothing.
@@ -282,7 +298,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                 });
             }
 
-            var netWorthTWD = twStock + usStock + cash + fund;
+            // liability is already negative (see the valuation loop above), so this is a plain sum —
+            // no special-casing needed for net worth to correctly net out debt.
+            var netWorthTWD = twStock + usStock + cash + fund + liability;
 
             var annualizedReturnPct = await ComputeAnnualizedReturnAsync(
                 userId, fx, costBasisTWD + pnlTWD, ct);
@@ -319,6 +337,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                 UsStockTWD = usStock,
                 CashTWD = cash,
                 FundTWD = fund,
+                // Display as a positive "amount owed"; liability itself is negative for the net-worth sum.
+                LiabilityTWD = -liability,
                 CostBasisTWD = costBasisTWD,
                 UnrealizedPnlTWD = pnlTWD,
                 UnrealizedPnlPct = costBasisTWD > 0 ? Math.Round(pnlTWD / costBasisTWD * 100, 2) : 0,
@@ -381,7 +401,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (active == null) continue;
 
                 var fx = active.UsdTwdRate > 0 ? active.UsdTwdRate : 32m;
-                decimal twStock = 0, usStock = 0, cash = 0, fund = 0;
+                decimal twStock = 0, usStock = 0, cash = 0, fund = 0, liability = 0;
 
                 foreach (var p in active.Positions)
                 {
@@ -390,6 +410,10 @@ namespace JackyAIApp.Server.Services.Portfolio
                     if (p.AssetType == AssetType.CASH)
                     {
                         cash += p.Quantity * fxMul;
+                    }
+                    else if (p.AssetType == AssetType.LIABILITY)
+                    {
+                        liability -= p.Quantity * fxMul;
                     }
                     else if (p.AssetType == AssetType.FUND)
                     {
@@ -423,8 +447,11 @@ namespace JackyAIApp.Server.Services.Portfolio
                     }
                 }
 
-                var total = twStock + usStock + cash + fund;
-                if (total <= 0) continue;
+                var total = twStock + usStock + cash + fund + liability;
+                // Only "== 0" (not "<= 0"): a day where nothing could be priced lands on exactly
+                // 0 and should be skipped as no-data. A real negative total (debt exceeding assets)
+                // is a valid data point and must not be dropped from the chart.
+                if (total == 0) continue;
 
                 result.Add(new NetWorthDataPoint
                 {
@@ -434,6 +461,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     UsStockTWD = usStock,
                     CashTWD = cash,
                     FundTWD = fund,
+                    LiabilityTWD = -liability,
                 });
             }
 
@@ -815,6 +843,11 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (p.AssetType == AssetType.CASH)
                 {
                     total += p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                    continue;
+                }
+                if (p.AssetType == AssetType.LIABILITY)
+                {
+                    total -= p.Quantity * (p.Currency == "USD" ? fx : 1m);
                     continue;
                 }
 

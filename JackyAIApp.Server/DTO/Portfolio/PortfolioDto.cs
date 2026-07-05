@@ -36,6 +36,7 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public string? CostCurrency { get; set; }
         public decimal Quantity { get; set; }
         public decimal CurrentPrice { get; set; }       // stock live / fund NAV / cash 1
+        // Negative for LIABILITY (amount owed); positive for everything else.
         public decimal MarketValueLocal { get; set; }
         public decimal MarketValueTWD { get; set; }
         public decimal? CostBasisTWD { get; set; }       // null when no cost entered
@@ -49,11 +50,14 @@ namespace JackyAIApp.Server.DTO.Portfolio
     {
         public DateOnly? EffectiveDate { get; set; }
         public decimal UsdTwdRate { get; set; }
+        // Net of liabilities: Σ positions.MarketValueTWD (LIABILITY contributes negatively). No special-casing.
         public decimal TotalNetWorthTWD { get; set; }
         public decimal TwStockTWD { get; set; }
         public decimal UsStockTWD { get; set; }
         public decimal CashTWD { get; set; }
         public decimal FundTWD { get; set; }
+        // Total amount owed, positive. Already subtracted out of TotalNetWorthTWD.
+        public decimal LiabilityTWD { get; set; }
         // P&L only over positions that have a cost basis
         public decimal CostBasisTWD { get; set; }
         public decimal UnrealizedPnlTWD { get; set; }
@@ -78,6 +82,8 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal UsStockTWD { get; set; }
         public decimal CashTWD { get; set; }
         public decimal FundTWD { get; set; }
+        // Total amount owed, positive. Already subtracted out of TotalTWD.
+        public decimal LiabilityTWD { get; set; }
     }
 
     public class UpdateHistoryItem

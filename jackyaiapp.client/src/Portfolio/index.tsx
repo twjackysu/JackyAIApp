@@ -239,7 +239,7 @@ function AllocationCard({
   usStock,
   cash,
   fund,
-  total,
+  liability,
   usdTwdRate,
   exposure,
   exposureRatio,
@@ -248,13 +248,16 @@ function AllocationCard({
   usStock: number;
   cash: number;
   fund: number;
-  total: number;
+  liability: number;
   usdTwdRate: number;
   exposure: number;
   exposureRatio: number;
 }) {
   const { value, showRatio } = usePrivacy();
-  const pct = (v: number) => (total > 0 ? (v / total) * 100 : 0);
+  // Percentages are of gross assets (before subtracting debt), not net worth — otherwise
+  // liability would shrink the denominator and inflate every other row's percentage.
+  const grossAssets = twStock + usStock + cash + fund;
+  const pct = (v: number) => (grossAssets > 0 ? (v / grossAssets) * 100 : 0);
   return (
     <Card
       elevation={0}
@@ -270,6 +273,22 @@ function AllocationCard({
           <AllocationRow label="現金" value={cash} pct={pct(cash)} color="#A78BFA" />
           <AllocationRow label="基金" value={fund} pct={pct(fund)} color="#EC4899" />
         </Box>
+        {liability > 0 && (
+          <Box
+            sx={{
+              mt: 1.5,
+              display: 'flex',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600, color: '#ef4444' }}>
+              負債
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#ef4444' }}>
+              -NT${value(fmt(liability))}
+            </Typography>
+          </Box>
+        )}
         <Box
           sx={{
             mt: 2,
@@ -290,7 +309,7 @@ function AllocationCard({
           </Typography>
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-          正2 ×2、債券/現金 0；可 &gt;100% 表示槓桿
+          正2 ×2、債券/現金/負債 0；可 &gt;100% 表示槓桿
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
           USD/TWD = {usdTwdRate.toFixed(2)}
@@ -363,7 +382,7 @@ export default function Portfolio() {
                   usStock={summary.usStockTWD}
                   cash={summary.cashTWD}
                   fund={summary.fundTWD}
-                  total={summary.totalNetWorthTWD}
+                  liability={summary.liabilityTWD}
                   usdTwdRate={summary.usdTwdRate}
                 />
               </Grid>
