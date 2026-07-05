@@ -61,12 +61,13 @@ export function HoldingsEditor() {
   const twStocks = rows.filter((r) => r.assetType === 'STOCK' && (r.market || 'TW') !== 'US');
   const usStocks = rows.filter((r) => r.assetType === 'STOCK' && r.market === 'US');
   const cashes = rows.filter((r) => r.assetType === 'CASH');
+  const liabilities = rows.filter((r) => r.assetType === 'LIABILITY');
   const funds = rows.filter((r) => r.assetType === 'FUND');
 
   const patchRow = (key: string, patch: Partial<EditorRow>) =>
     setRows((rs) => rs.map((r) => (r._key === key ? { ...r, ...patch } : r)));
   const removeRow = (key: string) => setRows((rs) => rs.filter((r) => r._key !== key));
-  const addRow = (type: 'STOCK' | 'CASH' | 'FUND', market?: string) =>
+  const addRow = (type: 'STOCK' | 'CASH' | 'LIABILITY' | 'FUND', market?: string) =>
     setRows((rs) => [...rs, makeRow(type, market)]);
 
   // Rows the user actually started filling in (blank ones are dropped silently).
@@ -175,6 +176,54 @@ export function HoldingsEditor() {
           >
             {cashes.map((r) => (
               <Box key={r._key} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  select
+                  label="幣別"
+                  value={r.currency}
+                  onChange={(e) => patchRow(r._key, { currency: e.target.value })}
+                  sx={{ width: 100 }}
+                >
+                  <MenuItem value="TWD">TWD</MenuItem>
+                  <MenuItem value="USD">USD</MenuItem>
+                </TextField>
+                <TextField
+                  size="small"
+                  type="number"
+                  label="金額"
+                  value={r.quantity || ''}
+                  onChange={(e) => patchRow(r._key, { quantity: parseFloat(e.target.value) || 0 })}
+                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                  error={submitted && rowError(r) !== null}
+                  helperText={submitted ? rowError(r) : undefined}
+                  sx={{ flex: 1 }}
+                />
+                <IconButton onClick={() => removeRow(r._key)} size="small">
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            ))}
+          </Section>
+
+          <Divider />
+
+          {/* Liabilities (e.g. 信貸) — deliberately no mortgage/real-estate support, see
+              PORTFOLIO_LIABILITY_PLAN.md section 7 for why. */}
+          <Section
+            title="負債"
+            onAdd={() => addRow('LIABILITY')}
+            addLabel="新增負債"
+            empty={liabilities.length === 0}
+          >
+            {liabilities.map((r) => (
+              <Box key={r._key} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  label="名稱"
+                  value={r.name}
+                  onChange={(e) => patchRow(r._key, { name: e.target.value })}
+                  sx={{ width: 120 }}
+                />
                 <TextField
                   size="small"
                   select

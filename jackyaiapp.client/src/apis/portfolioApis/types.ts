@@ -1,4 +1,4 @@
-export type AssetType = 'STOCK' | 'CASH' | 'FUND';
+export type AssetType = 'STOCK' | 'CASH' | 'FUND' | 'LIABILITY';
 export type Market = 'TW' | 'US';
 
 export interface PositionInput {
@@ -27,6 +27,7 @@ export interface PositionDto {
   costCurrency?: string | null;
   quantity: number;
   currentPrice: number;
+  // Negative for LIABILITY (amount owed); positive for everything else.
   marketValueLocal: number;
   marketValueTWD: number;
   costBasisTWD?: number | null;
@@ -39,11 +40,14 @@ export interface PositionDto {
 export interface PortfolioSummaryDto {
   effectiveDate?: string | null;
   usdTwdRate: number;
+  // Net of liabilities.
   totalNetWorthTWD: number;
   twStockTWD: number;
   usStockTWD: number;
   cashTWD: number;
   fundTWD: number;
+  // Total amount owed, positive. Already subtracted out of totalNetWorthTWD.
+  liabilityTWD: number;
   costBasisTWD: number;
   unrealizedPnlTWD: number;
   unrealizedPnlPct: number;
@@ -62,6 +66,8 @@ export interface NetWorthDataPoint {
   usStockTWD: number;
   cashTWD: number;
   fundTWD: number;
+  // Total amount owed, positive. Already subtracted out of totalTWD.
+  liabilityTWD: number;
 }
 
 export interface UpdateHistoryItem {

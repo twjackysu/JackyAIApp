@@ -25,35 +25,41 @@ interface Props {
 
 const TYPE_CHIP: Record<
   string,
-  { label: string; color: 'primary' | 'warning' | 'success' | 'info' }
+  { label: string; color: 'primary' | 'warning' | 'success' | 'info' | 'error' }
 > = {
   STOCK: { label: '股票', color: 'primary' },
   CASH: { label: '現金', color: 'success' },
   FUND: { label: '基金', color: 'info' },
+  LIABILITY: { label: '負債', color: 'error' },
 };
 
-type GroupKey = 'TW_STOCK' | 'US_STOCK' | 'FUND' | 'CASH' | 'OTHER';
+type GroupKey = 'TW_STOCK' | 'US_STOCK' | 'FUND' | 'CASH' | 'LIABILITY' | 'OTHER';
 
 const GROUP_LABEL: Record<GroupKey, string> = {
   TW_STOCK: '台股',
   US_STOCK: '美股',
   FUND: '基金',
   CASH: '現金',
+  LIABILITY: '負債',
   OTHER: '其他',
 };
 
-const GROUP_ORDER: GroupKey[] = ['TW_STOCK', 'US_STOCK', 'FUND', 'CASH', 'OTHER'];
+// Liability is listed last — it's debt, not a holding.
+const GROUP_ORDER: GroupKey[] = ['TW_STOCK', 'US_STOCK', 'FUND', 'CASH', 'LIABILITY', 'OTHER'];
 
 function groupKeyOf(p: PositionDto): GroupKey {
   if (p.assetType === 'STOCK') return p.market === 'US' ? 'US_STOCK' : 'TW_STOCK';
   if (p.assetType === 'FUND') return 'FUND';
   if (p.assetType === 'CASH') return 'CASH';
+  if (p.assetType === 'LIABILITY') return 'LIABILITY';
   return 'OTHER';
 }
 
 export function PositionsTable({ positions, onStockClick }: Props) {
   const { value, showRatio } = usePrivacy();
-  const total = positions.reduce((s, p) => s + p.marketValueTWD, 0);
+  // Weight % denominator is gross assets, not net worth — liability (the only negative
+  // value) must not shrink the denominator and inflate everyone else's percentage.
+  const total = positions.reduce((s, p) => s + Math.max(p.marketValueTWD, 0), 0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   if (positions.length === 0) {
@@ -95,12 +101,17 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                   {GROUP_LABEL[g.key]}（{g.positions.length}）
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  {showRatio && total > 0 && (
+                  {showRatio && total > 0 && g.key !== 'LIABILITY' && (
                     <Typography variant="caption" color="text.secondary">
                       {((groupTotal / total) * 100).toFixed(1)}%
                     </Typography>
                   )}
-                  <Typography variant="body2">{value(fmt(groupTotal))}</Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: g.key === 'LIABILITY' ? pnlColor(groupTotal) : undefined }}
+                  >
+                    {value(fmt(groupTotal))}
+                  </Typography>
                 </Box>
               </Box>
             </AccordionSummary>
@@ -176,15 +187,17 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                       variant="outlined"
                       sx={{ fontSize: 10, height: 18 }}
                     />
-                    {p.assetType !== 'CASH' && p.exposureFactor !== 1 && (
-                      <Chip
-                        label={p.exposureFactor === 0 ? '0曝險' : `曝險×${p.exposureFactor}`}
-                        size="small"
-                        color={p.exposureFactor === 0 ? 'default' : 'warning'}
-                        variant="outlined"
-                        sx={{ fontSize: 10, height: 18 }}
-                      />
-                    )}
+                    {p.assetType !== 'CASH' &&
+                      p.assetType !== 'LIABILITY' &&
+                      p.exposureFactor !== 1 && (
+                        <Chip
+                          label={p.exposureFactor === 0 ? '0曝險' : `曝險×${p.exposureFactor}`}
+                          size="small"
+                          color={p.exposureFactor === 0 ? 'default' : 'warning'}
+                          variant="outlined"
+                          sx={{ fontSize: 10, height: 18 }}
+                        />
+                      )}
                     {p.priceFetchFailed && (
                       <Chip
                         label="報價失敗"
@@ -197,13 +210,22 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                   </Box>
                 </TableCell>
                 <TableCell align="right">
-                  {p.assetType === 'CASH' ? '—' : fmtQty(p.quantity)}
+                  {p.assetType === 'CASH' || p.assetType === 'LIABILITY' ? '—' : fmtQty(p.quantity)}
                 </TableCell>
                 <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                  {p.assetType === 'CASH' ? '—' : `${p.currency} ${value(fmt(p.currentPrice, 2))}`}
+                  {p.assetType === 'CASH' || p.assetType === 'LIABILITY'
+                    ? '—'
+                    : `${p.currency} ${value(fmt(p.currentPrice, 2))}`}
                 </TableCell>
                 <TableCell align="right">
-                  <Typography variant="body2">{value(fmt(p.marketValueTWD))}</Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: p.assetType === 'LIABILITY' ? pnlColor(p.marketValueTWD) : undefined,
+                    }}
+                  >
+                    {value(fmt(p.marketValueTWD))}
+                  </Typography>
                   {p.currency === 'USD' && (
                     <Typography variant="caption" color="text.secondary">
                       USD {value(fmt(p.marketValueLocal, 0))}
@@ -211,9 +233,11 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                   )}
                 </TableCell>
                 <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                  {showRatio && total > 0
-                    ? `${((p.marketValueTWD / total) * 100).toFixed(1)}%`
-                    : '—'}
+                  {p.assetType === 'LIABILITY'
+                    ? '—'
+                    : showRatio && total > 0
+                      ? `${((p.marketValueTWD / total) * 100).toFixed(1)}%`
+                      : '—'}
                 </TableCell>
                 <TableCell align="right">
                   {p.unrealizedPnlTWD != null && p.unrealizedPnlPct != null ? (

@@ -13,6 +13,14 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal(0m, factor);
         }
 
+        [Fact]
+        public void Factor_Liability_IsAlwaysZero()
+        {
+            // Debt itself isn't a market position — it just shrinks the net-worth denominator.
+            var factor = PortfolioExposure.Factor(AssetType.LIABILITY, "信貸", "", "");
+            Assert.Equal(0m, factor);
+        }
+
         [Theory]
         [InlineData("元大台灣50正2", "00631L", "TW", 2)]
         [InlineData("國泰台灣加權正二", "00663L", "TW", 2)]

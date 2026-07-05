@@ -4,7 +4,11 @@ using JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Data.Models.Portfolio
 {
-    public enum AssetType { STOCK, CASH, FUND }
+    /// <summary>
+    /// Append-only — values are persisted as int, reordering would corrupt existing rows.
+    /// Adding a new type? Follow the checklist in PORTFOLIO_LIABILITY_PLAN.md section 6.
+    /// </summary>
+    public enum AssetType { STOCK, CASH, FUND, LIABILITY }
 
     /// <summary>
     /// One full snapshot of a user's holdings as of an effective date.
@@ -59,13 +63,20 @@ namespace JackyAIApp.Server.Data.Models.Portfolio
         /// </summary>
         public string? CostCurrency { get; set; }
 
-        /// <summary>Shares (STOCK) / units (FUND) / amount (CASH).</summary>
+        /// <summary>
+        /// Shares (STOCK) / units (FUND) / amount (CASH) / amount owed (LIABILITY).
+        /// Always stored positive, even for LIABILITY — the sign flip to a negative
+        /// market value happens exactly once, in PortfolioService's valuation loop.
+        /// </summary>
         public decimal Quantity { get; set; }
 
-        /// <summary>Manual NAV for funds. Ignored for stocks (live price), 1 for cash.</summary>
+        /// <summary>Manual NAV for funds. Ignored for stocks (live price), 1 for cash/liability.</summary>
         public decimal? UnitPrice { get; set; }
 
-        /// <summary>Optional total cost basis in position currency. Drives unrealized P&amp;L when present.</summary>
+        /// <summary>
+        /// Optional total cost basis in position currency. Drives unrealized P&amp;L when present.
+        /// Always null for LIABILITY — debt has no cost basis and must never enter P&amp;L/XIRR.
+        /// </summary>
         public decimal? CostBasis { get; set; }
     }
 }
