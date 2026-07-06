@@ -44,6 +44,8 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal? UnrealizedPnlPct { get; set; }
         public decimal ExposureFactor { get; set; } = 1m; // market exposure multiplier (2 for 正2, 0 for bond/cash)
         public bool PriceFetchFailed { get; set; }
+        // Cumulative pre-tax cash dividends earned while holding this position (0 = none/not applicable).
+        public decimal DividendsTWD { get; set; }
     }
 
     public class PortfolioSummaryDto
@@ -62,7 +64,14 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal CostBasisTWD { get; set; }
         public decimal UnrealizedPnlTWD { get; set; }
         public decimal UnrealizedPnlPct { get; set; }
-        // Money-weighted annualized return (XIRR) over all snapshots; null when not computable.
+        // Cumulative pre-tax cash dividends earned across the whole snapshot timeline (Σ Positions.DividendsTWD,
+        // plus any from positions no longer held today).
+        public decimal TotalDividendsTWD { get; set; }
+        // Total (含息) return: UnrealizedPnlTWD + TotalDividendsTWD.
+        public decimal TotalReturnPnlTWD { get; set; }
+        public decimal TotalReturnPct { get; set; }
+        // Money-weighted annualized return (XIRR) over all snapshots, including dividend inflows;
+        // null when not computable.
         public decimal? AnnualizedReturnPct { get; set; }
         // Change vs the previous trading day's close, holding today's exact holdings constant
         // (isolates price movement). Null when no prior-day price is available for every holding.

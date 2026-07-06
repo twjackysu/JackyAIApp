@@ -33,6 +33,12 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             var providerFactory = new Mock<IMarketDataProviderFactory>();
             var fundData = new Mock<IFundDataService>();
+            // No dividends in any of these scenarios — liability tests don't cover total-return math.
+            var dividendData = new Mock<IDividendService>();
+            dividendData.Setup(x => x.GetStockDividendsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<DividendRecord>());
+            dividendData.Setup(x => x.GetFundDividendsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<DividendRecord>());
             // Loose mock with no CreateClient() setup returns null, GetStringAsync throws,
             // and FetchUsdTwdRateAsync's catch-all falls back to a fixed rate — no real network call.
             var httpClientFactory = new Mock<IHttpClientFactory>();
@@ -43,6 +49,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 _dbContext,
                 providerFactory.Object,
                 fundData.Object,
+                dividendData.Object,
                 stockService: null!, // only used by an unrelated stock-search path, never exercised here
                 httpClientFactory.Object,
                 cache,

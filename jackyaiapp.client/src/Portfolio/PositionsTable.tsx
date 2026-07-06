@@ -257,6 +257,11 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                       —
                     </Typography>
                   )}
+                  {p.dividendsTWD > 0 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      +息 {value(fmt(p.dividendsTWD))}
+                    </Typography>
+                  )}
                 </TableCell>
               </TableRow>
             );

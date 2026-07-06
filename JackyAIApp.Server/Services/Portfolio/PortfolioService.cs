@@ -15,6 +15,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         AzureSQLDBContext db,
         IMarketDataProviderFactory providerFactory,
         IFundDataService fundData,
+        IDividendService dividendData,
         TWStockLib.Services.StockMarketService stockService,
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
@@ -302,8 +303,22 @@ namespace JackyAIApp.Server.Services.Portfolio
             // no special-casing needed for net worth to correctly net out debt.
             var netWorthTWD = twStock + usStock + cash + fund + liability;
 
-            var annualizedReturnPct = await ComputeAnnualizedReturnAsync(
-                userId, fx, costBasisTWD + pnlTWD, ct);
+            // Total (含息) return: walk the whole snapshot timeline so a dividend counts against
+            // whatever quantity was actually held on its ex-date, not today's quantity.
+            var allSnapshots = await AllSnapshotsAsync(userId, ct);
+            var (totalDividendsTWD, dividendsByPosition, dividendFlows) =
+                await ComputeDividendsAsync(allSnapshots, fx, fundMap, ct);
+            foreach (var p in positions)
+            {
+                if (dividendsByPosition.TryGetValue((p.AssetType, p.Symbol, p.Market), out var div))
+                    p.DividendsTWD = div;
+            }
+            var totalReturnPnlTWD = pnlTWD + totalDividendsTWD;
+
+            // XIRR is 含息 (total return): dividends are real cash inflows, so leaving them out
+            // would understate the annualized return relative to what the user actually earned.
+            var annualizedReturnPct = ComputeAnnualizedReturn(
+                allSnapshots, fx, costBasisTWD + pnlTWD, dividendFlows);
 
             // Day change: re-value today's exact holdings at the previous trading day's close,
             // reusing the price histories already fetched above (no extra network calls). Holding
@@ -342,6 +357,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                 CostBasisTWD = costBasisTWD,
                 UnrealizedPnlTWD = pnlTWD,
                 UnrealizedPnlPct = costBasisTWD > 0 ? Math.Round(pnlTWD / costBasisTWD * 100, 2) : 0,
+                TotalDividendsTWD = totalDividendsTWD,
+                TotalReturnPnlTWD = totalReturnPnlTWD,
+                TotalReturnPct = costBasisTWD > 0 ? Math.Round(totalReturnPnlTWD / costBasisTWD * 100, 2) : 0,
                 AnnualizedReturnPct = annualizedReturnPct,
                 MarketExposureTWD = equityExposureTWD,
                 ExposureRatioPct = netWorthTWD > 0 ? Math.Round(equityExposureTWD / netWorthTWD * 100, 1) : 0,
@@ -357,11 +375,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             days = Math.Clamp(days, 7, 180);
 
-            var snapshots = await db.HoldingSnapshots
-                .Include(s => s.Positions)
-                .Where(s => s.UserId == userId)
-                .OrderBy(s => s.EffectiveDate)
-                .ToListAsync(ct);
+            var snapshots = await AllSnapshotsAsync(userId, ct);
 
             if (snapshots.Count == 0) return [];
 
@@ -737,6 +751,88 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .OrderByDescending(s => s.EffectiveDate)
                 .FirstOrDefaultAsync(ct);
 
+        /// <summary>Every snapshot for a user, oldest first — the full timeline, not just the latest.</summary>
+        private Task<List<HoldingSnapshot>> AllSnapshotsAsync(string userId, CancellationToken ct) =>
+            db.HoldingSnapshots
+                .Include(s => s.Positions)
+                .Where(s => s.UserId == userId)
+                .OrderBy(s => s.EffectiveDate)
+                .ToListAsync(ct);
+
+        /// <summary>
+        /// Cash dividends actually earned while holding each stock/fund position, walking the whole
+        /// snapshot timeline so a dividend counts against whatever quantity was held on its ex-date
+        /// (not today's quantity). Dividends before the user's first snapshot are excluded — the app
+        /// has no way to know what was held before that date, same honesty policy as XIRR.
+        /// </summary>
+        private async Task<(
+            decimal TotalTWD,
+            Dictionary<(AssetType AssetType, string Symbol, string Market), decimal> ByPosition,
+            List<(DateOnly Date, decimal AmountTWD)> Flows)>
+            ComputeDividendsAsync(
+                List<HoldingSnapshot> orderedSnapshots, decimal fx,
+                Dictionary<string, FundNavHistory> fundMap, CancellationToken ct)
+        {
+            var empty = new Dictionary<(AssetType, string, string), decimal>();
+            var noFlows = new List<(DateOnly, decimal)>();
+            if (orderedSnapshots.Count == 0) return (0, empty, noFlows);
+
+            var firstDate = orderedSnapshots[0].EffectiveDate;
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var keys = orderedSnapshots
+                .SelectMany(s => s.Positions)
+                .Where(p => (p.AssetType == AssetType.STOCK || p.AssetType == AssetType.FUND)
+                    && !string.IsNullOrWhiteSpace(p.Symbol))
+                .Select(p => (p.AssetType, Symbol: p.Symbol, Market: p.Market))
+                .Distinct()
+                .ToList();
+            if (keys.Count == 0) return (0, empty, noFlows);
+
+            // One dividend-history fetch per distinct position, in parallel (each individually cached).
+            var fetched = await Task.WhenAll(keys.Select(async key => (
+                Key: key,
+                Records: key.AssetType == AssetType.STOCK
+                    ? await dividendData.GetStockDividendsAsync(key.Symbol, key.Market, ct)
+                    : await dividendData.GetFundDividendsAsync(key.Symbol, ct)
+            )));
+
+            var byPosition = new Dictionary<(AssetType, string, string), decimal>();
+            var flows = new List<(DateOnly, decimal)>();
+            decimal total = 0;
+
+            foreach (var (key, records) in fetched)
+            {
+                decimal keyTotal = 0;
+                foreach (var record in records)
+                {
+                    if (record.ExDate < firstDate || record.ExDate > today) continue;
+
+                    // Whatever was actively held on the ex-date — not today's quantity.
+                    var activeSnapshot = orderedSnapshots.LastOrDefault(s => s.EffectiveDate <= record.ExDate);
+                    var position = activeSnapshot?.Positions.FirstOrDefault(p =>
+                        p.AssetType == key.AssetType && p.Symbol == key.Symbol && p.Market == key.Market);
+                    if (position == null || position.Quantity <= 0) continue;
+
+                    // FundRich's dividend history has no currency field; fall back to the fund's NAV currency.
+                    var currency = key.AssetType == AssetType.FUND
+                        ? (fundMap.TryGetValue(key.Symbol, out var nav) ? nav.Currency : "TWD")
+                        : record.Currency;
+                    var fxMul = currency == "USD" ? fx : 1m;
+
+                    var amountTWD = position.Quantity * record.AmountPerUnit * fxMul;
+                    keyTotal += amountTWD;
+                    flows.Add((record.ExDate, amountTWD));
+                }
+
+                if (keyTotal == 0) continue;
+                byPosition[(key.AssetType, key.Symbol, key.Market)] = keyTotal;
+                total += keyTotal;
+            }
+
+            return (total, byPosition, flows);
+        }
+
         // XIRR annualizes whatever return happened over the observed window. Below this many days
         // of history, even a small, perfectly real gain extrapolates into an absurd percentage
         // (e.g. a 2% gain over 5 days compounds to 4-digit "annualized" — mathematically correct,
@@ -748,29 +844,26 @@ namespace JackyAIApp.Server.Services.Portfolio
         private const int MinXirrHistoryDays = 30;
 
         /// <summary>
-        /// Money-weighted annualized return (XIRR) on invested capital. Changes in recorded cost
-        /// basis between snapshots are treated as dated contributions; the current value of
-        /// cost-bearing holdings is the terminal inflow. Returns null when not computable, or when
-        /// there isn't yet enough real history to annualize without being misleading.
+        /// Money-weighted annualized return (XIRR) on invested capital — 含息 (total return), since
+        /// dividends are real cash inflows. Changes in recorded cost basis between snapshots are
+        /// treated as dated contributions; each dividend is a dated inflow on its ex-date; the
+        /// current value of cost-bearing holdings is the terminal inflow. Returns null when not
+        /// computable, or when there isn't yet enough real history to annualize without being
+        /// misleading.
         /// </summary>
-        private async Task<decimal?> ComputeAnnualizedReturnAsync(
-            string userId, decimal fallbackFx, decimal terminalValueTWD, CancellationToken ct)
+        private static decimal? ComputeAnnualizedReturn(
+            List<HoldingSnapshot> orderedSnapshots, decimal fallbackFx, decimal terminalValueTWD,
+            List<(DateOnly Date, decimal AmountTWD)> dividendFlows)
         {
             if (terminalValueTWD <= 0) return null;
-
-            var snaps = await db.HoldingSnapshots
-                .Include(s => s.Positions)
-                .Where(s => s.UserId == userId)
-                .OrderBy(s => s.EffectiveDate)
-                .ToListAsync(ct);
-            if (snaps.Count == 0) return null;
+            if (orderedSnapshots.Count == 0) return null;
 
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            if (today.DayNumber - snaps[0].EffectiveDate.DayNumber < MinXirrHistoryDays) return null;
+            if (today.DayNumber - orderedSnapshots[0].EffectiveDate.DayNumber < MinXirrHistoryDays) return null;
 
             var flows = new List<(DateOnly, double)>();
             decimal prevCost = 0;
-            foreach (var s in snaps)
+            foreach (var s in orderedSnapshots)
             {
                 var snapFx = s.UsdTwdRate > 0 ? s.UsdTwdRate : fallbackFx;
                 var snapCost = s.Positions
@@ -780,6 +873,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (delta != 0) flows.Add((s.EffectiveDate, (double)(-delta))); // contribution = outflow
                 prevCost = snapCost;
             }
+
+            foreach (var (date, amountTWD) in dividendFlows)
+                flows.Add((date, (double)amountTWD)); // dividend = inflow
 
             flows.Add((today, (double)terminalValueTWD));
 

@@ -23,6 +23,9 @@ namespace JackyAIApp.Server.Common
 
             /// <summary>FundRich fund search results and NAV history.</summary>
             public static readonly TimeSpan FundRich = TimeSpan.FromHours(6);
+
+            /// <summary>Dividend/distribution history (stock + fund) — doesn't change intraday.</summary>
+            public static readonly TimeSpan Dividend = TimeSpan.FromHours(24);
         }
     }
 }

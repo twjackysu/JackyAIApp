@@ -35,6 +35,8 @@ export interface PositionDto {
   unrealizedPnlPct?: number | null;
   exposureFactor: number;
   priceFetchFailed: boolean;
+  // Cumulative pre-tax cash dividends earned while holding this position (0 = none/not applicable).
+  dividendsTWD: number;
 }
 
 export interface PortfolioSummaryDto {
@@ -51,6 +53,12 @@ export interface PortfolioSummaryDto {
   costBasisTWD: number;
   unrealizedPnlTWD: number;
   unrealizedPnlPct: number;
+  // Cumulative pre-tax cash dividends across the whole snapshot timeline.
+  totalDividendsTWD: number;
+  // Total (含息) return: unrealizedPnlTWD + totalDividendsTWD.
+  totalReturnPnlTWD: number;
+  totalReturnPct: number;
+  // XIRR — includes dividend inflows (含息).
   annualizedReturnPct?: number | null;
   marketExposureTWD: number;
   exposureRatioPct: number;
