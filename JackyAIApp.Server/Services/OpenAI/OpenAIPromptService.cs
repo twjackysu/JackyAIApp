@@ -5,6 +5,8 @@ using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.Prompt;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
+using ResponseFormatType = Betalgo.Ranul.OpenAI.Contracts.Enums.ResponseFormat;
+using ReasoningEffortType = Betalgo.Ranul.OpenAI.Contracts.Enums.ReasoningEffort;
 
 namespace JackyAIApp.Server.Services.OpenAI
 {
@@ -64,6 +66,16 @@ namespace JackyAIApp.Server.Services.OpenAI
             return await GetCompletionWithMessagesAsync<T>(messagesTuples, model);
         }
 
+        // "gpt-5*" is this app's only reasoning-family model; reasoning_effort is rejected by the
+        // OpenAI API on non-reasoning models (e.g. gpt-4.1-nano callers that pass an explicit
+        // model), so it must only be sent when the resolved model actually supports it.
+        private static bool IsReasoningModel(string model) =>
+            model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
+
+        // Every prompt file routed through here must mention the word "json" somewhere in its
+        // system/user text — the API rejects response_format=json_object otherwise.
+        private const int DefaultMaxCompletionTokens = 4096;
+
         public async Task<(T? Result, string? Error)> GetCompletionWithMessagesAsync<T>(
             IEnumerable<(string Role, string Content)> messages,
             string? model = null) where T : class
@@ -77,11 +89,29 @@ namespace JackyAIApp.Server.Services.OpenAI
                     _ => ChatMessage.FromUser(m.Content)
                 }).ToList();
 
-                var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+                var resolvedModel = model ?? NewModels.GPT_5_NANO;
+                var request = new ChatCompletionCreateRequest
                 {
                     Messages = chatMessages,
-                    Model = model ?? NewModels.GPT_5_NANO
-                });
+                    Model = resolvedModel,
+                    // Forces valid JSON instead of relying on the model to follow the prompt's
+                    // format instructions — occasional prose/markdown-wrapped/truncated replies
+                    // were the main cause of "OpenAI could not generate ..." failures.
+                    ResponseFormat = new ResponseFormat { Type = ResponseFormatType.JsonObject },
+                    // Without a cap, a reasoning model can spend its whole budget on invisible
+                    // reasoning tokens and return empty content for a large structured response
+                    // (e.g. a multi-sense dictionary entry). 4096 comfortably covers every prompt
+                    // in this app.
+                    MaxCompletionTokens = DefaultMaxCompletionTokens,
+                };
+                if (IsReasoningModel(resolvedModel))
+                {
+                    // These are extraction/formatting tasks, not tasks needing deep reasoning —
+                    // low effort is faster and cheaper with no meaningful quality loss.
+                    request.ReasoningEffort = ReasoningEffortType.Low;
+                }
+
+                var completionResult = await _openAIService.ChatCompletion.CreateCompletion(request);
 
                 if (!completionResult.Successful)
                 {
