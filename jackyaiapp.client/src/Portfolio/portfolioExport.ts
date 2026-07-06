@@ -47,6 +47,8 @@ export function exportPortfolioCsv(summary: PortfolioSummaryDto) {
     '成本(TWD)',
     '未實現損益(TWD)',
     '損益%',
+    '累計股息(TWD)',
+    '含息損益(TWD)',
     '曝險倍數',
   ];
 
@@ -64,6 +66,8 @@ export function exportPortfolioCsv(summary: PortfolioSummaryDto) {
     p.costBasisTWD ?? '',
     p.unrealizedPnlTWD ?? '',
     p.unrealizedPnlPct ?? '',
+    p.dividendsTWD || '',
+    p.unrealizedPnlTWD != null || p.dividendsTWD ? (p.unrealizedPnlTWD ?? 0) + p.dividendsTWD : '',
     p.exposureFactor,
   ]);
 

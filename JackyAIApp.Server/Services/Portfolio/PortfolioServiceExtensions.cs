@@ -8,6 +8,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         public static IServiceCollection AddPortfolioServices(this IServiceCollection services)
         {
             services.AddScoped<IFundDataService, FundDataService>();
+            services.AddScoped<IDividendService, DividendService>();
             services.AddScoped<IPortfolioService, PortfolioService>();
 
             return services;

@@ -85,6 +85,9 @@ function NetWorthCard({
   pnl,
   pnlPct,
   hasPnl,
+  totalDividends,
+  totalReturnPnl,
+  totalReturnPct,
   annualized,
   dayChange,
   dayChangePct,
@@ -93,11 +96,15 @@ function NetWorthCard({
   pnl: number;
   pnlPct: number;
   hasPnl: boolean;
+  totalDividends: number;
+  totalReturnPnl: number;
+  totalReturnPct: number;
   annualized?: number | null;
   dayChange?: number | null;
   dayChangePct?: number | null;
 }) {
   const isPositive = pnl >= 0;
+  const isTotalReturnPositive = totalReturnPnl >= 0;
   const isDayPositive = (dayChange ?? 0) >= 0;
   const { value, change, showRatio } = usePrivacy();
   return (
@@ -173,6 +180,32 @@ function NetWorthCard({
             </Typography>
           </Box>
         )}
+        {hasPnl && totalDividends !== 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Typography
+              variant="body1"
+              sx={{ color: pnlColor(totalReturnPnl, 'inherit'), fontWeight: 600 }}
+              component="span"
+            >
+              {isTotalReturnPositive ? '▲' : '▼'} NT${change(fmt(Math.abs(totalReturnPnl)))}
+            </Typography>
+            {showRatio && (
+              <Chip
+                label={`${isTotalReturnPositive ? '+' : ''}${totalReturnPct.toFixed(2)}%`}
+                size="small"
+                sx={{
+                  bgcolor: alpha(isTotalReturnPositive ? '#22c55e' : '#ef4444', 0.15),
+                  color: isTotalReturnPositive ? '#22c55e' : '#ef4444',
+                  fontWeight: 700,
+                  border: 'none',
+                }}
+              />
+            )}
+            <Typography variant="caption" color="text.secondary">
+              含息損益(含累計股息 NT${change(fmt(totalDividends))}，稅前)
+            </Typography>
+          </Box>
+        )}
         {hasPnl && annualized != null && showRatio && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
             <Chip
@@ -186,7 +219,7 @@ function NetWorthCard({
               }}
             />
             <Typography variant="caption" color="text.secondary">
-              年化報酬率 (XIRR · 估)
+              年化報酬率 (XIRR·含息·估)
             </Typography>
           </Box>
         )}
@@ -369,6 +402,9 @@ export default function Portfolio() {
                   pnl={summary.unrealizedPnlTWD}
                   pnlPct={summary.unrealizedPnlPct}
                   hasPnl={hasPnl}
+                  totalDividends={summary.totalDividendsTWD}
+                  totalReturnPnl={summary.totalReturnPnlTWD}
+                  totalReturnPct={summary.totalReturnPct}
                   annualized={summary.annualizedReturnPct}
                   dayChange={summary.dayChangeTWD}
                   dayChangePct={summary.dayChangePct}
