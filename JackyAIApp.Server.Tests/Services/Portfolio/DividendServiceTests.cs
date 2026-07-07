@@ -1,6 +1,5 @@
-using System.Net;
-using System.Text;
 using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -13,26 +12,16 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// </summary>
     public class DividendServiceTests
     {
-        private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
-        {
-            protected override Task<HttpResponseMessage> SendAsync(
-                HttpRequestMessage request, CancellationToken cancellationToken) =>
-                Task.FromResult(responder(request));
-        }
-
         private static DividendService CreateService(Func<HttpRequestMessage, HttpResponseMessage> responder)
         {
-            var httpClient = new HttpClient(new StubHandler(responder));
+            var httpClient = StubHttpMessageHandler.CreateClient(responder);
             var httpClientFactory = new Mock<IHttpClientFactory>();
             httpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
             var cache = new MemoryCache(new MemoryCacheOptions());
             return new DividendService(httpClientFactory.Object, cache, NullLogger<DividendService>.Instance);
         }
 
-        private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json"),
-        };
+        private static HttpResponseMessage JsonResponse(string json) => StubHttpMessageHandler.JsonResponse(json);
 
         [Fact]
         public async Task GetStockDividendsAsync_UsMarket_ParsesYahooEventsBlock()
