@@ -56,7 +56,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             {
                 var url = $"{CHART_URL}/{Uri.EscapeDataString(symbol)}?range=1d&interval=1d";
 
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
                 using var request = new HttpRequestMessage(HttpMethod.Get, url);
                 request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
 

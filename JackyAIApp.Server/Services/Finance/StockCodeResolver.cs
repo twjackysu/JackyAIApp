@@ -13,7 +13,7 @@ namespace JackyAIApp.Server.Services.Finance
         IOpenAIService openAIService,
         IMemoryCache memoryCache) : IStockCodeResolver
     {
-        private readonly HttpClient _httpClient = httpClientFactory.CreateClient();
+        private readonly HttpClient _httpClient = httpClientFactory.CreateClient("ExternalReadOnly");
         private readonly ILogger<StockCodeResolver> _logger = logger;
         private readonly IOpenAIService _openAIService = openAIService;
         private readonly IMemoryCache _memoryCache = memoryCache;

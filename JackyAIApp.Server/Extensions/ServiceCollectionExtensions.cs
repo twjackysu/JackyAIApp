@@ -79,14 +79,14 @@ namespace JackyAIApp.Server.Extensions
                 client.DefaultRequestHeaders.Add("Referer", "https://www.104.com.tw/");
                 client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
                 client.Timeout = TimeSpan.FromSeconds(15);
-            });
+            }).AddReadOnlyResilience();
             services.AddHttpClient("Cake", client =>
             {
                 client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml");
                 client.DefaultRequestHeaders.Add("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.8");
                 client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
                 client.Timeout = TimeSpan.FromSeconds(15);
-            });
+            }).AddReadOnlyResilience();
             services.AddSingleton<IJobProvider, Job104Provider>();
             services.AddSingleton<IJobProvider, CakeJobsProvider>();
             services.AddSingleton<IJobAggregatorService, JobAggregatorService>();

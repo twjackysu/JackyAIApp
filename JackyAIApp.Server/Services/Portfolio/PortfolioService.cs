@@ -705,7 +705,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             try
             {
-                var client = httpClientFactory.CreateClient();
+                var client = httpClientFactory.CreateClient("ExternalReadOnly");
                 var url = $"https://query1.finance.yahoo.com/v1/finance/search?q={Uri.EscapeDataString(keyword)}&quotesCount=12&newsCount=0";
                 using var req = new HttpRequestMessage(HttpMethod.Get, url);
                 req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
@@ -1140,7 +1140,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 // BOT's flcsv endpoint now serves an anti-bot "Challenge Validation" HTML page to
                 // non-browser clients, so it always fell back to 32. Use a stable key-less JSON feed.
-                var client = httpClientFactory.CreateClient();
+                var client = httpClientFactory.CreateClient("ExternalReadOnly");
                 var json = await client.GetStringAsync(FX_URL, ct);
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("rates", out var rates) &&

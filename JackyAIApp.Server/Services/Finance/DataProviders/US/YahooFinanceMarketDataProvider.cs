@@ -39,7 +39,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             var symbol = stockCode.ToUpperInvariant();
             var url = $"{CHART_URL}/{symbol}?range=6mo&interval=1d&includePrePost=false";
 
-            var client = _httpClientFactory.CreateClient();
+            var client = _httpClientFactory.CreateClient("ExternalReadOnly");
             client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
 
             var response = await client.GetAsync(url, cancellationToken);

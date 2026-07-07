@@ -52,7 +52,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             try
             {
-                var client = httpClientFactory.CreateClient();
+                var client = httpClientFactory.CreateClient("ExternalReadOnly");
                 using var req = new HttpRequestMessage(HttpMethod.Post, SEARCH_URL);
                 AddBrowserHeaders(req);
                 var payload = JsonSerializer.Serialize(new { Method = "getSearchKw", Data = new { kw = keyword } });
@@ -101,7 +101,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             try
             {
-                var client = httpClientFactory.CreateClient();
+                var client = httpClientFactory.CreateClient("ExternalReadOnly");
                 using var req = new HttpRequestMessage(HttpMethod.Post, CHART_URL);
                 AddBrowserHeaders(req);
                 // "1Y" gives ~243 daily points; enough for the 180-day net-worth window.

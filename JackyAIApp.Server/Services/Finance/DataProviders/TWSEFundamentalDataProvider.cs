@@ -221,7 +221,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             if (_cache.TryGetValue(cacheKey, out List<T>? cached))
                 return cached;
 
-            var client = _httpClientFactory.CreateClient();
+            var client = _httpClientFactory.CreateClient("ExternalReadOnly");
             var response = await client.GetAsync(url, ct);
             response.EnsureSuccessStatusCode();
 

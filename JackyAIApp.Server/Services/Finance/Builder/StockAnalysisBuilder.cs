@@ -264,7 +264,7 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             {
                 // Fetch SEC company tickers JSON. Use the factory (pooled handler, bounded
                 // timeout) instead of `new HttpClient()`, which leaks sockets and never times out.
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
                 client.Timeout = TimeSpan.FromSeconds(15);
                 client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "JackyAIApp/1.0 jacky19918@gmail.com");
                 var response = await client.GetAsync("https://www.sec.gov/files/company_tickers.json", ct);

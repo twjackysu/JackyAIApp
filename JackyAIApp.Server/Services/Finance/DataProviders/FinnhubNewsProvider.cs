@@ -50,7 +50,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
             try
             {
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
                 var url = $"{BASE_URL}?category=general&token={apiKey}";
                 using var response = await client.GetAsync(url, cancellationToken);
 

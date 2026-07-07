@@ -164,7 +164,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 if (_cache.TryGetValue("macro_FX", out List<ExchangeRate>? cached))
                     return cached;
 
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
                 var csv = await client.GetStringAsync(BOT_FX_URL, ct);
                 var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
@@ -205,7 +205,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 if (_cache.TryGetValue("macro_BankRate", out BankRate? cached))
                     return cached;
 
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
                 var csv = await client.GetStringAsync(CBC_RATE_URL, ct);
                 var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
@@ -249,7 +249,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             if (_cache.TryGetValue(cacheKey, out T? cached))
                 return cached;
 
-            var client = _httpClientFactory.CreateClient();
+            var client = _httpClientFactory.CreateClient("ExternalReadOnly");
             var response = await client.GetAsync(url, ct);
             response.EnsureSuccessStatusCode();
 
