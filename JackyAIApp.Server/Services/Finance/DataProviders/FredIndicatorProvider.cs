@@ -70,7 +70,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 var url = $"{OBSERVATIONS_URL}?series_id={def.Series}&api_key={apiKey}&file_type=json" +
                           $"&observation_start={start}&sort_order=asc";
 
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
                 using var response = await client.GetAsync(url, ct);
                 if (!response.IsSuccessStatusCode)
                 {

@@ -196,7 +196,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
 
         private HttpClient CreateClient()
         {
-            var client = _httpClientFactory.CreateClient();
+            var client = _httpClientFactory.CreateClient("ExternalReadOnly");
             client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", USER_AGENT);
             return client;
         }

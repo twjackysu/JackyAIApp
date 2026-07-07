@@ -292,7 +292,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
 
             var url = $"{BASE_URL}/{path}";
-            using var httpClient = _httpClientFactory.CreateClient();
+            using var httpClient = _httpClientFactory.CreateClient("ExternalReadOnly");
             httpClient.DefaultRequestHeaders.Clear();
             httpClient.DefaultRequestHeaders.Add("User-Agent", USER_AGENT);
 

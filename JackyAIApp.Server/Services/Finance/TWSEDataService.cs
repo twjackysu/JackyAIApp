@@ -17,7 +17,7 @@ namespace JackyAIApp.Server.Services.Finance
             ILogger<TWSEDataService> logger,
             IExtendedMemoryCache memoryCache)
         {
-            _httpClient = httpClientFactory?.CreateClient() ?? throw new ArgumentNullException(nameof(httpClientFactory));
+            _httpClient = httpClientFactory?.CreateClient("ExternalReadOnly") ?? throw new ArgumentNullException(nameof(httpClientFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         }

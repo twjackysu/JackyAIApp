@@ -82,7 +82,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             try
             {
-                var client = httpClientFactory.CreateClient();
+                var client = httpClientFactory.CreateClient("ExternalReadOnly");
                 client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
                 // interval=1mo keeps the payload small — only the events block is needed, not daily bars.
                 var url = $"{YAHOO_CHART_URL}/{yahooSymbol}?range=5y&interval=1mo&events=div";
@@ -141,7 +141,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var result = new List<DividendRecord>();
             try
             {
-                var client = httpClientFactory.CreateClient();
+                var client = httpClientFactory.CreateClient("ExternalReadOnly");
                 using var req = new HttpRequestMessage(HttpMethod.Post, FUND_DIVIDEND_URL);
                 AddFundRichHeaders(req);
                 var payload = JsonSerializer.Serialize(new { data = new { fundId } });
