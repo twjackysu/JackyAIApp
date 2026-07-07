@@ -1,0 +1,45 @@
+name: Third-Party Contract Tests
+
+# Hits real third-party APIs (Yahoo Finance, FundRich, open.er-api.com, ...) to verify the response
+# shapes our parsers depend on haven't changed — see THIRD_PARTY_CONTRACT_TESTS_PLAN.md.
+# Deliberately NOT triggered on pull_request: a third party being flaky/down must never block or
+# turn an unrelated PR red. Failures here mean something upstream actually changed and needs
+# attention, independent of any in-flight PR.
+on:
+  schedule:
+    - cron: '0 1 * * *'  # daily, 01:00 UTC (09:00 Taipei) — avoids TW/US market-hours peak load
+  workflow_dispatch: {}   # allow manual runs
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj
+
+    - name: Build Tests
+      run: dotnet build JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release --no-restore
+
+    - name: Run live contract tests
+      env:
+        # Sources that require a key (FRED, Finnhub) skip gracefully when their variable is unset —
+        # see LiveContractBase.GetApiKey. Add the corresponding repo secret when those phases land.
+        FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+      run: dotnet test JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category=LiveContract" --logger "trx;LogFileName=contract-test-results.trx"
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: contract-test-results
+        path: JackyAIApp.Server.Tests/TestResults/contract-test-results.trx
