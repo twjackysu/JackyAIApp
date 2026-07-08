@@ -1,0 +1,34 @@
+[
+  {
+    "Date": "1150701",
+    "TradeVolume": "14683404939",
+    "TradeValue": "1367817795171",
+    "Transaction": "6457744",
+    "TAIEX": "47018.99",
+    "Change": "893.08"
+  },
+  {
+    "Date": "1150702",
+    "TradeVolume": "11740053658",
+    "TradeValue": "1083583417368",
+    "Transaction": "5564334",
+    "TAIEX": "46744.16",
+    "Change": "-274.83"
+  },
+  {
+    "Date": "1150703",
+    "TradeVolume": "12189040098",
+    "TradeValue": "1078028137102",
+    "Transaction": "5526867",
+    "TAIEX": "46780.62",
+    "Change": "36.46"
+  },
+  {
+    "Date": "1150706",
+    "TradeVolume": "12910602003",
+    "TradeValue": "1064431906064",
+    "Transaction": "6006874",
+    "TAIEX": "46556.39",
+    "Change": "-224.23"
+  }
+]

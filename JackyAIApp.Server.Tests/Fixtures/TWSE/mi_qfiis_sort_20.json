@@ -1,0 +1,57 @@
+[
+  {
+    "Rank": "1",
+    "Code": "2923",
+    "Name": "鼎固-KY",
+    "ShareNumber": "1740296982",
+    "AvailableShare": "9685419",
+    "SharesHeld": "1730611563",
+    "AvailableInvestPer": "0.55",
+    "SharesHeldPer": "99.44",
+    "Upperlimit": "100.00"
+  },
+  {
+    "Rank": "2",
+    "Code": "8482",
+    "Name": "商億-KY",
+    "ShareNumber": "107444000",
+    "AvailableShare": "8904524",
+    "SharesHeld": "98539476",
+    "AvailableInvestPer": "8.28",
+    "SharesHeldPer": "91.71",
+    "Upperlimit": "100.00"
+  },
+  {
+    "Rank": "3",
+    "Code": "6230",
+    "Name": "尼得科超眾",
+    "ShareNumber": "86343396",
+    "AvailableShare": "11229144",
+    "SharesHeld": "75114252",
+    "AvailableInvestPer": "13.00",
+    "SharesHeldPer": "86.99",
+    "Upperlimit": "100.00"
+  },
+  {
+    "Rank": "4",
+    "Code": "6890",
+    "Name": "來億-KY",
+    "ShareNumber": "249400000",
+    "AvailableShare": "35148296",
+    "SharesHeld": "214251704",
+    "AvailableInvestPer": "14.09",
+    "SharesHeldPer": "85.90",
+    "Upperlimit": "100.00"
+  },
+  {
+    "Rank": "5",
+    "Code": "4560",
+    "Name": "強信-KY",
+    "ShareNumber": "68097240",
+    "AvailableShare": "10440086",
+    "SharesHeld": "57657154",
+    "AvailableInvestPer": "15.33",
+    "SharesHeldPer": "84.66",
+    "Upperlimit": "100.00"
+  }
+]
