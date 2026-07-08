@@ -13,12 +13,12 @@ npm run lint         # ESLint with TypeScript, max 0 warnings
 npm run preview      # Preview production build
 ```
 
-### Backend (.NET 8)
+### Backend (.NET 10)
 ```bash
 cd JackyAIApp.Server
 dotnet run                    # Start development server (https://localhost:7034)
 dotnet build --configuration Release
-dotnet test                   # Currently no tests configured
+dotnet test                   # JackyAIApp.Server.Tests — offline unit tests + LiveContract tests
 dotnet publish --configuration Release
 ```
 
@@ -41,12 +41,13 @@ dotnet ef database update
 - **Vite** as build tool with SPA proxy to backend
 
 ### Backend Stack
-- **.NET 8 Web API** with Swagger documentation
+- **.NET 10 Web API** with Swagger documentation
 - **Entity Framework Core** with Azure SQL Database
 - **Azure integrations**: Key Vault for secrets, App Service hosting
 - **OpenAI integration** via Betalgo.Ranul.OpenAI package (v9.0.3)
 - **Google OAuth** authentication
-- **External API integrations**: Taiwan Stock Exchange (TWSE) Open API
+- **External API integrations**: Taiwan Stock Exchange (TWSE) Open API, Yahoo Finance, FundRich (基富通), TWStockLib (NuGet package, own test suite — see Testing Status)
+- **Resilience**: Polly retry + circuit breaker (`Microsoft.Extensions.Http.Resilience`) on the named `"ExternalReadOnly"` client and the bare default client (used by TWStockLib), scoped away from OpenAI/PayPal/ECPay/Dify to avoid retrying non-idempotent calls
 
 ### Key Features & Modules
 1. **Dictionary** (`/dictionary`) - English learning with word lookup, audio, pronunciation, word repository
@@ -86,6 +87,23 @@ dotnet ef database update
    - Password removal from protected PDFs
    - Batch PDF processing
    - File compression features
+
+6. **Portfolio** (`/portfolio`) - Holdings tracking (stock/fund/cash/liability)
+   - Snapshot-based model, **not** a transaction log — each save replaces the latest snapshot for that date
+   - Asset types: STOCK, FUND, CASH, LIABILITY (debt; negated at the single valuation point in `PortfolioService`, see code comments for the sign-flip invariant)
+   - TW stock pricing via TWStockLib; during 9:00-13:30 trading hours, overlays a realtime quote (bid/ask midpoint fallback) on top of the last historical close
+   - US stock pricing + dividends via Yahoo Finance v8 chart API; fund NAV/dividends via FundRich
+   - Total (含息) return: dividend history walked against the snapshot timeline so a dividend counts against whatever quantity was held on its ex-date; XIRR includes dividends as inflows
+   - Exposure ratio accounts for leveraged/inverse ETF factors (`PortfolioExposure.Factor`)
+
+7. **Daily Challenge / Review / Stats** (`/daily`, `/review`, `/stats`) - Retention & gamification
+   - Daily Challenge: 5-question date-seeded quiz generated from the word DB (no AI cost), always free
+   - Review: SM-2 spaced-repetition flashcards (`SpacedRepetitionService`), shared scheduling with exam results
+   - Streak + XP + level system; weekly report; anonymized leaderboard
+
+8. **Credits & Payments** (`/credits`) - Monetization
+   - Credit-gated AI features; costs centralized in `Common/CreditCosts.cs`
+   - Payment methods: Stripe, PayPal, ECPay (綠界); purchase/transaction history
 
 ## Code Organization Patterns
 
@@ -174,9 +192,10 @@ JackyAIApp.Server/
 - **Logging**: NLog with structured logging patterns
 
 ### Deployment
-- **CI/CD**: GitHub Actions with manual trigger (`workflow_dispatch`)
+- **CI/CD**: GitHub Actions, "Build and deploy" workflow triggers automatically on every push to `master` (i.e. every merged PR deploys) — not manual-only
 - **Target**: Azure App Service (`JackyAI`)
 - **Process**: Build → Test → Publish → Deploy with Azure publish profile
+- **Gotcha**: two pushes to `master` in quick succession can cancel the earlier in-flight deploy run — check `gh run list` after a merge; if cancelled, the *next* successful run for a later commit still deploys everything (git history is linear), but if nothing later ran, re-trigger it
 
 ## Important Notes
 
@@ -218,9 +237,10 @@ JackyAIApp.Server/
 - **Legacy migration controller** available for reference (migration period completed)
 
 ### Testing Status
-- **Current**: No test framework configured (E2E directory exists but empty)
-- **CI/CD**: Includes `dotnet test` step but no actual tests
-- **Recommendation**: Implement unit tests for Services/ and integration tests for Controllers/
+- **`JackyAIApp.Server.Tests`** (xUnit + Moq): two categories, do not conflate them
+  - **Offline unit tests**: fixture/mock-based, run in every PR CI (`--filter "Category!=LiveContract"`)
+  - **Live contract tests** (`LiveContracts/`, `[Trait("Category", "LiveContract")]`): hit real third-party APIs (Yahoo, FundRich, open.er-api.com), asserting response *shape* not exact values. Never run in PR CI — only on the scheduled `contract-tests.yml` workflow (daily cron + manual dispatch). Deliberately excludes anything sourced through TWStockLib (that package has its own test suite)
+- **E2E**: directory exists but empty
 - **Manual Testing**: Comprehensive manual testing of all features during development
 
 ### Performance & Optimization
