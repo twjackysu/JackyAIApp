@@ -25,6 +25,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { useGetCreditBalanceQuery, useGetCreditHistoryQuery } from '@/apis/creditApis';
+import { useCreateECPayPaymentMutation, useGetECPayPacksQuery } from '@/apis/ecpayApis';
 import {
   useCapturePayPalOrderMutation,
   useCreatePayPalOrderMutation,
@@ -32,13 +33,13 @@ import {
 } from '@/apis/paypalApis';
 import { fmtNum } from '@/utils/format';
 
-// 'ecpay' is a disabled placeholder until a real ECPay merchant account is set up —
-// that will be the Taiwan-local payment method. PayPal is overseas-only.
+// ECPay (綠界) is the default — it's the Taiwan-local payment method and supports
+// TW→TW payments, which PayPal cannot (PayPal is overseas-account-only).
 type PaymentMethod = 'paypal' | 'ecpay';
 
 const Credits: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const [method, setMethod] = useState<PaymentMethod>('paypal');
+  const [method, setMethod] = useState<PaymentMethod>('ecpay');
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -47,9 +48,11 @@ const Credits: React.FC = () => {
 
   const { data: balanceData, refetch: refetchBalance } = useGetCreditBalanceQuery();
   const { data: paypalPacks, isLoading: paypalLoading } = useGetPayPalPacksQuery();
+  const { data: ecpayPacks, isLoading: ecpayLoading } = useGetECPayPacksQuery();
 
   const [createPayPalOrder, { isLoading: paypalOrderLoading }] = useCreatePayPalOrderMutation();
   const [capturePayPalOrder] = useCapturePayPalOrderMutation();
+  const [createECPayPayment, { isLoading: ecpayOrderLoading }] = useCreateECPayPaymentMutation();
 
   // Guards the one-time handling of the payment-return query params (also avoids a
   // double PayPal capture under React StrictMode's double-invoked effects).
@@ -60,7 +63,7 @@ const Credits: React.FC = () => {
     pageSize: 10,
   });
 
-  // Handle return from PayPal.
+  // Handle return from PayPal / ECPay.
   useEffect(() => {
     const status = searchParams.get('status');
     if (!status || handledReturnRef.current) return;
@@ -86,6 +89,14 @@ const Credits: React.FC = () => {
       refetchBalance();
       refetchHistory();
     };
+
+    // ECPay credits the account server-side via its own POST callback (/api/ecpay/callback)
+    // before the browser is ever redirected back here — unlike PayPal, there's nothing left
+    // for the client to "capture". Just confirm and refresh.
+    if (searchParams.get('provider') === 'ecpay') {
+      onCredited();
+      return;
+    }
 
     // PayPal Orders v2 is two-step: the buyer approved the order, now we must capture
     // it server-side — that's what actually charges and grants credits. PayPal appends
@@ -126,14 +137,50 @@ const Credits: React.FC = () => {
     }
   };
 
-  const packs = paypalPacks?.map((p) => ({
-    id: p.id,
-    name: p.name,
-    price: p.priceInCents / 100,
-    credits: p.credits,
-    badge: p.badge,
-    currency: '$',
-  }));
+  const handleECPayPurchase = async (packId: string) => {
+    try {
+      const { PaymentGatewayUrl, ...fields } = await createECPayPayment(packId).unwrap();
+      // ECPay's AioCheckOut expects a signed HTML form POST (CheckMacValue covers every
+      // field), not a simple redirect — build and auto-submit a hidden form.
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = PaymentGatewayUrl;
+      Object.entries(fields).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      });
+      document.body.appendChild(form);
+      form.submit();
+    } catch {
+      setSnackbar({
+        open: true,
+        message: '無法啟動綠界付款，請稍後再試一次。',
+        severity: 'error',
+      });
+    }
+  };
+
+  const packs =
+    method === 'ecpay'
+      ? ecpayPacks?.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.priceTWD,
+          credits: p.credits,
+          badge: p.badge,
+          currency: 'NT$',
+        }))
+      : paypalPacks?.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.priceInCents / 100,
+          credits: p.credits,
+          badge: p.badge,
+          currency: '$',
+        }));
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
@@ -155,19 +202,21 @@ const Credits: React.FC = () => {
       </Box>
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
         <Tabs value={method} onChange={(_, v) => setMethod(v as PaymentMethod)}>
+          <Tab label="綠界 ECPay（台灣本地）" value="ecpay" />
           <Tab label="PayPal（僅限海外帳戶）" value="paypal" />
-          <Tab label="綠界 ECPay（即將開放）" value="ecpay" disabled />
         </Tabs>
       </Box>
 
-      {/* PayPal can't process Taiwan-domestic (TW→TW) payments — make that explicit, and
-          point Taiwan users at the upcoming local option. */}
-      <Alert severity="info" sx={{ mb: 3, maxWidth: 640, mx: 'auto' }}>
-        PayPal 不支援台灣帳戶之間的付款（TW→TW），僅適用於海外 / 非台灣的 PayPal 帳戶。
-        台灣本地付款方式（綠界 ECPay）即將開放。
-      </Alert>
+      {/* PayPal can't process Taiwan-domestic (TW→TW) payments, so ECPay is the default
+          for TW users; PayPal stays available for overseas accounts. */}
+      {method === 'paypal' && (
+        <Alert severity="info" sx={{ mb: 3, maxWidth: 640, mx: 'auto' }}>
+          PayPal 不支援台灣帳戶之間的付款（TW→TW），僅適用於海外 / 非台灣的 PayPal 帳戶。
+          台灣用戶建議使用綠界 ECPay。
+        </Alert>
+      )}
 
-      {paypalLoading ? (
+      {(method === 'ecpay' ? ecpayLoading : paypalLoading) ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
@@ -210,11 +259,17 @@ const Credits: React.FC = () => {
                   <Button
                     variant={pack.id === 'popular' ? 'contained' : 'outlined'}
                     size="large"
-                    onClick={() => handlePayPalPurchase(pack.id)}
-                    disabled={paypalOrderLoading}
+                    onClick={() =>
+                      method === 'ecpay'
+                        ? handleECPayPurchase(pack.id)
+                        : handlePayPalPurchase(pack.id)
+                    }
+                    disabled={method === 'ecpay' ? ecpayOrderLoading : paypalOrderLoading}
                     sx={{ minWidth: 160 }}
                   >
-                    {paypalOrderLoading ? 'Processing...' : 'Buy Now'}
+                    {(method === 'ecpay' ? ecpayOrderLoading : paypalOrderLoading)
+                      ? 'Processing...'
+                      : 'Buy Now'}
                   </Button>
                 </CardActions>
               </Card>
