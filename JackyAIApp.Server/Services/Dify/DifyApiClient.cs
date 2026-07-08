@@ -33,7 +33,7 @@ namespace JackyAIApp.Server.Services.Dify
 
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-            var httpClient = _httpClientFactory.CreateClient();
+            var httpClient = _httpClientFactory.CreateClient("Dify");
             httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {ApiKey}");
             httpClient.DefaultRequestHeaders.Add("Accept", "text/event-stream");
             httpClient.DefaultRequestHeaders.Add("Cache-Control", "no-cache");
@@ -111,7 +111,7 @@ namespace JackyAIApp.Server.Services.Dify
 
         private HttpClient CreateAuthorizedClient()
         {
-            var client = _httpClientFactory.CreateClient();
+            var client = _httpClientFactory.CreateClient("Dify");
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
             return client;
         }
