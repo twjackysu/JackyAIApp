@@ -10,7 +10,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     /// </summary>
     public class TWStockLibHistoricalProvider : IMarketDataProvider
     {
-        private readonly StockMarketService _stockService;
+        private readonly IStockMarketService _stockService;
         private readonly ILogger<TWStockLibHistoricalProvider> _logger;
 
         /// <summary>Default lookback period in months for historical data</summary>
@@ -19,7 +19,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         public DataProviderType Type => DataProviderType.HistoricalPrice;
 
         public TWStockLibHistoricalProvider(
-            StockMarketService stockService,
+            IStockMarketService stockService,
             ILogger<TWStockLibHistoricalProvider> logger)
         {
             _stockService = stockService ?? throw new ArgumentNullException(nameof(stockService));
@@ -42,10 +42,18 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     "Fetching historical data for {stockCode} from {start:yyyy-MM-dd} to {end:yyyy-MM-dd} on {market}",
                     stockCode, startDate, endDate, marketType);
 
-                var history = await _stockService.GetHistoricalData(
-                    stockCode, startDate, endDate, marketType);
+                var historyResult = await _stockService.GetHistoricalDataAsync(
+                    stockCode, startDate, endDate, marketType, cancellationToken);
 
-                var historyList = history
+                if (!historyResult.IsSuccess)
+                {
+                    _logger.LogWarning(
+                        "GetHistoricalDataAsync failed for {stockCode}: {errorCode} - {errorMessage}",
+                        stockCode, historyResult.ErrorCode, historyResult.ErrorMessage);
+                    return marketData;
+                }
+
+                var historyList = historyResult.Value!
                     .Where(h => h.ClosingPrice > 0) // Filter out invalid entries
                     .OrderBy(h => h.Date)
                     .ToList();
@@ -71,10 +79,10 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 // Try to get company name from realtime quote
                 try
                 {
-                    var quote = await _stockService.GetRealtimeQuote(stockCode, marketType);
-                    if (quote != null)
+                    var quoteResult = await _stockService.GetRealtimeQuoteAsync(stockCode, marketType, cancellationToken);
+                    if (quoteResult.IsSuccess)
                     {
-                        marketData.CompanyName = quote.Name;
+                        marketData.CompanyName = quoteResult.Value!.Name;
                     }
                 }
                 catch (Exception ex)
@@ -102,12 +110,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var tseList = await _stockService.GetStockList(MarketType.TSE);
-                if (tseList.ContainsKey(stockCode))
+                var tseResult = await _stockService.GetStockListAsync(MarketType.TSE);
+                if (tseResult.IsSuccess && tseResult.Value!.ContainsKey(stockCode))
                     return MarketType.TSE;
 
-                var otcList = await _stockService.GetStockList(MarketType.OTC);
-                if (otcList.ContainsKey(stockCode))
+                var otcResult = await _stockService.GetStockListAsync(MarketType.OTC);
+                if (otcResult.IsSuccess && otcResult.Value!.ContainsKey(stockCode))
                     return MarketType.OTC;
             }
             catch (Exception ex)

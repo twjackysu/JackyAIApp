@@ -25,7 +25,7 @@ namespace JackyAIApp.Server.Services.Finance
             services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
 
             // Register TWStockLib services
-            services.AddStockServices();
+            services.AddTwStock();
 
             // === Register all indicator calculators (Strategy Pattern) ===
             // Technical indicators
