@@ -87,9 +87,14 @@ try
     // so one slow external API (TWSE/Yahoo/FundRich/SEC/FRED/...) could tie up a
     // request thread far longer than a user will ever wait for a response.
     // Individual AddHttpClient(...) registrations below can still override this.
-    builder.Services.AddHttpClient();
     builder.Services.ConfigureHttpClientDefaults(http =>
         http.ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(20)));
+
+    // The bare unnamed default client (CreateClient() with no name) is, after moving Dify onto
+    // its own named client above, used exclusively by TWStockLib's internal TwseHttpFetcher —
+    // all idempotent GETs. Retrying it absorbs the transient TWSE/Azure-outbound flakiness behind
+    // the intermittent "查無股票" search failures (TWStockLib had timeout but no retry).
+    builder.Services.AddHttpClient(string.Empty).AddReadOnlyResilience();
 
     // Named client for read-only external market-data GETs (and FundRich's POST-as-query
     // calls) — TWSE, Yahoo, FundRich, BOT/CBC via er-api, SEC, Finnhub, FRED. Deliberately

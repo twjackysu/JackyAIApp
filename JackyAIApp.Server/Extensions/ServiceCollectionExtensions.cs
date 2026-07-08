@@ -36,6 +36,11 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<ICreditService, CreditService>();
             services.AddScoped<IDifyApiClient, DifyApiClient>();
+            // Named client, no retry: Dify's chat/delete calls are non-idempotent (POST/DELETE),
+            // so it must not share the bare default client once that gets retry (see Program.cs) —
+            // retrying a chat POST whose response was lost after Dify already processed it would
+            // resend the message.
+            services.AddHttpClient("Dify");
 
             services.AddSingleton<IPromptLoader, PromptLoader>();
             services.AddScoped<IOpenAIPromptService, OpenAIPromptService>();
