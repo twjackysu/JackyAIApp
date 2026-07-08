@@ -1,0 +1,28 @@
+[
+  {
+    "Date": "1150707",
+    "Code": "2330",
+    "Name": "台積電",
+    "TradeVolume": "31400854",
+    "TradeValue": "77617188273",
+    "OpeningPrice": "2480.00",
+    "HighestPrice": "2500.00",
+    "LowestPrice": "2440.00",
+    "ClosingPrice": "2440.00",
+    "Change": "-20.0000",
+    "Transaction": "132943"
+  },
+  {
+    "Date": "1150707",
+    "Code": "1101",
+    "Name": "台泥",
+    "TradeVolume": "33225864",
+    "TradeValue": "778330046",
+    "OpeningPrice": "23.65",
+    "HighestPrice": "23.70",
+    "LowestPrice": "23.25",
+    "ClosingPrice": "23.40",
+    "Change": "-0.3000",
+    "Transaction": "8414"
+  }
+]

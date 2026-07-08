@@ -1,0 +1,24 @@
+[
+  {
+    "Date": "20260707",
+    "Code": "2330",
+    "Name": "台積電",
+    "ClosePrice": "2440.00",
+    "DividendYield": "0.90",
+    "DividendYear": "114",
+    "PEratio": "32.80",
+    "PBratio": "10.74",
+    "FiscalYearQuarter": "2026Q1"
+  },
+  {
+    "Date": "20260707",
+    "Code": "1101",
+    "Name": "台泥",
+    "ClosePrice": "23.40",
+    "DividendYield": "3.42",
+    "DividendYear": "114",
+    "PEratio": "",
+    "PBratio": "0.75",
+    "FiscalYearQuarter": "2026Q1"
+  }
+]
