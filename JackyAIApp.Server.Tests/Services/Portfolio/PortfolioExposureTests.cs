@@ -48,7 +48,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [InlineData("00757L", 2)] // 槓桿 suffix
         [InlineData("00757l", 2)] // lower-case suffix still matches (case-insensitive)
         [InlineData("00632R", -1)] // 反向 suffix
-        [InlineData("00679B", 0)] // 債券 suffix
+        [InlineData("00679B", 0)] // 債券ETF（被動）suffix
+        [InlineData("00933D", 0)] // 債券ETF（主動）suffix
         [InlineData("2330", 1)] // ordinary numeric code, no letter suffix
         public void Factor_TwStockWithGenericName_FallsBackToCodeSuffix(string symbol, int expected)
         {
@@ -86,6 +87,35 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         public void Factor_NullNameAndSymbol_DoesNotThrow()
         {
             var factor = PortfolioExposure.Factor(AssetType.STOCK, null, null, "TW");
+            Assert.Equal(1m, factor);
+        }
+
+        [Theory]
+        [InlineData("TQQQ", "ProShares UltraPro QQQ", 3)] // known-ticker table
+        [InlineData("SQQQ", "ProShares UltraPro Short QQQ", -3)]
+        [InlineData("QLD", "ProShares Ultra QQQ", 2)]
+        public void Factor_UsKnownLeveragedTicker_ReturnsTableValue(string symbol, string name, int expected)
+        {
+            var factor = PortfolioExposure.Factor(AssetType.STOCK, name, symbol, "US");
+            Assert.Equal(expected, factor);
+        }
+
+        [Theory]
+        [InlineData("NVDL", "GraniteShares 2x Long NVDA Daily ETF", 2)] // explicit digit, not in known-ticker table
+        [InlineData("SOXX2", "Direxion Daily Semiconductor Bull 3X Shares", 3)]
+        [InlineData("SOXX3", "Direxion Daily Semiconductor Bear 3X Shares", -3)]
+        [InlineData("XYZ1", "ProShares UltraShort S&P500", -2)]
+        [InlineData("XYZ2", "ProShares Short S&P500", -1)] // plain inverse, no multiplier keyword
+        public void Factor_UsLeveragedName_FallsBackToPatternMatch(string symbol, string name, int expected)
+        {
+            var factor = PortfolioExposure.Factor(AssetType.STOCK, name, symbol, "US");
+            Assert.Equal(expected, factor);
+        }
+
+        [Fact]
+        public void Factor_UsOrdinaryStock_DefaultsToOne()
+        {
+            var factor = PortfolioExposure.Factor(AssetType.STOCK, "Apple Inc.", "AAPL", "US");
             Assert.Equal(1m, factor);
         }
     }
