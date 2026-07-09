@@ -1,0 +1,24 @@
+{
+  "status": true,
+  "statusCode": 200,
+  "data": {
+    "list": [
+      {
+        "jobNo": "leg1234567890123abcd",
+        "jobName": "資料工程師 Data Engineer (legacy shape)",
+        "custName": "舊版格式測試公司",
+        "jobAddrNoDesc": "台中市西屯區",
+        "salaryType": 50,
+        "salaryLow": 60000,
+        "salaryHigh": 90000,
+        "appearDate": "20260701",
+        "link": { "job": "https://www.104.com.tw/job/leg123" },
+        "pcSkills": [{ "description": "Python" }],
+        "descSnippet": "資料管線開發"
+      }
+    ]
+  },
+  "metadata": {
+    "pagination": { "page": 1, "lastPage": 1, "total": 1 }
+  }
+}
