@@ -1,0 +1,55 @@
+{
+  "status": true,
+  "statusCode": 200,
+  "data": [
+    {
+      "jobNo": "abc1234567890123abcd",
+      "jobName": "後端工程師 Backend Engineer",
+      "jobRole": "1",
+      "custNo": "1a2b3c4",
+      "custName": "測試科技股份有限公司",
+      "jobAddrNoDesc": "台北市信義區",
+      "jobAddress": "台北市信義區松仁路100號",
+      "salaryType": 50,
+      "salaryLow": 50000,
+      "salaryHigh": 80000,
+      "salaryDesc": "",
+      "appearDate": "20260706",
+      "optionEdu": "3",
+      "period": "3年以上",
+      "link": {
+        "job": "https://www.104.com.tw/job/abc123",
+        "cust": "https://www.104.com.tw/company/1a2b3c4",
+        "applyAnalyze": "https://www.104.com.tw/jobs/apply/analysis/abc123"
+      },
+      "pcSkills": [
+        { "description": "C#" },
+        { "description": ".NET" },
+        { "description": "SQL" }
+      ],
+      "descSnippet": "負責後端系統開發與維護，需熟悉 C#、.NET Core...",
+      "tags": {}
+    },
+    {
+      "jobNo": "def4567890123456defg",
+      "jobName": "前端工程師 Frontend Engineer",
+      "custNo": "9z8y7x6",
+      "custName": "範例網路有限公司",
+      "jobAddress": "新北市板橋區",
+      "salaryType": 10,
+      "salaryLow": 0,
+      "salaryHigh": 9999999,
+      "appearDate": "20260705",
+      "link": { "job": "https://www.104.com.tw/job/def456" },
+      "pcSkills": [],
+      "descSnippet": null
+    }
+  ],
+  "metadata": {
+    "pagination": {
+      "page": 1,
+      "lastPage": 5,
+      "total": 148
+    }
+  }
+}

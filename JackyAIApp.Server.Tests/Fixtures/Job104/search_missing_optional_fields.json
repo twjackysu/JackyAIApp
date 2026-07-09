@@ -1,0 +1,12 @@
+{
+  "status": true,
+  "statusCode": 200,
+  "data": [
+    {
+      "jobNo": "min0000000000000abcd",
+      "jobName": "工程師（最小欄位）",
+      "custName": "最小欄位測試公司"
+    }
+  ],
+  "metadata": { "pagination": { "page": 1, "lastPage": 1, "total": 1 } }
+}
