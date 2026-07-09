@@ -179,7 +179,7 @@ const Credits: React.FC = () => {
           price: p.priceInCents / 100,
           credits: p.credits,
           badge: p.badge,
-          currency: '$',
+          currency: 'US$',
         }));
 
   return (
