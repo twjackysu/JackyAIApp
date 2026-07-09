@@ -239,7 +239,8 @@ JackyAIApp.Server/
 ### Testing Status
 - **`JackyAIApp.Server.Tests`** (xUnit + Moq): two categories, do not conflate them
   - **Offline unit tests**: fixture/mock-based, run in every PR CI (`--filter "Category!=LiveContract"`)
-  - **Live contract tests** (`LiveContracts/`, `[Trait("Category", "LiveContract")]`): hit real third-party APIs (Yahoo, FundRich, open.er-api.com), asserting response *shape* not exact values. Never run in PR CI — only on the scheduled `contract-tests.yml` workflow (daily cron + manual dispatch). Deliberately excludes anything sourced through TWStockLib (that package has its own test suite)
+  - **Live contract tests** (`LiveContracts/`, `[Trait("Category", "LiveContract")]`): hit real third-party APIs — Yahoo Finance, FundRich, open.er-api.com (FX), TWSE OpenAPI + BOT/CBC CSV, SEC EDGAR (fundamentals + insider-trading HTML scrape), Finnhub, FRED, 104, Cake — asserting response *shape* not exact values. Never run in PR CI — only on the scheduled `contract-tests.yml` workflow (daily cron + manual dispatch). Deliberately excludes anything sourced through TWStockLib (that package has its own test suite). Finnhub/FRED soft-skip without their API key set
+  - **Known noisy one**: 104's live test can fail from datacenter-IP sources (GitHub Actions runners included) due to Cloudflare bot-challenge — confirmed the actual prod app (Azure App Service, different IP) still works fine when this was investigated 2026-07, so a red 104 result in the scheduled run isn't automatically a prod incident; check the *feature itself* before assuming it's down
 - **E2E**: directory exists but empty
 - **Manual Testing**: Comprehensive manual testing of all features during development
 
