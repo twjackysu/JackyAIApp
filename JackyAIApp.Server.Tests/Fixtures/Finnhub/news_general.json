@@ -1,0 +1,35 @@
+[
+  {
+    "category": "general",
+    "datetime": 1783584064,
+    "headline": "Fed signals steady rates as inflation cools further",
+    "id": 7301245,
+    "image": "https://example.com/image1.jpg",
+    "related": "",
+    "source": "Reuters",
+    "summary": "The Federal Reserve indicated it would hold rates steady at its next meeting as inflation continued to trend toward its 2% target.",
+    "url": "https://finnhub.io/api/news/7301245"
+  },
+  {
+    "category": "general",
+    "datetime": 1783580000,
+    "headline": "Tech stocks rally on strong earnings from major cloud providers",
+    "id": 7301198,
+    "image": "https://example.com/image2.jpg",
+    "related": "",
+    "source": "Bloomberg",
+    "summary": "Shares of leading cloud infrastructure companies climbed after quarterly results beat analyst expectations across the board.",
+    "url": "https://finnhub.io/api/news/7301198"
+  },
+  {
+    "category": "general",
+    "datetime": 1783570000,
+    "headline": "Oil prices dip amid rising global supply concerns",
+    "id": 7301050,
+    "image": "https://example.com/image3.jpg",
+    "related": "",
+    "source": "CNBC",
+    "summary": "Crude oil futures fell as OPEC+ signaled it may increase production quotas in the coming quarter.",
+    "url": "https://finnhub.io/api/news/7301050"
+  }
+]

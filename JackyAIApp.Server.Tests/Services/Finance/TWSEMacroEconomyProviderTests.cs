@@ -10,12 +10,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance
     /// <summary>
     /// Parses real response shapes captured from TWSE OpenAPI's market-wide endpoints (FMTQIK,
     /// MI_INDEX, MI_MARGN) — fixtures only, no network calls. THIRD_PARTY_CONTRACT_TESTS_PLAN.md
-    /// section B2.
-    ///
-    /// TWSEMacroEconomyProvider.FetchAsync also fetches the Bank of Taiwan FX CSV and CBC rate
-    /// CSV (B5/B6) in the same Task.WhenAll — those are out of scope for Phase 2 (Phase 3), so
-    /// this test class stubs those two URLs with an innocuous empty response and asserts nothing
-    /// about ExchangeRates/BankRate.
+    /// section B2. Also covers the Bank of Taiwan FX CSV parser (B5) and CBC bank-rate CSV parser
+    /// (B6, Phase 3) — both fetched in the same Task.WhenAll as the JSON endpoints above.
     /// </summary>
     public class TWSEMacroEconomyProviderTests
     {
@@ -33,16 +29,17 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             return new TWSEMacroEconomyProvider(httpClientFactory.Object, cache, NullLogger<TWSEMacroEconomyProvider>.Instance);
         }
 
+        private static HttpResponseMessage CsvResponse(string csv, HttpStatusCode status = HttpStatusCode.OK) =>
+            new(status) { Content = new StringContent(csv) };
+
         private static HttpResponseMessage RouteNormal(HttpRequestMessage request)
         {
             var url = request.RequestUri!.ToString();
             if (url.Contains("FMTQIK")) return StubHttpMessageHandler.JsonResponse(ReadFixture("fmtqik.json"));
             if (url.Contains("MI_INDEX")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_index.json"));
             if (url.Contains("MI_MARGN")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_margn.json"));
-            // Out-of-scope B5/B6 CSV endpoints — return an innocuous empty body so FetchAsync's
-            // Task.WhenAll doesn't blow up; not asserted on.
-            if (url.Contains("rate.bot.com.tw") || url.Contains("cbc.gov.tw"))
-                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("") };
+            if (url.Contains("rate.bot.com.tw")) return CsvResponse(ReadFixture("bot_fx.csv"));
+            if (url.Contains("cbc.gov.tw")) return CsvResponse(ReadFixture("cbc_a13rate.csv"));
             throw new InvalidOperationException($"Unexpected URL in test: {url}");
         }
 
@@ -76,6 +73,29 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // mi_margn.json fixture has 4 rows; MarginBuyTotal should be the sum of 融資買進 across all.
             var expectedMarginBuyTotal = 2411 + 16 + 13 + 13038;
             Assert.Equal(expectedMarginBuyTotal, result.Margin!.MarginBuyTotal);
+
+            // === B5: Bank of Taiwan FX CSV ===
+            Assert.Equal(5, result.ExchangeRates.Count); // USD/JPY/EUR/CNY/GBP in bot_fx.csv fixture
+            var usd = result.ExchangeRates.Single(r => r.Currency == "USD");
+            Assert.Equal("美元", usd.DisplayName);
+            Assert.Equal(32.245m, usd.BuyRate);  // cols[3], 即期匯率買入
+            Assert.Equal(32.345m, usd.SellRate); // cols[13], 即期匯率賣出
+
+            // === B6: CBC bank-rate CSV ===
+            Assert.NotNull(result.BankRate);
+            // 陽信銀行/華南銀行 are not 臺灣銀行/第一銀行 so must be filtered out; the parser walks
+            // rows bottom-to-top (Reverse()) and returns the first match — with the fixture order
+            // 陽信/第一/臺灣/華南, reversed iteration hits 華南(skip) then 臺灣銀行 first.
+            Assert.Equal("臺灣銀行", result.BankRate!.BankName);
+            Assert.Equal("11409", result.BankRate.Period);
+            Assert.Equal(1.700m, result.BankRate.OneYearFixed);    // cols[14]
+            Assert.Equal(1.690m, result.BankRate.OneYearFloating); // cols[15]
+            // cols[30] (基準利率-固定/fixed base lending rate) is genuinely blank in this real CBC
+            // row — only 基準利率-機動 (floating, cols[31]) is published for most banks. The
+            // production parser reads cols[30] as-is, so BaseLendingRate legitimately comes back
+            // null here; this fixture captures that real-world shape rather than a synthetic
+            // always-populated row.
+            Assert.Null(result.BankRate.BaseLendingRate);
         }
 
         [Fact]
@@ -105,6 +125,10 @@ namespace JackyAIApp.Server.Tests.Services.Finance
 
             Assert.NotNull(result.Margin);
             Assert.Equal(0L, result.Margin!.MarginBuyTotal);
+
+            // Empty CSV body (the fallback for bot/cbc above) must degrade to empty/null, not throw.
+            Assert.Empty(result.ExchangeRates);
+            Assert.Null(result.BankRate);
         }
 
         [Fact]
@@ -117,6 +141,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.Empty(result.MarketIndex);
             Assert.Empty(result.SectorIndices);
             Assert.Null(result.Margin);
+            Assert.Empty(result.ExchangeRates);
+            Assert.Null(result.BankRate);
         }
 
         [Fact]
@@ -129,6 +155,58 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.Empty(result.MarketIndex);
             Assert.Empty(result.SectorIndices);
             Assert.Null(result.Margin);
+            Assert.Empty(result.ExchangeRates);
+            Assert.Null(result.BankRate);
+        }
+
+        [Fact]
+        public async Task FetchExchangeRates_BotAntiBotChallengeHtml_DegradesToEmptyInsteadOfThrowing()
+        {
+            // Bank of Taiwan is known to serve a "Challenge Validation" HTML page to non-browser
+            // clients instead of the CSV (verified live while implementing this test — see
+            // TwseMacroCsvContractTests). The parser has no special-case detection for this; it
+            // just splits lines/commas as usual. Confirms that garbage-shaped input degrades to an
+            // empty list rather than throwing, so the rest of FetchAsync's Task.WhenAll still
+            // completes.
+            const string challengeHtml = """<!DOCTYPE html><html><head><title>Challenge Validation</title></head><body>blocked</body></html>""";
+
+            var provider = CreateProvider(req =>
+            {
+                var url = req.RequestUri!.ToString();
+                if (url.Contains("rate.bot.com.tw")) return CsvResponse(challengeHtml);
+                if (url.Contains("cbc.gov.tw")) return CsvResponse(ReadFixture("cbc_a13rate.csv"));
+                if (url.Contains("FMTQIK")) return StubHttpMessageHandler.JsonResponse(ReadFixture("fmtqik.json"));
+                if (url.Contains("MI_INDEX")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_index.json"));
+                if (url.Contains("MI_MARGN")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_margn.json"));
+                throw new InvalidOperationException($"Unexpected URL: {url}");
+            });
+
+            var result = await provider.FetchAsync();
+
+            Assert.Empty(result.ExchangeRates);
+            Assert.NotNull(result.BankRate); // CBC parse is unaffected by the BOT failure
+        }
+
+        [Fact]
+        public async Task FetchBankRates_ColumnCountBelowThreshold_SkipsRowInsteadOfThrowing()
+        {
+            const string malformedCsv = "銀行,年月\n臺灣銀行,11409\n"; // far fewer than the required 31 columns
+
+            var provider = CreateProvider(req =>
+            {
+                var url = req.RequestUri!.ToString();
+                if (url.Contains("cbc.gov.tw")) return CsvResponse(malformedCsv);
+                if (url.Contains("rate.bot.com.tw")) return CsvResponse(ReadFixture("bot_fx.csv"));
+                if (url.Contains("FMTQIK")) return StubHttpMessageHandler.JsonResponse(ReadFixture("fmtqik.json"));
+                if (url.Contains("MI_INDEX")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_index.json"));
+                if (url.Contains("MI_MARGN")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_margn.json"));
+                throw new InvalidOperationException($"Unexpected URL: {url}");
+            });
+
+            var result = await provider.FetchAsync();
+
+            Assert.Null(result.BankRate);
+            Assert.NotEmpty(result.ExchangeRates); // BOT parse is unaffected by the CBC failure
         }
     }
 }
