@@ -35,7 +35,10 @@ namespace JackyAIApp.Server.Services
             if (pack == default)
                 throw new ArgumentException($"Unknown pack: {packId}");
 
-            var tradeNo = $"JA{DateTime.UtcNow:yyyyMMddHHmmss}{Guid.NewGuid().ToString("N")[..6]}";
+            // ECPay caps MerchantTradeNo at 20 chars. yyyyMMddHHmmss (14) + 6 hex chars = 20 exactly;
+            // no room for a prefix (the previous "JA" prefix pushed this to 22 and every payment
+            // failed with ECPay error 1000500).
+            var tradeNo = $"{DateTime.UtcNow:yyyyMMddHHmmss}{Guid.NewGuid().ToString("N")[..6]}";
             var tradeDate = DateTime.UtcNow.AddHours(8).ToString("yyyy/MM/dd HH:mm:ss"); // ECPay uses UTC+8
 
             var parameters = new SortedDictionary<string, string>
