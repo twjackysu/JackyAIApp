@@ -1,11 +1,8 @@
-using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
-using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
-using JackyAIApp.Server.Services.Prompt;
 using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
@@ -17,9 +14,7 @@ namespace JackyAIApp.Server.Services.Exam
         ILogger<ExamService> logger,
         AzureSQLDBContext dbContext,
         IUserService userService,
-        IOpenAIService openAIService,
         IOpenAIPromptService promptService,
-        IPromptLoader promptLoader,
         ICreditService creditService,
         ISpacedRepetitionService spacedRepetition,
         IEnumerable<IWordExamGenerator> generators) : IExamService
@@ -27,9 +22,7 @@ namespace JackyAIApp.Server.Services.Exam
         private readonly ILogger<ExamService> _logger = logger;
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly IUserService _userService = userService;
-        private readonly IOpenAIService _openAIService = openAIService;
         private readonly IOpenAIPromptService _promptService = promptService;
-        private readonly IPromptLoader _promptLoader = promptLoader;
         private readonly ICreditService _creditService = creditService;
         private readonly ISpacedRepetitionService _spacedRepetition = spacedRepetition;
         private readonly IReadOnlyDictionary<ExamType, IWordExamGenerator> _generators =
@@ -136,52 +129,27 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Scenario, UserRole, and AiRole are required.");
             }
 
-            var systemChatMessage = _promptLoader.GetPrompt("Prompt/Exam/ConversationStartSystem.txt");
-            if (string.IsNullOrEmpty(systemChatMessage))
+            // Was previously a raw ChatCompletion call outside IOpenAIPromptService — bypassed
+            // the JSON-force/token-cap reliability fixes and, more importantly, the AiUsageLog
+            // instrumentation, so this endpoint's cost was completely invisible. Routed through
+            // the shared wrapper now; Temperature=0.8 (vs. the wrapper's default) is preserved
+            // for scenario variety.
+            var (conversationStart, error) = await _promptService.GetCompletionAsync<ConversationStartResponse>(
+                "Prompt/Exam/ConversationStartSystem.txt",
+                JsonConvert.SerializeObject(request),
+                model: Models.Gpt_4o_mini,
+                feature: "exam.conversation_start",
+                temperature: 0.8f);
+
+            if (conversationStart == null)
             {
-                _logger.LogError("Failed to load ConversationStartSystem.txt prompt");
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, "Failed to load conversation prompt.");
+                _logger.LogError("Failed to generate conversation start: {Error}", error);
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
+                    "Query failed, OpenAI could not generate the conversation scenario.");
             }
 
-            var completionResult = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
-            {
-                Messages =
-                [
-                    ChatMessage.FromSystem(systemChatMessage),
-                    ChatMessage.FromUser(JsonConvert.SerializeObject(request))
-                ],
-                Model = Models.Gpt_4o_mini,
-                Temperature = 0.8f,
-            });
-
-            var errorMessage = "Query failed, OpenAI could not generate the conversation scenario.";
-            if (!completionResult.Successful)
-            {
-                return ServiceResult.Fail(ErrorCodes.OpenAIResponseUnsuccessful, errorMessage);
-            }
-
-            var content = completionResult.Choices.FirstOrDefault()?.Message.Content;
-            if (string.IsNullOrEmpty(content))
-            {
-                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, errorMessage);
-            }
-
-            try
-            {
-                var conversationStart = JsonConvert.DeserializeObject<ConversationStartResponse>(content);
-                if (conversationStart == null)
-                {
-                    return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, errorMessage);
-                }
-
-                _logger.LogInformation("Generated conversation start for scenario: {Scenario}", request.Scenario);
-                return ServiceResult.Ok(conversationStart);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to deserialize conversation start response");
-                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, errorMessage);
-            }
+            _logger.LogInformation("Generated conversation start for scenario: {Scenario}", request.Scenario);
+            return ServiceResult.Ok(conversationStart);
         }
 
         public async Task<ServiceResult> RespondToConversationAsync(ConversationResponseRequest request)

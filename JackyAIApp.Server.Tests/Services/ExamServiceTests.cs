@@ -1,4 +1,3 @@
-using Betalgo.Ranul.OpenAI.Interfaces;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
@@ -7,7 +6,6 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Exam;
 using JackyAIApp.Server.Services.Exam.Generators;
 using JackyAIApp.Server.Services.OpenAI;
-using JackyAIApp.Server.Services.Prompt;
 using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -20,9 +18,7 @@ namespace JackyAIApp.Server.Tests.Services
     public class ExamServiceTests : IDisposable
     {
         private readonly Mock<IUserService> _userServiceMock;
-        private readonly Mock<IOpenAIService> _openAIServiceMock;
         private readonly Mock<IOpenAIPromptService> _promptServiceMock;
-        private readonly Mock<IPromptLoader> _promptLoaderMock;
         private readonly Mock<ICreditService> _creditServiceMock;
         private readonly AzureSQLDBContext _dbContext;
         private readonly ExamService _service;
@@ -31,9 +27,7 @@ namespace JackyAIApp.Server.Tests.Services
         public ExamServiceTests()
         {
             _userServiceMock = new Mock<IUserService>();
-            _openAIServiceMock = new Mock<IOpenAIService>();
             _promptServiceMock = new Mock<IOpenAIPromptService>();
-            _promptLoaderMock = new Mock<IPromptLoader>();
             _creditServiceMock = new Mock<ICreditService>();
 
             var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
@@ -56,9 +50,7 @@ namespace JackyAIApp.Server.Tests.Services
                 NullLogger<ExamService>.Instance,
                 _dbContext,
                 _userServiceMock.Object,
-                _openAIServiceMock.Object,
                 _promptServiceMock.Object,
-                _promptLoaderMock.Object,
                 _creditServiceMock.Object,
                 new SpacedRepetitionService(),
                 generators);

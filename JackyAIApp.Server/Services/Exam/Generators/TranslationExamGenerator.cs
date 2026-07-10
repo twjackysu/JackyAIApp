@@ -36,7 +36,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
             );
 
             var (dto, error) = await _promptService.GetCompletionAsync<TranslationTest>(
-                "Prompt/Exam/TranslationSystem.txt", word.WordText, examples: new[] { example });
+                "Prompt/Exam/TranslationSystem.txt", word.WordText, model: NewModels.GPT_4_1_NANO, examples: new[] { example });
 
             if (dto == null)
             {

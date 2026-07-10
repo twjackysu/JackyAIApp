@@ -61,6 +61,7 @@ namespace JackyAIApp.Server.Services.Dictionary
             var (wordbase, error) = await _promptService.GetCompletionAsync<WordBase>(
                 "Prompt/WordBase/System.txt",
                 lowerWord,
+                model: NewModels.GPT_4_1_NANO,
                 examples: new[] { example });
 
             if (wordbase == null)
