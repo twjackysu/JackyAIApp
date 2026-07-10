@@ -29,9 +29,9 @@ interface ConversationDrawerProps {
   containerEl?: HTMLElement | null;
 }
 
-const formatTime = (epochSeconds: number) => {
-  if (!epochSeconds) return '';
-  const d = new Date(epochSeconds * 1000);
+const formatTime = (isoDate: string) => {
+  if (!isoDate) return '';
+  const d = new Date(isoDate);
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
   return sameDay
@@ -134,7 +134,7 @@ const ConversationDrawer = ({
                   }}
                 >
                   <ListItemText
-                    primary={c.name}
+                    primary={c.title}
                     secondary={formatTime(c.updatedAt)}
                     slotProps={{
                       primary: { noWrap: true, sx: { fontWeight: active ? 700 : 400 } },

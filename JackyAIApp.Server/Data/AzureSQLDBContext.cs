@@ -217,6 +217,19 @@ namespace JackyAIApp.Server.Data
                 .Property(hp => hp.UnitPrice).HasPrecision(18, 6);
             modelBuilder.Entity<HoldingPosition>()
                 .Property(hp => hp.CostBasis).HasPrecision(18, 4);
+
+            // Chatbot conversation history (self-hosted, replaces Dify-side storage)
+            modelBuilder.Entity<ChatConversation>()
+                .HasIndex(c => new { c.UserId, c.UpdatedAt });
+
+            modelBuilder.Entity<ChatMessage>()
+                .HasOne(m => m.Conversation)
+                .WithMany(c => c.Messages)
+                .HasForeignKey(m => m.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ChatMessage>()
+                .HasIndex(m => new { m.ConversationId, m.CreatedAt });
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -242,5 +255,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<HoldingSnapshot> HoldingSnapshots { get; set; }
         public virtual DbSet<HoldingPosition> HoldingPositions { get; set; }
         public virtual DbSet<AiUsageLog> AiUsageLogs { get; set; }
+        public virtual DbSet<ChatConversation> ChatConversations { get; set; }
+        public virtual DbSet<ChatMessage> ChatMessages { get; set; }
     }
 }

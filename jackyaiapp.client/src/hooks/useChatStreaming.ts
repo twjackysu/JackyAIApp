@@ -1,7 +1,5 @@
 import { useCallback, useState } from 'react';
 
-import { handleDifyEvent } from './difyEventHandlers';
-
 import { CREDIT_COSTS } from '@/constants/creditCosts';
 import { useAppDispatch } from '@/redux/hooks';
 import { openCreditModal } from '@/redux/uiSlice';
@@ -11,6 +9,13 @@ export interface StreamingStatus {
   currentEvent: string | null;
   statusText: string;
 }
+
+/** Our own SSE event shape from ChatbotController — see AnthropicChatService.WriteSseAsync. */
+type ChatStreamEvent =
+  | { type: 'delta'; text: string }
+  | { type: 'tool_use'; name: string }
+  | { type: 'done'; conversationId: string }
+  | { type: 'error'; message: string };
 
 export const useChatStreaming = () => {
   const dispatch = useAppDispatch();
@@ -62,27 +67,8 @@ export const useChatStreaming = () => {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let accumulatedContent = '';
-        let extractedConversationId: string | undefined;
 
-        setStreamingStatus((prev) => ({ ...prev, statusText: '正在處理請求...' }));
-
-        // Build context object wiring handler callbacks to local state + callers.
-        const ctx = {
-          setStatus: (event: string, text: string) =>
-            setStreamingStatus((prev) => ({ ...prev, currentEvent: event, statusText: text })),
-          appendContent: (delta: string) => {
-            accumulatedContent += delta;
-            onMessageUpdate(accumulatedContent);
-          },
-          replaceContent: (text: string) => {
-            if (!accumulatedContent) {
-              accumulatedContent = text;
-              onMessageUpdate(accumulatedContent);
-            }
-          },
-          complete: (convId?: string) => onComplete(convId),
-          fail: (error: string) => onError(error),
-        };
+        setStreamingStatus((prev) => ({ ...prev, statusText: '正在生成回應...' }));
 
         while (true) {
           const { done, value } = await reader.read();
@@ -91,21 +77,28 @@ export const useChatStreaming = () => {
           const lines = decoder.decode(value, { stream: true }).split('\n');
 
           for (const line of lines) {
-            if (!line.trim()) continue;
+            if (!line.trim() || !line.startsWith('data: ')) continue;
             try {
-              if (!line.startsWith('data: ')) continue;
-              const data = JSON.parse(line.slice(6));
+              const event = JSON.parse(line.slice(6)) as ChatStreamEvent;
 
-              if (data.conversation_id && !extractedConversationId)
-                extractedConversationId = data.conversation_id;
-
-              const result = handleDifyEvent(data, ctx);
-
-              if (result === 'error') return;
-
-              if (result === 'complete') {
-                setTimeout(() => onComplete(extractedConversationId), 500);
-                return;
+              switch (event.type) {
+                case 'delta':
+                  accumulatedContent += event.text;
+                  onMessageUpdate(accumulatedContent);
+                  break;
+                case 'tool_use':
+                  setStreamingStatus((prev) => ({
+                    ...prev,
+                    currentEvent: 'tool_use',
+                    statusText: `🔄 正在查詢 ${event.name}...`,
+                  }));
+                  break;
+                case 'done':
+                  onComplete(event.conversationId);
+                  return;
+                case 'error':
+                  onError(event.message);
+                  return;
               }
             } catch (e) {
               console.warn('Failed to parse SSE line:', line, e);
@@ -113,7 +106,7 @@ export const useChatStreaming = () => {
           }
         }
 
-        if (!accumulatedContent) onComplete(extractedConversationId);
+        if (!accumulatedContent) onComplete(conversationId);
       } catch (error) {
         console.error('Streaming error:', error);
         onError(error instanceof Error ? error.message : 'Unknown error occurred');

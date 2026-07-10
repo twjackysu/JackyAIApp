@@ -90,10 +90,10 @@ try
     builder.Services.ConfigureHttpClientDefaults(http =>
         http.ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(20)));
 
-    // The bare unnamed default client (CreateClient() with no name) is, after moving Dify onto
-    // its own named client above, used exclusively by TWStockLib's internal TwseHttpFetcher —
-    // all idempotent GETs. Retrying it absorbs the transient TWSE/Azure-outbound flakiness behind
-    // the intermittent "查無股票" search failures (TWStockLib had timeout but no retry).
+    // The bare unnamed default client (CreateClient() with no name) is used exclusively by
+    // TWStockLib's internal TwseHttpFetcher — all idempotent GETs. Retrying it absorbs the
+    // transient TWSE/Azure-outbound flakiness behind the intermittent "查無股票" search failures
+    // (TWStockLib had timeout but no retry).
     builder.Services.AddHttpClient(string.Empty).AddReadOnlyResilience();
 
     // Named client for read-only external market-data GETs (and FundRich's POST-as-query
