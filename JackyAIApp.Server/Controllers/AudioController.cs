@@ -3,6 +3,8 @@ using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.AiUsage;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -11,11 +13,15 @@ namespace JackyAIApp.Server.Controllers
     public class AudioController(
         IOpenAIService openAIService,
         ILogger<AudioController> logger,
-        IMyResponseFactory responseFactory) : ControllerBase
+        IMyResponseFactory responseFactory,
+        IAiUsageLogger usageLogger,
+        IUserService userService) : ControllerBase
     {
         private readonly IOpenAIService _openAIService = openAIService;
         private readonly ILogger<AudioController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
+        private readonly IAiUsageLogger _usageLogger = usageLogger;
+        private readonly IUserService _userService = userService;
 
         [HttpGet("normal")]
         public async Task<IActionResult> Normal([FromQuery] string text, [FromQuery] string? voice = "alloy")
@@ -33,6 +39,8 @@ namespace JackyAIApp.Server.Controllers
                 ResponseFormat = "mp3",
                 Speed = 1.0f
             });
+
+            await _usageLogger.LogTtsAsync(Models.Tts_1, text.Length, response.Successful, _userService.GetUserId());
 
             if (!response.Successful || response.Data == null)
             {
@@ -60,6 +68,8 @@ namespace JackyAIApp.Server.Controllers
                 Speed = 0.5f
             });
 
+            await _usageLogger.LogTtsAsync(Models.Tts_1, text.Length, response.Successful, _userService.GetUserId());
+
             if (!response.Successful || response.Data == null)
             {
                 _logger.LogError("OpenAI TTS failed: {Error}", response.Error?.Message);
@@ -85,6 +95,8 @@ namespace JackyAIApp.Server.Controllers
                 ResponseFormat = "mp3",
                 Speed = 1.0f
             });
+
+            await _usageLogger.LogTtsAsync(Models.Tts_1_hd, text.Length, response.Successful, _userService.GetUserId());
 
             if (!response.Successful || response.Data == null)
             {

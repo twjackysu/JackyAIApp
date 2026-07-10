@@ -2,6 +2,7 @@ using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.AiUsage;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 
@@ -11,12 +12,16 @@ namespace JackyAIApp.Server.Services.Finance
         IHttpClientFactory httpClientFactory,
         ILogger<StockCodeResolver> logger,
         IOpenAIService openAIService,
-        IMemoryCache memoryCache) : IStockCodeResolver
+        IMemoryCache memoryCache,
+        IAiUsageLogger usageLogger,
+        IUserService userService) : IStockCodeResolver
     {
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("ExternalReadOnly");
         private readonly ILogger<StockCodeResolver> _logger = logger;
         private readonly IOpenAIService _openAIService = openAIService;
         private readonly IMemoryCache _memoryCache = memoryCache;
+        private readonly IAiUsageLogger _usageLogger = usageLogger;
+        private readonly IUserService _userService = userService;
 
         private const string BaseUrl = "https://openapi.twse.com.tw/v1";
         private const string UserAgent = "stock-analysis/1.0";
@@ -51,6 +56,19 @@ namespace JackyAIApp.Server.Services.Finance
 
         private static bool IsValidStockCode(string input) =>
             !string.IsNullOrEmpty(input) && input.Length == 4 && input.All(char.IsDigit);
+
+        private Task LogUsageAsync(Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels.ChatCompletionCreateResponse response)
+        {
+            var usage = response.Usage;
+            if (usage == null) return Task.CompletedTask;
+            return _usageLogger.LogChatAsync(
+                "finance.stockcode_resolver",
+                NewModels.GPT_5_NANO,
+                usage.PromptTokens,
+                usage.CompletionTokens ?? 0,
+                response.Successful,
+                _userService.GetUserId());
+        }
 
         private async Task<List<CompanyInfo>> GetCompanyListAsync(CancellationToken cancellationToken)
         {
@@ -157,6 +175,7 @@ namespace JackyAIApp.Server.Services.Finance
                 };
 
                 var response = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
+                await LogUsageAsync(response);
                 if (response.Successful)
                 {
                     var result = response.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
@@ -214,6 +233,7 @@ User: 'undefined company' → 'NONE'";
                 };
 
                 var response = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
+                await LogUsageAsync(response);
                 if (response.Successful)
                 {
                     var result = response.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
