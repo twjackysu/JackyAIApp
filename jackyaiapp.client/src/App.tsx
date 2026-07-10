@@ -298,10 +298,13 @@ function App() {
         </Suspense>
       </Box>
       <Footer />
-      {/* 懸浮 Chatbot — available on every page (auth-gated internally) */}
-      <Suspense fallback={null}>
-        <FloatingChatbot />
-      </Suspense>
+      {/* 懸浮 Chatbot — only on Finance: its Dify backend is wired to a TW-stock MCP server,
+          so it can only answer stock questions and is out of place elsewhere. */}
+      {currentApp?.name === FINANCE.name && (
+        <Suspense fallback={null}>
+          <FloatingChatbot />
+        </Suspense>
+      )}
       <InsufficientCreditsModal />
     </>
   );
