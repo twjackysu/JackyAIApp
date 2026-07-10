@@ -169,7 +169,7 @@ namespace JackyAIApp.Server.Services.Finance
                 var completionRequest = new ChatCompletionCreateRequest
                 {
                     Messages = [ChatMessage.FromSystem(systemPrompt), ChatMessage.FromUser(userPrompt)],
-                    Model = NewModels.GPT_5_NANO,
+                    Model = NewModels.GPT_4_1_NANO,
                     Temperature = 0.1f,
                     MaxTokens = 10
                 };
@@ -227,7 +227,7 @@ User: 'undefined company' → 'NONE'";
                 var completionRequest = new ChatCompletionCreateRequest
                 {
                     Messages = [ChatMessage.FromSystem(systemPrompt), ChatMessage.FromUser(userPrompt)],
-                    Model = NewModels.GPT_5_NANO,
+                    Model = NewModels.GPT_4_1_NANO,
                     Temperature = 0.1f,
                     MaxTokens = 50
                 };

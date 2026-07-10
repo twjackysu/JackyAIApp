@@ -57,7 +57,8 @@ namespace JackyAIApp.Server.Services.OpenAI
             string userMessage,
             string? model = null,
             IEnumerable<(string User, string Assistant)>? examples = null,
-            string? feature = null) where T : class
+            string? feature = null,
+            float? temperature = null) where T : class
         {
             var systemPrompt = await _promptLoader.GetPromptAsync(systemPromptPath);
             if (systemPrompt == null)
@@ -67,7 +68,7 @@ namespace JackyAIApp.Server.Services.OpenAI
             }
 
             return await GetCompletionWithSystemPromptAsync<T>(
-                systemPrompt, userMessage, model, examples, feature ?? FeatureFromPromptPath(systemPromptPath));
+                systemPrompt, userMessage, model, examples, feature ?? FeatureFromPromptPath(systemPromptPath), temperature);
         }
 
         public async Task<(T? Result, string? Error)> GetCompletionWithSystemPromptAsync<T>(
@@ -75,7 +76,8 @@ namespace JackyAIApp.Server.Services.OpenAI
             string userMessage,
             string? model = null,
             IEnumerable<(string User, string Assistant)>? examples = null,
-            string? feature = null) where T : class
+            string? feature = null,
+            float? temperature = null) where T : class
         {
             var messages = new List<ChatMessage> { ChatMessage.FromSystem(systemPrompt) };
 
@@ -92,7 +94,7 @@ namespace JackyAIApp.Server.Services.OpenAI
             messages.Add(ChatMessage.FromUser(userMessage));
 
             var messagesTuples = messages.Select(m => (m.Role?.ToString().ToLower() ?? "user", m.Content ?? "")).ToList();
-            return await GetCompletionWithMessagesAsync<T>(messagesTuples, model, feature);
+            return await GetCompletionWithMessagesAsync<T>(messagesTuples, model, feature, temperature);
         }
 
         // "gpt-5*" is this app's only reasoning-family model; reasoning_effort is rejected by the
@@ -108,7 +110,8 @@ namespace JackyAIApp.Server.Services.OpenAI
         public async Task<(T? Result, string? Error)> GetCompletionWithMessagesAsync<T>(
             IEnumerable<(string Role, string Content)> messages,
             string? model = null,
-            string? feature = null) where T : class
+            string? feature = null,
+            float? temperature = null) where T : class
         {
             var resolvedModel = model ?? NewModels.GPT_5_NANO;
             try
@@ -134,6 +137,10 @@ namespace JackyAIApp.Server.Services.OpenAI
                     // in this app.
                     MaxCompletionTokens = DefaultMaxCompletionTokens,
                 };
+                if (temperature.HasValue)
+                {
+                    request.Temperature = temperature.Value;
+                }
                 if (IsReasoningModel(resolvedModel))
                 {
                     // These are extraction/formatting tasks, not tasks needing deep reasoning —

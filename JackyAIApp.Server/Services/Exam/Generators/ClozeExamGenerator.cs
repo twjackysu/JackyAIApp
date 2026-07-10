@@ -38,7 +38,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
             );
 
             var (dto, error) = await _promptService.GetCompletionAsync<ClozeTest>(
-                "Prompt/Exam/ClozeSystem.txt", word.WordText, examples: new[] { example });
+                "Prompt/Exam/ClozeSystem.txt", word.WordText, model: NewModels.GPT_4_1_NANO, examples: new[] { example });
 
             if (dto == null)
             {
