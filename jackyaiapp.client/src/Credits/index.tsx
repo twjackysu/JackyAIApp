@@ -25,6 +25,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { useGetCreditBalanceQuery, useGetCreditHistoryQuery } from '@/apis/creditApis';
+import { CreditTransaction } from '@/apis/creditApis/types';
 import { useCreateECPayPaymentMutation, useGetECPayPacksQuery } from '@/apis/ecpayApis';
 import {
   useCapturePayPalOrderMutation,
@@ -36,6 +37,14 @@ import { fmtNum } from '@/utils/format';
 // ECPay (綠界) is the default — it's the Taiwan-local payment method and supports
 // TW→TW payments, which PayPal cannot (PayPal is overseas-account-only).
 type PaymentMethod = 'paypal' | 'ecpay';
+
+const TRANSACTION_TYPE_LABELS: Record<CreditTransaction['transactionType'], string> = {
+  initial: '初始贈送',
+  consume: '消費',
+  topup: '儲值',
+  refund: '退款',
+  bonus: '獎勵',
+};
 
 const Credits: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -70,7 +79,7 @@ const Credits: React.FC = () => {
     handledReturnRef.current = true;
 
     if (status === 'cancelled') {
-      setSnackbar({ open: true, message: 'Payment was cancelled.', severity: 'info' });
+      setSnackbar({ open: true, message: '付款已取消。', severity: 'info' });
       window.history.replaceState({}, '', '/credits');
       return;
     }
@@ -83,7 +92,7 @@ const Credits: React.FC = () => {
     const onCredited = () => {
       setSnackbar({
         open: true,
-        message: 'Payment successful! Credits have been added.',
+        message: '付款成功！Credits 已入帳。',
         severity: 'success',
       });
       refetchBalance();
@@ -105,20 +114,19 @@ const Credits: React.FC = () => {
     if (!orderId) {
       setSnackbar({
         open: true,
-        message: 'Payment could not be verified (missing order id).',
+        message: '無法驗證付款（缺少訂單編號）。',
         severity: 'error',
       });
       return;
     }
-    setSnackbar({ open: true, message: 'Finalizing your payment…', severity: 'info' });
+    setSnackbar({ open: true, message: '正在確認付款結果…', severity: 'info' });
     capturePayPalOrder(orderId)
       .unwrap()
       .then(onCredited)
       .catch(() => {
         setSnackbar({
           open: true,
-          message:
-            'We could not finalize your PayPal payment. If you were charged, please contact support.',
+          message: '無法完成 PayPal 付款確認，如已被扣款請聯絡客服。',
           severity: 'error',
         });
       });
@@ -131,7 +139,7 @@ const Credits: React.FC = () => {
     } catch {
       setSnackbar({
         open: true,
-        message: 'Failed to start checkout. Please try again.',
+        message: '無法啟動結帳流程，請稍後再試一次。',
         severity: 'error',
       });
     }
@@ -186,14 +194,14 @@ const Credits: React.FC = () => {
     <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
       <Box sx={{ textAlign: 'center', mb: 3 }}>
         <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-          Buy Credits
+          購買 Credits
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          Credits power AI features like stock analysis, conversation tests, and more.
+          Credits 可用於股票分析、對話測驗等 AI 功能。
         </Typography>
         {balanceData?.data && (
           <Chip
-            label={`Current Balance: ${fmtNum(balanceData.data.balance)} credits`}
+            label={`目前餘額：${fmtNum(balanceData.data.balance)} credits`}
             color="primary"
             variant="outlined"
             sx={{ fontSize: '1rem', py: 2, px: 1 }}
@@ -268,8 +276,8 @@ const Credits: React.FC = () => {
                     sx={{ minWidth: 160 }}
                   >
                     {(method === 'ecpay' ? ecpayOrderLoading : paypalOrderLoading)
-                      ? 'Processing...'
-                      : 'Buy Now'}
+                      ? '處理中...'
+                      : '立即購買'}
                   </Button>
                 </CardActions>
               </Card>
@@ -279,7 +287,7 @@ const Credits: React.FC = () => {
       )}
       <Box sx={{ textAlign: 'center', mt: 5 }}>
         <Typography variant="body2" color="text.secondary">
-          Payments are processed securely. Credits are added instantly after payment.
+          付款皆採安全加密處理，付款完成後 Credits 立即入帳。
         </Typography>
       </Box>
       {/* Transaction History */}
@@ -287,18 +295,18 @@ const Credits: React.FC = () => {
         <Box sx={{ mt: 6 }}>
           <Divider sx={{ mb: 3 }} />
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-            Transaction History
+            交易紀錄
           </Typography>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Reason</TableCell>
-                  <TableCell align="right">Amount</TableCell>
+                  <TableCell>日期</TableCell>
+                  <TableCell>類型</TableCell>
+                  <TableCell>原因</TableCell>
+                  <TableCell align="right">金額</TableCell>
                   <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                    Balance
+                    餘額
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -308,7 +316,7 @@ const Credits: React.FC = () => {
                     <TableCell>{new Date(tx.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <Chip
-                        label={tx.transactionType}
+                        label={TRANSACTION_TYPE_LABELS[tx.transactionType] ?? tx.transactionType}
                         size="small"
                         color={
                           tx.transactionType === 'consume'
