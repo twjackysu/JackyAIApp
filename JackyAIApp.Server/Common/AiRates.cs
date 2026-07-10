@@ -16,6 +16,7 @@ namespace JackyAIApp.Server.Common
             {
                 ["gpt-5-nano"] = (0.05m, 0.40m),
                 ["gpt-4.1-nano"] = (0.10m, 0.40m),
+                ["gpt-4o-mini"] = (0.15m, 0.60m),
             };
 
         // TTS rates in USD per 1,000,000 input characters.

@@ -20,13 +20,14 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("packs")]
         public IActionResult GetPacks()
         {
-            // Return TWD pricing for ECPay
-            var packs = new[]
+            var packs = CreditPacks.All.Select(p => new
             {
-                new { id = "starter",   name = "Starter Pack",    priceTWD = 150,  credits = 500UL,  badge = (string?)"" },
-                new { id = "popular",   name = "Popular Pack",    priceTWD = 300,  credits = 1100UL, badge = (string?)"10% Bonus" },
-                new { id = "bestvalue", name = "Best Value Pack", priceTWD = 600,  credits = 2400UL, badge = (string?)"20% Bonus" },
-            };
+                id = p.Id,
+                name = p.Name,
+                priceTWD = p.PriceTWD,
+                credits = p.Credits,
+                badge = p.Badge,
+            });
             return Ok(packs);
         }
 

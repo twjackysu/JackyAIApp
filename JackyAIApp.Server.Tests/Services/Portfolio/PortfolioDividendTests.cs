@@ -1,6 +1,7 @@
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.DTO.Portfolio;
+using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
@@ -43,6 +44,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var httpClientFactory = new Mock<IHttpClientFactory>();
             var cache = new MemoryCache(new MemoryCacheOptions());
             var openAI = new Mock<IOpenAIPromptService>();
+            var creditService = new Mock<ICreditService>();
 
             _service = new PortfolioService(
                 _dbContext,
@@ -53,6 +55,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 httpClientFactory.Object,
                 cache,
                 openAI.Object,
+                creditService.Object,
                 NullLogger<PortfolioService>.Instance);
         }
 

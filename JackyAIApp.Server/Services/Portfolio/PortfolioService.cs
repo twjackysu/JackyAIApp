@@ -3,6 +3,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.Portfolio;
+using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
         IOpenAIPromptService openAI,
+        ICreditService creditService,
         ILogger<PortfolioService> logger) : IPortfolioService
     {
         private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
@@ -576,6 +578,11 @@ namespace JackyAIApp.Server.Services.Portfolio
                 ? p.AssetType == AssetType.FUND && p.Symbol == sym
                 : p.AssetType == AssetType.STOCK && p.Market == market.ToUpperInvariant() && p.Symbol == sym);
             if (pos == null) return (null, "找不到此持倉");
+
+            if (!await creditService.ConsumeCreditsAsync(userId, CreditCosts.PortfolioAiSummary, "portfolio_ai_summary", "Portfolio AI technical summary"))
+            {
+                return (null, $"Insufficient credits. Required: {CreditCosts.PortfolioAiSummary}.");
+            }
 
             List<decimal> closes;
             List<decimal>? highs = null, lows = null;
