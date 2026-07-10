@@ -101,10 +101,13 @@ export const CONNECTORS: AppDef = {
 export const apps: AppDef[] = [PORTFOLIO, FINANCE, ENGLISH_LEARNING, JOB_SEARCH, DATA_ANALYSIS];
 
 // Everything reachable from the home portal — the ONLY place users switch between sites.
-export const portalDestinations: AppDef[] = [...apps, DASHBOARDS, CONNECTORS];
+// CONNECTORS is deliberately excluded: the feature currently has a permission issue with the
+// Google MCP scopes and isn't ready to surface to users. Route/branding stay intact for anyone
+// hitting /connectors directly.
+export const portalDestinations: AppDef[] = [...apps, DASHBOARDS];
 
-// Every brandable destination, including ones not surfaced in the portal (e.g. PDF).
-const allAppDefs: AppDef[] = [...portalDestinations, PDF_UNLOCKER];
+// Every brandable destination, including ones not surfaced in the portal (e.g. PDF, Connectors).
+const allAppDefs: AppDef[] = [...portalDestinations, CONNECTORS, PDF_UNLOCKER];
 
 /** Resolve which app a given pathname belongs to, or null for the portal / neutral routes. */
 export const getCurrentApp = (path: string): AppDef | null =>
