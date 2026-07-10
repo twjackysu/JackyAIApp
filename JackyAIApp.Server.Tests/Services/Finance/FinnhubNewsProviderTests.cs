@@ -47,7 +47,13 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         [Fact]
         public async Task FetchAsync_ParsesHeadlineSummarySourceDatetime()
         {
-            var provider = CreateProvider(_ => StubHttpMessageHandler.JsonResponse(ReadFixture("news_general.json")));
+            // FinnhubNewsProvider filters out anything older than LOOKBACK_HOURS (24h), so the
+            // fixture's timestamps must be rebased onto "now" or this test rots as wall-clock time
+            // moves past the recorded dates. Rewrite each item's datetime to a recent value while
+            // keeping the fixture as the source of truth for the response *shape*.
+            var expectedFirstDatetime = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeSeconds();
+            var json = WithRecentDatetimes(ReadFixture("news_general.json"), expectedFirstDatetime);
+            var provider = CreateProvider(_ => StubHttpMessageHandler.JsonResponse(json));
 
             var result = await provider.FetchAsync();
 
@@ -55,8 +61,21 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             var first = result[0];
             Assert.Equal("Fed signals steady rates as inflation cools further", first.Headline);
             Assert.Equal("Reuters", first.Source);
-            Assert.Equal(1783584064L, first.Datetime);
+            Assert.Equal(expectedFirstDatetime, first.Datetime);
             Assert.Contains("Federal Reserve", first.Summary);
+        }
+
+        /// <summary>
+        /// Rewrites every item's "datetime" to a recent unix timestamp (first item at
+        /// <paramref name="firstDatetime"/>, each subsequent one a minute earlier) so the provider's
+        /// 24-hour recency filter keeps them all — makes the fixture time-independent.
+        /// </summary>
+        private static string WithRecentDatetimes(string arrayJson, long firstDatetime)
+        {
+            var arr = System.Text.Json.Nodes.JsonNode.Parse(arrayJson)!.AsArray();
+            for (var i = 0; i < arr.Count; i++)
+                arr[i]!["datetime"] = firstDatetime - i * 60;
+            return arr.ToJsonString();
         }
 
         [Fact]
