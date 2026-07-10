@@ -12,16 +12,14 @@ import { ChatHistoryMessage } from '@/apis/chatbotApis/types';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
 import { ParsedBlock, useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
 
-/** Flattens Dify's per-exchange history (query + answer) into chat bubbles. */
-const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] => {
-  const out: Message[] = [];
-  for (const m of items) {
-    const ts = new Date(m.createdAt * 1000);
-    if (m.query) out.push({ id: `${m.id}-q`, content: m.query, isUser: true, timestamp: ts });
-    if (m.answer) out.push({ id: `${m.id}-a`, content: m.answer, isUser: false, timestamp: ts });
-  }
-  return out;
-};
+/** Maps stored conversation rows (one per turn) into chat bubbles. */
+const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] =>
+  items.map((m) => ({
+    id: String(m.id),
+    content: m.content,
+    isUser: m.role === 'user',
+    timestamp: new Date(m.createdAt),
+  }));
 
 function FloatingChatbot() {
   const [isOpen, setIsOpen] = useState(false);

@@ -3,9 +3,9 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
+using JackyAIApp.Server.Services.Chatbot;
 using JackyAIApp.Server.Services.DailyChallenge;
 using JackyAIApp.Server.Services.Dictionary;
-using JackyAIApp.Server.Services.Dify;
 using JackyAIApp.Server.Services.Exam;
 using JackyAIApp.Server.Services.Exam.Generators;
 using JackyAIApp.Server.Services.Job;
@@ -26,8 +26,8 @@ namespace JackyAIApp.Server.Extensions
     {
         /// <summary>
         /// Cross-cutting services used across most feature modules: response
-        /// factories, current-user/credit access, the Dify client, and the
-        /// prompt-file-backed OpenAI wrapper.
+        /// factories, current-user/credit access, the floating chatbot's direct
+        /// Claude client, and the prompt-file-backed OpenAI wrapper.
         /// </summary>
         public static IServiceCollection AddCoreServices(this IServiceCollection services)
         {
@@ -37,12 +37,7 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<ICreditService, CreditService>();
             services.AddScoped<IAiUsageLogger, AiUsageLogger>();
-            services.AddScoped<IDifyApiClient, DifyApiClient>();
-            // Named client, no retry: Dify's chat/delete calls are non-idempotent (POST/DELETE),
-            // so it must not share the bare default client once that gets retry (see Program.cs) —
-            // retrying a chat POST whose response was lost after Dify already processed it would
-            // resend the message.
-            services.AddHttpClient("Dify");
+            services.AddScoped<IAnthropicChatService, AnthropicChatService>();
 
             services.AddSingleton<IPromptLoader, PromptLoader>();
             services.AddScoped<IOpenAIPromptService, OpenAIPromptService>();

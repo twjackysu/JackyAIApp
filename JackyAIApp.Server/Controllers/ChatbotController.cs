@@ -1,10 +1,11 @@
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
-using JackyAIApp.Server.Services.Dify;
+using JackyAIApp.Server.Services.Chatbot;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -15,17 +16,20 @@ namespace JackyAIApp.Server.Controllers
         ILogger<ChatbotController> logger,
         IMyResponseFactory responseFactory,
         IUserService userService,
-        IDifyApiClient difyApiClient,
-        ICreditService creditService) : ControllerBase
+        IAnthropicChatService chatService,
+        ICreditService creditService,
+        AzureSQLDBContext dbContext) : ControllerBase
     {
         private readonly ILogger<ChatbotController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IUserService _userService = userService;
-        private readonly IDifyApiClient _difyApiClient = difyApiClient;
+        private readonly IAnthropicChatService _chatService = chatService;
         private readonly ICreditService _creditService = creditService;
+        private readonly AzureSQLDBContext _dbContext = dbContext;
 
         /// <summary>
-        /// Forwards chat messages to Dify API and streams the response back to the client.
+        /// Streams a chat turn from Claude (with the TW-stock MCP server attached) back to the
+        /// client as SSE, persisting the exchange to the caller's local conversation history.
         /// </summary>
         [HttpPost("chat")]
         public async Task Chat([FromBody] ChatRequest request)
@@ -46,8 +50,8 @@ namespace JackyAIApp.Server.Controllers
             }
             _logger.LogInformation("User {UserId} started chat", userId);
 
-            // Charge per message up front (anti-abuse / cost control). Refunded below
-            // if Dify never starts responding, so users aren't charged for nothing.
+            // Charge per message up front (anti-abuse / cost control). Refunded below if the
+            // model never started responding, so users aren't charged for nothing.
             if (!await _creditService.ConsumeCreditsAsync(
                     userId, CreditCosts.ChatMessage, "chatbot_message", "Chatbot conversation message"))
             {
@@ -56,55 +60,25 @@ namespace JackyAIApp.Server.Controllers
                 return;
             }
 
-            var streamingStarted = false;
             try
             {
-                using var difyResponse = await _difyApiClient.SendChatStreamAsync(
-                    request.Message, request.ConversationId, userId, HttpContext.RequestAborted);
+                var result = await _chatService.StreamChatAsync(
+                    userId, request.Message, request.ConversationId, Response, HttpContext.RequestAborted);
 
-                if (!difyResponse.IsSuccessStatusCode)
+                if (!result.StreamingStarted)
                 {
-                    var errorContent = await difyResponse.Content.ReadAsStringAsync();
-                    _logger.LogError("Dify API error: {StatusCode}, {Error}", difyResponse.StatusCode, errorContent);
                     await RefundChatMessageAsync(userId);
-                    Response.StatusCode = (int)difyResponse.StatusCode;
-                    await Response.WriteAsync(errorContent);
-                    return;
-                }
-
-                // Set SSE headers
-                Response.ContentType = "text/event-stream";
-                Response.Headers.Append("Cache-Control", "no-cache");
-                Response.Headers.Append("Connection", "keep-alive");
-                Response.Headers.Append("Access-Control-Allow-Origin", "*");
-                Response.Headers.Append("Access-Control-Allow-Headers", "Cache-Control");
-
-                var bufferingFeature = HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpResponseBodyFeature>();
-                bufferingFeature?.DisableBuffering();
-
-                using var difyStream = await difyResponse.Content.ReadAsStreamAsync();
-                var buffer = new byte[1024];
-                streamingStarted = true;
-
-                while (true)
-                {
-                    var bytesRead = await difyStream.ReadAsync(buffer, 0, buffer.Length);
-                    if (bytesRead == 0) break;
-
-                    await Response.Body.WriteAsync(buffer, 0, bytesRead);
-                    await Response.Body.FlushAsync();
-
-                    if (HttpContext.RequestAborted.IsCancellationRequested)
+                    if (!Response.HasStarted)
                     {
-                        _logger.LogInformation("Client disconnected from stream");
-                        break;
+                        Response.StatusCode = 500;
+                        await Response.WriteAsync(result.ErrorMessage ?? "Chat request failed.");
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during chat streaming");
-                if (!streamingStarted)
+                _logger.LogError(ex, "Unhandled error during chat streaming");
+                if (!Response.HasStarted)
                 {
                     await RefundChatMessageAsync(userId);
                     Response.StatusCode = 500;
@@ -119,7 +93,7 @@ namespace JackyAIApp.Server.Controllers
                 userId, CreditCosts.ChatMessage, "refund", "Chatbot message refund (no response delivered)");
 
         /// <summary>
-        /// Lists the current user's Dify conversations (most-recently updated first).
+        /// Lists the current user's conversations (most-recently updated first).
         /// </summary>
         [HttpGet("conversations")]
         public async Task<IActionResult> GetConversations(CancellationToken ct = default)
@@ -128,20 +102,18 @@ namespace JackyAIApp.Server.Controllers
             if (string.IsNullOrEmpty(userId))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
 
-            var (ok, body) = await _difyApiClient.GetConversationsAsync(userId, ct);
-            if (!ok)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Failed to load conversations.");
-
-            var parsed = JsonSerializer.Deserialize<DifyConversationListResponse>(body) ?? new();
-            var result = parsed.Data
+            var result = await _dbContext.ChatConversations
+                .Where(c => c.UserId == userId)
+                .OrderByDescending(c => c.UpdatedAt)
                 .Select(c => new ChatConversationDto
                 {
                     Id = c.Id,
-                    Name = string.IsNullOrWhiteSpace(c.Name) ? "新對話" : c.Name!,
+                    Title = string.IsNullOrWhiteSpace(c.Title) ? "新對話" : c.Title!,
                     CreatedAt = c.CreatedAt,
                     UpdatedAt = c.UpdatedAt,
                 })
-                .ToList();
+                .ToListAsync(ct);
+
             return _responseFactory.CreateOKResponse(result);
         }
 
@@ -157,25 +129,27 @@ namespace JackyAIApp.Server.Controllers
             if (string.IsNullOrWhiteSpace(conversationId))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "conversationId is required.");
 
-            var (ok, body) = await _difyApiClient.GetMessagesAsync(conversationId, userId, ct);
-            if (!ok)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Failed to load conversation messages.");
+            var owned = await _dbContext.ChatConversations
+                .AnyAsync(c => c.Id == conversationId && c.UserId == userId, ct);
+            if (!owned)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Conversation not found.");
 
-            var parsed = JsonSerializer.Deserialize<DifyMessageListResponse>(body) ?? new();
-            var result = parsed.Data
+            var result = await _dbContext.ChatMessages
+                .Where(m => m.ConversationId == conversationId)
                 .OrderBy(m => m.CreatedAt)
                 .Select(m => new ChatMessageDto
                 {
                     Id = m.Id,
-                    Query = m.Query ?? string.Empty,
-                    Answer = m.Answer ?? string.Empty,
+                    Role = m.Role,
+                    Content = m.Content,
                     CreatedAt = m.CreatedAt,
                 })
-                .ToList();
+                .ToListAsync(ct);
+
             return _responseFactory.CreateOKResponse(result);
         }
 
-        /// <summary>Deletes one of the current user's conversations from Dify.</summary>
+        /// <summary>Deletes one of the current user's conversations (and its messages).</summary>
         [HttpDelete("conversations/{conversationId}")]
         public async Task<IActionResult> DeleteConversation(string conversationId, CancellationToken ct = default)
         {
@@ -185,9 +159,13 @@ namespace JackyAIApp.Server.Controllers
             if (string.IsNullOrWhiteSpace(conversationId))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "conversationId is required.");
 
-            var success = await _difyApiClient.DeleteConversationAsync(conversationId, userId, ct);
-            if (!success)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Failed to delete conversation.");
+            var conversation = await _dbContext.ChatConversations
+                .FirstOrDefaultAsync(c => c.Id == conversationId && c.UserId == userId, ct);
+            if (conversation == null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Conversation not found.");
+
+            _dbContext.ChatConversations.Remove(conversation); // cascades to ChatMessages
+            await _dbContext.SaveChangesAsync(ct);
 
             return _responseFactory.CreateOKResponse();
         }

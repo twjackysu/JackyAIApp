@@ -1,11 +1,11 @@
 namespace JackyAIApp.Server.Common
 {
     /// <summary>
-    /// Approximate OpenAI pricing, centralized so cost estimates live in one place. These are
-    /// rough public list rates as of 2026-07 and WILL drift — the raw token/character counts logged
-    /// alongside every <see cref="Data.Models.SQL.AiUsageLog"/> row are authoritative; this only
-    /// pre-computes a convenient SUM-able cost column for the usage dashboard. Verify against the
-    /// OpenAI billing dashboard for real spend.
+    /// Approximate AI provider pricing (OpenAI + Anthropic), centralized so cost estimates live in
+    /// one place. These are rough public list rates as of 2026-07 and WILL drift — the raw
+    /// token/character counts logged alongside every <see cref="Data.Models.SQL.AiUsageLog"/> row
+    /// are authoritative; this only pre-computes a convenient SUM-able cost column for the usage
+    /// dashboard. Verify against each provider's billing dashboard for real spend.
     /// </summary>
     public static class AiRates
     {
@@ -17,6 +17,7 @@ namespace JackyAIApp.Server.Common
                 ["gpt-5-nano"] = (0.05m, 0.40m),
                 ["gpt-4.1-nano"] = (0.10m, 0.40m),
                 ["gpt-4o-mini"] = (0.15m, 0.60m),
+                ["claude-haiku-4-5"] = (1.00m, 5.00m),
             };
 
         // TTS rates in USD per 1,000,000 input characters.

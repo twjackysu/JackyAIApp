@@ -6,21 +6,24 @@ namespace JackyAIApp.Server.DTO
         public string? ConversationId { get; set; }
     }
 
-    /// <summary>A conversation summary returned to the client (title from Dify).</summary>
+    /// <summary>A conversation summary returned to the client (title from the first user message).</summary>
     public class ChatConversationDto
     {
         public string Id { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public long CreatedAt { get; set; }
-        public long UpdatedAt { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
     }
 
-    /// <summary>One historical exchange (user query + assistant answer).</summary>
+    /// <summary>One turn (user or assistant) in a conversation.</summary>
     public class ChatMessageDto
     {
-        public string Id { get; set; } = string.Empty;
-        public string Query { get; set; } = string.Empty;
-        public string Answer { get; set; } = string.Empty;
-        public long CreatedAt { get; set; }
+        public long Id { get; set; }
+
+        /// <summary>"user" or "assistant".</summary>
+        public string Role { get; set; } = string.Empty;
+
+        public string Content { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
     }
 }

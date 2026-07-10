@@ -156,6 +156,66 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("AiUsageLogs");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatConversation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "UpdatedAt");
+
+                    b.ToTable("ChatConversations");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ConversationId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId", "CreatedAt");
+
+                    b.ToTable("ChatMessages");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ClozeTest", b =>
                 {
                     b.Property<string>("Id")
@@ -834,6 +894,17 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatMessage", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.ChatConversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ClozeTest", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.Word", "Word")
@@ -1059,6 +1130,11 @@ namespace JackyAIApp.Server.Data.Migrations
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.HoldingSnapshot", b =>
                 {
                     b.Navigation("Positions");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatConversation", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ClozeTest", b =>
