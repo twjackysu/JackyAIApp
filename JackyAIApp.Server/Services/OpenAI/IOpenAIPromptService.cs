@@ -14,27 +14,33 @@ namespace JackyAIApp.Server.Services.OpenAI
         /// <param name="model">The model to use (defaults to GPT_5_NANO)</param>
         /// <param name="examples">Optional list of (user, assistant) example pairs for few-shot learning</param>
         /// <returns>The deserialized response or null if failed, along with any error message</returns>
+        /// <param name="feature">Optional usage-log label; when omitted it's derived from the prompt file path.</param>
         Task<(T? Result, string? Error)> GetCompletionAsync<T>(
             string systemPromptPath,
             string userMessage,
             string? model = null,
-            IEnumerable<(string User, string Assistant)>? examples = null) where T : class;
+            IEnumerable<(string User, string Assistant)>? examples = null,
+            string? feature = null) where T : class;
 
         /// <summary>
-        /// Sends a chat completion request with a system prompt string and returns the parsed result
+        /// Sends a chat completion request with a system prompt string and returns the parsed result.
+        /// <paramref name="feature"/> labels the call for AI-usage accounting (there's no prompt path to
+        /// infer it from here).
         /// </summary>
         Task<(T? Result, string? Error)> GetCompletionWithSystemPromptAsync<T>(
             string systemPrompt,
             string userMessage,
             string? model = null,
-            IEnumerable<(string User, string Assistant)>? examples = null) where T : class;
+            IEnumerable<(string User, string Assistant)>? examples = null,
+            string? feature = null) where T : class;
 
         /// <summary>
         /// Sends a chat completion request with custom messages
         /// </summary>
         Task<(T? Result, string? Error)> GetCompletionWithMessagesAsync<T>(
             IEnumerable<(string Role, string Content)> messages,
-            string? model = null) where T : class;
+            string? model = null,
+            string? feature = null) where T : class;
 
         /// <summary>
         /// Transcribes audio using Whisper

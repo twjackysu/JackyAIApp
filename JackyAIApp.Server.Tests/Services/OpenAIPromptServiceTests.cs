@@ -2,6 +2,8 @@ using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.SharedModels;
+using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Prompt;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -34,6 +36,8 @@ namespace JackyAIApp.Server.Tests.Services
             _service = new OpenAIPromptService(
                 _openAIServiceMock.Object,
                 new Mock<IPromptLoader>().Object,
+                new Mock<IAiUsageLogger>().Object,
+                new Mock<IUserService>().Object,
                 NullLogger<OpenAIPromptService>.Instance);
         }
 

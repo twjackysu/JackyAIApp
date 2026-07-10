@@ -2,6 +2,7 @@ using DotnetSdkUtilities.Factory.ResponseFactory;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.DailyChallenge;
 using JackyAIApp.Server.Services.Dictionary;
 using JackyAIApp.Server.Services.Dify;
@@ -35,6 +36,7 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IMyResponseFactory, ResponseFactory>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<ICreditService, CreditService>();
+            services.AddScoped<IAiUsageLogger, AiUsageLogger>();
             services.AddScoped<IDifyApiClient, DifyApiClient>();
             // Named client, no retry: Dify's chat/delete calls are non-idempotent (POST/DELETE),
             // so it must not share the bare default client once that gets retry (see Program.cs) —

@@ -446,7 +446,7 @@ namespace JackyAIApp.Server.Controllers
             // ── Phase 1: which string columns does the query want to filter on? ──
             var phase1System = $"{filterPlanPrompt}\n\nAVAILABLE COLUMNS:\n{fieldList}";
             var (filterPlan, _) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<NlFilterPlanDto>(
-                phase1System, query, NewModels.GPT_5_NANO);
+                phase1System, query, NewModels.GPT_5_NANO, feature: "dataanalysis.nl_filter_plan");
 
             var filterColumns = (filterPlan?.FilterColumns ?? [])
                 .Where(c => stringFields.Contains(c))
@@ -497,7 +497,7 @@ namespace JackyAIApp.Server.Controllers
             var today = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
             var phase2System = $"{summarizePrompt}\n\nAVAILABLE COLUMNS:\n{fieldList}\nTODAY: {today}{lovBlock}{dateBlock}";
             var (plan, llmError) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<SummarizeRequestDto>(
-                phase2System, query, NewModels.GPT_5_NANO);
+                phase2System, query, NewModels.GPT_5_NANO, feature: "dataanalysis.nl_summarize");
 
             if (plan is null || plan.ViewBy.Count == 0 || plan.Measures.Count == 0)
             {

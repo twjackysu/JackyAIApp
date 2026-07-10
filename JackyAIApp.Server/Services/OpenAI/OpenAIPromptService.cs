@@ -2,6 +2,8 @@ using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Prompt;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
@@ -14,23 +16,48 @@ namespace JackyAIApp.Server.Services.OpenAI
     {
         private readonly IOpenAIService _openAIService;
         private readonly IPromptLoader _promptLoader;
+        private readonly IAiUsageLogger _usageLogger;
+        private readonly IUserService _userService;
         private readonly ILogger<OpenAIPromptService> _logger;
 
         public OpenAIPromptService(
             IOpenAIService openAIService,
             IPromptLoader promptLoader,
+            IAiUsageLogger usageLogger,
+            IUserService userService,
             ILogger<OpenAIPromptService> logger)
         {
             _openAIService = openAIService ?? throw new ArgumentNullException(nameof(openAIService));
             _promptLoader = promptLoader ?? throw new ArgumentNullException(nameof(promptLoader));
+            _usageLogger = usageLogger ?? throw new ArgumentNullException(nameof(usageLogger));
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        /// <summary>
+        /// Turns a prompt file path into a usage-log feature label, e.g.
+        /// "Prompt/Exam/ClozeSystem.txt" → "exam.cloze". Keeps the label stable and low-cardinality.
+        /// </summary>
+        private static string FeatureFromPromptPath(string systemPromptPath)
+        {
+            var trimmed = systemPromptPath
+                .Replace("Prompt/", "", StringComparison.OrdinalIgnoreCase)
+                .Replace("\\", "/");
+            var withoutExt = System.IO.Path.GetFileNameWithoutExtension(trimmed);
+            var dir = System.IO.Path.GetDirectoryName(trimmed)?.Replace("/", ".");
+            // Drop a trailing "System" from the file part (ClozeSystem → cloze).
+            if (withoutExt.EndsWith("System", StringComparison.OrdinalIgnoreCase))
+                withoutExt = withoutExt[..^"System".Length];
+            var label = string.IsNullOrEmpty(dir) ? withoutExt : $"{dir}.{withoutExt}";
+            return label.ToLowerInvariant();
         }
 
         public async Task<(T? Result, string? Error)> GetCompletionAsync<T>(
             string systemPromptPath,
             string userMessage,
             string? model = null,
-            IEnumerable<(string User, string Assistant)>? examples = null) where T : class
+            IEnumerable<(string User, string Assistant)>? examples = null,
+            string? feature = null) where T : class
         {
             var systemPrompt = await _promptLoader.GetPromptAsync(systemPromptPath);
             if (systemPrompt == null)
@@ -39,14 +66,16 @@ namespace JackyAIApp.Server.Services.OpenAI
                 return (null, $"System prompt not found: {systemPromptPath}");
             }
 
-            return await GetCompletionWithSystemPromptAsync<T>(systemPrompt, userMessage, model, examples);
+            return await GetCompletionWithSystemPromptAsync<T>(
+                systemPrompt, userMessage, model, examples, feature ?? FeatureFromPromptPath(systemPromptPath));
         }
 
         public async Task<(T? Result, string? Error)> GetCompletionWithSystemPromptAsync<T>(
             string systemPrompt,
             string userMessage,
             string? model = null,
-            IEnumerable<(string User, string Assistant)>? examples = null) where T : class
+            IEnumerable<(string User, string Assistant)>? examples = null,
+            string? feature = null) where T : class
         {
             var messages = new List<ChatMessage> { ChatMessage.FromSystem(systemPrompt) };
 
@@ -63,7 +92,7 @@ namespace JackyAIApp.Server.Services.OpenAI
             messages.Add(ChatMessage.FromUser(userMessage));
 
             var messagesTuples = messages.Select(m => (m.Role?.ToString().ToLower() ?? "user", m.Content ?? "")).ToList();
-            return await GetCompletionWithMessagesAsync<T>(messagesTuples, model);
+            return await GetCompletionWithMessagesAsync<T>(messagesTuples, model, feature);
         }
 
         // "gpt-5*" is this app's only reasoning-family model; reasoning_effort is rejected by the
@@ -78,8 +107,10 @@ namespace JackyAIApp.Server.Services.OpenAI
 
         public async Task<(T? Result, string? Error)> GetCompletionWithMessagesAsync<T>(
             IEnumerable<(string Role, string Content)> messages,
-            string? model = null) where T : class
+            string? model = null,
+            string? feature = null) where T : class
         {
+            var resolvedModel = model ?? NewModels.GPT_5_NANO;
             try
             {
                 var chatMessages = messages.Select(m => m.Role.ToLower() switch
@@ -89,7 +120,6 @@ namespace JackyAIApp.Server.Services.OpenAI
                     _ => ChatMessage.FromUser(m.Content)
                 }).ToList();
 
-                var resolvedModel = model ?? NewModels.GPT_5_NANO;
                 var request = new ChatCompletionCreateRequest
                 {
                     Messages = chatMessages,
@@ -112,6 +142,20 @@ namespace JackyAIApp.Server.Services.OpenAI
                 }
 
                 var completionResult = await _openAIService.ChatCompletion.CreateCompletion(request);
+
+                // Record billable usage regardless of success — a failed/empty completion can still
+                // have consumed (and been billed for) prompt + reasoning tokens.
+                var usage = completionResult.Usage;
+                if (usage != null)
+                {
+                    await _usageLogger.LogChatAsync(
+                        feature ?? "unknown",
+                        resolvedModel,
+                        usage.PromptTokens,
+                        usage.CompletionTokens ?? 0,
+                        completionResult.Successful,
+                        _userService.GetUserId());
+                }
 
                 if (!completionResult.Successful)
                 {
@@ -164,6 +208,8 @@ namespace JackyAIApp.Server.Services.OpenAI
                     Model = Models.WhisperV1,
                     ResponseFormat = "json"
                 });
+
+                await _usageLogger.LogWhisperAsync(Models.WhisperV1, response.Successful, _userService.GetUserId());
 
                 if (!response.Successful)
                 {
