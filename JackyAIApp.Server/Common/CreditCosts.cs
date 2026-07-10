@@ -6,8 +6,8 @@ namespace JackyAIApp.Server.Common
     /// </summary>
     public static class CreditCosts
     {
-        /// <summary>Dictionary word lookup (AI-generated definitions)</summary>
-        public const ulong DictionaryLookup = 1;
+        // Dictionary word lookup is intentionally free — a generated word is saved to the
+        // Word table, so the OpenAI call only ever runs once per word, not once per user.
 
         /// <summary>Cloze test generation</summary>
         public const ulong ClozeTest = 2;
@@ -50,6 +50,9 @@ namespace JackyAIApp.Server.Common
 
         /// <summary>Natural-language summarize (LLM translates query to parameters + executes)</summary>
         public const ulong NlSummarize = 2;
+
+        /// <summary>Portfolio AI technical-analysis summary for a single position</summary>
+        public const ulong PortfolioAiSummary = 2;
 
         /// <summary>Daily login bonus</summary>
         public const ulong DailyLoginBonus = 10;

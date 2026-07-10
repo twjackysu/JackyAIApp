@@ -20,6 +20,7 @@ import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { useGetUserInfoQuery } from './apis/accountApis';
 import { useGetDueCountQuery } from './apis/reviewApis';
 import RequireAuth from './auth/RequireAuth';
+import Footer from './components/Footer';
 import LoginError from './components/LoginError';
 import InsufficientCreditsModal from './components/Modals/InsufficientCreditsModal';
 import UserProfileMenu from './components/UserProfileMenu';
@@ -47,6 +48,7 @@ const Portfolio = lazy(() => import('./Portfolio'));
 const JobSearch = lazy(() => import('./JobSearch'));
 const PDFUnlocker = lazy(() => import('./PDFUnlocker'));
 const Portal = lazy(() => import('./Portal'));
+const Pricing = lazy(() => import('./Pricing'));
 const Repository = lazy(() => import('./Repository'));
 const Review = lazy(() => import('./Review'));
 const Stats = lazy(() => import('./Stats'));
@@ -289,9 +291,13 @@ function App() {
                 Other visibilities still return NotFound from the API for anonymous users. */}
             <Route path="/dashboards/:id" element={<DashboardView />} />
             <Route path="/login-error" element={<LoginError />} />
+            {/* Public — ECPay merchant review requires a visible pricing/fee disclosure page
+                that doesn't require login to view. */}
+            <Route path="/pricing" element={<Pricing />} />
           </Routes>
         </Suspense>
       </Box>
+      <Footer />
       {/* 懸浮 Chatbot — available on every page (auth-gated internally) */}
       <Suspense fallback={null}>
         <FloatingChatbot />

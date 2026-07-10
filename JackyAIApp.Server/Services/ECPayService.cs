@@ -12,13 +12,6 @@ namespace JackyAIApp.Server.Services
         private readonly ECPayOptions _options;
         private readonly ILogger<ECPayService> _logger;
 
-        private static readonly (string Id, string Name, int PriceTWD, ulong Credits)[] TWDPacks =
-        [
-            ("starter",   "Starter Pack (500 credits)",    150,  500),
-            ("popular",   "Popular Pack (1100 credits)",   300,  1100),
-            ("bestvalue", "Best Value Pack (2400 credits)", 600,  2400),
-        ];
-
         public ECPayService(
             ICreditService creditService,
             IOptions<ECPayOptions> options,
@@ -31,8 +24,8 @@ namespace JackyAIApp.Server.Services
 
         public Task<Dictionary<string, string>> CreatePaymentAsync(string userId, string packId)
         {
-            var pack = TWDPacks.FirstOrDefault(p => p.Id == packId);
-            if (pack == default)
+            var pack = CreditPacks.All.FirstOrDefault(p => p.Id == packId);
+            if (pack == null)
                 throw new ArgumentException($"Unknown pack: {packId}");
 
             // ECPay caps MerchantTradeNo at 20 chars. yyyyMMddHHmmss (14) + 6 hex chars = 20 exactly;
@@ -49,7 +42,7 @@ namespace JackyAIApp.Server.Services
                 ["PaymentType"] = "aio",
                 ["TotalAmount"] = pack.PriceTWD.ToString(),
                 ["TradeDesc"] = "JackyAI Credits",
-                ["ItemName"] = pack.Name,
+                ["ItemName"] = $"{pack.Name} ({pack.Credits} credits)",
                 ["ReturnURL"] = $"{_options.AppBaseUrl}/api/ecpay/callback",
                 ["ClientBackURL"] = $"{_options.AppBaseUrl}/credits?status=success&provider=ecpay",
                 ["ChoosePayment"] = "Credit",

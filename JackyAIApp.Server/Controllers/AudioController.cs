@@ -17,6 +17,7 @@ namespace JackyAIApp.Server.Controllers
         IMyResponseFactory responseFactory,
         IAiUsageLogger usageLogger,
         IUserService userService,
+        ICreditService creditService,
         IExtendedMemoryCache memoryCache) : ControllerBase
     {
         private readonly IOpenAIService _openAIService = openAIService;
@@ -24,6 +25,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IAiUsageLogger _usageLogger = usageLogger;
         private readonly IUserService _userService = userService;
+        private readonly ICreditService _creditService = creditService;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
 
         // Same text always produces the same audio for a given (model, voice, speed) — TTS output
@@ -65,6 +67,17 @@ namespace JackyAIApp.Server.Controllers
                 return File(cachedAudio, "audio/mpeg");
             }
 
+            // Only charge on an actual cache miss, and only for logged-in users — anonymous
+            // dictionary pronunciation stays free (length cap + cache are the anti-abuse gate
+            // there), matching the pattern used for the NL-summarize and market-digest endpoints.
+            var userId = _userService.GetUserId();
+            if (!string.IsNullOrEmpty(userId) &&
+                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.TextToSpeech, "tts", "Text-to-speech synthesis"))
+            {
+                return _responseFactory.CreateErrorResponse(
+                    ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.TextToSpeech}.");
+            }
+
             var response = await _openAIService.Audio.CreateSpeech<byte[]>(new AudioCreateSpeechRequest
             {
                 Model = model,
@@ -74,7 +87,7 @@ namespace JackyAIApp.Server.Controllers
                 Speed = speed
             });
 
-            await _usageLogger.LogTtsAsync(model, text.Length, response.Successful, _userService.GetUserId());
+            await _usageLogger.LogTtsAsync(model, text.Length, response.Successful, userId);
 
             if (!response.Successful || response.Data == null)
             {
