@@ -1,4 +1,5 @@
 ﻿using Azure.Identity;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Betalgo.Ranul.OpenAI.Extensions;
 using DotnetSdkUtilities.Extensions.ServiceCollectionExtensions;
 using JackyAIApp.Server.Common;
@@ -27,6 +28,21 @@ try
     builder.Logging.ClearProviders();
     builder.Logging.AddConsole();
     builder.Host.UseNLog();
+
+    // Cloud log/trace/metric sink for prod debugging — NLog's file targets write to the App
+    // Service instance's local disk (c:/temp), which is ephemeral and only reachable via the
+    // Kudu console. This mirrors ILogger calls (still hitting NLog too) plus auto-instruments
+    // HTTP requests and outbound calls (Anthropic, MCP, TWSE, ...) with latency/failure data.
+    // No-ops locally / anywhere the connection string isn't set — set
+    // APPLICATIONINSIGHTS_CONNECTION_STRING as an Azure App Service Application Setting to
+    // enable it in prod; nothing to configure in this repo.
+    var appInsightsConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"]
+        ?? Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
+    if (!string.IsNullOrEmpty(appInsightsConnectionString))
+    {
+        builder.Services.AddOpenTelemetry().UseAzureMonitor(o => o.ConnectionString = appInsightsConnectionString);
+    }
+
     // Add services to the container.
     if (builder.Environment.IsProduction())
     {
