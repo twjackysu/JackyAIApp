@@ -28,7 +28,18 @@ namespace JackyAIApp.Server.Services.Chatbot
         private const string McpServerName = "tw-stock";
         private const string McpServerUrl = "https://TW-Stock-MCP-Server.fastmcp.app/mcp";
         private const string McpBeta = "mcp-client-2025-11-20";
-        private const int MaxTokens = 2048;
+        // A turn that calls the MCP tool needs room for both the tool call itself and the
+        // follow-up analysis text — 2048 was observed truncating mid-analysis (empty final
+        // response, no error surfaced) on requests like "分析一下2330". Haiku is cheap enough
+        // ($1/$5 per MTok) that a generous ceiling costs pennies even in the worst case.
+        private const int MaxTokens = 8192;
+
+        // The MCP connector runs its tool-call loop server-side with an internal 10-iteration
+        // cap; hitting it ends the turn with stop_reason=pause_turn before any answer text is
+        // produced. Retrying the same request from scratch (not a true resume — see below) often
+        // succeeds if the stall was a transient MCP-server hiccup. Bounded so a query that
+        // genuinely needs an unusually large number of tool calls fails fast instead of looping.
+        private const int MaxPauseTurnRetries = 2;
 
         private const string SystemPrompt =
             "你是JackyAIApp網站上的台股小幫手。有台股相關問題（股價、財報、籌碼等）時，使用tw-stock工具查詢最新資料再回答；" +
@@ -88,45 +99,81 @@ namespace JackyAIApp.Server.Services.Chatbot
             var accumulated = new StringBuilder();
             var streamingStarted = false;
             long inputTokens = 0, outputTokens = 0;
+            BetaStopReason? stopReason = null;
             var success = true;
             string? errorMessage = null;
 
-            try
+            for (var attempt = 0; ; attempt++)
             {
-                await foreach (var evt in client.Beta.Messages.CreateStreaming(streamParams, ct))
+                stopReason = null;
+                try
                 {
-                    if (evt.TryPickContentBlockDelta(out var blockDelta) && blockDelta.Delta.TryPickText(out var textDelta))
+                    await foreach (var evt in client.Beta.Messages.CreateStreaming(streamParams, ct))
                     {
-                        streamingStarted = true;
-                        accumulated.Append(textDelta.Text);
-                        await WriteSseAsync(response, new { type = "delta", text = textDelta.Text }, ct);
-                    }
-                    else if (evt.TryPickContentBlockStart(out var blockStart) &&
-                             blockStart.ContentBlock.TryPickBetaMcpToolUse(out var toolUse))
-                    {
-                        await WriteSseAsync(response, new { type = "tool_use", name = toolUse.Name }, ct);
-                    }
-                    else if (evt.TryPickStart(out var startEvt))
-                    {
-                        inputTokens = startEvt.Message.Usage.InputTokens;
-                    }
-                    else if (evt.TryPickDelta(out var msgDelta) && msgDelta.Usage != null)
-                    {
-                        outputTokens = msgDelta.Usage.OutputTokens;
+                        if (evt.TryPickContentBlockDelta(out var blockDelta) && blockDelta.Delta.TryPickText(out var textDelta))
+                        {
+                            streamingStarted = true;
+                            accumulated.Append(textDelta.Text);
+                            await WriteSseAsync(response, new { type = "delta", text = textDelta.Text }, ct);
+                        }
+                        else if (evt.TryPickContentBlockStart(out var blockStart) &&
+                                 blockStart.ContentBlock.TryPickBetaMcpToolUse(out var toolUse))
+                        {
+                            await WriteSseAsync(response, new { type = "tool_use", name = toolUse.Name }, ct);
+                        }
+                        else if (evt.TryPickStart(out var startEvt))
+                        {
+                            inputTokens += startEvt.Message.Usage.InputTokens;
+                        }
+                        else if (evt.TryPickDelta(out var msgDelta))
+                        {
+                            if (msgDelta.Usage != null) outputTokens += msgDelta.Usage.OutputTokens;
+                            if (msgDelta.Delta != null) stopReason = msgDelta.Delta.StopReason?.Value();
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Anthropic chat streaming error for conversation {ConversationId}", conversation.Id);
+                    success = false;
+                    errorMessage = "Chat request failed.";
+                    if (!streamingStarted)
+                    {
+                        await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)inputTokens, (int)outputTokens, success, userId);
+                        return new ChatStreamResult(false, conversation.Id, errorMessage);
+                    }
+                    await WriteSseAsync(response, new { type = "error", message = errorMessage }, ct);
+                    break;
+                }
+
+                // pause_turn = the MCP connector's server-side tool loop hit its internal
+                // iteration cap before producing any answer text. Nothing has reached the client
+                // yet (streamingStarted is false), so a from-scratch retry is invisible to the
+                // user — NOT a true mid-conversation resume (the SDK has no block-accumulation
+                // helper to reconstruct the partial assistant turn), just "try the whole request
+                // again," which is enough for the common case of a transient MCP hiccup.
+                if (!streamingStarted && stopReason == BetaStopReason.PauseTurn && attempt < MaxPauseTurnRetries)
+                {
+                    logger.LogWarning(
+                        "Anthropic chat turn hit pause_turn with no output for conversation {ConversationId}; retrying (attempt {Attempt}/{Max})",
+                        conversation.Id, attempt + 1, MaxPauseTurnRetries);
+                    continue;
+                }
+
+                break;
             }
-            catch (Exception ex)
+
+            // The stream can complete with no exception yet produce zero text — e.g. the MCP
+            // tool call plus follow-up analysis ran out of MaxTokens before any answer text was
+            // written. Treat that as a failure rather than silently sending "done" with nothing
+            // to show (previously left the chat bubble blank forever with no error surfaced).
+            if (success && accumulated.Length == 0)
             {
-                logger.LogError(ex, "Anthropic chat streaming error for conversation {ConversationId}", conversation.Id);
+                logger.LogWarning(
+                    "Anthropic chat turn produced no text for conversation {ConversationId}. StopReason={StopReason}",
+                    conversation.Id, stopReason?.ToString() ?? "(none)");
                 success = false;
-                errorMessage = "Chat request failed.";
-                if (!streamingStarted)
-                {
-                    await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)inputTokens, (int)outputTokens, success, userId);
-                    return new ChatStreamResult(false, conversation.Id, errorMessage);
-                }
-                await WriteSseAsync(response, new { type = "error", message = errorMessage }, ct);
+                errorMessage = "沒有收到完整回覆，可能是這次查詢需要的資料較多，請再試一次或縮短問題範圍。";
             }
 
             if (accumulated.Length > 0)
@@ -148,6 +195,12 @@ namespace JackyAIApp.Server.Services.Chatbot
             if (success)
             {
                 await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id }, ct);
+            }
+            else if (streamingStarted)
+            {
+                // Some text already reached the client before the failure — tell it to stop
+                // waiting rather than leaving the request hanging.
+                await WriteSseAsync(response, new { type = "error", message = errorMessage }, ct);
             }
 
             return new ChatStreamResult(streamingStarted, conversation.Id, errorMessage);
