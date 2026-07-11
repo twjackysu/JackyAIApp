@@ -336,7 +336,7 @@ const Credits: React.FC = () => {
                         fontWeight: 'bold',
                       }}
                     >
-                      {tx.transactionType === 'consume' ? '-' : '+'}
+                      {tx.amount > 0 ? '+' : ''}
                       {tx.amount}
                     </TableCell>
                     <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
