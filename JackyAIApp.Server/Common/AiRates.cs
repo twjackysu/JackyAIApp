@@ -28,6 +28,14 @@ namespace JackyAIApp.Server.Common
                 ["tts-1-hd"] = 30m,
             };
 
+        // Image generation rates in USD per image. Assumes low-quality tier (what the Listening
+        // exam's admin generator requests) — gpt-image-1-mini's cheapest official tier as of 2026-07.
+        private static readonly Dictionary<string, decimal> ImageRatesPerImage =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["gpt-image-1-mini"] = 0.005m,
+            };
+
         /// <summary>USD cost of a chat completion, or null if the model's rate isn't known.</summary>
         public static decimal? ChatCost(string model, int promptTokens, int completionTokens)
         {
@@ -41,6 +49,13 @@ namespace JackyAIApp.Server.Common
         {
             if (!TtsRatesPerMChars.TryGetValue(model, out var perM)) return null;
             return characterCount / 1_000_000m * perM;
+        }
+
+        /// <summary>USD cost of generating N images, or null if the model's rate isn't known.</summary>
+        public static decimal? ImageCost(string model, int imageCount)
+        {
+            if (!ImageRatesPerImage.TryGetValue(model, out var perImage)) return null;
+            return imageCount * perImage;
         }
     }
 }

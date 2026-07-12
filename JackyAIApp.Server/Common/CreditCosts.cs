@@ -33,6 +33,10 @@ namespace JackyAIApp.Server.Common
         /// <summary>Sentence AI evaluation/grading</summary>
         public const ulong SentenceEvaluation = 2;
 
+        /// <summary>Listening test (TOEIC Part 1 style) — bundles the question fetch plus the
+        /// TTS for its 4 candidate statements into one flat charge; playback itself is free.</summary>
+        public const ulong ListeningTest = 4;
+
         /// <summary>Whisper audio transcription</summary>
         public const ulong AudioTranscription = 1;
 

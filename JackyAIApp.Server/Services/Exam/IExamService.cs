@@ -12,6 +12,20 @@ namespace JackyAIApp.Server.Services.Exam
         /// <summary>Generates (or returns a cached) vocabulary-based exam for the current user.</summary>
         Task<ServiceResult> GenerateWordExamAsync(ExamType type);
 
+        /// <summary>
+        /// Serves a random TOEIC Part 1 style listening question from the pre-seeded bank (see
+        /// Tools/ListeningBankImporter — this isn't word-scoped, so it doesn't go through
+        /// GenerateWordExamAsync/IWordExamGenerator).
+        /// </summary>
+        Task<ServiceResult> GenerateListeningExamAsync();
+
+        /// <summary>Looks up a listening question option's spoken text, for the unbilled audio
+        /// playback endpoint (credits are already charged when the question itself was fetched).</summary>
+        Task<ServiceResult> GetListeningOptionTextAsync(string optionId);
+
+        /// <summary>Admin-only: paginated view of the full listening question bank.</summary>
+        Task<ServiceResult> GetListeningBankAsync(int pageNumber, int pageSize);
+
         Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse);
 
         Task<ServiceResult> StartConversationAsync(ConversationStartRequest request);

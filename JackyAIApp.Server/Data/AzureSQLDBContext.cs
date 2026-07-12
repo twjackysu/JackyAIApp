@@ -156,11 +156,24 @@ namespace JackyAIApp.Server.Data
                 .HasForeignKey(ea => ea.WordId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            modelBuilder.Entity<ExamAttempt>()
+                .HasOne(ea => ea.ListeningTest)
+                .WithMany()
+                .HasForeignKey(ea => ea.ListeningTestId)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // Indexes for per-word history and recent-activity queries
             modelBuilder.Entity<ExamAttempt>()
                 .HasIndex(ea => new { ea.UserId, ea.WordId });
             modelBuilder.Entity<ExamAttempt>()
                 .HasIndex(ea => new { ea.UserId, ea.CreatedAt });
+
+            // Configure ListeningTestOption relationship
+            modelBuilder.Entity<ListeningTestOption>()
+                .HasOne(lto => lto.ListeningTest)
+                .WithMany(lt => lt.Options)
+                .HasForeignKey(lto => lto.ListeningTestId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Configure Dashboard relationships
             modelBuilder.Entity<Dashboard>()
@@ -249,6 +262,8 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<DailyChallengeResult> DailyChallengeResults { get; set; }
         public virtual DbSet<DataSourceConfig> DataSourceConfigs { get; set; }
         public virtual DbSet<ExamAttempt> ExamAttempts { get; set; }
+        public virtual DbSet<ListeningTest> ListeningTests { get; set; }
+        public virtual DbSet<ListeningTestOption> ListeningTestOptions { get; set; }
         public virtual DbSet<Dashboard> Dashboards { get; set; }
         public virtual DbSet<DashboardWidget> DashboardWidgets { get; set; }
         public virtual DbSet<DashboardShare> DashboardShares { get; set; }

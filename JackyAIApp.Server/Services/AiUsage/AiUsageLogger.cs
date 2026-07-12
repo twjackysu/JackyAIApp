@@ -50,6 +50,18 @@ namespace JackyAIApp.Server.Services.AiUsage
                 UserId = userId,
             });
 
+        public Task LogImageGenerationAsync(string feature, string model, int imageCount, bool success, string? userId) =>
+            SafeInsert(new AiUsageLog
+            {
+                Feature = feature,
+                Operation = "image",
+                Model = model,
+                ImageCount = imageCount,
+                EstimatedCostUsd = AiRates.ImageCost(model, imageCount),
+                Success = success,
+                UserId = userId,
+            });
+
         private async Task SafeInsert(AiUsageLog entry)
         {
             try

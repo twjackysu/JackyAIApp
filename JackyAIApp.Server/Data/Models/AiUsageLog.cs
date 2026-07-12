@@ -22,7 +22,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
         [Required, MaxLength(100)]
         public required string Feature { get; set; }
 
-        /// <summary>Coarse call type: "chat" | "tts" | "whisper".</summary>
+        /// <summary>Coarse call type: "chat" | "tts" | "whisper" | "image".</summary>
         [Required, MaxLength(20)]
         public required string Operation { get; set; }
 
@@ -40,6 +40,9 @@ namespace JackyAIApp.Server.Data.Models.SQL
 
         /// <summary>TTS only — input character count (TTS is billed per character).</summary>
         public int? CharacterCount { get; set; }
+
+        /// <summary>Image generation only — number of images produced (billed per image).</summary>
+        public int? ImageCount { get; set; }
 
         /// <summary>
         /// Best-effort USD cost from <see cref="Common.AiRates"/> at log time — approximate, for

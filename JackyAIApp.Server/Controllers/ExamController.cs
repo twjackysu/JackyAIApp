@@ -1,8 +1,14 @@
+using Betalgo.Ranul.OpenAI.ObjectModels;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Exam;
+using JackyAIApp.Server.Services.Listening;
+using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -11,10 +17,18 @@ namespace JackyAIApp.Server.Controllers
     [ApiController]
     public class ExamController(
         IMyResponseFactory responseFactory,
-        IExamService examService) : ControllerBase
+        IExamService examService,
+        ITextToSpeechService ttsService,
+        IUserService userService,
+        IListeningQuestionGenerator listeningQuestionGenerator,
+        AzureSQLDBContext dbContext) : ControllerBase
     {
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IExamService _examService = examService;
+        private readonly ITextToSpeechService _ttsService = ttsService;
+        private readonly IUserService _userService = userService;
+        private readonly IListeningQuestionGenerator _listeningQuestionGenerator = listeningQuestionGenerator;
+        private readonly AzureSQLDBContext _dbContext = dbContext;
 
         /// <summary>Generates a cloze test for the user based on their unfamiliar words.</summary>
         [HttpGet("cloze")]
@@ -78,6 +92,73 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("record-result")]
         public async Task<IActionResult> RecordExamResult([FromBody] RecordExamResultRequest request) =>
             ToActionResult(await _examService.RecordExamResultAsync(request));
+
+        /// <summary>Serves a random TOEIC Part 1 listening question from the pre-seeded bank. The
+        /// flat charge covers both the question and TTS playback of its 4 options.</summary>
+        [HttpGet("listening")]
+        [ConsumeCredits(CreditCosts.ListeningTest, "listening_test", "Listening test")]
+        public async Task<IActionResult> GetListeningTest() =>
+            ToActionResult(await _examService.GenerateListeningExamAsync());
+
+        /// <summary>Synthesizes speech for one listening-question option. Unbilled — the flat
+        /// "listening" charge already covers this; billing again per option would double-charge
+        /// for content the user must listen to just to answer.</summary>
+        [HttpGet("listening/audio")]
+        public async Task<IActionResult> GetListeningOptionAudio([FromQuery] string optionId)
+        {
+            var lookup = await _examService.GetListeningOptionTextAsync(optionId);
+            if (!lookup.IsSuccess)
+            {
+                return _responseFactory.CreateErrorResponse(lookup.Error!.Value, lookup.ErrorMessage!);
+            }
+
+            var text = (string)lookup.Data!;
+            const string voice = "alloy";
+            var model = Models.Tts_1;
+            const float speed = 1.0f;
+
+            if (_ttsService.TryGetCached(text, voice, model, speed, out var cachedAudio) && cachedAudio != null)
+            {
+                return File(cachedAudio, "audio/mpeg");
+            }
+
+            var result = await _ttsService.SynthesizeAsync(text, voice, model, speed, _userService.GetUserId());
+            return result.Success && result.Audio != null
+                ? File(result.Audio, "audio/mpeg")
+                : _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to generate speech");
+        }
+
+        /// <summary>Admin-only: paginated view of the listening question bank.</summary>
+        [HttpGet("listening/admin/bank")]
+        public async Task<IActionResult> GetListeningBank([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        {
+            if (!await IsAdminAsync())
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Admin access required.");
+            }
+
+            return ToActionResult(await _examService.GetListeningBankAsync(pageNumber, pageSize));
+        }
+
+        /// <summary>Admin-only: generates one new listening question (text + photo) via AI and adds
+        /// it to the bank. Not credit-gated (admin/back-office action, not a user-facing feature).</summary>
+        [HttpPost("listening/admin/generate")]
+        public async Task<IActionResult> GenerateListeningQuestion()
+        {
+            if (!await IsAdminAsync())
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Admin access required.");
+            }
+
+            return ToActionResult(await _listeningQuestionGenerator.GenerateAsync(_userService.GetUserId()));
+        }
+
+        private async Task<bool> IsAdminAsync()
+        {
+            var userId = _userService.GetUserId();
+            return !string.IsNullOrEmpty(userId) &&
+                await _dbContext.Users.AnyAsync(u => u.Id == userId && u.IsAdmin == true);
+        }
 
         private IActionResult ToActionResult(ServiceResult result) =>
             result.IsSuccess

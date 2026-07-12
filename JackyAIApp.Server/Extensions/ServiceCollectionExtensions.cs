@@ -41,6 +41,11 @@ namespace JackyAIApp.Server.Extensions
 
             services.AddSingleton<IPromptLoader, PromptLoader>();
             services.AddScoped<IOpenAIPromptService, OpenAIPromptService>();
+            services.AddScoped<ITextToSpeechService, TextToSpeechService>();
+#pragma warning disable CA1416 // ListeningImageProcessor is Windows-only; app only runs on Windows App Service.
+            services.AddScoped<Services.Listening.IListeningImageProcessor, Services.Listening.ListeningImageProcessor>();
+#pragma warning restore CA1416
+            services.AddScoped<Services.Listening.IListeningQuestionGenerator, Services.Listening.ListeningQuestionGenerator>();
 
             return services;
         }

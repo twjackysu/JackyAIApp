@@ -70,14 +70,38 @@ export interface SentenceTestResponse {
   grammarPattern?: string;
 }
 
-export type ExamType = 'Cloze' | 'Translation' | 'Sentence';
+export type ExamType = 'Cloze' | 'Translation' | 'Sentence' | 'Listening';
 
 export interface RecordExamResultRequest {
-  wordId: string;
+  /** Required for word-based exam types; omitted for "Listening". */
+  wordId?: string;
+  /** Required when examType is "Listening"; omitted otherwise. */
+  listeningTestId?: string;
   examType: ExamType;
   correct: boolean;
   /** Optional 0–100 score for graded types (Sentence). */
   score?: number;
+}
+
+export interface ListeningTestOption {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  explanation: string;
+}
+
+/** TOEIC Part 1 style "look at the picture, pick the best description" question.
+ * isCorrect/explanation are included up front; the UI gates their display until answered. */
+export interface ListeningTestResponse {
+  id: string;
+  imageUrl: string;
+  options: ListeningTestOption[];
+}
+
+/** Admin-only paginated view of the listening question bank. */
+export interface ListeningBankPageResponse {
+  items: ListeningTestResponse[];
+  totalCount: number;
 }
 
 export interface RecordExamResultResponse {

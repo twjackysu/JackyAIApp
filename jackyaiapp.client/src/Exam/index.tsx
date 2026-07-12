@@ -13,6 +13,7 @@ import { CREDIT_COSTS } from '../constants/creditCosts';
 
 import ClozeTestCard from './ClozeTestCard';
 import ConversationTestCard from './ConversationTestCard';
+import ListeningTestCard from './ListeningTestCard';
 import SentenceTestCard from './SentenceTestCard';
 import TranslationTestCard from './TranslationTestCard';
 
@@ -134,6 +135,20 @@ function Exam() {
               </Typography>
             </Box>
           </Button>
+          <Button
+            component={Link}
+            to="listening"
+            variant="outlined"
+            color="info"
+            sx={styles.button}
+          >
+            <Box sx={{ textAlign: 'center' }}>
+              聽力測驗 (Listening Test)
+              <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
+                每次生成 {CREDIT_COSTS.LISTENING_TEST} credits
+              </Typography>
+            </Box>
+          </Button>
         </Box>
       )}
       {isRepositoryNoWord && !isOnTestPage && (
@@ -146,6 +161,7 @@ function Exam() {
         <Route path="translation" element={<TranslationTestCard />} />
         <Route path="conversation" element={<ConversationTestCard />} />
         <Route path="sentenceTest" element={<SentenceTestCard />} />
+        <Route path="listening" element={<ListeningTestCard />} />
         <Route
           path="/"
           element={

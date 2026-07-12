@@ -1,39 +1,25 @@
 using Microsoft.AspNetCore.Mvc;
-using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
-using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Services;
-using JackyAIApp.Server.Services.AiUsage;
+using JackyAIApp.Server.Services.OpenAI;
 
 namespace JackyAIApp.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     public class AudioController(
-        IOpenAIService openAIService,
+        ITextToSpeechService ttsService,
         ILogger<AudioController> logger,
         IMyResponseFactory responseFactory,
-        IAiUsageLogger usageLogger,
         IUserService userService,
-        ICreditService creditService,
-        IExtendedMemoryCache memoryCache) : ControllerBase
+        ICreditService creditService) : ControllerBase
     {
-        private readonly IOpenAIService _openAIService = openAIService;
+        private readonly ITextToSpeechService _ttsService = ttsService;
         private readonly ILogger<AudioController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
-        private readonly IAiUsageLogger _usageLogger = usageLogger;
         private readonly IUserService _userService = userService;
         private readonly ICreditService _creditService = creditService;
-        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
-
-        // Same text always produces the same audio for a given (model, voice, speed) — TTS output
-        // is deterministic. The hottest inputs (dictionary example sentences, daily-word audio) are
-        // re-played by every user who looks the word up, so an unbounded number of distinct
-        // listeners can otherwise each trigger a fresh, separately-billed OpenAI call for content
-        // that never changes. Cached indefinitely-ish (30 days) since there's nothing to invalidate.
-        private static readonly TimeSpan TtsCacheTtl = TimeSpan.FromDays(30);
 
         // TTS is billed per input character — without a cap this endpoint (anonymous, no other
         // gate) could be used to run up an unbounded bill via a single very long `text` value.
@@ -60,9 +46,8 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var resolvedVoice = GetVoiceType(voice);
-            var cacheKey = $"tts_{model}_{resolvedVoice}_{speed}_{text}";
 
-            if (_memoryCache.TryGetValue(cacheKey, out object? cached) && cached is byte[] cachedAudio)
+            if (_ttsService.TryGetCached(text, resolvedVoice, model, speed, out var cachedAudio) && cachedAudio != null)
             {
                 return File(cachedAudio, "audio/mpeg");
             }
@@ -78,25 +63,14 @@ namespace JackyAIApp.Server.Controllers
                     ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.TextToSpeech}.");
             }
 
-            var response = await _openAIService.Audio.CreateSpeech<byte[]>(new AudioCreateSpeechRequest
-            {
-                Model = model,
-                Voice = resolvedVoice,
-                Input = text,
-                ResponseFormat = "mp3",
-                Speed = speed
-            });
+            var result = await _ttsService.SynthesizeAsync(text, resolvedVoice, model, speed, userId);
 
-            await _usageLogger.LogTtsAsync(model, text.Length, response.Successful, userId);
-
-            if (!response.Successful || response.Data == null)
+            if (!result.Success || result.Audio == null)
             {
-                _logger.LogError("OpenAI TTS failed: {Error}", response.Error?.Message);
                 return _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to generate speech");
             }
 
-            _memoryCache.Set(cacheKey, response.Data, TtsCacheTtl);
-            return File(response.Data, "audio/mpeg");
+            return File(result.Audio, "audio/mpeg");
         }
 
         private static string GetVoiceType(string? voice)
