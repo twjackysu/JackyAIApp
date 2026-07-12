@@ -342,6 +342,135 @@ namespace JackyAIApp.Server.Tests.Services
 
         #endregion
 
+        #region Listening Tests
+
+        [Fact]
+        public async Task GenerateListeningExam_EmptyBank_ReturnsError()
+        {
+            var result = await _service.GenerateListeningExamAsync();
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.NotFound, result.Error);
+        }
+
+        [Fact]
+        public async Task GenerateListeningExam_ReturnsQuestionWithOptions()
+        {
+            var listeningTest = await SeedListeningTestAsync();
+
+            var result = await _service.GenerateListeningExamAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<ListeningTestResponse>(result.Data);
+            Assert.Equal(listeningTest.Id, dto.Id);
+            Assert.Equal(listeningTest.ImageUrl, dto.ImageUrl);
+            Assert.Equal(4, dto.Options.Count);
+            Assert.Single(dto.Options, o => o.IsCorrect);
+        }
+
+        [Fact]
+        public async Task GetListeningOptionText_NotFound_ReturnsError()
+        {
+            var result = await _service.GetListeningOptionTextAsync("missing-id");
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.NotFound, result.Error);
+        }
+
+        [Fact]
+        public async Task GetListeningOptionText_Found_ReturnsText()
+        {
+            var listeningTest = await SeedListeningTestAsync();
+            var option = listeningTest.Options.First();
+
+            var result = await _service.GetListeningOptionTextAsync(option.Id);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(option.Text, result.Data);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_ListeningType_MissingListeningTestId_ReturnsError()
+        {
+            await SeedUserAsync();
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Listening",
+                Correct = true,
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_WordBasedType_MissingWordId_ReturnsError()
+        {
+            await SeedUserAsync();
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Cloze",
+                Correct = true,
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_ListeningType_RecordsAttemptWithoutTouchingSM2()
+        {
+            await SeedUserAsync();
+            var listeningTest = await SeedListeningTestAsync();
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Listening",
+                ListeningTestId = listeningTest.Id,
+                Correct = false,
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<RecordExamResultResponse>(result.Data);
+            Assert.False(dto.ScheduleUpdated);
+            Assert.Null(dto.NextReviewDate);
+
+            var attempt = await _dbContext.ExamAttempts.SingleAsync(a => a.UserId == _testUserId);
+            Assert.Equal("Listening", attempt.ExamType);
+            Assert.Equal(listeningTest.Id, attempt.ListeningTestId);
+            Assert.Null(attempt.WordId);
+            Assert.False(attempt.IsCorrect);
+        }
+
+        private async Task<ListeningTest> SeedListeningTestAsync()
+        {
+            var listeningTestId = Guid.NewGuid().ToString();
+            var listeningTest = new ListeningTest
+            {
+                Id = listeningTestId,
+                ImageUrl = "https://example.blob.core.windows.net/listening-images/lst-0001.jpg",
+                ImagePrompt = "A man pointing at a chart on a whiteboard.",
+                CreatedAt = DateTime.UtcNow,
+                Options = new List<ListeningTestOption>
+                {
+                    new() { Id = Guid.NewGuid().ToString(), Text = "A man is pointing at a chart.", IsCorrect = true, Explanation = "正確。", ListeningTestId = listeningTestId },
+                    new() { Id = Guid.NewGuid().ToString(), Text = "The people are seated.", IsCorrect = false, Explanation = "錯誤。", ListeningTestId = listeningTestId },
+                    new() { Id = Guid.NewGuid().ToString(), Text = "A woman is writing notes.", IsCorrect = false, Explanation = "錯誤。", ListeningTestId = listeningTestId },
+                    new() { Id = Guid.NewGuid().ToString(), Text = "The whiteboard is being removed.", IsCorrect = false, Explanation = "錯誤。", ListeningTestId = listeningTestId },
+                },
+            };
+            _dbContext.ListeningTests.Add(listeningTest);
+            await _dbContext.SaveChangesAsync();
+            return listeningTest;
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private async Task<User> SeedUserAsync()

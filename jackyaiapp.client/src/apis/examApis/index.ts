@@ -16,6 +16,8 @@ import {
   SentenceTestGradingResponse,
   RecordExamResultRequest,
   RecordExamResultResponse,
+  ListeningTestResponse,
+  ListeningBankPageResponse,
 } from './types';
 
 import {
@@ -112,7 +114,29 @@ export const examApis = createApi({
         body,
       }),
     }),
+    getListeningTest: builder.query<ApiOkResponse<ListeningTestResponse>, void>({
+      query: () => ({
+        url: 'listening',
+      }),
+    }),
+    getListeningBank: builder.query<
+      ApiOkResponse<ListeningBankPageResponse>,
+      { pageNumber: number; pageSize: number }
+    >({
+      query: ({ pageNumber, pageSize }) => ({
+        url: `listening/admin/bank?pageNumber=${pageNumber}&pageSize=${pageSize}`,
+      }),
+      providesTags: ['ListeningBank'],
+    }),
+    generateListeningQuestion: builder.mutation<ApiOkResponse<ListeningTestResponse>, void>({
+      query: () => ({
+        url: 'listening/admin/generate',
+        method: 'POST',
+      }),
+      invalidatesTags: ['ListeningBank'],
+    }),
   }),
+  tagTypes: ['ListeningBank'],
 });
 
 export const {
@@ -126,4 +150,7 @@ export const {
   useGetSentenceTestQuery,
   useEvaluateSentenceMutation,
   useRecordExamResultMutation,
+  useGetListeningTestQuery,
+  useGetListeningBankQuery,
+  useGenerateListeningQuestionMutation,
 } = examApis;

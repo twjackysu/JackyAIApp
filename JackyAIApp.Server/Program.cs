@@ -1,5 +1,6 @@
 ﻿using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Azure.Storage.Blobs;
 using Betalgo.Ranul.OpenAI.Extensions;
 using DotnetSdkUtilities.Extensions.ServiceCollectionExtensions;
 using JackyAIApp.Server.Common;
@@ -49,6 +50,16 @@ try
         builder.Configuration.AddAzureKeyVault(
             new Uri($"https://{builder.Configuration["KeyVaultName"]}.vault.azure.net/"),
             new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
+    }
+
+    // Blob Storage for listening-exam question images (pre-seeded via the bulk importer tool,
+    // not written to at request time). No-ops if unset — same pattern as App Insights above.
+    // Secret name in Key Vault: BlobStorage--ConnectionString.
+    var blobStorageConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
+    if (!string.IsNullOrEmpty(blobStorageConnectionString))
+    {
+        builder.Services.AddSingleton(new BlobServiceClient(blobStorageConnectionString));
+        builder.Services.AddScoped<JackyAIApp.Server.Services.Listening.IListeningImageStorageService, JackyAIApp.Server.Services.Listening.ListeningImageStorageService>();
     }
 
     var configuration = builder.Configuration;

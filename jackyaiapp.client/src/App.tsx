@@ -35,6 +35,7 @@ import {
 } from './constants/apps';
 
 // Feature pages are code-split so each route loads its own chunk on demand.
+const ListeningBankAdmin = lazy(() => import('./Admin/ListeningBank'));
 const Connectors = lazy(() => import('./Connectors'));
 const Credits = lazy(() => import('./Credits'));
 const DailyChallenge = lazy(() => import('./DailyChallenge'));
@@ -290,6 +291,14 @@ function App() {
             {/* No RequireAuth: "Anyone"-visibility dashboards are viewable without login.
                 Other visibilities still return NotFound from the API for anonymous users. */}
             <Route path="/dashboards/:id" element={<DashboardView />} />
+            <Route
+              path="/admin/listening"
+              element={
+                <RequireAuth>
+                  <ListeningBankAdmin />
+                </RequireAuth>
+              }
+            />
             <Route path="/login-error" element={<LoginError />} />
             {/* Public — ECPay merchant review requires a visible pricing/fee disclosure page
                 that doesn't require login to view. */}

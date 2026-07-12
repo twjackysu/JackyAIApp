@@ -139,8 +139,11 @@ namespace JackyAIApp.Server.DTO
     /// </summary>
     public class RecordExamResultRequest
     {
-        public required string WordId { get; set; }
-        /// <summary>"Cloze" | "Translation" | "Sentence".</summary>
+        /// <summary>Required for word-based exam types; omitted for "Listening".</summary>
+        public string? WordId { get; set; }
+        /// <summary>Required when ExamType is "Listening"; omitted otherwise.</summary>
+        public string? ListeningTestId { get; set; }
+        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening".</summary>
         public required string ExamType { get; set; }
         public required bool Correct { get; set; }
         /// <summary>Optional 0–100 score for graded types (Sentence).</summary>
@@ -154,5 +157,49 @@ namespace JackyAIApp.Server.DTO
         public required bool ScheduleUpdated { get; set; }
         /// <summary>The word's next review date after applying the result (null if not scheduled).</summary>
         public DateTime? NextReviewDate { get; set; }
+    }
+
+    /// <summary>
+    /// TOEIC Part 1 style "look at the picture, pick the best description" question. IsCorrect
+    /// and Explanation are sent up front (like SentenceTest.SampleAnswer) — the client gates
+    /// their display in the UI until the user has answered, rather than needing a second
+    /// round-trip to reveal them.
+    /// </summary>
+    public class ListeningTestResponse
+    {
+        public required string Id { get; set; }
+        public required string ImageUrl { get; set; }
+        public required List<ListeningTestOptionDto> Options { get; set; }
+    }
+
+    public class ListeningTestOptionDto
+    {
+        public required string Id { get; set; }
+        public required string Text { get; set; }
+        public required bool IsCorrect { get; set; }
+        public required string Explanation { get; set; }
+    }
+
+    /// <summary>Raw shape the AI returns for a new listening question — no Ids yet, those are
+    /// assigned when persisting. Used by the admin "generate" flow only.</summary>
+    public class ListeningQuestionGenerationResult
+    {
+        /// <summary>English image-generation prompt describing a single, unambiguous scene.</summary>
+        public required string ImagePrompt { get; set; }
+        public required List<ListeningQuestionOptionGen> Options { get; set; }
+    }
+
+    public class ListeningQuestionOptionGen
+    {
+        public required string Text { get; set; }
+        public required bool IsCorrect { get; set; }
+        public required string Explanation { get; set; }
+    }
+
+    /// <summary>Admin-only paginated view of the listening question bank.</summary>
+    public class ListeningBankPageResponse
+    {
+        public required List<ListeningTestResponse> Items { get; set; }
+        public required int TotalCount { get; set; }
     }
 }

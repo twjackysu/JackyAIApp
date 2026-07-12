@@ -19,13 +19,19 @@ namespace JackyAIApp.Server.Data.Models.SQL
         [ForeignKey(nameof(UserId))]
         public User User { get; set; } = null!;
 
-        /// <summary>The word the exam targeted.</summary>
-        public required string WordId { get; set; }
+        /// <summary>The word the exam targeted. Null for word-less exam types (e.g. Listening).</summary>
+        public string? WordId { get; set; }
 
         [ForeignKey(nameof(WordId))]
-        public Word Word { get; set; } = null!;
+        public Word? Word { get; set; }
 
-        /// <summary>Exam type: "Cloze" | "Translation" | "Sentence".</summary>
+        /// <summary>The listening question attempted, if ExamType is "Listening".</summary>
+        public string? ListeningTestId { get; set; }
+
+        [ForeignKey(nameof(ListeningTestId))]
+        public ListeningTest? ListeningTest { get; set; }
+
+        /// <summary>Exam type: "Cloze" | "Translation" | "Sentence" | "Listening".</summary>
         public required string ExamType { get; set; }
 
         /// <summary>Whether the attempt counted as correct.</summary>

@@ -12,5 +12,7 @@ namespace JackyAIApp.Server.Services.AiUsage
         Task LogTtsAsync(string model, int characterCount, bool success, string? userId);
 
         Task LogWhisperAsync(string model, bool success, string? userId);
+
+        Task LogImageGenerationAsync(string feature, string model, int imageCount, bool success, string? userId);
     }
 }

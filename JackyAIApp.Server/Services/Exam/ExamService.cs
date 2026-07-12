@@ -66,6 +66,74 @@ namespace JackyAIApp.Server.Services.Exam
             return await generator.GenerateAsync(word);
         }
 
+        public async Task<ServiceResult> GenerateListeningExamAsync()
+        {
+            var count = await _dbContext.ListeningTests.CountAsync();
+            if (count == 0)
+            {
+                return ServiceResult.Fail(ErrorCodes.NotFound,
+                    "No listening questions are available yet.");
+            }
+
+            var skip = Random.Shared.Next(count);
+            var test = await _dbContext.ListeningTests
+                .Include(lt => lt.Options)
+                .OrderBy(lt => lt.Id)
+                .Skip(skip)
+                .FirstAsync();
+
+            return ServiceResult.Ok(new ListeningTestResponse
+            {
+                Id = test.Id,
+                ImageUrl = test.ImageUrl,
+                Options = test.Options.Select(o => new ListeningTestOptionDto
+                {
+                    Id = o.Id,
+                    Text = o.Text,
+                    IsCorrect = o.IsCorrect,
+                    Explanation = o.Explanation,
+                }).ToList(),
+            });
+        }
+
+        public async Task<ServiceResult> GetListeningOptionTextAsync(string optionId)
+        {
+            var option = await _dbContext.ListeningTestOptions
+                .SingleOrDefaultAsync(o => o.Id == optionId);
+
+            return option == null
+                ? ServiceResult.Fail(ErrorCodes.NotFound, "Listening question option not found.")
+                : ServiceResult.Ok(option.Text);
+        }
+
+        public async Task<ServiceResult> GetListeningBankAsync(int pageNumber, int pageSize)
+        {
+            var totalCount = await _dbContext.ListeningTests.CountAsync();
+            var items = await _dbContext.ListeningTests
+                .Include(lt => lt.Options)
+                .OrderByDescending(lt => lt.CreatedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return ServiceResult.Ok(new ListeningBankPageResponse
+            {
+                TotalCount = totalCount,
+                Items = items.Select(t => new ListeningTestResponse
+                {
+                    Id = t.Id,
+                    ImageUrl = t.ImageUrl,
+                    Options = t.Options.Select(o => new ListeningTestOptionDto
+                    {
+                        Id = o.Id,
+                        Text = o.Text,
+                        IsCorrect = o.IsCorrect,
+                        Explanation = o.Explanation,
+                    }).ToList(),
+                }).ToList(),
+            });
+        }
+
         public async Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse)
         {
             // Credit gate (conditional on an authenticated user)
@@ -298,9 +366,19 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
             }
 
-            if (request == null || string.IsNullOrEmpty(request.WordId) || string.IsNullOrEmpty(request.ExamType))
+            if (request == null || string.IsNullOrEmpty(request.ExamType))
             {
-                return ServiceResult.Fail(ErrorCodes.BadRequest, "WordId and ExamType are required.");
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "ExamType is required.");
+            }
+
+            bool isListening = request.ExamType == "Listening";
+            if (!isListening && string.IsNullOrEmpty(request.WordId))
+            {
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "WordId is required for word-based exam types.");
+            }
+            if (isListening && string.IsNullOrEmpty(request.ListeningTestId))
+            {
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "ListeningTestId is required for Listening exam type.");
             }
 
             // Log the attempt regardless of whether the word is still in the user's repository.
@@ -308,21 +386,27 @@ namespace JackyAIApp.Server.Services.Exam
             {
                 UserId = userId,
                 WordId = request.WordId,
+                ListeningTestId = request.ListeningTestId,
                 ExamType = request.ExamType,
                 IsCorrect = request.Correct,
                 Score = request.Score,
                 CreatedAt = DateTime.UtcNow,
             });
 
-            // Feed the spaced-repetition schedule for this word, if the user has it saved.
-            var userWord = await _dbContext.UserWords
-                .SingleOrDefaultAsync(uw => uw.UserId == userId && uw.WordId == request.WordId);
-
+            // Listening isn't word-scoped — no SM-2 vocab schedule to feed.
             bool scheduleUpdated = false;
-            if (userWord != null)
+            SQL.UserWord? userWord = null;
+            if (!isListening)
             {
-                _spacedRepetition.ApplyResult(userWord, MapQuality(request.Correct, request.Score), DateTime.UtcNow.Date);
-                scheduleUpdated = true;
+                // Feed the spaced-repetition schedule for this word, if the user has it saved.
+                userWord = await _dbContext.UserWords
+                    .SingleOrDefaultAsync(uw => uw.UserId == userId && uw.WordId == request.WordId);
+
+                if (userWord != null)
+                {
+                    _spacedRepetition.ApplyResult(userWord, MapQuality(request.Correct, request.Score), DateTime.UtcNow.Date);
+                    scheduleUpdated = true;
+                }
             }
 
             await _dbContext.SaveChangesAsync();

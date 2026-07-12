@@ -1,0 +1,193 @@
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormLabel from '@mui/material/FormLabel';
+import IconButton from '@mui/material/IconButton';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import Typography from '@mui/material/Typography';
+import { useEffect, useRef, useState } from 'react';
+
+import { useGetListeningTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
+import AILoading from '@/components/AILoading';
+import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
+import { CREDIT_COSTS } from '@/constants/creditCosts';
+import RoundProgress from '@/Exam/components/RoundProgress';
+import RoundResultScreen from '@/Exam/components/RoundResultScreen';
+import { useExamRound } from '@/Exam/hooks/useExamRound';
+
+function ListeningTestCard() {
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const { data, isFetching, refetch, isError, error } = useGetListeningTestQuery();
+  const [submitted, setSubmitted] = useState(false);
+  const [recordExamResult] = useRecordExamResultMutation();
+  const [playingOptionId, setPlayingOptionId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const round = useExamRound();
+
+  const options = data?.data.options ?? [];
+  const selectedOption = options.find((o) => o.id === selectedOptionId);
+  const correctOption = options.find((o) => o.isCorrect);
+  const isCorrect = selectedOption?.isCorrect ?? false;
+
+  const playOption = (optionId: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingOptionId(optionId);
+    const audio = new Audio(`/api/exam/listening/audio?optionId=${encodeURIComponent(optionId)}`);
+    audioRef.current = audio;
+    audio.onended = () => setPlayingOptionId(null);
+    audio.onerror = () => setPlayingOptionId(null);
+    audio.play().catch(() => setPlayingOptionId(null));
+  };
+
+  const handleOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedOptionId(event.target.value);
+  };
+
+  const handleSubmit = () => {
+    if (!selectedOptionId || !data) return;
+    setSubmitted(true);
+
+    const correct = selectedOption?.isCorrect ?? false;
+    round.recordAnswer(correct);
+    recordExamResult({
+      examType: 'Listening',
+      listeningTestId: data.data.id,
+      correct,
+    })
+      .unwrap()
+      .catch(() => {
+        /* recording is best-effort; ignore failures */
+      });
+  };
+
+  const handleNext = () => {
+    setSelectedOptionId(null);
+    setSubmitted(false);
+    if (round.advance()) {
+      refetch();
+    }
+  };
+
+  const handleRestartRound = () => {
+    round.resetRound();
+    setSelectedOptionId(null);
+    setSubmitted(false);
+    refetch();
+  };
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+    };
+  }, []);
+
+  if (round.roundComplete) {
+    return (
+      <RoundResultScreen
+        correct={round.correct}
+        total={round.answered}
+        onRestart={handleRestartRound}
+      />
+    );
+  }
+
+  if (isFetching) {
+    return <AILoading />;
+  }
+  if (isError) {
+    return <FetchBaseQueryErrorMessage error={error} />;
+  }
+  return (
+    <Box sx={{ maxWidth: 600, margin: 'auto', padding: 2 }}>
+      <RoundProgress answered={round.answered} total={round.roundSize} correct={round.correct} />
+      {data?.data.imageUrl && (
+        <Box
+          component="img"
+          src={data.data.imageUrl}
+          alt="Listening question"
+          sx={{ width: '100%', borderRadius: 1, mb: 2 }}
+        />
+      )}
+      <FormControl component="fieldset" disabled={submitted} fullWidth>
+        <FormLabel component="legend">聽音檔並選出最符合圖片的描述:</FormLabel>
+        <RadioGroup value={selectedOptionId} onChange={handleOptionChange}>
+          {options.map((option, i) => {
+            const showResult = submitted && (option.isCorrect || option.id === selectedOptionId);
+            return (
+              <Box key={option.id}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <FormControlLabel
+                    value={option.id}
+                    control={<Radio />}
+                    label={`${i + 1}. ${option.text}`}
+                    sx={{ flex: 1 }}
+                  />
+                  <IconButton
+                    onClick={() => playOption(option.id)}
+                    disabled={playingOptionId === option.id}
+                    aria-label="播放"
+                    size="small"
+                  >
+                    <VolumeUpIcon color={playingOptionId === option.id ? 'primary' : 'inherit'} />
+                  </IconButton>
+                </Box>
+                {showResult && (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      ml: 4,
+                      mb: 1,
+                      color: option.isCorrect ? 'success.main' : 'error.main',
+                    }}
+                  >
+                    {option.explanation}
+                  </Typography>
+                )}
+              </Box>
+            );
+          })}
+        </RadioGroup>
+      </FormControl>
+      {!submitted && (
+        <Box sx={{ marginTop: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSubmit}
+            disabled={!selectedOptionId}
+          >
+            送出
+          </Button>
+        </Box>
+      )}
+      {submitted && (
+        <Box sx={{ marginTop: 2 }}>
+          <Typography variant="h6" sx={{ color: isCorrect ? 'success.main' : 'error.main' }}>
+            {isCorrect ? '答對了！' : '答錯了'}
+          </Typography>
+          {!isCorrect && correctOption && (
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
+              正確答案: <strong>{correctOption.text}</strong>
+            </Typography>
+          )}
+          <Box sx={{ mt: 2 }}>
+            <Button variant="contained" color="primary" onClick={handleNext}>
+              下一題
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              下一題消耗 {CREDIT_COSTS.LISTENING_TEST} credits
+            </Typography>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+export default ListeningTestCard;
