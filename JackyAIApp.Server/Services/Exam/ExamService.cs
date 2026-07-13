@@ -66,6 +66,25 @@ namespace JackyAIApp.Server.Services.Exam
             return await generator.GenerateAsync(word);
         }
 
+        // How many of the user's most recent attempts to treat as "just seen" and exclude from
+        // re-selection. Sized well past one round (ROUND_SIZE=10 on the frontend) — a user who
+        // keeps playing past round boundaries still shouldn't hit a repeat for a while. Paired
+        // with ListeningResponseBankGrowthThreshold's "always generate while unseen < threshold"
+        // rule, the bank is forced to grow to at least NoRepeatWindow + threshold questions before
+        // a repeat becomes possible at all.
+        private const int NoRepeatWindow = 30;
+
+        private async Task<HashSet<string>> GetRecentListeningTestIdsAsync(string userId, int take)
+        {
+            var ids = await _dbContext.ExamAttempts
+                .Where(a => a.UserId == userId && a.ListeningTestId != null)
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => a.ListeningTestId!)
+                .Take(take * 3)
+                .ToListAsync();
+            return ids.Distinct().Take(take).ToHashSet();
+        }
+
         public async Task<ServiceResult> GenerateListeningExamAsync()
         {
             var count = await _dbContext.ListeningTests.CountAsync();
@@ -75,8 +94,22 @@ namespace JackyAIApp.Server.Services.Exam
                     "No listening questions are available yet.");
             }
 
-            var skip = Random.Shared.Next(count);
-            var test = await _dbContext.ListeningTests
+            var userId = _userService.GetUserId();
+            var excludeIds = string.IsNullOrEmpty(userId)
+                ? new HashSet<string>()
+                : await GetRecentListeningTestIdsAsync(userId, NoRepeatWindow);
+
+            var poolQuery = _dbContext.ListeningTests.Where(t => !excludeIds.Contains(t.Id));
+            var poolCount = await poolQuery.CountAsync();
+            // Bank smaller than the exclusion window would empty the pool — fall back to a repeat.
+            if (poolCount == 0)
+            {
+                poolQuery = _dbContext.ListeningTests;
+                poolCount = count;
+            }
+
+            var skip = Random.Shared.Next(poolCount);
+            var test = await poolQuery
                 .Include(lt => lt.Options)
                 .OrderBy(lt => lt.Id)
                 .Skip(skip)
@@ -134,9 +167,10 @@ namespace JackyAIApp.Server.Services.Exam
             });
         }
 
-        // While the bank is still small, always generate a fresh Part 2 question so it fills up
-        // quickly; once it has enough entries, mostly reuse a random existing one (cheap) with an
-        // occasional AI-generated top-up (keeps the pool slowly growing instead of ever stalling).
+        // Gate generation on the user's *unseen* pool, not the raw bank size — otherwise a user who
+        // burns through a small-but-growing bank faster than it fills would start seeing repeats.
+        // While unseen < threshold, always generate a fresh Part 2 question; once there's enough
+        // unseen backlog, mostly reuse a random one (cheap) with an occasional AI top-up.
         private const int ListeningResponseBankGrowthThreshold = 20;
         private const string ListeningResponseFeature = "exam.listening_response";
 
@@ -154,20 +188,45 @@ namespace JackyAIApp.Server.Services.Exam
             })
         );
 
+        private async Task<HashSet<string>> GetRecentListeningResponseTestIdsAsync(string userId, int take)
+        {
+            var ids = await _dbContext.ExamAttempts
+                .Where(a => a.UserId == userId && a.ListeningResponseTestId != null)
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => a.ListeningResponseTestId!)
+                .Take(take * 3)
+                .ToListAsync();
+            return ids.Distinct().Take(take).ToHashSet();
+        }
+
+        private async Task<SQL.ListeningResponseTest> PickFromPoolAsync(HashSet<string> excludeIds, int unseenCount, int totalCount)
+        {
+            var poolQuery = unseenCount > 0
+                ? _dbContext.ListeningResponseTests.Where(t => !excludeIds.Contains(t.Id))
+                : _dbContext.ListeningResponseTests;
+            var poolCount = unseenCount > 0 ? unseenCount : totalCount;
+
+            return await poolQuery
+                .Include(t => t.Options)
+                .OrderBy(t => t.Id)
+                .Skip(Random.Shared.Next(poolCount))
+                .FirstAsync();
+        }
+
         public async Task<ServiceResult> GenerateListeningResponseExamAsync()
         {
+            var userId = _userService.GetUserId();
+            var excludeIds = string.IsNullOrEmpty(userId)
+                ? new HashSet<string>()
+                : await GetRecentListeningResponseTestIdsAsync(userId, NoRepeatWindow);
+
             var count = await _dbContext.ListeningResponseTests.CountAsync();
-            var shouldGenerate = count < ListeningResponseBankGrowthThreshold || Random.Shared.Next(5) == 0;
+            var unseenCount = await _dbContext.ListeningResponseTests.CountAsync(t => !excludeIds.Contains(t.Id));
+            var shouldGenerate = unseenCount < ListeningResponseBankGrowthThreshold || Random.Shared.Next(5) == 0;
 
-            if (!shouldGenerate && count > 0)
+            if (!shouldGenerate && unseenCount > 0)
             {
-                var skip = Random.Shared.Next(count);
-                var existing = await _dbContext.ListeningResponseTests
-                    .Include(t => t.Options)
-                    .OrderBy(t => t.Id)
-                    .Skip(skip)
-                    .FirstAsync();
-
+                var existing = await PickFromPoolAsync(excludeIds, unseenCount, count);
                 return ServiceResult.Ok(ToListeningResponseDto(existing));
             }
 
@@ -184,11 +243,7 @@ namespace JackyAIApp.Server.Services.Exam
                 // Fall back to an existing one rather than a hard failure, if the bank has any.
                 if (count > 0)
                 {
-                    var fallback = await _dbContext.ListeningResponseTests
-                        .Include(t => t.Options)
-                        .OrderBy(t => t.Id)
-                        .Skip(Random.Shared.Next(count))
-                        .FirstAsync();
+                    var fallback = await PickFromPoolAsync(excludeIds, unseenCount, count);
                     return ServiceResult.Ok(ToListeningResponseDto(fallback));
                 }
 

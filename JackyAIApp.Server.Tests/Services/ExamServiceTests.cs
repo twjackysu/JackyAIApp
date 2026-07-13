@@ -447,6 +447,29 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.False(attempt.IsCorrect);
         }
 
+        [Fact]
+        public async Task GenerateListeningExam_ExcludesRecentlyAttemptedQuestion()
+        {
+            var seen = await SeedListeningTestAsync();
+            var unseen = await SeedListeningTestAsync();
+            await SeedUserAsync();
+            _dbContext.ExamAttempts.Add(new ExamAttempt
+            {
+                UserId = _testUserId,
+                ListeningTestId = seen.Id,
+                ExamType = "Listening",
+                IsCorrect = true,
+                CreatedAt = DateTime.UtcNow,
+            });
+            await _dbContext.SaveChangesAsync();
+
+            var result = await _service.GenerateListeningExamAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<ListeningTestResponse>(result.Data);
+            Assert.Equal(unseen.Id, dto.Id);
+        }
+
         private async Task<ListeningTest> SeedListeningTestAsync()
         {
             var listeningTestId = Guid.NewGuid().ToString();
@@ -623,6 +646,83 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Equal("ListeningResponse", attempt.ExamType);
             Assert.Equal(test.Id, attempt.ListeningResponseTestId);
             Assert.Null(attempt.WordId);
+        }
+
+        [Fact]
+        public async Task GenerateListeningResponse_ExcludesRecentlyAttemptedQuestion()
+        {
+            var seen = await SeedListeningResponseTestAsync();
+            var unseen = await SeedListeningResponseTestAsync();
+            await SeedUserAsync();
+            _dbContext.ExamAttempts.Add(new ExamAttempt
+            {
+                UserId = _testUserId,
+                ListeningResponseTestId = seen.Id,
+                ExamType = "ListeningResponse",
+                IsCorrect = true,
+                CreatedAt = DateTime.UtcNow,
+            });
+            await _dbContext.SaveChangesAsync();
+            // Bank stays below the growth threshold, so generation is always attempted first;
+            // failing it forces the fallback-to-existing-bank path deterministically.
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ListeningResponseGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync(((ListeningResponseGenerationResult?)null, "OpenAI error"));
+
+            var result = await _service.GenerateListeningResponseExamAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<ListeningResponseTestResponse>(result.Data);
+            Assert.Equal(unseen.Id, dto.Id);
+        }
+
+        [Fact]
+        public async Task GenerateListeningResponse_LargeBankButSmallUnseenPool_ForcesGeneration()
+        {
+            // 22 total questions is well past the growth threshold (20), but the user has just
+            // seen 10 of them — only 12 unseen, which is still below threshold and must force a
+            // fresh AI generation rather than reusing from the (mostly-seen) bank.
+            var seeded = new List<ListeningResponseTest>();
+            for (var i = 0; i < 22; i++)
+            {
+                seeded.Add(await SeedListeningResponseTestAsync());
+            }
+            await SeedUserAsync();
+            foreach (var test in seeded.Take(10))
+            {
+                _dbContext.ExamAttempts.Add(new ExamAttempt
+                {
+                    UserId = _testUserId,
+                    ListeningResponseTestId = test.Id,
+                    ExamType = "ListeningResponse",
+                    IsCorrect = true,
+                    CreatedAt = DateTime.UtcNow,
+                });
+            }
+            await _dbContext.SaveChangesAsync();
+
+            var generated = new ListeningResponseGenerationResult
+            {
+                Prompt = "Freshly generated prompt",
+                Options = new List<ListeningResponseOptionGen>
+                {
+                    new() { Text = "Correct reply.", IsCorrect = true, Explanation = "正確。" },
+                    new() { Text = "Wrong reply A.", IsCorrect = false, Explanation = "錯誤。" },
+                    new() { Text = "Wrong reply B.", IsCorrect = false, Explanation = "錯誤。" },
+                },
+            };
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ListeningResponseGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((generated, (string?)null));
+
+            var result = await _service.GenerateListeningResponseExamAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<ListeningResponseTestResponse>(result.Data);
+            Assert.Equal(generated.Prompt, dto.Prompt);
+            Assert.Equal(23, await _dbContext.ListeningResponseTests.CountAsync());
         }
 
         private async Task<ListeningResponseTest> SeedListeningResponseTestAsync()
