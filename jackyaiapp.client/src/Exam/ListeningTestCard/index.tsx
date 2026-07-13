@@ -115,17 +115,18 @@ function ListeningTestCard() {
         />
       )}
       <FormControl component="fieldset" disabled={submitted} fullWidth>
-        <FormLabel component="legend">聽音檔並選出最符合圖片的描述:</FormLabel>
+        <FormLabel component="legend">聽4句描述，選出最符合圖片的選項:</FormLabel>
         <RadioGroup value={selectedOptionId} onChange={handleOptionChange}>
           {options.map((option, i) => {
             const showResult = submitted && (option.isCorrect || option.id === selectedOptionId);
+            const letter = String.fromCharCode(65 + i); // A, B, C, D
             return (
               <Box key={option.id}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <FormControlLabel
                     value={option.id}
                     control={<Radio />}
-                    label={`${i + 1}. ${option.text}`}
+                    label={submitted ? `${letter}. ${option.text}` : letter}
                     sx={{ flex: 1 }}
                   />
                   <IconButton
