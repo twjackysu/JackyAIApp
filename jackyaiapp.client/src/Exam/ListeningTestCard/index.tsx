@@ -24,6 +24,9 @@ function ListeningTestCard() {
   const [submitted, setSubmitted] = useState(false);
   const [recordExamResult] = useRecordExamResultMutation();
   const [playingOptionId, setPlayingOptionId] = useState<string | null>(null);
+  // Real TOEIC Part 1 plays each statement once — replay is only allowed after answering
+  // (for review). Tracks which options have already been played this question.
+  const [playedOptionIds, setPlayedOptionIds] = useState<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const round = useExamRound();
 
@@ -38,6 +41,7 @@ function ListeningTestCard() {
       audioRef.current = null;
     }
     setPlayingOptionId(optionId);
+    setPlayedOptionIds((prev) => new Set(prev).add(optionId));
     const audio = new Audio(`/api/exam/listening/audio?optionId=${encodeURIComponent(optionId)}`);
     audioRef.current = audio;
     audio.onended = () => setPlayingOptionId(null);
@@ -69,6 +73,7 @@ function ListeningTestCard() {
   const handleNext = () => {
     setSelectedOptionId(null);
     setSubmitted(false);
+    setPlayedOptionIds(new Set());
     if (round.advance()) {
       refetch();
     }
@@ -78,6 +83,7 @@ function ListeningTestCard() {
     round.resetRound();
     setSelectedOptionId(null);
     setSubmitted(false);
+    setPlayedOptionIds(new Set());
     refetch();
   };
 
@@ -115,22 +121,26 @@ function ListeningTestCard() {
         />
       )}
       <FormControl component="fieldset" disabled={submitted} fullWidth>
-        <FormLabel component="legend">聽音檔並選出最符合圖片的描述:</FormLabel>
+        <FormLabel component="legend">聽4句描述，選出最符合圖片的選項:</FormLabel>
         <RadioGroup value={selectedOptionId} onChange={handleOptionChange}>
           {options.map((option, i) => {
             const showResult = submitted && (option.isCorrect || option.id === selectedOptionId);
+            const letter = String.fromCharCode(65 + i); // A, B, C, D
             return (
               <Box key={option.id}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <FormControlLabel
                     value={option.id}
                     control={<Radio />}
-                    label={`${i + 1}. ${option.text}`}
+                    label={submitted ? `${letter}. ${option.text}` : letter}
                     sx={{ flex: 1 }}
                   />
                   <IconButton
                     onClick={() => playOption(option.id)}
-                    disabled={playingOptionId === option.id}
+                    disabled={
+                      playingOptionId === option.id ||
+                      (!submitted && playedOptionIds.has(option.id))
+                    }
                     aria-label="播放"
                     size="small"
                   >
