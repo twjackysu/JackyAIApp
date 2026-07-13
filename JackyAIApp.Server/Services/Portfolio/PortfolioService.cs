@@ -394,8 +394,13 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Distinct()
                 .ToList();
 
+            // Sorted ascending by date (defensively re-sorted here even though upstream fetchers
+            // already do this, since the cursor walk below depends on it) so each symbol's "price
+            // as of date" lookup can advance with a forward-only cursor instead of re-filtering +
+            // re-sorting the whole history on every single day of the loop below.
             var priceMap = (await FetchStocksAsync(stockSymbols, ct))
-                .ToDictionary(kv => kv.Key, kv => kv.Value.HistoricalPrices);
+                .ToDictionary(kv => kv.Key, kv => kv.Value.HistoricalPrices.OrderBy(x => x.Date).ToList());
+            var stockCursors = priceMap.Keys.ToDictionary(k => k, _ => 0);
 
             // Fund NAV histories — gives funds a real daily curve instead of a flat line.
             var fundIds = snapshots
@@ -405,19 +410,34 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Distinct()
                 .ToList();
 
+            // FetchFundsAsync's results are cached (FundDataService, up to 6h) and shared with other
+            // callers — build separate sorted copies here rather than reordering navHist.Prices
+            // in place, which would mutate the shared cached instance.
             var fundNavMap = await FetchFundsAsync(fundIds, ct);
+            var fundPriceMap = fundNavMap.ToDictionary(
+                kv => kv.Key,
+                kv => kv.Value.Prices.OrderBy(x => x.Date, StringComparer.Ordinal).ToList());
+            var fundCursors = fundNavMap.Keys.ToDictionary(k => k, _ => 0);
+
+            // Snapshots are sorted ascending by EffectiveDate (AllSnapshotsAsync), and `date` only
+            // ever increases below — walk a single cursor forward instead of re-scanning the whole
+            // snapshot list ("active = latest with EffectiveDate <= date") on every day.
+            var snapshotIdx = 0;
 
             var result = new List<NetWorthDataPoint>();
             for (var date = startDate; date <= today; date = date.AddDays(1))
             {
                 if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday) continue;
 
-                // active snapshot = latest with EffectiveDate <= date
-                var active = snapshots.LastOrDefault(s => s.EffectiveDate <= date);
+                while (snapshotIdx + 1 < snapshots.Count && snapshots[snapshotIdx + 1].EffectiveDate <= date)
+                    snapshotIdx++;
+                var active = snapshots[snapshotIdx].EffectiveDate <= date ? snapshots[snapshotIdx] : null;
                 if (active == null) continue;
 
                 var fx = active.UsdTwdRate > 0 ? active.UsdTwdRate : 32m;
                 decimal twStock = 0, usStock = 0, cash = 0, fund = 0, liability = 0;
+                var dt = date.ToDateTime(TimeOnly.MinValue);
+                var dayKey = date.ToString("yyyy-MM-dd");
 
                 foreach (var p in active.Positions)
                 {
@@ -439,24 +459,30 @@ namespace JackyAIApp.Server.Services.Portfolio
                             fundNavMap.TryGetValue(p.Symbol, out var navHist))
                         {
                             fundFxMul = navHist.Currency == "USD" ? fx : 1m;
-                            // Both sides are ISO yyyy-MM-dd strings → ordinal compare is chronological.
-                            var dayKey = date.ToString("yyyy-MM-dd");
-                            var navClose = navHist.Prices
-                                .Where(x => string.CompareOrdinal(x.Date, dayKey) <= 0)
-                                .OrderByDescending(x => x.Date, StringComparer.Ordinal)
-                                .FirstOrDefault()?.Close ?? 0;
-                            if (navClose > 0) nav = navClose;
+                            var prices = fundPriceMap[p.Symbol];
+                            if (prices.Count > 0)
+                            {
+                                var idx = fundCursors[p.Symbol];
+                                // Both sides are ISO yyyy-MM-dd strings → ordinal compare is chronological.
+                                while (idx + 1 < prices.Count &&
+                                       string.CompareOrdinal(prices[idx + 1].Date, dayKey) <= 0)
+                                    idx++;
+                                fundCursors[p.Symbol] = idx;
+                                if (string.CompareOrdinal(prices[idx].Date, dayKey) <= 0 && prices[idx].Close > 0)
+                                    nav = prices[idx].Close;
+                            }
                         }
                         if (nav > 0) fund += nav * p.Quantity * fundFxMul;
                     }
                     else // STOCK
                     {
-                        if (!priceMap.TryGetValue(p.Symbol, out var prices)) continue;
-                        var dt = date.ToDateTime(TimeOnly.MinValue);
-                        var close = prices
-                            .Where(x => x.Date.Date <= dt)
-                            .OrderByDescending(x => x.Date)
-                            .FirstOrDefault()?.Close ?? 0;
+                        if (!priceMap.TryGetValue(p.Symbol, out var prices) || prices.Count == 0) continue;
+                        var idx = stockCursors[p.Symbol];
+                        while (idx + 1 < prices.Count && prices[idx + 1].Date.Date <= dt)
+                            idx++;
+                        stockCursors[p.Symbol] = idx;
+                        if (prices[idx].Date.Date > dt) continue; // no price at/before this date yet
+                        var close = prices[idx].Close;
                         if (close <= 0) continue;
                         var v = close * p.Quantity * fxMul;
                         if (p.Market == "US") usStock += v; else twStock += v;
@@ -1048,13 +1074,26 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             if (stockService is null || !IsTwTradingHours()) return null;
 
+            // Short-cached (see CacheTtl.Finance.TwRealtimeQuote) so this and
+            // TWStockLibHistoricalProvider's own quote lookup (for company name) share one network
+            // hit instead of each fetching the same symbol's quote independently.
+            var key = CacheTtl.Finance.TwRealtimeQuoteCacheKeyPrefix + symbol;
+            if (cache.TryGetValue(key, out TWStockLib.Models.StockQuote? cached))
+                return cached;
+
             try
             {
                 var tse = await stockService.GetRealtimeQuoteAsync(symbol, TWStockLib.Models.MarketType.TSE, ct);
-                if (tse.IsSuccess) return tse.Value;
+                var quote = tse.IsSuccess ? tse.Value : null;
+                if (quote == null)
+                {
+                    var otc = await stockService.GetRealtimeQuoteAsync(symbol, TWStockLib.Models.MarketType.OTC, ct);
+                    quote = otc.IsSuccess ? otc.Value : null;
+                }
 
-                var otc = await stockService.GetRealtimeQuoteAsync(symbol, TWStockLib.Models.MarketType.OTC, ct);
-                return otc.IsSuccess ? otc.Value : null;
+                if (quote != null)
+                    cache.Set(key, quote, CacheTtl.Finance.TwRealtimeQuote);
+                return quote;
             }
             catch (Exception ex)
             {

@@ -4,30 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-### Frontend (React + TypeScript)
-```bash
-cd jackyaiapp.client
-npm run dev          # Start development server (https://localhost:5173)
-npm run build        # TypeScript compilation + Vite production build
-npm run lint         # ESLint with TypeScript, max 0 warnings
-npm run preview      # Preview production build
-```
-
-### Backend (.NET 10)
-```bash
-cd JackyAIApp.Server
-dotnet run                    # Start development server (https://localhost:7034)
-dotnet build --configuration Release
-dotnet test                   # JackyAIApp.Server.Tests — offline unit tests + LiveContract tests
-dotnet publish --configuration Release
-```
-
-### Database Migrations (Entity Framework)
-```bash
-cd JackyAIApp.Server
-dotnet ef migrations add [MigrationName]
-dotnet ef database update
-```
+Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE.md); backend and EF migration commands live in [JackyAIApp.Server/CLAUDE.md](JackyAIApp.Server/CLAUDE.md).
 
 ## Architecture Overview
 
@@ -107,27 +84,7 @@ dotnet ef database update
 
 ## Code Organization Patterns
 
-### Frontend Structure
-```
-jackyaiapp.client/src/
-├── apis/           # RTK Query API slices (dictionaryApis, financeApis, etc.)
-├── [Feature]/      # Feature-based components (Dictionary/, Finance/, etc.)
-├── components/     # Reusable UI components
-├── redux/          # Store configuration
-├── auth/           # Authentication components
-└── constants/      # App configuration
-```
-
-### Backend Structure
-```
-JackyAIApp.Server/
-├── Controllers/    # API controllers (RESTful, base route: /api/[controller])
-├── Services/       # Business logic with dependency injection
-├── Data/           # EF Context, Models, Migrations
-├── DTO/            # Data transfer objects
-├── Prompt/         # AI prompt templates by feature
-└── Common/         # Error handling middleware, response factory
-```
+Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE.md) and [JackyAIApp.Server/CLAUDE.md](JackyAIApp.Server/CLAUDE.md) respectively.
 
 ### Database Architecture
 - **User-centric design** with Google OAuth IDs as primary keys

@@ -9,7 +9,7 @@ import Paper from '@mui/material/Paper';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import Typography from '@mui/material/Typography';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useGetListeningResponseTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
@@ -18,6 +18,7 @@ import { CREDIT_COSTS } from '@/constants/creditCosts';
 import RoundProgress from '@/Exam/components/RoundProgress';
 import RoundResultScreen from '@/Exam/components/RoundResultScreen';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
+import { shuffle } from '@/Exam/utils/shuffle';
 
 const PROMPT_KEY = '__prompt__';
 
@@ -33,7 +34,15 @@ function ListeningResponseTestCard() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const round = useExamRound();
 
-  const options = data?.data.options ?? [];
+  // The backend always returns options with the correct one first (both AI generation
+  // and the seeded bank preserve authoring order) — reshuffle on the client each time a
+  // new question loads so the answer position isn't predictable.
+  const options = useMemo(
+    () => shuffle(data?.data.options ?? []),
+    // Re-shuffle only when the question itself changes, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data?.data.id],
+  );
   const selectedOption = options.find((o) => o.id === selectedOptionId);
   const correctOption = options.find((o) => o.isCorrect);
   const isCorrect = selectedOption?.isCorrect ?? false;
