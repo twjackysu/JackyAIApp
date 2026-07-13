@@ -1,4 +1,6 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
+using Microsoft.Extensions.Caching.Memory;
 using TWStockLib.Models;
 using TWStockLib.Services;
 
@@ -11,18 +13,22 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     public class TWStockLibHistoricalProvider : IMarketDataProvider
     {
         private readonly IStockMarketService _stockService;
+        private readonly IMemoryCache _cache;
         private readonly ILogger<TWStockLibHistoricalProvider> _logger;
 
         /// <summary>Default lookback period in months for historical data</summary>
         private const int DEFAULT_LOOKBACK_MONTHS = 6;
+        private const string StockListCacheKeyPrefix = "twstocklist:";
 
         public DataProviderType Type => DataProviderType.HistoricalPrice;
 
         public TWStockLibHistoricalProvider(
             IStockMarketService stockService,
+            IMemoryCache cache,
             ILogger<TWStockLibHistoricalProvider> logger)
         {
             _stockService = stockService ?? throw new ArgumentNullException(nameof(stockService));
+            _cache = cache ?? throw new ArgumentNullException(nameof(cache));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -79,10 +85,10 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 // Try to get company name from realtime quote
                 try
                 {
-                    var quoteResult = await _stockService.GetRealtimeQuoteAsync(stockCode, marketType, cancellationToken);
-                    if (quoteResult.IsSuccess)
+                    var quote = await GetCachedRealtimeQuoteAsync(stockCode, marketType, cancellationToken);
+                    if (quote != null)
                     {
-                        marketData.CompanyName = quoteResult.Value!.Name;
+                        marketData.CompanyName = quote.Name;
                     }
                 }
                 catch (Exception ex)
@@ -110,12 +116,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var tseResult = await _stockService.GetStockListAsync(MarketType.TSE);
-                if (tseResult.IsSuccess && tseResult.Value!.ContainsKey(stockCode))
+                var tseList = await GetCachedStockListAsync(MarketType.TSE);
+                if (tseList != null && tseList.ContainsKey(stockCode))
                     return MarketType.TSE;
 
-                var otcResult = await _stockService.GetStockListAsync(MarketType.OTC);
-                if (otcResult.IsSuccess && otcResult.Value!.ContainsKey(stockCode))
+                var otcList = await GetCachedStockListAsync(MarketType.OTC);
+                if (otcList != null && otcList.ContainsKey(stockCode))
                     return MarketType.OTC;
             }
             catch (Exception ex)
@@ -125,6 +131,58 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
             // Default to TSE for most cases
             return MarketType.TSE;
+        }
+
+        /// <summary>
+        /// The underlying TWSE endpoint (isin.twse.com.tw) returns the *entire* listed-company
+        /// table on every call and is slow (multi-second) — without caching, a portfolio with N
+        /// distinct TW symbols pays that cost N times per request, which dominates the wall time.
+        /// Membership only changes on IPOs/delistings, so a long TTL is safe.
+        /// </summary>
+        private async Task<IReadOnlyDictionary<string, object>?> GetCachedStockListAsync(MarketType market)
+        {
+            var key = StockListCacheKeyPrefix + market;
+            if (_cache.TryGetValue(key, out IReadOnlyDictionary<string, object>? cached))
+                return cached;
+
+            var result = await _stockService.GetStockListAsync(market);
+            if (!result.IsSuccess)
+            {
+                // Don't cache a failed lookup — the next call should retry rather than being
+                // stuck defaulting to TSE for a whole day.
+                return null;
+            }
+
+            var list = result.Value!.ToDictionary(kvp => kvp.Key, kvp => (object)kvp.Value!);
+            _cache.Set(key, (IReadOnlyDictionary<string, object>)list, CacheTtl.Finance.TwStockList);
+            return list;
+        }
+
+        /// <summary>
+        /// Realtime quote for a TW symbol, short-cached so this call and Portfolio's own intraday
+        /// price-overlay lookup (<c>PortfolioService.GetTwRealtimeQuoteAsync</c>) share one network
+        /// hit instead of each fetching it independently. Tries the resolved market first, then the
+        /// other one, same as Portfolio's version — kept consistent since they now share a cache.
+        /// </summary>
+        private async Task<StockQuote?> GetCachedRealtimeQuoteAsync(
+            string stockCode, MarketType primaryMarket, CancellationToken ct)
+        {
+            var key = CacheTtl.Finance.TwRealtimeQuoteCacheKeyPrefix + stockCode;
+            if (_cache.TryGetValue(key, out StockQuote? cached))
+                return cached;
+
+            var secondaryMarket = primaryMarket == MarketType.TSE ? MarketType.OTC : MarketType.TSE;
+            var quoteResult = await _stockService.GetRealtimeQuoteAsync(stockCode, primaryMarket, ct);
+            var quote = quoteResult.IsSuccess ? quoteResult.Value : null;
+            if (quote == null)
+            {
+                var fallback = await _stockService.GetRealtimeQuoteAsync(stockCode, secondaryMarket, ct);
+                quote = fallback.IsSuccess ? fallback.Value : null;
+            }
+
+            if (quote != null)
+                _cache.Set(key, quote, CacheTtl.Finance.TwRealtimeQuote);
+            return quote;
         }
     }
 }

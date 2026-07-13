@@ -27,5 +27,25 @@ namespace JackyAIApp.Server.Common
             /// <summary>Dividend/distribution history (stock + fund) — doesn't change intraday.</summary>
             public static readonly TimeSpan Dividend = TimeSpan.FromHours(24);
         }
+
+        public static class Finance
+        {
+            /// <summary>TWSE/TPEx full listed-company list, used to resolve which market a stock
+            /// code trades on. Membership only changes on IPOs/delistings, but the underlying TWSE
+            /// endpoint (isin.twse.com.tw) returns the whole table on every call and is slow
+            /// (multi-second) — caching this is what keeps a multi-symbol portfolio load from
+            /// paying that cost once per symbol.</summary>
+            public static readonly TimeSpan TwStockList = TimeSpan.FromHours(24);
+
+            /// <summary>TW realtime quote (mis.twse.com.tw). Two independent call sites want the
+            /// same symbol's quote in the same request — <c>TWStockLibHistoricalProvider</c> (for
+            /// the company name) and Portfolio's intraday price overlay — so a short TTL is enough
+            /// to dedupe them without meaningfully staling a "live" price.</summary>
+            public static readonly TimeSpan TwRealtimeQuote = TimeSpan.FromSeconds(10);
+
+            /// <summary>Cache key prefix for <see cref="TwRealtimeQuote"/> — shared verbatim by
+            /// both call sites above so they land on the same cache entry; must match exactly.</summary>
+            public const string TwRealtimeQuoteCacheKeyPrefix = "twquote:";
+        }
     }
 }
