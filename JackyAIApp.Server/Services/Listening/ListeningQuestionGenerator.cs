@@ -57,7 +57,9 @@ namespace JackyAIApp.Server.Services.Listening
                 Prompt = dto.ImagePrompt,
                 Model = ImageModel.GptImage1Mini,
                 Quality = ImageQuality.Low,
-                Size = ImageSize.Size1792x1024,
+                // gpt-image-1-mini only supports 1024x1024 / 1024x1536 / 1536x1024 / auto —
+                // 1792x1024 (a DALL-E 3 size present in the SDK's enum) is rejected by the API.
+                Size = ImageSize.Size1024,
                 N = 1,
             });
 

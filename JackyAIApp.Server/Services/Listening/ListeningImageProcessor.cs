@@ -10,14 +10,32 @@ namespace JackyAIApp.Server.Services.Listening
     [SupportedOSPlatform("windows")]
     public class ListeningImageProcessor : IListeningImageProcessor
     {
-        public byte[] ResizeAndCompress(byte[] imageBytes, int maxDimension = 1024, int targetMaxBytes = 300 * 1024)
+        public byte[] ResizeAndCompress(byte[] imageBytes, int targetWidth = 800, int targetHeight = 600, int targetMaxBytes = 300 * 1024)
         {
             using var ms = new MemoryStream(imageBytes);
             using var original = Image.FromStream(ms);
 
-            var scale = Math.Min(1.0, (double)maxDimension / Math.Max(original.Width, original.Height));
-            var targetWidth = (int)Math.Round(original.Width * scale);
-            var targetHeight = (int)Math.Round(original.Height * scale);
+            // Center-crop to the target aspect ratio (4:3 by default) so every question image is
+            // uniform regardless of source aspect ratio (OpenAI's square 1024x1024 vs whatever a
+            // manually-imported batch happens to produce), then scale to the exact target size.
+            var targetAspect = targetWidth / (double)targetHeight;
+            var originalAspect = original.Width / (double)original.Height;
+
+            int srcX, srcY, srcWidth, srcHeight;
+            if (originalAspect > targetAspect)
+            {
+                srcHeight = original.Height;
+                srcWidth = (int)Math.Round(original.Height * targetAspect);
+                srcX = (original.Width - srcWidth) / 2;
+                srcY = 0;
+            }
+            else
+            {
+                srcWidth = original.Width;
+                srcHeight = (int)Math.Round(original.Width / targetAspect);
+                srcX = 0;
+                srcY = (original.Height - srcHeight) / 2;
+            }
 
             using var resized = new Bitmap(targetWidth, targetHeight);
             using (var g = Graphics.FromImage(resized))
@@ -25,7 +43,10 @@ namespace JackyAIApp.Server.Services.Listening
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 g.CompositingQuality = CompositingQuality.HighQuality;
                 g.SmoothingMode = SmoothingMode.HighQuality;
-                g.DrawImage(original, 0, 0, targetWidth, targetHeight);
+                g.DrawImage(original,
+                    new Rectangle(0, 0, targetWidth, targetHeight),
+                    new Rectangle(srcX, srcY, srcWidth, srcHeight),
+                    GraphicsUnit.Pixel);
             }
 
             var jpegCodec = ImageCodecInfo.GetImageEncoders().First(c => c.FormatID == ImageFormat.Jpeg.Guid);

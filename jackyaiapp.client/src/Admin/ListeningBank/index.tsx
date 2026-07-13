@@ -72,27 +72,42 @@ function ListeningBankAdmin() {
               <TableRow>
                 <TableCell>圖片</TableCell>
                 <TableCell>Id</TableCell>
-                <TableCell>正確答案</TableCell>
+                <TableCell>選項</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map((item) => {
-                const correct = item.options.find((o) => o.isCorrect);
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <Box
-                        component="img"
-                        src={item.imageUrl}
-                        alt={item.id}
-                        sx={{ width: 96, height: 72, objectFit: 'cover', borderRadius: 1 }}
-                      />
-                    </TableCell>
-                    <TableCell>{item.id}</TableCell>
-                    <TableCell>{correct?.text}</TableCell>
-                  </TableRow>
-                );
-              })}
+              {items.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell sx={{ verticalAlign: 'top' }}>
+                    <Box
+                      component="img"
+                      src={item.imageUrl}
+                      alt={item.id}
+                      sx={{ width: 96, height: 72, objectFit: 'cover', borderRadius: 1 }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ verticalAlign: 'top' }}>{item.id}</TableCell>
+                  <TableCell>
+                    {item.options.map((option, i) => (
+                      <Box key={option.id} sx={{ mb: 0.5 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: option.isCorrect ? 700 : 400,
+                            color: option.isCorrect ? 'success.main' : 'text.primary',
+                          }}
+                        >
+                          {String.fromCharCode(65 + i)}. {option.text}
+                          {option.isCorrect && ' ✓'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.explanation}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </TableContainer>
