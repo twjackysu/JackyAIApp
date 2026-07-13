@@ -59,10 +59,10 @@ export function TransformListItem({ transform: t, onEdit, onRemove }: TransformL
         sx={{ flexShrink: 0 }}
       />
       <Chip label={summary(t)} size="small" variant="outlined" sx={{ flexShrink: 0 }} />
-      <IconButton size="small" onClick={() => onEdit(t)} title="Edit">
+      <IconButton size="small" onClick={() => onEdit(t)} title="編輯">
         <EditIcon fontSize="small" />
       </IconButton>
-      <IconButton size="small" onClick={() => onRemove(t.id)} title="Delete">
+      <IconButton size="small" onClick={() => onRemove(t.id)} title="刪除">
         <DeleteIcon fontSize="small" />
       </IconButton>
     </Paper>

@@ -28,9 +28,9 @@ export const DATE_GRANULARITIES: DateGranularity[] = [
 
 /** Labels for FieldTransformDef.type shown in chips and selectors. */
 export const TRANSFORM_TYPE_LABELS: Record<FieldTransformDef['type'], string> = {
-  DateTrunc: 'Date Trunc',
-  NumericBin: 'Numeric Bins',
-  StringGrouping: 'String Groups',
+  DateTrunc: '日期分組 (DateTrunc)',
+  NumericBin: '數值分組 (NumericBin)',
+  StringGrouping: '文字分組 (StringGrouping)',
 };
 
 export const ROWS_PER_PAGE = 50;

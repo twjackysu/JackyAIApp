@@ -46,20 +46,20 @@ export function FilterEditor({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <FilterAltIcon fontSize="small" color="action" />
           <Typography variant="subtitle2">
-            Filters
+            篩選條件 (Filters)
             {activeCount > 0 && (
               <Chip label={activeCount} size="small" color="primary" sx={{ ml: 1 }} />
             )}
           </Typography>
         </Box>
-        <IconButton size="small" onClick={addFilter} title="Add filter">
+        <IconButton size="small" onClick={addFilter} title="新增篩選條件">
           <AddIcon fontSize="small" />
         </IconButton>
       </Box>
 
       {filters.length === 0 && (
         <Typography variant="caption" color="text.secondary">
-          No filters — click <strong>+</strong> to add one.
+          尚無篩選條件 — 點擊 <strong>+</strong> 新增。
         </Typography>
       )}
 

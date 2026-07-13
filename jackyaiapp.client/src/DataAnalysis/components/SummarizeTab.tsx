@@ -94,21 +94,17 @@ interface SummarizeTabProps {
 // (Revenue spans ~1K–10K; categories are Consulting/Hardware/Software/
 // Support/Training; statuses are Completed/Pending/Cancelled).
 const NL_EXAMPLES = [
-  'Total revenue by region',
-  'Monthly order count trend',
-  'Quarterly revenue by sales channel for Enterprise customers in EMEA',
-  'Orders and revenue by deal size tier (<3K, 3K–6K, >6K)',
-  'Weekly completed-order revenue for Software this year',
+  '各地區總營收',
+  '每月訂單數量趨勢',
+  'EMEA 地區企業客戶各銷售管道的季營收',
+  '依成交金額級距（<3K、3K–6K、>6K）統計訂單數與營收',
+  '今年 Software 類別已完成訂單的每週營收',
 ];
 
 // Staged progress shown while the NL agent runs. Mirrors the backend's real
 // phases (plan → fetch live values → execute); timing is simulated locally
 // since the request is a single HTTP call.
-const NL_STEPS = [
-  'Understanding your question',
-  'Checking real values in your data',
-  'Running the query',
-];
+const NL_STEPS = ['理解你的問題', '檢查資料中的實際數值', '執行查詢'];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -254,7 +250,8 @@ export function SummarizeTab({
     <>
       {mode === 'manual' && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          <strong>SummarizeAsync</strong> — GroupBy + aggregated Measures, with optional Filters.
+          <strong>SummarizeAsync</strong> — 依 GroupBy 分組並計算 Measures（聚合），可搭配選用的
+          Filters。
         </Typography>
       )}
 
@@ -271,11 +268,10 @@ export function SummarizeTab({
       >
         <ToggleButton value="manual" aria-label="manual mode">
           <SettingsIcon fontSize="small" sx={{ mr: 0.5 }} />
-          Manual
+          手動
         </ToggleButton>
         <ToggleButton value="ai" aria-label="ask AI">
-          <AutoAwesomeIcon fontSize="small" sx={{ mr: 0.5 }} />
-          Ask AI
+          <AutoAwesomeIcon fontSize="small" sx={{ mr: 0.5 }} />問 AI
         </ToggleButton>
       </ToggleButtonGroup>
 
@@ -331,7 +327,7 @@ export function SummarizeTab({
             disabled={isLoading || viewByEntries.length === 0 || measures.length === 0}
             sx={{ mt: 2 }}
           >
-            {isLoading ? 'Running…' : 'Run Query'}
+            {isLoading ? '執行中…' : '執行查詢'}
           </Button>
         </Paper>
       )}
@@ -348,8 +344,7 @@ export function SummarizeTab({
           }}
         >
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Describe what you want to see in plain language. The AI will translate your request into
-            a query and return the results.
+            用一般文字描述你想看的內容，AI 會把你的需求轉換成查詢並回傳結果。
           </Typography>
 
           <TextField
@@ -357,7 +352,7 @@ export function SummarizeTab({
             minRows={2}
             maxRows={5}
             fullWidth
-            placeholder='e.g. "Give me total revenue by region for the TW area"'
+            placeholder="例如：「給我台灣地區各地區的總營收」"
             value={nlQuery}
             onChange={(e) => setNlQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -397,7 +392,7 @@ export function SummarizeTab({
                 onClick={() => setRecentOpen((o) => !o)}
                 sx={{ color: 'text.secondary', px: 1, minWidth: 0 }}
               >
-                Recent ({recentQueries.length})
+                最近查詢 ({recentQueries.length})
               </Button>
               <Collapse in={recentOpen}>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1, pl: 0.5 }}>
@@ -422,13 +417,11 @@ export function SummarizeTab({
             onClick={handleGenerate}
             disabled={isLoggedIn && (nlIsLoading || !nlQuery.trim())}
           >
-            {!isLoggedIn ? 'Sign in to use AI' : nlIsLoading ? 'Generating…' : 'Generate'}
+            {!isLoggedIn ? '登入以使用 AI' : nlIsLoading ? '生成中…' : '生成'}
           </Button>
 
           <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5 }}>
-            {isLoggedIn
-              ? 'Costs 2 credits per query'
-              : 'Requires login · costs 2 credits per query'}
+            {isLoggedIn ? '每次查詢消耗 2 點' : '需要登入．每次查詢消耗 2 點'}
           </Typography>
         </Paper>
       )}
@@ -462,15 +455,14 @@ export function SummarizeTab({
 
       {activeError && mode === 'manual' && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Query failed. Check console for details.
+          查詢失敗，詳情請查看主控台。
         </Alert>
       )}
 
       {activeError && mode === 'ai' && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            The AI couldn&apos;t answer this question — this data may not have a field or value that
-            matches it. Try one of these instead:
+            AI 無法回答這個問題——這份資料可能沒有符合的欄位或數值。試試看以下範例：
           </Typography>
           {suggestionChips}
         </Alert>
@@ -489,7 +481,7 @@ export function SummarizeTab({
           >
             <Box>
               <Typography variant="caption" color="text.secondary">
-                {activeRows.length} rows returned
+                回傳 {activeRows.length} 筆資料
               </Typography>
               {mode === 'ai' && nlInterpretation && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
@@ -497,7 +489,7 @@ export function SummarizeTab({
                     {nlInterpretation}
                   </Typography>
                   {nlPlan && (
-                    <Tooltip title="View the raw query plan">
+                    <Tooltip title="檢視原始查詢計畫">
                       <IconButton
                         size="small"
                         onClick={() => setPlanOpen((o) => !o)}
@@ -544,8 +536,7 @@ export function SummarizeTab({
           {activeHeaders.length === 0 && (
             <Alert severity="warning" sx={{ mb: 2 }}>
               <Typography variant="body2">
-                No matching data for this question — the date or value you asked for may not exist
-                in this data. Try one of these instead:
+                找不到符合此問題的資料——你詢問的日期或數值可能不存在於此資料中。試試看以下範例：
               </Typography>
               {suggestionChips}
             </Alert>

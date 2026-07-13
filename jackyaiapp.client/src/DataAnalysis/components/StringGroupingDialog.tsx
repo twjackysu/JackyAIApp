@@ -120,7 +120,7 @@ export function StringGroupingDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        String Groups —{' '}
+        文字分組 (String Groups) —{' '}
         <Box
           component="code"
           sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace' }}
@@ -131,19 +131,18 @@ export function StringGroupingDialog({
 
       <DialogContent dividers>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-          Map raw values into logical groups. Each value should belong to at most one group.
-          Unmatched rows fall back to the Fallback label.
+          將原始數值對應到邏輯群組。每個數值最多只能屬於一個群組。未對應的資料會使用預設標籤。
         </Typography>
 
         {/* Duplicate value warning */}
         {duplicates.size > 0 && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            <strong>Values assigned to multiple groups:</strong>
+            <strong>以下數值被指派到多個群組：</strong>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
               {Array.from(duplicates.entries()).map(([v, indices]) => (
                 <Chip
                   key={v}
-                  label={`"${v}" — groups ${indices.map((i) => i + 1).join(' & ')}`}
+                  label={`"${v}" — 群組 ${indices.map((i) => i + 1).join(' & ')}`}
                   size="small"
                   color="error"
                   variant="outlined"
@@ -155,7 +154,7 @@ export function StringGroupingDialog({
 
         {groups.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            No groups yet — click <strong>Add Group</strong> to start.
+            尚無群組 — 點擊 <strong>新增群組</strong> 開始。
           </Typography>
         )}
 
@@ -167,17 +166,17 @@ export function StringGroupingDialog({
                 {/* Group label */}
                 <TextField
                   size="small"
-                  label={`Group ${i + 1} label *`}
+                  label={`群組 ${i + 1} 標籤 *`}
                   value={g.label}
                   error={e.emptyLabel}
-                  helperText={e.emptyLabel ? 'Label is required.' : ' '}
+                  helperText={e.emptyLabel ? '標籤為必填。' : ' '}
                   sx={{ flex: '0 0 160px' }}
                   onChange={(ev) => updateGroup(g.id, { label: ev.target.value })}
                 />
 
                 {/* Value picker */}
                 <FormControl size="small" sx={{ flex: 1 }} error={e.noValues}>
-                  <InputLabel>{isFetching ? 'Loading…' : 'Values *'}</InputLabel>
+                  <InputLabel>{isFetching ? '載入中…' : '數值 *'}</InputLabel>
                   <Select
                     multiple
                     value={g.values}
@@ -190,7 +189,7 @@ export function StringGroupingDialog({
                             : (ev.target.value as string[]),
                       })
                     }
-                    input={<OutlinedInput label={isFetching ? 'Loading…' : 'Values *'} />}
+                    input={<OutlinedInput label={isFetching ? '載入中…' : '數值 *'} />}
                     renderValue={(sel) => (
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {sel.map((v) => (
@@ -206,11 +205,11 @@ export function StringGroupingDialog({
                   >
                     {isFetching ? (
                       <MenuItem disabled>
-                        <em>Loading…</em>
+                        <em>載入中…</em>
                       </MenuItem>
                     ) : allValues.length === 0 ? (
                       <MenuItem disabled>
-                        <em>No values found</em>
+                        <em>找不到數值</em>
                       </MenuItem>
                     ) : (
                       allValues.map((v) => (
@@ -225,14 +224,14 @@ export function StringGroupingDialog({
                           {v}
                           {assignedValues.has(v) && !g.values.includes(v) && (
                             <Typography variant="caption" color="warning.main" sx={{ ml: 1 }}>
-                              (already mapped)
+                              （已對應）
                             </Typography>
                           )}
                         </MenuItem>
                       ))
                     )}
                   </Select>
-                  <FormHelperText>{e.noValues ? 'Select at least one value.' : ' '}</FormHelperText>
+                  <FormHelperText>{e.noValues ? '請至少選擇一個數值。' : ' '}</FormHelperText>
                 </FormControl>
 
                 <IconButton size="small" onClick={() => removeGroup(g.id)} sx={{ mt: 0.5 }}>
@@ -244,7 +243,7 @@ export function StringGroupingDialog({
         })}
 
         <Button size="small" startIcon={<AddIcon />} onClick={addGroup} sx={{ mt: 0.5 }}>
-          Add Group
+          新增群組
         </Button>
 
         <Divider sx={{ my: 2 }} />
@@ -252,21 +251,21 @@ export function StringGroupingDialog({
         <TextField
           size="small"
           fullWidth
-          label="Fallback label (values matching no group)"
+          label="預設標籤（未對應任何群組的數值）"
           value={fallback}
           onChange={(e) => setFallback(e.target.value)}
         />
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>取消</Button>
         <Button
           variant="contained"
           disabled={hasErrors}
           onClick={handleApply}
-          title={hasErrors ? 'Fix the errors above before applying' : undefined}
+          title={hasErrors ? '請先修正上方錯誤再套用' : undefined}
         >
-          Apply{hasErrors ? ' (fix errors first)' : ''}
+          套用{hasErrors ? '（請先修正錯誤）' : ''}
         </Button>
       </DialogActions>
     </Dialog>

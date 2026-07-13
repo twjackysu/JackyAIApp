@@ -115,24 +115,24 @@ export function FilterRow({
     : !filter.useTransform && isFetching;
 
   const valuesLabel = isLoadingValues
-    ? 'Loading…'
+    ? '載入中…'
     : filter.fieldName
       ? filter.useTransform
         ? activeTransform?.type === 'NumericBin'
-          ? 'Bin labels'
+          ? '區間標籤'
           : activeTransform?.type === 'DateTrunc'
-            ? 'Period labels'
-            : 'Group labels'
-        : 'Values'
-      : 'Select a field first';
+            ? '期間標籤'
+            : '群組標籤'
+        : '數值'
+      : '請先選擇欄位';
 
   // ── Tooltip copy for the "Use transform" switch ────────────────────────────
   const transformTooltip =
     activeTransform?.type === 'StringGrouping'
-      ? 'Filter by group labels (each label expands to its raw member values)'
+      ? '依群組標籤篩選（每個標籤會展開為對應的原始數值）'
       : activeTransform?.type === 'NumericBin'
-        ? 'Filter by bin labels (selected bins are merged into a range filter)'
-        : 'Filter by period labels (selected periods are merged into a date range)';
+        ? '依區間標籤篩選（選取的區間會合併成範圍篩選）'
+        : '依期間標籤篩選（選取的期間會合併成日期範圍）';
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -162,10 +162,10 @@ export function FilterRow({
     <Box sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       {/* ── Field selector ── */}
       <FormControl size="small" sx={{ flex: '0 0 160px' }}>
-        <InputLabel>Field</InputLabel>
+        <InputLabel>欄位</InputLabel>
         <Select
           value={filter.fieldName}
-          label="Field"
+          label="欄位"
           onChange={(e) => handleFieldChange(e.target.value as string)}
         >
           {fields.map((f) => (
@@ -180,9 +180,7 @@ export function FilterRow({
       {filter.fieldName && hasTransforms && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Tooltip
-            title={
-              filter.useTransform ? transformTooltip : 'Switch on to filter using transform labels'
-            }
+            title={filter.useTransform ? transformTooltip : '開啟以使用轉換標籤篩選'}
             placement="top"
           >
             <FormControlLabel
@@ -196,7 +194,7 @@ export function FilterRow({
               }
               label={
                 <Typography variant="caption" color="text.secondary">
-                  Use transform
+                  套用轉換
                 </Typography>
               }
             />
@@ -205,10 +203,10 @@ export function FilterRow({
           {/* When multiple transforms exist for the field, let user pick */}
           {filter.useTransform && fieldTransforms.length > 1 && (
             <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel>Transform</InputLabel>
+              <InputLabel>轉換</InputLabel>
               <Select
                 value={filter.transformId ?? ''}
-                label="Transform"
+                label="轉換"
                 onChange={(e) => handleTransformSelect(e.target.value as number)}
               >
                 {fieldTransforms.map((t) => (
@@ -241,11 +239,11 @@ export function FilterRow({
         >
           {isLoadingValues ? (
             <MenuItem disabled>
-              <em>Loading values…</em>
+              <em>載入數值中…</em>
             </MenuItem>
           ) : displayValues.length === 0 ? (
             <MenuItem disabled>
-              <em>No values found</em>
+              <em>找不到數值</em>
             </MenuItem>
           ) : (
             displayValues.map((v) => (
@@ -257,7 +255,7 @@ export function FilterRow({
         </Select>
       </FormControl>
 
-      <IconButton size="small" onClick={onRemove} title="Remove filter" sx={{ mt: 0.25 }}>
+      <IconButton size="small" onClick={onRemove} title="移除篩選條件" sx={{ mt: 0.25 }}>
         <DeleteIcon fontSize="small" />
       </IconButton>
     </Box>

@@ -46,7 +46,7 @@ export function KpiViz({ rows, measureKeys, temporalKey }: KpiVizProps) {
   // or in-render reset needed. Clamped in case the measure count shrinks.
   const [sel, setSel] = useState(0);
   const measure = measureKeys[Math.min(sel, measureKeys.length - 1)];
-  if (!measure || rows.length === 0) return <Alert severity="info">No measure to show.</Alert>;
+  if (!measure || rows.length === 0) return <Alert severity="info">沒有可顯示的量測欄位。</Alert>;
 
   let value: number;
   let subLabel: string | undefined;

@@ -178,7 +178,7 @@ export default function DataAnalysis() {
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
             <Typography variant="h5" sx={{ color: 'text.primary' }}>
-              DataAnalysis Library
+              資料分析 Library
             </Typography>
             <Box
               component="span"
@@ -199,7 +199,7 @@ export default function DataAnalysis() {
             </Box>
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Explore schema, run AI-powered summaries, and drill into details on real data sources.
+            探索資料結構（Schema）、執行 AI 摘要分析，並深入查看明細資料。
           </Typography>
         </Box>
 
@@ -219,10 +219,9 @@ export default function DataAnalysis() {
 
         {!sessionId && activeSourceId && (
           <Alert severity="info" icon={<WarningAmberIcon />} sx={{ mb: 2 }}>
-            <strong>Custom data source selected</strong> — querying{' '}
-            <em>{activeSource?.name ?? activeSourceId}</em>. Credentials are encrypted and stored
-            securely, and transmitted over HTTPS. Note: if this server is not reachable from the
-            public internet, connections to external databases may fail.
+            <strong>已選擇自訂資料來源</strong> — 正在查詢{' '}
+            <em>{activeSource?.name ?? activeSourceId}</em>。連線資訊已加密儲存並透過 HTTPS
+            傳輸。注意：若此伺服器無法從公開網路連線，連接外部資料庫可能會失敗。
           </Alert>
         )}
 
@@ -230,7 +229,7 @@ export default function DataAnalysis() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {activeSourceId ? (
               <>
-                Querying <strong>{activeSource?.name}</strong>
+                查詢中 <strong>{activeSource?.name}</strong>
                 {activeTableName && (
                   <>
                     {' → '}
@@ -251,7 +250,7 @@ export default function DataAnalysis() {
               </>
             ) : (
               <>
-                Querying{' '}
+                查詢中{' '}
                 <Box
                   component="code"
                   sx={{
@@ -298,12 +297,12 @@ export default function DataAnalysis() {
             <Tab
               icon={<AutoAwesomeIcon fontSize="small" />}
               iconPosition="start"
-              label="Summarize"
+              label="摘要分析"
             />
             <Tab
               icon={<TableRowsOutlinedIcon fontSize="small" />}
               iconPosition="start"
-              label="Details"
+              label="明細資料"
             />
           </Tabs>
         </Box>

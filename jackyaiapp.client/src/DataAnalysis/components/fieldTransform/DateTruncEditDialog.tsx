@@ -31,7 +31,7 @@ export function DateTruncEditDialog({
   return (
     <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>
-        Edit DateTrunc —{' '}
+        編輯 DateTrunc —{' '}
         <Box
           component="code"
           sx={{
@@ -48,15 +48,15 @@ export function DateTruncEditDialog({
         <TextField
           size="small"
           fullWidth
-          label="Name"
+          label="名稱"
           value={target.name}
           onChange={(e) => onChange((t) => t && { ...t, name: e.target.value })}
         />
         <FormControl size="small" fullWidth>
-          <InputLabel>Granularity</InputLabel>
+          <InputLabel>時間粒度</InputLabel>
           <Select
             value={target.granularity}
-            label="Granularity"
+            label="時間粒度"
             onChange={(e) =>
               onChange((t) => t && { ...t, granularity: e.target.value as DateGranularity })
             }
@@ -70,9 +70,9 @@ export function DateTruncEditDialog({
         </FormControl>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>取消</Button>
         <Button variant="contained" onClick={onSave}>
-          Save
+          儲存
         </Button>
       </DialogActions>
     </Dialog>

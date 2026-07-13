@@ -50,7 +50,7 @@ export function DetailsTab({
   return (
     <>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Browse the raw rows behind the numbers. Filters apply immediately.
+        瀏覽數字背後的原始資料列。篩選條件會立即套用。
       </Typography>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
@@ -66,7 +66,7 @@ export function DetailsTab({
       {detailsLoading && <CircularProgress size={24} sx={{ mb: 1 }} />}
       {detailsError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Failed to load rows.
+          載入資料列失敗。
         </Alert>
       )}
 
@@ -114,7 +114,7 @@ export function DetailsTab({
             rowsPerPageOptions={[ROWS_PER_PAGE]}
             onPageChange={(_, newPage) => onPageChange(newPage)}
             labelDisplayedRows={({ from, to, count }) =>
-              `${from}–${to} of ${count > 0 ? count : `more than ${to}`}`
+              `${from}–${to}，共 ${count > 0 ? count : `超過 ${to}`} 筆`
             }
           />
         </Paper>
