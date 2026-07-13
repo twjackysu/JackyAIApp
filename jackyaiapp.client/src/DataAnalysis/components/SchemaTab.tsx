@@ -41,11 +41,11 @@ export function SchemaTab({
   return (
     <>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Columns detected in this data, with their types.
+        此資料中偵測到的欄位與型別。
       </Typography>
 
       {isLoading && <CircularProgress size={24} />}
-      {error && <Alert severity="error">Failed to load schema.</Alert>}
+      {error && <Alert severity="error">載入 Schema 失敗。</Alert>}
 
       {fields.length > 0 && (
         <>
@@ -55,10 +55,10 @@ export function SchemaTab({
           >
             <CalendarTodayIcon fontSize="small" color="action" />
             <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel>Date Field</InputLabel>
+              <InputLabel>日期欄位</InputLabel>
               <Select
                 value={fields.some((f) => f.name === dateField) ? dateField : ''}
-                label="Date Field"
+                label="日期欄位"
                 onChange={(e) => onDateFieldChange(e.target.value as string)}
               >
                 {dateFieldList.map((f) => (
@@ -69,8 +69,8 @@ export function SchemaTab({
               </Select>
             </FormControl>
             <Typography variant="caption" color="text.secondary">
-              Auto-detected from schema — drives the <strong>Latest date</strong> stat above and the
-              default sort order in <strong>Details</strong>.
+              自動從 Schema 偵測 — 決定上方的<strong>最新日期</strong>統計數值，以及
+              <strong>明細資料</strong>分頁的預設排序。
             </Typography>
           </Paper>
 
@@ -78,10 +78,10 @@ export function SchemaTab({
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Column</TableCell>
-                  <TableCell>Native Type</TableCell>
-                  <TableCell>Canonical Type</TableCell>
-                  <TableCell>Nullable</TableCell>
+                  <TableCell>欄位</TableCell>
+                  <TableCell>原始型別</TableCell>
+                  <TableCell>標準型別</TableCell>
+                  <TableCell>可為空值</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -98,7 +98,7 @@ export function SchemaTab({
                         color={canonicalTypeColor(f.canonicalType)}
                       />
                     </TableCell>
-                    <TableCell>{f.isNullable ? 'Yes' : 'No'}</TableCell>
+                    <TableCell>{f.isNullable ? '是' : '否'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

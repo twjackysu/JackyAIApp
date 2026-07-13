@@ -44,10 +44,10 @@ export function AddTransformForm({
     >
       {/* Field selector — drives type auto-detection */}
       <FormControl size="small" sx={{ flex: '0 0 160px' }}>
-        <InputLabel>Field</InputLabel>
+        <InputLabel>欄位</InputLabel>
         <Select
           value={draft.fieldName}
-          label="Field"
+          label="欄位"
           onChange={(e) => onFieldChange(e.target.value as string)}
         >
           {fields.map((f) => (
@@ -61,15 +61,15 @@ export function AddTransformForm({
       {/* Name */}
       <TextField
         size="small"
-        label="Name"
+        label="名稱"
         placeholder={
           !draft.fieldName
-            ? 'Select a field first'
+            ? '請先選擇欄位'
             : draft.type === 'DateTrunc'
-              ? 'e.g. Order Month'
+              ? '例如：訂單月份'
               : draft.type === 'NumericBin'
-                ? 'e.g. Age Groups'
-                : 'e.g. Country → Region'
+                ? '例如：年齡分組'
+                : '例如：國家 → 地區'
         }
         value={draft.name}
         sx={{ flex: '1 1 150px' }}
@@ -78,7 +78,7 @@ export function AddTransformForm({
 
       {/* Auto-detected type chip (read-only) */}
       {draft.fieldName && (
-        <Tooltip title="Transform type is auto-detected from the field's data type">
+        <Tooltip title="轉換類型會依欄位的資料型別自動偵測">
           <Chip
             label={TRANSFORM_TYPE_LABELS[draft.type]}
             size="small"
@@ -92,10 +92,10 @@ export function AddTransformForm({
       {draft.type === 'DateTrunc' && draft.fieldName && (
         <>
           <FormControl size="small" sx={{ flex: '0 0 110px' }}>
-            <InputLabel>Granularity</InputLabel>
+            <InputLabel>時間粒度</InputLabel>
             <Select
               value={draft.granularity}
-              label="Granularity"
+              label="時間粒度"
               onChange={(e) =>
                 setDraft((d) => ({ ...d, granularity: e.target.value as DateGranularity }))
               }
@@ -113,7 +113,7 @@ export function AddTransformForm({
             startIcon={<SaveIcon fontSize="small" />}
             onClick={onSaveDateTrunc}
           >
-            Save
+            儲存
           </Button>
         </>
       )}
@@ -126,11 +126,11 @@ export function AddTransformForm({
           startIcon={<EditIcon fontSize="small" />}
           onClick={onConfigure}
         >
-          Configure
+          設定
         </Button>
       )}
 
-      <IconButton size="small" onClick={onCancel} title="Cancel">
+      <IconButton size="small" onClick={onCancel} title="取消">
         <CloseIcon fontSize="small" />
       </IconButton>
     </Paper>

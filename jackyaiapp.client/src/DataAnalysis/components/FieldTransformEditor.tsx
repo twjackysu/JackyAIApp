@@ -129,14 +129,14 @@ export function FieldTransformEditor({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <TransformIcon fontSize="small" color="action" />
           <Typography variant="subtitle2">
-            Field Transforms
+            欄位轉換 (Field Transforms)
             {transforms.length > 0 && (
               <Chip label={transforms.length} size="small" sx={{ ml: 1 }} />
             )}
           </Typography>
         </Box>
         {!showAddForm && (
-          <Tooltip title="Add transform">
+          <Tooltip title="新增轉換">
             <IconButton size="small" onClick={() => setShowAddForm(true)}>
               <AddIcon fontSize="small" />
             </IconButton>
@@ -147,8 +147,9 @@ export function FieldTransformEditor({
       {/* Empty state */}
       {transforms.length === 0 && !showAddForm && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-          No transforms — click <strong>+</strong> to create one. Transforms define how a field's
-          values are bucketed or renamed, and can be applied to both Group By and Filters.
+          尚無轉換 — 點擊 <strong>+</strong>{' '}
+          建立一個。轉換用來定義欄位值如何被歸類或重新命名，可套用在分組欄位（Group
+          By）與篩選條件（Filters）。
         </Typography>
       )}
 

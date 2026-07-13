@@ -50,16 +50,16 @@ export function SourcePanel({
     ? (() => {
         const diffMs = new Date(sessionInfo.expiresAt).getTime() - Date.now();
         const diffMin = Math.round(diffMs / 60_000);
-        if (diffMin <= 0) return 'expired';
-        if (diffMin < 60) return `expires in ${diffMin}m`;
-        return `expires in ${Math.round(diffMin / 60)}h`;
+        if (diffMin <= 0) return '已過期';
+        if (diffMin < 60) return `${diffMin} 分鐘後過期`;
+        return `${Math.round(diffMin / 60)} 小時後過期`;
       })()
     : '';
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
       <Typography variant="subtitle2" gutterBottom sx={{ color: 'text.secondary' }}>
-        Data Source
+        資料來源
       </Typography>
 
       {/* ── Session mode ──────────────────────────────────────────────────── */}
@@ -67,15 +67,15 @@ export function SourcePanel({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Chip
             icon={<AccessTimeIcon />}
-            label={`${sessionInfo.name} — ${fmtNum(sessionInfo.rowCount)} rows`}
+            label={`${sessionInfo.name} — ${fmtNum(sessionInfo.rowCount)} 筆`}
             color="warning"
             variant="outlined"
           />
           <Chip label={expiresLabel} color="warning" size="small" />
           <Typography variant="caption" color="text.secondary">
-            Temporary data — not saved to any database
+            暫存資料 — 不會儲存到任何資料庫
           </Typography>
-          <Tooltip title="Clear session and return to database sources">
+          <Tooltip title="清除暫存並返回資料庫來源">
             <IconButton size="small" onClick={onClearSession}>
               <ClearIcon fontSize="small" />
             </IconButton>
@@ -85,14 +85,14 @@ export function SourcePanel({
         /* ── Logged-in normal mode ──────────────────────────────────────── */
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 260 } }}>
-            <InputLabel>Source</InputLabel>
+            <InputLabel>來源</InputLabel>
             <Select
               value={activeSourceId ?? ''}
-              label="Source"
+              label="來源"
               onChange={(e) => onSourceChange(e.target.value as string)}
             >
               <MenuItem value="">
-                <em>Default (JackyAI SQL / dbo.Orders)</em>
+                <em>預設 (JackyAI SQL / dbo.Orders)</em>
               </MenuItem>
               {sources.map((s) => (
                 <MenuItem key={s.id} value={s.id}>
@@ -110,7 +110,7 @@ export function SourcePanel({
 
           <TextField
             size="small"
-            label="Table"
+            label="資料表"
             value={tableNameInput}
             onChange={(e) => onTableNameChange(e.target.value)}
             onBlur={onApplyTableName}
@@ -118,7 +118,7 @@ export function SourcePanel({
               if (e.key === 'Enter') onApplyTableName();
             }}
             sx={{ width: { xs: '100%', sm: 220 } }}
-            helperText="Press Enter or click away to apply"
+            helperText="按 Enter 或點擊其他地方套用"
           />
 
           <Button
@@ -128,7 +128,7 @@ export function SourcePanel({
             onClick={onOpenManager}
             sx={{ mt: 0.25 }}
           >
-            Manage Sources
+            管理來源
           </Button>
 
           <Button
@@ -139,22 +139,22 @@ export function SourcePanel({
             onClick={onOpenUpload}
             sx={{ mt: 0.25 }}
           >
-            Upload Data
+            上傳資料
           </Button>
         </Box>
       ) : (
         /* ── Not logged in ──────────────────────────────────────────────── */
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Chip label="Default (JackyAI SQL / dbo.Orders)" color="default" size="small" />
+          <Chip label="預設 (JackyAI SQL / dbo.Orders)" color="default" size="small" />
           <Typography variant="body2" color="text.secondary">
             —{' '}
             <a
               href={`/api/account/login/Google?ReturnUrl=${encodeURIComponent(window.location.pathname)}`}
               style={{ color: 'inherit' }}
             >
-              Sign in
+              登入
             </a>{' '}
-            to configure custom data sources.
+            以設定自訂資料來源。
           </Typography>
           <Button
             size="small"
@@ -163,7 +163,7 @@ export function SourcePanel({
             startIcon={<CloudUploadIcon />}
             onClick={onOpenUpload}
           >
-            Upload Data (temp)
+            上傳資料（暫存）
           </Button>
         </Box>
       )}

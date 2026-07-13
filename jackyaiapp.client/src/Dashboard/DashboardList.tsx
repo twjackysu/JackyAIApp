@@ -24,7 +24,7 @@ export default function DashboardList() {
       <Box sx={{ maxWidth: 900, mx: 'auto' }}>
         <DataAnalysisNav />
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
-          My Dashboards
+          我的儀表板
         </Typography>
 
         {isLoading ? (

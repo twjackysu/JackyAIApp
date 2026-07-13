@@ -20,7 +20,7 @@ const INF = Number.POSITIVE_INFINITY;
 export const VIZ_CAPABILITIES: VizCapability[] = [
   {
     id: 'table',
-    label: 'Table',
+    label: '表格 (Table)',
     icon: <TableChartIcon fontSize="small" />,
     minGroups: 0,
     maxGroups: INF,
@@ -41,7 +41,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'column',
-    label: 'Column',
+    label: '直條圖 (Column)',
     icon: <BarChartIcon fontSize="small" />,
     minGroups: 1,
     maxGroups: 2,
@@ -51,7 +51,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'bar',
-    label: 'Bar (horiz.)',
+    label: '橫條圖 (Bar)',
     icon: <BarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} />,
     minGroups: 1,
     maxGroups: 2,
@@ -61,7 +61,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'line',
-    label: 'Line',
+    label: '折線圖 (Line)',
     icon: <ShowChartIcon fontSize="small" />,
     minGroups: 1,
     maxGroups: 2,
@@ -71,7 +71,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'pie',
-    label: 'Pie',
+    label: '圓餅圖 (Pie)',
     icon: <PieChartIcon fontSize="small" />,
     minGroups: 1,
     maxGroups: 1,
@@ -81,7 +81,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'donut',
-    label: 'Donut',
+    label: '甜甜圈圖 (Donut)',
     icon: <DonutLargeIcon fontSize="small" />,
     minGroups: 1,
     maxGroups: 1,
@@ -91,7 +91,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'stackedColumn',
-    label: 'Stacked Column',
+    label: '堆疊直條圖 (Stacked Column)',
     icon: <StackedBarChartIcon fontSize="small" />,
     minGroups: 1,
     maxGroups: 2,
@@ -101,7 +101,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'stackedBar',
-    label: 'Stacked Bar',
+    label: '堆疊橫條圖 (Stacked Bar)',
     icon: <StackedBarChartIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} />,
     minGroups: 1,
     maxGroups: 2,
@@ -111,7 +111,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'treemap',
-    label: 'Treemap',
+    label: '樹狀圖 (Treemap)',
     icon: <GridViewIcon fontSize="small" />,
     minGroups: 1,
     maxGroups: INF,
@@ -122,7 +122,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'sunburst',
-    label: 'Sunburst',
+    label: '旭日圖 (Sunburst)',
     icon: <DonutSmallIcon fontSize="small" />,
     minGroups: 1,
     maxGroups: INF,
@@ -133,7 +133,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'tree',
-    label: 'Tree (multi-level)',
+    label: '樹狀階層圖 (Tree)',
     icon: <AccountTreeIcon fontSize="small" />,
     minGroups: 1,
     maxGroups: INF,
@@ -144,7 +144,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'waterfall',
-    label: 'Waterfall',
+    label: '瀑布圖 (Waterfall)',
     icon: <WaterfallChartIcon fontSize="small" />,
     minGroups: 1,
     maxGroups: 1,
@@ -156,7 +156,7 @@ export const VIZ_CAPABILITIES: VizCapability[] = [
   },
   {
     id: 'sankey',
-    label: 'Sankey',
+    label: '桑基圖 (Sankey)',
     icon: <HubIcon fontSize="small" />,
     minGroups: 2,
     maxGroups: INF,

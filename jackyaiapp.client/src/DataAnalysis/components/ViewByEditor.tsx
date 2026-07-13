@@ -28,15 +28,15 @@ export function ViewByEditor({
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="subtitle2">Group By (ViewBy)</Typography>
-        <IconButton size="small" onClick={onAdd} title="Add group field">
+        <Typography variant="subtitle2">分組欄位 (Group By)</Typography>
+        <IconButton size="small" onClick={onAdd} title="新增分組欄位">
           <AddIcon fontSize="small" />
         </IconButton>
       </Box>
 
       {entries.length === 0 && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-          No group fields — click <strong>+</strong> to add one.
+          尚無分組欄位 — 點擊 <strong>+</strong> 新增。
         </Typography>
       )}
 

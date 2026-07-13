@@ -54,10 +54,10 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
     <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       {/* Field */}
       <FormControl size="small" sx={{ flex: '0 0 160px' }}>
-        <InputLabel>Field</InputLabel>
+        <InputLabel>欄位</InputLabel>
         <Select
           value={entry.fieldName}
-          label="Field"
+          label="欄位"
           onChange={(e) => handleFieldChange(e.target.value as string)}
         >
           {fields.map((f) => (
@@ -75,8 +75,8 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
             <Tooltip
               title={
                 entry.type === 'Transform'
-                  ? 'Group values will be bucketed / renamed by the selected transform'
-                  : 'Switch on to apply a field transform when grouping'
+                  ? '分組值會依所選轉換被歸類 / 重新命名'
+                  : '開啟以在分組時套用欄位轉換'
               }
               placement="top"
             >
@@ -91,7 +91,7 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
                 }
                 label={
                   <Typography variant="caption" color="text.secondary">
-                    Use transform
+                    套用轉換
                   </Typography>
                 }
               />
@@ -100,10 +100,10 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
             {/* Transform picker — shown when toggle is ON and multiple choices exist */}
             {entry.type === 'Transform' && fieldTransforms.length > 1 && (
               <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Transform</InputLabel>
+                <InputLabel>轉換</InputLabel>
                 <Select
                   value={entry.transformId ?? ''}
-                  label="Transform"
+                  label="轉換"
                   onChange={(e) => handleTransformSelect(e.target.value as number)}
                 >
                   {fieldTransforms.map((t) => (
@@ -121,14 +121,14 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
       {/* Alias */}
       <TextField
         size="small"
-        label="Alias"
-        placeholder="output col name"
+        label="別名"
+        placeholder="輸出欄位名稱"
         value={entry.alias}
         sx={{ flex: '0 0 130px' }}
         onChange={(e) => onUpdate({ ...entry, alias: e.target.value })}
       />
 
-      <IconButton size="small" onClick={onRemove} title="Remove" sx={{ mt: 0.25 }}>
+      <IconButton size="small" onClick={onRemove} title="移除" sx={{ mt: 0.25 }}>
         <DeleteIcon fontSize="small" />
       </IconButton>
     </Box>

@@ -71,7 +71,7 @@ export const JOB_SEARCH: AppDef = {
 };
 
 export const DATA_ANALYSIS: AppDef = {
-  name: 'Data Analysis Demo',
+  name: '資料分析 Demo (Data Analysis)',
   path: '/data-analysis',
   icon: <AssessmentIcon fontSize="small" />,
   allPaths: ['/data-analysis'],
@@ -80,7 +80,7 @@ export const DATA_ANALYSIS: AppDef = {
 };
 
 export const DASHBOARDS: AppDef = {
-  name: 'Dashboards',
+  name: '儀表板 (Dashboards)',
   path: '/dashboards',
   icon: <DashboardIcon fontSize="small" />,
   allPaths: ['/dashboards'],

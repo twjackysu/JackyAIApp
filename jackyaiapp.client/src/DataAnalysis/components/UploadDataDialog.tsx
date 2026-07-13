@@ -118,7 +118,7 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
     }
     const result = parseTabular(text);
     if (!result) {
-      setErr('Could not detect columns — make sure the first row contains headers.');
+      setErr('無法偵測欄位 — 請確認第一列包含欄位標題。');
       setParsed(null);
     } else setParsed(result);
   };
@@ -131,7 +131,7 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const result = parseTabular(text);
-      if (!result) setErr('Could not parse file — ensure it is a valid CSV/TSV with headers.');
+      if (!result) setErr('無法解析檔案 — 請確認是含標題列的有效 CSV/TSV 檔案。');
       else {
         setParsed(result);
         if (!datasetName) setName(file.name.replace(/\.[^.]+$/, ''));
@@ -153,7 +153,7 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
         handleClose();
       }
     } catch {
-      setErr('Upload failed — please try again.');
+      setErr('上傳失敗 — 請再試一次。');
     }
   };
 
@@ -172,10 +172,10 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth fullScreen={fullScreen}>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <CloudUploadIcon fontSize="small" />
-        Upload Data
+        上傳資料
         <Chip
           icon={<AccessTimeIcon />}
-          label="Temporary — 2 hours"
+          label="暫存 — 2 小時"
           color="warning"
           size="small"
           sx={{ ml: 1 }}
@@ -183,23 +183,23 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
       </DialogTitle>
       <DialogContent>
         <Alert severity="warning" sx={{ mb: 2 }}>
-          <strong>Temporary session only.</strong> This data is stored in server memory and will be
-          automatically deleted after 2 hours. It is not saved to any database.
+          <strong>僅暫存於此次連線。</strong>
+          此資料儲存在伺服器記憶體中，2 小時後會自動刪除，不會存進任何資料庫。
         </Alert>
 
         <TextField
-          label="Dataset name (optional)"
+          label="資料集名稱（選填）"
           size="small"
           fullWidth
           value={datasetName}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Asset Trend 2025"
+          placeholder="例如：Asset Trend 2025"
           sx={{ mb: 2 }}
         />
 
         <Tabs value={tab} onChange={(_, v: number) => setTab(v)} sx={{ mb: 2 }}>
-          <Tab icon={<ContentPasteIcon />} iconPosition="start" label="Paste from Excel" />
-          <Tab icon={<CloudUploadIcon />} iconPosition="start" label="Upload CSV / TSV" />
+          <Tab icon={<ContentPasteIcon />} iconPosition="start" label="從 Excel 貼上" />
+          <Tab icon={<CloudUploadIcon />} iconPosition="start" label="上傳 CSV / TSV" />
         </Tabs>
 
         {tab === 0 && (
@@ -209,7 +209,7 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
             fullWidth
             size="small"
             placeholder={
-              'Paste your Excel data here (copy cells including the header row):\n\n' +
+              '在此貼上 Excel 資料（複製儲存格時請包含標題列）：\n\n' +
               'Date\tAsset\tValue\n2025-01\tStocks\t100000\n2025-02\tStocks\t105000'
             }
             value={pasteText}
@@ -223,7 +223,7 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
         {tab === 1 && (
           <Box>
             <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />}>
-              Choose CSV / TSV file
+              選擇 CSV / TSV 檔案
               <input
                 hidden
                 type="file"
@@ -244,8 +244,8 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
         {parsed && !parseError && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Detected <strong>{fmtNum(parsed.rows.length)}</strong> rows ×{' '}
-              <strong>{parsed.headers.length}</strong> columns — preview (first 5 rows):
+              偵測到 <strong>{fmtNum(parsed.rows.length)}</strong> 列 ×{' '}
+              <strong>{parsed.headers.length}</strong> 欄 — 預覽（前5列）：
             </Typography>
             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 220 }}>
               <Table size="small" stickyHeader>
@@ -284,7 +284,7 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={isLoading}>
-          Cancel
+          取消
         </Button>
         <Button
           variant="contained"
@@ -292,7 +292,7 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
           disabled={!parsed || parsed.rows.length === 0 || isLoading}
           startIcon={isLoading ? <CircularProgress size={16} /> : <CloudUploadIcon />}
         >
-          {isLoading ? 'Uploading…' : 'Load into session'}
+          {isLoading ? '上傳中…' : '載入到連線'}
         </Button>
       </DialogActions>
     </Dialog>

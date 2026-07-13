@@ -64,14 +64,14 @@ export function OverviewStrip({
 }: OverviewStripProps) {
   return (
     <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
-      <StatCard label="Rows" value={rowCountDisplay ?? '—'} loading={rowCountLoading} />
+      <StatCard label="資料筆數" value={rowCountDisplay ?? '—'} loading={rowCountLoading} />
       <StatCard
-        label="Columns"
+        label="欄位數"
         value={columnCount > 0 ? columnCount : '—'}
         loading={schemaLoading}
       />
       <StatCard
-        label={`Latest ${dateField || 'date'}`}
+        label={`最新 ${dateField || '日期'}`}
         value={
           maxDate
             ? new Date(maxDate).toLocaleDateString('en-US', {
@@ -82,7 +82,7 @@ export function OverviewStrip({
             : '—'
         }
         loading={maxDateLoading}
-        hint={`MAX(${dateField}) — pick a different date field in the Schema tab`}
+        hint={`MAX(${dateField}) — 可在 Schema 分頁選擇其他日期欄位`}
       />
     </Box>
   );

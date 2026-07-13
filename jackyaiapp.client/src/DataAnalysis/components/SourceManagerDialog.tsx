@@ -116,7 +116,7 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this data source? This action cannot be undone.')) return;
+    if (!window.confirm('刪除這個資料來源？此操作無法復原。')) return;
     try {
       await deleteSource(id).unwrap();
     } catch {
@@ -153,7 +153,7 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
       }
       setView('list');
     } catch {
-      setSaveError('Save failed — please check the connection details and try again.');
+      setSaveError('儲存失敗 — 請檢查連線資訊後再試一次。');
     }
   };
 
@@ -171,10 +171,10 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <SettingsIcon fontSize="small" />
         {view === 'list'
-          ? 'Manage Data Sources'
+          ? '管理資料來源'
           : editTarget
-            ? `Edit Source — ${editTarget.name}`
-            : 'New Data Source'}
+            ? `編輯來源 — ${editTarget.name}`
+            : '新增資料來源'}
       </DialogTitle>
       <DialogContent dividers sx={{ minHeight: 320 }}>
         {/* List view */}
@@ -183,7 +183,7 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
             {isLoading && <CircularProgress size={24} />}
             {!isLoading && sources.length === 0 && (
               <Typography color="text.secondary" sx={{ mt: 1 }}>
-                No saved data sources yet. Click <strong>Add Source</strong> to get started.
+                尚無已儲存的資料來源。點擊 <strong>新增來源</strong> 開始使用。
               </Typography>
             )}
             {sources.length > 0 && (
@@ -191,11 +191,11 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>Default Table</TableCell>
-                      <TableCell>Created</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell>名稱</TableCell>
+                      <TableCell>類型</TableCell>
+                      <TableCell>預設資料表</TableCell>
+                      <TableCell>建立時間</TableCell>
+                      <TableCell align="right">操作</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -212,14 +212,14 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
                         <TableCell>{s.defaultTableName ?? '—'}</TableCell>
                         <TableCell>{new Date(s.createdAt).toLocaleDateString()}</TableCell>
                         <TableCell align="right">
-                          <IconButton size="small" onClick={() => openEditForm(s)} title="Edit">
+                          <IconButton size="small" onClick={() => openEditForm(s)} title="編輯">
                             <EditIcon fontSize="small" />
                           </IconButton>
                           <IconButton
                             size="small"
                             color="error"
                             onClick={() => handleDelete(s.id)}
-                            title="Delete"
+                            title="刪除"
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -237,20 +237,20 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
         {view === 'form' && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField
-              label="Source Name"
+              label="來源名稱"
               size="small"
               fullWidth
               required
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              placeholder="e.g. My Production DB"
+              placeholder="例如：My Production DB"
             />
 
             <FormControl size="small" fullWidth>
-              <InputLabel>Connector Type</InputLabel>
+              <InputLabel>連接器類型</InputLabel>
               <Select
                 value={formType}
-                label="Connector Type"
+                label="連接器類型"
                 onChange={(e) => setFormType(e.target.value as DataSourceConnectorType)}
                 disabled={!!editTarget}
               >
@@ -261,7 +261,7 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
 
             {formType === 'MsSql' && (
               <TextField
-                label="Connection String"
+                label="連線字串 (Connection String)"
                 size="small"
                 fullWidth
                 required
@@ -271,8 +271,8 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
                 placeholder="Server=myserver;Database=mydb;User Id=sa;Password=..."
                 helperText={
                   editTarget
-                    ? "Leave as 'Password=***' to keep the existing password unchanged."
-                    : 'Full ADO.NET connection string including credentials.'
+                    ? "保留 'Password=***' 以維持原密碼不變。"
+                    : '完整的 ADO.NET 連線字串，含帳密資訊。'
                 }
                 slotProps={{
                   htmlInput: { autoComplete: 'new-password' },
@@ -283,7 +283,7 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
             {formType === 'Adx' && (
               <>
                 <TextField
-                  label="Cluster URI"
+                  label="叢集 URI (Cluster URI)"
                   size="small"
                   fullWidth
                   required
@@ -292,7 +292,7 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
                   placeholder="https://mycluster.eastus.kusto.windows.net"
                 />
                 <TextField
-                  label="Database"
+                  label="資料庫"
                   size="small"
                   fullWidth
                   required
@@ -301,33 +301,31 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
                 />
                 <Divider>
                   <Typography variant="caption" color="text.secondary">
-                    Service Principal (optional)
+                    服務主體 (Service Principal，選填)
                   </Typography>
                 </Divider>
                 <TextField
-                  label="Tenant ID"
+                  label="租戶 ID (Tenant ID)"
                   size="small"
                   fullWidth
                   value={formTenantId}
                   onChange={(e) => setFormTenantId(e.target.value)}
                 />
                 <TextField
-                  label="Client ID / App ID"
+                  label="用戶端 ID / App ID"
                   size="small"
                   fullWidth
                   value={formClientId}
                   onChange={(e) => setFormClientId(e.target.value)}
                 />
                 <TextField
-                  label="Client Secret"
+                  label="用戶端密碼 (Client Secret)"
                   size="small"
                   fullWidth
                   type="password"
                   value={formClientSecret}
                   onChange={(e) => setFormClientSecret(e.target.value)}
-                  helperText={
-                    editTarget ? "Leave as '***' to keep the existing secret." : undefined
-                  }
+                  helperText={editTarget ? "保留 '***' 以維持原密碼不變。" : undefined}
                   slotProps={{
                     htmlInput: { autoComplete: 'new-password' },
                   }}
@@ -338,13 +336,13 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
             <Divider />
 
             <TextField
-              label="Default Table Name (optional)"
+              label="預設資料表名稱（選填）"
               size="small"
               fullWidth
               value={formDefaultTable}
               onChange={(e) => setFormDefaultTable(e.target.value)}
-              placeholder="e.g. dbo.Orders or mydb.myTable"
-              helperText="Pre-filled in the Table field when this source is selected."
+              placeholder="例如：dbo.Orders 或 mydb.myTable"
+              helperText="選擇此來源時會自動帶入「資料表」欄位。"
             />
 
             {saveError && <Alert severity="error">{saveError}</Alert>}
@@ -355,17 +353,17 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
         {view === 'list' ? (
           <>
             <Button onClick={openNewForm} startIcon={<AddIcon />} variant="outlined">
-              Add Source
+              新增來源
             </Button>
             <Box sx={{ flex: 1 }} />
-            <Button onClick={handleClose}>Close</Button>
+            <Button onClick={handleClose}>關閉</Button>
           </>
         ) : (
           <>
-            <Button onClick={() => setView('list')}>Cancel</Button>
+            <Button onClick={() => setView('list')}>取消</Button>
             <Box sx={{ flex: 1 }} />
             <Button variant="contained" disabled={saving || !canSave} onClick={handleSave}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? '儲存中…' : '儲存'}
             </Button>
           </>
         )}

@@ -28,8 +28,8 @@ export function MeasureEditor({ measures, fields, onAdd, onRemove, onUpdate }: M
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="subtitle2">Measures</Typography>
-        <IconButton size="small" onClick={onAdd} title="Add measure">
+        <Typography variant="subtitle2">量測欄位 (Measures)</Typography>
+        <IconButton size="small" onClick={onAdd} title="新增量測欄位">
           <AddIcon fontSize="small" />
         </IconButton>
       </Box>
@@ -37,10 +37,10 @@ export function MeasureEditor({ measures, fields, onAdd, onRemove, onUpdate }: M
       {measures.map((m, i) => (
         <Box key={i} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
           <FormControl size="small" sx={{ flex: 2 }}>
-            <InputLabel>Field</InputLabel>
+            <InputLabel>欄位</InputLabel>
             <Select
               value={m.fieldName}
-              label="Field"
+              label="欄位"
               onChange={(e) => onUpdate(i, { fieldName: e.target.value as string })}
             >
               {fields.map((f) => (
@@ -52,10 +52,10 @@ export function MeasureEditor({ measures, fields, onAdd, onRemove, onUpdate }: M
           </FormControl>
 
           <FormControl size="small" sx={{ flex: 1 }}>
-            <InputLabel>Aggregation</InputLabel>
+            <InputLabel>聚合方式</InputLabel>
             <Select
               value={m.aggregation}
-              label="Aggregation"
+              label="聚合方式"
               onChange={(e) => onUpdate(i, { aggregation: e.target.value as AggregationType })}
             >
               {AGGREGATION_TYPES.map((a) => (

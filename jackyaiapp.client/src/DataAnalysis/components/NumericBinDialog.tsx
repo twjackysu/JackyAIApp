@@ -114,7 +114,7 @@ export function NumericBinDialog({
       const key = [Math.min(i, j), Math.max(i, j)].join('-');
       if (!seen.has(key)) {
         seen.add(key);
-        overlapPairs.push(`Bin ${i + 1} and Bin ${j + 1} overlap`);
+        overlapPairs.push(`區間 ${i + 1} 與區間 ${j + 1} 重疊`);
       }
     });
   });
@@ -126,7 +126,7 @@ export function NumericBinDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        Numeric Bins —{' '}
+        數值分組 (Numeric Bins) —{' '}
         <Box
           component="code"
           sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace' }}
@@ -136,14 +136,14 @@ export function NumericBinDialog({
       </DialogTitle>
       <DialogContent dividers>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-          Intervals are <strong>left-closed, right-open</strong>: a row matches bin [Min, Max) when{' '}
-          <code>Min ≤ value &lt; Max</code>. Leave Min blank for <em>−∞</em> (no lower bound); leave
-          Max blank for <em>+∞</em> (no upper bound).
+          區間為<strong>左閉右開</strong>：當 <code>Min ≤ 值 &lt; Max</code>{' '}
+          時，該筆資料屬於此區間。Min 留空代表 <em>−∞</em>（無下限）；Max 留空代表 <em>+∞</em>
+          （無上限）。
         </Typography>
 
         {bins.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            No bins yet — click <strong>Add Bin</strong> to start.
+            尚無區間 — 點擊 <strong>新增區間</strong> 開始。
           </Typography>
         )}
 
@@ -163,7 +163,7 @@ export function NumericBinDialog({
 
                 <TextField
                   size="small"
-                  label="Min"
+                  label="最小值"
                   placeholder="−∞"
                   value={b.min}
                   sx={{ flex: 1 }}
@@ -180,7 +180,7 @@ export function NumericBinDialog({
 
                 <TextField
                   size="small"
-                  label="Max"
+                  label="最大值"
                   placeholder="+∞"
                   value={b.max}
                   sx={{ flex: 1 }}
@@ -193,7 +193,7 @@ export function NumericBinDialog({
 
                 <TextField
                   size="small"
-                  label="Label *"
+                  label="標籤 *"
                   value={b.label}
                   sx={{ flex: 1.2 }}
                   error={e.emptyLabel}
@@ -229,12 +229,12 @@ export function NumericBinDialog({
                 </Typography>
                 {e.emptyLabel && (
                   <Typography variant="caption" color="error">
-                    Label is required.
+                    標籤為必填。
                   </Typography>
                 )}
                 {e.invalidRange && (
                   <Typography variant="caption" color="error">
-                    Min must be less than Max.
+                    最小值必須小於最大值。
                   </Typography>
                 )}
               </Box>
@@ -243,13 +243,13 @@ export function NumericBinDialog({
         })}
 
         <Button size="small" startIcon={<AddIcon />} onClick={addBin} sx={{ mt: 0.5 }}>
-          Add Bin
+          新增區間
         </Button>
 
         {/* ── Global overlap errors ── */}
         {overlapPairs.length > 0 && (
           <Alert severity="error" sx={{ mt: 2 }}>
-            <strong>Overlapping intervals detected:</strong>
+            <strong>偵測到重疊區間：</strong>
             <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
               {overlapPairs.map((msg) => (
                 <li key={msg}>{msg}</li>
@@ -263,20 +263,20 @@ export function NumericBinDialog({
         <TextField
           size="small"
           fullWidth
-          label="Fallback label (rows matching no bin)"
+          label="預設標籤（未落入任何區間的資料）"
           value={fallback}
           onChange={(e) => setFallback(e.target.value)}
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>取消</Button>
         <Button
           variant="contained"
           disabled={hasErrors}
           onClick={handleApply}
-          title={hasErrors ? 'Fix the errors above before applying' : undefined}
+          title={hasErrors ? '請先修正上方錯誤再套用' : undefined}
         >
-          Apply{hasErrors ? ' (fix errors first)' : ''}
+          套用{hasErrors ? '（請先修正錯誤）' : ''}
         </Button>
       </DialogActions>
     </Dialog>
