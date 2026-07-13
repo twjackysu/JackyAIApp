@@ -70,13 +70,15 @@ export interface SentenceTestResponse {
   grammarPattern?: string;
 }
 
-export type ExamType = 'Cloze' | 'Translation' | 'Sentence' | 'Listening';
+export type ExamType = 'Cloze' | 'Translation' | 'Sentence' | 'Listening' | 'ListeningResponse';
 
 export interface RecordExamResultRequest {
-  /** Required for word-based exam types; omitted for "Listening". */
+  /** Required for word-based exam types; omitted for "Listening"/"ListeningResponse". */
   wordId?: string;
   /** Required when examType is "Listening"; omitted otherwise. */
   listeningTestId?: string;
+  /** Required when examType is "ListeningResponse"; omitted otherwise. */
+  listeningResponseTestId?: string;
   examType: ExamType;
   correct: boolean;
   /** Optional 0–100 score for graded types (Sentence). */
@@ -102,6 +104,21 @@ export interface ListeningTestResponse {
 export interface ListeningBankPageResponse {
   items: ListeningTestResponse[];
   totalCount: number;
+}
+
+export interface ListeningResponseOption {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  explanation: string;
+}
+
+/** TOEIC Part 2 style "hear a question/statement, pick the best spoken response" question.
+ * isCorrect/explanation are included up front; the UI gates their display until answered. */
+export interface ListeningResponseTestResponse {
+  id: string;
+  prompt: string;
+  options: ListeningResponseOption[];
 }
 
 export interface RecordExamResultResponse {

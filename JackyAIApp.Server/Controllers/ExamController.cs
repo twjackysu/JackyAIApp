@@ -107,6 +107,40 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetListeningOptionAudio([FromQuery] string optionId)
         {
             var lookup = await _examService.GetListeningOptionTextAsync(optionId);
+            return await ToAudioResultAsync(lookup);
+        }
+
+        /// <summary>Serves a random/AI-generated TOEIC Part 2 "question + 3 spoken responses"
+        /// question. No image, so — unlike Part 1 — this generates live and grows its own bank
+        /// (see ExamService.GenerateListeningResponseExamAsync); flat charge covers the prompt
+        /// plus its 3 response options' TTS.</summary>
+        [HttpGet("listening/response")]
+        [ConsumeCredits(CreditCosts.ListeningResponseTest, "listening_response_test", "Listening response test")]
+        public async Task<IActionResult> GetListeningResponseTest() =>
+            ToActionResult(await _examService.GenerateListeningResponseExamAsync());
+
+        /// <summary>Synthesizes speech for a Part 2 question's opening prompt. Unbilled — covered
+        /// by the flat "listening/response" charge.</summary>
+        [HttpGet("listening/response/prompt-audio")]
+        public async Task<IActionResult> GetListeningResponsePromptAudio([FromQuery] string testId)
+        {
+            var lookup = await _examService.GetListeningResponsePromptTextAsync(testId);
+            return await ToAudioResultAsync(lookup);
+        }
+
+        /// <summary>Synthesizes speech for one Part 2 response option. Unbilled — covered by the
+        /// flat "listening/response" charge.</summary>
+        [HttpGet("listening/response/option-audio")]
+        public async Task<IActionResult> GetListeningResponseOptionAudio([FromQuery] string optionId)
+        {
+            var lookup = await _examService.GetListeningResponseOptionTextAsync(optionId);
+            return await ToAudioResultAsync(lookup);
+        }
+
+        /// <summary>Shared unbilled-TTS-lookup helper: resolves a ServiceResult&lt;string&gt; text
+        /// lookup into a cached-or-freshly-synthesized audio response.</summary>
+        private async Task<IActionResult> ToAudioResultAsync(ServiceResult lookup)
+        {
             if (!lookup.IsSuccess)
             {
                 return _responseFactory.CreateErrorResponse(lookup.Error!.Value, lookup.ErrorMessage!);

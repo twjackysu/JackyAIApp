@@ -139,11 +139,13 @@ namespace JackyAIApp.Server.DTO
     /// </summary>
     public class RecordExamResultRequest
     {
-        /// <summary>Required for word-based exam types; omitted for "Listening".</summary>
+        /// <summary>Required for word-based exam types; omitted for "Listening"/"ListeningResponse".</summary>
         public string? WordId { get; set; }
         /// <summary>Required when ExamType is "Listening"; omitted otherwise.</summary>
         public string? ListeningTestId { get; set; }
-        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening".</summary>
+        /// <summary>Required when ExamType is "ListeningResponse"; omitted otherwise.</summary>
+        public string? ListeningResponseTestId { get; set; }
+        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse".</summary>
         public required string ExamType { get; set; }
         public required bool Correct { get; set; }
         /// <summary>Optional 0–100 score for graded types (Sentence).</summary>
@@ -201,5 +203,38 @@ namespace JackyAIApp.Server.DTO
     {
         public required List<ListeningTestResponse> Items { get; set; }
         public required int TotalCount { get; set; }
+    }
+
+    /// <summary>
+    /// TOEIC Part 2 style "hear a question/statement, pick the best spoken response" question.
+    /// IsCorrect/Explanation sent up front, same UI-gating convention as ListeningTestResponse.
+    /// </summary>
+    public class ListeningResponseTestResponse
+    {
+        public required string Id { get; set; }
+        public required string Prompt { get; set; }
+        public required List<ListeningResponseOptionDto> Options { get; set; }
+    }
+
+    public class ListeningResponseOptionDto
+    {
+        public required string Id { get; set; }
+        public required string Text { get; set; }
+        public required bool IsCorrect { get; set; }
+        public required string Explanation { get; set; }
+    }
+
+    /// <summary>Raw shape the AI returns for a new Part 2 question — no Ids yet.</summary>
+    public class ListeningResponseGenerationResult
+    {
+        public required string Prompt { get; set; }
+        public required List<ListeningResponseOptionGen> Options { get; set; }
+    }
+
+    public class ListeningResponseOptionGen
+    {
+        public required string Text { get; set; }
+        public required bool IsCorrect { get; set; }
+        public required string Explanation { get; set; }
     }
 }

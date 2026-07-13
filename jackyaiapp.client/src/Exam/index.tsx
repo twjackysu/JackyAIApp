@@ -13,6 +13,7 @@ import { CREDIT_COSTS } from '../constants/creditCosts';
 
 import ClozeTestCard from './ClozeTestCard';
 import ConversationTestCard from './ConversationTestCard';
+import ListeningResponseTestCard from './ListeningResponseTestCard';
 import ListeningTestCard from './ListeningTestCard';
 import SentenceTestCard from './SentenceTestCard';
 import TranslationTestCard from './TranslationTestCard';
@@ -143,9 +144,23 @@ function Exam() {
             sx={styles.button}
           >
             <Box sx={{ textAlign: 'center' }}>
-              聽力測驗 (Listening Test)
+              聽力測驗 - 看圖 (Listening Part 1)
               <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
                 每次生成 {CREDIT_COSTS.LISTENING_TEST} credits
+              </Typography>
+            </Box>
+          </Button>
+          <Button
+            component={Link}
+            to="listeningResponse"
+            variant="outlined"
+            color="info"
+            sx={styles.button}
+          >
+            <Box sx={{ textAlign: 'center' }}>
+              聽力測驗 - 應答 (Listening Part 2)
+              <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
+                每次生成 {CREDIT_COSTS.LISTENING_RESPONSE_TEST} credits
               </Typography>
             </Box>
           </Button>
@@ -162,6 +177,7 @@ function Exam() {
         <Route path="conversation" element={<ConversationTestCard />} />
         <Route path="sentenceTest" element={<SentenceTestCard />} />
         <Route path="listening" element={<ListeningTestCard />} />
+        <Route path="listeningResponse" element={<ListeningResponseTestCard />} />
         <Route
           path="/"
           element={

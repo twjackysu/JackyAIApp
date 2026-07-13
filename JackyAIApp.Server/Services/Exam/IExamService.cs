@@ -26,6 +26,23 @@ namespace JackyAIApp.Server.Services.Exam
         /// <summary>Admin-only: paginated view of the full listening question bank.</summary>
         Task<ServiceResult> GetListeningBankAsync(int pageNumber, int pageSize);
 
+        /// <summary>
+        /// Serves a TOEIC Part 2 style "question/statement + 3 spoken responses" question. No
+        /// image, so — unlike Part 1 — generated live on demand and persisted for reuse (like
+        /// Cloze/Translation/Sentence): while the bank is small, always generates a fresh one via
+        /// AI; once it has grown, mostly reuses a random existing entry with an occasional
+        /// AI-generated top-up.
+        /// </summary>
+        Task<ServiceResult> GenerateListeningResponseExamAsync();
+
+        /// <summary>Looks up a Part 2 question's spoken prompt text, for the unbilled audio
+        /// playback endpoint.</summary>
+        Task<ServiceResult> GetListeningResponsePromptTextAsync(string testId);
+
+        /// <summary>Looks up a Part 2 response option's spoken text, for the unbilled audio
+        /// playback endpoint.</summary>
+        Task<ServiceResult> GetListeningResponseOptionTextAsync(string optionId);
+
         Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse);
 
         Task<ServiceResult> StartConversationAsync(ConversationStartRequest request);

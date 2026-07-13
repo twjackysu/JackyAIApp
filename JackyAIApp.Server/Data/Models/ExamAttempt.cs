@@ -31,7 +31,13 @@ namespace JackyAIApp.Server.Data.Models.SQL
         [ForeignKey(nameof(ListeningTestId))]
         public ListeningTest? ListeningTest { get; set; }
 
-        /// <summary>Exam type: "Cloze" | "Translation" | "Sentence" | "Listening".</summary>
+        /// <summary>The listening question attempted, if ExamType is "ListeningResponse".</summary>
+        public string? ListeningResponseTestId { get; set; }
+
+        [ForeignKey(nameof(ListeningResponseTestId))]
+        public ListeningResponseTest? ListeningResponseTest { get; set; }
+
+        /// <summary>Exam type: "Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse".</summary>
         public required string ExamType { get; set; }
 
         /// <summary>Whether the attempt counted as correct.</summary>
