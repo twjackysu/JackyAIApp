@@ -134,6 +134,133 @@ namespace JackyAIApp.Server.Services.Exam
             });
         }
 
+        // While the bank is still small, always generate a fresh Part 2 question so it fills up
+        // quickly; once it has enough entries, mostly reuse a random existing one (cheap) with an
+        // occasional AI-generated top-up (keeps the pool slowly growing instead of ever stalling).
+        private const int ListeningResponseBankGrowthThreshold = 20;
+        private const string ListeningResponseFeature = "exam.listening_response";
+
+        private static readonly (string User, string Assistant) ListeningResponseFewShotExample = (
+            User: "scheduling",
+            Assistant: JsonConvert.SerializeObject(new ListeningResponseGenerationResult
+            {
+                Prompt = "When is the quarterly report due?",
+                Options =
+                [
+                    new ListeningResponseOptionGen { Text = "By the end of this Friday.", IsCorrect = true, Explanation = "正確。直接回答了「何時」，給出明確的截止時間。" },
+                    new ListeningResponseOptionGen { Text = "In the third-floor conference room.", IsCorrect = false, Explanation = "錯誤。回答的是地點，答非所問（問題問的是時間）。" },
+                    new ListeningResponseOptionGen { Text = "Yes, I reported it already.", IsCorrect = false, Explanation = "錯誤。像是回應「report」這個字的聯想，並未回答何時截止。" },
+                ],
+            })
+        );
+
+        public async Task<ServiceResult> GenerateListeningResponseExamAsync()
+        {
+            var count = await _dbContext.ListeningResponseTests.CountAsync();
+            var shouldGenerate = count < ListeningResponseBankGrowthThreshold || Random.Shared.Next(5) == 0;
+
+            if (!shouldGenerate && count > 0)
+            {
+                var skip = Random.Shared.Next(count);
+                var existing = await _dbContext.ListeningResponseTests
+                    .Include(t => t.Options)
+                    .OrderBy(t => t.Id)
+                    .Skip(skip)
+                    .FirstAsync();
+
+                return ServiceResult.Ok(ToListeningResponseDto(existing));
+            }
+
+            var scenario = ListeningResponseScenarios[Random.Shared.Next(ListeningResponseScenarios.Length)];
+            var (dto, error) = await _promptService.GetCompletionAsync<ListeningResponseGenerationResult>(
+                "Prompt/Exam/ListeningResponseSystem.txt", scenario,
+                model: NewModels.GPT_4_1_NANO, examples: new[] { ListeningResponseFewShotExample },
+                feature: ListeningResponseFeature);
+
+            if (dto == null)
+            {
+                _logger.LogError("Failed to generate listening response question: {Error}", error);
+
+                // Fall back to an existing one rather than a hard failure, if the bank has any.
+                if (count > 0)
+                {
+                    var fallback = await _dbContext.ListeningResponseTests
+                        .Include(t => t.Options)
+                        .OrderBy(t => t.Id)
+                        .Skip(Random.Shared.Next(count))
+                        .FirstAsync();
+                    return ServiceResult.Ok(ToListeningResponseDto(fallback));
+                }
+
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
+                    "Query failed, OpenAI could not generate the question.");
+            }
+            if (dto.Options.Count != 3 || dto.Options.Count(o => o.IsCorrect) != 1)
+            {
+                _logger.LogError("Listening response generation returned malformed options ({Count} options, {CorrectCount} correct)",
+                    dto.Options.Count, dto.Options.Count(o => o.IsCorrect));
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
+                    "Generated question had an invalid option shape (expected 3 options, 1 correct).");
+            }
+
+            var testId = Guid.NewGuid().ToString();
+            var newTest = new SQL.ListeningResponseTest
+            {
+                Id = testId,
+                Prompt = dto.Prompt,
+                CreatedAt = DateTime.UtcNow,
+                Options = dto.Options.Select(o => new SQL.ListeningResponseOption
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Text = o.Text,
+                    IsCorrect = o.IsCorrect,
+                    Explanation = o.Explanation,
+                    ListeningResponseTestId = testId,
+                }).ToList(),
+            };
+
+            _dbContext.ListeningResponseTests.Add(newTest);
+            await _dbContext.SaveChangesAsync();
+
+            return ServiceResult.Ok(ToListeningResponseDto(newTest));
+        }
+
+        private static readonly string[] ListeningResponseScenarios =
+        [
+            "scheduling", "office supplies", "travel arrangements", "meeting logistics",
+            "deliveries and shipping", "IT support", "restaurant reservations", "job interviews",
+            "client requests", "building maintenance",
+        ];
+
+        private static ListeningResponseTestResponse ToListeningResponseDto(SQL.ListeningResponseTest t) => new()
+        {
+            Id = t.Id,
+            Prompt = t.Prompt,
+            Options = t.Options.Select(o => new ListeningResponseOptionDto
+            {
+                Id = o.Id,
+                Text = o.Text,
+                IsCorrect = o.IsCorrect,
+                Explanation = o.Explanation,
+            }).ToList(),
+        };
+
+        public async Task<ServiceResult> GetListeningResponsePromptTextAsync(string testId)
+        {
+            var test = await _dbContext.ListeningResponseTests.SingleOrDefaultAsync(t => t.Id == testId);
+            return test == null
+                ? ServiceResult.Fail(ErrorCodes.NotFound, "Listening response question not found.")
+                : ServiceResult.Ok(test.Prompt);
+        }
+
+        public async Task<ServiceResult> GetListeningResponseOptionTextAsync(string optionId)
+        {
+            var option = await _dbContext.ListeningResponseOptions.SingleOrDefaultAsync(o => o.Id == optionId);
+            return option == null
+                ? ServiceResult.Fail(ErrorCodes.NotFound, "Listening response option not found.")
+                : ServiceResult.Ok(option.Text);
+        }
+
         public async Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse)
         {
             // Credit gate (conditional on an authenticated user)
@@ -372,13 +499,19 @@ namespace JackyAIApp.Server.Services.Exam
             }
 
             bool isListening = request.ExamType == "Listening";
-            if (!isListening && string.IsNullOrEmpty(request.WordId))
+            bool isListeningResponse = request.ExamType == "ListeningResponse";
+            bool isWordless = isListening || isListeningResponse;
+            if (!isWordless && string.IsNullOrEmpty(request.WordId))
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "WordId is required for word-based exam types.");
             }
             if (isListening && string.IsNullOrEmpty(request.ListeningTestId))
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "ListeningTestId is required for Listening exam type.");
+            }
+            if (isListeningResponse && string.IsNullOrEmpty(request.ListeningResponseTestId))
+            {
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "ListeningResponseTestId is required for ListeningResponse exam type.");
             }
 
             // Log the attempt regardless of whether the word is still in the user's repository.
@@ -387,16 +520,17 @@ namespace JackyAIApp.Server.Services.Exam
                 UserId = userId,
                 WordId = request.WordId,
                 ListeningTestId = request.ListeningTestId,
+                ListeningResponseTestId = request.ListeningResponseTestId,
                 ExamType = request.ExamType,
                 IsCorrect = request.Correct,
                 Score = request.Score,
                 CreatedAt = DateTime.UtcNow,
             });
 
-            // Listening isn't word-scoped — no SM-2 vocab schedule to feed.
+            // Listening exam types aren't word-scoped — no SM-2 vocab schedule to feed.
             bool scheduleUpdated = false;
             SQL.UserWord? userWord = null;
-            if (!isListening)
+            if (!isWordless)
             {
                 // Feed the spaced-repetition schedule for this word, if the user has it saved.
                 userWord = await _dbContext.UserWords

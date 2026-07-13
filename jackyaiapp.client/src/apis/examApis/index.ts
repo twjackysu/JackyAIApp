@@ -18,6 +18,7 @@ import {
   RecordExamResultResponse,
   ListeningTestResponse,
   ListeningBankPageResponse,
+  ListeningResponseTestResponse,
 } from './types';
 
 import {
@@ -135,6 +136,11 @@ export const examApis = createApi({
       }),
       invalidatesTags: ['ListeningBank'],
     }),
+    getListeningResponseTest: builder.query<ApiOkResponse<ListeningResponseTestResponse>, void>({
+      query: () => ({
+        url: 'listening/response',
+      }),
+    }),
   }),
   tagTypes: ['ListeningBank'],
 });
@@ -153,4 +159,5 @@ export const {
   useGetListeningTestQuery,
   useGetListeningBankQuery,
   useGenerateListeningQuestionMutation,
+  useGetListeningResponseTestQuery,
 } = examApis;

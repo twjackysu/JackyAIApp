@@ -37,6 +37,10 @@ namespace JackyAIApp.Server.Common
         /// TTS for its 4 candidate statements into one flat charge; playback itself is free.</summary>
         public const ulong ListeningTest = 4;
 
+        /// <summary>Listening response test (TOEIC Part 2 style) — bundles the question fetch
+        /// plus TTS for the prompt and its 3 responses (4 audio clips total, same as ListeningTest).</summary>
+        public const ulong ListeningResponseTest = 4;
+
         /// <summary>Whisper audio transcription</summary>
         public const ulong AudioTranscription = 1;
 

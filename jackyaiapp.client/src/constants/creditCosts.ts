@@ -23,6 +23,8 @@ export const CREDIT_COSTS = {
   SENTENCE_EVALUATION: 2,
   /** Listening test (TOEIC Part 1 style) — bundles the question + its audio playback */
   LISTENING_TEST: 4,
+  /** Listening response test (TOEIC Part 2 style) — bundles the prompt + 3 response options' audio */
+  LISTENING_RESPONSE_TEST: 4,
   /** Whisper audio transcription */
   AUDIO_TRANSCRIPTION: 1,
   /** Stock analysis (AI-powered) */
