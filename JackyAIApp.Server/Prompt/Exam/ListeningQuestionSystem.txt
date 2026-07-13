@@ -17,8 +17,10 @@ single photograph and must pick which of four spoken statements best describes i
    vocabulary/setting) that are clearly false once you know the scene, not true statements about
    a different unrelated scene.
 
-4. For every option (including the correct one), write a one-sentence Traditional Chinese
-   explanation that names the specific visual detail supporting or ruling it out.
+4. IMPORTANT — language rule: "imagePrompt" and every option's "text" must be English. Every
+   option's "explanation" (including the correct one) must be written ENTIRELY in Traditional
+   Chinese (繁體中文) — not English, not Simplified Chinese. Each explanation is one sentence
+   naming the specific visual detail that supports or rules out that option.
 
 5. Output strictly a JSON object, no markdown fences, no extra text, in this shape:
 ```
