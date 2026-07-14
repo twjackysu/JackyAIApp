@@ -78,7 +78,7 @@ function TodayCard({ dueCount, todayChallengeDone }: TodayCardProps) {
           }
           subtitle="Spaced repetition — the words you're about to forget"
           actionLabel="Review"
-          to="/review"
+          to="/english/review"
         />
         <Step
           done={todayChallengeDone}
@@ -86,7 +86,7 @@ function TodayCard({ dueCount, todayChallengeDone }: TodayCardProps) {
           title="Daily challenge"
           subtitle="5 quick questions to keep your streak"
           actionLabel="Start"
-          to="/daily"
+          to="/english/daily"
         />
         <Step
           done={false}
@@ -94,7 +94,7 @@ function TodayCard({ dueCount, todayChallengeDone }: TodayCardProps) {
           title="Practice with an exam"
           subtitle="Optional — cloze, translation, sentence, conversation & listening tests (uses credits)"
           actionLabel="Practice"
-          to="/exam"
+          to="/english/exam"
         />
       </Box>
     </Paper>

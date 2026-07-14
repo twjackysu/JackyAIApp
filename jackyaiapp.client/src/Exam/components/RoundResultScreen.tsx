@@ -34,7 +34,7 @@ function RoundResultScreen({ correct, total, onRestart }: RoundResultScreenProps
         <Button variant="contained" onClick={onRestart}>
           再來一輪
         </Button>
-        <Button variant="outlined" onClick={() => navigate('/exam')}>
+        <Button variant="outlined" onClick={() => navigate('/english/exam')}>
           返回選單
         </Button>
       </Stack>

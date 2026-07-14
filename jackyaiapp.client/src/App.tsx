@@ -144,8 +144,8 @@ function App() {
               icon={<LocalFireDepartmentIcon />}
               iconPosition="start"
               label="每日挑戰 (Daily)"
-              value="/daily"
-              to="/daily"
+              value="/english/daily"
+              to="/english/daily"
               component={Link}
             />
             <Tab
@@ -160,16 +160,16 @@ function App() {
               icon={<BookmarkIcon />}
               iconPosition="start"
               label="儲存庫 (Repository)"
-              value="/repository"
-              to="/repository"
+              value="/english/repository"
+              to="/english/repository"
               component={Link}
             />
             <Tab
               icon={<QuizIcon />}
               iconPosition="start"
               label="考試 (Exam)"
-              value="/exam"
-              to="/exam"
+              value="/english/exam"
+              to="/english/exam"
               component={Link}
             />
             <Tab
@@ -186,16 +186,16 @@ function App() {
               }
               iconPosition="start"
               label="複習 (Review)"
-              value="/review"
-              to="/review"
+              value="/english/review"
+              to="/english/review"
               component={Link}
             />
             <Tab
               icon={<BarChartIcon />}
               iconPosition="start"
               label="進度 (Stats)"
-              value="/stats"
-              to="/stats"
+              value="/english/stats"
+              to="/english/stats"
               component={Link}
             />
           </Tabs>
@@ -214,7 +214,7 @@ function App() {
             <Route path={PDF_UNLOCKER.path} element={<PDFUnlocker />} />
             <Route path={ENGLISH_LEARNING.path} element={<Dictionary />} />
             <Route
-              path="/daily"
+              path="/english/daily"
               element={
                 <RequireAuth>
                   <DailyChallenge />
@@ -222,7 +222,7 @@ function App() {
               }
             />
             <Route
-              path="/review"
+              path="/english/review"
               element={
                 <RequireAuth>
                   <Review />
@@ -230,7 +230,7 @@ function App() {
               }
             />
             <Route
-              path="/stats"
+              path="/english/stats"
               element={
                 <RequireAuth>
                   <Stats />
@@ -238,7 +238,7 @@ function App() {
               }
             />
             <Route
-              path="/repository"
+              path="/english/repository"
               element={
                 <RequireAuth>
                   <Repository />
@@ -246,7 +246,7 @@ function App() {
               }
             />
             <Route
-              path="/exam/*"
+              path="/english/exam/*"
               element={
                 <RequireAuth>
                   <Exam />
