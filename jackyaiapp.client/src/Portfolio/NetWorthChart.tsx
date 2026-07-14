@@ -17,12 +17,16 @@ const RANGES: { label: string; days: number }[] = [
   { label: '6M', days: 180 },
 ];
 
-const fmt = (n: number) =>
+const fmt = (n: number) => {
+  // Negating a zero liability produces JS's negative zero, which toLocaleString renders
+  // as the string "-0" — normalize it away first (n === 0 is true for both +0 and -0).
+  const v = n === 0 ? 0 : n;
   // Liability series values are negated (see the stack comment below) — compare by
   // magnitude so a debt over 1M still gets the "-X.XXM" treatment instead of a raw number.
-  Math.abs(n) >= 1_000_000
-    ? `${(n / 1_000_000).toFixed(2)}M`
-    : n.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
+  return Math.abs(v) >= 1_000_000
+    ? `${(v / 1_000_000).toFixed(2)}M`
+    : v.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
+};
 
 export function NetWorthChart() {
   const [days, setDays] = useState(90);
@@ -106,7 +110,13 @@ export function NetWorthChart() {
     series: breakdown.map((s) => ({
       name: s.name,
       type: 'line' as const,
-      stack: 'total',
+      // Liability is deliberately its own stack, not part of the assets 'total' stack:
+      // ECharts stacks cumulatively, so sharing a stack made 負債's own line trace the
+      // *net worth* curve (since it's stacked last, its cumulative value == total) rather
+      // than its own value — every day debt went from 0 to something produced a jump from
+      // "gross assets" down to "net worth" instead of a clean dip from 0 to -debt. Its own
+      // stack group renders it independently, from a 0 baseline down to -debt.
+      stack: s.name === '負債' ? 'liability' : 'total',
       data: s.values,
       smooth: true,
       lineStyle: { width: 1.5, color: s.color },
