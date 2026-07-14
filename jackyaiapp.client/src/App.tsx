@@ -71,7 +71,13 @@ function App() {
   });
   const dueCount = dueCountRes?.data?.dueCount ?? 0;
 
-  const currentTab = isEnglishLearningSection ? path : ENGLISH_LEARNING.path;
+  // Bare "/english" renders Dictionary but isn't itself a Tab value — treat it as the
+  // Dictionary tab so the tab strip doesn't end up with nothing selected.
+  const currentTab = isEnglishLearningSection
+    ? path === '/english'
+      ? ENGLISH_LEARNING.path
+      : path
+    : ENGLISH_LEARNING.path;
 
   // Keep the document title in sync with the current site so each feels standalone.
   useEffect(() => {

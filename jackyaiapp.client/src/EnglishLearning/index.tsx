@@ -14,6 +14,8 @@ const Stats = lazy(() => import('../Stats'));
 function EnglishLearningRoutes() {
   return (
     <Routes>
+      {/* Bare "/english" renders Dictionary too — it's the section's default landing page. */}
+      <Route index element={<Dictionary />} />
       <Route path="dictionary" element={<Dictionary />} />
       <Route
         path="daily"

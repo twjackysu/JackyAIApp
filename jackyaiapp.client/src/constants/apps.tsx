@@ -48,6 +48,7 @@ export const ENGLISH_LEARNING: AppDef = {
   path: '/english/dictionary',
   icon: <SchoolIcon fontSize="small" />,
   allPaths: [
+    '/english',
     '/english/dictionary',
     '/english/repository',
     '/english/exam',
