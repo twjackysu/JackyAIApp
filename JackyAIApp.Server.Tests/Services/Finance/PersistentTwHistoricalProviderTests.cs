@@ -30,14 +30,27 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
                 .Options;
+            // Same options/database name as the factory below hands out to the provider — the
+            // in-memory provider shares the underlying store across context instances pointed at
+            // the same name, so seeding/asserting here and the provider's own factory-created
+            // contexts (mirroring prod's "fresh context per call" fix) see the same data.
             _dbContext = new AzureSQLDBContext(options);
 
             _inner = new Mock<ITWStockLibHistoricalProvider>();
             _provider = new PersistentTwHistoricalProvider(
-                _inner.Object, _dbContext, NullLogger<PersistentTwHistoricalProvider>.Instance);
+                _inner.Object, new TestDbContextFactory(options), NullLogger<PersistentTwHistoricalProvider>.Instance);
         }
 
         public void Dispose() => _dbContext.Dispose();
+
+        private class TestDbContextFactory(DbContextOptions<AzureSQLDBContext> options)
+            : IDbContextFactory<AzureSQLDBContext>
+        {
+            public AzureSQLDBContext CreateDbContext() => new(options);
+
+            public Task<AzureSQLDBContext> CreateDbContextAsync(CancellationToken cancellationToken = default) =>
+                Task.FromResult(new AzureSQLDBContext(options));
+        }
 
         /// <summary>Most recent weekday before <paramref name="today"/> — mirrors the provider's
         /// own (intentionally simple, holiday-unaware) LastTradingDayBefore so tests agree with it
@@ -283,6 +296,45 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _inner.Verify(x => x.FetchRangeAsync(
                 It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
                 It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task FetchAsync_CalledConcurrentlyForManySymbols_DoesNotThrow()
+        {
+            // Regression test for a real prod incident: PortfolioService fans FetchAsync out
+            // across every distinct symbol via Task.WhenAll within one request. When this
+            // provider used a single injected (scoped) AzureSQLDBContext, concurrent branches
+            // shared one context instance and EF Core threw "A second operation was started on
+            // this context instance..." — surfacing as spurious "報價失敗" on whichever symbols
+            // lost the race. The IDbContextFactory fix gives each FetchAsync call its own
+            // context, so this must complete cleanly for many symbols fetched in parallel.
+            var symbols = Enumerable.Range(1, 20).Select(i => $"S{i:0000}").ToList();
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var lastTradingDay = LastTradingDayBefore(today);
+
+            _inner.Setup(x => x.DetermineMarketType(It.IsAny<string>())).ReturnsAsync(MarketType.TSE);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+                    It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((string symbol, DateTime _, DateTime _, MarketType? _, CancellationToken _) =>
+                    new MarketData
+                    {
+                        StockCode = symbol,
+                        CompanyName = "Test Co " + symbol,
+                        HistoricalPrices = new List<DailyPrice>
+                        {
+                            new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Close = 100m, Open = 99m, High = 101m, Low = 98m, Volume = 10 },
+                        },
+                    });
+
+            var results = await Task.WhenAll(symbols.Select(s => _provider.FetchAsync(s)));
+
+            Assert.Equal(symbols.Count, results.Length);
+            Assert.All(results, r => Assert.Single(r.HistoricalPrices));
+            Assert.All(results, r => Assert.Equal(100m, r.HistoricalPrices[0].Close));
+
+            var persistedSymbols = await _dbContext.DailyStockPrices.Select(p => p.Symbol).Distinct().ToListAsync();
+            Assert.Equal(symbols.Count, persistedSymbols.Count);
         }
     }
 }

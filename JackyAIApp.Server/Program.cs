@@ -66,14 +66,20 @@ try
 
     // Configure SQL Database Context
     var sqlConnectionString = configuration.GetConnectionString("SQLConnection") ?? "";
-    builder.Services.AddDbContext<AzureSQLDBContext>(
-        options => options.UseSqlServer(sqlConnectionString, sqlOptions =>
+    void ConfigureSqlOptions(DbContextOptionsBuilder options) =>
+        options.UseSqlServer(sqlConnectionString, sqlOptions =>
         {
             sqlOptions.EnableRetryOnFailure(
                 maxRetryCount: 5,
                 maxRetryDelay: TimeSpan.FromSeconds(30),
                 errorNumbersToAdd: null);
-        }));
+        });
+    builder.Services.AddDbContext<AzureSQLDBContext>(ConfigureSqlOptions);
+    // Also register the factory form: DbContext isn't thread-safe, so code that fans out
+    // concurrent DB work within one request (e.g. PersistentTwHistoricalProvider, called from
+    // PortfolioService's Task.WhenAll across many stock symbols) needs a fresh, short-lived
+    // context per concurrent operation instead of sharing the one scoped instance.
+    builder.Services.AddDbContextFactory<AzureSQLDBContext>(ConfigureSqlOptions);
 
     builder.Services.AddAuthentication(options =>
     {

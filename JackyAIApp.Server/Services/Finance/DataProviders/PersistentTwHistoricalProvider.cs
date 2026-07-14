@@ -21,11 +21,18 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     /// .claude/plans/portfolio-db-price-cache.md for the full writeup.
     ///
     /// Phase 1 scope: TW stocks only (isin/STOCK_DAY are the dominant cost — see the plan doc).
+    ///
+    /// Uses <see cref="IDbContextFactory{TContext}"/> rather than an injected scoped DbContext:
+    /// PortfolioService fans this out across many symbols via Task.WhenAll within one request, and
+    /// a shared scoped DbContext isn't thread-safe for concurrent use — that combination briefly
+    /// shipped and caused "A second operation was started on this context instance..." exceptions
+    /// in prod, surfacing as spurious "報價失敗" on whichever symbols lost the race. Each FetchAsync
+    /// call now creates its own short-lived context, so concurrent symbol fetches never share one.
     /// </summary>
     public class PersistentTwHistoricalProvider : IMarketDataProvider
     {
         private readonly ITWStockLibHistoricalProvider _inner;
-        private readonly AzureSQLDBContext _db;
+        private readonly IDbContextFactory<AzureSQLDBContext> _dbFactory;
         private readonly ILogger<PersistentTwHistoricalProvider> _logger;
 
         private const string Market = "TW";
@@ -35,20 +42,22 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
         public PersistentTwHistoricalProvider(
             ITWStockLibHistoricalProvider inner,
-            AzureSQLDBContext db,
+            IDbContextFactory<AzureSQLDBContext> dbFactory,
             ILogger<PersistentTwHistoricalProvider> logger)
         {
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
-            _db = db ?? throw new ArgumentNullException(nameof(db));
+            _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public async Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
         {
+            await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+
             var today = DateOnly.FromDateTime(DateTime.Now);
             var windowStart = today.AddMonths(-LookbackMonths);
 
-            var existing = await _db.DailyStockPrices
+            var existing = await db.DailyStockPrices
                 .Where(p => p.Symbol == stockCode && p.Market == Market && p.TradeDate >= windowStart)
                 .OrderBy(p => p.TradeDate)
                 .ToListAsync(cancellationToken);
@@ -57,13 +66,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             var lastTradingDay = LastTradingDayBefore(today);
             var needsFetch = maxDate == null || maxDate.Value < lastTradingDay;
 
-            var companyName = await GetPersistedCompanyNameAsync(stockCode, cancellationToken);
+            var companyName = await GetPersistedCompanyNameAsync(db, stockCode, cancellationToken);
 
             if (needsFetch)
             {
                 try
                 {
-                    var marketType = await ResolveAndPersistMarketTypeAsync(stockCode, cancellationToken);
+                    var marketType = await ResolveAndPersistMarketTypeAsync(db, stockCode, cancellationToken);
                     // Only ask TWStockLib for what's actually missing — the whole point of this
                     // provider is to stop paying the full 6-month cost on every cold start.
                     var fetchStart = maxDate?.AddDays(1).ToDateTime(TimeOnly.MinValue)
@@ -74,13 +83,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     if (!string.IsNullOrWhiteSpace(fetched.CompanyName))
                     {
                         companyName = fetched.CompanyName;
-                        await PersistCompanyNameAsync(stockCode, fetched.CompanyName, cancellationToken);
+                        await PersistCompanyNameAsync(db, stockCode, fetched.CompanyName, cancellationToken);
                     }
 
-                    await UpsertFinalizedBarsAsync(stockCode, fetched.HistoricalPrices, today, cancellationToken);
+                    await UpsertFinalizedBarsAsync(db, stockCode, fetched.HistoricalPrices, today, cancellationToken);
 
                     // Re-read so the returned list is the consistent, sorted merge of old + new.
-                    existing = await _db.DailyStockPrices
+                    existing = await db.DailyStockPrices
                         .Where(p => p.Symbol == stockCode && p.Market == Market && p.TradeDate >= windowStart)
                         .OrderBy(p => p.TradeDate)
                         .ToListAsync(cancellationToken);
@@ -120,15 +129,17 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             return d;
         }
 
-        private async Task<string?> GetPersistedCompanyNameAsync(string symbol, CancellationToken ct)
+        private static async Task<string?> GetPersistedCompanyNameAsync(
+            AzureSQLDBContext db, string symbol, CancellationToken ct)
         {
-            var info = await _db.StockSymbolInfos.FindAsync([symbol], ct);
+            var info = await db.StockSymbolInfos.FindAsync([symbol], ct);
             return info?.Name;
         }
 
-        private async Task<MarketType> ResolveAndPersistMarketTypeAsync(string symbol, CancellationToken ct)
+        private async Task<MarketType> ResolveAndPersistMarketTypeAsync(
+            AzureSQLDBContext db, string symbol, CancellationToken ct)
         {
-            var info = await _db.StockSymbolInfos.FindAsync([symbol], ct);
+            var info = await db.StockSymbolInfos.FindAsync([symbol], ct);
             if (info != null && Enum.TryParse<MarketType>(info.TwMarketType, out var cached))
                 return cached;
 
@@ -140,7 +151,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
             if (info == null)
             {
-                _db.StockSymbolInfos.Add(new StockSymbolInfo
+                db.StockSymbolInfos.Add(new StockSymbolInfo
                 {
                     Symbol = symbol,
                     Market = Market,
@@ -156,7 +167,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
             try
             {
-                await _db.SaveChangesAsync(ct);
+                await db.SaveChangesAsync(ct);
             }
             catch (DbUpdateException ex)
             {
@@ -169,15 +180,16 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             return resolved;
         }
 
-        private async Task PersistCompanyNameAsync(string symbol, string name, CancellationToken ct)
+        private async Task PersistCompanyNameAsync(
+            AzureSQLDBContext db, string symbol, string name, CancellationToken ct)
         {
-            var info = await _db.StockSymbolInfos.FindAsync([symbol], ct);
+            var info = await db.StockSymbolInfos.FindAsync([symbol], ct);
             if (info == null || info.Name == name) return;
 
             info.Name = name;
             try
             {
-                await _db.SaveChangesAsync(ct);
+                await db.SaveChangesAsync(ct);
             }
             catch (DbUpdateException ex)
             {
@@ -188,7 +200,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// <summary>Only ever persists bars strictly before <paramref name="today"/> — today's
         /// price is still moving intraday and must never be frozen into the DB as a "close".</summary>
         private async Task UpsertFinalizedBarsAsync(
-            string symbol, List<DailyPrice> bars, DateOnly today, CancellationToken ct)
+            AzureSQLDBContext db, string symbol, List<DailyPrice> bars, DateOnly today, CancellationToken ct)
         {
             var finalized = bars
                 .Where(b => DateOnly.FromDateTime(b.Date) < today && b.Close > 0)
@@ -196,7 +208,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             if (finalized.Count == 0) return;
 
             var dates = finalized.Select(b => DateOnly.FromDateTime(b.Date)).ToList();
-            var existingDates = (await _db.DailyStockPrices
+            var existingDates = (await db.DailyStockPrices
                 .Where(p => p.Symbol == symbol && p.Market == Market && dates.Contains(p.TradeDate))
                 .Select(p => p.TradeDate)
                 .ToListAsync(ct))
@@ -218,10 +230,10 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 .ToList();
             if (toAdd.Count == 0) return;
 
-            _db.DailyStockPrices.AddRange(toAdd);
+            db.DailyStockPrices.AddRange(toAdd);
             try
             {
-                await _db.SaveChangesAsync(ct);
+                await db.SaveChangesAsync(ct);
             }
             catch (DbUpdateException ex)
             {
