@@ -18,7 +18,9 @@ const RANGES: { label: string; days: number }[] = [
 ];
 
 const fmt = (n: number) =>
-  n >= 1_000_000
+  // Liability series values are negated (see the stack comment below) — compare by
+  // magnitude so a debt over 1M still gets the "-X.XXM" treatment instead of a raw number.
+  Math.abs(n) >= 1_000_000
     ? `${(n / 1_000_000).toFixed(2)}M`
     : n.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
 

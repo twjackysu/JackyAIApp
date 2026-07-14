@@ -319,6 +319,7 @@ function AllocationCard({
             </Typography>
             <Typography variant="body2" sx={{ color: '#ef4444' }}>
               -NT${value(fmt(liability))}
+              {showRatio ? ` (-${pct(liability).toFixed(1)}%)` : ''}
             </Typography>
           </Box>
         )}

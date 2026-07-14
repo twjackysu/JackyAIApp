@@ -101,8 +101,10 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                   {GROUP_LABEL[g.key]}（{g.positions.length}）
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  {showRatio && total > 0 && g.key !== 'LIABILITY' && (
+                  {showRatio && total > 0 && (
                     <Typography variant="caption" color="text.secondary">
+                      {/* groupTotal is already negative for LIABILITY (sign-flip invariant,
+                          see PortfolioService), so this naturally renders e.g. "-3.2%". */}
                       {((groupTotal / total) * 100).toFixed(1)}%
                     </Typography>
                   )}
@@ -233,11 +235,9 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                   )}
                 </TableCell>
                 <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                  {p.assetType === 'LIABILITY'
-                    ? '—'
-                    : showRatio && total > 0
-                      ? `${((p.marketValueTWD / total) * 100).toFixed(1)}%`
-                      : '—'}
+                  {showRatio && total > 0
+                    ? `${((p.marketValueTWD / total) * 100).toFixed(1)}%`
+                    : '—'}
                 </TableCell>
                 <TableCell align="right">
                   {p.unrealizedPnlTWD != null && p.unrealizedPnlPct != null ? (
