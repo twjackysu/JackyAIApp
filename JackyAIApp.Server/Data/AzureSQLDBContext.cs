@@ -256,6 +256,19 @@ namespace JackyAIApp.Server.Data
 
             modelBuilder.Entity<ChatMessage>()
                 .HasIndex(m => new { m.ConversationId, m.CreatedAt });
+
+            // Persistent TW stock price cache (shared across users, immutable finalized bars).
+            modelBuilder.Entity<DailyStockPrice>()
+                .HasIndex(p => new { p.Symbol, p.TradeDate })
+                .IsUnique();
+            modelBuilder.Entity<DailyStockPrice>()
+                .Property(p => p.Open).HasPrecision(18, 4);
+            modelBuilder.Entity<DailyStockPrice>()
+                .Property(p => p.High).HasPrecision(18, 4);
+            modelBuilder.Entity<DailyStockPrice>()
+                .Property(p => p.Low).HasPrecision(18, 4);
+            modelBuilder.Entity<DailyStockPrice>()
+                .Property(p => p.Close).HasPrecision(18, 4);
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -287,5 +300,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<AiUsageLog> AiUsageLogs { get; set; }
         public virtual DbSet<ChatConversation> ChatConversations { get; set; }
         public virtual DbSet<ChatMessage> ChatMessages { get; set; }
+        public virtual DbSet<DailyStockPrice> DailyStockPrices { get; set; }
+        public virtual DbSet<StockSymbolInfo> StockSymbolInfos { get; set; }
     }
 }
