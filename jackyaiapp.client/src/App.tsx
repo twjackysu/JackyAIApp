@@ -38,21 +38,16 @@ import {
 const ListeningBankAdmin = lazy(() => import('./Admin/ListeningBank'));
 const Connectors = lazy(() => import('./Connectors'));
 const Credits = lazy(() => import('./Credits'));
-const DailyChallenge = lazy(() => import('./DailyChallenge'));
 const DataAnalysis = lazy(() => import('./DataAnalysis'));
 const DashboardList = lazy(() => import('./Dashboard/DashboardList'));
 const DashboardView = lazy(() => import('./Dashboard/DashboardView'));
-const Dictionary = lazy(() => import('./Dictionary'));
-const Exam = lazy(() => import('./Exam'));
+const EnglishLearningRoutes = lazy(() => import('./EnglishLearning'));
 const Finance = lazy(() => import('./Finance'));
 const Portfolio = lazy(() => import('./Portfolio'));
 const JobSearch = lazy(() => import('./JobSearch'));
 const PDFUnlocker = lazy(() => import('./PDFUnlocker'));
 const Portal = lazy(() => import('./Portal'));
 const Pricing = lazy(() => import('./Pricing'));
-const Repository = lazy(() => import('./Repository'));
-const Review = lazy(() => import('./Review'));
-const Stats = lazy(() => import('./Stats'));
 
 // Floating AI chatbot — available on every page (auth-gated internally).
 const FloatingChatbot = lazy(() => import('./components/FloatingChatbot'));
@@ -212,47 +207,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Portal />} />
             <Route path={PDF_UNLOCKER.path} element={<PDFUnlocker />} />
-            <Route path={ENGLISH_LEARNING.path} element={<Dictionary />} />
-            <Route
-              path="/english/daily"
-              element={
-                <RequireAuth>
-                  <DailyChallenge />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/english/review"
-              element={
-                <RequireAuth>
-                  <Review />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/english/stats"
-              element={
-                <RequireAuth>
-                  <Stats />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/english/repository"
-              element={
-                <RequireAuth>
-                  <Repository />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/english/exam/*"
-              element={
-                <RequireAuth>
-                  <Exam />
-                </RequireAuth>
-              }
-            />
+            <Route path="/english/*" element={<EnglishLearningRoutes />} />
             <Route
               path="/connectors"
               element={
