@@ -178,6 +178,13 @@ export function HoldingsEditor() {
               <Box key={r._key} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <TextField
                   size="small"
+                  label="名稱"
+                  value={r.name}
+                  onChange={(e) => patchRow(r._key, { name: e.target.value })}
+                  sx={{ width: 120 }}
+                />
+                <TextField
+                  size="small"
                   select
                   label="幣別"
                   value={r.currency}
