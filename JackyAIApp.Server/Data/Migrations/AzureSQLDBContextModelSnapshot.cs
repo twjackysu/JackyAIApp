@@ -342,6 +342,52 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("DailyChallengeResults");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyStockPrice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Close")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("High")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Low")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Market")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("Open")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateOnly>("TradeDate")
+                        .HasColumnType("date");
+
+                    b.Property<long>("Volume")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Symbol", "TradeDate")
+                        .IsUnique();
+
+                    b.ToTable("DailyStockPrices");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Dashboard", b =>
                 {
                     b.Property<Guid>("Id")
@@ -732,6 +778,30 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.HasIndex("WordId");
 
                     b.ToTable("SentenceTests");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.StockSymbolInfo", b =>
+                {
+                    b.Property<string>("Symbol")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("LastResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Market")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TwMarketType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Symbol");
+
+                    b.ToTable("StockSymbolInfos");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.TranslationTest", b =>

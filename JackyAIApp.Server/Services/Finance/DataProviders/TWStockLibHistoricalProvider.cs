@@ -10,7 +10,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     /// Fetches historical price data using TWStockLib NuGet package.
     /// Provides OHLCV data for technical indicator calculations.
     /// </summary>
-    public class TWStockLibHistoricalProvider : IMarketDataProvider
+    public class TWStockLibHistoricalProvider : IMarketDataProvider, ITWStockLibHistoricalProvider
     {
         private readonly IStockMarketService _stockService;
         private readonly IMemoryCache _cache;
@@ -32,17 +32,31 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
+        public Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            FetchRangeAsync(stockCode, DateTime.Now.AddMonths(-DEFAULT_LOOKBACK_MONTHS), DateTime.Now,
+                knownMarketType: null, cancellationToken);
+
+        /// <summary>
+        /// Fetch a specific date range rather than the fixed <see cref="DEFAULT_LOOKBACK_MONTHS"/>
+        /// window. Used directly by <c>PersistentTwHistoricalProvider</c> for gap-only fetches
+        /// (only the days missing from its DB cache) instead of always re-pulling the full window.
+        /// </summary>
+        /// <param name="stockCode">TW stock code.</param>
+        /// <param name="startDate">Range start (inclusive).</param>
+        /// <param name="endDate">Range end (inclusive).</param>
+        /// <param name="knownMarketType">Skip re-resolving TSE/OTC when the caller already knows
+        /// it (e.g. from its own DB-persisted resolution) — avoids a redundant lookup.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        public async Task<MarketData> FetchRangeAsync(
+            string stockCode, DateTime startDate, DateTime endDate,
+            MarketType? knownMarketType, CancellationToken cancellationToken = default)
         {
             var marketData = new MarketData { StockCode = stockCode };
 
             try
             {
-                var endDate = DateTime.Now;
-                var startDate = endDate.AddMonths(-DEFAULT_LOOKBACK_MONTHS);
-
                 // Determine market type (TSE or OTC)
-                var marketType = await DetermineMarketType(stockCode);
+                var marketType = knownMarketType ?? await DetermineMarketType(stockCode);
 
                 _logger.LogInformation(
                     "Fetching historical data for {stockCode} from {start:yyyy-MM-dd} to {end:yyyy-MM-dd} on {market}",
@@ -111,8 +125,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// <summary>
         /// Determines whether a stock is on TSE or OTC market.
         /// Tries TSE first (majority of stocks), falls back to OTC.
+        /// Public (via <see cref="ITWStockLibHistoricalProvider"/>) so <c>PersistentTwHistoricalProvider</c>
+        /// can reuse this memory-cached resolution instead of duplicating the isin-list lookup
+        /// logic when it needs to resolve a symbol it hasn't persisted to <c>StockSymbolInfo</c> yet.
         /// </summary>
-        private async Task<MarketType> DetermineMarketType(string stockCode)
+        public async Task<MarketType> DetermineMarketType(string stockCode)
         {
             try
             {

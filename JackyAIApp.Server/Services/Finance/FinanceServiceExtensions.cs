@@ -55,11 +55,16 @@ namespace JackyAIApp.Server.Services.Finance
             services.AddSingleton<IIndicatorEngine, IndicatorEngine>();
 
             // === Register data providers ===
-            // Historical price provider (TWStockLib) with cache decorator
+            // Historical price provider (TWStockLib), wrapped by a DB-backed persistence layer
+            // (survives Azure App Service free-tier cold starts, which wipe IMemoryCache — see
+            // .claude/plans/portfolio-db-price-cache.md), then the existing 4h memory cache on top
+            // (saves DB round-trips within a single warm process).
             services.AddScoped<TWStockLibHistoricalProvider>();
+            services.AddScoped<ITWStockLibHistoricalProvider>(sp => sp.GetRequiredService<TWStockLibHistoricalProvider>());
+            services.AddScoped<PersistentTwHistoricalProvider>();
             services.AddScoped<IMarketDataProvider>(sp =>
             {
-                var inner = sp.GetRequiredService<TWStockLibHistoricalProvider>();
+                var inner = sp.GetRequiredService<PersistentTwHistoricalProvider>();
                 var cache = sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
                 var logger = sp.GetRequiredService<ILogger<CachedMarketDataProvider>>();
                 return new CachedMarketDataProvider(inner, cache, logger);
