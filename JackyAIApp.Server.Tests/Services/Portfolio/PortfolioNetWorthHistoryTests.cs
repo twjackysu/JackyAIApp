@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.DTO.Finance;
@@ -37,6 +38,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<IMarketDataProviderFactory> _providerFactory;
         private readonly Mock<IFundDataService> _fundData;
+        private readonly Mock<IStockCategoryService> _categoryService;
         private readonly PortfolioService _service;
 
         public PortfolioNetWorthHistoryTests()
@@ -58,12 +60,14 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var cache = new MemoryCache(new MemoryCacheOptions());
             var openAI = new Mock<IOpenAIPromptService>();
             var creditService = new Mock<ICreditService>();
+            _categoryService = new Mock<IStockCategoryService>();
 
             _service = new PortfolioService(
                 _dbContext,
                 _providerFactory.Object,
                 _fundData.Object,
                 dividendData.Object,
+                _categoryService.Object,
                 stockService: null!,
                 httpClientFactory.Object,
                 cache,
@@ -101,11 +105,11 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             // Weekday(2) = first price point; Weekday(3) holds (no newer point yet); Weekday(4)
             // advances to the next point; Weekday(5) holds; Weekday(6) advances to the last point.
-            Assert.Equal(50_000m, byDate[Weekday(2).ToString("yyyy-MM-dd")].TwStockTWD);
-            Assert.Equal(50_000m, byDate[Weekday(3).ToString("yyyy-MM-dd")].TwStockTWD);
-            Assert.Equal(60_000m, byDate[Weekday(4).ToString("yyyy-MM-dd")].TwStockTWD);
-            Assert.Equal(60_000m, byDate[Weekday(5).ToString("yyyy-MM-dd")].TwStockTWD);
-            Assert.Equal(70_000m, byDate[Weekday(6).ToString("yyyy-MM-dd")].TwStockTWD);
+            Assert.Equal(50_000m, GroupValue(byDate[Weekday(2).ToString("yyyy-MM-dd")], "TwStock"));
+            Assert.Equal(50_000m, GroupValue(byDate[Weekday(3).ToString("yyyy-MM-dd")], "TwStock"));
+            Assert.Equal(60_000m, GroupValue(byDate[Weekday(4).ToString("yyyy-MM-dd")], "TwStock"));
+            Assert.Equal(60_000m, GroupValue(byDate[Weekday(5).ToString("yyyy-MM-dd")], "TwStock"));
+            Assert.Equal(70_000m, GroupValue(byDate[Weekday(6).ToString("yyyy-MM-dd")], "TwStock"));
         }
 
         [Fact]
@@ -153,13 +157,64 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             // Before any NAV point: falls back to the stored UnitPrice (10), matching the live
             // valuation loop's fallback semantics.
-            Assert.Equal(10_000m, byDate[snapshotDate.ToString("yyyy-MM-dd")].FundTWD);
-            Assert.Equal(12_000m, byDate[Weekday(1).ToString("yyyy-MM-dd")].FundTWD);
-            Assert.Equal(12_000m, byDate[Weekday(2).ToString("yyyy-MM-dd")].FundTWD);
-            Assert.Equal(15_000m, byDate[Weekday(4).ToString("yyyy-MM-dd")].FundTWD);
+            Assert.Equal(10_000m, GroupValue(byDate[snapshotDate.ToString("yyyy-MM-dd")], "Fund"));
+            Assert.Equal(12_000m, GroupValue(byDate[Weekday(1).ToString("yyyy-MM-dd")], "Fund"));
+            Assert.Equal(12_000m, GroupValue(byDate[Weekday(2).ToString("yyyy-MM-dd")], "Fund"));
+            Assert.Equal(15_000m, GroupValue(byDate[Weekday(4).ToString("yyyy-MM-dd")], "Fund"));
+        }
+
+        [Fact]
+        public async Task GetNetWorthHistory_GroupByCategory_BucketsPositionsByAiCategory()
+        {
+            var snapshotDate = Weekday(0);
+            await SeedSnapshotAsync(snapshotDate,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 100,
+                },
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 50_000 });
+
+            SetupStockProvider("2330", MarketRegion.TW, (snapshotDate, 500m));
+            _categoryService.Setup(x => x.GetCategoryAsync(
+                    AssetType.STOCK, "2330", "台積電", "TW", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((PortfolioCategory.Semiconductor, "晶圓代工"));
+
+            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Category);
+            var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
+
+            // AI-classified stock lands in its own category; CASH is mapped directly (no AI call).
+            Assert.Equal(50_000m, GroupValue(point, "Semiconductor"));
+            Assert.Equal(50_000m, GroupValue(point, "Cash"));
+            Assert.Equal(100_000m, point.TotalTWD);
+            _categoryService.Verify(x => x.GetCategoryAsync(
+                AssetType.CASH, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task GetNetWorthHistory_GroupByCurrency_BucketsPositionsByDeclaredCurrency()
+        {
+            var snapshotDate = Weekday(0);
+            await SeedSnapshotAsync(snapshotDate,
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "台幣現金", Currency = "TWD", Quantity = 100_000 },
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "美金現金", Currency = "USD", Quantity = 1_000 });
+
+            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Currency);
+            var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
+
+            Assert.Equal(100_000m, GroupValue(point, "TWD"));
+            // USD cash converted at the snapshot's stored FX rate (32) — see SeedSnapshotAsync.
+            Assert.Equal(32_000m, GroupValue(point, "USD"));
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
+
+        /// <summary>Missing group key = that group contributed nothing that day (Add() only ever
+        /// creates an entry when a position actually contributes), so 0 is the correct default —
+        /// mirrors the old fixed-field DTO's implicit 0 for an untouched asset-type field.</summary>
+        private static decimal GroupValue(NetWorthDataPoint point, string key) =>
+            point.Groups.FirstOrDefault(g => g.Key == key)?.ValueTWD ?? 0m;
 
         private static DateOnly MostRecentMonday(DateOnly from)
         {

@@ -45,12 +45,14 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var cache = new MemoryCache(new MemoryCacheOptions());
             var openAI = new Mock<IOpenAIPromptService>();
             var creditService = new Mock<ICreditService>();
+            var categoryService = new Mock<IStockCategoryService>();
 
             _service = new PortfolioService(
                 _dbContext,
                 providerFactory.Object,
                 fundData.Object,
                 _dividendData.Object,
+                categoryService.Object,
                 stockService: null!,
                 httpClientFactory.Object,
                 cache,

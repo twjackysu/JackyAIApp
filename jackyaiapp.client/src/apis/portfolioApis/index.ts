@@ -7,6 +7,7 @@ import {
   FundSearchItem,
   HoldingPriceHistoryDto,
   NetWorthDataPoint,
+  NetWorthGroupBy,
   PortfolioAiSummaryDto,
   PortfolioSummaryDto,
   SaveHoldingsRequest,
@@ -46,8 +47,12 @@ export const portfolioApis = createApi({
     searchFunds: builder.query<ApiOkResponse<FundSearchItem[]>, string>({
       query: (keyword) => `funds/search?keyword=${encodeURIComponent(keyword)}`,
     }),
-    getNetWorthHistory: builder.query<ApiOkResponse<NetWorthDataPoint[]>, number>({
-      query: (days) => `net-worth-history?days=${days}`,
+    getNetWorthHistory: builder.query<
+      ApiOkResponse<NetWorthDataPoint[]>,
+      { days: number; groupBy?: NetWorthGroupBy }
+    >({
+      query: ({ days, groupBy }) =>
+        `net-worth-history?days=${days}${groupBy ? `&groupBy=${groupBy}` : ''}`,
       providesTags: ['Summary'],
     }),
     lookupStock: builder.query<ApiOkResponse<StockLookupDto>, { market: string; symbol: string }>({

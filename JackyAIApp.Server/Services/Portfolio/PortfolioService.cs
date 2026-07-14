@@ -17,6 +17,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         IMarketDataProviderFactory providerFactory,
         IFundDataService fundData,
         IDividendService dividendData,
+        IStockCategoryService categoryService,
         TWStockLib.Services.IStockMarketService stockService,
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
@@ -373,7 +374,8 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         // ── Net worth history ────────────────────────────────────────────────
 
-        public async Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(string userId, int days, CancellationToken ct = default)
+        public async Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(
+            string userId, int days, NetWorthGroupBy groupBy = NetWorthGroupBy.AssetType, CancellationToken ct = default)
         {
             days = Math.Clamp(days, 7, 180);
 
@@ -419,6 +421,28 @@ namespace JackyAIApp.Server.Services.Portfolio
                 kv => kv.Value.Prices.OrderBy(x => x.Date, StringComparer.Ordinal).ToList());
             var fundCursors = fundNavMap.Keys.ToDictionary(k => k, _ => 0);
 
+            // Only resolved when actually needed (groupBy: category) — one AI-classification call
+            // per distinct STOCK/FUND symbol, warmed concurrently up front just like the price
+            // fetches above rather than sequentially inside the day loop. CASH/LIABILITY don't need
+            // a lookup (mapped directly by the switch below); most calls are cache hits after the
+            // first time a symbol is ever seen (StockCategoryService persists to StockSymbolInfo).
+            var categoryMap = new Dictionary<string, PortfolioCategory>();
+            if (groupBy == NetWorthGroupBy.Category)
+            {
+                var classifiable = snapshots
+                    .SelectMany(s => s.Positions)
+                    .Where(p => p.AssetType is AssetType.STOCK or AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol))
+                    .GroupBy(p => p.Symbol)
+                    .Select(g => g.Last()) // most recent name/market info for that symbol
+                    .ToList();
+                var resolved = await Task.WhenAll(classifiable.Select(async p =>
+                {
+                    var (category, _) = await categoryService.GetCategoryAsync(p.AssetType, p.Symbol, p.Name, p.Market, ct);
+                    return (p.Symbol, Category: category);
+                }));
+                categoryMap = resolved.ToDictionary(r => r.Symbol, r => r.Category);
+            }
+
             // Snapshots are sorted ascending by EffectiveDate (AllSnapshotsAsync), and `date` only
             // ever increases below — walk a single cursor forward instead of re-scanning the whole
             // snapshot list ("active = latest with EffectiveDate <= date") on every day.
@@ -435,9 +459,16 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (active == null) continue;
 
                 var fx = active.UsdTwdRate > 0 ? active.UsdTwdRate : 32m;
-                decimal twStock = 0, usStock = 0, cash = 0, fund = 0, liability = 0;
+                var groups = new Dictionary<string, decimal>();
+                decimal total = 0;
                 var dt = date.ToDateTime(TimeOnly.MinValue);
                 var dayKey = date.ToString("yyyy-MM-dd");
+
+                void Add(string key, decimal valueTWD)
+                {
+                    groups[key] = groups.GetValueOrDefault(key) + valueTWD;
+                    total += valueTWD;
+                }
 
                 foreach (var p in active.Positions)
                 {
@@ -445,11 +476,13 @@ namespace JackyAIApp.Server.Services.Portfolio
 
                     if (p.AssetType == AssetType.CASH)
                     {
-                        cash += p.Quantity * fxMul;
+                        Add(GroupKey(groupBy, p, categoryMap, PortfolioCategory.Cash), p.Quantity * fxMul);
                     }
                     else if (p.AssetType == AssetType.LIABILITY)
                     {
-                        liability -= p.Quantity * fxMul;
+                        // Negative — the sole sign-flip point, same invariant as the summary
+                        // endpoint's valuation loop. Every downstream sum (here: `total`) just adds.
+                        Add(GroupKey(groupBy, p, categoryMap, PortfolioCategory.Liability), -(p.Quantity * fxMul));
                     }
                     else if (p.AssetType == AssetType.FUND)
                     {
@@ -472,7 +505,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                                     nav = prices[idx].Close;
                             }
                         }
-                        if (nav > 0) fund += nav * p.Quantity * fundFxMul;
+                        if (nav > 0)
+                            Add(GroupKey(groupBy, p, categoryMap, PortfolioCategory.Other), nav * p.Quantity * fundFxMul);
                     }
                     else // STOCK
                     {
@@ -484,12 +518,10 @@ namespace JackyAIApp.Server.Services.Portfolio
                         if (prices[idx].Date.Date > dt) continue; // no price at/before this date yet
                         var close = prices[idx].Close;
                         if (close <= 0) continue;
-                        var v = close * p.Quantity * fxMul;
-                        if (p.Market == "US") usStock += v; else twStock += v;
+                        Add(GroupKey(groupBy, p, categoryMap, PortfolioCategory.Other), close * p.Quantity * fxMul);
                     }
                 }
 
-                var total = twStock + usStock + cash + fund + liability;
                 // Only "== 0" (not "<= 0"): a day where nothing could be priced lands on exactly
                 // 0 and should be skipped as no-data. A real negative total (debt exceeding assets)
                 // is a valid data point and must not be dropped from the chart.
@@ -499,15 +531,39 @@ namespace JackyAIApp.Server.Services.Portfolio
                 {
                     Date = date.ToString("yyyy-MM-dd"),
                     TotalTWD = total,
-                    TwStockTWD = twStock,
-                    UsStockTWD = usStock,
-                    CashTWD = cash,
-                    FundTWD = fund,
-                    LiabilityTWD = -liability,
+                    Groups = groups.Select(kv => new NetWorthGroupValue { Key = kv.Key, ValueTWD = kv.Value }).ToList(),
                 });
             }
 
             return result;
+        }
+
+        /// <summary>Group key for one position under the requested groupBy mode. `fallbackCategory`
+        /// is only used in Category mode, for asset types that skip the categoryMap lookup (CASH/
+        /// LIABILITY are mapped directly to Cash/Liability without ever entering categoryMap; a
+        /// STOCK/FUND symbol somehow missing from a pre-warmed categoryMap falls back to Other
+        /// rather than throwing).</summary>
+        private static string GroupKey(
+            NetWorthGroupBy groupBy, HoldingPosition p,
+            Dictionary<string, PortfolioCategory> categoryMap, PortfolioCategory fallbackCategory)
+        {
+            return groupBy switch
+            {
+                NetWorthGroupBy.Category => p.AssetType switch
+                {
+                    AssetType.CASH => nameof(PortfolioCategory.Cash),
+                    AssetType.LIABILITY => nameof(PortfolioCategory.Liability),
+                    _ => (categoryMap.TryGetValue(p.Symbol, out var cat) ? cat : fallbackCategory).ToString(),
+                },
+                NetWorthGroupBy.Currency => p.Currency == "USD" ? "USD" : "TWD",
+                _ => p.AssetType switch
+                {
+                    AssetType.CASH => "Cash",
+                    AssetType.LIABILITY => "Liability",
+                    AssetType.FUND => "Fund",
+                    _ => p.Market == "US" ? "UsStock" : "TwStock", // STOCK
+                },
+            };
         }
 
         // ── Lookup + price history ───────────────────────────────────────────

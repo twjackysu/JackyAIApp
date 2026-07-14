@@ -74,10 +74,16 @@ namespace JackyAIApp.Server.Controllers
         }
 
         [HttpGet("net-worth-history")]
-        public async Task<IActionResult> GetNetWorthHistory([FromQuery] int days = 90, CancellationToken ct = default)
+        public async Task<IActionResult> GetNetWorthHistory(
+            [FromQuery] int days = 90, [FromQuery] string groupBy = "assetType", CancellationToken ct = default)
         {
             var userId = RequireUserId();
-            var result = await portfolioService.GetNetWorthHistoryAsync(userId, days, ct);
+            // Fail-soft on an unrecognized groupBy value (falls back to AssetType) rather than
+            // rejecting the request — this is a display toggle, not a validated business input.
+            var parsedGroupBy = Enum.TryParse<NetWorthGroupBy>(groupBy, ignoreCase: true, out var g)
+                ? g
+                : NetWorthGroupBy.AssetType;
+            var result = await portfolioService.GetNetWorthHistoryAsync(userId, days, parsedGroupBy, ct);
             return responseFactory.CreateOKResponse(result);
         }
 
