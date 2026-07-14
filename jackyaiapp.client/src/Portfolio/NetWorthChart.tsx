@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { MASK, usePrivacy } from './privacy';
 
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
+import { NetWorthGroupBy } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
 
 const RANGES: { label: string; days: number }[] = [
@@ -17,12 +18,71 @@ const RANGES: { label: string; days: number }[] = [
   { label: '6M', days: 180 },
 ];
 
+const VIEW_BY_OPTIONS: { label: string; value: NetWorthGroupBy }[] = [
+  { label: '資產類型', value: 'assetType' },
+  { label: '產業', value: 'category' },
+  { label: '幣別', value: 'currency' },
+];
+
+// One combined map for every key any groupBy mode can produce — assetType and category modes
+// both use "Cash"/"Liability", and sharing one entry keeps that color/label consistent across
+// modes. A key not listed here (shouldn't happen — the backend enum is a closed set) falls back
+// to its raw key as the label and a neutral gray, rather than crashing.
+const KEY_LABELS: Record<string, string> = {
+  // assetType
+  TwStock: '台股',
+  UsStock: '美股',
+  Cash: '現金',
+  Fund: '基金',
+  Liability: '負債',
+  // category (PortfolioCategory enum names)
+  Semiconductor: '半導體',
+  TechSoftware: '科技軟體',
+  Financials: '金融',
+  Manufacturing: '傳產製造',
+  Consumer: '民生消費',
+  Healthcare: '醫療生技',
+  Materials: '能源原物料',
+  Utilities: '電信公用',
+  RealEstate: '房地產REITs',
+  BroadMarket: '市值型',
+  DividendEquity: '高股息',
+  Bond: '債券',
+  Other: '其他',
+  // currency
+  TWD: '台幣',
+  USD: '美元',
+};
+
+const KEY_COLORS: Record<string, string> = {
+  TwStock: '#3B82F6',
+  UsStock: '#10B981',
+  Cash: '#A78BFA',
+  Fund: '#EC4899',
+  Liability: '#ef4444',
+  Semiconductor: '#3B82F6',
+  TechSoftware: '#6366F1',
+  Financials: '#F59E0B',
+  Manufacturing: '#78716C',
+  Consumer: '#F97316',
+  Healthcare: '#14B8A6',
+  Materials: '#84CC16',
+  Utilities: '#0EA5E9',
+  RealEstate: '#D946EF',
+  BroadMarket: '#10B981',
+  DividendEquity: '#EAB308',
+  Bond: '#8B5CF6',
+  Other: '#9CA3AF',
+  TWD: '#3B82F6',
+  USD: '#10B981',
+};
+
 const fmt = (n: number) => {
   // Negating a zero liability produces JS's negative zero, which toLocaleString renders
   // as the string "-0" — normalize it away first (n === 0 is true for both +0 and -0).
   const v = n === 0 ? 0 : n;
-  // Liability series values are negated (see the stack comment below) — compare by
-  // magnitude so a debt over 1M still gets the "-X.XXM" treatment instead of a raw number.
+  // Compare by magnitude, not value — some groups (e.g. Liability) are negative, and a debt
+  // over 1M should still get the "-X.XXM" treatment instead of a raw number.
   return Math.abs(v) >= 1_000_000
     ? `${(v / 1_000_000).toFixed(2)}M`
     : v.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
@@ -30,8 +90,9 @@ const fmt = (n: number) => {
 
 export function NetWorthChart() {
   const [days, setDays] = useState(90);
+  const [groupBy, setGroupBy] = useState<NetWorthGroupBy>('assetType');
   const { mode } = usePrivacy();
-  const { data: res, isLoading } = useGetNetWorthHistoryQuery(days);
+  const { data: res, isLoading } = useGetNetWorthHistoryQuery({ days, groupBy });
   const points = res?.data ?? [];
 
   if (isLoading) {
@@ -52,22 +113,18 @@ export function NetWorthChart() {
 
   const dates = points.map((p) => p.date);
   const totals = points.map((p) => p.totalTWD);
-  const twValues = points.map((p) => p.twStockTWD);
-  const usValues = points.map((p) => p.usStockTWD);
-  const cashValues = points.map((p) => p.cashTWD);
-  const fundValues = points.map((p) => p.fundTWD);
-  // Negative so the stack nets down to totalTWD — liabilityTWD itself is stored positive.
-  const liabilityValues = points.map((p) => -p.liabilityTWD);
 
-  const breakdown = [
-    { name: '台股', values: twValues, color: '#3B82F6' },
-    { name: '美股', values: usValues, color: '#10B981' },
-    { name: '現金', values: cashValues, color: '#A78BFA' },
-    { name: '基金', values: fundValues, color: '#EC4899' },
-    { name: '負債', values: liabilityValues, color: '#ef4444' },
-    // Liability is the only series that can be negative, so "has any value" (not "> 0")
-    // is the right presence check — otherwise it would always be filtered out below.
-  ].filter((s) => s.values.some((v) => v !== 0));
+  // Every distinct group key seen across the whole range — different days can have different
+  // active groups (e.g. a category only appears once its symbol gets held/classified).
+  const allKeys = Array.from(new Set(points.flatMap((p) => p.groups.map((g) => g.key))));
+  const breakdown = allKeys
+    .map((key) => ({
+      key,
+      name: KEY_LABELS[key] ?? key,
+      color: KEY_COLORS[key] ?? '#9CA3AF',
+      values: points.map((p) => p.groups.find((g) => g.key === key)?.valueTWD ?? 0),
+    }))
+    .filter((s) => s.values.some((v) => v !== 0));
 
   const option: ECOption = {
     tooltip: {
@@ -110,13 +167,13 @@ export function NetWorthChart() {
     series: breakdown.map((s) => ({
       name: s.name,
       type: 'line' as const,
-      // Liability is deliberately its own stack, not part of the assets 'total' stack:
-      // ECharts stacks cumulatively, so sharing a stack made 負債's own line trace the
-      // *net worth* curve (since it's stacked last, its cumulative value == total) rather
-      // than its own value — every day debt went from 0 to something produced a jump from
-      // "gross assets" down to "net worth" instead of a clean dip from 0 to -debt. Its own
-      // stack group renders it independently, from a 0 baseline down to -debt.
-      stack: s.name === '負債' ? 'liability' : 'total',
+      // Any group that ever goes negative (Liability under assetType/category grouping — or in
+      // principle any group under currency grouping) gets its own stack, not the shared 'total'
+      // one: ECharts stacks cumulatively, so a negative series sharing a stack with positive ones
+      // renders as "gross assets, then a jump down" (its cumulative value = everything below it
+      // + itself) instead of its own value dipping cleanly from 0. Its own stack group renders it
+      // independently, from a 0 baseline down to its actual (negative) value.
+      stack: s.values.some((v) => v < 0) ? `neg-${s.key}` : 'total',
       data: s.values,
       smooth: true,
       lineStyle: { width: 1.5, color: s.color },
@@ -128,7 +185,27 @@ export function NetWorthChart() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 1,
+          mb: 1,
+        }}
+      >
+        <ButtonGroup size="small" variant="outlined">
+          {VIEW_BY_OPTIONS.map((v) => (
+            <Button
+              key={v.value}
+              onClick={() => setGroupBy(v.value)}
+              variant={groupBy === v.value ? 'contained' : 'outlined'}
+            >
+              {v.label}
+            </Button>
+          ))}
+        </ButtonGroup>
         <ButtonGroup size="small" variant="outlined">
           {RANGES.map((r) => (
             <Button

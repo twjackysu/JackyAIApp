@@ -54,7 +54,8 @@ function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
   const exportHistory = async () => {
     close();
     // 180 = the widest range the backend supports; gives the full available series.
-    const res = await fetchHistory(180).unwrap();
+    // groupBy defaults to assetType server-side — CSV export wants the classic 5-column breakdown.
+    const res = await fetchHistory({ days: 180 }).unwrap();
     exportNetWorthCsv(res.data ?? []);
   };
 

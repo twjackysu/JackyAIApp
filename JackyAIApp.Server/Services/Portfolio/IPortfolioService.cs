@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Portfolio;
 
 namespace JackyAIApp.Server.Services.Portfolio
@@ -10,7 +11,8 @@ namespace JackyAIApp.Server.Services.Portfolio
         Task<bool> DeleteSnapshotAsync(string userId, int snapshotId, CancellationToken ct = default);
         Task<List<UpdateHistoryItem>> GetUpdateHistoryAsync(string userId, CancellationToken ct = default);
         Task<PortfolioSummaryDto> GetPortfolioSummaryAsync(string userId, CancellationToken ct = default);
-        Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(string userId, int days, CancellationToken ct = default);
+        Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(
+            string userId, int days, NetWorthGroupBy groupBy = NetWorthGroupBy.AssetType, CancellationToken ct = default);
         Task<StockLookupDto?> LookupStockAsync(string market, string symbol, CancellationToken ct = default);
         Task<List<StockSearchItem>> SearchStocksAsync(string market, string keyword, CancellationToken ct = default);
         Task<List<FundSearchItem>> SearchFundsAsync(string keyword, CancellationToken ct = default);

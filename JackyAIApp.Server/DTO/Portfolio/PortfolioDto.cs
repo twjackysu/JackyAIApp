@@ -83,16 +83,27 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public List<PositionDto> Positions { get; set; } = [];
     }
 
+    /// <summary>
+    /// One day's net-worth breakdown, grouped by whatever dimension the request asked for
+    /// (GetNetWorthHistoryAsync's groupBy: assetType/category/currency — see NetWorthGroupBy).
+    /// <see cref="Groups"/>' key format depends on the mode:
+    /// - assetType: "TwStock" | "UsStock" | "Cash" | "Fund" | "Liability"
+    /// - category: a PortfolioCategory enum member name (e.g. "Semiconductor")
+    /// - currency: "TWD" | "USD"
+    /// Group values are signed and sum to <see cref="TotalTWD"/> — Liability/debt is negative
+    /// (unlike the old fixed LiabilityTWD field this replaced, which was a positive "amount owed").
+    /// </summary>
     public class NetWorthDataPoint
     {
         public string Date { get; set; } = "";
         public decimal TotalTWD { get; set; }
-        public decimal TwStockTWD { get; set; }
-        public decimal UsStockTWD { get; set; }
-        public decimal CashTWD { get; set; }
-        public decimal FundTWD { get; set; }
-        // Total amount owed, positive. Already subtracted out of TotalTWD.
-        public decimal LiabilityTWD { get; set; }
+        public List<NetWorthGroupValue> Groups { get; set; } = [];
+    }
+
+    public class NetWorthGroupValue
+    {
+        public string Key { get; set; } = "";
+        public decimal ValueTWD { get; set; }
     }
 
     public class UpdateHistoryItem
@@ -155,5 +166,16 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal Quantity { get; set; }
         public decimal? AvgCost { get; set; }   // costBasis / quantity, null if no cost
         public List<PricePoint> Prices { get; set; } = [];
+    }
+
+    // ── AI industry/category classification ──────────────────────────────────
+
+    /// <summary>Raw shape of the AI's classification response — see StockCategoryService.
+    /// Category is validated against the PortfolioCategory enum before use (never trusted
+    /// verbatim); SubCategory is free-form and display-only.</summary>
+    public class CategoryClassificationResult
+    {
+        public required string Category { get; set; }
+        public required string SubCategory { get; set; }
     }
 }

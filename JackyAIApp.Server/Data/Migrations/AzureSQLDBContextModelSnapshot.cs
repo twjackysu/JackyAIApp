@@ -785,6 +785,12 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<string>("Symbol")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("Category")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ClassifiedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("LastResolvedAt")
                         .HasColumnType("datetime2");
 
@@ -795,8 +801,10 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<string>("Name")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("SubCategory")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("TwMarketType")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Symbol");

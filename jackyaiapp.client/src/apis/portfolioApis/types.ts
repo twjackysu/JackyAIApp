@@ -67,15 +67,25 @@ export interface PortfolioSummaryDto {
   positions: PositionDto[];
 }
 
+export type NetWorthGroupBy = 'assetType' | 'category' | 'currency';
+
+export interface NetWorthGroupValue {
+  key: string;
+  valueTWD: number;
+}
+
+/**
+ * One day's breakdown, grouped by whatever `groupBy` the request asked for. `groups[].key`
+ * format depends on the mode:
+ * - assetType: "TwStock" | "UsStock" | "Cash" | "Fund" | "Liability"
+ * - category: a PortfolioCategory name (e.g. "Semiconductor") — see CATEGORY_LABELS/CATEGORY_COLORS
+ * - currency: "TWD" | "USD"
+ * Group values are signed and sum to totalTWD — Liability/debt is negative.
+ */
 export interface NetWorthDataPoint {
   date: string;
   totalTWD: number;
-  twStockTWD: number;
-  usStockTWD: number;
-  cashTWD: number;
-  fundTWD: number;
-  // Total amount owed, positive. Already subtracted out of totalTWD.
-  liabilityTWD: number;
+  groups: NetWorthGroupValue[];
 }
 
 export interface UpdateHistoryItem {

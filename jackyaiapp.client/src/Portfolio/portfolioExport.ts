@@ -75,8 +75,15 @@ export function exportPortfolioCsv(summary: PortfolioSummaryDto) {
   downloadCsv([headers, ...rows], `portfolio_${date}.csv`);
 }
 
+/** Pulls one assetType-mode group's value out of a day's breakdown (0 if that group didn't
+ * contribute that day — a missing key just means nothing of that type was held/priced then). */
+function groupValue(point: NetWorthDataPoint, key: string): number {
+  return point.groups.find((g) => g.key === key)?.valueTWD ?? 0;
+}
+
 /**
- * Export the daily net-worth history (time series) as a CSV for trend analysis.
+ * Export the daily net-worth history (time series) as a CSV for trend analysis. Assumes the
+ * default assetType groupBy (the caller always fetches with that grouping for export).
  */
 export function exportNetWorthCsv(points: NetWorthDataPoint[]) {
   const headers = [
@@ -86,16 +93,17 @@ export function exportNetWorthCsv(points: NetWorthDataPoint[]) {
     '美股(TWD)',
     '現金(TWD)',
     '基金(TWD)',
+    // Negative = amount owed (nets into 總淨值 directly), matching the rest of the app.
     '負債(TWD)',
   ];
   const rows = points.map((p) => [
     p.date,
     p.totalTWD,
-    p.twStockTWD,
-    p.usStockTWD,
-    p.cashTWD,
-    p.fundTWD,
-    p.liabilityTWD,
+    groupValue(p, 'TwStock'),
+    groupValue(p, 'UsStock'),
+    groupValue(p, 'Cash'),
+    groupValue(p, 'Fund'),
+    groupValue(p, 'Liability'),
   ]);
   downloadCsv([headers, ...rows], `portfolio_networth_history.csv`);
 }
