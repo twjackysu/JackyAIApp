@@ -103,6 +103,19 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("HoldingSnapshots");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.PortfolioSettings", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("FeeDiscountRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("PortfolioSettings");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.AiUsageLog", b =>
                 {
                     b.Property<long>("Id")
@@ -1068,6 +1081,17 @@ namespace JackyAIApp.Server.Data.Migrations
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
                         .WithMany("HoldingSnapshots")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.PortfolioSettings", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

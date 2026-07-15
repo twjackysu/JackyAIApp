@@ -9,6 +9,7 @@ import {
   NetWorthDataPoint,
   NetWorthGroupBy,
   PortfolioAiSummaryDto,
+  PortfolioSettingsDto,
   PortfolioSummaryDto,
   SaveHoldingsRequest,
   StockLookupDto,
@@ -19,7 +20,7 @@ import {
 export const portfolioApis = createApi({
   reducerPath: 'portfolioApis',
   baseQuery: apiBaseQuery('/api/portfolio'),
-  tagTypes: ['Holdings', 'Summary'],
+  tagTypes: ['Holdings', 'Summary', 'Settings'],
   endpoints: (builder) => ({
     getPortfolioSummary: builder.query<ApiOkResponse<PortfolioSummaryDto>, void>({
       query: () => 'summary',
@@ -77,6 +78,16 @@ export const portfolioApis = createApi({
     >({
       query: ({ market, symbol }) => `holdings/${market}/${symbol}/ai-summary`,
     }),
+    getPortfolioSettings: builder.query<ApiOkResponse<PortfolioSettingsDto>, void>({
+      query: () => 'settings',
+      providesTags: ['Settings'],
+    }),
+    savePortfolioSettings: builder.mutation<ApiOkResponse<boolean>, PortfolioSettingsDto>({
+      query: (body) => ({ url: 'settings', method: 'PUT', body }),
+      // Settings feed directly into the summary's fee/tax deduction, so a saved rate must
+      // invalidate the cached summary too, not just Settings itself.
+      invalidatesTags: ['Settings', 'Summary'],
+    }),
   }),
 });
 
@@ -94,4 +105,6 @@ export const {
   useSearchStocksQuery,
   useGetHoldingPriceHistoryQuery,
   useLazyGetAiTechSummaryQuery,
+  useGetPortfolioSettingsQuery,
+  useSavePortfolioSettingsMutation,
 } = portfolioApis;

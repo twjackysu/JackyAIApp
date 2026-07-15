@@ -18,5 +18,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         Task<List<FundSearchItem>> SearchFundsAsync(string keyword, CancellationToken ct = default);
         Task<HoldingPriceHistoryDto?> GetHoldingPriceHistoryAsync(string userId, string market, string symbol, CancellationToken ct = default);
         Task<(PortfolioAiSummaryDto? Result, string? Error)> GetAiTechSummaryAsync(string userId, string market, string symbol, CancellationToken ct = default);
+        Task<PortfolioSettingsDto> GetSettingsAsync(string userId, CancellationToken ct = default);
+        Task SaveSettingsAsync(string userId, PortfolioSettingsDto req, CancellationToken ct = default);
     }
 }

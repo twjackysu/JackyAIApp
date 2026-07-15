@@ -17,6 +17,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
+import { FeeSettingsDialog } from './FeeSettingsDialog';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
 import { NetWorthChart } from './NetWorthChart';
@@ -86,6 +87,7 @@ function NetWorthCard({
   pnl,
   pnlPct,
   hasPnl,
+  estimatedSellCost,
   totalDividends,
   totalReturnPnl,
   totalReturnPct,
@@ -97,6 +99,7 @@ function NetWorthCard({
   pnl: number;
   pnlPct: number;
   hasPnl: boolean;
+  estimatedSellCost: number;
   totalDividends: number;
   totalReturnPnl: number;
   totalReturnPct: number;
@@ -178,6 +181,9 @@ function NetWorthCard({
             )}
             <Typography variant="caption" color="text.secondary">
               未實現損益(已填成本部分)
+              {estimatedSellCost > 0
+                ? `，已扣估計台股賣出費用 NT$${change(fmt(estimatedSellCost))}`
+                : ''}
             </Typography>
           </Box>
         )}
@@ -378,6 +384,7 @@ export default function Portfolio() {
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {hasHoldings && summary && <ExportMenu summary={summary} />}
+            <FeeSettingsDialog />
             <PrivacyToggle />
             <HoldingsEditor />
           </Box>
@@ -404,6 +411,7 @@ export default function Portfolio() {
                   pnl={summary.unrealizedPnlTWD}
                   pnlPct={summary.unrealizedPnlPct}
                   hasPnl={hasPnl}
+                  estimatedSellCost={summary.estimatedSellCostTWD}
                   totalDividends={summary.totalDividendsTWD}
                   totalReturnPnl={summary.totalReturnPnlTWD}
                   totalReturnPct={summary.totalReturnPct}

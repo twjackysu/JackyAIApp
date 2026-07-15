@@ -116,12 +116,15 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 90_000,
                 },
                 new HoldingPosition { AssetType = AssetType.LIABILITY, Name = "信貸", Currency = "TWD", Quantity = 300_000 });
-            SetupStockPrice("2330", price: 1000m); // 100,000 value vs 90,000 cost => +10,000 P&L
+            SetupStockPrice("2330", price: 1000m); // 100,000 value vs 90,000 cost => +10,000 raw P&L
 
             var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
 
             Assert.Equal(90_000m, summary.CostBasisTWD);
-            Assert.Equal(10_000m, summary.UnrealizedPnlTWD);
+            // Raw +10,000 minus estimated sell-side cost at the default 2.8折 discount: fee
+            // floor(100,000 * 0.001425 * 0.28) = 39, tax (individual TW stock, not "00"-prefixed
+            // ETF, exposureFactor != 0) floor(100,000 * 0.003) = 300 => 10,000 - 339 = 9,661.
+            Assert.Equal(9_661m, summary.UnrealizedPnlTWD);
             // The liability position itself never contributed a CostBasisTWD/PnL entry.
             var liabilityPosition = Assert.Single(summary.Positions, p => p.AssetType == AssetType.LIABILITY);
             Assert.Null(liabilityPosition.CostBasisTWD);

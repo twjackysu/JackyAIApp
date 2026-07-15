@@ -118,6 +118,22 @@ namespace JackyAIApp.Server.Controllers
             return responseFactory.CreateOKResponse(result);
         }
 
+        [HttpGet("settings")]
+        public async Task<IActionResult> GetSettings(CancellationToken ct)
+        {
+            var userId = RequireUserId();
+            var result = await portfolioService.GetSettingsAsync(userId, ct);
+            return responseFactory.CreateOKResponse(result);
+        }
+
+        [HttpPut("settings")]
+        public async Task<IActionResult> SaveSettings([FromBody] PortfolioSettingsDto req, CancellationToken ct)
+        {
+            var userId = RequireUserId();
+            await portfolioService.SaveSettingsAsync(userId, req, ct);
+            return responseFactory.CreateOKResponse(true);
+        }
+
         [HttpGet("holdings/{market}/{symbol}/ai-summary")]
         public async Task<IActionResult> GetAiTechSummary(string market, string symbol, CancellationToken ct)
         {

@@ -79,4 +79,24 @@ namespace JackyAIApp.Server.Data.Models.Portfolio
         /// </summary>
         public decimal? CostBasis { get; set; }
     }
+
+    /// <summary>
+    /// Per-user Portfolio preferences. A standing setting, not a point-in-time fact like
+    /// <see cref="HoldingSnapshot.UsdTwdRate"/>, so it lives in its own single-row-per-user
+    /// table rather than being duplicated into every snapshot.
+    /// </summary>
+    public class PortfolioSettings
+    {
+        [Key]
+        public required string UserId { get; set; }
+        [ForeignKey(nameof(UserId))]
+        public User User { get; set; } = null!;
+
+        /// <summary>
+        /// TW brokerage commission discount multiplier (e.g. 0.28 = 2.8折). Applied to the
+        /// standard 0.1425% rate when estimating a TW stock/ETF position's sell-side
+        /// transaction cost in PortfolioService.
+        /// </summary>
+        public decimal FeeDiscountRate { get; set; } = 0.28m;
+    }
 }
