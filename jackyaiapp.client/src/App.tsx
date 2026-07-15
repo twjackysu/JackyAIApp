@@ -21,8 +21,7 @@ import {
   PORTFOLIO,
   getCurrentApp,
 } from './constants/apps';
-import { englishLearningRoute } from './EnglishLearning';
-import { legacyEnglishRedirects } from './EnglishLearning/legacyRedirects';
+import { englishLearningRoute, legacyEnglishLearningRoutes } from './EnglishLearning';
 
 // Feature pages are code-split so each route loads its own chunk on demand.
 const ListeningBankAdmin = lazy(() => import('./Admin/ListeningBank'));
@@ -48,7 +47,7 @@ const routes: RouteObject[] = [
   { path: '/', element: <Portal /> },
   { path: PDF_UNLOCKER.path, element: <PDFUnlocker /> },
   englishLearningRoute,
-  ...legacyEnglishRedirects,
+  ...legacyEnglishLearningRoutes,
   {
     path: '/connectors',
     element: (
