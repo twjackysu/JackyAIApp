@@ -73,11 +73,6 @@ export interface PortfolioSummaryDto {
   positions: PositionDto[];
 }
 
-export interface PortfolioSettingsDto {
-  // TW brokerage commission discount multiplier (e.g. 0.28 = 2.8折).
-  feeDiscountRate: number;
-}
-
 export type NetWorthGroupBy = 'assetType' | 'category' | 'currency';
 
 export interface NetWorthGroupValue {

@@ -15,10 +15,11 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 {
     /// <summary>
     /// Covers the estimated-sell-cost deduction added to TW STOCK unrealized P&amp;L: brokerage fee
-    /// (rate × user-configurable discount) always applies, transaction tax rate depends on
+    /// (rate × caller-supplied discount) always applies, transaction tax rate depends on
     /// instrument type (0.3% individual stock / 0.1% TW-ETF "00"-prefix / 0% bond-ETF via
-    /// PortfolioExposure's exposureFactor == 0), and the discount rate is read from
-    /// PortfolioSettings (defaulting to 2.8折 when unset). US stocks and funds are untouched.
+    /// PortfolioExposure's exposureFactor == 0). The discount rate is a client-supplied
+    /// GetPortfolioSummaryAsync parameter (not server-persisted — the frontend keeps it in
+    /// localStorage), defaulting to 2.8折 when omitted. US stocks and funds are untouched.
     /// </summary>
     public class PortfolioFeeTaxTests : IDisposable
     {
@@ -122,20 +123,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
-        public async Task GetSummary_NoSettingsSaved_UsesDefaultDiscountRate()
+        public async Task GetSummary_NoRateSupplied_UsesDefaultDiscountRate()
         {
-            var settings = await _service.GetSettingsAsync(TestUserId);
-            Assert.Equal(0.28m, settings.FeeDiscountRate);
-        }
-
-        [Fact]
-        public async Task SaveSettings_CustomDiscountRate_AffectsSubsequentFeeCalculation()
-        {
-            await _service.SaveSettingsAsync(TestUserId, new PortfolioSettingsDto { FeeDiscountRate = 1m }); // no discount
-
-            var saved = await _service.GetSettingsAsync(TestUserId);
-            Assert.Equal(1m, saved.FeeDiscountRate);
-
             SetupStockPrice("2330", price: 1000m);
             await SeedSnapshotAsync(new HoldingPosition
             {
@@ -143,7 +132,23 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 90_000,
             });
 
-            var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
+            var summary = await _service.GetPortfolioSummaryAsync(TestUserId); // feeDiscountRate defaults to 0.28m
+
+            var position = Assert.Single(summary.Positions);
+            Assert.Equal(339m, position.EstimatedSellCostTWD); // matches GetSummary_IndividualTwStock_DeductsFeeAndFullTax
+        }
+
+        [Fact]
+        public async Task GetSummary_CustomDiscountRate_AffectsFeeCalculation()
+        {
+            SetupStockPrice("2330", price: 1000m);
+            await SeedSnapshotAsync(new HoldingPosition
+            {
+                AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 90_000,
+            });
+
+            var summary = await _service.GetPortfolioSummaryAsync(TestUserId, feeDiscountRate: 1m); // no discount
 
             // Full-rate fee (no discount): floor(100,000 * 0.001425) = 142, plus 300 tax = 442.
             var position = Assert.Single(summary.Positions);
@@ -151,13 +156,22 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
-        public async Task SaveSettings_OutOfRangeRate_IsClampedRatherThanRejected()
+        public async Task GetSummary_OutOfRangeRate_IsClampedRatherThanRejected()
         {
-            await _service.SaveSettingsAsync(TestUserId, new PortfolioSettingsDto { FeeDiscountRate = 5m });
-            Assert.Equal(1m, (await _service.GetSettingsAsync(TestUserId)).FeeDiscountRate);
+            SetupStockPrice("2330", price: 1000m);
+            await SeedSnapshotAsync(new HoldingPosition
+            {
+                AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 90_000,
+            });
 
-            await _service.SaveSettingsAsync(TestUserId, new PortfolioSettingsDto { FeeDiscountRate = -1m });
-            Assert.Equal(0.01m, (await _service.GetSettingsAsync(TestUserId)).FeeDiscountRate);
+            // 5 clamps to 1 (same result as the "no discount" case above).
+            var overRate = await _service.GetPortfolioSummaryAsync(TestUserId, feeDiscountRate: 5m);
+            Assert.Equal(442m, Assert.Single(overRate.Positions).EstimatedSellCostTWD);
+
+            // -1 clamps to 0.01: fee = floor(100,000 * 0.001425 * 0.01) = 1, plus 300 tax = 301.
+            var underRate = await _service.GetPortfolioSummaryAsync(TestUserId, feeDiscountRate: -1m);
+            Assert.Equal(301m, Assert.Single(underRate.Positions).EstimatedSellCostTWD);
         }
 
         [Fact]

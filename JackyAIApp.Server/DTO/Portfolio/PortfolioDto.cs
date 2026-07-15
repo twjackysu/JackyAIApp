@@ -112,14 +112,6 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal ValueTWD { get; set; }
     }
 
-    // ── Settings ────────────────────────────────────────────────────────────
-
-    public class PortfolioSettingsDto
-    {
-        /// <summary>TW brokerage commission discount multiplier (e.g. 0.28 = 2.8折).</summary>
-        public decimal FeeDiscountRate { get; set; }
-    }
-
     public class UpdateHistoryItem
     {
         public int SnapshotId { get; set; }

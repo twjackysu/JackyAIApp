@@ -17,6 +17,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
+import { loadFeeDiscountRate, saveFeeDiscountRate } from './feeDiscountRate';
 import { FeeSettingsDialog } from './FeeSettingsDialog';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
@@ -361,9 +362,15 @@ function AllocationCard({
 }
 
 export default function Portfolio() {
-  const { data: summaryRes, isLoading, isError } = useGetPortfolioSummaryQuery();
+  const [feeDiscountRate, setFeeDiscountRate] = useState(loadFeeDiscountRate);
+  const { data: summaryRes, isLoading, isError } = useGetPortfolioSummaryQuery(feeDiscountRate);
   const summary = summaryRes?.data;
   const [selected, setSelected] = useState<PositionDto | null>(null);
+
+  const handleSaveFeeDiscountRate = (rate: number) => {
+    saveFeeDiscountRate(rate);
+    setFeeDiscountRate(rate); // triggers a refetch with the new rate — RTK Query caches by arg
+  };
 
   const hasHoldings = (summary?.positions?.length ?? 0) > 0;
   const hasPnl = (summary?.costBasisTWD ?? 0) > 0;
@@ -384,7 +391,10 @@ export default function Portfolio() {
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {hasHoldings && summary && <ExportMenu summary={summary} />}
-            <FeeSettingsDialog />
+            <FeeSettingsDialog
+              feeDiscountRate={feeDiscountRate}
+              onSave={handleSaveFeeDiscountRate}
+            />
             <PrivacyToggle />
             <HoldingsEditor />
           </Box>

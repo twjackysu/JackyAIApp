@@ -24,10 +24,11 @@ namespace JackyAIApp.Server.Controllers
         }
 
         [HttpGet("summary")]
-        public async Task<IActionResult> GetSummary(CancellationToken ct)
+        public async Task<IActionResult> GetSummary(
+            [FromQuery] decimal feeDiscountRate = 0.28m, CancellationToken ct = default)
         {
             var userId = RequireUserId();
-            var result = await portfolioService.GetPortfolioSummaryAsync(userId, ct);
+            var result = await portfolioService.GetPortfolioSummaryAsync(userId, feeDiscountRate, ct);
             return responseFactory.CreateOKResponse(result);
         }
 
@@ -116,22 +117,6 @@ namespace JackyAIApp.Server.Controllers
             var result = await portfolioService.GetHoldingPriceHistoryAsync(userId, market, symbol, ct);
             if (result == null) return NotFound();
             return responseFactory.CreateOKResponse(result);
-        }
-
-        [HttpGet("settings")]
-        public async Task<IActionResult> GetSettings(CancellationToken ct)
-        {
-            var userId = RequireUserId();
-            var result = await portfolioService.GetSettingsAsync(userId, ct);
-            return responseFactory.CreateOKResponse(result);
-        }
-
-        [HttpPut("settings")]
-        public async Task<IActionResult> SaveSettings([FromBody] PortfolioSettingsDto req, CancellationToken ct)
-        {
-            var userId = RequireUserId();
-            await portfolioService.SaveSettingsAsync(userId, req, ct);
-            return responseFactory.CreateOKResponse(true);
         }
 
         [HttpGet("holdings/{market}/{symbol}/ai-summary")]

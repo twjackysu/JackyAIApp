@@ -29,34 +29,6 @@ namespace JackyAIApp.Server.Services.Portfolio
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
         private const string STOCK_CACHE_PREFIX = "portfolio_stock_";
 
-        /// <summary>2.8折 — a common TW e-brokerage electronic-order discount tier. Used whenever
-        /// a user hasn't saved their own rate via SaveSettingsAsync.</summary>
-        private const decimal DefaultFeeDiscountRate = 0.28m;
-
-        // ── Settings ──────────────────────────────────────────────────────────
-
-        public async Task<PortfolioSettingsDto> GetSettingsAsync(string userId, CancellationToken ct = default)
-        {
-            var settings = await db.PortfolioSettings.FindAsync([userId], ct);
-            return new PortfolioSettingsDto { FeeDiscountRate = settings?.FeeDiscountRate ?? DefaultFeeDiscountRate };
-        }
-
-        public async Task SaveSettingsAsync(string userId, PortfolioSettingsDto req, CancellationToken ct = default)
-        {
-            // Defensive clamp rather than rejecting the request — this is a display-affecting
-            // preference, not a validated business input (same tolerance as GetNetWorthHistoryAsync's
-            // days clamp below). 0 would mean free trades, > 1 is not a discount at all.
-            var rate = Math.Clamp(req.FeeDiscountRate, 0.01m, 1m);
-
-            var settings = await db.PortfolioSettings.FindAsync([userId], ct);
-            if (settings == null)
-                db.PortfolioSettings.Add(new PortfolioSettings { UserId = userId, FeeDiscountRate = rate });
-            else
-                settings.FeeDiscountRate = rate;
-
-            await db.SaveChangesAsync(ct);
-        }
-
         // ── Save / read holdings ─────────────────────────────────────────────
 
         public async Task SaveHoldingsAsync(string userId, SaveHoldingsRequest req, CancellationToken ct = default)
@@ -190,16 +162,20 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         // ── Summary (current valuation) ──────────────────────────────────────
 
-        public async Task<PortfolioSummaryDto> GetPortfolioSummaryAsync(string userId, CancellationToken ct = default)
+        public async Task<PortfolioSummaryDto> GetPortfolioSummaryAsync(
+            string userId, decimal feeDiscountRate = 0.28m, CancellationToken ct = default)
         {
             var snapshot = await LatestSnapshotAsync(userId, ct);
             if (snapshot == null) return new PortfolioSummaryDto();
 
+            // Defensive clamp rather than rejecting the request — this is a display-affecting
+            // client-supplied value (not persisted anywhere server-side), not a validated business
+            // input. 0 would mean free trades, > 1 is not a discount at all.
+            feeDiscountRate = Math.Clamp(feeDiscountRate, 0.01m, 1m);
+
             // Current valuation always uses the live rate; the rate stored on each snapshot is only
             // for reconstructing historical net worth (a stale fallback-32 shouldn't stick forever).
             var fx = await FetchUsdTwdRateAsync(ct);
-            var feeDiscountRate = (await db.PortfolioSettings.FindAsync([userId], ct))?.FeeDiscountRate
-                ?? DefaultFeeDiscountRate;
             var positions = new List<PositionDto>();
             decimal twStock = 0, usStock = 0, cash = 0, fund = 0, liability = 0;
             decimal costBasisTWD = 0, pnlTWD = 0, estimatedSellCostTWD = 0;

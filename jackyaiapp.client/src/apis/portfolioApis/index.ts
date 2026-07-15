@@ -9,7 +9,6 @@ import {
   NetWorthDataPoint,
   NetWorthGroupBy,
   PortfolioAiSummaryDto,
-  PortfolioSettingsDto,
   PortfolioSummaryDto,
   SaveHoldingsRequest,
   StockLookupDto,
@@ -20,10 +19,14 @@ import {
 export const portfolioApis = createApi({
   reducerPath: 'portfolioApis',
   baseQuery: apiBaseQuery('/api/portfolio'),
-  tagTypes: ['Holdings', 'Summary', 'Settings'],
+  tagTypes: ['Holdings', 'Summary'],
   endpoints: (builder) => ({
-    getPortfolioSummary: builder.query<ApiOkResponse<PortfolioSummaryDto>, void>({
-      query: () => 'summary',
+    // feeDiscountRate is a client-side preference (localStorage — see Portfolio/feeDiscountRate.ts),
+    // not server-persisted, so it's passed as a query param on every summary fetch instead of a
+    // separate settings endpoint.
+    getPortfolioSummary: builder.query<ApiOkResponse<PortfolioSummaryDto>, number | void>({
+      query: (feeDiscountRate) =>
+        `summary${feeDiscountRate ? `?feeDiscountRate=${feeDiscountRate}` : ''}`,
       providesTags: ['Summary'],
     }),
     getHoldings: builder.query<ApiOkResponse<SaveHoldingsRequest>, void>({
@@ -78,16 +81,6 @@ export const portfolioApis = createApi({
     >({
       query: ({ market, symbol }) => `holdings/${market}/${symbol}/ai-summary`,
     }),
-    getPortfolioSettings: builder.query<ApiOkResponse<PortfolioSettingsDto>, void>({
-      query: () => 'settings',
-      providesTags: ['Settings'],
-    }),
-    savePortfolioSettings: builder.mutation<ApiOkResponse<boolean>, PortfolioSettingsDto>({
-      query: (body) => ({ url: 'settings', method: 'PUT', body }),
-      // Settings feed directly into the summary's fee/tax deduction, so a saved rate must
-      // invalidate the cached summary too, not just Settings itself.
-      invalidatesTags: ['Settings', 'Summary'],
-    }),
   }),
 });
 
@@ -105,6 +98,4 @@ export const {
   useSearchStocksQuery,
   useGetHoldingPriceHistoryQuery,
   useLazyGetAiTechSummaryQuery,
-  useGetPortfolioSettingsQuery,
-  useSavePortfolioSettingsMutation,
 } = portfolioApis;

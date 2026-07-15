@@ -10,30 +10,28 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import { useEffect, useState } from 'react';
 
-import {
-  useGetPortfolioSettingsQuery,
-  useSavePortfolioSettingsMutation,
-} from '@/apis/portfolioApis';
-
 /** Rate is stored as a 0–1 multiplier (0.28 = 2.8折); the input works in the familiar 0–10
  * "折" scale, so the two need converting at the read/write boundary. */
 const rateToZhe = (rate: number) => Math.round(rate * 10 * 100) / 100;
 const zheToRate = (zhe: number) => zhe / 10;
 
-export function FeeSettingsDialog() {
+interface Props {
+  feeDiscountRate: number;
+  onSave: (rate: number) => void;
+}
+
+export function FeeSettingsDialog({ feeDiscountRate, onSave }: Props) {
   const [open, setOpen] = useState(false);
-  const { data } = useGetPortfolioSettingsQuery();
-  const [saveSettings, { isLoading: isSaving }] = useSavePortfolioSettingsMutation();
-  const [zhe, setZhe] = useState('2.8');
+  const [zhe, setZhe] = useState(String(rateToZhe(feeDiscountRate)));
 
   useEffect(() => {
-    if (data?.data) setZhe(String(rateToZhe(data.data.feeDiscountRate)));
-  }, [data]);
+    setZhe(String(rateToZhe(feeDiscountRate)));
+  }, [feeDiscountRate]);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     const parsed = parseFloat(zhe);
     if (!Number.isFinite(parsed) || parsed <= 0) return;
-    await saveSettings({ feeDiscountRate: zheToRate(parsed) }).unwrap();
+    onSave(zheToRate(parsed));
     setOpen(false);
   };
 
@@ -49,7 +47,7 @@ export function FeeSettingsDialog() {
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
             用來估計台股賣出時的手續費（牌告 0.1425% × 折扣）與證交稅（個股 0.3%、ETF 0.1%、債券 ETF
-            免徵），從未實現損益中扣除，更接近券商實際會顯示的數字。美股與基金不受影響。
+            免徵），從未實現損益中扣除，更接近券商實際會顯示的數字。美股與基金不受影響。設定只存在這個瀏覽器。
           </DialogContentText>
           <TextField
             label="手續費折扣（幾折）"
@@ -63,7 +61,7 @@ export function FeeSettingsDialog() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>取消</Button>
-          <Button variant="contained" onClick={handleSave} disabled={isSaving}>
+          <Button variant="contained" onClick={handleSave}>
             儲存
           </Button>
         </DialogActions>
