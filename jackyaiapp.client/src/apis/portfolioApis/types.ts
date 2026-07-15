@@ -37,6 +37,9 @@ export interface PositionDto {
   priceFetchFailed: boolean;
   // Cumulative pre-tax cash dividends earned while holding this position (0 = none/not applicable).
   dividendsTWD: number;
+  // Estimated brokerage fee + transaction tax if sold at the current price (TW STOCK only,
+  // 0 otherwise). Already subtracted out of unrealizedPnlTWD/Pct above.
+  estimatedSellCostTWD: number;
 }
 
 export interface PortfolioSummaryDto {
@@ -53,6 +56,9 @@ export interface PortfolioSummaryDto {
   costBasisTWD: number;
   unrealizedPnlTWD: number;
   unrealizedPnlPct: number;
+  // Σ positions.estimatedSellCostTWD — already netted into unrealizedPnlTWD/totalReturnPnlTWD/
+  // annualizedReturnPct above, surfaced separately so the UI can show what was deducted.
+  estimatedSellCostTWD: number;
   // Cumulative pre-tax cash dividends across the whole snapshot timeline.
   totalDividendsTWD: number;
   // Total (含息) return: unrealizedPnlTWD + totalDividendsTWD.

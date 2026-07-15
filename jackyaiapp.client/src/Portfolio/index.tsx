@@ -17,6 +17,8 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
+import { loadFeeDiscountRate, saveFeeDiscountRate } from './feeDiscountRate';
+import { FeeSettingsDialog } from './FeeSettingsDialog';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
 import { NetWorthChart } from './NetWorthChart';
@@ -86,6 +88,7 @@ function NetWorthCard({
   pnl,
   pnlPct,
   hasPnl,
+  estimatedSellCost,
   totalDividends,
   totalReturnPnl,
   totalReturnPct,
@@ -97,6 +100,7 @@ function NetWorthCard({
   pnl: number;
   pnlPct: number;
   hasPnl: boolean;
+  estimatedSellCost: number;
   totalDividends: number;
   totalReturnPnl: number;
   totalReturnPct: number;
@@ -178,6 +182,9 @@ function NetWorthCard({
             )}
             <Typography variant="caption" color="text.secondary">
               未實現損益(已填成本部分)
+              {estimatedSellCost > 0
+                ? `，已扣估計台股賣出費用 NT$${change(fmt(estimatedSellCost))}`
+                : ''}
             </Typography>
           </Box>
         )}
@@ -355,9 +362,15 @@ function AllocationCard({
 }
 
 export default function Portfolio() {
-  const { data: summaryRes, isLoading, isError } = useGetPortfolioSummaryQuery();
+  const [feeDiscountRate, setFeeDiscountRate] = useState(loadFeeDiscountRate);
+  const { data: summaryRes, isLoading, isError } = useGetPortfolioSummaryQuery(feeDiscountRate);
   const summary = summaryRes?.data;
   const [selected, setSelected] = useState<PositionDto | null>(null);
+
+  const handleSaveFeeDiscountRate = (rate: number) => {
+    saveFeeDiscountRate(rate);
+    setFeeDiscountRate(rate); // triggers a refetch with the new rate — RTK Query caches by arg
+  };
 
   const hasHoldings = (summary?.positions?.length ?? 0) > 0;
   const hasPnl = (summary?.costBasisTWD ?? 0) > 0;
@@ -378,6 +391,10 @@ export default function Portfolio() {
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {hasHoldings && summary && <ExportMenu summary={summary} />}
+            <FeeSettingsDialog
+              feeDiscountRate={feeDiscountRate}
+              onSave={handleSaveFeeDiscountRate}
+            />
             <PrivacyToggle />
             <HoldingsEditor />
           </Box>
@@ -404,6 +421,7 @@ export default function Portfolio() {
                   pnl={summary.unrealizedPnlTWD}
                   pnlPct={summary.unrealizedPnlPct}
                   hasPnl={hasPnl}
+                  estimatedSellCost={summary.estimatedSellCostTWD}
                   totalDividends={summary.totalDividendsTWD}
                   totalReturnPnl={summary.totalReturnPnlTWD}
                   totalReturnPct={summary.totalReturnPct}

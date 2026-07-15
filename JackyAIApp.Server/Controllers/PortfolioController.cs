@@ -24,10 +24,11 @@ namespace JackyAIApp.Server.Controllers
         }
 
         [HttpGet("summary")]
-        public async Task<IActionResult> GetSummary(CancellationToken ct)
+        public async Task<IActionResult> GetSummary(
+            [FromQuery] decimal feeDiscountRate = 0.28m, CancellationToken ct = default)
         {
             var userId = RequireUserId();
-            var result = await portfolioService.GetPortfolioSummaryAsync(userId, ct);
+            var result = await portfolioService.GetPortfolioSummaryAsync(userId, feeDiscountRate, ct);
             return responseFactory.CreateOKResponse(result);
         }
 

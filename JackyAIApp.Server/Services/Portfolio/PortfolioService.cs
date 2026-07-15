@@ -162,17 +162,23 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         // ── Summary (current valuation) ──────────────────────────────────────
 
-        public async Task<PortfolioSummaryDto> GetPortfolioSummaryAsync(string userId, CancellationToken ct = default)
+        public async Task<PortfolioSummaryDto> GetPortfolioSummaryAsync(
+            string userId, decimal feeDiscountRate = 0.28m, CancellationToken ct = default)
         {
             var snapshot = await LatestSnapshotAsync(userId, ct);
             if (snapshot == null) return new PortfolioSummaryDto();
+
+            // Defensive clamp rather than rejecting the request — this is a display-affecting
+            // client-supplied value (not persisted anywhere server-side), not a validated business
+            // input. 0 would mean free trades, > 1 is not a discount at all.
+            feeDiscountRate = Math.Clamp(feeDiscountRate, 0.01m, 1m);
 
             // Current valuation always uses the live rate; the rate stored on each snapshot is only
             // for reconstructing historical net worth (a stale fallback-32 shouldn't stick forever).
             var fx = await FetchUsdTwdRateAsync(ct);
             var positions = new List<PositionDto>();
             decimal twStock = 0, usStock = 0, cash = 0, fund = 0, liability = 0;
-            decimal costBasisTWD = 0, pnlTWD = 0;
+            decimal costBasisTWD = 0, pnlTWD = 0, estimatedSellCostTWD = 0;
             decimal equityExposureTWD = 0; // Σ market value × exposure factor (leverage/bond-adjusted)
 
             // Prefetch all stock prices and fund NAVs in parallel (cached) before the value loop,
@@ -250,7 +256,17 @@ namespace JackyAIApp.Server.Services.Portfolio
                 // Cost is converted by its own currency, which may differ from the pricing currency.
                 var costFxMul = (p.CostCurrency ?? p.Currency) == "USD" ? fx : 1m;
 
+                // Market exposure: leveraged ETFs amplify, bond/cash contribute nothing. Computed
+                // here (rather than after the P&L block below) because the TW sell-cost estimate
+                // reuses it: exposureFactor == 0 already means "bond/money-market ETF" per
+                // PortfolioExposure's own classification (name keywords take priority over its
+                // code-suffix fallback), including the "except leveraged/inverse" carve-out — a
+                // leveraged name match returns its multiplier before the bond check ever runs, so
+                // a leveraged bond ETF's factor is never 0. No separate detection needed here.
+                var exposureFactor = PortfolioExposure.Factor(p.AssetType, p.Name, p.Symbol, p.Market);
+
                 decimal? posCostTWD = null, posPnlTWD = null, posPnlPct = null;
+                decimal posEstimatedSellCostTWD = 0;
                 // LIABILITY.CostBasis is always null (enforced at save time), so it naturally
                 // never enters P&L/XIRR without needing an explicit exclusion here.
                 if (p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
@@ -261,9 +277,29 @@ namespace JackyAIApp.Server.Services.Portfolio
                     if (!priceFailed)
                     {
                         posPnlTWD = valueTWD - posCostTWD;
+
+                        // Estimated sell-side transaction cost, TW stocks/ETFs only (US/funds have
+                        // different fee schedules and aren't modeled here). Buy-side fee is
+                        // deliberately NOT deducted: CostBasis is manually entered by the user and
+                        // typically already reflects what they actually paid (broker statements
+                        // include the buy commission), so subtracting it again here would
+                        // double-count it. Brokerage commission applies uniformly regardless of
+                        // instrument; the 證交稅 rate depends on it — 0% bond/money-market ETF
+                        // (exposureFactor == 0), 0.1% other TW ETF (code prefix "00" is TWSE's own
+                        // ETF numbering convention, not a heuristic), 0.3% individual stock.
+                        if (p.AssetType == AssetType.STOCK && p.Market == "TW")
+                        {
+                            var taxRate = exposureFactor == 0m ? 0m : (p.Symbol.StartsWith("00") ? 0.001m : 0.003m);
+                            var feeRate = 0.001425m * feeDiscountRate;
+                            // Floor to whole dollars — brokers round transaction costs down, not to cents.
+                            posEstimatedSellCostTWD = Math.Floor(valueTWD * feeRate) + Math.Floor(valueTWD * taxRate);
+                            posPnlTWD -= posEstimatedSellCostTWD;
+                        }
+
                         posPnlPct = posCostTWD > 0 ? Math.Round(posPnlTWD.Value / posCostTWD.Value * 100, 2) : 0;
                         costBasisTWD += posCostTWD.Value;
                         pnlTWD += posPnlTWD.Value;
+                        estimatedSellCostTWD += posEstimatedSellCostTWD;
                     }
                 }
 
@@ -278,8 +314,6 @@ namespace JackyAIApp.Server.Services.Portfolio
                     case AssetType.LIABILITY: liability += valueTWD; break;
                 }
 
-                // Market exposure: leveraged ETFs amplify, bond/cash contribute nothing.
-                var exposureFactor = PortfolioExposure.Factor(p.AssetType, p.Name, p.Symbol, p.Market);
                 equityExposureTWD += valueTWD * exposureFactor;
 
                 positions.Add(new PositionDto
@@ -297,6 +331,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     CostBasisTWD = posCostTWD,
                     UnrealizedPnlTWD = posPnlTWD,
                     UnrealizedPnlPct = posPnlPct,
+                    EstimatedSellCostTWD = posEstimatedSellCostTWD,
                     ExposureFactor = exposureFactor,
                     PriceFetchFailed = priceFailed,
                 });
@@ -360,6 +395,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 CostBasisTWD = costBasisTWD,
                 UnrealizedPnlTWD = pnlTWD,
                 UnrealizedPnlPct = costBasisTWD > 0 ? Math.Round(pnlTWD / costBasisTWD * 100, 2) : 0,
+                EstimatedSellCostTWD = estimatedSellCostTWD,
                 TotalDividendsTWD = totalDividendsTWD,
                 TotalReturnPnlTWD = totalReturnPnlTWD,
                 TotalReturnPct = costBasisTWD > 0 ? Math.Round(totalReturnPnlTWD / costBasisTWD * 100, 2) : 0,

@@ -262,6 +262,11 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                       +息 {value(fmt(p.dividendsTWD))}
                     </Typography>
                   )}
+                  {p.estimatedSellCostTWD > 0 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      -估費 {value(fmt(p.estimatedSellCostTWD))}
+                    </Typography>
+                  )}
                 </TableCell>
               </TableRow>
             );

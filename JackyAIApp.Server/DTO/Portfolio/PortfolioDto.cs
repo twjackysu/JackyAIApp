@@ -46,6 +46,9 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public bool PriceFetchFailed { get; set; }
         // Cumulative pre-tax cash dividends earned while holding this position (0 = none/not applicable).
         public decimal DividendsTWD { get; set; }
+        // Estimated brokerage fee + transaction tax if sold at the current price (TW STOCK only,
+        // 0 for everything else). Already subtracted out of UnrealizedPnlTWD/Pct above.
+        public decimal EstimatedSellCostTWD { get; set; }
     }
 
     public class PortfolioSummaryDto
@@ -64,6 +67,9 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal CostBasisTWD { get; set; }
         public decimal UnrealizedPnlTWD { get; set; }
         public decimal UnrealizedPnlPct { get; set; }
+        // Σ Positions.EstimatedSellCostTWD — already netted into UnrealizedPnlTWD/TotalReturnPnlTWD/
+        // AnnualizedReturnPct above, surfaced separately so the UI can show what was deducted.
+        public decimal EstimatedSellCostTWD { get; set; }
         // Cumulative pre-tax cash dividends earned across the whole snapshot timeline (Σ Positions.DividendsTWD,
         // plus any from positions no longer held today).
         public decimal TotalDividendsTWD { get; set; }
