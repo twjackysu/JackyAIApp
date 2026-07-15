@@ -62,6 +62,16 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             return d;
         }
 
+        /// <summary>Mirrors the provider's own IsPastTwCloseTime/IsWeekday so a test asserting
+        /// behavior around "is today's bar finalized yet" agrees with it regardless of the real
+        /// wall-clock time the suite happens to run at.</summary>
+        private static bool TodayIsFinalized(DateOnly today)
+        {
+            if (today.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
+            var taipeiNow = DateTime.UtcNow.AddHours(8);
+            return taipeiNow.TimeOfDay >= new TimeSpan(13, 30, 0);
+        }
+
         [Fact]
         public async Task FetchAsync_EmptyDb_FetchesFullWindowAndPersistsFinalizedBarsOnly()
         {
@@ -78,7 +88,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                     HistoricalPrices = new List<DailyPrice>
                     {
                         new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Close = 900m, Open = 890m, High = 905m, Low = 885m, Volume = 1000 },
-                        // Today's bar — must never be persisted, even though the inner fetch returned it.
+                        // Today's bar — only finalized (and thus only persisted) once the TW session
+                        // has closed for the day; see TodayIsFinalized.
                         new() { Date = today.ToDateTime(TimeOnly.MinValue), Close = 910m, Open = 900m, High = 915m, Low = 895m, Volume = 500 },
                     },
                 });
@@ -86,10 +97,22 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             var result = await _provider.FetchAsync(Symbol);
 
             Assert.Equal("台積電", result.CompanyName);
-            var persisted = await _dbContext.DailyStockPrices.Where(p => p.Symbol == Symbol).ToListAsync();
-            var persistedDate = Assert.Single(persisted);
-            Assert.Equal(lastTradingDay, persistedDate.TradeDate);
-            Assert.Equal(900m, persistedDate.Close);
+            var persisted = await _dbContext.DailyStockPrices
+                .Where(p => p.Symbol == Symbol).OrderBy(p => p.TradeDate).ToListAsync();
+            if (TodayIsFinalized(today))
+            {
+                Assert.Equal(2, persisted.Count);
+                Assert.Equal(lastTradingDay, persisted[0].TradeDate);
+                Assert.Equal(900m, persisted[0].Close);
+                Assert.Equal(today, persisted[1].TradeDate);
+                Assert.Equal(910m, persisted[1].Close);
+            }
+            else
+            {
+                var persistedDate = Assert.Single(persisted);
+                Assert.Equal(lastTradingDay, persistedDate.TradeDate);
+                Assert.Equal(900m, persistedDate.Close);
+            }
 
             var symbolInfo = await _dbContext.StockSymbolInfos.FindAsync(Symbol);
             Assert.NotNull(symbolInfo);
@@ -98,8 +121,15 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         }
 
         [Fact]
-        public async Task FetchAsync_DbAlreadyCurrent_MakesNoNetworkCallAtAll()
+        public async Task FetchAsync_DbHasYesterdayOnly_AfterCloseRefetchesAndPersistsTodaysBar()
         {
+            // Regression test for the real prod bug: a DB already current through yesterday must
+            // still trigger a gap-fetch for today once the session has closed — otherwise the
+            // provider (and everything built on it) stays pinned to yesterday's close all evening,
+            // even though TWSE published today's close hours ago.
+            if (!TodayIsFinalized(DateOnly.FromDateTime(DateTime.Now)))
+                return; // Only meaningful once past TW close; see TodayIsFinalized.
+
             var today = DateOnly.FromDateTime(DateTime.Now);
             var lastTradingDay = LastTradingDayBefore(today);
 
@@ -110,6 +140,48 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _dbContext.DailyStockPrices.Add(new DailyStockPrice
             {
                 Symbol = Symbol, Market = "TW", TradeDate = lastTradingDay,
+                Open = 890m, High = 905m, Low = 885m, Close = 900m, Volume = 1000,
+            });
+            await _dbContext.SaveChangesAsync();
+
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = Symbol,
+                    CompanyName = "台積電",
+                    HistoricalPrices = new List<DailyPrice>
+                    {
+                        new() { Date = today.ToDateTime(TimeOnly.MinValue), Close = 910m, Open = 900m, High = 915m, Low = 895m, Volume = 500 },
+                    },
+                });
+
+            var result = await _provider.FetchAsync(Symbol);
+
+            var persisted = await _dbContext.DailyStockPrices
+                .Where(p => p.Symbol == Symbol).OrderBy(p => p.TradeDate).ToListAsync();
+            Assert.Equal(2, persisted.Count);
+            Assert.Equal(today, persisted[1].TradeDate);
+            Assert.Equal(910m, persisted[1].Close);
+            Assert.Equal(910m, result.HistoricalPrices[^1].Close);
+        }
+
+        [Fact]
+        public async Task FetchAsync_DbAlreadyCurrent_MakesNoNetworkCallAtAll()
+        {
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var lastTradingDay = LastTradingDayBefore(today);
+            // "Already current" means through today once the session has closed — otherwise
+            // seeding only lastTradingDay would (correctly) still trigger a fetch.
+            var latestAvailableTradingDay = TodayIsFinalized(today) ? today : lastTradingDay;
+
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電",
+            });
+            _dbContext.DailyStockPrices.Add(new DailyStockPrice
+            {
+                Symbol = Symbol, Market = "TW", TradeDate = latestAvailableTradingDay,
                 Open = 890m, High = 905m, Low = 885m, Close = 900m, Volume = 1000,
             });
             await _dbContext.SaveChangesAsync();
@@ -284,6 +356,10 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                     HistoricalPrices = new List<DailyPrice>
                     {
                         new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Close = 900m, Open = 890m, High = 905m, Low = 885m, Volume = 1000 },
+                        // Included so the DB can actually reach "fully current" post-close on the
+                        // first call — without it, every call would (correctly) keep retrying since
+                        // today's close genuinely hasn't been fetched yet.
+                        new() { Date = today.ToDateTime(TimeOnly.MinValue), Close = 910m, Open = 900m, High = 915m, Low = 895m, Volume = 500 },
                     },
                 });
 
@@ -291,8 +367,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             await _provider.FetchAsync(Symbol);
 
             var persisted = await _dbContext.DailyStockPrices.Where(p => p.Symbol == Symbol).ToListAsync();
-            Assert.Single(persisted);
-            // Second call found the DB already current for lastTradingDay, so no second fetch.
+            Assert.Equal(TodayIsFinalized(today) ? 2 : 1, persisted.Count);
+            // Second call found the DB already current, so no second fetch.
             _inner.Verify(x => x.FetchRangeAsync(
                 It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
                 It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()), Times.Once);
