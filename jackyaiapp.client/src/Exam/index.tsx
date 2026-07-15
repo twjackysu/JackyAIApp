@@ -44,14 +44,15 @@ function Exam() {
   const isRepositoryNoWord = !data?.data?.[0];
 
   // Check if we're on a specific test page
-  const isOnTestPage = location.pathname !== '/exam' && location.pathname !== '/exam/';
+  const isOnTestPage =
+    location.pathname !== '/english/exam' && location.pathname !== '/english/exam/';
 
   return (
     <Box sx={{ p: 2, position: 'relative' }}>
       {isOnTestPage && (
         // Floating back button when on a specific test
         <IconButton
-          onClick={() => navigate('/exam')}
+          onClick={() => navigate('/english/exam')}
           sx={{
             position: 'absolute',
             top: 16,

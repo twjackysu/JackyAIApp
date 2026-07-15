@@ -45,9 +45,17 @@ export const FINANCE: AppDef = {
 
 export const ENGLISH_LEARNING: AppDef = {
   name: 'English Learning',
-  path: '/dictionary',
+  path: '/english/dictionary',
   icon: <SchoolIcon fontSize="small" />,
-  allPaths: ['/dictionary', '/repository', '/exam', '/daily', '/review', '/stats'],
+  allPaths: [
+    '/english',
+    '/english/dictionary',
+    '/english/repository',
+    '/english/exam',
+    '/english/daily',
+    '/english/review',
+    '/english/stats',
+  ],
   color: '#2563EB',
   description: 'AI 字典、每日挑戰、考試與間隔複習，長期記住單字。',
 };

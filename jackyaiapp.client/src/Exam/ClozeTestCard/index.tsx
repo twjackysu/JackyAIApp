@@ -173,7 +173,7 @@ function ClozeTestCard() {
             {renderFilledSentence(data.data.question, data.data.answer)}
           </Typography>
           <Link
-            to={`/dictionary?word=${encodeURIComponent(data.data.answer)}`}
+            to={`/english/dictionary?word=${encodeURIComponent(data.data.answer)}`}
             style={{ display: 'inline-block', marginTop: 8 }}
           >
             查看單字「{data.data.answer}」→

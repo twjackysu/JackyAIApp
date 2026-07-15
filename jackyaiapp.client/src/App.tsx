@@ -1,24 +1,13 @@
 import AppsIcon from '@mui/icons-material/Apps';
-import AutoStoriesIcon from '@mui/icons-material/AutoStories';
-import BarChartIcon from '@mui/icons-material/BarChart';
-import BookmarkIcon from '@mui/icons-material/Bookmark';
-import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import QuizIcon from '@mui/icons-material/Quiz';
 import AppBar from '@mui/material/AppBar';
-import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { alpha } from '@mui/material/styles';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useEffect, lazy, Suspense } from 'react';
-import { Link, Route, Routes, useLocation } from 'react-router-dom';
+import { useLocation, useRoutes, type RouteObject } from 'react-router-dom';
 
-import { useGetUserInfoQuery } from './apis/accountApis';
-import { useGetDueCountQuery } from './apis/reviewApis';
 import RequireAuth from './auth/RequireAuth';
 import Footer from './components/Footer';
 import LoginError from './components/LoginError';
@@ -26,57 +15,98 @@ import InsufficientCreditsModal from './components/Modals/InsufficientCreditsMod
 import UserProfileMenu from './components/UserProfileMenu';
 import {
   DATA_ANALYSIS,
-  ENGLISH_LEARNING,
   FINANCE,
   JOB_SEARCH,
   PDF_UNLOCKER,
   PORTFOLIO,
   getCurrentApp,
 } from './constants/apps';
+import { englishLearningRoute } from './EnglishLearning';
 
 // Feature pages are code-split so each route loads its own chunk on demand.
 const ListeningBankAdmin = lazy(() => import('./Admin/ListeningBank'));
 const Connectors = lazy(() => import('./Connectors'));
 const Credits = lazy(() => import('./Credits'));
-const DailyChallenge = lazy(() => import('./DailyChallenge'));
 const DataAnalysis = lazy(() => import('./DataAnalysis'));
 const DashboardList = lazy(() => import('./Dashboard/DashboardList'));
 const DashboardView = lazy(() => import('./Dashboard/DashboardView'));
-const Dictionary = lazy(() => import('./Dictionary'));
-const Exam = lazy(() => import('./Exam'));
 const Finance = lazy(() => import('./Finance'));
 const Portfolio = lazy(() => import('./Portfolio'));
 const JobSearch = lazy(() => import('./JobSearch'));
 const PDFUnlocker = lazy(() => import('./PDFUnlocker'));
 const Portal = lazy(() => import('./Portal'));
 const Pricing = lazy(() => import('./Pricing'));
-const Repository = lazy(() => import('./Repository'));
-const Review = lazy(() => import('./Review'));
-const Stats = lazy(() => import('./Stats'));
 
 // Floating AI chatbot — available on every page (auth-gated internally).
 const FloatingChatbot = lazy(() => import('./components/FloatingChatbot'));
 
+// Route config as plain objects (not JSX <Routes>) so englishLearningRoute's real
+// parent/child nesting with <Outlet/> can be composed in from a separate file — the
+// JSX <Routes> API only recognizes literal <Route> children in its own tree.
+const routes: RouteObject[] = [
+  { path: '/', element: <Portal /> },
+  { path: PDF_UNLOCKER.path, element: <PDFUnlocker /> },
+  englishLearningRoute,
+  {
+    path: '/connectors',
+    element: (
+      <RequireAuth>
+        <Connectors />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/credits',
+    element: (
+      <RequireAuth>
+        <Credits />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: PORTFOLIO.path,
+    element: (
+      <RequireAuth>
+        <Portfolio />
+      </RequireAuth>
+    ),
+  },
+  { path: FINANCE.path, element: <Finance /> },
+  { path: JOB_SEARCH.path, element: <JobSearch /> },
+  { path: DATA_ANALYSIS.path, element: <DataAnalysis /> },
+  {
+    path: '/dashboards',
+    element: (
+      <RequireAuth>
+        <DashboardList />
+      </RequireAuth>
+    ),
+  },
+  // No RequireAuth: "Anyone"-visibility dashboards are viewable without login.
+  // Other visibilities still return NotFound from the API for anonymous users.
+  { path: '/dashboards/:id', element: <DashboardView /> },
+  {
+    path: '/admin/listening',
+    element: (
+      <RequireAuth>
+        <ListeningBankAdmin />
+      </RequireAuth>
+    ),
+  },
+  { path: '/login-error', element: <LoginError /> },
+  // Public — ECPay merchant review requires a visible pricing/fee disclosure page
+  // that doesn't require login to view.
+  { path: '/pricing', element: <Pricing /> },
+];
+
 function App() {
   const location = useLocation();
   const path = location.pathname;
+  const element = useRoutes(routes);
 
   // The home portal ("/") is the ONLY place users switch between apps.
   const isPortal = path === '/';
   const currentApp = getCurrentApp(path);
-
-  const isEnglishLearningSection = currentApp?.name === ENGLISH_LEARNING.name;
-
-  // Due-review count for the Review tab badge (pull, not push — only while signed in
-  // and viewing the English-learning section).
-  const { data: userInfoRes } = useGetUserInfoQuery();
-  const isLoggedIn = !!userInfoRes?.data;
-  const { data: dueCountRes } = useGetDueCountQuery(undefined, {
-    skip: !isLoggedIn || !isEnglishLearningSection,
-  });
-  const dueCount = dueCountRes?.data?.dueCount ?? 0;
-
-  const currentTab = isEnglishLearningSection ? path : ENGLISH_LEARNING.path;
 
   // Keep the document title in sync with the current site so each feels standalone.
   useEffect(() => {
@@ -127,80 +157,6 @@ function App() {
           <UserProfileMenu />
         </Toolbar>
       </AppBar>
-      {isEnglishLearningSection && (
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs
-            value={currentTab}
-            scrollButtons="auto"
-            variant="scrollable"
-            allowScrollButtonsMobile
-            sx={{
-              '& .MuiTabs-scrollButtons': {
-                '&.Mui-disabled': { opacity: 0.3 },
-              },
-            }}
-          >
-            <Tab
-              icon={<LocalFireDepartmentIcon />}
-              iconPosition="start"
-              label="每日挑戰 (Daily)"
-              value="/daily"
-              to="/daily"
-              component={Link}
-            />
-            <Tab
-              icon={<AutoStoriesIcon />}
-              iconPosition="start"
-              label="字典 (Dictionary)"
-              value={ENGLISH_LEARNING.path}
-              to={ENGLISH_LEARNING.path}
-              component={Link}
-            />
-            <Tab
-              icon={<BookmarkIcon />}
-              iconPosition="start"
-              label="儲存庫 (Repository)"
-              value="/repository"
-              to="/repository"
-              component={Link}
-            />
-            <Tab
-              icon={<QuizIcon />}
-              iconPosition="start"
-              label="考試 (Exam)"
-              value="/exam"
-              to="/exam"
-              component={Link}
-            />
-            <Tab
-              icon={
-                <Badge
-                  badgeContent={dueCount}
-                  color="error"
-                  max={99}
-                  overlap="circular"
-                  sx={{ '& .MuiBadge-badge': { right: -3, top: -2 } }}
-                >
-                  <PsychologyIcon />
-                </Badge>
-              }
-              iconPosition="start"
-              label="複習 (Review)"
-              value="/review"
-              to="/review"
-              component={Link}
-            />
-            <Tab
-              icon={<BarChartIcon />}
-              iconPosition="start"
-              label="進度 (Stats)"
-              value="/stats"
-              to="/stats"
-              component={Link}
-            />
-          </Tabs>
-        </Box>
-      )}
       <Box sx={{ p: 2 }}>
         <Suspense
           fallback={
@@ -209,101 +165,7 @@ function App() {
             </Box>
           }
         >
-          <Routes>
-            <Route path="/" element={<Portal />} />
-            <Route path={PDF_UNLOCKER.path} element={<PDFUnlocker />} />
-            <Route path={ENGLISH_LEARNING.path} element={<Dictionary />} />
-            <Route
-              path="/daily"
-              element={
-                <RequireAuth>
-                  <DailyChallenge />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/review"
-              element={
-                <RequireAuth>
-                  <Review />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/stats"
-              element={
-                <RequireAuth>
-                  <Stats />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/repository"
-              element={
-                <RequireAuth>
-                  <Repository />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/exam/*"
-              element={
-                <RequireAuth>
-                  <Exam />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/connectors"
-              element={
-                <RequireAuth>
-                  <Connectors />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/credits"
-              element={
-                <RequireAuth>
-                  <Credits />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path={PORTFOLIO.path}
-              element={
-                <RequireAuth>
-                  <Portfolio />
-                </RequireAuth>
-              }
-            />
-            <Route path={FINANCE.path} element={<Finance />} />
-            <Route path={JOB_SEARCH.path} element={<JobSearch />} />
-            <Route path={DATA_ANALYSIS.path} element={<DataAnalysis />} />
-            <Route
-              path="/dashboards"
-              element={
-                <RequireAuth>
-                  <DashboardList />
-                </RequireAuth>
-              }
-            />
-            {/* No RequireAuth: "Anyone"-visibility dashboards are viewable without login.
-                Other visibilities still return NotFound from the API for anonymous users. */}
-            <Route path="/dashboards/:id" element={<DashboardView />} />
-            <Route
-              path="/admin/listening"
-              element={
-                <RequireAuth>
-                  <ListeningBankAdmin />
-                </RequireAuth>
-              }
-            />
-            <Route path="/login-error" element={<LoginError />} />
-            {/* Public — ECPay merchant review requires a visible pricing/fee disclosure page
-                that doesn't require login to view. */}
-            <Route path="/pricing" element={<Pricing />} />
-          </Routes>
+          {element}
         </Suspense>
       </Box>
       <Footer />
