@@ -9,25 +9,18 @@ import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { Suspense, type ReactNode } from 'react';
+import { Suspense } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 import { useGetUserInfoQuery } from '../apis/accountApis';
 import { useGetDueCountQuery } from '../apis/reviewApis';
 import { ENGLISH_LEARNING } from '../constants/apps';
 
-interface EnglishLearningLayoutProps {
-  /** Passed only by the pre-restructure legacy mounts (e.g. "/dictionary" directly, no
-   * "/english" prefix) — those aren't nested under the "/english" parent route, so there's
-   * no <Outlet/> match to render; the page element is given directly instead. Canonical
-   * "/english/*" routes render via <Outlet/> as usual (no children passed). */
-  children?: ReactNode;
-}
-
-/** Layout for the English Learning tab strip, shared by both the canonical "/english/*"
- * routes (via <Outlet/>) and the legacy pre-restructure top-level paths (via children) so
- * old bookmarked/shared links keep rendering the same page at the same URL — no redirect. */
-function EnglishLearningLayout({ children }: EnglishLearningLayoutProps) {
+/** Layout route for "/english" — renders the section's tab strip once, then an
+ * <Outlet/> for whichever child page is active. Only the outlet content is wrapped
+ * in its own Suspense so the tabs stay mounted (not swapped for a spinner) while a
+ * not-yet-loaded page chunk comes in. */
+function EnglishLearningLayout() {
   const location = useLocation();
   const path = location.pathname;
 
@@ -36,11 +29,9 @@ function EnglishLearningLayout({ children }: EnglishLearningLayoutProps) {
   const { data: dueCountRes } = useGetDueCountQuery(undefined, { skip: !isLoggedIn });
   const dueCount = dueCountRes?.data?.dueCount ?? 0;
 
-  // Tab values are all "/english/xxx". Normalize legacy paths (e.g. "/dictionary") and the
-  // bare "/english" landing page into that same space so the right tab still highlights
-  // regardless of which URL variant got the user here.
-  const normalizedPath = path.startsWith('/english') ? path : `/english${path}`;
-  const currentTab = normalizedPath === '/english' ? ENGLISH_LEARNING.path : normalizedPath;
+  // Bare "/english" renders Dictionary but isn't itself a Tab value — treat it as the
+  // Dictionary tab so the tab strip doesn't end up with nothing selected.
+  const currentTab = path === '/english' ? ENGLISH_LEARNING.path : path;
 
   return (
     <>
@@ -125,7 +116,7 @@ function EnglishLearningLayout({ children }: EnglishLearningLayoutProps) {
           </Box>
         }
       >
-        {children ?? <Outlet />}
+        <Outlet />
       </Suspense>
     </>
   );

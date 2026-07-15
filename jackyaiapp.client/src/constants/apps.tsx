@@ -55,14 +55,6 @@ export const ENGLISH_LEARNING: AppDef = {
     '/english/daily',
     '/english/review',
     '/english/stats',
-    // Pre-restructure paths — still directly mounted (no redirect) so old bookmarked/
-    // shared links keep working; listed here too so the app bar branding still resolves.
-    '/dictionary',
-    '/repository',
-    '/exam',
-    '/daily',
-    '/review',
-    '/stats',
   ],
   color: '#2563EB',
   description: 'AI 字典、每日挑戰、考試與間隔複習，長期記住單字。',
