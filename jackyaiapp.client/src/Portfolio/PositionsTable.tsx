@@ -212,7 +212,12 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                   </Box>
                 </TableCell>
                 <TableCell align="right">
-                  {p.assetType === 'CASH' || p.assetType === 'LIABILITY' ? '—' : fmtQty(p.quantity)}
+                  {p.assetType === 'CASH' || p.assetType === 'LIABILITY'
+                    ? '—'
+                    : // Quantity is masked too, not just price: current price is public
+                      // knowledge for any listed security, so leaking quantity alone still lets
+                      // a screenshot viewer compute market value themselves.
+                      value(fmtQty(p.quantity))}
                 </TableCell>
                 <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                   {p.assetType === 'CASH' || p.assetType === 'LIABILITY'
