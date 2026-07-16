@@ -15,7 +15,7 @@ import { useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { EditorRow, isRowEmpty, makeRow, rowError, toRow } from './editorTypes';
 import { FundRow } from './FundRow';
@@ -40,14 +40,16 @@ export function HoldingsEditor() {
 
   const hasExisting = (holdingsRes?.data?.positions?.length ?? 0) > 0;
 
-  // Seed editor from latest holdings when opening
-  useEffect(() => {
-    if (!open) return;
-    const data = holdingsRes?.data;
+  // Open the editor seeded from the latest holdings. Called directly from the trigger button
+  // (not a useEffect keyed on `open`) so it can't race with loadFromSnapshot below — both used
+  // to set rows via an effect that fired whenever `open` became true, so loading a past snapshot
+  // (which also sets `open`) got its rows immediately clobbered back to the latest holdings.
+  const openWithLatestHoldings = () => {
     setEffectiveDate(today()); // new update defaults to today
-    setRows((data?.positions ?? []).map(toRow));
+    setRows((holdingsRes?.data?.positions ?? []).map(toRow));
     setSubmitted(false);
-  }, [open, holdingsRes]);
+    setOpen(true);
+  };
 
   // Load an arbitrary past snapshot's positions into the editor (restore flow).
   const loadFromSnapshot = (positions: PositionInput[]) => {
@@ -90,7 +92,7 @@ export function HoldingsEditor() {
         <Button
           variant="contained"
           startIcon={hasExisting ? <EditIcon /> : <AddIcon />}
-          onClick={() => setOpen(true)}
+          onClick={openWithLatestHoldings}
         >
           {hasExisting ? '更新持倉' : '建立持倉'}
         </Button>
