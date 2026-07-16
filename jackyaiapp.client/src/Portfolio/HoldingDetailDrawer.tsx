@@ -291,7 +291,13 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
               bgcolor: 'action.hover',
             }}
           >
-            <StatBlock label={isFund ? '單位數' : '持股數量'} value={fmtQty(position.quantity)} />
+            {/* Masked like every other absolute value: current price is public knowledge for
+                any listed security, so a leaked quantity alone still lets a screenshot viewer
+                compute market value themselves. */}
+            <StatBlock
+              label={isFund ? '單位數' : '持股數量'}
+              value={value(fmtQty(position.quantity))}
+            />
             <StatBlock
               label={isFund ? '淨值' : '現價'}
               value={`${position.currency} ${value(fmt(position.currentPrice))}`}
