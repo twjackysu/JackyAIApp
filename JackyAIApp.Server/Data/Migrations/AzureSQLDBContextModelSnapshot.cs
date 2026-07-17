@@ -71,7 +71,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("SnapshotId");
 
-                    b.ToTable("HoldingPositions", (string)null);
+                    b.ToTable("HoldingPositions");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.HoldingSnapshot", b =>
@@ -100,7 +100,7 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.HasIndex("UserId", "EffectiveDate")
                         .IsUnique();
 
-                    b.ToTable("HoldingSnapshots", (string)null);
+                    b.ToTable("HoldingSnapshots");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.AiUsageLog", b =>
@@ -156,7 +156,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AiUsageLogs", (string)null);
+                    b.ToTable("AiUsageLogs");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatConversation", b =>
@@ -184,7 +184,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("UserId", "UpdatedAt");
 
-                    b.ToTable("ChatConversations", (string)null);
+                    b.ToTable("ChatConversations");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatMessage", b =>
@@ -216,7 +216,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("ConversationId", "CreatedAt");
 
-                    b.ToTable("ChatMessages", (string)null);
+                    b.ToTable("ChatMessages");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ClozeTest", b =>
@@ -240,7 +240,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("WordId");
 
-                    b.ToTable("ClozeTests", (string)null);
+                    b.ToTable("ClozeTests");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ClozeTestOption", b =>
@@ -260,7 +260,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("ClozeTestId");
 
-                    b.ToTable("ClozeTestOptions", (string)null);
+                    b.ToTable("ClozeTestOptions");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.CreditTransaction", b =>
@@ -304,7 +304,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("CreditTransactions", (string)null);
+                    b.ToTable("CreditTransactions");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyChallengeResult", b =>
@@ -339,7 +339,7 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.HasIndex("UserId", "ChallengeDate")
                         .IsUnique();
 
-                    b.ToTable("DailyChallengeResults", (string)null);
+                    b.ToTable("DailyChallengeResults");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyStockPrice", b =>
@@ -385,7 +385,7 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.HasIndex("Symbol", "TradeDate")
                         .IsUnique();
 
-                    b.ToTable("DailyStockPrices", (string)null);
+                    b.ToTable("DailyStockPrices");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Dashboard", b =>
@@ -418,7 +418,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Dashboards", (string)null);
+                    b.ToTable("Dashboards");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DashboardShare", b =>
@@ -444,7 +444,7 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.HasIndex("DashboardId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("DashboardShares", (string)null);
+                    b.ToTable("DashboardShares");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DashboardWidget", b =>
@@ -488,7 +488,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("DashboardId");
 
-                    b.ToTable("DashboardWidgets", (string)null);
+                    b.ToTable("DashboardWidgets");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DataSourceConfig", b =>
@@ -527,7 +527,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("DataSourceConfigs", (string)null);
+                    b.ToTable("DataSourceConfigs");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Definition", b =>
@@ -551,7 +551,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("WordMeaningId");
 
-                    b.ToTable("Definitions", (string)null);
+                    b.ToTable("Definitions");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ExamAttempt", b =>
@@ -600,7 +600,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("UserId", "WordId");
 
-                    b.ToTable("ExamAttempts", (string)null);
+                    b.ToTable("ExamAttempts");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ExampleSentence", b =>
@@ -624,7 +624,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("WordMeaningId");
 
-                    b.ToTable("ExampleSentences", (string)null);
+                    b.ToTable("ExampleSentences");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.JiraConfig", b =>
@@ -652,7 +652,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("JiraConfigs", (string)null);
+                    b.ToTable("JiraConfigs");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ListeningResponseOption", b =>
@@ -679,7 +679,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("ListeningResponseTestId");
 
-                    b.ToTable("ListeningResponseOptions", (string)null);
+                    b.ToTable("ListeningResponseOptions");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ListeningResponseTest", b =>
@@ -696,7 +696,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ListeningResponseTests", (string)null);
+                    b.ToTable("ListeningResponseTests");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ListeningTest", b =>
@@ -716,7 +716,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ListeningTests", (string)null);
+                    b.ToTable("ListeningTests");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ListeningTestOption", b =>
@@ -743,7 +743,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("ListeningTestId");
 
-                    b.ToTable("ListeningTestOptions", (string)null);
+                    b.ToTable("ListeningTestOptions");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.SentenceTest", b =>
@@ -777,7 +777,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("WordId");
 
-                    b.ToTable("SentenceTests", (string)null);
+                    b.ToTable("SentenceTests");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.StockSymbolInfo", b =>
@@ -809,7 +809,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasKey("Symbol");
 
-                    b.ToTable("StockSymbolInfos", (string)null);
+                    b.ToTable("StockSymbolInfos");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.TranslationTest", b =>
@@ -833,7 +833,24 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("WordId");
 
-                    b.ToTable("TranslationTests", (string)null);
+                    b.ToTable("TranslationTests");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.TwListedCompany", b =>
+                {
+                    b.Property<string>("Symbol")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("LastRefreshedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Symbol");
+
+                    b.ToTable("TwListedCompanies");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.User", b =>
@@ -879,7 +896,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.UserConnector", b =>
@@ -936,7 +953,7 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.HasIndex("UserId", "ProviderName")
                         .IsUnique();
 
-                    b.ToTable("UserConnectors", (string)null);
+                    b.ToTable("UserConnectors");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.UserWord", b =>
@@ -979,7 +996,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("WordId");
 
-                    b.ToTable("UserWords", (string)null);
+                    b.ToTable("UserWords");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Word", b =>
@@ -1006,7 +1023,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Words", (string)null);
+                    b.ToTable("Words");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.WordMeaning", b =>
@@ -1026,7 +1043,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("WordId");
 
-                    b.ToTable("WordMeanings", (string)null);
+                    b.ToTable("WordMeanings");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.WordMeaningTag", b =>
@@ -1050,7 +1067,7 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasIndex("WordMeaningId");
 
-                    b.ToTable("WordMeaningTags", (string)null);
+                    b.ToTable("WordMeaningTags");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.HoldingPosition", b =>
