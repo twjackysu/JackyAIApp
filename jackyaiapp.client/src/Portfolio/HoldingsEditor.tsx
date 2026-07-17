@@ -37,6 +37,7 @@ export function HoldingsEditor() {
   const [effectiveDate, setEffectiveDate] = useState(today());
   const [rows, setRows] = useState<EditorRow[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const hasExisting = (holdingsRes?.data?.positions?.length ?? 0) > 0;
 
@@ -48,6 +49,7 @@ export function HoldingsEditor() {
     setEffectiveDate(today()); // new update defaults to today
     setRows((holdingsRes?.data?.positions ?? []).map(toRow));
     setSubmitted(false);
+    setSaveError(null);
     setOpen(true);
   };
 
@@ -56,6 +58,7 @@ export function HoldingsEditor() {
     setEffectiveDate(today());
     setRows(positions.map(toRow));
     setSubmitted(false);
+    setSaveError(null);
     setOpen(true);
   };
 
@@ -79,10 +82,18 @@ export function HoldingsEditor() {
 
   const handleSave = async () => {
     setSubmitted(true);
+    setSaveError(null);
     if (!canSave) return;
     const positions = meaningfulRows.map(({ _key, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
-    await saveHoldings({ effectiveDate, positions });
-    setOpen(false);
+    try {
+      // unwrap() so a failed save (network/server error) throws instead of silently
+      // resolving — without it the dialog closed regardless of outcome, so a failed
+      // save looked indistinguishable from "saved but summary didn't update".
+      await saveHoldings({ effectiveDate, positions }).unwrap();
+      setOpen(false);
+    } catch {
+      setSaveError('儲存失敗，請確認網路連線後再試一次');
+    }
   };
 
   return (
@@ -116,6 +127,7 @@ export function HoldingsEditor() {
                 : '有欄位未填完整，請確認標紅的項目'}
             </Alert>
           )}
+          {saveError && <Alert severity="error">{saveError}</Alert>}
 
           <Box>
             <TextField
