@@ -67,4 +67,24 @@ namespace JackyAIApp.Server.Data.Models.SQL
 
         public DateTime? ClassifiedAt { get; set; }
     }
+
+    /// <summary>
+    /// Full TW listed-company table (all TSE+OTC symbols), persisted so the holdings-editor's
+    /// stock search never has to call TWSE's isin.twse.com.tw lookup synchronously on every
+    /// keystroke — that endpoint is slow and has real outage/maintenance windows, and a failed
+    /// call there used to surface as "查無股票" for every symbol, not just ones never seen before.
+    /// Refreshed opportunistically (see PortfolioService.RefreshTwListedCompaniesIfStaleAsync):
+    /// whole-table overwrite on a successful live fetch, since TWSE's own endpoint already returns
+    /// the whole table per call — no per-row diffing. A failed refresh just serves the existing
+    /// (slightly stale) rows rather than an empty result.
+    /// </summary>
+    public class TwListedCompany
+    {
+        [Key]
+        public required string Symbol { get; set; }
+
+        public required string Name { get; set; }
+
+        public DateTime LastRefreshedAt { get; set; } = DateTime.UtcNow;
+    }
 }
