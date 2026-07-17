@@ -10,6 +10,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
+import LinearProgress from '@mui/material/LinearProgress';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { alpha } from '@mui/material/styles';
@@ -363,8 +364,17 @@ function AllocationCard({
 
 export default function Portfolio() {
   const [feeDiscountRate, setFeeDiscountRate] = useState(loadFeeDiscountRate);
-  const { data: summaryRes, isLoading, isError } = useGetPortfolioSummaryQuery(feeDiscountRate);
+  const {
+    data: summaryRes,
+    isLoading,
+    isFetching,
+    isError,
+  } = useGetPortfolioSummaryQuery(feeDiscountRate);
   const summary = summaryRes?.data;
+  // Background refetch (e.g. right after saving holdings — the summary recomputes prices/
+  // dividends/FX live, which can take a few seconds) with no dedicated spinner otherwise: the
+  // page kept showing the pre-save numbers with zero feedback that anything was happening.
+  const isRefetching = isFetching && !isLoading;
   const [selected, setSelected] = useState<PositionDto | null>(null);
 
   const handleSaveFeeDiscountRate = (rate: number) => {
@@ -378,6 +388,10 @@ export default function Portfolio() {
   return (
     <PrivacyProvider>
       <Box sx={{ maxWidth: 1100, mx: 'auto', py: 3 }}>
+        {/* Thin top-of-page progress bar for background refetches (e.g. right after saving
+            holdings) — the summary recomputes live prices/dividends/FX and can take a few
+            seconds, so without this the page just sat on stale numbers with no feedback. */}
+        {isRefetching && <LinearProgress sx={{ mb: 2 }} />}
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
           <Box>
@@ -387,6 +401,7 @@ export default function Portfolio() {
             <Typography variant="body2" color="text.secondary">
               台股 · 美股 · 現金 · 基金 統一以台幣淨值追蹤
               {summary?.effectiveDate ? ` · 持倉生效日 ${summary.effectiveDate}` : ''}
+              {isRefetching ? ' · 更新中…' : ''}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
