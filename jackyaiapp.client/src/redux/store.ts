@@ -13,6 +13,7 @@ import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
 import { jobApis } from '@/apis/jobApis';
 import { paypalApi } from '@/apis/paypalApis';
+import { payuniApi } from '@/apis/payuniApis';
 import { portfolioApis } from '@/apis/portfolioApis';
 import { repositoryApis } from '@/apis/repositoryApis';
 import { reviewApis } from '@/apis/reviewApis';
@@ -35,6 +36,7 @@ export const store = configureStore({
     [dashboardApis.reducerPath]: dashboardApis.reducer,
     [paypalApi.reducerPath]: paypalApi.reducer,
     [ecpayApi.reducerPath]: ecpayApi.reducer,
+    [payuniApi.reducerPath]: payuniApi.reducer,
     [dailyChallengeApis.reducerPath]: dailyChallengeApis.reducer,
     [reviewApis.reducerPath]: reviewApis.reducer,
     [statsApis.reducerPath]: statsApis.reducer,
@@ -57,6 +59,7 @@ export const store = configureStore({
       dashboardApis.middleware,
       paypalApi.middleware,
       ecpayApi.middleware,
+      payuniApi.middleware,
       dailyChallengeApis.middleware,
       reviewApis.middleware,
       statsApis.middleware,

@@ -118,6 +118,11 @@ namespace JackyAIApp.Server.Extensions
             // CreditCardPeriodAction API server-to-server, same pattern as PayPalService above.
             services.AddHttpClient<IECPayService, ECPayService>();
 
+            services.Configure<PayUniOptions>(configuration.GetSection(PayUniOptions.SectionName));
+            // No outbound HTTP calls (UPP checkout is a browser-submitted form; PayUni has no
+            // cancel API to call — see PayUniService's class doc), plain scoped service.
+            services.AddScoped<IPayUniService, PayUniService>();
+
             return services;
         }
     }

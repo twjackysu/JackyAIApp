@@ -65,7 +65,7 @@ const Pricing: React.FC = () => {
           收費資訊 Pricing
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          本站採訂閱制，訂閱後即可使用全部 AI 功能，每月有固定使用額度上限。
+          本站採訂閱制，訂閱後即可使用全部功能，每月有固定使用額度上限。
         </Typography>
       </Box>
 
