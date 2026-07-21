@@ -75,7 +75,7 @@ function MessageInput({
             mediaRecorder
               ? isRecording
                 ? '點擊停止錄音'
-                : `點擊開始錄音（轉錄消耗 ${CREDIT_COSTS.AUDIO_TRANSCRIPTION} credit）`
+                : `點擊開始錄音（轉錄消耗 ${CREDIT_COSTS.AUDIO_TRANSCRIPTION} 點使用額度）`
               : '麥克風無法使用'
           }
           arrow
@@ -112,7 +112,7 @@ function MessageInput({
         color="text.secondary"
         sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}
       >
-        每輪 AI 回應消耗 {CREDIT_COSTS.CONVERSATION_RESPONSE} credits
+        每輪 AI 回應消耗 {CREDIT_COSTS.CONVERSATION_RESPONSE} 點使用額度
       </Typography>
     </Paper>
   );

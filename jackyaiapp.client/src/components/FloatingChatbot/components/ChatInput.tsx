@@ -67,7 +67,7 @@ const ChatInput = ({ value, onChange, onSend, onKeyPress, disabled }: ChatInputP
         color="text.secondary"
         sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}
       >
-        每則對話消耗 {CREDIT_COSTS.CHAT_MESSAGE} credits
+        每則對話消耗 {CREDIT_COSTS.CHAT_MESSAGE} 點使用額度
       </Typography>
     </Box>
   );

@@ -91,7 +91,7 @@ export const StockSearchSection = ({
         )}
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-        每次 AI 分析消耗 {CREDIT_COSTS.STOCK_ANALYSIS} credits
+        每次 AI 分析消耗 {CREDIT_COSTS.STOCK_ANALYSIS} 點使用額度
       </Typography>
       {isAnalyzing && (
         <Box sx={{ mt: 1 }}>

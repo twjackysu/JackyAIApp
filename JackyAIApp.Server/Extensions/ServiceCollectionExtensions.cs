@@ -114,7 +114,9 @@ namespace JackyAIApp.Server.Extensions
             services.AddHttpClient<IPayPalService, PayPalService>();
 
             services.Configure<ECPayOptions>(configuration.GetSection(ECPayOptions.SectionName));
-            services.AddScoped<IECPayService, ECPayService>();
+            // Typed client (was AddScoped) — subscription cancellation now calls ECPay's
+            // CreditCardPeriodAction API server-to-server, same pattern as PayPalService above.
+            services.AddHttpClient<IECPayService, ECPayService>();
 
             return services;
         }

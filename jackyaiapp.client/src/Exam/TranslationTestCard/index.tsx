@@ -198,7 +198,7 @@ function TranslationCard() {
                 mediaRecorder
                   ? isRecording
                     ? '點擊停止錄音'
-                    : `點擊開始錄音（轉錄消耗 ${CREDIT_COSTS.AUDIO_TRANSCRIPTION} credit）`
+                    : `點擊開始錄音（轉錄消耗 ${CREDIT_COSTS.AUDIO_TRANSCRIPTION} 點使用額度）`
                   : '麥克風無法使用'
               }
               arrow
@@ -244,7 +244,7 @@ function TranslationCard() {
                 color="text.secondary"
                 sx={{ display: 'block', mt: 0.5 }}
               >
-                AI 批改消耗 {CREDIT_COSTS.TRANSLATION_GRADING} credit
+                AI 批改消耗 {CREDIT_COSTS.TRANSLATION_GRADING} 點使用額度
               </Typography>
             </Box>
             <Button variant="text" onClick={handleReveal} disabled={isGrading}>
@@ -268,7 +268,7 @@ function TranslationCard() {
               下一題
             </Button>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              下一題消耗 {CREDIT_COSTS.TRANSLATION_TEST} credits
+              下一題消耗 {CREDIT_COSTS.TRANSLATION_TEST} 點使用額度
             </Typography>
           </Box>
         </Box>
@@ -334,7 +334,7 @@ function TranslationCard() {
                 color="text.secondary"
                 sx={{ display: 'block', mt: 0.5 }}
               >
-                下一題消耗 {CREDIT_COSTS.TRANSLATION_TEST} credits
+                下一題消耗 {CREDIT_COSTS.TRANSLATION_TEST} 點使用額度
               </Typography>
             </Box>
             <Button variant="outlined" onClick={handleRetry}>

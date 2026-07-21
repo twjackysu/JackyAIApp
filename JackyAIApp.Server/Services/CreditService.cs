@@ -157,6 +157,72 @@ namespace JackyAIApp.Server.Services
             });
         }
 
+        public async Task<bool> GrantMonthlyQuotaAsync(
+            string userId, ulong quota, string referenceId, string reason, string? description = null)
+        {
+            var strategy = _dbContext.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+                try
+                {
+                    // Same idempotency guard as AddCreditsAsync: a replayed payment-provider
+                    // callback for a charge already granted must not reset the balance again —
+                    // by then the user may have already spent part of this period's quota.
+                    if (await _dbContext.CreditTransactions.AnyAsync(t => t.ReferenceId == referenceId))
+                    {
+                        _logger.LogWarning("Duplicate subscription grant reference {ReferenceId} ignored for user {UserId}",
+                            referenceId, userId);
+                        await transaction.CommitAsync();
+                        return true;
+                    }
+
+                    var user = await _dbContext.Users
+                        .FirstOrDefaultAsync(u => u.Id == userId);
+
+                    if (user == null)
+                    {
+                        _logger.LogWarning("Attempt to grant subscription quota for non-existent user: {UserId}", userId);
+                        return false;
+                    }
+
+                    var previousBalance = user.CreditBalance;
+                    user.CreditBalance = quota; // reset, not additive — unused usage doesn't roll over
+                    user.LastUpdated = DateTime.UtcNow;
+
+                    var creditTransaction = new CreditTransaction
+                    {
+                        UserId = userId,
+                        Amount = (long)quota - (long)previousBalance,
+                        BalanceAfter = quota,
+                        TransactionType = CreditTransactionType.SubscriptionGrant,
+                        Reason = reason,
+                        Description = description,
+                        ReferenceId = referenceId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _dbContext.CreditTransactions.Add(creditTransaction);
+                    await _dbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    _logger.LogInformation(
+                        "User {UserId} subscription quota reset to {Quota} (was {Previous}) for {Reason}",
+                        userId, quota, previousBalance, reason);
+
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Error granting subscription quota for user {UserId}", userId);
+                    throw;
+                }
+            });
+        }
+
         public async Task<List<CreditTransaction>> GetTransactionHistoryAsync(string userId, int pageNumber = 1, int pageSize = 20)
         {
             return await _dbContext.CreditTransactions

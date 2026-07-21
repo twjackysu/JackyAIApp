@@ -193,7 +193,7 @@ function SentenceTestCard() {
                 color="text.secondary"
                 sx={{ display: 'block', mt: 0.5 }}
               >
-                AI 評分消耗 {CREDIT_COSTS.SENTENCE_EVALUATION} credits
+                AI 評分消耗 {CREDIT_COSTS.SENTENCE_EVALUATION} 點使用額度
               </Typography>
             </Box>
             <Tooltip title={evaluationResult ? '' : '請先提交答案，避免抄範例答案'}>
@@ -294,7 +294,7 @@ function SentenceTestCard() {
                 color="text.secondary"
                 sx={{ display: 'block', mt: 0.5 }}
               >
-                下一題消耗 {CREDIT_COSTS.SENTENCE_TEST} credits
+                下一題消耗 {CREDIT_COSTS.SENTENCE_TEST} 點使用額度
               </Typography>
             </Box>
           </CardContent>

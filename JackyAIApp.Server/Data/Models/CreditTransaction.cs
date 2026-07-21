@@ -65,5 +65,9 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public const string TopUp = "topup";
         public const string Refund = "refund";
         public const string Bonus = "bonus";
+
+        /// <summary>Monthly subscription quota reset (balance is SET to the quota, not added —
+        /// see ICreditService.GrantMonthlyQuotaAsync). Distinct from TopUp, which is additive.</summary>
+        public const string SubscriptionGrant = "subscription_grant";
     }
 }

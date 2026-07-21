@@ -200,7 +200,7 @@ function ListeningTestCard() {
               下一題
             </Button>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              下一題消耗 {CREDIT_COSTS.LISTENING_TEST} credits
+              下一題消耗 {CREDIT_COSTS.LISTENING_TEST} 點使用額度
             </Typography>
           </Box>
         </Box>

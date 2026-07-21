@@ -111,7 +111,7 @@ export function MarketSummaryTab({
           </Button>
         }
       >
-        今日市場AI摘要需要登入，每日首次查看消耗 3 credits（當日重看免費）
+        今日市場AI摘要需要登入，每日首次查看消耗 3 點使用額度（當日重看免費）
       </Alert>
     );
   }

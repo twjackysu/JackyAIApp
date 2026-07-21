@@ -303,5 +303,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<DailyStockPrice> DailyStockPrices { get; set; }
         public virtual DbSet<StockSymbolInfo> StockSymbolInfos { get; set; }
         public virtual DbSet<TwListedCompany> TwListedCompanies { get; set; }
+        public virtual DbSet<Subscription> Subscriptions { get; set; }
     }
 }

@@ -31,6 +31,15 @@ namespace JackyAIApp.Server.Services
         Task<bool> AddCreditsAsync(string userId, ulong credits, string transactionType, string reason, string? description = null, string? referenceId = null);
 
         /// <summary>
+        /// Monthly subscription quota grant: SETS the balance to <paramref name="quota"/> (reset,
+        /// not additive like AddCreditsAsync) — a subscription period doesn't roll over unused
+        /// usage. Idempotent by <paramref name="referenceId"/> (the payment provider's per-charge
+        /// id, e.g. ECPay's gwsr): a replayed/duplicate callback for a charge already granted is a
+        /// no-op, so it can never clobber balance the user has already partially spent since.
+        /// </summary>
+        Task<bool> GrantMonthlyQuotaAsync(string userId, ulong quota, string referenceId, string reason, string? description = null);
+
+        /// <summary>
         /// Get transaction history for a user
         /// </summary>
         Task<List<CreditTransaction>> GetTransactionHistoryAsync(string userId, int pageNumber = 1, int pageSize = 20);

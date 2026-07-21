@@ -138,7 +138,7 @@ function ResultScreen({
                   fontWeight: 'bold',
                 }}
               >
-                +{creditsAwarded} credits
+                +{creditsAwarded} 使用額度
               </Typography>
             </Box>
           )}

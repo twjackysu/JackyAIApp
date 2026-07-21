@@ -186,8 +186,8 @@ function ScenarioSelector({ onSelectScenario, disabled }: ScenarioSelectorProps)
           </FormControl>
 
           <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
-            開始對話消耗 <strong>{CREDIT_COSTS.CONVERSATION_START} credits</strong>， 之後每輪 AI
-            回應再消耗 <strong>{CREDIT_COSTS.CONVERSATION_RESPONSE} credits</strong>。
+            開始對話消耗 <strong>{CREDIT_COSTS.CONVERSATION_START} 點使用額度</strong>， 之後每輪 AI
+            回應再消耗 <strong>{CREDIT_COSTS.CONVERSATION_RESPONSE} 點使用額度</strong>。
           </Alert>
           <Button
             variant="contained"
