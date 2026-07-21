@@ -127,11 +127,21 @@ function NetWorthCard({
           )} 60%)`,
       }}
     >
-      <CardContent sx={{ p: 3 }}>
+      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
           總資產淨值
         </Typography>
-        <Typography variant="h3" sx={{ fontWeight: 800, mt: 0.5, letterSpacing: -1 }}>
+        {/* Responsive size instead of a fixed h3 — at the theme's default h3 size, a 8-digit
+            TWD figure ran wider than a phone screen and got clipped. */}
+        <Typography
+          sx={{
+            fontWeight: 800,
+            mt: 0.5,
+            letterSpacing: -1,
+            fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
+            wordBreak: 'break-all',
+          }}
+        >
           NT${value(fmt(total))}
         </Typography>
         {dayChange != null && (
@@ -392,8 +402,19 @@ export default function Portfolio() {
             holdings) — the summary recomputes live prices/dividends/FX and can take a few
             seconds, so without this the page just sat on stale numbers with no feedback. */}
         {isRefetching && <LinearProgress sx={{ mb: 2 }} />}
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        {/* Header — stacked on mobile instead of one row: squeezing the title next to 5 action
+            controls was compressing the "更新紀錄"/"更新持倉" buttons enough to wrap their own
+            label text mid-word. */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: { xs: 1.5, sm: 0 },
+            mb: 3,
+          }}
+        >
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
               My Portfolio
@@ -404,7 +425,7 @@ export default function Portfolio() {
               {isRefetching ? ' · 更新中…' : ''}
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             {hasHoldings && summary && <ExportMenu summary={summary} />}
             <FeeSettingsDialog
               feeDiscountRate={feeDiscountRate}
