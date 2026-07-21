@@ -8,7 +8,6 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  Grid,
   Pagination,
   Snackbar,
   Table,
@@ -22,18 +21,13 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { useGetCreditBalanceQuery, useGetCreditHistoryQuery } from '@/apis/creditApis';
+import { useGetCreditHistoryQuery } from '@/apis/creditApis';
 import { CreditTransaction } from '@/apis/creditApis/types';
 import {
   useCancelSubscriptionMutation,
   useCreateSubscriptionMutation,
   useGetSubscriptionStatusQuery,
 } from '@/apis/ecpayApis';
-import {
-  useCapturePayPalOrderMutation,
-  useCreatePayPalOrderMutation,
-  useGetPayPalPacksQuery,
-} from '@/apis/paypalApis';
 import { fmtNum } from '@/utils/format';
 
 const TRANSACTION_TYPE_LABELS: Record<CreditTransaction['transactionType'], string> = {
@@ -167,25 +161,19 @@ const Credits: React.FC = () => {
     severity: 'success' | 'error' | 'info';
   }>({ open: false, message: '', severity: 'info' });
 
-  const { data: balanceData, refetch: refetchBalance } = useGetCreditBalanceQuery();
-  const { data: paypalPacks, isLoading: paypalLoading } = useGetPayPalPacksQuery();
   // Same query SubscriptionCard renders from — RTK Query dedupes identical queries across
   // components, this just gets us a `refetch` handle up here too.
   const { refetch: refetchSubscriptionStatus } = useGetSubscriptionStatusQuery();
 
-  const [createPayPalOrder, { isLoading: paypalOrderLoading }] = useCreatePayPalOrderMutation();
-  const [capturePayPalOrder] = useCapturePayPalOrderMutation();
-
-  // Guards the one-time handling of the payment-return query params (also avoids a
-  // double PayPal capture under React StrictMode's double-invoked effects).
+  // Guards the one-time handling of the payment-return query params.
   const handledReturnRef = useRef(false);
   const [historyPage, setHistoryPage] = useState(1);
-  const { data: historyData, refetch: refetchHistory } = useGetCreditHistoryQuery({
+  const { data: historyData } = useGetCreditHistoryQuery({
     pageNumber: historyPage,
     pageSize: 10,
   });
 
-  // Handle return from PayPal / ECPay.
+  // Handle return from ECPay.
   useEffect(() => {
     const status = searchParams.get('status');
     if (!status || handledReturnRef.current) return;
@@ -199,71 +187,20 @@ const Credits: React.FC = () => {
 
     if (status !== 'success') return;
 
-    // Clean the URL up-front so a refresh can't re-trigger handling/capture.
+    // Clean the URL up-front so a refresh can't re-trigger handling.
     window.history.replaceState({}, '', '/credits');
-
-    const isSubscription = searchParams.get('type') === 'subscription';
 
     // ECPay credits the account server-side via its own POST callback — which it fires before
     // ever redirecting the browser back here — so by the time this effect runs the grant has
-    // already landed in the DB. There's nothing for the client to "capture" like PayPal below;
-    // just refetch so the (already-cached, now-stale) status/balance queries pick it up.
-    if (searchParams.get('provider') === 'ecpay') {
-      setSnackbar({
-        open: true,
-        message: isSubscription ? '訂閱成立！使用額度已入帳。' : '付款成功！使用額度已入帳。',
-        severity: 'success',
-      });
-      if (isSubscription) {
-        refetchSubscriptionStatus();
-      } else {
-        refetchBalance();
-        refetchHistory();
-      }
-      return;
-    }
-
-    // PayPal Orders v2 is two-step: the buyer approved the order, now we must capture
-    // it server-side — that's what actually charges and grants credits. PayPal appends
-    // the order id as `token` on the return URL.
-    const orderId = searchParams.get('token');
-    if (!orderId) {
-      setSnackbar({
-        open: true,
-        message: '無法驗證付款（缺少訂單編號）。',
-        severity: 'error',
-      });
-      return;
-    }
-    setSnackbar({ open: true, message: '正在確認付款結果…', severity: 'info' });
-    capturePayPalOrder(orderId)
-      .unwrap()
-      .then(() => {
-        setSnackbar({ open: true, message: '付款成功！使用額度已入帳。', severity: 'success' });
-        refetchBalance();
-        refetchHistory();
-      })
-      .catch(() => {
-        setSnackbar({
-          open: true,
-          message: '無法完成 PayPal 付款確認，如已被扣款請聯絡客服。',
-          severity: 'error',
-        });
-      });
-  }, [searchParams, refetchBalance, refetchHistory, refetchSubscriptionStatus, capturePayPalOrder]);
-
-  const handlePayPalPurchase = async (packId: string) => {
-    try {
-      const result = await createPayPalOrder(packId).unwrap();
-      window.location.href = result.approveUrl;
-    } catch {
-      setSnackbar({
-        open: true,
-        message: '無法啟動結帳流程，請稍後再試一次。',
-        severity: 'error',
-      });
-    }
-  };
+    // already landed in the DB; just refetch so the (already-cached, now-stale) status query
+    // picks it up.
+    setSnackbar({
+      open: true,
+      message: '訂閱成立！使用額度已入帳。',
+      severity: 'success',
+    });
+    refetchSubscriptionStatus();
+  }, [searchParams, refetchSubscriptionStatus]);
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
@@ -277,83 +214,6 @@ const Credits: React.FC = () => {
       </Box>
 
       <SubscriptionCard />
-
-      {/* One-time top-up stays PayPal-only — ECPay's one-time credit/point purchase flow was
-          replaced by the subscription above; PayPal keeps serving overseas accounts that can't
-          use ECPay at all. */}
-      <Divider sx={{ my: 4 }} />
-      <Box sx={{ textAlign: 'center', mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
-          單次加值（PayPal，僅限海外帳戶）
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          不想訂閱、只想單次加值使用額度？PayPal 不支援台灣帳戶之間的付款（TW→TW），僅適用於海外 /
-          非台灣的 PayPal 帳戶。
-        </Typography>
-        {balanceData?.data && (
-          <Chip
-            label={`目前剩餘使用額度：${fmtNum(balanceData.data.balance)}`}
-            color="primary"
-            variant="outlined"
-            sx={{ fontSize: '1rem', py: 2, px: 1, mt: 2 }}
-          />
-        )}
-      </Box>
-
-      {paypalLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Grid container spacing={3} sx={{ justifyContent: 'center' }}>
-          {paypalPacks?.map((pack) => (
-            <Grid key={pack.id} size={{ xs: 12, sm: 6, md: 4 }}>
-              <Card
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  border: pack.id === 'popular' ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                  position: 'relative',
-                  transition: 'transform 0.2s',
-                  '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 },
-                }}
-              >
-                {pack.badge && (
-                  <Chip
-                    label={pack.badge}
-                    color={pack.id === 'bestvalue' ? 'success' : 'primary'}
-                    size="small"
-                    sx={{ position: 'absolute', top: 12, right: 12, fontWeight: 'bold' }}
-                  />
-                )}
-                <CardContent sx={{ flexGrow: 1, textAlign: 'center', pt: 4 }}>
-                  <Typography variant="h6" gutterBottom>
-                    {pack.name}
-                  </Typography>
-                  <Typography variant="h3" color="primary" sx={{ fontWeight: 'bold', my: 2 }}>
-                    US${pack.priceInCents / 100}
-                  </Typography>
-                  <Typography variant="h5" color="text.secondary">
-                    {fmtNum(pack.credits)} 使用額度
-                  </Typography>
-                </CardContent>
-                <CardActions sx={{ justifyContent: 'center', pb: 3 }}>
-                  <Button
-                    variant={pack.id === 'popular' ? 'contained' : 'outlined'}
-                    size="large"
-                    onClick={() => handlePayPalPurchase(pack.id)}
-                    disabled={paypalOrderLoading}
-                    sx={{ minWidth: 160 }}
-                  >
-                    {paypalOrderLoading ? '處理中...' : '立即購買'}
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
 
       {/* Transaction History */}
       {historyData?.data && historyData.data.transactions.length > 0 && (
