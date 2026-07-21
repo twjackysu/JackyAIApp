@@ -11,14 +11,12 @@ import {
   Grid,
   Pagination,
   Snackbar,
-  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Tabs,
   Typography,
 } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
@@ -26,7 +24,11 @@ import { useSearchParams } from 'react-router-dom';
 
 import { useGetCreditBalanceQuery, useGetCreditHistoryQuery } from '@/apis/creditApis';
 import { CreditTransaction } from '@/apis/creditApis/types';
-import { useCreateECPayPaymentMutation, useGetECPayPacksQuery } from '@/apis/ecpayApis';
+import {
+  useCancelSubscriptionMutation,
+  useCreateSubscriptionMutation,
+  useGetSubscriptionStatusQuery,
+} from '@/apis/ecpayApis';
 import {
   useCapturePayPalOrderMutation,
   useCreatePayPalOrderMutation,
@@ -34,21 +36,131 @@ import {
 } from '@/apis/paypalApis';
 import { fmtNum } from '@/utils/format';
 
-// ECPay (綠界) is the default — it's the Taiwan-local payment method and supports
-// TW→TW payments, which PayPal cannot (PayPal is overseas-account-only).
-type PaymentMethod = 'paypal' | 'ecpay';
-
 const TRANSACTION_TYPE_LABELS: Record<CreditTransaction['transactionType'], string> = {
   initial: '初始贈送',
   consume: '消費',
   topup: '儲值',
   refund: '退款',
   bonus: '獎勵',
+  subscription_grant: '訂閱核發',
 };
+
+function SubscriptionCard() {
+  const { data: status, isLoading, isFetching } = useGetSubscriptionStatusQuery();
+  const [createSubscription, { isLoading: isCreating }] = useCreateSubscriptionMutation();
+  const [cancelSubscription, { isLoading: isCancelling }] = useCancelSubscriptionMutation();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubscribe = async () => {
+    setError(null);
+    try {
+      const { PaymentGatewayUrl, ...fields } = await createSubscription().unwrap();
+      // ECPay's AioCheckOut expects a signed HTML form POST (CheckMacValue covers every
+      // field), not a simple redirect — build and auto-submit a hidden form.
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = PaymentGatewayUrl;
+      Object.entries(fields).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      });
+      document.body.appendChild(form);
+      form.submit();
+    } catch {
+      setError('無法啟動訂閱流程，請稍後再試一次。');
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!window.confirm('取消訂閱後將不再自動扣款，但可使用至本期到期日為止。確定要取消嗎？'))
+      return;
+    setError(null);
+    try {
+      await cancelSubscription().unwrap();
+    } catch {
+      setError('取消訂閱失敗，請稍後再試一次，或聯絡客服協助處理。');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  const isActive = status?.status === 'active';
+  const isCancelledButActive = status?.isSubscribed && status?.status === 'cancelled';
+
+  return (
+    <Card
+      elevation={0}
+      sx={{ maxWidth: 480, mx: 'auto', mb: 4, border: '2px solid', borderColor: 'primary.main' }}
+    >
+      <CardContent sx={{ textAlign: 'center', pt: 4 }}>
+        <Typography variant="overline" color="text.secondary">
+          Pro 訂閱
+        </Typography>
+        {status?.isSubscribed ? (
+          <>
+            <Chip
+              label={isActive ? '訂閱中' : '已取消（到期前仍可使用）'}
+              color={isActive ? 'success' : 'warning'}
+              sx={{ my: 1, fontWeight: 'bold' }}
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              {isActive
+                ? `下次扣款／續訂日：${status.currentPeriodEnd ? new Date(status.currentPeriodEnd).toLocaleDateString() : '—'}`
+                : `使用期限至：${status.currentPeriodEnd ? new Date(status.currentPeriodEnd).toLocaleDateString() : '—'}`}
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 'bold', my: 1 }}>
+              {fmtNum(status.currentBalance)} / {fmtNum(status.monthlyQuota)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              本期剩餘使用額度{isFetching ? '（更新中…）' : ''}
+            </Typography>
+          </>
+        ) : (
+          <>
+            <Typography variant="h3" sx={{ fontWeight: 'bold', my: 2 }}>
+              NT$150
+              <Typography component="span" variant="body1" color="text.secondary">
+                {' '}
+                / 月
+              </Typography>
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              訂閱後解鎖全部 AI 功能，每月 {fmtNum(3000)} 點使用額度
+            </Typography>
+          </>
+        )}
+        {error && (
+          <Alert severity="error" sx={{ mt: 2, textAlign: 'left' }}>
+            {error}
+          </Alert>
+        )}
+      </CardContent>
+      <CardActions sx={{ justifyContent: 'center', pb: 3 }}>
+        {isActive ? (
+          <Button variant="outlined" color="error" onClick={handleCancel} disabled={isCancelling}>
+            {isCancelling ? '處理中...' : '取消訂閱'}
+          </Button>
+        ) : isCancelledButActive ? null : (
+          <Button variant="contained" size="large" onClick={handleSubscribe} disabled={isCreating}>
+            {isCreating ? '處理中...' : '訂閱 Pro'}
+          </Button>
+        )}
+      </CardActions>
+    </Card>
+  );
+}
 
 const Credits: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const [method, setMethod] = useState<PaymentMethod>('ecpay');
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -57,11 +169,12 @@ const Credits: React.FC = () => {
 
   const { data: balanceData, refetch: refetchBalance } = useGetCreditBalanceQuery();
   const { data: paypalPacks, isLoading: paypalLoading } = useGetPayPalPacksQuery();
-  const { data: ecpayPacks, isLoading: ecpayLoading } = useGetECPayPacksQuery();
+  // Same query SubscriptionCard renders from — RTK Query dedupes identical queries across
+  // components, this just gets us a `refetch` handle up here too.
+  const { refetch: refetchSubscriptionStatus } = useGetSubscriptionStatusQuery();
 
   const [createPayPalOrder, { isLoading: paypalOrderLoading }] = useCreatePayPalOrderMutation();
   const [capturePayPalOrder] = useCapturePayPalOrderMutation();
-  const [createECPayPayment, { isLoading: ecpayOrderLoading }] = useCreateECPayPaymentMutation();
 
   // Guards the one-time handling of the payment-return query params (also avoids a
   // double PayPal capture under React StrictMode's double-invoked effects).
@@ -89,21 +202,24 @@ const Credits: React.FC = () => {
     // Clean the URL up-front so a refresh can't re-trigger handling/capture.
     window.history.replaceState({}, '', '/credits');
 
-    const onCredited = () => {
+    const isSubscription = searchParams.get('type') === 'subscription';
+
+    // ECPay credits the account server-side via its own POST callback — which it fires before
+    // ever redirecting the browser back here — so by the time this effect runs the grant has
+    // already landed in the DB. There's nothing for the client to "capture" like PayPal below;
+    // just refetch so the (already-cached, now-stale) status/balance queries pick it up.
+    if (searchParams.get('provider') === 'ecpay') {
       setSnackbar({
         open: true,
-        message: '付款成功！Credits 已入帳。',
+        message: isSubscription ? '訂閱成立！使用額度已入帳。' : '付款成功！使用額度已入帳。',
         severity: 'success',
       });
-      refetchBalance();
-      refetchHistory();
-    };
-
-    // ECPay credits the account server-side via its own POST callback (/api/ecpay/callback)
-    // before the browser is ever redirected back here — unlike PayPal, there's nothing left
-    // for the client to "capture". Just confirm and refresh.
-    if (searchParams.get('provider') === 'ecpay') {
-      onCredited();
+      if (isSubscription) {
+        refetchSubscriptionStatus();
+      } else {
+        refetchBalance();
+        refetchHistory();
+      }
       return;
     }
 
@@ -122,7 +238,11 @@ const Credits: React.FC = () => {
     setSnackbar({ open: true, message: '正在確認付款結果…', severity: 'info' });
     capturePayPalOrder(orderId)
       .unwrap()
-      .then(onCredited)
+      .then(() => {
+        setSnackbar({ open: true, message: '付款成功！使用額度已入帳。', severity: 'success' });
+        refetchBalance();
+        refetchHistory();
+      })
       .catch(() => {
         setSnackbar({
           open: true,
@@ -130,7 +250,7 @@ const Credits: React.FC = () => {
           severity: 'error',
         });
       });
-  }, [searchParams, refetchBalance, refetchHistory, capturePayPalOrder]);
+  }, [searchParams, refetchBalance, refetchHistory, refetchSubscriptionStatus, capturePayPalOrder]);
 
   const handlePayPalPurchase = async (packId: string) => {
     try {
@@ -145,92 +265,48 @@ const Credits: React.FC = () => {
     }
   };
 
-  const handleECPayPurchase = async (packId: string) => {
-    try {
-      const { PaymentGatewayUrl, ...fields } = await createECPayPayment(packId).unwrap();
-      // ECPay's AioCheckOut expects a signed HTML form POST (CheckMacValue covers every
-      // field), not a simple redirect — build and auto-submit a hidden form.
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = PaymentGatewayUrl;
-      Object.entries(fields).forEach(([key, value]) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = value;
-        form.appendChild(input);
-      });
-      document.body.appendChild(form);
-      form.submit();
-    } catch {
-      setSnackbar({
-        open: true,
-        message: '無法啟動綠界付款，請稍後再試一次。',
-        severity: 'error',
-      });
-    }
-  };
-
-  const packs =
-    method === 'ecpay'
-      ? ecpayPacks?.map((p) => ({
-          id: p.id,
-          name: p.name,
-          price: p.priceTWD,
-          credits: p.credits,
-          badge: p.badge,
-          currency: 'NT$',
-        }))
-      : paypalPacks?.map((p) => ({
-          id: p.id,
-          name: p.name,
-          price: p.priceInCents / 100,
-          credits: p.credits,
-          badge: p.badge,
-          currency: 'US$',
-        }));
-
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
       <Box sx={{ textAlign: 'center', mb: 3 }}>
         <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-          購買 Credits
+          訂閱管理
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          Credits 可用於股票分析、對話測驗等 AI 功能。
+          訂閱 Pro 即可使用股票分析、對話測驗等全部 AI 功能。
+        </Typography>
+      </Box>
+
+      <SubscriptionCard />
+
+      {/* One-time top-up stays PayPal-only — ECPay's one-time credit/point purchase flow was
+          replaced by the subscription above; PayPal keeps serving overseas accounts that can't
+          use ECPay at all. */}
+      <Divider sx={{ my: 4 }} />
+      <Box sx={{ textAlign: 'center', mb: 3 }}>
+        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
+          單次加值（PayPal，僅限海外帳戶）
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          不想訂閱、只想單次加值使用額度？PayPal 不支援台灣帳戶之間的付款（TW→TW），僅適用於海外 /
+          非台灣的 PayPal 帳戶。
         </Typography>
         {balanceData?.data && (
           <Chip
-            label={`目前餘額：${fmtNum(balanceData.data.balance)} credits`}
+            label={`目前剩餘使用額度：${fmtNum(balanceData.data.balance)}`}
             color="primary"
             variant="outlined"
-            sx={{ fontSize: '1rem', py: 2, px: 1 }}
+            sx={{ fontSize: '1rem', py: 2, px: 1, mt: 2 }}
           />
         )}
       </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-        <Tabs value={method} onChange={(_, v) => setMethod(v as PaymentMethod)}>
-          <Tab label="綠界 ECPay（台灣本地）" value="ecpay" />
-          <Tab label="PayPal（僅限海外帳戶）" value="paypal" />
-        </Tabs>
-      </Box>
 
-      {/* PayPal can't process Taiwan-domestic (TW→TW) payments, so ECPay is the default
-          for TW users; PayPal stays available for overseas accounts. */}
-      {method === 'paypal' && (
-        <Alert severity="info" sx={{ mb: 3, maxWidth: 640, mx: 'auto' }}>
-          PayPal 不支援台灣帳戶之間的付款（TW→TW），僅適用於海外 / 非台灣的 PayPal 帳戶。
-          台灣用戶建議使用綠界 ECPay。
-        </Alert>
-      )}
-
-      {(method === 'ecpay' ? ecpayLoading : paypalLoading) ? (
+      {paypalLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       ) : (
         <Grid container spacing={3} sx={{ justifyContent: 'center' }}>
-          {packs?.map((pack) => (
+          {paypalPacks?.map((pack) => (
             <Grid key={pack.id} size={{ xs: 12, sm: 6, md: 4 }}>
               <Card
                 sx={{
@@ -256,28 +332,21 @@ const Credits: React.FC = () => {
                     {pack.name}
                   </Typography>
                   <Typography variant="h3" color="primary" sx={{ fontWeight: 'bold', my: 2 }}>
-                    {pack.currency}
-                    {pack.price}
+                    US${pack.priceInCents / 100}
                   </Typography>
                   <Typography variant="h5" color="text.secondary">
-                    {fmtNum(pack.credits)} credits
+                    {fmtNum(pack.credits)} 使用額度
                   </Typography>
                 </CardContent>
                 <CardActions sx={{ justifyContent: 'center', pb: 3 }}>
                   <Button
                     variant={pack.id === 'popular' ? 'contained' : 'outlined'}
                     size="large"
-                    onClick={() =>
-                      method === 'ecpay'
-                        ? handleECPayPurchase(pack.id)
-                        : handlePayPalPurchase(pack.id)
-                    }
-                    disabled={method === 'ecpay' ? ecpayOrderLoading : paypalOrderLoading}
+                    onClick={() => handlePayPalPurchase(pack.id)}
+                    disabled={paypalOrderLoading}
                     sx={{ minWidth: 160 }}
                   >
-                    {(method === 'ecpay' ? ecpayOrderLoading : paypalOrderLoading)
-                      ? '處理中...'
-                      : '立即購買'}
+                    {paypalOrderLoading ? '處理中...' : '立即購買'}
                   </Button>
                 </CardActions>
               </Card>
@@ -285,17 +354,13 @@ const Credits: React.FC = () => {
           ))}
         </Grid>
       )}
-      <Box sx={{ textAlign: 'center', mt: 5 }}>
-        <Typography variant="body2" color="text.secondary">
-          付款皆採安全加密處理，付款完成後 Credits 立即入帳。
-        </Typography>
-      </Box>
+
       {/* Transaction History */}
       {historyData?.data && historyData.data.transactions.length > 0 && (
         <Box sx={{ mt: 6 }}>
           <Divider sx={{ mb: 3 }} />
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-            交易紀錄
+            使用紀錄
           </Typography>
           <TableContainer>
             <Table size="small">
@@ -304,7 +369,7 @@ const Credits: React.FC = () => {
                   <TableCell>日期</TableCell>
                   <TableCell>類型</TableCell>
                   <TableCell>原因</TableCell>
-                  <TableCell align="right">金額</TableCell>
+                  <TableCell align="right">數量</TableCell>
                   <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     餘額
                   </TableCell>

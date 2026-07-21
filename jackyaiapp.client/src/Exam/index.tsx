@@ -85,7 +85,7 @@ function Exam() {
             <Box sx={{ textAlign: 'center' }}>
               克漏字測驗 (Cloze Test)
               <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
-                每次生成 {CREDIT_COSTS.CLOZE_TEST} credits
+                每次生成 {CREDIT_COSTS.CLOZE_TEST} 點使用額度
               </Typography>
             </Box>
           </Button>
@@ -99,8 +99,8 @@ function Exam() {
             <Box sx={{ textAlign: 'center' }}>
               翻譯測驗 (Translation Test)
               <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
-                生成 {CREDIT_COSTS.TRANSLATION_TEST} credits・批改{' '}
-                {CREDIT_COSTS.TRANSLATION_GRADING} credit
+                生成 {CREDIT_COSTS.TRANSLATION_TEST} 點使用額度・批改{' '}
+                {CREDIT_COSTS.TRANSLATION_GRADING} 點使用額度
               </Typography>
             </Box>
           </Button>
@@ -114,8 +114,8 @@ function Exam() {
             <Box sx={{ textAlign: 'center' }}>
               情境對話測驗 (Conversation Test)
               <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
-                開始 {CREDIT_COSTS.CONVERSATION_START} credits・每輪{' '}
-                {CREDIT_COSTS.CONVERSATION_RESPONSE} credits
+                開始 {CREDIT_COSTS.CONVERSATION_START} 點使用額度・每輪{' '}
+                {CREDIT_COSTS.CONVERSATION_RESPONSE} 點使用額度
               </Typography>
             </Box>
           </Button>
@@ -133,7 +133,7 @@ function Exam() {
             <Box sx={{ textAlign: 'center' }}>
               造句測驗 (Sentence Formation Test)
               <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
-                每次生成 {CREDIT_COSTS.SENTENCE_TEST} credits
+                每次生成 {CREDIT_COSTS.SENTENCE_TEST} 點使用額度
               </Typography>
             </Box>
           </Button>
@@ -147,7 +147,7 @@ function Exam() {
             <Box sx={{ textAlign: 'center' }}>
               聽力測驗 - 看圖 (Listening Part 1)
               <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
-                每次生成 {CREDIT_COSTS.LISTENING_TEST} credits
+                每次生成 {CREDIT_COSTS.LISTENING_TEST} 點使用額度
               </Typography>
             </Box>
           </Button>
@@ -161,7 +161,7 @@ function Exam() {
             <Box sx={{ textAlign: 'center' }}>
               聽力測驗 - 應答 (Listening Part 2)
               <Typography variant="caption" sx={{ display: 'block', opacity: 0.75 }}>
-                每次生成 {CREDIT_COSTS.LISTENING_RESPONSE_TEST} credits
+                每次生成 {CREDIT_COSTS.LISTENING_RESPONSE_TEST} 點使用額度
               </Typography>
             </Box>
           </Button>

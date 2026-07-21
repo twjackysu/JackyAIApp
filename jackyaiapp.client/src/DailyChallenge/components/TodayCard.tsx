@@ -92,7 +92,7 @@ function TodayCard({ dueCount, todayChallengeDone }: TodayCardProps) {
           done={false}
           icon={<AutoAwesomeIcon fontSize="small" color="action" />}
           title="Practice with an exam"
-          subtitle="Optional — cloze, translation, sentence, conversation & listening tests (uses credits)"
+          subtitle="Optional — cloze, translation, sentence, conversation & listening tests (uses quota)"
           actionLabel="Practice"
           to="/english/exam"
         />

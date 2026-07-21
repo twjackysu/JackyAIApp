@@ -6,7 +6,7 @@ export interface CreditTransaction {
   id: number;
   amount: number;
   balanceAfter: number;
-  transactionType: 'initial' | 'consume' | 'topup' | 'refund' | 'bonus';
+  transactionType: 'initial' | 'consume' | 'topup' | 'refund' | 'bonus' | 'subscription_grant';
   reason: string;
   description?: string;
   createdAt: string;

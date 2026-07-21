@@ -218,7 +218,7 @@ function ConversationTestCard() {
               結束並看總結
             </Button>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              消耗 {CREDIT_COSTS.CONVERSATION_SUMMARY} credits
+              消耗 {CREDIT_COSTS.CONVERSATION_SUMMARY} 點使用額度
             </Typography>
           </span>
         </Tooltip>

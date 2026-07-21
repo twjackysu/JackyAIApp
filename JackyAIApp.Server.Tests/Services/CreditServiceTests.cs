@@ -66,5 +66,44 @@ namespace JackyAIApp.Server.Tests.Services
 
             Assert.Equal(800UL, await _service.GetBalanceAsync(UserId));
         }
+
+        [Fact]
+        public async Task GrantMonthlyQuota_ResetsRatherThanAdds()
+        {
+            await _service.AddCreditsAsync(UserId, 500, "bonus", "leftover from free tier");
+
+            var ok = await _service.GrantMonthlyQuotaAsync(UserId, 3000, "ecpay-period-1", "subscription");
+
+            Assert.True(ok);
+            // 3000, not 3500 — a period grant resets the balance, it doesn't top it up.
+            Assert.Equal(3000UL, await _service.GetBalanceAsync(UserId));
+        }
+
+        [Fact]
+        public async Task GrantMonthlyQuota_SameReferenceId_DoesNotResetAgain()
+        {
+            await _service.GrantMonthlyQuotaAsync(UserId, 3000, "ecpay-period-1", "subscription");
+            await _service.ConsumeCreditsAsync(UserId, 1000, "cloze_test"); // user spends some of this period's quota
+
+            var replay = await _service.GrantMonthlyQuotaAsync(UserId, 3000, "ecpay-period-1", "subscription (replayed callback)");
+
+            Assert.True(replay); // idempotent success, not an error
+            // Must stay at 2000 (3000 - 1000 spent) — a replayed callback for a charge already
+            // granted must never reset the balance back to the full quota mid-period.
+            Assert.Equal(2000UL, await _service.GetBalanceAsync(UserId));
+        }
+
+        [Fact]
+        public async Task GrantMonthlyQuota_DifferentReferenceIds_EachResets()
+        {
+            await _service.GrantMonthlyQuotaAsync(UserId, 3000, "ecpay-period-1", "subscription month 1");
+            await _service.ConsumeCreditsAsync(UserId, 2900, "cloze_test");
+
+            await _service.GrantMonthlyQuotaAsync(UserId, 3000, "ecpay-period-2", "subscription month 2");
+
+            // New period, new charge, new referenceId — resets to the full quota regardless of
+            // how little was left from the previous period.
+            Assert.Equal(3000UL, await _service.GetBalanceAsync(UserId));
+        }
     }
 }
