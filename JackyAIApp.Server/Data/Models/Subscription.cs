@@ -41,6 +41,12 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// terminate).</summary>
         public string? EcpayMerchantTradeNo { get; set; }
 
+        /// <summary>PayUni's MerTradeNo from the most recent successful UPP checkout. PayUni has
+        /// no recurring-billing engine (unlike ECPay's 信用卡定期定額) — each month is a separate
+        /// manually-triggered UPP payment, so this is kept for trade lookups/support only, not
+        /// for any cancel/renewal API call.</summary>
+        public string? PayUniMerTradeNo { get; set; }
+
         public DateTime? StartedAt { get; set; }
         public DateTime? CancelledAt { get; set; }
         public DateTime LastUpdated { get; set; } = DateTime.UtcNow;

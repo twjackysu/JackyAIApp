@@ -829,6 +829,9 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<DateTime>("LastUpdated")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("PayUniMerTradeNo")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Provider")
                         .HasColumnType("nvarchar(max)");
 

@@ -27,7 +27,7 @@ import {
   useCancelSubscriptionMutation,
   useCreateSubscriptionMutation,
   useGetSubscriptionStatusQuery,
-} from '@/apis/ecpayApis';
+} from '@/apis/payuniApis';
 import { fmtNum } from '@/utils/format';
 
 const TRANSACTION_TYPE_LABELS: Record<CreditTransaction['transactionType'], string> = {
@@ -49,8 +49,8 @@ function SubscriptionCard() {
     setError(null);
     try {
       const { PaymentGatewayUrl, ...fields } = await createSubscription().unwrap();
-      // ECPay's AioCheckOut expects a signed HTML form POST (CheckMacValue covers every
-      // field), not a simple redirect — build and auto-submit a hidden form.
+      // PayUni's UPP checkout expects a signed HTML form POST (HashInfo covers the encrypted
+      // payload), not a simple redirect — build and auto-submit a hidden form.
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = PaymentGatewayUrl;
@@ -69,7 +69,11 @@ function SubscriptionCard() {
   };
 
   const handleCancel = async () => {
-    if (!window.confirm('取消訂閱後將不再自動扣款，但可使用至本期到期日為止。確定要取消嗎？'))
+    if (
+      !window.confirm(
+        '取消後，到期前仍可使用完整額度；到期後將不再視為訂閱中，需重新手動訂閱才能繼續使用。確定要取消嗎？',
+      )
+    )
       return;
     setError(null);
     try {
@@ -107,9 +111,7 @@ function SubscriptionCard() {
               sx={{ my: 1, fontWeight: 'bold' }}
             />
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {isActive
-                ? `下次扣款／續訂日：${status.currentPeriodEnd ? new Date(status.currentPeriodEnd).toLocaleDateString() : '—'}`
-                : `使用期限至：${status.currentPeriodEnd ? new Date(status.currentPeriodEnd).toLocaleDateString() : '—'}`}
+              {`訂閱到期日：${status.currentPeriodEnd ? new Date(status.currentPeriodEnd).toLocaleDateString() : '—'}（不會自動續訂，到期後請手動重新訂閱）`}
             </Typography>
             <Typography variant="h5" sx={{ fontWeight: 'bold', my: 1 }}>
               {fmtNum(status.currentBalance)} / {fmtNum(status.monthlyQuota)}
@@ -128,7 +130,7 @@ function SubscriptionCard() {
               </Typography>
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              訂閱後解鎖全部 AI 功能，每月 {fmtNum(3000)} 點使用額度
+              訂閱後解鎖全部功能，每月 {fmtNum(3000)} 點使用額度
             </Typography>
           </>
         )}
@@ -185,6 +187,12 @@ const Credits: React.FC = () => {
       return;
     }
 
+    if (status === 'failed') {
+      setSnackbar({ open: true, message: '付款未成功，請稍後再試一次。', severity: 'error' });
+      window.history.replaceState({}, '', '/credits');
+      return;
+    }
+
     if (status !== 'success') return;
 
     // Clean the URL up-front so a refresh can't re-trigger handling.
@@ -209,7 +217,7 @@ const Credits: React.FC = () => {
           訂閱管理
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          訂閱 Pro 即可使用股票分析、對話測驗等全部 AI 功能。
+          訂閱 Pro 即可使用股票分析、對話測驗等全部功能。
         </Typography>
       </Box>
 
