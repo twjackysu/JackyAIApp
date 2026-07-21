@@ -147,7 +147,9 @@ export function StockRow({ row, error, onChange, onRemove }: Props) {
           <MenuItem value="TWD">TWD</MenuItem>
         </TextField>
       )}
-      <IconButton onClick={onRemove} size="small" sx={{ mt: 0.5 }}>
+      {/* No size="small" here — a small icon-button hit area was hard to tap accurately on
+          mobile, unlike every other control in this row which is fine staying compact. */}
+      <IconButton onClick={onRemove} sx={{ mt: 0.5 }}>
         <DeleteOutlineIcon fontSize="small" />
       </IconButton>
     </Box>
