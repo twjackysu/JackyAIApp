@@ -189,7 +189,13 @@ export function HoldingsEditor() {
             empty={cashes.length === 0}
           >
             {cashes.map((r) => (
-              <Box key={r._key} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              // flexWrap so fields stack on mobile instead of overflowing the dialog width and
+              // pushing the delete button off-screen; the delete button itself drops size="small"
+              // for a real ~44px touch target instead of a hard-to-hit one.
+              <Box
+                key={r._key}
+                sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}
+              >
                 <TextField
                   size="small"
                   label="名稱"
@@ -217,9 +223,9 @@ export function HoldingsEditor() {
                   slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
                   error={submitted && rowError(r) !== null}
                   helperText={submitted ? rowError(r) : undefined}
-                  sx={{ flex: 1 }}
+                  sx={{ flex: '1 1 140px' }}
                 />
-                <IconButton onClick={() => removeRow(r._key)} size="small">
+                <IconButton onClick={() => removeRow(r._key)} sx={{ mt: 0.5 }}>
                   <DeleteOutlineIcon fontSize="small" />
                 </IconButton>
               </Box>
@@ -237,7 +243,13 @@ export function HoldingsEditor() {
             empty={liabilities.length === 0}
           >
             {liabilities.map((r) => (
-              <Box key={r._key} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              // flexWrap so fields stack on mobile instead of overflowing the dialog width and
+              // pushing the delete button off-screen; the delete button itself drops size="small"
+              // for a real ~44px touch target instead of a hard-to-hit one.
+              <Box
+                key={r._key}
+                sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}
+              >
                 <TextField
                   size="small"
                   label="名稱"
@@ -265,9 +277,9 @@ export function HoldingsEditor() {
                   slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
                   error={submitted && rowError(r) !== null}
                   helperText={submitted ? rowError(r) : undefined}
-                  sx={{ flex: 1 }}
+                  sx={{ flex: '1 1 140px' }}
                 />
-                <IconButton onClick={() => removeRow(r._key)} size="small">
+                <IconButton onClick={() => removeRow(r._key)} sx={{ mt: 0.5 }}>
                   <DeleteOutlineIcon fontSize="small" />
                 </IconButton>
               </Box>

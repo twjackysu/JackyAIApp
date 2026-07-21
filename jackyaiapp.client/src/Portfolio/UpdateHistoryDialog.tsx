@@ -8,6 +8,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
+import { useTheme } from '@mui/material/styles';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -15,6 +16,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useState } from 'react';
 
 import {
@@ -29,6 +31,8 @@ interface Props {
 }
 
 export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [open, setOpen] = useState(false);
   const { data: res, isLoading } = useGetUpdateHistoryQuery(undefined, { skip: !open });
   const [fetchSnapshot, { isFetching: isLoadingSnap }] = useLazyGetSnapshotHoldingsQuery();
@@ -66,7 +70,13 @@ export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
         更新紀錄
       </Button>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        fullScreen={fullScreen}
+      >
         <DialogTitle>持倉更新紀錄</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -86,8 +96,12 @@ export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
               <TableHead>
                 <TableRow>
                   <TableCell>生效日</TableCell>
-                  <TableCell align="right">項目數</TableCell>
-                  <TableCell align="right">匯率</TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                    項目數
+                  </TableCell>
+                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                    匯率
+                  </TableCell>
                   <TableCell align="right">操作</TableCell>
                 </TableRow>
               </TableHead>
@@ -95,31 +109,37 @@ export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
                 {history.map((h) => (
                   <TableRow key={h.snapshotId} hover>
                     <TableCell>{h.effectiveDate}</TableCell>
-                    <TableCell align="right">{h.positionCount}</TableCell>
-                    <TableCell align="right">{h.usdTwdRate.toFixed(2)}</TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                      {h.positionCount}
+                    </TableCell>
+                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                      {h.usdTwdRate.toFixed(2)}
+                    </TableCell>
                     <TableCell align="right">
-                      <Tooltip title="載入到編輯器">
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={busyId === h.snapshotId && isLoadingSnap}
-                            onClick={() => handleLoad(h.snapshotId)}
-                          >
-                            <RestoreIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title="刪除這筆快照">
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={busyId === h.snapshotId}
-                            onClick={() => handleDelete(h.snapshotId)}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
+                      {/* Real touch targets, spaced apart — cramped size="small" buttons
+                          sitting right next to each other were hard to tap accurately on mobile. */}
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                        <Tooltip title="載入到編輯器">
+                          <span>
+                            <IconButton
+                              disabled={busyId === h.snapshotId && isLoadingSnap}
+                              onClick={() => handleLoad(h.snapshotId)}
+                            >
+                              <RestoreIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title="刪除這筆快照">
+                          <span>
+                            <IconButton
+                              disabled={busyId === h.snapshotId}
+                              onClick={() => handleDelete(h.snapshotId)}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
