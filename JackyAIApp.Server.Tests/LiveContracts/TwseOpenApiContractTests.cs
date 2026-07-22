@@ -39,10 +39,16 @@ namespace JackyAIApp.Server.Tests.LiveContracts
             StockPoolProvider.PickForToday(StockPoolProvider.TwStocks, count: 3, seedOffset: 3)
                 .Select(s => new object[] { s });
 
+        /// <summary>Companies only (no ETFs) — for endpoints scoped to per-company fundamentals,
+        /// see <see cref="StockPoolProvider.TwCompanies"/>.</summary>
+        public static IEnumerable<object[]> TodaysTwCompanyPicks() =>
+            StockPoolProvider.PickForToday(StockPoolProvider.TwCompanies, count: 3, seedOffset: 4)
+                .Select(s => new object[] { s });
+
         // === B1: TWSEFundamentalDataProvider ===
 
         [Theory]
-        [MemberData(nameof(TodaysTwStockPicks))]
+        [MemberData(nameof(TodaysTwCompanyPicks))]
         public async Task BWIBBU_d_ForTodaysRandomPicks_HasValuationFields(string symbol)
         {
             var data = await FetchArrayAsync("exchangeReport/BWIBBU_d");
@@ -58,7 +64,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         }
 
         [Theory]
-        [MemberData(nameof(TodaysTwStockPicks))]
+        [MemberData(nameof(TodaysTwCompanyPicks))]
         public async Task Revenue_t187ap05_L_ForTodaysRandomPicks_HasUsableMonthlyRevenue(string symbol)
         {
             var data = await FetchArrayAsync("opendata/t187ap05_L");
@@ -79,7 +85,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         }
 
         [Theory]
-        [MemberData(nameof(TodaysTwStockPicks))]
+        [MemberData(nameof(TodaysTwCompanyPicks))]
         public async Task Eps_t187ap14_L_ForTodaysRandomPicks_HasUsableEpsFields(string symbol)
         {
             var data = await FetchArrayAsync("opendata/t187ap14_L");
@@ -166,7 +172,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         // === B3: TWSEChipDataProvider ===
 
         [Theory]
-        [MemberData(nameof(TodaysTwStockPicks))]
+        [MemberData(nameof(TodaysTwCompanyPicks))]
         public async Task ChipMI_MARGN_ForTodaysRandomPicks_HasPerStockMarginFields(string symbol)
         {
             var data = await FetchArrayAsync("exchangeReport/MI_MARGN");
