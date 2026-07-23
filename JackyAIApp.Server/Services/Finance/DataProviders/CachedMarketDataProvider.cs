@@ -34,6 +34,23 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         public Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default) =>
             FetchInternalAsync(stockCode, deep: false, cancellationToken);
 
+        /// <summary>
+        /// Must be overridden, not left as the interface's default no-op: this decorator sits in
+        /// front of every <see cref="IMarketDataProvider"/> registration (see
+        /// FinanceServiceExtensions), so a caller invoking <c>InvalidateAsync</c> through here would
+        /// otherwise silently no-op and never reach <c>_inner</c>'s real invalidation logic (e.g.
+        /// <c>PersistentTwHistoricalProvider</c> resetting a stuck DB-persisted market-type
+        /// resolution) — exactly the bug that made Portfolio's "重新抓取報價" reload button do
+        /// nothing for 00864B.
+        /// </summary>
+        public async Task InvalidateAsync(string stockCode, CancellationToken cancellationToken = default)
+        {
+            var today = DateTime.Today.ToString("yyyyMMdd");
+            _cache.Remove($"MarketData_{_inner.Type}_deep_{stockCode}_{today}");
+            _cache.Remove($"MarketData_{_inner.Type}_latest_{stockCode}_{today}");
+            await _inner.InvalidateAsync(stockCode, cancellationToken);
+        }
+
         private async Task<MarketData> FetchInternalAsync(string stockCode, bool deep, CancellationToken cancellationToken)
         {
             // Separate cache keys for deep vs latest-only — a shallow FetchLatestAsync result must
