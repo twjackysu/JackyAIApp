@@ -24,6 +24,14 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// only guarantee is "at least the latest available price", not "at most N days".
         /// </summary>
         Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Clears any persisted/cached resolution for this symbol that would otherwise make it
+        /// stick to a bad value forever (e.g. a wrongly-resolved TW market type) — the next
+        /// Fetch*Async call re-derives everything from scratch. Default no-op: most providers have
+        /// no sticky per-symbol state to bust, only <c>PersistentTwHistoricalProvider</c> does.
+        /// </summary>
+        Task InvalidateAsync(string stockCode, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     /// <summary>

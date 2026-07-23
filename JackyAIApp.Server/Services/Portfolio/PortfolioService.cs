@@ -412,6 +412,37 @@ namespace JackyAIApp.Server.Services.Portfolio
             };
         }
 
+        /// <summary>
+        /// Manual retry for a position stuck showing "報價失敗" — busts both this request-scoped
+        /// in-memory cache entry and the provider's own persisted sticky state (e.g. a TW symbol
+        /// wrongly resolved to the other market once and never re-checked since, see
+        /// <see cref="Finance.DataProviders.PersistentTwHistoricalProvider.InvalidateAsync"/>) for
+        /// just this one symbol, then returns a freshly recomputed summary. Only STOCK positions
+        /// route through <see cref="IMarketDataProviderFactory"/> at all (FUND pricing goes through
+        /// <see cref="IFundDataService"/> instead), so a symbol not currently held as a STOCK is a
+        /// silent no-op rather than an error — this also stops the endpoint being usable to force
+        /// arbitrary external-API fetches for symbols the caller doesn't even hold.
+        /// </summary>
+        public async Task<PortfolioSummaryDto> RefreshPositionPriceAsync(
+            string userId, string symbol, decimal feeDiscountRate = 0.28m, CancellationToken ct = default)
+        {
+            symbol = (symbol ?? "").ToUpperInvariant();
+            var snapshot = await LatestSnapshotAsync(userId, ct);
+            var owns = snapshot?.Positions.Any(p => p.AssetType == AssetType.STOCK && p.Symbol == symbol) ?? false;
+
+            if (owns)
+            {
+                cache.Remove(STOCK_CACHE_PREFIX + "deep_" + symbol);
+                cache.Remove(STOCK_CACHE_PREFIX + "latest_" + symbol);
+
+                var region = providerFactory.DetectRegion(symbol);
+                var provider = providerFactory.GetMarketDataProvider(region);
+                await provider.InvalidateAsync(symbol, ct);
+            }
+
+            return await GetPortfolioSummaryAsync(userId, feeDiscountRate, ct);
+        }
+
         // ── Net worth history ────────────────────────────────────────────────
 
         public async Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(

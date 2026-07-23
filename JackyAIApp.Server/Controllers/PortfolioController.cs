@@ -48,6 +48,15 @@ namespace JackyAIApp.Server.Controllers
             return responseFactory.CreateOKResponse(true);
         }
 
+        [HttpPost("holdings/{symbol}/refresh-price")]
+        public async Task<IActionResult> RefreshPositionPrice(
+            string symbol, [FromQuery] decimal feeDiscountRate = 0.28m, CancellationToken ct = default)
+        {
+            var userId = RequireUserId();
+            var result = await portfolioService.RefreshPositionPriceAsync(userId, symbol, feeDiscountRate, ct);
+            return responseFactory.CreateOKResponse(result);
+        }
+
         [HttpGet("holdings/{snapshotId:int}")]
         public async Task<IActionResult> GetSnapshotHoldings(int snapshotId, CancellationToken ct)
         {
