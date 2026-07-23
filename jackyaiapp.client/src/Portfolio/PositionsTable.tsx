@@ -1,21 +1,27 @@
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
+import { loadFeeDiscountRate } from './feeDiscountRate';
 import { fmtNum as fmt, fmtQty, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
 
+import { useRefreshPositionPriceMutation } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
 
 interface Props {
@@ -139,6 +145,8 @@ interface GroupTableProps {
 
 function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps) {
   const { value, change, showRatio } = usePrivacy();
+  const [refreshPrice, { isLoading: isRefreshing, originalArgs }] =
+    useRefreshPositionPriceMutation();
 
   return (
     <TableContainer>
@@ -201,13 +209,37 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                         />
                       )}
                     {p.priceFetchFailed && (
-                      <Chip
-                        label="報價失敗"
-                        size="small"
-                        color="error"
-                        variant="outlined"
-                        sx={{ fontSize: 10, height: 18 }}
-                      />
+                      <>
+                        <Chip
+                          label="報價失敗"
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                          sx={{ fontSize: 10, height: 18 }}
+                        />
+                        <Tooltip title="重新抓取報價">
+                          <span>
+                            <IconButton
+                              size="small"
+                              disabled={isRefreshing && originalArgs?.symbol === p.symbol}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                refreshPrice({
+                                  symbol: p.symbol,
+                                  feeDiscountRate: loadFeeDiscountRate(),
+                                });
+                              }}
+                              sx={{ p: 0.25 }}
+                            >
+                              {isRefreshing && originalArgs?.symbol === p.symbol ? (
+                                <CircularProgress size={14} />
+                              ) : (
+                                <RefreshIcon sx={{ fontSize: 14 }} />
+                              )}
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </>
                     )}
                   </Box>
                 </TableCell>

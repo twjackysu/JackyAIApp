@@ -66,6 +66,33 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         public Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default) =>
             FetchInternalAsync(stockCode, deep: false, cancellationToken);
 
+        /// <summary>
+        /// Clears the persisted <see cref="StockSymbolInfo.TwMarketType"/>/<see cref="StockSymbolInfo.DeepFetchedAt"/>
+        /// so the next fetch re-resolves the market from scratch instead of reusing a stuck bad
+        /// value — <see cref="ResolveAndPersistMarketTypeAsync"/> otherwise treats any persisted
+        /// <c>TwMarketType</c> as permanent and never re-checks it. Leaves <c>Name</c>/<c>Category</c>/
+        /// <c>SubCategory</c> untouched (no reason to throw away an AI classification over this) and
+        /// leaves already-persisted <see cref="DailyStockPrice"/> rows alone (harmless, re-fetches
+        /// just dedupe against them).
+        /// </summary>
+        public async Task InvalidateAsync(string stockCode, CancellationToken cancellationToken = default)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+            var info = await db.StockSymbolInfos.FindAsync([stockCode], cancellationToken);
+            if (info == null || (info.TwMarketType == null && info.DeepFetchedAt == null)) return;
+
+            info.TwMarketType = null;
+            info.DeepFetchedAt = null;
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogDebug(ex, "Race invalidating market type for {Symbol}, ignoring", stockCode);
+            }
+        }
+
         private async Task<MarketData> FetchInternalAsync(string stockCode, bool deep, CancellationToken cancellationToken)
         {
             await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);

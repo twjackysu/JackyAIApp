@@ -44,6 +44,16 @@ export const portfolioApis = createApi({
       query: (snapshotId) => ({ url: `holdings/${snapshotId}`, method: 'DELETE' }),
       invalidatesTags: ['Holdings', 'Summary'],
     }),
+    refreshPositionPrice: builder.mutation<
+      ApiOkResponse<PortfolioSummaryDto>,
+      { symbol: string; feeDiscountRate?: number }
+    >({
+      query: ({ symbol, feeDiscountRate }) => ({
+        url: `holdings/${symbol}/refresh-price${feeDiscountRate ? `?feeDiscountRate=${feeDiscountRate}` : ''}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Summary'],
+    }),
     getUpdateHistory: builder.query<ApiOkResponse<UpdateHistoryItem[]>, void>({
       query: () => 'update-history',
       providesTags: ['Holdings'],
@@ -90,6 +100,7 @@ export const {
   useLazyGetSnapshotHoldingsQuery,
   useSaveHoldingsMutation,
   useDeleteSnapshotMutation,
+  useRefreshPositionPriceMutation,
   useGetUpdateHistoryQuery,
   useSearchFundsQuery,
   useGetNetWorthHistoryQuery,
