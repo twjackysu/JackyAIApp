@@ -130,30 +130,31 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         }
 
         /// <summary>
-        /// Determines whether a stock is on TSE or OTC market.
-        /// Tries TSE first (majority of stocks), falls back to OTC.
+        /// Determines whether a stock is on TSE or OTC market via the combined TSE+OTC list.
         /// Public (via <see cref="ITWStockLibHistoricalProvider"/>) so <c>PersistentTwHistoricalProvider</c>
         /// can reuse this memory-cached resolution instead of duplicating the isin-list lookup
         /// logic when it needs to resolve a symbol it hasn't persisted to <c>StockSymbolInfo</c> yet.
+        /// Previously issued two sequential per-market calls (TSE then OTC) and silently fell back
+        /// to TSE — with no log line — whenever either call soft-failed (IsSuccess:false, which
+        /// <see cref="GetCachedAllStockListAsync"/> now logs). One combined call halves that
+        /// failure surface.
         /// </summary>
         public async Task<MarketType> DetermineMarketType(string stockCode)
         {
             try
             {
-                var tseList = await GetCachedStockListAsync(MarketType.TSE);
-                if (tseList != null && tseList.ContainsKey(stockCode))
-                    return MarketType.TSE;
-
-                var otcList = await GetCachedStockListAsync(MarketType.OTC);
-                if (otcList != null && otcList.ContainsKey(stockCode))
-                    return MarketType.OTC;
+                var allList = await GetCachedAllStockListAsync();
+                if (allList != null && allList.TryGetValue(stockCode, out var info))
+                    return info.Market;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to determine market type, defaulting to TSE");
+                _logger.LogWarning(ex, "Failed to determine market type for {stockCode}, defaulting to TSE", stockCode);
+                return MarketType.TSE;
             }
 
-            // Default to TSE for most cases
+            _logger.LogWarning(
+                "{stockCode} not found in combined TWStockLib stock list, defaulting to TSE", stockCode);
             return MarketType.TSE;
         }
 
@@ -163,22 +164,26 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// distinct TW symbols pays that cost N times per request, which dominates the wall time.
         /// Membership only changes on IPOs/delistings, so a long TTL is safe.
         /// </summary>
-        private async Task<IReadOnlyDictionary<string, object>?> GetCachedStockListAsync(MarketType market)
+        private async Task<IReadOnlyDictionary<string, StockData>?> GetCachedAllStockListAsync()
         {
-            var key = StockListCacheKeyPrefix + market;
-            if (_cache.TryGetValue(key, out IReadOnlyDictionary<string, object>? cached))
+            const string key = StockListCacheKeyPrefix + "all";
+            if (_cache.TryGetValue(key, out IReadOnlyDictionary<string, StockData>? cached))
                 return cached;
 
-            var result = await _stockService.GetStockListAsync(market);
+            var result = await _stockService.GetAllStockListAsync();
             if (!result.IsSuccess)
             {
                 // Don't cache a failed lookup — the next call should retry rather than being
-                // stuck defaulting to TSE for a whole day.
+                // stuck defaulting to TSE for a whole day. Logged (unlike the old per-market
+                // path) so a soft failure here is actually diagnosable.
+                _logger.LogWarning(
+                    "GetAllStockListAsync failed: {errorCode} - {errorMessage}",
+                    result.ErrorCode, result.ErrorMessage);
                 return null;
             }
 
-            var list = result.Value!.ToDictionary(kvp => kvp.Key, kvp => (object)kvp.Value!);
-            _cache.Set(key, (IReadOnlyDictionary<string, object>)list, CacheTtl.Finance.TwStockList);
+            var list = result.Value!;
+            _cache.Set(key, list, CacheTtl.Finance.TwStockList);
             return list;
         }
 
