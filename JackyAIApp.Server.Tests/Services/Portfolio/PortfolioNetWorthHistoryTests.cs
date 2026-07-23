@@ -193,6 +193,55 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
+        public async Task GetNetWorthHistory_GroupBySubCategory_BucketsPositionsByAiSubCategory()
+        {
+            var snapshotDate = Weekday(0);
+            await SeedSnapshotAsync(snapshotDate,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 100,
+                },
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 50_000 });
+
+            SetupStockProvider("2330", MarketRegion.TW, (snapshotDate, 500m));
+            _categoryService.Setup(x => x.GetCategoryAsync(
+                    AssetType.STOCK, "2330", "台積電", "TW", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((PortfolioCategory.Semiconductor, "晶圓代工"));
+
+            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.SubCategory);
+            var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
+
+            // AI-classified stock lands under its free-form subCategory label; CASH gets a plain
+            // Chinese key directly (no AI call, no PortfolioCategory enum name involved at all).
+            Assert.Equal(50_000m, GroupValue(point, "晶圓代工"));
+            Assert.Equal(50_000m, GroupValue(point, "現金"));
+            Assert.Equal(100_000m, point.TotalTWD);
+        }
+
+        [Fact]
+        public async Task GetNetWorthHistory_GroupBySubCategory_NullSubCategoryFallsBackToUnclassified()
+        {
+            var snapshotDate = Weekday(0);
+            await SeedSnapshotAsync(snapshotDate,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "9999", Name = "Mystery Corp",
+                    Market = "US", Currency = "USD", Quantity = 10,
+                });
+
+            SetupStockProvider("9999", MarketRegion.US, (snapshotDate, 100m));
+            _categoryService.Setup(x => x.GetCategoryAsync(
+                    AssetType.STOCK, "9999", "Mystery Corp", "US", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((PortfolioCategory.Other, (string?)null));
+
+            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.SubCategory);
+            var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
+
+            Assert.Equal(32_000m, GroupValue(point, "未分類")); // 10 * 100 * FX 32
+        }
+
+        [Fact]
         public async Task GetNetWorthHistory_GroupByCurrency_BucketsPositionsByDeclaredCurrency()
         {
             var snapshotDate = Weekday(0);

@@ -47,5 +47,9 @@ namespace JackyAIApp.Server.Common
         Category,
         /// <summary>Position's declared currency: "TWD" | "USD".</summary>
         Currency,
+        /// <summary>Free-form AI-classified sub-sector label (StockCategoryService.SubCategory,
+        /// DB-cached per symbol) — finer-grained than <see cref="Category"/>, open-ended rather than
+        /// a closed enum, so the chart's series/legend/colors are unbounded here by design.</summary>
+        SubCategory,
     }
 }

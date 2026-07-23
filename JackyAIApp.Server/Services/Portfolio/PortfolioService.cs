@@ -462,13 +462,15 @@ namespace JackyAIApp.Server.Services.Portfolio
                 kv => kv.Value.Prices.OrderBy(x => x.Date, StringComparer.Ordinal).ToList());
             var fundCursors = fundNavMap.Keys.ToDictionary(k => k, _ => 0);
 
-            // Only resolved when actually needed (groupBy: category) — one AI-classification call
-            // per distinct STOCK/FUND symbol, warmed concurrently up front just like the price
-            // fetches above rather than sequentially inside the day loop. CASH/LIABILITY don't need
-            // a lookup (mapped directly by the switch below); most calls are cache hits after the
-            // first time a symbol is ever seen (StockCategoryService persists to StockSymbolInfo).
+            // Only resolved when actually needed (groupBy: category/subCategory) — one AI-
+            // classification call per distinct STOCK/FUND symbol, warmed concurrently up front just
+            // like the price fetches above rather than sequentially inside the day loop. CASH/
+            // LIABILITY don't need a lookup (mapped directly by the switch below); most calls are
+            // cache hits after the first time a symbol is ever seen (StockCategoryService persists
+            // to StockSymbolInfo).
             var categoryMap = new Dictionary<string, PortfolioCategory>();
-            if (groupBy == NetWorthGroupBy.Category)
+            var subCategoryMap = new Dictionary<string, string>();
+            if (groupBy is NetWorthGroupBy.Category or NetWorthGroupBy.SubCategory)
             {
                 var classifiable = snapshots
                     .SelectMany(s => s.Positions)
@@ -478,10 +480,15 @@ namespace JackyAIApp.Server.Services.Portfolio
                     .ToList();
                 var resolved = await Task.WhenAll(classifiable.Select(async p =>
                 {
-                    var (category, _) = await categoryService.GetCategoryAsync(p.AssetType, p.Symbol, p.Name, p.Market, ct);
-                    return (p.Symbol, Category: category);
+                    var (category, subCategory) = await categoryService.GetCategoryAsync(p.AssetType, p.Symbol, p.Name, p.Market, ct);
+                    return (p.Symbol, Category: category, SubCategory: subCategory);
                 }));
                 categoryMap = resolved.ToDictionary(r => r.Symbol, r => r.Category);
+                // Falls back to the (Traditional Chinese) category name when the AI didn't return a
+                // subCategory (e.g. classification failed, or genuinely Other) — better than an
+                // empty/undefined series key.
+                subCategoryMap = resolved.ToDictionary(
+                    r => r.Symbol, r => string.IsNullOrWhiteSpace(r.SubCategory) ? "未分類" : r.SubCategory);
             }
 
             // Snapshots are sorted ascending by EffectiveDate (AllSnapshotsAsync), and `date` only
@@ -517,13 +524,13 @@ namespace JackyAIApp.Server.Services.Portfolio
 
                     if (p.AssetType == AssetType.CASH)
                     {
-                        Add(GroupKey(groupBy, p, categoryMap, PortfolioCategory.Cash), p.Quantity * fxMul);
+                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap, PortfolioCategory.Cash), p.Quantity * fxMul);
                     }
                     else if (p.AssetType == AssetType.LIABILITY)
                     {
                         // Negative — the sole sign-flip point, same invariant as the summary
                         // endpoint's valuation loop. Every downstream sum (here: `total`) just adds.
-                        Add(GroupKey(groupBy, p, categoryMap, PortfolioCategory.Liability), -(p.Quantity * fxMul));
+                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap, PortfolioCategory.Liability), -(p.Quantity * fxMul));
                     }
                     else if (p.AssetType == AssetType.FUND)
                     {
@@ -547,7 +554,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                             }
                         }
                         if (nav > 0)
-                            Add(GroupKey(groupBy, p, categoryMap, PortfolioCategory.Other), nav * p.Quantity * fundFxMul);
+                            Add(GroupKey(groupBy, p, categoryMap, subCategoryMap, PortfolioCategory.Other), nav * p.Quantity * fundFxMul);
                     }
                     else // STOCK
                     {
@@ -559,7 +566,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                         if (prices[idx].Date.Date > dt) continue; // no price at/before this date yet
                         var close = prices[idx].Close;
                         if (close <= 0) continue;
-                        Add(GroupKey(groupBy, p, categoryMap, PortfolioCategory.Other), close * p.Quantity * fxMul);
+                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap, PortfolioCategory.Other), close * p.Quantity * fxMul);
                     }
                 }
 
@@ -586,7 +593,8 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// rather than throwing).</summary>
         private static string GroupKey(
             NetWorthGroupBy groupBy, HoldingPosition p,
-            Dictionary<string, PortfolioCategory> categoryMap, PortfolioCategory fallbackCategory)
+            Dictionary<string, PortfolioCategory> categoryMap, Dictionary<string, string> subCategoryMap,
+            PortfolioCategory fallbackCategory)
         {
             return groupBy switch
             {
@@ -595,6 +603,14 @@ namespace JackyAIApp.Server.Services.Portfolio
                     AssetType.CASH => nameof(PortfolioCategory.Cash),
                     AssetType.LIABILITY => nameof(PortfolioCategory.Liability),
                     _ => (categoryMap.TryGetValue(p.Symbol, out var cat) ? cat : fallbackCategory).ToString(),
+                },
+                // Free-form (not the closed PortfolioCategory enum) — CASH/LIABILITY get a plain
+                // Chinese label directly since there's no AI classification to look up for them.
+                NetWorthGroupBy.SubCategory => p.AssetType switch
+                {
+                    AssetType.CASH => "現金",
+                    AssetType.LIABILITY => "負債",
+                    _ => subCategoryMap.TryGetValue(p.Symbol, out var sub) ? sub : "未分類",
                 },
                 NetWorthGroupBy.Currency => p.Currency == "USD" ? "USD" : "TWD",
                 _ => p.AssetType switch

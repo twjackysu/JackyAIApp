@@ -21,13 +21,15 @@ const RANGES: { label: string; days: number }[] = [
 const VIEW_BY_OPTIONS: { label: string; value: NetWorthGroupBy }[] = [
   { label: '資產類型', value: 'assetType' },
   { label: '產業', value: 'category' },
-  { label: '幣別', value: 'currency' },
+  { label: '子類別', value: 'subCategory' },
 ];
 
 // One combined map for every key any groupBy mode can produce — assetType and category modes
 // both use "Cash"/"Liability", and sharing one entry keeps that color/label consistent across
-// modes. A key not listed here (shouldn't happen — the backend enum is a closed set) falls back
-// to its raw key as the label and a neutral gray, rather than crashing.
+// modes. A key not listed here falls back to its raw key as the label and a neutral gray — for
+// assetType/category/currency that "shouldn't happen" (closed backend enums), but subCategory is
+// deliberately open-ended free-form AI output, so most of its series are expected to land in that
+// fallback gray rather than get a bespoke color.
 const KEY_LABELS: Record<string, string> = {
   // assetType
   TwStock: '台股',
@@ -49,9 +51,11 @@ const KEY_LABELS: Record<string, string> = {
   DividendEquity: '高股息',
   Bond: '債券',
   Other: '其他',
-  // currency
+  // currency (button removed, but the backend groupBy mode still exists — keep the labels)
   TWD: '台幣',
   USD: '美元',
+  // subCategory: 現金/負債/未分類 are already the raw key text (no translation needed); every
+  // other key is a free-form AI-generated label and passes through as-is via the `?? key` fallback.
 };
 
 const KEY_COLORS: Record<string, string> = {
@@ -75,6 +79,10 @@ const KEY_COLORS: Record<string, string> = {
   Other: '#9CA3AF',
   TWD: '#3B82F6',
   USD: '#10B981',
+  // subCategory's fixed keys — reuse the same colors as their assetType-mode counterparts.
+  現金: '#A78BFA',
+  負債: '#ef4444',
+  未分類: '#9CA3AF',
 };
 
 const fmt = (n: number) => {
