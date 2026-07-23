@@ -26,10 +26,10 @@ const VIEW_BY_OPTIONS: { label: string; value: NetWorthGroupBy }[] = [
 
 // One combined map for every key any groupBy mode can produce — assetType and category modes
 // both use "Cash"/"Liability", and sharing one entry keeps that color/label consistent across
-// modes. A key not listed here falls back to its raw key as the label and a neutral gray — for
-// assetType/category/currency that "shouldn't happen" (closed backend enums), but subCategory is
-// deliberately open-ended free-form AI output, so most of its series are expected to land in that
-// fallback gray rather than get a bespoke color.
+// modes. A key not listed here falls back to its raw key as the label (fine — assetType/category/
+// currency are closed backend enums, so this "shouldn't happen" for them) and a color from
+// DYNAMIC_PALETTE (see colorForKey below) — subCategory is deliberately open-ended free-form AI
+// output, so most of its series are expected to take this path rather than get a fixed entry here.
 const KEY_LABELS: Record<string, string> = {
   // assetType
   TwStock: '台股',
@@ -79,11 +79,45 @@ const KEY_COLORS: Record<string, string> = {
   Other: '#9CA3AF',
   TWD: '#3B82F6',
   USD: '#10B981',
-  // subCategory's fixed keys — reuse the same colors as their assetType-mode counterparts.
+  // subCategory's fixed keys — reuse the same colors as their assetType-mode counterparts. Every
+  // other subCategory key (free-form AI labels) gets a color from DYNAMIC_PALETTE instead — see
+  // colorForKey below.
   現金: '#A78BFA',
   負債: '#ef4444',
   未分類: '#9CA3AF',
 };
+
+// Fallback palette for keys with no fixed entry in KEY_COLORS — almost entirely subCategory's
+// free-form AI labels, which can't be enumerated ahead of time the way the closed enums above can.
+// Kept visually distinct from each other (alternating warm/cool hues) rather than shades of one
+// color, since a stacked-area chart with many series needs series to be tell-apart-able at a glance.
+const DYNAMIC_PALETTE = [
+  '#3B82F6',
+  '#F97316',
+  '#10B981',
+  '#EC4899',
+  '#EAB308',
+  '#8B5CF6',
+  '#14B8A6',
+  '#EF4444',
+  '#0EA5E9',
+  '#84CC16',
+  '#D946EF',
+  '#F59E0B',
+  '#6366F1',
+  '#22D3EE',
+  '#78716C',
+  '#A78BFA',
+];
+
+/// Deterministic hash → same palette index every time for the same key, so a given label keeps
+/// its color across re-renders, date-range switches, and even reloads (not assigned by array
+/// index, which would shift whenever the set of active keys for the visible range changes).
+function colorForKey(key: string): string {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  return DYNAMIC_PALETTE[Math.abs(hash) % DYNAMIC_PALETTE.length];
+}
 
 const fmt = (n: number) => {
   // Negating a zero liability produces JS's negative zero, which toLocaleString renders
@@ -129,7 +163,7 @@ export function NetWorthChart() {
     .map((key) => ({
       key,
       name: KEY_LABELS[key] ?? key,
-      color: KEY_COLORS[key] ?? '#9CA3AF',
+      color: KEY_COLORS[key] ?? colorForKey(key),
       values: points.map((p) => p.groups.find((g) => g.key === key)?.valueTWD ?? 0),
     }))
     .filter((s) => s.values.some((v) => v !== 0));
@@ -164,7 +198,12 @@ export function NetWorthChart() {
         return [`<b>${date}</b>`, totalLine, ...p.map(line)].filter(Boolean).join('<br/>');
       },
     },
-    legend: { bottom: 0, data: breakdown.map((s) => s.name) },
+    // 'scroll' (not the default 'plain') keeps the legend to a single row with pager arrows when
+    // it overflows, instead of wrapping onto a second line — a wrapped second row pushed the
+    // legend's own height up into/over the xAxis labels, since `grid.bottom` below only reserves
+    // room for a single-row legend. subCategory mode in particular can produce many more distinct
+    // labels than the fixed-vocabulary modes, so overflow here is the common case, not an edge one.
+    legend: { type: 'scroll', bottom: 0, data: breakdown.map((s) => s.name) },
     grid: { top: 16, right: 16, bottom: 48, left: mode === 'full' ? 70 : 24 },
     xAxis: { type: 'category', data: dates, boundaryGap: false },
     yAxis: {
