@@ -183,9 +183,12 @@ namespace JackyAIApp.Server.Services.Portfolio
             decimal equityExposureTWD = 0; // Σ market value × exposure factor (leverage/bond-adjusted)
 
             // Prefetch all stock prices and fund NAVs in parallel (cached) before the value loop,
-            // instead of awaiting one network call per position serially.
+            // instead of awaiting one network call per position serially. Current valuation + day-
+            // change only ever look at the last couple of trading days (see ValueAsOfDate below), so
+            // this is a shallow (latest-only) fetch — a never-before-added symbol shouldn't cost a
+            // 6-month history pull just to show today's market value.
             var stockTask = FetchStocksAsync(
-                snapshot.Positions.Where(p => p.AssetType == AssetType.STOCK).Select(p => p.Symbol), ct);
+                snapshot.Positions.Where(p => p.AssetType == AssetType.STOCK).Select(p => p.Symbol), deep: false, ct);
             var fundTask = FetchFundsAsync(
                 snapshot.Positions.Where(p => p.AssetType == AssetType.FUND).Select(p => p.Symbol), ct);
             await Task.WhenAll(stockTask, fundTask);
@@ -437,7 +440,8 @@ namespace JackyAIApp.Server.Services.Portfolio
             // already do this, since the cursor walk below depends on it) so each symbol's "price
             // as of date" lookup can advance with a forward-only cursor instead of re-filtering +
             // re-sorting the whole history on every single day of the loop below.
-            var priceMap = (await FetchStocksAsync(stockSymbols, ct))
+            // Deep fetch — this walks up to `days` (clamped to 180) of history per symbol below.
+            var priceMap = (await FetchStocksAsync(stockSymbols, deep: true, ct))
                 .ToDictionary(kv => kv.Key, kv => kv.Value.HistoricalPrices.OrderBy(x => x.Date).ToList());
             var stockCursors = priceMap.Keys.ToDictionary(k => k, _ => 0);
 
@@ -607,7 +611,8 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         public async Task<StockLookupDto?> LookupStockAsync(string market, string symbol, CancellationToken ct = default)
         {
-            var data = await FetchStockDataAsync(symbol, ct);
+            // Only the current price is shown here — shallow fetch.
+            var data = await FetchStockDataAsync(symbol, deep: false, ct);
             if (data == null) return null;
 
             var lastPrice = data.HistoricalPrices.LastOrDefault()?.Close ?? 0;
@@ -662,7 +667,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                 };
             }
 
-            var data = await FetchStockDataAsync(symbol, ct);
+            // Chart needs the full series — deep fetch.
+            var data = await FetchStockDataAsync(symbol, deep: true, ct);
             if (data == null) return null;
 
             return new HoldingPriceHistoryDto
@@ -717,7 +723,8 @@ namespace JackyAIApp.Server.Services.Portfolio
             }
             else
             {
-                var data = await FetchStockDataAsync(symbol, ct);
+                // Technical indicators (MAs, S/R) need real history — deep fetch.
+                var data = await FetchStockDataAsync(symbol, deep: true, ct);
                 if (data == null || data.HistoricalPrices.Count == 0) return (null, "無歷史價格資料");
                 var hp = data.HistoricalPrices; // ascending by date
                 closes = hp.Select(p => p.Close).ToList();
@@ -1140,12 +1147,23 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// <summary>
         /// Fetch one stock's market data, cached for 30 min so the same symbol isn't refetched
         /// across the summary, the net-worth chart and the detail drawer. Returns null on failure.
+        ///
+        /// <paramref name="deep"/> controls how much history is actually fetched from source when
+        /// the symbol isn't already cached/persisted: pass false (latest-only) for callers that
+        /// just need the current price (summary valuation, day-change, stock lookup) — a
+        /// never-before-seen symbol then only costs a shallow fetch (~10 days for TW) instead of
+        /// the full ~6-month window. Pass true for anything that consumes more than the single most
+        /// recent price (price-history chart, net-worth chart, AI technical summary).
         /// </summary>
-        private async Task<DTO.Finance.MarketData?> FetchStockDataAsync(string symbol, CancellationToken ct)
+        private async Task<DTO.Finance.MarketData?> FetchStockDataAsync(string symbol, bool deep, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(symbol)) return null;
 
-            var key = STOCK_CACHE_PREFIX + symbol;
+            // Separate cache keys for deep vs latest-only — a shallow result must never be served
+            // back to a caller that needs the full series (see PersistentTwHistoricalProvider's own
+            // matching split for why: it's not just a perf nicety, a stale shallow cache hit would
+            // silently starve a chart/indicator caller of history it thinks it has).
+            var key = STOCK_CACHE_PREFIX + (deep ? "deep_" : "latest_") + symbol;
             if (cache.TryGetValue(key, out DTO.Finance.MarketData? cached) && cached != null)
                 return cached;
 
@@ -1153,7 +1171,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 var region = providerFactory.DetectRegion(symbol);
                 var provider = providerFactory.GetMarketDataProvider(region);
-                var data = await provider.FetchAsync(symbol, ct);
+                var data = deep ? await provider.FetchAsync(symbol, ct) : await provider.FetchLatestAsync(symbol, ct);
 
                 // TWStockLibHistoricalProvider only ever returns finalized daily bars, so during the
                 // 9:00-13:30 session "the latest close" is really still yesterday's — overlay today's
@@ -1281,11 +1299,11 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         /// <summary>Fetch every distinct stock symbol in parallel; failed symbols are omitted.</summary>
         private async Task<Dictionary<string, DTO.Finance.MarketData>> FetchStocksAsync(
-            IEnumerable<string> symbols, CancellationToken ct)
+            IEnumerable<string> symbols, bool deep, CancellationToken ct)
         {
             var distinct = symbols.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
             var results = await Task.WhenAll(
-                distinct.Select(async s => (symbol: s, data: await FetchStockDataAsync(s, ct))));
+                distinct.Select(async s => (symbol: s, data: await FetchStockDataAsync(s, deep, ct))));
             return results
                 .Where(r => r.data != null)
                 .ToDictionary(r => r.symbol, r => r.data!);

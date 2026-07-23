@@ -30,6 +30,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        // Chip data is inherently a single current snapshot (margin balances, foreign holding %,
+        // ...), not a historical series — no separate shallow variant makes sense here.
+        public Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            FetchAsync(stockCode, cancellationToken);
+
         public async Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
         {
             var marketData = new MarketData

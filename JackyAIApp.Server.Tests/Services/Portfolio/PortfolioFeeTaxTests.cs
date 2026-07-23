@@ -178,12 +178,14 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         public async Task GetSummary_UsStock_NoSellCostDeducted()
         {
             var provider = new Mock<IMarketDataProvider>();
-            provider.Setup(p => p.FetchAsync("AAPL", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new MarketData
-                {
-                    StockCode = "AAPL",
-                    HistoricalPrices = [new DailyPrice { Date = DateTime.UtcNow, Close = 100m }],
-                });
+            var aaplData = new MarketData
+            {
+                StockCode = "AAPL",
+                HistoricalPrices = [new DailyPrice { Date = DateTime.UtcNow, Close = 100m }],
+            };
+            provider.Setup(p => p.FetchAsync("AAPL", It.IsAny<CancellationToken>())).ReturnsAsync(aaplData);
+            // GetPortfolioSummaryAsync only needs the latest price — shallow fetch.
+            provider.Setup(p => p.FetchLatestAsync("AAPL", It.IsAny<CancellationToken>())).ReturnsAsync(aaplData);
             _providerFactory.Setup(f => f.DetectRegion("AAPL")).Returns(MarketRegion.US);
             _providerFactory.Setup(f => f.GetMarketDataProvider(MarketRegion.US)).Returns(provider.Object);
 
@@ -216,12 +218,14 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private void SetupStockPrice(string symbol, decimal price)
         {
             var provider = new Mock<IMarketDataProvider>();
-            provider.Setup(p => p.FetchAsync(symbol, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new MarketData
-                {
-                    StockCode = symbol,
-                    HistoricalPrices = [new DailyPrice { Date = DateTime.UtcNow, Close = price }],
-                });
+            var data = new MarketData
+            {
+                StockCode = symbol,
+                HistoricalPrices = [new DailyPrice { Date = DateTime.UtcNow, Close = price }],
+            };
+            provider.Setup(p => p.FetchAsync(symbol, It.IsAny<CancellationToken>())).ReturnsAsync(data);
+            // GetPortfolioSummaryAsync only needs the latest price — shallow fetch.
+            provider.Setup(p => p.FetchLatestAsync(symbol, It.IsAny<CancellationToken>())).ReturnsAsync(data);
             _providerFactory.Setup(f => f.DetectRegion(symbol)).Returns(MarketRegion.TW);
             _providerFactory.Setup(f => f.GetMarketDataProvider(MarketRegion.TW)).Returns(provider.Object);
         }

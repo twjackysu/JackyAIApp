@@ -54,6 +54,14 @@ namespace JackyAIApp.Server.Data.Models.SQL
 
         public DateTime LastResolvedAt { get; set; } = DateTime.UtcNow;
 
+        /// <summary>Set once a deep (~6-month) fetch has ever completed for this symbol — the
+        /// explicit signal PersistentTwHistoricalProvider uses to decide whether a deep FetchAsync
+        /// call needs to backfill further than whatever's already persisted. Deliberately NOT
+        /// inferred from the oldest persisted row's date: a symbol with genuinely less than 6
+        /// months of trading history (e.g. a recent IPO) would otherwise look "not deep enough"
+        /// forever and get needlessly re-fetched on every single call.</summary>
+        public DateTime? DeepFetchedAt { get; set; }
+
         /// <summary>Fixed-vocabulary bucket for the net-worth-history "view by 產業" chart —
         /// PortfolioCategory enum stored as its string name. Null = not yet classified (triggers
         /// lazy AI classification in StockCategoryService). CASH/LIABILITY never get a row here —

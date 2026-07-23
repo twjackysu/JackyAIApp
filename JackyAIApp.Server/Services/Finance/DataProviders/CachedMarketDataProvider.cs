@@ -28,9 +28,18 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             _cacheDuration = cacheDuration ?? TimeSpan.FromHours(4);
         }
 
-        public async Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
+        public Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            FetchInternalAsync(stockCode, deep: true, cancellationToken);
+
+        public Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            FetchInternalAsync(stockCode, deep: false, cancellationToken);
+
+        private async Task<MarketData> FetchInternalAsync(string stockCode, bool deep, CancellationToken cancellationToken)
         {
-            var cacheKey = $"MarketData_{_inner.Type}_{stockCode}_{DateTime.Today:yyyyMMdd}";
+            // Separate cache keys for deep vs latest-only — a shallow FetchLatestAsync result must
+            // never be served back to a caller that asked for the full (deep) series, and vice
+            // versa serving deep data to a latest-only caller is harmless but wasteful to key together.
+            var cacheKey = $"MarketData_{_inner.Type}_{(deep ? "deep" : "latest")}_{stockCode}_{DateTime.Today:yyyyMMdd}";
 
             if (_cache.TryGetValue(cacheKey, out MarketData? cachedData) && cachedData != null)
             {
@@ -39,7 +48,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
 
             _logger.LogDebug("Cache miss for {type} data of {stockCode}, fetching...", _inner.Type, stockCode);
-            var data = await _inner.FetchAsync(stockCode, cancellationToken);
+            var data = deep
+                ? await _inner.FetchAsync(stockCode, cancellationToken)
+                : await _inner.FetchLatestAsync(stockCode, cancellationToken);
 
             // Only cache if we got meaningful data
             if (data.HistoricalPrices.Count > 0 || data.Fundamentals != null || data.Chips != null)

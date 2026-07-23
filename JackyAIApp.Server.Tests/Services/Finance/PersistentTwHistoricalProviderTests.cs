@@ -136,6 +136,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
             {
                 Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電",
+                DeepFetchedAt = DateTime.UtcNow.AddDays(-1), // already deep-fetched before; only the forward gap is new
             });
             _dbContext.DailyStockPrices.Add(new DailyStockPrice
             {
@@ -178,6 +179,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
             {
                 Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電",
+                DeepFetchedAt = DateTime.UtcNow.AddDays(-1),
             });
             _dbContext.DailyStockPrices.Add(new DailyStockPrice
             {
@@ -208,6 +210,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
             {
                 Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電",
+                DeepFetchedAt = DateTime.UtcNow.AddDays(-1),
             });
             _dbContext.DailyStockPrices.Add(new DailyStockPrice
             {
@@ -257,6 +260,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
             {
                 Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電",
+                DeepFetchedAt = DateTime.UtcNow.AddDays(-1),
             });
             _dbContext.DailyStockPrices.Add(new DailyStockPrice
             {
@@ -411,6 +415,130 @@ namespace JackyAIApp.Server.Tests.Services.Finance
 
             var persistedSymbols = await _dbContext.DailyStockPrices.Select(p => p.Symbol).Distinct().ToListAsync();
             Assert.Equal(symbols.Count, persistedSymbols.Count);
+        }
+
+        // ── FetchLatestAsync (shallow) + deep/shallow interaction ────────────────
+
+        [Fact]
+        public async Task FetchLatestAsync_EmptyDb_FetchesShallowWindowOnly()
+        {
+            // Adding a never-before-seen symbol to a portfolio should not pay the full 6-month
+            // cost — just enough to know the current price (~10 days, crosses weekends/holidays).
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var lastTradingDay = LastTradingDayBefore(today);
+            var expectedShallowStart = today.AddDays(-10);
+
+            _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
+            DateTime? capturedStart = null;
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .Callback<string, DateTime, DateTime, MarketType?, CancellationToken>((_, start, _, _, _) => capturedStart = start)
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = Symbol,
+                    CompanyName = "台積電",
+                    HistoricalPrices = new List<DailyPrice>
+                    {
+                        new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Close = 900m, Open = 890m, High = 905m, Low = 885m, Volume = 1000 },
+                    },
+                });
+
+            var result = await _provider.FetchLatestAsync(Symbol);
+
+            Assert.Equal(expectedShallowStart.ToDateTime(TimeOnly.MinValue), capturedStart);
+            Assert.Equal(900m, Assert.Single(result.HistoricalPrices).Close);
+
+            var symbolInfo = await _dbContext.StockSymbolInfos.FindAsync(Symbol);
+            // A shallow fetch must never mark the symbol as deep-fetched — a later deep caller
+            // (chart/indicator) still needs to know it must backfill the rest of the window.
+            Assert.Null(symbolInfo!.DeepFetchedAt);
+        }
+
+        [Fact]
+        public async Task FetchAsync_AfterPriorShallowFetch_BackfillsToFullDeepWindowAndMarksDeepFetched()
+        {
+            // The regression this guards: a symbol added via FetchLatestAsync (shallow, ~10 days
+            // persisted) is later asked about by a chart or AI technical summary via FetchAsync
+            // (deep). Without the DeepFetchedAt marker, the naive "is maxDate stale" check alone
+            // would see the shallow data's maxDate already at today and wrongly conclude "nothing
+            // to fetch", silently serving 10 days of history to a caller that thinks it has 6 months.
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var lastTradingDay = LastTradingDayBefore(today);
+            var expectedDeepStart = today.AddMonths(-6);
+
+            _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = Symbol,
+                    CompanyName = "台積電",
+                    HistoricalPrices = new List<DailyPrice>
+                    {
+                        new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Close = 900m, Open = 890m, High = 905m, Low = 885m, Volume = 1000 },
+                    },
+                });
+
+            await _provider.FetchLatestAsync(Symbol); // shallow — simulates adding a new holding
+            // AsNoTracking — the provider persists via its own short-lived context (IDbContextFactory),
+            // so reading through the long-lived _dbContext's tracked identity map would return a
+            // stale cached copy once the provider's later deep fetch mutates the same row.
+            var afterShallow = await _dbContext.StockSymbolInfos.AsNoTracking().FirstAsync(s => s.Symbol == Symbol);
+            Assert.Null(afterShallow.DeepFetchedAt);
+
+            DateTime? capturedDeepStart = null;
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .Callback<string, DateTime, DateTime, MarketType?, CancellationToken>((_, start, _, _, _) => capturedDeepStart = start)
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = Symbol,
+                    CompanyName = "台積電",
+                    HistoricalPrices = new List<DailyPrice>
+                    {
+                        // Stand-in for the older bars a real 6-month fetch would return.
+                        new() { Date = expectedDeepStart.AddMonths(1).ToDateTime(TimeOnly.MinValue), Close = 850m, Open = 845m, High = 855m, Low = 840m, Volume = 700 },
+                    },
+                });
+
+            var deepResult = await _provider.FetchAsync(Symbol); // chart/indicator caller — deep
+
+            // Backfilled from the full 6-month window start, not from the shallow data's maxDate+1.
+            Assert.Equal(expectedDeepStart.ToDateTime(TimeOnly.MinValue), capturedDeepStart);
+            Assert.True(deepResult.HistoricalPrices.Count >= 2); // shallow bar + newly backfilled older bar
+
+            var afterDeep = await _dbContext.StockSymbolInfos.AsNoTracking().FirstAsync(s => s.Symbol == Symbol);
+            Assert.NotNull(afterDeep.DeepFetchedAt);
+        }
+
+        [Fact]
+        public async Task FetchLatestAsync_SymbolAlreadyDeepFetched_ReusesTheDeepDataWithoutRefetching()
+        {
+            // A shallow caller (summary valuation) asking about a symbol some other feature already
+            // deep-fetched should just transparently get the (cheap, already-persisted) latest price
+            // — no reason to restrict the DB read to a narrower window than what's already cached.
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var lastTradingDay = LastTradingDayBefore(today);
+            var latestAvailableTradingDay = TodayIsFinalized(today) ? today : lastTradingDay;
+
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電",
+                DeepFetchedAt = DateTime.UtcNow.AddDays(-1),
+            });
+            _dbContext.DailyStockPrices.Add(new DailyStockPrice
+            {
+                Symbol = Symbol, Market = "TW", TradeDate = latestAvailableTradingDay,
+                Open = 890m, High = 905m, Low = 885m, Close = 900m, Volume = 1000,
+            });
+            await _dbContext.SaveChangesAsync();
+
+            var result = await _provider.FetchLatestAsync(Symbol);
+
+            Assert.Equal(900m, Assert.Single(result.HistoricalPrices).Close);
+            _inner.Verify(x => x.FetchRangeAsync(
+                It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+                It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()), Times.Never);
         }
     }
 }

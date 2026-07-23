@@ -190,12 +190,14 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private void SetupStockPrice(string symbol, decimal price)
         {
             var provider = new Mock<IMarketDataProvider>();
-            provider.Setup(p => p.FetchAsync(symbol, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new MarketData
-                {
-                    StockCode = symbol,
-                    HistoricalPrices = [new DailyPrice { Date = DateTime.UtcNow, Close = price }],
-                });
+            var data = new MarketData
+            {
+                StockCode = symbol,
+                HistoricalPrices = [new DailyPrice { Date = DateTime.UtcNow, Close = price }],
+            };
+            provider.Setup(p => p.FetchAsync(symbol, It.IsAny<CancellationToken>())).ReturnsAsync(data);
+            // GetPortfolioSummaryAsync only needs the latest price — shallow fetch.
+            provider.Setup(p => p.FetchLatestAsync(symbol, It.IsAny<CancellationToken>())).ReturnsAsync(data);
             _providerFactory.Setup(f => f.DetectRegion(symbol)).Returns(MarketRegion.TW);
             _providerFactory.Setup(f => f.GetMarketDataProvider(MarketRegion.TW)).Returns(provider.Object);
         }
