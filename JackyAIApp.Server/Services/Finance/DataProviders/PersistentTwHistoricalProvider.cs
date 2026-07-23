@@ -37,6 +37,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
         private const string Market = "TW";
         private const int LookbackMonths = 6;
+        /// <summary>Shallow lookback for <see cref="FetchLatestAsync"/> — enough to cross a long
+        /// weekend/holiday stretch and still land on the most recent finalized close. Adding a
+        /// never-before-seen symbol only needs this, not the full 6-month window: valuation/day-
+        /// change only ever look at the last couple of trading days (see PortfolioService.ValueAsOfDate),
+        /// and every OTHER caller that genuinely needs deep history asks via FetchAsync instead.</summary>
+        private const int LatestLookbackDays = 10;
 
         public DataProviderType Type => DataProviderType.HistoricalPrice;
 
@@ -50,12 +56,26 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
+        /// <summary>Full ~6-month depth — for charts, technical indicators, and anything else that
+        /// consumes more than the single latest price.</summary>
+        public Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            FetchInternalAsync(stockCode, deep: true, cancellationToken);
+
+        /// <summary>Cheap latest-price fetch — see <see cref="LatestLookbackDays"/>. A never-before-
+        /// seen symbol only pays for ~10 days of TWStockLib data instead of 6 months.</summary>
+        public Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            FetchInternalAsync(stockCode, deep: false, cancellationToken);
+
+        private async Task<MarketData> FetchInternalAsync(string stockCode, bool deep, CancellationToken cancellationToken)
         {
             await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
 
             var today = DateOnly.FromDateTime(DateTime.Now);
+            // Always query/return whatever's persisted within the full 6-month window — reading a
+            // few extra already-cached rows costs nothing (no network call), and lets a shallow
+            // FetchLatestAsync call transparently benefit from a prior deep fetch if one happened.
             var windowStart = today.AddMonths(-LookbackMonths);
+            var neededWindowStart = deep ? windowStart : today.AddDays(-LatestLookbackDays);
 
             var existing = await db.DailyStockPrices
                 .Where(p => p.Symbol == stockCode && p.Market == Market && p.TradeDate >= windowStart)
@@ -70,9 +90,22 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             // the calendar date over, even though TWSE published today's close hours ago.
             var todayIsFinalized = IsWeekday(today) && IsPastTwCloseTime();
             var latestAvailableTradingDay = todayIsFinalized ? today : lastTradingDay;
-            var needsFetch = maxDate == null || maxDate.Value < latestAvailableTradingDay;
+            var needsForwardFetch = maxDate == null || maxDate.Value < latestAvailableTradingDay;
 
-            var companyName = await GetPersistedCompanyNameAsync(db, stockCode, cancellationToken);
+            var symbolInfo = await db.StockSymbolInfos.FindAsync([stockCode], cancellationToken);
+            // Only a *deep* request cares whether a deep fetch has ever actually run for this
+            // symbol — e.g. a symbol added to a portfolio (shallow FetchLatestAsync, ~10 days
+            // persisted) that a chart or technical-indicator call later asks about via FetchAsync
+            // (deep). Without this, needsForwardFetch alone would see maxDate == today and wrongly
+            // conclude "nothing to do", silently starving the deep caller of 6 months of history it
+            // thinks it has. Deliberately keyed on an explicit "has this ever run" marker rather
+            // than inferring from the oldest persisted row's date — a symbol with genuinely less
+            // than 6 months of trading history (e.g. a recent IPO) would otherwise look "not deep
+            // enough" forever and get needlessly re-fetched on every single call.
+            var needsBackwardFetch = deep && symbolInfo?.DeepFetchedAt == null;
+            var needsFetch = needsForwardFetch || needsBackwardFetch;
+
+            var companyName = symbolInfo?.Name;
 
             if (needsFetch)
             {
@@ -80,9 +113,14 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 {
                     var marketType = await ResolveAndPersistMarketTypeAsync(db, stockCode, cancellationToken);
                     // Only ask TWStockLib for what's actually missing — the whole point of this
-                    // provider is to stop paying the full 6-month cost on every cold start.
-                    var fetchStart = maxDate?.AddDays(1).ToDateTime(TimeOnly.MinValue)
-                        ?? windowStart.ToDateTime(TimeOnly.MinValue);
+                    // provider is to stop paying the full-window cost on every cold start. A
+                    // backward gap means the cached range doesn't reach back far enough for this
+                    // (deep) call, so re-fetch the whole needed window rather than just the forward
+                    // gap — UpsertFinalizedBarsAsync below already dedupes against existing rows, so
+                    // re-fetching an overlapping range is harmless.
+                    var fetchStart = needsBackwardFetch
+                        ? neededWindowStart.ToDateTime(TimeOnly.MinValue)
+                        : maxDate?.AddDays(1).ToDateTime(TimeOnly.MinValue) ?? neededWindowStart.ToDateTime(TimeOnly.MinValue);
                     var fetched = await _inner.FetchRangeAsync(
                         stockCode, fetchStart, DateTime.Now, marketType, cancellationToken);
 
@@ -93,6 +131,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     }
 
                     await UpsertFinalizedBarsAsync(db, stockCode, fetched.HistoricalPrices, today, cancellationToken);
+
+                    if (deep)
+                        await MarkDeepFetchedAsync(db, stockCode, cancellationToken);
 
                     // Re-read so the returned list is the consistent, sorted merge of old + new.
                     existing = await db.DailyStockPrices
@@ -146,11 +187,30 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             return taipeiNow.TimeOfDay >= new TimeSpan(13, 30, 0);
         }
 
-        private static async Task<string?> GetPersistedCompanyNameAsync(
-            AzureSQLDBContext db, string symbol, CancellationToken ct)
+        /// <summary>Marks that a deep fetch has run for this symbol at least once — see the
+        /// needsBackwardFetch comment in <see cref="FetchInternalAsync"/> for why this can't just
+        /// be inferred from the oldest persisted row's date.</summary>
+        private async Task MarkDeepFetchedAsync(AzureSQLDBContext db, string symbol, CancellationToken ct)
         {
             var info = await db.StockSymbolInfos.FindAsync([symbol], ct);
-            return info?.Name;
+            if (info == null)
+            {
+                // ResolveAndPersistMarketTypeAsync always creates the row first when it's missing,
+                // so this shouldn't happen in practice — but don't throw over a missing marker.
+                _logger.LogDebug("No StockSymbolInfo row found to mark deep-fetched for {Symbol}", symbol);
+                return;
+            }
+            if (info.DeepFetchedAt != null) return;
+
+            info.DeepFetchedAt = DateTime.UtcNow;
+            try
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogDebug(ex, "Race persisting DeepFetchedAt for {Symbol}, ignoring", symbol);
+            }
         }
 
         private async Task<MarketType> ResolveAndPersistMarketTypeAsync(

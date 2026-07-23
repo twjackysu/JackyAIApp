@@ -30,6 +30,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             _logger = logger;
         }
 
+        // Yahoo's chart API returns the whole requested range in one HTTP call regardless of
+        // length (unlike TWStockLib, which pays a real per-month cost) — no benefit to a separate
+        // shallow fetch here, so just reuse the same (already cached) full fetch.
+        public Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            FetchAsync(stockCode, cancellationToken);
+
         public async Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
         {
             var cacheKey = $"Yahoo_Chart_{stockCode.ToUpperInvariant()}";

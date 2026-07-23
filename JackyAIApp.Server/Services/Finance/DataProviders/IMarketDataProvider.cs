@@ -12,9 +12,18 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         DataProviderType Type { get; }
 
         /// <summary>
-        /// Fetch market data for a specific stock.
+        /// Fetch market data for a specific stock, including enough historical depth for charts/
+        /// technical indicators (implementation-defined lookback, currently ~6 months for TW).
         /// </summary>
         Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Fetch just enough recent data to know the latest price (e.g. for current valuation or a
+        /// day-over-day change) — cheap for callers that don't need a full historical series.
+        /// Implementations may return more than the minimum if it's already cached/persisted; the
+        /// only guarantee is "at least the latest available price", not "at most N days".
+        /// </summary>
+        Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default);
     }
 
     /// <summary>
