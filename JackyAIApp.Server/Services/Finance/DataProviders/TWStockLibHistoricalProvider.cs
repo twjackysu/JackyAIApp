@@ -18,6 +18,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
         /// <summary>Default lookback period in months for historical data</summary>
         private const int DEFAULT_LOOKBACK_MONTHS = 6;
+        /// <summary>Shallow lookback for FetchLatestAsync — enough to cross a long weekend/holiday
+        /// stretch and still land on the most recent finalized close.</summary>
+        private const int LATEST_LOOKBACK_DAYS = 10;
         private const string StockListCacheKeyPrefix = "twstocklist:";
 
         public DataProviderType Type => DataProviderType.HistoricalPrice;
@@ -34,6 +37,10 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
         public Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default) =>
             FetchRangeAsync(stockCode, DateTime.Now.AddMonths(-DEFAULT_LOOKBACK_MONTHS), DateTime.Now,
+                knownMarketType: null, cancellationToken);
+
+        public Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            FetchRangeAsync(stockCode, DateTime.Now.AddDays(-LATEST_LOOKBACK_DAYS), DateTime.Now,
                 knownMarketType: null, cancellationToken);
 
         /// <summary>
