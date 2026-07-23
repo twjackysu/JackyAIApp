@@ -33,8 +33,24 @@ name and any other context first.
 For a sector/thematic ETF (e.g. one tracking semiconductor companies), classify it by that sector,
 the same as an individual stock in that sector — this reflects the holder's real economic exposure.
 
+## subCategory: a reusable sub-sector BUCKET, not a company description
+
+subCategory groups holdings that share the same investment theme within a category — e.g. every
+GPU/AI-chip designer should land in the same bucket, every high-dividend TW ETF in another. It is
+NOT a one-line summary of what a specific company does.
+
+- Never mention the company's or fund's own name inside the label.
+- Never describe products, services, or business activities specific to one holding (bad: "搜尋與
+  廣告巨頭", "流媒體與內容平台" — those describe one company each and nobody else will ever match
+  them). Name the SECTOR/THEME instead (good: "網路服務", "串流媒體").
+- Keep it short (2-6 characters is typical) and generic enough that several *different* holdings
+  in the same theme would plausibly share it.
+- You may be given a list of subCategory labels already in use for this category — if one of them
+  genuinely fits this holding, reuse it exactly (same characters) rather than inventing a close
+  variant. Only create a new label when none of the existing ones fit.
+
 Output strictly a JSON object, no markdown fences, no extra text:
 {
   "category": "one of the exact category names above",
-  "subCategory": "a short Traditional Chinese (繁體中文) free-form label, e.g. 晶圓代工 or 高股息台股ETF — this is for display only, be specific and natural, it does not need to match any fixed list"
+  "subCategory": "a short Traditional Chinese (繁體中文) reusable sub-sector label, e.g. 晶圓代工 or 高股息台股ETF"
 }

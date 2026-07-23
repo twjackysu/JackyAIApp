@@ -169,6 +169,66 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal(symbols.Count, persistedCount);
         }
 
+        [Fact]
+        public async Task GetCategoryAsync_ExistingLabelsInDb_PassesThemAsGroundingContext()
+        {
+            // The whole point of this grounding: each classification call is otherwise fully
+            // independent, so without seeing what's already in use the model has no way to reuse a
+            // label instead of inventing a fresh (inconsistent) variant every time.
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = "NVDA", Market = "US",
+                Category = nameof(PortfolioCategory.Semiconductor), SubCategory = "晶片設計",
+                ClassifiedAt = DateTime.UtcNow,
+            });
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = "0056", Market = "TW",
+                Category = nameof(PortfolioCategory.DividendEquity), SubCategory = "高股息台股ETF",
+                ClassifiedAt = DateTime.UtcNow,
+            });
+            await _dbContext.SaveChangesAsync();
+
+            string? capturedGrounding = null;
+            _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
+                .Callback<string, string, string?, IEnumerable<(string, string)>?, string?, float?>(
+                    (_, userMessage, _, _, _, _) => capturedGrounding = userMessage)
+                .ReturnsAsync((new CategoryClassificationResult
+                {
+                    Category = nameof(PortfolioCategory.Semiconductor),
+                    SubCategory = "晶片設計", // reused, not a fresh variant
+                }, (string?)null));
+
+            await _service.GetCategoryAsync(AssetType.STOCK, "AMD", "AMD", "US");
+
+            Assert.NotNull(capturedGrounding);
+            Assert.Contains("晶片設計", capturedGrounding);
+            Assert.Contains("高股息台股ETF", capturedGrounding);
+        }
+
+        [Fact]
+        public async Task GetCategoryAsync_NoExistingLabels_OmitsGroundingSection()
+        {
+            string? capturedGrounding = null;
+            _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
+                .Callback<string, string, string?, IEnumerable<(string, string)>?, string?, float?>(
+                    (_, userMessage, _, _, _, _) => capturedGrounding = userMessage)
+                .ReturnsAsync((new CategoryClassificationResult
+                {
+                    Category = nameof(PortfolioCategory.Semiconductor),
+                    SubCategory = "晶圓代工",
+                }, (string?)null));
+
+            await _service.GetCategoryAsync(AssetType.STOCK, "2330", "台積電", "TW");
+
+            Assert.NotNull(capturedGrounding);
+            Assert.DoesNotContain("Existing subCategory labels", capturedGrounding);
+        }
+
         private class TestDbContextFactory(DbContextOptions<AzureSQLDBContext> options)
             : IDbContextFactory<AzureSQLDBContext>
         {

@@ -63,7 +63,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (info?.Category != null && Enum.TryParse<PortfolioCategory>(info.Category, out var cached))
                 return (cached, info.SubCategory);
 
-            var (category, subCategory) = await ClassifyAsync(symbol, name, market, ct);
+            var (category, subCategory) = await ClassifyAsync(db, symbol, name, market, ct);
 
             if (info == null)
             {
@@ -99,7 +99,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         }
 
         private async Task<(PortfolioCategory, string?)> ClassifyAsync(
-            string symbol, string name, string market, CancellationToken ct)
+            AzureSQLDBContext db, string symbol, string name, string market, CancellationToken ct)
         {
             var grounding = $"Symbol: {symbol}\nName: {name}\nMarket: {market}";
 
@@ -119,6 +119,13 @@ namespace JackyAIApp.Server.Services.Portfolio
                 {
                     _logger.LogDebug(ex, "Failed to fetch TWSE profile for {Symbol}, classifying without it", symbol);
                 }
+            }
+
+            var existingLabels = await GetExistingSubCategoriesByCategoryAsync(db, ct);
+            if (existingLabels.Count > 0)
+            {
+                var labelsText = string.Join("\n", existingLabels.Select(kv => $"{kv.Key}: {string.Join("、", kv.Value)}"));
+                grounding += $"\n\nExisting subCategory labels already in use (grouped by category) — reuse one of these exactly if it fits, per the system prompt's reuse instruction:\n{labelsText}";
             }
 
             var (result, error) = await _promptService.GetCompletionAsync<CategoryClassificationResult>(
@@ -143,6 +150,23 @@ namespace JackyAIApp.Server.Services.Portfolio
             }
 
             return (category, result.SubCategory);
+        }
+
+        /// <summary>Distinct subCategory labels already assigned, grouped by category — grounds the
+        /// model toward reusing an existing bucket instead of inventing a fresh variant every call
+        /// (each classification is otherwise fully independent with no memory of prior results).</summary>
+        private static async Task<Dictionary<string, List<string>>> GetExistingSubCategoriesByCategoryAsync(
+            AzureSQLDBContext db, CancellationToken ct)
+        {
+            var rows = await db.StockSymbolInfos
+                .Where(s => s.Category != null && s.SubCategory != null)
+                .Select(s => new { s.Category, s.SubCategory })
+                .Distinct()
+                .ToListAsync(ct);
+
+            return rows
+                .GroupBy(r => r.Category!)
+                .ToDictionary(g => g.Key, g => g.Select(r => r.SubCategory!).Distinct().ToList());
         }
     }
 }
