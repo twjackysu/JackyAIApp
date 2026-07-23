@@ -83,14 +83,14 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 .ToListAsync(cancellationToken);
 
             var maxDate = existing.Count > 0 ? existing[^1].TradeDate : (DateOnly?)null;
+            // The DB only ever holds finalized bars (TradeDate < today, see UpsertFinalizedBarsAsync)
+            // — today's own close is never persisted, regardless of trading-session close time.
+            // Deliberately simple/conservative: TWSE/TWStockLib don't publish a documented guarantee
+            // for exactly when today's bar becomes available, so the DB just never gambles on it —
+            // the tradeoff is the app can show yesterday's close for a few hours after today's
+            // session actually closed, until the calendar date rolls over.
             var lastTradingDay = LastTradingDayBefore(today);
-            // Once the session has closed, today's own bar is the latest finalized trading
-            // day — without this, needsFetch never fires for "today" and the DB (and the
-            // response built from it) stays pinned to yesterday's close until midnight rolls
-            // the calendar date over, even though TWSE published today's close hours ago.
-            var todayIsFinalized = IsWeekday(today) && IsPastTwCloseTime();
-            var latestAvailableTradingDay = todayIsFinalized ? today : lastTradingDay;
-            var needsForwardFetch = maxDate == null || maxDate.Value < latestAvailableTradingDay;
+            var needsForwardFetch = maxDate == null || maxDate.Value < lastTradingDay;
 
             var symbolInfo = await db.StockSymbolInfos.FindAsync([stockCode], cancellationToken);
             // Only a *deep* request cares whether a deep fetch has ever actually run for this
@@ -174,17 +174,6 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
                 d = d.AddDays(-1);
             return d;
-        }
-
-        private static bool IsWeekday(DateOnly date) =>
-            date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
-
-        /// <summary>TSE/TPEx regular session close (13:30 Taipei). Taiwan has no DST, so a fixed
-        /// UTC+8 offset is exact — matches PortfolioService.IsTwTradingHours' same approach.</summary>
-        private static bool IsPastTwCloseTime()
-        {
-            var taipeiNow = DateTime.UtcNow.AddHours(8);
-            return taipeiNow.TimeOfDay >= new TimeSpan(13, 30, 0);
         }
 
         /// <summary>Marks that a deep fetch has run for this symbol at least once — see the
@@ -274,20 +263,14 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
         }
 
-        /// <summary>Persists bars strictly before <paramref name="today"/> unconditionally, plus
-        /// today's own bar once the session has closed (<see cref="IsPastTwCloseTime"/>) — before
-        /// that, today's price is still moving intraday and must never be frozen into the DB as a
-        /// "close".</summary>
+        /// <summary>Persists bars strictly before <paramref name="today"/> — today's price is still
+        /// moving intraday (or, even after close, TWSE/TWStockLib give no documented guarantee of
+        /// exactly when it's actually final) and must never be frozen into the DB as a "close".</summary>
         private async Task UpsertFinalizedBarsAsync(
             AzureSQLDBContext db, string symbol, List<DailyPrice> bars, DateOnly today, CancellationToken ct)
         {
-            var todayIsFinalized = IsWeekday(today) && IsPastTwCloseTime();
             var finalized = bars
-                .Where(b =>
-                {
-                    var d = DateOnly.FromDateTime(b.Date);
-                    return (d < today || (d == today && todayIsFinalized)) && b.Close > 0;
-                })
+                .Where(b => DateOnly.FromDateTime(b.Date) < today && b.Close > 0)
                 .ToList();
             if (finalized.Count == 0) return;
 
