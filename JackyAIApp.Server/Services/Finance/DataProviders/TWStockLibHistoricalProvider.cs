@@ -187,11 +187,19 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             return list;
         }
 
+        /// <inheritdoc/>
+        public async Task<StockQuote?> GetLatestQuoteAsync(
+            string stockCode, MarketType? knownMarketType, CancellationToken cancellationToken = default)
+        {
+            var marketType = knownMarketType ?? await DetermineMarketType(stockCode);
+            return await GetCachedRealtimeQuoteAsync(stockCode, marketType, cancellationToken);
+        }
+
         /// <summary>
-        /// Realtime quote for a TW symbol, short-cached so this call and Portfolio's own intraday
-        /// price-overlay lookup (<c>PortfolioService.GetTwRealtimeQuoteAsync</c>) share one network
-        /// hit instead of each fetching it independently. Tries the resolved market first, then the
-        /// other one, same as Portfolio's version — kept consistent since they now share a cache.
+        /// Realtime quote for a TW symbol, short-cached so this call and
+        /// <see cref="GetLatestQuoteAsync"/> (used by <c>TwTodayOverlayMarketDataProvider</c> for
+        /// its intraday price-overlay) share one network hit instead of each fetching it
+        /// independently. Tries the resolved market first, then the other one.
         /// </summary>
         private async Task<StockQuote?> GetCachedRealtimeQuoteAsync(
             string stockCode, MarketType primaryMarket, CancellationToken ct)
