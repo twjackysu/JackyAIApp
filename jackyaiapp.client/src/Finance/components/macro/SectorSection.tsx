@@ -32,7 +32,7 @@ const sectorDisplayNames: Record<string, string> = {
 // Diverging red/green by magnitude, interpolated from a neutral grey — matches this codebase's
 // existing convention (atoms.tsx: positive=green/negative=red), not the TW-local red-up
 // convention. Clamped at ±3%: TW sector-index daily moves rarely exceed that, so clamping keeps
-// an unusually large move from washing out every other tile's color contrast.
+// an unusually large move from washing out every other bar's color contrast.
 const HEAT_CLAMP_PCT = 3;
 const HEAT_NEUTRAL: [number, number, number] = [148, 163, 184]; // slate-400
 const HEAT_UP: [number, number, number] = [34, 197, 94]; // green-500
@@ -46,73 +46,81 @@ function heatColor(changePercent: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-interface SectorTreemapDatum {
+interface SectorBarDatum {
   name: string;
-  value: number;
+  value: number; // changePercent — the bar's length AND the informative dimension (no reliable
+  // per-sector market-cap weight is available from the TWSE feed this data comes from, so unlike
+  // a treemap this chart never needs one: length already encodes magnitude honestly).
   closeIndex: number;
   changePoints: number;
-  changePercent: number;
-  itemStyle: { color: string };
 }
+
+const ROW_HEIGHT = 34;
+const CHART_PADDING = 40;
 
 export const SectorSection = ({ sectors }: { sectors: SectorIndex[] }) => {
   // Exclude 加權指數 since it's already shown in the main card
   const filtered = useMemo(() => sectors.filter((s) => s.name !== '發行量加權股價指數'), [sectors]);
 
+  // Ascending so the category axis (which renders its first entry at the bottom) puts the best
+  // performer at the top — the standard "sector performance" bar-chart convention.
+  const sorted = useMemo(
+    () => [...filtered].sort((a, b) => a.changePercent - b.changePercent),
+    [filtered],
+  );
+
   const option: ECOption = useMemo(() => {
-    const data: SectorTreemapDatum[] = filtered.map((s) => ({
+    const data: SectorBarDatum[] = sorted.map((s) => ({
       name: sectorDisplayNames[s.name] ?? s.name,
-      // No per-sector market-cap weight is available from the TWSE feed this data comes from, so
-      // every tile gets equal area rather than implying a weighting accuracy we don't have — this
-      // is a heatmap grid (color = the informative dimension), not a cap-weighted treemap.
-      value: 1,
+      value: s.changePercent,
       closeIndex: s.closeIndex,
       changePoints: s.direction === '-' ? -s.changePoints : s.changePoints,
-      changePercent: s.changePercent,
-      itemStyle: { color: heatColor(s.changePercent) },
     }));
 
     return {
+      grid: { left: 8, right: 48, top: 8, bottom: 8, containLabel: true },
+      xAxis: {
+        type: 'value',
+        axisLabel: { formatter: '{value}%' },
+        splitLine: { show: true },
+      },
+      yAxis: {
+        type: 'category',
+        data: data.map((d) => d.name),
+        axisTick: { show: false },
+      },
       tooltip: {
+        trigger: 'item',
         formatter: (params: unknown) => {
-          const p = params as { data: SectorTreemapDatum };
+          const p = params as { data: SectorBarDatum };
           const d = p.data;
-          const sign = d.changePercent > 0 ? '+' : '';
+          const sign = d.value > 0 ? '+' : '';
           return [
             `<b>${d.name}</b>`,
             `指數：${formatNumber(Math.round(d.closeIndex))}`,
-            `漲跌：${sign}${d.changePoints.toFixed(2)}（${sign}${d.changePercent.toFixed(2)}%）`,
+            `漲跌：${sign}${d.changePoints.toFixed(2)}（${sign}${d.value.toFixed(2)}%）`,
           ].join('<br/>');
         },
       },
       series: [
         {
-          type: 'treemap',
-          data,
-          roam: false,
-          nodeClick: false,
-          breadcrumb: { show: false },
-          upperLabel: { show: false },
-          itemStyle: { borderColor: 'transparent', borderWidth: 2, gapWidth: 2 },
-          label: {
-            show: true,
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 13,
-            formatter: (params: unknown) => {
-              const p = params as { data: SectorTreemapDatum };
-              const sign = p.data.changePercent > 0 ? '+' : '';
-              return `{name|${p.data.name}}\n{pct|${sign}${p.data.changePercent.toFixed(2)}%}`;
+          type: 'bar',
+          data: data.map((d) => ({
+            ...d,
+            itemStyle: { color: heatColor(d.value), borderRadius: 3 },
+            label: {
+              show: true,
+              position: d.value >= 0 ? 'right' : 'left',
+              formatter: () => `${d.value >= 0 ? '+' : ''}${d.value.toFixed(2)}%`,
+              color: heatColor(d.value),
+              fontWeight: 700,
             },
-            rich: {
-              name: { fontSize: 13, fontWeight: 700, lineHeight: 18 },
-              pct: { fontSize: 12, lineHeight: 16 },
-            },
-          },
+          })),
+          barMaxWidth: 22,
         },
       ],
     };
-  }, [filtered]);
+  }, [sorted]);
 
   if (filtered.length === 0) return null;
 
@@ -128,7 +136,7 @@ export const SectorSection = ({ sectors }: { sectors: SectorIndex[] }) => {
         <ReactECharts
           echarts={echarts}
           option={option}
-          style={{ height: 260, width: '100%' }}
+          style={{ height: sorted.length * ROW_HEIGHT + CHART_PADDING, width: '100%' }}
           opts={{ renderer: 'canvas' }}
         />
       </CardContent>
