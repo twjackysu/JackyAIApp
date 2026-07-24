@@ -119,6 +119,9 @@ export interface MarketIndexDay {
 }
 
 export interface SectorIndex {
+  // 民國 date string (e.g. "1150211") — TWSE's feed only publishes the most recently finalized
+  // trading day, which can lag "today" by a day or more; format with formatROCDate for display.
+  date: string;
   name: string;
   closeIndex: number;
   direction: string;

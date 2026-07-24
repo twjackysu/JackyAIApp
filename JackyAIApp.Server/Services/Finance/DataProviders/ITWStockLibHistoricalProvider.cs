@@ -18,5 +18,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             MarketType? knownMarketType, CancellationToken cancellationToken = default);
 
         Task<MarketType> DetermineMarketType(string stockCode);
+
+        /// <summary>Realtime/final quote for a TW symbol, or null on any failure (never throws).
+        /// Resolves market type first when not supplied (memory-cached, cheap), then tries that
+        /// market followed by the other one — same fallback <see cref="TWStockLibHistoricalProvider"/>
+        /// already used internally for its own company-name lookup, now also the single source for
+        /// <c>TwTodayOverlayMarketDataProvider</c>'s today-price overlay.</summary>
+        Task<StockQuote?> GetLatestQuoteAsync(
+            string stockCode, MarketType? knownMarketType, CancellationToken cancellationToken = default);
     }
 }

@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import EChartsCoreModule from 'echarts-for-react/lib/core';
 import { useMemo } from 'react';
 
-import { formatNumber } from './format';
+import { formatNumber, formatROCDate } from './format';
 
 import type { SectorIndex } from '@/apis/financeApis/types';
 import type { ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
@@ -127,11 +127,22 @@ export const SectorSection = ({ sectors }: { sectors: SectorIndex[] }) => {
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 0.5 }}>
-          <FactoryIcon fontSize="small" color="action" />
-          <Typography variant="subtitle2" color="text.secondary">
-            產業類指數
-          </Typography>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}
+        >
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+            <FactoryIcon fontSize="small" color="action" />
+            <Typography variant="subtitle2" color="text.secondary">
+              產業類指數
+            </Typography>
+          </Stack>
+          {sorted[0]?.date && (
+            <Typography variant="caption" color="text.secondary">
+              資料日期：{formatROCDate(sorted[0].date)}
+            </Typography>
+          )}
         </Stack>
         <ReactECharts
           echarts={echarts}

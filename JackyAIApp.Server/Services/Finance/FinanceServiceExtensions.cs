@@ -57,8 +57,10 @@ namespace JackyAIApp.Server.Services.Finance
             // === Register data providers ===
             // Historical price provider (TWStockLib), wrapped by a DB-backed persistence layer
             // (survives Azure App Service free-tier cold starts, which wipe IMemoryCache — see
-            // .claude/plans/portfolio-db-price-cache.md), then the existing 4h memory cache on top
-            // (saves DB round-trips within a single warm process).
+            // .claude/plans/portfolio-db-price-cache.md), then the existing 4h memory cache, then an
+            // outermost today-price overlay (see TwTodayOverlayMarketDataProvider — deliberately
+            // outside the 4h cache, not inside it, or today's still-moving price would freeze for
+            // up to 4 hours).
             services.AddScoped<TWStockLibHistoricalProvider>();
             services.AddScoped<ITWStockLibHistoricalProvider>(sp => sp.GetRequiredService<TWStockLibHistoricalProvider>());
             services.AddScoped<PersistentTwHistoricalProvider>();
@@ -66,8 +68,11 @@ namespace JackyAIApp.Server.Services.Finance
             {
                 var inner = sp.GetRequiredService<PersistentTwHistoricalProvider>();
                 var cache = sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
-                var logger = sp.GetRequiredService<ILogger<CachedMarketDataProvider>>();
-                return new CachedMarketDataProvider(inner, cache, logger);
+                var cachedLogger = sp.GetRequiredService<ILogger<CachedMarketDataProvider>>();
+                var cached = new CachedMarketDataProvider(inner, cache, cachedLogger);
+                var quoteSource = sp.GetRequiredService<ITWStockLibHistoricalProvider>();
+                var overlayLogger = sp.GetRequiredService<ILogger<TwTodayOverlayMarketDataProvider>>();
+                return new TwTodayOverlayMarketDataProvider(cached, quoteSource, overlayLogger);
             });
 
             // Chip data provider (TWSE OpenAPI)

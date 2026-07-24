@@ -1218,20 +1218,10 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 var region = providerFactory.DetectRegion(symbol);
                 var provider = providerFactory.GetMarketDataProvider(region);
+                // TW's provider chain already includes today's-price overlay as its outermost layer
+                // (TwTodayOverlayMarketDataProvider, see FinanceServiceExtensions) — every caller of
+                // IMarketDataProvider gets it, not just Portfolio, so nothing extra happens here.
                 var data = deep ? await provider.FetchAsync(symbol, ct) : await provider.FetchLatestAsync(symbol, ct);
-
-                // TWStockLibHistoricalProvider only ever returns finalized daily bars, so during the
-                // 9:00-13:30 session "the latest close" is really still yesterday's — overlay today's
-                // realtime quote on top so Portfolio valuation reflects the live price intraday.
-                // Never mutate `data` itself: it may be the same object instance cached (up to 4h) by
-                // CachedMarketDataProvider and shared with the Finance/indicator module.
-                if (region == MarketRegion.TW)
-                {
-                    var quote = await GetTwRealtimeQuoteAsync(symbol, ct);
-                    var livePrice = quote != null ? EffectiveLivePrice(quote) : null;
-                    if (quote != null && livePrice is > 0)
-                        data = WithRealtimeOverlay(data, quote, livePrice.Value);
-                }
 
                 // Only cache a usable result; an empty fetch shouldn't suppress the next retry.
                 if (data.HistoricalPrices.Count > 0)
@@ -1243,105 +1233,6 @@ namespace JackyAIApp.Server.Services.Portfolio
                 logger.LogWarning(ex, "Failed to fetch price for {Symbol}", symbol);
                 return null;
             }
-        }
-
-        /// <summary>TSE/TPEx regular session, Mon-Fri 09:00-13:30. Taiwan has no DST, so a fixed
-        /// UTC+8 offset is exact — no TimeZoneInfo lookup (whose ID differs Windows-vs-Linux)
-        /// needed. Does not account for exchange holidays: a holiday just means the realtime quote
-        /// below comes back stale/NOT_FOUND, which is silently ignored in favor of the historical
-        /// close, so there is no user-visible harm from the gap.</summary>
-        private static bool IsTwTradingHours()
-        {
-            var taipeiNow = DateTime.UtcNow.AddHours(8);
-            if (taipeiNow.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
-            var t = taipeiNow.TimeOfDay;
-            return t >= new TimeSpan(9, 0, 0) && t <= new TimeSpan(13, 30, 0);
-        }
-
-        /// <summary>Realtime quote for a TW symbol during the trading session, or null outside
-        /// trading hours / on any failure (never throws — callers always have the historical-close
-        /// fallback).</summary>
-        private async Task<TWStockLib.Models.StockQuote?> GetTwRealtimeQuoteAsync(string symbol, CancellationToken ct)
-        {
-            if (stockService is null || !IsTwTradingHours()) return null;
-
-            // Short-cached (see CacheTtl.Finance.TwRealtimeQuote) so this and
-            // TWStockLibHistoricalProvider's own quote lookup (for company name) share one network
-            // hit instead of each fetching the same symbol's quote independently.
-            var key = CacheTtl.Finance.TwRealtimeQuoteCacheKeyPrefix + symbol;
-            if (cache.TryGetValue(key, out TWStockLib.Models.StockQuote? cached))
-                return cached;
-
-            try
-            {
-                var tse = await stockService.GetRealtimeQuoteAsync(symbol, TWStockLib.Models.MarketType.TSE, ct);
-                var quote = tse.IsSuccess ? tse.Value : null;
-                if (quote == null)
-                {
-                    var otc = await stockService.GetRealtimeQuoteAsync(symbol, TWStockLib.Models.MarketType.OTC, ct);
-                    quote = otc.IsSuccess ? otc.Value : null;
-                }
-
-                if (quote != null)
-                    cache.Set(key, quote, CacheTtl.Finance.TwRealtimeQuote);
-                return quote;
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "Realtime quote fetch failed for {Symbol}, falling back to historical close", symbol);
-                return null;
-            }
-        }
-
-        /// <summary>TWSE's realtime "last matched price" (<c>StockQuote.LastPrice</c>) is frequently
-        /// empty mid-session — it only reflects the most recent trade tick, and TWSE's snapshot can
-        /// lag between ticks even for a heavily-traded stock. Falls back to the bid/ask midpoint
-        /// (or whichever side is present) so the overlay still fires; returns null only when the
-        /// quote carries no usable price at all.</summary>
-        private static decimal? EffectiveLivePrice(TWStockLib.Models.StockQuote quote)
-        {
-            if (quote.LastPrice is > 0) return quote.LastPrice;
-
-            var bid = quote.Top5BuyPrice.Length > 0 ? quote.Top5BuyPrice[0] : 0;
-            var ask = quote.Top5SellPrice.Length > 0 ? quote.Top5SellPrice[0] : 0;
-            if (bid > 0 && ask > 0) return Math.Round((bid + ask) / 2, 2);
-            if (bid > 0) return bid;
-            if (ask > 0) return ask;
-            return null;
-        }
-
-        /// <summary>Returns a shallow clone of <paramref name="source"/> with today's bar
-        /// replaced/appended from a realtime quote, so <c>HistoricalPrices.LastOrDefault()</c>
-        /// reflects the live price. Never mutates <paramref name="source"/> itself.</summary>
-        private static DTO.Finance.MarketData WithRealtimeOverlay(
-            DTO.Finance.MarketData source, TWStockLib.Models.StockQuote quote, decimal livePrice)
-        {
-            var today = DateTime.Today;
-            var todayBar = new DTO.Finance.DailyPrice
-            {
-                Date = today,
-                Open = quote.OpeningPrice ?? livePrice,
-                High = quote.HighestPrice ?? livePrice,
-                Low = quote.LowestPrice ?? livePrice,
-                Close = livePrice,
-                Volume = quote.TotalVolume ?? 0,
-            };
-
-            var prices = new List<DTO.Finance.DailyPrice>(source.HistoricalPrices);
-            if (prices.Count > 0 && prices[^1].Date.Date == today)
-                prices[^1] = todayBar;
-            else
-                prices.Add(todayBar);
-
-            return new DTO.Finance.MarketData
-            {
-                StockCode = source.StockCode,
-                CompanyName = source.CompanyName,
-                HistoricalPrices = prices,
-                Fundamentals = source.Fundamentals,
-                Chips = source.Chips,
-                FetchedAt = DateTime.UtcNow,
-            };
         }
 
         /// <summary>Fetch every distinct stock symbol in parallel; failed symbols are omitted.</summary>

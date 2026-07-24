@@ -47,6 +47,13 @@ namespace JackyAIApp.Server.DTO.Finance
 
     public class SectorIndex
     {
+        /// <summary>Date string (民國 format e.g., "1150211") — TWSE's MI_INDEX endpoint only
+        /// publishes the most recently finalized trading day, which can lag "today" by a day or
+        /// more (e.g. before today's session has closed, or over a weekend), with nothing in the
+        /// response itself flagging that lag. Surfaced so the UI can show which day this actually
+        /// is instead of silently implying it's live.</summary>
+        public string Date { get; set; } = string.Empty;
+
         /// <summary>Sector name</summary>
         public string Name { get; set; } = string.Empty;
 
