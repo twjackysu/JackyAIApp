@@ -193,7 +193,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         }
 
         /// <summary>Most recent weekday before <paramref name="today"/>. Doesn't model exchange
-        /// holidays (same tolerance as PortfolioService.IsTwTradingHours) — worst case is one
+        /// holidays (same tolerance as PortfolioService.HasTodayTwQuote) — worst case is one
         /// harmless extra gap-fetch that returns no new rows.</summary>
         private static DateOnly LastTradingDayBefore(DateOnly today)
         {

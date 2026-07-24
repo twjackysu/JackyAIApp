@@ -1220,9 +1220,15 @@ namespace JackyAIApp.Server.Services.Portfolio
                 var provider = providerFactory.GetMarketDataProvider(region);
                 var data = deep ? await provider.FetchAsync(symbol, ct) : await provider.FetchLatestAsync(symbol, ct);
 
-                // TWStockLibHistoricalProvider only ever returns finalized daily bars, so during the
-                // 9:00-13:30 session "the latest close" is really still yesterday's — overlay today's
-                // realtime quote on top so Portfolio valuation reflects the live price intraday.
+                // PersistentTwHistoricalProvider deliberately never persists "today's" bar until the
+                // calendar date rolls over (today's close is never guaranteed final until then), so
+                // its "latest close" is always yesterday's — overlay today's quote on top so
+                // valuation reflects the actual current/final price. Covers the whole trading day
+                // (09:00 onward), not just the 9:00-13:30 session: TWStockLib's realtime-quote
+                // endpoint keeps returning the day's final matched price for hours after the 13:30
+                // close (verified against live data), so without this, valuation fell back to
+                // yesterday's close for the entire 13:30-midnight window every single day even
+                // though today's real close was already known and fetchable.
                 // Never mutate `data` itself: it may be the same object instance cached (up to 4h) by
                 // CachedMarketDataProvider and shared with the Finance/indicator module.
                 if (region == MarketRegion.TW)
@@ -1245,25 +1251,30 @@ namespace JackyAIApp.Server.Services.Portfolio
             }
         }
 
-        /// <summary>TSE/TPEx regular session, Mon-Fri 09:00-13:30. Taiwan has no DST, so a fixed
-        /// UTC+8 offset is exact — no TimeZoneInfo lookup (whose ID differs Windows-vs-Linux)
+        /// <summary>Whether a same-day TW quote should be trusted as authoritative right now: from
+        /// market open (09:00) through the rest of the calendar day, not just the 09:00-13:30
+        /// session — TWStockLib's realtime-quote endpoint keeps returning the day's final matched
+        /// price for hours after the 13:30 close, and nothing else in the pipeline ever surfaces
+        /// that finalized price otherwise (see the FetchStockDataAsync comment above this call
+        /// site). Before 09:00 the quote would still be showing yesterday's stale price mislabeled
+        /// as "today" by WithRealtimeOverlay, so the lower bound stays. Taiwan has no DST, so a
+        /// fixed UTC+8 offset is exact — no TimeZoneInfo lookup (whose ID differs Windows-vs-Linux)
         /// needed. Does not account for exchange holidays: a holiday just means the realtime quote
         /// below comes back stale/NOT_FOUND, which is silently ignored in favor of the historical
         /// close, so there is no user-visible harm from the gap.</summary>
-        private static bool IsTwTradingHours()
+        private static bool HasTodayTwQuote()
         {
             var taipeiNow = DateTime.UtcNow.AddHours(8);
             if (taipeiNow.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
-            var t = taipeiNow.TimeOfDay;
-            return t >= new TimeSpan(9, 0, 0) && t <= new TimeSpan(13, 30, 0);
+            return taipeiNow.TimeOfDay >= new TimeSpan(9, 0, 0);
         }
 
-        /// <summary>Realtime quote for a TW symbol during the trading session, or null outside
-        /// trading hours / on any failure (never throws — callers always have the historical-close
-        /// fallback).</summary>
+        /// <summary>Realtime/final quote for a TW symbol on the current trading day, or null before
+        /// market open / on weekends / on any failure (never throws — callers always have the
+        /// historical-close fallback).</summary>
         private async Task<TWStockLib.Models.StockQuote?> GetTwRealtimeQuoteAsync(string symbol, CancellationToken ct)
         {
-            if (stockService is null || !IsTwTradingHours()) return null;
+            if (stockService is null || !HasTodayTwQuote()) return null;
 
             // Short-cached (see CacheTtl.Finance.TwRealtimeQuote) so this and
             // TWStockLibHistoricalProvider's own quote lookup (for company name) share one network

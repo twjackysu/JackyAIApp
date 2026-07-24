@@ -116,6 +116,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     .Where(r => KeySectors.Contains(GetStr(r, "指數")))
                     .Select(r => new SectorIndex
                     {
+                        Date = GetStr(r, "日期"),
                         Name = GetStr(r, "指數"),
                         CloseIndex = GetDec(r, "收盤指數"),
                         Direction = GetStr(r, "漲跌"),
