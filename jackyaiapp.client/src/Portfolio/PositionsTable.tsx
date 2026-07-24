@@ -15,6 +15,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useState } from 'react';
 
 import { loadFeeDiscountRate } from './feeDiscountRate';
@@ -59,6 +60,34 @@ function groupKeyOf(p: PositionDto): GroupKey {
   if (p.assetType === 'CASH') return 'CASH';
   if (p.assetType === 'LIABILITY') return 'LIABILITY';
   return 'OTHER';
+}
+
+// Shared between the desktop table and the mobile card list so the reload mutation trigger /
+// spinner / stopPropagation logic isn't duplicated in two places.
+interface PriceFailedBadgeProps {
+  symbol: string;
+  onRefresh: (symbol: string) => void;
+  refreshing: boolean;
+}
+
+function PriceFailedBadge({ symbol, onRefresh, refreshing }: PriceFailedBadgeProps) {
+  return (
+    <Tooltip title="重新抓取報價">
+      <span>
+        <IconButton
+          size="small"
+          disabled={refreshing}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRefresh(symbol);
+          }}
+          sx={{ p: 0.25 }}
+        >
+          {refreshing ? <CircularProgress size={14} /> : <RefreshIcon sx={{ fontSize: 14 }} />}
+        </IconButton>
+      </span>
+    </Tooltip>
+  );
 }
 
 export function PositionsTable({ positions, onStockClick }: Props) {
@@ -147,6 +176,23 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
   const { value, change, showRatio } = usePrivacy();
   const [refreshPrice, { isLoading: isRefreshing, originalArgs }] =
     useRefreshPositionPriceMutation();
+  const isMobile = useMediaQuery((theme) => theme.breakpoints.down('sm'));
+
+  const handleRefresh = (symbol: string) => {
+    refreshPrice({ symbol, feeDiscountRate: loadFeeDiscountRate() });
+  };
+
+  if (isMobile) {
+    return (
+      <PositionsCardList
+        positions={positions}
+        onStockClick={onStockClick}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+        refreshingSymbol={originalArgs?.symbol}
+      />
+    );
+  }
 
   return (
     <TableContainer>
@@ -217,28 +263,11 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                           variant="outlined"
                           sx={{ fontSize: 10, height: 18 }}
                         />
-                        <Tooltip title="重新抓取報價">
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={isRefreshing && originalArgs?.symbol === p.symbol}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                refreshPrice({
-                                  symbol: p.symbol,
-                                  feeDiscountRate: loadFeeDiscountRate(),
-                                });
-                              }}
-                              sx={{ p: 0.25 }}
-                            >
-                              {isRefreshing && originalArgs?.symbol === p.symbol ? (
-                                <CircularProgress size={14} />
-                              ) : (
-                                <RefreshIcon sx={{ fontSize: 14 }} />
-                              )}
-                            </IconButton>
-                          </span>
-                        </Tooltip>
+                        <PriceFailedBadge
+                          symbol={p.symbol}
+                          onRefresh={handleRefresh}
+                          refreshing={isRefreshing && originalArgs?.symbol === p.symbol}
+                        />
                       </>
                     )}
                   </Box>
@@ -311,5 +340,138 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
         </TableBody>
       </Table>
     </TableContainer>
+  );
+}
+
+interface CardListProps {
+  positions: PositionDto[];
+  onStockClick?: (p: PositionDto) => void;
+  onRefresh: (symbol: string) => void;
+  isRefreshing: boolean;
+  refreshingSymbol?: string;
+}
+
+// Mobile (xs) replacement for PositionsGroupTable's <Table> — a table is fundamentally a
+// compression, not a reorganization: squeezing 4+ columns into 375px just makes the "項目" cell
+// wrap/overflow and the "未實現損益" cell stack 4 lines tall. Two-line cards (identity left,
+// numbers right) is the standard brokerage-app pattern for this instead. sm+ keeps the table
+// above untouched.
+function PositionsCardList({
+  positions,
+  onStockClick,
+  onRefresh,
+  isRefreshing,
+  refreshingSymbol,
+}: CardListProps) {
+  const { value, change, showRatio } = usePrivacy();
+
+  return (
+    <Box>
+      {positions.map((p, i) => {
+        const isStock = p.assetType === 'STOCK';
+        const isCashOrLiability = p.assetType === 'CASH' || p.assetType === 'LIABILITY';
+        const clickable = (isStock || (p.assetType === 'FUND' && !!p.symbol)) && !!onStockClick;
+        const chip = TYPE_CHIP[p.assetType] ?? TYPE_CHIP.STOCK;
+
+        return (
+          <Box
+            key={`${p.assetType}-${p.symbol}-${p.name}-${i}`}
+            onClick={() => clickable && onStockClick?.(p)}
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 1,
+              py: 1,
+              px: 1.5,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              cursor: clickable ? 'pointer' : 'default',
+            }}
+          >
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                  {p.symbol || p.name}
+                </Typography>
+                <Chip
+                  label={isStock && p.market ? p.market : chip.label}
+                  size="small"
+                  color={chip.color}
+                  variant="outlined"
+                  sx={{ fontSize: 10, height: 18 }}
+                />
+                {!isCashOrLiability && p.exposureFactor !== 1 && (
+                  <Chip
+                    label={p.exposureFactor === 0 ? '0曝險' : `曝險×${p.exposureFactor}`}
+                    size="small"
+                    color={p.exposureFactor === 0 ? 'default' : 'warning'}
+                    variant="outlined"
+                    sx={{ fontSize: 10, height: 18 }}
+                  />
+                )}
+              </Box>
+              {!isCashOrLiability && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  noWrap
+                  sx={{ display: 'block' }}
+                >
+                  {p.symbol ? `${p.name} · ` : ''}
+                  {value(fmtQty(p.quantity))}
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+              {p.priceFetchFailed ? (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: 0.25,
+                  }}
+                >
+                  <Typography variant="body2" color="error">
+                    報價失敗
+                  </Typography>
+                  <PriceFailedBadge
+                    symbol={p.symbol}
+                    onRefresh={onRefresh}
+                    refreshing={isRefreshing && refreshingSymbol === p.symbol}
+                  />
+                </Box>
+              ) : (
+                <>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: p.assetType === 'LIABILITY' ? pnlColor(p.marketValueTWD) : undefined,
+                    }}
+                  >
+                    {value(fmt(p.marketValueTWD))}
+                  </Typography>
+                  {p.currency === 'USD' && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      USD {value(fmt(p.marketValueLocal, 0))}
+                    </Typography>
+                  )}
+                </>
+              )}
+              {p.unrealizedPnlTWD != null && p.unrealizedPnlPct != null && (
+                <Typography
+                  variant="caption"
+                  sx={{ color: pnlColor(p.unrealizedPnlTWD), display: 'block' }}
+                >
+                  {change(`${p.unrealizedPnlTWD >= 0 ? '+' : ''}${fmt(p.unrealizedPnlTWD)}`)}
+                  {showRatio &&
+                    ` (${p.unrealizedPnlPct >= 0 ? '+' : ''}${p.unrealizedPnlPct.toFixed(2)}%)`}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        );
+      })}
+    </Box>
   );
 }
