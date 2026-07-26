@@ -27,7 +27,7 @@ import {
 import { PositionInput } from '@/apis/portfolioApis/types';
 
 interface Props {
-  onLoadSnapshot: (positions: PositionInput[]) => void;
+  onLoadSnapshot: (positions: PositionInput[], effectiveDate: string) => void;
 }
 
 export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
@@ -46,7 +46,7 @@ export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
     try {
       const r = await fetchSnapshot(snapshotId).unwrap();
       if (r?.data?.positions) {
-        onLoadSnapshot(r.data.positions);
+        onLoadSnapshot(r.data.positions, r.data.effectiveDate ?? '');
         setOpen(false);
       }
     } finally {
@@ -80,7 +80,7 @@ export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
         <DialogTitle>持倉更新紀錄</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            每次更新持倉會留一筆快照。「載入」會把該日持倉填進編輯器，存檔後即建立今天的新快照。
+            每次更新持倉會留一筆快照。「載入」會把該日持倉連同生效日期一起填進編輯器——直接存檔會覆蓋回那筆紀錄本身；想改存成今天的新快照，記得把生效日期改成今天再存檔。
           </Typography>
 
           {isLoading ? (
