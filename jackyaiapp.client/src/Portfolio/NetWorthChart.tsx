@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { MASK, usePrivacy } from './privacy';
 
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
-import { NetWorthGroupBy } from '@/apis/portfolioApis/types';
+import { NetWorthDataPoint, NetWorthGroupBy, NetWorthGroupValue } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
 
 const RANGES: { label: string; days: number }[] = [
@@ -18,11 +18,38 @@ const RANGES: { label: string; days: number }[] = [
   { label: '6M', days: 180 },
 ];
 
-const VIEW_BY_OPTIONS: { label: string; value: NetWorthGroupBy }[] = [
+// "liquidity" isn't a real backend groupBy mode — it's a client-side re-bucketing of the same
+// assetType-mode response (TwStock/UsStock/Cash/Fund collapsed into one "動產" series, Property
+// kept as "不動產", Liability kept as-is), so selecting it fetches with groupBy=assetType under
+// the hood rather than adding a new backend enum member/endpoint param for what's really just a
+// different way to look at data we already have.
+type ViewBy = NetWorthGroupBy | 'liquidity';
+
+const VIEW_BY_OPTIONS: { label: string; value: ViewBy }[] = [
   { label: '資產類型', value: 'assetType' },
+  { label: '動產/不動產', value: 'liquidity' },
   { label: '產業', value: 'category' },
   { label: '子類別', value: 'subCategory' },
 ];
+
+const LIQUID_KEY = 'Liquid';
+
+/** Collapse an assetType-mode day's groups into 動產(Liquid)/不動產(Property)/負債(Liability). */
+function toLiquidityGroups(groups: NetWorthGroupValue[]): NetWorthGroupValue[] {
+  let liquid = 0,
+    property = 0,
+    liability = 0;
+  for (const g of groups) {
+    if (g.key === 'Property') property += g.valueTWD;
+    else if (g.key === 'Liability') liability += g.valueTWD;
+    else liquid += g.valueTWD;
+  }
+  return [
+    { key: LIQUID_KEY, valueTWD: liquid },
+    { key: 'Property', valueTWD: property },
+    { key: 'Liability', valueTWD: liability },
+  ].filter((g) => g.valueTWD !== 0);
+}
 
 // One combined map for every key any groupBy mode can produce — assetType and category modes
 // both use "Cash"/"Liability", and sharing one entry keeps that color/label consistent across
@@ -36,6 +63,8 @@ const KEY_LABELS: Record<string, string> = {
   UsStock: '美股',
   Cash: '現金',
   Fund: '基金',
+  // liquidity mode only — everything except Property/Liability, collapsed into one series.
+  Liquid: '動產',
   // "Property", not "RealEstate": the latter is PortfolioCategory.RealEstate (REIT stocks/ETFs,
   // category-mode only) — a different concept from the user's own literal real-estate holdings,
   // which use this "Property" key in BOTH assetType and category mode (see PortfolioService.GroupKey).
@@ -67,6 +96,7 @@ const KEY_COLORS: Record<string, string> = {
   UsStock: '#10B981',
   Cash: '#A78BFA',
   Fund: '#EC4899',
+  Liquid: '#3B82F6',
   Property: '#F59E0B',
   Liability: '#ef4444',
   Semiconductor: '#3B82F6',
@@ -138,10 +168,16 @@ const fmt = (n: number) => {
 
 export function NetWorthChart() {
   const [days, setDays] = useState(90);
-  const [groupBy, setGroupBy] = useState<NetWorthGroupBy>('assetType');
+  const [groupBy, setGroupBy] = useState<ViewBy>('assetType');
   const { mode } = usePrivacy();
-  const { data: res, isLoading } = useGetNetWorthHistoryQuery({ days, groupBy });
-  const points = res?.data ?? [];
+  // liquidity mode rides on the assetType-mode response — see toLiquidityGroups.
+  const queryGroupBy: NetWorthGroupBy = groupBy === 'liquidity' ? 'assetType' : groupBy;
+  const { data: res, isLoading } = useGetNetWorthHistoryQuery({ days, groupBy: queryGroupBy });
+  const rawPoints = res?.data ?? [];
+  const points: NetWorthDataPoint[] =
+    groupBy === 'liquidity'
+      ? rawPoints.map((p) => ({ ...p, groups: toLiquidityGroups(p.groups) }))
+      : rawPoints;
 
   if (isLoading) {
     return (
