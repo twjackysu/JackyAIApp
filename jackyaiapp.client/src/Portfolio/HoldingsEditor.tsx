@@ -53,9 +53,16 @@ export function HoldingsEditor() {
     setOpen(true);
   };
 
-  // Load an arbitrary past snapshot's positions into the editor (restore flow).
-  const loadFromSnapshot = (positions: PositionInput[]) => {
-    setEffectiveDate(today());
+  // Load an arbitrary past snapshot's positions into the editor (restore flow). Defaults the date
+  // to the snapshot's OWN effective date, not today — saving as-is then corrects/overwrites that
+  // exact historical record in place, which is what "載入 an old snapshot" most often means (fix a
+  // data-entry mistake in the past). Previously this always reset to today, so an edit meant to
+  // fix an old record silently created a brand-new snapshot dated today instead — the old (wrong)
+  // record was left untouched and the fix landed on the wrong date with no visible error. The date
+  // field is still a plain editable TextField, so explicitly changing it to today still gives the
+  // "copy this old snapshot forward as a fresh update" flow the UI copy already describes.
+  const loadFromSnapshot = (positions: PositionInput[], effectiveDate: string) => {
+    setEffectiveDate(effectiveDate || today());
     setRows(positions.map(toRow));
     setSubmitted(false);
     setSaveError(null);
