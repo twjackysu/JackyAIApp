@@ -291,6 +291,7 @@ function AllocationCard({
   usStock,
   cash,
   fund,
+  realEstate,
   liability,
   usdTwdRate,
   exposure,
@@ -300,6 +301,7 @@ function AllocationCard({
   usStock: number;
   cash: number;
   fund: number;
+  realEstate: number;
   liability: number;
   usdTwdRate: number;
   exposure: number;
@@ -307,8 +309,9 @@ function AllocationCard({
 }) {
   const { value, showRatio } = usePrivacy();
   // Percentages are of gross assets (before subtracting debt), not net worth — otherwise
-  // liability would shrink the denominator and inflate every other row's percentage.
-  const grossAssets = twStock + usStock + cash + fund;
+  // liability would shrink the denominator and inflate every other row's percentage. Real estate
+  // is included: it's a real gross asset, just zero market exposure (see the caption below).
+  const grossAssets = twStock + usStock + cash + fund + realEstate;
   const pct = (v: number) => (grossAssets > 0 ? (v / grossAssets) * 100 : 0);
   return (
     <Card
@@ -324,6 +327,14 @@ function AllocationCard({
           <AllocationRow label="美股" value={usStock} pct={pct(usStock)} color="#10B981" />
           <AllocationRow label="現金" value={cash} pct={pct(cash)} color="#A78BFA" />
           <AllocationRow label="基金" value={fund} pct={pct(fund)} color="#EC4899" />
+          {realEstate > 0 && (
+            <AllocationRow
+              label="不動產"
+              value={realEstate}
+              pct={pct(realEstate)}
+              color="#F59E0B"
+            />
+          )}
         </Box>
         {liability > 0 && (
           <Box
@@ -362,7 +373,7 @@ function AllocationCard({
           </Typography>
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-          正2 ×2、債券/現金/負債 0；可 &gt;100% 表示槓桿
+          正2 ×2、債券/現金/負債/不動產 0；可 &gt;100% 表示槓桿
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
           USD/TWD = {usdTwdRate.toFixed(2)}
@@ -474,6 +485,7 @@ export default function Portfolio() {
                   usStock={summary.usStockTWD}
                   cash={summary.cashTWD}
                   fund={summary.fundTWD}
+                  realEstate={summary.realEstateTWD}
                   liability={summary.liabilityTWD}
                   usdTwdRate={summary.usdTwdRate}
                 />

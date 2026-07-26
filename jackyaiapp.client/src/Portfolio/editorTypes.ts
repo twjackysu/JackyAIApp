@@ -42,6 +42,17 @@ export const makeRow = (assetType: AssetType, market = 'TW'): EditorRow => {
         currency: 'TWD',
         quantity: 0,
       };
+    case 'REAL_ESTATE':
+      return {
+        _key: nextKey(),
+        assetType: 'REAL_ESTATE',
+        symbol: '',
+        name: '不動產',
+        market: '',
+        currency: 'TWD',
+        quantity: 0,
+        valuationMethod: '市價',
+      };
     case 'FUND':
       return {
         _key: nextKey(),
@@ -62,11 +73,13 @@ export const toRow = (p: PositionInput): EditorRow => ({ ...p, _key: nextKey() }
 
 /** A row the user added but never filled in — silently dropped on save. */
 export const isRowEmpty = (r: EditorRow): boolean =>
-  r.assetType === 'CASH' || r.assetType === 'LIABILITY' ? !r.quantity : !r.symbol && !r.quantity;
+  r.assetType === 'CASH' || r.assetType === 'LIABILITY' || r.assetType === 'REAL_ESTATE'
+    ? !r.quantity
+    : !r.symbol && !r.quantity;
 
 /** Validation message for a non-empty row, or null when valid. */
 export const rowError = (r: EditorRow): string | null => {
-  if (r.assetType === 'CASH' || r.assetType === 'LIABILITY') {
+  if (r.assetType === 'CASH' || r.assetType === 'LIABILITY' || r.assetType === 'REAL_ESTATE') {
     return r.quantity > 0 ? null : '請輸入金額';
   }
   if (!r.symbol) {

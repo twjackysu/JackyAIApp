@@ -67,6 +67,9 @@ namespace JackyAIApp.Server.Data.Migrations
                         .HasPrecision(18, 6)
                         .HasColumnType("decimal(18,6)");
 
+                    b.Property<string>("ValuationMethod")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SnapshotId");

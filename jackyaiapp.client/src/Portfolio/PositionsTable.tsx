@@ -38,26 +38,42 @@ const TYPE_CHIP: Record<
   CASH: { label: '現金', color: 'success' },
   FUND: { label: '基金', color: 'info' },
   LIABILITY: { label: '負債', color: 'error' },
+  REAL_ESTATE: { label: '不動產', color: 'warning' },
 };
 
-type GroupKey = 'TW_STOCK' | 'US_STOCK' | 'FUND' | 'CASH' | 'LIABILITY' | 'OTHER';
+// Positions with no live price/quantity concept — manually valued, "quantity" IS the value.
+function isFlatValued(p: PositionDto): boolean {
+  return p.assetType === 'CASH' || p.assetType === 'LIABILITY' || p.assetType === 'REAL_ESTATE';
+}
+
+type GroupKey = 'TW_STOCK' | 'US_STOCK' | 'FUND' | 'CASH' | 'REAL_ESTATE' | 'LIABILITY' | 'OTHER';
 
 const GROUP_LABEL: Record<GroupKey, string> = {
   TW_STOCK: '台股',
   US_STOCK: '美股',
   FUND: '基金',
   CASH: '現金',
+  REAL_ESTATE: '不動產',
   LIABILITY: '負債',
   OTHER: '其他',
 };
 
 // Liability is listed last — it's debt, not a holding.
-const GROUP_ORDER: GroupKey[] = ['TW_STOCK', 'US_STOCK', 'FUND', 'CASH', 'LIABILITY', 'OTHER'];
+const GROUP_ORDER: GroupKey[] = [
+  'TW_STOCK',
+  'US_STOCK',
+  'FUND',
+  'CASH',
+  'REAL_ESTATE',
+  'LIABILITY',
+  'OTHER',
+];
 
 function groupKeyOf(p: PositionDto): GroupKey {
   if (p.assetType === 'STOCK') return p.market === 'US' ? 'US_STOCK' : 'TW_STOCK';
   if (p.assetType === 'FUND') return 'FUND';
   if (p.assetType === 'CASH') return 'CASH';
+  if (p.assetType === 'REAL_ESTATE') return 'REAL_ESTATE';
   if (p.assetType === 'LIABILITY') return 'LIABILITY';
   return 'OTHER';
 }
@@ -230,9 +246,9 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>
                         {p.symbol || p.name}
                       </Typography>
-                      {p.symbol && (
+                      {(p.symbol || p.valuationMethod) && (
                         <Typography variant="caption" color="text.secondary">
-                          {p.name}
+                          {p.symbol ? p.name : p.valuationMethod}
                         </Typography>
                       )}
                     </Box>
@@ -243,17 +259,15 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                       variant="outlined"
                       sx={{ fontSize: 10, height: 18 }}
                     />
-                    {p.assetType !== 'CASH' &&
-                      p.assetType !== 'LIABILITY' &&
-                      p.exposureFactor !== 1 && (
-                        <Chip
-                          label={p.exposureFactor === 0 ? '0曝險' : `曝險×${p.exposureFactor}`}
-                          size="small"
-                          color={p.exposureFactor === 0 ? 'default' : 'warning'}
-                          variant="outlined"
-                          sx={{ fontSize: 10, height: 18 }}
-                        />
-                      )}
+                    {!isFlatValued(p) && p.exposureFactor !== 1 && (
+                      <Chip
+                        label={p.exposureFactor === 0 ? '0曝險' : `曝險×${p.exposureFactor}`}
+                        size="small"
+                        color={p.exposureFactor === 0 ? 'default' : 'warning'}
+                        variant="outlined"
+                        sx={{ fontSize: 10, height: 18 }}
+                      />
+                    )}
                     {p.priceFetchFailed && (
                       <>
                         <Chip
@@ -273,7 +287,7 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                   </Box>
                 </TableCell>
                 <TableCell align="right">
-                  {p.assetType === 'CASH' || p.assetType === 'LIABILITY'
+                  {isFlatValued(p)
                     ? '—'
                     : // Quantity is masked too, not just price: current price is public
                       // knowledge for any listed security, so leaking quantity alone still lets
@@ -281,9 +295,7 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                       value(fmtQty(p.quantity))}
                 </TableCell>
                 <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                  {p.assetType === 'CASH' || p.assetType === 'LIABILITY'
-                    ? '—'
-                    : `${p.currency} ${value(fmt(p.currentPrice, 2))}`}
+                  {isFlatValued(p) ? '—' : `${p.currency} ${value(fmt(p.currentPrice, 2))}`}
                 </TableCell>
                 <TableCell align="right">
                   <Typography
@@ -369,7 +381,6 @@ function PositionsCardList({
     <Box>
       {positions.map((p, i) => {
         const isStock = p.assetType === 'STOCK';
-        const isCashOrLiability = p.assetType === 'CASH' || p.assetType === 'LIABILITY';
         const clickable = (isStock || (p.assetType === 'FUND' && !!p.symbol)) && !!onStockClick;
         const chip = TYPE_CHIP[p.assetType] ?? TYPE_CHIP.STOCK;
 
@@ -400,7 +411,7 @@ function PositionsCardList({
                   variant="outlined"
                   sx={{ fontSize: 10, height: 18 }}
                 />
-                {!isCashOrLiability && p.exposureFactor !== 1 && (
+                {!isFlatValued(p) && p.exposureFactor !== 1 && (
                   <Chip
                     label={p.exposureFactor === 0 ? '0曝險' : `曝險×${p.exposureFactor}`}
                     size="small"
@@ -410,7 +421,7 @@ function PositionsCardList({
                   />
                 )}
               </Box>
-              {!isCashOrLiability && (
+              {!isFlatValued(p) && (
                 <Typography
                   variant="caption"
                   color="text.secondary"
@@ -419,6 +430,16 @@ function PositionsCardList({
                 >
                   {p.symbol ? `${p.name} · ` : ''}
                   {value(fmtQty(p.quantity))}
+                </Typography>
+              )}
+              {p.assetType === 'REAL_ESTATE' && p.valuationMethod && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  noWrap
+                  sx={{ display: 'block' }}
+                >
+                  {p.valuationMethod}
                 </Typography>
               )}
             </Box>

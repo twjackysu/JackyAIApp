@@ -6,9 +6,8 @@ namespace JackyAIApp.Server.Data.Models.Portfolio
 {
     /// <summary>
     /// Append-only — values are persisted as int, reordering would corrupt existing rows.
-    /// Adding a new type? Follow the checklist in PORTFOLIO_LIABILITY_PLAN.md section 6.
     /// </summary>
-    public enum AssetType { STOCK, CASH, FUND, LIABILITY }
+    public enum AssetType { STOCK, CASH, FUND, LIABILITY, REAL_ESTATE }
 
     /// <summary>
     /// One full snapshot of a user's holdings as of an effective date.
@@ -76,7 +75,15 @@ namespace JackyAIApp.Server.Data.Models.Portfolio
         /// <summary>
         /// Optional total cost basis in position currency. Drives unrealized P&amp;L when present.
         /// Always null for LIABILITY — debt has no cost basis and must never enter P&amp;L/XIRR.
+        /// Always null for REAL_ESTATE too — <see cref="Quantity"/> already IS the user's manually
+        /// entered current value (see <see cref="ValuationMethod"/>), there's no separate
+        /// cost-vs-current-price pair to track (no live price feed exists for real estate).
         /// </summary>
         public decimal? CostBasis { get; set; }
+
+        /// <summary>REAL_ESTATE only: how the user arrived at <see cref="Quantity"/> — "市價" (market
+        /// estimate) or "買價扣除折舊" (purchase price minus depreciation). Free string, display-only,
+        /// never validated server-side; null for every other AssetType.</summary>
+        public string? ValuationMethod { get; set; }
     }
 }

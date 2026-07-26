@@ -1,5 +1,6 @@
-export type AssetType = 'STOCK' | 'CASH' | 'FUND' | 'LIABILITY';
+export type AssetType = 'STOCK' | 'CASH' | 'FUND' | 'LIABILITY' | 'REAL_ESTATE';
 export type Market = 'TW' | 'US';
+export type ValuationMethod = '市價' | '買價扣除折舊';
 
 export interface PositionInput {
   assetType: AssetType;
@@ -11,6 +12,7 @@ export interface PositionInput {
   quantity: number;
   unitPrice?: number | null; // fund NAV
   costBasis?: number | null; // optional, stocks only
+  valuationMethod?: string | null; // REAL_ESTATE only
 }
 
 export interface SaveHoldingsRequest {
@@ -40,6 +42,8 @@ export interface PositionDto {
   // Estimated brokerage fee + transaction tax if sold at the current price (TW STOCK only,
   // 0 otherwise). Already subtracted out of unrealizedPnlTWD/Pct above.
   estimatedSellCostTWD: number;
+  // REAL_ESTATE only: "市價" | "買價扣除折舊", null otherwise.
+  valuationMethod?: string | null;
 }
 
 export interface PortfolioSummaryDto {
@@ -51,6 +55,9 @@ export interface PortfolioSummaryDto {
   usStockTWD: number;
   cashTWD: number;
   fundTWD: number;
+  // User-entered real-estate value (see PositionDto.valuationMethod). Zero market exposure but
+  // counts toward totalNetWorthTWD — so the exposure ratio isn't inflated by ignoring it.
+  realEstateTWD: number;
   // Total amount owed, positive. Already subtracted out of totalNetWorthTWD.
   liabilityTWD: number;
   costBasisTWD: number;
