@@ -86,6 +86,7 @@ function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
 
 function NetWorthCard({
   total,
+  realEstate,
   pnl,
   pnlPct,
   hasPnl,
@@ -98,6 +99,7 @@ function NetWorthCard({
   dayChangePct,
 }: {
   total: number;
+  realEstate: number;
   pnl: number;
   pnlPct: number;
   hasPnl: boolean;
@@ -113,6 +115,7 @@ function NetWorthCard({
   const isTotalReturnPositive = totalReturnPnl >= 0;
   const isDayPositive = (dayChange ?? 0) >= 0;
   const { value, change, showRatio } = usePrivacy();
+  const liquidNetWorth = total - realEstate;
   return (
     <Card
       elevation={0}
@@ -144,6 +147,11 @@ function NetWorthCard({
         >
           NT${value(fmt(total))}
         </Typography>
+        {realEstate > 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            流動資產淨值 NT${value(fmt(liquidNetWorth))}
+          </Typography>
+        )}
         {dayChange != null && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
             <Typography
@@ -487,6 +495,7 @@ export default function Portfolio() {
               <Grid size={{ xs: 12, md: 8 }}>
                 <NetWorthCard
                   total={summary.totalNetWorthTWD}
+                  realEstate={summary.realEstateTWD}
                   pnl={summary.unrealizedPnlTWD}
                   pnlPct={summary.unrealizedPnlPct}
                   hasPnl={hasPnl}
