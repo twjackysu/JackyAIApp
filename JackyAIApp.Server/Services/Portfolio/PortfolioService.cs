@@ -414,6 +414,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                 AnnualizedReturnPct = annualizedReturnPct,
                 MarketExposureTWD = equityExposureTWD,
                 ExposureRatioPct = netWorthTWD > 0 ? Math.Round(equityExposureTWD / netWorthTWD * 100, 1) : 0,
+                LiquidExposureRatioPct = netWorthTWD - realEstate > 0
+                    ? Math.Round(equityExposureTWD / (netWorthTWD - realEstate) * 100, 1)
+                    : 0,
                 DayChangeTWD = dayChangeTWD,
                 DayChangePct = dayChangePct,
                 Positions = positions.OrderByDescending(p => p.MarketValueTWD).ToList(),

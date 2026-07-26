@@ -296,6 +296,7 @@ function AllocationCard({
   usdTwdRate,
   exposure,
   exposureRatio,
+  liquidExposureRatio,
 }: {
   twStock: number;
   usStock: number;
@@ -306,6 +307,7 @@ function AllocationCard({
   usdTwdRate: number;
   exposure: number;
   exposureRatio: number;
+  liquidExposureRatio: number;
 }) {
   const { value, showRatio } = usePrivacy();
   // Percentages are of gross assets (before subtracting debt), not net worth — otherwise
@@ -365,13 +367,33 @@ function AllocationCard({
           }}
         >
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            市場曝險
+            市場曝險{realEstate > 0 ? '（含不動產）' : ''}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             NT${value(fmt(exposure))}
             {showRatio ? ` (${exposureRatio.toFixed(1)}%)` : ''}
           </Typography>
         </Box>
+        {/* Same numerator, denominator excludes real estate — real estate carries 0 exposure but
+            still counts toward net worth above, so it dilutes the "含不動產" ratio; this shows how
+            leveraged the liquid portfolio alone actually is. */}
+        {realEstate > 0 && (
+          <Box
+            sx={{
+              mt: 0.5,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'baseline',
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              市場曝險（僅動產）
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {showRatio ? `${liquidExposureRatio.toFixed(1)}%` : ''}
+            </Typography>
+          </Box>
+        )}
         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
           正2 ×2、債券/現金/負債/不動產 0；可 &gt;100% 表示槓桿
         </Typography>
@@ -481,6 +503,7 @@ export default function Portfolio() {
                 <AllocationCard
                   exposure={summary.marketExposureTWD}
                   exposureRatio={summary.exposureRatioPct}
+                  liquidExposureRatio={summary.liquidExposureRatioPct}
                   twStock={summary.twStockTWD}
                   usStock={summary.usStockTWD}
                   cash={summary.cashTWD}
