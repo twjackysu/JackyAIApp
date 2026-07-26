@@ -36,6 +36,10 @@ const KEY_LABELS: Record<string, string> = {
   UsStock: '美股',
   Cash: '現金',
   Fund: '基金',
+  // "Property", not "RealEstate": the latter is PortfolioCategory.RealEstate (REIT stocks/ETFs,
+  // category-mode only) — a different concept from the user's own literal real-estate holdings,
+  // which use this "Property" key in BOTH assetType and category mode (see PortfolioService.GroupKey).
+  Property: '不動產',
   Liability: '負債',
   // category (PortfolioCategory enum names)
   Semiconductor: '半導體',
@@ -63,6 +67,7 @@ const KEY_COLORS: Record<string, string> = {
   UsStock: '#10B981',
   Cash: '#A78BFA',
   Fund: '#EC4899',
+  Property: '#F59E0B',
   Liability: '#ef4444',
   Semiconductor: '#3B82F6',
   TechSoftware: '#6366F1',
@@ -84,6 +89,7 @@ const KEY_COLORS: Record<string, string> = {
   // colorForKey below.
   現金: '#A78BFA',
   負債: '#ef4444',
+  不動產: '#F59E0B',
   未分類: '#9CA3AF',
 };
 

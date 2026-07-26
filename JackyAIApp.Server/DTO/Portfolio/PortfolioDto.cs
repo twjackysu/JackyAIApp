@@ -22,6 +22,7 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal Quantity { get; set; }
         public decimal? UnitPrice { get; set; }   // fund NAV
         public decimal? CostBasis { get; set; }   // optional
+        public string? ValuationMethod { get; set; } // REAL_ESTATE only: "市價" | "買價扣除折舊"
     }
 
     // ── Read models ──────────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal? UnrealizedPnlPct { get; set; }
         public decimal ExposureFactor { get; set; } = 1m; // market exposure multiplier (2 for 正2, 0 for bond/cash)
         public bool PriceFetchFailed { get; set; }
+        public string? ValuationMethod { get; set; } // REAL_ESTATE only: "市價" | "買價扣除折舊"
         // Cumulative pre-tax cash dividends earned while holding this position (0 = none/not applicable).
         public decimal DividendsTWD { get; set; }
         // Estimated brokerage fee + transaction tax if sold at the current price (TW STOCK only,
@@ -61,6 +63,11 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal UsStockTWD { get; set; }
         public decimal CashTWD { get; set; }
         public decimal FundTWD { get; set; }
+        // User-entered real-estate value (market estimate or cost-minus-depreciation, see
+        // PositionDto.ValuationMethod). Zero market exposure (PortfolioExposure.Factor) but does
+        // count toward TotalNetWorthTWD — deliberately, so a large home-equity draw against real
+        // property doesn't make the exposure ratio look far more leveraged than it actually is.
+        public decimal RealEstateTWD { get; set; }
         // Total amount owed, positive. Already subtracted out of TotalNetWorthTWD.
         public decimal LiabilityTWD { get; set; }
         // P&L only over positions that have a cost basis
@@ -93,7 +100,7 @@ namespace JackyAIApp.Server.DTO.Portfolio
     /// One day's net-worth breakdown, grouped by whatever dimension the request asked for
     /// (GetNetWorthHistoryAsync's groupBy: assetType/category/currency — see NetWorthGroupBy).
     /// <see cref="Groups"/>' key format depends on the mode:
-    /// - assetType: "TwStock" | "UsStock" | "Cash" | "Fund" | "Liability"
+    /// - assetType: "TwStock" | "UsStock" | "Cash" | "Fund" | "Property" | "Liability"
     /// - category: a PortfolioCategory enum member name (e.g. "Semiconductor")
     /// - currency: "TWD" | "USD"
     /// Group values are signed and sum to <see cref="TotalTWD"/> — Liability/debt is negative

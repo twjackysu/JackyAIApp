@@ -48,7 +48,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         public static decimal Factor(AssetType type, string? name, string? symbol, string? market)
         {
-            if (type == AssetType.CASH || type == AssetType.LIABILITY) return 0m;
+            if (type is AssetType.CASH or AssetType.LIABILITY or AssetType.REAL_ESTATE) return 0m;
             name ??= "";
             symbol ??= "";
 

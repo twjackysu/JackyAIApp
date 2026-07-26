@@ -67,12 +67,13 @@ export function HoldingsEditor() {
   const usStocks = rows.filter((r) => r.assetType === 'STOCK' && r.market === 'US');
   const cashes = rows.filter((r) => r.assetType === 'CASH');
   const liabilities = rows.filter((r) => r.assetType === 'LIABILITY');
+  const realEstates = rows.filter((r) => r.assetType === 'REAL_ESTATE');
   const funds = rows.filter((r) => r.assetType === 'FUND');
 
   const patchRow = (key: string, patch: Partial<EditorRow>) =>
     setRows((rs) => rs.map((r) => (r._key === key ? { ...r, ...patch } : r)));
   const removeRow = (key: string) => setRows((rs) => rs.filter((r) => r._key !== key));
-  const addRow = (type: 'STOCK' | 'CASH' | 'LIABILITY' | 'FUND', market?: string) =>
+  const addRow = (type: 'STOCK' | 'CASH' | 'LIABILITY' | 'REAL_ESTATE' | 'FUND', market?: string) =>
     setRows((rs) => [...rs, makeRow(type, market)]);
 
   // Rows the user actually started filling in (blank ones are dropped silently).
@@ -234,8 +235,7 @@ export function HoldingsEditor() {
 
           <Divider />
 
-          {/* Liabilities (e.g. 信貸) — deliberately no mortgage/real-estate support, see
-              PORTFOLIO_LIABILITY_PLAN.md section 7 for why. */}
+          {/* Liabilities — any named debt (信貸/房貸/...); no restriction on what it represents. */}
           <Section
             title="負債"
             onAdd={() => addRow('LIABILITY')}
@@ -272,6 +272,69 @@ export function HoldingsEditor() {
                   size="small"
                   type="number"
                   label="金額"
+                  value={r.quantity || ''}
+                  onChange={(e) => patchRow(r._key, { quantity: parseFloat(e.target.value) || 0 })}
+                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                  error={submitted && rowError(r) !== null}
+                  helperText={submitted ? rowError(r) : undefined}
+                  sx={{ flex: '1 1 140px' }}
+                />
+                <IconButton onClick={() => removeRow(r._key)} sx={{ mt: 0.5 }}>
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            ))}
+          </Section>
+
+          <Divider />
+
+          {/* Real estate — manually valued (no live price feed for TW property); counts toward net
+              worth but never toward market exposure (PortfolioExposure.Factor), so a large home-
+              equity loan against it doesn't make the exposure ratio look more leveraged than it is. */}
+          <Section
+            title="不動產"
+            onAdd={() => addRow('REAL_ESTATE')}
+            addLabel="新增不動產"
+            empty={realEstates.length === 0}
+          >
+            {realEstates.map((r) => (
+              <Box
+                key={r._key}
+                sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}
+              >
+                <TextField
+                  size="small"
+                  label="名稱"
+                  value={r.name}
+                  onChange={(e) => patchRow(r._key, { name: e.target.value })}
+                  sx={{ width: 120 }}
+                />
+                <TextField
+                  size="small"
+                  select
+                  label="估值方式"
+                  value={r.valuationMethod ?? '市價'}
+                  onChange={(e) => patchRow(r._key, { valuationMethod: e.target.value })}
+                  sx={{ width: 140 }}
+                >
+                  <MenuItem value="市價">市價</MenuItem>
+                  <MenuItem value="買價扣除折舊">買價扣除折舊</MenuItem>
+                </TextField>
+                <TextField
+                  size="small"
+                  select
+                  label="幣別"
+                  value={r.currency}
+                  onChange={(e) => patchRow(r._key, { currency: e.target.value })}
+                  sx={{ width: 100 }}
+                >
+                  <MenuItem value="TWD">TWD</MenuItem>
+                  <MenuItem value="USD">USD</MenuItem>
+                </TextField>
+                <TextField
+                  size="small"
+                  type="number"
+                  label="價值"
                   value={r.quantity || ''}
                   onChange={(e) => patchRow(r._key, { quantity: parseFloat(e.target.value) || 0 })}
                   slotProps={{ htmlInput: { min: 0, step: 0.01 } }}

@@ -33,6 +33,11 @@ namespace JackyAIApp.Server.Common
         // Non-classified assets — mapped directly, never sent to the AI.
         Cash,               // 現金
         Liability,          // 負債
+        // The user's own literal real-estate holdings (manually valued, no live price/exposure) —
+        // deliberately distinct from RealEstate above (REIT stocks/ETFs, which DO carry equity
+        // exposure): merging them would misleadingly group an illiquid house with liquid REIT
+        // shares in the "view by 產業" chart.
+        Property,           // 不動產
 
         // AI-uncertain / genuinely unclassifiable (commodities, crypto, etc.) fallback.
         Other,              // 其他

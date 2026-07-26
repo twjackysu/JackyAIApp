@@ -5,6 +5,7 @@ const TYPE_LABEL: Record<string, string> = {
   CASH: '現金',
   FUND: '基金',
   LIABILITY: '負債',
+  REAL_ESTATE: '不動產',
 };
 
 /** Quote a CSV cell only when it contains a comma, quote or newline. */
@@ -61,7 +62,9 @@ export function exportPortfolioCsv(summary: PortfolioSummaryDto) {
     p.currency,
     p.costCurrency ?? '',
     p.quantity,
-    p.assetType === 'CASH' || p.assetType === 'LIABILITY' ? '' : p.currentPrice,
+    p.assetType === 'CASH' || p.assetType === 'LIABILITY' || p.assetType === 'REAL_ESTATE'
+      ? ''
+      : p.currentPrice,
     // Negative for LIABILITY (amount owed) — exported as-is, unmasked/unrounded.
     p.marketValueTWD,
     p.costBasisTWD ?? '',
@@ -95,6 +98,7 @@ export function exportNetWorthCsv(points: NetWorthDataPoint[]) {
     '美股(TWD)',
     '現金(TWD)',
     '基金(TWD)',
+    '不動產(TWD)',
     // Negative = amount owed (nets into 總淨值 directly), matching the rest of the app.
     '負債(TWD)',
   ];
@@ -105,6 +109,7 @@ export function exportNetWorthCsv(points: NetWorthDataPoint[]) {
     groupValue(p, 'UsStock'),
     groupValue(p, 'Cash'),
     groupValue(p, 'Fund'),
+    groupValue(p, 'Property'),
     groupValue(p, 'Liability'),
   ]);
   downloadCsv([headers, ...rows], `portfolio_networth_history.csv`);
