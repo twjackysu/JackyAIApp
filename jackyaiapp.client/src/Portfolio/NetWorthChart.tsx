@@ -213,6 +213,11 @@ export function NetWorthChart() {
   const option: ECOption = {
     tooltip: {
       trigger: 'axis',
+      // Renders the tooltip as a document.body child instead of inside the chart's own container,
+      // which otherwise clips it whenever it would overflow the card's edges (MUI Card/Paper clips
+      // to its rounded corners via overflow:hidden) — happened on any side, worse with more series/
+      // a taller legend squeezing the plot area.
+      appendToBody: true,
       formatter: (params: unknown) => {
         const p = params as {
           axisValue: string;
