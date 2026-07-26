@@ -92,7 +92,12 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal? DayChangePct { get; set; }
         // Net market exposure: Σ market value × exposure factor (leveraged ETFs amplify, bonds count as 0).
         public decimal MarketExposureTWD { get; set; }
-        public decimal ExposureRatioPct { get; set; } // exposure ÷ net worth × 100 (can exceed 100 with leverage)
+        public decimal ExposureRatioPct { get; set; } // exposure ÷ net worth (incl. real estate) × 100 (can exceed 100 with leverage)
+        // Same numerator, denominator excludes RealEstateTWD — "how leveraged is just the liquid
+        // portfolio", without a large real-estate value (which carries zero exposure itself, see
+        // PortfolioExposure.Factor) diluting the ratio and making it look less leveraged than the
+        // liquid holdings alone actually are.
+        public decimal LiquidExposureRatioPct { get; set; }
         public List<PositionDto> Positions { get; set; } = [];
     }
 

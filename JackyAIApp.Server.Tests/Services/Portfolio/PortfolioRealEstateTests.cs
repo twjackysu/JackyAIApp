@@ -79,6 +79,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
                     Market = "TW", Currency = "TWD", Quantity = 1000,
                 },
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 9_500_000 },
                 new HoldingPosition
                 {
                     AssetType = AssetType.REAL_ESTATE, Name = "自住房",
@@ -88,8 +89,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
 
-            // Net worth = 1,000,000 (stock) + 16,000,000 (real estate) - 9,000,000 (liability) = 8,000,000
-            Assert.Equal(8_000_000m, summary.TotalNetWorthTWD);
+            // Net worth = 1,000,000 (stock) + 9,500,000 (cash) + 16,000,000 (real estate)
+            //           - 9,000,000 (liability) = 17,500,000
+            Assert.Equal(17_500_000m, summary.TotalNetWorthTWD);
             Assert.Equal(16_000_000m, summary.RealEstateTWD);
             // Exposure is only the stock (factor 1) = 1,000,000 — real estate contributes 0 to the
             // numerator despite being a large position, which is the whole point of this feature:
@@ -97,7 +99,28 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // artificially low if real estate weren't counted, or artificially high if it were
             // counted toward net worth but not excluded from the exposure numerator.
             Assert.Equal(1_000_000m, summary.MarketExposureTWD);
-            Assert.Equal(12.5m, summary.ExposureRatioPct); // 1,000,000 / 8,000,000 * 100
+            Assert.Equal(5.7m, summary.ExposureRatioPct); // 1,000,000 / 17,500,000 * 100, rounded
+            // Excluding real estate from the denominator (liquid net worth = 1,500,000) shows the
+            // liquid portfolio is actually far more leveraged than the "含不動產" ratio implies —
+            // this is the whole point of exposing both numbers.
+            Assert.Equal(66.7m, summary.LiquidExposureRatioPct); // 1,000,000 / 1,500,000 * 100, rounded
+        }
+
+        [Fact]
+        public async Task GetSummary_NoRealEstate_LiquidExposureRatioMatchesRegularRatio()
+        {
+            SetupStockPrice("2330", price: 1000m);
+
+            await SeedSnapshotAsync(new HoldingPosition
+            {
+                AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                Market = "TW", Currency = "TWD", Quantity = 1000,
+            });
+
+            var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
+
+            // No real estate to exclude — both ratios collapse to the same value.
+            Assert.Equal(summary.ExposureRatioPct, summary.LiquidExposureRatioPct);
         }
 
         [Fact]

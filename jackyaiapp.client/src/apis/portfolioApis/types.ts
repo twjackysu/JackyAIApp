@@ -74,7 +74,9 @@ export interface PortfolioSummaryDto {
   // XIRR — includes dividend inflows (含息).
   annualizedReturnPct?: number | null;
   marketExposureTWD: number;
-  exposureRatioPct: number;
+  exposureRatioPct: number; // exposure ÷ net worth (incl. real estate) × 100
+  // Same numerator, denominator excludes realEstateTWD — how leveraged the liquid portfolio alone is.
+  liquidExposureRatioPct: number;
   dayChangeTWD?: number | null;
   dayChangePct?: number | null;
   positions: PositionDto[];
