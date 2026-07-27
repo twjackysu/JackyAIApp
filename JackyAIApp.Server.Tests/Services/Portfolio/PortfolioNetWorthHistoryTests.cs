@@ -267,7 +267,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     AssetType = AssetType.STOCK, Symbol = "00631L", Name = "元大台灣50正2",
                     Market = "TW", Currency = "TWD", Quantity = 100,
                 },
-                new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 50_000 },
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "台幣活存", Currency = "TWD", Quantity = 50_000 },
                 new HoldingPosition
                 {
                     AssetType = AssetType.REAL_ESTATE, Name = "自住房", Currency = "TWD", Quantity = 16_000_000,
@@ -278,11 +278,12 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Holding);
             var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
 
-            // No AI classification, no PortfolioCategory enum member involved — just each
-            // position's own Name verbatim, uniformly across every AssetType.
+            // STOCK/FUND use the position's own Name verbatim; CASH/LIABILITY/REAL_ESTATE collapse
+            // into one fixed bucket each regardless of Name — same labels as SubCategory mode —
+            // so multiple cash/liability entries don't clutter the per-holding legend.
             Assert.Equal(20_000m, GroupValue(point, "元大台灣50正2"));
             Assert.Equal(50_000m, GroupValue(point, "現金"));
-            Assert.Equal(16_000_000m, GroupValue(point, "自住房"));
+            Assert.Equal(16_000_000m, GroupValue(point, "不動產"));
             _categoryService.Verify(x => x.GetCategoryAsync(
                 It.IsAny<AssetType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                 Times.Never);
