@@ -73,6 +73,14 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// so inconsistency across symbols here doesn't matter.</summary>
         public string? SubCategory { get; set; }
 
+        /// <summary>2-4 free-form Traditional-Chinese theme tags from the AI classifier, stored
+        /// comma-separated (e.g. "雲端,AI,廣告"). Unlike <see cref="SubCategory"/> (exactly one,
+        /// mutually exclusive, safe to stack in a chart), a holding can carry several tags — AMZN
+        /// is simultaneously 電商 and 雲端 — so tags must NEVER drive a stacked/summed chart
+        /// (double counting); display and non-stacked views only. CSV rather than a join table on
+        /// purpose: single-user app, always read whole-row into memory, normalization buys nothing.</summary>
+        public string? Tags { get; set; }
+
         public DateTime? ClassifiedAt { get; set; }
     }
 

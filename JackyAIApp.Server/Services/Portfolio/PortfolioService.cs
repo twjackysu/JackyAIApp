@@ -364,6 +364,29 @@ namespace JackyAIApp.Server.Services.Portfolio
             }
             var totalReturnPnlTWD = pnlTWD + totalDividendsTWD;
 
+            // AI theme tags: read-only lookup against whatever's already classified/persisted —
+            // deliberately NOT categoryService.GetCategoryAsync, which lazily triggers an AI call
+            // per never-seen symbol; the summary is the hot path and must not pay AI latency/cost.
+            // Unclassified symbols just show no tags until a 產業/子類別 chart view classifies them.
+            var taggedSymbols = positions
+                .Where(p => !string.IsNullOrWhiteSpace(p.Symbol))
+                .Select(p => p.Symbol)
+                .Distinct()
+                .ToList();
+            if (taggedSymbols.Count > 0)
+            {
+                var tagRows = await db.StockSymbolInfos
+                    .Where(s => taggedSymbols.Contains(s.Symbol) && s.Tags != null)
+                    .Select(s => new { s.Symbol, s.Tags })
+                    .ToListAsync(ct);
+                var tagMap = tagRows.ToDictionary(r => r.Symbol, r => StockCategoryService.SplitTags(r.Tags));
+                foreach (var p in positions)
+                {
+                    if (tagMap.TryGetValue(p.Symbol, out var tags))
+                        p.Tags = tags.ToList();
+                }
+            }
+
             // XIRR is 含息 (total return): dividends are real cash inflows, so leaving them out
             // would understate the annualized return relative to what the user actually earned.
             var annualizedReturnPct = ComputeAnnualizedReturn(
@@ -522,7 +545,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     .ToList();
                 var resolved = await Task.WhenAll(classifiable.Select(async p =>
                 {
-                    var (category, subCategory) = await categoryService.GetCategoryAsync(p.AssetType, p.Symbol, p.Name, p.Market, ct);
+                    var (category, subCategory, _) = await categoryService.GetCategoryAsync(p.AssetType, p.Symbol, p.Name, p.Market, ct);
                     return (p.Symbol, Category: category, SubCategory: subCategory);
                 }));
                 categoryMap = resolved.ToDictionary(r => r.Symbol, r => r.Category);

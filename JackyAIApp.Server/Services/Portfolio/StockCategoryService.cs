@@ -21,6 +21,10 @@ namespace JackyAIApp.Server.Services.Portfolio
         private const string PromptPath = "Prompt/Portfolio/CategorySystem.txt";
         private const string Feature = "portfolio.category";
 
+        /// <summary>Hard cap on persisted tags per holding — the prompt asks for 2-4, this enforces
+        /// it even when the model over-delivers.</summary>
+        private const int MaxTags = 4;
+
         // Grounds the model in the exact desired output shape (a category name from the fixed
         // enum, a Traditional-Chinese subCategory) — omitting a concrete example is what caused
         // the Listening Part 1 admin generator to default its whole response to English (see
@@ -31,6 +35,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 Category = nameof(PortfolioCategory.Semiconductor),
                 SubCategory = "晶圓代工",
+                Tags = ["晶圓代工", "AI", "先進製程"],
             })
         );
 
@@ -46,13 +51,14 @@ namespace JackyAIApp.Server.Services.Portfolio
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<(PortfolioCategory Category, string? SubCategory)> GetCategoryAsync(
+        public async Task<StockCategoryInfo> GetCategoryAsync(
             AssetType assetType, string symbol, string name, string market, CancellationToken ct = default)
         {
             // Mapped directly, never sent to the AI — see PortfolioCategory's doc comment.
-            if (assetType == AssetType.CASH) return (PortfolioCategory.Cash, null);
-            if (assetType == AssetType.LIABILITY) return (PortfolioCategory.Liability, null);
-            if (string.IsNullOrWhiteSpace(symbol)) return (PortfolioCategory.Other, null);
+            if (assetType == AssetType.CASH) return StockCategoryInfo.Direct(PortfolioCategory.Cash);
+            if (assetType == AssetType.LIABILITY) return StockCategoryInfo.Direct(PortfolioCategory.Liability);
+            if (assetType == AssetType.REAL_ESTATE) return StockCategoryInfo.Direct(PortfolioCategory.Property);
+            if (string.IsNullOrWhiteSpace(symbol)) return StockCategoryInfo.Direct(PortfolioCategory.Other);
 
             // Fresh context per call: this is fanned out across many symbols concurrently by
             // PortfolioService (Task.WhenAll), and a shared scoped DbContext isn't thread-safe for
@@ -61,9 +67,9 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             var info = await db.StockSymbolInfos.FindAsync([symbol], ct);
             if (info?.Category != null && Enum.TryParse<PortfolioCategory>(info.Category, out var cached))
-                return (cached, info.SubCategory);
+                return new StockCategoryInfo(cached, info.SubCategory, SplitTags(info.Tags));
 
-            var (category, subCategory) = await ClassifyAsync(db, symbol, name, market, ct);
+            var result = await ClassifyAsync(db, symbol, name, market, ct);
 
             if (info == null)
             {
@@ -71,15 +77,17 @@ namespace JackyAIApp.Server.Services.Portfolio
                 {
                     Symbol = symbol,
                     Market = market,
-                    Category = category.ToString(),
-                    SubCategory = subCategory,
+                    Category = result.Category.ToString(),
+                    SubCategory = result.SubCategory,
+                    Tags = JoinTags(result.Tags),
                     ClassifiedAt = DateTime.UtcNow,
                 });
             }
             else
             {
-                info.Category = category.ToString();
-                info.SubCategory = subCategory;
+                info.Category = result.Category.ToString();
+                info.SubCategory = result.SubCategory;
+                info.Tags = JoinTags(result.Tags);
                 info.ClassifiedAt = DateTime.UtcNow;
             }
 
@@ -95,10 +103,20 @@ namespace JackyAIApp.Server.Services.Portfolio
                 _logger.LogDebug(ex, "Race persisting category for {Symbol}, ignoring", symbol);
             }
 
-            return (category, subCategory);
+            return result;
         }
 
-        private async Task<(PortfolioCategory, string?)> ClassifyAsync(
+        /// <summary>CSV round-trip for <see cref="StockSymbolInfo.Tags"/> — commas inside a tag are
+        /// impossible by construction (see the sanitizing in <see cref="ClassifyAsync"/>).</summary>
+        internal static IReadOnlyList<string> SplitTags(string? csv) =>
+            string.IsNullOrWhiteSpace(csv)
+                ? []
+                : csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        private static string? JoinTags(IReadOnlyList<string> tags) =>
+            tags.Count == 0 ? null : string.Join(',', tags);
+
+        private async Task<StockCategoryInfo> ClassifyAsync(
             AzureSQLDBContext db, string symbol, string name, string market, CancellationToken ct)
         {
             var grounding = $"Symbol: {symbol}\nName: {name}\nMarket: {market}";
@@ -128,6 +146,16 @@ namespace JackyAIApp.Server.Services.Portfolio
                 grounding += $"\n\nExisting subCategory labels already in use (grouped by category) — reuse one of these exactly if it fits, per the system prompt's reuse instruction:\n{labelsText}";
             }
 
+            // Same reuse-grounding for tags as for subCategory — each classification is otherwise
+            // fully independent with no memory, so without the existing vocabulary in-context the
+            // model reinvents near-duplicate tags ("雲端"/"雲端服務"/"雲端運算") that fragment any
+            // tag-based view. (The full category list is already fixed in the system prompt.)
+            var existingTags = await GetExistingTagsAsync(db, ct);
+            if (existingTags.Count > 0)
+            {
+                grounding += $"\n\nExisting tags already in use — reuse these exactly where they fit, per the system prompt's reuse instruction:\n{string.Join("、", existingTags)}";
+            }
+
             var (result, error) = await _promptService.GetCompletionAsync<CategoryClassificationResult>(
                 PromptPath, grounding,
                 model: NewModels.GPT_5_NANO, examples: [FewShotExample], feature: Feature);
@@ -135,7 +163,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (result == null)
             {
                 _logger.LogWarning("Category classification failed for {Symbol}: {Error}", symbol, error);
-                return (PortfolioCategory.Other, null);
+                return StockCategoryInfo.Direct(PortfolioCategory.Other);
             }
 
             // Never trust the model's category string verbatim — it drives a fixed-vocabulary
@@ -149,7 +177,16 @@ namespace JackyAIApp.Server.Services.Portfolio
                 category = PortfolioCategory.Other;
             }
 
-            return (category, result.SubCategory);
+            // Tags are free-form but bounded: cap the count, drop blanks/dupes, and strip commas —
+            // a comma inside a tag would corrupt the CSV persistence round-trip (see SplitTags).
+            var tags = (result.Tags ?? [])
+                .Select(t => t.Replace(",", "").Trim())
+                .Where(t => t.Length > 0)
+                .Distinct()
+                .Take(MaxTags)
+                .ToList();
+
+            return new StockCategoryInfo(category, result.SubCategory, tags);
         }
 
         /// <summary>Distinct subCategory labels already assigned, grouped by category — grounds the
@@ -167,6 +204,19 @@ namespace JackyAIApp.Server.Services.Portfolio
             return rows
                 .GroupBy(r => r.Category!)
                 .ToDictionary(g => g.Key, g => g.Select(r => r.SubCategory!).Distinct().ToList());
+        }
+
+        /// <summary>Distinct tags already assigned across all classified symbols — same reuse-
+        /// grounding purpose as <see cref="GetExistingSubCategoriesByCategoryAsync"/>, flat rather
+        /// than per-category since a tag ("AI", "高股息") legitimately spans categories.</summary>
+        private static async Task<List<string>> GetExistingTagsAsync(AzureSQLDBContext db, CancellationToken ct)
+        {
+            var csvs = await db.StockSymbolInfos
+                .Where(s => s.Tags != null)
+                .Select(s => s.Tags!)
+                .ToListAsync(ct);
+
+            return csvs.SelectMany(c => SplitTags(c)).Distinct().ToList();
         }
     }
 }

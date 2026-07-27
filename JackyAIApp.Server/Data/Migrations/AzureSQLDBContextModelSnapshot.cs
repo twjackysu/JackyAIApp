@@ -810,6 +810,9 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<string>("SubCategory")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Tags")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("TwMarketType")
                         .HasColumnType("nvarchar(max)");
 
