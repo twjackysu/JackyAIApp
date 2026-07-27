@@ -31,6 +31,7 @@ const VIEW_BY_OPTIONS: { label: string; value: ViewBy }[] = [
   { label: '動產/不動產', value: 'liquidity' },
   { label: '產業', value: 'category' },
   { label: '子類別', value: 'subCategory' },
+  { label: '個股明細', value: 'holding' },
 ];
 
 const LIQUID_KEY = 'Liquid';

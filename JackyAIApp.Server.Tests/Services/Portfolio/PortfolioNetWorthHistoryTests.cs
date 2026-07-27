@@ -257,6 +257,37 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal(32_000m, GroupValue(point, "USD"));
         }
 
+        [Fact]
+        public async Task GetNetWorthHistory_GroupByHolding_BucketsByEachPositionsOwnName()
+        {
+            var snapshotDate = Weekday(0);
+            await SeedSnapshotAsync(snapshotDate,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "00631L", Name = "元大台灣50正2",
+                    Market = "TW", Currency = "TWD", Quantity = 100,
+                },
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 50_000 },
+                new HoldingPosition
+                {
+                    AssetType = AssetType.REAL_ESTATE, Name = "自住房", Currency = "TWD", Quantity = 16_000_000,
+                });
+
+            SetupStockProvider("00631L", MarketRegion.TW, (snapshotDate, 200m));
+
+            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Holding);
+            var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
+
+            // No AI classification, no PortfolioCategory enum member involved — just each
+            // position's own Name verbatim, uniformly across every AssetType.
+            Assert.Equal(20_000m, GroupValue(point, "元大台灣50正2"));
+            Assert.Equal(50_000m, GroupValue(point, "現金"));
+            Assert.Equal(16_000_000m, GroupValue(point, "自住房"));
+            _categoryService.Verify(x => x.GetCategoryAsync(
+                It.IsAny<AssetType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
         // ── Helpers ───────────────────────────────────────────────────────────
 
         /// <summary>Missing group key = that group contributed nothing that day (Add() only ever

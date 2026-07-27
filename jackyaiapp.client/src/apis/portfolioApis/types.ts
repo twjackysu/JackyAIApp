@@ -82,7 +82,7 @@ export interface PortfolioSummaryDto {
   positions: PositionDto[];
 }
 
-export type NetWorthGroupBy = 'assetType' | 'category' | 'currency' | 'subCategory';
+export type NetWorthGroupBy = 'assetType' | 'category' | 'currency' | 'subCategory' | 'holding';
 
 export interface NetWorthGroupValue {
   key: string;
