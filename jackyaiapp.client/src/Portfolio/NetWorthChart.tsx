@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
@@ -172,7 +173,18 @@ export function NetWorthChart() {
   const { mode } = usePrivacy();
   // liquidity mode rides on the assetType-mode response — see toLiquidityGroups.
   const queryGroupBy: NetWorthGroupBy = groupBy === 'liquidity' ? 'assetType' : groupBy;
-  const { data: res, isLoading } = useGetNetWorthHistoryQuery({ days, groupBy: queryGroupBy });
+  // isFetching (not just isLoading): switching view-by/range to a groupBy+days combo that isn't
+  // cached yet fires a real request — isLoading alone only covers the very first ever fetch, so a
+  // later switch to a not-yet-cached combo showed no loading affordance at all and just looked
+  // broken/stale until the data quietly arrived.
+  const {
+    data: res,
+    isLoading,
+    isFetching,
+  } = useGetNetWorthHistoryQuery({
+    days,
+    groupBy: queryGroupBy,
+  });
   const rawPoints = res?.data ?? [];
   const points: NetWorthDataPoint[] =
     groupBy === 'liquidity'
@@ -188,6 +200,15 @@ export function NetWorthChart() {
   }
 
   if (points.length === 0) {
+    // Still resolving a not-yet-cached combo (belt-and-suspenders alongside the isLoading check
+    // above) — show the spinner instead of prematurely claiming there's no data.
+    if (isFetching) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
     return (
       <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
         資料不足，更新持倉後即可看到圖表
@@ -245,13 +266,13 @@ export function NetWorthChart() {
         return [`<b>${date}</b>`, totalLine, ...p.map(line)].filter(Boolean).join('<br/>');
       },
     },
-    // 'scroll' (not the default 'plain') keeps the legend to a single row with pager arrows when
-    // it overflows, instead of wrapping onto a second line — a wrapped second row pushed the
-    // legend's own height up into/over the xAxis labels, since `grid.bottom` below only reserves
-    // room for a single-row legend. subCategory mode in particular can produce many more distinct
-    // labels than the fixed-vocabulary modes, so overflow here is the common case, not an edge one.
-    legend: { type: 'scroll', bottom: 0, data: breakdown.map((s) => s.name) },
-    grid: { top: 16, right: 16, bottom: 48, left: mode === 'full' ? 70 : 24 },
+    // ECharts' own legend is off (see the custom HTML legend below the chart instead) — a
+    // scrolling single-row legend needed pagination clicks to see every series, and a wrapped
+    // multi-row one pushed into/over the xAxis labels since a fixed-height grid can't know how
+    // many rows the legend will take. A separate DOM element below the chart just flex-wraps
+    // naturally with the page, no chart-internal height math needed either way.
+    legend: { show: false },
+    grid: { top: 16, right: 16, bottom: 24, left: mode === 'full' ? 70 : 24 },
     xAxis: { type: 'category', data: dates, boundaryGap: false },
     yAxis: {
       type: 'value',
@@ -312,7 +333,26 @@ export function NetWorthChart() {
           ))}
         </ButtonGroup>
       </Box>
-      <ReactEcharts option={option} theme={ECHARTS_THEME} style={{ height: 280 }} />
+      {/* Cached data for this exact (days, groupBy) combo is stale and being revalidated in the
+          background, OR we already fell through the isLoading gate above but a slower network
+          still has the request in flight — either way, some visible feedback beats the chart just
+          silently sitting there looking frozen/wrong until it updates. */}
+      {isFetching && <LinearProgress sx={{ mb: 1 }} />}
+      {/* notMerge: without it, ECharts incrementally patches the previous option onto the new one
+          rather than replacing it outright — switching between view-by modes with very different
+          series (e.g. subCategory's free-form AI labels vs assetType's fixed set) left stale
+          series names lingering in the tooltip from whatever was hovered under the previous mode. */}
+      <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1, justifyContent: 'center' }}>
+        {breakdown.map((s) => (
+          <Box key={s.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: s.color }} />
+            <Typography variant="caption" color="text.secondary">
+              {s.name}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
 }

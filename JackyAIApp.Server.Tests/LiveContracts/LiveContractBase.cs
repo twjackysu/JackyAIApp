@@ -23,7 +23,13 @@ namespace JackyAIApp.Server.Tests.LiveContracts
 
         private static HttpClient CreateHttpClient()
         {
-            var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            // 15s used to be enough, but TWSE's opendata/t187ap11_L (董監事持股, every listed
+            // company's director-holdings disclosures) returns a genuinely large payload (~10MB) —
+            // verified locally at ~9s over a plain curl, well within 15s from here, but the
+            // scheduled workflow's GitHub-hosted runner hit the 15s ceiling once (2026-07-27 run).
+            // Not a shape/data bug (50/51 tests passed that run) — just not enough margin for a
+            // slower network path on some runs. Doubled for headroom.
+            var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
             // Several of these APIs (Yahoo, BOT) reject requests with no/odd User-Agent.
             client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
             return client;
