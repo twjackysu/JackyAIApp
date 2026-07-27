@@ -684,15 +684,19 @@ namespace JackyAIApp.Server.Services.Portfolio
                     _ => subCategoryMap.TryGetValue(p.Symbol, out var sub) ? sub : "未分類",
                 },
                 NetWorthGroupBy.Currency => p.Currency == "USD" ? "USD" : "TWD",
-                // Verbatim per-holding name, every AssetType alike (no special-casing needed —
-                // CASH/LIABILITY/REAL_ESTATE only ever have a Name, never a Symbol, so this is
-                // already what those types use elsewhere). Deliberately not deduped/normalized:
-                // if the user typed a slightly different name for the same underlying symbol
-                // across snapshots, that's exactly the "garbage in, garbage out" tradeoff of a
-                // free-form per-holding view — no AI classification backs this mode.
-                NetWorthGroupBy.Holding => string.IsNullOrWhiteSpace(p.Name)
-                    ? (string.IsNullOrWhiteSpace(p.Symbol) ? "未命名" : p.Symbol)
-                    : p.Name,
+                // Verbatim per-holding name for STOCK/FUND; CASH/LIABILITY/REAL_ESTATE collapse into
+                // one bucket each (same labels as SubCategory mode) instead of splitting by their
+                // free-form Name — multiple cash/liability entries would otherwise clutter the
+                // per-holding legend with entries the user doesn't think of as distinct "holdings".
+                NetWorthGroupBy.Holding => p.AssetType switch
+                {
+                    AssetType.CASH => "現金",
+                    AssetType.LIABILITY => "負債",
+                    AssetType.REAL_ESTATE => "不動產",
+                    _ => string.IsNullOrWhiteSpace(p.Name)
+                        ? (string.IsNullOrWhiteSpace(p.Symbol) ? "未命名" : p.Symbol)
+                        : p.Name,
+                },
                 _ => p.AssetType switch
                 {
                     AssetType.CASH => "Cash",
