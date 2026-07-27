@@ -48,7 +48,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Fact]
         public async Task GetCategoryAsync_Cash_ReturnsCashWithoutAiOrDbWrite()
         {
-            var (category, subCategory) = await _service.GetCategoryAsync(AssetType.CASH, "", "現金", "");
+            var (category, subCategory, _) = await _service.GetCategoryAsync(AssetType.CASH, "", "現金", "");
 
             Assert.Equal(PortfolioCategory.Cash, category);
             Assert.Null(subCategory);
@@ -61,7 +61,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Fact]
         public async Task GetCategoryAsync_Liability_ReturnsLiabilityWithoutAiOrDbWrite()
         {
-            var (category, subCategory) = await _service.GetCategoryAsync(AssetType.LIABILITY, "", "信貸", "");
+            var (category, subCategory, _) = await _service.GetCategoryAsync(AssetType.LIABILITY, "", "信貸", "");
 
             Assert.Equal(PortfolioCategory.Liability, category);
             Assert.Null(subCategory);
@@ -82,7 +82,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     SubCategory = "晶圓代工",
                 }, (string?)null));
 
-            var (category, subCategory) = await _service.GetCategoryAsync(AssetType.STOCK, "2330", "台積電", "TW");
+            var (category, subCategory, _) = await _service.GetCategoryAsync(AssetType.STOCK, "2330", "台積電", "TW");
 
             Assert.Equal(PortfolioCategory.Semiconductor, category);
             Assert.Equal("晶圓代工", subCategory);
@@ -104,7 +104,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             });
             await _dbContext.SaveChangesAsync();
 
-            var (category, subCategory) = await _service.GetCategoryAsync(AssetType.STOCK, "2330", "台積電", "TW");
+            var (category, subCategory, _) = await _service.GetCategoryAsync(AssetType.STOCK, "2330", "台積電", "TW");
 
             Assert.Equal(PortfolioCategory.Semiconductor, category);
             Assert.Equal("晶圓代工", subCategory);
@@ -125,7 +125,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     SubCategory = "???",
                 }, (string?)null));
 
-            var (category, _) = await _service.GetCategoryAsync(AssetType.STOCK, "9999", "Mystery Corp", "US");
+            var (category, _, _) = await _service.GetCategoryAsync(AssetType.STOCK, "9999", "Mystery Corp", "US");
 
             Assert.Equal(PortfolioCategory.Other, category);
         }
@@ -138,7 +138,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
                 .ReturnsAsync(((CategoryClassificationResult?)null, "OpenAI error"));
 
-            var (category, subCategory) = await _service.GetCategoryAsync(AssetType.STOCK, "AAPL", "Apple", "US");
+            var (category, subCategory, _) = await _service.GetCategoryAsync(AssetType.STOCK, "AAPL", "Apple", "US");
 
             Assert.Equal(PortfolioCategory.Other, category);
             Assert.Null(subCategory);
@@ -227,6 +227,83 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             Assert.NotNull(capturedGrounding);
             Assert.DoesNotContain("Existing subCategory labels", capturedGrounding);
+        }
+
+        [Fact]
+        public async Task GetCategoryAsync_AiReturnsTags_SanitizesCapsAndPersistsAsCsv()
+        {
+            _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
+                .ReturnsAsync((new CategoryClassificationResult
+                {
+                    Category = nameof(PortfolioCategory.TechSoftware),
+                    SubCategory = "軟體服務",
+                    // 6 raw entries: a comma-embedded one (must be stripped, or it corrupts the CSV
+                    // round-trip), a duplicate, and a blank — only 4 clean distinct ones may survive.
+                    Tags = ["雲端", "A,I", "雲端", "  ", "電商", "廣告", "串流"],
+                }, (string?)null));
+
+            var (_, _, tags) = await _service.GetCategoryAsync(AssetType.STOCK, "AMZN", "Amazon", "US");
+
+            Assert.Equal(["雲端", "AI", "電商", "廣告"], tags);
+            var persisted = await _dbContext.StockSymbolInfos.SingleAsync(s => s.Symbol == "AMZN");
+            Assert.Equal("雲端,AI,電商,廣告", persisted.Tags);
+        }
+
+        [Fact]
+        public async Task GetCategoryAsync_AlreadyClassifiedSymbol_ReturnsPersistedTags()
+        {
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = "MSFT", Market = "US",
+                Category = nameof(PortfolioCategory.TechSoftware), SubCategory = "軟體服務",
+                Tags = "軟體,雲端,AI",
+                ClassifiedAt = DateTime.UtcNow,
+            });
+            await _dbContext.SaveChangesAsync();
+
+            var (_, _, tags) = await _service.GetCategoryAsync(AssetType.STOCK, "MSFT", "Microsoft", "US");
+
+            Assert.Equal(["軟體", "雲端", "AI"], tags);
+            _promptService.Verify(x => x.GetCompletionAsync<CategoryClassificationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetCategoryAsync_ExistingTagsInDb_PassesThemAsGroundingContext()
+        {
+            // Same reuse-grounding requirement as subCategory: without the existing tag vocabulary
+            // in-context, every classification invents near-duplicate variants (雲端/雲端服務)
+            // that fragment any tag-based view.
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = "GOOG", Market = "US",
+                Category = nameof(PortfolioCategory.TechSoftware), SubCategory = "網路服務",
+                Tags = "廣告,雲端,AI",
+                ClassifiedAt = DateTime.UtcNow,
+            });
+            await _dbContext.SaveChangesAsync();
+
+            string? capturedGrounding = null;
+            _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
+                .Callback<string, string, string?, IEnumerable<(string, string)>?, string?, float?>(
+                    (_, userMessage, _, _, _, _) => capturedGrounding = userMessage)
+                .ReturnsAsync((new CategoryClassificationResult
+                {
+                    Category = nameof(PortfolioCategory.TechSoftware),
+                    SubCategory = "網路服務",
+                    Tags = ["電商", "雲端"],
+                }, (string?)null));
+
+            await _service.GetCategoryAsync(AssetType.STOCK, "AMZN", "Amazon", "US");
+
+            Assert.NotNull(capturedGrounding);
+            Assert.Contains("Existing tags already in use", capturedGrounding);
+            Assert.Contains("廣告", capturedGrounding);
         }
 
         private class TestDbContextFactory(DbContextOptions<AzureSQLDBContext> options)

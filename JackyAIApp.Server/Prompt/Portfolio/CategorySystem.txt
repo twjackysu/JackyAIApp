@@ -49,8 +49,24 @@ NOT a one-line summary of what a specific company does.
   genuinely fits this holding, reuse it exactly (same characters) rather than inventing a close
   variant. Only create a new label when none of the existing ones fit.
 
+## tags: 2-4 theme labels capturing the holding's OTHER significant exposures
+
+A single subCategory necessarily loses information for conglomerates: AMZN is e-commerce AND
+cloud, MSFT is software AND cloud AND AI. Tags preserve those facts. Rules:
+
+- 2 to 4 tags, each a short Traditional Chinese theme label (2-6 characters typical), reusable
+  across holdings just like subCategory — never a company name, never a one-company description.
+- Cover the holding's genuinely significant business exposures / investment themes, most
+  significant first. The subCategory's own theme may appear again as a tag — that's fine.
+- Never use a comma inside a tag.
+- You may be given a list of tags already in use across all holdings — if an existing tag fits,
+  reuse it exactly (same characters) rather than inventing a close variant ("雲端" vs "雲端服務"
+  fragmenting into two tags is exactly the failure mode to avoid). Only create a new tag when
+  none of the existing ones fit.
+
 Output strictly a JSON object, no markdown fences, no extra text:
 {
   "category": "one of the exact category names above",
-  "subCategory": "a short Traditional Chinese (繁體中文) reusable sub-sector label, e.g. 晶圓代工 or 高股息台股ETF"
+  "subCategory": "a short Traditional Chinese (繁體中文) reusable sub-sector label, e.g. 晶圓代工 or 高股息台股ETF",
+  "tags": ["2-4 short Traditional Chinese theme labels, e.g. 雲端, AI, 電商"]
 }

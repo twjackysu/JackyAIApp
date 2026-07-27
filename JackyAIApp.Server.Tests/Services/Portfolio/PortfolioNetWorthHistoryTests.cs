@@ -178,7 +178,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("2330", MarketRegion.TW, (snapshotDate, 500m));
             _categoryService.Setup(x => x.GetCategoryAsync(
                     AssetType.STOCK, "2330", "台積電", "TW", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((PortfolioCategory.Semiconductor, "晶圓代工"));
+                .ReturnsAsync(new StockCategoryInfo(PortfolioCategory.Semiconductor, "晶圓代工", ["晶圓代工", "AI"]));
 
             var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Category);
             var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
@@ -207,7 +207,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("2330", MarketRegion.TW, (snapshotDate, 500m));
             _categoryService.Setup(x => x.GetCategoryAsync(
                     AssetType.STOCK, "2330", "台積電", "TW", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((PortfolioCategory.Semiconductor, "晶圓代工"));
+                .ReturnsAsync(new StockCategoryInfo(PortfolioCategory.Semiconductor, "晶圓代工", ["晶圓代工", "AI"]));
 
             var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.SubCategory);
             var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
@@ -233,7 +233,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("9999", MarketRegion.US, (snapshotDate, 100m));
             _categoryService.Setup(x => x.GetCategoryAsync(
                     AssetType.STOCK, "9999", "Mystery Corp", "US", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((PortfolioCategory.Other, (string?)null));
+                .ReturnsAsync(new StockCategoryInfo(PortfolioCategory.Other, null, []));
 
             var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.SubCategory);
             var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));

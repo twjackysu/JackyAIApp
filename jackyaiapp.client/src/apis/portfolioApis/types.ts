@@ -44,6 +44,9 @@ export interface PositionDto {
   estimatedSellCostTWD: number;
   // REAL_ESTATE only: "市價" | "買價扣除折舊", null otherwise.
   valuationMethod?: string | null;
+  // AI theme tags (0-4, e.g. ["雲端","AI"]) — empty until the symbol has been classified (the
+  // 產業/子類別 chart tabs trigger that lazily). Display-only; never summed/stacked.
+  tags: string[];
 }
 
 export interface PortfolioSummaryDto {

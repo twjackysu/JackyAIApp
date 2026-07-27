@@ -284,6 +284,16 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                         />
                       </>
                     )}
+                    {/* AI theme tags — subtler than the status chips above (no border/color) so a
+                        fully-tagged table doesn't read as a wall of outlined badges. */}
+                    {p.tags?.map((t) => (
+                      <Chip
+                        key={t}
+                        label={t}
+                        size="small"
+                        sx={{ fontSize: 10, height: 18, bgcolor: 'action.selected' }}
+                      />
+                    ))}
                   </Box>
                 </TableCell>
                 <TableCell align="right">
@@ -441,6 +451,18 @@ function PositionsCardList({
                 >
                   {p.valuationMethod}
                 </Typography>
+              )}
+              {(p.tags?.length ?? 0) > 0 && (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.25 }}>
+                  {p.tags.map((t) => (
+                    <Chip
+                      key={t}
+                      label={t}
+                      size="small"
+                      sx={{ fontSize: 10, height: 16, bgcolor: 'action.selected' }}
+                    />
+                  ))}
+                </Box>
               )}
             </Box>
             <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
