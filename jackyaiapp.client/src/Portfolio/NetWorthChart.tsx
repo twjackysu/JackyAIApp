@@ -170,6 +170,17 @@ const fmt = (n: number) => {
 export function NetWorthChart() {
   const [days, setDays] = useState(90);
   const [groupBy, setGroupBy] = useState<ViewBy>('assetType');
+  // Series names the user has clicked off in the custom legend below — ECharts' legend component
+  // still drives series show/hide via `legend.selected` even with `legend.show: false`, so this
+  // stays fully interactive without bringing back the native legend UI (pagination/overlap).
+  const [hiddenNames, setHiddenNames] = useState<Set<string>>(new Set());
+  const toggleName = (name: string) =>
+    setHiddenNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
   const { mode } = usePrivacy();
   // liquidity mode rides on the assetType-mode response — see toLiquidityGroups.
   const queryGroupBy: NetWorthGroupBy = groupBy === 'liquidity' ? 'assetType' : groupBy;
@@ -266,12 +277,17 @@ export function NetWorthChart() {
         return [`<b>${date}</b>`, totalLine, ...p.map(line)].filter(Boolean).join('<br/>');
       },
     },
-    // ECharts' own legend is off (see the custom HTML legend below the chart instead) — a
+    // ECharts' own legend is hidden (see the custom HTML legend below the chart instead) — a
     // scrolling single-row legend needed pagination clicks to see every series, and a wrapped
     // multi-row one pushed into/over the xAxis labels since a fixed-height grid can't know how
     // many rows the legend will take. A separate DOM element below the chart just flex-wraps
-    // naturally with the page, no chart-internal height math needed either way.
-    legend: { show: false },
+    // naturally with the page, no chart-internal height math needed either way. The legend
+    // component still drives series show/hide via `selected` even while hidden, so clicking the
+    // custom legend below stays fully interactive — see hiddenNames/toggleName above.
+    legend: {
+      show: false,
+      selected: Object.fromEntries(breakdown.map((s) => [s.name, !hiddenNames.has(s.name)])),
+    },
     grid: { top: 16, right: 16, bottom: 24, left: mode === 'full' ? 70 : 24 },
     xAxis: { type: 'category', data: dates, boundaryGap: false },
     yAxis: {
@@ -344,14 +360,39 @@ export function NetWorthChart() {
           series names lingering in the tooltip from whatever was hovered under the previous mode. */}
       <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1, justifyContent: 'center' }}>
-        {breakdown.map((s) => (
-          <Box key={s.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: s.color }} />
-            <Typography variant="caption" color="text.secondary">
-              {s.name}
-            </Typography>
-          </Box>
-        ))}
+        {breakdown.map((s) => {
+          const hidden = hiddenNames.has(s.name);
+          return (
+            <Box
+              key={s.key}
+              onClick={() => toggleName(s.name)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                cursor: 'pointer',
+                userSelect: 'none',
+                opacity: hidden ? 0.4 : 1,
+              }}
+            >
+              <Box
+                sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  bgcolor: hidden ? 'text.disabled' : s.color,
+                }}
+              />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ textDecoration: hidden ? 'line-through' : 'none' }}
+              >
+                {s.name}
+              </Typography>
+            </Box>
+          );
+        })}
       </Box>
     </Box>
   );
