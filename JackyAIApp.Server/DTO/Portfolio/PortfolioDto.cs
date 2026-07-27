@@ -108,6 +108,7 @@ namespace JackyAIApp.Server.DTO.Portfolio
     /// - assetType: "TwStock" | "UsStock" | "Cash" | "Fund" | "Property" | "Liability"
     /// - category: a PortfolioCategory enum member name (e.g. "Semiconductor")
     /// - currency: "TWD" | "USD"
+    /// - holding: each position's own Name verbatim (e.g. "元大台灣50正2", "台積電", "現金")
     /// Group values are signed and sum to <see cref="TotalTWD"/> — Liability/debt is negative
     /// (unlike the old fixed LiabilityTWD field this replaced, which was a positive "amount owed").
     /// </summary>

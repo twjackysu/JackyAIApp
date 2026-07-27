@@ -56,5 +56,11 @@ namespace JackyAIApp.Server.Common
         /// DB-cached per symbol) — finer-grained than <see cref="Category"/>, open-ended rather than
         /// a closed enum, so the chart's series/legend/colors are unbounded here by design.</summary>
         SubCategory,
+        /// <summary>Each position's own display name verbatim (e.g. "元大台灣50正2", "台積電",
+        /// "MSFT", "現金") — no AI classification involved, open-ended like <see cref="SubCategory"/>
+        /// but per-holding rather than per-sector. Deliberately the raw Name, not Symbol: symbol-less
+        /// types (CASH/LIABILITY/REAL_ESTATE) only have a Name, and using Name uniformly means every
+        /// asset type groups the same way here with no special-casing.</summary>
+        Holding,
     }
 }
