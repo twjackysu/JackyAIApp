@@ -292,6 +292,15 @@ export function HoldingsEditor() {
                 </IconButton>
               </Box>
             ))}
+            {/* 負債本身不計入市場曝險（PortfolioExposure.Factor），但仍會拉低分母（淨值）——
+                若債務對應的資產（房子）沒有一併記錄在下方「不動產」，分母少了對應的抵銷項，
+                曝險比例就會虛高，容易誤判槓桿程度。 */}
+            {liabilities.length > 0 && realEstates.length === 0 && (
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                有負債但沒有記錄對應的不動產：若這筆負債（如房貸、增貸）是用來取得房產，
+                建議一併在下方「不動產」記錄，否則市場曝險比例會被拉高、失真。
+              </Alert>
+            )}
           </Section>
 
           <Divider />
