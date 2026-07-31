@@ -109,6 +109,7 @@ export function HoldingsEditor() {
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
         {hasExisting && <UpdateHistoryDialog onLoadSnapshot={loadFromSnapshot} />}
         <Button
+          data-tour="portfolio-tour-edit"
           variant="contained"
           startIcon={hasExisting ? <EditIcon /> : <AddIcon />}
           onClick={openWithLatestHoldings}

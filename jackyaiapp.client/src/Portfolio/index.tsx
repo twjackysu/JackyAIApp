@@ -1,4 +1,5 @@
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -23,6 +24,7 @@ import { FeeSettingsDialog } from './FeeSettingsDialog';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
 import { NetWorthChart } from './NetWorthChart';
+import { usePortfolioTour } from './onboardingTour';
 import { exportNetWorthCsv, exportPortfolioCsv } from './portfolioExport';
 import { fmtNum as fmt, pnlColor } from './portfolioUtils';
 import { PositionsTable } from './PositionsTable';
@@ -118,6 +120,7 @@ function NetWorthCard({
   const liquidNetWorth = total - realEstate;
   return (
     <Card
+      data-tour="portfolio-tour-networth"
       elevation={0}
       sx={{
         borderRadius: 3,
@@ -341,6 +344,7 @@ function AllocationCard({
   const pct = (v: number) => (grossAssets > 0 ? (v / grossAssets) * 100 : 0);
   return (
     <Card
+      data-tour="portfolio-tour-allocation"
       elevation={0}
       sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}
     >
@@ -451,6 +455,9 @@ export default function Portfolio() {
 
   const hasHoldings = (summary?.positions?.length ?? 0) > 0;
   const hasPnl = (summary?.costBasisTWD ?? 0) > 0;
+  // Auto-launches once per browser the first time all tour target elements exist — see
+  // onboardingTour.ts. Only meaningful once there are actual holdings to point at.
+  const { startTour } = usePortfolioTour(!isLoading && !isError && hasHoldings);
 
   return (
     <PrivacyProvider>
@@ -488,6 +495,13 @@ export default function Portfolio() {
               feeDiscountRate={feeDiscountRate}
               onSave={handleSaveFeeDiscountRate}
             />
+            {hasHoldings && (
+              <Tooltip title="重新看導覽教學">
+                <IconButton onClick={startTour} size="small">
+                  <HelpOutlineIcon />
+                </IconButton>
+              </Tooltip>
+            )}
             <PrivacyToggle />
             <HoldingsEditor />
           </Box>
@@ -541,6 +555,7 @@ export default function Portfolio() {
             </Grid>
 
             <Card
+              data-tour="portfolio-tour-chart"
               elevation={0}
               sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
             >
@@ -554,6 +569,7 @@ export default function Portfolio() {
             </Card>
 
             <Card
+              data-tour="portfolio-tour-positions"
               elevation={0}
               sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}
             >
