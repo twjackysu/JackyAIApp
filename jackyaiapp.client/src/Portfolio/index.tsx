@@ -173,7 +173,11 @@ function NetWorthCard({
                 }}
               />
             )}
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+            >
               單日異動 (與前一交易日比)
             </Typography>
           </Box>
@@ -199,7 +203,11 @@ function NetWorthCard({
                 }}
               />
             )}
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+            >
               未實現損益(已填成本部分)
               {estimatedSellCost > 0
                 ? `，已扣估計台股賣出費用 NT$${change(fmt(estimatedSellCost))}`
@@ -228,7 +236,11 @@ function NetWorthCard({
                 }}
               />
             )}
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+            >
               含息損益(含累計股息 NT${change(fmt(totalDividends))}，稅前)
             </Typography>
           </Box>
@@ -245,7 +257,11 @@ function NetWorthCard({
                 fontWeight: 700,
               }}
             />
-            <Typography variant="caption" color="text.secondary">
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+            >
               年化報酬率 (XIRR·含息·估)
             </Typography>
           </Box>
