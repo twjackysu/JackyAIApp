@@ -156,7 +156,7 @@ function NetWorthCard({
           </Typography>
         )}
         {dayChange != null && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
             <Typography
               variant="body1"
               sx={{ color: pnlColor(dayChange, 'inherit'), fontWeight: 600 }}
@@ -179,14 +179,17 @@ function NetWorthCard({
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+              sx={{
+                flexBasis: { xs: '100%', sm: 'auto' },
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              }}
             >
               單日異動 (與前一交易日比)
             </Typography>
           </Box>
         )}
         {hasPnl && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
             <Typography
               variant="body1"
               sx={{ color: pnlColor(pnl, 'inherit'), fontWeight: 600 }}
@@ -209,7 +212,10 @@ function NetWorthCard({
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+              sx={{
+                flexBasis: { xs: '100%', sm: 'auto' },
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              }}
             >
               未實現損益(已填成本部分)
               {estimatedSellCost > 0
@@ -219,7 +225,7 @@ function NetWorthCard({
           </Box>
         )}
         {hasPnl && totalDividends !== 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
             <Typography
               variant="body1"
               sx={{ color: pnlColor(totalReturnPnl, 'inherit'), fontWeight: 600 }}
@@ -242,14 +248,17 @@ function NetWorthCard({
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+              sx={{
+                flexBasis: { xs: '100%', sm: 'auto' },
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              }}
             >
               含息損益(含累計股息 NT${change(fmt(totalDividends))}，稅前)
             </Typography>
           </Box>
         )}
         {hasPnl && annualized != null && showRatio && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 0.5 }}>
             <Chip
               label={`年化 ${annualized >= 0 ? '+' : ''}${annualized.toFixed(2)}%`}
               size="small"
@@ -263,7 +272,10 @@ function NetWorthCard({
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+              sx={{
+                flexBasis: { xs: '100%', sm: 'auto' },
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              }}
             >
               年化報酬率 (XIRR·含息·估)
             </Typography>
