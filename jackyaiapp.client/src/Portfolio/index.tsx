@@ -468,8 +468,9 @@ export default function Portfolio() {
   const hasHoldings = (summary?.positions?.length ?? 0) > 0;
   const hasPnl = (summary?.costBasisTWD ?? 0) > 0;
   // Auto-launches once per browser the first time all tour target elements exist — see
-  // onboardingTour.ts. Only meaningful once there are actual holdings to point at.
-  const { startTour } = usePortfolioTour(!isLoading && !isError && hasHoldings);
+  // onboardingTour.ts. hasHoldings picks the variant: empty-state intro (where to start) for a
+  // brand-new user, full dashboard walkthrough once holdings exist.
+  const { startTour } = usePortfolioTour(!isLoading && !isError && !!summary, hasHoldings);
 
   return (
     <PrivacyProvider>
@@ -507,13 +508,11 @@ export default function Portfolio() {
               feeDiscountRate={feeDiscountRate}
               onSave={handleSaveFeeDiscountRate}
             />
-            {hasHoldings && (
-              <Tooltip title="重新看導覽教學">
-                <IconButton onClick={startTour} size="small">
-                  <HelpOutlineIcon />
-                </IconButton>
-              </Tooltip>
-            )}
+            <Tooltip title="重新看導覽教學">
+              <IconButton onClick={startTour} size="small">
+                <HelpOutlineIcon />
+              </IconButton>
+            </Tooltip>
             <PrivacyToggle />
             <HoldingsEditor />
           </Box>
@@ -593,7 +592,7 @@ export default function Portfolio() {
         )}
 
         {!isLoading && !isError && summary && !hasHoldings && (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Box data-tour="portfolio-tour-empty" sx={{ textAlign: 'center', py: 8 }}>
             <Typography color="text.secondary" sx={{ mb: 1 }}>
               還沒有持倉紀錄
             </Typography>
