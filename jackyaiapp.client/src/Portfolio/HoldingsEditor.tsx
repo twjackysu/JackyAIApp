@@ -19,6 +19,7 @@ import { useState } from 'react';
 
 import { EditorRow, isRowEmpty, makeRow, rowError, toRow } from './editorTypes';
 import { FundRow } from './FundRow';
+import { useEditorTour } from './onboardingTour';
 import { StockRow } from './StockRow';
 import { UpdateHistoryDialog } from './UpdateHistoryDialog';
 
@@ -40,6 +41,9 @@ export function HoldingsEditor() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const hasExisting = (holdingsRes?.data?.positions?.length ?? 0) > 0;
+
+  // First-open walkthrough of every editor section — see onboardingTour.ts.
+  useEditorTour(open);
 
   // Open the editor seeded from the latest holdings. Called directly from the trigger button
   // (not a useEffect keyed on `open`) so it can't race with loadFromSnapshot below — both used
@@ -138,7 +142,7 @@ export function HoldingsEditor() {
           )}
           {saveError && <Alert severity="error">{saveError}</Alert>}
 
-          <Box>
+          <Box data-tour="portfolio-tour-editor-date">
             <TextField
               size="small"
               type="date"
@@ -156,6 +160,7 @@ export function HoldingsEditor() {
             onAdd={() => addRow('STOCK', 'TW')}
             addLabel="新增台股"
             empty={twStocks.length === 0}
+            tourId="portfolio-tour-editor-tw"
           >
             {twStocks.map((r) => (
               <StockRow
@@ -176,6 +181,7 @@ export function HoldingsEditor() {
             onAdd={() => addRow('STOCK', 'US')}
             addLabel="新增美股"
             empty={usStocks.length === 0}
+            tourId="portfolio-tour-editor-us"
           >
             {usStocks.map((r) => (
               <StockRow
@@ -196,6 +202,7 @@ export function HoldingsEditor() {
             onAdd={() => addRow('CASH')}
             addLabel="新增現金"
             empty={cashes.length === 0}
+            tourId="portfolio-tour-editor-cash"
           >
             {cashes.map((r) => (
               // flexWrap so fields stack on mobile instead of overflowing the dialog width and
@@ -249,6 +256,7 @@ export function HoldingsEditor() {
             onAdd={() => addRow('LIABILITY')}
             addLabel="新增負債"
             empty={liabilities.length === 0}
+            tourId="portfolio-tour-editor-liability"
           >
             {liabilities.map((r) => (
               // flexWrap so fields stack on mobile instead of overflowing the dialog width and
@@ -313,6 +321,7 @@ export function HoldingsEditor() {
             onAdd={() => addRow('REAL_ESTATE')}
             addLabel="新增不動產"
             empty={realEstates.length === 0}
+            tourId="portfolio-tour-editor-realestate"
           >
             {realEstates.map((r) => (
               <Box
@@ -374,6 +383,7 @@ export function HoldingsEditor() {
             onAdd={() => addRow('FUND')}
             addLabel="新增基金"
             empty={funds.length === 0}
+            tourId="portfolio-tour-editor-fund"
           >
             {funds.map((r) => (
               <FundRow
@@ -388,7 +398,12 @@ export function HoldingsEditor() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>取消</Button>
-          <Button variant="contained" onClick={handleSave} disabled={isSaving}>
+          <Button
+            data-tour="portfolio-tour-editor-save"
+            variant="contained"
+            onClick={handleSave}
+            disabled={isSaving}
+          >
             {isSaving ? '儲存中...' : '儲存快照'}
           </Button>
         </DialogActions>
@@ -402,16 +417,18 @@ function Section({
   onAdd,
   addLabel,
   empty,
+  tourId,
   children,
 }: {
   title: string;
   onAdd: () => void;
   addLabel: string;
   empty: boolean;
+  tourId?: string;
   children: React.ReactNode;
 }) {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Box data-tour={tourId} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
           {title}
