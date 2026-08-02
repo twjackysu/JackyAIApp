@@ -20,16 +20,25 @@ namespace JackyAIApp.Server.Controllers
         private readonly IMyResponseFactory _responseFactory = responseFactory;
 
         [HttpGet("login/{provider}")]
-        public IActionResult Login(string provider)
+        public IActionResult Login(string provider, string? returnUrl = null)
         {
+            // Only accept a same-site relative path — Url.IsLocalUrl rejects absolute/protocol-
+            // relative URLs, which is what stops this from becoming an open-redirect vector.
+            var safeReturnUrl = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)
+                ? returnUrl
+                : "/";
+
             if (User.Identity?.IsAuthenticated ?? false)
             {
                 // The user is already logged in, redirect them to a client-side route.
-                return LocalRedirect("~/");
+                return LocalRedirect(safeReturnUrl);
             }
 
             var redirectUrl = Url.Action(nameof(LoginCallback));
             var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
+            // Items survives the OAuth round-trip (persisted in the correlation cookie) — the
+            // callback below reads it back out to know where to send the user after sign-in.
+            properties.Items["returnUrl"] = safeReturnUrl;
             return Challenge(properties, provider);
         }
 
@@ -43,6 +52,13 @@ namespace JackyAIApp.Server.Controllers
                 // Redirect to a user-friendly error page instead of raw 401
                 return LocalRedirect("~/login-error");
             }
+
+            // Re-validate rather than trust the round-tripped value blindly — belt-and-suspenders
+            // against a tampered correlation cookie.
+            var returnUrl = result.Properties?.Items.TryGetValue("returnUrl", out var stored) == true
+                && !string.IsNullOrEmpty(stored) && Url.IsLocalUrl(stored)
+                ? stored
+                : "/";
 
             var userId = _userService.GetUserId();
             var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
@@ -76,7 +92,7 @@ namespace JackyAIApp.Server.Controllers
                 _logger.LogInformation("New user created: {UserId} with {Credits} initial credits", userId, ICreditService.DefaultInitialCredits);
             }
 
-            return LocalRedirect("~/");
+            return LocalRedirect(returnUrl);
         }
 
         [Authorize]
