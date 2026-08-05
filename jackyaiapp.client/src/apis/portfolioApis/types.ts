@@ -63,6 +63,8 @@ export interface PortfolioSummaryDto {
   realEstateTWD: number;
   // Total amount owed, positive. Already subtracted out of totalNetWorthTWD.
   liabilityTWD: number;
+  // twStockTWD + usStockTWD + cashTWD + fundTWD — excludes real estate, NOT net of liability.
+  liquidGrossAssetsTWD: number;
   costBasisTWD: number;
   unrealizedPnlTWD: number;
   unrealizedPnlPct: number;

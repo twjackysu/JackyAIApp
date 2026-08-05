@@ -132,6 +132,31 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
+        public async Task GetSummary_UnrealizedPnlPct_IsPctOfLiquidGrossAssetsNotCostBasis()
+        {
+            await SeedSnapshotAsync(
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 90_000,
+                },
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 900_000 },
+                new HoldingPosition { AssetType = AssetType.LIABILITY, Name = "信貸", Currency = "TWD", Quantity = 300_000 });
+            SetupStockPrice("2330", price: 1000m); // 100,000 stock value vs 90,000 cost
+
+            var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
+
+            // Gross liquid assets = 100,000 (stock) + 900,000 (cash) = 1,000,000 — excludes real
+            // estate (none here) and is NOT net of the 300,000 liability.
+            Assert.Equal(1_000_000m, summary.LiquidGrossAssetsTWD);
+            // UnrealizedPnlTWD = 9,661 (see the cost-basis test above for the fee/tax breakdown).
+            // % is against LiquidGrossAssetsTWD (1,000,000), not CostBasisTWD (90,000) — otherwise
+            // this would read ~10.73% instead of ~0.97%.
+            Assert.Equal(9_661m, summary.UnrealizedPnlTWD);
+            Assert.Equal(0.97m, summary.UnrealizedPnlPct);
+        }
+
+        [Fact]
         public async Task SaveHoldings_LiabilityRowWithoutSymbol_IsKept()
         {
             await _service.SaveHoldingsAsync(TestUserId, new SaveHoldingsRequest
