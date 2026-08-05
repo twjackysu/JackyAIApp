@@ -411,9 +411,22 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (prevNetWorthTWD is > 0)
                 {
                     dayChangeTWD = netWorthTWD - prevNetWorthTWD.Value;
-                    dayChangePct = Math.Round(dayChangeTWD.Value / prevNetWorthTWD.Value * 100, 2);
+                    // % denominator is gross liquid assets (excl. real estate, not net of
+                    // liability) — same basis as UnrealizedPnlPct/TotalReturnPct below, per user
+                    // request: real estate and debt shouldn't dilute/distort how big a price move
+                    // reads as a percentage of the portfolio that's actually exposed to it.
+                    var prevLiquidGrossTWD = ValueAsOfDate(
+                        snapshot.Positions, prevTradingDay, fx, stockMap, fundMap, liquidGrossOnly: true);
+                    if (prevLiquidGrossTWD is > 0)
+                        dayChangePct = Math.Round(dayChangeTWD.Value / prevLiquidGrossTWD.Value * 100, 2);
                 }
             }
+
+            // Shared denominator for the three headline percentages (day change above, unrealized
+            // and total-return below): gross liquid assets only — real estate is manually-valued
+            // and shouldn't dilute a price-driven %, and liability isn't netted out so a mortgage
+            // doesn't inflate the ratio the way "÷ (assets - debt)" would.
+            var liquidGrossAssetsTWD = twStock + usStock + cash + fund;
 
             return new PortfolioSummaryDto
             {
@@ -427,13 +440,19 @@ namespace JackyAIApp.Server.Services.Portfolio
                 RealEstateTWD = realEstate,
                 // Display as a positive "amount owed"; liability itself is negative for the net-worth sum.
                 LiabilityTWD = -liability,
+                // Gross liquid assets — excludes real estate, not net of liability. Denominator
+                // for the three headline %s above/below; also surfaced directly so the UI can show
+                // it next to 流動資產淨值 (which IS net of liability).
+                LiquidGrossAssetsTWD = liquidGrossAssetsTWD,
                 CostBasisTWD = costBasisTWD,
                 UnrealizedPnlTWD = pnlTWD,
-                UnrealizedPnlPct = costBasisTWD > 0 ? Math.Round(pnlTWD / costBasisTWD * 100, 2) : 0,
+                UnrealizedPnlPct = liquidGrossAssetsTWD > 0
+                    ? Math.Round(pnlTWD / liquidGrossAssetsTWD * 100, 2) : 0,
                 EstimatedSellCostTWD = estimatedSellCostTWD,
                 TotalDividendsTWD = totalDividendsTWD,
                 TotalReturnPnlTWD = totalReturnPnlTWD,
-                TotalReturnPct = costBasisTWD > 0 ? Math.Round(totalReturnPnlTWD / costBasisTWD * 100, 2) : 0,
+                TotalReturnPct = liquidGrossAssetsTWD > 0
+                    ? Math.Round(totalReturnPnlTWD / liquidGrossAssetsTWD * 100, 2) : 0,
                 AnnualizedReturnPct = annualizedReturnPct,
                 MarketExposureTWD = equityExposureTWD,
                 ExposureRatioPct = netWorthTWD > 0 ? Math.Round(equityExposureTWD / netWorthTWD * 100, 1) : 0,
@@ -1199,7 +1218,12 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// </summary>
         private static decimal? ValueAsOfDate(
             IEnumerable<HoldingPosition> positions, DateOnly date, decimal fx,
-            Dictionary<string, DTO.Finance.MarketData> stockMap, Dictionary<string, FundNavHistory> fundMap)
+            Dictionary<string, DTO.Finance.MarketData> stockMap, Dictionary<string, FundNavHistory> fundMap,
+            // When true: REAL_ESTATE and LIABILITY contribute nothing (skipped entirely rather
+            // than added/subtracted) — used for the day-change %'s denominator, which the user
+            // wants relative to gross liquid assets only, not diluted by real estate or netted
+            // against debt. Full net worth (the default) still needs both for its own callers.
+            bool liquidGrossOnly = false)
         {
             var dt = date.ToDateTime(TimeOnly.MinValue);
             var dayKey = date.ToString("yyyy-MM-dd");
@@ -1207,14 +1231,19 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             foreach (var p in positions)
             {
-                if (p.AssetType is AssetType.CASH or AssetType.REAL_ESTATE)
+                if (p.AssetType == AssetType.REAL_ESTATE)
+                {
+                    if (!liquidGrossOnly) total += p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                    continue;
+                }
+                if (p.AssetType == AssetType.CASH)
                 {
                     total += p.Quantity * (p.Currency == "USD" ? fx : 1m);
                     continue;
                 }
                 if (p.AssetType == AssetType.LIABILITY)
                 {
-                    total -= p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                    if (!liquidGrossOnly) total -= p.Quantity * (p.Currency == "USD" ? fx : 1m);
                     continue;
                 }
 

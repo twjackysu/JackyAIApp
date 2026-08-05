@@ -89,6 +89,7 @@ function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
 function NetWorthCard({
   total,
   realEstate,
+  liquidGrossAssets,
   pnl,
   pnlPct,
   hasPnl,
@@ -102,6 +103,7 @@ function NetWorthCard({
 }: {
   total: number;
   realEstate: number;
+  liquidGrossAssets: number;
   pnl: number;
   pnlPct: number;
   hasPnl: boolean;
@@ -153,6 +155,13 @@ function NetWorthCard({
         {realEstate > 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             流動資產淨值 NT${value(fmt(liquidNetWorth))}
+          </Typography>
+        )}
+        {/* Only worth showing separately from 流動資產淨值 once there's a liability — otherwise
+            the two numbers are identical and this would just be visual noise. */}
+        {liquidGrossAssets !== liquidNetWorth && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            流動資產 NT${value(fmt(liquidGrossAssets))}
           </Typography>
         )}
         {dayChange != null && (
@@ -537,6 +546,7 @@ export default function Portfolio() {
                 <NetWorthCard
                   total={summary.totalNetWorthTWD}
                   realEstate={summary.realEstateTWD}
+                  liquidGrossAssets={summary.liquidGrossAssetsTWD}
                   pnl={summary.unrealizedPnlTWD}
                   pnlPct={summary.unrealizedPnlPct}
                   hasPnl={hasPnl}

@@ -75,9 +75,17 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal RealEstateTWD { get; set; }
         // Total amount owed, positive. Already subtracted out of TotalNetWorthTWD.
         public decimal LiabilityTWD { get; set; }
+        // TwStockTWD + UsStockTWD + CashTWD + FundTWD — excludes real estate, NOT net of
+        // liability. Denominator for DayChangePct/UnrealizedPnlPct/TotalReturnPct below (real
+        // estate is manually-valued and shouldn't dilute a price-driven %, and netting out debt
+        // would inflate the ratio the way "÷ (assets - debt)" does). Also surfaced directly so the
+        // UI can show it alongside the net-of-liability "流動資產淨值" figure.
+        public decimal LiquidGrossAssetsTWD { get; set; }
         // P&L only over positions that have a cost basis
         public decimal CostBasisTWD { get; set; }
         public decimal UnrealizedPnlTWD { get; set; }
+        // % of LiquidGrossAssetsTWD, not of CostBasisTWD — this is "how big a move relative to my
+        // liquid portfolio", not a return-on-cost figure.
         public decimal UnrealizedPnlPct { get; set; }
         // Σ Positions.EstimatedSellCostTWD — already netted into UnrealizedPnlTWD/TotalReturnPnlTWD/
         // AnnualizedReturnPct above, surfaced separately so the UI can show what was deducted.
