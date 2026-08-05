@@ -416,30 +416,27 @@ function AllocationCard({
           }}
         >
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            市場曝險{realEstate > 0 ? '（含不動產）' : ''}
+            市場曝險
           </Typography>
           <Typography variant="body2" color="text.secondary">
             NT${value(fmt(exposure))}
-            {showRatio ? ` (${exposureRatio.toFixed(1)}%)` : ''}
+            {/* No real estate: exposureRatio and liquidExposureRatio are the same number (same
+                numerator, same denominator), so a single %  is shown inline like every other row
+                here — the two-ratio split below only matters once real estate is in the mix. */}
+            {showRatio && realEstate === 0 ? ` (${exposureRatio.toFixed(1)}%)` : ''}
           </Typography>
         </Box>
-        {/* Same numerator, denominator excludes real estate — real estate carries 0 exposure but
-            still counts toward net worth above, so it dilutes the "含不動產" ratio; this shows how
-            leveraged the liquid portfolio alone actually is. */}
-        {realEstate > 0 && (
-          <Box
-            sx={{
-              mt: 0.5,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'baseline',
-            }}
-          >
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              市場曝險（僅動產）
+        {/* Same NT$ numerator as above (shown once, not repeated) — only the denominator differs:
+            含不動產 divides by total net worth, 僅動產 excludes real estate (which carries 0
+            exposure but still dilutes the "含不動產" ratio). Formatted identically to each other
+            so neither reads as more/less authoritative than the other. */}
+        {realEstate > 0 && showRatio && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              含不動產 {exposureRatio.toFixed(1)}%
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {showRatio ? `${liquidExposureRatio.toFixed(1)}%` : ''}
+            <Typography variant="caption" color="text.secondary">
+              僅動產 {liquidExposureRatio.toFixed(1)}%
             </Typography>
           </Box>
         )}
