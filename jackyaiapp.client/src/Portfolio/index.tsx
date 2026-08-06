@@ -137,10 +137,15 @@ function NetWorthCard({
     >
       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
-          總資產淨值
+          流動資產
         </Typography>
-        {/* Responsive size instead of a fixed h3 — at the theme's default h3 size, a 8-digit
-            TWD figure ran wider than a phone screen and got clipped. */}
+        {/* Headline is gross liquid assets (excl. real estate, not net of liability), not total
+            net worth: 單日異動/未實現/含息損益 % below are already computed against this same
+            figure (see PortfolioService.LiquidGrossAssetsTWD), and a self-occupied home that's
+            never getting sold — plus the debt against it — doesn't belong in "what can I actually
+            deploy" the way it does in a legal/accounting net-worth figure. Responsive font size
+            instead of a fixed h3 — at the theme's default h3 size, a 8-digit TWD figure ran wider
+            than a phone screen and got clipped. */}
         <Typography
           sx={{
             fontWeight: 800,
@@ -150,18 +155,18 @@ function NetWorthCard({
             wordBreak: 'break-all',
           }}
         >
-          NT${value(fmt(total))}
+          NT${value(fmt(liquidGrossAssets))}
         </Typography>
-        {realEstate > 0 && (
+        {/* Only worth surfacing once they diverge from the headline — otherwise these would just
+            repeat the same number. */}
+        {total !== liquidGrossAssets && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            流動資產淨值 NT${value(fmt(liquidNetWorth))}
+            總資產淨值 NT${value(fmt(total))}
           </Typography>
         )}
-        {/* Only worth showing separately from 流動資產淨值 once there's a liability — otherwise
-            the two numbers are identical and this would just be visual noise. */}
-        {liquidGrossAssets !== liquidNetWorth && (
+        {liquidNetWorth !== liquidGrossAssets && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            流動資產 NT${value(fmt(liquidGrossAssets))}
+            流動資產淨值 NT${value(fmt(liquidNetWorth))}
           </Typography>
         )}
         {dayChange != null && (
