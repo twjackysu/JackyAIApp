@@ -66,19 +66,33 @@ function WordCard({
         <Stack
           direction="row"
           sx={{
+            flexWrap: 'wrap',
+            rowGap: 1,
             justifyContent: 'space-between',
           }}
         >
           <Stack
             direction="row"
-            spacing={2}
+            spacing={{ xs: 1, sm: 2 }}
             sx={{
               alignItems: 'center',
+              minWidth: 0,
             }}
           >
-            <Typography variant="h2">{word?.word}</Typography>
+            <Typography
+              variant="h2"
+              sx={{
+                fontSize: { xs: '1.75rem', sm: '2.5rem', md: '3.75rem' },
+                wordBreak: 'break-word',
+              }}
+            >
+              {word?.word}
+            </Typography>
             {word && (
-              <IconButton sx={{ m: 2, p: 2 }} onClick={handleWordClick}>
+              <IconButton
+                sx={{ m: { xs: 0, sm: 2 }, p: { xs: 0.5, sm: 2 } }}
+                onClick={handleWordClick}
+              >
                 <PlayCircleIcon />
               </IconButton>
             )}
@@ -86,12 +100,12 @@ function WordCard({
           {word && !isHideFavoriteButton && (
             <Stack
               direction="row"
-              spacing={2}
+              spacing={{ xs: 1, sm: 2 }}
               sx={{
                 alignItems: 'center',
               }}
             >
-              <IconButton sx={{ m: 2, p: 2 }} disabled={isFetching}>
+              <IconButton sx={{ m: { xs: 0, sm: 2 }, p: { xs: 0.5, sm: 2 } }} disabled={isFetching}>
                 {isFavorite ? (
                   <FavoriteIcon onClick={handleDeleteFavoriteClick} />
                 ) : (
