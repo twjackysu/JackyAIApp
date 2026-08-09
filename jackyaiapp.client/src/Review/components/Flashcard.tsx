@@ -14,7 +14,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 import { ReviewWordItem } from '@/apis/reviewApis/types';
-import { playVoiceTube } from '@/Dictionary/utils/audio';
+import { playBrowserTts, playVoiceTube } from '@/Dictionary/utils/audio';
 
 interface FlashcardProps {
   word: ReviewWordItem;
@@ -112,14 +112,25 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
                 ))}
                 {meaning.exampleSentences.length > 0 && (
                   <Box sx={{ ml: 1, mt: 1, p: 1, borderRadius: 1, bgcolor: 'action.hover' }}>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        fontStyle: 'italic',
-                      }}
-                    >
-                      {meaning.exampleSentences[0].english}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        {meaning.exampleSentences[0].english}
+                      </Typography>
+                      <Tooltip title="Play example sentence">
+                        <IconButton
+                          size="small"
+                          onClick={() => playBrowserTts(meaning.exampleSentences[0].english)}
+                          aria-label="Play example sentence"
+                        >
+                          <VolumeUpIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                     <Typography variant="caption" color="text.secondary">
                       {meaning.exampleSentences[0].chinese}
                     </Typography>
