@@ -4,6 +4,7 @@ import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import {
+  DrawdownAnalysis,
   FundSearchItem,
   HoldingPriceHistoryDto,
   NetWorthDataPoint,
@@ -69,6 +70,10 @@ export const portfolioApis = createApi({
         `net-worth-history?days=${days}${groupBy ? `&groupBy=${groupBy}` : ''}`,
       providesTags: ['Summary'],
     }),
+    getDrawdown: builder.query<ApiOkResponse<DrawdownAnalysis>, number>({
+      query: (days) => `drawdown?days=${days}`,
+      providesTags: ['Summary'],
+    }),
     lookupStock: builder.query<ApiOkResponse<StockLookupDto>, { market: string; symbol: string }>({
       query: ({ market, symbol }) => `lookup/${market}/${symbol}`,
     }),
@@ -105,6 +110,7 @@ export const {
   useSearchFundsQuery,
   useGetNetWorthHistoryQuery,
   useLazyGetNetWorthHistoryQuery,
+  useGetDrawdownQuery,
   useLookupStockQuery,
   useSearchStocksQuery,
   useGetHoldingPriceHistoryQuery,
