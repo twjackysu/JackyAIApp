@@ -97,6 +97,14 @@ namespace JackyAIApp.Server.Controllers
             return responseFactory.CreateOKResponse(result);
         }
 
+        [HttpGet("drawdown")]
+        public async Task<IActionResult> GetDrawdown([FromQuery] int days = 365, CancellationToken ct = default)
+        {
+            var userId = RequireUserId();
+            var result = await portfolioService.GetDrawdownAnalysisAsync(userId, days, ct);
+            return responseFactory.CreateOKResponse(result);
+        }
+
         [HttpGet("lookup/{market}/{symbol}")]
         public async Task<IActionResult> LookupStock(string market, string symbol, CancellationToken ct)
         {

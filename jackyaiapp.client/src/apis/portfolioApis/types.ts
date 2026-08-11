@@ -108,6 +108,30 @@ export interface NetWorthDataPoint {
   groups: NetWorthGroupValue[];
 }
 
+/** One day's point on the drawdown curve — net worth vs. the running peak seen so far in the
+ * requested window. drawdownPct is always <= 0 (0 on a new all-time high). */
+export interface DrawdownPoint {
+  date: string;
+  totalTWD: number;
+  runningPeakTWD: number;
+  runningPeakDate: string;
+  drawdownPct: number;
+}
+
+/** Max-drawdown analysis: the single worst peak-to-trough episode in the window, plus the full
+ * daily curve. peakDate/troughDate/recoveryDate/underwaterDays are all null together when
+ * maxDrawdownPct is 0 (no drawdown episode occurred in the window). */
+export interface DrawdownAnalysis {
+  points: DrawdownPoint[];
+  maxDrawdownPct: number;
+  peakDate: string | null;
+  troughDate: string | null;
+  recoveryDate: string | null;
+  underwaterDays: number | null;
+  stillUnderwater: boolean;
+  currentDrawdownPct: number;
+}
+
 export interface UpdateHistoryItem {
   snapshotId: number;
   effectiveDate: string;

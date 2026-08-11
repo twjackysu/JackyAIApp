@@ -138,6 +138,44 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal ValueTWD { get; set; }
     }
 
+    /// <summary>
+    /// One day's point on the drawdown curve — net worth relative to the running peak seen so far
+    /// in the requested window. <see cref="DrawdownPct"/> is always ≤ 0 (0 on a new all-time high).
+    /// </summary>
+    public class DrawdownPointDto
+    {
+        public string Date { get; set; } = "";
+        public decimal TotalTWD { get; set; }
+        public decimal RunningPeakTWD { get; set; }
+        public string RunningPeakDate { get; set; } = "";
+        public decimal DrawdownPct { get; set; }
+    }
+
+    /// <summary>
+    /// Max-drawdown analysis over a snapshot-price-history window: the single worst peak-to-trough
+    /// decline, how long it took (or is taking) to recover, plus the full daily curve for charting.
+    /// Priced off the same snapshot-timeline + historical-price-history mechanism as
+    /// GetNetWorthHistoryAsync — quantities are held constant between snapshots, so this measures
+    /// price-driven drawdown on the positions actually held, not a transaction-adjusted return.
+    /// </summary>
+    public class DrawdownAnalysisDto
+    {
+        public List<DrawdownPointDto> Points { get; set; } = [];
+        // Negative (or 0 if the window never dipped below a prior peak).
+        public decimal MaxDrawdownPct { get; set; }
+        // Null when MaxDrawdownPct is 0 (no drawdown episode in the window).
+        public string? PeakDate { get; set; }
+        public string? TroughDate { get; set; }
+        // Null while still underwater (net worth hasn't yet returned to PeakDate's value).
+        public string? RecoveryDate { get; set; }
+        // PeakDate → RecoveryDate (or → today if still underwater). Null alongside PeakDate.
+        public int? UnderwaterDays { get; set; }
+        public bool StillUnderwater { get; set; }
+        // Today's drawdown from the window's running peak — independent of the worst-episode fields
+        // above (e.g. can be 0 even if MaxDrawdownPct shows a large past episode that's since recovered).
+        public decimal CurrentDrawdownPct { get; set; }
+    }
+
     public class UpdateHistoryItem
     {
         public int SnapshotId { get; set; }
