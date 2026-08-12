@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 
-import { usePrivacy } from './privacy';
+import { MASK, usePrivacy } from './privacy';
 
 import { PositionDto } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
@@ -11,39 +11,46 @@ interface ContributionWaterfallChartProps {
   positions: PositionDto[];
 }
 
-const MAX_BARS = 8;
+const MAX_ITEM_BARS = 7;
 const GAIN_COLOR = '#22c55e';
 const LOSS_COLOR = '#ef4444';
-const TOTAL_COLOR = '#3B82F6';
-const OTHER_COLOR = '#9CA3AF';
+const ANCHOR_COLOR = '#9CA3AF';
+const START_LABEL = '投入成本';
+const END_LABEL = '目前總值';
 
 interface ContributionItem {
   name: string;
   value: number;
 }
 
-/** Standard ECharts waterfall trick: an invisible "base" series stacks under a visible "value"
- * series, so each bar floats at its correct cumulative height instead of starting from 0. */
-function buildWaterfallOption(items: ContributionItem[], total: number): ECOption {
-  const categories = [...items.map((i) => i.name), '總計'];
-  const bases: number[] = [];
-  const values: number[] = [];
-  const colors: string[] = [];
+/** Standard two-time-point waterfall: leftmost bar = starting total, rightmost bar = ending
+ * total (both neutral grey, full height from 0), middle bars = each holding's contribution
+ * floating cumulatively between them (green = gain, red = loss). The ECharts trick behind the
+ * floating bars: an invisible "base" series stacks under a visible "value" series so each middle
+ * bar starts at its correct cumulative height instead of 0 — the two anchor bars opt out of that
+ * (base always 0) since they're real totals, not deltas. */
+function buildWaterfallOption(
+  items: ContributionItem[],
+  startValue: number,
+  formatValue: (n: number) => string,
+): ECOption {
+  const categories = [START_LABEL, ...items.map((i) => i.name), END_LABEL];
+  const bases: number[] = [0];
+  const values: number[] = [startValue];
+  const colors: string[] = [ANCHOR_COLOR];
 
-  let cumulative = 0;
+  let cumulative = startValue;
   for (const item of items) {
     const start = cumulative;
     cumulative += item.value;
     bases.push(Math.min(start, cumulative));
     values.push(Math.abs(item.value));
-    // "其他" is a mixed bucket (winners and losers netted together) — its own gain/loss color
-    // would misleadingly imply a single clean direction, so it gets a neutral color instead.
-    colors.push(item.name === '其他' ? OTHER_COLOR : item.value >= 0 ? GAIN_COLOR : LOSS_COLOR);
+    colors.push(item.value >= 0 ? GAIN_COLOR : LOSS_COLOR);
   }
-  // Total bar: floats from 0 (or from the bottom if the total is negative).
-  bases.push(Math.min(0, total));
-  values.push(Math.abs(total));
-  colors.push(TOTAL_COLOR);
+
+  bases.push(0);
+  values.push(cumulative);
+  colors.push(ANCHOR_COLOR);
 
   return {
     tooltip: {
@@ -53,9 +60,10 @@ function buildWaterfallOption(items: ContributionItem[], total: number): ECOptio
       formatter: (params: unknown) => {
         const p = (params as { axisValue: string; dataIndex: number }[])[0];
         if (!p) return '';
-        const isTotal = p.dataIndex === items.length;
-        const raw = isTotal ? total : items[p.dataIndex].value;
-        return `<b>${p.axisValue}</b><br/>${raw >= 0 ? '+' : ''}NT$${raw.toLocaleString('zh-TW')}`;
+        const isAnchor = p.dataIndex === 0 || p.dataIndex === items.length + 1;
+        if (isAnchor) return `<b>${p.axisValue}</b><br/>${formatValue(values[p.dataIndex])}`;
+        const raw = items[p.dataIndex - 1].value;
+        return `<b>${p.axisValue}</b><br/>${raw >= 0 ? '+' : ''}${formatValue(raw)}`;
       },
     },
     grid: { top: 16, right: 16, bottom: 48, left: 56 },
@@ -66,10 +74,7 @@ function buildWaterfallOption(items: ContributionItem[], total: number): ECOptio
     },
     yAxis: {
       type: 'value',
-      axisLabel: {
-        formatter: (v: number) =>
-          Math.abs(v) >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : `${v}`,
-      },
+      axisLabel: { formatter: (v: number) => formatValue(v) },
     },
     series: [
       {
@@ -93,18 +98,21 @@ function buildWaterfallOption(items: ContributionItem[], total: number): ECOptio
 }
 
 /** Pure client-side arithmetic over PortfolioSummaryDto.positions — "which holdings actually
- * drove my return?" Contribution = unrealized P&L + cumulative dividends per holding (both already
- * on PositionDto). No backend call, no AI. Scoped to STOCK/FUND — cash/liability/real estate carry
- * no P&L concept. The smallest contributors beyond MAX_BARS collapse into one "其他" bucket so a
- * portfolio with 30 holdings doesn't produce an unreadable chart. */
+ * drove my return, between cost basis and today?" Contribution = unrealized P&L + cumulative
+ * dividends per holding (both already on PositionDto); the walk starts at total cost basis and
+ * ends at cost basis + total contribution. No backend call, no AI. Scoped to STOCK/FUND — cash/
+ * liability/real estate carry no P&L concept. The smallest contributors beyond MAX_ITEM_BARS
+ * collapse into one "其他" bucket so a portfolio with 30 holdings doesn't produce an unreadable
+ * chart. */
 export function ContributionWaterfallChart({ positions }: ContributionWaterfallChartProps) {
-  const { showRatio } = usePrivacy();
+  const { mode, showRatio, value } = usePrivacy();
 
-  const contributors = positions
-    .filter((p) => p.assetType === 'STOCK' || p.assetType === 'FUND')
+  const holdings = positions.filter((p) => p.assetType === 'STOCK' || p.assetType === 'FUND');
+  const contributors = holdings
     .map((p) => ({
       name: p.name || p.symbol,
       value: (p.unrealizedPnlTWD ?? 0) + p.dividendsTWD,
+      costBasis: p.costBasisTWD ?? 0,
     }))
     .filter((c) => c.value !== 0)
     .sort((a, b) => b.value - a.value);
@@ -117,19 +125,26 @@ export function ContributionWaterfallChart({ positions }: ContributionWaterfallC
     );
   }
 
-  const total = contributors.reduce((sum, c) => sum + c.value, 0);
+  const startValue = contributors.reduce((sum, c) => sum + c.costBasis, 0);
 
-  let items = contributors;
-  if (contributors.length > MAX_BARS) {
-    const kept = contributors.slice(0, MAX_BARS - 1);
-    const restSum = contributors.slice(MAX_BARS - 1).reduce((sum, c) => sum + c.value, 0);
+  let items: ContributionItem[] = contributors;
+  if (contributors.length > MAX_ITEM_BARS) {
+    const kept = contributors.slice(0, MAX_ITEM_BARS - 1);
+    const restSum = contributors.slice(MAX_ITEM_BARS - 1).reduce((sum, c) => sum + c.value, 0);
     items = [...kept, { name: '其他', value: restSum }];
   }
 
   const topContributor = contributors[0];
   const bottomContributor = contributors[contributors.length - 1];
 
-  const option = buildWaterfallOption(items, total);
+  const formatValue = (n: number) => {
+    if (mode !== 'full') return MASK;
+    return Math.abs(n) >= 1_000_000
+      ? `${(n / 1_000_000).toFixed(1)}M`
+      : `NT$${n.toLocaleString('zh-TW')}`;
+  };
+
+  const option = buildWaterfallOption(items, startValue, formatValue);
 
   return (
     <Box>
@@ -141,7 +156,7 @@ export function ContributionWaterfallChart({ positions }: ContributionWaterfallC
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 700, color: GAIN_COLOR }}>
               {topContributor.name} {topContributor.value >= 0 ? '+' : ''}
-              NT${topContributor.value.toLocaleString('zh-TW')}
+              {value(`NT$${topContributor.value.toLocaleString('zh-TW')}`)}
             </Typography>
           </Box>
           {bottomContributor.value < 0 && bottomContributor !== topContributor && (
@@ -150,7 +165,8 @@ export function ContributionWaterfallChart({ positions }: ContributionWaterfallC
                 最大拖累
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 700, color: LOSS_COLOR }}>
-                {bottomContributor.name} NT${bottomContributor.value.toLocaleString('zh-TW')}
+                {bottomContributor.name}{' '}
+                {value(`NT$${bottomContributor.value.toLocaleString('zh-TW')}`)}
               </Typography>
             </Box>
           )}
@@ -160,8 +176,11 @@ export function ContributionWaterfallChart({ positions }: ContributionWaterfallC
       <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-        貢獻 = 未實現損益（已填成本部分）+ 累計股息，僅計算股票與基金持倉
-        {items.some((i) => i.name === '其他') ? `（前 ${MAX_BARS - 1} 大以外歸入「其他」）` : ''}。
+        {START_LABEL} → 各持倉貢獻（未實現損益＋累計股息）→ {END_LABEL}，僅計算股票與基金持倉
+        {items.some((i) => i.name === '其他')
+          ? `（前 ${MAX_ITEM_BARS - 1} 大以外歸入「其他」）`
+          : ''}
+        。
       </Typography>
     </Box>
   );
