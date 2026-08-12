@@ -21,8 +21,10 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     /// midnight — same bug, different call site, unnoticed. Living here as the actual DI
     /// registration for <see cref="IMarketDataProvider"/> (TW) fixes both call sites at once.
     ///
-    /// Also backfills yesterday's closing bar pre-market (before 09:00) when `_inner`'s DB-backed
-    /// chain hasn't ingested it yet — see <see cref="BackfillYesterdayIfMissing"/>.
+    /// Pre-market gap-filling (yesterday's close missing from the DB chain) is <see
+    /// cref="PersistentTwHistoricalProvider"/>'s job, not this layer's — that class is the one that
+    /// actually persists, so a fallback backfill belongs there where it sticks across requests,
+    /// not re-derived in-memory on every single call here.
     /// </summary>
     public class TwTodayOverlayMarketDataProvider : IMarketDataProvider
     {
@@ -39,7 +41,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// overlay.</param>
         /// <param name="logger">Logger.</param>
         /// <param name="timeProvider">Defaults to <see cref="TimeProvider.System"/>; overridable so
-        /// <see cref="IsTodayTwQuoteWindow"/>'s time-of-day gate — the exact thing that went through
+        /// <see cref="HasTodayTwQuote"/>'s time-of-day gate — the exact thing that went through
         /// several wrong assumptions before landing here — is actually unit-testable instead of
         /// joining the rest of this codebase's untested wall-clock logic.</param>
         public TwTodayOverlayMarketDataProvider(
@@ -67,29 +69,14 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             var data = deep ? await _inner.FetchAsync(stockCode, ct) : await _inner.FetchLatestAsync(stockCode, ct);
 
-            var taipeiNow = _timeProvider.GetUtcNow().UtcDateTime.AddHours(8);
-            if (taipeiNow.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return data;
+            if (!HasTodayTwQuote()) return data;
 
             try
             {
                 var quote = await _quoteSource.GetLatestQuoteAsync(stockCode, knownMarketType: null, ct);
-                if (quote == null) return data;
-
-                // Pre-market (before 09:00) backfill: `_inner`'s DB-backed chain can lag a
-                // calendar day behind — TWSE's own closing data isn't always ingested until well
-                // after midnight, so a request at e.g. 07:30 can still be missing yesterday's
-                // bar. The quote endpoint's YesterdayClosingPrice is populated the moment the
-                // exchange rolls the trading day, well before 09:00, so it's a reliable source to
-                // fill that specific gap — independently of the live "today" overlay below, which
-                // only starts at market open.
-                data = BackfillYesterdayIfMissing(data, quote, taipeiNow);
-
-                if (IsTodayTwQuoteWindow(taipeiNow))
-                {
-                    var livePrice = EffectiveLivePrice(quote);
-                    if (livePrice is > 0)
-                        data = WithRealtimeOverlay(data, quote, livePrice.Value);
-                }
+                var livePrice = quote != null ? EffectiveLivePrice(quote) : null;
+                if (quote != null && livePrice is > 0)
+                    return WithRealtimeOverlay(data, quote, livePrice.Value);
             }
             catch (Exception ex)
             {
@@ -115,52 +102,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// has no DST, so a fixed UTC+8 offset is exact — no TimeZoneInfo lookup needed. Does not
         /// account for exchange holidays: a holiday just means the quote below comes back stale/
         /// NOT_FOUND, silently ignored in favor of the historical close.</summary>
-        private static bool IsTodayTwQuoteWindow(DateTime taipeiNow) =>
-            taipeiNow.TimeOfDay >= new TimeSpan(9, 0, 0);
-
-        /// <summary>Fills in yesterday's closing bar from the quote's YesterdayClosingPrice when
-        /// `_inner`'s historical chain doesn't already have it — see the call site for why this
-        /// gap exists. Appends the expected-last-trading-day bar (never touches "today"'s slot,
-        /// which <see cref="WithRealtimeOverlay"/> owns) only when it's actually missing, so this
-        /// is a no-op once the DB catches up. Same weekend-blind approximation as the rest of this
-        /// class: a real exchange holiday just means the backfilled date is wrong by a day or two,
-        /// silently self-correcting once the DB ingests the real data.</summary>
-        private static MarketData BackfillYesterdayIfMissing(MarketData source, StockQuote quote, DateTime taipeiNow)
+        private bool HasTodayTwQuote()
         {
-            if (quote.YesterdayClosingPrice is not > 0) return source;
-
-            var expectedDate = LastBusinessDayBefore(taipeiNow.Date);
-            var lastBar = source.HistoricalPrices.Count > 0 ? source.HistoricalPrices[^1] : null;
-            if (lastBar != null && lastBar.Date.Date >= expectedDate) return source;
-
-            var closePrice = quote.YesterdayClosingPrice.Value;
-            var bar = new DailyPrice
-            {
-                Date = expectedDate,
-                Open = closePrice,
-                High = closePrice,
-                Low = closePrice,
-                Close = closePrice,
-                Volume = 0,
-            };
-
-            var prices = new List<DailyPrice>(source.HistoricalPrices) { bar };
-            return new MarketData
-            {
-                StockCode = source.StockCode,
-                CompanyName = source.CompanyName,
-                HistoricalPrices = prices,
-                Fundamentals = source.Fundamentals,
-                Chips = source.Chips,
-                FetchedAt = DateTime.UtcNow,
-            };
-        }
-
-        private static DateTime LastBusinessDayBefore(DateTime date)
-        {
-            var d = date.AddDays(-1);
-            while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(-1);
-            return d;
+            var taipeiNow = _timeProvider.GetUtcNow().UtcDateTime.AddHours(8);
+            if (taipeiNow.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
+            return taipeiNow.TimeOfDay >= new TimeSpan(9, 0, 0);
         }
 
         /// <summary>TWSE's realtime "last matched price" (<see cref="StockQuote.LastPrice"/>) is

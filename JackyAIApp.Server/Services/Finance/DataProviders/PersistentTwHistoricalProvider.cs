@@ -22,6 +22,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     ///
     /// Phase 1 scope: TW stocks only (isin/STOCK_DAY are the dominant cost — see the plan doc).
     ///
+    /// The primary gap-fill (TWStockLib's historical range endpoint) can occasionally still leave
+    /// the single most recent trading day missing — e.g. a pre-market request before that endpoint
+    /// has ingested yesterday's close, or a transient upstream failure. <see
+    /// cref="BackfillLastTradingDayFromQuoteAsync"/> is a second, independent source for exactly
+    /// that one day, using the realtime-quote endpoint's YesterdayClosingPrice instead.
+    ///
     /// Uses <see cref="IDbContextFactory{TContext}"/> rather than an injected scoped DbContext:
     /// PortfolioService fans this out across many symbols via Task.WhenAll within one request, and
     /// a shared scoped DbContext isn't thread-safe for concurrent use — that combination briefly
@@ -176,6 +182,24 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 }
             }
 
+            // The gap-fill above can still leave the single most recent trading day missing — e.g.
+            // queried pre-market before TWSE's own STOCK_DAY endpoint has that day's row yet, or
+            // the gap-fill above threw and got swallowed. The realtime-quote endpoint's
+            // YesterdayClosingPrice is a second, independent source for exactly that one day
+            // (populated by the exchange well before market open), so try it as a fallback before
+            // giving up on the gap. Re-checks against the current `existing` (freshly re-read above
+            // if the gap-fill ran, otherwise whatever was originally loaded) rather than the
+            // pre-fetch `maxDate`, so this is a no-op once the primary gap-fill already succeeded.
+            var latestDate = existing.Count > 0 ? existing[^1].TradeDate : (DateOnly?)null;
+            if (latestDate == null || latestDate.Value < lastTradingDay)
+            {
+                await BackfillLastTradingDayFromQuoteAsync(db, stockCode, lastTradingDay, today, cancellationToken);
+                existing = await db.DailyStockPrices
+                    .Where(p => p.Symbol == stockCode && p.Market == Market && p.TradeDate >= windowStart)
+                    .OrderBy(p => p.TradeDate)
+                    .ToListAsync(cancellationToken);
+            }
+
             return new MarketData
             {
                 StockCode = stockCode,
@@ -287,6 +311,36 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             catch (DbUpdateException ex)
             {
                 _logger.LogDebug(ex, "Race persisting company name for {Symbol}, ignoring", symbol);
+            }
+        }
+
+        /// <summary>Second-chance gap-fill for the single most recent trading day, via the
+        /// realtime-quote endpoint's YesterdayClosingPrice rather than TWStockLib's historical
+        /// range endpoint — see the call site. Never throws; a failure here just leaves the gap for
+        /// the next request's normal gap-fill to close instead.</summary>
+        private async Task BackfillLastTradingDayFromQuoteAsync(
+            AzureSQLDBContext db, string symbol, DateOnly targetDate, DateOnly today, CancellationToken ct)
+        {
+            try
+            {
+                var quote = await _inner.GetLatestQuoteAsync(symbol, knownMarketType: null, ct);
+                if (quote?.YesterdayClosingPrice is not > 0) return;
+
+                var closePrice = quote.YesterdayClosingPrice.Value;
+                var bar = new DailyPrice
+                {
+                    Date = targetDate.ToDateTime(TimeOnly.MinValue),
+                    Open = closePrice,
+                    High = closePrice,
+                    Low = closePrice,
+                    Close = closePrice,
+                    Volume = 0,
+                };
+                await UpsertFinalizedBarsAsync(db, symbol, [bar], today, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Quote-based backfill failed for {Symbol}, leaving gap for next fetch", symbol);
             }
         }
 

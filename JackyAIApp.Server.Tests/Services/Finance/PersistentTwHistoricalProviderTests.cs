@@ -441,6 +441,91 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.NotNull(afterDeep.DeepFetchedAt);
         }
 
+        // ── Quote-based fallback for the single most recent trading day ──────────
+
+        [Fact]
+        public async Task FetchLatestAsync_PrimaryGapFillLeavesLastTradingDayMissing_BackfillsFromQuote()
+        {
+            // The exact bug scenario: TWStockLib's historical range endpoint (e.g. queried
+            // pre-market) doesn't have yesterday's row yet, so the primary gap-fill returns
+            // nothing for it — but the realtime-quote endpoint's YesterdayClosingPrice already
+            // does, and is used as a second, independent source to close that specific gap.
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var lastTradingDay = LastTradingDayBefore(today);
+            var staleDate = lastTradingDay.AddDays(-1);
+
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電",
+                DeepFetchedAt = DateTime.UtcNow.AddDays(-1),
+            });
+            _dbContext.DailyStockPrices.Add(new DailyStockPrice
+            {
+                Symbol = Symbol, Market = "TW", TradeDate = staleDate,
+                Open = 890m, High = 905m, Low = 885m, Close = 890m, Volume = 1000,
+            });
+            await _dbContext.SaveChangesAsync();
+
+            // Primary gap-fill runs but comes back empty for the missing day (e.g. TWStockLib's
+            // range endpoint hasn't ingested it yet).
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData { StockCode = Symbol, HistoricalPrices = new List<DailyPrice>() });
+            _inner.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new StockQuote { Symbol = Symbol, Name = "台積電", Market = MarketType.TSE, YesterdayClosingPrice = 35.45m });
+
+            var result = await _provider.FetchLatestAsync(Symbol);
+
+            var persisted = await _dbContext.DailyStockPrices
+                .Where(p => p.Symbol == Symbol).OrderBy(p => p.TradeDate).ToListAsync();
+            var backfilled = Assert.Single(persisted, p => p.TradeDate == lastTradingDay);
+            Assert.Equal(35.45m, backfilled.Close);
+            Assert.Contains(result.HistoricalPrices, p => DateOnly.FromDateTime(p.Date) == lastTradingDay && p.Close == 35.45m);
+        }
+
+        [Fact]
+        public async Task FetchLatestAsync_PrimaryGapFillAlreadyClosedTheGap_DoesNotCallQuoteFallback()
+        {
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var lastTradingDay = LastTradingDayBefore(today);
+
+            _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = Symbol,
+                    CompanyName = "台積電",
+                    HistoricalPrices = new List<DailyPrice>
+                    {
+                        new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Close = 900m, Open = 890m, High = 905m, Low = 885m, Volume = 1000 },
+                    },
+                });
+
+            await _provider.FetchAsync(Symbol);
+
+            _inner.Verify(
+                x => x.GetLatestQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task FetchLatestAsync_QuoteFallbackHasNoYesterdayClose_LeavesGapUnfilled()
+        {
+            _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData { StockCode = Symbol, HistoricalPrices = new List<DailyPrice>() });
+            _inner.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((StockQuote?)null);
+
+            var result = await _provider.FetchLatestAsync(Symbol);
+
+            Assert.Empty(result.HistoricalPrices);
+            var persisted = await _dbContext.DailyStockPrices.Where(p => p.Symbol == Symbol).ToListAsync();
+            Assert.Empty(persisted);
+        }
+
         [Fact]
         public async Task FetchLatestAsync_SymbolAlreadyDeepFetched_ReusesTheDeepDataWithoutRefetching()
         {
