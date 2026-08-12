@@ -176,6 +176,32 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal CurrentDrawdownPct { get; set; }
     }
 
+    /// <summary>One day's point comparing invested-capital value against a hypothetical
+    /// all-benchmark portfolio funded by the same dated contributions/withdrawals.</summary>
+    public class BenchmarkPointDto
+    {
+        public string Date { get; set; } = "";
+        public decimal PortfolioTWD { get; set; }
+        public decimal BenchmarkTWD { get; set; }
+    }
+
+    /// <summary>
+    /// "What if every contribution I made had bought <see cref="BenchmarkSymbol"/> instead?" —
+    /// both curves are scoped to the same universe PortfolioSummaryDto.AnnualizedReturnPct (XIRR)
+    /// already uses: cost-tracked STOCK/FUND positions only, driven by the same cost-basis-delta
+    /// contribution proxy. Neither side includes dividends, so the comparison is apples-to-apples
+    /// (price return vs. price return), not a claim about total/含息 return.
+    /// </summary>
+    public class BenchmarkComparisonDto
+    {
+        public string BenchmarkSymbol { get; set; } = "";
+        public List<BenchmarkPointDto> Points { get; set; } = [];
+        // Simple (last - first) / first over the window — a period return, not an annualized XIRR.
+        // Null when the first point's value is 0 (nothing to divide by).
+        public decimal? PortfolioReturnPct { get; set; }
+        public decimal? BenchmarkReturnPct { get; set; }
+    }
+
     public class UpdateHistoryItem
     {
         public int SnapshotId { get; set; }

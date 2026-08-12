@@ -132,6 +132,24 @@ export interface DrawdownAnalysis {
   currentDrawdownPct: number;
 }
 
+/** One day's point comparing invested-capital value against a hypothetical all-benchmark
+ * portfolio funded by the same dated contributions/withdrawals. */
+export interface BenchmarkPoint {
+  date: string;
+  portfolioTWD: number;
+  benchmarkTWD: number;
+}
+
+/** "What if every contribution had bought benchmarkSymbol instead?" Both curves are scoped to the
+ * same cost-tracked STOCK/FUND universe as PortfolioSummaryDto.annualizedReturnPct (XIRR), and
+ * neither includes dividends — a price-return vs. price-return comparison, not a 含息 claim. */
+export interface BenchmarkComparison {
+  benchmarkSymbol: string;
+  points: BenchmarkPoint[];
+  portfolioReturnPct: number | null;
+  benchmarkReturnPct: number | null;
+}
+
 export interface UpdateHistoryItem {
   snapshotId: number;
   effectiveDate: string;

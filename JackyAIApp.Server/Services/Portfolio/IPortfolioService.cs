@@ -18,6 +18,8 @@ namespace JackyAIApp.Server.Services.Portfolio
             string userId, int days, NetWorthGroupBy groupBy = NetWorthGroupBy.AssetType, CancellationToken ct = default);
         Task<DrawdownAnalysisDto> GetDrawdownAnalysisAsync(
             string userId, int days, CancellationToken ct = default);
+        Task<BenchmarkComparisonDto> GetBenchmarkComparisonAsync(
+            string userId, int days, string? benchmarkSymbol = null, CancellationToken ct = default);
         Task<StockLookupDto?> LookupStockAsync(string market, string symbol, CancellationToken ct = default);
         Task<List<StockSearchItem>> SearchStocksAsync(string market, string keyword, CancellationToken ct = default);
         Task<List<FundSearchItem>> SearchFundsAsync(string keyword, CancellationToken ct = default);
