@@ -19,6 +19,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
+import { BenchmarkChart } from './BenchmarkChart';
 import { DrawdownChart } from './DrawdownChart';
 import { loadFeeDiscountRate, saveFeeDiscountRate } from './feeDiscountRate';
 import { FeeSettingsDialog } from './FeeSettingsDialog';
@@ -589,6 +590,19 @@ export default function Portfolio() {
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 <NetWorthChart />
+              </CardContent>
+            </Card>
+
+            <Card
+              elevation={0}
+              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                  大盤對照
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <BenchmarkChart />
               </CardContent>
             </Card>
 

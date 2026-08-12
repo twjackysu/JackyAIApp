@@ -791,6 +791,168 @@ namespace JackyAIApp.Server.Services.Portfolio
             return result;
         }
 
+        // ── Benchmark comparison ─────────────────────────────────────────────
+
+        private const string DefaultBenchmarkSymbol = "0050";
+
+        /// <summary>
+        /// "What if every contribution I made had bought <paramref name="benchmarkSymbol"/> instead
+        /// of what I actually bought?" Reuses ComputeAnnualizedReturn's exact cash-flow proxy —
+        /// Σ CostBasis of non-cash positions, delta vs. the previous snapshot = a dated
+        /// contribution/withdrawal — so this stays consistent with the XIRR figure already shown
+        /// elsewhere: same universe (cost-tracked STOCK/FUND only), same "what changed in recorded
+        /// cost basis is what got added/pulled" assumption. Each contribution buys (or a withdrawal
+        /// sells) the benchmark at that day's close; the portfolio side is priced the same way, so
+        /// both curves are directly comparable price-return curves (no dividends on either side).
+        /// </summary>
+        public async Task<BenchmarkComparisonDto> GetBenchmarkComparisonAsync(
+            string userId, int days, string? benchmarkSymbol = null, CancellationToken ct = default)
+        {
+            days = Math.Clamp(days, 30, 1095);
+            benchmarkSymbol = string.IsNullOrWhiteSpace(benchmarkSymbol)
+                ? DefaultBenchmarkSymbol
+                : benchmarkSymbol.Trim().ToUpperInvariant();
+
+            var snapshots = await AllSnapshotsAsync(userId, ct);
+            if (snapshots.Count == 0) return new BenchmarkComparisonDto { BenchmarkSymbol = benchmarkSymbol };
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var firstDate = snapshots[0].EffectiveDate;
+            var startDate = today.AddDays(-days);
+            if (startDate < firstDate) startDate = firstDate;
+
+            var stockSymbols = snapshots
+                .SelectMany(s => s.Positions)
+                .Where(p => p.AssetType == AssetType.STOCK)
+                .Select(p => p.Symbol)
+                .Distinct()
+                .ToList();
+            if (!stockSymbols.Contains(benchmarkSymbol)) stockSymbols.Add(benchmarkSymbol);
+            var stockMap = await FetchStocksAsync(stockSymbols, deep: true, ct);
+
+            if (!stockMap.TryGetValue(benchmarkSymbol, out var benchmarkData) ||
+                benchmarkData.HistoricalPrices.Count == 0)
+            {
+                // Fail soft: an unpriceable/unknown benchmark symbol shouldn't 500 the page, just
+                // return an empty comparison the UI can treat the same as "not enough data yet".
+                return new BenchmarkComparisonDto { BenchmarkSymbol = benchmarkSymbol };
+            }
+            var benchmarkPrices = benchmarkData.HistoricalPrices.OrderBy(x => x.Date).ToList();
+            var benchmarkCursor = 0;
+
+            decimal BenchmarkPriceAsOf(DateOnly date)
+            {
+                var dt = date.ToDateTime(TimeOnly.MinValue);
+                while (benchmarkCursor + 1 < benchmarkPrices.Count && benchmarkPrices[benchmarkCursor + 1].Date.Date <= dt)
+                    benchmarkCursor++;
+                return benchmarkPrices[benchmarkCursor].Date.Date <= dt ? benchmarkPrices[benchmarkCursor].Close : 0;
+            }
+
+            var fundIds = snapshots
+                .SelectMany(s => s.Positions)
+                .Where(p => p.AssetType == AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol))
+                .Select(p => p.Symbol)
+                .Distinct()
+                .ToList();
+            var fundMap = await FetchFundsAsync(fundIds, ct);
+
+            // Same cost-tracked universe as ComputeAnnualizedReturn's terminal value (costBasisTWD +
+            // pnlTWD == market value of positions that actually have a recorded cost) — a position
+            // with no cost basis filled in has no matching contribution flow driving the benchmark
+            // side, so including it here would drift the two curves apart for reasons unrelated to
+            // performance.
+            decimal? InvestedValueAsOfDate(HoldingSnapshot snap, DateOnly date)
+            {
+                var dt = date.ToDateTime(TimeOnly.MinValue);
+                var dayKey = date.ToString("yyyy-MM-dd");
+                var fx = snap.UsdTwdRate > 0 ? snap.UsdTwdRate : 32m;
+                decimal total = 0;
+                foreach (var p in snap.Positions)
+                {
+                    if (!p.CostBasis.HasValue) continue;
+                    if (p.AssetType == AssetType.STOCK)
+                    {
+                        if (!stockMap.TryGetValue(p.Symbol, out var data)) return null;
+                        var price = data.HistoricalPrices
+                            .Where(x => x.Date.Date <= dt).OrderByDescending(x => x.Date)
+                            .FirstOrDefault()?.Close ?? 0;
+                        if (price <= 0) return null;
+                        total += price * p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                    }
+                    else if (p.AssetType == AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol) &&
+                             fundMap.TryGetValue(p.Symbol, out var nav))
+                    {
+                        var price = nav.Prices
+                            .Where(x => string.CompareOrdinal(x.Date, dayKey) <= 0)
+                            .OrderByDescending(x => x.Date, StringComparer.Ordinal)
+                            .FirstOrDefault()?.Close ?? (p.UnitPrice ?? 0);
+                        if (price <= 0) continue;
+                        total += price * p.Quantity * (nav.Currency == "USD" ? fx : 1m);
+                    }
+                }
+                return total;
+            }
+
+            var snapshotIdx = 0;
+            decimal prevCost = 0;
+            decimal benchmarkUnits = 0;
+            var points = new List<BenchmarkPointDto>();
+
+            for (var date = startDate; date <= today; date = date.AddDays(1))
+            {
+                if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
+
+                while (snapshotIdx + 1 < snapshots.Count && snapshots[snapshotIdx + 1].EffectiveDate <= date)
+                    snapshotIdx++;
+                var active = snapshots[snapshotIdx].EffectiveDate <= date ? snapshots[snapshotIdx] : null;
+                if (active == null) continue;
+
+                // Apply this snapshot's contribution/withdrawal exactly once, the day it takes
+                // effect, before pricing the benchmark for that same day — so a same-day contribution
+                // is reflected in that day's benchmark value, matching how the portfolio side already
+                // reflects it (the snapshot's positions price immediately).
+                if (date == active.EffectiveDate)
+                {
+                    var snapCost = active.Positions
+                        .Where(p => p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
+                        .Sum(p => p.CostBasis!.Value * ((p.CostCurrency ?? p.Currency) == "USD"
+                            ? (active.UsdTwdRate > 0 ? active.UsdTwdRate : 32m) : 1m));
+                    var delta = snapCost - prevCost;
+                    prevCost = snapCost;
+
+                    var buyPrice = BenchmarkPriceAsOf(date);
+                    if (delta != 0 && buyPrice > 0)
+                        benchmarkUnits = Math.Max(0, benchmarkUnits + delta / buyPrice);
+                }
+
+                var portfolioTotal = InvestedValueAsOfDate(active, date);
+                if (portfolioTotal is null) continue;
+
+                var benchmarkPriceToday = BenchmarkPriceAsOf(date);
+                if (benchmarkPriceToday <= 0) continue;
+
+                points.Add(new BenchmarkPointDto
+                {
+                    Date = date.ToString("yyyy-MM-dd"),
+                    PortfolioTWD = portfolioTotal.Value,
+                    BenchmarkTWD = Math.Round(benchmarkUnits * benchmarkPriceToday, 2),
+                });
+            }
+
+            var result = new BenchmarkComparisonDto { BenchmarkSymbol = benchmarkSymbol, Points = points };
+            if (points.Count == 0) return result;
+
+            var first = points[0];
+            var last = points[^1];
+            result.PortfolioReturnPct = first.PortfolioTWD > 0
+                ? Math.Round((last.PortfolioTWD - first.PortfolioTWD) / first.PortfolioTWD * 100, 2)
+                : null;
+            result.BenchmarkReturnPct = first.BenchmarkTWD > 0
+                ? Math.Round((last.BenchmarkTWD - first.BenchmarkTWD) / first.BenchmarkTWD * 100, 2)
+                : null;
+            return result;
+        }
+
         /// <summary>Group key for one position under the requested groupBy mode. `fallbackCategory`
         /// is only used in Category mode, for asset types that skip the categoryMap lookup (CASH/
         /// LIABILITY are mapped directly to Cash/Liability without ever entering categoryMap; a
