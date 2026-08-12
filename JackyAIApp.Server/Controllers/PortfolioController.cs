@@ -105,6 +105,15 @@ namespace JackyAIApp.Server.Controllers
             return responseFactory.CreateOKResponse(result);
         }
 
+        [HttpGet("benchmark-comparison")]
+        public async Task<IActionResult> GetBenchmarkComparison(
+            [FromQuery] int days = 365, [FromQuery] string? symbol = null, CancellationToken ct = default)
+        {
+            var userId = RequireUserId();
+            var result = await portfolioService.GetBenchmarkComparisonAsync(userId, days, symbol, ct);
+            return responseFactory.CreateOKResponse(result);
+        }
+
         [HttpGet("lookup/{market}/{symbol}")]
         public async Task<IActionResult> LookupStock(string market, string symbol, CancellationToken ct)
         {

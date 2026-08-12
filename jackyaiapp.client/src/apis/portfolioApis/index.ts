@@ -4,6 +4,7 @@ import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
 import {
+  BenchmarkComparison,
   DrawdownAnalysis,
   FundSearchItem,
   HoldingPriceHistoryDto,
@@ -74,6 +75,14 @@ export const portfolioApis = createApi({
       query: (days) => `drawdown?days=${days}`,
       providesTags: ['Summary'],
     }),
+    getBenchmarkComparison: builder.query<
+      ApiOkResponse<BenchmarkComparison>,
+      { days: number; symbol?: string }
+    >({
+      query: ({ days, symbol }) =>
+        `benchmark-comparison?days=${days}${symbol ? `&symbol=${encodeURIComponent(symbol)}` : ''}`,
+      providesTags: ['Summary'],
+    }),
     lookupStock: builder.query<ApiOkResponse<StockLookupDto>, { market: string; symbol: string }>({
       query: ({ market, symbol }) => `lookup/${market}/${symbol}`,
     }),
@@ -111,6 +120,7 @@ export const {
   useGetNetWorthHistoryQuery,
   useLazyGetNetWorthHistoryQuery,
   useGetDrawdownQuery,
+  useGetBenchmarkComparisonQuery,
   useLookupStockQuery,
   useSearchStocksQuery,
   useGetHoldingPriceHistoryQuery,
