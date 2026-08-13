@@ -176,30 +176,36 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal CurrentDrawdownPct { get; set; }
     }
 
-    /// <summary>One day's point comparing invested-capital value against a hypothetical
-    /// all-benchmark portfolio funded by the same dated contributions/withdrawals.</summary>
-    public class BenchmarkPointDto
+    /// <summary>One benchmark's simulated "what if every contribution had bought this instead"
+    /// curve — <see cref="ValuesTWD"/> is aligned index-for-index with
+    /// <see cref="BenchmarkComparisonDto.Dates"/>/<see cref="BenchmarkComparisonDto.PortfolioTWD"/>.
+    /// Each benchmark is simulated independently (its own unit-buying math at its own daily price),
+    /// so different symbols never affect each other's curve.</summary>
+    public class BenchmarkSeriesDto
     {
-        public string Date { get; set; } = "";
-        public decimal PortfolioTWD { get; set; }
-        public decimal BenchmarkTWD { get; set; }
+        public string Symbol { get; set; } = "";
+        public List<decimal> ValuesTWD { get; set; } = [];
+        // Simple (last - first) / first over the window — a period return, not an annualized XIRR.
+        // Null when the first value is 0 (nothing to divide by).
+        public decimal? ReturnPct { get; set; }
     }
 
     /// <summary>
-    /// "What if every contribution I made had bought <see cref="BenchmarkSymbol"/> instead?" —
-    /// both curves are scoped to the same universe PortfolioSummaryDto.AnnualizedReturnPct (XIRR)
-    /// already uses: cost-tracked STOCK/FUND positions only, driven by the same cost-basis-delta
-    /// contribution proxy. Neither side includes dividends, so the comparison is apples-to-apples
-    /// (price return vs. price return), not a claim about total/含息 return.
+    /// "What if every contribution I made had bought each of <see cref="Benchmarks"/> instead?" —
+    /// every curve (portfolio + each benchmark) is scoped to the same universe
+    /// PortfolioSummaryDto.AnnualizedReturnPct (XIRR) already uses: cost-tracked STOCK/FUND
+    /// positions only, driven by the same cost-basis-delta contribution proxy. None of the curves
+    /// include dividends, so the comparison is apples-to-apples (price return vs. price return),
+    /// not a claim about total/含息 return. A date only appears in <see cref="Dates"/> when the
+    /// portfolio AND every requested benchmark all had a price that day, so every array here stays
+    /// the same length and index-aligned.
     /// </summary>
     public class BenchmarkComparisonDto
     {
-        public string BenchmarkSymbol { get; set; } = "";
-        public List<BenchmarkPointDto> Points { get; set; } = [];
-        // Simple (last - first) / first over the window — a period return, not an annualized XIRR.
-        // Null when the first point's value is 0 (nothing to divide by).
+        public List<string> Dates { get; set; } = [];
+        public List<decimal> PortfolioTWD { get; set; } = [];
         public decimal? PortfolioReturnPct { get; set; }
-        public decimal? BenchmarkReturnPct { get; set; }
+        public List<BenchmarkSeriesDto> Benchmarks { get; set; } = [];
     }
 
     public class UpdateHistoryItem

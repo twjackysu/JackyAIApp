@@ -803,28 +803,34 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         // ── Benchmark comparison ─────────────────────────────────────────────
 
-        private const string DefaultBenchmarkSymbol = "0050";
+        private static readonly string[] DefaultBenchmarkSymbols = ["0050"];
 
         /// <summary>
-        /// "What if every contribution I made had bought <paramref name="benchmarkSymbol"/> instead
-        /// of what I actually bought?" Reuses ComputeAnnualizedReturn's exact cash-flow proxy —
-        /// Σ CostBasis of non-cash positions, delta vs. the previous snapshot = a dated
+        /// "What if every contribution I made had bought each of <paramref name="benchmarkSymbols"/>
+        /// instead of what I actually bought?" Reuses ComputeAnnualizedReturn's exact cash-flow
+        /// proxy — Σ CostBasis of non-cash positions, delta vs. the previous snapshot = a dated
         /// contribution/withdrawal — so this stays consistent with the XIRR figure already shown
         /// elsewhere: same universe (cost-tracked STOCK/FUND only), same "what changed in recorded
-        /// cost basis is what got added/pulled" assumption. Each contribution buys (or a withdrawal
-        /// sells) the benchmark at that day's close; the portfolio side is priced the same way, so
-        /// both curves are directly comparable price-return curves (no dividends on either side).
+        /// cost basis is what got added/pulled" assumption. That contribution flow doesn't depend on
+        /// which benchmark it's compared against, so it's computed once per date and applied to
+        /// every requested benchmark independently (each buys/holds units at its own daily price —
+        /// symbols never affect each other's curve). The portfolio side is priced the same way, so
+        /// every curve here is a directly comparable price-return curve (no dividends anywhere).
         /// </summary>
         public async Task<BenchmarkComparisonDto> GetBenchmarkComparisonAsync(
-            string userId, int days, string? benchmarkSymbol = null, CancellationToken ct = default)
+            string userId, int days, IReadOnlyList<string>? benchmarkSymbols = null, CancellationToken ct = default)
         {
             days = Math.Clamp(days, 30, 1095);
-            benchmarkSymbol = string.IsNullOrWhiteSpace(benchmarkSymbol)
-                ? DefaultBenchmarkSymbol
-                : benchmarkSymbol.Trim().ToUpperInvariant();
+            var symbols = (benchmarkSymbols == null || benchmarkSymbols.Count == 0
+                    ? DefaultBenchmarkSymbols
+                    : benchmarkSymbols.Select(s => s.Trim().ToUpperInvariant()).Where(s => s.Length > 0))
+                .Distinct()
+                .ToList();
+            if (symbols.Count == 0) symbols = [.. DefaultBenchmarkSymbols];
 
             var snapshots = await AllSnapshotsAsync(userId, ct);
-            if (snapshots.Count == 0) return new BenchmarkComparisonDto { BenchmarkSymbol = benchmarkSymbol };
+            if (snapshots.Count == 0)
+                return new BenchmarkComparisonDto { Benchmarks = symbols.Select(s => new BenchmarkSeriesDto { Symbol = s }).ToList() };
 
             var today = Today;
             var firstDate = snapshots[0].EffectiveDate;
@@ -837,25 +843,31 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Select(p => p.Symbol)
                 .Distinct()
                 .ToList();
-            if (!stockSymbols.Contains(benchmarkSymbol)) stockSymbols.Add(benchmarkSymbol);
+            foreach (var s in symbols)
+                if (!stockSymbols.Contains(s)) stockSymbols.Add(s);
             var stockMap = await FetchStocksAsync(stockSymbols, deep: true, ct);
 
-            if (!stockMap.TryGetValue(benchmarkSymbol, out var benchmarkData) ||
-                benchmarkData.HistoricalPrices.Count == 0)
-            {
-                // Fail soft: an unpriceable/unknown benchmark symbol shouldn't 500 the page, just
-                // return an empty comparison the UI can treat the same as "not enough data yet".
-                return new BenchmarkComparisonDto { BenchmarkSymbol = benchmarkSymbol };
-            }
-            var benchmarkPrices = benchmarkData.HistoricalPrices.OrderBy(x => x.Date).ToList();
-            var benchmarkCursor = 0;
+            // Symbols that failed to price (unknown/unpriceable) are silently dropped rather than
+            // failing the whole request — the UI shows whichever requested benchmarks actually came
+            // back, same fail-soft spirit as the rest of this class.
+            var benchmarkPriceLists = symbols
+                .Select(s => (Symbol: s,
+                    Prices: stockMap.TryGetValue(s, out var data) ? data.HistoricalPrices.OrderBy(x => x.Date).ToList() : []))
+                .Where(b => b.Prices.Count > 0)
+                .ToList();
+            if (benchmarkPriceLists.Count == 0)
+                return new BenchmarkComparisonDto { Benchmarks = symbols.Select(s => new BenchmarkSeriesDto { Symbol = s }).ToList() };
 
-            decimal BenchmarkPriceAsOf(DateOnly date)
+            var cursors = new int[benchmarkPriceLists.Count];
+            var units = new decimal[benchmarkPriceLists.Count];
+
+            decimal BenchmarkPriceAsOf(int idx, DateOnly date)
             {
                 var dt = date.ToDateTime(TimeOnly.MinValue);
-                while (benchmarkCursor + 1 < benchmarkPrices.Count && benchmarkPrices[benchmarkCursor + 1].Date.Date <= dt)
-                    benchmarkCursor++;
-                return benchmarkPrices[benchmarkCursor].Date.Date <= dt ? benchmarkPrices[benchmarkCursor].Close : 0;
+                var prices = benchmarkPriceLists[idx].Prices;
+                while (cursors[idx] + 1 < prices.Count && prices[cursors[idx] + 1].Date.Date <= dt)
+                    cursors[idx]++;
+                return prices[cursors[idx]].Date.Date <= dt ? prices[cursors[idx]].Close : 0;
             }
 
             var fundIds = snapshots
@@ -905,8 +917,10 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             var snapshotIdx = 0;
             decimal prevCost = 0;
-            decimal benchmarkUnits = 0;
-            var points = new List<BenchmarkPointDto>();
+            var dates = new List<string>();
+            var portfolioValues = new List<decimal>();
+            var benchmarkValues = new List<decimal>[benchmarkPriceLists.Count];
+            for (var i = 0; i < benchmarkPriceLists.Count; i++) benchmarkValues[i] = [];
 
             for (var date = startDate; date <= today; date = date.AddDays(1))
             {
@@ -918,9 +932,11 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (active == null) continue;
 
                 // Apply this snapshot's contribution/withdrawal exactly once, the day it takes
-                // effect, before pricing the benchmark for that same day — so a same-day contribution
-                // is reflected in that day's benchmark value, matching how the portfolio side already
-                // reflects it (the snapshot's positions price immediately).
+                // effect, before pricing each benchmark for that same day — so a same-day
+                // contribution is reflected in that day's benchmark values, matching how the
+                // portfolio side already reflects it (the snapshot's positions price immediately).
+                // The contribution amount is benchmark-independent; only the buy price (and hence
+                // units bought) differs per symbol.
                 if (date == active.EffectiveDate)
                 {
                     var snapCost = active.Positions
@@ -930,36 +946,58 @@ namespace JackyAIApp.Server.Services.Portfolio
                     var delta = snapCost - prevCost;
                     prevCost = snapCost;
 
-                    var buyPrice = BenchmarkPriceAsOf(date);
-                    if (delta != 0 && buyPrice > 0)
-                        benchmarkUnits = Math.Max(0, benchmarkUnits + delta / buyPrice);
+                    if (delta != 0)
+                    {
+                        for (var i = 0; i < benchmarkPriceLists.Count; i++)
+                        {
+                            var buyPrice = BenchmarkPriceAsOf(i, date);
+                            if (buyPrice > 0) units[i] = Math.Max(0, units[i] + delta / buyPrice);
+                        }
+                    }
                 }
 
                 var portfolioTotal = InvestedValueAsOfDate(active, date);
                 if (portfolioTotal is null) continue;
 
-                var benchmarkPriceToday = BenchmarkPriceAsOf(date);
-                if (benchmarkPriceToday <= 0) continue;
-
-                points.Add(new BenchmarkPointDto
+                // Keep every array index-aligned: a date only counts if the portfolio AND every
+                // requested benchmark all have a price for it.
+                var pricesToday = new decimal[benchmarkPriceLists.Count];
+                var allPriced = true;
+                for (var i = 0; i < benchmarkPriceLists.Count; i++)
                 {
-                    Date = date.ToString("yyyy-MM-dd"),
-                    PortfolioTWD = portfolioTotal.Value,
-                    BenchmarkTWD = Math.Round(benchmarkUnits * benchmarkPriceToday, 2),
-                });
+                    var price = BenchmarkPriceAsOf(i, date);
+                    if (price <= 0) { allPriced = false; break; }
+                    pricesToday[i] = price;
+                }
+                if (!allPriced) continue;
+
+                dates.Add(date.ToString("yyyy-MM-dd"));
+                portfolioValues.Add(portfolioTotal.Value);
+                for (var i = 0; i < benchmarkPriceLists.Count; i++)
+                    benchmarkValues[i].Add(Math.Round(units[i] * pricesToday[i], 2));
             }
 
-            var result = new BenchmarkComparisonDto { BenchmarkSymbol = benchmarkSymbol, Points = points };
-            if (points.Count == 0) return result;
+            var result = new BenchmarkComparisonDto
+            {
+                Dates = dates,
+                PortfolioTWD = portfolioValues,
+                Benchmarks = benchmarkPriceLists.Select((b, i) => new BenchmarkSeriesDto
+                {
+                    Symbol = b.Symbol,
+                    ValuesTWD = benchmarkValues[i],
+                }).ToList(),
+            };
+            if (dates.Count == 0) return result;
 
-            var first = points[0];
-            var last = points[^1];
-            result.PortfolioReturnPct = first.PortfolioTWD > 0
-                ? Math.Round((last.PortfolioTWD - first.PortfolioTWD) / first.PortfolioTWD * 100, 2)
+            result.PortfolioReturnPct = portfolioValues[0] > 0
+                ? Math.Round((portfolioValues[^1] - portfolioValues[0]) / portfolioValues[0] * 100, 2)
                 : null;
-            result.BenchmarkReturnPct = first.BenchmarkTWD > 0
-                ? Math.Round((last.BenchmarkTWD - first.BenchmarkTWD) / first.BenchmarkTWD * 100, 2)
-                : null;
+            foreach (var series in result.Benchmarks)
+            {
+                series.ReturnPct = series.ValuesTWD[0] > 0
+                    ? Math.Round((series.ValuesTWD[^1] - series.ValuesTWD[0]) / series.ValuesTWD[0] * 100, 2)
+                    : null;
+            }
             return result;
         }
 

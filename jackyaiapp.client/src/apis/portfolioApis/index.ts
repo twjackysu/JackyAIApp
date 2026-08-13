@@ -77,10 +77,14 @@ export const portfolioApis = createApi({
     }),
     getBenchmarkComparison: builder.query<
       ApiOkResponse<BenchmarkComparison>,
-      { days: number; symbol?: string }
+      { days: number; symbols?: string[] }
     >({
-      query: ({ days, symbol }) =>
-        `benchmark-comparison?days=${days}${symbol ? `&symbol=${encodeURIComponent(symbol)}` : ''}`,
+      query: ({ days, symbols }) => {
+        const symbolParams = (symbols ?? [])
+          .map((s) => `&symbols=${encodeURIComponent(s)}`)
+          .join('');
+        return `benchmark-comparison?days=${days}${symbolParams}`;
+      },
       providesTags: ['Summary'],
     }),
     lookupStock: builder.query<ApiOkResponse<StockLookupDto>, { market: string; symbol: string }>({
