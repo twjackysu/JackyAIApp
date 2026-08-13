@@ -1,6 +1,4 @@
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
@@ -9,18 +7,13 @@ import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
+import { WIDE_RANGES } from './dayRanges';
 import { MASK, usePrivacy } from './privacy';
+import { RangePicker } from './RangePicker';
 
 import { useGetBenchmarkComparisonQuery } from '@/apis/portfolioApis';
-import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
+import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import { fmtCompact, fmtNum } from '@/utils/format';
-
-const RANGES: { label: string; days: number }[] = [
-  { label: '3M', days: 90 },
-  { label: '6M', days: 180 },
-  { label: '1Y', days: 365 },
-  { label: '3Y', days: 1095 },
-];
 
 // QQQ/VOO/VT track the Nasdaq-100/S&P500/global-stock indices closely enough via their
 // respective ETFs — same "ETF as index proxy" logic already used for 0050 (Taiwan 50).
@@ -155,17 +148,7 @@ export function BenchmarkChart() {
             />
           ))}
         </Box>
-        <ButtonGroup size="small" variant="outlined">
-          {RANGES.map((r) => (
-            <Button
-              key={r.days}
-              onClick={() => setDays(r.days)}
-              variant={days === r.days ? 'contained' : 'outlined'}
-            >
-              {r.label}
-            </Button>
-          ))}
-        </ButtonGroup>
+        <RangePicker ranges={WIDE_RANGES} value={days} onChange={setDays} />
       </Box>
 
       {isFetching && <LinearProgress sx={{ mb: 1 }} />}

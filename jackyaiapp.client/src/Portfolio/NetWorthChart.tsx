@@ -7,14 +7,18 @@ import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
+import { DayRange } from './dayRanges';
 import { MASK, usePrivacy } from './privacy';
+import { RangePicker } from './RangePicker';
 
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { NetWorthDataPoint, NetWorthGroupBy, NetWorthGroupValue } from '@/apis/portfolioApis/types';
-import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
+import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import { fmtCompact } from '@/utils/format';
 
-const RANGES: { label: string; days: number }[] = [
+// Narrower than WIDE_RANGES (Portfolio/RangePicker.tsx): GetNetWorthHistoryAsync clamps to
+// [7, 180] days server-side, unlike drawdown/benchmark comparison's [30, 1095].
+const RANGES: DayRange[] = [
   { label: '1M', days: 30 },
   { label: '3M', days: 90 },
   { label: '6M', days: 180 },
@@ -199,7 +203,7 @@ function hslToHex(h: number, s: number, l: number): string {
 }
 
 // The chart always renders on a dark background (ECHARTS_THEME is 'data-analysis-dark',
-// darkMode: true — see summarizeChart/echarts.ts), but stock Tableau 20 was designed for a white
+// darkMode: true — see charts/echarts.ts), but stock Tableau 20 was designed for a white
 // canvas: several of its entries (A0CBE8, F1CE63, BAB0AC, FABFD2, D4A6C8, D7B5A6, FFBE7D...) are
 // pale pastels that wash out and lose distinctiveness against dark grid backgrounds. Re-anchor
 // every base color's saturation/lightness into a range that stays vivid and readable on dark,
@@ -408,17 +412,7 @@ export function NetWorthChart() {
             </Button>
           ))}
         </ButtonGroup>
-        <ButtonGroup size="small" variant="outlined">
-          {RANGES.map((r) => (
-            <Button
-              key={r.days}
-              onClick={() => setDays(r.days)}
-              variant={days === r.days ? 'contained' : 'outlined'}
-            >
-              {r.label}
-            </Button>
-          ))}
-        </ButtonGroup>
+        <RangePicker ranges={RANGES} value={days} onChange={setDays} />
       </Box>
       {/* Cached data for this exact (days, groupBy) combo is stale and being revalidated in the
           background, OR we already fell through the isLoading gate above but a slower network
