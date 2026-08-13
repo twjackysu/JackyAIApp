@@ -4,6 +4,7 @@ import Grid from '@mui/material/Grid';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 
+import { computeConcentration } from './concentration';
 import { usePrivacy } from './privacy';
 
 import { PositionDto } from '@/apis/portfolioApis/types';
@@ -13,15 +14,6 @@ interface ConcentrationCardProps {
 }
 
 const TOP_N = 5;
-
-// Standard HHI (Herfindahl-Hirschman Index) bands, computed on a 0-10000 scale (Σ share%²) — the
-// same thresholds antitrust regulators use for market concentration, repurposed here for "how
-// much of your invested capital rides on how few names."
-function concentrationLevel(hhi: number): { label: string; color: string } {
-  if (hhi >= 2500) return { label: '高度集中', color: '#ef4444' };
-  if (hhi >= 1500) return { label: '中度集中', color: '#f59e0b' };
-  return { label: '分散', color: '#22c55e' };
-}
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -42,26 +34,15 @@ function Stat({ label, value }: { label: string; value: string }) {
 export function ConcentrationCard({ positions }: ConcentrationCardProps) {
   const { showRatio } = usePrivacy();
 
-  const holdings = positions.filter(
-    (p) => (p.assetType === 'STOCK' || p.assetType === 'FUND') && p.marketValueTWD > 0,
-  );
-  const total = holdings.reduce((sum, p) => sum + p.marketValueTWD, 0);
-
-  if (holdings.length === 0 || total <= 0) {
+  const result = computeConcentration(positions);
+  if (!result) {
     return (
       <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
         尚無股票/基金持倉，無法計算集中度
       </Typography>
     );
   }
-
-  const sorted = [...holdings].sort((a, b) => b.marketValueTWD - a.marketValueTWD);
-  const shares = sorted.map((p) => (p.marketValueTWD / total) * 100);
-  const hhi = shares.reduce((sum, s) => sum + s * s, 0);
-  const top1Pct = shares[0] ?? 0;
-  const top3Pct = shares.slice(0, 3).reduce((a, b) => a + b, 0);
-  const top5Pct = shares.slice(0, 5).reduce((a, b) => a + b, 0);
-  const level = concentrationLevel(hhi);
+  const { sorted, shares, hhi, top1Pct, top3Pct, top5Pct, level } = result;
 
   return (
     <Box>
