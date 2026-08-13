@@ -20,6 +20,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     /// Portfolio) never got it and silently showed yesterday's close from close (13:30) through
     /// midnight — same bug, different call site, unnoticed. Living here as the actual DI
     /// registration for <see cref="IMarketDataProvider"/> (TW) fixes both call sites at once.
+    ///
+    /// Pre-market gap-filling (yesterday's close missing from the DB chain) is <see
+    /// cref="PersistentTwHistoricalProvider"/>'s job, not this layer's — that class is the one that
+    /// actually persists, so a fallback backfill belongs there where it sticks across requests,
+    /// not re-derived in-memory on every single call here.
     /// </summary>
     public class TwTodayOverlayMarketDataProvider : IMarketDataProvider
     {

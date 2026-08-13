@@ -8,6 +8,8 @@ import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
+import { MASK, usePrivacy } from './privacy';
+
 import { useGetBenchmarkComparisonQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
 
@@ -35,6 +37,7 @@ function ReturnStat({ label, pct, color }: { label: string; pct: number | null; 
 }
 
 export function BenchmarkChart() {
+  const { mode } = usePrivacy();
   const [days, setDays] = useState(365);
   const { data: res, isLoading, isFetching } = useGetBenchmarkComparisonQuery({ days });
   const comparison = res?.data;
@@ -69,7 +72,11 @@ export function BenchmarkChart() {
       formatter: (params: unknown) => {
         const p = params as { axisValue: string; seriesName: string; value: number }[];
         const date = p[0]?.axisValue ?? '';
-        const lines = p.map((s) => `${s.seriesName}：NT$${s.value.toLocaleString('zh-TW')}`);
+        const lines = p.map((s) =>
+          mode === 'full'
+            ? `${s.seriesName}：NT$${s.value.toLocaleString('zh-TW')}`
+            : `${s.seriesName}：${MASK}`,
+        );
         return [`<b>${date}</b>`, ...lines].join('<br/>');
       },
     },
@@ -77,7 +84,7 @@ export function BenchmarkChart() {
       data: ['我的投資組合', benchmarkLabel],
       textStyle: { fontSize: 11 },
     },
-    grid: { top: 32, right: 16, bottom: 24, left: 56 },
+    grid: { top: 32, right: 16, bottom: 24, left: mode === 'full' ? 56 : 24 },
     xAxis: {
       type: 'category',
       data: points.map((p) => p.date),
@@ -85,9 +92,14 @@ export function BenchmarkChart() {
     },
     yAxis: {
       type: 'value',
+      // Mask the scale numbers unless fully visible — matches NetWorthChart's convention.
       axisLabel: {
         formatter: (v: number) =>
-          Math.abs(v) >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : `${v}`,
+          mode !== 'full'
+            ? ''
+            : Math.abs(v) >= 1_000_000
+              ? `${(v / 1_000_000).toFixed(1)}M`
+              : `${v}`,
       },
     },
     series: [
