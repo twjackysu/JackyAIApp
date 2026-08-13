@@ -148,6 +148,48 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
+        public async Task GetBenchmarkComparison_ContributionFromBeforeTheWindow_SeedsStartingUnitsInsteadOfBuyingAllAtTheLaterPrice()
+        {
+            // Regression test: a snapshot dated well before the query window's startDate used to
+            // be invisible to the day loop (it only reacts to `date == active.EffectiveDate`,
+            // which never fires for a pre-window date) — so the cost basis it represented got
+            // silently folded into whatever the NEXT in-window contribution's delta was,
+            // buying the entire historical cost basis at that later date's price instead of the
+            // price that was actually in effect when the window opens.
+            var oldDate = AnchorMonday.AddDays(-60); // well before startDate (AnchorMonday - 10 for days: 30)
+            var day0 = Weekday(0); // = AnchorMonday, inside the window
+            await SeedSnapshotAsync(oldDate,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 500, CostBasis = 500_000,
+                });
+            // In-window top-up: cost basis rises from 500,000 to 600,000 — only this 100,000
+            // delta should be bought at day0's benchmark price.
+            await SeedSnapshotAsync(day0,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 600, CostBasis = 600_000,
+                });
+            SetupStockProvider("2330", MarketRegion.TW, (oldDate, 1000m), (day0, 1000m));
+            // 0050 was 50/unit back when the pre-window cost basis was contributed, risen to
+            // 100/unit by day0 — the two prices must differ for this test to actually distinguish
+            // "seeded at window-start price" from the bug's "bought at day0's price regardless".
+            SetupStockProvider("0050", MarketRegion.TW, (oldDate, 50m), (day0, 100m));
+
+            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+
+            var day0Idx = result.Dates.IndexOf(day0.ToString("yyyy-MM-dd"));
+            // Correct: 500,000 seeded at the window-start price (50) = 10,000 units, plus the
+            // 100,000 in-window delta bought at day0's price (100) = 1,000 more units.
+            // (10,000 + 1,000) * 100 = 1,100,000.
+            // The bug would instead show 600,000 (the full cumulative cost bought once at day0's
+            // price: 600,000 / 100 = 6,000 units * 100 = 600,000).
+            Assert.Equal(1_100_000m, result.Benchmarks.Single().ValuesTWD[day0Idx]);
+        }
+
+        [Fact]
         public async Task GetBenchmarkComparison_PositionWithoutCostBasis_ExcludedFromBothSides()
         {
             var snapshotDate = Weekday(0);
