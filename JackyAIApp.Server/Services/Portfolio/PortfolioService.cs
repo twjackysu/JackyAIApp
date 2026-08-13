@@ -916,7 +916,30 @@ namespace JackyAIApp.Server.Services.Portfolio
             }
 
             var snapshotIdx = 0;
-            decimal prevCost = 0;
+
+            // Seed the running cost-basis + benchmark unit count with whatever was already
+            // invested before the window starts, valued at the window's own start-date price —
+            // the same baseline InvestedValueAsOfDate implicitly uses for the portfolio side (it
+            // just returns real market value at that date, regardless of when it was actually
+            // bought). Without this, a snapshot dated before startDate is invisible to the day
+            // loop below (it only reacts to `date == active.EffectiveDate`, which never fires for
+            // a pre-window date), so the NEXT snapshot that happens to land inside the window
+            // would wrongly "buy" its entire cumulative cost basis at that one later date instead
+            // of just its own incremental delta — badly distorting the simulated return.
+            var priorSnapshot = snapshots.LastOrDefault(s => s.EffectiveDate <= startDate);
+            var prevCost = priorSnapshot?.Positions
+                .Where(p => p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
+                .Sum(p => p.CostBasis!.Value * ((p.CostCurrency ?? p.Currency) == "USD"
+                    ? (priorSnapshot.UsdTwdRate > 0 ? priorSnapshot.UsdTwdRate : 32m) : 1m)) ?? 0;
+            if (prevCost > 0)
+            {
+                for (var i = 0; i < benchmarkPriceLists.Count; i++)
+                {
+                    var startPrice = BenchmarkPriceAsOf(i, startDate);
+                    if (startPrice > 0) units[i] = prevCost / startPrice;
+                }
+            }
+
             var dates = new List<string>();
             var portfolioValues = new List<decimal>();
             var benchmarkValues = new List<decimal>[benchmarkPriceLists.Count];
