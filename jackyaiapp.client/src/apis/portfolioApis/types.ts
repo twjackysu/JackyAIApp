@@ -132,22 +132,24 @@ export interface DrawdownAnalysis {
   currentDrawdownPct: number;
 }
 
-/** One day's point comparing invested-capital value against a hypothetical all-benchmark
- * portfolio funded by the same dated contributions/withdrawals. */
-export interface BenchmarkPoint {
-  date: string;
-  portfolioTWD: number;
-  benchmarkTWD: number;
+/** One benchmark's simulated "what if every contribution had bought this instead" curve —
+ * valuesTWD is index-aligned with BenchmarkComparison.dates/portfolioTWD. */
+export interface BenchmarkSeries {
+  symbol: string;
+  valuesTWD: number[];
+  returnPct: number | null;
 }
 
-/** "What if every contribution had bought benchmarkSymbol instead?" Both curves are scoped to the
- * same cost-tracked STOCK/FUND universe as PortfolioSummaryDto.annualizedReturnPct (XIRR), and
- * neither includes dividends — a price-return vs. price-return comparison, not a 含息 claim. */
+/** "What if every contribution had bought each of benchmarks instead?" Every curve (portfolio +
+ * each benchmark) is scoped to the same cost-tracked STOCK/FUND universe as
+ * PortfolioSummaryDto.annualizedReturnPct (XIRR), and none include dividends — a price-return vs.
+ * price-return comparison, not a 含息 claim. dates/portfolioTWD/each benchmark's valuesTWD are all
+ * the same length and index-aligned. */
 export interface BenchmarkComparison {
-  benchmarkSymbol: string;
-  points: BenchmarkPoint[];
+  dates: string[];
+  portfolioTWD: number[];
   portfolioReturnPct: number | null;
-  benchmarkReturnPct: number | null;
+  benchmarks: BenchmarkSeries[];
 }
 
 export interface UpdateHistoryItem {

@@ -107,10 +107,10 @@ namespace JackyAIApp.Server.Controllers
 
         [HttpGet("benchmark-comparison")]
         public async Task<IActionResult> GetBenchmarkComparison(
-            [FromQuery] int days = 365, [FromQuery] string? symbol = null, CancellationToken ct = default)
+            [FromQuery] int days = 365, [FromQuery] string[]? symbols = null, CancellationToken ct = default)
         {
             var userId = RequireUserId();
-            var result = await portfolioService.GetBenchmarkComparisonAsync(userId, days, symbol, ct);
+            var result = await portfolioService.GetBenchmarkComparisonAsync(userId, days, symbols, ct);
             return responseFactory.CreateOKResponse(result);
         }
 

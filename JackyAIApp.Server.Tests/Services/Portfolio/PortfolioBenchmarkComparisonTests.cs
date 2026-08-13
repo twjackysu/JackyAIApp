@@ -14,13 +14,14 @@ using Moq;
 namespace JackyAIApp.Server.Tests.Services.Portfolio
 {
     /// <summary>
-    /// GetBenchmarkComparisonAsync simulates "what if every contribution had bought the benchmark
-    /// instead" — driven by the exact same cost-basis-delta contribution proxy
-    /// ComputeAnnualizedReturn (XIRR) already uses. These tests pin the unit-buying/selling math and
-    /// the cost-tracked-only universe on both sides. Anchor date and "today" are both pinned via an
-    /// injected TimeProvider rather than derived from the real clock — see PortfolioDrawdownTests
-    /// for why a relative-to-real-now anchor drifts out of the service's own lookback window over
-    /// time.
+    /// GetBenchmarkComparisonAsync simulates "what if every contribution had bought each requested
+    /// benchmark instead" — driven by the exact same cost-basis-delta contribution proxy
+    /// ComputeAnnualizedReturn (XIRR) already uses, applied independently per benchmark symbol
+    /// (the contribution amount is shared; only each symbol's own buy price differs). These tests
+    /// pin the unit-buying/selling math, the cost-tracked-only universe, and multi-symbol
+    /// independence. Anchor date and "today" are both pinned via an injected TimeProvider rather
+    /// than derived from the real clock — see PortfolioDrawdownTests for why a relative-to-real-now
+    /// anchor drifts out of the service's own lookback window over time.
     /// </summary>
     public class PortfolioBenchmarkComparisonTests : IDisposable
     {
@@ -97,24 +98,24 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             // Only two real price bars given — both prices forward-fill from Weekday(1) through
-            // "today", so the window has more than 2 points; the values matter, not the count.
-            Assert.Equal("0050", result.BenchmarkSymbol);
-            Assert.NotEmpty(result.Points);
+            // "today", so the window has more than 2 dates; the values matter, not the count.
+            var benchmark = Assert.Single(result.Benchmarks);
+            Assert.Equal("0050", benchmark.Symbol);
+            Assert.NotEmpty(result.Dates);
 
-            var day0 = result.Points[0];
-            Assert.Equal(Weekday(0).ToString("yyyy-MM-dd"), day0.Date);
-            Assert.Equal(100_000m, day0.PortfolioTWD); // 100 shares * 1000
-            Assert.Equal(90_000m, day0.BenchmarkTWD);  // 900 units * 100
+            var day0Idx = result.Dates.IndexOf(Weekday(0).ToString("yyyy-MM-dd"));
+            Assert.Equal(100_000m, result.PortfolioTWD[day0Idx]); // 100 shares * 1000
+            Assert.Equal(90_000m, benchmark.ValuesTWD[day0Idx]);  // 900 units * 100
 
-            var day1 = result.Points.Single(p => p.Date == Weekday(1).ToString("yyyy-MM-dd"));
-            Assert.Equal(110_000m, day1.PortfolioTWD); // 100 shares * 1100
-            Assert.Equal(99_000m, day1.BenchmarkTWD);  // 900 units * 110 (no new contribution)
+            var day1Idx = result.Dates.IndexOf(Weekday(1).ToString("yyyy-MM-dd"));
+            Assert.Equal(110_000m, result.PortfolioTWD[day1Idx]); // 100 shares * 1100
+            Assert.Equal(99_000m, benchmark.ValuesTWD[day1Idx]);  // 900 units * 110 (no new contribution)
 
-            // Period return (last point in the window vs. first) — the last point mirrors day1's
+            // Period return (last date in the window vs. first) — the last date mirrors day1's
             // values since both prices are flat after it: (110,000-100,000)/100,000 = 10%;
             // (99,000-90,000)/90,000 = 10%.
             Assert.Equal(10m, result.PortfolioReturnPct);
-            Assert.Equal(10m, result.BenchmarkReturnPct);
+            Assert.Equal(10m, benchmark.ReturnPct);
         }
 
         [Fact]
@@ -141,9 +142,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
-            var point1 = result.Points.Single(p => p.Date == day1.ToString("yyyy-MM-dd"));
+            var day1Idx = result.Dates.IndexOf(day1.ToString("yyyy-MM-dd"));
             // (500 + 250) units * 200 = 150,000.
-            Assert.Equal(150_000m, point1.BenchmarkTWD);
+            Assert.Equal(150_000m, result.Benchmarks.Single().ValuesTWD[day1Idx]);
         }
 
         [Fact]
@@ -164,14 +165,11 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
-            // Forward-fill produces many days from Weekday(0) through "today", all flat at 0 since
+            // Forward-fill produces many dates from Weekday(0) through "today", all flat at 0 since
             // the untracked-cost position never contributes to either side.
-            Assert.NotEmpty(result.Points);
-            Assert.All(result.Points, p =>
-            {
-                Assert.Equal(0m, p.PortfolioTWD);
-                Assert.Equal(0m, p.BenchmarkTWD);
-            });
+            Assert.NotEmpty(result.Dates);
+            Assert.All(result.PortfolioTWD, v => Assert.Equal(0m, v));
+            Assert.All(result.Benchmarks.Single().ValuesTWD, v => Assert.Equal(0m, v));
         }
 
         [Fact]
@@ -190,18 +188,68 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
-            Assert.Empty(result.Points);
+            Assert.Empty(result.Dates);
             Assert.Null(result.PortfolioReturnPct);
-            Assert.Null(result.BenchmarkReturnPct);
         }
 
         [Fact]
-        public async Task GetBenchmarkComparison_NoSnapshots_ReturnsEmptyResult()
+        public async Task GetBenchmarkComparison_MultipleSymbols_EachSimulatedIndependently()
         {
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var day0 = Weekday(0);
+            var day1 = Weekday(1);
+            await SeedSnapshotAsync(day0,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 90_000,
+                });
+            SetupStockProvider("2330", MarketRegion.TW, (day0, 1000m), (day1, 1000m));
+            // 90,000 / 100 = 900 units of 0050; 90,000 / 300 = 300 units of QQQ — independent buys.
+            SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 200m));
+            SetupStockProvider("QQQ", MarketRegion.US, (day0, 300m), (day1, 300m));
 
-            Assert.Empty(result.Points);
-            Assert.Equal("0050", result.BenchmarkSymbol);
+            var result = await _service.GetBenchmarkComparisonAsync(
+                TestUserId, days: 30, benchmarkSymbols: ["0050", "QQQ"]);
+
+            Assert.Equal(2, result.Benchmarks.Count);
+            var day1Idx = result.Dates.IndexOf(day1.ToString("yyyy-MM-dd"));
+
+            var fifty = result.Benchmarks.Single(b => b.Symbol == "0050");
+            Assert.Equal(180_000m, fifty.ValuesTWD[day1Idx]); // 900 * 200 — price doubled
+
+            var qqq = result.Benchmarks.Single(b => b.Symbol == "QQQ");
+            Assert.Equal(90_000m, qqq.ValuesTWD[day1Idx]); // 300 * 300 — price flat, matches portfolio's own return
+        }
+
+        [Fact]
+        public async Task GetBenchmarkComparison_OneOfMultipleSymbolsUnpriceable_DropsItButKeepsTheOthers()
+        {
+            var snapshotDate = Weekday(0);
+            await SeedSnapshotAsync(snapshotDate,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 90_000,
+                });
+            SetupStockProvider("2330", MarketRegion.TW, (Weekday(0), 1000m));
+            SetupStockProvider("0050", MarketRegion.TW, (Weekday(0), 100m));
+            // "NOPE" deliberately has no provider setup at all — should be silently dropped.
+
+            var result = await _service.GetBenchmarkComparisonAsync(
+                TestUserId, days: 30, benchmarkSymbols: ["0050", "NOPE"]);
+
+            var benchmark = Assert.Single(result.Benchmarks);
+            Assert.Equal("0050", benchmark.Symbol);
+        }
+
+        [Fact]
+        public async Task GetBenchmarkComparison_NoSnapshots_ReturnsEmptyResultWithRequestedSymbols()
+        {
+            var result = await _service.GetBenchmarkComparisonAsync(
+                TestUserId, days: 30, benchmarkSymbols: ["0050", "VT"]);
+
+            Assert.Empty(result.Dates);
+            Assert.Equal(["0050", "VT"], result.Benchmarks.Select(b => b.Symbol));
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
+import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -20,8 +21,17 @@ const RANGES: { label: string; days: number }[] = [
   { label: '3Y', days: 1095 },
 ];
 
+// QQQ/VOO/VT track the Nasdaq-100/S&P500/global-stock indices closely enough via their
+// respective ETFs — same "ETF as index proxy" logic already used for 0050 (Taiwan 50).
+const BENCHMARK_PRESETS: { symbol: string; label: string; color: string }[] = [
+  { symbol: '0050', label: '台股 0050', color: '#9CA3AF' },
+  { symbol: 'QQQ', label: '那斯達克 QQQ', color: '#F59E0B' },
+  { symbol: 'VOO', label: 'S&P500 VOO', color: '#10B981' },
+  { symbol: 'VT', label: '全球 VT', color: '#EC4899' },
+];
+const PRESET_COLOR = new Map(BENCHMARK_PRESETS.map((p) => [p.symbol, p.color]));
+
 const PORTFOLIO_COLOR = '#3B82F6';
-const BENCHMARK_COLOR = '#9CA3AF';
 
 function ReturnStat({ label, pct, color }: { label: string; pct: number | null; color: string }) {
   return (
@@ -39,9 +49,21 @@ function ReturnStat({ label, pct, color }: { label: string; pct: number | null; 
 export function BenchmarkChart() {
   const { mode } = usePrivacy();
   const [days, setDays] = useState(365);
-  const { data: res, isLoading, isFetching } = useGetBenchmarkComparisonQuery({ days });
+  const [symbols, setSymbols] = useState<string[]>(['0050']);
+  const { data: res, isLoading, isFetching } = useGetBenchmarkComparisonQuery({ days, symbols });
   const comparison = res?.data;
-  const points = comparison?.points ?? [];
+  const dates = comparison?.dates ?? [];
+
+  const toggleSymbol = (symbol: string) =>
+    setSymbols((prev) => {
+      if (prev.includes(symbol)) {
+        // Always keep at least one benchmark selected — an empty request just falls back to the
+        // backend default (0050) anyway, which would silently ignore the user's deselection.
+        if (prev.length === 1) return prev;
+        return prev.filter((s) => s !== symbol);
+      }
+      return [...prev, symbol];
+    });
 
   if (isLoading) {
     return (
@@ -51,19 +73,7 @@ export function BenchmarkChart() {
     );
   }
 
-  if (points.length === 0) {
-    return (
-      <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-        資料不足，更新持倉（並填入成本）後即可看到大盤對照
-      </Typography>
-    );
-  }
-
-  const benchmarkLabel = comparison!.benchmarkSymbol;
-  const outperforming =
-    comparison!.portfolioReturnPct != null &&
-    comparison!.benchmarkReturnPct != null &&
-    comparison!.portfolioReturnPct >= comparison!.benchmarkReturnPct;
+  const benchmarks = comparison?.benchmarks ?? [];
 
   const option: ECOption = {
     tooltip: {
@@ -81,13 +91,13 @@ export function BenchmarkChart() {
       },
     },
     legend: {
-      data: ['我的投資組合', benchmarkLabel],
+      data: ['我的投資組合', ...benchmarks.map((b) => b.symbol)],
       textStyle: { fontSize: 11 },
     },
-    grid: { top: 32, right: 16, bottom: 24, left: mode === 'full' ? 56 : 24 },
+    grid: { top: 40, right: 16, bottom: 24, left: mode === 'full' ? 56 : 24 },
     xAxis: {
       type: 'category',
-      data: points.map((p) => p.date),
+      data: dates,
       boundaryGap: false,
     },
     yAxis: {
@@ -106,27 +116,51 @@ export function BenchmarkChart() {
       {
         name: '我的投資組合',
         type: 'line',
-        data: points.map((p) => p.portfolioTWD),
+        data: comparison?.portfolioTWD ?? [],
         smooth: true,
         symbol: 'none',
         lineStyle: { width: 2, color: PORTFOLIO_COLOR },
         itemStyle: { color: PORTFOLIO_COLOR },
       },
-      {
-        name: benchmarkLabel,
-        type: 'line',
-        data: points.map((p) => p.benchmarkTWD),
-        smooth: true,
-        symbol: 'none',
-        lineStyle: { width: 2, color: BENCHMARK_COLOR, type: 'dashed' },
-        itemStyle: { color: BENCHMARK_COLOR },
-      },
+      ...benchmarks.map((b) => {
+        const color = PRESET_COLOR.get(b.symbol) ?? '#9CA3AF';
+        return {
+          name: b.symbol,
+          type: 'line' as const,
+          data: b.valuesTWD,
+          smooth: true,
+          symbol: 'none' as const,
+          lineStyle: { width: 2, color, type: 'dashed' as const },
+          itemStyle: { color },
+        };
+      }),
     ],
   };
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+      <Box
+        sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'space-between', mb: 2 }}
+      >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {BENCHMARK_PRESETS.map((preset) => (
+            <Chip
+              key={preset.symbol}
+              label={preset.label}
+              size="small"
+              onClick={() => toggleSymbol(preset.symbol)}
+              variant={symbols.includes(preset.symbol) ? 'filled' : 'outlined'}
+              sx={{
+                borderColor: preset.color,
+                ...(symbols.includes(preset.symbol) && {
+                  bgcolor: preset.color,
+                  color: '#fff',
+                  '&:hover': { bgcolor: preset.color },
+                }),
+              }}
+            />
+          ))}
+        </Box>
         <ButtonGroup size="small" variant="outlined">
           {RANGES.map((r) => (
             <Button
@@ -142,44 +176,38 @@ export function BenchmarkChart() {
 
       {isFetching && <LinearProgress sx={{ mb: 1 }} />}
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 6, sm: 4 }}>
-          <ReturnStat
-            label="我的投資組合"
-            pct={comparison!.portfolioReturnPct}
-            color={PORTFOLIO_COLOR}
-          />
-        </Grid>
-        <Grid size={{ xs: 6, sm: 4 }}>
-          <ReturnStat
-            label={benchmarkLabel}
-            pct={comparison!.benchmarkReturnPct}
-            color={BENCHMARK_COLOR}
-          />
-        </Grid>
-        {comparison!.portfolioReturnPct != null && comparison!.benchmarkReturnPct != null && (
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              相對表現
-            </Typography>
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 700, color: outperforming ? '#22c55e' : '#ef4444' }}
-            >
-              {outperforming ? '+' : ''}
-              {(comparison!.portfolioReturnPct - comparison!.benchmarkReturnPct).toFixed(2)}%
-              {outperforming ? ' 贏大盤' : ' 輸大盤'}
-            </Typography>
+      {dates.length === 0 ? (
+        <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+          資料不足，更新持倉（並填入成本）後即可看到大盤對照
+        </Typography>
+      ) : (
+        <>
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <ReturnStat
+                label="我的投資組合"
+                pct={comparison!.portfolioReturnPct}
+                color={PORTFOLIO_COLOR}
+              />
+            </Grid>
+            {benchmarks.map((b) => (
+              <Grid size={{ xs: 6, sm: 3 }} key={b.symbol}>
+                <ReturnStat
+                  label={b.symbol}
+                  pct={b.returnPct}
+                  color={PRESET_COLOR.get(b.symbol) ?? '#9CA3AF'}
+                />
+              </Grid>
+            ))}
           </Grid>
-        )}
-      </Grid>
 
-      <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 260 }} />
+          <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
 
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-        模擬「若把每一筆投入成本都拿去買 {benchmarkLabel}
-        」的對照線——僅計算已填成本的股票/基金持倉，兩條線都不含股息（純價格報酬對照）。
-      </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            模擬「若把每一筆投入成本都拿去買該標的」的對照線——僅計算已填成本的股票/基金持倉，所有線都不含股息（純價格報酬對照）。
+          </Typography>
+        </>
+      )}
     </Box>
   );
 }
