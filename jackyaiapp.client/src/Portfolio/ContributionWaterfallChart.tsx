@@ -52,6 +52,19 @@ function buildWaterfallOption(
   values.push(cumulative);
   colors.push(ANCHOR_COLOR);
 
+  // Deliberately NOT zero-based: the anchor bars (投入成本/目前總值) are usually a much bigger
+  // number than any single holding's contribution, so a 0-anchored axis squashes every middle
+  // bar's height into a sliver near the top and the deltas become impossible to compare visually.
+  // Zooming to the actual range the bars occupy (with a little padding) keeps the anchors' bottom
+  // edge below the visible area — only their top edge (the value that matters) stays honest — while
+  // making the delta bars' height differences actually readable.
+  const edges = bases.flatMap((b, i) => [b, b + values[i]]);
+  const dataMin = Math.min(...edges);
+  const dataMax = Math.max(...edges);
+  const padding = (dataMax - dataMin) * 0.1 || Math.abs(dataMax) * 0.1 || 1;
+  const yMin = dataMin - padding;
+  const yMax = dataMax + padding;
+
   return {
     tooltip: {
       trigger: 'axis',
@@ -74,6 +87,8 @@ function buildWaterfallOption(
     },
     yAxis: {
       type: 'value',
+      min: yMin,
+      max: yMax,
       axisLabel: { formatter: (v: number) => formatValue(v) },
     },
     series: [
