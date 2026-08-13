@@ -32,7 +32,12 @@ interface ContributionItem {
 function buildWaterfallOption(
   items: ContributionItem[],
   startValue: number,
-  formatValue: (n: number) => string,
+  // Anchor bars (投入成本/目前總值) are absolute totals — masked whenever `value()` would mask
+  // them. Delta bars are P&L changes — masked whenever `change()` would mask them (i.e. only in
+  // 'hidden' mode; still shown in 'changes' mode, which exists specifically to show these).
+  formatAnchor: (n: number) => string,
+  formatDelta: (n: number) => string,
+  formatAxisTick: (n: number) => string,
 ): ECOption {
   const categories = [START_LABEL, ...items.map((i) => i.name), END_LABEL];
   const bases: number[] = [0];
@@ -77,9 +82,9 @@ function buildWaterfallOption(
         const p = (params as { axisValue: string; dataIndex: number }[])[0];
         if (!p) return '';
         const isAnchor = p.dataIndex === 0 || p.dataIndex === items.length + 1;
-        if (isAnchor) return `<b>${p.axisValue}</b><br/>${formatValue(values[p.dataIndex])}`;
+        if (isAnchor) return `<b>${p.axisValue}</b><br/>${formatAnchor(values[p.dataIndex])}`;
         const raw = items[p.dataIndex - 1].value;
-        return `<b>${p.axisValue}</b><br/>${raw >= 0 ? '+' : ''}${formatValue(raw)}`;
+        return `<b>${p.axisValue}</b><br/>${raw >= 0 ? '+' : ''}${formatDelta(raw)}`;
       },
     },
     grid: { top: 16, right: 16, bottom: 48, left: 56 },
@@ -92,7 +97,7 @@ function buildWaterfallOption(
       type: 'value',
       min: yMin,
       max: yMax,
-      axisLabel: { formatter: (v: number) => formatValue(v) },
+      axisLabel: { formatter: (v: number) => formatAxisTick(v) },
     },
     series: [
       {
@@ -123,7 +128,7 @@ function buildWaterfallOption(
  * collapse into one "其他" bucket so a portfolio with 30 holdings doesn't produce an unreadable
  * chart. */
 export function ContributionWaterfallChart({ positions }: ContributionWaterfallChartProps) {
-  const { mode, showRatio, value } = usePrivacy();
+  const { mode, change } = usePrivacy();
 
   const holdings = positions.filter((p) => p.assetType === 'STOCK' || p.assetType === 'FUND');
   const contributors = holdings
@@ -155,18 +160,23 @@ export function ContributionWaterfallChart({ positions }: ContributionWaterfallC
   const topContributor = contributors[0];
   const bottomContributor = contributors[contributors.length - 1];
 
-  const formatValue = (n: number) => {
-    if (mode !== 'full') return MASK;
-    return Math.abs(n) >= 1_000_000
-      ? `${(n / 1_000_000).toFixed(1)}M`
-      : `NT$${n.toLocaleString('zh-TW')}`;
-  };
+  const formatMoney = (n: number) =>
+    Math.abs(n) >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : `NT$${n.toLocaleString('zh-TW')}`;
+  // Anchor bars (投入成本/目前總值) are absolute totals — masked outside 'full', matching every
+  // other absolute figure on this page.
+  const formatAnchor = (n: number) => (mode === 'full' ? formatMoney(n) : MASK);
+  // Delta bars are P&L changes — stay visible in 'changes' mode (that mode exists specifically to
+  // show these), masked only in 'hidden'.
+  const formatDelta = (n: number) => (mode !== 'hidden' ? formatMoney(n) : MASK);
+  // Axis ticks sit on a scale shared by both anchors and deltas, so showing them at all would leak
+  // the anchors' absolute magnitude even in 'changes' mode — mask unless fully visible.
+  const formatAxisTick = (n: number) => (mode === 'full' ? formatMoney(n) : '');
 
-  const option = buildWaterfallOption(items, startValue, formatValue);
+  const option = buildWaterfallOption(items, startValue, formatAnchor, formatDelta, formatAxisTick);
 
   return (
     <Box>
-      {showRatio && (
+      {mode !== 'hidden' && (
         <Box sx={{ display: 'flex', gap: 3, mb: 2, flexWrap: 'wrap' }}>
           <Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
@@ -174,7 +184,7 @@ export function ContributionWaterfallChart({ positions }: ContributionWaterfallC
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 700, color: GAIN_COLOR }}>
               {topContributor.name} {topContributor.value >= 0 ? '+' : ''}
-              {value(`NT$${topContributor.value.toLocaleString('zh-TW')}`)}
+              {change(formatMoney(topContributor.value))}
             </Typography>
           </Box>
           {bottomContributor.value < 0 && bottomContributor !== topContributor && (
@@ -183,8 +193,7 @@ export function ContributionWaterfallChart({ positions }: ContributionWaterfallC
                 最大拖累
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 700, color: LOSS_COLOR }}>
-                {bottomContributor.name}{' '}
-                {value(`NT$${bottomContributor.value.toLocaleString('zh-TW')}`)}
+                {bottomContributor.name} {change(formatMoney(bottomContributor.value))}
               </Typography>
             </Box>
           )}
