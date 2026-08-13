@@ -40,6 +40,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         private readonly ITWStockLibHistoricalProvider _inner;
         private readonly IDbContextFactory<AzureSQLDBContext> _dbFactory;
         private readonly ILogger<PersistentTwHistoricalProvider> _logger;
+        private readonly TimeProvider _timeProvider;
 
         private const string Market = "TW";
         private const int LookbackMonths = 6;
@@ -52,14 +53,22 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
         public DataProviderType Type => DataProviderType.HistoricalPrice;
 
+        /// <param name="inner">TWStockLib-backed source for the primary gap-fill and the quote fallback.</param>
+        /// <param name="dbFactory">Creates a short-lived DbContext per call — see the class docs.</param>
+        /// <param name="logger">Logger.</param>
+        /// <param name="timeProvider">Defaults to <see cref="TimeProvider.System"/>; overridable so
+        /// <see cref="BackfillLastTradingDayFromQuoteAsync"/>'s morning cutoff is unit-testable
+        /// instead of joining the rest of this codebase's untested wall-clock logic.</param>
         public PersistentTwHistoricalProvider(
             ITWStockLibHistoricalProvider inner,
             IDbContextFactory<AzureSQLDBContext> dbFactory,
-            ILogger<PersistentTwHistoricalProvider> logger)
+            ILogger<PersistentTwHistoricalProvider> logger,
+            TimeProvider? timeProvider = null)
         {
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
             _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _timeProvider = timeProvider ?? TimeProvider.System;
         }
 
         /// <summary>Full ~6-month depth — for charts, technical indicators, and anything else that
@@ -190,8 +199,15 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             // giving up on the gap. Re-checks against the current `existing` (freshly re-read above
             // if the gap-fill ran, otherwise whatever was originally loaded) rather than the
             // pre-fetch `maxDate`, so this is a no-op once the primary gap-fill already succeeded.
+            // Cut off at 08:00 Taipei: this fallback exists purely to smooth over the pre-market
+            // window before TWStockLib's own data has caught up, and the server clock isn't
+            // guaranteed exact — an hour of margin before market open (09:00) means even a
+            // meaningfully skewed clock can't accidentally treat a still-forming session as
+            // yesterday's finalized close. Past that cutoff, a real gap is left for the primary
+            // gap-fill to close on the next request instead of persisting through this fallback.
             var latestDate = existing.Count > 0 ? existing[^1].TradeDate : (DateOnly?)null;
-            if (latestDate == null || latestDate.Value < lastTradingDay)
+            var taipeiNow = _timeProvider.GetUtcNow().UtcDateTime.AddHours(8);
+            if ((latestDate == null || latestDate.Value < lastTradingDay) && taipeiNow.TimeOfDay < new TimeSpan(8, 0, 0))
             {
                 await BackfillLastTradingDayFromQuoteAsync(db, stockCode, lastTradingDay, today, cancellationToken);
                 existing = await db.DailyStockPrices

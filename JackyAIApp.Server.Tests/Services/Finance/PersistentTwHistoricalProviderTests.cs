@@ -25,23 +25,42 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         private readonly Mock<ITWStockLibHistoricalProvider> _inner;
         private readonly PersistentTwHistoricalProvider _provider;
 
+        private readonly DbContextOptions<AzureSQLDBContext> _options;
+
         public PersistentTwHistoricalProviderTests()
         {
-            var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
+            _options = new DbContextOptionsBuilder<AzureSQLDBContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
                 .Options;
             // Same options/database name as the factory below hands out to the provider — the
             // in-memory provider shares the underlying store across context instances pointed at
             // the same name, so seeding/asserting here and the provider's own factory-created
             // contexts (mirroring prod's "fresh context per call" fix) see the same data.
-            _dbContext = new AzureSQLDBContext(options);
+            _dbContext = new AzureSQLDBContext(_options);
 
             _inner = new Mock<ITWStockLibHistoricalProvider>();
             _provider = new PersistentTwHistoricalProvider(
-                _inner.Object, new TestDbContextFactory(options), NullLogger<PersistentTwHistoricalProvider>.Instance);
+                _inner.Object, new TestDbContextFactory(_options), NullLogger<PersistentTwHistoricalProvider>.Instance);
         }
 
         public void Dispose() => _dbContext.Dispose();
+
+        /// <summary>Builds a second provider sharing the same in-memory DB/mock but with a pinned
+        /// clock — needed only by the quote-fallback tests, which care about the 08:00 Taipei
+        /// cutoff and can't rely on whatever real wall-clock time the suite happens to run at.</summary>
+        private PersistentTwHistoricalProvider BuildProviderWithTime(DateTimeOffset now) =>
+            new(_inner.Object, new TestDbContextFactory(_options), NullLogger<PersistentTwHistoricalProvider>.Instance,
+                new FakeTimeProvider(now));
+
+        /// <summary>A Taipei clock reading hour:minute "today" — only the time-of-day matters for
+        /// the 08:00 cutoff check, so which calendar date it lands on is irrelevant.</summary>
+        private static DateTimeOffset TaipeiTime(int hour, int minute = 0) =>
+            new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).AddHours(hour - 8).AddMinutes(minute);
+
+        private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider
+        {
+            public override DateTimeOffset GetUtcNow() => now;
+        }
 
         private class TestDbContextFactory(DbContextOptions<AzureSQLDBContext> options)
             : IDbContextFactory<AzureSQLDBContext>
@@ -474,13 +493,45 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _inner.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new StockQuote { Symbol = Symbol, Name = "台積電", Market = MarketType.TSE, YesterdayClosingPrice = 35.45m });
 
-            var result = await _provider.FetchLatestAsync(Symbol);
+            var provider = BuildProviderWithTime(TaipeiTime(7, 30));
+            var result = await provider.FetchLatestAsync(Symbol);
 
             var persisted = await _dbContext.DailyStockPrices
                 .Where(p => p.Symbol == Symbol).OrderBy(p => p.TradeDate).ToListAsync();
             var backfilled = Assert.Single(persisted, p => p.TradeDate == lastTradingDay);
             Assert.Equal(35.45m, backfilled.Close);
             Assert.Contains(result.HistoricalPrices, p => DateOnly.FromDateTime(p.Date) == lastTradingDay && p.Close == 35.45m);
+        }
+
+        [Fact]
+        public async Task FetchLatestAsync_GapStillExistsAfter0800Taipei_DoesNotCallQuoteFallback()
+        {
+            // Same gap as the test above, but past the 08:00 cutoff — the server clock isn't
+            // guaranteed exact, so this fallback only trusts itself within a margin well before
+            // market open (09:00) rather than persisting a quote-derived bar close to the boundary.
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var lastTradingDay = LastTradingDayBefore(today);
+            var staleDate = lastTradingDay.AddDays(-1);
+
+            _dbContext.DailyStockPrices.Add(new DailyStockPrice
+            {
+                Symbol = Symbol, Market = "TW", TradeDate = staleDate,
+                Open = 890m, High = 905m, Low = 885m, Close = 890m, Volume = 1000,
+            });
+            await _dbContext.SaveChangesAsync();
+
+            _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData { StockCode = Symbol, HistoricalPrices = new List<DailyPrice>() });
+
+            var provider = BuildProviderWithTime(TaipeiTime(8, 30));
+            var result = await provider.FetchLatestAsync(Symbol);
+
+            Assert.DoesNotContain(result.HistoricalPrices, p => DateOnly.FromDateTime(p.Date) == lastTradingDay);
+            _inner.Verify(
+                x => x.GetLatestQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         [Fact]
@@ -519,7 +570,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _inner.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
                 .ReturnsAsync((StockQuote?)null);
 
-            var result = await _provider.FetchLatestAsync(Symbol);
+            var provider = BuildProviderWithTime(TaipeiTime(7, 30));
+            var result = await provider.FetchLatestAsync(Symbol);
 
             Assert.Empty(result.HistoricalPrices);
             var persisted = await _dbContext.DailyStockPrices.Where(p => p.Symbol == Symbol).ToListAsync();
