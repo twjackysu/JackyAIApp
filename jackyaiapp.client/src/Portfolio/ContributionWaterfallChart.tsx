@@ -57,10 +57,13 @@ function buildWaterfallOption(
   // bar's height into a sliver near the top and the deltas become impossible to compare visually.
   // Zooming to the actual range the bars occupy (with a little padding) keeps the anchors' bottom
   // edge below the visible area — only their top edge (the value that matters) stays honest — while
-  // making the delta bars' height differences actually readable.
-  const edges = bases.flatMap((b, i) => [b, b + values[i]]);
-  const dataMin = Math.min(...edges);
-  const dataMax = Math.max(...edges);
+  // making the delta bars' height differences actually readable. Critically, the anchor bars'
+  // *base* (always 0 — see above) must be excluded from this range, or it drags dataMin straight
+  // back down to 0 and reproduces the exact squashing this was meant to fix; only their top (the
+  // real value, i.e. startValue/cumulative) is a meaningful bound.
+  const middleEdges = items.flatMap((_, i) => [bases[i + 1], bases[i + 1] + values[i + 1]]);
+  const dataMin = Math.min(...middleEdges, startValue, cumulative);
+  const dataMax = Math.max(...middleEdges, startValue, cumulative);
   const padding = (dataMax - dataMin) * 0.1 || Math.abs(dataMax) * 0.1 || 1;
   const yMin = dataMin - padding;
   const yMax = dataMax + padding;
