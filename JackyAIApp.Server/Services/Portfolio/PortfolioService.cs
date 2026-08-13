@@ -24,17 +24,27 @@ namespace JackyAIApp.Server.Services.Portfolio
         IMemoryCache cache,
         IOpenAIPromptService openAI,
         ICreditService creditService,
-        ILogger<PortfolioService> logger) : IPortfolioService
+        ILogger<PortfolioService> logger,
+        TimeProvider? timeProvider = null) : IPortfolioService
     {
         private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
         private const string STOCK_CACHE_PREFIX = "portfolio_stock_";
 
+        private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
+        /// <summary>"Today" for every date-range walk in this service (net worth history,
+        /// drawdown, benchmark comparison, XIRR, day-change) — overridable via the constructor's
+        /// <c>timeProvider</c> parameter so tests can pin a fixed date instead of chasing the real
+        /// calendar (a relative-to-real-now test fixture drifts out of whatever window a test
+        /// expects as time passes; see PortfolioDrawdownTests/PortfolioBenchmarkComparisonTests).</summary>
+        private DateOnly Today => DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime);
+
         // ── Save / read holdings ─────────────────────────────────────────────
 
         public async Task SaveHoldingsAsync(string userId, SaveHoldingsRequest req, CancellationToken ct = default)
         {
-            var effectiveDate = req.EffectiveDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var effectiveDate = req.EffectiveDate ?? Today;
             var usdTwdRate = await FetchUsdTwdRateAsync(ct);
 
             // Replace any existing snapshot for that date (cascade deletes its positions)
@@ -88,7 +98,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             var snapshot = await LatestSnapshotAsync(userId, ct);
             if (snapshot == null)
-                return new SaveHoldingsRequest { EffectiveDate = DateOnly.FromDateTime(DateTime.UtcNow) };
+                return new SaveHoldingsRequest { EffectiveDate = Today };
 
             return new SaveHoldingsRequest
             {
@@ -390,7 +400,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // XIRR is 含息 (total return): dividends are real cash inflows, so leaving them out
             // would understate the annualized return relative to what the user actually earned.
             var annualizedReturnPct = ComputeAnnualizedReturn(
-                allSnapshots, fx, costBasisTWD + pnlTWD, dividendFlows);
+                allSnapshots, fx, costBasisTWD + pnlTWD, dividendFlows, Today);
 
             // Day change: re-value today's exact holdings at the previous trading day's close,
             // reusing the price histories already fetched above (no extra network calls). Holding
@@ -403,7 +413,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // point and would silently show a guaranteed $0/0.00% change that reads as "flat" rather
             // than "no new data yet". Only compute a day change once at least one holding has a
             // price genuinely newer than the previous trading day.
-            var prevTradingDay = PreviousTradingDay(DateOnly.FromDateTime(DateTime.UtcNow));
+            var prevTradingDay = PreviousTradingDay(Today);
             decimal? dayChangeTWD = null, dayChangePct = null;
             if (HasNewerPriceThan(snapshot.Positions, prevTradingDay, stockMap, fundMap))
             {
@@ -507,7 +517,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             if (snapshots.Count == 0) return [];
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = Today;
             var firstDate = snapshots[0].EffectiveDate;
             var startDate = today.AddDays(-days);
             if (startDate < firstDate) startDate = firstDate;
@@ -693,7 +703,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var snapshots = await AllSnapshotsAsync(userId, ct);
             if (snapshots.Count == 0) return new DrawdownAnalysisDto();
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = Today;
             var firstDate = snapshots[0].EffectiveDate;
             var startDate = today.AddDays(-days);
             if (startDate < firstDate) startDate = firstDate;
@@ -816,7 +826,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var snapshots = await AllSnapshotsAsync(userId, ct);
             if (snapshots.Count == 0) return new BenchmarkComparisonDto { BenchmarkSymbol = benchmarkSymbol };
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = Today;
             var firstDate = snapshots[0].EffectiveDate;
             var startDate = today.AddDays(-days);
             if (startDate < firstDate) startDate = firstDate;
@@ -1347,7 +1357,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (orderedSnapshots.Count == 0) return (0, empty, noFlows);
 
             var firstDate = orderedSnapshots[0].EffectiveDate;
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var today = Today;
 
             var keys = orderedSnapshots
                 .SelectMany(s => s.Positions)
@@ -1422,12 +1432,11 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// </summary>
         private static decimal? ComputeAnnualizedReturn(
             List<HoldingSnapshot> orderedSnapshots, decimal fallbackFx, decimal terminalValueTWD,
-            List<(DateOnly Date, decimal AmountTWD)> dividendFlows)
+            List<(DateOnly Date, decimal AmountTWD)> dividendFlows, DateOnly today)
         {
             if (terminalValueTWD <= 0) return null;
             if (orderedSnapshots.Count == 0) return null;
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
             if (today.DayNumber - orderedSnapshots[0].EffectiveDate.DayNumber < MinXirrHistoryDays) return null;
 
             var flows = new List<(DateOnly, double)>();

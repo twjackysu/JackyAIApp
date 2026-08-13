@@ -17,14 +17,22 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// GetDrawdownAnalysisAsync reuses ValueAsOfDate (the day-change valuator) for the per-day
     /// total instead of re-deriving asset-type valuation rules — these tests exercise the
     /// drawdown-specific math on top of that: running-peak tracking, worst-episode selection, and
-    /// recovery detection. Same fixed-past-Monday date pattern as PortfolioNetWorthHistoryTests,
-    /// for the same reason (service skips Sat/Sun; tests must be day-of-week stable).
+    /// recovery detection. Anchor date and "today" are both pinned via an injected TimeProvider
+    /// rather than derived from the real clock: an earlier version anchored 28 days before whatever
+    /// DateTime.UtcNow was at test-run time, then rounded back to the nearest Monday (up to 6 more
+    /// days) — once that rounding pushed the anchor past the 30-day window the tests query with, the
+    /// fixture's earliest prices silently fell outside the service's own lookback and every
+    /// assertion built on them drifted wrong. Fully fixed dates side-step that permanently.
     /// </summary>
     public class PortfolioDrawdownTests : IDisposable
     {
         private const string TestUserId = "drawdown-test-user";
 
-        private static readonly DateOnly AnchorMonday = MostRecentMonday(DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-28));
+        // Monday, fixed — not derived from the real clock (see class docs).
+        private static readonly DateOnly AnchorMonday = new(2026, 7, 20);
+        // Comfortably inside the 30-day window every test here queries with (10+ days of margin on
+        // both sides of the AnchorMonday..Weekday(4) fixture span), regardless of the real date.
+        private static readonly DateOnly FixedToday = AnchorMonday.AddDays(20);
 
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<IMarketDataProviderFactory> _providerFactory;
@@ -62,7 +70,13 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 cache,
                 openAI.Object,
                 creditService.Object,
-                NullLogger<PortfolioService>.Instance);
+                NullLogger<PortfolioService>.Instance,
+                new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)));
+        }
+
+        private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider
+        {
+            public override DateTimeOffset GetUtcNow() => now;
         }
 
         public void Dispose() => _dbContext.Dispose();
@@ -129,13 +143,13 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     Market = "TW", Currency = "TWD", Quantity = 100,
                 });
             // Only two prices given — ValueAsOfDate forward-fills the last known close (700) for
-            // every business day after Weekday(1) up through "today", so the window's last point
-            // (and hence UnderwaterDays' end) is today's last business day, not Weekday(1). Compute
-            // that dynamically rather than hardcoding a day count that would drift daily.
+            // every business day after Weekday(1) up through "today" (FixedToday), so the window's
+            // last point (and hence UnderwaterDays' end) is FixedToday's last business day, not
+            // Weekday(1).
             SetupStockProvider("2330", MarketRegion.TW, (Weekday(0), 1000m), (Weekday(1), 700m));
 
             var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
-            var lastBusinessDay = LastBusinessDayOnOrBefore(DateOnly.FromDateTime(DateTime.UtcNow));
+            var lastBusinessDay = LastBusinessDayOnOrBefore(FixedToday);
             var expectedUnderwaterDays = (lastBusinessDay.ToDateTime(TimeOnly.MinValue)
                 - Weekday(0).ToDateTime(TimeOnly.MinValue)).Days;
 
@@ -164,13 +178,6 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             while (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) date = date.AddDays(-1);
             return date;
-        }
-
-        private static DateOnly MostRecentMonday(DateOnly from)
-        {
-            var d = from;
-            while (d.DayOfWeek != DayOfWeek.Monday) d = d.AddDays(-1);
-            return d;
         }
 
         private static DateOnly Weekday(int businessDaysOffset)

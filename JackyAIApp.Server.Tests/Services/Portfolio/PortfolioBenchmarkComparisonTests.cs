@@ -17,14 +17,19 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// GetBenchmarkComparisonAsync simulates "what if every contribution had bought the benchmark
     /// instead" — driven by the exact same cost-basis-delta contribution proxy
     /// ComputeAnnualizedReturn (XIRR) already uses. These tests pin the unit-buying/selling math and
-    /// the cost-tracked-only universe on both sides. Same fixed-past-Monday date pattern as the
-    /// other portfolio history tests, for the same day-of-week-stability reason.
+    /// the cost-tracked-only universe on both sides. Anchor date and "today" are both pinned via an
+    /// injected TimeProvider rather than derived from the real clock — see PortfolioDrawdownTests
+    /// for why a relative-to-real-now anchor drifts out of the service's own lookback window over
+    /// time.
     /// </summary>
     public class PortfolioBenchmarkComparisonTests : IDisposable
     {
         private const string TestUserId = "benchmark-test-user";
 
-        private static readonly DateOnly AnchorMonday = MostRecentMonday(DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-28));
+        // Monday, fixed — not derived from the real clock (see class docs).
+        private static readonly DateOnly AnchorMonday = new(2026, 7, 20);
+        // Comfortably inside the 30-day window every test here queries with, regardless of the real date.
+        private static readonly DateOnly FixedToday = AnchorMonday.AddDays(20);
 
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<IMarketDataProviderFactory> _providerFactory;
@@ -62,7 +67,13 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 cache,
                 openAI.Object,
                 creditService.Object,
-                NullLogger<PortfolioService>.Instance);
+                NullLogger<PortfolioService>.Instance,
+                new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)));
+        }
+
+        private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider
+        {
+            public override DateTimeOffset GetUtcNow() => now;
         }
 
         public void Dispose() => _dbContext.Dispose();
@@ -194,13 +205,6 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
-
-        private static DateOnly MostRecentMonday(DateOnly from)
-        {
-            var d = from;
-            while (d.DayOfWeek != DayOfWeek.Monday) d = d.AddDays(-1);
-            return d;
-        }
 
         private static DateOnly Weekday(int businessDaysOffset)
         {
