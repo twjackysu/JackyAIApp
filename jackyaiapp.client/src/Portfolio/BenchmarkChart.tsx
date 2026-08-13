@@ -13,6 +13,7 @@ import { MASK, usePrivacy } from './privacy';
 
 import { useGetBenchmarkComparisonQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
+import { fmtCompact, fmtNum } from '@/utils/format';
 
 const RANGES: { label: string; days: number }[] = [
   { label: '3M', days: 90 },
@@ -83,9 +84,7 @@ export function BenchmarkChart() {
         const p = params as { axisValue: string; seriesName: string; value: number }[];
         const date = p[0]?.axisValue ?? '';
         const lines = p.map((s) =>
-          mode === 'full'
-            ? `${s.seriesName}：NT$${s.value.toLocaleString('zh-TW')}`
-            : `${s.seriesName}：${MASK}`,
+          mode === 'full' ? `${s.seriesName}：NT$${fmtNum(s.value)}` : `${s.seriesName}：${MASK}`,
         );
         return [`<b>${date}</b>`, ...lines].join('<br/>');
       },
@@ -104,12 +103,7 @@ export function BenchmarkChart() {
       type: 'value',
       // Mask the scale numbers unless fully visible — matches NetWorthChart's convention.
       axisLabel: {
-        formatter: (v: number) =>
-          mode !== 'full'
-            ? ''
-            : Math.abs(v) >= 1_000_000
-              ? `${(v / 1_000_000).toFixed(1)}M`
-              : `${v}`,
+        formatter: (v: number) => (mode !== 'full' ? '' : fmtCompact(v)),
       },
     },
     series: [

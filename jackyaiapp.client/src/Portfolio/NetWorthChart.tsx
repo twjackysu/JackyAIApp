@@ -12,6 +12,7 @@ import { MASK, usePrivacy } from './privacy';
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { NetWorthDataPoint, NetWorthGroupBy, NetWorthGroupValue } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
+import { fmtCompact } from '@/utils/format';
 
 const RANGES: { label: string; days: number }[] = [
   { label: '1M', days: 30 },
@@ -233,16 +234,9 @@ function colorForKey(key: string): string {
   return paletteColor(Math.abs(hash) % (TABLEAU20_DARK.length * 50));
 }
 
-const fmt = (n: number) => {
-  // Negating a zero liability produces JS's negative zero, which toLocaleString renders
-  // as the string "-0" — normalize it away first (n === 0 is true for both +0 and -0).
-  const v = n === 0 ? 0 : n;
-  // Compare by magnitude, not value — some groups (e.g. Liability) are negative, and a debt
-  // over 1M should still get the "-X.XXM" treatment instead of a raw number.
-  return Math.abs(v) >= 1_000_000
-    ? `${(v / 1_000_000).toFixed(2)}M`
-    : v.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
-};
+// Some groups (e.g. Liability) are negative — fmtCompact already compares by magnitude, so a
+// debt over 1M still gets the "-X.XM" treatment instead of a raw number.
+const fmt = fmtCompact;
 
 export function NetWorthChart() {
   const [days, setDays] = useState(90);
