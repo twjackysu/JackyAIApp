@@ -1,6 +1,6 @@
 import { MASK, PrivacyMode } from './privacy';
 
-import { ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
+import { ECOption } from '@/charts/echarts';
 import { fmtCompactTWD } from '@/utils/format';
 
 export const MAX_ITEM_BARS = 7;

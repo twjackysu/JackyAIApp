@@ -13,10 +13,10 @@ import { useMemo } from 'react';
 
 import type { IndicatorSeries } from '@/apis/financeApis/types';
 import type { ApiErrorResponse } from '@/apis/types';
-import type { ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
+import type { ECOption } from '@/charts/echarts';
 
 import { useGetIndicatorsQuery, useLazyGetIndicatorInsightQuery } from '@/apis/financeApis';
-import { echarts } from '@/DataAnalysis/components/summarizeChart/echarts';
+import { echarts } from '@/charts/echarts';
 import { fmtNum } from '@/utils/format';
 
 // echarts-for-react ships CJS only; the default import may arrive wrapped.

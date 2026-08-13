@@ -9,9 +9,9 @@ import { useMemo } from 'react';
 import { formatNumber, formatROCDate } from './format';
 
 import type { SectorIndex } from '@/apis/financeApis/types';
-import type { ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
+import type { ECOption } from '@/charts/echarts';
 
-import { echarts } from '@/DataAnalysis/components/summarizeChart/echarts';
+import { echarts } from '@/charts/echarts';
 
 // echarts-for-react ships CJS only; the default import may arrive wrapped.
 const ReactECharts =

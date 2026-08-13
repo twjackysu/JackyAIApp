@@ -19,8 +19,8 @@ import { usePrivacy } from './privacy';
 
 import { useGetHoldingPriceHistoryQuery, useLazyGetAiTechSummaryQuery } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
+import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import MarkdownMessage from '@/components/MarkdownMessage';
-import { ECHARTS_THEME, ECOption } from '@/DataAnalysis/components/summarizeChart/echarts';
 
 interface Props {
   position: PositionDto | null;
