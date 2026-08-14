@@ -105,12 +105,20 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal? DayChangePct { get; set; }
         // Net market exposure: Σ market value × exposure factor (leveraged ETFs amplify, bonds count as 0).
         public decimal MarketExposureTWD { get; set; }
-        public decimal ExposureRatioPct { get; set; } // exposure ÷ net worth (incl. real estate) × 100 (can exceed 100 with leverage)
-        // Same numerator, denominator excludes RealEstateTWD — "how leveraged is just the liquid
-        // portfolio", without a large real-estate value (which carries zero exposure itself, see
-        // PortfolioExposure.Factor) diluting the ratio and making it look less leveraged than the
-        // liquid holdings alone actually are.
-        public decimal LiquidExposureRatioPct { get; set; }
+        // Exposure ÷ liquid net worth (liquid gross assets − liability) × 100 — "how leveraged am
+        // I". Real estate is excluded from the denominator: it can't be liquidated to meet a
+        // margin call, so counting it would dilute exactly the risk this is meant to surface.
+        // Null once liquid net worth hits 0 — the ratio's singularity sits precisely at
+        // insolvency, where it explodes and then flips to a meaningless negative, so the UI shows
+        // 資不抵債 rather than a number. Use DrawdownBufferPct below to read that region.
+        public decimal? LiquidExposureRatioPct { get; set; }
+        // The reciprocal: liquid net worth ÷ exposure × 100 — "how far the market can fall before
+        // liquid net worth reaches zero" (solve netWorth + exposure × f = 0). Well-behaved exactly
+        // where the ratio above isn't: the denominator can't go negative, so this stays monotonic
+        // and continuous straight through insolvency (negative = already underwater), and only
+        // degenerates at zero exposure — the safest possible state, hence null → "無市場曝險".
+        // Assumes all positions move together at beta 1; a conservative approximation, not precise.
+        public decimal? DrawdownBufferPct { get; set; }
         public List<PositionDto> Positions { get; set; } = [];
     }
 

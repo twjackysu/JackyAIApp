@@ -103,7 +103,51 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // Exposure is only the stock (factor 1) = 1,000,000; liability contributes 0 to the numerator
             // but does shrink the denominator, so the ratio is higher than if debt were ignored.
             Assert.Equal(1_000_000m, summary.MarketExposureTWD);
-            Assert.Equal(83.3m, summary.ExposureRatioPct);
+            Assert.Equal(83.3m, summary.LiquidExposureRatioPct);
+            // Reciprocal: a 120% market-wide fall would be needed to zero out the 1,200,000 of
+            // liquid net worth backing 1,000,000 of exposure.
+            Assert.Equal(120m, summary.DrawdownBufferPct);
+        }
+
+        [Fact]
+        public async Task GetSummary_LeveragedAndInsolvent_ExposureRatioIsNullButBufferGoesNegative()
+        {
+            // The exact scenario that motivated splitting these two gauges apart: debt exceeds
+            // liquid assets, so liquid net worth is negative. exposure ÷ equity would produce a
+            // meaningless negative percentage that reads as *safer* than a large positive one, so
+            // it's suppressed entirely; the buffer stays continuous and correctly reads negative
+            // (already past zero).
+            SetupStockPrice("00631L", price: 100m);
+
+            await SeedSnapshotAsync(
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "00631L", Name = "元大台灣50正2",
+                    Market = "TW", Currency = "TWD", Quantity = 5_000,
+                },
+                new HoldingPosition { AssetType = AssetType.LIABILITY, Name = "貸款", Currency = "TWD", Quantity = 1_500_000 });
+
+            var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
+
+            // Liquid net worth = 500,000 (stock) - 1,500,000 (debt) = -1,000,000.
+            // 00631L carries a 2x exposure factor, so exposure = 1,000,000.
+            Assert.Equal(1_000_000m, summary.MarketExposureTWD);
+            Assert.Null(summary.LiquidExposureRatioPct);
+            Assert.Equal(-100m, summary.DrawdownBufferPct); // -1,000,000 / 1,000,000 * 100
+        }
+
+        [Fact]
+        public async Task GetSummary_NoMarketExposure_BufferIsNullRatherThanDivideByZero()
+        {
+            // The buffer's only degenerate case — and unlike the ratio's, it sits at the *safest*
+            // possible state (nothing at risk), so the UI can render it as 無市場曝險.
+            await SeedSnapshotAsync(
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 500_000 });
+
+            var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
+
+            Assert.Equal(0m, summary.MarketExposureTWD);
+            Assert.Null(summary.DrawdownBufferPct);
         }
 
         [Fact]

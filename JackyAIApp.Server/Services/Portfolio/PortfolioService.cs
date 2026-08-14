@@ -437,6 +437,12 @@ namespace JackyAIApp.Server.Services.Portfolio
             // and shouldn't dilute a price-driven %, and liability isn't netted out so a mortgage
             // doesn't inflate the ratio the way "÷ (assets - debt)" would.
             var liquidGrossAssetsTWD = twStock + usStock + cash + fund;
+            // Liquid assets net of debt — the actual equity backing a leveraged position, and the
+            // only sensible base for the two leverage gauges below. Real estate is excluded on
+            // purpose: a house can't be liquidated to meet a margin call, so counting it would
+            // dilute exactly the risk these gauges exist to surface. `liability` is already
+            // negative here (see the sign-flip invariant at the single valuation point above).
+            var liquidNetWorthTWD = liquidGrossAssetsTWD + liability;
 
             return new PortfolioSummaryDto
             {
@@ -465,10 +471,22 @@ namespace JackyAIApp.Server.Services.Portfolio
                     ? Math.Round(totalReturnPnlTWD / liquidGrossAssetsTWD * 100, 2) : 0,
                 AnnualizedReturnPct = annualizedReturnPct,
                 MarketExposureTWD = equityExposureTWD,
-                ExposureRatioPct = netWorthTWD > 0 ? Math.Round(equityExposureTWD / netWorthTWD * 100, 1) : 0,
-                LiquidExposureRatioPct = netWorthTWD - realEstate > 0
-                    ? Math.Round(equityExposureTWD / (netWorthTWD - realEstate) * 100, 1)
-                    : 0,
+                LiquidExposureRatioPct = liquidNetWorthTWD > 0
+                    ? Math.Round(equityExposureTWD / liquidNetWorthTWD * 100, 1)
+                    : null,
+                // Fraction of a market-wide decline that would wipe liquid net worth out. Solving
+                // `netWorth + exposure * f = 0` for f gives f = -netWorth / exposure, so this is
+                // exactly (liquid net worth ÷ exposure) — the reciprocal of the exposure ratio
+                // above, which is the whole point: exposure/equity has its singularity at equity=0
+                // (the most dangerous moment, where it explodes then flips sign and reads as a
+                // meaningless negative), while equity/exposure divides by a quantity that can't go
+                // negative and only degenerates at exposure=0 — the *safest* state, trivially
+                // rendered as "no market exposure". Negative values are meaningful here: already
+                // insolvent. Assumes every position moves together at beta 1, so it's a
+                // deliberately conservative approximation, not a precise risk figure.
+                DrawdownBufferPct = equityExposureTWD > 0
+                    ? Math.Round(liquidNetWorthTWD / equityExposureTWD * 100, 1)
+                    : null,
                 DayChangeTWD = dayChangeTWD,
                 DayChangePct = dayChangePct,
                 Positions = positions.OrderByDescending(p => p.MarketValueTWD).ToList(),
