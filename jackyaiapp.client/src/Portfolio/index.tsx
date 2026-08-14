@@ -343,6 +343,17 @@ function AllocationRow({
   );
 }
 
+/** Thresholds are read as "a market fall of this size is how far you are from zero": under 10% is
+ * within a single bad week, under 25% is within a normal correction. Deliberately coarse — the
+ * underlying figure assumes every position moves together, so finer bands would imply a precision
+ * it doesn't have. */
+function drawdownBufferColor(bufferPct: number): string {
+  if (bufferPct <= 0) return '#ef4444';
+  if (bufferPct < 10) return '#ef4444';
+  if (bufferPct < 25) return '#f59e0b';
+  return '#22c55e';
+}
+
 function AllocationCard({
   twStock,
   usStock,
@@ -352,8 +363,8 @@ function AllocationCard({
   liability,
   usdTwdRate,
   exposure,
-  exposureRatio,
   liquidExposureRatio,
+  drawdownBuffer,
 }: {
   twStock: number;
   usStock: number;
@@ -363,8 +374,8 @@ function AllocationCard({
   liability: number;
   usdTwdRate: number;
   exposure: number;
-  exposureRatio: number;
-  liquidExposureRatio: number;
+  liquidExposureRatio: number | null;
+  drawdownBuffer: number | null;
 }) {
   const { value, showRatio } = usePrivacy();
   // Percentages are of gross assets (before subtracting debt), not net worth — otherwise
@@ -429,28 +440,37 @@ function AllocationCard({
           </Typography>
           <Typography variant="body2" color="text.secondary">
             NT${value(fmt(exposure))}
-            {/* No real estate: exposureRatio and liquidExposureRatio are the same number (same
-                numerator, same denominator), so a single %  is shown inline like every other row
-                here — the two-ratio split below only matters once real estate is in the mix. */}
-            {showRatio && realEstate === 0 ? ` (${exposureRatio.toFixed(1)}%)` : ''}
+            {/* Ratio is null once liquid net worth reaches 0 — at that point exposure ÷ equity
+                explodes and then flips to a negative number that misleadingly reads as *safer*
+                than a large positive one, so show the state in words instead. */}
+            {showRatio
+              ? liquidExposureRatio != null
+                ? ` (${liquidExposureRatio.toFixed(1)}%)`
+                : ' (資不抵債)'
+              : ''}
           </Typography>
         </Box>
-        {/* Same NT$ numerator as above (shown once, not repeated) — only the denominator differs:
-            含不動產 divides by total net worth, 僅動產 excludes real estate (which carries 0
-            exposure but still dilutes the "含不動產" ratio). Formatted identically to each other
-            so neither reads as more/less authoritative than the other. */}
-        {realEstate > 0 && showRatio && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 0.5 }}>
+        {/* The reciprocal of the ratio above, and the reason both are shown: exposure ÷ equity is
+            the intuitive "how levered am I" reading but breaks down exactly at insolvency, while
+            equity ÷ exposure stays monotonic and continuous straight through it. Phrased as a
+            drawdown the user can feel (a 6% market fall is a bad day; 20% is a correction) rather
+            than an abstract ratio. */}
+        {showRatio && drawdownBuffer != null && (
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
             <Typography variant="caption" color="text.secondary">
-              含不動產 {exposureRatio.toFixed(1)}%
+              抗跌空間
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              僅動產 {liquidExposureRatio.toFixed(1)}%
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: 700, color: drawdownBufferColor(drawdownBuffer) }}
+            >
+              {drawdownBuffer > 0 ? `再跌 ${drawdownBuffer.toFixed(1)}% 歸零` : '淨值已為負'}
             </Typography>
           </Box>
         )}
         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-          正2 ×2、債券/現金/負債/不動產 0；可 &gt;100% 表示槓桿
+          正2 ×2、債券/現金/負債/不動產 0；曝險可 &gt;100%
+          表示槓桿。抗跌空間假設所有部位同幅漲跌，為保守估計。
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
           USD/TWD = {usdTwdRate.toFixed(2)}
@@ -568,8 +588,8 @@ export default function Portfolio() {
               <Grid size={{ xs: 12, md: 4 }}>
                 <AllocationCard
                   exposure={summary.marketExposureTWD}
-                  exposureRatio={summary.exposureRatioPct}
                   liquidExposureRatio={summary.liquidExposureRatioPct}
+                  drawdownBuffer={summary.drawdownBufferPct}
                   twStock={summary.twStockTWD}
                   usStock={summary.usStockTWD}
                   cash={summary.cashTWD}

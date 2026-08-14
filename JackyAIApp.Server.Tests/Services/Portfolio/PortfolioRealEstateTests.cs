@@ -99,15 +99,18 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // artificially low if real estate weren't counted, or artificially high if it were
             // counted toward net worth but not excluded from the exposure numerator.
             Assert.Equal(1_000_000m, summary.MarketExposureTWD);
-            Assert.Equal(5.7m, summary.ExposureRatioPct); // 1,000,000 / 17,500,000 * 100, rounded
-            // Excluding real estate from the denominator (liquid net worth = 1,500,000) shows the
-            // liquid portfolio is actually far more leveraged than the "含不動產" ratio implies —
-            // this is the whole point of exposing both numbers.
+            // Denominator is liquid net worth (1,000,000 stock + 9,500,000 cash - 9,000,000
+            // liability = 1,500,000), NOT total net worth — real estate is deliberately excluded,
+            // since a house can't be liquidated to meet a margin call, so counting it would make
+            // the liquid portfolio look far less leveraged than it actually is.
             Assert.Equal(66.7m, summary.LiquidExposureRatioPct); // 1,000,000 / 1,500,000 * 100, rounded
+            // The reciprocal: a 150% market-wide fall would be needed to wipe out liquid net
+            // worth (i.e. comfortably safe — exposure is smaller than the equity backing it).
+            Assert.Equal(150m, summary.DrawdownBufferPct); // 1,500,000 / 1,000,000 * 100
         }
 
         [Fact]
-        public async Task GetSummary_NoRealEstate_LiquidExposureRatioMatchesRegularRatio()
+        public async Task GetSummary_NoRealEstate_LiquidExposureRatioUsesLiquidNetWorth()
         {
             SetupStockPrice("2330", price: 1000m);
 
@@ -119,8 +122,10 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
 
-            // No real estate to exclude — both ratios collapse to the same value.
-            Assert.Equal(summary.ExposureRatioPct, summary.LiquidExposureRatioPct);
+            // No real estate and no liability — liquid net worth equals total net worth, so an
+            // unlevered single position sits at exactly 100% exposure with a 100% buffer.
+            Assert.Equal(100m, summary.LiquidExposureRatioPct);
+            Assert.Equal(100m, summary.DrawdownBufferPct);
         }
 
         [Fact]
