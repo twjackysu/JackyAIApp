@@ -101,22 +101,26 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // Net worth = 1,000,000 (stock) + 500,000 (cash) - 300,000 (liability) = 1,200,000
             Assert.Equal(1_200_000m, summary.TotalNetWorthTWD);
             // Exposure is only the stock (factor 1) = 1,000,000; liability contributes 0 to the numerator
-            // but does shrink the denominator, so the ratio is higher than if debt were ignored.
+            // but does shrink the denominator, so the multiple is higher than if debt were ignored.
             Assert.Equal(1_000_000m, summary.MarketExposureTWD);
-            Assert.Equal(83.3m, summary.LiquidExposureRatioPct);
-            // Reciprocal: a 120% market-wide fall would be needed to zero out the 1,200,000 of
-            // liquid net worth backing 1,000,000 of exposure.
+            // 水位 divides by GROSS liquid assets (1,500,000) — debt not netted out.
+            Assert.Equal(66.7m, summary.ExposureOfLiquidAssetsPct);
+            // 槓桿 divides by NET (1,200,000) — under 1x, so this position isn't actually levered.
+            Assert.Equal(0.83m, summary.LiquidExposureMultiple);
+            // Reciprocal of the multiple: a 120% market-wide fall would be needed to zero out the
+            // 1,200,000 of liquid net worth backing 1,000,000 of exposure.
             Assert.Equal(120m, summary.DrawdownBufferPct);
         }
 
         [Fact]
-        public async Task GetSummary_LeveragedAndInsolvent_ExposureRatioIsNullButBufferGoesNegative()
+        public async Task GetSummary_LeveragedAndInsolvent_LeverageMultipleIsNullButBufferGoesNegative()
         {
-            // The exact scenario that motivated splitting these two gauges apart: debt exceeds
-            // liquid assets, so liquid net worth is negative. exposure ÷ equity would produce a
-            // meaningless negative percentage that reads as *safer* than a large positive one, so
+            // The exact scenario that motivated splitting these gauges apart: debt exceeds liquid
+            // assets, so liquid net worth is negative. exposure ÷ equity would produce a
+            // meaningless negative multiple that reads as *safer* than a large positive one, so
             // it's suppressed entirely; the buffer stays continuous and correctly reads negative
-            // (already past zero).
+            // (already past zero). 水位 divides by gross assets, which can't go negative, so it
+            // keeps reporting normally throughout.
             SetupStockPrice("00631L", price: 100m);
 
             await SeedSnapshotAsync(
@@ -132,8 +136,11 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // Liquid net worth = 500,000 (stock) - 1,500,000 (debt) = -1,000,000.
             // 00631L carries a 2x exposure factor, so exposure = 1,000,000.
             Assert.Equal(1_000_000m, summary.MarketExposureTWD);
-            Assert.Null(summary.LiquidExposureRatioPct);
+            Assert.Null(summary.LiquidExposureMultiple);
             Assert.Equal(-100m, summary.DrawdownBufferPct); // -1,000,000 / 1,000,000 * 100
+            // Gross liquid assets are still 500,000, so 水位 is a healthy-looking 200% — which is
+            // exactly why it can't stand alone as the risk gauge: it says nothing about the debt.
+            Assert.Equal(200m, summary.ExposureOfLiquidAssetsPct);
         }
 
         [Fact]
