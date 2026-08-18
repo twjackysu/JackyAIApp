@@ -26,9 +26,11 @@ import { DrawdownChart } from './DrawdownChart';
 import { drawdownBufferColor, EXPOSURE_TOOLTIP } from './exposureGauges';
 import { loadFeeDiscountRate, saveFeeDiscountRate } from './feeDiscountRate';
 import { FeeSettingsDialog } from './FeeSettingsDialog';
+import { FinancialChangesChart } from './FinancialChangesChart';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
 import { NetWorthChart } from './NetWorthChart';
+import { NetWorthTrendChart } from './NetWorthTrendChart';
 import { usePortfolioTour } from './onboardingTour';
 import { exportNetWorthCsv, exportPortfolioCsv } from './portfolioExport';
 import { fmtNum as fmt, pnlColor } from './portfolioUtils';
@@ -628,6 +630,23 @@ export default function Portfolio() {
               </Grid>
             </Grid>
 
+            {/* Three charts answering three different questions, deliberately not merged:
+                trend ("better or worse off?"), composition ("what am I holding?"), and change
+                ("how much moved this period?"). The composition chart alone used to carry all
+                three jobs, which is why a 20k move against 10M of assets was invisible on it. */}
+            <Card
+              elevation={0}
+              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                  淨值走勢
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <NetWorthTrendChart />
+              </CardContent>
+            </Card>
+
             <Card
               data-tour="portfolio-tour-chart"
               elevation={0}
@@ -635,10 +654,23 @@ export default function Portfolio() {
             >
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                  資產淨值走勢
+                  資產與負債組成
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 <NetWorthChart />
+              </CardContent>
+            </Card>
+
+            <Card
+              elevation={0}
+              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
+            >
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                  淨值變化量
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <FinancialChangesChart />
               </CardContent>
             </Card>
 
