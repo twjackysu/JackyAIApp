@@ -22,12 +22,15 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         // longest-listed constituent and consistently has director-holding disclosures.
         private const string KnownStock = "2330";
 
-        private static async Task<JsonElement> FetchArrayAsync(string path)
+        /// <summary>Null when the endpoint timed out — callers must early-return on that (see
+        /// <see cref="LiveContractBase.TryFetchStringAsync"/> for why a timeout is inconclusive
+        /// rather than a contract break). Several of these paths are whole-market dumps in the
+        /// 1–10MB range, which is what makes timeouts a realistic outcome here at all.</summary>
+        private static async Task<JsonElement?> FetchArrayAsync(string path)
         {
-            using var response = await Http.GetAsync($"{BaseUrl}/{path}");
-            Assert.True(response.IsSuccessStatusCode, $"TWSE {path} request failed: HTTP {(int)response.StatusCode}");
+            var json = await TryFetchStringAsync($"{BaseUrl}/{path}", $"TWSE {path}");
+            if (json is null) return null;
 
-            var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement.Clone();
             Assert.True(root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0,
@@ -51,7 +54,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [MemberData(nameof(TodaysTwCompanyPicks))]
         public async Task BWIBBU_d_ForTodaysRandomPicks_HasValuationFields(string symbol)
         {
-            var data = await FetchArrayAsync("exchangeReport/BWIBBU_d");
+            if (await FetchArrayAsync("exchangeReport/BWIBBU_d") is not { } data) return;
             var stock = data.EnumerateArray().FirstOrDefault(r => r.TryGetProperty("Code", out var c) && c.GetString() == symbol);
             Assert.True(stock.ValueKind != JsonValueKind.Undefined,
                 $"[BWIBBU_d/{symbol}] no row with Code=='{symbol}' — TWSEFundamentalDataProvider.FetchValuationData filters on this field.");
@@ -67,7 +70,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [MemberData(nameof(TodaysTwCompanyPicks))]
         public async Task Revenue_t187ap05_L_ForTodaysRandomPicks_HasUsableMonthlyRevenue(string symbol)
         {
-            var data = await FetchArrayAsync("opendata/t187ap05_L");
+            if (await FetchArrayAsync("opendata/t187ap05_L") is not { } data) return;
             var stock = data.EnumerateArray().FirstOrDefault(r =>
                 r.TryGetProperty("公司代號", out var c) && c.GetString()?.Trim() == symbol);
             Assert.True(stock.ValueKind != JsonValueKind.Undefined,
@@ -88,7 +91,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [MemberData(nameof(TodaysTwCompanyPicks))]
         public async Task Eps_t187ap14_L_ForTodaysRandomPicks_HasUsableEpsFields(string symbol)
         {
-            var data = await FetchArrayAsync("opendata/t187ap14_L");
+            if (await FetchArrayAsync("opendata/t187ap14_L") is not { } data) return;
             var stock = data.EnumerateArray().FirstOrDefault(r =>
                 r.TryGetProperty("公司代號", out var c) && c.GetString()?.Trim() == symbol);
             Assert.True(stock.ValueKind != JsonValueKind.Undefined,
@@ -109,7 +112,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [MemberData(nameof(TodaysTwStockPicks))]
         public async Task StockDayAll_ForTodaysRandomPicks_HasPositiveClosingPrice(string symbol)
         {
-            var data = await FetchArrayAsync("exchangeReport/STOCK_DAY_ALL");
+            if (await FetchArrayAsync("exchangeReport/STOCK_DAY_ALL") is not { } data) return;
             var stock = data.EnumerateArray().FirstOrDefault(r => r.TryGetProperty("Code", out var c) && c.GetString() == symbol);
             Assert.True(stock.ValueKind != JsonValueKind.Undefined,
                 $"[STOCK_DAY_ALL/{symbol}] no row with Code=='{symbol}' — TWSEFundamentalDataProvider.FetchLatestPrice filters on this field.");
@@ -124,7 +127,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [Fact]
         public async Task FMTQIK_HasUsableMarketIndexRows()
         {
-            var data = await FetchArrayAsync("exchangeReport/FMTQIK");
+            if (await FetchArrayAsync("exchangeReport/FMTQIK") is not { } data) return;
             var first = data[0];
 
             Assert.True(first.TryGetProperty("Date", out var date) && !string.IsNullOrEmpty(date.GetString()),
@@ -141,7 +144,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [Fact]
         public async Task MI_INDEX_HasWeightedIndexAmongKeySectors()
         {
-            var data = await FetchArrayAsync("exchangeReport/MI_INDEX");
+            if (await FetchArrayAsync("exchangeReport/MI_INDEX") is not { } data) return;
             var weighted = data.EnumerateArray().FirstOrDefault(r =>
                 r.TryGetProperty("指數", out var name) && name.GetString() == "發行量加權股價指數");
             Assert.True(weighted.ValueKind != JsonValueKind.Undefined,
@@ -158,7 +161,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [Fact]
         public async Task MI_MARGN_HasUsableMarginFieldsAcrossRows()
         {
-            var data = await FetchArrayAsync("exchangeReport/MI_MARGN");
+            if (await FetchArrayAsync("exchangeReport/MI_MARGN") is not { } data) return;
             var first = data[0];
 
             Assert.True(first.TryGetProperty("融資買進", out _), "[MI_MARGN] '融資買進' field missing.");
@@ -175,7 +178,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [MemberData(nameof(TodaysTwCompanyPicks))]
         public async Task ChipMI_MARGN_ForTodaysRandomPicks_HasPerStockMarginFields(string symbol)
         {
-            var data = await FetchArrayAsync("exchangeReport/MI_MARGN");
+            if (await FetchArrayAsync("exchangeReport/MI_MARGN") is not { } data) return;
             var stock = data.EnumerateArray().FirstOrDefault(r =>
                 r.TryGetProperty("股票代號", out var c) && c.GetString()?.Trim() == symbol);
             Assert.True(stock.ValueKind != JsonValueKind.Undefined,
@@ -192,7 +195,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
             // Only the top-20 stocks by foreign holding appear here, so a randomly-picked stock is
             // very unlikely to be present — assert on the endpoint's overall shape instead
             // (THIRD_PARTY_CONTRACT_TESTS_PLAN.md section 4.2/task instructions).
-            var data = await FetchArrayAsync("fund/MI_QFIIS_sort_20");
+            if (await FetchArrayAsync("fund/MI_QFIIS_sort_20") is not { } data) return;
             var first = data[0];
 
             Assert.True(first.TryGetProperty("Code", out var code) && !string.IsNullOrEmpty(code.GetString()),
@@ -208,7 +211,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [Fact]
         public async Task SBL_TWT96U_ForKnownStock_HasAvailableVolume()
         {
-            var data = await FetchArrayAsync("SBL/TWT96U");
+            if (await FetchArrayAsync("SBL/TWT96U") is not { } data) return;
             var stock = data.EnumerateArray().FirstOrDefault(r =>
                 r.TryGetProperty("TWSECode", out var c) && c.GetString()?.Trim() == KnownStock);
             Assert.True(stock.ValueKind != JsonValueKind.Undefined,
@@ -222,7 +225,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         {
             // Not every stock has recent director-holding disclosures; 2330 (TSMC) reliably does,
             // so this uses a fixed known-good company rather than a random pool pick.
-            var data = await FetchArrayAsync("opendata/t187ap11_L");
+            if (await FetchArrayAsync("opendata/t187ap11_L") is not { } data) return;
             var rows = data.EnumerateArray().Where(r =>
                 r.TryGetProperty("公司代號", out var c) && c.GetString()?.Trim() == KnownStock).ToList();
             Assert.True(rows.Count > 0,
@@ -241,7 +244,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         {
             // Not every stock has a >10% single shareholder to report, so this asserts on the
             // endpoint's overall shape rather than requiring a specific company to appear.
-            var data = await FetchArrayAsync("opendata/t187ap02_L");
+            if (await FetchArrayAsync("opendata/t187ap02_L") is not { } data) return;
             var first = data[0];
 
             Assert.True(first.TryGetProperty("公司代號", out var code) && !string.IsNullOrEmpty(code.GetString()),
@@ -254,7 +257,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [MemberData(nameof(TodaysTwStockPicks))]
         public async Task DayTradingSuspension_TWTB4U_ForTodaysRandomPicks_HasSuspensionField(string symbol)
         {
-            var data = await FetchArrayAsync("exchangeReport/TWTB4U");
+            if (await FetchArrayAsync("exchangeReport/TWTB4U") is not { } data) return;
             var stock = data.EnumerateArray().FirstOrDefault(r => r.TryGetProperty("Code", out var c) && c.GetString() == symbol);
             Assert.True(stock.ValueKind != JsonValueKind.Undefined,
                 $"[TWTB4U/{symbol}] no row with Code=='{symbol}' — TWSEChipDataProvider.FetchDayTradingAsync filters on this field.");
@@ -266,7 +269,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [Fact]
         public async Task CompanyList_t187ap03_L_HasUsableCodeAndNameFields()
         {
-            var data = await FetchArrayAsync("opendata/t187ap03_L");
+            if (await FetchArrayAsync("opendata/t187ap03_L") is not { } data) return;
             var stock = data.EnumerateArray().FirstOrDefault(r =>
                 r.TryGetProperty("公司代號", out var c) && c.GetString()?.Trim() == KnownStock);
             Assert.True(stock.ValueKind != JsonValueKind.Undefined,

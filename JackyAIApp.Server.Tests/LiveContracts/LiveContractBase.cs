@@ -23,16 +23,59 @@ namespace JackyAIApp.Server.Tests.LiveContracts
 
         private static HttpClient CreateHttpClient()
         {
-            // 15s used to be enough, but TWSE's opendata/t187ap11_L (董監事持股, every listed
-            // company's director-holdings disclosures) returns a genuinely large payload (~10MB) —
-            // verified locally at ~9s over a plain curl, well within 15s from here, but the
-            // scheduled workflow's GitHub-hosted runner hit the 15s ceiling once (2026-07-27 run).
-            // Not a shape/data bug (50/51 tests passed that run) — just not enough margin for a
-            // slower network path on some runs. Doubled for headroom.
-            var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            // Raised 15s -> 30s -> 100s. TWSE's bulk opendata dumps are big and getting bigger:
+            // t187ap11_L (董監事持股, every listed company's director-holdings disclosures) measured
+            // ~9s/curl when the 30s ceiling was set, and 10.4MB/21.9s from Taiwan as of 2026-08-18.
+            // A GitHub-hosted runner in Azure East US is on a materially worse path to a Taiwanese
+            // government host than a local Taiwanese connection, so ~22s locally leaves no useful
+            // margin at 30s — hence 7 of the last 8 scheduled runs failing on pure timeouts.
+            // 100s is deliberately generous: this is a nightly job, so failing fast buys nothing,
+            // while a false failure costs the entire signal (see TryFetchStringAsync).
+            // Overridable via LIVE_CONTRACT_TIMEOUT_SECONDS so the scheduled workflow can be tuned
+            // without a code change if TWSE's payloads keep growing — and so the skip-on-timeout
+            // path below can be exercised deliberately (set it to 1 and every bulk endpoint skips).
+            var timeoutSeconds =
+                int.TryParse(Environment.GetEnvironmentVariable("LIVE_CONTRACT_TIMEOUT_SECONDS"), out var configured)
+                && configured > 0
+                    ? configured
+                    : 100;
+            var client = new HttpClient { Timeout = TimeSpan.FromSeconds(timeoutSeconds) };
             // Several of these APIs (Yahoo, BOT) reject requests with no/odd User-Agent.
             client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
             return client;
+        }
+
+        /// <summary>
+        /// GETs a URL, returning null if the request times out rather than letting the exception
+        /// fail the test. These tests exist to answer one question — "did the response *shape*
+        /// change so our parsers would break?" — and a timeout answers it with "don't know", not
+        /// "yes". Reporting inconclusive as failure is actively harmful: 7 of the 8 scheduled runs
+        /// before 2026-08-18 were red purely from timeouts on TWSE's bulk endpoints, which trains
+        /// everyone to ignore the workflow and buries any genuine contract break in the noise.
+        ///
+        /// Deliberately narrow — ONLY timeouts are swallowed. A non-success HTTP status, a changed
+        /// payload shape, or a missing field all still fail loudly, so a genuinely broken or
+        /// removed endpoint is still caught. Follows the same "return null, caller returns early"
+        /// convention as <see cref="GetApiKey"/>, since xunit v2 has no dynamic skip.
+        /// </summary>
+        protected static async Task<string?> TryFetchStringAsync(string url, string label)
+        {
+            try
+            {
+                using var response = await Http.GetAsync(url);
+                Assert.True(response.IsSuccessStatusCode,
+                    $"{label} request failed: HTTP {(int)response.StatusCode}");
+                return await response.Content.ReadAsStringAsync();
+            }
+            catch (Exception ex) when (ex is TaskCanceledException or TimeoutException)
+            {
+                // Not Assert.Fail — see the summary above. Surfaced in the test output so a
+                // permanently-unreachable endpoint is still visible to anyone reading the log.
+                Console.WriteLine(
+                    $"[live-contract] SKIPPED {label}: timed out after {Http.Timeout.TotalSeconds:F0}s. " +
+                    "Treated as inconclusive, not a contract break.");
+                return null;
+            }
         }
 
         /// <summary>
