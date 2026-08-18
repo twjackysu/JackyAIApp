@@ -23,6 +23,7 @@ import { BenchmarkChart } from './BenchmarkChart';
 import { ConcentrationCard } from './ConcentrationCard';
 import { ContributionWaterfallChart } from './ContributionWaterfallChart';
 import { DrawdownChart } from './DrawdownChart';
+import { drawdownBufferColor, EXPOSURE_TOOLTIP } from './exposureGauges';
 import { loadFeeDiscountRate, saveFeeDiscountRate } from './feeDiscountRate';
 import { FeeSettingsDialog } from './FeeSettingsDialog';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
@@ -343,17 +344,6 @@ function AllocationRow({
   );
 }
 
-/** Thresholds are read as "a market fall of this size is how far you are from zero": under 10% is
- * within a single bad week, under 25% is within a normal correction. Deliberately coarse — the
- * underlying figure assumes every position moves together, so finer bands would imply a precision
- * it doesn't have. */
-function drawdownBufferColor(bufferPct: number): string {
-  if (bufferPct <= 0) return '#ef4444';
-  if (bufferPct < 10) return '#ef4444';
-  if (bufferPct < 25) return '#f59e0b';
-  return '#22c55e';
-}
-
 function AllocationCard({
   twStock,
   usStock,
@@ -363,7 +353,8 @@ function AllocationCard({
   liability,
   usdTwdRate,
   exposure,
-  liquidExposureRatio,
+  exposureOfLiquidAssets,
+  leverageMultiple,
   drawdownBuffer,
 }: {
   twStock: number;
@@ -374,7 +365,8 @@ function AllocationCard({
   liability: number;
   usdTwdRate: number;
   exposure: number;
-  liquidExposureRatio: number | null;
+  exposureOfLiquidAssets: number | null;
+  leverageMultiple: number | null;
   drawdownBuffer: number | null;
 }) {
   const { value, showRatio } = usePrivacy();
@@ -435,26 +427,64 @@ function AllocationCard({
             alignItems: 'baseline',
           }}
         >
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            市場曝險
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              市場曝險
+            </Typography>
+            {/* All three gauges below share this one numerator and differ only by denominator —
+                the formulas live on hover rather than inline, since spelling them out would leave
+                more explanation than numbers on a card this size. */}
+            <Tooltip title={<Box sx={{ whiteSpace: 'pre-line' }}>{EXPOSURE_TOOLTIP}</Box>}>
+              <HelpOutlineIcon
+                sx={{ fontSize: 14, color: 'text.disabled', cursor: 'help' }}
+                data-tour="portfolio-tour-exposure-help"
+              />
+            </Tooltip>
+          </Box>
           <Typography variant="body2" color="text.secondary">
             NT${value(fmt(exposure))}
-            {/* Ratio is null once liquid net worth reaches 0 — at that point exposure ÷ equity
-                explodes and then flips to a negative number that misleadingly reads as *safer*
-                than a large positive one, so show the state in words instead. */}
-            {showRatio
-              ? liquidExposureRatio != null
-                ? ` (${liquidExposureRatio.toFixed(1)}%)`
-                : ' (資不抵債)'
-              : ''}
           </Typography>
         </Box>
-        {/* The reciprocal of the ratio above, and the reason both are shown: exposure ÷ equity is
-            the intuitive "how levered am I" reading but breaks down exactly at insolvency, while
-            equity ÷ exposure stays monotonic and continuous straight through it. Phrased as a
-            drawdown the user can feel (a 6% market fall is a bad day; 20% is a correction) rather
-            than an abstract ratio. */}
+        {showRatio && (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1,
+              mt: 0.75,
+            }}
+          >
+            {/* 水位 divides by gross assets, 槓桿 by net — the same numerator over two different
+                denominators, so they're given different units (% vs ×) to stop them being read as
+                the same kind of number sitting side by side. */}
+            {exposureOfLiquidAssets != null && (
+              <Typography variant="caption" color="text.secondary">
+                水位{' '}
+                <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                  {exposureOfLiquidAssets.toFixed(1)}%
+                </Box>
+              </Typography>
+            )}
+            <Typography variant="caption" color="text.secondary">
+              槓桿{' '}
+              <Box
+                component="span"
+                sx={{
+                  fontWeight: 700,
+                  // Null exactly at insolvency, where exposure ÷ equity explodes and then flips to
+                  // a negative that misleadingly reads as *safer* than a large positive one.
+                  color: leverageMultiple == null ? '#ef4444' : 'text.primary',
+                }}
+              >
+                {leverageMultiple != null ? `${leverageMultiple.toFixed(2)}×` : '資不抵債'}
+              </Box>
+            </Typography>
+          </Box>
+        )}
+        {/* The leverage multiple's reciprocal, kept alongside it because it stays monotonic and
+            continuous straight through insolvency where the multiple can't. Phrased as a drawdown
+            the user can feel (6% is a bad day, 20% a correction) rather than a bare ratio. */}
         {showRatio && drawdownBuffer != null && (
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
             <Typography variant="caption" color="text.secondary">
@@ -468,10 +498,6 @@ function AllocationCard({
             </Typography>
           </Box>
         )}
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-          正2 ×2、債券/現金/負債/不動產 0；曝險可 &gt;100%
-          表示槓桿。抗跌空間假設所有部位同幅漲跌，為保守估計。
-        </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
           USD/TWD = {usdTwdRate.toFixed(2)}
         </Typography>
@@ -588,7 +614,8 @@ export default function Portfolio() {
               <Grid size={{ xs: 12, md: 4 }}>
                 <AllocationCard
                   exposure={summary.marketExposureTWD}
-                  liquidExposureRatio={summary.liquidExposureRatioPct}
+                  exposureOfLiquidAssets={summary.exposureOfLiquidAssetsPct}
+                  leverageMultiple={summary.liquidExposureMultiple}
                   drawdownBuffer={summary.drawdownBufferPct}
                   twStock={summary.twStockTWD}
                   usStock={summary.usStockTWD}

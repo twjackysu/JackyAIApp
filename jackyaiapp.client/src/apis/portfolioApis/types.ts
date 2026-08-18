@@ -79,11 +79,15 @@ export interface PortfolioSummaryDto {
   // XIRR — includes dividend inflows (含息).
   annualizedReturnPct?: number | null;
   marketExposureTWD: number;
-  // Exposure ÷ liquid net worth (liquid gross assets − liability) × 100 — "how leveraged am I".
-  // Real estate is excluded: it can't be liquidated to meet a margin call. Null once liquid net
-  // worth reaches 0 — the ratio's singularity sits exactly at insolvency, where it explodes and
-  // then flips to a meaningless negative, so render 資不抵債 instead of a number.
-  liquidExposureRatioPct: number | null;
+  // 水位 — exposure ÷ liquid GROSS assets × 100: how much of what's held carries market risk,
+  // ignoring how it was financed. Null only when there are no liquid assets at all.
+  exposureOfLiquidAssetsPct: number | null;
+  // 槓桿 — exposure ÷ liquid NET worth, as a multiple (15.0× reads instantly where 1500% needs
+  // converting, and the different unit keeps it distinct from the percentage above). Real estate
+  // is excluded: it can't be liquidated to meet a margin call. Null once liquid net worth reaches
+  // 0 — the singularity sits exactly at insolvency, where it explodes then flips to a meaningless
+  // negative, so render 資不抵債 instead of a number.
+  liquidExposureMultiple: number | null;
   // The reciprocal: liquid net worth ÷ exposure × 100 — "抗跌空間", how far the market can fall
   // before liquid net worth hits zero. Stays monotonic and continuous through insolvency
   // (negative = already underwater); null only at zero exposure (nothing at risk).

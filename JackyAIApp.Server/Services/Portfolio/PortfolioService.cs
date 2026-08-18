@@ -471,8 +471,15 @@ namespace JackyAIApp.Server.Services.Portfolio
                     ? Math.Round(totalReturnPnlTWD / liquidGrossAssetsTWD * 100, 2) : 0,
                 AnnualizedReturnPct = annualizedReturnPct,
                 MarketExposureTWD = equityExposureTWD,
-                LiquidExposureRatioPct = liquidNetWorthTWD > 0
-                    ? Math.Round(equityExposureTWD / liquidNetWorthTWD * 100, 1)
+                // Deployment level: how much of what's actually held carries market risk, with no
+                // regard for how it was financed. Debt is deliberately NOT netted out here — that's
+                // the whole point of having this alongside the leverage multiple below, which
+                // answers the different question of how big the position is relative to own money.
+                ExposureOfLiquidAssetsPct = liquidGrossAssetsTWD > 0
+                    ? Math.Round(equityExposureTWD / liquidGrossAssetsTWD * 100, 1)
+                    : null,
+                LiquidExposureMultiple = liquidNetWorthTWD > 0
+                    ? Math.Round(equityExposureTWD / liquidNetWorthTWD, 2)
                     : null,
                 // Fraction of a market-wide decline that would wipe liquid net worth out. Solving
                 // `netWorth + exposure * f = 0` for f gives f = -netWorth / exposure, so this is

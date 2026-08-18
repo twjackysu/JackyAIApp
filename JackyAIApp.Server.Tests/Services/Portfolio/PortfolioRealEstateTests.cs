@@ -99,18 +99,20 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // artificially low if real estate weren't counted, or artificially high if it were
             // counted toward net worth but not excluded from the exposure numerator.
             Assert.Equal(1_000_000m, summary.MarketExposureTWD);
-            // Denominator is liquid net worth (1,000,000 stock + 9,500,000 cash - 9,000,000
-            // liability = 1,500,000), NOT total net worth — real estate is deliberately excluded,
-            // since a house can't be liquidated to meet a margin call, so counting it would make
-            // the liquid portfolio look far less leveraged than it actually is.
-            Assert.Equal(66.7m, summary.LiquidExposureRatioPct); // 1,000,000 / 1,500,000 * 100, rounded
-            // The reciprocal: a 150% market-wide fall would be needed to wipe out liquid net
-            // worth (i.e. comfortably safe — exposure is smaller than the equity backing it).
+            // 水位 divides by gross liquid assets (1,000,000 stock + 9,500,000 cash = 10,500,000)
+            // — real estate excluded from both gauges, since a house can't be liquidated to meet
+            // a margin call, so counting it would make the liquid portfolio look far safer than
+            // it is. Debt is not netted out here; that's the leverage multiple's job.
+            Assert.Equal(9.5m, summary.ExposureOfLiquidAssetsPct); // 1,000,000 / 10,500,000
+            // 槓桿 divides by liquid NET worth (10,500,000 - 9,000,000 = 1,500,000).
+            Assert.Equal(0.67m, summary.LiquidExposureMultiple); // 1,000,000 / 1,500,000
+            // The multiple's reciprocal: a 150% market-wide fall would be needed to wipe out
+            // liquid net worth (i.e. exposure is smaller than the equity backing it).
             Assert.Equal(150m, summary.DrawdownBufferPct); // 1,500,000 / 1,000,000 * 100
         }
 
         [Fact]
-        public async Task GetSummary_NoRealEstate_LiquidExposureRatioUsesLiquidNetWorth()
+        public async Task GetSummary_NoRealEstateOrDebt_WaterLevelAndLeverageAgree()
         {
             SetupStockPrice("2330", price: 1000m);
 
@@ -122,9 +124,10 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
 
-            // No real estate and no liability — liquid net worth equals total net worth, so an
-            // unlevered single position sits at exactly 100% exposure with a 100% buffer.
-            Assert.Equal(100m, summary.LiquidExposureRatioPct);
+            // No real estate and no debt — gross and net liquid assets are the same figure, so a
+            // fully-deployed unlevered position reads 100% / 1.00x / 100% across all three.
+            Assert.Equal(100m, summary.ExposureOfLiquidAssetsPct);
+            Assert.Equal(1m, summary.LiquidExposureMultiple);
             Assert.Equal(100m, summary.DrawdownBufferPct);
         }
 

@@ -105,13 +105,20 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal? DayChangePct { get; set; }
         // Net market exposure: Σ market value × exposure factor (leveraged ETFs amplify, bonds count as 0).
         public decimal MarketExposureTWD { get; set; }
-        // Exposure ÷ liquid net worth (liquid gross assets − liability) × 100 — "how leveraged am
-        // I". Real estate is excluded from the denominator: it can't be liquidated to meet a
-        // margin call, so counting it would dilute exactly the risk this is meant to surface.
-        // Null once liquid net worth hits 0 — the ratio's singularity sits precisely at
-        // insolvency, where it explodes and then flips to a meaningless negative, so the UI shows
-        // 資不抵債 rather than a number. Use DrawdownBufferPct below to read that region.
-        public decimal? LiquidExposureRatioPct { get; set; }
+        // 水位 — exposure ÷ liquid GROSS assets × 100: how much of what's actually held carries
+        // market risk, ignoring how it was financed. Debt is deliberately not netted out; that's
+        // what makes this a different reading from the leverage multiple below rather than a
+        // rescaling of it. Null only when there are no liquid assets at all.
+        public decimal? ExposureOfLiquidAssetsPct { get; set; }
+        // 槓桿 — exposure ÷ liquid NET worth (liquid gross assets − liability), as a multiple
+        // rather than a percentage: "15.0×" is read instantly where "1500%" needs converting, and
+        // the different unit stops it being confused with the percentage above when the two sit
+        // side by side. Real estate is excluded from the denominator: it can't be liquidated to
+        // meet a margin call, so counting it would dilute exactly the risk this surfaces. Null
+        // once liquid net worth hits 0 — the singularity sits precisely at insolvency, where this
+        // explodes and then flips to a meaningless negative, so the UI shows 資不抵債 instead.
+        // DrawdownBufferPct below is the reciprocal and stays readable through that region.
+        public decimal? LiquidExposureMultiple { get; set; }
         // The reciprocal: liquid net worth ÷ exposure × 100 — "how far the market can fall before
         // liquid net worth reaches zero" (solve netWorth + exposure × f = 0). Well-behaved exactly
         // where the ratio above isn't: the denominator can't go negative, so this stays monotonic
