@@ -8,6 +8,7 @@ import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
 import { WIDE_RANGES } from './dayRanges';
+import { currentDrawdownStatus } from './drawdownStatus';
 import { RangePicker } from './RangePicker';
 
 import { useGetDrawdownQuery } from '@/apis/portfolioApis';
@@ -49,6 +50,7 @@ export function DrawdownChart() {
   }
 
   const hasDrawdownEpisode = analysis!.maxDrawdownPct < 0;
+  const status = currentDrawdownStatus(analysis!.currentDrawdownPct);
 
   const option: ECOption = {
     tooltip: {
@@ -105,27 +107,25 @@ export function DrawdownChart() {
           <Stat label="目前回撤" value={`${analysis!.currentDrawdownPct.toFixed(2)}%`} />
         </Grid>
         {hasDrawdownEpisode && (
-          <>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <Stat
-                label="水下天數"
-                value={analysis!.underwaterDays != null ? `${analysis!.underwaterDays} 天` : '—'}
-              />
-            </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  復原狀態
-                </Typography>
-                {analysis!.stillUnderwater ? (
-                  <Chip label="尚未復原" size="small" color="warning" sx={{ mt: 0.5 }} />
-                ) : (
-                  <Chip label="已復原" size="small" color="success" sx={{ mt: 0.5 }} />
-                )}
-              </Box>
-            </Grid>
-          </>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Stat
+              label="水下天數"
+              value={analysis!.underwaterDays != null ? `${analysis!.underwaterDays} 天` : '—'}
+            />
+          </Grid>
         )}
+        <Grid size={{ xs: 6, sm: 3 }}>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              目前狀態
+            </Typography>
+            {/* Reports NOW, not whether the worst episode recovered — see drawdownStatus.ts. A
+                green "已復原" badge sitting next to a negative 目前回撤 was self-contradictory:
+                the episode can be long resolved while net worth has since drifted back down. The
+                episode's own resolution is in the 高點 → 低點 → 復原於 line below. */}
+            <Chip label={status.label} size="small" color={status.color} sx={{ mt: 0.5 }} />
+          </Box>
+        </Grid>
       </Grid>
 
       {hasDrawdownEpisode && (
