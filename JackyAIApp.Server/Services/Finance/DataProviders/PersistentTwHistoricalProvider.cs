@@ -174,7 +174,19 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
                     await UpsertFinalizedBarsAsync(db, stockCode, fetched.HistoricalPrices, today, cancellationToken);
 
-                    if (deep)
+                    // Only claim "deep fetched" once the fetch actually delivered history older
+                    // than the shallow window. Marking it purely because FetchRangeAsync didn't
+                    // throw is what let a thin upstream response pin a symbol to a handful of days
+                    // forever: needsBackwardFetch then stays false, so no later deep call ever
+                    // retries, and every historical valuation before that gap silently values the
+                    // position at zero (GetNetWorthHistoryAsync skips unpriceable positions but
+                    // still emits the day). That produced a ~13.5M phantom one-day jump on the net
+                    // worth chart the moment the prices did start.
+                    //
+                    // A genuinely new listing with less than this much history re-attempts on each
+                    // deep call. That is cheap, self-correcting once it accumulates history, and
+                    // strictly better than being wrong forever.
+                    if (deep && HasDeepCoverage(fetched.HistoricalPrices, today))
                         await MarkDeepFetchedAsync(db, stockCode, cancellationToken);
 
                     // Re-read so the returned list is the consistent, sorted merge of old + new.
@@ -241,6 +253,17 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
                 d = d.AddDays(-1);
             return d;
+        }
+
+        /// <summary>Whether a deep fetch's result actually reaches back past the shallow window,
+        /// i.e. it really is deep history rather than the same few recent days a
+        /// <see cref="FetchLatestAsync"/> would have produced. Guards <see cref="MarkDeepFetchedAsync"/>
+        /// — see its call site for what marking too eagerly costs.</summary>
+        private static bool HasDeepCoverage(List<DailyPrice> fetched, DateOnly today)
+        {
+            if (fetched.Count == 0) return false;
+            var shallowStart = today.AddDays(-LatestLookbackDays);
+            return fetched.Any(b => DateOnly.FromDateTime(b.Date) < shallowStart);
         }
 
         /// <summary>Marks that a deep fetch has run for this symbol at least once — see the
