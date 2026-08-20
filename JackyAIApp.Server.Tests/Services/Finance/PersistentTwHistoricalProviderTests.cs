@@ -308,6 +308,11 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                     CompanyName = "台積電",
                     HistoricalPrices = new List<DailyPrice>
                     {
+                        // An older bar is required for the first call to count as genuine deep
+                        // coverage and mark the symbol deep-fetched — without it the provider
+                        // (correctly) keeps retrying the backward window, so the "second call does
+                        // no fetch" assertion below would be testing the wrong path.
+                        new() { Date = today.AddMonths(-5).ToDateTime(TimeOnly.MinValue), Close = 800m, Open = 795m, High = 805m, Low = 790m, Volume = 700 },
                         new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Close = 900m, Open = 890m, High = 905m, Low = 885m, Volume = 1000 },
                         // Today's bar is never persisted (see UpsertFinalizedBarsAsync) — included
                         // here just to prove it's correctly filtered out, not because it's needed
@@ -320,7 +325,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             await _provider.FetchAsync(Symbol);
 
             var persisted = await _dbContext.DailyStockPrices.Where(p => p.Symbol == Symbol).ToListAsync();
-            Assert.Single(persisted);
+            Assert.Equal(2, persisted.Count); // the 5-month-old bar + lastTradingDay; today's is filtered
             // Second call found the DB already current, so no second fetch.
             _inner.Verify(x => x.FetchRangeAsync(
                 It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
@@ -576,6 +581,73 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.Empty(result.HistoricalPrices);
             var persisted = await _dbContext.DailyStockPrices.Where(p => p.Symbol == Symbol).ToListAsync();
             Assert.Empty(persisted);
+        }
+
+        [Fact]
+        public async Task FetchAsync_DeepFetchReturnsOnlyRecentDays_DoesNotMarkDeepFetched()
+        {
+            // Regression: a deep fetch whose upstream response is thin (only the same few recent
+            // days a shallow fetch would give) used to be marked deep-fetched purely because it
+            // didn't throw. needsBackwardFetch then stays false forever, so no later call retries,
+            // and every historical valuation before the gap silently prices the position at zero —
+            // which surfaced as a ~13.5M phantom one-day jump on the net worth chart.
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var lastTradingDay = LastTradingDayBefore(today);
+
+            _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = Symbol,
+                    CompanyName = "聯發科",
+                    // Well inside the shallow lookback window — nothing genuinely "deep" here.
+                    HistoricalPrices = new List<DailyPrice>
+                    {
+                        new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Close = 1200m, Open = 1190m, High = 1210m, Low = 1180m, Volume = 900 },
+                    },
+                });
+
+            await _provider.FetchAsync(Symbol);
+
+            var info = await _dbContext.StockSymbolInfos.AsNoTracking().FirstAsync(s => s.Symbol == Symbol);
+            Assert.Null(info.DeepFetchedAt);
+
+            // ...so a later deep call still treats it as needing the full backward window.
+            DateTime? retryStart = null;
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .Callback<string, DateTime, DateTime, MarketType?, CancellationToken>((_, start, _, _, _) => retryStart = start)
+                .ReturnsAsync(new MarketData { StockCode = Symbol, HistoricalPrices = new List<DailyPrice>() });
+
+            await _provider.FetchAsync(Symbol);
+
+            Assert.Equal(today.AddMonths(-6).ToDateTime(TimeOnly.MinValue), retryStart);
+        }
+
+        [Fact]
+        public async Task FetchAsync_DeepFetchReturnsHistoryOlderThanShallowWindow_MarksDeepFetched()
+        {
+            // The healthy path must still mark, or every deep call would re-fetch six months forever.
+            var today = DateOnly.FromDateTime(DateTime.Now);
+
+            _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = Symbol,
+                    HistoricalPrices = new List<DailyPrice>
+                    {
+                        new() { Date = today.AddMonths(-5).ToDateTime(TimeOnly.MinValue), Close = 1000m, Open = 990m, High = 1010m, Low = 980m, Volume = 800 },
+                        new() { Date = LastTradingDayBefore(today).ToDateTime(TimeOnly.MinValue), Close = 1200m, Open = 1190m, High = 1210m, Low = 1180m, Volume = 900 },
+                    },
+                });
+
+            await _provider.FetchAsync(Symbol);
+
+            var info = await _dbContext.StockSymbolInfos.AsNoTracking().FirstAsync(s => s.Symbol == Symbol);
+            Assert.NotNull(info.DeepFetchedAt);
         }
 
         [Fact]
