@@ -1,12 +1,15 @@
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
 import LinearProgress from '@mui/material/LinearProgress';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
+import { BENCHMARK_RETURN_TOOLTIP } from './benchmarkReturn';
 import { WIDE_RANGES } from './dayRanges';
 import { MASK, usePrivacy } from './privacy';
 import { RangePicker } from './RangePicker';
@@ -159,6 +162,14 @@ export function BenchmarkChart() {
         </Typography>
       ) : (
         <>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              區間報酬（時間加權，未年化）
+            </Typography>
+            <Tooltip title={<Box sx={{ whiteSpace: 'pre-line' }}>{BENCHMARK_RETURN_TOOLTIP}</Box>}>
+              <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.disabled', cursor: 'help' }} />
+            </Tooltip>
+          </Box>
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid size={{ xs: 6, sm: 3 }}>
               <ReturnStat
@@ -181,13 +192,8 @@ export function BenchmarkChart() {
           <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
 
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            模擬「若把每一筆投入成本都拿去買該標的」的對照線——僅計算已填成本的股票/基金持倉，所有線都不含股息（純價格報酬對照）。
-            線是「部位市值」會隨加碼變高；上面的 %
-            是時間加權報酬率，已排除加碼影響，所以會與線的漲幅不同。
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-            與總覽的年化報酬率（XIRR）算法不同：XIRR
-            是資金加權且年化，這裡是時間加權且未年化，兩者本來就會有差異。
+            模擬「若把每一筆投入成本都拿去買該標的」的對照線。線是部位市值，會隨加碼變高；上面的 %
+            已排除加碼影響，所以和線的漲幅不會一致。
           </Typography>
         </>
       )}
