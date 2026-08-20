@@ -182,6 +182,12 @@ export function BenchmarkChart() {
 
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             模擬「若把每一筆投入成本都拿去買該標的」的對照線——僅計算已填成本的股票/基金持倉，所有線都不含股息（純價格報酬對照）。
+            線是「部位市值」會隨加碼變高；上面的 %
+            是時間加權報酬率，已排除加碼影響，所以會與線的漲幅不同。
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            與總覽的年化報酬率（XIRR）算法不同：XIRR
+            是資金加權且年化，這裡是時間加權且未年化，兩者本來就會有差異。
           </Typography>
         </>
       )}

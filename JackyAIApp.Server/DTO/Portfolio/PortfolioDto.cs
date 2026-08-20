@@ -200,7 +200,12 @@ namespace JackyAIApp.Server.DTO.Portfolio
     {
         public string Symbol { get; set; } = "";
         public List<decimal> ValuesTWD { get; set; } = [];
-        // Simple (last - first) / first over the window — a period return, not an annualized XIRR.
+        // Time-weighted return over the window, in percent. NOT (last - first) / first: that
+        // counted deposits as gains, so contributing 2.7M into a 7M portfolio read as "+31%"
+        // having earned nothing. TWR removes each period's contribution from its opening base,
+        // which is also what makes this directly comparable to the benchmark figure beside it.
+        // Still a period return, not annualized — PortfolioSummaryDto.AnnualizedReturnPct (XIRR)
+        // is the money-weighted, annualized figure and will legitimately differ.
         // Null when the first value is 0 (nothing to divide by).
         public decimal? ReturnPct { get; set; }
     }
