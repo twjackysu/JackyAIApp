@@ -1,10 +1,8 @@
-import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
 import LinearProgress from '@mui/material/LinearProgress';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
@@ -16,6 +14,7 @@ import { RangePicker } from './RangePicker';
 
 import { useGetBenchmarkComparisonQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import { InfoPopover } from '@/components/hints';
 import { fmtCompact, fmtNum } from '@/utils/format';
 
 // QQQ/VOO/VT track the Nasdaq-100/S&P500/global-stock indices closely enough via their
@@ -166,9 +165,11 @@ export function BenchmarkChart() {
             <Typography variant="caption" color="text.secondary">
               區間報酬（時間加權，未年化）
             </Typography>
-            <Tooltip title={<Box sx={{ whiteSpace: 'pre-line' }}>{BENCHMARK_RETURN_TOOLTIP}</Box>}>
-              <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.disabled', cursor: 'help' }} />
-            </Tooltip>
+            <InfoPopover
+              content={BENCHMARK_RETURN_TOOLTIP}
+              ariaLabel="區間報酬計算方式說明"
+              iconSize={14}
+            />
           </Box>
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid size={{ xs: 6, sm: 3 }}>

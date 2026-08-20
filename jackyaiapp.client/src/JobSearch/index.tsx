@@ -12,7 +12,6 @@ import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState, useCallback } from 'react';
 
@@ -20,6 +19,7 @@ import JobCard from './components/JobCard';
 
 import { useGetListingsQuery } from '@/apis/jobApis';
 import { JobSearchParams } from '@/apis/jobApis/types';
+import { ActionTooltip } from '@/components/hints';
 
 const ALL_PLATFORMS = [
   { id: '104', label: '104 人力銀行' },
@@ -135,13 +135,13 @@ function JobSearch() {
           >
             {isFetching ? <CircularProgress size={18} color="inherit" /> : '搜尋'}
           </Button>
-          <Tooltip title="重新整理（清除快取）">
+          <ActionTooltip title="重新整理（清除快取）">
             <span>
               <IconButton onClick={handleRefresh} disabled={isFetching}>
                 <RefreshIcon />
               </IconButton>
             </span>
-          </Tooltip>
+          </ActionTooltip>
         </Stack>
 
         {/* Strategy toggle + platform chips */}

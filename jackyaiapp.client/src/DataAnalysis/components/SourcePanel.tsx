@@ -12,11 +12,11 @@ import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
 import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 import type { DataSourceConfigDto, SessionInfo } from '../../apis/dataAnalysisApis/types';
 
+import { ActionTooltip } from '@/components/hints';
 import { fmtNum } from '@/utils/format';
 
 interface SourcePanelProps {
@@ -75,11 +75,11 @@ export function SourcePanel({
           <Typography variant="caption" color="text.secondary">
             暫存資料 — 不會儲存到任何資料庫
           </Typography>
-          <Tooltip title="清除暫存並返回資料庫來源">
+          <ActionTooltip title="清除暫存並返回資料庫來源">
             <IconButton size="small" onClick={onClearSession}>
               <ClearIcon fontSize="small" />
             </IconButton>
-          </Tooltip>
+          </ActionTooltip>
         </Box>
       ) : isLoggedIn ? (
         /* ── Logged-in normal mode ──────────────────────────────────────── */

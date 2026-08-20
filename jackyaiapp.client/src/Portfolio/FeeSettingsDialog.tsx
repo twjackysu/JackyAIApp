@@ -7,8 +7,9 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
 import { useEffect, useState } from 'react';
+
+import { ActionTooltip } from '@/components/hints';
 
 /** Rate is stored as a 0–1 multiplier (0.28 = 2.8折); the input works in the familiar 0–10
  * "折" scale, so the two need converting at the read/write boundary. */
@@ -37,11 +38,11 @@ export function FeeSettingsDialog({ feeDiscountRate, onSave }: Props) {
 
   return (
     <>
-      <Tooltip title="台股手續費折扣設定">
+      <ActionTooltip title="台股手續費折扣設定">
         <IconButton onClick={() => setOpen(true)} size="small">
           <PercentIcon />
         </IconButton>
-      </Tooltip>
+      </ActionTooltip>
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>台股手續費折扣</DialogTitle>
         <DialogContent>

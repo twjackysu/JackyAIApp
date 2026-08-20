@@ -14,7 +14,6 @@ import {
   Snackbar,
   Switch,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
@@ -25,6 +24,7 @@ import {
   useRefreshProviderTokensMutation,
 } from '@/apis/connectorsApis/connectorsApis';
 import { ConnectorStatus, CustomConnectRequest } from '@/apis/connectorsApis/types';
+import { ActionTooltip } from '@/components/hints';
 
 // Provider icons
 const getProviderIcon = (provider: string) => {
@@ -162,11 +162,11 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
               </Typography>
             </Box>
             {connector.isConnected && (
-              <Tooltip title="Refresh tokens">
+              <ActionTooltip title="Refresh tokens">
                 <IconButton onClick={handleRefresh} size="small">
                   <Refresh />
                 </IconButton>
-              </Tooltip>
+              </ActionTooltip>
             )}
           </Box>
 

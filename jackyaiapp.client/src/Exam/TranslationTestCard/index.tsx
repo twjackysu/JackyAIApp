@@ -1,4 +1,3 @@
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MicIcon from '@mui/icons-material/Mic';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import Alert from '@mui/material/Alert';
@@ -9,7 +8,6 @@ import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
@@ -21,6 +19,7 @@ import {
 } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
+import { ActionTooltip, InfoPopover } from '@/components/hints';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
 import RoundProgress from '@/Exam/components/RoundProgress';
 import RoundResultScreen from '@/Exam/components/RoundResultScreen';
@@ -193,7 +192,7 @@ function TranslationCard() {
               disabled={isGrading}
               autoFocus
             />
-            <Tooltip
+            <ActionTooltip
               title={
                 mediaRecorder
                   ? isRecording
@@ -216,7 +215,7 @@ function TranslationCard() {
               >
                 <MicIcon />
               </IconButton>
-            </Tooltip>
+            </ActionTooltip>
           </Stack>
           {isTranscribing && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
@@ -299,9 +298,11 @@ function TranslationCard() {
                 variant="outlined"
               />
             )}
-            <Tooltip
-              title={
-                <ul style={{ margin: 0, padding: '0 16px' }}>
+            <InfoPopover
+              ariaLabel="評分等級說明"
+              iconSize={20}
+              content={
+                <ul style={{ margin: 0, paddingInlineStart: 20 }}>
                   <li>A: 完美的翻譯，沒有任何語法、拼字或風格錯誤，並且完整保留了所有含義。</li>
                   <li>B: 高品質翻譯，文法或拼字錯誤很少，句子大多流暢。</li>
                   <li>C: 翻譯一般，有一些文法或拼字問題，但主要意義清晰。</li>
@@ -309,10 +310,7 @@ function TranslationCard() {
                   <li>E: 翻譯完全不正確，內容與原文不符或相矛盾，錯誤百出。</li>
                 </ul>
               }
-              arrow
-            >
-              <InfoOutlinedIcon sx={{ cursor: 'pointer' }} fontSize="small" />
-            </Tooltip>
+            />
           </Box>
           <Typography variant="body2">{grading.reason}</Typography>
 

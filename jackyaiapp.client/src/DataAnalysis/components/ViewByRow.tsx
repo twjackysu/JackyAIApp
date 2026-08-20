@@ -8,11 +8,12 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { FieldTransformDef, ViewByEntry } from '../types';
+
+import { InfoPopover } from '@/components/hints';
 
 interface ViewByRowProps {
   entry: ViewByEntry;
@@ -72,30 +73,32 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
       {entry.fieldName &&
         (hasTransforms ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Tooltip
-              title={
+            {/* The switch owns its own click, so the explanation sits in a button beside it
+                rather than wrapping it. */}
+            <FormControlLabel
+              sx={{ m: 0 }}
+              control={
+                <Switch
+                  size="small"
+                  checked={entry.type === 'Transform'}
+                  onChange={(e) => handleToggle(e.target.checked)}
+                />
+              }
+              label={
+                <Typography variant="caption" color="text.secondary">
+                  套用轉換
+                </Typography>
+              }
+            />
+            <InfoPopover
+              content={
                 entry.type === 'Transform'
                   ? '分組值會依所選轉換被歸類 / 重新命名'
                   : '開啟以在分組時套用欄位轉換'
               }
-              placement="top"
-            >
-              <FormControlLabel
-                sx={{ m: 0 }}
-                control={
-                  <Switch
-                    size="small"
-                    checked={entry.type === 'Transform'}
-                    onChange={(e) => handleToggle(e.target.checked)}
-                  />
-                }
-                label={
-                  <Typography variant="caption" color="text.secondary">
-                    套用轉換
-                  </Typography>
-                }
-              />
-            </Tooltip>
+              ariaLabel="套用轉換說明"
+              iconSize={14}
+            />
 
             {/* Transform picker — shown when toggle is ON and multiple choices exist */}
             {entry.type === 'Transform' && fieldTransforms.length > 1 && (

@@ -13,7 +13,6 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useState } from 'react';
@@ -24,6 +23,7 @@ import { usePrivacy } from './privacy';
 
 import { useRefreshPositionPriceMutation } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
+import { ActionTooltip } from '@/components/hints';
 
 interface Props {
   positions: PositionDto[];
@@ -88,7 +88,7 @@ interface PriceFailedBadgeProps {
 
 function PriceFailedBadge({ symbol, onRefresh, refreshing }: PriceFailedBadgeProps) {
   return (
-    <Tooltip title="重新抓取報價">
+    <ActionTooltip title="重新抓取報價">
       <span>
         <IconButton
           size="small"
@@ -102,7 +102,7 @@ function PriceFailedBadge({ symbol, onRefresh, refreshing }: PriceFailedBadgePro
           {refreshing ? <CircularProgress size={14} /> : <RefreshIcon sx={{ fontSize: 14 }} />}
         </IconButton>
       </span>
-    </Tooltip>
+    </ActionTooltip>
   );
 }
 

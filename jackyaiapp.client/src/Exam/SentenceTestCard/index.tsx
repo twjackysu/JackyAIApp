@@ -10,7 +10,6 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
@@ -196,18 +195,27 @@ function SentenceTestCard() {
                 AI 評分消耗 {CREDIT_COSTS.SENTENCE_EVALUATION} 點使用額度
               </Typography>
             </Box>
-            <Tooltip title={evaluationResult ? '' : '請先提交答案，避免抄範例答案'}>
-              <span>
-                <Button
-                  variant="outlined"
-                  onClick={() => setShowSample(!showSample)}
-                  disabled={!evaluationResult}
-                  sx={{ mb: 0.5 }}
+            {/* A disabled button can't be hovered or tapped, so the reason it's locked is
+                printed under it instead of hidden in a tooltip. */}
+            <Box>
+              <Button
+                variant="outlined"
+                onClick={() => setShowSample(!showSample)}
+                disabled={!evaluationResult}
+                sx={{ mb: 0.5 }}
+              >
+                {showSample ? '隱藏' : '顯示'}範例答案
+              </Button>
+              {!evaluationResult && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mt: 0.5 }}
                 >
-                  {showSample ? '隱藏' : '顯示'}範例答案
-                </Button>
-              </span>
-            </Tooltip>
+                  請先提交答案，避免抄範例答案
+                </Typography>
+              )}
+            </Box>
           </Box>
 
           {showSample && evaluationResult && (

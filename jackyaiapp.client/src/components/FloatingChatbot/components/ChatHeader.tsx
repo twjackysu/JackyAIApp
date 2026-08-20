@@ -2,18 +2,10 @@ import AddCommentIcon from '@mui/icons-material/AddComment';
 import CloseIcon from '@mui/icons-material/Close';
 import HistoryIcon from '@mui/icons-material/History';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import {
-  AppBar,
-  Avatar,
-  Badge,
-  Box,
-  IconButton,
-  Stack,
-  Toolbar,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { AppBar, Avatar, Badge, Box, IconButton, Stack, Toolbar, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+
+import { ActionTooltip } from '@/components/hints';
 
 interface ChatHeaderProps {
   statusText: string;
@@ -75,16 +67,16 @@ const ChatHeader = ({
           </Typography>
         </Stack>
         <Box sx={{ flexGrow: 1 }} />
-        <Tooltip title="對話紀錄">
+        <ActionTooltip title="對話紀錄">
           <IconButton onClick={onOpenHistory} color="inherit" aria-label="對話紀錄">
             <HistoryIcon />
           </IconButton>
-        </Tooltip>
-        <Tooltip title="新對話">
+        </ActionTooltip>
+        <ActionTooltip title="新對話">
           <IconButton onClick={onNewChat} color="inherit" aria-label="新對話">
             <AddCommentIcon />
           </IconButton>
-        </Tooltip>
+        </ActionTooltip>
         <IconButton onClick={onClose} color="inherit" aria-label="關閉">
           <CloseIcon />
         </IconButton>

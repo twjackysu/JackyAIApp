@@ -15,7 +15,6 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { alpha } from '@mui/material/styles';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
@@ -40,6 +39,7 @@ import { PrivacyProvider } from './PrivacyContext';
 
 import { useGetPortfolioSummaryQuery, useLazyGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { PortfolioSummaryDto, PositionDto } from '@/apis/portfolioApis/types';
+import { ActionTooltip, InfoPopover } from '@/components/hints';
 
 function PrivacyToggle() {
   const { mode, cycle } = usePrivacy();
@@ -49,11 +49,11 @@ function PrivacyToggle() {
     hidden: { icon: <VisibilityOffIcon />, title: '隱藏金額（點擊：完整顯示）' },
   }[mode];
   return (
-    <Tooltip title={cfg.title}>
-      <IconButton onClick={cycle} size="small">
+    <ActionTooltip title={cfg.title}>
+      <IconButton onClick={cycle} size="small" aria-label={cfg.title}>
         {cfg.icon}
       </IconButton>
-    </Tooltip>
+    </ActionTooltip>
   );
 }
 
@@ -73,11 +73,11 @@ function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
 
   return (
     <>
-      <Tooltip title="匯出 CSV (Excel)">
+      <ActionTooltip title="匯出 CSV (Excel)">
         <IconButton onClick={(e) => setAnchor(e.currentTarget)} size="small" disabled={isFetching}>
           <FileDownloadOutlinedIcon />
         </IconButton>
-      </Tooltip>
+      </ActionTooltip>
       <Menu anchorEl={anchor} open={!!anchor} onClose={close}>
         <MenuItem
           onClick={() => {
@@ -434,14 +434,14 @@ function AllocationCard({
               市場曝險
             </Typography>
             {/* All three gauges below share this one numerator and differ only by denominator —
-                the formulas live on hover rather than inline, since spelling them out would leave
-                more explanation than numbers on a card this size. */}
-            <Tooltip title={<Box sx={{ whiteSpace: 'pre-line' }}>{EXPOSURE_TOOLTIP}</Box>}>
-              <HelpOutlineIcon
-                sx={{ fontSize: 14, color: 'text.disabled', cursor: 'help' }}
-                data-tour="portfolio-tour-exposure-help"
-              />
-            </Tooltip>
+                the formulas live behind this button rather than inline, since spelling them out
+                would leave more explanation than numbers on a card this size. */}
+            <InfoPopover
+              content={EXPOSURE_TOOLTIP}
+              ariaLabel="市場曝險說明"
+              iconSize={14}
+              data-tour="portfolio-tour-exposure-help"
+            />
           </Box>
           <Typography variant="body2" color="text.secondary">
             NT${value(fmt(exposure))}
@@ -571,11 +571,11 @@ export default function Portfolio() {
               feeDiscountRate={feeDiscountRate}
               onSave={handleSaveFeeDiscountRate}
             />
-            <Tooltip title="重新看導覽教學">
-              <IconButton onClick={startTour} size="small">
+            <ActionTooltip title="重新看導覽教學">
+              <IconButton onClick={startTour} size="small" aria-label="重新看導覽教學">
                 <HelpOutlineIcon />
               </IconButton>
-            </Tooltip>
+            </ActionTooltip>
             <PrivacyToggle />
             <HoldingsEditor />
           </Box>

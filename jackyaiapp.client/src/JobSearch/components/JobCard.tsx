@@ -7,10 +7,10 @@ import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 
 import { JobListing } from '@/apis/jobApis/types';
+import { ActionTooltip } from '@/components/hints';
 
 interface JobCardProps {
   job: JobListing;
@@ -63,7 +63,7 @@ export default function JobCard({ job }: JobCardProps) {
         >
           {job.title || '（未提供職位名稱）'}
         </Typography>
-        <Tooltip title="在新分頁開啟">
+        <ActionTooltip title="在新分頁開啟">
           <IconButton
             size="small"
             href={job.url}
@@ -74,7 +74,7 @@ export default function JobCard({ job }: JobCardProps) {
           >
             <OpenInNewIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
+        </ActionTooltip>
       </Stack>
       {/* Meta row */}
       <Stack

@@ -10,7 +10,6 @@ import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import { alpha, useTheme } from '@mui/material/styles';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 
@@ -20,6 +19,7 @@ import { usePrivacy } from './privacy';
 import { useGetHoldingPriceHistoryQuery, useLazyGetAiTechSummaryQuery } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import { ActionTooltip } from '@/components/hints';
 import MarkdownMessage from '@/components/MarkdownMessage';
 
 interface Props {
@@ -270,11 +270,11 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
                 {position.name}
               </Typography>
             </Box>
-            <Tooltip title="關閉">
+            <ActionTooltip title="關閉">
               <IconButton onClick={onClose} size="small">
                 <CloseIcon />
               </IconButton>
-            </Tooltip>
+            </ActionTooltip>
           </Box>
 
           <Divider sx={{ mb: 2 }} />

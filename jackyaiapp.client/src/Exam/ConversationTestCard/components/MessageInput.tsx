@@ -1,8 +1,9 @@
 import MicIcon from '@mui/icons-material/Mic';
 import SendIcon from '@mui/icons-material/Send';
-import { IconButton, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { IconButton, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
+import { ActionTooltip } from '@/components/hints';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 interface MessageInputProps {
@@ -70,7 +71,7 @@ function MessageInput({
             },
           }}
         />
-        <Tooltip
+        <ActionTooltip
           title={
             mediaRecorder
               ? isRecording
@@ -93,7 +94,7 @@ function MessageInput({
           >
             <MicIcon />
           </IconButton>
-        </Tooltip>
+        </ActionTooltip>
         <IconButton
           color="primary"
           onClick={onSendMessage}

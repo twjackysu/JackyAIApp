@@ -1,5 +1,5 @@
 import { Refresh } from '@mui/icons-material';
-import { Box, CircularProgress, Grid, IconButton, Tooltip, Typography } from '@mui/material';
+import { Box, CircularProgress, Grid, IconButton, Typography } from '@mui/material';
 import Alert, { AlertProps } from '@mui/material/Alert';
 import Snackbar, { SnackbarCloseReason } from '@mui/material/Snackbar';
 import React, { useEffect } from 'react';
@@ -13,6 +13,7 @@ import {
   useGetConnectorStatusQuery,
 } from '@/apis/connectorsApis/connectorsApis';
 import { CustomConnectRequest } from '@/apis/connectorsApis/types';
+import { ActionTooltip } from '@/components/hints';
 
 interface State {
   open: boolean;
@@ -120,11 +121,11 @@ const Connectors: React.FC = () => {
             Connect your external accounts to sync data and enhance your workflow.
           </Typography>
         </Box>
-        <Tooltip title="Refresh status">
+        <ActionTooltip title="Refresh status">
           <IconButton onClick={() => refetch()}>
             <Refresh />
           </IconButton>
-        </Tooltip>
+        </ActionTooltip>
       </Box>
       <Grid container spacing={3}>
         {connectors?.map((connector) => (

@@ -10,13 +10,14 @@ import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
 import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
 
 import { DATE_GRANULARITIES, TRANSFORM_TYPE_LABELS } from '../../constants';
 
 import { typeChipColor, type DraftState } from './helpers';
 
 import type { DateGranularity, FieldDefinition } from '../../../apis/dataAnalysisApis/types';
+
+import { ClickPopover } from '@/components/hints';
 
 interface AddTransformFormProps {
   fields: FieldDefinition[];
@@ -78,14 +79,14 @@ export function AddTransformForm({
 
       {/* Auto-detected type chip (read-only) */}
       {draft.fieldName && (
-        <Tooltip title="轉換類型會依欄位的資料型別自動偵測">
+        <ClickPopover content="轉換類型會依欄位的資料型別自動偵測">
           <Chip
             label={TRANSFORM_TYPE_LABELS[draft.type]}
             size="small"
             color={typeChipColor(draft.type)}
             sx={{ mb: 0.5, flexShrink: 0 }}
           />
-        </Tooltip>
+        </ClickPopover>
       )}
 
       {/* DateTrunc: inline granularity + Save */}
