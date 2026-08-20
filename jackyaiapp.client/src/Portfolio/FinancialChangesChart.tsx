@@ -72,10 +72,7 @@ export function FinancialChangesChart() {
 
   // Bucket first, then difference — differencing daily and summing would give the same answer for
   // a stock quantity but is more work and loses the end-of-period reading.
-  const deltas = toDeltas(toLiquidNetWorthSeries(points, effectiveGranularity));
-  // The first bucket has no predecessor, so it carries no bar. Dropping it keeps the axis honest
-  // rather than rendering a gap the reader has to interpret.
-  const plotted = deltas.filter((d) => d.delta != null);
+  const plotted = toDeltas(toLiquidNetWorthSeries(points, effectiveGranularity));
 
   if (isLoading) {
     return (

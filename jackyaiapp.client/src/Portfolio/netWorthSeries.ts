@@ -10,15 +10,16 @@ export type Granularity = 'daily' | 'weekly' | 'monthly';
 
 export interface SeriesPoint {
   date: string;
+  /** The bucket's closing value (its last day). */
   value: number;
+  /** The bucket's opening value (its first day). Only meaningful for the first bucket, where there
+   * is no previous close to difference against — see toDeltas. */
+  open: number;
 }
 
 export interface DeltaPoint {
   date: string;
-  /** Null for the first bucket — there is no previous period to difference against. Deliberately
-   * not 0: a 0 bar would read as "nothing changed this period", which is a different and false
-   * claim than "unknown". */
-  delta: number | null;
+  delta: number;
 }
 
 /** Liquid net worth for one day: everything the point already nets out, minus real estate.
@@ -56,25 +57,35 @@ export function bucketSeries(points: SeriesPoint[], granularity: Granularity): S
 
   const out: SeriesPoint[] = [];
   let currentKey = bucketKey(points[0].date, granularity);
+  let open = points[0].value;
   let last = points[0];
 
   for (const p of points) {
     const key = bucketKey(p.date, granularity);
     if (key !== currentKey) {
-      out.push(last);
+      out.push({ ...last, open });
       currentKey = key;
+      open = p.value; // first value of the new bucket
     }
     last = p;
   }
-  out.push(last);
+  out.push({ ...last, open });
   return out;
 }
 
-/** Period-over-period change. The first entry's delta is null — see DeltaPoint.delta. */
+/** Change attributable to each period.
+ *
+ * Every bucket produces a bar, including the first. Later buckets difference against the previous
+ * bucket's close, so the bars reconcile exactly to (last close − first open). The first bucket has
+ * no previous close, so it differences against its own open — i.e. "how much did this change since
+ * tracking began", which is the natural reading of a bar labelled with that period.
+ *
+ * The first bucket used to be dropped instead. That silently cost a bar, and for an account with
+ * only two months of history it left a single bar where the user reasonably expected two. */
 export function toDeltas(series: SeriesPoint[]): DeltaPoint[] {
   return series.map((p, i) => ({
     date: p.date,
-    delta: i === 0 ? null : p.value - series[i - 1].value,
+    delta: i === 0 ? p.value - p.open : p.value - series[i - 1].value,
   }));
 }
 
@@ -84,14 +95,18 @@ export function toLiquidNetWorthSeries(
   granularity: Granularity,
 ): SeriesPoint[] {
   return bucketSeries(
-    points.map((p) => ({ date: p.date, value: liquidNetWorth(p) })),
+    points.map((p) => {
+      const v = liquidNetWorth(p);
+      return { date: p.date, value: v, open: v };
+    }),
     granularity,
   );
 }
 
-/** Fewer bars than this and a delta chart says nothing — one bar in particular is indistinguishable
- * from "the feature is broken", which is exactly how it was first reported. */
-export const MIN_USEFUL_BARS = 3;
+/** A single bar is not a chart — the same number is already reported as 期間變化 on the trend
+ * chart above, so offering a one-bar rendering just invites "is this broken?". Two is the minimum
+ * that shows a comparison. */
+export const MIN_USEFUL_BARS = 2;
 
 /** How many bars each granularity would actually yield for the data currently loaded.
  *
@@ -101,6 +116,7 @@ export const MIN_USEFUL_BARS = 3;
  * combinations degenerate: a 1-month range bucketed monthly can only ever produce a single bar.
  * The UI uses this to disable those combinations instead of rendering something misleading. */
 export function barCountsByGranularity(points: NetWorthDataPoint[]): Record<Granularity, number> {
-  const count = (g: Granularity) => Math.max(0, toLiquidNetWorthSeries(points, g).length - 1); // -1: first bucket has no predecessor
+  // Every bucket yields a bar now that the first one differences against its own open.
+  const count = (g: Granularity) => toLiquidNetWorthSeries(points, g).length;
   return { daily: count('daily'), weekly: count('weekly'), monthly: count('monthly') };
 }
