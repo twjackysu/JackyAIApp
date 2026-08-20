@@ -190,6 +190,73 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
+        public async Task GetBenchmarkComparison_MidWindowContribution_IsNotCountedAsReturn()
+        {
+            // Regression: the reported "+31.31% but I didn't earn that" case. Returns were a plain
+            // (last - first) / first over the value curve, so money paid IN grew the curve and was
+            // reported as performance. Here the price never moves and the portfolio doubles purely
+            // by contribution — the only correct return is 0%.
+            var day0 = Weekday(0);
+            var day1 = Weekday(1);
+            await SeedSnapshotAsync(day0,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 100_000,
+                });
+            await SeedSnapshotAsync(day1,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 200, CostBasis = 200_000,
+                });
+            // Flat prices on both sides for the whole window — nothing was earned by either.
+            SetupStockProvider("2330", MarketRegion.TW, (day0, 1000m), (day1, 1000m));
+            SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 100m));
+
+            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+
+            // The value curve still doubles — that part is real and worth plotting.
+            var day0Idx = result.Dates.IndexOf(day0.ToString("yyyy-MM-dd"));
+            var day1Idx = result.Dates.IndexOf(day1.ToString("yyyy-MM-dd"));
+            Assert.Equal(100_000m, result.PortfolioTWD[day0Idx]);
+            Assert.Equal(200_000m, result.PortfolioTWD[day1Idx]);
+
+            // ...but neither side earned anything, so both returns must be flat.
+            Assert.Equal(0m, result.PortfolioReturnPct);
+            Assert.Equal(0m, result.Benchmarks.Single().ReturnPct);
+        }
+
+        [Fact]
+        public async Task GetBenchmarkComparison_PriceMoveAfterContribution_IsCountedAsReturn()
+        {
+            // The complement of the test above: a genuine price move must still be reported, and
+            // must not be diluted by the contribution that preceded it.
+            var day0 = Weekday(0);
+            var day1 = Weekday(1);
+            await SeedSnapshotAsync(day0,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 100_000,
+                });
+            await SeedSnapshotAsync(day1,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 200, CostBasis = 200_000,
+                });
+            // Day 2 onward: price rises 10% with no further contribution.
+            SetupStockProvider("2330", MarketRegion.TW, (day0, 1000m), (day1, 1000m), (Weekday(2), 1100m));
+            SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 100m), (Weekday(2), 100m));
+
+            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+
+            Assert.Equal(10m, result.PortfolioReturnPct);
+            Assert.Equal(0m, result.Benchmarks.Single().ReturnPct); // benchmark price was flat
+        }
+
+        [Fact]
         public async Task GetBenchmarkComparison_PositionWithoutCostBasis_ExcludedFromBothSides()
         {
             var snapshotDate = Weekday(0);

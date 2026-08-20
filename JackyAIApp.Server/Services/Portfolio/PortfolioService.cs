@@ -970,6 +970,20 @@ namespace JackyAIApp.Server.Services.Portfolio
             var benchmarkValues = new List<decimal>[benchmarkPriceLists.Count];
             for (var i = 0; i < benchmarkPriceLists.Count; i++) benchmarkValues[i] = [];
 
+            // Time-weighted return accumulators. A plain (last - first) / first over these curves
+            // would count deposits as gains: both curves grow when money is added, so an account
+            // that contributed 2.7M into a 7M portfolio reads as "+31%" having earned nothing.
+            // TWR chains each period's growth factor with that period's contribution removed from
+            // the base, which is exactly what makes a portfolio comparable to a benchmark.
+            decimal portfolioTwr = 1m;
+            var benchmarkTwr = new decimal[benchmarkPriceLists.Count];
+            for (var i = 0; i < benchmarkTwr.Length; i++) benchmarkTwr[i] = 1m;
+            decimal? prevPortfolioValue = null;
+            var prevBenchmarkValue = new decimal?[benchmarkPriceLists.Count];
+            // The contribution applied on the day currently being priced; already reflected in
+            // both this day's portfolio value and this day's benchmark units.
+            decimal contributionToday = 0;
+
             for (var date = startDate; date <= today; date = date.AddDays(1))
             {
                 if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
@@ -985,6 +999,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 // portfolio side already reflects it (the snapshot's positions price immediately).
                 // The contribution amount is benchmark-independent; only the buy price (and hence
                 // units bought) differs per symbol.
+                contributionToday = 0;
                 if (date == active.EffectiveDate)
                 {
                     var snapCost = active.Positions
@@ -993,6 +1008,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                             ? (active.UsdTwdRate > 0 ? active.UsdTwdRate : 32m) : 1m));
                     var delta = snapCost - prevCost;
                     prevCost = snapCost;
+                    contributionToday = delta;
 
                     if (delta != 0)
                     {
@@ -1023,6 +1039,24 @@ namespace JackyAIApp.Server.Services.Portfolio
                 portfolioValues.Add(portfolioTotal.Value);
                 for (var i = 0; i < benchmarkPriceLists.Count; i++)
                     benchmarkValues[i].Add(Math.Round(units[i] * pricesToday[i], 2));
+
+                // Chain this day's growth factor, with today's contribution added to the opening
+                // base so the deposit itself never counts as a gain. A base at or below zero has
+                // no meaningful growth factor, so that day is skipped rather than allowed to
+                // produce a divide-by-zero or a sign flip.
+                var portfolioBase = (prevPortfolioValue ?? 0) + contributionToday;
+                if (prevPortfolioValue != null && portfolioBase > 0)
+                    portfolioTwr *= portfolioTotal.Value / portfolioBase;
+                prevPortfolioValue = portfolioTotal.Value;
+
+                for (var i = 0; i < benchmarkPriceLists.Count; i++)
+                {
+                    var todayValue = units[i] * pricesToday[i];
+                    var benchBase = (prevBenchmarkValue[i] ?? 0) + contributionToday;
+                    if (prevBenchmarkValue[i] != null && benchBase > 0)
+                        benchmarkTwr[i] *= todayValue / benchBase;
+                    prevBenchmarkValue[i] = todayValue;
+                }
             }
 
             var result = new BenchmarkComparisonDto
@@ -1037,15 +1071,12 @@ namespace JackyAIApp.Server.Services.Portfolio
             };
             if (dates.Count == 0) return result;
 
-            result.PortfolioReturnPct = portfolioValues[0] > 0
-                ? Math.Round((portfolioValues[^1] - portfolioValues[0]) / portfolioValues[0] * 100, 2)
-                : null;
-            foreach (var series in result.Benchmarks)
-            {
-                series.ReturnPct = series.ValuesTWD[0] > 0
-                    ? Math.Round((series.ValuesTWD[^1] - series.ValuesTWD[0]) / series.ValuesTWD[0] * 100, 2)
-                    : null;
-            }
+            // Time-weighted, so these are genuine returns rather than "how much the pot grew" —
+            // deposits move both curves but must not appear as performance. This is also what
+            // makes the two figures directly comparable to each other.
+            result.PortfolioReturnPct = Math.Round((portfolioTwr - 1m) * 100, 2);
+            for (var i = 0; i < result.Benchmarks.Count; i++)
+                result.Benchmarks[i].ReturnPct = Math.Round((benchmarkTwr[i] - 1m) * 100, 2);
             return result;
         }
 
