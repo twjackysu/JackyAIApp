@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  barCountsByGranularity,
   bucketSeries,
   liquidNetWorth,
+  MIN_USEFUL_BARS,
   SeriesPoint,
   toDeltas,
   toLiquidNetWorthSeries,
@@ -151,5 +153,40 @@ describe('toLiquidNetWorthSeries', () => {
     expect(series.map((s) => s.value)).toEqual([1_000_000, 1_100_000]);
     // A static 16M house must not swamp a 100k change.
     expect(toDeltas(series)[1].delta).toBe(100_000);
+  });
+});
+
+describe('barCountsByGranularity', () => {
+  /** Business days between two dates, mirroring what the backend emits. */
+  function dailyPoints(fromIso: string, toIso: string): NetWorthDataPoint[] {
+    const out: NetWorthDataPoint[] = [];
+    const d = new Date(`${fromIso}T00:00:00Z`);
+    const end = new Date(`${toIso}T00:00:00Z`);
+    while (d <= end) {
+      if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) {
+        out.push(point(d.toISOString().slice(0, 10), { Cash: 1_000_000 + out.length * 1000 }));
+      }
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+    return out;
+  }
+
+  it('reports the degenerate 1-month + monthly case that was reported as a bug', () => {
+    // A 30-day range spans at most two calendar months, so monthly bucketing yields a single bar —
+    // which is indistinguishable from a broken chart, hence the MIN_USEFUL_BARS guard.
+    const counts = barCountsByGranularity(dailyPoints('2026-07-19', '2026-08-18'));
+    expect(counts.monthly).toBeLessThan(MIN_USEFUL_BARS);
+    expect(counts.weekly).toBeGreaterThanOrEqual(MIN_USEFUL_BARS);
+    expect(counts.daily).toBeGreaterThanOrEqual(MIN_USEFUL_BARS);
+  });
+
+  it('supports monthly once the range is the backend maximum of ~180 days', () => {
+    const counts = barCountsByGranularity(dailyPoints('2026-02-19', '2026-08-18'));
+    expect(counts.monthly).toBe(6); // Feb(partial)..Aug = 7 buckets, first has no predecessor
+    expect(counts.monthly).toBeGreaterThanOrEqual(MIN_USEFUL_BARS);
+  });
+
+  it('returns zeros for empty input rather than throwing', () => {
+    expect(barCountsByGranularity([])).toEqual({ daily: 0, weekly: 0, monthly: 0 });
   });
 });

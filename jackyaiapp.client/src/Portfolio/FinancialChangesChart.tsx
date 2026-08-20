@@ -3,12 +3,19 @@ import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
 import { DayRange } from './dayRanges';
-import { Granularity, toDeltas, toLiquidNetWorthSeries } from './netWorthSeries';
+import {
+  barCountsByGranularity,
+  Granularity,
+  MIN_USEFUL_BARS,
+  toDeltas,
+  toLiquidNetWorthSeries,
+} from './netWorthSeries';
 import { MASK, usePrivacy } from './privacy';
 import { RangePicker } from './RangePicker';
 
@@ -49,9 +56,23 @@ export function FinancialChangesChart() {
     isFetching,
   } = useGetNetWorthHistoryQuery({ days, groupBy: 'assetType' });
 
+  const points = res?.data ?? [];
+  // Which granularities the current range can actually support. The backend caps the window at
+  // 180 days (both price feeds only carry 6 months, so a longer window would understate rather
+  // than extend), which makes e.g. 1-month range + monthly buckets degenerate to a single bar.
+  const barCounts = barCountsByGranularity(points);
+  const effectiveGranularity =
+    barCounts[granularity] >= MIN_USEFUL_BARS
+      ? granularity
+      : // Fall back to the coarsest granularity that still says something, rather than rendering
+        // one lone bar that reads as a broken chart.
+        ((['monthly', 'weekly', 'daily'] as Granularity[]).find(
+          (g) => barCounts[g] >= MIN_USEFUL_BARS,
+        ) ?? 'daily');
+
   // Bucket first, then difference — differencing daily and summing would give the same answer for
   // a stock quantity but is more work and loses the end-of-period reading.
-  const deltas = toDeltas(toLiquidNetWorthSeries(res?.data ?? [], granularity));
+  const deltas = toDeltas(toLiquidNetWorthSeries(points, effectiveGranularity));
   // The first bucket has no predecessor, so it carries no bar. Dropping it keeps the axis honest
   // rather than rendering a gap the reader has to interpret.
   const plotted = deltas.filter((d) => d.delta != null);
@@ -109,15 +130,31 @@ export function FinancialChangesChart() {
         sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'space-between', mb: 1 }}
       >
         <ButtonGroup size="small" variant="outlined">
-          {GRANULARITIES.map((g) => (
-            <Button
-              key={g.value}
-              onClick={() => setGranularity(g.value)}
-              variant={granularity === g.value ? 'contained' : 'outlined'}
-            >
-              {g.label}
-            </Button>
-          ))}
+          {GRANULARITIES.map((g) => {
+            // Disabled rather than hidden: a missing button looks like a bug, whereas a disabled
+            // one with a reason explains why this range can't support that bucket size.
+            const bars = barCounts[g.value];
+            const usable = bars >= MIN_USEFUL_BARS;
+            return (
+              <Tooltip
+                key={g.value}
+                title={
+                  usable ? '' : `目前範圍只有 ${bars} 根，改選更長的範圍才看得出${g.label}變化`
+                }
+              >
+                {/* span wrapper: MUI tooltips need a non-disabled child to receive hover events */}
+                <span>
+                  <Button
+                    onClick={() => setGranularity(g.value)}
+                    disabled={!usable}
+                    variant={effectiveGranularity === g.value ? 'contained' : 'outlined'}
+                  >
+                    {g.label}
+                  </Button>
+                </span>
+              </Tooltip>
+            );
+          })}
         </ButtonGroup>
         <RangePicker ranges={RANGES} value={days} onChange={setDays} />
       </Box>
@@ -126,8 +163,8 @@ export function FinancialChangesChart() {
 
       {plotted.length === 0 ? (
         <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-          資料不足 —— 至少需要兩個{GRANULARITIES.find((g) => g.value === granularity)?.label}
-          的紀錄才能計算變化量
+          資料不足 —— 至少需要兩個
+          {GRANULARITIES.find((g) => g.value === effectiveGranularity)?.label}的紀錄才能計算變化量
         </Typography>
       ) : (
         <>
@@ -135,6 +172,7 @@ export function FinancialChangesChart() {
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             每期期末流動資產淨值與前一期的差額。Y
             軸依變化量自行縮放，不受資產絕對金額影響——這正是小額變化在上方走勢圖看不出來的原因。
+            範圍最多 6 個月：歷史股價只取得到近 6 個月，再往前的淨值無法正確計算。
           </Typography>
         </>
       )}

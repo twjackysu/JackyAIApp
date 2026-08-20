@@ -88,3 +88,19 @@ export function toLiquidNetWorthSeries(
     granularity,
   );
 }
+
+/** Fewer bars than this and a delta chart says nothing — one bar in particular is indistinguishable
+ * from "the feature is broken", which is exactly how it was first reported. */
+export const MIN_USEFUL_BARS = 3;
+
+/** How many bars each granularity would actually yield for the data currently loaded.
+ *
+ * Needed because range and granularity are independent controls over a window the backend caps at
+ * 180 days (that cap is not arbitrary — both price sources only fetch 6 months of history, so a
+ * longer window would silently understate net worth rather than extend it). That makes some
+ * combinations degenerate: a 1-month range bucketed monthly can only ever produce a single bar.
+ * The UI uses this to disable those combinations instead of rendering something misleading. */
+export function barCountsByGranularity(points: NetWorthDataPoint[]): Record<Granularity, number> {
+  const count = (g: Granularity) => Math.max(0, toLiquidNetWorthSeries(points, g).length - 1); // -1: first bucket has no predecessor
+  return { daily: count('daily'), weekly: count('weekly'), monthly: count('monthly') };
+}
