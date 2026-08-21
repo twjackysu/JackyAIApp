@@ -3,8 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { BENCHMARK_RETURN_TOOLTIP } from './benchmarkReturn';
 
 describe('BENCHMARK_RETURN_TOOLTIP', () => {
-  it('states the metric and that it is not annualized', () => {
-    expect(BENCHMARK_RETURN_TOOLTIP).toContain('時間加權報酬率（TWR），未年化');
+  it('states the metric, that it includes dividends, and that it is not annualized', () => {
+    expect(BENCHMARK_RETURN_TOOLTIP).toContain('時間加權報酬率（TWR），含息、未年化');
+  });
+
+  it('explains why dividends are included, which is the whole point for a high-yield holder', () => {
+    // Price-only return books a distribution as a loss and hands the lower-yielding benchmark an
+    // unearned edge. If this rationale disappears the figure looks arbitrary again.
+    expect(BENCHMARK_RETURN_TOOLTIP).toContain('把配掉的錢當成虧損');
+    expect(BENCHMARK_RETURN_TOOLTIP).toContain('對照標的自己的配息同樣計入');
+  });
+
+  it('warns that the plotted line stays price-only, so it will not match the %', () => {
+    expect(BENCHMARK_RETURN_TOOLTIP).toContain('線仍是純市值（不含息）');
   });
 
   it('explains that contributions are excluded, which is the whole point of the fix', () => {

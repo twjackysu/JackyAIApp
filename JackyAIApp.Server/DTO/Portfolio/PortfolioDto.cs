@@ -204,8 +204,13 @@ namespace JackyAIApp.Server.DTO.Portfolio
         // counted deposits as gains, so contributing 2.7M into a 7M portfolio read as "+31%"
         // having earned nothing. TWR removes each period's contribution from its opening base,
         // which is also what makes this directly comparable to the benchmark figure beside it.
+        // 含息 (total return) on both sides: price-only would book a distribution as a loss on its
+        // ex-date, penalising a high-yield portfolio against a lower-yielding benchmark that gives
+        // up less price. Dividends count as income retained, not reinvested — matching 總覽.
         // Still a period return, not annualized — PortfolioSummaryDto.AnnualizedReturnPct (XIRR)
         // is the money-weighted, annualized figure and will legitimately differ.
+        // NOTE: the plotted curves (PortfolioTWD / ValuesTWD) stay pure market value so they
+        // reconcile against a brokerage statement, so they will not track this percentage.
         // Null when the first value is 0 (nothing to divide by).
         public decimal? ReturnPct { get; set; }
     }

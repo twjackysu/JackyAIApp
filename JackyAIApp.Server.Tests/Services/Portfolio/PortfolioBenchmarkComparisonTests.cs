@@ -34,6 +34,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<IMarketDataProviderFactory> _providerFactory;
+        private readonly Mock<IDividendService> _dividendData;
         private readonly PortfolioService _service;
 
         public PortfolioBenchmarkComparisonTests()
@@ -45,10 +46,10 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             _providerFactory = new Mock<IMarketDataProviderFactory>();
             var fundData = new Mock<IFundDataService>();
-            var dividendData = new Mock<IDividendService>();
-            dividendData.Setup(x => x.GetStockDividendsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            _dividendData = new Mock<IDividendService>();
+            _dividendData.Setup(x => x.GetStockDividendsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<DividendRecord>());
-            dividendData.Setup(x => x.GetFundDividendsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            _dividendData.Setup(x => x.GetFundDividendsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<DividendRecord>());
 
             var httpClientFactory = new Mock<IHttpClientFactory>();
@@ -61,7 +62,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 _dbContext,
                 _providerFactory.Object,
                 fundData.Object,
-                dividendData.Object,
+                _dividendData.Object,
                 categoryService.Object,
                 stockService: null!,
                 httpClientFactory.Object,
@@ -361,7 +362,91 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal(["0050", "VT"], result.Benchmarks.Select(b => b.Symbol));
         }
 
+        [Fact]
+        public async Task GetBenchmarkComparison_PortfolioDividend_CountsAsReturnNotLoss()
+        {
+            // The 高股息 case. A distribution knocks the price down by roughly its own size on the
+            // ex-date. Counting price only, the payout reads as a 5% loss even though the holder is
+            // exactly as wealthy — and the comparison is then scored against a lower-yielding
+            // benchmark that never takes that hit. Total return must show this as flat.
+            var day0 = Weekday(0);
+            var day1 = Weekday(1);
+            await SeedSnapshotAsync(day0,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "0056", Name = "高股息",
+                    Market = "TW", Currency = "TWD", Quantity = 1000, CostBasis = 100_000,
+                });
+            SetupStockProvider("0056", MarketRegion.TW, (day0, 100m), (day1, 95m));
+            SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 100m));
+            SetupDividends("0056", (day1, 5m));
+
+            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+
+            // Price alone would be (95,000 - 100,000) / 100,000 = -5%.
+            Assert.Equal(0m, result.PortfolioReturnPct);
+            Assert.Equal(0m, result.Benchmarks.Single().ReturnPct);
+        }
+
+        [Fact]
+        public async Task GetBenchmarkComparison_BenchmarkDividend_CountsForTheBenchmarkToo()
+        {
+            // The mirror image: crediting only the portfolio's dividends would hand it an unearned
+            // edge over any benchmark that also distributes. 0050 pays too, and must get credit.
+            var day0 = Weekday(0);
+            var day1 = Weekday(1);
+            await SeedSnapshotAsync(day0,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 100_000,
+                });
+            SetupStockProvider("2330", MarketRegion.TW, (day0, 1000m), (day1, 1000m));
+            SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 95m));
+            SetupDividends("0050", (day1, 5m));
+
+            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+
+            Assert.Equal(0m, result.PortfolioReturnPct);
+            Assert.Equal(0m, result.Benchmarks.Single().ReturnPct); // not -5%
+        }
+
+        [Fact]
+        public async Task GetBenchmarkComparison_ExDateOnNonTradingDay_IsStillCounted()
+        {
+            // Ex-dates that land on a day the loop never records (weekend here, but the same path
+            // covers a day where some symbol has no price) must accrue to the next recorded day
+            // rather than vanish from the return.
+            var day0 = Weekday(0);                 // Monday
+            var saturday = AnchorMonday.AddDays(5);
+            Assert.Equal(DayOfWeek.Saturday, saturday.DayOfWeek); // guard the fixture's own premise
+
+            await SeedSnapshotAsync(day0,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "0056", Name = "高股息",
+                    Market = "TW", Currency = "TWD", Quantity = 1000, CostBasis = 100_000,
+                });
+            // Price never moves, so any non-zero return can only have come from the dividend.
+            SetupStockProvider("0056", MarketRegion.TW, (day0, 100m));
+            SetupStockProvider("0050", MarketRegion.TW, (day0, 100m));
+            SetupDividends("0056", (saturday, 5m));
+
+            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+
+            // 5,000 of income on a flat 100,000 position.
+            Assert.Equal(5m, result.PortfolioReturnPct);
+        }
+
         // ── Helpers ───────────────────────────────────────────────────────────
+
+        /// <summary>Give one symbol a dividend history; every other symbol keeps the empty default.</summary>
+        private void SetupDividends(string symbol, params (DateOnly ExDate, decimal AmountPerUnit)[] records)
+        {
+            _dividendData
+                .Setup(x => x.GetStockDividendsAsync(symbol, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(records.Select(r => new DividendRecord(r.ExDate, r.AmountPerUnit, "TWD")).ToList());
+        }
 
         private static DateOnly Weekday(int businessDaysOffset)
         {
