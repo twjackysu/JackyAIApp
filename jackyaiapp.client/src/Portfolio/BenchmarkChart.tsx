@@ -163,7 +163,7 @@ export function BenchmarkChart() {
         <>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
             <Typography variant="caption" color="text.secondary">
-              區間報酬（時間加權，未年化）
+              區間報酬（含息，時間加權，未年化）
             </Typography>
             <InfoPopover
               content={BENCHMARK_RETURN_TOOLTIP}
@@ -193,8 +193,8 @@ export function BenchmarkChart() {
           <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
 
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            模擬「若把每一筆投入成本都拿去買該標的」的對照線。線是部位市值，會隨加碼變高；上面的 %
-            已排除加碼影響，所以和線的漲幅不會一致。
+            模擬「若把每一筆投入成本都拿去買該標的」的對照線。線是部位市值（不含息），會隨加碼變高；上面的
+            % 是含息報酬且已排除加碼影響，所以和線的漲幅不會一致。
           </Typography>
         </>
       )}

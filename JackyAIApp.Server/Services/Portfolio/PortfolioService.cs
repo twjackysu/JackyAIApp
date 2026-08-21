@@ -840,7 +840,17 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// which benchmark it's compared against, so it's computed once per date and applied to
         /// every requested benchmark independently (each buys/holds units at its own daily price —
         /// symbols never affect each other's curve). The portfolio side is priced the same way, so
-        /// every curve here is a directly comparable price-return curve (no dividends anywhere).
+        /// every curve here is a directly comparable curve.
+        ///
+        /// The reported percentages are 含息 (total return) on BOTH sides. Price-only would
+        /// systematically penalise a high-yield portfolio: a distribution knocks the price down on
+        /// its ex-date, so 0056/00878-style holdings would show that drop as a loss while a lower-
+        /// yielding 0050 gives up less price — scoring the user against a benchmark that is handed
+        /// an advantage purely by paying out less. Dividends are counted as income retained (added
+        /// to the growth factor on the day earned, not reinvested into more units), matching how
+        /// 總覽's 總報酬 and XIRR already treat them. The plotted CURVES stay pure market value, so
+        /// they still reconcile against a brokerage statement — which is why the line's rise and
+        /// the headline % are not expected to match.
         /// </summary>
         public async Task<BenchmarkComparisonDto> GetBenchmarkComparisonAsync(
             string userId, int days, IReadOnlyList<string>? benchmarkSymbols = null, CancellationToken ct = default)
@@ -902,6 +912,21 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Distinct()
                 .ToList();
             var fundMap = await FetchFundsAsync(fundIds, ct);
+
+            // 含息 inputs for both sides (see the method's remarks for why price-only is unfair to
+            // a high-yield portfolio). Benchmark market is inferred from the symbol shape, matching
+            // the only two shapes this app's benchmark presets take: TW codes are numeric-leading
+            // (0050), US tickers are not (QQQ/VOO/VT).
+            var portfolioDivByDate =
+                await CostTrackedDividendsByDateAsync(snapshots, fundMap, startDate, today, ct);
+            var benchmarkDivRecords = await Task.WhenAll(benchmarkPriceLists.Select(b =>
+                dividendData.GetStockDividendsAsync(
+                    b.Symbol, char.IsDigit(b.Symbol[0]) ? "TW" : "US", ct)));
+            var benchmarkDivByDate = benchmarkDivRecords
+                .Select(records => records
+                    .GroupBy(r => r.ExDate)
+                    .ToDictionary(g => g.Key, g => g.Sum(r => r.AmountPerUnit)))
+                .ToArray();
 
             // Same cost-tracked universe as ComputeAnnualizedReturn's terminal value (costBasisTWD +
             // pnlTWD == market value of positions that actually have a recorded cost) — a position
@@ -983,9 +1008,22 @@ namespace JackyAIApp.Server.Services.Portfolio
             // The contribution applied on the day currently being priced; already reflected in
             // both this day's portfolio value and this day's benchmark units.
             decimal contributionToday = 0;
+            // Dividends earned but not yet folded into a growth factor. An ex-date can land on a
+            // day this loop never records (a weekend, or a day where some symbol has no price), and
+            // income dropped on such a day would silently vanish from the return — so it accrues
+            // here and is applied on the next day that is actually recorded.
+            decimal pendingPortfolioDiv = 0;
+            var pendingBenchmarkDiv = new decimal[benchmarkPriceLists.Count];
 
             for (var date = startDate; date <= today; date = date.AddDays(1))
             {
+                // Accrued before every `continue` below, and before this day's contribution is
+                // applied: a distribution is earned by the units held going INTO the ex-date, so
+                // yesterday's unit count is the correct one to value it at.
+                pendingPortfolioDiv += portfolioDivByDate.GetValueOrDefault(date);
+                for (var i = 0; i < benchmarkPriceLists.Count; i++)
+                    pendingBenchmarkDiv[i] += units[i] * benchmarkDivByDate[i].GetValueOrDefault(date);
+
                 if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
 
                 while (snapshotIdx + 1 < snapshots.Count && snapshots[snapshotIdx + 1].EffectiveDate <= date)
@@ -1044,18 +1082,23 @@ namespace JackyAIApp.Server.Services.Portfolio
                 // base so the deposit itself never counts as a gain. A base at or below zero has
                 // no meaningful growth factor, so that day is skipped rather than allowed to
                 // produce a divide-by-zero or a sign flip.
+                // Dividends are added to the numerator only: the income counts as return on the
+                // day it lands, then leaves the base (it is cash in hand, not reinvested units),
+                // so it is credited exactly once.
                 var portfolioBase = (prevPortfolioValue ?? 0) + contributionToday;
                 if (prevPortfolioValue != null && portfolioBase > 0)
-                    portfolioTwr *= portfolioTotal.Value / portfolioBase;
+                    portfolioTwr *= (portfolioTotal.Value + pendingPortfolioDiv) / portfolioBase;
                 prevPortfolioValue = portfolioTotal.Value;
+                pendingPortfolioDiv = 0;
 
                 for (var i = 0; i < benchmarkPriceLists.Count; i++)
                 {
                     var todayValue = units[i] * pricesToday[i];
                     var benchBase = (prevBenchmarkValue[i] ?? 0) + contributionToday;
                     if (prevBenchmarkValue[i] != null && benchBase > 0)
-                        benchmarkTwr[i] *= todayValue / benchBase;
+                        benchmarkTwr[i] *= (todayValue + pendingBenchmarkDiv[i]) / benchBase;
                     prevBenchmarkValue[i] = todayValue;
+                    pendingBenchmarkDiv[i] = 0;
                 }
             }
 
@@ -1454,6 +1497,66 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Where(s => s.UserId == userId)
                 .OrderBy(s => s.EffectiveDate)
                 .ToListAsync(ct);
+
+        /// <summary>
+        /// Per-ex-date TWD dividends earned by the COST-TRACKED stock/fund positions only, for the
+        /// window [startDate, today]. Deliberately not <see cref="ComputeDividendsAsync"/>: that one
+        /// covers every position whether or not a cost basis was ever filled in, and the benchmark
+        /// comparison prices only cost-tracked holdings on both sides. Crediting the portfolio curve
+        /// with income from a position that contributes nothing to the benchmark side would drift
+        /// the two apart for reasons unrelated to performance — the same universe argument that
+        /// governs InvestedValueAsOfDate.
+        ///
+        /// Quantity and FX are read from the snapshot active on the ex-date, so a dividend counts
+        /// against what was actually held when it was paid, not today's position.
+        /// </summary>
+        private async Task<Dictionary<DateOnly, decimal>> CostTrackedDividendsByDateAsync(
+            List<HoldingSnapshot> orderedSnapshots, Dictionary<string, FundNavHistory> fundMap,
+            DateOnly startDate, DateOnly today, CancellationToken ct)
+        {
+            var byDate = new Dictionary<DateOnly, decimal>();
+
+            var keys = orderedSnapshots
+                .SelectMany(s => s.Positions)
+                .Where(p => (p.AssetType == AssetType.STOCK || p.AssetType == AssetType.FUND)
+                    && p.CostBasis.HasValue && !string.IsNullOrWhiteSpace(p.Symbol))
+                .Select(p => (p.AssetType, Symbol: p.Symbol, Market: p.Market))
+                .Distinct()
+                .ToList();
+            if (keys.Count == 0) return byDate;
+
+            var fetched = await Task.WhenAll(keys.Select(async key => (
+                Key: key,
+                Records: key.AssetType == AssetType.STOCK
+                    ? await dividendData.GetStockDividendsAsync(key.Symbol, key.Market, ct)
+                    : await dividendData.GetFundDividendsAsync(key.Symbol, ct)
+            )));
+
+            foreach (var (key, records) in fetched)
+            {
+                foreach (var record in records)
+                {
+                    if (record.ExDate < startDate || record.ExDate > today) continue;
+
+                    var snap = orderedSnapshots.LastOrDefault(s => s.EffectiveDate <= record.ExDate);
+                    var position = snap?.Positions.FirstOrDefault(p =>
+                        p.AssetType == key.AssetType && p.Symbol == key.Symbol && p.Market == key.Market);
+                    if (snap == null || position == null || position.Quantity <= 0 || !position.CostBasis.HasValue)
+                        continue;
+
+                    // FundRich's dividend history has no currency field; fall back to the fund's NAV currency.
+                    var currency = key.AssetType == AssetType.FUND
+                        ? (fundMap.TryGetValue(key.Symbol, out var nav) ? nav.Currency : "TWD")
+                        : record.Currency;
+                    var fxMul = currency == "USD" ? (snap.UsdTwdRate > 0 ? snap.UsdTwdRate : 32m) : 1m;
+
+                    byDate[record.ExDate] = byDate.GetValueOrDefault(record.ExDate)
+                        + position.Quantity * record.AmountPerUnit * fxMul;
+                }
+            }
+
+            return byDate;
+        }
 
         /// <summary>
         /// Cash dividends actually earned while holding each stock/fund position, walking the whole
