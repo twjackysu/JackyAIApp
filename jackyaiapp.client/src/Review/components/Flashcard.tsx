@@ -9,11 +9,11 @@ import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 import { ReviewWordItem } from '@/apis/reviewApis/types';
+import { ActionTooltip } from '@/components/hints';
 import { playBrowserTts, playVoiceTube } from '@/Dictionary/utils/audio';
 
 interface FlashcardProps {
@@ -55,7 +55,7 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
           >
             {word.wordText}
           </Typography>
-          <Tooltip title="Play pronunciation">
+          <ActionTooltip title="Play pronunciation">
             <IconButton
               onClick={() => playVoiceTube(word.wordText)}
               color="primary"
@@ -64,7 +64,7 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
             >
               <VolumeUpIcon />
             </IconButton>
-          </Tooltip>
+          </ActionTooltip>
         </Box>
         <Typography
           variant="body1"
@@ -121,7 +121,7 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
                       >
                         {meaning.exampleSentences[0].english}
                       </Typography>
-                      <Tooltip title="Play example sentence">
+                      <ActionTooltip title="Play example sentence">
                         <IconButton
                           size="small"
                           onClick={() => playBrowserTts(meaning.exampleSentences[0].english)}
@@ -129,7 +129,7 @@ function Flashcard({ word, cardNumber, totalCards, onRate }: FlashcardProps) {
                         >
                           <VolumeUpIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
+                      </ActionTooltip>
                     </Box>
                     <Typography variant="caption" color="text.secondary">
                       {meaning.exampleSentences[0].chinese}

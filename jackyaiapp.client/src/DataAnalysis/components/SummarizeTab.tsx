@@ -19,7 +19,6 @@ import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -36,6 +35,8 @@ import type {
   SummarizeRequest,
 } from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef, ViewByEntry } from '../types';
+
+import { ActionTooltip } from '@/components/hints';
 
 type SummarizeMode = 'manual' | 'ai';
 
@@ -489,7 +490,7 @@ export function SummarizeTab({
                     {nlInterpretation}
                   </Typography>
                   {nlPlan && (
-                    <Tooltip title="檢視原始查詢計畫">
+                    <ActionTooltip title="檢視原始查詢計畫">
                       <IconButton
                         size="small"
                         onClick={() => setPlanOpen((o) => !o)}
@@ -497,7 +498,7 @@ export function SummarizeTab({
                       >
                         <CodeIcon sx={{ fontSize: 14 }} />
                       </IconButton>
-                    </Tooltip>
+                    </ActionTooltip>
                   )}
                 </Box>
               )}

@@ -1,6 +1,6 @@
 import PauseIcon from '@mui/icons-material/Pause';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import { Avatar, Box, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { Avatar, Box, IconButton, Paper, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Fragment, useEffect, useRef } from 'react';
 
@@ -9,6 +9,7 @@ import { useAudioPlayback } from '../hooks/useAudioPlayback';
 import CorrectionAlert from './CorrectionAlert';
 
 import { ConversationTurn } from '@/apis/examApis/types';
+import { ActionTooltip } from '@/components/hints';
 import MarkdownMessage from '@/components/MarkdownMessage';
 
 interface ChatMessagesProps {
@@ -150,7 +151,7 @@ function ChatMessages({ messages, isResponding, ref }: ChatMessagesProps) {
                       </Typography>
                       {/* Audio control for AI messages */}
                       {turn.speaker === 'ai' && (
-                        <Tooltip title={isPlaying ? '停止播放' : '播放語音'}>
+                        <ActionTooltip title={isPlaying ? '停止播放' : '播放語音'}>
                           <IconButton
                             size="small"
                             onClick={() => {
@@ -175,7 +176,7 @@ function ChatMessages({ messages, isResponding, ref }: ChatMessagesProps) {
                               <VolumeUpIcon fontSize="small" />
                             )}
                           </IconButton>
-                        </Tooltip>
+                        </ActionTooltip>
                       )}
                     </Box>
                   </Stack>

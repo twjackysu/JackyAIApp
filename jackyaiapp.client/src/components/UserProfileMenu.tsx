@@ -13,7 +13,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
@@ -21,6 +20,7 @@ import { Link } from 'react-router-dom';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useGetCreditBalanceQuery } from '@/apis/creditApis';
+import { ActionTooltip } from '@/components/hints';
 
 function UserProfileMenu() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -82,7 +82,7 @@ function UserProfileMenu() {
             </Button>
           )}
 
-          <Tooltip title={`Credits: ${creditBalance} — Click to buy more`}>
+          <ActionTooltip title={`Credits: ${creditBalance} — Click to buy more`}>
             <Chip
               icon={<MonetizationOnIcon />}
               label={creditBalance}
@@ -104,8 +104,8 @@ function UserProfileMenu() {
                   : {}),
               }}
             />
-          </Tooltip>
-          <Tooltip title="Account menu">
+          </ActionTooltip>
+          <ActionTooltip title="Account menu">
             <IconButton
               onClick={handleClick}
               size="small"
@@ -117,7 +117,7 @@ function UserProfileMenu() {
                 {displayName.charAt(0).toUpperCase()}
               </Avatar>
             </IconButton>
-          </Tooltip>
+          </ActionTooltip>
           <Box sx={{ ml: 1, display: { xs: 'none', sm: 'block' } }}>
             <Typography variant="body2">{displayName}</Typography>
           </Box>

@@ -14,7 +14,6 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useState } from 'react';
@@ -25,6 +24,7 @@ import {
   useLazyGetSnapshotHoldingsQuery,
 } from '@/apis/portfolioApis';
 import { PositionInput } from '@/apis/portfolioApis/types';
+import { ActionTooltip } from '@/components/hints';
 
 interface Props {
   onLoadSnapshot: (positions: PositionInput[], effectiveDate: string) => void;
@@ -119,7 +119,7 @@ export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
                       {/* Real touch targets, spaced apart — cramped size="small" buttons
                           sitting right next to each other were hard to tap accurately on mobile. */}
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                        <Tooltip title="載入到編輯器">
+                        <ActionTooltip title="載入到編輯器">
                           <span>
                             <IconButton
                               disabled={busyId === h.snapshotId && isLoadingSnap}
@@ -128,8 +128,8 @@ export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
                               <RestoreIcon fontSize="small" />
                             </IconButton>
                           </span>
-                        </Tooltip>
-                        <Tooltip title="刪除這筆快照">
+                        </ActionTooltip>
+                        <ActionTooltip title="刪除這筆快照">
                           <span>
                             <IconButton
                               disabled={busyId === h.snapshotId}
@@ -138,7 +138,7 @@ export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
                               <DeleteOutlineIcon fontSize="small" />
                             </IconButton>
                           </span>
-                        </Tooltip>
+                        </ActionTooltip>
                       </Box>
                     </TableCell>
                   </TableRow>

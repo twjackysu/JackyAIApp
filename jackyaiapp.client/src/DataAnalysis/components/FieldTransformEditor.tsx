@@ -3,7 +3,6 @@ import TransformIcon from '@mui/icons-material/Transform';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
@@ -21,6 +20,8 @@ import { StringGroupingDialog } from './StringGroupingDialog';
 
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { BinEntry, FieldTransformDef, GroupEntry } from '../types';
+
+import { ActionTooltip } from '@/components/hints';
 
 interface FieldTransformEditorProps {
   transforms: FieldTransformDef[];
@@ -136,11 +137,11 @@ export function FieldTransformEditor({
           </Typography>
         </Box>
         {!showAddForm && (
-          <Tooltip title="新增轉換">
+          <ActionTooltip title="新增轉換">
             <IconButton size="small" onClick={() => setShowAddForm(true)}>
               <AddIcon fontSize="small" />
             </IconButton>
-          </Tooltip>
+          </ActionTooltip>
         )}
       </Box>
 

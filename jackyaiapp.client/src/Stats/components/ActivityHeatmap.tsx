@@ -1,13 +1,13 @@
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
 
 import type { ActivityDay } from '@/apis/statsApis/types';
 
 import { useGetActivityQuery } from '@/apis/statsApis';
+import { ClickPopover } from '@/components/hints';
 
 // GitHub-style green scale (works on light and dark surfaces).
 const EMPTY = 'rgba(127, 127, 127, 0.12)';
@@ -76,11 +76,11 @@ function ActivityHeatmap() {
             <Box key={ci} sx={{ display: 'flex', flexDirection: 'column', gap: `${GAP}px` }}>
               {col.map((cell, ri) =>
                 cell.day ? (
-                  <Tooltip
+                  <ClickPopover
                     key={ri}
-                    title={`${cell.day.count} on ${cell.day.date}`}
+                    content={`${cell.day.count} on ${cell.day.date}`}
                     placement="top"
-                    arrow
+                    focusable={false}
                   >
                     <Box
                       sx={{
@@ -90,7 +90,7 @@ function ActivityHeatmap() {
                         bgcolor: levelColor(cell.day.count),
                       }}
                     />
-                  </Tooltip>
+                  </ClickPopover>
                 ) : (
                   <Box key={ri} sx={{ width: CELL, height: CELL }} />
                 ),

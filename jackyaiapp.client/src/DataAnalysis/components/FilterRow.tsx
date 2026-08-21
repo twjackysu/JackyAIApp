@@ -9,7 +9,6 @@ import MenuItem from '@mui/material/MenuItem';
 import OutlinedInput from '@mui/material/OutlinedInput';
 import Select from '@mui/material/Select';
 import Switch from '@mui/material/Switch';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
 
@@ -17,6 +16,8 @@ import { useSummarizeMutation, useGetDistinctValuesQuery } from '../../apis/data
 
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef } from '../types';
+
+import { InfoPopover } from '@/components/hints';
 
 interface FilterRowProps {
   filter: ActiveFilter;
@@ -126,8 +127,8 @@ export function FilterRow({
         : '數值'
       : '請先選擇欄位';
 
-  // ── Tooltip copy for the "Use transform" switch ────────────────────────────
-  const transformTooltip =
+  // ── Explanatory copy for the "Use transform" switch ───────────────────────
+  const transformHint =
     activeTransform?.type === 'StringGrouping'
       ? '依群組標籤篩選（每個標籤會展開為對應的原始數值）'
       : activeTransform?.type === 'NumericBin'
@@ -179,26 +180,28 @@ export function FilterRow({
       {/* ── Transform controls (when any transform exists for this field) ── */}
       {filter.fieldName && hasTransforms && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Tooltip
-            title={filter.useTransform ? transformTooltip : '開啟以使用轉換標籤篩選'}
-            placement="top"
-          >
-            <FormControlLabel
-              sx={{ m: 0 }}
-              control={
-                <Switch
-                  size="small"
-                  checked={filter.useTransform}
-                  onChange={(e) => handleTransformToggle(e.target.checked)}
-                />
-              }
-              label={
-                <Typography variant="caption" color="text.secondary">
-                  套用轉換
-                </Typography>
-              }
-            />
-          </Tooltip>
+          {/* The switch owns its own click, so the explanation sits in a button beside it
+              rather than wrapping it. */}
+          <FormControlLabel
+            sx={{ m: 0 }}
+            control={
+              <Switch
+                size="small"
+                checked={filter.useTransform}
+                onChange={(e) => handleTransformToggle(e.target.checked)}
+              />
+            }
+            label={
+              <Typography variant="caption" color="text.secondary">
+                套用轉換
+              </Typography>
+            }
+          />
+          <InfoPopover
+            content={filter.useTransform ? transformHint : '開啟以使用轉換標籤篩選'}
+            ariaLabel="套用轉換說明"
+            iconSize={14}
+          />
 
           {/* When multiple transforms exist for the field, let user pick */}
           {filter.useTransform && fieldTransforms.length > 1 && (

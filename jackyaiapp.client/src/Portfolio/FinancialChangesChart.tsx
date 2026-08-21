@@ -3,7 +3,6 @@ import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
@@ -121,6 +120,10 @@ export function FinancialChangesChart() {
     ],
   };
 
+  const unusableLabels = GRANULARITIES.filter((g) => barCounts[g.value] < MIN_USEFUL_BARS).map(
+    (g) => g.label,
+  );
+
   return (
     <Box>
       <Box
@@ -129,32 +132,30 @@ export function FinancialChangesChart() {
         <ButtonGroup size="small" variant="outlined">
           {GRANULARITIES.map((g) => {
             // Disabled rather than hidden: a missing button looks like a bug, whereas a disabled
-            // one with a reason explains why this range can't support that bucket size.
-            const bars = barCounts[g.value];
-            const usable = bars >= MIN_USEFUL_BARS;
+            // one explains why this range can't support that bucket size. The reason is spelled
+            // out in the caption below — a disabled button never receives the tap or hover that
+            // would open a tooltip on it.
+            const usable = barCounts[g.value] >= MIN_USEFUL_BARS;
             return (
-              <Tooltip
+              <Button
                 key={g.value}
-                title={
-                  usable ? '' : `目前範圍只有 ${bars} 根，改選更長的範圍才看得出${g.label}變化`
-                }
+                onClick={() => setGranularity(g.value)}
+                disabled={!usable}
+                variant={effectiveGranularity === g.value ? 'contained' : 'outlined'}
               >
-                {/* span wrapper: MUI tooltips need a non-disabled child to receive hover events */}
-                <span>
-                  <Button
-                    onClick={() => setGranularity(g.value)}
-                    disabled={!usable}
-                    variant={effectiveGranularity === g.value ? 'contained' : 'outlined'}
-                  >
-                    {g.label}
-                  </Button>
-                </span>
-              </Tooltip>
+                {g.label}
+              </Button>
             );
           })}
         </ButtonGroup>
         <RangePicker ranges={RANGES} value={days} onChange={setDays} />
       </Box>
+
+      {unusableLabels.length > 0 && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+          目前範圍太短，改選更長的範圍才看得出{unusableLabels.join('、')}變化
+        </Typography>
+      )}
 
       {isFetching && <LinearProgress sx={{ mb: 1 }} />}
 

@@ -3,7 +3,6 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Tooltip from '@mui/material/Tooltip';
 import { useMemo, useState } from 'react';
 
 import { AddToDashboardDialog } from './AddToDashboardDialog';
@@ -15,6 +14,8 @@ import { ResizableWidget } from './ResizableWidget';
 
 import type { VizId } from './types';
 import type { SummarizeRequest } from '../../apis/dataAnalysisApis/types';
+
+import { ActionTooltip, InfoPopover } from '@/components/hints';
 
 interface VizSwitcherProps {
   rows: Record<string, unknown>[];
@@ -64,6 +65,10 @@ export function VizSwitcher({
   const cap = getCapability(selected);
   const showAdd = !!canAddToDashboard && !!currentPlan;
 
+  const unavailable = VIZ_CAPABILITIES.filter((c) => !(eligibility.get(c.id)?.ok ?? false)).map(
+    (c) => ({ id: c.id, label: c.label, reason: eligibility.get(c.id)?.reason ?? '' }),
+  );
+
   return (
     <>
       <Box
@@ -97,20 +102,42 @@ export function VizSwitcher({
           sx={{ flexWrap: 'wrap' }}
         >
           {VIZ_CAPABILITIES.map((c) => {
-            const e = eligibility.get(c.id);
-            const ok = e?.ok ?? false;
-            return (
-              <Tooltip key={c.id} title={ok ? c.label : `${c.label} — ${e?.reason ?? ''}`}>
-                {/* span keeps the tooltip working while the button is disabled */}
-                <span style={{ display: 'inline-flex' }}>
-                  <ToggleButton value={c.id} disabled={!ok} aria-label={c.label}>
-                    {c.icon}
-                  </ToggleButton>
-                </span>
-              </Tooltip>
+            const ok = eligibility.get(c.id)?.ok ?? false;
+            const button = (
+              <span style={{ display: 'inline-flex' }}>
+                <ToggleButton value={c.id} disabled={!ok} aria-label={c.label}>
+                  {c.icon}
+                </ToggleButton>
+              </span>
+            );
+            // A disabled button receives neither hover nor tap, so its reason can't live on
+            // the button itself — it goes in the "why is this greyed out" popover instead.
+            return ok ? (
+              <ActionTooltip key={c.id} title={c.label}>
+                {button}
+              </ActionTooltip>
+            ) : (
+              <Box key={c.id} component="span" sx={{ display: 'inline-flex' }}>
+                {button}
+              </Box>
             );
           })}
         </ToggleButtonGroup>
+        {unavailable.length > 0 && (
+          <InfoPopover
+            content={
+              <>
+                <div>以下圖表不適用目前的資料形狀：</div>
+                <ul style={{ margin: '4px 0 0', paddingInlineStart: 20 }}>
+                  {unavailable.map((u) => (
+                    <li key={u.id}>{`${u.label} — ${u.reason}`}</li>
+                  ))}
+                </ul>
+              </>
+            }
+            ariaLabel="為什麼有些圖表無法選擇"
+          />
+        )}
       </Box>
 
       <ResizableWidget key={selected} gridDefault={cap.gridDefault}>

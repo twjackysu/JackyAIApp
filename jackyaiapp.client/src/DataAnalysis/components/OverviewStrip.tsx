@@ -1,8 +1,9 @@
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Skeleton from '@mui/material/Skeleton';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+
+import { ClickPopover } from '@/components/hints';
 
 interface StatCardProps {
   label: string;
@@ -30,9 +31,9 @@ function StatCard({ label, value, hint, loading }: StatCardProps) {
     </Paper>
   );
   return hint ? (
-    <Tooltip title={hint} placement="top">
+    <ClickPopover content={hint} placement="top">
       {card}
-    </Tooltip>
+    </ClickPopover>
   ) : (
     card
   );

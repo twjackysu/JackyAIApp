@@ -5,8 +5,9 @@ import Chip from '@mui/material/Chip';
 import LinearProgress from '@mui/material/LinearProgress';
 import Skeleton from '@mui/material/Skeleton';
 import Stack from '@mui/material/Stack';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+
+import { ClickPopover } from '@/components/hints';
 
 interface StatsBarProps {
   currentStreak: number;
@@ -89,7 +90,7 @@ function StatsBar({ currentStreak, totalXP, level, isLoading, streakFreezes = 0 
             day streak
           </Typography>
           {streakFreezes > 0 && (
-            <Tooltip title="Streak freeze — one missed day a week won't break your streak">
+            <ClickPopover content="Streak freeze — one missed day a week won't break your streak">
               <Chip
                 icon={<AcUnitIcon sx={{ fontSize: 16 }} />}
                 label={streakFreezes}
@@ -97,7 +98,7 @@ function StatsBar({ currentStreak, totalXP, level, isLoading, streakFreezes = 0 
                 variant="outlined"
                 sx={{ ml: 0.5, color: 'info.main', borderColor: 'info.main' }}
               />
-            </Tooltip>
+            </ClickPopover>
           )}
         </Stack>
 
