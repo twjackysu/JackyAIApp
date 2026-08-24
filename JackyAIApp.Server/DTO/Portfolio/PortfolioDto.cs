@@ -46,7 +46,11 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal ExposureFactor { get; set; } = 1m; // market exposure multiplier (2 for 正2, 0 for bond/cash)
         public bool PriceFetchFailed { get; set; }
         public string? ValuationMethod { get; set; } // REAL_ESTATE only: "市價" | "買價扣除折舊"
-        // Cumulative pre-tax cash dividends earned while holding this position (0 = none/not applicable).
+        // Pre-tax cash dividends earned during this position's CURRENT unbroken holding period
+        // (0 = none/not applicable). Scoped that way on purpose: sell a holding out entirely and
+        // buy it back later and the earlier period's payouts belong to that closed period, not to
+        // the position as it exists now — showing them here made a one-day-old holding look like it
+        // had already paid. Earlier periods still count in PortfolioSummaryDto.TotalDividendsTWD.
         public decimal DividendsTWD { get; set; }
         // Estimated brokerage fee + transaction tax if sold at the current price (TW STOCK only,
         // 0 for everything else). Already subtracted out of UnrealizedPnlTWD/Pct above.
@@ -90,8 +94,10 @@ namespace JackyAIApp.Server.DTO.Portfolio
         // Σ Positions.EstimatedSellCostTWD — already netted into UnrealizedPnlTWD/TotalReturnPnlTWD/
         // AnnualizedReturnPct above, surfaced separately so the UI can show what was deducted.
         public decimal EstimatedSellCostTWD { get; set; }
-        // Cumulative pre-tax cash dividends earned across the whole snapshot timeline (Σ Positions.DividendsTWD,
-        // plus any from positions no longer held today).
+        // Lifetime pre-tax cash dividends across the whole snapshot timeline. A SUPERSET of
+        // Σ Positions.DividendsTWD: it also carries income from positions no longer held at all,
+        // and from earlier closed holding periods of positions that are held again today. Income
+        // earned during a period since closed was still really earned, so it stays counted here.
         public decimal TotalDividendsTWD { get; set; }
         // Total (含息) return: UnrealizedPnlTWD + TotalDividendsTWD.
         public decimal TotalReturnPnlTWD { get; set; }

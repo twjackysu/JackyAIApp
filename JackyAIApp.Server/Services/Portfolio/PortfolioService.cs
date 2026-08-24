@@ -1559,10 +1559,39 @@ namespace JackyAIApp.Server.Services.Portfolio
         }
 
         /// <summary>
+        /// Effective date of the snapshot where the position's CURRENT unbroken holding period
+        /// begins, or null when it isn't held in the latest snapshot. Walks backwards from the most
+        /// recent snapshot and stops at the first one where the position is missing or zeroed —
+        /// that gap is a sale, and everything before it belongs to an earlier, closed holding
+        /// period. Snapshots are not daily, so "unbroken" means present in every snapshot in the
+        /// run, which is the most this model can know.
+        /// </summary>
+        private static DateOnly? CurrentHoldingStart(
+            List<HoldingSnapshot> orderedSnapshots, (AssetType AssetType, string Symbol, string Market) key)
+        {
+            DateOnly? start = null;
+            for (var i = orderedSnapshots.Count - 1; i >= 0; i--)
+            {
+                var position = orderedSnapshots[i].Positions.FirstOrDefault(p =>
+                    p.AssetType == key.AssetType && p.Symbol == key.Symbol && p.Market == key.Market);
+                if (position == null || position.Quantity <= 0) break;
+                start = orderedSnapshots[i].EffectiveDate;
+            }
+            return start;
+        }
+
+        /// <summary>
         /// Cash dividends actually earned while holding each stock/fund position, walking the whole
         /// snapshot timeline so a dividend counts against whatever quantity was held on its ex-date
         /// (not today's quantity). Dividends before the user's first snapshot are excluded — the app
         /// has no way to know what was held before that date, same honesty policy as XIRR.
+        ///
+        /// TotalTWD and Flows are lifetime figures: income earned during a holding period that has
+        /// since been closed was still really earned, and XIRR still needs it as a dated inflow.
+        /// ByPosition is NOT — it is scoped to each position's CURRENT unbroken holding period,
+        /// because it is displayed on the position itself. Sell a fund and buy it back weeks later
+        /// and the old period's payout would otherwise appear on the new position the very day it
+        /// is opened, which reads as income the new holding never produced.
         /// </summary>
         private async Task<(
             decimal TotalTWD,
@@ -1602,12 +1631,19 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             foreach (var (key, records) in fetched)
             {
-                decimal keyTotal = 0;
+                // Start of the position's current unbroken run of being held, or null if it isn't
+                // held in the latest snapshot at all. Only payouts on or after this date belong to
+                // the position as it exists today; earlier ones belong to a closed holding period.
+                var currentHoldingStart = CurrentHoldingStart(orderedSnapshots, key);
+                decimal currentPeriodTotal = 0;
+
                 foreach (var record in records)
                 {
                     if (record.ExDate < firstDate || record.ExDate > today) continue;
 
-                    // Whatever was actively held on the ex-date — not today's quantity.
+                    // Whatever was actively held on the ex-date — not today's quantity. A position
+                    // absent from the snapshot active on that date was not held then, which is what
+                    // correctly drops payouts falling inside a gap between holding periods.
                     var activeSnapshot = orderedSnapshots.LastOrDefault(s => s.EffectiveDate <= record.ExDate);
                     var position = activeSnapshot?.Positions.FirstOrDefault(p =>
                         p.AssetType == key.AssetType && p.Symbol == key.Symbol && p.Market == key.Market);
@@ -1620,13 +1656,15 @@ namespace JackyAIApp.Server.Services.Portfolio
                     var fxMul = currency == "USD" ? fx : 1m;
 
                     var amountTWD = position.Quantity * record.AmountPerUnit * fxMul;
-                    keyTotal += amountTWD;
+                    total += amountTWD;
                     flows.Add((record.ExDate, amountTWD));
+
+                    if (currentHoldingStart != null && record.ExDate >= currentHoldingStart)
+                        currentPeriodTotal += amountTWD;
                 }
 
-                if (keyTotal == 0) continue;
-                byPosition[(key.AssetType, key.Symbol, key.Market)] = keyTotal;
-                total += keyTotal;
+                if (currentPeriodTotal != 0)
+                    byPosition[(key.AssetType, key.Symbol, key.Market)] = currentPeriodTotal;
             }
 
             return (total, byPosition, flows);
