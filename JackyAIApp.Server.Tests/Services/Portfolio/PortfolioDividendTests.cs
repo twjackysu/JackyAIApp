@@ -180,7 +180,101 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal(100_000m, summary.TotalNetWorthTWD);
         }
 
+        [Fact]
+        public async Task GetSummary_RepurchasedAfterSellingOut_OldPeriodDividendNotOnNewPosition()
+        {
+            // Reported case: fund 043183 was held through early July and paid once, was sold out
+            // entirely, then bought back weeks later. On day one of the NEW holding the position
+            // already displayed that July payout — income the new holding never produced.
+            var heldFrom = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-54);
+            var soldOn = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-39);
+            var reboughtOn = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            await SeedSnapshotAsync(heldFrom, Fund(quantity: 3896.46m));
+            // Sold out — the fund is simply absent from this snapshot, with cash standing in for it.
+            await SeedSnapshotAsync(soldOn,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 1_000_000,
+                });
+            await SeedSnapshotAsync(reboughtOn, Fund(quantity: 1940.37m));
+
+            _dividendData.Setup(x => x.GetFundDividendsAsync("043183", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<DividendRecord>
+                {
+                    new(heldFrom.AddDays(1), AmountPerUnit: 5m, Currency: "TWD"),
+                });
+
+            var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
+
+            var position = Assert.Single(summary.Positions, p => p.Symbol == "043183");
+            Assert.Equal(0m, position.DividendsTWD); // was 3896.46 * 5 = 19,482.30
+
+            // It was still genuinely earned, so the lifetime total keeps it — only the attribution
+            // to today's position was wrong.
+            Assert.Equal(3896.46m * 5m, summary.TotalDividendsTWD);
+        }
+
+        [Fact]
+        public async Task GetSummary_DividendDuringGapBetweenHoldings_NotCountedAtAll()
+        {
+            // The complement: a payout with an ex-date inside the sold-out window was never earned,
+            // so it must not reach the position OR the lifetime total.
+            var heldFrom = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-54);
+            var soldOn = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-39);
+            var reboughtOn = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            await SeedSnapshotAsync(heldFrom, Fund(quantity: 3896.46m));
+            await SeedSnapshotAsync(soldOn,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 1_000_000,
+                });
+            await SeedSnapshotAsync(reboughtOn, Fund(quantity: 1940.37m));
+
+            _dividendData.Setup(x => x.GetFundDividendsAsync("043183", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<DividendRecord>
+                {
+                    new(soldOn.AddDays(3), AmountPerUnit: 5m, Currency: "TWD"), // nothing held here
+                });
+
+            var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
+
+            Assert.Equal(0m, Assert.Single(summary.Positions, p => p.Symbol == "043183").DividendsTWD);
+            Assert.Equal(0m, summary.TotalDividendsTWD);
+        }
+
+        [Fact]
+        public async Task GetSummary_HeldContinuously_StillShowsTheWholeHistoryOnThePosition()
+        {
+            // Guard against over-correcting: an unbroken holding must keep every payout it earned,
+            // including ones predating the most recent snapshot.
+            var heldFrom = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-54);
+            var toppedUpOn = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-39);
+
+            await SeedSnapshotAsync(heldFrom, Fund(quantity: 1000m));
+            await SeedSnapshotAsync(toppedUpOn, Fund(quantity: 2000m));
+
+            _dividendData.Setup(x => x.GetFundDividendsAsync("043183", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<DividendRecord>
+                {
+                    new(heldFrom.AddDays(1), AmountPerUnit: 5m, Currency: "TWD"),    // 1000 held => 5,000
+                    new(toppedUpOn.AddDays(1), AmountPerUnit: 5m, Currency: "TWD"),  // 2000 held => 10,000
+                });
+
+            var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
+
+            Assert.Equal(15_000m, Assert.Single(summary.Positions, p => p.Symbol == "043183").DividendsTWD);
+            Assert.Equal(15_000m, summary.TotalDividendsTWD);
+        }
+
         // ── Helpers ───────────────────────────────────────────────────────────
+
+        private static HoldingPosition Fund(decimal quantity) => new()
+        {
+            AssetType = AssetType.FUND, Symbol = "043183", Name = "某高股息基金",
+            Market = "", Currency = "TWD", Quantity = quantity, UnitPrice = 10m,
+        };
 
         private async Task SeedSnapshotAsync(DateOnly effectiveDate, params HoldingPosition[] positions)
         {
