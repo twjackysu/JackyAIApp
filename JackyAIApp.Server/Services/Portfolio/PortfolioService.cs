@@ -25,7 +25,11 @@ namespace JackyAIApp.Server.Services.Portfolio
         IOpenAIPromptService openAI,
         ICreditService creditService,
         ILogger<PortfolioService> logger,
-        TimeProvider? timeProvider = null) : IPortfolioService
+        TimeProvider? timeProvider = null,
+        // Optional for the same reason TimeProvider is: tests construct this class directly. The
+        // container always supplies the real one (it is registered), and a null here simply means
+        // funds fall back to the mid-market rate — the behaviour before 集保 rates existed.
+        ITdccFxService? tdccFx = null) : IPortfolioService
     {
         private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
@@ -209,6 +213,26 @@ namespace JackyAIApp.Server.Services.Portfolio
             var stockMap = stockTask.Result;
             var fundMap = fundTask.Result;
 
+            // 集保 settlement rates for the fund currencies actually held. A fund bought through
+            // 基富通 is converted back to TWD at the rate 集保 negotiates with 華南銀行, so that is
+            // what the holder really receives and what 基富通's own app displays — valuing it at a
+            // mid-market rate instead put this app ~0.5% away from the number the user was
+            // reconciling against. Only funds; stocks do not settle through 集保.
+            var tdccRates = new Dictionary<string, decimal>();
+            if (tdccFx != null)
+            {
+                var fundCurrencies = fundMap.Values
+                    .Select(n => n.Currency)
+                    .Where(c => !string.IsNullOrWhiteSpace(c) && c != "TWD")
+                    .Distinct()
+                    .ToList();
+                foreach (var currency in fundCurrencies)
+                {
+                    var rate = await tdccFx.GetBuyRateAsync(currency, Today, ct);
+                    if (rate is > 0) tdccRates[currency] = rate.Value;
+                }
+            }
+
             foreach (var p in snapshot.Positions)
             {
                 decimal currentPrice;
@@ -259,7 +283,17 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (p.AssetType is not (AssetType.CASH or AssetType.LIABILITY or AssetType.REAL_ESTATE) && currentPrice <= 0)
                     priceFailed = true;
 
-                var fxMul = priceCurrency == "USD" ? fx : 1m;
+                // Funds convert at 集保's published rate; everything else stays on the mid-market
+                // rate. Falls back to mid-market when 集保 has nothing for that currency — an FX
+                // lookup must never be what stops a portfolio from being valued.
+                var fxMul = 1m;
+                if (!string.IsNullOrWhiteSpace(priceCurrency) && priceCurrency != "TWD")
+                {
+                    if (p.AssetType == AssetType.FUND && tdccRates.TryGetValue(priceCurrency, out var fundFx))
+                        fxMul = fundFx;
+                    else if (priceCurrency == "USD")
+                        fxMul = fx;
+                }
                 // LIABILITY is the one place a position's value goes negative — this is the sole
                 // sign-flip point; every downstream sum (net worth, history, exports) just adds
                 // valueTWD and is correct with no special-casing.
@@ -272,8 +306,18 @@ namespace JackyAIApp.Server.Services.Portfolio
                 };
                 var valueTWD = valueLocal * fxMul;
 
-                // Cost is converted by its own currency, which may differ from the pricing currency.
-                var costFxMul = (p.CostCurrency ?? p.Currency) == "USD" ? fx : 1m;
+                // Cost is converted by its own currency, which may differ from the pricing
+                // currency — but by the same convention, so a fund whose cost was paid in USD is
+                // not measured against a market value converted at a different rate.
+                var costCurrency = p.CostCurrency ?? p.Currency;
+                var costFxMul = 1m;
+                if (!string.IsNullOrWhiteSpace(costCurrency) && costCurrency != "TWD")
+                {
+                    if (p.AssetType == AssetType.FUND && tdccRates.TryGetValue(costCurrency, out var fundCostFx))
+                        costFxMul = fundCostFx;
+                    else if (costCurrency == "USD")
+                        costFxMul = fx;
+                }
 
                 // Market exposure: leveraged ETFs amplify, bond/cash contribute nothing. Computed
                 // here (rather than after the P&L block below) because the TW sell-cost estimate
@@ -353,6 +397,12 @@ namespace JackyAIApp.Server.Services.Portfolio
                     UnrealizedPnlPct = posPnlPct,
                     EstimatedSellCostTWD = posEstimatedSellCostTWD,
                     ExposureFactor = exposureFactor,
+                    FxRateUsed = fxMul == 1m ? null : fxMul,
+                    FxRateSource = fxMul == 1m
+                        ? null
+                        : (p.AssetType == AssetType.FUND && tdccRates.ContainsValue(fxMul)
+                            ? FxRateSources.Tdcc
+                            : "MID"),
                     PriceFetchFailed = priceFailed,
                     ValuationMethod = p.ValuationMethod,
                 });

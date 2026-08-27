@@ -269,6 +269,26 @@ namespace JackyAIApp.Server.Data
                 .Property(p => p.Low).HasPrecision(18, 4);
             modelBuilder.Entity<DailyStockPrice>()
                 .Property(p => p.Close).HasPrecision(18, 4);
+
+            // Published FX rates (shared across users, immutable once published).
+            modelBuilder.Entity<FxRate>()
+                .HasIndex(r => new { r.Source, r.Currency, r.RateDate })
+                .IsUnique();
+            // 6dp because that is exactly what 集保 publishes (e.g. 31.797500); rounding to 2dp
+            // moves a 1.5M position by a couple of hundred TWD for no reason.
+            modelBuilder.Entity<FxRate>()
+                .Property(r => r.BuyRate).HasPrecision(18, 6);
+            modelBuilder.Entity<FxRate>()
+                .Property(r => r.SellRate).HasPrecision(18, 6);
+            modelBuilder.Entity<FxRate>()
+                .Property(r => r.Currency).HasMaxLength(3);
+            modelBuilder.Entity<FxRate>()
+                .Property(r => r.Source).HasMaxLength(16);
+
+            // Was decimal(18,2), which silently rounded every stored rate to the cent and moved
+            // historical valuations by a few hundred TWD on a seven-figure position.
+            modelBuilder.Entity<HoldingSnapshot>()
+                .Property(s => s.UsdTwdRate).HasPrecision(18, 6);
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -301,6 +321,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<ChatConversation> ChatConversations { get; set; }
         public virtual DbSet<ChatMessage> ChatMessages { get; set; }
         public virtual DbSet<DailyStockPrice> DailyStockPrices { get; set; }
+        public virtual DbSet<FxRate> FxRates { get; set; }
         public virtual DbSet<StockSymbolInfo> StockSymbolInfos { get; set; }
         public virtual DbSet<TwListedCompany> TwListedCompanies { get; set; }
         public virtual DbSet<Subscription> Subscriptions { get; set; }

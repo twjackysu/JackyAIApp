@@ -325,7 +325,19 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
             ) : (
               <StatBlock label="損益" value="未填成本" />
             )}
+            {position.fxRateUsed != null && (
+              <StatBlock
+                label={position.fxRateSource === 'TDCC' ? '匯率 (集保)' : '匯率 (中間價)'}
+                value={fmt(position.fxRateUsed, 4)}
+              />
+            )}
           </Box>
+
+          {position.fxRateSource === 'TDCC' && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+              基金以集保結算所與華南銀行議定的買入匯率換算（外幣換台幣），與基富通顯示的損益一致。集保每營業日下午公布一次，尚未公布時沿用前一營業日。
+            </Typography>
+          )}
 
           {/* Price chart */}
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>

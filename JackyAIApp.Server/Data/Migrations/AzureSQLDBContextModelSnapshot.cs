@@ -92,7 +92,8 @@ namespace JackyAIApp.Server.Data.Migrations
                         .HasColumnType("date");
 
                     b.Property<decimal>("UsdTwdRate")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -628,6 +629,46 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.HasIndex("WordMeaningId");
 
                     b.ToTable("ExampleSentences");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.FxRate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BuyRate")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTime>("FetchedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("RateDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("SellRate")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Source", "Currency", "RateDate")
+                        .IsUnique();
+
+                    b.ToTable("FxRates");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.JiraConfig", b =>

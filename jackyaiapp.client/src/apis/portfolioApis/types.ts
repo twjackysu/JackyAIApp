@@ -36,6 +36,11 @@ export interface PositionDto {
   unrealizedPnlTWD?: number | null;
   unrealizedPnlPct?: number | null;
   exposureFactor: number;
+  // Rate this position's foreign currency was converted to TWD at; null for TWD holdings.
+  // Not one number app-wide: funds settle through 集保 at its published rate (what 基富通 shows),
+  // everything else uses a mid-market rate, and the two differ enough to matter when reconciling.
+  fxRateUsed?: number | null;
+  fxRateSource?: 'TDCC' | 'MID' | null;
   priceFetchFailed: boolean;
   // Cumulative pre-tax cash dividends earned while holding this position (0 = none/not applicable).
   dividendsTWD: number;
