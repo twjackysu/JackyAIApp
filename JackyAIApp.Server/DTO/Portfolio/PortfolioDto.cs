@@ -44,6 +44,12 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal? UnrealizedPnlTWD { get; set; }
         public decimal? UnrealizedPnlPct { get; set; }
         public decimal ExposureFactor { get; set; } = 1m; // market exposure multiplier (2 for 正2, 0 for bond/cash)
+        // Rate this position's foreign currency was converted to TWD at; null for TWD holdings.
+        // Surfaced because it is not one number app-wide: funds use 集保's settlement rate (what
+        // 基富通 shows) while everything else uses a mid-market rate, and the two differ enough
+        // that a user reconciling against their broker needs to see which one produced this row.
+        public decimal? FxRateUsed { get; set; }
+        public string? FxRateSource { get; set; } // "TDCC" | "MID" | null
         public bool PriceFetchFailed { get; set; }
         public string? ValuationMethod { get; set; } // REAL_ESTATE only: "市價" | "買價扣除折舊"
         // Pre-tax cash dividends earned during this position's CURRENT unbroken holding period
