@@ -61,3 +61,25 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+# The blanket `* text eol=lf` above also catches binaries, and normalising line endings inside
+# one corrupts it — a PNG/ICO committed without this loses every 0x0D byte and no longer decodes.
+# Anything added here must be exempted explicitly.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.mp3 binary
+*.mp4 binary
+*.wav binary
