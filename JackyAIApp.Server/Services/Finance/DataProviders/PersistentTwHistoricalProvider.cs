@@ -274,8 +274,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             var info = await db.StockSymbolInfos.FindAsync([symbol], ct);
             if (info == null)
             {
-                // ResolveAndPersistMarketTypeAsync always creates the row first when it's missing,
-                // so this shouldn't happen in practice — but don't throw over a missing marker.
+                // ResolveAndPersistMarketTypeAsync creates the row whenever it actually resolved
+                // the market, so the only way here is a symbol whose market is still unresolved —
+                // deliberately unpersisted. Nothing to mark; don't throw over a missing marker.
                 _logger.LogDebug("No StockSymbolInfo row found to mark deep-fetched for {Symbol}", symbol);
                 return;
             }
@@ -292,7 +293,16 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
         }
 
-        private async Task<MarketType> ResolveAndPersistMarketTypeAsync(
+        /// <summary>
+        /// Returns null when the market could not be established. A persisted TwMarketType is
+        /// treated as permanent (see the cache hit below), so writing an unresolved symbol's
+        /// fallback here would pin it to the wrong market for good — which is exactly what
+        /// happened to 8299 群聯 on 2026-08-28: absent from the isin list at that moment, recorded
+        /// as TSE, and never priced again because it trades OTC. Leaving it unpersisted costs one
+        /// (memory-cached) lookup per request and lets the symbol heal itself the next time the
+        /// list does contain it.
+        /// </summary>
+        private async Task<MarketType?> ResolveAndPersistMarketTypeAsync(
             AzureSQLDBContext db, string symbol, CancellationToken ct)
         {
             var info = await db.StockSymbolInfos.FindAsync([symbol], ct);
@@ -304,6 +314,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             // symbols not yet persisted here; this DB layer just means a *previously seen*
             // symbol survives a cold start without needing isin at all.
             var resolved = await _inner.DetermineMarketType(symbol);
+            if (resolved == null)
+            {
+                _logger.LogWarning(
+                    "Market type unresolved for {Symbol}; not persisting so it can be retried", symbol);
+                return null;
+            }
 
             if (info == null)
             {
@@ -311,13 +327,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 {
                     Symbol = symbol,
                     Market = Market,
-                    TwMarketType = resolved.ToString(),
+                    TwMarketType = resolved.Value.ToString(),
                     LastResolvedAt = DateTime.UtcNow,
                 });
             }
             else
             {
-                info.TwMarketType = resolved.ToString();
+                info.TwMarketType = resolved.Value.ToString();
                 info.LastResolvedAt = DateTime.UtcNow;
             }
 

@@ -74,6 +74,80 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         /// <summary>Most recent weekday before <paramref name="today"/> — mirrors the provider's
         /// own (intentionally simple, holiday-unaware) LastTradingDayBefore so tests agree with it
         /// regardless of which real day the suite happens to run on.</summary>
+        [Fact]
+        public async Task FetchAsync_MarketTypeUnresolved_DoesNotPersistAGuess()
+        {
+            // Regression: 8299 群聯 trades OTC but was missing from the isin list the day it was
+            // first seen. The lookup answered "TSE" for both "it is TSE" and "I don't know", that
+            // answer was written to StockSymbolInfo, and a persisted TwMarketType is never
+            // re-checked — so the symbol was pinned to the wrong market and never priced again.
+            const string otcSymbol = "8299";
+            _inner.Setup(x => x.DetermineMarketType(otcSymbol)).ReturnsAsync((MarketType?)null);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    otcSymbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData { StockCode = otcSymbol });
+
+            await _provider.FetchAsync(otcSymbol);
+
+            Assert.Empty(_dbContext.StockSymbolInfos.Where(i => i.Symbol == otcSymbol));
+        }
+
+        [Fact]
+        public async Task FetchAsync_MarketTypeUnresolvedThenResolved_HealsOnTheNextCall()
+        {
+            // The point of not persisting: the symbol has to be able to come right on its own once
+            // the list catches up, without anyone clearing a row by hand.
+            const string otcSymbol = "8299";
+            var lastTradingDay = LastTradingDayBefore(DateOnly.FromDateTime(DateTime.Now));
+
+            _inner.SetupSequence(x => x.DetermineMarketType(otcSymbol))
+                .ReturnsAsync((MarketType?)null)
+                .ReturnsAsync(MarketType.OTC);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    otcSymbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = otcSymbol,
+                    CompanyName = "群聯",
+                    HistoricalPrices =
+                    [
+                        new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Close = 2165m, Open = 2150m, High = 2170m, Low = 2140m, Volume = 100 },
+                    ],
+                });
+
+            await _provider.FetchAsync(otcSymbol);
+            Assert.Empty(_dbContext.StockSymbolInfos.Where(i => i.Symbol == otcSymbol));
+
+            await _provider.FetchAsync(otcSymbol);
+
+            var info = Assert.Single(_dbContext.StockSymbolInfos.Where(i => i.Symbol == otcSymbol));
+            Assert.Equal(MarketType.OTC.ToString(), info.TwMarketType);
+        }
+
+        [Fact]
+        public async Task FetchAsync_MarketTypeResolved_StillPersistsIt()
+        {
+            // Guard against over-correcting: a real resolution must still be cached, or every
+            // request pays the isin lookup again.
+            var lastTradingDay = LastTradingDayBefore(DateOnly.FromDateTime(DateTime.Now));
+            _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = Symbol,
+                    HistoricalPrices =
+                    [
+                        new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Close = 900m, Open = 890m, High = 905m, Low = 885m, Volume = 1000 },
+                    ],
+                });
+
+            await _provider.FetchAsync(Symbol);
+
+            var info = Assert.Single(_dbContext.StockSymbolInfos.Where(i => i.Symbol == Symbol));
+            Assert.Equal(MarketType.TSE.ToString(), info.TwMarketType);
+        }
+
         private static DateOnly LastTradingDayBefore(DateOnly today)
         {
             var d = today.AddDays(-1);

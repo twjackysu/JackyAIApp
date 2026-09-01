@@ -62,8 +62,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
             try
             {
-                // Determine market type (TSE or OTC)
-                var marketType = knownMarketType ?? await DetermineMarketType(stockCode);
+                // Unresolved falls back to TSE only for this one attempt — nothing here persists
+                // it, so a wrong guess costs a failed fetch, not a stuck symbol.
+                var marketType = knownMarketType ?? await DetermineMarketType(stockCode) ?? MarketType.TSE;
 
                 _logger.LogInformation(
                     "Fetching historical data for {stockCode} from {start:yyyy-MM-dd} to {end:yyyy-MM-dd} on {market}",
@@ -139,7 +140,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// <see cref="GetCachedAllStockListAsync"/> now logs). One combined call halves that
         /// failure surface.
         /// </summary>
-        public async Task<MarketType> DetermineMarketType(string stockCode)
+        public async Task<MarketType?> DetermineMarketType(string stockCode)
         {
             try
             {
@@ -149,13 +150,19 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to determine market type for {stockCode}, defaulting to TSE", stockCode);
-                return MarketType.TSE;
+                _logger.LogWarning(ex, "Failed to determine market type for {stockCode}", stockCode);
+                return null;
             }
 
+            // Returns null rather than TSE. This used to answer TSE on failure, which made a guess
+            // indistinguishable from a real lookup — PersistentTwHistoricalProvider stored that
+            // answer permanently, so an OTC symbol missing from the list on the one day it was
+            // first seen (8299 群聯, 2026-08-28) was pinned to the wrong market forever and never
+            // priced again. Callers that only need something to try can fall back themselves;
+            // callers that persist must not.
             _logger.LogWarning(
-                "{stockCode} not found in combined TWStockLib stock list, defaulting to TSE", stockCode);
-            return MarketType.TSE;
+                "{stockCode} not found in combined TWStockLib stock list; market type unresolved", stockCode);
+            return null;
         }
 
         /// <summary>
@@ -191,7 +198,10 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         public async Task<StockQuote?> GetLatestQuoteAsync(
             string stockCode, MarketType? knownMarketType, CancellationToken cancellationToken = default)
         {
-            var marketType = knownMarketType ?? await DetermineMarketType(stockCode);
+            // Transient fallback only (nothing persisted here); GetCachedRealtimeQuoteAsync tries
+            // the other market anyway when the first comes back empty, so an unresolved symbol
+            // still quotes correctly.
+            var marketType = knownMarketType ?? await DetermineMarketType(stockCode) ?? MarketType.TSE;
             return await GetCachedRealtimeQuoteAsync(stockCode, marketType, cancellationToken);
         }
 
