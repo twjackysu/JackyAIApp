@@ -17,7 +17,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             string stockCode, DateTime startDate, DateTime endDate,
             MarketType? knownMarketType, CancellationToken cancellationToken = default);
 
-        Task<MarketType> DetermineMarketType(string stockCode);
+        /// <summary>
+        /// Which TW market a symbol trades on, or <c>null</c> when that could not be established.
+        /// Null is distinct from TSE on purpose: a caller that persists the answer must not record
+        /// a guess as if it were a lookup result. See the implementation for what went wrong when
+        /// the two were the same value.
+        /// </summary>
+        Task<MarketType?> DetermineMarketType(string stockCode);
 
         /// <summary>Realtime/final quote for a TW symbol, or null on any failure (never throws).
         /// Resolves market type first when not supplied (memory-cached, cheap), then tries that
