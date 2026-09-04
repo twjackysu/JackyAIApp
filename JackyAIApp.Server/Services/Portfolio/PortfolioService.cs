@@ -29,7 +29,8 @@ namespace JackyAIApp.Server.Services.Portfolio
         // Optional for the same reason TimeProvider is: tests construct this class directly. The
         // container always supplies the real one (it is registered), and a null here simply means
         // funds fall back to the mid-market rate — the behaviour before 集保 rates existed.
-        ITdccFxService? tdccFx = null) : IPortfolioService
+        ITdccFxService? tdccFx = null,
+        ICathayFxService? cathayFx = null) : IPortfolioService
     {
         private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
@@ -233,6 +234,41 @@ namespace JackyAIApp.Server.Services.Portfolio
                 }
             }
 
+            // 國泰世華 board rates for US stocks, keyed by the date of the close being priced —
+            // NOT today. 國泰 複委託 states 總預估現值 = 股數 × 最新價 × 昨收匯率, so the rate that
+            // belongs to the quote is the one published for that quote's own day; using today's
+            // would drift by a full session's move every evening. Prices come from one shared
+            // fetch, so in practice every US holding lands on the same date and this is one lookup.
+            var cathayRatesByDate = new Dictionary<(string Currency, DateOnly Date), decimal>();
+            if (cathayFx != null)
+            {
+                var usKeys = snapshot.Positions
+                    .Where(p => p.AssetType == AssetType.STOCK && p.Currency == "USD"
+                        && stockMap.ContainsKey(p.Symbol))
+                    .Select(p => stockMap[p.Symbol].HistoricalPrices.LastOrDefault()?.Date)
+                    .Where(d => d.HasValue)
+                    .Select(d => ("USD", DateOnly.FromDateTime(d!.Value)))
+                    .Distinct()
+                    .ToList();
+                foreach (var (currency, priceDate) in usKeys)
+                {
+                    var rate = await cathayFx.GetBuyRateAsync(currency, priceDate, ct);
+                    if (rate is > 0) cathayRatesByDate[(currency, priceDate)] = rate.Value;
+                }
+            }
+
+            // The 國泰世華 rate that goes with this holding's own quote, if we have one.
+            decimal? CathayRateFor(HoldingPosition position, string currency)
+            {
+                if (position.AssetType != AssetType.STOCK || !stockMap.TryGetValue(position.Symbol, out var data))
+                    return null;
+                var priceDate = data.HistoricalPrices.LastOrDefault()?.Date;
+                if (priceDate == null) return null;
+                return cathayRatesByDate.TryGetValue((currency, DateOnly.FromDateTime(priceDate.Value)), out var r)
+                    ? r
+                    : null;
+            }
+
             foreach (var p in snapshot.Positions)
             {
                 decimal currentPrice;
@@ -291,6 +327,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                 {
                     if (p.AssetType == AssetType.FUND && tdccRates.TryGetValue(priceCurrency, out var fundFx))
                         fxMul = fundFx;
+                    else if (CathayRateFor(p, priceCurrency) is { } usFx)
+                        fxMul = usFx;
                     else if (priceCurrency == "USD")
                         fxMul = fx;
                 }
@@ -315,6 +353,8 @@ namespace JackyAIApp.Server.Services.Portfolio
                 {
                     if (p.AssetType == AssetType.FUND && tdccRates.TryGetValue(costCurrency, out var fundCostFx))
                         costFxMul = fundCostFx;
+                    else if (CathayRateFor(p, costCurrency) is { } usCostFx)
+                        costFxMul = usCostFx;
                     else if (costCurrency == "USD")
                         costFxMul = fx;
                 }
@@ -400,9 +440,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                     FxRateUsed = fxMul == 1m ? null : fxMul,
                     FxRateSource = fxMul == 1m
                         ? null
-                        : (p.AssetType == AssetType.FUND && tdccRates.ContainsValue(fxMul)
-                            ? FxRateSources.Tdcc
-                            : "MID"),
+                        : p.AssetType == AssetType.FUND && tdccRates.ContainsValue(fxMul) ? FxRateSources.Tdcc
+                        : CathayRateFor(p, priceCurrency) == fxMul ? FxRateSources.Cathay
+                        : "MID",
                     PriceFetchFailed = priceFailed,
                     ValuationMethod = p.ValuationMethod,
                 });

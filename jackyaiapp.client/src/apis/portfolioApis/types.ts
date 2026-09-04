@@ -38,9 +38,10 @@ export interface PositionDto {
   exposureFactor: number;
   // Rate this position's foreign currency was converted to TWD at; null for TWD holdings.
   // Not one number app-wide: funds settle through 集保 at its published rate (what 基富通 shows),
-  // everything else uses a mid-market rate, and the two differ enough to matter when reconciling.
+  // US stocks through 國泰世華's board rate for the quote's own day (what 國泰複委託 shows), and
+  // anything else falls back to mid-market. They differ enough to matter when reconciling.
   fxRateUsed?: number | null;
-  fxRateSource?: 'TDCC' | 'MID' | null;
+  fxRateSource?: 'TDCC' | 'CATHAY' | 'MID' | null;
   priceFetchFailed: boolean;
   // Cumulative pre-tax cash dividends earned while holding this position (0 = none/not applicable).
   dividendsTWD: number;

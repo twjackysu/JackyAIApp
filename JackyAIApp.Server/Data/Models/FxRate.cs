@@ -52,5 +52,13 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// no rate at all. Applies to FUND holdings.
         /// </summary>
         public const string Tdcc = "TDCC";
+
+        /// <summary>
+        /// 國泰世華銀行 published board rate (cathaybk.com.tw). What 國泰 複委託 settles US holdings
+        /// at: its own field definitions state 總預估現值 = 股數 × 最新價 × 昨收匯率, so the rate
+        /// that applies is the closing board of the day the price belongs to — not today's, and not
+        /// a mid-market quote. Business days only. Applies to US STOCK holdings.
+        /// </summary>
+        public const string Cathay = "CATHAY";
     }
 }

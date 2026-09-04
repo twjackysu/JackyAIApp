@@ -10,6 +10,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             services.AddScoped<IFundDataService, FundDataService>();
             services.AddScoped<IDividendService, DividendService>();
             services.AddScoped<ITdccFxService, TdccFxService>();
+            services.AddScoped<ICathayFxService, CathayFxService>();
             services.AddScoped<IStockCategoryService, StockCategoryService>();
             services.AddScoped<IPortfolioService, PortfolioService>();
 
