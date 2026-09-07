@@ -16,7 +16,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 
 import { BenchmarkChart } from './BenchmarkChart';
 import { ConcentrationCard } from './ConcentrationCard';
@@ -32,7 +32,7 @@ import { NetWorthChart } from './NetWorthChart';
 import { NetWorthTrendChart } from './NetWorthTrendChart';
 import { usePortfolioTour } from './onboardingTour';
 import { exportNetWorthCsv, exportPortfolioCsv } from './portfolioExport';
-import { fmtNum as fmt, pnlColor } from './portfolioUtils';
+import { fmtNum as fmt, fmtSignedPct, GAIN_COLOR, LOSS_COLOR, pnlColor } from './portfolioUtils';
 import { PositionsTable } from './PositionsTable';
 import { usePrivacy } from './privacy';
 import { PrivacyProvider } from './PrivacyContext';
@@ -93,6 +93,71 @@ function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
   );
 }
 
+/** The caption trailing each P&L row wraps onto its own line on phones, where the amount and the
+ * percentage badge already fill the row. */
+const PNL_CAPTION_SX = {
+  flexBasis: { xs: '100%', sm: 'auto' },
+  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+} as const;
+
+/** Signed-percentage badge. Zero counts as a gain here (matching the ▲ threshold of the row it
+ * sits in), so it never renders in the loss colour without a "-" in the label. */
+function PctChip({
+  pct,
+  label = '',
+  outlined = false,
+}: {
+  pct: number;
+  label?: string;
+  outlined?: boolean;
+}) {
+  const color = pct >= 0 ? GAIN_COLOR : LOSS_COLOR;
+  return (
+    <Chip
+      label={`${label}${fmtSignedPct(pct)}`}
+      size="small"
+      variant={outlined ? 'outlined' : 'filled'}
+      sx={
+        outlined
+          ? { borderColor: alpha(color, 0.5), color, fontWeight: 700 }
+          : { bgcolor: alpha(color, 0.15), color, fontWeight: 700, border: 'none' }
+      }
+    />
+  );
+}
+
+/**
+ * One "▲ NT$x,xxx  (+y.yy%)  <caption>" line of the net-worth card — 單日異動, 未實現損益 and
+ * 含息損益 are the same row with different numbers behind them. The amount honours the privacy
+ * mode's `change` mask; the badge is dropped whenever ratios are hidden or `pct` is unknown.
+ */
+function PnlRow({
+  amount,
+  pct,
+  caption,
+}: {
+  amount: number;
+  pct?: number | null;
+  caption: ReactNode;
+}) {
+  const { change, showRatio } = usePrivacy();
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
+      <Typography
+        variant="body1"
+        sx={{ color: pnlColor(amount, 'inherit'), fontWeight: 600 }}
+        component="span"
+      >
+        {amount >= 0 ? '▲' : '▼'} NT${change(fmt(Math.abs(amount)))}
+      </Typography>
+      {showRatio && pct != null && <PctChip pct={pct} />}
+      <Typography variant="caption" color="text.secondary" sx={PNL_CAPTION_SX}>
+        {caption}
+      </Typography>
+    </Box>
+  );
+}
+
 function NetWorthCard({
   total,
   realEstate,
@@ -122,9 +187,6 @@ function NetWorthCard({
   dayChange?: number | null;
   dayChangePct?: number | null;
 }) {
-  const isPositive = pnl >= 0;
-  const isTotalReturnPositive = totalReturnPnl >= 0;
-  const isDayPositive = (dayChange ?? 0) >= 0;
   const { value, change, showRatio } = usePrivacy();
   const liquidNetWorth = total - realEstate;
   return (
@@ -177,127 +239,33 @@ function NetWorthCard({
           </Typography>
         )}
         {dayChange != null && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
-            <Typography
-              variant="body1"
-              sx={{ color: pnlColor(dayChange, 'inherit'), fontWeight: 600 }}
-              component="span"
-            >
-              {isDayPositive ? '▲' : '▼'} NT${change(fmt(Math.abs(dayChange)))}
-            </Typography>
-            {showRatio && dayChangePct != null && (
-              <Chip
-                label={`${isDayPositive ? '+' : ''}${dayChangePct.toFixed(2)}%`}
-                size="small"
-                sx={{
-                  bgcolor: alpha(isDayPositive ? '#22c55e' : '#ef4444', 0.15),
-                  color: isDayPositive ? '#22c55e' : '#ef4444',
-                  fontWeight: 700,
-                  border: 'none',
-                }}
-              />
-            )}
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                flexBasis: { xs: '100%', sm: 'auto' },
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-              }}
-            >
-              單日異動 (與前一交易日比)
-            </Typography>
-          </Box>
+          <PnlRow amount={dayChange} pct={dayChangePct} caption="單日異動 (與前一交易日比)" />
         )}
         {hasPnl && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
-            <Typography
-              variant="body1"
-              sx={{ color: pnlColor(pnl, 'inherit'), fontWeight: 600 }}
-              component="span"
-            >
-              {isPositive ? '▲' : '▼'} NT${change(fmt(Math.abs(pnl)))}
-            </Typography>
-            {showRatio && (
-              <Chip
-                label={`${isPositive ? '+' : ''}${pnlPct.toFixed(2)}%`}
-                size="small"
-                sx={{
-                  bgcolor: alpha(isPositive ? '#22c55e' : '#ef4444', 0.15),
-                  color: isPositive ? '#22c55e' : '#ef4444',
-                  fontWeight: 700,
-                  border: 'none',
-                }}
-              />
-            )}
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                flexBasis: { xs: '100%', sm: 'auto' },
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-              }}
-            >
-              未實現損益(已填成本部分)
-              {estimatedSellCost > 0
-                ? `，已扣估計台股賣出費用 NT$${change(fmt(estimatedSellCost))}`
-                : ''}
-            </Typography>
-          </Box>
+          <PnlRow
+            amount={pnl}
+            pct={pnlPct}
+            caption={
+              <>
+                未實現損益(已填成本部分)
+                {estimatedSellCost > 0
+                  ? `，已扣估計台股賣出費用 NT$${change(fmt(estimatedSellCost))}`
+                  : ''}
+              </>
+            }
+          />
         )}
         {hasPnl && totalDividends !== 0 && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 1 }}>
-            <Typography
-              variant="body1"
-              sx={{ color: pnlColor(totalReturnPnl, 'inherit'), fontWeight: 600 }}
-              component="span"
-            >
-              {isTotalReturnPositive ? '▲' : '▼'} NT${change(fmt(Math.abs(totalReturnPnl)))}
-            </Typography>
-            {showRatio && (
-              <Chip
-                label={`${isTotalReturnPositive ? '+' : ''}${totalReturnPct.toFixed(2)}%`}
-                size="small"
-                sx={{
-                  bgcolor: alpha(isTotalReturnPositive ? '#22c55e' : '#ef4444', 0.15),
-                  color: isTotalReturnPositive ? '#22c55e' : '#ef4444',
-                  fontWeight: 700,
-                  border: 'none',
-                }}
-              />
-            )}
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                flexBasis: { xs: '100%', sm: 'auto' },
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-              }}
-            >
-              含息損益(含累計股息 NT${change(fmt(totalDividends))}，稅前)
-            </Typography>
-          </Box>
+          <PnlRow
+            amount={totalReturnPnl}
+            pct={totalReturnPct}
+            caption={`含息損益(含累計股息 NT$${change(fmt(totalDividends))}，稅前)`}
+          />
         )}
         {hasPnl && annualized != null && showRatio && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 0.5 }}>
-            <Chip
-              label={`年化 ${annualized >= 0 ? '+' : ''}${annualized.toFixed(2)}%`}
-              size="small"
-              variant="outlined"
-              sx={{
-                borderColor: alpha(annualized >= 0 ? '#22c55e' : '#ef4444', 0.5),
-                color: annualized >= 0 ? '#22c55e' : '#ef4444',
-                fontWeight: 700,
-              }}
-            />
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                flexBasis: { xs: '100%', sm: 'auto' },
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-              }}
-            >
+            <PctChip pct={annualized} label="年化 " outlined />
+            <Typography variant="caption" color="text.secondary" sx={PNL_CAPTION_SX}>
               年化報酬率 (XIRR·含息·估)
             </Typography>
           </Box>
@@ -409,10 +377,10 @@ function AllocationCard({
               justifyContent: 'space-between',
             }}
           >
-            <Typography variant="body2" sx={{ fontWeight: 600, color: '#ef4444' }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, color: LOSS_COLOR }}>
               負債
             </Typography>
-            <Typography variant="body2" sx={{ color: '#ef4444' }}>
+            <Typography variant="body2" sx={{ color: LOSS_COLOR }}>
               -NT${value(fmt(liability))}
               {showRatio ? ` (-${pct(liability).toFixed(1)}%)` : ''}
             </Typography>
@@ -476,7 +444,7 @@ function AllocationCard({
                   fontWeight: 700,
                   // Null exactly at insolvency, where exposure ÷ equity explodes and then flips to
                   // a negative that misleadingly reads as *safer* than a large positive one.
-                  color: leverageMultiple == null ? '#ef4444' : 'text.primary',
+                  color: leverageMultiple == null ? LOSS_COLOR : 'text.primary',
                 }}
               >
                 {leverageMultiple != null ? `${leverageMultiple.toFixed(2)}×` : '資不抵債'}
