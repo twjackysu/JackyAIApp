@@ -15,11 +15,12 @@ import ReactEcharts from 'echarts-for-react';
 
 import { fmtNum, fmtQty, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
+import { valuationExplainer } from './valuationExplainer';
 
 import { useGetHoldingPriceHistoryQuery, useLazyGetAiTechSummaryQuery } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
-import { ActionTooltip } from '@/components/hints';
+import { ActionTooltip, InfoPopover } from '@/components/hints';
 import MarkdownMessage from '@/components/MarkdownMessage';
 
 interface Props {
@@ -235,6 +236,7 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
   const { value, change, showRatio } = usePrivacy();
   const hasPnl = position?.unrealizedPnlTWD != null && position?.unrealizedPnlPct != null;
   const isFund = position?.assetType === 'FUND';
+  const explainer = position ? valuationExplainer(position) : null;
 
   return (
     <Drawer
@@ -326,30 +328,25 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
               <StatBlock label="損益" value="未填成本" />
             )}
             {position.fxRateUsed != null && (
-              <StatBlock
-                label={
-                  position.fxRateSource === 'TDCC'
-                    ? '匯率 (集保)'
-                    : position.fxRateSource === 'CATHAY'
-                      ? '匯率 (國泰世華)'
-                      : '匯率 (中間價)'
-                }
-                value={fmt(position.fxRateUsed, 4)}
-              />
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {position.fxRateSource === 'TDCC'
+                      ? '匯率 (集保)'
+                      : position.fxRateSource === 'CATHAY'
+                        ? '匯率 (國泰世華)'
+                        : '匯率 (中間價)'}
+                  </Typography>
+                  {explainer && (
+                    <InfoPopover content={explainer} ariaLabel="市值與損益計算方式" iconSize={14} />
+                  )}
+                </Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  {fmt(position.fxRateUsed, 4)}
+                </Typography>
+              </Box>
             )}
           </Box>
-
-          {position.fxRateSource === 'TDCC' && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-              基金以集保結算所與華南銀行議定的買入匯率換算（外幣換台幣），與基富通顯示的損益一致。集保每營業日下午公布一次，尚未公布時沿用前一營業日。
-            </Typography>
-          )}
-          {position.fxRateSource === 'CATHAY' && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-              美股以國泰世華銀行「該筆報價當日」的即期買入匯率換算，與國泰複委託的預估損益一致（其公式為
-              股數 × 最新價 × 昨收匯率）。非營業日沿用前一營業日。
-            </Typography>
-          )}
 
           {/* Price chart */}
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
