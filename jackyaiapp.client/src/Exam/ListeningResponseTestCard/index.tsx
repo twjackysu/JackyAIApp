@@ -9,7 +9,7 @@ import Paper from '@mui/material/Paper';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import Typography from '@mui/material/Typography';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useGetListeningResponseTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
@@ -18,6 +18,7 @@ import { CREDIT_COSTS } from '@/constants/creditCosts';
 import RoundProgress from '@/Exam/components/RoundProgress';
 import RoundResultScreen from '@/Exam/components/RoundResultScreen';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
+import { useOneShotAudio } from '@/Exam/hooks/useOneShotAudio';
 import { shuffle } from '@/Exam/utils/shuffle';
 
 const PROMPT_KEY = '__prompt__';
@@ -27,11 +28,9 @@ function ListeningResponseTestCard() {
   const { data, isFetching, refetch, isError, error } = useGetListeningResponseTestQuery();
   const [submitted, setSubmitted] = useState(false);
   const [recordExamResult] = useRecordExamResultMutation();
-  const [playingKey, setPlayingKey] = useState<string | null>(null);
   // Real TOEIC Part 2 plays the prompt and each response once — replay is only allowed after
-  // answering (for review). Tracks which prompt/options have already been played this question.
-  const [playedKeys, setPlayedKeys] = useState<Set<string>>(new Set());
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // answering (for review), which is what the hook's played-once tracking is for.
+  const { playingKey, playedKeys, play, resetPlayed } = useOneShotAudio();
   const round = useExamRound();
 
   // The backend always returns options with the correct one first (both AI generation
@@ -46,20 +45,6 @@ function ListeningResponseTestCard() {
   const selectedOption = options.find((o) => o.id === selectedOptionId);
   const correctOption = options.find((o) => o.isCorrect);
   const isCorrect = selectedOption?.isCorrect ?? false;
-
-  const play = (key: string, url: string) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    setPlayingKey(key);
-    setPlayedKeys((prev) => new Set(prev).add(key));
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    audio.onended = () => setPlayingKey(null);
-    audio.onerror = () => setPlayingKey(null);
-    audio.play().catch(() => setPlayingKey(null));
-  };
 
   const playPrompt = () => {
     if (!data) return;
@@ -100,7 +85,7 @@ function ListeningResponseTestCard() {
   const handleNext = () => {
     setSelectedOptionId(null);
     setSubmitted(false);
-    setPlayedKeys(new Set());
+    resetPlayed();
     if (round.advance()) {
       refetch();
     }
@@ -110,15 +95,9 @@ function ListeningResponseTestCard() {
     round.resetRound();
     setSelectedOptionId(null);
     setSubmitted(false);
-    setPlayedKeys(new Set());
+    resetPlayed();
     refetch();
   };
-
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-    };
-  }, []);
 
   if (round.roundComplete) {
     return (

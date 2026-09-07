@@ -8,7 +8,7 @@ import IconButton from '@mui/material/IconButton';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import Typography from '@mui/material/Typography';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useGetListeningTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
 import AILoading from '@/components/AILoading';
@@ -17,6 +17,7 @@ import { CREDIT_COSTS } from '@/constants/creditCosts';
 import RoundProgress from '@/Exam/components/RoundProgress';
 import RoundResultScreen from '@/Exam/components/RoundResultScreen';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
+import { useOneShotAudio } from '@/Exam/hooks/useOneShotAudio';
 import { shuffle } from '@/Exam/utils/shuffle';
 
 function ListeningTestCard() {
@@ -24,11 +25,9 @@ function ListeningTestCard() {
   const { data, isFetching, refetch, isError, error } = useGetListeningTestQuery();
   const [submitted, setSubmitted] = useState(false);
   const [recordExamResult] = useRecordExamResultMutation();
-  const [playingOptionId, setPlayingOptionId] = useState<string | null>(null);
   // Real TOEIC Part 1 plays each statement once — replay is only allowed after answering
-  // (for review). Tracks which options have already been played this question.
-  const [playedOptionIds, setPlayedOptionIds] = useState<Set<string>>(new Set());
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // (for review), which is what the hook's played-once tracking is for.
+  const { playingKey, playedKeys, play, resetPlayed } = useOneShotAudio();
   const round = useExamRound();
 
   // The backend always returns options with the correct one first (both AI generation
@@ -45,17 +44,7 @@ function ListeningTestCard() {
   const isCorrect = selectedOption?.isCorrect ?? false;
 
   const playOption = (optionId: string) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    setPlayingOptionId(optionId);
-    setPlayedOptionIds((prev) => new Set(prev).add(optionId));
-    const audio = new Audio(`/api/exam/listening/audio?optionId=${encodeURIComponent(optionId)}`);
-    audioRef.current = audio;
-    audio.onended = () => setPlayingOptionId(null);
-    audio.onerror = () => setPlayingOptionId(null);
-    audio.play().catch(() => setPlayingOptionId(null));
+    play(optionId, `/api/exam/listening/audio?optionId=${encodeURIComponent(optionId)}`);
   };
 
   const handleOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,7 +71,7 @@ function ListeningTestCard() {
   const handleNext = () => {
     setSelectedOptionId(null);
     setSubmitted(false);
-    setPlayedOptionIds(new Set());
+    resetPlayed();
     if (round.advance()) {
       refetch();
     }
@@ -92,15 +81,9 @@ function ListeningTestCard() {
     round.resetRound();
     setSelectedOptionId(null);
     setSubmitted(false);
-    setPlayedOptionIds(new Set());
+    resetPlayed();
     refetch();
   };
-
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-    };
-  }, []);
 
   if (round.roundComplete) {
     return (
@@ -146,14 +129,11 @@ function ListeningTestCard() {
                   />
                   <IconButton
                     onClick={() => playOption(option.id)}
-                    disabled={
-                      playingOptionId === option.id ||
-                      (!submitted && playedOptionIds.has(option.id))
-                    }
+                    disabled={playingKey === option.id || (!submitted && playedKeys.has(option.id))}
                     aria-label="播放"
                     size="small"
                   >
-                    <VolumeUpIcon color={playingOptionId === option.id ? 'primary' : 'inherit'} />
+                    <VolumeUpIcon color={playingKey === option.id ? 'primary' : 'inherit'} />
                   </IconButton>
                 </Box>
                 {showResult && (
