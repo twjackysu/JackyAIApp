@@ -1,4 +1,5 @@
 import { green, red, blue, orange, grey } from '@mui/material/colors';
+import { alpha } from '@mui/material/styles';
 
 import type { SignalDirection, RiskLevel, IndicatorCategory } from '@/apis/financeApis/types';
 
@@ -11,32 +12,24 @@ export const getCurrentDate = (): string => {
 };
 
 /**
- * Get avatar color based on market implication
+ * Solid colour at full opacity, or the same colour tinted when the caller wants a
+ * translucent background. The tint is derived from the palette constant itself, so the
+ * two variants can never drift apart the way the hand-written `rgba(...)` literals this
+ * replaces had already started to.
  */
-export const getImplicationColor = (implication: string): string => {
-  switch (implication) {
-    case 'bullish':
-      return green[500];
-    case 'bearish':
-      return red[500];
-    default:
-      return blue[500];
-  }
+const withOpacity = (color: string, opacity: number): string =>
+  opacity === 1 ? color : alpha(color, opacity);
+
+const TREND_COLORS: Record<string, string> = {
+  bullish: green[500],
+  bearish: red[500],
 };
 
 /**
- * Get trend color with optional alpha
+ * Get trend color with optional opacity
  */
-export const getTrendColor = (trend: string, alpha: number = 1): string => {
-  switch (trend) {
-    case 'bullish':
-      return alpha === 1 ? green[500] : `rgba(76, 175, 80, ${alpha})`;
-    case 'bearish':
-      return alpha === 1 ? red[500] : `rgba(244, 67, 54, ${alpha})`;
-    default:
-      return alpha === 1 ? blue[500] : `rgba(33, 150, 243, ${alpha})`;
-  }
-};
+export const getTrendColor = (trend: string, opacity: number = 1): string =>
+  withOpacity(TREND_COLORS[trend] ?? blue[500], opacity);
 
 /**
  * Get trend label in Chinese
@@ -52,19 +45,16 @@ export const getTrendLabel = (trend: string): string => {
   }
 };
 
-/**
- * Get recommendation color with optional alpha
- */
-export const getRecommendationColor = (recommendation: string, alpha: number = 1): string => {
-  switch (recommendation) {
-    case 'buy':
-      return alpha === 1 ? green[500] : `rgba(76, 175, 80, ${alpha})`;
-    case 'sell':
-      return alpha === 1 ? red[500] : `rgba(244, 67, 54, ${alpha})`;
-    default:
-      return alpha === 1 ? orange[500] : `rgba(255, 152, 0, ${alpha})`;
-  }
+const RECOMMENDATION_COLORS: Record<string, string> = {
+  buy: green[500],
+  sell: red[500],
 };
+
+/**
+ * Get recommendation color with optional opacity
+ */
+export const getRecommendationColor = (recommendation: string, opacity: number = 1): string =>
+  withOpacity(RECOMMENDATION_COLORS[recommendation] ?? orange[500], opacity);
 
 /**
  * Get recommendation label in Chinese
@@ -112,34 +102,6 @@ export const getConfidenceLabel = (confidence: string): string => {
   }
 };
 
-/**
- * Get implication chip color for MUI Chip
- */
-export const getImplicationChipColor = (implication: string): 'success' | 'error' | 'info' => {
-  switch (implication) {
-    case 'bullish':
-      return 'success';
-    case 'bearish':
-      return 'error';
-    default:
-      return 'info';
-  }
-};
-
-/**
- * Get implication label in Chinese
- */
-export const getImplicationLabel = (implication: string): string => {
-  switch (implication) {
-    case 'bullish':
-      return '看漲';
-    case 'bearish':
-      return '看跌';
-    default:
-      return '中性';
-  }
-};
-
 // === Comprehensive Analysis Helpers ===
 
 export const getDirectionLabel = (d: SignalDirection): string => {
@@ -159,18 +121,16 @@ export const getDirectionChipColor = (d: SignalDirection): 'success' | 'error' |
   return 'default';
 };
 
-export const getDirectionColor = (d: SignalDirection, alpha = 1): string => {
-  const colors: Record<SignalDirection, [string, string]> = {
-    StrongBullish: [green[700], `rgba(46,125,50,${alpha})`],
-    Bullish: [green[500], `rgba(76,175,80,${alpha})`],
-    Neutral: [grey[500], `rgba(158,158,158,${alpha})`],
-    Bearish: [red[500], `rgba(244,67,54,${alpha})`],
-    StrongBearish: [red[700], `rgba(211,47,47,${alpha})`],
-  };
-  return alpha === 1
-    ? (colors[d]?.[0] ?? blue[500])
-    : (colors[d]?.[1] ?? `rgba(33,150,243,${alpha})`);
+const DIRECTION_COLORS: Record<SignalDirection, string> = {
+  StrongBullish: green[700],
+  Bullish: green[500],
+  Neutral: grey[500],
+  Bearish: red[500],
+  StrongBearish: red[700],
 };
+
+export const getDirectionColor = (d: SignalDirection, opacity = 1): string =>
+  withOpacity(DIRECTION_COLORS[d] ?? blue[500], opacity);
 
 export const getRiskLabel = (l: RiskLevel): string => {
   const map: Record<RiskLevel, string> = {
