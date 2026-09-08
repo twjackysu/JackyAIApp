@@ -21,53 +21,60 @@ import { statsApis } from '@/apis/statsApis';
 import { rtkQueryErrorLogger } from '@/redux/errorMiddleware';
 import uiReducer from '@/redux/uiSlice';
 
+/**
+ * Every RTK Query slice in the app, listed once.
+ *
+ * A slice needs both its reducer mounted and its middleware installed. Listing those
+ * separately meant every new feature had to be added in two places, and forgetting the
+ * middleware half fails *silently* — the hooks still fetch, but caching, invalidation,
+ * polling and `refetchOnFocus` quietly stop working, with no error to notice. Deriving both
+ * from one array makes that impossible.
+ */
+const apiSlices = [
+  dictionaryApis,
+  repositoryApis,
+  accountApis,
+  examApis,
+  financeApis,
+  jobApis,
+  connectorsApi,
+  creditApis,
+  dashboardApis,
+  paypalApi,
+  ecpayApi,
+  payuniApi,
+  dailyChallengeApis,
+  reviewApis,
+  statsApis,
+  dataAnalysisApis,
+  chatbotApis,
+  portfolioApis,
+];
+
+type ApiSlice = (typeof apiSlices)[number];
+
+/**
+ * `{ dictionaryApis: <its reducer>, repositoryApis: <its reducer>, ... }` — the same shape the
+ * reducer map was written out by hand. `Object.fromEntries` alone would widen this to a string
+ * index signature and take `RootState` down with it, so the keys are recovered from each
+ * slice's literal `reducerPath` instead.
+ */
+type ApiReducers = { [Slice in ApiSlice as Slice['reducerPath']]: Slice['reducer'] };
+
+const apiReducers = Object.fromEntries(
+  apiSlices.map((api) => [api.reducerPath, api.reducer]),
+) as ApiReducers;
+
 export const store = configureStore({
   reducer: {
     ui: uiReducer,
     // Add the generated reducer as a specific top-level slice
-    [dictionaryApis.reducerPath]: dictionaryApis.reducer,
-    [repositoryApis.reducerPath]: repositoryApis.reducer,
-    [accountApis.reducerPath]: accountApis.reducer,
-    [examApis.reducerPath]: examApis.reducer,
-    [financeApis.reducerPath]: financeApis.reducer,
-    [jobApis.reducerPath]: jobApis.reducer,
-    [connectorsApi.reducerPath]: connectorsApi.reducer,
-    [creditApis.reducerPath]: creditApis.reducer,
-    [dashboardApis.reducerPath]: dashboardApis.reducer,
-    [paypalApi.reducerPath]: paypalApi.reducer,
-    [ecpayApi.reducerPath]: ecpayApi.reducer,
-    [payuniApi.reducerPath]: payuniApi.reducer,
-    [dailyChallengeApis.reducerPath]: dailyChallengeApis.reducer,
-    [reviewApis.reducerPath]: reviewApis.reducer,
-    [statsApis.reducerPath]: statsApis.reducer,
-    [dataAnalysisApis.reducerPath]: dataAnalysisApis.reducer,
-    [chatbotApis.reducerPath]: chatbotApis.reducer,
-    [portfolioApis.reducerPath]: portfolioApis.reducer,
+    ...apiReducers,
   },
   // Adding the api middleware enables caching, invalidation, polling,
   // and other useful features of `rtk-query`.
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(
-      dictionaryApis.middleware,
-      repositoryApis.middleware,
-      accountApis.middleware,
-      examApis.middleware,
-      financeApis.middleware,
-      jobApis.middleware,
-      connectorsApi.middleware,
-      creditApis.middleware,
-      dashboardApis.middleware,
-      paypalApi.middleware,
-      ecpayApi.middleware,
-      payuniApi.middleware,
-      dailyChallengeApis.middleware,
-      reviewApis.middleware,
-      statsApis.middleware,
-      dataAnalysisApis.middleware,
-      chatbotApis.middleware,
-      portfolioApis.middleware,
-      rtkQueryErrorLogger,
-    ),
+    getDefaultMiddleware().concat(...apiSlices.map((api) => api.middleware), rtkQueryErrorLogger),
 });
 
 // Infer the `RootState` and `AppDispatch` types from the store itself
