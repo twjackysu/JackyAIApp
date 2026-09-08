@@ -8,9 +8,20 @@ export const fmtNum = (n: number, decimals = 0) =>
  */
 export const fmtQty = (n: number) => n.toLocaleString('zh-TW', { maximumFractionDigits: 6 });
 
+/** The gain/loss palette. Named so callers that need the raw hex (chip backgrounds, borders,
+ * ECharts series colours) don't have to re-type the literals next to every `pnlColor` call. */
+export const GAIN_COLOR = '#22c55e';
+export const LOSS_COLOR = '#ef4444';
+
 /** Green for gains, red for losses, caller-supplied neutral colour for zero. */
 export const pnlColor = (n: number, neutral = 'text.secondary') =>
-  n > 0 ? '#22c55e' : n < 0 ? '#ef4444' : neutral;
+  n > 0 ? GAIN_COLOR : n < 0 ? LOSS_COLOR : neutral;
+
+/** Percentage with an explicit "+" on non-negative values, so a gain badge reads "+3.21%" while
+ * a loss keeps its own minus sign. Two decimals by default (the P&L badges); pass 1 for the
+ * allocation/ratio readouts that don't warrant the extra digit. */
+export const fmtSignedPct = (n: number, decimals = 2) =>
+  `${n >= 0 ? '+' : ''}${n.toFixed(decimals)}%`;
 
 /** Compact magnitude formatting shared by every Portfolio chart's axis/tooltip labels — no
  * currency prefix (callers that want "NT$" prepend it themselves, since not every caller wants

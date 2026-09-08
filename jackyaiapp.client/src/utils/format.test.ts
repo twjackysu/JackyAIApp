@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fmtCompact, fmtCompactTWD, fmtNum, fmtQty, pnlColor } from './format';
+import { fmtCompact, fmtCompactTWD, fmtNum, fmtQty, fmtSignedPct, pnlColor } from './format';
 
 describe('fmtNum', () => {
   it('groups thousands with zero decimals by default', () => {
@@ -25,6 +25,21 @@ describe('pnlColor', () => {
     expect(pnlColor(-100)).toBe('#ef4444');
     expect(pnlColor(0)).toBe('text.secondary');
     expect(pnlColor(0, 'inherit')).toBe('inherit');
+  });
+});
+
+describe('fmtSignedPct', () => {
+  it('adds an explicit + to gains and leaves the minus sign on losses', () => {
+    expect(fmtSignedPct(3.214)).toBe('+3.21%');
+    expect(fmtSignedPct(-3.214)).toBe('-3.21%');
+  });
+
+  it('treats zero as non-negative, matching the green/▲ threshold of the P&L badges', () => {
+    expect(fmtSignedPct(0)).toBe('+0.00%');
+  });
+
+  it('respects an explicit decimals count', () => {
+    expect(fmtSignedPct(3.25, 1)).toBe('+3.3%');
   });
 });
 
