@@ -11,11 +11,12 @@ import { BENCHMARK_RETURN_TOOLTIP } from './benchmarkReturn';
 import { WIDE_RANGES } from './dayRanges';
 import { MASK, usePrivacy } from './privacy';
 import { RangePicker } from './RangePicker';
+import { StatBlock } from './StatBlock';
 
 import { useGetBenchmarkComparisonQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import { InfoPopover } from '@/components/hints';
-import { fmtCompact, fmtNum } from '@/utils/format';
+import { fmtCompact, fmtNum, fmtSignedPct } from '@/utils/format';
 
 // QQQ/VOO/VT track the Nasdaq-100/S&P500/global-stock indices closely enough via their
 // respective ETFs — same "ETF as index proxy" logic already used for 0050 (Taiwan 50).
@@ -31,14 +32,12 @@ const PORTFOLIO_COLOR = '#3B82F6';
 
 function ReturnStat({ label, pct, color }: { label: string; pct: number | null; color: string }) {
   return (
-    <Box>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-        {label}
-      </Typography>
-      <Typography variant="h6" sx={{ fontWeight: 700, color }}>
-        {pct != null ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '—'}
-      </Typography>
-    </Box>
+    <StatBlock
+      label={label}
+      value={pct != null ? fmtSignedPct(pct) : '—'}
+      color={color}
+      valueVariant="h6"
+    />
   );
 }
 
