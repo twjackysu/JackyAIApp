@@ -44,6 +44,8 @@ namespace JackyAIApp.Server.Services.Portfolio
     {
         private const string QUERY_URL = "https://www.fundclear.com.tw/api/announce/query-exchange-rate";
 
+        private readonly FxRateStore store = new(db, FxRateSources.Tdcc, logger);
+
         /// <summary>
         /// How far back to look for a carried-forward rate before giving up. Comfortably clears a
         /// long national holiday plus a weekend; beyond that, silence means we genuinely have no
@@ -63,7 +65,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (currency.Length == 0) return null;
 
             var earliest = asOf.AddDays(-MaxCarryForwardDays);
-            var stored = await LatestStoredAsync(currency, earliest, asOf, ct);
+            var stored = await store.LatestBuyRateAsync(currency, earliest, asOf, ct);
             if (stored != null && stored.Value.Date == asOf) return stored.Value.Rate;
 
             // Nothing for the exact date yet. Probe backwards from it: the first 200 wins, and
@@ -113,18 +115,6 @@ namespace JackyAIApp.Server.Services.Portfolio
             return result;
         }
 
-        private async Task<(DateOnly Date, decimal Rate)?> LatestStoredAsync(
-            string currency, DateOnly earliest, DateOnly asOf, CancellationToken ct)
-        {
-            var row = await db.FxRates.AsNoTracking()
-                .Where(r => r.Source == FxRateSources.Tdcc && r.Currency == currency
-                    && r.RateDate <= asOf && r.RateDate >= earliest)
-                .OrderByDescending(r => r.RateDate)
-                .Select(r => new { r.RateDate, r.BuyRate })
-                .FirstOrDefaultAsync(ct);
-            return row == null ? null : (row.RateDate, row.BuyRate);
-        }
-
         /// <summary>
         /// Fetches one date and persists every currency it returns. Returns null when 集保 has no
         /// rate for that date (404 — unpublished, weekend, or holiday), which the caller treats as
@@ -159,7 +149,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                     return null;
                 }
 
-                await StoreAsync(date, parsed, ct);
+                await store.AddMissingAsync(
+                    parsed.Select(kv => new PublishedFxRate(date, kv.Key, kv.Value.Buy, kv.Value.Sell)).ToList(),
+                    ct);
                 return parsed.ToDictionary(p => p.Key, p => p.Value.Buy);
             }
             catch (Exception ex)
@@ -191,54 +183,12 @@ namespace JackyAIApp.Server.Services.Portfolio
                 var code = name[(open + 1)..close].Trim().ToUpperInvariant();
                 if (code.Length != 3) continue;
 
-                if (!TryRate(row, "buyRate", out var buy) || !TryRate(row, "sellRate", out var sell)) continue;
+                if (!FxRateJson.TryReadRate(row, "buyRate", out var buy)
+                    || !FxRateJson.TryReadRate(row, "sellRate", out var sell)) continue;
                 if (buy <= 0) continue;
                 result[code] = (buy, sell);
             }
             return result;
-        }
-
-        private static bool TryRate(JsonElement row, string property, out decimal value)
-        {
-            value = 0;
-            return row.TryGetProperty(property, out var el)
-                && el.ValueKind == JsonValueKind.String
-                && decimal.TryParse(el.GetString(), out value);
-        }
-
-        private async Task StoreAsync(
-            DateOnly date, Dictionary<string, (decimal Buy, decimal Sell)> rates, CancellationToken ct)
-        {
-            var existing = await db.FxRates
-                .Where(r => r.Source == FxRateSources.Tdcc && r.RateDate == date)
-                .Select(r => r.Currency)
-                .ToListAsync(ct);
-            var have = existing.ToHashSet();
-
-            var added = rates
-                .Where(kv => !have.Contains(kv.Key))
-                .Select(kv => new FxRate
-                {
-                    RateDate = date,
-                    Currency = kv.Key,
-                    Source = FxRateSources.Tdcc,
-                    BuyRate = kv.Value.Buy,
-                    SellRate = kv.Value.Sell,
-                })
-                .ToList();
-            if (added.Count == 0) return;
-
-            db.FxRates.AddRange(added);
-            try
-            {
-                await db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException ex)
-            {
-                // Two concurrent requests can race to insert the same published day; the unique
-                // index makes the loser redundant, not wrong.
-                logger.LogDebug(ex, "集保 FX rates for {Date} already stored by a concurrent request", date);
-            }
         }
     }
 }
