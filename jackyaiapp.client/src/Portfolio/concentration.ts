@@ -1,4 +1,5 @@
 import { PositionDto } from '@/apis/portfolioApis/types';
+import { GAIN_COLOR, LOSS_COLOR, WARN_COLOR } from '@/utils/format';
 
 export interface ConcentrationLevel {
   label: string;
@@ -19,9 +20,9 @@ export interface ConcentrationResult {
 // same thresholds antitrust regulators use for market concentration, repurposed here for "how
 // much of your invested capital rides on how few names."
 export function concentrationLevel(hhi: number): ConcentrationLevel {
-  if (hhi >= 2500) return { label: '高度集中', color: '#ef4444' };
-  if (hhi >= 1500) return { label: '中度集中', color: '#f59e0b' };
-  return { label: '分散', color: '#22c55e' };
+  if (hhi >= 2500) return { label: '高度集中', color: LOSS_COLOR };
+  if (hhi >= 1500) return { label: '中度集中', color: WARN_COLOR };
+  return { label: '分散', color: GAIN_COLOR };
 }
 
 /** Pure arithmetic over PortfolioSummaryDto.positions — position-level concentration risk only:

@@ -11,15 +11,13 @@ import {
   formatAnchorValue,
   formatAxisTickValue,
   formatDeltaValue,
-  GAIN_COLOR,
-  LOSS_COLOR,
   MAX_ITEM_BARS,
   START_LABEL,
 } from './waterfallOption';
 
 import { PositionDto } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME } from '@/DataAnalysis/components/summarizeChart/echarts';
-import { fmtCompactTWD } from '@/utils/format';
+import { fmtCompactTWD, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 interface ContributionWaterfallChartProps {
   positions: PositionDto[];

@@ -12,7 +12,7 @@ import { RangePicker } from './RangePicker';
 
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
-import { fmtCompact, fmtNum } from '@/utils/format';
+import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 // Matches NetWorthChart's set — GetNetWorthHistoryAsync clamps to [7, 180] days server-side.
 const RANGES: DayRange[] = [
@@ -114,7 +114,7 @@ export function NetWorthTrendChart() {
               </Box>
               <Box
                 component="span"
-                sx={{ fontWeight: 700, color: periodChange >= 0 ? '#22c55e' : '#ef4444' }}
+                sx={{ fontWeight: 700, color: periodChange >= 0 ? GAIN_COLOR : LOSS_COLOR }}
               >
                 {periodChange >= 0 ? '+' : '−'}NT${fmtNum(Math.abs(periodChange))}
               </Box>
