@@ -99,7 +99,9 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 ### API Communication Pattern
 - **RTK Query slices** for each feature domain
 - **TypeScript interfaces** for all API contracts in `apis/[feature]/types.ts`
-- **Safety type checking** utility for runtime validation
+- **Error message extraction** via `apis/utils/errorMessage.ts` — the only supported way to turn
+  an RTK Query error into display text, since `FetchBaseQueryError.data` is not guaranteed to hold
+  the API's `{ error: { code, message } }` envelope
 - **Consistent error handling** via custom middleware
 
 ## State Management Architecture
