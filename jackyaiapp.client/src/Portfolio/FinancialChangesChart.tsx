@@ -20,7 +20,7 @@ import { RangePicker } from './RangePicker';
 
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
-import { fmtCompact, fmtNum } from '@/utils/format';
+import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 const RANGES: DayRange[] = [
   { label: '1M', days: 30 },
@@ -33,9 +33,6 @@ const GRANULARITIES: { label: string; value: Granularity }[] = [
   { label: '週', value: 'weekly' },
   { label: '月', value: 'monthly' },
 ];
-
-const GAIN_COLOR = '#22c55e';
-const LOSS_COLOR = '#ef4444';
 
 /** Period-over-period change in 流動資產淨值, on its own axis.
  *

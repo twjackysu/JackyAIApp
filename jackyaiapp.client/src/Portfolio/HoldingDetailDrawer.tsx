@@ -23,6 +23,7 @@ import { PositionDto } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import { ActionTooltip, InfoPopover } from '@/components/hints';
 import MarkdownMessage from '@/components/MarkdownMessage';
+import { GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 interface Props {
   position: PositionDto | null;
@@ -146,8 +147,8 @@ function PriceChart({ market, symbol }: { market: string; symbol: string }) {
             label={`${pnlPct >= 0 ? '+' : ''}${fmt(pnlPct)}% vs 成本`}
             size="small"
             sx={{
-              bgcolor: alpha(pnlPct >= 0 ? '#22c55e' : '#ef4444', 0.15),
-              color: pnlPct >= 0 ? '#22c55e' : '#ef4444',
+              bgcolor: alpha(pnlPct >= 0 ? GAIN_COLOR : LOSS_COLOR, 0.15),
+              color: pnlPct >= 0 ? GAIN_COLOR : LOSS_COLOR,
               fontWeight: 700,
               border: 'none',
             }}

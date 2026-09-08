@@ -1,32 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  drawdownBufferColor,
-  EXPOSURE_TOOLTIP,
-  GAIN_GREEN,
-  LOSS_RED,
-  WARN_AMBER,
-} from './exposureGauges';
+import { drawdownBufferColor, EXPOSURE_TOOLTIP } from './exposureGauges';
+
+import { GAIN_COLOR, LOSS_COLOR, WARN_COLOR } from '@/utils/format';
 
 describe('drawdownBufferColor', () => {
   it('is red below the 10% band — a fall that size fits inside a single bad week', () => {
-    expect(drawdownBufferColor(6.7)).toBe(LOSS_RED);
-    expect(drawdownBufferColor(9.9)).toBe(LOSS_RED);
+    expect(drawdownBufferColor(6.7)).toBe(LOSS_COLOR);
+    expect(drawdownBufferColor(9.9)).toBe(LOSS_COLOR);
   });
 
   it('is amber between 10% and 25% — within a normal correction', () => {
-    expect(drawdownBufferColor(10)).toBe(WARN_AMBER);
-    expect(drawdownBufferColor(24.9)).toBe(WARN_AMBER);
+    expect(drawdownBufferColor(10)).toBe(WARN_COLOR);
+    expect(drawdownBufferColor(24.9)).toBe(WARN_COLOR);
   });
 
   it('is green at 25% and above', () => {
-    expect(drawdownBufferColor(25)).toBe(GAIN_GREEN);
-    expect(drawdownBufferColor(120)).toBe(GAIN_GREEN);
+    expect(drawdownBufferColor(25)).toBe(GAIN_COLOR);
+    expect(drawdownBufferColor(120)).toBe(GAIN_COLOR);
   });
 
   it('stays red once the buffer is gone — no gradation past insolvency', () => {
-    expect(drawdownBufferColor(0)).toBe(LOSS_RED);
-    expect(drawdownBufferColor(-100)).toBe(LOSS_RED);
+    expect(drawdownBufferColor(0)).toBe(LOSS_COLOR);
+    expect(drawdownBufferColor(-100)).toBe(LOSS_COLOR);
   });
 });
 

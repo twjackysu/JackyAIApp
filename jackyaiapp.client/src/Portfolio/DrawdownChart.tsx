@@ -14,6 +14,7 @@ import { StatBlock } from './StatBlock';
 
 import { useGetDrawdownQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import { LOSS_COLOR } from '@/utils/format';
 
 export function DrawdownChart() {
   const [days, setDays] = useState(365);
@@ -68,9 +69,9 @@ export function DrawdownChart() {
         data: points.map((p) => p.drawdownPct),
         smooth: true,
         symbol: 'none',
-        lineStyle: { width: 1.5, color: '#ef4444' },
-        itemStyle: { color: '#ef4444' },
-        areaStyle: { color: '#ef4444', opacity: 0.35 },
+        lineStyle: { width: 1.5, color: LOSS_COLOR },
+        itemStyle: { color: LOSS_COLOR },
+        areaStyle: { color: LOSS_COLOR, opacity: 0.35 },
       },
     ],
   };
@@ -88,7 +89,7 @@ export function DrawdownChart() {
           <StatBlock
             label="最大回撤"
             value={`${analysis!.maxDrawdownPct.toFixed(2)}%`}
-            color={hasDrawdownEpisode ? '#ef4444' : undefined}
+            color={hasDrawdownEpisode ? LOSS_COLOR : undefined}
           />
         </Grid>
         <Grid size={{ xs: 6, sm: 3 }}>

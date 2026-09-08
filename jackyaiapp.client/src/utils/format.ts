@@ -8,9 +8,17 @@ export const fmtNum = (n: number, decimals = 0) =>
  */
 export const fmtQty = (n: number) => n.toLocaleString('zh-TW', { maximumFractionDigits: 6 });
 
-/** The gain/loss palette. Named so callers that need the raw hex (chip backgrounds, borders,
- * ECharts series colours) don't have to re-type the literals next to every `pnlColor` call. */
+/** The status palette: good / caution / bad. Named so callers that need the raw hex (chip
+ * backgrounds, borders, ECharts series colours) don't have to re-type the literals next to every
+ * `pnlColor` call. GAIN/LOSS carry the P&L reading (a green bar is a profit); WARN_COLOR only
+ * ever appears as the middle band of a three-step risk scale, which is why there is no
+ * "pnlColor"-style helper for it.
+ *
+ * These are the semantic status colours only — a categorical palette that happens to include a
+ * red or an amber (asset-type series colours, benchmark lines, accents) is a different concern
+ * and deliberately keeps its own values. */
 export const GAIN_COLOR = '#22c55e';
+export const WARN_COLOR = '#f59e0b';
 export const LOSS_COLOR = '#ef4444';
 
 /** Green for gains, red for losses, caller-supplied neutral colour for zero. */

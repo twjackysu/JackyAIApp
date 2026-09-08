@@ -1,11 +1,9 @@
 import { MASK, PrivacyMode } from './privacy';
 
 import { ECOption } from '@/charts/echarts';
-import { fmtCompactTWD } from '@/utils/format';
+import { fmtCompactTWD, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 export const MAX_ITEM_BARS = 7;
-export const GAIN_COLOR = '#22c55e';
-export const LOSS_COLOR = '#ef4444';
 export const ANCHOR_COLOR = '#9CA3AF';
 export const START_LABEL = '投入成本';
 export const END_LABEL = '目前總值';
