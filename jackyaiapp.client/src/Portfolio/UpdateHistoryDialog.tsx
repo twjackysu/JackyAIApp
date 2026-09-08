@@ -3,7 +3,6 @@ import HistoryIcon from '@mui/icons-material/History';
 import RestoreIcon from '@mui/icons-material/Restore';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -24,6 +23,7 @@ import {
   useLazyGetSnapshotHoldingsQuery,
 } from '@/apis/portfolioApis';
 import { PositionInput } from '@/apis/portfolioApis/types';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip } from '@/components/hints';
 
 interface Props {
@@ -84,9 +84,7 @@ export function UpdateHistoryDialog({ onLoadSnapshot }: Props) {
           </Typography>
 
           {isLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress size={28} />
-            </Box>
+            <CenteredSpinner size={28} sx={{ py: 4 }} />
           ) : history.length === 0 ? (
             <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
               尚無紀錄

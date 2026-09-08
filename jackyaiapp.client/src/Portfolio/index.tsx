@@ -7,7 +7,6 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
@@ -39,6 +38,7 @@ import { PrivacyProvider } from './PrivacyContext';
 
 import { useGetPortfolioSummaryQuery, useLazyGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { PortfolioSummaryDto, PositionDto } from '@/apis/portfolioApis/types';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip, InfoPopover } from '@/components/hints';
 
 function PrivacyToggle() {
@@ -549,11 +549,7 @@ export default function Portfolio() {
           </Box>
         </Box>
 
-        {isLoading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
-        )}
+        {isLoading && <CenteredSpinner sx={{ py: 8 }} />}
 
         {isError && (
           <Typography color="error" sx={{ py: 4, textAlign: 'center' }}>

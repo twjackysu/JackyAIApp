@@ -1,11 +1,13 @@
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, CircularProgress, Dialog, IconButton, Typography } from '@mui/material';
+import { Box, Dialog, IconButton, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { lazy, Suspense } from 'react';
 
-const HtmlViewer = lazy(() => import('@/components/HtmlViewer'));
+import CenteredSpinner from '@/components/CenteredSpinner';
 import MarkdownMessage from '@/components/MarkdownMessage';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
+
+const HtmlViewer = lazy(() => import('@/components/HtmlViewer'));
 
 interface PreviewDialogProps {
   open: boolean;
@@ -45,13 +47,7 @@ const PreviewDialog = ({ open, onClose, block }: PreviewDialogProps) => {
       }}
     >
       {isHtml ? (
-        <Suspense
-          fallback={
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-              <CircularProgress size={32} />
-            </Box>
-          }
-        >
+        <Suspense fallback={<CenteredSpinner size={32} sx={{ alignItems: 'center', flex: 1 }} />}>
           <HtmlViewer
             content={block?.content ?? ''}
             isComplete={isComplete}

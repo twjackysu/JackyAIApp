@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
@@ -12,6 +11,7 @@ import { RangePicker } from './RangePicker';
 
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 // Matches NetWorthChart's set — GetNetWorthHistoryAsync clamps to [7, 180] days server-side.
@@ -45,11 +45,7 @@ export function NetWorthTrendChart() {
   const series = toLiquidNetWorthSeries(res?.data ?? [], 'daily');
 
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ py: 6 }} />;
   }
 
   const latest = series.length > 0 ? series[series.length - 1].value : null;

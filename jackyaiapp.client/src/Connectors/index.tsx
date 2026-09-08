@@ -1,5 +1,5 @@
 import { Refresh } from '@mui/icons-material';
-import { Box, CircularProgress, Grid, IconButton, Typography } from '@mui/material';
+import { Box, Grid, IconButton, Typography } from '@mui/material';
 import Alert, { AlertProps } from '@mui/material/Alert';
 import Snackbar, { SnackbarCloseReason } from '@mui/material/Snackbar';
 import React, { useEffect } from 'react';
@@ -13,6 +13,7 @@ import {
   useGetConnectorStatusQuery,
 } from '@/apis/connectorsApis/connectorsApis';
 import { CustomConnectRequest } from '@/apis/connectorsApis/types';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip } from '@/components/hints';
 
 interface State {
@@ -95,11 +96,7 @@ const Connectors: React.FC = () => {
   };
 
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ alignItems: 'center', minHeight: 400 }} />;
   }
 
   if (error) {

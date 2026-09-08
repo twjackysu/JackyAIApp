@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
-import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
@@ -20,6 +19,7 @@ import { RangePicker } from './RangePicker';
 
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 const RANGES: DayRange[] = [
@@ -71,11 +71,7 @@ export function FinancialChangesChart() {
   const plotted = toDeltas(toLiquidNetWorthSeries(points, effectiveGranularity));
 
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ py: 6 }} />;
   }
 
   const option: ECOption = {

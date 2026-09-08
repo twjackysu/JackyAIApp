@@ -23,6 +23,7 @@ import {
 import { DailyChallengeSubmitResponse } from '@/apis/dailyChallengeApis/types';
 import { usePutRepositoryWordMutation } from '@/apis/repositoryApis';
 import { useGetDueCountQuery } from '@/apis/reviewApis';
+import CenteredSpinner from '@/components/CenteredSpinner';
 
 type ViewMode = 'challenge' | 'result' | 'review';
 
@@ -156,11 +157,7 @@ function DailyChallenge() {
 
   // Loading state
   if (isChallengeLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ mt: 8 }} />;
   }
 
   // Error state
