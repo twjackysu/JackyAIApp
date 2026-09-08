@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 
 import { computeConcentration } from './concentration';
 import { usePrivacy } from './privacy';
+import { StatBlock } from './StatBlock';
 
 import { PositionDto } from '@/apis/portfolioApis/types';
 
@@ -14,19 +15,6 @@ interface ConcentrationCardProps {
 }
 
 const TOP_N = 5;
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <Box>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-        {label}
-      </Typography>
-      <Typography variant="body1" sx={{ fontWeight: 700 }}>
-        {value}
-      </Typography>
-    </Box>
-  );
-}
 
 /** Pure client-side arithmetic over PortfolioSummaryDto.positions — no backend call, no AI,
  * instant. Position-level concentration risk only: cash/liability/real estate are excluded, since
@@ -48,35 +36,30 @@ export function ConcentrationCard({ positions }: ConcentrationCardProps) {
     <Box>
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 6, sm: 3 }}>
-          <Stat label="最大持股佔比" value={showRatio ? `${top1Pct.toFixed(1)}%` : '—'} />
+          <StatBlock label="最大持股佔比" value={showRatio ? `${top1Pct.toFixed(1)}%` : '—'} />
         </Grid>
         <Grid size={{ xs: 6, sm: 3 }}>
-          <Stat label="前3大佔比" value={showRatio ? `${top3Pct.toFixed(1)}%` : '—'} />
+          <StatBlock label="前3大佔比" value={showRatio ? `${top3Pct.toFixed(1)}%` : '—'} />
         </Grid>
         <Grid size={{ xs: 6, sm: 3 }}>
-          <Stat label="前5大佔比" value={showRatio ? `${top5Pct.toFixed(1)}%` : '—'} />
+          <StatBlock label="前5大佔比" value={showRatio ? `${top5Pct.toFixed(1)}%` : '—'} />
         </Grid>
         <Grid size={{ xs: 6, sm: 3 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            集中度
-          </Typography>
-          {showRatio ? (
-            <Chip
-              label={`${level.label} (HHI ${hhi.toFixed(0)})`}
-              size="small"
-              sx={{
-                mt: 0.5,
-                bgcolor: alpha(level.color, 0.15),
-                color: level.color,
-                fontWeight: 700,
-                border: 'none',
-              }}
-            />
-          ) : (
-            <Typography variant="body1" sx={{ fontWeight: 700 }}>
-              —
-            </Typography>
-          )}
+          <StatBlock label="集中度" value="—">
+            {showRatio ? (
+              <Chip
+                label={`${level.label} (HHI ${hhi.toFixed(0)})`}
+                size="small"
+                sx={{
+                  mt: 0.5,
+                  bgcolor: alpha(level.color, 0.15),
+                  color: level.color,
+                  fontWeight: 700,
+                  border: 'none',
+                }}
+              />
+            ) : null}
+          </StatBlock>
         </Grid>
       </Grid>
 

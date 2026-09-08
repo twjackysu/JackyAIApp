@@ -3,6 +3,7 @@ import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 
 import { usePrivacy } from './privacy';
+import { StatBlock } from './StatBlock';
 import {
   buildWaterfallOption,
   ContributionItem,
@@ -76,24 +77,19 @@ export function ContributionWaterfallChart({ positions }: ContributionWaterfallC
     <Box>
       {mode !== 'hidden' && (
         <Box sx={{ display: 'flex', gap: 3, mb: 2, flexWrap: 'wrap' }}>
-          <Box>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              最大貢獻
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700, color: GAIN_COLOR }}>
-              {topContributor.name} {topContributor.value >= 0 ? '+' : ''}
-              {change(fmtCompactTWD(topContributor.value))}
-            </Typography>
-          </Box>
+          <StatBlock
+            label="最大貢獻"
+            value={`${topContributor.name} ${topContributor.value >= 0 ? '+' : ''}${change(fmtCompactTWD(topContributor.value))}`}
+            color={GAIN_COLOR}
+            valueVariant="body2"
+          />
           {bottomContributor.value < 0 && bottomContributor !== topContributor && (
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                最大拖累
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: LOSS_COLOR }}>
-                {bottomContributor.name} {change(fmtCompactTWD(bottomContributor.value))}
-              </Typography>
-            </Box>
+            <StatBlock
+              label="最大拖累"
+              value={`${bottomContributor.name} ${change(fmtCompactTWD(bottomContributor.value))}`}
+              color={LOSS_COLOR}
+              valueVariant="body2"
+            />
           )}
         </Box>
       )}

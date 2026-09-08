@@ -15,6 +15,7 @@ import ReactEcharts from 'echarts-for-react';
 
 import { fmtNum, fmtQty, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
+import { StatBlock } from './StatBlock';
 import { valuationExplainer } from './valuationExplainer';
 
 import { useGetHoldingPriceHistoryQuery, useLazyGetAiTechSummaryQuery } from '@/apis/portfolioApis';
@@ -31,23 +32,6 @@ interface Props {
 
 // Prices/NAV in this drawer default to 2 decimals; share other formatting with the rest of the module.
 const fmt = (n: number, decimals = 2) => fmtNum(n, decimals);
-
-function StatBlock({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <Box sx={{ textAlign: 'center' }}>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-        {label}
-      </Typography>
-      <Typography
-        variant="body1"
-        sx={{ fontWeight: 700, color: color ?? 'text.primary' }}
-        component="span"
-      >
-        {value}
-      </Typography>
-    </Box>
-  );
-}
 
 function PriceChart({ market, symbol }: { market: string; symbol: string }) {
   const { mode, value, showRatio } = usePrivacy();
@@ -299,33 +283,42 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
             <StatBlock
               label={isFund ? '單位數' : '持股數量'}
               value={value(fmtQty(position.quantity))}
+              align="center"
             />
             <StatBlock
               label={isFund ? '淨值' : '現價'}
               value={`${position.currency} ${value(fmt(position.currentPrice))}`}
+              align="center"
             />
-            <StatBlock label="市值 (TWD)" value={`NT$${value(fmt(position.marketValueTWD, 0))}`} />
+            <StatBlock
+              label="市值 (TWD)"
+              value={`NT$${value(fmt(position.marketValueTWD, 0))}`}
+              align="center"
+            />
             {hasPnl ? (
               <>
                 <StatBlock
                   label="未實現損益"
                   value={`NT$${change(fmt(position.unrealizedPnlTWD as number, 0))}`}
                   color={pnlColor(position.unrealizedPnlTWD as number)}
+                  align="center"
                 />
                 {showRatio && (
                   <StatBlock
                     label="損益%"
                     value={`${(position.unrealizedPnlPct as number) >= 0 ? '+' : ''}${fmt(position.unrealizedPnlPct as number)}%`}
                     color={pnlColor(position.unrealizedPnlPct as number)}
+                    align="center"
                   />
                 )}
                 <StatBlock
                   label="成本基礎"
                   value={`NT$${value(fmt((position.costBasisTWD as number) ?? 0, 0))}`}
+                  align="center"
                 />
               </>
             ) : (
-              <StatBlock label="損益" value="未填成本" />
+              <StatBlock label="損益" value="未填成本" align="center" />
             )}
             {position.fxRateUsed != null && (
               <Box>
