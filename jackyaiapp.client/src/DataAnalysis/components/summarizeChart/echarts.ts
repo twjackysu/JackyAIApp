@@ -1,8 +1,10 @@
 // Registration, dark theme, and ECOption live in @/charts/echarts (shared across DataAnalysis,
-// Portfolio, and Finance) — re-exported here so this file's own consumers (the viz renderers in
-// DataAnalysis/viz/renderers/) don't need to change their import path. Only DataAnalysis's own
-// view-type concepts are defined in this file.
-export { echarts, ECHARTS_THEME } from '@/charts/echarts';
+// Portfolio, and Finance) — the theme and type are re-exported here so this file's own consumers
+// (the viz renderers in DataAnalysis/viz/renderers/) don't need to change their import path. The
+// registered `echarts` instance itself is not: it is only ever touched by @/charts/ReactECharts,
+// which every chart in the app renders through. Only DataAnalysis's own view-type concepts are
+// defined in this file.
+export { ECHARTS_THEME } from '@/charts/echarts';
 export type { ECOption } from '@/charts/echarts';
 
 export type ChartViewType =

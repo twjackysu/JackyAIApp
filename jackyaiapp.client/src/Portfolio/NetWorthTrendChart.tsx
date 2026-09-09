@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
-import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
 import { DayRange } from './dayRanges';
@@ -11,6 +10,7 @@ import { RangePicker } from './RangePicker';
 
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
@@ -116,7 +116,7 @@ export function NetWorthTrendChart() {
               </Box>
             </Typography>
           )}
-          <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 240 }} />
+          <ReactECharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 240 }} />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             流動資產淨值 = 流動資產 − 負債，不含不動產。
           </Typography>

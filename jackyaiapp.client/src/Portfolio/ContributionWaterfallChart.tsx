@@ -1,6 +1,5 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import ReactEcharts from 'echarts-for-react';
 
 import { usePrivacy } from './privacy';
 import { StatBlock } from './StatBlock';
@@ -16,7 +15,8 @@ import {
 } from './waterfallOption';
 
 import { PositionDto } from '@/apis/portfolioApis/types';
-import { ECHARTS_THEME } from '@/DataAnalysis/components/summarizeChart/echarts';
+import { ECHARTS_THEME } from '@/charts/echarts';
+import ReactECharts from '@/charts/ReactECharts';
 import { fmtCompactTWD, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 interface ContributionWaterfallChartProps {
@@ -92,7 +92,7 @@ export function ContributionWaterfallChart({ positions }: ContributionWaterfallC
         </Box>
       )}
 
-      <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
+      <ReactECharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
         {START_LABEL} → 各持倉貢獻（未實現損益＋累計股息）→ {END_LABEL}，僅計算股票與基金持倉

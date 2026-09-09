@@ -3,7 +3,6 @@ import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
-import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
 import { WIDE_RANGES } from './dayRanges';
@@ -13,6 +12,7 @@ import { StatBlock } from './StatBlock';
 
 import { useGetDrawdownQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { LOSS_COLOR } from '@/utils/format';
 
@@ -117,7 +117,7 @@ export function DrawdownChart() {
         </Typography>
       )}
 
-      <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 220 }} />
+      <ReactECharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 220 }} />
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
         依持倉快照與歷史價格計算——兩次快照之間僅價格變動，數量不變，反映的是「所持部位的價格回撤」而非交易調整後的實際報酬。

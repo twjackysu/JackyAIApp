@@ -3,7 +3,6 @@ import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
-import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
 import { DayRange } from './dayRanges';
@@ -19,6 +18,7 @@ import { RangePicker } from './RangePicker';
 
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
@@ -159,7 +159,7 @@ export function FinancialChangesChart() {
         </Typography>
       ) : (
         <>
-          <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 240 }} />
+          <ReactECharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 240 }} />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             每期期末流動資產淨值與前一期的差額。Y
             軸依變化量自行縮放，不受資產絕對金額影響——這正是小額變化在上方走勢圖看不出來的原因。
