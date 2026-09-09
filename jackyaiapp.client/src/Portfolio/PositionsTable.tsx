@@ -18,12 +18,12 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useState } from 'react';
 
 import { loadFeeDiscountRate } from './feeDiscountRate';
-import { fmtNum as fmt, fmtQty, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
 
 import { useRefreshPositionPriceMutation } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
 import { ActionTooltip } from '@/components/hints';
+import { fmtNum as fmt, fmtQty, pnlColor } from '@/utils/format';
 
 interface Props {
   positions: PositionDto[];

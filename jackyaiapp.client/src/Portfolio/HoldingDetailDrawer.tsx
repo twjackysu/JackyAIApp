@@ -12,7 +12,6 @@ import { alpha, useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
 
-import { fmtNum, fmtQty, pnlColor } from './portfolioUtils';
 import { usePrivacy } from './privacy';
 import { StatBlock } from './StatBlock';
 import { valuationExplainer } from './valuationExplainer';
@@ -23,7 +22,7 @@ import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip, InfoPopover } from '@/components/hints';
 import MarkdownMessage from '@/components/MarkdownMessage';
-import { GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
+import { fmtNum, fmtQty, GAIN_COLOR, LOSS_COLOR, pnlColor } from '@/utils/format';
 
 interface Props {
   position: PositionDto | null;
