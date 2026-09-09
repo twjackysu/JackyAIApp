@@ -6,7 +6,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import { fmtNum } from './portfolioUtils';
+import { fmtNum } from '@/utils/format';
 
 interface Props {
   quantity: number;

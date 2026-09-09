@@ -31,7 +31,6 @@ import { NetWorthChart } from './NetWorthChart';
 import { NetWorthTrendChart } from './NetWorthTrendChart';
 import { usePortfolioTour } from './onboardingTour';
 import { exportNetWorthCsv, exportPortfolioCsv } from './portfolioExport';
-import { fmtNum as fmt, fmtSignedPct, GAIN_COLOR, LOSS_COLOR, pnlColor } from './portfolioUtils';
 import { PositionsTable } from './PositionsTable';
 import { usePrivacy } from './privacy';
 import { PrivacyProvider } from './PrivacyContext';
@@ -40,6 +39,7 @@ import { useGetPortfolioSummaryQuery, useLazyGetNetWorthHistoryQuery } from '@/a
 import { PortfolioSummaryDto, PositionDto } from '@/apis/portfolioApis/types';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip, InfoPopover } from '@/components/hints';
+import { fmtNum as fmt, fmtSignedPct, GAIN_COLOR, LOSS_COLOR, pnlColor } from '@/utils/format';
 
 function PrivacyToggle() {
   const { mode, cycle } = usePrivacy();
