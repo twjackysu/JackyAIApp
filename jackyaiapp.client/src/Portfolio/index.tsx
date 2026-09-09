@@ -7,7 +7,6 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
-import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -18,6 +17,7 @@ import Typography from '@mui/material/Typography';
 import { ReactNode, useState } from 'react';
 
 import { BenchmarkChart } from './BenchmarkChart';
+import { ChartSectionCard } from './ChartSectionCard';
 import { ConcentrationCard } from './ConcentrationCard';
 import { ContributionWaterfallChart } from './ContributionWaterfallChart';
 import { DrawdownChart } from './DrawdownChart';
@@ -598,97 +598,33 @@ export default function Portfolio() {
                 trend ("better or worse off?"), composition ("what am I holding?"), and change
                 ("how much moved this period?"). The composition chart alone used to carry all
                 three jobs, which is why a 20k move against 10M of assets was invisible on it. */}
-            <Card
-              elevation={0}
-              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                  淨值走勢
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <NetWorthTrendChart />
-              </CardContent>
-            </Card>
+            <ChartSectionCard title="淨值走勢">
+              <NetWorthTrendChart />
+            </ChartSectionCard>
 
-            <Card
-              data-tour="portfolio-tour-chart"
-              elevation={0}
-              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                  資產與負債組成
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <NetWorthChart />
-              </CardContent>
-            </Card>
+            <ChartSectionCard title="資產與負債組成" data-tour="portfolio-tour-chart">
+              <NetWorthChart />
+            </ChartSectionCard>
 
-            <Card
-              elevation={0}
-              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                  淨值變化量
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <FinancialChangesChart />
-              </CardContent>
-            </Card>
+            <ChartSectionCard title="淨值變化量">
+              <FinancialChangesChart />
+            </ChartSectionCard>
 
-            <Card
-              elevation={0}
-              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                  大盤對照
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <BenchmarkChart />
-              </CardContent>
-            </Card>
+            <ChartSectionCard title="大盤對照">
+              <BenchmarkChart />
+            </ChartSectionCard>
 
-            <Card
-              elevation={0}
-              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                  報酬貢獻度
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <ContributionWaterfallChart positions={summary.positions} />
-              </CardContent>
-            </Card>
+            <ChartSectionCard title="報酬貢獻度">
+              <ContributionWaterfallChart positions={summary.positions} />
+            </ChartSectionCard>
 
-            <Card
-              elevation={0}
-              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                  回撤分析
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <DrawdownChart />
-              </CardContent>
-            </Card>
+            <ChartSectionCard title="回撤分析">
+              <DrawdownChart />
+            </ChartSectionCard>
 
-            <Card
-              elevation={0}
-              sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}
-            >
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                  持股集中度
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <ConcentrationCard positions={summary.positions} />
-              </CardContent>
-            </Card>
+            <ChartSectionCard title="持股集中度">
+              <ConcentrationCard positions={summary.positions} />
+            </ChartSectionCard>
 
             <Card
               data-tour="portfolio-tour-positions"
