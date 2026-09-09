@@ -18,11 +18,8 @@ import {
   useEvaluateSentenceMutation,
   useRecordExamResultMutation,
 } from '@/apis/examApis';
-import AILoading from '@/components/AILoading';
-import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
-import RoundProgress from '@/Exam/components/RoundProgress';
-import RoundResultScreen from '@/Exam/components/RoundResultScreen';
+import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import WordRecap from '@/Exam/components/WordRecap';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
 
@@ -119,27 +116,15 @@ function SentenceTestCard() {
     return '需要改進';
   };
 
-  if (round.roundComplete) {
-    return (
-      <RoundResultScreen
-        correct={round.correct}
-        total={round.answered}
-        onRestart={handleRestartRound}
-      />
-    );
-  }
-
-  if (isFetching) {
-    return <AILoading />;
-  }
-
-  if (isError) {
-    return <FetchBaseQueryErrorMessage error={error} />;
-  }
-
   return (
-    <Box sx={{ maxWidth: 800, margin: 'auto', padding: 2 }}>
-      <RoundProgress answered={round.answered} total={round.roundSize} correct={round.correct} />
+    <ExamRoundShell
+      round={round}
+      isFetching={isFetching}
+      isError={isError}
+      error={error}
+      onRestart={handleRestartRound}
+      maxWidth={800}
+    >
       <Card sx={{ mb: 2 }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
@@ -308,7 +293,7 @@ function SentenceTestCard() {
           </CardContent>
         </Card>
       )}
-    </Box>
+    </ExamRoundShell>
   );
 }
 
