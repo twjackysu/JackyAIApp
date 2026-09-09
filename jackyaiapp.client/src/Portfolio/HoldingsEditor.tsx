@@ -1,5 +1,4 @@
 import AddIcon from '@mui/icons-material/Add';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditIcon from '@mui/icons-material/Edit';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -9,14 +8,13 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
-import MenuItem from '@mui/material/MenuItem';
 import { useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useState } from 'react';
 
+import { AmountRow } from './AmountRow';
 import { EditorRow, isRowEmpty, makeRow, rowError, toRow } from './editorTypes';
 import { FundRow } from './FundRow';
 import { useEditorTour } from './onboardingTour';
@@ -205,46 +203,14 @@ export function HoldingsEditor() {
             tourId="portfolio-tour-editor-cash"
           >
             {cashes.map((r) => (
-              // flexWrap so fields stack on mobile instead of overflowing the dialog width and
-              // pushing the delete button off-screen; the delete button itself drops size="small"
-              // for a real ~44px touch target instead of a hard-to-hit one.
-              <Box
+              <AmountRow
                 key={r._key}
-                sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}
-              >
-                <TextField
-                  size="small"
-                  label="名稱"
-                  value={r.name}
-                  onChange={(e) => patchRow(r._key, { name: e.target.value })}
-                  sx={{ width: 120 }}
-                />
-                <TextField
-                  size="small"
-                  select
-                  label="幣別"
-                  value={r.currency}
-                  onChange={(e) => patchRow(r._key, { currency: e.target.value })}
-                  sx={{ width: 100 }}
-                >
-                  <MenuItem value="TWD">TWD</MenuItem>
-                  <MenuItem value="USD">USD</MenuItem>
-                </TextField>
-                <TextField
-                  size="small"
-                  type="number"
-                  label="金額"
-                  value={r.quantity || ''}
-                  onChange={(e) => patchRow(r._key, { quantity: parseFloat(e.target.value) || 0 })}
-                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                  error={submitted && rowError(r) !== null}
-                  helperText={submitted ? rowError(r) : undefined}
-                  sx={{ flex: '1 1 140px' }}
-                />
-                <IconButton onClick={() => removeRow(r._key)} sx={{ mt: 0.5 }}>
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </Box>
+                row={r}
+                error={submitted ? rowError(r) : null}
+                amountLabel="金額"
+                onChange={(patch) => patchRow(r._key, patch)}
+                onRemove={() => removeRow(r._key)}
+              />
             ))}
           </Section>
 
@@ -259,46 +225,14 @@ export function HoldingsEditor() {
             tourId="portfolio-tour-editor-liability"
           >
             {liabilities.map((r) => (
-              // flexWrap so fields stack on mobile instead of overflowing the dialog width and
-              // pushing the delete button off-screen; the delete button itself drops size="small"
-              // for a real ~44px touch target instead of a hard-to-hit one.
-              <Box
+              <AmountRow
                 key={r._key}
-                sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}
-              >
-                <TextField
-                  size="small"
-                  label="名稱"
-                  value={r.name}
-                  onChange={(e) => patchRow(r._key, { name: e.target.value })}
-                  sx={{ width: 120 }}
-                />
-                <TextField
-                  size="small"
-                  select
-                  label="幣別"
-                  value={r.currency}
-                  onChange={(e) => patchRow(r._key, { currency: e.target.value })}
-                  sx={{ width: 100 }}
-                >
-                  <MenuItem value="TWD">TWD</MenuItem>
-                  <MenuItem value="USD">USD</MenuItem>
-                </TextField>
-                <TextField
-                  size="small"
-                  type="number"
-                  label="金額"
-                  value={r.quantity || ''}
-                  onChange={(e) => patchRow(r._key, { quantity: parseFloat(e.target.value) || 0 })}
-                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                  error={submitted && rowError(r) !== null}
-                  helperText={submitted ? rowError(r) : undefined}
-                  sx={{ flex: '1 1 140px' }}
-                />
-                <IconButton onClick={() => removeRow(r._key)} sx={{ mt: 0.5 }}>
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </Box>
+                row={r}
+                error={submitted ? rowError(r) : null}
+                amountLabel="金額"
+                onChange={(patch) => patchRow(r._key, patch)}
+                onRemove={() => removeRow(r._key)}
+              />
             ))}
             {/* 負債本身不計入市場曝險（PortfolioExposure.Factor），但仍會拉低分母（淨值）——
                 若債務對應的資產（房子）沒有一併記錄在下方「不動產」，分母少了對應的抵銷項，
@@ -324,54 +258,15 @@ export function HoldingsEditor() {
             tourId="portfolio-tour-editor-realestate"
           >
             {realEstates.map((r) => (
-              <Box
+              <AmountRow
                 key={r._key}
-                sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}
-              >
-                <TextField
-                  size="small"
-                  label="名稱"
-                  value={r.name}
-                  onChange={(e) => patchRow(r._key, { name: e.target.value })}
-                  sx={{ width: 120 }}
-                />
-                <TextField
-                  size="small"
-                  select
-                  label="估值方式"
-                  value={r.valuationMethod ?? '市價'}
-                  onChange={(e) => patchRow(r._key, { valuationMethod: e.target.value })}
-                  sx={{ width: 140 }}
-                >
-                  <MenuItem value="市價">市價</MenuItem>
-                  <MenuItem value="買價扣除折舊">買價扣除折舊</MenuItem>
-                </TextField>
-                <TextField
-                  size="small"
-                  select
-                  label="幣別"
-                  value={r.currency}
-                  onChange={(e) => patchRow(r._key, { currency: e.target.value })}
-                  sx={{ width: 100 }}
-                >
-                  <MenuItem value="TWD">TWD</MenuItem>
-                  <MenuItem value="USD">USD</MenuItem>
-                </TextField>
-                <TextField
-                  size="small"
-                  type="number"
-                  label="價值"
-                  value={r.quantity || ''}
-                  onChange={(e) => patchRow(r._key, { quantity: parseFloat(e.target.value) || 0 })}
-                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                  error={submitted && rowError(r) !== null}
-                  helperText={submitted ? rowError(r) : undefined}
-                  sx={{ flex: '1 1 140px' }}
-                />
-                <IconButton onClick={() => removeRow(r._key)} sx={{ mt: 0.5 }}>
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </Box>
+                row={r}
+                error={submitted ? rowError(r) : null}
+                amountLabel="價值"
+                showValuationMethod
+                onChange={(patch) => patchRow(r._key, patch)}
+                onRemove={() => removeRow(r._key)}
+              />
             ))}
           </Section>
 
