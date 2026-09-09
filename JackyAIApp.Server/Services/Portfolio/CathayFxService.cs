@@ -3,7 +3,6 @@ using System.Text.RegularExpressions;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Portfolio
@@ -49,6 +48,8 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// <summary>"3" is 即期 (spot); "2" is 現鈔 (cash), which is not the settlement rate.</summary>
         private const string SpotCurrencyType = "3";
 
+        private readonly FxRateStore store = new(db, FxRateSources.Cathay, logger);
+
         /// <summary>
         /// How far back a lookup may carry forward, and how wide a window to fill on a miss. Clears
         /// a long national holiday plus a weekend; past that, no rate means no rate rather than a
@@ -65,7 +66,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (currency.Length != 3) return null;
 
             var earliest = rateDate.AddDays(-WindowDays);
-            var stored = await LatestStoredAsync(currency, earliest, rateDate, ct);
+            var stored = await store.LatestBuyRateAsync(currency, earliest, rateDate, ct);
             if (stored != null && stored.Value.Date == rateDate) return stored.Value.Rate;
 
             // One call covers the whole window, so a miss costs a single fetch no matter how many
@@ -77,7 +78,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 var fetched = await FetchAndStoreAsync(currency, earliest, rateDate, ct);
                 if (fetched)
                 {
-                    var refreshed = await LatestStoredAsync(currency, earliest, rateDate, ct);
+                    var refreshed = await store.LatestBuyRateAsync(currency, earliest, rateDate, ct);
                     if (refreshed != null) return refreshed.Value.Rate;
                 }
                 cache.Set(missKey, true, CacheTtl.Portfolio.Fx);
@@ -86,18 +87,6 @@ namespace JackyAIApp.Server.Services.Portfolio
             // Nothing published for the exact date — the most recent business day before it is the
             // right answer, which is also what 國泰 shows over a weekend.
             return stored?.Rate;
-        }
-
-        private async Task<(DateOnly Date, decimal Rate)?> LatestStoredAsync(
-            string currency, DateOnly earliest, DateOnly asOf, CancellationToken ct)
-        {
-            var row = await db.FxRates.AsNoTracking()
-                .Where(r => r.Source == FxRateSources.Cathay && r.Currency == currency
-                    && r.RateDate <= asOf && r.RateDate >= earliest)
-                .OrderByDescending(r => r.RateDate)
-                .Select(r => new { r.RateDate, r.BuyRate })
-                .FirstOrDefaultAsync(ct);
-            return row == null ? null : (row.RateDate, row.BuyRate);
         }
 
         /// <summary>Fetches a date range and persists every business day it returns. False on any failure.</summary>
@@ -129,10 +118,10 @@ namespace JackyAIApp.Server.Services.Portfolio
                 using var response = await client.SendAsync(request, ct);
                 response.EnsureSuccessStatusCode();
 
-                var parsed = Parse(await response.Content.ReadAsStringAsync(ct));
+                var parsed = Parse(currency, await response.Content.ReadAsStringAsync(ct));
                 if (parsed.Count == 0) return false;
 
-                await StoreAsync(currency, parsed, ct);
+                await store.AddMissingAsync(parsed, ct);
                 return true;
             }
             catch (Exception ex)
@@ -178,9 +167,9 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// Response is a flat array of {Name, CurDate, BuyRate, SellRate}, dates as yyyy/MM/dd and
         /// rates as strings. Business days only — weekends and holidays are simply absent.
         /// </summary>
-        private static List<(DateOnly Date, decimal Buy, decimal Sell)> Parse(string json)
+        private static List<PublishedFxRate> Parse(string currency, string json)
         {
-            var result = new List<(DateOnly, decimal, decimal)>();
+            var result = new List<PublishedFxRate>();
             using var doc = JsonDocument.Parse(json);
             if (doc.RootElement.ValueKind != JsonValueKind.Array) return result;
 
@@ -188,55 +177,12 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 if (!row.TryGetProperty("CurDate", out var dateEl)) continue;
                 if (!DateOnly.TryParseExact(dateEl.GetString(), "yyyy/MM/dd", out var date)) continue;
-                if (!TryRate(row, "BuyRate", out var buy) || !TryRate(row, "SellRate", out var sell)) continue;
+                if (!FxRateJson.TryReadRate(row, "BuyRate", out var buy)
+                    || !FxRateJson.TryReadRate(row, "SellRate", out var sell)) continue;
                 if (buy <= 0) continue;
-                result.Add((date, buy, sell));
+                result.Add(new PublishedFxRate(date, currency, buy, sell));
             }
             return result;
-        }
-
-        private static bool TryRate(JsonElement row, string property, out decimal value)
-        {
-            value = 0;
-            return row.TryGetProperty(property, out var el)
-                && el.ValueKind == JsonValueKind.String
-                && decimal.TryParse(el.GetString(), out value);
-        }
-
-        private async Task StoreAsync(
-            string currency, List<(DateOnly Date, decimal Buy, decimal Sell)> rates, CancellationToken ct)
-        {
-            var dates = rates.Select(r => r.Date).ToList();
-            var have = await db.FxRates
-                .Where(r => r.Source == FxRateSources.Cathay && r.Currency == currency && dates.Contains(r.RateDate))
-                .Select(r => r.RateDate)
-                .ToListAsync(ct);
-            var known = have.ToHashSet();
-
-            var added = rates
-                .Where(r => !known.Contains(r.Date))
-                .Select(r => new FxRate
-                {
-                    RateDate = r.Date,
-                    Currency = currency,
-                    Source = FxRateSources.Cathay,
-                    BuyRate = r.Buy,
-                    SellRate = r.Sell,
-                })
-                .ToList();
-            if (added.Count == 0) return;
-
-            db.FxRates.AddRange(added);
-            try
-            {
-                await db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException ex)
-            {
-                // Concurrent requests can race to insert the same day; the unique index makes the
-                // loser redundant, not wrong.
-                logger.LogDebug(ex, "國泰世華 FX rates for {Currency} already stored by a concurrent request", currency);
-            }
         }
     }
 }
