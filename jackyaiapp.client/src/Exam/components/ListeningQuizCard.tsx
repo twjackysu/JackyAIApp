@@ -12,11 +12,8 @@ import { SerializedError } from '@reduxjs/toolkit';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { ReactNode, useMemo, useState } from 'react';
 
-import RoundProgress from './RoundProgress';
-import RoundResultScreen from './RoundResultScreen';
+import ExamRoundShell from './ExamRoundShell';
 
-import AILoading from '@/components/AILoading';
-import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
 import { useOneShotAudio } from '@/Exam/hooks/useOneShotAudio';
 import { shuffle } from '@/Exam/utils/shuffle';
@@ -137,25 +134,14 @@ function ListeningQuizCard({
     refetch();
   };
 
-  if (round.roundComplete) {
-    return (
-      <RoundResultScreen
-        correct={round.correct}
-        total={round.answered}
-        onRestart={handleRestartRound}
-      />
-    );
-  }
-
-  if (isFetching) {
-    return <AILoading />;
-  }
-  if (isError) {
-    return <FetchBaseQueryErrorMessage error={error} />;
-  }
   return (
-    <Box sx={{ maxWidth: 600, margin: 'auto', padding: 2 }}>
-      <RoundProgress answered={round.answered} total={round.roundSize} correct={round.correct} />
+    <ExamRoundShell
+      round={round}
+      isFetching={isFetching}
+      isError={isError}
+      error={error}
+      onRestart={handleRestartRound}
+    >
       {renderPrompt?.({ playingKey, playedKeys, play }, submitted)}
       <FormControl component="fieldset" disabled={submitted} fullWidth>
         <FormLabel component="legend">{legend}</FormLabel>
@@ -230,7 +216,7 @@ function ListeningQuizCard({
           </Box>
         </Box>
       )}
-    </Box>
+    </ExamRoundShell>
   );
 }
 

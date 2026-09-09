@@ -10,11 +10,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useGetClozeTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
-import AILoading from '@/components/AILoading';
-import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
-import RoundProgress from '@/Exam/components/RoundProgress';
-import RoundResultScreen from '@/Exam/components/RoundResultScreen';
+import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import WordRecap from '@/Exam/components/WordRecap';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
 
@@ -112,25 +109,14 @@ function ClozeTestCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitted, data, shuffledOptions, selectedOption, round.roundComplete]);
 
-  if (round.roundComplete) {
-    return (
-      <RoundResultScreen
-        correct={round.correct}
-        total={round.answered}
-        onRestart={handleRestartRound}
-      />
-    );
-  }
-
-  if (isFetching) {
-    return <AILoading />;
-  }
-  if (isError) {
-    return <FetchBaseQueryErrorMessage error={error} />;
-  }
   return (
-    <Box sx={{ maxWidth: 600, margin: 'auto', padding: 2 }}>
-      <RoundProgress answered={round.answered} total={round.roundSize} correct={round.correct} />
+    <ExamRoundShell
+      round={round}
+      isFetching={isFetching}
+      isError={isError}
+      error={error}
+      onRestart={handleRestartRound}
+    >
       <Typography variant="h6" gutterBottom>
         {data?.data.question}
       </Typography>
@@ -194,7 +180,7 @@ function ClozeTestCard() {
           </Box>
         </Box>
       )}
-    </Box>
+    </ExamRoundShell>
   );
 }
 
