@@ -1,15 +1,10 @@
 import { Code, Preview } from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Paper, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import hljs from 'highlight.js/lib/core';
-import css from 'highlight.js/lib/languages/css';
-import javascript from 'highlight.js/lib/languages/javascript';
-import xml from 'highlight.js/lib/languages/xml';
 import { useEffect, useRef, useState } from 'react';
 
-hljs.registerLanguage('xml', xml);
-hljs.registerLanguage('javascript', javascript);
-hljs.registerLanguage('css', css);
+// 語言註冊集中在 syntaxHighlight，這裡不再自己 registerLanguage（html 是 xml 的 alias）。
+import { hljs } from '@/components/syntaxHighlight';
 
 interface HtmlViewerProps {
   content: string;
