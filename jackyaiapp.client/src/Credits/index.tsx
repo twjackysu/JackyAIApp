@@ -6,7 +6,6 @@ import {
   CardActions,
   CardContent,
   Chip,
-  CircularProgress,
   Divider,
   Pagination,
   Snackbar,
@@ -28,6 +27,7 @@ import {
   useCreateSubscriptionMutation,
   useGetSubscriptionStatusQuery,
 } from '@/apis/payuniApis';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtNum } from '@/utils/format';
 
 const TRANSACTION_TYPE_LABELS: Record<CreditTransaction['transactionType'], string> = {
@@ -84,11 +84,7 @@ function SubscriptionCard() {
   };
 
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ py: 6 }} />;
   }
 
   const isActive = status?.status === 'active';

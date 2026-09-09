@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
-import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import ReactEcharts from 'echarts-for-react';
@@ -14,6 +13,7 @@ import { RangePicker } from './RangePicker';
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { NetWorthDataPoint, NetWorthGroupBy, NetWorthGroupValue } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact } from '@/utils/format';
 
 // Narrower than WIDE_RANGES (Portfolio/RangePicker.tsx): GetNetWorthHistoryAsync clamps to
@@ -278,22 +278,14 @@ export function NetWorthChart() {
       : rawPoints;
 
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ py: 6 }} />;
   }
 
   if (points.length === 0) {
     // Still resolving a not-yet-cached combo (belt-and-suspenders alongside the isLoading check
     // above) — show the spinner instead of prematurely claiming there's no data.
     if (isFetching) {
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress />
-        </Box>
-      );
+      return <CenteredSpinner sx={{ py: 6 }} />;
     }
     return (
       <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>

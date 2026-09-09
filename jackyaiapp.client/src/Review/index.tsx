@@ -2,7 +2,6 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -12,6 +11,7 @@ import Flashcard from './components/Flashcard';
 
 import { useGetDueReviewsQuery, useSubmitReviewsMutation } from '@/apis/reviewApis';
 import { ReviewAnswerRequest, ReviewSubmitResponse } from '@/apis/reviewApis/types';
+import CenteredSpinner from '@/components/CenteredSpinner';
 
 const REVIEW_STORAGE_KEY = 'review_progress';
 
@@ -100,11 +100,7 @@ function Review() {
 
   // Loading
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ mt: 8 }} />;
   }
 
   // Error
@@ -222,9 +218,7 @@ function Review() {
         )}
       </Typography>
       {isSubmitting ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <CircularProgress />
-        </Box>
+        <CenteredSpinner sx={{ mt: 4 }} />
       ) : (
         // key={currentIndex} forces remount on card change, resetting revealed state
         <Flashcard

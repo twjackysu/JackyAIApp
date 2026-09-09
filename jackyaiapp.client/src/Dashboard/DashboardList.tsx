@@ -6,12 +6,12 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import { ThemeProvider } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { Link } from 'react-router-dom';
 
 import { useGetDashboardsQuery } from '@/apis/dashboardApis';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { DataAnalysisNav } from '@/components/DataAnalysisNav';
 import { dataAnalysisTheme } from '@/DataAnalysis/theme';
 
@@ -28,9 +28,7 @@ export default function DashboardList() {
         </Typography>
 
         {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
-            <CircularProgress />
-          </Box>
+          <CenteredSpinner sx={{ p: 6 }} />
         ) : isError ? (
           <Alert severity="error">無法載入 dashboards。</Alert>
         ) : dashboards.length === 0 ? (

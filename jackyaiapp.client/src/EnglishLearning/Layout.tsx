@@ -6,7 +6,6 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import QuizIcon from '@mui/icons-material/Quiz';
 import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import { Suspense } from 'react';
@@ -15,6 +14,8 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useGetUserInfoQuery } from '../apis/accountApis';
 import { useGetDueCountQuery } from '../apis/reviewApis';
 import { ENGLISH_LEARNING } from '../constants/apps';
+
+import CenteredSpinner from '@/components/CenteredSpinner';
 
 /** Layout route for "/english" — renders the section's tab strip once, then an
  * <Outlet/> for whichever child page is active. Only the outlet content is wrapped
@@ -109,13 +110,7 @@ function EnglishLearningLayout() {
           />
         </Tabs>
       </Box>
-      <Suspense
-        fallback={
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
-        }
-      >
+      <Suspense fallback={<CenteredSpinner sx={{ p: 4 }} />}>
         <Outlet />
       </Suspense>
     </>

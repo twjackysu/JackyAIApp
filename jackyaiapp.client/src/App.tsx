@@ -1,7 +1,6 @@
 import AppsIcon from '@mui/icons-material/Apps';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
 import { alpha } from '@mui/material/styles';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
@@ -22,6 +21,8 @@ import {
   getCurrentApp,
 } from './constants/apps';
 import { englishLearningRoute } from './EnglishLearning';
+
+import CenteredSpinner from '@/components/CenteredSpinner';
 
 // Feature pages are code-split so each route loads its own chunk on demand.
 const ListeningBankAdmin = lazy(() => import('./Admin/ListeningBank'));
@@ -158,15 +159,7 @@ function App() {
         </Toolbar>
       </AppBar>
       <Box sx={{ p: 2 }}>
-        <Suspense
-          fallback={
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
-            </Box>
-          }
-        >
-          {element}
-        </Suspense>
+        <Suspense fallback={<CenteredSpinner sx={{ p: 4 }} />}>{element}</Suspense>
       </Box>
       <Footer />
       {/* 懸浮 Chatbot — only on Finance: its Dify backend is wired to a TW-stock MCP server,

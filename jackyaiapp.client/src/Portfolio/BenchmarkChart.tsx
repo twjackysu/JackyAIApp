@@ -1,6 +1,5 @@
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
@@ -15,6 +14,7 @@ import { StatBlock } from './StatBlock';
 
 import { useGetBenchmarkComparisonQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { InfoPopover } from '@/components/hints';
 import { fmtCompact, fmtNum, fmtSignedPct } from '@/utils/format';
 
@@ -61,11 +61,7 @@ export function BenchmarkChart() {
     });
 
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ py: 6 }} />;
   }
 
   const benchmarks = comparison?.benchmarks ?? [];

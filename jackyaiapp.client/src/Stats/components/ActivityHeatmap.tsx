@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
@@ -7,6 +6,7 @@ import { useMemo } from 'react';
 import type { ActivityDay } from '@/apis/statsApis/types';
 
 import { useGetActivityQuery } from '@/apis/statsApis';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { ClickPopover } from '@/components/hints';
 
 // GitHub-style green scale (works on light and dark surfaces).
@@ -50,11 +50,7 @@ function ActivityHeatmap() {
   }, [days]);
 
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ py: 4 }} />;
   }
 
   return (

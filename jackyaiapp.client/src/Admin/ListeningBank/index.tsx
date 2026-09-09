@@ -1,7 +1,6 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Pagination from '@mui/material/Pagination';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -15,6 +14,7 @@ import { useState } from 'react';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useGenerateListeningQuestionMutation, useGetListeningBankQuery } from '@/apis/examApis';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 
 const PAGE_SIZE = 20;
@@ -31,11 +31,7 @@ function ListeningBankAdmin() {
   const [generate, { isLoading: isGenerating }] = useGenerateListeningQuestionMutation();
 
   if (!userInfoRes) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ p: 4 }} />;
   }
   if (!isAdmin) {
     return (
@@ -62,9 +58,7 @@ function ListeningBankAdmin() {
       </Typography>
       {isError && <FetchBaseQueryErrorMessage error={error} />}
       {isFetching ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
+        <CenteredSpinner sx={{ p: 4 }} />
       ) : (
         <TableContainer component={Paper}>
           <Table size="small">

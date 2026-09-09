@@ -5,7 +5,6 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
@@ -21,6 +20,7 @@ import { valuationExplainer } from './valuationExplainer';
 import { useGetHoldingPriceHistoryQuery, useLazyGetAiTechSummaryQuery } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip, InfoPopover } from '@/components/hints';
 import MarkdownMessage from '@/components/MarkdownMessage';
 import { GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
@@ -40,11 +40,7 @@ function PriceChart({ market, symbol }: { market: string; symbol: string }) {
   const hist = res?.data;
 
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress size={28} />
-      </Box>
-    );
+    return <CenteredSpinner size={28} sx={{ py: 6 }} />;
   }
 
   if (!hist || hist.prices.length === 0) {
@@ -178,11 +174,7 @@ function AiTechSummary({ market, symbol }: { market: string; symbol: string }) {
         {isFetching ? 'AI 分析中…' : 'AI 技術面總結'}
       </Button>
 
-      {isFetching && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-          <CircularProgress size={24} />
-        </Box>
-      )}
+      {isFetching && <CenteredSpinner size={24} sx={{ py: 3 }} />}
 
       {error && !isFetching && (
         <Typography color="error" variant="body2" sx={{ mt: 2 }}>

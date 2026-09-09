@@ -1,6 +1,5 @@
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
@@ -14,6 +13,7 @@ import { StatBlock } from './StatBlock';
 
 import { useGetDrawdownQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import CenteredSpinner from '@/components/CenteredSpinner';
 import { LOSS_COLOR } from '@/utils/format';
 
 export function DrawdownChart() {
@@ -23,11 +23,7 @@ export function DrawdownChart() {
   const points = analysis?.points ?? [];
 
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <CenteredSpinner sx={{ py: 6 }} />;
   }
 
   if (points.length === 0) {

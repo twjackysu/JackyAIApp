@@ -3,7 +3,6 @@ import DeleteOutlineIcon from '@mui/icons-material/Delete';
 import {
   Box,
   Button,
-  CircularProgress,
   Drawer,
   IconButton,
   List,
@@ -14,6 +13,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 
 import { useDeleteConversationMutation, useGetConversationsQuery } from '@/apis/chatbotApis';
+import CenteredSpinner from '@/components/CenteredSpinner';
 
 interface ConversationDrawerProps {
   open: boolean;
@@ -103,9 +103,7 @@ const ConversationDrawer = ({
         </Button>
 
         {isFetching && conversations.length === 0 ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress size={24} />
-          </Box>
+          <CenteredSpinner size={24} sx={{ py: 4 }} />
         ) : conversations.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
             還沒有任何對話
