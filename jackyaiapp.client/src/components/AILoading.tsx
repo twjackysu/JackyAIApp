@@ -6,7 +6,7 @@ function AILoading() {
   return (
     <Box sx={{ width: '100%' }}>
       <LinearProgress />
-      <Typography variant="h6">Generating AI response, please wait...</Typography>
+      <Typography variant="h6">AI 生成中，請稍候…</Typography>
     </Box>
   );
 }

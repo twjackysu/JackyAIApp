@@ -67,9 +67,7 @@ export default defineConfig({
       'echarts-for-react',
       'react-markdown',
       'remark-gfm',
-      'rehype-highlight',
       'highlight.js',
-      'allotment',
     ],
   },
   server: isDev? {
