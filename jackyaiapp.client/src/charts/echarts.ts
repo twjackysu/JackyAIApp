@@ -1,12 +1,4 @@
-import {
-  BarChart,
-  LineChart,
-  PieChart,
-  SankeyChart,
-  SunburstChart,
-  TreeChart,
-  TreemapChart,
-} from 'echarts/charts';
+import { BarChart, LineChart, PieChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
@@ -34,14 +26,15 @@ import type { ComposeOption } from 'echarts/core';
 // DataAnalysis/components/summarizeChart/. DataAnalysis's own view-type concepts
 // (ChartViewType/ActiveChart/PALETTE/CHART_HEIGHT/...) stayed behind in that file, since only this
 // registration + theme + ECOption type are actually cross-feature.
+//
+// Only the chart types *every* charting route can draw belong here: this list is what lands in the
+// shared ECharts chunk that Portfolio, Finance and DataAnalysis all pull in. A chart type used by a
+// single feature is registered by that feature instead, so the other routes don't download it —
+// see DataAnalysis/viz/registerDataAnalysisCharts.ts for treemap/sunburst/tree/sankey.
 echarts.use([
   BarChart,
   LineChart,
   PieChart,
-  TreemapChart,
-  SunburstChart,
-  TreeChart,
-  SankeyChart,
   GridComponent,
   LegendComponent,
   TooltipComponent,

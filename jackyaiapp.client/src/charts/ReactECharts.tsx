@@ -20,8 +20,10 @@ export type ReactEChartsProps = Omit<EChartsReactProps, 'echarts'> & {
  * ECharts distribution (every chart type, component and renderer) into the importing route's
  * chunk, which is what it used to do for Portfolio.
  *
- * A chart type or component that isn't in ./echarts's `echarts.use([...])` list renders as an
- * empty canvas, so add it there before using it.
+ * A chart type or component that hasn't been registered with `echarts.use([...])` renders as an
+ * empty canvas. Register it in ./echarts when every charting route can draw it, or in a
+ * feature-local module (as DataAnalysis/viz/registerDataAnalysisCharts.ts does) when only one feature
+ * uses it — that keeps it out of the chunk the other routes load.
  */
 export default function ReactECharts({ ref, ...props }: ReactEChartsProps) {
   return <EChartsCore ref={ref} echarts={echarts} opts={{ renderer: 'canvas' }} {...props} />;
