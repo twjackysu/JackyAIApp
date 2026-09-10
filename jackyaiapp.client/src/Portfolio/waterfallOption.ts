@@ -1,7 +1,7 @@
 import { MASK, PrivacyMode } from './privacy';
 
 import { ECOption } from '@/charts/echarts';
-import { fmtCompactTWD, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
+import { fmtCompactTWD, GAIN_COLOR, LOSS_COLOR, signPrefix } from '@/utils/format';
 
 export const MAX_ITEM_BARS = 7;
 export const ANCHOR_COLOR = '#9CA3AF';
@@ -100,7 +100,7 @@ export function buildWaterfallOption(
         const isAnchor = p.dataIndex === 0 || p.dataIndex === items.length + 1;
         if (isAnchor) return `<b>${p.axisValue}</b><br/>${formatAnchor(values[p.dataIndex])}`;
         const raw = items[p.dataIndex - 1].value;
-        return `<b>${p.axisValue}</b><br/>${raw >= 0 ? '+' : ''}${formatDelta(raw)}`;
+        return `<b>${p.axisValue}</b><br/>${signPrefix(raw)}${formatDelta(raw)}`;
       },
     },
     grid: { top: 16, right: 16, bottom: 48, left: 56 },

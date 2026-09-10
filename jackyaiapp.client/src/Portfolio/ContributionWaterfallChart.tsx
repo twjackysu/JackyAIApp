@@ -17,7 +17,7 @@ import {
 import { PositionDto } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME } from '@/charts/echarts';
 import ReactECharts from '@/charts/ReactECharts';
-import { fmtCompactTWD, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
+import { fmtCompactTWD, GAIN_COLOR, LOSS_COLOR, signPrefix } from '@/utils/format';
 
 interface ContributionWaterfallChartProps {
   positions: PositionDto[];
@@ -77,7 +77,7 @@ export function ContributionWaterfallChart({ positions }: ContributionWaterfallC
         <Box sx={{ display: 'flex', gap: 3, mb: 2, flexWrap: 'wrap' }}>
           <StatBlock
             label="最大貢獻"
-            value={`${topContributor.name} ${topContributor.value >= 0 ? '+' : ''}${change(fmtCompactTWD(topContributor.value))}`}
+            value={`${topContributor.name} ${signPrefix(topContributor.value)}${change(fmtCompactTWD(topContributor.value))}`}
             color={GAIN_COLOR}
             valueVariant="body2"
           />

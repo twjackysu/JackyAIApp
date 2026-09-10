@@ -23,7 +23,7 @@ import { usePrivacy } from './privacy';
 import { useRefreshPositionPriceMutation } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
 import { ActionTooltip } from '@/components/hints';
-import { fmtNum as fmt, fmtQty, pnlColor } from '@/utils/format';
+import { fmtNum as fmt, fmtQty, fmtSigned, fmtSignedPct, pnlColor } from '@/utils/format';
 
 interface Props {
   positions: PositionDto[];
@@ -331,12 +331,11 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                   {p.unrealizedPnlTWD != null && p.unrealizedPnlPct != null ? (
                     <>
                       <Typography variant="body2" sx={{ color: pnlColor(p.unrealizedPnlTWD) }}>
-                        {change(`${p.unrealizedPnlTWD >= 0 ? '+' : ''}${fmt(p.unrealizedPnlTWD)}`)}
+                        {change(fmtSigned(p.unrealizedPnlTWD))}
                       </Typography>
                       {showRatio && (
                         <Typography variant="caption" sx={{ color: pnlColor(p.unrealizedPnlPct) }}>
-                          {p.unrealizedPnlPct >= 0 ? '+' : ''}
-                          {p.unrealizedPnlPct.toFixed(2)}%
+                          {fmtSignedPct(p.unrealizedPnlPct)}
                         </Typography>
                       )}
                     </>
@@ -506,9 +505,8 @@ function PositionsCardList({
                   variant="caption"
                   sx={{ color: pnlColor(p.unrealizedPnlTWD), display: 'block' }}
                 >
-                  {change(`${p.unrealizedPnlTWD >= 0 ? '+' : ''}${fmt(p.unrealizedPnlTWD)}`)}
-                  {showRatio &&
-                    ` (${p.unrealizedPnlPct >= 0 ? '+' : ''}${p.unrealizedPnlPct.toFixed(2)}%)`}
+                  {change(fmtSigned(p.unrealizedPnlTWD))}
+                  {showRatio && ` (${fmtSignedPct(p.unrealizedPnlPct)})`}
                 </Typography>
               )}
             </Box>

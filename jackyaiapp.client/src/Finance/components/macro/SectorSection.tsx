@@ -11,6 +11,7 @@ import type { SectorIndex } from '@/apis/financeApis/types';
 import type { ECOption } from '@/charts/echarts';
 
 import ReactECharts from '@/charts/ReactECharts';
+import { fmtSignedPct, signPrefix } from '@/utils/format';
 
 const sectorDisplayNames: Record<string, string> = {
   發行量加權股價指數: '加權指數',
@@ -88,11 +89,11 @@ export const SectorSection = ({ sectors }: { sectors: SectorIndex[] }) => {
         formatter: (params: unknown) => {
           const p = params as { data: SectorBarDatum };
           const d = p.data;
-          const sign = d.value > 0 ? '+' : '';
+          const sign = signPrefix(d.value);
           return [
             `<b>${d.name}</b>`,
             `指數：${formatNumber(Math.round(d.closeIndex))}`,
-            `漲跌：${sign}${d.changePoints.toFixed(2)}（${sign}${d.value.toFixed(2)}%）`,
+            `漲跌：${sign}${d.changePoints.toFixed(2)}（${fmtSignedPct(d.value)}）`,
           ].join('<br/>');
         },
       },
@@ -105,7 +106,7 @@ export const SectorSection = ({ sectors }: { sectors: SectorIndex[] }) => {
             label: {
               show: true,
               position: d.value >= 0 ? 'right' : 'left',
-              formatter: () => `${d.value >= 0 ? '+' : ''}${d.value.toFixed(2)}%`,
+              formatter: () => fmtSignedPct(d.value),
               color: heatColor(d.value),
               fontWeight: 700,
             },

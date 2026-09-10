@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { fmtCompact, fmtCompactTWD, fmtNum, fmtQty, fmtSignedPct, pnlColor } from './format';
+import {
+  fmtCompact,
+  fmtCompactTWD,
+  fmtNum,
+  fmtQty,
+  fmtSigned,
+  fmtSignedPct,
+  pnlColor,
+  signPrefix,
+} from './format';
 
 describe('fmtNum', () => {
   it('groups thousands with zero decimals by default', () => {
@@ -25,6 +34,25 @@ describe('pnlColor', () => {
     expect(pnlColor(-100)).toBe('#ef4444');
     expect(pnlColor(0)).toBe('text.secondary');
     expect(pnlColor(0, 'inherit')).toBe('inherit');
+  });
+});
+
+describe('signPrefix', () => {
+  it('only prefixes non-negative values — a negative already carries its own minus sign', () => {
+    expect(signPrefix(100)).toBe('+');
+    expect(signPrefix(0)).toBe('+');
+    expect(signPrefix(-100)).toBe('');
+  });
+});
+
+describe('fmtSigned', () => {
+  it('keeps fmtNum grouping and adds an explicit + to gains', () => {
+    expect(fmtSigned(1234567)).toBe('+1,234,567');
+    expect(fmtSigned(-1234567)).toBe('-1,234,567');
+  });
+
+  it('respects an explicit decimals count', () => {
+    expect(fmtSigned(3.214, 2)).toBe('+3.21');
   });
 });
 

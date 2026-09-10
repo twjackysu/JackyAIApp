@@ -22,7 +22,7 @@ import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip, InfoPopover } from '@/components/hints';
 import MarkdownMessage from '@/components/MarkdownMessage';
-import { fmtNum, fmtQty, GAIN_COLOR, LOSS_COLOR, pnlColor } from '@/utils/format';
+import { fmtNum, fmtQty, fmtSigned, GAIN_COLOR, LOSS_COLOR, pnlColor } from '@/utils/format';
 
 interface Props {
   position: PositionDto | null;
@@ -139,7 +139,7 @@ function PriceChart({ market, symbol }: { market: string; symbol: string }) {
                 <TrendingDownIcon fontSize="small" />
               )
             }
-            label={`${pnlPct >= 0 ? '+' : ''}${fmt(pnlPct)}% vs 成本`}
+            label={`${fmtSigned(pnlPct, 2)}% vs 成本`}
             size="small"
             sx={{
               bgcolor: alpha(pnlPct >= 0 ? GAIN_COLOR : LOSS_COLOR, 0.15),
@@ -298,7 +298,7 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
                 {showRatio && (
                   <StatBlock
                     label="損益%"
-                    value={`${(position.unrealizedPnlPct as number) >= 0 ? '+' : ''}${fmt(position.unrealizedPnlPct as number)}%`}
+                    value={`${fmtSigned(position.unrealizedPnlPct as number, 2)}%`}
                     color={pnlColor(position.unrealizedPnlPct as number)}
                     align="center"
                   />
