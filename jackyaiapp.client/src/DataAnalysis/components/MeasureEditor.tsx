@@ -10,6 +10,8 @@ import Typography from '@mui/material/Typography';
 
 import { AGGREGATION_TYPES } from '../constants';
 
+import { FieldSelect } from './FieldSelect';
+
 import type {
   AggregationType,
   FieldDefinition,
@@ -40,20 +42,12 @@ export function MeasureEditor({ measures, fields, onAdd, onRemove, onUpdate }: M
 
       {measures.map((m, i) => (
         <Box key={i} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
-          <FormControl size="small" sx={{ flex: 2 }}>
-            <InputLabel>欄位</InputLabel>
-            <Select
-              value={m.fieldName}
-              label="欄位"
-              onChange={(e) => onUpdate(i, { fieldName: e.target.value as string })}
-            >
-              {fields.map((f) => (
-                <MenuItem key={f.name} value={f.name}>
-                  {f.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <FieldSelect
+            fields={fields}
+            value={m.fieldName}
+            onChange={(fieldName) => onUpdate(i, { fieldName })}
+            sx={{ flex: 2 }}
+          />
 
           <FormControl size="small" sx={{ flex: 1 }}>
             <InputLabel>聚合方式</InputLabel>
