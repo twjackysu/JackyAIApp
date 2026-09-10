@@ -25,11 +25,23 @@ export const LOSS_COLOR = '#ef4444';
 export const pnlColor = (n: number, neutral = 'text.secondary') =>
   n > 0 ? GAIN_COLOR : n < 0 ? LOSS_COLOR : neutral;
 
+/** The "+" that an explicitly-signed readout prefixes to a non-negative value — negatives already
+ * carry their own minus sign. One helper so the threshold ("zero counts as a gain", matching
+ * `pnlColor`'s green/▲ boundary) is decided in a single place instead of being re-typed as
+ * `n >= 0 ? '+' : ''` next to every P&L readout. Exported for the callers that sign a string they
+ * format some other way (a privacy-masked amount, an ECharts tooltip's own delta formatter);
+ * anything formatting a plain number or percentage should use fmtSigned / fmtSignedPct instead. */
+export const signPrefix = (n: number) => (n >= 0 ? '+' : '');
+
+/** Amount with grouping and an explicit "+" on non-negative values, so a P&L cell reads
+ * "+12,345". The amount counterpart of {@link fmtSignedPct}; decimals default to 0 like
+ * {@link fmtNum}. */
+export const fmtSigned = (n: number, decimals = 0) => `${signPrefix(n)}${fmtNum(n, decimals)}`;
+
 /** Percentage with an explicit "+" on non-negative values, so a gain badge reads "+3.21%" while
  * a loss keeps its own minus sign. Two decimals by default (the P&L badges); pass 1 for the
  * allocation/ratio readouts that don't warrant the extra digit. */
-export const fmtSignedPct = (n: number, decimals = 2) =>
-  `${n >= 0 ? '+' : ''}${n.toFixed(decimals)}%`;
+export const fmtSignedPct = (n: number, decimals = 2) => `${signPrefix(n)}${n.toFixed(decimals)}%`;
 
 /** Compact magnitude formatting shared by every Portfolio chart's axis/tooltip labels — no
  * currency prefix (callers that want "NT$" prepend it themselves, since not every caller wants
