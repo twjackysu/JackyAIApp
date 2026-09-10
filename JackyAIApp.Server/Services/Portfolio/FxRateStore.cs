@@ -39,6 +39,12 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// <summary>
         /// Persists the rates not already stored for this source. A published rate never changes, so
         /// rows already held are left alone rather than overwritten.
+        ///
+        /// The batch is de-duplicated against itself first. A source that repeats a
+        /// (date, currency) in one response would otherwise produce two inserts for the same key,
+        /// the unique index would reject the whole SaveChanges, and the catch below would swallow
+        /// it — losing every rate in the batch, including the ones that were fine, with nothing but
+        /// a debug line to show for it.
         /// </summary>
         public async Task AddMissingAsync(IReadOnlyCollection<PublishedFxRate> rates, CancellationToken ct)
         {
@@ -54,6 +60,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var have = existing.Select(e => (e.RateDate, e.Currency)).ToHashSet();
 
             var added = rates
+                .DistinctBy(r => (r.Date, r.Currency))
                 .Where(r => !have.Contains((r.Date, r.Currency)))
                 .Select(r => new FxRate
                 {
@@ -75,6 +82,12 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 // Two concurrent requests can race to insert the same published day; the unique
                 // index makes the loser redundant, not wrong.
+                //
+                // Detach first: a rejected SaveChanges leaves these entities tracked as Added, and
+                // this context is request-scoped and shared. Left attached, the next unrelated
+                // SaveChanges in the same request would retry them and fail again — an FX lookup
+                // must never be what breaks someone else's write.
+                foreach (var entity in added) db.Entry(entity).State = EntityState.Detached;
                 logger.LogDebug(ex, "{Source} FX rates already stored by a concurrent request", source);
             }
         }
