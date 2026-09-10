@@ -19,26 +19,21 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Get today's daily challenge. Same questions for all users on the same day (date-seeded).</summary>
         [HttpGet]
         public async Task<IActionResult> GetChallenge() =>
-            ToActionResult(await _dailyChallengeService.GetChallengeAsync());
+            _responseFactory.ToActionResult(await _dailyChallengeService.GetChallengeAsync());
 
         /// <summary>Submit answers for today's daily challenge.</summary>
         [HttpPost("submit")]
         public async Task<IActionResult> SubmitChallenge([FromBody] DailyChallengeSubmitRequest request) =>
-            ToActionResult(await _dailyChallengeService.SubmitChallengeAsync(request));
+            _responseFactory.ToActionResult(await _dailyChallengeService.SubmitChallengeAsync(request));
 
         /// <summary>Get user's daily challenge stats (streak, XP, level).</summary>
         [HttpGet("stats")]
         public async Task<IActionResult> GetStats() =>
-            ToActionResult(await _dailyChallengeService.GetStatsAsync());
+            _responseFactory.ToActionResult(await _dailyChallengeService.GetStatsAsync());
 
         /// <summary>Claim daily login bonus credits (10 credits, once per day).</summary>
         [HttpPost("claim-daily-bonus")]
         public async Task<IActionResult> ClaimDailyBonus() =>
-            ToActionResult(await _dailyChallengeService.ClaimDailyBonusAsync());
-
-        private IActionResult ToActionResult(ServiceResult result) =>
-            result.IsSuccess
-                ? _responseFactory.CreateOKResponse(result.Data)
-                : _responseFactory.CreateErrorResponse(result.Error!.Value, result.ErrorMessage!);
+            _responseFactory.ToActionResult(await _dailyChallengeService.ClaimDailyBonusAsync());
     }
 }

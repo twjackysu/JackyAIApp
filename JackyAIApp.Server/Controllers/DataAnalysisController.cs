@@ -629,36 +629,31 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Upload tabular data into a temporary in-memory session (expires in 2h, never persisted).</summary>
         [HttpPost("session")]
         public IActionResult UploadSession([FromBody] SessionUploadDto dto) =>
-            ToActionResult(_sessionStore.Upload(dto));
+            _responseFactory.ToActionResult(_sessionStore.Upload(dto));
 
         /// <summary>Returns the schema of a session.</summary>
         [HttpGet("session/{sessionId}/schema")]
         public IActionResult GetSessionSchema(string sessionId) =>
-            ToActionResult(_sessionStore.GetSchema(sessionId));
+            _responseFactory.ToActionResult(_sessionStore.GetSchema(sessionId));
 
         /// <summary>MAX value of a date column in the session data.</summary>
         [HttpGet("session/{sessionId}/maxdate")]
         public IActionResult GetSessionMaxDate(string sessionId, [FromQuery] string dateField = "Date") =>
-            ToActionResult(_sessionStore.GetMaxDate(sessionId, dateField));
+            _responseFactory.ToActionResult(_sessionStore.GetMaxDate(sessionId, dateField));
 
         /// <summary>Distinct values for a column in the session data (for filter dropdowns).</summary>
         [HttpGet("session/{sessionId}/distinctvalues")]
         public IActionResult GetSessionDistinctValues(string sessionId, [FromQuery] string field) =>
-            ToActionResult(_sessionStore.GetDistinctValues(sessionId, field));
+            _responseFactory.ToActionResult(_sessionStore.GetDistinctValues(sessionId, field));
 
         /// <summary>GroupBy + Measures aggregation on session data.</summary>
         [HttpPost("session/{sessionId}/summarize")]
         public IActionResult SessionSummarize(string sessionId, [FromBody] SummarizeRequestDto dto) =>
-            ToActionResult(_sessionStore.Summarize(sessionId, dto));
+            _responseFactory.ToActionResult(_sessionStore.Summarize(sessionId, dto));
 
         /// <summary>Paginated row-level data for a session.</summary>
         [HttpPost("session/{sessionId}/details")]
         public IActionResult SessionDetails(string sessionId, [FromBody] DetailsRequestDto dto) =>
-            ToActionResult(_sessionStore.Details(sessionId, dto));
-
-        private IActionResult ToActionResult(ServiceResult result) =>
-            result.IsSuccess
-                ? _responseFactory.CreateOKResponse(result.Data)
-                : _responseFactory.CreateErrorResponse(result.Error!.Value, result.ErrorMessage!);
+            _responseFactory.ToActionResult(_sessionStore.Details(sessionId, dto));
     }
 }
