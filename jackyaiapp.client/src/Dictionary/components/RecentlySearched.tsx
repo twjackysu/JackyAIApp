@@ -3,7 +3,20 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Fragment, useImperativeHandle } from 'react';
 
+import { readJson, writeJson } from '@/utils/storage';
+
 const recentlySearchedKey = 'recentlySearched';
+
+/** The stored list, or an empty one when the entry is missing or is no longer an array of
+ * strings. Both the render and the update path read through here, so an entry left behind by
+ * an older version can't reach either. */
+function readRecentWords(): string[] {
+  const parsed = readJson<unknown>(recentlySearchedKey);
+  return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string')
+    ? (parsed as string[])
+    : [];
+}
+
 interface RecentlySearchedProps {
   onClickRecentlySearchedText: (text: string) => void;
   ref?: React.Ref<RecentlySearchedRef>;
@@ -18,12 +31,11 @@ export interface RecentlySearchedRef {
 
 function RecentlySearched({ onClickRecentlySearchedText, ref }: RecentlySearchedProps) {
   const updateRecentlySearched = (newWord: string) => {
-    const savedRecentlySearched = localStorage.getItem(recentlySearchedKey);
-    let recentlySearchedTexts = savedRecentlySearched ? JSON.parse(savedRecentlySearched) : [];
+    let recentlySearchedTexts = readRecentWords();
 
     if (!recentlySearchedTexts.includes(newWord)) {
       recentlySearchedTexts = [newWord, ...recentlySearchedTexts].slice(0, 10);
-      localStorage.setItem(recentlySearchedKey, JSON.stringify(recentlySearchedTexts));
+      writeJson(recentlySearchedKey, recentlySearchedTexts);
     }
   };
   const handleEnterKeyDown = (
@@ -38,18 +50,7 @@ function RecentlySearched({ onClickRecentlySearchedText, ref }: RecentlySearched
     handleEnterKeyDown,
   }));
 
-  let recentWords: string[] = [];
-  const savedWords = localStorage.getItem(recentlySearchedKey);
-  if (savedWords) {
-    try {
-      const parsedWords = JSON.parse(savedWords);
-      if (Array.isArray(parsedWords) && parsedWords.every((item) => typeof item === 'string')) {
-        recentWords = parsedWords;
-      }
-    } catch (e) {
-      console.error('Failed to parse recent searched text from localStorage', e);
-    }
-  }
+  const recentWords = readRecentWords();
 
   const handleClickLinkText = (
     e: React.MouseEvent<HTMLAnchorElement, MouseEvent>,

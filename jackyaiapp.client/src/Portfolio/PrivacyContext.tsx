@@ -2,16 +2,14 @@ import { ReactNode, useCallback, useMemo, useState } from 'react';
 
 import { MASK, PrivacyContext, PrivacyMode } from './privacy';
 
+import { readString, writeString } from '@/utils/storage';
+
 const STORAGE_KEY = 'portfolio_privacy_mode';
 const ORDER: PrivacyMode[] = ['full', 'changes', 'hidden'];
 
 function readMode(): PrivacyMode {
-  try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    if (s === 'full' || s === 'changes' || s === 'hidden') return s;
-  } catch {
-    /* ignore */
-  }
+  const s = readString(STORAGE_KEY);
+  if (s === 'full' || s === 'changes' || s === 'hidden') return s;
   return 'hidden'; // default: amounts private until revealed
 }
 
@@ -21,11 +19,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
   const cycle = useCallback(() => {
     setMode((m) => {
       const next = ORDER[(ORDER.indexOf(m) + 1) % ORDER.length];
-      try {
-        localStorage.setItem(STORAGE_KEY, next);
-      } catch {
-        /* ignore storage failures (private mode, quota) */
-      }
+      writeString(STORAGE_KEY, next);
       return next;
     });
   }, []);
