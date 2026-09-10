@@ -17,7 +17,7 @@ import { useSummarizeMutation, useGetDistinctValuesQuery } from '../../apis/data
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef } from '../types';
 
-import { InfoPopover } from '@/components/hints';
+import { ActionTooltip, InfoPopover } from '@/components/hints';
 
 interface FilterRowProps {
   filter: ActiveFilter;
@@ -258,9 +258,11 @@ export function FilterRow({
         </Select>
       </FormControl>
 
-      <IconButton size="small" onClick={onRemove} title="移除篩選條件" sx={{ mt: 0.25 }}>
-        <DeleteIcon fontSize="small" />
-      </IconButton>
+      <ActionTooltip title="移除篩選條件">
+        <IconButton size="small" onClick={onRemove} sx={{ mt: 0.25 }}>
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      </ActionTooltip>
     </Box>
   );
 }
