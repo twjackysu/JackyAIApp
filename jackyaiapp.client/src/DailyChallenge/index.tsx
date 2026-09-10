@@ -24,6 +24,7 @@ import { DailyChallengeSubmitResponse } from '@/apis/dailyChallengeApis/types';
 import { usePutRepositoryWordMutation } from '@/apis/repositoryApis';
 import { useGetDueCountQuery } from '@/apis/reviewApis';
 import CenteredSpinner from '@/components/CenteredSpinner';
+import { readJson, removeKey, writeJson } from '@/utils/storage';
 
 type ViewMode = 'challenge' | 'result' | 'review';
 
@@ -82,28 +83,20 @@ function DailyChallenge() {
     if (!challenge?.challengeDate || alreadyCompleted || restoredRef.current) return;
     restoredRef.current = true;
 
-    try {
-      const key = getDailyChallengeKey(challenge.challengeDate);
-      const saved = localStorage.getItem(key);
-      if (!saved) return;
-      const { answers: savedAnswers, currentQuestion: savedQuestion }: DailyChallengeProgress =
-        JSON.parse(saved);
+    const saved = readJson<DailyChallengeProgress>(getDailyChallengeKey(challenge.challengeDate));
+    if (!saved) return;
 
-      setAnswers(savedAnswers);
+    setAnswers(saved.answers);
 
-      setCurrentQuestion(savedQuestion);
-    } catch {
-      // Corrupted data — ignore
-    }
+    setCurrentQuestion(saved.currentQuestion);
   }, [challenge?.challengeDate, alreadyCompleted]);
 
   // Save progress to localStorage on each change (only during active challenge)
   useEffect(() => {
     if (!challenge?.challengeDate || alreadyCompleted || viewMode !== 'challenge') return;
     if (Object.keys(answers).length === 0 && currentQuestion === 0) return; // skip initial
-    const key = getDailyChallengeKey(challenge.challengeDate);
     const progress: DailyChallengeProgress = { answers, currentQuestion };
-    localStorage.setItem(key, JSON.stringify(progress));
+    writeJson(getDailyChallengeKey(challenge.challengeDate), progress);
   }, [answers, currentQuestion, challenge?.challengeDate, alreadyCompleted, viewMode]);
 
   const handleSelect = useCallback(
@@ -138,7 +131,7 @@ function DailyChallenge() {
       const result = await submitChallenge({ answers: answerList }).unwrap();
       // Clear saved progress after successful submit
       if (challenge?.challengeDate) {
-        localStorage.removeItem(getDailyChallengeKey(challenge.challengeDate));
+        removeKey(getDailyChallengeKey(challenge.challengeDate));
       }
       setSubmitResult(result.data);
       setViewMode('result');

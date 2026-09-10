@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
 import { useAppDispatch } from '@/redux/hooks';
 import { openCreditModal } from '@/redux/uiSlice';
+import { readString } from '@/utils/storage';
 
 export interface StreamingStatus {
   isLoading: boolean;
@@ -36,7 +37,7 @@ export const useChatStreaming = () => {
       setStreamingStatus({ isLoading: true, currentEvent: null, statusText: '正在連接...' });
 
       try {
-        const token = localStorage.getItem('token');
+        const token = readString('token');
 
         const response = await fetch('/api/chatbot/chat', {
           method: 'POST',

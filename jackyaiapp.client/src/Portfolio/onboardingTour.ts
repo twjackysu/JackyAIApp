@@ -2,6 +2,8 @@ import { driver, type Config, type DriveStep } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { useEffect, useRef } from 'react';
 
+import { readString, writeString } from '@/utils/storage';
+
 // Three separate tours, each with its own once-only flag:
 // - empty: brand-new user with zero holdings — the main page is blank, so all we can usefully
 //   show is where to start (the 建立持倉 button). Runs on first visit with no data.
@@ -192,14 +194,14 @@ function createTourDriver(kind: TourKind, extra?: Partial<Config>) {
     // Fires on both "完成" and the close (skip) button — either way the user has seen it once,
     // don't auto-launch again.
     onDestroyed: () => {
-      localStorage.setItem(SEEN_KEYS[kind], '1');
+      writeString(SEEN_KEYS[kind], '1');
     },
     ...extra,
   });
 }
 
 function launchOnce(kind: TourKind) {
-  if (localStorage.getItem(SEEN_KEYS[kind])) return false;
+  if (readString(SEEN_KEYS[kind])) return false;
   if (!targetsPresent(STEPS[kind])) return false;
   createTourDriver(kind).drive();
   return true;
@@ -238,7 +240,7 @@ export function usePortfolioTour(ready: boolean, hasHoldings: boolean) {
 export function useEditorTour(open: boolean) {
   useEffect(() => {
     if (!open) return;
-    if (localStorage.getItem(SEEN_KEYS.editor)) return;
+    if (readString(SEEN_KEYS.editor)) return;
     const timer = setTimeout(() => launchOnce('editor'), 400);
     return () => clearTimeout(timer);
   }, [open]);

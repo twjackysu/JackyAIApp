@@ -12,6 +12,7 @@ import Flashcard from './components/Flashcard';
 import { useGetDueReviewsQuery, useSubmitReviewsMutation } from '@/apis/reviewApis';
 import { ReviewAnswerRequest, ReviewSubmitResponse } from '@/apis/reviewApis/types';
 import CenteredSpinner from '@/components/CenteredSpinner';
+import { readJson, removeKey, writeJson } from '@/utils/storage';
 
 const REVIEW_STORAGE_KEY = 'review_progress';
 
@@ -38,26 +39,18 @@ function Review() {
     if (dueWords.length === 0 || restoredRef.current) return;
     restoredRef.current = true;
 
-    try {
-      const saved = localStorage.getItem(REVIEW_STORAGE_KEY);
-      if (!saved) return;
-      const {
-        wordIds,
-        currentIndex: savedIndex,
-        ratings: savedRatings,
-      }: ReviewProgress = JSON.parse(saved);
-      const currentWordIds = dueWords.map((w) => w.userWordId);
-      // Only restore if the word set matches and progress is still valid
-      if (
-        JSON.stringify(wordIds) === JSON.stringify(currentWordIds) &&
-        savedIndex < dueWords.length
-      ) {
-        setCurrentIndex(savedIndex);
+    const saved = readJson<ReviewProgress>(REVIEW_STORAGE_KEY);
+    if (!saved) return;
 
-        setRatings(savedRatings);
-      }
-    } catch {
-      localStorage.removeItem(REVIEW_STORAGE_KEY);
+    const currentWordIds = dueWords.map((w) => w.userWordId);
+    // Only restore if the word set matches and progress is still valid
+    if (
+      JSON.stringify(saved.wordIds) === JSON.stringify(currentWordIds) &&
+      saved.currentIndex < dueWords.length
+    ) {
+      setCurrentIndex(saved.currentIndex);
+
+      setRatings(saved.ratings);
     }
   }, [dueWords]);
 
@@ -70,7 +63,7 @@ function Review() {
       currentIndex,
       ratings,
     };
-    localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(progress));
+    writeJson(REVIEW_STORAGE_KEY, progress);
   }, [currentIndex, ratings, dueWords, result]);
 
   const handleRate = useCallback(
@@ -89,7 +82,7 @@ function Review() {
         submitReviews({ reviews: allRatings })
           .unwrap()
           .then((res) => {
-            localStorage.removeItem(REVIEW_STORAGE_KEY);
+            removeKey(REVIEW_STORAGE_KEY);
             setResult(res.data);
           })
           .catch((err) => console.error('Failed to submit reviews:', err));
