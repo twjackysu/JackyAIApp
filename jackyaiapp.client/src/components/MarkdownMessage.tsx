@@ -3,6 +3,7 @@ import { Theme } from '@mui/material/styles';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { readFencedCode } from './markdownCode';
 import { highlightToHtml } from './syntaxHighlight';
 
 interface MarkdownMessageProps {
@@ -12,6 +13,18 @@ interface MarkdownMessageProps {
 }
 
 const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps) => {
+  // 行內與區塊共用的外觀，差別只在 padding / 字級 / display。
+  const codeSurface = {
+    backgroundColor: isOwnMessage
+      ? 'rgba(255, 255, 255, 0.1)'
+      : theme.palette.mode === 'dark'
+        ? 'rgba(255, 255, 255, 0.05)'
+        : 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 1,
+    fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+    color: 'inherit',
+  } as const;
+
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
@@ -71,39 +84,55 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
             {children}
           </Typography>
         ),
-        code: ({ node, children, className, ...props }) => {
-          const isInline = !node || node.tagName !== 'pre';
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { ref, key, ...cleanProps } = props;
-          // 只有標了語言（`language-xxx`）且該語言有註冊時才上色，其餘原樣輸出 ——
-          // 和先前 rehype-highlight（detect: false）的行為一致。行內 code 在 markdown
-          // 語法上拿不到 language class，所以這個條件本身就把行內排除掉了。
+        // fenced code block（`pre > code`）整段由 pre 負責：內容直接從 hast node 取，
+        // 所以底下的 code renderer 永遠只會收到行內 code，不需要（也無法）自己判斷。
+        // 捲動放在 pre 上而不是 code 上 —— 會溢出的是整個區塊，先前那份程式碼把
+        // overflow 掛在 code 上，加上判斷失效，長行完全無法橫向捲動。
+        pre: ({ node, children }) => {
+          const fenced = readFencedCode(node);
+          if (!fenced) return <Box component="pre">{children}</Box>;
+
+          // 只有標了語言（`language-xxx`）且該語言有註冊時才上色，其餘原樣輸出。
           // highlight.js 的輸出已做過 HTML escape，未上色的路徑則交給 React 自己 escape。
-          const highlighted =
-            typeof children === 'string' ? highlightToHtml(children, className) : null;
+          const highlighted = highlightToHtml(fenced.text, fenced.className);
+          return (
+            <Box component="pre" sx={{ margin: '8px 0', overflow: 'auto', maxWidth: '100%' }}>
+              <Box
+                component="code"
+                className={
+                  highlighted
+                    ? ['hljs', fenced.className].filter(Boolean).join(' ')
+                    : fenced.className
+                }
+                sx={{
+                  ...codeSurface,
+                  padding: '8px 12px',
+                  fontSize: '0.875rem',
+                  display: 'block',
+                }}
+                {...(highlighted ? { dangerouslySetInnerHTML: { __html: highlighted } } : {})}
+              >
+                {highlighted ? null : fenced.text}
+              </Box>
+            </Box>
+          );
+        },
+        code: ({ children, className, ...props }) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { ref, key, node, ...cleanProps } = props;
           return (
             <Box
-              component={isInline ? 'code' : 'pre'}
-              className={highlighted ? `hljs ${className}` : className}
+              component="code"
+              className={className}
               sx={{
-                backgroundColor: isOwnMessage
-                  ? 'rgba(255, 255, 255, 0.1)'
-                  : theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.05)'
-                    : 'rgba(0, 0, 0, 0.05)',
-                padding: isInline ? '2px 4px' : '8px 12px',
-                borderRadius: 1,
-                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                fontSize: isInline ? '0.85em' : '0.875rem',
-                display: isInline ? 'inline' : 'block',
-                margin: isInline ? 0 : '8px 0',
-                overflow: isInline ? 'visible' : 'auto',
-                color: 'inherit',
+                ...codeSurface,
+                padding: '2px 4px',
+                fontSize: '0.85em',
+                display: 'inline',
               }}
               {...cleanProps}
-              {...(highlighted ? { dangerouslySetInnerHTML: { __html: highlighted } } : {})}
             >
-              {highlighted ? null : children}
+              {children}
             </Box>
           );
         },
