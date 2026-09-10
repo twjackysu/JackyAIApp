@@ -1,8 +1,10 @@
 import { Box, Typography } from '@mui/material';
 import { Theme } from '@mui/material/styles';
 import ReactMarkdown from 'react-markdown';
-import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
+
+import { highlightToHtml } from './syntaxHighlight';
+
 interface MarkdownMessageProps {
   content: string;
   isOwnMessage: boolean;
@@ -13,7 +15,6 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeHighlight]}
       components={{
         // 自定義樣式
         p: ({ children }) => (
@@ -74,10 +75,16 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
           const isInline = !node || node.tagName !== 'pre';
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { ref, key, ...cleanProps } = props;
+          // 只有標了語言（`language-xxx`）且該語言有註冊時才上色，其餘原樣輸出 ——
+          // 和先前 rehype-highlight（detect: false）的行為一致。行內 code 在 markdown
+          // 語法上拿不到 language class，所以這個條件本身就把行內排除掉了。
+          // highlight.js 的輸出已做過 HTML escape，未上色的路徑則交給 React 自己 escape。
+          const highlighted =
+            typeof children === 'string' ? highlightToHtml(children, className) : null;
           return (
             <Box
               component={isInline ? 'code' : 'pre'}
-              className={className}
+              className={highlighted ? `hljs ${className}` : className}
               sx={{
                 backgroundColor: isOwnMessage
                   ? 'rgba(255, 255, 255, 0.1)'
@@ -94,8 +101,9 @@ const MarkdownMessage = ({ content, isOwnMessage, theme }: MarkdownMessageProps)
                 color: 'inherit',
               }}
               {...cleanProps}
+              {...(highlighted ? { dangerouslySetInnerHTML: { __html: highlighted } } : {})}
             >
-              {children}
+              {highlighted ? null : children}
             </Box>
           );
         },
