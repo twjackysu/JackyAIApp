@@ -8,7 +8,6 @@ import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
 import Skeleton from '@mui/material/Skeleton';
 import Typography from '@mui/material/Typography';
-import EChartsCoreModule from 'echarts-for-react/lib/core';
 import { useMemo } from 'react';
 
 import type { IndicatorSeries } from '@/apis/financeApis/types';
@@ -16,13 +15,8 @@ import type { ApiErrorResponse } from '@/apis/types';
 import type { ECOption } from '@/charts/echarts';
 
 import { useGetIndicatorsQuery, useLazyGetIndicatorInsightQuery } from '@/apis/financeApis';
-import { echarts } from '@/charts/echarts';
+import ReactECharts from '@/charts/ReactECharts';
 import { fmtNum } from '@/utils/format';
-
-// echarts-for-react ships CJS only; the default import may arrive wrapped.
-const ReactECharts =
-  (EChartsCoreModule as unknown as { default?: typeof EChartsCoreModule }).default ??
-  EChartsCoreModule;
 
 const formatValue = (v: number | null): string => {
   if (v == null) return '—';
@@ -93,12 +87,7 @@ const IndicatorCard = ({ series }: { series: IndicatorSeries }) => {
         {series.unit && series.unit !== '%' ? `（單位：${series.unit}）` : ''}
       </Typography>
 
-      <ReactECharts
-        echarts={echarts}
-        option={option}
-        style={{ height: 130, width: '100%' }}
-        opts={{ renderer: 'canvas' }}
-      />
+      <ReactECharts option={option} style={{ height: 130, width: '100%' }} />
 
       <Box sx={{ mt: 1 }}>
         {insight ? (

@@ -3,7 +3,6 @@ import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
-import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
 import { DayRange } from './dayRanges';
@@ -13,6 +12,7 @@ import { RangePicker } from './RangePicker';
 import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { NetWorthDataPoint, NetWorthGroupBy, NetWorthGroupValue } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact } from '@/utils/format';
 
@@ -415,7 +415,7 @@ export function NetWorthChart() {
           rather than replacing it outright — switching between view-by modes with very different
           series (e.g. subCategory's free-form AI labels vs assetType's fixed set) left stale
           series names lingering in the tooltip from whatever was hovered under the previous mode. */}
-      <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
+      <ReactECharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1, justifyContent: 'center' }}>
         {breakdown.map((s) => {
           const hidden = hiddenNames.has(s.name);

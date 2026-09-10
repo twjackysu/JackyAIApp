@@ -3,7 +3,6 @@ import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
-import ReactEcharts from 'echarts-for-react';
 import { useState } from 'react';
 
 import { BENCHMARK_RETURN_TOOLTIP } from './benchmarkReturn';
@@ -14,6 +13,7 @@ import { StatBlock } from './StatBlock';
 
 import { useGetBenchmarkComparisonQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { InfoPopover } from '@/components/hints';
 import { fmtCompact, fmtNum, fmtSignedPct } from '@/utils/format';
@@ -185,7 +185,7 @@ export function BenchmarkChart() {
             ))}
           </Grid>
 
-          <ReactEcharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
+          <ReactECharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 280 }} />
 
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             模擬「若把每一筆投入成本都拿去買該標的」的對照線。線是部位市值（不含息），會隨加碼變高；上面的

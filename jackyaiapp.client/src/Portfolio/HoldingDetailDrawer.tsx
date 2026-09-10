@@ -10,7 +10,6 @@ import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import { alpha, useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import ReactEcharts from 'echarts-for-react';
 
 import { usePrivacy } from './privacy';
 import { StatBlock } from './StatBlock';
@@ -19,6 +18,7 @@ import { valuationExplainer } from './valuationExplainer';
 import { useGetHoldingPriceHistoryQuery, useLazyGetAiTechSummaryQuery } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
+import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip, InfoPopover } from '@/components/hints';
 import MarkdownMessage from '@/components/MarkdownMessage';
@@ -150,7 +150,7 @@ function PriceChart({ market, symbol }: { market: string; symbol: string }) {
           />
         )}
       </Box>
-      <ReactEcharts option={option} theme={ECHARTS_THEME} style={{ height: 260 }} />
+      <ReactECharts option={option} theme={ECHARTS_THEME} style={{ height: 260 }} />
     </Box>
   );
 }

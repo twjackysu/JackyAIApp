@@ -3,7 +3,6 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import EChartsCoreModule from 'echarts-for-react/lib/core';
 import { useMemo } from 'react';
 
 import { formatNumber, formatROCDate } from './format';
@@ -11,12 +10,7 @@ import { formatNumber, formatROCDate } from './format';
 import type { SectorIndex } from '@/apis/financeApis/types';
 import type { ECOption } from '@/charts/echarts';
 
-import { echarts } from '@/charts/echarts';
-
-// echarts-for-react ships CJS only; the default import may arrive wrapped.
-const ReactECharts =
-  (EChartsCoreModule as unknown as { default?: typeof EChartsCoreModule }).default ??
-  EChartsCoreModule;
+import ReactECharts from '@/charts/ReactECharts';
 
 const sectorDisplayNames: Record<string, string> = {
   發行量加權股價指數: '加權指數',
@@ -145,10 +139,8 @@ export const SectorSection = ({ sectors }: { sectors: SectorIndex[] }) => {
           )}
         </Stack>
         <ReactECharts
-          echarts={echarts}
           option={option}
           style={{ height: sorted.length * ROW_HEIGHT + CHART_PADDING, width: '100%' }}
-          opts={{ renderer: 'canvas' }}
         />
       </CardContent>
     </Card>
