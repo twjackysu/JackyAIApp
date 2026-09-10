@@ -34,35 +34,35 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("cloze")]
         [ConsumeCredits(CreditCosts.ClozeTest, "cloze_test", "Cloze test generation")]
         public async Task<IActionResult> GetClozeTest() =>
-            ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Cloze));
+            _responseFactory.ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Cloze));
 
         /// <summary>Generates a translation test for the user based on their unfamiliar words.</summary>
         [HttpGet("translation")]
         [ConsumeCredits(CreditCosts.TranslationTest, "translation_test", "Translation test generation")]
         public async Task<IActionResult> GetTranslationTest() =>
-            ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Translation));
+            _responseFactory.ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Translation));
 
         /// <summary>Generates a translation quality grading.</summary>
         [HttpPost("translation/quality_grading")]
         public async Task<IActionResult> GetTranslationQualityGrading([FromBody] TranslationTestUserResponse userResponse) =>
-            ToActionResult(await _examService.GradeTranslationAsync(userResponse));
+            _responseFactory.ToActionResult(await _examService.GradeTranslationAsync(userResponse));
 
         /// <summary>Starts a new conversation test by generating a scenario and first message.</summary>
         [HttpPost("conversation/start")]
         [ConsumeCredits(CreditCosts.ConversationStart, "conversation_start", "Conversation test started")]
         public async Task<IActionResult> StartConversationTest([FromBody] ConversationStartRequest request) =>
-            ToActionResult(await _examService.StartConversationAsync(request));
+            _responseFactory.ToActionResult(await _examService.StartConversationAsync(request));
 
         /// <summary>Processes user's response in a conversation and generates AI response with corrections if needed.</summary>
         [HttpPost("conversation/respond")]
         public async Task<IActionResult> RespondToConversation([FromBody] ConversationResponseRequest request) =>
-            ToActionResult(await _examService.RespondToConversationAsync(request));
+            _responseFactory.ToActionResult(await _examService.RespondToConversationAsync(request));
 
         /// <summary>Generates an end-of-session recap for a conversation (corrections, phrasings, word suggestions).</summary>
         [HttpPost("conversation/summary")]
         [ConsumeCredits(CreditCosts.ConversationSummary, "conversation_summary", "Conversation summary")]
         public async Task<IActionResult> SummarizeConversation([FromBody] ConversationSummaryRequest request) =>
-            ToActionResult(await _examService.SummarizeConversationAsync(request));
+            _responseFactory.ToActionResult(await _examService.SummarizeConversationAsync(request));
 
         /// <summary>Transcribes audio to text using OpenAI Whisper.</summary>
         [HttpPost("whisper/transcribe")]
@@ -74,31 +74,31 @@ namespace JackyAIApp.Server.Controllers
             }
 
             using var stream = audioFile.OpenReadStream();
-            return ToActionResult(await _examService.TranscribeAudioAsync(stream, audioFile.FileName));
+            return _responseFactory.ToActionResult(await _examService.TranscribeAudioAsync(stream, audioFile.FileName));
         }
 
         /// <summary>Generates a sentence formation test for the user based on their unfamiliar words.</summary>
         [HttpGet("sentence")]
         [ConsumeCredits(CreditCosts.SentenceTest, "sentence_test", "Sentence test generation")]
         public async Task<IActionResult> GetSentenceTest() =>
-            ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Sentence));
+            _responseFactory.ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Sentence));
 
         /// <summary>Evaluates a user's sentence formation response and provides detailed feedback.</summary>
         [HttpPost("sentence/evaluate")]
         public async Task<IActionResult> EvaluateSentence([FromBody] SentenceTestUserResponse userResponse) =>
-            ToActionResult(await _examService.EvaluateSentenceAsync(userResponse));
+            _responseFactory.ToActionResult(await _examService.EvaluateSentenceAsync(userResponse));
 
         /// <summary>Records an exam outcome to feed spaced repetition + per-word history. Free (no credits).</summary>
         [HttpPost("record-result")]
         public async Task<IActionResult> RecordExamResult([FromBody] RecordExamResultRequest request) =>
-            ToActionResult(await _examService.RecordExamResultAsync(request));
+            _responseFactory.ToActionResult(await _examService.RecordExamResultAsync(request));
 
         /// <summary>Serves a random TOEIC Part 1 listening question from the pre-seeded bank. The
         /// flat charge covers both the question and TTS playback of its 4 options.</summary>
         [HttpGet("listening")]
         [ConsumeCredits(CreditCosts.ListeningTest, "listening_test", "Listening test")]
         public async Task<IActionResult> GetListeningTest() =>
-            ToActionResult(await _examService.GenerateListeningExamAsync());
+            _responseFactory.ToActionResult(await _examService.GenerateListeningExamAsync());
 
         /// <summary>Synthesizes speech for one listening-question option. Unbilled — the flat
         /// "listening" charge already covers this; billing again per option would double-charge
@@ -117,7 +117,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("listening/response")]
         [ConsumeCredits(CreditCosts.ListeningResponseTest, "listening_response_test", "Listening response test")]
         public async Task<IActionResult> GetListeningResponseTest() =>
-            ToActionResult(await _examService.GenerateListeningResponseExamAsync());
+            _responseFactory.ToActionResult(await _examService.GenerateListeningResponseExamAsync());
 
         /// <summary>Synthesizes speech for a Part 2 question's opening prompt. Unbilled — covered
         /// by the flat "listening/response" charge.</summary>
@@ -171,7 +171,7 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Admin access required.");
             }
 
-            return ToActionResult(await _examService.GetListeningBankAsync(pageNumber, pageSize));
+            return _responseFactory.ToActionResult(await _examService.GetListeningBankAsync(pageNumber, pageSize));
         }
 
         /// <summary>Admin-only: generates one new listening question (text + photo) via AI and adds
@@ -184,7 +184,7 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Admin access required.");
             }
 
-            return ToActionResult(await _listeningQuestionGenerator.GenerateAsync(_userService.GetUserId()));
+            return _responseFactory.ToActionResult(await _listeningQuestionGenerator.GenerateAsync(_userService.GetUserId()));
         }
 
         private async Task<bool> IsAdminAsync()
@@ -193,10 +193,5 @@ namespace JackyAIApp.Server.Controllers
             return !string.IsNullOrEmpty(userId) &&
                 await _dbContext.Users.AnyAsync(u => u.Id == userId && u.IsAdmin == true);
         }
-
-        private IActionResult ToActionResult(ServiceResult result) =>
-            result.IsSuccess
-                ? _responseFactory.CreateOKResponse(result.Data!)
-                : _responseFactory.CreateErrorResponse(result.Error!.Value, result.ErrorMessage!);
     }
 }

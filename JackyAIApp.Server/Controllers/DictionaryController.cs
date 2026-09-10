@@ -26,12 +26,12 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> Get(string word)
         {
             var result = await _dictionaryService.GetWordAsync(word);
-            return ToActionResult(result);
+            return _responseFactory.ToActionResult(result);
         }
 
         // Anonymous, no OpenAI call — pure Hunspell lookup, safe/cheap to expose publicly.
         [HttpGet("{word}/suggestions", Name = "Suggest spelling")]
-        public IActionResult Suggest(string word) => ToActionResult(_dictionaryService.SuggestWords(word));
+        public IActionResult Suggest(string word) => _responseFactory.ToActionResult(_dictionaryService.SuggestWords(word));
 
         // Mutates shared data and can trigger paid OpenAI regeneration on next lookup,
         // so this one endpoint (unlike Get) requires an authenticated admin.
@@ -48,12 +48,7 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var result = await _dictionaryService.InvalidateWordAsync(word);
-            return ToActionResult(result);
+            return _responseFactory.ToActionResult(result);
         }
-
-        private IActionResult ToActionResult(ServiceResult result) =>
-            result.IsSuccess
-                ? _responseFactory.CreateOKResponse(result.Data)
-                : _responseFactory.CreateErrorResponse(result.Error!.Value, result.ErrorMessage!);
     }
 }

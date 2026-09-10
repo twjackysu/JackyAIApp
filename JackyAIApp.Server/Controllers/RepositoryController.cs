@@ -17,33 +17,28 @@ namespace JackyAIApp.Server.Controllers
 
         [HttpGet("word")]
         public async Task<IActionResult> GetWords(int pageNumber = 1, int pageSize = 10) =>
-            ToActionResult(await _repositoryService.GetWordsAsync(pageNumber, pageSize));
+            _responseFactory.ToActionResult(await _repositoryService.GetWordsAsync(pageNumber, pageSize));
 
         [HttpGet("word/{wordId}")]
         public async Task<IActionResult> GetWords(string wordId) =>
-            ToActionResult(await _repositoryService.GetWordAsync(wordId));
+            _responseFactory.ToActionResult(await _repositoryService.GetWordAsync(wordId));
 
         [HttpPut("word/{wordId}")]
         public async Task<IActionResult> AddWord(string wordId) =>
-            ToActionResult(await _repositoryService.AddWordAsync(wordId));
+            _responseFactory.ToActionResult(await _repositoryService.AddWordAsync(wordId));
 
         [HttpDelete("word/{wordId}")]
         public async Task<IActionResult> DeleteWord(string wordId) =>
-            ToActionResult(await _repositoryService.DeleteWordAsync(wordId));
+            _responseFactory.ToActionResult(await _repositoryService.DeleteWordAsync(wordId));
 
         /// <summary>Lists the built-in starter word packs (metadata only).</summary>
         [HttpGet("packs")]
         public IActionResult GetWordPacks() =>
-            ToActionResult(_repositoryService.GetWordPacks());
+            _responseFactory.ToActionResult(_repositoryService.GetWordPacks());
 
         /// <summary>Adds a starter word pack to the current user's repository. Free (no credits).</summary>
         [HttpPost("packs/{packId}")]
         public async Task<IActionResult> AddWordPack(string packId) =>
-            ToActionResult(await _repositoryService.AddWordPackAsync(packId));
-
-        private IActionResult ToActionResult(ServiceResult result) =>
-            result.IsSuccess
-                ? _responseFactory.CreateOKResponse(result.Data)
-                : _responseFactory.CreateErrorResponse(result.Error!.Value, result.ErrorMessage!);
+            _responseFactory.ToActionResult(await _repositoryService.AddWordPackAsync(packId));
     }
 }

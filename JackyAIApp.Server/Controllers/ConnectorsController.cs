@@ -1,15 +1,15 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace JackyAIApp.Server.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class ConnectorsController : ControllerBase
+    public class ConnectorsController : ApiControllerBase
     {
         private readonly IConnectorService _connectorService;
 
@@ -25,7 +25,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("status")]
         public async Task<ActionResult<ConnectorStatusDto[]>> GetStatus()
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized("User ID not found in claims");
@@ -44,7 +44,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("{provider}/connect")]
         public async Task<ActionResult<ConnectResponseDto>> Connect(string provider, [FromBody] CustomConnectRequestDto? customConfig = null)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized("User ID not found in claims");
@@ -81,7 +81,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpDelete("{provider}")]
         public async Task<ActionResult> Disconnect(string provider)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized("User ID not found in claims");
@@ -115,7 +115,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("{provider}/refresh")]
         public async Task<ActionResult> RefreshTokens(string provider)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized("User ID not found in claims");
@@ -144,7 +144,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("{provider}/token")]
         public async Task<ActionResult> GetAccessToken(string provider)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized("User ID not found in claims");
@@ -177,7 +177,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("{provider}/refresh-token")]
         public async Task<ActionResult> GetRefreshToken(string provider)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized("User ID not found in claims");
@@ -203,10 +203,6 @@ namespace JackyAIApp.Server.Controllers
             });
         }
 
-        private string? GetCurrentUserId()
-        {
-            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        }
 
         private static string? NormalizeProviderName(string provider)
         {
