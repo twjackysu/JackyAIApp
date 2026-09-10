@@ -5,6 +5,9 @@ import { buildSankey } from '../dataPrep';
 
 import { EChart } from './EChart';
 
+// Registers sankey with ECharts; without it the chart renders as an empty canvas.
+import '../registerDataAnalysisCharts';
+
 interface SankeyVizProps {
   rows: Record<string, unknown>[];
   groupKeys: string[];

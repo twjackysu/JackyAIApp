@@ -5,6 +5,9 @@ import { buildHierarchy } from '../dataPrep';
 
 import { EChart } from './EChart';
 
+// Registers treemap/sunburst/tree with ECharts; without it these render as an empty canvas.
+import '../registerDataAnalysisCharts';
+
 type HierarchyMode = 'treemap' | 'sunburst' | 'tree';
 
 interface HierarchyVizProps {
