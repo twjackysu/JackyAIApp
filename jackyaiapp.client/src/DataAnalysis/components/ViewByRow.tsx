@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography';
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { FieldTransformDef, ViewByEntry } from '../types';
 
-import { InfoPopover } from '@/components/hints';
+import { ActionTooltip, InfoPopover } from '@/components/hints';
 
 interface ViewByRowProps {
   entry: ViewByEntry;
@@ -131,9 +131,11 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
         onChange={(e) => onUpdate({ ...entry, alias: e.target.value })}
       />
 
-      <IconButton size="small" onClick={onRemove} title="移除" sx={{ mt: 0.25 }}>
-        <DeleteIcon fontSize="small" />
-      </IconButton>
+      <ActionTooltip title="移除">
+        <IconButton size="small" onClick={onRemove} sx={{ mt: 0.25 }}>
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      </ActionTooltip>
     </Box>
   );
 }

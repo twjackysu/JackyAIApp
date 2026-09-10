@@ -16,6 +16,8 @@ import type {
   MeasureFieldDto,
 } from '../../apis/dataAnalysisApis/types';
 
+import { ActionTooltip } from '@/components/hints';
+
 interface MeasureEditorProps {
   measures: MeasureFieldDto[];
   fields: FieldDefinition[];
@@ -29,9 +31,11 @@ export function MeasureEditor({ measures, fields, onAdd, onRemove, onUpdate }: M
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="subtitle2">量測欄位 (Measures)</Typography>
-        <IconButton size="small" onClick={onAdd} title="新增量測欄位">
-          <AddIcon fontSize="small" />
-        </IconButton>
+        <ActionTooltip title="新增量測欄位">
+          <IconButton size="small" onClick={onAdd}>
+            <AddIcon fontSize="small" />
+          </IconButton>
+        </ActionTooltip>
       </Box>
 
       {measures.map((m, i) => (

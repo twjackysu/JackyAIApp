@@ -17,7 +17,7 @@ import { typeChipColor, type DraftState } from './helpers';
 
 import type { DateGranularity, FieldDefinition } from '../../../apis/dataAnalysisApis/types';
 
-import { ClickPopover } from '@/components/hints';
+import { ActionTooltip, ClickPopover } from '@/components/hints';
 
 interface AddTransformFormProps {
   fields: FieldDefinition[];
@@ -131,9 +131,11 @@ export function AddTransformForm({
         </Button>
       )}
 
-      <IconButton size="small" onClick={onCancel} title="取消">
-        <CloseIcon fontSize="small" />
-      </IconButton>
+      <ActionTooltip title="取消">
+        <IconButton size="small" onClick={onCancel}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </ActionTooltip>
     </Paper>
   );
 }

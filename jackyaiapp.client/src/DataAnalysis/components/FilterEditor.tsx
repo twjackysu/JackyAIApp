@@ -12,6 +12,8 @@ import { FilterRow } from './FilterRow';
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef } from '../types';
 
+import { ActionTooltip } from '@/components/hints';
+
 interface FilterEditorProps {
   filters: ActiveFilter[];
   fields: FieldDefinition[];
@@ -52,9 +54,11 @@ export function FilterEditor({
             )}
           </Typography>
         </Box>
-        <IconButton size="small" onClick={addFilter} title="新增篩選條件">
-          <AddIcon fontSize="small" />
-        </IconButton>
+        <ActionTooltip title="新增篩選條件">
+          <IconButton size="small" onClick={addFilter}>
+            <AddIcon fontSize="small" />
+          </IconButton>
+        </ActionTooltip>
       </Box>
 
       {filters.length === 0 && (

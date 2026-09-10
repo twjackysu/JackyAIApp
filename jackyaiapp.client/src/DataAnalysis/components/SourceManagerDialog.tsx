@@ -44,6 +44,8 @@ import type {
   SaveDataSourceConfigDto,
 } from '../../apis/dataAnalysisApis/types';
 
+import { ActionTooltip } from '@/components/hints';
+
 interface SourceManagerDialogProps {
   open: boolean;
   onClose: () => void;
@@ -212,17 +214,20 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
                         <TableCell>{s.defaultTableName ?? '—'}</TableCell>
                         <TableCell>{new Date(s.createdAt).toLocaleDateString()}</TableCell>
                         <TableCell align="right">
-                          <IconButton size="small" onClick={() => openEditForm(s)} title="編輯">
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDelete(s.id)}
-                            title="刪除"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                          <ActionTooltip title="編輯">
+                            <IconButton size="small" onClick={() => openEditForm(s)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </ActionTooltip>
+                          <ActionTooltip title="刪除">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDelete(s.id)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </ActionTooltip>
                         </TableCell>
                       </TableRow>
                     ))}

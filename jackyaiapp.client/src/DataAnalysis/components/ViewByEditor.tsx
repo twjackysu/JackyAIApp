@@ -8,6 +8,8 @@ import { ViewByRow } from './ViewByRow';
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { FieldTransformDef, ViewByEntry } from '../types';
 
+import { ActionTooltip } from '@/components/hints';
+
 interface ViewByEditorProps {
   entries: ViewByEntry[];
   fields: FieldDefinition[];
@@ -29,9 +31,11 @@ export function ViewByEditor({
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Typography variant="subtitle2">分組欄位 (Group By)</Typography>
-        <IconButton size="small" onClick={onAdd} title="新增分組欄位">
-          <AddIcon fontSize="small" />
-        </IconButton>
+        <ActionTooltip title="新增分組欄位">
+          <IconButton size="small" onClick={onAdd}>
+            <AddIcon fontSize="small" />
+          </IconButton>
+        </ActionTooltip>
       </Box>
 
       {entries.length === 0 && (

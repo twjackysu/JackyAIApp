@@ -12,6 +12,8 @@ import { summary, typeChipColor } from './helpers';
 
 import type { FieldTransformDef } from '../../types';
 
+import { ActionTooltip } from '@/components/hints';
+
 interface TransformListItemProps {
   transform: FieldTransformDef;
   onEdit: (t: FieldTransformDef) => void;
@@ -59,12 +61,16 @@ export function TransformListItem({ transform: t, onEdit, onRemove }: TransformL
         sx={{ flexShrink: 0 }}
       />
       <Chip label={summary(t)} size="small" variant="outlined" sx={{ flexShrink: 0 }} />
-      <IconButton size="small" onClick={() => onEdit(t)} title="編輯">
-        <EditIcon fontSize="small" />
-      </IconButton>
-      <IconButton size="small" onClick={() => onRemove(t.id)} title="刪除">
-        <DeleteIcon fontSize="small" />
-      </IconButton>
+      <ActionTooltip title="編輯">
+        <IconButton size="small" onClick={() => onEdit(t)}>
+          <EditIcon fontSize="small" />
+        </IconButton>
+      </ActionTooltip>
+      <ActionTooltip title="刪除">
+        <IconButton size="small" onClick={() => onRemove(t.id)}>
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      </ActionTooltip>
     </Paper>
   );
 }
