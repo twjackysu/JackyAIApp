@@ -1,9 +1,7 @@
-import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
@@ -11,6 +9,7 @@ import Select from '@mui/material/Select';
 import TextField from '@mui/material/TextField';
 
 import { DATE_GRANULARITIES } from '../../constants';
+import { FieldDialogTitle } from '../FieldDialogTitle';
 
 import type { DateGranularity } from '../../../apis/dataAnalysisApis/types';
 import type { FieldTransformDef } from '../../types';
@@ -30,20 +29,7 @@ export function DateTruncEditDialog({
 }: DateTruncEditDialogProps) {
   return (
     <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>
-        編輯 DateTrunc —{' '}
-        <Box
-          component="code"
-          sx={{
-            bgcolor: 'action.selected',
-            px: 0.5,
-            borderRadius: '3px',
-            fontFamily: 'monospace',
-          }}
-        >
-          {target.fieldName}
-        </Box>
-      </DialogTitle>
+      <FieldDialogTitle fieldName={target.fieldName}>編輯 DateTrunc</FieldDialogTitle>
       <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
         <TextField
           size="small"

@@ -1,17 +1,12 @@
-import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
-import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
+
+import { FieldGroupingDialogShell } from './FieldGroupingDialogShell';
 
 import type { BinEntry } from '../types';
 
@@ -124,130 +119,23 @@ export function NumericBinDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        數值分組 (Numeric Bins) —{' '}
-        <Box
-          component="code"
-          sx={{ bgcolor: 'action.selected', px: 0.5, borderRadius: '3px', fontFamily: 'monospace' }}
-        >
-          {fieldName}
-        </Box>
-      </DialogTitle>
-      <DialogContent dividers>
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+    <FieldGroupingDialogShell
+      open={open}
+      onClose={onClose}
+      title="數值分組 (Numeric Bins)"
+      fieldName={fieldName}
+      hint={
+        <>
           區間為<strong>左閉右開</strong>：當 <code>Min ≤ 值 &lt; Max</code>{' '}
           時，該筆資料屬於此區間。Min 留空代表 <em>−∞</em>（無下限）；Max 留空代表 <em>+∞</em>
           （無上限）。
-        </Typography>
-
-        {bins.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            尚無區間 — 點擊 <strong>新增區間</strong> 開始。
-          </Typography>
-        )}
-
-        {bins.map((b, i) => {
-          const e = errors[i];
-          return (
-            <Box key={b.id} sx={{ mb: 1.5 }}>
-              {/* ── Input row ── */}
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ minWidth: 20, textAlign: 'right', flexShrink: 0 }}
-                >
-                  {i + 1}.
-                </Typography>
-
-                <TextField
-                  size="small"
-                  label="最小值"
-                  placeholder="−∞"
-                  value={b.min}
-                  sx={{ flex: 1 }}
-                  error={e.invalidRange}
-                  onChange={(ev) => updateBin(b.id, { min: ev.target.value })}
-                  slotProps={{
-                    htmlInput: { type: 'number' },
-                  }}
-                />
-
-                <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
-                  ≤ x &lt;
-                </Typography>
-
-                <TextField
-                  size="small"
-                  label="最大值"
-                  placeholder="+∞"
-                  value={b.max}
-                  sx={{ flex: 1 }}
-                  error={e.invalidRange}
-                  onChange={(ev) => updateBin(b.id, { max: ev.target.value })}
-                  slotProps={{
-                    htmlInput: { type: 'number' },
-                  }}
-                />
-
-                <TextField
-                  size="small"
-                  label="標籤 *"
-                  value={b.label}
-                  sx={{ flex: 1.2 }}
-                  error={e.emptyLabel}
-                  onChange={(ev) => updateBin(b.id, { label: ev.target.value })}
-                />
-
-                <IconButton size="small" onClick={() => removeBin(b.id)}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Box>
-              {/* ── Condition preview + per-bin errors ── */}
-              <Box
-                sx={{
-                  pl: '28px',
-                  mt: 0.25,
-                  display: 'flex',
-                  gap: 1,
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontFamily: 'monospace',
-                    color: 'text.disabled',
-                    bgcolor: 'action.hover',
-                    px: 0.75,
-                    borderRadius: '3px',
-                  }}
-                >
-                  {conditionText(b.min, b.max)}
-                </Typography>
-                {e.emptyLabel && (
-                  <Typography variant="caption" color="error">
-                    標籤為必填。
-                  </Typography>
-                )}
-                {e.invalidRange && (
-                  <Typography variant="caption" color="error">
-                    最小值必須小於最大值。
-                  </Typography>
-                )}
-              </Box>
-            </Box>
-          );
-        })}
-
-        <Button size="small" startIcon={<AddIcon />} onClick={addBin} sx={{ mt: 0.5 }}>
-          新增區間
-        </Button>
-
-        {/* ── Global overlap errors ── */}
-        {overlapPairs.length > 0 && (
+        </>
+      }
+      addLabel="新增區間"
+      onAdd={addBin}
+      belowAdd={
+        /* ── Global overlap errors ── */
+        overlapPairs.length > 0 && (
           <Alert severity="error" sx={{ mt: 2 }}>
             <strong>偵測到重疊區間：</strong>
             <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
@@ -256,29 +144,114 @@ export function NumericBinDialog({
               ))}
             </ul>
           </Alert>
-        )}
+        )
+      }
+      fallbackLabel="預設標籤（未落入任何區間的資料）"
+      fallback={fallback}
+      onFallbackChange={setFallback}
+      hasErrors={hasErrors}
+      onApply={handleApply}
+    >
+      {bins.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          尚無區間 — 點擊 <strong>新增區間</strong> 開始。
+        </Typography>
+      )}
 
-        <Divider sx={{ my: 2 }} />
+      {bins.map((b, i) => {
+        const e = errors[i];
+        return (
+          <Box key={b.id} sx={{ mb: 1.5 }}>
+            {/* ── Input row ── */}
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ minWidth: 20, textAlign: 'right', flexShrink: 0 }}
+              >
+                {i + 1}.
+              </Typography>
 
-        <TextField
-          size="small"
-          fullWidth
-          label="預設標籤（未落入任何區間的資料）"
-          value={fallback}
-          onChange={(e) => setFallback(e.target.value)}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>取消</Button>
-        <Button
-          variant="contained"
-          disabled={hasErrors}
-          onClick={handleApply}
-          title={hasErrors ? '請先修正上方錯誤再套用' : undefined}
-        >
-          套用{hasErrors ? '（請先修正錯誤）' : ''}
-        </Button>
-      </DialogActions>
-    </Dialog>
+              <TextField
+                size="small"
+                label="最小值"
+                placeholder="−∞"
+                value={b.min}
+                sx={{ flex: 1 }}
+                error={e.invalidRange}
+                onChange={(ev) => updateBin(b.id, { min: ev.target.value })}
+                slotProps={{
+                  htmlInput: { type: 'number' },
+                }}
+              />
+
+              <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+                ≤ x &lt;
+              </Typography>
+
+              <TextField
+                size="small"
+                label="最大值"
+                placeholder="+∞"
+                value={b.max}
+                sx={{ flex: 1 }}
+                error={e.invalidRange}
+                onChange={(ev) => updateBin(b.id, { max: ev.target.value })}
+                slotProps={{
+                  htmlInput: { type: 'number' },
+                }}
+              />
+
+              <TextField
+                size="small"
+                label="標籤 *"
+                value={b.label}
+                sx={{ flex: 1.2 }}
+                error={e.emptyLabel}
+                onChange={(ev) => updateBin(b.id, { label: ev.target.value })}
+              />
+
+              <IconButton size="small" onClick={() => removeBin(b.id)}>
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Box>
+            {/* ── Condition preview + per-bin errors ── */}
+            <Box
+              sx={{
+                pl: '28px',
+                mt: 0.25,
+                display: 'flex',
+                gap: 1,
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  fontFamily: 'monospace',
+                  color: 'text.disabled',
+                  bgcolor: 'action.hover',
+                  px: 0.75,
+                  borderRadius: '3px',
+                }}
+              >
+                {conditionText(b.min, b.max)}
+              </Typography>
+              {e.emptyLabel && (
+                <Typography variant="caption" color="error">
+                  標籤為必填。
+                </Typography>
+              )}
+              {e.invalidRange && (
+                <Typography variant="caption" color="error">
+                  最小值必須小於最大值。
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        );
+      })}
+    </FieldGroupingDialogShell>
   );
 }
