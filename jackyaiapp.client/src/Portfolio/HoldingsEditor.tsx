@@ -23,8 +23,7 @@ import { UpdateHistoryDialog } from './UpdateHistoryDialog';
 
 import { useGetHoldingsQuery, useSaveHoldingsMutation } from '@/apis/portfolioApis';
 import { PositionInput } from '@/apis/portfolioApis/types';
-
-const today = () => new Date().toISOString().slice(0, 10);
+import { todayISO } from '@/utils/date';
 
 export function HoldingsEditor() {
   const theme = useTheme();
@@ -33,7 +32,7 @@ export function HoldingsEditor() {
   const { data: holdingsRes } = useGetHoldingsQuery();
   const [saveHoldings, { isLoading: isSaving }] = useSaveHoldingsMutation();
 
-  const [effectiveDate, setEffectiveDate] = useState(today());
+  const [effectiveDate, setEffectiveDate] = useState(todayISO());
   const [rows, setRows] = useState<EditorRow[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -48,7 +47,7 @@ export function HoldingsEditor() {
   // to set rows via an effect that fired whenever `open` became true, so loading a past snapshot
   // (which also sets `open`) got its rows immediately clobbered back to the latest holdings.
   const openWithLatestHoldings = () => {
-    setEffectiveDate(today()); // new update defaults to today
+    setEffectiveDate(todayISO()); // new update defaults to today
     setRows((holdingsRes?.data?.positions ?? []).map(toRow));
     setSubmitted(false);
     setSaveError(null);
@@ -64,7 +63,7 @@ export function HoldingsEditor() {
   // field is still a plain editable TextField, so explicitly changing it to today still gives the
   // "copy this old snapshot forward as a fresh update" flow the UI copy already describes.
   const loadFromSnapshot = (positions: PositionInput[], effectiveDate: string) => {
-    setEffectiveDate(effectiveDate || today());
+    setEffectiveDate(effectiveDate || todayISO());
     setRows(positions.map(toRow));
     setSubmitted(false);
     setSaveError(null);

@@ -4,14 +4,6 @@ import { alpha } from '@mui/material/styles';
 import type { SignalDirection, RiskLevel, IndicatorCategory } from '@/apis/financeApis/types';
 
 /**
- * Get the current date in YYYY-MM-DD format
- */
-export const getCurrentDate = (): string => {
-  const date = new Date();
-  return date.toISOString().split('T')[0];
-};
-
-/**
  * Solid colour at full opacity, or the same colour tinted when the caller wants a
  * translucent background. The tint is derived from the palette constant itself, so the
  * two variants can never drift apart the way the hand-written `rgba(...)` literals this
