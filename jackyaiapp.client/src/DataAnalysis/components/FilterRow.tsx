@@ -14,6 +14,8 @@ import { useEffect, useState } from 'react';
 
 import { useSummarizeMutation, useGetDistinctValuesQuery } from '../../apis/dataAnalysisApis';
 
+import { FieldSelect } from './FieldSelect';
+
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter, FieldTransformDef } from '../types';
 
@@ -162,20 +164,7 @@ export function FilterRow({
   return (
     <Box sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       {/* ── Field selector ── */}
-      <FormControl size="small" sx={{ flex: '0 0 160px' }}>
-        <InputLabel>欄位</InputLabel>
-        <Select
-          value={filter.fieldName}
-          label="欄位"
-          onChange={(e) => handleFieldChange(e.target.value as string)}
-        >
-          {fields.map((f) => (
-            <MenuItem key={f.name} value={f.name}>
-              {f.name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <FieldSelect fields={fields} value={filter.fieldName} onChange={handleFieldChange} />
 
       {/* ── Transform controls (when any transform exists for this field) ── */}
       {filter.fieldName && hasTransforms && (

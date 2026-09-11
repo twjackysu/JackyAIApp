@@ -10,6 +10,8 @@ import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
+import { FieldSelect } from './FieldSelect';
+
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { FieldTransformDef, ViewByEntry } from '../types';
 
@@ -54,20 +56,7 @@ export function ViewByRow({ entry, fields, transforms, onUpdate, onRemove }: Vie
   return (
     <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       {/* Field */}
-      <FormControl size="small" sx={{ flex: '0 0 160px' }}>
-        <InputLabel>欄位</InputLabel>
-        <Select
-          value={entry.fieldName}
-          label="欄位"
-          onChange={(e) => handleFieldChange(e.target.value as string)}
-        >
-          {fields.map((f) => (
-            <MenuItem key={f.name} value={f.name}>
-              {f.name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <FieldSelect fields={fields} value={entry.fieldName} onChange={handleFieldChange} />
 
       {/* Use transform toggle — only shown when transforms exist for this field */}
       {entry.fieldName &&

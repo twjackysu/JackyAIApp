@@ -12,6 +12,7 @@ import Select from '@mui/material/Select';
 import TextField from '@mui/material/TextField';
 
 import { DATE_GRANULARITIES, TRANSFORM_TYPE_LABELS } from '../../constants';
+import { FieldSelect } from '../FieldSelect';
 
 import { typeChipColor, type DraftState } from './helpers';
 
@@ -44,20 +45,7 @@ export function AddTransformForm({
       sx={{ p: 1.5, mt: 1, display: 'flex', gap: 1, alignItems: 'flex-end', flexWrap: 'wrap' }}
     >
       {/* Field selector — drives type auto-detection */}
-      <FormControl size="small" sx={{ flex: '0 0 160px' }}>
-        <InputLabel>欄位</InputLabel>
-        <Select
-          value={draft.fieldName}
-          label="欄位"
-          onChange={(e) => onFieldChange(e.target.value as string)}
-        >
-          {fields.map((f) => (
-            <MenuItem key={f.name} value={f.name}>
-              {f.name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <FieldSelect fields={fields} value={draft.fieldName} onChange={onFieldChange} />
 
       {/* Name */}
       <TextField
