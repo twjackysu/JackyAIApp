@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,7 +20,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>
         /// Handles OAuth callback from providers
         /// </summary>
-        /// <param name="provider">The provider name (Microsoft, Atlassian, Google)</param>
+        /// <param name="provider">The provider name (see <see cref="ConnectorProviders"/>)</param>
         /// <param name="code">Authorization code from OAuth provider</param>
         /// <param name="state">State parameter to prevent CSRF attacks</param>
         /// <param name="error">Error parameter if OAuth failed</param>
@@ -54,7 +55,7 @@ namespace JackyAIApp.Server.Controllers
                 }
 
                 // Normalize provider name
-                var normalizedProvider = NormalizeProviderName(provider);
+                var normalizedProvider = ConnectorProviders.Normalize(provider);
                 if (normalizedProvider == null)
                 {
                     _logger.LogWarning("Invalid provider name in callback: {Provider}", provider);
@@ -94,17 +95,6 @@ namespace JackyAIApp.Server.Controllers
 
             // For production, you might want to get this from configuration
             return $"https://{HttpContext.Request.Host}";
-        }
-
-        private static string? NormalizeProviderName(string provider)
-        {
-            return provider?.ToLowerInvariant() switch
-            {
-                "microsoft" => "Microsoft",
-                "atlassian" => "Atlassian",
-                "google" => "Google",
-                _ => null
-            };
         }
     }
 }
