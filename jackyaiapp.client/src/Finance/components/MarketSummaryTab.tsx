@@ -18,6 +18,8 @@ import Typography from '@mui/material/Typography';
 
 import type { DigestPoint } from '@/apis/financeApis/types';
 
+import { CREDIT_COSTS } from '@/constants/creditCosts';
+
 interface MarketSummaryTabProps {
   isAuthenticated: boolean;
   isMarketLoading: boolean;
@@ -111,7 +113,8 @@ export function MarketSummaryTab({
           </Button>
         }
       >
-        今日市場AI摘要需要登入，每日首次查看消耗 3 點使用額度（當日重看免費）
+        今日市場AI摘要需要登入，每日首次查看消耗 {CREDIT_COSTS.MARKET_DIGEST}{' '}
+        點使用額度（當日重看免費）
       </Alert>
     );
   }
