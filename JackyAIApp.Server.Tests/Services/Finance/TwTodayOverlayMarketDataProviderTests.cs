@@ -1,149 +1,143 @@
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.DataProviders;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Moq;
 using TWStockLib.Models;
 
 namespace JackyAIApp.Server.Tests.Services.Finance
 {
     /// <summary>
-    /// Covers the outermost TW <see cref="IMarketDataProvider"/> decorator that overlays today's
-    /// price — moved here from PortfolioService so every caller of <c>IMarketDataProvider</c> (not
-    /// just Portfolio) gets it; see the class's own docs for why it must sit outside
-    /// CachedMarketDataProvider's cache. The time-of-day gate went through several wrong
-    /// assumptions in conversation before landing on "09:00 onward, no upper bound" — these tests
-    /// exist specifically so that gate doesn't regress silently.
+    /// After 13:30 the realtime quote is the only thing that surfaces today's TW close — the
+    /// persistent layer deliberately never holds today's bar. So when the quote is unavailable the
+    /// app serves yesterday's price, which looks like a working page rather than a failure.
+    ///
+    /// These tests pin that the degradation is reported. It previously was not: the exception path
+    /// logged at debug (production runs at Information, so it never appeared) and the more likely
+    /// path — a quote that comes back null because the response did not parse — logged nothing at
+    /// all. A stale price with no log is indistinguishable from a correct one.
     /// </summary>
     public class TwTodayOverlayMarketDataProviderTests
     {
-        private const string Symbol = "2330";
+        private const string Symbol = "0050";
 
-        private static readonly MarketData YesterdayOnly = new()
+        // A weekday afternoon in Taipei: past 09:00, so the overlay is in its active window.
+        private static readonly DateTimeOffset FridayAfternoon =
+            new(2026, 9, 11, 9, 21, 0, TimeSpan.Zero); // 17:21 Taipei
+
+        private readonly Mock<IMarketDataProvider> _inner = new();
+        private readonly Mock<ITWStockLibHistoricalProvider> _quotes = new();
+        private readonly Mock<ILogger<TwTodayOverlayMarketDataProvider>> _logger = new();
+
+        public TwTodayOverlayMarketDataProviderTests()
         {
-            StockCode = Symbol,
-            HistoricalPrices = [new DailyPrice { Date = DateTime.Today.AddDays(-1), Close = 2400m }],
-        };
-
-        private static StockQuote MakeQuote(decimal lastPrice) => new()
-        {
-            Symbol = Symbol,
-            Name = "台積電",
-            Market = MarketType.TSE,
-            LastPrice = lastPrice,
-            OpeningPrice = lastPrice,
-            HighestPrice = lastPrice,
-            LowestPrice = lastPrice,
-        };
-
-        private static (Mock<IMarketDataProvider> inner, Mock<ITWStockLibHistoricalProvider> quoteSource, TwTodayOverlayMarketDataProvider provider)
-            Build(DateTimeOffset now)
-        {
-            var inner = new Mock<IMarketDataProvider>();
-            inner.Setup(p => p.FetchLatestAsync(Symbol, It.IsAny<CancellationToken>())).ReturnsAsync(YesterdayOnly);
-            inner.Setup(p => p.FetchAsync(Symbol, It.IsAny<CancellationToken>())).ReturnsAsync(YesterdayOnly);
-            var quoteSource = new Mock<ITWStockLibHistoricalProvider>();
-            var timeProvider = new FakeTimeProvider(now);
-            var provider = new TwTodayOverlayMarketDataProvider(
-                inner.Object, quoteSource.Object, NullLogger<TwTodayOverlayMarketDataProvider>.Instance, timeProvider);
-            return (inner, quoteSource, provider);
-        }
-
-        // Wed 2026-07-22 (a known weekday), Taipei = UTC+8.
-        private static DateTimeOffset TaipeiTime(int hour, int minute = 0) =>
-            new DateTimeOffset(2026, 7, 22, hour, minute, 0, TimeSpan.Zero).AddHours(-8);
-
-        [Fact]
-        public async Task FetchLatestAsync_DuringWindow_OverlaysTodayQuote()
-        {
-            var (_, quoteSource, provider) = Build(TaipeiTime(10, 30));
-            quoteSource.Setup(q => q.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(MakeQuote(2450m));
-
-            var result = await provider.FetchLatestAsync(Symbol);
-
-            var today = Assert.Single(result.HistoricalPrices, p => p.Date.Date == DateTime.Today);
-            Assert.Equal(2450m, today.Close);
-            // Yesterday's bar from the inner chain is preserved, not dropped.
-            Assert.Contains(result.HistoricalPrices, p => p.Date.Date == DateTime.Today.AddDays(-1) && p.Close == 2400m);
+            _inner.Setup(x => x.FetchLatestAsync(Symbol, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(HistoricalOnly());
+            _inner.Setup(x => x.FetchAsync(Symbol, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(HistoricalOnly());
         }
 
         [Fact]
-        public async Task FetchLatestAsync_WellAfterMarketClose_StillOverlaysTodayQuote()
+        public async Task QuoteMissing_WarnsThatTheHistoricalCloseIsBeingServed()
         {
-            // The whole point of this fix: no upper-bound cutoff at 13:30 close.
-            var (_, quoteSource, provider) = Build(TaipeiTime(20, 0));
-            quoteSource.Setup(q => q.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(MakeQuote(2350m));
+            // The shape the reported incident took: a non-JSON response parses to null rather than
+            // throwing, so nothing was logged and the page quietly showed yesterday.
+            _quotes.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((StockQuote?)null);
 
-            var result = await provider.FetchLatestAsync(Symbol);
+            var result = await Create().FetchLatestAsync(Symbol);
 
-            var today = Assert.Single(result.HistoricalPrices, p => p.Date.Date == DateTime.Today);
-            Assert.Equal(2350m, today.Close);
+            Assert.Equal(109.15m, result.HistoricalPrices[^1].Close); // unchanged fallback
+            AssertLogged(LogLevel.Warning);
         }
 
         [Fact]
-        public async Task FetchLatestAsync_BeforeMarketOpen_DoesNotFetchQuoteOrOverlay()
+        public async Task QuoteHasNoUsablePrice_Warns()
         {
-            var (_, quoteSource, provider) = Build(TaipeiTime(8, 59));
+            // A quote that arrives but carries neither a last price nor a bid/ask is just as stale
+            // in effect, and was equally silent.
+            _quotes.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Quote(0m));
 
-            var result = await provider.FetchLatestAsync(Symbol);
+            await Create().FetchLatestAsync(Symbol);
 
-            Assert.Same(YesterdayOnly, result);
-            quoteSource.Verify(
-                q => q.GetLatestQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()),
-                Times.Never);
+            AssertLogged(LogLevel.Warning);
         }
 
         [Fact]
-        public async Task FetchLatestAsync_Weekend_DoesNotFetchQuoteOrOverlay()
+        public async Task QuoteThrows_WarnsRatherThanDebug()
         {
-            // 2026-07-25 is a Saturday.
-            var saturday = new DateTimeOffset(2026, 7, 25, 10, 0, 0, TimeSpan.Zero).AddHours(-8);
-            var (_, quoteSource, provider) = Build(saturday);
-
-            var result = await provider.FetchLatestAsync(Symbol);
-
-            Assert.Same(YesterdayOnly, result);
-            quoteSource.Verify(
-                q => q.GetLatestQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()),
-                Times.Never);
-        }
-
-        [Fact]
-        public async Task FetchLatestAsync_QuoteFetchThrows_FallsBackToInnerData()
-        {
-            var (_, quoteSource, provider) = Build(TaipeiTime(10, 30));
-            quoteSource.Setup(q => q.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+            // Was LogDebug; production's minimum level is Information, so it never surfaced.
+            _quotes.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new HttpRequestException("boom"));
 
-            var result = await provider.FetchLatestAsync(Symbol);
+            var result = await Create().FetchLatestAsync(Symbol);
 
-            Assert.Same(YesterdayOnly, result);
+            Assert.Equal(109.15m, result.HistoricalPrices[^1].Close);
+            AssertLogged(LogLevel.Warning);
         }
 
         [Fact]
-        public async Task FetchLatestAsync_QuoteHasNoUsablePrice_FallsBackToInnerData()
+        public async Task QuoteUsable_OverlaysTodayAndSaysNothing()
         {
-            var (_, quoteSource, provider) = Build(TaipeiTime(10, 30));
-            quoteSource.Setup(q => q.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
-                // no LastPrice, no bid/ask — no usable price at all
-                .ReturnsAsync(new StockQuote { Symbol = Symbol, Name = "台積電", Market = MarketType.TSE });
+            // Guard against turning a working path into log noise on every request.
+            _quotes.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Quote(107.7m));
 
-            var result = await provider.FetchLatestAsync(Symbol);
+            var result = await Create().FetchLatestAsync(Symbol);
 
-            Assert.Same(YesterdayOnly, result);
+            Assert.Equal(107.7m, result.HistoricalPrices[^1].Close);
+            AssertLogged(LogLevel.Warning, Times.Never());
         }
 
         [Fact]
-        public async Task InvalidateAsync_DelegatesToInner()
+        public async Task OutsideTheQuoteWindow_SaysNothing()
         {
-            var (inner, _, provider) = Build(TaipeiTime(10, 30));
-            inner.Setup(p => p.InvalidateAsync(Symbol, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            // Before 09:00 there is no same-day quote to expect, so silence is correct — the
+            // warning must mean "today's price is missing when it should exist".
+            _quotes.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((StockQuote?)null);
 
-            await provider.InvalidateAsync(Symbol);
+            var beforeOpen = new DateTimeOffset(2026, 9, 11, 0, 30, 0, TimeSpan.Zero); // 08:30 Taipei
+            await Create(beforeOpen).FetchLatestAsync(Symbol);
 
-            inner.Verify(p => p.InvalidateAsync(Symbol, It.IsAny<CancellationToken>()), Times.Once);
+            AssertLogged(LogLevel.Warning, Times.Never());
+            _quotes.Verify(
+                x => x.GetLatestQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
+
+        // ── Helpers ───────────────────────────────────────────────────────────
+
+        /// <summary>StockQuote inherits required members from StockData; fill them once here.</summary>
+        private static StockQuote Quote(decimal lastPrice) => new()
+        {
+            Symbol = Symbol,
+            Name = "元大台灣50",
+            Market = MarketType.TSE,
+            LastPrice = lastPrice,
+        };
+
+        private static MarketData HistoricalOnly() => new()
+        {
+            StockCode = Symbol,
+            HistoricalPrices =
+            [
+                new() { Date = new DateTime(2026, 9, 10), Open = 109m, High = 110m, Low = 108m, Close = 109.15m, Volume = 1000 },
+            ],
+        };
+
+        private TwTodayOverlayMarketDataProvider Create(DateTimeOffset? now = null) =>
+            new(_inner.Object, _quotes.Object, _logger.Object, new FakeTimeProvider(now ?? FridayAfternoon));
+
+        private void AssertLogged(LogLevel level, Times? times = null) =>
+            _logger.Verify(
+                x => x.Log(
+                    level,
+                    It.IsAny<EventId>(),
+                    It.IsAny<It.IsAnyType>(),
+                    It.IsAny<Exception>(),
+                    (Func<It.IsAnyType, Exception?, string>)It.IsAny<object>()),
+                times ?? Times.Once());
 
         private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider
         {

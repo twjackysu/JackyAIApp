@@ -395,7 +395,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Quote-based backfill failed for {Symbol}, leaving gap for next fetch", symbol);
+                // Warning, not debug: unlike the "race, ignore" cases elsewhere in this class, this
+                // one leaves a real hole in the price history that nothing else fills in.
+                _logger.LogWarning(ex, "Quote-based backfill failed for {Symbol}, leaving gap for next fetch", symbol);
             }
         }
 
