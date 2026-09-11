@@ -77,12 +77,23 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 var livePrice = quote != null ? EffectiveLivePrice(quote) : null;
                 if (quote != null && livePrice is > 0)
                     return WithRealtimeOverlay(data, quote, livePrice.Value);
+
+                // Reached without an exception: the quote came back missing or unusable. This is
+                // the likelier of the two failure shapes — a non-JSON response parses to null
+                // rather than throwing — and until now it produced no log line at all, so the app
+                // served yesterday's close with nothing anywhere to say why.
+                _logger.LogWarning(
+                    "No usable realtime quote for {StockCode} (quote {QuoteState}); serving the historical close, "
+                    + "which after 13:30 means yesterday's price",
+                    stockCode, quote == null ? "missing" : "had no usable price");
             }
             catch (Exception ex)
             {
                 // Never let a quote-fetch failure break the whole request — the caller always has
-                // the historical-close fallback already in `data`.
-                _logger.LogDebug(ex, "Realtime quote overlay failed for {StockCode}, using historical close", stockCode);
+                // the historical-close fallback already in `data`. Warning, not debug: the request
+                // still succeeds, but it succeeds with stale data, and production runs at
+                // Information so a debug line here was invisible exactly when it was needed.
+                _logger.LogWarning(ex, "Realtime quote overlay failed for {StockCode}, using historical close", stockCode);
             }
 
             return data;
