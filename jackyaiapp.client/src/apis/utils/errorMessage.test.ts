@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { FALLBACK_ERROR_MESSAGE, NETWORK_ERROR_MESSAGE, getApiErrorMessage } from './errorMessage';
+import {
+  FALLBACK_ERROR_MESSAGE,
+  NETWORK_ERROR_MESSAGE,
+  getApiErrorMessage,
+  getCaughtErrorMessage,
+} from './errorMessage';
 
 describe('getApiErrorMessage', () => {
   it('reads the API standard { error: { code, message } } envelope', () => {
@@ -61,5 +66,18 @@ describe('getApiErrorMessage', () => {
     expect(getApiErrorMessage({ status: 500, data: { error: { message: '   ' } } })).toBe(
       FALLBACK_ERROR_MESSAGE,
     );
+  });
+});
+
+describe('getCaughtErrorMessage', () => {
+  it('reads a rejected unwrap() the same way as the typed version', () => {
+    expect(
+      getCaughtErrorMessage({ status: 400, data: 'Invalid provider name. Supported: Google' }),
+    ).toBe('Invalid provider name. Supported: Google');
+  });
+
+  it('falls back for a value that is not an error object at all', () => {
+    expect(getCaughtErrorMessage(undefined)).toBe(FALLBACK_ERROR_MESSAGE);
+    expect(getCaughtErrorMessage('boom')).toBe(FALLBACK_ERROR_MESSAGE);
   });
 });

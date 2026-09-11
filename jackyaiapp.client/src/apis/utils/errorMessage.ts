@@ -52,3 +52,17 @@ export function getApiErrorMessage(
 
   return FALLBACK_ERROR_MESSAGE;
 }
+
+/**
+ * The `unwrap()` counterpart of {@link getApiErrorMessage}.
+ *
+ * A rejected RTK Query call throws the very same `FetchBaseQueryError | SerializedError`, but a
+ * `catch` binding is typed `unknown`, so call sites otherwise reach for `any` and hand-roll their
+ * own property chain — which is how a lookup for a key the API never sends ends up silently
+ * falling through to a generic message.
+ */
+export function getCaughtErrorMessage(error: unknown): string {
+  return isRecord(error)
+    ? getApiErrorMessage(error as FetchBaseQueryError | SerializedError)
+    : FALLBACK_ERROR_MESSAGE;
+}
