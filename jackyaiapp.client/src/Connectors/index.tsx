@@ -13,6 +13,7 @@ import {
   useGetConnectorStatusQuery,
 } from '@/apis/connectorsApis/connectorsApis';
 import { CustomConnectRequest } from '@/apis/connectorsApis/types';
+import { getApiErrorMessage, getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip } from '@/components/hints';
 
@@ -88,10 +89,8 @@ const Connectors: React.FC = () => {
 
         setState({ open: true, message: `Disconnected from ${provider}`, severity: 'success' });
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      const errorMessage = error?.data?.message || error?.message || 'An error occurred';
-      setState({ open: true, message: errorMessage, severity: 'error' });
+    } catch (error) {
+      setState({ open: true, message: getCaughtErrorMessage(error), severity: 'error' });
     }
   };
 
@@ -102,7 +101,7 @@ const Connectors: React.FC = () => {
   if (error) {
     return (
       <Alert severity="error" sx={{ mb: 2 }}>
-        Failed to load connector status. Please try again.
+        Failed to load connector status: {getApiErrorMessage(error)}
       </Alert>
     );
   }
@@ -141,14 +140,14 @@ const Connectors: React.FC = () => {
               onRefreshSuccess={() =>
                 setState({
                   open: true,
-                  message: `Successfully connected to ${connector.provider}`,
+                  message: `Refreshed tokens for ${connector.provider}`,
                   severity: 'success',
                 })
               }
-              onRefreshError={() =>
+              onRefreshError={(message) =>
                 setState({
                   open: true,
-                  message: `Failed to connect to ${connector.provider}`,
+                  message: `Failed to refresh ${connector.provider}: ${message}`,
                   severity: 'error',
                 })
               }

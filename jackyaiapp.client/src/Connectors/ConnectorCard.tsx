@@ -24,6 +24,7 @@ import {
   useRefreshProviderTokensMutation,
 } from '@/apis/connectorsApis/connectorsApis';
 import { ConnectorStatus, CustomConnectRequest } from '@/apis/connectorsApis/types';
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import { ActionTooltip } from '@/components/hints';
 
 // Provider icons
@@ -45,7 +46,8 @@ interface ConnectorCardProps {
   onToggle: (provider: string, isConnected: boolean, customConfig?: CustomConnectRequest) => void;
   isLoading: boolean;
   onRefreshSuccess?: () => void;
-  onRefreshError?: () => void;
+  /** Receives the reason the API gave, so the page can say why instead of just that it failed. */
+  onRefreshError?: (message: string) => void;
 }
 
 const ConnectorCard: React.FC<ConnectorCardProps> = ({
@@ -80,8 +82,8 @@ const ConnectorCard: React.FC<ConnectorCardProps> = ({
     try {
       await refreshTokens(connector.provider).unwrap();
       if (onRefreshSuccess) onRefreshSuccess();
-    } catch {
-      if (onRefreshError) onRefreshError();
+    } catch (error) {
+      if (onRefreshError) onRefreshError(getCaughtErrorMessage(error));
     }
   };
 
