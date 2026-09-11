@@ -1,4 +1,5 @@
 import { NetWorthDataPoint, PortfolioSummaryDto } from '@/apis/portfolioApis/types';
+import { todayISO } from '@/utils/date';
 
 const TYPE_LABEL: Record<string, string> = {
   STOCK: '股票',
@@ -76,7 +77,7 @@ export function exportPortfolioCsv(summary: PortfolioSummaryDto) {
     p.exposureFactor,
   ]);
 
-  const date = summary.effectiveDate ?? new Date().toISOString().slice(0, 10);
+  const date = summary.effectiveDate ?? todayISO();
   downloadCsv([headers, ...rows], `portfolio_${date}.csv`);
 }
 

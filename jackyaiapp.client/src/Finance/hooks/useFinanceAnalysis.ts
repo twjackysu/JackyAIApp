@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
 
-import { getCurrentDate } from '../utils/financeHelpers';
-
 import type { AnalysisConfig } from '../components';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
@@ -11,6 +9,7 @@ import {
   useGetComprehensiveAnalysisMutation,
 } from '@/apis/financeApis';
 import { StockTrendAnalysis, StockAnalysisResultData } from '@/apis/financeApis/types';
+import { todayISO } from '@/utils/date';
 
 /** Detect market from stock code: numeric (with optional trailing letter) = TW, otherwise US */
 const detectMarket = (code: string): 'TW' | 'US' =>
@@ -43,7 +42,7 @@ export function useFinanceAnalysis() {
   const [analysisTab, setAnalysisTab] = useState<number>(TAB_QUANTITATIVE);
   const [analysisConfig, setAnalysisConfig] = useState<AnalysisConfig>(DEFAULT_CONFIG);
 
-  const currentDate = useMemo(() => getCurrentDate(), []);
+  const currentDate = useMemo(() => todayISO(), []);
   const { data: userInfo } = useGetUserInfoQuery();
   const isAuthenticated = !!userInfo?.data;
 
