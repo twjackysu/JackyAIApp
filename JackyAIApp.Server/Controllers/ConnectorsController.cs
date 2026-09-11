@@ -38,7 +38,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>
         /// Initiates OAuth flow for a specific provider
         /// </summary>
-        /// <param name="provider">The provider name (Microsoft, Atlassian, Google)</param>
+        /// <param name="provider">The provider name (see <see cref="ConnectorProviders"/>)</param>
         /// <param name="customConfig">Optional custom OAuth configuration</param>
         /// <returns>OAuth authorization URL</returns>
         [HttpPost("{provider}/connect")]
@@ -56,10 +56,10 @@ namespace JackyAIApp.Server.Controllers
             }
 
             // Normalize provider name
-            var normalizedProvider = NormalizeProviderName(provider);
+            var normalizedProvider = ConnectorProviders.Normalize(provider);
             if (normalizedProvider == null)
             {
-                return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
+                return BadRequest($"Invalid provider name. Supported providers: {ConnectorProviders.SupportedNames}");
             }
 
             try
@@ -92,7 +92,7 @@ namespace JackyAIApp.Server.Controllers
                 return BadRequest("Provider name is required");
             }
 
-            var normalizedProvider = NormalizeProviderName(provider);
+            var normalizedProvider = ConnectorProviders.Normalize(provider);
             if (normalizedProvider == null)
             {
                 return BadRequest("Invalid provider name");
@@ -121,7 +121,7 @@ namespace JackyAIApp.Server.Controllers
                 return Unauthorized("User ID not found in claims");
             }
 
-            var normalizedProvider = NormalizeProviderName(provider);
+            var normalizedProvider = ConnectorProviders.Normalize(provider);
             if (normalizedProvider == null)
             {
                 return BadRequest("Invalid provider name");
@@ -150,10 +150,10 @@ namespace JackyAIApp.Server.Controllers
                 return Unauthorized("User ID not found in claims");
             }
 
-            var normalizedProvider = NormalizeProviderName(provider);
+            var normalizedProvider = ConnectorProviders.Normalize(provider);
             if (normalizedProvider == null)
             {
-                return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
+                return BadRequest($"Invalid provider name. Supported providers: {ConnectorProviders.SupportedNames}");
             }
 
             var accessToken = await _connectorService.GetAccessTokenAsync(userId, normalizedProvider);
@@ -183,10 +183,10 @@ namespace JackyAIApp.Server.Controllers
                 return Unauthorized("User ID not found in claims");
             }
 
-            var normalizedProvider = NormalizeProviderName(provider);
+            var normalizedProvider = ConnectorProviders.Normalize(provider);
             if (normalizedProvider == null)
             {
-                return BadRequest("Invalid provider name. Supported providers: Microsoft, Atlassian, Google");
+                return BadRequest($"Invalid provider name. Supported providers: {ConnectorProviders.SupportedNames}");
             }
 
             var refreshToken = await _connectorService.GetRefreshTokenAsync(userId, normalizedProvider);
@@ -201,18 +201,6 @@ namespace JackyAIApp.Server.Controllers
                 refreshToken,
                 retrievedAt = DateTime.UtcNow
             });
-        }
-
-
-        private static string? NormalizeProviderName(string provider)
-        {
-            return provider?.ToLowerInvariant() switch
-            {
-                "microsoft" => "Microsoft",
-                "atlassian" => "Atlassian",
-                "google" => "Google",
-                _ => null
-            };
         }
     }
 }

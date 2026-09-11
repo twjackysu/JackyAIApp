@@ -18,7 +18,7 @@ namespace JackyAIApp.Server.Services
         /// Initiates OAuth flow for a provider
         /// </summary>
         /// <param name="userId">The user ID</param>
-        /// <param name="provider">The provider name (Microsoft, Atlassian, Google)</param>
+        /// <param name="provider">The provider name (see <see cref="Common.ConnectorProviders"/>)</param>
         /// <param name="customConfig">Optional custom OAuth configuration</param>
         /// <returns>OAuth authorization URL</returns>
         Task<string> StartConnectAsync(string userId, string provider, CustomConnectRequestDto? customConfig = null);

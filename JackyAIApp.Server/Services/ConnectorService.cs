@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
@@ -88,7 +89,7 @@ namespace JackyAIApp.Server.Services
             var authUrl = config.AuthUrl;
             
             // For Microsoft, replace tenant ID placeholder if custom tenant provided
-            if (provider == "Microsoft" && !string.IsNullOrWhiteSpace(tenantId))
+            if (provider == ConnectorProviders.Microsoft && !string.IsNullOrWhiteSpace(tenantId))
             {
                 authUrl = authUrl.Replace("{YOUR_TENANT_ID}", tenantId);
             }
@@ -103,15 +104,15 @@ namespace JackyAIApp.Server.Services
                 $"&state={Uri.EscapeDataString(state)}";
 
             // Add provider-specific parameters
-            if (provider == "Microsoft")
+            if (provider == ConnectorProviders.Microsoft)
             {
                 authUrl += "&response_mode=query";
             }
-            else if (provider == "Atlassian")
+            else if (provider == ConnectorProviders.Atlassian)
             {
                 authUrl += "&audience=api.atlassian.com&prompt=consent";
             }
-            else if (provider == "Google")
+            else if (provider == ConnectorProviders.Google)
             {
                 authUrl += "&access_type=offline&prompt=consent";
             }
@@ -212,7 +213,7 @@ namespace JackyAIApp.Server.Services
                 var tokenUrl = config.TokenUrl;
 
                 // For Microsoft, use custom tenant ID if available
-                if (provider == "Microsoft" && !string.IsNullOrWhiteSpace(userConnector?.CustomTenantId))
+                if (provider == ConnectorProviders.Microsoft && !string.IsNullOrWhiteSpace(userConnector?.CustomTenantId))
                 {
                     tokenUrl = tokenUrl.Replace("{YOUR_TENANT_ID}", userConnector.CustomTenantId);
                 }
@@ -299,7 +300,7 @@ namespace JackyAIApp.Server.Services
                     ? _tokenEncryption.DecryptToken(userConnector.EncryptedCustomClientSecret)
                     : config.ClientSecret;
                 var tokenUrl = config.TokenUrl;
-                if (provider == "Microsoft" && !string.IsNullOrWhiteSpace(userConnector.CustomTenantId))
+                if (provider == ConnectorProviders.Microsoft && !string.IsNullOrWhiteSpace(userConnector.CustomTenantId))
                 {
                     tokenUrl = tokenUrl.Replace("{YOUR_TENANT_ID}", userConnector.CustomTenantId);
                 }
