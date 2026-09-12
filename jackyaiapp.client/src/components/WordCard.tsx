@@ -24,6 +24,7 @@ import {
   useDeleteRepositoryWordMutation,
   usePutRepositoryWordMutation,
 } from '@/apis/repositoryApis';
+import { ActionTooltip } from '@/components/hints';
 
 interface Props {
   word?: Word | null;
@@ -89,12 +90,14 @@ function WordCard({
               {word?.word}
             </Typography>
             {word && (
-              <IconButton
-                sx={{ m: { xs: 0, sm: 2 }, p: { xs: 0.5, sm: 2 } }}
-                onClick={handleWordClick}
-              >
-                <PlayCircleIcon />
-              </IconButton>
+              <ActionTooltip title="播放發音">
+                <IconButton
+                  sx={{ m: { xs: 0, sm: 2 }, p: { xs: 0.5, sm: 2 } }}
+                  onClick={handleWordClick}
+                >
+                  <PlayCircleIcon />
+                </IconButton>
+              </ActionTooltip>
             )}
           </Stack>
           {word && !isHideFavoriteButton && (
@@ -105,12 +108,20 @@ function WordCard({
                 alignItems: 'center',
               }}
             >
-              <IconButton sx={{ m: { xs: 0, sm: 2 }, p: { xs: 0.5, sm: 2 } }} disabled={isFetching}>
-                {isFavorite ? (
-                  <FavoriteIcon onClick={handleDeleteFavoriteClick} />
-                ) : (
-                  <FavoriteBorder onClick={handleFavoriteClick} />
-                )}
+              {/* The handler belongs on the button, not the icon: a click landing on the
+                  button's own padding used to do nothing, and keyboard activation fires the
+                  click on the <button> element — which never reached a handler sitting on
+                  the child <svg>.
+                  Named with a bare aria-label rather than an ActionTooltip because this button
+                  goes disabled while fetching, and a disabled child fires no events for a
+                  Tooltip to listen to (MUI logs a warning for exactly this). */}
+              <IconButton
+                sx={{ m: { xs: 0, sm: 2 }, p: { xs: 0.5, sm: 2 } }}
+                disabled={isFetching}
+                aria-label={isFavorite ? '從單字庫移除' : '加入單字庫'}
+                onClick={isFavorite ? handleDeleteFavoriteClick : handleFavoriteClick}
+              >
+                {isFavorite ? <FavoriteIcon /> : <FavoriteBorder />}
               </IconButton>
               <AdminInvalidWordButton word={word.word} />
             </Stack>
@@ -151,14 +162,16 @@ function WordCard({
                       <Typography variant="body2" sx={{ color: lightGreen[200] }}>
                         {exampleSentence.english}
                       </Typography>
-                      <IconButton
-                        sx={{ m: 0, p: 0 }}
-                        onClick={() => {
-                          playGoogleNormal(exampleSentence.english);
-                        }}
-                      >
-                        <PlayCircleIcon />
-                      </IconButton>
+                      <ActionTooltip title="播放例句">
+                        <IconButton
+                          sx={{ m: 0, p: 0 }}
+                          onClick={() => {
+                            playGoogleNormal(exampleSentence.english);
+                          }}
+                        >
+                          <PlayCircleIcon />
+                        </IconButton>
+                      </ActionTooltip>
                     </Stack>
                     <Typography variant="body2" sx={{ color: lightGreen[200] }}>
                       {exampleSentence.chinese}
