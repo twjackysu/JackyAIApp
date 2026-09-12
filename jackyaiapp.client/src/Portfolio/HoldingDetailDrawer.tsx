@@ -22,6 +22,7 @@ import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip, InfoPopover } from '@/components/hints';
 import MarkdownMessage from '@/components/MarkdownMessage';
+import { CREDIT_COSTS } from '@/constants/creditCosts';
 import { fmtNum, fmtQty, fmtSigned, GAIN_COLOR, LOSS_COLOR, pnlColor } from '@/utils/format';
 
 interface Props {
@@ -172,6 +173,9 @@ function AiTechSummary({ market, symbol }: { market: string; symbol: string }) {
       >
         {isFetching ? 'AI 分析中…' : 'AI 技術面總結'}
       </Button>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+        每次 AI 總結消耗 {CREDIT_COSTS.PORTFOLIO_AI_SUMMARY} 點使用額度
+      </Typography>
 
       {isFetching && <CenteredSpinner size={24} sx={{ py: 3 }} />}
 

@@ -1,10 +1,14 @@
 /**
  * Client-side mirror of JackyAIApp.Server/Common/CreditCosts.cs
  * Backend is the source of truth — keep in sync when backend values change.
+ *
+ * Every key here must name an existing backend constant (SCREAMING_SNAKE_CASE of its PascalCase
+ * name) and carry the same value — creditCosts.test.ts reads the .cs file and fails the build
+ * otherwise, so a price the UI shows can no longer silently disagree with the one actually charged.
+ * A feature the backend charges for but the UI never labels is exactly the drift that check cannot
+ * see, so add the entry here and show it wherever the charged action is triggered.
  */
 export const CREDIT_COSTS = {
-  /** Dictionary word lookup (AI-generated definitions) */
-  DICTIONARY_LOOKUP: 1,
   /** Cloze test generation */
   CLOZE_TEST: 2,
   /** Translation test generation */
@@ -29,6 +33,10 @@ export const CREDIT_COSTS = {
   AUDIO_TRANSCRIPTION: 1,
   /** Stock analysis (AI-powered) */
   STOCK_ANALYSIS: 5,
+  /** Daily AI market digest — charged on the day's first view, re-reads that day are free */
+  MARKET_DIGEST: 3,
+  /** Portfolio AI technical-analysis summary for a single holding */
+  PORTFOLIO_AI_SUMMARY: 2,
   /** Floating AI chatbot — charged per message sent */
   CHAT_MESSAGE: 5,
   /** Text-to-speech synthesis */
