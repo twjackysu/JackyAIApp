@@ -45,8 +45,29 @@
 - No code or architecture changes. Tech Lead has no action yet — waiting
   on Boss to approve the direction before scoping the payment-flow rework.
 
+## 2026-09-12 — PM: Strategy pivot away from monetization (DECISION-003)
+
+- Boss replied before answering the 4 monetization-proposal questions:
+  pause revenue work entirely. New top priority — retention (features
+  people keep using long-term), lower cloud cost, and growing the user
+  base into something popular **without paid ads**.
+- Recorded **DECISION-003** in `.agent/product/DECISIONS.md`.
+- `REQUIREMENTS.md`: Credits & Payments downgraded HIGH/BLOCKED →
+  LOW/ON HOLD (kept running as-is, no further investment, single-transaction
+  proposal parked not abandoned). Added new top-priority requirement
+  **"Growth & Retention (No Paid Ads)"** — key idea: expose already-cached
+  Dictionary word pages publicly for SEO (near-zero marginal cost, doubles
+  as both growth and cost-conscious), plus shareable Daily
+  Challenge/streak/exam results, referral mechanics with non-monetary
+  rewards, and cost-per-user discipline on any new initiative.
+- Open question sent to Boss in `.agent/boss/PM.md`: target audience for
+  growth (general public vs. students/cram schools) and any existing
+  channel to seed from.
+- No code/architecture changes. Tech Lead has no action yet on payments;
+  may get engaged later specifically on cloud-cost-reduction technical
+  options once Boss confirms audience/direction for growth.
+
 ## Open Items
-- Waiting on Boss response to the 2026-09-12 補充 proposal in
-  `.agent/boss/PM.md` (4 open questions) before Credits & Payments
-  requirements can be finalized or Tech Lead engaged on the payment-flow
-  redesign.
+- Waiting on Boss's answer on target audience / seed channel for growth
+  (see `.agent/boss/PM.md`) before sequencing the Growth & Retention
+  backlog or looping in Tech Lead.

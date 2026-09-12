@@ -25,6 +25,102 @@ Monetization model as built: a **prepaid credit system** — users buy credit pa
 TTS/STT, stock analysis, chatbot) consume credits (`Common/CreditCosts.cs`). Some
 actions are free (dictionary lookup, Daily Challenge, spaced review).
 
+**2026-09-12 update (DECISION-003)**: monetization work is paused. Near-term
+product priority is (1) features that keep users coming back long-term, (2)
+lower cloud/operating cost, and (3) growing the user base into something
+genuinely popular — **without paid advertising**. Revenue is explicitly not
+the current goal; see the new Growth & Retention requirement below and the
+downgraded Credits & Payments requirement.
+
+---
+
+## Requirement: Growth & Retention (No Paid Ads)
+
+### Goal
+Grow a real, engaged user base and keep people using the product long-term,
+without spending on paid advertising and without increasing cloud cost per
+user — per DECISION-003, this is the top product priority for now, ahead of
+any monetization work.
+
+### User Story
+As Boss, I want the product to become genuinely popular through people
+actually wanting to use and share it, so that a real user base exists before
+we ever revisit charging money for it.
+
+### Requirements
+Two goals that should be optimized together wherever possible — initiatives
+that grow the user base *and* cost little/nothing extra per new user should
+be prioritized over ones that grow cost linearly with users:
+
+1. **Organic acquisition without ad spend**
+   - The Dictionary word-lookup pages are a natural fit: once a word is
+     AI-generated it's cached (`Word`/`WordMeaning`) and served to everyone
+     at near-zero marginal cost. Making individual word pages publicly
+     viewable and indexable by search engines (no login required to *view*
+     an already-generated word, login still required to save/track it)
+     turns existing cached content into free SEO-driven traffic — this is
+     the single highest-leverage idea because it grows users and barely
+     grows cost at the same time.
+   - Shareable results: a user's Daily Challenge score, streak, or exam
+     result should be easy to share outside the app (social media / LINE),
+     since word-of-mouth is the only acquisition channel in scope.
+   - Referral / invite mechanics between users (e.g. friends on the same
+     leaderboard) — reward with non-monetary incentives (cosmetic badges,
+     streak protection), not credits, since Credits & Payments is on hold.
+2. **Long-term retention (making people want to keep using it)**
+   - Strengthen the free daily loop (Daily Challenge / Review / Streak) —
+     this is already the retention engine per the existing requirement below
+     and should not regress.
+   - Push notifications / reminders for streak-at-risk users (subject to
+     Tech Lead evaluating feasibility/cost of a notification channel).
+   - Finish or improve features that are currently incomplete or rough
+     (e.g. Sentence Formation Test) only where doing so measurably improves
+     retention, not as general polish.
+3. **Cloud cost reduction**
+   - Any change should be evaluated for its effect on AI/API/DB cost per
+     active user, not just feature value. Caching, rate-limiting expensive
+     AI calls, and reusing already-generated content (as above) counts as
+     product work here, not just a technical nice-to-have.
+
+### Acceptance Criteria
+- [ ] At least one previously-gated piece of content (e.g. a generated word
+      page) is publicly viewable and indexable without login.
+- [ ] Users can share a Daily Challenge/streak/exam result outside the app
+      (a shareable link or image) without needing credits or payment.
+- [ ] No initiative in this requirement relies on paid advertising or paid
+      promotion.
+- [ ] No initiative here is shipped without at least a rough answer to
+      "does this increase cost per user, and is that acceptable" — flagged
+      to Tech Lead if unclear.
+
+### Priority
+HIGH — the current top product priority per DECISION-003, ahead of Credits &
+Payments and ahead of any feature that only serves paying users.
+
+### Scope
+#### In Scope
+- SEO/public-content exposure of already-cached, already-free content.
+- Sharing/referral mechanics using non-monetary rewards.
+- Retention improvements to the existing free loop.
+- Cost-reduction changes that don't degrade the free experience.
+#### Out of Scope
+- Any paid advertising or paid user-acquisition spend.
+- Anything that requires re-opening the Credits & Payments question.
+
+#### Future Consideration
+- Community/classroom features (e.g. teachers or cram schools inviting
+  student groups) as a possible higher-leverage growth channel for the
+  English-learning audience specifically — not scoped yet, needs Boss input
+  on whether that audience is a deliberate target.
+
+### Open Questions
+- Is there a specific target audience to focus growth on (general public vs.
+  students / cram schools / adult self-learners), or general organic growth
+  across the board? Affects which of the ideas above to sequence first —
+  tracked in `.agent/boss/PM.md`.
+- Any existing channel (社群、LINE 社團、既有使用者) worth seeding growth from,
+  or starting fully from zero?
+
 ---
 
 ## Requirement: Dictionary & Word Repository
@@ -130,9 +226,9 @@ not buying credits.
       not a bug).
 
 ### Priority
-HIGH — this is the free funnel that is supposed to lead to paid conversion; per
-Boss's short-term goal (more features users are willing to pay for), this is the
-top of that funnel and should not be weakened while paid features are expanded.
+HIGH — per DECISION-003 (2026-09-12) this loop *is* the current product
+priority in its own right (retention, not a funnel to paid conversion, which
+is on hold), and should not be weakened.
 
 ### Scope
 #### In Scope
@@ -276,14 +372,20 @@ like, so I don't need a separate purchase per feature.
 - [ ] Balance and history are visible to the user at all times (`/credits`).
 
 ### Priority
-**HIGH, but currently BLOCKED — see Constraints.** This is the entire monetization
-path for the product; per Boss's short-term goal it's also the thing that most
-needs product attention once unblocked.
+**LOW — ON HOLD (DECISION-003, 2026-09-12).** Was HIGH/BLOCKED on the trust/
+信託 legal question; Boss has since deprioritized monetization entirely until
+the product has a real, engaged user base. Keep the existing implementation
+running as-is (it costs nothing to leave alone), but no further product
+investment here for now — see Growth & Retention requirement below for where
+effort is going instead.
 
 ### Scope
 #### In Scope
-- The three-provider, three-pack model as currently built.
-#### Out of Scope (until the blocker below is resolved)
+- The three-provider, three-pack model as currently built — maintained,
+  not extended.
+#### Out of Scope (until Boss revisits monetization)
+- Any new pricing model work (including the 2026-09-12 "single-transaction
+  purchase" proposal in `.agent/boss/PM.md` — parked, not abandoned).
 - Marketing or in-app pushes to purchase credits.
 - Adding more credit packs or raising prices.
 - Enabling real (non-sandbox) transactions on any provider.
@@ -308,13 +410,13 @@ needs product attention once unblocked.
 ### Open Questions
 - ~~Whether to keep the prepaid-credit model~~ — **resolved (2026-09-12, DECISION-001
   / DECISION-002)**: Boss ruled out trust/履約保證/company registration AND
-  subscription. PM has since verified (LINE Pay's own individual-merchant rules)
-  that *any* deferred/stored-value model — credits, point packs, courses,
+  subscription. PM verified (LINE Pay's own individual-merchant rules) that
+  *any* deferred/stored-value model — credits, point packs, courses,
   memberships — hits the same regulatory wall regardless of payment provider.
-  A concrete replacement proposal ("single-transaction, delivered-immediately"
-  purchases per feature, e.g. one cloze set, one stock report) is written up in
-  `.agent/boss/PM.md` (2026-09-12 補充) and awaiting Boss approval before it
-  becomes a finalized requirement here or goes to Tech Lead.
-- Still open: which specific features get converted first (pilot vs. all at
-  once), per-item pricing, and whether ads/donation are pursued in parallel —
-  see Open Questions in `.agent/boss/PM.md`.
+  A replacement proposal ("single-transaction, delivered-immediately"
+  purchases per feature) was written up in `.agent/boss/PM.md` (2026-09-12
+  補充).
+- **Superseded (2026-09-12, DECISION-003)** before Boss answered those 4
+  questions: monetization itself is now on hold. The single-transaction
+  proposal is parked for whenever Boss revisits revenue — not rejected, just
+  not current work. No Tech Lead engagement on payment-flow redesign for now.
