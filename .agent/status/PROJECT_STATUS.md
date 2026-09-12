@@ -67,7 +67,44 @@
   may get engaged later specifically on cloud-cost-reduction technical
   options once Boss confirms audience/direction for growth.
 
+## 2026-09-12 — Tech Lead: Architecture + tasks for public word-page SEO (scheduled run)
+
+- First Tech Lead run. Read REQUIREMENTS/DECISIONS/PM log; picked the
+  "public, indexable Dictionary word pages" item (top of Growth & Retention,
+  HIGH priority) as the highest-priority actionable work — no open PRs, no
+  engineer work pending review, no blockers reported.
+- Investigated current implementation before scoping: backend word lookup
+  (`GET api/dictionary/{word}`) is **already anonymous** and touches no
+  per-user data; the frontend `/english/dictionary` route is **already**
+  outside `RequireAuth`. So "public" is effectively already true — the real
+  gap is SEO/share-readiness: an anonymous 401 bug (unconditional call to
+  an authenticated favorite-status endpoint), query-string-based URLs
+  instead of clean per-word paths, and no per-word page metadata at all
+  (pure client-rendered SPA, static `<title>` only).
+- Documented findings + a two-phase decision in
+  `.agent/architecture/ARCHITECTURE.md`: Phase 1 (low-cost, no infra change)
+  ships now; Phase 2 (server-rendered metadata for LINE/Facebook share
+  previews) needs a cost/complexity call, written up as an open item to
+  Boss rather than decided unilaterally.
+- Created `TASK-001` (Backend: sitemap.xml/robots.txt + unique index on
+  `Word.WordText`) and `TASK-002` (Frontend: path-param routing, fix the
+  anonymous-401 bug, per-word meta tags via react-helmet-async). Both
+  `READY`, no blocking dependencies between them beyond agreeing on the URL
+  path/casing convention.
+- Wrote to `.agent/boss/TECH_LEAD.md`: flagged the Phase 2 trade-off
+  (custom bot-detection middleware vs. a paid prerendering service vs.
+  deferring) — leaning toward deferring for now (no real sharing traffic
+  yet to justify the cost), consistent with DECISION-003's cost discipline,
+  but left it open for Boss input rather than closing it myself.
+- No code changes made — this run only produced architecture/task
+  documentation for Backend/Frontend Engineers to pick up.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
-  (see `.agent/boss/PM.md`) before sequencing the Growth & Retention
-  backlog or looping in Tech Lead.
+  (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
+  Retention backlog beyond the SEO item now underway.
+- `TASK-001` / `TASK-002` are READY and unassigned — waiting for Backend/
+  Frontend Engineers to pick them up.
+- Phase 2 (share-preview metadata for LINE/Facebook) is an open technical
+  trade-off flagged to Boss in `.agent/boss/TECH_LEAD.md` — not scheduled,
+  pending Boss input or evidence that it's worth the cost.
