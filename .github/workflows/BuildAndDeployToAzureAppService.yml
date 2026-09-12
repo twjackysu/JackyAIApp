@@ -1,7 +1,8 @@
 name: Build and deploy
 on:
   workflow_dispatch:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - master
 env:
@@ -12,6 +13,10 @@ env:
   WORKING_DIRECTORY: JackyAIApp.Server
 jobs:
   build-and-deploy:
+    # GitHub has no "merged" trigger — `closed` also fires for a PR that was abandoned, and that
+    # must not deploy. workflow_dispatch stays as the way to ship anything that did not arrive
+    # through a PR (a direct push to master no longer deploys on its own).
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: windows-latest
     env:
       # azure/webapps-deploy@v3 still runs on Node.js 20; no v4 available yet.
@@ -19,6 +24,11 @@ jobs:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
     - uses: actions/checkout@v6
+      with:
+        # A closed pull_request checks out refs/pull/N/merge by default, which is a merge preview
+        # built before the PR landed — not what is now on master. Deploy the commit that actually
+        # landed. Null on workflow_dispatch, where github.ref is already the right thing.
+        ref: ${{ github.event.pull_request.merge_commit_sha || github.ref }}
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v5
       with:

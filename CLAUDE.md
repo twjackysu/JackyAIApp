@@ -151,7 +151,12 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 - **Logging**: NLog with structured logging patterns
 
 ### Deployment
-- **CI/CD**: GitHub Actions, "Build and deploy" workflow triggers automatically on every push to `master` (i.e. every merged PR deploys) — not manual-only
+- **CI/CD**: GitHub Actions, "Build and deploy" workflow triggers when a pull request into
+  `master` is **merged** (`pull_request: [closed]` gated on `merged == true`), plus manual
+  `workflow_dispatch`. It deploys `pull_request.merge_commit_sha` — the commit that landed —
+  not the pre-merge preview ref a closed `pull_request` checks out by default
+- **A direct push to `master` does NOT deploy.** Closing a PR without merging does not either.
+  Anything that lands outside a PR needs a manual run of the workflow
 - **Target**: Azure App Service (`JackyAI`)
 - **Process**: Build → Test → Publish → Deploy with Azure publish profile
 - **Gotcha**: two pushes to `master` in quick succession can cancel the earlier in-flight deploy run — check `gh run list` after a merge; if cancelled, the *next* successful run for a later commit still deploys everything (git history is linear), but if nothing later ran, re-trigger it
