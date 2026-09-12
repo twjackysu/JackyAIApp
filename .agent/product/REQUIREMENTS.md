@@ -306,6 +306,15 @@ needs product attention once unblocked.
   push.
 
 ### Open Questions
-- Whether to keep the prepaid-credit model (needs 信託 or a legal workaround),
-  or move to a pay-per-use / subscription model that isn't legally "prepaid" —
-  **this is a Boss decision**, tracked in `.agent/boss/PM.md`, not decided here.
+- ~~Whether to keep the prepaid-credit model~~ — **resolved (2026-09-12, DECISION-001
+  / DECISION-002)**: Boss ruled out trust/履約保證/company registration AND
+  subscription. PM has since verified (LINE Pay's own individual-merchant rules)
+  that *any* deferred/stored-value model — credits, point packs, courses,
+  memberships — hits the same regulatory wall regardless of payment provider.
+  A concrete replacement proposal ("single-transaction, delivered-immediately"
+  purchases per feature, e.g. one cloze set, one stock report) is written up in
+  `.agent/boss/PM.md` (2026-09-12 補充) and awaiting Boss approval before it
+  becomes a finalized requirement here or goes to Tech Lead.
+- Still open: which specific features get converted first (pilot vs. all at
+  once), per-item pricing, and whether ads/donation are pursued in parallel —
+  see Open Questions in `.agent/boss/PM.md`.
