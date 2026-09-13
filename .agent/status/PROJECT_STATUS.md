@@ -149,9 +149,50 @@
   Boss in `.agent/boss/TECH_LEAD.md` with the explanation.
 - No code changes — task/architecture documentation only.
 
+## 2026-09-13 — Backend: TASK-001 PR opened; found a repo-wide CI time-bomb (scheduled run)
+
+- Implemented `TASK-001` (sitemap.xml/robots.txt, `seoTitle`/`seoDescription`
+  fields via a new `WordSeoTextFormatter`, unique index migration on
+  `Word.WordText`) and opened
+  [PR #328](https://github.com/twjackysu/JackyAIApp/pull/328). No `dotnet`
+  SDK or DB connectivity in this sandbox — compensated with a careful
+  manual read-through plus an independent review-agent pass; flagged in
+  the PR that an actual CI/build run is still needed to confirm.
+- CI's `build-and-test-server` failed on the PR. Investigated: **not**
+  caused by this PR's diff. `SECInsiderTradingProviderTests.FetchAsync_ParsesTransactionReportTable`
+  (`JackyAIApp.Server.Tests/Services/Finance/US/`) is a fixture-based test
+  (`Fixtures/SEC/insider_transactions_aapl.html`, dated 2026-06-15/16)
+  asserting against `SECInsiderTradingProvider`'s "last 90 days" filter
+  (`Services/Finance/DataProviders/US/SECInsiderTradingProvider.cs:49`,
+  `DateTime.UtcNow.AddDays(-90)`). Today (2026-09-13) is exactly 90 days
+  past the fixture's earliest date, so the fixed-date fixture now falls
+  outside the live 90-day window — a time-bomb test, unrelated to any
+  in-flight task. Confirmed via one re-run (identical failure, not a
+  flake) before concluding this.
+- **This will keep failing (and get worse) on every PR's CI from now on**,
+  not just #328 — it's a shared-infrastructure problem, not something to
+  fix inside TASK-001 (out of scope, and Backend doesn't own that module
+  in this task). Proposed patch for whoever picks it up: inject a
+  `TimeProvider`/clock into `SECInsiderTradingProvider` so the test can
+  pin "now", or restructure the test to assert on `ParseOwnershipTable`'s
+  raw output before the date filter and cover the 90-day cutoff separately
+  with a fixed reference date, instead of a fixture with hardcoded dates
+  racing `DateTime.UtcNow`. Documented full root-cause on the PR
+  (comment: https://github.com/twjackysu/JackyAIApp/pull/328#issuecomment-5653367141).
+- Not fixed as part of this PR — flagging to Tech Lead via this status
+  log per the architecture-issue escalation path, since it blocks CI
+  repo-wide rather than being specific to TASK-001.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` / `TASK-002` / `TASK-003` are READY and unassigned — waiting
-  for a Backend/Frontend Engineer to pick them up.
+- `TASK-001` is `PR_OPENED` ([#328](https://github.com/twjackysu/JackyAIApp/pull/328));
+  `TASK-002` / `TASK-003` are still READY and unassigned.
+- **New, unassigned**: `SECInsiderTradingProviderTests.FetchAsync_ParsesTransactionReportTable`
+  is a time-bomb test (fixed 2026-06-15/16 fixture dates vs. a live
+  90-day `DateTime.UtcNow` filter) that started failing 2026-09-13 and
+  will keep failing/worsening on every PR's CI going forward. Needs a
+  Tech Lead decision on priority/ownership (see the 2026-09-13 Backend
+  entry above for root cause + a proposed patch) — not part of any
+  current task.
