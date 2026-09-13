@@ -7,7 +7,7 @@ Frontend: canonical word-path routing + per-word meta tags + fix anonymous 401
 Frontend
 
 ## Status
-READY
+PR_OPENED (partial — Requirement 3 blocked, see Result)
 
 ## Priority
 HIGH
@@ -68,19 +68,23 @@ task is about making it actually SEO/share-ready, plus a correctness fix.
      implementations in sync.
 
 ## Acceptance Criteria
-- [ ] Visiting `/english/dictionary/apple` (no login) renders the word page
+- [x] Visiting `/english/dictionary/apple` (no login) renders the word page
       directly from the path, no query string involved.
-- [ ] Old query-string links (`?word=apple`), if any exist externally,
+- [x] Old query-string links (`?word=apple`), if any exist externally,
       either still work via a redirect or are acceptably deprecated —
       confirm with Tech Lead which approach before removing query-string
       support entirely, in case existing bookmarks/shares rely on it.
-- [ ] Logged-out visitor triggers **no** request to
+      → Implemented as a client-side redirect (see Result).
+- [x] Logged-out visitor triggers **no** request to
       `GET /api/repository/word/{wordId}` (check network tab / test).
-- [ ] Favorite button is hidden or clearly gated (not silently broken) for
+- [x] Favorite button is hidden or clearly gated (not silently broken) for
       anonymous users.
 - [ ] Page `<title>` and meta description change per word and are visible in
       rendered DOM (view-source or React DevTools — confirm it's not only
       set post-hydration in a way a headless check would miss).
+      **BLOCKED** — depends on TASK-001 shipping `seoTitle`/`seoDescription`
+      on `GET api/dictionary/{word}`, which hasn't landed yet (no PR, no
+      code in the backend as of this run). Not implemented — see Result.
 
 ## Technical Notes
 - `RequireAuth.tsx` does a hard redirect and is not reusable here — do not
@@ -96,7 +100,90 @@ task is about making it actually SEO/share-ready, plus a correctness fix.
   either side hard-codes them.
 
 ## Result
-(fill in on completion)
+
+**Implemented (Requirements 1 & 2):**
+- Path-param routing: added `dictionary/:word` alongside the existing bare
+  `dictionary` route in `EnglishLearning/index.tsx`. `Dictionary/index.tsx`
+  now reads the word via `useParams()`; the search box, recently-searched
+  clicks, and spell-suggestion clicks all `navigate()` to the canonical
+  path instead of setting local state.
+- **Casing/encoding convention** (had to decide unilaterally since TASK-001
+  hasn't started — no Backend Engineer has claimed it yet): path segments
+  are lowercased and `encodeURIComponent`-ed. Verified against
+  `DictionaryService.GetWordAsync` (`JackyAIApp.Server`), which already
+  does `word.Trim().ToLower()` before matching `WordText` — so this is not
+  a new behavior, just making the existing server-side normalization the
+  public URL convention too. Extracted as a single helper,
+  `Dictionary/utils/wordPath.ts` (unit-tested), and reused it at the one
+  other internal link that pointed at the dictionary
+  (`Exam/ClozeTestCard/index.tsx`'s "查看單字" link, previously
+  `?word=` query-string) so there's exactly one place that formats this
+  path — same reasoning Tech Lead applied to the seoTitle/seoDescription
+  single-source-of-truth fix.
+- Old `?word=apple` links: handled with a client-side redirect
+  (`navigate(wordPath(legacyWord), { replace: true })`) rather than
+  dropping support. Chose this over "acceptably deprecated" because the
+  fix is one `useEffect`, there's no backend/infra cost, and it protects
+  the one pre-existing internal link and any external bookmark equally.
+  Flagging the choice here per the acceptance criterion's "confirm with
+  Tech Lead" — did not block on a synchronous answer since both options
+  were acceptable per the task and this is the lower-risk one; happy to
+  change if Tech Lead prefers otherwise.
+- Anonymous-401 fix: `useGetRepositoryWordsByWordIdQuery` now skips when
+  `!isLoggedIn` (same `!!useGetUserInfoQuery().data` signal
+  `EnglishLearning/Layout.tsx` already uses — not a new auth check).
+  `WordCard` already had an unused `isHideFavoriteButton` prop; wired it to
+  `!isLoggedIn` instead of adding new UI.
+- Side effect of path-param routing: `/english/dictionary/apple` no longer
+  string-equals the Dictionary tab's `value` in `EnglishLearningLayout`, so
+  the tab strip would show nothing selected while viewing a word. Fixed
+  `currentTab` there to also fold any `/english/dictionary/*` path onto
+  the Dictionary tab (mirrors the existing bare-`/english` handling
+  already in that file). Small, directly caused by this task's routing
+  change, not scope creep.
+
+**Not implemented — BLOCKED (Requirement 3, per-word metadata):**
+Checked before starting: no `seoTitle`/`seoDescription` field exists
+anywhere in the backend or frontend as of this run
+(`grep -rn "seoTitle|seoDescription"` → no matches), and there is no open
+PR for TASK-001 (checked via GitHub). TASK-001 is still unclaimed/READY.
+The task instructions are explicit that this frontend code must render
+`seoTitle`/`seoDescription` verbatim and must **not** compute its own
+title/description text in TypeScript (to avoid the exact drift risk Boss
+raised for TASK-003). Since that backend contract doesn't exist yet,
+building the `react-helmet-async` wiring now would mean either inventing
+an unofficial shape or writing throwaway formatting logic that violates
+the task's own reasoning — so left undone rather than either. `Dependencies`
+also explicitly calls for confirming field names/shape with Backend before
+hard-coding.
+Did not add `react-helmet-async` as a dependency yet either, since it
+would sit unused until Requirement 3 can be wired up.
+
+**Files changed:**
+- `jackyaiapp.client/src/EnglishLearning/index.tsx` — added `dictionary/:word` route.
+- `jackyaiapp.client/src/EnglishLearning/Layout.tsx` — tab-highlight fix for word paths.
+- `jackyaiapp.client/src/Dictionary/index.tsx` — path-param word, legacy-query redirect, anonymous-401 fix, favorite-button gating.
+- `jackyaiapp.client/src/Dictionary/utils/wordPath.ts` (new) + `wordPath.test.ts` (new) — shared canonical-path helper.
+- `jackyaiapp.client/src/Exam/ClozeTestCard/index.tsx` — reused `wordPath()` instead of a second `?word=` link.
+
+**Tests performed:**
+- `npm run lint` — clean (0 errors/warnings).
+- `npx vitest run` — 134/134 passing, including the 3 new `wordPath` tests.
+- `npm run build` — TypeScript compiles, production build succeeds.
+- Did not manually smoke-test in a browser (no `dotnet run` backend available
+  in this session to exercise the full request/response cycle) — flagging
+  this per the "don't claim tests passed if they weren't executed" rule.
+  Recommend a manual pass (search a word logged-out, confirm no 401 in the
+  network tab, confirm the favorite button is gone, click the old
+  `?word=` link from a bookmarked URL and confirm it lands on the path
+  URL) before this is called fully done.
+
+**Next step for this task:** once TASK-001 ships `seoTitle`/`seoDescription`
+on `GET api/dictionary/{word}`, add `react-helmet-async`
+(`HelmetProvider` at the app root, `<Helmet>` in `Dictionary/index.tsx`
+rendering those two fields verbatim + a canonical `<link>` built from
+`wordPath()`) to close out Requirement 3 and the last acceptance
+criterion, on the same branch/PR.
 
 ## Review
 (Tech Lead fills in after PR review)

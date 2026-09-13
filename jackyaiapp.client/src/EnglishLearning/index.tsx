@@ -23,6 +23,7 @@ interface EnglishChildRoute {
 
 const children: EnglishChildRoute[] = [
   { path: 'dictionary', element: <Dictionary /> },
+  { path: 'dictionary/:word', element: <Dictionary /> },
   {
     path: 'daily',
     element: (

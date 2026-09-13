@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom';
 
 import { useGetClozeTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
+import { wordPath } from '@/Dictionary/utils/wordPath';
 import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import WordRecap from '@/Exam/components/WordRecap';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
@@ -158,10 +159,7 @@ function ClozeTestCard() {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {renderFilledSentence(data.data.question, data.data.answer)}
           </Typography>
-          <Link
-            to={`/english/dictionary?word=${encodeURIComponent(data.data.answer)}`}
-            style={{ display: 'inline-block', marginTop: 8 }}
-          >
+          <Link to={wordPath(data.data.answer)} style={{ display: 'inline-block', marginTop: 8 }}>
             查看單字「{data.data.answer}」→
           </Link>
           <WordRecap word={data.data.answer} />

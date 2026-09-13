@@ -149,9 +149,49 @@
   Boss in `.agent/boss/TECH_LEAD.md` with the explanation.
 - No code changes — task/architecture documentation only.
 
+## 2026-09-13 — Frontend Engineer: TASK-002 partial (Requirements 1 & 2), blocked on TASK-001 for the rest (scheduled run)
+
+- Picked up `TASK-002` (only READY Frontend task). Implemented path-param
+  routing (`/english/dictionary/:word`, replacing `?word=`), a client-side
+  redirect for old query-string links, and the anonymous-401 fix (skip
+  `GET /api/repository/word/{wordId}` and hide the favorite button when
+  logged out, reusing the same `!!useGetUserInfoQuery().data` signal
+  `EnglishLearning/Layout.tsx` already uses).
+- Had to pick the word-path casing/encoding convention unilaterally since
+  TASK-001 (Backend) hasn't been started — no PR exists, no backend code
+  changed. Verified the choice (lowercase + URL-encoded) against
+  `DictionaryService.GetWordAsync`, which already lowercases before
+  matching `WordText`, so this doesn't change backend-visible behavior.
+  Extracted into one shared `Dictionary/utils/wordPath.ts` helper
+  (unit-tested) and reused it at the one other internal dictionary link
+  (`Exam/ClozeTestCard`) that still used the old query-string format.
+- **Did not implement Requirement 3** (per-word `<title>`/meta via
+  `react-helmet-async`): it depends on TASK-001 adding
+  `seoTitle`/`seoDescription` to `GET api/dictionary/{word}`, and the task
+  explicitly forbids computing that text in TypeScript (same drift concern
+  Boss raised for TASK-003) — confirmed via grep that no such fields exist
+  anywhere in the codebase yet. Left `TASK-002`'s last acceptance criterion
+  unchecked and documented the blocker + next step in
+  `.agent/tasks/TASK-002.md` → Result.
+- Verified: lint clean, 134/134 unit tests passing (incl. 3 new), and
+  production build succeeds. Did not manually smoke-test in a browser (no
+  running backend in this session) — flagged in the task file.
+- Opened PR from branch `claude/amazing-cori-3zqanx`. Task status set to
+  `PR_OPENED (partial)` rather than fully done, since Requirement 3 is
+  still outstanding pending TASK-001.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` / `TASK-002` / `TASK-003` are READY and unassigned — waiting
-  for a Backend/Frontend Engineer to pick them up.
+- `TASK-001` is still READY and unassigned — waiting for a Backend
+  Engineer to pick it up. Frontend's `TASK-002` metadata requirement
+  (`react-helmet-async` + `seoTitle`/`seoDescription`) is now blocked on
+  it specifically (not just unstarted) — see the Frontend Engineer entry
+  above.
+- `TASK-002` (Frontend): Requirements 1 & 2 done and in an open PR;
+  Requirement 3 (per-word metadata) blocked on TASK-001 — pick back up
+  once the backend fields land.
+- `TASK-003` (Backend) is READY and unassigned; also effectively blocked
+  behind TASK-001 since it's specified to call the same shared C# helper
+  TASK-001 introduces.
