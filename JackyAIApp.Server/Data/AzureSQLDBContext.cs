@@ -37,6 +37,22 @@ namespace JackyAIApp.Server.Data
                 .HasForeignKey(jc => jc.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Public routing key for word-detail pages (Growth & Retention SEO) — also closes a
+            // data-integrity gap, since uniqueness was previously enforced only by application
+            // logic (DictionaryService.LoadWordAsync's SingleOrDefaultAsync). nvarchar(max)
+            // cannot be indexed in SQL Server, so the column is bounded first; 450 chars is the
+            // largest an index key supports under the DB's default collation (900-byte key
+            // limit / 2 bytes per char). No custom collation introduced — uniqueness relies on
+            // whatever case sensitivity the database's default collation already provides, same
+            // as every other unique index in this file.
+            modelBuilder.Entity<Word>()
+                .Property(w => w.WordText)
+                .HasMaxLength(450);
+
+            modelBuilder.Entity<Word>()
+                .HasIndex(w => w.WordText)
+                .IsUnique();
+
             // Configure WordMeaning relationship
             modelBuilder.Entity<WordMeaning>()
                 .HasOne(wm => wm.Word)

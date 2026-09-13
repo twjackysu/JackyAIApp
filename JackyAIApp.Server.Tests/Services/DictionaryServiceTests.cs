@@ -85,7 +85,10 @@ namespace JackyAIApp.Server.Tests.Services
 
             // Assert
             Assert.True(result.IsSuccess);
-            Assert.Equal("hello", ((DTO.Word)result.Data!).Word);
+            var dto = (DTO.Word)result.Data!;
+            Assert.Equal("hello", dto.Word);
+            Assert.StartsWith("hello", dto.SeoTitle);
+            Assert.StartsWith("hello (noun):", dto.SeoDescription);
 
             // Should NOT call OpenAI since word exists
             _promptServiceMock.Verify(x => x.GetCompletionAsync<WordBase>(
