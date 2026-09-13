@@ -99,12 +99,34 @@
 - No code changes made — this run only produced architecture/task
   documentation for Backend/Frontend Engineers to pick up.
 
+## 2026-09-13 — Tech Lead: Answered Boss's Phase 2 questions, opened TASK-003 (scheduled run)
+
+- Boss asked in `.agent/boss/TECH_LEAD.md` about the lightweight
+  bot-detection middleware option (leaning toward it): downsides,
+  maintenance burden, and whether it actually helps get word pages found
+  via Google search.
+- Replied with two points: (1) the Google-search goal is already fully
+  served by Phase 1 (TASK-001/TASK-002) alone — Googlebot executes JS, so
+  it doesn't need the middleware at all; that pair of tasks was already
+  READY and unblocked by this question. (2) The middleware only affects
+  LINE/Facebook-style link-preview cards. Its maintenance cost is low
+  because those platforms' crawler User-Agents are official/public and
+  rarely change (unlike adversarial bot detection); the only real downside
+  is an unlisted platform's bot still getting a generic preview, which is
+  cosmetic, not functional.
+- Given the downsides turned out minor, proceeded to scope `TASK-003`
+  (Backend: social-preview middleware for known bot UAs) as READY, and
+  updated `ARCHITECTURE.md`'s Phase 2 section from "open trade-off" to
+  "resolved, proceeding with option (a)". Did not wait for further Boss
+  sign-off since Boss had already signaled the direction and the only
+  open item was risk clarification, which is now answered; flagged in the
+  reply that Tech Lead will keep going this direction unless told
+  otherwise.
+- No code changes — still task/architecture documentation only.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` / `TASK-002` are READY and unassigned — waiting for Backend/
-  Frontend Engineers to pick them up.
-- Phase 2 (share-preview metadata for LINE/Facebook) is an open technical
-  trade-off flagged to Boss in `.agent/boss/TECH_LEAD.md` — not scheduled,
-  pending Boss input or evidence that it's worth the cost.
+- `TASK-001` / `TASK-002` / `TASK-003` are READY and unassigned — waiting
+  for a Backend/Frontend Engineer to pick them up.

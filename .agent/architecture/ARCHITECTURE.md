@@ -74,22 +74,33 @@ increase in cost per user" constraint:
 - Add a unique index on `Word.WordText` (data-integrity fix, independent of
   SEO, but relevant now that the column becomes a public routing key).
 
-**Phase 2 — needs a cost/complexity call, escalated to Boss (see
+**Phase 2 — resolved 2026-09-13, proceeding with option (a) (see
 `.agent/boss/TECH_LEAD.md`):** non-JS-executing scrapers (LINE/Facebook
 share previews — the actual sharing mechanic in the requirement) need
 server-rendered meta tags, which a pure Vite CSR SPA cannot provide as-is.
-Options (not yet decided):
-  a. Lightweight bot-detection middleware in `JackyAIApp.Server` that,
-     for known crawler/bot user agents only, serves a small server-rendered
-     HTML shell with the right `<title>`/OG tags for that word (real users
-     still get the normal SPA) — smallest blast radius, no new hosting
-     component, some maintenance cost.
+Note this is a *separate* problem from Google Search discoverability:
+Googlebot executes JavaScript when indexing, so Phase 1 alone already
+satisfies "findable via Google search" — Phase 2 only affects how a shared
+link previews inside chat apps.
+Options considered:
+  a. **Chosen.** Lightweight bot-detection middleware in `JackyAIApp.Server`
+     that, for known crawler/bot user agents only, serves a small
+     server-rendered HTML shell with the right `<title>`/OG tags for that
+     word (real users, and Googlebot, still get the normal SPA) — smallest
+     blast radius, no new hosting component. Maintenance cost assessed as
+     low: link-preview bot UAs (LINE/Facebook/Twitter/Slack/Discord/
+     WhatsApp) are officially published and rarely change, unlike
+     adversarial bot detection — this is the same "dynamic rendering"
+     pattern Google itself previously recommended for CSR SPAs, and is not
+     a cloaking risk as long as bots and real users see the same
+     underlying content. See TASK-003.
   b. A hosted prerendering service (e.g. prerender.io-style) sitting in
      front of the SPA — no app code change, but a new paid/infra dependency,
-     working against the "reduce cloud cost" goal.
-  c. Accept Phase 1 only for now (JS-executing search engines still index
-     it) and defer proper share-preview support — cheapest, weakest on the
-     "shareable results" acceptance criterion.
+     working against the "reduce cloud cost" goal. Rejected — (a) achieves
+     the same outcome with no added recurring cost.
+  c. Accept Phase 1 only for now and defer proper share-preview support —
+     superseded now that (a)'s actual cost/maintenance profile turned out
+     low enough to just do.
 
 ### Reason
 Backend already does the hard part (public, cacheable, no per-user side
