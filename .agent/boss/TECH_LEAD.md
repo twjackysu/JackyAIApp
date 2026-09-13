@@ -199,3 +199,11 @@ Tech Lead
 
 ### Source
 Tech Lead
+
+
+---
+
+## Boss → Tech Lead (2026-09-13)
+
+OK，這個不可能不同步的方式我可以接受。
+我看工程師發的PR CI壞了，能請人另外發PR先修CI的問題嗎?

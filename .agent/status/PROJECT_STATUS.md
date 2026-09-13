@@ -183,16 +183,68 @@
   log per the architecture-issue escalation path, since it blocks CI
   repo-wide rather than being specific to TASK-001.
 
+## 2026-09-13 — Backend Engineer: Fixed CI-blocking flaky test, opened PR #330 (scheduled run)
+
+- Boss asked in `.agent/boss/TECH_LEAD.md`: "我看工程師發的PR CI壞了，能請人另外
+  發PR先修CI的問題嗎?" — a PR's CI was red.
+- Investigated: both open PRs (`#328` TASK-001, `#329` TASK-002) had
+  `build-and-test-server` failing on the same test —
+  `SECInsiderTradingProviderTests.FetchAsync_ParsesTransactionReportTable`
+  (expected 4 transactions, got 1). Confirmed via `git log` this test/fixture
+  pair was last touched by a merge already on `master` (`7044419`), so the
+  failure is pre-existing on `master` and unrelated to either PR's actual
+  changes — not something TASK-001/TASK-002's authors need to fix in their
+  own branches.
+- Root cause: `SECInsiderTradingProvider.FetchAsync` filters to a rolling
+  90-day window relative to `DateTime.UtcNow`, but the test fixture used
+  hardcoded absolute dates (`2026-06-15`/`2026-06-16`). As real time passed,
+  those dates aged out of the window — a time-bomb test, not a product bug.
+- Fix (test-only, no production code touched): replaced the hardcoded dates
+  in the fixture with placeholders, substituted at test-run time with dates
+  relative to `DateTime.UtcNow`, matching the existing convention already
+  used in `PersistentTwHistoricalProviderTests`.
+- Opened **PR #330** (`claude/magical-heisenberg-t0rkzg` → `master`),
+  targeting `master` directly per Boss's ask for a separate PR, so `#328`/
+  `#329` don't need to be touched — merging `#330` unblocks CI for both once
+  they pick up `master`. Could not run `dotnet test` locally (no SDK in this
+  sandboxed environment) — verified the fix by manually tracing the
+  parsing/filtering logic against the fixture instead; relying on CI to
+  confirm. Subscribed to `#330` to drive it to green.
+- Also corrected stale info below: `TASK-001`/`TASK-002` are **not**
+  unassigned — `#328` and `#329` already exist and (per their diffs) look
+  functionally complete, just blocked by the CI issue above. `TASK-003` is
+  still genuinely unclaimed and, per its own task notes, should wait for
+  `TASK-001`/`TASK-002` to merge (it needs to call TASK-001's shared C#
+  helper in-process) — not started this run.
+
+## 2026-09-13 — Backend Engineer: PR #330 (CI fix) merged
+
+- CI went green on `#330` (`build-and-test-server` + `lint-and-build-client`
+  both passed) and Boss merged it into `master`.
+- `#328` (TASK-001) and `#329` (TASK-002) still need their own branches
+  synced with `master` (merge or rebase) to pick up the fix before their CI
+  will go green — that's for whoever owns those branches next, not done as
+  part of this run to avoid touching another session's branch.
+
+## 2026-09-13 — Backend Engineer: synced PR #328's branch with master to clear CI (scheduled run)
+
+- Merged `master` (carrying the PR #330 fixture fix) into TASK-001's branch
+  (`claude/magical-heisenberg-1b3vum`) and pushed, so `build-and-test-server`
+  picks up the `SECInsiderTradingProviderTests` fix instead of hitting the
+  now-resolved time-bomb failure. Only conflict was in this status log file
+  (resolved by keeping both branches' entries in chronological order); no
+  source/test files touched.
+- The repo-wide time-bomb note filed on 2026-09-13 above is now resolved by
+  `#330` — kept as historical record rather than deleted.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` is `PR_OPENED` ([#328](https://github.com/twjackysu/JackyAIApp/pull/328));
-  `TASK-002` / `TASK-003` are still READY and unassigned.
-- **New, unassigned**: `SECInsiderTradingProviderTests.FetchAsync_ParsesTransactionReportTable`
-  is a time-bomb test (fixed 2026-06-15/16 fixture dates vs. a live
-  90-day `DateTime.UtcNow` filter) that started failing 2026-09-13 and
-  will keep failing/worsening on every PR's CI going forward. Needs a
-  Tech Lead decision on priority/ownership (see the 2026-09-13 Backend
-  entry above for root cause + a proposed patch) — not part of any
-  current task.
+- `TASK-001` (PR #328) — branch now synced with `master`; watching CI to
+  confirm green, then it needs Tech Lead review.
+- `TASK-002` — superseded by PR #331 (`claude/amazing-cori-7gyhyr`,
+  Frontend). Not Backend's to track further; note only for cross-reference.
+- `TASK-003` is READY and genuinely unclaimed; blocked on `TASK-001`/
+  `TASK-002` merging first per its own dependency notes.
+- `#330` (CI fix) merged — closed out.
