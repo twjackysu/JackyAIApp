@@ -124,6 +124,31 @@
   otherwise.
 - No code changes — still task/architecture documentation only.
 
+## 2026-09-13 — Tech Lead: Closed drift risk in Phase 2 bot middleware design (scheduled run)
+
+- Boss raised a follow-up in `.agent/boss/TECH_LEAD.md`: the bot-facing HTML
+  from `TASK-003` has no interactive UI and nobody looks at it, so could its
+  title/description text quietly drift out of sync with the real page over
+  time if the two implementations aren't kept manually in sync?
+- Agreed this was a real gap: the original task scoping only required both
+  surfaces to read the *same underlying word data*, not the *same formatted
+  text* — the actual title/description string was still going to be
+  formatted twice, once in TypeScript (frontend) and once in C# (backend
+  middleware), which can diverge silently since nothing exercises the
+  bot-facing path in normal use.
+- Fix: collapsed the formatting logic to a single C# helper. Updated
+  `TASK-001` to add `seoTitle`/`seoDescription` fields (computed once,
+  server-side) to the `GET api/dictionary/{word}` response; updated
+  `TASK-002` so the frontend renders those fields as-is instead of building
+  its own copy; updated `TASK-003` so the middleware calls that same C#
+  helper in-process instead of re-deriving the text. Added a PR-review
+  checkpoint to TASK-003's acceptance criteria to verify this at review
+  time. Documented the reasoning in `ARCHITECTURE.md`.
+- No cost added — same data, formatted once instead of twice. All three
+  tasks were still unclaimed/READY, so no rework was needed. Replied to
+  Boss in `.agent/boss/TECH_LEAD.md` with the explanation.
+- No code changes — task/architecture documentation only.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &

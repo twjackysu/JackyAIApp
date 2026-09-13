@@ -46,10 +46,16 @@ already satisfy the "findable via Google search" goal on their own.
   `<title>`, `<meta name="description">`, `og:title`, `og:description`,
   `og:url`, and `og:image` (a generic site image if no per-word image
   exists — do not build per-word image generation for this task).
-- The title/description text shown to bots must match what TASK-002 shows
-  real users for the same word — reuse the same source (existing
-  `DictionaryService` word lookup + whatever short-description logic
-  TASK-002 introduces) rather than writing a second copy that can drift.
+- The title/description text shown to bots must be **byte-for-byte identical**
+  to what real users get for the same word. Do this by calling the same
+  `seoTitle`/`seoDescription` C# helper that TASK-001 adds to
+  `DictionaryService` directly (in-process method call, not an HTTP call to
+  your own API) — do not re-implement or hand-tune the formatting in the
+  middleware. This is a hard requirement, not a style preference: since no
+  human ever looks at the bot-facing HTML, any second copy of this logic
+  will silently drift out of sync over time and no one will notice until a
+  shared link looks wrong. There is exactly one place in the codebase
+  allowed to format this text (see TASK-001, ARCHITECTURE.md).
 - Every other request (real browsers, Googlebot, anything not on the list,
   any other route) must fall through unchanged to the existing SPA —
   no behavior change for the current, already-working paths.
@@ -66,7 +72,10 @@ already satisfy the "findable via Google search" goal on their own.
       still gets the normal SPA path (it already gets correct metadata via
       TASK-002's client-rendered tags plus its own JS execution).
 - [ ] Bot-facing title/description text is sourced from the same place as
-      the real page's metadata, not duplicated/hand-written separately.
+      the real page's metadata, not duplicated/hand-written separately —
+      PR review will explicitly check the middleware calls TASK-001's
+      shared helper rather than building its own HTML string with the text
+      inlined by hand.
 - [ ] No new NuGet package for a hosted prerendering/scraping service.
 
 ## Technical Notes

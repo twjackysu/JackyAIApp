@@ -124,6 +124,35 @@ more silent 401s) without touching hosting/infra. It does not fully satisfy
 the "shareable to LINE/social" acceptance criterion on its own, since link
 previews need Phase 2.
 
+### Single-source title/description text (2026-09-13, addresses Boss's drift concern)
+
+Boss's follow-up question on Phase 2: since the bot-facing HTML (TASK-003)
+has no interactive UI and nobody ever looks at it, will its text quietly
+go stale relative to the real page over time?
+
+Valid concern — "reuse the same underlying word data" (as originally
+scoped) is not the same guarantee as "the exact same displayed text."
+`DictionaryService.GetWordAsync` returning the same `Meanings`/`Definitions`
+data to both surfaces still leaves the *formatting* (how a title/description
+string gets built from that data — truncation length, suffix wording, which
+definition to pick) as separate logic in two different codebases/languages
+(TS for the frontend `<title>`/meta tags, C# for the bot middleware). Two
+independent implementations of the same formatting rule are exactly the
+kind of thing that drifts silently when one side changes and nobody
+notices — which is the real risk Boss flagged, not "will the bots find the
+data."
+
+**Fix:** collapse it to one implementation. TASK-001 now adds a single C#
+helper that formats `seoTitle`/`seoDescription` from a word's data, and
+exposes the result as fields on the `GET api/dictionary/{word}` response.
+TASK-002's frontend renders those fields verbatim (no TS-side formatting).
+TASK-003's middleware calls the same C# helper in-process (not a second
+implementation, not even an HTTP call to its own API). This isn't a
+process/checklist rule to remember at review time — after this change
+there is exactly one place in the codebase that can produce this text, so
+there is nothing left to keep in sync. Updated in TASK-001/002/003; no
+runtime/infra cost added (same data, computed once instead of twice).
+
 ### Impact
 - `jackyaiapp.client`: routing change, new dependency (`react-helmet-async`),
   `Dictionary/index.tsx` conditional-query fix.

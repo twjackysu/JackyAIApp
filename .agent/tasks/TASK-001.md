@@ -33,6 +33,18 @@ This task only adds new, small backend surface area.
     don't over-build this — check actual row count first.
 - Add/confirm a `robots.txt` (static or generated) that allows crawling of
   `/english/dictionary/*` and points to the sitemap.
+- Add a single C# helper (e.g. a static method on `DictionaryService` or a
+  small dedicated `WordSeoTextFormatter`) that formats a word's SEO title
+  and short meta-description text from its existing `Meanings`/`Definitions`
+  data. Expose the result as two new fields on the `Word` DTO returned by
+  `GET api/dictionary/{word}` — e.g. `seoTitle` / `seoDescription`.
+  - This is the **single source of truth** for this text. TASK-002
+    (frontend `<title>`/meta tags) must render these fields as-is, and
+    TASK-003 (bot middleware) must call this same helper directly rather
+    than re-deriving or hand-writing the text a second time. Do not
+    duplicate the formatting logic anywhere else — see
+    `.agent/architecture/ARCHITECTURE.md` for why (drift risk raised by
+    Boss, 2026-09-13).
 - Add an EF Core migration adding a **unique index** on `Word.WordText`
   (case-insensitive per whatever collation the DB already uses for text
   columns — check existing convention, don't introduce a new one).
@@ -45,6 +57,9 @@ This task only adds new, small backend surface area.
 - [ ] `GET /sitemap.xml` returns valid XML listing word detail URLs matching
       the new frontend path shape (`/english/dictionary/{word}`) — coordinate
       the exact path with TASK-002's Frontend Engineer so they match.
+- [ ] `GET api/dictionary/{word}` response includes `seoTitle`/`seoDescription`
+      fields produced by one shared C# helper, callable directly by
+      TASK-003's middleware (no HTTP round-trip needed between them).
 - [ ] `robots.txt` is served and does not block `/english/dictionary/`.
 - [ ] Migration adds a unique index on `Word.WordText` and applies cleanly
       against current data (or the duplicate conflict is reported back

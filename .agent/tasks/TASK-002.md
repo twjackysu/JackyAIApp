@@ -52,6 +52,20 @@ task is about making it actually SEO/share-ready, plus a correctness fix.
    - This is JS-rendered metadata (helps Google, not link-preview scrapers —
      that gap is tracked separately as Phase 2 in ARCHITECTURE.md, not part
      of this task).
+   - **Do not compute the title/description text in TypeScript.** Coordinate
+     with TASK-001 (Backend) so `GET api/dictionary/{word}` returns two new
+     response fields — e.g. `seoTitle` / `seoDescription` — computed by a
+     single C# helper on the backend. This frontend code must render those
+     fields verbatim (string interpolation into `<title>`/`<meta>` only, no
+     truncation/formatting logic of its own). Reason: TASK-003's bot
+     middleware needs to show bots the exact same text real users get: if
+     both the frontend (TS) and the backend middleware (C#) each format
+     their own copy of this text, the two will drift apart over time since
+     no one interacts with the bot-facing copy to notice it going stale.
+     Making the backend the single place that formats this string and
+     having the frontend just display it removes that failure mode
+     entirely instead of relying on developers remembering to keep two
+     implementations in sync.
 
 ## Acceptance Criteria
 - [ ] Visiting `/english/dictionary/apple` (no login) renders the word page
@@ -77,6 +91,9 @@ task is about making it actually SEO/share-ready, plus a correctness fix.
 
 ## Dependencies
 - Coordinate path/casing convention with TASK-001 (Backend sitemap).
+- Depends on TASK-001 adding `seoTitle`/`seoDescription` to the word response
+  (see Requirement 3) — confirm the exact field names/shape together before
+  either side hard-codes them.
 
 ## Result
 (fill in on completion)
