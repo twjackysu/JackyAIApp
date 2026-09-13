@@ -242,13 +242,38 @@
   Tech Lead/Boss review only — nothing further for Backend to do here
   unless review comments come back.
 
+## 2026-09-13 — Backend Engineer: PR #328 (TASK-001) merged into master (scheduled run)
+
+- `#328` was merged (GitHub `pull_request.closed`/`merged` event). `master`
+  now has `SitemapController` (`/sitemap.xml`, `/robots.txt`),
+  `WordSeoTextFormatter` + `seoTitle`/`seoDescription` on the
+  `GET api/dictionary/{word}` response, and the unique index migration on
+  `Word.WordText`. Not recording `TASK-001.md`'s `Status:` as `MERGED`
+  myself per SOP (§10/§18 reserve that to Boss) — leaving the field as
+  `PR_OPENED` for Tech Lead/Boss to formally close out; this log entry is
+  the factual record that the PR itself landed.
+- Side effect: merging `#328` moved `master`'s tip, which flipped PR #331
+  (TASK-002, Frontend, branch `claude/amazing-cori-7gyhyr`) from
+  `mergeable_state: clean` to `dirty` (merge conflict against the new
+  `master`). That PR is Frontend Engineer's to resolve (their branch, not
+  mine to touch) — flagging here so whoever picks up TASK-002 next sees it
+  without needing to rediscover it.
+- `TASK-003` (Backend, unclaimed) still correctly blocked: its own
+  dependency notes require both `TASK-001` *and* `TASK-002` merged before
+  starting (needs `WordSeoTextFormatter`, which is now on `master`, but
+  also needs TASK-002's frontend surface in place first per the task's own
+  sequencing). Not starting it this run.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` (PR #328) — CI green, mergeable, waiting on Tech Lead review.
-- `TASK-002` — superseded by PR #331 (`claude/amazing-cori-7gyhyr`,
-  Frontend). Not Backend's to track further; note only for cross-reference.
-- `TASK-003` is READY and genuinely unclaimed; blocked on `TASK-001`/
-  `TASK-002` merging first per its own dependency notes.
+- `TASK-001` (PR #328) — **merged into master.** Formal task-status closure
+  (`MERGED`) pending Boss/Tech Lead per SOP.
+- `TASK-002` (PR #331, Frontend, `claude/amazing-cori-7gyhyr`) — now has a
+  merge conflict against `master` caused by `#328` landing. Needs Frontend
+  Engineer to merge `master` into that branch and resolve. Not Backend's to
+  fix.
+- `TASK-003` is READY and genuinely unclaimed; still blocked on `TASK-002`
+  merging (TASK-001's half of the dependency is now satisfied).
 - `#330` (CI fix) merged — closed out.
