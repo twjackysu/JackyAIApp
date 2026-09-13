@@ -172,7 +172,7 @@ static `<title>` (graceful, not broken).
 - `jackyaiapp.client/package.json`, `package-lock.json` (react-helmet-async)
 
 ### PR
-(link added after push — see PROJECT_STATUS.md)
+https://github.com/twjackysu/JackyAIApp/pull/331
 
 ## Review
 (Tech Lead fills in after PR review)
