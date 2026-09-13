@@ -183,12 +183,22 @@
   `TASK-001`/`TASK-002` to merge (it needs to call TASK-001's shared C#
   helper in-process) — not started this run.
 
+## 2026-09-13 — Backend Engineer: PR #330 (CI fix) merged
+
+- CI went green on `#330` (`build-and-test-server` + `lint-and-build-client`
+  both passed) and Boss merged it into `master`.
+- `#328` (TASK-001) and `#329` (TASK-002) still need their own branches
+  synced with `master` (merge or rebase) to pick up the fix before their CI
+  will go green — that's for whoever owns those branches next, not done as
+  part of this run to avoid touching another session's branch.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` (PR #328) and `TASK-002` (PR #329) are implemented and awaiting
-  green CI (blocked on merging `#330`) + Tech Lead review — not unassigned.
+- `TASK-001` (PR #328) and `TASK-002` (PR #329) are implemented; still need
+  `master` merged into their branches to clear CI, plus Tech Lead review —
+  not unassigned.
 - `TASK-003` is READY and genuinely unclaimed; blocked on `TASK-001`/
   `TASK-002` merging first per its own dependency notes.
-- `#330` (CI fix) is open, awaiting CI + merge.
+- `#330` (CI fix) merged — closed out.
