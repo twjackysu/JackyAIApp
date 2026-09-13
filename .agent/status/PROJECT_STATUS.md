@@ -180,13 +180,65 @@
   actual dependency (field names `seoTitle`/`seoDescription`) was already
   pinned by Tech Lead in both task docs.
 
+## 2026-09-13 — Frontend Engineer: found and closed a duplicate PR, ported a CI fix (same run, follow-up)
+
+- After opening PR #331 (previous entry), CI came back red on
+  `build-and-test-server`. Investigated rather than assuming it was
+  self-inflicted (this PR touches zero backend `.cs` files).
+- While investigating, discovered via GitHub — not visible from local git
+  state, since these live on other contributors' remote branches — that
+  **this task had already been worked twice before in parallel**:
+  - **PR #328** (Backend Engineer, `claude/magical-heisenberg-1b3vum`)
+    already implements all of `TASK-001` (sitemap/robots.txt,
+    `seoTitle`/`seoDescription`, unique index). Open, unmerged.
+  - **PR #329** (an earlier Frontend Engineer run,
+    `claude/amazing-cori-3zqanx`) already implements Requirements 1 & 2 of
+    this exact `TASK-002` — i.e., duplicate of most of what this run just
+    built independently, because that run correctly deferred Requirement 3
+    (metadata) since TASK-001 didn't exist yet *at the time it ran*, one
+    task-doc revision ago from this run's perspective.
+  - **PR #330** (a third, Boss-requested run) had already root-caused and
+    fixed the exact CI failure above: `SECInsiderTradingProviderTests.
+    FetchAsync_ParsesTransactionReportTable` fails with a time-bomb
+    fixture (hardcoded dates aged out of a 90-day rolling window) —
+    confirmed pre-existing on `master`, unrelated to any of #328/#329/#331.
+- Root lesson: local `git log --all`/`git branch -r` at the start of a run
+  only shows branches this session already knows about (its own designated
+  branch + whatever was fetched); it does **not** surface sibling agent
+  runs' in-flight branches/PRs unless explicitly checked via GitHub. Two
+  Frontend Engineer runs picked up the same READY task within the same
+  hour without either seeing the other's work in progress.
+- Resolved rather than leaving three overlapping PRs for two tasks:
+  - Ported PR #329's two legitimate fixes that this PR's own diff needed
+    but had missed (same routing change, same bug class): the
+    `EnglishLearningLayout` tab-strip highlight breaking once the URL
+    includes `/dictionary/:word`, and `Exam/ClozeTestCard`'s internal
+    link still pointing at the old `?word=` format.
+  - Ported PR #330's CI fix directly (verified the diagnosis independently
+    before porting) so #331 is green without waiting on #330 to merge.
+  - Closed **PR #329** with a comment pointing to #331 as the superseding,
+    more complete PR (adds Requirement 3 + both ported fixes above).
+    Left **PR #328** untouched — Backend's own work, unaffected.
+- Updated `TASK-002.md` with the full account. Correcting this run's
+  earlier status entry above: TASK-001 was **not** actually unclaimed at
+  the time it was written — see Open Items below for current state.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` is READY and unassigned — waiting for a Backend Engineer.
-  `TASK-002`'s metadata requirement is functionally complete on the
-  frontend but stays cosmetically incomplete for real users until
-  TASK-001 ships the `seoTitle`/`seoDescription` fields.
-- `TASK-003` is READY and unassigned, and also depends on TASK-001's
-  shared C# helper — nothing for Frontend to do there.
+- `TASK-001` (Backend): implemented in open PR #328, awaiting review/merge
+  — not unassigned, no action needed from Frontend.
+- `TASK-002` (Frontend): implemented (all 3 requirements) in open PR #331.
+  PR #329 (a duplicate/partial attempt) closed in favor of #331. Metadata
+  (Requirement 3) is wired to render `seoTitle`/`seoDescription` verbatim
+  once TASK-001 (#328) merges — no frontend change needed at that point.
+- `TASK-003` is READY and unassigned; depends on TASK-001 (#328) merging
+  first, since it must call that PR's shared C# helper in-process.
+- **Process gap worth Tech Lead/Boss attention:** nothing currently makes
+  a new scheduled Engineer run check GitHub for existing open PRs/branches
+  on a task before starting it, only the local `.agent/tasks/*.md` status
+  field (which lags reality once another run has opened a PR but not yet
+  updated the doc, or when a doc update and a PR open happen in two
+  separate commits). Two duplicate PRs got opened for `TASK-002` today
+  before either author's status update reached the other.

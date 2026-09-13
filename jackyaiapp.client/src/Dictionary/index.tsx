@@ -11,7 +11,7 @@ import WordCard from '../components/WordCard';
 import RecentlySearched, { RecentlySearchedRef } from './components/RecentlySearched';
 import SpellSuggestions from './components/SpellSuggestions';
 import WordOfTheDay from './components/WordOfTheDay';
-import { toWordSlug } from './wordSlug';
+import { toWordPath } from './wordSlug';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useGetWordQuery } from '@/apis/dictionaryApis';
@@ -29,7 +29,7 @@ function Dictionary() {
   // the canonical path-param URL instead of being silently dropped.
   useEffect(() => {
     if (!wordParam && legacyWord) {
-      navigate(`/english/dictionary/${toWordSlug(legacyWord)}`, { replace: true });
+      navigate(toWordPath(legacyWord), { replace: true });
     }
   }, [wordParam, legacyWord, navigate]);
 
@@ -43,7 +43,7 @@ function Dictionary() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' && text.trim()) {
       recentlySearchedRef.current?.handleEnterKeyDown(e, text.trim().toLowerCase());
-      navigate(`/english/dictionary/${toWordSlug(text)}`);
+      navigate(toWordPath(text));
     }
   };
 
@@ -56,12 +56,10 @@ function Dictionary() {
 
   const handleClickRecentlySearchedText = (recentlySearchedText: string) => {
     setText(recentlySearchedText);
-    navigate(`/english/dictionary/${toWordSlug(recentlySearchedText)}`);
+    navigate(toWordPath(recentlySearchedText));
   };
 
-  const canonicalUrl = word
-    ? `${window.location.origin}/english/dictionary/${toWordSlug(word)}`
-    : null;
+  const canonicalUrl = word ? `${window.location.origin}${toWordPath(word)}` : null;
 
   return (
     <Stack

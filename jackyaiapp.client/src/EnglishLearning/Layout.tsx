@@ -17,6 +17,8 @@ import { ENGLISH_LEARNING } from '../constants/apps';
 
 import CenteredSpinner from '@/components/CenteredSpinner';
 
+const DICTIONARY_PATH_PREFIX = `${ENGLISH_LEARNING.path}/`;
+
 /** Layout route for "/english" — renders the section's tab strip once, then an
  * <Outlet/> for whichever child page is active. Only the outlet content is wrapped
  * in its own Suspense so the tabs stay mounted (not swapped for a spinner) while a
@@ -30,9 +32,12 @@ function EnglishLearningLayout() {
   const { data: dueCountRes } = useGetDueCountQuery(undefined, { skip: !isLoggedIn });
   const dueCount = dueCountRes?.data?.dueCount ?? 0;
 
-  // Bare "/english" renders Dictionary but isn't itself a Tab value — treat it as the
-  // Dictionary tab so the tab strip doesn't end up with nothing selected.
-  const currentTab = path === '/english' ? ENGLISH_LEARNING.path : path;
+  // Bare "/english" renders Dictionary but isn't itself a Tab value, and a per-word
+  // dictionary path ("/english/dictionary/apple") isn't the Tab's exact value either —
+  // both fold back onto the Dictionary tab so the tab strip doesn't end up with nothing
+  // selected.
+  const currentTab =
+    path === '/english' || path.startsWith(DICTIONARY_PATH_PREFIX) ? ENGLISH_LEARNING.path : path;
 
   return (
     <>

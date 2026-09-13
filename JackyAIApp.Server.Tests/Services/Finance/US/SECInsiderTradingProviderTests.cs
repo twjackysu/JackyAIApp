@@ -36,7 +36,13 @@ namespace JackyAIApp.Server.Tests.Services.Finance.US
         [Fact]
         public async Task FetchAsync_ParsesTransactionReportTable()
         {
-            var provider = CreateProvider(_ => HtmlResponse(ReadFixture("insider_transactions_aapl.html")));
+            // FetchAsync filters to the last 90 days relative to DateTime.UtcNow, so the fixture's
+            // dates are placeholders substituted with dates relative to "now" here — otherwise the
+            // hardcoded dates would age out of the window and this test would decay over time.
+            var html = ReadFixture("insider_transactions_aapl.html")
+                .Replace("{{RECENT_DATE}}", DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd"))
+                .Replace("{{OLDER_DATE}}", DateTime.UtcNow.AddDays(-31).ToString("yyyy-MM-dd"));
+            var provider = CreateProvider(_ => HtmlResponse(html));
 
             var result = await provider.FetchAsync(Cik, "AAPL");
 
