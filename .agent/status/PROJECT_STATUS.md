@@ -236,13 +236,17 @@
   source/test files touched.
 - The repo-wide time-bomb note filed on 2026-09-13 above is now resolved by
   `#330` — kept as historical record rather than deleted.
+- CI confirmed green on the synced commit (`build-and-test-server` +
+  `lint-and-build-client` both `success`), `mergeable_state: clean`. No
+  Claude Approvals check configured on this repo. `#328` is now waiting on
+  Tech Lead/Boss review only — nothing further for Backend to do here
+  unless review comments come back.
 
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` (PR #328) — branch now synced with `master`; watching CI to
-  confirm green, then it needs Tech Lead review.
+- `TASK-001` (PR #328) — CI green, mergeable, waiting on Tech Lead review.
 - `TASK-002` — superseded by PR #331 (`claude/amazing-cori-7gyhyr`,
   Frontend). Not Backend's to track further; note only for cross-reference.
 - `TASK-003` is READY and genuinely unclaimed; blocked on `TASK-001`/
