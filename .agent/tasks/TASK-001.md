@@ -142,7 +142,7 @@ populated on `GetWordAsync`.
    and Google won't index behind-login pages — flagging this choice in
    case Tech Lead prefers a narrower policy.
 
-PR: https://github.com/twjackysu/jackyaiapp/pull/new/claude/magical-heisenberg-1b3vum (opening next)
+PR: https://github.com/twjackysu/JackyAIApp/pull/328
 
 ## Review
 (Tech Lead fills in after PR review)
