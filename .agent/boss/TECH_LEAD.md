@@ -68,3 +68,9 @@ SPA，LINE/Facebook 這類分享預覽爬蟲看不到動態內容**（他們不�
 
 ### Source
 Tech Lead
+
+---
+
+## Boss → Tech Lead (2026-09-13)
+看起來我應該會選1.輕量做法，但這有什麼壞處嗎?維護成本高嗎?(之後維護很麻煩?)還是說大部分的爬蟲user agent不知道怎麼抓到?
+我們的目標可以先讓別人google search: jackyai english apple的時候能找到Apple單字的頁面嗎?
