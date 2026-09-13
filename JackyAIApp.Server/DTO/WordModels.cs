@@ -37,6 +37,20 @@ namespace JackyAIApp.Server.DTO
         /// </summary>
         public bool? DataInvalid { get; set; }
 
+        /// <summary>
+        /// SEO title for the word's public detail page. Computed once by
+        /// <see cref="JackyAIApp.Server.Services.Dictionary.WordSeoTextFormatter"/> — render
+        /// verbatim, do not reformat.
+        /// </summary>
+        public required string SeoTitle { get; set; }
+
+        /// <summary>
+        /// SEO meta description for the word's public detail page. Computed once by
+        /// <see cref="JackyAIApp.Server.Services.Dictionary.WordSeoTextFormatter"/> — render
+        /// verbatim, do not reformat.
+        /// </summary>
+        public required string SeoDescription { get; set; }
+
         public override string ToString()
         {
             return JsonConvert.SerializeObject(this);

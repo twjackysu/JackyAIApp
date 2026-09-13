@@ -149,6 +149,40 @@
   Boss in `.agent/boss/TECH_LEAD.md` with the explanation.
 - No code changes — task/architecture documentation only.
 
+## 2026-09-13 — Backend: TASK-001 PR opened; found a repo-wide CI time-bomb (scheduled run)
+
+- Implemented `TASK-001` (sitemap.xml/robots.txt, `seoTitle`/`seoDescription`
+  fields via a new `WordSeoTextFormatter`, unique index migration on
+  `Word.WordText`) and opened
+  [PR #328](https://github.com/twjackysu/JackyAIApp/pull/328). No `dotnet`
+  SDK or DB connectivity in this sandbox — compensated with a careful
+  manual read-through plus an independent review-agent pass; flagged in
+  the PR that an actual CI/build run is still needed to confirm.
+- CI's `build-and-test-server` failed on the PR. Investigated: **not**
+  caused by this PR's diff. `SECInsiderTradingProviderTests.FetchAsync_ParsesTransactionReportTable`
+  (`JackyAIApp.Server.Tests/Services/Finance/US/`) is a fixture-based test
+  (`Fixtures/SEC/insider_transactions_aapl.html`, dated 2026-06-15/16)
+  asserting against `SECInsiderTradingProvider`'s "last 90 days" filter
+  (`Services/Finance/DataProviders/US/SECInsiderTradingProvider.cs:49`,
+  `DateTime.UtcNow.AddDays(-90)`). Today (2026-09-13) is exactly 90 days
+  past the fixture's earliest date, so the fixed-date fixture now falls
+  outside the live 90-day window — a time-bomb test, unrelated to any
+  in-flight task. Confirmed via one re-run (identical failure, not a
+  flake) before concluding this.
+- **This will keep failing (and get worse) on every PR's CI from now on**,
+  not just #328 — it's a shared-infrastructure problem, not something to
+  fix inside TASK-001 (out of scope, and Backend doesn't own that module
+  in this task). Proposed patch for whoever picks it up: inject a
+  `TimeProvider`/clock into `SECInsiderTradingProvider` so the test can
+  pin "now", or restructure the test to assert on `ParseOwnershipTable`'s
+  raw output before the date filter and cover the 90-day cutoff separately
+  with a fixed reference date, instead of a fixture with hardcoded dates
+  racing `DateTime.UtcNow`. Documented full root-cause on the PR
+  (comment: https://github.com/twjackysu/JackyAIApp/pull/328#issuecomment-5653367141).
+- Not fixed as part of this PR — flagging to Tech Lead via this status
+  log per the architecture-issue escalation path, since it blocks CI
+  repo-wide rather than being specific to TASK-001.
+
 ## 2026-09-13 — Backend Engineer: Fixed CI-blocking flaky test, opened PR #330 (scheduled run)
 
 - Boss asked in `.agent/boss/TECH_LEAD.md`: "我看工程師發的PR CI壞了，能請人另外
@@ -192,13 +226,29 @@
   will go green — that's for whoever owns those branches next, not done as
   part of this run to avoid touching another session's branch.
 
+## 2026-09-13 — Backend Engineer: synced PR #328's branch with master to clear CI (scheduled run)
+
+- Merged `master` (carrying the PR #330 fixture fix) into TASK-001's branch
+  (`claude/magical-heisenberg-1b3vum`) and pushed, so `build-and-test-server`
+  picks up the `SECInsiderTradingProviderTests` fix instead of hitting the
+  now-resolved time-bomb failure. Only conflict was in this status log file
+  (resolved by keeping both branches' entries in chronological order); no
+  source/test files touched.
+- The repo-wide time-bomb note filed on 2026-09-13 above is now resolved by
+  `#330` — kept as historical record rather than deleted.
+- CI confirmed green on the synced commit (`build-and-test-server` +
+  `lint-and-build-client` both `success`), `mergeable_state: clean`. No
+  Claude Approvals check configured on this repo. `#328` is now waiting on
+  Tech Lead/Boss review only — nothing further for Backend to do here
+  unless review comments come back.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` (PR #328) and `TASK-002` (PR #329) are implemented; still need
-  `master` merged into their branches to clear CI, plus Tech Lead review —
-  not unassigned.
+- `TASK-001` (PR #328) — CI green, mergeable, waiting on Tech Lead review.
+- `TASK-002` — superseded by PR #331 (`claude/amazing-cori-7gyhyr`,
+  Frontend). Not Backend's to track further; note only for cross-reference.
 - `TASK-003` is READY and genuinely unclaimed; blocked on `TASK-001`/
   `TASK-002` merging first per its own dependency notes.
 - `#330` (CI fix) merged — closed out.
