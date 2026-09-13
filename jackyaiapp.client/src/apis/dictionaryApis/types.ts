@@ -6,6 +6,12 @@ export interface Word extends WordBase {
   dataInvalid?: boolean;
   clozeTests?: ClozeTest[];
   translationTests?: string[];
+  /** Formatted once, server-side, from this word's meanings/definitions — the single source
+   * of the SEO title/description text (also used verbatim by the bot-preview middleware),
+   * so this field is rendered as-is and never re-formatted here. Optional until the backend
+   * ships it. */
+  seoTitle?: string;
+  seoDescription?: string;
 }
 
 interface WordBase {

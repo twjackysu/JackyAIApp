@@ -3,6 +3,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { HelmetProvider } from 'react-helmet-async';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 
@@ -62,15 +63,17 @@ const darkTheme = createTheme({
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Provider store={store}>
-      <ThemeProvider theme={darkTheme}>
-        <CssBaseline />
-        <Container maxWidth="lg">
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </Container>
-      </ThemeProvider>
-    </Provider>
+    <HelmetProvider>
+      <Provider store={store}>
+        <ThemeProvider theme={darkTheme}>
+          <CssBaseline />
+          <Container maxWidth="lg">
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </Container>
+        </ThemeProvider>
+      </Provider>
+    </HelmetProvider>
   </StrictMode>,
 );

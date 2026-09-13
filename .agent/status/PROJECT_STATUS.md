@@ -149,9 +149,44 @@
   Boss in `.agent/boss/TECH_LEAD.md` with the explanation.
 - No code changes — task/architecture documentation only.
 
+## 2026-09-13 — Frontend Engineer: implemented TASK-002, PR opened (scheduled run)
+
+- Picked up `TASK-002` (only Frontend-owned READY task). Implemented all
+  three requirements: path-param routing (`/english/dictionary/:word`,
+  with the old `?word=` query form redirecting rather than breaking),
+  the anonymous-401 fix (`useGetRepositoryWordsByWordIdQuery` now skipped
+  for logged-out visitors, reusing the existing `!!userInfoRes?.data`
+  signal; favorite button hidden via the `WordCard` prop that already
+  existed for this purpose), and `react-helmet-async`-based per-word
+  `<title>`/meta description/canonical tag.
+- **TASK-001 (backend) has not shipped yet** — the API doesn't return
+  `seoTitle`/`seoDescription` yet. Per the drift-risk decision in
+  `ARCHITECTURE.md`, did not hand-format that text in TypeScript as a
+  stopgap. Instead added the two fields as optional on the frontend `Word`
+  type and wired the `<title>`/meta tags to render them verbatim, so
+  nothing on the frontend needs to change once TASK-001 lands — verified
+  this end-to-end with a mocked API response (see `TASK-002.md` → Result).
+  Real anonymous visitors get the default static title until TASK-001
+  ships; not broken, just not yet SEO-complete on its own.
+- Verified with `npm run lint`/`build`/`vitest` (all clean, 134/134 tests)
+  plus a headless-Chromium pass against the built app (mocked `/api/*`
+  responses) confirming: 0 repository-word requests + hidden favorite
+  button when logged out, exactly 1 request + visible button when logged
+  in, and the legacy query-string URL redirecting correctly. No `dotnet`
+  in this environment, so this could not be checked against the real
+  backend — flagged explicitly rather than claimed as verified.
+- Opened PR (see `TASK-002.md`) targeting `master`. Frontend-only change;
+  no coordination needed with a live Backend Engineer run since the only
+  actual dependency (field names `seoTitle`/`seoDescription`) was already
+  pinned by Tech Lead in both task docs.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` / `TASK-002` / `TASK-003` are READY and unassigned — waiting
-  for a Backend/Frontend Engineer to pick them up.
+- `TASK-001` is READY and unassigned — waiting for a Backend Engineer.
+  `TASK-002`'s metadata requirement is functionally complete on the
+  frontend but stays cosmetically incomplete for real users until
+  TASK-001 ships the `seoTitle`/`seoDescription` fields.
+- `TASK-003` is READY and unassigned, and also depends on TASK-001's
+  shared C# helper — nothing for Frontend to do there.

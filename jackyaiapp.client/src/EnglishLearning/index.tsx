@@ -22,7 +22,10 @@ interface EnglishChildRoute {
 }
 
 const children: EnglishChildRoute[] = [
+  // Bare "/english/dictionary" keeps working (search box, recently-searched, word-of-the-day);
+  // "/english/dictionary/:word" is the canonical, crawlable per-word URL.
   { path: 'dictionary', element: <Dictionary /> },
+  { path: 'dictionary/:word', element: <Dictionary /> },
   {
     path: 'daily',
     element: (
