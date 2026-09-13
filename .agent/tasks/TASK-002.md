@@ -220,5 +220,17 @@ https://github.com/twjackysu/JackyAIApp/pull/331 — CI green
 (`build-and-test-server` + `lint-and-build-client` both passing),
 mergeable, no merge conflict, as of the consolidation push above.
 
+**Update (later scheduled run):** `master` advanced past this PR's base
+(picked up `#330`'s CI fix plus a `PROJECT_STATUS.md` update) and GitHub
+flagged this PR as having a merge conflict — both sides had appended
+different sections to the same spot in `PROJECT_STATUS.md`. No PR review
+or CI failure was outstanding at that point (`get_reviews` empty, both
+checks green); the only actionable item was the conflict. Merged `master`
+into this branch and resolved it by keeping both sides' status entries in
+chronological order (Backend's PR #330 entries, then this task's Frontend
+entries) and keeping the newer, more accurate "Open Items" list — no code
+files were touched by the merge. Verified no other files conflicted before
+pushing. PR remains otherwise unchanged; CI re-running on the merge commit.
+
 ## Review
 (Tech Lead fills in after PR review)
