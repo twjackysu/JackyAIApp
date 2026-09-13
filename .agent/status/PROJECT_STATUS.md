@@ -180,18 +180,57 @@
   `PR_OPENED (partial)` rather than fully done, since Requirement 3 is
   still outstanding pending TASK-001.
 
+## 2026-09-13 — Frontend Engineer: found and reported a pre-existing base-branch CI failure blocking every PR (scheduled run, same session as above)
+
+- `PR #329`'s `build-and-test-server` check came back red right after
+  opening. Investigated instead of assuming it was caused by this PR's
+  diff (which is frontend-only, touches no `.cs` file).
+- Root-caused it: `SECInsiderTradingProviderTests.FetchAsync_ParsesTransactionReportTable`
+  fails with `Expected: 4, Actual: 1`. The test fixture
+  (`insider_transactions_aapl.html`) hardcodes transaction dates around
+  `2026-06-15`/`2026-06-16`; `SECInsiderTradingProvider.FetchAsync` filters
+  to a rolling 90-day window off `DateTime.UtcNow`. As of today
+  (2026-09-13) that cutoff has advanced past the fixture's midnight
+  timestamps, so 5 of 6 fixture rows now fall outside the window — a
+  time-bomb test, not a flake, and it will only get worse from here.
+- Confirmed this is **not** specific to my PR: `PR #328` (Backend
+  Engineer's `TASK-001` work, opened minutes earlier off the exact same
+  master commit `2d0c8f3`, touches 12 backend `.cs` files but none in the
+  SEC insider trading area) hits the **identical** failure. Two unrelated
+  diffs off the same base, same failure ⇒ pre-existing on `master`,
+  blocking **every** PR's CI right now, not just these two.
+- Posted a standing-down comment on `PR #329` with the evidence, root
+  cause, and a proposed patch (make the fixture's dates relative to
+  "now" at test time, or inject a clock/`TimeProvider` into the provider
+  so the test can pin "now") — flagged as backend work, out of scope for
+  a frontend PR to fix directly (would be widening it into unrelated code).
+- **This needs a Backend Engineer run** (or Tech Lead attention) as its
+  own priority: until `SECInsiderTradingProviderTests` is fixed, every
+  open/future PR — including `#328` (TASK-001) and any TASK-003 PR — will
+  show a red `build-and-test-server` check, unrelated to their actual
+  changes.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` is still READY and unassigned — waiting for a Backend
-  Engineer to pick it up. Frontend's `TASK-002` metadata requirement
-  (`react-helmet-async` + `seoTitle`/`seoDescription`) is now blocked on
-  it specifically (not just unstarted) — see the Frontend Engineer entry
-  above.
-- `TASK-002` (Frontend): Requirements 1 & 2 done and in an open PR;
-  Requirement 3 (per-word metadata) blocked on TASK-001 — pick back up
-  once the backend fields land.
-- `TASK-003` (Backend) is READY and unassigned; also effectively blocked
-  behind TASK-001 since it's specified to call the same shared C# helper
-  TASK-001 introduces.
+- **New, cross-cutting:** `SECInsiderTradingProviderTests` is currently
+  failing on `master`'s tip for everyone (time-bomb fixture dates vs. the
+  90-day filter window — see the Frontend Engineer entry above). Blocks
+  the `build-and-test-server` CI check on every open/future PR regardless
+  of what it touches. Needs a Backend Engineer to fix the fixture/test
+  (proposed patch in the entry above and in the `PR #329` comment).
+- `TASK-001` is no longer unclaimed — **`PR #328`** implements it
+  (sitemap/robots.txt, `seoTitle`/`seoDescription` on
+  `GET api/dictionary/{word}`, unique index on `Word.WordText`). Still
+  open/unmerged as of this run (its own CI is red, but only from the
+  same pre-existing SEC test issue above — see its check runs). Frontend's
+  `TASK-002` Requirement 3 stays blocked until `#328` actually merges (not
+  just opens), since `seoTitle`/`seoDescription` don't exist in `master`
+  until then.
+- `TASK-002` (Frontend): Requirements 1 & 2 done, in open `PR #329`.
+  Requirement 3 (per-word metadata) blocked on `PR #328` merging — pick
+  back up once it does.
+- `TASK-003` (Backend) is READY and unassigned; also blocked behind
+  `PR #328` merging, since it's specified to call the same shared C#
+  helper that PR introduces.
