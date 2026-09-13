@@ -149,6 +149,49 @@
   Boss in `.agent/boss/TECH_LEAD.md` with the explanation.
 - No code changes — task/architecture documentation only.
 
+## 2026-09-13 — Backend Engineer: Fixed CI-blocking flaky test, opened PR #330 (scheduled run)
+
+- Boss asked in `.agent/boss/TECH_LEAD.md`: "我看工程師發的PR CI壞了，能請人另外
+  發PR先修CI的問題嗎?" — a PR's CI was red.
+- Investigated: both open PRs (`#328` TASK-001, `#329` TASK-002) had
+  `build-and-test-server` failing on the same test —
+  `SECInsiderTradingProviderTests.FetchAsync_ParsesTransactionReportTable`
+  (expected 4 transactions, got 1). Confirmed via `git log` this test/fixture
+  pair was last touched by a merge already on `master` (`7044419`), so the
+  failure is pre-existing on `master` and unrelated to either PR's actual
+  changes — not something TASK-001/TASK-002's authors need to fix in their
+  own branches.
+- Root cause: `SECInsiderTradingProvider.FetchAsync` filters to a rolling
+  90-day window relative to `DateTime.UtcNow`, but the test fixture used
+  hardcoded absolute dates (`2026-06-15`/`2026-06-16`). As real time passed,
+  those dates aged out of the window — a time-bomb test, not a product bug.
+- Fix (test-only, no production code touched): replaced the hardcoded dates
+  in the fixture with placeholders, substituted at test-run time with dates
+  relative to `DateTime.UtcNow`, matching the existing convention already
+  used in `PersistentTwHistoricalProviderTests`.
+- Opened **PR #330** (`claude/magical-heisenberg-t0rkzg` → `master`),
+  targeting `master` directly per Boss's ask for a separate PR, so `#328`/
+  `#329` don't need to be touched — merging `#330` unblocks CI for both once
+  they pick up `master`. Could not run `dotnet test` locally (no SDK in this
+  sandboxed environment) — verified the fix by manually tracing the
+  parsing/filtering logic against the fixture instead; relying on CI to
+  confirm. Subscribed to `#330` to drive it to green.
+- Also corrected stale info below: `TASK-001`/`TASK-002` are **not**
+  unassigned — `#328` and `#329` already exist and (per their diffs) look
+  functionally complete, just blocked by the CI issue above. `TASK-003` is
+  still genuinely unclaimed and, per its own task notes, should wait for
+  `TASK-001`/`TASK-002` to merge (it needs to call TASK-001's shared C#
+  helper in-process) — not started this run.
+
+## 2026-09-13 — Backend Engineer: PR #330 (CI fix) merged
+
+- CI went green on `#330` (`build-and-test-server` + `lint-and-build-client`
+  both passed) and Boss merged it into `master`.
+- `#328` (TASK-001) and `#329` (TASK-002) still need their own branches
+  synced with `master` (merge or rebase) to pick up the fix before their CI
+  will go green — that's for whoever owns those branches next, not done as
+  part of this run to avoid touching another session's branch.
+
 ## 2026-09-13 — Frontend Engineer: implemented TASK-002, PR opened (scheduled run)
 
 - Picked up `TASK-002` (only Frontend-owned READY task). Implemented all
@@ -235,6 +278,7 @@
   once TASK-001 (#328) merges — no frontend change needed at that point.
 - `TASK-003` is READY and unassigned; depends on TASK-001 (#328) merging
   first, since it must call that PR's shared C# helper in-process.
+- `#330` (CI fix) merged — closed out.
 - **Process gap worth Tech Lead/Boss attention:** nothing currently makes
   a new scheduled Engineer run check GitHub for existing open PRs/branches
   on a task before starting it, only the local `.agent/tasks/*.md` status
