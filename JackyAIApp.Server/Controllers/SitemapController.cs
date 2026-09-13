@@ -10,6 +10,11 @@ namespace JackyAIApp.Server.Controllers
     /// SEO — see .agent/architecture/ARCHITECTURE.md). Anonymous by design, same audience as
     /// <see cref="DictionaryController.Get"/>.
     /// </summary>
+    /// <remarks>
+    /// Deliberately has no class-level <c>[Route]</c> (unlike the "api/[controller]" convention
+    /// elsewhere) — /sitemap.xml and /robots.txt are well-known root paths, so each action uses
+    /// an absolute route template instead.
+    /// </remarks>
     [ApiController]
     public class SitemapController(AzureSQLDBContext dbContext) : ControllerBase
     {
