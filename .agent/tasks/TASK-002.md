@@ -216,7 +216,9 @@ static `<title>` (graceful, not broken).
   `.../SECInsiderTradingProviderTests.cs` (ported CI fix from #330)
 
 ### PR
-https://github.com/twjackysu/JackyAIApp/pull/331
+https://github.com/twjackysu/JackyAIApp/pull/331 — CI green
+(`build-and-test-server` + `lint-and-build-client` both passing),
+mergeable, no merge conflict, as of the consolidation push above.
 
 ## Review
 (Tech Lead fills in after PR review)
