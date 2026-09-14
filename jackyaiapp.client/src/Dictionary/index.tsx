@@ -1,8 +1,9 @@
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import { useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { useGetRepositoryWordsByWordIdQuery } from '../apis/repositoryApis';
 import WordCard from '../components/WordCard';
@@ -11,29 +12,57 @@ import RecentlySearched, { RecentlySearchedRef } from './components/RecentlySear
 import SpellSuggestions from './components/SpellSuggestions';
 import WordOfTheDay from './components/WordOfTheDay';
 
+import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useGetWordQuery } from '@/apis/dictionaryApis';
 
+/** Must match `SitemapController.DictionaryPathPrefix` (backend TASK-001). */
+const DICTIONARY_PATH = '/english/dictionary';
+
 function Dictionary() {
+  const navigate = useNavigate();
+  const { word: wordParam } = useParams<{ word?: string }>();
   const [searchParams] = useSearchParams();
-  const initialWord = searchParams.get('word') ?? '';
-  const [text, setText] = useState<string>(initialWord);
-  const [word, setWord] = useState<string | null>(initialWord || null);
+  const word = wordParam ?? null;
+
+  // Back-compat for the old query-string URL (`?word=apple`): redirect to the canonical
+  // path-param URL instead of dropping support for existing bookmarks/shares.
+  const legacyWord = !word ? searchParams.get('word') : null;
+  useEffect(() => {
+    if (legacyWord) {
+      navigate(`${DICTIONARY_PATH}/${encodeURIComponent(legacyWord)}`, { replace: true });
+    }
+  }, [legacyWord, navigate]);
+
+  const [text, setText] = useState<string>(word ?? '');
+  // Keep the search box in sync when the word changes via navigation (recently-searched
+  // click, browser back/forward) — not on every keystroke, since this only depends on `word`.
+  useEffect(() => {
+    setText(word ?? '');
+  }, [word]);
+
   const recentlySearchedRef = useRef<RecentlySearchedRef>(null);
+
+  const navigateToWord = (searchText: string) => {
+    if (!searchText) return;
+    navigate(`${DICTIONARY_PATH}/${encodeURIComponent(searchText)}`);
+  };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Enter') {
-      setWord(text);
+    if (e.key === 'Enter' && text) {
       recentlySearchedRef.current?.handleEnterKeyDown(e, text.toLowerCase());
+      navigateToWord(text);
     }
   };
 
   const { data, isFetching, isError, error } = useGetWordQuery(word!, { skip: !word });
   const wordId = data?.data.id ?? '';
+
+  const { data: userInfo } = useGetUserInfoQuery();
+  const isLoggedIn = !!userInfo?.data;
   const { data: personalWordsData, isFetching: personalWordsIsFetching } =
-    useGetRepositoryWordsByWordIdQuery(wordId, { skip: !wordId });
+    useGetRepositoryWordsByWordIdQuery(wordId, { skip: !wordId || !isLoggedIn });
 
   const handleClickRecentlySearchedText = (recentlySearchedText: string) => {
-    setWord(recentlySearchedText);
-    setText(recentlySearchedText);
+    navigateToWord(recentlySearchedText);
   };
   return (
     <Stack
@@ -43,6 +72,16 @@ function Dictionary() {
         alignItems: 'center',
       }}
     >
+      {data?.data && (
+        <Helmet>
+          <title>{data.data.seoTitle}</title>
+          <meta name="description" content={data.data.seoDescription} />
+          <link
+            rel="canonical"
+            href={`${window.location.origin}${DICTIONARY_PATH}/${encodeURIComponent(word ?? '')}`}
+          />
+        </Helmet>
+      )}
       <TextField
         label="Search"
         variant="outlined"
@@ -74,6 +113,7 @@ function Dictionary() {
             isError={isError}
             isFavorite={!!personalWordsData?.data}
             error={error}
+            isHideFavoriteButton={!isLoggedIn}
           />
           {isError && !isFetching && (
             <SpellSuggestions word={word} onSelectSuggestion={handleClickRecentlySearchedText} />
