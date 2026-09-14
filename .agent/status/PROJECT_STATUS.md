@@ -326,6 +326,7 @@
 - While comparing the two PRs' diffs, found one real thing `#333` did **not** carry over from `#331`: the `EnglishLearningLayout` tab strip has no match for `/english/dictionary/:word` (only the bare path is a `Tab` `value`), so the Dictionary tab shows unselected on every word detail page — live on `master` right now, not hypothetical.
 - Fixed it as its own minimal PR rather than reviving `#331`: **[#334](https://github.com/twjackysu/JackyAIApp/pull/334)** (`claude/amazing-cori-w4bv78`) — one-line change folding `/english/dictionary/*` onto the Dictionary tab, same pattern as the existing bare-`/english` handling. `npm run lint`/`build`/`vitest run` all clean, 131/131 tests, no regressions. Subscribed to `#334`.
 - Deliberately left the `ClozeTestCard` internal link using the old `?word=` format alone — `#333`'s client-side redirect already makes it work correctly (just one extra hop), and touching it wasn't needed to fix the actual regression; kept this PR minimal per scope-control.
+- `#334` merged into `master` (2026-09-14T01:26Z, CI green, `mergeable_state: clean`, no review comments). Session auto-unsubscribed. `TASK-002` is now fully complete on `master`: routing + anonymous-401 fix + per-word metadata (`#333`) and the tab-highlight regression (`#334`).
 
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
@@ -333,9 +334,15 @@
   Retention backlog beyond the SEO item now underway.
 - `TASK-001` (PR #328) — **merged into master.** Formal task-status closure
   (`MERGED`) pending Boss/Tech Lead per SOP.
-- `TASK-002` — **merged into master** via `#333`. `#331` (superseded
-  duplicate) closed. A small tab-highlight regression `#333` missed is
-  fixed in open PR **#334**, awaiting CI/review.
+- `TASK-002` — **merged into master**, fully complete: `#333` (routing/
+  401-fix/metadata) + `#334` (tab-highlight regression fix). `#331`
+  (superseded duplicate) closed. Formal task-status closure (`MERGED`)
+  pending Boss/Tech Lead per SOP.
 - `TASK-003` (PR #332) — **merged into master.** Formal task-status closure
   (`MERGED`) pending Boss/Tech Lead per SOP.
 - `#330` (CI fix) merged — closed out.
+- All three Growth & Retention SEO tasks (`TASK-001`/`TASK-002`/`TASK-003`)
+  are now merged into `master`. Next: Boss/Tech Lead to formally close out
+  task statuses, then sequence the rest of the Growth & Retention backlog
+  (shareable Daily Challenge/streak/exam results, referral mechanics) once
+  Boss answers the open audience/channel question above.
