@@ -30,9 +30,13 @@ function EnglishLearningLayout() {
   const { data: dueCountRes } = useGetDueCountQuery(undefined, { skip: !isLoggedIn });
   const dueCount = dueCountRes?.data?.dueCount ?? 0;
 
-  // Bare "/english" renders Dictionary but isn't itself a Tab value — treat it as the
-  // Dictionary tab so the tab strip doesn't end up with nothing selected.
-  const currentTab = path === '/english' ? ENGLISH_LEARNING.path : path;
+  // Bare "/english" and any per-word "/english/dictionary/:word" detail page render
+  // Dictionary but aren't themselves the Tab's value — fold both onto the Dictionary
+  // tab so the tab strip doesn't end up with nothing selected.
+  const currentTab =
+    path === '/english' || path.startsWith(`${ENGLISH_LEARNING.path}/`)
+      ? ENGLISH_LEARNING.path
+      : path;
 
   return (
     <>
