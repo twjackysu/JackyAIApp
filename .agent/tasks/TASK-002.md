@@ -177,5 +177,26 @@ Implemented as scoped:
 
 PR: https://github.com/twjackysu/JackyAIApp/pull/333
 
+**Update (2026-09-14, follow-up run):** the user pointed out `#331` (a
+different, parallel Frontend Engineer run's own TASK-002 implementation —
+`claude/amazing-cori-7gyhyr`, opened before this run's `#333`) was still
+open and showing a conflict. Investigated: `#333` above had already merged
+into `master` first and is a full implementation of all 3 requirements, so
+`#331`'s branch was conflicting with already-landed code, not with
+anything still needed — closed `#331` with an explanation pointing here
+rather than continuing to fight the merge.
+
+One real gap surfaced while comparing the two: `#331` had also ported an
+`EnglishLearningLayout` tab-highlight fix (the Dictionary tab strip
+matches path exactly against each `Tab`'s `value`, and nothing accounted
+for the new `/english/dictionary/:word` route, so word detail pages showed
+no tab selected) that `#333` did not carry over. That's a genuine small
+regression, now live on `master`. Fixed it in its own minimal follow-up PR
+rather than reviving `#331`: https://github.com/twjackysu/JackyAIApp/pull/334
+(`claude/amazing-cori-w4bv78`) — one-line logic change in
+`EnglishLearningLayout`, folding `/english/dictionary/*` onto the
+Dictionary tab, same pattern as the existing bare-`/english` handling.
+`npm run lint`/`build`/`vitest` all clean (131/131 tests, no regressions).
+
 ## Review
 (Tech Lead fills in after PR review)
