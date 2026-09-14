@@ -175,7 +175,7 @@ Implemented as scoped:
    deprecate) as my own call per the task's escalation guidance — see
    above; easy to flip if Tech Lead disagrees.
 
-PR: (opening now)
+PR: https://github.com/twjackysu/JackyAIApp/pull/333
 
 ## Review
 (Tech Lead fills in after PR review)
