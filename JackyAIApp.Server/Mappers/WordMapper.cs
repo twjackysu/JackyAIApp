@@ -1,4 +1,5 @@
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Services.Dictionary;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Mappers
@@ -86,6 +87,24 @@ namespace JackyAIApp.Server.Mappers
         /// <summary>Maps an EF <see cref="SQL.Word"/> entity to the API DTO.</summary>
         public static DTO.Word ToDto(SQL.Word sqlWord)
         {
+            var meanings = sqlWord.Meanings.Select(m => new DTO.WordMeaning
+            {
+                PartOfSpeech = m.PartOfSpeech,
+                Definitions = m.Definitions.Select(d => new DTO.Definition
+                {
+                    English = d.English,
+                    Chinese = d.Chinese
+                }).ToList(),
+                ExampleSentences = m.ExampleSentences.Select(es => new DTO.ExampleSentence
+                {
+                    English = es.English,
+                    Chinese = es.Chinese
+                }).ToList(),
+                Synonyms = m.Tags.Where(t => t.TagType == Constants.TagTypes.Synonym).Select(t => t.Word).ToList(),
+                Antonyms = m.Tags.Where(t => t.TagType == Constants.TagTypes.Antonym).Select(t => t.Word).ToList(),
+                RelatedWords = m.Tags.Where(t => t.TagType == Constants.TagTypes.Related).Select(t => t.Word).ToList()
+            }).ToList();
+
             return new DTO.Word
             {
                 Id = sqlWord.Id,
@@ -95,6 +114,8 @@ namespace JackyAIApp.Server.Mappers
                 DateAdded = sqlWord.DateAdded,
                 LastUpdated = sqlWord.LastUpdated,
                 DataInvalid = sqlWord.DataInvalid,
+                SeoTitle = WordSeoTextFormatter.FormatTitle(sqlWord.WordText),
+                SeoDescription = WordSeoTextFormatter.FormatDescription(sqlWord.WordText, meanings),
                 ClozeTests = sqlWord.ClozeTests?.Select(ct => new DTO.ClozeTest
                 {
                     Question = ct.Question,
@@ -106,23 +127,7 @@ namespace JackyAIApp.Server.Mappers
                     Chinese = tt.Chinese,
                     English = tt.English
                 }).ToList(),
-                Meanings = sqlWord.Meanings.Select(m => new DTO.WordMeaning
-                {
-                    PartOfSpeech = m.PartOfSpeech,
-                    Definitions = m.Definitions.Select(d => new DTO.Definition
-                    {
-                        English = d.English,
-                        Chinese = d.Chinese
-                    }).ToList(),
-                    ExampleSentences = m.ExampleSentences.Select(es => new DTO.ExampleSentence
-                    {
-                        English = es.English,
-                        Chinese = es.Chinese
-                    }).ToList(),
-                    Synonyms = m.Tags.Where(t => t.TagType == Constants.TagTypes.Synonym).Select(t => t.Word).ToList(),
-                    Antonyms = m.Tags.Where(t => t.TagType == Constants.TagTypes.Antonym).Select(t => t.Word).ToList(),
-                    RelatedWords = m.Tags.Where(t => t.TagType == Constants.TagTypes.Related).Select(t => t.Word).ToList()
-                }).ToList()
+                Meanings = meanings
             };
         }
 

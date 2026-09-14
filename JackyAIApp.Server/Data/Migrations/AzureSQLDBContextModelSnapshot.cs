@@ -1104,9 +1104,13 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.Property<string>("WordText")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("WordText")
+                        .IsUnique();
 
                     b.ToTable("Words");
                 });

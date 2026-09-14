@@ -149,6 +149,40 @@
   Boss in `.agent/boss/TECH_LEAD.md` with the explanation.
 - No code changes — task/architecture documentation only.
 
+## 2026-09-13 — Backend: TASK-001 PR opened; found a repo-wide CI time-bomb (scheduled run)
+
+- Implemented `TASK-001` (sitemap.xml/robots.txt, `seoTitle`/`seoDescription`
+  fields via a new `WordSeoTextFormatter`, unique index migration on
+  `Word.WordText`) and opened
+  [PR #328](https://github.com/twjackysu/JackyAIApp/pull/328). No `dotnet`
+  SDK or DB connectivity in this sandbox — compensated with a careful
+  manual read-through plus an independent review-agent pass; flagged in
+  the PR that an actual CI/build run is still needed to confirm.
+- CI's `build-and-test-server` failed on the PR. Investigated: **not**
+  caused by this PR's diff. `SECInsiderTradingProviderTests.FetchAsync_ParsesTransactionReportTable`
+  (`JackyAIApp.Server.Tests/Services/Finance/US/`) is a fixture-based test
+  (`Fixtures/SEC/insider_transactions_aapl.html`, dated 2026-06-15/16)
+  asserting against `SECInsiderTradingProvider`'s "last 90 days" filter
+  (`Services/Finance/DataProviders/US/SECInsiderTradingProvider.cs:49`,
+  `DateTime.UtcNow.AddDays(-90)`). Today (2026-09-13) is exactly 90 days
+  past the fixture's earliest date, so the fixed-date fixture now falls
+  outside the live 90-day window — a time-bomb test, unrelated to any
+  in-flight task. Confirmed via one re-run (identical failure, not a
+  flake) before concluding this.
+- **This will keep failing (and get worse) on every PR's CI from now on**,
+  not just #328 — it's a shared-infrastructure problem, not something to
+  fix inside TASK-001 (out of scope, and Backend doesn't own that module
+  in this task). Proposed patch for whoever picks it up: inject a
+  `TimeProvider`/clock into `SECInsiderTradingProvider` so the test can
+  pin "now", or restructure the test to assert on `ParseOwnershipTable`'s
+  raw output before the date filter and cover the 90-day cutoff separately
+  with a fixed reference date, instead of a fixture with hardcoded dates
+  racing `DateTime.UtcNow`. Documented full root-cause on the PR
+  (comment: https://github.com/twjackysu/JackyAIApp/pull/328#issuecomment-5653367141).
+- Not fixed as part of this PR — flagging to Tech Lead via this status
+  log per the architecture-issue escalation path, since it blocks CI
+  repo-wide rather than being specific to TASK-001.
+
 ## 2026-09-13 — Backend Engineer: Fixed CI-blocking flaky test, opened PR #330 (scheduled run)
 
 - Boss asked in `.agent/boss/TECH_LEAD.md`: "我看工程師發的PR CI壞了，能請人另外
@@ -266,18 +300,76 @@
   earlier status entry above: TASK-001 was **not** actually unclaimed at
   the time it was written — see Open Items below for current state.
 
+## 2026-09-13 — Backend Engineer: synced PR #328's branch with master to clear CI (scheduled run)
+
+- Merged `master` (carrying the PR #330 fixture fix) into TASK-001's branch
+  (`claude/magical-heisenberg-1b3vum`) and pushed, so `build-and-test-server`
+  picks up the `SECInsiderTradingProviderTests` fix instead of hitting the
+  now-resolved time-bomb failure. Only conflict was in this status log file
+  (resolved by keeping both branches' entries in chronological order); no
+  source/test files touched.
+- The repo-wide time-bomb note filed on 2026-09-13 above is now resolved by
+  `#330` — kept as historical record rather than deleted.
+- CI confirmed green on the synced commit (`build-and-test-server` +
+  `lint-and-build-client` both `success`), `mergeable_state: clean`. No
+  Claude Approvals check configured on this repo. `#328` is now waiting on
+  Tech Lead/Boss review only — nothing further for Backend to do here
+  unless review comments come back.
+
+## 2026-09-13 — Backend Engineer: PR #328 (TASK-001) merged into master (scheduled run)
+
+- `#328` was merged (GitHub `pull_request.closed`/`merged` event). `master`
+  now has `SitemapController` (`/sitemap.xml`, `/robots.txt`),
+  `WordSeoTextFormatter` + `seoTitle`/`seoDescription` on the
+  `GET api/dictionary/{word}` response, and the unique index migration on
+  `Word.WordText`. Not recording `TASK-001.md`'s `Status:` as `MERGED`
+  myself per SOP (§10/§18 reserve that to Boss) — leaving the field as
+  `PR_OPENED` for Tech Lead/Boss to formally close out; this log entry is
+  the factual record that the PR itself landed.
+- Side effect: merging `#328` moved `master`'s tip, which flipped PR #331
+  (TASK-002, Frontend, branch `claude/amazing-cori-7gyhyr`) from
+  `mergeable_state: clean` to `dirty` (merge conflict against the new
+  `master`). That PR is Frontend Engineer's to resolve (their branch, not
+  mine to touch) — flagging here so whoever picks up TASK-002 next sees it
+  without needing to rediscover it.
+- `TASK-003` (Backend, unclaimed) still correctly blocked: its own
+  dependency notes require both `TASK-001` *and* `TASK-002` merged before
+  starting (needs `WordSeoTextFormatter`, which is now on `master`, but
+  also needs TASK-002's frontend surface in place first per the task's own
+  sequencing). Not starting it this run.
+
+## 2026-09-13 — Frontend Engineer: merged master into #331 again to pick up TASK-001, resolved conflict (scheduled run)
+
+- User asked directly to fix the merge conflict GitHub was showing on #331.
+  Confirmed via `git log`: `#328` (TASK-001) had merged into `master` since
+  this branch was last synced, which is what flipped #331 from
+  `mergeable_state: clean` to `dirty` (per the Backend Engineer entry
+  above) — not a new issue introduced by this PR's own commits.
+- Merged `master` into `claude/amazing-cori-7gyhyr`. Only conflict was this
+  status log file (resolved by interleaving both sides' entries in
+  chronological order, as before); every backend TASK-001 file
+  (`SitemapController`, `WordSeoTextFormatter`, the `WordModels.cs`
+  `seoTitle`/`seoDescription` fields, the unique-index migration, etc.)
+  merged in cleanly with no conflict — this PR's frontend code already
+  expected those exact field names, per the coordination recorded in both
+  tasks' docs.
+- This also means today's live API now actually returns
+  `seoTitle`/`seoDescription` (TASK-001 is merged), so once #331 lands, the
+  known limitation noted in this PR (default title-only for anonymous
+  visitors) goes away for real — not just wired-and-waiting as before.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
-- `TASK-001` (Backend): implemented in open PR #328, awaiting review/merge
-  — not unassigned, no action needed from Frontend.
-- `TASK-002` (Frontend): implemented (all 3 requirements) in open PR #331.
-  PR #329 (a duplicate/partial attempt) closed in favor of #331. Metadata
-  (Requirement 3) is wired to render `seoTitle`/`seoDescription` verbatim
-  once TASK-001 (#328) merges — no frontend change needed at that point.
-- `TASK-003` is READY and unassigned; depends on TASK-001 (#328) merging
-  first, since it must call that PR's shared C# helper in-process.
+- `TASK-001` (PR #328) — **merged into master.** Formal task-status closure
+  (`MERGED`) pending Boss/Tech Lead per SOP.
+- `TASK-002` (PR #331, Frontend): implemented (all 3 requirements); the
+  `master`-sync conflict from `#328` landing has been resolved and pushed —
+  awaiting fresh CI + Tech Lead/Boss review. PR #329 (a duplicate/partial
+  attempt) closed in favor of #331.
+- `TASK-003` is READY and genuinely unclaimed; still blocked on `TASK-002`
+  merging (TASK-001's half of the dependency is now satisfied).
 - `#330` (CI fix) merged — closed out.
 - **Process gap worth Tech Lead/Boss attention:** nothing currently makes
   a new scheduled Engineer run check GitHub for existing open PRs/branches
