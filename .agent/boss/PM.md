@@ -253,3 +253,11 @@ Sources:
 ## Boss Attention Required
 - 如上 Open Questions 1、2，非急件，不影響現在能做的事（如果沒有其他指示，PM 預設下次直接推進口說回饋這項的技術評估）。
 
+---
+
+# Boss → PM
+
+1. 可以
+2. 同意
+另外我希望你的長期目標是不斷的改進網站功能，讓User更願意一直使用該Web App，不一定只有English learn的功能
+
