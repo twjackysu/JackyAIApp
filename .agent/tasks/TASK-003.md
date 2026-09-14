@@ -7,7 +7,7 @@ Backend: social-preview middleware for known link-preview bot user agents
 Backend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM
@@ -91,7 +91,66 @@ already satisfy the "findable via Google search" goal on their own.
   where that text is computed so both surfaces read the same source.
 
 ## Result
-(fill in on completion)
+
+Implemented as scoped:
+
+- `LinkPreviewBotUserAgents` (`Common/`) — centralized, documented list of
+  bot UA markers (facebookexternalhit/Facebot, Line/, Twitterbot,
+  Slackbot, Discordbot, WhatsApp), each commented with its platform's UA
+  documentation link. `IsMatch` does an `OrdinalIgnoreCase` substring
+  check.
+- `BotPreviewMiddleware` (`Common/`) — matches a request's path against
+  `SitemapController.DictionaryPathPrefix` (`/english/dictionary/{word}`,
+  single segment only) and its User-Agent against the list above. On a
+  match, calls `IDictionaryService.GetWordAsync` in-process (method-
+  parameter injection, since the service is Scoped and the middleware
+  instance is a singleton) and renders `DTO.Word.SeoTitle`/
+  `SeoDescription` verbatim (HTML-encoded) into `<title>`, meta
+  description, and `og:title`/`og:description`/`og:url`/`og:image` (generic
+  image: `/JackyAIIcon.png`, copied into wwwroot from the client's
+  `public/` at publish time — no per-word image generation). Every other
+  request (real browsers, Googlebot, unmatched/invalid word, any other
+  route) falls through unchanged via `next()`.
+- Registered in `Program.cs` right after `ExceptionMiddleware`, before
+  `UseDefaultFiles()`/`UseStaticFiles()` — ahead of the SPA static-file/
+  fallback pipeline.
+- Confirmed no re-implementation of the SEO text formatting anywhere:
+  the middleware only reads the `SeoTitle`/`SeoDescription` fields
+  `WordMapper.ToDto` already populates via TASK-001's
+  `WordSeoTextFormatter`.
+
+Started this without waiting for TASK-002 (PR #331) to merge first: TASK-003
+is backend-only (middleware + in-process service call), doesn't touch or
+depend on any frontend code, and its only real technical dependency
+(`WordSeoTextFormatter`/`seoTitle`/`seoDescription`, plus the
+`/english/dictionary/{word}` path shape) was already settled and merged
+via TASK-001. The "land after or alongside TASK-002" note in this task's
+Technical Notes reads as a deployment-sequencing preference, not a build
+blocker — flagging this judgment call explicitly in case Tech Lead intended
+a harder dependency.
+
+**Tests**: added `BotPreviewMiddlewareTests` — `TryExtractWord` path
+parsing (trailing slash, `%20`-encoded multi-word phrases, rejecting
+non-word-detail paths), `BuildHtml` verbatim rendering + HTML-encoding,
+and `InvokeAsync` end-to-end for: normal browser UA (falls through),
+Googlebot UA (falls through, deliberately not special-cased), non-word-
+detail path (falls through), failed word lookup (falls through), and
+every listed bot UA (serves the preview HTML, skips `next()`).
+
+**Known limitations / things Tech Lead should be aware of before merging:**
+1. **No `dotnet` SDK in this sandbox** — could not run `dotnet build`/
+   `dotnet test`. Compensated with a careful manual read-through (namespace
+   resolution incl. the enclosing-namespace `DTO.Word` pattern already used
+   in `RepositoryService.cs`, DI lifetimes, implicit usings per project SDK
+   type, `PathString.StartsWithSegments` traced against every test case)
+   plus an independent review-agent pass; both found no compile errors or
+   logic bugs. Still recommend confirming CI is green before merging.
+2. `og:url` reflects the visitor's URL-decoded word casing as typed in the
+   shared link, not necessarily the DB's canonical stored casing — same
+   convention `SitemapController`'s `loc` URLs already use, not a new
+   inconsistency.
+
+PR: https://github.com/twjackysu/JackyAIApp/pull/332
 
 ## Review
 (Tech Lead fills in after PR review)

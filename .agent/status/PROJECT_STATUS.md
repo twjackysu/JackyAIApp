@@ -264,6 +264,32 @@
   also needs TASK-002's frontend surface in place first per the task's own
   sequencing). Not starting it this run.
 
+## 2026-09-14 — Backend Engineer: TASK-003 PR opened (scheduled run)
+
+- Implemented `TASK-003` (bot-preview middleware for LINE/Facebook/Twitter/
+  Slack/Discord/WhatsApp link-preview UAs hitting `/english/dictionary/{word}`)
+  and opened [PR #332](https://github.com/twjackysu/JackyAIApp/pull/332).
+  `LinkPreviewBotUserAgents` centralizes the UA list; `BotPreviewMiddleware`
+  calls `IDictionaryService.GetWordAsync` in-process and renders
+  `SeoTitle`/`SeoDescription` (TASK-001's `WordSeoTextFormatter` output)
+  verbatim — no second formatting implementation. Registered early in
+  `Program.cs`, before the SPA static-file/fallback pipeline.
+- Judgment call: started without waiting for `TASK-002`/PR #331 to merge.
+  TASK-003 is backend-only and its real dependency (TASK-001's shared
+  helper + the `/english/dictionary/{word}` path shape) was already merged;
+  the previous status log's "blocked on TASK-002 merging" note is read here
+  as a deployment-sequencing preference rather than a hard build
+  dependency. Flagged explicitly in `TASK-003.md` in case Tech Lead
+  intended it as a harder blocker.
+- No `dotnet` SDK/DB connectivity in this sandbox — compensated with a
+  manual line-by-line read-through plus an independent review-agent pass
+  (separate context, read every changed/referenced file); both found no
+  compile errors or logic bugs. Flagged in the PR that an actual CI run
+  still needs to confirm.
+- `TASK-002` (PR #331) is still open with a merge conflict against
+  `master` from `TASK-001` landing — unchanged from the last log entry,
+  still Frontend's to resolve, not touched here.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
@@ -274,6 +300,6 @@
   merge conflict against `master` caused by `#328` landing. Needs Frontend
   Engineer to merge `master` into that branch and resolve. Not Backend's to
   fix.
-- `TASK-003` is READY and genuinely unclaimed; still blocked on `TASK-002`
-  merging (TASK-001's half of the dependency is now satisfied).
+- `TASK-003` (PR #332) — opened, backend-only, no `dotnet` build run yet in
+  this sandbox. Waiting on CI + Tech Lead/Boss review.
 - `#330` (CI fix) merged — closed out.
