@@ -4,7 +4,8 @@ import Box from '@mui/material/Box';
 import { alpha } from '@mui/material/styles';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import { useEffect, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useLocation, useRoutes, type RouteObject } from 'react-router-dom';
 
 import RequireAuth from './auth/RequireAuth';
@@ -109,17 +110,18 @@ function App() {
   const isPortal = path === '/';
   const currentApp = getCurrentApp(path);
 
-  // Keep the document title in sync with the current site so each feels standalone.
-  useEffect(() => {
-    document.title = currentApp?.name ?? "Jacky's Studio";
-  }, [currentApp]);
-
   // The app's accent colour is used only as a subtle tint behind the icon —
   // enough to give each site an identity without painting the whole bar.
   const accent = currentApp?.color ?? '#5E6AD2';
 
   return (
     <>
+      {/* Site-level default title. A page further down the tree (e.g. the per-word
+          Dictionary route) can render its own <Helmet> with a more specific <title> —
+          react-helmet-async lets the deepest-rendered one win for singleton tags. */}
+      <Helmet>
+        <title>{currentApp?.name ?? "Jacky's Studio"}</title>
+      </Helmet>
       <AppBar
         position="static"
         elevation={0}

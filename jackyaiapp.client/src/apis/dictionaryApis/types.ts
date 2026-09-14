@@ -6,6 +6,14 @@ export interface Word extends WordBase {
   dataInvalid?: boolean;
   clozeTests?: ClozeTest[];
   translationTests?: string[];
+  /**
+   * SEO title/description computed once by the backend's
+   * `WordSeoTextFormatter` (single source of truth — see
+   * `.agent/architecture/ARCHITECTURE.md`). Render verbatim, do not
+   * reformat on the frontend.
+   */
+  seoTitle: string;
+  seoDescription: string;
 }
 
 interface WordBase {

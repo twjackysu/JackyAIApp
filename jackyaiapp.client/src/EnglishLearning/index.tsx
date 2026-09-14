@@ -23,6 +23,9 @@ interface EnglishChildRoute {
 
 const children: EnglishChildRoute[] = [
   { path: 'dictionary', element: <Dictionary /> },
+  // Canonical per-word URL (Growth & Retention SEO — see ARCHITECTURE.md). Kept as a
+  // separate route rather than an optional param since React Router doesn't support those.
+  { path: 'dictionary/:word', element: <Dictionary /> },
   {
     path: 'daily',
     element: (
