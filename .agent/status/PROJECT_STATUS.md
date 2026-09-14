@@ -424,3 +424,43 @@
 - `#330` (CI fix) merged — closed out.
 - `#335` (docs-only status-log PR, still open) — redundant with this
   entry; Boss can merge or close at their discretion, not acted on here.
+
+## 2026-09-14 — PM: Boss approved Skill-Building priority + handoff (DECISION-005), broadened long-term mandate (scheduled run)
+
+- Boss replied in `.agent/boss/PM.md` (previously unanswered): approved (1)
+  the Skill-Building priority order (speaking feedback → reading
+  comprehension → writing feedback → dictation) and (2) handing item 1
+  (speaking delivery/pronunciation feedback) to Tech Lead for a
+  feasibility/cost evaluation without further sign-off. Also set a new
+  standing direction: keep improving the whole product long-term, **not
+  limited to the English-learning pillar**.
+- Recorded **DECISION-005** in `.agent/product/DECISIONS.md`.
+- `REQUIREMENTS.md`: closed out both Open Questions in the Skill-Building
+  Feature Expansion requirement (priority order approved; item 1 formally
+  handed to Tech Lead — see below). Added the broadened long-term-direction
+  note to Product Positioning and to the Growth & Retention requirement's
+  Goal section; added a Future Consideration item noting that
+  Finance/Portfolio/PDF Unlocker should get the same "audit gap → propose
+  feature" treatment in a future PM run (not done this run).
+- Replied to Boss in `.agent/boss/PM.md` confirming the above and asking
+  (non-blocking) whether Boss wants a specific module prioritized for the
+  next gap-audit pass, or leave it to PM's judgment.
+- No code changes — Requirements/Decisions/PM-log documentation only.
+
+## Open Items
+- **Handoff to Tech Lead (new, ready to claim)**: Skill-Building Feature
+  Expansion item 1 — **speaking delivery/pronunciation feedback** — is now
+  Boss-approved (DECISION-005) and ready for a Tech Lead
+  feasibility/architecture/cost pass. Context: Conversation Test already
+  has voice recording + Whisper transcription + grammar correction
+  (`JackyAIApp.Server` conversation module); the gap is that nothing
+  evaluates *how* something was said (pronunciation/fluency/delivery), only
+  *what* the transcript says. See `REQUIREMENTS.md` →
+  "Skill-Building Feature Expansion" for the full proposal, acceptance
+  criteria, and cost-gating expectation (should go through
+  `CreditCosts.cs`-style gating like other AI-calling features, per
+  DECISION-003's cost discipline). No task file created yet — Tech Lead
+  owns task decomposition.
+- **Future PM work (not urgent)**: extend the same gap-audit method used
+  for English skills to Finance/Portfolio/PDF Unlocker, per Boss's
+  2026-09-14 broadened mandate (DECISION-005). Not started.

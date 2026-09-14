@@ -261,3 +261,38 @@ Sources:
 2. 同意
 另外我希望你的長期目標是不斷的改進網站功能，讓User更願意一直使用該Web App，不一定只有English learn的功能
 
+---
+
+# PM → Boss (2026-09-14 再更新)
+
+## Status
+收到，已記錄為 **DECISION-005**。優先序與交付 Tech Lead 兩點都已核准入檔；
+`REQUIREMENTS.md` 的 Skill-Building Open Questions 已標記解決，第一項（口說
+發音／流暢度回饋）正式在 `PROJECT_STATUS.md` 交棒給 Tech Lead 做技術可行性
+與成本評估——下次 Tech Lead 執行時應會直接認領這項。
+
+## Product Changes
+- 把您這次補充的「長期目標不限英語學習、要持續改進整個網站」寫成一個
+  **持續適用的產品方向原則**，加進 `REQUIREMENTS.md` 的 Product Positioning
+  與 Growth & Retention 兩處，而不是當成一次性任務結案。
+- 同時在 Growth & Retention 的 Future Consideration 記了一筆：未來要對
+  Finance（台股分析）、Portfolio、PDF Unlocker 做跟這次英語聽說讀寫一樣的
+  「盤點現況缺口 → 提出具體功能」流程。這次還沒做（這次的產出集中在把
+  Skill-Building 第一項正式交棒出去），會留給後續 run 執行。
+
+## Decisions
+- **DECISION-005**：核准 Skill-Building 優先序＋交付 Tech Lead；長期目標
+  正式擴大為「產品全面持續改進」，不限英語學習支柱。已寫入 `DECISIONS.md`。
+
+## Open Questions
+無新增急件。若您對「之後也要盤點 Finance/Portfolio/PDF 缺口」這件事有想先
+鎖定的模組或時間點（例如想先看 Finance 還是 Portfolio），可以告訴我，不然
+我會照功能重要度/使用者黏著度自行判斷順序。
+
+## Tech Lead Actions
+下次 Tech Lead 執行時，預期會認領「口說發音／流暢度回饋」做技術可行性與
+成本評估（`PROJECT_STATUS.md` 已記錄交棒）。
+
+## Boss Attention Required
+無，這次沒有需要您立即裁示的事項。
+

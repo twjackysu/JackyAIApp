@@ -32,6 +32,14 @@ genuinely popular — **without paid advertising**. Revenue is explicitly not
 the current goal; see the new Growth & Retention requirement below and the
 downgraded Credits & Payments requirement.
 
+**2026-09-14 update (DECISION-005)**: Boss set an explicit standing
+long-term direction — keep continuously improving the product so users want
+to keep using it, and this is **not limited to the English-learning
+pillar**. The Skill-Building work below (讀/寫/聽/說) is the first concrete
+instance of this, but Finance/Portfolio/PDF Unlocker are equally in scope
+for the same "find the gap, close it" treatment in future planning — see
+Growth & Retention below.
+
 ---
 
 ## Requirement: Growth & Retention (No Paid Ads, Product-Led)
@@ -45,6 +53,14 @@ mechanics on top of it. Boss's explicit reasoning: a learner has little
 incentive or confidence to broadcast their own study activity, so
 word-of-mouth has to be earned by product quality, not engineered via
 share buttons.
+
+**Per DECISION-005 (2026-09-14)**: this "keep making the product genuinely
+better" mandate is explicitly **product-wide, not English-learning-only**.
+Skill-Building (below) is the first workstream under it because the audit
+was already done there, but Finance (market analysis), Portfolio, and PDF
+Unlocker are equally candidates for the same treatment — find the concrete
+gap, close it — in future planning passes, not a one-time English-only
+initiative.
 
 ### User Story
 As Boss, I want the product to become genuinely popular because it actually
@@ -122,6 +138,13 @@ mechanics" — see DECISION-004.
   is a deliberate target. Lower priority than skill-building work per
   Boss's 2026-09-14 redirect (general/unspecified audience, no existing
   channel to seed from — see `.agent/boss/PM.md`).
+- **Product-wide gap audit beyond English learning (DECISION-005,
+  2026-09-14)**: apply the same "audit existing coverage → name the
+  concrete gap → propose a feature" method used for Skill-Building to
+  Finance/Market Analysis, Portfolio Tracker, and PDF Unlocker. Not done
+  yet — flagged here so a future PM run picks it up once Skill-Building's
+  first item is handed off (this run's actionable capacity went to closing
+  out Skill-Building's open questions instead).
 
 ---
 
@@ -151,8 +174,8 @@ the gap each proposal below closes:
 | 聽 Listening | Listening Test (TOEIC-style multiple choice), Listening Response Test | No dictation-style practice (hear → transcribe yourself), no adjustable playback speed |
 | 說 Speaking | Conversation Test: voice recording, Whisper transcription, real-time **grammar** correction on the transcribed text | **No feedback at all on pronunciation/fluency/delivery** — the AI only ever judges what the transcript says, never how it was spoken. This is the single skill with a real, easily-named gap despite already having the full audio pipeline (record → Whisper) in place to build on |
 
-Proposed features, in the priority order PM recommends (not yet Boss- or
-Tech-Lead-approved — see Open Questions):
+Proposed features, in the priority order PM recommended and **Boss approved
+2026-09-14** (see Decisions):
 
 1. **Speaking delivery feedback (pronunciation/fluency), not just grammar**
    — HIGH. Highest leverage because: (a) it's the only skill with zero
@@ -209,17 +232,14 @@ what "Growth & Retention" now means in practice.
   effect).
 
 ### Open Questions
-- Boss: does the priority order above (speaking feedback → reading
-  comprehension → writing feedback → dictation) match your intuition, or
-  is there a skill you'd rather see tackled first? PM's reasoning is
-  "biggest current gap + reuses existing infra" — happy to reorder on a
-  different rationale (e.g. if you think 讀/寫 matters more for the
-  audience you have in mind).
-- Should this go to Tech Lead now for a feasibility/cost pass on item 1
-  (speaking feedback), or do you want to react to the list first? Per the
-  same "don't wait unless there's a reason to" pattern used for the SEO
-  work, PM's default is to hand item 1 to Tech Lead for evaluation now
-  unless told otherwise — see `.agent/boss/PM.md`.
+- ~~Does the priority order match Boss's intuition?~~ — **resolved
+  (2026-09-14, DECISION-005)**: Boss approved the order as proposed
+  (speaking feedback → reading comprehension → writing feedback →
+  dictation).
+- ~~Hand item 1 to Tech Lead now?~~ — **resolved (2026-09-14,
+  DECISION-005)**: Boss approved. Item 1 (speaking delivery/pronunciation
+  feedback) is now formally handed to Tech Lead for a feasibility/cost
+  evaluation — see `.agent/status/PROJECT_STATUS.md` for the handoff note.
 
 ---
 

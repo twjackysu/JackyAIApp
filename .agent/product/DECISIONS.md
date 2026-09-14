@@ -82,3 +82,39 @@ Boss 指出：自己學英文也不會想分享學習紀錄，正在學習的人
 
 ### Source
 Boss
+
+---
+
+## DECISION-005: 核准 Skill-Building 優先序與第一項交付 Tech Lead；長期目標擴大為「產品全面持續改進」而非僅限英語學習
+
+### Date
+2026-09-14
+
+### Decision
+1. 核准 PM 提出的 Skill-Building Feature Expansion 優先序：口說發音／流暢度回饋
+   → 閱讀理解短文 → 開放式寫作批改 → 聽寫。
+2. 核准 PM 將第一項（口說發音／流暢度回饋）交付 Tech Lead 進行技術可行性／成本
+   評估，不需再等進一步裁示。
+3. 設定新的長期產品目標：**持續改進網站功能，讓 User 更願意一直使用該 Web
+   App**，範圍**不限於英語學習**功能——Finance（台股分析）、Portfolio、PDF
+   Unlocker 等其他模組，未來也應比照 Skill-Building 的做法（盤點現況缺口 →
+   提出具體功能）納入持續改進的範疇。
+
+### Reason
+Boss 對優先序與交付 Tech Lead 的判斷沒有異議（「1. 可以 2. 同意」），並主動
+補充：不希望長期改進只侷限在英語學習這個支柱，產品其他模組（財經/投資組合/
+PDF 工具）同樣需要持續被檢視與改進，才能真正提升整體留存與黏著度。
+
+### Impact
+- `REQUIREMENTS.md`：Skill-Building 的 Open Questions 標記為已解決；第一項
+  （口說回饋）正式進入「等待 Tech Lead 評估」狀態，記錄於
+  `PROJECT_STATUS.md` 供 Tech Lead 下次執行時認領。
+- `REQUIREMENTS.md`：Product Positioning／Growth & Retention 新增「長期目標
+  擴大為產品全面持續改進」的說明，並在 Growth & Retention 的 Future
+  Consideration 新增一項——未來 PM 應對 Finance/Portfolio/PDF Unlocker 做
+  同樣的「盤點缺口→提案」流程，尚未執行，留待後續 run。
+- 不影響目前已核准的 Skill-Building 工作範圍或優先序本身，是新增一個更上層、
+  持續適用的產品方向原則。
+
+### Source
+Boss
