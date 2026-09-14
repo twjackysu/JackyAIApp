@@ -327,15 +327,49 @@
 - Fixed it as its own minimal PR rather than reviving `#331`: **[#334](https://github.com/twjackysu/JackyAIApp/pull/334)** (`claude/amazing-cori-w4bv78`) — one-line change folding `/english/dictionary/*` onto the Dictionary tab, same pattern as the existing bare-`/english` handling. `npm run lint`/`build`/`vitest run` all clean, 131/131 tests, no regressions. Subscribed to `#334`.
 - Deliberately left the `ClozeTestCard` internal link using the old `?word=` format alone — `#333`'s client-side redirect already makes it work correctly (just one extra hop), and touching it wasn't needed to fix the actual regression; kept this PR minimal per scope-control.
 
+## 2026-09-14 — Tech Lead: reviewed and formally closed out all 3 SEO tasks (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message since Boss's 2026-09-13 acceptance of the
+  single-formatting-source fix; no new PM decision requiring Tech Lead
+  action beyond what's already tracked (audience/channel question is still
+  open at PM/Boss level, not actionable by Tech Lead yet).
+- `#334` (tab-highlight fix) had already merged since the last status
+  entry — confirmed via GitHub. Noticed a new PR, **#335**
+  (`claude/amazing-cori-w4bv78`, docs-only), open with the same status-log
+  content this entry supersedes; left it for Boss to merge or close since
+  Tech Lead doesn't merge/close other sessions' PRs, but its content is now
+  redundant with this entry and the task-file updates below.
+- Did the PR-review pass that was still outstanding on all three merged
+  PRs (#328/#332/#333+#334) — read the actual merged code on `master`
+  rather than only trusting each Engineer's self-report, specifically
+  checking the single-formatting-source requirement (Boss's 2026-09-13
+  drift concern) end-to-end: `WordSeoTextFormatter` is the only place that
+  formats SEO text; `BotPreviewMiddleware` calls it in-process via
+  `DictionaryService`/DTO fields only, no second implementation anywhere;
+  frontend renders the API's `seoTitle`/`seoDescription` verbatim. Also
+  spot-checked the migration, `Program.cs` middleware ordering, route
+  config, and the `EnglishLearningLayout` tab-highlight fix directly in
+  code. No correctness issues found in any of the three.
+- Formally set `Status: MERGED` on `TASK-001`, `TASK-002`, `TASK-003` and
+  filled in each task's `## Review` section with the findings above — this
+  was the one remaining SOP-mandated step (§10/§18 reserve the *merge
+  decision* to Boss, not the after-the-fact status/review bookkeeping,
+  which is Tech Lead's to close out once a PR has already landed).
+- All three Growth & Retention SEO tasks (public/indexable Dictionary word
+  pages) are now fully shipped and closed out end-to-end: code on
+  `master`, task docs marked `MERGED` with review notes.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
-  Retention backlog beyond the SEO item now underway.
-- `TASK-001` (PR #328) — **merged into master.** Formal task-status closure
-  (`MERGED`) pending Boss/Tech Lead per SOP.
-- `TASK-002` — **merged into master** via `#333`. `#331` (superseded
-  duplicate) closed. A small tab-highlight regression `#333` missed is
-  fixed in open PR **#334**, awaiting CI/review.
-- `TASK-003` (PR #332) — **merged into master.** Formal task-status closure
-  (`MERGED`) pending Boss/Tech Lead per SOP.
+  Retention backlog (shareable Daily Challenge/streak/exam results,
+  referral mechanics) — nothing else is currently actionable by Tech Lead
+  on that front until Boss weighs in, per PM's own open question.
+- `TASK-001` (PR #328) — **MERGED, reviewed, closed out.**
+- `TASK-002` (PR #333 + #334) — **MERGED, reviewed, closed out.** `#331`
+  (superseded duplicate) closed.
+- `TASK-003` (PR #332) — **MERGED, reviewed, closed out.**
 - `#330` (CI fix) merged — closed out.
+- `#335` (docs-only status-log PR, still open) — redundant with this
+  entry; Boss can merge or close at their discretion, not acted on here.

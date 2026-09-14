@@ -7,7 +7,7 @@ Frontend: canonical word-path routing + per-word meta tags + fix anonymous 401
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH
@@ -199,4 +199,24 @@ Dictionary tab, same pattern as the existing bare-`/english` handling.
 `npm run lint`/`build`/`vitest` all clean (131/131 tests, no regressions).
 
 ## Review
-(Tech Lead fills in after PR review)
+
+**2026-09-14, Tech Lead.** Fully merged into `master`: routing/401-fix/
+metadata via #333, plus the tab-highlight follow-up via #334 (both merged;
+#331, the superseded parallel implementation, closed). Read the merged
+code directly: `EnglishLearning/index.tsx` has `dictionary/:word` as a
+sibling route (React Router has no optional-param syntax, as noted —
+correct call), and `EnglishLearningLayout.tsx`'s `currentTab` folds both
+bare `/english` and any `/english/dictionary/*` path onto the Dictionary
+tab, so the #334 regression is confirmed fixed in the code as merged, not
+just as described. No second formatting implementation of
+`seoTitle`/`seoDescription` found in the frontend — confirmed the
+single-source-of-truth requirement holds. No correctness issues found.
+Formally closing status to `MERGED` per SOP.
+
+Accepted the Engineer's judgment calls as reasonable and not requiring
+rework: (1) legacy `?word=` redirect-not-deprecate — low-risk, reversible;
+(2) no new `@testing-library/react` scaffolding for one page component —
+right call per the project's "no new abstractions/dependencies beyond what
+the task requires" principle; a real testing-infra investment for
+Router+Redux-wired pages is a separate, larger decision if it comes up
+again elsewhere, not a gap in this task.

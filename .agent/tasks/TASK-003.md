@@ -7,7 +7,7 @@ Backend: social-preview middleware for known link-preview bot user agents
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM
@@ -153,4 +153,27 @@ every listed bot UA (serves the preview HTML, skips `next()`).
 PR: https://github.com/twjackysu/JackyAIApp/pull/332
 
 ## Review
-(Tech Lead fills in after PR review)
+
+**2026-09-14, Tech Lead.** Merged into `master` via #332. Read the merged
+code directly, with particular attention to the hard requirement from
+this task and the 2026-09-13 Boss exchange (drift risk): `BotPreviewMiddleware.InvokeAsync`
+calls `IDictionaryService.GetWordAsync` in-process and renders
+`word.SeoTitle`/`word.SeoDescription` verbatim (HTML-encoded) — confirmed
+it does **not** re-implement or hand-format any title/description text;
+there is exactly one formatting implementation in the codebase
+(`WordSeoTextFormatter`), as required. `LinkPreviewBotUserAgents.IsMatch`
+correctly falls through (returns `false`) for a normal browser UA and for
+Googlebot (deliberately not special-cased, per the task's own acceptance
+criterion). Registration order in `Program.cs` (after
+`ExceptionMiddleware`, before `UseDefaultFiles`/`UseStaticFiles`) is
+correct — bots get intercepted before the SPA fallback, everything else
+passes through unchanged. `TryExtractWord` correctly rejects multi-segment
+paths and handles trailing slashes / percent-encoded segments. No
+correctness issues found. Formally closing status to `MERGED` per SOP.
+
+Endorsing the Engineer's judgment call to start TASK-003 before TASK-002's
+PR had merged: TASK-003 is backend-only and its actual dependency
+(TASK-001's shared helper + the `/english/dictionary/{word}` path shape)
+was already on `master`; the "land after/alongside TASK-002" note was
+correctly read as a sequencing preference, not a hard build dependency —
+no rework resulted from doing it this way.
