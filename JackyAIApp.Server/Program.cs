@@ -199,6 +199,13 @@ try
 
     app.UseResponseCompression();
     app.UseMiddleware<ExceptionMiddleware>();
+
+    // Link-preview bots (LINE/Facebook/etc.) don't execute JS, so intercept them before the
+    // SPA static-file/fallback pipeline with a server-rendered title/OG shell — see
+    // BotPreviewMiddleware and .agent/architecture/ARCHITECTURE.md ("Phase 2"). Every other
+    // request (real users, Googlebot, any other route) falls through unchanged.
+    app.UseMiddleware<BotPreviewMiddleware>();
+
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
