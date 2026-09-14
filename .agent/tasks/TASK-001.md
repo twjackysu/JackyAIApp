@@ -7,7 +7,7 @@ Backend: sitemap/robots endpoint + unique index on Word.WordText
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH
@@ -145,4 +145,24 @@ populated on `GetWordAsync`.
 PR: https://github.com/twjackysu/JackyAIApp/pull/328
 
 ## Review
-(Tech Lead fills in after PR review)
+
+**2026-09-14, Tech Lead.** Merged into `master` via #328. Read the merged
+code directly (not just the Engineer's self-report):
+`WordSeoTextFormatter.FormatTitle`/`FormatDescription`, `SitemapController`
+(`/sitemap.xml`, `/robots.txt`), and migration
+`20260913120000_AddUniqueIndexOnWordText` (bounds `WordText` to
+`nvarchar(450)` + unique index, matches the existing
+`AlterColumn`+`CreateIndex` pattern used elsewhere in the migration
+history). All match the task spec: single formatting source, anonymous
+access preserved, sitemap URL shape (`/english/dictionary/{word}`,
+`Uri.EscapeDataString`-encoded) matches TASK-002/TASK-003 exactly. No
+correctness issues found. Formally closing status to `MERGED` per SOP —
+this was already live on `master` before this review, Boss merged the PR
+directly.
+
+Known open item carried over from the Engineer's own notes (not blocking,
+noting for the record): production `WordText` duplicates/>450-char values
+were never checked against real data before the migration merged, since no
+DB access existed in any sandbox session. The migration applied cleanly in
+practice (no reported failure), so treating this as resolved-by-outcome
+rather than a follow-up task.
