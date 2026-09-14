@@ -232,5 +232,24 @@ entries) and keeping the newer, more accurate "Open Items" list — no code
 files were touched by the merge. Verified no other files conflicted before
 pushing. PR remains otherwise unchanged; CI re-running on the merge commit.
 
+**Update (user-requested fix, 2026-09-14):** User pointed at #331 showing a
+conflict again and asked to fix it. Cause: `TASK-001` (#328) merged into
+`master` after the previous sync above, which brought in
+`SitemapController`, `WordSeoTextFormatter`, the `seoTitle`/`seoDescription`
+fields on `WordModels.cs`, and the `Word.WordText` unique-index migration —
+flipping this PR from `clean` to `dirty` (flagged in advance by the Backend
+Engineer's own status entry, "Not Backend's to fix"). Merged `master` into
+`claude/amazing-cori-7gyhyr` again: the only real conflict was, once more,
+this status log file (resolved the same way, chronological interleave);
+every TASK-001 backend file merged in with zero conflicts, and the backend's
+actual `SeoTitle`/`SeoDescription` property names matched this PR's
+already-optional frontend field names exactly, so no frontend code changes
+were needed. Re-ran `npm run lint` / `npm run build` / `npx vitest run`
+after the merge (clean; 136/136 tests, one more than before from
+`master`'s own new tests) before pushing. Practical effect: once this PR
+merges, real anonymous visitors now get true per-word `seoTitle`/
+`seoDescription` from day one — TASK-001 is no longer just "wired for
+later," it's live on `master`.
+
 ## Review
 (Tech Lead fills in after PR review)
