@@ -295,16 +295,41 @@
   Subscribed to the PR; waiting on Tech Lead/Boss review — nothing further
   for Backend to do unless review comments come back.
 
+## 2026-09-14 — Backend Engineer: PR #332 (TASK-003) merged into master
+
+- `#332` was merged (GitHub `pull_request.closed`/`merged` event, session
+  auto-unsubscribed). `master` now has `LinkPreviewBotUserAgents` +
+  `BotPreviewMiddleware` — server-rendered title/OG preview HTML for
+  LINE/Facebook/Twitter/Slack/Discord/WhatsApp UAs hitting
+  `/english/dictionary/{word}`, sourced from TASK-001's
+  `WordSeoTextFormatter` output via `DictionaryService.GetWordAsync`
+  in-process. No review comments came back before merge. Not recording
+  `TASK-003.md`'s `Status:` as `MERGED` myself per SOP (§10/§18 reserve
+  that to Boss) — leaving it `PR_OPENED` for Tech Lead/Boss to formally
+  close out; this log entry is the factual record that the PR landed.
+- All three Growth & Retention SEO tasks are now merged: `TASK-001` (#328),
+  `TASK-003` (#332), and — noticed while checking `master` after this
+  merge — `TASK-002` also landed via a **new** PR
+  [#333](https://github.com/twjackysu/JackyAIApp/pull/333)
+  (`claude/amazing-cori-qukncn`, merged 2026-09-14T01:13Z), not the old
+  conflicted `#331`. Frontend Engineer evidently restarted TASK-002 from
+  current `master` rather than resolving #331's conflict; #331 is now
+  presumably stale/supersede-able but that's Frontend/Tech Lead's call,
+  not logged as an action item here. No Backend action needed — Backend
+  has no further assigned work this run.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
 - `TASK-001` (PR #328) — **merged into master.** Formal task-status closure
   (`MERGED`) pending Boss/Tech Lead per SOP.
-- `TASK-002` (PR #331, Frontend, `claude/amazing-cori-7gyhyr`) — now has a
-  merge conflict against `master` caused by `#328` landing. Needs Frontend
-  Engineer to merge `master` into that branch and resolve. Not Backend's to
-  fix.
-- `TASK-003` (PR #332) — CI green, mergeable, no reviews yet. Waiting on
-  Tech Lead/Boss review.
+- `TASK-002` — **merged into master** via a fresh PR
+  [#333](https://github.com/twjackysu/JackyAIApp/pull/333)
+  (`claude/amazing-cori-qukncn`), not the originally-conflicted `#331`
+  (`claude/amazing-cori-7gyhyr`). `#331` appears superseded/stale — leaving
+  it for Frontend/Tech Lead to formally close, not touching another
+  engineer's PR.
+- `TASK-003` (PR #332) — **merged into master.** Formal task-status closure
+  (`MERGED`) pending Boss/Tech Lead per SOP.
 - `#330` (CI fix) merged — closed out.
