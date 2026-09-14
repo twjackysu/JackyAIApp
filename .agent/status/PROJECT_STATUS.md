@@ -289,6 +289,11 @@
 - `TASK-002` (PR #331) is still open with a merge conflict against
   `master` from `TASK-001` landing — unchanged from the last log entry,
   still Frontend's to resolve, not touched here.
+- CI confirmed green on PR #332 (`lint-and-build-client` +
+  `build-and-test-server` both `success`), `mergeable_state: clean`, no
+  reviews/comments yet. No Claude Approvals check configured on this repo.
+  Subscribed to the PR; waiting on Tech Lead/Boss review — nothing further
+  for Backend to do unless review comments come back.
 
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
@@ -300,6 +305,6 @@
   merge conflict against `master` caused by `#328` landing. Needs Frontend
   Engineer to merge `master` into that branch and resolve. Not Backend's to
   fix.
-- `TASK-003` (PR #332) — opened, backend-only, no `dotnet` build run yet in
-  this sandbox. Waiting on CI + Tech Lead/Boss review.
+- `TASK-003` (PR #332) — CI green, mergeable, no reviews yet. Waiting on
+  Tech Lead/Boss review.
 - `#330` (CI fix) merged — closed out.
