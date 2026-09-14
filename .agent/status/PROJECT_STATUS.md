@@ -318,18 +318,24 @@
   not logged as an action item here. No Backend action needed — Backend
   has no further assigned work this run.
 
+## 2026-09-14 — Frontend Engineer: closed stale #331, fixed a real regression #333 missed (user-requested)
+
+- User pointed at `#331` (this session's own earlier PR, `claude/amazing-cori-7gyhyr`) still showing "This branch has conflicts that must be resolved," now against real code files (`Dictionary/index.tsx`, `EnglishLearning/index.tsx`, `apis/dictionaryApis/types.ts`, `main.tsx`), not just the status-doc conflicts from the two prior syncs.
+- Investigated rather than merging again: confirmed via `git log`/PR #333 that a *different* Frontend Engineer run had restarted `TASK-002` from current `master` and already merged it (2026-09-14T01:13Z) — a full implementation of all 3 requirements. `#331`'s conflicts were therefore against already-landed code, not anything still missing; continuing to merge would only re-fight duplicate diffs.
+- Closed `#331` with a comment pointing to `#333` and explaining why, per the same precedent as `#329` → `#331` earlier. Unsubscribed from `#331`'s activity.
+- While comparing the two PRs' diffs, found one real thing `#333` did **not** carry over from `#331`: the `EnglishLearningLayout` tab strip has no match for `/english/dictionary/:word` (only the bare path is a `Tab` `value`), so the Dictionary tab shows unselected on every word detail page — live on `master` right now, not hypothetical.
+- Fixed it as its own minimal PR rather than reviving `#331`: **[#334](https://github.com/twjackysu/JackyAIApp/pull/334)** (`claude/amazing-cori-w4bv78`) — one-line change folding `/english/dictionary/*` onto the Dictionary tab, same pattern as the existing bare-`/english` handling. `npm run lint`/`build`/`vitest run` all clean, 131/131 tests, no regressions. Subscribed to `#334`.
+- Deliberately left the `ClozeTestCard` internal link using the old `?word=` format alone — `#333`'s client-side redirect already makes it work correctly (just one extra hop), and touching it wasn't needed to fix the actual regression; kept this PR minimal per scope-control.
+
 ## Open Items
 - Waiting on Boss's answer on target audience / seed channel for growth
   (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
   Retention backlog beyond the SEO item now underway.
 - `TASK-001` (PR #328) — **merged into master.** Formal task-status closure
   (`MERGED`) pending Boss/Tech Lead per SOP.
-- `TASK-002` — **merged into master** via a fresh PR
-  [#333](https://github.com/twjackysu/JackyAIApp/pull/333)
-  (`claude/amazing-cori-qukncn`), not the originally-conflicted `#331`
-  (`claude/amazing-cori-7gyhyr`). `#331` appears superseded/stale — leaving
-  it for Frontend/Tech Lead to formally close, not touching another
-  engineer's PR.
+- `TASK-002` — **merged into master** via `#333`. `#331` (superseded
+  duplicate) closed. A small tab-highlight regression `#333` missed is
+  fixed in open PR **#334**, awaiting CI/review.
 - `TASK-003` (PR #332) — **merged into master.** Formal task-status closure
   (`MERGED`) pending Boss/Tech Lead per SOP.
 - `#330` (CI fix) merged — closed out.
