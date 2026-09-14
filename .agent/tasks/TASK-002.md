@@ -198,6 +198,12 @@ rather than reviving `#331`: https://github.com/twjackysu/JackyAIApp/pull/334
 Dictionary tab, same pattern as the existing bare-`/english` handling.
 `npm run lint`/`build`/`vitest` all clean (131/131 tests, no regressions).
 
+`#334` merged into `master` (2026-09-14T01:26Z). `TASK-002` is now fully
+complete on `master`: routing, anonymous-401 fix, per-word metadata (all
+via `#333`), and the tab-highlight regression (`#334`). Not setting
+`Status:` to `MERGED` myself per SOP (§10/§18 reserve that to Boss) —
+leaving it as-is for Tech Lead/Boss to formally close out.
+
 ## Review
 
 **2026-09-14, Tech Lead.** Fully merged into `master`: routing/401-fix/
