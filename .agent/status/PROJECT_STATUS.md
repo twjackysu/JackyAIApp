@@ -361,12 +361,62 @@
   pages) are now fully shipped and closed out end-to-end: code on
   `master`, task docs marked `MERGED` with review notes.
 
+## 2026-09-14 — PM: Redirected Growth strategy per Boss (DECISION-004), scoped Skill-Building requirement (scheduled run)
+
+- Boss replied in `.agent/boss/PM.md` (last message, previously
+  unanswered): rejected sharing/referral-style growth mechanics outright —
+  learners generally have no desire/confidence to broadcast their own study
+  activity — and redirected PM to think about features that genuinely
+  improve listening/speaking/reading/writing ability instead; product-led
+  growth (word-of-mouth follows a good product) rather than engineered
+  sharing.
+- Recorded **DECISION-004** in `.agent/product/DECISIONS.md`.
+- `REQUIREMENTS.md`: reworked `Growth & Retention` — moved "shareable
+  results" and "referral/invite mechanics" to a new Rejected subsection
+  (with Boss's stated reasoning), kept the already-shipped SEO work in
+  scope. Added a new HIGH-priority requirement,
+  **`Skill-Building Feature Expansion (聽說讀寫能力強化)`**, after auditing
+  the actual codebase for what each of the four core skills (聽/說/讀/寫)
+  already covers vs. what's missing:
+  - 讀 has word/Cloze-level only, no passage-level reading comprehension.
+  - 寫 has single-sentence Translation/Sentence tests only, no open-ended
+    writing feedback.
+  - 聽 has multiple-choice listening tests only, no dictation practice.
+  - 說 has voice recording + Whisper transcription + **grammar** correction,
+    but **zero feedback on pronunciation/fluency/delivery** — the one skill
+    with a genuine, easily-named gap despite already having the full audio
+    pipeline in place to build on.
+  - Proposed 4 features (PM-recommended priority: speaking delivery
+    feedback → reading comprehension passages → open-ended writing
+    feedback → dictation), reasoning documented in the requirement itself.
+- Also corrected a stale fact found during the audit: `REQUIREMENTS.md`'s
+  Exam System section said Sentence Formation Test was "in development" —
+  it's actually fully implemented (generate + evaluate endpoints, frontend
+  card all exist). Fixed both the Exam System and Skill-Building sections
+  to reflect this.
+- Replied to Boss in `.agent/boss/PM.md` with the audit table, the 4
+  proposals, and two open questions (does the priority order match Boss's
+  intuition; OK to hand item 1 — speaking feedback — to Tech Lead for a
+  feasibility/cost pass without waiting for further sign-off, same pattern
+  used for the earlier SEO work). Defaulted to "will proceed with item 1
+  next run unless told otherwise," consistent with prior PM/Tech Lead
+  practice on low-risk, already-flagged items.
+- No code changes — Requirements/Decisions/PM-log documentation only. Tech
+  Lead has no formal handoff yet; next PM or Tech Lead run should treat
+  "evaluate speaking delivery feedback" as the actionable item unless Boss
+  redirects first.
+
 ## Open Items
-- Waiting on Boss's answer on target audience / seed channel for growth
-  (see `.agent/boss/PM.md`) before sequencing the rest of the Growth &
-  Retention backlog (shareable Daily Challenge/streak/exam results,
-  referral mechanics) — nothing else is currently actionable by Tech Lead
-  on that front until Boss weighs in, per PM's own open question.
+- **New, from this run**: hand "speaking delivery/pronunciation feedback"
+  (Skill-Building Feature Expansion, item 1) to Tech Lead for a
+  feasibility/cost evaluation — PM's default is to do this next run absent
+  a Boss reply, per the open question left in `.agent/boss/PM.md`.
+- Waiting on Boss's reaction to the proposed skill-building priority order
+  (see `.agent/boss/PM.md`, 2026-09-14) — not blocking, PM will proceed
+  with item 1 by default.
+- Target audience / seed channel for growth: Boss answered (unspecified
+  audience, no existing channel) — no longer an open item, folded into the
+  general-organic-growth framing already in `REQUIREMENTS.md`.
 - `TASK-001` (PR #328) — **MERGED, reviewed, closed out.**
 - `TASK-002` (PR #333 + #334) — **MERGED, reviewed, closed out.** `#331`
   (superseded duplicate) closed.

@@ -61,3 +61,24 @@ Boss 判斷在使用者基礎/黏著度還不夠的階段推商業化，優先�
 
 ### Source
 Boss
+
+---
+
+## DECISION-004: 成長策略改以「真的能提升英文能力的功能」為主軸，捨棄分享／邀請類推廣機制
+
+### Date
+2026-09-14
+
+### Decision
+放棄原 Growth & Retention 需求中「分享每日挑戰/連續天數/測驗結果」與「好友邀請/排行榜」這類推廣型機制。改以強化產品本身的學習成效（聽/說/讀/寫四項核心能力）作為成長與留存的主要手段——當功能好用、真的讓人變強，口碑推薦是自然結果，不是設計出來的分享按鈕。
+
+### Reason
+Boss 指出：自己學英文也不會想分享學習紀錄，正在學習的人多半沒自信或沒有分享慾，這類機制不太可能有人用。與其先設計推廣機制，應該先從功能面思考「什麼功能真的能增強英文聽說讀寫能力」，產品夠好自然會被推薦。
+
+### Impact
+- `REQUIREMENTS.md` 的 `Growth & Retention` 需求：移除「Shareable results」與「Referral/invite mechanics」兩項（移到新增的 Rejected 區塊記錄原因，非直接刪除歷史），SEO／公開單字頁維持（已上線、無關分享機制，予以保留）。
+- 新增需求 `Skill-Building Feature Expansion（聽說讀寫能力強化）`，列出四個具體功能提案（依 PM 建議優先序：口說發音／流暢度回饋 → 閱讀理解短文 → 開放式寫作批改 → 聽寫），標記 HIGH priority，作為近期 Growth & Retention 實際要做的工作內容。
+- 尚未指派 Tech Lead 動工——PM 已在 Requirements 的 Open Questions 中記錄「若無 Boss 其他指示，下次會直接請 Tech Lead 評估口說回饋功能（優先序第一項）」，比照先前 SEO 項目「不用每次都等裁示」的模式。
+
+### Source
+Boss

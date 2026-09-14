@@ -34,59 +34,52 @@ downgraded Credits & Payments requirement.
 
 ---
 
-## Requirement: Growth & Retention (No Paid Ads)
+## Requirement: Growth & Retention (No Paid Ads, Product-Led)
 
 ### Goal
 Grow a real, engaged user base and keep people using the product long-term,
-without spending on paid advertising and without increasing cloud cost per
-user — per DECISION-003, this is the top product priority for now, ahead of
-any monetization work.
+without spending on paid advertising — per DECISION-003 — and, per
+**DECISION-004 (2026-09-14)**, primarily by making the product itself
+genuinely improve users' English ability, not by adding sharing/promotion
+mechanics on top of it. Boss's explicit reasoning: a learner has little
+incentive or confidence to broadcast their own study activity, so
+word-of-mouth has to be earned by product quality, not engineered via
+share buttons.
 
 ### User Story
-As Boss, I want the product to become genuinely popular through people
-actually wanting to use and share it, so that a real user base exists before
-we ever revisit charging money for it.
+As Boss, I want the product to become genuinely popular because it actually
+makes people better at English, so that word-of-mouth happens naturally and
+a real user base exists before we ever revisit charging money for it.
 
 ### Requirements
-Two goals that should be optimized together wherever possible — initiatives
-that grow the user base *and* cost little/nothing extra per new user should
-be prioritized over ones that grow cost linearly with users:
-
-1. **Organic acquisition without ad spend**
-   - The Dictionary word-lookup pages are a natural fit: once a word is
-     AI-generated it's cached (`Word`/`WordMeaning`) and served to everyone
-     at near-zero marginal cost. Making individual word pages publicly
-     viewable and indexable by search engines (no login required to *view*
-     an already-generated word, login still required to save/track it)
-     turns existing cached content into free SEO-driven traffic — this is
-     the single highest-leverage idea because it grows users and barely
-     grows cost at the same time.
-   - Shareable results: a user's Daily Challenge score, streak, or exam
-     result should be easy to share outside the app (social media / LINE),
-     since word-of-mouth is the only acquisition channel in scope.
-   - Referral / invite mechanics between users (e.g. friends on the same
-     leaderboard) — reward with non-monetary incentives (cosmetic badges,
-     streak protection), not credits, since Credits & Payments is on hold.
-2. **Long-term retention (making people want to keep using it)**
+1. **SEO / organic discovery** (unchanged, already shipped — see
+   `TASK-001`/`TASK-002`/`TASK-003`, merged 2026-09-13/14): public,
+   indexable Dictionary word pages, sitemap/robots.txt, per-word metadata
+   and bot-preview cards. This is the one acquisition mechanic still in
+   scope; it exposes already-free, already-cached content rather than
+   asking users to promote anything.
+2. **Long-term retention via real skill-building** (redirected by
+   DECISION-004 — see the new **Skill-Building Feature Expansion**
+   requirement below for the concrete feature list):
    - Strengthen the free daily loop (Daily Challenge / Review / Streak) —
-     this is already the retention engine per the existing requirement below
-     and should not regress.
-   - Push notifications / reminders for streak-at-risk users (subject to
-     Tech Lead evaluating feasibility/cost of a notification channel).
-   - Finish or improve features that are currently incomplete or rough
-     (e.g. Sentence Formation Test) only where doing so measurably improves
-     retention, not as general polish.
+     already the retention engine per its own requirement and should not
+     regress.
+   - Close the gaps in the four core English skills (聽/說/讀/寫) so the
+     product delivers more real learning value per session, which is the
+     mechanism Boss wants driving both retention and organic recommendation.
+   - Push notifications / reminders for streak-at-risk users remain a
+     possible retention lever (subject to Tech Lead evaluating
+     feasibility/cost of a notification channel) — not dropped, just not
+     the primary redirect from this decision.
 3. **Cloud cost reduction**
    - Any change should be evaluated for its effect on AI/API/DB cost per
      active user, not just feature value. Caching, rate-limiting expensive
-     AI calls, and reusing already-generated content (as above) counts as
-     product work here, not just a technical nice-to-have.
+     AI calls, and reusing already-generated content counts as product work
+     here, not just a technical nice-to-have.
 
 ### Acceptance Criteria
-- [ ] At least one previously-gated piece of content (e.g. a generated word
-      page) is publicly viewable and indexable without login.
-- [ ] Users can share a Daily Challenge/streak/exam result outside the app
-      (a shareable link or image) without needing credits or payment.
+- [x] At least one previously-gated piece of content (generated word pages)
+      is publicly viewable and indexable without login — shipped.
 - [ ] No initiative in this requirement relies on paid advertising or paid
       promotion.
 - [ ] No initiative here is shipped without at least a rough answer to
@@ -95,31 +88,138 @@ be prioritized over ones that grow cost linearly with users:
 
 ### Priority
 HIGH — the current top product priority per DECISION-003, ahead of Credits &
-Payments and ahead of any feature that only serves paying users.
+Payments and ahead of any feature that only serves paying users. The growth
+mechanism is now specifically "make the product better," not "add sharing
+mechanics" — see DECISION-004.
 
 ### Scope
 #### In Scope
-- SEO/public-content exposure of already-cached, already-free content.
-- Sharing/referral mechanics using non-monetary rewards.
+- SEO/public-content exposure of already-cached, already-free content
+  (shipped).
 - Retention improvements to the existing free loop.
 - Cost-reduction changes that don't degrade the free experience.
+- Skill-building feature work (see dedicated requirement below) — this is
+  now the primary growth lever, not a separate track.
+
 #### Out of Scope
 - Any paid advertising or paid user-acquisition spend.
 - Anything that requires re-opening the Credits & Payments question.
 
+#### Rejected (DECISION-004, 2026-09-14 — was previously In Scope, Boss ruled it out)
+- **Shareable Daily Challenge/streak/exam results** (share-out links/images).
+  Boss's reasoning: learners generally lack the confidence or desire to
+  publicize their own study activity/progress; this is very unlikely to
+  drive real sharing behavior.
+- **Referral / invite mechanics / leaderboard-based invites.** Not
+  explicitly named by Boss, but rests on the same assumption Boss just
+  rejected (users wanting to invite others into their learning activity) —
+  parked alongside it rather than pursued until product quality itself is
+  proven to generate word-of-mouth.
+
 #### Future Consideration
 - Community/classroom features (e.g. teachers or cram schools inviting
-  student groups) as a possible higher-leverage growth channel for the
-  English-learning audience specifically — not scoped yet, needs Boss input
-  on whether that audience is a deliberate target.
+  student groups) — not scoped, needs Boss input on whether that audience
+  is a deliberate target. Lower priority than skill-building work per
+  Boss's 2026-09-14 redirect (general/unspecified audience, no existing
+  channel to seed from — see `.agent/boss/PM.md`).
+
+---
+
+## Requirement: Skill-Building Feature Expansion (聽說讀寫能力強化)
+
+### Goal
+Close concrete gaps in the four core English skills — listening, speaking,
+reading, writing — so the product delivers more real ability improvement per
+session. Per **DECISION-004 (2026-09-14)**, this is Boss's redirect for how
+growth should actually happen: build something genuinely good enough that
+people want to keep using it and recommend it on their own, instead of
+engineering sharing/referral mechanics.
+
+### User Story
+As a learner, I want practice that actually trains the skill I'm weak in
+(not just vocabulary recall), so that using the app measurably improves my
+English rather than just testing what I already saved.
+
+### Requirements
+Current per-skill coverage audit (as of 2026-09-14, from the codebase) and
+the gap each proposal below closes:
+
+| Skill | Already covered by | Gap |
+|---|---|---|
+| 讀 Reading | Dictionary lookup, Cloze Test (word/blank level) | No passage-level reading comprehension — everything stops at single-word or single-sentence granularity |
+| 寫 Writing | Translation Test (C→E, one sentence), Sentence Formation Test (already fully shipped — generate + evaluate endpoints + frontend card exist; **the "in development" status in this doc's Exam System section below was stale and is corrected**) | No open-ended/paragraph-level writing with feedback — both existing modes are single-sentence |
+| 聽 Listening | Listening Test (TOEIC-style multiple choice), Listening Response Test | No dictation-style practice (hear → transcribe yourself), no adjustable playback speed |
+| 說 Speaking | Conversation Test: voice recording, Whisper transcription, real-time **grammar** correction on the transcribed text | **No feedback at all on pronunciation/fluency/delivery** — the AI only ever judges what the transcript says, never how it was spoken. This is the single skill with a real, easily-named gap despite already having the full audio pipeline (record → Whisper) in place to build on |
+
+Proposed features, in the priority order PM recommends (not yet Boss- or
+Tech-Lead-approved — see Open Questions):
+
+1. **Speaking delivery feedback (pronunciation/fluency), not just grammar**
+   — HIGH. Highest leverage because: (a) it's the only skill with zero
+   feedback on *how* something was said, (b) the audio-capture pipeline
+   already exists (Conversation Test's recording + Whisper transcription),
+   so this is additive feedback on data already being captured, not new
+   infrastructure. Also a natural extension of Dictionary's existing
+   per-word audio: "hear the correct pronunciation, then record yourself
+   saying it and get feedback" turns a passive feature (audio playback)
+   into an active practice loop.
+2. **Reading comprehension passages** — MEDIUM-HIGH. Reuses the existing
+   "AI-generates content from the user's saved vocabulary" pattern already
+   proven by Cloze/Sentence Tests, extended to passage length with
+   comprehension questions instead of fill-in-the-blank.
+3. **Open-ended writing practice with AI feedback** — MEDIUM. Reuses the
+   existing "AI grades free-text against a rubric" pattern already proven
+   by Translation Test grading, extended to a short paragraph prompt
+   (e.g., "use these 5 saved words in a short paragraph about X") instead
+   of single-sentence translation.
+4. **Dictation practice (listen → type what you hear)** — MEDIUM-LOW.
+   Combines existing TTS (audio generation) and simple string-diff grading
+   (no new AI call needed for grading) — likely the cheapest of the four to
+   run, but trains a narrower combined listening+spelling skill rather than
+   a skill with a current zero-coverage gap.
+
+### Acceptance Criteria
+- [ ] At least one of the four proposals above is scoped into a Tech Lead
+      architecture/task write-up.
+- [ ] Whichever ships first includes a rough per-use AI-cost estimate
+      (OpenAI/Whisper/TTS calls) reviewed against `CreditCosts.cs`-style
+      gating, consistent with DECISION-003's cost discipline — even though
+      monetization is on hold, the credit-gate mechanism itself still exists
+      as the app's built-in usage/cost control and should keep being used
+      for any new AI-calling feature.
+- [ ] The feature measurably exercises the named skill gap (e.g. speaking
+      feedback must comment on delivery, not only re-state grammar
+      corrections already produced elsewhere).
+
+### Priority
+HIGH — this is the concrete workstream behind DECISION-004's redirect; it is
+what "Growth & Retention" now means in practice.
+
+### Scope
+#### In Scope
+- The four proposals above, evaluated and sequenced by Tech Lead for
+  technical feasibility/cost once Boss confirms or adjusts the priority
+  order.
+#### Out of Scope
+- Any new skill area beyond listening/speaking/reading/writing (e.g.
+  grammar-rule reference content, vocabulary-only games) unless Boss
+  requests it.
+- Sharing/referral mechanics tied to these features (see the Rejected
+  section above — a feature shouldn't smuggle sharing back in as a side
+  effect).
 
 ### Open Questions
-- Is there a specific target audience to focus growth on (general public vs.
-  students / cram schools / adult self-learners), or general organic growth
-  across the board? Affects which of the ideas above to sequence first —
-  tracked in `.agent/boss/PM.md`.
-- Any existing channel (社群、LINE 社團、既有使用者) worth seeding growth from,
-  or starting fully from zero?
+- Boss: does the priority order above (speaking feedback → reading
+  comprehension → writing feedback → dictation) match your intuition, or
+  is there a skill you'd rather see tackled first? PM's reasoning is
+  "biggest current gap + reuses existing infra" — happy to reorder on a
+  different rationale (e.g. if you think 讀/寫 matters more for the
+  audience you have in mind).
+- Should this go to Tech Lead now for a feasibility/cost pass on item 1
+  (speaking feedback), or do you want to react to the list first? Per the
+  same "don't wait unless there's a reason to" pattern used for the SEO
+  work, PM's default is to hand item 1 to Tech Lead for evaluation now
+  unless told otherwise — see `.agent/boss/PM.md`.
 
 ---
 
@@ -175,7 +275,10 @@ that practice stays varied and relevant to what I'm actually learning.
 - **Conversation Test**: scenario-based dialogue (pre-built + custom scenarios),
   voice recording/transcription (Whisper), real-time grammar correction; does not
   require saved vocabulary.
-- **Sentence Formation Test**: in development.
+- **Sentence Formation Test**: generate + evaluate endpoints and frontend
+  card are fully implemented (corrected 2026-09-14 — this doc previously
+  listed it as "in development," which was stale; see
+  `Skill-Building Feature Expansion` above).
 - **Listening Test** (TOEIC Part 1/2 style): question + TTS audio for 4 candidate
   statements/responses.
 - Each generation/grading/turn is credit-gated per `CreditCosts.cs`.
@@ -193,8 +296,9 @@ HIGH — primary paid-feature surface; most credit consumption happens here.
 #### In Scope
 - The five test modes listed above.
 #### Out of Scope
-- Sentence Formation Test completion (tracked as in-progress, not a regression if
-  still incomplete).
+- (none currently — all five modes are shipped; see
+  `Skill-Building Feature Expansion` for the next layer of test/practice
+  features under consideration.)
 
 #### Future Consideration
 - Additional test modes should be evaluated against actual usage of existing
