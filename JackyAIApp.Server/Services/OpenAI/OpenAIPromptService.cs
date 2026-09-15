@@ -9,6 +9,8 @@ using Newtonsoft.Json;
 using System.Text.RegularExpressions;
 using ResponseFormatType = Betalgo.Ranul.OpenAI.Contracts.Enums.ResponseFormat;
 using ReasoningEffortType = Betalgo.Ranul.OpenAI.Contracts.Enums.ReasoningEffort;
+using AudioResponseFormatType = Betalgo.Ranul.OpenAI.Contracts.Enums.AudioResponseFormat;
+using TimestampGranularityType = Betalgo.Ranul.OpenAI.Contracts.Enums.TimestampGranularity;
 
 namespace JackyAIApp.Server.Services.OpenAI
 {
@@ -201,7 +203,7 @@ namespace JackyAIApp.Server.Services.OpenAI
             }
         }
 
-        public async Task<(string? Transcription, string? Error)> TranscribeAudioAsync(Stream audioStream, string fileName)
+        public async Task<(AudioTranscriptionResult? Result, string? Error)> TranscribeAudioAsync(Stream audioStream, string fileName)
         {
             try
             {
@@ -213,7 +215,11 @@ namespace JackyAIApp.Server.Services.OpenAI
                     File = audioBytes,
                     FileName = fileName,
                     Model = Models.WhisperV1,
-                    ResponseFormat = "json"
+                    // verbose_json (same per-minute Whisper billing as json) exposes Duration and
+                    // word-level timestamps, which let callers compute delivery/fluency feedback
+                    // (pace/pauses) without a second AI call — see TASK-004.
+                    ResponseFormat = AudioResponseFormatType.VerboseJson,
+                    TimestampGranularities = [TimestampGranularityType.Word]
                 });
 
                 await _usageLogger.LogWhisperAsync(Models.WhisperV1, response.Successful, _userService.GetUserId());
@@ -225,7 +231,11 @@ namespace JackyAIApp.Server.Services.OpenAI
                     return (null, errorMsg);
                 }
 
-                return (response.Text, null);
+                var words = (response.Words ?? [])
+                    .Select(w => new TranscribedWord(w.Word, w.Start, w.End))
+                    .ToList();
+
+                return (new AudioTranscriptionResult(response.Text, response.Duration, words), null);
             }
             catch (Exception ex)
             {

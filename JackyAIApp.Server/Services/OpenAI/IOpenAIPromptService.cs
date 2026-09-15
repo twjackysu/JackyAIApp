@@ -47,8 +47,9 @@ namespace JackyAIApp.Server.Services.OpenAI
             float? temperature = null) where T : class;
 
         /// <summary>
-        /// Transcribes audio using Whisper
+        /// Transcribes audio using Whisper, requesting verbose_json + word-level timestamps so callers
+        /// can derive delivery/fluency feedback (pace/pauses) without a second AI call.
         /// </summary>
-        Task<(string? Transcription, string? Error)> TranscribeAudioAsync(Stream audioStream, string fileName);
+        Task<(AudioTranscriptionResult? Result, string? Error)> TranscribeAudioAsync(Stream audioStream, string fileName);
     }
 }

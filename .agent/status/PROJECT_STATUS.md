@@ -506,3 +506,30 @@
   escalated rather than decided unilaterally.
 - No code changes — architecture/task documentation only, ready for
   Backend/Frontend Engineers to pick up.
+
+## 2026-09-15 — Backend Engineer: TASK-004 implemented, PR opened (scheduled run)
+
+- Picked up `TASK-004` (Backend: fluency/delivery feedback on Conversation
+  Test voice turns), scoped by Tech Lead in still-open PR #336 at the time
+  this run started — merged that docs-only commit into this session's
+  branch first (fast-forward, same base commit) to get `TASK-004.md`/
+  `TASK-005.md`/the updated `ARCHITECTURE.md` locally, since #336 itself
+  only needed a branch-policy PR wrapper around an otherwise-decided
+  Tech Lead write-up, not further review before Backend could start.
+- Implemented Phase 1 exactly as scoped: switched
+  `OpenAIPromptService.TranscribeAudioAsync` to Whisper's `verbose_json` +
+  word-level timestamps (confirmed against the actual upstream
+  Betalgo.Ranul.OpenAI source, matching the installed `9.2.6` package, since
+  no `dotnet` SDK/NuGet cache exists in this sandbox to check types
+  directly); added `SpeechFluencyAnalyzer` (`Services/Exam/`) as a pure,
+  independently-unit-tested helper computing pace/pause-count/filler-word
+  metrics + rule-based Chinese comments from that richer response; extended
+  `WhisperTranscriptionResponse` with an optional `DeliveryFeedback` field.
+  No second credit charge added — rides on the existing
+  `CreditCosts.AudioTranscription` charge, verified by a new test.
+- Full detail, including the "no dotnet SDK" verification approach and
+  known limitations, is in `TASK-004.md`'s Result section.
+- Opened the PR against `master`; see `TASK-004.md` for the link.
+  `TASK-005` (Frontend) can start once this lands, per its own stated
+  dependency on this task's response shape (`DeliveryFeedback` field name/
+  shape is now fixed by this PR).

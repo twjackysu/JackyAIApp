@@ -7,7 +7,7 @@ Backend: fluency/delivery feedback on Conversation Test voice turns (pace, pause
 Backend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH
@@ -108,7 +108,103 @@ scope after the call.
   merged). TASK-005 (frontend) depends on this task's response shape.
 
 ## Result
-(Backend Engineer fills in.)
+
+Implemented as scoped (Phase 1 only — fluency/delivery, not pronunciation
+accuracy):
+
+- `OpenAIPromptService.TranscribeAudioAsync` now requests
+  `ResponseFormat = AudioResponseFormat.VerboseJson` with
+  `TimestampGranularities = [TimestampGranularity.Word]` (confirmed via the
+  Betalgo.Ranul.OpenAI v9.2.6/master source that `AudioResponseFormat`/
+  `TimestampGranularity` are string-backed structs with implicit
+  conversions — same OpenAI per-minute Whisper billing regardless of
+  response format, per OpenAI's public pricing page, which doesn't list
+  response format as a separate cost dimension). Word-level granularity
+  was available (no need for the segment-level fallback the task
+  anticipated), giving finer-grained pause detection than segment
+  boundaries would.
+- Return type changed from `(string? Transcription, string? Error)` to
+  `(AudioTranscriptionResult? Result, string? Error)` — a small new record
+  (`Services/OpenAI/AudioTranscriptionResult.cs`) carrying `Text`,
+  `DurationSeconds`, and `Words` (list of `TranscribedWord(Word, Start,
+  End)`), so the metrics helper doesn't need to depend on the Betalgo
+  package's own response types directly.
+- New `SpeechFluencyAnalyzer` (`Services/Exam/`, pure static class, no DI) —
+  computes:
+  - **Pace**: transcript word count / duration in minutes.
+  - **Pause count**: gaps between consecutive word timestamps exceeding a
+    named `LongPauseThresholdSeconds` constant (1.5s).
+  - **Filler-word count**: whole-word/phrase regex match (`\bword\b`,
+    case-insensitive) against "um", "uh", "uhh", "like", "you know" — whole-
+    word matching specifically avoids false positives like "unlike"
+    containing "like" as a substring.
+  - Rule-based (non-AI) Chinese comments per metric, phrased close to the
+    task's own examples. Every threshold/wording is a named constant.
+  - Returns `null` (no feedback block) when duration is below
+    `MinDurationSecondsForFeedback` (1.5s) or the transcript has zero
+    words — avoids divide-by-zero/nonsensical WPM on near-silent clips, per
+    the acceptance criteria.
+  - Never uses the word "pronunciation" anywhere in code, comments, or
+    returned strings — checked explicitly against the task's own
+    requirement.
+- `WhisperTranscriptionResponse` (`DTO/ConversationModels.cs`) gains an
+  optional `DeliveryFeedback` field (`PaceWpm`, `PauseCount`,
+  `FillerWordCount`, `Comments`); `Text` is unchanged, so this is additive
+  and backward-compatible with the existing frontend contract (TASK-005
+  will consume the new field; today's frontend simply ignores it).
+- `ExamService.TranscribeAudioAsync` calls `SpeechFluencyAnalyzer.Analyze`
+  in-process after the existing `IOpenAIPromptService.TranscribeAudioAsync`
+  call — no second `ConsumeCreditsAsync` call added; the feature rides on
+  the existing `CreditCosts.AudioTranscription` charge, confirmed by a new
+  regression test asserting `ConsumeCreditsAsync` is still called exactly
+  once.
+
+**API type verification without a local SDK**: no `dotnet` SDK or cached
+NuGet packages exist in this sandbox (same limitation as TASK-001/003).
+Fetched the actual Betalgo.Ranul.OpenAI source from GitHub (matching the
+installed `9.2.6` package — same tag list, no newer release exists as of
+today) to confirm exact types before writing code, rather than guessing:
+`AudioCreateTranscriptionRequest.ResponseFormat`/`TimestampGranularities`
+property types, the `AudioCreateTranscriptionResponse.Words`/`Segments`/
+`Duration` shape and nested `WordSegment`/`Segment` classes, `IAudioService
+.CreateTranscription`'s exact signature, and `BaseResponse.Error`/
+`Successful` (the latter is a computed `Error == null` property with no
+setter — verified before writing the failure-path unit test, which sets
+only `Error` rather than trying to assign `Successful` directly).
+
+**Tests**: 
+- `SpeechFluencyAnalyzerTests` — pure-function coverage: too-short/empty
+  clip → null, pace calculation, slow/fast pace comments, pause detection
+  (including a boundary case that should *not* count), whole-word-only
+  filler matching (the "unlike" false-positive case), and the multi-word
+  "you know" phrase.
+- `OpenAIPromptServiceTests` — two new tests: request shape (verifies
+  `ResponseFormat`/`TimestampGranularities` on the captured request, and
+  that `Duration`/`Words` flow through into `AudioTranscriptionResult`) and
+  the failure path (`Error` set → `null` result + error message).
+- `ExamServiceTests` — updated the existing transcription test for the new
+  tuple shape, plus three new tests: delivery feedback present on a normal
+  clip, omitted on a too-short clip, and no second credit charge on
+  failure.
+
+**Known limitations / things Tech Lead should be aware of before merging:**
+1. No `dotnet build`/`dotnet test` run (no SDK in this sandbox) — every
+   type/signature claim above was cross-checked against the actual
+   upstream library source rather than assumed, but this is not a
+   substitute for CI actually compiling it. Recommend confirming CI is
+   green before merging.
+2. Pace is computed from the transcript's whitespace-split word count, not
+   from the `Words` timestamp list's count — simpler, and decoupled from
+   whatever Whisper's word-tokenization happens to look like, but means
+   pace and pause-detection technically use two different notions of "a
+   word" internally. Not expected to matter in practice (both come from
+   the same transcript), flagging as a design note.
+3. Filler-word list and pace/pause thresholds are English-only /
+   conversational-English-tuned constants (matches the task's own
+   examples) — no attempt made to localize for non-English conversation
+   scenarios if the app ever supports those.
+
+PR: (to be filled in after opening)
 
 ## Review
 (Tech Lead fills in after PR.)
