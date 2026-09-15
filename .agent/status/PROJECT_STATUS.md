@@ -587,10 +587,11 @@
   `DeliveryFeedbackAlert`), no regressions. (`node_modules` needed a fresh
   `npm ci` in this sandbox before any of the three would run — not a code
   issue.)
-- Opened the PR against `master`; see `TASK-005.md` for the link and full
-  implementation notes, including one flagged known limitation (delivery
-  feedback attaches to whichever message is sent next, even if the user
-  hand-edits the transcribed text first — acceptable per task scope).
-  Subscribed to the PR to drive it to green / respond to review.
+- Opened [PR #339](https://github.com/twjackysu/JackyAIApp/pull/339) against
+  `master`; see `TASK-005.md` for full implementation notes, including one
+  flagged known limitation (delivery feedback attaches to whichever message
+  is sent next, even if the user hand-edits the transcribed text first —
+  acceptable per task scope). Subscribed to the PR to drive it to green /
+  respond to review.
 - All 5 tasks scoped so far (`TASK-001`–`TASK-005`) are now either MERGED
   or have an open PR — no Frontend work left unstarted this run.

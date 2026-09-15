@@ -124,7 +124,7 @@ Implemented as scoped:
 regressions. `node_modules` had to be reinstalled (`npm ci`) first — the
 sandbox's checkout didn't have it staged; not a code issue.
 
-PR: (see below once opened)
+PR: https://github.com/twjackysu/JackyAIApp/pull/339
 
 ## Known limitations
 - `pendingDeliveryFeedback` is attached to whatever the *next* sent message
