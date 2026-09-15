@@ -204,7 +204,7 @@ only `Error` rather than trying to assign `Successful` directly).
    examples) — no attempt made to localize for non-English conversation
    scenarios if the app ever supports those.
 
-PR: (to be filled in after opening)
+PR: https://github.com/twjackysu/JackyAIApp/pull/337
 
 ## Review
 (Tech Lead fills in after PR.)
