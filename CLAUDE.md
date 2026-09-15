@@ -128,7 +128,12 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 - **Models used**: 
   - GPT-4o-mini for conversations and text analysis
   - Whisper for audio transcription (STT)
-  - TTS-1 and TTS-1-HD for text-to-speech synthesis
+  - TTS-1 and TTS-1-HD for text-to-speech synthesis — **fallback only**: when `AzureSpeech:Key`
+    is configured, `ITextToSpeechService` resolves to `AzureSpeechTextToSpeechService` (Azure AI
+    Speech REST, F0 free tier) instead, so TTS no longer dies with the OpenAI credit balance.
+    Callers are unaware: both take the same OpenAI-flavoured (voice, model, speed) triple, share
+    one 30-day cache (`TtsCache`), and return mp3. The OpenAI voice names are mapped onto Azure's
+    deliberate counterparts (`alloy` → `en-US-AlloyTurboMultilingualNeural`, etc.)
 - **Rate limiting and error handling** for AI service calls
 - **Response validation** before returning to frontend
 - **Audio features**: 

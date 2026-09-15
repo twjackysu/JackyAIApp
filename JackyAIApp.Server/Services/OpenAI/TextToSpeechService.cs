@@ -2,33 +2,22 @@ using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Services.AiUsage;
+using JackyAIApp.Server.Services.Speech;
 
 namespace JackyAIApp.Server.Services.OpenAI
 {
+    /// <summary>
+    /// OpenAI-backed TTS. Registered only when no Azure Speech key is configured — see
+    /// <see cref="AzureSpeechTextToSpeechService"/> for why that is now the preferred provider.
+    /// </summary>
     public class TextToSpeechService(
         IOpenAIService openAIService,
         ILogger<TextToSpeechService> logger,
         IAiUsageLogger usageLogger,
         IExtendedMemoryCache memoryCache) : ITextToSpeechService
     {
-        // Same text always produces the same audio for a given (model, voice, speed) — see
-        // AudioController for the full cache-lifetime rationale. Shared here so every caller
-        // (billed dictionary/chat playback, unbilled Listening-exam playback) hits one cache.
-        private static readonly TimeSpan TtsCacheTtl = TimeSpan.FromDays(30);
-
-        private static string CacheKey(string text, string voice, string model, float speed) =>
-            $"tts_{model}_{voice}_{speed}_{text}";
-
-        public bool TryGetCached(string text, string voice, string model, float speed, out byte[]? audio)
-        {
-            if (memoryCache.TryGetValue(CacheKey(text, voice, model, speed), out object? cached) && cached is byte[] cachedAudio)
-            {
-                audio = cachedAudio;
-                return true;
-            }
-            audio = null;
-            return false;
-        }
+        public bool TryGetCached(string text, string voice, string model, float speed, out byte[]? audio) =>
+            TtsCache.TryGet(memoryCache, text, voice, model, speed, out audio);
 
         public async Task<TtsResult> SynthesizeAsync(string text, string voice, string model, float speed, string? userId)
         {
@@ -49,7 +38,7 @@ namespace JackyAIApp.Server.Services.OpenAI
                 return new TtsResult(false, null);
             }
 
-            memoryCache.Set(CacheKey(text, voice, model, speed), response.Data, TtsCacheTtl);
+            TtsCache.Set(memoryCache, text, voice, model, speed, response.Data);
             return new TtsResult(true, response.Data);
         }
     }

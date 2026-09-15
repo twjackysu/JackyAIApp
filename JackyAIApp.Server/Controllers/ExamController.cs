@@ -6,6 +6,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Exam;
 using JackyAIApp.Server.Services.Listening;
 using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.Speech;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

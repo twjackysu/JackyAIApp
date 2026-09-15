@@ -169,7 +169,7 @@ try
     // Feature-grouped registrations (see Extensions/ServiceCollectionExtensions.cs and each
     // module's own *ServiceExtensions.cs) — one call per domain instead of registrations
     // scattered inline here, so the full DI graph is auditable module-by-module.
-    builder.Services.AddCoreServices();
+    builder.Services.AddCoreServices(builder.Configuration);
     builder.Services.AddVocabularyServices();
     builder.Services.AddFinanceAnalysisServices();
     builder.Services.AddJobAggregatorServices();
