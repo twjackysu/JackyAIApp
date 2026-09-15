@@ -543,3 +543,17 @@
   reviews/comments yet. Subscribed to PR #337; waiting on Tech Lead/Boss
   review — nothing further for Backend to do unless review comments come
   back.
+
+## 2026-09-15 — Backend Engineer: PR #337 (TASK-004) merged into master
+
+- `#337` was merged (GitHub `pull_request.closed`/`merged` event, session
+  auto-unsubscribed) with no review comments. `master` now has Whisper
+  `verbose_json` + word-timestamp transcription, `SpeechFluencyAnalyzer`
+  (pace/pause/filler-word metrics + rule-based Chinese comments), and the
+  optional `DeliveryFeedback` field on `WhisperTranscriptionResponse`. Not
+  recording `TASK-004.md`'s `Status:` as `MERGED` myself per SOP (§10/§18
+  reserve that to Boss) — leaving it `PR_OPENED` for Tech Lead/Boss to
+  formally close out; this log entry is the factual record that the PR
+  landed.
+- `TASK-005` (Frontend, depends on this PR's `DeliveryFeedback` shape) is
+  now unblocked and can start.
