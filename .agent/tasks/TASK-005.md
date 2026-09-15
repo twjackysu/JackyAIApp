@@ -7,7 +7,7 @@ Frontend: display delivery/fluency feedback on Conversation Test voice turns
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH
@@ -78,7 +78,60 @@ doesn't measure (see Architecture doc's Phase 1/Phase 2 distinction).
   review.
 
 ## Result
-(Frontend Engineer fills in.)
+
+Implemented as scoped:
+
+- `apis/examApis/types.ts`: added `DeliveryFeedback` (`paceWpm`, `pauseCount`,
+  `fillerWordCount`, `comments: string[]`), matching TASK-004's merged C#
+  DTO field-for-field (ASP.NET Core's default camelCase JSON policy —
+  confirmed via `Program.cs` — turns `PaceWpm`/`PauseCount`/
+  `FillerWordCount`/`Comments` into exactly these names, same pattern
+  already used for `ConversationCorrection`). Added
+  `deliveryFeedback?: DeliveryFeedback` to both `WhisperTranscriptionResponse`
+  and `ConversationTurn`.
+- `hooks/useVoiceRecording.ts` (the shared hook — confirmed via grep it's
+  also used by `TranslationTestCard`, so kept backward compatible):
+  `onTranscriptionComplete` now takes an optional second
+  `deliveryFeedback?: DeliveryFeedback` arg, passed through from
+  `response.data.deliveryFeedback`. `TranslationTestCard`'s existing
+  `(text) => setInput(text)` callback still type-checks unchanged (extra
+  arg is simply ignored) and needed no edits.
+- New `ConversationTestCard/components/DeliveryFeedbackAlert.tsx` — sibling
+  to `CorrectionAlert.tsx`, same `Alert`-based pattern. Renders pace/pause/
+  filler-word `Chip`s plus the backend's rule-based comment strings, headed
+  "表達流暢度回饋" — never "發音"/pronunciation wording, per the task's
+  explicit labeling requirement.
+- `ConversationTestCard/index.tsx`: added `pendingDeliveryFeedback` state,
+  set on `onTranscriptionComplete` alongside the transcribed text. Attached
+  to the user turn's `deliveryFeedback` field at the same point
+  `handleSendMessage` builds that turn (mirrors how `correction` is later
+  attached to the same turn once the AI responds), then cleared — so a
+  stale value can't leak onto a later, unrelated turn (e.g. user records
+  once, then sends two manually-typed messages). Also cleared in
+  `handleNewConversation`.
+- `ConversationTestCard/components/ChatMessages.tsx`: renders
+  `DeliveryFeedbackAlert` next to (never replacing) `CorrectionAlert` for
+  the user's own turns, only when `turn.deliveryFeedback` is present — no
+  empty/placeholder card on the short/silent-clip case where the backend
+  omits the field (TASK-004's documented behavior).
+- Added `DeliveryFeedbackAlert.test.tsx` following the existing
+  `MarkdownMessage.test.tsx` pattern (`renderToStaticMarkup`, no RTL in this
+  repo) — asserts the metrics/comments render and that the copy never
+  contains "發音".
+
+**Tests run**: `npm run lint` (0 warnings), `npm run build` (clean), and
+`npx vitest run` — 133/133 passing (131 pre-existing + 2 new), no
+regressions. `node_modules` had to be reinstalled (`npm ci`) first — the
+sandbox's checkout didn't have it staged; not a code issue.
+
+PR: (see below once opened)
+
+## Known limitations
+- `pendingDeliveryFeedback` is attached to whatever the *next* sent message
+  is, not strictly re-validated against the transcribed text — if a user
+  records, then manually edits the transcribed text before sending, the
+  delivery metrics (which describe the audio, not the final text) still
+  get attached. Acceptable per the task's scope; flagged for awareness.
 
 ## Review
 (Tech Lead fills in after PR.)

@@ -25,6 +25,8 @@ export interface ConversationTurn {
   message: string;
   /** Grammar correction for this turn, if the AI flagged one on the response that followed it. */
   correction?: ConversationCorrection;
+  /** Delivery/fluency feedback for this turn, if it was recorded by voice and the clip was long enough to measure. */
+  deliveryFeedback?: DeliveryFeedback;
 }
 
 export interface ConversationResponseRequest {
@@ -45,8 +47,22 @@ export interface ConversationResponseResponse {
   correction: ConversationCorrection;
 }
 
+/**
+ * Rule-based delivery/fluency feedback (pace, pauses, filler words) computed from the Whisper
+ * transcription call, at zero added AI/API cost. This is delivery/fluency feedback, not
+ * phoneme-level pronunciation-accuracy scoring.
+ */
+export interface DeliveryFeedback {
+  paceWpm: number;
+  pauseCount: number;
+  fillerWordCount: number;
+  comments: string[];
+}
+
 export interface WhisperTranscriptionResponse {
   text: string;
+  /** Omitted when the clip is too short/silent to derive meaningful metrics from. */
+  deliveryFeedback?: DeliveryFeedback;
 }
 
 export interface ConversationSummaryRequest {

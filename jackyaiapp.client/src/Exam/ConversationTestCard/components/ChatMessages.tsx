@@ -7,6 +7,7 @@ import { Fragment, useEffect, useRef } from 'react';
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
 
 import CorrectionAlert from './CorrectionAlert';
+import DeliveryFeedbackAlert from './DeliveryFeedbackAlert';
 
 import { ConversationTurn } from '@/apis/examApis/types';
 import { ActionTooltip } from '@/components/hints';
@@ -194,10 +195,15 @@ function ChatMessages({ messages, isResponding, ref }: ChatMessagesProps) {
                   </Avatar>
                 )}
               </Box>
-              {isOwnMessage && turn.correction?.hasCorrection && (
+              {isOwnMessage && (turn.correction?.hasCorrection || turn.deliveryFeedback) && (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, mr: 6 }}>
                   <Box sx={{ maxWidth: '70%' }}>
-                    <CorrectionAlert correction={turn.correction} />
+                    {turn.correction?.hasCorrection && (
+                      <CorrectionAlert correction={turn.correction} />
+                    )}
+                    {turn.deliveryFeedback && (
+                      <DeliveryFeedbackAlert feedback={turn.deliveryFeedback} />
+                    )}
                   </Box>
                 </Box>
               )}
