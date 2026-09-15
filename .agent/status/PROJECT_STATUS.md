@@ -557,3 +557,41 @@
   landed.
 - `TASK-005` (Frontend, depends on this PR's `DeliveryFeedback` shape) is
   now unblocked and can start.
+
+## 2026-09-15 — Frontend Engineer: TASK-005 implemented, PR opened (scheduled run)
+
+- Picked up `TASK-005` (Frontend: display TASK-004's delivery/fluency
+  feedback in Conversation Test). Confirmed `TASK-004`'s response shape had
+  already landed on `master` (PR #337, merged) — read the actual merged
+  `DeliveryFeedback` C# DTO (`PaceWpm`/`PauseCount`/`FillerWordCount`/
+  `Comments`) and `Program.cs`'s JSON options (default camelCase, no
+  explicit override) to derive the exact wire shape rather than guessing.
+- Extended `apis/examApis/types.ts` with `DeliveryFeedback` and wired it
+  onto `WhisperTranscriptionResponse`/`ConversationTurn`. Updated the
+  shared `hooks/useVoiceRecording.ts` (also used by `TranslationTestCard`)
+  to pass the new field through its `onTranscriptionComplete` callback as
+  an optional second argument — backward compatible, `TranslationTestCard`
+  needed no changes.
+- Added `ConversationTestCard/components/DeliveryFeedbackAlert.tsx`
+  (sibling to `CorrectionAlert.tsx`) and wired it into `ChatMessages.tsx`
+  next to the existing correction alert, gated on the field actually being
+  present (no empty card on the short/silent-clip case). Threaded a
+  `pendingDeliveryFeedback` piece of state through
+  `ConversationTestCard/index.tsx` so the metrics captured at transcription
+  time land on the correct user turn once sent, same attach-after-response
+  pattern already used for grammar `correction`. UI copy uses "表達流暢度
+  回饋"/"流暢度" only, never "發音"/pronunciation, per the task's explicit
+  labeling requirement.
+- `npm run lint` (0 warnings), `npm run build`, and `npx vitest run` all
+  green — 133/133 tests (131 pre-existing + 2 new for
+  `DeliveryFeedbackAlert`), no regressions. (`node_modules` needed a fresh
+  `npm ci` in this sandbox before any of the three would run — not a code
+  issue.)
+- Opened [PR #339](https://github.com/twjackysu/JackyAIApp/pull/339) against
+  `master`; see `TASK-005.md` for full implementation notes, including one
+  flagged known limitation (delivery feedback attaches to whichever message
+  is sent next, even if the user hand-edits the transcribed text first —
+  acceptable per task scope). Subscribed to the PR to drive it to green /
+  respond to review.
+- All 5 tasks scoped so far (`TASK-001`–`TASK-005`) are now either MERGED
+  or have an open PR — no Frontend work left unstarted this run.

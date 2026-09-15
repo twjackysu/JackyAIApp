@@ -13,7 +13,7 @@ import {
   useRespondToConversationMutation,
   useSummarizeConversationMutation,
 } from '@/apis/examApis';
-import { ConversationContext, ConversationTurn } from '@/apis/examApis/types';
+import { ConversationContext, ConversationTurn, DeliveryFeedback } from '@/apis/examApis/types';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
 import { CREDIT_COSTS } from '@/constants/creditCosts';
@@ -32,6 +32,11 @@ function ConversationTestCard() {
   const [conversationState, setConversationState] = useState<ConversationState | null>(null);
   const [input, setInput] = useState<string>('');
   const [showSummary, setShowSummary] = useState(false);
+  // Set by the most recent voice transcription, attached to the user turn it produces once sent,
+  // then cleared — so it doesn't leak onto a later, unrelated turn.
+  const [pendingDeliveryFeedback, setPendingDeliveryFeedback] = useState<DeliveryFeedback | null>(
+    null,
+  );
 
   const [startConversation, { isLoading: isStarting, error: startError }] =
     useStartConversationTestMutation();
@@ -44,7 +49,10 @@ function ConversationTestCard() {
   // Custom hooks
   const messagesEndRef = useAutoScroll(conversationState?.history, isResponding);
   const { isRecording, isTranscribing, mediaRecorder, toggleRecording } = useVoiceRecording({
-    onTranscriptionComplete: (text) => setInput(text),
+    onTranscriptionComplete: (text, deliveryFeedback) => {
+      setInput(text);
+      setPendingDeliveryFeedback(deliveryFeedback ?? null);
+    },
   });
 
   const handleStartConversation = async (
@@ -87,7 +95,9 @@ function ConversationTestCard() {
 
     const userMessage = input.trim();
     const userTurnIndex = conversationState.history.length;
+    const deliveryFeedback = pendingDeliveryFeedback ?? undefined;
     setInput('');
+    setPendingDeliveryFeedback(null);
 
     // First, immediately add user's message to the conversation
     setConversationState((prev) => ({
@@ -96,7 +106,7 @@ function ConversationTestCard() {
         ...prev!.context,
         turnNumber: prev!.context.turnNumber + 1,
       },
-      history: [...prev!.history, { speaker: 'user', message: userMessage }],
+      history: [...prev!.history, { speaker: 'user', message: userMessage, deliveryFeedback }],
     }));
 
     try {
@@ -140,6 +150,7 @@ function ConversationTestCard() {
   const handleNewConversation = () => {
     setConversationState(null);
     setInput('');
+    setPendingDeliveryFeedback(null);
     setShowSummary(false);
     resetSummary();
   };

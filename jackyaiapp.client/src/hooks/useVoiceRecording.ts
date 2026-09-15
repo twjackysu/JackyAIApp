@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 
 import { useTranscribeAudioMutation } from '@/apis/examApis';
+import { DeliveryFeedback } from '@/apis/examApis/types';
 
 interface UseVoiceRecordingProps {
-  onTranscriptionComplete: (text: string) => void;
+  onTranscriptionComplete: (text: string, deliveryFeedback?: DeliveryFeedback) => void;
 }
 
 /**
@@ -94,7 +95,7 @@ export function useVoiceRecording({ onTranscriptionComplete }: UseVoiceRecording
 
       const response = await transcribeAudio(formData).unwrap();
       if (response.data.text) {
-        onTranscriptionComplete(response.data.text);
+        onTranscriptionComplete(response.data.text, response.data.deliveryFeedback);
       }
     } catch (error) {
       console.error('Error transcribing audio:', error);
