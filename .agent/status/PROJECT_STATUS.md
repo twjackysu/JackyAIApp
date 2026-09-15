@@ -595,3 +595,23 @@
   respond to review.
 - All 5 tasks scoped so far (`TASK-001`–`TASK-005`) are now either MERGED
   or have an open PR — no Frontend work left unstarted this run.
+
+## 2026-09-15 — Frontend Engineer: PR #339 (TASK-005) merged into master
+
+- `#339` was merged (GitHub `pull_request.closed`/`merged` event, session
+  auto-unsubscribed) with no review comments — both CI checks
+  (`lint-and-build-client`, `build-and-test-server`) were green and
+  `mergeable_state: clean` before merge. `master` now has the
+  `DeliveryFeedback` UI on Conversation Test voice turns (pace/pause/
+  filler-word `Chip`s + rule-based comments via `DeliveryFeedbackAlert`,
+  rendered alongside the existing grammar `CorrectionAlert`). Not
+  recording `TASK-005.md`'s `Status:` as `MERGED` myself per SOP (§10/§18
+  reserve that to Boss) — leaving it `PR_OPENED` for Tech Lead/Boss to
+  formally close out; this log entry is the factual record that the PR
+  landed.
+- All 5 Skill-Building item-1 (speaking delivery/fluency feedback) tasks
+  are now fully shipped: `TASK-004` (backend, PR #337) and `TASK-005`
+  (frontend, PR #339) both merged, following the same pattern as the
+  earlier SEO work. No further Frontend action needed here — next step is
+  Tech Lead's formal review/close-out pass, same as was done for
+  `TASK-001`–`003`.
