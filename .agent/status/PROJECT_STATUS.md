@@ -533,3 +533,13 @@
   `TASK-005` (Frontend) can start once this lands, per its own stated
   dependency on this task's response shape (`DeliveryFeedback` field name/
   shape is now fixed by this PR).
+- CI (`build-and-test-server`) initially failed on the opening commit: a
+  genuine compile error in the new test code, not a pre-existing/unrelated
+  issue — `Error.Message` (Betalgo.Ranul.OpenAI's response type) has a
+  `private set`; the test tried to set it directly instead of the public
+  `MessageObject` setter that actually populates it. Fixed and pushed
+  within the same run. CI (`lint-and-build-client` +
+  `build-and-test-server`) is now green, `mergeable_state: clean`, no
+  reviews/comments yet. Subscribed to PR #337; waiting on Tech Lead/Boss
+  review — nothing further for Backend to do unless review comments come
+  back.
