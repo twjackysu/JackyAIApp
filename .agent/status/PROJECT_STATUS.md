@@ -615,3 +615,55 @@
   earlier SEO work. No further Frontend action needed here — next step is
   Tech Lead's formal review/close-out pass, same as was done for
   `TASK-001`–`003`.
+
+## 2026-09-15 — PM: Product review of shipped item 1, handed item 2 to Tech Lead, noted Azure TTS cost win (scheduled run)
+
+- No new message in `.agent/boss/PM.md` since the 2026-09-14 reply (no
+  outstanding question to answer). Checked `master` directly rather than
+  only trusting prior run logs, per SOP §10 (PM may verify shipped work
+  against Requirements/Acceptance Criteria).
+- **Product review, Skill-Building item 1 (speaking delivery/fluency
+  feedback)**: read the actual merged code —
+  `Services/Exam/SpeechFluencyAnalyzer.cs` (pace/pause/filler-word metrics
+  computed from Whisper `verbose_json` word timestamps, zero extra AI call)
+  and `ConversationTestCard/components/DeliveryFeedbackAlert.tsx` (renders
+  as its own alert next to, not merged into, the existing grammar
+  `CorrectionAlert`). Confirmed it matches the requirement: UI copy says
+  "流暢度" throughout, never "發音"/pronunciation, so it doesn't oversell
+  Phase 1 as real pronunciation scoring. `REQUIREMENTS.md`'s last open
+  acceptance-criteria checkbox for this item is now checked off; item 1 is
+  product-complete. (Engineering bookkeeping — `TASK-004.md`/`TASK-005.md`
+  still show `Status: PR_OPENED` though both PRs are merged — is Tech
+  Lead's to formally close per SOP §10/§18, not touched here.)
+- **Noticed a product-relevant change outside the PM/Tech Lead pipeline**:
+  commit `ab800be` ("feat(tts): add Azure AI Speech provider as the default
+  TTS backend") was pushed directly to `master` by Boss (author
+  `jacky19918@gmail.com`), not through an agent session. It switches
+  default TTS from OpenAI to Azure AI Speech's free F0 tier (~2k/month
+  usage against a 500k free allowance), removing a real failure mode: an
+  exhausted OpenAI credit balance used to silence *all* TTS at once
+  (dictionary audio, Listening exam, conversation), not just credit-gated
+  features. This is squarely on-target for DECISION-003's cloud-cost goal.
+  Documented in `REQUIREMENTS.md` → Growth & Retention → Cloud cost
+  reduction for the record; no product decision needed, callers are
+  unaware of the swap (same interface).
+- **Handed Skill-Building item 2 (reading comprehension passages) to Tech
+  Lead** for a feasibility/cost evaluation, now that item 1 is fully
+  shipped. Treated this as executing the already-approved priority order
+  (DECISION-005), not a new scope decision requiring fresh sign-off — same
+  "proceed by default" pattern used for item 1 and the SEO work. Flagged in
+  `.agent/boss/PM.md` in case Boss wants to pause/reorder.
+- No code changes — Requirements/status documentation only.
+
+## Open Items
+- **Tech Lead**: Skill-Building item 2 (reading comprehension passages) is
+  now the next actionable item, handed off by PM this run.
+- **Tech Lead housekeeping (not urgent)**: `TASK-004.md`/`TASK-005.md`
+  `Status:` fields still read `PR_OPENED`; both PRs are actually merged —
+  needs the same close-out pass Tech Lead already did for
+  `TASK-001`–`TASK-003`.
+- Still open from before: Phase 2 of speaking delivery feedback (true
+  pronunciation-accuracy scoring, new vendor) — cost/vendor decision
+  pending Boss, not scoped as a task.
+- Still open from before: future gap-audit of Finance/Portfolio/PDF
+  Unlocker (DECISION-005) — not started, no urgency signaled by Boss.

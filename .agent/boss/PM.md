@@ -296,3 +296,37 @@ Sources:
 ## Boss Attention Required
 無，這次沒有需要您立即裁示的事項。
 
+---
+
+# PM → Boss (2026-09-15)
+
+## Status
+口說流暢度回饋（Skill-Building 第一項）已經上線（`TASK-004`/`TASK-005` 都
+merge 了）。我直接讀了實際上線的程式碼做產品驗收，確認符合需求——回饋內容
+是獨立卡片顯示語速/停頓/贅字，文案全程只講「流暢度」，沒有講成「發音」，
+沒有超賣 Phase 1 的範圍。`REQUIREMENTS.md` 已經把這項的驗收條件全部勾完。
+
+## Completed
+- 產品驗收：Skill-Building 第一項確認完成，`REQUIREMENTS.md` 更新。
+- 注意到一筆不是從 PM/Tech Lead 流程出來、但直接命中「降低雲端成本」目標的
+  改動：您本人直接 commit（`ab800be`）把預設 TTS 從 OpenAI 換成 Azure AI
+  Speech 免費額度（F0 tier，500k 字/月免費，目前用量約 2k/月），同時順便
+  修掉一個實際的問題——以前 OpenAI 額度用完會連累「所有」TTS（單字發音、
+  聽力測驗、對話回覆全部啞掉），不只是有扣 credit 的功能。這個方向完全符合
+  DECISION-003 的降本目標，我只是記錄進 `REQUIREMENTS.md`，沒有需要您裁示
+  的地方。
+- 已把 Skill-Building 第二項（閱讀理解短文）交給 Tech Lead 做技術可行性
+  評估——這是延續 DECISION-005 已核准的優先序在往下推進，不是新的範圍決策，
+  所以這次沒有等您先回覆才動作，比照之前的模式。
+
+## Open Questions
+無急件。如果您想暫停或調整「閱讀理解短文」這項的優先序，或者想先看看使用
+狀況再決定要不要繼續往下做第三、四項，跟我說一聲即可，不然我會照原訂順序
+繼續推進。
+
+## Tech Lead Actions
+Skill-Building 第二項（閱讀理解短文）已交付，等下次 Tech Lead 執行時認領。
+
+## Boss Attention Required
+無，這次沒有需要您立即裁示的事項。
+

@@ -92,6 +92,20 @@ a real user base exists before we ever revisit charging money for it.
      active user, not just feature value. Caching, rate-limiting expensive
      AI calls, and reusing already-generated content counts as product work
      here, not just a technical nice-to-have.
+   - **Shipped 2026-09-15 (outside the PM/Tech Lead pipeline — Boss
+     committed directly)**: Azure AI Speech is now the default TTS backend
+     (`AzureSpeechTextToSpeechService`), replacing OpenAI TTS for the
+     common case; OpenAI TTS remains as a fallback when Azure isn't
+     configured. Azure's F0 tier is free up to 500k characters/month
+     against ~2k/month measured usage. Product-relevant because it directly
+     closes a real user-facing failure mode noted in the commit: an
+     exhausted OpenAI credit balance used to silence *all* TTS at once
+     (dictionary audio, Listening exam, conversation replies), not just the
+     credit-gated features — this removes that single point of failure for
+     free-tier users, not only a cost win. No product/requirements change
+     needed (`AudioController`/`ExamController` callers are unaware, same
+     interface) — noted here per this run's "check for meaningful product
+     changes" pass; PM did not initiate this.
 
 ### Acceptance Criteria
 - [x] At least one previously-gated piece of content (generated word pages)
@@ -178,7 +192,8 @@ Proposed features, in the priority order PM recommended and **Boss approved
 2026-09-14** (see Decisions):
 
 1. **Speaking delivery feedback (pronunciation/fluency), not just grammar**
-   — HIGH. Highest leverage because: (a) it's the only skill with zero
+   — HIGH. **Shipped 2026-09-15** (`TASK-004`/`TASK-005`, merged; product
+   review passed — see Acceptance Criteria above). Highest leverage because: (a) it's the only skill with zero
    feedback on *how* something was said, (b) the audio-capture pipeline
    already exists (Conversation Test's recording + Whisper transcription),
    so this is additive feedback on data already being captured, not new
@@ -186,7 +201,13 @@ Proposed features, in the priority order PM recommended and **Boss approved
    per-word audio: "hear the correct pronunciation, then record yourself
    saying it and get feedback" turns a passive feature (audio playback)
    into an active practice loop.
-2. **Reading comprehension passages** — MEDIUM-HIGH. Reuses the existing
+2. **Reading comprehension passages** — MEDIUM-HIGH. **Handed to Tech Lead
+   2026-09-15** for a feasibility/cost evaluation, now that item 1 is fully
+   shipped — same "proceed on the next approved-priority item without
+   waiting for a fresh sign-off each time" pattern used for item 1 and for
+   the earlier SEO work; the priority order itself was already approved in
+   DECISION-005, so this is executing that order, not a new scope decision.
+   Reuses the existing
    "AI-generates content from the user's saved vocabulary" pattern already
    proven by Cloze/Sentence Tests, extended to passage length with
    comprehension questions instead of fill-in-the-blank.
@@ -216,9 +237,20 @@ Proposed features, in the priority order PM recommended and **Boss approved
       call) — see Architecture doc. True pronunciation-accuracy scoring
       (Phase 2, a new vendor) is flagged to Boss separately, not yet costed
       or scoped as a task.
-- [ ] The feature measurably exercises the named skill gap (e.g. speaking
+- [x] The feature measurably exercises the named skill gap (e.g. speaking
       feedback must comment on delivery, not only re-state grammar
-      corrections already produced elsewhere).
+      corrections already produced elsewhere). **Verified 2026-09-15** by
+      PM reading the shipped code directly (`SpeechFluencyAnalyzer.cs`,
+      `DeliveryFeedbackAlert.tsx`, both merged to `master` via
+      `TASK-004`/`TASK-005`): pace (WPM), long-pause count and filler-word
+      count are computed from Whisper's own word timestamps and rendered as
+      a separate alert next to — not merged into — the existing grammar
+      `CorrectionAlert`; UI copy consistently says "流暢度" and never
+      "發音"/pronunciation, matching the Phase-1-is-fluency-not-pronunciation
+      scoping. **Item 1 is fully shipped and closed out from a product
+      standpoint** (engineering task bookkeeping — flipping `TASK-004.md`/
+      `TASK-005.md` `Status:` to `MERGED` — is Tech Lead's to close per SOP,
+      not done here).
 
 ### Priority
 HIGH — this is the concrete workstream behind DECISION-004's redirect; it is
@@ -246,6 +278,12 @@ what "Growth & Retention" now means in practice.
   DECISION-005)**: Boss approved. Item 1 (speaking delivery/pronunciation
   feedback) is now formally handed to Tech Lead for a feasibility/cost
   evaluation — see `.agent/status/PROJECT_STATUS.md` for the handoff note.
+- **New (2026-09-15)**: item 1 is now fully shipped (see Acceptance
+  Criteria above). PM handed item 2 (reading comprehension passages) to
+  Tech Lead this run, on the same "no fresh sign-off needed, the order
+  itself is already approved" basis as item 1 — not waiting for Boss to
+  separately confirm. Not blocking; flagged in `.agent/boss/PM.md` in case
+  Boss wants to pause or reorder before Tech Lead scopes it.
 
 ---
 
