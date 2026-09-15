@@ -10,6 +10,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using ReasoningEffortType = Betalgo.Ranul.OpenAI.Contracts.Enums.ReasoningEffort;
 using ResponseFormatType = Betalgo.Ranul.OpenAI.Contracts.Enums.ResponseFormat;
+using AudioResponseFormatType = Betalgo.Ranul.OpenAI.Contracts.Enums.AudioResponseFormat;
+using TimestampGranularityType = Betalgo.Ranul.OpenAI.Contracts.Enums.TimestampGranularity;
 
 namespace JackyAIApp.Server.Tests.Services
 {
@@ -25,13 +27,16 @@ namespace JackyAIApp.Server.Tests.Services
 
         private readonly Mock<IOpenAIService> _openAIServiceMock;
         private readonly Mock<IChatCompletionService> _chatCompletionMock;
+        private readonly Mock<IAudioService> _audioServiceMock;
         private readonly OpenAIPromptService _service;
 
         public OpenAIPromptServiceTests()
         {
             _openAIServiceMock = new Mock<IOpenAIService>();
             _chatCompletionMock = new Mock<IChatCompletionService>();
+            _audioServiceMock = new Mock<IAudioService>();
             _openAIServiceMock.Setup(x => x.ChatCompletion).Returns(_chatCompletionMock.Object);
+            _openAIServiceMock.Setup(x => x.Audio).Returns(_audioServiceMock.Object);
 
             _service = new OpenAIPromptService(
                 _openAIServiceMock.Object,
@@ -101,6 +106,54 @@ namespace JackyAIApp.Server.Tests.Services
 
             Assert.Null(result);
             Assert.Equal("OpenAI returned empty response", error);
+        }
+
+        [Fact]
+        public async Task TranscribeAudioAsync_RequestsVerboseJsonWithWordTimestamps()
+        {
+            AudioCreateTranscriptionRequest? captured = null;
+            _audioServiceMock
+                .Setup(x => x.CreateTranscription(It.IsAny<AudioCreateTranscriptionRequest>(), It.IsAny<CancellationToken>()))
+                .Callback<AudioCreateTranscriptionRequest, CancellationToken>((req, _) => captured = req)
+                .ReturnsAsync(new AudioCreateTranscriptionResponse
+                {
+                    Text = "hello world",
+                    Duration = 3.5f,
+                    Words = [new AudioCreateTranscriptionResponse.WordSegment { Word = "hello", Start = 0f, End = 1f }]
+                });
+
+            using var stream = new MemoryStream([1, 2, 3]);
+            var (result, error) = await _service.TranscribeAudioAsync(stream, "test.mp3");
+
+            Assert.Null(error);
+            Assert.NotNull(result);
+            Assert.Equal("hello world", result!.Text);
+            Assert.Equal(3.5, result.DurationSeconds);
+            Assert.Single(result.Words);
+            Assert.Equal("hello", result.Words[0].Word);
+
+            Assert.NotNull(captured);
+            Assert.Equal(AudioResponseFormatType.VerboseJson, captured!.ResponseFormat);
+            Assert.Equal([TimestampGranularityType.Word], captured.TimestampGranularities);
+        }
+
+        [Fact]
+        public async Task TranscribeAudioAsync_FailedResponse_ReturnsError()
+        {
+            _audioServiceMock
+                .Setup(x => x.CreateTranscription(It.IsAny<AudioCreateTranscriptionRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new AudioCreateTranscriptionResponse
+                {
+                    // Error.Message has a private setter; MessageObject is the public setter that
+                    // populates it (see Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels.Error).
+                    Error = new Error { MessageObject = "boom" }
+                });
+
+            using var stream = new MemoryStream([1, 2, 3]);
+            var (result, error) = await _service.TranscribeAudioAsync(stream, "test.mp3");
+
+            Assert.Null(result);
+            Assert.Equal("boom", error);
         }
     }
 }

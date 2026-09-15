@@ -160,3 +160,127 @@ runtime/infra cost added (same data, computed once instead of twice).
   migration (unique index on `WordText`).
 - No change to `DictionaryController` auth or `DictionaryService` — already
   correct.
+
+---
+
+## Decision: Speaking delivery feedback (pronunciation/fluency) — Skill-Building item 1
+
+### Context
+`REQUIREMENTS.md` → "Skill-Building Feature Expansion" (HIGH, DECISION-004/
+005) names 說 (speaking) as the skill with the clearest gap: Conversation
+Test already records audio, transcribes it via Whisper, and runs a
+**grammar**-only correction on the transcript (`ExamController.cs`
+`conversation/respond` → `ExamService.RespondToConversationAsync` →
+`Prompt/Exam/ConversationResponseSystem.txt`). Nothing today evaluates *how*
+something was said — pace, pauses, filler words, pronunciation accuracy.
+Boss approved this as the first item to hand to Tech Lead (DECISION-005),
+for a feasibility/cost evaluation before scoping.
+
+Investigated the current implementation before scoping (2026-09-15):
+
+1. **Two decoupled calls today.** The client records audio → `POST
+   whisper/transcribe` (`ExamController.cs:68`) → `ExamService
+   .TranscribeAudioAsync` (`ExamService.cs:463`) → `OpenAIPromptService
+   .TranscribeAudioAsync` (`Services/OpenAI/OpenAIPromptService.cs:204`)
+   → text. The client then separately posts that plain text as
+   `UserMessage` in `POST conversation/respond` — audio itself never
+   reaches the grammar-correction step and is not persisted anywhere
+   (transient `byte[]` in backend memory during the Whisper call; a
+   discarded browser `Blob` on the frontend, `useVoiceRecording.ts`). So
+   any delivery feature has to be built on top of the Whisper call
+   specifically, not the correction call.
+2. **`ResponseFormat` is hardcoded to `"json"`**
+   (`OpenAIPromptService.cs:216`), so only `response.Text` comes back
+   today. Whisper also supports `"verbose_json"` (same audio-transcription
+   billing — response format doesn't change OpenAI's per-minute Whisper
+   price), which additionally returns `Duration` and per-segment `Start`/
+   `End` timestamps (word-level with `TimestampGranularities: ["word"]`).
+   That's enough to derive real, objective delivery signals — words/minute
+   (pace), count and length of gaps between segments (pauses), and a
+   filler-word count via a fixed word list ("um", "uh", "like", "you
+   know") run against the transcript — **without adding a new AI call or
+   a new vendor**, since the Whisper call is already happening and already
+   paid for via `CreditCosts.AudioTranscription` (`Common/CreditCosts.cs:45`,
+   cost `1`).
+3. **What this is *not***: true phoneme-level pronunciation-accuracy
+   scoring ("did they say the *th* sound correctly") is not obtainable
+   from Whisper under any response format — it returns no confidence or
+   pronunciation-correctness field at all, in `json` or `verbose_json`.
+   Getting real pronunciation accuracy requires a dedicated
+   pronunciation-assessment product (e.g. Azure Speech's Pronunciation
+   Assessment) — a new third-party vendor, a new per-call cost, and audio
+   would need to be sent to it directly (today's audio is discarded after
+   the Whisper call, so persisting/forwarding it is itself new plumbing).
+   This is a materially different cost/complexity tier from item 3.2.
+
+### Decision
+Split into two phases, same reasoning as the SEO work's Phase 1/Phase 2
+split — ship the free, no-new-dependency part now; treat the paid,
+new-vendor part as a separate decision for Boss.
+
+**Phase 1 — fluency/delivery feedback, zero added cost, proceeding now
+(see TASK-004, TASK-005):**
+- Switch Whisper's `ResponseFormat` to `"verbose_json"` with word-level
+  timestamps, in the same existing `whisper/transcribe` call.
+- Compute pace (WPM), long-pause count (segment gaps over a fixed
+  threshold, e.g. 1.5s), and filler-word count in C#, purely from the
+  richer Whisper response — no second AI call, no new credit gate needed
+  (bundled into the same already-gated `AudioTranscription` action).
+- Return the metrics as new fields on `WhisperTranscriptionResponse`
+  alongside `Text`, plus a short rule-based (non-AI) comment per metric
+  ("良好的語速" / "說話有點快，可以放慢一點" style), so the frontend can
+  render it next to the existing grammar `CorrectionAlert` without a
+  second network round trip.
+- This directly closes the "zero feedback on delivery" gap named in
+  `REQUIREMENTS.md` for **fluency/delivery** specifically (pace, pauses,
+  fillers) — it does not (and does not claim to) cover phoneme-level
+  pronunciation accuracy. Naming this precisely in the UI ("表達流暢度
+  回饋" not "發音評分") avoids overselling what's actually measured.
+
+**Phase 2 — true pronunciation-accuracy scoring — open question to Boss,
+not started:**
+- Would need a dedicated speech-assessment API (new vendor, new recurring
+  cost per call, and new audio-retention/plumbing since audio isn't kept
+  today). This is exactly the kind of cost/external-dependency decision
+  that belongs to Boss per DECISION-003's cost discipline, not something
+  Tech Lead should greenlight unilaterally the way Phase 1 can proceed
+  without waiting. Written up as an open question in
+  `.agent/boss/TECH_LEAD.md`.
+
+### Reason
+Phase 1 reuses data from a call that already happens and is already billed
+— a real, measurable delivery-feedback feature at $0 marginal AI/API cost,
+consistent with DECISION-003's "evaluate cost per user" acceptance
+criterion and matching the "no new infra, ship now" pattern already used
+for the SEO Phase 1 work. Phase 2 (true pronunciation scoring) is a
+genuinely different cost tier and should not be bundled into the same
+task/decision.
+
+### Alternatives
+- Sending raw audio to an OpenAI multimodal audio-capable model and asking
+  it to judge pronunciation directly: rejected for Phase 1 — unproven
+  reliability for phoneme-level judgments (LLMs are not verified
+  pronunciation-assessment tools), would need audio to be persisted/
+  forwarded (new plumbing), and would add a second, audio-priced AI call
+  per turn (audio tokens cost more than text) — a real cost increase for
+  an unvalidated signal. Could be revisited as a Phase 2 alternative to a
+  dedicated vendor if Boss wants to explore before committing to a new
+  vendor relationship, but not proposed as the default Phase 2 path here.
+- Doing nothing until a dedicated pronunciation-assessment vendor is
+  approved: rejected — leaves the named gap fully open when a real,
+  free, in-stack improvement (Phase 1) is available now.
+
+### Trade-offs
+Phase 1 ships genuine delivery feedback (pace/pauses/fillers) at zero
+added cost, but does not satisfy a literal reading of "pronunciation
+feedback" (phoneme accuracy) — only "fluency/delivery" feedback. Flagged
+explicitly so Boss can decide whether that's sufficient or whether Phase 2
+(new vendor, new cost) should be pursued.
+
+### Impact
+- `JackyAIApp.Server`: `OpenAIPromptService.TranscribeAudioAsync`
+  (response format + word timestamps), a small new fluency-metrics
+  helper, `WhisperTranscriptionResponse` DTO gains new fields. No new
+  credit cost, no new external dependency.
+- `jackyaiapp.client`: `ConversationTestCard` renders the new fields next
+  to the existing `CorrectionAlert`, reusing the same component pattern.

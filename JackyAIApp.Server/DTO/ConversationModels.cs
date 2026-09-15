@@ -79,6 +79,27 @@ namespace JackyAIApp.Server.DTO
     public class WhisperTranscriptionResponse
     {
         public required string Text { get; set; }
+
+        /// <summary>
+        /// Rule-based delivery/fluency feedback (pace, pauses, filler words) computed from the same
+        /// Whisper call, at zero added AI/API cost. Null when the clip is too short/silent to derive
+        /// meaningful metrics from — see <see cref="Services.Exam.SpeechFluencyAnalyzer"/>.
+        /// This is delivery/fluency feedback, not phoneme-level pronunciation-accuracy scoring — do not
+        /// rename/relabel it as "pronunciation" (see ARCHITECTURE.md, TASK-004).
+        /// </summary>
+        public DeliveryFeedback? DeliveryFeedback { get; set; }
+    }
+
+    /// <summary>
+    /// Objective speaking-delivery metrics (pace/pauses/filler words) plus short rule-based comments,
+    /// derived purely from Whisper's verbose_json response — no second AI call.
+    /// </summary>
+    public class DeliveryFeedback
+    {
+        public required double PaceWpm { get; set; }
+        public required int PauseCount { get; set; }
+        public required int FillerWordCount { get; set; }
+        public required List<string> Comments { get; set; }
     }
 
     /// <summary>

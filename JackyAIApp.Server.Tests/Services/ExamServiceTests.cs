@@ -299,14 +299,62 @@ namespace JackyAIApp.Server.Tests.Services
         {
             await SeedUserAsync();
             using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+            var transcriptionResult = new AudioTranscriptionResult("Hello world", 3.0, []);
             _promptServiceMock.Setup(x => x.TranscribeAudioAsync(It.IsAny<Stream>(), It.IsAny<string>()))
-                .ReturnsAsync(("Hello world", (string?)null));
+                .ReturnsAsync((transcriptionResult, (string?)null));
 
             var result = await _service.TranscribeAudioAsync(stream, "test.mp3");
 
             Assert.True(result.IsSuccess);
             var dto = Assert.IsType<WhisperTranscriptionResponse>(result.Data);
             Assert.Equal("Hello world", dto.Text);
+        }
+
+        [Fact]
+        public async Task TranscribeAudio_LongEnoughClip_IncludesDeliveryFeedback()
+        {
+            await SeedUserAsync();
+            using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+            // "This is a slow test sentence" over 10s -> well below the slow-pace threshold.
+            var transcriptionResult = new AudioTranscriptionResult("This is a slow test sentence", 10.0, []);
+            _promptServiceMock.Setup(x => x.TranscribeAudioAsync(It.IsAny<Stream>(), It.IsAny<string>()))
+                .ReturnsAsync((transcriptionResult, (string?)null));
+
+            var result = await _service.TranscribeAudioAsync(stream, "test.mp3");
+
+            var dto = Assert.IsType<WhisperTranscriptionResponse>(result.Data);
+            Assert.NotNull(dto.DeliveryFeedback);
+        }
+
+        [Fact]
+        public async Task TranscribeAudio_TooShortClip_OmitsDeliveryFeedback()
+        {
+            await SeedUserAsync();
+            using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+            var transcriptionResult = new AudioTranscriptionResult("hi", 0.5, []);
+            _promptServiceMock.Setup(x => x.TranscribeAudioAsync(It.IsAny<Stream>(), It.IsAny<string>()))
+                .ReturnsAsync((transcriptionResult, (string?)null));
+
+            var result = await _service.TranscribeAudioAsync(stream, "test.mp3");
+
+            var dto = Assert.IsType<WhisperTranscriptionResponse>(result.Data);
+            Assert.Null(dto.DeliveryFeedback);
+        }
+
+        [Fact]
+        public async Task TranscribeAudio_ServiceFails_DoesNotConsumeExtraCredits()
+        {
+            await SeedUserAsync();
+            using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+            _promptServiceMock.Setup(x => x.TranscribeAudioAsync(It.IsAny<Stream>(), It.IsAny<string>()))
+                .ReturnsAsync(((AudioTranscriptionResult?)null, "Whisper transcription failed"));
+
+            var result = await _service.TranscribeAudioAsync(stream, "test.mp3");
+
+            Assert.False(result.IsSuccess);
+            // Only the one AudioTranscription charge already asserted in setup — no second
+            // ConsumeCreditsAsync call is made for delivery feedback (TASK-004: zero added cost).
+            _creditServiceMock.Verify(x => x.ConsumeCreditsAsync(It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
         }
 
         [Fact]

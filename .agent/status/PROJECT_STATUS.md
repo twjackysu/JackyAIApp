@@ -448,19 +448,98 @@
 - No code changes — Requirements/Decisions/PM-log documentation only.
 
 ## Open Items
-- **Handoff to Tech Lead (new, ready to claim)**: Skill-Building Feature
-  Expansion item 1 — **speaking delivery/pronunciation feedback** — is now
-  Boss-approved (DECISION-005) and ready for a Tech Lead
-  feasibility/architecture/cost pass. Context: Conversation Test already
-  has voice recording + Whisper transcription + grammar correction
-  (`JackyAIApp.Server` conversation module); the gap is that nothing
-  evaluates *how* something was said (pronunciation/fluency/delivery), only
-  *what* the transcript says. See `REQUIREMENTS.md` →
-  "Skill-Building Feature Expansion" for the full proposal, acceptance
-  criteria, and cost-gating expectation (should go through
-  `CreditCosts.cs`-style gating like other AI-calling features, per
-  DECISION-003's cost discipline). No task file created yet — Tech Lead
-  owns task decomposition.
 - **Future PM work (not urgent)**: extend the same gap-audit method used
   for English skills to Finance/Portfolio/PDF Unlocker, per Boss's
   2026-09-14 broadened mandate (DECISION-005). Not started.
+- **New, from this run**: Phase 2 of speaking delivery feedback (true
+  phoneme-level pronunciation-accuracy scoring via a new third-party
+  vendor) is an open question sent to Boss in `.agent/boss/TECH_LEAD.md` —
+  not scoped as a task, needs a cost/vendor decision before any further
+  work.
+
+## 2026-09-15 — Tech Lead: Scoped Skill-Building item 1 (speaking delivery feedback) (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message since Boss's 2026-09-13 sign-off on the
+  single-formatting-source SEO fix; no open PRs, no engineer work pending
+  review, no blockers reported. Picked up the standing Open Item: Boss
+  approved (DECISION-005) handing Skill-Building item 1 — speaking
+  delivery/pronunciation feedback — to Tech Lead for a feasibility/cost
+  evaluation.
+- Investigated the Conversation Test backend before scoping
+  (`ExamController.cs`, `ExamService.cs`, `OpenAIPromptService.cs`):
+  confirmed audio is transcribed via Whisper with `ResponseFormat =
+  "json"` (only returns plain text) and is never persisted; grammar
+  correction runs as a separate text-only completion over the transcript.
+  Confirmed Whisper's `"verbose_json"` format (same OpenAI billing as
+  `"json"` — response format doesn't change Whisper's per-minute price)
+  additionally returns duration and segment/word timestamps, which is
+  enough to compute real pace/pause/filler-word signals **without any new
+  AI call or vendor**. Also confirmed Whisper never returns a
+  pronunciation-accuracy/confidence field under any format — true
+  phoneme-level pronunciation scoring needs a dedicated third-party
+  product (e.g. Azure Speech Pronunciation Assessment), a materially
+  different cost/vendor decision.
+- Documented the investigation and a two-phase decision in
+  `ARCHITECTURE.md` → "Decision: Speaking delivery feedback
+  (pronunciation/fluency)": **Phase 1** (fluency/delivery feedback —
+  pace/pauses/filler words — computed in C# from the existing Whisper
+  call's richer response, zero added AI/API cost, no new credit gate)
+  proceeds now, same pattern as the SEO work's low-cost Phase 1. **Phase
+  2** (true pronunciation-accuracy scoring via a new vendor) is flagged as
+  an open question to Boss rather than decided unilaterally, since it's a
+  new external dependency plus a new recurring cost.
+- Created `TASK-004` (Backend: switch Whisper to `verbose_json`, compute
+  pace/pause/filler metrics + rule-based comments, extend
+  `WhisperTranscriptionResponse`, no new credit charge) and `TASK-005`
+  (Frontend: render the new fields next to the existing `CorrectionAlert`
+  in Conversation Test) — both `READY`, TASK-005 depends on TASK-004's
+  response shape. Both tasks explicitly require calling this
+  "delivery/fluency feedback," never "pronunciation," to avoid overselling
+  what Phase 1 actually measures.
+- Updated `REQUIREMENTS.md`'s Skill-Building acceptance criteria: item 1 is
+  now scoped, and the cost-estimate criterion is satisfied ($0 marginal
+  cost for Phase 1).
+- Wrote to `.agent/boss/TECH_LEAD.md`: flagged Phase 2 (new vendor for
+  real pronunciation-accuracy scoring) as an open cost/vendor decision for
+  Boss, consistent with how the SEO Phase 2 trade-off was previously
+  escalated rather than decided unilaterally.
+- No code changes — architecture/task documentation only, ready for
+  Backend/Frontend Engineers to pick up.
+
+## 2026-09-15 — Backend Engineer: TASK-004 implemented, PR opened (scheduled run)
+
+- Picked up `TASK-004` (Backend: fluency/delivery feedback on Conversation
+  Test voice turns), scoped by Tech Lead in still-open PR #336 at the time
+  this run started — merged that docs-only commit into this session's
+  branch first (fast-forward, same base commit) to get `TASK-004.md`/
+  `TASK-005.md`/the updated `ARCHITECTURE.md` locally, since #336 itself
+  only needed a branch-policy PR wrapper around an otherwise-decided
+  Tech Lead write-up, not further review before Backend could start.
+- Implemented Phase 1 exactly as scoped: switched
+  `OpenAIPromptService.TranscribeAudioAsync` to Whisper's `verbose_json` +
+  word-level timestamps (confirmed against the actual upstream
+  Betalgo.Ranul.OpenAI source, matching the installed `9.2.6` package, since
+  no `dotnet` SDK/NuGet cache exists in this sandbox to check types
+  directly); added `SpeechFluencyAnalyzer` (`Services/Exam/`) as a pure,
+  independently-unit-tested helper computing pace/pause-count/filler-word
+  metrics + rule-based Chinese comments from that richer response; extended
+  `WhisperTranscriptionResponse` with an optional `DeliveryFeedback` field.
+  No second credit charge added — rides on the existing
+  `CreditCosts.AudioTranscription` charge, verified by a new test.
+- Full detail, including the "no dotnet SDK" verification approach and
+  known limitations, is in `TASK-004.md`'s Result section.
+- Opened the PR against `master`; see `TASK-004.md` for the link.
+  `TASK-005` (Frontend) can start once this lands, per its own stated
+  dependency on this task's response shape (`DeliveryFeedback` field name/
+  shape is now fixed by this PR).
+- CI (`build-and-test-server`) initially failed on the opening commit: a
+  genuine compile error in the new test code, not a pre-existing/unrelated
+  issue — `Error.Message` (Betalgo.Ranul.OpenAI's response type) has a
+  `private set`; the test tried to set it directly instead of the public
+  `MessageObject` setter that actually populates it. Fixed and pushed
+  within the same run. CI (`lint-and-build-client` +
+  `build-and-test-server`) is now green, `mergeable_state: clean`, no
+  reviews/comments yet. Subscribed to PR #337; waiting on Tech Lead/Boss
+  review — nothing further for Backend to do unless review comments come
+  back.

@@ -202,14 +202,20 @@ Proposed features, in the priority order PM recommended and **Boss approved
    a skill with a current zero-coverage gap.
 
 ### Acceptance Criteria
-- [ ] At least one of the four proposals above is scoped into a Tech Lead
-      architecture/task write-up.
-- [ ] Whichever ships first includes a rough per-use AI-cost estimate
+- [x] At least one of the four proposals above is scoped into a Tech Lead
+      architecture/task write-up — item 1 (speaking delivery feedback)
+      scoped 2026-09-15, see `ARCHITECTURE.md` → "Decision: Speaking
+      delivery feedback" and `TASK-004`/`TASK-005`.
+- [x] Whichever ships first includes a rough per-use AI-cost estimate
       (OpenAI/Whisper/TTS calls) reviewed against `CreditCosts.cs`-style
       gating, consistent with DECISION-003's cost discipline — even though
       monetization is on hold, the credit-gate mechanism itself still exists
       as the app's built-in usage/cost control and should keep being used
-      for any new AI-calling feature.
+      for any new AI-calling feature. Item 1's Phase 1 scope adds **zero**
+      marginal AI/API cost (reuses the existing, already-gated Whisper
+      call) — see Architecture doc. True pronunciation-accuracy scoring
+      (Phase 2, a new vendor) is flagged to Boss separately, not yet costed
+      or scoped as a task.
 - [ ] The feature measurably exercises the named skill gap (e.g. speaking
       feedback must comment on delivery, not only re-state grammar
       corrections already produced elsewhere).

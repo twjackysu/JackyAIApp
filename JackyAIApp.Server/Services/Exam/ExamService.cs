@@ -476,16 +476,19 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.AudioTranscription}.");
             }
 
-            var (transcription, error) = await _promptService.TranscribeAudioAsync(audioStream, fileName);
+            var (result, error) = await _promptService.TranscribeAudioAsync(audioStream, fileName);
 
-            if (transcription == null)
+            if (result == null)
             {
                 _logger.LogError("Whisper transcription failed: {Error}", error);
                 return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, "Failed to transcribe audio.");
             }
 
+            var text = result.Text.Trim();
+            var deliveryFeedback = SpeechFluencyAnalyzer.Analyze(text, result.DurationSeconds, result.Words);
+
             _logger.LogInformation("Whisper transcription successful");
-            return ServiceResult.Ok(new WhisperTranscriptionResponse { Text = transcription.Trim() });
+            return ServiceResult.Ok(new WhisperTranscriptionResponse { Text = text, DeliveryFeedback = deliveryFeedback });
         }
 
         public async Task<ServiceResult> EvaluateSentenceAsync(SentenceTestUserResponse userResponse)
