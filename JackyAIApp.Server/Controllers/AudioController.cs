@@ -3,6 +3,7 @@ using Betalgo.Ranul.OpenAI.ObjectModels;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.Speech;
 
 namespace JackyAIApp.Server.Controllers
 {

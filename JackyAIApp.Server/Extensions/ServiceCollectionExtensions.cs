@@ -14,6 +14,7 @@ using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Prompt;
 using JackyAIApp.Server.Services.Repository;
 using JackyAIApp.Server.Services.SpacedRepetition;
+using JackyAIApp.Server.Services.Speech;
 using JackyAIApp.Server.Services.SpellChecker;
 using JackyAIApp.Server.Services.WordOfTheDay;
 
@@ -29,7 +30,7 @@ namespace JackyAIApp.Server.Extensions
         /// factories, current-user/credit access, the floating chatbot's direct
         /// Claude client, and the prompt-file-backed OpenAI wrapper.
         /// </summary>
-        public static IServiceCollection AddCoreServices(this IServiceCollection services)
+        public static IServiceCollection AddCoreServices(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddHttpContextAccessor();
             services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
@@ -41,7 +42,26 @@ namespace JackyAIApp.Server.Extensions
 
             services.AddSingleton<IPromptLoader, PromptLoader>();
             services.AddScoped<IOpenAIPromptService, OpenAIPromptService>();
-            services.AddScoped<ITextToSpeechService, TextToSpeechService>();
+            // TTS provider: Azure AI Speech when a key is configured (its F0 tier is free and is
+            // not tied to the OpenAI credit balance), otherwise the original OpenAI path. Same
+            // interface and same cache either way, so no caller changes when this flips.
+            services.Configure<AzureSpeechOptions>(configuration.GetSection(AzureSpeechOptions.SectionName));
+            var azureSpeech = configuration.GetSection(AzureSpeechOptions.SectionName).Get<AzureSpeechOptions>();
+            if (!string.IsNullOrWhiteSpace(azureSpeech?.Key) && !string.IsNullOrWhiteSpace(azureSpeech.Region))
+            {
+                // Retry is safe here, unlike the OpenAI clients: synthesis is idempotent (the same
+                // SSML yields the same audio) and F0 has no per-call charge to duplicate.
+                services.AddHttpClient(AzureSpeechTextToSpeechService.HttpClientName, client =>
+                {
+                    // Azure documents a User-Agent as required on the synthesis endpoint.
+                    client.DefaultRequestHeaders.Add("User-Agent", "JackyAIApp");
+                }).AddReadOnlyResilience();
+                services.AddScoped<ITextToSpeechService, AzureSpeechTextToSpeechService>();
+            }
+            else
+            {
+                services.AddScoped<ITextToSpeechService, TextToSpeechService>();
+            }
 #pragma warning disable CA1416 // ListeningImageProcessor is Windows-only; app only runs on Windows App Service.
             services.AddScoped<Services.Listening.IListeningImageProcessor, Services.Listening.ListeningImageProcessor>();
 #pragma warning restore CA1416

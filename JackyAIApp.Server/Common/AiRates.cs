@@ -26,6 +26,10 @@ namespace JackyAIApp.Server.Common
             {
                 ["tts-1"] = 15m,
                 ["tts-1-hd"] = 30m,
+                // Azure AI Speech on the F0 tier: 500,000 characters/month at no charge, against
+                // measured usage of roughly 2,000/month. Zero rather than null so the dashboard's
+                // SUM stays a real total instead of quietly dropping these rows.
+                ["azure-neural-tts"] = 0m,
             };
 
         // Image generation rates in USD per image. Assumes low-quality tier (what the Listening
