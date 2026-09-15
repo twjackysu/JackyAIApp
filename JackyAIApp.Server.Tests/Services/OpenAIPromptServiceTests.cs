@@ -144,7 +144,9 @@ namespace JackyAIApp.Server.Tests.Services
                 .Setup(x => x.CreateTranscription(It.IsAny<AudioCreateTranscriptionRequest>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new AudioCreateTranscriptionResponse
                 {
-                    Error = new Error { Message = "boom" }
+                    // Error.Message has a private setter; MessageObject is the public setter that
+                    // populates it (see Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels.Error).
+                    Error = new Error { MessageObject = "boom" }
                 });
 
             using var stream = new MemoryStream([1, 2, 3]);
