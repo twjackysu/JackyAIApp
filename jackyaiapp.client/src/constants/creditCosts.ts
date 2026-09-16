@@ -29,6 +29,8 @@ export const CREDIT_COSTS = {
   LISTENING_TEST: 4,
   /** Listening response test (TOEIC Part 2 style) — bundles the prompt + 3 response options' audio */
   LISTENING_RESPONSE_TEST: 4,
+  /** Reading comprehension test — flat charge per passage play, cache hit or miss */
+  READING_COMPREHENSION_TEST: 3,
   /** Whisper audio transcription */
   AUDIO_TRANSCRIPTION: 1,
   /** Stock analysis (AI-powered) */

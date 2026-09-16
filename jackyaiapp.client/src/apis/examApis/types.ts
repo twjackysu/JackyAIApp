@@ -86,15 +86,23 @@ export interface SentenceTestResponse {
   grammarPattern?: string;
 }
 
-export type ExamType = 'Cloze' | 'Translation' | 'Sentence' | 'Listening' | 'ListeningResponse';
+export type ExamType =
+  | 'Cloze'
+  | 'Translation'
+  | 'Sentence'
+  | 'Listening'
+  | 'ListeningResponse'
+  | 'Reading';
 
 export interface RecordExamResultRequest {
-  /** Required for word-based exam types; omitted for "Listening"/"ListeningResponse". */
+  /** Required for word-based exam types; omitted for "Listening"/"ListeningResponse"/"Reading". */
   wordId?: string;
   /** Required when examType is "Listening"; omitted otherwise. */
   listeningTestId?: string;
   /** Required when examType is "ListeningResponse"; omitted otherwise. */
   listeningResponseTestId?: string;
+  /** Required when examType is "Reading"; omitted otherwise. */
+  readingPassageId?: string;
   examType: ExamType;
   correct: boolean;
   /** Optional 0–100 score for graded types (Sentence). */
@@ -140,6 +148,29 @@ export interface ListeningResponseTestResponse {
 export interface RecordExamResultResponse {
   scheduleUpdated: boolean;
   nextReviewDate?: string | null;
+}
+
+export interface ReadingQuestionOption {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  explanation: string;
+}
+
+export interface ReadingQuestion {
+  id: string;
+  questionText: string;
+  options: ReadingQuestionOption[];
+}
+
+/** Passage-level reading comprehension exercise: a short passage plus 3–4 multiple-choice
+ * comprehension questions. isCorrect/explanation are included up front per option, same
+ * UI-gating convention as ListeningResponseTestResponse. */
+export interface ReadingPassageResponse {
+  id: string;
+  title: string;
+  passageText: string;
+  questions: ReadingQuestion[];
 }
 
 export interface SentenceTestUserResponse {

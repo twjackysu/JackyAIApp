@@ -16,6 +16,7 @@ import ClozeTestCard from './ClozeTestCard';
 import ConversationTestCard from './ConversationTestCard';
 import ListeningResponseTestCard from './ListeningResponseTestCard';
 import ListeningTestCard from './ListeningTestCard';
+import ReadingTestCard from './ReadingTestCard';
 import SentenceTestCard from './SentenceTestCard';
 import TranslationTestCard from './TranslationTestCard';
 
@@ -103,6 +104,13 @@ const EXAM_MODES: ExamMode[] = [
     cost: <>每次生成 {CREDIT_COSTS.LISTENING_RESPONSE_TEST} 點使用額度</>,
     color: 'info',
     element: <ListeningResponseTestCard />,
+  },
+  {
+    path: 'reading',
+    label: '閱讀理解測驗 (Reading Comprehension)',
+    cost: <>每次生成 {CREDIT_COSTS.READING_COMPREHENSION_TEST} 點使用額度</>,
+    color: 'warning',
+    element: <ReadingTestCard />,
   },
 ];
 

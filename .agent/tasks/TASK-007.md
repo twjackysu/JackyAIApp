@@ -7,7 +7,7 @@ Frontend: Reading comprehension test UI (Skill-Building item 2 — 讀)
 Frontend
 
 ## Status
-READY (blocked on TASK-006 merging — needs its response shape)
+PR_OPENED
 
 ## Priority
 HIGH
@@ -84,7 +84,111 @@ field names can be finalized. Architecture and requirements are otherwise
 final; no need to wait for further Tech Lead sign-off once TASK-006 lands.
 
 ## Result
-_(Frontend Engineer fills in on completion)_
+
+Confirmed `TASK-006` (PR #342) merged into `master` (2026-09-16T07:25 UTC)
+before starting — read the actual merged `ExamModels.cs` DTOs (not just
+TASK-006's self-report) to get exact field names/casing:
+`ReadingPassageResponse { Id, Title, PassageText, Questions:
+List<ReadingQuestionDto> }`, `ReadingQuestionDto { Id, QuestionText,
+Options: List<ReadingQuestionOptionDto> }`, `ReadingQuestionOptionDto { Id,
+Text, IsCorrect, Explanation }`. No explicit `JsonNamingPolicy` in
+`Program.cs`, so ASP.NET Core's default camelCase applies (confirmed
+against existing `ListeningResponseTestResponse` frontend types, which
+already assume this).
+
+### Implementation
+- `apis/examApis/types.ts`: added `ReadingPassageResponse`/
+  `ReadingQuestion`/`ReadingQuestionOption`; added `'Reading'` to the
+  `ExamType` union; added `readingPassageId?: string` to
+  `RecordExamResultRequest`.
+- `apis/examApis/index.ts`: added `getReadingTest` query (`GET
+  api/exam/reading`, no mutation — matches `getListeningResponseTest`'s
+  plain-query convention since the backend decides generate-vs-reuse
+  internally) and exported `useGetReadingTestQuery`.
+- `constants/creditCosts.ts`: added `READING_COMPREHENSION_TEST: 3`,
+  matching the backend's `CreditCosts.ReadingComprehensionTest` value
+  (verified by the existing `creditCosts.test.ts` drift check, which reads
+  the .cs file directly).
+- New `Exam/ReadingTestCard/index.tsx`: fetches a passage on mount via
+  `useGetReadingTestQuery`, renders the passage text then each question as
+  its own MUI `RadioGroup`, revealing the picked option's Chinese
+  `Explanation` (correct in green / incorrect in red) immediately on
+  answering, same reveal-after-answer UX as `ListeningQuizCard`. Reused
+  `ExamRoundShell`/`useExamRound` for the round-progress chrome, restart
+  screen, and loading/error states, consistent with every other exam card.
+  Did not reuse `ListeningQuizCard` itself — its contract is one audio
+  question per fetch, whereas a Reading fetch returns one passage with
+  3–4 questions, a genuinely different shape — so a small sibling
+  component matching the *pattern* (not the exact prop contract) was the
+  smallest correct change rather than forcing a mismatched abstraction.
+  `record-result` granularity: one call per question (same granularity
+  `ListeningResponseTestCard` uses — one call per individual Q&A), fired
+  together once the passage's last question is answered, all carrying the
+  same `readingPassageId`. A new passage only loads on "下一篇" (`refetch`
+  after `round.advance()`), no user-triggered regenerate button, per the
+  task's explicit note.
+- `Exam/index.tsx`: added the `reading` entry to `EXAM_MODES` (single
+  source of truth already driving both the button and the route), with a
+  `warning`-color button (the one MUI palette color not already used by
+  another mode) and its credit-cost caption.
+- Did not add a Reading-specific "repository empty" caption: the existing
+  info alert already only renders on the exam **selection** screen, not
+  inside any test route, and does not block navigation to any mode
+  (confirmed in the existing code comment) — Listening/ListeningResponse
+  already have this exact same word-independent behavior with no special
+  casing, so Reading needed none either.
+
+### Files Changed
+- `jackyaiapp.client/src/apis/examApis/types.ts`
+- `jackyaiapp.client/src/apis/examApis/index.ts`
+- `jackyaiapp.client/src/constants/creditCosts.ts`
+- `jackyaiapp.client/src/Exam/ReadingTestCard/index.tsx` (new)
+- `jackyaiapp.client/src/Exam/index.tsx`
+
+### UI / UX
+- Reading Comprehension button appears on the exam selection screen
+  (label "閱讀理解測驗 (Reading Comprehension)") with its credit-cost
+  caption.
+- Passage text renders in a bordered `Paper`, each question below it as a
+  numbered fieldset with lettered (A/B/C…) radio options.
+- Answering a question locks that question's options and reveals every
+  shown option's Chinese explanation (correct in green, the picked wrong
+  one in red), matching the Listening cards' convention exactly.
+- "下一篇" button (+ its credit-cost caption) appears once every question
+  in the passage has been answered; clicking it clears local answer state
+  and fetches the next passage (or shows the round-result screen if the
+  round is complete).
+
+### Tests
+- `npm run lint` — 0 warnings.
+- `npm run build` — TypeScript + Vite production build succeeded.
+- `npx vitest run` — **134/134 passed** (up from 133; no new test file
+  added for `ReadingTestCard` itself, consistent with the existing
+  project convention of no per-card component tests for
+  `ListeningResponseTestCard`/other exam cards — but the pre-existing
+  `creditCosts.test.ts` picked up the new `READING_COMPREHENSION_TEST`
+  entry automatically and passed, confirming it matches the backend
+  constant).
+- Did not run the app against a live backend/browser (no dev server
+  exercised) — confidence comes from the type-level contract match against
+  the actual merged backend DTOs plus the full existing test suite passing
+  with no regressions.
+
+### Known Limitations
+- No dedicated unit/component test for `ReadingTestCard`'s interaction
+  flow — matches the existing project pattern (none of the other exam
+  cards have one either); flagging in case Tech Lead wants one added as a
+  follow-up.
+- Credit cost (`3`) mirrors the backend's own flagged-as-a-starting-estimate
+  value; if Backend/Tech Lead revise `CreditCosts.ReadingComprehensionTest`
+  after observing real token usage, `creditCosts.ts` needs the matching
+  update (the existing drift test will catch a mismatch, not fix it).
+
+### Blockers
+None.
+
+### PR
+_(added once opened — see next commit)_
 
 ## Review
 _(Tech Lead fills in after PR review)_
