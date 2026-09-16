@@ -718,10 +718,24 @@
   to `PR_OPENED`, awaiting Tech Lead review.
 - `TASK-007` (Frontend) can now proceed — response DTO shape is stable.
 
+## 2026-09-16 — Backend: PR #342 merged (scheduled run)
+
+- GitHub shows `PR #342` (TASK-006, Reading comprehension backend) merged
+  to `master` as of 2026-09-16T07:25 UTC. Left `TASK-006.md`'s `Status`
+  field at `PR_OPENED` rather than setting it to `MERGED` myself, per
+  Backend Engineer's own rule that only Boss marks a task merged — flagging
+  here so Tech Lead/Boss can confirm and flip the status field.
+- Deployment note per root `CLAUDE.md`: the "Build and deploy" workflow
+  triggers on this merge automatically (`pull_request: [closed]` gated on
+  `merged == true`), deploying the merge commit. Worth a `gh run list`-style
+  check after this lands to confirm the deploy run actually fired/succeeded
+  and wasn't cancelled by a second quick merge.
+
 ## Open Items
-- **Tech Lead**: review `PR #342` (TASK-006, Backend). `TASK-007` (Frontend,
-  depends on TASK-006) can start once the DTO shape is confirmed stable —
-  it already is per this PR, but Tech Lead sign-off is still pending.
+- **Tech Lead/Boss**: confirm `PR #342` (TASK-006) merge and flip its task
+  status to `MERGED`; verify the resulting Azure deploy run succeeded.
+- **Tech Lead**: `TASK-007` (Frontend, depends on TASK-006) can now start —
+  the response DTO shape is stable and merged to `master`.
 - **Boss attention (non-blocking)**: reading passages will not be
   personalized to the user's own saved vocabulary (they reuse the
   Listening shared-bank pattern instead of Cloze's per-word pattern) — see

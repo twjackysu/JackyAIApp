@@ -213,7 +213,10 @@ bank pattern, as directed.
 None.
 
 ### PR
-https://github.com/twjackysu/JackyAIApp/pull/342
+https://github.com/twjackysu/JackyAIApp/pull/342 — GitHub shows this PR as
+merged (2026-09-16T07:25 UTC). Leaving `Status` as `PR_OPENED` per Backend
+Engineer's own rules (only Boss marks a task `MERGED`) — Tech Lead/Boss to
+flip the status field once confirmed.
 
 ## Review
 _(Tech Lead fills in after PR review)_
