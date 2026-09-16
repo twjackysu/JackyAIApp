@@ -316,6 +316,198 @@ namespace JackyAIApp.Server.Services.Exam
                 : ServiceResult.Ok(option.Text);
         }
 
+        // Same growth-threshold/no-repeat pattern as ListeningResponse — see comments above
+        // ListeningResponseBankGrowthThreshold and NoRepeatWindow.
+        private const int ReadingBankGrowthThreshold = 20;
+        private const string ReadingFeature = "exam.reading";
+
+        private static readonly string[] ReadingTopics =
+        [
+            "daily life", "travel", "workplace", "technology", "environment", "health",
+        ];
+
+        private static readonly (string User, string Assistant) ReadingFewShotExample = (
+            User: "travel",
+            Assistant: JsonConvert.SerializeObject(new ReadingGenerationResult
+            {
+                Title = "A Weekend Trip to the Mountains",
+                PassageText = "Last weekend, Maria decided to escape the noise of the city and drive up to the mountains with two friends. " +
+                    "They left early on Saturday morning, hoping to reach the trail before it got too crowded. The weather forecast had " +
+                    "predicted rain, so Maria packed extra layers and a waterproof jacket just in case. When they arrived, the sky was " +
+                    "still clear, and they spent the first few hours hiking along a quiet trail lined with pine trees. Around noon, dark " +
+                    "clouds began to gather, and by the time they reached the summit, a light drizzle had started. Rather than turning " +
+                    "back immediately, they sheltered under a rocky outcrop and ate lunch while waiting for the rain to pass. By the time " +
+                    "they returned to the car in the late afternoon, they were tired but glad they had come prepared.",
+                Questions =
+                [
+                    new ReadingQuestionGen
+                    {
+                        QuestionText = "What is this passage mainly about?",
+                        Options =
+                        [
+                            new() { Text = "A group's hiking trip that was interrupted by unexpected rain.", IsCorrect = true, Explanation = "正確。文章主要描述三人一起健行途中遇到下雨的過程。" },
+                            new() { Text = "A city that suffers from constant noise pollution.", IsCorrect = false, Explanation = "錯誤。文章只在開頭提到逃離城市喧囂，並非文章主旨。" },
+                            new() { Text = "A guide explaining how to choose hiking equipment.", IsCorrect = false, Explanation = "錯誤。文章沒有教學裝備挑選的內容。" },
+                        ],
+                    },
+                    new ReadingQuestionGen
+                    {
+                        QuestionText = "Why did Maria pack extra layers and a waterproof jacket?",
+                        Options =
+                        [
+                            new() { Text = "Because the weather forecast predicted rain.", IsCorrect = true, Explanation = "正確。文章明確提到氣象預報說會下雨，所以她多帶了衣物。" },
+                            new() { Text = "Because her friends asked her to carry the group's gear.", IsCorrect = false, Explanation = "錯誤。文章沒有提到朋友要求她攜帶裝備。" },
+                            new() { Text = "Because she planned to camp overnight in the mountains.", IsCorrect = false, Explanation = "錯誤。文章沒有提到過夜露營的計畫。" },
+                        ],
+                    },
+                    new ReadingQuestionGen
+                    {
+                        QuestionText = "What can be inferred about how the group felt when they got back to the car?",
+                        Options =
+                        [
+                            new() { Text = "Exhausted but satisfied with their decision to prepare well.", IsCorrect = true, Explanation = "正確。文章說他們「tired but glad they had come prepared」，暗示雖然累但慶幸有準備。" },
+                            new() { Text = "Angry that the trip had been ruined by the weather.", IsCorrect = false, Explanation = "錯誤。文章語氣是慶幸而非生氣。" },
+                            new() { Text = "Disappointed that they never reached the summit.", IsCorrect = false, Explanation = "錯誤。文章提到他們確實抵達了山頂（summit）。" },
+                        ],
+                    },
+                    new ReadingQuestionGen
+                    {
+                        QuestionText = "In the passage, what does the word \"drizzle\" most likely mean?",
+                        Options =
+                        [
+                            new() { Text = "A light rain.", IsCorrect = true, Explanation = "正確。前後文提到烏雲聚集後開始下起 drizzle，接著他們在岩石下躲雨，符合「小雨」的語境。" },
+                            new() { Text = "A strong wind.", IsCorrect = false, Explanation = "錯誤。文中描述的是降雨相關的天氣現象，與風無關。" },
+                            new() { Text = "A sudden temperature drop.", IsCorrect = false, Explanation = "錯誤。文章沒有提到氣溫驟降。" },
+                        ],
+                    },
+                ],
+            })
+        );
+
+        private async Task<HashSet<string>> GetRecentReadingPassageIdsAsync(string userId, int take)
+        {
+            var ids = await _dbContext.ExamAttempts
+                .Where(a => a.UserId == userId && a.ReadingPassageId != null)
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => a.ReadingPassageId!)
+                .Take(take * 3)
+                .ToListAsync();
+            return ids.Distinct().Take(take).ToHashSet();
+        }
+
+        private async Task<SQL.ReadingPassage> PickReadingFromPoolAsync(HashSet<string> excludeIds, int unseenCount, int totalCount)
+        {
+            var poolQuery = unseenCount > 0
+                ? _dbContext.ReadingPassages.Where(p => !excludeIds.Contains(p.Id))
+                : _dbContext.ReadingPassages;
+            var poolCount = unseenCount > 0 ? unseenCount : totalCount;
+
+            return await poolQuery
+                .Include(p => p.Questions)
+                    .ThenInclude(q => q.Options)
+                .OrderBy(p => p.Id)
+                .Skip(Random.Shared.Next(poolCount))
+                .FirstAsync();
+        }
+
+        public async Task<ServiceResult> GenerateReadingExamAsync()
+        {
+            var userId = _userService.GetUserId();
+            var excludeIds = string.IsNullOrEmpty(userId)
+                ? new HashSet<string>()
+                : await GetRecentReadingPassageIdsAsync(userId, NoRepeatWindow);
+
+            var count = await _dbContext.ReadingPassages.CountAsync();
+            var unseenCount = await _dbContext.ReadingPassages.CountAsync(p => !excludeIds.Contains(p.Id));
+            var shouldGenerate = unseenCount < ReadingBankGrowthThreshold || Random.Shared.Next(5) == 0;
+
+            if (!shouldGenerate && unseenCount > 0)
+            {
+                var existing = await PickReadingFromPoolAsync(excludeIds, unseenCount, count);
+                return ServiceResult.Ok(ToReadingDto(existing));
+            }
+
+            var topic = ReadingTopics[Random.Shared.Next(ReadingTopics.Length)];
+            var (dto, error) = await _promptService.GetCompletionAsync<ReadingGenerationResult>(
+                "Prompt/Exam/ReadingSystem.txt", topic,
+                model: NewModels.GPT_4_1_NANO, examples: new[] { ReadingFewShotExample },
+                feature: ReadingFeature);
+
+            if (dto == null)
+            {
+                _logger.LogError("Failed to generate reading passage: {Error}", error);
+
+                // Fall back to an existing one rather than a hard failure, if the bank has any.
+                if (count > 0)
+                {
+                    var fallback = await PickReadingFromPoolAsync(excludeIds, unseenCount, count);
+                    return ServiceResult.Ok(ToReadingDto(fallback));
+                }
+
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
+                    "Query failed, OpenAI could not generate the passage.");
+            }
+            if (dto.Questions.Count < 3 || dto.Questions.Count > 4 ||
+                dto.Questions.Any(q => q.Options.Count < 3 || q.Options.Count > 4 || q.Options.Count(o => o.IsCorrect) != 1))
+            {
+                _logger.LogError("Reading passage generation returned a malformed question/option shape ({QuestionCount} questions)",
+                    dto.Questions.Count);
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
+                    "Generated passage had an invalid question/option shape (expected 3-4 questions, each with 3-4 options and 1 correct).");
+            }
+
+            var passageId = Guid.NewGuid().ToString();
+            var newPassage = new SQL.ReadingPassage
+            {
+                Id = passageId,
+                Title = dto.Title,
+                PassageText = dto.PassageText,
+                CreatedAt = DateTime.UtcNow,
+                Questions = dto.Questions.Select(q =>
+                {
+                    var questionId = Guid.NewGuid().ToString();
+                    return new SQL.ReadingQuestion
+                    {
+                        Id = questionId,
+                        QuestionText = q.QuestionText,
+                        PassageId = passageId,
+                        Options = q.Options.Select(o => new SQL.ReadingQuestionOption
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Text = o.Text,
+                            IsCorrect = o.IsCorrect,
+                            Explanation = o.Explanation,
+                            QuestionId = questionId,
+                        }).ToList(),
+                    };
+                }).ToList(),
+            };
+
+            _dbContext.ReadingPassages.Add(newPassage);
+            await _dbContext.SaveChangesAsync();
+
+            return ServiceResult.Ok(ToReadingDto(newPassage));
+        }
+
+        private static ReadingPassageResponse ToReadingDto(SQL.ReadingPassage p) => new()
+        {
+            Id = p.Id,
+            Title = p.Title,
+            PassageText = p.PassageText,
+            Questions = p.Questions.Select(q => new ReadingQuestionDto
+            {
+                Id = q.Id,
+                QuestionText = q.QuestionText,
+                Options = q.Options.Select(o => new ReadingQuestionOptionDto
+                {
+                    Id = o.Id,
+                    Text = o.Text,
+                    IsCorrect = o.IsCorrect,
+                    Explanation = o.Explanation,
+                }).ToList(),
+            }).ToList(),
+        };
+
         public async Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse)
         {
             // Credit gate (conditional on an authenticated user)
@@ -558,7 +750,8 @@ namespace JackyAIApp.Server.Services.Exam
 
             bool isListening = request.ExamType == "Listening";
             bool isListeningResponse = request.ExamType == "ListeningResponse";
-            bool isWordless = isListening || isListeningResponse;
+            bool isReading = request.ExamType == "Reading";
+            bool isWordless = isListening || isListeningResponse || isReading;
             if (!isWordless && string.IsNullOrEmpty(request.WordId))
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "WordId is required for word-based exam types.");
@@ -571,6 +764,10 @@ namespace JackyAIApp.Server.Services.Exam
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "ListeningResponseTestId is required for ListeningResponse exam type.");
             }
+            if (isReading && string.IsNullOrEmpty(request.ReadingPassageId))
+            {
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "ReadingPassageId is required for Reading exam type.");
+            }
 
             // Log the attempt regardless of whether the word is still in the user's repository.
             _dbContext.ExamAttempts.Add(new SQL.ExamAttempt
@@ -579,6 +776,7 @@ namespace JackyAIApp.Server.Services.Exam
                 WordId = request.WordId,
                 ListeningTestId = request.ListeningTestId,
                 ListeningResponseTestId = request.ListeningResponseTestId,
+                ReadingPassageId = request.ReadingPassageId,
                 ExamType = request.ExamType,
                 IsCorrect = request.Correct,
                 Score = request.Score,

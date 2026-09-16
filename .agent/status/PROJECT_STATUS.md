@@ -701,10 +701,27 @@
 - No code changes — architecture/task documentation only, ready for
   Backend/Frontend Engineers to pick up.
 
+## 2026-09-16 — Backend: TASK-006 implemented, PR opened (scheduled run)
+
+- Implemented `TASK-006` (Reading comprehension passages) following the
+  Listening/ListeningResponse shared-bank pattern exactly, as scoped in
+  `ARCHITECTURE.md`: new `ReadingPassage`/`ReadingQuestion`/
+  `ReadingQuestionOption` entities + additive EF migration,
+  `Prompt/Exam/ReadingSystem.txt`, `ExamService.GenerateReadingExamAsync()`
+  (reuses `NoRepeatWindow=30`, new `ReadingBankGrowthThreshold=20`),
+  `RecordExamResultAsync` gains the `"Reading"` wordless branch, new
+  `GET api/exam/reading` gated by `CreditCosts.ReadingComprehensionTest=3`.
+- 8 new unit tests mirroring existing `ListeningResponse` coverage; full
+  offline suite green (595/595, 0 regressions). EF migration inspected —
+  additive only, no changes to existing table data.
+- PR opened: https://github.com/twjackysu/JackyAIApp/pull/342. Status set
+  to `PR_OPENED`, awaiting Tech Lead review.
+- `TASK-007` (Frontend) can now proceed — response DTO shape is stable.
+
 ## Open Items
-- **Engineers**: `TASK-006` (Backend) and `TASK-007` (Frontend, depends on
-  TASK-006) are now the next actionable work — Skill-Building item 2
-  (reading comprehension passages).
+- **Tech Lead**: review `PR #342` (TASK-006, Backend). `TASK-007` (Frontend,
+  depends on TASK-006) can start once the DTO shape is confirmed stable —
+  it already is per this PR, but Tech Lead sign-off is still pending.
 - **Boss attention (non-blocking)**: reading passages will not be
   personalized to the user's own saved vocabulary (they reuse the
   Listening shared-bank pattern instead of Cloze's per-word pattern) — see

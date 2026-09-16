@@ -582,6 +582,9 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<string>("ListeningTestId")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("ReadingPassageId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<int?>("Score")
                         .HasColumnType("int");
 
@@ -597,6 +600,8 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.HasIndex("ListeningResponseTestId");
 
                     b.HasIndex("ListeningTestId");
+
+                    b.HasIndex("ReadingPassageId");
 
                     b.HasIndex("WordId");
 
@@ -788,6 +793,74 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.HasIndex("ListeningTestId");
 
                     b.ToTable("ListeningTestOptions");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ReadingPassage", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PassageText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ReadingPassages");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ReadingQuestion", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("PassageId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("QuestionText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PassageId");
+
+                    b.ToTable("ReadingQuestions");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ReadingQuestionOption", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Explanation")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("QuestionId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QuestionId");
+
+                    b.ToTable("ReadingQuestionOptions");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.SentenceTest", b =>
@@ -1311,6 +1384,11 @@ namespace JackyAIApp.Server.Data.Migrations
                         .HasForeignKey("ListeningTestId")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.ReadingPassage", "ReadingPassage")
+                        .WithMany()
+                        .HasForeignKey("ReadingPassageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -1325,6 +1403,8 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Navigation("ListeningResponseTest");
 
                     b.Navigation("ListeningTest");
+
+                    b.Navigation("ReadingPassage");
 
                     b.Navigation("User");
 
@@ -1373,6 +1453,28 @@ namespace JackyAIApp.Server.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("ListeningTest");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ReadingQuestion", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.ReadingPassage", "ReadingPassage")
+                        .WithMany("Questions")
+                        .HasForeignKey("PassageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReadingPassage");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ReadingQuestionOption", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.ReadingQuestion", "ReadingQuestion")
+                        .WithMany("Options")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReadingQuestion");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.SentenceTest", b =>
@@ -1488,6 +1590,16 @@ namespace JackyAIApp.Server.Data.Migrations
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ListeningTest", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ReadingPassage", b =>
+                {
+                    b.Navigation("Questions");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ReadingQuestion", b =>
                 {
                     b.Navigation("Options");
                 });

@@ -7,7 +7,7 @@ Backend: Reading comprehension passages (Skill-Building item 2 — 讀)
 Backend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH
@@ -95,30 +95,30 @@ follows the Listening bank pattern instead of the Cloze per-word pattern.
    `RecordExamResultRequest`.
 
 ## Acceptance Criteria
-- [ ] `GET api/exam/reading` returns a passage with 3–4 questions, each with
+- [x] `GET api/exam/reading` returns a passage with 3–4 questions, each with
       3–4 options and a correct answer, without requiring the user to have
       any saved words (works with an empty repository — bank is shared,
       not personalized).
-- [ ] The first N requests (below the growth threshold) each generate a new
+- [x] The first N requests (below the growth threshold) each generate a new
       passage via one OpenAI call; once the bank is past the threshold, most
       requests reuse an existing passage with **no** new AI call — verify
       this with a unit test analogous to whatever test coverage
       `GenerateListeningResponseExamAsync` already has, if any, or a new one
       exercising the threshold boundary.
-- [ ] A user doesn't see the same passage again within the `NoRepeatWindow`
+- [x] A user doesn't see the same passage again within the `NoRepeatWindow`
       (30) most recent Reading attempts, same guarantee Listening already
       gives.
-- [ ] `RecordExamResultAsync` accepts `ExamType: "Reading"` +
+- [x] `RecordExamResultAsync` accepts `ExamType: "Reading"` +
       `ReadingPassageId` and logs an `ExamAttempt` without requiring
       `WordId` — confirm this doesn't also feed the SM-2 schedule (it
       shouldn't; Reading isn't word-scoped, matching Listening's existing
       `scheduleUpdated = false` behavior for wordless types).
-- [ ] `CreditCosts.ReadingComprehensionTest` is consumed exactly once per
+- [x] `CreditCosts.ReadingComprehensionTest` is consumed exactly once per
       `GET api/exam/reading` call, cache hit or miss (the credit charge
       doesn't depend on whether a new AI call actually happened — same as
       how `ListeningResponseTest`'s flat charge works today, since the user
       doesn't need to know or care whether their play triggered generation).
-- [ ] EF migration applies cleanly; no changes to existing tables' data.
+- [x] EF migration applies cleanly; no changes to existing tables' data.
 
 ## Technical Notes
 - Read `ExamService.cs:170–313` (Listening + ListeningResponse) end-to-end
@@ -143,7 +143,77 @@ None — can start immediately. `TASK-007` (Frontend) depends on this task's
 response DTO shape.
 
 ## Result
-_(Backend Engineer fills in on completion)_
+
+Implemented following the exact `GenerateListeningResponseExamAsync` shared-
+bank pattern, as directed.
+
+### Files Changed
+- `Data/Models/SQLWord.cs` — new `ReadingPassage`/`ReadingQuestion`/
+  `ReadingQuestionOption` entities.
+- `Data/Models/ExamAttempt.cs` — nullable `ReadingPassageId` + nav property.
+- `Data/AzureSQLDBContext.cs` — 3 new `DbSet`s, FK/cascade config for the new
+  entities, `ExamAttempt.ReadingPassage` FK (NoAction, matching the other two
+  test-ID columns).
+- `Data/Migrations/20260916043837_AddReadingComprehension.*` — new migration
+  (additive only: 3 new tables + 1 nullable column + indexes/FKs; no changes
+  to existing table data).
+- `DTO/ExamModels.cs` — `ReadingPassageResponse`/`ReadingQuestionDto`/
+  `ReadingQuestionOptionDto` (response shape) and `ReadingGenerationResult`/
+  `ReadingQuestionGen`/`ReadingQuestionOptionGen` (raw AI shape); added
+  `ReadingPassageId` to `RecordExamResultRequest`.
+- `Prompt/Exam/ReadingSystem.txt` — new prompt: topic in, one ~120-180 word
+  passage + 3-4 mixed-type (main idea / detail / inference / vocab-in-
+  context) MCQ questions out, Chinese explanations.
+- `Services/Exam/ExamService.cs` — `GenerateReadingExamAsync()` (mirrors
+  `GenerateListeningResponseExamAsync`: reuses `NoRepeatWindow`, new
+  `ReadingBankGrowthThreshold = 20`, fixed topic rotation, one-shot AI call
+  persisting the full passage+questions+options graph, fallback-to-bank on
+  AI failure, malformed-shape validation extended to the nested
+  question/option structure); `RecordExamResultAsync` gains the `isReading`
+  wordless branch + `ReadingPassageId` validation/persistence.
+- `Services/Exam/IExamService.cs` — `GenerateReadingExamAsync()` declaration.
+- `Common/CreditCosts.cs` — `ReadingComprehensionTest = 3` (per Architecture
+  doc's reasoning; flagging per the task note in case real token usage
+  suggests otherwise once observed).
+- `Controllers/ExamController.cs` — `GET api/exam/reading`, gated by
+  `[ConsumeCredits(CreditCosts.ReadingComprehensionTest, ...)]`, same
+  pattern as `listening`/`listening/response`.
+- `JackyAIApp.Server.Tests/Services/ExamServiceTests.cs` — 8 new tests
+  mirroring the existing `ListeningResponse` coverage: bank-below-threshold
+  generation+persistence, malformed-question/option rejection, prompt-
+  service-failure (empty bank vs. fallback-to-bank), record-result
+  validation + no-SM2-feed, recently-seen exclusion, and the large-bank/
+  small-unseen-pool forced-generation boundary case.
+
+### Tests
+- `dotnet build` (both `JackyAIApp.Server` and `JackyAIApp.Server.Tests`):
+  clean, 0 errors (pre-existing unrelated warnings only).
+- `dotnet test --filter "Category!=LiveContract"`: **595/595 passed**
+  (up from 587 pre-change; +8 new Reading tests, 0 regressions).
+- `dotnet ef migrations add AddReadingComprehension`: generated cleanly;
+  inspected the generated `Up`/`Down` — additive only (3 new tables, 1
+  nullable column + indexes/FKs on `ExamAttempts`), no destructive/data-
+  affecting operations on existing tables.
+- Did not run the live `dotnet run` server / manual `GET api/exam/reading`
+  call against a real OpenAI key or SQL Server instance — no live
+  credentials available in this environment. Confidence instead comes from
+  the unit tests exercising the actual `ExamService` code path end-to-end
+  against an EF Core in-memory database, same level of verification the
+  existing `ListeningResponse` tests rely on.
+
+### Known Limitations
+- Credit cost (`3`) and model tier (`GPT_4_1_NANO`) are starting estimates
+  per the Architecture doc — not measured against real token usage yet, as
+  flagged in the task's own acceptance criteria.
+- `TASK-007` (Frontend) can now proceed — response DTO shape
+  (`ReadingPassageResponse` → `ReadingQuestionDto[]` → `ReadingQuestionOptionDto[]`)
+  is stable per this PR.
+
+### Blockers
+None.
+
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/342
 
 ## Review
 _(Tech Lead fills in after PR review)_

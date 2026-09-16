@@ -795,6 +795,270 @@ namespace JackyAIApp.Server.Tests.Services
 
         #endregion
 
+        #region Reading Tests
+
+        [Fact]
+        public async Task GenerateReading_BankBelowThreshold_GeneratesAndPersists()
+        {
+            var generated = BuildReadingGenerationResult();
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((generated, (string?)null));
+
+            var result = await _service.GenerateReadingExamAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<ReadingPassageResponse>(result.Data);
+            Assert.Equal(generated.Title, dto.Title);
+            Assert.Equal(generated.PassageText, dto.PassageText);
+            Assert.Equal(3, dto.Questions.Count);
+            Assert.All(dto.Questions, q => Assert.Single(q.Options, o => o.IsCorrect));
+
+            var saved = await _dbContext.ReadingPassages
+                .Include(p => p.Questions).ThenInclude(q => q.Options)
+                .SingleAsync();
+            Assert.Equal(generated.Title, saved.Title);
+            Assert.Equal(3, saved.Questions.Count);
+        }
+
+        [Fact]
+        public async Task GenerateReading_MalformedQuestions_ReturnsError()
+        {
+            var generated = new ReadingGenerationResult
+            {
+                Title = "Bad shape",
+                PassageText = "Some passage text.",
+                Questions = new List<ReadingQuestionGen>
+                {
+                    new()
+                    {
+                        QuestionText = "Only one option?",
+                        Options = new List<ReadingQuestionOptionGen>
+                        {
+                            new() { Text = "Only option", IsCorrect = true, Explanation = "x" },
+                        },
+                    },
+                },
+            };
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((generated, (string?)null));
+
+            var result = await _service.GenerateReadingExamAsync();
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.QueryOpenAIFailed, result.Error);
+            Assert.Empty(await _dbContext.ReadingPassages.ToListAsync());
+        }
+
+        [Fact]
+        public async Task GenerateReading_PromptServiceFails_EmptyBank_ReturnsError()
+        {
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync(((ReadingGenerationResult?)null, "OpenAI error"));
+
+            var result = await _service.GenerateReadingExamAsync();
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.QueryOpenAIFailed, result.Error);
+        }
+
+        [Fact]
+        public async Task GenerateReading_PromptServiceFails_FallsBackToExistingBank()
+        {
+            var existing = await SeedReadingPassageAsync();
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync(((ReadingGenerationResult?)null, "OpenAI error"));
+
+            var result = await _service.GenerateReadingExamAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<ReadingPassageResponse>(result.Data);
+            Assert.Equal(existing.Id, dto.Id);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_ReadingType_MissingId_ReturnsError()
+        {
+            await SeedUserAsync();
+            var request = new RecordExamResultRequest { ExamType = "Reading", Correct = true };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_ReadingType_RecordsAttemptWithoutSM2()
+        {
+            await SeedUserAsync();
+            var passage = await SeedReadingPassageAsync();
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Reading",
+                ReadingPassageId = passage.Id,
+                Correct = true,
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<RecordExamResultResponse>(result.Data);
+            Assert.False(dto.ScheduleUpdated);
+
+            var attempt = await _dbContext.ExamAttempts.SingleAsync(a => a.UserId == _testUserId);
+            Assert.Equal("Reading", attempt.ExamType);
+            Assert.Equal(passage.Id, attempt.ReadingPassageId);
+            Assert.Null(attempt.WordId);
+        }
+
+        [Fact]
+        public async Task GenerateReading_ExcludesRecentlyAttemptedPassage()
+        {
+            var seen = await SeedReadingPassageAsync();
+            var unseen = await SeedReadingPassageAsync();
+            await SeedUserAsync();
+            _dbContext.ExamAttempts.Add(new ExamAttempt
+            {
+                UserId = _testUserId,
+                ReadingPassageId = seen.Id,
+                ExamType = "Reading",
+                IsCorrect = true,
+                CreatedAt = DateTime.UtcNow,
+            });
+            await _dbContext.SaveChangesAsync();
+            // Bank stays below the growth threshold, so generation is always attempted first;
+            // failing it forces the fallback-to-existing-bank path deterministically.
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync(((ReadingGenerationResult?)null, "OpenAI error"));
+
+            var result = await _service.GenerateReadingExamAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<ReadingPassageResponse>(result.Data);
+            Assert.Equal(unseen.Id, dto.Id);
+        }
+
+        [Fact]
+        public async Task GenerateReading_LargeBankButSmallUnseenPool_ForcesGeneration()
+        {
+            // 22 total passages is well past the growth threshold (20), but the user has just
+            // seen 10 of them — only 12 unseen, which is still below threshold and must force a
+            // fresh AI generation rather than reusing from the (mostly-seen) bank.
+            var seeded = new List<ReadingPassage>();
+            for (var i = 0; i < 22; i++)
+            {
+                seeded.Add(await SeedReadingPassageAsync());
+            }
+            await SeedUserAsync();
+            foreach (var passage in seeded.Take(10))
+            {
+                _dbContext.ExamAttempts.Add(new ExamAttempt
+                {
+                    UserId = _testUserId,
+                    ReadingPassageId = passage.Id,
+                    ExamType = "Reading",
+                    IsCorrect = true,
+                    CreatedAt = DateTime.UtcNow,
+                });
+            }
+            await _dbContext.SaveChangesAsync();
+
+            var generated = BuildReadingGenerationResult();
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((generated, (string?)null));
+
+            var result = await _service.GenerateReadingExamAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<ReadingPassageResponse>(result.Data);
+            Assert.Equal(generated.Title, dto.Title);
+            Assert.Equal(23, await _dbContext.ReadingPassages.CountAsync());
+        }
+
+        private static ReadingGenerationResult BuildReadingGenerationResult() => new()
+        {
+            Title = "A Weekend Trip",
+            PassageText = "Maria drove to the mountains with two friends for a short weekend hike.",
+            Questions = new List<ReadingQuestionGen>
+            {
+                new()
+                {
+                    QuestionText = "What is the passage mainly about?",
+                    Options = new List<ReadingQuestionOptionGen>
+                    {
+                        new() { Text = "A hiking trip.", IsCorrect = true, Explanation = "正確。" },
+                        new() { Text = "A cooking class.", IsCorrect = false, Explanation = "錯誤。" },
+                        new() { Text = "A job interview.", IsCorrect = false, Explanation = "錯誤。" },
+                    },
+                },
+                new()
+                {
+                    QuestionText = "Who did Maria travel with?",
+                    Options = new List<ReadingQuestionOptionGen>
+                    {
+                        new() { Text = "Two friends.", IsCorrect = true, Explanation = "正確。" },
+                        new() { Text = "Her parents.", IsCorrect = false, Explanation = "錯誤。" },
+                        new() { Text = "Her coworkers.", IsCorrect = false, Explanation = "錯誤。" },
+                    },
+                },
+                new()
+                {
+                    QuestionText = "How long was the trip?",
+                    Options = new List<ReadingQuestionOptionGen>
+                    {
+                        new() { Text = "A weekend.", IsCorrect = true, Explanation = "正確。" },
+                        new() { Text = "A whole month.", IsCorrect = false, Explanation = "錯誤。" },
+                        new() { Text = "A single afternoon.", IsCorrect = false, Explanation = "錯誤。" },
+                    },
+                },
+            },
+        };
+
+        private async Task<ReadingPassage> SeedReadingPassageAsync()
+        {
+            var passageId = Guid.NewGuid().ToString();
+            var questionId = Guid.NewGuid().ToString();
+            var passage = new ReadingPassage
+            {
+                Id = passageId,
+                Title = "A Weekend Trip",
+                PassageText = "Maria drove to the mountains with two friends for a short weekend hike.",
+                CreatedAt = DateTime.UtcNow,
+                Questions = new List<ReadingQuestion>
+                {
+                    new()
+                    {
+                        Id = questionId,
+                        QuestionText = "What is the passage mainly about?",
+                        PassageId = passageId,
+                        Options = new List<ReadingQuestionOption>
+                        {
+                            new() { Id = Guid.NewGuid().ToString(), Text = "A hiking trip.", IsCorrect = true, Explanation = "正確。", QuestionId = questionId },
+                            new() { Id = Guid.NewGuid().ToString(), Text = "A cooking class.", IsCorrect = false, Explanation = "錯誤。", QuestionId = questionId },
+                            new() { Id = Guid.NewGuid().ToString(), Text = "A job interview.", IsCorrect = false, Explanation = "錯誤。", QuestionId = questionId },
+                        },
+                    },
+                },
+            };
+            _dbContext.ReadingPassages.Add(passage);
+            await _dbContext.SaveChangesAsync();
+            return passage;
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private async Task<User> SeedUserAsync()
