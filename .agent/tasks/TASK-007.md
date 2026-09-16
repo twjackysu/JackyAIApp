@@ -188,7 +188,7 @@ already assume this).
 None.
 
 ### PR
-_(added once opened — see next commit)_
+https://github.com/twjackysu/JackyAIApp/pull/343
 
 ## Review
 _(Tech Lead fills in after PR review)_
