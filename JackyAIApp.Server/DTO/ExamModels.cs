@@ -145,7 +145,9 @@ namespace JackyAIApp.Server.DTO
         public string? ListeningTestId { get; set; }
         /// <summary>Required when ExamType is "ListeningResponse"; omitted otherwise.</summary>
         public string? ListeningResponseTestId { get; set; }
-        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse".</summary>
+        /// <summary>Required when ExamType is "Reading"; omitted otherwise.</summary>
+        public string? ReadingPassageId { get; set; }
+        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse" | "Reading".</summary>
         public required string ExamType { get; set; }
         public required bool Correct { get; set; }
         /// <summary>Optional 0–100 score for graded types (Sentence).</summary>
@@ -232,6 +234,56 @@ namespace JackyAIApp.Server.DTO
     }
 
     public class ListeningResponseOptionGen
+    {
+        public required string Text { get; set; }
+        public required bool IsCorrect { get; set; }
+        public required string Explanation { get; set; }
+    }
+
+    /// <summary>
+    /// Passage-level reading comprehension exercise: a short passage plus 3–4 multiple-choice
+    /// comprehension questions. IsCorrect/Explanation sent up front, same UI-gating convention
+    /// as ListeningResponseTestResponse.
+    /// </summary>
+    public class ReadingPassageResponse
+    {
+        public required string Id { get; set; }
+        public required string Title { get; set; }
+        public required string PassageText { get; set; }
+        public required List<ReadingQuestionDto> Questions { get; set; }
+    }
+
+    public class ReadingQuestionDto
+    {
+        public required string Id { get; set; }
+        public required string QuestionText { get; set; }
+        public required List<ReadingQuestionOptionDto> Options { get; set; }
+    }
+
+    public class ReadingQuestionOptionDto
+    {
+        public required string Id { get; set; }
+        public required string Text { get; set; }
+        public required bool IsCorrect { get; set; }
+        public required string Explanation { get; set; }
+    }
+
+    /// <summary>Raw shape the AI returns for a new reading passage — no Ids yet, those are
+    /// assigned when persisting.</summary>
+    public class ReadingGenerationResult
+    {
+        public required string Title { get; set; }
+        public required string PassageText { get; set; }
+        public required List<ReadingQuestionGen> Questions { get; set; }
+    }
+
+    public class ReadingQuestionGen
+    {
+        public required string QuestionText { get; set; }
+        public required List<ReadingQuestionOptionGen> Options { get; set; }
+    }
+
+    public class ReadingQuestionOptionGen
     {
         public required string Text { get; set; }
         public required bool IsCorrect { get; set; }

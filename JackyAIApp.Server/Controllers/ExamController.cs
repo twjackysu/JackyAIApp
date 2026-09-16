@@ -138,6 +138,13 @@ namespace JackyAIApp.Server.Controllers
             return await ToAudioResultAsync(lookup);
         }
 
+        /// <summary>Serves a short reading passage with 3-4 comprehension questions from the
+        /// shared bank. Not tied to the user's saved words — works with an empty repository.</summary>
+        [HttpGet("reading")]
+        [ConsumeCredits(CreditCosts.ReadingComprehensionTest, "reading_test", "Reading comprehension test")]
+        public async Task<IActionResult> GetReadingTest() =>
+            _responseFactory.ToActionResult(await _examService.GenerateReadingExamAsync());
+
         /// <summary>Shared unbilled-TTS-lookup helper: resolves a ServiceResult&lt;string&gt; text
         /// lookup into a cached-or-freshly-synthesized audio response.</summary>
         private async Task<IActionResult> ToAudioResultAsync(ServiceResult lookup)

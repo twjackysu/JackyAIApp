@@ -41,6 +41,10 @@ namespace JackyAIApp.Server.Common
         /// plus TTS for the prompt and its 3 responses (4 audio clips total, same as ListeningTest).</summary>
         public const ulong ListeningResponseTest = 4;
 
+        /// <summary>Reading comprehension test — a passage-sized text-only completion, charged
+        /// flat per play (cache hit or miss), same convention as ListeningResponseTest.</summary>
+        public const ulong ReadingComprehensionTest = 3;
+
         /// <summary>Whisper audio transcription</summary>
         public const ulong AudioTranscription = 1;
 

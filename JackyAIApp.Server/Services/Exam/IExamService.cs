@@ -43,6 +43,14 @@ namespace JackyAIApp.Server.Services.Exam
         /// playback endpoint.</summary>
         Task<ServiceResult> GetListeningResponseOptionTextAsync(string optionId);
 
+        /// <summary>
+        /// Serves a passage-level reading comprehension exercise (short passage + 3-4 MCQ
+        /// comprehension questions). Not word-scoped, shared bank — generated live on demand and
+        /// persisted for reuse, same growth-threshold pattern as
+        /// <see cref="GenerateListeningResponseExamAsync"/>.
+        /// </summary>
+        Task<ServiceResult> GenerateReadingExamAsync();
+
         Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse);
 
         Task<ServiceResult> StartConversationAsync(ConversationStartRequest request);

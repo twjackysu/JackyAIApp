@@ -184,6 +184,12 @@ namespace JackyAIApp.Server.Data
                 .HasForeignKey(ea => ea.ListeningResponseTestId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            modelBuilder.Entity<ExamAttempt>()
+                .HasOne(ea => ea.ReadingPassage)
+                .WithMany()
+                .HasForeignKey(ea => ea.ReadingPassageId)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // Indexes for per-word history and recent-activity queries
             modelBuilder.Entity<ExamAttempt>()
                 .HasIndex(ea => new { ea.UserId, ea.WordId });
@@ -202,6 +208,19 @@ namespace JackyAIApp.Server.Data
                 .HasOne(lro => lro.ListeningResponseTest)
                 .WithMany(lrt => lrt.Options)
                 .HasForeignKey(lro => lro.ListeningResponseTestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Configure ReadingQuestion/ReadingQuestionOption relationships
+            modelBuilder.Entity<ReadingQuestion>()
+                .HasOne(rq => rq.ReadingPassage)
+                .WithMany(rp => rp.Questions)
+                .HasForeignKey(rq => rq.PassageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ReadingQuestionOption>()
+                .HasOne(rqo => rqo.ReadingQuestion)
+                .WithMany(rq => rq.Options)
+                .HasForeignKey(rqo => rqo.QuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Configure Dashboard relationships
@@ -328,6 +347,9 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<ListeningTestOption> ListeningTestOptions { get; set; }
         public virtual DbSet<ListeningResponseTest> ListeningResponseTests { get; set; }
         public virtual DbSet<ListeningResponseOption> ListeningResponseOptions { get; set; }
+        public virtual DbSet<ReadingPassage> ReadingPassages { get; set; }
+        public virtual DbSet<ReadingQuestion> ReadingQuestions { get; set; }
+        public virtual DbSet<ReadingQuestionOption> ReadingQuestionOptions { get; set; }
         public virtual DbSet<Dashboard> Dashboards { get; set; }
         public virtual DbSet<DashboardWidget> DashboardWidgets { get; set; }
         public virtual DbSet<DashboardShare> DashboardShares { get; set; }
