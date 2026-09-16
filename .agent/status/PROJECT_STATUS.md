@@ -731,11 +731,48 @@
   check after this lands to confirm the deploy run actually fired/succeeded
   and wasn't cancelled by a second quick merge.
 
+## 2026-09-16 — Frontend Engineer: TASK-007 implemented, PR opened (scheduled run)
+
+- Verified `TASK-006`'s PR #342 was actually merged into `master`
+  (2026-09-16T07:25 UTC) via the GitHub API before starting, then read the
+  real merged `ExamModels.cs` DTOs directly (not TASK-006's self-report)
+  to get exact field names/casing — same verification discipline TASK-005
+  used for `DeliveryFeedback`.
+- Implemented `TASK-007` (Reading Comprehension exam-mode UI): API slice
+  additions (`getReadingTest`, `ReadingPassageResponse`/`ReadingQuestion`/
+  `ReadingQuestionOption` types, `'Reading'` added to `ExamType`,
+  `readingPassageId` added to `RecordExamResultRequest`), new
+  `Exam/ReadingTestCard/index.tsx`, `READING_COMPREHENSION_TEST: 3` in
+  `constants/creditCosts.ts`, and a new `EXAM_MODES` entry in
+  `Exam/index.tsx`.
+- Did not reuse `ListeningQuizCard` verbatim — a Reading fetch returns one
+  passage with 3–4 questions (a different shape than Listening's
+  one-question-per-fetch contract) — instead followed the same
+  `ExamRoundShell`/`useExamRound`/reveal-after-answer *pattern* in a new
+  sibling component, which is the smallest correct change rather than
+  bending a mismatched shared component. `record-result` fires once per
+  question (matching `ListeningResponseTestCard`'s per-question
+  granularity), batched together once the passage's last question is
+  answered, all sharing the passage's `readingPassageId`.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` all
+  green — 134/134 tests (up from 133), no regressions; the pre-existing
+  `creditCosts.test.ts` drift check automatically covers the new
+  `READING_COMPREHENSION_TEST` constant against the backend's actual
+  value. No dedicated component test added for `ReadingTestCard`,
+  consistent with the existing project convention (no other exam card has
+  one either) — flagged as a known limitation in `TASK-007.md`.
+- Opened [PR #343](https://github.com/twjackysu/JackyAIApp/pull/343)
+  against `master`; see `TASK-007.md` for full implementation notes.
+  Subscribed to the PR to drive it to green / respond to review.
+- All 7 tasks scoped so far (`TASK-001`–`TASK-007`) now either `MERGED` or
+  have an open PR — Skill-Building item 2 (reading comprehension) is fully
+  implemented end-to-end (backend `#342` merged, frontend `#343` open).
+
 ## Open Items
 - **Tech Lead/Boss**: confirm `PR #342` (TASK-006) merge and flip its task
   status to `MERGED`; verify the resulting Azure deploy run succeeded.
-- **Tech Lead**: `TASK-007` (Frontend, depends on TASK-006) can now start —
-  the response DTO shape is stable and merged to `master`.
+- **New**: confirm `PR #343` (TASK-007) once CI is green and flip its task
+  status to `MERGED` after review.
 - **Boss attention (non-blocking)**: reading passages will not be
   personalized to the user's own saved vocabulary (they reuse the
   Listening shared-bank pattern instead of Cloze's per-word pattern) — see
