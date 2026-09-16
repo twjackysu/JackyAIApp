@@ -201,22 +201,27 @@ Proposed features, in the priority order PM recommended and **Boss approved
    per-word audio: "hear the correct pronunciation, then record yourself
    saying it and get feedback" turns a passive feature (audio playback)
    into an active practice loop.
-2. **Reading comprehension passages** — MEDIUM-HIGH. **Scoped by Tech Lead
-   2026-09-16** (`TASK-006`/`TASK-007`, both `READY`) — see
-   `ARCHITECTURE.md` → "Decision: Reading comprehension passages". One
-   correction from this requirement's original framing: passages are
-   **not** generated from the user's own saved vocabulary the way
-   Cloze/Sentence are — investigation found that pattern doesn't cache
-   well for multi-word content (see Architecture doc's Alternatives
-   section), so this instead reuses the shared-bank pattern already proven
-   by Listening/ListeningResponse (general comprehension-skill practice,
-   not personalized vocabulary drilling). Flagged to Boss in
-   `.agent/boss/TECH_LEAD.md` in case this trade-off isn't acceptable.
-3. **Open-ended writing practice with AI feedback** — MEDIUM. Reuses the
-   existing "AI grades free-text against a rubric" pattern already proven
-   by Translation Test grading, extended to a short paragraph prompt
-   (e.g., "use these 5 saved words in a short paragraph about X") instead
-   of single-sentence translation.
+2. **Reading comprehension passages** — MEDIUM-HIGH. **Shipped 2026-09-16**
+   (`TASK-006`/`TASK-007`, both merged; product review passed — see
+   Acceptance Criteria below) — see `ARCHITECTURE.md` → "Decision: Reading
+   comprehension passages". One correction from this requirement's
+   original framing: passages are **not** generated from the user's own
+   saved vocabulary the way Cloze/Sentence are — investigation found that
+   pattern doesn't cache well for multi-word content (see Architecture
+   doc's Alternatives section), so this instead reuses the shared-bank
+   pattern already proven by Listening/ListeningResponse (general
+   comprehension-skill practice, not personalized vocabulary drilling).
+   Flagged to Boss in `.agent/boss/TECH_LEAD.md` 2026-09-16 — **no Boss
+   reply yet**, treated as non-blocking per Tech Lead's note that Engineers
+   were told to proceed regardless.
+3. **Open-ended writing practice with AI feedback** — MEDIUM. **Handed to
+   Tech Lead 2026-09-16** for feasibility/cost evaluation, now that item 2
+   is fully shipped — proceeding on the same already-approved-order basis
+   as items 1 and 2 (see DECISION-005), no fresh Boss sign-off awaited.
+   Reuses the existing "AI grades free-text against a rubric" pattern
+   already proven by Translation Test grading, extended to a short
+   paragraph prompt (e.g., "use these 5 saved words in a short paragraph
+   about X") instead of single-sentence translation.
 4. **Dictation practice (listen → type what you hear)** — MEDIUM-LOW.
    Combines existing TTS (audio generation) and simple string-diff grading
    (no new AI call needed for grading) — likely the cheapest of the four to
@@ -227,7 +232,8 @@ Proposed features, in the priority order PM recommended and **Boss approved
 - [x] At least one of the four proposals above is scoped into a Tech Lead
       architecture/task write-up — item 1 (speaking delivery feedback)
       scoped 2026-09-15, see `ARCHITECTURE.md` → "Decision: Speaking
-      delivery feedback" and `TASK-004`/`TASK-005`.
+      delivery feedback" and `TASK-004`/`TASK-005`; item 2 (reading
+      comprehension) scoped 2026-09-16, see `TASK-006`/`TASK-007`.
 - [x] Whichever ships first includes a rough per-use AI-cost estimate
       (OpenAI/Whisper/TTS calls) reviewed against `CreditCosts.cs`-style
       gating, consistent with DECISION-003's cost discipline — even though
@@ -237,7 +243,11 @@ Proposed features, in the priority order PM recommended and **Boss approved
       marginal AI/API cost (reuses the existing, already-gated Whisper
       call) — see Architecture doc. True pronunciation-accuracy scoring
       (Phase 2, a new vendor) is flagged to Boss separately, not yet costed
-      or scoped as a task.
+      or scoped as a task. Item 2 (reading comprehension) is gated at
+      `CreditCosts.ReadingComprehensionTest = 3` and uses a shared-bank
+      growth-threshold pattern (new AI generation only when the unseen pool
+      drops below 20 passages), matching the Listening Test's existing cost
+      model rather than a per-request AI call.
 - [x] The feature measurably exercises the named skill gap (e.g. speaking
       feedback must comment on delivery, not only re-state grammar
       corrections already produced elsewhere). **Verified 2026-09-15** by
@@ -250,8 +260,19 @@ Proposed features, in the priority order PM recommended and **Boss approved
       "發音"/pronunciation, matching the Phase-1-is-fluency-not-pronunciation
       scoping. **Item 1 is fully shipped and closed out from a product
       standpoint** (engineering task bookkeeping — flipping `TASK-004.md`/
-      `TASK-005.md` `Status:` to `MERGED` — is Tech Lead's to close per SOP,
-      not done here).
+      `TASK-005.md` `Status:` to `MERGED` — was subsequently done by Tech
+      Lead per its 2026-09-16 review pass).
+- [x] **Item 2 (reading comprehension) verified 2026-09-16** by PM reading
+      the shipped code on `master` directly (`ExamService
+      .GenerateReadingExamAsync`, `ReadingSystem.txt`, frontend
+      `Exam/ReadingTestCard`): each generated passage carries 3–4
+      multiple-choice comprehension questions (enforced server-side —
+      generation results outside that shape are rejected and a bank
+      fallback is used instead), rendered as a distinct `EXAM_MODES` entry
+      separate from Cloze/Listening. Matches the requirement's actual gap
+      (passage-level comprehension) though — as flagged to Boss and noted
+      above — it does not personalize passage content to the user's saved
+      vocabulary. **Item 2 is fully shipped and product-complete.**
 
 ### Priority
 HIGH — this is the concrete workstream behind DECISION-004's redirect; it is
@@ -279,12 +300,17 @@ what "Growth & Retention" now means in practice.
   DECISION-005)**: Boss approved. Item 1 (speaking delivery/pronunciation
   feedback) is now formally handed to Tech Lead for a feasibility/cost
   evaluation — see `.agent/status/PROJECT_STATUS.md` for the handoff note.
-- **New (2026-09-15)**: item 1 is now fully shipped (see Acceptance
-  Criteria above). PM handed item 2 (reading comprehension passages) to
-  Tech Lead this run, on the same "no fresh sign-off needed, the order
-  itself is already approved" basis as item 1 — not waiting for Boss to
-  separately confirm. Not blocking; flagged in `.agent/boss/PM.md` in case
-  Boss wants to pause or reorder before Tech Lead scopes it.
+- ~~Item 1 shipped, item 2 handed to Tech Lead~~ — **resolved**: item 1
+  shipped 2026-09-15; item 2 scoped by Tech Lead 2026-09-16 and now also
+  **fully shipped** (see Acceptance Criteria above).
+- **New (2026-09-16)**: PM handed item 3 (open-ended writing practice) to
+  Tech Lead this run, on the same "no fresh sign-off needed, order already
+  approved" basis used for items 1 and 2. Not blocking; flagged in
+  `.agent/boss/PM.md` in case Boss wants to pause or reorder before Tech
+  Lead scopes it. Tech Lead's still-open, non-blocking flag to Boss about
+  item 2's passages not being personalized (`.agent/boss/TECH_LEAD.md`,
+  2026-09-16) remains unanswered — not a blocker for item 3, which is an
+  independent feature.
 
 ---
 
