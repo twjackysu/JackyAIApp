@@ -768,11 +768,29 @@
   have an open PR — Skill-Building item 2 (reading comprehension) is fully
   implemented end-to-end (backend `#342` merged, frontend `#343` open).
 
+## 2026-09-16 — Frontend Engineer: PR #343 (TASK-007) merged into master
+
+- `#343` was merged (GitHub `pull_request.closed`/`merged` event, session
+  auto-unsubscribed) with both CI checks green
+  (`lint-and-build-client`/`build-and-test-server`), `mergeable_state:
+  clean`, and no review comments before merge. `master` now has the
+  Reading Comprehension exam mode end-to-end: backend (`TASK-006`, PR
+  #342) + frontend `ReadingTestCard` UI (`TASK-007`, PR #343). Not
+  recording `TASK-007.md`'s `Status:` as `MERGED` myself per SOP (§10/§18
+  reserve that to Boss) — leaving it `PR_OPENED` for Tech Lead/Boss to
+  formally close out; this log entry is the factual record that the PR
+  landed.
+- Skill-Building item 2 (reading comprehension passages) is now fully
+  shipped: both `TASK-006` and `TASK-007` merged to `master`. No further
+  Frontend action needed here — next step is Tech Lead's formal
+  review/close-out pass, same pattern as prior task pairs.
+
 ## Open Items
-- **Tech Lead/Boss**: confirm `PR #342` (TASK-006) merge and flip its task
-  status to `MERGED`; verify the resulting Azure deploy run succeeded.
-- **New**: confirm `PR #343` (TASK-007) once CI is green and flip its task
-  status to `MERGED` after review.
+- **Tech Lead/Boss**: confirm `PR #342` (TASK-006) and `PR #343`
+  (TASK-007) merges and flip both task statuses to `MERGED`; verify the
+  resulting Azure deploy run(s) succeeded (root `CLAUDE.md` notes two
+  quick merges can cancel an earlier in-flight deploy — worth a
+  `gh run list`-style check).
 - **Boss attention (non-blocking)**: reading passages will not be
   personalized to the user's own saved vocabulary (they reuse the
   Listening shared-bank pattern instead of Cloze's per-word pattern) — see
