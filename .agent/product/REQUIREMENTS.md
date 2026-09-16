@@ -201,16 +201,17 @@ Proposed features, in the priority order PM recommended and **Boss approved
    per-word audio: "hear the correct pronunciation, then record yourself
    saying it and get feedback" turns a passive feature (audio playback)
    into an active practice loop.
-2. **Reading comprehension passages** — MEDIUM-HIGH. **Handed to Tech Lead
-   2026-09-15** for a feasibility/cost evaluation, now that item 1 is fully
-   shipped — same "proceed on the next approved-priority item without
-   waiting for a fresh sign-off each time" pattern used for item 1 and for
-   the earlier SEO work; the priority order itself was already approved in
-   DECISION-005, so this is executing that order, not a new scope decision.
-   Reuses the existing
-   "AI-generates content from the user's saved vocabulary" pattern already
-   proven by Cloze/Sentence Tests, extended to passage length with
-   comprehension questions instead of fill-in-the-blank.
+2. **Reading comprehension passages** — MEDIUM-HIGH. **Scoped by Tech Lead
+   2026-09-16** (`TASK-006`/`TASK-007`, both `READY`) — see
+   `ARCHITECTURE.md` → "Decision: Reading comprehension passages". One
+   correction from this requirement's original framing: passages are
+   **not** generated from the user's own saved vocabulary the way
+   Cloze/Sentence are — investigation found that pattern doesn't cache
+   well for multi-word content (see Architecture doc's Alternatives
+   section), so this instead reuses the shared-bank pattern already proven
+   by Listening/ListeningResponse (general comprehension-skill practice,
+   not personalized vocabulary drilling). Flagged to Boss in
+   `.agent/boss/TECH_LEAD.md` in case this trade-off isn't acceptable.
 3. **Open-ended writing practice with AI feedback** — MEDIUM. Reuses the
    existing "AI grades free-text against a rubric" pattern already proven
    by Translation Test grading, extended to a short paragraph prompt

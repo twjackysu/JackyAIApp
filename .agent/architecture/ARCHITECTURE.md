@@ -284,3 +284,122 @@ explicitly so Boss can decide whether that's sufficient or whether Phase 2
   credit cost, no new external dependency.
 - `jackyaiapp.client`: `ConversationTestCard` renders the new fields next
   to the existing `CorrectionAlert`, reusing the same component pattern.
+
+---
+
+## Decision: Reading comprehension passages — Skill-Building item 2
+
+### Context
+`REQUIREMENTS.md` → "Skill-Building Feature Expansion" names 讀 (reading) as
+having word/Cloze-level coverage only — no passage-level reading
+comprehension. PM handed this item to Tech Lead 2026-09-15 for a
+feasibility/cost evaluation (executing the already-approved DECISION-005
+priority order, no fresh sign-off needed, same pattern as item 1).
+
+Investigated the existing exam architecture before scoping (2026-09-16):
+
+1. **Two different generation patterns already exist in the codebase, not
+   one.** Cloze/Translation/Sentence share `IWordExamGenerator` — anchored
+   to a *single* word from the user's own repository, generated once and
+   cached forever per word (`word.ClozeTests.Count > 3` → reuse), personal
+   in the sense that the word itself is drawn from the user's vocabulary.
+   Listening/ListeningResponse use a *different*, already-proven pattern: a
+   shared bank, not tied to any user's word list, grown lazily — `shouldGenerate
+   = unseenCount < BankGrowthThreshold || Random.Shared.Next(5) == 0`
+   (`ExamService.cs:225`) — so most requests reuse an existing bank entry at
+   zero AI cost, and only occasionally trigger a new OpenAI call to keep the
+   bank growing, tracked per-user via `ExamAttempts`-derived recent-ID
+   exclusion (`GetRecentListeningResponseTestIdsAsync`, `NoRepeatWindow = 30`).
+2. **A reading passage doesn't fit the per-word pattern.** A passage
+   inherently uses several words at once, and which words a given user has
+   saved differs per user — so a passage "anchored to one word" the way
+   Cloze is would either ignore the rest of its own content for caching
+   purposes, or need a cache key of "this exact set of words," which two
+   users (or the same user twice) would essentially never share. That kills
+   the cross-user reuse Cloze/Translation/Sentence rely on to keep AI cost
+   low after the first generation.
+3. **Reading comprehension, unlike Cloze, isn't inherently about drilling
+   *the user's own saved words* anyway** — `REQUIREMENTS.md`'s named gap is
+   "no passage-level reading comprehension," a general comprehension skill,
+   not "reinforce my vocabulary list." Listening/ListeningResponse test the
+   same kind of general skill (not tied to the user's own words) and already
+   made this exact trade-off successfully.
+
+### Decision
+Model Reading Comprehension on the **Listening/ListeningResponse shared-bank
+pattern**, not the Cloze/Translation/Sentence per-word pattern:
+
+- New tables: `ReadingPassage` (Id, Title, PassageText, CreatedAt) and
+  `ReadingQuestion`/`ReadingQuestionOption` (same shape as
+  `ListeningResponseTest`/`Option` — question text + 3–4 options, each with
+  `IsCorrect` and a short Chinese `Explanation`), 3–4 questions per passage
+  covering a mix of main-idea/detail/inference/vocabulary-in-context
+  questions (not just detail-recall, so it actually exercises comprehension
+  rather than re-testing Cloze-style word recall).
+- One OpenAI call generates a whole passage + all its questions in one JSON
+  response (same "one call returns the full object graph" shape as
+  `ListeningResponseGenerationResult`) — a passage is ~120–180 words at an
+  intermediate level, topic chosen from a small fixed rotating list (e.g.
+  daily life, travel, workplace, technology, environment) for variety, fed
+  as the user-turn text the same way `ClozeExamGenerator` feeds `word.WordText`.
+- `ExamService.GenerateReadingExamAsync()` reuses the exact
+  `GenerateListeningResponseExamAsync` shape: bank-growth-threshold check,
+  exclude the user's recently-seen passage IDs, generate only when the
+  unseen pool is thin. No second AI call for grading — like Cloze/Listening,
+  `IsCorrect`/`Explanation` are returned in the same response as the
+  question (client-trusted, consistent with how every other MCQ-style exam
+  here already works).
+- `RecordExamResultAsync`: add `"Reading"` to the wordless (`isWordless`)
+  branch alongside `"Listening"`/`"ListeningResponse"`, with a
+  `ReadingPassageId` field on `ExamAttempt` mirroring `ListeningTestId`.
+- Credit cost: propose `CreditCosts.ReadingComprehensionTest = 3` — between
+  `ClozeTest`/`SentenceTest` (2, a single sentence) and
+  `ListeningResponseTest` (4, bundles multiple TTS calls); a passage-sized
+  text-only completion sits between those in raw output size, and — like
+  Listening's cost — is charged on every play even though most plays reuse
+  a bank entry at zero marginal AI cost, consistent with how
+  `ListeningResponseTest` is already priced. Backend/PM should sanity-check
+  this once real token usage is observed; it's a starting estimate, not a
+  measured number.
+
+### Reason
+Reuses an already-proven, already-shipped pattern (Listening's bank +
+growth-threshold) instead of inventing a new caching strategy, and avoids
+the dead-end of trying to force passage content into the single-word cache
+key that Cloze/Translation/Sentence depend on. Zero new vendor, zero new
+infrastructure — same OpenAI text-completion call already used everywhere
+else in Exam System, consistent with DECISION-003's cost discipline.
+
+### Alternatives
+- Anchor a passage to one "primary" word from the user's repository (Cloze-style):
+  rejected — as explained above, the cache-key mismatch would make nearly
+  every request a fresh AI call, the worst-case cost outcome, not the
+  DECISION-003-aligned choice.
+- Generate a fresh passage per request, no bank/caching at all: rejected —
+  strictly worse cost than the bank approach for no added value; Listening
+  already proved the bank pattern works for this "general skill test, not
+  tied to my personal words" category of exam.
+
+### Trade-offs
+Passages are not personalized to the user's own saved vocabulary the way
+Cloze/Translation/Sentence are — a user won't necessarily see their own
+saved words inside a reading passage. This matches Listening's existing
+trade-off (also not personalized) and is consistent with the requirement's
+framing (a comprehension-skill gap, not a vocabulary-drill gap), but is
+called out explicitly in case Boss expects every exam mode to be
+personalized to saved words.
+
+### Impact
+- `JackyAIApp.Server`: new `ReadingPassage`/`ReadingQuestion`/
+  `ReadingQuestionOption` tables + EF migration, new
+  `Prompt/Exam/ReadingSystem.txt`, `ExamService.GenerateReadingExamAsync()`
+  (mirrors `GenerateListeningResponseExamAsync`), new `CreditCosts` entry,
+  `ExamAttempt` gains `ReadingPassageId`, `RecordExamResultAsync` gains a
+  third wordless branch.
+- `jackyaiapp.client`: new `ReadingTestCard` (mirrors
+  `ListeningResponseTestCard`'s bank-backed single-query pattern — no
+  "generate" mutation needed, `GET api/exam/reading` returns a ready-to-play
+  passage+questions), new entry in `EXAM_MODES` (`Exam/index.tsx`).
+
+See `TASK-006` (Backend) and `TASK-007` (Frontend, depends on TASK-006's
+response shape).

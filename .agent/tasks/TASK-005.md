@@ -7,7 +7,7 @@ Frontend: display delivery/fluency feedback on Conversation Test voice turns
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH
@@ -134,4 +134,18 @@ PR: https://github.com/twjackysu/JackyAIApp/pull/339
   get attached. Acceptable per the task's scope; flagged for awareness.
 
 ## Review
-(Tech Lead fills in after PR.)
+Merged into `master` via PR #339 (2026-09-15), no review comments before
+merge. Verified 2026-09-16 by reading the actual merged code directly:
+- `DeliveryFeedbackAlert.tsx` renders pace/pause/filler `Chip`s + comments,
+  headed "表達流暢度回饋"; its own test file
+  (`DeliveryFeedbackAlert.test.tsx`) asserts the rendered HTML never
+  contains "發音" — a real regression guard, not just a claim in the task
+  doc.
+- `ChatMessages.tsx` gates the alert on `turn.deliveryFeedback` being
+  present, so the short/silent-clip case renders nothing rather than an
+  empty card, matching TASK-004's documented `null` behavior.
+- `useVoiceRecording.ts`'s extra optional callback arg is backward
+  compatible — `TranslationTestCard`'s existing single-arg callback still
+  type-checks, confirmed by reading the current call site.
+No correctness issues found. Status flipped to `MERGED` here per SOP
+§10/§18 (bookkeeping only).

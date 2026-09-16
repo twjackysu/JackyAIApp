@@ -7,7 +7,7 @@ Backend: fluency/delivery feedback on Conversation Test voice turns (pace, pause
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH
@@ -207,4 +207,19 @@ only `Error` rather than trying to assign `Successful` directly).
 PR: https://github.com/twjackysu/JackyAIApp/pull/337
 
 ## Review
-(Tech Lead fills in after PR.)
+Merged into `master` via PR #337 (2026-09-15), no review comments before
+merge. Verified 2026-09-16 by reading the actual merged code directly
+(not just trusting the Result section above):
+- `SpeechFluencyAnalyzer.cs` matches the spec exactly — named constants for
+  every threshold, `null` returned below `MinDurationSecondsForFeedback`,
+  whole-word regex filler matching (confirmed avoids the "unlike" false
+  positive the Result section claims), pace from transcript word count.
+- No occurrence of "pronunciation" anywhere in the merged backend code —
+  `SpeechFluencyAnalyzer.cs` and `DTO/ConversationModels.cs` both carry an
+  explicit comment warning against relabeling this as pronunciation.
+- No second `ConsumeCreditsAsync` call added — confirmed by reading
+  `ExamService.TranscribeAudioAsync`; rides on the existing
+  `AudioTranscription` charge only.
+No correctness issues found. Status flipped to `MERGED` here per SOP
+§10/§18 (bookkeeping only — the merge decision itself was already made,
+this just closes out the doc).

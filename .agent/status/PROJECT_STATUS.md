@@ -655,13 +655,61 @@
   `.agent/boss/PM.md` in case Boss wants to pause/reorder.
 - No code changes — Requirements/status documentation only.
 
+## 2026-09-16 — Tech Lead: closed out TASK-004/005 bookkeeping, scoped Skill-Building item 2 (reading comprehension) (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message since the 2026-09-15 report on Phase 2 (open,
+  non-blocking). No open PRs, no engineer work pending review.
+- **Housekeeping**: confirmed via `git log`/direct code read that PR #337
+  (`TASK-004`) and PR #339 (`TASK-005`) are both merged into `master`.
+  Verified the actual merged code (not just each task's self-reported
+  Result section) — `SpeechFluencyAnalyzer.cs`, `DTO/ConversationModels.cs`,
+  `DeliveryFeedbackAlert.tsx`/its test — confirmed no "pronunciation"/"發音"
+  leakage anywhere, single credit charge preserved, short-clip case renders
+  nothing. No issues found. Flipped `TASK-004.md`/`TASK-005.md` `Status:`
+  to `MERGED` with Review notes — the one remaining SOP-mandated step from
+  the last PM run's Open Items.
+- **Picked up Skill-Building item 2** (reading comprehension passages),
+  handed off by PM 2026-09-15. Investigated the existing Exam System
+  architecture before scoping: found two genuinely different existing
+  patterns — Cloze/Translation/Sentence (`IWordExamGenerator`, cached
+  per-single-word, personalized to the user's saved vocabulary) vs.
+  Listening/ListeningResponse (shared bank, growth-threshold generation,
+  not personalized). A reading passage inherently spans multiple words, so
+  it doesn't fit the per-word cache key the first pattern depends on for
+  cost control — modeling it on the Listening bank pattern instead avoids
+  a real cost trap (near-every-request AI calls) that the per-word pattern
+  would produce here.
+- Documented the investigation and decision in `ARCHITECTURE.md` →
+  "Decision: Reading comprehension passages — Skill-Building item 2".
+  Created `TASK-006` (Backend: new `ReadingPassage`/`ReadingQuestion`/
+  `ReadingQuestionOption` tables + migration, `ReadingSystem.txt` prompt,
+  `ExamService.GenerateReadingExamAsync()` mirroring the Listening-Response
+  bank logic exactly, new `CreditCosts.ReadingComprehensionTest` entry) and
+  `TASK-007` (Frontend: new `ReadingTestCard`, wired into the `EXAM_MODES`
+  menu) — both `READY`, TASK-007 depends on TASK-006's response shape.
+  Proceeded without waiting for fresh Boss sign-off, same "already-approved
+  priority order, no new vendor/cost tier" basis used for item 1 and the
+  SEO work.
+- Updated `REQUIREMENTS.md`'s Skill-Building item 2 line to reflect the
+  scoping and the one correction to its original framing: passages are
+  **not** personalized to the user's saved words (unlike Cloze/Sentence),
+  by design — flagged as a trade-off to Boss in `.agent/boss/TECH_LEAD.md`
+  in case that's not acceptable, rather than deciding it's fine
+  unilaterally, consistent with how prior real trade-offs (SEO Phase 2,
+  Speaking Phase 2) were escalated rather than assumed.
+- No code changes — architecture/task documentation only, ready for
+  Backend/Frontend Engineers to pick up.
+
 ## Open Items
-- **Tech Lead**: Skill-Building item 2 (reading comprehension passages) is
-  now the next actionable item, handed off by PM this run.
-- **Tech Lead housekeeping (not urgent)**: `TASK-004.md`/`TASK-005.md`
-  `Status:` fields still read `PR_OPENED`; both PRs are actually merged —
-  needs the same close-out pass Tech Lead already did for
-  `TASK-001`–`TASK-003`.
+- **Engineers**: `TASK-006` (Backend) and `TASK-007` (Frontend, depends on
+  TASK-006) are now the next actionable work — Skill-Building item 2
+  (reading comprehension passages).
+- **Boss attention (non-blocking)**: reading passages will not be
+  personalized to the user's own saved vocabulary (they reuse the
+  Listening shared-bank pattern instead of Cloze's per-word pattern) — see
+  `.agent/boss/TECH_LEAD.md` for the trade-off writeup. Tech Lead is
+  proceeding on this basis unless told otherwise.
 - Still open from before: Phase 2 of speaking delivery feedback (true
   pronunciation-accuracy scoring, new vendor) — cost/vendor decision
   pending Boss, not scoped as a task.
