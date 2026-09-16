@@ -212,5 +212,8 @@ bank pattern, as directed.
 ### Blockers
 None.
 
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/342
+
 ## Review
 _(Tech Lead fills in after PR review)_
