@@ -915,3 +915,26 @@
 - Opened a PR on branch `claude/magical-heisenberg-7lvfal`, flipped
   `TASK-008.md` Status to `PR_OPENED`, filled in its Result/Files
   Changed/Tests/Known Issues sections.
+
+## 2026-09-17 — Frontend: closed duplicate TASK-008 PR, flipped status to MERGED (user-directed)
+
+- Boss asked directly to resolve merge conflicts on PR #346. Investigating
+  first (rather than blindly fixing text conflicts) turned up that #346
+  was a **second, independent backend session's implementation of the same
+  `TASK-008`**, opened in parallel with #347 from a different branch
+  (`claude/magical-heisenberg-5pk8jh` vs. `claude/magical-heisenberg-7lvfal`).
+  #347 had already merged into `master` (commit `7e6c831`) with CI green,
+  which is exactly why #346 showed conflicts — both defined the same new
+  DTOs/methods.
+- Confirmed via `git show origin/master` that the writing feature
+  (`CreditCosts.WritingEvaluation`, `WritingPromptResponse`/
+  `WritingGradingResponse` DTOs, etc.) is fully present on `master` through
+  #347. Reported the duplicate-PR finding to Boss instead of merging #346's
+  conflicts, since resolving them would have reintroduced duplicate type
+  definitions and broken compilation.
+- Boss confirmed: close #346 (as duplicate of #347) and correct
+  `TASK-008.md`'s bookkeeping. Closed PR #346 with an explanatory comment.
+  Flipped `TASK-008.md` `Status` from the stale `PR_OPENED` to `MERGED` and
+  added a note under Result documenting the duplicate-PR closure.
+- This also unblocks `TASK-009` (Frontend, own assigned task) — real merged
+  DTO shapes are now available on `master` to implement against.

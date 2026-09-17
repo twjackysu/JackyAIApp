@@ -7,7 +7,7 @@ Backend: Open-ended writing practice with AI feedback (Skill-Building item 3 —
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM
@@ -231,9 +231,18 @@ None.
 
 ### PR
 https://github.com/twjackysu/JackyAIApp/pull/347 — CI (`build-and-test-server`,
-`lint-and-build-client`) both passed on the current head, confirming the
-`dotnet test` run I couldn't execute locally does pass. No merge conflicts.
-Awaiting human review/merge.
+`lint-and-build-client`) both passed. **Merged into `master`** at
+2026-09-17T10:04:37Z (commit `7e6c831`).
+
+### Duplicate PR closed
+A second, independently-generated backend session opened **PR #346**
+(branch `claude/magical-heisenberg-5pk8jh`) implementing this same task in
+parallel with #347. It went stale/conflicting once #347 merged (both
+defined the same DTOs/methods). Closed #346 as a duplicate of the
+already-merged #347 rather than resolving its conflicts — merging both
+would have produced duplicate type definitions in `ExamModels.cs`/
+`ExamService.cs`. No unique work was lost: #346's implementation covered
+the same scope as #347's.
 
 ## Review
 _(Tech Lead fills in after PR review)_
