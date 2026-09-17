@@ -147,10 +147,16 @@ namespace JackyAIApp.Server.DTO
         public string? ListeningResponseTestId { get; set; }
         /// <summary>Required when ExamType is "Reading"; omitted otherwise.</summary>
         public string? ReadingPassageId { get; set; }
-        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse" | "Reading".</summary>
+        /// <summary>
+        /// UserWord ids the writing prompt was built around, for the SM-2 fan-out. Required when
+        /// ExamType is "Writing" and the prompt actually had required words; a zero-required-words
+        /// open-topic submission legitimately omits/empties this.
+        /// </summary>
+        public List<string>? WritingWordIds { get; set; }
+        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse" | "Reading" | "Writing".</summary>
         public required string ExamType { get; set; }
         public required bool Correct { get; set; }
-        /// <summary>Optional 0–100 score for graded types (Sentence).</summary>
+        /// <summary>Optional 0–100 score for graded types (Sentence, Writing).</summary>
         public int? Score { get; set; }
     }
 
@@ -288,5 +294,55 @@ namespace JackyAIApp.Server.DTO
         public required string Text { get; set; }
         public required bool IsCorrect { get; set; }
         public required string Explanation { get; set; }
+    }
+
+    /// <summary>
+    /// Open-ended writing prompt: a topic plus up to 5 of the calling user's own saved words to
+    /// work into a paragraph. Free to produce (plain DB queries, no AI call) — see
+    /// ExamService.GenerateWritingPromptAsync.
+    /// </summary>
+    public class WritingPromptResponse
+    {
+        public required string Topic { get; set; }
+        public required List<WritingPromptWordDto> RequiredWords { get; set; }
+    }
+
+    public class WritingPromptWordDto
+    {
+        public required string WordId { get; set; }
+        public required string WordText { get; set; }
+    }
+
+    /// <summary>
+    /// User's writing submission. Topic/RequiredWords are echoed back by the client from the
+    /// GET api/exam/writing response rather than re-queried, same pattern as
+    /// TranslationTestUserResponse.ExaminationQuestion.
+    /// </summary>
+    public class WritingSubmissionRequest
+    {
+        public required string Topic { get; set; }
+        public required List<string> RequiredWords { get; set; }
+        public required string Submission { get; set; }
+    }
+
+    /// <summary>
+    /// AI grading response for an open-ended writing submission.
+    /// </summary>
+    public class WritingGradingResponse
+    {
+        public required int Score { get; set; }
+        public required string GrammarFeedback { get; set; }
+        /// <summary>Topic relevance and structure/coherence.</summary>
+        public required string ContentFeedback { get; set; }
+        /// <summary>Overall comment on how the required words were used (or not).</summary>
+        public required string VocabularyFeedback { get; set; }
+        public required List<WritingWordUsageDto> WordsUsed { get; set; }
+        public required List<string> Suggestions { get; set; }
+    }
+
+    public class WritingWordUsageDto
+    {
+        public required string Word { get; set; }
+        public required bool Used { get; set; }
     }
 }

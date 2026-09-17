@@ -7,7 +7,7 @@ Backend: Open-ended writing practice with AI feedback (Skill-Building item 3 —
 Backend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM
@@ -164,7 +164,76 @@ None — can start immediately. `TASK-009` (Frontend) depends on this task's
 response DTO shape.
 
 ## Result
-_(Backend fills in after implementation)_
+
+Implemented per spec, reusing the Translation/Sentence grading shape as directed:
+
+- `GET api/exam/writing` → `ExamService.GenerateWritingPromptAsync()`: picks a topic from a
+  4-item fixed rotation + up to 5 distinct `UserWords` rows via a new `GetRandomUserWordsAsync`
+  helper (DB-level COUNT + distinct-offset sampling, extending the existing single-word
+  `GetRandomUserWordIdAsync` technique — no AI call, no full-collection load). Empty repository
+  returns `RequiredWords: []`, not an error. **Not credit-gated** — controller action has an
+  explicit comment warning against adding `[ConsumeCredits]`.
+- New `Prompt/Exam/WritingEvaluationSystem.txt` + `POST api/exam/writing/evaluate` →
+  `ExamService.GradeWritingAsync()`: one-shot `GetCompletionAsync<WritingGradingResponse>` call
+  (model `GPT_4_1_NANO` per the task's technical note), inline credit gate via new
+  `CreditCosts.WritingEvaluation = 3`, no `ExamAttempt` write (client calls `record-result`
+  separately, same as Translation/Sentence). `WordsUsed` is read directly from the AI's per-word
+  used/not-used judgment.
+- `RecordExamResultAsync`: added `"Writing"` to the wordless group (`isWriting`), added
+  `WritingWordIds: List<string>?` to `RecordExamResultRequest`. Validation rejects only a missing
+  (`null`) list, not an empty one — an empty list (open-topic, zero required words) is accepted
+  and simply updates nothing. When present, fans out the existing `_spacedRepetition.ApplyResult`
+  call across every id with a matching `UserWord`, all with one shared `MapQuality` value. No new
+  `ExamAttempt` column, no EF migration.
+- New DTOs: `WritingPromptResponse`, `WritingPromptWordDto`, `WritingSubmissionRequest`,
+  `WritingGradingResponse`, `WritingWordUsageDto` in `DTO/ExamModels.cs`.
+
+### Files Changed
+- `JackyAIApp.Server/Services/Exam/ExamService.cs`
+- `JackyAIApp.Server/Services/Exam/IExamService.cs`
+- `JackyAIApp.Server/Controllers/ExamController.cs`
+- `JackyAIApp.Server/DTO/ExamModels.cs`
+- `JackyAIApp.Server/Common/CreditCosts.cs`
+- `JackyAIApp.Server/Prompt/Exam/WritingEvaluationSystem.txt` (new)
+- `JackyAIApp.Server.Tests/Services/ExamServiceTests.cs`
+
+### Tests
+Added to `ExamServiceTests.cs` (offline unit tests, xUnit + Moq, in-memory EF provider):
+prompt generation (user-not-found, empty repository → `RequiredWords: []`, fewer-than-5 words
+returns all, more-than-5 returns exactly 5 distinct, never consumes credits), grading (null
+input, insufficient credits → `Forbidden` + no OpenAI call, exactly-once credit charge with a
+deliberately-unused required word coming back `Used: false`, OpenAI failure path), and
+`record-result` (missing `WritingWordIds` → `BadRequest`, empty list accepted and updates
+nothing, N required word ids → `ApplyResult` applied to exactly the ones with a matching
+`UserWord`, verified via `NextReviewDate` changing only on the matched words).
+
+**Could not execute `dotnet test`** — this sandbox has no .NET SDK installed and outbound access
+to `builds.dotnet.microsoft.com` for `dotnet-install.sh` is blocked by the environment's network
+policy (confirmed: 403 from the egress proxy). Compensated with a careful manual review of every
+changed file (brace/paren balance checked programmatically, method signatures cross-checked
+against `IOpenAIPromptService`, `ISpacedRepetitionService.ApplyResult`, `SQL.UserWord`/`SQL.Word`
+field names, and the existing `GradeTranslationAsync`/`EvaluateSentenceAsync`/
+`GenerateReadingExamAsync` call shapes this task was scoped to copy). Tech Lead/CI should run the
+real test suite before merge — flagging this explicitly rather than claiming a pass I couldn't
+observe.
+
+### Known Issues
+- `CreditCosts.WritingEvaluation = 3` is a starting estimate per the Architecture doc — flag for
+  revisit once real token usage on whole-paragraph grading is observed.
+- `NextReviewDate` on `RecordExamResultResponse` is left `null` for a Writing attempt (same as
+  every other wordless type) even when the SM-2 fan-out did update one or more words — the
+  response shape has one `NextReviewDate` field and a multi-word update doesn't map onto it
+  cleanly. Not called out as a requirement in the task; flagging in case the frontend (TASK-009)
+  needs per-word next-review dates rather than just the boolean `ScheduleUpdated`.
+
+### Blockers
+None.
+
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/347 — CI (`build-and-test-server`,
+`lint-and-build-client`) both passed on the current head, confirming the
+`dotnet test` run I couldn't execute locally does pass. No merge conflicts.
+Awaiting human review/merge.
 
 ## Review
 _(Tech Lead fills in after PR review)_
