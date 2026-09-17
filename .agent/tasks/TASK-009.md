@@ -7,7 +7,7 @@ Frontend: Writing practice test UI (Skill-Building item 3 — 寫)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM
@@ -113,7 +113,24 @@ field names can be finalized. Architecture and requirements are otherwise
 final; no need to wait for further Tech Lead sign-off once `TASK-008` lands.
 
 ## Result
-_(Frontend fills in after implementation)_
+Implemented by a separate Frontend Engineer session (branch
+`claude/amazing-cori-uwfb9y`); this run found the work already done and
+verified it rather than reimplementing:
+- **PR**: [#348](https://github.com/twjackysu/JackyAIApp/pull/348), against
+  `master`. CI green (`lint-and-build-client` + `build-and-test-server`),
+  `mergeable_state: clean`, no review comments yet.
+- Per the PR description: API slice additions (`getWritingPrompt`,
+  `evaluateWriting`, new types matching `TASK-008`'s merged DTOs exactly),
+  new `Exam/WritingTestCard/index.tsx` (fetch-on-mount, open-topic empty
+  case handled as a normal mode not an error, cost caption under the submit
+  button rather than the mode-selection screen), new `EXAM_MODES` entry,
+  `WRITING_EVALUATION: 3` in `constants/creditCosts.ts` cross-checked by the
+  existing `creditCosts.test.ts` backend-mirror test. `npm run lint`/`build`/
+  `vitest run` reported green (135 tests).
+- This run's action: updated `Status` to `PR_OPENED` (was still `READY` on
+  `master` despite the PR already existing) and subscribed to PR activity so
+  review comments/CI events on #348 get picked up. No code changes made —
+  nothing to add on top of an already-complete, CI-green implementation.
 
 ## Review
 _(Tech Lead fills in after PR review)_
