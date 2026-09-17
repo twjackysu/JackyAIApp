@@ -31,6 +31,8 @@ export const CREDIT_COSTS = {
   LISTENING_RESPONSE_TEST: 4,
   /** Reading comprehension test — flat charge per passage play, cache hit or miss */
   READING_COMPREHENSION_TEST: 3,
+  /** Writing practice AI evaluation — the prompt fetch itself is free, only grading is charged */
+  WRITING_EVALUATION: 3,
   /** Whisper audio transcription */
   AUDIO_TRANSCRIPTION: 1,
   /** Stock analysis (AI-powered) */

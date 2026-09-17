@@ -7,7 +7,7 @@ Frontend: Writing practice test UI (Skill-Building item 3 — 寫)
 Frontend
 
 ## Status
-BLOCKED
+PR_OPENED
 
 ## Priority
 MEDIUM
@@ -113,7 +113,81 @@ field names can be finalized. Architecture and requirements are otherwise
 final; no need to wait for further Tech Lead sign-off once `TASK-008` lands.
 
 ## Result
-_(Frontend fills in after implementation)_
+
+### 2026-09-17 — Frontend: implemented (unblocked after TASK-008 merged via #347)
+
+`TASK-008` landed on `master` through **PR #347** (a duplicate backend
+session's implementation; PR #346 was closed as redundant — see
+`TASK-008.md`'s Result section). Read the actual merged DTOs directly from
+`JackyAIApp.Server/DTO/ExamModels.cs` and the controller routes from
+`JackyAIApp.Server/Controllers/ExamController.cs` rather than guessing —
+`camelCase` confirmed via `Program.cs`'s default `AddJsonOptions` (no
+explicit `PropertyNamingPolicy` override, matching every other exam DTO
+already in `apis/examApis/types.ts`).
+
+Implemented exactly as scoped:
+- **`apis/examApis/types.ts`**: `WritingPromptResponse`/`WritingPromptWordDto`/
+  `WritingSubmissionRequest`/`WritingGradingResponse`/`WritingWordUsageDto`
+  matching the merged C# DTOs field-for-field. Added `'Writing'` to
+  `ExamType` and `writingWordIds?: string[]` to `RecordExamResultRequest`.
+- **`apis/examApis/index.ts`**: `getWritingPrompt` (query, `GET
+  api/exam/writing`) and `evaluateWriting` (mutation, `POST
+  api/exam/writing/evaluate`), same shape as `getReadingTest`/
+  `evaluateSentence`.
+- **New `Exam/WritingTestCard/index.tsx`**: fetches the prompt on mount
+  (auto-fetching RTK Query hook, same as `ReadingTestCard`); shows topic +
+  required-word chips, or a plain (non-alarming) info `Alert` for the
+  zero-required-words open-topic case; multiline submission field + submit
+  button (disabled while empty/in flight) with the credit cost caption
+  directly under it; on submit, calls `evaluateWriting`, then renders
+  score/grammar/content/vocabulary feedback (accordions, mirroring
+  `SentenceTestCard`), per-word used/not-used chips (green filled vs. grey
+  outlined), and suggestions; fires `record-result` once right after the
+  feedback is set (`examType: 'Writing'`, `writingWordIds` from the
+  original prompt fetch, `correct: score >= 60` — same threshold
+  `SentenceTestCard` uses for its own 0–100 score — `score`). "換一題"
+  resets local state and refetches via the shared `useExamRound`/
+  `ExamRoundShell` round machinery every other mode uses (no separate
+  regenerate mutation).
+- **`Exam/index.tsx`**: new `EXAM_MODES` entry (`path: 'writing'`, "寫作練習
+  (Writing Practice)"), cost caption reads "提交批改需消耗 N 點" rather than
+  implying the mode itself costs anything up front.
+- **`constants/creditCosts.ts`**: `WRITING_EVALUATION: 3`, referenced both
+  in the `EXAM_MODES` cost caption and inside the card next to the submit
+  button, matching backend `CreditCosts.WritingEvaluation = 3` exactly
+  (verified by `creditCosts.test.ts`'s cross-check against the `.cs` file).
+
+### Files Changed
+- `jackyaiapp.client/src/apis/examApis/types.ts`
+- `jackyaiapp.client/src/apis/examApis/index.ts`
+- `jackyaiapp.client/src/constants/creditCosts.ts`
+- `jackyaiapp.client/src/Exam/WritingTestCard/index.tsx` (new)
+- `jackyaiapp.client/src/Exam/index.tsx`
+
+### Tests
+`npm run lint` (0 warnings), `npm run build`, and `npx vitest run` (135
+tests, 16 files, including `creditCosts.test.ts`'s backend cross-check) all
+pass with no regressions. No new automated tests were added for
+`WritingTestCard` itself — the existing test cards
+(`SentenceTestCard`/`ReadingTestCard`/etc.) have no dedicated component
+tests either, so this matches the established convention rather than
+introducing new test scaffolding unilaterally; flagging in case Tech Lead
+wants component-level coverage added as a follow-up.
+
+### Known Issues
+None found. `RecordExamResultResponse.nextReviewDate` stays `null` for a
+Writing attempt per `TASK-008`'s own known limitation (multi-word update
+doesn't map onto a single field) — the UI doesn't surface a per-word next
+review date, only the existing `srsNote` derived from `scheduleUpdated`,
+consistent with how every other exam type's UI already handles this.
+
+### Blockers
+None — see the now-resolved blocker record below for history.
+
+### PR
+_(added after PR is opened)_
+
+---
 
 ### 2026-09-17 — Frontend: checked in, still blocked on TASK-008
 
@@ -139,7 +213,7 @@ branch would risk building against field names/casing that could still
 change in review. Standing down without code changes; will pick this back
 up once PR #346 merges into `master`.
 
-## Blocker
+## Blocker (resolved 2026-09-17 — see Result above)
 
 ### Problem
 `TASK-008` (Backend, PR #346) is open but not yet merged into `master`,

@@ -955,3 +955,28 @@
   added a note under Result documenting the duplicate-PR closure.
 - This also unblocks `TASK-009` (Frontend, own assigned task) — real merged
   DTO shapes are now available on `master` to implement against.
+
+## 2026-09-17 — Frontend: implemented TASK-009 (Writing Practice UI, user-directed)
+
+- Boss asked to proceed straight into `TASK-009` after the #346 cleanup.
+  Read the actual merged DTOs off `master` (`ExamModels.cs`,
+  `ExamController.cs`) rather than guessing, confirmed camelCase JSON via
+  `Program.cs`'s default `AddJsonOptions`.
+- Added `getWritingPrompt`/`evaluateWriting` to `apis/examApis`, matching
+  DTO types, `'Writing'` on `ExamType`, `writingWordIds?` on
+  `RecordExamResultRequest`. New `Exam/WritingTestCard`: free-to-open
+  prompt fetch (topic + up to 5 required-word chips, or a plain info note
+  for the open-topic zero-word case), submit-for-grading with the credit
+  cost caption at the point of charge rather than on the mode-selection
+  screen, full feedback rendering (score/grammar/content/vocabulary,
+  per-word used/not-used chips, suggestions), `record-result` fired once
+  after feedback reveal with `correct: score >= 60` (same threshold
+  `SentenceTestCard` already uses). Wired into `Exam/index.tsx`'s
+  `EXAM_MODES` with a caption that reads correctly for "free to open,
+  charged on submit". Added `CREDIT_COSTS.WRITING_EVALUATION: 3`.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (135
+  tests) all pass. No new component-level tests added — matches the
+  existing convention (no other test card has dedicated component tests
+  either); flagged in `TASK-009.md` in case Tech Lead wants that changed.
+- Opened a PR, flipped `TASK-009.md` Status to `PR_OPENED`, filled in its
+  Result/Files Changed/Tests/Known Issues sections.
