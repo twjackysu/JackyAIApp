@@ -766,6 +766,102 @@ namespace JackyAIApp.Server.Services.Exam
             return ServiceResult.Ok(evaluation);
         }
 
+        // Up to 5 distinct saved words per writing prompt (Requirement 1, TASK-008).
+        private const int MaxWritingRequiredWords = 5;
+        private const string WritingFeature = "exam.writing_evaluation";
+
+        private static readonly string[] WritingTopics =
+        [
+            "your daily life", "a memorable experience", "a skill you want to learn",
+            "an opinion on something you care about",
+        ];
+
+        private static readonly (string User, string Assistant) WritingFewShotExample = (
+            User: JsonConvert.SerializeObject(new WritingSubmissionRequest
+            {
+                Topic = "a memorable experience",
+                RequiredWords = new List<string> { "adventure", "curious", "eventually" },
+                Submission = "Last summer I went on an adventure to the mountains with my family. " +
+                    "I was curious about the old trails near our cabin, so we decided to explore " +
+                    "one of them. The path was longer than we expected, but it was a lot of fun.",
+            }),
+            Assistant: JsonConvert.SerializeObject(new WritingGradingResponse
+            {
+                Score = 82,
+                GrammarFeedback = "文法大致正確，時態使用一致，僅有少數用詞可以更精準。",
+                ContentFeedback = "內容切題，段落有清楚的開頭與結尾，敘事流暢。",
+                VocabularyFeedback = "成功使用了 adventure 和 eventually，但沒有使用 curious，殊為可惜。",
+                WordsUsed = new List<WritingWordUsageDto>
+                {
+                    new() { Word = "adventure", Used = true },
+                    new() { Word = "curious", Used = false },
+                    new() { Word = "eventually", Used = true },
+                },
+                Suggestions = new List<string>
+                {
+                    "可以嘗試把 curious 加進段落中，例如描述當下對某件事感到好奇的心情。",
+                    "可以多補充一些細節，讓故事更生動。",
+                },
+            })
+        );
+
+        /// <summary>
+        /// Builds an open-ended writing prompt. No AI call — a topic string from a fixed rotation
+        /// plus up to <see cref="MaxWritingRequiredWords"/> of the user's own saved words, sampled
+        /// at the database level. Empty repository → empty RequiredWords (open-topic writing),
+        /// not an error. Deliberately NOT credit-gated (see CreditCosts.WritingEvaluation's doc
+        /// comment and ExamController.GetWritingPrompt) — do not add [ConsumeCredits] here.
+        /// </summary>
+        public async Task<ServiceResult> GenerateWritingPromptAsync()
+        {
+            var userId = _userService.GetUserId();
+            var topic = WritingTopics[Random.Shared.Next(WritingTopics.Length)];
+
+            var words = string.IsNullOrEmpty(userId)
+                ? new List<(string WordId, string WordText)>()
+                : await GetRandomUserWordsAsync(userId, MaxWritingRequiredWords);
+
+            return ServiceResult.Ok(new WritingPromptResponse
+            {
+                Topic = topic,
+                RequiredWords = words
+                    .Select(w => new WritingPromptWordDto { WordId = w.WordId, WordText = w.WordText })
+                    .ToList(),
+            });
+        }
+
+        public async Task<ServiceResult> GradeWritingAsync(WritingSubmissionRequest request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.Topic) || string.IsNullOrEmpty(request.Submission))
+            {
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "Input cannot be null or empty.");
+            }
+
+            var userId = _userService.GetUserId();
+            if (!string.IsNullOrEmpty(userId) &&
+                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.WritingEvaluation, "writing_evaluation", "Writing evaluation"))
+            {
+                return ServiceResult.Fail(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.WritingEvaluation}.");
+            }
+
+            var (grading, error) = await _promptService.GetCompletionAsync<WritingGradingResponse>(
+                "Prompt/Exam/WritingEvaluationSystem.txt",
+                JsonConvert.SerializeObject(request),
+                model: NewModels.GPT_4_1_NANO,
+                examples: new[] { WritingFewShotExample },
+                feature: WritingFeature);
+
+            if (grading == null)
+            {
+                _logger.LogError("Failed to generate writing evaluation: {Error}", error);
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
+                    "Query failed, OpenAI could not generate the writing evaluation.");
+            }
+
+            _logger.LogInformation("Generated writing evaluation for topic: {Topic}", request.Topic);
+            return ServiceResult.Ok(grading);
+        }
+
         public async Task<ServiceResult> RecordExamResultAsync(RecordExamResultRequest request)
         {
             var userId = _userService.GetUserId();
@@ -782,7 +878,8 @@ namespace JackyAIApp.Server.Services.Exam
             bool isListening = request.ExamType == "Listening";
             bool isListeningResponse = request.ExamType == "ListeningResponse";
             bool isReading = request.ExamType == "Reading";
-            bool isWordless = isListening || isListeningResponse || isReading;
+            bool isWriting = request.ExamType == "Writing";
+            bool isWordless = isListening || isListeningResponse || isReading || isWriting;
             if (!isWordless && string.IsNullOrEmpty(request.WordId))
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "WordId is required for word-based exam types.");
@@ -814,7 +911,9 @@ namespace JackyAIApp.Server.Services.Exam
                 CreatedAt = DateTime.UtcNow,
             });
 
-            // Listening exam types aren't word-scoped — no SM-2 vocab schedule to feed.
+            // Listening/ListeningResponse/Reading aren't word-scoped at all — no SM-2 vocab
+            // schedule to feed. Writing is also wordless for the ExamAttempt row itself (no single
+            // WordId fits a multi-word paragraph), but it still feeds SM-2 via the fan-out below.
             bool scheduleUpdated = false;
             SQL.UserWord? userWord = null;
             if (!isWordless)
@@ -827,6 +926,24 @@ namespace JackyAIApp.Server.Services.Exam
                 {
                     _spacedRepetition.ApplyResult(userWord, MapQuality(request.Correct, request.Score), DateTime.UtcNow.Date);
                     scheduleUpdated = true;
+                }
+            }
+            else if (isWriting && request.WritingWordIds is { Count: > 0 })
+            {
+                // One holistic AI grade for the whole paragraph — the same mapped quality is
+                // applied to every required word it was built around, not a per-word score (see
+                // ARCHITECTURE.md's "Open-ended writing practice" decision, Trade-offs section).
+                var quality = MapQuality(request.Correct, request.Score);
+                foreach (var wordId in request.WritingWordIds)
+                {
+                    var writingWord = await _dbContext.UserWords
+                        .SingleOrDefaultAsync(uw => uw.UserId == userId && uw.WordId == wordId);
+
+                    if (writingWord != null)
+                    {
+                        _spacedRepetition.ApplyResult(writingWord, quality, DateTime.UtcNow.Date);
+                        scheduleUpdated = true;
+                    }
                 }
             }
 
@@ -850,9 +967,43 @@ namespace JackyAIApp.Server.Services.Exam
         }
 
         /// <summary>
-        /// Picks a random WordId from the user's saved words at the database level
-        /// (COUNT + OFFSET) instead of loading the whole collection into memory.
+        /// Picks up to <paramref name="take"/> distinct rows from the user's saved words, at the
+        /// database level (COUNT + a set of distinct OFFSETs) rather than loading the whole
+        /// collection into memory — same technique as <see cref="GetRandomUserWordIdAsync"/>'s
+        /// single-row COUNT+OFFSET pattern, repeated for a handful of distinct offsets instead of
+        /// one. Returns fewer than <paramref name="take"/> rows (down to zero) if the user's
+        /// repository is smaller than that.
         /// </summary>
+        private async Task<List<(string WordId, string WordText)>> GetRandomUserWordsAsync(string userId, int take)
+        {
+            var query = _dbContext.UserWords.Where(uw => uw.UserId == userId);
+            var count = await query.CountAsync();
+            if (count == 0)
+            {
+                return [];
+            }
+
+            var n = Math.Min(take, count);
+            var skips = new HashSet<int>();
+            while (skips.Count < n)
+            {
+                skips.Add(Random.Shared.Next(count));
+            }
+
+            var results = new List<(string WordId, string WordText)>();
+            foreach (var skip in skips)
+            {
+                var row = await query
+                    .OrderBy(uw => uw.WordId)
+                    .Skip(skip)
+                    .Select(uw => new { uw.WordId, uw.Word.WordText })
+                    .FirstAsync();
+                results.Add((row.WordId, row.WordText));
+            }
+
+            return results;
+        }
+
         /// <summary>
         /// Picks a word for the next exam question, biased toward the SM-2 review schedule
         /// instead of pure uniform random — otherwise exams and the Review flow drift apart

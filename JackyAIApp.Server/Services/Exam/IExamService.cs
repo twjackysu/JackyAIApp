@@ -65,6 +65,22 @@ namespace JackyAIApp.Server.Services.Exam
         Task<ServiceResult> EvaluateSentenceAsync(SentenceTestUserResponse userResponse);
 
         /// <summary>
+        /// Builds an open-ended writing prompt: a topic from a small fixed rotation plus up to 5
+        /// distinct rows sampled from the calling user's own saved words (plain DB sample, no AI
+        /// call — zero underlying cost). Works with an empty repository (empty RequiredWords).
+        /// Deliberately NOT credit-gated.
+        /// </summary>
+        Task<ServiceResult> GenerateWritingPromptAsync();
+
+        /// <summary>
+        /// Grades an open-ended writing submission against the topic/required words the prompt
+        /// gave, via one credit-gated AI call. Same decoupling as
+        /// <see cref="GradeTranslationAsync"/>/<see cref="EvaluateSentenceAsync"/> — does not
+        /// write an <see cref="Data.Models.SQL.ExamAttempt"/> itself.
+        /// </summary>
+        Task<ServiceResult> GradeWritingAsync(WritingSubmissionRequest request);
+
+        /// <summary>
         /// Records an exam outcome: logs an <see cref="Data.Models.SQL.ExamAttempt"/> and feeds the
         /// word's spaced-repetition schedule (wrong → relearn soon, right → mild boost). Free.
         /// </summary>

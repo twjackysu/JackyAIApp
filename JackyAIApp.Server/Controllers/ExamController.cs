@@ -89,6 +89,21 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> EvaluateSentence([FromBody] SentenceTestUserResponse userResponse) =>
             _responseFactory.ToActionResult(await _examService.EvaluateSentenceAsync(userResponse));
 
+        /// <summary>Returns an open-ended writing prompt: a topic plus up to 5 of the user's own
+        /// saved words. Deliberately NOT credit-gated — unlike every other exam type's generation
+        /// endpoint, picking a topic and sampling the user's own words costs no AI call, so there
+        /// is no underlying cost to recover. Do not add [ConsumeCredits] here out of habit; the
+        /// AI cost for this feature is entirely on POST writing/evaluate below.</summary>
+        [HttpGet("writing")]
+        public async Task<IActionResult> GetWritingPrompt() =>
+            _responseFactory.ToActionResult(await _examService.GenerateWritingPromptAsync());
+
+        /// <summary>Evaluates a user's open-ended writing paragraph against the topic/required
+        /// words the prompt gave, and returns structured feedback.</summary>
+        [HttpPost("writing/evaluate")]
+        public async Task<IActionResult> EvaluateWriting([FromBody] WritingSubmissionRequest request) =>
+            _responseFactory.ToActionResult(await _examService.GradeWritingAsync(request));
+
         /// <summary>Records an exam outcome to feed spaced repetition + per-word history. Free (no credits).</summary>
         [HttpPost("record-result")]
         public async Task<IActionResult> RecordExamResult([FromBody] RecordExamResultRequest request) =>

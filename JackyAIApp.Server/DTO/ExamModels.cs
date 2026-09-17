@@ -139,7 +139,7 @@ namespace JackyAIApp.Server.DTO
     /// </summary>
     public class RecordExamResultRequest
     {
-        /// <summary>Required for word-based exam types; omitted for "Listening"/"ListeningResponse".</summary>
+        /// <summary>Required for word-based exam types; omitted for "Listening"/"ListeningResponse"/"Reading"/"Writing".</summary>
         public string? WordId { get; set; }
         /// <summary>Required when ExamType is "Listening"; omitted otherwise.</summary>
         public string? ListeningTestId { get; set; }
@@ -147,10 +147,18 @@ namespace JackyAIApp.Server.DTO
         public string? ListeningResponseTestId { get; set; }
         /// <summary>Required when ExamType is "Reading"; omitted otherwise.</summary>
         public string? ReadingPassageId { get; set; }
-        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse" | "Reading".</summary>
+        /// <summary>
+        /// The saved-word ids a Writing submission was built around (echoed back from the
+        /// prompt's <see cref="WritingPromptWordDto"/> list). Only meaningful when ExamType is
+        /// "Writing"; every id found among the user's own UserWords gets the same mapped SM-2
+        /// quality applied (one holistic grade for the whole paragraph, not per-word). Null or
+        /// empty is valid — an open-topic prompt with zero required words has nothing to fan out.
+        /// </summary>
+        public List<string>? WritingWordIds { get; set; }
+        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse" | "Reading" | "Writing".</summary>
         public required string ExamType { get; set; }
         public required bool Correct { get; set; }
-        /// <summary>Optional 0–100 score for graded types (Sentence).</summary>
+        /// <summary>Optional 0–100 score for graded types (Sentence, Writing).</summary>
         public int? Score { get; set; }
     }
 
@@ -288,5 +296,55 @@ namespace JackyAIApp.Server.DTO
         public required string Text { get; set; }
         public required bool IsCorrect { get; set; }
         public required string Explanation { get; set; }
+    }
+
+    /// <summary>
+    /// Open-ended paragraph-writing prompt: a topic plus up to 5 of the calling user's own saved
+    /// words to work into the paragraph. Costs zero AI calls to produce (topic is a fixed
+    /// rotation, words are a plain DB sample) — see <c>GenerateWritingPromptAsync</c>.
+    /// </summary>
+    public class WritingPromptResponse
+    {
+        public required string Topic { get; set; }
+        public required List<WritingPromptWordDto> RequiredWords { get; set; }
+    }
+
+    public class WritingPromptWordDto
+    {
+        public required string WordId { get; set; }
+        public required string WordText { get; set; }
+    }
+
+    /// <summary>
+    /// User's writing submission. Topic/RequiredWords are echoed back verbatim from the
+    /// <see cref="WritingPromptResponse"/> the client fetched, not re-queried server-side — same
+    /// pattern as <see cref="TranslationTestUserResponse"/>.
+    /// </summary>
+    public class WritingSubmissionRequest
+    {
+        public required string Topic { get; set; }
+        public required List<string> RequiredWords { get; set; }
+        public required string Submission { get; set; }
+    }
+
+    /// <summary>
+    /// AI grading response for an open-ended writing submission. <see cref="WordsUsed"/> is a
+    /// per-required-word used/not-used flag the AI reports by reading the submission, needed both
+    /// for the UI and for the SM-2 fan-out in <c>RecordExamResultAsync</c>.
+    /// </summary>
+    public class WritingGradingResponse
+    {
+        public required int Score { get; set; }
+        public required string GrammarFeedback { get; set; }
+        public required string ContentFeedback { get; set; }
+        public required string VocabularyFeedback { get; set; }
+        public required List<WritingWordUsageDto> WordsUsed { get; set; }
+        public required List<string> Suggestions { get; set; }
+    }
+
+    public class WritingWordUsageDto
+    {
+        public required string Word { get; set; }
+        public required bool Used { get; set; }
     }
 }

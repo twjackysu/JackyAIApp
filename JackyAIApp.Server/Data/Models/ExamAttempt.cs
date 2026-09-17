@@ -43,13 +43,13 @@ namespace JackyAIApp.Server.Data.Models.SQL
         [ForeignKey(nameof(ReadingPassageId))]
         public ReadingPassage? ReadingPassage { get; set; }
 
-        /// <summary>Exam type: "Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse" | "Reading".</summary>
+        /// <summary>Exam type: "Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse" | "Reading" | "Writing".</summary>
         public required string ExamType { get; set; }
 
         /// <summary>Whether the attempt counted as correct.</summary>
         public required bool IsCorrect { get; set; }
 
-        /// <summary>Numeric score 0–100 for graded types (Sentence); null otherwise.</summary>
+        /// <summary>Numeric score 0–100 for graded types (Sentence, Writing); null otherwise.</summary>
         public int? Score { get; set; }
 
         /// <summary>When the attempt happened (UTC).</summary>

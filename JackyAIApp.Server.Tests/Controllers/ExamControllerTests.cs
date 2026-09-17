@@ -52,6 +52,21 @@ namespace JackyAIApp.Server.Tests.Controllers
         public void Dispose() => _dbContext.Dispose();
 
         [Fact]
+        public async Task GetWritingPrompt_CallsServiceDirectly_NoConsumeCreditsAttribute()
+        {
+            // GetWritingPrompt has no [ConsumeCredits] attribute — verified structurally here by
+            // simply confirming it forwards straight to the service; the "never credit-gated"
+            // behavior itself is covered service-side (ExamServiceTests.GenerateWritingPrompt_NeverConsumesCredits).
+            _examServiceMock.Setup(x => x.GenerateWritingPromptAsync())
+                .ReturnsAsync(ServiceResult.Ok(new { Topic = "daily life", RequiredWords = new List<object>() }));
+
+            var result = await _controller.GetWritingPrompt();
+
+            Assert.IsType<OkObjectResult>(result);
+            _examServiceMock.Verify(x => x.GenerateWritingPromptAsync(), Times.Once);
+        }
+
+        [Fact]
         public async Task TranscribeAudio_NoFile_ReturnsError()
         {
             // Act

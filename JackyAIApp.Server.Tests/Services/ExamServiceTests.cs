@@ -1140,6 +1140,248 @@ namespace JackyAIApp.Server.Tests.Services
 
         #endregion
 
+        #region Writing Tests
+
+        [Fact]
+        public async Task GenerateWritingPrompt_EmptyRepository_ReturnsEmptyRequiredWords()
+        {
+            await SeedUserAsync();
+
+            var result = await _service.GenerateWritingPromptAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<WritingPromptResponse>(result.Data);
+            Assert.NotNull(dto.Topic);
+            Assert.Empty(dto.RequiredWords);
+        }
+
+        [Fact]
+        public async Task GenerateWritingPrompt_NeverConsumesCredits()
+        {
+            await SeedUserWithWordAsync();
+
+            var result = await _service.GenerateWritingPromptAsync();
+
+            Assert.True(result.IsSuccess);
+            _creditServiceMock.Verify(x => x.ConsumeCreditsAsync(
+                It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GenerateWritingPrompt_FewerThanFiveWords_ReturnsAllOfThem()
+        {
+            await SeedUserAsync();
+            for (var i = 0; i < 3; i++)
+            {
+                await AddUserWordAsync($"word-{i}");
+            }
+
+            var result = await _service.GenerateWritingPromptAsync();
+
+            var dto = Assert.IsType<WritingPromptResponse>(result.Data);
+            Assert.Equal(3, dto.RequiredWords.Count);
+            Assert.Equal(3, dto.RequiredWords.Select(w => w.WordId).Distinct().Count());
+        }
+
+        [Fact]
+        public async Task GenerateWritingPrompt_MoreThanFiveWords_ReturnsAtMostFiveDistinct()
+        {
+            await SeedUserAsync();
+            for (var i = 0; i < 8; i++)
+            {
+                await AddUserWordAsync($"word-{i}");
+            }
+
+            var result = await _service.GenerateWritingPromptAsync();
+
+            var dto = Assert.IsType<WritingPromptResponse>(result.Data);
+            Assert.Equal(5, dto.RequiredWords.Count);
+            Assert.Equal(5, dto.RequiredWords.Select(w => w.WordId).Distinct().Count());
+        }
+
+        [Fact]
+        public async Task GradeWriting_NullInput_ReturnsError()
+        {
+            var result = await _service.GradeWritingAsync(null!);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+        }
+
+        [Fact]
+        public async Task GradeWriting_ValidInput_ChargesCreditsOnceAndReturnsGrading()
+        {
+            var request = new WritingSubmissionRequest
+            {
+                Topic = "a memorable experience",
+                RequiredWords = new List<string> { "adventure", "curious" },
+                Submission = "Last year I went on an adventure.",
+            };
+            var expectedGrading = new WritingGradingResponse
+            {
+                Score = 80,
+                GrammarFeedback = "文法正確。",
+                ContentFeedback = "切題。",
+                VocabularyFeedback = "使用了 adventure，但沒有使用 curious。",
+                WordsUsed = new List<WritingWordUsageDto>
+                {
+                    new() { Word = "adventure", Used = true },
+                    new() { Word = "curious", Used = false },
+                },
+                Suggestions = new List<string> { "可以再加入 curious。" },
+            };
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<WritingGradingResponse>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((expectedGrading, (string?)null));
+
+            var result = await _service.GradeWritingAsync(request);
+
+            Assert.True(result.IsSuccess);
+            Assert.Same(expectedGrading, result.Data);
+            var dto = Assert.IsType<WritingGradingResponse>(result.Data);
+            Assert.False(dto.WordsUsed.Single(w => w.Word == "curious").Used);
+            _creditServiceMock.Verify(x => x.ConsumeCreditsAsync(
+                _testUserId, CreditCosts.WritingEvaluation, It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task GradeWriting_InsufficientCredits_ReturnsForbidden()
+        {
+            _creditServiceMock.Setup(x => x.ConsumeCreditsAsync(
+                It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync(false);
+            var request = new WritingSubmissionRequest
+            {
+                Topic = "daily life",
+                RequiredWords = new List<string>(),
+                Submission = "Today was a normal day.",
+            };
+
+            var result = await _service.GradeWritingAsync(request);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.Forbidden, result.Error);
+            _promptServiceMock.Verify(x => x.GetCompletionAsync<WritingGradingResponse>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_WritingType_NoWordId_IsAccepted()
+        {
+            await SeedUserAsync();
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Writing",
+                Correct = true,
+                Score = 90,
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.True(result.IsSuccess);
+
+            var attempt = await _dbContext.ExamAttempts.SingleAsync(a => a.UserId == _testUserId);
+            Assert.Equal("Writing", attempt.ExamType);
+            Assert.Null(attempt.WordId);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_WritingType_EmptyWritingWordIds_UpdatesNothingButSucceeds()
+        {
+            await SeedUserAsync();
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Writing",
+                Correct = true,
+                Score = 90,
+                WritingWordIds = new List<string>(),
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<RecordExamResultResponse>(result.Data);
+            Assert.False(dto.ScheduleUpdated);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_WritingType_AppliesSameQualityToEveryMatchingUserWord()
+        {
+            await SeedUserAsync();
+            var word1 = await AddUserWordAsync("adventure");
+            var word2 = await AddUserWordAsync("curious");
+            var word3 = await AddUserWordAsync("eventually");
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Writing",
+                Correct = true,
+                Score = 90,
+                WritingWordIds = new List<string> { word1.Id, word2.Id, word3.Id },
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<RecordExamResultResponse>(result.Data);
+            Assert.True(dto.ScheduleUpdated);
+
+            var updatedWords = await _dbContext.UserWords
+                .Where(uw => uw.UserId == _testUserId)
+                .ToListAsync();
+            Assert.Equal(3, updatedWords.Count);
+            Assert.All(updatedWords, uw => Assert.NotNull(uw.NextReviewDate));
+            // Same holistic quality applied to every required word -> same resulting schedule.
+            Assert.Single(updatedWords.Select(uw => uw.NextReviewDate).Distinct());
+        }
+
+        [Fact]
+        public async Task RecordExamResult_WritingType_IgnoresIdsWithNoMatchingUserWord()
+        {
+            await SeedUserAsync();
+            var word1 = await AddUserWordAsync("adventure");
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Writing",
+                Correct = true,
+                Score = 90,
+                WritingWordIds = new List<string> { word1.Id, "removed-word-id" },
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<RecordExamResultResponse>(result.Data);
+            Assert.True(dto.ScheduleUpdated);
+
+            var updatedWord = await _dbContext.UserWords.SingleAsync(uw => uw.UserId == _testUserId);
+            Assert.NotNull(updatedWord.NextReviewDate);
+        }
+
+        private async Task<SQLWord> AddUserWordAsync(string wordText)
+        {
+            var word = new SQLWord
+            {
+                Id = Guid.NewGuid().ToString(),
+                WordText = wordText,
+                KKPhonics = "/test/",
+                DateAdded = DateTime.UtcNow,
+                LastUpdated = DateTime.UtcNow,
+            };
+            _dbContext.Words.Add(word);
+            _dbContext.UserWords.Add(new UserWord
+            {
+                UserId = _testUserId,
+                WordId = word.Id,
+                DateAdded = DateTime.UtcNow,
+            });
+            await _dbContext.SaveChangesAsync();
+            return word;
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private async Task<User> SeedUserAsync()
