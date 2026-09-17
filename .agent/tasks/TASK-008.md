@@ -229,5 +229,8 @@ observe.
 ### Blockers
 None.
 
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/347
+
 ## Review
 _(Tech Lead fills in after PR review)_
