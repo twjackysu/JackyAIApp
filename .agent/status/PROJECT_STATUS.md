@@ -884,6 +884,23 @@
 - No implementation code changes — architecture/task documentation only,
   ready for Backend/Frontend Engineers to pick up.
 
+## 2026-09-17 — Frontend: TASK-009 remains blocked on TASK-008
+
+- Scheduled Frontend run checked `.agent/tasks/` for assigned work. Only
+  assigned/ready item is `TASK-009` (Writing Practice UI), which depends on
+  `TASK-008` (Backend).
+- `TASK-008` has an open PR (#346) but it is **not merged** into `master`
+  yet, and its CI has not produced any check runs yet (author flagged in
+  the PR body that they had no local `dotnet` SDK to verify the build).
+  No writing-feature C# code exists on `master` yet to read exact DTO
+  field names/casing from.
+- Per `TASK-009`'s own requirements ("match `TASK-008`'s actual **merged**
+  DTO shape... don't guess"), did not start implementation against the
+  unmerged branch. Flipped `TASK-009` to `Status: BLOCKED` with a Blocker
+  section recorded in the task file; no source code changes made this run.
+- No action needed from Tech Lead/Backend beyond the normal PR review/merge
+  path for #346 — this is a sequencing dependency, not a new issue.
+
 ## 2026-09-17 — Backend Engineer: TASK-008 implementation (scheduled run)
 
 - Picked up `TASK-008` (Status: READY, Owner: Backend) — open-ended writing
@@ -938,3 +955,28 @@
   added a note under Result documenting the duplicate-PR closure.
 - This also unblocks `TASK-009` (Frontend, own assigned task) — real merged
   DTO shapes are now available on `master` to implement against.
+
+## 2026-09-17 — Frontend: implemented TASK-009 (Writing Practice UI, user-directed)
+
+- Boss asked to proceed straight into `TASK-009` after the #346 cleanup.
+  Read the actual merged DTOs off `master` (`ExamModels.cs`,
+  `ExamController.cs`) rather than guessing, confirmed camelCase JSON via
+  `Program.cs`'s default `AddJsonOptions`.
+- Added `getWritingPrompt`/`evaluateWriting` to `apis/examApis`, matching
+  DTO types, `'Writing'` on `ExamType`, `writingWordIds?` on
+  `RecordExamResultRequest`. New `Exam/WritingTestCard`: free-to-open
+  prompt fetch (topic + up to 5 required-word chips, or a plain info note
+  for the open-topic zero-word case), submit-for-grading with the credit
+  cost caption at the point of charge rather than on the mode-selection
+  screen, full feedback rendering (score/grammar/content/vocabulary,
+  per-word used/not-used chips, suggestions), `record-result` fired once
+  after feedback reveal with `correct: score >= 60` (same threshold
+  `SentenceTestCard` already uses). Wired into `Exam/index.tsx`'s
+  `EXAM_MODES` with a caption that reads correctly for "free to open,
+  charged on submit". Added `CREDIT_COSTS.WRITING_EVALUATION: 3`.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (135
+  tests) all pass. No new component-level tests added — matches the
+  existing convention (no other test card has dedicated component tests
+  either); flagged in `TASK-009.md` in case Tech Lead wants that changed.
+- Opened a PR, flipped `TASK-009.md` Status to `PR_OPENED`, filled in its
+  Result/Files Changed/Tests/Known Issues sections.

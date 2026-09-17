@@ -20,6 +20,9 @@ import {
   ListeningBankPageResponse,
   ListeningResponseTestResponse,
   ReadingPassageResponse,
+  WritingPromptResponse,
+  WritingSubmissionRequest,
+  WritingGradingResponse,
 } from './types';
 
 import {
@@ -147,6 +150,21 @@ export const examApis = createApi({
         url: 'reading',
       }),
     }),
+    getWritingPrompt: builder.query<ApiOkResponse<WritingPromptResponse>, void>({
+      query: () => ({
+        url: 'writing',
+      }),
+    }),
+    evaluateWriting: builder.mutation<
+      ApiOkResponse<WritingGradingResponse>,
+      WritingSubmissionRequest
+    >({
+      query: (body) => ({
+        url: 'writing/evaluate',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
   tagTypes: ['ListeningBank'],
 });
@@ -167,4 +185,6 @@ export const {
   useGenerateListeningQuestionMutation,
   useGetListeningResponseTestQuery,
   useGetReadingTestQuery,
+  useGetWritingPromptQuery,
+  useEvaluateWritingMutation,
 } = examApis;

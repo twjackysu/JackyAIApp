@@ -92,10 +92,11 @@ export type ExamType =
   | 'Sentence'
   | 'Listening'
   | 'ListeningResponse'
-  | 'Reading';
+  | 'Reading'
+  | 'Writing';
 
 export interface RecordExamResultRequest {
-  /** Required for word-based exam types; omitted for "Listening"/"ListeningResponse"/"Reading". */
+  /** Required for word-based exam types; omitted for "Listening"/"ListeningResponse"/"Reading"/"Writing". */
   wordId?: string;
   /** Required when examType is "Listening"; omitted otherwise. */
   listeningTestId?: string;
@@ -103,9 +104,15 @@ export interface RecordExamResultRequest {
   listeningResponseTestId?: string;
   /** Required when examType is "Reading"; omitted otherwise. */
   readingPassageId?: string;
+  /**
+   * UserWord ids the writing prompt was built around, for the SM-2 fan-out. Required when
+   * examType is "Writing" and the prompt actually had required words; a zero-required-words
+   * open-topic submission legitimately omits/empties this.
+   */
+  writingWordIds?: string[];
   examType: ExamType;
   correct: boolean;
-  /** Optional 0–100 score for graded types (Sentence). */
+  /** Optional 0–100 score for graded types (Sentence, Writing). */
   score?: number;
 }
 
@@ -188,5 +195,42 @@ export interface SentenceTestGradingResponse {
   usageFeedback: string;
   creativityFeedback: string;
   overallFeedback: string;
+  suggestions: string[];
+}
+
+export interface WritingPromptWordDto {
+  wordId: string;
+  wordText: string;
+}
+
+/** Open-ended writing prompt: a topic plus up to 5 of the user's own saved words to work into
+ * a paragraph. `requiredWords` is empty for a user with no saved words — open-topic writing,
+ * not an error. Free to fetch; the AI cost sits entirely on evaluateWriting. */
+export interface WritingPromptResponse {
+  topic: string;
+  requiredWords: WritingPromptWordDto[];
+}
+
+/** Echoes topic/requiredWords back from the GET response rather than re-querying, same pattern
+ * as TranslationTestUserResponse.examinationQuestion. */
+export interface WritingSubmissionRequest {
+  topic: string;
+  requiredWords: string[];
+  submission: string;
+}
+
+export interface WritingWordUsageDto {
+  word: string;
+  used: boolean;
+}
+
+export interface WritingGradingResponse {
+  score: number;
+  grammarFeedback: string;
+  /** Topic relevance and structure/coherence. */
+  contentFeedback: string;
+  /** Overall comment on how the required words were used (or not). */
+  vocabularyFeedback: string;
+  wordsUsed: WritingWordUsageDto[];
   suggestions: string[];
 }

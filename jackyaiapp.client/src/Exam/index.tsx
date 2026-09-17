@@ -19,6 +19,7 @@ import ListeningTestCard from './ListeningTestCard';
 import ReadingTestCard from './ReadingTestCard';
 import SentenceTestCard from './SentenceTestCard';
 import TranslationTestCard from './TranslationTestCard';
+import WritingTestCard from './WritingTestCard';
 
 const styles = {
   button: {
@@ -111,6 +112,14 @@ const EXAM_MODES: ExamMode[] = [
     cost: <>每次生成 {CREDIT_COSTS.READING_COMPREHENSION_TEST} 點使用額度</>,
     color: 'warning',
     element: <ReadingTestCard />,
+  },
+  {
+    path: 'writing',
+    label: '寫作練習 (Writing Practice)',
+    // Free to open — only submitting for AI批改 charges credits, unlike every other mode.
+    cost: <>提交批改需消耗 {CREDIT_COSTS.WRITING_EVALUATION} 點使用額度</>,
+    color: 'secondary',
+    element: <WritingTestCard />,
   },
 ];
 
