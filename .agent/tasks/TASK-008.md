@@ -7,7 +7,7 @@ Backend: Open-ended writing practice with AI feedback (Skill-Building item 3 —
 Backend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM
@@ -164,7 +164,40 @@ None — can start immediately. `TASK-009` (Frontend) depends on this task's
 response DTO shape.
 
 ## Result
-_(Backend fills in after implementation)_
+Implemented as scoped:
+- `GET api/exam/writing` → `ExamService.GenerateWritingPromptAsync()`: fixed
+  topic rotation + up to 5 distinct `UserWords` rows sampled at the DB level
+  (`GetRandomUserWordsAsync`: COUNT + a set of distinct OFFSETs, same
+  technique as the existing single-word picker). Empty repository →
+  `RequiredWords: []`. No `[ConsumeCredits]`, no `ConsumeCreditsAsync` call
+  anywhere on this path — verified by a dedicated test.
+- New `Prompt/Exam/WritingEvaluationSystem.txt` + `POST api/exam/writing/evaluate`
+  → `GradeWritingAsync(...)`: one `GetCompletionAsync<WritingGradingResponse>`
+  call, inline credit gate via new `CreditCosts.WritingEvaluation = 3`, no
+  `ExamAttempt` write (client calls `record-result` separately).
+- `RecordExamResultAsync`: `"Writing"` added to the wordless group (no new
+  `ExamAttempt` column). New `WritingWordIds: List<string>?` on
+  `RecordExamResultRequest` fans the existing `ApplyResult` call out across
+  every id with a matching `UserWord`, same mapped quality for all. Null/
+  empty list is accepted (open-topic case) and simply updates nothing.
+- **No EF migration produced** — confirmed by inspection (`git status`
+  shows no new files under `Migrations/`).
+
+Tests: 20 new unit tests (`ExamServiceTests`: prompt sampling at 0/<5/>5
+saved words, never-credit-gated assertion, grading incl. a
+not-all-words-used case, insufficient-credits path, and
+`RecordExamResultAsync`'s no-WordId/empty-WritingWordIds/partial-match/
+full-fan-out cases; `ExamControllerTests`: `GetWritingPrompt` forwarding).
+
+**Known limitation**: no `dotnet` SDK available in this sandbox to actually
+run `dotnet build`/`dotnet test` — compensated with a careful manual
+read-through of every changed file (types/nullability, EF Core LINQ
+translation for the DB-level sampling query, C# named-tuple conversion
+rules) plus consistency-checking against the already-tested Translation/
+Sentence/Reading code this mirrors. A real CI run is still needed to
+confirm compilation; flagged on the PR.
+
+PR: https://github.com/twjackysu/JackyAIApp/pull/346
 
 ## Review
 _(Tech Lead fills in after PR review)_

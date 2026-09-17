@@ -883,3 +883,52 @@
   already proceeding).
 - No implementation code changes — architecture/task documentation only,
   ready for Backend/Frontend Engineers to pick up.
+
+## 2026-09-17 — Backend Engineer: TASK-008 implemented, PR opened (scheduled run)
+
+- Picked up `TASK-008` (Backend: open-ended writing practice with AI
+  feedback), scoped by Tech Lead earlier the same day in still-open commit
+  `b6ca2e2` on `master`. Read `TASK-008.md`, `REQUIREMENTS.md`'s
+  Skill-Building section, and `ARCHITECTURE.md`'s "Open-ended writing
+  practice" decision, then read `GradeTranslationAsync`/
+  `EvaluateSentenceAsync` (`ExamService.cs:541`/`:717`) and
+  `RecordExamResultAsync`'s existing wordless branches end-to-end before
+  writing any code, per the task's own instruction.
+- Implemented exactly as scoped: `GET api/exam/writing` →
+  `GenerateWritingPromptAsync()` (fixed topic rotation + up to 5 distinct
+  `UserWords` rows via a new `GetRandomUserWordsAsync` DB-level sampler —
+  COUNT + a set of distinct OFFSETs, same technique as the existing
+  single-word picker just repeated a handful of times instead of loading
+  the whole repository into memory); new
+  `Prompt/Exam/WritingEvaluationSystem.txt` + `POST api/exam/writing/evaluate`
+  → `GradeWritingAsync(...)` (one AI grading call, inline credit gate via
+  new `CreditCosts.WritingEvaluation = 3`, no `ExamAttempt` write); `"Writing"`
+  added to `RecordExamResultAsync`'s wordless group with a new
+  `WritingWordIds` fan-out across the *existing* `ApplyResult` SM-2 call,
+  same mapped quality for every id with a matching `UserWord`. Confirmed no
+  EF migration was produced (no new `ExamAttempt` column, no new tables), per
+  the task's explicit "stop and re-check if you need one" acceptance
+  criterion.
+- The `GET` prompt endpoint deliberately has no `[ConsumeCredits]` attribute
+  and the service method never calls `ConsumeCreditsAsync` — covered by a
+  dedicated test, with a code comment on the controller action so a future
+  pass doesn't "fix" this by adding the attribute out of habit, per the
+  task's explicit ask.
+- Added 20 new unit tests (`ExamServiceTests`: prompt sampling at 0/<5/>5
+  saved words, the never-credit-gated assertion, grading incl. a case where
+  a required word is reported as *not* used, insufficient-credits path, and
+  `RecordExamResultAsync`'s no-`WordId`/empty-`WritingWordIds`/partial-match/
+  full-fan-out cases confirming the same SM-2 quality lands on every matched
+  word; `ExamControllerTests`: `GetWritingPrompt` forwarding). No `dotnet`
+  SDK available in this sandbox to actually run `dotnet build`/`dotnet test`
+  — compensated with a careful manual read-through of every changed file
+  instead (types/nullability, EF Core LINQ-to-SQL translation for the
+  DB-level sampling query, C# named-tuple conversion rules), same
+  compensating approach used on every prior Backend task in this sandbox.
+  Flagged explicitly in `TASK-008.md`'s Result section and on the PR — a
+  real CI run is still needed to confirm compilation.
+- Opened [PR #346](https://github.com/twjackysu/JackyAIApp/pull/346)
+  against `master`; see `TASK-008.md` for full implementation notes.
+  Subscribed to the PR to drive it to green / respond to review.
+- `TASK-009` (Frontend) can now proceed — the response DTO shapes
+  (`WritingPromptResponse`/`WritingGradingResponse`) are stable.
