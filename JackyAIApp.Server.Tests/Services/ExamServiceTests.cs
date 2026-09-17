@@ -854,6 +854,87 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         [Fact]
+        public async Task GenerateReading_ChinesePassage_IsNeverPersisted()
+        {
+            // The reported bug. The bank is shared and mostly read back rather than regenerated,
+            // so persisting one Chinese passage serves it to every user until it is deleted by
+            // hand — the write is the part that turns a bad answer into a lasting one.
+            var chinese = BuildReadingGenerationResult();
+            chinese.PassageText = "上週末，Maria 決定離開城市的喧囂，和兩個朋友開車上山。";
+            chinese.Questions[0].QuestionText = "這篇文章主要在講什麼？";
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((chinese, (string?)null));
+
+            var result = await _service.GenerateReadingExamAsync();
+
+            Assert.False(result.IsSuccess);
+            Assert.Empty(await _dbContext.ReadingPassages.ToListAsync());
+        }
+
+        [Fact]
+        public async Task GenerateReading_ChinesePassage_FallsBackToTheBankRatherThanFailing()
+        {
+            // With something already in the bank the user still gets a usable passage; only the
+            // rejected one is thrown away.
+            var existing = await SeedReadingPassageAsync();
+            var chinese = BuildReadingGenerationResult();
+            chinese.PassageText = "整段都是中文的文章。";
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((chinese, (string?)null));
+
+            var result = await _service.GenerateReadingExamAsync();
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(existing.Id, Assert.IsType<ReadingPassageResponse>(result.Data).Id);
+            Assert.Single(await _dbContext.ReadingPassages.ToListAsync()); // nothing new saved
+        }
+
+        [Fact]
+        public async Task GenerateReading_RetriesOnceWhenTheFirstAttemptIsInTheWrongLanguage()
+        {
+            // Answering in the wrong language is a sampling slip, not a refusal, so one more roll
+            // is usually enough and is cheaper than giving up on generating at all.
+            var chinese = BuildReadingGenerationResult();
+            chinese.PassageText = "整段都是中文的文章。";
+            var good = BuildReadingGenerationResult();
+            _promptServiceMock.SetupSequence(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((chinese, (string?)null))
+                .ReturnsAsync((good, (string?)null));
+
+            var result = await _service.GenerateReadingExamAsync();
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(good.PassageText, Assert.IsType<ReadingPassageResponse>(result.Data).PassageText);
+            Assert.Equal(good.Title, (await _dbContext.ReadingPassages.SingleAsync()).Title);
+        }
+
+        [Fact]
+        public async Task GenerateReading_DoesNotRetryForever()
+        {
+            // Two attempts and no more: a model that is going to comply does so on the retry, and
+            // past that the credit spend buys nothing the fallback does not already give.
+            var chinese = BuildReadingGenerationResult();
+            chinese.PassageText = "整段都是中文的文章。";
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((chinese, (string?)null));
+
+            await _service.GenerateReadingExamAsync();
+
+            _promptServiceMock.Verify(x => x.GetCompletionAsync<ReadingGenerationResult>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()),
+                Times.Exactly(2));
+        }
+
+        [Fact]
         public async Task GenerateReading_PromptServiceFails_EmptyBank_ReturnsError()
         {
             _promptServiceMock.Setup(x => x.GetCompletionAsync<ReadingGenerationResult>(

@@ -768,36 +768,52 @@
   have an open PR — Skill-Building item 2 (reading comprehension) is fully
   implemented end-to-end (backend `#342` merged, frontend `#343` open).
 
-## 2026-09-16 — Frontend Engineer: PR #343 (TASK-007) merged into master
+## 2026-09-16 — PM: Product review of shipped item 2, handed item 3 to Tech Lead (scheduled run)
 
-- `#343` was merged (GitHub `pull_request.closed`/`merged` event, session
-  auto-unsubscribed) with both CI checks green
-  (`lint-and-build-client`/`build-and-test-server`), `mergeable_state:
-  clean`, and no review comments before merge. `master` now has the
-  Reading Comprehension exam mode end-to-end: backend (`TASK-006`, PR
-  #342) + frontend `ReadingTestCard` UI (`TASK-007`, PR #343). Not
-  recording `TASK-007.md`'s `Status:` as `MERGED` myself per SOP (§10/§18
-  reserve that to Boss) — leaving it `PR_OPENED` for Tech Lead/Boss to
-  formally close out; this log entry is the factual record that the PR
-  landed.
-- Skill-Building item 2 (reading comprehension passages) is now fully
-  shipped: both `TASK-006` and `TASK-007` merged to `master`. No further
-  Frontend action needed here — next step is Tech Lead's formal
-  review/close-out pass, same pattern as prior task pairs.
+- No new message in `.agent/boss/PM.md` since PM's own 2026-09-15 reply —
+  nothing pending Boss decision at the PM level. Checked `.agent/boss/
+  TECH_LEAD.md` too: Boss has not yet replied to Tech Lead's 2026-09-16
+  flag about reading passages not being personalized; non-blocking, left
+  as-is (Tech Lead's channel to carry, not PM's to duplicate).
+- Confirmed via `git log` that `PR #342` (`TASK-006`, backend) and `PR
+  #343` (`TASK-007`, frontend) are both merged into `master` — Skill-
+  Building item 2 (reading comprehension) is fully shipped end-to-end.
+  `TASK-006.md`/`TASK-007.md` still show `Status: PR_OPENED`; per SOP
+  §10/§18 that bookkeeping is Tech Lead's/Boss's to close, not PM's.
+- **Product review, item 2**: read the actual merged code, not just prior
+  run self-reports — `ExamService.GenerateReadingExamAsync` (shared-bank
+  pattern, `ReadingBankGrowthThreshold = 20`, server-side rejection of any
+  generated passage outside the 3–4-question/3–4-option/exactly-1-correct
+  shape), `CreditCosts.ReadingComprehensionTest = 3`, and the frontend
+  `Exam/ReadingTestCard`. Matches the requirement's actual named gap
+  (passage-level reading comprehension) and the cost model Tech Lead
+  proposed (reuse Listening's bank pattern, not a per-request AI call).
+  `REQUIREMENTS.md`'s Skill-Building acceptance criteria updated — item 2
+  is now marked product-complete, same as item 1 was on 2026-09-15.
+- **Handed Skill-Building item 3 (open-ended writing practice with AI
+  feedback) to Tech Lead** for a feasibility/cost evaluation, now that
+  item 2 is fully shipped. Treated as executing the already-approved
+  priority order (DECISION-005), not a new scope decision — same
+  "proceed by default" pattern used for items 1 and 2. Flagged in
+  `.agent/boss/PM.md` in case Boss wants to pause/reorder.
+- No code changes — Requirements/status documentation only.
 
 ## Open Items
-- **Tech Lead/Boss**: confirm `PR #342` (TASK-006) and `PR #343`
-  (TASK-007) merges and flip both task statuses to `MERGED`; verify the
-  resulting Azure deploy run(s) succeeded (root `CLAUDE.md` notes two
-  quick merges can cancel an earlier in-flight deploy — worth a
-  `gh run list`-style check).
-- **Boss attention (non-blocking)**: reading passages will not be
-  personalized to the user's own saved vocabulary (they reuse the
-  Listening shared-bank pattern instead of Cloze's per-word pattern) — see
-  `.agent/boss/TECH_LEAD.md` for the trade-off writeup. Tech Lead is
-  proceeding on this basis unless told otherwise.
+- **Tech Lead/Boss**: `TASK-006`/`TASK-007` task-file `Status:` fields
+  still read `PR_OPENED` though both PRs are merged — bookkeeping close-out
+  still pending (Tech Lead's to do, per its own established pattern from
+  `TASK-001`–`005`).
+- **Boss attention (non-blocking, unanswered since 2026-09-16)**: reading
+  passages are not personalized to the user's own saved vocabulary (they
+  reuse the Listening shared-bank pattern instead of Cloze's per-word
+  pattern) — see `.agent/boss/TECH_LEAD.md` for the trade-off writeup.
+  Tech Lead is proceeding on this basis unless told otherwise.
+- **New**: Skill-Building item 3 (open-ended writing practice) handed to
+  Tech Lead this run — next Tech Lead run should treat scoping it as the
+  actionable item unless Boss redirects.
 - Still open from before: Phase 2 of speaking delivery feedback (true
   pronunciation-accuracy scoring, new vendor) — cost/vendor decision
   pending Boss, not scoped as a task.
 - Still open from before: future gap-audit of Finance/Portfolio/PDF
   Unlocker (DECISION-005) — not started, no urgency signaled by Boss.
+  Worth considering once Skill-Building's 4-item list is closer to done.

@@ -330,3 +330,34 @@ Skill-Building 第二項（閱讀理解短文）已交付，等下次 Tech Lead 
 ## Boss Attention Required
 無，這次沒有需要您立即裁示的事項。
 
+---
+
+# PM → Boss (2026-09-16)
+
+## Status
+Skill-Building 第二項（閱讀理解短文）已經上線（`TASK-006`/`TASK-007` 都
+merge 了）。我直接讀了實際上線的程式碼做產品驗收，確認符合需求——每篇短文
+固定 3–4 題選擇題（後端有強制檢查，格式不對會 fallback 到題庫既有題目而不是
+硬塞錯誤格式給使用者），扣點機制正常（`CreditCosts.ReadingComprehensionTest
+= 3`），採用聽力測驗那套「共用題庫、庫存不足才生成」的省錢模式，不是每次都
+呼叫 AI。`REQUIREMENTS.md` 已經把這項的驗收條件勾完。
+
+## Completed
+- 產品驗收：Skill-Building 第二項確認完成，`REQUIREMENTS.md` 更新。
+- 已把 Skill-Building 第三項（開放式寫作批改）交給 Tech Lead 做技術可行性
+  評估——延續 DECISION-005 已核准的優先序往下推進，不是新的範圍決策，這次
+  沒有等您先回覆才動作，比照之前的模式。
+
+## Open Questions
+無急件。Tech Lead 在 2026-09-16 於 `.agent/boss/TECH_LEAD.md` 提到的「閱讀
+短文不會用使用者自己收藏的單字出題」這個取捨，目前還沒收到您的回覆——不影響
+現在的進度（Tech Lead 已經照這個方向開工並上線），但如果您希望短文一定要包含
+使用者自己收藏的單字，麻煩告知，我們可以重新評估（會犧牲掉共用快取的成本
+優勢）。
+
+## Tech Lead Actions
+Skill-Building 第三項（開放式寫作批改）已交付，等下次 Tech Lead 執行時認領。
+
+## Boss Attention Required
+無需要您立即裁示的事項。如上題（閱讀短文個人化取捨）僅供您參考，非急件。
+
