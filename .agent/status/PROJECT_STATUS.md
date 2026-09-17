@@ -883,3 +883,20 @@
   already proceeding).
 - No implementation code changes — architecture/task documentation only,
   ready for Backend/Frontend Engineers to pick up.
+
+## 2026-09-17 — Frontend: TASK-009 remains blocked on TASK-008
+
+- Scheduled Frontend run checked `.agent/tasks/` for assigned work. Only
+  assigned/ready item is `TASK-009` (Writing Practice UI), which depends on
+  `TASK-008` (Backend).
+- `TASK-008` has an open PR (#346) but it is **not merged** into `master`
+  yet, and its CI has not produced any check runs yet (author flagged in
+  the PR body that they had no local `dotnet` SDK to verify the build).
+  No writing-feature C# code exists on `master` yet to read exact DTO
+  field names/casing from.
+- Per `TASK-009`'s own requirements ("match `TASK-008`'s actual **merged**
+  DTO shape... don't guess"), did not start implementation against the
+  unmerged branch. Flipped `TASK-009` to `Status: BLOCKED` with a Blocker
+  section recorded in the task file; no source code changes made this run.
+- No action needed from Tech Lead/Backend beyond the normal PR review/merge
+  path for #346 — this is a sequencing dependency, not a new issue.

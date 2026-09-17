@@ -7,7 +7,7 @@ Frontend: Writing practice test UI (Skill-Building item 3 — 寫)
 Frontend
 
 ## Status
-READY
+BLOCKED
 
 ## Priority
 MEDIUM
@@ -114,6 +114,53 @@ final; no need to wait for further Tech Lead sign-off once `TASK-008` lands.
 
 ## Result
 _(Frontend fills in after implementation)_
+
+### 2026-09-17 — Frontend: checked in, still blocked on TASK-008
+
+Checked out the assigned task per the scheduled Frontend run. `TASK-008`'s
+backend PR (#346, `feat(exam): open-ended writing practice with AI feedback
+(TASK-008)`, branch `claude/magical-heisenberg-5pk8jh`) is open against
+`master` but **not merged** — `mergeable_state: clean`, but its CI status
+check returns zero runs (`state: pending`, `total_count: 0`), and the PR's
+own body flags that its author had no `dotnet` SDK available to run
+`dotnet build`/`dotnet test` locally, so the build is unconfirmed pending a
+real CI pass.
+
+No C# evidence of the writing feature exists yet on `master` (no `Writing`
+references in `JackyAIApp.Server`, no `Prompt/Exam/WritingEvaluationSystem.txt`)
+— confirmed the DTOs this task needs
+(`WritingPromptResponse`/`WritingPromptWordDto`/`WritingGradingResponse`/
+`WritingWordUsageDto`) are not yet available to read from merged code.
+
+Per this task's own Dependencies note ("needs the **merged** response DTO
+shape before exact field names can be finalized... don't guess") and
+Technical Notes, starting the frontend slice against the unmerged PR's
+branch would risk building against field names/casing that could still
+change in review. Standing down without code changes; will pick this back
+up once PR #346 merges into `master`.
+
+## Blocker
+
+### Problem
+`TASK-008` (Backend, PR #346) is open but not yet merged into `master`,
+and its CI has not yet run to confirm the build is green.
+
+### Why It Blocks Implementation
+This task's own requirements explicitly require matching `TASK-008`'s
+**actual merged** DTO field names/casing exactly, verified by reading the
+merged C# DTOs — not by reading an unmerged branch that could still change
+during review, and not by guessing.
+
+### What Is Needed
+PR #346 merged into `master` (and ideally a green CI run confirming the
+backend build/tests actually pass, since the PR author could not run
+`dotnet build`/`dotnet test` locally).
+
+### Suggested Resolution
+No action needed from Frontend beyond waiting — this is purely a
+sequencing dependency already called out in the task's own Dependencies
+section. Re-check on the next scheduled run; implement immediately once
+`TASK-008` lands on `master`.
 
 ## Review
 _(Tech Lead fills in after PR review)_
