@@ -410,6 +410,46 @@ namespace JackyAIApp.Server.Services.Exam
                 .FirstAsync();
         }
 
+        /// <summary>
+        /// Asks for a passage and returns it only if it passes <see cref="ReadingPassageValidator"/>,
+        /// retrying once. The retry is here because the failure this guards against — the model
+        /// answering in the wrong language — is a sampling slip rather than a settled refusal, and
+        /// GPT-4.1-nano on its second attempt usually complies. Two attempts and no more: past
+        /// that the fallback to an existing passage is both faster and cheaper than a third roll.
+        /// </summary>
+        private async Task<(ReadingGenerationResult? Dto, string? Rejection)> GenerateValidReadingPassageAsync(string topic)
+        {
+            const int maxAttempts = 2;
+            string? lastRejection = null;
+
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                var (dto, error) = await _promptService.GetCompletionAsync<ReadingGenerationResult>(
+                    "Prompt/Exam/ReadingSystem.txt", topic,
+                    model: NewModels.GPT_4_1_NANO, examples: new[] { ReadingFewShotExample },
+                    feature: ReadingFeature);
+
+                if (dto == null)
+                {
+                    lastRejection = error ?? "no response";
+                }
+                else
+                {
+                    lastRejection = ReadingPassageValidator.Validate(dto);
+                    if (lastRejection == null)
+                    {
+                        return (dto, null);
+                    }
+                }
+
+                _logger.LogWarning(
+                    "Reading passage attempt {Attempt}/{MaxAttempts} rejected for topic {Topic}: {Reason}",
+                    attempt, maxAttempts, topic, lastRejection);
+            }
+
+            return (null, lastRejection);
+        }
+
         public async Task<ServiceResult> GenerateReadingExamAsync()
         {
             var userId = _userService.GetUserId();
@@ -428,16 +468,15 @@ namespace JackyAIApp.Server.Services.Exam
             }
 
             var topic = ReadingTopics[Random.Shared.Next(ReadingTopics.Length)];
-            var (dto, error) = await _promptService.GetCompletionAsync<ReadingGenerationResult>(
-                "Prompt/Exam/ReadingSystem.txt", topic,
-                model: NewModels.GPT_4_1_NANO, examples: new[] { ReadingFewShotExample },
-                feature: ReadingFeature);
+            var (dto, rejection) = await GenerateValidReadingPassageAsync(topic);
 
             if (dto == null)
             {
-                _logger.LogError("Failed to generate reading passage: {Error}", error);
+                _logger.LogError("Failed to generate a usable reading passage for topic {Topic}: {Reason}", topic, rejection);
 
                 // Fall back to an existing one rather than a hard failure, if the bank has any.
+                // A rejected passage must never be persisted: the bank is shared and reused, so
+                // saving one bad passage serves it to everyone for as long as it is in there.
                 if (count > 0)
                 {
                     var fallback = await PickReadingFromPoolAsync(excludeIds, unseenCount, count);
@@ -446,14 +485,6 @@ namespace JackyAIApp.Server.Services.Exam
 
                 return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
                     "Query failed, OpenAI could not generate the passage.");
-            }
-            if (dto.Questions.Count < 3 || dto.Questions.Count > 4 ||
-                dto.Questions.Any(q => q.Options.Count < 3 || q.Options.Count > 4 || q.Options.Count(o => o.IsCorrect) != 1))
-            {
-                _logger.LogError("Reading passage generation returned a malformed question/option shape ({QuestionCount} questions)",
-                    dto.Questions.Count);
-                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed,
-                    "Generated passage had an invalid question/option shape (expected 3-4 questions, each with 3-4 options and 1 correct).");
             }
 
             var passageId = Guid.NewGuid().ToString();
