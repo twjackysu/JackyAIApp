@@ -980,3 +980,51 @@
   either); flagged in `TASK-009.md` in case Tech Lead wants that changed.
 - Opened a PR, flipped `TASK-009.md` Status to `PR_OPENED`, filled in its
   Result/Files Changed/Tests/Known Issues sections.
+
+## 2026-09-17 — PM: Product review of shipped item 3, handed item 4 (last item) to Tech Lead (scheduled run)
+
+- No new message in `.agent/boss/PM.md` since PM's own 2026-09-16 reply —
+  nothing pending Boss decision at the PM level.
+- Confirmed via `git log` that PR #347 (`TASK-008`, backend) and PR #348
+  (`TASK-009`, frontend) are both merged into `master` (current branch tip
+  `64c8c68` already carries both). Skill-Building item 3 (open-ended
+  writing practice) is fully shipped end-to-end.
+- **Product review, item 3**: read the actual merged code —
+  `ExamService.GenerateWritingPromptAsync` (free: topic pick + up to 5
+  random saved words, zero AI call) / `GradeWritingAsync` (single
+  credit-gated AI call, `CreditCosts.WritingEvaluation = 3`, returns
+  score + grammar/content/vocabulary feedback + per-word used/not-used
+  list), `ExamController`'s `GET api/exam/writing` / `POST
+  api/exam/writing/evaluate` routes, and the frontend
+  `Exam/WritingTestCard`. Confirmed the "free to open, charged on submit"
+  cost shape is correctly reflected in UI copy (mode-selection caption:
+  "提交批改需消耗 N 點使用額度", not implied at entry) and that
+  `RecordExamResultAsync` has a distinct `"Writing"` wordless branch.
+  Matches the requirement exactly, including the flagged trade-off (one
+  holistic grade fanned across all required words, not per-word scoring).
+  `REQUIREMENTS.md`'s Skill-Building acceptance criteria updated — item 3
+  is now marked product-complete, same as items 1 and 2.
+- **Handed Skill-Building item 4 (dictation practice) to Tech Lead** — the
+  last item on the originally-approved 4-item list (DECISION-005 priority
+  order: speaking → reading → writing → dictation). Treated as executing
+  the already-approved order, not a new scope decision — same
+  "proceed by default" pattern used for items 1–3. Flagged in
+  `.agent/boss/PM.md` that once this ships, the Skill-Building requirement
+  as originally scoped is complete, and future growth work should look at
+  the still-open Future Consideration item (product-wide gap audit of
+  Finance/Portfolio/PDF Unlocker, per DECISION-005) rather than inventing
+  a fifth Skill-Building feature without a fresh Boss mandate.
+- No code changes — Requirements/status documentation only.
+
+## Open Items
+- **New, from this run**: Skill-Building item 4 (dictation practice)
+  handed to Tech Lead — next Tech Lead run should treat scoping it as the
+  actionable item unless Boss redirects. This is the last item in the
+  currently-approved Skill-Building list.
+- Still open from before: Phase 2 of speaking delivery feedback (true
+  pronunciation-accuracy scoring, new vendor) — cost/vendor decision
+  pending Boss, not scoped as a task.
+- Still open from before: future gap-audit of Finance/Portfolio/PDF
+  Unlocker (DECISION-005) — not started. Worth picking up once item 4
+  (dictation) ships and closes out the Skill-Building list, since there
+  will then be no other approved English-skill work left in the queue.

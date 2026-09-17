@@ -361,3 +361,37 @@ Skill-Building 第三項（開放式寫作批改）已交付，等下次 Tech Le
 ## Boss Attention Required
 無需要您立即裁示的事項。如上題（閱讀短文個人化取捨）僅供您參考，非急件。
 
+---
+
+# PM → Boss (2026-09-17)
+
+## Status
+Skill-Building 第三項（開放式寫作批改）已經上線（`TASK-008`/`TASK-009` 都
+merge 了，PR #347/#348）。我直接讀了實際上線的程式碼做產品驗收，確認符合
+需求——出題（主題＋最多 5 個使用者收藏單字）完全免費不扣點，只有送出去給
+AI 批改才扣 3 點（`CreditCosts.WritingEvaluation`），回饋包含分數、文法/
+內容/單字三個面向的意見、每個指定單字有沒有用到的清單；前端文案正確反映
+「進入免費、送出才扣點」（選單頁寫「提交批改需消耗 N 點使用額度」，不會
+讓人誤以為進入這個模式就要扣點）。`REQUIREMENTS.md` 已經把這項的驗收條件
+勾完。
+
+## Completed
+- 產品驗收：Skill-Building 第三項確認完成，`REQUIREMENTS.md` 更新。
+- 已把 Skill-Building 第四項、也是最後一項（聽寫練習）交給 Tech Lead 做
+  技術可行性評估——延續 DECISION-005 已核准的優先序往下推進，不是新的範圍
+  決策，這次沒有等您先回覆才動作，比照之前三項的模式。
+
+## Open Questions
+無急件。提醒一件事：第四項做完之後，最初核准的「Skill-Building 四項清單」
+就會全部做完。屆時如果您沒有新的方向，我下次會轉去處理之前記錄過、還沒
+開始的「Finance／Portfolio／PDF Unlocker 現況缺口盤點」（DECISION-005 提到
+的長期目標，長期改進不限英語學習），而不是自己再無中生有第五個英語技能
+功能。如果您屆時有其他優先順序（例如想先看看這四項上線後的實際使用狀況
+再決定要不要繼續投入英語學習這條線），跟我說一聲即可。
+
+## Tech Lead Actions
+Skill-Building 第四項（聽寫練習）已交付，等下次 Tech Lead 執行時認領。
+
+## Boss Attention Required
+無需要您立即裁示的事項。
+

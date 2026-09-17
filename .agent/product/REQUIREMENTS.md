@@ -214,19 +214,20 @@ Proposed features, in the priority order PM recommended and **Boss approved
    Flagged to Boss in `.agent/boss/TECH_LEAD.md` 2026-09-16 — **no Boss
    reply yet**, treated as non-blocking per Tech Lead's note that Engineers
    were told to proceed regardless.
-3. **Open-ended writing practice with AI feedback** — MEDIUM. **Scoped by
-   Tech Lead 2026-09-17** — see `ARCHITECTURE.md` → "Decision: Open-ended
-   writing practice with AI feedback" and `TASK-008`/`TASK-009`, both
-   `READY`. Reuses Translation Test's **grading** call shape only (one-shot
-   AI feedback call, decoupled from attempt recording) — the "prompt"
-   itself (a topic + up to 5 of the user's own saved words) costs zero AI
-   calls to produce, unlike every other exam type's generation step, so
-   only the evaluation call is credit-gated. Feeds the SM-2 schedule for
-   every required word via the paragraph's single holistic AI grade (no new
-   per-word tracking table — flagged as a trade-off in the Architecture
-   doc). Unlike item 2 (reading), this one **is** personalized to the
-   user's own saved vocabulary, matching this requirement's original
-   "use these 5 saved words" framing exactly.
+3. **Open-ended writing practice with AI feedback** — MEDIUM. **Shipped
+   2026-09-17** (`TASK-008`/`TASK-009`, both merged via PR #347/#348;
+   product review passed — see Acceptance Criteria below). Reuses
+   Translation Test's **grading** call shape only (one-shot AI feedback
+   call, decoupled from attempt recording) — the "prompt" itself (a topic +
+   up to 5 of the user's own saved words) costs zero AI calls to produce,
+   unlike every other exam type's generation step, so only the evaluation
+   call is credit-gated (`CreditCosts.WritingEvaluation = 3`). Feeds the
+   SM-2 schedule for every required word via the paragraph's single
+   holistic AI grade (no new per-word tracking table — flagged as a
+   trade-off in the Architecture doc, non-blocking per Tech Lead's
+   2026-09-17 note to Boss). Unlike item 2 (reading), this one **is**
+   personalized to the user's own saved vocabulary, matching this
+   requirement's original "use these 5 saved words" framing exactly.
 4. **Dictation practice (listen → type what you hear)** — MEDIUM-LOW.
    Combines existing TTS (audio generation) and simple string-diff grading
    (no new AI call needed for grading) — likely the cheapest of the four to
@@ -278,6 +279,22 @@ Proposed features, in the priority order PM recommended and **Boss approved
       (passage-level comprehension) though — as flagged to Boss and noted
       above — it does not personalize passage content to the user's saved
       vocabulary. **Item 2 is fully shipped and product-complete.**
+- [x] **Item 3 (open-ended writing practice) verified 2026-09-17** by PM
+      reading the shipped code on `master` directly
+      (`ExamService.GenerateWritingPromptAsync`/`GradeWritingAsync`,
+      `Controllers/ExamController.cs`'s `GET api/exam/writing` / `POST
+      api/exam/writing/evaluate`, frontend `Exam/WritingTestCard`): prompt
+      fetch is free (no credit charge, no AI call — a topic pick + up to 5
+      random saved words), grading is a single credit-gated AI call
+      (`CreditCosts.WritingEvaluation = 3`) returning score plus
+      grammar/content/vocabulary feedback and a per-word used/not-used
+      list. Frontend copy correctly reflects the "free to open, charged on
+      submit" cost shape (mode-selection caption reads "提交批改需消耗 N
+      點使用額度", not implied at entry). `RecordExamResultAsync` has a
+      distinct `"Writing"` wordless branch, matching the requirement's
+      note that this fans a single holistic grade across every required
+      word rather than judging each word separately. **Item 3 is fully
+      shipped and product-complete.**
 
 ### Priority
 HIGH — this is the concrete workstream behind DECISION-004's redirect; it is
@@ -310,10 +327,21 @@ what "Growth & Retention" now means in practice.
   **fully shipped** (see Acceptance Criteria above).
 - ~~PM handed item 3 (open-ended writing practice) to Tech Lead~~ —
   **resolved (2026-09-17)**: scoped into `TASK-008`/`TASK-009`, both
-  `READY`, unclaimed by an Engineer yet. Tech Lead's still-open, non-blocking
-  flag to Boss about item 2's passages not being personalized
-  (`.agent/boss/TECH_LEAD.md`, 2026-09-16) remains unanswered — not a
-  blocker for item 3, which is an independent feature.
+  merged (PR #347/#348); product review passed same day — see Acceptance
+  Criteria above. Tech Lead's still-open, non-blocking flag to Boss about
+  item 2's passages not being personalized (`.agent/boss/TECH_LEAD.md`,
+  2026-09-16) remains unanswered — not a blocker for anything currently in
+  flight.
+- **PM handed item 4 (dictation practice) to Tech Lead — 2026-09-17.** All
+  three prior items in the approved priority order are now shipped and
+  product-verified; this executes the already-approved order (DECISION-005)
+  rather than a new scope decision, same "proceed by default" pattern used
+  for items 1–3. This is also the **last item** on the original
+  Skill-Building list — once it ships, this requirement's four-item scope
+  is complete and future growth work should look at the Future
+  Consideration items below (product-wide gap audit beyond English
+  learning) instead of inventing a fifth Skill-Building item without a
+  fresh Boss mandate.
 
 ---
 
