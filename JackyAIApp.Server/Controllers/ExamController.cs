@@ -145,6 +145,20 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetReadingTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateReadingExamAsync());
 
+        /// <summary>Serves an open-ended writing prompt (topic + up to 5 of the user's own saved
+        /// words). Deliberately NOT credit-gated: unlike every other exam-type "generation"
+        /// endpoint, this one costs zero AI calls to produce (plain DB queries) — the whole
+        /// charge for this feature sits on POST writing/evaluate instead. Do not add
+        /// [ConsumeCredits] here.</summary>
+        [HttpGet("writing")]
+        public async Task<IActionResult> GetWritingPrompt() =>
+            _responseFactory.ToActionResult(await _examService.GenerateWritingPromptAsync());
+
+        /// <summary>Grades an open-ended writing submission and provides detailed feedback.</summary>
+        [HttpPost("writing/evaluate")]
+        public async Task<IActionResult> EvaluateWriting([FromBody] WritingSubmissionRequest request) =>
+            _responseFactory.ToActionResult(await _examService.GradeWritingAsync(request));
+
         /// <summary>Shared unbilled-TTS-lookup helper: resolves a ServiceResult&lt;string&gt; text
         /// lookup into a cached-or-freshly-synthesized audio response.</summary>
         private async Task<IActionResult> ToAudioResultAsync(ServiceResult lookup)

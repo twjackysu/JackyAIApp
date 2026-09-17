@@ -883,3 +883,35 @@
   already proceeding).
 - No implementation code changes — architecture/task documentation only,
   ready for Backend/Frontend Engineers to pick up.
+
+## 2026-09-17 — Backend Engineer: TASK-008 implementation (scheduled run)
+
+- Picked up `TASK-008` (Status: READY, Owner: Backend) — open-ended writing
+  practice with AI feedback. Read the task, `ARCHITECTURE.md`'s writing
+  decision, and `ExamService.cs`'s `GradeTranslationAsync`/
+  `EvaluateSentenceAsync`/`RecordExamResultAsync` end-to-end before writing
+  any code, per the task's own instruction to copy the grading shape rather
+  than invent one.
+- Implemented exactly as scoped: `GenerateWritingPromptAsync()` (free,
+  topic rotation + up to 5 distinct `UserWords` via a new DB-level
+  distinct-offset sampling helper, `RequiredWords: []` for an empty
+  repository), `GradeWritingAsync()` (one-shot `GetCompletionAsync`,
+  inline credit gate, new `Prompt/Exam/WritingEvaluationSystem.txt`), new
+  `CreditCosts.WritingEvaluation = 3`, and a `"Writing"` branch in
+  `RecordExamResultAsync` that fans the existing `ApplyResult` SM-2 call
+  out across every required word sharing one holistic quality value. No EF
+  migration, matching the architecture doc's explicit scoping constraint.
+  Added unit tests for the new prompt/grading/record-result paths
+  (not-credit-gated assertion, insufficient-credits path, unused-word
+  `Used: false` case, SM-2 fan-out onto only the matching words).
+- **Could not run `dotnet build`/`dotnet test`**: this session's sandbox has
+  no .NET SDK, and installing one is blocked by the environment's network
+  policy (confirmed 403 from the egress proxy on
+  `builds.dotnet.microsoft.com`). Compensated with a thorough manual
+  review (brace/paren balance checks, cross-checking every new call against
+  its real interface signature) but this is not a substitute for an actual
+  test run — flagged explicitly in `TASK-008.md`'s Result section and in
+  the PR description; Tech Lead/CI should run the suite before merge.
+- Opened a PR on branch `claude/magical-heisenberg-7lvfal`, flipped
+  `TASK-008.md` Status to `PR_OPENED`, filled in its Result/Files
+  Changed/Tests/Known Issues sections.
