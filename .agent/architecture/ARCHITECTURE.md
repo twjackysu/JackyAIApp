@@ -403,3 +403,166 @@ personalized to saved words.
 
 See `TASK-006` (Backend) and `TASK-007` (Frontend, depends on TASK-006's
 response shape).
+
+---
+
+## Decision: Open-ended writing practice with AI feedback — Skill-Building item 3
+
+### Context
+`REQUIREMENTS.md` → "Skill-Building Feature Expansion" names 寫 (writing) as
+covered only at single-sentence granularity (Translation Test, Sentence
+Formation Test) — no open-ended/paragraph-level writing with feedback. PM
+handed this item to Tech Lead 2026-09-16 for a feasibility/cost evaluation,
+executing the already-approved DECISION-005 priority order (no fresh
+sign-off needed, same pattern as items 1 and 2). The requirement's own
+framing: "reuses the existing 'AI grades free-text against a rubric' pattern
+already proven by Translation Test grading, extended to a short paragraph
+prompt (e.g., 'use these 5 saved words in a short paragraph about X')."
+
+Investigated the existing Translation/Sentence grading code before scoping:
+
+1. **Generation and grading are already two separate, independently-costed
+   steps for both Translation and Sentence** — `GenerateAsync` (via
+   `IWordExamGenerator`, cached per-word) is a different call from
+   `GradeTranslationAsync`/`EvaluateSentenceAsync` (`ExamService.cs:541`,
+   `:717` — one-shot `GetCompletionAsync<T>` call, credit-gated inline via
+   `_creditService.ConsumeCreditsAsync` rather than the `[ConsumeCredits]`
+   controller attribute used on generation endpoints). Grading never writes
+   an `ExamAttempt` itself — the client separately calls
+   `POST api/exam/record-result` afterward. This item only needs to reuse
+   the **grading** half of that pattern; there is nothing to generate via AI
+   here at all (see next point).
+2. **The "prompt" a writing exercise needs — a topic plus a handful of the
+   user's own saved words to work into a paragraph — costs zero AI calls to
+   produce.** Unlike Cloze/Translation/Sentence (each needs an AI call to
+   turn one word into a graded exercise) or Reading (needs AI to write a
+   whole passage), a writing prompt is just "pick a topic string from a
+   fixed rotation" + "pick up to 5 rows from the user's own `UserWords`" —
+   both plain DB queries. This means the credit cost story here is
+   structurally different from every existing exam type: **the "generate a
+   prompt" step is free, and the entire AI cost sits on the one-shot grading
+   call the user triggers by submitting**, not spread across generation vs.
+   evaluation the way Translation/Sentence charge both.
+3. **No existing pattern for "N required words in one free-text
+   submission" feeding the SM-2 schedule.** Every current grading/record-
+   result path (`ExamAttempt`, `RecordExamResultRequest`) assumes exactly
+   one `WordId` per attempt, or none at all (the wordless
+   Listening/ListeningResponse/Reading group). A paragraph naming 5 words at
+   once doesn't fit either shape as-is — this is a genuine gap, not
+   something the existing schema already answers (see Decision below for how
+   it's closed without a schema rework).
+
+### Decision
+Reuse Translation/Sentence's **grading pattern only** (one-shot
+`GetCompletionAsync<T>` call, inline credit gate, decoupled from attempt
+recording); do **not** model this on `IWordExamGenerator` or the
+Listening/Reading bank pattern, since neither fits (no AI-authored content to
+cache — the prompt itself is free to produce).
+
+- **`GET api/exam/writing`** → `GenerateWritingPromptAsync()`: picks a topic
+  from a small fixed rotation (e.g. daily life, a memorable experience, a
+  skill you want to learn, an opinion on something — Backend's call, doesn't
+  need Tech Lead sign-off on the exact list) and up to 5 distinct rows from
+  the calling user's own `UserWords` (plain random DB sample, no AI). If the
+  user has fewer than 5 saved words, use however many they have; if they
+  have **zero**, still return the prompt with an empty `RequiredWords` list
+  (open-topic writing, no forced vocabulary) rather than blocking the
+  feature — same "don't punish an empty repository with an error-shaped
+  response" principle `TASK-007` already established for Reading.
+  **Not credit-gated** — this is the one exam-type "generation" endpoint in
+  the whole app with zero underlying AI cost, so charging credits for it
+  would break the "credit cost tracks AI cost" principle worse than any
+  existing flat-rate charge does. Flag this explicitly in the PR/task so it
+  isn't "fixed" later by someone assuming every `GET api/exam/*` must be
+  credit-gated by convention.
+- **`POST api/exam/writing/evaluate`** → `GradeWritingAsync(...)`: exactly
+  the `GradeTranslationAsync` shape — one `GetCompletionAsync<T>` call
+  against a new `Prompt/Exam/WritingEvaluationSystem.txt`, inline credit gate
+  via a new `CreditCosts.WritingEvaluation`, no `ExamAttempt` write inside
+  this call (client calls `record-result` separately, same as
+  Translation/Sentence). Input: topic + required words (echoed back by the
+  client from the `GET` response, not re-queried — same pattern
+  `TranslationTestUserResponse` already uses for `ExaminationQuestion`) +
+  the user's submission text. Output mirrors `SentenceTestGradingResponse`'s
+  richer multi-field shape (score + grammar/content/vocabulary feedback +
+  suggestions) plus one new field: `WordsUsed: List<{ Word, Used }>` so the
+  UI (and the record-result call below) can tell which of the required words
+  actually made it into the submission.
+- **SM-2 / `RecordExamResultAsync`**: add `"Writing"` to the wordless group
+  for the `ExamAttempt` row itself (no single `WordId` fits a multi-word
+  attempt, so — like Listening/Reading — the attempt log itself carries no
+  `WordId`; **no new `ExamAttempt` column, no EF migration**, unlike every
+  prior Skill-Building task). Add `WritingWordIds: List<string>?` to
+  `RecordExamResultRequest`; when `ExamType == "Writing"`, fan out the
+  **existing** `_spacedRepetition.ApplyResult(...)` call across every ID in
+  that list, all using the same `MapQuality(request.Correct, request.Score)`
+  value already computed once for the whole submission — the AI's grade is
+  one holistic judgment of the paragraph, not a separate pass/fail per word,
+  so applying the same quality to every required word the paragraph was
+  built around is the honest signal, not an approximation that needs its own
+  new scoring logic.
+- **Credit cost**: propose `CreditCosts.WritingEvaluation = 3` — a paragraph-
+  level submission plus multi-field structured feedback is a heavier
+  generation than `SentenceEvaluation` (2, single-sentence feedback) but the
+  prompt itself carries no separate charge (unlike Translation/Sentence,
+  where generation is charged too) — Backend/PM to sanity-check once real
+  token usage is observed, same as every other starting-estimate cost in
+  this project.
+
+### Reason
+Every piece of this reuses something already proven in this codebase
+(grading-call shape, inline credit gate, `MapQuality`, the wordless
+`ExamAttempt` group) rather than inventing new machinery — the only genuinely
+new piece is the SM-2 fan-out, which is a five-line loop around an existing
+method, not a new subsystem. No new vendor, no new AI call beyond one
+already-costed completion per submission, consistent with DECISION-003.
+
+### Alternatives
+- **New junction table** (`WritingSubmission` ↔ `Word`, many-to-many) for
+  precise per-word-per-submission SM-2 tracking, instead of fanning out a
+  shared quality value: rejected for now as over-engineering relative to
+  what the feature needs — "did this paragraph, built around these 5 words,
+  go well" is inherently one holistic judgment, and the fan-out already
+  reinforces every word's schedule from that single judgment. Revisit only
+  if a real product need emerges for tracking per-word pass/fail *within* a
+  single writing attempt separately (e.g. "used 3 of 5 correctly" changing
+  each word's schedule differently) — not required by this requirement's
+  acceptance criteria as written.
+- **Credit-gate the `GET` prompt endpoint too**, for consistency with every
+  other exam type's generation endpoint: rejected — there's no AI cost to
+  recover, so charging would be charging for literally nothing, which is a
+  worse inconsistency than "this one endpoint doesn't charge" is.
+- **Model this on `IWordExamGenerator`** (anchor to one word, cache per
+  word): rejected — this exercise is inherently multi-word by design (the
+  entire point is "use several of your saved words together"), so a
+  single-word cache key doesn't fit, and there's no AI-authored content to
+  cache in the first place.
+
+### Trade-offs
+- The `GET` prompt endpoint being free while the `evaluate` endpoint is
+  charged is a UX wrinkle other exam modes don't have (elsewhere, the cost
+  shown on the exam-selection screen is the cost of the whole interaction;
+  here, opening the card is free and the charge only happens on submit) —
+  Frontend needs to communicate this clearly (e.g. show the cost near the
+  submit button, not just the mode-selection button) rather than silently
+  reusing the same cost-caption placement as every other mode.
+- SM-2 quality is shared across all required words in one submission rather
+  than judged per word — a user who used 4 of 5 words well and 1 badly gets
+  the same schedule update on all 5. Accepted per the Alternatives section
+  above; flagged here in case Boss or a future PM pass wants finer-grained
+  per-word tracking later.
+
+### Impact
+- `JackyAIApp.Server`: new `Prompt/Exam/WritingEvaluationSystem.txt`,
+  `GenerateWritingPromptAsync()` + `GradeWritingAsync()` on
+  `ExamService`/`IExamService`, new DTOs (`WritingPromptResponse`,
+  `WritingSubmissionRequest`, `WritingGradingResponse`), new
+  `CreditCosts.WritingEvaluation`, `RecordExamResultAsync` gains the
+  `"Writing"` wordless branch + `WritingWordIds` fan-out. **No EF
+  migration** — no new tables or columns.
+- `jackyaiapp.client`: new `Exam/WritingTestCard`, new `EXAM_MODES` entry,
+  API slice additions, credit-cost UX handling the free-prompt/charged-
+  evaluate split above.
+
+See `TASK-008` (Backend) and `TASK-009` (Frontend, depends on TASK-008's
+response shape).

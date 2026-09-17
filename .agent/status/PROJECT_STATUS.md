@@ -817,3 +817,69 @@
 - Still open from before: future gap-audit of Finance/Portfolio/PDF
   Unlocker (DECISION-005) — not started, no urgency signaled by Boss.
   Worth considering once Skill-Building's 4-item list is closer to done.
+
+## 2026-09-17 — Tech Lead: closed out TASK-006/007, scoped Skill-Building item 3 (writing feedback) (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message in `TECH_LEAD.md` since the 2026-09-16 entry
+  (personalization trade-off flag, still non-blocking/unanswered). No open
+  PRs on GitHub.
+- **Housekeeping**: confirmed via `git log`/direct code read that PR #342
+  (`TASK-006`) and PR #343 (`TASK-007`) are both merged into `master`.
+  Reviewed the actual merged code — `ExamService.cs`'s
+  `GenerateReadingExamAsync`/`PickReadingFromPoolAsync` mirror the Listening
+  bank pattern correctly, `RecordExamResultAsync`'s `isReading` branch stays
+  out of SM-2 as intended, frontend `ReadingTestCard` matches the merged
+  DTOs. No issues found. Flipped both task `Status:` fields to `MERGED`
+  with Review notes.
+- **Noticed a real fix landed outside the PM/Tech Lead pipeline**: commit
+  `31a0b93`/PR #345 ("fix(exam): reject reading passages generated in the
+  wrong language"), pushed directly by Boss (`jacky19918@gmail.com`), adds
+  `ReadingPassageValidator` — the original TASK-006 acceptance criteria only
+  checked question/option *shape*, not *language*, so an all-Chinese
+  passage had passed validation and would have sat in the shared, reused
+  bank indefinitely. Reviewed the fix (hard-gate validator + prompt
+  hardening + capped one-retry policy + 256 new lines of tests): sound
+  design, no issues. Recorded against `TASK-006`'s Review section for the
+  history rather than only living in the commit message.
+- **Scoped Skill-Building item 3** (open-ended writing practice with AI
+  feedback), handed off by PM 2026-09-16. Investigated Translation/Sentence
+  Test's grading code (`GradeTranslationAsync`/`EvaluateSentenceAsync`,
+  `ExamService.cs:541`/`:717`) via a background research pass before
+  scoping: both already separate generation-vs-grading steps, grading is a
+  one-shot AI call with an inline credit gate, decoupled from
+  `RecordExamResultAsync`. Key finding that shapes this task differently
+  from every prior Skill-Building item: **producing a writing prompt (a
+  topic + a few of the user's own saved words) costs zero AI calls** —
+  unlike Cloze/Translation/Sentence/Reading, there's nothing to generate via
+  OpenAI on the "get a prompt" side, only on the "grade what I wrote" side.
+  So this is the first exam type where generation is free and only
+  evaluation is credit-gated, rather than both being charged.
+- Also found a genuine schema gap: `ExamAttempt`/`RecordExamResultRequest`
+  only support one `WordId` per attempt (or none, for the wordless group);
+  a writing submission names several words at once. Resolved without a new
+  table: added `Writing` to the wordless group for the attempt row itself,
+  and fan out the *existing* `_spacedRepetition.ApplyResult` call across
+  every required word using the same holistic AI grade — documented as a
+  deliberate trade-off (shared quality across words, not per-word
+  granularity) rather than building a new junction table for something not
+  required by the acceptance criteria.
+- Documented the full investigation and decision in `ARCHITECTURE.md` →
+  "Decision: Open-ended writing practice with AI feedback — Skill-Building
+  item 3". Created `TASK-008` (Backend: free `GET api/exam/writing` prompt
+  endpoint + credit-gated `POST api/exam/writing/evaluate`, new
+  `CreditCosts.WritingEvaluation`, SM-2 fan-out, **no EF migration**) and
+  `TASK-009` (Frontend: new `WritingTestCard`, free-to-open/charged-on-
+  submit cost UX) — both `READY`, unclaimed. Proceeded without waiting for
+  fresh Boss sign-off, same "already-approved priority order, no new
+  vendor" basis used for items 1 and 2.
+- `REQUIREMENTS.md`: updated item 3's line to reflect the scoping and
+  closed out its Open Question. Noted that, unlike item 2 (reading, not
+  personalized), item 3 **is** personalized to the user's own saved words,
+  matching the requirement's original framing.
+- Wrote to `.agent/boss/TECH_LEAD.md`: reported the TASK-006/007 close-out,
+  the Boss's own language-guard fix, and flagged the SM-2
+  shared-quality-across-words trade-off as informational (non-blocking,
+  already proceeding).
+- No implementation code changes — architecture/task documentation only,
+  ready for Backend/Frontend Engineers to pick up.

@@ -214,14 +214,19 @@ Proposed features, in the priority order PM recommended and **Boss approved
    Flagged to Boss in `.agent/boss/TECH_LEAD.md` 2026-09-16 — **no Boss
    reply yet**, treated as non-blocking per Tech Lead's note that Engineers
    were told to proceed regardless.
-3. **Open-ended writing practice with AI feedback** — MEDIUM. **Handed to
-   Tech Lead 2026-09-16** for feasibility/cost evaluation, now that item 2
-   is fully shipped — proceeding on the same already-approved-order basis
-   as items 1 and 2 (see DECISION-005), no fresh Boss sign-off awaited.
-   Reuses the existing "AI grades free-text against a rubric" pattern
-   already proven by Translation Test grading, extended to a short
-   paragraph prompt (e.g., "use these 5 saved words in a short paragraph
-   about X") instead of single-sentence translation.
+3. **Open-ended writing practice with AI feedback** — MEDIUM. **Scoped by
+   Tech Lead 2026-09-17** — see `ARCHITECTURE.md` → "Decision: Open-ended
+   writing practice with AI feedback" and `TASK-008`/`TASK-009`, both
+   `READY`. Reuses Translation Test's **grading** call shape only (one-shot
+   AI feedback call, decoupled from attempt recording) — the "prompt"
+   itself (a topic + up to 5 of the user's own saved words) costs zero AI
+   calls to produce, unlike every other exam type's generation step, so
+   only the evaluation call is credit-gated. Feeds the SM-2 schedule for
+   every required word via the paragraph's single holistic AI grade (no new
+   per-word tracking table — flagged as a trade-off in the Architecture
+   doc). Unlike item 2 (reading), this one **is** personalized to the
+   user's own saved vocabulary, matching this requirement's original
+   "use these 5 saved words" framing exactly.
 4. **Dictation practice (listen → type what you hear)** — MEDIUM-LOW.
    Combines existing TTS (audio generation) and simple string-diff grading
    (no new AI call needed for grading) — likely the cheapest of the four to
@@ -303,14 +308,12 @@ what "Growth & Retention" now means in practice.
 - ~~Item 1 shipped, item 2 handed to Tech Lead~~ — **resolved**: item 1
   shipped 2026-09-15; item 2 scoped by Tech Lead 2026-09-16 and now also
   **fully shipped** (see Acceptance Criteria above).
-- **New (2026-09-16)**: PM handed item 3 (open-ended writing practice) to
-  Tech Lead this run, on the same "no fresh sign-off needed, order already
-  approved" basis used for items 1 and 2. Not blocking; flagged in
-  `.agent/boss/PM.md` in case Boss wants to pause or reorder before Tech
-  Lead scopes it. Tech Lead's still-open, non-blocking flag to Boss about
-  item 2's passages not being personalized (`.agent/boss/TECH_LEAD.md`,
-  2026-09-16) remains unanswered — not a blocker for item 3, which is an
-  independent feature.
+- ~~PM handed item 3 (open-ended writing practice) to Tech Lead~~ —
+  **resolved (2026-09-17)**: scoped into `TASK-008`/`TASK-009`, both
+  `READY`, unclaimed by an Engineer yet. Tech Lead's still-open, non-blocking
+  flag to Boss about item 2's passages not being personalized
+  (`.agent/boss/TECH_LEAD.md`, 2026-09-16) remains unanswered — not a
+  blocker for item 3, which is an independent feature.
 
 ---
 
