@@ -7,7 +7,7 @@ Frontend: Reading comprehension test UI (Skill-Building item 2 — 讀)
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH
@@ -191,4 +191,13 @@ None.
 https://github.com/twjackysu/JackyAIApp/pull/343
 
 ## Review
-_(Tech Lead fills in after PR review)_
+
+Confirmed PR #343 merged into `master`. Read the actual merged code:
+`Exam/ReadingTestCard/index.tsx` correctly follows the
+`ExamRoundShell`/`useExamRound` pattern instead of forcing
+`ListeningQuizCard`'s one-question-per-fetch contract onto a
+one-passage-with-several-questions shape — the right call given the actual
+shape mismatch. `EXAM_MODES` wiring, `creditCosts.ts` value, and the
+`ExamType`/`RecordExamResultRequest` type additions match the merged backend
+DTOs exactly. UI copy stays factual ("閱讀理解", no personalization claim).
+No correctness issues found.

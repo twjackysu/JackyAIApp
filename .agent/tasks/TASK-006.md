@@ -7,7 +7,7 @@ Backend: Reading comprehension passages (Skill-Building item 2 — 讀)
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH
@@ -219,4 +219,30 @@ Engineer's own rules (only Boss marks a task `MERGED`) — Tech Lead/Boss to
 flip the status field once confirmed.
 
 ## Review
-_(Tech Lead fills in after PR review)_
+
+Confirmed PR #342 merged into `master` (2026-09-16T07:25 UTC). Read the
+actual merged code, not just the Result section above: `ExamService.cs`'s
+`GenerateReadingExamAsync`/`PickReadingFromPoolAsync` mirror
+`GenerateListeningResponseExamAsync`'s structure exactly (bank-growth
+threshold, recently-seen exclusion via `ExamAttempts`, no second AI call for
+grading), the 3 new entities + migration are additive only, and
+`RecordExamResultAsync`'s new `isReading` branch correctly stays out of the
+SM-2 schedule update (matches Listening's existing wordless behavior). No
+correctness issues found.
+
+**Post-merge addition (not part of this task, noted for the record):** Boss
+found and fixed a real gap directly on `master` (PR #345, 2026-09-17,
+`ReadingPassageValidator` + prompt hardening) — the original acceptance
+criteria only checked question/option *shape* (count, exactly-one-correct),
+not *language*, so a passage generated entirely in Chinese passed validation
+and would have sat in the shared bank being served to every user until
+manually deleted. The fix adds a CJK-content check (English required in
+title/passage/questions/options, Chinese required in explanations) with a
+one-retry-then-fallback-to-bank policy, plus 81+175 lines of new tests
+(`ExamServiceTests`, `ReadingPassageValidatorTests`). Reviewed the diff:
+sound design (validator as a hard gate, prompt hardening as a secondary
+defense, capped retry so a stuck model can't loop), consistent with how this
+task's own shared-bank design already treats "reject bad output before it
+reaches the bank" as the correct failure mode. No further action needed —
+recording here so the gap and its fix are part of this task's history
+instead of only living in a commit message.
