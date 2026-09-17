@@ -230,7 +230,10 @@ observe.
 None.
 
 ### PR
-https://github.com/twjackysu/JackyAIApp/pull/347
+https://github.com/twjackysu/JackyAIApp/pull/347 — CI (`build-and-test-server`,
+`lint-and-build-client`) both passed on the current head, confirming the
+`dotnet test` run I couldn't execute locally does pass. No merge conflicts.
+Awaiting human review/merge.
 
 ## Review
 _(Tech Lead fills in after PR review)_
