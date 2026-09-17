@@ -51,6 +51,20 @@ namespace JackyAIApp.Server.Services.Exam
         /// </summary>
         Task<ServiceResult> GenerateReadingExamAsync();
 
+        /// <summary>
+        /// Serves an open-ended writing prompt: a topic from a fixed rotation plus up to 5 of the
+        /// calling user's own saved words (empty if the user has none — open-topic writing, not an
+        /// error). Both plain DB queries, no AI call, so unlike every other exam-type generation
+        /// endpoint this is deliberately not credit-gated.
+        /// </summary>
+        Task<ServiceResult> GenerateWritingPromptAsync();
+
+        /// <summary>
+        /// Grades an open-ended writing submission against its topic/required words — same one-shot
+        /// grading shape as <see cref="GradeTranslationAsync"/>/<see cref="EvaluateSentenceAsync"/>.
+        /// </summary>
+        Task<ServiceResult> GradeWritingAsync(WritingSubmissionRequest request);
+
         Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse);
 
         Task<ServiceResult> StartConversationAsync(ConversationStartRequest request);

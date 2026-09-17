@@ -1140,6 +1140,233 @@ namespace JackyAIApp.Server.Tests.Services
 
         #endregion
 
+        #region Writing Tests
+
+        [Fact]
+        public async Task GenerateWritingPrompt_UserNotFound_ReturnsError()
+        {
+            var result = await _service.GenerateWritingPromptAsync();
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.Forbidden, result.Error);
+        }
+
+        [Fact]
+        public async Task GenerateWritingPrompt_EmptyRepository_ReturnsPromptWithNoRequiredWords()
+        {
+            await SeedUserAsync();
+
+            var result = await _service.GenerateWritingPromptAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<WritingPromptResponse>(result.Data);
+            Assert.NotNull(dto.Topic);
+            Assert.Empty(dto.RequiredWords);
+        }
+
+        [Fact]
+        public async Task GenerateWritingPrompt_FewerThanFiveWords_ReturnsAllOfThem()
+        {
+            var words = await SeedUserWithWordsAsync(3);
+
+            var result = await _service.GenerateWritingPromptAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<WritingPromptResponse>(result.Data);
+            Assert.Equal(3, dto.RequiredWords.Count);
+            Assert.Equal(
+                words.Select(w => w.Id).OrderBy(x => x),
+                dto.RequiredWords.Select(w => w.WordId).OrderBy(x => x));
+        }
+
+        [Fact]
+        public async Task GenerateWritingPrompt_MoreThanFiveWords_ReturnsAtMostFiveDistinct()
+        {
+            await SeedUserWithWordsAsync(8);
+
+            var result = await _service.GenerateWritingPromptAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<WritingPromptResponse>(result.Data);
+            Assert.Equal(5, dto.RequiredWords.Count);
+            Assert.Equal(5, dto.RequiredWords.Select(w => w.WordId).Distinct().Count());
+        }
+
+        [Fact]
+        public async Task GenerateWritingPrompt_NeverConsumesCredits()
+        {
+            // TASK-008: the one exam-type "generation" endpoint with zero underlying AI cost —
+            // must never be credit-gated, unlike every other GET api/exam/* endpoint.
+            await SeedUserWithWordsAsync(5);
+
+            var result = await _service.GenerateWritingPromptAsync();
+
+            Assert.True(result.IsSuccess);
+            _creditServiceMock.Verify(x => x.ConsumeCreditsAsync(
+                It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GradeWriting_NullInput_ReturnsError()
+        {
+            var result = await _service.GradeWritingAsync(null!);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+        }
+
+        [Fact]
+        public async Task GradeWriting_InsufficientCredits_ReturnsForbidden()
+        {
+            await SeedUserAsync();
+            _creditServiceMock.Setup(x => x.ConsumeCreditsAsync(_testUserId, CreditCosts.WritingEvaluation, It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync(false);
+            var request = new WritingSubmissionRequest
+            {
+                Topic = "a memorable experience you had",
+                RequiredWords = new List<string> { "adventure" },
+                Submission = "Some paragraph.",
+            };
+
+            var result = await _service.GradeWritingAsync(request);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.Forbidden, result.Error);
+            _promptServiceMock.Verify(x => x.GetCompletionAsync<WritingGradingResponse>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GradeWriting_ChargesCreditsExactlyOnce_AndReflectsUnusedRequiredWord()
+        {
+            await SeedUserAsync();
+            var expected = new WritingGradingResponse
+            {
+                Score = 60,
+                GrammarFeedback = "尚可。",
+                ContentFeedback = "切題。",
+                VocabularyFeedback = "有一個單字沒有使用到。",
+                WordsUsed = new List<WritingWordUsageDto>
+                {
+                    new() { Word = "adventure", Used = true },
+                    new() { Word = "journey", Used = false },
+                },
+                Suggestions = new List<string> { "試著用上 journey 這個字。" },
+            };
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<WritingGradingResponse>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((expected, (string?)null));
+
+            var request = new WritingSubmissionRequest
+            {
+                Topic = "a memorable experience you had",
+                RequiredWords = new List<string> { "adventure", "journey" },
+                Submission = "My adventure last year was amazing.",
+            };
+
+            var result = await _service.GradeWritingAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<WritingGradingResponse>(result.Data);
+            Assert.Equal(2, dto.WordsUsed.Count);
+            Assert.True(dto.WordsUsed.Single(w => w.Word == "adventure").Used);
+            Assert.False(dto.WordsUsed.Single(w => w.Word == "journey").Used);
+            _creditServiceMock.Verify(x => x.ConsumeCreditsAsync(_testUserId, CreditCosts.WritingEvaluation, It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task GradeWriting_PromptServiceFails_ReturnsError()
+        {
+            await SeedUserAsync();
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<WritingGradingResponse>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync(((WritingGradingResponse?)null, "OpenAI error"));
+
+            var request = new WritingSubmissionRequest
+            {
+                Topic = "topic",
+                RequiredWords = new List<string>(),
+                Submission = "text",
+            };
+
+            var result = await _service.GradeWritingAsync(request);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.QueryOpenAIFailed, result.Error);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_WritingType_MissingWritingWordIds_ReturnsError()
+        {
+            await SeedUserAsync();
+            var request = new RecordExamResultRequest { ExamType = "Writing", Correct = true };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_WritingType_EmptyWritingWordIds_AcceptedAndUpdatesNothing()
+        {
+            await SeedUserAsync();
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Writing",
+                WritingWordIds = new List<string>(),
+                Correct = true,
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<RecordExamResultResponse>(result.Data);
+            Assert.False(dto.ScheduleUpdated);
+
+            var attempt = await _dbContext.ExamAttempts.SingleAsync(a => a.UserId == _testUserId);
+            Assert.Equal("Writing", attempt.ExamType);
+            Assert.Null(attempt.WordId);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_WritingType_AppliesSM2ToEveryMatchingRequiredWord()
+        {
+            var words = await SeedUserWithWordsAsync(3);
+            // Third id has no matching UserWord (e.g. removed from the repository since the
+            // prompt was fetched) — must be skipped, not error, and not counted toward the update.
+            var missingId = Guid.NewGuid().ToString();
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Writing",
+                WritingWordIds = new List<string> { words[0].Id, words[1].Id, missingId },
+                Correct = true,
+                Score = 90,
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<RecordExamResultResponse>(result.Data);
+            Assert.True(dto.ScheduleUpdated);
+
+            var attempt = await _dbContext.ExamAttempts.SingleAsync(a => a.UserId == _testUserId);
+            Assert.Equal("Writing", attempt.ExamType);
+            Assert.Null(attempt.WordId);
+
+            var updatedWord0 = await _dbContext.UserWords.SingleAsync(uw => uw.UserId == _testUserId && uw.WordId == words[0].Id);
+            var updatedWord1 = await _dbContext.UserWords.SingleAsync(uw => uw.UserId == _testUserId && uw.WordId == words[1].Id);
+            var untouchedWord2 = await _dbContext.UserWords.SingleAsync(uw => uw.UserId == _testUserId && uw.WordId == words[2].Id);
+            Assert.NotNull(updatedWord0.NextReviewDate);
+            Assert.NotNull(updatedWord1.NextReviewDate);
+            Assert.Null(untouchedWord2.NextReviewDate);
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private async Task<User> SeedUserAsync()
@@ -1156,6 +1383,34 @@ namespace JackyAIApp.Server.Tests.Services
             _dbContext.Users.Add(user);
             await _dbContext.SaveChangesAsync();
             return user;
+        }
+
+        private async Task<List<SQLWord>> SeedUserWithWordsAsync(int count)
+        {
+            await SeedUserAsync();
+
+            var words = new List<SQLWord>();
+            for (var i = 0; i < count; i++)
+            {
+                var word = new SQLWord
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    WordText = $"word{i}",
+                    KKPhonics = "/wɜːrd/",
+                    DateAdded = DateTime.UtcNow,
+                    LastUpdated = DateTime.UtcNow
+                };
+                _dbContext.Words.Add(word);
+                _dbContext.UserWords.Add(new UserWord
+                {
+                    UserId = _testUserId,
+                    WordId = word.Id,
+                    DateAdded = DateTime.UtcNow
+                });
+                words.Add(word);
+            }
+            await _dbContext.SaveChangesAsync();
+            return words;
         }
 
         private async Task<SQLWord> SeedUserWithWordAsync()

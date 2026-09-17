@@ -900,3 +900,58 @@
   section recorded in the task file; no source code changes made this run.
 - No action needed from Tech Lead/Backend beyond the normal PR review/merge
   path for #346 — this is a sequencing dependency, not a new issue.
+
+## 2026-09-17 — Backend Engineer: TASK-008 implementation (scheduled run)
+
+- Picked up `TASK-008` (Status: READY, Owner: Backend) — open-ended writing
+  practice with AI feedback. Read the task, `ARCHITECTURE.md`'s writing
+  decision, and `ExamService.cs`'s `GradeTranslationAsync`/
+  `EvaluateSentenceAsync`/`RecordExamResultAsync` end-to-end before writing
+  any code, per the task's own instruction to copy the grading shape rather
+  than invent one.
+- Implemented exactly as scoped: `GenerateWritingPromptAsync()` (free,
+  topic rotation + up to 5 distinct `UserWords` via a new DB-level
+  distinct-offset sampling helper, `RequiredWords: []` for an empty
+  repository), `GradeWritingAsync()` (one-shot `GetCompletionAsync`,
+  inline credit gate, new `Prompt/Exam/WritingEvaluationSystem.txt`), new
+  `CreditCosts.WritingEvaluation = 3`, and a `"Writing"` branch in
+  `RecordExamResultAsync` that fans the existing `ApplyResult` SM-2 call
+  out across every required word sharing one holistic quality value. No EF
+  migration, matching the architecture doc's explicit scoping constraint.
+  Added unit tests for the new prompt/grading/record-result paths
+  (not-credit-gated assertion, insufficient-credits path, unused-word
+  `Used: false` case, SM-2 fan-out onto only the matching words).
+- **Could not run `dotnet build`/`dotnet test`**: this session's sandbox has
+  no .NET SDK, and installing one is blocked by the environment's network
+  policy (confirmed 403 from the egress proxy on
+  `builds.dotnet.microsoft.com`). Compensated with a thorough manual
+  review (brace/paren balance checks, cross-checking every new call against
+  its real interface signature) but this is not a substitute for an actual
+  test run — flagged explicitly in `TASK-008.md`'s Result section and in
+  the PR description; Tech Lead/CI should run the suite before merge.
+- Opened a PR on branch `claude/magical-heisenberg-7lvfal`, flipped
+  `TASK-008.md` Status to `PR_OPENED`, filled in its Result/Files
+  Changed/Tests/Known Issues sections.
+
+## 2026-09-17 — Frontend: closed duplicate TASK-008 PR, flipped status to MERGED (user-directed)
+
+- Boss asked directly to resolve merge conflicts on PR #346. Investigating
+  first (rather than blindly fixing text conflicts) turned up that #346
+  was a **second, independent backend session's implementation of the same
+  `TASK-008`**, opened in parallel with #347 from a different branch
+  (`claude/magical-heisenberg-5pk8jh` vs. `claude/magical-heisenberg-7lvfal`).
+  #347 had already merged into `master` (commit `7e6c831`) with CI green,
+  which is exactly why #346 showed conflicts — both defined the same new
+  DTOs/methods.
+- Confirmed via `git show origin/master` that the writing feature
+  (`CreditCosts.WritingEvaluation`, `WritingPromptResponse`/
+  `WritingGradingResponse` DTOs, etc.) is fully present on `master` through
+  #347. Reported the duplicate-PR finding to Boss instead of merging #346's
+  conflicts, since resolving them would have reintroduced duplicate type
+  definitions and broken compilation.
+- Boss confirmed: close #346 (as duplicate of #347) and correct
+  `TASK-008.md`'s bookkeeping. Closed PR #346 with an explanatory comment.
+  Flipped `TASK-008.md` `Status` from the stale `PR_OPENED` to `MERGED` and
+  added a note under Result documenting the duplicate-PR closure.
+- This also unblocks `TASK-009` (Frontend, own assigned task) — real merged
+  DTO shapes are now available on `master` to implement against.

@@ -45,6 +45,11 @@ namespace JackyAIApp.Server.Common
         /// flat per play (cache hit or miss), same convention as ListeningResponseTest.</summary>
         public const ulong ReadingComprehensionTest = 3;
 
+        /// <summary>Writing evaluation — the GET api/exam/writing prompt itself is a free DB
+        /// query (no AI cost, deliberately not credit-gated); the whole charge for the feature
+        /// sits here, on the one-shot paragraph grading call.</summary>
+        public const ulong WritingEvaluation = 3;
+
         /// <summary>Whisper audio transcription</summary>
         public const ulong AudioTranscription = 1;
 
