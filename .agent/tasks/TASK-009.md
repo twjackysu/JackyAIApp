@@ -185,7 +185,7 @@ consistent with how every other exam type's UI already handles this.
 None — see the now-resolved blocker record below for history.
 
 ### PR
-_(added after PR is opened)_
+https://github.com/twjackysu/JackyAIApp/pull/348
 
 ---
 
