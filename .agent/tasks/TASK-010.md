@@ -194,7 +194,11 @@ compiler or test run. Please confirm CI is green on the PR before merging.
 https://github.com/twjackysu/JackyAIApp/pull/352
 
 ### Known Issues
-- None beyond the "tests not executed locally" limitation above.
+- None. CI (`lint-and-build-client`, `build-and-test-server`) both passed
+  on PR #352's head commit — the 14 new `ExamServiceTests` dictation
+  tests ran and passed there, resolving the "not executed locally"
+  limitation above. PR is `mergeable_state: clean`, no open review
+  threads. Waiting on Tech Lead / Boss review.
 
 ### Follow-ups flagged, not implemented (out of scope per task)
 - Adjustable playback speed on `dictation/audio` (and the other TTS
