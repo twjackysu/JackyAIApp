@@ -7,7 +7,7 @@ Frontend: Writing practice test UI (Skill-Building item 3 — 寫)
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM
@@ -260,4 +260,15 @@ and verified it rather than reimplementing:
   nothing to add on top of an already-complete, CI-green implementation.
 
 ## Review
-_(Tech Lead fills in after PR review)_
+
+Reviewed 2026-09-19 against the actual merged code on `master` (PR #348),
+not just the self-report above. `WritingTestCard/index.tsx`: cost caption
+lives directly under the submit button ("提交批改消耗 N 點使用額度"), not on
+the mode-selection screen, matching the free-to-open/charged-on-submit
+requirement. Zero-required-words case renders a plain info `Alert`, not an
+error/warning. `record-result` fires once per submission, after the
+evaluation result is set (not before), with `writingWordIds` taken from the
+original prompt fetch and `correct: score >= 60` matching
+`SentenceTestCard`'s existing threshold. `WordsUsed` renders as
+filled/success vs. outlined/default chips. No correctness issues found.
+Matches `TASK-008`'s merged DTO shapes exactly (spot-checked field names).

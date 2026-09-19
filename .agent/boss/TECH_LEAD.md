@@ -354,3 +354,57 @@ Tech Lead
 
 ### Source
 Tech Lead
+
+---
+
+## Tech Lead → Boss (2026-09-19)
+
+### Status
+收尾 TASK-008/009（寫作練習）的 Code Review 記錄，並接手 Skill-Building
+**最後一項**（第 4 項：聽寫練習）的技術評估，已拆出 `TASK-010`（後端）/
+`TASK-011`（前端），細節在 `.agent/architecture/ARCHITECTURE.md`。
+
+### Completed
+- 確認 `TASK-008`/`TASK-009` 的 PR（#347、#348）都已合併，實際讀過合併後
+  的程式碼（不只信任先前的自我報告）——扣點邏輯、SM-2 fan-out、前端費用
+  提示位置都符合規格，沒有發現問題。補上兩個任務的 `Review` 欄位與
+  `Status: MERGED`。
+- 接手第 4 項（聽寫練習）：這次盤點發現，這是四個 Skill-Building 項目裡
+  **重用既有機制最多、成本最低**的一個——不需要新的選字邏輯（直接重用
+  Cloze 早就在用的隨機選字函式）、不需要改 `RecordExamResultAsync`（聽寫
+  是綁定單一單字，跟 Cloze 同一種模式，不是像聽力/閱讀/寫作那樣的
+  "wordless" 模式）、批改完全不用呼叫 AI（純字串比對）。跟 Requirements
+  文件原本預期的「四項裡最便宜」完全吻合。
+
+### 一個刻意偏離既有慣例的設計，特別跟您說明
+
+目前 Cloze/Translation 這些測驗，第一次拿到題目時，**正確答案就已經包含在
+API 回應裡**，只是前端沒有把它顯示出來（信任前端不要作弊）。但聽寫這個功能
+的核心玩法就是「光聽聲音猜出單字」——如果比照舊有慣例，把單字文字放進題目
+API 回應裡，等於打開瀏覽器開發者工具就能直接看到答案，這比 Cloze 的情況
+嚴重很多（Cloze 至少還有選擇題選項限制範圍）。所以我把 `TASK-010` 的題目
+API 設計成**只回傳一個 ID，不回傳單字文字**，真正的文字只在（1）伺服器端
+產生語音檔時，和（2）使用者送出答案、批改完成後才會揭露。這是我在四個
+Skill-Building 項目裡第一次刻意不跟隨既有慣例，已經在 `ARCHITECTURE.md`
+寫清楚理由。
+
+### Tasks
+- `TASK-010`（Backend）：`GET api/exam/dictation`（回傳題目 ID，照舊扣點）
+  + 不扣點的語音端點 + 不扣點的批改端點（純字串比對，含
+  Levenshtein 相似度）+ `CreditCosts.DictationTest = 1`（四項裡最便宜）—
+  READY
+- `TASK-011`（Frontend）：聽寫練習頁面 — READY（依賴 TASK-010）
+
+### Risks / Blockers
+無立即阻塞。刻意排除了「可調整播放速度」這個 Requirements 文件裡有提到、
+但不在四項核准清單內的功能，只記錄成未來可以低成本加上去的後續項目，沒有
+放進這次的任務範圍。
+
+### Boss Attention Required
+無需要您現在裁示的事項。這是 Skill-Building 四項清單的**最後一項**——等
+`TASK-010`/`TASK-011` 上線，這個 DECISION-005 核准的工作就全部完成了，之後
+會轉去處理還沒開始的「Finance/Portfolio/PDF Unlocker 缺口盤點」（同樣是
+DECISION-005 裡提到的長期方向），除非您有其他優先順序的想法。
+
+### Source
+Tech Lead

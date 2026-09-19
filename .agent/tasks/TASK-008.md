@@ -245,4 +245,16 @@ would have produced duplicate type definitions in `ExamModels.cs`/
 the same scope as #347's.
 
 ## Review
-_(Tech Lead fills in after PR review)_
+
+Reviewed 2026-09-19 against the actual merged code on `master` (PR #347),
+not just the self-report above. `GenerateWritingPromptAsync` has no
+`[ConsumeCredits]`/inline credit call — confirmed not credit-gated, with an
+explicit code comment on both the controller action and the service method
+warning against adding one. `GradeWritingAsync` charges
+`CreditCosts.WritingEvaluation` exactly once via the inline
+`_creditService.ConsumeCreditsAsync` pattern, matching
+`GradeTranslationAsync`'s shape. `RecordExamResultAsync`'s `isWriting`
+branch: validation rejects only a `null` `WritingWordIds` (not an empty
+list), and the SM-2 fan-out applies one shared `MapQuality` value across
+every ID with a matching `UserWord` — matches the architecture decision
+exactly. No EF migration in the diff. No correctness issues found.

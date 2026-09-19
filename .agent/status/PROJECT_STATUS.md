@@ -1028,3 +1028,86 @@
   Unlocker (DECISION-005) — not started. Worth picking up once item 4
   (dictation) ships and closes out the Skill-Building list, since there
   will then be no other approved English-skill work left in the queue.
+
+## 2026-09-19 — Tech Lead: closed out TASK-008/009 bookkeeping, scoped Skill-Building item 4 — dictation, last item (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message in `TECH_LEAD.md` since the 2026-09-17 entry
+  (writing feedback close-out + item 3 handoff write-up, still
+  non-blocking/unanswered). No open PRs on GitHub (`gh`/API confirmed zero
+  open PRs); `master` at `a24bcde`.
+- **Housekeeping**: confirmed via GitHub + direct code read that `PR #347`
+  (`TASK-008`) and `PR #348` (`TASK-009`) are both merged into `master`.
+  Reviewed the actual merged code, not just each task's self-report —
+  `GenerateWritingPromptAsync`/`GradeWritingAsync` (not credit-gated vs.
+  exactly-once-gated, matching the split scoped in `ARCHITECTURE.md`),
+  `RecordExamResultAsync`'s `isWriting` branch (validation rejects only
+  `null`, not an empty list; SM-2 fan-out applies one shared quality value),
+  no EF migration in the diff, and the frontend `WritingTestCard` (cost
+  caption under the submit button, zero-required-words case reads as a
+  normal info alert not an error, `record-result` fires once after reveal
+  with the correct `writingWordIds`/threshold). No issues found. Flipped
+  `TASK-008.md`'s empty `Review` section and `TASK-009.md`'s stale
+  `Status: PR_OPENED` (already merged) to `MERGED` with review notes.
+- **Picked up Skill-Building item 4** (dictation practice — 聽), handed off
+  by PM 2026-09-17. This is the **last item** on the originally-approved
+  four-item list (DECISION-005). Investigated the existing word-picking
+  (`GetRandomUserWordIdAsync`), TTS-serving (`ToAudioResultAsync` +
+  `GetListeningOptionAudio`'s resolve-ID-then-audio pattern), and
+  `CreditCosts` conventions before scoping — found this item reuses more
+  existing machinery than any prior Skill-Building item (no new word-
+  picking logic, no new empty-repository edge case, no `RecordExamResultAsync`
+  change at all since dictation is word-anchored like Cloze, not wordless
+  like Listening/Reading/Writing) and needs zero new AI calls (grading is a
+  plain string comparison), confirming `REQUIREMENTS.md`'s own framing that
+  this would be the cheapest of the four.
+- **One deliberate design deviation flagged explicitly**: every prior exam
+  type (Cloze, Translation, Reading's options, etc.) already puts the
+  correct answer in its initial `GET` response and relies on the frontend
+  not to render it — an accepted "client-trusted" convention in this
+  codebase. For dictation specifically, doing the same would make the
+  feature's entire mechanic (identify the word from audio alone) trivially
+  bypassable by glancing at the Network tab — a materially bigger practical
+  problem here than for Cloze's MCQ. Scoped `TASK-010` so `GET
+  api/exam/dictation` returns only a `WordId`, with the real text resolved
+  server-side for the audio endpoint and only revealed to the client after
+  grading. Documented as an explicit exception to the established pattern,
+  not a silent inconsistency, in `ARCHITECTURE.md`.
+- Documented the full investigation and decision in `ARCHITECTURE.md` →
+  "Decision: Dictation practice — Skill-Building item 4 (last item)".
+  Created `TASK-010` (Backend: `GET api/exam/dictation` (flat-charged,
+  `WordId`-only response) + unbilled `GET api/exam/dictation/audio` +
+  unbilled `POST api/exam/dictation/grade` (exact-match + Levenshtein
+  closeness score, no AI) + `CreditCosts.DictationTest = 1`, no EF
+  migration, no `RecordExamResultAsync` change) and `TASK-011` (Frontend:
+  new `DictationTestCard`, wired into `EXAM_MODES`) — both `READY`,
+  unclaimed. Proceeded without waiting for fresh Boss sign-off, same
+  "already-approved priority order, no new vendor/cost tier" basis used for
+  items 1–3.
+- Deliberately scoped **out** of `TASK-010`: adjustable playback speed (a
+  related gap also named in `REQUIREMENTS.md`'s skill-coverage table, but
+  not one of the four approved proposals) — flagged in the Architecture doc
+  as a cheap, likely-worthwhile follow-up rather than bundled in without
+  being asked for, to avoid silently expanding this task's scope.
+- `REQUIREMENTS.md`: updated item 4's line to reflect the scoping and
+  flagged that this closes out the requirement's four-item scope once
+  shipped; updated the Skill-Building "scoped into a task write-up"
+  acceptance criterion to note all four items are now scoped.
+- No implementation code changes — architecture/task documentation only,
+  ready for Backend/Frontend Engineers to pick up. Committing and pushing
+  these `.agent/` doc changes directly to `master`, per this role's own
+  standing git rule (§16) for architecture/task/status file updates — no
+  branch/PR for documentation-only changes.
+
+## Open Items
+- **New, from this run**: `TASK-010`/`TASK-011` (dictation practice, last
+  Skill-Building item) are `READY` and unclaimed — next Backend/Frontend
+  run should pick these up.
+- Once item 4 ships and is product-verified, the originally-approved
+  Skill-Building four-item list (DECISION-005) will be fully complete —
+  the next PM run should then pivot to the still-open product-wide gap
+  audit (Finance/Portfolio/PDF Unlocker, DECISION-005) rather than
+  inventing a fifth Skill-Building item without a fresh Boss mandate.
+- Still open from before: Phase 2 of speaking delivery feedback (true
+  pronunciation-accuracy scoring, new vendor) — cost/vendor decision
+  pending Boss, not scoped as a task.

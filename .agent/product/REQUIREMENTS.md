@@ -229,17 +229,31 @@ Proposed features, in the priority order PM recommended and **Boss approved
    personalized to the user's own saved vocabulary, matching this
    requirement's original "use these 5 saved words" framing exactly.
 4. **Dictation practice (listen → type what you hear)** — MEDIUM-LOW.
-   Combines existing TTS (audio generation) and simple string-diff grading
-   (no new AI call needed for grading) — likely the cheapest of the four to
-   run, but trains a narrower combined listening+spelling skill rather than
-   a skill with a current zero-coverage gap.
+   **Scoped 2026-09-19** (`TASK-010`/`TASK-011`, both `READY`, unclaimed) —
+   see `ARCHITECTURE.md` → "Decision: Dictation practice — Skill-Building
+   item 4 (last item)". Confirmed as anticipated: reuses the existing
+   word-picking helper, the existing unbilled resolve-ID-to-audio pattern,
+   and a zero-AI string-comparison grader — no EF migration, no
+   `RecordExamResultAsync` change, `CreditCosts.DictationTest = 1` (cheapest
+   of the four). One deliberate deviation from every prior exam type: the
+   `GET` prompt response withholds the word text entirely (only a `WordId`)
+   since — unlike Cloze/Translation — showing the answer upfront would
+   trivially defeat this specific exercise's whole mechanic. This is also
+   the **last item** on the originally-approved four-item list; once it
+   ships, `REQUIREMENTS.md`'s Skill-Building scope is complete and further
+   growth work should move to the still-open product-wide gap audit
+   (Finance/Portfolio/PDF Unlocker, DECISION-005) rather than adding a fifth
+   item without a fresh Boss mandate.
 
 ### Acceptance Criteria
 - [x] At least one of the four proposals above is scoped into a Tech Lead
       architecture/task write-up — item 1 (speaking delivery feedback)
       scoped 2026-09-15, see `ARCHITECTURE.md` → "Decision: Speaking
       delivery feedback" and `TASK-004`/`TASK-005`; item 2 (reading
-      comprehension) scoped 2026-09-16, see `TASK-006`/`TASK-007`.
+      comprehension) scoped 2026-09-16, see `TASK-006`/`TASK-007`; item 3
+      (writing feedback) scoped 2026-09-17, see `TASK-008`/`TASK-009`; item
+      4 (dictation) scoped 2026-09-19, see `TASK-010`/`TASK-011`. All four
+      proposals are now scoped — this criterion is fully satisfied.
 - [x] Whichever ships first includes a rough per-use AI-cost estimate
       (OpenAI/Whisper/TTS calls) reviewed against `CreditCosts.cs`-style
       gating, consistent with DECISION-003's cost discipline — even though

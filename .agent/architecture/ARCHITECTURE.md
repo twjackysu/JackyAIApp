@@ -566,3 +566,140 @@ already-costed completion per submission, consistent with DECISION-003.
 
 See `TASK-008` (Backend) and `TASK-009` (Frontend, depends on TASK-008's
 response shape).
+
+---
+
+## Decision: Dictation practice — Skill-Building item 4 (last item)
+
+### Context
+`REQUIREMENTS.md` → "Skill-Building Feature Expansion" names 聽 (listening)
+as covered only by multiple-choice formats (Listening Test, Listening
+Response Test) — no dictation-style practice (hear something, type what you
+heard). PM handed this item to Tech Lead 2026-09-17 for a feasibility/cost
+evaluation, executing the already-approved DECISION-005 priority order (no
+fresh sign-off needed, same pattern as items 1–3). This is the **last** item
+on the original four-item Skill-Building list — once shipped, that
+requirement's scope is complete.
+
+Investigated the existing word-picking, TTS, and grading patterns before
+scoping (2026-09-19):
+
+1. **A word-picking helper already exists and already handles the
+   empty-repository case.** `GetRandomUserWordIdAsync` (`ExamService.cs:985`,
+   used by Cloze/Translation/Sentence via `GenerateWordExamAsync`) already
+   falls back to a random global word when the calling user has zero saved
+   words. Dictation can reuse this directly — no new word-picking logic, no
+   new "what if the repository is empty" edge case to design (unlike Reading
+   and Writing, which each needed their own empty-state handling because
+   their picking needs — a shared bank, or 5 distinct rows — didn't fit this
+   existing helper).
+2. **The unbilled, resolve-ID-to-text-then-TTS pattern already exists.**
+   `GetListeningOptionAudio`/`GetListeningResponsePromptAudio`/
+   `GetListeningResponseOptionAudio` all follow the same shape: a small
+   service method resolves an ID to text server-side, then the controller's
+   shared `ToAudioResultAsync` helper (`ExamController.cs:164`) handles
+   cache-or-synthesize-then-serve, unbilled because a flat charge on the
+   parent `GET` endpoint already covers it. Dictation needs exactly this
+   shape for one word instead of a listening prompt/option.
+3. **Grading needs no AI call at all** — "did the user type the word
+   correctly" is a string comparison, not a judgment call. This mirrors
+   Writing's finding that not every exam-type "action" has to cost
+   something: here, *both* halves are cheap (one TTS call to play, one
+   free string comparison to grade), making this — as `REQUIREMENTS.md`
+   itself already anticipated — the cheapest of the four items to run.
+4. **The existing GET-response-includes-the-answer convention (Cloze,
+   Translation) doesn't fit here.** Cloze/Translation already put the
+   correct answer in their initial `GET` response and rely on the frontend
+   not to render it before the user answers — an accepted trust model for
+   an MCQ/translation exercise where the "cheat" would just spoil the
+   user's own practice. For dictation, though, the entire exercise *is*
+   "identify the word from audio alone" — putting the word text in the
+   initial JSON response would make the feature's core mechanic trivially
+   bypassable by anyone glancing at the Network tab, which is a materially
+   bigger practical problem here than for Cloze (where the MCQ options
+   already narrow it to one of four anyway). This is the one place in the
+   Skill-Building work where the existing "client-trusted" convention is
+   deliberately **not** followed — the `GET` response carries only a
+   `WordId`; the real text is resolved server-side for the audio endpoint
+   and only revealed to the client after grading.
+5. **Dictation is word-anchored, not wordless.** Unlike
+   Listening/Reading/Writing (each of which needed a new `isWordless`
+   branch, and Writing needed a new nullable-list field), a dictation
+   attempt has exactly one `WordId`, the same shape Cloze/Translation/
+   Sentence already use. `RecordExamResultAsync` needs **zero** code
+   changes — `MapQuality`/`ApplyResult`'s existing word-anchored path
+   already handles an arbitrary `ExamType` string as long as `WordId` is
+   populated.
+
+### Decision
+- **`GET api/exam/dictation`** → `GenerateDictationExamAsync()`: picks one
+  word via the existing `GetRandomUserWordIdAsync`, returns
+  `{ WordId }` only (no word text). Credit-gated via
+  `[ConsumeCredits(CreditCosts.DictationTest, ...)]`, a flat charge covering
+  the one TTS call the user is expected to make.
+- **`GET api/exam/dictation/audio?wordId=X`** → resolves `WordId` → `WordText`
+  server-side, then reuses the existing `ToAudioResultAsync` helper verbatim.
+  Unbilled, same "the flat parent charge already covers this" reasoning as
+  every existing `*/audio` endpoint in this controller.
+- **`POST api/exam/dictation/grade`** → `GradeDictationAsync(...)`: looks up
+  the real `WordText` server-side (never trust a client-supplied answer),
+  compares against the user's submission (trimmed, case-insensitive exact
+  match for `IsCorrect`; a normalized Levenshtein-distance score for a
+  purely informational "how close were you" `Score`). **Not credit-gated**
+  — zero underlying cost, same reasoning as Writing's free `GET` endpoint.
+  Returns `CorrectText` so the UI can reveal the answer post-submission.
+- **`Common/CreditCosts.cs`**: add `DictationTest = 1` — one TTS clip per
+  attempt (a single word, not `ListeningTest`'s four options), priced at
+  raw `TextToSpeech` cost rather than `ListeningTest`'s bundled rate.
+- **No `RecordExamResultAsync` change, no EF migration.** The client calls
+  the existing `record-result` endpoint with `ExamType: "Dictation"` +
+  `WordId` + the grading result's `Correct`/`Score` — already fully
+  supported today.
+
+### Reason
+Every piece of this reuses an already-proven pattern (word-picking,
+resolve-ID-to-audio, flat-charge-on-GET, word-anchored SM-2 feed) — the only
+genuinely new code is the grading string-comparison itself, a small
+self-contained helper with no external dependency. This is the lowest-cost,
+lowest-risk item of the four, consistent with `REQUIREMENTS.md`'s own
+framing and DECISION-003's cost discipline.
+
+### Alternatives
+- **Include `WordText` in the initial `GET` response**, matching Cloze/
+  Translation's existing convention exactly: rejected — as explained in
+  point 4 above, this would make the feature's core mechanic (guess from
+  sound) trivially bypassable in a way that materially undermines the
+  feature itself, not just a theoretical trust-model inconsistency.
+- **Dictate a short AI-generated sentence built around the word** (closer to
+  a "listen and transcribe a sentence" exercise) instead of a bare word:
+  rejected for this pass — it would reintroduce an AI generation cost
+  `REQUIREMENTS.md` explicitly didn't ask for ("Combines existing TTS...
+  and simple string-diff grading — no new AI call needed"), and word-level
+  dictation still closes the named gap (spelling-from-sound) on its own.
+  Could be a future enhancement if word-level dictation turns out too easy/
+  short to be engaging, not proposed as part of this task.
+- **Add adjustable playback speed** (a related gap also named in
+  `REQUIREMENTS.md`'s skill-coverage table, but not one of the four approved
+  proposals): deliberately left out of `TASK-010`'s scope — flagged as a
+  cheap, likely-worthwhile follow-up (the underlying TTS call already takes
+  a `speed` parameter, used elsewhere for a slow/normal split) rather than
+  bundled into this task without being asked for.
+
+### Trade-offs
+Word-level dictation (not sentence-level) is a narrower drill than "hear
+natural speech and transcribe it" — it trains spelling-from-sound
+specifically, not connected-speech listening comprehension. Accepted as the
+correct scope for this pass per the Alternatives section above; flagged here
+in case Boss wants a sentence-level version later.
+
+### Impact
+- `JackyAIApp.Server`: `GenerateDictationExamAsync()` +
+  `GetDictationWordTextAsync()` + `GradeDictationAsync()` on
+  `ExamService`/`IExamService`, three new DTOs, new `CreditCosts.DictationTest`.
+  **No EF migration, no `RecordExamResultAsync` change.**
+- `jackyaiapp.client`: new `Exam/DictationTestCard`, new `EXAM_MODES` entry,
+  API slice additions.
+
+See `TASK-010` (Backend) and `TASK-011` (Frontend, depends on TASK-010's
+response shape). This closes out the originally-approved four-item
+Skill-Building list (DECISION-005) once both merge.
