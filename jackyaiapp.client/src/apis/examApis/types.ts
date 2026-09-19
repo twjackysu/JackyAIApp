@@ -93,7 +93,8 @@ export type ExamType =
   | 'Listening'
   | 'ListeningResponse'
   | 'Reading'
-  | 'Writing';
+  | 'Writing'
+  | 'Dictation';
 
 export interface RecordExamResultRequest {
   /** Required for word-based exam types; omitted for "Listening"/"ListeningResponse"/"Reading"/"Writing". */
@@ -233,4 +234,26 @@ export interface WritingGradingResponse {
   vocabularyFeedback: string;
   wordsUsed: WritingWordUsageDto[];
   suggestions: string[];
+}
+
+/** Dictation prompt: identifies which word to dictate but deliberately omits the word text —
+ * unlike Cloze/Translation's GET response, exposing it here would make the exercise (identify
+ * the word from audio alone) trivially bypassable via the Network tab. */
+export interface DictationPromptResponse {
+  wordId: string;
+}
+
+/** User's dictation submission: the word they typed after listening to the audio. */
+export interface DictationGradeRequest {
+  wordId: string;
+  userInput: string;
+}
+
+/** Dictation grading result. isCorrect is a trimmed, case-insensitive exact match only; score is
+ * a purely informational closeness measure and does not affect isCorrect. correctText reveals
+ * the answer for the post-submission UI. */
+export interface DictationGradeResponse {
+  correctText: string;
+  isCorrect: boolean;
+  score: number;
 }

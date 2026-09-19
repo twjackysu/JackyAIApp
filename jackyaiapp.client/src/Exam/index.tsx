@@ -14,6 +14,7 @@ import { CREDIT_COSTS } from '../constants/creditCosts';
 
 import ClozeTestCard from './ClozeTestCard';
 import ConversationTestCard from './ConversationTestCard';
+import DictationTestCard from './DictationTestCard';
 import ListeningResponseTestCard from './ListeningResponseTestCard';
 import ListeningTestCard from './ListeningTestCard';
 import ReadingTestCard from './ReadingTestCard';
@@ -120,6 +121,13 @@ const EXAM_MODES: ExamMode[] = [
     cost: <>提交批改需消耗 {CREDIT_COSTS.WRITING_EVALUATION} 點使用額度</>,
     color: 'secondary',
     element: <WritingTestCard />,
+  },
+  {
+    path: 'dictation',
+    label: '聽寫練習 (Dictation)',
+    cost: <>每次出題消耗 {CREDIT_COSTS.DICTATION_TEST} 點使用額度</>,
+    color: 'info',
+    element: <DictationTestCard />,
   },
 ];
 
