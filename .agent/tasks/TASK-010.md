@@ -7,7 +7,7 @@ Backend: Dictation practice (Skill-Building item 4 — 聽, last item)
 Backend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM-LOW
@@ -146,7 +146,64 @@ None — can start immediately. `TASK-011` (Frontend) depends on this task's
 response DTO shapes and route names.
 
 ## Result
-_(Backend Engineer fills in after implementation)_
+
+Implemented exactly as scoped — no deviations from the Decision doc.
+
+- `Common/CreditCosts.cs`: added `DictationTest = 1`.
+- `DTO/ExamModels.cs`: added `DictationPromptResponse { WordId }`,
+  `DictationGradeRequest { WordId, UserInput }`,
+  `DictationGradeResponse { CorrectText, IsCorrect, Score }`.
+- `Services/Exam/IExamService.cs` + `ExamService.cs`: added
+  `GenerateDictationExamAsync()` (reuses `GetRandomUserWordIdAsync`, returns
+  only `WordId`), `GetDictationWordTextAsync(wordId)` (resolves ID → text,
+  `NotFound` if missing), `GradeDictationAsync(request)` (server-side lookup,
+  trimmed/`OrdinalIgnoreCase` exact match for `IsCorrect`, a small private
+  `LevenshteinDistance` DP helper for the informational `Score`).
+- `Controllers/ExamController.cs`: added `GET api/exam/dictation`
+  (`[ConsumeCredits(CreditCosts.DictationTest, ...)]`), `GET
+  api/exam/dictation/audio?wordId=X` (unbilled, wired through the existing
+  `ToAudioResultAsync` helper), `POST api/exam/dictation/grade` (unbilled,
+  with an explicit comment against adding `[ConsumeCredits]` later).
+- No `RecordExamResultAsync` change, no EF migration — verified "Dictation"
+  falls into the existing word-anchored `else if (!isWordless)` branch.
+
+### Tests
+Added a "Dictation Tests" region to
+`JackyAIApp.Server.Tests/Services/ExamServiceTests.cs` (14 new tests)
+covering every acceptance criterion: no-user / empty-repository errors,
+`GenerateDictationExamAsync` returns only `WordId` (asserted both via
+reflection over the DTO's properties and by serializing it and confirming
+the word text is absent from the JSON), audio lookup not-found vs. found,
+grading exact-match / case-insensitive-still-correct / genuinely-wrong
+(partial, non-zero, non-100 `Score`) / unknown-word-id, `GradeDictationAsync`
+never calls `ConsumeCreditsAsync`, and `RecordExamResultAsync` updates SM2
+for `ExamType: "Dictation"` through the existing unmodified code path.
+
+**Known limitation — tests were not executed.** This sandbox has no .NET
+SDK installed and outbound network access to
+`builds.dotnet.microsoft.com` (the dotnet-install source) is blocked by the
+environment's egress policy, so `dotnet build`/`dotnet test` could not be
+run here. The new code was written by closely mirroring existing, already-
+tested patterns in the same files (`GenerateWritingPromptAsync`/
+`GetListeningOptionTextAsync`/`ToAudioResultAsync`/`GradeWritingAsync`'s
+unbilled-POST shape) and manually reviewed for type/signature correctness
+against the current codebase, but this has not been confirmed by an actual
+compiler or test run. Please confirm CI is green on the PR before merging.
+
+### PR
+_(link added after push)_
+
+### Known Issues
+- None beyond the "tests not executed locally" limitation above.
+
+### Follow-ups flagged, not implemented (out of scope per task)
+- Adjustable playback speed on `dictation/audio` (and the other TTS
+  endpoints) — cheap, likely worthwhile, deliberately left out per the
+  Architecture doc's Alternatives section.
+- `CreditCosts.DictationTest = 1` was set exactly as the task suggested
+  (raw `TextToSpeech` rate); flagging per the task's own "flag in the PR if
+  you think a different value fits better" — no objection, 1 credit seems
+  right for a single TTS clip.
 
 ## Review
 _(Tech Lead fills in after PR review)_
