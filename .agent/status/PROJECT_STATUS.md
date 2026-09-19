@@ -1099,10 +1099,48 @@
   standing git rule (§16) for architecture/task/status file updates — no
   branch/PR for documentation-only changes.
 
+## 2026-09-19 — Frontend Engineer: TASK-011 dictation practice UI (scheduled run)
+
+- Read `.agent/tasks/TASK-011.md` (Owner: Frontend, `READY`). Its stated
+  dependency, `TASK-010` (Backend), had already merged (PR #352, confirmed
+  via `mcp__github__pull_request_read`) since the task was written —
+  fetched `origin/master` and confirmed this session's branch
+  (`claude/amazing-cori-fc4dxu`) already carried that merge commit.
+- Verified the **merged** DTO/route shapes directly from
+  `DTO/ExamModels.cs` and `Controllers/ExamController.cs` before writing
+  any frontend code (per the task's own instruction not to guess):
+  `DictationPromptResponse { WordId }`,
+  `DictationGradeRequest { WordId, UserInput }`,
+  `DictationGradeResponse { CorrectText, IsCorrect, Score }`; routes
+  `GET api/exam/dictation`, `GET api/exam/dictation/audio?wordId=X`,
+  `POST api/exam/dictation/grade`. Confirmed no `RecordExamResultRequest`
+  field was added, matching the task's expectation.
+- Implemented: `apis/examApis/types.ts` (`'Dictation'` on `ExamType` +
+  the three new DTOs, camelCase), `apis/examApis/index.ts`
+  (`getDictationPrompt`/`gradeDictation`), `constants/creditCosts.ts`
+  (`DICTATION_TEST: 1`), new `Exam/DictationTestCard/index.tsx` (play
+  button using the existing `useOneShotAudio` pattern but deliberately
+  **not** one-shot-restricted — replay is allowed anytime, since this
+  isn't a multiple-choice question where replay would be "cheating"),
+  wired into `Exam/index.tsx`'s `EXAM_MODES`.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136
+  tests, including `creditCosts.test.ts`'s backend-mirror check) all pass.
+  No dedicated component test added — matches the existing convention (no
+  other exam test card has one).
+- Opened PR #354, flipped `TASK-011.md` to `PR_OPENED`, filled in its
+  Result/PR/Known Issues sections.
+- **Flagged as not done in this session**: manual end-to-end verification
+  (opening the mode in a running app, inspecting the actual network
+  payload to confirm the GET response has no word text, playing audio,
+  submitting) — no backend/DB available in this sandboxed session. Recorded
+  in the PR and task file as an open item for a manual pass or QA before
+  merge.
+
 ## Open Items
-- **New, from this run**: `TASK-010`/`TASK-011` (dictation practice, last
-  Skill-Building item) are `READY` and unclaimed — next Backend/Frontend
-  run should pick these up.
+- **New, from this run**: `TASK-011` PR #354 is open — needs Tech Lead
+  review and, per the task's own flag, a manual end-to-end pass (network
+  payload check, audio playback, submit flow) before merge, since this
+  session had no way to run the app against a live backend.
 - Once item 4 ships and is product-verified, the originally-approved
   Skill-Building four-item list (DECISION-005) will be fully complete —
   the next PM run should then pivot to the still-open product-wide gap

@@ -147,8 +147,10 @@ further Tech Lead sign-off once `TASK-010` lands.
 - `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136
   tests, including `creditCosts.test.ts`'s backend-mirror check for the
   new `DICTATION_TEST` entry) all pass.
-- Committed and pushed to `claude/amazing-cori-fc4dxu`. PR: (link recorded
-  once opened).
+- Committed and pushed to `claude/amazing-cori-fc4dxu`.
+
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/354
 
 ## Known Issues
 - Manual end-to-end verification (opening the mode in a running app,
