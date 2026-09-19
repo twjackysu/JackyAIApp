@@ -7,7 +7,7 @@ Backend: Dictation practice (Skill-Building item 4 — 聽, last item)
 Backend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM-LOW
@@ -146,7 +146,68 @@ None — can start immediately. `TASK-011` (Frontend) depends on this task's
 response DTO shapes and route names.
 
 ## Result
-_(Backend Engineer fills in after implementation)_
+
+Implemented exactly as scoped — no new word-picking/audio-serving logic, reused the two
+existing patterns end-to-end.
+
+### Implementation
+- `DTO/ExamModels.cs`: added `DictationPromptResponse { WordId }`, `DictationGradeRequest
+  { WordId, UserInput }`, `DictationGradeResponse { CorrectText, IsCorrect, Score }`. Updated
+  `RecordExamResultRequest.ExamType`'s doc comment to list `"Dictation"`.
+- `Common/CreditCosts.cs`: added `DictationTest = 1` (raw `TextToSpeech` rate — one clip per
+  attempt, not `ListeningTest`'s bundled 4-clip rate).
+- `Services/Exam/IExamService.cs` + `ExamService.cs`:
+  - `GenerateDictationExamAsync()` — reuses the existing `GetRandomUserWordIdAsync`
+    (unchanged), returns `WordId` only.
+  - `GetDictationWordTextAsync(wordId)` — `Words.SingleOrDefaultAsync`, `NotFound` if missing.
+  - `GradeDictationAsync(request)` — looks up `Word.WordText` server-side, trimmed
+    `OrdinalIgnoreCase` exact match for `IsCorrect`, a small self-contained Levenshtein-DP
+    helper for the informational `Score` (100 on exact match, otherwise
+    `100 * (1 - distance/max(len,1))`, floored at 0, rounded). Explicit comment warning against
+    adding `[ConsumeCredits]` here later, same as `GenerateWritingPromptAsync`.
+- `Controllers/ExamController.cs`: `GET dictation` (`[ConsumeCredits(CreditCosts.DictationTest,
+  ...)]`), `GET dictation/audio?wordId=X` (unbilled, wired through the existing
+  `ToAudioResultAsync` helper verbatim), `POST dictation/grade` (unbilled).
+- **No changes to `RecordExamResultAsync`** — verified with a test that `ExamType: "Dictation"`
+  + `WordId` drives the same word-anchored `MapQuality`/`ApplyResult` path Cloze uses.
+- **No EF migration** — every piece reuses `Word`/`UserWord`/`ExamAttempt` as-is.
+
+### Files Changed
+- `JackyAIApp.Server/DTO/ExamModels.cs`
+- `JackyAIApp.Server/Common/CreditCosts.cs`
+- `JackyAIApp.Server/Services/Exam/IExamService.cs`
+- `JackyAIApp.Server/Services/Exam/ExamService.cs`
+- `JackyAIApp.Server/Controllers/ExamController.cs`
+- `JackyAIApp.Server.Tests/Services/ExamServiceTests.cs`
+
+### Tests
+- Added a "Dictation Tests" region to `ExamServiceTests.cs` covering every acceptance
+  criterion: user-not-found / no-words-anywhere errors, a JSON-serialization check that the
+  `GET dictation` response contains no word text, audio-lookup returning the same text grading
+  scores against, exact/case-insensitive-match/wrong-but-close grading (asserting a partial,
+  non-zero-not-necessarily score), `GradeDictationAsync`/`GetDictationWordTextAsync` never
+  calling `ConsumeCreditsAsync`, and `RecordExamResultAsync` with `ExamType: "Dictation"`
+  updating SM-2 through the existing, unmodified code path.
+- Ran `dotnet build --configuration Release` (backend): succeeded, 0 errors (pre-existing
+  warnings only, unrelated to this change).
+- Ran `dotnet test --filter "Category!=LiveContract"` (offline unit tests): 638 passed, 0
+  failed (was 625 before this change — 13 new dictation tests, all green).
+- Did not run the `LiveContract` category (unrelated to this task — no third-party API calls
+  added) or the frontend suite (this is a backend-only task; `TASK-011` covers the UI).
+
+### Known Issues / Flags for Tech Lead
+- Per task instructions, flagging explicitly: `GET api/exam/dictation`'s response
+  (`DictationPromptResponse`) deliberately omits `WordText`, unlike Cloze/Translation's GET
+  responses which already include the answer. This is intentional (see Architecture doc), not
+  an oversight — please don't "fix" it to match the Cloze/Translation convention.
+- `CreditCosts.DictationTest = 1` priced at raw `TextToSpeech` cost per the task's guidance;
+  flagging in case a different value is preferred.
+- Deliberately did not add a `speed` parameter to `dictation/audio` (out of scope per Technical
+  Notes) — noting adjustable playback speed as a possible follow-up across all TTS-backed exam
+  audio endpoints, not just this one.
+
+### Blockers
+None.
 
 ## Review
 _(Tech Lead fills in after PR review)_

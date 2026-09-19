@@ -53,6 +53,10 @@ namespace JackyAIApp.Server.Common
         /// <summary>Whisper audio transcription</summary>
         public const ulong AudioTranscription = 1;
 
+        /// <summary>Dictation test — one word, one TTS clip per attempt, so priced at raw
+        /// TextToSpeech cost rather than ListeningTest's bundled multi-clip rate.</summary>
+        public const ulong DictationTest = 1;
+
         /// <summary>Stock analysis (AI-powered)</summary>
         public const ulong StockAnalysis = 5;
 

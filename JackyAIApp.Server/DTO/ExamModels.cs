@@ -153,7 +153,7 @@ namespace JackyAIApp.Server.DTO
         /// open-topic submission legitimately omits/empties this.
         /// </summary>
         public List<string>? WritingWordIds { get; set; }
-        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse" | "Reading" | "Writing".</summary>
+        /// <summary>"Cloze" | "Translation" | "Sentence" | "Listening" | "ListeningResponse" | "Reading" | "Writing" | "Dictation".</summary>
         public required string ExamType { get; set; }
         public required bool Correct { get; set; }
         /// <summary>Optional 0–100 score for graded types (Sentence, Writing).</summary>
@@ -344,5 +344,34 @@ namespace JackyAIApp.Server.DTO
     {
         public required string Word { get; set; }
         public required bool Used { get; set; }
+    }
+
+    /// <summary>
+    /// Dictation prompt: only the picked word's id. Deliberately omits the word text — unlike
+    /// Cloze/Translation, which already put the answer in their GET response, dictation's whole
+    /// point is "identify the word from audio alone," so the text must not be inspectable in the
+    /// network response before grading. See ExamService.GenerateDictationExamAsync.
+    /// </summary>
+    public class DictationPromptResponse
+    {
+        public required string WordId { get; set; }
+    }
+
+    /// <summary>User's dictation submission for a given word.</summary>
+    public class DictationGradeRequest
+    {
+        public required string WordId { get; set; }
+        public required string UserInput { get; set; }
+    }
+
+    /// <summary>
+    /// Dictation grading result. CorrectText reveals the answer for the post-submission UI.
+    /// </summary>
+    public class DictationGradeResponse
+    {
+        public required string CorrectText { get; set; }
+        public required bool IsCorrect { get; set; }
+        /// <summary>0-100 closeness score. Purely informational — does not affect IsCorrect.</summary>
+        public required int Score { get; set; }
     }
 }

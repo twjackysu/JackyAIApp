@@ -65,6 +65,24 @@ namespace JackyAIApp.Server.Services.Exam
         /// </summary>
         Task<ServiceResult> GradeWritingAsync(WritingSubmissionRequest request);
 
+        /// <summary>
+        /// Picks one word (via the same due/weak/global fallback logic as
+        /// <see cref="GenerateWordExamAsync"/>) for a dictation attempt. Returns only the
+        /// WordId — deliberately not the word text, since dictation's whole point is
+        /// identifying the word from audio alone.
+        /// </summary>
+        Task<ServiceResult> GenerateDictationExamAsync();
+
+        /// <summary>Looks up a dictation word's text server-side, for the unbilled audio
+        /// playback endpoint (the flat "dictation" charge already covers this TTS call).</summary>
+        Task<ServiceResult> GetDictationWordTextAsync(string wordId);
+
+        /// <summary>
+        /// Grades a dictation submission against the real word text looked up server-side.
+        /// Zero underlying cost (in-memory string comparison, no AI/TTS call) — not credit-gated.
+        /// </summary>
+        Task<ServiceResult> GradeDictationAsync(DictationGradeRequest request);
+
         Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse);
 
         Task<ServiceResult> StartConversationAsync(ConversationStartRequest request);

@@ -159,6 +159,31 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> EvaluateWriting([FromBody] WritingSubmissionRequest request) =>
             _responseFactory.ToActionResult(await _examService.GradeWritingAsync(request));
 
+        /// <summary>Picks one word for a dictation attempt (hear it, type what you heard).
+        /// Returns only a WordId — deliberately not the word text, unlike Cloze/Translation's GET
+        /// response, since guessing from audio alone is the whole point. Flat charge covers the
+        /// one TTS call the user is expected to make right after.</summary>
+        [HttpGet("dictation")]
+        [ConsumeCredits(CreditCosts.DictationTest, "dictation_test", "Dictation test")]
+        public async Task<IActionResult> GetDictationTest() =>
+            _responseFactory.ToActionResult(await _examService.GenerateDictationExamAsync());
+
+        /// <summary>Synthesizes speech for a dictation word. Unbilled — the flat "dictation"
+        /// charge already covers this TTS call.</summary>
+        [HttpGet("dictation/audio")]
+        public async Task<IActionResult> GetDictationWordAudio([FromQuery] string wordId)
+        {
+            var lookup = await _examService.GetDictationWordTextAsync(wordId);
+            return await ToAudioResultAsync(lookup);
+        }
+
+        /// <summary>Grades a dictation submission against the real word text looked up
+        /// server-side. Not credit-gated — zero underlying cost (in-memory string comparison, no
+        /// AI/TTS call).</summary>
+        [HttpPost("dictation/grade")]
+        public async Task<IActionResult> GradeDictation([FromBody] DictationGradeRequest request) =>
+            _responseFactory.ToActionResult(await _examService.GradeDictationAsync(request));
+
         /// <summary>Shared unbilled-TTS-lookup helper: resolves a ServiceResult&lt;string&gt; text
         /// lookup into a cached-or-freshly-synthesized audio response.</summary>
         private async Task<IActionResult> ToAudioResultAsync(ServiceResult lookup)
