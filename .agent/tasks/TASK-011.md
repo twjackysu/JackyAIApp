@@ -7,7 +7,7 @@ Frontend: Dictation practice test UI (Skill-Building item 4 — 聽, last item)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM-LOW
@@ -101,7 +101,61 @@ Architecture and requirements are otherwise final; no need to wait for
 further Tech Lead sign-off once `TASK-010` lands.
 
 ## Result
-_(Frontend Engineer fills in after implementation)_
+
+Verified `TASK-010`'s PR #352 was actually merged into `master`
+(2026-09-19T13:52:39Z) via the GitHub API before starting, then read the
+real merged `ExamModels.cs` DTOs (`DictationPromptResponse { WordId }`,
+`DictationGradeRequest { WordId, UserInput }`, `DictationGradeResponse
+{ CorrectText, IsCorrect, Score }`) and `ExamController.cs`'s three routes
+(`GET dictation`, `GET dictation/audio?wordId=`, `POST dictation/grade`)
+directly off `master` rather than guessing.
+
+- `apis/examApis/types.ts`: added `DictationPromptResponse`/
+  `DictationGradeRequest`/`DictationGradeResponse` (camelCase, matching the
+  default JSON options every other DTO here already assumes), `'Dictation'`
+  added to the `ExamType` union, `score` doc comment extended to mention
+  Dictation. No new field added to `RecordExamResultRequest` — confirmed
+  against `TASK-010.md`'s Result section that Dictation reuses the existing
+  `wordId`/`correct`/`score` fields exactly like Cloze.
+- `apis/examApis/index.ts`: added `getDictationPrompt` (query, `GET
+  dictation`) and `gradeDictation` (mutation, `POST dictation/grade`). No
+  RTK Query endpoint for the audio clip — same as every other exam card,
+  it's referenced as a plain relative URL string, not fetched through RTK
+  Query.
+- New `Exam/DictationTestCard/index.tsx`: fetches the prompt on mount (same
+  upfront-charge pattern as Cloze/Listening — `useGetDictationPromptQuery()`
+  auto-fetches, `refetch()` drives "next"), renders only a play/replay
+  button (never the `wordId` itself as visible text) using the existing
+  `useOneShotAudio` hook for play-state tracking — deliberately does not
+  gate replay on `playedKeys` the way the Listening cards do, since
+  dictation has no "hear it once" rule. Submits via `gradeDictation`,
+  shows correct/incorrect + the revealed `correctText` + the closeness
+  `score` as a secondary detail, fires `record-result` once after the
+  result is shown with `examType: 'Dictation'` and the `wordId` from the
+  original prompt fetch (word-anchored, not the wordless group). "換一題"
+  advances the round and resets local state, following the same
+  `ExamRoundShell`/`useExamRound` shell every other exam card uses.
+- `Exam/index.tsx`: new `EXAM_MODES` entry (`path: 'dictation'`, label
+  "聽寫練習 (Dictation)"), flat upfront-charge caption matching Cloze's
+  phrasing, not Writing's free-then-charged split.
+- `constants/creditCosts.ts`: added `DICTATION_TEST: 1`, matching
+  `TASK-010`'s actual `CreditCosts.DictationTest` value; the existing
+  `creditCosts.test.ts` drift check covers it automatically.
+
+`npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136 tests,
+up from 135) all pass, no regressions. No dedicated component test added
+for `DictationTestCard`, consistent with the existing convention (no other
+exam card has one either) — same known limitation flagged on every prior
+Skill-Building frontend task.
+
+### PR
+(filled in below once opened)
+
+### Known Issues
+- None found during implementation.
+
+## Review
+_(Tech Lead fills in after PR review)_
 
 ## Review
 _(Tech Lead fills in after PR review)_

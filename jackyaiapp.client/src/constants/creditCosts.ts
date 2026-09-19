@@ -33,6 +33,8 @@ export const CREDIT_COSTS = {
   READING_COMPREHENSION_TEST: 3,
   /** Writing practice AI evaluation — the prompt fetch itself is free, only grading is charged */
   WRITING_EVALUATION: 3,
+  /** Dictation practice — one TTS clip per attempt (a single word, not four options) */
+  DICTATION_TEST: 1,
   /** Whisper audio transcription */
   AUDIO_TRANSCRIPTION: 1,
   /** Stock analysis (AI-powered) */

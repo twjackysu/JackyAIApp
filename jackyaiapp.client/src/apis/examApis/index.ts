@@ -23,6 +23,9 @@ import {
   WritingPromptResponse,
   WritingSubmissionRequest,
   WritingGradingResponse,
+  DictationPromptResponse,
+  DictationGradeRequest,
+  DictationGradeResponse,
 } from './types';
 
 import {
@@ -165,6 +168,18 @@ export const examApis = createApi({
         body,
       }),
     }),
+    getDictationPrompt: builder.query<ApiOkResponse<DictationPromptResponse>, void>({
+      query: () => ({
+        url: 'dictation',
+      }),
+    }),
+    gradeDictation: builder.mutation<ApiOkResponse<DictationGradeResponse>, DictationGradeRequest>({
+      query: (body) => ({
+        url: 'dictation/grade',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
   tagTypes: ['ListeningBank'],
 });
@@ -187,4 +202,6 @@ export const {
   useGetReadingTestQuery,
   useGetWritingPromptQuery,
   useEvaluateWritingMutation,
+  useGetDictationPromptQuery,
+  useGradeDictationMutation,
 } = examApis;
