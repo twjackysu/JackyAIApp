@@ -147,6 +147,8 @@ response DTO shapes and route names.
 
 ## Result
 
+PR: https://github.com/twjackysu/JackyAIApp/pull/350
+
 Implemented exactly as scoped — no new word-picking, audio-serving, or `RecordExamResultAsync`
 logic; every piece reuses an existing pattern.
 
