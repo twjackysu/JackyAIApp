@@ -345,4 +345,34 @@ namespace JackyAIApp.Server.DTO
         public required string Word { get; set; }
         public required bool Used { get; set; }
     }
+
+    /// <summary>
+    /// Dictation prompt: identifies which word to dictate but deliberately omits the word text
+    /// itself — unlike Cloze/Translation's GET response, exposing the text here would make the
+    /// exercise (identify the word from audio alone) trivially bypassable via the Network tab.
+    /// See ExamService.GenerateDictationExamAsync.
+    /// </summary>
+    public class DictationPromptResponse
+    {
+        public required string WordId { get; set; }
+    }
+
+    /// <summary>User's dictation submission: the word they typed after listening to the audio.</summary>
+    public class DictationGradeRequest
+    {
+        public required string WordId { get; set; }
+        public required string UserInput { get; set; }
+    }
+
+    /// <summary>
+    /// Dictation grading result. IsCorrect is a trimmed, case-insensitive exact match only;
+    /// Score is a purely informational Levenshtein-based closeness measure and does not affect
+    /// IsCorrect. CorrectText reveals the answer for the post-submission UI.
+    /// </summary>
+    public class DictationGradeResponse
+    {
+        public required string CorrectText { get; set; }
+        public required bool IsCorrect { get; set; }
+        public required int Score { get; set; }
+    }
 }

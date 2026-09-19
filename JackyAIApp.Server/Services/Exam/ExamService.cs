@@ -635,6 +635,103 @@ namespace JackyAIApp.Server.Services.Exam
             return ServiceResult.Ok(grading);
         }
 
+        /// <summary>
+        /// Picks one word via the shared <see cref="GetRandomUserWordIdAsync"/> helper (same
+        /// due/weak/global-fallback behavior as Cloze/Translation/Sentence) and returns only its
+        /// WordId. Deliberately does not include the word text — see DictationPromptResponse.
+        /// </summary>
+        public async Task<ServiceResult> GenerateDictationExamAsync()
+        {
+            var userId = _userService.GetUserId();
+            var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
+            if (user == null)
+            {
+                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+            }
+
+            var wordId = await GetRandomUserWordIdAsync(userId!);
+            if (wordId == null)
+            {
+                return ServiceResult.Fail(ErrorCodes.Forbidden, NoWordsMessage);
+            }
+
+            return ServiceResult.Ok(new DictationPromptResponse { WordId = wordId });
+        }
+
+        public async Task<ServiceResult> GetDictationWordTextAsync(string wordId)
+        {
+            var word = await _dbContext.Words.SingleOrDefaultAsync(w => w.Id == wordId);
+
+            return word == null
+                ? ServiceResult.Fail(ErrorCodes.NotFound, "Word not found.")
+                : ServiceResult.Ok(word.WordText);
+        }
+
+        public async Task<ServiceResult> GradeDictationAsync(DictationGradeRequest request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.WordId))
+            {
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "WordId is required.");
+            }
+
+            // Never trust a client-supplied "correct answer" — resolve it server-side.
+            var word = await _dbContext.Words.SingleOrDefaultAsync(w => w.Id == request.WordId);
+            if (word == null)
+            {
+                return ServiceResult.Fail(ErrorCodes.NotFound, "Word not found.");
+            }
+
+            var correctText = word.WordText;
+            var userInput = (request.UserInput ?? string.Empty).Trim();
+            var isCorrect = string.Equals(userInput, correctText, StringComparison.OrdinalIgnoreCase);
+
+            // Not [ConsumeCredits] — pure in-memory string comparison, no AI call, no TTS call.
+            // The flat charge on GET api/exam/dictation already covers the one TTS clip this
+            // attempt used. Do not add credit consumption here.
+            int score;
+            if (isCorrect)
+            {
+                score = 100;
+            }
+            else
+            {
+                var distance = LevenshteinDistance(userInput.ToUpperInvariant(), correctText.ToUpperInvariant());
+                var maxLength = Math.Max(correctText.Length, 1);
+                score = Math.Max(0, (int)Math.Round(100.0 * (1 - (double)distance / maxLength)));
+            }
+
+            return ServiceResult.Ok(new DictationGradeResponse
+            {
+                CorrectText = correctText,
+                IsCorrect = isCorrect,
+                Score = score,
+            });
+        }
+
+        /// <summary>Standard O(n*m) edit-distance DP. Word-length strings only, no performance concern.</summary>
+        private static int LevenshteinDistance(string a, string b)
+        {
+            var n = a.Length;
+            var m = b.Length;
+            var dp = new int[n + 1, m + 1];
+
+            for (var i = 0; i <= n; i++) dp[i, 0] = i;
+            for (var j = 0; j <= m; j++) dp[0, j] = j;
+
+            for (var i = 1; i <= n; i++)
+            {
+                for (var j = 1; j <= m; j++)
+                {
+                    var cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                    dp[i, j] = Math.Min(
+                        Math.Min(dp[i - 1, j] + 1, dp[i, j - 1] + 1),
+                        dp[i - 1, j - 1] + cost);
+                }
+            }
+
+            return dp[n, m];
+        }
+
         public async Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse)
         {
             // Credit gate (conditional on an authenticated user)

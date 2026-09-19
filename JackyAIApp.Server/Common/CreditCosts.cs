@@ -50,6 +50,11 @@ namespace JackyAIApp.Server.Common
         /// sits here, on the one-shot paragraph grading call.</summary>
         public const ulong WritingEvaluation = 3;
 
+        /// <summary>Dictation practice — one TTS clip per attempt (a single word, not
+        /// ListeningTest's four options), priced at raw TextToSpeech cost rather than
+        /// ListeningTest's bundled rate.</summary>
+        public const ulong DictationTest = 1;
+
         /// <summary>Whisper audio transcription</summary>
         public const ulong AudioTranscription = 1;
 
