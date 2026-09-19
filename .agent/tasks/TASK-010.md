@@ -191,7 +191,7 @@ against the current codebase, but this has not been confirmed by an actual
 compiler or test run. Please confirm CI is green on the PR before merging.
 
 ### PR
-_(link added after push)_
+https://github.com/twjackysu/JackyAIApp/pull/352
 
 ### Known Issues
 - None beyond the "tests not executed locally" limitation above.
