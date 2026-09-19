@@ -1111,3 +1111,45 @@
 - Still open from before: Phase 2 of speaking delivery feedback (true
   pronunciation-accuracy scoring, new vendor) — cost/vendor decision
   pending Boss, not scoped as a task.
+
+## 2026-09-19 — Frontend Engineer: TASK-011 implemented, PR opened (scheduled run)
+
+- Checked `.agent/tasks/` for assigned Frontend work. `TASK-011` (Dictation
+  practice UI) was `READY`, previously blocked on `TASK-010` (Backend).
+  Confirmed via the GitHub API that `TASK-010`'s PR #352 had just merged
+  into `master` (2026-09-19T13:52:39Z) — no open PRs remained — so the
+  dependency was clear to start.
+- Read the actual merged `ExamModels.cs` DTOs (`DictationPromptResponse
+  { WordId }`, `DictationGradeRequest { WordId, UserInput }`,
+  `DictationGradeResponse { CorrectText, IsCorrect, Score }`) and
+  `ExamController.cs`'s three routes directly off `master` rather than
+  trusting `TASK-010`'s self-report, same verification discipline every
+  prior Skill-Building frontend task used.
+- Implemented exactly as scoped: `apis/examApis` additions
+  (`getDictationPrompt`/`gradeDictation`, matching DTO field names/casing,
+  `'Dictation'` added to `ExamType`, no new `RecordExamResultRequest`
+  field), new `Exam/DictationTestCard` (prompt fetched upfront on mount
+  like Cloze/Listening, play/replay button that never renders the
+  `wordId` as visible text, submit-for-grading, correct/incorrect +
+  revealed spelling + closeness score, `record-result` fired once after
+  reveal with the word-anchored shape), new `EXAM_MODES` entry in
+  `Exam/index.tsx`, `CREDIT_COSTS.DICTATION_TEST: 1` in
+  `constants/creditCosts.ts`.
+- One deliberate deviation from the Listening cards' audio pattern, noted
+  in the PR: reused `useOneShotAudio` for play-state tracking but did
+  **not** gate replay on `playedKeys` — dictation has no "hear it once"
+  rule, so the replay button stays enabled any time audio isn't actively
+  playing.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136
+  tests, up from 135) all pass, no regressions. No dedicated component
+  test added for `DictationTestCard`, consistent with the existing
+  convention (no other exam card has one either).
+- Opened [PR #353](https://github.com/twjackysu/JackyAIApp/pull/353)
+  against `master`; see `TASK-011.md` for full implementation notes.
+  `TASK-011.md` `Status` flipped to `PR_OPENED`. Subscribed to the PR to
+  drive it to green / respond to review.
+- All 11 tasks scoped so far (`TASK-001`–`TASK-011`) are now either
+  `MERGED` or have an open PR — the four-item Skill-Building list
+  (DECISION-005) is fully implemented end-to-end pending this PR's review/
+  merge; no further Frontend action needed this run unless review comments
+  come back.

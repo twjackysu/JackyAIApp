@@ -149,7 +149,7 @@ exam card has one either) — same known limitation flagged on every prior
 Skill-Building frontend task.
 
 ### PR
-(filled in below once opened)
+https://github.com/twjackysu/JackyAIApp/pull/353
 
 ### Known Issues
 - None found during implementation.
