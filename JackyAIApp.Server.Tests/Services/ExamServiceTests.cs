@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using Newtonsoft.Json;
 using SQLWord = JackyAIApp.Server.Data.Models.SQL.Word;
 
 namespace JackyAIApp.Server.Tests.Services
@@ -1363,6 +1364,165 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.NotNull(updatedWord0.NextReviewDate);
             Assert.NotNull(updatedWord1.NextReviewDate);
             Assert.Null(untouchedWord2.NextReviewDate);
+        }
+
+        #endregion
+
+        #region Dictation Tests
+
+        [Fact]
+        public async Task GenerateDictation_UserNotFound_ReturnsError()
+        {
+            var result = await _service.GenerateDictationExamAsync();
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.Forbidden, result.Error);
+            Assert.Equal("User not found.", result.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task GenerateDictation_NoWordsAnywhere_ReturnsError()
+        {
+            await SeedUserAsync();
+
+            var result = await _service.GenerateDictationExamAsync();
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.Forbidden, result.Error);
+            Assert.Contains("No words are available", result.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task GenerateDictation_ReturnsWordIdOnly_ResponseNeverLeaksWordText()
+        {
+            var word = await SeedUserWithWordAsync(); // WordText = "sun"
+
+            var result = await _service.GenerateDictationExamAsync();
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<DictationPromptResponse>(result.Data);
+            Assert.Equal(word.Id, dto.WordId);
+
+            // Guards against a future DTO change accidentally leaking the answer: dictation's
+            // entire point is guessing the word from audio alone.
+            var json = JsonConvert.SerializeObject(dto);
+            Assert.DoesNotContain(word.WordText, json, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task GetDictationWordText_NotFound_ReturnsError()
+        {
+            var result = await _service.GetDictationWordTextAsync("missing-id");
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.NotFound, result.Error);
+        }
+
+        [Fact]
+        public async Task GetDictationWordText_Found_ReturnsWordText()
+        {
+            var word = await SeedUserWithWordAsync(); // WordText = "sun"
+
+            var result = await _service.GetDictationWordTextAsync(word.Id);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(word.WordText, result.Data);
+        }
+
+        [Fact]
+        public async Task GradeDictation_WordNotFound_ReturnsError()
+        {
+            var request = new DictationGradeRequest { WordId = "missing-id", UserInput = "sun" };
+
+            var result = await _service.GradeDictationAsync(request);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ErrorCodes.NotFound, result.Error);
+        }
+
+        [Fact]
+        public async Task GradeDictation_ExactMatch_ReturnsCorrectWithFullScore()
+        {
+            var word = await SeedUserWithWordAsync(); // WordText = "sun"
+            var request = new DictationGradeRequest { WordId = word.Id, UserInput = "sun" };
+
+            var result = await _service.GradeDictationAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<DictationGradeResponse>(result.Data);
+            Assert.True(dto.IsCorrect);
+            Assert.Equal(100, dto.Score);
+            Assert.Equal("sun", dto.CorrectText);
+        }
+
+        [Fact]
+        public async Task GradeDictation_CaseAndWhitespaceDifferenceOnly_StillCorrect()
+        {
+            var word = await SeedUserWithWordAsync(); // WordText = "sun"
+            var request = new DictationGradeRequest { WordId = word.Id, UserInput = "  SUN  " };
+
+            var result = await _service.GradeDictationAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<DictationGradeResponse>(result.Data);
+            Assert.True(dto.IsCorrect);
+            Assert.Equal(100, dto.Score);
+        }
+
+        [Fact]
+        public async Task GradeDictation_GenuinelyWrong_ReturnsIncorrectWithPartialScore()
+        {
+            var word = await SeedUserWithWordAsync(); // WordText = "sun"
+            var request = new DictationGradeRequest { WordId = word.Id, UserInput = "son" };
+
+            var result = await _service.GradeDictationAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<DictationGradeResponse>(result.Data);
+            Assert.False(dto.IsCorrect);
+            Assert.True(dto.Score > 0 && dto.Score < 100, $"Expected a partial score, got {dto.Score}");
+            Assert.Equal("sun", dto.CorrectText);
+        }
+
+        [Fact]
+        public async Task GradeDictation_NeverConsumesCredits()
+        {
+            var word = await SeedUserWithWordAsync();
+            var request = new DictationGradeRequest { WordId = word.Id, UserInput = "sun" };
+
+            var result = await _service.GradeDictationAsync(request);
+
+            Assert.True(result.IsSuccess);
+            _creditServiceMock.Verify(x => x.ConsumeCreditsAsync(
+                It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task RecordExamResult_DictationType_UpdatesSM2SameAsWordAnchoredTypes()
+        {
+            var word = await SeedUserWithWordAsync();
+            var request = new RecordExamResultRequest
+            {
+                ExamType = "Dictation",
+                WordId = word.Id,
+                Correct = true,
+                Score = 100,
+            };
+
+            var result = await _service.RecordExamResultAsync(request);
+
+            Assert.True(result.IsSuccess);
+            var dto = Assert.IsType<RecordExamResultResponse>(result.Data);
+            Assert.True(dto.ScheduleUpdated);
+            Assert.NotNull(dto.NextReviewDate);
+
+            var attempt = await _dbContext.ExamAttempts.SingleAsync(a => a.UserId == _testUserId);
+            Assert.Equal("Dictation", attempt.ExamType);
+            Assert.Equal(word.Id, attempt.WordId);
+            Assert.True(attempt.IsCorrect);
+
+            var userWord = await _dbContext.UserWords.SingleAsync(uw => uw.UserId == _testUserId && uw.WordId == word.Id);
+            Assert.NotNull(userWord.NextReviewDate);
         }
 
         #endregion

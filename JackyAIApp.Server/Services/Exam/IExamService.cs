@@ -67,6 +67,24 @@ namespace JackyAIApp.Server.Services.Exam
 
         Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse);
 
+        /// <summary>
+        /// Picks one of the user's words (same word-picking helper as Cloze/Translation/Sentence)
+        /// and returns only its <c>WordId</c> — deliberately withholds the word text, since this
+        /// exercise is "identify the word from audio alone."
+        /// </summary>
+        Task<ServiceResult> GenerateDictationExamAsync();
+
+        /// <summary>Looks up a dictation word's text server-side, for the unbilled audio playback
+        /// endpoint (credits are already charged when the prompt itself was fetched).</summary>
+        Task<ServiceResult> GetDictationWordTextAsync(string wordId);
+
+        /// <summary>
+        /// Grades a dictation submission: looks up the real word text server-side and compares it
+        /// (trimmed, case-insensitive exact match) against the user's input. Pure in-memory string
+        /// comparison — no AI call, no TTS call — so deliberately not credit-gated.
+        /// </summary>
+        Task<ServiceResult> GradeDictationAsync(DictationGradeRequest request);
+
         Task<ServiceResult> StartConversationAsync(ConversationStartRequest request);
 
         Task<ServiceResult> RespondToConversationAsync(ConversationResponseRequest request);

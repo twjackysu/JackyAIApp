@@ -159,6 +159,32 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> EvaluateWriting([FromBody] WritingSubmissionRequest request) =>
             _responseFactory.ToActionResult(await _examService.GradeWritingAsync(request));
 
+        /// <summary>Generates a dictation prompt: picks one of the user's words and returns only
+        /// its WordId (see DictationPromptResponse — the text is deliberately withheld, unlike
+        /// Cloze/Translation's GET response). Flat charge covers the one TTS call the user is
+        /// expected to make via dictation/audio right after.</summary>
+        [HttpGet("dictation")]
+        [ConsumeCredits(CreditCosts.DictationTest, "dictation_test", "Dictation test generation")]
+        public async Task<IActionResult> GetDictationTest() =>
+            _responseFactory.ToActionResult(await _examService.GenerateDictationExamAsync());
+
+        /// <summary>Synthesizes speech for the dictation word. Unbilled — the flat "dictation"
+        /// charge above already covers this.</summary>
+        [HttpGet("dictation/audio")]
+        public async Task<IActionResult> GetDictationWordAudio([FromQuery] string wordId)
+        {
+            var lookup = await _examService.GetDictationWordTextAsync(wordId);
+            return await ToAudioResultAsync(lookup);
+        }
+
+        /// <summary>Grades a dictation submission against the real word text looked up
+        /// server-side. Deliberately NOT credit-gated — zero underlying cost (pure in-memory
+        /// string comparison), same reasoning as GetWritingPrompt. Do not add [ConsumeCredits]
+        /// here.</summary>
+        [HttpPost("dictation/grade")]
+        public async Task<IActionResult> GradeDictation([FromBody] DictationGradeRequest request) =>
+            _responseFactory.ToActionResult(await _examService.GradeDictationAsync(request));
+
         /// <summary>Shared unbilled-TTS-lookup helper: resolves a ServiceResult&lt;string&gt; text
         /// lookup into a cached-or-freshly-synthesized audio response.</summary>
         private async Task<IActionResult> ToAudioResultAsync(ServiceResult lookup)

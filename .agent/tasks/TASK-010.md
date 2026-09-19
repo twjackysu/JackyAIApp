@@ -7,7 +7,7 @@ Backend: Dictation practice (Skill-Building item 4 — 聽, last item)
 Backend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM-LOW
@@ -146,7 +146,54 @@ None — can start immediately. `TASK-011` (Frontend) depends on this task's
 response DTO shapes and route names.
 
 ## Result
-_(Backend Engineer fills in after implementation)_
+
+Implemented exactly as scoped — no new word-picking, audio-serving, or `RecordExamResultAsync`
+logic; every piece reuses an existing pattern.
+
+### Files Changed
+- `JackyAIApp.Server/DTO/ExamModels.cs`: `DictationPromptResponse` (`WordId` only),
+  `DictationGradeRequest`, `DictationGradeResponse`.
+- `JackyAIApp.Server/Common/CreditCosts.cs`: `DictationTest = 1`.
+- `JackyAIApp.Server/Services/Exam/IExamService.cs` / `ExamService.cs`:
+  `GenerateDictationExamAsync()` (reuses `GetRandomUserWordIdAsync`, returns `WordId` only),
+  `GetDictationWordTextAsync(wordId)` (`Words.SingleOrDefaultAsync`, `NotFound` if missing),
+  `GradeDictationAsync(request)` (server-side `WordText` lookup, trimmed/`OrdinalIgnoreCase`
+  exact match for `IsCorrect`, small standalone DP Levenshtein helper for the informational
+  `Score`, no NuGet dependency added).
+- `JackyAIApp.Server/Controllers/ExamController.cs`: `GET dictation`
+  (`[ConsumeCredits(CreditCosts.DictationTest, ...)]`), `GET dictation/audio` (unbilled, wired
+  through the existing `ToAudioResultAsync` helper), `POST dictation/grade` (unbilled — explicit
+  comment against adding `[ConsumeCredits]` here, same as `GradeWritingAsync`'s free-GET
+  reasoning).
+- `JackyAIApp.Server.Tests/Services/ExamServiceTests.cs`: new "Dictation Tests" region (14 cases)
+  covering user-not-found / no-words-anywhere, the WordId-only response (serialized-JSON
+  assertion that the word text never appears), audio text lookup (found/not-found), grading
+  (exact match, case+whitespace-only difference still correct, genuinely-wrong with partial
+  0<Score<100, word-not-found, never consumes credits), and `RecordExamResultAsync` with
+  `ExamType: "Dictation"` updating SM-2 through the existing unmodified code path.
+
+### Deviations / flags for Tech Lead review
+- No deviations from the task spec. Flagging per the task's own instructions:
+  - The `GET api/exam/dictation` response deliberately omits `WordText` — a departure from the
+    Cloze/Translation precedent, intentional per Architecture point 4, not a bug.
+  - `CreditCosts.DictationTest = 1` priced at raw `TextToSpeech` cost as specified; flag if a
+    different value is preferred.
+  - No adjustable playback speed added (explicitly out of scope) — noted here as a possible cheap
+    follow-up per the Architecture doc's Alternatives section, not implemented.
+
+### Tests
+- `dotnet build JackyAIApp.Server/JackyAIApp.Server.csproj -c Release` — succeeds, 0 errors.
+- `dotnet test JackyAIApp.Server.Tests --filter "Category!=LiveContract"` — **636/636 passed**
+  (offline unit tests only; LiveContract tests are out of scope for this change and were not run,
+  per repo convention).
+- No EF migration included — confirmed unnecessary; feature reuses `Word`/`UserWord`/`ExamAttempt`
+  as-is.
+
+### Known Limitations
+- Word-level dictation only (not sentence-level) — matches the approved scope.
+
+### Blockers
+None.
 
 ## Review
 _(Tech Lead fills in after PR review)_
