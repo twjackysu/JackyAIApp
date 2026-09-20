@@ -101,6 +101,66 @@ Architecture and requirements are otherwise final; no need to wait for
 further Tech Lead sign-off once `TASK-010` lands.
 
 ## Result
+- Verified `TASK-010`'s **merged** DTOs directly from `DTO/ExamModels.cs` and
+  `Controllers/ExamController.cs` on `master` (PR #352) before writing any
+  frontend code: `DictationPromptResponse { WordId }`,
+  `DictationGradeRequest { WordId, UserInput }`,
+  `DictationGradeResponse { CorrectText, IsCorrect, Score }`, routes
+  `GET api/exam/dictation`, `GET api/exam/dictation/audio?wordId=X`,
+  `POST api/exam/dictation/grade`. Confirmed `RecordExamResultAsync` needed
+  no request field change per the task's own Result section — `wordId` +
+  `correct` + `score` is all `RecordExamResultRequest` needed, exactly like
+  Cloze.
+- **`apis/examApis/types.ts`**: added `'Dictation'` to `ExamType`;
+  `DictationPromptResponse`/`DictationGradeRequest`/`DictationGradeResponse`
+  (camelCase, matching `Program.cs`'s default JSON options — same
+  verification approach every prior Skill-Building frontend task used).
+- **`apis/examApis/index.ts`**: `getDictationPrompt` (query, `GET
+  dictation`) and `gradeDictation` (mutation, `POST dictation/grade`),
+  hooks exported.
+- **`constants/creditCosts.ts`**: `DICTATION_TEST: 1`, matching
+  `CreditCosts.DictationTest`; `creditCosts.test.ts`'s backend-mirror check
+  passes.
+- **New `Exam/DictationTestCard/index.tsx`**: `useGetDictationPromptQuery`
+  fetches on mount (flat charge, same as Cloze — response holds only
+  `wordId`, never rendered as if it were the word). A play button (mirrors
+  `ListeningQuizCard`'s `useOneShotAudio` play/playingKey pattern) hits
+  `GET /api/exam/dictation/audio?wordId=...`; deliberately **not**
+  one-shot-restricted like the MCQ listening cards — replay is allowed at
+  any time (dictation isn't multiple-choice, so repeat listens aren't
+  "cheating" the way they would be for an MCQ option), captioned "可重複播放".
+  Single-line `TextField` + submit calls `gradeDictation({ wordId,
+  userInput })`, renders `isCorrect` as the primary signal, `correctText`
+  revealed, `score` shown as a secondary "接近程度" detail. `record-result`
+  fires once, right after grading (`examType: 'Dictation'`, the original
+  `wordId`, `correct: isCorrect`, `score`) — same call-site timing
+  `ClozeTestCard` uses (submit already reveals the result in the same
+  render, so there's no separate "reveal" step to wait for). "換一題" reuses
+  `round.advance()`/`refetch()`, same as `ReadingTestCard`/`WritingTestCard`.
+  Uses `ExamRoundShell`/`useExamRound` like every other card.
+- **`Exam/index.tsx`**: new `EXAM_MODES` entry, `path: 'dictation'`, label
+  "聽寫練習 (Dictation)", flat-charged cost caption (not the Writing-style
+  free-then-charged split, per the task).
+- No dedicated component test added — matches the existing convention (no
+  other test card has one either, per `TASK-009`'s own note); manually
+  verified via `npm run build` + `npx vitest run` that nothing regressed.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136
+  tests, including `creditCosts.test.ts`'s backend-mirror check for the
+  new `DICTATION_TEST` entry) all pass.
+- Committed and pushed to `claude/amazing-cori-fc4dxu`.
+
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/354
+
+## Known Issues
+- Manual end-to-end verification (opening the mode in a running app,
+  inspecting the actual network payload for `GET api/exam/dictation` to
+  confirm no word text leaks, playing audio, submitting) was **not**
+  performed in this session — no backend/DB available to run the app
+  against. Flagging per the task's own acceptance criterion ("verify by
+  inspecting the actual network payload during manual testing, not just
+  the TypeScript types") as not yet done; recommend a manual pass before
+  merge, or QA picking this up per the normal task lifecycle.
 
 Implemented against `TASK-010`'s merged backend (PR #352) — API slice
 additions (`getDictationPrompt`/`gradeDictation`), `DictationPromptResponse`/
