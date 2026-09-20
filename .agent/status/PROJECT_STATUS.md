@@ -1111,3 +1111,32 @@
 - Still open from before: Phase 2 of speaking delivery feedback (true
   pronunciation-accuracy scoring, new vendor) — cost/vendor decision
   pending Boss, not scoped as a task.
+
+## 2026-09-19/20 — Frontend Engineer: TASK-011 implemented, PR closed as duplicate of #354 (scheduled run)
+
+- Picked up `TASK-011` (Dictation practice UI) once `TASK-010`'s backend
+  PR #352 was confirmed merged. Read the real merged `ExamModels.cs` DTOs
+  and `ExamController.cs` routes off `master` before implementing.
+  Implemented the API slice additions, `Exam/DictationTestCard`, the new
+  `EXAM_MODES` entry, and `CREDIT_COSTS.DICTATION_TEST: 1` exactly as
+  scoped. `npm run lint`/`build`/`vitest run` all green (136/136, no
+  regressions). Opened PR #353, subscribed to its activity, confirmed CI
+  green and `mergeable_state: clean`.
+- A second, independent session had implemented the same task in parallel
+  and opened PR #354 against the same merged backend — same 7 files, same
+  DTO shapes, both green. Boss reviewed both and closed **#353** (this
+  session's) as the duplicate, keeping **#354** as canonical: #354 carries
+  the cross-card SRS-feedback caption ("✓ 已記錄"/"↻ 已記錄") that every
+  other word-anchored exam card (Cloze/Translation/Sentence/Writing)
+  already shows and #353 omitted — a genuine feature-parity gap, not just
+  a style difference. #353 also had one small dead call (`resetPlayed()`
+  from `useOneShotAudio`, never gating anything) #354 didn't carry.
+- Per Boss's explicit instruction on the closing comment, did **not**
+  reopen #353 or open a new PR for the same change. Reset this session's
+  branch to `origin/master` and recorded the outcome in `TASK-011.md`
+  (`Status: PR_OPENED`, pointing at #354 as the canonical PR, with the
+  duplicate-resolution reasoning) rather than re-implementing — same
+  precedent as `TASK-002`'s #331→#333 and `TASK-008`'s #346→#347.
+- `TASK-011`/PR #354 is now Tech Lead's/Boss's to review and merge; no
+  further Frontend action needed on this task unless #354 gets review
+  comments or its own CI issue.

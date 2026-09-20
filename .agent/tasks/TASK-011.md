@@ -7,7 +7,7 @@ Frontend: Dictation practice test UI (Skill-Building item 4 — 聽, last item)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM-LOW
@@ -101,7 +101,39 @@ Architecture and requirements are otherwise final; no need to wait for
 further Tech Lead sign-off once `TASK-010` lands.
 
 ## Result
-_(Frontend Engineer fills in after implementation)_
+
+Implemented as scoped — API slice additions (`getDictationPrompt`/
+`gradeDictation`), `DictationPromptResponse`/`DictationGradeRequest`/
+`DictationGradeResponse` types matching the merged backend DTOs exactly,
+`'Dictation'` added to `ExamType`, new `Exam/DictationTestCard` (fetches
+the prompt upfront on mount like Cloze/Listening, play/replay button that
+never renders `wordId` as visible text, submit-for-grading with
+correct/incorrect + revealed spelling + closeness score, `record-result`
+fired once after reveal, word-anchored shape), new `EXAM_MODES` entry,
+`CREDIT_COSTS.DICTATION_TEST: 1`.
+
+**Duplicate-PR note**: this task was independently implemented by two
+parallel sessions against the same merged `TASK-010` backend — this
+session's PR #353 and a second session's PR #354, both structurally
+identical (same 7 files, same DTO shapes, both CI-green). Boss reviewed
+both and closed #353 as the duplicate, keeping **#354** as canonical:
+#354 carries the cross-card SRS-feedback caption
+(`recordExamResult(...).then(r => setSrsNote(...))`, the "✓ 已記錄" /
+"↻ 已記錄" note every other word-anchored exam card — Cloze/Translation/
+Sentence/Writing — already shows) that #353 omitted, a real feature-parity
+gap; #353 also carried a small dead `resetPlayed()` call `#354` doesn't
+have. Recorded here rather than re-implementing in a new PR, per the same
+duplicate-resolution precedent used for `TASK-002`'s #331→#333 and
+`TASK-008`'s #346→#347/#347.
+
+### PR
+#353 (this session, closed as duplicate) — see
+https://github.com/twjackysu/JackyAIApp/pull/354 for the canonical,
+still-open implementation.
+
+### Known Issues
+- Missing the SRS-feedback caption that #354 has — not fixed here since
+  #354 is the PR going forward; flagged only for the historical record.
 
 ## Review
-_(Tech Lead fills in after PR review)_
+_(Tech Lead fills in after PR review of #354)_
