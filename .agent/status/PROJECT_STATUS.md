@@ -1222,3 +1222,75 @@
 - Still open from before: Phase 2 of speaking delivery feedback (true
   pronunciation-accuracy scoring, new vendor) — cost/vendor decision
   pending Boss, not scoped as a task.
+
+## 2026-09-20 — PM: Closed out Skill-Building (item 4 verified), started Finance/Portfolio/PDF gap audit (scheduled run)
+
+- Read `.agent/boss/PM.md` (no new Boss message since 2026-09-17),
+  `REQUIREMENTS.md`, `DECISIONS.md`, and confirmed via GitHub that PR #354
+  (`TASK-011`, dictation frontend) is merged (Boss merged it directly).
+- **Product-verified Skill-Building item 4 (dictation)** by reading the
+  actual merged frontend code (`jackyaiapp.client/src/Exam/
+  DictationTestCard/index.tsx`): the prompt response never exposes word
+  text before grading, playback is genuinely unrestricted (not one-shot,
+  unlike the MCQ listening cards), cost caption matches
+  `CreditCosts.DictationTest = 1`. `REQUIREMENTS.md` acceptance criteria for
+  item 4 flipped to `[x]`. **All four Skill-Building items (DECISION-004/
+  005) are now shipped and product-verified — the requirement is complete.**
+- **Started the DECISION-005 "future consideration" workstream**: gap audit
+  of Finance, Portfolio, and PDF Unlocker, same method used for
+  Skill-Building (read actual code, not docs; find concrete reusable-
+  infrastructure gaps). Delegated two focused code-reading passes (Finance,
+  Portfolio) and did a quick direct check on PDF Unlocker myself.
+- **Finance findings**: the module is broader than `REQUIREMENTS.md`
+  described — 8 endpoints, not 2; 4 free/unauthenticated quant tools
+  alongside the 2 credit-gated AI features. No prediction-accuracy tracking
+  exists (AI trend calls are never checked against what actually happened).
+  No watchlist/alert model exists.
+- **Portfolio findings**: also broader than documented — net-worth history,
+  drawdown analysis, and benchmark comparison already exist (this doc
+  previously implied snapshot-only); a `REAL_ESTATE` asset type already
+  exists in code but was undocumented. CSV export exists with no matching
+  import.
+- **Same gap found independently from both sides**: a Portfolio holding's
+  detail view never links to Finance's fuller per-stock analysis for that
+  same symbol, despite both modules sharing the same TW price-data
+  providers underneath — a portfolio holder currently gets *less* AI
+  insight on a stock they own than a non-holder gets from Finance directly.
+  Flagged as the top-priority, lowest-cost item (pure read-join, no new AI
+  calls or infra).
+- **PDF Unlocker**: confirmed by direct code read
+  (`Controllers/PDFController.cs`, frontend `PDFUnlocker/index.tsx`) that
+  "batch processing," claimed in root `CLAUDE.md` and the old
+  `REQUIREMENTS.md`, does not exist — single-file only, both ends. Flagged
+  as a documentation/behavior drift, not silently fixed (could mean
+  correcting docs or actually building the feature — Boss's call). No new
+  feature proposals raised for this module given its LOW priority.
+- `REQUIREMENTS.md`: corrected the stale Finance/Portfolio/PDF descriptions
+  above, added a "Gap Audit (2026-09-20)" subsection to Finance and
+  Portfolio with prioritized proposals (Finance↔Portfolio cross-link →
+  prediction-accuracy tracking → multi-stock comparison for Finance;
+  cross-link → CSV import → rebalancing suggestions → FIRE tracking for
+  Portfolio — the cross-link is one shared proposal).
+- Wrote the full findings + proposed priority to `.agent/boss/PM.md`,
+  following the same pattern as the original Skill-Building proposal: flag
+  now, and unless Boss redirects, hand off the first item (Finance↔Portfolio
+  cross-link) to Tech Lead next run by default.
+- No code changes — documentation only, committed directly to `master` per
+  this role's own git rule (§11) for PM documentation.
+
+## Open Items
+- **New, from this run**: Finance/Portfolio gap-audit proposals await
+  either a Boss reply or PM's next default-proceed run (handing off the
+  Finance↔Portfolio cross-link to Tech Lead). See `REQUIREMENTS.md`'s Gap
+  Audit subsections and `.agent/boss/PM.md` (2026-09-20) for the full list.
+- **New, from this run**: PDF Unlocker's "batch processing" doc/behavior
+  mismatch flagged to Boss — not resolved, no urgency.
+- Skill-Building (DECISION-004/005) is now fully complete — no further
+  action needed on that requirement unless Boss requests a fifth item.
+- Still open from before: Phase 2 of speaking delivery feedback (true
+  pronunciation-accuracy scoring, new vendor) — cost/vendor decision
+  pending Boss, not scoped as a task.
+- Still open from before (Tech Lead, 2026-09-20): whether a task-claiming
+  mechanism (flip Status to IN_PROGRESS before starting) is worth adding to
+  avoid the recurring duplicate-PR pattern (3 occurrences so far) — pending
+  Boss preference, not urgent.

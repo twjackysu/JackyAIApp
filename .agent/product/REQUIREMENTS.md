@@ -229,28 +229,22 @@ Proposed features, in the priority order PM recommended and **Boss approved
    personalized to the user's own saved vocabulary, matching this
    requirement's original "use these 5 saved words" framing exactly.
 4. **Dictation practice (listen → type what you hear)** — MEDIUM-LOW.
-   **Scoped 2026-09-19** (`TASK-010`/`TASK-011`) — see `ARCHITECTURE.md` →
-   "Decision: Dictation practice — Skill-Building item 4 (last item)".
-   **Status 2026-09-20**: `TASK-010` (backend) merged to `master` (PR
-   #352), Tech Lead-reviewed, no issues. `TASK-011` (frontend) has an open,
-   CI-green, Tech Lead-reviewed PR (#354, marked READY FOR BOSS REVIEW)
-   pending Boss merge — the one open item is a manual end-to-end check
-   (network payload / audio / submit flow against a live backend) neither
-   implementing session could run in its sandbox. Once #354 merges and PM
-   product-verifies it, this closes out the originally-approved four-item
-   Skill-Building list. Confirmed as anticipated: reuses the existing
-   word-picking helper, the existing unbilled resolve-ID-to-audio pattern,
-   and a zero-AI string-comparison grader — no EF migration, no
-   `RecordExamResultAsync` change, `CreditCosts.DictationTest = 1` (cheapest
-   of the four). One deliberate deviation from every prior exam type: the
-   `GET` prompt response withholds the word text entirely (only a `WordId`)
-   since — unlike Cloze/Translation — showing the answer upfront would
-   trivially defeat this specific exercise's whole mechanic. This is also
-   the **last item** on the originally-approved four-item list; once it
-   ships, `REQUIREMENTS.md`'s Skill-Building scope is complete and further
-   growth work should move to the still-open product-wide gap audit
-   (Finance/Portfolio/PDF Unlocker, DECISION-005) rather than adding a fifth
-   item without a fresh Boss mandate.
+   **Shipped 2026-09-20** (`TASK-010`/`TASK-011`, both merged — PR #352,
+   #354; product review passed, see Acceptance Criteria below) — see
+   `ARCHITECTURE.md` → "Decision: Dictation practice — Skill-Building item 4
+   (last item)". Confirmed as anticipated: reuses the existing word-picking
+   helper, the existing unbilled resolve-ID-to-audio pattern, and a zero-AI
+   string-comparison grader — no EF migration, no `RecordExamResultAsync`
+   change, `CreditCosts.DictationTest = 1` (cheapest of the four). One
+   deliberate deviation from every prior exam type: the `GET` prompt
+   response withholds the word text entirely (only a `WordId`) since —
+   unlike Cloze/Translation — showing the answer upfront would trivially
+   defeat this specific exercise's whole mechanic. This is also the **last
+   item** on the originally-approved four-item list — **all four
+   Skill-Building items are now shipped and product-complete.** Further
+   growth work moves to the product-wide gap audit (Finance/Portfolio/PDF
+   Unlocker, DECISION-005) rather than adding a fifth item without a fresh
+   Boss mandate.
 
 ### Acceptance Criteria
 - [x] At least one of the four proposals above is scoped into a Tech Lead
@@ -260,7 +254,8 @@ Proposed features, in the priority order PM recommended and **Boss approved
       comprehension) scoped 2026-09-16, see `TASK-006`/`TASK-007`; item 3
       (writing feedback) scoped 2026-09-17, see `TASK-008`/`TASK-009`; item
       4 (dictation) scoped 2026-09-19, see `TASK-010`/`TASK-011`. All four
-      proposals are now scoped — this criterion is fully satisfied.
+      proposals are now scoped **and shipped** — this criterion is fully
+      satisfied.
 - [x] Whichever ships first includes a rough per-use AI-cost estimate
       (OpenAI/Whisper/TTS calls) reviewed against `CreditCosts.cs`-style
       gating, consistent with DECISION-003's cost discipline — even though
@@ -316,6 +311,21 @@ Proposed features, in the priority order PM recommended and **Boss approved
       note that this fans a single holistic grade across every required
       word rather than judging each word separately. **Item 3 is fully
       shipped and product-complete.**
+- [x] **Item 4 (dictation practice) verified 2026-09-20** by PM reading the
+      shipped code on `master` directly
+      (`jackyaiapp.client/src/Exam/DictationTestCard/index.tsx`, PR #354,
+      built on merged `TASK-010` backend PR #352): the word text is never
+      rendered to the user before grading — the fetched prompt exposes only
+      `wordId`, and the correct spelling (`gradeResult.correctText`) only
+      appears in the UI after submission, matching the deliberate
+      answer-withholding design. Playback is genuinely unrestricted (button
+      only disables mid-playback, not after — captioned "可重複播放"),
+      unlike the one-shot-restricted MCQ listening cards, which is correct
+      for a free-typing exercise where replay isn't "cheating." Cost caption
+      ("每次出題消耗 1 點使用額度") matches `CreditCosts.DictationTest = 1`.
+      SRS feedback fires through the same `recordExamResult` call every
+      other word-anchored card uses. **Item 4 is fully shipped and
+      product-complete — all four Skill-Building items are now done.**
 
 ### Priority
 HIGH — this is the concrete workstream behind DECISION-004's redirect; it is
@@ -353,16 +363,13 @@ what "Growth & Retention" now means in practice.
   item 2's passages not being personalized (`.agent/boss/TECH_LEAD.md`,
   2026-09-16) remains unanswered — not a blocker for anything currently in
   flight.
-- **PM handed item 4 (dictation practice) to Tech Lead — 2026-09-17.** All
-  three prior items in the approved priority order are now shipped and
-  product-verified; this executes the already-approved order (DECISION-005)
-  rather than a new scope decision, same "proceed by default" pattern used
-  for items 1–3. This is also the **last item** on the original
-  Skill-Building list — once it ships, this requirement's four-item scope
-  is complete and future growth work should look at the Future
-  Consideration items below (product-wide gap audit beyond English
-  learning) instead of inventing a fifth Skill-Building item without a
-  fresh Boss mandate.
+- ~~PM handed item 4 (dictation practice) to Tech Lead~~ — **resolved
+  (2026-09-20)**: shipped, merged, and product-verified (see Acceptance
+  Criteria above). **All four Skill-Building items are now complete** —
+  this requirement's scope is fully delivered. Future growth work moves to
+  the product-wide gap audit (Finance/Portfolio/PDF Unlocker, DECISION-005)
+  rather than inventing a fifth Skill-Building item without a fresh Boss
+  mandate.
 
 ---
 
@@ -497,9 +504,18 @@ an on-demand analysis of a specific stock, so I can get a quick read without
 reading raw TWSE filings myself.
 
 ### Requirements
-- Daily financial news AI summary sourced from TWSE Open API (charged once/user/day).
+- Daily financial news AI summary sourced from TWSE Open API + Finnhub global
+  news (charged once/user/day, shared-generation pattern).
 - Individual stock trend analysis: short (1–3mo) / medium (3–12mo) / long (1–3yr)
-  term predictions with confidence levels and bullish/bearish recommendation.
+  term predictions with confidence levels and bullish/bearish recommendation
+  (credit-gated AI call).
+- **Correction (2026-09-20 gap audit)**: the feature is broader than
+  previously documented here — free, unauthenticated, non-AI quant tools
+  also exist and are wired to the frontend: technical indicators, chip
+  (institutional flow) analysis, a composite score, a comprehensive
+  multi-category analysis, and macro-economy/market-overview snapshots.
+  These are pure computation (no OpenAI call), cached, and cost nothing —
+  see Gap Audit below for the product question this raises.
 
 ### Acceptance Criteria
 - [ ] Market digest is charged at most once per user per calendar day regardless
@@ -519,6 +535,72 @@ not (yet) an acquisition driver of its own.
 - Non-TW markets for the AI analysis feature (portfolio tracking already covers
   US stocks for tracking purposes, see below — that's a different requirement).
 
+### Gap Audit (2026-09-20, DECISION-005 follow-through)
+Per DECISION-005's "audit each module for gaps, same as Skill-Building"
+mandate, now that Skill-Building's four items are fully shipped. PM read the
+actual code (`FinanceController.cs`, `FinanceQueryService.cs`,
+`StockAnalysisBuilder.cs`) rather than relying on this doc's prior
+description. Findings:
+- The feature is broader than this doc previously described: 8 endpoints, not
+  2. Only `analyze-stock` (credit-gated, `CreditCosts.StockAnalysis = 5`,
+  calls OpenAI) and `market-digest` (`CreditCosts.MarketDigest = 3`, shared
+  once/day like the exam shared-bank pattern) cost credits. Four quant
+  endpoints (`technical-indicators`, `chip-analysis`, `score`,
+  `comprehensive-analysis`) are **free and unauthenticated** — pure
+  computation, no AI call — plus two free macro endpoints. Frontend wires all
+  of them; no backend/frontend drift found here.
+- **The single biggest, cheapest gap — and it's the same gap Portfolio's own
+  audit independently found from the other side**: a user's Finance stock
+  analysis has zero awareness of their own Portfolio holdings. Asking about a
+  stock you actually own gives no "you hold N shares" context, no link to
+  Portfolio's richer per-holding page. See the cross-cutting proposal below.
+- No prediction-accuracy tracking exists: `StockTrendAnalysis` (the AI's
+  bullish/bearish call) is cached 12h in-memory only, never persisted, so
+  the app has never once checked whether its own past calls were right.
+- No watchlist/price-alert model exists anywhere in `Data/Models`.
+- Flagged inconsistency (not yet a decision): the four free quant endpoints
+  internally compute the *same* quant bundle that `analyze-stock` re-derives
+  and charges 5 credits for (`BuildQuantitativeContextSafeAsync`). Worth a
+  product call on whether that's an intentional "free funnel into the paid
+  AI tab" or an oversight — no action taken until Boss/PM decides, since it
+  touches pricing.
+
+Proposed features (effort/reuse assessed by Tech Lead once prioritized; PM's
+suggested order below is provisional pending Boss sign-off, same as the
+original Skill-Building proposal):
+1. **Cross-link Finance ↔ Portfolio for a given stock** (see Portfolio's Gap
+   Audit below — this is one proposal, found independently from both
+   directions). Near-zero new infra: a read-join of two existing services.
+2. **Prediction-accuracy tracking** — persist each AI call + a later
+   actual-outcome check via existing TWSE historical-price providers.
+   Medium cost (new table + a scheduled job like `CakeJobsProvider.cs`), but
+   directly serves the "no paid ads, build something people trust and
+   recommend" growth strategy (DECISION-003/004) — nobody today can tell if
+   this app's stock calls are any good.
+3. **Multi-stock/sector peer comparison** — cheap, reuses the existing free
+   `comprehensive-analysis` endpoint, mostly frontend (render 2-3 stocks'
+   `CategoryScoreCard`s side by side).
+4. **Watchlist/price alerts** — highest new-infra cost of this batch (new
+   `Watchlist`/`Alert` model + a notification channel); most-expected finance
+   feature by users, but should wait behind the cheaper wins above per
+   cost-discipline.
+5. **Broaden `market-digest` sentiment beyond TWSE announcements/Finnhub
+   global news** — e.g. Taiwan-specific financial media — medium cost (new
+   provider implementation, but fits the existing provider-interface
+   pattern).
+
+### Open Questions
+- Is the free-quant-vs-paid-AI-analysis credit-cost overlap (both endpoints
+  compute the same underlying quant bundle) intentional, or should the free
+  endpoints be considered a loss-leader funnel? Non-blocking for the
+  proposals above; flagged for Boss/PM to resolve separately.
+- Proposed priority order (1→5 above) flagged to Boss in
+  `.agent/boss/PM.md` (2026-09-20). Per the same pattern used for the
+  original Skill-Building proposal and the public-word-page SEO item: if
+  Boss doesn't redirect, PM's default next run is to hand off proposal 1
+  (the Finance↔Portfolio cross-link) to Tech Lead as the first item, without
+  waiting for item-by-item sign-off on the rest of the list.
+
 ---
 
 ## Requirement: Portfolio Tracker
@@ -535,12 +617,21 @@ total (含息) return, so I don't need a separate tool to track my portfolio.
 ### Requirements
 - Snapshot-based (not a transaction ledger) — each save replaces the latest
   snapshot for that date.
-- Asset types: STOCK, FUND, CASH, LIABILITY.
+- Asset types: STOCK, FUND, CASH, LIABILITY, and **REAL_ESTATE** (manual
+  value + free-text valuation method, zero market exposure but counts toward
+  net worth — correction, 2026-09-20: this existed in code already and was
+  missing from this doc/CLAUDE.md's asset-type list).
 - TW pricing via TWStockLib with realtime overlay during trading hours; US pricing
   + dividends via Yahoo Finance; fund NAV/dividends via FundRich.
 - Total return (含息) walks dividend history against the snapshot timeline; XIRR
   includes dividends as inflows.
 - Exposure ratio accounts for leveraged/inverse ETF factors.
+- **Correction (2026-09-20 gap audit)**: this doc previously implied the
+  feature only shows the latest snapshot. That's stale — net-worth history
+  charts, max-drawdown analysis, and benchmark comparison (vs. 0050 or a
+  custom symbol) already exist and ship in the frontend, alongside CSV
+  export and a concentration/HHI card. This is a mature, feature-rich module,
+  not an MVP.
 
 ### Acceptance Criteria
 - [ ] Saving a snapshot for a date that already has one replaces it (no duplicate
@@ -556,9 +647,56 @@ surface (`PortfolioAiSummary` is the only paid action here).
 
 ### Scope
 #### In Scope
-- TW + US equities, funds, cash, liabilities as listed.
+- TW + US equities, funds, cash, liabilities, real estate as listed.
 #### Out of Scope
-- Crypto, real estate, or other asset classes not currently modeled.
+- Crypto or other asset classes not currently modeled.
+
+### Gap Audit (2026-09-20, DECISION-005 follow-through)
+PM read the actual code (`PortfolioController.cs`, `PortfolioService.cs`,
+`Data/Models/Portfolio.cs`, the `Portfolio/` frontend) rather than relying on
+this doc's prior (stale, now-corrected above) description. Findings:
+- **Same cross-module gap Finance's own audit found independently**: a
+  portfolio holder gets *less* AI insight on a stock they actually own than
+  a non-holder gets from the Finance tab. `HoldingDetailDrawer` only offers
+  the narrower `PortfolioAiSummary` (single technical-analysis persona,
+  `CreditCosts.PortfolioAiSummary = 2`) and never links to Finance's richer
+  chip-analysis/comprehensive-analysis/score endpoints for that same symbol
+  — despite both modules already sharing the same TW price-data providers
+  under the hood.
+- CSV **export** exists (`portfolioExport.ts`) but there's no matching
+  **import** — the export schema already matches `SaveHoldingsRequest`'s
+  shape, so this is a real, easily-closed asymmetry.
+- No rebalancing-suggestion feature (target allocation vs. actual) despite
+  the allocation/category data needed for it already being computed
+  (`ConcentrationCard`, `groupBy=category`).
+- No FIRE/goal-tracking (target net worth, projected years-to-goal) despite
+  the XIRR/trend data needed for a projection already existing
+  (`GetNetWorthHistoryAsync`).
+- Minor tech debt: `HoldingDetailDrawer.tsx` and the backend's
+  `GetAiTechSummaryAsync` each independently hardcode a `market === 'FUND'`
+  check instead of sharing one — a small drift risk, not urgent.
+
+Proposed features (PM's suggested order below is provisional pending Boss
+sign-off, same as the original Skill-Building proposal):
+1. **Cross-link a Portfolio holding to Finance's fuller analysis for that
+   symbol** — same proposal as Finance's Gap Audit above, found
+   independently from both sides. Recommended as the first item: cheapest
+   (a read-join of two existing services, no new AI calls, no new infra)
+   and fixes a real, visible product inconsistency (owning a stock currently
+   gets you *worse* AI insight on it than not owning it).
+2. **CSV import for holdings** — closes the export/import asymmetry, mostly
+   frontend work reusing the existing `PositionInput` schema and the
+   existing defensive row-validation in `SaveHoldingsAsync`.
+3. **Rebalancing suggestions against a target allocation** — reuses already-
+   computed category/allocation data; new work is mostly a target-input UI +
+   a buy/sell-delta calculation.
+4. **FIRE/goal tracking** — reuses existing XIRR/net-worth-history data for
+   a forward projection; new work is a target input + projection UI.
+
+### Open Questions
+- Same as Finance's — see that section's Open Questions. The cross-module
+  link is one proposal serving both modules, flagged to Boss with the same
+  "proceed next run by default unless redirected" plan.
 
 ---
 
@@ -569,8 +707,15 @@ Provide a simple, unrelated utility (password removal / compression for PDFs)
 that may serve as a low-friction entry point to the app.
 
 ### Requirements
-- Remove passwords from protected PDFs.
-- Batch processing and file compression.
+- Remove passwords from protected PDFs, with compression applied to the
+  output.
+- **Correction (2026-09-20 gap audit)**: "batch processing" was listed here
+  and in root `CLAUDE.md` but does not exist in code —
+  `PDFController.UnlockPdf` and the frontend `PDFUnlocker` page both handle
+  exactly one file per request, single-select file input only. This is a
+  documentation/behavior drift, not a product decision; flagged to Boss
+  rather than silently rewritten, since fixing it could mean either
+  correcting the docs (cheapest) or actually building batch support.
 
 ### Acceptance Criteria
 - [ ] Uploading a password-protected PDF with the correct password returns an
@@ -579,7 +724,9 @@ that may serve as a low-friction entry point to the app.
 
 ### Priority
 LOW — utility feature, no clear tie to the learning/finance product lines or to
-monetization; keep maintained but not a focus for new investment.
+monetization; keep maintained but not a focus for new investment. Given this
+priority, PM is not proposing new PDF Unlocker features from this audit round
+— only flagging the batch-processing doc/behavior mismatch above.
 
 ### Scope
 #### In Scope
