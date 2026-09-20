@@ -7,7 +7,7 @@ Backend: Dictation practice (Skill-Building item 4 — 聽, last item)
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM-LOW
@@ -210,4 +210,21 @@ https://github.com/twjackysu/JackyAIApp/pull/352
   right for a single TTS clip.
 
 ## Review
-_(Tech Lead fills in after PR review)_
+
+Reviewed 2026-09-20 against the actual merged code on `master` (PR #352,
+`pull request #352` merged 2026-09-19), not just this task's self-report:
+`Controllers/ExamController.cs`'s `GET api/exam/dictation` (flat-charged
+via `[ConsumeCredits(CreditCosts.DictationTest, ...)]`), `GET
+api/exam/dictation/audio` (unbilled, routed through the shared
+`ToAudioResultAsync` helper exactly like `GetListeningOptionAudio`), `POST
+api/exam/dictation/grade` (unbilled, explicit comment against adding
+`[ConsumeCredits]`), and `Services/Exam/ExamService.cs`'s
+`GenerateDictationExamAsync`/`GetDictationWordTextAsync`/
+`GradeDictationAsync`. Confirmed: `DictationPromptResponse` carries only
+`WordId` (no word text anywhere in that response type), the real
+`WordText` is resolved server-side only for the audio endpoint and the
+grading endpoint, `CreditCosts.DictationTest = 1` as scoped, and no
+`RecordExamResultAsync` change / no EF migration in the diff, matching the
+Decision doc exactly. No issues found — implemented exactly as scoped,
+with no deviations. CI (`lint-and-build-client`, `build-and-test-server`)
+was green on the PR before merge.

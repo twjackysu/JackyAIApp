@@ -1029,6 +1029,79 @@
   (dictation) ships and closes out the Skill-Building list, since there
   will then be no other approved English-skill work left in the queue.
 
+## 2026-09-20 — Tech Lead: closed out TASK-010 bookkeeping, reviewed TASK-011, cleaned up a duplicate-PR pile-up (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message in `TECH_LEAD.md` since the 2026-09-19 entry
+  (dictation handoff + deliberate design-deviation note, non-blocking,
+  unanswered). `master` confirmed up to date (`94dcea5`, carrying PR #352 —
+  `TASK-010` backend — already merged).
+- **Housekeeping, TASK-010**: reviewed the actual merged code (not just the
+  task's self-report) — `ExamController.cs`'s three new `dictation*`
+  routes, `ExamService.cs`'s `GenerateDictationExamAsync`/
+  `GetDictationWordTextAsync`/`GradeDictationAsync`. Confirmed the
+  GET-response-withholds-the-answer deviation is implemented correctly
+  (`DictationPromptResponse` has no word-text field anywhere), the flat
+  charge/unbilled split matches the Decision doc, and no
+  `RecordExamResultAsync`/EF-migration change exists in the diff (as
+  scoped). No issues found. Flipped `TASK-010.md` `Status` to `MERGED` with
+  Review notes.
+- **Found three open PRs, not one, for `TASK-011`** (frontend dictation
+  UI): #354 (the actual implementation), and #355/#356 — two independent
+  sessions' documentation-only PRs, both recording the *same* prior
+  duplicate-PR resolution (#353 closed in favor of #354), i.e. a duplicate
+  bookkeeping PR on top of an already-resolved duplicate code PR. Read all
+  three PR bodies plus #353's (closed) body to reconstruct the full
+  timeline before acting, rather than trusting any single PR's self-report.
+- **Reviewed #354** (the real code): diff matches `TASK-011`'s spec exactly
+  — `DictationPromptResponse.wordId` is never rendered as visible text,
+  replay is deliberately unrestricted (correct per the task's own
+  reasoning that dictation isn't an MCQ), `record-result` fires once with
+  the word-anchored shape and includes the cross-card SRS-feedback caption
+  every other word-anchored card already shows (the exact gap #353 was
+  missing, confirmed by direct diff read rather than trusting #355/#356's
+  claim about it), DTOs match the merged backend field-for-field. CI green
+  (`lint-and-build-client`/`build-and-test-server` both `success`),
+  `mergeable_state: clean`. No issues found — posted a review comment
+  marking it **READY FOR BOSS REVIEW**, flagging the one real open item
+  (manual end-to-end / network-payload check, not performed in any
+  implementing session's sandbox) as worth a manual or QA pass before
+  merge, not a code blocker.
+- **Resolved the docs duplication directly** rather than merging either
+  #355 or #356: per this role's own git rule (§16 — agent-state/task file
+  changes go straight to `master`, no PR needed), wrote the consolidated,
+  verified `TASK-011.md` Result/Review update and this status entry
+  directly in this commit, then closed both #355 and #356 as redundant
+  with a comment pointing here — avoids merging either as "the" record
+  when Tech Lead can just author the authoritative one directly, and avoids
+  a fourth session someday needing to reconcile *those* two.
+- `REQUIREMENTS.md`: updated item 4's line to reflect current state exactly
+  (backend merged/reviewed, frontend PR open/reviewed/pending Boss merge)
+  rather than the stale "both READY, unclaimed."
+- Wrote to `.agent/boss/TECH_LEAD.md`: summarized the above, and flagged
+  (informationally, not blocking) that this is now the **third** time a
+  parallel-session duplicate PR has happened on this project (`TASK-002`'s
+  #331/#333, `TASK-008`'s #346/#347, now `TASK-011`'s #353/#354 plus the
+  #355/#356 docs echo) — pure process-timing (two scheduled sessions
+  picking up the same `READY` task before either's PR lands), not a design
+  flaw needing a fix, but naming the pattern in case Boss wants a mitigation
+  (e.g. claiming a task by flipping its Status before starting).
+- No application code changes this run — task/status/requirements
+  documentation only, committed directly to `master`.
+
+## Open Items
+- **New, from this run**: `TASK-011` PR #354 is `READY FOR BOSS REVIEW` —
+  waiting on Boss merge. Once merged and PM product-verifies it, the
+  originally-approved four-item Skill-Building list (DECISION-005) is
+  fully complete.
+- Still open from before: Phase 2 of speaking delivery feedback (true
+  pronunciation-accuracy scoring, new vendor) — cost/vendor decision
+  pending Boss, not scoped as a task.
+- Still open from before: future gap-audit of Finance/Portfolio/PDF
+  Unlocker (DECISION-005) — not started. This is the natural next Tech
+  Lead/PM workstream once TASK-011 merges, since there will be no other
+  approved English-skill work left in the queue.
+
 ## 2026-09-19 — Tech Lead: closed out TASK-008/009 bookkeeping, scoped Skill-Building item 4 — dictation, last item (scheduled run)
 
 - Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
