@@ -1111,3 +1111,40 @@
 - Still open from before: Phase 2 of speaking delivery feedback (true
   pronunciation-accuracy scoring, new vendor) — cost/vendor decision
   pending Boss, not scoped as a task.
+
+
+## 2026-09-20 — Frontend Engineer: closed duplicate TASK-011 PR #353, kept #354 (scheduled run)
+
+- Scheduled run checked `.agent/tasks/` for assigned Frontend work.
+  `TASK-011` (dictation practice UI) was the only Frontend-owned item, and
+  its dependency `TASK-010` (Backend) had already merged into `master` via
+  PR #352 (merged 2026-09-19T13:52Z, CI green) — unblocking TASK-011.
+- Before implementing, checked GitHub for existing PRs and found the work
+  was already done: **two independent sessions** had each opened their own
+  full implementation of `TASK-011` in parallel — PR #353
+  (`claude/amazing-cori-wdqf54`, opened 16:43Z) and PR #354
+  (`claude/amazing-cori-fc4dxu`, opened 20:43Z) — both against the same
+  merged backend, both CI-green, both `mergeable_state: clean`.
+- Investigated rather than picking one arbitrarily (same discipline as the
+  earlier `#331`/`#346` duplicate cleanups): both PRs touch the same 7
+  files with functionally identical API-slice/DTO/credit-cost additions,
+  but #354 correctly replicates the cross-card SRS-feedback convention
+  every other word-anchored exam card (Cloze/Translation/Sentence/Writing)
+  already uses (`recordExamResult(...).unwrap().then(r => {
+  if (r.data.scheduleUpdated) setSrsNote(...) })`, rendered as the
+  "✓ 已記錄" / "↻ 已記錄" caption) — #353 omitted this entirely, a real
+  user-visible feature gap relative to every sibling exam card. #353 also
+  carried a small dead `resetPlayed` call that #354 doesn't have.
+- Closed **#353** with an explanatory comment pointing to #354 and the
+  concrete reasoning above; kept **#354** as the canonical implementation.
+  Did not touch #354's code — adopted it as-is rather than re-implementing,
+  since it already satisfies `TASK-011`'s requirements (verified DTO field
+  names against merged `master`, no word text exposed before grading,
+  `record-result` fires once with the correct `wordId`, wired into
+  `EXAM_MODES`, lint/build/vitest all green per its own report).
+- Updated `TASK-011.md`: `Status` → `PR_OPENED`, filled in `Result` with
+  the above. Subscribed to PR #354 to drive it to green/merge; no further
+  Frontend action needed unless review comments come back.
+- This closes out all 4 Skill-Building items' Frontend halves once #354
+  merges — TASK-005/007/009/011 will all be shipped, matching TASK-004/
+  006/008/010 on the backend side.

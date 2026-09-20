@@ -7,7 +7,7 @@ Frontend: Dictation practice test UI (Skill-Building item 4 — 聽, last item)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM-LOW
@@ -101,7 +101,53 @@ Architecture and requirements are otherwise final; no need to wait for
 further Tech Lead sign-off once `TASK-010` lands.
 
 ## Result
-_(Frontend Engineer fills in after implementation)_
+
+Implemented against `TASK-010`'s merged backend (PR #352). Two independent
+Frontend sessions produced overlapping implementations in parallel
+(PR #353 and PR #354); investigated both and kept PR #354 as canonical —
+it correctly replicates the cross-card SRS-feedback convention every other
+word-anchored exam card (Cloze/Translation/Sentence/Writing) already uses
+(`recordExamResult(...).unwrap().then(r => { if (r.data.scheduleUpdated)
+setSrsNote(...) })`, rendered as the "✓ 已記錄" / "↻ 已記錄" caption), which
+#353 omitted entirely. Closed #353 as a duplicate with an explanatory
+comment, per the same precedent used for the earlier duplicate-PR cleanups
+(`#331`→`#333`, `#346`→`#347`).
+
+`TASK-011` requirements as implemented in #354:
+- `apis/examApis/types.ts`: `'Dictation'` added to `ExamType`;
+  `DictationPromptResponse { wordId }`, `DictationGradeRequest { wordId,
+  userInput }`, `DictationGradeResponse { correctText, isCorrect, score }` —
+  field names verified against the merged `DTO/ExamModels.cs` on `master`.
+- `apis/examApis/index.ts`: `getDictationPrompt` (query) and
+  `gradeDictation` (mutation).
+- `constants/creditCosts.ts`: `DICTATION_TEST: 1`.
+- New `Exam/DictationTestCard/index.tsx`: prompt fetch shows only `wordId`
+  (never rendered as word text); play button via `useOneShotAudio` hitting
+  `GET /api/exam/dictation/audio?wordId=...`, deliberately not one-shot
+  restricted (replay allowed, captioned "可重複播放") since this is a
+  free-typing exercise, not an MCQ where replay would be "cheating"; submit
+  → `gradeDictation` → `isCorrect` as primary signal, `correctText` revealed,
+  `score` as secondary "接近程度" detail; `record-result` fires once after
+  grading with `examType: 'Dictation'`; built on `ExamRoundShell`/
+  `useExamRound` like every other card.
+- `Exam/index.tsx`: new `EXAM_MODES` entry (`path: 'dictation'`, flat-charged
+  cost caption).
+
+### Tests
+`npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136 tests)
+all green per #354's own report — not independently re-run in this session
+since #354 was adopted as-is rather than re-implemented. No dedicated
+component test for `DictationTestCard`, matching the existing convention
+(no other exam card has one either).
+
+**Known limitation carried over from #354**: manual end-to-end verification
+(inspecting the actual network payload to confirm no word text leaks,
+playing audio, submitting against a live backend) was not performed —
+recommended before merge.
+
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/354 (canonical; #353 closed as
+duplicate)
 
 ## Review
 _(Tech Lead fills in after PR review)_
