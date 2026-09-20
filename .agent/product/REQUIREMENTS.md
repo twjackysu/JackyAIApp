@@ -229,9 +229,16 @@ Proposed features, in the priority order PM recommended and **Boss approved
    personalized to the user's own saved vocabulary, matching this
    requirement's original "use these 5 saved words" framing exactly.
 4. **Dictation practice (listen → type what you hear)** — MEDIUM-LOW.
-   **Scoped 2026-09-19** (`TASK-010`/`TASK-011`, both `READY`, unclaimed) —
-   see `ARCHITECTURE.md` → "Decision: Dictation practice — Skill-Building
-   item 4 (last item)". Confirmed as anticipated: reuses the existing
+   **Scoped 2026-09-19** (`TASK-010`/`TASK-011`) — see `ARCHITECTURE.md` →
+   "Decision: Dictation practice — Skill-Building item 4 (last item)".
+   **Status 2026-09-20**: `TASK-010` (backend) merged to `master` (PR
+   #352), Tech Lead-reviewed, no issues. `TASK-011` (frontend) has an open,
+   CI-green, Tech Lead-reviewed PR (#354, marked READY FOR BOSS REVIEW)
+   pending Boss merge — the one open item is a manual end-to-end check
+   (network payload / audio / submit flow against a live backend) neither
+   implementing session could run in its sandbox. Once #354 merges and PM
+   product-verifies it, this closes out the originally-approved four-item
+   Skill-Building list. Confirmed as anticipated: reuses the existing
    word-picking helper, the existing unbilled resolve-ID-to-audio pattern,
    and a zero-AI string-comparison grader — no EF migration, no
    `RecordExamResultAsync` change, `CreditCosts.DictationTest = 1` (cheapest

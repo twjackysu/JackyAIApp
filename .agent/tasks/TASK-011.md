@@ -162,5 +162,73 @@ https://github.com/twjackysu/JackyAIApp/pull/354
   the TypeScript types") as not yet done; recommend a manual pass before
   merge, or QA picking this up per the normal task lifecycle.
 
+Implemented against `TASK-010`'s merged backend (PR #352) — API slice
+additions (`getDictationPrompt`/`gradeDictation`), `DictationPromptResponse`/
+`DictationGradeRequest`/`DictationGradeResponse` types matching the merged
+backend DTOs exactly, `'Dictation'` added to `ExamType`, new
+`Exam/DictationTestCard/index.tsx` (prompt fetch shows only `wordId`, never
+rendered as word text; play/replay button via `useOneShotAudio` hitting
+`GET /api/exam/dictation/audio?wordId=...`, deliberately **not** one-shot
+restricted — replay allowed anytime, captioned "可重複播放", since this is a
+free-typing exercise, not an MCQ where replay would be "cheating"; submit →
+`gradeDictation` → `isCorrect` as the primary signal, `correctText`
+revealed, `score` shown as a secondary "接近程度" detail; `record-result`
+fires once after grading with `examType: 'Dictation'`, including the same
+cross-card SRS-feedback caption — "✓ 已記錄" / "↻ 已記錄" — every other
+word-anchored exam card, Cloze/Translation/Sentence/Writing, already shows;
+built on `ExamRoundShell`/`useExamRound` like every other card), new
+`EXAM_MODES` entry (`path: 'dictation'`, flat-charged cost caption),
+`CREDIT_COSTS.DICTATION_TEST: 1`.
+
+**Duplicate-PR note**: two independent Frontend sessions implemented this
+task in parallel against the same merged `TASK-010` backend — PR #353 and
+PR #354, both structurally identical (same 7 files, same DTO shapes, both
+CI-green). #354 was kept as canonical because it carries the cross-card
+SRS-feedback caption described above, which #353 omitted entirely (a real
+feature-parity gap, not a style preference). #353 was closed as a
+duplicate. Two follow-up documentation-only PRs (#355, #356) were then
+opened independently by two more sessions to record that same resolution
+in `TASK-011.md`/`PROJECT_STATUS.md` — themselves a duplicate of each
+other. Tech Lead recorded the outcome directly in this commit instead
+(per this role's own git rule, §16: agent-state doc changes go straight to
+`master`, no PR needed) and closed both #355 and #356 as redundant.
+
+### Tests
+`npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136 tests,
+including `creditCosts.test.ts`'s backend-mirror check for the new
+`DICTATION_TEST` entry) all pass per #354's own report. CI
+(`lint-and-build-client`, `build-and-test-server`) both green on #354's
+head commit. No dedicated component test added for `DictationTestCard`,
+matching the existing convention (no other exam card has one either).
+
+**Known limitation**: manual end-to-end verification (inspecting the
+actual `GET api/exam/dictation` network payload to confirm no word text
+leaks, playing audio against a live backend, submitting) was not performed
+in any of the implementing sessions — no backend/DB available in that
+sandbox. Recommend a manual pass (or QA) before Boss merges.
+
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/354 (canonical; #353 closed
+as duplicate; #355/#356 closed as redundant documentation duplicates)
+
 ## Review
-_(Tech Lead fills in after PR review)_
+
+Reviewed 2026-09-20, reading #354's actual diff (not only its self-report):
+`DictationTestCard/index.tsx` correctly withholds `wordId` from ever being
+rendered as visible text, replay is intentionally unrestricted (matches
+the task's own reasoning that dictation isn't an MCQ where repeat listens
+would be "cheating"), `record-result` fires exactly once per submission
+with the word-anchored shape (`wordId`/`correct`/`score`, no wordless
+fields), and the DTOs in `apis/examApis/types.ts` match the merged backend
+DTOs field-for-field. `EXAM_MODES`/`CREDIT_COSTS.DICTATION_TEST` wiring is
+consistent with every other flat-charged exam mode. No correctness issues
+found — technically acceptable. CI is green
+(`lint-and-build-client`/`build-and-test-server` both `success`),
+`mergeable_state: clean`.
+
+**READY FOR BOSS REVIEW** — the one open item is the manual
+end-to-end/network-payload check neither implementing session could run
+(no live backend in their sandboxes); recommend that check (or a QA pass)
+before merging #354, per this task's own acceptance criteria. Not a
+blocker Tech Lead can resolve unilaterally since it requires a running
+app, not a code change.
