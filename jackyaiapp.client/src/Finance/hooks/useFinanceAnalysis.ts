@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import type { AnalysisConfig } from '../components';
 
@@ -36,6 +37,7 @@ const DEFAULT_CONFIG: AnalysisConfig = {
  * the active tab, analysis config, and the daily market-summary query.
  */
 export function useFinanceAnalysis() {
+  const [searchParams] = useSearchParams();
   const [stockSearchTerm, setStockSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<StockTrendAnalysis | null>(null);
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
@@ -68,15 +70,11 @@ export function useFinanceAnalysis() {
 
   const digestPoints = useMemo(() => digestResponse?.data?.points || [], [digestResponse?.data]);
 
-  const handleStockSearch = async () => {
-    if (!stockSearchTerm.trim()) return;
-
-    if (analysisTab === TAB_QUANTITATIVE) {
+  const runQuantitativeAnalysis = useCallback(
+    async (code: string, market: 'TW' | 'US') => {
       try {
         resetComprehensive();
         setSearchResults(null);
-        const code = stockSearchTerm.trim();
-        const market = detectMarket(code);
         const result = await getComprehensiveAnalysis({
           stockCode: code,
           market,
@@ -94,6 +92,34 @@ export function useFinanceAnalysis() {
         console.error('Comprehensive analysis failed:', err);
         setAnalysisResults(null);
       }
+    },
+    [analysisConfig, getComprehensiveAnalysis, resetComprehensive],
+  );
+
+  // Auto-run the quantitative (free) analysis once when the URL carries a symbol — e.g. a
+  // cross-link from a Portfolio holding. Never fires again after the initial mount, so it
+  // doesn't re-trigger once the user has moved on to their own search/tab.
+  const autoSearchFiredRef = useRef(false);
+  useEffect(() => {
+    if (autoSearchFiredRef.current) return;
+    const urlSymbol = searchParams.get('symbol')?.trim();
+    if (!urlSymbol) return;
+    autoSearchFiredRef.current = true;
+
+    const urlMarket = searchParams.get('market');
+    const market = urlMarket === 'TW' || urlMarket === 'US' ? urlMarket : detectMarket(urlSymbol);
+
+    setStockSearchTerm(urlSymbol);
+    setAnalysisTab(TAB_QUANTITATIVE);
+    void runQuantitativeAnalysis(urlSymbol, market);
+  }, [searchParams, runQuantitativeAnalysis]);
+
+  const handleStockSearch = async () => {
+    if (!stockSearchTerm.trim()) return;
+
+    if (analysisTab === TAB_QUANTITATIVE) {
+      const code = stockSearchTerm.trim();
+      await runQuantitativeAnalysis(code, detectMarket(code));
     } else if (analysisTab === TAB_AI_TREND) {
       if (!isAuthenticated) {
         window.location.href = `/api/account/login/Google?ReturnUrl=${encodeURIComponent(window.location.pathname)}`;

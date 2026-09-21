@@ -1,5 +1,6 @@
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CloseIcon from '@mui/icons-material/Close';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Box from '@mui/material/Box';
@@ -212,6 +213,23 @@ function AiTechSummary({ market, symbol }: { market: string; symbol: string }) {
   );
 }
 
+function FinanceCrossLink({ market, symbol }: { market: string; symbol: string }) {
+  return (
+    <Button
+      variant="text"
+      size="small"
+      startIcon={<OpenInNewIcon />}
+      href={`/finance?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      fullWidth
+      sx={{ mt: 1 }}
+    >
+      在 Finance 查看完整分析
+    </Button>
+  );
+}
+
 export function HoldingDetailDrawer({ position, open, onClose }: Props) {
   const { value, change, showRatio } = usePrivacy();
   const hasPnl = position?.unrealizedPnlTWD != null && position?.unrealizedPnlPct != null;
@@ -345,6 +363,7 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
           <PriceChart market={isFund ? 'FUND' : position.market} symbol={position.symbol} />
 
           <AiTechSummary market={isFund ? 'FUND' : position.market} symbol={position.symbol} />
+          {!isFund && <FinanceCrossLink market={position.market} symbol={position.symbol} />}
         </>
       )}
     </Drawer>

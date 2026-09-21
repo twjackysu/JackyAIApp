@@ -8,7 +8,7 @@ DECISION-005)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH (per PM's 2026-09-20 gap-audit proposal: cheapest, highest-leverage
@@ -93,7 +93,47 @@ link from the drawer to Finance, pre-filled and pre-run for that symbol.
 None — Finance's endpoints already support this; no backend task required.
 
 ## Result
-(To be filled in by the implementing Frontend Engineer.)
+- **`Finance/hooks/useFinanceAnalysis.ts`**: extracted the quantitative
+  (`getComprehensiveAnalysis`) call out of `handleStockSearch` into a
+  `runQuantitativeAnalysis(code, market)` callback so both the manual
+  search path and the new URL-driven auto-search share one code path (no
+  duplicated `getComprehensiveAnalysis` call, per the task's own
+  constraint). Added a `useSearchParams`-backed effect, guarded by a
+  `useRef` flag so it fires at most once per mount: reads `symbol`/`market`
+  from the URL, falls back to the existing `detectMarket` heuristic when
+  `market` is missing or isn't exactly `'TW'`/`'US'`, sets
+  `stockSearchTerm`, forces `analysisTab = TAB_QUANTITATIVE` (never the
+  credit-gated AI-trend tab), and calls `runQuantitativeAnalysis` directly
+  with the URL values (not through `handleStockSearch`/state, which would
+  race against React's async state update). A visit to `/finance` with no
+  `symbol` param takes the early return and behaves exactly as before.
+- **`Portfolio/HoldingDetailDrawer.tsx`**: new `FinanceCrossLink`
+  component — a full-width text `Button` with `OpenInNewIcon`, labelled
+  "在 Finance 查看完整分析", linking to
+  `/finance?symbol=${symbol}&market=${market}` with
+  `target="_blank" rel="noopener noreferrer"` (same pattern as
+  `JobSearch/components/JobCard.tsx`'s external link). Rendered directly
+  below `AiTechSummary` (both stay visible together, per the task), gated
+  on `!isFund` — confirmed via `PositionsTable.tsx` that the drawer only
+  ever opens for `STOCK` or `FUND` positions, so `!isFund` is equivalent to
+  `assetType === 'STOCK'` here and the link never shows for `FUND`.
+- No backend/DTO changes — Finance's quantitative endpoints were already
+  `[AllowAnonymous]` and already accepted a bare code + market, confirmed
+  in `ARCHITECTURE.md`'s own investigation before starting.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136
+  tests) all pass with no regressions. `node_modules` wasn't installed in
+  this session's sandbox initially (`npm run lint` failed on a missing
+  `@eslint/js`); ran `npm install` first, which resolved it.
+
+## Known Issues
+- Manual browser verification (opening a STOCK holding's drawer, clicking
+  the link, confirming the new tab lands on the quantitative tab with the
+  analysis already loaded, and confirming a plain `/finance` visit is
+  unaffected) was **not** performed — no backend/DB available in this
+  sandbox to run the app against, consistent with every other
+  Skill-Building frontend task's own note on this. Recommend a manual pass
+  (or QA) before merge, matching the acceptance criteria's own emphasis on
+  verifying actual behavior, not just the code.
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
