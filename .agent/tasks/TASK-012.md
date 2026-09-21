@@ -8,7 +8,7 @@ DECISION-005)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH (per PM's 2026-09-20 gap-audit proposal: cheapest, highest-leverage
@@ -93,7 +93,49 @@ link from the drawer to Finance, pre-filled and pre-run for that symbol.
 None — Finance's endpoints already support this; no backend task required.
 
 ## Result
-(To be filled in by the implementing Frontend Engineer.)
+- **`Finance/hooks/useFinanceAnalysis.ts`**: extracted the existing
+  `getComprehensiveAnalysis` call path out of `handleStockSearch` into a
+  shared `runComprehensiveAnalysis(code, market)` (wrapped in `useCallback`)
+  so both the manual search button and the new URL-driven auto-search call
+  the exact same, single fetch path — no duplicated
+  `getComprehensiveAnalysis` call. Added a mount `useEffect` (guarded by
+  `autoSearchFiredRef`, same one-shot-ref pattern `Credits/index.tsx` already
+  uses for its own query-param handling) that reads `symbol`/`market` from
+  `useSearchParams()`: when `symbol` is present it sets `stockSearchTerm`,
+  forces `analysisTab = TAB_QUANTITATIVE`, and fires
+  `runComprehensiveAnalysis` once; `market` is used directly when it's
+  exactly `'TW'`/`'US'`, otherwise falls back to the existing `detectMarket`
+  heuristic (no second market-detection implementation). A plain `/finance`
+  visit has no `symbol` param, so the effect returns immediately and nothing
+  changes.
+- **`Portfolio/HoldingDetailDrawer.tsx`**: added `FinanceCrossLink`, a
+  small `Button` (text variant, `OpenInNewIcon`, `target="_blank"` +
+  `rel="noopener noreferrer"`, same external-link pattern
+  `JobSearch/components/JobCard.tsx` uses) linking to
+  `/finance?symbol=${symbol}&market=${market}`. Rendered directly below
+  `AiTechSummary`, only when `position.assetType === 'STOCK'` (not `FUND`,
+  per the task — Finance has no fund-analysis surface). Label: "在 Finance
+  查看完整分析" — no credit-cost implication, since the landing tab is free.
+- No backend change; no new dependency.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136 tests,
+  unchanged) all pass with no regressions.
+
+### Tests
+`npm run lint`, `npm run build`, `npx vitest run` all green. No dedicated
+component test added — matches the existing convention for
+`HoldingDetailDrawer`/`useFinanceAnalysis` (neither had one before this
+change).
+
+### PR
+(to be filled in after push)
+
+## Known Issues
+- Manual end-to-end verification (opening a STOCK holding's drawer in a
+  running app, clicking through to `/finance?symbol=...&market=...`,
+  confirming the quantitative tab auto-loads and a plain `/finance` visit is
+  unaffected) was not performed in this session — no backend/DB available
+  to run the app against. Recommend a manual pass before merge, or QA
+  picking this up per the normal task lifecycle.
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
