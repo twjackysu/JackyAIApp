@@ -1359,3 +1359,72 @@
   mechanism (flip Status to IN_PROGRESS before starting) is worth adding to
   avoid the recurring duplicate-PR pattern (3 occurrences so far) — pending
   Boss preference, not urgent.
+
+## 2026-09-21 — PM: Boss approved Gap Audit priority order + decided to remove all payment/monetization (DECISION-006) (scheduled run)
+
+- Read `.agent/boss/PM.md`: Boss had replied (unanswered until this run) to
+  PM's 2026-09-20 three open questions: (1) approved the Finance/Portfolio
+  Gap Audit priority order as proposed, (2) — the significant one — stated
+  intent to remove **all** payment methods from the site, since every
+  Taiwan payment path is blocked by the same prepaid-credit trust (信託)
+  regulation Boss already ruled out solving via trust/company registration
+  (DECISION-001), (3) confirmed no PDF Unlocker batch-processing work.
+- **Recorded DECISION-006**: full removal of Stripe/PayPal/ECPay
+  integration, credit-pack purchase UI, and the balance/transaction-history
+  concept — not a pause (DECISION-003) but an active teardown. Flagged the
+  necessary companion problem explicitly rather than treating "remove
+  payment" as a pure deletion: the credit balance is currently the app's
+  *only* cost-control mechanism on expensive AI calls (exam generation/
+  grading, conversation, TTS/STT, stock AI analysis, chatbot), so removing
+  it without a replacement would make those calls unlimited and free —
+  directly conflicting with Boss's separate standing cloud-cost goal
+  (2026-09-12). Proposed replacement: a free, non-monetary daily/periodic
+  usage cap per feature per user, reusing the `market-digest`
+  once-per-day/shared-bank pattern already in the codebase rather than
+  inventing a new mechanism. No real credit transactions have ever cleared
+  on any provider (sandbox-only per this doc's own Constraints), so removal
+  needs no refund/migration handling.
+- `REQUIREMENTS.md`: rewrote the `Credits & Payments` requirement (Goal,
+  Acceptance Criteria, Priority HIGH/ACTIVE REMOVAL, Scope, and a new "PM's
+  proposed replacement design" section) to reflect removal instead of
+  on-hold maintenance. Closed out Finance Gap Audit's "free-quant-vs-paid-AI
+  funnel" open question as moot (no paid tab left to funnel into) and
+  marked the Gap Audit priority order approved — proposal 2 (prediction-
+  accuracy tracking) is now the default next Tech Lead handoff once
+  `TASK-012` ships, no further sign-off needed. Closed PDF Unlocker's
+  batch-processing question (keep single-file behavior); flagged root
+  `CLAUDE.md`'s stale "batch processing" claim as a small out-of-scope-for-
+  PM housekeeping item for whoever next touches that file.
+- **Deliberately did not hand the removal work to Tech Lead yet** — unlike
+  prior "proceed by default" items, this one has a real open design
+  question (is a usage cap the right replacement, and how generous) that
+  materially changes what gets built, so PM asked Boss to confirm before
+  Tech Lead scopes the teardown. Wrote the proposal + two open questions to
+  `.agent/boss/PM.md`. Gap Audit item 2 (prediction-accuracy tracking) is
+  explicitly *not* blocked by this and can proceed independently.
+- No code changes — Requirements/Decisions/PM-log documentation only.
+  Committed and pushed directly to `master` per this role's own git rule
+  (§11) for PM documentation.
+
+## Open Items
+- **New, blocking Tech Lead handoff on this one item only**: Credits &
+  Payments removal (DECISION-006) needs Boss's answer on the proposed
+  free-usage-cap replacement design (generous vs. conservative caps, or no
+  cap at all) before Tech Lead scopes the teardown. See `.agent/boss/PM.md`
+  (2026-09-21) for the two questions.
+- **Unblocked, next default Tech Lead item**: Finance Gap Audit proposal 2
+  (prediction-accuracy tracking) — proceed once `TASK-012` ships, no Boss
+  reply needed.
+- `TASK-012` (Finance↔Portfolio cross-link, frontend-only) still `READY`,
+  unclaimed — carried over from the previous entry.
+- Still open from before: Phase 2 of speaking delivery feedback (true
+  pronunciation-accuracy scoring, new vendor) — cost/vendor decision
+  pending Boss, not scoped as a task.
+- Still open from before (Tech Lead, 2026-09-20): whether a task-claiming
+  mechanism (flip Status to IN_PROGRESS before starting) is worth adding to
+  avoid the recurring duplicate-PR pattern (3 occurrences so far) — pending
+  Boss preference, not urgent.
+- Small housekeeping, non-urgent: root `CLAUDE.md`'s PDF Unlocker feature
+  list still claims "batch processing," which doesn't exist and won't be
+  built (Boss confirmed 2026-09-21) — needs a doc fix outside `.agent/`,
+  not PM's file to touch.
