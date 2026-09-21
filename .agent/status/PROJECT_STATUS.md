@@ -1294,3 +1294,68 @@
   mechanism (flip Status to IN_PROGRESS before starting) is worth adding to
   avoid the recurring duplicate-PR pattern (3 occurrences so far) — pending
   Boss preference, not urgent.
+
+## 2026-09-21 — Tech Lead: scoped Finance↔Portfolio cross-link, Gap Audit item 1 (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message in `TECH_LEAD.md` since the 2026-09-20 entry
+  (duplicate-PR pattern + TASK-011 review, non-blocking, unanswered). No
+  new message in `.agent/boss/PM.md` since PM's 2026-09-20 gap-audit
+  write-up either. Confirmed via GitHub: zero open PRs. `master` up to date
+  with `origin/master` (`87d0a6b`).
+- Per PM's stated default ("if Boss doesn't redirect, hand off proposal 1 —
+  Finance↔Portfolio cross-link — to Tech Lead next run"), and with no Boss
+  reply since, picked this up as the highest-priority actionable item —
+  same "proceed by default" pattern used throughout Skill-Building and the
+  original SEO work.
+- **Investigated before scoping**: read `FinanceController.cs` (confirmed
+  `chip-analysis`/`score`/`comprehensive-analysis` are already
+  `[AllowAnonymous]`, no `[Authorize]`, already accept a bare stock code +
+  optional market), `Finance/hooks/useFinanceAnalysis.ts` (confirmed the
+  Finance page is pure client-side state today — no URL param read on
+  mount, nothing to auto-trigger a search), `Portfolio/HoldingDetailDrawer.tsx`
+  + `PositionsTable.tsx` (confirmed the drawer only opens for
+  `STOCK`/`FUND` positions, and `PositionDto.market` already uses the exact
+  `'TW'`/`'US'` values Finance's own market-detection expects). **Net
+  finding: this is a frontend-only task.** The backend already supports
+  everything needed — the actual gap is that Finance's page has no way to
+  receive a "show me this symbol" link, and Portfolio's drawer has no link
+  to send. No new endpoint, no DTO change, no backend PR.
+- One scope decision made explicitly: the cross-link must land on Finance's
+  **quantitative** tab (free/unauthenticated), never the AI-trend tab
+  (credit-gated) — a discoverability link must not be able to silently
+  trigger a charge. Also gated the link to `STOCK` holdings only, not
+  `FUND` — Finance has no fund-analysis surface at all.
+- Documented the full investigation and decision in `ARCHITECTURE.md` →
+  "Decision: Finance ↔ Portfolio cross-link (Gap Audit item 1,
+  DECISION-005)". Created `TASK-012` (Frontend only: `useFinanceAnalysis`
+  reads `symbol`/`market` from the URL and auto-runs the free quant search
+  once on mount; `HoldingDetailDrawer` adds a new-tab link for STOCK
+  holdings) — `READY`, unclaimed.
+- `REQUIREMENTS.md`: updated the Finance Gap Audit's Open Questions to
+  record that proposal 1 has been scoped into `TASK-012` (proposals 2-5
+  remain unscoped, pending Boss's priority-order reply or a future run).
+- Wrote to `.agent/boss/TECH_LEAD.md`: summarized the scoping and flagged
+  (non-blocking) the one product question this raises — whether landing on
+  the free quant tab vs. a plain "search this symbol" is the right
+  behavior, in case Boss has a different expectation.
+- No implementation code changes — architecture/task documentation only,
+  ready for a Frontend Engineer to pick up. Committed and pushed directly
+  to `master` per this role's own git rule (§16) for architecture/task/
+  status documentation.
+
+## Open Items
+- **New, from this run**: `TASK-012` (Finance↔Portfolio cross-link,
+  frontend-only) is `READY`, unclaimed — next Frontend run should pick it
+  up.
+- Gap-audit proposals 2-5 (prediction-accuracy tracking, multi-stock
+  comparison, Portfolio CSV import, rebalancing/FIRE tracking) remain
+  unscoped — natural next items once `TASK-012` ships, pending Boss's
+  priority-order reply.
+- Still open from before: Phase 2 of speaking delivery feedback (true
+  pronunciation-accuracy scoring, new vendor) — cost/vendor decision
+  pending Boss, not scoped as a task.
+- Still open from before (Tech Lead, 2026-09-20): whether a task-claiming
+  mechanism (flip Status to IN_PROGRESS before starting) is worth adding to
+  avoid the recurring duplicate-PR pattern (3 occurrences so far) — pending
+  Boss preference, not urgent.

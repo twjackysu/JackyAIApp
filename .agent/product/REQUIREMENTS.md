@@ -594,12 +594,12 @@ original Skill-Building proposal):
   compute the same underlying quant bundle) intentional, or should the free
   endpoints be considered a loss-leader funnel? Non-blocking for the
   proposals above; flagged for Boss/PM to resolve separately.
-- Proposed priority order (1→5 above) flagged to Boss in
-  `.agent/boss/PM.md` (2026-09-20). Per the same pattern used for the
-  original Skill-Building proposal and the public-word-page SEO item: if
-  Boss doesn't redirect, PM's default next run is to hand off proposal 1
-  (the Finance↔Portfolio cross-link) to Tech Lead as the first item, without
-  waiting for item-by-item sign-off on the rest of the list.
+- Proposed priority order (1→5 above): no Boss reply as of 2026-09-21, so
+  Tech Lead proceeded on PM's stated default and picked up **proposal 1
+  (Finance↔Portfolio cross-link)** — scoped as `TASK-012` (Frontend only;
+  see `ARCHITECTURE.md` → "Decision: Finance ↔ Portfolio cross-link"),
+  `READY`, unclaimed. Items 2-5 remain unscoped pending Boss's priority
+  reply or a future PM/Tech Lead run.
 
 ---
 

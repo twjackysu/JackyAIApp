@@ -703,3 +703,88 @@ in case Boss wants a sentence-level version later.
 See `TASK-010` (Backend) and `TASK-011` (Frontend, depends on TASK-010's
 response shape). This closes out the originally-approved four-item
 Skill-Building list (DECISION-005) once both merge.
+
+---
+
+## Decision: Finance ↔ Portfolio cross-link (Gap Audit item 1, DECISION-005)
+
+### Context
+PM's 2026-09-20 gap audit of Finance/Portfolio (`REQUIREMENTS.md` → both
+modules' "Gap Audit (2026-09-20)" sections) found the same gap independently
+from both sides: a Portfolio holding's detail view (`HoldingDetailDrawer`)
+never links to Finance's fuller per-stock analysis for that same symbol,
+even though both modules already share the same TW/US price-data providers
+underneath. A user who owns a stock currently gets a *narrower* AI view of
+it (`PortfolioAiSummary`, one persona, 2 credits) than a non-holder gets by
+searching the same symbol directly in Finance (technical + chip + score +
+weighted comprehensive analysis, and all four of those are **free,
+unauthenticated, zero AI cost** — only Finance's own AI-trend tab is
+credit-gated). PM flagged this as the cheapest item in both modules'
+proposal lists — "a read-join of two existing services, no new AI calls, no
+new infra" — and it is: investigated both sides before scoping and
+confirmed there is no missing backend capability at all.
+
+### Investigation
+- Finance's quantitative endpoints (`GET api/finance/chip-analysis/{code}`,
+  `GET api/finance/score/{code}`, `POST api/finance/comprehensive-analysis`)
+  are already `[AllowAnonymous]`-by-default (no `[Authorize]` attribute) and
+  already accept a bare stock code + optional `Market` (`TW`/`US`) —
+  everything a cross-link needs already exists and needs zero backend
+  changes.
+- The Finance page (`Finance/index.tsx` + `useFinanceAnalysis.ts`) is pure
+  client-side state today: no URL param is read on mount, search is
+  triggered only by the user typing into `stockSearchTerm` and clicking
+  search. So "link to Finance for symbol X" currently has nowhere to land —
+  the receiving side is the only real gap, and it's frontend-only.
+- `HoldingDetailDrawer` (`Portfolio/HoldingDetailDrawer.tsx`) already knows
+  the exact `symbol`/`market` needed (`PositionDto.market` is literally
+  `'TW'`/`'US'`, matching Finance's own `MarketRegion`/`detectMarket`
+  convention) — no data-shape translation needed either.
+- Confirmed via `PositionsTable.tsx` that the drawer only ever opens for
+  `assetType === 'STOCK'` or `'FUND'` (with a symbol). Finance has no
+  fund-analysis surface at all (its quant/AI endpoints are stock-only) — so
+  the link must be gated to `STOCK` only, not shown for `FUND`.
+
+### Decision
+Frontend-only, no backend/DB change, no new endpoint:
+1. `Finance/hooks/useFinanceAnalysis.ts` reads an initial `symbol`/`market`
+   from the URL (`useSearchParams`), and when present: prefills
+   `stockSearchTerm`, forces `analysisTab = TAB_QUANTITATIVE` (the free tab
+   — a link must never silently land the user on a page that's one click
+   from a credit charge), and auto-fires the same `handleStockSearch` path
+   once on mount.
+2. `Portfolio/HoldingDetailDrawer.tsx` adds a link, visible only when
+   `position.assetType === 'STOCK'`, to `/finance?symbol=${symbol}&market=${market}`,
+   opened in a new tab (`target="_blank" rel="noopener noreferrer"`, same
+   pattern already used by `JobSearch/components/JobCard.tsx`) so the
+   Portfolio page/drawer state isn't lost. Placed near `AiTechSummary` so a
+   holder sees "here's my quick AI take" and "here's the full free
+   quant breakdown" together.
+
+### Reason
+This is the correct minimum fix for the actual gap PM named (discoverability
+— the richer analysis already exists and is already free, it's just not
+reachable from a holding), not a new feature. A same-tab navigation was
+considered and rejected: Portfolio holdings can take a while to load/scroll
+to, and losing that state to view one stock's analysis is worse UX than a
+new tab for a near-zero-cost feature.
+
+### Alternatives considered
+- **Embed Finance's comprehensive-analysis result directly inside the
+  drawer** (fetch it in-place instead of linking out): rejected — Finance's
+  quant tab already has a large, purpose-built layout
+  (`ComprehensiveAnalysisResult` + `CategoryScoreCard`s + `IndicatorTable`s)
+  that doesn't fit a 480px-wide drawer without either a second, thinner
+  rendering (duplicate presentation logic, same drift risk flagged in the
+  SEO Phase 2 decision above) or a cramped drawer. Linking out reuses the
+  existing full-size presentation as-is.
+- **Auto-run the AI-trend tab instead of the quantitative tab**: rejected —
+  that tab is credit-gated; a link a user didn't ask to spend credits on
+  must never pre-trigger a charge on load.
+
+### Impact
+- `jackyaiapp.client` only: `Finance/hooks/useFinanceAnalysis.ts` (read
+  `useSearchParams`, auto-trigger once), `Portfolio/HoldingDetailDrawer.tsx`
+  (new link, STOCK-only). No DTO/API contract change, no backend PR needed.
+
+See `TASK-012` (Frontend only).
