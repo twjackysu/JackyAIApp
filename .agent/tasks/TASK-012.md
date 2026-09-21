@@ -127,7 +127,7 @@ component test added — matches the existing convention for
 change).
 
 ### PR
-(to be filled in after push)
+https://github.com/twjackysu/JackyAIApp/pull/359
 
 ## Known Issues
 - Manual end-to-end verification (opening a STOCK holding's drawer in a
