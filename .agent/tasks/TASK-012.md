@@ -135,5 +135,8 @@ None — Finance's endpoints already support this; no backend task required.
   (or QA) before merge, matching the acceptance criteria's own emphasis on
   verifying actual behavior, not just the code.
 
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/361
+
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
