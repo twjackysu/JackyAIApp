@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import type { AnalysisConfig } from '../components';
 
@@ -36,6 +37,7 @@ const DEFAULT_CONFIG: AnalysisConfig = {
  * the active tab, analysis config, and the daily market-summary query.
  */
 export function useFinanceAnalysis() {
+  const [searchParams] = useSearchParams();
   const [stockSearchTerm, setStockSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<StockTrendAnalysis | null>(null);
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
@@ -68,32 +70,35 @@ export function useFinanceAnalysis() {
 
   const digestPoints = useMemo(() => digestResponse?.data?.points || [], [digestResponse?.data]);
 
+  const runQuantitativeSearch = async (code: string, marketOverride?: 'TW' | 'US') => {
+    try {
+      resetComprehensive();
+      setSearchResults(null);
+      const market = marketOverride ?? detectMarket(code);
+      const result = await getComprehensiveAnalysis({
+        stockCode: code,
+        market,
+        includeTechnical: analysisConfig.includeTechnical,
+        includeChip: analysisConfig.includeChip,
+        includeFundamental: analysisConfig.includeFundamental,
+        includeScoring: analysisConfig.includeScoring,
+        includeRisk: analysisConfig.includeRisk,
+        technicalWeight: analysisConfig.technicalWeight,
+        chipWeight: analysisConfig.chipWeight,
+        fundamentalWeight: analysisConfig.fundamentalWeight,
+      }).unwrap();
+      setAnalysisResults(result.data);
+    } catch (err) {
+      console.error('Comprehensive analysis failed:', err);
+      setAnalysisResults(null);
+    }
+  };
+
   const handleStockSearch = async () => {
     if (!stockSearchTerm.trim()) return;
 
     if (analysisTab === TAB_QUANTITATIVE) {
-      try {
-        resetComprehensive();
-        setSearchResults(null);
-        const code = stockSearchTerm.trim();
-        const market = detectMarket(code);
-        const result = await getComprehensiveAnalysis({
-          stockCode: code,
-          market,
-          includeTechnical: analysisConfig.includeTechnical,
-          includeChip: analysisConfig.includeChip,
-          includeFundamental: analysisConfig.includeFundamental,
-          includeScoring: analysisConfig.includeScoring,
-          includeRisk: analysisConfig.includeRisk,
-          technicalWeight: analysisConfig.technicalWeight,
-          chipWeight: analysisConfig.chipWeight,
-          fundamentalWeight: analysisConfig.fundamentalWeight,
-        }).unwrap();
-        setAnalysisResults(result.data);
-      } catch (err) {
-        console.error('Comprehensive analysis failed:', err);
-        setAnalysisResults(null);
-      }
+      await runQuantitativeSearch(stockSearchTerm.trim());
     } else if (analysisTab === TAB_AI_TREND) {
       if (!isAuthenticated) {
         window.location.href = `/api/account/login/Google?ReturnUrl=${encodeURIComponent(window.location.pathname)}`;
@@ -110,6 +115,23 @@ export function useFinanceAnalysis() {
       }
     }
   };
+
+  // Cross-link from a Portfolio holding (see HoldingDetailDrawer): pre-fill and auto-run the
+  // free quantitative analysis for a symbol passed via the URL, exactly once on mount. Never
+  // land on TAB_AI_TREND, which is credit-gated.
+  useEffect(() => {
+    const symbol = searchParams.get('symbol')?.trim();
+    if (!symbol) return;
+    const marketParam = searchParams.get('market');
+    const market =
+      marketParam === 'TW' || marketParam === 'US' ? marketParam : detectMarket(symbol);
+    setStockSearchTerm(symbol);
+    setAnalysisTab(TAB_QUANTITATIVE);
+    void runQuantitativeSearch(symbol, market);
+    // Intentionally mount-only: re-firing on every render/tab change would re-trigger the
+    // search after the user has moved on to a different symbol or tab.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const clearSearchResults = () => {
     setSearchResults(null);

@@ -8,7 +8,7 @@ DECISION-005)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH (per PM's 2026-09-20 gap-audit proposal: cheapest, highest-leverage
@@ -93,7 +93,42 @@ link from the drawer to Finance, pre-filled and pre-run for that symbol.
 None — Finance's endpoints already support this; no backend task required.
 
 ## Result
-(To be filled in by the implementing Frontend Engineer.)
+- **`Finance/hooks/useFinanceAnalysis.ts`**: extracted the existing
+  `TAB_QUANTITATIVE` fetch logic out of `handleStockSearch` into a shared
+  `runQuantitativeSearch(code, marketOverride?)` helper (no new/duplicate
+  `getComprehensiveAnalysis` call site — `handleStockSearch` now just calls
+  the helper). Added a mount-only `useEffect` (`useSearchParams` from
+  `react-router-dom`, empty dep array, `eslint-disable-next-line
+  react-hooks/exhaustive-deps` — same established pattern used elsewhere in
+  this codebase, e.g. `Exam/ClozeTestCard/index.tsx`) that reads `symbol`/
+  `market` from the URL: when `symbol` is present, sets `stockSearchTerm`,
+  forces `analysisTab = TAB_QUANTITATIVE`, and calls
+  `runQuantitativeSearch(symbol, market)` directly (passing the resolved
+  values in, rather than going through `handleStockSearch`'s state-closure
+  read, since `setState` before it wouldn't be visible synchronously). Uses
+  the URL's `market` when it's exactly `'TW'`/`'US'`, otherwise falls back
+  to the existing `detectMarket(symbol)` heuristic — no second
+  market-detection implementation added. No-`symbol` visits (e.g. `/finance`
+  from the nav menu) hit the `if (!symbol) return;` guard and are completely
+  unaffected — verified no other state changes before that guard.
+- **`Portfolio/HoldingDetailDrawer.tsx`**: added a text `Button` (MUI
+  `href`+`target="_blank"`+`rel="noopener noreferrer"`, same pattern as
+  `JobSearch/components/JobCard.tsx`'s external link) below `AiTechSummary`,
+  rendered only when `position.assetType === 'STOCK'` (new `isStock` const,
+  parallel to the existing `isFund` const — `FUND`/`CASH`/`LIABILITY`/
+  `REAL_ESTATE` all excluded). Links to
+  `/finance?symbol=${symbol}&market=${market}` (both URL-encoded;
+  `position.market` is already `'TW'`/`'US'`, no translation). Label "在
+  Finance 查看完整分析" — doesn't imply a credit charge, matching that the
+  landing tab is free.
+- `npm ci` was needed first (fresh sandbox had no `node_modules`).
+  `npm run lint` (0 warnings/errors), `npm run build` (TS compiles clean),
+  `npx vitest run` (136 tests, all existing suites, no regressions) all
+  pass.
+- No manual end-to-end run against a live backend (no backend/DB available
+  in this sandbox, same limitation noted in `TASK-011`) — the acceptance
+  criteria's network-payload/URL-behavior checks should get a manual or QA
+  pass before merge.
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
