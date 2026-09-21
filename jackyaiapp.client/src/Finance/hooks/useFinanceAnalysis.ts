@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import type { AnalysisConfig } from '../components';
 
@@ -46,6 +47,9 @@ export function useFinanceAnalysis() {
   const { data: userInfo } = useGetUserInfoQuery();
   const isAuthenticated = !!userInfo?.data;
 
+  const [searchParams] = useSearchParams();
+  const autoFiredFromUrlRef = useRef(false);
+
   const {
     data: digestResponse,
     isLoading: isMarketLoading,
@@ -68,32 +72,55 @@ export function useFinanceAnalysis() {
 
   const digestPoints = useMemo(() => digestResponse?.data?.points || [], [digestResponse?.data]);
 
+  const runQuantitativeSearch = async (code: string, marketOverride?: 'TW' | 'US') => {
+    if (!code.trim()) return;
+    try {
+      resetComprehensive();
+      setSearchResults(null);
+      const trimmed = code.trim();
+      const market = marketOverride ?? detectMarket(trimmed);
+      const result = await getComprehensiveAnalysis({
+        stockCode: trimmed,
+        market,
+        includeTechnical: analysisConfig.includeTechnical,
+        includeChip: analysisConfig.includeChip,
+        includeFundamental: analysisConfig.includeFundamental,
+        includeScoring: analysisConfig.includeScoring,
+        includeRisk: analysisConfig.includeRisk,
+        technicalWeight: analysisConfig.technicalWeight,
+        chipWeight: analysisConfig.chipWeight,
+        fundamentalWeight: analysisConfig.fundamentalWeight,
+      }).unwrap();
+      setAnalysisResults(result.data);
+    } catch (err) {
+      console.error('Comprehensive analysis failed:', err);
+      setAnalysisResults(null);
+    }
+  };
+
+  // Cross-link entry point (e.g. from a Portfolio holding): pre-fill and auto-run the free
+  // quantitative search exactly once per mount when the URL carries a symbol. Never auto-lands
+  // on the credit-gated AI-trend tab, and a plain `/finance` visit (no query params) is unaffected.
+  useEffect(() => {
+    if (autoFiredFromUrlRef.current) return;
+    const symbol = searchParams.get('symbol');
+    if (!symbol) return;
+    autoFiredFromUrlRef.current = true;
+
+    const marketParam = searchParams.get('market');
+    const market = marketParam === 'TW' || marketParam === 'US' ? marketParam : undefined;
+
+    setStockSearchTerm(symbol);
+    setAnalysisTab(TAB_QUANTITATIVE);
+    void runQuantitativeSearch(symbol, market);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const handleStockSearch = async () => {
     if (!stockSearchTerm.trim()) return;
 
     if (analysisTab === TAB_QUANTITATIVE) {
-      try {
-        resetComprehensive();
-        setSearchResults(null);
-        const code = stockSearchTerm.trim();
-        const market = detectMarket(code);
-        const result = await getComprehensiveAnalysis({
-          stockCode: code,
-          market,
-          includeTechnical: analysisConfig.includeTechnical,
-          includeChip: analysisConfig.includeChip,
-          includeFundamental: analysisConfig.includeFundamental,
-          includeScoring: analysisConfig.includeScoring,
-          includeRisk: analysisConfig.includeRisk,
-          technicalWeight: analysisConfig.technicalWeight,
-          chipWeight: analysisConfig.chipWeight,
-          fundamentalWeight: analysisConfig.fundamentalWeight,
-        }).unwrap();
-        setAnalysisResults(result.data);
-      } catch (err) {
-        console.error('Comprehensive analysis failed:', err);
-        setAnalysisResults(null);
-      }
+      await runQuantitativeSearch(stockSearchTerm);
     } else if (analysisTab === TAB_AI_TREND) {
       if (!isAuthenticated) {
         window.location.href = `/api/account/login/Google?ReturnUrl=${encodeURIComponent(window.location.pathname)}`;

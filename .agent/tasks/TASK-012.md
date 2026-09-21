@@ -8,7 +8,7 @@ DECISION-005)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH (per PM's 2026-09-20 gap-audit proposal: cheapest, highest-leverage
@@ -93,7 +93,47 @@ link from the drawer to Finance, pre-filled and pre-run for that symbol.
 None — Finance's endpoints already support this; no backend task required.
 
 ## Result
-(To be filled in by the implementing Frontend Engineer.)
+- **`Finance/hooks/useFinanceAnalysis.ts`**: extracted the existing
+  quantitative-tab fetch logic out of `handleStockSearch` into a shared
+  `runQuantitativeSearch(code, marketOverride?)` (same
+  `getComprehensiveAnalysis` call, not duplicated); `handleStockSearch`'s
+  `TAB_QUANTITATIVE` branch now just calls it. Added a `useSearchParams`
+  read + a `useRef`-guarded `useEffect` that fires once per mount only when
+  the URL carries `?symbol=`: sets `stockSearchTerm`, forces
+  `analysisTab = TAB_QUANTITATIVE`, and calls
+  `runQuantitativeSearch(symbol, market)` where `market` is the URL's
+  `market` param when it's exactly `'TW'`/`'US'`, else `undefined` so
+  `runQuantitativeSearch` falls back to the existing `detectMarket`
+  heuristic — no second market-detection path added. A plain `/finance`
+  visit (no `symbol` param) never touches this effect.
+- **`Portfolio/HoldingDetailDrawer.tsx`**: new `FinanceCrossLink` (text
+  `Button`, `OpenInNewIcon`, `href="/finance?symbol=...&market=..."`,
+  `target="_blank" rel="noopener noreferrer"` — same external-link pattern
+  as `JobSearch/components/JobCard.tsx`), rendered right after
+  `AiTechSummary` only when `position.assetType === 'STOCK'` (confirmed the
+  drawer only ever opens for `STOCK`/`FUND`; `FUND` gets no link since
+  Finance has no fund-analysis surface). Label: "在 Finance 查看完整分析" —
+  doesn't imply a credit cost since the landing tab is free.
+- No backend/DTO change — Finance's quant endpoints were already
+  `[AllowAnonymous]` and already accepted a bare code + market, per
+  `ARCHITECTURE.md`'s "Decision: Finance ↔ Portfolio cross-link".
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136
+  tests) all pass with no regressions.
+- No new tests added — this is wiring between two already-tested pieces
+  (`useFinanceAnalysis`'s existing search path, `HoldingDetailDrawer`'s
+  existing conditional-render pattern for `AiTechSummary`/`PriceChart`),
+  and neither has an existing dedicated test file to extend.
+
+## Known Issues
+- Manual end-to-end verification (opening a STOCK holding's drawer in a
+  running app, clicking the link, confirming `/finance` opens in a new tab
+  with the quantitative tab active and the analysis already loaded) was
+  **not** performed in this session — no backend/DB available to run the
+  app against. Recommend a manual pass (or QA) before merge, same caveat
+  as `TASK-011`.
+
+### PR
+(to be filled in after push)
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
