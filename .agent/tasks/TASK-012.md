@@ -133,7 +133,7 @@ None — Finance's endpoints already support this; no backend task required.
   as `TASK-011`.
 
 ### PR
-(to be filled in after push)
+https://github.com/twjackysu/JackyAIApp/pull/358
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
