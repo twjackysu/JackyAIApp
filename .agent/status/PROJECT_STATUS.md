@@ -1359,3 +1359,51 @@
   mechanism (flip Status to IN_PROGRESS before starting) is worth adding to
   avoid the recurring duplicate-PR pattern (3 occurrences so far) — pending
   Boss preference, not urgent.
+
+## 2026-09-21 — Frontend Engineer: TASK-012 Finance↔Portfolio cross-link (scheduled run)
+
+- Read `TASK-012.md`, the "Finance ↔ Portfolio cross-link" decision in
+  `ARCHITECTURE.md`, and the existing `useFinanceAnalysis.ts`/
+  `HoldingDetailDrawer.tsx`/`JobCard.tsx` (external-link pattern) before
+  writing any code. Confirmed via GitHub that no PR for this task existed
+  yet (avoiding the duplicate-PR pattern flagged in the 2026-09-20 entry).
+- **`Finance/hooks/useFinanceAnalysis.ts`**: extracted the existing
+  `TAB_QUANTITATIVE` fetch logic into a shared `runQuantitativeSearch`
+  helper (no duplicate `getComprehensiveAnalysis` call site), then added a
+  mount-only `useEffect` that reads `symbol`/`market` from the URL
+  (`useSearchParams`) and, when `symbol` is present, pre-fills
+  `stockSearchTerm`, forces `analysisTab = TAB_QUANTITATIVE` (never the
+  credit-gated AI-trend tab), and auto-fires the fetch exactly once. Falls
+  back to the existing `detectMarket` heuristic when the URL's `market`
+  isn't exactly `'TW'`/`'US'`. No-`symbol` visits are unaffected.
+- **`Portfolio/HoldingDetailDrawer.tsx`**: added a "在 Finance 查看完整分析"
+  link (same `href`+`target="_blank"`+`rel="noopener noreferrer"` pattern as
+  `JobCard.tsx`), gated to `assetType === 'STOCK'`, placed below
+  `AiTechSummary`.
+- `npm ci` (fresh sandbox), `npm run lint` (0 warnings), `npm run build`,
+  `npx vitest run` (136 tests) all pass with no regressions.
+- **Known limitation, same as `TASK-011`**: no live backend/DB available in
+  this sandbox, so the acceptance criteria's manual network-payload/
+  click-through checks were not run — flagged for a manual pass or QA
+  before merge.
+- Committed and pushed to `claude/amazing-cori-lj0owf`. Opened PR #360.
+  `TASK-012.md` updated to `Status: PR_OPENED` with a full `Result` section
+  and the PR link.
+
+## Open Items
+- **New, from this run**: `TASK-012`'s PR (#360) needs Tech Lead review —
+  same open question flagged by Tech Lead at scoping time (free quant tab
+  vs. plain "search this symbol") still stands, plus the manual
+  end-to-end/network-payload check neither this run nor a live backend
+  could perform.
+- Gap-audit proposals 2-5 (prediction-accuracy tracking, multi-stock
+  comparison, Portfolio CSV import, rebalancing/FIRE tracking) remain
+  unscoped — natural next items once `TASK-012` merges, pending Boss's
+  priority-order reply.
+- Still open from before: Phase 2 of speaking delivery feedback (true
+  pronunciation-accuracy scoring, new vendor) — cost/vendor decision
+  pending Boss, not scoped as a task.
+- Still open from before (Tech Lead, 2026-09-20): whether a task-claiming
+  mechanism (flip Status to IN_PROGRESS before starting) is worth adding to
+  avoid the recurring duplicate-PR pattern (3 occurrences so far) — pending
+  Boss preference, not urgent.

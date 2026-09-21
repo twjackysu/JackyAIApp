@@ -129,6 +129,19 @@ None — Finance's endpoints already support this; no backend task required.
   in this sandbox, same limitation noted in `TASK-011`) — the acceptance
   criteria's network-payload/URL-behavior checks should get a manual or QA
   pass before merge.
+- Committed and pushed to `claude/amazing-cori-lj0owf`.
+
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/360
+
+## Known Issues
+- Manual end-to-end verification (opening a STOCK holding's drawer,
+  clicking through to `/finance` with the quantitative tab pre-loaded and
+  the analysis already loading, confirming a FUND holding shows no link,
+  confirming `/finance` with no query params behaves exactly as before) was
+  **not** performed in this session — no backend/DB available to run the
+  app against. Recommend a manual pass before merge, or QA picking this up
+  per the normal task lifecycle.
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
