@@ -1359,3 +1359,43 @@
   mechanism (flip Status to IN_PROGRESS before starting) is worth adding to
   avoid the recurring duplicate-PR pattern (3 occurrences so far) — pending
   Boss preference, not urgent.
+
+## 2026-09-21 — Frontend: implemented TASK-012 (Finance↔Portfolio cross-link, scheduled run)
+
+- Read `TASK-012.md`, the Tech Lead's ARCHITECTURE.md decision section, and
+  the existing `useFinanceAnalysis.ts`/`HoldingDetailDrawer.tsx` before
+  writing any code, per SOP. Confirmed via a fresh GitHub check that
+  `TASK-012` was unclaimed and no PR already covered it (avoiding the
+  duplicate-PR pattern flagged in prior runs).
+- `Finance/hooks/useFinanceAnalysis.ts`: added a mount-time, ref-guarded
+  effect reading `symbol`/`market` from the URL (`useSearchParams`);
+  prefills `stockSearchTerm`, force-sets `analysisTab = TAB_QUANTITATIVE`,
+  and auto-fires the existing `handleStockSearch` comprehensive-analysis
+  path exactly once — no duplicate API call, no second market-detection
+  path. `handleStockSearch` gained optional `termOverride`/`marketOverride`
+  params to make this possible without waiting on a state re-render;
+  existing call sites unaffected (one incidental fix needed in
+  `Finance/index.tsx`, where the search button's raw `onClick={handleStockSearch}`
+  would otherwise have passed the click event through as the new first
+  argument).
+- `Portfolio/HoldingDetailDrawer.tsx`: added a "在 Finance 查看完整分析"
+  new-tab link/button, gated to `assetType === 'STOCK'` only, placed below
+  the existing `AiTechSummary` button, following `JobCard.tsx`'s external-
+  link pattern (`target="_blank" rel="noopener noreferrer"`).
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136/136)
+  all pass with no regressions.
+- **Known limitation**: manual end-to-end verification (clicking the link
+  in a running app, confirming the network payload/auto-search behavior)
+  was not performed — no backend/DB available in this sandbox, same
+  limitation as `TASK-011`. Flagged in the task file and PR for a manual
+  pass or QA before merge.
+- Opened PR #357 against `master`. `TASK-012.md` updated to `PR_OPENED`
+  with the full implementation write-up.
+
+## Open Items
+- **New, from this run**: `TASK-012` PR #357 is open, awaiting Tech Lead
+  review; the manual end-to-end/network check noted above is still
+  outstanding (same "no live backend in sandbox" limitation as `TASK-011`).
+- Carried over, unchanged: Gap-audit proposals 2-5, Phase 2 speaking
+  delivery feedback, and the task-claiming-mechanism question — all still
+  pending Boss input, none urgent.

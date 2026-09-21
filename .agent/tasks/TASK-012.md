@@ -8,7 +8,7 @@ DECISION-005)
 Frontend
 
 ## Status
-IN_PROGRESS
+PR_OPENED
 
 ## Priority
 HIGH (per PM's 2026-09-20 gap-audit proposal: cheapest, highest-leverage
@@ -141,7 +141,7 @@ None — Finance's endpoints already support this; no backend task required.
 `Portfolio` chunks both compile clean). `npx vitest run` → 136/136 passed.
 
 ### PR
-(pending — see next commit)
+https://github.com/twjackysu/JackyAIApp/pull/357
 
 ## Known Issues
 - Manual end-to-end verification (opening a STOCK holding's drawer in a
