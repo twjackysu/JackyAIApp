@@ -8,7 +8,7 @@ DECISION-005)
 Frontend
 
 ## Status
-READY
+IN_PROGRESS
 
 ## Priority
 HIGH (per PM's 2026-09-20 gap-audit proposal: cheapest, highest-leverage
@@ -93,7 +93,64 @@ link from the drawer to Finance, pre-filled and pre-run for that symbol.
 None — Finance's endpoints already support this; no backend task required.
 
 ## Result
-(To be filled in by the implementing Frontend Engineer.)
+- **`Finance/hooks/useFinanceAnalysis.ts`**: added `useSearchParams` read on
+  mount, guarded by a `useRef` so it fires at most once. When the URL
+  carries a `symbol` (and optionally a `market` of exactly `'TW'`/`'US'`):
+  sets `stockSearchTerm`, force-sets `analysisTab = TAB_QUANTITATIVE`
+  (explicit call, even though it's already the default, per the task's
+  "regardless of any other default" wording), then calls `handleStockSearch`
+  directly with the URL values — **not** a duplicate `getComprehensiveAnalysis`
+  call. `handleStockSearch` gained two optional params
+  (`termOverride`, `marketOverride`) purely so the effect can pass the URL
+  values without waiting on the next render's `stockSearchTerm`/`detectMarket`
+  state (React state setters are async, so reading `stockSearchTerm` in the
+  same tick would still see the pre-update empty string); existing call
+  sites (button click, Enter key) are unaffected since both params are
+  optional and default to the prior `stockSearchTerm`/`detectMarket(code)`
+  behavior. When `market` is missing/invalid, falls back to the existing
+  `detectMarket` heuristic unchanged — no second market-detection path
+  added. Visiting `/finance` with no `symbol` param is a no-op (early
+  return), so normal nav-menu visits are unaffected.
+- **`Finance/index.tsx`**: one incidental fix required by the above —
+  the search button's `onClick={handleStockSearch}` was passing the click
+  `MouseEvent` straight through as `handleStockSearch`'s (now real) first
+  argument; changed to `onClick={() => handleStockSearch()}` so it still
+  calls with no args. Enter-key handler already called `handleStockSearch()`
+  with no args, unaffected.
+- **`Portfolio/HoldingDetailDrawer.tsx`**: new `FinanceCrossLink` component
+  — an outlined, full-width `Button` (not `IconButton`, so the label itself
+  is the plain-text CTA: "在 Finance 查看完整分析") linking to
+  `/finance?symbol=${symbol}&market=${market}` (both URL-encoded),
+  `target="_blank" rel="noopener noreferrer"`, mirroring `JobCard.tsx`'s
+  external-link pattern. Rendered directly below `AiTechSummary`, gated on
+  `position.assetType === 'STOCK'` only (not shown for `FUND`/`CASH`/
+  `LIABILITY`/`REAL_ESTATE`) — `AssetType` checked against the literal
+  union in `apis/portfolioApis/types.ts`. `position.market` passed through
+  unchanged (`'TW'`/`'US'`, already the exact values Finance's
+  `detectMarket`/`MarketRegion` expect — no translation needed, matching
+  the Tech Lead scoping note).
+- No new component test added (no existing test file for
+  `useFinanceAnalysis` or `HoldingDetailDrawer` to extend; manually traced
+  the effect's guard logic and the button's gating condition instead).
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136
+  tests, all pre-existing — none reference the touched files) all pass with
+  no regressions.
+
+### Tests
+`npm run lint` → 0 warnings. `npm run build` → succeeds (`Finance` and
+`Portfolio` chunks both compile clean). `npx vitest run` → 136/136 passed.
+
+### PR
+(pending — see next commit)
+
+## Known Issues
+- Manual end-to-end verification (opening a STOCK holding's drawer in a
+  running app, clicking the link, confirming `/finance` opens in a new tab
+  with the quantitative tab active and the analysis already loading/loaded,
+  and confirming a plain `/finance` visit is unaffected) was **not**
+  performed in this session — no backend/DB available to run the app
+  against, same limitation noted in `TASK-011`'s own Known Issues.
+  Recommend a manual pass (or QA) before merge.
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)

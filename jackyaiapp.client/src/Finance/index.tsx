@@ -180,7 +180,7 @@ function Finance() {
               />
               <Button
                 variant="contained"
-                onClick={handleStockSearch}
+                onClick={() => handleStockSearch()}
                 disabled={
                   isAnyAnalyzing ||
                   !stockSearchTerm.trim() ||

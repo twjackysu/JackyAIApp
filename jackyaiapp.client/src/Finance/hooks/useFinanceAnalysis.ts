@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import type { AnalysisConfig } from '../components';
 
@@ -36,6 +37,7 @@ const DEFAULT_CONFIG: AnalysisConfig = {
  * the active tab, analysis config, and the daily market-summary query.
  */
 export function useFinanceAnalysis() {
+  const [searchParams] = useSearchParams();
   const [stockSearchTerm, setStockSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<StockTrendAnalysis | null>(null);
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
@@ -68,15 +70,16 @@ export function useFinanceAnalysis() {
 
   const digestPoints = useMemo(() => digestResponse?.data?.points || [], [digestResponse?.data]);
 
-  const handleStockSearch = async () => {
-    if (!stockSearchTerm.trim()) return;
+  const handleStockSearch = async (termOverride?: string, marketOverride?: 'TW' | 'US') => {
+    const term = termOverride ?? stockSearchTerm;
+    if (!term.trim()) return;
 
     if (analysisTab === TAB_QUANTITATIVE) {
       try {
         resetComprehensive();
         setSearchResults(null);
-        const code = stockSearchTerm.trim();
-        const market = detectMarket(code);
+        const code = term.trim();
+        const market = marketOverride ?? detectMarket(code);
         const result = await getComprehensiveAnalysis({
           stockCode: code,
           market,
@@ -110,6 +113,24 @@ export function useFinanceAnalysis() {
       }
     }
   };
+
+  // Cross-link entry point: /finance?symbol=X&market=Y (e.g. from a Portfolio holding).
+  // Runs once per mount only — must not re-fire after the user has moved on to their own search.
+  const appliedUrlSymbolRef = useRef(false);
+  useEffect(() => {
+    if (appliedUrlSymbolRef.current) return;
+    const symbol = searchParams.get('symbol');
+    if (!symbol) return;
+    appliedUrlSymbolRef.current = true;
+
+    const marketParam = searchParams.get('market');
+    const market = marketParam === 'TW' || marketParam === 'US' ? marketParam : undefined;
+
+    setStockSearchTerm(symbol);
+    setAnalysisTab(TAB_QUANTITATIVE); // never auto-land on the credit-gated AI-trend tab
+    void handleStockSearch(symbol, market);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const clearSearchResults = () => {
     setSearchResults(null);
