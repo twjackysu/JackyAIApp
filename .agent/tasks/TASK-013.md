@@ -8,7 +8,7 @@ evaluate AI stock-trend calls (Gap Audit item 2, DECISION-005)
 Backend
 
 ## Status
-IN_PROGRESS
+PR_OPENED
 
 ## Priority
 MEDIUM (per PM's 2026-09-20 gap-audit proposal order, approved by Boss
@@ -212,7 +212,7 @@ blocking the rest of the batch, batch-size + oldest-due-first ordering).
    given the batch cap (5/call) and opportunistic cadence, but flagging the trade-off
    explicitly.
 
-PR: (opening now)
+PR: https://github.com/twjackysu/JackyAIApp/pull/363
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
