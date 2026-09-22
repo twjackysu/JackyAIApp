@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import type { AnalysisConfig } from '../components';
 
@@ -11,8 +12,10 @@ import {
 import { StockTrendAnalysis, StockAnalysisResultData } from '@/apis/financeApis/types';
 import { todayISO } from '@/utils/date';
 
+type MarketCode = 'TW' | 'US';
+
 /** Detect market from stock code: numeric (with optional trailing letter) = TW, otherwise US */
-const detectMarket = (code: string): 'TW' | 'US' =>
+const detectMarket = (code: string): MarketCode =>
   /^\d{4,6}[A-Za-z]?$/.test(code.trim()) ? 'TW' : 'US';
 
 // Tab indices
@@ -36,6 +39,9 @@ const DEFAULT_CONFIG: AnalysisConfig = {
  * the active tab, analysis config, and the daily market-summary query.
  */
 export function useFinanceAnalysis() {
+  const [searchParams] = useSearchParams();
+  // Guards the one-time auto-search from a `?symbol=&market=` deep link (e.g. from Portfolio).
+  const autoSearchFiredRef = useRef(false);
   const [stockSearchTerm, setStockSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<StockTrendAnalysis | null>(null);
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
@@ -68,15 +74,13 @@ export function useFinanceAnalysis() {
 
   const digestPoints = useMemo(() => digestResponse?.data?.points || [], [digestResponse?.data]);
 
-  const handleStockSearch = async () => {
-    if (!stockSearchTerm.trim()) return;
-
-    if (analysisTab === TAB_QUANTITATIVE) {
+  // Shared by the manual search button and the URL-driven auto-search below, so there's a
+  // single call site for `getComprehensiveAnalysis`.
+  const runComprehensiveAnalysis = useCallback(
+    async (code: string, market: MarketCode) => {
       try {
         resetComprehensive();
         setSearchResults(null);
-        const code = stockSearchTerm.trim();
-        const market = detectMarket(code);
         const result = await getComprehensiveAnalysis({
           stockCode: code,
           market,
@@ -94,6 +98,15 @@ export function useFinanceAnalysis() {
         console.error('Comprehensive analysis failed:', err);
         setAnalysisResults(null);
       }
+    },
+    [analysisConfig, getComprehensiveAnalysis, resetComprehensive],
+  );
+
+  const handleStockSearch = async () => {
+    if (!stockSearchTerm.trim()) return;
+
+    if (analysisTab === TAB_QUANTITATIVE) {
+      await runComprehensiveAnalysis(stockSearchTerm.trim(), detectMarket(stockSearchTerm.trim()));
     } else if (analysisTab === TAB_AI_TREND) {
       if (!isAuthenticated) {
         window.location.href = `/api/account/login/Google?ReturnUrl=${encodeURIComponent(window.location.pathname)}`;
@@ -124,6 +137,24 @@ export function useFinanceAnalysis() {
     // Clear results when switching tabs
     clearSearchResults();
   };
+
+  // Deep link from Portfolio's HoldingDetailDrawer: `?symbol=2330&market=TW` pre-fills the
+  // search box, forces the free quantitative tab (never the credit-gated AI-trend tab), and
+  // fires the search once. A plain `/finance` visit (no `symbol`) is unaffected.
+  useEffect(() => {
+    if (autoSearchFiredRef.current) return;
+    const symbolParam = searchParams.get('symbol')?.trim();
+    if (!symbolParam) return;
+    autoSearchFiredRef.current = true;
+
+    const marketParam = searchParams.get('market');
+    const market: MarketCode =
+      marketParam === 'TW' || marketParam === 'US' ? marketParam : detectMarket(symbolParam);
+
+    setStockSearchTerm(symbolParam);
+    setAnalysisTab(TAB_QUANTITATIVE);
+    void runComprehensiveAnalysis(symbolParam, market);
+  }, [searchParams, runComprehensiveAnalysis]);
 
   const hasStockResults = !!searchResults || !!analysisResults;
   const isAnyAnalyzing = isAnalyzing || isComprehensiveLoading;
