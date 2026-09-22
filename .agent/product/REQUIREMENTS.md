@@ -604,17 +604,28 @@ original Skill-Building proposal):
   features/credit gating entirely (see Credits & Payments requirement
   above), so there's no "paid AI tab" left for the free quant endpoints to
   funnel into. No longer an open question.
-- **Priority order (1→5 above): approved by Boss (2026-09-21, "1. 是，可以").**
-  Tech Lead already picked up **proposal 1 (Finance↔Portfolio cross-link)**
-  on PM's prior default — scoped as `TASK-012` (Frontend only; see
-  `ARCHITECTURE.md` → "Decision: Finance ↔ Portfolio cross-link"), `READY`,
-  unclaimed. With the order now explicitly approved, **proposal 2
-  (prediction-accuracy tracking)** is the next item to hand to Tech Lead
-  once `TASK-012` ships — no further Boss sign-off needed to proceed down
-  this list. Note: proposal 2's AI trend calls and proposal 5's
-  `market-digest` were credit-gated features; their scoping should account
-  for DECISION-006 (free-with-usage-cap, not credit-gated) rather than the
-  now-superseded credit-cost assumption.
+- **Priority order (1→5 above): approved by Boss (2026-09-21, "1. 是，可以")。**
+  **Proposal 1 (Finance↔Portfolio cross-link)** is scoped as `TASK-012`
+  (Frontend only; see `ARCHITECTURE.md` → "Decision: Finance ↔ Portfolio
+  cross-link"), `PR_OPENED`/`READY FOR BOSS REVIEW` as of 2026-09-22 (PR
+  #359 — see that PR's Review note on the 6-way duplicate-PR pile-up this
+  task triggered, cleaned up by Tech Lead). **Proposal 2
+  (prediction-accuracy tracking)** is now also scoped, in parallel rather
+  than strictly after item 1's merge (no hard dependency between them) —
+  see `TASK-013` (Backend only) and `ARCHITECTURE.md` → "Decision: Finance
+  prediction-accuracy tracking". One correction to this item's original
+  cost framing: "a scheduled job like `CakeJobsProvider.cs`" was based on a
+  mistaken premise — `CakeJobsProvider.cs` is a fetch-on-demand data
+  source, not an example of a recurring/scheduled job, and this codebase
+  has **no** background-job infrastructure at all today (no Hangfire/
+  Quartz/`BackgroundService`, confirmed via a repo-wide search). Scoped
+  instead as a lazy evaluation piggybacked onto the already-daily
+  `market-digest` endpoint — avoids introducing this codebase's first-ever
+  scheduled-job mechanism, a real cost saving over the original estimate.
+  Note: proposal 2's AI trend calls and proposal 5's `market-digest` were
+  credit-gated features; their scoping should account for DECISION-006
+  (free-with-usage-cap, not credit-gated) rather than the now-superseded
+  credit-cost assumption.
 
 ---
 
