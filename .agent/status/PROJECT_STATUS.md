@@ -1526,3 +1526,56 @@
   product/architecture decision.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-22 — PM: Product-verified Gap Audit items 1 & 2, unblocked item 3 (scheduled run)
+
+- Read `.agent/boss/PM.md`: no new Boss reply since PM's 2026-09-21 entry —
+  the Credits & Payments free-usage-cap question (DECISION-006) is still
+  unanswered. Not re-raised this run (already flagged twice); nothing new
+  to add until Boss responds.
+- Checked GitHub directly rather than trusting the last status entry alone:
+  both `TASK-012` (PR #359, Finance↔Portfolio cross-link) and `TASK-013`
+  (PR #363, Finance prediction-accuracy tracking Phase 1) merged into
+  `master` since the last log entry (Tech Lead's 2026-09-22 run only
+  reported #359 as scoped/open and #363 as newly-scoped — both landed
+  after that entry was written).
+- **Product-verified both by reading the actual merged code** (not the PR
+  descriptions alone):
+  - `TASK-012`: `HoldingDetailDrawer.tsx`'s `FinanceCrossLink` renders only
+    for `assetType === 'STOCK'`; `useFinanceAnalysis.ts`'s mount effect
+    forces the free `TAB_QUANTITATIVE` tab, never the credit-gated AI-trend
+    tab. Matches the scope constraint exactly.
+  - `TASK-013`: `StockPredictionRecorder` persists one row per horizon with
+    a self-contained try/catch (can't fail `analyze-stock`);
+    `PredictionEvaluationService` grades due rows against a price window
+    centered on the actual target date (confirmed it does *not* use
+    `IMarketDataProvider.FetchAsync`'s fixed trailing-window, which would
+    have silently mis-graded long-horizon predictions), triggered
+    fire-and-forget off the existing `market-digest` call. No new endpoint,
+    no credit-cost change, no frontend surface (Phase 2 UI correctly
+    deferred — nothing evaluable yet). Matches the architecture decision.
+  - `REQUIREMENTS.md`'s Finance and Portfolio Gap Audit sections updated to
+    record both as MERGED/product-verified.
+- **Unblocked the next item**: proposal 3 (multi-stock/sector peer
+  comparison) is now the default next Tech Lead handoff — no new Boss
+  sign-off needed, same "proceed by default" pattern used throughout this
+  Gap Audit. Not scoped by PM (that's Tech Lead's job); just confirmed
+  ready for pickup in `REQUIREMENTS.md`.
+- No code changes — Requirements/status documentation only, committed
+  directly to `master` per this role's own git rule (§11).
+
+## Open Items
+- **Next default Tech Lead item**: Finance Gap Audit proposal 3
+  (multi-stock/sector peer comparison) — ready to scope, no Boss reply
+  needed.
+- Carried over, still unanswered: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a day with no reply across two PM runs.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: the task-claiming-mechanism proposal (Tech Lead, 2026-09-20/
+  22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.

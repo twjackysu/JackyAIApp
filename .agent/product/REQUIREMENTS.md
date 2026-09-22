@@ -605,16 +605,41 @@ original Skill-Building proposal):
   above), so there's no "paid AI tab" left for the free quant endpoints to
   funnel into. No longer an open question.
 - **Priority order (1→5 above): approved by Boss (2026-09-21, "1. 是，可以")。**
-  **Proposal 1 (Finance↔Portfolio cross-link)** is scoped as `TASK-012`
-  (Frontend only; see `ARCHITECTURE.md` → "Decision: Finance ↔ Portfolio
-  cross-link"), `PR_OPENED`/`READY FOR BOSS REVIEW` as of 2026-09-22 (PR
-  #359 — see that PR's Review note on the 6-way duplicate-PR pile-up this
-  task triggered, cleaned up by Tech Lead). **Proposal 2
-  (prediction-accuracy tracking)** is now also scoped, in parallel rather
-  than strictly after item 1's merge (no hard dependency between them) —
-  see `TASK-013` (Backend only) and `ARCHITECTURE.md` → "Decision: Finance
-  prediction-accuracy tracking". One correction to this item's original
-  cost framing: "a scheduled job like `CakeJobsProvider.cs`" was based on a
+  **Proposal 1 (Finance↔Portfolio cross-link) — MERGED, product-verified
+  (2026-09-22)**: `TASK-012` (Frontend only, PR #359) landed on `master`.
+  PM read the merged code directly —
+  `Portfolio/HoldingDetailDrawer.tsx`'s `FinanceCrossLink` renders only for
+  `assetType === 'STOCK'` (not `FUND`, matching scope) and opens
+  `/finance?symbol=...&market=...` in a new tab; `Finance/hooks/
+  useFinanceAnalysis.ts`'s mount effect reads the `symbol`/`market` params,
+  forces `TAB_QUANTITATIVE` (never the credit-gated AI-trend tab — the
+  scope constraint Tech Lead called out explicitly), and fires the free
+  search once via a `useRef` guard. Matches the requirement exactly.
+  **Proposal 2 (prediction-accuracy tracking, Phase 1) — MERGED,
+  product-verified (2026-09-22)**: `TASK-013` (Backend only, PR #363)
+  landed on `master`. PM read the merged code — `StockPredictionRecorder`
+  persists one row per horizon (short/medium/long) after each
+  `analyze-stock` call, wrapped in its own try/catch so a bookkeeping
+  failure can never surface as an analysis failure; `PredictionEvaluationService`
+  lazily grades due rows against a price window centered on the actual
+  target date (not `IMarketDataProvider.FetchAsync`'s fixed ~6-month
+  trailing-from-now window, which would silently mis-grade a long-horizon
+  row — caught and fixed before merge, see the PR body), classifies
+  bullish/bearish/neutral against a ±3% band, and is triggered
+  fire-and-forget off the existing daily `market-digest` call — no new
+  scheduled-job infrastructure, no new endpoint, no credit-cost change, no
+  frontend surface. Matches the architecture decision exactly. **Phase 2**
+  (a user-facing track-record UI) is deliberately unscoped — short-term
+  predictions take weeks and long-term ones up to 3 years to become
+  evaluable, so there is nothing meaningful to show yet; revisit once rows
+  have actually been evaluated.
+- **Next up, unblocked, no Boss reply needed**: proposal 3 (multi-stock/
+  sector peer comparison) is the next item in the approved priority order —
+  PM's default is to leave this for Tech Lead to scope next run, same
+  "proceed by default" pattern used throughout Skill-Building and this Gap
+  Audit's earlier items.
+  One correction to proposal 2's original cost framing (recorded for the
+  history): "a scheduled job like `CakeJobsProvider.cs`" was based on a
   mistaken premise — `CakeJobsProvider.cs` is a fetch-on-demand data
   source, not an example of a recurring/scheduled job, and this codebase
   has **no** background-job infrastructure at all today (no Hangfire/
@@ -622,10 +647,9 @@ original Skill-Building proposal):
   instead as a lazy evaluation piggybacked onto the already-daily
   `market-digest` endpoint — avoids introducing this codebase's first-ever
   scheduled-job mechanism, a real cost saving over the original estimate.
-  Note: proposal 2's AI trend calls and proposal 5's `market-digest` were
-  credit-gated features; their scoping should account for DECISION-006
-  (free-with-usage-cap, not credit-gated) rather than the now-superseded
-  credit-cost assumption.
+  Note: proposal 5's `market-digest` was a credit-gated feature; its
+  scoping should account for DECISION-006 (free-with-usage-cap, not
+  credit-gated) rather than the now-superseded credit-cost assumption.
 
 ---
 
@@ -721,11 +745,13 @@ sign-off, same as the original Skill-Building proposal):
 
 ### Open Questions
 - Same as Finance's — see that section's Open Questions. The cross-module
-  link is one proposal serving both modules; priority order **approved by
-  Boss (2026-09-21)**. `PortfolioAiSummary` (currently `CreditCosts.
-  PortfolioAiSummary = 2`) is itself a credit-gated feature in scope for the
-  Credits & Payments removal (DECISION-006) — its own scoping should assume
-  free-with-usage-cap, not a credit charge.
+  link (proposal 1) is one proposal serving both modules; priority order
+  **approved by Boss (2026-09-21)**. **Now MERGED and product-verified
+  (2026-09-22)** — see Finance's Gap Audit section for the code-level
+  verification (`TASK-012`, PR #359). `PortfolioAiSummary` (currently
+  `CreditCosts.PortfolioAiSummary = 2`) is itself a credit-gated feature in
+  scope for the Credits & Payments removal (DECISION-006) — its own scoping
+  should assume free-with-usage-cap, not a credit charge.
 
 ---
 
