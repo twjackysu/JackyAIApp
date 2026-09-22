@@ -1359,3 +1359,170 @@
   mechanism (flip Status to IN_PROGRESS before starting) is worth adding to
   avoid the recurring duplicate-PR pattern (3 occurrences so far) — pending
   Boss preference, not urgent.
+
+## 2026-09-21 — PM: Boss approved Gap Audit priority order + decided to remove all payment/monetization (DECISION-006) (scheduled run)
+
+- Read `.agent/boss/PM.md`: Boss had replied (unanswered until this run) to
+  PM's 2026-09-20 three open questions: (1) approved the Finance/Portfolio
+  Gap Audit priority order as proposed, (2) — the significant one — stated
+  intent to remove **all** payment methods from the site, since every
+  Taiwan payment path is blocked by the same prepaid-credit trust (信託)
+  regulation Boss already ruled out solving via trust/company registration
+  (DECISION-001), (3) confirmed no PDF Unlocker batch-processing work.
+- **Recorded DECISION-006**: full removal of Stripe/PayPal/ECPay
+  integration, credit-pack purchase UI, and the balance/transaction-history
+  concept — not a pause (DECISION-003) but an active teardown. Flagged the
+  necessary companion problem explicitly rather than treating "remove
+  payment" as a pure deletion: the credit balance is currently the app's
+  *only* cost-control mechanism on expensive AI calls (exam generation/
+  grading, conversation, TTS/STT, stock AI analysis, chatbot), so removing
+  it without a replacement would make those calls unlimited and free —
+  directly conflicting with Boss's separate standing cloud-cost goal
+  (2026-09-12). Proposed replacement: a free, non-monetary daily/periodic
+  usage cap per feature per user, reusing the `market-digest`
+  once-per-day/shared-bank pattern already in the codebase rather than
+  inventing a new mechanism. No real credit transactions have ever cleared
+  on any provider (sandbox-only per this doc's own Constraints), so removal
+  needs no refund/migration handling.
+- `REQUIREMENTS.md`: rewrote the `Credits & Payments` requirement (Goal,
+  Acceptance Criteria, Priority HIGH/ACTIVE REMOVAL, Scope, and a new "PM's
+  proposed replacement design" section) to reflect removal instead of
+  on-hold maintenance. Closed out Finance Gap Audit's "free-quant-vs-paid-AI
+  funnel" open question as moot (no paid tab left to funnel into) and
+  marked the Gap Audit priority order approved — proposal 2 (prediction-
+  accuracy tracking) is now the default next Tech Lead handoff once
+  `TASK-012` ships, no further sign-off needed. Closed PDF Unlocker's
+  batch-processing question (keep single-file behavior); flagged root
+  `CLAUDE.md`'s stale "batch processing" claim as a small out-of-scope-for-
+  PM housekeeping item for whoever next touches that file.
+- **Deliberately did not hand the removal work to Tech Lead yet** — unlike
+  prior "proceed by default" items, this one has a real open design
+  question (is a usage cap the right replacement, and how generous) that
+  materially changes what gets built, so PM asked Boss to confirm before
+  Tech Lead scopes the teardown. Wrote the proposal + two open questions to
+  `.agent/boss/PM.md`. Gap Audit item 2 (prediction-accuracy tracking) is
+  explicitly *not* blocked by this and can proceed independently.
+- No code changes — Requirements/Decisions/PM-log documentation only.
+  Committed and pushed directly to `master` per this role's own git rule
+  (§11) for PM documentation.
+
+## Open Items
+- **New, blocking Tech Lead handoff on this one item only**: Credits &
+  Payments removal (DECISION-006) needs Boss's answer on the proposed
+  free-usage-cap replacement design (generous vs. conservative caps, or no
+  cap at all) before Tech Lead scopes the teardown. See `.agent/boss/PM.md`
+  (2026-09-21) for the two questions.
+- **Unblocked, next default Tech Lead item**: Finance Gap Audit proposal 2
+  (prediction-accuracy tracking) — proceed once `TASK-012` ships, no Boss
+  reply needed.
+- `TASK-012` (Finance↔Portfolio cross-link, frontend-only) still `READY`,
+  unclaimed — carried over from the previous entry.
+- Still open from before: Phase 2 of speaking delivery feedback (true
+  pronunciation-accuracy scoring, new vendor) — cost/vendor decision
+  pending Boss, not scoped as a task.
+- Still open from before (Tech Lead, 2026-09-20): whether a task-claiming
+  mechanism (flip Status to IN_PROGRESS before starting) is worth adding to
+  avoid the recurring duplicate-PR pattern (3 occurrences so far) — pending
+  Boss preference, not urgent.
+- Small housekeeping, non-urgent: root `CLAUDE.md`'s PDF Unlocker feature
+  list still claims "batch processing," which doesn't exist and won't be
+  built (Boss confirmed 2026-09-21) — needs a doc fix outside `.agent/`,
+  not PM's file to touch.
+
+## 2026-09-22 — Tech Lead: resolved a 6-way duplicate-PR pile-up on TASK-012, scoped Finance Gap Audit item 2 (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message in `TECH_LEAD.md` since the 2026-09-21 entry
+  (TASK-012 scoping, non-blocking, unanswered). `PM.md`'s last message
+  (2026-09-21, DECISION-006) still has no Boss reply on the free-usage-cap
+  question — Credits & Payments removal stays not-handed-to-Tech-Lead per
+  PM's own explicit note, so it's correctly out of scope for this run.
+- **Found `TASK-012` had six open PRs, not one**: #357, #358, #359, #360,
+  #361, #362 — six different scheduled sessions had each independently
+  picked up the same `READY`, unclaimed task before any of the others'
+  PRs landed, and all six shipped functionally identical implementations
+  (same two files: `useFinanceAnalysis.ts`, `HoldingDetailDrawer.tsx`),
+  all CI-green. This is the same recurring pattern flagged three times
+  before (`TASK-002`, `TASK-008`, `TASK-011`) but a full 6x instead of
+  2-3x — see the escalation below.
+- Read and compared all six diffs in full rather than picking one at
+  random. Kept **#359**: the only one where the shared search helper is
+  properly `useCallback`-wrapped with a complete, honest `useEffect`
+  dependency array (no `eslint-disable-next-line react-hooks/exhaustive-deps`
+  needed) and a `useRef` guard that protects against React 18 StrictMode's
+  dev double-invoke; it also leaves `handleStockSearch`'s existing public
+  signature untouched (unlike #357, which added new params to it and
+  needed a follow-up fix in `Finance/index.tsx`'s `onClick`), and gates the
+  cross-link on an explicit `assetType === 'STOCK'` check rather than
+  `!isFund` (unlike #361). Posted a full review comment on #359 marking it
+  **READY FOR BOSS REVIEW**. Closed #357/#358/#360/#361/#362, each with a
+  comment explaining the specific reason #359 was preferred over it and
+  pointing to #359. `TASK-012.md` updated: `Status: PR_OPENED`, `Result`/
+  `Review` sections filled in documenting the six-way pile-up and the
+  resolution.
+- **Scoped Finance Gap Audit proposal 2** (prediction-accuracy tracking),
+  per PM's 2026-09-21 authorization to proceed without waiting for further
+  Boss sign-off. Investigated before scoping: PM's original cost estimate
+  ("medium cost — new table + a scheduled job like `CakeJobsProvider.cs`")
+  turned out to rest on a mistaken premise — `CakeJobsProvider.cs` is a
+  fetch-on-demand data provider, not a scheduled/recurring job, and a
+  repo-wide search confirmed this codebase has **no** background-job
+  infrastructure at all (no Hangfire/Quartz/`BackgroundService`/cron
+  anywhere). Every existing "periodic" behavior (`MarketDigest`'s
+  once-per-day gate, exam bank growth thresholds) is actually a lazy,
+  request-triggered cache-expiry check, not a real timer. Scoped
+  accordingly: persist a `StockPrediction` row per horizon
+  (short/medium/long) whenever `analyze-stock` runs, then lazily evaluate
+  due-and-unevaluated rows as a fire-and-forget side effect of the
+  already-daily `market-digest` endpoint — avoids introducing this
+  codebase's first scheduled-job mechanism entirely, a real cost saving
+  over the original framing. A results/track-record UI is deliberately
+  deferred to an unscoped Phase 2, since short-term predictions take weeks
+  and long-term ones take up to 3 years to become evaluable — nothing
+  meaningful to show at launch.
+- Documented the full investigation and decision in `ARCHITECTURE.md` →
+  "Decision: Finance prediction-accuracy tracking — Gap Audit item 2".
+  Created `TASK-013` (Backend only: `StockPrediction` entity + migration,
+  write path off `analyze-stock`, `EvaluateDuePredictionsAsync` hooked into
+  `market-digest`, no new endpoint, no credit-cost change) — `READY`,
+  unclaimed, no hard dependency on `TASK-012`.
+- `REQUIREMENTS.md`: updated the Finance Gap Audit's Open Questions entry
+  to reflect `TASK-012`'s current state (PR_OPENED/READY FOR BOSS REVIEW)
+  and record `TASK-013`'s scoping + the `CakeJobsProvider.cs` cost-estimate
+  correction.
+- Wrote to `.agent/boss/TECH_LEAD.md`: reported both items above, and
+  escalated the duplicate-PR pattern more concretely than the last three
+  times it was raised — proposed a lightweight mitigation (flip a task's
+  `Status` to `IN_PROGRESS` as the very first commit when starting
+  implementation, so a parallel session doing the same SOP-mandated
+  "check GitHub for an existing PR" step before starting has a much
+  earlier, more reliable signal than "does a PR exist yet") and noted
+  intent to start applying that convention to tasks Tech Lead creates going
+  forward, as a process improvement within Tech Lead's own remit rather
+  than a product decision requiring Boss sign-off — while flagging that
+  Boss may still want a heavier mechanism if this doesn't help, given the
+  pattern just got worse, not better.
+- No application code changes — architecture/task/requirements/status
+  documentation only, plus GitHub PR review/close actions. Committed and
+  pushed directly to `master` per this role's own git rule (§16).
+
+## Open Items
+- **New, from this run**: `TASK-012` PR #359 is `PR_OPENED`/`READY FOR
+  BOSS REVIEW` — waiting on Boss merge. `TASK-013` (Finance
+  prediction-accuracy tracking, Backend only) is `READY`, unclaimed.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  still blocked on Boss's free-usage-cap design answer in
+  `.agent/boss/PM.md` (2026-09-21) — over a day with no reply as of this
+  run; worth a direct nudge if it stays quiet much longer, since it's the
+  single biggest piece of remaining Tech Lead-assigned work once
+  `TASK-012`/`TASK-013` ship.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- **Escalated further this run**: the recurring duplicate-PR pattern is
+  now at 6 parallel PRs for one task (previously 2-3) — see
+  `.agent/boss/TECH_LEAD.md` (2026-09-22) for the proposed lightweight
+  mitigation and Tech Lead's intent to start applying it without waiting
+  for Boss sign-off, since it's a process convention rather than a
+  product/architecture decision.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.

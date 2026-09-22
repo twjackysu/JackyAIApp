@@ -118,3 +118,51 @@ PDF 工具）同樣需要持續被檢視與改進，才能真正提升整體留�
 
 ### Source
 Boss
+
+---
+
+## DECISION-006: 拔除網站所有收費／金流機制，全面轉為免費產品
+
+### Date
+2026-09-21
+
+### Decision
+移除網站上所有付款/收費相關機制——Stripe、PayPal、ECPay 三個金流 provider、
+Credit Pack 購買流程、`/pricing`／`/credits` 儲值頁面——不是像 DECISION-003
+那樣「維持現狀、暫緩投入」，而是**主動拆除**。原本靠 Credits 扣點把關的 AI
+功能（測驗生成/批改、對話、TTS/STT、個股 AI 分析、聊天機器人）需要一套不涉及
+金錢的替代機制來控制雲端成本，PM 提案「每項功能每人每日免費額度」（沿用
+`market-digest` 已有的「每人每天一次」共用模式，不是無限量開放），已寫入
+`REQUIREMENTS.md` 的 Credits & Payments 需求供 Tech Lead 評估；此提案尚待
+Boss 進一步確認細節，若沒有回覆，PM 會比照既有模式下次直接交付 Tech Lead
+做技術可行性評估。同時，這個決定讓 Finance Gap Audit 提出的「免費量化功能
+是否刻意導流到付費 AI 分析」這個定價問題直接失去意義（因為不會再有付費分頁）
+——一併結案，不需要 Boss 另外裁示。
+
+### Reason
+Boss 明確表示已經想把網站所有收費方式都拔掉：Stripe/PayPal 台灣不開放使用；
+ECPay/Payuni 兩邊都卡在審核不通過，原因就是預付型 Credits 的信託法規問題
+（DECISION-001/002 已確認無法繞過）。Boss 不想為此去辦信託或成立公司
+（DECISION-001），與其讓一套永遠無法真正上線收款的系統繼續佔用維護成本、
+還持續造成「免費導流付費」這類設計上的曖昧地帶，不如整個拿掉，把資源完全
+收斂回 DECISION-003 已核准的方向——留存功能與降低雲端成本。
+
+### Impact
+- `REQUIREMENTS.md` 的 `Credits & Payments` 需求：從「LOW / ON HOLD（維持
+  運作、不投入）」改為「規劃移除」，新增 PM 提出的「免費每日用量額度」替代
+  機制提案，作為 Tech Lead 下一步技術評估的預設方向。
+- 既有的 Credit 餘額/交易紀錄：因為三個 provider 從未通過審核、沒有任何真實
+  金流交易發生過（見原 Requirements 文件 Constraints 段落），拆除時不涉及
+  真實退款問題，純粹是移除未上線的沙盒功能。
+- `Finance` Gap Audit 的「免費量化 vs. 付費 AI 分析定價重疊」開放問題：結案，
+  不再需要 Boss 裁示。
+- `PDF Unlocker` 的「批次處理」文件落差：Boss 確認不需要新增批次處理功能，
+  維持現有單檔案行為即可，該落差已結案，只待有人順手把 `CLAUDE.md`／舊文件
+  的「支援批次處理」描述改掉（非急件、非 PM 可直接修改的檔案範圍）。
+- Finance/Portfolio Gap Audit 的整體優先序（cross-link → 預測準確度追蹤 →
+  多股比較 → CSV 匯入 → 再平衡建議 → FIRE 追蹤 → 觀察名單/價格警示）Boss
+  已核准（「1. 是，可以」），可以繼續依序交付 Tech Lead，不受這次金流決定
+  影響。
+
+### Source
+Boss

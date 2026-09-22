@@ -136,6 +136,64 @@ https://github.com/twjackysu/JackyAIApp/pull/359
   unaffected) was not performed in this session — no backend/DB available
   to run the app against. Recommend a manual pass before merge, or QA
   picking this up per the normal task lifecycle.
+**Six parallel scheduled sessions independently picked up this task before
+any PR landed**, producing six functionally-identical implementations:
+PRs #357, #358, #359, #360, #361, #362, all touching the same two files
+(`Finance/hooks/useFinanceAnalysis.ts`, `Portfolio/HoldingDetailDrawer.tsx`),
+all CI-green. Tech Lead reviewed all six diffs 2026-09-22 and kept **#359**
+(https://github.com/twjackysu/JackyAIApp/pull/359), closing the other five
+as duplicates with a pointer here. This is the same recurring pattern
+flagged in prior status entries (`TASK-002`'s #331/#333, `TASK-008`'s
+#346/#347, `TASK-011`'s #353/#354 + #355/#356) but at a new scale — 6
+instead of 2-3 — see the escalation in `.agent/boss/TECH_LEAD.md`
+(2026-09-22).
+
+**#359's implementation** (kept):
+- `Finance/hooks/useFinanceAnalysis.ts`: extracts the existing
+  `getComprehensiveAnalysis` call out of `handleStockSearch` into
+  `runQuantitativeAnalysis(code, market)`, wrapped in `useCallback` with a
+  complete `[analysisConfig, getComprehensiveAnalysis, resetComprehensive]`
+  dependency list — no duplicated fetch call. A `useSearchParams`-backed
+  `useEffect`, guarded by `useRef` (protects against React 18 StrictMode's
+  dev double-invoke, which a hardcoded-`[]`-deps effect without a ref guard
+  would not), reads `symbol`/`market` from the URL: when `symbol` is
+  present, sets `stockSearchTerm`, force-sets
+  `analysisTab = TAB_QUANTITATIVE` (never the credit-gated AI-trend tab),
+  and calls `runQuantitativeAnalysis` with the resolved values exactly
+  once. Falls back to the existing `detectMarket` heuristic when the URL's
+  `market` isn't exactly `TW`/`US` — no second market-detection path.
+  `handleStockSearch`'s existing public signature is untouched. A
+  `/finance` visit with no `symbol` param hits the early return, zero
+  state change.
+- `Portfolio/HoldingDetailDrawer.tsx`: new `FinanceCrossLink` — text
+  `Button`, `OpenInNewIcon`, "在 Finance 查看完整分析", linking to
+  `/finance?symbol=...&market=...`, `target="_blank" rel="noopener
+  noreferrer"` (same pattern as `JobCard.tsx`'s external link), rendered
+  below `AiTechSummary`, gated explicitly on
+  `position.assetType === 'STOCK'`.
+- No backend/DTO change, matching the scoping decision.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136
+  tests) all pass, no regressions.
+
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/359 (awaiting Boss merge)
+
+## Known Issues
+- Manual end-to-end verification (opening a STOCK holding's drawer in a
+  running app, clicking through, confirming the quantitative tab auto-loads
+  the analysis, confirming a FUND holding shows no link, confirming a plain
+  `/finance` visit is unaffected) was not performed in any of the six
+  implementing sessions — no backend/DB available in any sandbox, same
+  limitation as `TASK-011`. Recommend a manual pass or QA before merge.
 
 ## Review
-(To be filled in by Tech Lead after a PR is opened.)
+Reviewed #359 in full (diff + all six competing implementations for
+comparison) 2026-09-22 — see the PR review comment for the complete
+write-up. No correctness issues found; matches every acceptance criterion
+in code (the one unchecked box above — manual click-through — is a "needs
+a live app" gap, not a code defect). Posted as **READY FOR BOSS REVIEW**.
+Closed #357/#358/#360/#361/#362 as duplicates, each with a comment
+explaining the specific reason #359 was preferred over it (signature
+change requiring a follow-up fix elsewhere, missing `useCallback`/complete
+deps array, no `useRef` guard, or a less explicit STOCK gate — see each
+PR's closing comment for specifics).

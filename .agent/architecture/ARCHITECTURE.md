@@ -788,3 +788,184 @@ new tab for a near-zero-cost feature.
   (new link, STOCK-only). No DTO/API contract change, no backend PR needed.
 
 See `TASK-012` (Frontend only).
+
+---
+
+## Decision: Finance prediction-accuracy tracking — Gap Audit item 2
+
+### Context
+`REQUIREMENTS.md` → Finance's Gap Audit (2026-09-20) names proposal 2:
+nothing in the app ever checks whether its own AI stock-trend calls
+(`AnalyzeStockWithAIAsync`, `StockTrendAnalysis.{ShortTermTrend,
+MediumTermTrend,LongTermTrend}` — bullish/bearish/neutral per 1-3mo/
+3-12mo/1-3yr horizon) turned out to be right. PM's original framing
+estimated "medium cost — new table + a scheduled job like
+`CakeJobsProvider.cs`"; PM's 2026-09-21 message authorized Tech Lead to
+pick this up next without waiting for a fresh Boss reply, same
+"already-approved order, proceed by default" basis used throughout
+Skill-Building. `TASK-012` (item 1, cross-link) is PR_OPENED
+(`READY FOR BOSS REVIEW`, awaiting merge) — picking this up now keeps the
+Gap Audit queue moving rather than stalling on that merge.
+
+### Investigation (2026-09-22)
+1. **`CakeJobsProvider.cs` is not a scheduled-job example — the original
+   estimate's premise doesn't hold.** It's an `IJobProvider` (a
+   fetch-on-demand data source for the JobSearch feature), invoked
+   synchronously by `JobAggregatorService`, not run on any recurring
+   schedule. A repo-wide search for `Hangfire`/`Quartz`/`BackgroundService`/
+   `IHostedService`/cron-style infra found **none** — this codebase has no
+   recurring-background-job mechanism anywhere today. Every existing
+   "once per day" behavior (`MarketDigest`'s per-user daily charge gate,
+   the exam bank growth-threshold checks) is implemented as a lazy,
+   request-triggered check against `IExtendedMemoryCache` expiry
+   (`FinanceQueryService.cs` — `_memoryCache.Set(chargeKey, true,
+   DateTime.Today.AddDays(1) - DateTime.Now)`), not an actual timer/cron
+   job. So the "new scheduled job" half of the original cost estimate is
+   materially wrong: there's no existing pattern to reuse for it, and
+   introducing a real `BackgroundService`/`PeriodicTimer` would be new
+   infrastructure this codebase has deliberately avoided so far — a bigger
+   cost than PM's original framing assumed.
+2. **A lazy, request-triggered evaluation avoids that new infrastructure
+   entirely**, consistent with point 1's observation that this is how
+   every other "periodic" behavior in this codebase already works: persist
+   each AI call's prediction at creation time (new table, cheap), then
+   opportunistically evaluate a small batch of *due* (horizon-elapsed,
+   unevaluated) predictions as a side effect of an already-frequent,
+   already-authenticated-user-agnostic request — `market-digest` is the
+   natural hook (hit once/user/day per its own existing cache-gate, so
+   evaluation happens roughly daily in aggregate across all users, with no
+   new endpoint or trigger). No user-facing latency risk: cap the batch
+   (e.g. 5 predictions per digest call) and evaluate in a fire-and-forget
+   background `Task.Run` the same way `MarketDigest` generation itself
+   likely already tolerates being slightly stale — worst case, a handful
+   of predictions sit unevaluated a bit longer under low traffic, which is
+   fine for an internal accuracy metric with no user-facing SLA.
+3. **Evaluation logic is a straightforward price-direction comparison.**
+   `StockTrendAnalysis.CurrentPrice` already captures the price at
+   prediction time. `Services/Finance/DataProviders` already has a market-
+   agnostic historical-price abstraction (`IMarketDataProvider`, backed by
+   `PersistentTwHistoricalProvider`/`ITWStockLibHistoricalProvider
+   .FetchRangeAsync` for TW and `YahooFinanceMarketDataProvider` for US —
+   the same providers Portfolio already uses for dividend-adjusted
+   historical pricing) — fetch the closing price nearest the horizon date
+   (`PredictedAt + 1-3mo` for short-term, etc.), compare against
+   `CurrentPrice`, and classify the actual move as bullish/bearish/neutral
+   using a fixed threshold (e.g. ±3% = neutral band, matching the same
+   granularity the AI's own three-way `Trend` field already uses) — no AI
+   call needed for evaluation itself, same "grading doesn't have to be an
+   AI call" finding Dictation (item 4) already established.
+4. **Long-term horizon (1-3yr) makes this a very slow-accumulating
+   metric.** Short-term (1-3mo) predictions start becoming evaluable within
+   weeks of shipping; long-term (1-3yr) predictions won't have any
+   evaluated data for up to three years. This isn't a blocker (each
+   horizon evaluates independently and short-term data is still useful
+   quickly), but it's the reason a results **UI** is scoped as a separate
+   Phase 2 below — a "track record" page with zero evaluated long-term
+   predictions and only a handful of short-term ones for the first few
+   months would show a near-empty, more-confusing-than-useful page at
+   launch.
+
+### Decision
+Two phases, same reasoning as every prior Phase 1/Phase 2 split in this
+document — ship the data-collection half now (no new infra, low cost);
+treat the public-facing "here's our track record" UI as a follow-up once
+enough evaluated data exists to be worth showing.
+
+**Phase 1 — persist + lazily evaluate, proceeding now (see `TASK-013`,
+Backend only):**
+- New table `StockPrediction` (Id, StockCode, Market, UserId [who
+  triggered the original `analyze-stock` call, for traceability — not
+  used for access control, this is an internal accuracy metric], PredictedAtUtc,
+  PriceAtPrediction, one row **per horizon** — i.e. a single `analyze-stock`
+  call writes 3 rows, one each for short/medium/long — with
+  `HorizonMonthsMin`/`HorizonMonthsMax`, `PredictedTrend`
+  (bullish/bearish/neutral), `EvaluatedAtUtc` (nullable — null means not yet
+  due or not yet evaluated), `ActualTrend` (nullable, same 3-way enum),
+  `ActualPriceAtEvaluation` (nullable), `WasCorrect` (nullable bool —
+  `PredictedTrend == ActualTrend`)). One row per horizon (not one JSON blob
+  per call) so each horizon can be queried/evaluated independently without
+  parsing.
+- `AnalyzeStockWithAIAsync` (or its caller in `FinanceAnalysisService`)
+  writes the 3 rows immediately after a successful AI call — pure
+  persistence, no new AI cost.
+- New `PredictionEvaluationService.EvaluateDuePredictionsAsync(int batchSize
+  = 5)`: queries `StockPrediction` where `EvaluatedAtUtc IS NULL AND
+  PredictedAtUtc + HorizonMonthsMin <= now`, orders by oldest-due first,
+  takes `batchSize`, resolves each via `IMarketDataProvider`/
+  `MarketDataProviderFactory` (existing market-detection + provider
+  selection, no new provider code), computes `ActualTrend`/`WasCorrect`,
+  writes the result. Hooked into `FinanceController`'s `market-digest`
+  endpoint as a fire-and-forget call after the digest response is already
+  built (never blocks the response the user is waiting on) — reuses an
+  existing, already-hit-once-per-user-per-day endpoint instead of adding a
+  new trigger surface or background service.
+- No new endpoint, no UI, no credit-cost change (this is pure bookkeeping
+  on an already-costed AI call, same "free half of an existing paid
+  action" shape TASK-010's grading endpoint used).
+
+**Phase 2 — a "track record" / accuracy display, deferred until Phase 1 has
+been running long enough to have meaningful short-term data (recommend:
+revisit ~6-8 weeks after Phase 1 ships, once a first batch of short-term
+predictions has actually been evaluated) — not started, not blocking
+anything:**
+- Likely shape (not scoped as a task yet): an aggregate accuracy
+  percentage per horizon (e.g. "短期預測準確率 68%（過去 45 次）"), shown
+  either on the Finance AI-trend tab itself (builds trust exactly where a
+  user is about to trigger a paid-in-usage-cap-sense call) or as a public
+  page (also serves the SEO/trust-building growth angle named in PM's
+  original proposal 2 rationale). Left open for a future Tech Lead pass
+  once there's real data to design the UI around, rather than guessing at
+  a page for zero rows today.
+
+### Reason
+Phase 1 reuses exactly the historical-price infrastructure Portfolio
+already depends on and avoids introducing this codebase's first-ever
+scheduled/background-job mechanism by piggybacking evaluation onto an
+already-frequent, already-cheap endpoint instead — a real, if unglamorous,
+DECISION-003-aligned cost saving over the original "new scheduled job"
+framing. Phase 2 is deferred not for cost reasons but because there is
+nothing meaningful to show yet — building a UI before there's data to
+populate it would be the "half-finished implementation" this project's own
+conventions avoid.
+
+### Alternatives
+- **A real `BackgroundService`/`PeriodicTimer` hosted job**: rejected for
+  Phase 1 — would be new, first-of-its-kind infrastructure in this
+  codebase for a feature with no latency requirement at all (a prediction
+  being evaluated a day or two late than "exactly on the horizon date" is
+  immaterial). Piggybacking on `market-digest` gets the same practical
+  cadence (roughly daily, across the whole user base) for zero new
+  moving parts. Could be revisited if/when this codebase adopts a real job
+  scheduler for other reasons (e.g. if DECISION-006's usage-cap work ends
+  up needing one) — not proposed here as the reason to introduce one.
+- **Evaluate synchronously inside `analyze-stock` itself** (check the
+  *previous* prediction for this stock/user when a new one is requested):
+  rejected — ties evaluation cadence to how often a user happens to
+  re-analyze the same stock, which could leave predictions unevaluated
+  indefinitely for a stock nobody re-queries; the `market-digest` hook
+  evaluates independently of any particular stock being re-searched.
+- **Store one row per `analyze-stock` call with 3 horizon columns each**
+  (JSON or 3x nullable-trend columns) instead of 3 rows: rejected — the
+  evaluation query needs to filter/sort by "which specific horizon is due"
+  across all predictions, which is far more natural as one row per horizon
+  than parsing/filtering 3 embedded fields per call.
+
+### Trade-offs
+- Evaluation cadence is opportunistic (tied to `market-digest` traffic),
+  not exact-to-the-day — acceptable given this is a trust/track-record
+  metric, not a time-sensitive feature.
+- No UI in Phase 1 means this ships genuinely invisible to users and to
+  Boss for weeks/months before there's anything to look at — flagged
+  explicitly so Boss doesn't expect a visible feature immediately, unlike
+  every prior Skill-Building item which had user-visible output on day one.
+
+### Impact
+- `JackyAIApp.Server`: new `StockPrediction` entity + EF migration, new
+  `PredictionEvaluationService`, `FinanceAnalysisService`/
+  `FinanceController`'s `analyze-stock` path gains a persistence write,
+  `market-digest` gains a fire-and-forget evaluation call. No DTO/contract
+  change visible to the frontend, no new credit cost.
+- `jackyaiapp.client`: none in Phase 1.
+
+See `TASK-013` (Backend only). No frontend task yet — Phase 2's UI is
+intentionally unscoped until there's data to design around.

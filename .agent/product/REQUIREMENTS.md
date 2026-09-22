@@ -40,6 +40,15 @@ instance of this, but Finance/Portfolio/PDF Unlocker are equally in scope
 for the same "find the gap, close it" treatment in future planning — see
 Growth & Retention below.
 
+**2026-09-21 update (DECISION-006)**: The "monetization model as built"
+paragraph above is now being actively dismantled, not just paused. Every
+Taiwan payment path is blocked by the same prepaid-credit trust (信託)
+regulation (Stripe/PayPal unavailable in Taiwan; ECPay/Payuni rejected on
+this exact basis), and Boss does not want to pursue a trust arrangement or
+company registration to fix it (DECISION-001). Boss has decided to remove
+all payment/purchase infrastructure and make the product fully free — see
+the rewritten Credits & Payments requirement below.
+
 ---
 
 ## Requirement: Growth & Retention (No Paid Ads, Product-Led)
@@ -590,16 +599,33 @@ original Skill-Building proposal):
    pattern).
 
 ### Open Questions
-- Is the free-quant-vs-paid-AI-analysis credit-cost overlap (both endpoints
-  compute the same underlying quant bundle) intentional, or should the free
-  endpoints be considered a loss-leader funnel? Non-blocking for the
-  proposals above; flagged for Boss/PM to resolve separately.
-- Proposed priority order (1→5 above): no Boss reply as of 2026-09-21, so
-  Tech Lead proceeded on PM's stated default and picked up **proposal 1
-  (Finance↔Portfolio cross-link)** — scoped as `TASK-012` (Frontend only;
-  see `ARCHITECTURE.md` → "Decision: Finance ↔ Portfolio cross-link"),
-  `READY`, unclaimed. Items 2-5 remain unscoped pending Boss's priority
-  reply or a future PM/Tech Lead run.
+- ~~Is the free-quant-vs-paid-AI-analysis credit-cost overlap intentional?~~
+  — **moot (2026-09-21, DECISION-006)**: Boss decided to remove all paid AI
+  features/credit gating entirely (see Credits & Payments requirement
+  above), so there's no "paid AI tab" left for the free quant endpoints to
+  funnel into. No longer an open question.
+- **Priority order (1→5 above): approved by Boss (2026-09-21, "1. 是，可以")。**
+  **Proposal 1 (Finance↔Portfolio cross-link)** is scoped as `TASK-012`
+  (Frontend only; see `ARCHITECTURE.md` → "Decision: Finance ↔ Portfolio
+  cross-link"), `PR_OPENED`/`READY FOR BOSS REVIEW` as of 2026-09-22 (PR
+  #359 — see that PR's Review note on the 6-way duplicate-PR pile-up this
+  task triggered, cleaned up by Tech Lead). **Proposal 2
+  (prediction-accuracy tracking)** is now also scoped, in parallel rather
+  than strictly after item 1's merge (no hard dependency between them) —
+  see `TASK-013` (Backend only) and `ARCHITECTURE.md` → "Decision: Finance
+  prediction-accuracy tracking". One correction to this item's original
+  cost framing: "a scheduled job like `CakeJobsProvider.cs`" was based on a
+  mistaken premise — `CakeJobsProvider.cs` is a fetch-on-demand data
+  source, not an example of a recurring/scheduled job, and this codebase
+  has **no** background-job infrastructure at all today (no Hangfire/
+  Quartz/`BackgroundService`, confirmed via a repo-wide search). Scoped
+  instead as a lazy evaluation piggybacked onto the already-daily
+  `market-digest` endpoint — avoids introducing this codebase's first-ever
+  scheduled-job mechanism, a real cost saving over the original estimate.
+  Note: proposal 2's AI trend calls and proposal 5's `market-digest` were
+  credit-gated features; their scoping should account for DECISION-006
+  (free-with-usage-cap, not credit-gated) rather than the now-superseded
+  credit-cost assumption.
 
 ---
 
@@ -695,8 +721,11 @@ sign-off, same as the original Skill-Building proposal):
 
 ### Open Questions
 - Same as Finance's — see that section's Open Questions. The cross-module
-  link is one proposal serving both modules, flagged to Boss with the same
-  "proceed next run by default unless redirected" plan.
+  link is one proposal serving both modules; priority order **approved by
+  Boss (2026-09-21)**. `PortfolioAiSummary` (currently `CreditCosts.
+  PortfolioAiSummary = 2`) is itself a credit-gated feature in scope for the
+  Credits & Payments removal (DECISION-006) — its own scoping should assume
+  free-with-usage-cap, not a credit charge.
 
 ---
 
@@ -709,13 +738,16 @@ that may serve as a low-friction entry point to the app.
 ### Requirements
 - Remove passwords from protected PDFs, with compression applied to the
   output.
-- **Correction (2026-09-20 gap audit)**: "batch processing" was listed here
-  and in root `CLAUDE.md` but does not exist in code —
-  `PDFController.UnlockPdf` and the frontend `PDFUnlocker` page both handle
-  exactly one file per request, single-select file input only. This is a
-  documentation/behavior drift, not a product decision; flagged to Boss
-  rather than silently rewritten, since fixing it could mean either
-  correcting the docs (cheapest) or actually building batch support.
+- **Resolved (2026-09-21)**: "batch processing" was listed here and in root
+  `CLAUDE.md` but does not exist in code — `PDFController.UnlockPdf` and the
+  frontend `PDFUnlocker` page both handle exactly one file per request,
+  single-select file input only. Boss confirmed (2026-09-21, "暫時不需要PDF
+  Unlocker的批次處理"): keep the current single-file behavior, do not build
+  batch support. This doc's own description is now corrected above (no
+  "batch processing" claim). Root `CLAUDE.md`'s Key Features list still says
+  "Batch PDF processing" — that's outside `.agent/` and not PM's file to
+  edit; flagged as a small housekeeping item for whoever next touches that
+  file (e.g. Tech Lead/an engineer doing an unrelated PDF-area change).
 
 ### Acceptance Criteria
 - [ ] Uploading a password-protected PDF with the correct password returns an
@@ -737,17 +769,26 @@ priority, PM is not proposing new PDF Unlocker features from this audit round
 
 ---
 
-## Requirement: Credits & Payments
+## Requirement: Credits & Payments → Removal (DECISION-006)
 
 ### Goal
-Monetize the AI-powered features via a prepaid credit balance, spendable across
-every paid feature in the app.
+**Superseded 2026-09-21 (DECISION-006).** Original goal was to monetize
+AI-powered features via a prepaid credit balance. Boss has decided to remove
+all payment/monetization infrastructure instead: every viable Taiwan payment
+path is blocked by the same prepaid-credit trust (信託) regulation (Stripe/
+PayPal unavailable in Taiwan; ECPay/Payuni rejected on this exact basis, per
+DECISION-001/002), and Boss does not want to pursue a trust arrangement or
+company registration to unblock it. The new goal is: **make every currently
+credit-gated AI feature free to use, while still bounding per-user AI cost
+through a non-monetary usage limit** (so removing payment doesn't also
+remove the only existing cost-control mechanism — the two goals must be
+solved together, not just "delete the paywall").
 
 ### User Story
-As a user, I want to buy a credit pack once and spend it across any AI feature I
-like, so I don't need a separate purchase per feature.
+As a user, I want to use the app's AI features without paying, so I don't
+need a payment method that doesn't even work in Taiwan today.
 
-### Requirements (as built)
+### Requirements (as built — being removed)
 - Credit packs: 入門方案 (500 credits / $5 / NT$150), 人氣方案 (1100 credits / $10 /
   NT$300, +10% bonus), 超值方案 (2400 credits / $20 / NT$600, +20% bonus) —
   `Services/CreditPack.cs`.
@@ -759,58 +800,73 @@ like, so I don't need a separate purchase per feature.
 - `InsufficientCreditsModal` in-app prompts purchase when a user can't afford
   an action.
 
-### Acceptance Criteria
-- [ ] Every AI-gated action deducts the exact cost listed in `CreditCosts.cs` and
-      logs a `CreditTransaction`.
-- [ ] Purchases via each connected provider credit the correct pack amount.
-- [ ] Balance and history are visible to the user at all times (`/credits`).
+### Acceptance Criteria (removal — none of these are shipped yet, this is the target state)
+- [ ] No payment provider SDK/integration (Stripe, PayPal, ECPay) remains wired
+      into the backend or frontend.
+- [ ] `/pricing` and `/credits` purchase UI (buy-a-pack flow) is removed;
+      `InsufficientCreditsModal`'s "go buy credits" call-to-action is removed
+      or repurposed into a plain usage-limit-reached message.
+- [ ] Every action currently gated by `CreditCosts.cs` still works, but is
+      free — gated (if at all) only by the new non-monetary daily/usage limit
+      below, not by a spendable balance.
+- [ ] No user-facing "balance" or "credit transaction history" concept remains
+      (nothing to purchase, so nothing to track spending against).
 
 ### Priority
-**LOW — ON HOLD (DECISION-003, 2026-09-12).** Was HIGH/BLOCKED on the trust/
-信託 legal question; Boss has since deprioritized monetization entirely until
-the product has a real, engaged user base. Keep the existing implementation
-running as-is (it costs nothing to leave alone), but no further product
-investment here for now — see Growth & Retention requirement below for where
-effort is going instead.
+**HIGH — ACTIVE REMOVAL (DECISION-006, 2026-09-21).** Supersedes the
+2026-09-12 "LOW / ON HOLD" call (DECISION-003): this is no longer "leave it
+running, don't invest further" — Boss wants the payment machinery actively
+torn out. Sequenced after the already-in-flight Finance/Portfolio Gap Audit
+work (`TASK-012` etc., approved separately and unaffected by this decision)
+rather than jumping the queue, since removal isn't time-critical (the
+current system is dormant/sandbox-only, not actively causing harm) — but
+this is now the next major requirement for Tech Lead once the current gap-
+audit item in flight lands.
 
 ### Scope
 #### In Scope
-- The three-provider, three-pack model as currently built — maintained,
-  not extended.
-#### Out of Scope (until Boss revisits monetization)
-- Any new pricing model work (including the 2026-09-12 "single-transaction
-  purchase" proposal in `.agent/boss/PM.md` — parked, not abandoned).
-- Marketing or in-app pushes to purchase credits.
-- Adding more credit packs or raising prices.
-- Enabling real (non-sandbox) transactions on any provider.
+- Full removal of Stripe/PayPal/ECPay integration code, purchase UI, balance/
+  transaction-history UI and endpoints.
+- Converting every `CreditCosts.cs`-gated action to a free, non-monetary
+  usage-limit gate instead (see PM's proposed replacement design below).
+#### Out of Scope
+- Any paid/monetized feature work of any kind — monetization is not being
+  redesigned, it's being removed. The 2026-09-12 "single-transaction
+  purchase" proposal is now formally abandoned, not parked (DECISION-006
+  makes clear Boss wants no payment path at all, not just a redesigned one).
 
-### Constraints
-- **金流未審核通過**: per Boss, none of the payment providers are approved for
-  live transactions yet, so no real revenue can currently be collected regardless
-  of what the code supports.
-- **法規風險 — 預付款信託**: per Boss, Taiwan regulation on prepaid-type (預付)
-  consumer credit balances requires a trust (信託) or equivalent safeguard for
-  funds collected before the corresponding service is delivered, which the
-  business does not currently have. The credit-pack model as built (pay once,
-  draw down over unlimited future time) is a textbook prepaid-balance model, so
-  **this constraint applies directly to the current implementation**, not just
-  to a hypothetical future one.
-- Both constraints are logged as an **Open Question to Boss** in
-  `.agent/boss/PM.md` — the charging model is not being changed by this
-  document; it is being flagged, per PM Agent instructions on ambiguous/
-  significant product decisions, for a Boss decision before any monetization
-  push.
+### PM's proposed replacement design (needs Boss confirmation + Tech Lead feasibility pass)
+Removing the credit balance also removes the app's only existing cost-control
+mechanism on expensive AI calls (exam generation/grading, conversation,
+TTS/STT, stock AI analysis, chatbot) — that has to be solved at the same time,
+not left as a side effect, or "remove payment" quietly becomes "make AI calls
+unlimited and free," which directly conflicts with Boss's separate standing
+goal (2026-09-12) to lower cloud cost.
+
+**Proposal**: replace each `CreditCosts.cs` entry with a **free daily (or
+otherwise time-boxed) usage cap per user per feature**, enforced server-side,
+no money involved anywhere. This isn't a new pattern for this codebase — it's
+the exact mechanism `MarketDigest` (once/user/day) and the exam shared-bank
+generation logic already use, just applied to the features that currently
+cost points instead of being capped by frequency. Example caps (illustrative,
+not final — actual numbers are Tech Lead's/Boss's call once the direction is
+confirmed): N exam generations/day per type, 1 stock AI analysis/day, a
+monthly TTS/STT ceiling. Existing credit balances need no migration or
+refund handling — per the Constraints previously documented here, no real
+transaction has ever cleared on any provider, so no real money is owed to
+anyone.
 
 ### Open Questions
-- ~~Whether to keep the prepaid-credit model~~ — **resolved (2026-09-12, DECISION-001
-  / DECISION-002)**: Boss ruled out trust/履約保證/company registration AND
-  subscription. PM verified (LINE Pay's own individual-merchant rules) that
-  *any* deferred/stored-value model — credits, point packs, courses,
-  memberships — hits the same regulatory wall regardless of payment provider.
-  A replacement proposal ("single-transaction, delivered-immediately"
-  purchases per feature) was written up in `.agent/boss/PM.md` (2026-09-12
-  補充).
-- **Superseded (2026-09-12, DECISION-003)** before Boss answered those 4
-  questions: monetization itself is now on hold. The single-transaction
-  proposal is parked for whenever Boss revisits revenue — not rejected, just
-  not current work. No Tech Lead engagement on payment-flow redesign for now.
+- ~~Whether to keep the prepaid-credit model~~ / ~~single-transaction purchase
+  redesign~~ — **superseded (2026-09-21, DECISION-006)**: Boss decided to
+  remove payment entirely rather than redesign it. No longer an open
+  question.
+- **New**: does the free-usage-cap replacement design above (daily/periodic
+  limit per feature, no money) match what Boss has in mind, or did Boss mean
+  something closer to fully unlimited free access with no cap at all? PM's
+  default (per this doc's established "proceed unless redirected" pattern)
+  is to hand this proposal to Tech Lead for feasibility scoping next run
+  unless Boss says otherwise in `.agent/boss/PM.md`.
+- Related, now resolved by this same decision: Finance Gap Audit's "is the
+  free-quant-vs-paid-AI-analysis overlap intentional" question is moot — see
+  that section.
