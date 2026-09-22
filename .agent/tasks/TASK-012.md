@@ -130,7 +130,7 @@ None — Finance's endpoints already support this; no backend task required.
   Recommend a manual pass (or QA) before merge.
 
 ### PR
-(pending — will be filled in once opened)
+https://github.com/twjackysu/JackyAIApp/pull/362
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
