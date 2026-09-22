@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace JackyAIApp.Server.Data.Models.SQL
 {
     /// <summary>
@@ -19,6 +21,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
 
         /// <summary>Who triggered the originating `analyze-stock` call. Traceability only — never
         /// used for access control, this is an internal accuracy metric.</summary>
+        [MaxLength(255)]
         public required string UserId { get; set; }
 
         public required DateTime PredictedAtUtc { get; set; }

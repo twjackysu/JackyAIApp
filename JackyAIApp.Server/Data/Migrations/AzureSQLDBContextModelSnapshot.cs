@@ -939,7 +939,8 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<bool?>("WasCorrect")
                         .HasColumnType("bit");

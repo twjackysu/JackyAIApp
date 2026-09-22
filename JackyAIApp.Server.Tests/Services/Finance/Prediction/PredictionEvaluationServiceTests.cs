@@ -2,18 +2,24 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Finance.DataProviders.US;
 using JackyAIApp.Server.Services.Finance.Prediction;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using TWStockLib.Models;
 
 namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
 {
     /// <summary>
     /// Evaluation-path tests for TASK-013. Covers: due-vs-not-due filtering, correct
     /// bullish/bearish/neutral classification against the ±3% band for both a TW and a US symbol
-    /// (via the existing <see cref="IMarketDataProviderFactory"/> test seam), and that one row's
-    /// lookup failure doesn't abandon the rest of the batch.
+    /// — including a long-horizon (12mo) prediction, whose target date sits well outside
+    /// <c>IMarketDataProvider.FetchAsync</c>'s fixed ~6-month trailing window, which is exactly why
+    /// evaluation fetches a small range centered on the target date instead (see
+    /// <c>PredictionEvaluationService.RangeWindowDays</c>) — and that one row's lookup failure, or a
+    /// fetched range with nothing reasonably close to the target date, doesn't abandon the batch or
+    /// get silently graded against a distant price.
     /// </summary>
     public class PredictionEvaluationServiceTests : IDisposable
     {
@@ -39,8 +45,19 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
                 Task.FromResult(new AzureSQLDBContext(options));
         }
 
-        private PredictionEvaluationService BuildService(IMarketDataProviderFactory providerFactory) =>
-            new(new TestDbContextFactory(_options), providerFactory, NullLogger<PredictionEvaluationService>.Instance);
+        private static Mock<YahooFinanceMarketDataProvider> NewYahooMock() =>
+            new(Mock.Of<IHttpClientFactory>(), Mock.Of<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
+                NullLogger<YahooFinanceMarketDataProvider>.Instance);
+
+        private PredictionEvaluationService BuildService(
+            Mock<ITWStockLibHistoricalProvider>? twProvider = null,
+            Mock<YahooFinanceMarketDataProvider>? yahooProvider = null,
+            Mock<IMarketDataProviderFactory>? providerFactory = null) =>
+            new(new TestDbContextFactory(_options),
+                (providerFactory ?? new Mock<IMarketDataProviderFactory>()).Object,
+                (twProvider ?? new Mock<ITWStockLibHistoricalProvider>()).Object,
+                (yahooProvider ?? NewYahooMock()).Object,
+                NullLogger<PredictionEvaluationService>.Instance);
 
         private static StockPrediction BuildRow(
             string stockCode, string market, DateTime predictedAtUtc, int horizonMin, int horizonMax,
@@ -63,18 +80,10 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
             return await db.StockPredictions.SingleAsync(p => p.Id == id);
         }
 
-        private static Mock<IMarketDataProvider> MockProviderReturning(decimal closeAtTargetDate, DateTime targetDate) =>
-            MockProviderReturning(new MarketData
-            {
-                HistoricalPrices = [new DailyPrice { Date = targetDate, Close = closeAtTargetDate }],
-            });
-
-        private static Mock<IMarketDataProvider> MockProviderReturning(MarketData data)
+        private static MarketData SinglePrice(decimal close, DateTime date) => new()
         {
-            var mock = new Mock<IMarketDataProvider>();
-            mock.Setup(p => p.FetchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(data);
-            return mock;
-        }
+            HistoricalPrices = [new DailyPrice { Date = date, Close = close }],
+        };
 
         [Fact]
         public async Task EvaluateDuePredictionsAsync_HorizonNotYetElapsed_IsNeverTouched()
@@ -83,12 +92,14 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
             _dbContext.StockPredictions.Add(row);
             await _dbContext.SaveChangesAsync();
 
-            var providerFactory = new Mock<IMarketDataProviderFactory>();
-            var service = BuildService(providerFactory.Object);
+            var twProvider = new Mock<ITWStockLibHistoricalProvider>();
+            var service = BuildService(twProvider: twProvider);
 
             await service.EvaluateDuePredictionsAsync();
 
-            providerFactory.Verify(f => f.GetMarketDataProvider(It.IsAny<MarketRegion>()), Times.Never);
+            twProvider.Verify(p => p.FetchRangeAsync(
+                It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()),
+                Times.Never);
             var saved = await ReloadAsync(row.Id);
             Assert.Null(saved.EvaluatedAtUtc);
         }
@@ -101,12 +112,14 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
             _dbContext.StockPredictions.Add(row);
             await _dbContext.SaveChangesAsync();
 
-            var providerFactory = new Mock<IMarketDataProviderFactory>();
-            var service = BuildService(providerFactory.Object);
+            var twProvider = new Mock<ITWStockLibHistoricalProvider>();
+            var service = BuildService(twProvider: twProvider);
 
             await service.EvaluateDuePredictionsAsync();
 
-            providerFactory.Verify(f => f.GetMarketDataProvider(It.IsAny<MarketRegion>()), Times.Never);
+            twProvider.Verify(p => p.FetchRangeAsync(
+                It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()),
+                Times.Never);
             var saved = await ReloadAsync(row.Id);
             Assert.Null(saved.EvaluatedAtUtc);
         }
@@ -122,11 +135,12 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
 
             // +5% move — clears the ±3% neutral band, so this should classify as bullish and match
             // the row's own "bullish" prediction.
-            var providerMock = MockProviderReturning(closeAtTargetDate: 105m, targetDate);
-            var providerFactory = new Mock<IMarketDataProviderFactory>();
-            providerFactory.Setup(f => f.GetMarketDataProvider(MarketRegion.TW)).Returns(providerMock.Object);
+            var twProvider = new Mock<ITWStockLibHistoricalProvider>();
+            twProvider
+                .Setup(p => p.FetchRangeAsync("2330", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(SinglePrice(105m, targetDate));
 
-            var service = BuildService(providerFactory.Object);
+            var service = BuildService(twProvider: twProvider);
             await service.EvaluateDuePredictionsAsync();
 
             var saved = await ReloadAsync(row.Id);
@@ -134,6 +148,67 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
             Assert.Equal("bullish", saved.ActualTrend);
             Assert.Equal(105m, saved.ActualPriceAtEvaluation);
             Assert.True(saved.WasCorrect);
+        }
+
+        [Fact]
+        public async Task EvaluateDuePredictionsAsync_DueLongHorizonTwRow_FetchesAroundTargetDateNotJustRecentHistory()
+        {
+            // Regression: evaluation used to call IMarketDataProvider.FetchAsync, whose ~6-month
+            // trailing-from-now window can't possibly contain a 12mo-horizon prediction's target
+            // date (itself ~1yr in the past once due). This pins that evaluation now fetches a
+            // range actually covering the target date instead.
+            var predictedAt = DateTime.UtcNow.AddMonths(-13);
+            var targetDate = predictedAt.AddMonths(12);
+            var row = BuildRow("2330", "TW", predictedAt, horizonMin: 12, horizonMax: 36, priceAtPrediction: 100m, predictedTrend: "bearish");
+            _dbContext.StockPredictions.Add(row);
+            await _dbContext.SaveChangesAsync();
+
+            var twProvider = new Mock<ITWStockLibHistoricalProvider>();
+            twProvider
+                .Setup(p => p.FetchRangeAsync("2330", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(SinglePrice(88m, targetDate));
+
+            var service = BuildService(twProvider: twProvider);
+            await service.EvaluateDuePredictionsAsync();
+
+            var saved = await ReloadAsync(row.Id);
+            Assert.NotNull(saved.EvaluatedAtUtc);
+            Assert.Equal("bearish", saved.ActualTrend);
+            Assert.True(saved.WasCorrect);
+
+            // The whole point of this test: the fetched range must actually straddle the target
+            // date (~1yr in the past once a 12mo-horizon prediction is due), not just cover recent
+            // history the way IMarketDataProvider.FetchAsync's fixed ~6-month window would.
+            twProvider.Verify(p => p.FetchRangeAsync(
+                "2330",
+                It.Is<DateTime>(d => d <= targetDate && (targetDate - d).TotalDays <= 15),
+                It.Is<DateTime>(d => d >= targetDate.AddDays(-1) && (d - targetDate).TotalDays <= 15),
+                It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task EvaluateDuePredictionsAsync_NoPriceReasonablyCloseToTargetDate_LeftUnevaluated()
+        {
+            // Fetch succeeded but every returned price is far from the target date (e.g. a range
+            // fetch that came back sparse/wrong) — must not be silently graded against it.
+            var predictedAt = DateTime.UtcNow.AddMonths(-2);
+            var targetDate = predictedAt.AddMonths(1);
+            var row = BuildRow("2330", "TW", predictedAt, horizonMin: 1, horizonMax: 3, priceAtPrediction: 100m);
+            _dbContext.StockPredictions.Add(row);
+            await _dbContext.SaveChangesAsync();
+
+            var twProvider = new Mock<ITWStockLibHistoricalProvider>();
+            twProvider
+                .Setup(p => p.FetchRangeAsync("2330", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(SinglePrice(105m, targetDate.AddDays(60)));
+
+            var service = BuildService(twProvider: twProvider);
+            await service.EvaluateDuePredictionsAsync();
+
+            var saved = await ReloadAsync(row.Id);
+            Assert.Null(saved.EvaluatedAtUtc);
+            Assert.Null(saved.ActualTrend);
         }
 
         [Fact]
@@ -146,11 +221,12 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
             await _dbContext.SaveChangesAsync();
 
             // -10% move — should classify as bearish, matching the row's own "bearish" prediction.
-            var providerMock = MockProviderReturning(closeAtTargetDate: 180m, targetDate);
-            var providerFactory = new Mock<IMarketDataProviderFactory>();
-            providerFactory.Setup(f => f.GetMarketDataProvider(MarketRegion.US)).Returns(providerMock.Object);
+            var yahooProvider = NewYahooMock();
+            yahooProvider
+                .Setup(p => p.FetchRangeAsync("AAPL", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(SinglePrice(180m, targetDate));
 
-            var service = BuildService(providerFactory.Object);
+            var service = BuildService(yahooProvider: yahooProvider);
             await service.EvaluateDuePredictionsAsync();
 
             var saved = await ReloadAsync(row.Id);
@@ -169,11 +245,12 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
             await _dbContext.SaveChangesAsync();
 
             // +1% — inside the ±3% neutral band.
-            var providerMock = MockProviderReturning(closeAtTargetDate: 101m, targetDate);
-            var providerFactory = new Mock<IMarketDataProviderFactory>();
-            providerFactory.Setup(f => f.GetMarketDataProvider(MarketRegion.TW)).Returns(providerMock.Object);
+            var twProvider = new Mock<ITWStockLibHistoricalProvider>();
+            twProvider
+                .Setup(p => p.FetchRangeAsync("2330", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(SinglePrice(101m, targetDate));
 
-            var service = BuildService(providerFactory.Object);
+            var service = BuildService(twProvider: twProvider);
             await service.EvaluateDuePredictionsAsync();
 
             var saved = await ReloadAsync(row.Id);
@@ -192,21 +269,15 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
             _dbContext.StockPredictions.AddRange(failingRow, okRow);
             await _dbContext.SaveChangesAsync();
 
-            var failingProvider = new Mock<IMarketDataProvider>();
-            failingProvider
-                .Setup(p => p.FetchAsync("BADSYM", It.IsAny<CancellationToken>()))
+            var twProvider = new Mock<ITWStockLibHistoricalProvider>();
+            twProvider
+                .Setup(p => p.FetchRangeAsync("BADSYM", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("upstream error"));
-            var okProvider = MockProviderReturning(closeAtTargetDate: 55m, targetDate);
+            twProvider
+                .Setup(p => p.FetchRangeAsync("2330", It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(SinglePrice(55m, targetDate));
 
-            var providerFactory = new Mock<IMarketDataProviderFactory>();
-            var callOrder = 0;
-            providerFactory
-                .Setup(f => f.GetMarketDataProvider(MarketRegion.TW))
-                .Returns(() => callOrder++ == 0 ? failingProvider.Object : okProvider.Object);
-
-            var service = BuildService(providerFactory.Object);
-            // Oldest-due-first ordering (PredictedAtUtc ascending) means failingRow is processed
-            // before okRow, so the first factory call maps to the failing provider.
+            var service = BuildService(twProvider: twProvider);
             await service.EvaluateDuePredictionsAsync(batchSize: 5);
 
             var savedFailing = await ReloadAsync(failingRow.Id);
@@ -225,14 +296,13 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
             _dbContext.StockPredictions.AddRange(older, newer);
             await _dbContext.SaveChangesAsync();
 
-            var providerMock = MockProviderReturning(new MarketData
-            {
-                HistoricalPrices = [new DailyPrice { Date = DateTime.UtcNow, Close = 100m }],
-            });
-            var providerFactory = new Mock<IMarketDataProviderFactory>();
-            providerFactory.Setup(f => f.GetMarketDataProvider(MarketRegion.TW)).Returns(providerMock.Object);
+            var twProvider = new Mock<ITWStockLibHistoricalProvider>();
+            twProvider
+                .Setup(p => p.FetchRangeAsync(It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((string code, DateTime start, DateTime end, MarketType? mt, CancellationToken ct) =>
+                    SinglePrice(100m, start.AddDays(1)));
 
-            var service = BuildService(providerFactory.Object);
+            var service = BuildService(twProvider: twProvider);
             await service.EvaluateDuePredictionsAsync(batchSize: 1);
 
             var savedOlder = await ReloadAsync(older.Id);

@@ -18,7 +18,7 @@ namespace JackyAIApp.Server.Data.Migrations
                     Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     StockCode = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Market = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    UserId = table.Column<string>(type: "nvarchar(255)", nullable: false),
                     PredictedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
                     PriceAtPrediction = table.Column<decimal>(type: "decimal(18,4)", nullable: true),
                     HorizonMonthsMin = table.Column<int>(type: "int", nullable: false),
