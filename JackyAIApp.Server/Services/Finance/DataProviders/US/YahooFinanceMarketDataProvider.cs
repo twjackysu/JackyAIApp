@@ -44,7 +44,36 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
 
             var symbol = stockCode.ToUpperInvariant();
             var url = $"{CHART_URL}/{symbol}?range=6mo&interval=1d&includePrePost=false";
+            var result = await FetchUrlAsync(url, symbol, cancellationToken);
 
+            _cache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
+            _logger.LogInformation("Fetched {count} price records for {symbol} from Yahoo Finance",
+                result.HistoricalPrices.Count, symbol);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Fetches a specific date range via Yahoo's <c>period1</c>/<c>period2</c> query params
+        /// instead of <see cref="FetchAsync"/>'s fixed <c>range=6mo</c> window. Needed by
+        /// <c>PredictionEvaluationService</c> to look up a price near an arbitrary past date — a
+        /// due long-horizon prediction's target date can be up to ~3 years in the past, well
+        /// outside <see cref="FetchAsync"/>'s 6-month window. Deliberately not cached (unlike
+        /// <see cref="FetchAsync"/>): callers ask for a narrow, case-specific window rather than
+        /// "the last 6 months" that many callers would otherwise share.
+        /// </summary>
+        public virtual async Task<MarketData> FetchRangeAsync(
+            string stockCode, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+        {
+            var symbol = stockCode.ToUpperInvariant();
+            var period1 = new DateTimeOffset(DateTime.SpecifyKind(startDate, DateTimeKind.Utc)).ToUnixTimeSeconds();
+            var period2 = new DateTimeOffset(DateTime.SpecifyKind(endDate, DateTimeKind.Utc)).ToUnixTimeSeconds();
+            var url = $"{CHART_URL}/{symbol}?period1={period1}&period2={period2}&interval=1d&includePrePost=false";
+            return await FetchUrlAsync(url, symbol, cancellationToken);
+        }
+
+        private async Task<MarketData> FetchUrlAsync(string url, string symbol, CancellationToken cancellationToken)
+        {
             var client = _httpClientFactory.CreateClient("ExternalReadOnly");
             client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
 
@@ -52,6 +81,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            return ParseChartResponse(json, symbol);
+        }
+
+        private static MarketData ParseChartResponse(string json, string symbol)
+        {
             var doc = JsonDocument.Parse(json);
 
             var chartResult = doc.RootElement
@@ -93,18 +127,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
                             : meta.TryGetProperty("shortName", out var sn) ? sn.GetString() ?? symbol
                             : symbol;
 
-            var result = new MarketData
+            return new MarketData
             {
                 StockCode = symbol,
                 CompanyName = companyName,
                 HistoricalPrices = prices
             };
-
-            _cache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
-            _logger.LogInformation("Fetched {count} price records for {symbol} from Yahoo Finance",
-                prices.Count, symbol);
-
-            return result;
         }
 
         private static decimal GetDecimalSafe(JsonElement el)

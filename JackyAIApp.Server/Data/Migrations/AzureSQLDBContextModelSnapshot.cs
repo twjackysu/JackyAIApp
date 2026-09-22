@@ -897,6 +897,61 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("SentenceTests");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.StockPrediction", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal?>("ActualPriceAtEvaluation")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ActualTrend")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EvaluatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("HorizonMonthsMax")
+                        .HasColumnType("int");
+
+                    b.Property<int>("HorizonMonthsMin")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Market")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("PredictedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PredictedTrend")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("PriceAtPrediction")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("StockCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool?>("WasCorrect")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EvaluatedAtUtc", "PredictedAtUtc");
+
+                    b.ToTable("StockPredictions");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.StockSymbolInfo", b =>
                 {
                     b.Property<string>("Symbol")

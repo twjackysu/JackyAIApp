@@ -324,6 +324,15 @@ namespace JackyAIApp.Server.Data
             // historical valuations by a few hundred TWD on a seven-figure position.
             modelBuilder.Entity<HoldingSnapshot>()
                 .Property(s => s.UsdTwdRate).HasPrecision(18, 6);
+
+            // Finance prediction-accuracy tracking (TASK-013) — supports the "which due rows still
+            // need evaluating, oldest first" query PredictionEvaluationService runs.
+            modelBuilder.Entity<StockPrediction>()
+                .HasIndex(p => new { p.EvaluatedAtUtc, p.PredictedAtUtc });
+            modelBuilder.Entity<StockPrediction>()
+                .Property(p => p.PriceAtPrediction).HasPrecision(18, 4);
+            modelBuilder.Entity<StockPrediction>()
+                .Property(p => p.ActualPriceAtEvaluation).HasPrecision(18, 4);
         }
 
         public virtual DbSet<User> Users { get; set; }
@@ -363,5 +372,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<StockSymbolInfo> StockSymbolInfos { get; set; }
         public virtual DbSet<TwListedCompany> TwListedCompanies { get; set; }
         public virtual DbSet<Subscription> Subscriptions { get; set; }
+        public virtual DbSet<StockPrediction> StockPredictions { get; set; }
     }
 }
