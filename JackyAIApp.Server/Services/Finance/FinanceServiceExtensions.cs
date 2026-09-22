@@ -2,6 +2,7 @@ using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Finance.DataProviders.US;
 using JackyAIApp.Server.Services.Finance.Indicators;
+using JackyAIApp.Server.Services.Finance.Prediction;
 using JackyAIApp.Server.Services.Finance.Scoring;
 using TWStockLib.Services;
 
@@ -111,6 +112,10 @@ namespace JackyAIApp.Server.Services.Finance
 
             // === Finance query orchestration (used by FinanceController) ===
             services.AddScoped<IFinanceQueryService, FinanceQueryService>();
+
+            // === Prediction-accuracy tracking (TASK-013) ===
+            services.AddScoped<IStockPredictionRecorder, StockPredictionRecorder>();
+            services.AddScoped<IPredictionEvaluationService, PredictionEvaluationService>();
 
             return services;
         }

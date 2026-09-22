@@ -7,6 +7,7 @@ using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.Finance.Prediction;
 using JackyAIApp.Server.Services.Finance.Scoring;
 using JackyAIApp.Server.Services.OpenAI;
 
@@ -31,7 +32,8 @@ namespace JackyAIApp.Server.Services.Finance
         IFinnhubNewsProvider finnhubNewsProvider,
         IOpenAIPromptService openAIPromptService,
         ICreditService creditService,
-        IMarketDataProviderFactory providerFactory) : IFinanceQueryService
+        IMarketDataProviderFactory providerFactory,
+        IStockPredictionRecorder predictionRecorder) : IFinanceQueryService
     {
         private readonly ILogger<FinanceQueryService> _logger = logger;
         private readonly IUserService _userService = userService;
@@ -52,6 +54,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly IOpenAIPromptService _openAIPromptService = openAIPromptService;
         private readonly ICreditService _creditService = creditService;
         private readonly IMarketDataProviderFactory _providerFactory = providerFactory;
+        private readonly IStockPredictionRecorder _predictionRecorder = predictionRecorder;
 
         // Was 300s (5 min) — far longer than any user-facing request should ever take, and long
         // enough for a stuck analysis to tie up a thread and pile up under load. Data fetches now
@@ -116,6 +119,12 @@ namespace JackyAIApp.Server.Services.Finance
                     var detailedError = $"Failed to analyze stock data for '{resolvedStockCode}'. Details: {errorDetail ?? "Unknown error"}";
                     return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, detailedError);
                 }
+
+                // Pure additive side effect (prediction-accuracy tracking, TASK-013) — persists
+                // 3 per-horizon rows so the trend calls above can later be checked against actual
+                // price movement. Never fails the response: see StockPredictionRecorder.
+                var predictionMarket = _providerFactory.DetectRegion(resolvedStockCode).ToString();
+                await _predictionRecorder.RecordAsync(resolvedStockCode, predictionMarket, userId, analysis, timeoutCts.Token);
 
                 _memoryCache.Set(cacheKey, analysis, TimeSpan.FromHours(CACHE_HOURS));
                 return ServiceResult.Ok(analysis);

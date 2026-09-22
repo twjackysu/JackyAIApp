@@ -2,6 +2,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance;
+using JackyAIApp.Server.Services.Finance.Prediction;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,10 +12,14 @@ namespace JackyAIApp.Server.Controllers
     [ApiController]
     public class FinanceController(
         IMyResponseFactory responseFactory,
-        IFinanceQueryService financeQueryService) : ControllerBase
+        IFinanceQueryService financeQueryService,
+        IServiceScopeFactory serviceScopeFactory,
+        ILogger<FinanceController> logger) : ControllerBase
     {
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IFinanceQueryService _financeQueryService = financeQueryService;
+        private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
+        private readonly ILogger<FinanceController> _logger = logger;
 
         /// <summary>Analyzes a specific stock using TWSE APIs and OpenAI.</summary>
         [Authorize]
@@ -63,8 +68,32 @@ namespace JackyAIApp.Server.Controllers
         /// </summary>
         [Authorize]
         [HttpGet("market-digest")]
-        public async Task<IActionResult> GetMarketDigest(CancellationToken cancellationToken = default) =>
-            _responseFactory.ToActionResult(await _financeQueryService.GetMarketDigestAsync(cancellationToken));
+        public async Task<IActionResult> GetMarketDigest(CancellationToken cancellationToken = default)
+        {
+            var result = _responseFactory.ToActionResult(await _financeQueryService.GetMarketDigestAsync(cancellationToken));
+
+            // Prediction-accuracy tracking (TASK-013): opportunistically grade a small batch of due
+            // predictions, piggybacking on this already-frequent, already-authenticated endpoint
+            // instead of a dedicated scheduled job (see ARCHITECTURE.md). Fire-and-forget, started
+            // only after the digest response above is already built — must never add latency to,
+            // or fail, the response the caller is waiting on. Uses its own DI scope (not the
+            // request's) since this keeps running after the request scope is disposed.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = _serviceScopeFactory.CreateScope();
+                    var evaluationService = scope.ServiceProvider.GetRequiredService<IPredictionEvaluationService>();
+                    await evaluationService.EvaluateDuePredictionsAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Background stock-prediction evaluation failed");
+                }
+            });
+
+            return result;
+        }
 
         /// <summary>Gets key macro indicators (FRED) with recent history for the Indicator Explorer.</summary>
         [HttpGet("indicators")]

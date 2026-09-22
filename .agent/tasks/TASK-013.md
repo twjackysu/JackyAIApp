@@ -8,7 +8,7 @@ evaluate AI stock-trend calls (Gap Audit item 2, DECISION-005)
 Backend
 
 ## Status
-READY
+IN_PROGRESS
 
 ## Priority
 MEDIUM (per PM's 2026-09-20 gap-audit proposal order, approved by Boss
