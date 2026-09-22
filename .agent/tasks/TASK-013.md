@@ -130,7 +130,89 @@ sequencing them only reflects PM's proposed priority order, not a hard
 build dependency.
 
 ## Result
-(To be filled in by the implementing Backend Engineer.)
+
+Implemented as scoped:
+
+- **New `StockPrediction` entity** (`Data/Models/StockPrediction.cs`, string GUID `Id` —
+  matches this codebase's existing string-key convention, e.g. `Word`/`ReadingPassage`,
+  rather than the task text's literal "Guid"): `StockCode`, `Market`, `UserId`
+  (`[MaxLength(255)]`, traceability only, matching `AiUsageLog`/`ChatConversation`'s
+  precedent for a non-FK UserId column), `PredictedAtUtc`, `PriceAtPrediction` (nullable),
+  `HorizonMonthsMin`/`Max`, `PredictedTrend`, `EvaluatedAtUtc`/`ActualTrend`/
+  `ActualPriceAtEvaluation`/`WasCorrect` (all nullable). EF migration
+  `20260922050000_AddStockPrediction` is additive-only (new table + one index on
+  `(EvaluatedAtUtc, PredictedAtUtc)`), decimal columns `(18,4)` matching
+  `DailyStockPrice`'s existing precision.
+- **Write path**: `StockPredictionRecorder` (`Services/Finance/Prediction/`) — a small,
+  directly unit-testable service (`AzureSQLDBContext` only) that writes the 3 per-horizon
+  rows (`StockPredictionHorizons`: 1-3/3-12/12-36 months) from a successful
+  `StockTrendAnalysis`. `FinanceQueryService.AnalyzeStockAsync` calls it after a successful
+  AI analysis, before caching — wrapped in try/catch internally so a persistence failure can
+  never turn a successful `analyze-stock` call into a failed response. No response-shape
+  change; `Market` is resolved via the existing `IMarketDataProviderFactory.DetectRegion`
+  (no second region-detection path).
+- **Evaluation path**: `PredictionEvaluationService.EvaluateDuePredictionsAsync(batchSize=5)`
+  queries due, unevaluated, priced rows oldest-first, and for each resolves TW vs US from the
+  row's own `Market` field (falling back to `DetectRegion` only if that ever fails to parse).
+  Fetches a small date range **centered on the horizon's actual target date**
+  (`targetDate ± 10 days`, clamped so the end never exceeds now) via
+  `ITWStockLibHistoricalProvider.FetchRangeAsync` (TW) or a new
+  `YahooFinanceMarketDataProvider.FetchRangeAsync` (US, added using Yahoo's
+  `period1`/`period2` params — `FetchAsync`'s existing fixed `range=6mo` behavior is
+  unchanged, its JSON-parsing logic was just extracted into a shared private helper).
+  Classifies the nearest price within that window against a ±3% neutral band; a lookup
+  failure *or* no price within the window (defensive max-gap guard) leaves the row
+  unevaluated for retry rather than throwing or silently grading against a distant price.
+  A single `SaveChangesAsync` commits the batch after each row's own try/catch.
+- **Trigger**: `FinanceController.GetMarketDigest` builds/returns the digest response first,
+  then starts a fire-and-forget `Task.Run` that creates its **own** `IServiceScope` (via
+  `IServiceScopeFactory`, not the request's scope, which may already be disposed by the time
+  the task actually runs) and calls `IPredictionEvaluationService.EvaluateDuePredictionsAsync()`,
+  wrapped in try/catch/log — never awaited inline, never affects the digest response's
+  shape/latency/credit-gating.
+
+**Design note — an earlier draft was wrong and got caught before merge**: the first pass had
+`EvaluateOneAsync` calling `IMarketDataProvider.FetchAsync(stockCode)` (the same method
+`GetTechnicalIndicatorsAsync` etc. already use). That method always returns a fixed ~6-month
+window trailing from *today*, not a range around an arbitrary past date — for a due
+long-horizon (12mo) prediction, whose target date is itself ~1yr in the past by the time it's
+due, that window never contains the target date at all, so evaluation would have silently
+graded against a wrong, distant "nearest" price with no error. Caught by an independent review
+pass before this was ever pushed as final; fixed by switching to the two `FetchRangeAsync`
+paths described above (exactly what TASK-013's own technical notes had already pointed at) and
+adding the max-gap guard in `NearestPrice` as a second line of defense. A regression test
+(`EvaluateDuePredictionsAsync_DueLongHorizonTwRow_FetchesAroundTargetDateNotJustRecentHistory`)
+locks this in by asserting the real fetch call's date-range arguments actually straddle the
+target date.
+
+**Tests**: `StockPredictionRecorderTests` (3-row write, per-horizon field mapping, null
+`CurrentPrice` handling) and `PredictionEvaluationServiceTests` (not-due rows never touched,
+null-price rows never touched even if due, TW + US correct bullish/bearish/neutral
+classification including a long-horizon case, the max-gap guard, one row's lookup failure not
+blocking the rest of the batch, batch-size + oldest-due-first ordering).
+
+**Known limitations / things Tech Lead should be aware of before merging:**
+1. **No `dotnet` SDK in this sandbox** — nothing here was compiled, built, or run. The
+   migration/`.Designer.cs` were hand-written and cross-checked against
+   `AzureSQLDBContextModelSnapshot.cs` (both diffed to confirm the `StockPrediction` block is
+   byte-identical between the two, following the same approach TASK-001 used), and the whole
+   diff went through two independent read-only review passes (one on the initial
+   implementation, one re-verifying the fix described above) that read every changed file in
+   full against the real production signatures — but this is not a substitute for an actual
+   build/test run.
+2. **Evaluation cadence is opportunistic**, tied to `market-digest` traffic, per
+   ARCHITECTURE.md's own trade-off note — not a concern for this task's acceptance criteria,
+   just carried over from the design doc.
+3. `PredictionEvaluationService` injects `ITWStockLibHistoricalProvider` (the raw TWStockLib
+   source) rather than the DB-caching `PersistentTwHistoricalProvider` for TW range fetches —
+   deliberate, since `PersistentTwHistoricalProvider`'s DB cache only covers the same ~6-month
+   rolling window that caused the bug described above, so evaluating anything older than that
+   (the whole point of the fix) has to go past it to TWStockLib directly. This means
+   long-horizon TW evaluations are a live TWStockLib call rather than DB-cached, which is fine
+   given the batch cap (5/call) and opportunistic cadence, but flagging the trade-off
+   explicitly.
+
+PR: (opening now)
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
