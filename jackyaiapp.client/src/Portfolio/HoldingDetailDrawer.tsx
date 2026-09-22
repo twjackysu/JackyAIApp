@@ -1,5 +1,6 @@
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CloseIcon from '@mui/icons-material/Close';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Box from '@mui/material/Box';
@@ -212,10 +213,30 @@ function AiTechSummary({ market, symbol }: { market: string; symbol: string }) {
   );
 }
 
+function FinanceCrossLink({ market, symbol }: { market: string; symbol: string }) {
+  return (
+    <Box sx={{ mt: 1.5 }}>
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<OpenInNewIcon />}
+        component="a"
+        href={`/finance?symbol=${encodeURIComponent(symbol)}&market=${encodeURIComponent(market)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        fullWidth
+      >
+        在 Finance 查看完整分析
+      </Button>
+    </Box>
+  );
+}
+
 export function HoldingDetailDrawer({ position, open, onClose }: Props) {
   const { value, change, showRatio } = usePrivacy();
   const hasPnl = position?.unrealizedPnlTWD != null && position?.unrealizedPnlPct != null;
   const isFund = position?.assetType === 'FUND';
+  const isStock = position?.assetType === 'STOCK';
   const explainer = position ? valuationExplainer(position) : null;
 
   return (
@@ -345,6 +366,7 @@ export function HoldingDetailDrawer({ position, open, onClose }: Props) {
           <PriceChart market={isFund ? 'FUND' : position.market} symbol={position.symbol} />
 
           <AiTechSummary market={isFund ? 'FUND' : position.market} symbol={position.symbol} />
+          {isStock && <FinanceCrossLink market={position.market} symbol={position.symbol} />}
         </>
       )}
     </Drawer>

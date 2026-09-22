@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import type { AnalysisConfig } from '../components';
 
@@ -36,6 +37,7 @@ const DEFAULT_CONFIG: AnalysisConfig = {
  * the active tab, analysis config, and the daily market-summary query.
  */
 export function useFinanceAnalysis() {
+  const [searchParams] = useSearchParams();
   const [stockSearchTerm, setStockSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<StockTrendAnalysis | null>(null);
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
@@ -68,32 +70,35 @@ export function useFinanceAnalysis() {
 
   const digestPoints = useMemo(() => digestResponse?.data?.points || [], [digestResponse?.data]);
 
+  const runComprehensiveAnalysis = async (code: string, market: 'TW' | 'US') => {
+    try {
+      resetComprehensive();
+      setSearchResults(null);
+      const result = await getComprehensiveAnalysis({
+        stockCode: code,
+        market,
+        includeTechnical: analysisConfig.includeTechnical,
+        includeChip: analysisConfig.includeChip,
+        includeFundamental: analysisConfig.includeFundamental,
+        includeScoring: analysisConfig.includeScoring,
+        includeRisk: analysisConfig.includeRisk,
+        technicalWeight: analysisConfig.technicalWeight,
+        chipWeight: analysisConfig.chipWeight,
+        fundamentalWeight: analysisConfig.fundamentalWeight,
+      }).unwrap();
+      setAnalysisResults(result.data);
+    } catch (err) {
+      console.error('Comprehensive analysis failed:', err);
+      setAnalysisResults(null);
+    }
+  };
+
   const handleStockSearch = async () => {
     if (!stockSearchTerm.trim()) return;
 
     if (analysisTab === TAB_QUANTITATIVE) {
-      try {
-        resetComprehensive();
-        setSearchResults(null);
-        const code = stockSearchTerm.trim();
-        const market = detectMarket(code);
-        const result = await getComprehensiveAnalysis({
-          stockCode: code,
-          market,
-          includeTechnical: analysisConfig.includeTechnical,
-          includeChip: analysisConfig.includeChip,
-          includeFundamental: analysisConfig.includeFundamental,
-          includeScoring: analysisConfig.includeScoring,
-          includeRisk: analysisConfig.includeRisk,
-          technicalWeight: analysisConfig.technicalWeight,
-          chipWeight: analysisConfig.chipWeight,
-          fundamentalWeight: analysisConfig.fundamentalWeight,
-        }).unwrap();
-        setAnalysisResults(result.data);
-      } catch (err) {
-        console.error('Comprehensive analysis failed:', err);
-        setAnalysisResults(null);
-      }
+      const code = stockSearchTerm.trim();
+      await runComprehensiveAnalysis(code, detectMarket(code));
     } else if (analysisTab === TAB_AI_TREND) {
       if (!isAuthenticated) {
         window.location.href = `/api/account/login/Google?ReturnUrl=${encodeURIComponent(window.location.pathname)}`;
@@ -118,6 +123,25 @@ export function useFinanceAnalysis() {
     resetAnalysis();
     resetComprehensive();
   };
+
+  // Cross-link entry point (e.g. from Portfolio's HoldingDetailDrawer): when the URL carries
+  // ?symbol=&market=, prefill + force the free quantitative tab + auto-search, exactly once.
+  const urlAutoSearchDone = useRef(false);
+  useEffect(() => {
+    if (urlAutoSearchDone.current) return;
+    const symbol = searchParams.get('symbol')?.trim();
+    if (!symbol) return;
+    urlAutoSearchDone.current = true;
+
+    const marketParam = searchParams.get('market');
+    const market =
+      marketParam === 'TW' || marketParam === 'US' ? marketParam : detectMarket(symbol);
+
+    setStockSearchTerm(symbol);
+    setAnalysisTab(TAB_QUANTITATIVE);
+    void runComprehensiveAnalysis(symbol, market);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleTabChange = (_: unknown, newTab: number) => {
     setAnalysisTab(newTab);

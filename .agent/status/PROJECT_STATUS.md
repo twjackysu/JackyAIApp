@@ -1428,3 +1428,61 @@
   list still claims "batch processing," which doesn't exist and won't be
   built (Boss confirmed 2026-09-21) — needs a doc fix outside `.agent/`,
   not PM's file to touch.
+
+## 2026-09-22 — Frontend Engineer: implemented TASK-012 (Finance↔Portfolio cross-link) (scheduled run)
+
+- Read `.agent/tasks/TASK-012.md` (Owner: Frontend, `READY`, HIGH) and the
+  matching architecture entry (`ARCHITECTURE.md` → "Decision: Finance ↔
+  Portfolio cross-link"). Confirmed frontend-only scope, no backend/DTO
+  change needed (Finance's quant endpoints are already `[AllowAnonymous]`).
+- **`Finance/hooks/useFinanceAnalysis.ts`**: added `useSearchParams`.
+  Factored the existing `TAB_QUANTITATIVE` fetch body out of
+  `handleStockSearch` into `runComprehensiveAnalysis(code, market)` so it
+  can be called with an explicit code/market pair (state set via
+  `setStockSearchTerm` isn't readable synchronously in the same effect) —
+  no duplicated fetch logic. Added a `useRef`-guarded `useEffect` that,
+  once per mount, reads `symbol`/`market` from the URL and — only when
+  `symbol` is present — prefills `stockSearchTerm`, force-sets
+  `analysisTab = TAB_QUANTITATIVE` (never the credit-gated AI-trend tab),
+  and auto-fires `runComprehensiveAnalysis` with the URL values;
+  `market` falls back to the existing `detectMarket` heuristic if missing
+  or invalid. Plain `/finance` visits (no query params) are unaffected —
+  verified the effect returns early with no state change in that case.
+- **`Portfolio/HoldingDetailDrawer.tsx`**: added `isStock` check; new
+  `FinanceCrossLink` (outlined `Button`, `OpenInNewIcon`, "在 Finance 查看
+  完整分析") rendered only for `assetType === 'STOCK'`, placed directly
+  below `AiTechSummary` so both stay visible. Links to
+  `/finance?symbol=...&market=...` (`position.market` is already
+  `'TW'`/`'US'`, no translation needed), `target="_blank" rel="noopener
+  noreferrer"`, same external-link pattern as
+  `JobSearch/components/JobCard.tsx` — Portfolio drawer state isn't lost.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136
+  tests) all pass with no regressions. No dedicated test added — matches
+  the task's own framing (read-join of existing free endpoints, not new
+  business logic).
+- **Not done in this session**: manual end-to-end verification against a
+  running backend (confirming the quant-tab analysis actually renders
+  after following the link from a live Portfolio drawer) — no backend/DB
+  available in this sandbox, same recurring limitation as prior
+  Skill-Building frontend sessions. Flagged in the task file and PR.
+- Opened PR (see `TASK-012.md` for the link once created), flipped
+  `TASK-012.md` to `PR_OPENED`, filled in its Result section.
+
+## Open Items
+- **New, from this run**: `TASK-012` PR needs Tech Lead review and a
+  manual end-to-end pass (follow the link from a live Portfolio holding,
+  confirm the quant tab auto-loads) before merge — this session had no
+  live backend to verify against.
+- **Unblocked, next default Tech Lead item once `TASK-012` ships**: Finance
+  Gap Audit proposal 2 (prediction-accuracy tracking) — carried over,
+  still no Boss reply needed.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  still blocked on Boss's free-usage-cap design answer in
+  `.agent/boss/PM.md` (2026-09-21).
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over (Tech Lead, 2026-09-20): whether a task-claiming mechanism
+  is worth adding to avoid the duplicate-PR pattern — pending Boss
+  preference.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.

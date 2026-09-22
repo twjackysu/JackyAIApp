@@ -8,7 +8,7 @@ DECISION-005)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH (per PM's 2026-09-20 gap-audit proposal: cheapest, highest-leverage
@@ -93,7 +93,44 @@ link from the drawer to Finance, pre-filled and pre-run for that symbol.
 None — Finance's endpoints already support this; no backend task required.
 
 ## Result
-(To be filled in by the implementing Frontend Engineer.)
+- **`Finance/hooks/useFinanceAnalysis.ts`**: added `useSearchParams`. Extracted
+  the existing `TAB_QUANTITATIVE` fetch body out of `handleStockSearch` into
+  a reusable `runComprehensiveAnalysis(code, market)` (same
+  `getComprehensiveAnalysis` call, no duplication) so it can be invoked with
+  an explicit code/market pair instead of only reading `stockSearchTerm`
+  from state (state updates aren't visible synchronously, so the
+  URL-triggered path can't rely on the same closure `handleStockSearch`
+  uses). Added a `useRef`-guarded `useEffect` that runs once: reads
+  `symbol`/`market` from the URL, and when `symbol` is present, sets
+  `stockSearchTerm`, force-sets `analysisTab = TAB_QUANTITATIVE`, and calls
+  `runComprehensiveAnalysis` directly with the URL values. `market` falls
+  back to the existing `detectMarket` heuristic when the query param is
+  missing or isn't `'TW'`/`'US'`. No `symbol` param → effect returns early,
+  no state change, no fetch — plain `/finance` visits are unaffected.
+- **`Portfolio/HoldingDetailDrawer.tsx`**: added `isStock` alongside the
+  existing `isFund` check; new `FinanceCrossLink` component (outlined
+  `Button` styled like `AiTechSummary`'s trigger, `OpenInNewIcon`, label "在
+  Finance 查看完整分析") rendered only when `isStock`, right below
+  `AiTechSummary` so both stay visible. Uses `component="a"` +
+  `target="_blank" rel="noopener noreferrer"`, same external-link pattern as
+  `JobSearch/components/JobCard.tsx`, linking to
+  `/finance?symbol=${position.symbol}&market=${position.market}` (both
+  URI-encoded). `position.market` is already `'TW'`/`'US'`, matching what
+  the hook now expects — no translation needed.
+- No new dependency, no DTO/API change, no test file added (matches the
+  task's own framing — this is a read-join of existing free endpoints, not
+  new business logic warranting a dedicated unit test; verified by the full
+  suite below instead).
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (136 tests)
+  all pass with no regressions.
+- Manual end-to-end verification against a running backend (confirming the
+  quantitative-tab analysis actually renders after following the link) was
+  **not** performed in this session — no backend/DB available in this
+  sandbox, same limitation prior Skill-Building frontend tasks flagged.
+  Recommend a manual pass (or QA) before merge.
+
+### PR
+(pending — will be filled in once opened)
 
 ## Review
 (To be filled in by Tech Lead after a PR is opened.)
