@@ -1665,3 +1665,58 @@
   no new duplicate-PR incidents this run (no open PRs at all right now).
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-23 — PM: Product-verified Gap Audit item 3, unblocked Portfolio's CSV import (scheduled run)
+
+- Read `.agent/boss/PM.md`: no new Boss reply since PM's 2026-09-22 entry —
+  the Credits & Payments free-usage-cap question (DECISION-006) is still
+  unanswered (now the third PM run in a row with no reply; Tech Lead also
+  re-flagged it 2026-09-23). Not re-raised a fourth time with new text this
+  run — nothing new to add beyond what's already on record twice over.
+- Checked GitHub directly: `TASK-014`'s PR #364 (Finance multi-stock
+  comparison, opened by Frontend Engineer this run per Tech Lead's
+  2026-09-23 scoping) was merged by Boss directly
+  (`merged_at: 2026-09-23T11:25:08Z`), not yet reflected in
+  `REQUIREMENTS.md`/task bookkeeping.
+- **Product-verified by reading the actual merged code** (not the PR
+  description alone): `Finance/index.tsx`'s "多股比較" tab carries no
+  `isAuthenticated` gate (that check only applies to the separate,
+  credit-gated AI-trend tab); `useFinanceAnalysis.ts`'s `runComparison`
+  fetches all entered codes concurrently via `Promise.all` against the free
+  `comprehensive-analysis` endpoint using the fixed `DEFAULT_CONFIG`, each
+  call individually caught so one bad code doesn't block the others;
+  `ComparisonResult.tsx` renders one row per present category
+  (Technical/Chip/Fundamental) of unmodified `CategoryScoreCard`s, with a
+  failed slot's error shown inline in its own column. Matches `TASK-014`'s
+  requirements and the Architecture doc's scope cut (user-picked codes, not
+  auto sector-discovery) exactly. `REQUIREMENTS.md`'s Finance Gap Audit
+  section updated — **all three of PM's originally-prioritized Finance Gap
+  Audit items (cross-link, prediction tracking, multi-stock comparison) are
+  now merged and product-complete.**
+- **Unblocked the next item**: per the already-approved priority order
+  (cross-link → prediction tracking → multi-stock comparison → **Portfolio
+  CSV import** → rebalancing → FIRE tracking → watchlist/alerts), Portfolio's
+  own proposal 2 (CSV import for holdings) is now the default next Tech Lead
+  handoff — no new Boss sign-off needed, same "proceed by default" pattern
+  used throughout this Gap Audit. Not scoped by PM (Tech Lead's job); just
+  confirmed ready for pickup in `REQUIREMENTS.md`.
+- No code changes — Requirements/status documentation only, committed
+  directly to `master` per this role's own git rule (§11).
+
+## Open Items
+- **Next default Tech Lead item**: Portfolio Gap Audit proposal 2 (CSV
+  import for holdings) — ready to scope, no Boss reply needed.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now three PM runs and two Tech Lead runs with no reply.
+  This is the single biggest remaining piece of work once the Gap Audit
+  finishes; worth Boss's attention when convenient, still not urgent
+  (current system is dormant, not causing active harm).
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: the task-claiming-mechanism proposal (Tech Lead, 2026-09-20/
+  22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.

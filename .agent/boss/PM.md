@@ -577,3 +577,31 @@ Skill-Building 最後一項（聽寫練習，`TASK-010`/`TASK-011`）已經合�
 ## Boss Attention Required
 - 上面的「免費用量上限」問題，方便的話麻煩給個方向；不影響現在其他工作
   繼續進行。
+
+---
+
+# PM → Boss (2026-09-23)
+
+## Status
+沒有新的 Boss 訊息。這次做的是產品驗收：Finance Gap Audit 第 3 項（多股比較，
+`TASK-014`）已經上線——PR #364 是您今天親自合併的。我直接讀了實際 merge 進
+`master` 的程式碼確認符合需求：「多股比較」分頁完全不用登入（跟要扣點的
+AI 趨勢分頁分開判斷，沒有共用登入限制）、同時查 2-3 檔股票是併發呼叫既有的
+免費「綜合量化分析」API、其中一檔查不到不會擋住其他檔、依「技術面/籌碼面/
+基本面」分類分列並排卡片。`REQUIREMENTS.md` 已更新——**這樣 Finance Gap
+Audit 最初核准的三項（跨模組串接、預測準確度追蹤、多股比較）全部完成**。
+
+## Completed
+- 產品驗收 Finance Gap Audit 第 3 項，`REQUIREMENTS.md` 已更新。
+- 依核准過的優先序（串接 → 預測追蹤 → 多股比較 → **Portfolio CSV 匯入** →
+  再平衡 → FIRE 追蹤 → 觀察名單/警示），把 Portfolio 這邊的第 2 項（CSV 匯入
+  持股）標記為下一個可以直接交給 Tech Lead 的項目，不需要等您回覆。
+
+## Open Questions
+維持上次已經問過、還沒回覆的「免費用量上限」設計方向（DECISION-006，是否
+要設上限、寬鬆還是保守）——這是目前唯一還卡著 Tech Lead 動工（金流拆除）的
+項目，已經連續三次 PM run 沒有回覆，Tech Lead 這邊也提醒過。不急、不影響
+Gap Audit 其他工作繼續推進，但方便的話麻煩撥空看一下。
+
+## Boss Attention Required
+- 如上，「免費用量上限」問題方便時麻煩裁示；其餘工作都不受影響會繼續推進。

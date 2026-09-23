@@ -633,18 +633,29 @@ original Skill-Building proposal):
   predictions take weeks and long-term ones up to 3 years to become
   evaluable, so there is nothing meaningful to show yet; revisit once rows
   have actually been evaluated.
-- **Proposal 3 (multi-stock peer comparison) — scoped, READY, unclaimed
-  (2026-09-23)**: Tech Lead scoped this as `TASK-014` (Frontend only). Cut
-  down to user-picked multi-stock comparison (2-3 codes the user types
-  themselves) rather than automatic sector-peer discovery — no
-  sector/industry data exists anywhere in the schema, so true "sector"
-  comparison would not be cheap the way the proposal assumed; user-picked
-  comparison still satisfies the actual proposal ("render 2-3 stocks'
-  `CategoryScoreCard`s side by side") at the originally-scoped cost
-  (frontend-only, reuses the existing free `comprehensive-analysis`
-  endpoint, no backend change). See `ARCHITECTURE.md` → "Decision:
-  Multi-stock/sector peer comparison — Gap Audit item 3" for the full
-  reasoning.
+- **Proposal 3 (multi-stock peer comparison) — MERGED, product-verified
+  (2026-09-23)**: Tech Lead scoped this as `TASK-014` (Frontend only); PR
+  #364 merged same day (Boss merged directly). Cut down to user-picked
+  multi-stock comparison (2-3 codes the user types themselves) rather than
+  automatic sector-peer discovery — no sector/industry data exists anywhere
+  in the schema, so true "sector" comparison would not be cheap the way the
+  proposal assumed; user-picked comparison still satisfies the actual
+  proposal ("render 2-3 stocks' `CategoryScoreCard`s side by side") at the
+  originally-scoped cost (frontend-only, reuses the existing free
+  `comprehensive-analysis` endpoint, no backend change). See
+  `ARCHITECTURE.md` → "Decision: Multi-stock/sector peer comparison — Gap
+  Audit item 3" for the full reasoning.
+  **PM read the merged code directly** (`ComparisonResult.tsx`,
+  `useFinanceAnalysis.ts` on `master`): the new "多股比較" tab has no
+  `isAuthenticated` gate (unlike the credit-gated AI-trend tab), fetches are
+  concurrent (`Promise.all`) against the free `comprehensive-analysis`
+  endpoint using the fixed `DEFAULT_CONFIG`, one failed code renders an
+  inline error in its own column without blocking the others, and each
+  present category (Technical/Chip/Fundamental) renders one row of unmodified
+  `CategoryScoreCard`s. Matches the requirement and the scope-cut exactly —
+  **this item is fully shipped and product-complete.** This closes out all
+  three items PM's 2026-09-20 Finance Gap Audit prioritized so far (1: cross-
+  link, 2: prediction tracking Phase 1, 3: multi-stock comparison).
   One correction to proposal 2's original cost framing (recorded for the
   history): "a scheduled job like `CakeJobsProvider.cs`" was based on a
   mistaken premise — `CakeJobsProvider.cs` is a fetch-on-demand data
@@ -759,6 +770,12 @@ sign-off, same as the original Skill-Building proposal):
   `CreditCosts.PortfolioAiSummary = 2`) is itself a credit-gated feature in
   scope for the Credits & Payments removal (DECISION-006) — its own scoping
   should assume free-with-usage-cap, not a credit charge.
+- **Next unblocked item (2026-09-23)**: with Finance Gap Audit proposals
+  1-3 (cross-link, prediction tracking, multi-stock comparison) all now
+  merged and product-verified, the approved priority order's next item is
+  **this module's own proposal 2 — CSV import for holdings**. Ready for
+  Tech Lead to scope next run — no further Boss sign-off needed, per the
+  already-approved order (DECISION-006's status entry, "1. 是，可以").
 
 ---
 
