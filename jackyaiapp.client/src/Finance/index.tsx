@@ -1,6 +1,7 @@
 import ArticleIcon from '@mui/icons-material/Article';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import InsightsIcon from '@mui/icons-material/Insights';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
@@ -25,12 +26,15 @@ import {
   MarketOverview,
   IndicatorExplorer,
 } from './components';
+import { ComparisonCodeInput } from './components/comparison/ComparisonCodeInput';
+import { ComparisonResult } from './components/comparison/ComparisonResult';
 import { MarketSummaryTab } from './components/MarketSummaryTab';
 import {
   useFinanceAnalysis,
   TAB_QUANTITATIVE,
   TAB_AI_TREND,
   TAB_MARKET_SUMMARY,
+  TAB_COMPARISON,
 } from './hooks/useFinanceAnalysis';
 
 function Finance() {
@@ -60,6 +64,15 @@ function Finance() {
     hasStockResults,
     isAnyAnalyzing,
     isSearchTab,
+    comparisonInput,
+    setComparisonInput,
+    comparisonCodes,
+    comparisonSlots,
+    isComparing,
+    comparisonError,
+    handleAddComparisonCode,
+    handleRemoveComparisonCode,
+    runComparison,
   } = useFinanceAnalysis();
 
   return (
@@ -113,6 +126,7 @@ function Finance() {
           <Tab icon={<AssessmentIcon />} iconPosition="start" label="綜合量化分析" />
           <Tab icon={<AutoAwesomeIcon />} iconPosition="start" label="AI 趨勢分析" />
           <Tab icon={<ArticleIcon />} iconPosition="start" label="今日市場AI摘要" />
+          <Tab icon={<CompareArrowsIcon />} iconPosition="start" label="多股比較" />
         </Tabs>
 
         {/* Login prompt for AI tabs */}
@@ -221,6 +235,29 @@ function Finance() {
             )}
           </>
         )}
+
+        {/* Multi-code input for the comparison tab */}
+        {analysisTab === TAB_COMPARISON && (
+          <>
+            <ComparisonCodeInput
+              codes={comparisonCodes}
+              inputValue={comparisonInput}
+              onInputChange={setComparisonInput}
+              onAdd={handleAddComparisonCode}
+              onRemove={handleRemoveComparisonCode}
+              onCompare={runComparison}
+              isComparing={isComparing}
+            />
+            {isComparing && (
+              <Box sx={{ mt: 2 }}>
+                <LinearProgress />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  正在比較 {comparisonCodes.length} 檔股票的量化分析...
+                </Typography>
+              </Box>
+            )}
+          </>
+        )}
       </Paper>
       {/* Error states */}
       {analysisError && !isAnalyzing && (
@@ -233,9 +270,18 @@ function Finance() {
           綜合分析失敗，請檢查股票代碼是否正確
         </Alert>
       )}
+      {comparisonError && !isComparing && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {comparisonError}
+        </Alert>
+      )}
       {/* Stock analysis results */}
       {searchResults && <StockAnalysisResult data={searchResults} />}
       {analysisResults && <ComprehensiveAnalysisResult data={analysisResults} />}
+      {/* Comparison results */}
+      {analysisTab === TAB_COMPARISON && comparisonSlots.length > 0 && (
+        <ComparisonResult slots={comparisonSlots} />
+      )}
       {/* Market Summary Tab Content */}
       {analysisTab === TAB_MARKET_SUMMARY && (
         <MarketSummaryTab
