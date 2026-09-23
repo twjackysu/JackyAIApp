@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { addComparisonCode as addComparisonCodeToList } from '../utils/financeHelpers';
+
 import type { AnalysisConfig } from '../components';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
@@ -9,7 +11,12 @@ import {
   useAnalyzeStockMutation,
   useGetComprehensiveAnalysisMutation,
 } from '@/apis/financeApis';
-import { StockTrendAnalysis, StockAnalysisResultData } from '@/apis/financeApis/types';
+import {
+  StockTrendAnalysis,
+  StockAnalysisResultData,
+  StockAnalysisRequest,
+} from '@/apis/financeApis/types';
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import { todayISO } from '@/utils/date';
 
 type MarketCode = 'TW' | 'US';
@@ -22,6 +29,15 @@ const detectMarket = (code: string): MarketCode =>
 export const TAB_QUANTITATIVE = 0;
 export const TAB_AI_TREND = 1;
 export const TAB_MARKET_SUMMARY = 2;
+export const TAB_COMPARISON = 3;
+
+/** One entered stock's outcome in the comparison tab — either a result or a per-slot error. */
+export interface ComparisonSlot {
+  code: string;
+  market: MarketCode;
+  data: StockAnalysisResultData | null;
+  error: string | null;
+}
 
 const DEFAULT_CONFIG: AnalysisConfig = {
   includeTechnical: true,
@@ -47,6 +63,11 @@ export function useFinanceAnalysis() {
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
   const [analysisTab, setAnalysisTab] = useState<number>(TAB_QUANTITATIVE);
   const [analysisConfig, setAnalysisConfig] = useState<AnalysisConfig>(DEFAULT_CONFIG);
+  const [comparisonCodes, setComparisonCodes] = useState<string[]>([]);
+  const [comparisonInput, setComparisonInput] = useState('');
+  const [comparisonSlots, setComparisonSlots] = useState<ComparisonSlot[] | null>(null);
+  const [isComparing, setIsComparing] = useState(false);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
 
   const currentDate = useMemo(() => todayISO(), []);
   const { data: userInfo } = useGetUserInfoQuery();
@@ -71,8 +92,30 @@ export function useFinanceAnalysis() {
     getComprehensiveAnalysis,
     { isLoading: isComprehensiveLoading, error: comprehensiveError, reset: resetComprehensive },
   ] = useGetComprehensiveAnalysisMutation();
+  // Separate mutation-hook instance (same endpoint) for the comparison tab, so N concurrent
+  // comparison calls never touch `isComprehensiveLoading`/`comprehensiveError` above — those
+  // stay exactly what the single-stock quantitative tab already relied on.
+  const [getComparisonAnalysis] = useGetComprehensiveAnalysisMutation();
 
   const digestPoints = useMemo(() => digestResponse?.data?.points || [], [digestResponse?.data]);
+
+  // Shared request shape for both the single-stock tab and the comparison tab — same endpoint,
+  // called once per stock either way.
+  const buildAnalysisRequest = useCallback(
+    (code: string, market: MarketCode): StockAnalysisRequest => ({
+      stockCode: code,
+      market,
+      includeTechnical: analysisConfig.includeTechnical,
+      includeChip: analysisConfig.includeChip,
+      includeFundamental: analysisConfig.includeFundamental,
+      includeScoring: analysisConfig.includeScoring,
+      includeRisk: analysisConfig.includeRisk,
+      technicalWeight: analysisConfig.technicalWeight,
+      chipWeight: analysisConfig.chipWeight,
+      fundamentalWeight: analysisConfig.fundamentalWeight,
+    }),
+    [analysisConfig],
+  );
 
   // Shared by the manual search button and the URL-driven auto-search below, so there's a
   // single call site for `getComprehensiveAnalysis`.
@@ -81,26 +124,59 @@ export function useFinanceAnalysis() {
       try {
         resetComprehensive();
         setSearchResults(null);
-        const result = await getComprehensiveAnalysis({
-          stockCode: code,
-          market,
-          includeTechnical: analysisConfig.includeTechnical,
-          includeChip: analysisConfig.includeChip,
-          includeFundamental: analysisConfig.includeFundamental,
-          includeScoring: analysisConfig.includeScoring,
-          includeRisk: analysisConfig.includeRisk,
-          technicalWeight: analysisConfig.technicalWeight,
-          chipWeight: analysisConfig.chipWeight,
-          fundamentalWeight: analysisConfig.fundamentalWeight,
-        }).unwrap();
+        const result = await getComprehensiveAnalysis(buildAnalysisRequest(code, market)).unwrap();
         setAnalysisResults(result.data);
       } catch (err) {
         console.error('Comprehensive analysis failed:', err);
         setAnalysisResults(null);
       }
     },
-    [analysisConfig, getComprehensiveAnalysis, resetComprehensive],
+    [buildAnalysisRequest, getComprehensiveAnalysis, resetComprehensive],
   );
+
+  const addComparisonCode = useCallback(() => {
+    if (!comparisonInput.trim()) return;
+    setComparisonCodes((prev) => addComparisonCodeToList(prev, comparisonInput));
+    setComparisonInput('');
+  }, [comparisonInput]);
+
+  const removeComparisonCode = useCallback((code: string) => {
+    setComparisonCodes((prev) => prev.filter((c) => c !== code));
+  }, []);
+
+  const fetchComparisonSlot = useCallback(
+    async (code: string): Promise<ComparisonSlot> => {
+      const market = detectMarket(code);
+      try {
+        const result = await getComparisonAnalysis(buildAnalysisRequest(code, market)).unwrap();
+        return { code, market, data: result.data, error: null };
+      } catch (err) {
+        console.error(`Comparison fetch failed for ${code}:`, err);
+        return { code, market, data: null, error: getCaughtErrorMessage(err) };
+      }
+    },
+    [buildAnalysisRequest, getComparisonAnalysis],
+  );
+
+  // Fires one comprehensive-analysis call per entered code concurrently. Each call catches its
+  // own failure (see fetchComparisonSlot) so one invalid code never blocks the others' results;
+  // the try/catch here only guards against a truly unexpected failure outside those per-call
+  // catches (e.g. building the request array itself throwing).
+  const runComparison = useCallback(async () => {
+    if (comparisonCodes.length === 0) return;
+    setIsComparing(true);
+    setComparisonError(null);
+    try {
+      const slots = await Promise.all(comparisonCodes.map(fetchComparisonSlot));
+      setComparisonSlots(slots);
+    } catch (err) {
+      console.error('Comparison failed:', err);
+      setComparisonSlots(null);
+      setComparisonError(getCaughtErrorMessage(err));
+    } finally {
+      setIsComparing(false);
+    }
+  }, [comparisonCodes, fetchComparisonSlot]);
 
   const handleStockSearch = async () => {
     if (!stockSearchTerm.trim()) return;
@@ -130,6 +206,10 @@ export function useFinanceAnalysis() {
     setStockSearchTerm('');
     resetAnalysis();
     resetComprehensive();
+    setComparisonCodes([]);
+    setComparisonInput('');
+    setComparisonSlots(null);
+    setComparisonError(null);
   };
 
   const handleTabChange = (_: unknown, newTab: number) => {
@@ -157,7 +237,7 @@ export function useFinanceAnalysis() {
   }, [searchParams, runComprehensiveAnalysis]);
 
   const hasStockResults = !!searchResults || !!analysisResults;
-  const isAnyAnalyzing = isAnalyzing || isComprehensiveLoading;
+  const isAnyAnalyzing = isAnalyzing || isComprehensiveLoading || isComparing;
   const isSearchTab = analysisTab === TAB_QUANTITATIVE || analysisTab === TAB_AI_TREND;
 
   return {
@@ -193,5 +273,15 @@ export function useFinanceAnalysis() {
     hasStockResults,
     isAnyAnalyzing,
     isSearchTab,
+    // comparison tab
+    comparisonCodes,
+    comparisonInput,
+    setComparisonInput,
+    addComparisonCode,
+    removeComparisonCode,
+    comparisonSlots,
+    isComparing,
+    comparisonError,
+    runComparison,
   };
 }

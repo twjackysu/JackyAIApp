@@ -7,7 +7,7 @@ Frontend: Multi-stock peer comparison tab (Gap Audit item 3 — 多股比較)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM (per PM's approved Gap Audit order — item 3, cheapest remaining item,
@@ -115,7 +115,64 @@ either's code, only reuses the same free endpoint pattern `TASK-012`
 established for `runComprehensiveAnalysis`.
 
 ## Result
-(Fill in when implemented.)
+Implemented frontend-only, no backend change.
+
+- `Finance/hooks/useFinanceAnalysis.ts`: added `TAB_COMPARISON`, comparison
+  chip-code state (up to 3, `addComparisonCode`/`removeComparisonCode`,
+  reusing `detectMarket`), and `runComparison` which fires one
+  `getComprehensiveAnalysis` call per code concurrently via `Promise.all`.
+  Factored `buildAnalysisRequest(code, market)` out of
+  `runComprehensiveAnalysis` so both the single-stock tab and the
+  comparison tab build the same request shape from `analysisConfig`;
+  `runComprehensiveAnalysis`'s own behavior (reset/set calls, catch
+  logging) is unchanged. Comparison uses a **separate**
+  `useGetComprehensiveAnalysisMutation()` hook instance so N concurrent
+  comparison calls never touch `isComprehensiveLoading`/`comprehensiveError`
+  (the single-stock tab's existing state) — each RTK Query mutation hook
+  call tracks only requests triggered through its own trigger function.
+  Each per-code fetch catches its own failure
+  (`getCaughtErrorMessage`) into a per-slot `{ code, market, data, error }`
+  result, so one invalid code never blocks the others.
+  `clearSearchResults`/`handleTabChange` now also clear comparison state,
+  matching the existing per-tab-switch convention.
+- `Finance/utils/financeHelpers.ts`: added `MAX_COMPARISON_CODES` (3) and
+  the pure, testable `addComparisonCode(codes, newCode)` helper (trim,
+  cap, case-insensitive de-dup) used by the hook.
+- `Finance/components/comprehensiveAnalysis/StockIdentityHeader.tsx` (new):
+  extracted the market-chip/name+code/direction-chip fragment out of
+  `OverallScoreSection.tsx` (which now composes it — rendered output
+  unchanged) so the comparison header can reuse it via a `dense` prop
+  instead of duplicating the JSX.
+- `Finance/components/comparison/` (new): `ComparisonCodeInput.tsx` (up to
+  3 chips, Enter-to-add, same pattern as the single-stock search box) and
+  `ComparisonResult.tsx` (category-row grid — one row per
+  Technical/Chip/Fundamental category present across the fetched results,
+  one `CategoryScoreCard` per stock per row, reused unmodified; a failed
+  slot renders an inline `Alert` in its own column instead of being
+  dropped or blocking the others).
+- `Finance/index.tsx`: added the "多股比較" tab (`CompareArrowsIcon`,
+  positioned after "今日市場AI摘要"), free/unauthenticated like the
+  quantitative tab; wired the new input/button/`LinearProgress` (mirroring
+  `isAnyAnalyzing`) and the `comparisonError`/`comparisonSlots` rendering.
+
+### Tests
+- `Finance/utils/financeHelpers.test.ts` (new): `addComparisonCode` —
+  trims, appends, caps at 3, case-insensitive de-dup, ignores blank input.
+- `Finance/components/comparison/ComparisonResult.test.tsx` (new): only
+  renders category rows for categories present across compared stocks;
+  a failed slot's inline error renders alongside the successful stocks'
+  cards without dropping them.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (143/143,
+  including the 5 new tests) all pass.
+
+### Known Limitations
+- No manual browser verification was performed in this session (no
+  running dev server / backend in this environment) — verified via
+  `tsc`/`vitest`/component-level tests instead, per the Acceptance
+  Criteria's own test list.
+
+## Review
+(Fill in after PR review.)
 
 ## Review
 (Fill in after PR review.)

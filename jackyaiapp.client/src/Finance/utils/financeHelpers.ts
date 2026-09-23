@@ -166,6 +166,24 @@ export const getScoreColor = (score: number): string => {
   return red[500];
 };
 
+// === Multi-stock Comparison Helpers ===
+
+/** Both a legibility cap (4+ cards stop being scannable side by side) and a bound on concurrent fetches. */
+export const MAX_COMPARISON_CODES = 3;
+
+/**
+ * Adds `newCode` to `codes`, trimmed and case-insensitively de-duplicated, capped at
+ * {@link MAX_COMPARISON_CODES}. No-op (returns `codes` unchanged) on blank input, a duplicate,
+ * or when already at the cap.
+ */
+export const addComparisonCode = (codes: string[], newCode: string): string[] => {
+  const code = newCode.trim();
+  if (!code) return codes;
+  if (codes.length >= MAX_COMPARISON_CODES) return codes;
+  if (codes.some((c) => c.toUpperCase() === code.toUpperCase())) return codes;
+  return [...codes, code];
+};
+
 export const getIndicatorDisplayName = (name: string): string => {
   const map: Record<string, string> = {
     // Technical
