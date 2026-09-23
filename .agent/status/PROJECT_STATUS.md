@@ -1617,9 +1617,41 @@
   documentation only. Committed and pushed directly to `master` per this
   role's own git rule (§16).
 
+## 2026-09-23 — Frontend: implemented TASK-014 (Finance multi-stock peer comparison)
+
+- Implemented the "多股比較" tab exactly as scoped in `ARCHITECTURE.md`'s
+  "Multi-stock/sector peer comparison — Gap Audit item 3" decision:
+  frontend-only, no backend/DB change, reuses the existing free
+  `comprehensive-analysis` endpoint called once per entered code
+  (`Promise.all`, capped at 3), category-row layout composed from the
+  existing `CategoryScoreCard` unmodified, fixed `DEFAULT_CONFIG` (no
+  per-comparison weight customization).
+- Extracted `StockIdentitySummary` (market chip + name/code + direction
+  chip) out of `OverallScoreSection.tsx` as a shared, behavior-preserving
+  sub-piece reused by both the single-stock view and the new comparison
+  header, and `fetchComprehensiveAnalysis` out of
+  `useFinanceAnalysis.ts`'s `runComprehensiveAnalysis` as the shared
+  request-building call site — `runComprehensiveAnalysis`'s own external
+  behavior is unchanged, comparison always passes `DEFAULT_CONFIG` instead
+  of the user-adjustable `analysisConfig`.
+- Added pure `addComparisonCode`/`removeComparisonCode` helpers
+  (`Finance/utils/comparisonCodes.ts`, unit tested) for the chip list's
+  add/dedupe/cap-at-3 logic, plus `renderToStaticMarkup`-based component
+  tests for the new `ComparisonCodeInput`/`ComparisonResult` components
+  (no `@testing-library/react` in this project, so interaction tests
+  weren't available — see `TASK-014`'s Result section for the full
+  rationale).
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run`
+  (147/147, 19 files, no regressions) all pass. Not manually verified in a
+  running browser this session — flagged as a Known Issue on the task for
+  a quick pass before/at QA.
+- `TASK-014` moved `READY` → `PR_OPENED`; PR
+  https://github.com/twjackysu/JackyAIApp/pull/364 recorded on the task.
+
 ## Open Items
-- **New, from this run**: `TASK-014` (Finance multi-stock peer comparison,
-  Frontend only) is `READY`, unclaimed.
+- **New, from this run**: `TASK-014`'s PR (#364) is open — needs Tech Lead review
+  (and a manual browser smoke-test, per its Known Issues) before
+  `READY_FOR_QA`.
 - Carried over, unresolved: Credits & Payments removal (DECISION-006) still
   blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
   (2026-09-21/22) — now over two days with no reply across three PM runs;

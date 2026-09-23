@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { addComparisonCode, removeComparisonCode } from '../utils/comparisonCodes';
+
 import type { AnalysisConfig } from '../components';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
@@ -10,6 +12,7 @@ import {
   useGetComprehensiveAnalysisMutation,
 } from '@/apis/financeApis';
 import { StockTrendAnalysis, StockAnalysisResultData } from '@/apis/financeApis/types';
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import { todayISO } from '@/utils/date';
 
 type MarketCode = 'TW' | 'US';
@@ -22,6 +25,16 @@ const detectMarket = (code: string): MarketCode =>
 export const TAB_QUANTITATIVE = 0;
 export const TAB_AI_TREND = 1;
 export const TAB_MARKET_SUMMARY = 2;
+export const TAB_COMPARISON = 3;
+
+/** One compared stock's fetch state, rendered as its own column by `ComparisonResult`. */
+export interface ComparisonSlot {
+  code: string;
+  market: MarketCode;
+  status: 'loading' | 'success' | 'error';
+  data: StockAnalysisResultData | null;
+  errorMessage: string | null;
+}
 
 const DEFAULT_CONFIG: AnalysisConfig = {
   includeTechnical: true,
@@ -47,6 +60,11 @@ export function useFinanceAnalysis() {
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
   const [analysisTab, setAnalysisTab] = useState<number>(TAB_QUANTITATIVE);
   const [analysisConfig, setAnalysisConfig] = useState<AnalysisConfig>(DEFAULT_CONFIG);
+  const [comparisonInput, setComparisonInput] = useState('');
+  const [comparisonCodes, setComparisonCodes] = useState<string[]>([]);
+  const [comparisonSlots, setComparisonSlots] = useState<ComparisonSlot[]>([]);
+  const [isComparing, setIsComparing] = useState(false);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
 
   const currentDate = useMemo(() => todayISO(), []);
   const { data: userInfo } = useGetUserInfoQuery();
@@ -74,33 +92,104 @@ export function useFinanceAnalysis() {
 
   const digestPoints = useMemo(() => digestResponse?.data?.points || [], [digestResponse?.data]);
 
-  // Shared by the manual search button and the URL-driven auto-search below, so there's a
-  // single call site for `getComprehensiveAnalysis`.
+  // Single call site for `getComprehensiveAnalysis`'s request shape, shared by the manual
+  // search button, the URL-driven auto-search below, and the multi-stock comparison tab —
+  // each passes its own `config` (the user-adjustable `analysisConfig` for the single-stock
+  // tabs, the fixed `DEFAULT_CONFIG` for comparison, which stays unconfigurable — see
+  // ARCHITECTURE.md "Multi-stock/sector peer comparison").
+  const fetchComprehensiveAnalysis = useCallback(
+    (code: string, market: MarketCode, config: AnalysisConfig) =>
+      getComprehensiveAnalysis({
+        stockCode: code,
+        market,
+        includeTechnical: config.includeTechnical,
+        includeChip: config.includeChip,
+        includeFundamental: config.includeFundamental,
+        includeScoring: config.includeScoring,
+        includeRisk: config.includeRisk,
+        technicalWeight: config.technicalWeight,
+        chipWeight: config.chipWeight,
+        fundamentalWeight: config.fundamentalWeight,
+      }).unwrap(),
+    [getComprehensiveAnalysis],
+  );
+
   const runComprehensiveAnalysis = useCallback(
     async (code: string, market: MarketCode) => {
       try {
         resetComprehensive();
         setSearchResults(null);
-        const result = await getComprehensiveAnalysis({
-          stockCode: code,
-          market,
-          includeTechnical: analysisConfig.includeTechnical,
-          includeChip: analysisConfig.includeChip,
-          includeFundamental: analysisConfig.includeFundamental,
-          includeScoring: analysisConfig.includeScoring,
-          includeRisk: analysisConfig.includeRisk,
-          technicalWeight: analysisConfig.technicalWeight,
-          chipWeight: analysisConfig.chipWeight,
-          fundamentalWeight: analysisConfig.fundamentalWeight,
-        }).unwrap();
+        const result = await fetchComprehensiveAnalysis(code, market, analysisConfig);
         setAnalysisResults(result.data);
       } catch (err) {
         console.error('Comprehensive analysis failed:', err);
         setAnalysisResults(null);
       }
     },
-    [analysisConfig, getComprehensiveAnalysis, resetComprehensive],
+    [analysisConfig, fetchComprehensiveAnalysis, resetComprehensive],
   );
+
+  const handleAddComparisonCode = useCallback(() => {
+    setComparisonCodes((prev) => addComparisonCode(prev, comparisonInput));
+    setComparisonInput('');
+  }, [comparisonInput]);
+
+  const handleRemoveComparisonCode = useCallback((code: string) => {
+    setComparisonCodes((prev) => removeComparisonCode(prev, code));
+  }, []);
+
+  const runComparison = useCallback(async () => {
+    if (comparisonCodes.length === 0) return;
+    setIsComparing(true);
+    setComparisonError(null);
+    setComparisonSlots(
+      comparisonCodes.map((code) => ({
+        code,
+        market: detectMarket(code),
+        status: 'loading',
+        data: null,
+        errorMessage: null,
+      })),
+    );
+    try {
+      await Promise.all(
+        comparisonCodes.map(async (code) => {
+          const market = detectMarket(code);
+          try {
+            const result = await fetchComprehensiveAnalysis(code, market, DEFAULT_CONFIG);
+            setComparisonSlots((prev) =>
+              prev.map((slot) =>
+                slot.code === code ? { ...slot, status: 'success', data: result.data } : slot,
+              ),
+            );
+          } catch (err) {
+            console.error(`Comparison fetch failed for ${code}:`, err);
+            setComparisonSlots((prev) =>
+              prev.map((slot) =>
+                slot.code === code
+                  ? { ...slot, status: 'error', errorMessage: getCaughtErrorMessage(err) }
+                  : slot,
+              ),
+            );
+          }
+        }),
+      );
+    } catch (err) {
+      // Each per-stock call already catches its own failure above; this only guards against
+      // something breaking outside that (e.g. Promise.all itself throwing unexpectedly).
+      console.error('Comparison failed unexpectedly:', err);
+      setComparisonError(getCaughtErrorMessage(err));
+    } finally {
+      setIsComparing(false);
+    }
+  }, [comparisonCodes, fetchComprehensiveAnalysis]);
+
+  const clearComparisonResults = () => {
+    setComparisonInput('');
+    setComparisonCodes([]);
+    setComparisonSlots([]);
+    setComparisonError(null);
+  };
 
   const handleStockSearch = async () => {
     if (!stockSearchTerm.trim()) return;
@@ -130,6 +219,7 @@ export function useFinanceAnalysis() {
     setStockSearchTerm('');
     resetAnalysis();
     resetComprehensive();
+    clearComparisonResults();
   };
 
   const handleTabChange = (_: unknown, newTab: number) => {
@@ -156,7 +246,7 @@ export function useFinanceAnalysis() {
     void runComprehensiveAnalysis(symbolParam, market);
   }, [searchParams, runComprehensiveAnalysis]);
 
-  const hasStockResults = !!searchResults || !!analysisResults;
+  const hasStockResults = !!searchResults || !!analysisResults || comparisonSlots.length > 0;
   const isAnyAnalyzing = isAnalyzing || isComprehensiveLoading;
   const isSearchTab = analysisTab === TAB_QUANTITATIVE || analysisTab === TAB_AI_TREND;
 
@@ -193,5 +283,15 @@ export function useFinanceAnalysis() {
     hasStockResults,
     isAnyAnalyzing,
     isSearchTab,
+    // multi-stock comparison tab
+    comparisonInput,
+    setComparisonInput,
+    comparisonCodes,
+    comparisonSlots,
+    isComparing,
+    comparisonError,
+    handleAddComparisonCode,
+    handleRemoveComparisonCode,
+    runComparison,
   };
 }
