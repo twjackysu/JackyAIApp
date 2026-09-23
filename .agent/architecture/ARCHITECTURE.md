@@ -969,3 +969,108 @@ conventions avoid.
 
 See `TASK-013` (Backend only). No frontend task yet — Phase 2's UI is
 intentionally unscoped until there's data to design around.
+
+---
+
+## Decision: Multi-stock/sector peer comparison — Gap Audit item 3
+
+### Context
+`REQUIREMENTS.md` → Finance's Gap Audit (2026-09-20) names proposal 3:
+render 2-3 stocks' `CategoryScoreCard`s side by side, reusing the existing
+free `comprehensive-analysis` endpoint. PM flagged it as the cheapest
+remaining item — "mostly frontend" — and approved it as next-up, unblocked,
+no further Boss sign-off needed (`REQUIREMENTS.md`, PM 2026-09-22 entry).
+
+### Investigation
+- `POST api/finance/comprehensive-analysis` (`FinanceController.cs`,
+  `FinanceQueryService.GetComprehensiveAnalysisAsync`) already takes a bare
+  `StockAnalysisRequest { StockCode, Market, Include*, *Weight }` and is
+  `[AllowAnonymous]` — it has no concept of "one stock per call" baked into
+  its contract, it's just called once per code today. Calling it N times
+  (once per compared stock) needs no backend change at all; each call is
+  independently 12h-memory-cached by `{resolvedStockCode}_{currentDate}_{configHash}`
+  already, so re-comparing the same stock across sessions costs nothing extra.
+- `useFinanceAnalysis.ts`'s `runComprehensiveAnalysis(code, market)` (added
+  for `TASK-012`'s cross-link) is already a single-call-site wrapper around
+  `getComprehensiveAnalysis` — reusable as-is, called concurrently via
+  `Promise.all` for each compared stock instead of once.
+- `CategoryScoreCard` (`Finance/components/comprehensiveAnalysis/`) already
+  renders one category's score/direction/summary from a bare `CategoryScore`
+  prop with no dependency on being inside `ComprehensiveAnalysisResult`'s
+  single-stock layout — reusable directly in a per-category comparison row.
+- No existing "sector"/grouping data exists anywhere in the codebase (no
+  sector/industry field on any stock model) — a true "sector comparison"
+  (auto-pick peers) would need new data. Scoped down to what the proposal's
+  own title also allows and what's actually cheap: **user-picked multi-stock
+  comparison** (the user types 2-3 codes themselves), not automatic
+  sector-peer discovery. This matches the proposal's "reuses the existing
+  free endpoint, mostly frontend" cost framing — an auto-peer-discovery
+  feature would not be cheap.
+
+### Decision
+Frontend-only, no backend/DB change, no new endpoint:
+1. New Finance tab, "多股比較" (`TAB_COMPARISON`), free and unauthenticated
+   like the existing quantitative tab — sits after "今日市場AI摘要" in the
+   tab strip.
+2. Up to 3 stock-code chips (add/remove), each resolved via the existing
+   `detectMarket` heuristic (or an explicit market picker per chip, engineer's
+   call) — no new market-detection logic.
+3. On "比較", fire `runComprehensiveAnalysis`-equivalent calls concurrently
+   (`Promise.all`, capped at 3) for each entered code, using the *default*
+   `AnalysisConfig` (no per-stock weight customization in this first cut —
+   `AnalysisConfigPanel` stays scoped to the single-stock tabs).
+4. Render results grouped **by category, not by stock**: for each of
+   Technical/Chip/Fundamental (whichever categories are present across the
+   fetched results), one row of up to 3 `CategoryScoreCard`s side by side,
+   one per compared stock, each card unmodified from its existing single-stock
+   rendering. A small header per stock (name/code, reusing
+   `OverallScoreSection`'s existing name+code+overall-score fragment, not
+   the whole section) sits above the grid so the reader knows which column
+   is which. A stock whose fetch fails is shown with an inline error in its
+   own column/slot rather than aborting the whole comparison — the other
+   1-2 stocks' results should still render.
+5. No credit cost, no auth requirement — matches the tab it reuses.
+
+### Reason
+Category-row layout (not stock-column cards stacked per stock) is what
+actually lets a reader compare stocks at a glance — "which of these 3 has
+the best technical score" is one horizontal scan, matching the proposal's
+own "render side by side" framing. Reusing `CategoryScoreCard` unmodified
+keeps this to new composition, not new presentation components — the only
+genuinely new UI is the multi-code input and the grouping-by-category
+layout wrapper.
+
+### Alternatives considered
+- **Auto-discover sector peers and compare against them**: rejected for
+  this pass — no sector/industry data exists anywhere in the schema; would
+  require a new provider/data source, contradicting the "cheap, reuses
+  existing free endpoint" framing PM scoped this at. Could be a later,
+  separately-scoped enhancement (peer *discovery* on top of this
+  peer *comparison* mechanism) if there's ever a reason to invest in
+  sector metadata.
+- **Reuse full `ComprehensiveAnalysisResult` per stock, stacked in columns**:
+  rejected — that component renders a full indicator table per stock, which
+  at 3 stocks wide would be an unreadably dense page; the category-row
+  layout is deliberately a *summary* comparison, not three full reports
+  side by side. A user who wants the full report for one stock still has
+  the existing single-stock quantitative tab for that.
+- **Let comparison run the credit-gated AI-trend tab per stock too**:
+  rejected — same reasoning as `TASK-012`'s cross-link: nothing should
+  silently multiply a credit charge across N stocks from what looks like a
+  free comparison view.
+
+### Trade-offs
+- Fixed default `AnalysisConfig` (no per-comparison custom weights) is a
+  deliberate scope cut to keep this a small, frontend-only task; per-stock
+  weight customization inside a 3-wide comparison would also be a UX
+  problem (which stock's weights win?) without a clear product need yet.
+- User-picked stocks only, no auto sector-peer suggestion — see Alternatives.
+
+### Impact
+- `jackyaiapp.client` only: `Finance/hooks/useFinanceAnalysis.ts` (new
+  comparison state + concurrent-fetch action), `Finance/index.tsx` (new tab),
+  a new `Finance/components/comparison/` folder (multi-code input +
+  category-row comparison grid, composed from existing `CategoryScoreCard`).
+  No DTO/API contract change, no backend PR needed.
+
+See `TASK-014` (Frontend only).

@@ -8,7 +8,7 @@ DECISION-005)
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH (per PM's 2026-09-20 gap-audit proposal: cheapest, highest-leverage

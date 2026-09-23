@@ -633,11 +633,18 @@ original Skill-Building proposal):
   predictions take weeks and long-term ones up to 3 years to become
   evaluable, so there is nothing meaningful to show yet; revisit once rows
   have actually been evaluated.
-- **Next up, unblocked, no Boss reply needed**: proposal 3 (multi-stock/
-  sector peer comparison) is the next item in the approved priority order —
-  PM's default is to leave this for Tech Lead to scope next run, same
-  "proceed by default" pattern used throughout Skill-Building and this Gap
-  Audit's earlier items.
+- **Proposal 3 (multi-stock peer comparison) — scoped, READY, unclaimed
+  (2026-09-23)**: Tech Lead scoped this as `TASK-014` (Frontend only). Cut
+  down to user-picked multi-stock comparison (2-3 codes the user types
+  themselves) rather than automatic sector-peer discovery — no
+  sector/industry data exists anywhere in the schema, so true "sector"
+  comparison would not be cheap the way the proposal assumed; user-picked
+  comparison still satisfies the actual proposal ("render 2-3 stocks'
+  `CategoryScoreCard`s side by side") at the originally-scoped cost
+  (frontend-only, reuses the existing free `comprehensive-analysis`
+  endpoint, no backend change). See `ARCHITECTURE.md` → "Decision:
+  Multi-stock/sector peer comparison — Gap Audit item 3" for the full
+  reasoning.
   One correction to proposal 2's original cost framing (recorded for the
   history): "a scheduled job like `CakeJobsProvider.cs`" was based on a
   mistaken premise — `CakeJobsProvider.cs` is a fetch-on-demand data

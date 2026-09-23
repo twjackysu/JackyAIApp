@@ -7,7 +7,7 @@ Frontend: Dictation practice test UI (Skill-Building item 4 — 聽, last item)
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM-LOW

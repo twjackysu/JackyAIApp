@@ -1579,3 +1579,57 @@
   22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-23 — Tech Lead: fixed stale task statuses, scoped Finance Gap Audit item 3 (scheduled run)
+
+- **Housekeeping**: `TASK-011`/`TASK-012`/`TASK-013` were all still marked
+  `PR_OPENED` in their own task files despite being merged days ago (PR #354,
+  #359, #363 respectively — confirmed directly against the GitHub API's
+  `pull_request_read` `get` method, which reports `merged: true`/`merged_at`
+  correctly; note `list_pull_requests`'s `merged` field is unreliable and
+  reported `false` for all three even though they're merged — don't trust it
+  for merge status, use `pull_request_read`). Flipped all three task files'
+  `Status` to `MERGED`. No open PRs exist on the repo right now.
+- **Scoped Finance Gap Audit proposal 3** (multi-stock peer comparison), per
+  PM's 2026-09-22 unblock — no further Boss sign-off needed, same
+  "proceed by default" pattern used throughout this Gap Audit. Investigated
+  before scoping: confirmed `comprehensive-analysis` needs zero backend
+  changes to be called multiple times (already per-code, already
+  `[AllowAnonymous]`, already cached per-stock), and `CategoryScoreCard` has
+  no dependency on its current single-stock parent layout, so it's reusable
+  verbatim in a category-row comparison grid. One scope correction from the
+  original proposal framing: a true "sector" comparison (auto-picking peers)
+  would need new sector/industry data that doesn't exist anywhere in this
+  schema — scoped down to user-picked multi-stock comparison (2-3 codes the
+  user types themselves), which still satisfies the proposal's actual ask
+  ("render 2-3 stocks' `CategoryScoreCard`s side by side") at the originally
+  estimated cost (frontend-only, no backend change).
+- Documented the full investigation and decision in `ARCHITECTURE.md` →
+  "Decision: Multi-stock/sector peer comparison — Gap Audit item 3". Created
+  `TASK-014` (Frontend only: new "多股比較" tab, up to 3 stock-code chips,
+  concurrent fetch reusing `useFinanceAnalysis.ts`'s existing
+  `getComprehensiveAnalysis` call pattern, category-row layout composed from
+  the existing `CategoryScoreCard`, per-stock failure isolation) — `READY`,
+  unclaimed, no dependency on any other open task.
+- `REQUIREMENTS.md`: updated the Finance Gap Audit's Open Questions entry to
+  record `TASK-014`'s scoping and the sector-data scope correction.
+- No application code changes — architecture/task/requirements/status
+  documentation only. Committed and pushed directly to `master` per this
+  role's own git rule (§16).
+
+## Open Items
+- **New, from this run**: `TASK-014` (Finance multi-stock peer comparison,
+  Frontend only) is `READY`, unclaimed.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006) still
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21/22) — now over two days with no reply across three PM runs;
+  flagged again in `.agent/boss/TECH_LEAD.md` this run.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: the task-claiming-mechanism proposal (Tech Lead, 2026-09-20/
+  22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent;
+  no new duplicate-PR incidents this run (no open PRs at all right now).
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.
