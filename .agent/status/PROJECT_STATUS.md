@@ -1645,10 +1645,11 @@
   (147/147, 19 files, no regressions) all pass. Not manually verified in a
   running browser this session — flagged as a Known Issue on the task for
   a quick pass before/at QA.
-- `TASK-014` moved `READY` → `PR_OPENED`; PR link recorded on the task.
+- `TASK-014` moved `READY` → `PR_OPENED`; PR
+  https://github.com/twjackysu/JackyAIApp/pull/364 recorded on the task.
 
 ## Open Items
-- **New, from this run**: `TASK-014`'s PR is open — needs Tech Lead review
+- **New, from this run**: `TASK-014`'s PR (#364) is open — needs Tech Lead review
   (and a manual browser smoke-test, per its Known Issues) before
   `READY_FOR_QA`.
 - Carried over, unresolved: Credits & Payments removal (DECISION-006) still

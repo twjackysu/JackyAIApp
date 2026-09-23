@@ -116,6 +116,8 @@ established for `runComprehensiveAnalysis`.
 
 ## Result
 
+**PR**: https://github.com/twjackysu/JackyAIApp/pull/364
+
 Implemented as scoped in `ARCHITECTURE.md` — frontend-only, no backend/DB change.
 
 - **New tab**: "多股比較" (`TAB_COMPARISON = 3`) added to `Finance/index.tsx` after
