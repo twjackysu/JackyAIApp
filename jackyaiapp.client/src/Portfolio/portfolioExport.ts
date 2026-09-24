@@ -1,7 +1,7 @@
 import { NetWorthDataPoint, PortfolioSummaryDto } from '@/apis/portfolioApis/types';
 import { todayISO } from '@/utils/date';
 
-const TYPE_LABEL: Record<string, string> = {
+export const TYPE_LABEL: Record<string, string> = {
   STOCK: '股票',
   CASH: '現金',
   FUND: '基金',
@@ -16,7 +16,7 @@ const csvCell = (v: string | number | null | undefined) => {
 };
 
 /** Build a UTF-8-BOM CSV string and trigger a download. */
-function downloadCsv(rows: (string | number | null | undefined)[][], filename: string) {
+export function downloadCsv(rows: (string | number | null | undefined)[][], filename: string) {
   const bom = String.fromCharCode(0xfeff); // Excel needs a UTF-8 BOM to render Chinese
   const csv = bom + rows.map((r) => r.map(csvCell).join(',')).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

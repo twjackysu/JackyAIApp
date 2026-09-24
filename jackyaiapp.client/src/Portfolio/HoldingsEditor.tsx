@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { AmountRow } from './AmountRow';
 import { EditorRow, isRowEmpty, makeRow, rowError, toRow } from './editorTypes';
 import { FundRow } from './FundRow';
+import { HoldingsImportDialog } from './HoldingsImportDialog';
 import { useEditorTour } from './onboardingTour';
 import { StockRow } from './StockRow';
 import { UpdateHistoryDialog } from './UpdateHistoryDialog';
@@ -83,6 +84,8 @@ export function HoldingsEditor() {
   const removeRow = (key: string) => setRows((rs) => rs.filter((r) => r._key !== key));
   const addRow = (type: 'STOCK' | 'CASH' | 'LIABILITY' | 'REAL_ESTATE' | 'FUND', market?: string) =>
     setRows((rs) => [...rs, makeRow(type, market)]);
+  const importRows = (positions: PositionInput[]) =>
+    setRows((rs) => [...rs, ...positions.map(toRow)]);
 
   // Rows the user actually started filling in (blank ones are dropped silently).
   const meaningfulRows = rows.filter((r) => !isRowEmpty(r));
@@ -126,7 +129,18 @@ export function HoldingsEditor() {
         fullWidth
         fullScreen={fullScreen}
       >
-        <DialogTitle>更新持倉</DialogTitle>
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 1,
+          }}
+        >
+          更新持倉
+          <HoldingsImportDialog onImport={importRows} />
+        </DialogTitle>
         <DialogContent
           sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: '16px !important' }}
         >

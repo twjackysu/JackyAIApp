@@ -1782,3 +1782,74 @@
   22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-24 — Frontend Engineer: TASK-015 implemented, PR opened (scheduled run)
+
+- Picked up `TASK-015` (Portfolio CSV import for holdings), `READY`/unclaimed per the previous
+  Tech Lead run. Read `ARCHITECTURE.md`'s "Decision: Portfolio CSV import for holdings — Gap
+  Audit item 2" before starting, in particular the two correctness traps it calls out: the
+  import schema must **not** round-trip the export CSV (export's `成本(TWD)` is converted, not
+  `PositionInput.costBasis`), and the existing `DataAnalysis/components/UploadDataDialog.tsx`
+  parser (`detectSep`/`parseLine`/`parseTabular`) had to be extracted and reused, not
+  reimplemented.
+- Implemented exactly as scoped: extracted the parser into a new shared
+  `jackyaiapp.client/src/utils/tabularParse.ts` (behavior-preserving — `UploadDataDialog.tsx`
+  now imports from it; added a test file for this logic since none existed before); new
+  `Portfolio/csvImport.ts` with the purpose-built import column schema (`類型`/`代號`/`名稱`/
+  `市場`/`計價幣別`/`成本幣別`/`數量`/`成本`/`估價方式`) mapping each parsed CSV row to a
+  `PositionInput` and validating it through the existing `rowError()` — no second validation
+  system; new `Portfolio/HoldingsImportDialog.tsx` (self-contained trigger + sub-dialog, same
+  pattern as the existing `UpdateHistoryDialog`) wired into `HoldingsEditor.tsx`'s update-dialog
+  title. Import only populates the editor's `rows` state (`.map(toRow)`) — it never calls
+  `useSaveHoldingsMutation` directly, so a bad import always goes through the normal
+  review/edit/save flow. A "下載匯入範本" button downloads a template CSV built from the same
+  header/row constants the parser validates against (single source of truth, so the template
+  can never drift from what import actually accepts — verified by a test that round-trips the
+  template through the parser and asserts zero errors).
+- Exported `TYPE_LABEL` and `downloadCsv` from `portfolioExport.ts` (previously module-private)
+  so `csvImport.ts` could reverse-look-up the Chinese asset-type labels and reuse the existing
+  CSV-download helper instead of duplicating either.
+- `npm run lint` (0 warnings), `npm run build` (tsc + vite), `npx vitest run` all green —
+  168/168 tests (up from 147; 21 new across `tabularParse.test.ts`, `csvImport.test.ts`,
+  `HoldingsImportDialog.test.tsx`), no regressions. Not manually verified in a running browser
+  this session — flagged as a Known Issue on `TASK-015` for a pass before/at QA, same caveat
+  `TASK-014` carried.
+- `TASK-015` moved `READY` → `PR_OPENED`; PR link to be filled in once opened (see
+  `TASK-015.md`'s Result section for full implementation notes).
+
+**Also flagging, not acted on this run**: while checking GitHub for open work before starting,
+found a QA comment posted 2026-09-23T16:20Z on `TASK-014`'s already-merged PR #364 (multi-stock
+comparison tab) — a real MEDIUM-severity bug: an individual stock's failed lookup on the
+comparison tab also triggers the single-stock tab's shared `comprehensiveError` Alert (both tabs
+share one `useGetComprehensiveAnalysisMutation()` trigger, and RTK Query's mutation hook only
+reflects the *last* call's `error`), duplicating/confusing the per-slot error UI the comparison
+tab is supposed to show on its own. The QA comment already asks Tech Lead to open a proper
+follow-up task and to confirm whether skipping `READY_FOR_QA` before merging #364 was
+intentional — both are Tech Lead/Boss calls, not something to act on unilaterally from a
+Frontend Engineer run per this role's own scope rules (§5/§17); noting it here so the next
+Tech Lead run doesn't have to rediscover it. Also noticed `TASK-014.md`'s `Status:` field still
+reads `PR_OPENED` though PR #364 is merged — same bookkeeping pattern Tech Lead has closed out
+for every prior task, not touched here per §10/§18.
+
+## Open Items
+- **New, from this run**: `TASK-014`'s merged PR #364 has an unresolved MEDIUM-severity bug
+  reported by QA on GitHub (comparison-tab per-stock failures leak into the single-stock tab's
+  shared error Alert, via the two tabs sharing one RTK Query mutation trigger) — needs a Tech
+  Lead follow-up task; also needs a Tech Lead/Boss decision on whether merging without
+  `READY_FOR_QA` was intentional. See the PR #364 comment thread for full detail.
+- Carried over: `TASK-014.md`'s `Status:` field still reads `PR_OPENED` though PR #364 is
+  merged — bookkeeping close-out (plus a `## Review` section) still pending, Tech Lead's per
+  the established pattern.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a day into a second week with no reply; still not
+  urgent (current system is dormant, not causing active harm), and does not
+  block Gap Audit work.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: the task-claiming-mechanism proposal (Tech Lead, 2026-09-20/
+  22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.
