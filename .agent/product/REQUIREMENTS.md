@@ -732,8 +732,13 @@ this doc's prior (stale, now-corrected above) description. Findings:
   — despite both modules already sharing the same TW price-data providers
   under the hood.
 - CSV **export** exists (`portfolioExport.ts`) but there's no matching
-  **import** — the export schema already matches `SaveHoldingsRequest`'s
-  shape, so this is a real, easily-closed asymmetry.
+  **import** — a real, easily-closed asymmetry. **Correction (2026-09-24,
+  Tech Lead scoping)**: the export schema does *not* actually match
+  `SaveHoldingsRequest`'s shape as originally assumed here — it's a computed
+  report (TWD-converted market value/cost/P&L), not an input schema. Import
+  needs its own purpose-built column schema; see `TASK-015` and
+  `ARCHITECTURE.md`. Still cheap/frontend-only, just not a literal
+  round-trip of the export file.
 - No rebalancing-suggestion feature (target allocation vs. actual) despite
   the allocation/category data needed for it already being computed
   (`ConcentrationCard`, `groupBy=category`).
@@ -770,12 +775,12 @@ sign-off, same as the original Skill-Building proposal):
   `CreditCosts.PortfolioAiSummary = 2`) is itself a credit-gated feature in
   scope for the Credits & Payments removal (DECISION-006) — its own scoping
   should assume free-with-usage-cap, not a credit charge.
-- **Next unblocked item (2026-09-23)**: with Finance Gap Audit proposals
-  1-3 (cross-link, prediction tracking, multi-stock comparison) all now
-  merged and product-verified, the approved priority order's next item is
-  **this module's own proposal 2 — CSV import for holdings**. Ready for
-  Tech Lead to scope next run — no further Boss sign-off needed, per the
-  already-approved order (DECISION-006's status entry, "1. 是，可以").
+- **Scoped (2026-09-24)**: proposal 2 (CSV import for holdings) is now
+  scoped as `TASK-015` (Frontend, READY, unclaimed) — see
+  `ARCHITECTURE.md` → "Decision: Portfolio CSV import for holdings — Gap
+  Audit item 2" for the full investigation, including the schema
+  correction noted above. Next after this: proposal 3 (rebalancing
+  suggestions).
 
 ---
 

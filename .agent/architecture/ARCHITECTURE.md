@@ -1073,4 +1073,153 @@ layout wrapper.
   category-row comparison grid, composed from existing `CategoryScoreCard`).
   No DTO/API contract change, no backend PR needed.
 
+## Decision: Portfolio CSV import for holdings — Gap Audit item 2
+
+### Context
+`REQUIREMENTS.md` → Portfolio's Gap Audit (2026-09-20) names proposal 2: CSV
+**import** to close the asymmetry with the existing CSV **export**
+(`portfolioExport.ts`). PM's original framing claimed "the export schema
+already matches `SaveHoldingsRequest`'s shape" and estimated this as mostly
+frontend work reusing `PositionInput` + `SaveHoldingsAsync`'s existing
+defensive row validation. Unblocked as the next default Tech Lead item per
+the already-approved Finance/Portfolio Gap Audit priority order
+(`REQUIREMENTS.md`, PM 2026-09-23 entry) — no further Boss sign-off needed.
+
+### Investigation
+- **Correction to PM's cost framing**: read `exportPortfolioCsv` in
+  `Portfolio/portfolioExport.ts` directly — its schema does **not** match
+  `PositionInput`. It's a computed report: `市值(TWD)`/`成本(TWD)`/
+  `未實現損益(TWD)`/`損益%`/`估計賣出費用(TWD)`/`累計股息(TWD)`/`曝險倍數`
+  are all derived, TWD-converted, or read-only fields with no `PositionInput`
+  equivalent, and `成本(TWD)` in particular is the *converted* total cost —
+  `PositionInput.CostBasis` is a total in `costCurrency` (the original,
+  unconverted currency; confirmed via `CostBasisInput.tsx`'s per-unit-average
+  UI, which operates on `costBasis / quantity` in the position's own
+  currency). Round-tripping the export file verbatim would silently import
+  wrong cost-basis numbers for any foreign-currency holding. Import needs its
+  own purpose-built column schema instead — same kind of scope correction as
+  the Finance sector-comparison item (PM's cost estimate was directionally
+  right — this is still cheap, frontend-only — but the specific mechanism
+  needs to change).
+- `SaveHoldingsAsync` (`PortfolioService.cs`) already does defensive
+  server-side validation on `SaveHoldingsRequest.Positions` (drops
+  zero-quantity rows and symbol-less STOCK/FUND rows) — no backend change
+  needed; imported rows ride the same save path as manually-entered ones.
+- `HoldingsEditor.tsx` already works as a rows-in-state editor
+  (`EditorRow[]`, one dialog, add/edit/remove, save-on-submit) fed from
+  `editorTypes.ts`. Critically, `toRow(p: PositionInput): EditorRow` already
+  exists and does exactly what CSV-import needs per row (attach a fresh
+  `_key`) — no new row-construction helper required, just build
+  `PositionInput[]` from parsed CSV rows and `.map(toRow)`.
+- `StockRow.tsx`/`FundRow.tsx` both key their UI off `picked = !!row.symbol`
+  — once `symbol` is non-empty they render as an already-selected chip and
+  skip the live `useSearchStocksQuery`/fund-search Autocomplete entirely.
+  This means an imported STOCK/FUND row with `symbol`+`name` already
+  populated from the CSV renders correctly with **no dependency on the
+  search API matching the imported symbol** — the row is trusted as-is, same
+  as a row restored from `UpdateHistoryDialog`'s snapshot-load path
+  (`loadFromSnapshot`, which also skips the search step).
+- Existing per-row validation (`rowError()` in `editorTypes.ts`, surfaced via
+  `error={submitted ? rowError(r) : null}` in every `*Row` component) is
+  reusable as-is — imported rows land in `rows` state exactly like
+  manually-added ones and get the same red-highlight-on-save-attempt
+  treatment. No new validation UI needed.
+- Found a reusable, already-written generic CSV/TSV parser:
+  `DataAnalysis/components/UploadDataDialog.tsx` has local
+  `detectSep`/`parseLine`/`parseTabular` functions (quoted-CSV-aware,
+  comma/tab auto-detect, header-row-keyed output) built for an unrelated
+  feature (ad-hoc data upload for `DataAnalysis`). Writing a second
+  independent CSV parser for this task would duplicate that logic and risk
+  the two silently drifting apart (same category of risk flagged for the SEO
+  text formatter in `TASK-001`–`003`) — extract it into a shared util instead
+  of copying it.
+
+### Decision
+Frontend-only, no backend/DB/DTO change:
+1. **Extract the existing parser**: move `detectSep`/`parseLine`/
+   `parseTabular` out of `DataAnalysis/components/UploadDataDialog.tsx` into
+   a new shared `jackyaiapp.client/src/utils/tabularParse.ts` (pure
+   functions, already have no external deps). `UploadDataDialog` imports
+   from there instead of defining its own copy — behavior-preserving
+   refactor, `DataAnalysis` gets no functional change. Portfolio's new
+   import feature imports the same module. One parser, two callers.
+2. **New purpose-built import column schema** (distinct from the export
+   schema — see Investigation), documented as a downloadable template:
+   `類型` (STOCK/CASH/FUND/LIABILITY/REAL_ESTATE or their `TYPE_LABEL`
+   Chinese labels — accept either), `代號` (required for STOCK/FUND),
+   `名稱`, `市場` (STOCK only: TW/US, defaults TW), `計價幣別`,
+   `成本幣別` (optional, defaults to 計價幣別), `數量`, `成本` (optional —
+   **total cost in 成本幣別, unconverted**, matching `PositionInput.CostBasis`
+   exactly, not the export's TWD-converted figure), `估價方式` (REAL_ESTATE
+   only).
+3. **New "匯入 CSV" entry point** inside `HoldingsEditor`'s existing update
+   dialog (button near the dialog title, alongside the per-section "新增"
+   buttons) — opens a small file-picker sub-dialog: pick a `.csv` file →
+   parse via the shared util → map each parsed row to a `PositionInput` per
+   the schema above → validate (reuse `rowError`) → show a preview (row
+   count, valid/invalid split, first few rows) → "加入" appends the mapped
+   rows to the existing `rows` state (`.map(toRow)` then
+   `setRows((rs) => [...rs, ...imported])`), same as if the user had added
+   and filled each row by hand. Does **not** auto-save — the user still
+   reviews/edits in the normal editor UI and clicks the existing "儲存"
+   button, so all existing client- and server-side validation applies
+   unchanged.
+4. **"下載匯入範本" button** next to the import button: generates a small
+   template CSV (headers + 1-2 example rows) via the existing `downloadCsv`
+   helper in `portfolioExport.ts`, so a user knows the exact expected column
+   names without guessing.
+5. Invalid/unparseable rows (bad type, missing required field) are flagged
+   in the preview and excluded from "加入" by default (or included but
+   pre-flagged — engineer's call on the exact UX, as long as a bad row can
+   never silently produce a wrong save); this mirrors `SaveHoldingsAsync`'s
+   own "defensive, drop what's meaningless" posture rather than hard-failing
+   the whole import over one bad line.
+
+### Reason
+Reusing `toRow`/`rowError`/the existing rows-state editor means imported
+holdings go through exactly the same review-and-validate path as manually
+typed ones — no second, parallel "import validation" system to keep in sync
+with the editor's own rules. Keeping import as "populate the editor, don't
+auto-save" (rather than a direct import → `SaveHoldingsAsync` call) means a
+bad CSV can never silently overwrite a snapshot; the user always sees and
+can correct what was parsed before it's persisted.
+
+### Alternatives considered
+- **Round-trip the existing export CSV format**: rejected — see
+  Investigation; the export schema is a computed report, not an input
+  schema, and treating `成本(TWD)` as `costBasis` would silently corrupt
+  cost basis for every foreign-currency holding.
+- **Direct import → `SaveHoldingsAsync` call, bypassing the editor UI**:
+  rejected — skips all review/validation UX the manual-entry path already
+  has; a parsing mistake would save straight to a snapshot with no chance to
+  catch it first.
+- **A second independent CSV parser inside Portfolio**: rejected — the
+  generic tabular parser in `UploadDataDialog.tsx` already does everything
+  needed (quoted-CSV, comma/tab detection, header-keyed rows); duplicating
+  it is unnecessary drift risk for zero benefit.
+
+### Trade-offs
+- Import format is a new schema the user must learn (via the template
+  download), not "just re-upload what you exported" — a real, if small, UX
+  cost, but the only correct option given the export schema's computed
+  fields (see Investigation). Flagged to Boss as informational, not asking
+  for a decision — there is no cheaper correct alternative.
+- STOCK/FUND rows imported by symbol are **not** validated against the live
+  `useSearchStocksQuery`/fund-search results (see Investigation) — a typo'd
+  symbol will save as-is rather than being caught at import time. Acceptable
+  because the same is already true of `UpdateHistoryDialog`'s snapshot-load
+  path; a follow-up could add an optional "re-verify against search" pass if
+  this turns out to matter in practice, not scoped here.
+
+### Impact
+- `jackyaiapp.client` only: new `utils/tabularParse.ts` (extracted, shared),
+  `DataAnalysis/components/UploadDataDialog.tsx` (import from the extracted
+  util instead of its own local copy — behavior-preserving), `Portfolio/
+  HoldingsEditor.tsx` (new import entry point), a new `Portfolio/
+  csvImport.ts` (or similar — row-mapping/validation logic, unit-testable
+  as pure functions per the project's existing `*.test.ts` convention for
+  Portfolio helpers like `concentration.ts`/`exposureGauges.ts`), and an
+  addition to `portfolioExport.ts` (or a sibling file) for the template
+  download. No backend PR needed.
+
 See `TASK-014` (Frontend only).

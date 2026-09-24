@@ -1720,3 +1720,65 @@
   22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-24 — Tech Lead: scoped Portfolio Gap Audit item 2 (CSV import) (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message since the 2026-09-13 sign-off on the SEO
+  middleware direction — DECISION-006's free-usage-cap question is still
+  the only unanswered item, and it doesn't block this work (Gap Audit is
+  explicitly sequenced ahead of the Credits removal per `REQUIREMENTS.md`).
+  Confirmed via GitHub: no open PRs, nothing pending review. Picked up the
+  standing Open Item: PM's 2026-09-23 unblock of Portfolio Gap Audit
+  proposal 2 (CSV import for holdings).
+- **Found and corrected a cost-framing error in the original proposal**:
+  PM's writeup (and this doc, until this run) claimed "the export schema
+  already matches `SaveHoldingsRequest`'s shape." Read `portfolioExport.ts`
+  and `PortfolioDto.cs` directly before scoping — that's false. The export
+  CSV is a computed report (TWD-converted market value/cost basis/P&L);
+  `PositionInput.CostBasis` is an unconverted total in the position's own
+  `costCurrency`. Treating the export's `成本(TWD)` column as importable
+  `costBasis` would silently corrupt cost-basis data for every
+  foreign-currency (US stock, foreign-NAV fund) holding on import. Same
+  category of correction as the Finance multi-stock item's sector-data gap
+  (2026-09-23) and the reading-comprehension personalization note
+  (2026-09-16) — PM's cost estimate stays right (still cheap, frontend-only),
+  the specific mechanism needed a fix before handing it to an Engineer.
+- Also found a reusable asset: `DataAnalysis/components/UploadDataDialog.tsx`
+  already has a generic, quoted-CSV-aware CSV/TSV parser
+  (`detectSep`/`parseLine`/`parseTabular`) built for an unrelated feature.
+  Scoped this task to extract it into a shared `utils/tabularParse.ts`
+  rather than writing a second independent parser — avoids the same kind of
+  silent-drift risk the SEO text formatter was fixed for in `TASK-001`–`003`.
+- Documented the full investigation and decision in `ARCHITECTURE.md` →
+  "Decision: Portfolio CSV import for holdings — Gap Audit item 2". Created
+  `TASK-015` (Frontend only: extract the shared parser, a new
+  purpose-built import column schema distinct from the export schema, an
+  "匯入 CSV" entry point inside `HoldingsEditor`'s existing dialog that
+  populates the editor's row state — reusing `toRow`/`rowError` as-is —
+  rather than saving directly, plus a "下載匯入範本" template download) —
+  `READY`, unclaimed, no dependency on any other open task.
+- `REQUIREMENTS.md`: corrected the stale "export schema already matches"
+  claim in Portfolio's Gap Audit findings, and updated the Open Questions
+  entry to point at `TASK-015` instead of "ready to scope."
+- No application code changes — architecture/task/requirements/status
+  documentation only. Committed and pushed directly to `master` per this
+  role's own git rule (§16).
+
+## Open Items
+- **New, from this run**: `TASK-015` (Portfolio CSV import) is `READY`,
+  unclaimed — next Backend/Frontend Engineer run should pick it up (it's
+  frontend-only, so Frontend Engineer specifically).
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a day into a second week with no reply; still not
+  urgent (current system is dormant, not causing active harm), and does not
+  block Gap Audit work.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: the task-claiming-mechanism proposal (Tech Lead, 2026-09-20/
+  22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.
