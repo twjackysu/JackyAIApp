@@ -208,5 +208,7 @@ Implemented exactly as scoped in `ARCHITECTURE.md` — frontend-only, no backend
 ### Blockers
 None.
 
+**PR**: https://github.com/twjackysu/JackyAIApp/pull/366
+
 ## Review
 (Fill in after PR review.)
