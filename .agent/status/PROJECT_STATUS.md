@@ -1814,8 +1814,8 @@
   `HoldingsImportDialog.test.tsx`), no regressions. Not manually verified in a running browser
   this session — flagged as a Known Issue on `TASK-015` for a pass before/at QA, same caveat
   `TASK-014` carried.
-- `TASK-015` moved `READY` → `PR_OPENED`; PR link to be filled in once opened (see
-  `TASK-015.md`'s Result section for full implementation notes).
+- `TASK-015` moved `READY` → `PR_OPENED`; PR
+  https://github.com/twjackysu/JackyAIApp/pull/368 recorded on the task.
 
 **Also flagging, not acted on this run**: while checking GitHub for open work before starting,
 found a QA comment posted 2026-09-23T16:20Z on `TASK-014`'s already-merged PR #364 (multi-stock
