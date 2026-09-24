@@ -7,7 +7,7 @@ Frontend: CSV import for Portfolio holdings (Gap Audit item 2)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM (per PM's approved Gap Audit order — Portfolio proposal 2, next
@@ -130,7 +130,31 @@ Read it before implementing — in particular:
 None — pure frontend, no other open task's code needed.
 
 ## Result
-(Fill in when implemented.)
+
+Three independent sessions picked up this `READY` task and each opened a full
+implementation — #366, #367, #368 (same duplicate-PR pattern this project has
+hit before on `TASK-002`/`TASK-008`/`TASK-011`/`TASK-012`). Compared all three
+diffs directly rather than trusting self-reports:
+
+- **#366** did not route imported rows through the existing `rowError()`
+  validator — it re-implemented required-field checks (代號/數量) itself
+  instead, which the task's own Technical Notes explicitly warn against
+  ("do not fork or duplicate row validation logic for the import path"). Its
+  template round-trip check was also manual/uncommitted, not an automated
+  test.
+- **#367** and **#368** both correctly build an `EditorRow` via `toRow()` and
+  validate it with the existing `rowError()` — no second validation system.
+  **#367** has broader test coverage (35 new tests vs. #368's 21) and its
+  round-trip test exercises the actual `downloadImportTemplateCsv()` output
+  (captures the real `Blob`, parses it back) rather than only the header/row
+  constants — closer to what the acceptance criterion asks for.
+
+**Kept #367**: https://github.com/twjackysu/JackyAIApp/pull/367
+Closed #366 and #368 as duplicates, each with a comment explaining the
+above. See PR comments on #366/#368 for the full reasoning, and #367's
+comment for the consolidation note.
+
+Status set to `PR_OPENED`, pointing at #367.
 
 ## Review
 (Fill in after PR review.)

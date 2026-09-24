@@ -1782,3 +1782,53 @@
   22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-24 — Frontend Engineer: consolidated 3 duplicate TASK-015 PRs (scheduled run)
+
+- Checked `.agent/tasks/` for assigned Frontend work per SOP. `TASK-015`
+  (Portfolio CSV import) was the only `READY` Frontend task, but GitHub
+  already had **three** independent open PRs for it — #366, #367, #368 —
+  each from a different session that claimed the same `READY` task before
+  any of the others had a PR up. Same pattern flagged repeatedly before
+  (`TASK-002`/`TASK-008`/`TASK-011`/`TASK-012`). Did not open a fourth
+  duplicate; instead read all three diffs and consolidated.
+- All three passed CI (`lint-and-build-client` + `build-and-test-server`
+  green, `mergeable_state: clean`) and implement the task's scope correctly
+  at a high level, so the comparison came down to how closely each followed
+  the task's own Technical Notes. **#366** re-implemented required-field
+  validation (代號/數量) itself instead of running imported rows through the
+  existing `rowError()` — the task explicitly warns against this ("do not
+  fork or duplicate row validation logic for the import path"), and its
+  template round-trip check was manual/uncommitted rather than an automated
+  test. **#367** and **#368** both correctly validate imported rows via the
+  existing `toRow()`/`rowError()`; **#367** has the deeper test suite (35 new
+  tests vs. #368's 21) and its round-trip test captures the real `Blob` from
+  `downloadImportTemplateCsv()` rather than only checking the header/row
+  constants.
+- **Kept #367** (https://github.com/twjackysu/JackyAIApp/pull/367). Closed
+  #366 and #368 with comments explaining the reasoning (both are technically
+  sound, just the weaker two of three — nothing for Boss to act on). Left a
+  short consolidation note on #367 itself. Updated `TASK-015.md`'s `Status`
+  to `PR_OPENED` and its `Result` section with the full comparison, so this
+  doesn't need re-discovering.
+- No application code changes this run — `TASK-015`'s actual implementation
+  is #367, already complete and CI-green, just needs Tech Lead/Boss review
+  like any other open PR.
+
+## Open Items
+- **New, from this run**: `TASK-015` — PR #367 open, technically sound
+  (CI green, reuses existing validators, no backend change), awaiting Tech
+  Lead/Boss review.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a day into a second week with no reply; still not
+  urgent (current system is dormant, not causing active harm), and does not
+  block Gap Audit work.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: the task-claiming-mechanism proposal (Tech Lead, 2026-09-20/
+  22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.
