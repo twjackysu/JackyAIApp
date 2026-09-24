@@ -131,6 +131,8 @@ None — pure frontend, no other open task's code needed.
 
 ## Result
 
+**PR**: https://github.com/twjackysu/JackyAIApp/pull/367
+
 Implemented as scoped in `ARCHITECTURE.md` — frontend-only, no backend/DB change.
 
 - **Extracted the shared parser**: `detectSep`/`parseLine`/`parseTabular` moved out of
