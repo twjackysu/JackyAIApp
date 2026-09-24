@@ -1,7 +1,8 @@
 import { NetWorthDataPoint, PortfolioSummaryDto } from '@/apis/portfolioApis/types';
 import { todayISO } from '@/utils/date';
 
-const TYPE_LABEL: Record<string, string> = {
+/** Also the source of truth for reverse-lookup in the CSV import schema — see `csvImport.ts`. */
+export const TYPE_LABEL: Record<string, string> = {
   STOCK: '股票',
   CASH: '現金',
   FUND: '基金',
@@ -16,7 +17,7 @@ const csvCell = (v: string | number | null | undefined) => {
 };
 
 /** Build a UTF-8-BOM CSV string and trigger a download. */
-function downloadCsv(rows: (string | number | null | undefined)[][], filename: string) {
+export function downloadCsv(rows: (string | number | null | undefined)[][], filename: string) {
   const bom = String.fromCharCode(0xfeff); // Excel needs a UTF-8 BOM to render Chinese
   const csv = bom + rows.map((r) => r.map(csvCell).join(',')).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -114,4 +115,28 @@ export function exportNetWorthCsv(points: NetWorthDataPoint[]) {
     groupValue(p, 'Liability'),
   ]);
   downloadCsv([headers, ...rows], `portfolio_networth_history.csv`);
+}
+
+/**
+ * Download a blank template for the holdings **import** schema (see `csvImport.ts`) — a distinct,
+ * purpose-built schema from the export above, not a round-trip of it (`成本` here is a total in
+ * `成本幣別`, unconverted; the export's `成本(TWD)` is a converted, computed figure).
+ */
+export function downloadPortfolioImportTemplateCsv() {
+  const headers = [
+    '類型',
+    '代號',
+    '名稱',
+    '市場',
+    '計價幣別',
+    '成本幣別',
+    '數量',
+    '成本',
+    '估價方式',
+  ];
+  const rows = [
+    ['股票', '2330', '台積電', 'TW', 'TWD', 'TWD', '1000', '500000', ''],
+    ['現金', '', '', '', 'TWD', '', '100000', '', ''],
+  ];
+  downloadCsv([headers, ...rows], 'portfolio_import_template.csv');
 }

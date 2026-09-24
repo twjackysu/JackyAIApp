@@ -1782,3 +1782,89 @@
   22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-24 — Frontend Engineer: TASK-015 implemented, PR opened; flagging a real post-merge bug on TASK-014 (scheduled run)
+
+- Read `.agent/tasks/`, `REQUIREMENTS.md`, `ARCHITECTURE.md` per SOP.
+  `TASK-014` (Finance multi-stock comparison) showed `Status: PR_OPENED` in
+  its task file but PR #364 was already merged into `master` — stale
+  bookkeeping, not touched here (that field is Tech Lead's/Boss's to close
+  per the established convention). `TASK-015` (Portfolio CSV import) was the
+  only `READY`/unclaimed Frontend task, so picked it up.
+- **Implemented `TASK-015` exactly as scoped**: extracted
+  `detectSep`/`parseLine`/`parseTabular` out of `UploadDataDialog.tsx` into
+  a new shared `utils/tabularParse.ts` (behavior-preserving, `DataAnalysis`
+  unchanged); new `Portfolio/csvImport.ts` (`mapCsvRowToPosition`/
+  `mapCsvRows`) implementing the purpose-built import column schema from
+  the Architecture doc — distinct from the export schema, reuses `TYPE_LABEL`
+  (now exported from `portfolioExport.ts`) and `editorTypes.ts`'s `makeRow`
+  for per-type defaults rather than a second copy of either; new
+  `Portfolio/ImportCsvDialog.tsx` (file picker → parse → map → preview
+  valid/invalid split → "加入" appends into `HoldingsEditor`'s existing
+  `rows` state via `toRow`, never calls the save mutation directly); new
+  `downloadPortfolioImportTemplateCsv()` in `portfolioExport.ts` reusing the
+  existing `downloadCsv` helper. Manually round-tripped the exact template
+  content through `parseTabular`→`mapCsvRows` (0 invalid/2 valid) to confirm
+  the template's headers exactly match what import expects, per the
+  acceptance criterion.
+- `npm run lint` (0 warnings after `eslint --fix` for two Prettier nits),
+  `npm run build`, `npx vitest run` all green — 157/157 tests (147 existing
+  + 10 new in `csvImport.test.ts`), no regressions. No dedicated
+  `ImportCsvDialog` component test — its real logic is the pure
+  `csvImport.ts` mapping, already fully covered; same precedent `TASK-007`
+  used for `ReadingTestCard`. Not manually verified in a running browser
+  this session — flagged in `TASK-015.md`'s Known Issues for QA.
+  Opened the PR against `master`; see `TASK-015.md` for the link and full
+  Result notes. Subscribed to the PR to drive it to green / respond to
+  review.
+- **Found a real, well-specified bug on the already-merged `TASK-014` PR
+  (#364) while checking its status before starting** — not part of this
+  task's own scope, flagging rather than fixing unprompted (§17/§20): the
+  repo owner (twjackysu) commented on #364 five hours after merge, having
+  done the post-hoc QA pass the PR itself had skipped (this PR reached
+  `master` without going through `READY_FOR_QA`/Tech Lead review). Found
+  bug, MEDIUM severity: on Finance's "多股比較" (comparison) tab, entering a
+  stock code that fails `comprehensive-analysis` also pops the *single-stock*
+  tab's top-level "綜合分析失敗..." `Alert` regardless of which tab is
+  active, alongside the correct per-slot inline error. Root cause per the
+  comment: `useFinanceAnalysis.ts`'s `fetchComprehensiveAnalysis` shares one
+  `useGetComprehensiveAnalysisMutation()` trigger between the single-stock
+  tab and `runComparison()`'s `Promise.all` — RTK Query's mutation hook only
+  reflects the *last* call's `error`, and `Finance/index.tsx` renders that
+  shared error unconditionally. `comparisonError` itself is unaffected
+  (stays `null` correctly); this is state bleeding from the shared hook, not
+  a bug in the comparison error path itself. Suggested fix (from the
+  comment): give the comparison tab its own separate
+  `useGetComprehensiveAnalysisMutation()` instance. Not caught by the
+  147/147 passing tests because they use `renderToStaticMarkup` (no
+  `@testing-library/react` in this project) and never actually invoke
+  `runComparison()`.
+- The owner's comment also raised a process question (was skipping
+  `READY_FOR_QA` on #364 intentional, or a gap?) and asked for a follow-up
+  task to be filed — both are Tech Lead/Boss calls, not Frontend Engineer's
+  to decide or to create unilaterally per SOP §5/§17/§20. Logging the full
+  repro/root-cause/fix here so the next Tech Lead run can file it as a task
+  (or fold it into a QA pass) without re-discovering it from the GitHub
+  comment.
+
+## Open Items
+- **New, from this run**: `TASK-015` (Portfolio CSV import) — PR opened,
+  awaiting Tech Lead/Boss review. Not yet `MERGED`.
+- **New, needs Tech Lead/Boss attention**: a real MEDIUM-severity bug on
+  merged `TASK-014` (Finance comparison tab shows a spurious duplicate
+  top-level error `Alert` on a per-stock lookup failure, via a shared RTK
+  Query mutation trigger — see this run's entry above for full repro/root
+  cause/suggested fix) needs a follow-up task filed; plus a process question
+  on whether skipping `READY_FOR_QA` for #364 was intentional. Both raised
+  by the repo owner directly on PR #364's comments, not yet acted on.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21).
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: the task-claiming-mechanism proposal (Tech Lead, 2026-09-20/
+  22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.
