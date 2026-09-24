@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -15,8 +16,10 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useState } from 'react';
 
 import { AmountRow } from './AmountRow';
+import { downloadImportTemplateCsv } from './csvImport';
 import { EditorRow, isRowEmpty, makeRow, rowError, toRow } from './editorTypes';
 import { FundRow } from './FundRow';
+import { ImportCsvDialog } from './ImportCsvDialog';
 import { useEditorTour } from './onboardingTour';
 import { StockRow } from './StockRow';
 import { UpdateHistoryDialog } from './UpdateHistoryDialog';
@@ -126,7 +129,27 @@ export function HoldingsEditor() {
         fullWidth
         fullScreen={fullScreen}
       >
-        <DialogTitle>更新持倉</DialogTitle>
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 1,
+          }}
+        >
+          更新持倉
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              size="small"
+              startIcon={<DownloadIcon fontSize="small" />}
+              onClick={downloadImportTemplateCsv}
+            >
+              下載匯入範本
+            </Button>
+            <ImportCsvDialog onImport={(imported) => setRows((rs) => [...rs, ...imported])} />
+          </Box>
+        </DialogTitle>
         <DialogContent
           sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: '16px !important' }}
         >

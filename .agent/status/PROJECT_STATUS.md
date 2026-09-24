@@ -1782,3 +1782,89 @@
   22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-24 — Frontend Engineer: TASK-015 implemented, PR opened (scheduled run)
+
+- Picked up `TASK-015` (Portfolio CSV import for holdings), scoped `READY`
+  by Tech Lead earlier the same day. Read `ARCHITECTURE.md`'s "Decision:
+  Portfolio CSV import for holdings — Gap Audit item 2" in full before
+  starting, in particular the import-vs-export schema distinction and the
+  extract-don't-duplicate note on `UploadDataDialog.tsx`'s existing parser.
+- Extracted `detectSep`/`parseLine`/`parseTabular` into new
+  `utils/tabularParse.ts`; `UploadDataDialog.tsx` now imports from there —
+  behavior-preserving, its own new component test plus `npx vitest run`
+  confirm no regression (that file had no pre-existing tests to preserve).
+- New `Portfolio/csvImport.ts`: `mapImportRow` (the purpose-built schema —
+  `類型`/`代號`/`名稱`/`市場`/`計價幣別`/`成本幣別`/`數量`/`成本`/`估價方式`,
+  reverse-looking-up `類型`'s Chinese label against `portfolioExport.ts`'s
+  now-exported `TYPE_LABEL` instead of a second copy), `buildImportPreview`
+  (reuses `toRow`/`rowError` from `editorTypes.ts` unmodified — no second
+  validator), `downloadImportTemplateCsv` (reuses `portfolioExport.ts`'s
+  now-exported `downloadCsv`). New `Portfolio/ImportCsvDialog.tsx`
+  (self-contained trigger+dialog, same pattern as `UpdateHistoryDialog.tsx`)
+  wired into `HoldingsEditor.tsx`'s update-dialog title alongside a new
+  "下載匯入範本" button. Import only populates the editor's `rows` state
+  (`setRows((rs) => [...rs, ...imported])`) — never calls
+  `useSaveHoldingsMutation` directly, so a bad import is always
+  reviewable/editable before the existing "儲存快照" button persists it.
+  Invalid rows are excluded from "加入" by default with a visible
+  "N 筆略過，欄位有誤" count, per the task's first listed acceptable UX.
+- Added a dedicated test that downloads the template CSV and round-trips it
+  back through `mapImportRow`/`buildImportPreview`, confirming every
+  template row (including the example STOCK/CASH rows) parses back into a
+  fully valid, importable row — the acceptance criterion that asked for a
+  manual round-trip check, automated instead of left as a manual step.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` all
+  green — 182/182 tests (up from 147), no regressions. (`node_modules`
+  needed a fresh `npm ci` in this sandbox before any of the three would
+  run — not a code issue, same as prior sessions' notes.)
+- Opened PR (see `TASK-015.md`'s Result section for the link once
+  available); `TASK-015` moved `READY` → `PR_OPENED`. Not manually verified
+  in a running browser this session — flagged as a Known Issue on the task,
+  same limitation `TASK-014` had.
+- **Flagging for Tech Lead, not acted on this run** (out of this role's
+  scope — no task file exists for it yet): a QA comment landed on the
+  already-merged `TASK-014` PR (#364,
+  https://github.com/twjackysu/JackyAIApp/pull/364#issuecomment-5798485642,
+  2026-09-23T16:20Z, after this doc's last update) reporting a real MEDIUM
+  bug — entering an invalid code in the "多股比較" tab also pops the
+  single-stock tab's shared `Alert`, because `runComparison()` and
+  `runComprehensiveAnalysis` share one `useGetComprehensiveAnalysisMutation()`
+  trigger whose `error`/`isLoading` only reflect the *last* call, and
+  `Finance/index.tsx` renders that shared error regardless of which tab is
+  active. QA's own suggested fix: give the comparison tab its own mutation
+  trigger instead of sharing the single-stock tab's hook state. QA also
+  flagged that `#364` was merged before reaching `READY_FOR_QA` (Tech
+  Lead review and QA were both skipped), and asked Tech Lead/Boss to
+  confirm whether that was intentional. Needs a new Tech Lead-scoped task
+  (per QA's own recommendation) — not picked up here since it isn't yet an
+  assigned Frontend task and this run's actual assignment (`TASK-015`) was
+  unrelated.
+
+## Open Items
+- **New, from this run**: `TASK-015`'s PR is open — needs Tech Lead review
+  (and a manual browser smoke-test, per its Known Issues) before
+  `READY_FOR_QA`.
+- **New, from this run, needs Tech Lead**: QA-reported bug on the merged
+  `TASK-014` PR (#364) — comparison-tab per-stock failures leak into the
+  single-stock tab's shared error `Alert` via a shared RTK Query mutation
+  hook. See PR comment
+  https://github.com/twjackysu/JackyAIApp/pull/364#issuecomment-5798485642
+  for full repro/root-cause/suggested fix. No task file exists for this
+  yet — needs Tech Lead to scope a follow-up task (QA's own recommendation).
+  Also carries QA's process question: should `READY_FOR_QA`/Tech-Lead-review
+  be enforced before merge going forward, since this is the first PR to skip
+  both.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a day into a second week with no reply; still not
+  urgent (current system is dormant, not causing active harm), and does not
+  block Gap Audit work.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: the task-claiming-mechanism proposal (Tech Lead, 2026-09-20/
+  22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.
