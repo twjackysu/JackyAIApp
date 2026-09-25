@@ -1878,3 +1878,35 @@
   UI) — deliberately unscoped until rows are actually evaluable.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-25 — Frontend: TASK-016 fix (Finance comparison-tab shared-error leak, scheduled run)
+
+- Picked up `TASK-016` (`READY`, unclaimed per Tech Lead's last run) — the only
+  actionable Frontend-owned item. `TASK-014`/`TASK-015` are both further along
+  (`TASK-014` merged as #364; `TASK-015`'s surviving PR #367 is `READY FOR BOSS
+  REVIEW` but has a merge conflict on its own PR branch, which this session's
+  designated branch (`claude/amazing-cori-7dsxd8`) isn't authorized to push to —
+  left for whichever session owns that branch).
+- **Fix**: added a derived `showComprehensiveError` to `useFinanceAnalysis.ts`
+  (`analysisTab === TAB_QUANTITATIVE && !!comprehensiveError && !isComprehensiveLoading`),
+  single source of truth for the guard instead of an inline condition in
+  `Finance/index.tsx`; `index.tsx` now renders on that instead of the ungated
+  `comprehensiveError && !isComprehensiveLoading`. Confirmed `handleTabChange`'s
+  existing `clearSearchResults()` → `resetComprehensive()` already prevents any
+  stale-error flash on tab switch — no separate fix needed for requirement 2.
+- **Test**: added `Finance/hooks/useFinanceAnalysis.test.tsx` — this project's
+  first hook-level interaction test (no `@testing-library/react` dependency, so
+  built a small `createRoot`/`act` harness over a real `configureStore` +
+  mocked `fetch`, since QA's report on `TASK-014` noted the existing
+  `renderToStaticMarkup` pattern structurally can't catch this class of bug).
+  Reproduces the actual ordering-dependent mechanism (RTK Query's mutation hook
+  reflects whichever `trigger()` fired *last*) and asserts `showComprehensiveError`
+  stays `false` on the comparison tab even though the underlying `comprehensiveError`
+  is still truthy; a second test confirms the quantitative tab's own Alert is
+  unaffected. Verified both fail without the fix by temporarily reverting it.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (149/149, 2 new)
+  all pass.
+- Updated `TASK-016.md` (`READY` → `PR_OPENED`, filled in Result). Committed and
+  pushed to `claude/amazing-cori-7dsxd8`, then opened a GitHub PR against `master`.
+- No manual browser verification this session (no dev server / browser check
+  run) — flagged in the task's Known Issues for QA.

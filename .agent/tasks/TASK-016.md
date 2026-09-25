@@ -7,7 +7,7 @@ Frontend: Finance comparison tab's per-stock errors leak into the single-stock t
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM (correctness bug on already-shipped `master` code, not a regression
@@ -90,7 +90,63 @@ None — self-contained fix in already-merged code, no other open task
 touches these files.
 
 ## Result
-(Fill in when implemented.)
+
+**PR**: (to be filled in after push — see commit on `claude/amazing-cori-7dsxd8`)
+
+Implemented exactly the tab-gate fix the task scoped — no split into separate mutation
+triggers.
+
+- **`Finance/hooks/useFinanceAnalysis.ts`**: added a derived `showComprehensiveError =
+  analysisTab === TAB_QUANTITATIVE && !!comprehensiveError && !isComprehensiveLoading`,
+  computed alongside the hook's other derived values (`isAnyAnalyzing`, `isSearchTab`) and
+  returned from the hook. This makes the guard condition a single source of truth shared
+  by the hook and its test, instead of being duplicated inline in `index.tsx` and re-derived
+  separately in a test.
+- **`Finance/index.tsx`**: replaced the ungated `comprehensiveError && !isComprehensiveLoading`
+  condition on the quantitative-tab Alert (was line 268) with `showComprehensiveError`, and
+  dropped the now-unused `comprehensiveError`/`isComprehensiveLoading` destructures (nothing
+  else in this file read them).
+- Confirmed requirement 2 (no additional reset needed): `handleTabChange` already calls
+  `clearSearchResults()` → `resetComprehensive()` on every tab switch, so there's no stale-error
+  flash switching into the quantitative tab after a failed comparison run — verified by the
+  second new test below, which switches tabs implicitly by starting fresh.
+
+### Files Changed
+- `jackyaiapp.client/src/Finance/hooks/useFinanceAnalysis.ts`
+- `jackyaiapp.client/src/Finance/index.tsx`
+- `jackyaiapp.client/src/Finance/hooks/useFinanceAnalysis.test.tsx` (new)
+
+### Tests
+- New `useFinanceAnalysis.test.tsx` — the project's first hook-level interaction test (no
+  prior `use*.test.ts(x)` convention existed to follow; established one here since
+  `renderToStaticMarkup`, this project's only prior component-test pattern, can't observe
+  this class of cross-render-condition bug per the task's own note). Renders the real hook
+  via `react-dom/client`'s `createRoot` + `act` under a real `configureStore`
+  (`accountApis`+`financeApis` reducers/middleware only) and `MemoryRouter`, with `fetch`
+  mocked per-request-body (no `@testing-library/react` in this project).
+  - Test 1: adds a valid code then a failing code (order matters — RTK Query's mutation hook
+    reflects whichever `trigger()` fired *last*, so the failing code must be the one added
+    last to reproduce QA's exact repro) on the comparison tab, runs the comparison, and
+    asserts `comprehensiveError` is truthy (the leak mechanism still exists, unchanged) but
+    `showComprehensiveError` is `false`, and that `ComparisonResult`'s own per-slot
+    success/error states are correct.
+  - Test 2: a failed single-stock search on the quantitative tab still sets
+    `showComprehensiveError` to `true` (no regression).
+  - Verified both fail without the fix: temporarily reverted `showComprehensiveError`'s tab
+    check and confirmed test 1 fails (`expected true to be false`) before restoring it.
+- `npm run lint` — 0 warnings/errors.
+- `npm run build` (tsc + vite build) — passes.
+- `npx vitest run` — 149/149 passed (20 test files, 2 new), no regressions.
+- Manual browser verification not performed in this session (no dev server / browser check
+  run) — see Known Issues.
+
+### Known Issues
+- Not manually verified in a running browser this session — worth a quick manual pass at QA
+  (open comparison tab, enter a valid code then an invalid one, confirm no top-level Alert
+  appears; switch to the quantitative tab, confirm a failed search still shows it).
+
+### Blockers
+None.
 
 ## Review
 (Fill in after PR review.)

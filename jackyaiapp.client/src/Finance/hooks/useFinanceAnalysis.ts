@@ -249,6 +249,13 @@ export function useFinanceAnalysis() {
   const hasStockResults = !!searchResults || !!analysisResults || comparisonSlots.length > 0;
   const isAnyAnalyzing = isAnalyzing || isComprehensiveLoading;
   const isSearchTab = analysisTab === TAB_QUANTITATIVE || analysisTab === TAB_AI_TREND;
+  // `comprehensiveError`/`isComprehensiveLoading` come from the single `getComprehensiveAnalysis`
+  // mutation trigger shared with the comparison tab's `runComparison()` — RTK Query only reflects
+  // the *last*-triggered call's state, so a failing comparison fetch can leave this truthy while
+  // the user is on the comparison tab (which already shows its own per-slot errors). Gate it to
+  // the tab it actually belongs to so `Finance/index.tsx` never renders it there (see TASK-016).
+  const showComprehensiveError =
+    analysisTab === TAB_QUANTITATIVE && !!comprehensiveError && !isComprehensiveLoading;
 
   return {
     // search / config state
@@ -277,6 +284,7 @@ export function useFinanceAnalysis() {
     isAnalyzing,
     comprehensiveError,
     isComprehensiveLoading,
+    showComprehensiveError,
     // actions / derived
     handleStockSearch,
     clearSearchResults,

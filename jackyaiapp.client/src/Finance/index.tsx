@@ -57,8 +57,7 @@ function Finance() {
     refetch,
     analysisError,
     isAnalyzing,
-    comprehensiveError,
-    isComprehensiveLoading,
+    showComprehensiveError,
     handleStockSearch,
     clearSearchResults,
     hasStockResults,
@@ -265,7 +264,7 @@ function Finance() {
           股票分析失敗，請檢查股票代碼是否正確
         </Alert>
       )}
-      {comprehensiveError && !isComprehensiveLoading && (
+      {showComprehensiveError && (
         <Alert severity="error" sx={{ mb: 3 }}>
           綜合分析失敗，請檢查股票代碼是否正確
         </Alert>
