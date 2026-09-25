@@ -7,7 +7,7 @@ Frontend: Finance comparison tab's per-stock errors leak into the single-stock t
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM (correctness bug on already-shipped `master` code, not a regression
@@ -90,7 +90,52 @@ None — self-contained fix in already-merged code, no other open task
 touches these files.
 
 ## Result
-(Fill in when implemented.)
+Implemented exactly as scoped — the minimal tab-gate fix, no mutation-trigger split.
+
+- `Finance/hooks/useFinanceAnalysis.ts`: extracted the Alert's gating condition into an
+  exported pure function `shouldShowComprehensiveError(analysisTab, comprehensiveError,
+  isComprehensiveLoading)` (`analysisTab === TAB_QUANTITATIVE && !!comprehensiveError &&
+  !isComprehensiveLoading`) right next to the `TAB_*` constants. This is the same one-line
+  condition Requirement 1 asked for — extracted only so the regression test (Requirement 3)
+  can import and exercise the exact boolean the component renders with, instead of a copy of
+  it living only in the test.
+- `Finance/index.tsx:269`: now renders the Alert via
+  `shouldShowComprehensiveError(analysisTab, comprehensiveError, isComprehensiveLoading)`.
+- Requirement 2 confirmed, not just assumed: `handleTabChange` → `clearSearchResults()` →
+  `resetComprehensive()` already clears `comprehensiveError` on every tab switch. Added a
+  second test case exercising this directly (fail on quantitative tab, switch to comparison
+  tab, assert `comprehensiveError` is falsy and the gate reads `false`) — no additional reset
+  code was needed, matching the task's prediction.
+- Requirement 3 — new `Finance/hooks/useFinanceAnalysis.test.tsx`, a real interaction test
+  (not `renderToStaticMarkup`): no `use*.test.ts(x)`/interactive-render/`vi.mock` precedent
+  existed anywhere in this client (checked first, per the task's instruction), so established
+  a minimal one — `createRoot`/`act` from `react`/`react-dom/client` (already dependencies, no
+  new package added) driving a harness component that calls `useFinanceAnalysis()` directly,
+  wrapped in `MemoryRouter` (the hook calls `useSearchParams`). `@/apis/accountApis` and
+  `@/apis/financeApis`'s three consumed hooks are mocked via `vi.mock`;
+  `useGetComprehensiveAnalysisMutation`'s mock is a faithful small reimplementation (real
+  `useState`/`useCallback`, not a stub) of RTK Query's actual "one shared trigger, error/
+  isLoading reflect only the last call to settle" behavior, since that behavior is the actual
+  root cause under test, not something to be papered over by mocking it away.
+  - Test 1: switches to the comparison tab, adds a code whose mocked fetch rejects, runs
+    `runComparison()`, and asserts (a) the underlying race really happens — `comprehensiveError`
+    goes truthy while `analysisTab === TAB_COMPARISON` — confirming this is a real interaction
+    test of the actual bug mechanism, not a tautology; (b) `comparisonSlots` still correctly
+    shows the per-slot error; (c) `shouldShowComprehensiveError` reads `false` for the current
+    (comparison) tab and `true` if it were the quantitative tab — the regression guard itself.
+  - Verified this guard actually pins the fix: temporarily reverted
+    `shouldShowComprehensiveError` to the pre-fix condition (dropped the `analysisTab ===
+    TAB_QUANTITATIVE &&` clause) and re-ran — test 1 failed exactly as expected
+    (`expected true to be false`); restored and re-ran green. Not left as a permanent
+    mutation-style test, just a one-off local check before opening the PR.
+  - Test 2: Requirement 2's tab-switch-clears-stale-error case, described above.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (149/149, up from 147, 0
+  regressions) all pass. `node_modules` needed a fresh `npm ci` in this sandbox first — not a
+  code issue, same as prior Frontend runs' notes.
+- Not manually verified in a running browser (no browser available in this sandbox) — same
+  limitation flagged on `TASK-014`; recommend a quick manual pass (enter one bad + one good
+  code on 多股比較, confirm no top-level Alert; fail a quantitative search, confirm the Alert
+  still shows) before/at QA.
 
 ## Review
 (Fill in after PR review.)

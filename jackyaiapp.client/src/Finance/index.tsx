@@ -31,6 +31,7 @@ import { ComparisonResult } from './components/comparison/ComparisonResult';
 import { MarketSummaryTab } from './components/MarketSummaryTab';
 import {
   useFinanceAnalysis,
+  shouldShowComprehensiveError,
   TAB_QUANTITATIVE,
   TAB_AI_TREND,
   TAB_MARKET_SUMMARY,
@@ -265,7 +266,7 @@ function Finance() {
           股票分析失敗，請檢查股票代碼是否正確
         </Alert>
       )}
-      {comprehensiveError && !isComprehensiveLoading && (
+      {shouldShowComprehensiveError(analysisTab, comprehensiveError, isComprehensiveLoading) && (
         <Alert severity="error" sx={{ mb: 3 }}>
           綜合分析失敗，請檢查股票代碼是否正確
         </Alert>

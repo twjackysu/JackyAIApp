@@ -27,6 +27,22 @@ export const TAB_AI_TREND = 1;
 export const TAB_MARKET_SUMMARY = 2;
 export const TAB_COMPARISON = 3;
 
+/**
+ * `getComprehensiveAnalysis` (see `fetchComprehensiveAnalysis` below) is a single RTK Query
+ * mutation trigger shared by the quantitative tab's single search and the comparison tab's
+ * concurrent `Promise.all` calls. RTK Query only exposes the *last* triggered call's
+ * `error`/`isLoading` on the mutation hook — not per-call — so `comprehensiveError` can go
+ * truthy from a comparison-tab failure while the user is on the comparison tab. Gate rendering
+ * of the quantitative tab's error Alert through this so that leak never surfaces there.
+ */
+export function shouldShowComprehensiveError(
+  analysisTab: number,
+  comprehensiveError: unknown,
+  isComprehensiveLoading: boolean,
+): boolean {
+  return analysisTab === TAB_QUANTITATIVE && !!comprehensiveError && !isComprehensiveLoading;
+}
+
 /** One compared stock's fetch state, rendered as its own column by `ComparisonResult`. */
 export interface ComparisonSlot {
   code: string;
