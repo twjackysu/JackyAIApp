@@ -1,7 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
-import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -17,10 +15,8 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useState } from 'react';
 
 import { AmountRow } from './AmountRow';
-import { downloadImportTemplateCsv } from './csvImport';
 import { EditorRow, isRowEmpty, makeRow, rowError, toRow } from './editorTypes';
 import { FundRow } from './FundRow';
-import { ImportCsvDialog } from './ImportCsvDialog';
 import { useEditorTour } from './onboardingTour';
 import { StockRow } from './StockRow';
 import { UpdateHistoryDialog } from './UpdateHistoryDialog';
@@ -33,7 +29,6 @@ export function HoldingsEditor() {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [open, setOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const { data: holdingsRes } = useGetHoldingsQuery();
   const [saveHoldings, { isLoading: isSaving }] = useSaveHoldingsMutation();
 
@@ -88,10 +83,6 @@ export function HoldingsEditor() {
   const removeRow = (key: string) => setRows((rs) => rs.filter((r) => r._key !== key));
   const addRow = (type: 'STOCK' | 'CASH' | 'LIABILITY' | 'REAL_ESTATE' | 'FUND', market?: string) =>
     setRows((rs) => [...rs, makeRow(type, market)]);
-  // Imported rows are only appended to editor state, same as manually-added ones — the user
-  // still reviews them here and must click 儲存快照 to actually persist anything.
-  const handleImport = (positions: PositionInput[]) =>
-    setRows((rs) => [...rs, ...positions.map(toRow)]);
 
   // Rows the user actually started filling in (blank ones are dropped silently).
   const meaningfulRows = rows.filter((r) => !isRowEmpty(r));
@@ -135,25 +126,7 @@ export function HoldingsEditor() {
         fullWidth
         fullScreen={fullScreen}
       >
-        <DialogTitle
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 1,
-          }}
-        >
-          更新持倉
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Button size="small" startIcon={<DownloadIcon />} onClick={downloadImportTemplateCsv}>
-              下載匯入範本
-            </Button>
-            <Button size="small" startIcon={<UploadFileIcon />} onClick={() => setImportOpen(true)}>
-              匯入 CSV
-            </Button>
-          </Box>
-        </DialogTitle>
+        <DialogTitle>更新持倉</DialogTitle>
         <DialogContent
           sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: '16px !important' }}
         >
@@ -329,12 +302,6 @@ export function HoldingsEditor() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <ImportCsvDialog
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        onImport={handleImport}
-      />
     </>
   );
 }
