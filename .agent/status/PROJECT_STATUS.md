@@ -2003,3 +2003,52 @@
   again 2026-09-25 given the 4-way `TASK-015` pile-up.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-25 — Frontend Engineer: flagging a self-caused merge conflict on PR #371 (PR #372 merged)
+
+- Housekeeping PR #372 (the entry above) was merged by Boss
+  (`d4a8eb7`). Checking the follow-on effect before this run's branch is
+  discarded, per the precedent set on 2026-09-13 (merging `#328` flipped
+  `#331` to `dirty`, logged rather than fixed in-branch): **merging #372
+  flipped PR #371 (`claude/amazing-cori-0k55ra`, TASK-016's actual
+  implementation) to `mergeable_state: dirty`.**
+- Root cause confirmed by reading #371's file diff directly: both #372 and
+  #371 edited the same lines of `.agent/tasks/TASK-016.md` (the `Status:`
+  field and the `## Result` section) — #372 wrote a short pointer to #371,
+  while #371 itself carries a much fuller, first-hand Result writeup (file
+  list, UI/UX notes, Known Issues). This wasn't checked before #372 was
+  opened; it should have been — a lesson for next time: check a
+  same-task PR's own file diff, not just its description, before editing
+  the same doc file it's also touching.
+- **Not fixed by this session** — #371's branch belongs to a different
+  session, and this session was only subscribed to #372 (now merged and
+  auto-unsubscribed), not asked to drive #371. Flagging here per the same
+  precedent instead of pushing to someone else's branch uninvited.
+- **For whoever resolves #371's conflict**: keep #371's own fuller Result
+  section (it's the authoritative first-hand implementation record) and
+  drop #372's short duplicate pointer — the `Status: PR_OPENED` line is
+  identical in both so that part won't conflict.
+- No code changes this run — status documentation only.
+
+## Open Items
+- **New, from this run**: PR #371 (`TASK-016`) has a merge conflict in
+  `.agent/tasks/TASK-016.md` against current `master`, caused by #372
+  landing first — needs whoever picks up #371 next to merge `master` in and
+  keep #371's own fuller Result section over #372's short pointer (see
+  entry above for detail). Application code in #371 is unaffected; CI was
+  green before this.
+- Carried over: `TASK-015` PR #367 — still `READY FOR BOSS REVIEW`,
+  unmerged, needs Boss merge (plus a manual browser smoke-test recommended
+  before/at that point).
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a week with no reply; still not urgent.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: the task-claiming-mechanism proposal (Tech Lead, 2026-09-20/
+  22) to reduce duplicate-PR pile-ups — pending Boss preference, escalated
+  again 2026-09-25 given the 4-way `TASK-015` pile-up.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.
