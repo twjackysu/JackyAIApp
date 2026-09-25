@@ -133,6 +133,83 @@ None — pure frontend, no other open task's code needed.
 
 **PR**: https://github.com/twjackysu/JackyAIApp/pull/367
 
+Implemented as scoped in `ARCHITECTURE.md` — frontend-only, no backend/DB change.
+
+- **Extracted the shared parser**: `detectSep`/`parseLine`/`parseTabular` moved out of
+  `DataAnalysis/components/UploadDataDialog.tsx` into new `jackyaiapp.client/src/utils/tabularParse.ts`
+  (unit tested directly). `UploadDataDialog.tsx` now imports from there — behavior-preserving,
+  verified via its own component test plus `npx vitest run`/`npm run build`.
+- **`Portfolio/csvImport.ts`** (new): the purpose-built import schema, distinct from
+  `portfolioExport.ts`'s export schema —
+  - `mapImportRow(row)`: maps one parsed CSV row to a `PositionInput` candidate. `類型` accepts
+    either the raw `AssetType` or its Chinese label, reverse-looked-up from `portfolioExport.ts`'s
+    existing `TYPE_LABEL` (now exported) rather than a second hardcoded map. `市場` only applies to
+    STOCK (defaults `TW`); FUND is forced to `market: 'FUND'`; CASH/LIABILITY/REAL_ESTATE get `''`,
+    matching `editorTypes.ts`'s `makeRow`. `計價幣別` defaults `TWD`; `成本幣別` defaults to
+    `計價幣別`. `成本` is parsed as `PositionInput.costBasis` verbatim — a total, unconverted, in
+    `成本幣別` — never the export CSV's TWD-converted `成本(TWD)`. `估價方式` (REAL_ESTATE only)
+    defaults `市價`, or errors on an unrecognized value. `名稱` blank falls back to the same
+    per-type default `makeRow` uses (現金/信貸/不動產) for those three types only. Quantity gaps
+    are left as `0` rather than hard-erroring — deliberately, so the shared `rowError()` check
+    (not a second parallel validator) is what actually flags a missing/zero quantity or missing
+    symbol.
+  - `buildImportPreview(rows)`: maps every row via `mapImportRow`, then runs the successfully
+    mapped ones through `toRow`/`rowError` as-is (imported via `editorTypes.ts`, unmodified) — one
+    bad row (unrecognized type, non-numeric `成本`, missing 數量/代號) never blocks the other rows.
+  - `downloadImportTemplateCsv()`: reuses the now-exported `downloadCsv` helper from
+    `portfolioExport.ts` to produce a template CSV (`IMPORT_HEADERS` + one STOCK + one CASH example
+    row) — round-tripped through `mapImportRow`/`buildImportPreview` in a dedicated test to confirm
+    the template's own headers/example rows parse back into fully valid rows.
+- **`Portfolio/ImportCsvDialog.tsx`** (new): self-contained trigger-button + sub-dialog component
+  (same pattern as `UpdateHistoryDialog.tsx`) — file picker (`<input type="file" accept=".csv">`,
+  `FileReader.readAsText`, same pattern as `UploadDataDialog.tsx`'s file tab) → `parseTabular` →
+  `buildImportPreview` → a preview table (row count, valid/invalid split, first 10 rows with a
+  per-row status/error). Invalid rows are excluded from "加入" by default with a visible
+  "N 筆略過，欄位有誤" count (the task's first listed option, not the pre-flag alternative).
+  "加入" appends only the valid `EditorRow[]` to the parent's `rows` state — never calls
+  `useSaveHoldingsMutation` directly; the user still reviews in the normal editor sections and
+  clicks the existing "儲存快照" button.
+- **`Portfolio/HoldingsEditor.tsx`**: update dialog's `DialogTitle` now also holds a "下載匯入範本"
+  button and `<ImportCsvDialog onImport={(imported) => setRows((rs) => [...rs, ...imported])} />`,
+  next to the existing per-section "新增" buttons pattern.
+- **`Portfolio/portfolioExport.ts`**: `TYPE_LABEL` and `downloadCsv` exported (previously module-
+  private) so `csvImport.ts` can reuse both without a second copy of the type-label map or a second
+  CSV-download helper.
+
+### Files Changed
+- `jackyaiapp.client/src/utils/tabularParse.ts` (new, extracted)
+- `jackyaiapp.client/src/utils/tabularParse.test.ts` (new)
+- `jackyaiapp.client/src/DataAnalysis/components/UploadDataDialog.tsx` (imports from the extracted util)
+- `jackyaiapp.client/src/Portfolio/portfolioExport.ts` (`TYPE_LABEL`/`downloadCsv` exported)
+- `jackyaiapp.client/src/Portfolio/csvImport.ts` (new)
+- `jackyaiapp.client/src/Portfolio/csvImport.test.ts` (new)
+- `jackyaiapp.client/src/Portfolio/ImportCsvDialog.tsx` (new)
+- `jackyaiapp.client/src/Portfolio/ImportCsvDialog.test.tsx` (new)
+- `jackyaiapp.client/src/Portfolio/HoldingsEditor.tsx` (new entry points in the update dialog)
+
+### Tests
+- `npm run lint` — 0 warnings/errors.
+- `npm run build` (tsc + vite build) — passes.
+- `npx vitest run` — 182/182 passed (22 files), no regressions; includes the new
+  `tabularParse.test.ts`, `csvImport.test.ts` (mapping/validation/template-round-trip), and
+  `ImportCsvDialog.test.tsx` (`renderToStaticMarkup` pattern, per `TASK-014`'s precedent — no
+  `@testing-library/react` in this project, so interactive open/upload/click flows aren't covered
+  by an automated test; the pure mapping/validation logic and the template round-trip are, which is
+  where the actual row-shape correctness risk is).
+- Manual browser verification (open the editor, download the template, re-upload it, confirm rows
+  land in the right sections, try a CSV with one bad row) was not performed in this session — see
+  Known Issues.
+
+### Known Issues
+- Not manually verified in a running browser this session (no dev server / browser check performed)
+  — same limitation as `TASK-014`. The template round-trip is covered by an automated test
+  (`csvImport.test.ts`), which reduces but doesn't eliminate the risk a manual pass would catch.
+- STOCK/FUND rows imported by symbol are not re-validated against the live search API (matches the
+  Architecture doc's stated, deliberate trade-off — same as `UpdateHistoryDialog`'s existing
+  snapshot-load path).
+
+### Blockers
+None.
 **Four independent sessions picked this up before any PR existed** (#366,
 #367, #368, #370 — all full implementations, all CI-green, all technically
 implementing the task's scope). A fifth PR (#369, docs-only) recorded a
