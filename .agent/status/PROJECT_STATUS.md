@@ -1878,3 +1878,72 @@
   UI) — deliberately unscoped until rows are actually evaluable.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-25 — Frontend Engineer: TASK-016 implemented, PR opened (scheduled run)
+
+- Read `.agent/tasks/TASK-016.md` (Finance comparison-tab shared-error leak,
+  QA-found, scoped by Tech Lead this run) and confirmed the root cause
+  directly in `Finance/hooks/useFinanceAnalysis.ts`/`Finance/index.tsx`
+  before implementing, per the task's own Context section. `TASK-014`
+  (#364) and `TASK-015` (#367) are both already `PR_OPENED`/under Boss
+  review — nothing further for Frontend to do on either this run, so
+  `TASK-016` was the one actionable unclaimed Frontend item.
+- Implemented Requirement 1 exactly as scoped: gated the quantitative tab's
+  `comprehensiveError` Alert on `analysisTab === TAB_QUANTITATIVE`. Went one
+  small step further than a bare inline condition, extracting it into an
+  exported pure function `shouldShowComprehensiveError()` right next to the
+  `TAB_*` constants in `useFinanceAnalysis.ts` — not the disallowed
+  "split the mutation trigger" alternative, just naming the existing
+  boolean so Requirement 3's regression test could import and exercise the
+  literal condition the component renders with, instead of a copy of it
+  living only in the test (which wouldn't actually fail without the fix).
+- Requirement 2 confirmed, not assumed: added a second test case proving
+  `handleTabChange` → `clearSearchResults()` → `resetComprehensive()`
+  already clears `comprehensiveError` on every tab switch — no additional
+  reset code needed, matching the task's own prediction.
+- Requirement 3: checked first for an existing hook-testing convention, per
+  the task's instruction — none existed (no `use*.test.ts(x)` file, no
+  `vi.mock`, no interactive render anywhere in this client; every existing
+  component test is `renderToStaticMarkup`-only). Established a minimal one
+  in new `Finance/hooks/useFinanceAnalysis.test.tsx`: `createRoot`/`act`
+  from `react`/`react-dom/client` (already dependencies, no new package),
+  driving a harness that calls `useFinanceAnalysis()` directly inside a
+  `MemoryRouter` (the hook calls `useSearchParams`), with
+  `@/apis/accountApis`/`@/apis/financeApis`'s three consumed hooks mocked
+  via `vi.mock` — `useGetComprehensiveAnalysisMutation`'s mock is a
+  faithful small reimplementation (real `useState`/`useCallback`) of RTK
+  Query's actual shared-trigger "last call to settle wins" behavior, since
+  that behavior is the actual bug mechanism, not something to mock away.
+  Verified the regression guard actually pins the fix by temporarily
+  reverting the condition and re-running (failed as expected, `expected
+  true to be false`) before restoring and re-running green.
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (149/149,
+  up from 147, no regressions) all pass. `node_modules` needed a fresh
+  `npm ci` in this sandbox first, same as prior Frontend runs' notes.
+- Not manually verified in a running browser (no browser in this sandbox) —
+  flagged as a known limitation on the task and the PR, same as `TASK-014`/
+  `TASK-015`'s open items.
+- Opened [PR #373](https://github.com/twjackysu/JackyAIApp/pull/373)
+  against `master`; `TASK-016` moved `READY` → `PR_OPENED`. Subscribed to
+  the PR to drive it to green / respond to review.
+
+## Open Items
+- **New, from this run**: `TASK-016`'s PR (#373) is open — needs Tech
+  Lead review (and the manual browser smoke-test noted above) before
+  `READY_FOR_QA`.
+- Carried over: `TASK-015` PR #367 is `READY FOR BOSS REVIEW` — waiting on
+  Boss merge (plus a manual browser smoke-test recommended before/at that
+  point).
+- Carried over, unresolved: the duplicate-PR pattern escalation (see
+  `.agent/boss/TECH_LEAD.md`, 2026-09-25) — pending Boss's actual response.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a week with no reply; still not urgent (current
+  system is dormant, not causing active harm), and does not block Gap Audit
+  work.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.

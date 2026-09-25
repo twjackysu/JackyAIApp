@@ -137,5 +137,7 @@ Implemented exactly as scoped — the minimal tab-gate fix, no mutation-trigger 
   code on 多股比較, confirm no top-level Alert; fail a quantitative search, confirm the Alert
   still shows) before/at QA.
 
+PR: https://github.com/twjackysu/JackyAIApp/pull/373
+
 ## Review
 (Fill in after PR review.)
