@@ -7,7 +7,7 @@ Frontend: Finance comparison tab's per-stock errors leak into the single-stock t
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM (correctness bug on already-shipped `master` code, not a regression
@@ -90,7 +90,22 @@ None — self-contained fix in already-merged code, no other open task
 touches these files.
 
 ## Result
-(Fill in when implemented.)
+Implemented by another Frontend Engineer session before this run started:
+[PR #371](https://github.com/twjackysu/JackyAIApp/pull/371)
+(`claude/amazing-cori-0k55ra`), opened 2026-09-25T02:23:56Z. Adds a derived
+`showComprehensiveErrorAlert` flag in `useFinanceAnalysis.ts`
+(`analysisTab === TAB_QUANTITATIVE && !!comprehensiveError &&
+!isComprehensiveLoading`), gates `Finance/index.tsx`'s top-level Alert on
+it, and adds `useFinanceAnalysis.test.tsx` — a new hook-level test
+convention (real `createRoot`/`act` mount, mocked `fetch`/`Request`) that
+fails without the fix per the PR description. Matches all of this task's
+Requirements and Technical Notes (tab-gate only, no mutation-trigger
+split). This run verified via the GitHub API rather than re-implementing:
+CI green (`lint-and-build-client` + `build-and-test-server` both
+`success`), `mergeable_state: clean`, no review comments yet. Not
+re-implemented to avoid adding a 5th duplicate PR to this task (see
+`TASK-015`'s 4-way pile-up on 2026-09-25) — awaiting Tech Lead/Boss
+review.
 
 ## Review
 (Fill in after PR review.)

@@ -1864,6 +1864,8 @@
 - **New, from this run**: `TASK-016` (Finance comparison-tab shared-error
   leak, QA-found) is `READY`, unclaimed — next Frontend run should pick it
   up.
+  **Update (2026-09-25, Frontend Engineer run below): already covered by
+  PR #371 — see that entry.**
 - **Escalated, from this run**: the duplicate-PR pattern (4th occurrence,
   largest yet — 4 full implementations of `TASK-015`) — see
   `.agent/boss/TECH_LEAD.md` (2026-09-25) for the specific ask to Boss.
@@ -1876,5 +1878,50 @@
   accuracy, new vendor) — cost/vendor decision pending Boss.
 - Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
   UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-25 — Frontend Engineer: TASK-016 already covered by an existing PR, no code change (scheduled run)
+
+- Read `.agent/tasks/TASK-016.md` (Finance comparison-tab shared-error
+  leak) as the one `READY`, unclaimed Frontend task per the last Tech Lead
+  entry. Before implementing, checked GitHub for open PRs first — per the
+  4-way `TASK-015` duplicate-PR pile-up logged just above, and this run
+  found exactly that risk was live again: **PR #371**
+  (`claude/amazing-cori-0k55ra`, opened 2026-09-25T02:23:56Z by a different
+  Frontend Engineer session) already implements this task in full.
+- Verified rather than trusted the PR title alone: read its description and
+  CI status via the GitHub API. Implementation matches `TASK-016`'s
+  Requirements exactly — a derived `showComprehensiveErrorAlert` flag
+  gating `Finance/index.tsx`'s Alert on `analysisTab === TAB_QUANTITATIVE`,
+  no mutation-trigger split, plus a new `useFinanceAnalysis.test.tsx`
+  asserting the interaction (claimed to fail without the fix). Both CI
+  checks (`lint-and-build-client`, `build-and-test-server`) are `success`,
+  `mergeable_state: clean`, no review comments or reviews posted yet.
+- Did not open a competing implementation. Updated `TASK-016.md`'s
+  `Status:` `READY` → `PR_OPENED` and filled in its Result section with
+  the PR link and verification summary, so a future session checking the
+  task file alone (not GitHub) doesn't also miss this and start a
+  duplicate. No application code changes this run.
+- `TASK-016` (PR #371) now just needs Tech Lead/Boss review — same as
+  `TASK-015` (PR #367), which is still `READY FOR BOSS REVIEW` and
+  unmerged as of this run.
+
+## Open Items
+- `TASK-015` PR #367 — still `READY FOR BOSS REVIEW`, unmerged, needs Boss
+  merge (plus a manual browser smoke-test recommended before/at that
+  point).
+- `TASK-016` PR #371 — implementation-complete, CI green, no reviews yet —
+  needs Tech Lead/Boss review, same as `TASK-015`.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a week with no reply; still not urgent.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: the task-claiming-mechanism proposal (Tech Lead, 2026-09-20/
+  22) to reduce duplicate-PR pile-ups — pending Boss preference, escalated
+  again 2026-09-25 given the 4-way `TASK-015` pile-up.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
