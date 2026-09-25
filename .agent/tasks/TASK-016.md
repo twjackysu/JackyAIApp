@@ -7,7 +7,7 @@ Frontend: Finance comparison tab's per-stock errors leak into the single-stock t
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM (correctness bug on already-shipped `master` code, not a regression
@@ -90,7 +90,80 @@ None — self-contained fix in already-merged code, no other open task
 touches these files.
 
 ## Result
-(Fill in when implemented.)
+
+**PR**: (fill in after creation)
+
+Implemented exactly as scoped — the tab-gate approach, no mutation-trigger
+split.
+
+- **`Finance/hooks/useFinanceAnalysis.ts`**: added a derived
+  `showComprehensiveErrorAlert` next to the hook's other derived flags
+  (`isAnyAnalyzing`, `isSearchTab`) — `analysisTab === TAB_QUANTITATIVE &&
+  !!comprehensiveError && !isComprehensiveLoading`. Returned from the hook
+  alongside the existing state.
+- **`Finance/index.tsx`**: the page-level "綜合分析失敗..." `Alert` now
+  renders on `showComprehensiveErrorAlert` instead of the old
+  `comprehensiveError && !isComprehensiveLoading` (which didn't check the
+  active tab). `comprehensiveError`/`isComprehensiveLoading` are no longer
+  destructured here — nothing else in the file used them.
+- Confirmed (per Requirement 2) that `handleTabChange` → `clearSearchResults`
+  → `resetComprehensive()` already clears `comprehensiveError` on every tab
+  switch, so `showComprehensiveErrorAlert` naturally goes false the instant
+  the tab changes — no additional reset code needed. Covered by the new
+  "clears a stale comprehensiveError when switching tabs" test.
+- **`Finance/hooks/useFinanceAnalysis.test.tsx`** (new): no `use*.test.ts(x)`
+  convention existed yet for this project (checked `Finance/hooks/` and
+  elsewhere first, per the task's instruction) — established one since a
+  static-markup test genuinely can't catch this bug class (confirmed by
+  reproducing: reverting the fix left `renderToStaticMarkup`-style checks
+  green). The test mounts the real hook via `createRoot`/`act` (no
+  `@testing-library/react` in this project) inside a real `Provider` +
+  `MemoryRouter`, with a real `configureStore` carrying only `financeApis`
+  and `accountApis`, and mocks `global.fetch`/`Request` (Node's `Request`
+  rejects the app's relative `/api/...` paths outright — fixed with a thin
+  `Request` subclass in the test only, not touching `apiBaseQuery`) so
+  `getComprehensiveAnalysis` is a real dispatched RTK Query thunk that
+  fails for one stock code and succeeds for another. Three cases:
+  1. A comparison run with a failing code keeps `showComprehensiveErrorAlert`
+     false while `analysisTab === TAB_COMPARISON`, even though
+     `comprehensiveError` itself is truthy (asserted) and the "GOOD"/"BAD"
+     codes actually landed in different `comparisonSlots` statuses (proving
+     the mock wasn't just failing everything indiscriminately). **Verified
+     this fails without the fix** — reverted the tab-gate locally and
+     re-ran; the assertion failed with `expected true to be false`, restored
+     immediately after.
+  2. The quantitative tab's own failed search still shows the alert
+     (regression guard for Acceptance Criterion 2).
+  3. Switching tabs after a failed quantitative search clears it
+     (Acceptance Criterion 3 / Requirement 2).
+
+### Files Changed
+- `jackyaiapp.client/src/Finance/hooks/useFinanceAnalysis.ts`
+- `jackyaiapp.client/src/Finance/index.tsx`
+- `jackyaiapp.client/src/Finance/hooks/useFinanceAnalysis.test.tsx` (new)
+
+### UI / UX
+- No visual change on the quantitative tab. On the comparison tab, the
+  duplicated top-level Alert no longer stacks on top of `ComparisonResult`'s
+  own per-slot inline errors.
+
+### Tests
+- `npm run lint` — 0 warnings/errors.
+- `npm run build` (tsc + vite build) — passes.
+- `npx vitest run` — 150/150 passed (20 files), no regressions.
+- Manual browser verification (enter a failing code on 多股比較, confirm no
+  top-level Alert; then a failing single-stock search still shows it) was
+  not performed in this automated session.
+
+### Known Issues
+- Not manually verified in a running browser this session — only
+  build/lint/unit-test verified (the unit test does exercise a real
+  dispatched RTK Query thunk end-to-end, including the specific failure
+  mode QA reported, so this is lower-risk than a typical "unit tests only"
+  gap).
+
+### Blockers
+None.
 
 ## Review
 (Fill in after PR review.)

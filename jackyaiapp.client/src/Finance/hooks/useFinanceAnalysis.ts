@@ -249,6 +249,14 @@ export function useFinanceAnalysis() {
   const hasStockResults = !!searchResults || !!analysisResults || comparisonSlots.length > 0;
   const isAnyAnalyzing = isAnalyzing || isComprehensiveLoading;
   const isSearchTab = analysisTab === TAB_QUANTITATIVE || analysisTab === TAB_AI_TREND;
+  // `getComprehensiveAnalysis` is a single RTK Query mutation trigger shared between the
+  // quantitative tab and the comparison tab's concurrent per-stock calls (see
+  // `fetchComprehensiveAnalysis` above) — RTK Query only reflects the *last* triggered call's
+  // error, so a failed comparison run leaves this same `comprehensiveError` truthy. Gating by
+  // tab here keeps that failure from also popping the quantitative tab's page-level Alert while
+  // the comparison tab's own per-slot error (`ComparisonResult`) already shows it correctly.
+  const showComprehensiveErrorAlert =
+    analysisTab === TAB_QUANTITATIVE && !!comprehensiveError && !isComprehensiveLoading;
 
   return {
     // search / config state
@@ -283,6 +291,7 @@ export function useFinanceAnalysis() {
     hasStockResults,
     isAnyAnalyzing,
     isSearchTab,
+    showComprehensiveErrorAlert,
     // multi-stock comparison tab
     comparisonInput,
     setComparisonInput,
