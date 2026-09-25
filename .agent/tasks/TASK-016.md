@@ -91,7 +91,7 @@ touches these files.
 
 ## Result
 
-**PR**: (to be filled in after push — see commit on `claude/amazing-cori-7dsxd8`)
+**PR**: https://github.com/twjackysu/JackyAIApp/pull/374
 
 Implemented exactly the tab-gate fix the task scoped — no split into separate mutation
 triggers.
