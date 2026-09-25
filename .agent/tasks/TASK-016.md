@@ -91,7 +91,7 @@ touches these files.
 
 ## Result
 
-**PR**: (fill in after creation)
+**PR**: https://github.com/twjackysu/JackyAIApp/pull/371
 
 Implemented exactly as scoped — the tab-gate approach, no mutation-trigger
 split.
