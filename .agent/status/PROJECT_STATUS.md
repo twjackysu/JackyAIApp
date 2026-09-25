@@ -1782,3 +1782,99 @@
   22) to reduce duplicate-PR pile-ups — pending Boss preference, not urgent.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-25 — Tech Lead: resolved a 4-way TASK-015 duplicate-PR pile-up, scoped a QA-found Finance bug (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message in `TECH_LEAD.md` since the 2026-09-13 sign-off
+  on the SEO middleware direction — DECISION-006's free-usage-cap question
+  is still the only unanswered item there, non-blocking (Gap Audit work is
+  explicitly sequenced ahead of it). No new message in `.agent/boss/PM.md`
+  since PM's 2026-09-23 unblock of `TASK-015`.
+- **`TASK-015` had four independent full implementations open at once**:
+  #366, #367, #368 (all opened 2026-09-24, before any of their authors saw
+  another's PR), plus a docs-only PR **#369** from a session that compared
+  those three and kept #367 (closing #366/#368) — and then a **fourth**
+  implementation, **#370**, opened 2026-09-25 by a session that started
+  before #369 landed and so never saw its decision. Read all four PRs' full
+  diffs directly (not any PR's self-report) before deciding, since #369's
+  comparison only covered three of the four.
+- **Confirmed #369's #366-rejection reasoning was correct**, and found
+  **#370 has the exact same defect**: the task's own Technical Notes say
+  "reuse `toRow`/`rowError`/`isRowEmpty` from `editorTypes.ts` as-is — do
+  not fork or duplicate row validation logic for the import path." #367 and
+  #368 both defer entirely to the shared `rowError()`; #370's
+  `parseImportRow` hard-codes its own `'缺少代號'`/`'數量須為正數'` checks
+  and returns before `rowError()` ever runs for those two cases — verified
+  against `editorTypes.ts`'s actual `rowError()` output (`'請選擇股票'`/
+  `'請輸入金額'`/etc., which don't match #370's bespoke messages), so a
+  future change to the manual editor's validation rules would silently stop
+  applying to CSV imports. This is the identical failure class #369 already
+  used to reject #366, just in a fourth PR that arrived too late to be
+  compared against that reasoning.
+- One point actually in #370's favor, noted for completeness: it omits
+  `costBasis`/`costCurrency` entirely for CASH/LIABILITY/REAL_ESTATE rows,
+  matching `makeRow()`'s real field shape for those types exactly, whereas
+  #367 always sets both fields even for asset types the manual editor never
+  gives them to. Judged minor (those fields are unused for valuation on
+  non-symbol types) and not enough to outweigh the validation-duplication
+  defect, which is the specific failure mode this task was scoped to avoid.
+- **Decision: kept #367** (re-confirming #369's conclusion against the
+  newly-arrived #370 too). Closed **#368**, **#369**, and **#370** on
+  GitHub with comments explaining the reasoning. Marked **#367** `READY FOR
+  BOSS REVIEW` — the one open item is a manual browser smoke-test, not
+  performed in any implementing session's sandbox. Wrote the consolidated
+  Result/Review record directly into `TASK-015.md` myself rather than
+  merging #369's version, since #369 didn't account for #370 and this
+  role's own precedent (2026-09-20, `TASK-011`'s #355/#356) is to author
+  the authoritative record directly on `master` rather than merge a
+  since-superseded docs PR.
+- **Also read the still-open QA report on the already-merged `TASK-014` PR**
+  (#364, flagged by a prior Frontend run but never scoped):
+  `useFinanceAnalysis.ts`'s single-stock quantitative tab and the
+  comparison tab's `runComparison()` share one
+  `useGetComprehensiveAnalysisMutation()` trigger, whose `error` state RTK
+  Query only reflects for the *last* call, not per-call; `Finance/index.tsx:268`
+  renders that shared `comprehensiveError` Alert with no `analysisTab` guard,
+  so a failing code on the comparison tab pops the single-stock tab's
+  generic error banner on top of the comparison tab's own correct per-slot
+  errors. Confirmed the root cause directly in the code (not just QA's
+  report). Scoped as **`TASK-016`** (Frontend, `READY`): a minimal,
+  targeted fix — gate that Alert's render condition on
+  `analysisTab === TAB_QUANTITATIVE` rather than splitting the mutation
+  trigger in two, since switching tabs already resets the shared state via
+  the existing `clearSearchResults()` path. Also required: an actual
+  interaction-level regression test (QA's report notes the existing
+  `renderToStaticMarkup`-based tests structurally can't catch this class of
+  bug).
+- Wrote to `.agent/boss/TECH_LEAD.md`: escalated the duplicate-PR pattern
+  (now 4 full implementations on a single task, the largest occurrence yet)
+  as something worth Boss's actual attention rather than another
+  informational flag; also answered QA's process question about `TASK-014`
+  merging without `READY_FOR_QA`/Tech Lead review, and carried forward
+  DECISION-006's still-unanswered free-usage-cap question.
+- No application code changes — architecture/task/status documentation
+  only, plus GitHub PR review actions (comments, closes). Committed and
+  pushed directly to `master` per this role's own git rule (§16).
+
+## Open Items
+- **New, from this run**: `TASK-015` PR #367 is `READY FOR BOSS REVIEW` —
+  waiting on Boss merge (plus a manual browser smoke-test recommended
+  before/at that point).
+- **New, from this run**: `TASK-016` (Finance comparison-tab shared-error
+  leak, QA-found) is `READY`, unclaimed — next Frontend run should pick it
+  up.
+- **Escalated, from this run**: the duplicate-PR pattern (4th occurrence,
+  largest yet — 4 full implementations of `TASK-015`) — see
+  `.agent/boss/TECH_LEAD.md` (2026-09-25) for the specific ask to Boss.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a week with no reply; still not urgent (current
+  system is dormant, not causing active harm), and does not block Gap Audit
+  work.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.

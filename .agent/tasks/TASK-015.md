@@ -131,99 +131,64 @@ None — pure frontend, no other open task's code needed.
 
 ## Result
 
-**PR**: https://github.com/twjackysu/JackyAIApp/pull/370
+**PR**: https://github.com/twjackysu/JackyAIApp/pull/367
 
-Implemented as scoped in `ARCHITECTURE.md`'s Decision — frontend-only, no
-backend/DB change.
-
-- **`utils/tabularParse.ts`** (new): `detectSep`/`parseLine`/`parseTabular`
-  extracted out of `DataAnalysis/components/UploadDataDialog.tsx`
-  (behavior-preserving refactor; `UploadDataDialog` now imports from the
-  shared util instead of its own local copy).
-- **`Portfolio/csvImport.ts`** (new): pure `parseImportRow(raw)` maps one
-  header-keyed CSV row (from `tabularParse`) to a `PositionInput` per the
-  new import schema, or an error message.
-  - `類型` accepts either the raw `AssetType` value or its `TYPE_LABEL`
-    Chinese label — reverse-looked-up from `portfolioExport.ts`'s existing
-    map (now exported), not hardcoded a second time.
-  - `名稱`/`市場` fall back to `editorTypes.ts`'s `makeRow` per-type
-    defaults when blank (reused directly, not duplicated).
-  - `成本` maps to `PositionInput.CostBasis` exactly — total, unconverted,
-    in `成本幣別` — deliberately distinct from the export CSV's
-    TWD-converted `成本(TWD)` figure (see Architecture doc's Investigation).
-  - `成本幣別` defaults to `計價幣別`; `計價幣別` defaults to `TWD`
-    (matching `SaveHoldingsAsync`'s own server-side default).
-  - Every mapped row is re-validated through the editor's own `rowError()`
-    (from `editorTypes.ts`) before being accepted, so import can never
-    produce a row the manual editor itself would reject.
-  - `downloadImportTemplateCsv()` — one STOCK + one CASH example row,
-    headers matching exactly what `parseImportRow` reads; round-tripped
-    through `parseImportRow` in `csvImport.test.ts` as a direct check.
-- **`Portfolio/ImportCsvDialog.tsx`** (new): file-picker sub-dialog — pick a
-  `.csv` → parse via `tabularParse` → map via `parseImportRow` → preview
-  (row count, valid/invalid split, first 5 rows with per-row status) →
-  "加入" appends only the valid rows (`.map(toRow)`) into
-  `HoldingsEditor`'s existing `rows` state. Invalid rows are excluded from
-  "加入" by default with a visible "N 筆略過，欄位有誤" count rather than
-  silently importing as valid. Never calls `useSaveHoldingsMutation`
-  directly — the user still reviews in the normal editor sections and must
-  click the existing "儲存快照" button to persist.
-- **`Portfolio/HoldingsEditor.tsx`**: new "下載匯入範本" / "匯入 CSV"
-  buttons in the update dialog's title bar (next to each other, per the
-  requirement).
-- **`Portfolio/portfolioExport.ts`**: exported `TYPE_LABEL` and
-  `downloadCsv` (previously module-private) so `csvImport.ts` can reuse
-  both instead of duplicating them.
-
-### Files Changed
-- `jackyaiapp.client/src/utils/tabularParse.ts` (new)
-- `jackyaiapp.client/src/utils/tabularParse.test.ts` (new)
-- `jackyaiapp.client/src/DataAnalysis/components/UploadDataDialog.tsx`
-- `jackyaiapp.client/src/Portfolio/csvImport.ts` (new)
-- `jackyaiapp.client/src/Portfolio/csvImport.test.ts` (new)
-- `jackyaiapp.client/src/Portfolio/ImportCsvDialog.tsx` (new)
-- `jackyaiapp.client/src/Portfolio/HoldingsEditor.tsx`
-- `jackyaiapp.client/src/Portfolio/portfolioExport.ts`
-
-### UI / UX
-- "下載匯入範本" / "匯入 CSV" buttons sit in the update dialog's title bar,
-  wrapping on narrow screens.
-- Import sub-dialog preview table shows 類型/代號/名稱/數量/狀態 for the
-  first 5 parsed rows, plus a summary line with total/valid/skipped counts.
-- Imported STOCK/FUND rows land in `rows` state with `symbol` already set,
-  so `StockRow`/`FundRow` render them as picked chips immediately (no live
-  search dependency), confirming the architecture doc's assumption.
-
-### Tests
-- `npm run lint` — 0 warnings/errors.
-- `npm run build` (tsc + vite build) — passes.
-- `npx vitest run` — 166/166 passed (21 files), no regressions. New:
-  `tabularParse.test.ts` (separator detection, quoted-CSV parsing,
-  header-keyed row output) and `csvImport.test.ts` (schema mapping per
-  field — type label/raw value, required 代號 for STOCK/FUND, per-type name
-  defaults, positive-number validation for 數量, 成本 parse-or-reject,
-  currency defaulting, 估價方式 default, and a template round-trip).
-- No `@testing-library/react` in this project, and MUI `Dialog` renders via
-  a portal so it can't be captured with `renderToStaticMarkup` either (a
-  `ImportCsvDialog.test.tsx` attempt returned empty markup for the open
-  case) — the pure row-mapping/validation logic, which is where the real
-  correctness risk lives, is unit-tested directly instead, same convention
-  as `Portfolio/concentration.ts`/`exposureGauges.ts`.
-- Manual browser verification (open the editor, download the template,
-  re-upload it, confirm the preview and that a bad row is excluded) was
-  not performed in this automated session — see Known Issues.
-
-### Known Issues
-- Not manually verified in a running browser this session — only
-  build/lint/unit-test verified, plus a template-round-trip unit test.
-  Worth a quick manual pass before/at QA.
-- STOCK/FUND rows imported by symbol are not validated against the live
-  stock/fund search — a typo'd symbol saves as-is. Deliberate, matches
-  `UpdateHistoryDialog`'s existing snapshot-load behavior (Architecture
-  doc's Trade-offs), not a gap.
-
-### Blockers
-None.
+**Four independent sessions picked this up before any PR existed** (#366,
+#367, #368, #370 — all full implementations, all CI-green, all technically
+implementing the task's scope). A fifth PR (#369, docs-only) recorded a
+comparison of the first three and kept #367; #370 arrived afterward and
+wasn't accounted for by that comparison. See Review below for the full
+resolution — #367 is the kept implementation, #366/#368/#369/#370 all
+closed.
 
 ## Review
-(Fill in after PR review.)
+
+**Reviewed by Tech Lead 2026-09-25.** All four implementations (#366, #367,
+#368, #370) correctly deliver the task's scope: the extracted shared
+`utils/tabularParse.ts`, a purpose-built import schema distinct from the
+export CSV, an `ImportCsvDialog`/preview flow that only appends to
+`HoldingsEditor`'s row state (never calls the save mutation directly), and
+a template-download button. CI green and `mergeable_state: clean` on all
+four.
+
+- **#369** (docs-only, opened first) compared #366/#367/#368 and kept
+  #367: #366 re-implements required-field validation (代號/數量) itself
+  instead of running rows through the shared `rowError()`, which the
+  task's own Technical Notes explicitly disallow (avoids a second copy of
+  validation logic drifting from the manual editor's rules — same
+  discipline this project applied to the SEO text formatter in
+  `TASK-001`–`003`). #367 and #368 both defer to `rowError()` correctly;
+  #367 has deeper test coverage (35 new tests vs. #368's 21) and its
+  template round-trip test captures the actual `Blob` `downloadImportTemplateCsv()`
+  produces rather than only the header/row constants.
+- **#370** (opened after #369, from a session that hadn't seen it) has the
+  **same defect #369 already rejected #366 for**: its `parseImportRow`
+  hard-codes its own `'缺少代號'` / `'數量須為正數'` checks and returns
+  before `rowError()` ever runs for those two cases, instead of relying on
+  it as the task's Technical Notes require. Confirmed by direct diff read
+  (not just #369's self-report) — verified against `editorTypes.ts`'s
+  actual `rowError()` (which returns `'請選擇股票'`/`'請選擇基金'` for a
+  missing symbol and `'請輸入金額'`/`'請輸入股數'`/`'請輸入單位數'` for a
+  bad quantity, none of which #370's bespoke messages match), so a future
+  change to `rowError()`'s rules would silently stop applying to CSV
+  imports. #370's one point in its favor — omitting `costBasis`/
+  `costCurrency` entirely for CASH/LIABILITY/REAL_ESTATE rows, matching
+  `makeRow()`'s actual field shape for those types exactly, where #367
+  always includes both fields even for asset types the manual editor never
+  gives them to — is real but minor (those fields are unused for valuation
+  on non-symbol asset types; at worst a CSV-supplied `成本` for a CASH row
+  becomes a harmless, invisible extra field) and doesn't outweigh the
+  validation-duplication issue, which is the exact failure mode this task
+  was explicitly scoped to avoid.
+- **Decision: kept #367**, same as #369's conclusion, now re-confirmed
+  against #370 too. Closed #368, #369, #370 on GitHub with comments
+  explaining the reasoning (technical, nothing for Boss to act on). Marked
+  #367 **READY FOR BOSS REVIEW** — the one open item is the manual
+  browser smoke-test flagged in its own PR body (download template,
+  re-upload, confirm preview/skip-count, confirm rows land in the right
+  editor sections), not performed in any implementing session's sandbox.
+- This is the **fourth** occurrence of the parallel-duplicate-PR pattern on
+  this project, and by far the largest (4 full implementations on one
+  task, plus a docs PR that itself needed superseding). See
+  `.agent/boss/TECH_LEAD.md` (2026-09-25) — flagged to Boss as no longer a
+  minor/cosmetic issue.
