@@ -775,13 +775,37 @@ sign-off, same as the original Skill-Building proposal):
   `CreditCosts.PortfolioAiSummary = 2`) is itself a credit-gated feature in
   scope for the Credits & Payments removal (DECISION-006) — its own scoping
   should assume free-with-usage-cap, not a credit charge.
-- **Scoped (2026-09-24), implemented and Tech-Lead-reviewed (2026-09-25)**:
-  proposal 2 (CSV import for holdings) is `TASK-015`, PR
-  https://github.com/twjackysu/JackyAIApp/pull/367, `READY FOR BOSS
-  REVIEW` — see `ARCHITECTURE.md` → "Decision: Portfolio CSV import for
-  holdings — Gap Audit item 2" for the investigation, and `TASK-015.md`'s
-  Review section for how a 4-way duplicate-PR pile-up on this task was
-  resolved. Next after this ships: proposal 3 (rebalancing suggestions).
+- **Proposal 2 (CSV import for holdings) — MERGED, product-verified
+  (2026-09-25)**: `TASK-015`, PR
+  https://github.com/twjackysu/JackyAIApp/pull/367 (kept over three
+  competing duplicate implementations — see `TASK-015.md`'s Review section),
+  merged by Boss. PM read the merged code directly on `master`
+  (`Portfolio/csvImport.ts`, `Portfolio/ImportCsvDialog.tsx`): the import
+  column schema (`類型`/`代號`/`名稱`/`市場`/`計價幣別`/`成本幣別`/`數量`/
+  `成本`/`估價方式`) is genuinely distinct from the export's TWD-converted
+  report schema — `成本` maps straight to `PositionInput.CostBasis` in the
+  row's own `成本幣別`, not a converted figure — matching the correctness
+  fix Tech Lead's investigation required. Every row is validated through
+  the same `toRow`/`rowError` the manual editor uses (no second, drifting
+  validation copy), invalid rows are excluded from "加入" with a visible
+  skip count, and import only appends to the editor's row state — the
+  existing "儲存快照" button is still the only thing that actually
+  persists, so a bad import is always reviewable before it can do damage.
+  A template-download button removes the need to guess column names.
+  Matches the requirement exactly — **this item is fully shipped and
+  product-complete.** This closes out the second of Portfolio's four
+  prioritized Gap Audit proposals (1: cross-link — done; 2: CSV import —
+  done). Next after this: proposal 3 (rebalancing suggestions), unblocked
+  below per the established "proceed by default" pattern.
+- Separately, a QA-found bug on the already-merged Finance multi-stock
+  comparison tab (`TASK-016`, PR #371, merged) is also **product-verified
+  (2026-09-25)**: PM read `Finance/hooks/useFinanceAnalysis.ts` directly —
+  the comparison tab's per-stock failures no longer leak into the
+  single-stock tab's shared error `Alert` (`showComprehensiveErrorAlert` is
+  now gated on `analysisTab === TAB_QUANTITATIVE`), with an interaction-level
+  regression test covering the exact leak QA reported. This is a bug fix,
+  not a new Gap Audit feature, so no Requirements scope change — noted here
+  for the record since it was flagged as an open item in `PROJECT_STATUS.md`.
 
 ---
 

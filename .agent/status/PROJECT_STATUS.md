@@ -2052,3 +2052,68 @@
   again 2026-09-25 given the 4-way `TASK-015` pile-up.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-25 — PM: Product-verified TASK-015/TASK-016, unblocked Portfolio's rebalancing proposal (scheduled run)
+
+- Read `.agent/boss/PM.md`: no new Boss reply since PM's 2026-09-23 entry —
+  DECISION-006's free-usage-cap question is still unanswered (now over a
+  week, across multiple PM and Tech Lead runs). Also read
+  `.agent/boss/TECH_LEAD.md`'s 2026-09-25 entry: Tech Lead escalated a
+  scheduling-layer question (multiple sessions claiming the same `READY`
+  task simultaneously — `TASK-015` drew 4 full duplicate implementations in
+  one day) as something needing Boss's decision, not Tech Lead's to keep
+  absorbing unilaterally. That's a Tech Lead↔Boss channel item, not PM's to
+  act on — noted to Boss in `.agent/boss/PM.md` as an FYI pointer only.
+- Confirmed via `git log` that both `TASK-015` (Portfolio CSV import, PR
+  #367) and `TASK-016` (Finance comparison-tab error leak, QA-found bug fix,
+  PR #371) are merged into `master`, along with the docs-only PR #375
+  already reflected in this file's prior entries.
+- **Product-verified by reading the merged code directly** (not any PR's
+  self-report):
+  - `Portfolio/csvImport.ts`/`ImportCsvDialog.tsx`: the import column schema
+    is genuinely distinct from the export report schema (`成本` maps to
+    `PositionInput.CostBasis` verbatim in the row's own `成本幣別`, never a
+    TWD-converted figure) — the exact correctness trap Tech Lead's
+    investigation flagged is avoided. Every row runs through the same
+    `toRow`/`rowError` the manual editor uses (no second validation copy —
+    confirming #367 was the right pick over #370, which the review already
+    caught duplicating validation logic). Import only appends to the
+    editor's in-memory row state; "儲存快照" is still the only thing that
+    persists, so a bad import is always reviewable first. A template
+    download exists so users don't have to guess column names.
+  - `Finance/hooks/useFinanceAnalysis.ts`: `showComprehensiveErrorAlert` is
+    now derived and gated on `analysisTab === TAB_QUANTITATIVE`, with a new
+    `useFinanceAnalysis.test.tsx` asserting the comparison tab's own failure
+    no longer flips the single-stock tab's shared error Alert. Matches
+    QA's reported repro and Tech Lead's scoped fix exactly.
+- `REQUIREMENTS.md`: Portfolio Gap Audit's Open Questions section updated —
+  proposal 2 (CSV import) marked MERGED/product-verified; the QA bug fix
+  noted for the record (no Requirements scope change, it's a bug fix not a
+  new feature). Per the already-approved priority order (cross-link → CSV
+  import → **rebalancing suggestions** → FIRE tracking), proposal 3
+  (rebalancing suggestions against a target allocation) is now the default
+  next Tech Lead handoff — no new Boss sign-off needed, same "proceed by
+  default" pattern used throughout this Gap Audit.
+- No application code changes — Requirements/PM-log/status documentation
+  only. Committed and pushed directly to `master` per this role's own git
+  rule (§11).
+
+## Open Items
+- **Next default Tech Lead item**: Portfolio Gap Audit proposal 3
+  (rebalancing suggestions against a target allocation) — ready to scope,
+  no Boss reply needed.
+- Carried over, escalated by Tech Lead 2026-09-25: whether to adjust the
+  scheduling layer to stop multiple sessions from claiming the same `READY`
+  task at once (4-way duplicate on `TASK-015`) — this is a Tech
+  Lead↔Boss item, not actionable by PM.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a week with no reply across multiple runs; still
+  not urgent (current system is dormant, not causing active harm), and does
+  not block Gap Audit work.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.
