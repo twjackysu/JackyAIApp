@@ -775,12 +775,13 @@ sign-off, same as the original Skill-Building proposal):
   `CreditCosts.PortfolioAiSummary = 2`) is itself a credit-gated feature in
   scope for the Credits & Payments removal (DECISION-006) — its own scoping
   should assume free-with-usage-cap, not a credit charge.
-- **Scoped (2026-09-24)**: proposal 2 (CSV import for holdings) is now
-  scoped as `TASK-015` (Frontend, READY, unclaimed) — see
-  `ARCHITECTURE.md` → "Decision: Portfolio CSV import for holdings — Gap
-  Audit item 2" for the full investigation, including the schema
-  correction noted above. Next after this: proposal 3 (rebalancing
-  suggestions).
+- **Scoped (2026-09-24), implemented and Tech-Lead-reviewed (2026-09-25)**:
+  proposal 2 (CSV import for holdings) is `TASK-015`, PR
+  https://github.com/twjackysu/JackyAIApp/pull/367, `READY FOR BOSS
+  REVIEW` — see `ARCHITECTURE.md` → "Decision: Portfolio CSV import for
+  holdings — Gap Audit item 2" for the investigation, and `TASK-015.md`'s
+  Review section for how a 4-way duplicate-PR pile-up on this task was
+  resolved. Next after this ships: proposal 3 (rebalancing suggestions).
 
 ---
 
