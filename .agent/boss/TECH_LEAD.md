@@ -749,3 +749,44 @@ QA 也問了一個流程問題：`#364` 沒有經過 `READY_FOR_QA`/Tech Lead �
 
 ### Source
 Tech Lead
+
+---
+
+## Tech Lead → Boss (2026-09-26)
+
+### Status
+這次收尾了 `TASK-014` 的文件記帳（狀態欄位一直沒補上 `MERGED`），並接手
+Portfolio 缺口盤點第 3 項（再平衡建議），已拆出 `TASK-017`，細節在
+`.agent/architecture/ARCHITECTURE.md`。這次沒有動任何程式碼，也沒有新的
+需要您現在裁示的事項——上次的兩個問題（排程重複認領、DECISION-006 用量
+上限）都還沒收到回覆，我沒有再重複問一次，維持現狀等您方便時處理。
+
+### Completed
+- `TASK-014.md` 的狀態欄位一直卡在 `PR_OPENED`，但其實 PR #364 是您
+  2026-09-23 直接合併的，中間沒有經過 Tech Lead 審查（跟 QA 之前提過的
+  流程疏漏是同一件事）。我這次補讀了實際合併的程式碼，確認沒有新問題——
+  QA 當時抓到的那個 bug（比較分頁的錯誤訊息跑到單股分頁）已經在 `TASK-016`
+  修好了。已把狀態補上 `MERGED` 並寫好 Review 記錄。
+- **Portfolio 再平衡建議**：盤點後發現 Requirements 文件原本指的
+  `ConcentrationCard`/`groupBy=category` 其實是兩個不相干的機制——前者算的
+  是「單一持股」的集中度，不是資產類別配置；後者雖然真的算得出配置比例，
+  但是一個「每日時間序列」的重量級 API，對這個功能來說殺雞用牛刀。真正好用
+  的是 Portfolio 摘要 API 本來就有的 5 個欄位（台股/美股/基金/現金/不動產的
+  市值），完全不用改後端。使用者設定的「目標配置比例」我打算存在瀏覽器
+  localStorage（跟現有的手續費折數設定 `feeDiscountRate.ts`同一種做法），
+  不是新增一張後端資料表——這不是帳號等級的資料，沒有跨裝置同步的必要。
+
+### Tasks
+- `TASK-014`：`MERGED`（已收尾）
+- `TASK-017`（Frontend，Portfolio 再平衡建議）：`READY`，未認領。
+
+### Risks / Blockers
+無立即阻塞。`TASK-017` 純前端、不依賴任何其他進行中的任務。
+
+### Boss Attention Required
+無新增裁示事項。上次提過的兩個問題（排程重複認領要不要調整、DECISION-006
+免費用量上限的寬鬆程度）都還沒有回覆，都不急，其餘工作不受影響會繼續推進；
+方便時麻煩撥空看一下。
+
+### Source
+Tech Lead

@@ -1222,4 +1222,140 @@ can correct what was parsed before it's persisted.
   addition to `portfolioExport.ts` (or a sibling file) for the template
   download. No backend PR needed.
 
-See `TASK-014` (Frontend only).
+See `TASK-015` (Frontend only).
+
+---
+
+## Decision: Portfolio rebalancing suggestions against a target allocation — Gap Audit item 3
+
+### Context
+`REQUIREMENTS.md` → Portfolio's Gap Audit (2026-09-20) names proposal 3: no
+rebalancing-suggestion feature exists despite the allocation data needed for
+one already being computed elsewhere in the app (`ConcentrationCard`,
+`groupBy=category`). PM handed this to Tech Lead 2026-09-25 as the next
+default item in the already-approved priority order (cross-link → CSV
+import → **rebalancing** → FIRE tracking), no fresh Boss sign-off needed —
+DECISION-006's free-usage-cap question remains the only item still waiting
+on Boss and does not block this work.
+
+### Investigation (2026-09-26)
+1. **The two things `REQUIREMENTS.md` pointed at are not the same
+   mechanism.** `ConcentrationCard.tsx`/`concentration.ts` compute
+   per-*holding* concentration (each STOCK/FUND position's % of total
+   holdings market value) — that's individual-position risk, not
+   asset-class allocation. The actual `groupBy=category` logic lives
+   server-side in `PortfolioService.GetNetWorthHistoryAsync`
+   (`GET api/portfolio/net-worth-history?groupBy=category`), and it returns
+   a **daily time series** of category buckets, not a single current-
+   allocation snapshot — heavier than this feature needs, and category
+   (`PortfolioCategory`, 16 sector-level values: Semiconductor, Financials,
+   Healthcare, etc.) is a finer grain than most users think in terms of for
+   a rebalancing target.
+2. **`PortfolioSummaryDto` (`GET api/portfolio/summary`) already has
+   everything needed for an asset-type-level target, with zero backend
+   change.** It already returns `TwStockTWD`, `UsStockTWD`, `CashTWD`,
+   `FundTWD`, `RealEstateTWD` (each a current TWD market value) plus
+   `LiquidGrossAssetsTWD` (= the first four summed) and `LiabilityTWD`
+   (debt, already excluded from the other five). Total assets for a
+   rebalancing pie = `LiquidGrossAssetsTWD + RealEstateTWD` — a one-line
+   client-side sum, not a new endpoint.
+3. **No target/goal concept exists anywhere in `Data/Models/Portfolio.cs`**
+   (confirmed) — expected, and not something this feature needs to add to
+   the database (see next point).
+4. **There's already a direct precedent for a purely client-side, per-
+   browser "preference" number in this exact module**:
+   `Portfolio/feeDiscountRate.ts` stores one number
+   (`portfolio.feeDiscountRate`) in `localStorage` via the shared
+   `utils/storage.ts` wrapper, with an explicit comment that it's "a
+   per-browser preference, not account data" and so doesn't need a backend
+   table. A rebalancing target is the same category of thing — the user's
+   own preference, not data other users or devices need to see, and not
+   something that needs to survive a browser wipe with any guarantee.
+
+### Decision
+Frontend-only, zero backend/DB change, modeled directly on
+`feeDiscountRate.ts`'s existing localStorage-preference pattern:
+
+- **Allocation buckets = the 5 fields `PortfolioSummaryDto` already
+  returns** — TW Stock, US Stock, Fund, Cash, Real Estate. Not sector
+  `PortfolioCategory` (16 buckets, needs the heavier time-series endpoint,
+  and is a finer grain than "how much of my money is in stocks vs. cash"
+  which is what a rebalancing target is normally about). **Liability is
+  excluded from the buckets** — debt isn't something you allocate *into*,
+  it's a reduction of net worth; the pie's denominator is gross assets
+  (`LiquidGrossAssetsTWD + RealEstateTWD`), matching how `PortfolioDto.cs`'s
+  own comments already frame `LiquidGrossAssetsTWD` as "NOT net of
+  liability."
+- New `Portfolio/rebalancingTarget.ts`: `loadRebalancingTarget()` /
+  `saveRebalancingTarget()` around a `localStorage` key
+  (`portfolio.rebalancingTarget`, same `readJson`/`writeJson` helpers
+  `utils/storage.ts` already provides), storing `{ twStock, usStock, fund,
+  cash, realEstate }` target percentages. Pure functions
+  `computeCurrentAllocation(summary)` (bucket → current % and current TWD,
+  from `PortfolioSummaryDto` alone) and `computeRebalancingDeltas(current,
+  target, totalAssetsTWd)` (bucket → `{ currentPct, targetPct, deltaTWD }`,
+  positive `deltaTWD` = buy more, negative = sell/reduce) — unit-testable
+  in isolation, same convention as `concentration.ts`/`exposureGauges.ts`.
+- New `Portfolio/RebalancingCard.tsx`: an editable target-% input per
+  bucket (5 number fields, sum shown live with a warning styling — not a
+  hard block — when it doesn't sum to ~100%, since a deliberately
+  under/over-100% target, e.g. "I want to raise cash and haven't decided
+  where the rest goes," is a legitimate use, not an error), a bar/row per
+  bucket showing current % vs. target % and the buy/sell delta in TWD,
+  and a "重設為目前配置" (reset to current allocation) button. First-run
+  default (no saved target yet): seed the target inputs with the
+  *current* allocation, not zeros — so a first-time viewer sees "already
+  balanced, 0 delta everywhere" rather than a wall of red "sell 100%"
+  values before they've expressed any actual preference.
+- Placement: a new card on the Portfolio summary page, near
+  `ConcentrationCard`, since both are "how is my money spread out" cards —
+  not inside `HoldingDetailDrawer` (that drawer is per-holding, this is
+  whole-portfolio).
+
+### Reason
+Every number this feature needs already exists in the `/summary` response
+returned on every page load; the only genuinely new state is the user's own
+target %, which is exactly the kind of per-browser preference this codebase
+already has a working, deliberately-not-backed-by-a-table pattern for
+(`feeDiscountRate.ts`). No new AI call, no new endpoint, no new DB table —
+the cheapest of the remaining Gap Audit proposals, consistent with
+DECISION-003's cost discipline and this Gap Audit's own established
+"proceed by default" sequencing.
+
+### Alternatives
+- **Model the target on `PortfolioCategory` (sector-level)**: rejected for
+  this pass — needs the heavier `groupBy=category` time-series endpoint
+  (fetched for one day just to read the last point), 16 buckets is a lot of
+  manual target-setting for a first version, and REAL_ESTATE/manually-priced
+  holdings don't cleanly map to a sector category anyway. Could be a future
+  finer-grained mode once the asset-type version proves useful — not
+  proposed as the default here, same "start with the coarser, cheaper cut"
+  judgment call already used for the multi-stock comparison item (user-
+  picked codes over auto sector-discovery).
+- **Persist the target server-side** (new column/table on a per-user
+  settings entity): rejected — no user-settings table exists anywhere in
+  this app today, and `feeDiscountRate.ts` already established that a
+  personal display/planning preference like this doesn't need one. Would
+  also be the first "user preferences" table in the schema for a feature
+  that doesn't need cross-device sync to be useful.
+- **A hard validation block preventing save unless targets sum to
+  exactly 100%**: rejected — a partial/under-100% target (e.g., "I know I
+  want less in stock, haven't decided the destination yet") is a reasonable
+  intermediate state; a soft visual warning communicates the same
+  information without blocking a legitimate use.
+
+### Trade-offs
+The target is per-browser (`localStorage`), not per-account — clearing
+browser data or switching devices loses it, same limitation
+`feeDiscountRate.ts` already accepts for a similar kind of preference.
+Acceptable for a planning aid the user can re-set in a few seconds; flagged
+here in case Boss wants it to persist server-side once there's a real
+user-settings table for some other reason.
+
+### Impact
+- `jackyaiapp.client` only: new `Portfolio/rebalancingTarget.ts` (pure
+  compute + localStorage load/save, unit tested), new
+  `Portfolio/RebalancingCard.tsx`, wired into the Portfolio summary page
+  near `ConcentrationCard`. No backend/DTO/migration change.
+
+See `TASK-017` (Frontend only).

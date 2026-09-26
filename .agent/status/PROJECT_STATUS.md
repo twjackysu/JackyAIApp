@@ -2117,3 +2117,74 @@
   UI) — deliberately unscoped until rows are actually evaluable.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-26 — Tech Lead: closed out TASK-014 bookkeeping, scoped Portfolio Gap Audit item 3 (rebalancing) (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md/PM.md
+  per SOP. No new Boss message in either `TECH_LEAD.md` or `PM.md` since
+  Tech Lead's/PM's 2026-09-25 entries — DECISION-006's free-usage-cap
+  question and the scheduling-layer duplicate-PR escalation are both still
+  unanswered (now over a week and one day respectively). Confirmed via
+  GitHub: no open PRs, nothing pending review. Picked up the standing Open
+  Item: PM's 2026-09-25 handoff of Portfolio Gap Audit proposal 3
+  (rebalancing suggestions against a target allocation).
+- **Housekeeping**: `TASK-014.md` still read `Status: PR_OPENED` though PR
+  #364 was merged directly by Boss on 2026-09-23 (confirmed via the GitHub
+  API) without an intervening Tech Lead review pass. Read the merged code
+  directly rather than only trusting PM's prior product-verification —
+  matches the Architecture doc's scope cut and this task's own Requirements
+  exactly; the one real defect that shipped with it (comparison-tab errors
+  leaking into the single-stock tab's shared Alert, QA-found) was already
+  scoped and fixed as `TASK-016` (merged). Flipped `TASK-014.md`'s `Status`
+  to `MERGED` with a Review note recording both findings.
+- **Scoped Portfolio Gap Audit proposal 3** (rebalancing suggestions).
+  Investigated before writing the design: `REQUIREMENTS.md`'s gap-audit note
+  pointed at `ConcentrationCard`/`groupBy=category`, but these turned out to
+  be two unrelated mechanisms — `ConcentrationCard` computes per-holding
+  concentration, not asset-class allocation, and the actual
+  `groupBy=category` endpoint (`GetNetWorthHistoryAsync`) returns a daily
+  time series across 16 sector buckets, heavier than this feature needs.
+  The 5 asset-type fields `GET api/portfolio/summary` already returns (TW
+  Stock/US Stock/Fund/Cash/Real Estate) are exactly what a target-allocation
+  feature needs, with zero backend change. Also found a direct precedent
+  for where to put the user's target %: `Portfolio/feeDiscountRate.ts`
+  already stores a similar per-browser preference number in `localStorage`
+  rather than a backend table — this codebase has no user-settings table at
+  all, and this feature doesn't need to be the first to add one.
+- Documented the investigation and decision in `ARCHITECTURE.md` →
+  "Decision: Portfolio rebalancing suggestions against a target allocation —
+  Gap Audit item 3". Created `TASK-017` (Frontend only: `rebalancingTarget.ts`
+  pure compute + localStorage load/save, a new `RebalancingCard` with 5
+  editable target-% inputs seeded from the current allocation on first view,
+  current/target/delta per bucket, a soft not-100% warning rather than a
+  hard block) — `READY`, unclaimed, no dependency on any other open task.
+- Also fixed a stale cross-reference found while editing the Architecture
+  doc: the CSV-import decision's closing "See `TASK-014`" pointer was wrong
+  (that decision is `TASK-015`'s, a leftover from when both were being
+  scoped close together) — corrected to `TASK-015`.
+- `REQUIREMENTS.md`: Portfolio Gap Audit's Open Questions section updated —
+  proposal 3 marked scoped (not yet implemented), pointing at `TASK-017`/the
+  new Architecture decision.
+- No application code changes — architecture/task/requirements/status
+  documentation only. Committed and pushed directly to `master` per this
+  role's own git rule (§16).
+
+## Open Items
+- **New, from this run**: `TASK-017` (Portfolio rebalancing suggestions) is
+  `READY`, unclaimed — next Frontend Engineer run should pick it up.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a week with no reply across multiple runs; still
+  not urgent (current system is dormant, not causing active harm), and does
+  not block Gap Audit work.
+- Carried over, escalated by Tech Lead 2026-09-25: whether to adjust the
+  scheduling layer to stop multiple sessions from claiming the same `READY`
+  task at once (4-way duplicate on `TASK-015`) — this is a Tech
+  Lead↔Boss item, still unanswered; not re-escalated with new text this run
+  since nothing has changed since the last ask.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.

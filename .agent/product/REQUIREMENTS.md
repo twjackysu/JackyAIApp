@@ -806,6 +806,21 @@ sign-off, same as the original Skill-Building proposal):
   regression test covering the exact leak QA reported. This is a bug fix,
   not a new Gap Audit feature, so no Requirements scope change — noted here
   for the record since it was flagged as an open item in `PROJECT_STATUS.md`.
+- **Proposal 3 (rebalancing suggestions against a target allocation) —
+  scoped 2026-09-26 (`TASK-017`, Frontend only)**: per the already-approved
+  priority order, picked up as the next default Tech Lead item, no fresh
+  Boss sign-off needed. Investigation found the buckets are the 5 asset-type
+  fields `GET api/portfolio/summary` already returns (TW Stock/US
+  Stock/Fund/Cash/Real Estate) — not the finer-grained 16-value sector
+  `PortfolioCategory` `groupBy=category` mechanism the original gap-audit
+  note pointed at, which is a heavier, differently-shaped (time-series) API.
+  Target percentages are a per-browser `localStorage` preference (same
+  pattern as the existing `feeDiscountRate.ts`), not a new backend
+  user-settings table — zero backend/DB change, the cheapest of the
+  remaining Gap Audit proposals. See `ARCHITECTURE.md` → "Decision:
+  Portfolio rebalancing suggestions against a target allocation — Gap Audit
+  item 3" for the full reasoning. Not yet implemented — `TASK-017` is
+  `READY`, unclaimed.
 
 ---
 

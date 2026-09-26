@@ -7,7 +7,7 @@ Frontend: Multi-stock peer comparison tab (Gap Audit item 3 — 多股比較)
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM (per PM's approved Gap Audit order — item 3, cheapest remaining item,
@@ -194,4 +194,25 @@ Implemented as scoped in `ARCHITECTURE.md` — frontend-only, no backend/DB chan
 None.
 
 ## Review
-(Fill in after PR review.)
+
+**Reviewed by Tech Lead 2026-09-26** (bookkeeping close-out — PR #364 was
+merged directly by Boss on 2026-09-23 without an intervening Tech Lead
+review pass; confirmed merged via the GitHub API, `merged_at:
+2026-09-23T11:25:08Z`). No correctness issues found in the merged code:
+matches the Architecture doc's scope cut (user-picked codes, not
+auto-discovered sector peers) and this task's Requirements/Acceptance
+Criteria exactly — no `isAuthenticated` gate on the comparison tab, fetches
+run concurrently via `Promise.all` against the existing free
+`comprehensive-analysis` endpoint with the fixed `DEFAULT_CONFIG`, one
+failed code renders inline without blocking the others, `CategoryScoreCard`
+is reused unmodified. PM independently product-verified the same merged
+code on 2026-09-23 (see `REQUIREMENTS.md` → Finance Gap Audit).
+
+One real bug did ship with this PR (not caught before merge since the
+review pass was skipped): the comparison tab and the single-stock
+quantitative tab shared one RTK Query mutation trigger, so a failing code
+on the comparison tab also popped the single-stock tab's unrelated shared
+error `Alert`. QA caught this on the live merged code
+(https://github.com/twjackysu/JackyAIApp/pull/364#issuecomment-5798485642);
+scoped and fixed as `TASK-016` (PR #371, merged 2026-09-25, now also
+product-verified — see `TASK-016.md`). No other issues found.
