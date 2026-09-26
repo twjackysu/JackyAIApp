@@ -161,5 +161,8 @@ Implemented per spec, frontend-only:
 - Manual browser verification not performed in this automated session (flagged as a known
   limitation, consistent with `TASK-015`/`TASK-016`'s same note).
 
+## PR
+https://github.com/twjackysu/JackyAIApp/pull/376
+
 ## Review
 (Pending — PR opened, awaiting Tech Lead review.)
