@@ -7,7 +7,7 @@ Frontend: Portfolio rebalancing suggestions against a target allocation (Gap Aud
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM (per PM's approved Gap Audit order — Portfolio proposal 3, next
@@ -132,7 +132,24 @@ investigation and reasoning. Read it before implementing — in particular:
 None — pure frontend, no other open task's code needed.
 
 ## Result
-(Pending — unclaimed.)
+Implemented per spec, frontend-only, no backend change:
+- `Portfolio/rebalancingTarget.ts` (new): `RebalancingTarget` type, `loadRebalancingTarget`/
+  `saveRebalancingTarget` (localStorage key `portfolio.rebalancingTarget` via `utils/storage.ts`'s
+  `readJson`/`writeJson`), `computeCurrentAllocation(summary)` (bucket → current TWD/%, 0% not
+  NaN at zero total assets), `computeRebalancingDeltas(current, target, totalAssetsTWD)`.
+- `Portfolio/RebalancingCard.tsx` (new): 5 target-% inputs (台股/美股/基金/現金/不動產), live sum
+  with a soft warning outside 95-105%, per-bucket current%/target%/delta row (買入/賣出/±持平 at
+  <NT$100), "重設為目前配置" button, first-run seeding from current allocation, persists on every
+  edit.
+- `Portfolio/index.tsx`: wired into a new "再平衡建議" `ChartSectionCard` next to `ConcentrationCard`,
+  reusing the page's existing `summary` — no second fetch.
+- Tests: `rebalancingTarget.test.ts` (allocation/delta math, zero-total-assets edge case,
+  localStorage round-trip) + `RebalancingCard.test.tsx` (`renderToStaticMarkup`, no liability
+  bucket, first-run `±持平` seeding, soft sum warning, non-flat buy/sell deltas).
+- `npm run lint` (0 warnings), `npm run build`, `npx vitest run` (194/194) all pass.
+- Known limitation: no manual browser verification performed in this automated session.
+
+**PR**: https://github.com/twjackysu/JackyAIApp/pull/377
 
 ## Review
 (Pending.)
