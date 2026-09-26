@@ -7,7 +7,7 @@ Frontend: Portfolio rebalancing suggestions against a target allocation (Gap Aud
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM (per PM's approved Gap Audit order — Portfolio proposal 3, next
@@ -132,7 +132,37 @@ investigation and reasoning. Read it before implementing — in particular:
 None — pure frontend, no other open task's code needed.
 
 ## Result
-(Pending — unclaimed.)
+Implemented per spec, frontend-only:
+- `Portfolio/rebalancingTarget.ts` (new) — `RebalancingTarget` type, `loadRebalancingTarget`/
+  `saveRebalancingTarget` (localStorage key `portfolio.rebalancingTarget` via
+  `utils/storage.ts`'s `readJson`/`writeJson`, same pattern as `feeDiscountRate.ts`),
+  `computeCurrentAllocation` (5 buckets as % of `liquidGrossAssetsTWD + realEstateTWD`, 0% when
+  total is 0 — no divide-by-zero), `computeRebalancingDeltas` (positive = buy, negative = sell).
+- `Portfolio/RebalancingCard.tsx` (new) — 5 editable target-% `TextField`s (台股/美股/基金/現金/
+  不動產), live sum with a soft `WARN_COLOR` nudge outside 95–105% (never blocking), one row per
+  bucket (current% → target%, buy/sell delta in TWD or "±持平" under NT$100), "重設為目前配置"
+  button, first-run seeds inputs from the current allocation, persists to localStorage on every
+  edit. Reuses `usePrivacy()`'s `value()`/`showRatio` the same way `AllocationCard`/
+  `ConcentrationCard` do.
+- `Portfolio/index.tsx` — added a new "再平衡建議" `ChartSectionCard` right after "持股集中度",
+  passing the same `summary` already fetched for the page (no second `/summary` request).
+
+## Tests
+- `Portfolio/rebalancingTarget.test.ts` (new): bucket/% math against a sample
+  `PortfolioSummaryDto`, liability excluded from both buckets and the denominator, the
+  zero-total-assets edge case, delta math (buy vs. sell direction), zero-total delta edge case,
+  and a localStorage round-trip.
+- `Portfolio/RebalancingCard.test.tsx` (new, `renderToStaticMarkup` per `TASK-014`/`TASK-015`
+  precedent — no `@testing-library/react` in this project): first-run seeding (all buckets
+  "±持平"), a saved target that differs from current shows buy/sell deltas, exactly 5 target
+  inputs rendered (liability is not a 6th bucket).
+- `npm run lint` — 0 warnings. `npm run build` — passes. `npx vitest run` — 194/194 passed (25
+  files), no regressions.
+- Manual browser verification not performed in this automated session (flagged as a known
+  limitation, consistent with `TASK-015`/`TASK-016`'s same note).
+
+## PR
+https://github.com/twjackysu/JackyAIApp/pull/376
 
 ## Review
-(Pending.)
+(Pending — PR opened, awaiting Tech Lead review.)

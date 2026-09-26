@@ -34,6 +34,7 @@ import { exportNetWorthCsv, exportPortfolioCsv } from './portfolioExport';
 import { PositionsTable } from './PositionsTable';
 import { usePrivacy } from './privacy';
 import { PrivacyProvider } from './PrivacyContext';
+import { RebalancingCard } from './RebalancingCard';
 
 import { useGetPortfolioSummaryQuery, useLazyGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { PortfolioSummaryDto, PositionDto } from '@/apis/portfolioApis/types';
@@ -624,6 +625,10 @@ export default function Portfolio() {
 
             <ChartSectionCard title="持股集中度">
               <ConcentrationCard positions={summary.positions} />
+            </ChartSectionCard>
+
+            <ChartSectionCard title="再平衡建議">
+              <RebalancingCard summary={summary} />
             </ChartSectionCard>
 
             <Card
