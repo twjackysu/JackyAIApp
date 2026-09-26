@@ -2188,3 +2188,59 @@
   UI) — deliberately unscoped until rows are actually evaluable.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-26 — PM: Product-verified Portfolio rebalancing (TASK-017), unblocked FIRE tracking (scheduled run)
+
+- Read `.agent/boss/PM.md`: no new Boss reply since PM's 2026-09-25 entry —
+  DECISION-006's free-usage-cap question is still unanswered (now over a
+  week across multiple PM/Tech Lead runs). Read `.agent/boss/TECH_LEAD.md`:
+  no new Boss reply there either — the scheduling-layer duplicate-PR
+  question Tech Lead escalated 2026-09-25 is also still open. Neither is
+  PM's to act on; not re-raised with new text this run since nothing has
+  changed since the last ask.
+- Confirmed via `git log` that `TASK-017` (Portfolio rebalancing
+  suggestions), scoped by Tech Lead earlier today, was already implemented
+  and merged (PR #376) by the time this run started — no PR sat open this
+  cycle.
+- **Product-verified by reading the merged code directly**:
+  `Portfolio/rebalancingTarget.ts`'s 5 buckets are exactly the
+  `PortfolioSummaryDto` asset-type fields, liability correctly excluded from
+  both the bucket list and the `liquidGrossAssetsTWD + realEstateTWD`
+  denominator; `RebalancingCard.tsx` seeds first-run inputs from the current
+  allocation (no "sell everything" wall before the user expresses a
+  preference), persists targets to `localStorage` via the same
+  `readJson`/`writeJson` wrapper `feeDiscountRate.ts` uses, and renders the
+  sum-not-100% case as a soft caption warning that never blocks editing.
+  Matches `TASK-017`'s requirements and the Architecture doc's scope cut
+  exactly. `REQUIREMENTS.md`'s Portfolio Gap Audit section updated — **three
+  of Portfolio's four originally-prioritized Gap Audit proposals (cross-link,
+  CSV import, rebalancing) are now merged and product-complete.**
+- **Unblocked the last item**: per the already-approved priority order
+  (cross-link → CSV import → rebalancing → **FIRE/goal tracking**),
+  Portfolio's proposal 4 (FIRE/goal tracking, reusing existing
+  XIRR/net-worth-history data for a forward projection) is now the default
+  next Tech Lead handoff — no new Boss sign-off needed, same pattern used
+  throughout this Gap Audit. Once this ships, Portfolio's Gap Audit list is
+  fully worked through, matching Finance's already-complete list.
+- No application code changes — Requirements/status documentation only.
+  Committed and pushed directly to `master` per this role's own git rule
+  (§11).
+
+## Open Items
+- **Next default Tech Lead item**: Portfolio Gap Audit proposal 4
+  (FIRE/goal tracking) — ready to scope, no Boss reply needed. Last item on
+  Portfolio's originally-prioritized Gap Audit list.
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a week with no reply across multiple runs; still
+  not urgent (current system is dormant, not causing active harm), and does
+  not block Gap Audit work.
+- Carried over, escalated by Tech Lead 2026-09-25: whether to adjust the
+  scheduling layer to stop multiple sessions from claiming the same `READY`
+  task at once — this is a Tech Lead↔Boss item, still unanswered.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.

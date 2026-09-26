@@ -807,20 +807,33 @@ sign-off, same as the original Skill-Building proposal):
   not a new Gap Audit feature, so no Requirements scope change — noted here
   for the record since it was flagged as an open item in `PROJECT_STATUS.md`.
 - **Proposal 3 (rebalancing suggestions against a target allocation) —
-  scoped 2026-09-26 (`TASK-017`, Frontend only)**: per the already-approved
-  priority order, picked up as the next default Tech Lead item, no fresh
-  Boss sign-off needed. Investigation found the buckets are the 5 asset-type
-  fields `GET api/portfolio/summary` already returns (TW Stock/US
-  Stock/Fund/Cash/Real Estate) — not the finer-grained 16-value sector
-  `PortfolioCategory` `groupBy=category` mechanism the original gap-audit
-  note pointed at, which is a heavier, differently-shaped (time-series) API.
-  Target percentages are a per-browser `localStorage` preference (same
-  pattern as the existing `feeDiscountRate.ts`), not a new backend
-  user-settings table — zero backend/DB change, the cheapest of the
-  remaining Gap Audit proposals. See `ARCHITECTURE.md` → "Decision:
-  Portfolio rebalancing suggestions against a target allocation — Gap Audit
-  item 3" for the full reasoning. Not yet implemented — `TASK-017` is
-  `READY`, unclaimed.
+  MERGED, product-verified (2026-09-26)**: `TASK-017`, PR
+  https://github.com/twjackysu/JackyAIApp/pull/376, merged. PM read the
+  merged code directly (`Portfolio/rebalancingTarget.ts`,
+  `Portfolio/RebalancingCard.tsx`): the 5 buckets are exactly the
+  `PortfolioSummaryDto` asset-type fields (TW Stock/US Stock/Fund/Cash/Real
+  Estate) with liability correctly excluded from both the bucket list and
+  the allocation denominator (`liquidGrossAssetsTWD + realEstateTWD`); the
+  target percentages persist as a per-browser `localStorage` preference
+  (`portfolio.rebalancingTarget`, same pattern as `feeDiscountRate.ts`), not
+  a new backend table — zero backend/DB change as scoped. First view with no
+  saved target seeds the 5 inputs from the current allocation (so a
+  first-time viewer sees "±持平" everywhere, not a wall of sell
+  instructions); the sum-not-100% case is a soft caption warning only,
+  never blocking; delta math is buy when target % exceeds current, sell
+  otherwise, with a small TWD tolerance before showing "±持平". Matches the
+  requirement exactly — **this item is fully shipped and product-complete.**
+  This closes out the third of Portfolio's four prioritized Gap Audit
+  proposals (1: cross-link — done; 2: CSV import — done; 3: rebalancing —
+  done). Next after this: proposal 4 (FIRE/goal tracking), unblocked below
+  per the established "proceed by default" pattern.
+- **Proposal 4 (FIRE/goal tracking) — ready to scope, no Boss reply
+  needed.** Reuses existing XIRR/net-worth-history data
+  (`GetNetWorthHistoryAsync`) for a forward projection (target net worth,
+  projected years-to-goal); new work is a target input + projection UI.
+  This is the last of the four originally-prioritized Portfolio Gap Audit
+  proposals — once scoped/shipped, Portfolio's Gap Audit list (from
+  2026-09-20) is fully worked through, same as Finance's already is.
 
 ---
 
