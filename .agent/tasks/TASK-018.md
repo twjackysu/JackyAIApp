@@ -7,7 +7,7 @@ Frontend: Portfolio FIRE/goal tracking (Gap Audit item 4, last item)
 Frontend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM (per PM's approved Gap Audit order — Portfolio proposal 4, the last
@@ -134,7 +134,69 @@ reasoning. Read it before implementing — in particular:
 None — pure frontend, no other open task's code needed.
 
 ## Result
-(Fill in once implemented.)
+
+**PR**: (to be filled in after opening)
+
+Implemented as scoped in `ARCHITECTURE.md` — frontend-only, no backend/DB change.
+
+- **`Portfolio/fireTarget.ts`** (new): `FireTarget = { targetNetWorthTWD, annualGrowthRatePct,
+  monthlyContributionTWD }`. `loadFireTarget`/`saveFireTarget` via `utils/storage.ts`'s
+  `readJson`/`writeJson`, localStorage key `portfolio.fireTarget` — same pattern as
+  `rebalancingTarget.ts`/`feeDiscountRate.ts`. `defaultAnnualGrowthRatePct(annualizedReturnPct)`
+  returns the real historical rate when it's a finite number, otherwise the documented
+  `PLACEHOLDER_ANNUAL_GROWTH_RATE_PCT = 6` — never coerces `null`/`undefined` to `0`.
+  `computeYearsToGoal(currentNetWorthTWD, target)` is a year-by-year simulation (not a closed-form
+  formula, per the Architecture doc's reasoning): returns `0` immediately if the target is already
+  met, otherwise applies `annualGrowthRatePct` then adds `monthlyContributionTWD * 12` each year,
+  capped at 100 years, returning `null` if still short after the cap.
+- **`Portfolio/FireCard.tsx`** (new): three inputs (target net worth, growth-rate assumption,
+  monthly contribution), seeded on first view (no saved target) from
+  `defaultAnnualGrowthRatePct(summary.annualizedReturnPct)` for the growth rate and `0` for the
+  other two. Persists every edit to `localStorage` immediately (same latitude as
+  `RebalancingCard`). When `annualizedReturnPct` is `null` *and* the growth-rate input still
+  equals the placeholder, shows an explanatory caption ("尚無足夠歷史資料計算實際報酬率…") so the
+  assumption never looks like a measured number. Renders one of: an empty-state prompt when no
+  target has been entered yet (`targetNetWorthTWD <= 0`, a case not called out by name in the
+  task's three outcome states but needed to avoid a false "已達成目標" default at `target = 0`),
+  "已達成目標", "預估 N 年後達成目標", or "此假設下無法在 100 年內達成" — recomputed live from
+  `target` state on every input change, no re-fetch.
+- **Wiring**: added a new `ChartSectionCard` ("財務目標 (FIRE)") right after the existing
+  "再平衡建議" (`RebalancingCard`) section in `Portfolio/index.tsx`, reusing the same
+  already-fetched `summary` prop — no second `/summary` request.
+
+### Files Changed
+- `jackyaiapp.client/src/Portfolio/fireTarget.ts` (new)
+- `jackyaiapp.client/src/Portfolio/fireTarget.test.ts` (new)
+- `jackyaiapp.client/src/Portfolio/FireCard.tsx` (new)
+- `jackyaiapp.client/src/Portfolio/FireCard.test.tsx` (new)
+- `jackyaiapp.client/src/Portfolio/index.tsx` (new `FireCard` section, import)
+
+### Tests
+- `npm run lint` — 0 warnings/errors.
+- `npm run build` (tsc + vite build) — passes.
+- `npx vitest run` — 207/207 passed (27 files), no regressions; includes new `fireTarget.test.ts`
+  (already-reached case, a hand-computed multi-year growth+contribution projection, the
+  monthly-contribution-only pure-lump-sum case, the 100-year cap returning `null`,
+  `defaultAnnualGrowthRatePct`'s null-vs-number behavior, and a localStorage round-trip) and
+  `FireCard.test.tsx` (`renderToStaticMarkup` pattern, per `TASK-014`–`017`'s precedent — no
+  `@testing-library/react` in this project). Also manually rendered the component to a static HTML
+  file in this sandbox to visually confirm no stray whitespace/line-wrap artifacts around the
+  Chinese copy (Prettier line-wraps the JSX text across multiple source lines; confirmed the
+  rendered output has no unintended extra spaces).
+
+### Known Issues
+- Not manually verified in a running browser this session (no dev server / browser check
+  performed) — same limitation flagged on `TASK-014`/`TASK-015`/`TASK-017`. Editing an input and
+  reloading the page (the acceptance criterion's localStorage-persistence check) is covered by the
+  `fireTarget.ts` round-trip unit test and `FireCard`'s "seeds from a saved target" test, not by an
+  actual browser reload.
+- The `targetNetWorthTWD <= 0` empty-state ("請先輸入目標淨值") is a judgment call not explicitly
+  specified by the task (which names three outcome states, not four) — done to avoid a confusing
+  false "已達成目標" on first view before the user has entered a target at all. Flagged here in
+  case Tech Lead prefers defaulting to one of the three named states instead.
+
+### Blockers
+None.
 
 ## Review
 (Fill in after PR review.)

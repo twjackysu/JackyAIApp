@@ -25,6 +25,7 @@ import { drawdownBufferColor, EXPOSURE_TOOLTIP } from './exposureGauges';
 import { loadFeeDiscountRate, saveFeeDiscountRate } from './feeDiscountRate';
 import { FeeSettingsDialog } from './FeeSettingsDialog';
 import { FinancialChangesChart } from './FinancialChangesChart';
+import { FireCard } from './FireCard';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
 import { NetWorthChart } from './NetWorthChart';
@@ -629,6 +630,10 @@ export default function Portfolio() {
 
             <ChartSectionCard title="再平衡建議">
               <RebalancingCard summary={summary} />
+            </ChartSectionCard>
+
+            <ChartSectionCard title="財務目標 (FIRE)">
+              <FireCard summary={summary} />
             </ChartSectionCard>
 
             <Card
