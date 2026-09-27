@@ -43,11 +43,32 @@ export function FireCard({ summary }: FireCardProps) {
     () => loadFireTarget() ?? defaultTarget(summary),
   );
 
+  // Inputs are edited as raw strings, separate from the committed numeric `target`. A `type="number"`
+  // field sanitizes an in-progress value like "-" to "" before it becomes a full number, so coercing
+  // straight to `target` on every keystroke (the previous behavior) reset it to 0 mid-edit and silently
+  // dropped the sign — e.g. typing "-5" one character at a time landed on "5". Keeping the raw string
+  // lets the field show exactly what was typed and only commits to `target`/localStorage once it
+  // parses as a finite number.
+  const [rawInputs, setRawInputs] = useState<Record<keyof FireTarget, string>>({
+    targetNetWorthTWD: String(target.targetNetWorthTWD),
+    annualGrowthRatePct: String(target.annualGrowthRatePct),
+    monthlyContributionTWD: String(target.monthlyContributionTWD),
+  });
+
   const updateField = (field: keyof FireTarget, raw: string) => {
+    setRawInputs((prev) => ({ ...prev, [field]: raw }));
     const parsed = parseFloat(raw);
-    const next = { ...target, [field]: Number.isFinite(parsed) ? parsed : 0 };
+    if (!Number.isFinite(parsed)) return;
+    const next = { ...target, [field]: parsed };
     setTarget(next);
     saveFireTarget(next);
+  };
+
+  // On blur, resync the raw display to the last committed value — clears a leftover
+  // incomplete/invalid string (e.g. "-" or "") instead of leaving the field showing something that
+  // was never actually saved.
+  const commitField = (field: keyof FireTarget) => {
+    setRawInputs((prev) => ({ ...prev, [field]: String(target[field]) }));
   };
 
   const placeholderRatePct = defaultAnnualGrowthRatePct(summary.annualizedReturnPct);
@@ -80,8 +101,9 @@ export function FireCard({ summary }: FireCardProps) {
             size="small"
             type="number"
             label="目標淨值"
-            value={target.targetNetWorthTWD}
+            value={rawInputs.targetNetWorthTWD}
             onChange={(e) => updateField('targetNetWorthTWD', e.target.value)}
+            onBlur={() => commitField('targetNetWorthTWD')}
             fullWidth
             slotProps={{
               input: { startAdornment: <InputAdornment position="start">NT$</InputAdornment> },
@@ -92,14 +114,20 @@ export function FireCard({ summary }: FireCardProps) {
         <Grid size={{ xs: 12, sm: 4 }}>
           <TextField
             size="small"
-            type="number"
+            // `type="number"` sanitizes an in-progress value like "-" to "" before React ever
+            // sees it (the HTML value-sanitization algorithm for number inputs), which silently
+            // drops the sign when typing a negative rate character-by-character — this is the
+            // only one of the three fields where a negative value is legitimate, so it's `text`
+            // with a numeric keyboard hint instead.
+            type="text"
+            inputMode="decimal"
             label="預估年化成長率"
-            value={target.annualGrowthRatePct}
+            value={rawInputs.annualGrowthRatePct}
             onChange={(e) => updateField('annualGrowthRatePct', e.target.value)}
+            onBlur={() => commitField('annualGrowthRatePct')}
             fullWidth
             slotProps={{
               input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
-              htmlInput: { step: 0.1 },
             }}
           />
         </Grid>
@@ -108,8 +136,9 @@ export function FireCard({ summary }: FireCardProps) {
             size="small"
             type="number"
             label="每月投入"
-            value={target.monthlyContributionTWD}
+            value={rawInputs.monthlyContributionTWD}
             onChange={(e) => updateField('monthlyContributionTWD', e.target.value)}
+            onBlur={() => commitField('monthlyContributionTWD')}
             fullWidth
             slotProps={{
               input: { startAdornment: <InputAdornment position="start">NT$</InputAdornment> },
