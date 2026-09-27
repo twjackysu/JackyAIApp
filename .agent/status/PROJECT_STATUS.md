@@ -2244,3 +2244,80 @@
   UI) — deliberately unscoped until rows are actually evaluable.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-27 — Tech Lead: closed out TASK-016/017 bookkeeping, scoped Portfolio Gap Audit item 4 — FIRE tracking, last item (scheduled run)
+
+- Read REQUIREMENTS/DECISIONS/ARCHITECTURE/tasks/status/TECH_LEAD.md per
+  SOP. No new Boss message in `TECH_LEAD.md` since the 2026-09-13 sign-off
+  on the SEO middleware direction — DECISION-006's free-usage-cap question
+  and the scheduling-layer duplicate-PR question (escalated 2026-09-22/25)
+  are both still unanswered, neither blocking this work. Confirmed via
+  GitHub (`list_pull_requests`, state=open): zero open PRs.
+- **Housekeeping**: `TASK-016.md` (PR #371) and `TASK-017.md` (PR #376)
+  were both still `Status: PR_OPENED`/`Review: Pending` though the GitHub
+  API confirms both merged (`merged_at` 2026-09-25T12:59:11Z and
+  2026-09-26T22:59:58Z respectively). Read the actual merged code on
+  `master` directly for both rather than only trusting each PR's own
+  description: `useFinanceAnalysis.ts`'s `showComprehensiveErrorAlert`
+  correctly tab-gates the shared mutation error (TASK-016); `Portfolio/
+  rebalancingTarget.ts`/`RebalancingCard.tsx` correctly exclude liability
+  from the 5 allocation buckets and the denominator, seed first-run inputs
+  from the current allocation, and persist via the same `utils/storage.ts`
+  wrapper `feeDiscountRate.ts` uses (TASK-017). No issues found in either.
+  Flipped both task files' `Status` to `MERGED` with Review notes.
+- **Picked up Portfolio Gap Audit proposal 4** (FIRE/goal tracking), handed
+  off by PM 2026-09-26 — the **last** item on Portfolio's originally-
+  prioritized 4-item Gap Audit list. Investigated before scoping:
+  `PortfolioSummaryDto` (`GET api/portfolio/summary`) already returns both
+  `totalNetWorthTWD` (current net worth) and `annualizedReturnPct` (a real,
+  all-snapshot-history, dividend-inclusive money-weighted XIRR) — exactly
+  what a FIRE projection needs, zero backend change. One correction to the
+  original proposal's framing: it named `GetNetWorthHistoryAsync` as the
+  data source, but that endpoint clamps to a 180-day window server-side
+  (`Math.Clamp(days, 7, 180)`), a poor basis for a multi-year compounding
+  assumption — the summary endpoint's all-history XIRR is the right number
+  to build on instead (same category of correction as the multi-stock
+  sector-data gap and the CSV-import schema mismatch found earlier in this
+  Gap Audit). Also confirmed `annualizedReturnPct` is nullable (null until
+  30 days of snapshot history exist, a deliberate anti-misleading guard,
+  not a bug) — the UI must never silently treat that null as a 0% growth
+  assumption.
+- Documented the full investigation and decision in `ARCHITECTURE.md` →
+  "Decision: Portfolio FIRE/goal tracking — Gap Audit item 4 (last item)".
+  Created `TASK-018` (Frontend only: `fireTarget.ts` pure compute +
+  localStorage load/save modeled on `rebalancingTarget.ts`, a year-by-year
+  `computeYearsToGoal` simulation supporting an optional monthly
+  contribution — not a closed-form formula, since a contribution term
+  doesn't reduce to one cleanly — new `FireCard` with target net worth /
+  growth rate / monthly contribution inputs, seeded from the real historical
+  rate when available or a clearly-labeled placeholder otherwise) — `READY`,
+  unclaimed, no dependency on any other open task.
+- `REQUIREMENTS.md`: corrected Portfolio Gap Audit's proposal 4 line to
+  reflect the `net-worth-history` → summary-endpoint data-source correction
+  and point at `TASK-018`.
+- No application code changes — architecture/task/requirements/status
+  documentation only. Committed and pushed directly to `master` per this
+  role's own git rule (§16).
+
+## Open Items
+- **New, from this run**: `TASK-018` (Portfolio FIRE/goal tracking) is
+  `READY`, unclaimed — next Frontend Engineer run should pick it up. Once
+  shipped, all four of Portfolio's originally-prioritized Gap Audit
+  proposals will be complete, matching Finance's already-complete list —
+  the next PM/Tech Lead workstream after that has no standing default item
+  queued (would need a fresh Boss/PM direction, e.g. a new gap-audit pass
+  on PDF Unlocker or revisiting Credits & Payments removal).
+- Carried over, unresolved: Credits & Payments removal (DECISION-006)
+  blocked on Boss's free-usage-cap design answer in `.agent/boss/PM.md`
+  (2026-09-21) — now over a week with no reply across multiple runs; still
+  not urgent (current system is dormant, not causing active harm), and does
+  not block Gap Audit work.
+- Carried over, escalated by Tech Lead 2026-09-25: whether to adjust the
+  scheduling layer to stop multiple sessions from claiming the same `READY`
+  task at once — this is a Tech Lead↔Boss item, still unanswered.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.

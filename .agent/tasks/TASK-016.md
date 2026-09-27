@@ -7,7 +7,7 @@ Frontend: Finance comparison tab's per-stock errors leak into the single-stock t
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM (correctness bug on already-shipped `master` code, not a regression
@@ -182,4 +182,11 @@ re-implemented to avoid adding a 5th duplicate PR to this task (see
 review.
 
 ## Review
-(Fill in after PR review.)
+**2026-09-27, Tech Lead**: Confirmed PR #371 merged (`merged_at: 2026-09-25T12:59:11Z`) and
+re-read the actual merged code on `master` directly rather than trusting the PR body alone —
+`Finance/hooks/useFinanceAnalysis.ts` derives `showComprehensiveErrorAlert =
+analysisTab === TAB_QUANTITATIVE && !!comprehensiveError && !isComprehensiveLoading`, and
+`Finance/index.tsx` renders the page-level Alert on that flag instead of the old ungated
+`comprehensiveError`. Tab-gate only, no mutation-trigger split, matching the Technical Notes
+exactly. No issues found. Flipping `Status` to `MERGED` — this task file had been left at
+`PR_OPENED` since merge, a bookkeeping gap this run closes per SOP §10/§18.

@@ -827,13 +827,18 @@ sign-off, same as the original Skill-Building proposal):
   proposals (1: cross-link — done; 2: CSV import — done; 3: rebalancing —
   done). Next after this: proposal 4 (FIRE/goal tracking), unblocked below
   per the established "proceed by default" pattern.
-- **Proposal 4 (FIRE/goal tracking) — ready to scope, no Boss reply
-  needed.** Reuses existing XIRR/net-worth-history data
-  (`GetNetWorthHistoryAsync`) for a forward projection (target net worth,
-  projected years-to-goal); new work is a target input + projection UI.
-  This is the last of the four originally-prioritized Portfolio Gap Audit
-  proposals — once scoped/shipped, Portfolio's Gap Audit list (from
-  2026-09-20) is fully worked through, same as Finance's already is.
+- **Proposal 4 (FIRE/goal tracking) — scoped as `TASK-018`
+  (2026-09-27), Frontend only, READY, unclaimed.** Correction to the
+  original framing: it reuses `PortfolioSummaryDto`'s existing
+  `totalNetWorthTWD`/`annualizedReturnPct` (all-history XIRR) fields, not
+  `GetNetWorthHistoryAsync` (that endpoint clamps to a 180-day window, a
+  poor basis for a multi-year compounding assumption — see
+  `ARCHITECTURE.md`). Target net worth/growth-rate override/monthly
+  contribution are a per-browser `localStorage` preference, same pattern as
+  `TASK-017`'s rebalancing target — zero backend change. This is the last
+  of the four originally-prioritized Portfolio Gap Audit proposals — once
+  shipped, Portfolio's Gap Audit list (from 2026-09-20) is fully worked
+  through, same as Finance's already is.
 
 ---
 

@@ -790,3 +790,48 @@ Portfolio 缺口盤點第 3 項（再平衡建議），已拆出 `TASK-017`，�
 
 ### Source
 Tech Lead
+
+---
+
+## Tech Lead → Boss (2026-09-27)
+
+### Status
+收尾 `TASK-016`/`TASK-017` 的文件記帳（狀態欄位一直沒補上 `MERGED`），並接手
+Portfolio 缺口盤點**最後一項**（FIRE/財務自由目標追蹤），已拆出 `TASK-018`，
+細節在 `.agent/architecture/ARCHITECTURE.md`。這次沒有新的需要您裁示的事項——
+上次的兩個問題（排程重複認領、DECISION-006 用量上限）都還沒收到回覆，這次沒
+有再重複問一次。
+
+### Completed
+- 確認 `TASK-016`（PR #371）、`TASK-017`（PR #376）都已合併，重新讀過實際
+  合併的程式碼做 Code Review（不只信任 PR 描述），都沒有問題，已補上兩個
+  任務檔案的 `Status: MERGED` 與 Review 記錄。
+- **Portfolio FIRE 追蹤**：盤點後發現，`GET api/portfolio/summary` 本來就有
+  「目前淨值」跟「全歷史年化報酬率（XIRR，含股息）」這兩個數字，完全不用改
+  後端。原本 PM 提案寫的資料來源（`net-worth-history`）其實不對——那支 API
+  的天數上限被寫死在 180 天（是為了它的分類明細功能設計的限制），拿來當
+  「未來好幾年」的成長率假設基礎並不合適，改用摘要 API 本來就有算好的
+  全歷史 XIRR 更正確。另外這個年化報酬率欄位有可能是 `null`（使用者持有
+  紀錄不滿 30 天時，系統故意不顯示、避免誤導），已在任務規格裡特別提醒工程師
+  不能把 `null` 當成 0% 處理，那樣會顯示出「永遠達不到目標」這種嚇人但錯誤
+  的結果。
+
+### Tasks
+- `TASK-016`：`MERGED`（已收尾）
+- `TASK-017`：`MERGED`（已收尾）
+- `TASK-018`（Frontend，Portfolio FIRE 追蹤）：`READY`，未認領。這是 Portfolio
+  缺口盤點清單（cross-link → CSV 匯入 → 再平衡 → FIRE 追蹤）的**最後一項**，
+  上線後 Portfolio 這份清單就會跟 Finance 一樣全部做完。
+
+### Risks / Blockers
+無立即阻塞。`TASK-018` 純前端、不依賴任何其他進行中的任務。
+
+### Boss Attention Required
+無新增裁示事項。提醒一次上次的兩個未回覆問題（都不急）：(1) 排程系統會不會
+讓多個 session 同時搶同一個 `READY` 任務，要不要調整；(2) DECISION-006 免費
+用量上限要寬鬆還是保守。`TASK-018` 上線之後，Portfolio/Finance 的缺口盤點就
+會全部做完，屆時會需要您或 PM 給下一步方向（例如要不要繼續看 PDF Unlocker，
+或回頭處理 Credits & Payments 拆除）。
+
+### Source
+Tech Lead

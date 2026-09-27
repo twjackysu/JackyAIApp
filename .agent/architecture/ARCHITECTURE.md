@@ -1359,3 +1359,158 @@ user-settings table for some other reason.
   near `ConcentrationCard`. No backend/DTO/migration change.
 
 See `TASK-017` (Frontend only).
+
+---
+
+## Decision: Portfolio FIRE/goal tracking — Gap Audit item 4 (last item)
+
+### Context
+`REQUIREMENTS.md` → Portfolio's Gap Audit (2026-09-20) names proposal 4: no
+FIRE/goal-tracking feature exists (target net worth, projected years-to-goal)
+despite the XIRR/net-worth data needed for a projection already existing.
+PM handed this to Tech Lead 2026-09-26 as the last item in the
+already-approved priority order (cross-link → CSV import → rebalancing →
+**FIRE tracking**), no fresh Boss sign-off needed — DECISION-006's
+free-usage-cap question and the scheduling-layer duplicate-PR question
+remain the only items still waiting on Boss and do not block this work.
+
+### Investigation (2026-09-27)
+1. **Everything a simple forward projection needs is already in
+   `PortfolioSummaryDto` (`GET api/portfolio/summary`), the same response
+   `RebalancingCard`/`ConcentrationCard` already consume — zero backend
+   change.** `TotalNetWorthTWD` is the current net worth (net of liability).
+   `AnnualizedReturnPct` is a money-weighted XIRR over the user's *entire*
+   snapshot history (not the 180-day-clamped window `net-worth-history` uses
+   for its chart/groupBy modes — confirmed by reading
+   `ComputeAnnualizedReturn`/`GetNetWorthHistoryAsync` directly), including
+   dividends — exactly the "assumed growth rate" a FIRE calculator needs as
+   a sensible default. It is nullable: null until a user has ≥30 days of
+   snapshot history (`MinXirrHistoryDays`), by deliberate design (an
+   annualized rate from too short a window is misleading, per the existing
+   code comment) — the UI must handle this null case, not treat it as zero.
+2. **`net-worth-history`'s 180-day clamp is irrelevant here** — a first
+   instinct might be to chart historical growth to project it forward, but
+   that endpoint is capped at 180 days server-side
+   (`Math.Clamp(days, 7, 180)`) specifically for its groupBy/category
+   breakdown mode, and a 6-month trailing window is a poor basis for a
+   multi-year compounding assumption anyway. The already-computed
+   all-history XIRR (`AnnualizedReturnPct`) is the correct number to build
+   on, not a new chart-derived rate.
+3. **No target/goal concept exists anywhere in `Data/Models/Portfolio.cs`**
+   (confirmed, same as the rebalancing decision above) — expected, and for
+   the same reason as `TASK-017`, this doesn't need a new database table.
+4. **Same direct precedent as `TASK-017`**: `Portfolio/feeDiscountRate.ts`
+   and now `Portfolio/rebalancingTarget.ts` both already establish that a
+   personal planning input (a number the user sets and expects to see again
+   on their own browser, not account data other users/devices need) belongs
+   in `localStorage` via `utils/storage.ts`'s `readJson`/`writeJson`, not a
+   new backend table. A FIRE target net worth is the same category of thing.
+5. **A monthly-contribution input is a genuinely new concept, not derived
+   from existing data** — unlike the growth rate (from `AnnualizedReturnPct`)
+   and current net worth (from `TotalNetWorthTWD`), this app has no
+   "planned future savings rate" anywhere (it's a snapshot tracker, not a
+   budgeting tool). Including it makes the projection meaningfully more
+   useful (most real FIRE plans assume ongoing contributions, not a
+   lump-sum-only compounding), and it costs nothing extra to add as a third
+   plain user-input number alongside target net worth and (optionally)
+   growth rate override — not a reason to cut it, just calling out that it's
+   the one number in this feature with no data source behind it at all.
+
+### Decision
+Frontend-only, zero backend/DB change, same localStorage-preference pattern
+as `TASK-017`:
+
+- **`Portfolio/fireTarget.ts`** (new, pure functions + localStorage, unit
+  tested): `FireTarget = { targetNetWorthTWD: number; annualGrowthRatePct:
+  number; monthlyContributionTWD: number }`. `loadFireTarget()`/
+  `saveFireTarget()` around `localStorage` key `portfolio.fireTarget`, via
+  `utils/storage.ts`'s existing helpers. `annualGrowthRatePct` defaults to
+  `summary.annualizedReturnPct` when available and no saved target exists
+  yet (same "seed from real data on first view" pattern `RebalancingCard`
+  established), or a clearly-labeled placeholder (e.g. `6`, annotated in the
+  UI as "尚無足夠歷史資料計算實際報酬率，請自行輸入預估年化報酬率") when
+  `annualizedReturnPct` is null — never silently treat null as 0%, which
+  would show an impossibly pessimistic "永遠達不到" result.
+- **`computeYearsToGoal(currentNetWorthTWD: number, target: FireTarget):
+  number | null`**: simulates year-by-year (not a closed-form log formula,
+  because the monthly-contribution term makes the closed form awkward and a
+  simple loop is easy to verify/test) — each year, apply
+  `annualGrowthRatePct` to the running balance, then add
+  `monthlyContributionTWD * 12`; stop and return the elapsed years once the
+  balance reaches `targetNetWorthTWD`, capped at e.g. 100 years (returns
+  `null` beyond the cap — "not reachable at this rate/contribution", not a
+  false precise-looking number). Returns `0` immediately if
+  `currentNetWorthTWD >= targetNetWorthTWD` already.
+- **`Portfolio/FireCard.tsx`** (new component): target net worth input,
+  growth-rate input (seeded from `AnnualizedReturnPct` when available,
+  editable either way — this is a forward-looking assumption, not a fact,
+  so the user must always be able to override it even when a real number is
+  available), monthly-contribution input (defaults to 0 — lump-sum-only
+  projection if the user doesn't fill it in), and the computed result
+  ("預估 N 年後達成目標" / "已達成目標" / "此假設下無法在 100 年內達成" for
+  the three outcome cases). Persists to `localStorage` on every edit, same
+  as `RebalancingCard`.
+- **Wiring**: add `FireCard` to the Portfolio summary page, near
+  `RebalancingCard` (both are forward-looking planning cards, distinct from
+  the backward-looking history/analysis cards above them). Reads the same
+  already-fetched `PortfolioSummaryDto` — no second `/summary` request.
+
+### Reason
+Every number with a real data source behind it (current net worth,
+historical annualized return) is already computed and already returned by
+an endpoint the page fetches on every load; the two genuinely new pieces
+(target net worth, monthly contribution) are exactly the kind of
+per-browser planning input this codebase already has a working,
+deliberately-not-backed-by-a-table pattern for. No new AI call, no new
+endpoint, no new DB table — matches the cost discipline and sequencing this
+entire Gap Audit has used throughout (DECISION-003), and closes out
+Portfolio's originally-prioritized 4-item Gap Audit list once shipped.
+
+### Alternatives
+- **A closed-form `t = ln(target/current) / ln(1+rate)` formula, no
+  contribution term**: rejected — cheaper to compute but structurally can't
+  represent ongoing contributions, which most real "how many years until
+  FIRE" plans assume; the year-by-year simulation loop handles both a
+  pure-lump-sum projection (`monthlyContribution = 0`, which degenerates to
+  the same answer the closed form would give) and a contribution-aware one
+  with one implementation, and is easy to unit-test against hand-computed
+  cases.
+- **Persist the target server-side** (new user-settings table/column):
+  rejected for the same reason `TASK-017` rejected it — no user-settings
+  table exists anywhere in this schema, and this planning input doesn't need
+  cross-device sync to be useful.
+- **Derive the growth-rate default from `net-worth-history`'s recent window**
+  instead of `AnnualizedReturnPct`: rejected — that endpoint's 180-day clamp
+  makes it a worse basis for a multi-year assumption than the all-history
+  XIRR the summary endpoint already computes; reusing the existing number is
+  also zero additional computation, versus fetching and processing a second
+  endpoint's response just to derive a rate.
+- **Silently default a null `AnnualizedReturnPct` to some fixed assumed rate
+  (e.g. 6%) without telling the user**: rejected — a new user with under 30
+  days of snapshot history would see a rate that looks like it came from
+  their own data but didn't; the UI must visibly distinguish "your own
+  historical rate" from "a placeholder you should edit."
+
+### Trade-offs
+- The year-by-year simulation assumes one constant growth rate and one
+  constant monthly contribution for the entire projection horizon — no
+  modeling of contribution escalation, sequence-of-returns risk, or
+  inflation-adjusted targets (real FIRE calculators often support these).
+  Accepted as the correct scope for a first version, consistent with this
+  Gap Audit's pattern of shipping the coarser, cheaper cut first
+  (rebalancing's asset-type buckets over sector buckets; multi-stock
+  comparison's user-picked codes over auto sector-discovery) — flagged here
+  in case Boss wants a richer model later.
+- Like `TASK-017`, the target is per-browser (`localStorage`), not
+  per-account — same accepted limitation, same precedent.
+
+### Impact
+- `jackyaiapp.client` only: new `Portfolio/fireTarget.ts` (pure compute +
+  localStorage load/save, unit tested), new `Portfolio/FireCard.tsx`, wired
+  into the Portfolio summary page near `RebalancingCard`. No backend/DTO/
+  migration change.
+
+See `TASK-018` (Frontend only). Once shipped, all four of Portfolio's
+originally-prioritized Gap Audit proposals (cross-link, CSV import,
+rebalancing, FIRE tracking) will be complete, matching Finance's
+already-complete 3-item list.

@@ -7,7 +7,7 @@ Frontend: Portfolio rebalancing suggestions against a target allocation (Gap Aud
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM (per PM's approved Gap Audit order — Portfolio proposal 3, next
@@ -165,4 +165,16 @@ Implemented per spec, frontend-only:
 https://github.com/twjackysu/JackyAIApp/pull/376
 
 ## Review
-(Pending — PR opened, awaiting Tech Lead review.)
+**2026-09-27, Tech Lead**: Confirmed PR #376 merged (`merged_at: 2026-09-26T22:59:58Z`) and
+re-read the actual merged code on `master` directly — `Portfolio/rebalancingTarget.ts`'s 5
+buckets map exactly to `PortfolioSummaryDto`'s TW/US stock, fund, cash, real-estate fields;
+liability is correctly excluded from both `REBALANCING_BUCKETS` and the
+`liquidGrossAssetsTWD + realEstateTWD` denominator; `computeCurrentAllocation` guards the
+zero-total-assets case (0% instead of NaN). `RebalancingCard.tsx` seeds first-run inputs from
+the current allocation (no "sell everything" wall), persists to `localStorage` via
+`utils/storage.ts`'s `readJson`/`writeJson` (same wrapper `feeDiscountRate.ts` uses), and the
+sum-not-100% warning is a soft caption only — inputs stay editable. `Portfolio/index.tsx` passes
+the already-fetched `summary` into the card, no second `/summary` request. Matches `TASK-017`'s
+requirements and the Architecture doc's scope cut exactly. No issues found. Flipping `Status` to
+`MERGED` — left at `PR_OPENED` since merge, closing that bookkeeping gap this run per SOP
+§10/§18.
