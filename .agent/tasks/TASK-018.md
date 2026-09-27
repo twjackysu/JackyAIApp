@@ -198,5 +198,19 @@ Implemented as scoped in `ARCHITECTURE.md` — frontend-only, no backend/DB chan
 ### Blockers
 None.
 
+### QA Fix (2026-09-27, Frontend Engineer, scheduled run)
+QA reported a MEDIUM bug on this PR (comment
+https://github.com/twjackysu/JackyAIApp/pull/378#issuecomment-5857538744):
+預估年化成長率's `type="number"` input silently dropped a typed minus sign
+(the HTML value-sanitization algorithm collapses an in-progress `"-"` to
+`""` before `onChange` sees it, and the old handler coerced that `NaN`
+straight to `0`). Fixed and pushed (`e30c7d3`) — switched only that field
+to `type="text"` + `inputMode="decimal"`, reworked all three inputs to
+track raw string state that commits to `FireTarget` only once it parses as
+finite, resyncing on blur. Added a mount-based regression test
+(`createRoot`/`act`) typing `"-5"` one keystroke at a time; confirmed it
+fails without the fix before restoring it. `npm run lint` (0 warnings),
+`npm run build`, `npx vitest run` (208/208, up from 207) all green.
+
 ## Review
 (Fill in after PR review.)
