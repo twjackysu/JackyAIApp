@@ -135,7 +135,7 @@ None — pure frontend, no other open task's code needed.
 
 ## Result
 
-**PR**: (to be filled in after opening)
+**PR**: https://github.com/twjackysu/JackyAIApp/pull/378
 
 Implemented as scoped in `ARCHITECTURE.md` — frontend-only, no backend/DB change.
 
