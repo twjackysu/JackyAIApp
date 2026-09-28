@@ -32,10 +32,21 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
   const [idle, setIdle] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // 兩層 img 交叉淡入：新圖先載進背面那層，載好才翻面，中間不會閃一下黑畫面。
-  const [slots, setSlots] = useState<[string, string]>(['', '']);
-  const [activeSlot, setActiveSlot] = useState(0);
-  const activeSlotRef = useRef(0);
+  // 交叉淡入用的兩層：prev 墊在底下，cur 疊上去淡入。
+  //
+  // 換圖的時機由 Image.decode() 決定，不靠 <img> 的 onLoad：blob URL 視窗會讓最近看過的
+  // 照片保持同一個 URL 字串，往回翻時同一層會被指派到它原本就有的 src —— src 沒變就不會
+  // 有 load 事件，畫面便卡在上一張，而計數器已經前進了。decode() 不管 URL 之前出現過沒有
+  // 都會 resolve。
+  const [layers, setLayers] = useState<{ prev: string | null; cur: string | null }>({
+    prev: null,
+    cur: null,
+  });
+  // 整個資料夾沒有一張瀏覽器解得開（最常見是 Chrome 開 iPhone 的 .heic）。
+  const [unplayable, setUnplayable] = useState(false);
+  // 遇到解不開的檔案時往哪邊跳：使用者按 ← 撞到壞檔，應該繼續往前而不是被彈回來。
+  const direction = useRef<1 | -1>(1);
+  const consecutiveFailures = useRef(0);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -46,7 +57,13 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
   const [urlWindow] = useState(() => new ObjectUrlWindow(1));
 
   const total = photos.length;
-  const go = useCallback((next: number) => setIndex(((next % total) + total) % total), [total]);
+  const go = useCallback(
+    (next: number, dir: 1 | -1) => {
+      direction.current = dir;
+      setIndex(((next % total) + total) % total);
+    },
+    [total],
+  );
 
   // 一次只保留目前這張前後各一張的 blob URL，其餘釋放 —— 照片資料夾動輒上千張。
   useEffect(() => {
@@ -54,12 +71,35 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
 
     const url = urlWindow.get(index);
     if (!url) return;
-    const target = (activeSlotRef.current + 1) % 2;
-    setSlots((prev) => {
-      const next: [string, string] = [prev[0], prev[1]];
-      next[target] = url;
-      return next;
-    });
+
+    // 快速連按時只有最後一次請求算數；前面還在解碼的結果晚到也不能蓋掉現在這張。
+    let cancelled = false;
+    const probe = new Image();
+    probe.src = url;
+    probe.decode().then(
+      () => {
+        if (cancelled) return;
+        consecutiveFailures.current = 0;
+        setLayers((l) => (l.cur === url ? l : { prev: l.cur, cur: url }));
+      },
+      () => {
+        if (cancelled) return;
+        // 解不開就照原本的方向跳過，不論是否在播放 —— 暫停時停在壞檔上，畫面會是上一張
+        // 但計數器指著壞檔，兩邊對不起來。
+        consecutiveFailures.current += 1;
+        if (consecutiveFailures.current >= files.length) {
+          // 一張都解不開：停下來說明原因，而不是無限輪轉。
+          setUnplayable(true);
+          setPlaying(false);
+          return;
+        }
+        const n = files.length;
+        setIndex((((index + direction.current) % n) + n) % n);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
   }, [files, index, urlWindow]);
 
   // 換資料夾或離開頁面時把所有 URL 釋放掉，否則舊資料夾的檔案會一直被瀏覽器釘著。
@@ -75,7 +115,7 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
         setPlaying(false);
         return;
       }
-      go(index + 1);
+      go(index + 1, 1);
     }, settings.interval * 1000);
 
     return () => clearTimeout(advanceTimer.current);
@@ -121,17 +161,17 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
           break;
         case 'ArrowRight':
         case 'PageDown':
-          go(index + 1);
+          go(index + 1, 1);
           break;
         case 'ArrowLeft':
         case 'PageUp':
-          go(index - 1);
+          go(index - 1, -1);
           break;
         case 'Home':
-          go(0);
+          go(0, 1);
           break;
         case 'End':
-          go(total - 1);
+          go(total - 1, -1);
           break;
         case 'f':
         case 'F':
@@ -190,32 +230,47 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
         }}
         sx={{ position: 'absolute', inset: 0 }}
       >
-        {[0, 1].map((slot) => (
+        {/* key 用 URL：換圖時舊的 cur 元素原封不動搬到 prev 的位置，不會重新載入，也就
+            不會碰到已經被 revoke 的 URL。只有 cur 帶淡入動畫。 */}
+        {[layers.prev, layers.cur].map(
+          (url, i) =>
+            url && (
+              <Box
+                key={url}
+                component="img"
+                src={url}
+                alt={i === 1 ? (current?.name ?? '') : ''}
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: settings.fit,
+                  pointerEvents: 'none',
+                  animation: i === 1 ? 'slideshow-fade .4s ease' : 'none',
+                  '@keyframes slideshow-fade': { from: { opacity: 0 }, to: { opacity: 1 } },
+                }}
+              />
+            ),
+        )}
+        {unplayable && (
           <Box
-            key={slot}
-            component="img"
-            src={slots[slot] || undefined}
-            alt={slot === activeSlot ? (current?.name ?? '') : ''}
-            onLoad={() => {
-              activeSlotRef.current = slot;
-              setActiveSlot(slot);
-            }}
-            // 壞檔或瀏覽器解不開的格式（最常見是 .heic）直接跳過，不要停在黑畫面上。
-            onError={() => {
-              if (playing) go(index + 1);
-            }}
             sx={{
               position: 'absolute',
               inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: settings.fit,
-              opacity: slot === activeSlot ? 1 : 0,
-              transition: 'opacity .4s ease',
+              display: 'grid',
+              placeItems: 'center',
+              p: 3,
               pointerEvents: 'none',
             }}
-          />
-        ))}
+          >
+            <Typography sx={{ color: 'grey.300', textAlign: 'center', maxWidth: 480 }}>
+              這個資料夾裡的照片瀏覽器一張都顯示不了。
+              <br />
+              最常見的原因是 iPhone 的 .heic —— 只有 Safari 能直接顯示，Chrome / Edge 不行。
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       {/* 上列：離開 + 檔名 + 張數 + 全螢幕 */}
@@ -267,7 +322,7 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
         }}
       >
         <ActionTooltip title="上一張 (←)">
-          <IconButton size="small" onClick={() => go(index - 1)} sx={{ color: 'common.white' }}>
+          <IconButton size="small" onClick={() => go(index - 1, -1)} sx={{ color: 'common.white' }}>
             <NavigateBeforeIcon />
           </IconButton>
         </ActionTooltip>
@@ -281,7 +336,7 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
           </IconButton>
         </ActionTooltip>
         <ActionTooltip title="下一張 (→)">
-          <IconButton size="small" onClick={() => go(index + 1)} sx={{ color: 'common.white' }}>
+          <IconButton size="small" onClick={() => go(index + 1, 1)} sx={{ color: 'common.white' }}>
             <NavigateNextIcon />
           </IconButton>
         </ActionTooltip>
