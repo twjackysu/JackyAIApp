@@ -5,6 +5,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import LinkIcon from '@mui/icons-material/Link';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import SchoolIcon from '@mui/icons-material/School';
+import SlideshowIcon from '@mui/icons-material/Slideshow';
 import WorkIcon from '@mui/icons-material/Work';
 
 import type { SvgIconProps } from '@mui/material/SvgIcon';
@@ -69,6 +70,15 @@ export const PDF_UNLOCKER: AppDef = {
   description: '解除 PDF 密碼保護並壓縮檔案大小。',
 };
 
+export const SLIDESHOW: AppDef = {
+  name: 'Folder Slideshow',
+  path: '/slideshow',
+  icon: <SlideshowIcon fontSize="small" />,
+  allPaths: ['/slideshow'],
+  color: '#EC4899',
+  description: '選一個本機資料夾，把裡面的照片輪播出來。檔案不會上傳。',
+};
+
 export const JOB_SEARCH: AppDef = {
   name: '職缺搜尋 (Job Search)',
   path: '/jobs',
@@ -115,7 +125,7 @@ export const apps: AppDef[] = [PORTFOLIO, FINANCE, ENGLISH_LEARNING, JOB_SEARCH,
 export const portalDestinations: AppDef[] = [...apps, DASHBOARDS];
 
 // Every brandable destination, including ones not surfaced in the portal (e.g. PDF, Connectors).
-const allAppDefs: AppDef[] = [...portalDestinations, CONNECTORS, PDF_UNLOCKER];
+const allAppDefs: AppDef[] = [...portalDestinations, CONNECTORS, PDF_UNLOCKER, SLIDESHOW];
 
 /** Resolve which app a given pathname belongs to, or null for the portal / neutral routes. */
 export const getCurrentApp = (path: string): AppDef | null =>
