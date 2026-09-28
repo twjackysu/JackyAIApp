@@ -2,7 +2,7 @@ export interface SlideshowSettings {
   /** 每張停留秒數。 */
   interval: number;
   loop: boolean;
-  /** 隨機播放。關掉時照檔名順序播。 */
+  /** 隨機播放，預設開啟。使用者取消勾選才照檔名順序播。 */
   shuffle: boolean;
   /** contain = 完整顯示；cover = 填滿裁切。 */
   fit: 'contain' | 'cover';
@@ -11,7 +11,7 @@ export interface SlideshowSettings {
 export const DEFAULT_SETTINGS: SlideshowSettings = {
   interval: 5,
   loop: true,
-  shuffle: false,
+  shuffle: true,
   fit: 'contain',
 };
 
@@ -25,16 +25,17 @@ export function loadSettings(): SlideshowSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_SETTINGS;
-    // 使用者可能存過舊版本的形狀（例如舊版的 sort 欄位），逐欄位挑出來而不是整包信任。
-    const saved = JSON.parse(raw) as Partial<SlideshowSettings> & { sort?: unknown };
+    // 使用者可能存過舊版本的形狀，逐欄位挑出來而不是整包信任。
+    const saved = JSON.parse(raw) as Partial<SlideshowSettings>;
     return {
       interval:
         typeof saved.interval === 'number' && saved.interval >= 1 && saved.interval <= 30
           ? saved.interval
           : DEFAULT_SETTINGS.interval,
       loop: typeof saved.loop === 'boolean' ? saved.loop : DEFAULT_SETTINGS.loop,
-      // 舊版把隨機當成一種排序（sort: 'random'），沿用那個選擇而不是悄悄關掉。
-      shuffle: typeof saved.shuffle === 'boolean' ? saved.shuffle : saved.sort === 'random',
+      // 舊版的 sort 欄位不再理會：那時每次存設定都會連同 sort: 'name'（預設值）一起寫入，
+      // 看不出使用者是否真的選過檔名順序。拿它來推 shuffle 會讓舊設定把新預設蓋成不隨機。
+      shuffle: typeof saved.shuffle === 'boolean' ? saved.shuffle : DEFAULT_SETTINGS.shuffle,
       fit: saved.fit === 'cover' ? 'cover' : 'contain',
     };
   } catch {
