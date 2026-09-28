@@ -2321,3 +2321,47 @@
   UI) — deliberately unscoped until rows are actually evaluable.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-27 — Frontend Engineer: TASK-018 implemented, PR opened (scheduled run)
+
+- Checked for in-flight PRs before starting (per the multi-session duplicate-PR
+  pattern flagged repeatedly on this project, most recently `TASK-015`'s
+  4-way collision) — GitHub currently has **zero** open PRs, so no risk of
+  duplicating another session's work this run.
+- Picked up `TASK-018` (`READY`, unclaimed, no dependency on any other open
+  task). Read `ARCHITECTURE.md`'s "Decision: Portfolio FIRE/goal tracking"
+  section and the `rebalancingTarget.ts`/`RebalancingCard.tsx`/
+  `feeDiscountRate.ts` precedent before writing any code, per SOP §6.
+- Implemented exactly as scoped: `Portfolio/fireTarget.ts` (`FireTarget`
+  type, `loadFireTarget`/`saveFireTarget` via `utils/storage.ts`,
+  `defaultAnnualGrowthRatePct` — never coerces a null historical XIRR to 0%,
+  `computeYearsToGoal` — year-by-year simulation, not closed-form, capped at
+  100 years) and `Portfolio/FireCard.tsx` (three inputs, live recompute,
+  localStorage persistence on every edit, an explanatory caption when the
+  growth-rate input is still the undocumented-as-real placeholder). Wired
+  into `Portfolio/index.tsx` as a new `ChartSectionCard` right after
+  `RebalancingCard`, reusing the same already-fetched `summary` — no second
+  `/summary` fetch, no backend/DTO change of any kind.
+- One judgment call beyond the task's literal three outcome states: added a
+  fourth "請先輸入目標淨值" empty-state for `targetNetWorthTWD <= 0`, since
+  the task's own default (target starts at `0`) would otherwise show a false
+  "已達成目標" before the user has entered anything — flagged as a
+  Known Issue on `TASK-018.md` in case Tech Lead wants a different default.
+- `npm run lint` (0 warnings — `node_modules` needed a fresh `npm ci` in this
+  sandbox first), `npm run build`, and `npx vitest run` all green — 207/207
+  tests (11 new: `fireTarget.test.ts`'s already-reached/hand-computed
+  growth+contribution/pure-lump-sum/100-year-cap/placeholder-vs-real-rate/
+  localStorage-round-trip cases, `FireCard.test.tsx`'s
+  `renderToStaticMarkup` coverage of all four render states), no
+  regressions. Also rendered the component to a static HTML file directly in
+  this sandbox to manually confirm Prettier's line-wrapping of the Chinese
+  copy across source lines didn't introduce stray whitespace in the actual
+  rendered text.
+- Opened a PR against `master`; see `TASK-018.md` for full implementation
+  notes, including the one flagged known-issue (empty-state judgment call)
+  and the not-manually-browser-tested limitation shared with
+  `TASK-014`/`015`/`017`. Subscribed to the PR to drive it to green / respond
+  to review.
+- All four of Portfolio's originally-prioritized Gap Audit proposals
+  (cross-link → CSV import → rebalancing → FIRE tracking) now have an
+  implementation, pending this PR's review/merge.
