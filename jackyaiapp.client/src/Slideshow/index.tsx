@@ -46,6 +46,9 @@ function Slideshow() {
 
   const handlePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const all = Array.from(e.target.files ?? []);
+    // 清掉 value，否則再選同一個資料夾（例如剛加了幾張照片進去）瀏覽器會認為值沒變，
+    // 不觸發 change，看起來就像按鈕壞了。File 物件已經取出來了，清掉不影響它們。
+    e.target.value = '';
     if (all.length === 0) return;
 
     const found = collectPhotos(all, settings.sort);
