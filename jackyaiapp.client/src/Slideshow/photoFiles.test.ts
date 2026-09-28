@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { collectPhotos, extensionOf } from './photoFiles';
+import { collectPhotos, extensionOf, shuffledOrder } from './photoFiles';
 
 /** 只需要 name / type / lastModified / webkitRelativePath，不必真的做出一個 File。 */
 function fakeFile(path: string, type = '', lastModified = 0): File {
@@ -51,11 +51,7 @@ describe('collectPhotos', () => {
     // 這正是原本靜態版被迫用連號數字檔名的那個坑，用一般字串排序會得到 10 < 2。
     const files = ['img10.jpg', 'img2.jpg', 'img1.jpg'].map((n) => fakeFile(`trip/${n}`));
 
-    expect(collectPhotos(files, 'name').map((p) => p.name)).toEqual([
-      'img1.jpg',
-      'img2.jpg',
-      'img10.jpg',
-    ]);
+    expect(collectPhotos(files).map((p) => p.name)).toEqual(['img1.jpg', 'img2.jpg', 'img10.jpg']);
   });
 
   it('依完整路徑排序，子資料夾會整叢待在一起', () => {
@@ -65,7 +61,7 @@ describe('collectPhotos', () => {
       fakeFile('trip/a-folder/1.jpg'),
     ];
 
-    expect(collectPhotos(files, 'name').map((p) => p.path)).toEqual([
+    expect(collectPhotos(files).map((p) => p.path)).toEqual([
       'trip/a-folder/1.jpg',
       'trip/a-folder/2.jpg',
       'trip/b-folder/1.jpg',
@@ -78,43 +74,12 @@ describe('collectPhotos', () => {
     expect(collectPhotos(files)).toHaveLength(2);
   });
 
-  it('依修改時間排序', () => {
-    const files = [
-      fakeFile('trip/c.jpg', '', 300),
-      fakeFile('trip/a.jpg', '', 100),
-      fakeFile('trip/b.jpg', '', 200),
-    ];
-
-    expect(collectPhotos(files, 'modified').map((p) => p.name)).toEqual([
-      'a.jpg',
-      'b.jpg',
-      'c.jpg',
-    ]);
-  });
-
-  it('修改時間相同時退回檔名，順序才是穩定的', () => {
-    // 相機連拍或整包複製過來的檔案時間戳會一樣，沒有次要排序的話每次結果都不同。
-    const files = [fakeFile('trip/b.jpg', '', 100), fakeFile('trip/a.jpg', '', 100)];
-
-    expect(collectPhotos(files, 'modified').map((p) => p.name)).toEqual(['a.jpg', 'b.jpg']);
-  });
-
-  it('隨機排序會用完全部照片，不會掉張也不會重複', () => {
-    const files = ['1.jpg', '2.jpg', '3.jpg', '4.jpg'].map((n) => fakeFile(`trip/${n}`));
-
-    const names = collectPhotos(files, 'random', () => 0.5)
-      .map((p) => p.name)
-      .sort();
-
-    expect(names).toEqual(['1.jpg', '2.jpg', '3.jpg', '4.jpg']);
-  });
-
   it('不會就地改動傳進來的陣列', () => {
-    // 呼叫端拿同一份 File 清單重新排序，原始順序不該被上一次排序污染。
+    // 呼叫端手上的 File 清單是瀏覽器給的原始順序，不該被排序副作用改掉。
     const files = [fakeFile('trip/b.jpg'), fakeFile('trip/a.jpg')];
     const before = files.map((f) => f.name);
 
-    collectPhotos(files, 'name');
+    collectPhotos(files);
 
     expect(files.map((f) => f.name)).toEqual(before);
   });
@@ -123,5 +88,36 @@ describe('collectPhotos', () => {
     const file = { name: 'a.jpg', type: 'image/jpeg', lastModified: 0 } as unknown as File;
 
     expect(collectPhotos([file])[0].path).toBe('a.jpg');
+  });
+});
+
+describe('shuffledOrder', () => {
+  it('是 0..n-1 的一個排列：每張都在，沒有重複', () => {
+    const order = shuffledOrder(10, 3);
+
+    expect([...order].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it('指定的那張排在第一個', () => {
+    // 播到一半打開隨機時，畫面上這張不能突然換掉。
+    expect(shuffledOrder(10, 7)[0]).toBe(7);
+  });
+
+  it('真的有打亂，不是原本的順序', () => {
+    // 固定的亂數讓結果可重現；Math.random 在測試裡會讓失敗無法重跑。
+    let seed = 1;
+    const random = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+
+    const order = shuffledOrder(20, 0, random);
+
+    expect(order.slice(1)).not.toEqual(Array.from({ length: 19 }, (_, i) => i + 1));
+  });
+
+  it('只有一張或沒有照片也不會出錯', () => {
+    expect(shuffledOrder(1, 0)).toEqual([0]);
+    expect(shuffledOrder(0, 0)).toEqual([]);
   });
 });

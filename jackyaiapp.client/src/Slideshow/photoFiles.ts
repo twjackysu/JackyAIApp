@@ -6,8 +6,6 @@
  * 換成瀏覽器的資料夾選擇器之後，檔名和副檔名都是瀏覽器直接給的，什麼名字都可以。
  */
 
-export type PhotoSort = 'name' | 'modified' | 'random';
-
 export interface PhotoFile {
   file: File;
   /** 檔名，含副檔名。 */
@@ -52,38 +50,41 @@ const naturalCompare = new Intl.Collator(undefined, {
   sensitivity: 'base',
 }).compare;
 
-function shuffled<T>(items: T[], random: () => number): T[] {
-  const out = items.slice();
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
+/**
+ * 篩出照片並依檔名排序。以完整相對路徑排序而非只看檔名，子資料夾才會整叢待在一起，
+ * 而不是被打散成各層檔名交錯。
+ *
+ * 只有這一種順序；隨機播放是播放器在這個順序上另外洗牌，關掉時才回得到原本的順序。
+ */
+export function collectPhotos(files: readonly File[]): PhotoFile[] {
+  return files
+    .filter(isImage)
+    .map((file) => ({
+      file,
+      name: file.name,
+      // webkitRelativePath 只有透過資料夾選擇器進來才有值；拖曳單檔進來時是空字串。
+      path: file.webkitRelativePath || file.name,
+    }))
+    .sort((a, b) => naturalCompare(a.path, b.path));
 }
 
 /**
- * 篩出照片並排序。以完整相對路徑排序而非只看檔名，子資料夾才會整叢待在一起，而不是被
- * 打散成各層檔名交錯。
+ * 隨機播放順序：回傳 0..count-1 的一個排列，first 固定在最前面。
+ *
+ * first 固定是為了播到一半打開隨機時，畫面上這張不要突然換掉 —— 使用者勾的是「接下來
+ * 隨機」，不是「現在跳到別張」。
  */
-export function collectPhotos(
-  files: readonly File[],
-  sort: PhotoSort = 'name',
+export function shuffledOrder(
+  count: number,
+  first: number,
   random: () => number = Math.random,
-): PhotoFile[] {
-  const photos: PhotoFile[] = files.filter(isImage).map((file) => ({
-    file,
-    name: file.name,
-    // webkitRelativePath 只有透過資料夾選擇器進來才有值；拖曳單檔進來時是空字串。
-    path: file.webkitRelativePath || file.name,
-  }));
-
-  if (sort === 'random') return shuffled(photos, random);
-  if (sort === 'modified') {
-    // 次要排序用路徑，否則同一秒寫入的檔案（相機連拍、複製整個資料夾）順序會隨
-    // 瀏覽器給的順序浮動，每次選同一個資料夾結果都不一樣。
-    return photos.sort(
-      (a, b) => a.file.lastModified - b.file.lastModified || naturalCompare(a.path, b.path),
-    );
+): number[] {
+  const rest: number[] = [];
+  for (let i = 0; i < count; i++) if (i !== first) rest.push(i);
+  // Fisher–Yates
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
   }
-  return photos.sort((a, b) => naturalCompare(a.path, b.path));
+  return count > 0 ? [first, ...rest] : [];
 }

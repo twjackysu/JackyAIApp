@@ -1,19 +1,18 @@
-import type { PhotoSort } from './photoFiles';
-
 export interface SlideshowSettings {
   /** 每張停留秒數。 */
   interval: number;
   loop: boolean;
+  /** 隨機播放。關掉時照檔名順序播。 */
+  shuffle: boolean;
   /** contain = 完整顯示；cover = 填滿裁切。 */
   fit: 'contain' | 'cover';
-  sort: PhotoSort;
 }
 
 export const DEFAULT_SETTINGS: SlideshowSettings = {
   interval: 5,
   loop: true,
+  shuffle: false,
   fit: 'contain',
-  sort: 'name',
 };
 
 const STORAGE_KEY = 'slideshow-settings';
@@ -26,19 +25,17 @@ export function loadSettings(): SlideshowSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_SETTINGS;
-    // 使用者可能存過舊版本的形狀，逐欄位挑出來而不是整包信任。
-    const saved = JSON.parse(raw) as Partial<SlideshowSettings>;
+    // 使用者可能存過舊版本的形狀（例如舊版的 sort 欄位），逐欄位挑出來而不是整包信任。
+    const saved = JSON.parse(raw) as Partial<SlideshowSettings> & { sort?: unknown };
     return {
       interval:
         typeof saved.interval === 'number' && saved.interval >= 1 && saved.interval <= 30
           ? saved.interval
           : DEFAULT_SETTINGS.interval,
       loop: typeof saved.loop === 'boolean' ? saved.loop : DEFAULT_SETTINGS.loop,
+      // 舊版把隨機當成一種排序（sort: 'random'），沿用那個選擇而不是悄悄關掉。
+      shuffle: typeof saved.shuffle === 'boolean' ? saved.shuffle : saved.sort === 'random',
       fit: saved.fit === 'cover' ? 'cover' : 'contain',
-      sort:
-        saved.sort === 'modified' || saved.sort === 'random' || saved.sort === 'name'
-          ? saved.sort
-          : DEFAULT_SETTINGS.sort,
     };
   } catch {
     // 無痕視窗、擋掉 site data 時 localStorage 會直接丟例外。設定記不住無所謂，
