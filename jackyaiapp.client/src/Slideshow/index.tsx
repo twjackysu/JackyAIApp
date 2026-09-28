@@ -1,16 +1,5 @@
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import LockIcon from '@mui/icons-material/Lock';
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  MenuItem,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Stack, Typography } from '@mui/material';
 import { useCallback, useRef, useState } from 'react';
 
 import { collectPhotos, type PhotoFile } from './photoFiles';
@@ -51,7 +40,7 @@ function Slideshow() {
     e.target.value = '';
     if (all.length === 0) return;
 
-    const found = collectPhotos(all, settings.sort);
+    const found = collectPhotos(all);
     setPhotos(found);
     setSkipped(all.length - found.length);
     // webkitRelativePath 的第一段就是使用者選的那層資料夾名（拿不到完整路徑，瀏覽器不給）。
@@ -59,23 +48,11 @@ function Slideshow() {
     setPlaying(found.length > 0);
   };
 
-  // 換排序時就地重排已經選好的清單，不用叫使用者再選一次資料夾。
-  const handleSortChange = (sort: SlideshowSettings['sort']) => {
-    updateSettings({ sort });
-    if (photos)
-      setPhotos(
-        collectPhotos(
-          photos.map((p) => p.file),
-          sort,
-        ),
-      );
-  };
-
   if (playing && photos && photos.length > 0) {
     return (
       <SlideshowPlayer
-        // 換資料夾或換排序時整個重建，播放位置和 blob URL 才不會延續到新清單上。
-        key={`${folderName}-${settings.sort}-${photos.length}`}
+        // 換資料夾時整個重建，播放位置和 blob URL 才不會延續到新清單上。
+        key={`${folderName}-${photos.length}`}
         photos={photos}
         settings={settings}
         onSettingsChange={updateSettings}
@@ -92,7 +69,7 @@ function Slideshow() {
             資料夾照片輪播
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-            選一個資料夾就開始播，檔名不限。子資料夾也會一起收進來。
+            選一個資料夾，直接播放裡面的照片。檔名不限，子資料夾裡的也會一起播。
           </Typography>
 
           {/* webkitdirectory 沒有對應的 JSX 屬性，只能在 ref 上設 */}
@@ -116,18 +93,6 @@ function Slideshow() {
               選擇資料夾
             </Button>
 
-            <TextField
-              select
-              size="small"
-              label="排序"
-              value={settings.sort}
-              onChange={(e) => handleSortChange(e.target.value as SlideshowSettings['sort'])}
-            >
-              <MenuItem value="name">檔名（1 排在 10 前面）</MenuItem>
-              <MenuItem value="modified">修改時間</MenuItem>
-              <MenuItem value="random">隨機</MenuItem>
-            </TextField>
-
             {photos && (
               <Alert
                 severity={photos.length > 0 ? 'success' : 'warning'}
@@ -146,17 +111,11 @@ function Slideshow() {
               </Alert>
             )}
 
-            <Box sx={{ display: 'flex', gap: 1, color: 'text.secondary' }}>
-              <LockIcon fontSize="small" sx={{ mt: 0.25 }} />
-              <Typography variant="caption">
-                照片不會離開這台電腦。瀏覽器只把檔案清單交給這個頁面，圖片直接在本機讀取顯示，
-                沒有任何內容被上傳。也因為同樣的沙箱規則，網頁拿不到完整路徑、也記不住上次選的
-                資料夾，每次進來要重選一次。
-              </Typography>
-            </Box>
-
             <Typography variant="caption" color="text.secondary">
-              播放中：空白鍵 播放/暫停、← → 上下張、F 全螢幕、+ − 調秒數、Esc 離開。
+              照片依檔名順序播放，播放中可以勾選「隨機播放」。瀏覽器不會記住選過的資料夾，
+              每次進來要重選一次。
+              <br />
+              快捷鍵：空白鍵 播放/暫停、← → 上下張、F 全螢幕、+ − 調秒數、Esc 離開。
             </Typography>
           </Stack>
         </CardContent>

@@ -76,7 +76,7 @@ export const SLIDESHOW: AppDef = {
   icon: <SlideshowIcon fontSize="small" />,
   allPaths: ['/slideshow'],
   color: '#EC4899',
-  description: '選一個本機資料夾，把裡面的照片輪播出來。檔案不會上傳。',
+  description: '選一個資料夾，播放裡面的照片。',
 };
 
 export const JOB_SEARCH: AppDef = {

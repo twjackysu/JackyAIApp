@@ -9,6 +9,7 @@ import { Box, Checkbox, FormControlLabel, IconButton, Slider, Typography } from 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ObjectUrlWindow } from './objectUrlWindow';
+import { shuffledOrder } from './photoFiles';
 
 import type { PhotoFile } from './photoFiles';
 import type { SlideshowSettings } from './settings';
@@ -52,7 +53,14 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const files = useMemo(() => photos.map((p) => p.file), [photos]);
+  // 播放順序：order[index] 是 photos 裡的第幾張。沒開隨機時就是 0, 1, 2…，也就是檔名順序。
+  // photos 本身永遠保持檔名順序，關掉隨機時才回得去。
+  const [order, setOrder] = useState<number[]>(() =>
+    settings.shuffle
+      ? shuffledOrder(photos.length, Math.floor(Math.random() * photos.length))
+      : photos.map((_, i) => i),
+  );
+  const files = useMemo(() => order.map((i) => photos[i].file), [order, photos]);
   // useState 的 lazy init 而不是 useRef：只要建立一次，而且 render 期間不碰 ref。
   const [urlWindow] = useState(() => new ObjectUrlWindow(1));
 
@@ -69,7 +77,7 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
   useEffect(() => {
     urlWindow.sync(files, index);
 
-    const url = urlWindow.get(index);
+    const url = urlWindow.get(files[index]);
     if (!url) return;
 
     // 快速連按時只有最後一次請求算數；前面還在解碼的結果晚到也不能蓋掉現在這張。
@@ -101,6 +109,19 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
       cancelled = true;
     };
   }, [files, index, urlWindow]);
+
+  // 開關隨機播放。畫面上這張不換，只改「接下來播哪張」—— 使用者勾的是之後的順序，
+  // 不是要現在跳到別張。
+  const toggleShuffle = useCallback(
+    (on: boolean) => {
+      const currentPhoto = order[index];
+      setOrder(on ? shuffledOrder(photos.length, currentPhoto) : photos.map((_, i) => i));
+      // 隨機：這張排在新順序的第一個。檔名順序：回到這張原本的位置。
+      setIndex(on ? 0 : currentPhoto);
+      onSettingsChange({ shuffle: on });
+    },
+    [order, index, photos, onSettingsChange],
+  );
 
   // 換資料夾或離開頁面時把所有 URL 釋放掉，否則舊資料夾的檔案會一直被瀏覽器釘著。
   useEffect(() => () => urlWindow.dispose(), [urlWindow]);
@@ -194,7 +215,7 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
     return () => window.removeEventListener('keydown', onKey);
   }, [index, total, go, toggleFullscreen, onExit, onSettingsChange, settings.interval]);
 
-  const current = photos[index];
+  const current = photos[order[index]];
 
   const chromeSx = {
     position: 'absolute' as const,
@@ -364,6 +385,18 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
             />
           }
           label={<Typography variant="caption">循環</Typography>}
+          sx={{ color: 'grey.400', mr: 0 }}
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              size="small"
+              checked={settings.shuffle}
+              onChange={(e) => toggleShuffle(e.target.checked)}
+              sx={{ color: 'grey.500' }}
+            />
+          }
+          label={<Typography variant="caption">隨機播放</Typography>}
           sx={{ color: 'grey.400', mr: 0 }}
         />
         <FormControlLabel

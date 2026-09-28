@@ -44,13 +44,14 @@ describe('ObjectUrlWindow', () => {
     const { factory, created } = trackingFactory();
     const w = new ObjectUrlWindow(1, factory);
 
-    w.sync(files(100), 50);
+    const list = files(100);
+    w.sync(list, 50);
 
     expect(created).toHaveLength(3);
-    expect(w.get(49)).toBeDefined();
-    expect(w.get(50)).toBeDefined();
-    expect(w.get(51)).toBeDefined();
-    expect(w.get(52)).toBeUndefined();
+    expect(w.get(list[49])).toBeDefined();
+    expect(w.get(list[50])).toBeDefined();
+    expect(w.get(list[51])).toBeDefined();
+    expect(w.get(list[52])).toBeUndefined();
   });
 
   it('往前播時把離開視窗的那張釋放掉，留在視窗內的不重建', () => {
@@ -93,11 +94,12 @@ describe('ObjectUrlWindow', () => {
     const { factory } = trackingFactory();
     const w = new ObjectUrlWindow(1, factory);
 
-    w.sync(files(10), 9);
+    const list = files(10);
+    w.sync(list, 9);
 
-    expect(w.get(8)).toBeDefined();
-    expect(w.get(9)).toBeDefined();
-    expect(w.get(0)).toBeDefined(); // 循環時的下一張
+    expect(w.get(list[8])).toBeDefined();
+    expect(w.get(list[9])).toBeDefined();
+    expect(w.get(list[0])).toBeDefined(); // 循環時的下一張
   });
 
   it('清單比視窗還小時不會替同一張重複建立', () => {
@@ -131,5 +133,44 @@ describe('ObjectUrlWindow', () => {
     w.sync([], 0);
 
     expect(alive.size).toBe(0);
+  });
+
+  it('換播放順序時拿到的是同一張照片的 URL，不是同一個位置的', () => {
+    // 開關隨機播放會讓「第 5 個」變成另一張照片。以位置當 key 會把舊照片的 URL 交給
+    // 新照片，畫面就顯示錯圖。
+    const { factory, names } = trackingFactory();
+    const w = new ObjectUrlWindow(1, factory);
+    const list = files(10);
+    w.sync(list, 5);
+    const urlOfPhoto5 = w.get(list[5]);
+
+    const shuffled = [
+      list[5],
+      list[2],
+      list[8],
+      list[0],
+      list[9],
+      list[1],
+      list[3],
+      list[4],
+      list[6],
+      list[7],
+    ];
+    w.sync(shuffled, 0);
+
+    expect(w.get(list[5])).toBe(urlOfPhoto5); // 同一張照片沿用，不重建
+    expect(names([w.get(shuffled[1])!])).toEqual(['2.jpg']); // 位置 1 是照片 2，不是舊的照片 6
+    expect(w.size).toBe(3);
+  });
+
+  it('換播放順序後舊視窗裡用不到的照片會被釋放', () => {
+    const { factory, alive } = trackingFactory();
+    const w = new ObjectUrlWindow(1, factory);
+    const list = files(10);
+    w.sync(list, 5); // 視窗：4、5、6
+
+    w.sync([list[5], list[0], list[9], ...list.slice(1, 5), ...list.slice(6, 9)], 0); // 新視窗：8（繞回最後）、5、0
+
+    expect(alive.size).toBe(3);
   });
 });
