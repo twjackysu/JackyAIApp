@@ -19,6 +19,7 @@ import {
   JOB_SEARCH,
   PDF_UNLOCKER,
   PORTFOLIO,
+  SLIDESHOW,
   getCurrentApp,
 } from './constants/apps';
 import { englishLearningRoute } from './EnglishLearning';
@@ -38,6 +39,7 @@ const JobSearch = lazy(() => import('./JobSearch'));
 const PDFUnlocker = lazy(() => import('./PDFUnlocker'));
 const Portal = lazy(() => import('./Portal'));
 const Pricing = lazy(() => import('./Pricing'));
+const Slideshow = lazy(() => import('./Slideshow'));
 
 // Floating AI chatbot — available on every page (auth-gated internally).
 const FloatingChatbot = lazy(() => import('./components/FloatingChatbot'));
@@ -48,6 +50,9 @@ const FloatingChatbot = lazy(() => import('./components/FloatingChatbot'));
 const routes: RouteObject[] = [
   { path: '/', element: <Portal /> },
   { path: PDF_UNLOCKER.path, element: <PDFUnlocker /> },
+  // No RequireAuth: everything happens in the browser against a folder the user picks —
+  // there is no API call and no server-side state to protect.
+  { path: SLIDESHOW.path, element: <Slideshow /> },
   englishLearningRoute,
   {
     path: '/connectors',
