@@ -2365,3 +2365,71 @@
 - All four of Portfolio's originally-prioritized Gap Audit proposals
   (cross-link → CSV import → rebalancing → FIRE tracking) now have an
   implementation, pending this PR's review/merge.
+
+## 2026-09-28 — PM: Recorded free-usage-cap design (DECISION-007), diagnosed the SEO indexing gap Boss reported (scheduled run)
+
+- Boss replied in `.agent/boss/PM.md` with two items: (1) an answer to the
+  week-old free-usage-cap open question, and (2) a priority interrupt —
+  Google-searching "JackyAI English Apple" still doesn't surface the
+  Dictionary word page that `TASK-001`–`003` were supposed to make
+  discoverable.
+- **Free-usage-cap design finalized**: normal users see zero payment/credit
+  language anywhere in the UI; the app just looks free. Behind the scenes,
+  each currently credit-gated feature keeps a per-user daily/periodic usage
+  cap as the only cost-control mechanism; hitting it disables the feature
+  and shows a message pointing heavy users at `jacky19918@gmail.com` for a
+  higher limit — no self-serve purchase path. Recorded as **DECISION-007**;
+  `REQUIREMENTS.md`'s Credits & Payments requirement updated with concrete
+  acceptance criteria and its last open design question marked resolved —
+  **this requirement is now unblocked and ready for Tech Lead**, queued
+  behind the SEO item below per Boss's explicit priority request.
+- **SEO investigation** (verified live rather than trusting prior merged-PR
+  self-reports): ran a `WebSearch` for `site:jackyai.azurewebsites.net
+  apple` — **zero results**, meaning the whole domain isn't indexed by
+  Google yet, not just ranking low. Re-checked `SitemapController.cs`
+  (sitemap.xml/robots.txt) and `WordSeoTextFormatter.cs` on `master`
+  directly — both are correct as originally shipped, so this isn't a
+  `TASK-001`–`003` code defect. The actual gap: nobody has ever verified the
+  domain in Google Search Console or submitted the sitemap there, which is
+  the normal trigger for Google to actually crawl a new site — a one-time,
+  no-code, owner-only action, not something Tech Lead can do from the repo.
+  Separately found a real branding gap worth a Boss decision: the site's
+  actual page title/text is "EngAI Learn" (`index.html`) / "{word} - EngAI
+  Learn Dictionary" (`WordSeoTextFormatter.cs`) — "JackyAI" appears only in
+  the hostname, never in the crawlable page text, which could hurt matching
+  for a query that includes "JackyAI" even after indexing.
+- `REQUIREMENTS.md`'s Growth & Retention → SEO section updated with this
+  Gap Audit, two new acceptance criteria (Search Console checklist done;
+  branding decision made), and re-flagged as top-of-queue ahead of Credits &
+  Payments removal, matching Boss's "插單" request. Replied to Boss in
+  `.agent/boss/PM.md` with the findings, a recommendation to add "JackyAI"
+  to the visible title, and what's Tech Lead's to do next vs. what only
+  Boss can do (the Search Console step itself).
+- No code changes — Requirements/Decisions/PM-log documentation only.
+  Committed and pushed directly to `master` per this role's own git rule
+  (§11).
+
+## Open Items
+- **New, top priority**: SEO indexing gap — Tech Lead should (a) write Boss
+  a Search Console verification + sitemap submission checklist, (b) confirm
+  no other on-page technical blocker exists (e.g. check actual rendered
+  HTML, not just the API response), (c) implement adding "JackyAI" to the
+  visible title/branding once Boss answers the open naming question below.
+- **Boss decision needed**: should "JackyAI" be folded into the visible page
+  title/branding (currently "EngAI Learn" only)? PM's recommendation is yes;
+  not implemented pending Boss's reply.
+- **Boss action needed** (not something an agent can do): verify
+  `jackyai.azurewebsites.net` in Google Search Console and submit
+  `sitemap.xml` there — the actual blocker on Google indexing anything on
+  the site at all.
+- Credits & Payments removal (DECISION-006/007) — **fully unblocked**, ready
+  for Tech Lead to scope; queued behind the SEO item above.
+- Carried over, escalated by Tech Lead 2026-09-25: whether to adjust the
+  scheduling layer to stop multiple sessions from claiming the same `READY`
+  task at once — still unanswered, Tech Lead↔Boss item.
+- Carried over: Phase 2 of speaking delivery feedback (pronunciation
+  accuracy, new vendor) — cost/vendor decision pending Boss.
+- Carried over: Phase 2 of Finance prediction-accuracy tracking (track-record
+  UI) — deliberately unscoped until rows are actually evaluable.
+- Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
+  claim still needs a doc fix outside `.agent/`.

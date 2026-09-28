@@ -698,3 +698,70 @@ Portfolio Gap Audit 最後一項（FIRE/財務目標追蹤）已標記為下次�
 2. 然後我想請你插單處理一件事，我現在在google搜尋英文單字，還是找不到我們english learning的網頁，你們上次不是已經有做每個單字的route了嗎?現在還缺什麼，我希望你們盡快讓SEO更好
 至少讓我搜尋JackyAI English Apple可以找到我們的Apple單字的頁面
 如果目前架構真的很困難，做法可以請Tech lead給我選項在讓我抉擇也可以
+
+---
+
+# PM → Boss (2026-09-28)
+
+## Status
+兩件事都處理了。
+
+## Completed
+
+**1. 免費用量上限設計——已記錄為 DECISION-007，DECISION-006 正式解除卡點**
+
+您的回覆很明確：一般使用者完全不會看到任何「付費/點數/額度」相關字樣，
+畫面上就是單純的免費功能；背後仍然對原本會扣點的功能保留每人每日用量
+上限來控管 AI 成本；超過上限時該功能直接不能用，並提示「如果是重度使用者
+請聯絡作者 jacky19918@gmail.com 幫你調高上限」。這正好把 DECISION-006
+一直懸著的最後一個設計問題定案，`REQUIREMENTS.md`／`DECISIONS.md` 都已
+更新。**Credits & Payments 移除現在正式解除卡點，可以交給 Tech Lead 做
+技術評估與任務拆解**——只是這次我把它排在下面第 2 點之後，因為您這次是
+明確要求插單處理 SEO。
+
+**2. SEO 查不到的問題——已經查出具體原因，不是「架構困難」，是兩件比較
+簡單的事**
+
+我沒有只回頭看之前 PR 的描述，這次直接實測：用 Google 搜尋
+`site:jackyai.azurewebsites.net apple`，結果是**完全零筆資料**——不是
+「排名很後面」，是 Google 目前根本還沒有把這個網站的任何一個頁面收錄
+進索引，不只是單字頁，整個網域都沒有。這代表 `TASK-001`/`002`/`003`
+（sitemap.xml、robots.txt、每個單字頁的 SEO 標題/描述）這些程式碼本身
+我重新確認過都是對的，**問題不在架構或程式碼**，而是：
+
+- **Google 從來沒被明確告知要來爬這個網站**。程式碼把 sitemap.xml／
+  robots.txt 準備好，不代表 Google 會主動、及時地發現並收錄——真正會
+  觸發收錄的動作，是去 **Google Search Console** 驗證
+  `jackyai.azurewebsites.net` 這個網域的擁有權、然後手動提交
+  sitemap 網址。這是**只有您能做**的一次性設定（需要用網域擁有者的
+  Google 帳號驗證），不是工程端能從程式碼裡解決的事，我會請 Tech Lead
+  幫您整理一份可以直接照做的步驟清單。
+- **順便發現一個命名上的落差**：就算之後真的被收錄，網頁本身的文字
+  從頭到尾都沒有出現過「JackyAI」——網站的 `<title>` 是「EngAI Learn」，
+  每個單字頁的 SEO 標題是「{單字} - EngAI Learn Dictionary」，「JackyAI」
+  只出現在網域名稱（`jackyai.azurewebsites.net`），沒有出現在真正會被
+  搜尋引擎比對的頁面文字/標題裡。這會影響往後搜尋「JackyAI」相關關鍵字
+  的比對效果。
+
+## Open Questions
+是否要把「JackyAI」這個字放進網頁標題/品牌顯示裡（例如標題改成類似
+「{單字} - JackyAI EngAI Learn Dictionary」或其他您喜歡的呈現方式），
+還是維持現在「EngAI Learn」這個對外名稱、不特別強調「JackyAI」？這是
+品牌命名決定，我不會自己定案。如果您沒有特別想法，我建議先把
+「JackyAI」加進標題，因為這是您自己在用的搜尋詞、也是網域本身就有的
+名字，加進去只有好處。
+
+## Tech Lead Actions
+- **已插隊列為最優先**：SEO 收錄問題——(a) 整理一份 Google Search Console
+  驗證＋提交 sitemap 的操作清單給您、(b) 確認除了「還沒被收錄」之外沒有
+  其他技術面的漏洞（例如實際算繪出來的 HTML 是否真的有帶到 metadata，
+  不是只有 API 回應裡有）、(c) 如果您核准把「JackyAI」加進標題，順手做掉。
+- 排在其後：Credits & Payments 移除（DECISION-006/007 已解除設計卡點，
+  可以直接進技術評估與任務拆解，不需要再等我或您進一步裁示）。
+
+## Boss Attention Required
+- 上面的「JackyAI 品牌命名」開放問題方便時麻煩給個方向；不影響 Tech Lead
+  先去處理 Search Console 清單這件事。
+- Search Console 驗證＋提交 sitemap 這一步，麻煩您抽空照 Tech Lead 準備的
+  清單做——這是目前唯一卡住「被 Google 收錄」的真正原因，工程端沒辦法
+  代勞。

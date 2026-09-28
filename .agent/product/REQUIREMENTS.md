@@ -77,12 +77,54 @@ makes people better at English, so that word-of-mouth happens naturally and
 a real user base exists before we ever revisit charging money for it.
 
 ### Requirements
-1. **SEO / organic discovery** (unchanged, already shipped — see
-   `TASK-001`/`TASK-002`/`TASK-003`, merged 2026-09-13/14): public,
-   indexable Dictionary word pages, sitemap/robots.txt, per-word metadata
-   and bot-preview cards. This is the one acquisition mechanic still in
-   scope; it exposes already-free, already-cached content rather than
-   asking users to promote anything.
+1. **SEO / organic discovery** (already shipped — see `TASK-001`/`TASK-002`/
+   `TASK-003`, merged 2026-09-13/14): public, indexable Dictionary word
+   pages, sitemap/robots.txt, per-word metadata and bot-preview cards. This
+   is the one acquisition mechanic still in scope; it exposes already-free,
+   already-cached content rather than asking users to promote anything.
+
+   **Gap Audit (2026-09-28) — Boss reports it still can't be found on
+   Google** (tried searching "JackyAI English Apple", expecting to land on
+   the Apple word page). PM investigated the live product rather than
+   re-reading the merged-PR descriptions:
+   - Confirmed via `WebSearch` that `site:jackyai.azurewebsites.net`
+     returns **zero results** — not "ranks low," but **not indexed by
+     Google at all**, for any page on the domain, not just word pages. This
+     means the gap is not a code defect in `TASK-001`–`003` (sitemap.xml,
+     robots.txt, and per-word `seoTitle`/`seoDescription` are all present
+     and correct on `master`, re-checked directly in this run) — it's that
+     **nothing has ever told Google to crawl the site**. Shipping a
+     technically-correct sitemap doesn't make Google visit it on its own in
+     any predictable timeframe; that discovery step normally has to be
+     triggered by verifying the domain in **Google Search Console** and
+     submitting the sitemap URL there — a one-time, no-code action **only
+     Boss can do**, since it requires proving ownership of the domain via
+     the Google account tied to it. This is not an engineering task Tech
+     Lead can pick up from the repo.
+   - Separately, found a real branding gap: the actual crawlable page text
+     never contains the word "JackyAI" anywhere. The site's `<title>` is
+     "EngAI Learn" (`jackyaiapp.client/index.html`) and every word page's
+     SEO title is "`{word} - EngAI Learn Dictionary`"
+     (`WordSeoTextFormatter.cs`) — only the **domain** (`jackyai.
+     azurewebsites.net`) contains "JackyAI"; none of the actual on-page
+     text or title does. Once the site is indexed, this could still hurt
+     matching for a query that includes "JackyAI" as a keyword, since
+     Google weighs page title/content text more than a substring of the
+     hostname. Whether to fold "JackyAI" into the visible title/branding
+     (and if so, how it should read next to the existing "EngAI Learn"
+     name) is a product naming decision, not a pure bug fix — flagged to
+     Boss in `.agent/boss/PM.md` rather than decided unilaterally.
+   - Not a code/architecture problem in the sense Boss's message
+     anticipated ("如果架構困難請 Tech Lead 給選項") — there's no hard
+     technical trade-off here, just one manual operational step outside the
+     codebase (Search Console) and one small naming question. Handing to
+     Tech Lead anyway for: (a) writing Boss a copy-pasteable Search
+     Console/sitemap-submission checklist, (b) confirming there's no
+     additional on-page technical blocker (e.g. checking rendered HTML
+     actually contains the metadata, not just the API response), and (c)
+     implementing the title/branding change once Boss answers the naming
+     question. See Priority/Scope below — this now jumps the queue ahead of
+     the Credits & Payments removal per Boss's explicit request.
 2. **Long-term retention via real skill-building** (redirected by
    DECISION-004 — see the new **Skill-Building Feature Expansion**
    requirement below for the concrete feature list):
@@ -124,12 +166,21 @@ a real user base exists before we ever revisit charging money for it.
 - [ ] No initiative here is shipped without at least a rough answer to
       "does this increase cost per user, and is that acceptable" — flagged
       to Tech Lead if unclear.
+- [ ] **(New, 2026-09-28)** Boss has a concrete, no-code checklist for
+      getting `jackyai.azurewebsites.net` verified and its sitemap submitted
+      in Google Search Console.
+- [ ] **(New, 2026-09-28)** Boss has decided whether "JackyAI" should appear
+      in the visible page title/branding, and if approved, the change is
+      shipped.
 
 ### Priority
-HIGH — the current top product priority per DECISION-003, ahead of Credits &
-Payments and ahead of any feature that only serves paying users. The growth
-mechanism is now specifically "make the product better," not "add sharing
-mechanics" — see DECISION-004.
+**HIGH — top of queue as of 2026-09-28**, ahead of the otherwise-next-up
+Credits & Payments removal, per Boss's explicit request to handle the SEO-
+indexing gap first ("插單處理"). Otherwise unchanged: this is the current top
+product priority per DECISION-003, ahead of Credits & Payments and ahead of
+any feature that only serves paying users. The growth mechanism is now
+specifically "make the product better," not "add sharing mechanics" — see
+DECISION-004.
 
 ### Scope
 #### In Scope
@@ -924,17 +975,25 @@ need a payment method that doesn't even work in Taiwan today.
       below, not by a spendable balance.
 - [ ] No user-facing "balance" or "credit transaction history" concept remains
       (nothing to purchase, so nothing to track spending against).
+- [ ] **(DECISION-007, 2026-09-28)** No UI text anywhere in the app uses the
+      words credit/點數/付費/購買/儲值 or any synonym implying money or a
+      spendable balance — the feature should just look like a normal free
+      feature, not "temporarily free" or "discounted."
+- [ ] **(DECISION-007)** When a user hits a feature's daily/periodic usage
+      cap, the feature becomes unavailable and shows a message stating they
+      exceeded their usage and, if they're a heavy user, to contact
+      `jacky19918@gmail.com` to get their limit raised — no self-serve
+      purchase path, no mention of price.
 
 ### Priority
-**HIGH — ACTIVE REMOVAL (DECISION-006, 2026-09-21).** Supersedes the
-2026-09-12 "LOW / ON HOLD" call (DECISION-003): this is no longer "leave it
-running, don't invest further" — Boss wants the payment machinery actively
-torn out. Sequenced after the already-in-flight Finance/Portfolio Gap Audit
-work (`TASK-012` etc., approved separately and unaffected by this decision)
-rather than jumping the queue, since removal isn't time-critical (the
-current system is dormant/sandbox-only, not actively causing harm) — but
-this is now the next major requirement for Tech Lead once the current gap-
-audit item in flight lands.
+**HIGH — ACTIVE REMOVAL (DECISION-006, 2026-09-21), design fully confirmed
+2026-09-28 (DECISION-007).** Supersedes the 2026-09-12 "LOW / ON HOLD" call
+(DECISION-003): this is no longer "leave it running, don't invest further" —
+Boss wants the payment machinery actively torn out. Portfolio Gap Audit's
+last item (`TASK-018`, FIRE tracking) is now implemented, so this is the
+**next default Tech Lead handoff** — except it is queued **behind** the
+2026-09-28 SEO-indexing investigation below, which Boss explicitly asked to
+be handled first ("插單處理").
 
 ### Scope
 #### In Scope
@@ -974,12 +1033,17 @@ anyone.
   redesign~~ — **superseded (2026-09-21, DECISION-006)**: Boss decided to
   remove payment entirely rather than redesign it. No longer an open
   question.
-- **New**: does the free-usage-cap replacement design above (daily/periodic
-  limit per feature, no money) match what Boss has in mind, or did Boss mean
-  something closer to fully unlimited free access with no cap at all? PM's
-  default (per this doc's established "proceed unless redirected" pattern)
-  is to hand this proposal to Tech Lead for feasibility scoping next run
-  unless Boss says otherwise in `.agent/boss/PM.md`.
+- ~~Does the free-usage-cap replacement design match what Boss has in mind?~~
+  — **resolved (2026-09-28, DECISION-007)**: Boss confirmed the daily/
+  periodic-cap direction, with two specifics that weren't in PM's original
+  proposal: (1) the cap and any notion of "usage limit" must be **completely
+  invisible** to a normal user — no credit/point/payment language anywhere,
+  it should just read as an ordinary free feature; (2) when a user actually
+  hits the cap, show a message naming the overage and inviting heavy users
+  to email `jacky19918@gmail.com` for a higher limit, instead of any
+  self-serve purchase flow. **This requirement is now unblocked and ready
+  for Tech Lead to scope** — no further Boss sign-off needed on the design
+  itself; only the per-feature numeric caps remain Tech Lead's call.
 - Related, now resolved by this same decision: Finance Gap Audit's "is the
   free-quant-vs-paid-AI-analysis overlap intentional" question is moot — see
   that section.
