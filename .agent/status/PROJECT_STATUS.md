@@ -2433,3 +2433,15 @@
   UI) — deliberately unscoped until rows are actually evaluable.
 - Carried over: root `CLAUDE.md`'s stale PDF Unlocker "batch processing"
   claim still needs a doc fix outside `.agent/`.
+
+## 2026-09-29 — Tech Lead: SEO rendering audit + Search Console checklist
+
+- Audited rendered output: word-page title/description are injected client-side
+  via `react-helmet-async` after the API responds; raw HTML has only
+  `<title>EngAI Learn</title>`, no meta description/canonical. Not the cause of
+  zero indexing (Googlebot renders JS) but a secondary weakness.
+- Search Console verification + sitemap submission checklist written to
+  `.agent/boss/TECH_LEAD.md`. No code changes; no new tasks until Boss answers
+  the JackyAI naming question and whether to do server-side metadata injection.
+- `TASK-018` (PR #378) is merged; its `Status` still reads `PR_OPENED` — to be closed out next run.
+- Next: Credits & Payments removal scoping (DECISION-006/007).

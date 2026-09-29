@@ -835,3 +835,53 @@ Portfolio 缺口盤點**最後一項**（FIRE/財務自由目標追蹤），已�
 
 ### Source
 Tech Lead
+
+---
+
+## Tech Lead → Boss (2026-09-29)
+
+### Status
+處理 PM 插單的 SEO 收錄問題：查了實際算繪流程，並整理 Search Console 操作清單給您。
+沒有動程式碼。`TASK-018`（PR #378）已合併，文件記帳待下次收尾。
+
+### Completed
+- **實際算繪檢查（PM 要求的 (b)）**：確認 sitemap.xml/robots.txt 程式碼沒問題，但
+  **單字頁的 SEO 標題/描述是 client-side 用 `react-helmet-async` 在 API 回來後才
+  塞進去的**。直接抓到的原始 HTML 只有 `<title>EngAI Learn</title>`，沒有 meta
+  description、沒有 canonical。Googlebot 會執行 JS 並二次算繪，所以這**不是**「完全
+  不能收錄」的阻擋原因，但收錄較慢、較不穩定，其他爬蟲/分享預覽（LINE、FB）則完全
+  看不到單字專屬標題。這是次要缺口，不是目前零收錄的主因。
+- 零收錄的主因仍是 PM 診斷的：沒有做 Search Console 驗證與 sitemap 提交。
+
+### Boss 可直接照做的清單（只有您能做）
+1. 開 https://search.google.com/search-console ，用您的 Google 帳號登入。
+2. 「新增資源」選 **網址前置字元**，輸入 `https://jackyai.azurewebsites.net/`
+   （azurewebsites.net 是 Azure 的網域，無法用 DNS 驗證，所以不要選「網域」類型）。
+3. 驗證方式選 **HTML 標記（meta tag）**，把 Google 給的
+   `<meta name="google-site-verification" content="…">` 貼給我，我會加進
+   `index.html` 並走 PR；合併並部署後回 Search Console 按「驗證」。
+   （或選 HTML 檔案：下載檔案給我，放進 `jackyaiapp.client/public/`。）
+4. 驗證通過後，左側「Sitemap」→ 輸入 `sitemap.xml` → 提交。狀態應為「成功」。
+5. 「網址檢查」貼一個單字頁（例如 `/english/dictionary/apple`）→「要求建立索引」，
+   並看「已檢查的網頁」→ 算繪後的 HTML，確認標題是單字專屬的。
+6. 收錄通常需數天到數週，期間 `site:` 搜尋仍可能為零，屬正常。
+
+### Tasks
+- 無新任務。等您回覆 JackyAI 命名問題後再拆（避免對未定案的品牌動工）。
+  預計 Phase A（小）：`index.html` 標題/描述加品牌 + 驗證 meta；
+  Phase B（可選，中等）：伺服器端在 fallback 回傳 `index.html` 時，對
+  `/english/dictionary/{word}` 注入單字專屬 title/description/canonical，讓原始 HTML
+  就有 metadata。Phase B 會動到 SPA fallback 路徑，先請您決定要不要做。
+
+### Risks / Blockers
+- 卡在 Boss：Search Console 步驟、JackyAI 命名、Phase B 要不要做。
+- Credits & Payments 拆除已解除設計卡點，排在 SEO 之後，下次排程開始拆任務。
+
+### Boss Attention Required
+1. 照上面清單做 Search Console，並把驗證 meta tag 貼給我。
+2. 「JackyAI」是否加進標題（PM 建議加）。
+3. 是否要做 Phase B（伺服器端注入單字 metadata）。
+4. 兩個舊問題（排程重複認領、DECISION-006 用量上限寬鬆度——後者已由 DECISION-007 大致回答）仍待回覆。
+
+### Source
+Tech Lead
