@@ -15,6 +15,7 @@ namespace JackyAIApp.Server.Services.Portfolio
     ///   <item>Inverse (反1 / 反向 / code …R) → -1  (反2 → -2)</item>
     ///   <item>Bond / money-market (含「債」/「貨幣」/ code …B or …D, passive/active bond ETF) → 0, i.e. treated like cash</item>
     ///   <item>US leveraged/inverse ETF (name pattern or known ticker, e.g. TQQQ/QLD/NVDL) → per-ticker</item>
+    ///   <item>US capital-efficient fund whose stacked exposure is all equity (NTSD) → per-ticker</item>
     ///   <item>Cash / Liability → 0; everything else → 1</item>
     /// </list>
     /// </summary>
@@ -44,6 +45,16 @@ namespace JackyAIApp.Server.Services.Portfolio
                 ["SDOW"] = -3m,
                 ["TMF"] = 3m,
                 ["TMV"] = -3m,
+
+                // WisdomTree Efficient U.S. Plus International Equity Fund: per $1, $0.90 of U.S.
+                // large-cap stock plus $0.60 notional of MSCI EAFE futures — 150% equity exposure.
+                // Not a daily-reset leveraged fund, and its name carries no multiplier, so the
+                // name patterns below can't see it.
+                //
+                // Only list a "90/60" fund here when both legs are equity. NTSX / NTSI / NTSE stack
+                // Treasury futures on the stock leg, and bonds count as 0 in this factor, so their
+                // equity exposure is 0.9 — not 1.5.
+                ["NTSD"] = 1.5m,
             };
 
         public static decimal Factor(AssetType type, string? name, string? symbol, string? market)
