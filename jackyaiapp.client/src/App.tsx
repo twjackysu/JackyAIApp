@@ -114,9 +114,9 @@ function App() {
   // The home portal ("/") is the ONLY place users switch between apps.
   const isPortal = path === '/';
   const currentApp = getCurrentApp(path);
-  // The slideshow is a standalone local tool: no API calls, nothing tied to an account and
-  // nothing to buy, so the account menu and the pricing footer are just noise on it.
-  const isSlideshow = currentApp?.name === SLIDESHOW.name;
+  // Tools with nothing tied to an account and nothing to buy (see AppDef.standalone): the
+  // account menu and the pricing footer are just noise on them.
+  const isStandalone = currentApp?.standalone === true;
 
   // The app's accent colour is used only as a subtle tint behind the icon —
   // enough to give each site an identity without painting the whole bar.
@@ -165,7 +165,7 @@ function App() {
               {isPortal ? "Jacky's Studio" : (currentApp?.name ?? "Jacky's Studio")}
             </Typography>
           </Box>
-          {!isSlideshow && <UserProfileMenu />}
+          {!isStandalone && <UserProfileMenu />}
         </Toolbar>
       </AppBar>
       <Box sx={{ p: 2 }}>
@@ -173,7 +173,7 @@ function App() {
       </Box>
       {/* The footer's pricing/contact link exists for ECPay merchant review, which needs it
           reachable from the site — keep it on every page that sells or spends something. */}
-      {!isSlideshow && <Footer />}
+      {!isStandalone && <Footer />}
       {/* 懸浮 Chatbot — only on Finance: its Dify backend is wired to a TW-stock MCP server,
           so it can only answer stock questions and is out of place elsewhere. */}
       {currentApp?.name === FINANCE.name && (
