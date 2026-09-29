@@ -267,6 +267,10 @@ function SlideshowPlayer({ photos, settings, onSettingsChange, onExit }: Props) 
                   width: '100%',
                   height: '100%',
                   objectFit: settings.fit,
+                  // 黑底不能省。「完整顯示」時照片四周的留白是 img 自己的背景，預設透明 ——
+                  // 直的照片疊在橫的上面，底下那張會從兩側露出來，看起來像兩張疊在一起。
+                  // 有了黑底，新照片淡入時連同留白一起蓋住舊照片。
+                  bgcolor: '#000',
                   pointerEvents: 'none',
                   animation: i === 1 ? 'slideshow-fade .4s ease' : 'none',
                   '@keyframes slideshow-fade': { from: { opacity: 0 }, to: { opacity: 1 } },
