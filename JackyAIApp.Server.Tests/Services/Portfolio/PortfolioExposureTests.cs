@@ -121,6 +121,30 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
+        public void Factor_Ntsd_IsOnePointFiveTimesEquityExposure()
+        {
+            // 90% U.S. stock + 60% international equity futures. The name spells out no multiplier,
+            // so without the table entry it would silently count as a plain 1x equity fund.
+            var factor = PortfolioExposure.Factor(
+                AssetType.STOCK, "WisdomTree Efficient U.S. Plus International Equity Fund", "NTSD", "US");
+
+            Assert.Equal(1.5m, factor);
+        }
+
+        [Fact]
+        public void Factor_Ntsd_MatchesRegardlessOfSymbolCase()
+        {
+            Assert.Equal(1.5m, PortfolioExposure.Factor(AssetType.STOCK, null, "ntsd", "US"));
+        }
+
+        [Fact]
+        public void Factor_Ntsd_OnlyAppliesToTheUsListing()
+        {
+            // The table is US-only; a TW or fund symbol that happens to read NTSD must not pick it up.
+            Assert.Equal(1m, PortfolioExposure.Factor(AssetType.FUND, "Some Fund", "NTSD", "FUND"));
+        }
+
+        [Fact]
         public void Factor_UsOrdinaryStock_DefaultsToOne()
         {
             var factor = PortfolioExposure.Factor(AssetType.STOCK, "Apple Inc.", "AAPL", "US");
