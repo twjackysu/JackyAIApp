@@ -206,6 +206,12 @@ try
     // request (real users, Googlebot, any other route) falls through unchanged.
     app.UseMiddleware<BotPreviewMiddleware>();
 
+    // Everyone else hitting a word-detail page (real users, Googlebot, any UA not in
+    // LinkPreviewBotUserAgents) still gets the real SPA — but with word-specific <title>/meta
+    // description/canonical injected into index.html server-side, instead of the generic static
+    // one. See WordMetadataMiddleware and .agent/architecture/ARCHITECTURE.md / TASK-020.
+    app.UseMiddleware<WordMetadataMiddleware>();
+
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
