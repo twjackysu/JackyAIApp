@@ -141,16 +141,14 @@ namespace JackyAIApp.Server.Tests.Common
             Assert.True(nextCalled);
         }
 
-        [Theory]
-        [InlineData("GET")]
-        [InlineData("HEAD")]
-        public async Task InvokeAsync_ServesInjectedHtml_ForValidWord(string method)
+        [Fact]
+        public async Task InvokeAsync_ServesInjectedHtml_ForGet()
         {
             _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple"))
                 .ReturnsAsync(ServiceResult.Ok(MakeWord("English Coach - apple", "apple (noun): a fruit")));
             var nextCalled = false;
             var middleware = new WordPageMetadataMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, MakeEnv(Template));
-            var context = MakeContext("/english/dictionary/apple", method);
+            var context = MakeContext("/english/dictionary/apple", "GET");
             var responseBody = new MemoryStream();
             context.Response.Body = responseBody;
 
@@ -164,6 +162,27 @@ namespace JackyAIApp.Server.Tests.Common
             var body = new StreamReader(responseBody).ReadToEnd();
             Assert.Contains("<title>English Coach - apple</title>", body);
             Assert.Contains("rel=\"canonical\"", body);
+        }
+
+        [Fact]
+        public async Task InvokeAsync_SetsHeadersButWritesNoBody_ForHead()
+        {
+            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple"))
+                .ReturnsAsync(ServiceResult.Ok(MakeWord("English Coach - apple", "apple (noun): a fruit")));
+            var nextCalled = false;
+            var middleware = new WordPageMetadataMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, MakeEnv(Template));
+            var context = MakeContext("/english/dictionary/apple", "HEAD");
+            var responseBody = new MemoryStream();
+            context.Response.Body = responseBody;
+
+            await middleware.InvokeAsync(context, _dictionaryServiceMock.Object);
+
+            Assert.False(nextCalled);
+            Assert.Equal(200, context.Response.StatusCode);
+            Assert.Equal("text/html; charset=utf-8", context.Response.ContentType);
+            Assert.Equal("no-store", context.Response.Headers["Cache-Control"].ToString());
+            Assert.True(context.Response.ContentLength > 0);
+            Assert.Equal(0, responseBody.Length); // headers only, per HTTP HEAD semantics
         }
 
         private static DefaultHttpContext MakeContext(string path, string method)

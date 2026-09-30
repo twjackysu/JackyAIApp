@@ -79,6 +79,14 @@ namespace JackyAIApp.Server.Common
             // browser/CDN from caching a per-word response past a deploy that changes the underlying
             // build (new asset hashes, updated word data, etc.).
             context.Response.Headers["Cache-Control"] = "no-store";
+
+            // HEAD gets the same headers but no body, per HTTP semantics.
+            if (HttpMethods.IsHead(context.Request.Method))
+            {
+                context.Response.ContentLength = System.Text.Encoding.UTF8.GetByteCount(html);
+                return;
+            }
+
             await context.Response.WriteAsync(html);
         }
 
