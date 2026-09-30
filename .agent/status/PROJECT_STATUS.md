@@ -2474,3 +2474,9 @@
 
 - DECISION-008 已記錄；`boss/PM.md` 瘦身；開 Issue #387 請 Tech Lead 評估流程影響（TECH_LEAD.md 瘦身、TASK 看板、READY task 認領）。
 - 待 Boss：合併 #386、確認 Data Analyst 命名／首頁 title。
+
+## 2026-09-30 — Tech Lead: 評估 Issue #387（DECISION-008 流程影響）
+
+- `boss/TECH_LEAD.md` 瘦身為未結案摘要（舊對話在 git history）。
+- TASK 維持 `.agent/tasks/`（與 PR/驗收標準同 repo、可 review）；不改 Projects 看板。
+- READY 重複認領：Issue assignee 無效（所有 Agent 共用同一 GitHub 帳號）；建議「開工前先 push `Status: IN_PROGRESS` 到 master」，需改 `.agents/`，待 Boss 授權。
