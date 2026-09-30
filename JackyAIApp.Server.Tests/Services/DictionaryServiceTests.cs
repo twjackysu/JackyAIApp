@@ -87,7 +87,7 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.True(result.IsSuccess);
             var dto = (DTO.Word)result.Data!;
             Assert.Equal("hello", dto.Word);
-            Assert.StartsWith("hello", dto.SeoTitle);
+            Assert.EndsWith("hello", dto.SeoTitle);
             Assert.StartsWith("hello (noun):", dto.SeoDescription);
 
             // Should NOT call OpenAI since word exists
