@@ -86,7 +86,7 @@ function JobSearch() {
             fontWeight: 'bold',
           }}
         >
-          職缺搜尋
+          Job Finder
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
           台灣 · 按發布時間排序

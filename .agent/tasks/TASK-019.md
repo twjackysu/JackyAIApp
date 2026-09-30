@@ -7,7 +7,7 @@ SEO/Branding: 依 Boss 2026-09-30 決定改用各模組產品名稱（取代「J
 Frontend (server 端字串為小改動，同一 owner)
 
 ## Status
-READY
+PR_OPENED（CI 已綠燈，待 Boss/Tech Lead review）
 
 ## Priority
 HIGH
@@ -51,5 +51,35 @@ HIGH
 PR #386 合併（同檔 `index.html`，避免衝突）。
 
 ## Result
+- `constants/apps.tsx`：`PORTFOLIO`/`FINANCE`/`ENGLISH_LEARNING`/`JOB_SEARCH`/`DATA_ANALYSIS`/
+  `DASHBOARDS` 的 `name` 改為新名稱，`description` 改為對照表 SEO 副標（此欄位驅動 Portal
+  catalog 卡片文字，`App.tsx` 也用 `currentApp.name` 當全站預設 `<title>`，故改這裡等於同時
+  修正各模組所有子頁籤的分頁標題）。
+- 頁面內文標題同步：`Portfolio/index.tsx`（My Portfolio → Wealth Portfolio）、
+  `Finance/index.tsx`（Stock Intelligence & Market Analysis → Stock Intelligence）、
+  `JobSearch/index.tsx`（職缺搜尋 → Job Finder）。`Dashboard/DashboardList.tsx` 檢查後未動——
+  頁面只有「我的儀表板」內文用語，不含舊品牌字串，符合任務註記可維持不改。
+- `index.html`：`<title>` 改為 `English Coach - AI 英文學習與單字訓練`，新增對應 meta
+  description；PR #386 的 `google-site-verification` meta 未動。
+- `WordSeoTextFormatter.cs`：`FormatTitle` 由 `{word} - EngAI Learn Dictionary` 改為
+  `English Coach - {word}`，Helmet（`Dictionary/index.tsx` 用 `seoTitle` 原樣渲染）與
+  `BotPreviewMiddleware`（走同一 DTO 欄位）共用同一結果，不需各自改動。Exam 等非單字頁本來
+  就走 `App.tsx` 的 `currentApp.name`（現為 `English Coach`），未帶單字。
+- 更新測試：`WordSeoTextFormatterTests.cs`（`FormatTitle` 斷言）、
+  `BotPreviewMiddlewareTests.cs`（fixture 字串與斷言的 title/og:title）。
+
+## Tests
+- `npm run lint`：pass。
+- `npm run build`（tsc + vite build）：pass。
+- `npm run test`（vitest）：30 files / 239 tests pass。
+- 後端 `dotnet test`：此 remote session 環境未安裝 .NET SDK（`dotnet` 指令不存在），**無法執行**；
+  CI（`build-and-test-server`）在第一次推送時抓到 `DictionaryServiceTests
+  .GetWord_WordExistsInDb_ReturnsFromDb` 的 `Assert.StartsWith("hello", dto.SeoTitle)` 斷言與
+  新格式（`English Coach - {word}`，不再是 `{word} - ...` 開頭）不符，已修正為
+  `Assert.EndsWith` 並重推（commit `0857de5`）。這印證了本機無 dotnet 環境時單靠人工檢視會漏掉
+  這類斷言，之後同類任務應更仔細 grep `StartsWith(.*word` 之類的斷言模式。
+
+## PR
+https://github.com/twjackysu/JackyAIApp/pull/388
 
 ## Review

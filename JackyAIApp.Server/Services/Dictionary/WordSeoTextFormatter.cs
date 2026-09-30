@@ -10,10 +10,10 @@ namespace JackyAIApp.Server.Services.Dictionary
     /// </summary>
     public static class WordSeoTextFormatter
     {
-        private const string TitleSuffix = "EngAI Learn Dictionary";
+        private const string BrandPrefix = "English Coach";
         private const int DescriptionMaxLength = 160;
 
-        public static string FormatTitle(string wordText) => $"{wordText} - {TitleSuffix}";
+        public static string FormatTitle(string wordText) => $"{BrandPrefix} - {wordText}";
 
         public static string FormatDescription(string wordText, IReadOnlyList<DTO.WordMeaning> meanings)
         {

@@ -95,7 +95,7 @@ function Finance() {
               fontSize: { xs: '1.2rem', sm: '1.5rem' },
             }}
           >
-            Stock Intelligence & Market Analysis
+            Stock Intelligence
           </Typography>
         </Stack>
         <Typography

@@ -6,12 +6,11 @@ namespace JackyAIApp.Server.Tests.Services
     public class WordSeoTextFormatterTests
     {
         [Fact]
-        public void FormatTitle_ReturnsWordWithSuffix()
+        public void FormatTitle_ReturnsBrandPrefixWithWord()
         {
             var title = WordSeoTextFormatter.FormatTitle("apple");
 
-            Assert.StartsWith("apple", title);
-            Assert.Contains("EngAI Learn", title);
+            Assert.Equal("English Coach - apple", title);
         }
 
         [Fact]
