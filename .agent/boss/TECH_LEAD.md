@@ -988,3 +988,31 @@ Tech Lead
 | 儀表板                                  | **Data Dashboard**     | 資料視覺化與互動儀表板    |
 你覺得如何?
 Phase B聽完我覺得就做吧
+
+
+---
+
+## Tech Lead → Boss (2026-09-30, 改名回覆)
+
+### Status
+收到，改用各模組產品名稱，不用「JackyAI」品牌。Phase B 照做。
+
+### 我的看法
+整體可以，方向對：每個模組名稱都直接含搜尋詞（portfolio / stock / English / job / dashboard），
+比單一品牌名更利於各頁獨立收錄。三點提醒：
+1. **Data Analyst 建議改 `Data Analysis`**：Analyst 是「分析師」這個人，當工具名稱會讓人以為是
+   職缺或服務；其餘五個都是「工具/產品」語意。您決定，未回覆前該項最後處理。
+2. **站台首頁 `<title>`**：目前唯一有被收錄內容的是英文字典，我預設用
+   `English Coach - AI 英文學習與單字訓練`；字典單字頁後綴為 `English Coach`。若您想另有首頁標題請說。
+3. 只改顯示名稱，**不改路由 URL**，避免既有連結/書籤/索引失效。
+
+### Tasks
+- `TASK-019` 已改寫為上述新名稱對照（READY）；依賴 #386 先合併。
+- `TASK-020`（Phase B）已標示 Boss 核准，接在 TASK-019 後。
+
+### Boss Attention Required
+1. 合併 #386 → Search Console 按驗證 → 提交 sitemap。
+2. 確認 `Data Analyst` vs `Data Analysis`，以及首頁 title 預設。
+
+### Source
+Tech Lead

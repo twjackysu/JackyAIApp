@@ -2457,3 +2457,10 @@
 - Boss confirmed site name is JackyAI and conditionally approved Phase B (pros/cons in
   `boss/TECH_LEAD.md`). Created `TASK-019` (brand titles) and `TASK-020` (server-side word
   metadata injection). PR #386 (Search Console meta) awaiting Boss merge.
+
+## 2026-09-30 — Tech Lead: Boss 改名決定
+
+- Boss 放棄「JackyAI」品牌，改用各模組產品名稱（Wealth Portfolio / Stock Intelligence /
+  English Coach / Job Finder / Data Analyst / Data Dashboard）；Phase B 核准。
+- `TASK-019` 依新名稱改寫，`TASK-020` 標示已核准。已回覆 Boss（建議 Data Analyst→Data Analysis）。
+- 待 Boss：合併 #386、確認 Data Analyst 命名、首頁 title 預設。
