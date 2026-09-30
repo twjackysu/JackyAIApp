@@ -7,7 +7,7 @@ SEO Phase B: server-side inject word metadata into index.html
 Backend
 
 ## Status
-READY (Boss 已核准 2026-09-30)
+IN_PROGRESS
 
 ## Priority
 MEDIUM
