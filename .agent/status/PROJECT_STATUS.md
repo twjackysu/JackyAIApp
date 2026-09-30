@@ -2493,3 +2493,38 @@
 - `TASK-019` PR #388 已合併，Status 改 `MERGED`；`TASK-020` 依賴已滿足（READY）。
 - Boss 指出目錄為 `.agent/`：認領規則（IN_PROGRESS 先 push）與 Issue 溝通規則寫入 `ARCHITECTURE.md`。
 - Next: Credits & Payments 移除範圍規劃（DECISION-006/007）。
+
+## 2026-09-30 — Backend Engineer: TASK-020 implemented, PR opened (scheduled run)
+
+- Checked for in-flight PRs first: zero open PRs, no existing PR/branch touches TASK-020 —
+  unclaimed, safe to start.
+- Implemented as scoped: new `WordPageMetadataMiddleware` (`Common/`) — for GET/HEAD requests to
+  `/english/dictionary/{word}`, reads the built `index.html` (cached in memory after first read),
+  looks up the word via `IDictionaryService.GetWordAsync`, and replaces/inserts `<title>`,
+  `<meta name="description">`, `<link rel="canonical">` using `Word.SeoTitle`/`SeoDescription` —
+  the same single formatting source `WordSeoTextFormatter`/`BotPreviewMiddleware` already use, no
+  second reformatting anywhere. Registered in `Program.cs` right after `BotPreviewMiddleware`
+  (which already fully owns the link-preview-bot case), before the static-file pipeline. Every
+  failure path (non-GET/HEAD, non-word path, missing template, unknown word, lookup
+  exception/timeout) falls through unchanged before touching the response.
+- No `dotnet` SDK/build in this sandbox — compensated with a manual read-through plus a separate
+  adversarial review-agent pass (fresh context, read every referenced production file including
+  `WordMapper.cs`, `DictionaryService.cs`, the real `jackyaiapp.client/index.html`). The review
+  found no compile errors and no page-load-breaking bug, but caught two real issues fixed before
+  opening the PR: (1) `Regex.Replace` with a plain replacement string would misread a literal `$`
+  in word/definition text as a backreference token (`$1`, `$&`) — switched to `MatchEvaluator`
+  lambdas; (2) HEAD requests were writing a full response body — not spec-correct — fixed to send
+  headers only. Both have dedicated tests now.
+- 9 new unit tests (`WordPageMetadataMiddlewareTests`) covering injection, hostile-data HTML
+  encoding, the `$`-backreference edge case, canonical replace-vs-insert, non-word paths, missing
+  template, unknown word, lookup exception, and the GET/HEAD success paths — satisfies all of
+  TASK-020's listed acceptance-criteria test cases plus the two review findings.
+- Opened [PR #389](https://github.com/twjackysu/JackyAIApp/pull/389); full implementation notes,
+  including three flagged-but-out-of-scope items (canonical-URL scheme read before
+  `UseHttpsRedirection` — a pre-existing pattern `BotPreviewMiddleware` already has, now exposed to
+  all user agents instead of just bots; no insert-if-missing fallback for `<title>`/description if
+  those tags are ever removed from `index.html`; the lookup timeout can't cancel the underlying
+  call since `IDictionaryService.GetWordAsync` has no `CancellationToken` parameter), are in
+  `TASK-020.md`'s Result section. Subscribed to the PR to drive it to green / respond to review.
+- CI not yet confirmed as of this log entry — next event on the PR (or next scheduled run) should
+  check `build-and-test-server`/`lint-and-build-client` and act on any failure.
