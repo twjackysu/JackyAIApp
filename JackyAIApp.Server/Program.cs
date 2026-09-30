@@ -206,6 +206,13 @@ try
     // request (real users, Googlebot, any other route) falls through unchanged.
     app.UseMiddleware<BotPreviewMiddleware>();
 
+    // For everyone else hitting a word-detail path (real users, Googlebot) — inject the same
+    // word-specific title/meta/canonical into the SPA's built index.html before it's served, so
+    // the raw HTML carries correct metadata for all user agents, not just JS-executing crawlers.
+    // Any other route, or any lookup failure, falls through unchanged — see
+    // WordMetadataInjectionMiddleware and TASK-020.
+    app.UseMiddleware<WordMetadataInjectionMiddleware>();
+
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
