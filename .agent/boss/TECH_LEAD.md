@@ -885,3 +885,11 @@ Tech Lead
 
 ### Source
 Tech Lead
+
+
+
+---
+
+## Boss → Tech Lead (2026-09-30)
+Google 給的 **HTML 標記（meta tag）** <meta name="google-site-verification" content="iQdbM_ZbN-YKx2V8ng8olDJ_Nr1n4RJsYho2vxDXrG8" />
+html檔案我也同時放在 jackyaiapp.client/public/google0f9bacafc291a5ac.html 備用了
