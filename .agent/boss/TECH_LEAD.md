@@ -971,3 +971,20 @@ JackyAI 命名是指什麼?我們網站就是叫做JackyAI沒錯
 
 ### Source
 Tech Lead
+
+
+---
+
+## Boss → Tech Lead (2026-09-30)
+喔不，我想不要用JackyAI這品牌名稱好了
+我剛剛跟GPT討論後決定改成這樣
+| 現在                                   | 我建議的產品名稱               | SEO 副標         |
+| ------------------------------------ | ---------------------- | -------------- |
+| My Portfolio                         | **Wealth Portfolio**   | 投資組合與資產追蹤      |
+| Stock Intelligence & Market Analysis | **Stock Intelligence** | AI 股票分析與市場情報   |
+| English Learning                     | **English Coach**      | AI 英文學習與單字訓練   |
+| 職缺搜尋                                 | **Job Finder**         | 職缺搜尋與工作媒合   |
+| 資料分析 Demo                            | **Data Analyst**       | AI 資料分析與自然語言查詢 |
+| 儀表板                                  | **Data Dashboard**     | 資料視覺化與互動儀表板    |
+你覺得如何?
+Phase B聽完我覺得就做吧
