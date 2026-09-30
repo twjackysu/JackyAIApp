@@ -893,3 +893,22 @@ Tech Lead
 ## Boss → Tech Lead (2026-09-30)
 Google 給的 **HTML 標記（meta tag）** <meta name="google-site-verification" content="iQdbM_ZbN-YKx2V8ng8olDJ_Nr1n4RJsYho2vxDXrG8" />
 html檔案我也同時放在 jackyaiapp.client/public/google0f9bacafc291a5ac.html 備用了
+
+---
+
+## Tech Lead → Boss (2026-09-30)
+
+### Status
+已收到驗證 meta tag，已開 PR #386（僅 `index.html` 一行）。**等您合併。**
+
+### Completed
+- PR #386：加入 `google-site-verification` meta。CI 結果待跑完；此變更不含邏輯。
+- `TASK-018` Status 已記帳為 `MERGED`（PR #378 已合併）。
+
+### Boss Attention Required
+1. 合併 #386（合併後會自動部署），部署完成後到 Search Console 按「驗證」，接著提交 `sitemap.xml`、對單字頁「要求建立索引」。
+2. 您說的備用檔 `jackyaiapp.client/public/google0f9bacafc291a5ac.html` 目前**不在 master**（可能沒 push）。meta tag 已足夠，可不用。
+3. 未回覆：JackyAI 命名、是否做 Phase B。
+
+### Source
+Tech Lead

@@ -2445,3 +2445,9 @@
   the JackyAI naming question and whether to do server-side metadata injection.
 - `TASK-018` (PR #378) is merged; its `Status` still reads `PR_OPENED` — to be closed out next run.
 - Next: Credits & Payments removal scoping (DECISION-006/007).
+
+## 2026-09-30 — Tech Lead: Search Console verification PR
+
+- Boss supplied the verification meta tag; opened PR #386 (one line in `index.html`). Awaiting Boss merge/deploy, then verify + submit sitemap.
+- `TASK-018` Status closed out as `MERGED`.
+- Next: Credits & Payments removal scoping (DECISION-006/007).

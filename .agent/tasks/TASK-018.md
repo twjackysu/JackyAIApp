@@ -7,7 +7,7 @@ Frontend: Portfolio FIRE/goal tracking (Gap Audit item 4, last item)
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM (per PM's approved Gap Audit order — Portfolio proposal 4, the last
