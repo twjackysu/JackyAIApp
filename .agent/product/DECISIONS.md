@@ -209,3 +209,22 @@ DECISION-006 提案的「每人每日免費用量上限」方向一致，這次�
 
 ### Source
 Boss
+
+
+## DECISION-008: Boss ↔ Agent 對話改用 GitHub Issues；結論型文件維持 `.agent/`
+
+### Date
+2026-09-30
+
+### Decision
+新的 Boss 提問與 Agent 討論改在 GitHub Issues 進行（標籤建議 `needs-boss` / `pm` / `tech-lead`，結案即 close）。`REQUIREMENTS.md`、`DECISIONS.md`、`tasks/`、`PROJECT_STATUS.md`、`ARCHITECTURE.md` 維持不變。`boss/PM.md` 已瘦身，舊對話保留於 git history。
+
+### Reason
+對話型檔案過大（PM.md ~55KB、TECH_LEAD.md ~59KB），Boss 須捲到底、Agent 每次讀整檔浪費 token。
+
+### Impact
+- Tech Lead 需評估 TECH_LEAD.md 瘦身、TASK 是否改看板、READY task 重複認領問題（Issue #387）。
+- 修改 `.agents/` 指示檔需 Boss 明確授權，PM 未動。
+
+### Source
+Boss（2026-09-30 核准 PM 建議的 B 方案）

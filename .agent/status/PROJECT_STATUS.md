@@ -2469,3 +2469,8 @@
 
 - 於 `boss/PM.md` 提出 A（瘦身）/ B（GitHub Issues，PM 建議）/ C（自建）三案，等待 Boss 裁示；核准前不刪除任何內容。
 - 請 Tech Lead 評估 B 對任務流程與 READY task 重複認領問題的影響。
+
+## 2026-09-30 — PM: Boss 核准 GitHub Issues 溝通方式
+
+- DECISION-008 已記錄；`boss/PM.md` 瘦身；開 Issue #387 請 Tech Lead 評估流程影響（TECH_LEAD.md 瘦身、TASK 看板、READY task 認領）。
+- 待 Boss：合併 #386、確認 Data Analyst 命名／首頁 title。
