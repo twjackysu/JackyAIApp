@@ -7,7 +7,7 @@ SEO Phase B: server-side inject word metadata into index.html
 Backend
 
 ## Status
-IN_PROGRESS
+PR_OPENED（PR #390）
 
 ## Priority
 MEDIUM
@@ -61,6 +61,9 @@ TASK-019 merged（PR #388，已滿足；可開工）.
 - `JackyAIApp.Server/Common/WordMetadataMiddleware.cs` (new)
 - `JackyAIApp.Server.Tests/Common/WordMetadataMiddlewareTests.cs` (new)
 - `JackyAIApp.Server/Program.cs`
+
+### PR
+https://github.com/twjackysu/JackyAIApp/pull/390
 
 ### Tests
 - `dotnet test --filter "FullyQualifiedName~WordMetadataMiddlewareTests"` — 14/14 passed
