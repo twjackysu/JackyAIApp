@@ -16,7 +16,7 @@ HIGH
 各模組顯示名稱與 SEO 副標改為 Boss 決定的新名稱；字典頁 title/description 不再出現「EngAI Learn」。
 
 ## Requirements
-名稱對照（Boss 決定，不可自行改動；標記 * 者待 Boss 確認後才改）：
+名稱對照（Boss 決定，不可自行改動；2026-09-30 Boss 已確認 Data Analysis）：
 
 | 現在 | 新名稱 | SEO 副標 |
 |---|---|---|
@@ -24,7 +24,7 @@ HIGH
 | Stock Intelligence & Market Analysis | Stock Intelligence | AI 股票分析與市場情報 |
 | English Learning | English Coach | AI 英文學習與單字訓練 |
 | 職缺搜尋 (Job Search) | Job Finder | 職缺搜尋與工作媒合 |
-| 資料分析 Demo (Data Analysis) | Data Analyst* | AI 資料分析與自然語言查詢 |
+| 資料分析 Demo (Data Analysis) | Data Analysis | AI 資料分析與自然語言查詢 |
 | 儀表板 (Dashboards) | Data Dashboard | 資料視覺化與互動儀表板 |
 
 - `constants/apps.tsx`：`name` 改新名稱、`description` 改為（或納入）SEO 副標。
@@ -32,8 +32,9 @@ HIGH
   `Dashboard/DashboardList.tsx`（標題文字；內文用語如「我的儀表板」可維持，不需硬改）。
 - `index.html`：`<title>` 改為 `English Coach - AI 英文學習與單字訓練`（站台首頁以已被收錄的
   英文模組為主），並加 meta description。**不得動 PR #386 的 verification meta。**
-- `WordSeoTextFormatter.cs`：`TitleSuffix` 由 `EngAI Learn Dictionary` 改為 `English Coach`
-  （例：`{word} - English Coach 英文字典`），Helmet 與 `BotPreviewMiddleware` 共用。
+- `WordSeoTextFormatter.cs`：單字頁 title 改為 Boss 指定格式 `English Coach - {word}`
+  （例：`English Coach - Apple`；不再有 `EngAI Learn Dictionary` 後綴），Helmet 與
+  `BotPreviewMiddleware` 共用。Exam 等非單字頁的 title 不帶單字，只用模組名稱／`English Coach`。
 - 更新受影響的既有測試。
 
 ## Acceptance Criteria
@@ -43,8 +44,8 @@ HIGH
 
 ## Technical Notes
 - grep `EngAI Learn` 與上表舊名稱（client + server）；註解內的「市場儀表板」等不需改。
-- *「Data Analyst」字面是「分析師（人）」，作為工具名稱易混淆；已建議 Boss 改 `Data Analysis`，
-  Boss 回覆前先以 `Data Analyst` 之外的項目開工，該項最後處理。
+- Boss 已採納 `Data Analysis`（2026-09-30），無待確認項目。
+- 單字頁 title 採 Boss 指定的「品牌在前」格式；若日後要以單字為 SEO 首位，需 Boss 再決定。
 
 ## Dependencies
 PR #386 合併（同檔 `index.html`，避免衝突）。

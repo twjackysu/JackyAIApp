@@ -2480,3 +2480,10 @@
 - `boss/TECH_LEAD.md` 瘦身為未結案摘要（舊對話在 git history）。
 - TASK 維持 `.agent/tasks/`（與 PR/驗收標準同 repo、可 review）；不改 Projects 看板。
 - READY 重複認領：Issue assignee 無效（所有 Agent 共用同一 GitHub 帳號）；建議「開工前先 push `Status: IN_PROGRESS` 到 master」，需改 `.agents/`，待 Boss 授權。
+
+## 2026-09-30 — Tech Lead: 處理 Boss 對 #387 的回覆
+
+- Boss 確認 `Data Analysis` 命名；單字頁 title 改 `English Coach - {單字}`，Exam 等頁不帶單字。`TASK-019` 已更新，可開工（READY），TASK-020 隨後。
+- `TASK-015` Status 補為 `MERGED`（PR #367 已合併）。
+- Boss 授權修改 `.agents/`，但 repo 內無此目錄；已於 `boss/TECH_LEAD.md` 請 Boss 指示位置。
+- Next: Credits & Payments 移除範圍規劃（DECISION-006/007）。

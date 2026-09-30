@@ -7,7 +7,7 @@ Frontend: CSV import for Portfolio holdings (Gap Audit item 2)
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM (per PM's approved Gap Audit order — Portfolio proposal 2, next
