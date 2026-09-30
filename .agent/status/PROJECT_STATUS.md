@@ -2464,3 +2464,8 @@
   English Coach / Job Finder / Data Analyst / Data Dashboard）；Phase B 核准。
 - `TASK-019` 依新名稱改寫，`TASK-020` 標示已核准。已回覆 Boss（建議 Data Analyst→Data Analysis）。
 - 待 Boss：合併 #386、確認 Data Analyst 命名、首頁 title 預設。
+
+## 2026-09-30 — PM: 回覆 Boss 溝通方式／PM.md 過大問題
+
+- 於 `boss/PM.md` 提出 A（瘦身）/ B（GitHub Issues，PM 建議）/ C（自建）三案，等待 Boss 裁示；核准前不刪除任何內容。
+- 請 Tech Lead 評估 B 對任務流程與 READY task 重複認領問題的影響。
