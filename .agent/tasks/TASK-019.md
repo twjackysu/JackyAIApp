@@ -73,8 +73,11 @@ PR #386 合併（同檔 `index.html`，避免衝突）。
 - `npm run build`（tsc + vite build）：pass。
 - `npm run test`（vitest）：30 files / 239 tests pass。
 - 後端 `dotnet test`：此 remote session 環境未安裝 .NET SDK（`dotnet` 指令不存在），**無法執行**；
-  已人工檢視 `WordSeoTextFormatter.cs` 改動（僅改一個字串常數與其插值順序）與對應測試斷言，
-  改動範圍小、風險低，但請 Tech Lead 或 CI 跑一次 `dotnet test` 確認。
+  CI（`build-and-test-server`）在第一次推送時抓到 `DictionaryServiceTests
+  .GetWord_WordExistsInDb_ReturnsFromDb` 的 `Assert.StartsWith("hello", dto.SeoTitle)` 斷言與
+  新格式（`English Coach - {word}`，不再是 `{word} - ...` 開頭）不符，已修正為
+  `Assert.EndsWith` 並重推（commit `0857de5`）。這印證了本機無 dotnet 環境時單靠人工檢視會漏掉
+  這類斷言，之後同類任務應更仔細 grep `StartsWith(.*word` 之類的斷言模式。
 
 ## PR
 https://github.com/twjackysu/JackyAIApp/pull/388
