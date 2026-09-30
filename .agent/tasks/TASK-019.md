@@ -7,7 +7,7 @@ SEO/Branding: 依 Boss 2026-09-30 決定改用各模組產品名稱（取代「J
 Frontend (server 端字串為小改動，同一 owner)
 
 ## Status
-PR_OPENED
+PR_OPENED（CI 已綠燈，待 Boss/Tech Lead review）
 
 ## Priority
 HIGH
