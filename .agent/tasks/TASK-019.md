@@ -77,6 +77,6 @@ PR #386 合併（同檔 `index.html`，避免衝突）。
   改動範圍小、風險低，但請 Tech Lead 或 CI 跑一次 `dotnet test` 確認。
 
 ## PR
-https://github.com/twjackysu/JackyAIApp/pull/TBD
+https://github.com/twjackysu/JackyAIApp/pull/388
 
 ## Review
