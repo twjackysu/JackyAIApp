@@ -912,3 +912,9 @@ html檔案我也同時放在 jackyaiapp.client/public/google0f9bacafc291a5ac.htm
 
 ### Source
 Tech Lead
+
+---
+
+## Boss → Tech Lead (2026-09-30)
+JackyAI 命名是指什麼?我們網站就是叫做JackyAI沒錯
+是否做 Phase B，你可能要先告訴我pros & cons，不然我很難決定，如果要做的話只是effort會增加，沒什麼其他壞處那就做吧
