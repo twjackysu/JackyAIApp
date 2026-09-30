@@ -918,3 +918,56 @@ Tech Lead
 ## Boss → Tech Lead (2026-09-30)
 JackyAI 命名是指什麼?我們網站就是叫做JackyAI沒錯
 是否做 Phase B，你可能要先告訴我pros & cons，不然我很難決定，如果要做的話只是effort會增加，沒什麼其他壞處那就做吧
+
+
+---
+
+## Tech Lead → Boss (2026-09-30)
+
+### Status
+回覆您的兩個問題，並拆出 `TASK-019`（Phase A）與 `TASK-020`（Phase B）。#386 仍待您合併。
+
+### 1. 「JackyAI 命名」是指什麼
+不是問網站叫什麼，是**頁面上實際顯示的文字**：目前 `index.html` 的 `<title>` 是
+「EngAI Learn」，單字頁標題是「{word} - EngAI Learn Dictionary」，頁面文字沒有任何
+「JackyAI」，只有網址帶 jackyai。所以搜「JackyAI English Apple」時 Google 找不到
+標題匹配。既然您確認網站就叫 JackyAI，我視為決定：**把標題/描述改成 JackyAI 品牌**
+（例：`{word} - JackyAI 英文字典`、首頁 `JackyAI - AI 英文學習與理財工具`）。
+這是 `TASK-019`。若您想保留「EngAI Learn」字樣請告訴我，否則照上面做。
+
+### 2. Phase B（伺服器端注入單字 metadata）Pros & Cons
+**做什麼**：使用者/Googlebot 請求 `/english/dictionary/{word}` 時，伺服器把 `index.html`
+裡的 title/description/canonical 換成該單字的內容再回傳（SPA 照常載入）。
+（現有的 `BotPreviewMiddleware` 只服務 LINE/FB 這類預覽爬蟲，回傳的是簡化頁，不會給
+一般使用者，所以不能直接拿來用。）
+
+**Pros**
+- 原始 HTML 就有單字專屬 title/description/canonical，Google 不必等 JS 二次算繪，
+  收錄更快更穩；所有爬蟲、分享預覽都吃得到。
+- 單字資料本來就快取，不新增 AI 成本。
+
+**Cons / 風險（都可控，不是零）**
+1. 動到 SPA fallback 路徑，寫錯會影響**所有頁面**載入 → 用 feature 範圍限縮
+   （只處理單字路徑）+ 任何例外一律退回原 `index.html`。
+2. 每個單字頁請求多一次字典查詢（走既有快取；冷門單字第一次會較慢）→ 設定逾時，
+   逾時就退回原 HTML。
+3. 注入內容必須 HTML encode，否則有 XSS 風險 → 沿用 `BotPreviewMiddleware` 的作法並補測試。
+4. 對不存在的單字要維持現況（不注入），避免產生大量垃圾可索引頁。
+5. 多一段程式維護成本；工作量中等（估 1 個 PR + 單元測試）。
+
+**結論**：除工作量與上述可控風險外沒有其他壞處，符合您的條件，**我建議做，並依您
+的指示排入**。排在 `TASK-019` 之後，不影響 Search Console 進度。
+
+### Tasks
+- `TASK-019`（Frontend/Backend 小工）：JackyAI 品牌標題。READY。
+- `TASK-020`（Backend）：Phase B。READY，依賴 TASK-019 先合併避免標題衝突。
+
+### Risks / Blockers
+- 無阻塞。#386 待 Boss 合併（合併後才能到 Search Console 按驗證）。
+
+### Boss Attention Required
+1. 合併 #386，驗證並提交 sitemap。
+2. 若不同意「標題改 JackyAI 品牌」或 Phase B，請回覆，否則照做。
+
+### Source
+Tech Lead

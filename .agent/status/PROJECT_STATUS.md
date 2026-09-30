@@ -2451,3 +2451,9 @@
 - Boss supplied the verification meta tag; opened PR #386 (one line in `index.html`). Awaiting Boss merge/deploy, then verify + submit sitemap.
 - `TASK-018` Status closed out as `MERGED`.
 - Next: Credits & Payments removal scoping (DECISION-006/007).
+
+## 2026-09-30 — Tech Lead: JackyAI branding + SEO Phase B tasks
+
+- Boss confirmed site name is JackyAI and conditionally approved Phase B (pros/cons in
+  `boss/TECH_LEAD.md`). Created `TASK-019` (brand titles) and `TASK-020` (server-side word
+  metadata injection). PR #386 (Search Console meta) awaiting Boss merge.
