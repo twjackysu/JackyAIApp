@@ -2528,3 +2528,6 @@
   `TASK-020.md`'s Result section. Subscribed to the PR to drive it to green / respond to review.
 - CI not yet confirmed as of this log entry — next event on the PR (or next scheduled run) should
   check `build-and-test-server`/`lint-and-build-client` and act on any failure.
+- Update: CI confirmed green on the current head (`lint-and-build-client` + `build-and-test-server`
+  both `success`), `mergeable_state: clean`, no reviews/comments yet. No Claude Approvals check
+  configured on this repo. Nothing further for Backend to do — waiting on Tech Lead/Boss review.
