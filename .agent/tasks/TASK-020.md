@@ -40,6 +40,9 @@ so a stale template is not served after deploy.
 ## Dependencies
 TASK-019 merged（PR #388，已滿足；可開工）.
 
+## PR
+https://github.com/twjackysu/JackyAIApp/pull/389
+
 ## Result
 - Added `WordPageMetadataMiddleware` (`Common/`): for GET/HEAD requests to
   `/english/dictionary/{word}`, reads `wwwroot/index.html` (cached in memory after first read),
