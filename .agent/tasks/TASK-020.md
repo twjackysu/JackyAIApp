@@ -38,7 +38,7 @@ scoped to the word path over changing the global fallback. Watch response cachin
 so a stale template is not served after deploy.
 
 ## Dependencies
-TASK-019 merged.
+TASK-019 merged（PR #388，已滿足；可開工）.
 
 ## Result
 

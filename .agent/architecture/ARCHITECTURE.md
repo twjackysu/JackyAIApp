@@ -1514,3 +1514,9 @@ See `TASK-018` (Frontend only). Once shipped, all four of Portfolio's
 originally-prioritized Gap Audit proposals (cross-link, CSV import,
 rebalancing, FIRE tracking) will be complete, matching Finance's
 already-complete 3-item list.
+
+
+## Workflow conventions (Boss authorized 2026-09-30, Issue #387)
+
+- **Claiming a task:** an Engineer sets `Status: IN_PROGRESS` on the TASK file and pushes it directly to master *before* starting implementation. GitHub assignee is not used (all Agents share one account). A small race window remains; if a task is already `IN_PROGRESS`, pick another.
+- **Boss questions:** new questions to Boss go in GitHub Issues (labels `needs-boss` / `pm` / `tech-lead`), per DECISION-008. `boss/*.md` keeps only an open-items summary.

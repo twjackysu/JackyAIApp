@@ -2487,3 +2487,9 @@
 - `TASK-015` Status 補為 `MERGED`（PR #367 已合併）。
 - Boss 授權修改 `.agents/`，但 repo 內無此目錄；已於 `boss/TECH_LEAD.md` 請 Boss 指示位置。
 - Next: Credits & Payments 移除範圍規劃（DECISION-006/007）。
+
+## 2026-09-30 — Tech Lead: TASK-019 結案、工作流程規則落地
+
+- `TASK-019` PR #388 已合併，Status 改 `MERGED`；`TASK-020` 依賴已滿足（READY）。
+- Boss 指出目錄為 `.agent/`：認領規則（IN_PROGRESS 先 push）與 Issue 溝通規則寫入 `ARCHITECTURE.md`。
+- Next: Credits & Payments 移除範圍規劃（DECISION-006/007）。

@@ -7,7 +7,7 @@ SEO/Branding: 依 Boss 2026-09-30 決定改用各模組產品名稱（取代「J
 Frontend (server 端字串為小改動，同一 owner)
 
 ## Status
-PR_OPENED（CI 已綠燈，待 Boss/Tech Lead review）
+MERGED（PR #388）
 
 ## Priority
 HIGH
@@ -83,3 +83,4 @@ PR #386 合併（同檔 `index.html`，避免衝突）。
 https://github.com/twjackysu/JackyAIApp/pull/388
 
 ## Review
+Tech Lead 2026-09-30：PR #388 已由 Boss 合併（master 5c90331）；CI 綠燈，範圍符合 Acceptance Criteria。
