@@ -112,6 +112,6 @@ no DB.
    content (same file in the current repo). Should be spot-checked once after a real deploy that
    `<title>`/description/canonical actually show up correctly in "View Source" for a known word.
 
-PR: (opened by the automated session — see the pushed branch)
+PR: https://github.com/twjackysu/JackyAIApp/pull/391
 
 ## Review
