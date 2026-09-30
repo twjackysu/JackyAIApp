@@ -32,25 +32,25 @@ export interface AppDef {
 }
 
 export const PORTFOLIO: AppDef = {
-  name: 'My Portfolio',
+  name: 'Wealth Portfolio',
   path: '/portfolio',
   icon: <PieChartIcon fontSize="small" />,
   allPaths: ['/portfolio'],
   color: '#F59E0B',
-  description: '追蹤台美股持倉、損益與資產淨值變化。',
+  description: '投資組合與資產追蹤',
 };
 
 export const FINANCE: AppDef = {
-  name: 'Stock Intelligence & Market Analysis',
+  name: 'Stock Intelligence',
   path: '/finance',
   icon: <AttachMoneyIcon fontSize="small" />,
   allPaths: ['/finance'],
   color: '#16A34A',
-  description: '即時股市情報、財報摘要與 AI 市場分析。',
+  description: 'AI 股票分析與市場情報',
 };
 
 export const ENGLISH_LEARNING: AppDef = {
-  name: 'English Learning',
+  name: 'English Coach',
   path: '/english/dictionary',
   icon: <SchoolIcon fontSize="small" />,
   allPaths: [
@@ -63,7 +63,7 @@ export const ENGLISH_LEARNING: AppDef = {
     '/english/stats',
   ],
   color: '#2563EB',
-  description: 'AI 字典、每日挑戰、考試與間隔複習，長期記住單字。',
+  description: 'AI 英文學習與單字訓練',
 };
 
 export const PDF_UNLOCKER: AppDef = {
@@ -89,30 +89,30 @@ export const SLIDESHOW: AppDef = {
 };
 
 export const JOB_SEARCH: AppDef = {
-  name: '職缺搜尋 (Job Search)',
+  name: 'Job Finder',
   path: '/jobs',
   icon: <WorkIcon fontSize="small" />,
   allPaths: ['/jobs'],
   color: '#9333EA',
-  description: 'AI 職缺搜尋與媒合，找到適合你的工作。',
+  description: '職缺搜尋與工作媒合',
 };
 
 export const DATA_ANALYSIS: AppDef = {
-  name: '資料分析 Demo (Data Analysis)',
+  name: 'Data Analysis',
   path: '/data-analysis',
   icon: <AssessmentIcon fontSize="small" />,
   allPaths: ['/data-analysis'],
   color: '#5E6AD2',
-  description: '用自然語言查詢與視覺化資料的即時 Demo。',
+  description: 'AI 資料分析與自然語言查詢',
 };
 
 export const DASHBOARDS: AppDef = {
-  name: '儀表板 (Dashboards)',
+  name: 'Data Dashboard',
   path: '/dashboards',
   icon: <DashboardIcon fontSize="small" />,
   allPaths: ['/dashboards'],
   color: '#0EA5E9',
-  description: '把 Data Analysis 的分析結果組成可分享的儀表板。',
+  description: '資料視覺化與互動儀表板',
 };
 
 export const CONNECTORS: AppDef = {

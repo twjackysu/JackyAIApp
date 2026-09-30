@@ -527,7 +527,7 @@ export default function Portfolio() {
         >
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              My Portfolio
+              Wealth Portfolio
             </Typography>
             <Typography variant="body2" color="text.secondary">
               台股 · 美股 · 現金 · 基金 統一以台幣淨值追蹤
