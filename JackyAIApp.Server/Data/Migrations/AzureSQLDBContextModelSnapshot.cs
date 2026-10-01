@@ -267,50 +267,6 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("ClozeTestOptions");
                 });
 
-            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.CreditTransaction", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("Amount")
-                        .HasColumnType("bigint");
-
-                    b.Property<decimal>("BalanceAfter")
-                        .HasColumnType("decimal(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ReferenceId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TransactionType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("CreditTransactions");
-                });
-
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyChallengeResult", b =>
                 {
                     b.Property<int>("Id")
@@ -1006,41 +962,6 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("StockSymbolInfos");
                 });
 
-            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Subscription", b =>
-                {
-                    b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime?>("CancelledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("CurrentPeriodEnd")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EcpayMerchantTradeNo")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("LastUpdated")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("PayUniMerTradeNo")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Provider")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("UserId");
-
-                    b.ToTable("Subscriptions");
-                });
-
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.TranslationTest", b =>
                 {
                     b.Property<string>("Id")
@@ -1087,9 +1008,6 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<decimal>("CreditBalance")
-                        .HasColumnType("decimal(20,0)");
-
                     b.Property<int>("CurrentStreak")
                         .HasColumnType("int");
 
@@ -1116,9 +1034,6 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.Property<int>("StreakFreezesAvailable")
                         .HasColumnType("int");
-
-                    b.Property<decimal>("TotalCreditsUsed")
-                        .HasColumnType("decimal(20,0)");
 
                     b.Property<int>("TotalXP")
                         .HasColumnType("int");
@@ -1361,17 +1276,6 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Navigation("ClozeTest");
                 });
 
-            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.CreditTransaction", b =>
-                {
-                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany("CreditTransactions")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyChallengeResult", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
@@ -1573,17 +1477,6 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Navigation("Word");
                 });
 
-            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Subscription", b =>
-                {
-                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.TranslationTest", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.Word", "Word")
@@ -1691,8 +1584,6 @@ namespace JackyAIApp.Server.Data.Migrations
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.User", b =>
                 {
-                    b.Navigation("CreditTransactions");
-
                     b.Navigation("DailyChallengeResults");
 
                     b.Navigation("DailyUsages");

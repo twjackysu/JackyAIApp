@@ -4,10 +4,12 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace JackyAIApp.Server.Data.Models.SQL
 {
     /// <summary>
-    /// Unused since the Credit/Payment removal (DECISION-006/007, TASK-023) — subscriptions and
-    /// the credit-metering engine this entity depended on (<c>ICreditService</c>) are gone.
-    /// Entity and table kept so no data is lost; removal deferred to TASK-024 (needs Boss
-    /// sign-off for the irreversible table DROP).
+    /// Orphaned since TASK-024 (DECISION-006/007) — the underlying <c>Subscriptions</c> table
+    /// is dropped by migration <c>20261001160000_DropCreditPaymentSchema</c>, and this type is
+    /// no longer mapped in <c>AzureSQLDBContext</c> (no <c>DbSet</c>, no fluent config). Nothing
+    /// in the codebase constructs, reads, or writes it. Left in place only because this run's
+    /// sandbox could not stage the file deletion itself (see TASK-024.md) — safe to delete
+    /// outright in a follow-up commit.
     /// </summary>
     public class Subscription
     {

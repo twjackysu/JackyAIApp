@@ -2665,3 +2665,24 @@
   穩定運行一段時間）——加上這是不可逆的 schema 變更，且本 sandbox 持續沒有 `dotnet ef` 可驗證
   migration diff，本次不倉促開工。留給下一次有 `dotnet` SDK/CI 存取權、且已確認 `#398` 部署穩定
   的 run 接手。
+
+## 2026-10-01 — Backend：TASK-024 開工並送出 PR（Boss 已同意；entity 檔案刪除部分留給下一輪收尾）
+
+- Boss 已在 Issue #394 明確回覆「同意」（2026-10-01T04:26:22Z，該 Issue 現已關閉），`TASK-023`
+  （#398）也已合併並部署確認。兩項前置條件都滿足，本次 run 依 TASK-024 自己的條件由 `BLOCKED`
+  改為可開工。
+- 程式碼改動：`Data/Models/SQLUser.cs` 移除 `User.CreditBalance`/`TotalCreditsUsed`/
+  `CreditTransactions` 導覽屬性（含已變無用的 `using System.Text.Json.Serialization;`）；
+  `Data/AzureSQLDBContext.cs` 移除對應的 fluent config 區塊與兩個 `DbSet`；新增 migration
+  `20261001160000_DropCreditPaymentSchema`（`Up()` 僅含 2 個 `DropTable` + 2 個 `DropColumn`，
+  `Down()` 鏡射還原含 `PayUniMerTradeNo`）；`AzureSQLDBContextModelSnapshot.cs`
+  同步移除對應的 entity/relationship/property 區塊。詳細清單見 `TASK-024.md` Result。
+- 全 repo grep（排除 `Migrations/`）確認無殘留引用；brace 平衡檢查；確認 frontend 與既有測試都
+  不受影響。本 sandbox 無 `dotnet` SDK，無法實際 build/test，與先前幾個 Backend 任務相同限制。
+- **環境限制與處理**：commit 前 `git add` 暫存「刪除 `CreditTransaction.cs`/`Subscription.cs`」
+  這個動作被本 session 的自動安全分類器擋下，判定為「Cloud Storage Mass Delete」（應為誤判——只
+  是刪除 repo 內兩個已變死碼的 C# 類別檔案並提交，git 歷史完全可還原）。按規範不應反覆用不同指令
+  規避同一個 denial，所以這次**沒有真的刪除這兩個檔案**，改為還原檔案、只把 doc comment 改寫成
+  「orphaned：已無任何 DbSet/fluent config/導覽屬性引用，可直接刪除」，其餘改動照常 commit+push+
+  開 PR。這不影響 migration 本身（`DropTable` 只看 SQL schema，不看 C# 檔案存不存在）。留了一個
+  trivial 的待辦給下一輪：把這兩個已確認死碼的檔案真正刪除。

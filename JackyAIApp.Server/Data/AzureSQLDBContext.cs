@@ -121,22 +121,6 @@ namespace JackyAIApp.Server.Data
                 .HasIndex(uc => new { uc.UserId, uc.ProviderName })
                 .IsUnique();
 
-            // CreditTransaction is unused since TASK-023 (Credit/Payment removal) — kept mapped,
-            // with its table, pending TASK-024's combined entity+table removal.
-            modelBuilder.Entity<CreditTransaction>()
-                .HasOne(ct => ct.User)
-                .WithMany(u => u.CreditTransactions)
-                .HasForeignKey(ct => ct.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            // Index for faster queries by user
-            modelBuilder.Entity<CreditTransaction>()
-                .HasIndex(ct => ct.UserId);
-
-            // Index for faster queries by date
-            modelBuilder.Entity<CreditTransaction>()
-                .HasIndex(ct => ct.CreatedAt);
-
             // Daily usage-limit ledger (DECISION-006/007) — composite PK so UsageLimitService can
             // target the exact (UserId, Date) row with a single atomic conditional UPDATE.
             modelBuilder.Entity<DailyUsage>()
@@ -148,9 +132,9 @@ namespace JackyAIApp.Server.Data
                 .HasForeignKey(du => du.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Stored as bigint (native integer comparison in every relational provider), unlike
-            // the decimal(20,0) convention used for User.CreditBalance/TotalCreditsUsed elsewhere
-            // in this file — UsageLimitService's atomic conditional UPDATE relies on the database
+            // Stored as bigint (native integer comparison in every relational provider), rather
+            // than the decimal(20,0) convention EF used for the now-removed credit columns —
+            // UsageLimitService's atomic conditional UPDATE relies on the database
             // engine itself evaluating "Used + @cost <= @limit" correctly, and the SQLite provider
             // (used by this feature's concurrency tests; see UsageLimitServiceTests) stores
             // `decimal` as TEXT, which compares lexicographically rather than numerically under
@@ -372,7 +356,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<UserWord> UserWords { get; set; }
         public virtual DbSet<JiraConfig> JiraConfigs { get; set; }
         public virtual DbSet<UserConnector> UserConnectors { get; set; }
-        public virtual DbSet<CreditTransaction> CreditTransactions { get; set; } // Unused since TASK-023; removal deferred to TASK-024
         public virtual DbSet<DailyUsage> DailyUsages { get; set; }
         public virtual DbSet<DailyChallengeResult> DailyChallengeResults { get; set; }
         public virtual DbSet<DataSourceConfig> DataSourceConfigs { get; set; }
@@ -396,7 +379,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<FxRate> FxRates { get; set; }
         public virtual DbSet<StockSymbolInfo> StockSymbolInfos { get; set; }
         public virtual DbSet<TwListedCompany> TwListedCompanies { get; set; }
-        public virtual DbSet<Subscription> Subscriptions { get; set; } // Unused since TASK-023; removal deferred to TASK-024
         public virtual DbSet<StockPrediction> StockPredictions { get; set; }
     }
 }
