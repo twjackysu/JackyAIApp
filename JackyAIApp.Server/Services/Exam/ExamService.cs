@@ -15,7 +15,7 @@ namespace JackyAIApp.Server.Services.Exam
         AzureSQLDBContext dbContext,
         IUserService userService,
         IOpenAIPromptService promptService,
-        ICreditService creditService,
+        IUsageLimitService usageLimitService,
         ISpacedRepetitionService spacedRepetition,
         IEnumerable<IWordExamGenerator> generators) : IExamService
     {
@@ -23,7 +23,7 @@ namespace JackyAIApp.Server.Services.Exam
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly IUserService _userService = userService;
         private readonly IOpenAIPromptService _promptService = promptService;
-        private readonly ICreditService _creditService = creditService;
+        private readonly IUsageLimitService _usageLimitService = usageLimitService;
         private readonly ISpacedRepetitionService _spacedRepetition = spacedRepetition;
         private readonly IReadOnlyDictionary<ExamType, IWordExamGenerator> _generators =
             generators.ToDictionary(g => g.Type);
@@ -584,14 +584,14 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Input cannot be null or empty.");
             }
 
-            // Not [ConsumeCredits] — this is the one-shot grading call, gated inline like
+            // Not [UsageLimit] — this is the one-shot grading call, gated inline like
             // GradeTranslationAsync/EvaluateSentenceAsync. The GET prompt endpoint above is the
             // free half of this feature; the AI cost lives entirely here.
             var userId = _userService.GetUserId();
             if (!string.IsNullOrEmpty(userId) &&
-                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.WritingEvaluation, "writing_evaluation", "Writing evaluation"))
+                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.WritingEvaluation, "writing_evaluation"))
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.WritingEvaluation}.");
+                return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
             }
 
             var example = (
@@ -685,9 +685,9 @@ namespace JackyAIApp.Server.Services.Exam
             var userInput = (request.UserInput ?? string.Empty).Trim();
             var isCorrect = string.Equals(userInput, correctText, StringComparison.OrdinalIgnoreCase);
 
-            // Not [ConsumeCredits] — pure in-memory string comparison, no AI call, no TTS call.
+            // Not [UsageLimit] — pure in-memory string comparison, no AI call, no TTS call.
             // The flat charge on GET api/exam/dictation already covers the one TTS clip this
-            // attempt used. Do not add credit consumption here.
+            // attempt used. Do not add usage consumption here.
             int score;
             if (isCorrect)
             {
@@ -734,12 +734,12 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse)
         {
-            // Credit gate (conditional on an authenticated user)
+            // Usage gate (conditional on an authenticated user)
             var userId = _userService.GetUserId();
             if (!string.IsNullOrEmpty(userId) &&
-                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.TranslationGrading, "translation_grading", "Translation quality grading"))
+                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.TranslationGrading, "translation_grading"))
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.TranslationGrading}.");
+                return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
             }
 
             if (userResponse == null || string.IsNullOrEmpty(userResponse.Translation) ||
@@ -827,11 +827,11 @@ namespace JackyAIApp.Server.Services.Exam
 
             var userId = _userService.GetUserId();
 
-            // Credit gate: each conversation turn costs credits
+            // Usage gate: each conversation turn costs usage
             if (!string.IsNullOrEmpty(userId) &&
-                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.ConversationResponse, "conversation_response", "Conversation turn"))
+                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.ConversationResponse, "conversation_response"))
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.ConversationResponse}.");
+                return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
             }
 
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
@@ -887,9 +887,9 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
             }
 
-            if (!await _creditService.ConsumeCreditsAsync(userId!, CreditCosts.AudioTranscription, "audio_transcription", "Whisper audio transcription"))
+            if (!await _usageLimitService.TryConsumeAsync(userId!, UsageCosts.AudioTranscription, "audio_transcription"))
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.AudioTranscription}.");
+                return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
             }
 
             var (result, error) = await _promptService.TranscribeAudioAsync(audioStream, fileName);
@@ -917,9 +917,9 @@ namespace JackyAIApp.Server.Services.Exam
 
             var userId = _userService.GetUserId();
             if (!string.IsNullOrEmpty(userId) &&
-                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.SentenceEvaluation, "sentence_evaluation", "Sentence AI evaluation"))
+                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.SentenceEvaluation, "sentence_evaluation"))
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.SentenceEvaluation}.");
+                return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
             }
 
             var example = (

@@ -14,13 +14,13 @@ namespace JackyAIApp.Server.Controllers
         ILogger<AudioController> logger,
         IMyResponseFactory responseFactory,
         IUserService userService,
-        ICreditService creditService) : ControllerBase
+        IUsageLimitService usageLimitService) : ControllerBase
     {
         private readonly ITextToSpeechService _ttsService = ttsService;
         private readonly ILogger<AudioController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IUserService _userService = userService;
-        private readonly ICreditService _creditService = creditService;
+        private readonly IUsageLimitService _usageLimitService = usageLimitService;
 
         // TTS is billed per input character — without a cap this endpoint (anonymous, no other
         // gate) could be used to run up an unbounded bill via a single very long `text` value.
@@ -58,10 +58,10 @@ namespace JackyAIApp.Server.Controllers
             // there), matching the pattern used for the NL-summarize and market-digest endpoints.
             var userId = _userService.GetUserId();
             if (!string.IsNullOrEmpty(userId) &&
-                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.TextToSpeech, "tts", "Text-to-speech synthesis"))
+                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.TextToSpeech, "tts"))
             {
                 return _responseFactory.CreateErrorResponse(
-                    ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.TextToSpeech}.");
+                    ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
             }
 
             var result = await _ttsService.SynthesizeAsync(text, resolvedVoice, model, speed, userId);

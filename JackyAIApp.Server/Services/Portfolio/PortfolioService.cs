@@ -23,7 +23,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
         IOpenAIPromptService openAI,
-        ICreditService creditService,
+        IUsageLimitService usageLimitService,
         ILogger<PortfolioService> logger,
         TimeProvider? timeProvider = null,
         // Optional for the same reason TimeProvider is: tests construct this class directly. The
@@ -1356,7 +1356,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         // ── AI technical summary (朱家泓觀點) ─────────────────────────────────
 
-        public async Task<(PortfolioAiSummaryDto? Result, string? Error)> GetAiTechSummaryAsync(
+        public async Task<(PortfolioAiSummaryDto? Result, string? Error, ErrorCodes? ErrorCode)> GetAiTechSummaryAsync(
             string userId, string market, string symbol, CancellationToken ct = default)
         {
             var snapshot = await LatestSnapshotAsync(userId, ct);
@@ -1365,11 +1365,11 @@ namespace JackyAIApp.Server.Services.Portfolio
             var pos = snapshot?.Positions.FirstOrDefault(p => isFund
                 ? p.AssetType == AssetType.FUND && p.Symbol == sym
                 : p.AssetType == AssetType.STOCK && p.Market == market.ToUpperInvariant() && p.Symbol == sym);
-            if (pos == null) return (null, "找不到此持倉");
+            if (pos == null) return (null, "找不到此持倉", ErrorCodes.NotFound);
 
-            if (!await creditService.ConsumeCreditsAsync(userId, CreditCosts.PortfolioAiSummary, "portfolio_ai_summary", "Portfolio AI technical summary"))
+            if (!await usageLimitService.TryConsumeAsync(userId, UsageCosts.PortfolioAiSummary, "portfolio_ai_summary"))
             {
-                return (null, $"Insufficient credits. Required: {CreditCosts.PortfolioAiSummary}.");
+                return (null, "Daily usage limit exceeded.", ErrorCodes.UsageLimitExceeded);
             }
 
             List<decimal> closes;
@@ -1380,7 +1380,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (isFund)
             {
                 var nav = await fundData.GetFundNavHistoryAsync(pos.Symbol, ct);
-                if (nav == null || nav.Prices.Count == 0) return (null, "無歷史價格資料");
+                if (nav == null || nav.Prices.Count == 0) return (null, "無歷史價格資料", ErrorCodes.NotFound);
                 closes = nav.Prices.Select(p => p.Close).ToList();
                 currency = nav.Currency;
             }
@@ -1388,7 +1388,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 // Technical indicators (MAs, S/R) need real history — deep fetch.
                 var data = await FetchStockDataAsync(symbol, deep: true, ct);
-                if (data == null || data.HistoricalPrices.Count == 0) return (null, "無歷史價格資料");
+                if (data == null || data.HistoricalPrices.Count == 0) return (null, "無歷史價格資料", ErrorCodes.NotFound);
                 var hp = data.HistoricalPrices; // ascending by date
                 closes = hp.Select(p => p.Close).ToList();
                 highs = hp.Select(p => p.High).ToList();
@@ -1400,8 +1400,9 @@ namespace JackyAIApp.Server.Services.Portfolio
             var context = BuildTaContext(pos.Name, sym, isFund ? "基金" : pos.Market, currency, closes, highs, lows, vols);
             var userMessage = $"請以朱家泓技術分析觀點，總結「{sym} {pos.Name}」。以下為技術數據：\n\n{context}";
 
-            return await openAI.GetCompletionAsync<PortfolioAiSummaryDto>(
+            var (summaryResult, summaryError) = await openAI.GetCompletionAsync<PortfolioAiSummaryDto>(
                 "Prompt/Portfolio/ZhuTechAnalysisSystem.txt", userMessage, NewModels.GPT_4_1_NANO);
+            return (summaryResult, summaryError, summaryResult == null ? ErrorCodes.QueryOpenAIFailed : null);
         }
 
         /// <summary>Builds a compact technical-indicator brief (MAs, alignment, S/R, volume) for the LLM.</summary>

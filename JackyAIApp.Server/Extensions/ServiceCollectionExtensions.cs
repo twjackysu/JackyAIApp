@@ -37,6 +37,8 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IMyResponseFactory, ResponseFactory>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<ICreditService, CreditService>();
+            services.Configure<UsageLimitOptions>(configuration.GetSection(UsageLimitOptions.SectionName));
+            services.AddScoped<IUsageLimitService, UsageLimitService>();
             services.AddScoped<IAiUsageLogger, AiUsageLogger>();
             services.AddScoped<IAnthropicChatService, AnthropicChatService>();
 

@@ -2556,3 +2556,34 @@
 - Credits 移除技術設計寫入 `ARCHITECTURE.md`：單一加權每日預算（`DailyUsage` 表、原子條件式更新、`UsageLimits:DailyBudget` 預設 60、`User.UsageLimitMultiplier` 供個別調高），超量回 HTTP 429 + `ErrorCodes.UsageLimitExceeded`，文案由前端持有。
 - 新任務：`TASK-021`（Backend，新機制，READY）、`TASK-022`（Frontend，移除 UI，READY）、`TASK-023`（Backend，刪除金流/Credit 程式碼，BLOCKED 待 021/022）、`TASK-024`（DROP schema，BLOCKED 待 Boss 同意）。
 - Boss 確認事項開在 Issue #394。無 open PR。
+
+## 2026-10-01 — Backend Engineer: TASK-021 implemented, PR opened (scheduled run)
+
+- 確認無現存 open PR 觸及 TASK-021，且 Issue #394 Boss 已回覆「同意」（每日預算 60 與 TASK-024
+  DROP 皆同意）後開工。
+- 依 ARCHITECTURE.md「Credits & Payments 移除設計」實作：`UsageCosts`（沿用 `CreditCosts` 權重，
+  不含三個獎勵常數）、`UsageLimitOptions`（`UsageLimits:DailyBudget` 預設 60）、新表 `DailyUsage`
+  （複合 PK `(UserId, Date)`）+ `User.UsageLimitMultiplier`、`IUsageLimitService`/
+  `UsageLimitService`（單一原子條件式 UPDATE + insert-if-missing，避免 read-modify-write race）、
+  `[UsageLimit(cost, feature)]` filter 取代所有 `[ConsumeCredits]`，並替換 ExamService/
+  AudioController/ChatbotController（含退款）/DataAnalysisController/FinanceQueryService
+  (MarketDigest 每日一次邏輯保留)/PortfolioService 的內嵌呼叫點。`ErrorCodes.UsageLimitExceeded =
+  1042900` 透過既有 `ResponseFactory` 公式自動對應 HTTP 429，無需改動 factory。
+- 手寫 EF migration（`20261001050000_AddUsageLimit`，含 Designer.cs 與
+  `AzureSQLDBContextModelSnapshot.cs`，因 sandbox 無 `dotnet` SDK）；逐行比對最近一次同類純手寫
+  migration（`20260913120000_AddUniqueIndexOnWordText`）的結構以降低風險。
+- 1 處順帶修正（非擴大範圍）：`PortfolioController.GetAiTechSummary` 原本把所有服務層失敗（含超
+  量）都映射成 `InternalServerError`，為了讓這個端點真正符合 429 契約，替 `GetAiTechSummaryAsync`
+  的回傳 tuple 加了 `ErrorCodes?` 欄位。
+- 測試：新增 `UsageLimitServiceTests.cs`（改用 SQLite in-memory，因為這個服務依賴的
+  `ExecuteSqlInterpolatedAsync` 在 InMemory provider 上完全不支援；涵蓋預算內/超量/跨日重置/
+  multiplier/未知使用者/refund 不低於零/10 併發請求不超賣且底層資料正確）、
+  `UsageLimitAttributeTests.cs`（未登入擋下、成功放行、超量回 429、訊息不含 credit/purchase/pay）
+  ；`ExamServiceTests.cs`、10 個 `Services/Portfolio/*.cs` 測試檔改用 `IUsageLimitService` mock。
+  為此在 Tests.csproj 加入 `Microsoft.EntityFrameworkCore.Sqlite`（僅測試用，任務驗收標準本身即
+  建議 SQLite 作為替代方案）。
+- 未刪除任何舊 Credit/Payment 程式碼（維持並存，依部署順序等 TASK-022 前端上線後才由 TASK-023
+  刪除）；grep `Insufficient credits` 於非 Payment/Credit 檔案已無殘留。
+- 本 sandbox 無 `dotnet` SDK/DB 連線——以逐檔手動讀過 + migration Designer/Snapshot 逐行比對代替
+  實際編譯驗證，PR 上仍需靠 CI 確認建置與測試通過。
+- PR：見 `TASK-021.md`。`TASK-022`（Frontend）現在可以依 429 + `UsageLimitExceeded` 契約開工。

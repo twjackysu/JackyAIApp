@@ -15,5 +15,6 @@
         Unauthorized = 1040100,
         Forbidden = 1040300,
         ExternalApiError = 1040500,
+        UsageLimitExceeded = 1042900,
     }
 }
