@@ -7,7 +7,7 @@ SEO Phase B: server-side inject word metadata into index.html
 Backend
 
 ## Status
-IN_PROGRESS
+PR_OPENED
 
 ## Priority
 MEDIUM
@@ -94,5 +94,8 @@ installed `dotnet-sdk-10.0` via `apt-get` in this sandbox):
 - `dotnet build JackyAIApp.Server/JackyAIApp.Server.csproj -c Release` — succeeds, 0 errors.
 - `dotnet test JackyAIApp.Server.Tests -c Release --filter "Category!=LiveContract"` — **663/663
   pass**, including the 10 new `WordMetaInjectionMiddlewareTests`.
+
+## PR
+https://github.com/twjackysu/JackyAIApp/pull/392
 
 ## Review

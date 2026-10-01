@@ -2493,3 +2493,18 @@
 - `TASK-019` PR #388 已合併，Status 改 `MERGED`；`TASK-020` 依賴已滿足（READY）。
 - Boss 指出目錄為 `.agent/`：認領規則（IN_PROGRESS 先 push）與 Issue 溝通規則寫入 `ARCHITECTURE.md`。
 - Next: Credits & Payments 移除範圍規劃（DECISION-006/007）。
+
+## 2026-10-01 — Backend: TASK-020 PR #392
+
+- 新增 `WordMetaInjectionMiddleware`：對 `/english/dictionary/{word}` 的 GET/HEAD（所有來源，非僅
+  已知 preview bot）注入 `Word.SeoTitle`/`SeoDescription`/canonical 到快取的 `index.html` 模板；
+  未知單字、查詢失敗、逾時（3s，避免 cache miss 時卡在 OpenAI 生成）、或任何例外一律 fall through
+  回原始 `index.html`。`BotPreviewMiddleware` 未變動。
+- 測試：本次 sandbox 有裝 `dotnet-sdk-10.0`，實際跑過 `dotnet build`（0 錯誤）與
+  `dotnet test --filter "Category!=LiveContract"`（663/663 通過，含新增 10 個測試），非僅人工檢視。
+- 流程備註：本 session 受 harness 限制只能 push 到指定分支
+  `claude/magical-heisenberg-sppth8`，未依「認領規則」直接 push `IN_PROGRESS` 到 `master`；
+  改為在該分支的提交中記錄狀態變化（READY → IN_PROGRESS → PR_OPENED），隨 PR #392 一併可見。
+  Tech Lead 可視情況決定是否需要調整流程規則以涵蓋此類 session。
+- PR: https://github.com/twjackysu/JackyAIApp/pull/392
+- Next: 待 Tech Lead review TASK-020；Credits & Payments 移除範圍規劃（DECISION-006/007）仍待處理。
