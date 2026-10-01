@@ -416,7 +416,7 @@ namespace JackyAIApp.Server.Services.Finance
 
         /// <summary>
         /// Gathers the three grounding sources in parallel and calls gpt-5-nano to produce the
-        /// unified digest. Pure generation — no caching or credit logic.
+        /// unified digest. Pure generation — no caching or usage-limit logic.
         /// </summary>
         private async Task<(MarketDigestResponse? digest, string? error)> GenerateMarketDigestAsync(CancellationToken cancellationToken)
         {

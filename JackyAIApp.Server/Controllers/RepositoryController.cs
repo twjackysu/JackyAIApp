@@ -36,7 +36,7 @@ namespace JackyAIApp.Server.Controllers
         public IActionResult GetWordPacks() =>
             _responseFactory.ToActionResult(_repositoryService.GetWordPacks());
 
-        /// <summary>Adds a starter word pack to the current user's repository. Free (no credits).</summary>
+        /// <summary>Adds a starter word pack to the current user's repository. Free (no usage charge).</summary>
         [HttpPost("packs/{packId}")]
         public async Task<IActionResult> AddWordPack(string packId) =>
             _responseFactory.ToActionResult(await _repositoryService.AddWordPackAsync(packId));

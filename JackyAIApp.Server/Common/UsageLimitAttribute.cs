@@ -6,8 +6,8 @@ namespace JackyAIApp.Server.Common
     /// <summary>
     /// Action filter that consumes the current user's daily usage budget before the action runs.
     /// Short-circuits with a 429 + <see cref="ErrorCodes.UsageLimitExceeded"/> response when the
-    /// user is unauthenticated or has exceeded today's limit. Replaces
-    /// <see cref="ConsumeCreditsAttribute"/> for the usage-limit mechanism (DECISION-006/007).
+    /// user is unauthenticated or has exceeded today's limit. Replaced the old per-feature credit
+    /// charge for the usage-limit mechanism (DECISION-006/007).
     /// Apply to AI-powered endpoints, e.g. <c>[UsageLimit(UsageCosts.ClozeTest, "cloze_test")]</c>.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]

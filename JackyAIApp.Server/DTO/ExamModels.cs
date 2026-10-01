@@ -135,7 +135,7 @@ namespace JackyAIApp.Server.DTO
 
     /// <summary>
     /// Client-reported exam outcome. Feeds the word's spaced-repetition schedule
-    /// and the per-word exam history. No credits charged (generation/grading already were).
+    /// and the per-word exam history. No extra usage charged (generation/grading already were).
     /// </summary>
     public class RecordExamResultRequest
     {

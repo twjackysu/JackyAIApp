@@ -10,12 +10,10 @@ namespace JackyAIApp.Server.Services.DailyChallenge
     public class DailyChallengeService(
         AzureSQLDBContext dbContext,
         IUserService userService,
-        ICreditService creditService,
         IDailyChallengeQuestionGenerator questionGenerator) : IDailyChallengeService
     {
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly IUserService _userService = userService;
-        private readonly ICreditService _creditService = creditService;
         private readonly IDailyChallengeQuestionGenerator _questionGenerator = questionGenerator;
 
         public async Task<ServiceResult> GetChallengeAsync()
@@ -155,22 +153,6 @@ namespace JackyAIApp.Server.Services.DailyChallenge
 
             await _dbContext.SaveChangesAsync();
 
-            // Award credit bonuses (after SaveChanges to avoid transaction conflicts)
-            ulong creditsAwarded = 0;
-
-            await _creditService.AddCreditsAsync(userId, CreditCosts.DailyChallengeBonus,
-                CreditTransactionType.Bonus, "daily_challenge",
-                $"Daily challenge completed ({score}/{QuestionsPerChallenge})");
-            creditsAwarded += CreditCosts.DailyChallengeBonus;
-
-            if (user.CurrentStreak == 7 || user.CurrentStreak == 30 || user.CurrentStreak == 100)
-            {
-                await _creditService.AddCreditsAsync(userId, CreditCosts.StreakMilestone7Day,
-                    CreditTransactionType.Bonus, "streak_milestone",
-                    $"🔥 {user.CurrentStreak}-day streak milestone!");
-                creditsAwarded += CreditCosts.StreakMilestone7Day;
-            }
-
             return ServiceResult.Ok(new DailyChallengeSubmitResponse
             {
                 Score = score,
@@ -179,7 +161,6 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 StreakUpdated = streakUpdated,
                 NewStreak = user.CurrentStreak,
                 AlreadyCompleted = false,
-                CreditsAwarded = creditsAwarded,
                 StreakFreezeUsed = streakFreezeUsed,
                 StreakFreezesAvailable = user.StreakFreezesAvailable
             });
@@ -221,31 +202,6 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 TodayScore = todayResult?.Score,
                 StreakFreezesAvailable = user.StreakFreezesAvailable
             });
-        }
-
-        public async Task<ServiceResult> ClaimDailyBonusAsync()
-        {
-            var userId = _userService.GetUserId();
-            if (userId == null)
-                return ServiceResult.Fail(ErrorCodes.Unauthorized, "User not found.");
-
-            var today = DateTime.UtcNow.Date;
-
-            var alreadyClaimed = await _dbContext.CreditTransactions
-                .AnyAsync(t => t.UserId == userId
-                    && t.Reason == "daily_login_bonus"
-                    && t.CreatedAt >= today && t.CreatedAt < today.AddDays(1));
-
-            if (alreadyClaimed)
-            {
-                return ServiceResult.Ok(new { claimed = false, message = "Already claimed today" });
-            }
-
-            await _creditService.AddCreditsAsync(userId, CreditCosts.DailyLoginBonus,
-                CreditTransactionType.Bonus, "daily_login_bonus",
-                "Daily login bonus");
-
-            return ServiceResult.Ok(new { claimed = true, credits = CreditCosts.DailyLoginBonus });
         }
 
         private Task<List<Data.Models.SQL.Word>> LoadEligibleWordsAsync() =>

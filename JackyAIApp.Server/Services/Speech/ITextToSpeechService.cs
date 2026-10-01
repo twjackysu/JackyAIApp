@@ -6,7 +6,7 @@ namespace JackyAIApp.Server.Services.Speech
     /// Shared TTS synthesis (provider call + deterministic-content cache), factored out of
     /// AudioController so other callers (e.g. the Listening exam's bundled-cost audio playback)
     /// can reuse the same cache and provider call without going through AudioController's
-    /// per-request credit charge.
+    /// per-request usage charge.
     ///
     /// Two implementations exist and exactly one is registered, chosen at startup by
     /// configuration (see <c>ServiceCollectionExtensions.AddCoreServices</c>):

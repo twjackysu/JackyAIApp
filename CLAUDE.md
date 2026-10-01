@@ -24,7 +24,7 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
 - **OpenAI integration** via Betalgo.Ranul.OpenAI package (v9.0.3)
 - **Google OAuth** authentication
 - **External API integrations**: Taiwan Stock Exchange (TWSE) Open API, Yahoo Finance, FundRich (基富通), TWStockLib (NuGet package, own test suite — see Testing Status)
-- **Resilience**: Polly retry + circuit breaker (`Microsoft.Extensions.Http.Resilience`) on the named `"ExternalReadOnly"` client and the bare default client (used by TWStockLib), scoped away from OpenAI/PayPal/ECPay/Dify to avoid retrying non-idempotent calls
+- **Resilience**: Polly retry + circuit breaker (`Microsoft.Extensions.Http.Resilience`) on the named `"ExternalReadOnly"` client and the bare default client (used by TWStockLib), scoped away from OpenAI/Dify to avoid retrying non-idempotent calls
 
 ### Key Features & Modules
 1. **Dictionary** (`/dictionary`) - English learning with word lookup, audio, pronunciation, word repository
@@ -78,9 +78,15 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
    - Review: SM-2 spaced-repetition flashcards (`SpacedRepetitionService`), shared scheduling with exam results
    - Streak + XP + level system; weekly report; anonymized leaderboard
 
-8. **Credits & Payments** (`/credits`) - Monetization
-   - Credit-gated AI features; costs centralized in `Common/CreditCosts.cs`
-   - Payment methods: Stripe, PayPal, ECPay (綠界); purchase/transaction history
+8. **Usage Limits** (DECISION-006/007) - No monetization; cost control only
+   - The old Credits & Payments system (prepaid credit balance, Stripe/PayPal/ECPay) is removed —
+     the app has no payment/credit UI and looks free to every user
+   - Every AI-powered endpoint is instead gated by a per-user, per-UTC-day weighted usage budget
+     (`IUsageLimitService`, `[UsageLimit(cost, feature)]`, weights centralized in
+     `Common/UsageCosts.cs`); exceeding it returns HTTP 429 + `ErrorCodes.UsageLimitExceeded`,
+     surfaced client-side as a "contact the author for a higher limit" prompt
+   - `UsageLimits:DailyBudget` (default 60) sets the shared default; `User.UsageLimitMultiplier`
+     lets the author raise an individual user's effective limit directly in the DB (no admin UI)
 
 ## Code Organization Patterns
 
@@ -90,7 +96,7 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 - **User-centric design** with Google OAuth IDs as primary keys
 - **Many-to-many relationships**: Users ↔ Words via UserWord junction table
 - **Core entities**:
-  - **User**: Basic info, credit balance, admin privileges
+  - **User**: Basic info, admin privileges, usage-limit multiplier
   - **Word**: Word text, KK phonetics, timestamps, validity flags
   - **WordMeaning**: Part of speech, definitions, examples, synonyms/antonyms
   - **UserWord**: User-word many-to-many relationship

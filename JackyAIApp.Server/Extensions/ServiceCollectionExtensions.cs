@@ -27,7 +27,7 @@ namespace JackyAIApp.Server.Extensions
     {
         /// <summary>
         /// Cross-cutting services used across most feature modules: response
-        /// factories, current-user/credit access, the floating chatbot's direct
+        /// factories, current-user access, the floating chatbot's direct
         /// Claude client, and the prompt-file-backed OpenAI wrapper.
         /// </summary>
         public static IServiceCollection AddCoreServices(this IServiceCollection services, IConfiguration configuration)
@@ -36,7 +36,6 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
             services.AddScoped<IMyResponseFactory, ResponseFactory>();
             services.AddScoped<IUserService, UserService>();
-            services.AddScoped<ICreditService, CreditService>();
             services.Configure<UsageLimitOptions>(configuration.GetSection(UsageLimitOptions.SectionName));
             services.AddScoped<IUsageLimitService, UsageLimitService>();
             services.AddScoped<IAiUsageLogger, AiUsageLogger>();
@@ -123,27 +122,14 @@ namespace JackyAIApp.Server.Extensions
             return services;
         }
 
-        /// <summary>Connector storage + payment providers (PayPal / ECPay).</summary>
-        public static IServiceCollection AddConnectorAndPaymentServices(
+        /// <summary>Connector storage for third-party OAuth integrations (Jira / Microsoft / Google).</summary>
+        public static IServiceCollection AddConnectorServices(
             this IServiceCollection services, IConfiguration configuration)
         {
             services.Configure<ConnectorOptions>(configuration.GetSection(ConnectorOptions.SectionName));
             services.AddScoped<ITokenEncryptionService, TokenEncryptionService>();
             services.AddScoped<IStateService, StateService>();
             services.AddScoped<IConnectorService, ConnectorService>();
-
-            services.Configure<PayPalOptions>(configuration.GetSection(PayPalOptions.SectionName));
-            services.AddHttpClient<IPayPalService, PayPalService>();
-
-            services.Configure<ECPayOptions>(configuration.GetSection(ECPayOptions.SectionName));
-            // Typed client (was AddScoped) — subscription cancellation now calls ECPay's
-            // CreditCardPeriodAction API server-to-server, same pattern as PayPalService above.
-            services.AddHttpClient<IECPayService, ECPayService>();
-
-            services.Configure<PayUniOptions>(configuration.GetSection(PayUniOptions.SectionName));
-            // No outbound HTTP calls (UPP checkout is a browser-submitted form; PayUni has no
-            // cancel API to call — see PayUniService's class doc), plain scoped service.
-            services.AddScoped<IPayUniService, PayUniService>();
 
             return services;
         }

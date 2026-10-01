@@ -89,7 +89,7 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> EvaluateSentence([FromBody] SentenceTestUserResponse userResponse) =>
             _responseFactory.ToActionResult(await _examService.EvaluateSentenceAsync(userResponse));
 
-        /// <summary>Records an exam outcome to feed spaced repetition + per-word history. Free (no credits).</summary>
+        /// <summary>Records an exam outcome to feed spaced repetition + per-word history. Free (no usage charge).</summary>
         [HttpPost("record-result")]
         public async Task<IActionResult> RecordExamResult([FromBody] RecordExamResultRequest request) =>
             _responseFactory.ToActionResult(await _examService.RecordExamResultAsync(request));
@@ -146,7 +146,7 @@ namespace JackyAIApp.Server.Controllers
             _responseFactory.ToActionResult(await _examService.GenerateReadingExamAsync());
 
         /// <summary>Serves an open-ended writing prompt (topic + up to 5 of the user's own saved
-        /// words). Deliberately NOT credit-gated: unlike every other exam-type "generation"
+        /// words). Deliberately NOT usage-limit-gated: unlike every other exam-type "generation"
         /// endpoint, this one costs zero AI calls to produce (plain DB queries) — the whole
         /// charge for this feature sits on POST writing/evaluate instead. Do not add
         /// [UsageLimit] here.</summary>
@@ -178,7 +178,7 @@ namespace JackyAIApp.Server.Controllers
             return await ToAudioResultAsync(lookup);
         }
 
-        /// <summary>Grades a dictation submission. Deliberately NOT credit-gated: pure in-memory
+        /// <summary>Grades a dictation submission. Deliberately NOT usage-limit-gated: pure in-memory
         /// string comparison against the server-resolved word text, no AI call, no TTS call —
         /// same "zero underlying cost" reasoning as GET api/exam/writing. Do not add
         /// [UsageLimit] here.</summary>
@@ -224,7 +224,7 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>Admin-only: generates one new listening question (text + photo) via AI and adds
-        /// it to the bank. Not credit-gated (admin/back-office action, not a user-facing feature).</summary>
+        /// it to the bank. Not usage-limit-gated (admin/back-office action, not a user-facing feature).</summary>
         [HttpPost("listening/admin/generate")]
         public async Task<IActionResult> GenerateListeningQuestion()
         {

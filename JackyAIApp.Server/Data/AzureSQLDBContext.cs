@@ -121,7 +121,8 @@ namespace JackyAIApp.Server.Data
                 .HasIndex(uc => new { uc.UserId, uc.ProviderName })
                 .IsUnique();
 
-            // Configure CreditTransaction relationship
+            // CreditTransaction is unused since TASK-023 (Credit/Payment removal) — kept mapped,
+            // with its table, pending TASK-024's combined entity+table removal.
             modelBuilder.Entity<CreditTransaction>()
                 .HasOne(ct => ct.User)
                 .WithMany(u => u.CreditTransactions)
@@ -371,7 +372,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<UserWord> UserWords { get; set; }
         public virtual DbSet<JiraConfig> JiraConfigs { get; set; }
         public virtual DbSet<UserConnector> UserConnectors { get; set; }
-        public virtual DbSet<CreditTransaction> CreditTransactions { get; set; }
+        public virtual DbSet<CreditTransaction> CreditTransactions { get; set; } // Unused since TASK-023; removal deferred to TASK-024
         public virtual DbSet<DailyUsage> DailyUsages { get; set; }
         public virtual DbSet<DailyChallengeResult> DailyChallengeResults { get; set; }
         public virtual DbSet<DataSourceConfig> DataSourceConfigs { get; set; }
@@ -395,7 +396,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<FxRate> FxRates { get; set; }
         public virtual DbSet<StockSymbolInfo> StockSymbolInfos { get; set; }
         public virtual DbSet<TwListedCompany> TwListedCompanies { get; set; }
-        public virtual DbSet<Subscription> Subscriptions { get; set; }
+        public virtual DbSet<Subscription> Subscriptions { get; set; } // Unused since TASK-023; removal deferred to TASK-024
         public virtual DbSet<StockPrediction> StockPredictions { get; set; }
     }
 }

@@ -1,9 +1,9 @@
 namespace JackyAIApp.Server.Common
 {
     /// <summary>
-    /// Per-feature weights for the daily usage-limit budget (DECISION-006/007), replacing
-    /// <see cref="CreditCosts"/> as the gate every AI-powered endpoint consumes against. Values are
-    /// carried over unchanged from <see cref="CreditCosts"/> — they already reflect relative AI
+    /// Per-feature weights for the daily usage-limit budget (DECISION-006/007), replacing the old
+    /// per-feature credit-cost table as the gate every AI-powered endpoint consumes against.
+    /// Values were carried over unchanged from that table — they already reflect relative AI
     /// cost — except the gamification bonuses (DailyLoginBonus/DailyChallengeBonus/
     /// StreakMilestone7Day), which this mechanism does not model: usage is consumed, never
     /// granted, so there is nothing for a "bonus" to mean here.
