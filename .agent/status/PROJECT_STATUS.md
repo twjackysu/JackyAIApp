@@ -2593,3 +2593,42 @@
   persisted user）。修正測試斷言本身（改為「安全回傳 false、不拋例外」），未動 FK/production
   code。已推送修正，`build-and-test-server`/`lint-and-build-client` 皆綠燈，`mergeable_state:
   clean`，尚無 review comments，等待 Tech Lead/Boss review。
+
+## 2026-10-01 — Backend Engineer: TASK-021/022 confirmed merged+deployed, TASK-023 implemented, PR opened (scheduled run)
+
+- 開工前確認：PR #396（`TASK-021`）與 PR #395（`TASK-022`）皆已合併（GitHub 顯示 `merged: true`），
+  且兩者各自的 "Build and deploy" workflow run（#489、#488）都以 `conclusion: success` 完成——滿足
+  `TASK-023` 自己寫的開工條件（021、022「都已合併且部署後」）。`TASK-023.md` 從 `BLOCKED` 改為
+  `IN_PROGRESS` 並先行推送這筆狀態變更，再開始實作（本 session 的 git 慣例是全部變更都進自己的
+  PR 分支，而非直接推 master）。另注意到 Frontend 另開了一個 docs-only PR #397（記錄 #395 合併 +
+  驗證 429 契約相容性），非本任務範圍，未碰。
+- 先用一個 Explore subagent 完整盤點所有要刪除/修改的 Credit/Payment/Subscription 程式碼（25+ 檔
+  案），再依盤點結果動手，避免遺漏或誤刪。
+- 實作：刪除 PayPal/ECPay/PayUni 的 Controller/Service/Options/DI/appsettings/測試、
+  `CreditController`、`ICreditService/CreditService(+測試)`、`CreditPack`、`SubscriptionPlan`、
+  `ConsumeCreditsAttribute`、`Common/CreditCosts.cs`。`AccountController` 不再建立初始點數/
+  `CreditTransaction`；`DailyChallengeService` 移除點數獎勵與整個 `ClaimDailyBonusAsync`（service +
+  interface + controller endpoint）；`DailyChallengeSubmitResponse.CreditsAwarded` 移除。
+  `User.CreditBalance/TotalCreditsUsed` 保留欄位（型別/mapping 不變，零 migration）但拿掉
+  `required`、預設 0、加 `[JsonIgnore]`（滿足「response 不含 credit 欄位」且不用碰 schema）。
+- **刻意偏離任務原文的一點**（技術判斷，非產品/架構決策，於 `TASK-023.md` Result 詳述並標記給
+  Tech Lead）：任務原文要求「`CreditTransaction`/`Subscription` 實體與 DbSet 移除，但資料表保留」，
+  這次**沒有**移除這兩個 entity/DbSet/`User.CreditTransactions` 導覽屬性，而是整個保留（現在完全
+  是死碼，沒有任何地方再讀寫）只加註解標記「TASK-023 起未使用，待 TASK-024 一併移除」。這是任務
+  原文自己允許的替代方案（「或本任務僅標註 entity 未使用，由 TASK-024 一次移除」）——選它是因為
+  要讓 entity 消失同時不讓 migration 產生 DROP，需要手動改 `AzureSQLDBContextModelSnapshot.cs`/
+  `.Designer.cs`，而本 sandbox 沒有 `dotnet ef` 可驗證改完後的 migration diff 真的是 inert，風險
+  是 snapshot 與 model 不同步，導致未來某個不相干的 migration 意外帶出這兩張表的 DROP TABLE。留給
+  `TASK-024`（本來就要和真正的 DROP 一起做、且已有 Boss 核准）處理更安全。
+- 更新根 `CLAUDE.md`（Backend Stack 的 resilience 項目、Key Features 第 8 項改寫成 usage-limit
+  說明、User entity 一行描述）；`JackyAIApp.Server/CLAUDE.md` 確認本來就沒提到 Credit/Payment，
+  不用改。順手把驗收標準 grep 掃到的約 10 處殘留「credit」用語註解（實際上是在講新的
+  `[UsageLimit]` 機制，用詞早就該跟著 TASK-021 改）一併修正，並修掉兩處因型別被刪而失效的 XML doc
+  `<see cref>`。
+- 本 sandbox 無 `dotnet` SDK——以 repo-wide grep 掃過所有被刪型別名稱（確認零殘留，排除保留
+  entity 的刻意殘留）、逐檔 brace 平衡檢查、確認專案無 `TreatWarningsAsErrors`，外加一個獨立
+  review agent（全新 context）做對抗性複查，皆未發現問題後才 commit。
+- PR：[#398](https://github.com/twjackysu/JackyAIApp/pull/398)。已訂閱 PR 活動，CI/review 事件會
+  自動推進。`TASK-024`（DROP schema）在 `#398` 合併前仍維持 `BLOCKED`（本任務這次沒有移除
+  entity/DbSet，所以 `TASK-024` 之後實際要做的事比原本任務描述稍多：entity+DbSet+nav property
+  移除要併入它自己的 migration 裡）。
