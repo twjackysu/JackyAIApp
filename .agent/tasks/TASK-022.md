@@ -61,6 +61,6 @@ HIGH
 - `npm run test`：222 tests passed（含新增 4 個）。
 
 ## PR
-（待建立，建立後補上連結）
+https://github.com/twjackysu/JackyAIApp/pull/395 (branch `claude/tender-edison-opot9r`)
 
 ## Review
