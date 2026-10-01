@@ -2594,6 +2594,26 @@
   code。已推送修正，`build-and-test-server`/`lint-and-build-client` 皆綠燈，`mergeable_state:
   clean`，尚無 review comments，等待 Tech Lead/Boss review。
 
+## 2026-10-01 — Frontend Engineer: PR #395（TASK-022）已開立並合併
+
+- 完成 TASK-022：刪除 `Credits/`、`Pricing/`、`InsufficientCreditsModal`、`apis/creditApis|paypalApis|ecpayApis`、`constants/creditCosts.ts(+test)`、`components/Footer.tsx`；`errorMiddleware`/`useChatStreaming` 改依 HTTP 429 + `ErrorCodes.UsageLimitExceeded`（1042900）開啟新增的 `UsageLimitModal`（固定文案，不 parse message）；移除全部 Exam/Finance/Portfolio/DataAnalysis/Chatbot 的點數成本標籤與 `creditsAwarded` 顯示。
+  **範圍微調**：額外刪除 `apis/payuniApis`——`Credits/index.tsx` 是其唯一呼叫點，刪除後會變殭屍 slice，已在 PR 說明中註明供 Tech Lead 確認。
+- `npm run lint`/`build`/`test` 皆通過（222 tests，含新增 `redux/errorMiddleware.test.ts` 4 案例，覆蓋「超量提示」行為）。
+- 開 PR [#395](https://github.com/twjackysu/JackyAIApp/pull/395) 並訂閱其活動；CI（`lint-and-build-client`、`build-and-test-server`）皆綠燈，`mergeable_state: clean`，無 review comment。
+- `#395` 隨後被合併（GitHub `pull_request.closed`/`merged` 事件，session 自動取消訂閱）。依 SOP（§10/§18：MERGED 狀態保留給 Boss 標記）不自行把 `TASK-022.md` 的 `Status:` 改成 `MERGED`，維持 `PR_OPENED`，由 Tech Lead/Boss 正式結案；本條記錄即合併事實。
+- 開發當下 TASK-021（後端）尚未合併，純依 `ARCHITECTURE.md` 文件契約開發；合併後回頭讀了實際落地的
+  `UsageLimitAttribute`/`ResponseFactory`/`ChatbotController` 程式碼做事後驗證（無 `dotnet` SDK 可跑
+  整合測試，用讀碼代替）：
+  - `UsageLimitAttribute` 對一般端點回 `responseFactory.CreateErrorResponse(ErrorCodes.UsageLimitExceeded, ...)`；
+    `ResponseFactory.CreateErrorResponse` 用 `(int)code / 100 % 1000` 算 HTTP status，1042900 → 429，
+    且沿用既有 `{error:{code,message}}}` envelope（與 `errorMiddleware`/`getApiErrorMessage` 既有解析邏輯相同）——
+    與前端判斷式 `status === 429 && error.code === ErrorCodes.UsageLimitExceeded` 完全吻合。
+  - `ChatbotController.Chat`（SSE 串流端點，走的是手動 `Response.WriteAsync`，不經過 `[UsageLimit]` filter）
+    超量時只回 429 + 純文字 body `"Daily usage limit exceeded."`，不是 JSON envelope。`useChatStreaming.ts`
+    的判斷本來就只看 `response.status === 429`（不依賴 body 結構）開燈，`getApiErrorMessage` 對純文字 body
+    也有 fallback 分支可正確顯示——驗證結果：兩條路徑都相容，不需要補 PR。
+- 下一步：無——前後端契約已核對一致，TASK-022 視為完整交付。
+
 ## 2026-10-01 — Backend Engineer: TASK-021/022 confirmed merged+deployed, TASK-023 implemented, PR opened (scheduled run)
 
 - 開工前確認：PR #396（`TASK-021`）與 PR #395（`TASK-022`）皆已合併（GitHub 顯示 `merged: true`），
