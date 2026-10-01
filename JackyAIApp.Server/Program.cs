@@ -206,6 +206,12 @@ try
     // request (real users, Googlebot, any other route) falls through unchanged.
     app.UseMiddleware<BotPreviewMiddleware>();
 
+    // For every other user agent (real browsers, Googlebot) hitting a word-detail page, inject
+    // that word's title/meta description/canonical link into the served index.html — see
+    // WordPageMetadataMiddleware and .agent/architecture/ARCHITECTURE.md ("SEO Phase B"). Any
+    // other route, or any failure resolving the word, falls through unchanged.
+    app.UseMiddleware<WordPageMetadataMiddleware>();
+
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
