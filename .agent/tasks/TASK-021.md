@@ -114,4 +114,6 @@ Implemented as scoped in ARCHITECTURE.md "Credits & Payments 移除設計":
   order note.
 
 ## PR
+https://github.com/twjackysu/JackyAIApp/pull/396
+
 ## Review
