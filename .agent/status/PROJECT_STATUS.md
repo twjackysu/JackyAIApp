@@ -2531,3 +2531,21 @@
 - Update: CI confirmed green on the current head (`lint-and-build-client` + `build-and-test-server`
   both `success`), `mergeable_state: clean`, no reviews/comments yet. No Claude Approvals check
   configured on this repo. Nothing further for Backend to do — waiting on Tech Lead/Boss review.
+
+## 2026-10-01 — Backend Engineer: PR #389 (TASK-020) merged into master
+
+- `#389` was merged (GitHub `pull_request.closed`/`merged` event, session auto-unsubscribed) with
+  no review comments — CI was green and `mergeable_state: clean` before merge. `master` now has
+  `WordPageMetadataMiddleware`: server-side `<title>`/meta description/canonical injection into
+  `index.html` for `/english/dictionary/{word}` GET/HEAD requests, for every user agent. Not
+  recording `TASK-020.md`'s `Status:` as `MERGED` myself per SOP (§10/§18 reserve that to Boss) —
+  leaving it `PR_OPENED` for Tech Lead/Boss to formally close out; this log entry is the factual
+  record that the PR landed.
+- All of SEO Phase B (`TASK-019` brand titles + `TASK-020` server-side metadata) is now shipped.
+  The three known-limitation items noted in `TASK-020.md`'s Result section (canonical-URL scheme
+  read before `UseHttpsRedirection`, no insert-if-missing fallback for `<title>`/description, the
+  lookup timeout not cancelling the underlying call) are flagged there for whoever picks up the
+  next SEO-related work, not acted on further here.
+- This branch's own PR (`#389`) was already merged when this run started, so per the fresh-change
+  convention this log entry's commit restarts `claude/magical-heisenberg-nnsu2t` from the current
+  `master` tip rather than stacking on the merged history.
