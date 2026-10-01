@@ -15,9 +15,9 @@ export default defineConfig({
   },
   server: {
     fs: {
-      // The repo root, so a test may `?raw`-import a backend file to check the client against it
-      // (see src/constants/creditCosts.test.ts). Tests only — the dev server, which serves this
-      // package to a browser, is configured in vite.config.ts and keeps its default sandbox.
+      // The repo root, so a test may `?raw`-import a backend file to check the client against it.
+      // Tests only — the dev server, which serves this package to a browser, is configured in
+      // vite.config.ts and keeps its default sandbox.
       allow: [fileURLToPath(new URL('..', import.meta.url))],
     },
   },

@@ -25,8 +25,8 @@ export interface AppDef {
   /** Short description shown on the portal catalog card. */
   description: string;
   /**
-   * A self-contained tool with nothing tied to an account and nothing to buy. Hides the account
-   * menu and the pricing/contact footer, which do nothing on such a page.
+   * A self-contained tool with nothing tied to an account. Hides the account menu, which does
+   * nothing on such a page.
    */
   standalone?: boolean;
 }
@@ -73,7 +73,7 @@ export const PDF_UNLOCKER: AppDef = {
   allPaths: ['/pdf'],
   color: '#DC2626',
   description: '解除 PDF 密碼保護並壓縮檔案大小。',
-  // The unlock endpoint is anonymous and charges no credits.
+  // The unlock endpoint is anonymous — nothing here is tied to an account.
   standalone: true,
 };
 

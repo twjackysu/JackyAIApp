@@ -1,8 +1,6 @@
 import SendIcon from '@mui/icons-material/Send';
-import { Box, IconButton, TextField, Typography } from '@mui/material';
+import { Box, IconButton, TextField } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-
-import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 interface ChatInputProps {
   value: string;
@@ -62,13 +60,6 @@ const ChatInput = ({ value, onChange, onSend, onKeyPress, disabled }: ChatInputP
           <SendIcon fontSize="small" />
         </IconButton>
       </Box>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}
-      >
-        每則對話消耗 {CREDIT_COSTS.CHAT_MESSAGE} 點使用額度
-      </Typography>
     </Box>
   );
 };

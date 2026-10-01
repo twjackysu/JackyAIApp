@@ -1,7 +1,6 @@
 import Box from '@mui/material/Box';
 
 import { useGetListeningTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
-import { CREDIT_COSTS } from '@/constants/creditCosts';
 import ListeningQuizCard from '@/Exam/components/ListeningQuizCard';
 
 /** TOEIC Part 1: look at the picture, pick the description that matches it. */
@@ -19,7 +18,6 @@ function ListeningTestCard() {
       error={error}
       refetch={refetch}
       legend="聽4句描述，選出最符合圖片的選項:"
-      creditCost={CREDIT_COSTS.LISTENING_TEST}
       audioUrlForOption={(optionId) =>
         `/api/exam/listening/audio?optionId=${encodeURIComponent(optionId)}`
       }

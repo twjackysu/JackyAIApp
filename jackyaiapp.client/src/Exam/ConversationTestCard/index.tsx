@@ -16,7 +16,6 @@ import {
 import { ConversationContext, ConversationTurn, DeliveryFeedback } from '@/apis/examApis/types';
 import AILoading from '@/components/AILoading';
 import FetchBaseQueryErrorMessage from '@/components/FetchBaseQueryErrorMessage';
-import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 interface ConversationState {
   context: ConversationContext;
@@ -218,8 +217,8 @@ function ConversationTestCard() {
           borderColor: 'divider',
         }}
       >
-        {/* A disabled button can't be hovered or tapped, so the reason it's locked joins the
-            credit cost in the caption under it instead of hiding in a tooltip. */}
+        {/* A disabled button can't be hovered or tapped, so the reason it's locked is printed
+            in the caption under it instead of hiding in a tooltip. */}
         <Box>
           <Button
             variant="contained"
@@ -229,11 +228,11 @@ function ConversationTestCard() {
           >
             結束並看總結
           </Button>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-            {hasUserTurn
-              ? `消耗 ${CREDIT_COSTS.CONVERSATION_SUMMARY} 點使用額度`
-              : '至少對話一輪後才能看總結'}
-          </Typography>
+          {!hasUserTurn && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              至少對話一輪後才能看總結
+            </Typography>
+          )}
         </Box>
         <Button
           variant="outlined"

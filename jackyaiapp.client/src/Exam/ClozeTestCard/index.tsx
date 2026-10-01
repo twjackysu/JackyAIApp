@@ -10,7 +10,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useGetClozeTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
-import { CREDIT_COSTS } from '@/constants/creditCosts';
 import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import WordRecap from '@/Exam/components/WordRecap';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
@@ -174,9 +173,6 @@ function ClozeTestCard() {
             <Button variant="contained" color="primary" onClick={handleNext}>
               下一題
             </Button>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              下一題消耗 {CREDIT_COSTS.CLOZE_TEST} 點使用額度
-            </Typography>
           </Box>
         </Box>
       )}

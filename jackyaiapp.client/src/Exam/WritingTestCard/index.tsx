@@ -18,7 +18,6 @@ import {
   useRecordExamResultMutation,
 } from '@/apis/examApis';
 import { WritingGradingResponse } from '@/apis/examApis/types';
-import { CREDIT_COSTS } from '@/constants/creditCosts';
 import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
 
@@ -40,8 +39,7 @@ function getScoreText(score: number) {
 /** Open-ended, paragraph-level writing practice: a topic plus a handful of the user's own saved
  * words (or none, for an open-topic prompt), free-text submission, AI feedback. Structurally
  * different from Sentence/Translation's generate-then-grade flow — the prompt fetch is free and
- * only evaluateWriting is credit-gated, so the cost caption has to live in two places rather
- * than one. */
+ * only evaluateWriting is usage-gated. */
 function WritingTestCard() {
   const [submission, setSubmission] = useState('');
   const [evaluationResult, setEvaluationResult] = useState<WritingGradingResponse | null>(null);
@@ -166,9 +164,6 @@ function WritingTestCard() {
             >
               {isEvaluating ? '評分中...' : '提交批改'}
             </Button>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              提交批改消耗 {CREDIT_COSTS.WRITING_EVALUATION} 點使用額度
-            </Typography>
           </Box>
         </CardContent>
       </Card>

@@ -60,7 +60,7 @@ export const financeApis = createApi({
     getMarketDigest: builder.query<ApiOkResponse<MarketDigestData>, void>({
       query: () => ({ url: 'market-digest' }),
       // Day-stable content; keep it cached so revisiting the tab within a session
-      // doesn't re-hit the server (and the per-day credit charge stays a once-a-day thing).
+      // doesn't re-hit the server (and the per-day usage charge stays a once-a-day thing).
       keepUnusedDataFor: 3600,
     }),
     getIndicators: builder.query<ApiOkResponse<IndicatorExplorerData>, void>({

@@ -4,7 +4,6 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 
 import { useGetListeningResponseTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
-import { CREDIT_COSTS } from '@/constants/creditCosts';
 import ListeningQuizCard from '@/Exam/components/ListeningQuizCard';
 
 /** Sentinel key for the prompt clip in the card's one-shot audio history — the other keys are
@@ -26,7 +25,6 @@ function ListeningResponseTestCard() {
       error={error}
       refetch={refetch}
       legend="選出最適合回應題目的選項:"
-      creditCost={CREDIT_COSTS.LISTENING_RESPONSE_TEST}
       audioUrlForOption={(optionId) =>
         `/api/exam/listening/response/option-audio?optionId=${encodeURIComponent(optionId)}`
       }

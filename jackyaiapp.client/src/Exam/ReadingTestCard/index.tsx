@@ -11,7 +11,6 @@ import { useEffect, useState } from 'react';
 
 import { useGetReadingTestQuery, useRecordExamResultMutation } from '@/apis/examApis';
 import { ReadingPassageResponse } from '@/apis/examApis/types';
-import { CREDIT_COSTS } from '@/constants/creditCosts';
 import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
 
@@ -182,9 +181,6 @@ function ReadingPassage({
           <Button variant="contained" color="primary" onClick={onNext}>
             下一篇
           </Button>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-            下一篇消耗 {CREDIT_COSTS.READING_COMPREHENSION_TEST} 點使用額度
-          </Typography>
         </Box>
       )}
     </>

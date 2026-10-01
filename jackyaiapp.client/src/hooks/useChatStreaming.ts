@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 
-import { CREDIT_COSTS } from '@/constants/creditCosts';
+import { getApiErrorMessage } from '@/apis/utils/errorMessage';
 import { useAppDispatch } from '@/redux/hooks';
-import { openCreditModal } from '@/redux/uiSlice';
+import { openUsageLimitModal } from '@/redux/uiSlice';
 
 export interface StreamingStatus {
   isLoading: boolean;
@@ -48,15 +48,18 @@ export const useChatStreaming = () => {
 
         if (!response.ok) {
           const text = await response.text().catch(() => '');
-          if (response.status === 402) {
-            dispatch(
-              openCreditModal({
-                message: text || undefined,
-                requiredCredits: CREDIT_COSTS.CHAT_MESSAGE,
-              }),
-            );
+          // The body is the app's standard `{ error: { code, message } }` envelope when the
+          // backend got far enough to build one, plain text otherwise (e.g. "Not authenticated.").
+          let parsedBody: unknown = text;
+          try {
+            parsedBody = text ? JSON.parse(text) : text;
+          } catch {
+            // Not JSON — keep the raw text, getApiErrorMessage handles that shape too.
           }
-          throw new Error(text || `HTTP error! status: ${response.status}`);
+          if (response.status === 429) {
+            dispatch(openUsageLimitModal());
+          }
+          throw new Error(getApiErrorMessage({ status: response.status, data: parsedBody }));
         }
 
         if (!response.body) throw new Error('No response body');

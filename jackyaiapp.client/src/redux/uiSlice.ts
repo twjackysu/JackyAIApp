@@ -1,34 +1,25 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 export interface UiState {
-  isCreditModalOpen: boolean;
-  creditModalMessage?: string;
-  requiredCredits?: number;
+  isUsageLimitModalOpen: boolean;
 }
 
 const initialState: UiState = {
-  isCreditModalOpen: false,
+  isUsageLimitModalOpen: false,
 };
 
 export const uiSlice = createSlice({
   name: 'ui',
   initialState,
   reducers: {
-    openCreditModal: (
-      state,
-      action: PayloadAction<{ message?: string; requiredCredits?: number } | undefined>,
-    ) => {
-      state.isCreditModalOpen = true;
-      state.creditModalMessage = action.payload?.message;
-      state.requiredCredits = action.payload?.requiredCredits;
+    openUsageLimitModal: (state) => {
+      state.isUsageLimitModalOpen = true;
     },
-    closeCreditModal: (state) => {
-      state.isCreditModalOpen = false;
-      state.creditModalMessage = undefined;
-      state.requiredCredits = undefined;
+    closeUsageLimitModal: (state) => {
+      state.isUsageLimitModalOpen = false;
     },
   },
 });
 
-export const { openCreditModal, closeCreditModal } = uiSlice.actions;
+export const { openUsageLimitModal, closeUsageLimitModal } = uiSlice.actions;
 export default uiSlice.reducer;
