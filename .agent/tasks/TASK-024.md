@@ -7,7 +7,7 @@ DROP 點數/訂閱資料表與欄位（不可逆，需 Boss 確認）
 Backend
 
 ## Status
-IN_PROGRESS
+PR_OPENED
 
 ## Priority
 LOW
@@ -119,6 +119,6 @@ Tech Lead 直接 `rm` + commit 刪除即可，不需要重新設計或重跑 mig
    兩個已死碼的類別檔案本身尚未實際刪除，待下一輪收尾。
 
 ## PR
-(pending — opening now)
+https://github.com/twjackysu/JackyAIApp/pull/400
 
 ## Review
