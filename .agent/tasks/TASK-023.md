@@ -7,7 +7,7 @@
 Backend
 
 ## Status
-BLOCKED
+IN_PROGRESS
 
 ## Priority
 HIGH
