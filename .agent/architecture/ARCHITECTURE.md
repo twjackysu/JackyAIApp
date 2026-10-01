@@ -1520,3 +1520,20 @@ already-complete 3-item list.
 
 - **Claiming a task:** an Engineer sets `Status: IN_PROGRESS` on the TASK file and pushes it directly to master *before* starting implementation. GitHub assignee is not used (all Agents share one account). A small race window remains; if a task is already `IN_PROGRESS`, pick another.
 - **Boss questions:** new questions to Boss go in GitHub Issues (labels `needs-boss` / `pm` / `tech-lead`), per DECISION-008. `boss/*.md` keeps only an open-items summary.
+
+
+## Credits & Payments 移除設計（DECISION-006/007，Tech Lead 2026-10-01）
+
+**目標**：拆除 Stripe/PayPal/ECPay/PayUni、點數餘額、訂閱；以「每人每日用量預算」取代扣點，使用者完全看不到金錢/點數概念。
+
+### 設計決定
+- **單一加權每日預算，不做 per-feature 計數表。** 沿用 `CreditCosts` 現有權重（Cloze 2、Chat 5、Stock 5…）改名 `UsageCosts`，每位使用者每天（UTC 日）共用一個預算 `UsageLimits:DailyBudget`（appsettings，預設 **60**，約等於舊制每日可得 ~65 點）。理由：一列/人/天、一次原子更新、單一設定值即可，且權重已反映 AI 成本；per-feature 表要為十幾個功能各訂數字且維護成本高。
+- **儲存**：新表 `DailyUsage(UserId, Date[UTC date], Used ulong)`，PK = (UserId, Date)。扣用量用單一條件式 `UPDATE ... SET Used = Used + @cost WHERE Used + @cost <= @limit`（列不存在則先 insert-if-not-exists），受影響列數 0 = 超量；避免 read-modify-write race。**不用 in-memory**（重啟/多 instance 會失效）、**不用 `AiUsageLog`**（fire-and-forget、快取命中不記，不可靠）。
+- **個別提高上限**（作者收到信後）：`User.UsageLimitMultiplier`（decimal，預設 1）。由作者直接改 DB，不做 Admin UI（Out of Scope）。
+- **介面**：`IUsageLimitService { Task<bool> TryConsumeAsync(userId, cost, feature); Task RefundAsync(userId, cost, feature); }` + `[UsageLimit(cost, feature)]` filter（取代 `[ConsumeCredits]`/`ICreditService.ConsumeCreditsAsync` 的所有呼叫點；chatbot 失敗退款改 `RefundAsync`）。呼叫點與扣用量時機維持不變（行為等價，只換機制）。
+- **超量回應契約**：HTTP **429**，`error.code = UsageLimitExceeded`（新增 `ErrorCodes.UsageLimitExceeded = 1042900`），message 為中性英文佔位（不含 credit/pay 字樣）。**文案由前端持有**：「您已超出目前的使用量，如果您是重度使用者，請聯絡作者 jacky19918@gmail.com 幫您調高上限」。前端依 `error.code` 判斷，不再 parse message 字串。
+- **移除**：每日登入獎勵、挑戰/連勝點數獎勵（XP/streak 保留）、新用戶 50 點初始贈與、`DailyChallengeSubmitResponse.CreditsAwarded`、`/credits` `/pricing` 頁、`InsufficientCreditsModal`、`UserProfileMenu` 餘額/Buy Credits、`creditApis/paypalApis/ecpayApis`。
+- **DB 清理（不可逆）**：`CreditTransactions`、`Subscription` 表與 `User.CreditBalance/TotalCreditsUsed/CreditLastUpdated` 欄位的 DROP 獨立成最後一個任務，需 Boss 確認後才做；前面任務只讓程式碼不再引用，欄位保留（`required` 欄位需改可空或給預設，避免 insert 失敗）。無真實金流入帳，無退款義務（REQUIREMENTS 已記載）。
+
+### 部署順序（每次合併即部署）
+TASK-021（後端新機制，與舊機制並存）→ TASK-022（前端移除 UI + 改吃新契約）→ TASK-023（後端刪除金流/Credit 程式碼）→ TASK-024（DROP schema，待 Boss）。021→022 之間舊前端遇到 429 只會顯示通用錯誤，視窗很短，可接受。

@@ -11,6 +11,6 @@
 3. **只改顯示名稱，不改路由 URL。**
 4. Search Console：#386 已合併；待 Boss 於 Search Console 驗證並提交 sitemap。
 5. Phase B（TASK-020，server-side word metadata injection）Boss 已核准，排在 TASK-019 之後。
-6. Credits & Payments 移除範圍規劃（DECISION-006/007）：Tech Lead 下一項工作。
+6. Credits & Payments 移除：Tech Lead 已規劃完成（TASK-021~024，設計見 ARCHITECTURE.md）；待 Boss 確認事項見 Issue #394（每日預算 60、TASK-024 DROP 同意）。
 7. **工作流程規則**（Boss 2026-09-30 說明目錄是 `.agent/`，非 `.agents/`）：已寫入 `ARCHITECTURE.md` 的「Workflow conventions」：(a) Engineer 開工前先 push `Status: IN_PROGRESS` 到 master；(b) 新 Boss 提問改開 GitHub Issue。若 Agent 指示檔另有存放處需同步，請 Boss 告知。
-8. TASK-019 已合併（#388）；TASK-020（Backend）可開工。Credits & Payments 移除範圍規劃仍為 Tech Lead 下一項。
+8. TASK-019 已合併（#388）；TASK-020 已合併（#389，MERGED）。

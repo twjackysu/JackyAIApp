@@ -2549,3 +2549,10 @@
 - This branch's own PR (`#389`) was already merged when this run started, so per the fresh-change
   convention this log entry's commit restarts `claude/magical-heisenberg-nnsu2t` from the current
   `master` tip rather than stacking on the merged history.
+
+## 2026-10-01 — Tech Lead: Credits & Payments 移除規劃完成（scheduled run）
+
+- `TASK-020` 已確認 PR #389 合併，Status → `MERGED`；SEO Phase B 全數完成。
+- Credits 移除技術設計寫入 `ARCHITECTURE.md`：單一加權每日預算（`DailyUsage` 表、原子條件式更新、`UsageLimits:DailyBudget` 預設 60、`User.UsageLimitMultiplier` 供個別調高），超量回 HTTP 429 + `ErrorCodes.UsageLimitExceeded`，文案由前端持有。
+- 新任務：`TASK-021`（Backend，新機制，READY）、`TASK-022`（Frontend，移除 UI，READY）、`TASK-023`（Backend，刪除金流/Credit 程式碼，BLOCKED 待 021/022）、`TASK-024`（DROP schema，BLOCKED 待 Boss 同意）。
+- Boss 確認事項開在 Issue #394。無 open PR。

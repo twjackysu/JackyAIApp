@@ -7,7 +7,7 @@ SEO Phase B: server-side inject word metadata into index.html
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM
@@ -83,3 +83,6 @@ https://github.com/twjackysu/JackyAIApp/pull/389
     on it is an unobserved task exception (no-op in modern .NET, not a crash).
 
 ## Review
+
+## Review (close-out)
+Tech Lead 2026-10-01：PR #389 已由 Boss 合併（master 7c83df8 之前），CI 綠燈；Status 改 MERGED。三項已知限制（canonical scheme、無 insert-if-missing、timeout 無法取消）維持 Future Work，不開新任務。
