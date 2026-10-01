@@ -206,6 +206,13 @@ try
     // request (real users, Googlebot, any other route) falls through unchanged.
     app.UseMiddleware<BotPreviewMiddleware>();
 
+    // Real users/Googlebot/anyone else hitting a word-detail path still get the real SPA shell,
+    // but with word-specific <title>/meta description/canonical patched in server-side — see
+    // WordMetaInjectionMiddleware and .agent/architecture/ARCHITECTURE.md ("SEO Phase B" / TASK-020).
+    // Must run before the static-file/fallback pipeline below, which would otherwise serve the
+    // unmodified index.html for this same SPA-routed path.
+    app.UseMiddleware<WordMetaInjectionMiddleware>();
+
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
