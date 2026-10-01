@@ -17,14 +17,14 @@ namespace JackyAIApp.Server.Controllers
         IMyResponseFactory responseFactory,
         IUserService userService,
         IAnthropicChatService chatService,
-        ICreditService creditService,
+        IUsageLimitService usageLimitService,
         AzureSQLDBContext dbContext) : ControllerBase
     {
         private readonly ILogger<ChatbotController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IUserService _userService = userService;
         private readonly IAnthropicChatService _chatService = chatService;
-        private readonly ICreditService _creditService = creditService;
+        private readonly IUsageLimitService _usageLimitService = usageLimitService;
         private readonly AzureSQLDBContext _dbContext = dbContext;
 
         /// <summary>
@@ -52,11 +52,10 @@ namespace JackyAIApp.Server.Controllers
 
             // Charge per message up front (anti-abuse / cost control). Refunded below if the
             // model never started responding, so users aren't charged for nothing.
-            if (!await _creditService.ConsumeCreditsAsync(
-                    userId, CreditCosts.ChatMessage, "chatbot_message", "Chatbot conversation message"))
+            if (!await _usageLimitService.TryConsumeAsync(userId, UsageCosts.ChatMessage, "chatbot_message"))
             {
-                Response.StatusCode = 402; // Payment Required
-                await Response.WriteAsync($"Insufficient credits. Each message costs {CreditCosts.ChatMessage} credits.");
+                Response.StatusCode = 429; // Too Many Requests
+                await Response.WriteAsync("Daily usage limit exceeded.");
                 return;
             }
 
@@ -89,8 +88,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Refunds a chat message charge when no answer was delivered.</summary>
         private Task RefundChatMessageAsync(string userId) =>
-            _creditService.AddCreditsAsync(
-                userId, CreditCosts.ChatMessage, "refund", "Chatbot message refund (no response delivered)");
+            _usageLimitService.RefundAsync(userId, UsageCosts.ChatMessage, "chatbot_message");
 
         /// <summary>
         /// Lists the current user's conversations (most-recently updated first).

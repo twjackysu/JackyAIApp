@@ -35,6 +35,13 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public required DateTime LastUpdated { get; set; }
 
         /// <summary>
+        /// Multiplier applied to <c>UsageLimits:DailyBudget</c> to raise this user's effective
+        /// daily usage-limit budget above the default (DECISION-006/007). Set directly in the DB
+        /// by the author on request — there is no admin UI for this (out of scope).
+        /// </summary>
+        public decimal UsageLimitMultiplier { get; set; } = 1m;
+
+        /// <summary>
         /// Indicates if the user has administrator privileges.
         /// </summary>
         public bool? IsAdmin { get; set; }
@@ -77,6 +84,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public ICollection<JiraConfig> JiraConfigs { get; set; } = [];
         public ICollection<UserConnector> UserConnectors { get; set; } = [];
         public ICollection<CreditTransaction> CreditTransactions { get; set; } = [];
+        public ICollection<DailyUsage> DailyUsages { get; set; } = [];
         public ICollection<DailyChallengeResult> DailyChallengeResults { get; set; } = [];
         public ICollection<DataSourceConfig> DataSourceConfigs { get; set; } = [];
         public ICollection<HoldingSnapshot> HoldingSnapshots { get; set; } = [];

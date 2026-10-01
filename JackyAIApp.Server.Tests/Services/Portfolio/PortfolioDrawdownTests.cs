@@ -56,7 +56,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var httpClientFactory = new Mock<IHttpClientFactory>();
             var cache = new MemoryCache(new MemoryCacheOptions());
             var openAI = new Mock<IOpenAIPromptService>();
-            var creditService = new Mock<ICreditService>();
+            var usageLimitService = new Mock<IUsageLimitService>();
             var categoryService = new Mock<IStockCategoryService>();
 
             _service = new PortfolioService(
@@ -69,7 +69,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 httpClientFactory.Object,
                 cache,
                 openAI.Object,
-                creditService.Object,
+                usageLimitService.Object,
                 NullLogger<PortfolioService>.Instance,
                 new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)));
         }

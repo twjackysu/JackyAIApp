@@ -33,13 +33,13 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Generates a cloze test for the user based on their unfamiliar words.</summary>
         [HttpGet("cloze")]
-        [ConsumeCredits(CreditCosts.ClozeTest, "cloze_test", "Cloze test generation")]
+        [UsageLimit(UsageCosts.ClozeTest, "cloze_test")]
         public async Task<IActionResult> GetClozeTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Cloze));
 
         /// <summary>Generates a translation test for the user based on their unfamiliar words.</summary>
         [HttpGet("translation")]
-        [ConsumeCredits(CreditCosts.TranslationTest, "translation_test", "Translation test generation")]
+        [UsageLimit(UsageCosts.TranslationTest, "translation_test")]
         public async Task<IActionResult> GetTranslationTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Translation));
 
@@ -50,7 +50,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Starts a new conversation test by generating a scenario and first message.</summary>
         [HttpPost("conversation/start")]
-        [ConsumeCredits(CreditCosts.ConversationStart, "conversation_start", "Conversation test started")]
+        [UsageLimit(UsageCosts.ConversationStart, "conversation_start")]
         public async Task<IActionResult> StartConversationTest([FromBody] ConversationStartRequest request) =>
             _responseFactory.ToActionResult(await _examService.StartConversationAsync(request));
 
@@ -61,7 +61,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Generates an end-of-session recap for a conversation (corrections, phrasings, word suggestions).</summary>
         [HttpPost("conversation/summary")]
-        [ConsumeCredits(CreditCosts.ConversationSummary, "conversation_summary", "Conversation summary")]
+        [UsageLimit(UsageCosts.ConversationSummary, "conversation_summary")]
         public async Task<IActionResult> SummarizeConversation([FromBody] ConversationSummaryRequest request) =>
             _responseFactory.ToActionResult(await _examService.SummarizeConversationAsync(request));
 
@@ -80,7 +80,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Generates a sentence formation test for the user based on their unfamiliar words.</summary>
         [HttpGet("sentence")]
-        [ConsumeCredits(CreditCosts.SentenceTest, "sentence_test", "Sentence test generation")]
+        [UsageLimit(UsageCosts.SentenceTest, "sentence_test")]
         public async Task<IActionResult> GetSentenceTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Sentence));
 
@@ -97,7 +97,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Serves a random TOEIC Part 1 listening question from the pre-seeded bank. The
         /// flat charge covers both the question and TTS playback of its 4 options.</summary>
         [HttpGet("listening")]
-        [ConsumeCredits(CreditCosts.ListeningTest, "listening_test", "Listening test")]
+        [UsageLimit(UsageCosts.ListeningTest, "listening_test")]
         public async Task<IActionResult> GetListeningTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateListeningExamAsync());
 
@@ -116,7 +116,7 @@ namespace JackyAIApp.Server.Controllers
         /// (see ExamService.GenerateListeningResponseExamAsync); flat charge covers the prompt
         /// plus its 3 response options' TTS.</summary>
         [HttpGet("listening/response")]
-        [ConsumeCredits(CreditCosts.ListeningResponseTest, "listening_response_test", "Listening response test")]
+        [UsageLimit(UsageCosts.ListeningResponseTest, "listening_response_test")]
         public async Task<IActionResult> GetListeningResponseTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateListeningResponseExamAsync());
 
@@ -141,7 +141,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Serves a short reading passage with 3-4 comprehension questions from the
         /// shared bank. Not tied to the user's saved words — works with an empty repository.</summary>
         [HttpGet("reading")]
-        [ConsumeCredits(CreditCosts.ReadingComprehensionTest, "reading_test", "Reading comprehension test")]
+        [UsageLimit(UsageCosts.ReadingComprehensionTest, "reading_test")]
         public async Task<IActionResult> GetReadingTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateReadingExamAsync());
 
@@ -149,7 +149,7 @@ namespace JackyAIApp.Server.Controllers
         /// words). Deliberately NOT credit-gated: unlike every other exam-type "generation"
         /// endpoint, this one costs zero AI calls to produce (plain DB queries) — the whole
         /// charge for this feature sits on POST writing/evaluate instead. Do not add
-        /// [ConsumeCredits] here.</summary>
+        /// [UsageLimit] here.</summary>
         [HttpGet("writing")]
         public async Task<IActionResult> GetWritingPrompt() =>
             _responseFactory.ToActionResult(await _examService.GenerateWritingPromptAsync());
@@ -165,7 +165,7 @@ namespace JackyAIApp.Server.Controllers
         /// the whole exercise. Flat charge covers the one TTS call the user is expected to make
         /// right after.</summary>
         [HttpGet("dictation")]
-        [ConsumeCredits(CreditCosts.DictationTest, "dictation_test", "Dictation test generation")]
+        [UsageLimit(UsageCosts.DictationTest, "dictation_test")]
         public async Task<IActionResult> GetDictationTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateDictationExamAsync());
 
@@ -181,7 +181,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Grades a dictation submission. Deliberately NOT credit-gated: pure in-memory
         /// string comparison against the server-resolved word text, no AI call, no TTS call —
         /// same "zero underlying cost" reasoning as GET api/exam/writing. Do not add
-        /// [ConsumeCredits] here.</summary>
+        /// [UsageLimit] here.</summary>
         [HttpPost("dictation/grade")]
         public async Task<IActionResult> GradeDictation([FromBody] DictationGradeRequest request) =>
             _responseFactory.ToActionResult(await _examService.GradeDictationAsync(request));

@@ -33,7 +33,7 @@ namespace JackyAIApp.Server.Controllers
         IDataSourceConfigService configService,
         ISessionDataStore sessionStore,
         IOpenAIPromptService openAIPromptService,
-        ICreditService creditService,
+        IUsageLimitService usageLimitService,
         IPromptLoader promptLoader) : ApiControllerBase
     {
         private readonly ILogger<DataAnalysisController> _logger               = logger;
@@ -43,7 +43,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IDataSourceConfigService        _configService         = configService;
         private readonly ISessionDataStore               _sessionStore          = sessionStore;
         private readonly IOpenAIPromptService            _openAIPromptService   = openAIPromptService;
-        private readonly ICreditService                  _creditService         = creditService;
+        private readonly IUsageLimitService              _usageLimitService     = usageLimitService;
         private readonly IPromptLoader                   _promptLoader          = promptLoader;
 
         // ── Default source constants ───────────────────────────────────────────
@@ -533,14 +533,14 @@ namespace JackyAIApp.Server.Controllers
             return (plan, null, null, notes);
         }
 
-        /// <summary>Charges NlSummarize credits. The endpoint is <c>[Authorize]</c>d so a user is always present; returns an error result on insufficient credits, else null.</summary>
+        /// <summary>Charges NlSummarize usage. The endpoint is <c>[Authorize]</c>d so a user is always present; returns an error result when the daily usage limit is exceeded, else null.</summary>
         private async Task<IActionResult?> TryChargeNlSummarizeAsync(string? userId)
         {
             if (userId is not null &&
-                !await _creditService.ConsumeCreditsAsync(userId, CreditCosts.NlSummarize, "nl_summarize", "NL Summarize"))
+                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.NlSummarize, "nl_summarize"))
             {
                 return _responseFactory.CreateErrorResponse(
-                    ErrorCodes.Forbidden, $"Insufficient credits. Required: {CreditCosts.NlSummarize}.");
+                    ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
             }
             return null;
         }

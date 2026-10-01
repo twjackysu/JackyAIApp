@@ -346,6 +346,22 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("DailyChallengeResults");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyUsage", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("Used")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("UserId", "Date");
+
+                    b.ToTable("DailyUsages");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyStockPrice", b =>
                 {
                     b.Property<int>("Id")
@@ -1107,6 +1123,9 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<int>("TotalXP")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("UsageLimitMultiplier")
+                        .HasColumnType("decimal(18,2)");
+
                     b.HasKey("Id");
 
                     b.ToTable("Users");
@@ -1357,6 +1376,17 @@ namespace JackyAIApp.Server.Data.Migrations
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
                         .WithMany("DailyChallengeResults")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyUsage", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
+                        .WithMany("DailyUsages")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1664,6 +1694,8 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Navigation("CreditTransactions");
 
                     b.Navigation("DailyChallengeResults");
+
+                    b.Navigation("DailyUsages");
 
                     b.Navigation("DataSourceConfigs");
 

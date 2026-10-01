@@ -31,7 +31,7 @@ namespace JackyAIApp.Server.Services.Finance
         IIndicatorProvider indicatorProvider,
         IFinnhubNewsProvider finnhubNewsProvider,
         IOpenAIPromptService openAIPromptService,
-        ICreditService creditService,
+        IUsageLimitService usageLimitService,
         IMarketDataProviderFactory providerFactory,
         IStockPredictionRecorder predictionRecorder) : IFinanceQueryService
     {
@@ -52,7 +52,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly IIndicatorProvider _indicatorProvider = indicatorProvider;
         private readonly IFinnhubNewsProvider _finnhubNewsProvider = finnhubNewsProvider;
         private readonly IOpenAIPromptService _openAIPromptService = openAIPromptService;
-        private readonly ICreditService _creditService = creditService;
+        private readonly IUsageLimitService _usageLimitService = usageLimitService;
         private readonly IMarketDataProviderFactory _providerFactory = providerFactory;
         private readonly IStockPredictionRecorder _predictionRecorder = predictionRecorder;
 
@@ -377,7 +377,7 @@ namespace JackyAIApp.Server.Services.Finance
         /// "今日市場AI摘要" — a unified daily digest grounding gpt-5-nano in three sources
         /// (market overview + global news + TW major announcements) and synthesising a
         /// global/Taiwan two-section narrative. The generated digest is shared (cached per
-        /// day), but each user is charged <see cref="CreditCosts.MarketDigest"/> once per day
+        /// day), but each user is charged <see cref="UsageCosts.MarketDigest"/> once per day
         /// to unlock it — repeat views the same day are free.
         /// </summary>
         public async Task<ServiceResult> GetMarketDigestAsync(CancellationToken cancellationToken)
@@ -404,11 +404,9 @@ namespace JackyAIApp.Server.Services.Finance
             var chargeKey = $"MarketDigestCharged_{userId}_{today}";
             if (!_memoryCache.TryGetValue(chargeKey, out object? _))
             {
-                var ok = await _creditService.ConsumeCreditsAsync(
-                    userId, CreditCosts.MarketDigest, "market_digest", "Daily AI market digest");
+                var ok = await _usageLimitService.TryConsumeAsync(userId, UsageCosts.MarketDigest, "market_digest");
                 if (!ok)
-                    return ServiceResult.Fail(ErrorCodes.Forbidden,
-                        $"Insufficient credits. Required: {CreditCosts.MarketDigest}. Please purchase more credits to continue.");
+                    return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
                 // Hold the guard until end of day so the user isn't charged again today.
                 _memoryCache.Set(chargeKey, true, DateTime.Today.AddDays(1) - DateTime.Now);
             }

@@ -1,0 +1,119 @@
+using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
+
+namespace JackyAIApp.Server.Tests.Common
+{
+    public class UsageLimitAttributeTests
+    {
+        private readonly Mock<IUserService> _userServiceMock = new();
+        private readonly Mock<IUsageLimitService> _usageLimitServiceMock = new();
+        private readonly Mock<IMyResponseFactory> _responseFactoryMock = new();
+
+        private const string TestUserId = "attribute-test-user";
+
+        private ActionExecutingContext BuildContext()
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton(_userServiceMock.Object);
+            services.AddSingleton(_usageLimitServiceMock.Object);
+            services.AddSingleton(_responseFactoryMock.Object);
+
+            var httpContext = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            return new ActionExecutingContext(
+                actionContext,
+                new List<IFilterMetadata>(),
+                new Dictionary<string, object?>(),
+                controller: new object());
+        }
+
+        private static ActionExecutionDelegate NextDelegate(Action onNextCalled) => () =>
+        {
+            onNextCalled();
+            return Task.FromResult<ActionExecutedContext>(null!);
+        };
+
+        [Fact]
+        public async Task OnActionExecutionAsync_Unauthenticated_ShortCircuitsWithoutCallingNext()
+        {
+            _userServiceMock.Setup(x => x.GetUserId()).Returns((string?)null);
+            var expectedResult = new StatusCodeResult(403);
+            _responseFactoryMock
+                .Setup(x => x.CreateErrorResponse(ErrorCodes.Forbidden, It.IsAny<string>()))
+                .Returns(expectedResult);
+            var context = BuildContext();
+            var nextCalled = false;
+            var attribute = new UsageLimitAttribute(5, "test_feature");
+
+            await attribute.OnActionExecutionAsync(context, NextDelegate(() => nextCalled = true));
+
+            Assert.False(nextCalled);
+            Assert.Same(expectedResult, context.Result);
+            _usageLimitServiceMock.Verify(
+                x => x.TryConsumeAsync(It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task OnActionExecutionAsync_WithinLimit_CallsNextWithoutSettingResult()
+        {
+            _userServiceMock.Setup(x => x.GetUserId()).Returns(TestUserId);
+            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, 5UL, "test_feature")).ReturnsAsync(true);
+            var context = BuildContext();
+            var nextCalled = false;
+            var attribute = new UsageLimitAttribute(5, "test_feature");
+
+            await attribute.OnActionExecutionAsync(context, NextDelegate(() => nextCalled = true));
+
+            Assert.True(nextCalled);
+            Assert.Null(context.Result);
+        }
+
+        [Fact]
+        public async Task OnActionExecutionAsync_ExceedsLimit_ShortCircuitsWithUsageLimitExceeded()
+        {
+            _userServiceMock.Setup(x => x.GetUserId()).Returns(TestUserId);
+            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, 5UL, "test_feature")).ReturnsAsync(false);
+            var expectedResult = new StatusCodeResult(429);
+            _responseFactoryMock
+                .Setup(x => x.CreateErrorResponse(ErrorCodes.UsageLimitExceeded, It.IsAny<string>()))
+                .Returns(expectedResult);
+            var context = BuildContext();
+            var nextCalled = false;
+            var attribute = new UsageLimitAttribute(5, "test_feature");
+
+            await attribute.OnActionExecutionAsync(context, NextDelegate(() => nextCalled = true));
+
+            Assert.False(nextCalled);
+            Assert.Same(expectedResult, context.Result);
+        }
+
+        [Fact]
+        public async Task OnActionExecutionAsync_ExceedsLimit_ErrorMessageNeverMentionsCreditsOrPayment()
+        {
+            _userServiceMock.Setup(x => x.GetUserId()).Returns(TestUserId);
+            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, 5UL, "test_feature")).ReturnsAsync(false);
+            string? capturedMessage = null;
+            _responseFactoryMock
+                .Setup(x => x.CreateErrorResponse(ErrorCodes.UsageLimitExceeded, It.IsAny<string>()))
+                .Callback<ErrorCodes, string>((_, message) => capturedMessage = message)
+                .Returns(new StatusCodeResult(429));
+            var context = BuildContext();
+            var attribute = new UsageLimitAttribute(5, "test_feature");
+
+            await attribute.OnActionExecutionAsync(context, NextDelegate(() => { }));
+
+            Assert.NotNull(capturedMessage);
+            Assert.DoesNotContain("credit", capturedMessage, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("purchase", capturedMessage, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("pay", capturedMessage, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+}

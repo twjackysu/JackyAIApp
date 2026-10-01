@@ -136,6 +136,29 @@ namespace JackyAIApp.Server.Data
             modelBuilder.Entity<CreditTransaction>()
                 .HasIndex(ct => ct.CreatedAt);
 
+            // Daily usage-limit ledger (DECISION-006/007) — composite PK so UsageLimitService can
+            // target the exact (UserId, Date) row with a single atomic conditional UPDATE.
+            modelBuilder.Entity<DailyUsage>()
+                .HasKey(du => new { du.UserId, du.Date });
+
+            modelBuilder.Entity<DailyUsage>()
+                .HasOne(du => du.User)
+                .WithMany(u => u.DailyUsages)
+                .HasForeignKey(du => du.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Stored as bigint (native integer comparison in every relational provider), unlike
+            // the decimal(20,0) convention used for User.CreditBalance/TotalCreditsUsed elsewhere
+            // in this file — UsageLimitService's atomic conditional UPDATE relies on the database
+            // engine itself evaluating "Used + @cost <= @limit" correctly, and the SQLite provider
+            // (used by this feature's concurrency tests; see UsageLimitServiceTests) stores
+            // `decimal` as TEXT, which compares lexicographically rather than numerically under
+            // raw SQL. Usage weights are tiny (see UsageCosts), nowhere near overflowing bigint.
+            modelBuilder.Entity<DailyUsage>()
+                .Property(du => du.Used)
+                .HasConversion(v => (long)v, v => (ulong)v)
+                .HasColumnType("bigint");
+
             // Configure DailyChallengeResult relationship
             modelBuilder.Entity<DailyChallengeResult>()
                 .HasOne(dc => dc.User)
@@ -349,6 +372,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<JiraConfig> JiraConfigs { get; set; }
         public virtual DbSet<UserConnector> UserConnectors { get; set; }
         public virtual DbSet<CreditTransaction> CreditTransactions { get; set; }
+        public virtual DbSet<DailyUsage> DailyUsages { get; set; }
         public virtual DbSet<DailyChallengeResult> DailyChallengeResults { get; set; }
         public virtual DbSet<DataSourceConfig> DataSourceConfigs { get; set; }
         public virtual DbSet<ExamAttempt> ExamAttempts { get; set; }
