@@ -4,7 +4,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace JackyAIApp.Server.Data.Models.SQL
 {
     /// <summary>
-    /// Records all credit transactions (consumption, top-up, refund, bonus)
+    /// Unused since the Credit/Payment removal (DECISION-006/007, TASK-023) — nothing writes new
+    /// rows any more. Entity and table kept so historical data isn't lost; removal deferred to
+    /// TASK-024 (needs Boss sign-off for the irreversible table DROP).
     /// </summary>
     public class CreditTransaction
     {
@@ -66,8 +68,8 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public const string Refund = "refund";
         public const string Bonus = "bonus";
 
-        /// <summary>Monthly subscription quota reset (balance is SET to the quota, not added —
-        /// see ICreditService.GrantMonthlyQuotaAsync). Distinct from TopUp, which is additive.</summary>
+        /// <summary>Monthly subscription quota reset (balance was SET to the quota, not added).
+        /// Distinct from TopUp, which was additive.</summary>
         public const string SubscriptionGrant = "subscription_grant";
     }
 }

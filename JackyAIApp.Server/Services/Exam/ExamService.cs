@@ -552,7 +552,7 @@ namespace JackyAIApp.Server.Services.Exam
         /// <summary>
         /// Serves an open-ended writing prompt: a topic from a fixed rotation plus up to 5 of the
         /// calling user's own saved words. Both plain DB queries — no AI call, so this is
-        /// deliberately not credit-gated (unlike every other GET api/exam/* generation endpoint).
+        /// deliberately not usage-limit-gated (unlike every other GET api/exam/* generation endpoint).
         /// </summary>
         public async Task<ServiceResult> GenerateWritingPromptAsync()
         {

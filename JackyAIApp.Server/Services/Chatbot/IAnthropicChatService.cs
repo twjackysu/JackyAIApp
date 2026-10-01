@@ -1,6 +1,6 @@
 namespace JackyAIApp.Server.Services.Chatbot
 {
-    /// <summary>Outcome of a streamed chat turn, for the controller's credit refund decision.</summary>
+    /// <summary>Outcome of a streamed chat turn, for the controller's usage refund decision.</summary>
     /// <param name="StreamingStarted">
     /// True once at least one content delta was written to the response — the point past which a
     /// failure should not be refunded (the model already did billable work).

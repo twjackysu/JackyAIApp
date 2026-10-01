@@ -4,15 +4,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace JackyAIApp.Server.Data.Models.SQL
 {
     /// <summary>
-    /// One row per user's subscription lifecycle (1:1 with User). Independent table rather than
-    /// columns on User — a subscription has enough fields plus an audit trail (started/cancelled
-    /// timestamps, provider trade number for the cancel API) that it doesn't fit the flat-column
-    /// pattern the gamification fields on User use.
-    ///
-    /// The monthly usage quota itself is NOT tracked here — it's granted via
-    /// ICreditService.GrantMonthlyQuotaAsync, which resets User.CreditBalance (the existing
-    /// credit-metering engine is reused as-is; a subscription is just "what resets the balance
-    /// every period, and to how much").
+    /// Unused since the Credit/Payment removal (DECISION-006/007, TASK-023) — subscriptions and
+    /// the credit-metering engine this entity depended on (<c>ICreditService</c>) are gone.
+    /// Entity and table kept so no data is lost; removal deferred to TASK-024 (needs Boss
+    /// sign-off for the irreversible table DROP).
     /// </summary>
     public class Subscription
     {
@@ -25,8 +20,8 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// <summary>Current lifecycle state — see <see cref="SubscriptionStatus"/>.</summary>
         public required string Status { get; set; }
 
-        /// <summary>Payment provider that owns this subscription. Currently only "ecpay" supports
-        /// recurring billing; PayPal stays one-time-purchase only (see CreditPacks).</summary>
+        /// <summary>Payment provider that owned this subscription. Only "ecpay" supported
+        /// recurring billing; PayPal was one-time-purchase only.</summary>
         public string? Provider { get; set; }
 
         /// <summary>End of the period the last successful charge paid for. A period grant resets

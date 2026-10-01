@@ -3,12 +3,11 @@ using JackyAIApp.Server.DTO;
 
 namespace JackyAIApp.Server.Services.DailyChallenge
 {
-    /// <summary>Daily challenge flows: fetch, submit, stats, and daily login bonus.</summary>
+    /// <summary>Daily challenge flows: fetch, submit, stats.</summary>
     public interface IDailyChallengeService
     {
         Task<ServiceResult> GetChallengeAsync();
         Task<ServiceResult> SubmitChallengeAsync(DailyChallengeSubmitRequest request);
         Task<ServiceResult> GetStatsAsync();
-        Task<ServiceResult> ClaimDailyBonusAsync();
     }
 }

@@ -109,8 +109,6 @@ namespace JackyAIApp.Server.Tests.Controllers
             var user = new Data.Models.SQL.User
             {
                 Id = userId,
-                CreditBalance = 100,
-                TotalCreditsUsed = 0,
                 LastUpdated = DateTime.UtcNow,
                 IsAdmin = isAdmin,
             };

@@ -30,10 +30,5 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("stats")]
         public async Task<IActionResult> GetStats() =>
             _responseFactory.ToActionResult(await _dailyChallengeService.GetStatsAsync());
-
-        /// <summary>Claim daily login bonus credits (10 credits, once per day).</summary>
-        [HttpPost("claim-daily-bonus")]
-        public async Task<IActionResult> ClaimDailyBonus() =>
-            _responseFactory.ToActionResult(await _dailyChallengeService.ClaimDailyBonusAsync());
     }
 }

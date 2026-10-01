@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using JackyAIApp.Server.Data.Models.Portfolio;
 
 namespace JackyAIApp.Server.Data.Models.SQL
@@ -20,17 +21,25 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public string? Email { get; set; }
 
         /// <summary>
-        /// Gets or sets the remaining credit balance for the user.
+        /// Unused since the Credit/Payment removal (DECISION-006/007, TASK-023). Column kept,
+        /// never read or written, and excluded from API responses — removal deferred to TASK-024
+        /// alongside dropping the column (needs Boss sign-off for the irreversible DROP).
         /// </summary>
-        public required ulong CreditBalance { get; set; }
+        [JsonIgnore]
+        public ulong CreditBalance { get; set; } = 0;
 
         /// <summary>
-        /// Gets or sets the total number of credits the user has used.
+        /// Unused since the Credit/Payment removal (DECISION-006/007, TASK-023). Column kept,
+        /// never read or written, and excluded from API responses — removal deferred to TASK-024
+        /// alongside dropping the column (needs Boss sign-off for the irreversible DROP).
         /// </summary>
-        public required ulong TotalCreditsUsed { get; set; }
+        [JsonIgnore]
+        public ulong TotalCreditsUsed { get; set; } = 0;
 
         /// <summary>
-        /// Gets or sets the date and time when the credit data was last updated.
+        /// Gets or sets the date and time this user record was last updated. No longer
+        /// credit-specific — also touched by non-credit flows (e.g. RepositoryService's
+        /// word-list add/remove).
         /// </summary>
         public required DateTime LastUpdated { get; set; }
 
@@ -83,6 +92,8 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public ICollection<UserWord> UserWords { get; set; } = [];
         public ICollection<JiraConfig> JiraConfigs { get; set; } = [];
         public ICollection<UserConnector> UserConnectors { get; set; } = [];
+        // Unused since TASK-023 (Credit/Payment removal) — kept, with the CreditTransaction
+        // entity/table, pending TASK-024's combined entity+table removal.
         public ICollection<CreditTransaction> CreditTransactions { get; set; } = [];
         public ICollection<DailyUsage> DailyUsages { get; set; } = [];
         public ICollection<DailyChallengeResult> DailyChallengeResults { get; set; } = [];

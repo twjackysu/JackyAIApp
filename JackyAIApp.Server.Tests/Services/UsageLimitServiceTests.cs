@@ -17,9 +17,8 @@ namespace JackyAIApp.Server.Tests.Services
     /// and — unlike InMemory — actually exercises the race the design is meant to prevent when
     /// multiple DbContext instances hit the same connection concurrently. See
     /// DailyUsage.Used's HasConversion/HasColumnType("bigint") comment in AzureSQLDBContext for
-    /// why the column is bigint rather than following the decimal(20,0) convention used for
-    /// User.CreditBalance elsewhere: SQLite stores `decimal` as TEXT, which the raw SQL in this
-    /// service would compare lexicographically rather than numerically.
+    /// why the column is bigint rather than a decimal(20,0): SQLite stores `decimal` as TEXT,
+    /// which the raw SQL in this service would compare lexicographically rather than numerically.
     /// </summary>
     public class UsageLimitServiceTests : IDisposable
     {
@@ -60,8 +59,6 @@ namespace JackyAIApp.Server.Tests.Services
             context.Users.Add(new User
             {
                 Id = TestUserId,
-                CreditBalance = 0,
-                TotalCreditsUsed = 0,
                 LastUpdated = DateTime.UtcNow,
                 UsageLimitMultiplier = multiplier,
             });

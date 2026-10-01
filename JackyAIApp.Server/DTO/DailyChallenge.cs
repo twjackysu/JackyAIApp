@@ -50,7 +50,6 @@ namespace JackyAIApp.Server.DTO
         public bool StreakUpdated { get; set; }
         public int NewStreak { get; set; }
         public bool AlreadyCompleted { get; set; }
-        public ulong CreditsAwarded { get; set; }
         /// <summary>True when a missed day was forgiven by spending a streak freeze.</summary>
         public bool StreakFreezeUsed { get; set; }
         /// <summary>Streak freezes remaining this week.</summary>

@@ -100,7 +100,7 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetIndicators(CancellationToken cancellationToken = default) =>
             _responseFactory.ToActionResult(await _financeQueryService.GetIndicatorsAsync(cancellationToken));
 
-        /// <summary>Gets an AI reading for a single indicator (lazy; charges no credits).</summary>
+        /// <summary>Gets an AI reading for a single indicator (lazy; charges no usage).</summary>
         [HttpGet("indicators/{id}/insight")]
         public async Task<IActionResult> GetIndicatorInsight(string id, CancellationToken cancellationToken = default) =>
             _responseFactory.ToActionResult(await _financeQueryService.GetIndicatorInsightAsync(id, cancellationToken));

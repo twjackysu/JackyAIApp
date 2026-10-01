@@ -313,7 +313,7 @@ namespace JackyAIApp.Server.Controllers
         /// distinct values (List-of-Values) for only those columns, (3) ask the LLM to produce the
         /// final query plan using those real values, then execute it. This stops the LLM from
         /// inventing filter values that don't exist in the data.
-        /// Returns <c>{ plan, interpretation, rows }</c>. Requires login — every call consumes credits.
+        /// Returns <c>{ plan, interpretation, rows }</c>. Requires login — every call consumes usage budget.
         /// </summary>
         [HttpPost("summarize/nl")]
         [Authorize]

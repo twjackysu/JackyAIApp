@@ -1549,8 +1549,6 @@ namespace JackyAIApp.Server.Tests.Services
                 Id = _testUserId,
                 Name = "Test User",
                 Email = "test@example.com",
-                CreditBalance = 100,
-                TotalCreditsUsed = 0,
                 LastUpdated = DateTime.UtcNow
             };
             _dbContext.Users.Add(user);

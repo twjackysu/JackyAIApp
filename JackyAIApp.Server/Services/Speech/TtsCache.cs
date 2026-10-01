@@ -7,7 +7,7 @@ namespace JackyAIApp.Server.Services.Speech
     ///
     /// Lives here rather than inside one implementation so the key format and lifetime cannot
     /// drift apart between providers: <c>AudioController</c> calls
-    /// <see cref="ITextToSpeechService.TryGetCached"/> to decide whether to charge credits, so a
+    /// <see cref="ITextToSpeechService.TryGetCached"/> to decide whether to charge usage, so a
     /// key computed differently on the read and the write path would bill the user for every
     /// playback instead of only the first.
     /// </summary>

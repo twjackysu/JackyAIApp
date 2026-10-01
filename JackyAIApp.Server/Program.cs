@@ -135,10 +135,10 @@ try
 
     // Named client for read-only external market-data GETs (and FundRich's POST-as-query
     // calls) — TWSE, Yahoo, FundRich, BOT/CBC via er-api, SEC, Finnhub, FRED. Deliberately
-    // NOT applied via ConfigureHttpClientDefaults: that would also retry OpenAI completions
-    // and PayPal/ECPay payment calls, where a transport-level failure after the request
-    // already landed server-side would risk a duplicate charge/generation. These providers
-    // are all idempotent reads, so retrying is safe (see AddReadOnlyResilience).
+    // NOT applied via ConfigureHttpClientDefaults: that would also retry OpenAI completions,
+    // where a transport-level failure after the request already landed server-side would risk
+    // a duplicate generation. These providers are all idempotent reads, so retrying is safe
+    // (see AddReadOnlyResilience).
     builder.Services.AddHttpClient("ExternalReadOnly").AddReadOnlyResilience();
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
@@ -174,7 +174,7 @@ try
     builder.Services.AddFinanceAnalysisServices();
     builder.Services.AddJobAggregatorServices();
     builder.Services.AddPortfolioServices();
-    builder.Services.AddConnectorAndPaymentServices(builder.Configuration);
+    builder.Services.AddConnectorServices(builder.Configuration);
     builder.Services.AddDataAnalysisServices(sqlConnectionString);
 
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";

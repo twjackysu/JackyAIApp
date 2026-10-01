@@ -20,7 +20,7 @@ namespace JackyAIApp.Server.Services.Exam
         Task<ServiceResult> GenerateListeningExamAsync();
 
         /// <summary>Looks up a listening question option's spoken text, for the unbilled audio
-        /// playback endpoint (credits are already charged when the question itself was fetched).</summary>
+        /// playback endpoint (usage was already charged when the question itself was fetched).</summary>
         Task<ServiceResult> GetListeningOptionTextAsync(string optionId);
 
         /// <summary>Admin-only: paginated view of the full listening question bank.</summary>
@@ -55,7 +55,7 @@ namespace JackyAIApp.Server.Services.Exam
         /// Serves an open-ended writing prompt: a topic from a fixed rotation plus up to 5 of the
         /// calling user's own saved words (empty if the user has none — open-topic writing, not an
         /// error). Both plain DB queries, no AI call, so unlike every other exam-type generation
-        /// endpoint this is deliberately not credit-gated.
+        /// endpoint this is deliberately not usage-limit-gated.
         /// </summary>
         Task<ServiceResult> GenerateWritingPromptAsync();
 
@@ -74,13 +74,13 @@ namespace JackyAIApp.Server.Services.Exam
         Task<ServiceResult> GenerateDictationExamAsync();
 
         /// <summary>Looks up a dictation word's text, for the unbilled audio playback endpoint
-        /// (credits are already charged when the prompt itself was fetched).</summary>
+        /// (usage was already charged when the prompt itself was fetched).</summary>
         Task<ServiceResult> GetDictationWordTextAsync(string wordId);
 
         /// <summary>
         /// Grades a dictation submission against the real word text looked up server-side (never
         /// trust a client-supplied answer). Zero underlying cost (in-memory string comparison),
-        /// so deliberately not credit-gated.
+        /// so deliberately not usage-limit-gated.
         /// </summary>
         Task<ServiceResult> GradeDictationAsync(DictationGradeRequest request);
 
