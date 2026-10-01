@@ -111,6 +111,6 @@ callers and is deployed). CI must still confirm an actual build + test run.
   Key Vault entries themselves need manual removal by whoever manages that, separately from this PR.
 
 ## PR
-(see PR link in the accompanying commit / GitHub)
+https://github.com/twjackysu/JackyAIApp/pull/398
 
 ## Review
