@@ -117,6 +117,10 @@ Update: a docs-only PR (#397, Frontend's TASK-022 merge record) landed on `maste
 was opened, causing a `.agent/status/PROJECT_STATUS.md` text conflict (both appended to the end of
 the file). Merged `master` into this branch, resolved by keeping both log entries in chronological
 order, pushed. CI (`build-and-test-server` + `lint-and-build-client`) now green on the merge commit,
-`mergeable_state: clean`, no review comments. Waiting on Tech Lead/Boss review.
+`mergeable_state: clean`, no review comments.
+
+Update: merged by Boss. Deploy workflow (run #491) triggered, result not yet confirmed. Per SOP
+(§10/§18) not setting `Status:` to `MERGED` here — leaving `PR_OPENED` for Tech Lead/Boss to
+formally close out; this entry is the factual record the PR landed.
 
 ## Review

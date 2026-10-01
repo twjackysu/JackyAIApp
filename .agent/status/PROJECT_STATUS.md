@@ -2652,3 +2652,16 @@
   自動推進。`TASK-024`（DROP schema）在 `#398` 合併前仍維持 `BLOCKED`（本任務這次沒有移除
   entity/DbSet，所以 `TASK-024` 之後實際要做的事比原本任務描述稍多：entity+DbSet+nav property
   移除要併入它自己的 migration 裡）。
+- Update：`#398` 開立後 master 又多了一個 docs-only PR（#397，記錄 TASK-022 合併），導致
+  `PROJECT_STATUS.md` 文字衝突（兩邊都在檔尾 append）。合併 master 進本分支，依時間順序保留雙方
+  log entry 後解決並推送；CI（`build-and-test-server`/`lint-and-build-client`）在合併後的 commit
+  上皆綠燈，`mergeable_state: clean`，全程無 review comment。
+- `#398` 已由 Boss 合併（`pull_request.closed`/`merged` 事件，session 自動取消訂閱）。觸發的
+  "Build and deploy" workflow run #491 開始執行中，尚未確認結果。不自行把 `TASK-023.md` 的
+  `Status:` 改成 `MERGED`，依 SOP（§10/§18）維持 `PR_OPENED`，留給 Tech Lead/Boss 正式結案；本條
+  記錄即合併事實。
+- `TASK-024`（DROP schema，LOW priority，含 entity/DbSet 移除 + 真正的 DROP TABLE migration）
+  本身的前置條件「先確認 TASK-023 已部署穩定」此刻還不成立（部署剛觸發，尚未確認結果，也還沒有
+  穩定運行一段時間）——加上這是不可逆的 schema 變更，且本 sandbox 持續沒有 `dotnet ef` 可驗證
+  migration diff，本次不倉促開工。留給下一次有 `dotnet` SDK/CI 存取權、且已確認 `#398` 部署穩定
+  的 run 接手。
