@@ -2,7 +2,7 @@ import { isRejectedWithValue, Middleware, MiddlewareAPI } from '@reduxjs/toolkit
 
 import { ErrorCodes } from '../apis/types';
 
-import { openCreditModal } from './uiSlice';
+import { openUsageLimitModal } from './uiSlice';
 
 // Endpoints that require login — a 401 from these means the session is gone, so send the
 // user to sign in (with a ReturnUrl so they come back). A blanket 401 redirect is unsafe
@@ -26,28 +26,10 @@ export const rtkQueryErrorLogger: Middleware = (api: MiddlewareAPI) => (next) =>
       return next(action);
     }
 
-    // Check if it's a 403 Forbidden with Insufficient Credits error code
-    if (
-      payload?.status === 403 &&
-      payload?.data?.error?.code === ErrorCodes.Forbidden &&
-      (payload?.data?.error?.message as string)?.includes('Insufficient credits')
-    ) {
-      const errorMessage = payload.data.error.message as string;
-
-      // Determine required credits by parsing the message or based on the endpoint name
-      // E.g. "Insufficient credits. Required: 2. Please purchase more credits to continue."
-      let requiredCredits: number | undefined;
-      const match = errorMessage.match(/Required:\s*(\d+)/i);
-      if (match && match[1]) {
-        requiredCredits = parseInt(match[1], 10);
-      }
-
-      api.dispatch(
-        openCreditModal({
-          message: errorMessage,
-          requiredCredits,
-        }),
-      );
+    // 429 Too Many Requests with the usage-limit error code → open the usage-limit dialog.
+    // Judged on `error.code` alone, never by parsing `message` text.
+    if (payload?.status === 429 && payload?.data?.error?.code === ErrorCodes.UsageLimitExceeded) {
+      api.dispatch(openUsageLimitModal());
     }
   }
 

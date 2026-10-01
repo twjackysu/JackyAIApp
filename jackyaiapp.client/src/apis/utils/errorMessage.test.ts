@@ -12,9 +12,9 @@ describe('getApiErrorMessage', () => {
     expect(
       getApiErrorMessage({
         status: 403,
-        data: { error: { code: 1040300, message: 'Insufficient credits. Required: 2.' } },
+        data: { error: { code: 1040300, message: 'Forbidden.' } },
       }),
-    ).toBe('Insufficient credits. Required: 2.');
+    ).toBe('Forbidden.');
   });
 
   it('falls back when the JSON body is in some other shape', () => {

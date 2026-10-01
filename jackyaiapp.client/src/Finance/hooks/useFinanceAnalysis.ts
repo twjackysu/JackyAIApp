@@ -78,7 +78,7 @@ export function useFinanceAnalysis() {
     refetch,
     isFetching: isMarketFetching,
   } = useGetMarketDigestQuery(undefined, {
-    // Only fetch when the digest tab is active AND user is authenticated (charges credits).
+    // Only fetch when the digest tab is active AND user is authenticated (charges usage quota).
     skip: analysisTab !== TAB_MARKET_SUMMARY || !isAuthenticated,
   });
 
@@ -229,7 +229,7 @@ export function useFinanceAnalysis() {
   };
 
   // Deep link from Portfolio's HoldingDetailDrawer: `?symbol=2330&market=TW` pre-fills the
-  // search box, forces the free quantitative tab (never the credit-gated AI-trend tab), and
+  // search box, forces the free quantitative tab (never the usage-gated AI-trend tab), and
   // fires the search once. A plain `/finance` visit (no `symbol`) is unaffected.
   useEffect(() => {
     if (autoSearchFiredRef.current) return;

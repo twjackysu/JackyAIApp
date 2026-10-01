@@ -14,7 +14,6 @@ import {
   useRecordExamResultMutation,
 } from '@/apis/examApis';
 import { DictationGradeResponse } from '@/apis/examApis/types';
-import { CREDIT_COSTS } from '@/constants/creditCosts';
 import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
 import { useOneShotAudio } from '@/Exam/hooks/useOneShotAudio';
@@ -149,13 +148,6 @@ function DictationTestCard() {
               >
                 {isGrading ? '評分中...' : '送出'}
               </Button>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', mt: 0.5 }}
-              >
-                每次出題消耗 {CREDIT_COSTS.DICTATION_TEST} 點使用額度
-              </Typography>
             </Box>
           )}
         </CardContent>
@@ -185,13 +177,6 @@ function DictationTestCard() {
               <Button variant="contained" onClick={handleNext}>
                 換一題
               </Button>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', mt: 0.5 }}
-              >
-                下一題消耗 {CREDIT_COSTS.DICTATION_TEST} 點使用額度
-              </Typography>
             </Box>
           </CardContent>
         </Card>

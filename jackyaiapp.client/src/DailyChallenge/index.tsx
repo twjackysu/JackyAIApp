@@ -204,7 +204,6 @@ function DailyChallenge() {
           xpEarned={submitResult.xpEarned}
           newStreak={submitResult.newStreak}
           alreadyCompleted={submitResult.alreadyCompleted}
-          creditsAwarded={submitResult.creditsAwarded}
           streakFreezeUsed={submitResult.streakFreezeUsed}
           onReview={handleReview}
         />

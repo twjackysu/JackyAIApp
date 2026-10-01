@@ -18,7 +18,6 @@ import {
   useEvaluateSentenceMutation,
   useRecordExamResultMutation,
 } from '@/apis/examApis';
-import { CREDIT_COSTS } from '@/constants/creditCosts';
 import ExamRoundShell from '@/Exam/components/ExamRoundShell';
 import WordRecap from '@/Exam/components/WordRecap';
 import { useExamRound } from '@/Exam/hooks/useExamRound';
@@ -172,13 +171,6 @@ function SentenceTestCard() {
               >
                 {isEvaluating ? '評分中...' : '提交答案'}
               </Button>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', mt: 0.5 }}
-              >
-                AI 評分消耗 {CREDIT_COSTS.SENTENCE_EVALUATION} 點使用額度
-              </Typography>
             </Box>
             {/* A disabled button can't be hovered or tapped, so the reason it's locked is
                 printed under it instead of hidden in a tooltip. */}
@@ -282,13 +274,6 @@ function SentenceTestCard() {
               <Button variant="contained" onClick={handleNext}>
                 下一題
               </Button>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', mt: 0.5 }}
-              >
-                下一題消耗 {CREDIT_COSTS.SENTENCE_TEST} 點使用額度
-              </Typography>
             </Box>
           </CardContent>
         </Card>

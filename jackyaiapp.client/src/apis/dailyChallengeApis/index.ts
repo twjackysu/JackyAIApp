@@ -34,22 +34,8 @@ export const dailyChallengeApis = createApi({
       query: () => 'stats',
       providesTags: ['Stats'],
     }),
-    claimDailyBonus: builder.mutation<
-      ApiOkResponse<{ claimed: boolean; credits?: number; message?: string }>,
-      void
-    >({
-      query: () => ({
-        url: 'claim-daily-bonus',
-        method: 'POST',
-      }),
-      invalidatesTags: ['Stats'],
-    }),
   }),
 });
 
-export const {
-  useGetChallengeQuery,
-  useSubmitChallengeMutation,
-  useGetStatsQuery,
-  useClaimDailyBonusMutation,
-} = dailyChallengeApis;
+export const { useGetChallengeQuery, useSubmitChallengeMutation, useGetStatsQuery } =
+  dailyChallengeApis;

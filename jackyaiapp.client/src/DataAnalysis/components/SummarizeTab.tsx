@@ -213,8 +213,8 @@ export function SummarizeTab({
   const nlQueryRan = mode === 'ai' && nlInterpretation != null;
   const showResultsArea = activeHeaders.length > 0 || nlQueryRan;
 
-  // Ask AI requires login (every call consumes credits). When logged out, the Generate
-  // button sends the user to sign in instead of firing a request that would 401.
+  // Ask AI requires login. When logged out, the Generate button sends the user to sign in
+  // instead of firing a request that would 401.
   const handleGenerate = () => {
     if (!isLoggedIn) {
       window.location.href = `/api/account/login/Google?ReturnUrl=${encodeURIComponent(
@@ -420,10 +420,6 @@ export function SummarizeTab({
           >
             {!isLoggedIn ? '登入以使用 AI' : nlIsLoading ? '生成中…' : '生成'}
           </Button>
-
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5 }}>
-            {isLoggedIn ? '每次查詢消耗 2 點' : '需要登入．每次查詢消耗 2 點'}
-          </Typography>
         </Paper>
       )}
 

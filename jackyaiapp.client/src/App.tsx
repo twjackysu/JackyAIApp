@@ -6,12 +6,11 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { lazy, Suspense } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useLocation, useRoutes, type RouteObject } from 'react-router-dom';
+import { Navigate, useLocation, useRoutes, type RouteObject } from 'react-router-dom';
 
 import RequireAuth from './auth/RequireAuth';
-import Footer from './components/Footer';
 import LoginError from './components/LoginError';
-import InsufficientCreditsModal from './components/Modals/InsufficientCreditsModal';
+import UsageLimitModal from './components/Modals/UsageLimitModal';
 import UserProfileMenu from './components/UserProfileMenu';
 import {
   DATA_ANALYSIS,
@@ -29,7 +28,6 @@ import CenteredSpinner from '@/components/CenteredSpinner';
 // Feature pages are code-split so each route loads its own chunk on demand.
 const ListeningBankAdmin = lazy(() => import('./Admin/ListeningBank'));
 const Connectors = lazy(() => import('./Connectors'));
-const Credits = lazy(() => import('./Credits'));
 const DataAnalysis = lazy(() => import('./DataAnalysis'));
 const DashboardList = lazy(() => import('./Dashboard/DashboardList'));
 const DashboardView = lazy(() => import('./Dashboard/DashboardView'));
@@ -38,7 +36,6 @@ const Portfolio = lazy(() => import('./Portfolio'));
 const JobSearch = lazy(() => import('./JobSearch'));
 const PDFUnlocker = lazy(() => import('./PDFUnlocker'));
 const Portal = lazy(() => import('./Portal'));
-const Pricing = lazy(() => import('./Pricing'));
 const Slideshow = lazy(() => import('./Slideshow'));
 
 // Floating AI chatbot — available on every page (auth-gated internally).
@@ -62,14 +59,10 @@ const routes: RouteObject[] = [
       </RequireAuth>
     ),
   },
-  {
-    path: '/credits',
-    element: (
-      <RequireAuth>
-        <Credits />
-      </RequireAuth>
-    ),
-  },
+  // Credit/payment UI was removed (DECISION-007) — redirect old links to the portal
+  // instead of 404ing.
+  { path: '/credits', element: <Navigate to="/" replace /> },
+  { path: '/pricing', element: <Navigate to="/" replace /> },
   {
     path: PORTFOLIO.path,
     element: (
@@ -101,9 +94,6 @@ const routes: RouteObject[] = [
     ),
   },
   { path: '/login-error', element: <LoginError /> },
-  // Public — ECPay merchant review requires a visible pricing/fee disclosure page
-  // that doesn't require login to view.
-  { path: '/pricing', element: <Pricing /> },
 ];
 
 function App() {
@@ -114,8 +104,8 @@ function App() {
   // The home portal ("/") is the ONLY place users switch between apps.
   const isPortal = path === '/';
   const currentApp = getCurrentApp(path);
-  // Tools with nothing tied to an account and nothing to buy (see AppDef.standalone): the
-  // account menu and the pricing footer are just noise on them.
+  // Tools with nothing tied to an account (see AppDef.standalone): the account menu is just
+  // noise on them.
   const isStandalone = currentApp?.standalone === true;
 
   // The app's accent colour is used only as a subtle tint behind the icon —
@@ -171,9 +161,6 @@ function App() {
       <Box sx={{ p: 2 }}>
         <Suspense fallback={<CenteredSpinner sx={{ p: 4 }} />}>{element}</Suspense>
       </Box>
-      {/* The footer's pricing/contact link exists for ECPay merchant review, which needs it
-          reachable from the site — keep it on every page that sells or spends something. */}
-      {!isStandalone && <Footer />}
       {/* 懸浮 Chatbot — only on Finance: its Dify backend is wired to a TW-stock MCP server,
           so it can only answer stock questions and is out of place elsewhere. */}
       {currentApp?.name === FINANCE.name && (
@@ -181,7 +168,7 @@ function App() {
           <FloatingChatbot />
         </Suspense>
       )}
-      <InsufficientCreditsModal />
+      <UsageLimitModal />
     </>
   );
 }

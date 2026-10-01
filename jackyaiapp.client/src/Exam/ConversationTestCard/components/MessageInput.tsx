@@ -4,7 +4,6 @@ import { IconButton, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 import { ActionTooltip } from '@/components/hints';
-import { CREDIT_COSTS } from '@/constants/creditCosts';
 
 interface MessageInputProps {
   input: string;
@@ -72,13 +71,7 @@ function MessageInput({
           }}
         />
         <ActionTooltip
-          title={
-            mediaRecorder
-              ? isRecording
-                ? '點擊停止錄音'
-                : `點擊開始錄音（轉錄消耗 ${CREDIT_COSTS.AUDIO_TRANSCRIPTION} 點使用額度）`
-              : '麥克風無法使用'
-          }
+          title={mediaRecorder ? (isRecording ? '點擊停止錄音' : '點擊開始錄音') : '麥克風無法使用'}
           arrow
         >
           <IconButton
@@ -108,13 +101,6 @@ function MessageInput({
           正在轉換語音為文字...
         </Typography>
       )}
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ display: 'block', textAlign: 'center', mt: 0.5 }}
-      >
-        每輪 AI 回應消耗 {CREDIT_COSTS.CONVERSATION_RESPONSE} 點使用額度
-      </Typography>
     </Paper>
   );
 }

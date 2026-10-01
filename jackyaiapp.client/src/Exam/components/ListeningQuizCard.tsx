@@ -47,8 +47,6 @@ interface ListeningQuizCardProps {
   refetch: () => void;
   /** The instruction shown above the options ("聽4句描述，選出…"). */
   legend: string;
-  /** Credit cost of the next question, shown under the "下一題" button. */
-  creditCost: number;
   audioUrlForOption: (optionId: string) => string;
   /** Called once per question when the answer is submitted, so the card can record the
    * result with its own exam type and id field. */
@@ -79,7 +77,6 @@ function ListeningQuizCard({
   error,
   refetch,
   legend,
-  creditCost,
   audioUrlForOption,
   onAnswer,
   renderPrompt,
@@ -210,9 +207,6 @@ function ListeningQuizCard({
             <Button variant="contained" color="primary" onClick={handleNext}>
               下一題
             </Button>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              下一題消耗 {creditCost} 點使用額度
-            </Typography>
           </Box>
         </Box>
       )}

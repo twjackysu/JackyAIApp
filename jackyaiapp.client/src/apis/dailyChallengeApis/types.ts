@@ -41,7 +41,6 @@ export interface DailyChallengeSubmitResponse {
   streakUpdated: boolean;
   newStreak: number;
   alreadyCompleted: boolean;
-  creditsAwarded: number;
   /** True when a missed day was forgiven by spending a streak freeze. */
   streakFreezeUsed: boolean;
   /** Streak freezes remaining this week. */

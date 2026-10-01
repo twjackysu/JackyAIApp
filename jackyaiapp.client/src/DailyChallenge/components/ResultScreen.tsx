@@ -12,7 +12,6 @@ interface ResultScreenProps {
   xpEarned: number;
   newStreak: number;
   alreadyCompleted: boolean;
-  creditsAwarded: number;
   streakFreezeUsed?: boolean;
   onReview: () => void;
 }
@@ -23,7 +22,6 @@ function ResultScreen({
   xpEarned,
   newStreak,
   alreadyCompleted,
-  creditsAwarded,
   streakFreezeUsed,
   onReview,
 }: ResultScreenProps) {
@@ -81,7 +79,7 @@ function ResultScreen({
       >
         {score} / {totalQuestions}
       </Typography>
-      {/* XP + Streak + Credits */}
+      {/* XP + Streak */}
       {!alreadyCompleted && (
         <Stack
           direction="row"
@@ -124,24 +122,6 @@ function ResultScreen({
               {newStreak} day streak
             </Typography>
           </Box>
-          {creditsAwarded > 0 && (
-            <Box
-              sx={{
-                textAlign: 'center',
-              }}
-            >
-              <Typography variant="h4">💰</Typography>
-              <Typography
-                variant="h6"
-                color="#4CAF50"
-                sx={{
-                  fontWeight: 'bold',
-                }}
-              >
-                +{creditsAwarded} 使用額度
-              </Typography>
-            </Box>
-          )}
         </Stack>
       )}
       {streakFreezeUsed && (

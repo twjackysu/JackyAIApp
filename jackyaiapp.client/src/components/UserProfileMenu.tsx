@@ -1,14 +1,10 @@
-import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import LoginIcon from '@mui/icons-material/Login';
 import LogoutIcon from '@mui/icons-material/Logout';
-import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import PersonIcon from '@mui/icons-material/Person';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
   Avatar,
   Box,
   Button,
-  Chip,
   Divider,
   IconButton,
   Menu,
@@ -16,10 +12,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
-import { useGetCreditBalanceQuery } from '@/apis/creditApis';
 import { ActionTooltip } from '@/components/hints';
 
 function UserProfileMenu() {
@@ -27,9 +21,6 @@ function UserProfileMenu() {
   const open = Boolean(anchorEl);
 
   const { data: user, isLoading } = useGetUserInfoQuery();
-  const { data: creditData } = useGetCreditBalanceQuery(undefined, {
-    skip: !user?.data,
-  });
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -56,9 +47,6 @@ function UserProfileMenu() {
 
   const displayName = user?.data.name || user?.data.email || '';
   const isAuthenticated = !!displayName;
-  const creditBalance = creditData?.data?.balance ?? user?.data?.creditBalance ?? 0;
-
-  const isCreditLow = creditBalance > 0 && creditBalance < 50;
 
   return (
     <Box sx={{ ml: 2, display: 'flex', alignItems: 'center' }}>
@@ -68,43 +56,6 @@ function UserProfileMenu() {
         </Typography>
       ) : isAuthenticated ? (
         <>
-          {isCreditLow && (
-            <Button
-              component={Link}
-              to="/credits"
-              variant="contained"
-              color="warning"
-              size="small"
-              startIcon={<WarningAmberIcon />}
-              sx={{ mr: 2, display: { xs: 'none', md: 'flex' }, fontWeight: 'bold' }}
-            >
-              Buy Credits
-            </Button>
-          )}
-
-          <ActionTooltip title={`Credits: ${creditBalance} — Click to buy more`}>
-            <Chip
-              icon={<MonetizationOnIcon />}
-              label={creditBalance}
-              size="small"
-              color={creditBalance === 0 ? 'error' : isCreditLow ? 'warning' : 'success'}
-              variant="outlined"
-              component={Link}
-              to="/credits"
-              clickable
-              sx={{
-                mr: 1,
-                ...(isCreditLow
-                  ? {
-                      bgcolor: 'warning.light',
-                      color: 'warning.dark',
-                      borderColor: 'warning.main',
-                      '& .MuiChip-icon': { color: 'warning.dark' },
-                    }
-                  : {}),
-              }}
-            />
-          </ActionTooltip>
           <ActionTooltip title="Account menu">
             <IconButton
               onClick={handleClick}
@@ -148,34 +99,6 @@ function UserProfileMenu() {
             </Box>
           </MenuItem>
         )}
-
-        {isAuthenticated && (
-          <MenuItem disabled>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <MonetizationOnIcon sx={{ mr: 1 }} />
-              <Typography variant="body2">
-                Credits: <strong>{creditBalance}</strong>
-              </Typography>
-            </Box>
-          </MenuItem>
-        )}
-
-        <MenuItem
-          component={Link}
-          to="/credits"
-          onClick={handleClose}
-          sx={{
-            minWidth: 200,
-            '&:hover': { backgroundColor: 'action.hover' },
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <AddShoppingCartIcon sx={{ mr: 1 }} color="primary" />
-            <Typography variant="body2" sx={{ ml: 1 }} color="primary">
-              Buy Credits
-            </Typography>
-          </Box>
-        </MenuItem>
 
         {isAuthenticated && (
           <>

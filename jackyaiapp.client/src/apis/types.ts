@@ -8,6 +8,7 @@ export enum ErrorCodes {
   TheWordCannotBeFound = 1040004,
   Unauthorized = 1040100,
   Forbidden = 1040300,
+  UsageLimitExceeded = 1042900,
 }
 
 export interface ApiOkResponse<T> {

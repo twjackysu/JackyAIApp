@@ -3,17 +3,13 @@ import { configureStore } from '@reduxjs/toolkit';
 import { accountApis } from '@/apis/accountApis';
 import { chatbotApis } from '@/apis/chatbotApis';
 import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
-import { creditApis } from '@/apis/creditApis';
 import { dailyChallengeApis } from '@/apis/dailyChallengeApis';
 import { dashboardApis } from '@/apis/dashboardApis';
 import { dataAnalysisApis } from '@/apis/dataAnalysisApis';
 import { dictionaryApis } from '@/apis/dictionaryApis';
-import { ecpayApi } from '@/apis/ecpayApis';
 import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
 import { jobApis } from '@/apis/jobApis';
-import { paypalApi } from '@/apis/paypalApis';
-import { payuniApi } from '@/apis/payuniApis';
 import { portfolioApis } from '@/apis/portfolioApis';
 import { repositoryApis } from '@/apis/repositoryApis';
 import { reviewApis } from '@/apis/reviewApis';
@@ -38,11 +34,7 @@ const apiSlices = [
   financeApis,
   jobApis,
   connectorsApi,
-  creditApis,
   dashboardApis,
-  paypalApi,
-  ecpayApi,
-  payuniApi,
   dailyChallengeApis,
   reviewApis,
   statsApis,
