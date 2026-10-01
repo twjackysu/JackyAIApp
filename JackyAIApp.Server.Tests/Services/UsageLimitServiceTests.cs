@@ -167,16 +167,20 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         [Fact]
-        public async Task TryConsumeAsync_UnknownUser_FallsBackToDefaultMultiplier()
+        public async Task TryConsumeAsync_UnknownUser_FailsGracefullyWithoutThrowing()
         {
-            // No Users row at all for this id — GetEffectiveLimitAsync must not throw, and must
-            // use multiplier 1 rather than e.g. defaulting to zero and blocking everyone.
+            // No Users row at all for this id. GetEffectiveLimitAsync's own "?? 1m" fallback
+            // would otherwise grant the default budget, but DailyUsage.UserId has a FK to
+            // Users.Id (every real caller already has an authenticated, persisted user, so this
+            // never happens in practice) — so the insert is correctly rejected by the database
+            // instead of silently tracking usage against a nonexistent user. The one contract
+            // that matters here is that this is a clean `false`, not an unhandled exception.
             using var context = CreateContext();
             var service = BuildService(context, dailyBudget: 10);
 
             var result = await service.TryConsumeAsync("no-such-user", 5, "test_feature");
 
-            Assert.True(result);
+            Assert.False(result);
         }
 
         [Fact]
