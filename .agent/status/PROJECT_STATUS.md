@@ -2587,3 +2587,9 @@
 - 本 sandbox 無 `dotnet` SDK/DB 連線——以逐檔手動讀過 + migration Designer/Snapshot 逐行比對代替
   實際編譯驗證，PR 上仍需靠 CI 確認建置與測試通過。
 - PR：見 `TASK-021.md`。`TASK-022`（Frontend）現在可以依 429 + `UsageLimitExceeded` 契約開工。
+- Update：CI 第一輪 `build-and-test-server` 紅——抓到自己測試裡的真錯誤（非產品程式碼）：
+  `TryConsumeAsync_UnknownUser_FallsBackToDefaultMultiplier` 假設不存在的 user 仍會透過預設
+  multiplier 入帳，但 `DailyUsage.UserId` 的 FK 正確擋下該筆 insert（現實中呼叫者一定已有
+  persisted user）。修正測試斷言本身（改為「安全回傳 false、不拋例外」），未動 FK/production
+  code。已推送修正，`build-and-test-server`/`lint-and-build-client` 皆綠燈，`mergeable_state:
+  clean`，尚無 review comments，等待 Tech Lead/Boss review。

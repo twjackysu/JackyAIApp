@@ -103,6 +103,13 @@ Implemented as scoped in ARCHITECTURE.md "Credits & Payments 移除設計":
   justified by the acceptance criteria itself ("可用 in-memory/SQLite...說明取捨") and necessary
   because `ExecuteSqlInterpolatedAsync` throws immediately against the InMemory provider.
 
+### CI
+CI caught one real bug in my own test (not production code): `TryConsumeAsync_UnknownUser_FallsBackToDefaultMultiplier`
+assumed a user absent from `Users` would still get charged via the default multiplier, but `DailyUsage.UserId`'s FK to
+`Users.Id` correctly rejects that insert (every real caller already has a persisted user). Fixed the test to assert the
+actual, correct contract (clean `false`, no throw) instead of weakening the FK. Re-ran: `build-and-test-server` +
+`lint-and-build-client` both green, `mergeable_state: clean`.
+
 ### Known limitations / out of scope
 - No `dotnet` SDK/DB connectivity in this sandbox — compensated with a careful manual read-through
   of every changed file plus cross-checking the hand-written migration's Designer/Snapshot bodies
