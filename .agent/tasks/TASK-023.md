@@ -113,4 +113,10 @@ callers and is deployed). CI must still confirm an actual build + test run.
 ## PR
 https://github.com/twjackysu/JackyAIApp/pull/398
 
+Update: a docs-only PR (#397, Frontend's TASK-022 merge record) landed on `master` after this PR
+was opened, causing a `.agent/status/PROJECT_STATUS.md` text conflict (both appended to the end of
+the file). Merged `master` into this branch, resolved by keeping both log entries in chronological
+order, pushed. CI (`build-and-test-server` + `lint-and-build-client`) now green on the merge commit,
+`mergeable_state: clean`, no review comments. Waiting on Tech Lead/Boss review.
+
 ## Review
