@@ -2686,3 +2686,6 @@
   「orphaned：已無任何 DbSet/fluent config/導覽屬性引用，可直接刪除」，其餘改動照常 commit+push+
   開 PR。這不影響 migration 本身（`DropTable` 只看 SQL schema，不看 C# 檔案存不存在）。留了一個
   trivial 的待辦給下一輪：把這兩個已確認死碼的檔案真正刪除。
+- PR：[#400](https://github.com/twjackysu/JackyAIApp/pull/400)。CI（`build-and-test-server`/
+  `lint-and-build-client`，CI run #579）在目前 head（`17b5ba4`）上皆綠燈，`mergeable_state: clean`，
+  無 review comment。已訂閱 PR 活動，後續 CI/review 事件會自動推進；目前純等待人工 review。
