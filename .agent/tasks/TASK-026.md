@@ -91,7 +91,7 @@ Portfolio 頁首屏目前在 mount 時同時發出 `summary` + 3 個 `NetWorthHi
 無。
 
 ## PR
-（待建立後補上連結）
+https://github.com/twjackysu/JackyAIApp/pull/403 (branch `claude/tender-edison-art6fg`)
 
 ## Review
 （Tech Lead 填寫）
