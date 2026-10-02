@@ -7,7 +7,7 @@ Portfolio 後端效能：消除重複上游抓取與 cold-cache 併發重複請�
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM
@@ -179,4 +179,4 @@ Update：CI 重跑（head `b803cf6`）`build-and-test-server`/`lint-and-build-cl
 `mergeable_state: clean`，目前無 review comment。純等待人工 review，已訂閱 PR 活動。
 
 ## Review
-（Tech Lead 填寫）
+Tech Lead 2026-10-02：PR #404 已由 Boss 合併。單元測試已涵蓋 single-flight/取消語意/快取失效；CI 抓到的測試 key 衝突已修。實際效能改善未實測（無 dotnet/正式流量），建議部署後由 Boss 體感確認。

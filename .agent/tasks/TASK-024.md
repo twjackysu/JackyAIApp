@@ -7,7 +7,7 @@ DROP 點數/訂閱資料表與欄位（不可逆，需 Boss 確認）
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 LOW

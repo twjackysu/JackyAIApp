@@ -2760,3 +2760,9 @@
   「逐讀程式路徑推導」的估算取代（約 60–80% 的減少，視頁面載入時的實際併發時間差而定），並在
   Result 中明確標註這是估算而非量測；CI 需確認一次真正的 build + test。
 - PR：見 `TASK-025.md`。TASK-026（Frontend，圖表進入視窗才載入）為並行任務，未在本 PR 範圍內。
+
+## 2026-10-02 — Tech Lead：TASK-021~026 結案（排程執行）
+
+- 盤點：無 open PR。#403（TASK-026）、#404（TASK-025）皆已由 Boss 合併；TASK-021~026 狀態全部改為 `MERGED`。
+- Issue #401（Portfolio 效能）的兩項實作已上線（待部署完成）；實際速度改善未實測，留待 Boss 部署後體感回饋再決定是否續作。
+- 分類的剩餘項目：(Optional) FinancialChangesChart 預設 180→90 天以共用快取——顯示預設值變更，待 Boss 決定；(Technical Debt, trivial) 刪除孤立檔案 `CreditTransaction.cs`/`Subscription.cs`。兩者皆未開 task，等 Boss 對 #401 回覆後再處理。

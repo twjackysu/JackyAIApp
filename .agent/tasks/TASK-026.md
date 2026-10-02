@@ -7,7 +7,7 @@ Portfolio 前端效能：分批載入圖表、避免首屏同時打滿 API（Iss
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM
@@ -94,4 +94,4 @@ Portfolio 頁首屏目前在 mount 時同時發出 `summary` + 3 個 `NetWorthHi
 https://github.com/twjackysu/JackyAIApp/pull/403 (branch `claude/tender-edison-art6fg`)
 
 ## Review
-（Tech Lead 填寫）
+Tech Lead 2026-10-02：PR #403 已由 Boss 合併。LazyMount 設計合理（無新依賴、降級處理、tour 不受影響）。FinancialChangesChart 180→90 未採用，列為 Optional/Future Work，待 Boss 決定。

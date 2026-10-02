@@ -7,7 +7,7 @@
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH

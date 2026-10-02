@@ -7,7 +7,7 @@ Usage Limit：以每日用量預算取代扣點（後端新機制，與舊機制
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH
