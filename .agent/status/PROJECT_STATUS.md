@@ -2689,3 +2689,8 @@
 - PR：[#400](https://github.com/twjackysu/JackyAIApp/pull/400)。CI（`build-and-test-server`/
   `lint-and-build-client`，CI run #579）在目前 head（`17b5ba4`）上皆綠燈，`mergeable_state: clean`，
   無 review comment。已訂閱 PR 活動，後續 CI/review 事件會自動推進；目前純等待人工 review。
+- `#400` 已由 Boss 合併（2026-10-02T01:06:45Z）。觸發的 "Build and deploy" workflow run #493
+  開始執行中。**重要**：`Program.cs` 啟動時會自動 `dbContext.Database.Migrate()`，所以這個
+  DROP migration 會在部署完成、App Service 重啟後自動套用到正式環境 DB，不需要任何人手動跑
+  `dotnet ef database update`。這是不可逆動作，本 sandbox 無法確認 Boss 合併前是否已依任務要求
+  做 Azure SQL PITR 備份——已用推播通知告知使用者。
