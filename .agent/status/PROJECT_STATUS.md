@@ -2694,3 +2694,17 @@
   DROP migration 會在部署完成、App Service 重啟後自動套用到正式環境 DB，不需要任何人手動跑
   `dotnet ef database update`。這是不可逆動作，本 sandbox 無法確認 Boss 合併前是否已依任務要求
   做 Azure SQL PITR 備份——已用推播通知告知使用者。
+
+## 2026-10-02 — Tech Lead：Issue #401（Portfolio 載入太慢）分析並拆任務
+
+- Boss 開 Issue #401 要求檢視 Portfolio 效能（時間/空間複雜度、網路呼叫次數）。Tech Lead 讀碼分析（未實測）：
+  首屏同時發 5 支請求（summary、net-worth-history x2 不同 days、benchmark、drawdown），後端各自重複載入
+  snapshots、重複抓取同一批 symbol 的價格/NAV/股利，且 cache 無 single-flight，cold-cache 時併發重複打上游；
+  summary 的 shallow 與圖表的 deep 對同 symbol 各抓一次；TDCC/Cathay 匯率在 summary 內序列 await。
+  演算法本身（cursor 推進、日迴圈）已是線性，不是主要瓶頸，瓶頸在 I/O 次數。
+- 新增 `TASK-025`（Backend：single-flight、shallow/deep 共用、FX 平行化、snapshots 重用）與
+  `TASK-026`（Frontend：圖表進入視窗才載入）。兩者皆 `READY`、MEDIUM、無行為變更、不改 API 契約/TTL，
+  不需 Boss 決策。TASK-026 中「FinancialChangesChart 預設天數 180→90」屬顯示預設值，已註明需先確認。
+- TASK-024（#400）已合併；DROP migration 會在部署後由啟動時 `Migrate()` 自動套用，待確認 run #493 結果與
+  正式環境正常（Backend 前一輪已推播提醒 PITR 備份）。遺留小項：刪除 `CreditTransaction.cs`/`Subscription.cs`
+  兩個孤立死碼檔案（trivial，可併入 TASK-025 之外的後續清理）。
