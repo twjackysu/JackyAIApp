@@ -52,25 +52,32 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (cache.TryGetValue(cacheKey, out List<DividendRecord>? cached) && cached != null)
                 return cached;
 
-            List<DividendRecord> result;
-            if (upperMarket == "US")
+            // Single-flight: a cold cache can see this symbol requested by several Portfolio
+            // endpoints at once (same page load). The shared fetch runs with its own
+            // CancellationToken.None (see SingleFlight's doc) so one caller cancelling never cancels
+            // it for the others still waiting.
+            return await SingleFlight.RunAsync(cacheKey, async () =>
             {
-                result = await FetchYahooDividendsAsync(upperSymbol, ct) ?? [];
-            }
-            else
-            {
-                // TW has no listed/OTC flag in our data model, so try the listed suffix first and
-                // fall back to OTC — mirrors how a human would guess without extra lookups.
-                result = await FetchYahooDividendsAsync($"{upperSymbol}.TW", ct) ?? [];
-                if (result.Count == 0)
+                List<DividendRecord> result;
+                if (upperMarket == "US")
                 {
-                    var otc = await FetchYahooDividendsAsync($"{upperSymbol}.TWO", ct);
-                    if (otc != null) result = otc;
+                    result = await FetchYahooDividendsAsync(upperSymbol, CancellationToken.None) ?? [];
                 }
-            }
+                else
+                {
+                    // TW has no listed/OTC flag in our data model, so try the listed suffix first and
+                    // fall back to OTC — mirrors how a human would guess without extra lookups.
+                    result = await FetchYahooDividendsAsync($"{upperSymbol}.TW", CancellationToken.None) ?? [];
+                    if (result.Count == 0)
+                    {
+                        var otc = await FetchYahooDividendsAsync($"{upperSymbol}.TWO", CancellationToken.None);
+                        if (otc != null) result = otc;
+                    }
+                }
 
-            cache.Set(cacheKey, result, CacheTtl.Portfolio.Dividend);
-            return result;
+                cache.Set(cacheKey, result, CacheTtl.Portfolio.Dividend);
+                return result;
+            }, ct);
         }
 
         /// <summary>
@@ -138,50 +145,57 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (cache.TryGetValue(cacheKey, out List<DividendRecord>? cached) && cached != null)
                 return cached;
 
-            var result = new List<DividendRecord>();
-            try
+            // Single-flight: a cold cache can see this fundId requested by several Portfolio
+            // endpoints at once (same page load). The shared fetch runs with its own
+            // CancellationToken.None (see SingleFlight's doc) so one caller cancelling never cancels
+            // it for the others still waiting.
+            return await SingleFlight.RunAsync(cacheKey, async () =>
             {
-                var client = httpClientFactory.CreateClient("ExternalReadOnly");
-                using var req = new HttpRequestMessage(HttpMethod.Post, FUND_DIVIDEND_URL);
-                AddFundRichHeaders(req);
-                var payload = JsonSerializer.Serialize(new { data = new { fundId } });
-                req.Content = new StringContent(payload, Encoding.UTF8, "application/json");
-
-                using var resp = await client.SendAsync(req, ct);
-                resp.EnsureSuccessStatusCode();
-                var json = await resp.Content.ReadAsStringAsync(ct);
-
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("data", out var data) &&
-                    data.TryGetProperty("tableRow", out var tableRow) &&
-                    tableRow.TryGetProperty("history", out var history) &&
-                    history.ValueKind == JsonValueKind.Array)
+                var result = new List<DividendRecord>();
+                try
                 {
-                    foreach (var el in history.EnumerateArray())
-                    {
-                        var exDateStr = el.TryGetProperty("exDividendDate", out var ed) ? ed.GetString() : null;
-                        var amountStr = el.TryGetProperty("perUnitPrice", out var p) ? p.GetString() : null;
-                        if (string.IsNullOrWhiteSpace(exDateStr) || string.IsNullOrWhiteSpace(amountStr))
-                            continue;
-                        if (!DateTime.TryParseExact(exDateStr, "yyyy/MM/dd", CultureInfo.InvariantCulture,
-                                DateTimeStyles.None, out var exDate))
-                            continue;
-                        if (!decimal.TryParse(amountStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var amount) ||
-                            amount <= 0)
-                            continue;
+                    var client = httpClientFactory.CreateClient("ExternalReadOnly");
+                    using var req = new HttpRequestMessage(HttpMethod.Post, FUND_DIVIDEND_URL);
+                    AddFundRichHeaders(req);
+                    var payload = JsonSerializer.Serialize(new { data = new { fundId } });
+                    req.Content = new StringContent(payload, Encoding.UTF8, "application/json");
 
-                        // Currency intentionally blank — see DividendRecord.Currency doc.
-                        result.Add(new DividendRecord(DateOnly.FromDateTime(exDate), amount, ""));
+                    using var resp = await client.SendAsync(req, CancellationToken.None);
+                    resp.EnsureSuccessStatusCode();
+                    var json = await resp.Content.ReadAsStringAsync(CancellationToken.None);
+
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("data", out var data) &&
+                        data.TryGetProperty("tableRow", out var tableRow) &&
+                        tableRow.TryGetProperty("history", out var history) &&
+                        history.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var el in history.EnumerateArray())
+                        {
+                            var exDateStr = el.TryGetProperty("exDividendDate", out var ed) ? ed.GetString() : null;
+                            var amountStr = el.TryGetProperty("perUnitPrice", out var p) ? p.GetString() : null;
+                            if (string.IsNullOrWhiteSpace(exDateStr) || string.IsNullOrWhiteSpace(amountStr))
+                                continue;
+                            if (!DateTime.TryParseExact(exDateStr, "yyyy/MM/dd", CultureInfo.InvariantCulture,
+                                    DateTimeStyles.None, out var exDate))
+                                continue;
+                            if (!decimal.TryParse(amountStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var amount) ||
+                                amount <= 0)
+                                continue;
+
+                            // Currency intentionally blank — see DividendRecord.Currency doc.
+                            result.Add(new DividendRecord(DateOnly.FromDateTime(exDate), amount, ""));
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Fund dividend fetch failed for {FundId}", fundId);
-            }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Fund dividend fetch failed for {FundId}", fundId);
+                }
 
-            cache.Set(cacheKey, result, CacheTtl.Portfolio.Dividend);
-            return result;
+                cache.Set(cacheKey, result, CacheTtl.Portfolio.Dividend);
+                return result;
+            }, ct);
         }
 
         // FundRich rejects requests without a same-origin Referer/Origin (HTTP 406) — same

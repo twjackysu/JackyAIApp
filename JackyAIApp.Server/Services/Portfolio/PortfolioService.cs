@@ -35,6 +35,12 @@ namespace JackyAIApp.Server.Services.Portfolio
         private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
         private const string STOCK_CACHE_PREFIX = "portfolio_stock_";
+        private const string SNAPSHOTS_CACHE_PREFIX = "portfolio_snapshots_";
+
+        // Deliberately shorter than every other Portfolio TTL (CacheTtl.cs) — this only needs to
+        // survive one page-load burst of concurrent requests, not actually keep data "fresh" across
+        // user edits; SaveHoldingsAsync/DeleteSnapshotAsync invalidate it immediately regardless.
+        private static readonly TimeSpan SnapshotsCacheTtl = TimeSpan.FromSeconds(30);
 
         private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
@@ -97,6 +103,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             db.HoldingSnapshots.Add(snapshot);
             await db.SaveChangesAsync(ct);
+            cache.Remove(SNAPSHOTS_CACHE_PREFIX + userId);
         }
 
         public async Task<SaveHoldingsRequest> GetLatestHoldingsAsync(string userId, CancellationToken ct = default)
@@ -162,6 +169,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             db.HoldingSnapshots.Remove(snapshot); // cascade deletes positions
             await db.SaveChangesAsync(ct);
+            cache.Remove(SNAPSHOTS_CACHE_PREFIX + userId);
             return true;
         }
 
@@ -214,35 +222,31 @@ namespace JackyAIApp.Server.Services.Portfolio
             var stockMap = stockTask.Result;
             var fundMap = fundTask.Result;
 
-            // 集保 settlement rates for the fund currencies actually held. A fund bought through
+            // 集保 settlement rates for the fund currencies actually held, and 國泰世華 board rates
+            // for US stocks (keyed by the date of the close being priced — NOT today; 國泰 複委託
+            // states 總預估現值 = 股數 × 最新價 × 昨收匯率, so the rate that belongs to the quote is
+            // the one published for that quote's own day, not today's). Only funds settle through
+            // 集保; prices come from one shared fetch above, so in practice every US holding lands
+            // on the same date and cathayUsKeys is one lookup.
+            //
             // 基富通 is converted back to TWD at the rate 集保 negotiates with 華南銀行, so that is
             // what the holder really receives and what 基富通's own app displays — valuing it at a
             // mid-market rate instead put this app ~0.5% away from the number the user was
-            // reconciling against. Only funds; stocks do not settle through 集保.
-            var tdccRates = new Dictionary<string, decimal>();
-            if (tdccFx != null)
-            {
-                var fundCurrencies = fundMap.Values
+            // reconciling against.
+            //
+            // The two rate sets don't depend on each other (one reads fundMap, the other stockMap,
+            // both already fetched above), so their per-currency/per-date lookups all run together
+            // via Task.WhenAll instead of two sequential foreach+await loops.
+            List<string> tdccCurrencies = tdccFx == null
+                ? []
+                : fundMap.Values
                     .Select(n => n.Currency)
                     .Where(c => !string.IsNullOrWhiteSpace(c) && c != "TWD")
                     .Distinct()
                     .ToList();
-                foreach (var currency in fundCurrencies)
-                {
-                    var rate = await tdccFx.GetBuyRateAsync(currency, Today, ct);
-                    if (rate is > 0) tdccRates[currency] = rate.Value;
-                }
-            }
-
-            // 國泰世華 board rates for US stocks, keyed by the date of the close being priced —
-            // NOT today. 國泰 複委託 states 總預估現值 = 股數 × 最新價 × 昨收匯率, so the rate that
-            // belongs to the quote is the one published for that quote's own day; using today's
-            // would drift by a full session's move every evening. Prices come from one shared
-            // fetch, so in practice every US holding lands on the same date and this is one lookup.
-            var cathayRatesByDate = new Dictionary<(string Currency, DateOnly Date), decimal>();
-            if (cathayFx != null)
-            {
-                var usKeys = snapshot.Positions
+            List<(string Currency, DateOnly Date)> cathayUsKeys = cathayFx == null
+                ? []
+                : snapshot.Positions
                     .Where(p => p.AssetType == AssetType.STOCK && p.Currency == "USD"
                         && stockMap.ContainsKey(p.Symbol))
                     .Select(p => stockMap[p.Symbol].HistoricalPrices.LastOrDefault()?.Date)
@@ -250,12 +254,20 @@ namespace JackyAIApp.Server.Services.Portfolio
                     .Select(d => ("USD", DateOnly.FromDateTime(d!.Value)))
                     .Distinct()
                     .ToList();
-                foreach (var (currency, priceDate) in usKeys)
-                {
-                    var rate = await cathayFx.GetBuyRateAsync(currency, priceDate, ct);
-                    if (rate is > 0) cathayRatesByDate[(currency, priceDate)] = rate.Value;
-                }
-            }
+
+            var tdccRatesTask = Task.WhenAll(tdccCurrencies.Select(async currency =>
+                (Currency: currency, Rate: await tdccFx!.GetBuyRateAsync(currency, Today, ct))));
+            var cathayRatesTask = Task.WhenAll(cathayUsKeys.Select(async key =>
+                (Key: key, Rate: await cathayFx!.GetBuyRateAsync(key.Currency, key.Date, ct))));
+            await Task.WhenAll(tdccRatesTask, cathayRatesTask);
+
+            var tdccRates = new Dictionary<string, decimal>();
+            foreach (var (currency, rate) in tdccRatesTask.Result)
+                if (rate is > 0) tdccRates[currency] = rate.Value;
+
+            var cathayRatesByDate = new Dictionary<(string Currency, DateOnly Date), decimal>();
+            foreach (var (key, rate) in cathayRatesTask.Result)
+                if (rate is > 0) cathayRatesByDate[key] = rate.Value;
 
             // The 國泰世華 rate that goes with this holding's own quote, if we have one.
             decimal? CathayRateFor(HoldingPosition position, string currency)
@@ -1581,13 +1593,32 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .OrderByDescending(s => s.EffectiveDate)
                 .FirstOrDefaultAsync(ct);
 
-        /// <summary>Every snapshot for a user, oldest first — the full timeline, not just the latest.</summary>
-        private Task<List<HoldingSnapshot>> AllSnapshotsAsync(string userId, CancellationToken ct) =>
-            db.HoldingSnapshots
-                .Include(s => s.Positions)
-                .Where(s => s.UserId == userId)
-                .OrderBy(s => s.EffectiveDate)
-                .ToListAsync(ct);
+        /// <summary>
+        /// Every snapshot for a user, oldest first — the full timeline, not just the latest.
+        ///
+        /// A single page load (summary + net-worth-history ×2 + benchmark + drawdown) calls this
+        /// 5 times for the same user. Short-TTL cache + single-flight collapses that into one
+        /// Include(Positions) query per burst; the TTL is short enough that a stale read between
+        /// edits is not a real concern, and <see cref="SaveHoldingsAsync"/>/
+        /// <see cref="DeleteSnapshotAsync"/> invalidate it immediately anyway.
+        /// </summary>
+        private Task<List<HoldingSnapshot>> AllSnapshotsAsync(string userId, CancellationToken ct)
+        {
+            var key = SNAPSHOTS_CACHE_PREFIX + userId;
+            if (cache.TryGetValue(key, out List<HoldingSnapshot>? cached) && cached != null)
+                return Task.FromResult(cached);
+
+            return SingleFlight.RunAsync(key, async () =>
+            {
+                var snapshots = await db.HoldingSnapshots
+                    .Include(s => s.Positions)
+                    .Where(s => s.UserId == userId)
+                    .OrderBy(s => s.EffectiveDate)
+                    .ToListAsync(CancellationToken.None);
+                cache.Set(key, snapshots, SnapshotsCacheTtl);
+                return snapshots;
+            }, ct);
+        }
 
         /// <summary>
         /// Per-ex-date TWD dividends earned by the COST-TRACKED stock/fund positions only, for the
@@ -1938,25 +1969,44 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (cache.TryGetValue(key, out DTO.Finance.MarketData? cached) && cached != null)
                 return cached;
 
-            try
-            {
-                var region = providerFactory.DetectRegion(symbol);
-                var provider = providerFactory.GetMarketDataProvider(region);
-                // TW's provider chain already includes today's-price overlay as its outermost layer
-                // (TwTodayOverlayMarketDataProvider, see FinanceServiceExtensions) — every caller of
-                // IMarketDataProvider gets it, not just Portfolio, so nothing extra happens here.
-                var data = deep ? await provider.FetchAsync(symbol, ct) : await provider.FetchLatestAsync(symbol, ct);
+            // A shallow caller only ever reads the last point (see this method's own doc comment),
+            // and deep ⊇ latest, so if a deep fetch already landed for this symbol — likely from a
+            // concurrent chart/history request for the very same page load — reuse it instead of a
+            // second upstream hit. Not written back under the latest_ key: that cache must only ever
+            // hold a genuine shallow result (see the comment above).
+            if (!deep && cache.TryGetValue(STOCK_CACHE_PREFIX + "deep_" + symbol, out DTO.Finance.MarketData? deepCached) && deepCached != null)
+                return deepCached;
 
-                // Only cache a usable result; an empty fetch shouldn't suppress the next retry.
-                if (data.HistoricalPrices.Count > 0)
-                    cache.Set(key, data, CacheTtl.Portfolio.StockPrice);
-                return data;
-            }
-            catch (Exception ex)
+            // Single-flight: on a cold cache, the summary/net-worth/benchmark/drawdown endpoints for
+            // the same symbol land here concurrently (same page load). Only the first caller actually
+            // fetches; the rest await that one task. The underlying fetch runs with its own
+            // CancellationToken.None (see SingleFlight's doc) so one caller cancelling never cancels
+            // the fetch the others are still waiting on.
+            return await SingleFlight.RunAsync(key, async () =>
             {
-                logger.LogWarning(ex, "Failed to fetch price for {Symbol}", symbol);
-                return null;
-            }
+                try
+                {
+                    var region = providerFactory.DetectRegion(symbol);
+                    var provider = providerFactory.GetMarketDataProvider(region);
+                    // TW's provider chain already includes today's-price overlay as its outermost
+                    // layer (TwTodayOverlayMarketDataProvider, see FinanceServiceExtensions) — every
+                    // caller of IMarketDataProvider gets it, not just Portfolio, so nothing extra
+                    // happens here.
+                    var data = deep
+                        ? await provider.FetchAsync(symbol, CancellationToken.None)
+                        : await provider.FetchLatestAsync(symbol, CancellationToken.None);
+
+                    // Only cache a usable result; an empty fetch shouldn't suppress the next retry.
+                    if (data.HistoricalPrices.Count > 0)
+                        cache.Set(key, data, CacheTtl.Portfolio.StockPrice);
+                    return data;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to fetch price for {Symbol}", symbol);
+                    return null;
+                }
+            }, ct);
         }
 
         /// <summary>Fetch every distinct stock symbol in parallel; failed symbols are omitted.</summary>

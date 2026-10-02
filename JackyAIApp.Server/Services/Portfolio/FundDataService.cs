@@ -99,61 +99,68 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (cache.TryGetValue(cacheKey, out FundNavHistory? cached) && cached != null)
                 return cached;
 
-            try
+            // Single-flight: a cold cache can see this fundId requested by several Portfolio
+            // endpoints at once (same page load). The shared fetch runs with its own
+            // CancellationToken.None (see SingleFlight's doc) so one caller cancelling never cancels
+            // it for the others still waiting.
+            return await SingleFlight.RunAsync(cacheKey, async () =>
             {
-                var client = httpClientFactory.CreateClient("ExternalReadOnly");
-                using var req = new HttpRequestMessage(HttpMethod.Post, CHART_URL);
-                AddBrowserHeaders(req);
-                // "1Y" gives ~243 daily points; enough for the 180-day net-worth window.
-                var payload = JsonSerializer.Serialize(new { data = new { fundId, period = "1Y" } });
-                req.Content = new StringContent(payload, Encoding.UTF8, "application/json");
-
-                using var resp = await client.SendAsync(req, ct);
-                resp.EnsureSuccessStatusCode();
-                var json = await resp.Content.ReadAsStringAsync(ct);
-
-                using var doc = JsonDocument.Parse(json);
-                var root = doc.RootElement;
-                if (!root.TryGetProperty("data", out var data) ||
-                    !data.TryGetProperty("tableRow", out var tableRow))
-                    return null;
-
-                var currency = tableRow.TryGetProperty("currency", out var c) ? c.GetString() ?? "TWD" : "TWD";
-                var prices = new List<PricePoint>();
-                if (tableRow.TryGetProperty("priceHistory", out var ph) && ph.ValueKind == JsonValueKind.Array)
+                try
                 {
-                    foreach (var el in ph.EnumerateArray())
+                    var client = httpClientFactory.CreateClient("ExternalReadOnly");
+                    using var req = new HttpRequestMessage(HttpMethod.Post, CHART_URL);
+                    AddBrowserHeaders(req);
+                    // "1Y" gives ~243 daily points; enough for the 180-day net-worth window.
+                    var payload = JsonSerializer.Serialize(new { data = new { fundId, period = "1Y" } });
+                    req.Content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+                    using var resp = await client.SendAsync(req, CancellationToken.None);
+                    resp.EnsureSuccessStatusCode();
+                    var json = await resp.Content.ReadAsStringAsync(CancellationToken.None);
+
+                    using var doc = JsonDocument.Parse(json);
+                    var root = doc.RootElement;
+                    if (!root.TryGetProperty("data", out var data) ||
+                        !data.TryGetProperty("tableRow", out var tableRow))
+                        return null;
+
+                    var currency = tableRow.TryGetProperty("currency", out var c) ? c.GetString() ?? "TWD" : "TWD";
+                    var prices = new List<PricePoint>();
+                    if (tableRow.TryGetProperty("priceHistory", out var ph) && ph.ValueKind == JsonValueKind.Array)
                     {
-                        var dateStr = el.TryGetProperty("date", out var d) ? d.GetString() ?? "" : "";
-                        var priceStr = el.TryGetProperty("price", out var p) ? p.GetString() ?? "" : "";
-                        if (!DateTime.TryParseExact(dateStr, "yyyy/MM/dd", CultureInfo.InvariantCulture,
-                                DateTimeStyles.None, out var dt))
-                            continue;
-                        if (!decimal.TryParse(priceStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var price) || price <= 0)
-                            continue;
-                        prices.Add(new PricePoint
+                        foreach (var el in ph.EnumerateArray())
                         {
-                            Date = dt.ToString("yyyy-MM-dd"),
-                            Close = price,
-                            High = price,
-                            Low = price,
-                        });
+                            var dateStr = el.TryGetProperty("date", out var d) ? d.GetString() ?? "" : "";
+                            var priceStr = el.TryGetProperty("price", out var p) ? p.GetString() ?? "" : "";
+                            if (!DateTime.TryParseExact(dateStr, "yyyy/MM/dd", CultureInfo.InvariantCulture,
+                                    DateTimeStyles.None, out var dt))
+                                continue;
+                            if (!decimal.TryParse(priceStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var price) || price <= 0)
+                                continue;
+                            prices.Add(new PricePoint
+                            {
+                                Date = dt.ToString("yyyy-MM-dd"),
+                                Close = price,
+                                High = price,
+                                Low = price,
+                            });
+                        }
                     }
+
+                    if (prices.Count == 0) return null;
+                    // API returns newest-first; normalize to ascending by date.
+                    prices.Sort((a, b) => string.CompareOrdinal(a.Date, b.Date));
+
+                    var result = new FundNavHistory(currency, prices);
+                    cache.Set(cacheKey, result, CacheTtl.Portfolio.FundRich);
+                    return result;
                 }
-
-                if (prices.Count == 0) return null;
-                // API returns newest-first; normalize to ascending by date.
-                prices.Sort((a, b) => string.CompareOrdinal(a.Date, b.Date));
-
-                var result = new FundNavHistory(currency, prices);
-                cache.Set(cacheKey, result, CacheTtl.Portfolio.FundRich);
-                return result;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Fund NAV history failed for {FundId}", fundId);
-                return null;
-            }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Fund NAV history failed for {FundId}", fundId);
+                    return null;
+                }
+            }, ct);
         }
     }
 }
