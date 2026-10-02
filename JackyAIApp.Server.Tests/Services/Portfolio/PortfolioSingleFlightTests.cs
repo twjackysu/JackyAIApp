@@ -82,14 +82,22 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Fact]
         public async Task LookupStockAsync_ConcurrentCallsSameSymbol_OnlyFetchesUpstreamOnce()
         {
+            // SingleFlight's de-dup table is process-wide by design (see its own doc comment) —
+            // correct for production (the same symbol really is the same upstream fetch no matter
+            // which request triggers it), but it means a symbol held "in flight" here for any
+            // length of time is a shared key every other test in this assembly could collide with
+            // if xUnit happens to run them concurrently. A GUID-based symbol can never collide with
+            // another test's fixture data (a real bug this exact test caught once already — see
+            // the FundDataService/DividendService concurrency tests for the same reasoning).
+            var symbol = $"SF{Guid.NewGuid():N}"[..12].ToUpperInvariant();
             var callCount = 0;
             var gate = new TaskCompletionSource();
             var data = new MarketData
             {
-                StockCode = "2330",
+                StockCode = symbol,
                 HistoricalPrices = [new DailyPrice { Date = DateTime.UtcNow, Close = 500m }],
             };
-            _provider.Setup(p => p.FetchLatestAsync("2330", It.IsAny<CancellationToken>()))
+            _provider.Setup(p => p.FetchLatestAsync(symbol, It.IsAny<CancellationToken>()))
                 .Returns(async () =>
                 {
                     Interlocked.Increment(ref callCount);
@@ -98,7 +106,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 });
 
             var calls = Enumerable.Range(0, 5)
-                .Select(_ => _service.LookupStockAsync("TW", "2330"))
+                .Select(_ => _service.LookupStockAsync("TW", symbol))
                 .ToList();
 
             await Task.Delay(50); // let every call reach the cache-miss/single-flight path first
@@ -114,33 +122,37 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Fact]
         public async Task LookupStockAsync_AfterDeepFetchAlreadyCached_ReusesItWithoutALatestOnlyFetch()
         {
+            // Unique symbol — see the comment in the test above for why a shared fixture symbol
+            // (e.g. "2330") would risk colliding with another test through SingleFlight's
+            // process-wide de-dup table.
+            var symbol = $"SF{Guid.NewGuid():N}"[..12].ToUpperInvariant();
             var data = new MarketData
             {
-                StockCode = "2330",
+                StockCode = symbol,
                 HistoricalPrices =
                 [
                     new DailyPrice { Date = DateTime.UtcNow.AddDays(-1), Close = 490m },
                     new DailyPrice { Date = DateTime.UtcNow, Close = 500m },
                 ],
             };
-            _provider.Setup(p => p.FetchAsync("2330", It.IsAny<CancellationToken>())).ReturnsAsync(data);
+            _provider.Setup(p => p.FetchAsync(symbol, It.IsAny<CancellationToken>())).ReturnsAsync(data);
             await SeedSnapshotAsync(new HoldingPosition
             {
-                AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                AssetType = AssetType.STOCK, Symbol = symbol, Name = "台積電",
                 Market = "TW", Currency = "TWD", Quantity = 10, CostBasis = 4_000,
             });
 
             // Deep fetch (price-history chart) populates the deep_ cache.
-            var history = await _service.GetHoldingPriceHistoryAsync(TestUserId, "TW", "2330");
+            var history = await _service.GetHoldingPriceHistoryAsync(TestUserId, "TW", symbol);
             Assert.NotNull(history);
 
             // A shallow caller for the same symbol must be served from the deep cache instead of
             // issuing its own latest-only fetch.
-            var lookup = await _service.LookupStockAsync("TW", "2330");
+            var lookup = await _service.LookupStockAsync("TW", symbol);
 
             Assert.Equal(500m, lookup!.CurrentPrice);
             _provider.Verify(p => p.FetchLatestAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-            _provider.Verify(p => p.FetchAsync("2330", It.IsAny<CancellationToken>()), Times.Once);
+            _provider.Verify(p => p.FetchAsync(symbol, It.IsAny<CancellationToken>()), Times.Once);
         }
 
         // ── Snapshots cache (AllSnapshotsAsync) ─────────────────────────────

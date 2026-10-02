@@ -32,9 +32,21 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             }
         }
 
+        /// <summary>
+        /// SingleFlight's de-dup table (see Common/SingleFlight.cs) is process-wide by design —
+        /// correct for production, since the same fundId/symbol really is the same upstream fetch
+        /// no matter which request triggers it. But it means a key held "in flight" for any length
+        /// of time (as these tests deliberately do, to force real overlap) is a shared key any
+        /// other test in this assembly could collide with if xUnit runs them concurrently and
+        /// happens to reuse the same literal fixture id/symbol (e.g. "ALI006", "AAPL" — both used
+        /// elsewhere in this suite). A fresh GUID per test run can never collide with anything.
+        /// </summary>
+        private static string UniqueId() => $"SF{Guid.NewGuid():N}"[..12];
+
         [Fact]
         public async Task FundDataService_GetFundNavHistoryAsync_ConcurrentCallsSameFundId_OnlyFetchesUpstreamOnce()
         {
+            var fundId = UniqueId();
             const string json = """
             {"data":{"tableRow":{"currency":"TWD","priceHistory":[{"date":"2026/03/02","price":"18.50"}]}}}
             """;
@@ -45,7 +57,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var service = new FundDataService(
                 httpClientFactory.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<FundDataService>.Instance);
 
-            var calls = Enumerable.Range(0, 5).Select(_ => service.GetFundNavHistoryAsync("ALI006")).ToList();
+            var calls = Enumerable.Range(0, 5).Select(_ => service.GetFundNavHistoryAsync(fundId)).ToList();
             await Task.Delay(50);
             gate.SetResult();
             var results = await Task.WhenAll(calls);
@@ -57,6 +69,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Fact]
         public async Task DividendService_GetStockDividendsAsync_ConcurrentCallsSameSymbol_OnlyFetchesUpstreamOnce()
         {
+            var symbol = UniqueId();
             const string json = """
             {"chart":{"result":[{"meta":{"currency":"USD"},"events":{"dividends":{"1754919000":{"amount":0.26,"date":1754919000}}}}]}}
             """;
@@ -67,7 +80,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var service = new DividendService(
                 httpClientFactory.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<DividendService>.Instance);
 
-            var calls = Enumerable.Range(0, 5).Select(_ => service.GetStockDividendsAsync("AAPL", "US")).ToList();
+            var calls = Enumerable.Range(0, 5).Select(_ => service.GetStockDividendsAsync(symbol, "US")).ToList();
             await Task.Delay(50);
             gate.SetResult();
             var results = await Task.WhenAll(calls);
@@ -79,6 +92,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Fact]
         public async Task DividendService_GetFundDividendsAsync_ConcurrentCallsSameFundId_OnlyFetchesUpstreamOnce()
         {
+            var fundId = UniqueId();
             const string json = """
             {"data":{"tableRow":{"history":[{"exDividendDate":"2026/01/15","perUnitPrice":"0.5"}]}}}
             """;
@@ -89,7 +103,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var service = new DividendService(
                 httpClientFactory.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<DividendService>.Instance);
 
-            var calls = Enumerable.Range(0, 5).Select(_ => service.GetFundDividendsAsync("ALI006")).ToList();
+            var calls = Enumerable.Range(0, 5).Select(_ => service.GetFundDividendsAsync(fundId)).ToList();
             await Task.Delay(50);
             gate.SetResult();
             var results = await Task.WhenAll(calls);
