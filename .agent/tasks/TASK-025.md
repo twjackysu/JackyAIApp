@@ -175,5 +175,8 @@ Update：CI 第一輪 `build-and-test-server` 紅——抓到自己測試裡的�
 改用 `Guid.NewGuid()` 產生的唯一 id/symbol，不再用任何其他測試可能重複使用的寫實字串。已推送
 修正（commit `e9ec70f`），等待 CI 重跑確認。
 
+Update：CI 重跑（head `b803cf6`）`build-and-test-server`/`lint-and-build-client` 皆綠燈，
+`mergeable_state: clean`，目前無 review comment。純等待人工 review，已訂閱 PR 活動。
+
 ## Review
 （Tech Lead 填寫）
