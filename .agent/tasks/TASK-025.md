@@ -158,5 +158,22 @@ drawdown 五支 API，持有 N 個股票 symbol、M 個基金）：
 ## PR
 https://github.com/twjackysu/JackyAIApp/pull/404
 
+Update：CI 第一輪 `build-and-test-server` 紅——抓到自己測試裡的真錯誤（非產品程式碼）：
+`FundDataServiceTests.GetFundNavHistoryAsync_ParsesPriceHistoryAndSortsAscending` 失敗（預期 2 筆
+價格，實際 1 筆）。根因：`SingleFlight.InFlight` 依設計是 process-wide 的全域去重表（這對正式環境
+是對的——同一個 fundId/symbol 本來就該被視為同一次上游呼叫，不管哪個 request 觸發），但這代表任何
+一個測試把某個 key「卡在 in-flight 狀態」一段時間，就會變成整個測試組件（assembly）裡任何其他
+測試都可能撞上的共用 key。我新增的 `FundDividendSingleFlightTests`
+（`FundDataService_GetFundNavHistoryAsync_ConcurrentCallsSameFundId_OnlyFetchesUpstreamOnce`）刻意
+用 `TaskCompletionSource` 把 `"ALI006"` 這個 key 卡住 50ms 以確保 5 個併發呼叫真的重疊——但
+`"ALI006"`/`"AAPL"`/`"2330"` 這些寫實的 fixture 值同時也被其他既有測試檔（像
+`FundDataServiceTests`、`DividendServiceTests`）用來跑不同的 mock 資料。xUnit 併發跑測試類別時，
+剛好撞上同一個 key，另一個測試的呼叫就接到了我測試卡住的那個共用 Task，拿到我 mock 的 1 筆資料
+而不是它自己預期的 2 筆。
+修正：4 個刻意卡住 key 的併發測試（`PortfolioSingleFlightTests.cs` 2 個、
+`FundDividendSingleFlightTests.cs` 3 個，但其中一個原本就沒有卡住視窗，一併處理以防微杜漸）全部
+改用 `Guid.NewGuid()` 產生的唯一 id/symbol，不再用任何其他測試可能重複使用的寫實字串。已推送
+修正（commit `e9ec70f`），等待 CI 重跑確認。
+
 ## Review
 （Tech Lead 填寫）
