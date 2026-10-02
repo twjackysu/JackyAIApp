@@ -2709,6 +2709,25 @@
   正式環境正常（Backend 前一輪已推播提醒 PITR 備份）。遺留小項：刪除 `CreditTransaction.cs`/`Subscription.cs`
   兩個孤立死碼檔案（trivial，可併入 TASK-025 之外的後續清理）。
 
+## 2026-10-02 — Frontend：TASK-026 實作（Portfolio 圖表進入視窗才載入）
+
+- 排程執行 Frontend Engineer：盤點 `.agent/tasks/`，TASK-022 的 PR #395 已合併（CI 全綠、無 review
+  comment），目前 repo 無任何 open PR；TASK-026（Frontend/READY，與 TASK-025 可並行）為唯一可動工項目。
+- 新增 `Portfolio/LazyMount.tsx`：`IntersectionObserver` 延後掛載（`rootMargin: 200px`，一旦進入視窗
+  永久掛載不再卸載，無 `IntersectionObserver` 時直接掛載降級），未掛載時顯示固定 `minHeight` 的
+  `CenteredSpinner` placeholder。無新依賴。
+- `Portfolio/index.tsx`：把會自己發 query 的 5 個圖表（`NetWorthTrendChart`/`NetWorthChart`/
+  `FinancialChangesChart`/`BenchmarkChart`/`DrawdownChart`）包進 `LazyMount`；吃 `summary` 既有資料、
+  本身不發 query 的 4 個（`ContributionWaterfallChart`/`ConcentrationCard`/`RebalancingCard`/
+  `FireCard`）維持原樣。`data-tour="portfolio-tour-chart"` 留在 `ChartSectionCard` 本身（在
+  `LazyMount` 外），導覽 `scrollIntoView` 本身就會觸發掛載，不需特殊處理。
+- Requirement 2（`FinancialChangesChart` 180→90 共用快取）依任務指示**未自行採用**，回報留給 Tech
+  Lead/PM 決定是否另開 task。
+- 首屏請求數：mount 時從 5 個請求（summary + 2 個 NetWorthHistory + benchmark + drawdown）降到
+  1 個（僅 summary）；其餘 4 個延後到捲動到對應圖表時才各自觸發。
+- 新增 `Portfolio/LazyMount.test.tsx`（4 tests）。`npm run test` 31 files/226 tests 全過、
+  `npm run lint` 0 errors、`npm run build` 成功。
+- Status 改為 `PR_OPENED`，PR 連結與完整細節見 `TASK-026.md` Result。
 ## 2026-10-02 — Backend Engineer：TASK-025 實作並送出 PR（scheduled run）
 
 - 開工前確認：TASK-025 為 `READY`、無 open PR 觸及、無依賴，為本輪唯一可開工的 Backend 任務

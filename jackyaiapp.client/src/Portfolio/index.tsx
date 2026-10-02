@@ -28,6 +28,7 @@ import { FinancialChangesChart } from './FinancialChangesChart';
 import { FireCard } from './FireCard';
 import { HoldingDetailDrawer } from './HoldingDetailDrawer';
 import { HoldingsEditor } from './HoldingsEditor';
+import { LazyMount } from './LazyMount';
 import { NetWorthChart } from './NetWorthChart';
 import { NetWorthTrendChart } from './NetWorthTrendChart';
 import { usePortfolioTour } from './onboardingTour';
@@ -601,19 +602,27 @@ export default function Portfolio() {
                 ("how much moved this period?"). The composition chart alone used to carry all
                 three jobs, which is why a 20k move against 10M of assets was invisible on it. */}
             <ChartSectionCard title="淨值走勢">
-              <NetWorthTrendChart />
+              <LazyMount minHeight={320}>
+                <NetWorthTrendChart />
+              </LazyMount>
             </ChartSectionCard>
 
             <ChartSectionCard title="資產與負債組成" data-tour="portfolio-tour-chart">
-              <NetWorthChart />
+              <LazyMount minHeight={400}>
+                <NetWorthChart />
+              </LazyMount>
             </ChartSectionCard>
 
             <ChartSectionCard title="淨值變化量">
-              <FinancialChangesChart />
+              <LazyMount minHeight={320}>
+                <FinancialChangesChart />
+              </LazyMount>
             </ChartSectionCard>
 
             <ChartSectionCard title="大盤對照">
-              <BenchmarkChart />
+              <LazyMount minHeight={360}>
+                <BenchmarkChart />
+              </LazyMount>
             </ChartSectionCard>
 
             <ChartSectionCard title="報酬貢獻度">
@@ -621,7 +630,9 @@ export default function Portfolio() {
             </ChartSectionCard>
 
             <ChartSectionCard title="回撤分析">
-              <DrawdownChart />
+              <LazyMount minHeight={300}>
+                <DrawdownChart />
+              </LazyMount>
             </ChartSectionCard>
 
             <ChartSectionCard title="持股集中度">
