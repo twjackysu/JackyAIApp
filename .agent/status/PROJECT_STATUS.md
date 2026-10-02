@@ -2728,3 +2728,35 @@
 - 新增 `Portfolio/LazyMount.test.tsx`（4 tests）。`npm run test` 31 files/226 tests 全過、
   `npm run lint` 0 errors、`npm run build` 成功。
 - Status 改為 `PR_OPENED`，PR 連結與完整細節見 `TASK-026.md` Result。
+## 2026-10-02 — Backend Engineer：TASK-025 實作並送出 PR（scheduled run）
+
+- 開工前確認：TASK-025 為 `READY`、無 open PR 觸及、無依賴，為本輪唯一可開工的 Backend 任務
+  （TASK-021/023/024 均已 `PR_OPENED` 且已合併部署，只待 Tech Lead/Boss 正式結案）。
+- 依 Requirements 四項全部處理：
+  1. 新增 `Common/SingleFlight.cs`（`ConcurrentDictionary` + `Lazy<Task<T>>` 的泛型 cold-cache
+     去重工具，未引入新套件），套用到 `PortfolioService.FetchStockDataAsync`、
+     `FundDataService.GetFundNavHistoryAsync`、`DividendService.Get{Stock,Fund}DividendsAsync`
+     四個取得路徑；共用 fetch 一律以 `CancellationToken.None` 執行，只有「等待」那一步看呼叫者
+     自己的 `ct`，確保一個呼叫者取消不影響其他仍在等待同一結果的呼叫者。
+  2. `FetchStockDataAsync` 的 shallow 路徑在自己的 `latest_` cache 未命中時，先檢查 `deep_` cache
+     是否已有結果，命中就直接重用（deep ⊇ latest），不另外呼叫上游。
+  3. `GetPortfolioSummaryAsync` 內 TDCC/Cathay 兩段原本序列的 foreach+await 迴圈，改成兩組各自
+     `Task.WhenAll` 後再一起 `Task.WhenAll`——兩組彼此不互相依賴（分別只讀已就緒的 fundMap/
+     stockMap），可安全平行跑；呼叫次數不變，省的是等待時間。
+  4. `AllSnapshotsAsync` 加 30 秒短 TTL 快取 + 同一套 single-flight，`SaveHoldingsAsync`/
+     `DeleteSnapshotAsync` 成功後立即 `cache.Remove` 失效——評估後判斷失效邏輯並不複雜（兩者本來
+     就在同一個類別、已注入同一個 `IMemoryCache`），因此沒有採用任務允許的「若複雜度過高則不做」
+     退路。
+- 不改 API 契約、不改 `CacheTtl.cs` 既有任何值（新加的 30 秒 TTL 是全新常數）；回傳 DTO 數值無任何
+  邏輯變動，純粹減少重複的上游/DB 呼叫次數與等待時間。
+- 測試：新增 `Common/SingleFlightTests.cs`（去重機制本身：同 key 併發收斂、不同 key 各自觸發、
+  完成後重新觸發、失敗傳播給所有等待者且不卡住重試、一個呼叫者取消不影響其他等待者）、
+  `Services/Portfolio/PortfolioSingleFlightTests.cs`（股票報價 single-flight、shallow/deep 共用、
+  snapshots 快取讀取與 Save/Delete 失效）、`Services/Portfolio/FundDividendSingleFlightTests.cs`
+  （FundDataService/DividendService 三個取得路徑的併發去重，以本地 `GatedHandler` 真正讓請求重疊
+  而非依序完成）。確認既有 Portfolio 測試（FX、NetWorth、Drawdown、Benchmark、FeeTax 等）在新快取
+  下不會讀到過期資料（逐一確認每個 `[Fact]` 的呼叫次數與資料是否在呼叫間有變動）。
+- 本 sandbox 無 `dotnet` SDK，無法實測改動前後的真實上游呼叫次數，PR/TASK-025.md 的 Result 以
+  「逐讀程式路徑推導」的估算取代（約 60–80% 的減少，視頁面載入時的實際併發時間差而定），並在
+  Result 中明確標註這是估算而非量測；CI 需確認一次真正的 build + test。
+- PR：見 `TASK-025.md`。TASK-026（Frontend，圖表進入視窗才載入）為並行任務，未在本 PR 範圍內。
