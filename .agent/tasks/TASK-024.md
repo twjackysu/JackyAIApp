@@ -121,4 +121,15 @@ Tech Lead 直接 `rm` + commit 刪除即可，不需要重新設計或重跑 mig
 ## PR
 https://github.com/twjackysu/JackyAIApp/pull/400
 
+Update：`#400` 已由 Boss 合併（2026-10-02T01:06:45Z，`pull_request.closed`/`merged`
+事件，session 自動取消訂閱）。觸發的 "Build and deploy" workflow run #493 已開始
+執行中，尚未確認結果。**重要**：`Program.cs` 在啟動時會自動呼叫
+`dbContext.Database.Migrate()`，所以這個 migration（DROP `CreditTransactions`/
+`Subscriptions` 兩張表 + `Users.CreditBalance`/`TotalCreditsUsed` 兩個欄位）會在
+部署的 App Service 重啟後自動套用到正式環境 DB，**不需要任何人手動執行
+`dotnet ef database update`**。這是不可逆動作——本任務的 Result 已提醒過套用
+前應先做 Azure SQL PITR 備份，但此 sandbox 無法確認 Boss 合併前是否已完成備份。
+不自行把 `Status:` 改成 `MERGED`，依 SOP（§10/§18）維持 `PR_OPENED`，留給 Tech
+Lead/Boss 正式結案；本條記錄即合併事實。
+
 ## Review
