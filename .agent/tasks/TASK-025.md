@@ -156,7 +156,7 @@ drawdown 五支 API，持有 N 個股票 symbol、M 個基金）：
 - 前端部分（TASK-026，圖表進入視窗才載入）為並行任務，未在本 PR 範圍內。
 
 ## PR
-（待開立後補上連結）
+https://github.com/twjackysu/JackyAIApp/pull/404
 
 ## Review
 （Tech Lead 填寫）
