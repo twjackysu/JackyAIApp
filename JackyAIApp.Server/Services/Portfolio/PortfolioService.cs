@@ -635,11 +635,6 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         // ── Net worth history ────────────────────────────────────────────────
 
-        /// <summary>Longest window the explicit-date overload of GetNetWorthHistoryAsync will walk —
-        /// the same ~3 years drawdown analysis allows, since both read the same deep price
-        /// history.</summary>
-        public const int MaxNetWorthRangeDays = 1095;
-
         public Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(
             string userId, int days, NetWorthGroupBy groupBy = NetWorthGroupBy.AssetType, CancellationToken ct = default)
         {
@@ -659,7 +654,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         ///   <item>no <paramref name="from"/> → one calendar month before the end</item>
         ///   <item>from after to → swapped</item>
         ///   <item>from before the user's first snapshot → starts at the first snapshot</item>
-        ///   <item>wider than <see cref="MaxNetWorthRangeDays"/> → the most recent part of it</item>
+        ///   <item>longer than one year → the most recent year of it</item>
         /// </list>
         /// </summary>
         public Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(
@@ -672,7 +667,11 @@ namespace JackyAIApp.Server.Services.Portfolio
             var end = to is { } requestedEnd && requestedEnd < today ? requestedEnd : today;
             var start = from ?? end.AddMonths(-1);
             if (start > end) start = end; // a start in the future: show the one day there is
-            if (end.DayNumber - start.DayNumber > MaxNetWorthRangeDays) start = end.AddDays(-MaxNetWorthRangeDays);
+            // At most one calendar year. The chart's own inputs already keep within it; this is the
+            // limit for any other caller, so an arbitrary from/to can't make one request walk years
+            // of daily valuations.
+            var earliest = end.AddYears(-1);
+            if (start < earliest) start = earliest;
 
             return GetNetWorthHistoryCoreAsync(userId, start, end, groupBy, ct);
         }

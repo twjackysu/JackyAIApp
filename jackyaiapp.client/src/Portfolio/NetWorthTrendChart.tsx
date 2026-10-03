@@ -5,7 +5,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import { DateRange, defaultRange, firstRecordDate, localToday } from './netWorthRange';
+import { applyEdit, DateRange, defaultRange, firstRecordDate, localToday } from './netWorthRange';
 import { toLiquidNetWorthSeries } from './netWorthSeries';
 import { MASK, usePrivacy } from './privacy';
 
@@ -114,12 +114,12 @@ export function NetWorthTrendChart() {
           type="date"
           label="起始日"
           value={range.from}
-          // Native pickers honour min/max; a typed-in date outside them is still sent, and the
-          // server resolves it (clamps to the first record / today, swaps an inverted pair).
-          onChange={(e) => e.target.value && setPicked({ ...range, from: e.target.value })}
+          // Both inputs span first record → today; ordering and the one-year limit are kept by
+          // moving the *other* date (applyEdit), so any date in that span can be picked directly.
+          onChange={(e) => e.target.value && setPicked(applyEdit(range, 'from', e.target.value))}
           slotProps={{
             inputLabel: { shrink: true },
-            htmlInput: { min: firstRecord, max: range.to },
+            htmlInput: { min: firstRecord, max: today },
           }}
           sx={{ width: 160 }}
         />
@@ -128,10 +128,10 @@ export function NetWorthTrendChart() {
           type="date"
           label="結束日"
           value={range.to}
-          onChange={(e) => e.target.value && setPicked({ ...range, to: e.target.value })}
+          onChange={(e) => e.target.value && setPicked(applyEdit(range, 'to', e.target.value))}
           slotProps={{
             inputLabel: { shrink: true },
-            htmlInput: { min: range.from, max: today },
+            htmlInput: { min: firstRecord, max: today },
           }}
           sx={{ width: 160 }}
         />
@@ -167,7 +167,8 @@ export function NetWorthTrendChart() {
           )}
           <ReactECharts option={option} notMerge theme={ECHARTS_THEME} style={{ height: 240 }} />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            流動資產淨值 = 流動資產 − 負債，不含不動產。
+            流動資產淨值 = 流動資產 −
+            負債，不含不動產。期間最長一年，超過時另一個日期會自動跟著調整。
           </Typography>
         </>
       )}

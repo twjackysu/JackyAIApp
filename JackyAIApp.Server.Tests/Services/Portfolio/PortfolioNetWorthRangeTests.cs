@@ -151,15 +151,38 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
-        public async Task VeryWideWindow_KeepsTheMostRecentThreeYears()
+        public async Task WindowLongerThanAYear_KeepsTheMostRecentYear()
         {
             await SeedSnapshotAsync(new DateOnly(2020, 1, 1));
 
             var history = await _service.GetNetWorthHistoryAsync(UserId, from: new DateOnly(2020, 1, 1), to: Today);
 
-            // Today − 1095 days is Sunday 2023-10-08, so the first weekday point is the Monday after.
-            Assert.Equal("2023-10-09", history[0].Date);
+            Assert.Equal("2025-10-07", history[0].Date); // one calendar year before 2026-10-07
             Assert.Equal("2026-10-07", history[^1].Date);
+        }
+
+        [Fact]
+        public async Task OldWindowLongerThanAYear_KeepsTheYearEndingAtItsEnd()
+        {
+            // The cap trims from the start, so the end the user asked for is always honoured.
+            await SeedSnapshotAsync(new DateOnly(2020, 1, 1));
+
+            var history = await _service.GetNetWorthHistoryAsync(
+                UserId, from: new DateOnly(2021, 1, 1), to: new DateOnly(2024, 6, 28));
+
+            Assert.Equal("2023-06-28", history[0].Date); // Wednesday
+            Assert.Equal("2024-06-28", history[^1].Date); // Friday
+        }
+
+        [Fact]
+        public async Task ExactlyOneYear_IsNotTrimmed()
+        {
+            await SeedSnapshotAsync(new DateOnly(2020, 1, 1));
+
+            var history = await _service.GetNetWorthHistoryAsync(
+                UserId, from: new DateOnly(2025, 10, 7), to: Today);
+
+            Assert.Equal("2025-10-07", history[0].Date);
         }
 
         [Fact]
