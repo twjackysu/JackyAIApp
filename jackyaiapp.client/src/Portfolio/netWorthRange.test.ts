@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  addMonths,
   addYears,
   applyEdit,
   defaultRange,
@@ -145,6 +146,29 @@ describe('applyEdit', () => {
       expect(r.from <= r.to).toBe(true);
       expect(r.from >= addYears(r.to, -1)).toBe(true);
       expect(r[field]).toBe(value); // 使用者改的那一邊永遠照他輸入的
+    }
+  });
+});
+
+describe('addMonths', () => {
+  it('往前幾個月，跨年也對', () => {
+    expect(addMonths('2026-10-07', -3)).toBe('2026-07-07');
+    expect(addMonths('2026-02-15', -6)).toBe('2025-08-15');
+    expect(addMonths('2026-10-07', -12)).toBe('2025-10-07');
+  });
+
+  it('落在較短的月份時取月底，跟後端 DateOnly.AddMonths 一致', () => {
+    expect(addMonths('2026-05-31', -3)).toBe('2026-02-28');
+    expect(addMonths('2028-08-31', -6)).toBe('2028-02-29'); // 閏年
+  });
+
+  it('往後也可以', () => {
+    expect(addMonths('2026-11-30', 3)).toBe('2027-02-28');
+  });
+
+  it('十二個月等於一年，2/29 也是', () => {
+    for (const d of ['2026-10-07', '2028-02-29', '2027-01-31']) {
+      expect(addMonths(d, -12)).toBe(addYears(d, -1));
     }
   });
 });

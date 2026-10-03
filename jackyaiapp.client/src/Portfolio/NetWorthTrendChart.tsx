@@ -1,9 +1,11 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import LinearProgress from '@mui/material/LinearProgress';
+import { useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { lazy, Suspense, useState } from 'react';
 
 import { applyEdit, DateRange, defaultRange, firstRecordDate, localToday } from './netWorthRange';
 import { toLiquidNetWorthSeries } from './netWorthSeries';
@@ -16,6 +18,35 @@ import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 const LINE_COLOR = '#F59E0B';
+
+// The picker (MUI X + dayjs) is about 49 kB gzipped — as much again as the rest of the Portfolio
+// chunk. This chart only mounts once scrolled into view (LazyMount), so splitting the picker out
+// keeps that cost off the page's first load.
+const IsoDatePicker = lazy(() =>
+  import('./IsoDatePicker').then((m) => ({ default: m.IsoDatePicker })),
+);
+
+/** Same footprint as the picker while its chunk loads, so the controls don't jump. */
+function DateFieldPlaceholder({
+  label,
+  value,
+  size,
+}: {
+  label: string;
+  value: string;
+  size: 'small' | 'medium';
+}) {
+  return (
+    <TextField
+      label={label}
+      value={value.replace(/-/g, '/')}
+      size={size}
+      fullWidth
+      disabled
+      slotProps={{ inputLabel: { shrink: true } }}
+    />
+  );
+}
 
 /** Single-line 流動資產淨值 trend — deliberately its own chart rather than another series on the
  * stacked breakdown next to it. The stacked chart answers "what am I holding"; this answers "am I
@@ -37,6 +68,13 @@ export function NetWorthTrendChart() {
   // Only an edit pins a window.
   const [picked, setPicked] = useState<DateRange | null>(null);
   const range = picked ?? defaultRange(today, firstRecord);
+
+  // On a phone the two dates sit side by side at half width each, full-size for touch. At the
+  // desktop's fixed 160px they don't fit beside the card padding on a ~375px screen and wrap
+  // raggedly to the right.
+  const theme = useTheme();
+  const narrow = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  const fieldSize = narrow ? 'medium' : 'small';
 
   // groupBy=assetType is required, not incidental: liquidNetWorth keys off the "Property" group,
   // which only exists under that mode (subCategory/holding label it 不動產 instead).
@@ -101,7 +139,8 @@ export function NetWorthTrendChart() {
     <Box>
       <Box
         sx={{
-          display: 'flex',
+          display: { xs: 'grid', sm: 'flex' },
+          gridTemplateColumns: '1fr 1fr',
           justifyContent: 'flex-end',
           alignItems: 'center',
           flexWrap: 'wrap',
@@ -109,34 +148,44 @@ export function NetWorthTrendChart() {
           mb: 1,
         }}
       >
-        <TextField
-          size="small"
-          type="date"
-          label="起始日"
-          value={range.from}
-          // Both inputs span first record → today; ordering and the one-year limit are kept by
-          // moving the *other* date (applyEdit), so any date in that span can be picked directly.
-          onChange={(e) => e.target.value && setPicked(applyEdit(range, 'from', e.target.value))}
-          slotProps={{
-            inputLabel: { shrink: true },
-            htmlInput: { min: firstRecord, max: today },
-          }}
-          sx={{ width: 160 }}
-        />
-        <TextField
-          size="small"
-          type="date"
-          label="結束日"
-          value={range.to}
-          onChange={(e) => e.target.value && setPicked(applyEdit(range, 'to', e.target.value))}
-          slotProps={{
-            inputLabel: { shrink: true },
-            htmlInput: { min: firstRecord, max: today },
-          }}
-          sx={{ width: 160 }}
-        />
+        {/* Both span first record → today; ordering and the one-year limit are kept by moving
+            the *other* date (applyEdit), so any date in that span can be picked directly. */}
+        <Box sx={{ width: { xs: 'auto', sm: 170 }, minWidth: 0 }}>
+          <Suspense
+            fallback={<DateFieldPlaceholder label="起始日" value={range.from} size={fieldSize} />}
+          >
+            <IsoDatePicker
+              label="起始日"
+              value={range.from}
+              min={firstRecord}
+              max={today}
+              onChange={(v) => setPicked(applyEdit(range, 'from', v))}
+              size={fieldSize}
+              fullWidth
+            />
+          </Suspense>
+        </Box>
+        <Box sx={{ width: { xs: 'auto', sm: 170 }, minWidth: 0 }}>
+          <Suspense
+            fallback={<DateFieldPlaceholder label="結束日" value={range.to} size={fieldSize} />}
+          >
+            <IsoDatePicker
+              label="結束日"
+              value={range.to}
+              min={firstRecord}
+              max={today}
+              onChange={(v) => setPicked(applyEdit(range, 'to', v))}
+              size={fieldSize}
+              fullWidth
+            />
+          </Suspense>
+        </Box>
         {picked && (
-          <Button size="small" onClick={() => setPicked(null)}>
+          <Button
+            size="small"
+            onClick={() => setPicked(null)}
+            sx={{ gridColumn: '1 / -1', justifySelf: 'end' }}
+          >
             近一個月
           </Button>
         )}
