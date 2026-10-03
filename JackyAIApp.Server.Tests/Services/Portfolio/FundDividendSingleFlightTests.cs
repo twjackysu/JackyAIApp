@@ -11,6 +11,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// key at once (same page load). These assert the upstream HTTP call only happens once per
     /// key, no matter how many concurrent callers miss the cache together.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class FundDividendSingleFlightTests
     {
         /// <summary>

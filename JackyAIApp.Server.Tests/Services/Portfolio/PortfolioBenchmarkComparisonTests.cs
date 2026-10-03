@@ -23,6 +23,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// than derived from the real clock — see PortfolioDrawdownTests for why a relative-to-real-now
     /// anchor drifts out of the service's own lookback window over time.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioBenchmarkComparisonTests : IDisposable
     {
         private const string TestUserId = "benchmark-test-user";

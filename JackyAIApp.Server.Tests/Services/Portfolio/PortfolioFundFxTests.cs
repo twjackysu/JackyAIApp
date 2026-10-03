@@ -23,6 +23,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// Numbers here are the real reported case: 富達全球優質債券基金 (A股C月配息美元), 5,829.5 units
     /// at NAV 8.071 USD against a 1,500,000 TWD cost.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioFundFxTests : IDisposable
     {
         private const string TestUserId = "fund-fx-test-user";

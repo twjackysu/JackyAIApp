@@ -19,6 +19,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// the underlying generic de-dup mechanism itself; this file covers how PortfolioService wires
     /// it up.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioSingleFlightTests : IDisposable
     {
         private const string TestUserId = "single-flight-test-user";

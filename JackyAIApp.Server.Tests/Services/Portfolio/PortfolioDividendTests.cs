@@ -17,6 +17,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// to whatever quantity was actually held on their ex-date (via the snapshot timeline), converted
     /// with the live FX rate, and never leak in before the user's first snapshot.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioDividendTests : IDisposable
     {
         private const string TestUserId = "dividend-test-user";

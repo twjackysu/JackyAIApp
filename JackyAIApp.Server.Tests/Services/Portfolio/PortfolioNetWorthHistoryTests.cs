@@ -26,6 +26,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// rather than raw calendar-day offsets from "today", since the service skips Sat/Sun and the
     /// test must produce the same weekday regardless of which day it happens to run on.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioNetWorthHistoryTests : IDisposable
     {
         private const string TestUserId = "networth-test-user";

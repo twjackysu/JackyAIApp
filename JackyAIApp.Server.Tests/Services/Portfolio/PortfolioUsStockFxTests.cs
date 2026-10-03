@@ -23,6 +23,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// against the 2026-09-03 closes, and 國泰世華 published a 31.6800 buy rate for 09-03. A
     /// mid-market rate put the same three positions ~300 TWD out.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioUsStockFxTests : IDisposable
     {
         private const string TestUserId = "us-fx-test-user";

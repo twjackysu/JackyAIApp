@@ -11,6 +11,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// reverse-engineered private API, no official docs — see FundDataService's class doc) —
     /// fixtures only, no network calls. THIRD_PARTY_CONTRACT_TESTS_PLAN.md section A2/A3.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class FundDataServiceTests
     {
         private static FundDataService CreateService(Func<HttpRequestMessage, HttpResponseMessage> responder)

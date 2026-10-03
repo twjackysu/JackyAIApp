@@ -635,18 +635,56 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         // ── Net worth history ────────────────────────────────────────────────
 
-        public async Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(
+        public Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(
             string userId, int days, NetWorthGroupBy groupBy = NetWorthGroupBy.AssetType, CancellationToken ct = default)
         {
             days = Math.Clamp(days, 7, 180);
+            var today = Today;
+            return GetNetWorthHistoryCoreAsync(userId, today.AddDays(-days), today, groupBy, ct);
+        }
 
+        /// <summary>
+        /// Net worth history over an explicit date window, for callers that let the user pick the
+        /// start and end rather than a preset span.
+        ///
+        /// Lenient by design — every input resolves to some sensible window rather than an error,
+        /// because these come straight from date inputs the user is editing:
+        /// <list type="bullet">
+        ///   <item>no <paramref name="to"/>, or one in the future → ends today</item>
+        ///   <item>no <paramref name="from"/> → one calendar month before the end</item>
+        ///   <item>from after to → swapped</item>
+        ///   <item>from before the user's first snapshot → starts at the first snapshot</item>
+        ///   <item>longer than one year → the most recent year of it</item>
+        /// </list>
+        /// </summary>
+        public Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(
+            string userId, DateOnly? from, DateOnly? to, NetWorthGroupBy groupBy = NetWorthGroupBy.AssetType,
+            CancellationToken ct = default)
+        {
+            var today = Today;
+            if (from is { } f && to is { } t && f > t) (from, to) = (t, f);
+
+            var end = to is { } requestedEnd && requestedEnd < today ? requestedEnd : today;
+            var start = from ?? end.AddMonths(-1);
+            if (start > end) start = end; // a start in the future: show the one day there is
+            // At most one calendar year. The chart's own inputs already keep within it; this is the
+            // limit for any other caller, so an arbitrary from/to can't make one request walk years
+            // of daily valuations.
+            var earliest = end.AddYears(-1);
+            if (start < earliest) start = earliest;
+
+            return GetNetWorthHistoryCoreAsync(userId, start, end, groupBy, ct);
+        }
+
+        private async Task<List<NetWorthDataPoint>> GetNetWorthHistoryCoreAsync(
+            string userId, DateOnly startDate, DateOnly endDate, NetWorthGroupBy groupBy, CancellationToken ct)
+        {
             var snapshots = await AllSnapshotsAsync(userId, ct);
 
             if (snapshots.Count == 0) return [];
 
-            var today = Today;
+            // Nothing exists before the first snapshot, so a window reaching further back starts there.
             var firstDate = snapshots[0].EffectiveDate;
-            var startDate = today.AddDays(-days);
             if (startDate < firstDate) startDate = firstDate;
 
             // Fetch price history for every distinct stock symbol that appears in any snapshot
@@ -661,7 +699,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // already do this, since the cursor walk below depends on it) so each symbol's "price
             // as of date" lookup can advance with a forward-only cursor instead of re-filtering +
             // re-sorting the whole history on every single day of the loop below.
-            // Deep fetch — this walks up to `days` (clamped to 180) of history per symbol below.
+            // Deep fetch — the day loop below walks the whole requested window per symbol.
             var priceMap = (await FetchStocksAsync(stockSymbols, deep: true, ct))
                 .ToDictionary(kv => kv.Key, kv => kv.Value.HistoricalPrices.OrderBy(x => x.Date).ToList());
             var stockCursors = priceMap.Keys.ToDictionary(k => k, _ => 0);
@@ -718,7 +756,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var snapshotIdx = 0;
 
             var result = new List<NetWorthDataPoint>();
-            for (var date = startDate; date <= today; date = date.AddDays(1))
+            for (var date = startDate; date <= endDate; date = date.AddDays(1))
             {
                 if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday) continue;
 
