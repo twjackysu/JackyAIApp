@@ -65,10 +65,21 @@ export const portfolioApis = createApi({
     }),
     getNetWorthHistory: builder.query<
       ApiOkResponse<NetWorthDataPoint[]>,
-      { days: number; groupBy?: NetWorthGroupBy }
+      // Either a preset span (`days`) or an explicit window (`from`/`to`, yyyy-MM-dd). The server
+      // treats the presence of either date as the explicit-window mode.
+      { days?: number; from?: string; to?: string; groupBy?: NetWorthGroupBy }
     >({
-      query: ({ days, groupBy }) =>
-        `net-worth-history?days=${days}${groupBy ? `&groupBy=${groupBy}` : ''}`,
+      query: ({ days, from, to, groupBy }) => {
+        const params = new URLSearchParams();
+        if (from || to) {
+          if (from) params.set('from', from);
+          if (to) params.set('to', to);
+        } else if (days != null) {
+          params.set('days', String(days));
+        }
+        if (groupBy) params.set('groupBy', groupBy);
+        return `net-worth-history?${params}`;
+      },
       providesTags: ['Summary'],
     }),
     getDrawdown: builder.query<ApiOkResponse<DrawdownAnalysis>, number>({

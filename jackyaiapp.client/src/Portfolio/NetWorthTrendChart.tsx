@@ -1,25 +1,19 @@
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import LinearProgress from '@mui/material/LinearProgress';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import { DayRange } from './dayRanges';
+import { DateRange, defaultRange, firstRecordDate, localToday } from './netWorthRange';
 import { toLiquidNetWorthSeries } from './netWorthSeries';
 import { MASK, usePrivacy } from './privacy';
-import { RangePicker } from './RangePicker';
 
-import { useGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
+import { useGetNetWorthHistoryQuery, useGetUpdateHistoryQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
-
-// Matches NetWorthChart's set — GetNetWorthHistoryAsync clamps to [7, 180] days server-side.
-const RANGES: DayRange[] = [
-  { label: '1M', days: 30 },
-  { label: '3M', days: 90 },
-  { label: '6M', days: 180 },
-];
 
 const LINE_COLOR = '#F59E0B';
 
@@ -32,15 +26,31 @@ const LINE_COLOR = '#F59E0B';
  * house can't flatten the line everything else moves on. */
 export function NetWorthTrendChart() {
   const { mode } = usePrivacy();
-  const [days, setDays] = useState(90);
+  const today = localToday();
+
+  // The first snapshot date bounds the start input and shapes the default window. Same query the
+  // update-history dialog uses, so it is shared from cache rather than fetched twice.
+  const { data: historyRes, isLoading: historyLoading } = useGetUpdateHistoryQuery();
+  const firstRecord = firstRecordDate((historyRes?.data ?? []).map((h) => h.effectiveDate));
+
+  // null = still on the default, which follows `firstRecord` as it loads and `today` as days pass.
+  // Only an edit pins a window.
+  const [picked, setPicked] = useState<DateRange | null>(null);
+  const range = picked ?? defaultRange(today, firstRecord);
+
   // groupBy=assetType is required, not incidental: liquidNetWorth keys off the "Property" group,
-  // which only exists under that mode (subCategory/holding label it 不動產 instead). RTK Query
-  // dedupes this against NetWorthChart's own fetch whenever it's on the same mode and range.
+  // which only exists under that mode (subCategory/holding label it 不動產 instead).
+  // Waits for the first record date so the default window is fetched once, not once as "a month
+  // back" and again as "from the first record".
   const {
     data: res,
-    isLoading,
+    isLoading: chartLoading,
     isFetching,
-  } = useGetNetWorthHistoryQuery({ days, groupBy: 'assetType' });
+  } = useGetNetWorthHistoryQuery(
+    { from: range.from, to: range.to, groupBy: 'assetType' },
+    { skip: historyLoading },
+  );
+  const isLoading = historyLoading || chartLoading;
 
   const series = toLiquidNetWorthSeries(res?.data ?? [], 'daily');
 
@@ -89,8 +99,47 @@ export function NetWorthTrendChart() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-        <RangePicker ranges={RANGES} value={days} onChange={setDays} />
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
+          mb: 1,
+        }}
+      >
+        <TextField
+          size="small"
+          type="date"
+          label="起始日"
+          value={range.from}
+          // Native pickers honour min/max; a typed-in date outside them is still sent, and the
+          // server resolves it (clamps to the first record / today, swaps an inverted pair).
+          onChange={(e) => e.target.value && setPicked({ ...range, from: e.target.value })}
+          slotProps={{
+            inputLabel: { shrink: true },
+            htmlInput: { min: firstRecord, max: range.to },
+          }}
+          sx={{ width: 160 }}
+        />
+        <TextField
+          size="small"
+          type="date"
+          label="結束日"
+          value={range.to}
+          onChange={(e) => e.target.value && setPicked({ ...range, to: e.target.value })}
+          slotProps={{
+            inputLabel: { shrink: true },
+            htmlInput: { min: range.from, max: today },
+          }}
+          sx={{ width: 160 }}
+        />
+        {picked && (
+          <Button size="small" onClick={() => setPicked(null)}>
+            近一個月
+          </Button>
+        )}
       </Box>
 
       {isFetching && <LinearProgress sx={{ mb: 1 }} />}
