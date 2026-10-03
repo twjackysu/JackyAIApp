@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Portfolio
@@ -35,7 +36,9 @@ namespace JackyAIApp.Server.Services.Portfolio
     /// fills a window rather than probing day by day the way <see cref="TdccFxService"/> has to.
     /// </summary>
     public partial class CathayFxService(
-        AzureSQLDBContext db,
+        // A factory, not the request's DbContext: this runs concurrently with TdccFxService during
+        // a portfolio summary (see FxRateStore).
+        IDbContextFactory<AzureSQLDBContext> dbFactory,
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
         ILogger<CathayFxService> logger) : ICathayFxService
@@ -48,7 +51,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// <summary>"3" is 即期 (spot); "2" is 現鈔 (cash), which is not the settlement rate.</summary>
         private const string SpotCurrencyType = "3";
 
-        private readonly FxRateStore store = new(db, FxRateSources.Cathay, logger);
+        private readonly FxRateStore store = new(dbFactory, FxRateSources.Cathay, logger);
 
         /// <summary>
         /// How far back a lookup may carry forward, and how wide a window to fill on a miss. Clears

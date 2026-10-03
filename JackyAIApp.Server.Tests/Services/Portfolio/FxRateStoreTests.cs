@@ -22,6 +22,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private static readonly DateOnly Day = new(2026, 9, 3);
 
         private readonly AzureSQLDBContext _db;
+        private readonly TestDbContextFactory _dbFactory;
         private readonly FxRateStore _store;
 
         public FxRateStoreTests()
@@ -30,7 +31,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options;
             _db = new AzureSQLDBContext(options);
-            _store = new FxRateStore(_db, Source, NullLogger.Instance);
+            _dbFactory = new TestDbContextFactory(options);
+            _store = new FxRateStore(_dbFactory, Source, NullLogger.Instance);
         }
 
         public void Dispose() => _db.Dispose();
@@ -128,15 +130,20 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
-        public async Task AddMissing_LeavesNothingPendingOnTheSharedContext()
+        public async Task EachOperation_OpensItsOwnContext()
         {
-            // The context is request-scoped and shared with the rest of the portfolio work, so a
-            // completed call must not leave tracked entities behind for someone else's SaveChanges.
-            await _store.AddMissingAsync(
-                [new(Day, "USD", 31.68m, 31.88m), new(Day, "USD", 31.68m, 31.88m)],
-                CancellationToken.None);
+            // The portfolio summary looks up 集保 and 國泰 rates concurrently, and a DbContext allows
+            // one operation at a time. While both sources read through the request's shared context,
+            // the second query to start before the first finished threw "A second operation was
+            // started on this context instance" against Azure SQL, and the summary returned 500.
+            // A context per operation is what makes those concurrent lookups safe.
+            await _store.LatestBuyRateAsync("USD", Day.AddDays(-5), Day, CancellationToken.None);
+            await _store.AddMissingAsync([new(Day, "USD", 31.68m, 31.88m)], CancellationToken.None);
 
-            Assert.DoesNotContain(_db.ChangeTracker.Entries<FxRate>(), e => e.State == EntityState.Added);
+            var created = _dbFactory.Created;
+            Assert.Equal(2, created.Count);
+            Assert.Equal(2, created.Distinct().Count());
+            Assert.DoesNotContain(_db, created);
         }
 
         [Fact]

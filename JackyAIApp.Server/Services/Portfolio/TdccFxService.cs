@@ -37,14 +37,16 @@ namespace JackyAIApp.Server.Services.Portfolio
     /// for, which is exactly what 基富通 itself displays.
     /// </summary>
     public class TdccFxService(
-        AzureSQLDBContext db,
+        // A factory, not the request's DbContext: this runs concurrently with CathayFxService during
+        // a portfolio summary (see FxRateStore).
+        IDbContextFactory<AzureSQLDBContext> dbFactory,
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
         ILogger<TdccFxService> logger) : ITdccFxService
     {
         private const string QUERY_URL = "https://www.fundclear.com.tw/api/announce/query-exchange-rate";
 
-        private readonly FxRateStore store = new(db, FxRateSources.Tdcc, logger);
+        private readonly FxRateStore store = new(dbFactory, FxRateSources.Tdcc, logger);
 
         /// <summary>
         /// How far back to look for a carried-forward rate before giving up. Comfortably clears a
@@ -93,6 +95,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (currency.Length == 0 || to < from) return result;
 
             // Reach back before the window so its first days can carry forward from an earlier rate.
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
             var rows = await db.FxRates.AsNoTracking()
                 .Where(r => r.Source == FxRateSources.Tdcc && r.Currency == currency
                     && r.RateDate >= from.AddDays(-MaxCarryForwardDays) && r.RateDate <= to)
