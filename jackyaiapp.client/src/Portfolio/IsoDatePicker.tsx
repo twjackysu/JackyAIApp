@@ -92,6 +92,10 @@ export function IsoDatePicker({
         slotProps={{
           textField: { size, fullWidth, onClick: touch ? () => setOpen(true) : undefined },
           field: touch ? { readOnly: true } : undefined,
+          // On touch the whole field opens the calendar, so the icon only takes space — about
+          // 36px of a ~143px field on a 375px phone, which left too little for 2026/09/03 and
+          // cut the day off. (disableOpenPicker does the same but is deprecated in v9.)
+          inputAdornment: touch ? { sx: { display: 'none' } } : undefined,
         }}
       />
     </LocalizationProvider>

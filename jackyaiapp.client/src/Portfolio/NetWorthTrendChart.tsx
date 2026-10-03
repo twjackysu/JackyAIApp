@@ -69,9 +69,9 @@ export function NetWorthTrendChart() {
   const [picked, setPicked] = useState<DateRange | null>(null);
   const range = picked ?? defaultRange(today, firstRecord);
 
-  // On a phone the two dates sit side by side at half width each, full-size for touch. At the
-  // desktop's fixed 160px they don't fit beside the card padding on a ~375px screen and wrap
-  // raggedly to the right.
+  // On a phone the two dates sit side by side at half width each (or stacked when too narrow),
+  // full-size for touch. At the desktop's fixed width they don't fit beside the card padding on a
+  // ~375px screen and wrap raggedly to the right.
   const theme = useTheme();
   const narrow = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const fieldSize = narrow ? 'medium' : 'small';
@@ -140,7 +140,9 @@ export function NetWorthTrendChart() {
       <Box
         sx={{
           display: { xs: 'grid', sm: 'flex' },
-          gridTemplateColumns: '1fr 1fr',
+          // Two columns while each can still show a whole date (2026/09/03 needs ~110px with the
+          // field's padding); on narrower screens the dates stack instead of clipping the day.
+          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
           justifyContent: 'flex-end',
           alignItems: 'center',
           flexWrap: 'wrap',
