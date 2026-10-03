@@ -8,7 +8,6 @@ import {
   firstRecordDate,
   localToday,
   minusOneMonth,
-  presetRange,
 } from './netWorthRange';
 
 describe('minusOneMonth', () => {
@@ -168,34 +167,8 @@ describe('addMonths', () => {
   });
 
   it('十二個月等於一年，2/29 也是', () => {
-    // 1Y 按鈕用 addMonths(-12)，一年上限用 addYears(-1)，兩者不一致的話 1Y 會被當成超過上限。
     for (const d of ['2026-10-07', '2028-02-29', '2027-01-31']) {
       expect(addMonths(d, -12)).toBe(addYears(d, -1));
     }
-  });
-});
-
-describe('presetRange', () => {
-  it('從今天往回推，結束日是今天', () => {
-    expect(presetRange('2026-10-07', 3, '2025-01-01')).toEqual({
-      from: '2026-07-07',
-      to: '2026-10-07',
-    });
-    expect(presetRange('2026-10-07', 12, '2020-01-01')).toEqual({
-      from: '2025-10-07',
-      to: '2026-10-07',
-    });
-  });
-
-  it('紀錄比區間短：起始日是第一筆紀錄', () => {
-    expect(presetRange('2026-10-07', 6, '2026-08-20')).toEqual({
-      from: '2026-08-20',
-      to: '2026-10-07',
-    });
-  });
-
-  it('1Y 剛好是一年上限，改日期的規則不會再去動它', () => {
-    const r = presetRange('2026-10-07', 12, '2020-01-01');
-    expect(applyEdit(r, 'from', r.from)).toEqual(r);
   });
 });

@@ -1,22 +1,13 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
 import LinearProgress from '@mui/material/LinearProgress';
 import { useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 
-import {
-  applyEdit,
-  DateRange,
-  defaultRange,
-  firstRecordDate,
-  localToday,
-  PRESETS,
-  presetRange,
-} from './netWorthRange';
+import { applyEdit, DateRange, defaultRange, firstRecordDate, localToday } from './netWorthRange';
 import { toLiquidNetWorthSeries } from './netWorthSeries';
 import { MASK, usePrivacy } from './privacy';
 
@@ -27,6 +18,35 @@ import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
 
 const LINE_COLOR = '#F59E0B';
+
+// The picker (MUI X + dayjs) is about 49 kB gzipped — as much again as the rest of the Portfolio
+// chunk. This chart only mounts once scrolled into view (LazyMount), so splitting the picker out
+// keeps that cost off the page's first load.
+const IsoDatePicker = lazy(() =>
+  import('./IsoDatePicker').then((m) => ({ default: m.IsoDatePicker })),
+);
+
+/** Same footprint as the picker while its chunk loads, so the controls don't jump. */
+function DateFieldPlaceholder({
+  label,
+  value,
+  size,
+}: {
+  label: string;
+  value: string;
+  size: 'small' | 'medium';
+}) {
+  return (
+    <TextField
+      label={label}
+      value={value.replace(/-/g, '/')}
+      size={size}
+      fullWidth
+      disabled
+      slotProps={{ inputLabel: { shrink: true } }}
+    />
+  );
+}
 
 /** Single-line 流動資產淨值 trend — deliberately its own chart rather than another series on the
  * stacked breakdown next to it. The stacked chart answers "what am I holding"; this answers "am I
@@ -49,17 +69,9 @@ export function NetWorthTrendChart() {
   const [picked, setPicked] = useState<DateRange | null>(null);
   const range = picked ?? defaultRange(today, firstRecord);
 
-  // Highlights the preset the current window equals, whether it got there by a tap or by hand.
-  const activePreset = PRESETS.find((p) => {
-    const r = presetRange(today, p.months, firstRecord);
-    return r.from === range.from && r.to === range.to;
-  });
-
-  // Phones get a two-row layout with full-size touch targets: a row of presets on top, then the
-  // two dates side by side at half width each. Side by side at the desktop's fixed 160px they
-  // don't fit beside the card padding on a ~375px screen and wrap raggedly; and with only the
-  // native calendar to change a date, reaching three months back meant three taps on its
-  // previous-month arrow before choosing a day.
+  // On a phone the two dates sit side by side at half width each, full-size for touch. At the
+  // desktop's fixed 160px they don't fit beside the card padding on a ~375px screen and wrap
+  // raggedly to the right.
   const theme = useTheme();
   const narrow = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const fieldSize = narrow ? 'medium' : 'small';
@@ -136,53 +148,47 @@ export function NetWorthTrendChart() {
           mb: 1,
         }}
       >
-        <ButtonGroup
-          variant="outlined"
-          size={fieldSize}
-          fullWidth={narrow}
-          aria-label="快速選擇期間"
-          sx={{ gridColumn: '1 / -1', '& .MuiButton-root': { minHeight: narrow ? 40 : undefined } }}
-        >
-          {PRESETS.map((p) => (
-            <Button
-              key={p.label}
-              variant={activePreset?.label === p.label ? 'contained' : 'outlined'}
-              // 1M is the default window, so it goes back to following today rather than pinning
-              // today's dates — leaving the page open past midnight keeps it current.
-              onClick={() =>
-                setPicked(p.months === 1 ? null : presetRange(today, p.months, firstRecord))
-              }
-            >
-              {p.label}
-            </Button>
-          ))}
-        </ButtonGroup>
-        <TextField
-          size={fieldSize}
-          type="date"
-          label="起始日"
-          value={range.from}
-          // Both inputs span first record → today; ordering and the one-year limit are kept by
-          // moving the *other* date (applyEdit), so any date in that span can be picked directly.
-          onChange={(e) => e.target.value && setPicked(applyEdit(range, 'from', e.target.value))}
-          slotProps={{
-            inputLabel: { shrink: true },
-            htmlInput: { min: firstRecord, max: today },
-          }}
-          sx={{ width: { xs: 'auto', sm: 160 }, minWidth: 0 }}
-        />
-        <TextField
-          size={fieldSize}
-          type="date"
-          label="結束日"
-          value={range.to}
-          onChange={(e) => e.target.value && setPicked(applyEdit(range, 'to', e.target.value))}
-          slotProps={{
-            inputLabel: { shrink: true },
-            htmlInput: { min: firstRecord, max: today },
-          }}
-          sx={{ width: { xs: 'auto', sm: 160 }, minWidth: 0 }}
-        />
+        {/* Both span first record → today; ordering and the one-year limit are kept by moving
+            the *other* date (applyEdit), so any date in that span can be picked directly. */}
+        <Box sx={{ width: { xs: 'auto', sm: 170 }, minWidth: 0 }}>
+          <Suspense
+            fallback={<DateFieldPlaceholder label="起始日" value={range.from} size={fieldSize} />}
+          >
+            <IsoDatePicker
+              label="起始日"
+              value={range.from}
+              min={firstRecord}
+              max={today}
+              onChange={(v) => setPicked(applyEdit(range, 'from', v))}
+              size={fieldSize}
+              fullWidth
+            />
+          </Suspense>
+        </Box>
+        <Box sx={{ width: { xs: 'auto', sm: 170 }, minWidth: 0 }}>
+          <Suspense
+            fallback={<DateFieldPlaceholder label="結束日" value={range.to} size={fieldSize} />}
+          >
+            <IsoDatePicker
+              label="結束日"
+              value={range.to}
+              min={firstRecord}
+              max={today}
+              onChange={(v) => setPicked(applyEdit(range, 'to', v))}
+              size={fieldSize}
+              fullWidth
+            />
+          </Suspense>
+        </Box>
+        {picked && (
+          <Button
+            size="small"
+            onClick={() => setPicked(null)}
+            sx={{ gridColumn: '1 / -1', justifySelf: 'end' }}
+          >
+            近一個月
+          </Button>
+        )}
       </Box>
 
       {isFetching && <LinearProgress sx={{ mb: 1 }} />}
