@@ -18,6 +18,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// net worth nets out debt, exposure ratio uses the debt-adjusted denominator, and debt
     /// never leaks into cost-basis/P&amp;L/XIRR since it carries no cost basis.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioLiabilityTests : IDisposable
     {
         private const string TestUserId = "liability-test-user";

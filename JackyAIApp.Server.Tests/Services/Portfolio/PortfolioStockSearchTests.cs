@@ -20,6 +20,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// fallback. Now it's served from TwListedCompanies, refreshed at most once per 24h, with a
     /// failed refresh falling back to whatever's already in the table instead of an empty result.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioStockSearchTests : IDisposable
     {
         private const string TestUserId = "search-test-user";

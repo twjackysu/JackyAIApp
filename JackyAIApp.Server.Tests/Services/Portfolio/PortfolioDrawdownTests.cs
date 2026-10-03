@@ -24,6 +24,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// fixture's earliest prices silently fell outside the service's own lookback and every
     /// assertion built on them drifted wrong. Fully fixed dates side-step that permanently.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioDrawdownTests : IDisposable
     {
         private const string TestUserId = "drawdown-test-user";

@@ -10,6 +10,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// Parses real response shapes captured from Yahoo Finance (events=div) and FundRich's
     /// GetFundDividendHistory (PORTFOLIO_DIVIDEND_PLAN.md section 2) — fixtures only, no network calls.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class DividendServiceTests
     {
         private static DividendService CreateService(Func<HttpRequestMessage, HttpResponseMessage> responder)

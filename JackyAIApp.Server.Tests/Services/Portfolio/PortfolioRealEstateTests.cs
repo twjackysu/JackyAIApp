@@ -21,6 +21,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// without pulling the property's own value into the denominator (see
     /// [[portfolio-liability-scope-rule]] memory / 2026-07-24 conversation).
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioRealEstateTests : IDisposable
     {
         private const string TestUserId = "real-estate-test-user";

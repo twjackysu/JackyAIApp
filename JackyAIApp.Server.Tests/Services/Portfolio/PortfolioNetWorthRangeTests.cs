@@ -22,6 +22,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// "Today" is fixed through TimeProvider (Wednesday 2026-10-07), unlike the older history
     /// tests that derive dates from the real clock, so every expected date here is literal.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioNetWorthRangeTests : IDisposable
     {
         private const string UserId = "networth-range-user";

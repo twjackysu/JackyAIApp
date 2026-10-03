@@ -17,6 +17,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// "報價失敗" (e.g. a TW symbol whose market type was wrongly resolved once and never
     /// re-checked since — see <see cref="PersistentTwHistoricalProvider.InvalidateAsync"/>).
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioPriceRefreshTests : IDisposable
     {
         private const string TestUserId = "price-refresh-test-user";

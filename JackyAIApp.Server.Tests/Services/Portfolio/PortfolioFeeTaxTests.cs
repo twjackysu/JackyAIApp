@@ -21,6 +21,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// GetPortfolioSummaryAsync parameter (not server-persisted — the frontend keeps it in
     /// localStorage), defaulting to 2.8折 when omitted. US stocks and funds are untouched.
     /// </summary>
+    [Collection(SingleFlightCollection.Name)]
     public class PortfolioFeeTaxTests : IDisposable
     {
         private const string TestUserId = "fee-tax-test-user";
