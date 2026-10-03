@@ -1,11 +1,22 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import ButtonGroup from '@mui/material/ButtonGroup';
 import LinearProgress from '@mui/material/LinearProgress';
+import { useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useState } from 'react';
 
-import { applyEdit, DateRange, defaultRange, firstRecordDate, localToday } from './netWorthRange';
+import {
+  applyEdit,
+  DateRange,
+  defaultRange,
+  firstRecordDate,
+  localToday,
+  PRESETS,
+  presetRange,
+} from './netWorthRange';
 import { toLiquidNetWorthSeries } from './netWorthSeries';
 import { MASK, usePrivacy } from './privacy';
 
@@ -37,6 +48,21 @@ export function NetWorthTrendChart() {
   // Only an edit pins a window.
   const [picked, setPicked] = useState<DateRange | null>(null);
   const range = picked ?? defaultRange(today, firstRecord);
+
+  // Highlights the preset the current window equals, whether it got there by a tap or by hand.
+  const activePreset = PRESETS.find((p) => {
+    const r = presetRange(today, p.months, firstRecord);
+    return r.from === range.from && r.to === range.to;
+  });
+
+  // Phones get a two-row layout with full-size touch targets: a row of presets on top, then the
+  // two dates side by side at half width each. Side by side at the desktop's fixed 160px they
+  // don't fit beside the card padding on a ~375px screen and wrap raggedly; and with only the
+  // native calendar to change a date, reaching three months back meant three taps on its
+  // previous-month arrow before choosing a day.
+  const theme = useTheme();
+  const narrow = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  const fieldSize = narrow ? 'medium' : 'small';
 
   // groupBy=assetType is required, not incidental: liquidNetWorth keys off the "Property" group,
   // which only exists under that mode (subCategory/holding label it 不動產 instead).
@@ -101,7 +127,8 @@ export function NetWorthTrendChart() {
     <Box>
       <Box
         sx={{
-          display: 'flex',
+          display: { xs: 'grid', sm: 'flex' },
+          gridTemplateColumns: '1fr 1fr',
           justifyContent: 'flex-end',
           alignItems: 'center',
           flexWrap: 'wrap',
@@ -109,8 +136,29 @@ export function NetWorthTrendChart() {
           mb: 1,
         }}
       >
+        <ButtonGroup
+          variant="outlined"
+          size={fieldSize}
+          fullWidth={narrow}
+          aria-label="快速選擇期間"
+          sx={{ gridColumn: '1 / -1', '& .MuiButton-root': { minHeight: narrow ? 40 : undefined } }}
+        >
+          {PRESETS.map((p) => (
+            <Button
+              key={p.label}
+              variant={activePreset?.label === p.label ? 'contained' : 'outlined'}
+              // 1M is the default window, so it goes back to following today rather than pinning
+              // today's dates — leaving the page open past midnight keeps it current.
+              onClick={() =>
+                setPicked(p.months === 1 ? null : presetRange(today, p.months, firstRecord))
+              }
+            >
+              {p.label}
+            </Button>
+          ))}
+        </ButtonGroup>
         <TextField
-          size="small"
+          size={fieldSize}
           type="date"
           label="起始日"
           value={range.from}
@@ -121,10 +169,10 @@ export function NetWorthTrendChart() {
             inputLabel: { shrink: true },
             htmlInput: { min: firstRecord, max: today },
           }}
-          sx={{ width: 160 }}
+          sx={{ width: { xs: 'auto', sm: 160 }, minWidth: 0 }}
         />
         <TextField
-          size="small"
+          size={fieldSize}
           type="date"
           label="結束日"
           value={range.to}
@@ -133,13 +181,8 @@ export function NetWorthTrendChart() {
             inputLabel: { shrink: true },
             htmlInput: { min: firstRecord, max: today },
           }}
-          sx={{ width: 160 }}
+          sx={{ width: { xs: 'auto', sm: 160 }, minWidth: 0 }}
         />
-        {picked && (
-          <Button size="small" onClick={() => setPicked(null)}>
-            近一個月
-          </Button>
-        )}
       </Box>
 
       {isFetching && <LinearProgress sx={{ mb: 1 }} />}

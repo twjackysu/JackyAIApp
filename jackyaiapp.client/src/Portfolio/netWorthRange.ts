@@ -17,29 +17,48 @@ export function localToday(now: Date = new Date()): string {
 }
 
 /**
- * One calendar month earlier, clamped to the end of a shorter month (03-31 → 02-28), which is
- * what the backend's `DateOnly.AddMonths(-1)` does — so the date shown in the input is the date
- * the server actually starts from.
+ * The same day `months` calendar months away, clamped to the end of a shorter month
+ * (03-31 − 1 → 02-28), which is what the backend's `DateOnly.AddMonths` does — so the date shown
+ * in the input is the date the server actually starts from.
  */
-export function minusOneMonth(iso: string): string {
+export function addMonths(iso: string, months: number): string {
   const [y, m, d] = iso.split('-').map(Number);
-  const year = m === 1 ? y - 1 : y;
-  const month = m === 1 ? 12 : m - 1;
+  const index = y * 12 + (m - 1) + months;
+  const year = Math.floor(index / 12);
+  const month = (index % 12) + 1;
   const lastDay = new Date(year, month, 0).getDate(); // day 0 of the next month = last of this one
   return `${year}-${pad(month)}-${pad(Math.min(d, lastDay))}`;
 }
 
+export function minusOneMonth(iso: string): string {
+  return addMonths(iso, -1);
+}
+
+/** One-tap windows ending today. Twelve months is the longest the chart allows. */
+export const PRESETS = [
+  { label: '1M', months: 1 },
+  { label: '3M', months: 3 },
+  { label: '6M', months: 6 },
+  { label: '1Y', months: 12 },
+] as const;
+
 /**
- * The window the chart opens with: the last month up to today — or, for someone with less than
- * a month of history, everything from their first record. Starting a newer user's chart on an
- * empty stretch before they began tracking would only push their real data to one side.
+ * The window ending today and reaching `months` back — or, when the history is shorter than
+ * that, everything from the first record. Starting a chart on an empty stretch before someone
+ * began tracking would only push their real data to one side; it also keeps the start input
+ * showing the date the data actually starts on.
  */
-export function defaultRange(today: string, firstRecordDate?: string): DateRange {
-  const monthAgo = minusOneMonth(today);
+export function presetRange(today: string, months: number, firstRecordDate?: string): DateRange {
+  const start = addMonths(today, -months);
   return {
-    from: firstRecordDate && firstRecordDate > monthAgo ? firstRecordDate : monthAgo,
+    from: firstRecordDate && firstRecordDate > start ? firstRecordDate : start,
     to: today,
   };
+}
+
+/** The window the chart opens with: the 1M preset. */
+export function defaultRange(today: string, firstRecordDate?: string): DateRange {
+  return presetRange(today, 1, firstRecordDate);
 }
 
 /**
