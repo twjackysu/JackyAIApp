@@ -7,7 +7,7 @@
 Frontend
 
 ## Status
-READY
+IN_PROGRESS
 
 ## Priority
 MEDIUM
