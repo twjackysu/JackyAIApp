@@ -1047,3 +1047,59 @@ anyone.
 - Related, now resolved by this same decision: Finance Gap Audit's "is the
   free-quant-vs-paid-AI-analysis overlap intentional" question is moot — see
   that section.
+
+---
+
+## Requirement: Portal 首頁「今日行動」化 + 產品聚焦（Issue #409）
+
+### Goal
+讓每位回訪用戶打開網站的第一屏就知道「今天該做什麼」，並讓第一次來的訪客在 10 秒內理解價值。
+目前 Portal（`/`）只是 9 個應用的靜態目錄，沒有個人化資訊，也沒有登入／價值引導。
+
+### Audit 事實（2026-10-03 PM 讀 `Portal/index.tsx`、`constants/apps.tsx`）
+- Portal 對所有人顯示相同的 9 張卡片（Wealth Portfolio、Stock Intelligence、English Coach、PDF、
+  Slideshow、Job Finder、Data Analysis、Data Dashboard、Connected Services）；唯一個人化是「歡迎回來，{name}」。
+- streak／XP／待複習數量等已存在於 `/stats`、`/review`、`/daily`，但 Portal 完全不露出——留存機制被藏在二層頁面。
+- 9 個應用地位相同，沒有主次；有已知使用量資料前，無法判斷 Slideshow／Job Finder／Data Analysis 是否值得持續投入（假設，未驗證）。
+- 未登入訪客沒有登入 CTA 或「這站能做什麼」的說明（以程式碼判斷，未實機驗證）。
+
+### User Story
+As a 回訪用戶, I want 打開網站就看到今天的待辦（複習、每日挑戰、持股變化）,
+so that 我不必自己回想要點進哪個應用，養成每天回來的習慣。
+
+### Requirements
+1. 已登入：Portal 頂部顯示「今日」區塊，僅整合**既有**資料：連續天數（streak）、今日每日挑戰是否完成、待複習單字數、投資組合總資產較上次的變化（有持倉資料時）。每項可一鍵進入對應頁面。
+2. 已登入且該項無資料（如無持倉、無待複習）：該項不顯示，不得顯示空白或 0 造成雜訊。
+3. 未登入：顯示一行價值說明與登入入口；英文學習（含免登入的字典）排在最前面。
+4. 應用卡片依「主力／其他」分群：English Coach、Wealth Portfolio、Stock Intelligence 為主力；其餘收進次要區。主力名單為 PM 假設，待 Boss 確認。
+5. 不新增 AI 呼叫、不新增後端運算成本（符合 DECISION-003 成本紀律與 DECISION-007 用量機制）。
+
+### Acceptance Criteria
+- [ ] 已登入且有待複習單字的用戶，Portal 第一屏可見待複習數量，點擊直接進入 `/review`。
+- [ ] 今日每日挑戰已完成時顯示完成狀態；未完成時顯示進入入口。
+- [ ] 連續天數與 `/stats` 顯示一致。
+- [ ] 無持倉用戶不會看到投資組合項目。
+- [ ] 未登入訪客在 Portal 可見價值說明與登入入口，且字典入口不需登入即可進入。
+- [ ] 手機寬度（≤ 400px）版面無橫向捲動。
+- [ ] Portal 載入不產生任何會消耗 UsageLimit 的請求。
+
+### Priority
+HIGH（直接對應 DECISION-003「留得住用戶」，且為純前端整合既有資料，預期成本低）
+
+### Scope
+#### In Scope
+- Portal 今日區塊、訪客引導、卡片分群
+
+#### Out of Scope
+- 推播／Email 提醒、分享機制（DECISION-004）、新增任何付費／點數概念（DECISION-006）
+
+#### Future Consideration
+- 逐模組小改進盤點（見下方 Issue #409 回覆的 backlog，需 Tech Lead 估工）
+- 下架或合併低使用量應用——需先有使用量數據，並由 Boss 決定
+
+### Constraints
+- 僅描述行為；資料來源、API 是否需新增彙總端點，由 Tech Lead 決定。
+
+### Open Questions
+- Boss：主力應用名單是否同意（English Coach／Wealth Portfolio／Stock Intelligence）？
+- Boss／Tech Lead：目前有無任何使用量資料（各應用造訪、DAU）可判斷各模組去留？若無，是否同意先加最小限度的匿名造訪統計？（涉及隱私，需 Boss 決定）

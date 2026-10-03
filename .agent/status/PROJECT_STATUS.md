@@ -2772,3 +2772,11 @@
 - #411：目前已是 MUI v9（9.0.1），升 9.4.0 屬 minor；建立 TASK-027（Frontend, READY）。
 - #407：word title/description/canonical 已由 TASK-019/020 實作並合併；其他單字搜不到主因是 Google 尚未收錄（見 Issue 回覆），無需新程式任務。
 - 無 open PR。
+
+## 2026-10-03 — PM：Issue #409「讓產品成功」回應（排程執行）
+
+- Boss 在 #409 指出 PM 不應「每次都沒進展」，要負責長期方向、與 Tech Lead 管理進度、並檢視現有小功能的 UX 改進。
+- 本輪實際盤點首頁 Portal：發現留存機制（streak／待複習／每日挑戰）全都藏在二層頁面，首頁只是靜態目錄。
+- 新增 Requirement「Portal 首頁『今日行動』化 + 產品聚焦」（HIGH）；已在 #409 回覆完整策略與 backlog，並加 `To Tech Lead` 標籤請其估工。
+- 待 Boss：確認主力應用名單、是否同意加最小匿名使用量統計。
+- Tech Lead Actions：評估 Portal 今日區塊（可否純前端組合既有 API）並建 TASK。
