@@ -17,8 +17,17 @@ namespace JackyAIApp.Server.Services.Portfolio
     /// what they do with the result is identical: look up the latest stored rate on or before a
     /// date, and insert the published days not already held. Keeping that here means a third source
     /// only has to describe how it fetches.
+    ///
+    /// Every operation opens its own short-lived context from the factory rather than using the
+    /// request's DbContext. The portfolio summary looks up 集保 and 國泰 rates concurrently, and a
+    /// DbContext allows one operation at a time: with both sources reading through the shared
+    /// request context, the second query to start while the first was still on the wire threw
+    /// "A second operation was started on this context instance", and every summary for someone
+    /// holding both a foreign-currency fund and a US stock returned 500. Against a local database
+    /// the first query usually finished before the second began, which is why it only showed up
+    /// against Azure SQL's network latency.
     /// </summary>
-    public sealed class FxRateStore(AzureSQLDBContext db, string source, ILogger logger)
+    public sealed class FxRateStore(IDbContextFactory<AzureSQLDBContext> dbFactory, string source, ILogger logger)
     {
         /// <summary>
         /// Latest stored buy rate for <paramref name="currency"/> on or before <paramref name="asOf"/>,
@@ -27,6 +36,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         public async Task<(DateOnly Date, decimal Rate)?> LatestBuyRateAsync(
             string currency, DateOnly earliest, DateOnly asOf, CancellationToken ct)
         {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
             var row = await db.FxRates.AsNoTracking()
                 .Where(r => r.Source == source && r.Currency == currency
                     && r.RateDate <= asOf && r.RateDate >= earliest)
@@ -50,6 +60,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             if (rates.Count == 0) return;
 
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
             var dates = rates.Select(r => r.Date).Distinct().ToList();
             var currencies = rates.Select(r => r.Currency).Distinct().ToList();
             var existing = await db.FxRates.AsNoTracking()
@@ -81,13 +92,8 @@ namespace JackyAIApp.Server.Services.Portfolio
             catch (DbUpdateException ex)
             {
                 // Two concurrent requests can race to insert the same published day; the unique
-                // index makes the loser redundant, not wrong.
-                //
-                // Detach first: a rejected SaveChanges leaves these entities tracked as Added, and
-                // this context is request-scoped and shared. Left attached, the next unrelated
-                // SaveChanges in the same request would retry them and fail again — an FX lookup
-                // must never be what breaks someone else's write.
-                foreach (var entity in added) db.Entry(entity).State = EntityState.Detached;
+                // index makes the loser redundant, not wrong. The rejected entities die with this
+                // operation's own context, so nothing is left behind for anyone else's SaveChanges.
                 logger.LogDebug(ex, "{Source} FX rates already stored by a concurrent request", source);
             }
         }

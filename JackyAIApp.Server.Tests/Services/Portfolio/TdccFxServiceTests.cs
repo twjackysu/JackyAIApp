@@ -23,6 +23,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     public class TdccFxServiceTests : IDisposable
     {
         private readonly AzureSQLDBContext _db;
+        private readonly TestDbContextFactory _dbFactory;
 
         public TdccFxServiceTests()
         {
@@ -30,6 +31,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options;
             _db = new AzureSQLDBContext(options);
+            _dbFactory = new TestDbContextFactory(options);
         }
 
         public void Dispose() => _db.Dispose();
@@ -226,7 +228,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             factory.Setup(f => f.CreateClient(It.IsAny<string>()))
                 .Returns(StubHttpMessageHandler.CreateClient(responder));
             return new TdccFxService(
-                _db, factory.Object, new MemoryCache(new MemoryCacheOptions()),
+                _dbFactory, factory.Object, new MemoryCache(new MemoryCacheOptions()),
                 NullLogger<TdccFxService>.Instance);
         }
     }
