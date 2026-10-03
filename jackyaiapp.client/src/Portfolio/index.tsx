@@ -14,7 +14,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 
 import { BenchmarkChart } from './BenchmarkChart';
 import { ChartSectionCard } from './ChartSectionCard';
@@ -37,11 +37,14 @@ import { PositionsTable } from './PositionsTable';
 import { usePrivacy } from './privacy';
 import { PrivacyProvider } from './PrivacyContext';
 import { RebalancingCard } from './RebalancingCard';
+import { buildStoryAllocation } from './storyAllocation';
+import { StoryImageDialog } from './StoryImageDialog';
 
 import { useGetPortfolioSummaryQuery, useLazyGetNetWorthHistoryQuery } from '@/apis/portfolioApis';
 import { PortfolioSummaryDto, PositionDto } from '@/apis/portfolioApis/types';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip, InfoPopover } from '@/components/hints';
+import { todayISO } from '@/utils/date';
 import { fmtNum as fmt, fmtSignedPct, GAIN_COLOR, LOSS_COLOR, pnlColor } from '@/utils/format';
 
 function PrivacyToggle() {
@@ -63,6 +66,9 @@ function PrivacyToggle() {
 function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const [fetchHistory, { isFetching }] = useLazyGetNetWorthHistoryQuery();
+  const [storyOpen, setStoryOpen] = useState(false);
+  const storyAlloc = useMemo(() => buildStoryAllocation(summary.positions), [summary.positions]);
+  const hasStocks = !!(storyAlloc.tw || storyAlloc.us);
 
   const close = () => setAnchor(null);
 
@@ -76,7 +82,7 @@ function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
 
   return (
     <>
-      <ActionTooltip title="匯出 CSV (Excel)">
+      <ActionTooltip title="匯出 (CSV / 限動圖)">
         <IconButton onClick={(e) => setAnchor(e.currentTarget)} size="small" disabled={isFetching}>
           <FileDownloadOutlinedIcon />
         </IconButton>
@@ -91,7 +97,22 @@ function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
           目前持倉
         </MenuItem>
         <MenuItem onClick={exportHistory}>淨值歷史 (時間序列)</MenuItem>
+        <MenuItem
+          disabled={!hasStocks}
+          onClick={() => {
+            close();
+            setStoryOpen(true);
+          }}
+        >
+          IG 限動圖 (持股比例)
+        </MenuItem>
       </Menu>
+      <StoryImageDialog
+        open={storyOpen}
+        onClose={() => setStoryOpen(false)}
+        alloc={storyAlloc}
+        date={summary.effectiveDate ?? todayISO()}
+      />
     </>
   );
 }
