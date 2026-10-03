@@ -2766,3 +2766,9 @@
 - 盤點：無 open PR。#403（TASK-026）、#404（TASK-025）皆已由 Boss 合併；TASK-021~026 狀態全部改為 `MERGED`。
 - Issue #401（Portfolio 效能）的兩項實作已上線（待部署完成）；實際速度改善未實測，留待 Boss 部署後體感回饋再決定是否續作。
 - 分類的剩餘項目：(Optional) FinancialChangesChart 預設 180→90 天以共用快取——顯示預設值變更，待 Boss 決定；(Technical Debt, trivial) 刪除孤立檔案 `CreditTransaction.cs`/`Subscription.cs`。兩者皆未開 task，等 Boss 對 #401 回覆後再處理。
+
+## 2026-10-03 — Tech Lead: Issue #411 / #407 (scheduled run)
+
+- #411：目前已是 MUI v9（9.0.1），升 9.4.0 屬 minor；建立 TASK-027（Frontend, READY）。
+- #407：word title/description/canonical 已由 TASK-019/020 實作並合併；其他單字搜不到主因是 Google 尚未收錄（見 Issue 回覆），無需新程式任務。
+- 無 open PR。
