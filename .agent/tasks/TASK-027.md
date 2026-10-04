@@ -7,7 +7,7 @@
 Frontend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM

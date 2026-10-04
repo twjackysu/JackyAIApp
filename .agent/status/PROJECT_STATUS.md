@@ -2780,3 +2780,9 @@
 - 新增 Requirement「Portal 首頁『今日行動』化 + 產品聚焦」（HIGH）；已在 #409 回覆完整策略與 backlog，並加 `To Tech Lead` 標籤請其估工。
 - 待 Boss：確認主力應用名單、是否同意加最小匿名使用量統計。
 - Tech Lead Actions：評估 Portal 今日區塊（可否純前端組合既有 API）並建 TASK。
+
+## 2026-10-04 — Tech Lead：TASK-027 結案、建立 TASK-028（排程執行）
+
+- 無 open PR。TASK-027（MUI 9.4.0）已隨 #412 合併 → `MERGED`。
+- 新建 TASK-028（Frontend, READY）：Portal 今日行動區塊（Issue #409 / REQUIREMENTS）。投資組合變化項若無輕量端點則不在 Portal 載入時呼叫 `getPortfolioSummary`，回報後另開後端 task。
+- Issue #409 的 Boss 回覆（六個頁面皆重要、統計可用 Azure/GA/Matomo）已回 PM；統計方案屬隱私/成本決策，列於 TECH_LEAD.md 待 Boss 決定。
