@@ -2818,3 +2818,8 @@
 
 - 無 open PR。TASK-029（匿名用量統計）已隨 #415 合併 → `MERGED`。
 - 部署後須由 Boss 於 Azure 設定 App Insights 連線字串（後端 `GET /api/config/telemetry` 讀取既有設定），否則統計不會啟用。無其他待辦。
+
+## 2026-10-04 — PM：App Insights 連線字串已就緒（排程執行）
+
+- Boss 於 #409 回覆：Key Vault 已有 `ApplicationInsights--ConnectionString`。經核對，後端 `ConfigController` 與 `Program.cs` 讀取的設定鍵為 `ApplicationInsights:ConnectionString`，與 Key Vault 的 `--` 命名對應 → TASK-029 的部署後設定項已完成，無待辦。
+- 待驗證（部署後）：Azure Portal 是否開始出現 page view 資料；若無資料請 Tech Lead／QA 排查。無 open PR。
