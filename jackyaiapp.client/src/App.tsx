@@ -22,6 +22,7 @@ import {
   getCurrentApp,
 } from './constants/apps';
 import { englishLearningRoute } from './EnglishLearning';
+import usePageViewTracking from './hooks/usePageViewTracking';
 
 import CenteredSpinner from '@/components/CenteredSpinner';
 
@@ -100,6 +101,7 @@ function App() {
   const location = useLocation();
   const path = location.pathname;
   const element = useRoutes(routes);
+  usePageViewTracking();
 
   // The home portal ("/") is the ONLY place users switch between apps.
   const isPortal = path === '/';
@@ -168,6 +170,14 @@ function App() {
           <FloatingChatbot />
         </Suspense>
       )}
+      <Typography
+        component="footer"
+        variant="caption"
+        color="text.secondary"
+        sx={{ display: 'block', textAlign: 'center', px: 2, pb: 2 }}
+      >
+        本站使用匿名統計（Cookie）以改善服務
+      </Typography>
       <UsageLimitModal />
     </>
   );

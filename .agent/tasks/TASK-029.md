@@ -4,7 +4,7 @@
 Frontend Engineer（含一個極小的後端設定端點；同一 PR 完成即可）
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM（Requirement：匿名用量統計，DECISION-010）
@@ -43,7 +43,7 @@ Boss 能在 Azure Portal（Application Insights）看到按頁面路徑分群的
 - 逐用戶行為分析、自訂事件（按鈕點擊等）、A/B 測試、自建後台。
 
 ## Result
-（待 Engineer 填寫）
+前端 `utils/analytics.ts`（動態 import SDK、獨立 chunk 192kB）＋ `hooks/usePageViewTracking.ts`（App 層級）＋ 頁尾告知；後端 `GET /api/config/telemetry`。前端 lint/test(267)/build 通過；本環境無 dotnet，後端測試未執行（交由 CI）。
 
 ## Review
 （待 Tech Lead 填寫）
