@@ -2786,3 +2786,8 @@
 - 無 open PR。TASK-027（MUI 9.4.0）已隨 #412 合併 → `MERGED`。
 - 新建 TASK-028（Frontend, READY）：Portal 今日行動區塊（Issue #409 / REQUIREMENTS）。投資組合變化項若無輕量端點則不在 Portal 載入時呼叫 `getPortfolioSummary`，回報後另開後端 task。
 - Issue #409 的 Boss 回覆（六個頁面皆重要、統計可用 Azure/GA/Matomo）已回 PM；統計方案屬隱私/成本決策，列於 TECH_LEAD.md 待 Boss 決定。
+
+## 2026-10-04 — PM：吸收 Boss 於 #409 的回覆（排程執行）
+
+- 新增 DECISION-009：六個首頁應用皆重要、同意導入用量統計（方案待 Boss 選）。Portal requirement 第 4 點已修訂為「不隱藏、不弱化」，與 TASK-028 一致。
+- 待 Boss：統計方案選擇。無 open PR。

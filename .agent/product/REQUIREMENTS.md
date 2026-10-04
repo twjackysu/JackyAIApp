@@ -1071,7 +1071,7 @@ so that 我不必自己回想要點進哪個應用，養成每天回來的習慣
 1. 已登入：Portal 頂部顯示「今日」區塊，僅整合**既有**資料：連續天數（streak）、今日每日挑戰是否完成、待複習單字數、投資組合總資產較上次的變化（有持倉資料時）。每項可一鍵進入對應頁面。
 2. 已登入且該項無資料（如無持倉、無待複習）：該項不顯示，不得顯示空白或 0 造成雜訊。
 3. 未登入：顯示一行價值說明與登入入口；英文學習（含免登入的字典）排在最前面。
-4. 應用卡片依「主力／其他」分群：English Coach、Wealth Portfolio、Stock Intelligence 為主力；其餘收進次要區。主力名單為 PM 假設，待 Boss 確認。
+4. 應用卡片分群（依 Boss 2026-10-03 回覆修訂，見 DECISION-009）：English Coach、Wealth Portfolio、Stock Intelligence 排在最前（主力）；其餘六個首頁應用**不隱藏、不弱化**，同樣視為重要，並需各自持續改善 UX 與留存。
 5. 不新增 AI 呼叫、不新增後端運算成本（符合 DECISION-003 成本紀律與 DECISION-007 用量機制）。
 
 ### Acceptance Criteria
@@ -1101,5 +1101,5 @@ HIGH（直接對應 DECISION-003「留得住用戶」，且為純前端整合既
 - 僅描述行為；資料來源、API 是否需新增彙總端點，由 Tech Lead 決定。
 
 ### Open Questions
-- Boss：主力應用名單是否同意（English Coach／Wealth Portfolio／Stock Intelligence）？
-- Boss／Tech Lead：目前有無任何使用量資料（各應用造訪、DAU）可判斷各模組去留？若無，是否同意先加最小限度的匿名造訪統計？（涉及隱私，需 Boss 決定）
+- ~~主力應用名單~~ 已由 Boss 回覆（DECISION-009）：三個主力 + 其餘六個皆重要。
+- Boss：用量統計採哪一個方案（Azure Application Insights／GA4／Matomo）？Boss 已同意需要統計，僅方案待定；Tech Lead 建議優先 Application Insights（需先確認 Azure 是否已啟用）。

@@ -228,3 +228,22 @@ Boss
 
 ### Source
 Boss（2026-09-30 核准 PM 建議的 B 方案）
+
+
+## DECISION-009: 首頁六個應用皆視為重要；導入用量統計（方案待定）
+
+### Date
+2026-10-04
+
+### Decision
+1. English Coach／Wealth Portfolio／Stock Intelligence 為最優先，但首頁其餘六個應用同樣重要，不得因「次要」而隱藏或停止改善；PM 需逐一檢視其 UX／留存改進空間。
+2. 同意導入用量統計以支撐產品決策；方案（Azure Application Insights／GA4／Matomo）由 Boss 選定。若功能受限於 DataAnalysisLibrary，可改該 repo，但不得破壞其設計架構，且動工前須先與 Boss 確認範圍。
+
+### Reason
+Boss 於 Issue #409 回覆；沒有數據前無法判斷模組去留。
+
+### Impact
+Portal 卡片僅做排序／分群，不下架任何應用；統計方案確定後由 Tech Lead 開 task。
+
+### Source
+Boss（Issue #409，2026-10-03）
