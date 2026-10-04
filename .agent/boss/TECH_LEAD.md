@@ -18,6 +18,9 @@
 10. 2026-10-04：TASK-027 已 MERGED。Issue #409 → TASK-028（Portal 今日行動）已 MERGED（#414）；Portal 顯示投資組合變化列為 Future Work（需輕量後端端點，待優先順序決定）。
 11. **待 Boss 決定（用量統計，#409）**：Tech Lead 建議 Azure App Service 已有 Application Insights 時優先用它（零前端程式、免費額度內、不引入第三方 cookie）；否則 Matomo 需自架（運維成本）、GA4 免費但有隱私/cookie 揭露。自建後台不建議。請 Boss 指定方案，再開 task。
 12. 2026-10-04：用量統計已定案 Application Insights（DECISION-010）→ 建立 TASK-029（READY）。後端已有 `UseAzureMonitor`，但 SPA 路由切換不產生 server request，故採「瀏覽器端 SDK 動態載入 + `GET /api/config/telemetry` 提供連線字串」，不需改 CI。**待 Boss 決定**：browser SDK 會使用 cookie（`ai_user`/`ai_session`）存匿名 ID，是否需要隱私／Cookie 告知文字？（Tech Lead 建議：頁尾加一行簡短「本站使用匿名統計」說明即可；若要完全不用 cookie 則「不重複使用者數」會不準。）
+13. 2026-10-04（回覆 Boss 關於 cookie 同意框與識別使用者）：
+    - **同意對話框：不做阻擋式 banner**。台灣個資法對「匿名、不含個資」的統計不要求事前 opt-in（不同於 GDPR 對歐盟訪客）；你看到的 banner 多半是為歐盟/廣告追蹤。我們只收匿名 page view、無廣告、無第三方分享，改用頁尾一行告知即可（已寫入 TASK-029），UX 較好、實作成本近零。若日後有歐盟用戶或加廣告，再重新評估。
+    - **是否識別 user**：目前**維持匿名**，不呼叫 `setAuthenticatedUserContext`。理由：(a) Application Insights 的 cookie ID 已能算「不重複訪客／回訪率」；(b) 本站登入用戶的長期留存其實可直接從既有 DB（streak、XP、最後活動日、複習紀錄）以後端查詢得到，不需把 Google 身分送到第三方遙測，隱私風險最低。若將來需要「登入用戶漏斗」，優先用後端 DB 查詢或送不可逆雜湊 ID，而非 email/Google ID。已同步 PM 知悉；若你要改為識別用戶請告訴我，屬隱私決策會再回報。
 
 # Tech Lead ↔ Boss
 是的那就用cookie吧，然後我看別的網站都會顯示是否同意的提示框，我們也會這樣做嗎?

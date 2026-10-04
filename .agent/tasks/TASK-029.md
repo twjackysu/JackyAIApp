@@ -19,17 +19,19 @@ Boss 能在 Azure Portal（Application Insights）看到按頁面路徑分群的
 4. 匿名：**不得**呼叫 `setAuthenticatedUserContext`、不送 email／name／Google ID；不載入廣告或第三方追蹤。登入 vs 訪客以自訂屬性 `isAuthenticated: true|false` 帶上（布林值而已）。
 5. SDK 設定：關閉不必要的自動收集（`disableAjaxTracking`、`disableFetchTracking`、`disableExceptionTracking` 皆 true 以避免噪音與額外成本；後端已有 request/dependency 資料）；`enableAutoRouteTracking` 不用，改手動送 page view 以便控制 name。
 6. 開發環境（`import.meta.env.DEV`）與連線字串為空時完全 no-op，不報錯。
-7. 成本：僅 page view，流量極低，預期遠低於 5GB/月免費額度；PR 說明中附一行估算。
+7. **Cookie 告知（Boss 2026-10-04 已同意用 cookie）**：頁尾（既有 footer／Layout 底部）加一行簡短固定文字「本站使用匿名統計（Cookie）以改善服務」，附隱私說明連結可省略；**不做**阻擋式同意對話框（見 TECH_LEAD.md 第 13 項理由）。文字須為繁中且納入 i18n（若專案有）。
+8. 成本：僅 page view，流量極低，預期遠低於 5GB/月免費額度；PR 說明中附一行估算。
 
 ## Acceptance Criteria
 - [ ] 路由切換各送一筆 page view（元件/hook 測試以 mock SDK 驗證：query string 被去除、單字頁彙整為單一 name、連線字串為 null 時不初始化、未登入/已登入屬性正確）。
+- [ ] 頁尾顯示匿名統計告知文字，且不阻擋任何操作。
 - [ ] 後端端點有單元測試（有/無連線字串兩種）。
 - [ ] 主 bundle 大小無明顯增加（SDK 在獨立 chunk；PR 附 build 輸出對照）。
 - [ ] `npm run lint`、`npm run test`、`npm run build`、後端 `dotnet test --filter "Category!=LiveContract"` 全過。
 - [ ] PR 說明附「Boss 在 Azure Portal 查看」的步驟（Usage → Users／Page views，依 name 分組；回訪率看 Retention）。
 
 ## Technical Notes
-- 不使用 cookie 以外的追蹤；SDK 預設會用 cookie（`ai_user`、`ai_session`）存匿名 ID——**這是隱私揭露問題**，見下方 Out of Scope／待 Boss 決定，不在本 task 自行加文字。
+- 不使用 cookie 以外的追蹤；SDK 預設會用 cookie（`ai_user`、`ai_session`）存匿名 ID——**這是隱私揭露問題**，以 Requirements 第 7 點的頁尾告知處理。
 - 參考既有 RTK Query 設定取得 config（或單純 `fetch` 一次，不需進 Redux）。
 - 先確認 `App.tsx` 的 router 結構，hook 放在 Layout 層級即可，不做無關重構。
 
@@ -37,7 +39,7 @@ Boss 能在 Azure Portal（Application Insights）看到按頁面路徑分群的
 無。實作前先在 master 推 `Status: IN_PROGRESS`。
 
 ## Out of Scope
-- 隱私揭露／Cookie 告知文字（Tech Lead 已列入 TECH_LEAD.md 待 Boss 決定）。
+- 阻擋式 Cookie 同意對話框、逐用戶識別（見 TECH_LEAD.md 第 13 項）。
 - 逐用戶行為分析、自訂事件（按鈕點擊等）、A/B 測試、自建後台。
 
 ## Result

@@ -2808,3 +2808,8 @@
 - 無 open PR。盤點發現後端已有 Azure Monitor OpenTelemetry（需連線字串），但 SPA 路由切換不會產生 server request，無法得到按頁面的造訪統計。
 - 新建 TASK-029（Frontend + 極小後端端點, READY）：browser SDK 動態載入、手動 page view（去 query、單字頁彙整）、不帶任何個資、連線字串由 `GET /api/config/telemetry` 提供。
 - 待 Boss：Cookie／隱私告知文字（見 TECH_LEAD.md 第 12 項）。
+
+## 2026-10-04 — Tech Lead：回覆 Boss 對 TASK-029 的 Cookie／識別問題（排程執行）
+
+- 無 open PR。Boss 同意用 cookie，並詢問是否做同意對話框、是否識別用戶（授權 PM 與 Tech Lead 決定）。
+- 決定：不做阻擋式同意框（匿名統計於台灣個資法無事前同意要求），改頁尾一行告知；維持匿名，長期留存用既有 DB 後端查詢。已更新 TASK-029（新增頁尾告知需求）與 TECH_LEAD.md 第 13 項。PM 請知悉：不需再另行處理。
