@@ -2791,3 +2791,9 @@
 
 - 新增 DECISION-009：六個首頁應用皆重要、同意導入用量統計（方案待 Boss 選）。Portal requirement 第 4 點已修訂為「不隱藏、不弱化」，與 TASK-028 一致。
 - 待 Boss：統計方案選擇。無 open PR。
+
+## 2026-10-04 — Tech Lead：TASK-028 結案（排程執行）
+
+- 無 open PR。TASK-028（Portal 今日行動）已隨 #414 合併 → `MERGED`。
+- 分類：「Portal 顯示投資組合變化」需要輕量後端端點（現有 summary 會 deep fetch 上游報價）——**Future Work**，不開 task；待 Boss 對 #409 的優先順序／用量統計方案回覆後，由 PM 決定是否值得做，再由 Tech Lead 設計（可選方案：以快取的最新淨值快照回傳總資產與上次變化，不觸發上游請求）。
+- 仍待 Boss：用量統計方案（見 TECH_LEAD.md 第 11 項）。

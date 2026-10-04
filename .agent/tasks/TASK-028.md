@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH（Requirement：Portal 首頁「今日行動」化，Issue #409）
