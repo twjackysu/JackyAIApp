@@ -2813,3 +2813,8 @@
 
 - 無 open PR。Boss 同意用 cookie，並詢問是否做同意對話框、是否識別用戶（授權 PM 與 Tech Lead 決定）。
 - 決定：不做阻擋式同意框（匿名統計於台灣個資法無事前同意要求），改頁尾一行告知；維持匿名，長期留存用既有 DB 後端查詢。已更新 TASK-029（新增頁尾告知需求）與 TECH_LEAD.md 第 13 項。PM 請知悉：不需再另行處理。
+
+## 2026-10-04 — Tech Lead：TASK-029 結案（排程執行）
+
+- 無 open PR。TASK-029（匿名用量統計）已隨 #415 合併 → `MERGED`。
+- 部署後須由 Boss 於 Azure 設定 App Insights 連線字串（後端 `GET /api/config/telemetry` 讀取既有設定），否則統計不會啟用。無其他待辦。

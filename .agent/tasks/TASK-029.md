@@ -4,7 +4,7 @@
 Frontend Engineer（含一個極小的後端設定端點；同一 PR 完成即可）
 
 ## Status
-PR_OPENED
+MERGED（#415）
 
 ## Priority
 MEDIUM（Requirement：匿名用量統計，DECISION-010）
