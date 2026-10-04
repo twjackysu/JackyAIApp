@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH（Requirement：Portal 首頁「今日行動」化，Issue #409）
@@ -38,5 +38,12 @@ Portal（`/`）已登入顯示「今日」區塊（streak、今日挑戰、待�
 無。實作前先在 master 推 `Status: IN_PROGRESS`。
 
 ## Result
+Frontend Engineer（2026-10-04）：
+- 新增 `Portal/TodaySection.tsx`；`Portal/index.tsx` 加入訪客引導（價值說明 + Google 登入，`ReturnUrl=/`）、卡片分群。
+- 資料來源（皆既有、輕量、非 `[UsageLimit]`）：`getStats`（streak + 今日挑戰，與 `/daily` StatsBar 同源）、`getDueCount`、`getUpdateHistory`（僅判斷是否有持倉）。三個查詢各自 skeleton／失敗只隱藏該項；0 streak／0 待複習／無持倉整項不顯示。
+- **投資組合變化未做**：`getPortfolioSummary`／`net-worth-history` 都會抓上游報價（`FetchStocksAsync` deep fetch），依 Technical Notes 不在 Portal 載入時呼叫。目前只在有持倉時顯示「查看投資組合」入口。**請 Tech Lead 評估是否另開輕量後端端點**（回傳最新總資產 + 上次變化）。
+- 分群：主力（English Coach、Wealth Portfolio、Stock Intelligence）在前；其餘六個以同樣卡片樣式、預設展開，置於「更多應用」標題下，未隱藏或弱化。
+- 訪客：English Coach 排最前；字典路由本來就免登入。
+- 測試：`Portal/Portal.test.tsx` 4 情境（有待複習／無待複習／無持倉＋失敗／訪客）。`npm run lint`、`npm test`（258 passed）、`npm run build` 皆通過。≤400px 僅以 CSS 檢視（單欄 grid、`minWidth: 0`），未實機驗證。
 
 ## Review
