@@ -247,3 +247,21 @@ Portal 卡片僅做排序／分群，不下架任何應用；統計方案確定�
 
 ### Source
 Boss（Issue #409，2026-10-03）
+
+
+## DECISION-010: 用量統計採用 Azure Application Insights
+
+### Date
+2026-10-04
+
+### Decision
+用量統計採用 Azure Application Insights（Boss 確認 Azure 端已啟用）。
+
+### Reason
+不需第三方服務、免費額度內、無需自建後台（Tech Lead 與 PM 皆建議）。
+
+### Impact
+新增 Requirement「匿名用量統計」；由 Tech Lead 建 task。隱私告知需求待確認。
+
+### Source
+Boss（Issue #409，2026-10-04）

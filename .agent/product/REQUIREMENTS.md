@@ -1102,4 +1102,44 @@ HIGH（直接對應 DECISION-003「留得住用戶」，且為純前端整合既
 
 ### Open Questions
 - ~~主力應用名單~~ 已由 Boss 回覆（DECISION-009）：三個主力 + 其餘六個皆重要。
-- Boss：用量統計採哪一個方案（Azure Application Insights／GA4／Matomo）？Boss 已同意需要統計，僅方案待定；Tech Lead 建議優先 Application Insights（需先確認 Azure 是否已啟用）。
+- ~~用量統計方案~~ 已由 Boss 選定 Azure Application Insights（DECISION-010）。
+
+
+## Requirement: 匿名用量統計（DECISION-010）
+
+### Goal
+取得各模組的真實使用數據，作為「功能去留／投入優先序」的依據（Issue #409）。
+
+### User Story
+As a 產品負責人,
+I want 看到各頁面／模組的造訪與使用量,
+so that 我能依數據決定改善優先序，而不是憑感覺。
+
+### Requirements
+- 使用 Azure Application Insights（Boss 已確認 Azure 端已啟用）。
+- 至少能回答：各模組（Dictionary／Exam／Finance／Portfolio／PDF 等首頁應用）近 7／30 天的造訪量與不重複使用者數、登入 vs 訪客比例、回訪率。
+- 匿名：不得記錄姓名、email、Google ID 等可識別個人資訊於分析資料中；不引入第三方廣告追蹤。
+- 不得明顯拖慢頁面載入或增加月費（維持在免費額度內，超出前須通知 Boss）。
+
+### Acceptance Criteria
+- [ ] Boss 能在 Azure Portal 看到按頁面路徑分群的造訪數與不重複使用者數。
+- [ ] 分析資料中查無個人可識別資訊。
+- [ ] 啟用後首頁載入體感無明顯變慢。
+- [ ] 若需隱私揭露／告知文字，已列出並交 Boss 決定。
+
+### Priority
+MEDIUM（TASK-028 之後；為決策提供數據，不直接影響用戶）
+
+### Scope
+#### In Scope
+- 頁面層級造訪統計。
+#### Out of Scope
+- 逐用戶行為分析、A/B 測試、自建後台。
+#### Future Consideration
+- 關鍵事件（完成每日挑戰、完成考試）計數。
+
+### Constraints
+- 實作方式（前端 SDK 或後端遙測）由 Tech Lead 決定；是否需 cookie 同意提示屬法規問題，PM 未查證，請 Boss／Tech Lead 確認而非假設。
+
+### Open Questions
+- 隱私政策／cookie 告知是否需更新（未查證）。
