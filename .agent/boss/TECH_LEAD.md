@@ -17,3 +17,4 @@
 9. 2026-10-03：Issue #411（MUI 升 9.4.0）→ 已建 TASK-027（READY，Frontend）。Issue #407（SEO）→ 已於 Issue 回覆調查結果。
 10. 2026-10-04：TASK-027 已 MERGED。Issue #409 → TASK-028（Portal 今日行動）已 MERGED（#414）；Portal 顯示投資組合變化列為 Future Work（需輕量後端端點，待優先順序決定）。
 11. **待 Boss 決定（用量統計，#409）**：Tech Lead 建議 Azure App Service 已有 Application Insights 時優先用它（零前端程式、免費額度內、不引入第三方 cookie）；否則 Matomo 需自架（運維成本）、GA4 免費但有隱私/cookie 揭露。自建後台不建議。請 Boss 指定方案，再開 task。
+12. 2026-10-04：用量統計已定案 Application Insights（DECISION-010）→ 建立 TASK-029（READY）。後端已有 `UseAzureMonitor`，但 SPA 路由切換不產生 server request，故採「瀏覽器端 SDK 動態載入 + `GET /api/config/telemetry` 提供連線字串」，不需改 CI。**待 Boss 決定**：browser SDK 會使用 cookie（`ai_user`/`ai_session`）存匿名 ID，是否需要隱私／Cookie 告知文字？（Tech Lead 建議：頁尾加一行簡短「本站使用匿名統計」說明即可；若要完全不用 cookie 則「不重複使用者數」會不準。）

@@ -2802,3 +2802,9 @@
 
 - Boss 於 #409 選定 Application Insights → DECISION-010；新增 Requirement「匿名用量統計」（MEDIUM，TASK-028 之後）。
 - Tech Lead Actions：評估並建 task（前端 SDK 或後端遙測由其決定）。無 open PR。
+
+## 2026-10-04 — Tech Lead：建立 TASK-029 匿名用量統計（排程執行）
+
+- 無 open PR。盤點發現後端已有 Azure Monitor OpenTelemetry（需連線字串），但 SPA 路由切換不會產生 server request，無法得到按頁面的造訪統計。
+- 新建 TASK-029（Frontend + 極小後端端點, READY）：browser SDK 動態載入、手動 page view（去 query、單字頁彙整）、不帶任何個資、連線字串由 `GET /api/config/telemetry` 提供。
+- 待 Boss：Cookie／隱私告知文字（見 TECH_LEAD.md 第 12 項）。
