@@ -148,9 +148,11 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
 
-            // Change = +500. Denominator = 16,000. % = 500 / 16,000 * 100 = 3.125 -> 3.12% (banker's rounding)
+            // Change = +500 (debt counts against the amount). The % is of Friday's gross liquid
+            // assets, 20,000, not net assets: the same basis as the unrealized and total-return
+            // percentages beside it. Net assets (16,000) would read 3.12% and overstate the move.
             Assert.Equal(500m, summary.DayChangeTWD);
-            Assert.Equal(3.12m, summary.DayChangePct);
+            Assert.Equal(2.50m, summary.DayChangePct);
         }
 
         [Fact]

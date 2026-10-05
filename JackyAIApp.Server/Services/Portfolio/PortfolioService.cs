@@ -250,9 +250,11 @@ namespace JackyAIApp.Server.Services.Portfolio
                     .Where(c => !string.IsNullOrWhiteSpace(c) && c != "TWD")
                     .Distinct()
                     .ToList();
+            // allPositions, not just today's: a US stock sold since the previous trading day is still
+            // valued on that side of the day change, and must be valued at the same rate.
             List<(string Currency, DateOnly Date)> cathayUsKeys = cathayFx == null
                 ? []
-                : snapshot.Positions
+                : allPositions
                     .Where(p => p.AssetType == AssetType.STOCK && p.Currency == "USD"
                         && stockMap.ContainsKey(p.Symbol))
                     .Select(p => stockMap[p.Symbol].HistoricalPrices.LastOrDefault()?.Date)
@@ -285,6 +287,24 @@ namespace JackyAIApp.Server.Services.Portfolio
                 return cathayRatesByDate.TryGetValue((currency, DateOnly.FromDateTime(priceDate.Value)), out var r)
                     ? r
                     : null;
+            }
+
+            // The rate a position converts to TWD at. The valuation loop below and the previous
+            // trading day's valuation for the day change both go through this, so the two sides of
+            // the day change always use the same rate for the same position: a difference between
+            // them is then price or holdings, never a mismatch of rate sources.
+            //
+            // Funds convert at the 集保 published rate; US stocks at the 國泰世華 rate for their
+            // quote's day; everything else in USD at the mid-market rate. Falls back to mid-market
+            // when a published rate is missing, since an FX lookup must never be what stops a
+            // portfolio from being valued.
+            decimal PositionFx(HoldingPosition position, string? priceCurrency)
+            {
+                if (string.IsNullOrWhiteSpace(priceCurrency) || priceCurrency == "TWD") return 1m;
+                if (position.AssetType == AssetType.FUND && tdccRates.TryGetValue(priceCurrency, out var fundFx))
+                    return fundFx;
+                if (CathayRateFor(position, priceCurrency) is { } usFx) return usFx;
+                return priceCurrency == "USD" ? fx : 1m;
             }
 
             foreach (var p in snapshot.Positions)
@@ -337,19 +357,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (p.AssetType is not (AssetType.CASH or AssetType.LIABILITY or AssetType.REAL_ESTATE) && currentPrice <= 0)
                     priceFailed = true;
 
-                // Funds convert at 集保's published rate; everything else stays on the mid-market
-                // rate. Falls back to mid-market when 集保 has nothing for that currency — an FX
-                // lookup must never be what stops a portfolio from being valued.
-                var fxMul = 1m;
-                if (!string.IsNullOrWhiteSpace(priceCurrency) && priceCurrency != "TWD")
-                {
-                    if (p.AssetType == AssetType.FUND && tdccRates.TryGetValue(priceCurrency, out var fundFx))
-                        fxMul = fundFx;
-                    else if (CathayRateFor(p, priceCurrency) is { } usFx)
-                        fxMul = usFx;
-                    else if (priceCurrency == "USD")
-                        fxMul = fx;
-                }
+                var fxMul = PositionFx(p, priceCurrency);
                 // LIABILITY is the one place a position's value goes negative — this is the sole
                 // sign-flip point; every downstream sum (net worth, history, exports) just adds
                 // valueTWD and is correct with no special-casing.
@@ -540,26 +548,31 @@ namespace JackyAIApp.Server.Services.Portfolio
 
                 if (holdingsChanged || hasNewerPrice)
                 {
-                    var prevFx = prevSnapshot.UsdTwdRate > 0 ? prevSnapshot.UsdTwdRate : fx;
+                    // Valued at today's rates through the same PositionFx as today's side, not at
+                    // the rate stored on the earlier snapshot. That stored rate is the mid-market
+                    // rate from whenever the snapshot was saved (possibly weeks ago) and a different
+                    // source from the 國泰/集保 rates on today's side; mixing them put the gap
+                    // between two unrelated rates into every day's figure. With no trade and no
+                    // price move, US$30k of stock read as a NT$15,000 loss. Holding FX constant
+                    // leaves price moves and holdings changes, which is what this figure is for.
                     var prevLiquidNetWorthTWD = ValueAsOfDate(
-                        prevSnapshot.Positions, prevTradingDay, prevFx, stockMap, fundMap,
-                        includeRealEstate: false, includeLiability: true);
+                        prevSnapshot.Positions, prevTradingDay, fx, stockMap, fundMap,
+                        includeRealEstate: false, includeLiability: true, fxFor: PositionFx);
 
                     if (prevLiquidNetWorthTWD.HasValue)
                     {
                         dayChangeTWD = liquidNetWorthTWD - prevLiquidNetWorthTWD.Value;
-                        if (prevLiquidNetWorthTWD.Value > 0)
-                        {
-                            dayChangePct = Math.Round(dayChangeTWD.Value / prevLiquidNetWorthTWD.Value * 100, 2);
-                        }
-                        else
-                        {
-                            var prevLiquidGrossTWD = ValueAsOfDate(
-                                prevSnapshot.Positions, prevTradingDay, prevFx, stockMap, fundMap,
-                                includeRealEstate: false, includeLiability: false);
-                            if (prevLiquidGrossTWD is > 0)
-                                dayChangePct = Math.Round(dayChangeTWD.Value / prevLiquidGrossTWD.Value * 100, 2);
-                        }
+
+                        // % of the previous day's gross liquid assets (excl. real estate, not net of
+                        // liability): the same basis as UnrealizedPnlPct/TotalReturnPct and the
+                        // 流動資產 headline above them, as the user asked for. Dividing by net
+                        // assets instead inflates the % whenever there is debt, out of line with the
+                        // two percentages shown beside it.
+                        var prevLiquidGrossTWD = ValueAsOfDate(
+                            prevSnapshot.Positions, prevTradingDay, fx, stockMap, fundMap,
+                            includeRealEstate: false, includeLiability: false, fxFor: PositionFx);
+                        if (prevLiquidGrossTWD is > 0)
+                            dayChangePct = Math.Round(dayChangeTWD.Value / prevLiquidGrossTWD.Value * 100, 2);
                     }
                 }
             }
@@ -1959,8 +1972,15 @@ namespace JackyAIApp.Server.Services.Portfolio
         private static decimal? ValueAsOfDate(
             IEnumerable<HoldingPosition> positions, DateOnly date, decimal fx,
             Dictionary<string, DTO.Finance.MarketData> stockMap, Dictionary<string, FundNavHistory> fundMap,
-            bool includeRealEstate = true, bool includeLiability = true)
+            bool includeRealEstate = true, bool includeLiability = true,
+            // Per-position TWD rate given the price currency. When null, USD converts at `fx` and
+            // everything else at 1, which is what the history/drawdown callers want. The day change
+            // passes the summary's own PositionFx so both of its sides convert identically.
+            Func<HoldingPosition, string?, decimal>? fxFor = null)
         {
+            decimal Fx(HoldingPosition p, string? currency) =>
+                fxFor?.Invoke(p, currency) ?? (currency == "USD" ? fx : 1m);
+
             var dt = date.ToDateTime(TimeOnly.MinValue);
             var dayKey = date.ToString("yyyy-MM-dd");
             decimal total = 0;
@@ -1969,17 +1989,17 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 if (p.AssetType == AssetType.REAL_ESTATE)
                 {
-                    if (includeRealEstate) total += p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                    if (includeRealEstate) total += p.Quantity * Fx(p, p.Currency);
                     continue;
                 }
                 if (p.AssetType == AssetType.CASH)
                 {
-                    total += p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                    total += p.Quantity * Fx(p, p.Currency);
                     continue;
                 }
                 if (p.AssetType == AssetType.LIABILITY)
                 {
-                    if (includeLiability) total -= p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                    if (includeLiability) total -= p.Quantity * Fx(p, p.Currency);
                     continue;
                 }
 
@@ -2008,7 +2028,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 }
 
                 if (price <= 0) return null;
-                total += price * p.Quantity * (priceCurrency == "USD" ? fx : 1m);
+                total += price * p.Quantity * Fx(p, priceCurrency);
             }
 
             return total;

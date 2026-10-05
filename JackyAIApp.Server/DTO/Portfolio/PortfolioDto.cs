@@ -86,10 +86,11 @@ namespace JackyAIApp.Server.DTO.Portfolio
         // Total amount owed, positive. Already subtracted out of TotalNetWorthTWD.
         public decimal LiabilityTWD { get; set; }
         // TwStockTWD + UsStockTWD + CashTWD + FundTWD — excludes real estate, NOT net of
-        // liability. Denominator for UnrealizedPnlPct/TotalReturnPct below (real estate is manually-valued
-        // and shouldn't dilute a price-driven %, and netting out debt would inflate the ratio the way
-        // "÷ (assets - debt)" does). Also surfaced directly so the UI can show it alongside the
-        // net-of-liability "流動資產淨值" figure.
+        // liability. Denominator for DayChangePct (the previous trading day's figure) and
+        // UnrealizedPnlPct/TotalReturnPct below (real estate is manually-valued and shouldn't dilute
+        // a price-driven %, and netting out debt would inflate the ratio the way "÷ (assets - debt)"
+        // does). Also surfaced directly so the UI can show it alongside the net-of-liability
+        // "流動資產淨值" figure.
         public decimal LiquidGrossAssetsTWD { get; set; }
         // P&L only over positions that have a cost basis
         public decimal CostBasisTWD { get; set; }
@@ -113,7 +114,10 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public decimal? AnnualizedReturnPct { get; set; }
         // Single-day change in liquid net worth (流動淨資產 = liquid gross assets + liability,
         // excluding real estate) vs the previous trading day. Reflects cash/position changes between
-        // snapshots as well as market price movements.
+        // snapshots as well as market price movements, so a sale into cash shows its realized gain;
+        // so does any cash deposited or withdrawn. Both days convert at today's FX rates, so an
+        // overnight FX move is not part of it. DayChangePct is relative to the previous trading
+        // day's gross liquid assets (see LiquidGrossAssetsTWD).
         public decimal? DayChangeTWD { get; set; }
         public decimal? DayChangePct { get; set; }
         // Net market exposure: Σ market value × exposure factor (leveraged ETFs amplify, bonds count as 0).
