@@ -233,8 +233,9 @@ function NetWorthCard({
           流動資產
         </Typography>
         {/* Headline is gross liquid assets (excl. real estate, not net of liability), not total
-            net worth: 單日異動/未實現/含息損益 % below are already computed against this same
-            figure (see PortfolioService.LiquidGrossAssetsTWD), and a self-occupied home that's
+            net worth: 未實現/含息損益 % below are computed against this same figure (see
+            PortfolioService.LiquidGrossAssetsTWD), while 單日異動 tracks the single-day change
+            of liquid net assets (流動資產淨值) vs the previous trading day. A self-occupied home that's
             never getting sold — plus the debt against it — doesn't belong in "what can I actually
             deploy" the way it does in a legal/accounting net-worth figure. Responsive font size
             instead of a fixed h3 — at the theme's default h3 size, a 8-digit TWD figure ran wider

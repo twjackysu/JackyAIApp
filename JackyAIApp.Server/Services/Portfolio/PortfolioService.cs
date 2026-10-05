@@ -193,8 +193,9 @@ namespace JackyAIApp.Server.Services.Portfolio
         public async Task<PortfolioSummaryDto> GetPortfolioSummaryAsync(
             string userId, decimal feeDiscountRate = 0.28m, CancellationToken ct = default)
         {
-            var snapshot = await LatestSnapshotAsync(userId, ct);
-            if (snapshot == null) return new PortfolioSummaryDto();
+            var allSnapshots = await AllSnapshotsAsync(userId, ct);
+            if (allSnapshots.Count == 0) return new PortfolioSummaryDto();
+            var snapshot = allSnapshots[^1];
 
             // Defensive clamp rather than rejecting the request — this is a display-affecting
             // client-supplied value (not persisted anywhere server-side), not a validated business
@@ -210,14 +211,19 @@ namespace JackyAIApp.Server.Services.Portfolio
             decimal equityExposureTWD = 0; // Σ market value × exposure factor (leverage/bond-adjusted)
 
             // Prefetch all stock prices and fund NAVs in parallel (cached) before the value loop,
-            // instead of awaiting one network call per position serially. Current valuation + day-
-            // change only ever look at the last couple of trading days (see ValueAsOfDate below), so
-            // this is a shallow (latest-only) fetch — a never-before-added symbol shouldn't cost a
-            // 6-month history pull just to show today's market value.
+            // covering both today's holdings and the previous trading day's holdings so sold positions
+            // can be priced for the single-day liquid net worth change.
+            var prevTradingDay = PreviousTradingDay(Today);
+            var prevSnapshot = allSnapshots.LastOrDefault(s => s.EffectiveDate <= prevTradingDay)
+                ?? allSnapshots.FirstOrDefault();
+            var allPositions = prevSnapshot != null
+                ? snapshot.Positions.Concat(prevSnapshot.Positions).ToList()
+                : snapshot.Positions;
+
             var stockTask = FetchStocksAsync(
-                snapshot.Positions.Where(p => p.AssetType == AssetType.STOCK).Select(p => p.Symbol), deep: false, ct);
+                allPositions.Where(p => p.AssetType == AssetType.STOCK).Select(p => p.Symbol), deep: false, ct);
             var fundTask = FetchFundsAsync(
-                snapshot.Positions.Where(p => p.AssetType == AssetType.FUND).Select(p => p.Symbol), ct);
+                allPositions.Where(p => p.AssetType == AssetType.FUND).Select(p => p.Symbol), ct);
             await Task.WhenAll(stockTask, fundTask);
             var stockMap = stockTask.Result;
             var fundMap = fundTask.Result;
@@ -466,7 +472,6 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             // Total (含息) return: walk the whole snapshot timeline so a dividend counts against
             // whatever quantity was actually held on its ex-date, not today's quantity.
-            var allSnapshots = await AllSnapshotsAsync(userId, ct);
             var (totalDividendsTWD, dividendsByPosition, dividendFlows) =
                 await ComputeDividendsAsync(allSnapshots, fx, fundMap, ct);
             foreach (var p in positions)
@@ -504,47 +509,60 @@ namespace JackyAIApp.Server.Services.Portfolio
             var annualizedReturnPct = ComputeAnnualizedReturn(
                 allSnapshots, fx, costBasisTWD + pnlTWD, dividendFlows, Today);
 
-            // Day change: re-value today's exact holdings at the previous trading day's close,
-            // reusing the price histories already fetched above (no extra network calls). Holding
-            // quantities constant isolates price movement — same-day trades and FX drift are not
-            // modeled, matching the "just the total, skip the breakdown" scope this was asked for.
-            //
-            // Guard: "today's" price is whatever the provider's most recent published bar is, which
-            // — before today's TWSE/NAV data has actually landed for the day — is still yesterday's
-            // close. In that case "today" and "previous trading day" resolve to the exact same data
-            // point and would silently show a guaranteed $0/0.00% change that reads as "flat" rather
-            // than "no new data yet". Only compute a day change once at least one holding has a
-            // price genuinely newer than the previous trading day.
-            var prevTradingDay = PreviousTradingDay(Today);
-            decimal? dayChangeTWD = null, dayChangePct = null;
-            if (HasNewerPriceThan(snapshot.Positions, prevTradingDay, stockMap, fundMap))
-            {
-                var prevNetWorthTWD = ValueAsOfDate(snapshot.Positions, prevTradingDay, fx, stockMap, fundMap);
-                if (prevNetWorthTWD is > 0)
-                {
-                    dayChangeTWD = netWorthTWD - prevNetWorthTWD.Value;
-                    // % denominator is gross liquid assets (excl. real estate, not net of
-                    // liability) — same basis as UnrealizedPnlPct/TotalReturnPct below, per user
-                    // request: real estate and debt shouldn't dilute/distort how big a price move
-                    // reads as a percentage of the portfolio that's actually exposed to it.
-                    var prevLiquidGrossTWD = ValueAsOfDate(
-                        snapshot.Positions, prevTradingDay, fx, stockMap, fundMap, liquidGrossOnly: true);
-                    if (prevLiquidGrossTWD is > 0)
-                        dayChangePct = Math.Round(dayChangeTWD.Value / prevLiquidGrossTWD.Value * 100, 2);
-                }
-            }
-
-            // Shared denominator for the three headline percentages (day change above, unrealized
-            // and total-return below): gross liquid assets only — real estate is manually-valued
-            // and shouldn't dilute a price-driven %, and liability isn't netted out so a mortgage
-            // doesn't inflate the ratio the way "÷ (assets - debt)" would.
+            // Shared denominator for unrealized and total-return %: gross liquid assets only —
+            // real estate is manually-valued and shouldn't dilute a price-driven %, and liability
+            // isn't netted out so a mortgage doesn't inflate the ratio the way "÷ (assets - debt)" would.
             var liquidGrossAssetsTWD = twStock + usStock + cash + fund;
             // Liquid assets net of debt — the actual equity backing a leveraged position, and the
-            // only sensible base for the two leverage gauges below. Real estate is excluded on
-            // purpose: a house can't be liquidated to meet a margin call, so counting it would
-            // dilute exactly the risk these gauges exist to surface. `liability` is already
-            // negative here (see the sign-flip invariant at the single valuation point above).
+            // foundation for liquid net assets (流動淨資產 / 流動資產淨值). Real estate is excluded
+            // on purpose: a house can't be liquidated to meet immediate obligations. `liability`
+            // is already negative here (see the sign-flip invariant at the single valuation point above).
             var liquidNetWorthTWD = liquidGrossAssetsTWD + liability;
+
+            // Day change: measures single-day rise or fall in liquid net assets (流動淨資產 = liquid gross
+            // assets + liability, excluding real estate) vs the previous trading day.
+            //
+            // Positions baseline: uses the active snapshot on or before the previous trading day (falling
+            // back to today's snapshot if no prior snapshot exists). If the user sold stock into cash
+            // or deposited funds, the change in liquid net assets is reflected even if the current snapshot
+            // has no stock positions.
+            //
+            // Guard: when holdings haven't changed between the two days, require at least one held position
+            // to have a published price newer than the previous trading day's close. Otherwise, before
+            // today's market data lands, today and previous trading day resolve to identical prices and
+            // would misleadingly show $0 / 0.00% rather than "no new data yet".
+            decimal? dayChangeTWD = null, dayChangePct = null;
+            if (prevSnapshot != null)
+            {
+                var holdingsChanged = snapshot.Id != prevSnapshot.Id
+                    && !ArePositionsEqual(snapshot.Positions, prevSnapshot.Positions);
+                var hasNewerPrice = HasNewerPriceThan(allPositions, prevTradingDay, stockMap, fundMap);
+
+                if (holdingsChanged || hasNewerPrice)
+                {
+                    var prevFx = prevSnapshot.UsdTwdRate > 0 ? prevSnapshot.UsdTwdRate : fx;
+                    var prevLiquidNetWorthTWD = ValueAsOfDate(
+                        prevSnapshot.Positions, prevTradingDay, prevFx, stockMap, fundMap,
+                        includeRealEstate: false, includeLiability: true);
+
+                    if (prevLiquidNetWorthTWD.HasValue)
+                    {
+                        dayChangeTWD = liquidNetWorthTWD - prevLiquidNetWorthTWD.Value;
+                        if (prevLiquidNetWorthTWD.Value > 0)
+                        {
+                            dayChangePct = Math.Round(dayChangeTWD.Value / prevLiquidNetWorthTWD.Value * 100, 2);
+                        }
+                        else
+                        {
+                            var prevLiquidGrossTWD = ValueAsOfDate(
+                                prevSnapshot.Positions, prevTradingDay, prevFx, stockMap, fundMap,
+                                includeRealEstate: false, includeLiability: false);
+                            if (prevLiquidGrossTWD is > 0)
+                                dayChangePct = Math.Round(dayChangeTWD.Value / prevLiquidGrossTWD.Value * 100, 2);
+                        }
+                    }
+                }
+            }
 
             return new PortfolioSummaryDto
             {
@@ -1916,6 +1934,22 @@ namespace JackyAIApp.Server.Services.Portfolio
             return false;
         }
 
+        private static bool ArePositionsEqual(ICollection<HoldingPosition> a, ICollection<HoldingPosition> b)
+        {
+            if (ReferenceEquals(a, b)) return true;
+            if (a.Count != b.Count) return false;
+            var dictA = a.GroupBy(p => (p.AssetType, Symbol: (p.Symbol ?? "").ToUpperInvariant(), Market: (p.Market ?? "").ToUpperInvariant(), Currency: (p.Currency ?? "").ToUpperInvariant()))
+                         .ToDictionary(g => g.Key, g => g.Sum(p => p.Quantity));
+            var dictB = b.GroupBy(p => (p.AssetType, Symbol: (p.Symbol ?? "").ToUpperInvariant(), Market: (p.Market ?? "").ToUpperInvariant(), Currency: (p.Currency ?? "").ToUpperInvariant()))
+                         .ToDictionary(g => g.Key, g => g.Sum(p => p.Quantity));
+            if (dictA.Count != dictB.Count) return false;
+            foreach (var (k, v) in dictA)
+            {
+                if (!dictB.TryGetValue(k, out var bv) || bv != v) return false;
+            }
+            return true;
+        }
+
         /// <summary>
         /// Re-values a set of positions at their closing price as of <paramref name="date"/>, using
         /// already-fetched price histories (no network calls). Returns null if any non-cash position
@@ -1925,11 +1959,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         private static decimal? ValueAsOfDate(
             IEnumerable<HoldingPosition> positions, DateOnly date, decimal fx,
             Dictionary<string, DTO.Finance.MarketData> stockMap, Dictionary<string, FundNavHistory> fundMap,
-            // When true: REAL_ESTATE and LIABILITY contribute nothing (skipped entirely rather
-            // than added/subtracted) — used for the day-change %'s denominator, which the user
-            // wants relative to gross liquid assets only, not diluted by real estate or netted
-            // against debt. Full net worth (the default) still needs both for its own callers.
-            bool liquidGrossOnly = false)
+            bool includeRealEstate = true, bool includeLiability = true)
         {
             var dt = date.ToDateTime(TimeOnly.MinValue);
             var dayKey = date.ToString("yyyy-MM-dd");
@@ -1939,7 +1969,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 if (p.AssetType == AssetType.REAL_ESTATE)
                 {
-                    if (!liquidGrossOnly) total += p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                    if (includeRealEstate) total += p.Quantity * (p.Currency == "USD" ? fx : 1m);
                     continue;
                 }
                 if (p.AssetType == AssetType.CASH)
@@ -1949,7 +1979,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 }
                 if (p.AssetType == AssetType.LIABILITY)
                 {
-                    if (!liquidGrossOnly) total -= p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                    if (includeLiability) total -= p.Quantity * (p.Currency == "USD" ? fx : 1m);
                     continue;
                 }
 

@@ -86,10 +86,10 @@ namespace JackyAIApp.Server.DTO.Portfolio
         // Total amount owed, positive. Already subtracted out of TotalNetWorthTWD.
         public decimal LiabilityTWD { get; set; }
         // TwStockTWD + UsStockTWD + CashTWD + FundTWD — excludes real estate, NOT net of
-        // liability. Denominator for DayChangePct/UnrealizedPnlPct/TotalReturnPct below (real
-        // estate is manually-valued and shouldn't dilute a price-driven %, and netting out debt
-        // would inflate the ratio the way "÷ (assets - debt)" does). Also surfaced directly so the
-        // UI can show it alongside the net-of-liability "流動資產淨值" figure.
+        // liability. Denominator for UnrealizedPnlPct/TotalReturnPct below (real estate is manually-valued
+        // and shouldn't dilute a price-driven %, and netting out debt would inflate the ratio the way
+        // "÷ (assets - debt)" does). Also surfaced directly so the UI can show it alongside the
+        // net-of-liability "流動資產淨值" figure.
         public decimal LiquidGrossAssetsTWD { get; set; }
         // P&L only over positions that have a cost basis
         public decimal CostBasisTWD { get; set; }
@@ -111,8 +111,9 @@ namespace JackyAIApp.Server.DTO.Portfolio
         // Money-weighted annualized return (XIRR) over all snapshots, including dividend inflows;
         // null when not computable.
         public decimal? AnnualizedReturnPct { get; set; }
-        // Change vs the previous trading day's close, holding today's exact holdings constant
-        // (isolates price movement). Null when no prior-day price is available for every holding.
+        // Single-day change in liquid net worth (流動淨資產 = liquid gross assets + liability,
+        // excluding real estate) vs the previous trading day. Reflects cash/position changes between
+        // snapshots as well as market price movements.
         public decimal? DayChangeTWD { get; set; }
         public decimal? DayChangePct { get; set; }
         // Net market exposure: Σ market value × exposure factor (leveraged ETFs amplify, bonds count as 0).
