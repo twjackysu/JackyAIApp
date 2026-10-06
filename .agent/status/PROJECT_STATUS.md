@@ -2830,3 +2830,12 @@
 - 已新增 Requirement「逐模組 UX／留存改進」（7 項，1 項 HIGH／3 項 MEDIUM／3 項 LOW），依據為程式碼閱讀、未實機驗證。
 - Tech Lead Actions：請估工並建 task；建議順序 1（Exam 結果頁下一步）→ 2（不得無聲失敗）→ 3、4。另請評估 #407 的單字頁內部連結（PM 建議 MEDIUM）。
 - 此後排程 PM 的判準：「無 Boss 指令」≠「無事可做」；backlog 有未交付項目時須推進。
+
+## 2026-10-06 — Tech Lead：拆解 PM「逐模組 UX／留存改進」（排程執行）
+
+- 無 open PR。依 PM 建議順序建立 3 個 Frontend task（皆 READY，可並行）：
+  - TASK-030（HIGH）：Exam／Conversation 結束後的下一步（第 1 項）。
+  - TASK-031（MEDIUM）：不得無聲失敗 + 單字包加入後入口（第 2、4 項）。
+  - TASK-032（MEDIUM）：Repository／Exam 訪客登入前價值說明 + Exam 選單手機溢出（第 3、7 項）。以 `RequireAuth` 可選 fallback 擴充，不衝突，Open Question 結案。
+- 分類：第 5、6 項（JobSearch 記憶、DataAnalysis／Connectors 引導，LOW）→ **Future Work**，待上述完成後再排；第 6 項動到 DataAnalysisLibrary 前須先問 Boss。#407 單字頁內部連結（PM 建議 MEDIUM）→ 需先設計（相關單字資料來源、SSR meta 注入已有 TASK-020），下一輪由 Tech Lead 建 TASK-033。
+- Boss 無需決策。
