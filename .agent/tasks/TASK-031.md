@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM（Requirement：逐模組 UX／留存改進 第 2、4 項）
@@ -31,5 +31,11 @@ MEDIUM（Requirement：逐模組 UX／留存改進 第 2、4 項）
 無（可與 TASK-030 並行）。開工前先在 master 推 `Status: IN_PROGRESS`。
 
 ## Result
+- PDFUnlocker：失敗（錯誤密碼／伺服器／網路）以 inline Alert 顯示，訊息經 `getApiErrorMessage`（raw fetch 的失敗 response 轉成 `{status, data}` 後交給它）；成功顯示完成提示；下載檔名為「原檔名-unlocked.pdf」；移除 console.error 與 `alert()`。
+- Repository：單字查詢失敗顯示錯誤 Alert＋「重試」，不再顯示空庫警示（真的空庫仍顯示）。
+- StarterPacks：加入失敗顯示錯誤；成功訊息附「前往複習」（`/english/review`）與「開始測驗」（`/english/exam`）。註：Task 寫 `/review`、`/exam`，實際路由為 `/english/*`，與 RoundResultScreen 一致。
+- Exam：`FetchBaseQueryErrorMessage` 新增可選 `onRetry`，`ExamRoundShell` 新增 `onRetry`，7 張測驗卡傳入 `refetch`。
+- 測試：PDFUnlocker（錯誤密碼／網路失敗／成功檔名）、Repository（查詢失敗／真空庫）、StarterPacks（成功入口／失敗）、ExamRoundShell（失敗重試）。lint／test／build 全過。
+- Known limitation：未實機驗證 UI；無後端契約變更。
 
 ## Review

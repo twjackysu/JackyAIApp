@@ -103,6 +103,7 @@ function DictationTestCard() {
       isError={isError}
       error={error}
       onRestart={handleRestartRound}
+      onRetry={refetch}
     >
       <Card sx={{ mb: 2 }}>
         <CardContent>

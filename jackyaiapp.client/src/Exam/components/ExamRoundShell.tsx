@@ -18,6 +18,8 @@ interface ExamRoundShellProps {
   error: FetchBaseQueryError | SerializedError | undefined;
   /** Restarts the round from the result screen. */
   onRestart: () => void;
+  /** Re-requests the question after a fetch failure. */
+  onRetry?: () => void;
   /** Cloze/Translation/Listening use 600; the wider Sentence card overrides it. */
   maxWidth?: number;
   children: ReactNode;
@@ -36,6 +38,7 @@ function ExamRoundShell({
   isError,
   error,
   onRestart,
+  onRetry,
   maxWidth = 600,
   children,
 }: ExamRoundShellProps) {
@@ -55,7 +58,7 @@ function ExamRoundShell({
   }
 
   if (isError) {
-    return <FetchBaseQueryErrorMessage error={error} />;
+    return <FetchBaseQueryErrorMessage error={error} onRetry={onRetry} />;
   }
 
   return (

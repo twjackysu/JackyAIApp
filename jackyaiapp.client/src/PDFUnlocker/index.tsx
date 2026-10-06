@@ -1,18 +1,43 @@
-import { Box, Button, CircularProgress, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
+
+import { getApiErrorMessage } from '@/apis/utils/errorMessage';
+
+/** Builds the `FetchBaseQueryError` shape from a failed raw `fetch` so the message comes from
+ * the one shared extractor instead of a hand-rolled parse of the body. */
+async function failureMessage(response: Response): Promise<string> {
+  const text = await response.text();
+  let data: unknown = text;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    /* plain-text body: pass it through as is */
+  }
+  return getApiErrorMessage({ status: response.status, data });
+}
+
+function unlockedFileName(original: string): string {
+  return `${original.replace(/\.pdf$/i, '')}-unlocked.pdf`;
+}
 
 function PDFUnlocker() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setPdfFile(e.target.files[0]);
+      setErrorMessage(null);
+      setSuccess(false);
     }
   };
   async function downloadPdf() {
     if (!pdfFile || !password) return;
     setIsLoading(true);
+    setErrorMessage(null);
+    setSuccess(false);
     try {
       const formData = new FormData();
       formData.append('pdfFile', pdfFile);
@@ -24,7 +49,8 @@ function PDFUnlocker() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to download the PDF file');
+        setErrorMessage(await failureMessage(response));
+        return;
       }
 
       const blob = await response.blob();
@@ -32,14 +58,15 @@ function PDFUnlocker() {
 
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'unlocked.pdf';
+      link.download = unlockedFileName(pdfFile.name);
       document.body.appendChild(link);
       link.click();
       link.remove();
 
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading the PDF:', error);
+      setSuccess(true);
+    } catch {
+      setErrorMessage(getApiErrorMessage({ status: 'FETCH_ERROR', error: 'network' }));
     } finally {
       setIsLoading(false);
     }
@@ -49,7 +76,7 @@ function PDFUnlocker() {
     e.preventDefault();
 
     if (!pdfFile || !password) {
-      alert('Please upload a PDF file and enter the password.');
+      setErrorMessage('Please upload a PDF file and enter the password.');
       return;
     }
     await downloadPdf();
@@ -94,6 +121,16 @@ function PDFUnlocker() {
             required
           />
         </Box>
+        {errorMessage && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {errorMessage}
+          </Alert>
+        )}
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Done — your unlocked PDF has been downloaded.
+          </Alert>
+        )}
         <Button variant="contained" color="primary" type="submit" disabled={isLoading} fullWidth>
           {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Unlock PDF & Compress PDF'}
         </Button>

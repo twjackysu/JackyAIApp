@@ -146,6 +146,7 @@ function TranslationCard() {
       isError={isError}
       error={error}
       onRestart={handleRestartRound}
+      onRetry={refetch}
     >
       <Typography variant="h6" gutterBottom>
         {data?.data.chinese}
