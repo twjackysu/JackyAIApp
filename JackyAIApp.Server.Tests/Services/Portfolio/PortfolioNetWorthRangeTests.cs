@@ -50,7 +50,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 new Mock<IFundDataService>().Object,
                 dividends.Object,
                 new Mock<IStockCategoryService>().Object,
-                stockService: null!,
+                twListedCompanies: null!,
                 new Mock<IHttpClientFactory>().Object,
                 new MemoryCache(new MemoryCacheOptions()),
                 new Mock<IOpenAIPromptService>().Object,

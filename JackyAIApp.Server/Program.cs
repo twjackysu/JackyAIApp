@@ -74,11 +74,15 @@ try
                 maxRetryDelay: TimeSpan.FromSeconds(30),
                 errorNumbersToAdd: null);
         });
-    builder.Services.AddDbContext<AzureSQLDBContext>(ConfigureSqlOptions);
+    // Singleton options so the singleton factory below can use them. With AddDbContext's default
+    // (scoped) options, the factory captured a scoped service, which Development's DI validation
+    // rejects at startup.
+    builder.Services.AddDbContext<AzureSQLDBContext>(ConfigureSqlOptions, optionsLifetime: ServiceLifetime.Singleton);
     // Also register the factory form: DbContext isn't thread-safe, so code that fans out
     // concurrent DB work within one request (e.g. PersistentTwHistoricalProvider, called from
     // PortfolioService's Task.WhenAll across many stock symbols) needs a fresh, short-lived
-    // context per concurrent operation instead of sharing the one scoped instance.
+    // context per concurrent operation instead of sharing the one scoped instance. Singletons
+    // (TwListedCompanyService) use it for the same reason: they outlive any request scope.
     builder.Services.AddDbContextFactory<AzureSQLDBContext>(ConfigureSqlOptions);
 
     builder.Services.AddAuthentication(options =>

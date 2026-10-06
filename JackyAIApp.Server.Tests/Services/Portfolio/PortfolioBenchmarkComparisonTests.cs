@@ -65,7 +65,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 fundData.Object,
                 _dividendData.Object,
                 categoryService.Object,
-                stockService: null!,
+                twListedCompanies: null!,
                 httpClientFactory.Object,
                 cache,
                 openAI.Object,
