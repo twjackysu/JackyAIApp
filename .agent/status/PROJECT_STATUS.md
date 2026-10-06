@@ -2823,3 +2823,10 @@
 
 - Boss 於 #409 回覆：Key Vault 已有 `ApplicationInsights--ConnectionString`。經核對，後端 `ConfigController` 與 `Program.cs` 讀取的設定鍵為 `ApplicationInsights:ConnectionString`，與 Key Vault 的 `--` 命名對應 → TASK-029 的部署後設定項已完成，無待辦。
 - 待驗證（部署後）：Azure Portal 是否開始出現 page view 資料；若無資料請 Tech Lead／QA 排查。無 open PR。
+
+## 2026-10-06 — PM：逐模組 UX／留存盤點（手動追加，回應 Boss「團隊是否空轉」）
+
+- 承認前次排程誤判 NO_ACTION：只檢查 Boss 指令，未履行 #409 承諾的「主動盤點其餘應用」。
+- 已新增 Requirement「逐模組 UX／留存改進」（7 項，1 項 HIGH／3 項 MEDIUM／3 項 LOW），依據為程式碼閱讀、未實機驗證。
+- Tech Lead Actions：請估工並建 task；建議順序 1（Exam 結果頁下一步）→ 2（不得無聲失敗）→ 3、4。另請評估 #407 的單字頁內部連結（PM 建議 MEDIUM）。
+- 此後排程 PM 的判準：「無 Boss 指令」≠「無事可做」；backlog 有未交付項目時須推進。

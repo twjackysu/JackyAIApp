@@ -1143,3 +1143,58 @@ MEDIUM（TASK-028 之後；為決策提供數據，不直接影響用戶）
 
 ### Open Questions
 - 隱私政策／cookie 告知是否需更新（未查證）。
+
+
+## Requirement: 逐模組 UX／留存改進（Issue #409 後續，2026-10-06 PM 盤點）
+
+### Goal
+依 DECISION-009，六個首頁應用皆須持續改善 UX 與留存。本輪盤點以程式碼讀取為依據（未實機驗證），
+找出「任務完成後沒有下一步」與「失敗時使用者什麼都看不到」兩類最大缺口。
+
+### Audit 事實（由程式碼閱讀，檔案以 `jackyaiapp.client/src` 為根）
+- Exam 一輪結束（`Exam/components/RoundResultScreen.tsx`）只有分數＋「再來一輪／返回選單」，沒有答錯單字清單、沒有「加入複習」、沒有 Review 連結；逐題的 SRS 排程其實已在背景記錄。
+- Conversation 摘要的 `suggestedWords` 是不可點擊的 Chip，無法一鍵加入單字庫。
+- Repository 加入單字包後的成功訊息只有文字，沒有連結；單字查詢失敗會被當成「單字庫是空的」顯示。
+- PDFUnlocker 失敗（密碼錯誤、伺服器錯誤）只寫 `console.error`，使用者看不到任何訊息；成功也無提示，下載檔名固定 `unlocked.pdf`。
+- Repository 與 Exam 需登入，訪客被直接導向 Google 登入，沒有先看到價值。
+- JobSearch 預設查詢固定為 "senior software engineer"，不記住上次搜尋、無儲存職缺；DataAnalysis 的 AI／Dashboard／自訂資料源需登入，暫存上傳 2 小時後消失。
+- Connectors 空狀態是死路、介面僅英文；DashboardView 空狀態文字沒有連結。
+
+### 改進項（依優先序；僅描述行為，做法由 Tech Lead 決定）
+1. **HIGH — Exam／Conversation 結束後的「下一步」**：一輪結束顯示答錯的單字，可一鍵加入／加強複習，並有前往 Review 的入口；Conversation 建議單字可一鍵加入單字庫。對應 DECISION-004（真的提升英文能力）與留存。
+2. **MEDIUM — 不得無聲失敗**：PDF 解鎖失敗須顯示原因（如密碼錯誤）、成功須有提示；Repository 查詢失敗須顯示錯誤而非「空單字庫」；單字包加入失敗須提示；Exam 取題失敗須可重試。
+3. **MEDIUM — 訪客先看到價值**：Repository／Exam 未登入時，導向 Google 前先顯示簡短說明（能做什麼、免費、為何要登入）。不改變「需登入」的資料規則。
+4. **MEDIUM — Repository 加入單字包後**成功訊息提供前往 Review／Exam 的按鈕。
+5. **LOW — JobSearch** 記住上次關鍵字／策略（可存在瀏覽器）；錯誤訊息提供重試。
+6. **LOW — DataAnalysis／Dashboard／Connectors** 首次使用引導（解釋 Live Demo）、空狀態加 CTA、Connectors 文字與其他頁一致。
+7. **LOW — Exam 選單**手機寬度不得橫向溢出，並標示建議的起手測驗。
+
+### Acceptance Criteria
+- [ ] 完成一輪 Cloze 或 Translation 後，結果頁列出答錯單字，且有一鍵加入複習與前往 `/review` 的入口；全對時不顯示空區塊。
+- [ ] Conversation 摘要中的建議單字可點擊加入單字庫，並有成功／失敗回饋。
+- [ ] PDF 解鎖輸入錯誤密碼時，畫面顯示明確錯誤訊息；成功時顯示完成提示。
+- [ ] 模擬單字查詢失敗時，Repository 顯示錯誤而非「沒有單字」警示。
+- [ ] 未登入訪客開啟 Repository 或 Exam，先看到價值說明與登入按鈕，而非空白頁。
+- [ ] 手機寬度（≤ 400px）Exam 選單無橫向捲動。
+- [ ] 以上項目不新增 AI 呼叫或 UsageLimit 消耗。
+
+### Priority
+第 1 項 HIGH；第 2–4 項 MEDIUM；其餘 LOW（不全部標 HIGH）。
+
+### Scope
+#### In Scope
+- 上述 7 項的使用者可見行為
+
+#### Out of Scope
+- 推播／Email、分享機制（DECISION-004）、新增金流或點數概念（DECISION-006）、下架任何應用（需先有 App Insights 數據，並由 Boss 決定）
+
+#### Future Consideration
+- Portal 顯示投資組合變化（需輕量後端端點，見 PROJECT_STATUS 2026-10-04）
+- JobSearch 儲存職缺／提醒；DataAnalysis 匿名結果匯出
+- #407 SEO：單字頁內部連結（相關單字、每日單字）以加速收錄，Tech Lead 已提出、待 PM 排序——PM 建議列 MEDIUM，成長面唯一的低成本槓桿
+
+### Constraints
+- 修改 DataAnalysisLibrary 前須先與 Boss 確認範圍（DECISION-009）。
+
+### Open Questions
+- 無需 Boss 決定。第 3 項若 Tech Lead 認為與既有 RequireAuth 衝突，請回報。
