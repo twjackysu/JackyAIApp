@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using TWStockLib.Models;
 
 namespace JackyAIApp.Server.Tests.Services.Portfolio
 {
@@ -87,6 +88,57 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal(new[] { "00679B", "00981A", "2330", "6488" }, stored.Keys.Order(StringComparer.Ordinal));
             Assert.Equal("環球晶", stored["6488"].Name);
             Assert.All(stored.Values, c => Assert.Equal(Now.UtcDateTime, c.LastRefreshedAt));
+            Assert.Equal("TSE", stored["00981A"].Market);
+            Assert.Equal("OTC", stored["00679B"].Market);
+        }
+
+        [Fact]
+        public async Task RefreshAsync_FillsMarketOnRowsThatHadNone_AndFollowsAMoveBetweenExchanges()
+        {
+            await SeedAsync(
+                // A row from before the Market column existed.
+                new TwListedCompany { Symbol = "2330", Name = "台積電", Market = null },
+                // Moved from 上櫃 to 上市.
+                new TwListedCompany { Symbol = "6669", Name = "緯穎", Market = "OTC" });
+            ServeLists(TwseJson(("2330", "台積電"), ("6669", "緯穎")), TpexJson(("6488", "環球晶")));
+
+            Assert.True(await _service.RefreshAsync());
+
+            var stored = await StoredAsync();
+            Assert.Equal("TSE", stored["2330"].Market);
+            Assert.Equal("TSE", stored["6669"].Market);
+        }
+
+        // ── Market type ─────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task GetMarketTypeAsync_ReadsTheStoredListWithoutFetching()
+        {
+            await SeedAsync(
+                new TwListedCompany { Symbol = "2330", Name = "台積電", Market = "TSE" },
+                new TwListedCompany { Symbol = "6488", Name = "環球晶", Market = "OTC" },
+                new TwListedCompany { Symbol = "00981A", Name = "主動統一台股增長", Market = "TSE" },
+                new TwListedCompany { Symbol = "1234", Name = "尚未補上市場", Market = null });
+
+            Assert.Equal(MarketType.TSE, await _service.GetMarketTypeAsync("2330"));
+            Assert.Equal(MarketType.OTC, await _service.GetMarketTypeAsync("6488"));
+            Assert.Equal(MarketType.TSE, await _service.GetMarketTypeAsync("00981a"));
+            // Unknown, rather than a guess: callers that persist the answer must not persist a guess.
+            Assert.Null(await _service.GetMarketTypeAsync("1234"));
+            Assert.Null(await _service.GetMarketTypeAsync("9999"));
+            Assert.Equal(0, _http.Calls);
+        }
+
+        [Fact]
+        public async Task GetMarketTypeAsync_SeesARefreshImmediately()
+        {
+            await SeedAsync(new TwListedCompany { Symbol = "2330", Name = "台積電", Market = "TSE" });
+            Assert.Null(await _service.GetMarketTypeAsync("6488")); // the list is now cached
+
+            ServeLists(TwseJson(("2330", "台積電")), TpexJson(("6488", "環球晶")));
+            Assert.True(await _service.RefreshAsync());
+
+            Assert.Equal(MarketType.OTC, await _service.GetMarketTypeAsync("6488"));
         }
 
         [Fact]

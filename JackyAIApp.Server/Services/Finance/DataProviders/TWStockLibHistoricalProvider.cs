@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
+using JackyAIApp.Server.Services.Portfolio;
 using Microsoft.Extensions.Caching.Memory;
 using TWStockLib.Models;
 using TWStockLib.Services;
@@ -13,6 +14,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     public class TWStockLibHistoricalProvider : IMarketDataProvider, ITWStockLibHistoricalProvider
     {
         private readonly IStockMarketService _stockService;
+        private readonly ITwListedCompanyService _listedCompanies;
         private readonly IMemoryCache _cache;
         private readonly ILogger<TWStockLibHistoricalProvider> _logger;
 
@@ -21,16 +23,17 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// <summary>Shallow lookback for FetchLatestAsync — enough to cross a long weekend/holiday
         /// stretch and still land on the most recent finalized close.</summary>
         private const int LATEST_LOOKBACK_DAYS = 10;
-        private const string StockListCacheKeyPrefix = "twstocklist:";
 
         public DataProviderType Type => DataProviderType.HistoricalPrice;
 
         public TWStockLibHistoricalProvider(
             IStockMarketService stockService,
+            ITwListedCompanyService listedCompanies,
             IMemoryCache cache,
             ILogger<TWStockLibHistoricalProvider> logger)
         {
             _stockService = stockService ?? throw new ArgumentNullException(nameof(stockService));
+            _listedCompanies = listedCompanies ?? throw new ArgumentNullException(nameof(listedCompanies));
             _cache = cache ?? throw new ArgumentNullException(nameof(cache));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -131,22 +134,24 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         }
 
         /// <summary>
-        /// Determines whether a stock is on TSE or OTC market via the combined TSE+OTC list.
-        /// Public (via <see cref="ITWStockLibHistoricalProvider"/>) so <c>PersistentTwHistoricalProvider</c>
-        /// can reuse this memory-cached resolution instead of duplicating the isin-list lookup
-        /// logic when it needs to resolve a symbol it hasn't persisted to <c>StockSymbolInfo</c> yet.
-        /// Previously issued two sequential per-market calls (TSE then OTC) and silently fell back
-        /// to TSE — with no log line — whenever either call soft-failed (IsSuccess:false, which
-        /// <see cref="GetCachedAllStockListAsync"/> now logs). One combined call halves that
-        /// failure surface.
+        /// Determines whether a stock is on TSE or OTC from the stored listed-company list
+        /// (<see cref="ITwListedCompanyService"/>, an in-memory lookup). Public (via
+        /// <see cref="ITWStockLibHistoricalProvider"/>) so <c>PersistentTwHistoricalProvider</c>
+        /// can resolve a symbol it hasn't persisted to <c>StockSymbolInfo</c> yet.
+        ///
+        /// This used to come from TWStockLib's GetAllStockListAsync, a scrape of
+        /// isin.twse.com.tw: ~12MB of HTML that measured 76s from Taiwan against a 30s client
+        /// timeout. A failure wasn't cached and every TW symbol started its own download, and the
+        /// realtime-quote overlay asks this before every quote from 09:00 on — so every TW price
+        /// fetch waited out the timeout, and the portfolio summary took 30s+ each time its
+        /// 30-minute price cache expired.
         /// </summary>
         public async Task<MarketType?> DetermineMarketType(string stockCode)
         {
             try
             {
-                var allList = await GetCachedAllStockListAsync();
-                if (allList != null && allList.TryGetValue(stockCode, out var info))
-                    return info.Market;
+                if (await _listedCompanies.GetMarketTypeAsync(stockCode) is { } market)
+                    return market;
             }
             catch (Exception ex)
             {
@@ -161,37 +166,8 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             // priced again. Callers that only need something to try can fall back themselves;
             // callers that persist must not.
             _logger.LogWarning(
-                "{stockCode} not found in combined TWStockLib stock list; market type unresolved", stockCode);
+                "{stockCode} not found in the TW listed-company list; market type unresolved", stockCode);
             return null;
-        }
-
-        /// <summary>
-        /// The underlying TWSE endpoint (isin.twse.com.tw) returns the *entire* listed-company
-        /// table on every call and is slow (multi-second) — without caching, a portfolio with N
-        /// distinct TW symbols pays that cost N times per request, which dominates the wall time.
-        /// Membership only changes on IPOs/delistings, so a long TTL is safe.
-        /// </summary>
-        private async Task<IReadOnlyDictionary<string, StockData>?> GetCachedAllStockListAsync()
-        {
-            const string key = StockListCacheKeyPrefix + "all";
-            if (_cache.TryGetValue(key, out IReadOnlyDictionary<string, StockData>? cached))
-                return cached;
-
-            var result = await _stockService.GetAllStockListAsync();
-            if (!result.IsSuccess)
-            {
-                // Don't cache a failed lookup — the next call should retry rather than being
-                // stuck defaulting to TSE for a whole day. Logged (unlike the old per-market
-                // path) so a soft failure here is actually diagnosable.
-                _logger.LogWarning(
-                    "GetAllStockListAsync failed: {errorCode} - {errorMessage}",
-                    result.ErrorCode, result.ErrorMessage);
-                return null;
-            }
-
-            var list = result.Value!;
-            _cache.Set(key, list, CacheTtl.Finance.TwStockList);
-            return list;
         }
 
         /// <inheritdoc/>

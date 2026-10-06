@@ -302,22 +302,6 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("DailyChallengeResults");
                 });
 
-            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyUsage", b =>
-                {
-                    b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("datetime2");
-
-                    b.Property<long>("Used")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("UserId", "Date");
-
-                    b.ToTable("DailyUsages");
-                });
-
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyStockPrice", b =>
                 {
                     b.Property<int>("Id")
@@ -362,6 +346,22 @@ namespace JackyAIApp.Server.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("DailyStockPrices");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyUsage", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("Used")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("UserId", "Date");
+
+                    b.ToTable("DailyUsages");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Dashboard", b =>
@@ -993,6 +993,10 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.Property<DateTime>("LastRefreshedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Market")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
 
                     b.Property<string>("Name")
                         .IsRequired()

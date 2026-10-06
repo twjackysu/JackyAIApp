@@ -4,18 +4,24 @@ using JackyAIApp.Server.DTO.Portfolio;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
+using TWStockLib.Models;
 
 namespace JackyAIApp.Server.Services.Portfolio
 {
     /// <summary>
-    /// The TW symbol + name list behind the holdings editor's stock search: 上市 and 上櫃
-    /// stocks, ETFs, ETNs, preferred shares and DRs, without warrants.
+    /// The TW symbol list (上市 and 上櫃 stocks, ETFs, ETNs, preferred shares and DRs, without
+    /// warrants): names for the holdings editor's stock search, and which exchange each symbol
+    /// trades on for TW price fetching.
     /// </summary>
     public interface ITwListedCompanyService
     {
         /// <summary>Symbol-prefix or name matches, symbol-prefix matches first. Reads the stored
         /// list only — never waits on an upstream fetch.</summary>
         Task<List<StockSearchItem>> SearchAsync(string keyword, CancellationToken ct = default);
+
+        /// <summary>TSE (上市) or OTC (上櫃); null when the symbol isn't in the list (興櫃, a listing
+        /// newer than the last refresh, a typo). Reads the stored list only.</summary>
+        Task<MarketType?> GetMarketTypeAsync(string symbol, CancellationToken ct = default);
 
         /// <summary>Fetches both exchanges' lists and merges them into the stored list. Returns
         /// false, having written nothing, when either exchange's list could not be fetched.</summary>
@@ -27,7 +33,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
     /// <summary>
     /// Fills <see cref="TwListedCompany"/> from TWSE's and TPEx's OpenAPI daily-quote dumps, and
-    /// serves search from an in-memory copy of it.
+    /// serves search and market lookups from an in-memory copy of it.
     ///
     /// These replaced TWStockLib's <c>GetAllStockListAsync</c>, which scrapes isin.twse.com.tw:
     /// 12MB of HTML (the 上市 page alone measured 9MB / 76s) against a 30s client timeout, so it
@@ -35,6 +41,10 @@ namespace JackyAIApp.Server.Services.Portfolio
     /// list marked stale, so every search retried it and every search took 30s. The two OpenAPI
     /// dumps are ~5MB of JSON in ~5s, and refreshing is now
     /// <see cref="TwListedCompanyRefreshService"/>'s job, off the request path.
+    ///
+    /// The same scrape also answered "上市 or 上櫃?" for TW price fetching, before every realtime
+    /// quote from 09:00 on, so it timed out on every TW price too. Which dump a symbol came from
+    /// answers that, so <see cref="GetMarketTypeAsync"/> replaced it there as well.
     /// </summary>
     public class TwListedCompanyService(
         IDbContextFactory<AzureSQLDBContext> dbFactory,
@@ -68,7 +78,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             keyword = (keyword ?? "").Trim();
             if (keyword.Length == 0) return [];
 
-            var companies = await GetAllAsync(ct);
+            var companies = (await GetAllAsync(ct)).Entries;
             return companies
                 .Where(c => c.Symbol.StartsWith(keyword, StringComparison.OrdinalIgnoreCase)
                     || c.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase))
@@ -79,24 +89,34 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .ToList();
         }
 
-        /// <summary>The whole list, ~2,500 rows, held in memory so a keystroke costs a scan of
-        /// that rather than a database round trip. The hour's expiry only matters for changes
-        /// made outside this process (another instance's refresh, a manual edit); this
-        /// process's own refresh evicts it at once.</summary>
-        private async Task<IReadOnlyList<SearchEntry>> GetAllAsync(CancellationToken ct)
+        public async Task<MarketType?> GetMarketTypeAsync(string symbol, CancellationToken ct = default)
         {
-            if (cache.TryGetValue(CacheKey, out IReadOnlyList<SearchEntry>? cached) && cached != null)
+            var companies = await GetAllAsync(ct);
+            return companies.BySymbol.TryGetValue((symbol ?? "").Trim(), out var entry)
+                && Enum.TryParse<MarketType>(entry.Market, out var market)
+                    ? market
+                    : null;
+        }
+
+        /// <summary>The whole list, ~2,500 rows, held in memory so a keystroke or a price fetch
+        /// costs a lookup in that rather than a database round trip. The hour's expiry only
+        /// matters for changes made outside this process (another instance's refresh, a manual
+        /// edit); this process's own refresh evicts it at once.</summary>
+        private async Task<CompanyList> GetAllAsync(CancellationToken ct)
+        {
+            if (cache.TryGetValue(CacheKey, out CompanyList? cached) && cached != null)
                 return cached;
 
             await using var db = await dbFactory.CreateDbContextAsync(ct);
-            var list = await db.TwListedCompanies
+            var entries = await db.TwListedCompanies
                 .AsNoTracking()
-                .Select(c => new SearchEntry(c.Symbol, c.Name))
+                .Select(c => new Entry(c.Symbol, c.Name, c.Market))
                 .ToListAsync(ct);
+            var list = new CompanyList(entries, entries.ToDictionary(e => e.Symbol, StringComparer.OrdinalIgnoreCase));
 
-            // An empty list isn't cached: before the first refresh has finished, the next search
+            // An empty list isn't cached: before the first refresh has finished, the next lookup
             // should look again instead of finding nothing for an hour.
-            if (list.Count > 0) cache.Set(CacheKey, (IReadOnlyList<SearchEntry>)list, TimeSpan.FromHours(1));
+            if (entries.Count > 0) cache.Set(CacheKey, list, TimeSpan.FromHours(1));
             return list;
         }
 
@@ -108,8 +128,8 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         public async Task<bool> RefreshAsync(CancellationToken ct = default)
         {
-            var twseTask = FetchListAsync(TwseUrl, "Code", "Name", "TWSE", ct);
-            var tpexTask = FetchListAsync(TpexUrl, "SecuritiesCompanyCode", "CompanyName", "TPEx", ct);
+            var twseTask = FetchListAsync(TwseUrl, "Code", "Name", MarketType.TSE, ct);
+            var tpexTask = FetchListAsync(TpexUrl, "SecuritiesCompanyCode", "CompanyName", MarketType.OTC, ct);
             var twse = await twseTask;
             var tpex = await tpexTask;
 
@@ -119,23 +139,24 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (twse is null || tpex is null) return false;
 
             var now = _time.GetUtcNow().UtcDateTime;
-            var fresh = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var (symbol, name) in twse.Concat(tpex))
-                fresh.TryAdd(symbol, name);
+            var fresh = new Dictionary<string, (string Name, string Market)>(StringComparer.Ordinal);
+            foreach (var (symbol, name, market) in twse.Concat(tpex))
+                fresh.TryAdd(symbol, (name, market));
 
             await using var db = await dbFactory.CreateDbContextAsync(ct);
             var existing = await db.TwListedCompanies.ToDictionaryAsync(c => c.Symbol, StringComparer.Ordinal, ct);
 
-            foreach (var (symbol, name) in fresh)
+            foreach (var (symbol, (name, market)) in fresh)
             {
                 if (existing.TryGetValue(symbol, out var row))
                 {
                     row.Name = name; // renames happen (e.g. after mergers), and the newest name is the one people search for
+                    row.Market = market; // and so do moves from 上櫃 to 上市
                     row.LastRefreshedAt = now;
                 }
                 else
                 {
-                    db.TwListedCompanies.Add(new TwListedCompany { Symbol = symbol, Name = name, LastRefreshedAt = now });
+                    db.TwListedCompanies.Add(new TwListedCompany { Symbol = symbol, Name = name, Market = market, LastRefreshedAt = now });
                 }
             }
 
@@ -154,12 +175,13 @@ namespace JackyAIApp.Server.Services.Portfolio
             return true;
         }
 
-        /// <summary>(symbol, name) pairs from one exchange's dump, warrants dropped. Null on any
-        /// failure, including an empty list — neither exchange has ever had nothing listed, so an
-        /// empty array means a broken response, not an empty market.</summary>
-        private async Task<List<(string Symbol, string Name)>?> FetchListAsync(
-            string url, string symbolField, string nameField, string source, CancellationToken ct)
+        /// <summary>(symbol, name, market) rows from one exchange's dump, warrants dropped. Null on
+        /// any failure, including an empty list — neither exchange has ever had nothing listed, so
+        /// an empty array means a broken response, not an empty market.</summary>
+        private async Task<List<(string Symbol, string Name, string Market)>?> FetchListAsync(
+            string url, string symbolField, string nameField, MarketType market, CancellationToken ct)
         {
+            var source = market == MarketType.TSE ? "TWSE" : "TPEx";
             try
             {
                 var client = httpClientFactory.CreateClient("ExternalReadOnly");
@@ -177,13 +199,13 @@ namespace JackyAIApp.Server.Services.Portfolio
                     return null;
                 }
 
-                var list = new List<(string, string)>();
+                var list = new List<(string, string, string)>();
                 foreach (var row in doc.RootElement.EnumerateArray())
                 {
                     var symbol = ReadString(row, symbolField);
                     var name = ReadString(row, nameField);
                     if (symbol.Length == 0 || name.Length == 0 || IsWarrant(symbol)) continue;
-                    list.Add((symbol, name));
+                    list.Add((symbol, name, market.ToString()));
                 }
 
                 if (list.Count == 0)
@@ -216,6 +238,8 @@ namespace JackyAIApp.Server.Services.Portfolio
         internal static bool IsWarrant(string symbol) =>
             symbol.Length == 6 && (symbol[0] == '7' || (symbol[0] == '0' && symbol[1] is >= '3' and <= '8'));
 
-        private sealed record SearchEntry(string Symbol, string Name);
+        private sealed record Entry(string Symbol, string Name, string? Market);
+
+        private sealed record CompanyList(IReadOnlyList<Entry> Entries, IReadOnlyDictionary<string, Entry> BySymbol);
     }
 }
