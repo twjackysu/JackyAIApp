@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH（Requirement：逐模組 UX／留存改進 第 1 項，DECISION-004/009）
@@ -31,5 +31,10 @@ HIGH（Requirement：逐模組 UX／留存改進 第 1 項，DECISION-004/009）
 無。開工前先在 master 推 `Status: IN_PROGRESS`。
 
 ## Result
+- `useExamRound` 累積本輪答錯單字（wordId 去重），Cloze／Translation／Sentence 三卡皆傳入；`RoundResultScreen` 顯示答錯單字、「全部加入單字庫」、「前往複習」（全對時整區不顯示）。
+- 新增 `useSaveWords`：重用既有 `PUT /api/repository/word/{id}`；後端回 400（已在庫）視為已加入。無新增後端端點、無 AI／UsageLimit 呼叫。
+- Conversation 摘要 `suggestedWords` 可點擊（`useLazyGetWordQuery` 取 id → 加入），含成功／失敗 Snackbar 與已加入狀態。
+- 測試：RoundResultScreen（答錯／全對／已在庫／失敗）、ConversationSummary（成功／失敗）。lint／test（274）／build 全過。
+- Known limitation：「已在庫」以後端 400 判斷，未預先查詢單字庫（避免逐字多打 API）。
 
 ## Review

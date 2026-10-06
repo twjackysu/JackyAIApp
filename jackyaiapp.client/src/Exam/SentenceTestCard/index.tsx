@@ -61,7 +61,7 @@ function SentenceTestCard() {
       const wordId = data.data.wordId;
       const score = result.data.score;
       const correct = score >= 60;
-      round.recordAnswer(correct);
+      round.recordAnswer(correct, wordId ? { wordId, word: data.data.word } : undefined);
       if (wordId) {
         recordExamResult({ wordId, examType: 'Sentence', correct, score })
           .unwrap()

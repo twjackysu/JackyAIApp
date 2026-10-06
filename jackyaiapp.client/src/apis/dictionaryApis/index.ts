@@ -34,6 +34,7 @@ export const dictionaryApis = createApi({
 
 export const {
   useGetWordQuery,
+  useLazyGetWordQuery,
   useInvalidWordMutation,
   useGetWordOfTheDayQuery,
   useGetWordSuggestionsQuery,
