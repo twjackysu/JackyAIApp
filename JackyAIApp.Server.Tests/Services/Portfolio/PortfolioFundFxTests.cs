@@ -172,7 +172,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 _fundData.Object,
                 dividendData.Object,
                 new Mock<IStockCategoryService>().Object,
-                stockService: null!,
+                twListedCompanies: null!,
                 new Mock<IHttpClientFactory>().Object,
                 cache,
                 new Mock<IOpenAIPromptService>().Object,

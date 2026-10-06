@@ -55,7 +55,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 fundData.Object,
                 dividendData.Object,
                 categoryService.Object,
-                stockService: null!, // only used by an unrelated stock-search path, never exercised here
+                twListedCompanies: null!, // only used by an unrelated stock-search path, never exercised here
                 httpClientFactory.Object,
                 cache,
                 openAI.Object,

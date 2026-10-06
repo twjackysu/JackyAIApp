@@ -85,14 +85,11 @@ namespace JackyAIApp.Server.Data.Models.SQL
     }
 
     /// <summary>
-    /// Full TW listed-company table (all TSE+OTC symbols), persisted so the holdings-editor's
-    /// stock search never has to call TWSE's isin.twse.com.tw lookup synchronously on every
-    /// keystroke — that endpoint is slow and has real outage/maintenance windows, and a failed
-    /// call there used to surface as "查無股票" for every symbol, not just ones never seen before.
-    /// Refreshed opportunistically (see PortfolioService.RefreshTwListedCompaniesIfStaleAsync):
-    /// whole-table overwrite on a successful live fetch, since TWSE's own endpoint already returns
-    /// the whole table per call — no per-row diffing. A failed refresh just serves the existing
-    /// (slightly stale) rows rather than an empty result.
+    /// TW listed symbols and names (上市 + 上櫃, warrants excluded), backing the holdings
+    /// editor's stock search so a keystroke never waits on an exchange's servers. Filled by
+    /// TwListedCompanyRefreshService from TWSE/TPEx OpenAPI, about twice a day: rows are upserted,
+    /// and only removed after 30 days unseen, since a suspended stock drops out of the daily
+    /// dumps (see TwListedCompanyService). A failed refresh leaves the rows as they were.
     /// </summary>
     public class TwListedCompany
     {

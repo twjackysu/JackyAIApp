@@ -19,7 +19,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         IFundDataService fundData,
         IDividendService dividendData,
         IStockCategoryService categoryService,
-        TWStockLib.Services.IStockMarketService stockService,
+        ITwListedCompanyService twListedCompanies,
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
         IOpenAIPromptService openAI,
@@ -1543,70 +1543,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (keyword.Length < 1) return [];
             return market.ToUpperInvariant() == "US"
                 ? await SearchUsStocksAsync(keyword, ct)
-                : await SearchTwStocksAsync(keyword, ct);
-        }
-
-        private static readonly TimeSpan TwListedCompanyRefreshInterval = TimeSpan.FromHours(24);
-
-        private async Task<List<StockSearchItem>> SearchTwStocksAsync(string keyword, CancellationToken ct)
-        {
-            await RefreshTwListedCompaniesIfStaleAsync(ct);
-
-            // DB-backed now instead of calling TWStockLib's isin.twse.com.tw lookup on every
-            // keystroke — that endpoint is slow and has real outage/maintenance windows, and a
-            // failed call used to surface as "查無股票" for every symbol (see
-            // RefreshTwListedCompaniesIfStaleAsync's fail-soft comment for how that's avoided now).
-            var kw = keyword.ToUpperInvariant();
-            var companies = await db.TwListedCompanies.ToListAsync(ct);
-            return companies
-                .Where(s => s.Symbol.StartsWith(kw, StringComparison.OrdinalIgnoreCase) || s.Name.Contains(keyword))
-                .OrderBy(s => s.Symbol.StartsWith(kw, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-                .ThenBy(s => s.Symbol, StringComparer.Ordinal)
-                .Take(15)
-                .Select(s => new StockSearchItem { Symbol = s.Symbol, Name = s.Name, Market = "TW" })
-                .ToList();
-        }
-
-        /// <summary>Refreshes the whole TwListedCompanies table from TWSE when the newest row is
-        /// more than 24h old (or the table is empty). A successful fetch overwrites every row —
-        /// TWSE's own isin.twse.com.tw lookup already returns the whole table per call, so there's
-        /// nothing to diff. A failed fetch (outage/maintenance window) just leaves the existing
-        /// rows in place rather than clearing them — search falls back to a slightly stale list
-        /// instead of returning nothing.</summary>
-        private async Task RefreshTwListedCompaniesIfStaleAsync(CancellationToken ct)
-        {
-            var newestRefresh = await db.TwListedCompanies.MaxAsync(c => (DateTime?)c.LastRefreshedAt, ct);
-            var isStale = newestRefresh == null || newestRefresh < DateTime.UtcNow - TwListedCompanyRefreshInterval;
-            if (!isStale) return;
-
-            try
-            {
-                var allResult = await stockService.GetAllStockListAsync(ct: ct);
-                if (!allResult.IsSuccess)
-                {
-                    logger.LogWarning(
-                        "TW listed-company refresh failed: {ErrorCode} - {ErrorMessage}, serving existing DB rows",
-                        allResult.ErrorCode, allResult.ErrorMessage);
-                    return;
-                }
-
-                var now = DateTime.UtcNow;
-                var fresh = allResult.Value!.Values
-                    .Select(s => new TwListedCompany { Symbol = s.Symbol, Name = s.Name, LastRefreshedAt = now })
-                    .ToList();
-
-                // Plain load-then-RemoveRange rather than ExecuteDeleteAsync: keeps behavior
-                // identical across the in-memory provider (used by tests) and SQL Server (prod) —
-                // the table is only ~2000 rows, so loading it first to delete is not a real cost.
-                var existing = await db.TwListedCompanies.ToListAsync(ct);
-                db.TwListedCompanies.RemoveRange(existing);
-                await db.TwListedCompanies.AddRangeAsync(fresh, ct);
-                await db.SaveChangesAsync(ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "TW listed-company refresh threw, serving existing DB rows");
-            }
+                : await twListedCompanies.SearchAsync(keyword, ct);
         }
 
         private static readonly HashSet<string> UsExchanges =
