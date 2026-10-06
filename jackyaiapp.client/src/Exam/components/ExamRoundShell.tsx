@@ -41,7 +41,12 @@ function ExamRoundShell({
 }: ExamRoundShellProps) {
   if (round.roundComplete) {
     return (
-      <RoundResultScreen correct={round.correct} total={round.answered} onRestart={onRestart} />
+      <RoundResultScreen
+        correct={round.correct}
+        total={round.answered}
+        wrongWords={round.wrongWords}
+        onRestart={onRestart}
+      />
     );
   }
 

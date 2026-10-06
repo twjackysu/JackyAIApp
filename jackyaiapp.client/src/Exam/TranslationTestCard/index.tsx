@@ -81,8 +81,8 @@ function TranslationCard() {
 
       // Grade A/B count as correct; C/D/E as needs-work.
       const correct = result.grade === 'A' || result.grade === 'B';
-      round.recordAnswer(correct);
       const wordId = data?.data.wordId;
+      round.recordAnswer(correct, wordId && data ? { wordId, word: data.data.word } : undefined);
       if (wordId) {
         recordExamResult({ wordId, examType: 'Translation', correct })
           .unwrap()
@@ -110,7 +110,10 @@ function TranslationCard() {
   const handleReveal = () => {
     // Skipping straight to the answer counts as not getting this one — keeps
     // the round tally honest instead of letting skips vanish for free.
-    round.recordAnswer(false);
+    round.recordAnswer(
+      false,
+      data?.data.wordId ? { wordId: data.data.wordId, word: data.data.word } : undefined,
+    );
     setPhase('revealed');
   };
 

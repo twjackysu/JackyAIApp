@@ -1,6 +1,8 @@
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import StyleIcon from '@mui/icons-material/Style';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -9,10 +11,14 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
+import Snackbar from '@mui/material/Snackbar';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { useState } from 'react';
 
+import { useLazyGetWordQuery } from '@/apis/dictionaryApis';
 import { ConversationSummaryResponse } from '@/apis/examApis/types';
+import { useSaveWords } from '@/Exam/hooks/useSaveWords';
 
 interface ConversationSummaryProps {
   open: boolean;
@@ -29,6 +35,37 @@ function ConversationSummary({
   onClose,
   onStartNew,
 }: ConversationSummaryProps) {
+  const [getWord] = useLazyGetWordQuery();
+  const { save } = useSaveWords();
+  const [resolving, setResolving] = useState<Set<string>>(new Set());
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ severity: 'success' | 'error'; message: string } | null>(
+    null,
+  );
+
+  // Suggested words arrive as plain text, so resolve the word id first, then reuse the
+  // repository PUT; a word that is already in the repository counts as added.
+  const handleAddWord = async (word: string) => {
+    setResolving((prev) => new Set(prev).add(word));
+    try {
+      const wordId = (await getWord(word).unwrap()).data.id;
+      if (await save(wordId)) {
+        setSaved((prev) => new Set(prev).add(word));
+        setToast({ severity: 'success', message: `已將「${word}」加入單字庫` });
+      } else {
+        setToast({ severity: 'error', message: `「${word}」加入失敗，請稍後再試` });
+      }
+    } catch {
+      setToast({ severity: 'error', message: `「${word}」加入失敗，請稍後再試` });
+    } finally {
+      setResolving((prev) => {
+        const next = new Set(prev);
+        next.delete(word);
+        return next;
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>對話總結</DialogTitle>
@@ -102,7 +139,19 @@ function ConversationSummary({
               ) : (
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   {summary.suggestedWords.map((word) => (
-                    <Chip key={word} label={word} size="small" variant="outlined" />
+                    <Chip
+                      key={word}
+                      label={word}
+                      size="small"
+                      variant="outlined"
+                      color={saved.has(word) ? 'success' : 'default'}
+                      icon={saved.has(word) ? <CheckIcon /> : undefined}
+                      disabled={resolving.has(word)}
+                      onClick={saved.has(word) ? undefined : () => handleAddWord(word)}
+                      aria-label={
+                        saved.has(word) ? `${word}（已加入單字庫）` : `加入單字庫：${word}`
+                      }
+                    />
                   ))}
                 </Box>
               )}
@@ -116,6 +165,13 @@ function ConversationSummary({
           開始新對話
         </Button>
       </DialogActions>
+      <Snackbar open={toast !== null} autoHideDuration={3000} onClose={() => setToast(null)}>
+        {toast ? (
+          <Alert severity={toast.severity} onClose={() => setToast(null)}>
+            {toast.message}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
     </Dialog>
   );
 }

@@ -58,8 +58,8 @@ function ClozeTestCard() {
     setSubmitted(true);
 
     const correct = selectedOption === data.data.answer;
-    round.recordAnswer(correct);
     const wordId = data.data.wordId;
+    round.recordAnswer(correct, wordId ? { wordId, word: data.data.answer } : undefined);
     if (wordId) {
       recordExamResult({ wordId, examType: 'Cloze', correct })
         .unwrap()
