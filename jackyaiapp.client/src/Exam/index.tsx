@@ -28,8 +28,9 @@ const styles = {
     fontSize: '1rem',
     textTransform: 'none',
     boxShadow: 2,
-    minWidth: 'max-content',
-    whiteSpace: 'nowrap',
+    // Long bilingual labels must wrap on narrow screens instead of forcing horizontal scroll.
+    maxWidth: '100%',
+    whiteSpace: 'normal',
   },
 };
 
@@ -42,6 +43,8 @@ interface ExamMode {
    * wholesale, so it has to carry the shared button styling itself. */
   sx?: SxProps<Theme>;
   element: ReactNode;
+  /** Marks the suggested first test with a hint under the button. */
+  recommended?: boolean;
 }
 
 /** The single source of truth for the exam menu: one entry drives both the selection button
@@ -50,6 +53,7 @@ const EXAM_MODES: ExamMode[] = [
   {
     path: 'cloze',
     label: '克漏字測驗 (Cloze Test)',
+    recommended: true,
     element: <ClozeTestCard />,
   },
   {
@@ -159,16 +163,30 @@ function Exam() {
           }}
         >
           {EXAM_MODES.map((mode) => (
-            <Button
+            <Box
               key={mode.path}
-              component={Link}
-              to={mode.path}
-              variant="outlined"
-              color={mode.color}
-              sx={mode.sx ?? styles.button}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                maxWidth: '100%',
+              }}
             >
-              {mode.label}
-            </Button>
+              <Button
+                component={Link}
+                to={mode.path}
+                variant="outlined"
+                color={mode.color}
+                sx={mode.sx ?? styles.button}
+              >
+                {mode.label}
+              </Button>
+              {mode.recommended && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                  建議從這裡開始
+                </Typography>
+              )}
+            </Box>
           ))}
         </Box>
       )}

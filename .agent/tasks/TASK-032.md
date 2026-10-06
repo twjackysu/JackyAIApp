@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM（Requirement：逐模組 UX／留存改進 第 3、7 項）
@@ -31,5 +31,10 @@ MEDIUM（Requirement：逐模組 UX／留存改進 第 3、7 項）
 無。開工前先在 master 推 `Status: IN_PROGRESS`。
 
 ## Result
+
+- 新增 `auth/LoginGate.tsx`；`RequireAuth` 加可選 `fallback` prop（無 fallback 時行為完全不變，仍導向 Google）。僅 `/english/repository`、`/english/exam` 傳入 LoginGate；檢查中（isFetching）不渲染 fallback。
+- Exam 按鈕改 `whiteSpace: normal` + `maxWidth: 100%`（移除 max-content/nowrap），Cloze 下方標「建議從這裡開始」。
+- 測試：`RequireAuth.test.tsx`（已登入／檢查中／訪客／無 fallback）、`LoginGate.test.tsx`。lint／test(287)／build 皆通過。
+- 未實機驗證：≤400px 實際視覺（僅以 CSS 推斷）。
 
 ## Review

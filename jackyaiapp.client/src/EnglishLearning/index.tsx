@@ -4,6 +4,7 @@
 import { lazy, type ReactNode } from 'react';
 import { type RouteObject } from 'react-router-dom';
 
+import LoginGate from '../auth/LoginGate';
 import RequireAuth from '../auth/RequireAuth';
 
 import EnglishLearningLayout from './Layout';
@@ -53,7 +54,15 @@ const children: EnglishChildRoute[] = [
   {
     path: 'repository',
     element: (
-      <RequireAuth>
+      <RequireAuth
+        fallback={
+          <LoginGate
+            title="你的個人單字庫"
+            description="把查過的單字收進自己的單字庫，之後用複習與測驗把它們真正記起來。"
+            bullets={['一鍵收藏字典查到的單字', '依照你的單字產生 AI 測驗', '追蹤學習進度']}
+          />
+        }
+      >
         <Repository />
       </RequireAuth>
     ),
@@ -61,7 +70,19 @@ const children: EnglishChildRoute[] = [
   {
     path: 'exam/*',
     element: (
-      <RequireAuth>
+      <RequireAuth
+        fallback={
+          <LoginGate
+            title="英文測驗"
+            description="克漏字、翻譯、情境對話、聽力、閱讀與寫作，AI 即時批改。"
+            bullets={[
+              '多種測驗類型，從單字到對話',
+              '優先針對你收藏的單字出題',
+              'AI 即時批改與回饋',
+            ]}
+          />
+        }
+      >
         <Exam />
       </RequireAuth>
     ),
