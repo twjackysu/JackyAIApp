@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-PR_OPENED
+MERGED（#418）
 
 ## Priority
 HIGH（Requirement：逐模組 UX／留存改進 第 1 項，DECISION-004/009）

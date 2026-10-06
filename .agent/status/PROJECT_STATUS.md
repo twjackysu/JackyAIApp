@@ -2839,3 +2839,9 @@
   - TASK-032（MEDIUM）：Repository／Exam 訪客登入前價值說明 + Exam 選單手機溢出（第 3、7 項）。以 `RequireAuth` 可選 fallback 擴充，不衝突，Open Question 結案。
 - 分類：第 5、6 項（JobSearch 記憶、DataAnalysis／Connectors 引導，LOW）→ **Future Work**，待上述完成後再排；第 6 項動到 DataAnalysisLibrary 前須先問 Boss。#407 單字頁內部連結（PM 建議 MEDIUM）→ 需先設計（相關單字資料來源、SSR meta 注入已有 TASK-020），下一輪由 Tech Lead 建 TASK-033。
 - Boss 無需決策。
+
+## 2026-10-06 — Tech Lead：同步任務狀態、建立 TASK-033（排程執行）
+
+- 無 open PR。TASK-030（#418）、TASK-031（#420）已合併 → 狀態更新為 `MERGED`。TASK-032 仍 READY（尚無人開工）。
+- 新建 TASK-033（Frontend, READY, MEDIUM）：單字頁 synonyms／antonyms／relatedWords 改為真實內部連結（#407）。純前端、無後端／成本變更，Boss 無需決策。
+- Future Work：JobSearch 記憶、DataAnalysis 引導（LOW）；首頁／每日單字到單字頁連結。
