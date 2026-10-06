@@ -1,4 +1,6 @@
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
@@ -12,13 +14,14 @@ import WordCard from '../components/WordCard';
 import StarterPacks from './StarterPacks';
 
 import { useGetRepositoryWordsQuery } from '@/apis/repositoryApis';
+import { getApiErrorMessage } from '@/apis/utils/errorMessage';
 
 function Repository() {
   const [pageNumber, setPageNumber] = useState(1);
   const pageSize = 20;
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [accumulatedData, setAccumulatedData] = useState<Record<number, Word[]>>({});
-  const { data, isFetching } = useGetRepositoryWordsQuery({
+  const { data, isFetching, isError, error, refetch } = useGetRepositoryWordsQuery({
     pageNumber,
     pageSize,
   });
@@ -79,7 +82,20 @@ function Repository() {
   return (
     <Box>
       <Stack direction={{ xs: 'column', sm: 'row' }}>
-        {allWords.length === 0 ? (
+        {allWords.length === 0 && isError ? (
+          <Box sx={{ p: 2, width: '100%' }}>
+            <Alert
+              severity="error"
+              action={
+                <Button color="inherit" size="small" onClick={() => refetch()}>
+                  重試
+                </Button>
+              }
+            >
+              無法載入你的單字庫：{getApiErrorMessage(error)}
+            </Alert>
+          </Box>
+        ) : allWords.length === 0 ? (
           <Box
             sx={{
               p: 2,

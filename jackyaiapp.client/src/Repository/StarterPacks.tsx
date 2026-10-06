@@ -8,10 +8,12 @@ import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import type { AddWordPackResult } from '@/apis/repositoryApis/types';
 
 import { useAddWordPackMutation, useGetWordPacksQuery } from '@/apis/repositoryApis';
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 
 interface StarterPacksProps {
   /** Called after a pack is added so the parent can refresh its word list. */
@@ -26,18 +28,20 @@ function StarterPacks({ onAdded }: StarterPacksProps) {
   const { data, isLoading } = useGetWordPacksQuery();
   const [addWordPack] = useAddWordPackMutation();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, AddWordPackResult>>({});
 
   const packs = data?.data ?? [];
 
   const handleAdd = async (id: string) => {
     setBusyId(id);
+    setAddError(null);
     try {
       const res = await addWordPack(id).unwrap();
       setResults((prev) => ({ ...prev, [id]: res.data }));
       onAdded?.();
-    } catch {
-      /* surfaced via the row staying actionable; ignore */
+    } catch (error) {
+      setAddError(getCaughtErrorMessage(error));
     } finally {
       setBusyId(null);
     }
@@ -102,9 +106,28 @@ function StarterPacks({ onAdded }: StarterPacksProps) {
         })}
       </Box>
 
+      {addError && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          Couldn&apos;t add the word pack: {addError} Tap Add to try again.
+        </Alert>
+      )}
+
       {Object.values(results).some((r) => r.added > 0) && (
-        <Alert severity="success" sx={{ mt: 2 }}>
-          Words added! Head to <strong>Review</strong> or <strong>Exam</strong> to start practising.
+        <Alert
+          severity="success"
+          sx={{ mt: 2 }}
+          action={
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button color="inherit" size="small" component={Link} to="/english/review">
+                前往複習
+              </Button>
+              <Button color="inherit" size="small" component={Link} to="/english/exam">
+                開始測驗
+              </Button>
+            </Box>
+          }
+        >
+          Words added! Review them or test yourself on them.
         </Alert>
       )}
     </Box>

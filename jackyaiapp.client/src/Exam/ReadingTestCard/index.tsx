@@ -87,6 +87,7 @@ function ReadingTestCard() {
       isError={isError}
       error={error}
       onRestart={handleRestartRound}
+      onRetry={refetch}
       maxWidth={700}
     >
       {passage && (

@@ -122,6 +122,7 @@ function SentenceTestCard() {
       isError={isError}
       error={error}
       onRestart={handleRestartRound}
+      onRetry={refetch}
       maxWidth={800}
     >
       <Card sx={{ mb: 2 }}>

@@ -138,6 +138,7 @@ function ListeningQuizCard({
       isError={isError}
       error={error}
       onRestart={handleRestartRound}
+      onRetry={refetch}
     >
       {renderPrompt?.({ playingKey, playedKeys, play }, submitted)}
       <FormControl component="fieldset" disabled={submitted} fullWidth>
