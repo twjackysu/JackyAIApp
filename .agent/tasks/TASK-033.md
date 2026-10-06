@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM（Requirement：Growth & Retention／#407 單字頁內部連結；PM 建議 MEDIUM）
@@ -34,5 +34,9 @@ MEDIUM（Requirement：Growth & Retention／#407 單字頁內部連結；PM 建�
 無。開工前先在 master 推 `Status: IN_PROGRESS`。
 
 ## Result
+- `WordCard` 的 synonyms／antonyms／relatedWords 改用新元件 `WordLinkList`（MUI `Link` + React Router `Link`，真實 `<a href="/english/dictionary/{encodeURIComponent(word)}">`）。
+- `wordLinks.ts#isLinkableWord`：僅字母（含重音）與單一空白／連字號／撇號組成的單字或簡單詞組才連結，其餘維持純文字。
+- `Dictionary/index.tsx`：word 變更時 `window.scrollTo(0, 0)`；其餘載入流程不變，未改後端／sitemap／meta 注入。
+- 測試：新增 `WordCard.test.tsx`；lint、test（300 passed）、build 全過。
 
 ## Review

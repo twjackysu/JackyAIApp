@@ -19,6 +19,7 @@ import AdminInvalidWordButton from './AdminInvalidWordButton';
 import AILoading from './AILoading';
 import DividerWithText from './DividerWithText';
 import FetchBaseQueryErrorMessage from './FetchBaseQueryErrorMessage';
+import WordLinkList from './WordLinkList';
 
 import {
   useDeleteRepositoryWordMutation,
@@ -179,11 +180,9 @@ function WordCard({
                   </Fragment>
                 ))}
                 <DividerWithText text="" />
-                <Typography variant="body2">synonyms: {meaning.synonyms.join(', ')}</Typography>
-                <Typography variant="body2">antonyms: {meaning.antonyms.join(', ')}</Typography>
-                <Typography variant="body2">
-                  relatedWords: {meaning.relatedWords.join(', ')}
-                </Typography>
+                <WordLinkList label="synonyms" words={meaning.synonyms} />
+                <WordLinkList label="antonyms" words={meaning.antonyms} />
+                <WordLinkList label="relatedWords" words={meaning.relatedWords} />
               </Grid>
             ))}
           </Grid>
