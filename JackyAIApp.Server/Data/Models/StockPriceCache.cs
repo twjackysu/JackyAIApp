@@ -45,9 +45,9 @@ namespace JackyAIApp.Server.Data.Models.SQL
 
         /// <summary>"TSE" | "OTC" (TWStockLib.Models.MarketType, stored as string to avoid a hard
         /// dependency from the data model on the third-party package's enum). Only set for TW
-        /// symbols — resolved via TWSE's isin listed-company lookup (isin.twse.com.tw — slow,
-        /// returns the whole table per call) and never re-resolved after that, since exchange
-        /// listing is effectively permanent for a given code. Null for US/FUND symbols.</summary>
+        /// symbols — resolved from the TW listed-company list (TwListedCompany.Market) and never
+        /// re-resolved after that, since exchange listing is effectively permanent for a given
+        /// code. Null for US/FUND symbols.</summary>
         public string? TwMarketType { get; set; }
 
         public string? Name { get; set; }
@@ -97,6 +97,12 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public required string Symbol { get; set; }
 
         public required string Name { get; set; }
+
+        /// <summary>"TSE" (上市) or "OTC" (上櫃), as TWStockLib's MarketType names them: which
+        /// exchange's list the symbol came from. Null only on rows from before this column
+        /// existed, until the next refresh fills it.</summary>
+        [MaxLength(3)]
+        public string? Market { get; set; }
 
         public DateTime LastRefreshedAt { get; set; } = DateTime.UtcNow;
     }

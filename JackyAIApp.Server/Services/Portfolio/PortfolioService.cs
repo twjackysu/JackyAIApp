@@ -9,6 +9,7 @@ using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using System.Diagnostics;
 using System.Text;
 
 namespace JackyAIApp.Server.Services.Portfolio
@@ -30,7 +31,9 @@ namespace JackyAIApp.Server.Services.Portfolio
         // container always supplies the real one (it is registered), and a null here simply means
         // funds fall back to the mid-market rate — the behaviour before 集保 rates existed.
         ITdccFxService? tdccFx = null,
-        ICathayFxService? cathayFx = null) : IPortfolioService
+        ICathayFxService? cathayFx = null,
+        // Optional: tests have no request to report timings on.
+        ServerTiming? timing = null) : IPortfolioService
     {
         private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
@@ -50,6 +53,14 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// calendar (a relative-to-real-now test fixture drifts out of whatever window a test
         /// expects as time passes; see PortfolioDrawdownTests/PortfolioBenchmarkComparisonTests).</summary>
         private DateOnly Today => DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime);
+
+        /// <summary>Runs <paramref name="work"/>, recording how long it took in this request's
+        /// Server-Timing header when there is a request to report on.</summary>
+        private Task<T> Timed<T>(string name, Func<Task<T>> work, Func<T, string>? describe = null) =>
+            timing?.MeasureAsync(name, work, describe) ?? work();
+
+        private Task Timed(string name, Func<Task> work) =>
+            timing?.MeasureAsync(name, work) ?? work();
 
         // ── Save / read holdings ─────────────────────────────────────────────
 
@@ -193,7 +204,9 @@ namespace JackyAIApp.Server.Services.Portfolio
         public async Task<PortfolioSummaryDto> GetPortfolioSummaryAsync(
             string userId, decimal feeDiscountRate = 0.28m, CancellationToken ct = default)
         {
-            var allSnapshots = await AllSnapshotsAsync(userId, ct);
+            var total = Stopwatch.StartNew();
+            var allSnapshots = await Timed("snapshots", () => AllSnapshotsAsync(userId, ct),
+                s => $"{s.Count} snapshots / {s.Sum(x => x.Positions.Count)} positions");
             if (allSnapshots.Count == 0) return new PortfolioSummaryDto();
             var snapshot = allSnapshots[^1];
 
@@ -204,7 +217,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             // Current valuation always uses the live rate; the rate stored on each snapshot is only
             // for reconstructing historical net worth (a stale fallback-32 shouldn't stick forever).
-            var fx = await FetchUsdTwdRateAsync(ct);
+            var fx = await Timed("fx", () => FetchUsdTwdRateAsync(ct));
             var positions = new List<PositionDto>();
             decimal twStock = 0, usStock = 0, cash = 0, fund = 0, liability = 0, realEstate = 0;
             decimal costBasisTWD = 0, pnlTWD = 0, estimatedSellCostTWD = 0;
@@ -220,10 +233,17 @@ namespace JackyAIApp.Server.Services.Portfolio
                 ? snapshot.Positions.Concat(prevSnapshot.Positions).ToList()
                 : snapshot.Positions;
 
-            var stockTask = FetchStocksAsync(
-                allPositions.Where(p => p.AssetType == AssetType.STOCK).Select(p => p.Symbol), deep: false, ct);
-            var fundTask = FetchFundsAsync(
-                allPositions.Where(p => p.AssetType == AssetType.FUND).Select(p => p.Symbol), ct);
+            var stockTask = Timed("stocks", () => FetchStocksAsync(
+                allPositions.Where(p => p.AssetType == AssetType.STOCK).Select(p => p.Symbol), deep: false, ct),
+                m => $"{m.Count} symbols");
+            var fundTask = Timed("funds", () => FetchFundsAsync(
+                allPositions.Where(p => p.AssetType == AssetType.FUND).Select(p => p.Symbol), ct),
+                m => $"{m.Count} funds");
+            // Dividend histories don't depend on prices, so they load alongside them instead of
+            // after. On a cold cache (every restart, and daily) they are one external call per
+            // stock/fund ever held, which used to sit on the critical path behind the price fetch.
+            var dividendTask = Timed("dividends", () => FetchDividendRecordsAsync(allSnapshots, ct),
+                d => $"{d.Count} holdings");
             await Task.WhenAll(stockTask, fundTask);
             var stockMap = stockTask.Result;
             var fundMap = fundTask.Result;
@@ -267,7 +287,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 (Currency: currency, Rate: await tdccFx!.GetBuyRateAsync(currency, Today, ct))));
             var cathayRatesTask = Task.WhenAll(cathayUsKeys.Select(async key =>
                 (Key: key, Rate: await cathayFx!.GetBuyRateAsync(key.Currency, key.Date, ct))));
-            await Task.WhenAll(tdccRatesTask, cathayRatesTask);
+            await Timed("fxrates", () => Task.WhenAll(tdccRatesTask, cathayRatesTask));
 
             var tdccRates = new Dictionary<string, decimal>();
             foreach (var (currency, rate) in tdccRatesTask.Result)
@@ -481,7 +501,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // Total (含息) return: walk the whole snapshot timeline so a dividend counts against
             // whatever quantity was actually held on its ex-date, not today's quantity.
             var (totalDividendsTWD, dividendsByPosition, dividendFlows) =
-                await ComputeDividendsAsync(allSnapshots, fx, fundMap, ct);
+                ComputeDividends(allSnapshots, fx, fundMap, await dividendTask);
             foreach (var p in positions)
             {
                 if (dividendsByPosition.TryGetValue((p.AssetType, p.Symbol, p.Market), out var div))
@@ -500,10 +520,10 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .ToList();
             if (taggedSymbols.Count > 0)
             {
-                var tagRows = await db.StockSymbolInfos
+                var tagRows = await Timed("tags", () => db.StockSymbolInfos
                     .Where(s => taggedSymbols.Contains(s.Symbol) && s.Tags != null)
                     .Select(s => new { s.Symbol, s.Tags })
-                    .ToListAsync(ct);
+                    .ToListAsync(ct));
                 var tagMap = tagRows.ToDictionary(r => r.Symbol, r => StockCategoryService.SplitTags(r.Tags));
                 foreach (var p in positions)
                 {
@@ -577,6 +597,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 }
             }
 
+            timing?.Add("total", total.Elapsed);
             return new PortfolioSummaryDto
             {
                 EffectiveDate = snapshot.EffectiveDate,
@@ -1616,7 +1637,11 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             return SingleFlight.RunAsync(key, async () =>
             {
+                // No tracking: read-only, and shared from the cache across requests. Tracking
+                // every position of every snapshot only added change-tracker work that grows
+                // with the snapshot count.
                 var snapshots = await db.HoldingSnapshots
+                    .AsNoTracking()
                     .Include(s => s.Positions)
                     .Where(s => s.UserId == userId)
                     .OrderBy(s => s.EffectiveDate)
@@ -1628,7 +1653,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         /// <summary>
         /// Per-ex-date TWD dividends earned by the COST-TRACKED stock/fund positions only, for the
-        /// window [startDate, today]. Deliberately not <see cref="ComputeDividendsAsync"/>: that one
+        /// window [startDate, today]. Deliberately not <see cref="ComputeDividends"/>: that one
         /// covers every position whether or not a cost basis was ever filled in, and the benchmark
         /// comparison prices only cost-tracked holdings on both sides. Crediting the portfolio curve
         /// with income from a position that contributes nothing to the benchmark side would drift
@@ -1709,6 +1734,33 @@ namespace JackyAIApp.Server.Services.Portfolio
         }
 
         /// <summary>
+        /// Dividend history for every stock/fund position that appears in any snapshot, one fetch
+        /// per distinct position, in parallel (each individually cached). Input for
+        /// <see cref="ComputeDividends"/>; split from it so the fetch can run alongside the price
+        /// fetches, which it doesn't depend on.
+        /// </summary>
+        private async Task<List<((AssetType AssetType, string Symbol, string Market) Key, List<DividendRecord> Records)>>
+            FetchDividendRecordsAsync(List<HoldingSnapshot> orderedSnapshots, CancellationToken ct)
+        {
+            var keys = orderedSnapshots
+                .SelectMany(s => s.Positions)
+                .Where(p => (p.AssetType == AssetType.STOCK || p.AssetType == AssetType.FUND)
+                    && !string.IsNullOrWhiteSpace(p.Symbol))
+                .Select(p => (p.AssetType, Symbol: p.Symbol, Market: p.Market))
+                .Distinct()
+                .ToList();
+            if (keys.Count == 0) return [];
+
+            var fetched = await Task.WhenAll(keys.Select(async key => (
+                Key: key,
+                Records: key.AssetType == AssetType.STOCK
+                    ? await dividendData.GetStockDividendsAsync(key.Symbol, key.Market, ct)
+                    : await dividendData.GetFundDividendsAsync(key.Symbol, ct)
+            )));
+            return fetched.ToList();
+        }
+
+        /// <summary>
         /// Cash dividends actually earned while holding each stock/fund position, walking the whole
         /// snapshot timeline so a dividend counts against whatever quantity was held on its ex-date
         /// (not today's quantity). Dividends before the user's first snapshot are excluded — the app
@@ -1721,37 +1773,21 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// and the old period's payout would otherwise appear on the new position the very day it
         /// is opened, which reads as income the new holding never produced.
         /// </summary>
-        private async Task<(
+        private (
             decimal TotalTWD,
             Dictionary<(AssetType AssetType, string Symbol, string Market), decimal> ByPosition,
-            List<(DateOnly Date, decimal AmountTWD)> Flows)>
-            ComputeDividendsAsync(
+            List<(DateOnly Date, decimal AmountTWD)> Flows)
+            ComputeDividends(
                 List<HoldingSnapshot> orderedSnapshots, decimal fx,
-                Dictionary<string, FundNavHistory> fundMap, CancellationToken ct)
+                Dictionary<string, FundNavHistory> fundMap,
+                IReadOnlyList<((AssetType AssetType, string Symbol, string Market) Key, List<DividendRecord> Records)> fetched)
         {
             var empty = new Dictionary<(AssetType, string, string), decimal>();
             var noFlows = new List<(DateOnly, decimal)>();
-            if (orderedSnapshots.Count == 0) return (0, empty, noFlows);
+            if (orderedSnapshots.Count == 0 || fetched.Count == 0) return (0, empty, noFlows);
 
             var firstDate = orderedSnapshots[0].EffectiveDate;
             var today = Today;
-
-            var keys = orderedSnapshots
-                .SelectMany(s => s.Positions)
-                .Where(p => (p.AssetType == AssetType.STOCK || p.AssetType == AssetType.FUND)
-                    && !string.IsNullOrWhiteSpace(p.Symbol))
-                .Select(p => (p.AssetType, Symbol: p.Symbol, Market: p.Market))
-                .Distinct()
-                .ToList();
-            if (keys.Count == 0) return (0, empty, noFlows);
-
-            // One dividend-history fetch per distinct position, in parallel (each individually cached).
-            var fetched = await Task.WhenAll(keys.Select(async key => (
-                Key: key,
-                Records: key.AssetType == AssetType.STOCK
-                    ? await dividendData.GetStockDividendsAsync(key.Symbol, key.Market, ct)
-                    : await dividendData.GetFundDividendsAsync(key.Symbol, ct)
-            )));
 
             var byPosition = new Dictionary<(AssetType, string, string), decimal>();
             var flows = new List<(DateOnly, decimal)>();

@@ -309,10 +309,8 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             if (info != null && Enum.TryParse<MarketType>(info.TwMarketType, out var cached))
                 return cached;
 
-            // Falls through to TWStockLibHistoricalProvider's own memory-cached isin lookup —
-            // still only hits isin.twse.com.tw once per market per 24h (PR #207) even for
-            // symbols not yet persisted here; this DB layer just means a *previously seen*
-            // symbol survives a cold start without needing isin at all.
+            // Falls through to TWStockLibHistoricalProvider's lookup in the stored listed-company
+            // list (in memory, no network) for symbols not yet persisted here.
             var resolved = await _inner.DetermineMarketType(symbol);
             if (resolved == null)
             {

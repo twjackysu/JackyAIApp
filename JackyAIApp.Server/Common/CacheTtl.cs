@@ -30,13 +30,6 @@ namespace JackyAIApp.Server.Common
 
         public static class Finance
         {
-            /// <summary>TWSE/TPEx full listed-company list, used to resolve which market a stock
-            /// code trades on. Membership only changes on IPOs/delistings, but the underlying TWSE
-            /// endpoint (isin.twse.com.tw) returns the whole table on every call and is slow
-            /// (multi-second) — caching this is what keeps a multi-symbol portfolio load from
-            /// paying that cost once per symbol.</summary>
-            public static readonly TimeSpan TwStockList = TimeSpan.FromHours(24);
-
             /// <summary>TW realtime quote (mis.twse.com.tw). Two independent call sites want the
             /// same symbol's quote in the same request — <c>TWStockLibHistoricalProvider</c> (for
             /// the company name) and Portfolio's intraday price overlay — so a short TTL is enough

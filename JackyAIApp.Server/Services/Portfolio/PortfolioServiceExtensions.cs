@@ -13,6 +13,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             services.AddScoped<ICathayFxService, CathayFxService>();
             services.AddScoped<IStockCategoryService, StockCategoryService>();
             services.AddScoped<IPortfolioService, PortfolioService>();
+            services.AddScoped<Common.ServerTiming>();
 
             // Singleton: holds the search list in memory and opens its own DbContexts through
             // the factory, so the background refresher can share the one instance.

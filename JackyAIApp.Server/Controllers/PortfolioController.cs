@@ -14,7 +14,8 @@ namespace JackyAIApp.Server.Controllers
     public class PortfolioController(
         IMyResponseFactory responseFactory,
         IPortfolioService portfolioService,
-        IUserService userService) : ControllerBase
+        IUserService userService,
+        ServerTiming timing) : ControllerBase
     {
         private string RequireUserId()
         {
@@ -29,6 +30,9 @@ namespace JackyAIApp.Server.Controllers
         {
             var userId = RequireUserId();
             var result = await portfolioService.GetPortfolioSummaryAsync(userId, feeDiscountRate, ct);
+            // Where the time went, per stage — readable in the browser's network panel (Timing tab).
+            if (timing.ToHeaderValue() is { } stages)
+                Response.Headers.Append(ServerTiming.HeaderName, stages);
             return responseFactory.CreateOKResponse(result);
         }
 
