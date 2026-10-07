@@ -40,6 +40,12 @@ function Dictionary() {
     setText(word ?? '');
   }, [word]);
 
+  // In-page word links (synonyms etc.) navigate without a reload, so land at the top of the
+  // new word's page instead of wherever the previous one was scrolled.
+  useEffect(() => {
+    if (word) window.scrollTo(0, 0);
+  }, [word]);
+
   const recentlySearchedRef = useRef<RecentlySearchedRef>(null);
 
   const navigateToWord = (searchText: string) => {
