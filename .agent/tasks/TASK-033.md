@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+READY_FOR_BOSS_REVIEW
 
 ## Priority
 MEDIUM（Requirement：Growth & Retention／#407 單字頁內部連結；PM 建議 MEDIUM）
