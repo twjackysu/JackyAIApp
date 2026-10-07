@@ -2845,3 +2845,9 @@
 - 無 open PR。TASK-030（#418）、TASK-031（#420）已合併 → 狀態更新為 `MERGED`。TASK-032 仍 READY（尚無人開工）。
 - 新建 TASK-033（Frontend, READY, MEDIUM）：單字頁 synonyms／antonyms／relatedWords 改為真實內部連結（#407）。純前端、無後端／成本變更，Boss 無需決策。
 - Future Work：JobSearch 記憶、DataAnalysis 引導（LOW）；首頁／每日單字到單字頁連結。
+
+## 2026-10-07 — Tech Lead：審查 PR #422、同步 TASK-032（排程執行）
+
+- TASK-032（#421）已合併 → `MERGED`。
+- PR #422（TASK-033 單字頁內部連結）：審查通過、CI 全綠、範圍無擴張 → `READY FOR BOSS REVIEW`（已於 PR 留言）。等待 Boss 合併。
+- 無風險／阻擋。Future Work 不變（JobSearch 記憶、DataAnalysis 引導、首頁／每日單字連結）。

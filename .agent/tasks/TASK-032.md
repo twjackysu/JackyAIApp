@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM（Requirement：逐模組 UX／留存改進 第 3、7 項）
