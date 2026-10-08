@@ -1,34 +1,27 @@
 name: Build and deploy
 on:
   workflow_dispatch:
-    inputs:
-      target:
-        description: Which App Service to deploy to
-        type: choice
-        options:
-          - both
-          - windows
-          - linux
-        default: both
   pull_request:
     types: [closed]
     branches:
       - master
 env:
+  AZURE_WEBAPP_NAME: jackyai-linux
+  AZURE_WEBAPP_PACKAGE_PATH: JackyAIApp.Server/publish
   CONFIGURATION: Release
   DOTNET_CORE_VERSION: 10.0.x
   WORKING_DIRECTORY: JackyAIApp.Server
 jobs:
-  # Windows App Service (JackyAI, jackyai.azurewebsites.net) — the current production app.
+  # Linux App Service (jackyai-linux), served at https://apps.jacky-studio.com. The Windows App
+  # Service (JackyAI) it replaced is stopped and no longer deployed to.
   build-and-deploy:
     # GitHub has no "merged" trigger — `closed` also fires for a PR that was abandoned, and that
     # must not deploy. workflow_dispatch stays as the way to ship anything that did not arrive
-    # through a PR (a direct push to master no longer deploys on its own).
-    if: (github.event_name == 'workflow_dispatch' && inputs.target != 'linux') || github.event.pull_request.merged == true
-    runs-on: windows-latest
+    # through a PR (a direct push to master no longer deploys on its own), and to try a branch:
+    # whatever it deploys runs EF migrations against the production DB at startup.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
     env:
-      AZURE_WEBAPP_NAME: JackyAI
-      AZURE_WEBAPP_PACKAGE_PATH: JackyAIApp.Server\publish
       # azure/webapps-deploy@v3 still runs on Node.js 20; no v4 available yet.
       # Remove once a Node.js 24 compatible version is released.
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
@@ -38,40 +31,6 @@ jobs:
         # A closed pull_request checks out refs/pull/N/merge by default, which is a merge preview
         # built before the PR landed — not what is now on master. Deploy the commit that actually
         # landed. Null on workflow_dispatch, where github.ref is already the right thing.
-        ref: ${{ github.event.pull_request.merge_commit_sha || github.ref }}
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
-    - name: Restore
-      run: dotnet restore "${{ env.WORKING_DIRECTORY }}"
-    - name: Build
-      run: dotnet build "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-restore
-    - name: Test
-      run: dotnet test "JackyAIApp.Server.Tests" --configuration ${{ env.CONFIGURATION }} --filter "Category!=LiveContract"
-    - name: Publish
-      run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}"
-    - name: Deploy to Azure WebApp
-      uses: azure/webapps-deploy@v3
-      with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        publish-profile: ${{ secrets.JackyAI_85C9 }}
-        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-
-  # Linux App Service (jackyai-linux, jackyai-linux.azurewebsites.net), replacing the Windows one.
-  # Built on Linux and separately from the Windows job rather than sharing one build: a publish
-  # made on Linux emits a Linux app host, and the web.config it generates for IIS would point
-  # at that instead of a Windows .exe.
-  build-and-deploy-linux:
-    if: (github.event_name == 'workflow_dispatch' && inputs.target != 'windows') || github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    env:
-      AZURE_WEBAPP_NAME: jackyai-linux
-      AZURE_WEBAPP_PACKAGE_PATH: JackyAIApp.Server/publish
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-    steps:
-    - uses: actions/checkout@v6
-      with:
         ref: ${{ github.event.pull_request.merge_commit_sha || github.ref }}
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v5
