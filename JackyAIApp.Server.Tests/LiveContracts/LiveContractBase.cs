@@ -39,7 +39,14 @@ namespace JackyAIApp.Server.Tests.LiveContracts
                 && configured > 0
                     ? configured
                     : 100;
-            var client = new HttpClient { Timeout = TimeSpan.FromSeconds(timeoutSeconds) };
+            // gzip/brotli: the runner sits in a US datacenter, where Taiwanese hosts can be slow
+            // enough (TPEx measured a few KB a second from East US) that the bytes on the wire
+            // decide whether a bulk dump arrives at all.
+            var client = new HttpClient(new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.All,
+            })
+            { Timeout = TimeSpan.FromSeconds(timeoutSeconds) };
             // Several of these APIs (Yahoo, BOT) reject requests with no/odd User-Agent.
             client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
             return client;

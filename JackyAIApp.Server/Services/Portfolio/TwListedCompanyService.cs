@@ -57,8 +57,17 @@ namespace JackyAIApp.Server.Services.Portfolio
         // shares, DRs. No warrants.
         internal const string TwseUrl = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
 
-        // The 上櫃 equivalent, which does include warrants (~11k of its ~12k rows).
-        internal const string TpexUrl = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes";
+        // The 上櫃 equivalent: stocks and ETFs, ~1,000 rows, 357KB (58KB gzipped). Not
+        // tpex_mainboard_daily_close_quotes, which adds ~11,000 warrants for 4.7MB: from the East US
+        // App Service TPEx sends a few KB a second, and cuts the response off after ~25s, so
+        // that one never arrived whole there.
+        internal const string TpexUrl = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes";
+
+        /// <summary>Named client for the two dumps: gzip, and a timeout sized for a slow
+        /// Taiwan-to-US path rather than for a user waiting on a request (see
+        /// PortfolioServiceExtensions). Uncompressed, STOCK_DAY_ALL alone took ~23s from East US,
+        /// past the 20s every other client gets.</summary>
+        internal const string HttpClientName = "TwListedCompanies";
 
         private const string CacheKey = "tw_listed_companies";
         private const int MaxResults = 15;
@@ -184,7 +193,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var source = market == MarketType.TSE ? "TWSE" : "TPEx";
             try
             {
-                var client = httpClientFactory.CreateClient("ExternalReadOnly");
+                var client = httpClientFactory.CreateClient(HttpClientName);
                 using var req = new HttpRequestMessage(HttpMethod.Get, url);
                 req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
                 req.Headers.TryAddWithoutValidation("Accept", "application/json");
