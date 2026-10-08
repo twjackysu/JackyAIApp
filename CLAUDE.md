@@ -168,22 +168,23 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
   not the pre-merge preview ref a closed `pull_request` checks out by default
 - **A direct push to `master` does NOT deploy.** Closing a PR without merging does not either.
   Anything that lands outside a PR needs a manual run of the workflow
-- **Target**: two Azure App Services in `MyAppResourceGroup` (East US), both on the same Azure
-  SQL database, while production moves from Windows to Linux:
-  - `JackyAI` (Windows, jackyai.azurewebsites.net) — current production, secret `JackyAI_85C9`
-  - `jackyai-linux` (Linux B1, Always On) — the replacement, secret
-    `JACKYAI_LINUX_PUBLISH_PROFILE`; its system identity has Key Vault secrets Get/List. Public
-    address **https://apps.jacky-studio.com**: Cloudflare DNS (CNAME `apps` →
+- **Target**: Linux App Service `jackyai-linux` (B1, Always On) in `MyAppResourceGroup` (East
+  US), secret `JACKYAI_LINUX_PUBLISH_PROFILE`; its system identity has Key Vault secrets
+  Get/List. Running a branch through `workflow_dispatch` deploys it to production, including
+  any EF migration it carries (they run at startup)
+  - Public address **https://apps.jacky-studio.com**: Cloudflare DNS (CNAME `apps` →
     jackyai-linux.azurewebsites.net, proxied) with SSL mode Full (strict), and a Cloudflare Origin
     Certificate (`*.jacky-studio.com`, to 2041) bound on the App Service. Keep the TXT
     `asuid.apps` record: with the CNAME proxied, it is how Azure verifies the domain on any
     rebinding. OAuth redirect URIs (`/signin-google`, `/api/connectors/callback/{Provider}`)
     and the `Connectors__CallbackBaseUrl` app setting point at this address
-  - A merged PR deploys to both. `workflow_dispatch` takes `target: both | windows | linux`, so
-    a branch can be tried on the Linux app alone. Whatever is deployed runs EF migrations
-    against the shared production DB at startup, so a branch with a new migration changes it
-- **Process**: Build → Test → Publish → Deploy with Azure publish profile, one job per App
-  Service (each builds on its own OS)
+  - Access restrictions: the main site only accepts Cloudflare's IP ranges
+    (https://www.cloudflare.com/ips), so jackyai-linux.azurewebsites.net answers 403 to anyone
+    else; test through apps.jacky-studio.com. The scm (deploy) site keeps its own rules and is
+    not restricted, which is what lets GitHub Actions deploy
+  - The Windows App Service it replaced (`JackyAI`, jackyai.azurewebsites.net) is stopped,
+    pending deletion, and no longer deployed to
+- **Process**: Build → Test → Publish → Deploy with Azure publish profile (ubuntu runner)
 - **Linux**: no Windows-only APIs (System.Drawing.Common throws there; images use ImageSharp),
   and file paths are case-sensitive
 - **Gotcha**: two pushes to `master` in quick succession can cancel the earlier in-flight deploy run — check `gh run list` after a merge; if cancelled, the *next* successful run for a later commit still deploys everything (git history is linear), but if nothing later ran, re-trigger it
