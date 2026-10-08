@@ -265,3 +265,22 @@ Boss（Issue #409，2026-10-03）
 
 ### Source
 Boss（Issue #409，2026-10-04）
+
+## DECISION-011: 正式環境網域為 apps.jacky-studio.com
+
+### Date
+2026-10-08
+
+### Decision
+正式網址為 `https://apps.jacky-studio.com`（Cloudflare 代理 → Linux App Service `jackyai-linux`）。
+舊的 `jackyai.azurewebsites.net` 不再使用。
+
+### Reason
+Boss 已取得自有網域並完成遷移（見 repo `CLAUDE.md` 部署區段）。
+
+### Impact
+- 先前文件中提及舊網域的 SEO／Search Console 項目為歷史紀錄，以新網域為準。
+- 自有網域帶來的新可能性（Email 提醒、OAuth 品牌驗證、Cloudflare 快取／防護）尚未排入需求，待 Boss 決定。
+
+### Source
+Boss

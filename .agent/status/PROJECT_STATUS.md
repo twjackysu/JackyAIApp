@@ -2856,3 +2856,8 @@
 
 - 無 open PR。PR #422（TASK-033 單字頁內部連結）已合併 → `MERGED`。
 - 無 READY 的 task、無阻擋、Boss 無需決策。Future Work 不變（JobSearch 記憶、DataAnalysis 引導、首頁／每日單字連結）。
+
+## 2026-10-08 — PM：同步正式網域（Boss 指示）
+
+- 正式網址為 https://apps.jacky-studio.com（舊 azurewebsites 網域停用）。已於 REQUIREMENTS 頂部加註、記錄 DECISION-011。舊網域的歷史紀錄不改寫。
+- Tech Lead／QA：驗證與測試請以新網域為準。

@@ -1,5 +1,11 @@
 # JackyAIApp — Product Requirements
 
+> **正式環境網域（2026-10-08 更新）**：正式網址為 **https://apps.jacky-studio.com**
+> （Cloudflare 代理；Linux App Service）。舊的 `jackyai.azurewebsites.net` 已停用，
+> 下文提及舊網域的內容為歷史紀錄，Search Console 驗證／sitemap 請以新網域為準。
+> 見 DECISION-011。
+
+
 > Baseline document. Established 2026-09-12 by PM Agent from a scan of the existing
 > codebase (see root `CLAUDE.md` and module `CLAUDE.md` files) plus a code-level check
 > of the Credits/Payments module. This is a snapshot of **what already exists**, framed
