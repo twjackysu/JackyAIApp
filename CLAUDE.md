@@ -171,8 +171,14 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 - **Target**: two Azure App Services in `MyAppResourceGroup` (East US), both on the same Azure
   SQL database, while production moves from Windows to Linux:
   - `JackyAI` (Windows, jackyai.azurewebsites.net) — current production, secret `JackyAI_85C9`
-  - `jackyai-linux` (Linux, jackyai-linux.azurewebsites.net) — the replacement, secret
-    `JACKYAI_LINUX_PUBLISH_PROFILE`; its system identity has Key Vault secrets Get/List
+  - `jackyai-linux` (Linux B1, Always On) — the replacement, secret
+    `JACKYAI_LINUX_PUBLISH_PROFILE`; its system identity has Key Vault secrets Get/List. Public
+    address **https://apps.jacky-studio.com**: Cloudflare DNS (CNAME `apps` →
+    jackyai-linux.azurewebsites.net, proxied) with SSL mode Full (strict), and a Cloudflare Origin
+    Certificate (`*.jacky-studio.com`, to 2041) bound on the App Service. Keep the TXT
+    `asuid.apps` record: with the CNAME proxied, it is how Azure verifies the domain on any
+    rebinding. OAuth redirect URIs (`/signin-google`, `/api/connectors/callback/{Provider}`)
+    and the `Connectors__CallbackBaseUrl` app setting point at this address
   - A merged PR deploys to both. `workflow_dispatch` takes `target: both | windows | linux`, so
     a branch can be tried on the Linux app alone. Whatever is deployed runs EF migrations
     against the shared production DB at startup, so a branch with a new migration changes it
