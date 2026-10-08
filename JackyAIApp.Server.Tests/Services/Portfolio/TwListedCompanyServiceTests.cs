@@ -23,6 +23,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private readonly DbContextOptions<AzureSQLDBContext> _options;
         private readonly AzureSQLDBContext _db;
         private readonly RoutingHandler _http = new();
+        private readonly Mock<IHttpClientFactory> _httpFactory = new();
         private readonly TwListedCompanyService _service;
 
         public TwListedCompanyServiceTests()
@@ -32,13 +33,12 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 .Options;
             _db = new AzureSQLDBContext(_options);
 
-            var httpFactory = new Mock<IHttpClientFactory>();
-            httpFactory.Setup(f => f.CreateClient(It.IsAny<string>()))
+            _httpFactory.Setup(f => f.CreateClient(It.IsAny<string>()))
                 .Returns(() => new HttpClient(_http, disposeHandler: false));
 
             _service = new TwListedCompanyService(
                 new TestDbContextFactory(_options),
-                httpFactory.Object,
+                _httpFactory.Object,
                 new MemoryCache(new MemoryCacheOptions()),
                 NullLogger<TwListedCompanyService>.Instance,
                 new FakeTime(Now));
@@ -183,6 +183,19 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             var stored = await StoredAsync();
             Assert.Equal(new[] { "9999" }, stored.Keys);
+        }
+
+        [Fact]
+        public async Task RefreshAsync_UsesItsOwnHttpClient()
+        {
+            // The named client is the one registered with gzip and a long timeout; the shared
+            // read-only client's 20s cut STOCK_DAY_ALL off from East US.
+            ServeLists(TwseJson(("2330", "台積電")), TpexJson(("6488", "環球晶")));
+
+            Assert.True(await _service.RefreshAsync());
+
+            _httpFactory.Verify(f => f.CreateClient(TwListedCompanyService.HttpClientName), Times.Exactly(2));
+            _httpFactory.Verify(f => f.CreateClient(It.Is<string>(n => n != TwListedCompanyService.HttpClientName)), Times.Never);
         }
 
         [Fact]
