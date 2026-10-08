@@ -30,26 +30,31 @@ try
     builder.Logging.AddConsole();
     builder.Host.UseNLog();
 
-    // Cloud log/trace/metric sink for prod debugging — NLog's file targets write to the App
-    // Service instance's local disk (c:/temp), which is ephemeral and only reachable via the
-    // Kudu console. This mirrors ILogger calls (still hitting NLog too) plus auto-instruments
-    // HTTP requests and outbound calls (Anthropic, MCP, TWSE, ...) with latency/failure data.
-    // No-ops locally / anywhere the connection string isn't set — set
-    // APPLICATIONINSIGHTS_CONNECTION_STRING as an Azure App Service Application Setting to
-    // enable it in prod; nothing to configure in this repo.
-    var appInsightsConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"]
-        ?? Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
-    if (!string.IsNullOrEmpty(appInsightsConnectionString))
-    {
-        builder.Services.AddOpenTelemetry().UseAzureMonitor(o => o.ConnectionString = appInsightsConnectionString);
-    }
-
     // Add services to the container.
     if (builder.Environment.IsProduction())
     {
         builder.Configuration.AddAzureKeyVault(
             new Uri($"https://{builder.Configuration["KeyVaultName"]}.vault.azure.net/"),
             new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
+    }
+
+    // Cloud log/trace/metric sink for prod debugging — NLog's file targets write to the App
+    // Service instance's local temp dir, which is ephemeral and only reachable via the Kudu
+    // console. This mirrors ILogger calls (still hitting NLog too) plus auto-instruments HTTP
+    // requests and outbound calls (Anthropic, MCP, TWSE, ...) with latency/failure data.
+    // No-ops locally / anywhere the connection string isn't set — in prod it comes from Key
+    // Vault (ApplicationInsights--ConnectionString) or the APPLICATIONINSIGHTS_CONNECTION_STRING
+    // App Service setting.
+    //
+    // Read after Key Vault is added, and an empty value counts as missing: appsettings.json
+    // ships ApplicationInsights:ConnectionString as "", which used to win over both (read
+    // before Key Vault, and "" isn't null for ??), so prod sent no telemetry at all.
+    var appInsightsConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
+    if (string.IsNullOrEmpty(appInsightsConnectionString))
+        appInsightsConnectionString = Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
+    if (!string.IsNullOrEmpty(appInsightsConnectionString))
+    {
+        builder.Services.AddOpenTelemetry().UseAzureMonitor(o => o.ConnectionString = appInsightsConnectionString);
     }
 
     // Blob Storage for listening-exam question images (pre-seeded via the bulk importer tool,
