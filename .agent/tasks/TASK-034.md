@@ -7,7 +7,7 @@ SEO Phase C: 單字頁 JSON-LD 結構化資料（DefinedTerm）+ sitemap lastmod
 Backend
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM
@@ -36,7 +36,7 @@ MEDIUM
 TASK-020、TASK-033 已 MERGED。
 
 ## PR
-（待 Engineer 填寫）
+#427（已合併）
 
 ## Result
 - WordPageMetadataMiddleware：`</head>` 前注入 DefinedTerm JSON-LD（System.Text.Json 序列化，`<` 跳脫為 \u003C）。
