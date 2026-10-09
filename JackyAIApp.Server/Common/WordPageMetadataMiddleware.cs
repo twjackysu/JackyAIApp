@@ -156,7 +156,26 @@ namespace JackyAIApp.Server.Common
                 ? Regex.Replace(html, "<link[^>]*rel=\"canonical\"[^>]*/?>", _ => canonicalTag, RegexOptions.IgnoreCase)
                 : Regex.Replace(html, "</head>", _ => $"{canonicalTag}\n</head>", RegexOptions.IgnoreCase);
 
-            return html;
+            // JSON-LD (TASK-034): serialized, never string-built; "<" is \u003C-escaped so word data
+            // can't close the script element. System.Text.Json's default encoder already escapes
+            // < > & ' as \uXXXX, and the explicit replace is defence in depth.
+            var jsonLd = BuildJsonLd(word, pageUrl).Replace("<", "\\u003C");
+            var jsonLdTag = $"<script type=\"application/ld+json\">{jsonLd}</script>";
+            return Regex.Replace(html, "</head>", _ => $"{jsonLdTag}\n</head>", RegexOptions.IgnoreCase);
+        }
+
+        /// <summary>schema.org DefinedTerm for the word page. Pure and serializer-built.</summary>
+        internal static string BuildJsonLd(DTO.Word word, string pageUrl)
+        {
+            return System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
+            {
+                ["@context"] = "https://schema.org",
+                ["@type"] = "DefinedTerm",
+                ["name"] = word.Word,
+                ["description"] = word.SeoDescription,
+                ["inLanguage"] = "en",
+                ["url"] = pageUrl,
+            });
         }
     }
 }
