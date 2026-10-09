@@ -284,3 +284,22 @@ Boss 已取得自有網域並完成遷移（見 repo `CLAUDE.md` 部署區段）
 
 ### Source
 Boss
+
+## DECISION-012: 單字頁 SEO title 改為「單字在前、含中文關鍵字」；外部分享暫不做
+
+### Date
+2026-10-09
+
+### Decision
+- 單字頁 title 由 `English Coach - {單字}` 改為 `{單字} 英文意思、發音、例句 | English Coach`（取代先前核准的格式）。
+- #407 建議的「把網站分享到學習社群／論壇」暫不執行（Boss 知悉其對流量的幫助，之後再議）。
+
+### Reason
+單字在前並含「英文」類關鍵字，才有機會命中「apple 英文」等長尾查詢。排名無法保證（新網域通常需數週到數月），此為提高機會，不是承諾結果。
+
+### Impact
+- Tech Lead 已建 TASK-035 實作；首頁與其他頁 title 不變。
+- 驗收看「title 格式」，不看「是否上第一頁」。
+
+### Source
+Boss（Issue #407，2026-10-09）
