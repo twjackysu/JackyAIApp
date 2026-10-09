@@ -2861,3 +2861,7 @@
 
 - 正式網址為 https://apps.jacky-studio.com（舊 azurewebsites 網域停用）。已於 REQUIREMENTS 頂部加註、記錄 DECISION-011。舊網域的歷史紀錄不改寫。
 - Tech Lead／QA：驗證與測試請以新網域為準。
+
+## 2026-10-09 — Tech Lead：#407 新需求評估、建立 TASK-034（排程執行）
+
+- 無 open PR。#407 Boss 要求無品牌詞也能搜到 → 誠實回覆「排名不可保證」；建 TASK-034（JSON-LD + lastmod, READY）。title 格式變更待 Boss 決定（見 TECH_LEAD.md）。

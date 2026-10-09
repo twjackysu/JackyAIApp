@@ -27,3 +27,11 @@
 匿名統計目前應該可以，但長期要觀測的話好像需要知道user是誰?(雖然會有隱私問題，我也不確定哪個好，你跟PM決定吧)
 14. 2026-10-06：TASK-030（#418）、TASK-031（#420）已 MERGED；TASK-032 READY；新增 TASK-033（#407 單字頁內部連結，READY）。無需 Boss 決策。
 15. 2026-10-07：TASK-032、TASK-033（#422）皆已 MERGED。無待決事項。
+
+## 2026-10-09 — Tech Lead：回覆 #407 新需求「不加品牌詞也能搜到所有單字」（排程執行）
+
+- 無 open PR。Boss 於 #407 要求 `apple` / `apple english` / `apple 英文` 等一般查詢也要在第一頁。
+- 技術評估：**排名無法由程式保證**。「apple」本身被 Apple 公司主導；「apple 英文」類長尾查詢可能，但取決於網域權重、收錄量與外部連結，新站需數週至數月。程式端能做的只有輔助。
+- 已建 TASK-034（Backend, READY, MEDIUM）：JSON-LD DefinedTerm + sitemap lastmod。
+- **待 Boss 決定**：單字頁 title 目前為 `English Coach - {單字}`（你已核准）。若要吃到「英文」類查詢，建議改為 `{單字} 英文意思、發音、例句 | English Coach`（單字置前、含中文關鍵字）。這會改你先前定案的格式，故需你同意；同意後我會另開小任務。
+- Boss 可做（非程式）：Search Console 對新網域 apps.jacky-studio.com 提交 sitemap、抽測要求索引；對外分享連結（社群／PTT／Dcard／學習論壇）有助收錄。
