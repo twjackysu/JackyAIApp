@@ -182,11 +182,31 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
     (https://www.cloudflare.com/ips), so jackyai-linux.azurewebsites.net answers 403 to anyone
     else; test through apps.jacky-studio.com. The scm (deploy) site keeps its own rules and is
     not restricted, which is what lets GitHub Actions deploy
-  - The Windows App Service it replaced (`JackyAI`, jackyai.azurewebsites.net) is stopped,
-    pending deletion, and no longer deployed to
+  - The Windows App Service it replaced (`JackyAI`, jackyai.azurewebsites.net) was deleted on
+    2026-10-09, with its F1 plan, its Key Vault access policy and its publish-profile secrets.
+    jackyai.azurewebsites.net no longer exists and anyone can now claim the name, so no DNS
+    record may point at it (the old `www` CNAME was removed for that reason). Under
+    jacky-studio.com only `apps` (and its `asuid.apps` TXT) is defined; the apex and `www`
+    have no records
 - **Process**: Build → Test → Publish → Deploy with Azure publish profile (ubuntu runner)
 - **Linux**: no Windows-only APIs (System.Drawing.Common throws there; images use ImageSharp),
   and file paths are case-sensitive
+- **Azure resources** (`MyAppResourceGroup`, East US unless noted), all in use unless marked:
+  - `jackyai-linux` + plan `ASP-JackyAI-Linux` (B1) — the app
+  - SQL server `jackyai` / database `JackyAI` (Basic, 5 DTU)
+  - Key Vault `JackyAIAppKeyVault` — access policies: the owner's account, and the app's
+    identity with secrets Get/List only. Soft delete, 90 days: the payment-era secrets
+    (ECPay/PayPal/PayUni), `ConnectionStrings--AzureCosmosDBConnection` and
+    `ConnectionStrings--DefaultConnection` were deleted 2026-10-09 and stay recoverable until
+    early January 2027
+  - Storage `jackyaiappstorage` — container `listening-images` (listening-question images)
+  - Application Insights `JackyAI` (workspace-based, on `DefaultWorkspace-…-EUS`) — shares the
+    deleted Windows app's name but is what the Linux app reports to; keep it, its
+    smart-detection alert rule and action group
+  - Azure AI Speech `JackyAISpeech` (Japan East) — TTS
+  - Cosmos DB `jacky-ai-nosql` — **unused** since the move to SQL (free tier), kept only
+    because deleting it loses its data
+  - Resource group `jacky-sites-rg` — a separate, stopped project, unrelated to this app
 - **Gotcha**: two pushes to `master` in quick succession can cancel the earlier in-flight deploy run — check `gh run list` after a merge; if cancelled, the *next* successful run for a later commit still deploys everything (git history is linear), but if nothing later ran, re-trigger it
 
 ## Important Notes
