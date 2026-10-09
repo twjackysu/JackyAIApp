@@ -1,18 +1,25 @@
 using JackyAIApp.Server.DTO.Job;
 using System.Globalization;
-using System.Text;
+using System.Net.Http.Json;
 using System.Text.Json;
-using System.Web;
 
 namespace JackyAIApp.Server.Services.Job.Providers;
 
 /// <summary>
 /// Fetches job listings in Taiwan from Cake (cake.me, formerly CakeResume).
 ///
-/// Cake is a Next.js site with no bot-gating (plain server-side requests return 200),
-/// and it server-renders the job list into the __NEXT_DATA__ island at
-///   props.pageProps.initialState.jobSearch.entityByPathId
-/// Search URL: https://www.cake.me/jobs?q={keyword}&location_list[0]=Taiwan&page={n}
+/// Uses the same JSON search API Cake's own frontend calls client-side:
+///   POST https://api.cake.me/api/client/v2/jobs/search
+///   { query, filters: { locations: ["Taiwan"] }, sort_by, page, per_page }
+/// (sort_by is required; "popularity" | "latest".)
+///
+/// History: this used to scrape the __NEXT_DATA__ island off www.cake.me/jobs?q=...&location_list[0]=Taiwan.
+/// Cake now 308-redirects any query/location URL to an SEO path (/jobs/{q}/in-Taiwan), and those
+/// paths sit behind a Cloudflare challenge (403 "Just a moment...") — so the scrape returned zero
+/// jobs for every search. The API host has no such challenge.
+///
+/// Results mix two shapes: Cake-hosted jobs (job_source "cake": path + page{path,name}) and
+/// aggregated external postings (job_source "external": id + source_url + external_company{name}).
 ///
 /// Engineering roles are kept via a title filter (Cake mixes all professions into one
 /// result set), excluding business/finance/HR/sales/etc.
@@ -21,7 +28,9 @@ public class CakeJobsProvider(IHttpClientFactory httpClientFactory, ILogger<Cake
 {
     public string PlatformId => "cake";
 
-    private const int MaxPages = 3; // 10 jobs/page
+    private const string SearchUrl = "https://api.cake.me/api/client/v2/jobs/search";
+    private const int PerPage = 30;
+    private const int MaxPages = 2;
 
     private static readonly string[] IncludeKeywords =
     [
@@ -50,117 +59,127 @@ public class CakeJobsProvider(IHttpClientFactory httpClientFactory, ILogger<Cake
 
         for (var page = 1; page <= MaxPages; page++)
         {
-            var url = new StringBuilder("https://www.cake.me/jobs?location_list%5B0%5D=Taiwan");
-            url.Append("&page=").Append(page);
-            if (!string.IsNullOrWhiteSpace(keywords))
-                url.Append("&q=").Append(HttpUtility.UrlEncode(keywords.Trim()));
+            var body = new
+            {
+                query = keywords?.Trim() ?? "",
+                filters = new { locations = new[] { "Taiwan" } },
+                sort_by = "latest",
+                page,
+                per_page = PerPage,
+            };
 
-            using var response = await client.GetAsync(url.ToString(), ct);
+            using var response = await client.PostAsJsonAsync(SearchUrl, body, ct);
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Cake jobs page {page} returned {status}", page, response.StatusCode);
                 break;
             }
 
-            var html = await response.Content.ReadAsStringAsync(ct);
-            var nextJson = ExtractNextData(html);
-            if (nextJson is null) break;
-
-            using var doc = JsonDocument.Parse(nextJson);
-            if (!TryGetJobMap(doc.RootElement, out var jobMap)) break;
-
-            var pageCount = 0;
-            foreach (var entry in jobMap.EnumerateObject())
+            var json = await response.Content.ReadAsStringAsync(ct);
+            JsonDocument doc;
+            try { doc = JsonDocument.Parse(json); }
+            catch (JsonException ex)
             {
-                pageCount++;
-                try
-                {
-                    var job = ParseJob(entry.Value);
-                    if (job is null) continue;
-                    if (seen.Add(job.Id)) jobs.Add(job);
-                }
-                catch (Exception ex) { logger.LogWarning(ex, "Failed to parse Cake job"); }
+                logger.LogWarning(ex, "Cake jobs page {page} returned non-JSON body", page);
+                break;
             }
 
-            if (pageCount < 10) break; // last page
+            using (doc)
+            {
+                var root = doc.RootElement;
+                if (!root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
+                {
+                    logger.LogWarning("Cake jobs page {page} response has no 'data' array", page);
+                    break;
+                }
+
+                foreach (var entry in data.EnumerateArray())
+                {
+                    try
+                    {
+                        var job = ParseJob(entry);
+                        if (job is null) continue;
+                        if (seen.Add(job.Id)) jobs.Add(job);
+                    }
+                    catch (Exception ex) { logger.LogWarning(ex, "Failed to parse Cake job"); }
+                }
+
+                var totalPages = root.TryGetProperty("total_pages", out var tp) && tp.TryGetInt32(out var n) ? n : page;
+                if (page >= totalPages || data.GetArrayLength() < PerPage) break; // last page
+            }
         }
 
         logger.LogInformation("Cake fetched {count} engineering jobs for keywords='{kw}'", jobs.Count, keywords);
         return jobs.OrderByDescending(j => j.PostedAt).ToList();
     }
 
-    private static string? ExtractNextData(string html)
-    {
-        const string marker = "<script id=\"__NEXT_DATA__\" type=\"application/json\">";
-        var start = html.IndexOf(marker, StringComparison.Ordinal);
-        if (start < 0) return null;
-        start += marker.Length;
-        var end = html.IndexOf("</script>", start, StringComparison.Ordinal);
-        return end < 0 ? null : html[start..end];
-    }
-
-    private static bool TryGetJobMap(JsonElement root, out JsonElement jobMap)
-    {
-        jobMap = default;
-        if (root.TryGetProperty("props", out var props) &&
-            props.TryGetProperty("pageProps", out var pageProps) &&
-            pageProps.TryGetProperty("initialState", out var initialState) &&
-            initialState.TryGetProperty("jobSearch", out var jobSearch) &&
-            jobSearch.TryGetProperty("entityByPathId", out var map) &&
-            map.ValueKind == JsonValueKind.Object)
-        {
-            jobMap = map;
-            return true;
-        }
-        return false;
-    }
+    private static string? GetString(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String && v.GetString() is { Length: > 0 } s
+            ? s
+            : null;
 
     private static JobListingDto? ParseJob(JsonElement job)
     {
-        var title = job.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
+        var title = GetString(job, "title") ?? "";
         if (string.IsNullOrWhiteSpace(title) || !IsEngineering(title)) return null;
 
-        var path = job.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "";
-
-        string companySlug = "", companyName = "Cake";
-        if (job.TryGetProperty("page", out var pageEl) && pageEl.ValueKind == JsonValueKind.Object)
+        string id, url, companyName = "Cake";
+        if (GetString(job, "job_source") == "external")
         {
-            companySlug = pageEl.TryGetProperty("path", out var cs) ? cs.GetString() ?? "" : "";
-            companyName = pageEl.TryGetProperty("name", out var cn) && cn.GetString() is { Length: > 0 } n ? n : companyName;
+            // Aggregated posting hosted on the employer's own career site.
+            var externalId = GetString(job, "id") ?? "";
+            if (job.TryGetProperty("external_company", out var ec) && ec.ValueKind == JsonValueKind.Object)
+                companyName = GetString(ec, "name") ?? companyName;
+            id = $"cake-ext-{externalId}";
+            url = GetString(job, "source_url") ?? "https://www.cake.me/jobs";
         }
-
-        var url = !string.IsNullOrEmpty(companySlug) && !string.IsNullOrEmpty(path)
-            ? $"https://www.cake.me/companies/{companySlug}/jobs/{path}"
-            : "https://www.cake.me/jobs";
+        else
+        {
+            var path = GetString(job, "path") ?? "";
+            var companySlug = "";
+            if (job.TryGetProperty("page", out var pageEl) && pageEl.ValueKind == JsonValueKind.Object)
+            {
+                companySlug = GetString(pageEl, "path") ?? "";
+                companyName = GetString(pageEl, "name") ?? companyName;
+            }
+            id = $"cake-{companySlug}-{path}";
+            url = !string.IsNullOrEmpty(companySlug) && !string.IsNullOrEmpty(path)
+                ? $"https://www.cake.me/companies/{companySlug}/jobs/{path}"
+                : "https://www.cake.me/jobs";
+        }
 
         // Location: join the localized location list.
         var location = "台灣";
         if (job.TryGetProperty("locations", out var locs) && locs.ValueKind == JsonValueKind.Array)
         {
-            var names = locs.EnumerateArray().Select(l => l.GetString()).Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+            var names = locs.EnumerateArray()
+                .Where(l => l.ValueKind == JsonValueKind.String)
+                .Select(l => l.GetString())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .ToArray();
             if (names.Length > 0) location = string.Join(", ", names);
         }
 
         var salaryRange = FormatSalary(job);
 
         var postedAt = DateTime.UtcNow;
-        if (job.TryGetProperty("contentUpdatedAt", out var ua) && ua.GetString() is { Length: > 0 } uaStr &&
+        if (GetString(job, "content_updated_at") is { } uaStr &&
             DateTime.TryParse(uaStr, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var parsed))
             postedAt = parsed;
 
         var tags = new List<string>();
         if (job.TryGetProperty("tags", out var tagsEl) && tagsEl.ValueKind == JsonValueKind.Array)
             foreach (var tg in tagsEl.EnumerateArray())
-                if (tg.GetString() is { Length: > 0 } tagStr) tags.Add(tagStr);
-        if (job.TryGetProperty("seniorityLevel", out var sl) && sl.GetString() is { Length: > 0 } slStr)
+                if (tg.ValueKind == JsonValueKind.String && tg.GetString() is { Length: > 0 } tagStr) tags.Add(tagStr);
+        if (GetString(job, "seniority_level") is { } slStr)
             tags.Add(slStr);
 
-        var description = job.TryGetProperty("description", out var d) && d.GetString() is { Length: > 0 } dStr
+        var description = GetString(job, "description") is { } dStr
             ? dStr[..Math.Min(200, dStr.Length)].Trim()
             : null;
 
         return new JobListingDto(
-            Id: $"cake-{companySlug}-{path}",
+            Id: id,
             Title: title,
             Company: companyName,
             Location: location,
@@ -178,7 +197,12 @@ public class CakeJobsProvider(IHttpClientFactory httpClientFactory, ILogger<Cake
         if (!job.TryGetProperty("salary", out var s) || s.ValueKind != JsonValueKind.Object) return null;
 
         string? Get(string name) => s.TryGetProperty(name, out var el)
-            ? (el.ValueKind == JsonValueKind.String ? el.GetString() : el.ToString())
+            ? el.ValueKind switch
+            {
+                JsonValueKind.String => el.GetString(),
+                JsonValueKind.Null or JsonValueKind.Undefined => null,
+                _ => el.ToString(),
+            }
             : null;
 
         var min = Get("min");

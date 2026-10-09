@@ -1,3 +1,4 @@
+using System.Text.Json;
 using JackyAIApp.Server.Services.Job.Providers;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -6,12 +7,12 @@ using Moq;
 namespace JackyAIApp.Server.Tests.Services.Job
 {
     /// <summary>
-    /// Parses Cake's (cake.me) server-rendered __NEXT_DATA__ island — fixtures are raw .html
-    /// captures rather than JSON, since this provider isn't a JSON API at all
-    /// (THIRD_PARTY_CONTRACT_TESTS_PLAN.md section C2). "jobs_page.html" is trimmed down from a
-    /// real page fetched at authoring time (search keyword 工程師), keeping enough of the
-    /// original entries to exercise a normal entry, a null-salary entry, a non-engineering title
-    /// (verifies the title filter), and a bare-minimum entry (verifies the field fallbacks).
+    /// Parses Cake's (cake.me) client search API — POST api.cake.me/api/client/v2/jobs/search
+    /// (THIRD_PARTY_CONTRACT_TESTS_PLAN.md section C2). "jobs_search.json" mirrors the live
+    /// response shape, keeping enough entries to exercise a normal entry, a null-salary entry, an
+    /// aggregated external posting (different shape: id/source_url/external_company), a
+    /// non-engineering title (verifies the title filter), and a bare-minimum entry (verifies the
+    /// field fallbacks).
     /// </summary>
     public class CakeJobsProviderTests
     {
@@ -28,18 +29,16 @@ namespace JackyAIApp.Server.Tests.Services.Job
             return new CakeJobsProvider(httpClientFactory.Object, NullLogger<CakeJobsProvider>.Instance);
         }
 
-        private static HttpResponseMessage HtmlResponse(string html) =>
-            new(System.Net.HttpStatusCode.OK) { Content = new StringContent(html, System.Text.Encoding.UTF8, "text/html") };
-
         [Fact]
         public async Task FetchAsync_NormalPage_ParsesEngineeringJobsAndExcludesNonEngineeringTitles()
         {
-            // Fixture's single page has 4 entries; the provider treats "< 10 entries" as the last
-            // page, so it stops after page 1 without requesting page 2.
-            var provider = CreateProvider(_ => HtmlResponse(ReadFixture("jobs_page.html")));
+            // Fixture reports total_pages = 1, so the provider stops after page 1.
+            var requests = 0;
+            var provider = CreateProvider(_ => { requests++; return StubHttpMessageHandler.JsonResponse(ReadFixture("jobs_search.json")); });
 
             var jobs = await provider.FetchAsync("工程師", "AND");
 
+            Assert.Equal(1, requests);
             // "業務經理 Sales Manager" must be filtered out by the title include/exclude lists.
             Assert.DoesNotContain(jobs, j => j.Title.Contains("業務經理"));
 
@@ -49,13 +48,56 @@ namespace JackyAIApp.Server.Tests.Services.Job
             Assert.Contains("台北市", normal.Location);
             Assert.Equal("TWD 800,000 - 1,200,000/年", normal.SalaryRange);
             Assert.Equal("https://www.cake.me/companies/hour-loop/jobs/software-engineer-f3c235", normal.Url);
+            Assert.Contains("entry_level", normal.Tags);
             Assert.Equal("Cake", normal.Platform);
+        }
+
+        [Fact]
+        public async Task FetchAsync_SendsSearchRequestWithKeywordTaiwanFilterAndSortBy()
+        {
+            HttpRequestMessage? captured = null;
+            string? body = null;
+            var provider = CreateProvider(req =>
+            {
+                captured = req;
+                body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                return StubHttpMessageHandler.JsonResponse(ReadFixture("jobs_search.json"));
+            });
+
+            await provider.FetchAsync("  工程師  ", "AND");
+
+            Assert.NotNull(captured);
+            Assert.Equal(HttpMethod.Post, captured!.Method);
+            Assert.Equal("https://api.cake.me/api/client/v2/jobs/search", captured.RequestUri!.ToString());
+
+            using var doc = JsonDocument.Parse(body!);
+            var root = doc.RootElement;
+            Assert.Equal("工程師", root.GetProperty("query").GetString());
+            Assert.Equal("Taiwan", root.GetProperty("filters").GetProperty("locations")[0].GetString());
+            // The API rejects requests without sort_by (422).
+            Assert.False(string.IsNullOrEmpty(root.GetProperty("sort_by").GetString()));
+            Assert.Equal(1, root.GetProperty("page").GetInt32());
+        }
+
+        [Fact]
+        public async Task FetchAsync_ExternalPosting_UsesSourceUrlAndExternalCompany()
+        {
+            var provider = CreateProvider(_ => StubHttpMessageHandler.JsonResponse(ReadFixture("jobs_search.json")));
+
+            var jobs = await provider.FetchAsync("工程師", "AND");
+
+            var external = Assert.Single(jobs, j => j.Id == "cake-ext-98f47fc1-abd3-4fdc-9815-7631b41c9556");
+            Assert.Equal("Qualcomm", external.Company);
+            Assert.StartsWith("https://careers.qualcomm.com/", external.Url);
+            Assert.Equal("新竹市, 台灣", external.Location);
+            Assert.Null(external.SalaryRange); // salary: null
+            Assert.Equal(["Hardware Engineering"], external.Tags);
         }
 
         [Fact]
         public async Task FetchAsync_NullSalaryFields_FormatsWithoutThrowing()
         {
-            var provider = CreateProvider(_ => HtmlResponse(ReadFixture("jobs_page.html")));
+            var provider = CreateProvider(_ => StubHttpMessageHandler.JsonResponse(ReadFixture("jobs_search.json")));
 
             var jobs = await provider.FetchAsync("工程師", "AND");
 
@@ -67,7 +109,7 @@ namespace JackyAIApp.Server.Tests.Services.Job
         [Fact]
         public async Task FetchAsync_MinimalEntryMissingPageLocationsSalaryTags_UsesSafeDefaults()
         {
-            var provider = CreateProvider(_ => HtmlResponse(ReadFixture("jobs_page.html")));
+            var provider = CreateProvider(_ => StubHttpMessageHandler.JsonResponse(ReadFixture("jobs_search.json")));
 
             var jobs = await provider.FetchAsync("工程師", "AND");
 
@@ -81,11 +123,26 @@ namespace JackyAIApp.Server.Tests.Services.Job
         }
 
         [Fact]
-        public async Task FetchAsync_NextDataScriptMissing_ReturnsEmptyListInsteadOfThrowing()
+        public async Task FetchAsync_MultiplePages_FollowsTotalPagesAndDedupes()
         {
-            // Simulates Cake removing/renaming the __NEXT_DATA__ island entirely — the single
-            // highest-value failure mode this provider has (see class doc + JobBoardContractTests).
-            var provider = CreateProvider(_ => HtmlResponse(ReadFixture("jobs_page_no_next_data.html")));
+            // Every page returns the same 30 entries and claims 5 pages: the provider must cap at
+            // its own page limit and de-duplicate the repeated entries.
+            var entry = JsonDocument.Parse(ReadFixture("jobs_search.json")).RootElement.GetProperty("data")[0].GetRawText();
+            var page = $"{{\"total_entries\":150,\"total_pages\":5,\"per_page\":30,\"current_page\":1,\"data\":[{string.Join(",", Enumerable.Repeat(entry, 30))}]}}";
+            var requests = 0;
+            var provider = CreateProvider(_ => { requests++; return StubHttpMessageHandler.JsonResponse(page); });
+
+            var jobs = await provider.FetchAsync("工程師", "AND");
+
+            Assert.Equal(2, requests);
+            Assert.Single(jobs);
+        }
+
+        [Fact]
+        public async Task FetchAsync_DataArrayMissing_ReturnsEmptyListInsteadOfThrowing()
+        {
+            // Simulates Cake restructuring the response envelope (e.g. renaming "data").
+            var provider = CreateProvider(_ => StubHttpMessageHandler.JsonResponse(ReadFixture("jobs_search_restructured.json")));
 
             var jobs = await provider.FetchAsync("工程師", "AND");
 
@@ -93,12 +150,14 @@ namespace JackyAIApp.Server.Tests.Services.Job
         }
 
         [Fact]
-        public async Task FetchAsync_NextDataPresentButEntityByPathIdPathChanged_ReturnsEmptyListInsteadOfThrowing()
+        public async Task FetchAsync_NonJsonBody_ReturnsEmptyListInsteadOfThrowing()
         {
-            // Simulates Cake restructuring initialState.jobSearch's internal shape (e.g. renaming
-            // entityByPathId) while still emitting *a* __NEXT_DATA__ script — TryGetJobMap should
-            // fail closed rather than throw.
-            var provider = CreateProvider(_ => HtmlResponse(ReadFixture("jobs_page_restructured.html")));
+            // e.g. a Cloudflare "Just a moment..." challenge page served with 200.
+            var provider = CreateProvider(_ => new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("<!DOCTYPE html><html><head><title>Just a moment...</title></head></html>",
+                    System.Text.Encoding.UTF8, "text/html")
+            });
 
             var jobs = await provider.FetchAsync("工程師", "AND");
 
