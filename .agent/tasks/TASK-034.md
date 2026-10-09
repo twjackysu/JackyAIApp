@@ -7,7 +7,7 @@ SEO Phase C: 單字頁 JSON-LD 結構化資料（DefinedTerm）+ sitemap lastmod
 Backend
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM
@@ -39,7 +39,9 @@ TASK-020、TASK-033 已 MERGED。
 （待 Engineer 填寫）
 
 ## Result
-（待填）
+- WordPageMetadataMiddleware：`</head>` 前注入 DefinedTerm JSON-LD（System.Text.Json 序列化，`<` 跳脫為 \u003C）。
+- SitemapController：每個 `<url>` 加 `<lastmod>`（Word.LastUpdated，yyyy-MM-dd；無值則不加）。無 migration、無 AI 呼叫、title 不變。
+- 測試：已新增 offline unit tests；本環境無 dotnet SDK（proxy 擋下載），**未能實際執行**，需靠 PR CI 驗證。
 
 ## Review
 （待填）

@@ -31,10 +31,10 @@ namespace JackyAIApp.Server.Controllers
             // index + chunked sub-sitemaps only once this approaches Google's ~50k URL/file cap.
             var wordTexts = await _dbContext.Words
                 .Where(w => !w.DataInvalid.HasValue || !w.DataInvalid.Value)
-                .Select(w => w.WordText)
+                .Select(w => new { w.WordText, w.LastUpdated })
                 .ToListAsync();
 
-            var xml = BuildSitemapXml(wordTexts, BaseUrl());
+            var xml = BuildSitemapXml(wordTexts.Select(w => (w.WordText, (DateTime?)w.LastUpdated)), BaseUrl());
             return Content(xml, "application/xml", Encoding.UTF8);
         }
 
@@ -48,14 +48,21 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Pure so it's testable without an <see cref="HttpContext"/>.</summary>
         internal static string BuildSitemapXml(IEnumerable<string> wordTexts, string baseUrl)
+            => BuildSitemapXml(wordTexts.Select(w => (w, (DateTime?)null)), baseUrl);
+
+        /// <summary>Pure so it's testable without an <see cref="HttpContext"/>. lastmod is the W3C date (yyyy-MM-dd).</summary>
+        internal static string BuildSitemapXml(IEnumerable<(string WordText, DateTime? LastUpdated)> words, string baseUrl)
         {
             var sb = new StringBuilder();
             sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             sb.Append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
-            foreach (var wordText in wordTexts)
+            foreach (var (wordText, lastUpdated) in words)
             {
                 var loc = $"{baseUrl}{DictionaryPathPrefix}/{Uri.EscapeDataString(wordText)}";
-                sb.Append($"  <url><loc>{System.Security.SecurityElement.Escape(loc)}</loc></url>\n");
+                var lastmod = lastUpdated.HasValue
+                    ? $"<lastmod>{lastUpdated.Value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}</lastmod>"
+                    : "";
+                sb.Append($"  <url><loc>{System.Security.SecurityElement.Escape(loc)}</loc>{lastmod}</url>\n");
             }
             sb.Append("</urlset>");
             return sb.ToString();

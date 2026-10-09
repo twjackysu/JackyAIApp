@@ -45,6 +45,19 @@ namespace JackyAIApp.Server.Tests.Controllers
         }
 
         [Fact]
+        public void BuildSitemapXml_AddsIsoLastmod_OnlyWhenKnown()
+        {
+            var xml = SitemapController.BuildSitemapXml(new (string, DateTime?)[]
+            {
+                ("apple", new DateTime(2026, 3, 5, 23, 59, 0)),
+                ("pear", null),
+            }, "https://example.com");
+
+            Assert.Contains("apple</loc><lastmod>2026-03-05</lastmod></url>", xml);
+            Assert.Contains("pear</loc></url>", xml);
+        }
+
+        [Fact]
         public void BuildRobotsTxt_AllowsAllAndPointsToSitemap()
         {
             var robots = SitemapController.BuildRobotsTxt("https://example.com");

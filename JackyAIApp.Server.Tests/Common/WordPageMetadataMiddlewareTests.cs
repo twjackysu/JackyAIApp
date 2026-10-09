@@ -73,6 +73,40 @@ namespace JackyAIApp.Server.Tests.Common
         }
 
         [Fact]
+        public void InjectMetadata_InsertsDefinedTermJsonLd()
+        {
+            var word = MakeWord("English Coach - apple", "apple (noun): a fruit");
+
+            var html = WordPageMetadataMiddleware.InjectMetadata(Template, word, "https://example.com/english/dictionary/apple");
+
+            var m = System.Text.RegularExpressions.Regex.Match(html, "<script type=\"application/ld\\+json\">(.*?)</script>");
+            Assert.True(m.Success);
+            using var doc = System.Text.Json.JsonDocument.Parse(m.Groups[1].Value);
+            var root = doc.RootElement;
+            Assert.Equal("DefinedTerm", root.GetProperty("@type").GetString());
+            Assert.Equal("apple", root.GetProperty("name").GetString());
+            Assert.Equal("apple (noun): a fruit", root.GetProperty("description").GetString());
+            Assert.Equal("en", root.GetProperty("inLanguage").GetString());
+            Assert.Equal("https://example.com/english/dictionary/apple", root.GetProperty("url").GetString());
+        }
+
+        [Fact]
+        public void InjectMetadata_JsonLdIsSafeForHostileWordData()
+        {
+            var word = MakeWord("t", "</script><script>alert(1)</script> \"q\" $1 $&");
+            word.Word = "a</script>\"b$1";
+
+            var html = WordPageMetadataMiddleware.InjectMetadata(Template, word, "https://example.com/english/dictionary/a");
+
+            Assert.DoesNotContain("<script>alert", html);
+            Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "</script>"));
+            var m = System.Text.RegularExpressions.Regex.Match(html, "<script type=\"application/ld\\+json\">(.*?)</script>");
+            using var doc = System.Text.Json.JsonDocument.Parse(m.Groups[1].Value);
+            Assert.Equal("a</script>\"b$1", doc.RootElement.GetProperty("name").GetString());
+            Assert.Equal("</script><script>alert(1)</script> \"q\" $1 $&", doc.RootElement.GetProperty("description").GetString());
+        }
+
+        [Fact]
         public async Task InvokeAsync_FallsThrough_WhenMethodIsNotGetOrHead()
         {
             var nextCalled = false;
