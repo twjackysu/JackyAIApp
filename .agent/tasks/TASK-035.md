@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-IN_PROGRESS
+PR_OPENED
 
 ## Priority
 MEDIUM
@@ -32,7 +32,7 @@ Boss 於 #407 核准（2026-10-09，「2. 可以」）：單字頁 title 改為�
 TASK-034 已 MERGED（#427）。
 
 ## PR
-（待 Engineer 填寫）
+https://github.com/twjackysu/JackyAIApp/pull/430（本機無 dotnet SDK，測試未執行，依 CI 為準）
 
 ## Result
 （待填）
