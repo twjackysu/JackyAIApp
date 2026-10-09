@@ -1,0 +1,105 @@
+{
+  "total_entries": 5,
+  "total_pages": 1,
+  "per_page": 30,
+  "current_page": 1,
+  "results": {
+    "jobs": [
+      {
+        "path": "software-engineer-f3c235",
+        "title": "軟體工程師 Software Engineer (Full-stack)",
+        "highlighted_title": "軟體<mark>工程師</mark> Software Engineer (Full-stack)",
+        "description": "【Hour Loop 飛輪電商】在2013年成立，並於2022年初在美國那斯達克上市。作為亞馬遜 (Amazon) 第三方賣家。在百萬競爭對手中，我們透過獨特的",
+        "highlighted_description": "",
+        "locations": [
+          "西區, 臺中市, 台灣",
+          "新興區, 高雄市, 台灣",
+          "信義區, 台北市, 台灣"
+        ],
+        "locations_with_locale": [
+          {
+            "en": "W. District, Taichung City, Taiwan",
+            "zh-tw": "西區, 臺中市, 台灣"
+          }
+        ],
+        "salary": {
+          "min": "800000",
+          "max": "1200000",
+          "currency": "TWD",
+          "type": "per_year"
+        },
+        "seniority_level": "entry_level",
+        "job_type": "full_time",
+        "inclusivity_traits": [],
+        "number_of_management": "none",
+        "number_of_openings": 1,
+        "tags": [
+          "SQL/MySQL",
+          "Ruby On Rails",
+          "Java",
+          "Google Cloud",
+          "AWS"
+        ],
+        "page": {
+          "path": "hour-loop",
+          "name": "Hour Loop 飛輪電商",
+          "highlighted_name": "",
+          "logo": "v1711549385/vpuosjghulxiby3w0nuy.png",
+          "country": "TW",
+          "geo": {
+            "region_l": "新兴区, 高雄市",
+            "city": "Sinsing District",
+            "state_name": "Kaohsiung City",
+            "zip": "800",
+            "street_address": "251號 Mincyuan 1st Road"
+          }
+        },
+        "unique_impressions_count": 10310,
+        "lang_name": "Chinese",
+        "min_work_exp_year": 0,
+        "content_updated_at": "2026-07-07T07:03:01.709250Z",
+        "job_source": "cake"
+      },
+      {
+        "path": "full-service-engineer-dc4e7e",
+        "title": "全端工程師 | Full Stack Engineer",
+        "highlighted_title": "",
+        "description": "請至街口支付職缺網站進行投遞，我們會以此平台收到的履歷為主喔！【我們的期望】\n希望你是一位有積極熱忱且喜歡尋求問題的全端",
+        "highlighted_description": "",
+        "locations": [
+          "松山區, 台北市, 台灣"
+        ],
+        "locations_with_locale": [
+          {
+            "en": "Songshan District, Taipei City, Taiwan",
+            "zh-tw": "松山區, 台北市, 台灣"
+          }
+        ],
+        "salary": {
+          "min": null,
+          "max": null,
+          "currency": "TWD",
+          "type": "per_month"
+        },
+        "seniority_level": "mid_senior_level",
+        "job_type": "full_time",
+        "inclusivity_traits": [],
+        "number_of_management": "none",
+        "number_of_openings": 1,
+        "tags": [],
+        "page": {
+          "path": "jkopay",
+          "name": "街口電子支付股份有限公司",
+          "highlighted_name": "",
+          "logo": "v1627550721/oekx7czyjznjimizhtuc.png",
+          "country": "TW"
+        },
+        "unique_impressions_count": 3139,
+        "lang_name": "Chinese",
+        "min_work_exp_year": 3,
+        "content_updated_at": "2026-07-01T08:13:54.656733Z",
+        "job_source": "cake"
+      }
+    ]
+  }
+}

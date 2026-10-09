@@ -108,8 +108,10 @@ namespace JackyAIApp.Server.Extensions
             }).AddReadOnlyResilience();
             services.AddHttpClient("Cake", client =>
             {
-                client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml");
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
                 client.DefaultRequestHeaders.Add("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.8");
+                client.DefaultRequestHeaders.Add("Origin", "https://www.cake.me");
+                client.DefaultRequestHeaders.Add("Referer", "https://www.cake.me/");
                 client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
                 client.Timeout = TimeSpan.FromSeconds(15);
             }).AddReadOnlyResilience();

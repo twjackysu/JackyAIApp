@@ -1,12 +1,12 @@
-using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace JackyAIApp.Server.Tests.LiveContracts
 {
     /// <summary>
     /// Live contract tests for the two job-board integrations behind the /jobs feature
-    /// (THIRD_PARTY_CONTRACT_TESTS_PLAN.md section C, C1/C2). Both are unofficial scrapes (one
-    /// JSON, one HTML data-island) with no SLA — the highest-value thing this class watches for is
+    /// (THIRD_PARTY_CONTRACT_TESTS_PLAN.md section C, C1/C2). Both are unofficial, undocumented JSON
+    /// APIs (the ones each site's own frontend calls) with no SLA — the highest-value thing this class watches for is
     /// "the site stopped answering our shape of request at all", not just "a field got renamed".
     ///
     /// These build their own HttpClient with the same headers Job104Provider/CakeJobsProvider get
@@ -100,90 +100,68 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         {
             var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
             // Mirrors the "Cake" named HttpClient registration in ServiceCollectionExtensions.cs.
-            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
             client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "zh-TW,zh;q=0.9,en;q=0.8");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Origin", "https://www.cake.me");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Referer", "https://www.cake.me/");
             client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent",
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
             return client;
         }
 
-        /// <summary>
-        /// Same marker-based extraction CakeJobsProvider.ExtractNextData uses internally
-        /// (duplicated here — it's private on the provider and trivial enough that pulling it
-        /// through DI/reflection would add more risk of testing our own wiring than the third
-        /// party's shape).
-        /// </summary>
-        private static string? ExtractNextData(string html)
-        {
-            const string marker = "<script id=\"__NEXT_DATA__\" type=\"application/json\">";
-            var start = html.IndexOf(marker, StringComparison.Ordinal);
-            if (start < 0) return null;
-            start += marker.Length;
-            var end = html.IndexOf("</script>", start, StringComparison.Ordinal);
-            return end < 0 ? null : html[start..end];
-        }
-
         [Fact]
-        public async Task CakeJobsSearch_KnownKeyword_NextDataIslandParsesToNonEmptyJobMap()
+        public async Task CakeJobsSearch_KnownKeyword_ReturnsParsableJobsWithRequiredFields()
         {
             using var client = CreateCakeClient();
-            var encoded = Uri.EscapeDataString(SearchKeyword);
-            var url = $"https://www.cake.me/jobs?location_list%5B0%5D=Taiwan&page=1&q={encoded}";
+            var body = new
+            {
+                query = SearchKeyword,
+                filters = new { locations = new[] { "Taiwan" } },
+                sort_by = "latest",
+                page = 1,
+                per_page = 10,
+            };
 
-            using var response = await client.GetAsync(url);
-
-            // Soft-skip on 403 — confirmed (2026-07-22, 9 days of scheduled-run history) this is
-            // Cake's bot protection blocking GitHub Actions' datacenter IP ranges, not the site or
-            // the integration actually being broken (same category as 104's Cloudflare challenge,
-            // see the root CLAUDE.md note on that). Any other failure status is a real signal.
-            if (response.StatusCode == HttpStatusCode.Forbidden) return;
+            // No 403 soft-skip here on purpose: the previous HTML-scrape version of this test
+            // soft-skipped 403 as "datacenter IP blocked", which hid the real break — Cake had started
+            // 308-redirecting search URLs to Cloudflare-challenged SEO paths, so production got zero
+            // jobs too. A 403 from the API host is a genuine signal worth a manual look.
+            using var response = await client.PostAsJsonAsync("https://api.cake.me/api/client/v2/jobs/search", body);
+            var text = await response.Content.ReadAsStringAsync();
 
             Assert.True(response.IsSuccessStatusCode,
-                $"Cake jobs page request failed: HTTP {(int)response.StatusCode} {response.StatusCode}.");
+                $"Cake search API request failed: HTTP {(int)response.StatusCode} {response.StatusCode}. " +
+                "A 422 usually means the request body contract changed (e.g. a newly required field); a 403 with a " +
+                "'Just a moment...' page means Cloudflare now challenges the API host as well. " +
+                $"Body (first 300 chars): {text[..Math.Min(300, text.Length)]}");
 
-            var html = await response.Content.ReadAsStringAsync();
-            var nextJson = ExtractNextData(html);
+            using var doc = JsonDocument.Parse(text);
+            Assert.True(doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array,
+                "Cake search response has no top-level 'data' array — CakeJobsProvider reads exactly this and will " +
+                $"now silently return zero jobs. Body: {text[..Math.Min(500, text.Length)]}");
 
-            // This is the single most fragile point in the whole C group (see plan's 脆弱度
-            // rating): if Next.js's script id/marker ever changes, CakeJobsProvider goes dark
-            // silently (returns zero jobs, no exception) in production. Distinguish that failure
-            // mode explicitly from "site is down" or "field renamed".
-            Assert.False(nextJson is null,
-                "Cake's page no longer contains a <script id=\"__NEXT_DATA__\" type=\"application/json\"> tag. " +
-                "This means Cake changed its Next.js data-embedding approach (different script id, moved to a " +
-                "different rendering strategy, etc.) — CakeJobsProvider.ExtractNextData will now return null on " +
-                "every request and CakeJobsProvider will silently produce zero jobs with no error logged beyond " +
-                "an early loop break. This is a 'the whole provider is dark' finding, not a minor field drift.");
+            Assert.True(data.GetArrayLength() > 0,
+                $"Cake search for '{SearchKeyword}' in Taiwan returned zero jobs — either the filter/body contract " +
+                "changed so nothing matches, or the shape changed (unlikely for '工程師' to have no postings).");
 
-            using var doc = JsonDocument.Parse(nextJson!);
-            var root = doc.RootElement;
-
-            var hasPath =
-                root.TryGetProperty("props", out var props) &&
-                props.TryGetProperty("pageProps", out var pageProps) &&
-                pageProps.TryGetProperty("initialState", out var initialState) &&
-                initialState.TryGetProperty("jobSearch", out var jobSearch) &&
-                jobSearch.TryGetProperty("entityByPathId", out var jobMap) &&
-                jobMap.ValueKind == JsonValueKind.Object;
-
-            Assert.True(hasPath,
-                "__NEXT_DATA__ parsed, but props.pageProps.initialState.jobSearch.entityByPathId is missing or " +
-                "not an object. Cake restructured its internal Redux/state shape — CakeJobsProvider.TryGetJobMap " +
-                "reads exactly this path and will now silently return zero jobs for every search.");
-
-            var entityByPathId = root.GetProperty("props").GetProperty("pageProps").GetProperty("initialState")
-                .GetProperty("jobSearch").GetProperty("entityByPathId");
-
-            Assert.True(entityByPathId.EnumerateObject().Any(),
-                $"Cake search for '{SearchKeyword}' returned an empty entityByPathId map — either the site has " +
-                "zero results for this common keyword (unlikely) or the shape has changed in a way that empties " +
-                "the map without breaking the path itself.");
-
-            var firstJob = entityByPathId.EnumerateObject().First().Value;
-            Assert.True(firstJob.TryGetProperty("title", out var title) &&
+            var first = data[0];
+            Assert.True(first.TryGetProperty("title", out var title) &&
                 title.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(title.GetString()),
-                "The first entry in Cake's entityByPathId map has no non-empty 'title' field — " +
-                "CakeJobsProvider.ParseJob requires this to even consider the entry.");
+                "The first Cake job has no non-empty 'title' — CakeJobsProvider.ParseJob requires this to even consider the entry.");
+
+            // Cake-hosted jobs link via path + page.path; aggregated external ones via source_url.
+            var isExternal = first.TryGetProperty("job_source", out var src) && src.GetString() == "external";
+            if (isExternal)
+            {
+                Assert.True(first.TryGetProperty("source_url", out _) && first.TryGetProperty("external_company", out _),
+                    "External Cake job lacks 'source_url'/'external_company' — CakeJobsProvider falls back to a generic URL/company.");
+            }
+            else
+            {
+                Assert.True(first.TryGetProperty("path", out _) &&
+                    first.TryGetProperty("page", out var page) && page.TryGetProperty("path", out _),
+                    "Cake-hosted job lacks 'path'/'page.path' — CakeJobsProvider can no longer build the job URL.");
+            }
         }
     }
 }
