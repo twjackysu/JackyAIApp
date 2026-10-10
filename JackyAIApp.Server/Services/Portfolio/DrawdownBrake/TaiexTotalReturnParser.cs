@@ -8,7 +8,9 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
     /// <c>{"stat":"OK","fields":[...],"data":[["115/10/08","123,456.78"], ...]}</c>.
     ///
     /// The columns are found by their header text rather than by position, and a header that is
-    /// missing or matches more than one column fails the whole month. A wrong column here would
+    /// missing or matches more than one column fails the whole month. Headers are compared with
+    /// their whitespace removed: the live date header is "日　期", with a full-width space (U+3000)
+    /// inside, which is how this was found. A wrong column here would
     /// not crash anything: it would feed a plausible-looking but wrong series into the signal,
     /// which is the one failure this parser exists to prevent. The same goes for a row it cannot
     /// read — nothing from a month is returned unless every row in it parsed.
@@ -58,7 +60,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
                 if (dataEl.GetArrayLength() == 0) return TaiexMonthResult.Ok([]);
 
                 var fields = fieldsEl.EnumerateArray()
-                    .Select(f => f.ValueKind == JsonValueKind.String ? (f.GetString() ?? "").Trim() : "")
+                    .Select(f => f.ValueKind == JsonValueKind.String ? WithoutWhitespace(f.GetString() ?? "") : "")
                     .ToList();
                 var dateCols = IndexesContaining(fields, DateHeader);
                 var valueCols = IndexesContaining(fields, ValueHeader);
@@ -111,6 +113,10 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
                     .ToList());
             }
         }
+
+        /// <summary>Drops every kind of whitespace, full-width included (<see cref="char.IsWhiteSpace(char)"/>
+        /// covers U+3000).</summary>
+        private static string WithoutWhitespace(string text) => string.Concat(text.Where(c => !char.IsWhiteSpace(c)));
 
         private static List<int> IndexesContaining(List<string> fields, string header) =>
             fields.Select((f, i) => (f, i)).Where(x => x.f.Contains(header)).Select(x => x.i).ToList();

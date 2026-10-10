@@ -4,9 +4,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 {
     /// <summary>
-    /// MFI94U month parsing. The samples are hand-written to the layout Issue #431 §6 describes
-    /// (民國 dates, thousands separators, "--" for no data); the real layout is checked only by
-    /// LiveContracts/TaiexContractTests, since the build environment cannot reach twse.com.tw.
+    /// MFI94U month parsing. Most samples are hand-written to the layout Issue #431 §6 describes
+    /// (民國 dates, thousands separators, "--" for no data). <see cref="Parse_TheLiveResponse_OfSeptember2026"/>
+    /// is the start of a real response, copied from the 2026-10-10 contract-test run, which is what
+    /// showed the date header to be "日　期" with a full-width space. The layout stays checked
+    /// against the live API by LiveContracts/TaiexContractTests.
     /// </summary>
     public class TaiexTotalReturnParserTests
     {
@@ -55,6 +57,39 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 
             Assert.True(result.Success);
             Assert.Equal(new IndexClose(new DateOnly(2026, 10, 1), 41234.56m), Assert.Single(result.Points));
+        }
+
+        [Fact]
+        public void Parse_TheLiveResponse_OfSeptember2026()
+        {
+            // Verbatim from the live API (first rows of the month), including the date header's
+            // full-width space (U+3000) and the extra "title"/"date" members.
+            const string live = "{\"stat\":\"OK\",\"title\":\"115年09月 發行量加權股價報酬指數\",\"date\":\"20260901\"," +
+                "\"fields\":[\"日\u3000期\",\"發行量加權股價報酬指數\"]," +
+                "\"data\":[[\"115/09/01\",\"108,395.72\"],[\"115/09/02\",\"106,591.66\"],[\"115/09/03\",\"105,884.91\"],[\"115/09/04\",\"107,486.11\"]]}";
+
+            var result = Parse(live, 2026, 9);
+
+            Assert.True(result.Success);
+            Assert.Equal(
+                [
+                    new IndexClose(new DateOnly(2026, 9, 1), 108395.72m),
+                    new IndexClose(new DateOnly(2026, 9, 2), 106591.66m),
+                    new IndexClose(new DateOnly(2026, 9, 3), 105884.91m),
+                    new IndexClose(new DateOnly(2026, 9, 4), 107486.11m),
+                ],
+                result.Points);
+        }
+
+        [Theory]
+        [InlineData("日 期")]       // ASCII space
+        [InlineData("日\u3000期")] // full-width space
+        [InlineData(" 日期 ")]
+        public void Parse_DateHeaderWhitespace_DoesNotMatter(string dateHeader)
+        {
+            var fields = "[\"" + dateHeader + "\",\"發行量加權股價報酬指數\"]";
+
+            Assert.True(Parse(Month(fields, "[\"115/10/01\",\"41,234.56\"]")).Success);
         }
 
         [Theory]
