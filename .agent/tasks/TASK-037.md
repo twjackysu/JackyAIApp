@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+IN_PROGRESS
 
 ## Priority
 HIGH（Requirement：「0050 + 00631L『回落煞車』」第一階段；PM 標 HIGH）
