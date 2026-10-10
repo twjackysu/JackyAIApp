@@ -20,6 +20,7 @@ import { BenchmarkChart } from './BenchmarkChart';
 import { ChartSectionCard } from './ChartSectionCard';
 import { ConcentrationCard } from './ConcentrationCard';
 import { ContributionWaterfallChart } from './ContributionWaterfallChart';
+import { DrawdownBrakeCard } from './DrawdownBrakeCard';
 import { DrawdownChart } from './DrawdownChart';
 import { drawdownBufferColor, EXPOSURE_TOOLTIP } from './exposureGauges';
 import { loadFeeDiscountRate, saveFeeDiscountRate } from './feeDiscountRate';
@@ -664,6 +665,10 @@ export default function Portfolio() {
             <ChartSectionCard title="再平衡建議">
               <RebalancingCard summary={summary} />
             </ChartSectionCard>
+
+            {/* Renders nothing (and makes no request) unless the server says this user has the
+                feature — see DrawdownBrakeCard. */}
+            <DrawdownBrakeCard summary={summary} />
 
             <ChartSectionCard title="財務目標 (FIRE)">
               <FireCard summary={summary} />
