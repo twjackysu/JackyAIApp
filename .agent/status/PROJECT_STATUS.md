@@ -2871,3 +2871,8 @@
 - 無 open PR。TASK-034（#427 JSON-LD + lastmod）已合併 → `MERGED`。
 - Boss 於 #407 核准 title 改格式 → 建 TASK-035（Backend, READY, MEDIUM）：`{單字} 英文意思、發音、例句 | English Coach`，僅改 `WordSeoTextFormatter.FormatTitle` 單一來源 + 更新測試斷言。
 - Boss 暫不做外部分享（#407 項目 3）。#407 保持 open，待 TASK-035 完成後回報。
+
+## 2026-10-09 — PM：記錄 #407 Boss 決定（排程執行）
+
+- 記錄 DECISION-012：單字頁 title 改新格式（TASK-035 已由 Tech Lead 建立、PR #430 待 Boss 審查合併）；外部分享暫不做。
+- Boss 待辦：審查並合併 PR #430。#407 保持 open，待 TASK-035 上線後由 Tech Lead 回報。無新增阻擋。

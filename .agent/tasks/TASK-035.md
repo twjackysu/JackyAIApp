@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED
+READY_FOR_BOSS_REVIEW
 
 ## Priority
 MEDIUM
@@ -32,10 +32,10 @@ Boss 於 #407 核准（2026-10-09，「2. 可以」）：單字頁 title 改為�
 TASK-034 已 MERGED（#427）。
 
 ## PR
-https://github.com/twjackysu/JackyAIApp/pull/430（本機無 dotnet SDK，測試未執行，依 CI 為準）
+https://github.com/twjackysu/JackyAIApp/pull/430
 
 ## Result
 （待填）
 
 ## Review
-（待填）
+2026-10-09 Tech Lead：範圍正確（僅改 `WordSeoTextFormatter.FormatTitle`，單一來源），測試斷言皆已更新（含 `DictionaryServiceTests` 改為完整相等斷言）；HTML 編碼路徑未動；無 DB/AI 變更。`build-and-test-server` 綠（client 檢查執行中，本 PR 不涉前端）。無需額外 QA（純字串格式，測試已覆蓋）。**READY FOR BOSS REVIEW**（不代表核准合併）。

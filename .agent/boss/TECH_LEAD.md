@@ -36,3 +36,4 @@
 - **待 Boss 決定**：單字頁 title 目前為 `English Coach - {單字}`（你已核准）。若要吃到「英文」類查詢，建議改為 `{單字} 英文意思、發音、例句 | English Coach`（單字置前、含中文關鍵字）。這會改你先前定案的格式，故需你同意；同意後我會另開小任務。
 - Boss 可做（非程式）：Search Console 對新網域 apps.jacky-studio.com 提交 sitemap、抽測要求索引；對外分享連結（社群／PTT／Dcard／學習論壇）有助收錄。
 16. 2026-10-09：TASK-034（#427）已 MERGED。你在 #407 同意單字頁 title 改為 `{單字} 英文意思、發音、例句 | English Coach` → 已建 TASK-035（READY）。排名仍無法保證；Search Console 提交 sitemap 你暫緩，無待決事項。
+17. 2026-10-09：PR #430（TASK-035 單字頁 title）Tech Lead 審查通過 → READY FOR BOSS REVIEW，待 Boss 合併。部署後以 `apps.jacky-studio.com/english/dictionary/apple` 檢視 `<title>`。
