@@ -37,3 +37,4 @@
 - Boss 可做（非程式）：Search Console 對新網域 apps.jacky-studio.com 提交 sitemap、抽測要求索引；對外分享連結（社群／PTT／Dcard／學習論壇）有助收錄。
 16. 2026-10-09：TASK-034（#427）已 MERGED。你在 #407 同意單字頁 title 改為 `{單字} 英文意思、發音、例句 | English Coach` → 已建 TASK-035（READY）。排名仍無法保證；Search Console 提交 sitemap 你暫緩，無待決事項。
 17. 2026-10-09：PR #430（TASK-035 單字頁 title）Tech Lead 審查通過 → READY FOR BOSS REVIEW，待 Boss 合併。部署後以 `apps.jacky-studio.com/english/dictionary/apple` 檢視 `<title>`。
+18. 2026-10-10：PR #430（TASK-035）已 MERGED，部署後請以 `apps.jacky-studio.com/english/dictionary/apple` 檢視 `<title>`。#407 已回報；是否關閉由你決定。無待決事項。

@@ -2876,3 +2876,8 @@
 
 - 記錄 DECISION-012：單字頁 title 改新格式（TASK-035 已由 Tech Lead 建立、PR #430 待 Boss 審查合併）；外部分享暫不做。
 - Boss 待辦：審查並合併 PR #430。#407 保持 open，待 TASK-035 上線後由 Tech Lead 回報。無新增阻擋。
+
+## 2026-10-10 — Tech Lead：TASK-035 已合併（排程執行）
+
+- 無 open PR。TASK-035（#430 單字頁 title 新格式）已合併 → `MERGED`。已於 #407 回報部署後驗證方式。
+- 無 READY 的 task、無阻擋、Boss 無需決策。
