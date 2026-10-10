@@ -4,10 +4,10 @@
 > 決策見 `product/DECISIONS.md`）。**新的 Boss 提問改開 GitHub Issue**（見 #387），
 > 本檔僅留最近一次往來。
 
-## 未解決事項摘要
-- Boss：合併 PR #386（Search Console 驗證）→ 按驗證 → 提交 sitemap。
-- Boss：確認 `Data Analyst` vs `Data Analysis` 命名、首頁 title 預設（Tech Lead 待答）。
-- Tech Lead：評估 Issues 流程對 TECH_LEAD.md／TASK／READY task 認領的影響（Issue #387）。
+## 未解決事項摘要（2026-10-10 更新）
+- Boss：回覆 Issue #431（回落煞車）的 Q1～Q4——Q1 對一般使用者開放範圍（合規未查證）、Q2 提醒送達方式為主要待決。
+- Boss：Search Console 提交 sitemap 已暫緩（#407）；#407 是否關閉由 Boss 決定。
+- 已結案（自舊摘要移除）：PR #386 已合併；`Data Analysis` 命名與首頁 title 已定案；Issues 流程（#387）已採用。
 
 ---
 # PM → Boss (2026-09-30)
