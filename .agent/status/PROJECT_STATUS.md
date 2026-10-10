@@ -2899,3 +2899,12 @@
 - 驗證限制：排程沙箱 egress 擋 `twse.com.tw`／`mis.twse.com.tw`（403），**MFI94U 與 MIS 實際格式尚未驗證**；以 LiveContract（GitHub Actions）驗證，解析器不得猜欄位。
 - 需要 Boss：回測用報酬指數 CSV（TASK-036 的測試 fixture，**不阻擋開工**）；Q1／Q2／Q3 仍由 Boss 回覆 PM（見 #431）。
 - PM Actions：請在 REQUIREMENTS 的「Tech Lead Actions」標示已完成設計，並於 Boss 回覆 Q1～Q3 後更新假設／Open Questions。
+
+## 2026-10-10 — Frontend Engineer：TASK-037 回落煞車前端 PR 已開（排程執行）
+
+- 無既有 Open PR；TASK-037（READY、無未完成相依）→ `IN_PROGRESS` → `PR_OPENED`：PR #432。
+- 範圍：純函式（composition／advise／設定）、持股擷取與分割硬性防護、固定警語＋§10 文案＋風險說明、`DrawdownBrakeCard`（僅 `drawdownBrakeEnabled` 時掛載並發請求）、`getDrawdownBrake` query 與型別。
+- 驗證：lint／test（396 項，新增 96）／build 全過；360px／400px 無橫向捲動。**尚未對真實端點驗證**（等 TASK-036 合併）。
+- `SPLIT_EVENTS` 以公開報導交叉確認與 Boss 常數相符，未修改。
+- 給 Tech Lead：PR 描述列出與參考實作／§10 範例的差異（截斷後 E、prevState null、A4 取價用既有 lookup 端點、再平衡句型）。
+- 給 PM／Boss（不阻擋）：「隔日成交版本」欄的期間 1997–2026 為依 #431 §2 欄位順序推定，請確認；沒有任何持股者看不到卡片（卡片在「有持股」才渲染的區塊內）。
