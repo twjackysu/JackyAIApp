@@ -3,6 +3,7 @@ using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,7 +16,9 @@ namespace JackyAIApp.Server.Controllers
         IMyResponseFactory responseFactory,
         IPortfolioService portfolioService,
         IUserService userService,
-        ServerTiming timing) : ControllerBase
+        ServerTiming timing,
+        IDrawdownBrakeService drawdownBrakeService,
+        IDrawdownBrakeAccess drawdownBrakeAccess) : ControllerBase
     {
         private string RequireUserId()
         {
@@ -112,6 +115,21 @@ namespace JackyAIApp.Server.Controllers
             var userId = RequireUserId();
             var result = await portfolioService.GetDrawdownAnalysisAsync(userId, days, ct);
             return responseFactory.CreateOKResponse(result);
+        }
+
+        /// <summary>
+        /// The 回落煞車 market signal (Issue #431). Shared market data — nothing here depends on the
+        /// caller's holdings — and free to serve (no AI call), so no usage cost. Limited to the
+        /// audience in <c>Features:DrawdownBrake:Audience</c> until the Boss opens it up.
+        /// </summary>
+        [HttpGet("drawdown-brake")]
+        public async Task<IActionResult> GetDrawdownBrake(CancellationToken ct)
+        {
+            var userId = RequireUserId();
+            if (!await drawdownBrakeAccess.IsEnabledForUserAsync(userId, ct))
+                return responseFactory.CreateErrorResponse(ErrorCodes.DrawdownBrakeNotEnabled, "This feature is not available.");
+
+            return responseFactory.CreateOKResponse(await drawdownBrakeService.GetAsync(ct));
         }
 
         [HttpGet("benchmark-comparison")]

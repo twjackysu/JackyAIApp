@@ -313,6 +313,10 @@ namespace JackyAIApp.Server.Data
             modelBuilder.Entity<DailyStockPrice>()
                 .Property(p => p.Close).HasPrecision(18, 4);
 
+            // 發行量加權股價報酬指數 daily closes for the 回落煞車 signal (shared across users).
+            modelBuilder.Entity<TaiexTotalReturnDaily>()
+                .Property(t => t.Close).HasPrecision(18, 4);
+
             // Published FX rates (shared across users, immutable once published).
             modelBuilder.Entity<FxRate>()
                 .HasIndex(r => new { r.Source, r.Currency, r.RateDate })
@@ -380,5 +384,6 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<StockSymbolInfo> StockSymbolInfos { get; set; }
         public virtual DbSet<TwListedCompany> TwListedCompanies { get; set; }
         public virtual DbSet<StockPrediction> StockPredictions { get; set; }
+        public virtual DbSet<TaiexTotalReturnDaily> TaiexTotalReturnDailies { get; set; }
     }
 }
