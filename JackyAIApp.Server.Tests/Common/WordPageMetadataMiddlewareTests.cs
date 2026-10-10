@@ -26,11 +26,11 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public void InjectMetadata_ReplacesTitleDescriptionAndInsertsCanonical()
         {
-            var word = MakeWord("English Coach - apple", "apple (noun): a fruit");
+            var word = MakeWord("apple 英文意思、發音、例句 | English Coach", "apple (noun): a fruit");
 
             var html = WordPageMetadataMiddleware.InjectMetadata(Template, word, "https://example.com/english/dictionary/apple");
 
-            Assert.Contains("<title>English Coach - apple</title>", html);
+            Assert.Contains("<title>apple 英文意思、發音、例句 | English Coach</title>", html);
             Assert.Contains("<meta name=\"description\" content=\"apple (noun): a fruit\" />", html);
             Assert.Contains("<link rel=\"canonical\" href=\"https://example.com/english/dictionary/apple\" />", html);
             Assert.DoesNotContain("AI 英文學習與單字訓練", html);
@@ -40,7 +40,7 @@ namespace JackyAIApp.Server.Tests.Common
         public void InjectMetadata_ReplacesExistingCanonicalInsteadOfDuplicating()
         {
             var templateWithCanonical = Template.Replace("</head>", "<link rel=\"canonical\" href=\"https://example.com/old\" />\n</head>");
-            var word = MakeWord("English Coach - apple", "apple (noun): a fruit");
+            var word = MakeWord("apple 英文意思、發音、例句 | English Coach", "apple (noun): a fruit");
 
             var html = WordPageMetadataMiddleware.InjectMetadata(templateWithCanonical, word, "https://example.com/english/dictionary/apple");
 
@@ -75,7 +75,7 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public void InjectMetadata_InsertsDefinedTermJsonLd()
         {
-            var word = MakeWord("English Coach - apple", "apple (noun): a fruit");
+            var word = MakeWord("apple 英文意思、發音、例句 | English Coach", "apple (noun): a fruit");
 
             var html = WordPageMetadataMiddleware.InjectMetadata(Template, word, "https://example.com/english/dictionary/apple");
 
@@ -179,7 +179,7 @@ namespace JackyAIApp.Server.Tests.Common
         public async Task InvokeAsync_ServesInjectedHtml_ForGet()
         {
             _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple"))
-                .ReturnsAsync(ServiceResult.Ok(MakeWord("English Coach - apple", "apple (noun): a fruit")));
+                .ReturnsAsync(ServiceResult.Ok(MakeWord("apple 英文意思、發音、例句 | English Coach", "apple (noun): a fruit")));
             var nextCalled = false;
             var middleware = new WordPageMetadataMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, MakeEnv(Template));
             var context = MakeContext("/english/dictionary/apple", "GET");
@@ -194,7 +194,7 @@ namespace JackyAIApp.Server.Tests.Common
             Assert.Equal("no-store", context.Response.Headers["Cache-Control"].ToString());
             responseBody.Seek(0, SeekOrigin.Begin);
             var body = new StreamReader(responseBody).ReadToEnd();
-            Assert.Contains("<title>English Coach - apple</title>", body);
+            Assert.Contains("<title>apple 英文意思、發音、例句 | English Coach</title>", body);
             Assert.Contains("rel=\"canonical\"", body);
         }
 
@@ -202,7 +202,7 @@ namespace JackyAIApp.Server.Tests.Common
         public async Task InvokeAsync_SetsHeadersButWritesNoBody_ForHead()
         {
             _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple"))
-                .ReturnsAsync(ServiceResult.Ok(MakeWord("English Coach - apple", "apple (noun): a fruit")));
+                .ReturnsAsync(ServiceResult.Ok(MakeWord("apple 英文意思、發音、例句 | English Coach", "apple (noun): a fruit")));
             var nextCalled = false;
             var middleware = new WordPageMetadataMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, MakeEnv(Template));
             var context = MakeContext("/english/dictionary/apple", "HEAD");

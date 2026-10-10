@@ -33,13 +33,13 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public void BuildHtml_RendersSeoFieldsVerbatimIntoTitleAndOgTags()
         {
-            var word = MakeWord(seoTitle: "English Coach - apple", seoDescription: "apple (noun): a fruit");
+            var word = MakeWord(seoTitle: "apple 英文意思、發音、例句 | English Coach", seoDescription: "apple (noun): a fruit");
 
             var html = BotPreviewMiddleware.BuildHtml(word, "https://example.com/english/dictionary/apple", "https://example.com");
 
-            Assert.Contains("<title>English Coach - apple</title>", html);
+            Assert.Contains("<title>apple 英文意思、發音、例句 | English Coach</title>", html);
             Assert.Contains("content=\"apple (noun): a fruit\"", html);
-            Assert.Contains("property=\"og:title\" content=\"English Coach - apple\"", html);
+            Assert.Contains("property=\"og:title\" content=\"apple 英文意思、發音、例句 | English Coach\"", html);
             Assert.Contains("property=\"og:url\" content=\"https://example.com/english/dictionary/apple\"", html);
             Assert.Contains($"property=\"og:image\" content=\"https://example.com{BotPreviewMiddleware.GenericOgImagePath}\"", html);
         }
@@ -118,7 +118,7 @@ namespace JackyAIApp.Server.Tests.Common
         public async Task InvokeAsync_ServesPreviewHtml_ForKnownBotUserAgents(string userAgent)
         {
             _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple"))
-                .ReturnsAsync(ServiceResult.Ok(MakeWord("English Coach - apple", "apple (noun): a fruit")));
+                .ReturnsAsync(ServiceResult.Ok(MakeWord("apple 英文意思、發音、例句 | English Coach", "apple (noun): a fruit")));
             var nextCalled = false;
             var middleware = new BotPreviewMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
             var context = MakeContext("/english/dictionary/apple", userAgent);
@@ -131,7 +131,7 @@ namespace JackyAIApp.Server.Tests.Common
             Assert.Equal("text/html; charset=utf-8", context.Response.ContentType);
             responseBody.Seek(0, SeekOrigin.Begin);
             var body = new StreamReader(responseBody).ReadToEnd();
-            Assert.Contains("<title>English Coach - apple</title>", body);
+            Assert.Contains("<title>apple 英文意思、發音、例句 | English Coach</title>", body);
             Assert.Contains("og:url", body);
         }
 

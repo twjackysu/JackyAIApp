@@ -13,7 +13,7 @@ namespace JackyAIApp.Server.Services.Dictionary
         private const string BrandPrefix = "English Coach";
         private const int DescriptionMaxLength = 160;
 
-        public static string FormatTitle(string wordText) => $"{BrandPrefix} - {wordText}";
+        public static string FormatTitle(string wordText) => $"{wordText} 英文意思、發音、例句 | {BrandPrefix}";
 
         public static string FormatDescription(string wordText, IReadOnlyList<DTO.WordMeaning> meanings)
         {
