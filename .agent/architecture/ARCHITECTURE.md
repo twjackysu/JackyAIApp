@@ -1537,3 +1537,85 @@ already-complete 3-item list.
 
 ### 部署順序（每次合併即部署）
 TASK-021（後端新機制，與舊機制並存）→ TASK-022（前端移除 UI + 改吃新契約）→ TASK-023（後端刪除金流/Credit 程式碼）→ TASK-024（DROP schema，待 Boss）。021→022 之間舊前端遇到 429 只會顯示通用錯誤，視窗很短，可接受。
+
+
+## Decision: 「回落煞車」加減碼提醒（0050 + 00631L，Issue #431 / DECISION-013，Tech Lead 2026-10-10）
+
+### Context
+規格（Boss，#431）與產品面（PM，`REQUIREMENTS.md`「0050 + 00631L『回落煞車』…」DRAFT v1）已定；固定參數、適用範圍與禁止項見 DECISION-013，**Agent 不得調整**（`DD_TRIGGER=0.08`、`REENTER_SMA=60`、`LOOKBACK_HIGH=252`）。PM 分兩期：第一階段＝收盤後正式訊號＋目標配置＋加減碼股數（站內顯示）；第二階段＝盤中預估＋「訊號已更正」＋站外提醒。Q1（對誰開放）、Q2（提醒送達方式）待 Boss；**Q1 未決前功能預設只有 admin 看得到**。
+
+### Investigation (2026-10-10)
+1. **報酬指數資料目前完全不存在**：後端無任何 `MFI94U`／報酬指數取得程式（grep 無結果）。TWStockLib 只用於個股日線與即時報價。本排程沙箱的 egress policy 擋掉 `www.twse.com.tw`／`mis.twse.com.tw`（HTTP 403），**MFI94U 與 MIS 回傳格式尚未實測驗證** → 以 LiveContract 測試（GitHub Actions 可連證交所）作為驗證手段，解析器不得「猜欄位」。
+2. **持股與價格不需新端點**：`GET api/portfolio/summary` 的 `positions[]` 已含 `symbol/market/quantity/currentPrice/marketValueTWD`（交易時段已疊加即時價），`effectiveDate` 為快照日。
+3. **訊號是全站共用的市場資料**（與使用者無關）：一份資料、一次計算、所有人共用；使用者相關的只有「風險等級／策略現金／持股」。
+4. **Portfolio 完全沒有股票分割處理**（grep `split`/`分割` 無結果）：`Quantity` 為使用者輸入，市值＝數量×最新價。分割前建立的快照會讓 0050（2025-06-18，1 拆 4）、00631L（2026-03-31，1 拆 22）的市值被嚴重低估，建議股數隨之大錯（PM 的 R2 屬實）。此為 Portfolio 既有限制，非本功能造成。
+5. 可沿用的既有模式：背景刷新 `TwListedCompanyRefreshService`（每小時檢查、`TimeProvider` 可測）、LiveContract 測試（`LiveContracts/`）、localStorage 偏好（`rebalancingTarget.ts`／`feeDiscountRate.ts`）、`User.IsAdmin`（作者直接改 DB，無 admin UI）。
+
+### Decision
+**後端提供「市場訊號」，前端依使用者持股計算「個人建議」。** 零使用者設定表、零 AI、零 UsageLimit。
+
+**後端（TASK-036，第一階段；TASK-038，第二階段）**
+- 新表 `TaiexTotalReturnDaily(TradeDate PK, Close decimal(18,4))`，全站共用、只存已收盤的正式值（同 `DailyStockPrice` 精神，不存盤中值）。不重用 `DailyStockPrice`（避免把指數混進個股表）。
+- `TaiexTotalReturnClient`：打 `rwd/zh/TAIEX/MFI94U?date=YYYYMM01&response=json`，**請求間隔 ≥ 3 秒**（Boss 規定 ≥ 2 秒，留餘裕）、全域單一 in-flight、依表頭文字（含「報酬指數」）定位欄位，找不到唯一欄位就失敗並記 log，**不寫入**。解析民國年、千分位、`--`。
+- `TaiexTotalReturnRefreshService : BackgroundService`（仿 `TwListedCompanyRefreshService`）：每小時檢查；表空 → 回補近 3 年（約 36 次請求、約 2 分鐘，背景進行）；平日 14:00（台北）後若最新一筆 < 今日 → 抓當月（缺口則自缺口月起逐月補）。失敗吞掉、下小時重試；請求遇非 JSON／非預期格式即停止本輪（避免被證交所封 IP，影響既有 TW 報價）。
+- `DrawdownBrakeCalculator`（純函式，**每次從整個序列從頭重算**，不存狀態）：`state=OFFENSE` 起算；`up = sma60 != null && close > sma60`；`down = close/high252 - 1 < -0.08`（嚴格小於）；`up→OFFENSE`、`else down→DEFENSE`、否則維持。`high252` 不足 252 日用現有資料（對應參考實作 `min_periods=1`）。
+- 端點 `GET /api/portfolio/drawdown-brake`（`[Authorize]`，另受功能開關限制）。
+- **功能開關（Q1 未決前預設關閉）**：設定 `Features:DrawdownBrake:Audience` = `Admin`（預設）｜`All`。端點對不符資格者回 403（新增 `ErrorCodes`，不洩漏資料）；使用者資訊回應（與 `isAdmin` 同處，`accountApis/type.ts`）新增 `drawdownBrakeEnabled`（= `IsAdmin` 或 Audience=All），前端據此決定是否掛載卡片。Boss 決定 Q1 後只需改 App Setting（`Features__DrawdownBrake__Audience=All`），**不需改碼重新部署**。
+
+**API 契約（前後端共同遵守；數值百分比一律用 `...Pct`，與既有 DTO 一致）**
+```
+GET /api/portfolio/drawdown-brake  → DrawdownBrakeDto
+{
+  "asOfDate": "2026-10-08",              // 已用到的最新正式資料日
+  "state": "OFFENSE" | "DEFENSE",        // asOfDate 收盤後的正式狀態
+  "prevState": "OFFENSE" | "DEFENSE" | null,   // asOfDate 前一個交易日狀態（供 advise 判斷「切換」）
+  "lastSwitchDate": "2026-05-12" | null,
+  "close": 0, "high252": 0, "sma60": 0 | null,
+  "drawdownPct": -1.2,                   // close/high252 - 1，百分比
+  "distanceToTriggerPct": 6.8,           // drawdownPct 距 -8 的空間；< 0 表示已低於觸發線
+  "isStale": false,                      // 應有新資料卻沒有（休市日不算）
+  "isInitializing": false,               // 表為空／回補中，此時 state 等欄位為 null
+  "estimate": null,                      // 第二階段（TASK-038）前恆為 null
+  "estimateCorrected": false             // 第二階段：先前預估狀態與正式狀態不同
+}
+// estimate（第二階段）: { "asOfTime": ISO8601, "estimatedClose": 0, "state": ..., "prevState": ..., "drawdownPct": 0 }
+```
+
+**前端（TASK-037）**
+- `Portfolio/drawdownBrake.ts`：純函式 `composition(E,k)`、`advise(prevState,state,profile,holdings,prices,band=0.10)`（逐字依 #431 §3、§4；四捨五入用 half-away-from-zero，**不用** Python 的銀行家捨入／`Math.round` 對負數的 half-up）、`loadBrakeSettings/saveBrakeSettings`（localStorage `portfolio.drawdownBrake`：`{ profile, defenseE: 0|0.3, minCashRatio?, strategyCashTWD }`，同 `rebalancingTarget.ts` 先例）。
+- `Portfolio/DrawdownBrakeCard.tsx`：掛在 `RebalancingCard` 附近；**僅在 `drawdownBrakeEnabled` 為 true 時掛載並呼叫端點**（`skip`），否則不產生請求。
+- 持股取自 `summary.positions`（`assetType==='STOCK' && market==='TW' && symbol ∈ {0050, 00631L}`）；現金＝使用者在卡片內輸入的 `strategyCashTWD`（PM 假設 A1，待 Q3 確認；介面可並列顯示其現金部位合計供參考，但不自動採用）。
+- **股票分割硬性防護（PM R2 的技術回應）**：前端常數表 `SPLIT_EVENTS = { '0050': {date:'2025-06-18', ratio:4}, '00631L': {date:'2026-03-31', ratio:22} }`（來源：Boss #431，PM 未驗證）。若 `summary.effectiveDate` 早於該標的有持股的分割日 → **不顯示買賣股數**，改顯示「你的持股快照建立於 {標的} 分割（{日期} 1 拆 {N}）之前，股數可能未調整，請先更新持股」。另加軟性提示：快照距今 > 7 天（PM 假設，待 Boss 確認）顯示「持股資料可能已過期，請先更新持股」。
+
+**第二階段（TASK-038，BLOCKED：待 TASK-036 合併；站外提醒待 Q2，另案）**
+- MIS `tse_t00.tw`：`預估報酬指數 = 昨日正式報酬指數 × (z ÷ y)`（`z`＝目前加權指數、`y`＝MIS 回傳的昨收，不另需價格指數序列）；以同一 `DrawdownBrakeCalculator` 對「正式序列＋預估點」重算。今日正式資料入庫後 `estimate=null`。
+- MIS 需先驗證格式與是否要先取 cookie；先查 TWStockLib 的 `GetLatestQuoteAsync` 是否能直接取指數，否則自建 client（走 `ExternalReadOnly`）。結果短快取（≈30 秒），一份全站共用，不隨使用者數放大請求。
+- 「訊號已更正」：記憶體內（`IMemoryCache`，TTL 2 天）記當日最後一次預估狀態；正式資料入庫後比對，不同則 `estimateCorrected=true`。遺失（重啟）時退化為不顯示，可接受（單 instance、提示性質）。
+
+### Reason
+- 訊號是共用市場資料，算一次存一份最便宜、也最容易測；個人建議只需持股＋兩個偏好，沿用既有 localStorage 偏好模式即可，**不必為此新增使用者設定表**。
+- 前端純函式＋後端純函式各自有 §9 的單元測試，語意與 Boss 的 Python 參考實作一一對應。
+- 用 admin 旗標＋App Setting 做開關，是最小且可逆的機制，直接滿足 PM「Q1 未決前一般使用者看不到」。
+- 回補 3 年（≥ 規格要求的 2 年）而非 2003 起：避免第一次部署時對證交所爬約 280 個月份、也避免佔用 IP 額度而拖累既有 TW 報價；遲滯狀態在任一 `up` 日即重置，3 年窗口與 2003 起算的結果只在「3 年內從未出現 up」時才可能不同，實務上不會發生（以測試證明，見 TASK-036）。
+
+### Alternatives
+- **後端算完整個人建議＋新增使用者設定表**：否決（第一階段不需要；多一張表、一套 CRUD；站外提醒真的要做時（Q2）再評估）。
+- **每次請求即時打證交所**：否決（≥2 秒間隔 × 36 個月份，且對上游放大）。
+- **內嵌 2003 起 CSV 當種子**：否決作為正式機制（維護一份大型靜態資料）；但 Boss 的回測 CSV 作為**測試 fixture** 是必要的（見 TASK-036）。
+- **Yahoo Finance `^TWII` 當訊號**：否決（Boss 明定須為報酬指數；Yahoo 的 0050/00631L 資料也被 Boss 指為分割調整錯誤）。
+- **獨立 Python 服務重用 Boss 的參考實作**：否決（新增部署單元；邏輯僅幾十行，C#／TS 重寫並以同一組驗收測試對照即可）。
+
+### Trade-offs
+- 風險等級／策略現金存 per-browser localStorage：換裝置或清除瀏覽器資料會遺失；站外提醒（Q2）若要做必須改為伺服器端儲存（屆時再開 migration 與 task）。
+- MIS 預估用價格指數漲跌幅近似報酬指數，**除息旺季（約 6–8 月）會略低估當日報酬**；訊號貼近門檻時預估與正式值可能不同 → 由「訊號已更正」機制承接，不另做修正。
+- 3 年回補與 Boss 的 2003 起算回測理論上可能不同（上述極端情況）；以測試固定住。
+- 分割防護用硬編碼常數表：新標的分割（0050／00631L 日後再分割）需要改碼；目前只涵蓋策略內兩檔，可接受。
+- 休市日判斷（避免休市日誤報「資料未更新」）需一份行事曆：優先用 TWSE OpenAPI `holidaySchedule`（TASK-036 須以 LiveContract 驗證其存在與格式；若不可用，退而求其次「連續缺 ≥ 2 個平日才標 stale」，並回報 Tech Lead）。
+
+### Impact
+- 後端：新表＋migration（加法、可安全部署）、`TaiexTotalReturnClient`／`RefreshService`／`DrawdownBrakeCalculator`、`PortfolioController` 一個端點、Audience 開關、user-info 一個欄位、LiveContract 測試（MFI94U、holidaySchedule；第二階段加 MIS）。
+- 前端：`drawdownBrake.ts`、`DrawdownBrakeCard.tsx`、`portfolioApis` 新 query、`accountApis` 型別；無新頁面。
+- 既有限制（**不在本功能範圍**）：Portfolio 全域不處理股票分割，影響所有持有分割股、且快照早於分割日的使用者之市值／XIRR／淨值走勢；列為 Technical Debt，是否處理由 Boss／PM 排序。
+- 合規（PM R1）與回測數字真實性（R3、Q4）屬 Boss／PM 範疇，Tech Lead 不下結論；技術上以功能開關保留「只開給 Boss」的退路。
+
+See `TASK-036`（Backend）、`TASK-037`（Frontend）、`TASK-038`（Backend，第二階段）。

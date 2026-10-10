@@ -38,3 +38,6 @@
 16. 2026-10-09：TASK-034（#427）已 MERGED。你在 #407 同意單字頁 title 改為 `{單字} 英文意思、發音、例句 | English Coach` → 已建 TASK-035（READY）。排名仍無法保證；Search Console 提交 sitemap 你暫緩，無待決事項。
 17. 2026-10-09：PR #430（TASK-035 單字頁 title）Tech Lead 審查通過 → READY FOR BOSS REVIEW，待 Boss 合併。部署後以 `apps.jacky-studio.com/english/dictionary/apple` 檢視 `<title>`。
 18. 2026-10-10：PR #430（TASK-035）已 MERGED，部署後請以 `apps.jacky-studio.com/english/dictionary/apple` 檢視 `<title>`。#407 已回報；是否關閉由你決定。無待決事項。
+19. 2026-10-10：Issue #431（回落煞車）技術設計完成，已建 TASK-036（後端訊號，READY）、TASK-037（前端卡片，READY）、TASK-038（第二階段盤中預估，BLOCKED）。設計見 `ARCHITECTURE.md`「回落煞車」。**Q1 未決前功能只有 admin 看得到**（App Setting 開關，之後改設定即可開放，不需改碼）。
+    - **待 Boss**：(a) 提供回測用報酬指數 CSV（`date,close`，2003-01～2026-10-08）作為測試 fixture——不阻擋開工；(b) Q1／Q2／Q3 請回覆 #431（PM 已列出）。
+    - **風險（技術面）**：Portfolio 全域沒有股票分割處理（0050 2025-06-18、00631L 2026-03-31），本功能以「快照早於分割日就不顯示股數」防護；證交所格式無法在排程沙箱驗證，改由 GitHub Actions LiveContract 驗證。合規屬 Boss／PM 決定，Tech Lead 不下結論。

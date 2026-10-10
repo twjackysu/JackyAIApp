@@ -2888,3 +2888,14 @@
 - PM 提議分兩期：第一階段收盤後訊號＋配置＋股數（HIGH）；第二階段盤中預估＋站外提醒（MEDIUM，視 Q2）。待 Boss 確認。
 - 未決（已於 #431 詢問 Boss）：Q1 對一般使用者開放範圍（合規未查證，PM 傾向先限 Boss 自用）；Q2 提醒送達方式；Q3 策略現金假設；Q4 回測數字來源。
 - Tech Lead：可先設計核心計算與資料取得；Q1 未決前功能預設對一般使用者關閉。另請評估 Portfolio 快照與股票分割的關係（0050 2025-06-18 1 拆 4、00631L 2026-03-31 1 拆 22，Boss 提供、PM 未驗證）。
+
+## 2026-10-10 — Tech Lead：#431「回落煞車」技術設計與任務拆解（排程執行）
+
+- 無 open PR。讀取 PM 剛入檔的 `REQUIREMENTS.md`（DRAFT v1）與 DECISION-013，依其 Tech Lead Actions 完成設計：`ARCHITECTURE.md` 新增「回落煞車」一節（資料、狀態機、API 契約、功能開關、分割防護、第二階段 MIS）。
+- 架構：**後端提供全站共用市場訊號，前端依持股算個人建議**；新表 `TaiexTotalReturnDaily` + 背景刷新（回補 3 年）；無 AI、無 UsageLimit、無使用者設定表（設定存 localStorage，同 `rebalancingTarget.ts`）。
+- 建立：TASK-036（Backend，READY，HIGH）訊號＋端點＋功能開關；TASK-037（Frontend，READY，HIGH）卡片＋配置／建議純函式＋分割防護；TASK-038（Backend，BLOCKED，MEDIUM）第二階段盤中預估，待 036 合併。
+- **Q1 回應（技術面）**：`Features:DrawdownBrake:Audience`＝`Admin`（預設）｜`All`，端點 403 + user-info `drawdownBrakeEnabled`；Boss 決定 Q1 後只改 App Setting，不需改碼重新部署。合規結論屬 Boss／PM，Tech Lead 不下結論。
+- **R2（股票分割）評估結果**：Portfolio 全域**沒有任何分割處理**（`Quantity` 為使用者輸入、市值＝數量×最新價）→ PM 的風險屬實。本功能以前端硬性防護處理（快照早於分割日 → 不顯示股數，提示更新持股）；Portfolio 全域問題列為 Technical Debt，不在本功能範圍。
+- 驗證限制：排程沙箱 egress 擋 `twse.com.tw`／`mis.twse.com.tw`（403），**MFI94U 與 MIS 實際格式尚未驗證**；以 LiveContract（GitHub Actions）驗證，解析器不得猜欄位。
+- 需要 Boss：回測用報酬指數 CSV（TASK-036 的測試 fixture，**不阻擋開工**）；Q1／Q2／Q3 仍由 Boss 回覆 PM（見 #431）。
+- PM Actions：請在 REQUIREMENTS 的「Tech Lead Actions」標示已完成設計，並於 Boss 回覆 Q1～Q3 後更新假設／Open Questions。
