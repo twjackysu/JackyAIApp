@@ -1576,7 +1576,9 @@ GET /api/portfolio/drawdown-brake  → DrawdownBrakeDto
   "isStale": false,                      // 應有新資料卻沒有（休市日不算）
   "isInitializing": false,               // 表為空／回補中，此時 state 等欄位為 null
   "estimate": null,                      // 第二階段（TASK-038）前恆為 null
-  "estimateCorrected": false             // 第二階段：先前預估狀態與正式狀態不同
+  "estimateCorrected": false,            // 第二階段：先前預估狀態與正式狀態不同
+  "lastCheckedAt": "2026-10-11T07:05:00+00:00" | null,  // UTC；伺服器最後一次成功向證交所取得可解析回應（背景或手動），記憶體保存，重啟後到第一次成功前為 null（TASK-041）
+  "generatedAt": "2026-10-11T07:06:00+00:00"            // UTC；這份訊號的計算時間（60 秒快取填入時間）（TASK-041）
 }
 // estimate（第二階段）: { "asOfTime": ISO8601, "estimatedClose": 0, "state": ..., "prevState": ..., "drawdownPct": 0 }
 ```

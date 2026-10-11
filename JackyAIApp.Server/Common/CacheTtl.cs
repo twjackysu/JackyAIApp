@@ -26,6 +26,11 @@ namespace JackyAIApp.Server.Common
 
             /// <summary>Dividend/distribution history (stock + fund) — doesn't change intraday.</summary>
             public static readonly TimeSpan Dividend = TimeSpan.FromHours(24);
+
+            /// <summary>The 回落煞車 market signal, one copy for the whole site. A refresh or a
+            /// background store of new days invalidates it early, so this only bounds how long an
+            /// unchanged signal is served without re-reading the database.</summary>
+            public static readonly TimeSpan DrawdownBrakeSignal = TimeSpan.FromSeconds(60);
         }
 
         public static class Finance

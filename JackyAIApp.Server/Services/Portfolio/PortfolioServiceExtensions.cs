@@ -40,9 +40,14 @@ namespace JackyAIApp.Server.Services.Portfolio
             services.AddSingleton<ITaiexTotalReturnClient, TaiexTotalReturnClient>();
             services.AddSingleton<ITaiexTotalReturnStore, TaiexTotalReturnStore>();
             services.AddSingleton<ITwseHolidayCalendar, TwseHolidayCalendar>();
+            services.AddSingleton<ITaiexDataStatus, TaiexDataStatus>();
             services.AddSingleton<IDrawdownBrakeService, DrawdownBrakeService>();
             services.AddSingleton<IDrawdownBrakeAccess, DrawdownBrakeAccess>();
-            services.AddHostedService<TaiexTotalReturnRefreshService>();
+            // One instance behind both faces: the hourly loop and the endpoint's manual refresh must
+            // share its gate and cooldown, which only holds if they are the same object.
+            services.AddSingleton<TaiexTotalReturnRefreshService>();
+            services.AddSingleton<ITaiexTotalReturnRefresher>(sp => sp.GetRequiredService<TaiexTotalReturnRefreshService>());
+            services.AddHostedService(sp => sp.GetRequiredService<TaiexTotalReturnRefreshService>());
 
             return services;
         }

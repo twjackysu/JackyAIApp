@@ -1,5 +1,6 @@
 using System.Globalization;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
+using Microsoft.Extensions.Caching.Memory;
 using Moq;
 
 namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
@@ -9,12 +10,16 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         private readonly Mock<ITaiexTotalReturnStore> _store = new();
         private readonly Mock<ITwseHolidayCalendar> _calendar = new();
         private readonly FakeTime _time = new();
+        private readonly TaiexDataStatus _status = new();
 
         // Taipei = UTC+8.
         private static DateTimeOffset Taipei(int y, int m, int d, int h, int min = 0) =>
             new DateTimeOffset(y, m, d, h, min, 0, TimeSpan.FromHours(8)).ToUniversalTime();
 
-        private DrawdownBrakeService CreateService() => new(_store.Object, _calendar.Object, _time);
+        // A fresh cache per service unless a test shares one: tests that rebuild the service to feed it
+        // a different series must not be handed the previous series' cached signal.
+        private DrawdownBrakeService CreateService(IMemoryCache? cache = null) =>
+            new(_store.Object, _calendar.Object, _status, cache ?? new MemoryCache(new MemoryCacheOptions()), _time);
 
         private void StoreHolds(IReadOnlyList<IndexClose> closes) =>
             _store.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync(closes);
@@ -227,6 +232,174 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             var dto = await CreateService().GetAsync();
 
             Assert.True(dto.IsStale);
+        }
+
+        // ── generatedAt / lastCheckedAt ─────────────────────────────────────
+
+        [Fact]
+        public async Task GeneratedAt_IsTheBuildTime_AndLastCheckedAtIsNullUntilTwseHasBeenHeardFrom()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+
+            var dto = await CreateService().GetAsync();
+
+            Assert.Equal(_time.Now, dto.GeneratedAt);
+            Assert.Equal(TimeSpan.Zero, dto.GeneratedAt.Offset); // UTC
+            Assert.Null(dto.LastCheckedAt);
+        }
+
+        [Fact]
+        public async Task LastCheckedAt_IsWhatTheRefreshRecorded()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            var checkedAt = Taipei(2026, 10, 8, 9, 30);
+            _status.RecordCheck(checkedAt);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+
+            var dto = await CreateService().GetAsync();
+
+            Assert.Equal<DateTimeOffset?>(checkedAt, dto.LastCheckedAt);
+        }
+
+        [Fact]
+        public async Task WhileInitializing_BothAreStillReported()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            var checkedAt = Taipei(2026, 10, 8, 9, 59);
+            _status.RecordCheck(checkedAt);
+            StoreHolds([]);
+
+            var dto = await CreateService().GetAsync();
+
+            Assert.True(dto.IsInitializing);
+            Assert.Equal(_time.Now, dto.GeneratedAt);
+            Assert.Equal<DateTimeOffset?>(checkedAt, dto.LastCheckedAt);
+        }
+
+        // ── the 60-second cache ─────────────────────────────────────────────
+
+        [Fact]
+        public async Task RepeatedCallsWithinAMinute_ReadTheStoreOnce_AndShareOneCopy()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+
+            var first = await service.GetAsync();
+            _time.Now += TimeSpan.FromSeconds(59);
+            var second = await service.GetAsync();
+
+            Assert.Same(first, second);
+            _store.Verify(s => s.GetAllAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task AfterAMinute_ItIsBuiltAgain_WithANewGeneratedAt()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+            var first = await service.GetAsync();
+
+            _time.Now += TimeSpan.FromSeconds(60);
+            var second = await service.GetAsync();
+
+            Assert.NotSame(first, second);
+            Assert.Equal(_time.Now, second.GeneratedAt);
+            _store.Verify(s => s.GetAllAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+        }
+
+        [Fact]
+        public async Task NewDataAnnounced_DropsTheCopyAtOnce_AndTheNewDayShows()
+        {
+            _time.Now = Taipei(2026, 10, 8, 15);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+            var before = await service.GetAsync();
+            Assert.Equal(new DateOnly(2026, 10, 7), before.AsOfDate);
+
+            // The store gains a day, but nothing has said so yet: the copy is still served.
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 8), 741, 100m));
+            _time.Now += TimeSpan.FromSeconds(5);
+            Assert.Same(before, await service.GetAsync());
+
+            // The refresh announces it, and the very next call sees it — well inside the minute.
+            _status.RecordCheck(_time.Now);
+            var after = await service.GetAsync();
+
+            Assert.Equal(new DateOnly(2026, 10, 8), after.AsOfDate);
+            Assert.Equal<DateTimeOffset?>(_time.Now, after.LastCheckedAt);
+        }
+
+        [Fact]
+        public async Task TwentyConcurrentCallers_ShareOneBuild()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            var closes = FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m);
+            _store.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>()))
+                .Returns(async () => { await Task.Delay(100); return (IReadOnlyList<IndexClose>)closes; });
+            var service = CreateService();
+
+            var results = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => service.GetAsync())));
+
+            _store.Verify(s => s.GetAllAsync(It.IsAny<CancellationToken>()), Times.Once);
+            Assert.All(results, r => Assert.Same(results[0], r));
+        }
+
+        [Fact]
+        public async Task DataAnnouncedWhileABuildIsRunning_IsNotCachedAsCurrent()
+        {
+            _time.Now = Taipei(2026, 10, 8, 15);
+            var inStore = new TaskCompletionSource();
+            var proceed = new TaskCompletionSource();
+            var older = FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m);
+            _store.SetupSequence(s => s.GetAllAsync(It.IsAny<CancellationToken>()))
+                .Returns(async () => { inStore.SetResult(); await proceed.Task; return (IReadOnlyList<IndexClose>)older; })
+                .ReturnsAsync(FlatEndingOn(new DateOnly(2026, 10, 8), 741, 100m));
+            var service = CreateService();
+
+            var building = service.GetAsync();
+            await inStore.Task.WaitAsync(TimeSpan.FromSeconds(10)); // the build has read nothing yet...
+            _status.RecordCheck(_time.Now);                          // ...when new data lands
+            proceed.SetResult();
+            await building;
+
+            // That build may have missed the new day, so it must not be served as current.
+            var next = await service.GetAsync();
+
+            Assert.Equal(new DateOnly(2026, 10, 8), next.AsOfDate);
+            _store.Verify(s => s.GetAllAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+        }
+
+        [Fact]
+        public async Task AFailedBuild_IsNotCached_AndTheNextCallTriesAgain()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            _store.SetupSequence(s => s.GetAllAsync(It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new InvalidOperationException("database blip"))
+                .ReturnsAsync(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetAsync());
+            var dto = await service.GetAsync();
+
+            Assert.False(dto.IsInitializing);
+        }
+
+        [Fact]
+        public async Task ACancelledCaller_DoesNotPoisonTheNextOne()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.GetAsync(cts.Token));
+            var dto = await service.GetAsync();
+
+            Assert.False(dto.IsInitializing);
         }
 
         private sealed record GoldenDay(DateOnly Date, decimal Close, BrakeState State);

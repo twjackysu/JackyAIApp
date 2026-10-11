@@ -3001,3 +3001,10 @@
 - **未動**：`REQUIREMENTS.md`、`DECISIONS.md`（PM 所有）、TASK-041／044／045 的內容、任何程式碼。
 - **驗證限制**：只改文件；演算法以獨立 Python 參考實作驗證，TypeScript 實作與測試以 GitHub Actions 為準。
 - Boss 待辦：無必答事項；合併後續 PR（041／044／045／046）時審查即可。
+
+## 2026-10-11 — Backend Engineer：TASK-041 回落煞車手動重新整理 PR 已開（排程執行）
+
+- **選擇**：無 open PR；Backend 任務中 TASK-041／044 皆為 IN_PROGRESS 且沒有分支或 PR，TASK-038／040 BLOCKED（待 041）。本 session 只能推一個分支，故先做擋住 038／040／043 的 TASK-041；TASK-044（無相依）留待下一輪或另一個 session。
+- **PR**：#438（`POST /api/portfolio/drawdown-brake/refresh`、全站 60 秒冷卻＋單飛、`lastCheckedAt`／`generatedAt`、訊號 60 秒快取）。狀態 `PR_OPENED`，待 Tech Lead 審查；設計取捨（版本號失效、背景輪詢不被冷卻擋住、週末短路略寬於字面、跨月失敗映射、非上游例外不吞）已列在 PR 描述。
+- **驗證**：本環境以 apt 裝好 .NET 10 SDK（`builds.dotnet.microsoft.com` 仍被擋，但 Ubuntu 套件庫有 `dotnet-sdk-10.0`），`dotnet test --filter "Category!=LiveContract"` 965/965 通過；前端 `tsc --noEmit` 通過（只加兩個 optional 型別欄位）。PR CI 結果待確認。
+- **對其他任務**：TASK-043（前端）可依 `ARCHITECTURE.md` 契約整合；TASK-038／040 待 #438 合併後解除 BLOCKED。

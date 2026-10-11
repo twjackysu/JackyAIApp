@@ -45,6 +45,28 @@ namespace JackyAIApp.Server.DTO.Portfolio
 
         /// <summary>An earlier estimate disagreed with the official state; always false until TASK-038.</summary>
         public bool EstimateCorrected { get; set; }
+
+        /// <summary>When the server last got a readable answer from TWSE, background round or manual
+        /// refresh alike (UTC). Null until the first one after a restart: it is kept in memory.</summary>
+        public DateTimeOffset? LastCheckedAt { get; set; }
+
+        /// <summary>When this copy of the signal was computed (UTC); it is shared for up to a minute.</summary>
+        public DateTimeOffset GeneratedAt { get; set; }
+    }
+
+    /// <summary>
+    /// The answer to <c>POST api/portfolio/drawdown-brake/refresh</c>. Always HTTP 200, a
+    /// <see cref="DrawdownBrakeRefreshResult.Throttled"/> one included: 429 on this site means a usage
+    /// limit, and a cooldown is an ordinary state. <see cref="Signal"/> is the latest signal either way.
+    /// </summary>
+    public class DrawdownBrakeRefreshDto
+    {
+        public DrawdownBrakeRefreshResult Result { get; set; }
+
+        /// <summary>Whole seconds until a refresh may be tried again; only for <c>Throttled</c>.</summary>
+        public int? RetryAfterSeconds { get; set; }
+
+        public DrawdownBrakeDto Signal { get; set; } = new();
     }
 
     /// <summary>The second-phase intraday estimate. Defined with the contract; filled by TASK-038.</summary>

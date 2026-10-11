@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-IN_PROGRESS（2026-10-11 Tech Lead 指派工程師開工）
+PR_OPENED（PR #438，2026-10-11；待 Tech Lead 技術審查）
 
 ## Priority
 MEDIUM（PM 需求 8；第二階段必備，第一階段也有價值：收盤後指數公布時間不確定，「資料未更新」時可自行重試。不阻擋已合併的 #433）
@@ -50,10 +50,16 @@ MEDIUM（PM 需求 8；第二階段必備，第一階段也有價值：收盤後
 TASK-036 MERGED。**TASK-038 與 TASK-043（前端）依賴本任務**。
 
 ## PR
-（待填）
+#438（branch `claude/exciting-cray-nocy6c`，2026-10-11）
 
 ## Result
-（待填）
+2026-10-11 Backend Engineer：
+- **端點**：`POST /api/portfolio/drawdown-brake/refresh`（同一個 `IDrawdownBrakeAccess`；回 200 `{ result, retryAfterSeconds, signal }`，`Throttled` 也是 200）。無 migration、無 AI、無 `[UsageLimit]`。
+- **`TaiexTotalReturnRefreshService.TryRefreshNowAsync`**（經 `ITaiexTotalReturnRefresher`）：全站單一 60 秒冷卻（自最近一次有打證交所的一輪結束起算，背景輪詢那一輪也算）、單飛（輪次進行中直接 `Throttled`、`retryAfterSeconds`＝60，不排隊）、只往前補、短路 `NoNewData`（不打證交所、不啟動冷卻）、任一月 Failure → `SourceUnavailable`、有新增／變更列 → `Updated`。每次手動重新整理 `LogInformation` 一行（結果、是否打了證交所）。
+- **DTO**：`lastCheckedAt`（UTC，記憶體，經 `ITaiexDataStatus`）、`generatedAt`（UTC）。`ARCHITECTURE.md` 契約區與前端 `DrawdownBrakeDto` 型別同步（前端兩欄 optional，`tsc --noEmit` 通過）。
+- **快取**：`DrawdownBrakeService` 以 `IMemoryCache` 60 秒（`CacheTtl.Portfolio.DrawdownBrakeSignal`）、全站一份、單飛；入庫／檢查後以 `ITaiexDataStatus.Version` 立即失效（見 PR 取捨 1）。
+- **與任務書字面不同或需 Tech Lead 確認之處**（細節在 PR #438 描述）：(1) 失效用版本號而非主動 `Remove`；(2) 背景輪詢參與冷卻但不被冷卻擋住；(3) 週末短路寫成「已存最新日已是前一個平日」才短路（資料齊全時與字面相同；週五缺漏時週末仍會補）；(4) 跨月補資料中途失敗仍回 `SourceUnavailable`；(5) 手動路徑的非上游例外（DB）不吞掉。
+- **測試**：本環境以 apt 安裝 .NET 10 SDK 後實際執行——`dotnet test -c Release --filter "Category!=LiveContract"`：**965 通過、0 略過、0 失敗**；DrawdownBrake 相關測試連跑 15 次無偶發失敗。另做 9 項變異測試（版本檢查、TTL、冷卻、gate、短路、forward-only、冷卻啟動時機、`RecordCheck`、失敗映射），每項都有測試失敗。LiveContract 未執行（本任務無新增外部請求）。**PR CI（head `75aa435`，run 38124213933）**：`build-and-test-server` ✅、`lint-and-build-client` ✅（測試總數未從 log 取得，以本地 965/965 為準）。尚待 Tech Lead 技術審查。
 
 ## Review
 （待填）
