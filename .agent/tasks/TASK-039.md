@@ -48,7 +48,8 @@ TASK-036 MERGED（#433）。
 2026-10-11 Backend Engineer：
 - 新增 `JackyAIApp.Server.Tests/Fixtures/TaiexTotalReturn.csv`（逐字複製；LF 版 SHA256 前 16 碼 `97d1f46d43f1f6bf`，與任務相符）。
 - `DrawdownBrakeCalculatorTests`：更新檔頭註解與來源／完整性說明；新增 `Compute_BossBacktestSeries_MatchesTheIndependentReplay`（筆數、2026-10-08 各指標、DEFENSE／OFFENSE 天數、最大回撤）與 `Compute_BossBacktestSeries_SwitchesStatesOnTheExpectedDates`（132 次、前四次、最近六次）。未動 `DrawdownBrakeCalculator` 與固定參數。
-- **驗證**：以獨立純 Python 重放該 CSV，TASK 表格每一項都吻合（Sma60 未四捨五入值為 105544.37316…，不在進位邊界）。**本環境無 .NET SDK 且 `builds.dotnet.microsoft.com` 被出口政策擋下，`dotnet test` 未執行**；C# 編譯與測試通過與否由 PR #435 的 CI 驗證，請 Tech Lead 確認四個 `Compute_BossBacktestSeries_*` 顯示 Passed 而非 Skipped。
+- **驗證**：以獨立純 Python 重放該 CSV，TASK 表格每一項都吻合（Sma60 未四捨五入值為 105544.37316…，不在進位邊界）。**本環境無 .NET SDK 且 `builds.dotnet.microsoft.com` 被出口政策擋下，`dotnet test` 未執行**；C# 編譯與測試通過與否由 PR #435 的 CI 驗證。
+- **CI 結果（head `490754d`，run 38110799015）**：`build-and-test-server` ✅（`Total tests: 901`、`Passed: 901`，摘要無 Skipped 行 → Boss 回測驗收測試已實際執行並通過）、`lint-and-build-client` ✅。尚待 Tech Lead 技術審查。
 
 ## Review
 （待填）
