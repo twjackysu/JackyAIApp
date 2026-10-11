@@ -4,7 +4,7 @@
 Frontend Engineer（PR #432 已合併；從最新 master 開新分支與新 PR）
 
 ## Status
-IN_PROGRESS（2026-10-11 Tech Lead 指派工程師開工）
+PR_OPENED（2026-10-11 Frontend Engineer：PR #436）
 
 ## Priority
 HIGH（PM 產品面不一致；目前只有 admin 可見所以不阻擋合併，但**必須在 `Audience=All` 之前完成**；且 PR #432 目前有合併衝突，Boss 合併前最好先處理）
@@ -46,10 +46,21 @@ HIGH（PM 產品面不一致；目前只有 admin 可見所以不阻擋合併，
 無（PR #432 已 Tech Lead 審查通過）。
 
 ## PR
-（待填；沿用 #432 或後續新 PR）
+https://github.com/twjackysu/JackyAIApp/pull/436 （分支 `feature/task-042-drawdown-brake-copy-fixes`；#432 已合併，故為從最新 master 開的新 PR）
 
 ## Result
-（待填）
+**實作摘要（2026-10-11 Frontend Engineer）**
+- `drawdownBrakeCopy.ts`：`BACKTEST_NEXT_DAY` 改為 12.1/−27、15.3/−37、18.4/−45（對照 `reproduce_spec.txt` 的 `lag2` 欄）；`RISK_POINTS[0]` 的 2011 年平衡等級 −29% → −28%；檔內註解的收盤集合競價版本改為 13.5/−24、17.2/−32、20.9/−40（k=0 的舊數字標為作廢）；`SIMULATED_NOTE` 改為「2014 年以前的 0050 與 00631L 績效為依報酬指數模擬的數字；1997–2002 年的股利為估計值。」；`DISCLAIMER` 一字未動；`BACKTEST_PERIOD`、`RISK_POINTS[1]`/`[2]` 不變（`reproduce_spec.txt`：exits per year 3.0、share of days in DEFENSE 29% 與其一致）。檔頭過時註解（取自 #431 §2、R3/R4 待 Boss 確認）一併更新。
+- 需求 11：`drawdownBrakeHoldings.ts` 新增純函式 `strategyShareOfLiquidAssetsPct`；`DrawdownBrakeCard.tsx` 在建議框內「目標配置…策略總資產」那行下方顯示「此策略部位占總資產 X.X%（分母為流動總資產，不含不動產與負債）」。分子＝`advice.totalValue`（V）、分母＝`summary.liquidGrossAssetsTWD`；分母 ≤ 0／缺資料／V 為 0／價格缺漏或查詢中／分割防護命中時整行不顯示。未改 `composition`／`advise`／狀態機（DECISION-013）。
+- 測試：`drawdownBrakeCopy.test.ts`、`DrawdownBrakeCard.test.tsx`、`drawdownBrakeHoldings.test.ts` 更新並新增需求 11 各情境（正常值、分母 0／負／NaN／缺欄位、缺價格、查價中、V 為 0、分割、純資訊、隱私模式）；lint（0 warnings）、test（49 檔 423 項）、build 本機全過。
+- 版面：以暫時 Vite harness（真實元件＋預填 RTK cache，未提交）驗證 1280／400／360px、進攻與防守、展開風險說明與進階設定後，`scrollWidth == innerWidth`（無橫向捲動）；再平衡卡片在上、回落煞車卡片在後，文案不重疊。
+
+**與任務書的差異／自行決定（請 Tech Lead 確認）**
+1. 占比顯示條件綁在「建議框存在」：連「沒持有該標的、查價失敗」這種 V 其實算得出的情形也隱藏（較保守）。
+2. 占比屬「比例」，依 `showRatio` 在「只看損益」隱私模式隱藏（與再平衡卡片一致）；任務書未提。
+3. 加了括號說明分母（流動總資產，不含不動產與負債），避免同頁出現兩種「總資產」。
+4. 已知限制：策略現金為使用者自填，不一定已計入 Portfolio 現金，占比可能 > 100%，目前如實顯示、不截斷。
+5. 第 1 項（解衝突）已由 Tech Lead 完成，未做。
 
 ## Review
 （待填）
