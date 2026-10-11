@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH（小任務；結束 TASK-036 遺留的「驗收測試 Skipped」，PM 驗收條件第 1 項）
@@ -42,10 +42,13 @@ Boss 已把官方報酬指數快照放進 repo（`回測數據/tw_backtest/data/
 TASK-036 MERGED（#433）。
 
 ## PR
-（待填）
+#435（branch `claude/exciting-cray-omzm67`，2026-10-11）
 
 ## Result
-（待填）
+2026-10-11 Backend Engineer：
+- 新增 `JackyAIApp.Server.Tests/Fixtures/TaiexTotalReturn.csv`（逐字複製；LF 版 SHA256 前 16 碼 `97d1f46d43f1f6bf`，與任務相符）。
+- `DrawdownBrakeCalculatorTests`：更新檔頭註解與來源／完整性說明；新增 `Compute_BossBacktestSeries_MatchesTheIndependentReplay`（筆數、2026-10-08 各指標、DEFENSE／OFFENSE 天數、最大回撤）與 `Compute_BossBacktestSeries_SwitchesStatesOnTheExpectedDates`（132 次、前四次、最近六次）。未動 `DrawdownBrakeCalculator` 與固定參數。
+- **驗證**：以獨立純 Python 重放該 CSV，TASK 表格每一項都吻合（Sma60 未四捨五入值為 105544.37316…，不在進位邊界）。**本環境無 .NET SDK 且 `builds.dotnet.microsoft.com` 被出口政策擋下，`dotnet test` 未執行**；C# 編譯與測試通過與否由 PR #435 的 CI 驗證，請 Tech Lead 確認四個 `Compute_BossBacktestSeries_*` 顯示 Passed 而非 Skipped。
 
 ## Review
 （待填）
