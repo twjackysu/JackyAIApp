@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+PR_OPENED（2026-10-11 Backend Engineer；PR #446，待 Tech Lead 技術審查）
 
 ## Priority
 LOW（僅測試；不阻擋 TASK-047，但 TASK-047 的「正 2 類別」依賴此倍數為 2，鎖住它能在日後有人改動 `PortfolioExposure` 時立即失敗）
@@ -31,10 +31,17 @@ PM 的假設 A29：「00685L 的曝險倍數為 2（讀程式：台股代碼尾�
 無。可與 TASK-047、TASK-038 平行。
 
 ## PR
-（待填）
+- #446 — https://github.com/twjackysu/JackyAIApp/pull/446（分支 `claude/exciting-cray-ub9i2y`，僅動 `PortfolioExposureTests.cs`）
 
 ## Result
-（待填）
+- 兩個 Theory 各加一列：`("群益臺灣加權正2", "00685L", "TW", 2)`、`("00685L", 2)`。無產品程式碼、migration、API 變更；依 Requirements 第 3 點未新增前端測試。
+- `dotnet test --filter "Category!=LiveContract"`：1181 通過、0 失敗（沙箱以 `apt` 安裝 `dotnet-sdk-10.0` 後執行）。
+- 變異驗證（改壞後皆已 `git checkout` 還原產品檔）：
+  - 只改壞 `L` 尾碼規則（`return 2m` → `1m`）→ 新列 `("00685L", 2)` 失敗（連同 `00757L`／`00757l` 共 3 列）。
+  - 只改壞 `正2` 規則（拿掉 `name.Contains("正2")`）→ **全部通過**：`00685L` 為 TW 股票且尾碼 `L`，尾碼 fallback 同樣得 2，兩條規則互為備援（既有 `00631L` 列同理）。因此驗收條件「各改壞一次，對應新列會失敗」對 `正2` 規則這一半**無法成立**，不是測試寫錯。
+  - 兩條同時改壞 → 名稱列與尾碼列都失敗（共 5 列）。
+- 結論：「00685L → 2」這個結果已被鎖住（任一條規則單獨失效時由另一條擋住；兩條都失效才會失敗）。若要單獨鎖住 `正2` 名稱規則，需另一列「名稱含正2、代碼不帶 `L`」——規格外，建議由 Tech Lead 決定是否另開任務，本 PR 未擴大範圍。
+- 名稱「群益臺灣加權正2」取自任務文字，沙箱無外網，未連 TWSE 驗證現行簡稱；尾碼 fallback 列不依賴名稱。
 
 ## Review
 （待填）

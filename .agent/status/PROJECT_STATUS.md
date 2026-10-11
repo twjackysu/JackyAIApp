@@ -3059,3 +3059,9 @@
 - **驗證**：`dotnet test --filter "Category!=LiveContract"` 1179 通過。用 #443 在 Actions 記錄的真實欄位集餵 lib 的 parser，`LastPrice`／`YesterdayClosingPrice`／`SyncTime`（台北 13:31）正確，`z` 為 `-` 時 `LastPrice` 為 null。**尚未驗證**：lib 的 HTTP 路徑（裸 GET、無自訂 User-Agent）在 Actions 上實際讀 `t00`——LiveContract 已改為走這條路，請看下一次 `contract-tests.yml`。
 - **TASK-048**（Backend，LOW，僅測試）本輪未做（單一 session 只能推一個分支）。
 
+
+## 2026-10-11 — Backend Engineer：TASK-048 測試鎖定 00685L 曝險倍數 PR 已開（排程執行）
+
+- **選擇**：無 open PR；Backend 任務只剩 TASK-048（READY，無相依）。TASK-038 檔案狀態仍為 `PR_OPENED`，但其現行版 #445 已併入 master，後續狀態由 Tech Lead 處理。
+- **PR**：#446（僅 `PortfolioExposureTests.cs` 加兩列：`("群益臺灣加權正2","00685L","TW",2)`、`("00685L",2)`）。狀態 `PR_OPENED`，待 Tech Lead 審查。
+- **驗證**：`dotnet test --filter "Category!=LiveContract"` 1181/1181 通過。**變異驗證有一半無法成立**：只改壞 `正2` 規則時所有測試仍通過，因為 `00685L` 的 `L` 尾碼 fallback 同樣得 2（兩條規則互為備援）；改壞 `L` 規則則新列失敗，兩條一起改壞則名稱列也失敗。結果（00685L → 2）已鎖住，但單獨鎖 `正2` 名稱規則需另一列「名稱含正2、代碼不帶 L」——規格外，請 Tech Lead 決定是否另開任務。
