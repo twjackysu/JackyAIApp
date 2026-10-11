@@ -221,3 +221,20 @@ export interface IndicatorExplorerData {
 export interface IndicatorInsightData {
   insight: string;
 }
+
+// === Market Index History (過去 5 年同期間走勢圖) Types ===
+
+export interface MarketIndexPoint {
+  /** Trading day, `YYYY-MM-DD` (Asia/Taipei), ascending. */
+  date: string;
+  close: number;
+}
+
+export interface MarketIndexHistoryData {
+  symbol: string;
+  name: string;
+  source: string;
+  /** Last trading day in `points`. */
+  asOf: string;
+  points: MarketIndexPoint[];
+}
