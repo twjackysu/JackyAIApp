@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-IN_PROGRESS（2026-10-11 Tech Lead 指派工程師開工）
+PR_OPENED（2026-10-11 Frontend Engineer；PR #439，待 Tech Lead 審查）
 
 ## Priority
 MEDIUM（PM：A 圖；Boss 2026-10-11 02:38 UTC 新增，DECISION-016）
@@ -42,10 +42,26 @@ MEDIUM（PM：A 圖；Boss 2026-10-11 02:38 UTC 新增，DECISION-016）
 TASK-044 的回應契約（可平行開發，用 mock；合併順序不拘，整合驗證需 044）。
 
 ## PR
-（待填）
+https://github.com/twjackysu/JackyAIApp/pull/439 （分支 `claude/nice-allen-n9jgz8`）
 
 ## Result
-（待填）
+**實作摘要（2026-10-11 Frontend Engineer）**
+- `Finance/utils/seasonal.ts`（純計算）＋ `seasonalChartOption.ts`（ECharts option／tooltip 文字）＋ `seasonalCopy.ts`（文案集中）＋ `Finance/components/MarketSeasonalChart.tsx`；`apis/financeApis` 新增 `getMarketIndexHistory`（`keepUnusedDataFor: 3600`）與型別；元件放在 `Finance/index.tsx` 的 `!hasStockResults` 區塊、`IndicatorExplorer` 之後。ECharts 需要的元件都已在共用 `charts/echarts.ts` 註冊，沒有新增註冊。
+- 測試：`seasonal.test.ts`（30）、`seasonalChartOption.test.ts`（9）、`MarketSeasonalChart.test.tsx`（14）；`npm run lint`（0 warnings）、`npx prettier --check`、`npm run build`、`npm run test`（52 檔／476 項）皆於本機實際執行並通過。
+- 版面：Playwright + Chromium 對 production build（API 全 stub，harness 不提交）量測 1280／400／360px × 預設、tooltip 開啟、跨農曆年區間、2/30 警示、還原，`scrollWidth == innerWidth`、無 console error。截圖（亂數合成資料，**非真實加權指數**）：`.agent/tasks/TASK-045/`（`desktop-1280-tooltip.png`、`mobile-360-default.png`、`mobile-360-tooltip.png`）。
+- 實測中發現並修正：360px 下 `scroll` 圖例要翻頁（改 `plain` 會換行）、tooltip 超出圖表被裁掉（兩行排版＋`max-width: 90%`）。
+
+**與任務書的差異／自行決定（請 Tech Lead 確認；PR 描述有同樣清單）**
+1. 載入中／錯誤時「資料至 —」（尚無 `asOf`），使三種狀態都顯示該行。
+2. 今年超過 `asOf` 的 tooltip 顯示「尚無資料」，不沿用 `asOf` 當天收盤（避免讀成今年線延伸）。
+3. 起訖日期選單每月都列 1–31 日，不存在的日期（2/30）擋下並說明；起始日當天該年未開市時 tooltip 顯示「尚未開盤」。
+4. 圖例用 `plain`（換行）而非 `scroll`；tooltip 另顯示「相對 X」（該年自己相對起點 100 的值，無跨年推算）。
+5. 加了「年初至今」還原鈕（僅在使用者改過期間時出現）。
+6. 改期間後圖例顯示／隱藏狀態會重置（`notMerge` 重畫），已知小限制。
+
+**未驗證／依賴**
+- 與真實後端的整合（`market-index-history` 回應）需 TASK-044 合併後在正式環境確認；欄位依任務書契約。
+- 「改期間不重打 API」以 mock hook 驗證（range 不進 query、hook 只有無參數呼叫）；未另做網路層測試。
 
 ## Review
 （待填）

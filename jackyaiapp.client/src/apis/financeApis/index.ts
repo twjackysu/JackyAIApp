@@ -15,6 +15,7 @@ import {
   MarketDigestData,
   IndicatorExplorerData,
   IndicatorInsightData,
+  MarketIndexHistoryData,
 } from './types';
 
 // Define a service using a base URL and expected endpoints
@@ -67,6 +68,12 @@ export const financeApis = createApi({
       query: () => ({ url: 'indicators' }),
       keepUnusedDataFor: 3600,
     }),
+    getMarketIndexHistory: builder.query<ApiOkResponse<MarketIndexHistoryData>, void>({
+      query: () => ({ url: 'market-index-history' }),
+      // Shared, server-cached daily closes (1 h server TTL); switching the chart's date range is
+      // pure client-side math, so the same payload serves every range the user tries.
+      keepUnusedDataFor: 3600,
+    }),
     getIndicatorInsight: builder.query<ApiOkResponse<IndicatorInsightData>, string>({
       query: (id) => ({ url: `indicators/${id}/insight` }),
       keepUnusedDataFor: 3600,
@@ -81,5 +88,6 @@ export const {
   useGetMarketOverviewQuery,
   useGetMarketDigestQuery,
   useGetIndicatorsQuery,
+  useGetMarketIndexHistoryQuery,
   useLazyGetIndicatorInsightQuery,
 } = financeApis;
