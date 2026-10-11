@@ -31,6 +31,19 @@ namespace JackyAIApp.Server.Common
             /// background store of new days invalidates it early, so this only bounds how long an
             /// unchanged signal is served without re-reading the database.</summary>
             public static readonly TimeSpan DrawdownBrakeSignal = TimeSpan.FromSeconds(60);
+
+            /// <summary>The intraday-estimate reading from MIS, one for the whole site: how old it may
+            /// be when someone merely looks at the card (TASK-038).</summary>
+            public static readonly TimeSpan DrawdownBrakeEstimateQuote = TimeSpan.FromSeconds(30);
+
+            /// <summary>How old the MIS reading may be when someone presses "refresh". Also the shortest
+            /// gap between two requests to MIS, however hard the button is pressed — far above TWSE's
+            /// 2-second rule.</summary>
+            public static readonly TimeSpan DrawdownBrakeEstimateRefresh = TimeSpan.FromSeconds(10);
+
+            /// <summary>How long the state of a day's last estimate is remembered, so that "the
+            /// signal was corrected" can still be said after the official close arrives.</summary>
+            public static readonly TimeSpan DrawdownBrakeEstimateRecord = TimeSpan.FromDays(2);
         }
 
         public static class Finance

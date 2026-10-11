@@ -40,10 +40,14 @@ namespace JackyAIApp.Server.DTO.Portfolio
         /// <summary>Not enough history stored yet (first run, or the backfill is still going).</summary>
         public bool IsInitializing { get; set; }
 
-        /// <summary>Intraday estimate; always null until the second phase (TASK-038).</summary>
+        /// <summary>Intraday estimate (TASK-038). Present only on a trading day from 09:00 until that
+        /// day's official close is stored, and only while MIS gives a usable reading; null otherwise
+        /// (including when MIS is down — the official fields above never depend on it).</summary>
         public DrawdownBrakeEstimateDto? Estimate { get; set; }
 
-        /// <summary>An earlier estimate disagreed with the official state; always false until TASK-038.</summary>
+        /// <summary>The last intraday estimate of <see cref="AsOfDate"/> named a different state from
+        /// the official one that has since arrived. Remembered in memory for two days, so a restart
+        /// makes it quietly false.</summary>
         public bool EstimateCorrected { get; set; }
 
         /// <summary>When the server last got a readable answer from TWSE, background round or manual
@@ -52,6 +56,17 @@ namespace JackyAIApp.Server.DTO.Portfolio
 
         /// <summary>When this copy of the signal was computed (UTC); it is shared for up to a minute.</summary>
         public DateTimeOffset GeneratedAt { get; set; }
+
+        /// <summary>A copy with the intraday fields set, leaving this (shared, cached) one untouched.
+        /// A shallow copy, so a field added to this class later is carried over without anyone
+        /// remembering to copy it here.</summary>
+        internal DrawdownBrakeDto WithEstimate(DrawdownBrakeEstimateDto? estimate, bool estimateCorrected)
+        {
+            var copy = (DrawdownBrakeDto)MemberwiseClone();
+            copy.Estimate = estimate;
+            copy.EstimateCorrected = estimateCorrected;
+            return copy;
+        }
     }
 
     /// <summary>
@@ -69,13 +84,23 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public DrawdownBrakeDto Signal { get; set; } = new();
     }
 
-    /// <summary>The second-phase intraday estimate. Defined with the contract; filled by TASK-038.</summary>
+    /// <summary>The second-phase intraday estimate (TASK-038): the signal as it would stand if today
+    /// closed at the index's current level.</summary>
     public class DrawdownBrakeEstimateDto
     {
+        /// <summary>When MIS last computed the index this is based on (what the card shows as the
+        /// estimate's data time); not when the server asked.</summary>
         public DateTimeOffset AsOfTime { get; set; }
+
+        /// <summary>Yesterday's official total-return close moved by the price index's move today.</summary>
         public decimal EstimatedClose { get; set; }
+
         public BrakeState State { get; set; }
+
+        /// <summary>The official state on <c>AsOfDate</c>, the day before the estimate's.</summary>
         public BrakeState PrevState { get; set; }
+
+        /// <summary>Estimated close ÷ 252-day high − 1, in percent.</summary>
         public decimal DrawdownPct { get; set; }
     }
 }

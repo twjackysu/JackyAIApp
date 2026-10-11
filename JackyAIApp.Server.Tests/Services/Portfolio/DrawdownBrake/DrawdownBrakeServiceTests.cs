@@ -11,6 +11,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
     {
         private readonly Mock<ITaiexTotalReturnStore> _store = new();
         private readonly Mock<ITwseHolidayCalendar> _calendar = new();
+        private readonly Mock<IMisTaiexQuoteSource> _quotes = new();
         private readonly FakeTime _time = new();
         private readonly TaiexDataStatus _status = new();
         private readonly DrawdownBrakeTelemetry _telemetry;
@@ -20,6 +21,10 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         {
             _telemetry = new DrawdownBrakeTelemetry(NullLogger<DrawdownBrakeTelemetry>.Instance, _time);
             _metrics = new MeterCapture(_telemetry.Meter);
+            // MIS has nothing to say unless a test says so: the official-signal tests below are about
+            // the stored series only (the estimate has its own file).
+            _quotes.Setup(q => q.GetAsync(It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => new MisQuoteSnapshot(null, _time.Now));
         }
 
         public void Dispose()
@@ -35,7 +40,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         // A fresh cache per service unless a test shares one: tests that rebuild the service to feed it
         // a different series must not be handed the previous series' cached signal.
         private DrawdownBrakeService CreateService(IMemoryCache? cache = null) =>
-            new(_store.Object, _calendar.Object, _status, cache ?? new MemoryCache(new MemoryCacheOptions()), _telemetry, _time);
+            new(_store.Object, _calendar.Object, _status, _quotes.Object, cache ?? new MemoryCache(new MemoryCacheOptions()), _telemetry, _time);
 
         private void StoreHolds(IReadOnlyList<IndexClose> closes) =>
             _store.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync(closes);
@@ -530,7 +535,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             // The service's clock is the stopwatch: a build that "takes" 250 ms by that clock is
             // recorded as 250.
             var clock = new SteppingTime(Taipei(2026, 10, 8, 10), TimeSpan.FromMilliseconds(250));
-            var timed = new DrawdownBrakeService(_store.Object, _calendar.Object, _status,
+            var timed = new DrawdownBrakeService(_store.Object, _calendar.Object, _status, _quotes.Object,
                 new MemoryCache(new MemoryCacheOptions()), _telemetry, clock);
             StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
 

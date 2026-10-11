@@ -41,6 +41,11 @@ namespace JackyAIApp.Server.Services.Portfolio
             services.AddSingleton<ITaiexTotalReturnStore, TaiexTotalReturnStore>();
             services.AddSingleton<ITwseHolidayCalendar, TwseHolidayCalendar>();
             services.AddSingleton<ITaiexDataStatus, TaiexDataStatus>();
+            // The intraday estimate's source (TASK-038): one shared reading of the index from MIS, so
+            // the requests to MIS do not grow with the number of viewers. Uses the shared
+            // "ExternalReadOnly" client (an idempotent GET, so its retry is safe).
+            services.AddSingleton<IMisTaiexClient, MisTaiexClient>();
+            services.AddSingleton<IMisTaiexQuoteSource, MisTaiexQuoteSource>();
             // One instance owns the Meter; its name is registered with OpenTelemetry in Program.cs.
             services.AddSingleton<DrawdownBrakeTelemetry>();
             services.AddSingleton<IDrawdownBrakeService, DrawdownBrakeService>();

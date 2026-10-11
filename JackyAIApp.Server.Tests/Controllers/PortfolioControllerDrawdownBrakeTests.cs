@@ -135,7 +135,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             UserIsEligible(true);
             _refresher.Setup(r => r.TryRefreshNowAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new DrawdownBrakeRefreshOutcome(result, retryAfter));
-            _brake.Setup(b => b.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(signal);
+            _brake.Setup(b => b.GetAfterEstimateRefreshAsync(It.IsAny<CancellationToken>())).ReturnsAsync(signal);
 
             var action = await _controller.RefreshDrawdownBrake(CancellationToken.None);
 
@@ -154,13 +154,46 @@ namespace JackyAIApp.Server.Tests.Controllers
             _refresher.Setup(r => r.TryRefreshNowAsync(It.IsAny<CancellationToken>()))
                 .Callback(() => order.Add("refresh"))
                 .ReturnsAsync(new DrawdownBrakeRefreshOutcome(DrawdownBrakeRefreshResult.Updated));
-            _brake.Setup(b => b.GetAsync(It.IsAny<CancellationToken>()))
+            _brake.Setup(b => b.GetAfterEstimateRefreshAsync(It.IsAny<CancellationToken>()))
                 .Callback(() => order.Add("signal"))
                 .ReturnsAsync(new DrawdownBrakeDto());
 
             await _controller.RefreshDrawdownBrake(CancellationToken.None);
 
             Assert.Equal(["refresh", "signal"], order);
+        }
+
+        [Fact]
+        public async Task Refresh_AsksForTheSignalThatRefreshesTheEstimate_NotThePlainOne()
+        {
+            UserIsEligible(true);
+            _refresher.Setup(r => r.TryRefreshNowAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new DrawdownBrakeRefreshOutcome(DrawdownBrakeRefreshResult.Throttled, 30));
+            _brake.Setup(b => b.GetAfterEstimateRefreshAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new DrawdownBrakeDto());
+
+            await _controller.RefreshDrawdownBrake(CancellationToken.None);
+
+            // Even when the official refresh was throttled, the estimate gets its own (10 s) chance.
+            _brake.Verify(b => b.GetAfterEstimateRefreshAsync(It.IsAny<CancellationToken>()), Times.Once);
+            _brake.Verify(b => b.GetAsync(It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task AMisFailure_DoesNotChangeTheRefreshResult()
+        {
+            // The service answers a MIS failure with a signal that simply has no estimate; the result
+            // stays what the official refresh said (SourceUnavailable means TWSE's index data).
+            UserIsEligible(true);
+            _refresher.Setup(r => r.TryRefreshNowAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new DrawdownBrakeRefreshOutcome(DrawdownBrakeRefreshResult.Updated));
+            _brake.Setup(b => b.GetAfterEstimateRefreshAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new DrawdownBrakeDto { State = BrakeState.OFFENSE, Estimate = null });
+
+            var action = await _controller.RefreshDrawdownBrake(CancellationToken.None);
+
+            var body = Assert.IsType<DrawdownBrakeRefreshDto>(Assert.IsType<OkObjectResult>(action).Value);
+            Assert.Equal(DrawdownBrakeRefreshResult.Updated, body.Result);
+            Assert.Null(body.Signal.Estimate);
         }
 
         [Fact]
@@ -173,7 +206,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.Equal(403, Assert.IsType<ObjectResult>(result).StatusCode);
             _responseFactory.Verify(f => f.CreateErrorResponse(ErrorCodes.DrawdownBrakeNotEnabled, It.IsAny<string>()), Times.Once);
             _refresher.Verify(r => r.TryRefreshNowAsync(It.IsAny<CancellationToken>()), Times.Never);
-            _brake.Verify(b => b.GetAsync(It.IsAny<CancellationToken>()), Times.Never);
+            _brake.Verify(b => b.GetAfterEstimateRefreshAsync(It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
@@ -290,7 +323,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             CallerIs(GoogleId, eligible: true);
             _refresher.Setup(r => r.TryRefreshNowAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new DrawdownBrakeRefreshOutcome(result, result == DrawdownBrakeRefreshResult.Throttled ? 30 : null));
-            _brake.Setup(b => b.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new DrawdownBrakeDto());
+            _brake.Setup(b => b.GetAfterEstimateRefreshAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new DrawdownBrakeDto());
 
             await _controller.RefreshDrawdownBrake(CancellationToken.None);
 
@@ -359,6 +392,46 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.Equal("NoNewData", root.GetProperty("result").GetString());
             Assert.Equal(JsonValueKind.Null, root.GetProperty("retryAfterSeconds").ValueKind);
             Assert.Equal(JsonValueKind.Null, root.GetProperty("signal").GetProperty("lastCheckedAt").ValueKind);
+        }
+
+        [Fact]
+        public void TheEstimate_SerializesToTheDocumentedShape()
+        {
+            var dto = new DrawdownBrakeDto
+            {
+                State = BrakeState.OFFENSE,
+                EstimateCorrected = true,
+                Estimate = new DrawdownBrakeEstimateDto
+                {
+                    AsOfTime = new DateTimeOffset(2026, 10, 8, 13, 25, 10, TimeSpan.FromHours(8)),
+                    EstimatedClose = 41234.5678m,
+                    State = BrakeState.DEFENSE,
+                    PrevState = BrakeState.OFFENSE,
+                    DrawdownPct = -8.8m,
+                },
+            };
+
+            using var json = JsonDocument.Parse(JsonSerializer.Serialize(dto, AppJson));
+            var root = json.RootElement;
+            var estimate = root.GetProperty("estimate");
+
+            Assert.True(root.GetProperty("estimateCorrected").GetBoolean());
+            Assert.Equal(["asOfTime", "estimatedClose", "state", "prevState", "drawdownPct"],
+                estimate.EnumerateObject().Select(p => p.Name));
+            Assert.Equal(new DateTimeOffset(2026, 10, 8, 13, 25, 10, TimeSpan.FromHours(8)), estimate.GetProperty("asOfTime").GetDateTimeOffset());
+            Assert.Equal(41234.5678m, estimate.GetProperty("estimatedClose").GetDecimal());
+            Assert.Equal("DEFENSE", estimate.GetProperty("state").GetString());
+            Assert.Equal("OFFENSE", estimate.GetProperty("prevState").GetString());
+            Assert.Equal(-8.8m, estimate.GetProperty("drawdownPct").GetDecimal());
+        }
+
+        [Fact]
+        public void WithoutAnEstimate_TheFieldIsNull_AndNotCorrected()
+        {
+            using var json = JsonDocument.Parse(JsonSerializer.Serialize(new DrawdownBrakeDto(), AppJson));
+
+            Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("estimate").ValueKind);
+            Assert.False(json.RootElement.GetProperty("estimateCorrected").GetBoolean());
         }
 
         [Fact]

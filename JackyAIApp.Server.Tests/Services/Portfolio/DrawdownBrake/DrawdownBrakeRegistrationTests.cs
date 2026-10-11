@@ -112,5 +112,25 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             Assert.Same(provider.GetRequiredService<ITaiexDataStatus>(), provider.GetRequiredService<ITaiexDataStatus>());
             Assert.IsType<DrawdownBrakeService>(provider.GetRequiredService<IDrawdownBrakeService>());
         }
+
+        [Fact]
+        public void TheMisPieces_AreSingletons_SoThereIsOneSharedReadingForTheWholeSite()
+        {
+            using var provider = BuildProvider();
+
+            var source = provider.GetRequiredService<IMisTaiexQuoteSource>();
+
+            Assert.IsType<MisTaiexQuoteSource>(source);
+            Assert.Same(source, provider.GetRequiredService<IMisTaiexQuoteSource>());
+            Assert.IsType<MisTaiexClient>(provider.GetRequiredService<IMisTaiexClient>());
+            Assert.Same(provider.GetRequiredService<IMisTaiexClient>(), provider.GetRequiredService<IMisTaiexClient>());
+        }
+
+        [Fact]
+        public void TheMisClient_UsesTheSharedReadOnlyHttpClientName()
+        {
+            // "ExternalReadOnly" is registered in Program.cs with the retry + circuit breaker.
+            Assert.Equal("ExternalReadOnly", MisTaiexClient.HttpClientName);
+        }
     }
 }
