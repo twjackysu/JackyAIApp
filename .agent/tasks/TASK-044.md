@@ -50,7 +50,8 @@ MEDIUM（PM：需求「Stock Intelligence 大盤走勢比較圖」A 圖；與回
 - **`CachedMarketIndexHistoryProvider`**（singleton 裝飾器）：`IMemoryCache` 1 小時＋`SingleFlight`；最後成功結果保留 7 天，重新取得失敗時回傳該份。
 - **與任務書字面不同或需 Tech Lead 確認之處**（細節在 PR #440 描述）：(1) 另加「失敗後 5 分鐘不再打 Yahoo」；(2) 選 HTTP 503＋錯誤碼 `1050301`，前端 `apis/types.ts` 的 enum 需補（TASK-045）；(3)「非交易日」只判斷週末，未查 `ITwseHolidayCalendar`；(4) 兩個陣列長度不同整份作廢；(5) 用 `SingleFlight` 而非自建 `SemaphoreSlim`；(6) DTO 用 `sealed record`。
 - **測試**：本環境以 apt 安裝 .NET 10 SDK 後實際執行——`dotnet test -c Release --filter "Category!=LiveContract"`：**967 通過、0 略過、0 失敗**；新增 66 個離線測試連跑 12 次無偶發失敗。另做 13 項變異測試（今日 bar 規則與邊界、週末、UTC+8、點數／過舊／漲跌門檻、重複日、四捨五入、長度檢查、TTL、退避、SingleFlight），每項都有測試失敗。
-- **LiveContract**：沙箱連不到 Yahoo（egress 403），無法本機執行；已在本分支手動 dispatch `contract-tests.yml`（結果見 PR #440 留言）。
+- **LiveContract**：沙箱連不到 Yahoo（egress 403），無法本機執行；已在本分支（head `5b0d56d`）手動 dispatch `contract-tests.yml`（run 38126581317）→ **成功**，含新增的 `^TWII` 6y 日線檢查（走正式 `Parse`）。只取得整個 job 的結論，未取得該測試個別輸出（實際點數、`asOf`）。
+- **PR CI（head `63fe329`，run 38126661498）**：`build-and-test-server` ✅、`lint-and-build-client` ✅。尚待 Tech Lead 技術審查。
 - **未驗證**：response compression 只驗了框架預設 MIME 清單涵蓋 `application/json`，未量實際位元組數。
 
 ## Review
