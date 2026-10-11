@@ -3016,3 +3016,11 @@
 - **驗證**：`dotnet test --filter "Category!=LiveContract"` 1080/1080 通過；相關 271 個連跑 10 次穩定；變異測試每項皆有測試失敗。**未驗證**：App Insights 實際資料與 KQL（未實測）、Histogram 在 customMetrics 是否有百分位。
 - **對其他任務**：TASK-038 待 #441 合併後可開工（請 Tech Lead 將其轉 READY，或確認我可據「041 已合併」自行接手）；TASK-043（前端）不受影響。
 - **ARCHITECTURE.md**：僅動「可觀測性」小節（任務書第 4 點授權）：補實作語意、唯一人數 KQL 排除 `forbidden`、註明 KQL 仍未實測。
+
+## 2026-10-11 — PM：Boss 看過正式環境後的兩點修正——NTSD 改計入曝險、00685L 併入正2 桶（排程執行）
+
+- **來源**：Issue #431，Boss 12:09 UTC 留言（TASK-046／PR #437 部署後的試用）：(1) 00685L 與 00631L 同性質，兩檔歸一類、合併計算加碼／減碼／不動；(2) 卡片寫「不含 NTSD NT$75,771」很怪，Boss 要的水位是含 NTSD 的。
+- **記錄**：新增 **DECISION-021**，**取代 DECISION-018**（NTSD 排除）；`REQUIREMENTS.md` 需求 12 更新為 **v4.3**——NTSD 照 1.5 倍計入曝險、卡片 E 與右上角水位恆一致、移除對帳行；NTSD 仍不給建議（歸「其他倍數商品」、一律「不動」，DECISION-020 不變）；00631L＋00685L 合為一列「正2 槓桿 ETF」，只給整組一個結論與金額。新增驗收條件、A27～A29（PM 小假設，Boss 可推翻），A24 作廢，R8／Priority／Tech Lead Actions 同步（優先序 HIGH，範圍小）。
+- **PM 的理解與限制**：「水位含 NTSD」＝NTSD 計入卡片曝險；若 Boss 其實要 NTSD 單獨一列並給建議會牴觸 DECISION-020（PM 判斷不需要）。PM **看不到 Boss 附的截圖**（GitHub 附件對排程沙箱回 403），依留言文字判斷。00685L 倍數為 2 是 PM 讀程式的理解（`PortfolioExposure` 台股代碼尾碼 L），未執行驗證。
+- **Boss**：沒有待回覆的事（小事 PM 自行假設並記錄）。
+- **Tech Lead**：請拆任務調整已合併的 TASK-046（清空排除表、正2 桶歸類、股數呈現 A28、績效揭露加註「00685L 視同 00631L」、測試與文案），並補一組「持有 NTSD、持有 00685L」的前後對照範例給 Boss；TASK-043 排在其後的順序不變。
