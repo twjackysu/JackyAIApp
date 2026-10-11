@@ -2917,3 +2917,13 @@
 - 仍待 Boss（#431）：Q5（隔日成交欄期間）、Q6（其他持股是否納入判斷，與 DECISION-013 適用範圍有衝突，只有 Boss 能決定）、Q7；CSV／`reproduce_spec.txt`／資料快照。合規 R1 未解決（Boss 選 admin-only 的理由是計算量）。
 - Tech Lead：請依 REQUIREMENTS「Tech Lead Actions」處理文案更新、cache 盤點與重新整理設計、可觀測性指標提議；TASK-038 仍待 TASK-036 合併後再轉 READY。
 - Boss 待辦：審查並合併 PR #433 → #432（#432 與 master 有僅文件衝突，保留兩段）。
+
+## 2026-10-11 — PM：吸收 Boss 對 #431 的第二輪回覆（Q5～Q7）、回測資料入庫（排程執行）
+
+- Boss 於 #431（02:33 UTC）回覆 Q5／Q6／Q7，並把回測資料 commit 進 repo `回測數據/tw_backtest/`（391c95b）。已記錄 **DECISION-015**，`REQUIREMENTS.md` 更新為 v3。
+- **Q5 結案**：隔日成交欄期間＝1997–2026（`reproduce_spec.txt` 標頭證實與主欄同一條 1997-07～2026-10-08 序列）。**Q6 結案**：先做 A＋B，新增需求 11「策略部位占總資產 X%」（純資訊，A9 分母＝流動總資產，與 PR #434 一致）；其他持股不納入判斷，DECISION-013 適用範圍不變。
+- **回測資料**：PM 核對 `results/reproduce_spec.txt` 輸出與 Boss 更正表逐項一致；**未重跑程式**（排程環境無 pandas），因此不算獨立驗證（R3 不變）。`taiex_tri.csv` 欄名為 `date,tri`，TASK-036 預期 fixture 為 `date,close`，交 Tech Lead 處理。
+- **Q7 方向已定、細節未定**：自動找最相似區段、可調整過去區段（現在區段只能調長度）、找不到顯示「找不到過去的相似區段」、畫收盤價、不限 admin。PM 假設見 A10～A13。新增 **Q8**（標的、位置／對象、合規取捨）與風險 **R7**（相似區段圖易被讀成預測，合規未查證）。**Q8 回覆前不排工**。
+- PR #434（Boss 直接修再平衡建議：移除不動產、分母改流動總資產）已合併；PM 在 Portfolio 段落補註記，判斷與回落煞車不衝突。
+- Tech Lead：請依 `REQUIREMENTS.md`「Tech Lead Actions」處理——啟用 2026-10-08 OFFENSE 驗收測試並獨立比對 `reproduce_spec.txt`、需求 11 的評估、PR #432 文案更新（仍待辦）、需求 8／9 的提議；需求 10 等 Q8-1 回覆後再提議相似度演算法與門檻（附歷史實例）。
+- Boss 待辦：回覆 Q8；審查並合併 PR #433 → #432（仍未合併）。合規（R1）仍未查證。
