@@ -162,20 +162,19 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 - **Logging**: NLog with structured logging patterns
 
 ### Deployment
-- **CI/CD**: GitHub Actions, "Build and deploy" workflow triggers when a pull request into
-  `master` is **merged** (`pull_request: [closed]` gated on `merged == true`), plus manual
-  `workflow_dispatch`. A PR-triggered run deploys the tip of `master` as of the moment it starts
-  (checkout `ref: master`) — not `pull_request.merge_commit_sha`, and not the pre-merge preview ref
-  a closed `pull_request` checks out by default. `merge_commit_sha` is unsafe because a PR that
-  GitHub marks merged only through ancestry (its commits came in via another merged PR) carries its
-  own, possibly much older branch head there, and deploying that rolls production back (happened
-  2026-10-11, #443/#445). A merged PR's content is always already on `master`, so deploying
-  `master`'s tip can only move production forward. `workflow_dispatch` still deploys `github.ref`
-  (the branch picked in the dialog). Deploys share one `production-deploy` concurrency group
-  (`cancel-in-progress: false`), so only one runs at a time and each checks out after the previous
-  one finished
-- **A direct push to `master` does NOT deploy.** Closing a PR without merging does not either.
-  Anything that lands outside a PR needs a manual run of the workflow
+- **CI/CD**: GitHub Actions, "Build and deploy" workflow runs on every **push to `master`**
+  (a merged PR is a push), plus manual `workflow_dispatch`. A push that touches **only**
+  `.agent/**` or `*.md` files is ignored (`paths-ignore`) and does not deploy; one code file in the
+  push is enough to deploy. Closing a PR without merging does not deploy (nothing lands on `master`)
+  - Every run deploys the **tip of `master` as of the moment its checkout starts** (`ref: master`),
+    not the commit that triggered it. That makes deploy order irrelevant: a run that waited in the
+    queue never ships an older build over a newer one, and a repeat of the same tip is harmless.
+    (The old `pull_request: closed` trigger deployed `merge_commit_sha`, which for a PR GitHub
+    marks merged only through ancestry is its own, possibly much older branch head — that rolled
+    production back on 2026-10-11, #443/#445.) `workflow_dispatch` deploys `github.ref`, the branch
+    picked in the dialog
+  - Deploys share one `production-deploy` concurrency group (`cancel-in-progress: false`): one at
+    a time, and of several waiting runs only the newest is kept
 - **Target**: Linux App Service `jackyai-linux` (B1, Always On) in `MyAppResourceGroup` (East
   US), secret `JACKYAI_LINUX_PUBLISH_PROFILE`; its system identity has Key Vault secrets
   Get/List. Running a branch through `workflow_dispatch` deploys it to production, including
@@ -217,9 +216,10 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
   - Resource group `jacky-sites-rg` — a separate, stopped project, unrelated to this app
 - **Gotcha**: when several PRs merge in quick succession, queued deploy runs that get superseded
   show as *cancelled* — expected, not a failure. The last run deploys `master`'s tip, which contains
-  everything merged so far. A direct push to `master` still does not deploy, but the next merged
-  PR's run picks it up since it deploys `master`'s tip. If the final run for the newest merge is
-  itself red, re-run it (or `workflow_dispatch` from `master`) — never from an older branch
+  everything merged so far. A direct push to `master` deploys like a merge does (unless it only
+  touches `.agent/**` / `*.md`); there is no longer a way to land code on `master` without
+  deploying it. If the final run for the newest push is itself red, re-run it (or
+  `workflow_dispatch` from `master`) — never from an older branch
 
 ## Important Notes
 

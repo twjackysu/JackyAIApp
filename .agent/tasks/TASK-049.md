@@ -4,7 +4,7 @@
 Backend Engineer（CI／部署；只動 `.github/workflows/BuildAndDeployToAzureAppService.yml` 與文件）
 
 ## Status
-PR_OPENED（#447；等 Tech Lead 審閱，合併前須 Boss 看過 Requirements 第 2 點）
+PR_OPENED（#447；已依 Boss 在對話中的決定改為「B2」方案，等 Tech Lead 審閱）
 
 ## Priority
 HIGH（已發生一次：2026-10-11 約 13:54–14:46 UTC，正式環境被回滾到不含 TASK-047 的舊版，Boss 看到「00685L 沒併入、NTSD 沒計入」）
@@ -50,12 +50,14 @@ HIGH（已發生一次：2026-10-11 約 13:54–14:46 UTC，正式環境被回�
 - #447 — https://github.com/twjackysu/JackyAIApp/pull/447（分支 `claude/exciting-cray-2vp7q2`，動 `.github/workflows/BuildAndDeployToAzureAppService.yml` 與根 `CLAUDE.md`）
 
 ## Result
-- Workflow：job 層加 `concurrency`（`group: production-deploy`、`cancel-in-progress: false`）；`actions/checkout` 的 `ref` 改為 `${{ github.event_name == 'pull_request' && 'master' || github.ref }}`；`merged == true` 條件保留；`workflow_dispatch` 行為不變。
-- `concurrency` 放在 **job 層**而非 workflow 層：被 `if` 跳過的 job 預期不進 queue，放棄（未合併）的 PR close 不會取代一個真正 pending 的部署 run。
-- `CLAUDE.md` Deployment 段與 Gotcha 已按 Requirements 第 3 點改寫；`ARCHITECTURE.md` 未動。
-- 驗證：`actionlint`（actionlint-py 1.7.12）修改前後皆 exit 0；`yaml.safe_load` 確認結構。未跑 `dotnet test`（無 .NET 程式碼變更）。
-- **未實測**：沙箱無法觸發 Actions，且不得對正式環境做可能回滾的部署，所以排隊行為與「skipped job 不進 queue」未在真實 GitHub 上驗證（官方文件搜尋也未明講 skipped job 的情形）。PR 描述附 5 秒內雙合併的推演。合併後下一次多 PR 連續合併時，請 Tech Lead／Boss 確認：被取代的排隊 run 顯示 cancelled、最後一個 run 的 checkout 為 master 最新。
-- 待 Boss：第 2 點改變既有部署規則，合併前請看過；不同意則退回改採「只加 `concurrency`」最小版本。
+**方案變更（Boss 於對話中決定「B2」，偏離上方 Requirements 第 1～2 點的原文）**：觸發方式由 `pull_request: closed` 改為 `push` 到 `master`，其餘（部署 master 最新、串行化）維持。理由：`merge_commit_sha` 問題只存在於 PR 事件；push 事件沒有「因祖先關係被標為 merged」的怪現象，也不再需要 `merged == true` 條件與「skipped job 不進 queue」這個未驗證的假設。
+- Workflow：`on: push: branches [master]` + `paths-ignore: ['.agent/**', '**.md']`（只動這些路徑的 push 不部署；混有任何程式碼檔就會部署）；保留 `workflow_dispatch`；移除 `pull_request` 觸發與 job 的 `if`。job 層 `concurrency`（`group: production-deploy`、`cancel-in-progress: false`）不變。`actions/checkout` 的 `ref` 為 `${{ github.event_name == 'push' && 'master' || github.ref }}`：明確給 `ref` 時 checkout 取該 ref 執行當下的 tip；不給則釘住事件的 `github.sha`（排隊過的 run 會是舊的）。
+- 為什麼順序無關：每個 run 都部署「checkout 當下的 master tip」。就算兩個 run 幾乎同時建立、queue 順序顛倒，後跑的那個看到的 tip 也不會比先跑的舊（master 只往前），最多重複部署同一個 tip。純部署 `github.sha` 在這個窄窗口會回滾，所以不採用。
+- `CLAUDE.md` Deployment 段與 Gotcha 已改寫：**直接 push 到 master 現在會部署**（僅 `.agent/**`／`*.md` 的 push 除外），推翻了舊的「direct push does NOT deploy」。`ARCHITECTURE.md` 未動。
+- 已確認 `**.md`／`.agent/**` 可安全排除：程式碼與 csproj 中沒有任何 `.md` 被部署或執行時讀取，`.agent/` 只出現在註解／文件引用。
+- 驗證：`actionlint`（actionlint-py 1.7.12）exit 0（含 `paths-ignore` glob 語法檢查）；`yaml.safe_load` 確認結構。未跑 `dotnet test`（無 .NET 程式碼變更）。
+- **未實測**：沙箱無法觸發 Actions，且不得對正式環境做可能回滾的部署，所以 `paths-ignore` 的實際過濾與 concurrency 排隊行為未在真實 GitHub 上驗證。合併後第一次「只動文件」的 push 應該不產生 run、第一次多 PR 連續合併應該看到被取代的 run 顯示 cancelled，請 Tech Lead／Boss 觀察確認。
+- 副作用提醒：之後任何非文件類的直接 push 到 master 都會部署到正式環境（含 EF migration）。
 
 ## Review
 （待填）

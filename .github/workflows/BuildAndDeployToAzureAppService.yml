@@ -1,10 +1,15 @@
 name: Build and deploy
 on:
   workflow_dispatch:
-  pull_request:
-    types: [closed]
+  push:
     branches:
       - master
+    # A push that touches ONLY these paths does not start a run (one code file among them does).
+    # Keeps agent notes and docs commits from redeploying production. Nothing under these paths
+    # is read at runtime or shipped in the publish output.
+    paths-ignore:
+      - '.agent/**'
+      - '**.md'
 env:
   AZURE_WEBAPP_NAME: jackyai-linux
   AZURE_WEBAPP_PACKAGE_PATH: JackyAIApp.Server/publish
@@ -15,18 +20,15 @@ jobs:
   # Linux App Service (jackyai-linux), served at https://apps.jacky-studio.com. The Windows App
   # Service (JackyAI) it replaced is stopped and no longer deployed to.
   build-and-deploy:
-    # GitHub has no "merged" trigger — `closed` also fires for a PR that was abandoned, and that
-    # must not deploy. workflow_dispatch stays as the way to ship anything that did not arrive
-    # through a PR (a direct push to master no longer deploys on its own), and to try a branch:
+    # Every push to master that touches more than docs deploys, whether it arrived through a merged
+    # PR or not. workflow_dispatch stays as the way to re-run a deploy and to try a branch:
     # whatever it deploys runs EF migrations against the production DB at startup.
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    #
     # One production deploy at a time. A run that arrives while another is deploying waits, and of
     # several waiting runs GitHub keeps only the newest (the replaced ones show as "cancelled" —
     # expected, not a failure). Without this, two quick merges deployed in parallel and whichever
     # finished last won, even if it was the older build. cancel-in-progress stays false so a deploy
-    # that is already running is never killed halfway through. Set on the job, not the workflow, so
-    # that a PR closed without merging (skipped by the `if` above) never joins the queue and
-    # pushes out a real pending deploy.
+    # that is already running is never killed halfway through.
     concurrency:
       group: production-deploy
       cancel-in-progress: false
@@ -38,16 +40,15 @@ jobs:
     steps:
     - uses: actions/checkout@v6
       with:
-        # A closed pull_request checks out refs/pull/N/merge by default, which is a merge preview
-        # built before the PR landed — not what is now on master. Deploy the tip of master as it is
-        # when this run starts checking out, NOT pull_request.merge_commit_sha: a PR that GitHub
-        # marks merged only because its commits became ancestors of another merged PR gets its own
-        # (possibly much older) branch head as merge_commit_sha, and deploying that rolls
-        # production back. A merged PR's content is always already on master, so master's tip can
-        # only move production forward; with the concurrency group above each run checks out after
-        # the previous one finished, so deploy order is monotonic. workflow_dispatch keeps
-        # github.ref (the branch chosen in the "Run workflow" dialog).
-        ref: ${{ github.event_name == 'pull_request' && 'master' || github.ref }}
+        # Deploy the tip of master as it is when this run starts checking out — NOT the commit that
+        # triggered it. With an explicit ref, checkout fetches that ref's current tip; without one
+        # it pins the event's github.sha, which for a run that waited in the queue is already stale.
+        # Because the content of every push is already on master, master's tip can only move
+        # production forward, so it does not matter in which order runs are queued or finish: the
+        # last one to run always leaves the newest master deployed. (A run deploying the same tip
+        # as the one before it is a harmless repeat.) workflow_dispatch keeps github.ref, the
+        # branch chosen in the "Run workflow" dialog.
+        ref: ${{ github.event_name == 'push' && 'master' || github.ref }}
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v5
       with:
