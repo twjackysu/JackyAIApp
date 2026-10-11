@@ -3036,3 +3036,8 @@
 - **給 PM**：無需動作；若不同意 S7 的分配結果或文案，在 `REQUIREMENTS.md` 改字即可（文案常數集中於 `drawdownBrakeCopy.ts`）。
 - **未動**：`REQUIREMENTS.md`、`DECISIONS.md`（PM 所有）、任何程式碼。
 - **驗證限制**：只改文件；演算法以獨立 Python 重算，TypeScript／C# 測試結果以 GitHub Actions 為準；沙箱連不到正式環境與外部 API。
+
+## 2026-10-11 — Tech Lead：Boss 確認 00685L 沒有分割（對話）
+
+- Boss（對話）：00685L 應該沒有做過分割，因為上市沒多久。→ TASK-047 與 `ARCHITECTURE.md` 的 `SPLIT_EVENTS` 項改為「**不新增 00685L 條目**」（Boss 確認，Tech Lead 無法獨立驗證）；上一則的風險 (1) 因此解除。日後若分割，在 `SPLIT_EVENTS` 加一行。
+- Boss 另提醒：00685L 與 00631L 同一類（2 倍）、NTSD 是另一類（1.5 倍）——與 DECISION-021、`ARCHITECTURE.md` 設計一致，無需變更。

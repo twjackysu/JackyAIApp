@@ -26,7 +26,7 @@ HIGH（Boss 正在正式環境試用；NTSD 對帳行讓卡片曝險與右上角
    - 新增純函式 `splitLev2Order`（放 `drawdownBrake.ts` 或 `drawdownBrakeScope.ts`），把類別的金額變動分配到各檔，規則見設計文件：減碼依各檔現值比例、每檔上限＝持有股數；加碼依持有現值比例；都沒持有 → 全部 `00631L`；只持有一檔 → 全給那一檔；`roundHalfAwayFromZero`。`Advice.orders` 仍是「各檔股數」的清單（先賣後買），另加類別層級的金額供 UI 顯示。`cashChange` 用實際股數。
    - 分桶表（`BucketList`）：原「00631L」列改為「台股正 2（00631L／00685L）」，其下縮排列各檔現值與建議股數（只列有持有或有建議的）。
    - `CORE_FACTORS` 倍數檢查涵蓋兩檔（`exposureFactor` 必須是 2，否則 `coreFactorAnomaly`）；`extractStrategyPositions`、`DrawdownBrakeRefresh` 的 `heldSymbols`、`useStrategyPrice` 由二元 `StrategySymbol` 改為「核心標的清單」（0050 ＋ `CORE_LEVERAGED_2X`）：持有才重抓報價與查價；沒持有時只有 `00631L`（預設買進標的）需要查價。
-   - **`SPLIT_EVENTS` 不新增 00685L 條目**，除非 PM／Boss 提供日期與比例（Boss 待答，非阻擋）。不得自行猜測。在表旁留一行註解說明「00685L 分割史待 Boss 確認」。型別要允許核心標的沒有條目（現為 `Record<StrategySymbol, …>`，改為 `Partial<Record<…>>` 或 `Record<string, SplitEvent>`），`findSplitGuardHit` 對沒有條目的標的不擋。
+   - **`SPLIT_EVENTS` 不新增 00685L 條目**：Boss 於 2026-10-11 確認 00685L 沒有做過分割（上市未久）；Tech Lead 無法獨立驗證，以 Boss 的確認為準。在表旁留一行註解「00685L：Boss 2026-10-11 確認無分割；日後若分割，在此加一行」。不得自行猜測日期。型別要允許核心標的沒有條目（現為 `Record<StrategySymbol, …>`，改為 `Partial<Record<…>>` 或 `Record<string, SplitEvent>`），`findSplitGuardHit` 對沒有條目的標的不擋。
 3. **文案**（`drawdownBrakeCopy.ts`；PM 可改字，Engineer 先用以下提議）
    - `BACKTEST_SCOPE_NOTE`：「以上績效依 0050＋00631L＋現金回測；00685L 視同 00631L（您的判斷），未單獨回測，也不是整個流動資產的績效。」（PM v4.3 用語；PM 可再改字）
    - `aboveTarget` 文案「即使 0050／00631L 全部轉為現金」→「即使 0050 與台股正 2 全部轉為現金」。
