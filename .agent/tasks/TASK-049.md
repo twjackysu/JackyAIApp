@@ -4,7 +4,7 @@
 Backend Engineer（CI／部署；只動 `.github/workflows/BuildAndDeployToAzureAppService.yml` 與文件）
 
 ## Status
-READY
+PR_OPENED（#447；等 Tech Lead 審閱，合併前須 Boss 看過 Requirements 第 2 點）
 
 ## Priority
 HIGH（已發生一次：2026-10-11 約 13:54–14:46 UTC，正式環境被回滾到不含 TASK-047 的舊版，Boss 看到「00685L 沒併入、NTSD 沒計入」）
@@ -47,10 +47,15 @@ HIGH（已發生一次：2026-10-11 約 13:54–14:46 UTC，正式環境被回�
 無。
 
 ## PR
-（待 Engineer 填）
+- #447 — https://github.com/twjackysu/JackyAIApp/pull/447（分支 `claude/exciting-cray-2vp7q2`，動 `.github/workflows/BuildAndDeployToAzureAppService.yml` 與根 `CLAUDE.md`）
 
 ## Result
-（待填）
+- Workflow：job 層加 `concurrency`（`group: production-deploy`、`cancel-in-progress: false`）；`actions/checkout` 的 `ref` 改為 `${{ github.event_name == 'pull_request' && 'master' || github.ref }}`；`merged == true` 條件保留；`workflow_dispatch` 行為不變。
+- `concurrency` 放在 **job 層**而非 workflow 層：被 `if` 跳過的 job 預期不進 queue，放棄（未合併）的 PR close 不會取代一個真正 pending 的部署 run。
+- `CLAUDE.md` Deployment 段與 Gotcha 已按 Requirements 第 3 點改寫；`ARCHITECTURE.md` 未動。
+- 驗證：`actionlint`（actionlint-py 1.7.12）修改前後皆 exit 0；`yaml.safe_load` 確認結構。未跑 `dotnet test`（無 .NET 程式碼變更）。
+- **未實測**：沙箱無法觸發 Actions，且不得對正式環境做可能回滾的部署，所以排隊行為與「skipped job 不進 queue」未在真實 GitHub 上驗證（官方文件搜尋也未明講 skipped job 的情形）。PR 描述附 5 秒內雙合併的推演。合併後下一次多 PR 連續合併時，請 Tech Lead／Boss 確認：被取代的排隊 run 顯示 cancelled、最後一個 run 的 checkout 為 master 最新。
+- 待 Boss：第 2 點改變既有部署規則，合併前請看過；不同意則退回改採「只加 `concurrency`」最小版本。
 
 ## Review
 （待填）
