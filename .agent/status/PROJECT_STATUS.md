@@ -2944,3 +2944,14 @@
 - Tech Lead：兩張圖可直接依文末 Tech Lead Actions 進行設計；不需等 Boss 回覆。
 
 - 同日補充：Boss 確認兩張圖的標的＝加權指數（價格指數，不含息）。其餘細節仍為 PM 決定。Tech Lead 無需等待，可依 Tech Lead Actions 進行。
+
+## 2026-10-11 — Tech Lead：PR #433 已合併；驗收資料、需求 8／9、大盤走勢比較圖的設計與任務（排程執行）
+
+- **狀態**：PR #433（TASK-036）已 MERGED，TASK-036 → MERGED。PR #432（TASK-037）仍 open、仍待 Boss 合併；與 master **只有** `.agent/status/PROJECT_STATUS.md` 一個文件衝突（Tech Lead 以 `git merge-tree` 驗證，程式碼與 PR #434 無重疊）。解法寫入 TASK-042。
+- **Boss 回測資料驗證**：repo 內 6 個資料檔的 SHA256 都與 Boss README 一致（其中 5 個需先還原 CRLF；`.gitattributes` 的 LF 正規化造成表面差異）。以獨立純 Python 依 DECISION-013 重放 `taiex_tri.csv`（5850 日）：**2026-10-08＝OFFENSE、距 252 日高 −1.02%**（與 Boss 預期一致），全段 132 次切換、DEFENSE 1344 日；只取最後 3 年得到相同 state／High252／Sma60。→ TASK-039 把它變成 fixture，結束「Skipped」。
+- **任務**：TASK-039（Backend，READY，HIGH）啟用驗收測試；TASK-041（Backend，READY，MEDIUM）手動重新整理端點＋資料時間＋訊號 60 秒快取；TASK-040（Backend，BLOCKED 待 041，MEDIUM）可觀測性；TASK-038（Backend，BLOCKED 待 041，MEDIUM）加入「接上重新整理」；TASK-042（Frontend，READY，HIGH）PR #432 後續（Boss 更正的回測數字、模擬值註記、需求 11 策略部位占比、解衝突）；TASK-043（Frontend，BLOCKED 待 041，MEDIUM）資料時間＋重新整理按鈕；TASK-044（Backend，READY，MEDIUM）加權指數歷史日線端點；TASK-045（Frontend，READY，MEDIUM）Stock Intelligence「過去 5 年同期間」圖。
+- **設計**（`ARCHITECTURE.md` 兩個新章節）：(1) 回落煞車的 cache 盤點、全站單一冷卻的重新整理、可觀測性（App Insights 自動收集 requests／dependencies＋自訂 Meter＋每日假名 UserKey）與建議開放門檻——**結論：計算量不是風險點**（個人建議在瀏覽器算，伺服器對證交所的請求與使用者數無關，唯一共同瓶頸是共用 SQL 5 DTU）；(2) 大盤走勢比較圖 A 的資料／快取／位置設計（不加功能開關），以及 B（相似區段）的演算法提議與真實歷史實測。
+- **B 圖實測重點（Boss 看過再決定是否排工）**：同樣的門檻下「今天（2026-10-08）找不到相似區段」；沒有門檻時永遠找得到，門檻 corr ≥ 0.9 且 RMSE ≤ 3pp 時約 31% 的觀察日找得到；相似區段「之後」的走勢與現在實際後續走勢的相關係數 ≈ +0.04（樣本重疊、樣本內，僅供量級）。細節與 9 個歷史範例在 `ARCHITECTURE.md`。
+- **驗證限制**：排程沙箱連不到證交所與 Yahoo（403），也沒有 .NET；MFI94U／MIS／Yahoo 日線格式與 C# 測試結果都由 GitHub Actions 驗證。KQL 查詢為初稿、未實測。
+- **未動**：`REQUIREMENTS.md`（PM 所有）、`DECISIONS.md`、TASK-037（PR #432 也改它，避免新衝突）。PM 的 Tech Lead Actions 可據此勾選：文案更新→TASK-042、cache 盤點／重新整理→ARCHITECTURE＋TASK-041／043、可觀測性→ARCHITECTURE＋TASK-040、驗收資料→TASK-039、需求 11→TASK-042、A 圖設計→ARCHITECTURE＋TASK-044／045、B 圖演算法提議→ARCHITECTURE。
+- Boss 待辦：合併 PR #432（解衝突時兩段都留）；#433 已部署後以 admin 確認 `GET /api/portfolio/drawdown-brake`（`OFFENSE`、約 −1%）。

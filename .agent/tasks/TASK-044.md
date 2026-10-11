@@ -1,0 +1,50 @@
+# TASK-044：加權指數歷史日線端點（Stock Intelligence「過去 5 年同期間走勢圖」的資料來源）（#431 延伸）
+
+## Owner
+Backend Engineer
+
+## Status
+READY
+
+## Priority
+MEDIUM（PM：需求「Stock Intelligence 大盤走勢比較圖」A 圖；與回落煞車互不依賴）
+
+## Objective
+提供**全站共用、快取**的加權指數（`^TWII`，價格指數，不含息）近 6 年日線收盤，供前端畫「同一段月/日、每年一條線」的圖（TASK-045）。使用者數增加不得放大對 Yahoo 的請求。設計理由見 `ARCHITECTURE.md`「Stock Intelligence 大盤走勢比較圖」。
+
+## Requirements
+1. **端點**：`GET /api/finance/market-index-history`（`FinanceController`，**匿名**，與同控制器的 `market-overview` 一致；`/finance` 本來就不需登入）。無參數（第一版只做 `^TWII`，不接受任意 symbol，避免變成 Yahoo 代理）。回應（`responseFactory.CreateOKResponse`）：
+   ```
+   { symbol: "^TWII", name: "加權指數（價格指數，不含息）", source: "Yahoo Finance",
+     asOf: "2026-10-08",                      // points 的最後一個交易日
+     points: [ { date: "2021-01-04", close: 14138.24 }, ... ] }   // 升冪，約 1,450 筆
+   ```
+2. **資料取得**：新增 provider（放 `Services/Finance/DataProviders/`，沿用 `MarketOverviewProvider` 的作法）：`https://query1.finance.yahoo.com/v8/finance/chart/%5ETWII?range=6y&interval=1d`，走 `ExternalReadOnly` named client。解析 `chart.result[0].timestamp[]` 與 `indicators.quote[0].close[]`：
+   - 跳過 `close` 為 null／非有限數／≤ 0 的日子；日期以**台北時間（UTC+8）**換算成 `DateOnly`；同日重複取最後一筆；排序升冪。
+   - **當日未收盤的那一根不得入列**：台北時間今日且（非交易日、或時間 < 14:00）→ 丟棄今日（Yahoo 盤中會回傳進行中的 bar）。時間用固定 UTC+8 與 `TimeProvider`。
+   - **健全性檢查**（失敗＝整份視為無效，走下方 fallback，不局部修補）：點數 ≥ 1,000；最後日期距今 ≤ 10 天；相鄰兩日漲跌幅絕對值 ≤ 15%（證交所單日漲跌幅限制 10%，加權指數歷史最大單日約 ±9.7%，超過視為資料錯誤）。
+3. **快取**：`IMemoryCache`，**TTL 1 小時**，單飛（`SemaphoreSlim`／既有 single-flight 慣例），全站共用一份 → Yahoo 請求 ≤ 24 次／天，與使用者數無關。另保留「最後一次成功結果」（記憶體，最長 7 天）：重新取得失敗或無效時**回傳該份**（`asOf` 如實反映，前端會顯示資料日期）；連最後成功結果都沒有 → 回錯誤。
+4. **錯誤**：新增 `ErrorCodes.MarketHistoryUnavailable`，沿用既有 `CreateErrorResponse(code, message)` 慣例；前端據此顯示「資料暫時無法取得」。不得回傳部分資料或空陣列冒充成功。
+5. **LiveContract 測試**（`LiveContracts/`，加入同一個 Yahoo 契約測試類別旁）：`^TWII` `range=6y` 回 ≥ 1,000 點、升冪、全為正數、最後日期距今 ≤ 10 天。只驗 shape，不驗數值。更新根 `CLAUDE.md` Testing Status 的來源清單（Yahoo 條目已有，補上「6y 日線」即可）。
+
+## Acceptance Criteria
+- Offline 測試：解析（null close、重複日、亂序、非正數）、今日 bar 規則（交易日 14:00 前丟棄／14:00 後保留／週末丟棄）、健全性（點數不足、最後日期過舊、單日 +20% 皆判無效）、快取（同窗內多次呼叫只打 1 次上游）、單飛（並行 20 次只打 1 次）、失敗時回傳最後成功結果、無最後成功結果時回錯誤、Controller 匿名可呼叫且回應契約如上。
+- `dotnet test --filter "Category!=LiveContract"` 全綠；無 DB／migration、無 AI、無 `[UsageLimit]`。
+- 回應有經過既有 response compression（確認 `application/json` 在壓縮清單內；約 40 KB → 約 10 KB）。
+
+## Technical Notes
+- 沙箱連不到 Yahoo（egress 403）：格式依 GitHub Actions LiveContract 驗證。參考資料：Boss 的 `回測數據/tw_backtest/data/TWII.csv`（同樣是 Yahoo `^TWII`，1997-07-02 ~ 2026-10-08，7173 筆；Tech Lead 檢查：升冪無重複、無非正數、>6 天的空檔僅 31 處且皆為農曆年假、|單日漲跌| > 7% 僅 6 次且皆為真實大波動）。**可作為解析測試的樣本來源，但不要把整份 CSV 放進測試專案**（取一小段即可）。
+- 未來若要 B 圖（相似區段，需 1997 起 29 年資料）：另案決定是否內嵌歷史快照＋只向 Yahoo 補差，**本任務不做**。
+- 不要動 `MarketOverviewProvider`（當日報價）與回落煞車的任何東西（TASK-036 的報酬指數資料／DECISION-016）。
+
+## Dependencies
+無。前端 TASK-045 以上述回應契約平行開發。
+
+## PR
+（待填）
+
+## Result
+（待填）
+
+## Review
+（待填）

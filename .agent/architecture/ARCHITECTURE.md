@@ -1628,3 +1628,112 @@ See `TASK-036`（Backend）、`TASK-037`（Frontend）、`TASK-038`（Backend，
 - **功能開關**：`Features:DrawdownBrake:Audience` 非 `All` 的任何值（含打錯）一律視為 `Admin`；`User.DrawdownBrakeEnabled` 為 `[NotMapped]`，只在 `GET api/account/info` 填值。
 - **前端 `advise`**：`E_target` 取截斷後 E；`prevState=null` 視為 OFFENSE；「狀態切換」只代表 `asOfDate` 當日剛切換，之後沒照做者走「曝險偏離 > 0.10」→ 再平衡句型。
 - **仍待驗證／待決**：Boss 的回測 CSV（真實資料驗收）；MFI94U 當日值公布時間 vs `StaleAfter=17:00`／`PublishedAfter=14:00`；回測期間文案 `BACKTEST_PERIOD`；Q1／Q2／Q3。
+
+
+## Decision: 回落煞車 — 重新整理、cache 盤點、可觀測性（需求 8／9，Tech Lead 2026-10-11）
+
+### Context
+PM 需求 8（資料時間＋手動「重新整理資料」）、需求 9（可觀測性，作為是否開放全部使用者的依據）。Boss 的疑慮：「13:15 可能拿到被 cache 的舊值」「擔心計算量」。以下先盤點事實（讀程式，非推測），再給設計。TASK：041（重新整理）→ 040（可觀測性）→ 038（盤中預估）；前端 043。
+
+### Cache 盤點（事實）
+| 層 | 現況 | 新鮮度上限 |
+|---|---|---|
+| 正式訊號資料 | 證交所 MFI94U → DB 表 `TaiexTotalReturnDaily`；背景服務每小時檢查，**平日台北 14:00 後且已存最新日 < 今日**才抓；14:00 前不存當日值（`IsFinal`） | 公布後約 ≤ 1 小時內入庫 |
+| `GET drawdown-brake` | **沒有任何快取**：每次讀全表（現約 750 列，每年 +245）並重算（CPU < 1 ms） | = DB |
+| 瀏覽器 RTK Query | 預設 `keepUnusedDataFor` 60 秒（此 query 未覆寫） | 60 秒 |
+| 股價（Portfolio summary） | `FetchStockAsync` 30 分鐘（`CacheTtl.Portfolio.StockPrice`）；台股盤中 9:00–13:30 疊加即時報價，快取 10 秒（`CacheTtl.Finance.TwRealtimeQuote`）；既有 `POST holdings/{symbol}/refresh-price` 會清掉 30 分鐘快取與 provider 的 sticky 狀態 | 盤中 ≤ 10 秒；盤後 ≤ 30 分鐘 |
+| 第二階段 MIS 預估（TASK-038，未做） | 設計為全站 ≈30 秒；手動重新整理最短 10 秒 | 10–30 秒 |
+
+回答 Boss：「13:15 拿到舊值」——**正式訊號**在 13:15 本來就只有前一交易日的值（當日值 14:00 後才有），不是 cache 造成；**盤中價格**在台股盤中最多 10 秒舊；第二階段的**預估**最多 30 秒（按重新整理最短 10 秒）。真正會讓人誤會的是「看不出資料多新」，所以需求 8 的重點是顯示資料時間。
+
+### 設計
+- **端點**（契約；TASK-041）：
+  ```
+  POST /api/portfolio/drawdown-brake/refresh        // 與 GET 同一個 Audience 把關
+  → 200 { result: "Updated"|"NoNewData"|"SourceUnavailable"|"Throttled",
+          retryAfterSeconds: number|null, signal: DrawdownBrakeDto }
+  DrawdownBrakeDto += lastCheckedAt: string|null (UTC)   // 伺服器最後一次成功向證交所取得可解析回應
+                    + generatedAt: string (UTC)          // 此份訊號的計算時間
+  ```
+  `Throttled` 回 200（429 在本站專指 UsageLimit）。
+- **全站單一冷卻 60 秒**（含背景輪詢的嘗試），單飛；只做 forward 補資料，不做 backfill；週末或台北 14:00 前（且已存最新日 ≥ 前一平日）短路為 `NoNewData`，不打證交所。**為什麼不是每人冷卻**：證交所負載必須與使用者數無關，每人冷卻在 100 人時仍可能每分鐘 100 次；全站冷卻時 A 按完、B 看到 `Throttled` 但拿到的訊號已是最新，不吃虧。
+- **訊號 60 秒記憶體快取**（全站一份、單飛），refresh 與背景入庫時主動失效 → DB 讀取 ≤ 1 次／分鐘，與使用者數無關。
+- **價格的重新整理**沿用既有 `refresh-price`，前端對 0050／00631L 呼叫並加 30 秒客戶端冷卻（TASK-043）；不為此新增後端契約。
+- **第二階段**（TASK-038）：MIS 預估在同一個 refresh 內重新取得，全站最短間隔 10 秒；MIS 失敗只讓 `estimate=null`，不得讓 `result` 變成 `SourceUnavailable`。
+
+### 負載由什麼決定（回答 PM／Boss）
+- **與使用者數無關**：對證交所 MFI94U 的請求只來自背景服務（穩態每個交易日約 1–4 次——14:00 後每小時重試到當日值入庫為止；休市平日最多每小時 1 次，約 10 次／天；首次回補約 37 次、一次性，部署後約 2 分鐘）＋手動重新整理（全站冷卻 ≤ 1 次／分鐘）；第二階段 MIS 預估 ≤ 1 次／10–30 秒、只在盤中。
+- **隨使用者數成長**：每次 GET 的 1 次 DB 讀取（加快取後 ≤ 1 次／分鐘）；Audience=Admin 時多 1 次 `Users` 查詢（Audience=All 時沒有）。
+- **零伺服器成本**：個人化建議（目標配置、股數）在瀏覽器計算；伺服器收不到持股。
+- **結論（技術事實，不是產品建議）**：計算量不是這個功能的風險點。全站唯一共同瓶頸是共用的 Azure SQL Basic（5 DTU），以 DTU 使用率監看即可。真正擋住「開放全部使用者」的是 PM 的 R1（合規，Boss／PM 範疇）、TASK-042（文案對齊更正值）與觀察期，不是計算量。
+
+### 可觀測性（TASK-040）
+- 自動收集（零程式）：App Insights `requests`（回應時間、失敗）、`dependencies`（對 `www.twse.com.tw` 的請求數／失敗數／耗時）——後端已有 `UseAzureMonitor`。
+- 自訂：Meter `JackyAIApp.DrawdownBrake`（`drawdownbrake.views{outcome,cache}`、`drawdownbrake.refresh{result}`、`drawdownbrake.compute.duration`）＋每次檢視一行 log，內含「每日、每行程」假名 `UserKey`（SHA256(userId＋UTC 日期＋啟動時隨機 salt) 前 12 碼），只能算當日不重複人數、不可還原、不跨日追蹤。**任何 log／metric 都不含持股、股數、金額、email、Google ID。**
+- KQL 初稿（**未實測**——沙箱沒有 App Insights 存取；表名用 Application Insights Logs 頁面的傳統名稱，首批資料進來後 Boss 或 Engineer 貼上校正欄位名）：
+  ```kusto
+  // 每日呼叫數、延遲、失敗
+  requests | where timestamp > ago(14d) and name has "drawdown-brake" and name startswith "GET"
+  | summarize calls=count(), p50=percentile(duration,50), p95=percentile(duration,95), failed=countif(success==false) by bin(timestamp,1d)
+  // 每日不重複使用者（假名）
+  traces | where timestamp > ago(14d) and message startswith "DrawdownBrake view"
+  | summarize users=dcount(tostring(customDimensions.UserKey)), views=count() by bin(timestamp,1d)
+  // 證交所請求與失敗
+  dependencies | where timestamp > ago(14d) and target has "twse.com.tw"
+  | summarize calls=count(), failed=countif(success==false), p95=percentile(duration,95) by bin(timestamp,1d)
+  // 檢視結果、快取命中、重新整理結果（含「資料未更新」次數 = outcome=stale）
+  customMetrics | where timestamp > ago(14d) and name in ("drawdownbrake.views","drawdownbrake.refresh")
+  | extend outcome=tostring(customDimensions.outcome), cache=tostring(customDimensions.cache), result=tostring(customDimensions.result)
+  | summarize total=sum(valueSum) by name, outcome, cache, result, bin(timestamp,1d)
+  ```
+- **建議的「可開放全部使用者」技術門檻（Tech Lead 提議，Boss 決定）**：觀察期 ≥ 14 天（≥ 10 個交易日）且同時滿足 (1) `GET` p95 < 300 ms（快取 miss 的 `compute.duration` p95 < 800 ms）、5xx < 1%；(2) 共用 SQL 資料庫 DTU p95 < 50%（Azure Portal → SQL database → Metrics → DTU percentage），且此功能時段無尖峰；(3) 證交所請求失敗率每日 < 10%，`stale` 每週 ≤ 1 個交易日且每次 < 3 小時（確認 `StaleAfter=17:00` 不會每天誤報；否則只改兩個常數）。**非技術前提另計**：R1 合規、TASK-042、PM 對文案的最終確認。
+- 不做的事：Admin 儀表板（Portal 的 Logs 足夠；之後可另開任務做 Workbook）；把 Google 身分送第三方（DECISION-010）。
+
+### Trade-offs
+- 全站冷卻使「按了沒反應」的情況偶爾出現（`Throttled`），代價換來證交所負載與使用者數無關；訊息會明說「剛剛已有人更新過」。
+- `UserKey` 每行程 salt：部署重啟會讓同一人當天被算兩次；觀察用途可接受，換來不需新增密鑰設定與較低的隱私風險。
+- 60 秒訊號快取使「剛入庫」到「使用者看到」最多多 60 秒，但 refresh 與背景入庫都會主動失效，實務上為 0。
+
+
+## Decision: Stock Intelligence 大盤走勢比較圖（A 同期間圖設計、B 相似區段提議；Issue #431 延伸 / DECISION-016，Tech Lead 2026-10-11）
+
+### Context
+Boss 要在 `/finance` 看：(A) 過去 5 年同一段月/日的走勢（每年一色）；(B) 歷史相似區段比較。標的＝加權指數（價格指數，不含息；PM 假設 A15，Boss 已同意）。與回落煞車互不依賴；不動 TASK-036 的報酬指數資料。
+
+### A 圖設計（TASK-044 後端、TASK-045 前端）
+- **資料**：Yahoo `^TWII` `range=6y&interval=1d`（系統已用 Yahoo 做大盤報價與 LiveContract；`MarketOverviewProvider` 只取當日）。**我的沙箱連不到 Yahoo（403），格式由 Actions 的 LiveContract 驗證**；替代佐證：Boss 的 `回測數據/tw_backtest/data/TWII.csv`（同為 Yahoo `^TWII`，1997-07-02～2026-10-08 共 7173 筆）經檢查——升冪無重複、無非正數、>6 天空檔僅 31 處且皆為農曆年假、單日 |漲跌| > 7% 僅 6 次且皆為真實事件（如 2024-08-05 −8.4%、2025-04-07 −9.7%）。→ 資料品質足以支撐 A，但 Yahoo 為非官方端點，故加健全性檢查與「最後成功結果」fallback。
+- **端點**：`GET /api/finance/market-index-history`（匿名，與 `market-overview` 一致）回傳約 1,450 筆 `(date, close)`；**不做伺服器端按期間切片**——使用者改起訖月/日是純前端計算，不再打 API。壓縮後約 10 KB。
+- **快取**：`IMemoryCache` 1 小時＋單飛＋「最後成功結果」保留 7 天 → Yahoo ≤ 24 次／天，與使用者數（含未登入訪客與爬蟲）無關。不入 DB（只有 6 年、冷啟動只多 1 次請求；與 `TaiexTotalReturnDaily` 不同，這裡不需要「重啟後仍在」）。
+- **今日 bar**：Yahoo 盤中會回傳進行中的 bar，台北 14:00 前或非交易日一律丟棄，避免把盤中價畫成收盤。
+- **位置**：`Finance/index.tsx` 的 `!hasStockResults` 區塊，`IndicatorExplorer` 之後（大盤層級；現有四個分頁都是個股分析，放進去語意不對）。
+- **功能開關**：**不加**。理由：Boss 已明說不限 admin、`/finance` 本就公開、Boss 審查並合併 PR 即是最後一關；加開關只多一個要維護的分支。若日後要退場，revert PR 或隱藏元件即可。（PM 把這項交給 Tech Lead 決定。）
+- **工作量估計**：後端約 1 天（provider＋快取＋測試＋LiveContract）；前端約 1.5 天（純計算＋圖＋測試＋手機驗證）。可平行。
+- **風險**：Yahoo 端點改版／封鎖（R8）→ 「資料暫時無法取得」；休市日／閏日對齊（前端 TASK-045 已列測試）。
+
+### B 圖提議（相似區段）——**尚未排工，等 Boss 看過下列實測後決定**
+**演算法（建議）**：以最近 L 個交易日（預設 L＝60）的收盤，各自除以區段第一天（起點＝0%）；與歷史上每一個 L 日窗口比較：
+1. 形狀：Pearson 相關係數 ≥ 0.90；2. 水準：兩條標準化路徑的 RMSE ≤ 3 個百分點。
+兩者都滿足才算「相似」，取 RMSE 最小者；歷史窗口須在「現在」窗口開始前至少 F＝60 個交易日結束（不重疊，且之後 60 日有完整資料可畫「過去實際發生的走勢」）。找不到就顯示「找不到過去的相似區段」。使用者調整的「過去區段」＝指定另一段起訖日（長度與「現在」相同）。運算量：7,000 窗口 × 60 點，C# 約數毫秒，可依 `(asOf, L)` 快取。
+
+**我用 Boss 的 TWII.csv（1997–2026，純價格序列）實測的結果**——
+範例（L＝60、F＝60；門檻 corr ≥ 0.90 且 RMSE ≤ 3pp）：
+| 觀察日 | 現在區段報酬 | 最像的過去區段 | RMSE／相關 | 判定 | 該過去區段「之後 60 日」 | 現在「之後 60 日」實際 |
+|---|---|---|---|---|---|---|
+| 2022-10-31 | −13.9% | 2015-06-09～2015-09-02 | 1.98pp／0.951 | **找得到** | +3.6% | +20.5% |
+| 2020-03-31 | −19.1% | 2001-05-08～2001-08-01 | 2.97pp／0.939 | **找得到** | −10.1% | +19.7% |
+| 2025-04-30 | −10.8% | 1998-06-26～1998-09-18 | 3.00pp／0.916 | 找不到（RMSE 剛好壓線） | −2.8% | +15.5% |
+| 2015-09-30 | −11.6% | 1998-04-24～1998-07-20 | 2.20pp／0.889 | 找不到（相關不足） | −14.1% | +1.7% |
+| 2008-11-28 | −30.4% | 2000-08-17～2000-11-13 | 4.45pp／0.921 | 找不到（跌幅太大，無水準相近者） | +5.4% | +4.0% |
+| 2018-12-28 | −7.5% | 2012-05-04～2012-07-26 | 1.85pp／0.596 | 找不到（形狀不像） | +5.8% | +11.7% |
+| **2026-10-08（今天）** | **+8.1%** | 2005-10-11～2006-01-02 | 2.21pp／0.884 | **找不到**（相關差 0.016） | （+4.6%，僅供參考） | — |
+
+統計（2008 年起每 10 個交易日取一個觀察日，共 453 個；**樣本彼此重疊、且為樣本內，僅供量級判斷**）：
+- 「找得到」比例：corr ≥ 0.9 且 RMSE ≤ 3pp → 31%；放寬到 corr ≥ 0.8 且 RMSE ≤ 5pp → 66%；收緊到 corr ≥ 0.95 且 RMSE ≤ 2.5pp → 6%。**沒有門檻時永遠找得到「最像的一段」**（7,000 個窗口足以找到形狀近似者），所以門檻是必要的，也決定了畫面約有 7 成時間顯示「找不到」。
+- **預測力：幾乎為零**。相似區段「之後 60 日」報酬與現在「之後 60 日」實際報酬的相關係數＝ +0.04（n＝453；門檻內 n＝139 時同為 +0.04）；方向相同的比例 51–56%，低於「永遠猜漲」的基準 67%。上表兩個「找得到」的例子，之後走勢都與實際相反。
+- 這是技術量測，不是產品結論：它不影響 Boss「想看歷史對照」的用意，但支持 PM 的做法——圖上維持警語、不放預測文字、之後走勢標示為「過去實際發生的走勢」。
+
+**資料需求**：B 需要 1997 起 29 年日線（≈7,200 筆）。Yahoo `range=max` 可取得，但建議另案決定：內嵌一份歷史快照（Boss 的 TWII.csv 檔頭至 2026-10-08）＋只向 Yahoo 補最近差額，可避免 Yahoo 改寫歷史或失效時整張圖消失。**B 不做的話 A 不受影響。**
+
+**工作量估計（若 Boss 仍要）**：後端約 2 天（資料、演算法、端點、快取、測試）、前端約 2 天（可拖曳／輸入調整區段、雙線＋延伸線圖、手機版）。
+
+**建議**：先做 A；B 請 Boss 看過上表（尤其「今天找不到」與「預測力≈0」）再決定要不要排。若要做，需 Boss／PM 確認：門檻是否採 0.90／3pp、預設長度 60、之後長度 60、找不到時的文案。
