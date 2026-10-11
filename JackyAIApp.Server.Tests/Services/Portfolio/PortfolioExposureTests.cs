@@ -32,6 +32,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Theory]
         [InlineData("元大台灣50正2", "00631L", "TW", 2)]
         [InlineData("國泰台灣加權正二", "00663L", "TW", 2)]
+        [InlineData("群益臺灣加權正2", "00685L", "TW", 2)]
         [InlineData("槓桿黃金基金", "GOLDX", "FUND", 2)]
         [InlineData("元大台灣50反1", "00632R", "TW", -1)]
         [InlineData("國泰台灣加權反一", "00664R", "TW", -1)]
@@ -54,6 +55,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
         [Theory]
         [InlineData("00757L", 2)] // 槓桿 suffix
+        [InlineData("00685L", 2)] // 00685L 群益臺灣加權正2
         [InlineData("00757l", 2)] // lower-case suffix still matches (case-insensitive)
         [InlineData("00632R", -1)] // 反向 suffix
         [InlineData("00679B", 0)] // 債券ETF（被動）suffix
