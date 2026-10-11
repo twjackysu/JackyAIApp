@@ -3008,3 +3008,11 @@
 - **PR**：#438（`POST /api/portfolio/drawdown-brake/refresh`、全站 60 秒冷卻＋單飛、`lastCheckedAt`／`generatedAt`、訊號 60 秒快取）。狀態 `PR_OPENED`，待 Tech Lead 審查；設計取捨（版本號失效、背景輪詢不被冷卻擋住、週末短路略寬於字面、跨月失敗映射、非上游例外不吞）已列在 PR 描述。
 - **驗證**：本環境以 apt 裝好 .NET 10 SDK（`builds.dotnet.microsoft.com` 仍被擋，但 Ubuntu 套件庫有 `dotnet-sdk-10.0`），`dotnet test --filter "Category!=LiveContract"` 965/965 通過；前端 `tsc --noEmit` 通過（只加兩個 optional 型別欄位）。PR CI 結果待確認。
 - **對其他任務**：TASK-043（前端）可依 `ARCHITECTURE.md` 契約整合；TASK-038／040 待 #438 合併後解除 BLOCKED。
+
+## 2026-10-11 — Backend Engineer：TASK-040 回落煞車可觀測性 PR 已開（排程執行）
+
+- **選擇**：無 open PR（#438／#440 皆已由 Boss 合併）。Backend 任務中 TASK-038／040 的檔案狀態仍寫 BLOCKED，但擋住它們的唯一前提（TASK-041）已隨 #438 合併而解除，我據此視為可開工。本 session 只能推一個分支，且 038 與 040 改同一個服務與 controller，故只做一個：**先做 040**（`Audience=All` 之前必備、可完全離線驗證）；**038 留到 #441 合併後**，避免兩個 PR 互相衝突，也因為 038 的 MIS 格式驗證本環境連不到（Tech Lead 實測 403），要靠 Actions 的 LiveContract。
+- **PR**：#441（`DrawdownBrakeTelemetry`：`drawdownbrake.views{outcome,cache}`／`refresh{result}`／`compute.duration`；每次 GET 一行 log 含每日每行程假名 `UserKey`；`Program.cs` 以 `WithMetrics` 註冊）。狀態 `PR_OPENED`，待 Tech Lead 審查；設計取捨（`cache` 定義、`forbidden` 無 cache 標籤與 KQL 排除、記錄位置）已列在 PR 描述。
+- **驗證**：`dotnet test --filter "Category!=LiveContract"` 1080/1080 通過；相關 271 個連跑 10 次穩定；變異測試每項皆有測試失敗。**未驗證**：App Insights 實際資料與 KQL（未實測）、Histogram 在 customMetrics 是否有百分位。
+- **對其他任務**：TASK-038 待 #441 合併後可開工（請 Tech Lead 將其轉 READY，或確認我可據「041 已合併」自行接手）；TASK-043（前端）不受影響。
+- **ARCHITECTURE.md**：僅動「可觀測性」小節（任務書第 4 點授權）：補實作語意、唯一人數 KQL 排除 `forbidden`、註明 KQL 仍未實測。
