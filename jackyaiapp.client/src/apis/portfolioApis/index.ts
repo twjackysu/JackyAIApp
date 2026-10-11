@@ -6,6 +6,7 @@ import { ApiOkResponse } from '../types';
 import {
   BenchmarkComparison,
   DrawdownAnalysis,
+  DrawdownBrakeDto,
   FundSearchItem,
   HoldingPriceHistoryDto,
   NetWorthDataPoint,
@@ -114,6 +115,12 @@ export const portfolioApis = createApi({
     >({
       query: ({ market, symbol }) => `holdings/${market}/${symbol}/price-history`,
     }),
+    // Market-wide signal (same for every user) — the personal advice is computed client-side from
+    // the user's holdings. 403 when the feature flag is off for this user, so callers gate on
+    // `User.drawdownBrakeEnabled` and mount the consumer only when it is true.
+    getDrawdownBrake: builder.query<ApiOkResponse<DrawdownBrakeDto>, void>({
+      query: () => 'drawdown-brake',
+    }),
     getAiTechSummary: builder.query<
       ApiOkResponse<PortfolioAiSummaryDto>,
       { market: string; symbol: string }
@@ -135,6 +142,7 @@ export const {
   useGetNetWorthHistoryQuery,
   useLazyGetNetWorthHistoryQuery,
   useGetDrawdownQuery,
+  useGetDrawdownBrakeQuery,
   useGetBenchmarkComparisonQuery,
   useLookupStockQuery,
   useSearchStocksQuery,

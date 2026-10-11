@@ -216,3 +216,39 @@ export interface HoldingPriceHistoryDto {
   avgCost?: number | null;
   prices: PricePoint[];
 }
+
+// 回落煞車 (Issue #431): market-wide signal, identical for every user. Contract in
+// ARCHITECTURE.md「回落煞車」. Percent values are `...Pct` like every other DTO here.
+export type DrawdownBrakeState = 'OFFENSE' | 'DEFENSE';
+
+// Phase 2 (TASK-038) — always null until the backend ships intraday estimates.
+export interface DrawdownBrakeEstimateDto {
+  asOfTime: string; // ISO 8601
+  estimatedClose: number;
+  state: DrawdownBrakeState;
+  prevState: DrawdownBrakeState | null;
+  drawdownPct: number;
+}
+
+export interface DrawdownBrakeDto {
+  // Latest official (closed) trading day the signal was computed from.
+  asOfDate: string | null; // yyyy-MM-dd
+  // Every nullable field below is null while `isInitializing` (table empty / backfilling).
+  state: DrawdownBrakeState | null;
+  // State on the trading day before asOfDate; null on the very first day of the series.
+  prevState: DrawdownBrakeState | null;
+  lastSwitchDate: string | null; // yyyy-MM-dd
+  close: number | null;
+  high252: number | null;
+  sma60: number | null;
+  // close / high252 - 1, as a percent (e.g. -1.2).
+  drawdownPct: number | null;
+  // Room left before the -8% trigger, in percentage points; < 0 once already below the line.
+  distanceToTriggerPct: number | null;
+  // A new close should exist by now but does not (market holidays do not count).
+  isStale: boolean;
+  isInitializing: boolean;
+  estimate: DrawdownBrakeEstimateDto | null;
+  // The earlier intraday estimate's state differs from the official one.
+  estimateCorrected: boolean;
+}
