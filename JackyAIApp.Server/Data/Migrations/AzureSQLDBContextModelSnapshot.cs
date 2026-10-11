@@ -962,6 +962,20 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("StockSymbolInfos");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.TaiexTotalReturnDaily", b =>
+                {
+                    b.Property<DateOnly>("TradeDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("Close")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("TradeDate");
+
+                    b.ToTable("TaiexTotalReturnDailies");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.TranslationTest", b =>
                 {
                     b.Property<string>("Id")

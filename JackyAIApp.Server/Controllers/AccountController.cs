@@ -2,6 +2,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -12,7 +13,7 @@ namespace JackyAIApp.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AccountController(ILogger<AccountController> logger, AzureSQLDBContext DBContext, IUserService userService, IMyResponseFactory responseFactory) : ControllerBase
+    public class AccountController(ILogger<AccountController> logger, AzureSQLDBContext DBContext, IUserService userService, IMyResponseFactory responseFactory, IDrawdownBrakeAccess drawdownBrakeAccess) : ControllerBase
     {
         private readonly ILogger<AccountController> _logger = logger;
         private readonly AzureSQLDBContext _DBContext = DBContext;
@@ -107,6 +108,7 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
             }
 
+            user.DrawdownBrakeEnabled = drawdownBrakeAccess.IsEnabledFor(user.IsAdmin);
             return _responseFactory.CreateOKResponse(user);
         }
     }

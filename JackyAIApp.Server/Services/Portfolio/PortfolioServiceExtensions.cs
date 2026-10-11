@@ -1,4 +1,5 @@
 using JackyAIApp.Server.Extensions;
+using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 
 namespace JackyAIApp.Server.Services.Portfolio
 {
@@ -29,6 +30,19 @@ namespace JackyAIApp.Server.Services.Portfolio
                 })
                 .AddReadOnlyResilience();
             services.AddHostedService<TwListedCompanyRefreshService>();
+
+            // 回落煞車 (Issue #431): the TAIEX total-return series, its hourly refresh, and the
+            // signal built from it. Singletons, because the client's one-request-at-a-time,
+            // 3-second spacing is only a guarantee if there is exactly one of it.
+            services.AddHttpClient(TaiexTotalReturnClient.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
+            // Deliberately no AddReadOnlyResilience(): it would retry a failed GET within a
+            // second or two, inside the minimum gap and into a rate limit. The refresh retries hourly.
+            services.AddSingleton<ITaiexTotalReturnClient, TaiexTotalReturnClient>();
+            services.AddSingleton<ITaiexTotalReturnStore, TaiexTotalReturnStore>();
+            services.AddSingleton<ITwseHolidayCalendar, TwseHolidayCalendar>();
+            services.AddSingleton<IDrawdownBrakeService, DrawdownBrakeService>();
+            services.AddSingleton<IDrawdownBrakeAccess, DrawdownBrakeAccess>();
+            services.AddHostedService<TaiexTotalReturnRefreshService>();
 
             return services;
         }

@@ -38,6 +38,14 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// </summary>
         public bool? IsAdmin { get; set; }
 
+        /// <summary>
+        /// Whether this user may use the 回落煞車 feature (admin, or <c>Features:DrawdownBrake:Audience</c>
+        /// is <c>All</c>). Not stored: filled in by <c>GET api/account/info</c> so the client knows
+        /// whether to show the feature, and false everywhere else this entity is used.
+        /// </summary>
+        [NotMapped]
+        public bool DrawdownBrakeEnabled { get; set; }
+
         // Engagement / Gamification fields
 
         /// <summary>
