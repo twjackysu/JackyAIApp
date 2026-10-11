@@ -14,11 +14,14 @@ import {
   describeCashRowAdvice,
   describeComposition,
   describeCoreRowAdvice,
+  describeLev2RowAdvice,
   describeOrders,
   describeReconciliation,
   DISCLAIMER,
   fmtMultiple,
   lastCheckedLabel,
+  LEV2_LABEL,
+  LEV2_ROW_TITLE,
   OTHERS_ADVICE,
   OTHERS_REMINDER,
   priceFailedMessage,
@@ -40,10 +43,11 @@ function makeAdvice(overrides: Partial<Advice>): Advice {
     eReach: 1.4,
     aboveTarget: false,
     capped: false,
-    targets: { '0050': 200_000, '00631L': 600_000, cash: 200_000 },
-    weights: { '0050': 0.2, '00631L': 0.6, cash: 0.2 },
+    targets: { '0050': 200_000, lev2: 600_000, cash: 200_000 },
+    weights: { '0050': 0.2, lev2: 0.6, cash: 0.2 },
     othersShare: 0,
     orders: [],
+    lev2Change: 0,
     cashChange: 0,
     ...overrides,
   };
@@ -79,18 +83,18 @@ describe('固定揭露文字（警語逐字對照 #431；數字對照 Boss 更�
 });
 
 describe('格式化', () => {
-  it('目標配置：非 0 項目、00631L 在前', () => {
-    expect(describeComposition({ '0050': 0.2, '00631L': 0.6, cash: 0.2 })).toBe(
-      '00631L 60% / 0050 20% / 現金 20%',
+  it('目標配置：非 0 項目、台股正 2 在前；只列類別，不逐檔列目標（DECISION-021）', () => {
+    expect(LEV2_LABEL).toBe('台股正 2');
+    expect(describeComposition({ '0050': 0.2, lev2: 0.6, cash: 0.2 })).toBe(
+      '台股正 2 60% / 0050 20% / 現金 20%',
     );
-    expect(describeComposition({ '0050': 0, '00631L': 0, cash: 1 })).toBe('現金 100%');
-    expect(describeComposition({ '0050': 0.3, '00631L': 0, cash: 0.7 })).toBe(
-      '0050 30% / 現金 70%',
-    );
+    expect(describeComposition({ '0050': 0, lev2: 0, cash: 1 })).toBe('現金 100%');
+    expect(describeComposition({ '0050': 0.3, lev2: 0, cash: 0.7 })).toBe('0050 30% / 現金 70%');
     // 浮點誤差不會漏成 20.000000000000018%
-    expect(describeComposition({ '0050': 0.20000000000000018, '00631L': 0.6, cash: 0.2 })).toBe(
-      '00631L 60% / 0050 20% / 現金 20%',
+    expect(describeComposition({ '0050': 0.20000000000000018, lev2: 0.6, cash: 0.2 })).toBe(
+      '台股正 2 60% / 0050 20% / 現金 20%',
     );
+    expect(describeComposition({ '0050': 0.2, lev2: 0.6, cash: 0.2 })).not.toMatch(/00631L|00685L/);
   });
 
   it('有效曝險倍數：最多兩位小數、去掉多餘的 0', () => {
@@ -119,7 +123,7 @@ describe('adviceMessage（#431 §10 四種文案）', () => {
         switched: true,
         eActual: 1.4,
         eTarget: 0,
-        weights: { '0050': 0, '00631L': 0, cash: 1 },
+        weights: { '0050': 0, lev2: 0, cash: 1 },
         orders: [
           { symbol: '0050', shares: -120 },
           { symbol: '00631L', shares: -850 },
@@ -152,7 +156,7 @@ describe('adviceMessage（#431 §10 四種文案）', () => {
       profileLabel: '平衡',
     });
     expect(text).toBe(
-      '大盤收盤站回 60 日均線，解除煞車，回到進攻。依『平衡』等級，目標配置：00631L 60% / 0050 20% / 現金 20%（有效曝險 1.4 倍）。建議買進 00631L 840 股、0050 115 股。',
+      '大盤收盤站回 60 日均線，解除煞車，回到進攻。依『平衡』等級，目標配置：台股正 2 60% / 0050 20% / 現金 20%（有效曝險 1.4 倍）。建議買進 00631L 840 股、0050 115 股。',
     );
   });
 
@@ -171,7 +175,7 @@ describe('adviceMessage（#431 §10 四種文案）', () => {
 
   it('不動（防守）：不談「距離觸發點」，改說明解除條件', () => {
     const text = adviceMessage({
-      advice: makeAdvice({ eActual: 0, eTarget: 0, weights: { '0050': 0, '00631L': 0, cash: 1 } }),
+      advice: makeAdvice({ eActual: 0, eTarget: 0, weights: { '0050': 0, lev2: 0, cash: 1 } }),
       state: 'DEFENSE',
       drawdownPct: -12.3,
       distanceToTriggerPct: -4.3,
@@ -221,12 +225,14 @@ describe('需求 12 文案', () => {
   it('其他持股一列的建議欄、提醒與績效範圍標示逐字固定（R8、A26）', () => {
     expect(OTHERS_ADVICE).toBe('不動（由您自行決定）');
     expect(OTHERS_REMINDER).toBe('其他持股未經回測，僅計入整體曝險、不給建議，由您自行決定。');
-    expect(BACKTEST_SCOPE_NOTE).toBe('以上績效依 0050＋00631L＋現金回測，不是整個流動資產的績效。');
+    expect(BACKTEST_SCOPE_NOTE).toBe(
+      '以上績效依 0050＋00631L＋現金回測；00685L 視同 00631L（您的判斷），未單獨回測，也不是整個流動資產的績效。',
+    );
   });
 
   it('aboveTarget 標示（12c）：差額來自其他持股', () => {
     expect(aboveTargetNotice(0.4, 0)).toBe(
-      '即使 0050／00631L 全部轉為現金，整體曝險仍有 0.4 倍，高於目標 0 倍；差額來自您自行決定的其他持股',
+      '即使 0050 與台股正 2 全部轉為現金，整體曝險仍有 0.4 倍，高於目標 0 倍；差額來自您自行決定的其他持股',
     );
   });
 
@@ -242,9 +248,12 @@ describe('需求 12 文案', () => {
     expect(priceFailedMessage(2)).toBe('2 檔持股價格取得失敗，暫時無法算出建議');
     expect(coreFactorAnomalyMessage('0050', 1)).toContain('0050');
     expect(coreFactorAnomalyMessage('00631L', 2)).toContain('2 倍');
+    expect(coreFactorAnomalyMessage('00685L', 2)).toBe(
+      '00685L 的曝險倍數與策略定義（2 倍）不符，暫時無法算出建議，請回報給作者',
+    );
   });
 
-  it('對帳行（12a／A24）：流動總資產、水位、不含 X、策略範圍、曝險', () => {
+  it('對帳行（12a／A24，機制保留）：流動總資產、水位、不含 X、策略範圍、曝險', () => {
     expect(
       describeReconciliation({
         liquidGross: 'NT$11,000,000',
@@ -272,6 +281,14 @@ describe('需求 12 文案', () => {
     expect(text).not.toContain('（）');
   });
 
+  it('台股正 2 類一列：標題附成員；類別層級的加碼／減碼／不動與金額', () => {
+    expect(LEV2_ROW_TITLE).toBe('台股正 2（00631L／00685L）');
+    expect(describeLev2RowAdvice(1_500_000, fmt)).toBe('加碼：買進約 NT$1,500,000');
+    expect(describeLev2RowAdvice(-1_100_000, fmt)).toBe('減碼：賣出約 NT$1,100,000');
+    expect(describeLev2RowAdvice(0, fmt)).toBe('不動');
+    expect(describeLev2RowAdvice(0.4, fmt)).toBe('不動'); // 四捨五入為 0 不出現「約 NT$0」
+  });
+
   it('核心股票列：加碼／減碼／不動，含整數股數與金額', () => {
     expect(describeCoreRowAdvice({ symbol: '0050', shares: -58_333 }, 60, fmt)).toBe(
       '減碼：賣出 58,333 股（約 NT$3,499,980）',
@@ -290,11 +307,11 @@ describe('需求 12 文案', () => {
   });
 
   it('目標配置：有其他持股時補上它們的占比，各項加起來是 100%', () => {
-    expect(describeComposition({ '0050': 0.05, '00631L': 0.6, cash: 0.2 }, 0.15)).toBe(
-      '00631L 60% / 0050 5% / 現金 20% / 其他持股 15%',
+    expect(describeComposition({ '0050': 0.05, lev2: 0.6, cash: 0.2 }, 0.15)).toBe(
+      '台股正 2 60% / 0050 5% / 現金 20% / 其他持股 15%',
     );
-    expect(describeComposition({ '0050': 0.2, '00631L': 0.6, cash: 0.2 }, 0)).toBe(
-      '00631L 60% / 0050 20% / 現金 20%',
+    expect(describeComposition({ '0050': 0.2, lev2: 0.6, cash: 0.2 }, 0)).toBe(
+      '台股正 2 60% / 0050 20% / 現金 20%',
     );
   });
 
@@ -309,10 +326,11 @@ describe('需求 12 文案', () => {
         eReach: 0.9,
         aboveTarget: false,
         capped: true,
-        targets: { '0050': 0, '00631L': 1_000_000, cash: 2_000_000 },
-        weights: { '0050': 0, '00631L': 0.1, cash: 0.2 },
+        targets: { '0050': 0, lev2: 1_000_000, cash: 2_000_000 },
+        weights: { '0050': 0, lev2: 0.1, cash: 0.2 },
         othersShare: 0.7,
         orders: [{ symbol: '00631L', shares: 33_333 }],
+        lev2Change: 999_990,
         cashChange: -999_990,
       },
       state: 'OFFENSE',

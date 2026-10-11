@@ -50,11 +50,17 @@ function fmtWeightPct(w: number): string {
   return `${Math.round(w * 1000) / 10}%`;
 }
 
-/** 目標配置，例：「00631L 60% / 0050 20% / 現金 20%」；0% 的項目不列。有其他持股時最後補上它們
+/** 台股正 2 類（00631L＋00685L）在畫面上的名稱。目標只有類別層級，不逐檔列。 */
+export const LEV2_LABEL = '台股正 2';
+
+/** 台股正 2 類一列的標題，附上成員。 */
+export const LEV2_ROW_TITLE = `${LEV2_LABEL}（00631L／00685L）`;
+
+/** 目標配置，例：「台股正 2 60% / 0050 20% / 現金 20%」；0% 的項目不列。有其他持股時最後補上它們
  * 占策略範圍資產的比例，讓各項加起來是 100%（核心的權重是占「策略範圍資產」，不是占核心）。 */
 export function describeComposition(weights: Weights, othersShare = 0): string {
   const parts: string[] = [];
-  if (weights['00631L'] > 1e-9) parts.push(`00631L ${fmtWeightPct(weights['00631L'])}`);
+  if (weights.lev2 > 1e-9) parts.push(`${LEV2_LABEL} ${fmtWeightPct(weights.lev2)}`);
   if (weights['0050'] > 1e-9) parts.push(`0050 ${fmtWeightPct(weights['0050'])}`);
   if (weights.cash > 1e-9) parts.push(`現金 ${fmtWeightPct(weights.cash)}`);
   if (othersShare > 1e-9) parts.push(`其他持股 ${fmtWeightPct(othersShare)}`);
@@ -144,8 +150,10 @@ export const OTHERS_ADVICE = '不動（由您自行決定）';
 /** 其他持股的提醒（R8）：未經回測，所以不替它們訂目標，也不給建議。 */
 export const OTHERS_REMINDER = '其他持股未經回測，僅計入整體曝險、不給建議，由您自行決定。';
 
-/** 績效區塊的範圍標示（R8）：回測績效不是整個流動資產的績效。 */
-export const BACKTEST_SCOPE_NOTE = '以上績效依 0050＋00631L＋現金回測，不是整個流動資產的績效。';
+/** 績效區塊的範圍標示（R8）：回測績效不是整個流動資產的績效；00685L 沒有單獨回測（PM v4.3 用語，
+ * PM 可再改字）。 */
+export const BACKTEST_SCOPE_NOTE =
+  '以上績效依 0050＋00631L＋現金回測；00685L 視同 00631L（您的判斷），未單獨回測，也不是整個流動資產的績效。';
 
 /** 現金類包含外幣與債券／貨幣型，金額變動不等於「換成台幣現金」（架構決策第 2 點）。 */
 export const CASH_BUCKET_NOTE =
@@ -156,7 +164,7 @@ export const CAPPED_NO_OTHERS = '現金比例過高，無法達到此曝險';
 
 /** 其他持股單獨就已高於目標（12c）。`eReach` 即核心降到最低後的整體曝險。 */
 export function aboveTargetNotice(eReach: number, eTarget: number): string {
-  return `即使 0050／00631L 全部轉為現金，整體曝險仍有 ${fmtMultiple(eReach)} 倍，高於目標 ${fmtMultiple(eTarget)} 倍；差額來自您自行決定的其他持股`;
+  return `即使 0050 與${LEV2_LABEL} 全部轉為現金，整體曝險仍有 ${fmtMultiple(eReach)} 倍，高於目標 ${fmtMultiple(eTarget)} 倍；差額來自您自行決定的其他持股`;
 }
 
 /** 目標在其他持股與最低現金限制下無法達到（12c）。 */
@@ -170,7 +178,7 @@ export function priceFailedMessage(count: number): string {
   return `${count} 檔持股價格取得失敗，暫時無法算出建議`;
 }
 
-/** 0050／00631L 的曝險倍數與策略定義不符（名稱分類意外）→ 不給建議。 */
+/** 核心標的（0050、台股正 2 類的 00631L／00685L）的曝險倍數與策略定義不符（名稱分類意外）→ 不給建議。 */
 export function coreFactorAnomalyMessage(symbol: StrategySymbol, expected: number): string {
   return `${symbol} 的曝險倍數與策略定義（${expected} 倍）不符，暫時無法算出建議，請回報給作者`;
 }
@@ -192,13 +200,14 @@ export interface ReconciliationInput {
   eActual: number;
 }
 
-/** 對帳行（12a／A24）：讓使用者看出卡片的 E 為何和右上角水位不同。只有存在被排除持股才顯示。 */
+/** 對帳行（12a／A24）：讓使用者看出卡片的 E 為何和右上角水位不同。只有存在被排除持股才顯示；
+ * `STRATEGY_EXCLUDED` 目前是空表（DECISION-021，NTSD 已納入），所以正常情況不會出現。 */
 export function describeReconciliation(input: ReconciliationInput): string {
   const water = input.waterPct == null ? '' : `（水位 ${input.waterPct.toFixed(1)}%）`;
   return `流動總資產 ${input.liquidGross}${water}；不含 ${input.excludedSymbols.join('、')} ${input.excludedValue}；策略範圍 ${input.scopeAssets} → 曝險 ${fmtMultiple(input.eActual)} 倍`;
 }
 
-/** 核心股票列（0050／00631L）的建議欄：「加碼：買進 116,667 股（約 NT$3,500,010）」「不動」。 */
+/** 核心股票（0050、00631L、00685L）的建議欄：「加碼：買進 116,667 股（約 NT$3,500,010）」「不動」。 */
 export function describeCoreRowAdvice(
   order: Order | undefined,
   price: number,
@@ -208,6 +217,14 @@ export function describeCoreRowAdvice(
   const amount = Math.abs(order.shares) * price;
   const verb = order.shares < 0 ? '減碼：賣出' : '加碼：買進';
   return `${verb} ${fmtNum(Math.abs(order.shares))} 股（約 NT$${fmtAmount(amount)}）`;
+}
+
+/** 台股正 2 類一列的建議欄：類別層級的加碼／減碼／不動與金額，各檔股數另列在其下。
+ * 金額 ＝ Σ(實際建議股數 × 價格)，與下方各檔的「約 NT$」合計一致。 */
+export function describeLev2RowAdvice(change: number, fmtAmount: (n: number) => string): string {
+  const rounded = Math.round(change);
+  if (rounded === 0) return '不動';
+  return `${rounded > 0 ? '加碼：買進' : '減碼：賣出'}約 NT$${fmtAmount(Math.abs(rounded))}`;
 }
 
 /** 現金類列的建議欄：金額變動 ＝ −Σ(實際建議股數 × 價格)。 */

@@ -15,13 +15,15 @@ import {
   sanitizeBrakeSettings,
   saveBrakeSettings,
   ScopeHoldings,
+  splitLev2Order,
+  StrategyPrices,
 } from './drawdownBrake';
 
 const BALANCED: BrakeParams = { eOn: 1.4, eOff: 0, k: 0.2 };
 
 /** 沒有其他持股的範圍內持股（退化情況：與原本只看 0050 + 00631L + 現金的算法相同）。 */
 function scope(v50: number, v631: number, cash: number): ScopeHoldings {
-  return { '0050': v50, '00631L': v631, cash, othersValue: 0, othersExposure: 0 };
+  return { '0050': v50, lev2: v631, cash, othersValue: 0, othersExposure: 0 };
 }
 
 /** 有其他持股：`value` 為市值、`factor` 為它們的平均曝險倍數（1 ＝ 一倍商品）。 */
@@ -32,7 +34,7 @@ function withOthers(
   value: number,
   factor = 1,
 ): ScopeHoldings {
-  return { '0050': v50, '00631L': v631, cash, othersValue: value, othersExposure: value * factor };
+  return { '0050': v50, lev2: v631, cash, othersValue: value, othersExposure: value * factor };
 }
 
 describe('PROFILES', () => {
@@ -52,7 +54,7 @@ describe('composition (#431 §3 / §9)', () => {
   it('(1.4, 0.2) → 0050 20% / 00631L 60% / 現金 20%', () => {
     const c = composition(1.4, 0.2);
     expect(c.weights['0050']).toBeCloseTo(0.2, 12);
-    expect(c.weights['00631L']).toBeCloseTo(0.6, 12);
+    expect(c.weights.lev2).toBeCloseTo(0.6, 12);
     expect(c.weights.cash).toBeCloseTo(0.2, 12);
     expect(c.truncated).toBe(false);
   });
@@ -60,7 +62,7 @@ describe('composition (#431 §3 / §9)', () => {
   it('(1.0, 0.2) → 60% / 20% / 20%', () => {
     const c = composition(1.0, 0.2);
     expect(c.weights['0050']).toBeCloseTo(0.6, 12);
-    expect(c.weights['00631L']).toBeCloseTo(0.2, 12);
+    expect(c.weights.lev2).toBeCloseTo(0.2, 12);
     expect(c.weights.cash).toBeCloseTo(0.2, 12);
     expect(c.truncated).toBe(false);
   });
@@ -69,28 +71,28 @@ describe('composition (#431 §3 / §9)', () => {
     const c = composition(1.8, 0.2);
     expect(c.effectiveE).toBeCloseTo(1.6, 12);
     expect(c.weights['0050']).toBeCloseTo(0, 12);
-    expect(c.weights['00631L']).toBeCloseTo(0.8, 12);
+    expect(c.weights.lev2).toBeCloseTo(0.8, 12);
     expect(c.weights.cash).toBeCloseTo(0.2, 12);
     expect(c.truncated).toBe(true);
   });
 
   it('(0, 0.2) → 現金 100%', () => {
     const c = composition(0, 0.2);
-    expect(c.weights).toEqual({ '0050': 0, '00631L': 0, cash: 1 });
+    expect(c.weights).toEqual({ '0050': 0, lev2: 0, cash: 1 });
     expect(c.truncated).toBe(false);
   });
 
   it('(1.8, 0.1)（積極）剛好可行 → 0 / 90% / 10%，不算截斷', () => {
     const c = composition(1.8, 0.1);
     expect(c.weights['0050']).toBeCloseTo(0, 12);
-    expect(c.weights['00631L']).toBeCloseTo(0.9, 12);
+    expect(c.weights.lev2).toBeCloseTo(0.9, 12);
     expect(c.weights.cash).toBeCloseTo(0.1, 12);
     expect(c.truncated).toBe(false);
   });
 
   it('(0.3, 0.2)（防守 E=0.3）→ 0050 30% / 現金 70%', () => {
     const c = composition(0.3, 0.2);
-    expect(c.weights).toEqual({ '0050': 0.3, '00631L': 0, cash: 0.7 });
+    expect(c.weights).toEqual({ '0050': 0.3, lev2: 0, cash: 0.7 });
   });
 
   it('權重總和永遠是 1', () => {
@@ -103,7 +105,7 @@ describe('composition (#431 §3 / §9)', () => {
       [1.4, 0.5],
     ]) {
       const { weights } = composition(E, k);
-      expect(weights['0050'] + weights['00631L'] + weights.cash).toBeCloseTo(1, 12);
+      expect(weights['0050'] + weights.lev2 + weights.cash).toBeCloseTo(1, 12);
     }
   });
 });
@@ -297,10 +299,10 @@ describe('advise — 整個流動資產（需求 12c）', () => {
               holdings,
               prices,
             );
-            const A = holdings['0050'] + holdings['00631L'] + holdings.cash;
+            const A = holdings['0050'] + holdings.lev2 + holdings.cash;
             expect(advice.scopeAssets).toBe(A);
             expect(advice.targets['0050'] / A).toBeCloseTo(expected.weights['0050'], 9);
-            expect(advice.targets['00631L'] / A).toBeCloseTo(expected.weights['00631L'], 9);
+            expect(advice.targets.lev2 / A).toBeCloseTo(expected.weights.lev2, 9);
             expect(advice.targets.cash / A).toBeCloseTo(expected.weights.cash, 9);
             expect(advice.eReach).toBeCloseTo(expected.effectiveE, 9);
             expect(advice.capped).toBe(expected.truncated);
@@ -326,7 +328,7 @@ describe('advise — 整個流動資產（需求 12c）', () => {
         { symbol: '00631L', shares: 116_667 },
       ]);
       expect(advice.targets['0050']).toBeCloseTo(0.5 * M, 6);
-      expect(advice.targets['00631L']).toBeCloseTo(6 * M, 6);
+      expect(advice.targets.lev2).toBeCloseTo(6 * M, 6);
       expect(advice.targets.cash).toBeCloseTo(2 * M, 6);
       expect(advice.aboveTarget).toBe(false);
       expect(advice.capped).toBe(false);
@@ -354,7 +356,7 @@ describe('advise — 整個流動資產（需求 12c）', () => {
         { symbol: '0050', shares: -41_667 },
         { symbol: '00631L', shares: -83_333 },
       ]);
-      expect(advice.targets).toEqual({ '0050': 0, '00631L': 0, cash: 6 * M });
+      expect(advice.targets).toEqual({ '0050': 0, lev2: 0, cash: 6 * M });
 
       // 執行後：核心降到最低；仍是切換日（switched ＝ true），但沒有可執行的動作 → 「不動」＋同一標示
       const after = withOthers(0, 0, 6 * M, 4 * M);
@@ -406,7 +408,7 @@ describe('advise — 整個流動資產（需求 12c）', () => {
           for (const order of advice.orders) {
             expect(['0050', '00631L']).toContain(order.symbol);
           }
-          expect(Object.keys(advice.targets).sort()).toEqual(['0050', '00631L', 'cash']);
+          expect(Object.keys(advice.targets).sort()).toEqual(['0050', 'cash', 'lev2']);
         });
       }
     }
@@ -428,7 +430,7 @@ describe('advise — 整個流動資產（需求 12c）', () => {
       prices,
     );
     expect(large.eActual).not.toBeCloseTo(small.eActual, 6);
-    expect(large.targets['00631L']).not.toBeCloseTo(small.targets['00631L'], 6);
+    expect(large.targets.lev2).not.toBeCloseTo(small.targets.lev2, 6);
   });
 
   it('A ＝ 0050 + 00631L + 現金類 + 其他持股；E ＝ (v50 + 2·v631 + X_o) ÷ A', () => {
@@ -452,11 +454,8 @@ describe('advise — 整個流動資產（需求 12c）', () => {
       prices,
     );
     const { targets, weights } = advice;
-    expect(targets['0050'] + targets['00631L'] + targets.cash + 4 * M).toBeCloseTo(10 * M, 6);
-    expect(weights['0050'] + weights['00631L'] + weights.cash + advice.othersShare).toBeCloseTo(
-      1,
-      12,
-    );
+    expect(targets['0050'] + targets.lev2 + targets.cash + 4 * M).toBeCloseTo(10 * M, 6);
+    expect(weights['0050'] + weights.lev2 + weights.cash + advice.othersShare).toBeCloseTo(1, 12);
   });
 
   it('觸發比較「可達 E」：目標不可達時，調整完不會永遠被判偏離', () => {
@@ -526,6 +525,259 @@ describe('advise — 整個流動資產（需求 12c）', () => {
     });
     expect(advice.orders.every((o) => o.symbol === '00631L')).toBe(true);
     expect(Number.isFinite(advice.cashChange)).toBe(true);
+  });
+});
+
+describe('splitLev2Order — 台股正 2 類的金額變動分配到各檔（DECISION-021）', () => {
+  const prices: StrategyPrices = { '0050': 60, '00631L': 30, '00685L': 20 };
+  // 00631L 600（20 股 × 30）、00685L 400（20 股 × 20）：現值比例 60／40
+  const both = [
+    { symbol: '00631L' as const, value: 600, shares: 20 },
+    { symbol: '00685L' as const, value: 400, shares: 20 },
+  ];
+
+  it('減碼：依各檔現值比例分攤賣出金額', () => {
+    expect(splitLev2Order(-500, both, prices)).toEqual([
+      { symbol: '00631L', shares: -10 }, // 300 ÷ 30
+      { symbol: '00685L', shares: -10 }, // 200 ÷ 20
+    ]);
+  });
+
+  it('減碼上限：每檔不會賣超過持有股數', () => {
+    // 分攤後 00631L 該賣 24 股，但只有 20 股
+    expect(splitLev2Order(-1_200, both, prices)).toEqual([
+      { symbol: '00631L', shares: -20 },
+      { symbol: '00685L', shares: -20 },
+    ]);
+  });
+
+  it('取整：.5 一律遠離 0（賣 2.5 股 → 3 股，買 2.5 股 → 3 股）', () => {
+    const only = [{ symbol: '00631L' as const, value: 3_000, shares: 100 }];
+    expect(splitLev2Order(-75, only, prices)).toEqual([{ symbol: '00631L', shares: -3 }]);
+    expect(splitLev2Order(75, only, prices)).toEqual([{ symbol: '00631L', shares: 3 }]);
+  });
+
+  it('只持有一檔：全部給那一檔（減碼、加碼都是）', () => {
+    const only00685L = [{ symbol: '00685L' as const, value: 5_000, shares: 250 }];
+    expect(splitLev2Order(-1_100, only00685L, prices)).toEqual([{ symbol: '00685L', shares: -55 }]);
+    expect(splitLev2Order(1_100, only00685L, prices)).toEqual([{ symbol: '00685L', shares: 55 }]);
+  });
+
+  it('都沒持有：加碼全部買 00631L（回測標的）；00685L 的價格有沒有都不影響', () => {
+    expect(splitLev2Order(900, [], prices)).toEqual([{ symbol: '00631L', shares: 30 }]);
+    expect(splitLev2Order(900, [], { '00631L': 30 })).toEqual([{ symbol: '00631L', shares: 30 }]);
+  });
+
+  it('加碼：依各檔持有現值比例，只給有持有的', () => {
+    expect(splitLev2Order(1_500, both, prices)).toEqual([
+      { symbol: '00631L', shares: 30 }, // 900 ÷ 30
+      { symbol: '00685L', shares: 30 }, // 600 ÷ 20
+    ]);
+    const only00631L = [{ symbol: '00631L' as const, value: 600, shares: 20 }];
+    expect(splitLev2Order(1_500, only00631L, prices)).toEqual([{ symbol: '00631L', shares: 50 }]);
+  });
+
+  it('沒有變動（0、非有限數）→ 沒有 order', () => {
+    expect(splitLev2Order(0, both, prices)).toEqual([]);
+    expect(splitLev2Order(Number.NaN, both, prices)).toEqual([]);
+    expect(splitLev2Order(Number.POSITIVE_INFINITY, both, prices)).toEqual([]);
+  });
+
+  it('缺價格（沒給、≤ 0）的標的不產生 order，也不影響另一檔', () => {
+    expect(splitLev2Order(-500, both, { '00631L': 30 })).toEqual([
+      { symbol: '00631L', shares: -10 },
+    ]);
+    expect(splitLev2Order(1_500, both, { ...prices, '00685L': 0 })).toEqual([
+      { symbol: '00631L', shares: 30 },
+    ]);
+    expect(splitLev2Order(900, [], {})).toEqual([]);
+  });
+
+  it('現值為 0 的成員不參與分配；結果沒有 0 股，也沒有 -0', () => {
+    const withZero = [...both, { symbol: '00631L' as const, value: 0, shares: 0 }];
+    expect(splitLev2Order(-500, withZero, prices)).toHaveLength(2);
+    // 金額小到取整後為 0 股
+    expect(splitLev2Order(-10, both, prices)).toEqual([]);
+    expect(splitLev2Order(10, both, prices)).toEqual([]);
+  });
+});
+
+describe('advise — 台股正 2 類（DECISION-021；平衡等級，價格 0050＝60、00631L＝30、00685L＝20）', () => {
+  const M = 1_000_000;
+  const prices: StrategyPrices = { '0050': 60, '00631L': 30, '00685L': 20 };
+  const lev2 = (v631: number, v685: number) => ({
+    lev2: v631 + v685,
+    lev2Holdings: [
+      ...(v631 > 0 ? [{ symbol: '00631L' as const, value: v631, shares: v631 / 30 }] : []),
+      ...(v685 > 0 ? [{ symbol: '00685L' as const, value: v685, shares: v685 / 20 }] : []),
+    ],
+  });
+  const hold = (v50: number, v631: number, v685: number, cash: number, others = 0, factor = 1) =>
+    ({
+      '0050': v50,
+      ...lev2(v631, v685),
+      cash,
+      othersValue: others,
+      othersExposure: others * factor,
+    }) satisfies ScopeHoldings;
+
+  it('S4 兩檔正 2 都持有、過度曝險：兩檔各賣 22,000 股、0050 買 13,333 股；執行後為「不動」', () => {
+    const advice = advise(
+      'OFFENSE',
+      'OFFENSE',
+      BALANCED,
+      hold(0.5 * M, 3 * M, 2 * M, 1 * M),
+      prices,
+    );
+    expect(advice.scopeAssets).toBe(6.5 * M);
+    expect(advice.eActual).toBeCloseTo(1.6154, 4);
+    expect(advice.action).toBe('減碼');
+    expect(advice.orders).toEqual([
+      { symbol: '00631L', shares: -22_000 },
+      { symbol: '00685L', shares: -22_000 },
+      { symbol: '0050', shares: 13_333 },
+    ]);
+    expect(advice.lev2Change).toBeCloseTo(-1_100_000, 6); // 類別一個結論、一個金額
+    expect(advice.cashChange).toBeCloseTo(300_020, 6);
+    expect(advice.targets['0050']).toBeCloseTo(1.3 * M, 6);
+    expect(advice.targets.lev2).toBeCloseTo(3.9 * M, 6);
+    expect(advice.targets.cash).toBeCloseTo(1.3 * M, 6);
+
+    // 執行後（忽略取整）再算：不動
+    const again = advise(
+      'OFFENSE',
+      'OFFENSE',
+      BALANCED,
+      hold(1.3 * M, 2.34 * M, 1.56 * M, 1.3 * M),
+      prices,
+    );
+    expect(again.action).toBe('不動');
+    expect(again.orders).toEqual([]);
+  });
+
+  it('S5 沒持有任何正 2：預設買 00631L 120,000 股、0050 買 3,333 股；執行後為「不動」', () => {
+    const advice = advise('OFFENSE', 'OFFENSE', BALANCED, hold(1 * M, 0, 0, 5 * M), prices);
+    expect(advice.action).toBe('加碼');
+    expect(advice.orders).toEqual([
+      { symbol: '0050', shares: 3_333 },
+      { symbol: '00631L', shares: 120_000 },
+    ]);
+    expect(advice.lev2Change).toBeCloseTo(3_600_000, 6);
+    expect(advice.cashChange).toBeCloseTo(-3_799_980, 6);
+
+    const again = advise(
+      'OFFENSE',
+      'OFFENSE',
+      BALANCED,
+      hold(1.2 * M, 3.6 * M, 0, 1.2 * M),
+      prices,
+    );
+    expect(again.action).toBe('不動');
+  });
+
+  it('S6 只持有 00685L：全給那一檔，賣 55,000 股；0050 買 13,333 股', () => {
+    const advice = advise('OFFENSE', 'OFFENSE', BALANCED, hold(0.5 * M, 0, 5 * M, 1 * M), prices);
+    expect(advice.action).toBe('減碼');
+    expect(advice.orders).toEqual([
+      { symbol: '00685L', shares: -55_000 },
+      { symbol: '0050', shares: 13_333 },
+    ]);
+    expect(advice.orders.some((o) => o.symbol === '00631L')).toBe(false);
+  });
+
+  it('S7 Boss 的持股（含 NTSD 與 00685L）：A ＝ 7.5M、E ＝ 1.1333 ＝ 水位，加碼一個結論', () => {
+    // 0050 1.0／00631L 1.5／00685L 1.0／現金類 2.0／其他一倍 1.0／NTSD 1.0（1.5 倍）
+    const holdings = {
+      '0050': 1 * M,
+      ...lev2(1.5 * M, 1 * M),
+      cash: 2 * M,
+      othersValue: 2 * M, // 其他一倍 1.0 ＋ NTSD 1.0
+      othersExposure: 1 * M + 1.5 * M,
+    } satisfies ScopeHoldings;
+    const advice = advise('OFFENSE', 'OFFENSE', BALANCED, holdings, prices);
+    expect(advice.scopeAssets).toBe(7.5 * M);
+    // 水位 ＝ (1.0 + 2×2.5 + 1.0 + 1.5) ÷ 7.5
+    expect(advice.eActual).toBeCloseTo((1 + 5 + 1 + 1.5) / 7.5, 12);
+    expect(advice.eActual).toBeCloseTo(1.1333, 4);
+    expect(advice.eReach).toBeCloseTo(1.4, 12);
+    expect(advice.capped).toBe(false);
+    expect(advice.aboveTarget).toBe(false);
+    expect(advice.targets['0050']).toBeCloseTo(0, 6);
+    expect(advice.targets.lev2).toBeCloseTo(4 * M, 6);
+    expect(advice.targets.cash).toBeCloseTo(1.5 * M, 6);
+    expect(advice.action).toBe('加碼');
+    expect(advice.orders).toEqual([
+      { symbol: '0050', shares: -16_667 },
+      { symbol: '00631L', shares: 30_000 },
+      { symbol: '00685L', shares: 30_000 },
+    ]);
+    expect(advice.cashChange).toBeCloseTo(-499_980, 6);
+
+    // 執行後（忽略取整）再算：不動
+    const after = {
+      '0050': 0,
+      ...lev2(2.4 * M, 1.6 * M),
+      cash: 1.5 * M,
+      othersValue: 2 * M,
+      othersExposure: 2.5 * M,
+    } satisfies ScopeHoldings;
+    expect(advise('OFFENSE', 'OFFENSE', BALANCED, after, prices).action).toBe('不動');
+  });
+
+  it('類別層級只給一個方向：兩檔不會一檔加碼、另一檔減碼', () => {
+    const cases = [
+      hold(0.5 * M, 3 * M, 2 * M, 1 * M),
+      hold(0.5 * M, 0.2 * M, 4 * M, 1 * M),
+      hold(1 * M, 0.3 * M, 0.1 * M, 5 * M),
+      hold(0, 1 * M, 1 * M, 0),
+    ];
+    for (const holdings of cases) {
+      for (const state of ['OFFENSE', 'DEFENSE'] as const) {
+        const orders = advise('DEFENSE', state, BALANCED, holdings, prices).orders.filter(
+          (o) => o.symbol !== '0050',
+        );
+        expect(new Set(orders.map((o) => Math.sign(o.shares))).size).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('進入防守：兩檔全部賣出，不會賣超過持有股數', () => {
+    const holdings = hold(0.5 * M, 3 * M, 2 * M, 1 * M);
+    const advice = advise('OFFENSE', 'DEFENSE', BALANCED, holdings, prices);
+    expect(advice.orders).toEqual([
+      { symbol: '0050', shares: -8_333 },
+      { symbol: '00631L', shares: -100_000 },
+      { symbol: '00685L', shares: -100_000 },
+    ]);
+    expect(advice.targets.lev2).toBe(0);
+  });
+
+  it('價格缺失的正 2 成員不產生 order，且不影響其他標的', () => {
+    const advice = advise('OFFENSE', 'OFFENSE', BALANCED, hold(0.5 * M, 3 * M, 2 * M, 1 * M), {
+      '0050': 60,
+      '00631L': 30,
+    });
+    expect(advice.orders.map((o) => o.symbol).sort()).toEqual(['0050', '00631L']);
+    expect(Number.isFinite(advice.cashChange)).toBe(true);
+  });
+
+  it('未提供 lev2Holdings（退化）：視為全部持有在 00631L，與只有 00631L 時相同', () => {
+    const legacy = advise('OFFENSE', 'OFFENSE', BALANCED, scope(0, 765_000, 235_000), {
+      '0050': 60,
+      '00631L': 100,
+    });
+    const explicit = advise(
+      'OFFENSE',
+      'OFFENSE',
+      BALANCED,
+      {
+        ...scope(0, 765_000, 235_000),
+        lev2Holdings: [{ symbol: '00631L', value: 765_000, shares: 7_650 }],
+      },
+      { '0050': 60, '00631L': 100 },
+    );
+    expect(legacy.orders).toEqual(explicit.orders);
+    expect(legacy.cashChange).toBe(explicit.cashChange);
   });
 });
 

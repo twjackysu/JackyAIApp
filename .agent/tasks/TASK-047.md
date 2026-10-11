@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+PR_OPENED（PR #444，待 Tech Lead 審查）
 
 ## Priority
 HIGH（Boss 正在正式環境試用；NTSD 對帳行讓卡片曝險與右上角水位對不上，是 Boss 最初就要消除的落差）
@@ -58,10 +58,25 @@ HIGH（Boss 正在正式環境試用；NTSD 對帳行讓卡片曝險與右上角
 TASK-046（#437）、TASK-043（#442）皆已 MERGED。無其他相依。工作流程：開工前先把 `Status: IN_PROGRESS` 推到 master（`ARCHITECTURE.md`「Workflow conventions」）。
 
 ## PR
-（待填）
+https://github.com/twjackysu/JackyAIApp/pull/444（`claude/nice-allen-smkjdp` → `master`）
 
 ## Result
-（待填）
+- 實作（全在 `jackyaiapp.client/src/Portfolio/`，後端、`DrawdownBrakeDto`、`portfolioApis` 無變更、無新依賴）：
+  - `drawdownBrakeScope.ts`：`STRATEGY_EXCLUDED = []`（機制保留，`classifyPositions`／`isExcluded` 新增 `excluded` 參數）；新增 `CORE_LEVERAGED_2X`、`Lev2Symbol`、`CORE_SYMBOLS`；`core00631L` → `coreLev2`，另有 `lev2Holdings`（各檔現值、股數）；`CORE_FACTORS` 由成員表產生。
+  - `drawdownBrake.ts`：`lev2` 取代 `'00631L'` 鍵（`ScopeHoldings`／`CoreTargets`／`Weights`）；`advise` 數學不變；新增 `splitLev2Order`、`DEFAULT_LEV2_BUY`、`Lev2Holding`、`StrategyPrices`（Partial）；`Advice.lev2Change`。
+  - `drawdownBrakeHoldings.ts`：`SPLIT_EVENTS` 改 `Partial`，未新增 00685L（旁註 Boss 2026-10-11 確認）；`requiredPriceSymbols`、`priceRefreshSymbols`。
+  - `drawdownBrakeCopy.ts`／`DrawdownBrakeCard.tsx`／`DrawdownBrakeRefresh.tsx`：文案、正 2 類別列與各檔縮排明細、三檔查價 hooks、重新整理範圍（`heldSymbols` → `refreshSymbols`）。
+- **Optional 第 4 點有做**：重新整理一併對 `scope.priceFailed` 中的**股票**呼叫 `refresh-price`（基金不列——後端對非 STOCK 是靜默 no-op；同代號一次；失敗者上限 5 檔；沿用 30 秒客戶端冷卻）。
+- 驗證：`npm run lint`（0 warnings）、`prettier --check`、`npm run test`（55 檔 650 項）、`npm run build` 全過；既有 `advise`／`composition` 期望值未改（只換鍵名）；S4～S7 golden 與執行後「不動」皆有測試；20 處變異測試皆被抓到；Playwright＋Chromium 對真實卡片（API 替身、harness 不提交）5 情境 × 1280／400／360px、展開前後 `scrollWidth == innerWidth`、無 console error（僅 harness 缺 favicon 的 404）。截圖（**示意資料**）：`TASK-047/desktop-1280-s4-two-lev2.png`、`mobile-360-s7-ntsd-00685L.png`、`mobile-400-s7-ntsd-00685L.png`、`mobile-360-s6-only-00685L.png`、`mobile-360-ntsd-price-failed.png`。
+- 與任務書字面不同／自行選擇：
+  - `ScopeHoldings.lev2Holdings` 為選填：省略時視為正 2 類全部持有在 00631L（股數＝市值÷價格），只為了讓既有 `advise` 測試只換鍵名、期望值不動；`toScopeHoldings` 一律提供。
+  - `Advice.lev2Change`（類別層級金額）＝Σ(實際建議股數×價格)，與下方各檔「約 NT$」合計一致，不是理想值。
+  - 類別列建議欄文案為「加碼：買進約 NT$X／減碼：賣出約 NT$X／不動」，各檔列沿用既有 `describeCoreRowAdvice`。
+  - 分桶表為了縮排明細用了巢狀 `<ul>`（`aria-label`「台股正 2（00631L／00685L）各檔」）；測試的 `renderRows` 因此改成依 `<ul>` 配對取範圍。
+  - 查價只在用得到時進行：只持有 00685L 時 00631L 不查價、也不擋建議。
+  - `priceRefreshSymbols` 放在 `drawdownBrakeHoldings.ts`（避免 `drawdownBrakeRefresh.ts` 與 `DrawdownBrakeRefresh.tsx` 兩檔只差大小寫在卡片同時被 import 的風險）。
+- 已知限制：持有三檔核心標的＋最多 5 檔失敗股票時，一次按下最多 8 個 `refresh-price`（各回整份 summary；有 30 秒客戶端冷卻）；與真實後端回應的整合未在沙箱驗證（連不到證交所／Yahoo），請 Boss 在正式環境目視確認。
+- 流程：本 session 僅限推 feature branch，未能先把 `IN_PROGRESS` 推到 master（同 TASK-043）；未動 `PROJECT_STATUS.md`（避免檔尾衝突，交 Tech Lead 於審查時一併記錄）。
 
 ## Review
 （待填）

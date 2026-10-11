@@ -6,7 +6,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { useEffect, useRef, useState } from 'react';
 
-import { StrategySymbol } from './drawdownBrake';
 import {
   cooldownHint,
   lastCheckedLabel,
@@ -49,20 +48,22 @@ type RefreshOutcome =
 
 interface DrawdownBrakeRefreshProps {
   signal: DrawdownBrakeDto;
-  /** 卡片實際使用、且使用者持有的標的（0050、00631L）。沒持有的不呼叫 refresh-price。 */
-  heldSymbols: StrategySymbol[];
+  /** 要重抓報價的代號：持有的核心標的（0050、00631L、00685L）與範圍內價格取得失敗的股票（見
+   * `priceRefreshSymbols`）。沒持有的不呼叫 refresh-price。 */
+  refreshSymbols: string[];
 }
 
 /**
  * 資料時間＋「重新整理資料」。
  *
  * 一次按下會同時：(1) 請全站重新向證交所取訊號（成功後 RTK 快取改用回應的 `signal`），(2) 對持有的
- * 0050／00631L 重抓報價（既有 `refresh-price`，完成後 Summary 快取自動重抓）。不輪詢，只在按下時請求。
+ * 核心標的（0050、00631L、00685L）與價格取得失敗的範圍內股票（例如 NTSD）重抓報價（既有
+ * `refresh-price`，完成後 Summary 快取自動重抓）。不輪詢，只在按下時請求。
  *
  * 按下後按鈕停用 30 秒（客戶端冷卻，保護報價來源）；後端回 `Throttled` 時再以它給的秒數倒數。
  * 停用的原因一律寫在畫面上，不只靠 tooltip。
  */
-export function DrawdownBrakeFreshness({ signal, heldSymbols }: DrawdownBrakeRefreshProps) {
+export function DrawdownBrakeFreshness({ signal, refreshSymbols }: DrawdownBrakeRefreshProps) {
   const [refreshSignal] = useRefreshDrawdownBrakeMutation();
   const [refreshPrice] = useRefreshPositionPriceMutation();
 
@@ -109,7 +110,7 @@ export function DrawdownBrakeFreshness({ signal, heldSymbols }: DrawdownBrakeRef
       const feeDiscountRate = loadFeeDiscountRate();
       const [signalRes, ...priceRes] = await Promise.allSettled([
         refreshSignal().unwrap(),
-        ...heldSymbols.map((symbol) => refreshPrice({ symbol, feeDiscountRate }).unwrap()),
+        ...refreshSymbols.map((symbol) => refreshPrice({ symbol, feeDiscountRate }).unwrap()),
       ]);
       setPriceFailed(priceRes.some((r) => r.status === 'rejected'));
 
