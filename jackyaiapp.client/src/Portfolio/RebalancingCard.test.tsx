@@ -49,16 +49,15 @@ describe('RebalancingCard', () => {
     expect(html).toContain('美股');
     expect(html).toContain('基金');
     expect(html).toContain('現金');
-    expect(html).toContain('不動產');
     // Target seeded from current allocation -> every bucket already balanced. (The intro
     // sentence itself mentions "買進"/"賣出" generically, so assert on the absence of an actual
     // money delta instead of those two words.)
-    expect((html.match(/±持平/g) ?? []).length).toBe(5);
+    expect((html.match(/±持平/g) ?? []).length).toBe(4);
     expect(html).not.toContain('NT$');
   });
 
   it('a saved target that differs from the current allocation shows buy/sell deltas', () => {
-    saveRebalancingTarget({ twStock: 80, usStock: 0, fund: 0, cash: 20, realEstate: 0 });
+    saveRebalancingTarget({ twStock: 80, usStock: 0, fund: 0, cash: 20 });
     const summary = makeSummary({
       twStockTWD: 200_000,
       cashTWD: 800_000,
@@ -69,14 +68,29 @@ describe('RebalancingCard', () => {
     expect(html).toContain('賣出'); // cash: current 80% -> target 20%
   });
 
-  it('excludes liability from the rebalancing buckets (exactly 5 target inputs, none for liability)', () => {
+  it('has a target input for each liquid bucket only, none for real estate or liability', () => {
     const summary = makeSummary({
       cashTWD: 100_000,
       liquidGrossAssetsTWD: 100_000,
+      realEstateTWD: 20_000_000,
       liabilityTWD: 9_000_000,
     });
     const html = renderToStaticMarkup(<RebalancingCard summary={summary} />);
-    expect((html.match(/type="number"/g) ?? []).length).toBe(5);
+    expect((html.match(/type="number"/g) ?? []).length).toBe(4);
+    expect(html).not.toContain('>不動產<');
     expect(html).not.toContain('>負債<');
+  });
+
+  it('takes each % of liquid gross assets, however much real estate there is', () => {
+    const summary = makeSummary({
+      twStockTWD: 500_000,
+      cashTWD: 500_000,
+      liquidGrossAssetsTWD: 1_000_000,
+      realEstateTWD: 20_000_000,
+    });
+    const html = renderToStaticMarkup(<RebalancingCard summary={summary} />);
+    // 50/50 of the liquid assets. With real estate in the base it would read 2.4% each.
+    expect((html.match(/50\.0% → 50\.0%/g) ?? []).length).toBe(2);
+    expect(html).toContain('分母為「流動總資產」');
   });
 });
