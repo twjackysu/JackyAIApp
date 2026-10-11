@@ -219,3 +219,51 @@ export function describeCashRowAdvice(
   if (rounded === 0) return '不動';
   return `${rounded > 0 ? '現金增加' : '現金減少'} NT$${fmtAmount(Math.abs(rounded))}`;
 }
+
+// ---- 資料時間與「重新整理資料」（TASK-043／需求 8） ----
+
+export const REFRESH_BUTTON_LABEL = '重新整理資料';
+export const REFRESH_BUTTON_BUSY_LABEL = '更新中…';
+
+/** 資料時間的兩段，各自是不可拆開的一個單位（窄螢幕放不下時整段換行，不從字中間切斷）。
+ * 訊號資料日期必顯示；伺服器最近檢查（已格式化的當地時間）沒有就整句省略，不補 1970。 */
+export function signalDateLabel(asOfDate: string | null): string {
+  return `訊號資料日期：${asOfDate ?? '—'}`;
+}
+
+export function lastCheckedLabel(formatted: string): string {
+  return `伺服器最近檢查：${formatted}`;
+}
+
+/** 重新整理成功（HTTP 200）的四種結果。`Throttled` 的字句另見 {@link throttledMessage}（秒數會倒數）。 */
+export function refreshResultMessage(
+  result: 'Updated' | 'NoNewData' | 'SourceUnavailable',
+  asOfDate: string | null,
+): string {
+  switch (result) {
+    case 'Updated':
+      return `已更新到 ${asOfDate ?? '—'}`;
+    case 'NoNewData':
+      return '目前沒有更新的資料';
+    case 'SourceUnavailable':
+      return '資料未更新：證交所暫時取不到，稍後再試';
+  }
+}
+
+/** 全站冷卻中：有人剛更新過。秒數隨倒數變動。 */
+export function throttledMessage(seconds: number): string {
+  return `剛剛已有人更新過，請 ${seconds} 秒後再試`;
+}
+
+/** 按鈕停用的原因要寫在畫面上（停用的按鈕沒有 hover／點擊，不能只靠 tooltip）。 */
+export function cooldownHint(seconds: number): string {
+  return `${seconds} 秒後可再次重新整理`;
+}
+
+/** 請求本身失敗（網路、功能未開啟、伺服器錯誤）；原本的訊號資料照舊顯示。 */
+export function refreshFailedMessage(detail: string): string {
+  return `重新整理失敗：${detail}`;
+}
+
+/** 持股報價的重新取得失敗（不影響訊號資料的更新結果）。 */
+export const PRICE_REFRESH_FAILED = '持股報價重新取得失敗，仍顯示原本的價格。';

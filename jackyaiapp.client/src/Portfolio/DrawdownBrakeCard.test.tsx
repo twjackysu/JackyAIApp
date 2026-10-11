@@ -7,18 +7,28 @@ import { saveBrakeSettings } from './drawdownBrake';
 import { DrawdownBrakeCard } from './DrawdownBrakeCard';
 import { MASK, PrivacyContext, PrivacyMode } from './privacy';
 
-import { DrawdownBrakeDto, PortfolioSummaryDto, PositionDto } from '@/apis/portfolioApis/types';
+import {
+  DrawdownBrakeDto,
+  DrawdownBrakeRefreshDto,
+  PortfolioSummaryDto,
+  PositionDto,
+} from '@/apis/portfolioApis/types';
 
 const mocks = vi.hoisted(() => ({
   userInfo: vi.fn(),
   brake: vi.fn(),
   lookup: vi.fn(),
+  // 兩個 mutation 的 trigger：回傳 `{ unwrap }`，和 RTK Query 的 MutationActionCreatorResult 一樣。
+  refreshSignal: vi.fn(),
+  refreshPrice: vi.fn(),
 }));
 
 vi.mock('@/apis/accountApis', () => ({ useGetUserInfoQuery: () => mocks.userInfo() }));
 vi.mock('@/apis/portfolioApis', () => ({
   useGetDrawdownBrakeQuery: (...args: unknown[]) => mocks.brake(...args),
   useLookupStockQuery: (...args: unknown[]) => mocks.lookup(...args),
+  useRefreshDrawdownBrakeMutation: () => [(...args: unknown[]) => mocks.refreshSignal(...args)],
+  useRefreshPositionPriceMutation: () => [(...args: unknown[]) => mocks.refreshPrice(...args)],
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -124,6 +134,8 @@ function makeSignal(overrides: Partial<DrawdownBrakeDto> = {}): DrawdownBrakeDto
     isInitializing: false,
     estimate: null,
     estimateCorrected: false,
+    lastCheckedAt: '2026-10-09T07:05:00Z',
+    generatedAt: '2026-10-09T07:06:00Z',
     ...overrides,
   };
 }
@@ -153,6 +165,29 @@ function lookupPrices(prices: Record<string, number | undefined> = { '0050': 100
       isError: price == null,
     };
   });
+}
+
+function refreshDto(overrides: Partial<DrawdownBrakeRefreshDto> = {}): DrawdownBrakeRefreshDto {
+  return {
+    result: 'Updated',
+    retryAfterSeconds: null,
+    signal: makeSignal({ asOfDate: '2026-10-09' }),
+    ...overrides,
+  };
+}
+
+/** 訊號 refresh 成功（HTTP 200）回應。 */
+function signalRefreshResolves(dto: DrawdownBrakeRefreshDto) {
+  mocks.refreshSignal.mockReturnValue({ unwrap: () => Promise.resolve({ data: dto }) });
+}
+
+/** 請求本身失敗（網路中斷、403、500…）。RTK 的 unwrap() 丟出的就是 FetchBaseQueryError。 */
+function signalRefreshRejects(error: unknown) {
+  mocks.refreshSignal.mockReturnValue({ unwrap: () => Promise.reject(error) });
+}
+
+function priceRefreshResolves() {
+  mocks.refreshPrice.mockImplementation(() => ({ unwrap: () => Promise.resolve({ data: {} }) }));
 }
 
 function render(summary: PortfolioSummaryDto): string {
@@ -198,6 +233,8 @@ describe('DrawdownBrakeCard', () => {
     enable(true);
     brakeResult(makeSignal());
     lookupPrices();
+    signalRefreshResolves(refreshDto());
+    priceRefreshResolves();
   });
 
   afterEach(() => {
@@ -205,6 +242,8 @@ describe('DrawdownBrakeCard', () => {
     mocks.userInfo.mockReset();
     mocks.brake.mockReset();
     mocks.lookup.mockReset();
+    mocks.refreshSignal.mockReset();
+    mocks.refreshPrice.mockReset();
   });
 
   describe('功能開關', () => {
@@ -866,6 +905,111 @@ describe('DrawdownBrakeCard', () => {
     });
   });
 
+  describe('資料時間（TASK-043／需求 8）', () => {
+    // 當地時間 15:05（不論測試主機在哪個時區），預期畫面也是當地時間。
+    const checkedAtLocal1505 = () => new Date(2026, 9, 9, 15, 5).toISOString();
+
+    it('顯示「訊號資料日期」與「伺服器最近檢查」兩段（當地時間）', () => {
+      brakeResult(makeSignal({ lastCheckedAt: checkedAtLocal1505() }));
+      const text = textOf(render(makeSummary()));
+      expect(text).toContain('訊號資料日期：2026-10-08');
+      expect(text).toContain('伺服器最近檢查：10/09 15:05');
+    });
+
+    it.each([
+      ['null', null],
+      ['空字串', ''],
+      ['無法解析', 'not-a-date'],
+      ['epoch（等同沒有時間）', '1970-01-01T00:00:00Z'],
+    ])(
+      'lastCheckedAt 為%s → 省略「伺服器最近檢查」，不顯示 1970 或 Invalid Date',
+      (_name, value) => {
+        brakeResult(makeSignal({ lastCheckedAt: value }));
+        const text = textOf(render(makeSummary()));
+        expect(text).toContain('訊號資料日期：2026-10-08');
+        expect(text).not.toContain('伺服器最近檢查');
+        expect(text).not.toContain('1970');
+        expect(text).not.toContain('Invalid Date');
+      },
+    );
+
+    it('asOfDate 為 null（資料準備中）→ 日期顯示「—」，仍有重新整理按鈕', () => {
+      brakeResult(
+        makeSignal({
+          isInitializing: true,
+          state: null,
+          prevState: null,
+          asOfDate: null,
+          lastSwitchDate: null,
+          close: null,
+          high252: null,
+          sma60: null,
+          drawdownPct: null,
+          distanceToTriggerPct: null,
+        }),
+      );
+      const text = textOf(render(makeSummary()));
+      expect(text).toContain('訊號資料日期：—');
+      expect(text).toContain('重新整理資料');
+    });
+
+    it.each([
+      ['資料未更新', () => makeSignal({ isStale: true })],
+      [
+        '盤中預估',
+        () =>
+          makeSignal({
+            estimate: {
+              asOfTime: '2026-10-09T05:15:00Z',
+              estimatedClose: 99,
+              state: 'DEFENSE',
+              prevState: 'OFFENSE',
+              drawdownPct: -8.4,
+            },
+          }),
+      ],
+      ['訊號已更正', () => makeSignal({ estimateCorrected: true })],
+      ['正常', () => makeSignal()],
+    ])('%s：資料時間與按鈕都在，警語與模擬值註記不受影響', (_name, signal) => {
+      brakeResult(signal());
+      const text = textOf(render(makeSummary()));
+      expect(text).toContain('訊號資料日期：2026-10-08');
+      expect(text).toContain('重新整理資料');
+      expect(text).toContain(DISCLAIMER_TEXT);
+      expect(text).toContain(SIMULATED_TEXT);
+    });
+
+    it('載入中、或錯誤且沒有任何訊號資料時，沒有資料時間也沒有重新整理按鈕', () => {
+      brakeResult(undefined, { isLoading: true });
+      expect(textOf(render(makeSummary()))).not.toContain('重新整理資料');
+
+      brakeResult(undefined, { isError: true, error: { status: 'FETCH_ERROR', error: 'x' } });
+      const text = textOf(render(makeSummary()));
+      expect(text).not.toContain('訊號資料日期');
+      expect(text).not.toContain('重新整理資料');
+      expect(text).toContain('重試'); // 錯誤狀態的復原路徑仍是原本的重試鈕
+    });
+
+    it('剛載入時按鈕可按、沒有任何結果訊息；功能關閉時什麼都不渲染', () => {
+      const html = render(makeSummary());
+      const dom = document.createElement('div');
+      dom.innerHTML = html;
+      const button = Array.from(dom.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('重新整理資料'),
+      );
+      expect(button).toBeDefined();
+      expect(button?.disabled).toBe(false);
+      // 回饋區（常駐的 live region）一開始是空的。
+      expect(dom.querySelector('[aria-live="polite"]')?.textContent).toBe('');
+      const text = textOf(html);
+      expect(text).not.toContain('已更新到');
+      expect(text).not.toContain('目前沒有更新的資料');
+      expect(text).not.toContain('後可再次重新整理');
+      enable(false);
+      expect(render(makeSummary())).toBe('');
+    });
+  });
+
   describe('互動', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -935,6 +1079,279 @@ describe('DrawdownBrakeCard', () => {
       });
       expect(container.textContent).toContain(DISCLAIMER_TEXT);
       expect(container.querySelector('[aria-label="Close"], [aria-label="關閉"]')).toBeNull();
+    });
+  });
+
+  describe('重新整理資料（TASK-043／需求 8）', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    beforeEach(() => {
+      // 倒數用 setInterval：只假造 Date 與 interval，讓 React 的 act 仍用真實的 microtask／timeout。
+      vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+      vi.setSystemTime(new Date('2026-10-10T04:00:00Z'));
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      root = createRoot(container);
+    });
+
+    afterEach(() => {
+      act(() => root.unmount());
+      container.remove();
+    });
+
+    const BOTH = [stock('0050', 2000, 100), stock('00631L', 1000, 50)];
+
+    async function mount(positions: PositionDto[] = BOTH) {
+      await act(async () => {
+        root.render(<DrawdownBrakeCard summary={makeSummary(positions)} />);
+      });
+    }
+
+    function refreshButton(): HTMLButtonElement {
+      const found = Array.from(container.querySelectorAll('button')).find(
+        (b) => b.textContent?.includes('重新整理資料') || b.textContent?.includes('更新中'),
+      );
+      if (!found) throw new Error('找不到重新整理按鈕');
+      return found as HTMLButtonElement;
+    }
+
+    async function press() {
+      await act(async () => {
+        refreshButton().click();
+      });
+    }
+
+    async function advance(ms: number) {
+      await act(async () => {
+        vi.advanceTimersByTime(ms);
+      });
+    }
+
+    const text = () => (container.textContent ?? '').replace(/\s+/g, ' ');
+
+    it('按下：訊號 refresh 一次；持有的 0050、00631L 各重抓一次報價（帶手續費折扣）', async () => {
+      await mount();
+      await press();
+      expect(mocks.refreshSignal).toHaveBeenCalledTimes(1);
+      expect(mocks.refreshPrice).toHaveBeenCalledTimes(2);
+      expect(mocks.refreshPrice).toHaveBeenCalledWith({ symbol: '0050', feeDiscountRate: 0.28 });
+      expect(mocks.refreshPrice).toHaveBeenCalledWith({ symbol: '00631L', feeDiscountRate: 0.28 });
+    });
+
+    it('只持有 00631L → 只重抓 00631L', async () => {
+      await mount([stock('00631L', 1000, 50)]);
+      await press();
+      expect(mocks.refreshPrice).toHaveBeenCalledTimes(1);
+      expect(mocks.refreshPrice).toHaveBeenCalledWith({ symbol: '00631L', feeDiscountRate: 0.28 });
+    });
+
+    it('沒有持有 0050／00631L（只有現金或其他持股）→ 不呼叫 refresh-price，訊號照常 refresh', async () => {
+      await mount([cash(1_000_000), stock('2330', 1000, 900)]);
+      await press();
+      expect(mocks.refreshPrice).not.toHaveBeenCalled();
+      expect(mocks.refreshSignal).toHaveBeenCalledTimes(1);
+      expect(text()).toContain('已更新到 2026-10-09');
+    });
+
+    it('沒按之前不發任何 refresh 請求（不輪詢）', async () => {
+      await mount();
+      await advance(120_000);
+      expect(mocks.refreshSignal).not.toHaveBeenCalled();
+      expect(mocks.refreshPrice).not.toHaveBeenCalled();
+    });
+
+    it('Updated：顯示「已更新到 {asOfDate}」', async () => {
+      await mount();
+      await press();
+      expect(text()).toContain('已更新到 2026-10-09');
+      expect(container.querySelector('[role="status"]')?.textContent).toContain(
+        '已更新到 2026-10-09',
+      );
+    });
+
+    it('NoNewData：顯示「目前沒有更新的資料」，不說已更新', async () => {
+      signalRefreshResolves(refreshDto({ result: 'NoNewData' }));
+      await mount();
+      await press();
+      expect(text()).toContain('目前沒有更新的資料');
+      expect(text()).not.toContain('已更新到');
+    });
+
+    it('SourceUnavailable：顯示「資料未更新…」警告、保留原資料、不顯示成功', async () => {
+      signalRefreshResolves(refreshDto({ result: 'SourceUnavailable' }));
+      await mount();
+      await press();
+      expect(text()).toContain('資料未更新：證交所暫時取不到，稍後再試');
+      expect(text()).not.toContain('已更新到');
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain('資料未更新');
+      // 原本的訊號資料仍在畫面上。
+      expect(text()).toContain('訊號資料日期：2026-10-08');
+      expect(text()).toContain('目前狀態');
+    });
+
+    it('Throttled：顯示剩餘秒數、按鈕停用並倒數；歸零後訊息收起、按鈕恢復', async () => {
+      signalRefreshResolves(refreshDto({ result: 'Throttled', retryAfterSeconds: 45 }));
+      await mount();
+      await press();
+      expect(text()).toContain('剛剛已有人更新過，請 45 秒後再試');
+      expect(text()).not.toContain('已更新到');
+      expect(refreshButton().disabled).toBe(true);
+
+      await advance(1000);
+      expect(text()).toContain('請 44 秒後再試');
+
+      // 客戶端 30 秒冷卻已過，但全站冷卻還沒：按鈕仍停用。
+      await advance(30_000);
+      expect(text()).toContain('請 14 秒後再試');
+      expect(refreshButton().disabled).toBe(true);
+
+      await advance(14_000);
+      expect(text()).not.toContain('剛剛已有人更新過');
+      expect(refreshButton().disabled).toBe(false);
+    });
+
+    it('Throttled 的秒數比客戶端 30 秒冷卻短：訊息用後端的秒數，之後改顯示客戶端冷卻的原因', async () => {
+      signalRefreshResolves(refreshDto({ result: 'Throttled', retryAfterSeconds: 10 }));
+      await mount();
+      await press();
+      expect(text()).toContain('剛剛已有人更新過，請 10 秒後再試');
+      expect(text()).not.toContain('後可再次重新整理');
+
+      await advance(10_000);
+      expect(text()).not.toContain('剛剛已有人更新過');
+      expect(text()).toContain('20 秒後可再次重新整理');
+      expect(refreshButton().disabled).toBe(true);
+
+      await advance(20_000);
+      expect(refreshButton().disabled).toBe(false);
+    });
+
+    it('Throttled 沒給可用秒數 → 用 60 秒後備值，不顯示 NaN／0', async () => {
+      signalRefreshResolves(refreshDto({ result: 'Throttled', retryAfterSeconds: null }));
+      await mount();
+      await press();
+      expect(text()).toContain('請 60 秒後再試');
+      expect(text()).not.toContain('NaN');
+    });
+
+    it('按下後客戶端冷卻 30 秒：按鈕停用、畫面寫出原因與倒數，過了才能再按', async () => {
+      await mount();
+      await press();
+      expect(refreshButton().disabled).toBe(true);
+      expect(text()).toContain('30 秒後可再次重新整理');
+
+      await advance(10_000);
+      expect(text()).toContain('20 秒後可再次重新整理');
+      expect(refreshButton().disabled).toBe(true);
+
+      await advance(20_000);
+      expect(refreshButton().disabled).toBe(false);
+      expect(text()).not.toContain('後可再次重新整理');
+
+      await press();
+      expect(mocks.refreshSignal).toHaveBeenCalledTimes(2);
+      expect(mocks.refreshPrice).toHaveBeenCalledTimes(4);
+    });
+
+    it('冷卻中按停用的按鈕不會發請求', async () => {
+      await mount();
+      await press();
+      await press();
+      await press();
+      expect(mocks.refreshSignal).toHaveBeenCalledTimes(1);
+      expect(mocks.refreshPrice).toHaveBeenCalledTimes(2);
+    });
+
+    it('同一瞬間連點兩次只發一次請求', async () => {
+      await mount();
+      await act(async () => {
+        refreshButton().click();
+        refreshButton().click();
+      });
+      expect(mocks.refreshSignal).toHaveBeenCalledTimes(1);
+    });
+
+    it('請求進行中：按鈕停用、標示「更新中…」並有 aria-busy；結束後恢復標籤', async () => {
+      let finish: (dto: { data: DrawdownBrakeRefreshDto }) => void = () => {};
+      mocks.refreshSignal.mockReturnValue({
+        unwrap: () => new Promise((resolve) => (finish = resolve)),
+      });
+      await mount();
+      await press();
+      const busy = refreshButton();
+      expect(busy.disabled).toBe(true);
+      expect(busy.textContent).toContain('更新中…');
+      expect(busy.getAttribute('aria-busy')).toBe('true');
+
+      await act(async () => {
+        finish({ data: refreshDto() });
+      });
+      expect(refreshButton().textContent).toContain('重新整理資料');
+      expect(refreshButton().getAttribute('aria-busy')).toBe('false');
+      expect(text()).toContain('已更新到 2026-10-09');
+    });
+
+    it('請求失敗（網路）：顯示錯誤、舊資料仍在、不顯示「已更新」，且冷卻後可再試（不卡死）', async () => {
+      signalRefreshRejects({ status: 'FETCH_ERROR', error: 'x' });
+      await mount();
+      await press();
+      expect(text()).toContain('重新整理失敗：Cannot reach the server');
+      expect(text()).not.toContain('已更新到');
+      expect(text()).toContain('訊號資料日期：2026-10-08');
+      expect(text()).toContain('目前狀態');
+
+      await advance(30_000);
+      expect(refreshButton().disabled).toBe(false);
+      signalRefreshResolves(refreshDto());
+      await press();
+      expect(text()).toContain('已更新到 2026-10-09');
+      expect(text()).not.toContain('重新整理失敗');
+    });
+
+    it('DrawdownBrakeNotEnabled（403）：顯示伺服器訊息，按鈕不卡死', async () => {
+      signalRefreshRejects({
+        status: 403,
+        data: { error: { code: 1040301, message: 'This feature is not available.' } },
+      });
+      await mount();
+      await press();
+      expect(text()).toContain('重新整理失敗：This feature is not available.');
+      await advance(30_000);
+      expect(refreshButton().disabled).toBe(false);
+    });
+
+    it('報價重抓失敗不影響訊號結果，另外提示報價沒更新', async () => {
+      mocks.refreshPrice.mockImplementation(() => ({
+        unwrap: () => Promise.reject({ status: 500, data: 'boom' }),
+      }));
+      await mount();
+      await press();
+      expect(text()).toContain('已更新到 2026-10-09');
+      expect(text()).toContain('持股報價重新取得失敗，仍顯示原本的價格。');
+    });
+
+    it('報價成功時不出現報價失敗的提示', async () => {
+      await mount();
+      await press();
+      expect(text()).not.toContain('持股報價重新取得失敗');
+    });
+
+    it('後端日後新增不認得的 result → 不顯示成功、也不顯示錯誤', async () => {
+      signalRefreshResolves(refreshDto({ result: 'Estimated' as never }));
+      await mount();
+      await press();
+      expect(text()).not.toContain('已更新到');
+      expect(text()).not.toContain('重新整理失敗');
+      expect(container.querySelector('[role="status"], [role="alert"]')).toBeNull();
+    });
+
+    it('按下之後警語與模擬值註記仍常駐', async () => {
+      signalRefreshResolves(refreshDto({ result: 'SourceUnavailable' }));
+      await mount();
+      await press();
+      expect(text()).toContain(DISCLAIMER_TEXT);
+      expect(text()).toContain(SIMULATED_TEXT);
     });
   });
 });

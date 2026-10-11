@@ -9,6 +9,7 @@ import {
   BACKTEST_SCOPE_NOTE,
   cappedNotice,
   CAPPED_NO_OTHERS,
+  cooldownHint,
   coreFactorAnomalyMessage,
   describeCashRowAdvice,
   describeComposition,
@@ -17,11 +18,16 @@ import {
   describeReconciliation,
   DISCLAIMER,
   fmtMultiple,
+  lastCheckedLabel,
   OTHERS_ADVICE,
   OTHERS_REMINDER,
   priceFailedMessage,
+  refreshFailedMessage,
+  refreshResultMessage,
   RISK_POINTS,
+  signalDateLabel,
   SIMULATED_NOTE,
+  throttledMessage,
 } from './drawdownBrakeCopy';
 
 function makeAdvice(overrides: Partial<Advice>): Advice {
@@ -316,6 +322,37 @@ describe('需求 12 文案', () => {
     });
     expect(text).toBe(
       '目前有效曝險 0.7 倍，低於可達曝險 0.9 倍，建議買進 00631L 33,333 股，讓曝險回到可達的水準。',
+    );
+  });
+});
+
+describe('資料時間與重新整理文案（TASK-043）', () => {
+  it('資料時間兩段的字句；asOfDate 缺漏顯示「—」，不出現 null／undefined', () => {
+    expect(signalDateLabel('2026-10-08')).toBe('訊號資料日期：2026-10-08');
+    expect(signalDateLabel(null)).toBe('訊號資料日期：—');
+    expect(lastCheckedLabel('10/09 15:05')).toBe('伺服器最近檢查：10/09 15:05');
+  });
+
+  it('四種結果的字句與任務書一致', () => {
+    expect(refreshResultMessage('Updated', '2026-10-09')).toBe('已更新到 2026-10-09');
+    expect(refreshResultMessage('NoNewData', '2026-10-09')).toBe('目前沒有更新的資料');
+    expect(refreshResultMessage('SourceUnavailable', '2026-10-09')).toBe(
+      '資料未更新：證交所暫時取不到，稍後再試',
+    );
+    expect(throttledMessage(45)).toBe('剛剛已有人更新過，請 45 秒後再試');
+  });
+
+  it('只有 Updated 的字句會說「已更新」；asOfDate 缺漏時不產生 null／undefined 字樣', () => {
+    expect(refreshResultMessage('Updated', null)).toBe('已更新到 —');
+    for (const result of ['NoNewData', 'SourceUnavailable'] as const) {
+      expect(refreshResultMessage(result, '2026-10-09')).not.toContain('已更新');
+    }
+  });
+
+  it('冷卻原因與失敗字句', () => {
+    expect(cooldownHint(12)).toBe('12 秒後可再次重新整理');
+    expect(refreshFailedMessage('Cannot reach the server.')).toBe(
+      '重新整理失敗：Cannot reach the server.',
     );
   });
 });

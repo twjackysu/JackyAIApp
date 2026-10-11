@@ -252,8 +252,23 @@ export interface DrawdownBrakeDto {
   // The earlier intraday estimate's state differs from the official one.
   estimateCorrected: boolean;
   // When the server last got a readable answer from TWSE (ISO 8601, UTC); null until the first one
-  // after a server restart. Optional here only until the UI (TASK-043) reads it.
-  lastCheckedAt?: string | null;
+  // after a server restart.
+  lastCheckedAt: string | null;
   // When this copy of the signal was computed (ISO 8601, UTC); the server shares it for up to a minute.
-  generatedAt?: string;
+  generatedAt: string;
+}
+
+// POST drawdown-brake/refresh (TASK-041). Always HTTP 200 — `Throttled` included, since 429 on this
+// site means a usage limit. `signal` is the server's latest signal whatever the result.
+export type DrawdownBrakeRefreshResult =
+  | 'Updated'
+  | 'NoNewData'
+  | 'SourceUnavailable'
+  | 'Throttled';
+
+export interface DrawdownBrakeRefreshDto {
+  result: DrawdownBrakeRefreshResult;
+  // Whole seconds until a refresh may be tried again; only meaningful for `Throttled`.
+  retryAfterSeconds: number | null;
+  signal: DrawdownBrakeDto;
 }

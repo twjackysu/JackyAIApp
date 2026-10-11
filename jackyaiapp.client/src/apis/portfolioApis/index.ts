@@ -7,6 +7,7 @@ import {
   BenchmarkComparison,
   DrawdownAnalysis,
   DrawdownBrakeDto,
+  DrawdownBrakeRefreshDto,
   FundSearchItem,
   HoldingPriceHistoryDto,
   NetWorthDataPoint,
@@ -121,6 +122,26 @@ export const portfolioApis = createApi({
     getDrawdownBrake: builder.query<ApiOkResponse<DrawdownBrakeDto>, void>({
       query: () => 'drawdown-brake',
     }),
+    // Asks the server to catch up on the newest TWSE days. The server runs one round per cooldown
+    // for the whole site, so `Throttled` is an ordinary answer (HTTP 200). Whatever the result, the
+    // response carries the server's latest signal, which replaces the cached `getDrawdownBrake` copy
+    // — an upsert, so it also recovers an entry whose first load failed. A request that fails
+    // outright leaves the cache untouched.
+    refreshDrawdownBrake: builder.mutation<ApiOkResponse<DrawdownBrakeRefreshDto>, void>({
+      query: () => ({ url: 'drawdown-brake/refresh', method: 'POST' }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(
+            portfolioApis.util.upsertQueryData('getDrawdownBrake', undefined, {
+              data: data.data.signal,
+            }),
+          );
+        } catch {
+          // The caller's unwrap() reports the failure; there is nothing to write to the cache.
+        }
+      },
+    }),
     getAiTechSummary: builder.query<
       ApiOkResponse<PortfolioAiSummaryDto>,
       { market: string; symbol: string }
@@ -143,6 +164,7 @@ export const {
   useLazyGetNetWorthHistoryQuery,
   useGetDrawdownQuery,
   useGetDrawdownBrakeQuery,
+  useRefreshDrawdownBrakeMutation,
   useGetBenchmarkComparisonQuery,
   useLookupStockQuery,
   useSearchStocksQuery,

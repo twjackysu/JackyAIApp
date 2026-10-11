@@ -62,6 +62,7 @@ import {
   splitGuardMessage,
   STALE_SNAPSHOT_MESSAGE,
 } from './drawdownBrakeHoldings';
+import { DrawdownBrakeFreshness } from './DrawdownBrakeRefresh';
 import {
   BucketTotals,
   classifyPositions,
@@ -765,6 +766,8 @@ function DrawdownBrakeContent({ summary }: { summary: PortfolioSummaryDto }) {
   const { data, isLoading, isError, error, refetch } = useGetDrawdownBrakeQuery();
   const signal = data?.data;
   const active = signal ? pickActiveSignal(signal) : null;
+  // 重新整理要重抓報價的標的：卡片實際使用且使用者持有的 0050／00631L。
+  const heldSymbols = extractStrategyPositions(summary.positions).map((h) => h.symbol);
 
   const handleChange = (next: BrakeSettings) => {
     setSettings(next);
@@ -814,6 +817,9 @@ function DrawdownBrakeContent({ summary }: { summary: PortfolioSummaryDto }) {
           目前沒有可用的大盤訊號。
         </Alert>
       )}
+
+      {/* 資料時間＋重新整理：有訊號資料的所有狀態都顯示（準備中、未更新、預估、正常）。 */}
+      {signal && <DrawdownBrakeFreshness signal={signal} heldSymbols={heldSymbols} />}
 
       {signal && active && (
         <>
