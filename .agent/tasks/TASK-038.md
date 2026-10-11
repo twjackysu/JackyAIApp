@@ -36,7 +36,7 @@ TASK-036 MERGED（#433）。**TASK-041**（手動重新整理端點、DTO 的 `l
 
 ## PR
 - 原版 #443 — https://github.com/twjackysu/JackyAIApp/pull/443（分支 `claude/exciting-cray-kozet7`；自建 MIS client／parser）
-- **現行版（TWStockLib）**：（待填，建立後補）——分支 `claude/exciting-cray-w4l3w6`，以 #443 的全部提交為基底，再加「改經 TWStockLib」的提交與對 master 的 merge；合併它即等於合併 #443。
+- **現行版（TWStockLib）**：#445 — https://github.com/twjackysu/JackyAIApp/pull/445 ——分支 `claude/exciting-cray-w4l3w6`，以 #443 的全部提交為基底，再加「改經 TWStockLib」的提交與對 master 的 merge；合併它即等於合併 #443。
 - 相依（已完成）：TWStockLib「略過快取」參數 https://github.com/twjackysu/TWStockLib/pull/12 ——Boss 已合併，NuGet **2.2.1** 已發佈。
 
 ## Result
