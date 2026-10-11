@@ -4,7 +4,7 @@
 Frontend Engineer（PR #432 已合併；從最新 master 開新分支與新 PR）
 
 ## Status
-PR_OPENED（2026-10-11 Frontend Engineer：PR #436）
+MERGED（PR #436，Boss 於 2026-10-11 合併；需求 11 的「策略部位占比」隨需求 12 由 TASK-046 移除）
 
 ## Priority
 HIGH（PM 產品面不一致；目前只有 admin 可見所以不阻擋合併，但**必須在 `Audience=All` 之前完成**；且 PR #432 目前有合併衝突，Boss 合併前最好先處理）
@@ -63,4 +63,8 @@ https://github.com/twjackysu/JackyAIApp/pull/436 （分支 `feature/task-042-dra
 5. 第 1 項（解衝突）已由 Tech Lead 完成，未做。
 
 ## Review
-（待填）
+**Tech Lead 事後審閱（2026-10-11，排程執行；PR 於開出 4 分鐘後由 Boss 合併，當時未走審閱）**
+- 回測數字：`BACKTEST_NEXT_DAY`（12.1/−27、15.3/−37、18.4/−45）、2011 年 −28%／0050 −18%、`BACKTEST_PERIOD`＝1997–2026，皆已對照 `回測數據/tw_backtest/results/reproduce_spec.txt`（`lag2` 欄、`2011:` 行、`exits per year 3.0 … 29%` 行）逐項一致。`DISCLAIMER` 一字未動。
+- 未讀完整 diff 的測試與版面；PR 描述自述 lint／423 項測試／build 皆過、400／360px 無橫向捲動。
+- 需求 11 的占比（`strategyShareOfLiquidAssetsPct`、卡片上的「此策略部位占總資產 X%」）已被需求 12（DECISION-017）取代，**TASK-046 移除**。
+- 結論：無須追加修正。
