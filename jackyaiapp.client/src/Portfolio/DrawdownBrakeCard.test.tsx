@@ -78,7 +78,7 @@ function makeSummary(
   };
 }
 
-/** 台股持股；00631L 預設 2 倍、其餘 1 倍（與後端 `PortfolioExposure` 一致）。 */
+/** 台股持股；00631L、00685L 預設 2 倍、其餘 1 倍（與後端 `PortfolioExposure` 一致）。 */
 function stock(
   symbol: string,
   quantity: number,
@@ -95,7 +95,7 @@ function stock(
     currentPrice,
     marketValueLocal: quantity * currentPrice,
     marketValueTWD: quantity * currentPrice,
-    exposureFactor: symbol === '00631L' ? 2 : 1,
+    exposureFactor: symbol === '00631L' || symbol === '00685L' ? 2 : 1,
     priceFetchFailed: false,
     dividendsTWD: 0,
     estimatedSellCostTWD: 0,
@@ -114,7 +114,12 @@ function cash(amount: number, overrides: Partial<PositionDto> = {}): PositionDto
   });
 }
 
-/** 被排除的 NTSD（美股，1.5 倍）。 */
+/** 00685L（台股正 2，2 倍）。 */
+function p00685L(amount: number): PositionDto {
+  return stock('00685L', 1, amount);
+}
+
+/** NTSD（美股，1.5 倍）：DECISION-021 起計入整體曝險、歸「其他倍數商品」，不給建議。 */
 function ntsd(amount: number): PositionDto {
   return stock('NTSD', 1, amount, { market: 'US', currency: 'USD', exposureFactor: 1.5 });
 }
@@ -155,8 +160,10 @@ function brakeResult(signal: DrawdownBrakeDto | undefined, extra: Record<string,
   });
 }
 
-/** 0050 = 100 元、00631L = 50 元的查價結果。 */
-function lookupPrices(prices: Record<string, number | undefined> = { '0050': 100, '00631L': 50 }) {
+/** 0050 = 100 元、00631L = 50 元、00685L = 20 元的查價結果。 */
+function lookupPrices(
+  prices: Record<string, number | undefined> = { '0050': 100, '00631L': 50, '00685L': 20 },
+) {
   mocks.lookup.mockImplementation((arg: { symbol: string }) => {
     const price = prices[arg.symbol];
     return {
@@ -220,9 +227,18 @@ function textOf(html: string): string {
     .replace(/\s+/g, ' ');
 }
 
-/** 只取分桶表那一段 markup，方便對「列」做斷言。 */
+/** 只取分桶表那一段 markup，方便對「列」做斷言。台股正 2 那一列內有巢狀的 `<ul>`（各檔明細），所以
+ * 依 `<ul>` 的開關配對找結尾，不能取第一個 `</ul>`。 */
 function renderRows(summary: PortfolioSummaryDto): string {
-  return render(summary).match(/<ul[^>]*aria-label="分桶配置與建議"[\s\S]*?<\/ul>/)?.[0] ?? '';
+  const html = render(summary);
+  const start = html.search(/<ul[^>]*aria-label="分桶配置與建議"/);
+  if (start < 0) return '';
+  let depth = 0;
+  for (const match of html.slice(start).matchAll(/<ul[\s>]|<\/ul>/g)) {
+    depth += match[0] === '</ul>' ? -1 : 1;
+    if (depth === 0) return html.slice(start, start + match.index + match[0].length);
+  }
+  return '';
 }
 
 describe('DrawdownBrakeCard', () => {
@@ -393,14 +409,23 @@ describe('DrawdownBrakeCard', () => {
       );
     });
 
-    it('只有現金、沒有 0050／00631L 持股（PM 假設 A4）：仍顯示目標配置與建議買進股數', () => {
+    it('只有現金、沒有 0050／台股正 2 持股（PM 假設 A4）：仍顯示目標配置與建議買進股數（預設買 00631L）', () => {
       brakeResult(makeSignal({ state: 'OFFENSE', prevState: 'DEFENSE' }));
       const text = textOf(render(makeSummary([cash(1_000_000)])));
-      expect(text).toContain('目標配置：00631L 60% / 0050 20% / 現金 20%');
+      expect(text).toContain('目標配置：台股正 2 60% / 0050 20% / 現金 20%');
       expect(text).toContain('建議買進 0050 2,000 股、00631L 12,000 股');
       expect(mocks.lookup).toHaveBeenCalledWith(
         { market: 'TW', symbol: '0050' },
         expect.objectContaining({ skip: false }),
+      );
+      // 預設買進標的 00631L 要查價；沒持有的 00685L 用不到，不查
+      expect(mocks.lookup).toHaveBeenCalledWith(
+        { market: 'TW', symbol: '00631L' },
+        expect.objectContaining({ skip: false }),
+      );
+      expect(mocks.lookup).toHaveBeenCalledWith(
+        { market: 'TW', symbol: '00685L' },
+        expect.objectContaining({ skip: true }),
       );
     });
 
@@ -482,43 +507,52 @@ describe('DrawdownBrakeCard', () => {
         expect(text).not.toContain('不含');
       });
 
-      it('有 NTSD：出現對帳行，NTSD 不計入分子與分母', () => {
+      it('有 NTSD：計入分子與分母，卡片 E ＝ 頁面水位（含 NTSD），沒有對帳行', () => {
         const summary = makeSummary(s1());
         expect(summary.exposureOfLiquidAssetsPct).toBe(109.1); // 水位含 NTSD 的 1.5 倍
         const text = textOf(render(summary));
-        expect(text).toContain(
-          '流動總資產 NT$110,000（水位 109.1%）；不含 NTSD NT$10,000；策略範圍 NT$100,000 → 曝險 1.05 倍',
-        );
-        expect(text).toContain('有效曝險 1.05 倍');
+        expect(text).toContain('有效曝險 1.09 倍'); // ＝ 109.1% ÷ 100，差異僅限四捨五入
+        expect(text).toContain('策略範圍資產 NT$110,000'); // ＝ 流動總資產
+        expect(text).not.toContain('流動總資產');
+        expect(text).not.toContain('不含');
+        expect(text).not.toContain('→ 曝險');
       });
 
-      it('改 NTSD 金額只改對帳行，不改 E、桶與建議', () => {
-        const strip = (positions: PositionDto[]) =>
-          textOf(render(makeSummary(positions)))
-            // 拿掉對帳行，其餘文字必須逐字相同
-            .replace(/流動總資產 [^→]*→ 曝險 [\d.]+ 倍/, '')
-            .replace(/\s+/g, ' ');
-        const base = s1().slice(0, 4);
-        const small = strip([...base, ntsd(10_000)]);
-        const large = strip([...base, ntsd(900_000)]);
-        const none = strip(base);
-        expect(small).toContain('建議');
-        expect(large).toBe(small);
-        expect(none).toBe(small);
+      it('改 NTSD 金額會改變 E 與核心的建議（與其他持股一致）', () => {
+        const withNtsd = (amount: number) =>
+          textOf(render(makeSummary([...s1().slice(0, 4), ntsd(amount)])));
+        const small = withNtsd(10_000);
+        const large = withNtsd(30_000);
+        expect(small).toContain('有效曝險 1.09 倍');
+        expect(large).toContain('有效曝險 1.15 倍');
+        expect(large).not.toBe(small);
       });
 
-      it('NTSD 不出現在任何一列，也不產生建議（只在對帳行）', () => {
+      it('NTSD 歸「其他倍數商品」一列，一律不動，不產生任何買賣 NTSD 的建議', () => {
         const summary = makeSummary(s1());
-        expect(textOf(renderRows(summary))).not.toContain('NTSD');
+        const rows = textOf(renderRows(summary));
+        expect(rows).toMatch(/其他倍數商品.*建議：不動（由您自行決定）/);
         expect(textOf(render(summary))).not.toMatch(/(買進|賣出) NTSD/);
+        // 防守與再平衡也一樣
+        brakeResult(makeSignal({ state: 'DEFENSE', prevState: 'OFFENSE', drawdownPct: -9 }));
+        expect(textOf(render(summary))).not.toMatch(/(買進|賣出) NTSD/);
+      });
+
+      it('沒有被排除持股，所以不論持股組合都沒有對帳行', () => {
+        for (const positions of [s1(), [...s1(), p00685L(10_000)], [cash(1_000_000)]]) {
+          const text = textOf(render(makeSummary(positions)));
+          expect(text).not.toContain('不含');
+          expect(text).not.toContain('流動總資產');
+        }
       });
     });
 
     describe('12b 分桶表', () => {
-      it('S1：賣 0050 350 股、買 00631L 700 股，現金類不動，其他一倍列不動', () => {
-        const text = textOf(render(makeSummary(s1())));
+      it('S1（退化對照，沒有 NTSD）：賣 0050 350 股、買 00631L 700 股，現金類不動，其他一倍列不動', () => {
+        const summary = makeSummary(s1().slice(0, 4));
+        const text = textOf(render(summary));
         expect(text).toContain('建議賣出 0050 350 股；買進 00631L 700 股');
-        const rows = textOf(renderRows(makeSummary(s1())));
+        const rows = textOf(renderRows(summary));
         expect(rows).toContain('0050 目前市值 NT$40,000');
         expect(rows).toContain('減碼：賣出 350 股（約 NT$35,000）');
         expect(rows).toContain('加碼：買進 700 股（約 NT$35,000）');
@@ -527,13 +561,32 @@ describe('DrawdownBrakeCard', () => {
         expect(rows).toContain('現金類');
       });
 
-      it('列：0050、00631L、其他一倍商品、現金類；沒有的桶不顯示（其他倍數商品、空列）', () => {
+      it('S1 加上 NTSD（計入曝險、不給建議）：A ＝ 110,000，賣 0050 380 股、買 00631L 720 股', () => {
+        const summary = makeSummary(s1());
+        const text = textOf(render(summary));
+        expect(text).toContain('建議賣出 0050 380 股；買進 00631L 720 股');
+        expect(textOf(renderRows(summary))).toContain('現金增加 NT$2,000');
+        expect(text).toContain('目標配置：台股正 2 55.5% / 0050 1.8% / 現金 20% / 其他持股 22.7%');
+      });
+
+      it('列：0050、台股正 2（00631L／00685L）、其他一倍商品、其他倍數商品（NTSD）、現金類', () => {
         const rows = textOf(renderRows(makeSummary(s1())));
-        for (const title of ['0050', '00631L', '其他一倍商品', '現金類']) {
+        for (const title of [
+          '0050',
+          '台股正 2（00631L／00685L）',
+          '其他一倍商品',
+          '其他倍數商品',
+          '現金類',
+        ]) {
           expect(rows).toContain(title);
         }
-        expect(rows).not.toContain('其他倍數商品');
         expect(rows).not.toMatch(/NaN|Infinity|\b0 股/);
+      });
+
+      it('沒有的桶不顯示：沒有 NTSD 與其他倍數商品 → 不列「其他倍數商品」', () => {
+        const rows = textOf(renderRows(makeSummary(s1().slice(0, 4))));
+        expect(rows).not.toContain('其他倍數商品');
+        expect(rows).toContain('其他一倍商品');
       });
 
       it('有其他倍數商品（3 倍、反向）才另列「其他倍數商品」，同樣不給建議', () => {
@@ -557,7 +610,7 @@ describe('DrawdownBrakeCard', () => {
         const contributions = [...rows.matchAll(/目前曝險貢獻 (-?[\d.]+) 倍/g)].map((m) =>
           Number(m[1]),
         );
-        expect(contributions.reduce((a, b) => a + b, 0)).toBeCloseTo(1.05, 2);
+        expect(contributions.reduce((a, b) => a + b, 0)).toBeCloseTo(1.09, 2);
       });
 
       it('沒有其他持股：不出現其他持股列與「未經回測」提醒', () => {
@@ -635,7 +688,7 @@ describe('DrawdownBrakeCard', () => {
         );
         expect(text).toContain('建議賣出 0050 250 股、00631L 500 股');
         expect(text).toContain(
-          '即使 0050／00631L 全部轉為現金，整體曝險仍有 0.4 倍，高於目標 0 倍；差額來自您自行決定的其他持股',
+          '即使 0050 與台股正 2 全部轉為現金，整體曝險仍有 0.4 倍，高於目標 0 倍；差額來自您自行決定的其他持股',
         );
       });
 
@@ -702,13 +755,24 @@ describe('DrawdownBrakeCard', () => {
         expect(text).not.toContain('目前狀態：進攻（有效曝險');
       });
 
-      it('價格失敗的是被排除的 NTSD → 不影響建議', () => {
+      it('NTSD 價格取得失敗（現在計入範圍）→ 列出 NTSD，不給建議', () => {
         const failedNtsd = { ...ntsd(0), priceFetchFailed: true };
         const text = textOf(
           render(makeSummary([stock('0050', 400, 100), cash(20_000), failedNtsd])),
         );
-        expect(text).not.toContain('價格取得失敗');
-        expect(text).toContain('建議');
+        expect(text).toContain('1 檔持股價格取得失敗，暫時無法算出建議');
+        expect(text).toContain('NTSD');
+        expect(text).not.toContain('建議買進');
+        expect(text).not.toContain('建議賣出');
+      });
+
+      it('00685L 的 exposureFactor 不是 2 → 不給建議並提示', () => {
+        const text = textOf(
+          render(makeSummary([stock('00685L', 500, 20, { exposureFactor: 1 }), cash(20_000)])),
+        );
+        expect(text).toContain('00685L 的曝險倍數與策略定義（2 倍）不符');
+        expect(text).not.toContain('建議買進');
+        expect(text).not.toContain('建議賣出');
       });
 
       it('核心 exposureFactor 異常（00631L 不是 2 倍）→ 不給建議並提示', () => {
@@ -750,18 +814,138 @@ describe('DrawdownBrakeCard', () => {
         const summary = makeSummary(s1());
         const hidden = textOf(renderWithPrivacy(summary, 'hidden'));
         expect(hidden).not.toMatch(/NT\$[\d,]{5,}/);
-        expect(hidden).toContain('有效曝險 1.05 倍');
-        expect(hidden).toContain('（水位 109.1%）');
+        expect(hidden).toContain('有效曝險 1.09 倍');
 
+        // 「只看損益」不顯示比例／水位；金額也不洩漏
         const changes = textOf(renderWithPrivacy(summary, 'changes'));
-        expect(changes).not.toContain('水位 109.1%');
+        expect(changes).not.toMatch(/NT\$[\d,]{5,}/);
       });
 
       it('完整模式顯示金額', () => {
         const full = textOf(renderWithPrivacy(makeSummary(s1()), 'full'));
         expect(full).toContain('NT$40,000');
-        expect(full).toContain('策略範圍資產 NT$100,000');
+        expect(full).toContain('策略範圍資產 NT$110,000');
       });
+    });
+  });
+
+  describe('台股正 2 類（00631L＋00685L，DECISION-021）', () => {
+    // 價格 0050 = 100、00631L = 50、00685L = 20（lookupPrices 預設）；金額為 ARCHITECTURE 情境的縮小版。
+    const lev2Section = (summary: PortfolioSummaryDto) => {
+      const rows = textOf(renderRows(summary));
+      return rows.slice(rows.indexOf('台股正 2（00631L／00685L）'), rows.indexOf('現金類'));
+    };
+
+    it('S4 兩檔都持有、過度曝險：類別一個「減碼」結論與金額，兩檔各自的股數，先賣後買', () => {
+      const summary = makeSummary([
+        stock('0050', 500, 100), // 50,000
+        stock('00631L', 6_000, 50), // 300,000
+        stock('00685L', 10_000, 20), // 200,000
+        cash(100_000),
+      ]);
+      const text = textOf(render(summary));
+      expect(text).toContain('建議賣出 00631L 1,320 股、00685L 2,200 股；買進 0050 800 股');
+      expect(text).toContain('目標配置：台股正 2 60% / 0050 20% / 現金 20%');
+
+      const section = lev2Section(summary);
+      expect(section).toContain('目前市值 NT$500,000');
+      expect(section).toContain('目標市值 NT$390,000');
+      expect(section).toContain('減碼：賣出約 NT$110,000');
+      expect(section).toContain(
+        '00631L 目前市值 NT$300,000 建議：減碼：賣出 1,320 股（約 NT$66,000）',
+      );
+      expect(section).toContain(
+        '00685L 目前市值 NT$200,000 建議：減碼：賣出 2,200 股（約 NT$44,000）',
+      );
+      // 兩檔金額相加 ＝ 類別的目前市值；不出現一檔加碼、另一檔減碼
+      expect(section).not.toContain('加碼');
+      expect(textOf(renderRows(summary))).toContain('現金增加 NT$30,000');
+    });
+
+    it('S5 沒持有任何正 2：加碼預設買 00631L（查價），只列 00631L 一檔，不查 00685L', () => {
+      const summary = makeSummary([stock('0050', 1_000, 100), cash(500_000)]);
+      const text = textOf(render(summary));
+      expect(text).toContain('建議買進 0050 200 股、00631L 7,200 股');
+      const section = lev2Section(summary);
+      expect(section).toContain('加碼：買進約 NT$360,000');
+      expect(section).toContain('00631L 目前市值 NT$0 建議：加碼：買進 7,200 股（約 NT$360,000）');
+      expect(section).not.toContain('00685L 目前市值');
+      expect(mocks.lookup).toHaveBeenCalledWith(
+        { market: 'TW', symbol: '00631L' },
+        expect.objectContaining({ skip: false }),
+      );
+      expect(mocks.lookup).toHaveBeenCalledWith(
+        { market: 'TW', symbol: '00685L' },
+        expect.objectContaining({ skip: true }),
+      );
+    });
+
+    it('S6 只持有 00685L：全給那一檔，只列 00685L；00631L 用不到、不查價', () => {
+      const summary = makeSummary([
+        stock('0050', 500, 100), // 50,000
+        stock('00685L', 12_500, 20), // 250,000
+        cash(50_000),
+      ]);
+      const text = textOf(render(summary));
+      expect(text).toContain('建議賣出 00685L 2,000 股；買進 0050 200 股');
+      const section = lev2Section(summary);
+      expect(section).toContain('00685L 目前市值 NT$250,000 建議：減碼：賣出 2,000 股');
+      expect(section).not.toContain('00631L 目前市值');
+      for (const call of mocks.lookup.mock.calls) {
+        expect(call[1]).toEqual(expect.objectContaining({ skip: true })); // 全部持有且有快照價
+      }
+    });
+
+    it('只持有 00685L、沒持有 00631L：00631L 不查價，也不擋建議', () => {
+      lookupPrices({ '0050': 100, '00631L': undefined, '00685L': 20 });
+      const text = textOf(
+        render(makeSummary([stock('0050', 500, 100), stock('00685L', 12_500, 20), cash(50_000)])),
+      );
+      expect(text).toContain('建議賣出 00685L 2,000 股；買進 0050 200 股');
+      expect(text).not.toContain('無法取得');
+    });
+
+    it('持有 00685L 但價格無效、查不到 → 不猜，提示無法計算股數', () => {
+      lookupPrices({ '0050': 100, '00631L': 50, '00685L': undefined });
+      const text = textOf(render(makeSummary([stock('00685L', 500, 0), cash(1_000_000)])));
+      expect(text).toContain('無法取得 00685L 的最新價格');
+      expect(text).not.toContain('建議買進');
+      expect(text).not.toContain('建議賣出');
+    });
+
+    it('00685L 沒有分割條目：快照再舊也不因它而擋；有條目的 0050 仍照舊判斷', () => {
+      const old = textOf(
+        render(makeSummary([stock('00685L', 500, 20), cash(500_000)], '2025-01-01')),
+      );
+      expect(old).not.toContain('分割');
+      expect(old).toContain('建議');
+      const split = textOf(
+        render(
+          makeSummary(
+            [stock('0050', 500, 100), stock('00685L', 500, 20), cash(500_000)],
+            '2025-06-17',
+          ),
+        ),
+      );
+      expect(split).toContain('0050 分割（2025-06-18 1 拆 4）');
+    });
+
+    it('持股資料區顯示三檔核心標的的股數／未持有', () => {
+      const text = textOf(
+        render(makeSummary([stock('0050', 2_000, 100), stock('00685L', 300, 20)])),
+      );
+      expect(text).toContain('0050 2,000 股、00631L 未持有、00685L 300 股');
+    });
+
+    it('其他倍數 2 的台股商品（例如 00675L）不屬於正 2 類：列在其他倍數商品，不給建議', () => {
+      const summary = makeSummary([
+        stock('0050', 400, 100),
+        cash(20_000),
+        stock('00675L', 100, 40, { exposureFactor: 2 }),
+      ]);
+      const rows = textOf(renderRows(summary));
+      expect(rows).toMatch(/其他倍數商品.*建議：不動（由您自行決定）/);
+      expect(textOf(render(summary))).not.toMatch(/(買進|賣出) 00675L/);
     });
   });
 
@@ -873,12 +1057,14 @@ describe('DrawdownBrakeCard', () => {
       expect(text).toContain('最大回撤');
     });
 
-    it('回測績效標明範圍：依 0050＋00631L＋現金回測，不是整個流動資產的績效（R8）', () => {
+    it('回測績效標明範圍：依 0050＋00631L＋現金回測；00685L 視同 00631L、未單獨回測；不是整個流動資產的績效（R8）', () => {
       const text = textOf(render(makeSummary()));
-      expect(text).toContain('以上績效依 0050＋00631L＋現金回測，不是整個流動資產的績效。');
+      expect(text).toContain(
+        '以上績效依 0050＋00631L＋現金回測；00685L 視同 00631L（您的判斷），未單獨回測，也不是整個流動資產的績效。',
+      );
     });
 
-    it('固定警語在有建議、有其他持股、有對帳行時仍常駐、一字不改', () => {
+    it('固定警語在有建議、有其他持股（含 NTSD）時仍常駐、一字不改', () => {
       const text = textOf(
         render(makeSummary([stock('0050', 400, 100), cash(20_000), ntsd(10_000)])),
       );
@@ -1144,6 +1330,48 @@ describe('DrawdownBrakeCard', () => {
       await press();
       expect(mocks.refreshPrice).toHaveBeenCalledTimes(1);
       expect(mocks.refreshPrice).toHaveBeenCalledWith({ symbol: '00631L', feeDiscountRate: 0.28 });
+    });
+
+    it('持有 00685L → 一併重抓 00685L 的報價', async () => {
+      await mount([stock('0050', 2000, 100), stock('00685L', 1000, 20)]);
+      await press();
+      expect(mocks.refreshPrice).toHaveBeenCalledTimes(2);
+      expect(mocks.refreshPrice).toHaveBeenCalledWith({ symbol: '0050', feeDiscountRate: 0.28 });
+      expect(mocks.refreshPrice).toHaveBeenCalledWith({ symbol: '00685L', feeDiscountRate: 0.28 });
+    });
+
+    // 範圍內任一持股（含 NTSD）價格失敗就暫停整張卡片的建議；重新整理是使用者唯一的補救手段。
+    const failedStock = (symbol: string) =>
+      stock(symbol, 1, 0, { market: 'US', currency: 'USD', priceFetchFailed: true });
+
+    it('價格取得失敗的範圍內股票（NTSD）也重抓，核心標的不重複', async () => {
+      await mount([
+        stock('0050', 2000, 100),
+        { ...ntsd(0), priceFetchFailed: true },
+        { ...stock('00631L', 1000, 50), priceFetchFailed: true },
+      ]);
+      await press();
+      expect(mocks.refreshPrice).toHaveBeenCalledTimes(3);
+      expect(mocks.refreshPrice).toHaveBeenCalledWith({ symbol: 'NTSD', feeDiscountRate: 0.28 });
+    });
+
+    it('價格失敗的股票最多多重抓 5 檔；基金失敗不呼叫 refresh-price', async () => {
+      await mount([
+        stock('0050', 2000, 100),
+        ...Array.from({ length: 8 }, (_, i) => failedStock(`S${i}`)),
+        stock('FUND1', 1, 0, { assetType: 'FUND', priceFetchFailed: true }),
+      ]);
+      await press();
+      expect(mocks.refreshPrice).toHaveBeenCalledTimes(1 + 5);
+      expect(mocks.refreshPrice).not.toHaveBeenCalledWith(
+        expect.objectContaining({ symbol: 'FUND1' }),
+      );
+    });
+
+    it('價格沒有失敗的其他持股不會被重抓', async () => {
+      await mount([stock('0050', 2000, 100), ntsd(10_000), stock('2330', 10, 900)]);
+      await press();
+      expect(mocks.refreshPrice).toHaveBeenCalledTimes(1);
     });
 
     it('沒有持有 0050／00631L（只有現金或其他持股）→ 不呼叫 refresh-price，訊號照常 refresh', async () => {

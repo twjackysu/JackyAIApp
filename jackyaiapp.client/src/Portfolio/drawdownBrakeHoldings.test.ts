@@ -5,8 +5,12 @@ import {
   extractStrategyPositions,
   findSplitGuardHit,
   isSnapshotStale,
+  MAX_FAILED_PRICE_REFRESH,
+  priceRefreshSymbols,
+  requiredPriceSymbols,
   splitGuardMessage,
   SPLIT_EVENTS,
+  SplitEvent,
   STALE_SNAPSHOT_DAYS,
 } from './drawdownBrakeHoldings';
 
@@ -37,20 +41,30 @@ describe('SPLIT_EVENTS', () => {
     expect(SPLIT_EVENTS['0050']).toEqual({ date: '2025-06-18', ratio: 4 });
     expect(SPLIT_EVENTS['00631L']).toEqual({ date: '2026-03-31', ratio: 22 });
   });
+
+  it('00685L 沒有條目：Boss 2026-10-11 確認無分割（不得自行猜測日期）', () => {
+    expect(SPLIT_EVENTS['00685L']).toBeUndefined();
+    expect(Object.keys(SPLIT_EVENTS).sort()).toEqual(['0050', '00631L']);
+  });
 });
 
 describe('extractStrategyPositions', () => {
-  it('只取台股 STOCK 的 0050 / 00631L，用 quantity 與 currentPrice', () => {
+  it('只取台股 STOCK 的核心標的（0050 / 00631L / 00685L），用 quantity 與 currentPrice', () => {
     const held = extractStrategyPositions([
       pos({ symbol: '0050', quantity: 2000, currentPrice: 100 }),
+      pos({ symbol: '00685L', quantity: 3_000, currentPrice: 20 }),
       pos({ symbol: '00631L', quantity: 11_800, currentPrice: 50 }),
       pos({ symbol: '2330', quantity: 1000, currentPrice: 900 }),
+      pos({ symbol: '00675L', quantity: 1000, currentPrice: 40 }),
       pos({ assetType: 'FUND', symbol: '0050' }),
       pos({ market: 'US', symbol: '0050' }),
+      pos({ market: 'US', symbol: '00685L' }),
     ]);
+    // 順序依核心標的清單，不依持股順序；00675L（不在成員表）不算
     expect(held).toEqual([
       { symbol: '0050', quantity: 2000, price: 100 },
       { symbol: '00631L', quantity: 11_800, price: 50 },
+      { symbol: '00685L', quantity: 3_000, price: 20 },
     ]);
   });
 
@@ -111,13 +125,79 @@ describe('findSplitGuardHit (PM R2：分割硬性防護)', () => {
     expect(findSplitGuardHit(held0050, undefined)?.symbol).toBe('0050');
   });
 
+  it('00685L 沒有分割條目：不因它而擋，即使快照很舊或沒有日期', () => {
+    const held00685L = [{ symbol: '00685L' as const, quantity: 1000, price: 20 }];
+    expect(findSplitGuardHit(held00685L, '2020-01-01')).toBeNull();
+    expect(findSplitGuardHit(held00685L, null)).toBeNull();
+    // 同時持有有條目的標的時，仍以那一檔判斷
+    expect(findSplitGuardHit([...held00685L, ...held00631L], '2026-03-30')?.symbol).toBe('00631L');
+  });
+
   it('提示文字', () => {
-    expect(splitGuardMessage({ symbol: '0050', event: SPLIT_EVENTS['0050'] })).toBe(
+    expect(splitGuardMessage({ symbol: '0050', event: SPLIT_EVENTS['0050'] as SplitEvent })).toBe(
       '你的持股快照建立於 0050 分割（2025-06-18 1 拆 4）之前，股數可能未調整，請先更新持股',
     );
-    expect(splitGuardMessage({ symbol: '00631L', event: SPLIT_EVENTS['00631L'] })).toBe(
+    expect(
+      splitGuardMessage({ symbol: '00631L', event: SPLIT_EVENTS['00631L'] as SplitEvent }),
+    ).toBe(
       '你的持股快照建立於 00631L 分割（2026-03-31 1 拆 22）之前，股數可能未調整，請先更新持股',
     );
+  });
+});
+
+describe('requiredPriceSymbols — 算建議股數必須有價格的核心標的', () => {
+  const held = (...symbols: Array<'0050' | '00631L' | '00685L'>) =>
+    symbols.map((symbol) => ({ symbol, quantity: 1000, price: 50 }));
+
+  it('一檔都沒持有：0050 與預設買進標的 00631L（00685L 不需要）', () => {
+    expect(requiredPriceSymbols([])).toEqual(['0050', '00631L']);
+  });
+
+  it('持有的核心標的都要價格；持有任一檔正 2 時，沒持有的那檔不需要', () => {
+    expect(requiredPriceSymbols(held('0050', '00631L', '00685L'))).toEqual([
+      '0050',
+      '00631L',
+      '00685L',
+    ]);
+    expect(requiredPriceSymbols(held('0050', '00685L'))).toEqual(['0050', '00685L']);
+    expect(requiredPriceSymbols(held('00631L'))).toEqual(['0050', '00631L']);
+  });
+
+  it('0050 一律需要（沒持有時也要查價，PM 假設 A4）', () => {
+    for (const symbols of [[], ['00631L'], ['00685L']] as const) {
+      expect(requiredPriceSymbols(held(...symbols))).toContain('0050');
+    }
+  });
+});
+
+describe('priceRefreshSymbols — 重新整理要重抓報價的代號', () => {
+  const stockHeld = (symbol: string, extra: Partial<PositionDto> = {}) =>
+    pos({ symbol, market: 'US', priceFetchFailed: true, ...extra });
+  const core = [
+    { symbol: '0050' as const, quantity: 1000, price: 60 },
+    { symbol: '00685L' as const, quantity: 1000, price: 20 },
+  ];
+
+  it('沒有價格失敗的持股：只有持有的核心標的', () => {
+    expect(priceRefreshSymbols(core, [])).toEqual(['0050', '00685L']);
+    expect(priceRefreshSymbols([], [])).toEqual([]);
+  });
+
+  it('價格失敗的股票（例如 NTSD）一併重抓；核心標的不重複', () => {
+    const failed = [stockHeld('NTSD'), pos({ symbol: '00685L', priceFetchFailed: true })];
+    expect(priceRefreshSymbols(core, failed)).toEqual(['0050', '00685L', 'NTSD']);
+  });
+
+  it('基金不列（refresh-price 只處理股票）；同一代號只列一次', () => {
+    const failed = [stockHeld('AAA', { assetType: 'FUND' }), stockHeld('NTSD'), stockHeld('NTSD')];
+    expect(priceRefreshSymbols([], failed)).toEqual(['NTSD']);
+  });
+
+  it(`價格失敗者最多多重抓 ${MAX_FAILED_PRICE_REFRESH} 檔，核心標的不受限`, () => {
+    const failed = Array.from({ length: 8 }, (_, i) => stockHeld(`S${i}`));
+    const symbols = priceRefreshSymbols(core, failed);
+    expect(symbols).toEqual(['0050', '00685L', 'S0', 'S1', 'S2', 'S3', 'S4']);
+    expect(symbols).toHaveLength(core.length + MAX_FAILED_PRICE_REFRESH);
   });
 });
 
