@@ -89,6 +89,14 @@ namespace JackyAIApp.Server.Services.Finance
             // Market overview / dashboard provider (Yahoo Finance quotes)
             services.AddScoped<IMarketOverviewProvider, MarketOverviewProvider>();
 
+            // Multi-year ^TWII daily closes (Yahoo) for the "same period, one line per year" chart.
+            // Singleton: the cache in front of it is one copy shared by every visitor.
+            services.AddSingleton<MarketIndexHistoryProvider>();
+            services.AddSingleton<IMarketIndexHistoryProvider>(sp => new CachedMarketIndexHistoryProvider(
+                sp.GetRequiredService<MarketIndexHistoryProvider>(),
+                sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
+                sp.GetRequiredService<ILogger<CachedMarketIndexHistoryProvider>>()));
+
             // Indicator Explorer provider (FRED)
             services.AddScoped<IIndicatorProvider, FredIndicatorProvider>();
 

@@ -61,6 +61,16 @@ namespace JackyAIApp.Server.Controllers
             _responseFactory.ToActionResult(await _financeQueryService.GetMarketOverviewAsync(cancellationToken));
 
         /// <summary>
+        /// Gets about six years of daily TAIEX (<c>^TWII</c>, price index, dividends not included)
+        /// closes, oldest first. Anonymous like <c>market-overview</c>, shared by every visitor from
+        /// one cached copy, no AI and no usage cost. Takes no parameters on purpose — a symbol
+        /// argument would turn this into a Yahoo proxy.
+        /// </summary>
+        [HttpGet("market-index-history")]
+        public async Task<IActionResult> GetMarketIndexHistory(CancellationToken cancellationToken = default) =>
+            _responseFactory.ToActionResult(await _financeQueryService.GetMarketIndexHistoryAsync(cancellationToken));
+
+        /// <summary>
         /// Gets the AI-synthesised "今日市場AI摘要" daily digest (global macro + Taiwan focus),
         /// grounded in market data, global news, and TW major announcements. Charged
         /// <see cref="UsageCosts.MarketDigest"/> once per user per day (handled in-service so

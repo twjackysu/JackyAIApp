@@ -17,6 +17,7 @@ namespace JackyAIApp.Server.Services.Finance
         Task<ServiceResult> GetComprehensiveAnalysisAsync(StockAnalysisRequest request, CancellationToken cancellationToken);
         Task<ServiceResult> GetMacroEconomyAsync(CancellationToken cancellationToken);
         Task<ServiceResult> GetMarketOverviewAsync(CancellationToken cancellationToken);
+        Task<ServiceResult> GetMarketIndexHistoryAsync(CancellationToken cancellationToken);
         Task<ServiceResult> GetMarketDigestAsync(CancellationToken cancellationToken);
         Task<ServiceResult> GetIndicatorsAsync(CancellationToken cancellationToken);
         Task<ServiceResult> GetIndicatorInsightAsync(string id, CancellationToken cancellationToken);
