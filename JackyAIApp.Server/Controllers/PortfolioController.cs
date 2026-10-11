@@ -18,7 +18,8 @@ namespace JackyAIApp.Server.Controllers
         IUserService userService,
         ServerTiming timing,
         IDrawdownBrakeService drawdownBrakeService,
-        IDrawdownBrakeAccess drawdownBrakeAccess) : ControllerBase
+        IDrawdownBrakeAccess drawdownBrakeAccess,
+        ITaiexTotalReturnRefresher drawdownBrakeRefresher) : ControllerBase
     {
         private string RequireUserId()
         {
@@ -130,6 +131,30 @@ namespace JackyAIApp.Server.Controllers
                 return responseFactory.CreateErrorResponse(ErrorCodes.DrawdownBrakeNotEnabled, "This feature is not available.");
 
             return responseFactory.CreateOKResponse(await drawdownBrakeService.GetAsync(ct));
+        }
+
+        /// <summary>
+        /// Asks for the newest index days now rather than at the next hourly check. The cooldown is
+        /// site-wide (see <see cref="TaiexTotalReturnRefreshService"/>), so a press right after
+        /// anyone else's is <c>Throttled</c> — still HTTP 200, since 429 here means a usage limit —
+        /// and carries the latest signal all the same. Same audience as the GET; no AI call, so no
+        /// usage cost.
+        /// </summary>
+        [HttpPost("drawdown-brake/refresh")]
+        public async Task<IActionResult> RefreshDrawdownBrake(CancellationToken ct)
+        {
+            var userId = RequireUserId();
+            if (!await drawdownBrakeAccess.IsEnabledForUserAsync(userId, ct))
+                return responseFactory.CreateErrorResponse(ErrorCodes.DrawdownBrakeNotEnabled, "This feature is not available.");
+
+            var outcome = await drawdownBrakeRefresher.TryRefreshNowAsync(ct);
+            return responseFactory.CreateOKResponse(new DrawdownBrakeRefreshDto
+            {
+                Result = outcome.Result,
+                RetryAfterSeconds = outcome.RetryAfterSeconds,
+                // Rebuilt if the refresh stored anything; otherwise the shared copy.
+                Signal = await drawdownBrakeService.GetAsync(ct),
+            });
         }
 
         [HttpGet("benchmark-comparison")]

@@ -57,11 +57,10 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             services.AddDbContextFactory<AzureSQLDBContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
             services.AddPortfolioServices();
 
-            Assert.Contains(services, d =>
-                d.ServiceType == typeof(IHostedService) && d.ImplementationType == typeof(TaiexTotalReturnRefreshService));
+            Assert.Contains(services, d => d.ServiceType == typeof(IHostedService));
 
             using var provider = services.BuildServiceProvider();
-            Assert.NotNull(ActivatorUtilities.CreateInstance<TaiexTotalReturnRefreshService>(provider));
+            Assert.Contains(provider.GetServices<IHostedService>(), h => h is TaiexTotalReturnRefreshService);
         }
 
         [Fact]
@@ -81,6 +80,26 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 
             Assert.NotEmpty(options.Get("WithResilience").HttpMessageHandlerBuilderActions);
             Assert.Empty(options.Get(TaiexTotalReturnClient.HttpClientName).HttpMessageHandlerBuilderActions);
+        }
+
+        [Fact]
+        public void TheHourlyLoopAndTheManualRefresh_AreTheSameObject_SoTheyShareOneGateAndCooldown()
+        {
+            using var provider = BuildProvider();
+
+            var hosted = provider.GetServices<IHostedService>().OfType<TaiexTotalReturnRefreshService>().Single();
+
+            Assert.Same(hosted, provider.GetRequiredService<ITaiexTotalReturnRefresher>());
+            Assert.Same(hosted, provider.GetRequiredService<TaiexTotalReturnRefreshService>());
+        }
+
+        [Fact]
+        public void TheRefreshAndTheSignal_ShareOneStatus()
+        {
+            using var provider = BuildProvider();
+
+            Assert.Same(provider.GetRequiredService<ITaiexDataStatus>(), provider.GetRequiredService<ITaiexDataStatus>());
+            Assert.IsType<DrawdownBrakeService>(provider.GetRequiredService<IDrawdownBrakeService>());
         }
     }
 }

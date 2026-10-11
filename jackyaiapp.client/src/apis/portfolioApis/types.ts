@@ -251,4 +251,9 @@ export interface DrawdownBrakeDto {
   estimate: DrawdownBrakeEstimateDto | null;
   // The earlier intraday estimate's state differs from the official one.
   estimateCorrected: boolean;
+  // When the server last got a readable answer from TWSE (ISO 8601, UTC); null until the first one
+  // after a server restart. Optional here only until the UI (TASK-043) reads it.
+  lastCheckedAt?: string | null;
+  // When this copy of the signal was computed (ISO 8601, UTC); the server shares it for up to a minute.
+  generatedAt?: string;
 }
