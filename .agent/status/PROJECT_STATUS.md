@@ -2942,3 +2942,5 @@
 - Boss 反映「不要什麼小事都問我」。PM 檢討：標的是否含息、預設期間、警語字句、對象等屬於「小的模糊」，依 PM 指示本應自行假設並記錄，卻丟給 Boss。已改為 PM 決定（`REQUIREMENTS.md`「Stock Intelligence 大盤走勢比較圖」Open Questions；DECISION-016 補註），Boss 可隨時推翻。
 - 之後只在「法律／合規、金錢、改變範圍或不可逆的對外曝險」時才向 Boss 提問，一次一題並附建議。目前**沒有需要 Boss 回覆的問題**；Boss 待辦僅剩審查並合併 PR #433 → #432。
 - Tech Lead：兩張圖可直接依文末 Tech Lead Actions 進行設計；不需等 Boss 回覆。
+
+- 同日補充：Boss 確認兩張圖的標的＝加權指數（價格指數，不含息）。其餘細節仍為 PM 決定。Tech Lead 無需等待，可依 Tech Lead Actions 進行。
