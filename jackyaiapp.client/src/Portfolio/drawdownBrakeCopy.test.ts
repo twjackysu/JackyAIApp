@@ -2,13 +2,24 @@ import { describe, expect, it } from 'vitest';
 
 import { Advice } from './drawdownBrake';
 import {
+  aboveTargetNotice,
   adviceMessage,
   BACKTEST_NEXT_DAY,
   BACKTEST_PERIOD,
+  BACKTEST_SCOPE_NOTE,
+  cappedNotice,
+  CAPPED_NO_OTHERS,
+  coreFactorAnomalyMessage,
+  describeCashRowAdvice,
   describeComposition,
+  describeCoreRowAdvice,
   describeOrders,
+  describeReconciliation,
   DISCLAIMER,
   fmtMultiple,
+  OTHERS_ADVICE,
+  OTHERS_REMINDER,
+  priceFailedMessage,
   RISK_POINTS,
   SIMULATED_NOTE,
 } from './drawdownBrakeCopy';
@@ -17,12 +28,17 @@ function makeAdvice(overrides: Partial<Advice>): Advice {
   return {
     action: '不動',
     switched: false,
-    totalValue: 1_000_000,
+    scopeAssets: 1_000_000,
     eActual: 1.4,
     eTarget: 1.4,
+    eReach: 1.4,
+    aboveTarget: false,
+    capped: false,
+    targets: { '0050': 200_000, '00631L': 600_000, cash: 200_000 },
     weights: { '0050': 0.2, '00631L': 0.6, cash: 0.2 },
-    truncated: false,
+    othersShare: 0,
     orders: [],
+    cashChange: 0,
     ...overrides,
   };
 }
@@ -189,6 +205,117 @@ describe('adviceMessage（#431 §10 四種文案）', () => {
     });
     expect(low).toBe(
       '目前有效曝險 1.2 倍，低於目標 1.4 倍，建議買進 00631L 70 股，讓曝險回到目標。',
+    );
+  });
+});
+
+describe('需求 12 文案', () => {
+  const fmt = (n: number) => n.toLocaleString('zh-TW');
+
+  it('其他持股一列的建議欄、提醒與績效範圍標示逐字固定（R8、A26）', () => {
+    expect(OTHERS_ADVICE).toBe('不動（由您自行決定）');
+    expect(OTHERS_REMINDER).toBe('其他持股未經回測，僅計入整體曝險、不給建議，由您自行決定。');
+    expect(BACKTEST_SCOPE_NOTE).toBe('以上績效依 0050＋00631L＋現金回測，不是整個流動資產的績效。');
+  });
+
+  it('aboveTarget 標示（12c）：差額來自其他持股', () => {
+    expect(aboveTargetNotice(0.4, 0)).toBe(
+      '即使 0050／00631L 全部轉為現金，整體曝險仍有 0.4 倍，高於目標 0 倍；差額來自您自行決定的其他持股',
+    );
+  });
+
+  it('capped 標示（12c）：沒有其他持股沿用原文，有其他持股用新文案', () => {
+    expect(cappedNotice(1.6, 1.8, false)).toBe('現金比例過高，無法達到此曝險');
+    expect(CAPPED_NO_OTHERS).toBe('現金比例過高，無法達到此曝險');
+    expect(cappedNotice(0.9, 1.4, true)).toBe(
+      '受其他持股與最低現金限制，整體曝險最高只能到 0.9 倍（目標 1.4 倍）',
+    );
+  });
+
+  it('資料防護文案', () => {
+    expect(priceFailedMessage(2)).toBe('2 檔持股價格取得失敗，暫時無法算出建議');
+    expect(coreFactorAnomalyMessage('0050', 1)).toContain('0050');
+    expect(coreFactorAnomalyMessage('00631L', 2)).toContain('2 倍');
+  });
+
+  it('對帳行（12a／A24）：流動總資產、水位、不含 X、策略範圍、曝險', () => {
+    expect(
+      describeReconciliation({
+        liquidGross: 'NT$11,000,000',
+        waterPct: 109.1,
+        excludedSymbols: ['NTSD'],
+        excludedValue: 'NT$1,000,000',
+        scopeAssets: 'NT$10,000,000',
+        eActual: 1.05,
+      }),
+    ).toBe(
+      '流動總資產 NT$11,000,000（水位 109.1%）；不含 NTSD NT$1,000,000；策略範圍 NT$10,000,000 → 曝險 1.05 倍',
+    );
+  });
+
+  it('對帳行：水位不顯示（隱私模式）時不留空括號；多個被排除標的以頓號分隔', () => {
+    const text = describeReconciliation({
+      liquidGross: 'NT$***',
+      waterPct: null,
+      excludedSymbols: ['NTSD', 'XYZ'],
+      excludedValue: 'NT$***',
+      scopeAssets: 'NT$***',
+      eActual: 1,
+    });
+    expect(text).toBe('流動總資產 NT$***；不含 NTSD、XYZ NT$***；策略範圍 NT$*** → 曝險 1 倍');
+    expect(text).not.toContain('（）');
+  });
+
+  it('核心股票列：加碼／減碼／不動，含整數股數與金額', () => {
+    expect(describeCoreRowAdvice({ symbol: '0050', shares: -58_333 }, 60, fmt)).toBe(
+      '減碼：賣出 58,333 股（約 NT$3,499,980）',
+    );
+    expect(describeCoreRowAdvice({ symbol: '00631L', shares: 116_667 }, 30, fmt)).toBe(
+      '加碼：買進 116,667 股（約 NT$3,500,010）',
+    );
+    expect(describeCoreRowAdvice(undefined, 60, fmt)).toBe('不動');
+  });
+
+  it('現金類列：金額變動 ＝ −Σ(實際建議股數 × 價格)；0 → 不動', () => {
+    expect(describeCashRowAdvice(-30, fmt)).toBe('現金減少 NT$30');
+    expect(describeCashRowAdvice(1_500_000, fmt)).toBe('現金增加 NT$1,500,000');
+    expect(describeCashRowAdvice(0, fmt)).toBe('不動');
+    expect(describeCashRowAdvice(0.3, fmt)).toBe('不動'); // 四捨五入為 0 不出現「增加 NT$0」
+  });
+
+  it('目標配置：有其他持股時補上它們的占比，各項加起來是 100%', () => {
+    expect(describeComposition({ '0050': 0.05, '00631L': 0.6, cash: 0.2 }, 0.15)).toBe(
+      '00631L 60% / 0050 5% / 現金 20% / 其他持股 15%',
+    );
+    expect(describeComposition({ '0050': 0.2, '00631L': 0.6, cash: 0.2 }, 0)).toBe(
+      '00631L 60% / 0050 20% / 現金 20%',
+    );
+  });
+
+  it('再平衡句型：目標不可達時拿可達曝險說，不承諾做不到的事', () => {
+    const text = adviceMessage({
+      advice: {
+        action: '加碼',
+        switched: false,
+        scopeAssets: 10_000_000,
+        eActual: 0.7,
+        eTarget: 1.4,
+        eReach: 0.9,
+        aboveTarget: false,
+        capped: true,
+        targets: { '0050': 0, '00631L': 1_000_000, cash: 2_000_000 },
+        weights: { '0050': 0, '00631L': 0.1, cash: 0.2 },
+        othersShare: 0.7,
+        orders: [{ symbol: '00631L', shares: 33_333 }],
+        cashChange: -999_990,
+      },
+      state: 'OFFENSE',
+      drawdownPct: -1,
+      distanceToTriggerPct: 7,
+      profileLabel: '平衡',
+    });
+    expect(text).toBe(
+      '目前有效曝險 0.7 倍，低於可達曝險 0.9 倍，建議買進 00631L 33,333 股，讓曝險回到可達的水準。',
     );
   });
 });

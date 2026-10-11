@@ -7,7 +7,6 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
-import InputAdornment from '@mui/material/InputAdornment';
 import Skeleton from '@mui/material/Skeleton';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -17,10 +16,10 @@ import { useState } from 'react';
 
 import { ChartSectionCard } from './ChartSectionCard';
 import {
+  Advice,
   advise,
   BrakeSettings,
   BrakeState,
-  composition,
   DD_TRIGGER_PCT,
   DEFENSE_E_OPTIONS,
   loadBrakeSettings,
@@ -34,13 +33,24 @@ import {
   StrategySymbol,
 } from './drawdownBrake';
 import {
+  aboveTargetNotice,
   adviceMessage,
   BACKTEST_NEXT_DAY,
   BACKTEST_PERIOD,
+  BACKTEST_SCOPE_NOTE,
+  cappedNotice,
+  CASH_BUCKET_NOTE,
+  coreFactorAnomalyMessage,
+  describeCashRowAdvice,
   describeComposition,
-  describeOrder,
+  describeCoreRowAdvice,
+  describeReconciliation,
   DISCLAIMER,
   fmtMultiple,
+  NO_SCOPE_ASSETS,
+  OTHERS_ADVICE,
+  OTHERS_REMINDER,
+  priceFailedMessage,
   RISK_POINTS,
   SIMULATED_NOTE,
   STATE_LABEL,
@@ -51,9 +61,14 @@ import {
   isSnapshotStale,
   splitGuardMessage,
   STALE_SNAPSHOT_MESSAGE,
-  strategyShareOfLiquidAssetsPct,
-  sumTwdCash,
 } from './drawdownBrakeHoldings';
+import {
+  BucketTotals,
+  classifyPositions,
+  CORE_FACTORS,
+  ScopeClassification,
+  toScopeHoldings,
+} from './drawdownBrakeScope';
 import { usePrivacy } from './privacy';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
@@ -202,11 +217,150 @@ interface AdvicePanelProps {
   active: ActiveSignal;
 }
 
+interface BucketRowProps {
+  title: string;
+  bucket: BucketTotals;
+  scopeAssets: number;
+  /** 核心與現金類才有目標市值。 */
+  target?: number;
+  /** 建議欄；其他持股固定為「不動（由您自行決定）」。 */
+  adviceText: string;
+}
+
+/** 分桶表的一列。手機寬度下不用寬表格，改成堆疊式：標題一行，數字在可換行的格子裡，建議獨占一行。 */
+function BucketRow({ title, bucket, scopeAssets, target, adviceText }: BucketRowProps) {
+  const { value } = usePrivacy();
+  return (
+    <Box
+      component="li"
+      sx={{
+        listStyle: 'none',
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 2,
+        p: 1.5,
+        minWidth: 0,
+      }}
+    >
+      <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
+        {title}
+      </Typography>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+          gap: 1,
+        }}
+      >
+        <StatItem label="目前市值" value={`NT$${value(fmtNum(bucket.value))}`} />
+        <StatItem
+          label="目前曝險貢獻"
+          value={`${fmtMultiple(scopeAssets > 0 ? bucket.exposure / scopeAssets : 0)} 倍`}
+        />
+        {target != null && <StatItem label="目標市值" value={`NT$${value(fmtNum(target))}`} />}
+      </Box>
+      <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.75, overflowWrap: 'anywhere' }}>
+        {`建議：${adviceText}`}
+      </Typography>
+    </Box>
+  );
+}
+
+interface BucketListProps {
+  scope: ScopeClassification;
+  advice: Advice;
+  prices: Record<StrategySymbol, number>;
+}
+
+/** 12b 分桶表：0050、00631L、其他一倍商品、其他倍數商品（有才顯示）、現金類。沒有的桶不顯示。 */
+function BucketList({ scope, advice, prices }: BucketListProps) {
+  const { value } = usePrivacy();
+  const fmtAmount = (n: number) => value(fmtNum(n));
+  const orderOf = (symbol: StrategySymbol) => advice.orders.find((o) => o.symbol === symbol);
+  const { scopeAssets, targets } = advice;
+
+  const showCore = (bucket: BucketTotals, target: number) => bucket.count > 0 || target > 0;
+  const hasOthers = scope.otherOne.count > 0 || scope.otherMulti.count > 0;
+
+  return (
+    <>
+      <Box
+        component="ul"
+        aria-label="分桶配置與建議"
+        sx={{ m: 0, mt: 1.5, p: 0, display: 'grid', gap: 1 }}
+      >
+        {showCore(scope.core0050, targets['0050']) && (
+          <BucketRow
+            title="0050"
+            bucket={scope.core0050}
+            scopeAssets={scopeAssets}
+            target={targets['0050']}
+            adviceText={describeCoreRowAdvice(orderOf('0050'), prices['0050'], fmtAmount)}
+          />
+        )}
+        {showCore(scope.core00631L, targets['00631L']) && (
+          <BucketRow
+            title="00631L"
+            bucket={scope.core00631L}
+            scopeAssets={scopeAssets}
+            target={targets['00631L']}
+            adviceText={describeCoreRowAdvice(orderOf('00631L'), prices['00631L'], fmtAmount)}
+          />
+        )}
+        {scope.otherOne.count > 0 && (
+          <BucketRow
+            title="其他一倍商品"
+            bucket={scope.otherOne}
+            scopeAssets={scopeAssets}
+            adviceText={OTHERS_ADVICE}
+          />
+        )}
+        {scope.otherMulti.count > 0 && (
+          <BucketRow
+            title="其他倍數商品"
+            bucket={scope.otherMulti}
+            scopeAssets={scopeAssets}
+            adviceText={OTHERS_ADVICE}
+          />
+        )}
+        {showCore(scope.cash, targets.cash) && (
+          <BucketRow
+            title="現金類"
+            bucket={scope.cash}
+            scopeAssets={scopeAssets}
+            target={targets.cash}
+            adviceText={describeCashRowAdvice(advice.cashChange, fmtAmount)}
+          />
+        )}
+      </Box>
+      {hasOthers && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', mt: 1, overflowWrap: 'anywhere' }}
+        >
+          {OTHERS_REMINDER}
+        </Typography>
+      )}
+      {(scope.cash.count > 0 || targets.cash > 0) && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', mt: 0.5, overflowWrap: 'anywhere' }}
+        >
+          {CASH_BUCKET_NOTE}
+        </Typography>
+      )}
+    </>
+  );
+}
+
 function AdvicePanel({ summary, settings, active }: AdvicePanelProps) {
   const { value, showRatio } = usePrivacy();
   const params = resolveParams(settings);
   const profileLabel = PROFILES[settings.profile].label;
 
+  const scope = classifyPositions(summary.positions);
   const held = extractStrategyPositions(summary.positions);
   const heldBySymbol = Object.fromEntries(held.map((h) => [h.symbol, h])) as Partial<
     Record<StrategySymbol, (typeof held)[number]>
@@ -215,39 +369,43 @@ function AdvicePanel({ summary, settings, active }: AdvicePanelProps) {
   const price00631L = useStrategyPrice('00631L', heldBySymbol['00631L']?.price ?? null);
   const priceInfo = { '0050': price0050, '00631L': price00631L };
 
-  const target = composition(active.state === 'OFFENSE' ? params.eOn : params.eOff, params.k);
   const guardHit = findSplitGuardHit(held, summary.effectiveDate);
   const snapshotStale = isSnapshotStale(summary.effectiveDate, todayISO());
-
-  const marketValue = (symbol: StrategySymbol) => {
-    const price = priceInfo[symbol].price;
-    return (heldBySymbol[symbol]?.quantity ?? 0) * (price ?? 0);
-  };
-  const holdings = {
-    '0050': marketValue('0050'),
-    '00631L': marketValue('00631L'),
-    cash: settings.strategyCashTWD,
-  };
-  const totalValue = holdings['0050'] + holdings['00631L'] + holdings.cash;
 
   const priceLoading = STRATEGY_SYMBOLS.some((s) => priceInfo[s].loading);
   const missingPrice = STRATEGY_SYMBOLS.find(
     (s) => priceInfo[s].price == null && !priceInfo[s].loading,
   );
-
   const prices = {
     '0050': priceInfo['0050'].price ?? 0,
     '00631L': priceInfo['00631L'].price ?? 0,
   };
-  const advice =
-    !guardHit && !missingPrice && !priceLoading && totalValue > 0
-      ? advise(active.prevState, active.state, params, holdings, prices)
-      : null;
-  // 需求 11：純資訊，只讀 advice.totalValue（即下方「策略總資產」），不回饋到上面任何計算。advice 存在
-  // 就表示沒有分割疑慮、價格齊全、V > 0；分母缺漏或 ≤ 0 時為 null，整行不顯示。
-  const strategySharePct = advice
-    ? strategyShareOfLiquidAssetsPct(advice.totalValue, summary.liquidGrossAssetsTWD)
+
+  // 依序擋下：分割疑慮 → 沒有流動資產 → 範圍內有價格失敗的持股 → 核心倍數異常 → 查價中／查不到價。
+  // 寧可暫時沒有建議，也不給錯的股數。
+  const hasScopeAssets = scope.scopeAssets > 0;
+  const blocked =
+    !!guardHit ||
+    !hasScopeAssets ||
+    scope.priceFailed.length > 0 ||
+    scope.coreFactorAnomaly != null ||
+    priceLoading ||
+    !!missingPrice;
+  const advice = !blocked
+    ? advise(active.prevState, active.state, params, toScopeHoldings(scope), prices)
     : null;
+
+  const reconciliation =
+    advice && scope.excluded.length > 0
+      ? describeReconciliation({
+          liquidGross: `NT$${value(fmtNum(summary.liquidGrossAssetsTWD))}`,
+          waterPct: showRatio ? summary.exposureOfLiquidAssetsPct : null,
+          excludedSymbols: [...new Set(scope.excluded.map((p) => p.symbol))],
+          excludedValue: `NT$${value(fmtNum(scope.excludedValue))}`,
+          scopeAssets: `NT$${value(fmtNum(scope.scopeAssets))}`,
+          eActual: advice.eActual,
+        })
+      : null;
 
   return (
     <Box sx={{ mb: 2 }}>
@@ -256,16 +414,11 @@ function AdvicePanel({ summary, settings, active }: AdvicePanelProps) {
           {STALE_SNAPSHOT_MESSAGE}
         </Alert>
       )}
-      {target.truncated && (
-        <Alert severity="warning" sx={{ mb: 1.5 }}>
-          現金比例過高，無法達到此曝險
-        </Alert>
-      )}
 
       {guardHit && (
         <>
           <Typography variant="body1" sx={{ mb: 1.5, overflowWrap: 'anywhere' }}>
-            {`目前狀態：${STATE_LABEL[active.state]}。依『${profileLabel}』等級，目標配置：${describeComposition(target.weights)}（有效曝險 ${fmtMultiple(target.effectiveE)} 倍）。`}
+            {`目前狀態：${STATE_LABEL[active.state]}。依『${profileLabel}』等級，整體有效曝險的目標是 ${fmtMultiple(active.state === 'OFFENSE' ? params.eOn : params.eOff)} 倍。`}
           </Typography>
           <Alert severity="error" sx={{ mb: 1.5 }}>
             {splitGuardMessage(guardHit)}
@@ -273,19 +426,45 @@ function AdvicePanel({ summary, settings, active }: AdvicePanelProps) {
         </>
       )}
 
-      {!guardHit && totalValue <= 0 && (
+      {!guardHit && !hasScopeAssets && (
         <Alert severity="info" sx={{ mb: 1.5 }}>
-          請先在下方輸入策略現金（NT$），或在持股中新增 0050／00631L，才能算出目標配置與建議股數。
+          {NO_SCOPE_ASSETS}
         </Alert>
       )}
 
-      {!guardHit && totalValue > 0 && priceLoading && <Skeleton variant="rounded" height={64} />}
-
-      {!guardHit && totalValue > 0 && !priceLoading && missingPrice && (
+      {!guardHit && hasScopeAssets && scope.priceFailed.length > 0 && (
         <Alert severity="warning" sx={{ mb: 1.5 }}>
-          {`無法取得 ${missingPrice} 的最新價格，暫時無法計算建議股數。`}
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {priceFailedMessage(scope.priceFailed.length)}
+          </Typography>
+          <Typography variant="caption" sx={{ overflowWrap: 'anywhere' }}>
+            {scope.priceFailed.map((p) => p.symbol).join('、')}
+          </Typography>
         </Alert>
       )}
+
+      {!guardHit && hasScopeAssets && scope.coreFactorAnomaly != null && (
+        <Alert severity="warning" sx={{ mb: 1.5 }}>
+          {coreFactorAnomalyMessage(scope.coreFactorAnomaly, CORE_FACTORS[scope.coreFactorAnomaly])}
+        </Alert>
+      )}
+
+      {!guardHit &&
+        hasScopeAssets &&
+        scope.priceFailed.length === 0 &&
+        scope.coreFactorAnomaly == null &&
+        priceLoading && <Skeleton variant="rounded" height={64} />}
+
+      {!guardHit &&
+        hasScopeAssets &&
+        scope.priceFailed.length === 0 &&
+        scope.coreFactorAnomaly == null &&
+        !priceLoading &&
+        missingPrice && (
+          <Alert severity="warning" sx={{ mb: 1.5 }}>
+            {`無法取得 ${missingPrice} 的最新價格，暫時無法計算建議股數。`}
+          </Alert>
+        )}
 
       {advice && (
         <Box
@@ -323,32 +502,36 @@ function AdvicePanel({ summary, settings, active }: AdvicePanelProps) {
               profileLabel,
             })}
           </Typography>
-          {advice.orders.length > 0 && (
-            <Box component="ul" aria-label="建議買賣股數" sx={{ m: 0, mt: 1.5, pl: 2.5 }}>
-              {advice.orders.map((order) => (
-                <Typography
-                  component="li"
-                  variant="body2"
-                  key={order.symbol}
-                  sx={{ fontWeight: 600 }}
-                >
-                  {describeOrder(order)}
-                </Typography>
-              ))}
-            </Box>
+
+          {advice.aboveTarget && (
+            <Alert severity="warning" sx={{ mt: 1.5 }}>
+              {aboveTargetNotice(advice.eReach, advice.eTarget)}
+            </Alert>
           )}
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-            {`目標配置：${describeComposition(advice.weights)}｜有效曝險 ${fmtMultiple(advice.eActual)} 倍（目標 ${fmtMultiple(advice.eTarget)} 倍）｜策略總資產 NT$${value(fmtNum(advice.totalValue))}`}
-          </Typography>
-          {strategySharePct != null && showRatio && (
+          {advice.capped && (
+            <Alert severity="warning" sx={{ mt: 1.5 }}>
+              {cappedNotice(advice.eReach, advice.eTarget, advice.othersShare > 0)}
+            </Alert>
+          )}
+
+          {reconciliation && (
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ display: 'block', mt: 0.5, overflowWrap: 'anywhere' }}
+              sx={{ display: 'block', mt: 1.5, overflowWrap: 'anywhere' }}
             >
-              {`此策略部位占總資產 ${strategySharePct.toFixed(1)}%（分母為流動總資產，不含不動產與負債）`}
+              {reconciliation}
             </Typography>
           )}
+
+          <BucketList scope={scope} advice={advice} prices={prices} />
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mt: 1, overflowWrap: 'anywhere' }}
+          >
+            {`目標配置：${describeComposition(advice.weights, advice.othersShare)}｜有效曝險 ${fmtMultiple(advice.eActual)} 倍（目標 ${fmtMultiple(advice.eTarget)} 倍）｜策略範圍資產 NT$${value(fmtNum(advice.scopeAssets))}`}
+          </Typography>
         </Box>
       )}
     </Box>
@@ -377,16 +560,11 @@ function HoldingsInfo({ summary }: { summary: PortfolioSummaryDto }) {
 
 interface SettingsPanelProps {
   settings: BrakeSettings;
-  twdCash: number;
   onChange: (next: BrakeSettings) => void;
 }
 
-function SettingsPanel({ settings, twdCash, onChange }: SettingsPanelProps) {
-  const { value } = usePrivacy();
+function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [cashText, setCashText] = useState(
-    settings.strategyCashTWD > 0 ? String(settings.strategyCashTWD) : '',
-  );
   const [kText, setKText] = useState(
     settings.minCashRatio != null ? String(settings.minCashRatio) : '',
   );
@@ -394,18 +572,11 @@ function SettingsPanel({ settings, twdCash, onChange }: SettingsPanelProps) {
   const profile = PROFILES[settings.profile];
   const effectiveK = settings.minCashRatio ?? profile.k;
 
-  const parsedCash = cashText.trim() === '' ? 0 : Number(cashText);
-  const cashInvalid = !Number.isFinite(parsedCash) || parsedCash < 0;
   const parsedK = kText.trim() === '' ? undefined : Number(kText);
   const kInvalid =
     parsedK !== undefined &&
     (!Number.isFinite(parsedK) || parsedK < MIN_CASH_RATIO_MIN || parsedK > MIN_CASH_RATIO_MAX);
 
-  const handleCash = (raw: string) => {
-    setCashText(raw);
-    const n = raw.trim() === '' ? 0 : Number(raw);
-    if (Number.isFinite(n) && n >= 0) onChange({ ...settings, strategyCashTWD: n });
-  };
   const handleK = (raw: string) => {
     setKText(raw);
     if (raw.trim() === '') {
@@ -444,26 +615,6 @@ function SettingsPanel({ settings, twdCash, onChange }: SettingsPanelProps) {
         進攻有效曝險 {fmtMultiple(profile.eOn)} 倍、防守 {fmtMultiple(settings.defenseE)}{' '}
         倍、最低現金 {Math.round(effectiveK * 100)}%
       </Typography>
-
-      <TextField
-        size="small"
-        type="number"
-        label="策略現金"
-        value={cashText}
-        onChange={(e) => handleCash(e.target.value)}
-        error={cashInvalid}
-        fullWidth
-        sx={{ mt: 2 }}
-        helperText={
-          cashInvalid
-            ? '請輸入 0 以上的金額'
-            : `指定給這個策略使用的現金。你的 TWD 現金部位合計 NT$${value(fmtNum(twdCash))}（供參考，不會自動採用）`
-        }
-        slotProps={{
-          input: { startAdornment: <InputAdornment position="start">NT$</InputAdornment> },
-          htmlInput: { min: 0, step: 1000, inputMode: 'numeric' },
-        }}
-      />
 
       <Button
         size="small"
@@ -555,6 +706,9 @@ function RiskExplanation() {
 
         <Typography variant="body2" sx={{ fontWeight: 600, mt: 2, mb: 1 }}>
           歷史回測（{BACKTEST_PERIOD}，隔日成交版本）
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, overflowWrap: 'anywhere' }}>
+          {BACKTEST_SCOPE_NOTE}
         </Typography>
         <Box role="table" aria-label="歷史回測績效" sx={{ display: 'grid', gap: 0.5 }}>
           <Box
@@ -669,11 +823,7 @@ function DrawdownBrakeContent({ summary }: { summary: PortfolioSummaryDto }) {
       )}
 
       <HoldingsInfo summary={summary} />
-      <SettingsPanel
-        settings={settings}
-        twdCash={sumTwdCash(summary.positions)}
-        onChange={handleChange}
-      />
+      <SettingsPanel settings={settings} onChange={handleChange} />
       <RiskExplanation />
     </Box>
   );
