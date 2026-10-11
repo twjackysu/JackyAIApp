@@ -2908,3 +2908,12 @@
 - 無新增 Boss 決定，未新增 DECISION。
 - Tech Lead：請審查 PR #433／#432；TASK-038 待 036 合併。Portfolio 全域股票分割處理列 Future Consideration，PM 暫不建議排入。
 - Boss 待辦：回覆 #431 Q1／Q2／Q3（Q4、Q5 非阻擋）、提供回測 CSV；審查並合併 PR #433／#432（合併即部署）。
+
+## 2026-10-11 — PM：吸收 Boss 對 #431 的回覆（Q1～Q4）（排程執行）
+
+- Boss 於 #431 回覆（02:06 UTC）：同意分期；Q1 先僅 admin、之後慢慢開放，開放前要靠可觀測性紀錄判斷計算量；Q2 站內顯示即可、不要 email；Q3 假設成立；Q4 提供回測來源並**更正多個回測數字**（原表誤用 k=0）。已記錄 DECISION-014，`REQUIREMENTS.md` 更新為 v2。
+- 新增需求：8（資料時間＋手動「重新整理資料」繞 cache，第二階段必備）、9（可觀測性，開放全部使用者前必備，不阻擋 PR #433／#432 合併）。站外提醒移出範圍。需求 10（歷史相似期間比較圖）僅為待定提案（Q7），**不排工**。
+- **產品面不一致（PM 發現）**：PR #432 `drawdownBrakeCopy.ts` 仍是更正前的數字（隔日成交 保守 11.9／平衡 15.4／積極 18.1 → 應為 12.1／15.3／18.4；2011 年平衡 −29% → −28%；模擬值註記應涵蓋 0050 與 00631L 及 1997–2002 股利估計值）。目前僅 admin 可見故不阻擋合併，須在 `Audience=All` 前改好。細節見 REQUIREMENTS「Tech Lead Actions」。
+- 仍待 Boss（#431）：Q5（隔日成交欄期間）、Q6（其他持股是否納入判斷，與 DECISION-013 適用範圍有衝突，只有 Boss 能決定）、Q7；CSV／`reproduce_spec.txt`／資料快照。合規 R1 未解決（Boss 選 admin-only 的理由是計算量）。
+- Tech Lead：請依 REQUIREMENTS「Tech Lead Actions」處理文案更新、cache 盤點與重新整理設計、可觀測性指標提議；TASK-038 仍待 TASK-036 合併後再轉 READY。
+- Boss 待辦：審查並合併 PR #433 → #432（#432 與 master 有僅文件衝突，保留兩段）。
