@@ -3,9 +3,14 @@ import { readJson, writeJson } from '@/utils/storage';
 /**
  * 「回落煞車」(Issue #431 / DECISION-013) — 0050 + 00631L + 現金 的目標配置與加減碼建議。
  *
- * 這個檔案是 #431 §3、§4 與其 Python 參考實作的逐字移植。規則與固定參數屬 Boss 的回測結論，
- * 不得調整，也不得新增選項（防守 E ≥ 0.5、不煞車的固定槓桿、突破新高減碼、深跌提前加碼、階梯式
- * 加碼一律不做）。大盤訊號本身（狀態機）由後端計算；這裡只負責「個人建議」。
+ * `composition`、`PROFILES`、`REBALANCE_BAND`、`roundHalfAwayFromZero` 與固定參數是 #431 §3、§4
+ * 與其 Python 參考實作的逐字移植。規則與固定參數屬 Boss 的回測結論，不得調整，也不得新增選項
+ * （防守 E ≥ 0.5、不煞車的固定槓桿、突破新高減碼、深跌提前加碼、階梯式加碼一律不做）。大盤訊號本身
+ * （狀態機）由後端計算；這裡只負責「個人建議」。
+ *
+ * 需求 12（DECISION-017·020）把「整體曝險」的範圍擴大到整個流動資產：其他持股計入整體曝險，但
+ * 建議只針對 0050、00631L、現金（核心）。`advise` 的算法見 ARCHITECTURE.md「回落煞車 — 以整個
+ * 流動資產判斷曝險、分桶顯示」；其他持股為 0 時，結果與 #431 §7 的原算法逐項相同。
  */
 
 export type BrakeState = 'OFFENSE' | 'DEFENSE';
@@ -90,11 +95,18 @@ export function roundHalfAwayFromZero(x: number): number {
   return rounded === 0 ? 0 : rounded; // 避免 -0
 }
 
-/** 0050 / 00631L 的市值與策略現金（TWD）。 */
-export interface StrategyHoldings {
+/**
+ * 策略範圍內的持股（TWD）。核心三桶（0050、00631L、現金類）各自的市值，加上其他持股（其他一倍
+ * 商品＋其他倍數商品，不含被排除的標的）的市值與曝險合計 — 其他持股只計入整體曝險，不產生建議。
+ */
+export interface ScopeHoldings {
   '0050': number;
   '00631L': number;
   cash: number;
+  /** 其他持股的市值合計。 */
+  othersValue: number;
+  /** 其他持股的曝險 Σ(市值 × 曝險倍數)，反向商品可為負。 */
+  othersExposure: number;
 }
 
 /** 0050 / 00631L 的最新收盤價（TWD）。 */
@@ -108,79 +120,156 @@ export interface Order {
   shares: number;
 }
 
+/** 核心三桶的目標市值（TWD）。 */
+export type CoreTargets = Record<'0050' | '00631L' | 'cash', number>;
+
 export interface Advice {
   action: AdviceAction;
   /** 這次是否為狀態切換日（OFFENSE ↔ DEFENSE）。 */
   switched: boolean;
-  /** V = 0050 市值 + 00631L 市值 + 策略現金。 */
-  totalValue: number;
+  /** A：策略範圍資產 ＝ 0050 + 00631L + 現金類 + 其他持股；也是曝險的分母。 */
+  scopeAssets: number;
+  /** 目前整體有效曝險 E_act。 */
   eActual: number;
-  /** 目標 E（若目標不可行，為截斷後的 E）。 */
+  /** 等級表的目標 E（進攻 `eOn`／防守 `eOff`），未經任何截斷。 */
   eTarget: number;
-  /** 目標配置權重（即使「不動」也回傳，供 UI 顯示）。 */
+  /** 整體可達曝險 E_reach：核心在最低現金限制下能把整體曝險調到的值。 */
+  eReach: number;
+  /** 其他持股單獨的曝險就已高於目標（核心降到最低仍達不到）。 */
+  aboveTarget: boolean;
+  /** 目標在其他持股與最低現金限制下無法達到。 */
+  capped: boolean;
+  /** 核心各桶的目標市值（即使「不動」也回傳，供 UI 顯示）。 */
+  targets: CoreTargets;
+  /** 核心各桶目標占策略範圍資產 A 的比例（＝ targets ÷ A）。 */
   weights: Weights;
-  truncated: boolean;
+  /** 其他持股占策略範圍資產 A 的比例。 */
+  othersShare: number;
   /** 先賣後買；股數為 0 的標的不列入。「不動」時為空。 */
   orders: Order[];
+  /** 現金類的金額變動（TWD）＝ −Σ(實際建議股數 × 價格)；用實際股數而非理想值，與列出的股數一致。 */
+  cashChange: number;
 }
 
 const STRATEGY_SYMBOLS: StrategySymbol[] = ['0050', '00631L'];
 
+/** 浮點比較的容差，相對於策略範圍資產 A（TWD）。 */
+const FLOAT_TOLERANCE = 1e-6;
+
 /**
- * 狀態與持股 → 加碼／減碼／不動（#431 §4 / §7 `advise`）。
+ * 狀態與持股 → 加碼／減碼／不動（#431 §4 / §7 `advise`，需求 12c 擴及整個流動資產）。
  *
- * 與參考實作的差異只有兩處，皆為保守且在預設參數下結果相同：
+ * 符號：C ＝ 0050 + 00631L + 現金類（核心可動用資金，內部調整、不引入外部資金）；A ＝ C + 其他持股
+ * 市值；X_o ＝ 其他持股的曝險；E_t ＝ 等級表的目標 E；k ＝ 最低現金比例。
+ *
+ *   c_min  = min(C, k·A)                  最低現金，以 A 為基準
+ *   I      = C − c_min                    核心可投入
+ *   e*     = E_t·A − X_o                  核心必須提供的曝險
+ *   e      = clamp(e*, 0, 2·I)            核心可達的曝險
+ *   E_reach= (X_o + e) / A                整體可達曝險
+ *
+ * 核心目標依 `composition` 同一規則分段（e ≤ I 只用 0050；e > I 加 00631L）。X_o 與其他持股市值為 0
+ * 時，A ＝ C，結果與原本只看 0050 + 00631L + 現金的算法逐項相同。
+ *
+ * 與參考實作的差異：
  * 1. `prevState` 為 null（序列第一天，沒有前一日）時視為初始狀態 OFFENSE，與狀態機的起始值一致。
- * 2. `E_target` 取「截斷後」的 E（§3：「以截斷後的 E 計算」）。參考實作拿未截斷的 E 比較偏離，
- *    在使用者把 k 調高到 E 不可行時，調整完仍永遠差 > 0.10，提醒會一直出現。
+ * 2. 偏離拿「可達 E」而不是等級表的目標 E 比較（原本是「截斷後的 E」，同一個道理）：目標不可達時，
+ *    調整完仍永遠差 > 0.10，提醒會一直出現。
  *
- * 價格 ≤ 0 或不是有限數字的標的無法換算股數，一律不列入 orders（呼叫端應先擋掉缺價格的情況）。
+ * 其他持股永遠沒有 order — 這是結構性的：只有 0050、00631L 兩個標的會產生股數。價格 ≤ 0 或不是
+ * 有限數字的標的無法換算股數，一律不列入 orders（呼叫端應先擋掉缺價格的情況）。A ≤ 0 → 不動。
  */
 export function advise(
   prevState: BrakeState | null,
   state: BrakeState,
   profile: BrakeParams,
-  holdings: StrategyHoldings,
+  holdings: ScopeHoldings,
   prices: StrategyPrices,
   band: number = REBALANCE_BAND,
 ): Advice {
-  const target = composition(state === 'OFFENSE' ? profile.eOn : profile.eOff, profile.k);
-  const eTarget = target.effectiveE;
-
-  const totalValue = holdings['0050'] + holdings['00631L'] + holdings.cash;
-  const eActual = totalValue > 0 ? (holdings['0050'] + 2 * holdings['00631L']) / totalValue : 0;
+  const eTarget = state === 'OFFENSE' ? profile.eOn : profile.eOff;
   const switched = (prevState ?? 'OFFENSE') !== state;
+
+  const core = holdings['0050'] + holdings['00631L'] + holdings.cash; // C
+  const scopeAssets = core + holdings.othersValue; // A
+
+  if (!(scopeAssets > 0)) {
+    return {
+      action: '不動',
+      switched,
+      scopeAssets: 0,
+      eActual: 0,
+      eTarget,
+      eReach: 0,
+      aboveTarget: false,
+      capped: false,
+      targets: { '0050': 0, '00631L': 0, cash: 0 },
+      weights: { '0050': 0, '00631L': 0, cash: 0 },
+      othersShare: 0,
+      orders: [],
+      cashChange: 0,
+    };
+  }
+
+  const eps = scopeAssets * FLOAT_TOLERANCE;
+  const eActual =
+    (holdings['0050'] + 2 * holdings['00631L'] + holdings.othersExposure) / scopeAssets;
+
+  const minCash = Math.min(core, profile.k * scopeAssets); // c_min
+  const investable = core - minCash; // I
+  const needed = eTarget * scopeAssets - holdings.othersExposure; // e*
+  const aboveTarget = needed < -eps;
+  const capped = needed > 2 * investable + eps;
+  const reach = Math.min(Math.max(needed, 0), 2 * investable); // e
+
+  const targets: CoreTargets =
+    reach <= investable
+      ? { '0050': reach, '00631L': 0, cash: core - reach }
+      : {
+          '0050': Math.max(2 * investable - reach, 0),
+          '00631L': reach - investable,
+          cash: minCash,
+        };
+  const eReach = (holdings.othersExposure + reach) / scopeAssets;
 
   const base = {
     switched,
-    totalValue,
+    scopeAssets,
     eActual,
     eTarget,
-    weights: target.weights,
-    truncated: target.truncated,
+    eReach,
+    aboveTarget,
+    capped,
+    targets,
+    weights: {
+      '0050': targets['0050'] / scopeAssets,
+      '00631L': targets['00631L'] / scopeAssets,
+      cash: targets.cash / scopeAssets,
+    },
+    othersShare: holdings.othersValue / scopeAssets,
   };
 
-  if (!switched && Math.abs(eActual - eTarget) <= band) {
-    return { ...base, action: '不動', orders: [] };
+  if (!switched && Math.abs(eActual - eReach) <= band) {
+    return { ...base, action: '不動', orders: [], cashChange: 0 };
   }
 
   const sells: Order[] = [];
   const buys: Order[] = [];
+  let cashChange = 0;
   for (const symbol of STRATEGY_SYMBOLS) {
     const price = prices[symbol];
     if (!Number.isFinite(price) || price <= 0) continue;
-    const shares = roundHalfAwayFromZero(
-      (totalValue * target.weights[symbol] - holdings[symbol]) / price,
-    );
+    const shares = roundHalfAwayFromZero((targets[symbol] - holdings[symbol]) / price);
     if (shares < 0) sells.push({ symbol, shares });
     else if (shares > 0) buys.push({ symbol, shares });
+    cashChange -= shares * price;
   }
   const orders = [...sells, ...buys]; // 先賣再買，避免現金不夠
 
   // PM 假設 A3：四捨五入後所有股數皆為 0 → 「不動」，而不是一個沒有動作的「加碼／減碼」。
-  if (orders.length === 0) return { ...base, action: '不動', orders: [] };
+  if (orders.length === 0) return { ...base, action: '不動', orders: [], cashChange: 0 };
 
-  return { ...base, action: eTarget < eActual ? '減碼' : '加碼', orders };
+  return { ...base, action: eReach < eActual ? '減碼' : '加碼', orders, cashChange };
 }
 
 // ---- 使用者偏好（per-browser，同 rebalancingTarget.ts / feeDiscountRate.ts） ----
@@ -192,14 +281,11 @@ export interface BrakeSettings {
   defenseE: DefenseE;
   /** 進階：覆寫等級預設的最低現金比例 k；未設定則用等級預設。 */
   minCashRatio?: number;
-  /** 使用者指定給這個策略用的現金（NT$）。 */
-  strategyCashTWD: number;
 }
 
 export const DEFAULT_BRAKE_SETTINGS: BrakeSettings = {
   profile: DEFAULT_PROFILE,
   defenseE: 0,
-  strategyCashTWD: 0,
 };
 
 function isProfileKey(value: unknown): value is ProfileKey {
@@ -207,19 +293,14 @@ function isProfileKey(value: unknown): value is ProfileKey {
 }
 
 /** localStorage 可能被手動改過或來自舊版：逐欄檢查，不合法的欄位退回預設。尤其 `defenseE` 只
- * 認 0 與 0.3 — 被竄改成 ≥ 0.5 也不會生效（DECISION-013）。 */
+ * 認 0 與 0.3 — 被竄改成 ≥ 0.5 也不會生效（DECISION-013）。舊版存的 `strategyCashTWD`（需求 12 已
+ * 移除策略現金）直接忽略，不報錯。 */
 export function sanitizeBrakeSettings(raw: unknown): BrakeSettings {
   if (typeof raw !== 'object' || raw === null) return { ...DEFAULT_BRAKE_SETTINGS };
   const r = raw as Record<string, unknown>;
   const settings: BrakeSettings = {
     profile: isProfileKey(r.profile) ? r.profile : DEFAULT_BRAKE_SETTINGS.profile,
     defenseE: r.defenseE === 0.3 ? 0.3 : 0,
-    strategyCashTWD:
-      typeof r.strategyCashTWD === 'number' &&
-      Number.isFinite(r.strategyCashTWD) &&
-      r.strategyCashTWD > 0
-        ? r.strategyCashTWD
-        : 0,
   };
   if (
     typeof r.minCashRatio === 'number' &&

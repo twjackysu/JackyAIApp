@@ -1,4 +1,4 @@
-import { Advice, BrakeState, Order, ProfileKey, Weights } from './drawdownBrake';
+import { Advice, BrakeState, Order, ProfileKey, StrategySymbol, Weights } from './drawdownBrake';
 
 import { fmtNum } from '@/utils/format';
 
@@ -50,12 +50,14 @@ function fmtWeightPct(w: number): string {
   return `${Math.round(w * 1000) / 10}%`;
 }
 
-/** 目標配置，例：「00631L 60% / 0050 20% / 現金 20%」；0% 的項目不列。 */
-export function describeComposition(weights: Weights): string {
+/** 目標配置，例：「00631L 60% / 0050 20% / 現金 20%」；0% 的項目不列。有其他持股時最後補上它們
+ * 占策略範圍資產的比例，讓各項加起來是 100%（核心的權重是占「策略範圍資產」，不是占核心）。 */
+export function describeComposition(weights: Weights, othersShare = 0): string {
   const parts: string[] = [];
   if (weights['00631L'] > 1e-9) parts.push(`00631L ${fmtWeightPct(weights['00631L'])}`);
   if (weights['0050'] > 1e-9) parts.push(`0050 ${fmtWeightPct(weights['0050'])}`);
   if (weights.cash > 1e-9) parts.push(`現金 ${fmtWeightPct(weights.cash)}`);
+  if (othersShare > 1e-9) parts.push(`其他持股 ${fmtWeightPct(othersShare)}`);
   return parts.join(' / ');
 }
 
@@ -107,7 +109,7 @@ export function adviceMessage({
   distanceToTriggerPct,
   profileLabel,
 }: AdviceMessageInput): string {
-  const { action, switched, eActual, eTarget, weights, orders } = advice;
+  const { action, switched, eActual, eTarget, eReach, weights, othersShare, orders } = advice;
 
   if (action === '不動') {
     const head = `目前狀態：${STATE_LABEL[state]}（有效曝險 ${fmtMultiple(eActual)} 倍，目標 ${fmtMultiple(eTarget)} 倍）。距離近一年高點 ${drawdownPct.toFixed(1)}%`;
@@ -118,14 +120,102 @@ export function adviceMessage({
   }
 
   const ordersText = describeOrders(orders);
-  const target = describeComposition(weights);
+  const target = describeComposition(weights, othersShare);
 
   if (switched && state === 'DEFENSE') {
     return `大盤報酬指數已從近一年高點回落 ${Math.abs(drawdownPct).toFixed(1)}%，觸發回落煞車，進入防守。依『${profileLabel}』等級，目標配置：${target}。${ordersText}。`;
   }
   if (switched) {
-    return `大盤收盤站回 60 日均線，解除煞車，回到進攻。依『${profileLabel}』等級，目標配置：${target}（有效曝險 ${fmtMultiple(eTarget)} 倍）。${ordersText}。`;
+    return `大盤收盤站回 60 日均線，解除煞車，回到進攻。依『${profileLabel}』等級，目標配置：${target}（有效曝險 ${fmtMultiple(eReach)} 倍）。${ordersText}。`;
   }
-  const relation = eActual > eTarget ? '高於' : '低於';
-  return `目前有效曝險 ${fmtMultiple(eActual)} 倍，${relation}目標 ${fmtMultiple(eTarget)} 倍，${ordersText}，讓曝險回到目標。`;
+  // 目標不可達（capped／aboveTarget）時，「回到目標」要拿可達的曝險說，否則會承諾做不到的事。
+  const reachable = advice.capped || advice.aboveTarget;
+  const goal = reachable ? eReach : eTarget;
+  const relation = eActual > goal ? '高於' : '低於';
+  return `目前有效曝險 ${fmtMultiple(eActual)} 倍，${relation}${reachable ? '可達曝險' : '目標'} ${fmtMultiple(goal)} 倍，${ordersText}，讓曝險回到${reachable ? '可達的水準' : '目標'}。`;
+}
+
+// ---- 需求 12：整個流動資產納入曝險判斷、分桶顯示 ----
+// 以下字句為 Tech Lead 提議（PM／Boss 可改），集中在這裡，要改字只改一處。
+
+/** 其他持股一列的建議欄位（DECISION-020、A26）：進攻、防守、再平衡一律如此。 */
+export const OTHERS_ADVICE = '不動（由您自行決定）';
+
+/** 其他持股的提醒（R8）：未經回測，所以不替它們訂目標，也不給建議。 */
+export const OTHERS_REMINDER = '其他持股未經回測，僅計入整體曝險、不給建議，由您自行決定。';
+
+/** 績效區塊的範圍標示（R8）：回測績效不是整個流動資產的績效。 */
+export const BACKTEST_SCOPE_NOTE = '以上績效依 0050＋00631L＋現金回測，不是整個流動資產的績效。';
+
+/** 現金類包含外幣與債券／貨幣型，金額變動不等於「換成台幣現金」（架構決策第 2 點）。 */
+export const CASH_BUCKET_NOTE =
+  '現金類包含外幣現金與債券／貨幣型商品；這裡只標示金額變動，不對它們給買賣建議。';
+
+/** 沒有其他持股時，目標不可達沿用原文（#431 §3 / §10）。 */
+export const CAPPED_NO_OTHERS = '現金比例過高，無法達到此曝險';
+
+/** 其他持股單獨就已高於目標（12c）。`eReach` 即核心降到最低後的整體曝險。 */
+export function aboveTargetNotice(eReach: number, eTarget: number): string {
+  return `即使 0050／00631L 全部轉為現金，整體曝險仍有 ${fmtMultiple(eReach)} 倍，高於目標 ${fmtMultiple(eTarget)} 倍；差額來自您自行決定的其他持股`;
+}
+
+/** 目標在其他持股與最低現金限制下無法達到（12c）。 */
+export function cappedNotice(eReach: number, eTarget: number, hasOthers: boolean): string {
+  if (!hasOthers) return CAPPED_NO_OTHERS;
+  return `受其他持股與最低現金限制，整體曝險最高只能到 ${fmtMultiple(eReach)} 倍（目標 ${fmtMultiple(eTarget)} 倍）`;
+}
+
+/** 範圍內有持股價格取得失敗 → 不給建議（A 與 E 會被失敗的 0 值扭曲）。 */
+export function priceFailedMessage(count: number): string {
+  return `${count} 檔持股價格取得失敗，暫時無法算出建議`;
+}
+
+/** 0050／00631L 的曝險倍數與策略定義不符（名稱分類意外）→ 不給建議。 */
+export function coreFactorAnomalyMessage(symbol: StrategySymbol, expected: number): string {
+  return `${symbol} 的曝險倍數與策略定義（${expected} 倍）不符，暫時無法算出建議，請回報給作者`;
+}
+
+/** 沒有任何可納入策略範圍的流動資產。 */
+export const NO_SCOPE_ASSETS =
+  '目前沒有可納入的流動資產，請先在持股中新增資產，才能算出目標配置與建議。';
+
+export interface ReconciliationInput {
+  /** 頁面的流動總資產（TWD），已套用隱私遮罩的字串。 */
+  liquidGross: string;
+  /** 頁面右上角「水位」（%，例 109.1）；沒有或隱私模式隱藏時為 null。 */
+  waterPct: number | null;
+  /** 被排除的標的代號，例 ['NTSD']。 */
+  excludedSymbols: string[];
+  excludedValue: string;
+  scopeAssets: string;
+  /** 卡片的整體曝險 E（倍）。 */
+  eActual: number;
+}
+
+/** 對帳行（12a／A24）：讓使用者看出卡片的 E 為何和右上角水位不同。只有存在被排除持股才顯示。 */
+export function describeReconciliation(input: ReconciliationInput): string {
+  const water = input.waterPct == null ? '' : `（水位 ${input.waterPct.toFixed(1)}%）`;
+  return `流動總資產 ${input.liquidGross}${water}；不含 ${input.excludedSymbols.join('、')} ${input.excludedValue}；策略範圍 ${input.scopeAssets} → 曝險 ${fmtMultiple(input.eActual)} 倍`;
+}
+
+/** 核心股票列（0050／00631L）的建議欄：「加碼：買進 116,667 股（約 NT$3,500,010）」「不動」。 */
+export function describeCoreRowAdvice(
+  order: Order | undefined,
+  price: number,
+  fmtAmount: (n: number) => string,
+): string {
+  if (!order) return '不動';
+  const amount = Math.abs(order.shares) * price;
+  const verb = order.shares < 0 ? '減碼：賣出' : '加碼：買進';
+  return `${verb} ${fmtNum(Math.abs(order.shares))} 股（約 NT$${fmtAmount(amount)}）`;
+}
+
+/** 現金類列的建議欄：金額變動 ＝ −Σ(實際建議股數 × 價格)。 */
+export function describeCashRowAdvice(
+  cashChange: number,
+  fmtAmount: (n: number) => string,
+): string {
+  const rounded = Math.round(cashChange);
+  if (rounded === 0) return '不動';
+  return `${rounded > 0 ? '現金增加' : '現金減少'} NT$${fmtAmount(Math.abs(rounded))}`;
 }

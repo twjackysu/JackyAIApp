@@ -52,13 +52,6 @@ export function extractStrategyPositions(positions: PositionDto[]): StrategyPosi
   return result;
 }
 
-/** 使用者 TWD 現金部位合計（NT$）— 只供參考，不會自動當作策略現金。 */
-export function sumTwdCash(positions: PositionDto[]): number {
-  return positions
-    .filter((p) => p.assetType === 'CASH' && p.currency === 'TWD')
-    .reduce((sum, p) => sum + p.marketValueTWD, 0);
-}
-
 export interface SplitGuardHit {
   symbol: StrategySymbol;
   event: SplitEvent;
@@ -104,25 +97,3 @@ export function splitGuardMessage({ symbol, event }: SplitGuardHit): string {
 }
 
 export const STALE_SNAPSHOT_MESSAGE = '持股資料可能已過期，請先更新持股';
-
-/**
- * 策略部位（0050 市值 + 00631L 市值 + 策略現金）占「流動總資產」的百分比（需求 11 / A9）。
- *
- * 純資訊，只供顯示，不得回饋到訊號、目標配置或建議股數。分母是 Portfolio 的 `liquidGrossAssetsTWD`
- * （台股 + 美股 + 基金 + 現金，不含不動產與負債），與頁面的「流動資產」標題與再平衡建議同一個數字。
- * 分母或策略部位不是正的有限數（沒有策略部位、價格缺漏、資料不足）→ null，由呼叫端不顯示，
- * 不會出現 NaN / Infinity / 負數。
- *
- * 策略現金是使用者自行輸入的金額，不一定已計入 Portfolio 的現金，所以結果可能超過 100%，如實回傳。
- */
-export function strategyShareOfLiquidAssetsPct(
-  strategyValueTWD: number | null | undefined,
-  liquidGrossAssetsTWD: number | null | undefined,
-): number | null {
-  if (typeof strategyValueTWD !== 'number' || !Number.isFinite(strategyValueTWD)) return null;
-  if (typeof liquidGrossAssetsTWD !== 'number' || !Number.isFinite(liquidGrossAssetsTWD)) {
-    return null;
-  }
-  if (strategyValueTWD <= 0 || liquidGrossAssetsTWD <= 0) return null;
-  return (strategyValueTWD / liquidGrossAssetsTWD) * 100;
-}
