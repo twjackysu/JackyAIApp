@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using TWStockLib.Services;
 
 namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 {
@@ -111,6 +112,38 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 
             Assert.Same(provider.GetRequiredService<ITaiexDataStatus>(), provider.GetRequiredService<ITaiexDataStatus>());
             Assert.IsType<DrawdownBrakeService>(provider.GetRequiredService<IDrawdownBrakeService>());
+        }
+
+        [Fact]
+        public void TheMisPieces_AreSingletons_SoThereIsOneSharedReadingForTheWholeSite()
+        {
+            using var provider = BuildProvider();
+
+            var source = provider.GetRequiredService<IMisTaiexQuoteSource>();
+
+            Assert.IsType<MisTaiexQuoteSource>(source);
+            Assert.Same(source, provider.GetRequiredService<IMisTaiexQuoteSource>());
+            Assert.IsType<MisTaiexClient>(provider.GetRequiredService<IMisTaiexClient>());
+            Assert.Same(provider.GetRequiredService<IMisTaiexClient>(), provider.GetRequiredService<IMisTaiexClient>());
+        }
+
+        [Fact]
+        public void TheMisSingletons_DoNotCaptureTheLibrarysScopedService()
+        {
+            // TWStockLib registers IStockMarketService as scoped; the MIS client is a singleton and must
+            // reach it through a scope per call. With scope validation on, capturing it would throw on resolve.
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddMemoryCache();
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+            services.AddDbContextFactory<AzureSQLDBContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+            services.AddPortfolioServices();
+            services.AddTwStock();
+            using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+            Assert.NotNull(provider.GetRequiredService<IMisTaiexClient>());
+            Assert.NotNull(provider.GetRequiredService<IMisTaiexQuoteSource>());
+            Assert.NotNull(provider.GetRequiredService<IDrawdownBrakeService>());
         }
     }
 }

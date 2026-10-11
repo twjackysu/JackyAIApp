@@ -159,8 +159,10 @@ namespace JackyAIApp.Server.Controllers
             {
                 Result = outcome.Result,
                 RetryAfterSeconds = outcome.RetryAfterSeconds,
-                // Rebuilt if the refresh stored anything; otherwise the shared copy.
-                Signal = await drawdownBrakeService.GetAsync(ct),
+                // Rebuilt if the refresh stored anything; otherwise the shared copy. With a newer
+                // intraday estimate if one is wanted now and MIS has not been asked in the last
+                // 10 seconds — whatever the official refresh answered, and whether or not MIS did.
+                Signal = await drawdownBrakeService.GetAfterEstimateRefreshAsync(ct),
             });
         }
 

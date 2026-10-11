@@ -14,6 +14,12 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
         /// built. What the view metric is told; the refresh endpoint, which is not a view, uses
         /// <see cref="GetAsync"/>.</summary>
         Task<DrawdownBrakeLookup> GetWithCacheStatusAsync(CancellationToken ct = default);
+
+        /// <summary><see cref="GetAsync"/> after asking MIS for a newer intraday estimate, if one is
+        /// wanted now and the shared reading is more than
+        /// <see cref="CacheTtl.Portfolio.DrawdownBrakeEstimateRefresh"/> old. What the refresh
+        /// endpoint answers with; an estimate MIS could not give is just absent from it.</summary>
+        Task<DrawdownBrakeDto> GetAfterEstimateRefreshAsync(CancellationToken ct = default);
     }
 
     /// <param name="Signal">The shared signal. Do not modify it.</param>
@@ -33,18 +39,37 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
     /// request. A copy is also discarded the moment <see cref="ITaiexDataStatus.Version"/> moves
     /// on (the refresh stored days or heard from TWSE), so "just refreshed" never shows the old
     /// signal. Callers get the cached instance itself and must not modify it.</para>
+    ///
+    /// <para>On a trading day from 09:00 until that day's official close is stored, the signal also
+    /// carries an intraday <see cref="DrawdownBrakeDto.Estimate"/> (TASK-038), from the one MIS
+    /// reading the site shares (<see cref="IMisTaiexQuoteSource"/>), and once the close is in, says
+    /// whether it overturned the last estimate (<see cref="DrawdownBrakeDto.EstimateCorrected"/>).
+    /// Those ride on top of the official signal rather than inside its cache entry, so a new
+    /// reading is shown at once instead of after the signal's own minute, and the official
+    /// signal is never rebuilt, or altered in any way, because MIS is slow or down. (A slow MIS can
+    /// still make a look wait: the one that has to ask again waits, with whoever arrives meanwhile,
+    /// for at most <see cref="MisTaiexClient.DefaultTimeout"/>.)</para>
     /// </summary>
     public class DrawdownBrakeService(
         ITaiexTotalReturnStore store,
         ITwseHolidayCalendar calendar,
         ITaiexDataStatus status,
+        IMisTaiexQuoteSource quotes,
         IMemoryCache cache,
         DrawdownBrakeTelemetry telemetry,
         TimeProvider? timeProvider = null) : IDrawdownBrakeService
     {
         internal const string CacheKey = "drawdownbrake:signal";
 
-        private sealed record CachedSignal(DrawdownBrakeDto Signal, long Version);
+        /// <summary>Where the state of a trading day's last estimate is kept (<see cref="RecordEstimate"/>).</summary>
+        internal static string EstimateRecordKey(DateOnly tradeDate) =>
+            $"drawdownbrake:estimate:{tradeDate:yyyy-MM-dd}";
+
+        private sealed record CachedSignal(DrawdownBrakeDto Signal, long Version, IReadOnlyList<IndexClose> Closes);
+
+        /// <summary>The signal with its estimate laid on, remembered so everyone who sees the same
+        /// official copy and the same MIS reading is handed the same object.</summary>
+        private sealed record Composed(CachedSignal Base, MisQuoteSnapshot? Snapshot, bool Corrected, DrawdownBrakeDto Result);
 
         /// <summary>Less history than this and the signal is not trustworthy yet (Issue #431 §1:
         /// "at least 2 years").</summary>
@@ -52,6 +77,9 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
 
         /// <summary>From this time (Taipei) on a trading day its data is overdue.</summary>
         internal static readonly TimeSpan StaleAfter = TimeSpan.FromHours(17);
+
+        /// <summary>From this time (Taipei) on a trading day the index has a level to estimate from.</summary>
+        internal static readonly TimeSpan EstimateFrom = TimeSpan.FromHours(9);
 
         private const decimal TriggerPct = DrawdownBrakeCalculator.DdTrigger * 100;
 
@@ -61,27 +89,43 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
         /// a caller that gives up simply lets the next one build it.</summary>
         private readonly SemaphoreSlim _build = new(1, 1);
 
+        private volatile Composed? _composed;
+
         public async Task<DrawdownBrakeDto> GetAsync(CancellationToken ct = default) =>
             (await GetWithCacheStatusAsync(ct)).Signal;
 
         public async Task<DrawdownBrakeLookup> GetWithCacheStatusAsync(CancellationToken ct = default)
         {
-            if (TryGetFresh() is { } hit) return new(hit, CacheHit: true);
+            var (entry, cacheHit) = await GetOfficialAsync(ct);
+            var signal = await WithEstimateAsync(entry, CacheTtl.Portfolio.DrawdownBrakeEstimateQuote, ct);
+            return new(signal, cacheHit);
+        }
+
+        public async Task<DrawdownBrakeDto> GetAfterEstimateRefreshAsync(CancellationToken ct = default)
+        {
+            var (entry, _) = await GetOfficialAsync(ct);
+            return await WithEstimateAsync(entry, CacheTtl.Portfolio.DrawdownBrakeEstimateRefresh, ct);
+        }
+
+        private async Task<(CachedSignal Entry, bool CacheHit)> GetOfficialAsync(CancellationToken ct)
+        {
+            if (TryGetFresh() is { } hit) return (hit, true);
 
             await _build.WaitAsync(ct);
             try
             {
                 // Whoever held the lock may have just built it.
-                if (TryGetFresh() is { } built) return new(built, CacheHit: true);
+                if (TryGetFresh() is { } built) return (built, true);
 
                 // Read before anything below: if the data moves while this is being built, the copy
                 // is tagged with the older version and is rebuilt on the next call.
                 var version = status.Version;
                 var started = _time.GetTimestamp();
-                var signal = await BuildAsync(ct);
+                var (signal, closes) = await BuildAsync(ct);
                 telemetry.RecordCompute(_time.GetElapsedTime(started));
-                cache.Set(CacheKey, new CachedSignal(signal, version), CacheTtl.Portfolio.DrawdownBrakeSignal);
-                return new(signal, CacheHit: false);
+                var entry = new CachedSignal(signal, version, closes);
+                cache.Set(CacheKey, entry, CacheTtl.Portfolio.DrawdownBrakeSignal);
+                return (entry, false);
             }
             finally
             {
@@ -89,31 +133,104 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
             }
         }
 
-        private DrawdownBrakeDto? TryGetFresh()
+        private CachedSignal? TryGetFresh()
         {
             if (!cache.TryGetValue(CacheKey, out CachedSignal? entry) || entry is null) return null;
             if (entry.Version != status.Version) return null;
             // The cache entry expires on the same TTL by the system clock; this is the same bound
             // by this service's clock, which is what lets a test move time.
             if (_time.GetUtcNow() - entry.Signal.GeneratedAt >= CacheTtl.Portfolio.DrawdownBrakeSignal) return null;
-            return entry.Signal;
+            return entry;
         }
 
-        private async Task<DrawdownBrakeDto> BuildAsync(CancellationToken ct)
+        /// <summary>
+        /// The official signal with the estimate and the "corrected" flag laid on, when there is
+        /// anything to lay on; otherwise the shared official copy itself. MIS is asked, through the
+        /// shared reading, only while an estimate is wanted (<see cref="EstimateWantedAsync"/>).
+        /// </summary>
+        private async Task<DrawdownBrakeDto> WithEstimateAsync(CachedSignal entry, TimeSpan quoteMaxAge, CancellationToken ct)
+        {
+            var official = entry.Signal;
+            // Initializing: no official day, so nothing to scale an estimate from or to overturn.
+            if (official.AsOfDate is not { } asOf || official.State is not { } state) return official;
+
+            var taipeiNow = _time.GetUtcNow().UtcDateTime.AddHours(8); // Taiwan has no DST
+            var today = DateOnly.FromDateTime(taipeiNow);
+            var corrected = WasCorrected(asOf, state);
+
+            MisQuoteSnapshot? snapshot = null;
+            if (await EstimateWantedAsync(asOf, today, taipeiNow, ct))
+                snapshot = await quotes.GetAsync(quoteMaxAge, ct);
+
+            // A reading of another day (MIS answers a market holiday with the last session's) is no
+            // estimate of today.
+            var quote = snapshot?.Quote is { } q && q.TradeDate == today ? q : null;
+            if (quote is null && !corrected) return official;
+
+            if (_composed is { } same && ReferenceEquals(same.Base, entry)
+                && ReferenceEquals(same.Snapshot, snapshot) && same.Corrected == corrected)
+                return same.Result;
+
+            DrawdownBrakeEstimateDto? estimate = null;
+            if (quote is not null)
+            {
+                estimate = DrawdownBrakeEstimator.Estimate(entry.Closes, quote);
+                RecordEstimate(today, estimate.State);
+            }
+
+            var result = official.WithEstimate(estimate, corrected);
+            _composed = new Composed(entry, snapshot, corrected, result);
+            return result;
+        }
+
+        /// <summary>
+        /// Whether an estimate is wanted now: a weekday from <see cref="EstimateFrom"/> Taipei time, while
+        /// the day's official close is not stored yet. The estimate scales the stored close by the day's
+        /// move, so that close must be the previous trading day's: any weekday between it and today
+        /// has to be a known market holiday, and where the calendar cannot say, no estimate is made
+        /// rather than one from a stale base. (A holiday today needs no check: MIS then answers with the
+        /// last session's date, which <see cref="WithEstimateAsync"/> turns away.)
+        /// </summary>
+        private async Task<bool> EstimateWantedAsync(DateOnly asOf, DateOnly today, DateTime taipeiNow, CancellationToken ct)
+        {
+            if (asOf >= today) return false;
+            if (IsWeekend(today)) return false;
+            if (taipeiNow.TimeOfDay < EstimateFrom) return false;
+
+            for (var d = asOf.AddDays(1); d < today; d = d.AddDays(1))
+                if (!IsWeekend(d) && await calendar.IsMarketClosedAsync(d, ct) != true)
+                    return false;
+            return true;
+        }
+
+        private static bool IsWeekend(DateOnly d) => d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+
+        /// <summary>Remembers the state of the latest estimate of <paramref name="tradeDate"/>: what
+        /// the official close will be compared with. In memory only; a restart forgets it, and the
+        /// comparison then simply says nothing.</summary>
+        private void RecordEstimate(DateOnly tradeDate, BrakeState state) =>
+            cache.Set(EstimateRecordKey(tradeDate), state, CacheTtl.Portfolio.DrawdownBrakeEstimateRecord);
+
+        /// <summary>The last estimate of <paramref name="asOf"/> (the official day now being shown) named
+        /// a different state from the official one.</summary>
+        private bool WasCorrected(DateOnly asOf, BrakeState official) =>
+            cache.TryGetValue(EstimateRecordKey(asOf), out BrakeState estimated) && estimated != official;
+
+        private async Task<(DrawdownBrakeDto Signal, IReadOnlyList<IndexClose> Closes)> BuildAsync(CancellationToken ct)
         {
             var generatedAt = _time.GetUtcNow();
             var lastCheckedAt = status.LastCheckedAt;
 
             var closes = await store.GetAllAsync(ct);
             if (closes.Count == 0 || closes[^1].Date.DayNumber - closes[0].Date.DayNumber < MinHistoryDays)
-                return new DrawdownBrakeDto { IsInitializing = true, LastCheckedAt = lastCheckedAt, GeneratedAt = generatedAt };
+                return (new DrawdownBrakeDto { IsInitializing = true, LastCheckedAt = lastCheckedAt, GeneratedAt = generatedAt }, closes);
 
             var days = DrawdownBrakeCalculator.Compute(closes);
             var last = days[^1];
             var drawdownPct = last.Drawdown * 100;
 
             var taipeiNow = generatedAt.UtcDateTime.AddHours(8); // Taiwan has no DST
-            return new DrawdownBrakeDto
+            var signal = new DrawdownBrakeDto
             {
                 AsOfDate = last.Date,
                 State = last.State,
@@ -128,6 +245,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
                 LastCheckedAt = lastCheckedAt,
                 GeneratedAt = generatedAt,
             };
+            return (signal, closes);
         }
 
         /// <summary>The first day of the current run of equal states; null if there has been no switch.</summary>

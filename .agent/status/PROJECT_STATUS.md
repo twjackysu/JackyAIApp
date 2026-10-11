@@ -3041,3 +3041,21 @@
 
 - Boss（對話）：00685L 應該沒有做過分割，因為上市沒多久。→ TASK-047 與 `ARCHITECTURE.md` 的 `SPLIT_EVENTS` 項改為「**不新增 00685L 條目**」（Boss 確認，Tech Lead 無法獨立驗證）；上一則的風險 (1) 因此解除。日後若分割，在 `SPLIT_EVENTS` 加一行。
 - Boss 另提醒：00685L 與 00631L 同一類（2 倍）、NTSD 是另一類（1.5 倍）——與 DECISION-021、`ARCHITECTURE.md` 設計一致，無需變更。
+
+## 2026-10-11 — Backend Engineer：TASK-038 盤中預估 PR 已開（排程執行）
+
+- **選擇**：無 open PR（#438／#440／#441 皆已由 Boss 合併）。Backend 任務中 TASK-038 的檔案狀態仍寫 BLOCKED，但擋住它的前提（TASK-041／040）已合併，據上一輪記錄視為可開工；其餘 Backend 任務（036／039／040／041／044）皆已完成。
+- **PR**：#443（MIS 指數 client＋解析器、全站共用 30 秒讀數〔重新整理 10 秒〕、預估公式、`estimate`／`estimateCorrected`、接上 `POST …/refresh`）。狀態 `PR_OPENED`，待 Tech Lead 審查；設計取捨（預估疊加在正式訊號之外、基準日檢查、更正持續時間）已列在 PR 描述。（原版自建 client；後續依 Boss 指示改經 TWStockLib，見下一則。）
+- **驗證**：`dotnet test --filter "Category!=LiveContract"` 1208/1208 通過；變異測試 29 個全部被抓到；PR CI（run 650）通過。**MIS 格式已由 GitHub Actions 實測驗證**（本分支手動 dispatch `contract-tests.yml`，run 38140029229，57/57 通過）：指數項目有 `c`／`ch`／`d`／`t`／`tlong`／`y`／`z`（皆字串），**不需要 cookie**，解析器吃得下；實際欄位已記在 `TASK-038.md` Result。**仍未實測**：盤中 `z` 更新行為與平日休市日。
+- **Tech Lead 待辦**：審查 #443；更新 `ARCHITECTURE.md`（契約區仍寫「`estimate` 第二階段前恆為 null」，第二階段章節仍標 BLOCKED）。
+
+## 2026-10-11 — Backend Engineer：TASK-038 MIS 改經 TWStockLib（Boss 指示「不自己造輪子」），並合入 master（#444）（排程執行）
+
+- **背景**：我的 session 開始時沒有 open PR，做到收尾時 #443（另一個 session，自建 MIS client）出現，故未重複開 PR，並在 #443 留言。Boss 回覆選擇 **(a)：以 #443 為基底，把自建 client 換成 TWStockLib**。
+- **TWStockLib**：PR #12（通用 `bypassCache` 參數）Boss 已合併，NuGet **2.2.1** 可用（剛發佈時 restore 一度因 nuget.org 索引延遲看不到，之後正常）。
+- **本分支**（`claude/exciting-cray-w4l3w6`）= #443 的全部提交 ＋「改經 TWStockLib」＋ merge master。因我只能推自己被指定的分支、不能改 #443 的分支，所以另開 PR；**合併本 PR 即等於合併 #443（其提交是本分支的祖先），請勿兩個都合併；合併後 #443 會自動顯示為已合併或可直接關閉。**
+- **程式變更（相對 #443）**：`MisTaiexClient` 改呼叫 `GetRealtimeQuoteAsync("t00", MarketType.TSE, bypassCache: true)`，刪除 `MisTaiexParser`；`IMisTaiexClient`／`MisIndexQuote`／`MisTaiexQuoteSource`／估算與更正邏輯不動。`TradeDate`／`QuotedAt` 由 lib 的 `SyncTime`（`tlong`）推得。
+- **衝突**：#443 的分支是從更舊的 master（`24d4c08`）切出，之後 master 多了 PM／Tech Lead 的文件提交與 #444（TASK-047，前端）。實際衝突只有兩個文件檔（`PROJECT_STATUS.md`、`TASK-038.md`），程式碼無衝突；已兩邊都保留。
+- **驗證**：`dotnet test --filter "Category!=LiveContract"` 1179 通過。用 #443 在 Actions 記錄的真實欄位集餵 lib 的 parser，`LastPrice`／`YesterdayClosingPrice`／`SyncTime`（台北 13:31）正確，`z` 為 `-` 時 `LastPrice` 為 null。**尚未驗證**：lib 的 HTTP 路徑（裸 GET、無自訂 User-Agent）在 Actions 上實際讀 `t00`——LiveContract 已改為走這條路，請看下一次 `contract-tests.yml`。
+- **TASK-048**（Backend，LOW，僅測試）本輪未做（單一 session 只能推一個分支）。
+
