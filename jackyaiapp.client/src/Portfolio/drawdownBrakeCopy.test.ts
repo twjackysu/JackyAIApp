@@ -27,26 +27,31 @@ function makeAdvice(overrides: Partial<Advice>): Advice {
   };
 }
 
-describe('固定揭露文字（逐字對照 #431）', () => {
-  it('警語與 2014 年前模擬值註記', () => {
+describe('固定揭露文字（警語逐字對照 #431；數字對照 Boss 更正值）', () => {
+  it('警語逐字不變（DECISION-013）', () => {
     expect(DISCLAIMER).toBe('依歷史回測規則產生的訊號，過去績效不代表未來，不構成投資建議。');
-    expect(SIMULATED_NOTE).toBe('2014 年以前的 00631L 績效為模擬值。');
+  });
+
+  it('資料限制註記涵蓋 2014 年前 0050 與 00631L 的模擬值、1997–2002 年股利估計值（A7）', () => {
+    expect(SIMULATED_NOTE).toBe(
+      '2014 年以前的 0050 與 00631L 績效為依報酬指數模擬的數字；1997–2002 年的股利為估計值。',
+    );
   });
 
   it('風險等級說明的三點（#431 §10）', () => {
     expect(RISK_POINTS).toEqual([
-      '槓桿版本在盤整年可能比 0050 虧更多（例如 2011 年平衡等級 -29%，0050 是 -18%）。',
+      '槓桿版本在盤整年可能比 0050 虧更多（例如 2011 年平衡等級 -28%，0050 是 -18%）。',
       '00631L 曾經單日跌 20%，煞車是收盤才判斷，擋不住盤中或單日的急跌。',
       '平均每年約觸發 3 次進出，約 29% 的時間處於防守。',
     ]);
   });
 
-  it('回測績效用隔日成交版本，期間 1997–2026（#431 §2）', () => {
+  it('回測績效用隔日成交版本（reproduce_spec.txt 的 lag2 欄），期間 1997–2026', () => {
     expect(BACKTEST_PERIOD).toBe('1997–2026');
     expect(BACKTEST_NEXT_DAY).toEqual({
-      conservative: { annualPct: 11.9, maxDrawdownPct: -27 },
-      balanced: { annualPct: 15.4, maxDrawdownPct: -37 },
-      aggressive: { annualPct: 18.1, maxDrawdownPct: -45 },
+      conservative: { annualPct: 12.1, maxDrawdownPct: -27 },
+      balanced: { annualPct: 15.3, maxDrawdownPct: -37 },
+      aggressive: { annualPct: 18.4, maxDrawdownPct: -45 },
     });
   });
 });

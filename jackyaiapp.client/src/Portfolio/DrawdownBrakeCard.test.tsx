@@ -23,7 +23,8 @@ vi.mock('@/apis/portfolioApis', () => ({
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const DISCLAIMER_TEXT = '依歷史回測規則產生的訊號，過去績效不代表未來，不構成投資建議。';
-const SIMULATED_TEXT = '2014 年以前的 00631L 績效為模擬值';
+const SIMULATED_TEXT =
+  '2014 年以前的 0050 與 00631L 績效為依報酬指數模擬的數字；1997–2002 年的股利為估計值';
 
 function makeSummary(
   positions: PositionDto[] = [],
@@ -476,10 +477,24 @@ describe('DrawdownBrakeCard', () => {
       expect(text).toContain('平均每年約觸發 3 次進出，約 29% 的時間處於防守');
       expect(text).toContain('1997–2026');
       expect(text).toContain('隔日成交');
-      for (const figure of ['15.4%', '-37%', '11.9%', '-27%', '18.1%', '-45%']) {
-        expect(text).toContain(figure);
-      }
+      // 對照 reproduce_spec.txt 的 lag2 欄（Boss 更正值）：每一列年化與最大回撤一起出現
+      expect(text).toContain('保守 12.1% -27%');
+      expect(text).toContain('平衡 15.3% -37%');
+      expect(text).toContain('積極 18.4% -45%');
       expect(text).toContain('最大回撤');
+    });
+
+    it('2011 年平衡等級 -28%（0050 -18%），不再出現更正前的數字', () => {
+      const text = textOf(render(makeSummary()));
+      expect(text).toContain('2011 年平衡等級 -28%，0050 是 -18%');
+      for (const stale of ['-29%', '15.4%', '11.9%', '18.1%']) {
+        expect(text).not.toContain(stale);
+      }
+    });
+
+    it('資料限制註記涵蓋 0050 與 00631L 的模擬值、早年股利估計值（回測區塊內也有）', () => {
+      const text = textOf(render(makeSummary()));
+      expect(text.split(SIMULATED_TEXT).length - 1).toBe(2); // 警語旁一次、回測說明一次
     });
 
     it('UI 沒有 credit／點數／付費字樣', () => {

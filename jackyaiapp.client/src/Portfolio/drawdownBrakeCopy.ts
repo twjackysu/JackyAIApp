@@ -5,20 +5,24 @@ import { fmtNum } from '@/utils/format';
 /**
  * 「回落煞車」卡片的文案（#431 §10）與風險揭露數字。
  *
- * 這些字串是合規相關的固定揭露，卡片所有狀態都要看得到、不可關閉；回測數字取自 #431 §2，更新時
- * 必須逐一對照 Issue 原文，不得憑記憶。PM 對「績效顯示」的提議（R3 同時顯示期間與最大回撤、R4
- * 第一階段用隔日成交版本）尚待 Boss 確認 — Boss 若改指示，只需改這個檔案的數字區塊。
+ * 這些字串是合規相關的固定揭露，卡片所有狀態都要看得到、不可關閉。回測數字以 Boss 2026-10-11
+ * 更正後的為準（#431 §2 原表誤用不保留現金的 k=0，已作廢）：逐項對照
+ * `回測數據/tw_backtest/results/reproduce_spec.txt`（隔日成交＝`lag2` 欄）與 REQUIREMENTS.md
+ * 「Boss 更正的回測數字」，更新時不得憑記憶。績效一律同時顯示期間與最大回撤（R3），且第一階段
+ * 用隔日成交版本（R4）— 兩者 Boss 皆已同意。
  */
 
 /** 固定警語（#431 §1 / DECISION-013）— 常駐可見、不可關閉。 */
 export const DISCLAIMER = '依歷史回測規則產生的訊號，過去績效不代表未來，不構成投資建議。';
 
-/** 固定附註（#431 §10）。 */
-export const SIMULATED_NOTE = '2014 年以前的 00631L 績效為模擬值。';
+/** 資料限制註記（PM 假設 A7，Boss 2026-10-11：0050 與 00631L 皆為報酬指數模擬、早年股利為估計）。
+ * 範圍比 #431 §10 原附註（只寫 00631L）廣；Boss 若要改字只需改這一行。 */
+export const SIMULATED_NOTE =
+  '2014 年以前的 0050 與 00631L 績效為依報酬指數模擬的數字；1997–2002 年的股利為估計值。';
 
 /** 風險等級說明必含的三點（#431 §10）。 */
 export const RISK_POINTS: string[] = [
-  '槓桿版本在盤整年可能比 0050 虧更多（例如 2011 年平衡等級 -29%，0050 是 -18%）。',
+  '槓桿版本在盤整年可能比 0050 虧更多（例如 2011 年平衡等級 -28%，0050 是 -18%）。',
   '00631L 曾經單日跌 20%，煞車是收盤才判斷，擋不住盤中或單日的急跌。',
   '平均每年約觸發 3 次進出，約 29% 的時間處於防守。',
 ];
@@ -26,13 +30,14 @@ export const RISK_POINTS: string[] = [
 /** 回測期間（#431 §2 表頭「回測年化 / 最大回撤（1997–2026）」）。 */
 export const BACKTEST_PERIOD = '1997–2026';
 
-/** 「隔日成交版本」（#431 §2）：第一階段只在收盤後提醒，等同隔日成交，所以用這一欄而不是收盤集合
- * 競價版本（保守 13.2% / -23%、平衡 17.4% / -32%、積極 20.8% / -39%）。 */
+/** 「隔日成交版本」（`reproduce_spec.txt` 的 `lag2` 欄）：第一階段只在收盤後提醒，等同隔日成交，
+ * 所以用這一欄而不是收盤集合競價版本（保守 13.5% / -24%、平衡 17.2% / -32%、積極 20.9% / -40%；
+ * 先前的 13.2/-23、17.4/-32、20.8/-39 是 k=0 的結果，已作廢）。 */
 export const BACKTEST_NEXT_DAY: Record<ProfileKey, { annualPct: number; maxDrawdownPct: number }> =
   {
-    conservative: { annualPct: 11.9, maxDrawdownPct: -27 },
-    balanced: { annualPct: 15.4, maxDrawdownPct: -37 },
-    aggressive: { annualPct: 18.1, maxDrawdownPct: -45 },
+    conservative: { annualPct: 12.1, maxDrawdownPct: -27 },
+    balanced: { annualPct: 15.3, maxDrawdownPct: -37 },
+    aggressive: { annualPct: 18.4, maxDrawdownPct: -45 },
   };
 
 export const STATE_LABEL: Record<BrakeState, string> = {
