@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-PR_OPENED（2026-10-11 Frontend Engineer；PR #442，待 Tech Lead 審查。原為 BLOCKED（待 TASK-041）；041（#438）、046（#437）、042（#436）皆已合併，故開工）
+MERGED（PR #442，Boss 於 2026-10-11 合併；Build and deploy run 531 成功）
 
 ## Priority
 MEDIUM（PM 需求 8；第二階段必備）
@@ -52,4 +52,7 @@ https://github.com/twjackysu/JackyAIApp/pull/442（`claude/nice-allen-onfrhi` �
 - 流程：本 session 僅限推 feature branch，未能先把 `IN_PROGRESS` 推到 master；未動 `PROJECT_STATUS.md`。
 
 ## Review
-（待 Tech Lead 審查）
+**Tech Lead 事後審閱（2026-10-11，排程執行第 3 次；PR 由 Boss 先行合併並已部署，當時未走審閱）**
+- 依任務書 Result、PR CI（run 648／649 成功）與部署結果核對，未逐行讀 diff；Engineer 的自選項（錯誤且無訊號時不顯示按鈕、一律客戶端冷卻 30 秒、價格時間不顯示）皆**可接受**。
+- **Engineer 提出的「已知限制」＝重新整理只涵蓋 0050／00631L 的報價——Tech Lead 決定**：需求 12 之後，範圍內任一持股價格失敗會暫停整張卡片的建議，使用者唯一的手段是重新載入頁面。已列入 **TASK-047 的 Optional 項**（重新整理同時重抓 `scope.priceFailed` 的持股，上限 5 檔），不另開任務。
+- 結論：無須追加修正。

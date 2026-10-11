@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-BLOCKED（TASK-036 已合併；待 TASK-041 合併——兩者改同一個服務與端點，041 先做；站外提醒已由 Boss 對 Q2 決定「不做」）
+READY（TASK-036 #433、TASK-041 #438、TASK-040 #441 皆已合併；兩者改同一個服務與端點的衝突疑慮已解除，Tech Lead 2026-10-11 轉 READY；站外提醒已由 Boss 對 Q2 決定「不做」）
 
 ## Priority
 MEDIUM（PM：第二階段 MEDIUM；Boss 規格將盤中預估列為「建議做法」，回測主結果假設收盤集合競價成交，「隔日成交」版本績效明顯較差）

@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-PR_OPENED（2026-10-11 Frontend Engineer；PR #439，待 Tech Lead 審查）
+MERGED（PR #439，Boss 於 2026-10-11 合併；Build and deploy run 528 成功）
 
 ## Priority
 MEDIUM（PM：A 圖；Boss 2026-10-11 02:38 UTC 新增，DECISION-016）
@@ -64,4 +64,7 @@ https://github.com/twjackysu/JackyAIApp/pull/439 （分支 `claude/nice-allen-n9
 - 「改期間不重打 API」以 mock hook 驗證（range 不進 query、hook 只有無參數呼叫）；未另做網路層測試。
 
 ## Review
-（待填）
+**Tech Lead 事後審閱（2026-10-11，排程執行第 3 次；PR 由 Boss 先行合併並已部署，當時未走審閱）**
+- 依任務書 Result、PR CI 與部署結果核對，未逐行讀 diff；Engineer 的 6 項自選項（載入／錯誤時仍顯示「資料至 —」、今年超過 `asOf` 顯示「尚無資料」、不存在的日期擋下、圖例 `plain`、「年初至今」還原鈕、改期間後圖例重置）皆**可接受**，且都偏保守（不外推、不誤導）。
+- **未驗證**：與真實後端回應的整合（當時 TASK-044 未合併，截圖用合成資料）。現在 #440 已合併部署，**請 Boss 在 `/finance` 目視確認圖有真實加權指數資料**（排程沙箱連不到 production）。
+- 結論：無須追加修正。
