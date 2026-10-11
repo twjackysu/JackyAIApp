@@ -8,6 +8,7 @@ import {
   splitGuardMessage,
   SPLIT_EVENTS,
   STALE_SNAPSHOT_DAYS,
+  strategyShareOfLiquidAssetsPct,
   sumTwdCash,
 } from './drawdownBrakeHoldings';
 
@@ -154,5 +155,35 @@ describe('daysBetween', () => {
     expect(daysBetween('2025-12-31', '2026-01-01')).toBe(1);
     expect(daysBetween('2026-03-07', '2026-03-09')).toBe(2);
     expect(daysBetween('2026-10-10', '2026-10-10')).toBe(0);
+  });
+});
+
+describe('strategyShareOfLiquidAssetsPct（需求 11 / A9）', () => {
+  it('策略部位 ÷ 流動總資產 × 100', () => {
+    expect(strategyShareOfLiquidAssetsPct(1_000_000, 4_000_000)).toBe(25);
+    expect(strategyShareOfLiquidAssetsPct(1_000_000, 3_000_000)).toBeCloseTo(33.3333, 4);
+    expect(strategyShareOfLiquidAssetsPct(500_000, 500_000)).toBe(100);
+  });
+
+  it('策略現金是使用者輸入的，可能大於流動總資產 → 如實回傳超過 100%，不截斷', () => {
+    expect(strategyShareOfLiquidAssetsPct(2_000_000, 1_000_000)).toBe(200);
+  });
+
+  it('分母為 0、負數、缺資料、非有限數 → null（不出現 NaN / Infinity）', () => {
+    expect(strategyShareOfLiquidAssetsPct(1_000_000, 0)).toBeNull();
+    expect(strategyShareOfLiquidAssetsPct(1_000_000, -5)).toBeNull();
+    expect(strategyShareOfLiquidAssetsPct(1_000_000, null)).toBeNull();
+    expect(strategyShareOfLiquidAssetsPct(1_000_000, undefined)).toBeNull();
+    expect(strategyShareOfLiquidAssetsPct(1_000_000, Number.NaN)).toBeNull();
+    expect(strategyShareOfLiquidAssetsPct(1_000_000, Number.POSITIVE_INFINITY)).toBeNull();
+  });
+
+  it('策略部位為 0、負數、未知、非有限數 → null', () => {
+    expect(strategyShareOfLiquidAssetsPct(0, 4_000_000)).toBeNull();
+    expect(strategyShareOfLiquidAssetsPct(-1, 4_000_000)).toBeNull();
+    expect(strategyShareOfLiquidAssetsPct(null, 4_000_000)).toBeNull();
+    expect(strategyShareOfLiquidAssetsPct(undefined, 4_000_000)).toBeNull();
+    expect(strategyShareOfLiquidAssetsPct(Number.NaN, 4_000_000)).toBeNull();
+    expect(strategyShareOfLiquidAssetsPct(Number.POSITIVE_INFINITY, 4_000_000)).toBeNull();
   });
 });
