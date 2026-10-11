@@ -59,7 +59,7 @@ TASK-036 MERGED。**TASK-038 與 TASK-043（前端）依賴本任務**。
 - **DTO**：`lastCheckedAt`（UTC，記憶體，經 `ITaiexDataStatus`）、`generatedAt`（UTC）。`ARCHITECTURE.md` 契約區與前端 `DrawdownBrakeDto` 型別同步（前端兩欄 optional，`tsc --noEmit` 通過）。
 - **快取**：`DrawdownBrakeService` 以 `IMemoryCache` 60 秒（`CacheTtl.Portfolio.DrawdownBrakeSignal`）、全站一份、單飛；入庫／檢查後以 `ITaiexDataStatus.Version` 立即失效（見 PR 取捨 1）。
 - **與任務書字面不同或需 Tech Lead 確認之處**（細節在 PR #438 描述）：(1) 失效用版本號而非主動 `Remove`；(2) 背景輪詢參與冷卻但不被冷卻擋住；(3) 週末短路寫成「已存最新日已是前一個平日」才短路（資料齊全時與字面相同；週五缺漏時週末仍會補）；(4) 跨月補資料中途失敗仍回 `SourceUnavailable`；(5) 手動路徑的非上游例外（DB）不吞掉。
-- **測試**：本環境以 apt 安裝 .NET 10 SDK 後實際執行——`dotnet test -c Release --filter "Category!=LiveContract"`：**965 通過、0 略過、0 失敗**；DrawdownBrake 相關測試連跑 15 次無偶發失敗。另做 9 項變異測試（版本檢查、TTL、冷卻、gate、短路、forward-only、冷卻啟動時機、`RecordCheck`、失敗映射），每項都有測試失敗。LiveContract 未執行（本任務無新增外部請求）。PR CI 結果待補。
+- **測試**：本環境以 apt 安裝 .NET 10 SDK 後實際執行——`dotnet test -c Release --filter "Category!=LiveContract"`：**965 通過、0 略過、0 失敗**；DrawdownBrake 相關測試連跑 15 次無偶發失敗。另做 9 項變異測試（版本檢查、TTL、冷卻、gate、短路、forward-only、冷卻啟動時機、`RecordCheck`、失敗映射），每項都有測試失敗。LiveContract 未執行（本任務無新增外部請求）。**PR CI（head `75aa435`，run 38124213933）**：`build-and-test-server` ✅、`lint-and-build-client` ✅（測試總數未從 log 取得，以本地 965/965 為準）。尚待 Tech Lead 技術審查。
 
 ## Review
 （待填）
