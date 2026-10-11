@@ -41,3 +41,12 @@
 19. 2026-10-10：Issue #431（回落煞車）技術設計完成，已建 TASK-036（後端訊號，READY）、TASK-037（前端卡片，READY）、TASK-038（第二階段盤中預估，BLOCKED）。設計見 `ARCHITECTURE.md`「回落煞車」。**Q1 未決前功能只有 admin 看得到**（App Setting 開關，之後改設定即可開放，不需改碼）。
     - **待 Boss**：(a) 提供回測用報酬指數 CSV（`date,close`，2003-01～2026-10-08）作為測試 fixture——不阻擋開工；(b) Q1／Q2／Q3 請回覆 #431（PM 已列出）。
     - **風險（技術面）**：Portfolio 全域沒有股票分割處理（0050 2025-06-18、00631L 2026-03-31），本功能以「快照早於分割日就不顯示股數」防護；證交所格式無法在排程沙箱驗證，改由 GitHub Actions LiveContract 驗證。合規屬 Boss／PM 決定，Tech Lead 不下結論。
+20. 2026-10-11：**PR #433（TASK-036 後端）、PR #432（TASK-037 前端）Tech Lead 審查通過 → READY FOR BOSS REVIEW**（兩者 CI 皆綠；不代表核准合併，由 Boss 決定）。審查細節在各 task 的 Review 區與 PR 留言。
+    - **建議合併順序**：#433 → #432（單獨先合 #432 也無害：後端沒上線時 `drawdownBrakeEnabled` 不會出現，卡片不顯示）。兩者目前都只有 admin 看得到。
+    - 我另以獨立的 Python 版 Boss 參考規則重放後端的 golden 序列（1500 日），**0 筆不一致**。後端在 Actions 的 LiveContract 抓到真實格式差異並已修（MFI94U 日期表頭含全形空白）；`holidaySchedule` 格式也已確認。
+    - **待 Boss（#433 部署後，約 2 分鐘回補完成）**：以 admin 開 Portfolio 卡片或呼叫 `GET /api/portfolio/drawdown-brake`，確認 `state=OFFENSE`、`drawdownPct` 約 −1%。原本的「真實資料驗收」測試因缺回測 CSV 而 **Skipped**，這是替代的 smoke check；CSV 補上後測試自動啟用（`JackyAIApp.Server.Tests/Fixtures/TaiexTotalReturn.csv`，`date,close`）。
+    - **待 Boss 確認＝PM 的 Q5（不阻擋合併，但 Audience=All 前必須確認）**：卡片寫「歷史回測（1997–2026，隔日成交版本）」。#431 §2 只在「回測年化／最大回撤」欄標 1997–2026，「隔日成交版本」欄未標期間，Engineer 是依欄位順序推定。若實際期間不同，只改 `drawdownBrakeCopy.ts` 的 `BACKTEST_PERIOD`。
+    - **FYI（PM 已於 A6 認可）**：再平衡文案與 §10 範例不同——範例的「漲多、升到」只適用行情推動；切換日後沒照做、曝險仍偏離時也會走這條，那時說「漲多」是錯的，改為「目前有效曝險 X 倍，高於／低於目標 Y 倍，建議…」。減碼／加碼／不動三種與範例逐字相同。要逐字照範例請告知。
+    - **風險／觀察（非阻擋）**：證交所當日報酬指數的公布時間未知；若晚於 17:00，「資料未更新」會每天短暫誤報，部署後觀察，改兩個常數即可。目前沒有任何持股的使用者看不到卡片（Q1／Q3 決定後再評估入口）。
+    - **仍未決**：Q1（對誰開放，合規）、Q2（提醒送達方式）、Q3（策略現金假設）尚無 Boss 回覆（#431）。TASK-038（第二階段盤中預估）維持 BLOCKED，待 #433 合併後我再轉 READY。
+    - **PR #432 目前與 master 有衝突（僅文件，非程式）**：`.agent/status/PROJECT_STATUS.md`——PM 在 PR 開出後於 master 檔尾追加一段，PR #432 也在檔尾追加一段。解法＝兩段都保留（把 master 合進 #432 分支、衝突處兩邊都留）。我不替 Engineer 推他們的分支（權限邊界），請任一 Engineer session 處理，或 Boss 在 GitHub 以「Resolve conflicts」按鈕保留兩段即可。#433 與 master 無衝突。

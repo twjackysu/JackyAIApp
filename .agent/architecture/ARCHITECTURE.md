@@ -1619,3 +1619,12 @@ GET /api/portfolio/drawdown-brake  → DrawdownBrakeDto
 - 合規（PM R1）與回測數字真實性（R3、Q4）屬 Boss／PM 範疇，Tech Lead 不下結論；技術上以功能開關保留「只開給 Boss」的退路。
 
 See `TASK-036`（Backend）、`TASK-037`（Frontend）、`TASK-038`（Backend，第二階段）。
+
+### 回落煞車 — 實作階段修訂（Tech Lead 審查 PR #433／#432 時接受，2026-10-11）
+原決策保持不變；以下為實作中經審查接受的細化，之後以此為準：
+- **MFI94U client 不走 `ExternalReadOnly`**：專用 named client `TaiexTotalReturn`（30 秒逾時），**刻意不掛** `AddReadOnlyResilience()`——Polly 會在 1–2 秒重送失敗的 GET，違反 ≥3 秒間隔並加劇限流。重試由每小時 refresh 負責；client 為 singleton，`SemaphoreSlim` 單一 in-flight，間隔自上一個回應**結束**起算。`holidaySchedule`（另一個 host、非限流）仍走 `ExternalReadOnly`。
+- **回補由新到舊**（當月 → 往回至 3 年前），失敗後下一輪從缺口續補；`isInitializing` ＝ 表空或已存歷史跨度 < 730 天（#431 §1「至少 2 年」）。
+- **真實格式（LiveContract 驗證，2026-10-10）**：MFI94U `fields=[日　期 | 發行量加權股價報酬指數]`（日期表頭中間是全形空白 U+3000，解析前先去除所有空白再比對）；`holidaySchedule` 為 `{Name, Date(民國7碼), Weekday, Description}`，目前只涵蓋 2026，含「開始交易日／最後交易日」的列是交易日。
+- **功能開關**：`Features:DrawdownBrake:Audience` 非 `All` 的任何值（含打錯）一律視為 `Admin`；`User.DrawdownBrakeEnabled` 為 `[NotMapped]`，只在 `GET api/account/info` 填值。
+- **前端 `advise`**：`E_target` 取截斷後 E；`prevState=null` 視為 OFFENSE；「狀態切換」只代表 `asOfDate` 當日剛切換，之後沒照做者走「曝險偏離 > 0.10」→ 再平衡句型。
+- **仍待驗證／待決**：Boss 的回測 CSV（真實資料驗收）；MFI94U 當日值公布時間 vs `StaleAfter=17:00`／`PublishedAfter=14:00`；回測期間文案 `BACKTEST_PERIOD`；Q1／Q2／Q3。
