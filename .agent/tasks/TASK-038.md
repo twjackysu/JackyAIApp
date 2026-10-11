@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-BLOCKED（TASK-036 已合併；待 TASK-041 合併——兩者改同一個服務與端點，041 先做；站外提醒已由 Boss 對 Q2 決定「不做」）
+PR_OPENED（PR #443，2026-10-11 Backend Engineer；待 Tech Lead 技術審查。TASK-041／040 已於 #438／#441 合併，據此接手）
 
 ## Priority
 MEDIUM（PM：第二階段 MEDIUM；Boss 規格將盤中預估列為「建議做法」，回測主結果假設收盤集合競價成交，「隔日成交」版本績效明顯較差）
@@ -35,10 +35,17 @@ MEDIUM（PM：第二階段 MEDIUM；Boss 規格將盤中預估列為「建議做
 TASK-036 MERGED（#433）。**TASK-041**（手動重新整理端點、DTO 的 `lastCheckedAt`／`generatedAt`、60 秒訊號快取）須先合併。站外提醒（Email／推播）已由 Boss 決定不做（Q2，DECISION-014），**不在本任務範圍**。
 
 ## PR
-（待填）
+#443 — https://github.com/twjackysu/JackyAIApp/pull/443（分支 `claude/exciting-cray-kozet7`）
 
 ## Result
-（待填）
+- **新增**（`Services/Portfolio/DrawdownBrake/`）：`MisTaiexParser`（只認得出名字的欄位；認不出＝無讀數）、`MisTaiexClient`（`ExternalReadOnly`，整體 5 秒上限）、`MisTaiexQuoteSource`（singleton；全站一份讀數，檢視 ≤ 30 秒、重新整理 ≤ 10 秒；單飛；失敗也保存）、`DrawdownBrakeEstimator`（純函式：昨日正式收盤 × z÷y，再交給既有 `DrawdownBrakeCalculator`）。
+- **`DrawdownBrakeService`**：預估疊加在正式訊號（60 秒快取不動）之上，依「(正式快取項目, MIS 讀數)」各自快取；時間窗＝平日、台北 09:00 起、今日正式資料未入庫；基準日檢查（已存最新日與今天之間的每個平日必須是已知休市日，否則不給預估）；`estimateCorrected` 由 `IMemoryCache`（TTL 2 天）記錄當日最後一次預估狀態，正式入庫後比對。`IDrawdownBrakeService.GetAfterEstimateRefreshAsync` 供 `POST …/refresh` 使用；`result` 完全由正式資料決定（MIS 失敗不變成 `SourceUnavailable`，列舉未新增值）。
+- **未使用 TWStockLib**：其 `GetLatestQuoteAsync` 包裝會先查上市櫃清單、失敗改打 `otc_t00.tw`、共用個股的 10 秒快取，且不保證給 `d`／`t`；改自建 client（URL 與 TWStockLib 相同形式 `…getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0&_=`，TWStockLib 的 DLL 字串裡也看不到 cookie 處理的痕跡，屬間接證據）。
+- **DTO**：`DrawdownBrakeDto.WithEstimate`（`MemberwiseClone`，共用複本不被改動）；`DrawdownBrakeEstimateDto`、`Estimate`／`EstimateCorrected` 補文件註解。`CacheTtl.Portfolio` 新增 `DrawdownBrakeEstimateQuote`（30 秒）、`DrawdownBrakeEstimateRefresh`（10 秒）、`DrawdownBrakeEstimateRecord`（2 天）。
+- **LiveContract**：`TaiexContractTests.Mis_TaiexIndex_HasTheFieldsTheEstimateReads`（只驗 shape；`z` 為 `-` 時容許，因排程剛好在開盤瞬間）；根 `CLAUDE.md` Testing Status 來源清單已補 MIS。
+- 測試：`dotnet test --filter "Category!=LiveContract"` 1208 通過、0 失敗（新增約 128 個；相關 399 個連跑 10 次穩定）；變異測試 29 個全部被測試抓到。
+- **未驗證（重要）**：MIS 指數項目的實際欄位與是否需要 cookie（本環境 egress 403）。解析器「認不出就無讀數」，最壞情況是預估不出現、不會出現錯誤數字、不影響正式訊號。**請在 GitHub Actions 手動 dispatch `contract-tests.yml`**，其輸出（`[live-contract] MIS t00 …`）就是校正所需的實際格式。
+- **請 Tech Lead 更新 `ARCHITECTURE.md`**（我依規則未動）：契約區「`estimate` 第二階段前恆為 null」、第二階段章節的 BLOCKED 標示、Cache 盤點表的「MIS 預估（未做）」列；並視需要把「疊加在正式訊號之外」「基準日檢查」「未用 TWStockLib 的理由」寫入。
 
 ## Review
 （待填）
