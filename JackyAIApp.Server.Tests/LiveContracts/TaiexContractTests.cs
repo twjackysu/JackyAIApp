@@ -1,8 +1,10 @@
 using System.Text.Json;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using TWStockLib.Services;
 
 namespace JackyAIApp.Server.Tests.LiveContracts
 {
@@ -95,9 +97,9 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [Fact]
         public async Task Mis_TaiexIndex_HasTheFieldsTheEstimateReads()
         {
-            // The same query string the production client sends (the cache-buster is the clock).
+            // The same query string TWStockLib sends for a quote (the cache-buster is the clock).
             var json = await TryFetchStringAsync(
-                $"{MisTaiexClient.BaseUrl}?ex_ch=tse_{MisTaiexParser.IndexCode}.tw&json=1&delay=0&_={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}",
+                $"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_{MisTaiexClient.IndexSymbol}.tw&json=1&delay=0&_={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}",
                 "TWSE MIS t00");
             if (json is null) return;
 
@@ -113,11 +115,11 @@ namespace JackyAIApp.Server.Tests.LiveContracts
             Console.WriteLine($"[live-contract] MIS t00 fields = [{string.Join(" | ", row.EnumerateObject().Select(p => p.Name))}]");
             Console.WriteLine($"[live-contract] MIS t00 c={Field("c")} ch={Field("ch")} n={Field("n")} d={Field("d")} t={Field("t")} tlong={Field("tlong")} z={Field("z")} y={Field("y")}");
 
-            // Every field the parser reads is there, as the string the parser expects.
-            Assert.True(Field("c") == MisTaiexParser.IndexCode || Field("ch") == MisTaiexParser.IndexCode + ".tw",
-                $"msgArray[0] does not identify itself as {MisTaiexParser.IndexCode} (c={Field("c")}, ch={Field("ch")}).");
+            // Every field TWStockLib reads for the estimate is there, as the string it expects.
+            Assert.True(Field("c") == MisTaiexClient.IndexSymbol || Field("ch") == MisTaiexClient.IndexSymbol + ".tw",
+                $"msgArray[0] does not identify itself as {MisTaiexClient.IndexSymbol} (c={Field("c")}, ch={Field("ch")}).");
             Assert.NotNull(Field("d"));
-            Assert.True(Field("t") is not null || Field("tlong") is not null, "msgArray[0] has neither t (time) nor tlong (epoch ms).");
+            Assert.NotNull(Field("tlong")); // TWStockLib's SyncTime, the only time the estimate reads
             Assert.NotNull(Field("z"));
             Assert.NotNull(Field("y"));
 
@@ -130,15 +132,27 @@ namespace JackyAIApp.Server.Tests.LiveContracts
             Assert.InRange(today.DayNumber - tradeDate.DayNumber, 0, 10);
 
             // z is "-" until the first trade of the day; the scheduled run lands right at the open, so that
-            // is not a contract break. Once there is a trade, the production parser must read the whole entry.
+            // is not a contract break. Once there is a trade, production's own path must read the whole entry:
+            // TWStockLib's bare GET (no custom User-Agent, like the app's default client) and parser, then the
+            // client's checks.
             if (Field("z") == "-")
             {
-                Console.WriteLine("[live-contract] MIS t00 z is '-' (no trade yet): the parser check is skipped this run.");
+                Console.WriteLine("[live-contract] MIS t00 z is '-' (no trade yet): the TWStockLib check is skipped this run.");
                 return;
             }
-            var quote = MisTaiexParser.Parse(json, out var rejection);
-            Assert.True(quote is not null, $"MisTaiexParser rejected the live MIS t00 entry: {rejection}");
-            Assert.Equal(tradeDate, quote!.TradeDate);
+
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddTwStock();
+            using var provider = services.BuildServiceProvider();
+            var client = new MisTaiexClient(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<MisTaiexClient>.Instance);
+
+            var quote = await client.GetAsync();
+
+            Assert.True(quote is not null,
+                "MisTaiexClient (TWStockLib) found no usable reading although the raw MIS entry has z — the library could not read the index entry, or the client rejected it (see the warning above).");
+            Console.WriteLine($"[live-contract] MIS t00 via TWStockLib: Last={quote!.Last} PreviousClose={quote.PreviousClose} QuotedAt={quote.QuotedAt:O} TradeDate={quote.TradeDate}");
+            Assert.Equal(tradeDate, quote.TradeDate);
             Assert.True(quote.Last > 1000m, $"z (last) {quote.Last} is implausibly low for the TAIEX.");
             Assert.Equal(previous, quote.PreviousClose);
         }

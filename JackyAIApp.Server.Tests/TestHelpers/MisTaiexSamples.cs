@@ -3,30 +3,29 @@ using System.Text;
 namespace JackyAIApp.Server.Tests.TestHelpers
 {
     /// <summary>
-    /// Canned answers of MIS's <c>getStockInfo.jsp?ex_ch=tse_t00.tw</c>. The layout is the one the stock
-    /// quotes of the same endpoint have (<c>c</c> code, <c>d</c> date, <c>t</c> time, <c>tlong</c> epoch
-    /// ms, <c>z</c> last, <c>y</c> previous close, all strings); it could not be fetched from the build
-    /// environment, so these are representative, not recorded. That the real index entry has the same
-    /// fields is what <c>TaiexContractTests</c> checks on the scheduled workflow.
+    /// A canned answer of MIS's <c>getStockInfo.jsp?ex_ch=tse_t00.tw</c>, with the field set that was
+    /// recorded from the real endpoint (GitHub Actions <c>contract-tests.yml</c>, run 38140029229, a
+    /// Sunday, so it shows the last session): <c>@ pid ^ key c # d % ch tlong h i it l m n o r ex t y z</c>,
+    /// all strings, and no <c>u w a b f g v tv</c> — an index has no limit prices, order book or volume.
+    /// Of the values only <c>c d ch tlong n t y z</c> were recorded; the others are placeholders, because
+    /// nothing reads them.
     /// </summary>
     public static class MisTaiexSamples
     {
-        public static readonly DateTimeOffset DefaultQuotedAt = new(2026, 10, 8, 13, 30, 0, TimeSpan.FromHours(8));
+        /// <summary>2026-10-08 13:31:00 Taipei.</summary>
+        public static readonly DateTimeOffset RecordedQuotedAt = new(2026, 10, 8, 13, 31, 0, TimeSpan.FromHours(8));
 
-        /// <summary>A reading; pass null to leave a field out of the entry altogether.</summary>
-        public static string Json(
-            string? z = "23100.50", string? y = "23000.00", string? d = "20261008", string? t = "13:30:00",
-            string? tlong = "default", string? c = "t00", string? ch = "t00.tw")
+        public static string RecordedJson(string z = "49313.44", string y = "49806.37", string? tlong = null, string c = "t00")
         {
-            if (tlong == "default") tlong = DefaultQuotedAt.ToUnixTimeMilliseconds().ToString();
-
-            var fields = new List<string> { "\"ex\":\"tse\"", "\"n\":\"發行量加權股價指數\"", "\"a\":\"_\"", "\"b\":\"_\"" };
-            void Add(string name, string? value) { if (value is not null) fields.Add($"\"{name}\":\"{value}\""); }
-            Add("c", c); Add("ch", ch); Add("z", z); Add("y", y); Add("d", d); Add("t", t); Add("tlong", tlong);
-
+            tlong ??= RecordedQuotedAt.ToUnixTimeMilliseconds().ToString();
             var sb = new StringBuilder();
-            sb.Append("{\"msgArray\":[{").Append(string.Join(",", fields)).Append("}],");
-            sb.Append("\"referer\":\"\",\"userDelay\":5000,\"rtcode\":\"0000\",\"rtmessage\":\"OK\"}");
+            sb.Append("{\"msgArray\":[{");
+            sb.Append("\"@\":\"t00.tw\",\"pid\":\"6\",\"^\":\"20\",\"key\":\"tse_t00.tw_20261008\",");
+            sb.Append($"\"c\":\"{c}\",\"#\":\"t00.tw\",\"d\":\"20261008\",\"%\":\"13:31:00\",\"ch\":\"t00.tw\",");
+            sb.Append($"\"tlong\":\"{tlong}\",\"h\":\"49500.00\",\"i\":\"t00\",\"it\":\"12\",\"l\":\"49000.00\",\"m\":\"20\",");
+            sb.Append("\"n\":\"發行量加權股價指數\",\"o\":\"49100.00\",\"r\":\"1\",\"ex\":\"tse\",\"t\":\"13:31:00\",");
+            sb.Append($"\"y\":\"{y}\",\"z\":\"{z}\"");
+            sb.Append("}],\"queryTime\":{\"sysTime\":\"13:31:05\"},\"referer\":\"\",\"userDelay\":5000,\"rtcode\":\"0000\",\"rtmessage\":\"OK\"}");
             return sb.ToString();
         }
     }

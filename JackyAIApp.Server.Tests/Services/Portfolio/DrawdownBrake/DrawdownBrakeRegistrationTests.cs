@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using TWStockLib.Services;
 
 namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 {
@@ -127,10 +128,22 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         }
 
         [Fact]
-        public void TheMisClient_UsesTheSharedReadOnlyHttpClientName()
+        public void TheMisSingletons_DoNotCaptureTheLibrarysScopedService()
         {
-            // "ExternalReadOnly" is registered in Program.cs with the retry + circuit breaker.
-            Assert.Equal("ExternalReadOnly", MisTaiexClient.HttpClientName);
+            // TWStockLib registers IStockMarketService as scoped; the MIS client is a singleton and must
+            // reach it through a scope per call. With scope validation on, capturing it would throw on resolve.
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddMemoryCache();
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+            services.AddDbContextFactory<AzureSQLDBContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+            services.AddPortfolioServices();
+            services.AddTwStock();
+            using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+            Assert.NotNull(provider.GetRequiredService<IMisTaiexClient>());
+            Assert.NotNull(provider.GetRequiredService<IMisTaiexQuoteSource>());
+            Assert.NotNull(provider.GetRequiredService<IDrawdownBrakeService>());
         }
     }
 }
