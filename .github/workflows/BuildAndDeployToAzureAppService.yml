@@ -20,6 +20,16 @@ jobs:
     # through a PR (a direct push to master no longer deploys on its own), and to try a branch:
     # whatever it deploys runs EF migrations against the production DB at startup.
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    # One production deploy at a time. A run that arrives while another is deploying waits, and of
+    # several waiting runs GitHub keeps only the newest (the replaced ones show as "cancelled" —
+    # expected, not a failure). Without this, two quick merges deployed in parallel and whichever
+    # finished last won, even if it was the older build. cancel-in-progress stays false so a deploy
+    # that is already running is never killed halfway through. Set on the job, not the workflow, so
+    # that a PR closed without merging (skipped by the `if` above) never joins the queue and
+    # pushes out a real pending deploy.
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     env:
       # azure/webapps-deploy@v3 still runs on Node.js 20; no v4 available yet.
@@ -29,9 +39,15 @@ jobs:
     - uses: actions/checkout@v6
       with:
         # A closed pull_request checks out refs/pull/N/merge by default, which is a merge preview
-        # built before the PR landed — not what is now on master. Deploy the commit that actually
-        # landed. Null on workflow_dispatch, where github.ref is already the right thing.
-        ref: ${{ github.event.pull_request.merge_commit_sha || github.ref }}
+        # built before the PR landed — not what is now on master. Deploy the tip of master as it is
+        # when this run starts checking out, NOT pull_request.merge_commit_sha: a PR that GitHub
+        # marks merged only because its commits became ancestors of another merged PR gets its own
+        # (possibly much older) branch head as merge_commit_sha, and deploying that rolls
+        # production back. A merged PR's content is always already on master, so master's tip can
+        # only move production forward; with the concurrency group above each run checks out after
+        # the previous one finished, so deploy order is monotonic. workflow_dispatch keeps
+        # github.ref (the branch chosen in the "Run workflow" dialog).
+        ref: ${{ github.event_name == 'pull_request' && 'master' || github.ref }}
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v5
       with:

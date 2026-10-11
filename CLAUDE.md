@@ -164,8 +164,16 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 ### Deployment
 - **CI/CD**: GitHub Actions, "Build and deploy" workflow triggers when a pull request into
   `master` is **merged** (`pull_request: [closed]` gated on `merged == true`), plus manual
-  `workflow_dispatch`. It deploys `pull_request.merge_commit_sha` — the commit that landed —
-  not the pre-merge preview ref a closed `pull_request` checks out by default
+  `workflow_dispatch`. A PR-triggered run deploys the tip of `master` as of the moment it starts
+  (checkout `ref: master`) — not `pull_request.merge_commit_sha`, and not the pre-merge preview ref
+  a closed `pull_request` checks out by default. `merge_commit_sha` is unsafe because a PR that
+  GitHub marks merged only through ancestry (its commits came in via another merged PR) carries its
+  own, possibly much older branch head there, and deploying that rolls production back (happened
+  2026-10-11, #443/#445). A merged PR's content is always already on `master`, so deploying
+  `master`'s tip can only move production forward. `workflow_dispatch` still deploys `github.ref`
+  (the branch picked in the dialog). Deploys share one `production-deploy` concurrency group
+  (`cancel-in-progress: false`), so only one runs at a time and each checks out after the previous
+  one finished
 - **A direct push to `master` does NOT deploy.** Closing a PR without merging does not either.
   Anything that lands outside a PR needs a manual run of the workflow
 - **Target**: Linux App Service `jackyai-linux` (B1, Always On) in `MyAppResourceGroup` (East
@@ -207,7 +215,11 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
   - Cosmos DB `jacky-ai-nosql` — **unused** since the move to SQL (free tier), kept only
     because deleting it loses its data
   - Resource group `jacky-sites-rg` — a separate, stopped project, unrelated to this app
-- **Gotcha**: two pushes to `master` in quick succession can cancel the earlier in-flight deploy run — check `gh run list` after a merge; if cancelled, the *next* successful run for a later commit still deploys everything (git history is linear), but if nothing later ran, re-trigger it
+- **Gotcha**: when several PRs merge in quick succession, queued deploy runs that get superseded
+  show as *cancelled* — expected, not a failure. The last run deploys `master`'s tip, which contains
+  everything merged so far. A direct push to `master` still does not deploy, but the next merged
+  PR's run picks it up since it deploys `master`'s tip. If the final run for the newest merge is
+  itself red, re-run it (or `workflow_dispatch` from `master`) — never from an older branch
 
 ## Important Notes
 
