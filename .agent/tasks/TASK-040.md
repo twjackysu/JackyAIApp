@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-BLOCKED（待 TASK-041 合併，兩者改同一批檔案；041 先做）
+PR_OPENED（PR #441，2026-10-11；待 Tech Lead 技術審查。TASK-041 已於 PR #438 合併，解除 BLOCKED）
 
 ## Priority
 MEDIUM（PM 需求 9：`Features:DrawdownBrake:Audience` 改為 `All` 之前必備，不阻擋已合併的 #433）
@@ -41,10 +41,15 @@ MEDIUM（PM 需求 9：`Features:DrawdownBrake:Audience` 改為 `All` 之前必�
 TASK-041（快取與 refresh 結果在那裡產生）。
 
 ## PR
-（待填）
+#441 — https://github.com/twjackysu/JackyAIApp/pull/441（分支 `claude/exciting-cray-5wlh6d`）
 
 ## Result
-（待填）
+- **新增** `Services/Portfolio/DrawdownBrake/DrawdownBrakeTelemetry.cs`（singleton，擁有 `Meter("JackyAIApp.DrawdownBrake")`；`views`／`refresh`／`compute.duration`；`UserKey` ＝ SHA256(userId:UTC日期:行程 salt) 前 12 碼）。`Program.cs` 以 `.WithMetrics(AddMeter)` 註冊。
+- `IDrawdownBrakeService` 新增 `GetWithCacheStatusAsync`（`cache=hit|miss`）；`compute.duration` 只在快取 miss 的建構時記錄；refresh 回應順帶讀訊號不算 view。
+- 每次 GET 記一行 `DrawdownBrake view {Outcome} {UserKey}`（含 `forbidden`）。`Logging:LogLevel:Default` 為 Information、無 `JackyAIApp.*` 規則，不需放行；已加用真實 `appsettings.json` 的守門測試。
+- 測試：`dotnet test --filter "Category!=LiveContract"` 1080 通過；DrawdownBrake 相關 271 個連跑 10 次穩定；變異測試每一項都有測試失敗。
+- **未驗證**：App Insights 實際收到資料與 KQL（**KQL 未實測**，Boss 部署後貼查詢驗證）；Azure Monitor customMetrics 對 Histogram 是否有百分位（若無，compute 以平均／`valueMax` 判讀，ARCHITECTURE「compute p95 < 800 ms」門檻需改寫）。
+- 設計取捨（`cache` 定義、`forbidden` 無 cache 標籤與 KQL 排除、記錄位置、telemetry 不拋例外）見 PR 描述。
 
 ## Review
 （待填）

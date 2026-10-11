@@ -19,7 +19,8 @@ namespace JackyAIApp.Server.Controllers
         ServerTiming timing,
         IDrawdownBrakeService drawdownBrakeService,
         IDrawdownBrakeAccess drawdownBrakeAccess,
-        ITaiexTotalReturnRefresher drawdownBrakeRefresher) : ControllerBase
+        ITaiexTotalReturnRefresher drawdownBrakeRefresher,
+        DrawdownBrakeTelemetry drawdownBrakeTelemetry) : ControllerBase
     {
         private string RequireUserId()
         {
@@ -128,9 +129,14 @@ namespace JackyAIApp.Server.Controllers
         {
             var userId = RequireUserId();
             if (!await drawdownBrakeAccess.IsEnabledForUserAsync(userId, ct))
+            {
+                drawdownBrakeTelemetry.RecordView(userId, DrawdownBrakeViewOutcome.Forbidden, cacheHit: null);
                 return responseFactory.CreateErrorResponse(ErrorCodes.DrawdownBrakeNotEnabled, "This feature is not available.");
+            }
 
-            return responseFactory.CreateOKResponse(await drawdownBrakeService.GetAsync(ct));
+            var lookup = await drawdownBrakeService.GetWithCacheStatusAsync(ct);
+            drawdownBrakeTelemetry.RecordView(userId, DrawdownBrakeTelemetry.OutcomeOf(lookup.Signal), lookup.CacheHit);
+            return responseFactory.CreateOKResponse(lookup.Signal);
         }
 
         /// <summary>
@@ -148,6 +154,7 @@ namespace JackyAIApp.Server.Controllers
                 return responseFactory.CreateErrorResponse(ErrorCodes.DrawdownBrakeNotEnabled, "This feature is not available.");
 
             var outcome = await drawdownBrakeRefresher.TryRefreshNowAsync(ct);
+            drawdownBrakeTelemetry.RecordRefresh(outcome.Result);
             return responseFactory.CreateOKResponse(new DrawdownBrakeRefreshDto
             {
                 Result = outcome.Result,

@@ -9,7 +9,18 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
         /// <summary>The current 回落煞車 signal, replayed from the stored index series. One copy is
         /// shared by every caller for up to a minute; new data ends that early.</summary>
         Task<DrawdownBrakeDto> GetAsync(CancellationToken ct = default);
+
+        /// <summary><see cref="GetAsync"/>, and whether this call was handed a copy someone else had
+        /// built. What the view metric is told; the refresh endpoint, which is not a view, uses
+        /// <see cref="GetAsync"/>.</summary>
+        Task<DrawdownBrakeLookup> GetWithCacheStatusAsync(CancellationToken ct = default);
     }
+
+    /// <param name="Signal">The shared signal. Do not modify it.</param>
+    /// <param name="CacheHit">True if the caller got a copy it did not build; false if it was the
+    /// one that read the table and recomputed (a caller that waited for another's build is a hit:
+    /// it cost the database nothing).</param>
+    public readonly record struct DrawdownBrakeLookup(DrawdownBrakeDto Signal, bool CacheHit);
 
     /// <summary>
     /// Builds <see cref="DrawdownBrakeDto"/> from the stored series: runs
@@ -28,6 +39,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
         ITwseHolidayCalendar calendar,
         ITaiexDataStatus status,
         IMemoryCache cache,
+        DrawdownBrakeTelemetry telemetry,
         TimeProvider? timeProvider = null) : IDrawdownBrakeService
     {
         internal const string CacheKey = "drawdownbrake:signal";
@@ -49,22 +61,27 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
         /// a caller that gives up simply lets the next one build it.</summary>
         private readonly SemaphoreSlim _build = new(1, 1);
 
-        public async Task<DrawdownBrakeDto> GetAsync(CancellationToken ct = default)
+        public async Task<DrawdownBrakeDto> GetAsync(CancellationToken ct = default) =>
+            (await GetWithCacheStatusAsync(ct)).Signal;
+
+        public async Task<DrawdownBrakeLookup> GetWithCacheStatusAsync(CancellationToken ct = default)
         {
-            if (TryGetFresh() is { } hit) return hit;
+            if (TryGetFresh() is { } hit) return new(hit, CacheHit: true);
 
             await _build.WaitAsync(ct);
             try
             {
                 // Whoever held the lock may have just built it.
-                if (TryGetFresh() is { } built) return built;
+                if (TryGetFresh() is { } built) return new(built, CacheHit: true);
 
                 // Read before anything below: if the data moves while this is being built, the copy
                 // is tagged with the older version and is rebuilt on the next call.
                 var version = status.Version;
+                var started = _time.GetTimestamp();
                 var signal = await BuildAsync(ct);
+                telemetry.RecordCompute(_time.GetElapsedTime(started));
                 cache.Set(CacheKey, new CachedSignal(signal, version), CacheTtl.Portfolio.DrawdownBrakeSignal);
-                return signal;
+                return new(signal, CacheHit: false);
             }
             finally
             {

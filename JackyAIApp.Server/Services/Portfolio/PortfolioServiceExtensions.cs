@@ -41,6 +41,8 @@ namespace JackyAIApp.Server.Services.Portfolio
             services.AddSingleton<ITaiexTotalReturnStore, TaiexTotalReturnStore>();
             services.AddSingleton<ITwseHolidayCalendar, TwseHolidayCalendar>();
             services.AddSingleton<ITaiexDataStatus, TaiexDataStatus>();
+            // One instance owns the Meter; its name is registered with OpenTelemetry in Program.cs.
+            services.AddSingleton<DrawdownBrakeTelemetry>();
             services.AddSingleton<IDrawdownBrakeService, DrawdownBrakeService>();
             services.AddSingleton<IDrawdownBrakeAccess, DrawdownBrakeAccess>();
             // One instance behind both faces: the hourly loop and the endpoint's manual refresh must

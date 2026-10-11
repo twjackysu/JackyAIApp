@@ -10,11 +10,13 @@ using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services.DataAnalysis;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using NLog;
 using NLog.Web;
+using OpenTelemetry.Metrics;
 using System.Reflection;
 
 // Early init of NLog to allow startup and exception logging, before host is built
@@ -54,7 +56,10 @@ try
         appInsightsConnectionString = Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
     if (!string.IsNullOrEmpty(appInsightsConnectionString))
     {
-        builder.Services.AddOpenTelemetry().UseAzureMonitor(o => o.ConnectionString = appInsightsConnectionString);
+        builder.Services.AddOpenTelemetry()
+            .UseAzureMonitor(o => o.ConnectionString = appInsightsConnectionString)
+            // Custom meters are not sent unless named here (the HTTP/outbound-call data above is automatic).
+            .WithMetrics(m => m.AddMeter(DrawdownBrakeTelemetry.MeterName));
     }
 
     // Blob Storage for listening-exam question images (pre-seeded via the bulk importer tool,
