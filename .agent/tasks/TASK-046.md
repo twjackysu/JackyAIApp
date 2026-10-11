@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY（2026-10-11 Tech Lead 建立；PM 於需求 12 v4.2 / DECISION-017·018·020 已決定產品規則，無待決問題）
+PR_OPENED（PR #437，2026-10-11；Tech Lead 建立時為 READY，PM 於需求 12 v4.2 / DECISION-017·018·020 已決定產品規則）
 
 ## Priority
 HIGH（Boss 在正式環境試用後直接提出：卡片曝險與他每天看的右上角「水位」對不上，用不下去）
@@ -62,10 +62,15 @@ HIGH（Boss 在正式環境試用後直接提出：卡片曝險與他每天看�
 無（TASK-042 已合併）。**TASK-043（重新整理按鈕）應排在本任務之後**（同一張卡片）。與 TASK-045（Finance 頁圖）檔案不重疊，可平行。
 
 ## PR
-（待填）
+https://github.com/twjackysu/JackyAIApp/pull/437（分支 `claude/nice-allen-47ni9c`）
 
 ## Result
-（待填）
+- 新增 `drawdownBrakeScope.ts`（`STRATEGY_EXCLUDED`、`classifyPositions`、`toScopeHoldings`）；`advise()` 改吃 `ScopeHoldings` 並依 12c 公式計算；`Advice` 新增 `scopeAssets`／`eTarget`（等級表目標）／`eReach`／`aboveTarget`／`capped`／`targets`／`cashChange`（`truncated` → `capped`、`totalValue` → `scopeAssets`）。
+- 卡片：對帳行、堆疊式分桶表、`aboveTarget`／`capped` 標示、績效範圍標示與其他持股提醒；範圍內價格失敗、核心倍數異常時不給建議；移除策略現金與占比一行。
+- 測試：`npm run test` 481 個全過、`lint` 0 warnings、`prettier --check`、`build` 通過；退化對照、S1／S2／S3／S3b golden、對帳與 NTSD 不變性皆有測試。
+- 版面：Chromium 實測 4 情境 × 1280／400／360px，展開前後 `scrollWidth === innerWidth`。截圖在 `.agent/tasks/TASK-046/`（示意金額）。
+- 後端、`DrawdownBrakeDto`、`portfolioApis` 契約未動。TASK-043 應排在本任務之後。
+- 注意：依本次排程的 Git 規則，本檔與截圖隨 PR 分支一起推送（任務書 Technical Notes 建議直接推 master 以免衝突；若 Tech Lead 偏好，可在合併前把 `.agent/` 的兩個 commit 拿掉）。
 
 ## Review
 （待填）
