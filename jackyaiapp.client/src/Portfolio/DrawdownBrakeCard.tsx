@@ -51,6 +51,7 @@ import {
   isSnapshotStale,
   splitGuardMessage,
   STALE_SNAPSHOT_MESSAGE,
+  strategyShareOfLiquidAssetsPct,
   sumTwdCash,
 } from './drawdownBrakeHoldings';
 import { usePrivacy } from './privacy';
@@ -202,7 +203,7 @@ interface AdvicePanelProps {
 }
 
 function AdvicePanel({ summary, settings, active }: AdvicePanelProps) {
-  const { value } = usePrivacy();
+  const { value, showRatio } = usePrivacy();
   const params = resolveParams(settings);
   const profileLabel = PROFILES[settings.profile].label;
 
@@ -242,6 +243,11 @@ function AdvicePanel({ summary, settings, active }: AdvicePanelProps) {
     !guardHit && !missingPrice && !priceLoading && totalValue > 0
       ? advise(active.prevState, active.state, params, holdings, prices)
       : null;
+  // 需求 11：純資訊，只讀 advice.totalValue（即下方「策略總資產」），不回饋到上面任何計算。advice 存在
+  // 就表示沒有分割疑慮、價格齊全、V > 0；分母缺漏或 ≤ 0 時為 null，整行不顯示。
+  const strategySharePct = advice
+    ? strategyShareOfLiquidAssetsPct(advice.totalValue, summary.liquidGrossAssetsTWD)
+    : null;
 
   return (
     <Box sx={{ mb: 2 }}>
@@ -334,6 +340,15 @@ function AdvicePanel({ summary, settings, active }: AdvicePanelProps) {
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
             {`目標配置：${describeComposition(advice.weights)}｜有效曝險 ${fmtMultiple(advice.eActual)} 倍（目標 ${fmtMultiple(advice.eTarget)} 倍）｜策略總資產 NT$${value(fmtNum(advice.totalValue))}`}
           </Typography>
+          {strategySharePct != null && showRatio && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mt: 0.5, overflowWrap: 'anywhere' }}
+            >
+              {`此策略部位占總資產 ${strategySharePct.toFixed(1)}%（分母為流動總資產，不含不動產與負債）`}
+            </Typography>
+          )}
         </Box>
       )}
     </Box>

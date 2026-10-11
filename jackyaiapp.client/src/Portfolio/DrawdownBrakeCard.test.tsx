@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { saveBrakeSettings } from './drawdownBrake';
 import { DrawdownBrakeCard } from './DrawdownBrakeCard';
+import { MASK, PrivacyContext, PrivacyMode } from './privacy';
 
 import { DrawdownBrakeDto, PortfolioSummaryDto, PositionDto } from '@/apis/portfolioApis/types';
 
@@ -25,10 +26,12 @@ vi.mock('@/apis/portfolioApis', () => ({
 const DISCLAIMER_TEXT = '依歷史回測規則產生的訊號，過去績效不代表未來，不構成投資建議。';
 const SIMULATED_TEXT =
   '2014 年以前的 0050 與 00631L 績效為依報酬指數模擬的數字；1997–2002 年的股利為估計值';
+const SHARE_LABEL = '此策略部位占總資產';
 
 function makeSummary(
   positions: PositionDto[] = [],
   effectiveDate: string | null = '2026-10-09',
+  liquidGrossAssetsTWD = 0,
 ): PortfolioSummaryDto {
   return {
     effectiveDate,
@@ -40,7 +43,7 @@ function makeSummary(
     fundTWD: 0,
     realEstateTWD: 0,
     liabilityTWD: 0,
-    liquidGrossAssetsTWD: 0,
+    liquidGrossAssetsTWD,
     costBasisTWD: 0,
     unrealizedPnlTWD: 0,
     unrealizedPnlPct: 0,
@@ -123,6 +126,23 @@ function lookupPrices(prices: Record<string, number | undefined> = { '0050': 100
 
 function render(summary: PortfolioSummaryDto): string {
   return renderToStaticMarkup(<DrawdownBrakeCard summary={summary} />);
+}
+
+/** 與 PrivacyProvider 相同的三種模式對應（value / showRatio），不碰 localStorage。 */
+function renderWithPrivacy(summary: PortfolioSummaryDto, mode: PrivacyMode): string {
+  return renderToStaticMarkup(
+    <PrivacyContext.Provider
+      value={{
+        mode,
+        cycle: () => {},
+        value: (s) => (mode === 'full' ? s : MASK),
+        change: (s) => (mode === 'hidden' ? MASK : s),
+        showRatio: mode !== 'changes',
+      }}
+    >
+      <DrawdownBrakeCard summary={summary} />
+    </PrivacyContext.Provider>,
+  );
 }
 
 /** 把 markup 的標籤去掉、HTML 實體還原，方便比對整句文案。 */
@@ -392,6 +412,157 @@ describe('DrawdownBrakeCard', () => {
       const text = textOf(render(makeSummary()));
       expect(text).not.toContain('預估訊號（盤中）');
       expect(text).not.toContain('訊號已更正');
+    });
+  });
+
+  describe('策略部位占總資產（需求 11 / A9）', () => {
+    // V = 0050 200k + 00631L 590k + 策略現金 210k = 1,000,000
+    const heldPositions = () => [stock('0050', 2000, 100), stock('00631L', 11_800, 50)];
+    const arrange = () =>
+      saveBrakeSettings({ profile: 'balanced', defenseE: 0, strategyCashTWD: 210_000 });
+
+    it('正常值：V ÷ 流動總資產，小數 1 位，附分母定義', () => {
+      arrange();
+      const text = textOf(render(makeSummary(heldPositions(), '2026-10-09', 3_000_000)));
+      expect(text).toContain('此策略部位占總資產 33.3%（分母為流動總資產，不含不動產與負債）');
+
+      const even = textOf(render(makeSummary(heldPositions(), '2026-10-09', 4_000_000)));
+      expect(even).toContain('此策略部位占總資產 25.0%');
+    });
+
+    it('只有策略現金、沒有持股（A4）：V = 策略現金，仍顯示占比', () => {
+      saveBrakeSettings({ profile: 'balanced', defenseE: 0, strategyCashTWD: 1_000_000 });
+      const text = textOf(render(makeSummary([], '2026-10-09', 8_000_000)));
+      expect(text).toContain('此策略部位占總資產 12.5%');
+    });
+
+    it('在目標配置那一行之後、固定警語之外，且警語仍常駐', () => {
+      arrange();
+      const text = textOf(render(makeSummary(heldPositions(), '2026-10-09', 4_000_000)));
+      expect(text.indexOf('策略總資產 NT$1,000,000')).toBeGreaterThan(-1);
+      expect(text.indexOf(SHARE_LABEL)).toBeGreaterThan(text.indexOf('策略總資產 NT$1,000,000'));
+      expect(text.indexOf(SHARE_LABEL)).toBeGreaterThan(text.indexOf(DISCLAIMER_TEXT));
+      expect(text).toContain(DISCLAIMER_TEXT);
+      expect(text).toContain(SIMULATED_TEXT);
+    });
+
+    it.each([
+      ['分母為 0', 0],
+      ['分母為負數', -1],
+      ['分母不是有限數', Number.NaN],
+    ])('%s → 整行不顯示，也沒有 NaN／Infinity', (_name, denominator) => {
+      arrange();
+      const text = textOf(render(makeSummary(heldPositions(), '2026-10-09', denominator)));
+      expect(text).not.toContain(SHARE_LABEL);
+      expect(text).not.toMatch(/NaN|Infinity/);
+      expect(text).toContain('策略總資產 NT$1,000,000'); // 建議本身不受影響
+    });
+
+    it('缺資料：舊版後端沒有 liquidGrossAssetsTWD → 不顯示', () => {
+      arrange();
+      const summary = makeSummary(heldPositions(), '2026-10-09', 4_000_000);
+      delete (summary as Partial<PortfolioSummaryDto>).liquidGrossAssetsTWD;
+      const text = textOf(render(summary));
+      expect(text).not.toContain(SHARE_LABEL);
+      expect(text).not.toMatch(/NaN|Infinity/);
+    });
+
+    it('缺價格（持有的標的快照與查價都沒有價格）→ V 未知，不顯示', () => {
+      lookupPrices({ '0050': undefined, '00631L': 50 });
+      arrange();
+      const held0050 = { ...stock('0050', 2000, 100), currentPrice: 0, priceFetchFailed: true };
+      const text = textOf(
+        render(makeSummary([held0050, stock('00631L', 11_800, 50)], '2026-10-09', 4_000_000)),
+      );
+      expect(text).toContain('無法取得 0050 的最新價格');
+      expect(text).not.toContain(SHARE_LABEL);
+      expect(text).not.toMatch(/NaN|Infinity/);
+    });
+
+    it('缺價格（沒持有、查價失敗）→ 同樣不顯示', () => {
+      lookupPrices({ '0050': undefined, '00631L': 50 });
+      saveBrakeSettings({ profile: 'balanced', defenseE: 0, strategyCashTWD: 1_000_000 });
+      const text = textOf(render(makeSummary([], '2026-10-09', 8_000_000)));
+      expect(text).not.toContain(SHARE_LABEL);
+    });
+
+    it('價格查詢中 → V 未知，不顯示', () => {
+      mocks.lookup.mockImplementation(() => ({ data: undefined, isLoading: true, isError: false }));
+      saveBrakeSettings({ profile: 'balanced', defenseE: 0, strategyCashTWD: 1_000_000 });
+      const text = textOf(render(makeSummary([], '2026-10-09', 8_000_000)));
+      expect(text).not.toContain(SHARE_LABEL);
+    });
+
+    it('V 為 0（沒有持股、策略現金也是 0）→ 不顯示 0.0%，只提示先輸入策略現金', () => {
+      const text = textOf(render(makeSummary([], '2026-10-09', 8_000_000)));
+      expect(text).toContain('請先在下方輸入策略現金');
+      expect(text).not.toContain(SHARE_LABEL);
+      expect(text).not.toMatch(/NaN|Infinity/);
+    });
+
+    it('快照早於分割日（股數不可信）→ 不顯示', () => {
+      saveBrakeSettings({ profile: 'balanced', defenseE: 0, strategyCashTWD: 500_000 });
+      const text = textOf(render(makeSummary([stock('0050', 500, 100)], '2025-06-17', 4_000_000)));
+      expect(text).toContain('分割');
+      expect(text).not.toContain(SHARE_LABEL);
+    });
+
+    it('純資訊：流動總資產與其他持股金額都不改變訊號、目標配置與建議股數', () => {
+      brakeResult(makeSignal({ state: 'OFFENSE', prevState: 'DEFENSE' }));
+      saveBrakeSettings({ profile: 'balanced', defenseE: 0, strategyCashTWD: 800_000 });
+      const advice = (summary: PortfolioSummaryDto) =>
+        textOf(render(summary))
+          // 拿掉占比那一行，其餘文字必須逐字相同
+          .replace(/此策略部位占總資產 [\d.]+%（[^）]*）/, '')
+          .replace(/\s+/g, ' ');
+      const base = [stock('0050', 2000, 100)];
+      const withOthers = [...base, stock('2330', 3000, 900), stock('0056', 5000, 35)];
+
+      const small = advice(makeSummary(base, '2026-10-09', 2_000_000));
+      const large = advice(makeSummary(base, '2026-10-09', 50_000_000));
+      const noDenominator = advice(makeSummary(base, '2026-10-09', 0));
+      const others = advice(makeSummary(withOthers, '2026-10-09', 9_000_000));
+
+      expect(small).toContain('建議買進');
+      expect(small).toContain('目標配置：00631L 60% / 0050 20% / 現金 20%');
+      expect(large).toBe(small);
+      expect(noDenominator).toBe(small);
+      expect(others).toBe(small);
+    });
+
+    it('進入防守時也顯示（占比與狀態無關）', () => {
+      brakeResult(
+        makeSignal({
+          state: 'DEFENSE',
+          prevState: 'OFFENSE',
+          drawdownPct: -8.4,
+          distanceToTriggerPct: -0.4,
+        }),
+      );
+      saveBrakeSettings({ profile: 'balanced', defenseE: 0, strategyCashTWD: 200_000 });
+      const text = textOf(
+        render(
+          makeSummary([stock('0050', 2000, 100), stock('00631L', 12_000, 50)], '2026-10-09', 5e6),
+        ),
+      );
+      expect(text).toContain('觸發回落煞車，進入防守');
+      expect(text).toContain('此策略部位占總資產 20.0%'); // V = 200k + 600k + 200k = 1,000,000
+    });
+
+    it('隱私模式：占比是比例 → 「隱藏金額」仍顯示（金額被遮），「只看損益」模式隱藏', () => {
+      arrange();
+      const summary = makeSummary(heldPositions(), '2026-10-09', 4_000_000);
+
+      const full = textOf(renderWithPrivacy(summary, 'full'));
+      expect(full).toContain('此策略部位占總資產 25.0%');
+      expect(full).toContain('策略總資產 NT$1,000,000');
+
+      const hidden = textOf(renderWithPrivacy(summary, 'hidden'));
+      expect(hidden).toContain('此策略部位占總資產 25.0%');
+      expect(hidden).not.toContain('NT$1,000,000');
+
+      const changes = textOf(renderWithPrivacy(summary, 'changes'));
+      expect(changes).not.toContain(SHARE_LABEL);
     });
   });
 
