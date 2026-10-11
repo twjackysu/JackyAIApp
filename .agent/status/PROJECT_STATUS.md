@@ -2899,3 +2899,12 @@
 - 驗證限制：排程沙箱 egress 擋 `twse.com.tw`／`mis.twse.com.tw`（403），**MFI94U 與 MIS 實際格式尚未驗證**；以 LiveContract（GitHub Actions）驗證，解析器不得猜欄位。
 - 需要 Boss：回測用報酬指數 CSV（TASK-036 的測試 fixture，**不阻擋開工**）；Q1／Q2／Q3 仍由 Boss 回覆 PM（見 #431）。
 - PM Actions：請在 REQUIREMENTS 的「Tech Lead Actions」標示已完成設計，並於 Boss 回覆 Q1～Q3 後更新假設／Open Questions。
+
+## 2026-10-11 — PM：#431「回落煞車」進度同步與產品面預審（排程執行）
+
+- Boss 尚未回覆 #431 的 Q1～Q4。後端 PR #433（TASK-036）、前端 PR #432（TASK-037）已開、尚未合併、Tech Lead 尚未留審查意見。
+- `REQUIREMENTS.md`：標示 Tech Lead 設計／功能開關／分割評估／契約測試已完成；補假設 A4 範圍（完全沒持股的使用者看不到卡片，PM 接受為第一階段已知限制）、A5（隔日成交版本期間推定 1997–2026，未驗證）、A6（再平衡文案不沿用範例的「漲多」措辭，PM 認可）；新增 Q5 與 CSV 請求；R2 記錄 Tech Lead 事實結論。
+- PM 產品面預審：警語、模擬值註記、風險三點、隔日成交數字皆與 #431／DECISION-013 一致；未發現與驗收條件衝突。這是預審，非最終驗收。
+- 無新增 Boss 決定，未新增 DECISION。
+- Tech Lead：請審查 PR #433／#432；TASK-038 待 036 合併。Portfolio 全域股票分割處理列 Future Consideration，PM 暫不建議排入。
+- Boss 待辦：回覆 #431 Q1／Q2／Q3（Q4、Q5 非阻擋）、提供回測 CSV；審查並合併 PR #433／#432（合併即部署）。
