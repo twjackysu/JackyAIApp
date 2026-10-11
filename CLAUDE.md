@@ -162,12 +162,19 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 - **Logging**: NLog with structured logging patterns
 
 ### Deployment
-- **CI/CD**: GitHub Actions, "Build and deploy" workflow triggers when a pull request into
-  `master` is **merged** (`pull_request: [closed]` gated on `merged == true`), plus manual
-  `workflow_dispatch`. It deploys `pull_request.merge_commit_sha` — the commit that landed —
-  not the pre-merge preview ref a closed `pull_request` checks out by default
-- **A direct push to `master` does NOT deploy.** Closing a PR without merging does not either.
-  Anything that lands outside a PR needs a manual run of the workflow
+- **CI/CD**: GitHub Actions, "Build and deploy" workflow runs on every **push to `master`**
+  (a merged PR is a push), plus manual `workflow_dispatch`. A push that touches **only**
+  `.agent/**` or `*.md` files is ignored (`paths-ignore`) and does not deploy; one code file in the
+  push is enough to deploy. Closing a PR without merging does not deploy (nothing lands on `master`)
+  - Every run deploys the **tip of `master` as of the moment its checkout starts** (`ref: master`),
+    not the commit that triggered it. That makes deploy order irrelevant: a run that waited in the
+    queue never ships an older build over a newer one, and a repeat of the same tip is harmless.
+    (The old `pull_request: closed` trigger deployed `merge_commit_sha`, which for a PR GitHub
+    marks merged only through ancestry is its own, possibly much older branch head — that rolled
+    production back on 2026-10-11, #443/#445.) `workflow_dispatch` deploys `github.ref`, the branch
+    picked in the dialog
+  - Deploys share one `production-deploy` concurrency group (`cancel-in-progress: false`): one at
+    a time, and of several waiting runs only the newest is kept
 - **Target**: Linux App Service `jackyai-linux` (B1, Always On) in `MyAppResourceGroup` (East
   US), secret `JACKYAI_LINUX_PUBLISH_PROFILE`; its system identity has Key Vault secrets
   Get/List. Running a branch through `workflow_dispatch` deploys it to production, including
@@ -207,7 +214,12 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
   - Cosmos DB `jacky-ai-nosql` — **unused** since the move to SQL (free tier), kept only
     because deleting it loses its data
   - Resource group `jacky-sites-rg` — a separate, stopped project, unrelated to this app
-- **Gotcha**: two pushes to `master` in quick succession can cancel the earlier in-flight deploy run — check `gh run list` after a merge; if cancelled, the *next* successful run for a later commit still deploys everything (git history is linear), but if nothing later ran, re-trigger it
+- **Gotcha**: when several PRs merge in quick succession, queued deploy runs that get superseded
+  show as *cancelled* — expected, not a failure. The last run deploys `master`'s tip, which contains
+  everything merged so far. A direct push to `master` deploys like a merge does (unless it only
+  touches `.agent/**` / `*.md`); there is no longer a way to land code on `master` without
+  deploying it. If the final run for the newest push is itself red, re-run it (or
+  `workflow_dispatch` from `master`) — never from an older branch
 
 ## Important Notes
 
