@@ -44,7 +44,11 @@ TASK-036 MERGED（#433）。**TASK-041**（手動重新整理端點、DTO 的 `l
 - **DTO**：`DrawdownBrakeDto.WithEstimate`（`MemberwiseClone`，共用複本不被改動）；`DrawdownBrakeEstimateDto`、`Estimate`／`EstimateCorrected` 補文件註解。`CacheTtl.Portfolio` 新增 `DrawdownBrakeEstimateQuote`（30 秒）、`DrawdownBrakeEstimateRefresh`（10 秒）、`DrawdownBrakeEstimateRecord`（2 天）。
 - **LiveContract**：`TaiexContractTests.Mis_TaiexIndex_HasTheFieldsTheEstimateReads`（只驗 shape；`z` 為 `-` 時容許，因排程剛好在開盤瞬間）；根 `CLAUDE.md` Testing Status 來源清單已補 MIS。
 - 測試：`dotnet test --filter "Category!=LiveContract"` 1208 通過、0 失敗（新增約 128 個；相關 399 個連跑 10 次穩定）；變異測試 29 個全部被測試抓到。
-- **未驗證（重要）**：MIS 指數項目的實際欄位與是否需要 cookie（本環境 egress 403）。解析器「認不出就無讀數」，最壞情況是預估不出現、不會出現錯誤數字、不影響正式訊號。**請在 GitHub Actions 手動 dispatch `contract-tests.yml`**，其輸出（`[live-contract] MIS t00 …`）就是校正所需的實際格式。
+- **MIS 格式已驗證（2026-10-11，GitHub Actions `contract-tests.yml` run 38140029229，由本分支手動 dispatch；`Mis_TaiexIndex_HasTheFieldsTheEstimateReads` 通過，且是真的跑到解析器〔`z` 為數字〕，不是逾時略過）**。實際紀錄：
+  - 請求：`GET https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0&_=<ms>`，**不需要 cookie／先訪問任何頁面**（GitHub runner 直接成功）。
+  - 回應 `msgArray[0]` 的欄位：`@ | pid | ^ | key | c | # | d | % | ch | tlong | h | i | it | l | m | n | o | r | ex | t | y | z`，**全部是字串**。解析器用到的 `c`＝`t00`、`ch`＝`t00.tw`、`d`＝`20261008`、`t`＝`13:31:00`、`tlong`＝`1791437460000`（＝台北 13:31:00）、`y`＝`49806.37`（昨收）、`z`＝`49313.44`（現價）、`n`＝`發行量加權股價指數`，與假設一致。另有 `rtcode`＝`0000`、`rtmessage`＝`OK`、`userDelay`＝`5000`、`queryTime.sysTime`（台北時間）。
+  - 該次在週日跑，MIS 回的是最後一個交易日（週四 10-08）的收盤值，`d` 為該交易日、不是今天——正是「讀數日期 ≠ 今天 → 無預估」要擋的情況。
+  - **仍未實測**：盤中（`z` 隨時間更新、開盤前 `z` 為 `-`）與平日休市日的行為；排程在 01:00 UTC＝台北 09:00 開盤瞬間，測試已容許 `z` 為 `-`。
 - **請 Tech Lead 更新 `ARCHITECTURE.md`**（我依規則未動）：契約區「`estimate` 第二階段前恆為 null」、第二階段章節的 BLOCKED 標示、Cache 盤點表的「MIS 預估（未做）」列；並視需要把「疊加在正式訊號之外」「基準日檢查」「未用 TWStockLib 的理由」寫入。
 
 ## Review

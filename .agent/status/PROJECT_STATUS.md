@@ -3021,5 +3021,5 @@
 
 - **選擇**：無 open PR（#438／#440／#441 皆已由 Boss 合併）。Backend 任務中 TASK-038 的檔案狀態仍寫 BLOCKED，但擋住它的前提（TASK-041／040）已合併，據上一輪記錄視為可開工；其餘 Backend 任務（036／039／040／041／044）皆已完成。
 - **PR**：#443（MIS 指數 client＋解析器、全站共用 30 秒讀數〔重新整理 10 秒〕、預估公式、`estimate`／`estimateCorrected`、接上 `POST …/refresh`）。狀態 `PR_OPENED`，待 Tech Lead 審查；設計取捨（未用 TWStockLib、預估疊加在正式訊號之外、基準日檢查、更正持續時間）已列在 PR 描述。
-- **驗證**：`dotnet test --filter "Category!=LiveContract"` 1208/1208 通過；變異測試 29 個全部被抓到。**未驗證**：MIS 指數項目的實際欄位與是否需 cookie——本環境連不到 `mis.twse.com.tw`（403）。解析器認不出就無預估（最壞＝預估不出現，不會出現錯誤數字）。
-- **Boss／Tech Lead 待辦**：合併前或合併後**立刻手動 dispatch `contract-tests.yml`**，看 `Mis_TaiexIndex_HasTheFieldsTheEstimateReads` 的輸出；若失敗，輸出就是校正解析器（或加 cookie 步驟）所需的實際格式，回報給 Backend 即可快速補。Tech Lead 請更新 `ARCHITECTURE.md`（契約區與第二階段章節仍寫 BLOCKED／恆為 null）。
+- **驗證**：`dotnet test --filter "Category!=LiveContract"` 1208/1208 通過；變異測試 29 個全部被抓到；PR CI（run 650）通過。**MIS 格式已由 GitHub Actions 實測驗證**（本分支手動 dispatch `contract-tests.yml`，run 38140029229，57/57 通過）：指數項目有 `c`／`ch`／`d`／`t`／`tlong`／`y`／`z`（皆字串），**不需要 cookie**，解析器吃得下；實際欄位已記在 `TASK-038.md` Result。**仍未實測**：盤中 `z` 更新行為與平日休市日。
+- **Tech Lead 待辦**：審查 #443；更新 `ARCHITECTURE.md`（契約區仍寫「`estimate` 第二階段前恆為 null」，第二階段章節仍標 BLOCKED）。
