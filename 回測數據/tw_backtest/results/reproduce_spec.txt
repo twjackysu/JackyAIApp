@@ -1,0 +1,43 @@
+== environment
+ python 3.13.5 | pandas 3.0.6 | numpy 2.3.5
+ sha256[:16] data/taiex_tri.csv: e9f95b791f9b9e7c
+ sha256[:16] data/TWII.csv: 53d82388985db277
+ sha256[:16] data/twse_0050.csv: 7f7e6f5dc9b3a3fb
+ sha256[:16] data/twse_00631L.csv: e89e648246570e62
+ sha256[:16] data/div_0050.csv: 6836bdff249d193a
+ sha256[:16] data/actual_returns.csv: bd8a113724e5cf35
+
+== series: 1997-07-02..2026-10-08, pre-2003 est. dividend 3.59%
+
+== Spec section 2 table: CAGR / MDD
+ (FULL = 1997-07..latest synthetic; lag2 = trade next close; REAL = actual 0050/00631L 2014-11-03..2026-10-08)
+ conservative  on=1.0 off=0.0 k=0.2:  FULL 13.5% / -24% | lag2 12.1% / -27% | REAL 19.9% / -19%
+ balanced      on=1.4 off=0.0 k=0.2:  FULL 17.2% / -32% | lag2 15.3% / -37% | REAL 26.0% / -26%
+ aggressive    on=1.8 off=0.0 k=0.1:  FULL 20.9% / -40% | lag2 18.4% / -45% | REAL 32.7% / -33%
+ 0050 buy&hold:  FULL 9.6% / -65% | REAL 22.2% / -34%
+ note: spec table rows used k=0 for the FULL column in the first draft; k effect shown below
+   conservative  k=0 FULL 13.2% / -23%
+   balanced      k=0 FULL 17.4% / -32%
+   aggressive    k=0 FULL 20.8% / -39%
+
+== other quoted numbers
+ balanced with defense E=0.3: 16.1% / -36%
+ static 1.4x no brake: 10.4% / -78%
+ static 2.0x no brake: 9.1% / -93%
+ on=1.4 defense E=0.5: 14.8% / -47%
+ on=1.4 defense E=0.8: 12.5% / -60%
+ on=1.4 off=0 cash k=0.0: 17.4% / -32%
+ on=1.4 off=0 cash k=0.1: 17.4% / -32%
+ on=1.4 off=0 cash k=0.2: 17.2% / -32%
+ 2011: balanced -28% vs 0050 -18%
+ exits per year 3.0, share of days in DEFENSE 29%
+
+== acceptance: state at last date
+ 2026-10-08: state=OFFENSE, dd from 252d high -1.0%
+
+== acceptance: composition
+ composition(1.4, 0.2) -> 0050 0.20, 00631L 0.60, cash 0.20
+ composition(1.0, 0.2) -> 0050 0.60, 00631L 0.20, cash 0.20
+ composition(1.8, 0.2) -> 0050 0.00, 00631L 0.80, cash 0.20
+ composition(0.0, 0.2) -> 0050 0.00, 00631L 0.00, cash 1.00
+ composition(1.8, 0.1) -> 0050 0.00, 00631L 0.90, cash 0.10

@@ -2908,3 +2908,59 @@
 - `SPLIT_EVENTS` 以公開報導交叉確認與 Boss 常數相符，未修改。
 - 給 Tech Lead：PR 描述列出與參考實作／§10 範例的差異（截斷後 E、prevState null、A4 取價用既有 lookup 端點、再平衡句型）。
 - 給 PM／Boss（不阻擋）：「隔日成交版本」欄的期間 1997–2026 為依 #431 §2 欄位順序推定，請確認；沒有任何持股者看不到卡片（卡片在「有持股」才渲染的區塊內）。
+
+## 2026-10-11 — PM：#431「回落煞車」進度同步與產品面預審（排程執行）
+
+- Boss 尚未回覆 #431 的 Q1～Q4。後端 PR #433（TASK-036）、前端 PR #432（TASK-037）已開、尚未合併、Tech Lead 尚未留審查意見。
+- `REQUIREMENTS.md`：標示 Tech Lead 設計／功能開關／分割評估／契約測試已完成；補假設 A4 範圍（完全沒持股的使用者看不到卡片，PM 接受為第一階段已知限制）、A5（隔日成交版本期間推定 1997–2026，未驗證）、A6（再平衡文案不沿用範例的「漲多」措辭，PM 認可）；新增 Q5 與 CSV 請求；R2 記錄 Tech Lead 事實結論。
+- PM 產品面預審：警語、模擬值註記、風險三點、隔日成交數字皆與 #431／DECISION-013 一致；未發現與驗收條件衝突。這是預審，非最終驗收。
+- 無新增 Boss 決定，未新增 DECISION。
+- Tech Lead：請審查 PR #433／#432；TASK-038 待 036 合併。Portfolio 全域股票分割處理列 Future Consideration，PM 暫不建議排入。
+- Boss 待辦：回覆 #431 Q1／Q2／Q3（Q4、Q5 非阻擋）、提供回測 CSV；審查並合併 PR #433／#432（合併即部署）。
+
+## 2026-10-11 — PM：吸收 Boss 對 #431 的回覆（Q1～Q4）（排程執行）
+
+- Boss 於 #431 回覆（02:06 UTC）：同意分期；Q1 先僅 admin、之後慢慢開放，開放前要靠可觀測性紀錄判斷計算量；Q2 站內顯示即可、不要 email；Q3 假設成立；Q4 提供回測來源並**更正多個回測數字**（原表誤用 k=0）。已記錄 DECISION-014，`REQUIREMENTS.md` 更新為 v2。
+- 新增需求：8（資料時間＋手動「重新整理資料」繞 cache，第二階段必備）、9（可觀測性，開放全部使用者前必備，不阻擋 PR #433／#432 合併）。站外提醒移出範圍。需求 10（歷史相似期間比較圖）僅為待定提案（Q7），**不排工**。
+- **產品面不一致（PM 發現）**：PR #432 `drawdownBrakeCopy.ts` 仍是更正前的數字（隔日成交 保守 11.9／平衡 15.4／積極 18.1 → 應為 12.1／15.3／18.4；2011 年平衡 −29% → −28%；模擬值註記應涵蓋 0050 與 00631L 及 1997–2002 股利估計值）。目前僅 admin 可見故不阻擋合併，須在 `Audience=All` 前改好。細節見 REQUIREMENTS「Tech Lead Actions」。
+- 仍待 Boss（#431）：Q5（隔日成交欄期間）、Q6（其他持股是否納入判斷，與 DECISION-013 適用範圍有衝突，只有 Boss 能決定）、Q7；CSV／`reproduce_spec.txt`／資料快照。合規 R1 未解決（Boss 選 admin-only 的理由是計算量）。
+- Tech Lead：請依 REQUIREMENTS「Tech Lead Actions」處理文案更新、cache 盤點與重新整理設計、可觀測性指標提議；TASK-038 仍待 TASK-036 合併後再轉 READY。
+- Boss 待辦：審查並合併 PR #433 → #432（#432 與 master 有僅文件衝突，保留兩段）。
+
+## 2026-10-11 — PM：吸收 Boss 對 #431 的第二輪回覆（Q5～Q7）、回測資料入庫（排程執行）
+
+- Boss 於 #431（02:33 UTC）回覆 Q5／Q6／Q7，並把回測資料 commit 進 repo `回測數據/tw_backtest/`（391c95b）。已記錄 **DECISION-015**，`REQUIREMENTS.md` 更新為 v3。
+- **Q5 結案**：隔日成交欄期間＝1997–2026（`reproduce_spec.txt` 標頭證實與主欄同一條 1997-07～2026-10-08 序列）。**Q6 結案**：先做 A＋B，新增需求 11「策略部位占總資產 X%」（純資訊，A9 分母＝流動總資產，與 PR #434 一致）；其他持股不納入判斷，DECISION-013 適用範圍不變。
+- **回測資料**：PM 核對 `results/reproduce_spec.txt` 輸出與 Boss 更正表逐項一致；**未重跑程式**（排程環境無 pandas），因此不算獨立驗證（R3 不變）。`taiex_tri.csv` 欄名為 `date,tri`，TASK-036 預期 fixture 為 `date,close`，交 Tech Lead 處理。
+- **Q7 方向已定、細節未定**：自動找最相似區段、可調整過去區段（現在區段只能調長度）、找不到顯示「找不到過去的相似區段」、畫收盤價、不限 admin。PM 假設見 A10～A13。新增 **Q8**（標的、位置／對象、合規取捨）與風險 **R7**（相似區段圖易被讀成預測，合規未查證）。**Q8 回覆前不排工**。
+- PR #434（Boss 直接修再平衡建議：移除不動產、分母改流動總資產）已合併；PM 在 Portfolio 段落補註記，判斷與回落煞車不衝突。
+- Tech Lead：請依 `REQUIREMENTS.md`「Tech Lead Actions」處理——啟用 2026-10-08 OFFENSE 驗收測試並獨立比對 `reproduce_spec.txt`、需求 11 的評估、PR #432 文案更新（仍待辦）、需求 8／9 的提議；需求 10 等 Q8-1 回覆後再提議相似度演算法與門檻（附歷史實例）。
+- Boss 待辦：回覆 Q8；審查並合併 PR #433 → #432（仍未合併）。合規（R1）仍未查證。
+
+## 2026-10-11 — PM：Boss 補充留言——相似區段圖改放 /finance、新增「過去 5 年同期間」圖（排程後續）
+
+- Boss 在 PM 回覆前 20 秒（02:38 UTC）留言，PM 上一輪未涵蓋：(1) 兩條線的相似區段圖改放 `/finance` Stock Intelligence（與個人資產無關）；(2) 新增「過去 5 年相同日期區段」走勢圖（每年一色、有圖例，範例為加權指數 2022～2026 的 1/1～9/30）。已記錄 **DECISION-016**。
+- `REQUIREMENTS.md`：原回落煞車需求 10 移出，與新圖合併為獨立需求「Stock Intelligence 大盤走勢比較圖」（A 同期間圖、B 相似區段圖；ID A10～A13、R7、Q8 沿用，新增 A14～A17、R8、Q9）。回落煞車本身（TASK-036／037／038、需求 11）不受影響。
+- **PM 讀程式確認的事實**：`/finance` 路由沒有 `RequireAuth`（未登入訪客可進入）；系統已用 Yahoo `^TWII` 提供「大盤總覽」當日報價並有 LiveContract 測試，但沒有多年日線歷史；Finance 既有的量化／AI 趨勢分析也輸出「投資建議」類內容。→ 合規 R1 的範圍可能比回落煞車更廣，PM 未查證、不下結論。
+- 標的建議由報酬指數改為**加權指數（價格指數，不含息）**（Q8-1）：系統已有來源、歷史可到 1997、與 Boss 範例一致。對象與合規取捨（Q8-3）仍待 Boss；因合併即部署且由 Boss 自己合併，PM 不再設「回覆前不排工」，改為 Tech Lead 可先設計 A 圖與提議 B 圖演算法。
+- Tech Lead：請依文末獨立需求的 Tech Lead Actions 處理（加權指數歷史資料取得與快取、版面位置、相似度演算法與門檻附歷史實例）；不要動 TASK-036 的報酬指數資料。
+- Boss 待辦：回覆 Q8-1／Q8-3（Q9 有預設，可不答）；審查並合併 PR #433 → #432（仍未合併）。
+
+## 2026-10-11 — PM：依 Boss 指示減少提問（排程後續）
+
+- Boss 反映「不要什麼小事都問我」。PM 檢討：標的是否含息、預設期間、警語字句、對象等屬於「小的模糊」，依 PM 指示本應自行假設並記錄，卻丟給 Boss。已改為 PM 決定（`REQUIREMENTS.md`「Stock Intelligence 大盤走勢比較圖」Open Questions；DECISION-016 補註），Boss 可隨時推翻。
+- 之後只在「法律／合規、金錢、改變範圍或不可逆的對外曝險」時才向 Boss 提問，一次一題並附建議。目前**沒有需要 Boss 回覆的問題**；Boss 待辦僅剩審查並合併 PR #433 → #432。
+- Tech Lead：兩張圖可直接依文末 Tech Lead Actions 進行設計；不需等 Boss 回覆。
+
+- 同日補充：Boss 確認兩張圖的標的＝加權指數（價格指數，不含息）。其餘細節仍為 PM 決定。Tech Lead 無需等待，可依 Tech Lead Actions 進行。
+
+## 2026-10-11 — Tech Lead：PR #433 已合併；驗收資料、需求 8／9、大盤走勢比較圖的設計與任務（排程執行）
+
+- **狀態**：PR #433（TASK-036）已 MERGED，TASK-036 → MERGED。PR #432（TASK-037）仍 open、仍待 Boss 合併；與 master **只有** `.agent/status/PROJECT_STATUS.md` 一個文件衝突（Tech Lead 以 `git merge-tree` 驗證，程式碼與 PR #434 無重疊）。解法寫入 TASK-042。
+- **Boss 回測資料驗證**：repo 內 6 個資料檔的 SHA256 都與 Boss README 一致（其中 5 個需先還原 CRLF；`.gitattributes` 的 LF 正規化造成表面差異）。以獨立純 Python 依 DECISION-013 重放 `taiex_tri.csv`（5850 日）：**2026-10-08＝OFFENSE、距 252 日高 −1.02%**（與 Boss 預期一致），全段 132 次切換、DEFENSE 1344 日；只取最後 3 年得到相同 state／High252／Sma60。→ TASK-039 把它變成 fixture，結束「Skipped」。
+- **任務**：TASK-039（Backend，READY，HIGH）啟用驗收測試；TASK-041（Backend，READY，MEDIUM）手動重新整理端點＋資料時間＋訊號 60 秒快取；TASK-040（Backend，BLOCKED 待 041，MEDIUM）可觀測性；TASK-038（Backend，BLOCKED 待 041，MEDIUM）加入「接上重新整理」；TASK-042（Frontend，READY，HIGH）PR #432 後續（Boss 更正的回測數字、模擬值註記、需求 11 策略部位占比、解衝突）；TASK-043（Frontend，BLOCKED 待 041，MEDIUM）資料時間＋重新整理按鈕；TASK-044（Backend，READY，MEDIUM）加權指數歷史日線端點；TASK-045（Frontend，READY，MEDIUM）Stock Intelligence「過去 5 年同期間」圖。
+- **設計**（`ARCHITECTURE.md` 兩個新章節）：(1) 回落煞車的 cache 盤點、全站單一冷卻的重新整理、可觀測性（App Insights 自動收集 requests／dependencies＋自訂 Meter＋每日假名 UserKey）與建議開放門檻——**結論：計算量不是風險點**（個人建議在瀏覽器算，伺服器對證交所的請求與使用者數無關，唯一共同瓶頸是共用 SQL 5 DTU）；(2) 大盤走勢比較圖 A 的資料／快取／位置設計（不加功能開關），以及 B（相似區段）的演算法提議與真實歷史實測。
+- **B 圖實測重點（Boss 看過再決定是否排工）**：同樣的門檻下「今天（2026-10-08）找不到相似區段」；沒有門檻時永遠找得到，門檻 corr ≥ 0.9 且 RMSE ≤ 3pp 時約 31% 的觀察日找得到；相似區段「之後」的走勢與現在實際後續走勢的相關係數 ≈ +0.04（樣本重疊、樣本內，僅供量級）。細節與 9 個歷史範例在 `ARCHITECTURE.md`。
+- **驗證限制**：排程沙箱連不到證交所與 Yahoo（403），也沒有 .NET；MFI94U／MIS／Yahoo 日線格式與 C# 測試結果都由 GitHub Actions 驗證。KQL 查詢為初稿、未實測。
+- **未動**：`REQUIREMENTS.md`（PM 所有）、`DECISIONS.md`、TASK-037（PR #432 也改它，避免新衝突）。PM 的 Tech Lead Actions 可據此勾選：文案更新→TASK-042、cache 盤點／重新整理→ARCHITECTURE＋TASK-041／043、可觀測性→ARCHITECTURE＋TASK-040、驗收資料→TASK-039、需求 11→TASK-042、A 圖設計→ARCHITECTURE＋TASK-044／045、B 圖演算法提議→ARCHITECTURE。
+- Boss 待辦：合併 PR #432（解衝突時兩段都留）；#433 已部署後以 admin 確認 `GET /api/portfolio/drawdown-brake`（`OFFENSE`、約 −1%）。

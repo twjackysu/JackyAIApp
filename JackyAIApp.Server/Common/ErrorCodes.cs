@@ -14,6 +14,7 @@
         TheWordCannotBeFound = 1040004,
         Unauthorized = 1040100,
         Forbidden = 1040300,
+        DrawdownBrakeNotEnabled = 1040301,
         ExternalApiError = 1040500,
         UsageLimitExceeded = 1042900,
     }

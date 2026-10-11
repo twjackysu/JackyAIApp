@@ -66,4 +66,13 @@ Frontend Engineer（2026-10-10）：
 - 與參考實作／範例的差異與待確認事項見 PR 描述：`E_target` 取截斷後 E、`prevState=null` 視為 OFFENSE、A4 以既有 `lookup` 端點取價、再平衡文案句型、「隔日成交」欄期間 1997–2026 為推定（請 PM／Boss 確認）、無任何持股者看不到卡片。
 
 ## Review
-（待填）
+2026-10-11 Tech Lead 審查 PR #432（head `42f8fbb`）：**技術審查通過 → READY FOR BOSS REVIEW**（不代表核准合併；Status 欄由 Engineer 分支維護，這裡不動以免合併衝突）。
+
+- **規則忠實度**：`composition`／`advise` 對照 #431 §3、§4 與 §7 參考實作無誤；`PROFILES`、`DEFENSE_E_OPTIONS=[0,0.3]`、k 範圍 0~0.5 正確；沒有防守 E ≥ 0.5 或固定槓桿選項，且 localStorage 讀取時 `sanitize`（手動改成 ≥0.5 也不生效）。捨入為 half-away-from-zero；賣先於買；全 0 股數 → 「不動」；`V=0` 不除以零。
+- **對參考實作／§10 範例的偏離——皆接受**：(1) `E_target` 取**截斷後**的 E（§3 明文「以截斷後的 E 計算」；預設三個等級不截斷，結果相同）；(2) `prevState=null` 視為 OFFENSE；(3) 沒持股者（PM A4）以既有 `lookup/TW/{symbol}` 取價，查不到就顯示無法取得、不猜；(4) 再平衡句型改為只陳述「實際曝險 vs 目標」——因為切換日後沒照做時也會走到這條，原範例的「漲多、升到」會說錯（減碼／加碼／不動三種與範例逐字相同）。
+- **安全／合規**：卡片僅在 `drawdownBrakeEnabled` 為 true 時掛載並發請求（後端另有 403，前端只是 UX）；固定警語與「2014 年以前 00631L 為模擬值」常駐於每個狀態（含載入中、錯誤、資料準備中、資料未更新、預估）；無 AI、無 UsageLimit，無 credit／點數／付費字樣。
+- **分割防護（R2）**：`SPLIT_EVENTS` 與 Boss 常數相符，Engineer 以公開報導交叉確認（皆為恢復交易日）；快照早於分割日 → 不顯示股數；快照等於分割日放行；無日期保守擋下；未持有該標的不擋；>7 天顯示過期提示。
+- **測試**：lint 0 warnings、vitest 396 項（新增 96）、build 全過；PR CI 綠；360／400px 無橫向捲動（Engineer 以 Playwright 實測）。
+- **待確認（不阻擋，詳見 TECH_LEAD.md）**：(a) 「歷史回測（1997–2026，隔日成交版本）」的期間為依 #431 §2 欄位順序**推定**，#431 只在「回測年化／最大回撤」欄標 1997–2026；**開放給一般使用者（Audience=All）前，Boss 須確認**，只需改 `drawdownBrakeCopy.ts` 的 `BACKTEST_PERIOD`。(b) 目前沒有任何持股的使用者看不到此卡片（卡片掛在「有持股」才渲染的區塊內）；Q1／Q3 決定後再看是否需要入口。(c) 再平衡句型與 §10 範例不同（見上），Boss 若要逐字照範例，只改 `adviceMessage`。
+- **整合驗證**：TASK-036 合併後，admin 需實際走一遍（`GET /api/portfolio/drawdown-brake` 與 `drawdownBrakeEnabled` → 卡片顯示真實訊號）。建議合併順序：#433 → #432（若單獨先合 #432，`drawdownBrakeEnabled` 恆為 undefined，卡片不會出現，無害）。
+- **QA**：卡片僅 admin 可見，且元件測試涵蓋各狀態；不另派 QA，由 Boss 在 #433 部署後於手機寬度目測一次。

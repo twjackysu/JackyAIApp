@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-BLOCKED（待 TASK-036 合併；站外提醒另依 Boss 對 Q2 的決定另案）
+BLOCKED（TASK-036 已合併；待 TASK-041 合併——兩者改同一個服務與端點，041 先做；站外提醒已由 Boss 對 Q2 決定「不做」）
 
 ## Priority
 MEDIUM（PM：第二階段 MEDIUM；Boss 規格將盤中預估列為「建議做法」，回測主結果假設收盤集合競價成交，「隔日成交」版本績效明顯較差）
@@ -17,7 +17,8 @@ MEDIUM（PM：第二階段 MEDIUM；Boss 規格將盤中預估列為「建議做
 2. **預估公式**（#431 §5）：`預估報酬指數 = 昨日正式報酬指數 × (目前加權指數 z ÷ 昨收 y)`；以 `DrawdownBrakeCalculator` 對「正式序列＋預估點」重算，輸出 `estimate = { asOfTime, estimatedClose, state, prevState(=正式 asOfDate 的狀態), drawdownPct }`。`z` 缺值 → `estimate=null`（不猜）。
 3. 僅在「平日、台北 09:00 之後、今日正式資料尚未入庫」時計算；今日正式資料入庫後 `estimate=null`。
 4. 結果短快取（≈30 秒）、全站共用一份，不隨使用者數放大對 MIS 的請求。
-5. **訊號已更正**：`IMemoryCache`（TTL 2 天）記當日最後一次預估狀態；正式資料入庫後若與之不同 → `estimateCorrected=true`（持續到隔日）。快取遺失時退化為 false（可接受）。
+5. **接上重新整理（需求 8，2026-10-11 加入）**：TASK-041 的 `POST …/drawdown-brake/refresh` 在第 3 點的時間窗內同時要求 MIS 預估重新取得——MIS 預估快取（第 4 點的 ≈30 秒）以**全站最短間隔 10 秒**為限（遠高於證交所的 ≥ 2 秒規則），間隔內回現有預估，不打 MIS。`estimate.asOfTime` 就是前端顯示的「預估資料時間」。`result` 列舉不新增值：預估取不到時 `estimate=null`，其餘照 041 的判定。MIS 失敗**不得**讓 `result` 變成 `SourceUnavailable`（那表示正式資料來源失敗）。DTO 快取（60 秒）在預估更新時一併失效。
+6. **訊號已更正**：`IMemoryCache`（TTL 2 天）記當日最後一次預估狀態；正式資料入庫後若與之不同 → `estimateCorrected=true`（持續到隔日）。快取遺失時退化為 false（可接受）。
 
 ## Acceptance Criteria
 - Offline unit tests：預估公式、`z` 缺值、時間窗（週末／09:00 前／正式資料已入庫皆為 null）、快取（同窗內只打一次上游）、更正邏輯（預估 OFFENSE → 正式 DEFENSE ⇒ true；一致 ⇒ false；快取遺失 ⇒ false）。
@@ -31,7 +32,7 @@ MEDIUM（PM：第二階段 MEDIUM；Boss 規格將盤中預估列為「建議做
 - 沙箱可能連不到 `mis.twse.com.tw`（Tech Lead 實測 403）；格式驗證依 GitHub Actions LiveContract。
 
 ## Dependencies
-TASK-036 MERGED。站外提醒（Email／推播）屬 Q2 決定，**不在本任務範圍**。
+TASK-036 MERGED（#433）。**TASK-041**（手動重新整理端點、DTO 的 `lastCheckedAt`／`generatedAt`、60 秒訊號快取）須先合併。站外提醒（Email／推播）已由 Boss 決定不做（Q2，DECISION-014），**不在本任務範圍**。
 
 ## PR
 （待填）

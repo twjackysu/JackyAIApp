@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+MERGED（PR #433，2026-10-11）
 
 ## Priority
 HIGH（Requirement：「0050 + 00631L『回落煞車』」第一階段；PM 標 HIGH）
@@ -50,10 +50,30 @@ HIGH（Requirement：「0050 + 00631L『回落煞車』」第一階段；PM 標 
 無（#431 規格與 DECISION-013 已定）。前端 TASK-037 以本任務的 API 契約平行開發。
 
 ## PR
-（待填）
+https://github.com/twjackysu/JackyAIApp/pull/433（branch `claude/exciting-cray-ij5f2w`）
 
 ## Result
-（待填）
+**已實作（PR #433）。** 離線測試 `--filter "Category!=LiveContract"`（Release）：893 通過、2 略過、0 失敗。
+
+### 與任務書不同／需 Tech Lead 確認
+1. **MFI94U 用專用 named client `TaiexTotalReturn`，未掛 `AddReadOnlyResilience()`**（任務書：走 `ExternalReadOnly`）。理由：Polly 會在 ~1s／~2s 後重送失敗的 GET，違反 ≥3 秒間隔且會加劇限流（Technical Notes 已點出）；重試交給每小時 refresh loop。有測試證明此 client 無 retry handler。
+2. **回補由新到舊**（當月先、往回補到 3 年前）。`isInitializing` ＝ 表空或已存歷史跨度 < 730 天（#431 §1「至少 2 年」）；回補中途失敗，下一輪從缺口續補。
+3. **休市日**：優先 TWSE OpenAPI `holidaySchedule`（`https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule`）；不可用／不涵蓋該年／讀不懂 → 「連續缺 ≥ 2 個平日才標 stale」（已實作、有測試）。此端點格式與「開始交易日／最後交易日」列的處理原為假設，已由 LiveContract 驗證相符。
+
+### 未能完成／待補
+- **本環境連不到 twse.com.tw**（egress 403）：改以 `contract-tests.yml` 手動 dispatch 驗證，**已通過（55/55）**。第一次 run 抓到真實 bug：MFI94U 日期欄表頭是 `日　期`（含全形空白 U+3000），已修（表頭比對前去除所有空白）。**MFI94U 實際格式**：`fields = [日　期 | 發行量加權股價報酬指數]`，第一列 `["115/09/01","108,395.72"]`。**holidaySchedule 實際格式**：27 列（僅 2026），`{Name, Date(民國 7 碼, 如 1150101), Weekday, Description}`；「開始交易日／最後交易日」列為交易日，與實作相符。細節見 PR #433 留言。
+- **Boss 的回測 CSV 尚未提供**：`Fixtures/TaiexTotalReturn.csv` 的兩個驗收測試已寫好，檔案不存在時回報為 **Skipped**；檔案放進 `JackyAIApp.Server.Tests/Fixtures/` 即自動啟用。替代驗證：`Fixtures/DrawdownBrakeGolden.csv`（#431 §7 參考實作的獨立轉寫，1500 日、50 次切換）逐日比對一致。
+- 流程：依 Workflow conventions 應把 `IN_PROGRESS` 推到 master；本 session 僅限推 feature branch，所以標記在本分支。
+
 
 ## Review
-（待填）
+2026-10-11 Tech Lead 審查 PR #433（head `e338e50`）：**技術審查通過 → READY FOR BOSS REVIEW**（不代表核准合併；task 的 Status 欄由 Engineer 分支維護，這裡不動以免合併衝突）。
+
+- **正確性**：`DrawdownBrakeCalculator` 逐字對應 #431 §1（`up` 優先、`down` 嚴格 `<`、<60 筆 `up=false`、`high252` 不足 252 用現有資料、`decimal` 精確運算、參數為 `const`）。Tech Lead 另以獨立的純 Python 版 Boss 參考規則重放 `Fixtures/DrawdownBrakeGolden.csv`：1500 日 **0 筆不一致**、50 次切換、553 日防守，與 PR 所述一致。
+- **資料層**：解析器依表頭定位、找不到／重複／無法解析一律整月失敗不寫入；LiveContract 在 Actions 上抓到真實表頭 `日　期`（U+3000）並已修，是本 PR 最有價值的驗證。MFI94U 真實欄位：`[日　期 | 發行量加權股價報酬指數]`。今日 14:00 前的值與未來日期不入庫。
+- **對 task 的偏離——皆接受**：(1) MFI94U 用專用 named client、**不掛** `AddReadOnlyResilience`（Polly 會在 1–2 秒重送，違反 ≥3 秒間隔且加劇限流；重試改由每小時 refresh；有測試證明）；(2) 回補**由新到舊**，使 `isInitializing`（歷史跨度 <730 天）可精確判定、失敗可從缺口續補；(3) 休市日用 `holidaySchedule`（LiveContract 驗證格式：27 列、僅涵蓋 2026、「開始／最後交易日」列為交易日），不可用或不涵蓋該年時退回「連續缺 ≥2 個平日」。
+- **安全／成本**：`[Authorize]` ＋ 功能開關（預設 Admin；打錯值視為 Admin，不會誤開）、403 對應 `ErrorCodes.DrawdownBrakeNotEnabled=1040301`（→ HTTP 403，有測試）；無 AI、無 `[UsageLimit]`；migration 僅新增資料表。
+- **測試**：Release 離線 897 通過／2 略過／0 失敗；PR CI（`build-and-test-server`、`lint-and-build-client`）綠；變異測試覆蓋規則誤改。
+- **未完成的驗收（需 Boss）**：AC「真實資料驗收」（2026-10-08 為 OFFENSE、`drawdownPct`≈−1%、最後 3 年重算同狀態）的兩個測試因缺 Boss 的 `Fixtures/TaiexTotalReturn.csv` 而 **Skipped**（非 Passed）。替代驗證＝golden 逐日比對（驗證狀態機邏輯，但不驗證 MFI94U 真實資料與 3 年窗口）。**緩解**：功能目前僅 admin 可見，部署後請 Boss 以 admin 呼叫端點，確認 `state=OFFENSE`、`drawdownPct` 約 −1%（最新交易日為 2026-10-09 或之後，數字會略不同）；CSV 仍建議補上作為回歸測試。
+- **非阻擋觀察（部署後確認，不另開 task）**：(a) 實際確認 MFI94U 當日值的公布時間；若晚於 `StaleAfter=17:00`，「資料未更新」會每天短暫誤報，屆時調整 `DrawdownBrakeService.StaleAfter`／`TaiexTotalReturnRefreshService.PublishedAfter` 常數即可。(b) 缺口補抓只在平日 14:00 後觸發；若週末重啟且前一個平日資料缺漏，要到下個平日 14:00 才補（影響小，列為 Technical Debt）。(c) 首次部署後約 2 分鐘內端點回 `isInitializing=true`，屬預期。
+- **QA**：本功能僅 admin 可見，且離線／golden／LiveContract 已涵蓋；不另派 QA，改由 Boss 部署後 smoke check（見上）。
