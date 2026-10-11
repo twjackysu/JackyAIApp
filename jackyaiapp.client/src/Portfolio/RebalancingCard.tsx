@@ -12,6 +12,7 @@ import {
   computeRebalancingDeltas,
   CurrentAllocationEntry,
   loadRebalancingTarget,
+  rebalancingBaseTWD,
   REBALANCING_BUCKETS,
   RebalancingBucket,
   RebalancingTarget,
@@ -26,7 +27,6 @@ const BUCKET_LABEL: Record<RebalancingBucket, string> = {
   usStock: '美股',
   fund: '基金',
   cash: '現金',
-  realEstate: '不動產',
 };
 
 // Below this, a "buy"/"sell" instruction would just be rounding noise on a real trade.
@@ -55,7 +55,7 @@ interface RebalancingCardProps {
 export function RebalancingCard({ summary }: RebalancingCardProps) {
   const { value, showRatio } = usePrivacy();
   const current = computeCurrentAllocation(summary);
-  const totalAssetsTWD = summary.liquidGrossAssetsTWD + summary.realEstateTWD;
+  const totalAssetsTWD = rebalancingBaseTWD(summary);
 
   // First-run (nothing saved yet): seed with the current allocation so a first-time viewer sees
   // "already balanced" everywhere, not a wall of "sell everything" before expressing a preference.
@@ -102,7 +102,7 @@ export function RebalancingCard({ summary }: RebalancingCardProps) {
 
       <Grid container spacing={1.5} sx={{ mb: 1 }}>
         {REBALANCING_BUCKETS.map((bucket) => (
-          <Grid key={bucket} size={{ xs: 6, sm: 4, md: 2.4 }}>
+          <Grid key={bucket} size={{ xs: 6, sm: 3 }}>
             <TextField
               size="small"
               type="number"
@@ -162,7 +162,7 @@ export function RebalancingCard({ summary }: RebalancingCardProps) {
       </Box>
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-        分母為「流動總資產＋不動產」，不含負債。目標配置僅儲存在這個瀏覽器，不會同步到其他裝置。
+        分母為「流動總資產」（台股＋美股＋基金＋現金），不含不動產與負債。目標配置僅儲存在這個瀏覽器，不會同步到其他裝置。
       </Typography>
     </Box>
   );

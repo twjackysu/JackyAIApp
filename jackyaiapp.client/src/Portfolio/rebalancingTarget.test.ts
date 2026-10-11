@@ -4,6 +4,7 @@ import {
   computeCurrentAllocation,
   computeRebalancingDeltas,
   loadRebalancingTarget,
+  rebalancingBaseTWD,
   RebalancingTarget,
   saveRebalancingTarget,
 } from './rebalancingTarget';
@@ -38,23 +39,35 @@ function makeSummary(overrides: Partial<PortfolioSummaryDto>): PortfolioSummaryD
 }
 
 describe('computeCurrentAllocation', () => {
-  it('splits the 5 buckets as a % of liquidGrossAssetsTWD + realEstateTWD', () => {
+  it('splits the 4 liquid buckets as a % of liquidGrossAssetsTWD', () => {
     const summary = makeSummary({
       twStockTWD: 400_000,
       usStockTWD: 200_000,
       cashTWD: 100_000,
-      fundTWD: 100_000,
-      realEstateTWD: 200_000,
-      liquidGrossAssetsTWD: 800_000, // twStock + usStock + cash + fund
+      fundTWD: 300_000,
+      liquidGrossAssetsTWD: 1_000_000, // twStock + usStock + cash + fund
     });
     const result = computeCurrentAllocation(summary);
     expect(result).toEqual([
       { bucket: 'twStock', currentTWD: 400_000, currentPct: 40 },
       { bucket: 'usStock', currentTWD: 200_000, currentPct: 20 },
-      { bucket: 'fund', currentTWD: 100_000, currentPct: 10 },
+      { bucket: 'fund', currentTWD: 300_000, currentPct: 30 },
       { bucket: 'cash', currentTWD: 100_000, currentPct: 10 },
-      { bucket: 'realEstate', currentTWD: 200_000, currentPct: 20 },
     ]);
+  });
+
+  it('leaves real estate out of both the buckets and the denominator', () => {
+    const summary = makeSummary({
+      twStockTWD: 600_000,
+      cashTWD: 400_000,
+      liquidGrossAssetsTWD: 1_000_000,
+      realEstateTWD: 20_000_000, // a house must neither be a bucket nor shrink the % base
+    });
+    const result = computeCurrentAllocation(summary);
+    expect(result.map((r) => r.bucket)).toEqual(['twStock', 'usStock', 'fund', 'cash']);
+    expect(result.find((r) => r.bucket === 'twStock')?.currentPct).toBe(60);
+    expect(result.find((r) => r.bucket === 'cash')?.currentPct).toBe(40);
+    expect(rebalancingBaseTWD(summary)).toBe(1_000_000);
   });
 
   it('excludes liability from both the buckets and the denominator', () => {
@@ -69,7 +82,7 @@ describe('computeCurrentAllocation', () => {
   });
 
   it('returns 0% for every bucket instead of NaN/Infinity when total assets are 0', () => {
-    const result = computeCurrentAllocation(makeSummary({}));
+    const result = computeCurrentAllocation(makeSummary({ realEstateTWD: 10_000_000 }));
     expect(result.every((r) => r.currentPct === 0)).toBe(true);
     expect(result.every((r) => Number.isFinite(r.currentPct))).toBe(true);
   });
@@ -88,7 +101,6 @@ describe('computeRebalancingDeltas', () => {
       usStock: 0,
       fund: 0,
       cash: 50, // down from 80% -> sell
-      realEstate: 0,
     };
     const deltas = computeRebalancingDeltas(current, target, 1_000_000);
 
@@ -103,13 +115,7 @@ describe('computeRebalancingDeltas', () => {
 
   it('handles a total of 0 without dividing by zero (delta is 0 when total assets are 0)', () => {
     const current = computeCurrentAllocation(makeSummary({}));
-    const target: RebalancingTarget = {
-      twStock: 20,
-      usStock: 20,
-      fund: 20,
-      cash: 20,
-      realEstate: 20,
-    };
+    const target: RebalancingTarget = { twStock: 25, usStock: 25, fund: 25, cash: 25 };
     const deltas = computeRebalancingDeltas(current, target, 0);
     expect(deltas.every((d) => d.deltaTWD === 0)).toBe(true);
   });
@@ -122,14 +128,38 @@ describe('loadRebalancingTarget / saveRebalancingTarget', () => {
 
   it('round-trips through localStorage', () => {
     expect(loadRebalancingTarget()).toBeNull();
-    const target: RebalancingTarget = {
-      twStock: 40,
-      usStock: 20,
-      fund: 10,
-      cash: 20,
-      realEstate: 10,
-    };
+    const target: RebalancingTarget = { twStock: 40, usStock: 20, fund: 10, cash: 30 };
     saveRebalancingTarget(target);
     expect(loadRebalancingTarget()).toEqual(target);
+  });
+
+  it('converts a target saved with a real-estate bucket, keeping the liquid proportions', () => {
+    // Saved before real estate left the allocation: % of liquid assets + real estate.
+    localStorage.setItem(
+      'portfolio.rebalancingTarget',
+      JSON.stringify({ twStock: 30, usStock: 20, fund: 10, cash: 10, realEstate: 30 }),
+    );
+
+    const expected = { twStock: 42.9, usStock: 28.6, fund: 14.3, cash: 14.3 };
+    expect(loadRebalancingTarget()).toEqual(expected);
+    // Written back in the new shape, so it is converted once, not on every load.
+    expect(JSON.parse(localStorage.getItem('portfolio.rebalancingTarget')!)).toEqual(expected);
+  });
+
+  it('keeps an old target that summed to under 100% under 100%', () => {
+    localStorage.setItem(
+      'portfolio.rebalancingTarget',
+      JSON.stringify({ twStock: 40, usStock: 0, fund: 0, cash: 20, realEstate: 20 }),
+    );
+    // 60 liquid + 20 real estate = 80 in total; the liquid buckets now carry the whole 80.
+    expect(loadRebalancingTarget()).toEqual({ twStock: 53.3, usStock: 0, fund: 0, cash: 26.7 });
+  });
+
+  it('starts over when the old target was all real estate', () => {
+    localStorage.setItem(
+      'portfolio.rebalancingTarget',
+      JSON.stringify({ twStock: 0, usStock: 0, fund: 0, cash: 0, realEstate: 100 }),
+    );
+    expect(loadRebalancingTarget()).toBeNull();
   });
 });
