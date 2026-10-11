@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-IN_PROGRESS（2026-10-11 Tech Lead 指派工程師開工）
+PR_OPENED（PR #440，2026-10-11；待 Tech Lead 技術審查）
 
 ## Priority
 MEDIUM（PM：需求「Stock Intelligence 大盤走勢比較圖」A 圖；與回落煞車互不依賴）
@@ -41,10 +41,17 @@ MEDIUM（PM：需求「Stock Intelligence 大盤走勢比較圖」A 圖；與回
 無。前端 TASK-045 以上述回應契約平行開發。
 
 ## PR
-（待填）
+#440（branch `claude/exciting-cray-9gj33o`，2026-10-11）
 
 ## Result
-（待填）
+2026-10-11 Backend Engineer：
+- **端點**：`GET /api/finance/market-index-history`（`FinanceController`，匿名，無參數）。回 200 `{ symbol, name, source, asOf, points: [{ date, close }] }`（升冪）；沒有任何資料 → `ErrorCodes.MarketHistoryUnavailable`（`1050301` → HTTP 503）。無 DB／migration、無 AI、無 `[UsageLimit]`。
+- **`MarketIndexHistoryProvider`**：Yahoo `^TWII` `range=6y&interval=1d`（`ExternalReadOnly`）。跳過 null／非有限／非正數 close、台北時間（UTC+8）換日期、同日取最後一筆、升冪、close 四捨五入 2 位；台北今日的 bar 在週末或 14:00 前丟棄；整份健全性檢查（≥ 1,000 點、最後日期距今 ≤ 10 天、相鄰日漲跌 ≤ 15%、`timestamp[]`／`close[]` 等長），失敗＝整份作廢。
+- **`CachedMarketIndexHistoryProvider`**（singleton 裝飾器）：`IMemoryCache` 1 小時＋`SingleFlight`；最後成功結果保留 7 天，重新取得失敗時回傳該份。
+- **與任務書字面不同或需 Tech Lead 確認之處**（細節在 PR #440 描述）：(1) 另加「失敗後 5 分鐘不再打 Yahoo」；(2) 選 HTTP 503＋錯誤碼 `1050301`，前端 `apis/types.ts` 的 enum 需補（TASK-045）；(3)「非交易日」只判斷週末，未查 `ITwseHolidayCalendar`；(4) 兩個陣列長度不同整份作廢；(5) 用 `SingleFlight` 而非自建 `SemaphoreSlim`；(6) DTO 用 `sealed record`。
+- **測試**：本環境以 apt 安裝 .NET 10 SDK 後實際執行——`dotnet test -c Release --filter "Category!=LiveContract"`：**967 通過、0 略過、0 失敗**；新增 66 個離線測試連跑 12 次無偶發失敗。另做 13 項變異測試（今日 bar 規則與邊界、週末、UTC+8、點數／過舊／漲跌門檻、重複日、四捨五入、長度檢查、TTL、退避、SingleFlight），每項都有測試失敗。
+- **LiveContract**：沙箱連不到 Yahoo（egress 403），無法本機執行；已在本分支手動 dispatch `contract-tests.yml`（結果見 PR #440 留言）。
+- **未驗證**：response compression 只驗了框架預設 MIME 清單涵蓋 `application/json`，未量實際位元組數。
 
 ## Review
 （待填）
