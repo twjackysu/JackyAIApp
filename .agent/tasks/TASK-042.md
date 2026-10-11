@@ -1,10 +1,10 @@
 # TASK-042：回落煞車卡片 — PR #432 後續修正（回測數字更正、模擬值註記、策略部位占比、解衝突）（#431）
 
 ## Owner
-Frontend Engineer（接手 PR #432，branch `claude/nice-allen-x7oovf`）
+Frontend Engineer（PR #432 已合併；從最新 master 開新分支與新 PR）
 
 ## Status
-READY
+IN_PROGRESS（2026-10-11 Tech Lead 指派工程師開工）
 
 ## Priority
 HIGH（PM 產品面不一致；目前只有 admin 可見所以不阻擋合併，但**必須在 `Audience=All` 之前完成**；且 PR #432 目前有合併衝突，Boss 合併前最好先處理）
@@ -13,7 +13,7 @@ HIGH（PM 產品面不一致；目前只有 admin 可見所以不阻擋合併，
 把 PR #432 的畫面文案對齊 Boss 於 2026-10-11 更正的回測數字與資料限制說明，補上需求 11，並消除 PR 與 master 的合併衝突。
 
 ## Requirements
-1. **解合併衝突（僅文件）**：把 `origin/master` merge 進 PR #432 的分支（**merge，不要 rebase／force-push**）。Tech Lead 已用 `git merge-tree` 驗證：與 master 唯一的衝突檔是 `.agent/status/PROJECT_STATUS.md`（master 檔尾 PM 追加了數段，PR 也在檔尾追加一段）→ **兩邊都保留**，不要改動 PM 的段落。程式碼與 PR #434（`RebalancingCard`／`rebalancingTarget`）**沒有重疊**，`Portfolio/index.tsx` 會自動合併。
+1. ~~**解合併衝突（僅文件）**~~ **已完成（2026-10-11）**：Tech Lead 已把 master 併入 PR #432 分支並由 Boss 合併（`15c67e4`），本項不必再做。原說明：：把 `origin/master` merge 進 PR #432 的分支（**merge，不要 rebase／force-push**）。Tech Lead 已用 `git merge-tree` 驗證：與 master 唯一的衝突檔是 `.agent/status/PROJECT_STATUS.md`（master 檔尾 PM 追加了數段，PR 也在檔尾追加一段）→ **兩邊都保留**，不要改動 PM 的段落。程式碼與 PR #434（`RebalancingCard`／`rebalancingTarget`）**沒有重疊**，`Portfolio/index.tsx` 會自動合併。
    - 之後請不要再把 `PROJECT_STATUS.md`／其他 `.agent/` 狀態檔的變更放進程式 PR（容易互相衝突）；依 Workflow conventions 直接推 master。
 2. **`drawdownBrakeCopy.ts`（及 `drawdownBrakeCopy.test.ts`、`DrawdownBrakeCard.test.tsx` 中寫死的斷言）**，數字來源＝`回測數據/tw_backtest/results/reproduce_spec.txt`（隔日成交 = `lag2` 欄）與 `REQUIREMENTS.md`「Boss 更正的回測數字」，**PR 描述請逐項列出你對照的行**：
    | 常數 | 舊 | 新 |

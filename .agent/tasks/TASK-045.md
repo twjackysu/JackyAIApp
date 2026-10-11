@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+IN_PROGRESS（2026-10-11 Tech Lead 指派工程師開工）
 
 ## Priority
 MEDIUM（PM：A 圖；Boss 2026-10-11 02:38 UTC 新增，DECISION-016）

@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED
+MERGED（PR #435，2026-10-11）
 
 ## Priority
 HIGH（小任務；結束 TASK-036 遺留的「驗收測試 Skipped」，PM 驗收條件第 1 項）
@@ -52,4 +52,4 @@ TASK-036 MERGED（#433）。
 - **CI 結果（head `490754d`，run 38110799015）**：`build-and-test-server` ✅（`Total tests: 901`、`Passed: 901`，摘要無 Skipped 行 → Boss 回測驗收測試已實際執行並通過）、`lint-and-build-client` ✅。尚待 Tech Lead 技術審查。
 
 ## Review
-（待填）
+2026-10-11 Tech Lead：PR #435 已由 Boss 合併。CI（head `490754d`）`Total tests: 901`、`Passed: 901`、無 Skipped → Boss 回測驗收測試已實際執行並通過；期望值逐項與 Tech Lead 的獨立重放一致。無需額外 QA。

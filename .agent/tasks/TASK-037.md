@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-PR_OPENED
+MERGED（PR #432，2026-10-11）
 
 ## Priority
 HIGH（Requirement：「0050 + 00631L『回落煞車』」第一階段；PM 標 HIGH）
@@ -76,3 +76,5 @@ Frontend Engineer（2026-10-10）：
 - **待確認（不阻擋，詳見 TECH_LEAD.md）**：(a) 「歷史回測（1997–2026，隔日成交版本）」的期間為依 #431 §2 欄位順序**推定**，#431 只在「回測年化／最大回撤」欄標 1997–2026；**開放給一般使用者（Audience=All）前，Boss 須確認**，只需改 `drawdownBrakeCopy.ts` 的 `BACKTEST_PERIOD`。(b) 目前沒有任何持股的使用者看不到此卡片（卡片掛在「有持股」才渲染的區塊內）；Q1／Q3 決定後再看是否需要入口。(c) 再平衡句型與 §10 範例不同（見上），Boss 若要逐字照範例，只改 `adviceMessage`。
 - **整合驗證**：TASK-036 合併後，admin 需實際走一遍（`GET /api/portfolio/drawdown-brake` 與 `drawdownBrakeEnabled` → 卡片顯示真實訊號）。建議合併順序：#433 → #432（若單獨先合 #432，`drawdownBrakeEnabled` 恆為 undefined，卡片不會出現，無害）。
 - **QA**：卡片僅 admin 可見，且元件測試涵蓋各狀態；不另派 QA，由 Boss 在 #433 部署後於手機寬度目測一次。
+
+2026-10-11 Tech Lead：PR #432 已由 Boss 合併（merge commit `15c67e4`；合併前 Tech Lead 已把 master 併入分支解掉文件衝突，lint／401 項測試／build 皆過）。後續修正（回測數字更正、模擬值註記、策略部位占比）見 TASK-042，重新整理按鈕見 TASK-043。

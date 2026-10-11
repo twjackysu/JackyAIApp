@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+IN_PROGRESS（2026-10-11 Tech Lead 指派工程師開工）
 
 ## Priority
 MEDIUM（PM：需求「Stock Intelligence 大盤走勢比較圖」A 圖；與回落煞車互不依賴）

@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+IN_PROGRESS（2026-10-11 Tech Lead 指派工程師開工）
 
 ## Priority
 MEDIUM（PM 需求 8；第二階段必備，第一階段也有價值：收盤後指數公布時間不確定，「資料未更新」時可自行重試。不阻擋已合併的 #433）
