@@ -1,16 +1,32 @@
 using System.Globalization;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 {
-    public class DrawdownBrakeServiceTests
+    public class DrawdownBrakeServiceTests : IDisposable
     {
         private readonly Mock<ITaiexTotalReturnStore> _store = new();
         private readonly Mock<ITwseHolidayCalendar> _calendar = new();
         private readonly FakeTime _time = new();
         private readonly TaiexDataStatus _status = new();
+        private readonly DrawdownBrakeTelemetry _telemetry;
+        private readonly MeterCapture _metrics;
+
+        public DrawdownBrakeServiceTests()
+        {
+            _telemetry = new DrawdownBrakeTelemetry(NullLogger<DrawdownBrakeTelemetry>.Instance, _time);
+            _metrics = new MeterCapture(_telemetry.Meter);
+        }
+
+        public void Dispose()
+        {
+            _metrics.Dispose();
+            _telemetry.Dispose();
+        }
 
         // Taipei = UTC+8.
         private static DateTimeOffset Taipei(int y, int m, int d, int h, int min = 0) =>
@@ -19,7 +35,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         // A fresh cache per service unless a test shares one: tests that rebuild the service to feed it
         // a different series must not be handed the previous series' cached signal.
         private DrawdownBrakeService CreateService(IMemoryCache? cache = null) =>
-            new(_store.Object, _calendar.Object, _status, cache ?? new MemoryCache(new MemoryCacheOptions()), _time);
+            new(_store.Object, _calendar.Object, _status, cache ?? new MemoryCache(new MemoryCacheOptions()), _telemetry, _time);
 
         private void StoreHolds(IReadOnlyList<IndexClose> closes) =>
             _store.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync(closes);
@@ -402,6 +418,150 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             Assert.False(dto.IsInitializing);
         }
 
+        // ── cache status and build timing (TASK-040) ────────────────────────
+
+        [Fact]
+        public async Task TheCallThatBuilds_IsAMiss_AndTheNextOnesAreHits()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+
+            var first = await service.GetWithCacheStatusAsync();
+            _time.Now += TimeSpan.FromSeconds(59);
+            var second = await service.GetWithCacheStatusAsync();
+
+            Assert.False(first.CacheHit);
+            Assert.True(second.CacheHit);
+            Assert.Same(first.Signal, second.Signal);
+        }
+
+        [Fact]
+        public async Task AfterAMinute_TheNextCallIsAMissAgain()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+            await service.GetWithCacheStatusAsync();
+
+            _time.Now += TimeSpan.FromSeconds(60);
+
+            Assert.False((await service.GetWithCacheStatusAsync()).CacheHit);
+        }
+
+        [Fact]
+        public async Task NewDataAnnounced_MakesTheNextCallAMiss()
+        {
+            _time.Now = Taipei(2026, 10, 8, 15);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+            await service.GetWithCacheStatusAsync();
+
+            _status.RecordCheck(_time.Now);
+
+            Assert.False((await service.GetWithCacheStatusAsync()).CacheHit);
+        }
+
+        [Fact]
+        public async Task TwentyConcurrentCallers_OneBuilds_NineteenAreHits()
+        {
+            // A caller that waited for someone else's build cost the database nothing: a hit.
+            _time.Now = Taipei(2026, 10, 8, 10);
+            var closes = FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m);
+            _store.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>()))
+                .Returns(async () => { await Task.Delay(100); return (IReadOnlyList<IndexClose>)closes; });
+            var service = CreateService();
+
+            var results = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => service.GetWithCacheStatusAsync())));
+
+            Assert.Equal(1, results.Count(r => !r.CacheHit));
+            Assert.Equal(19, results.Count(r => r.CacheHit));
+        }
+
+        [Fact]
+        public async Task GetAsync_IsTheSameSignal_AndSharesTheSameCache()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+
+            var viaGet = await service.GetAsync();
+            var viaStatus = await service.GetWithCacheStatusAsync();
+
+            Assert.Same(viaGet, viaStatus.Signal);
+            Assert.True(viaStatus.CacheHit);
+        }
+
+        [Fact]
+        public async Task OnlyABuild_RecordsTheComputeDuration_AHitDoesNot()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+
+            await service.GetAsync();
+            var afterBuild = _metrics.Of("drawdownbrake.compute.duration");
+            await service.GetAsync();
+            await service.GetWithCacheStatusAsync();
+
+            var m = Assert.Single(afterBuild);
+            Assert.True(m.Value >= 0);
+            Assert.Empty(m.Tags);
+            Assert.Single(_metrics.Of("drawdownbrake.compute.duration")); // still just the one
+        }
+
+        [Fact]
+        public async Task EveryRebuild_RecordsOneDuration()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+            var service = CreateService();
+
+            await service.GetAsync();
+            _time.Now += TimeSpan.FromSeconds(60);
+            await service.GetAsync();
+
+            Assert.Equal(2, _metrics.Of("drawdownbrake.compute.duration").Count);
+        }
+
+        [Fact]
+        public async Task TheDuration_IsTheTimeTheBuildTook()
+        {
+            // The service's clock is the stopwatch: a build that "takes" 250 ms by that clock is
+            // recorded as 250.
+            var clock = new SteppingTime(Taipei(2026, 10, 8, 10), TimeSpan.FromMilliseconds(250));
+            var timed = new DrawdownBrakeService(_store.Object, _calendar.Object, _status,
+                new MemoryCache(new MemoryCacheOptions()), _telemetry, clock);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+
+            await timed.GetAsync();
+
+            Assert.Equal(250, Assert.Single(_metrics.Of("drawdownbrake.compute.duration")).Value);
+        }
+
+        [Fact]
+        public async Task AFailedBuild_RecordsNoDuration()
+        {
+            _time.Now = Taipei(2026, 10, 8, 10);
+            _store.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("database blip"));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => CreateService().GetAsync());
+
+            Assert.Empty(_metrics.Of("drawdownbrake.compute.duration"));
+        }
+
+        [Fact]
+        public async Task TheService_RecordsNoViews_ThatIsTheControllersJob()
+        {
+            // The refresh endpoint reads the signal too and must not count as a view.
+            _time.Now = Taipei(2026, 10, 8, 10);
+            StoreHolds(FlatEndingOn(new DateOnly(2026, 10, 7), 740, 100m));
+
+            await CreateService().GetAsync();
+
+            Assert.Empty(_metrics.Of("drawdownbrake.views"));
+        }
+
         private sealed record GoldenDay(DateOnly Date, decimal Close, BrakeState State);
 
         private static List<GoldenDay> LoadGolden() =>
@@ -419,6 +579,15 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         {
             public DateTimeOffset Now { get; set; }
             public override DateTimeOffset GetUtcNow() => Now;
+        }
+
+        /// <summary>A clock whose stopwatch advances by a fixed step every time it is read.</summary>
+        private sealed class SteppingTime(DateTimeOffset now, TimeSpan step) : TimeProvider
+        {
+            private long _ticks;
+            public override DateTimeOffset GetUtcNow() => now;
+            public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+            public override long GetTimestamp() => _ticks += step.Ticks;
         }
     }
 }

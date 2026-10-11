@@ -37,6 +37,8 @@
     <None Include="Fixtures\**\*.csv" CopyToOutputDirectory="PreserveNewest" />
     <!-- HTML-scrape fixtures (e.g. SEC insider-trading page). -->
     <None Include="Fixtures\**\*.html" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The app's own log filter, read by DrawdownBrakeTelemetryTests to prove the per-view line is not filtered out. -->
+    <None Include="..\JackyAIApp.Server\appsettings.json" Link="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

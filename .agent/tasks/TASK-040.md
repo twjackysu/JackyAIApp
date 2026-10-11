@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-BLOCKED（待 TASK-041 合併，兩者改同一批檔案；041 先做）
+IN_PROGRESS（2026-10-11 Backend Engineer；TASK-041 已於 PR #438 合併，解除 BLOCKED）
 
 ## Priority
 MEDIUM（PM 需求 9：`Features:DrawdownBrake:Audience` 改為 `All` 之前必備，不阻擋已合併的 #433）

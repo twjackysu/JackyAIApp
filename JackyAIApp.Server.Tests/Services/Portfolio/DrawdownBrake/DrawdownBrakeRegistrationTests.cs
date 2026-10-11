@@ -38,6 +38,17 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         }
 
         [Fact]
+        public void TheTelemetry_IsASingleton_SoThereIsOneMeterAndOneSalt()
+        {
+            using var provider = BuildProvider();
+
+            var telemetry = provider.GetRequiredService<DrawdownBrakeTelemetry>();
+
+            Assert.Same(telemetry, provider.GetRequiredService<DrawdownBrakeTelemetry>());
+            Assert.Equal(DrawdownBrakeTelemetry.MeterName, telemetry.Meter.Name);
+        }
+
+        [Fact]
         public void TheClient_IsASingleton_SoTheThreeSecondGapIsProcessWide()
         {
             using var provider = BuildProvider();

@@ -4,6 +4,7 @@ using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Portfolio;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -13,17 +14,29 @@ using System.Text.Json.Serialization;
 namespace JackyAIApp.Server.Tests.Controllers
 {
     /// <summary>GET api/portfolio/drawdown-brake and POST …/refresh: who may call them, and what they hand back.</summary>
-    public class PortfolioControllerDrawdownBrakeTests
+    public class PortfolioControllerDrawdownBrakeTests : IDisposable
     {
         private readonly Mock<IMyResponseFactory> _responseFactory = new();
         private readonly Mock<IUserService> _userService = new();
         private readonly Mock<IDrawdownBrakeService> _brake = new();
         private readonly Mock<IDrawdownBrakeAccess> _access = new();
         private readonly Mock<ITaiexTotalReturnRefresher> _refresher = new();
+        private readonly RecordingLogger<DrawdownBrakeTelemetry> _log = new();
+        private readonly DrawdownBrakeTelemetry _telemetry;
+        private readonly MeterCapture _metrics;
         private readonly PortfolioController _controller;
+
+        public void Dispose()
+        {
+            _metrics.Dispose();
+            _telemetry.Dispose();
+        }
 
         public PortfolioControllerDrawdownBrakeTests()
         {
+            // A clock that does not move, so the UserKey the controller logged is the one computed here.
+            _telemetry = new DrawdownBrakeTelemetry(_log, new FixedTime(new DateTimeOffset(2026, 10, 8, 3, 0, 0, TimeSpan.Zero)));
+            _metrics = new MeterCapture(_telemetry.Meter);
             _responseFactory.Setup(f => f.CreateOKResponse(It.IsAny<DrawdownBrakeDto>()))
                 .Returns<DrawdownBrakeDto>(dto => new OkObjectResult(dto));
             _responseFactory.Setup(f => f.CreateOKResponse(It.IsAny<DrawdownBrakeRefreshDto>()))
@@ -33,7 +46,7 @@ namespace JackyAIApp.Server.Tests.Controllers
 
             _controller = new PortfolioController(
                 _responseFactory.Object, new Mock<IPortfolioService>().Object, _userService.Object,
-                new ServerTiming(), _brake.Object, _access.Object, _refresher.Object);
+                new ServerTiming(), _brake.Object, _access.Object, _refresher.Object, _telemetry);
         }
 
         [Fact]
@@ -42,7 +55,8 @@ namespace JackyAIApp.Server.Tests.Controllers
             var dto = new DrawdownBrakeDto { State = BrakeState.OFFENSE, AsOfDate = new DateOnly(2026, 10, 8) };
             _userService.Setup(u => u.GetUserId()).Returns("u1");
             _access.Setup(a => a.IsEnabledForUserAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(true);
-            _brake.Setup(b => b.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(dto);
+            _brake.Setup(b => b.GetWithCacheStatusAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new DrawdownBrakeLookup(dto, CacheHit: true));
 
             var result = await _controller.GetDrawdownBrake(CancellationToken.None);
 
@@ -59,6 +73,7 @@ namespace JackyAIApp.Server.Tests.Controllers
 
             Assert.Equal(403, Assert.IsType<ObjectResult>(result).StatusCode);
             _responseFactory.Verify(f => f.CreateErrorResponse(ErrorCodes.DrawdownBrakeNotEnabled, It.IsAny<string>()), Times.Once);
+            _brake.Verify(b => b.GetWithCacheStatusAsync(It.IsAny<CancellationToken>()), Times.Never);
             _brake.Verify(b => b.GetAsync(It.IsAny<CancellationToken>()), Times.Never);
         }
 
@@ -70,7 +85,10 @@ namespace JackyAIApp.Server.Tests.Controllers
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _controller.GetDrawdownBrake(CancellationToken.None));
 
             _access.Verify(a => a.IsEnabledForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-            _brake.Verify(b => b.GetAsync(It.IsAny<CancellationToken>()), Times.Never);
+            _brake.Verify(b => b.GetWithCacheStatusAsync(It.IsAny<CancellationToken>()), Times.Never);
+            // Nobody to count either: no view, no log line.
+            Assert.Empty(_metrics.All);
+            Assert.Empty(_log.Entries);
         }
 
         [Fact]
@@ -84,6 +102,11 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.Empty(action.GetCustomAttributes(typeof(AllowAnonymousAttribute), inherit: true));
             // No AI behind it, so nothing to meter.
             Assert.Empty(action.GetCustomAttributes(typeof(UsageLimitAttribute), inherit: true));
+        }
+
+        private sealed class FixedTime(DateTimeOffset now) : TimeProvider
+        {
+            public override DateTimeOffset GetUtcNow() => now;
         }
 
         [Fact]
@@ -174,6 +197,121 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.NotEmpty(typeof(PortfolioController).GetCustomAttributes(typeof(AuthorizeAttribute), inherit: true));
             Assert.Empty(action.GetCustomAttributes(typeof(AllowAnonymousAttribute), inherit: true));
             Assert.Empty(action.GetCustomAttributes(typeof(UsageLimitAttribute), inherit: true));
+        }
+
+        // ── telemetry (TASK-040) ────────────────────────────────────────────
+
+        private const string GoogleId = "google-oauth-id-777";
+
+        private void CallerIs(string userId, bool eligible)
+        {
+            _userService.Setup(u => u.GetUserId()).Returns(userId);
+            _access.Setup(a => a.IsEnabledForUserAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(eligible);
+        }
+
+        private void SignalIs(DrawdownBrakeDto dto, bool cacheHit) =>
+            _brake.Setup(b => b.GetWithCacheStatusAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new DrawdownBrakeLookup(dto, cacheHit));
+
+        [Theory]
+        [InlineData(false, false, false, "ok", "miss")]
+        [InlineData(false, false, true, "ok", "hit")]
+        [InlineData(true, false, true, "initializing", "hit")]
+        [InlineData(true, false, false, "initializing", "miss")]
+        [InlineData(false, true, true, "stale", "hit")]
+        [InlineData(false, true, false, "stale", "miss")]
+        public async Task AView_IsCountedOnce_WithTheSignalsOutcomeAndTheCacheStatus(bool initializing, bool stale, bool cacheHit, string outcome, string cache)
+        {
+            CallerIs(GoogleId, eligible: true);
+            SignalIs(new DrawdownBrakeDto { IsInitializing = initializing, IsStale = stale }, cacheHit);
+
+            await _controller.GetDrawdownBrake(CancellationToken.None);
+
+            var m = Assert.Single(_metrics.All);
+            Assert.Equal("drawdownbrake.views", m.Instrument);
+            Assert.Equal(1, m.Value);
+            Assert.Equal(new Dictionary<string, string?> { ["outcome"] = outcome, ["cache"] = cache }, m.Tags);
+        }
+
+        [Fact]
+        public async Task AnIneligibleView_IsCountedAsForbidden_WithNoCacheTag()
+        {
+            CallerIs(GoogleId, eligible: false);
+
+            await _controller.GetDrawdownBrake(CancellationToken.None);
+
+            var m = Assert.Single(_metrics.All);
+            Assert.Equal("drawdownbrake.views", m.Instrument);
+            Assert.Equal(new Dictionary<string, string?> { ["outcome"] = "forbidden" }, m.Tags);
+        }
+
+        [Fact]
+        public async Task EveryView_LogsOneLine_WithAUserKeyAndNeverTheGoogleId()
+        {
+            CallerIs(GoogleId, eligible: true);
+            SignalIs(new DrawdownBrakeDto(), cacheHit: false);
+
+            await _controller.GetDrawdownBrake(CancellationToken.None);
+            CallerIs(GoogleId, eligible: false);
+            await _controller.GetDrawdownBrake(CancellationToken.None);
+
+            Assert.Equal(2, _log.Entries.Count);
+            Assert.All(_log.Entries, e =>
+            {
+                Assert.StartsWith("DrawdownBrake view ", e.Message);
+                Assert.DoesNotContain(GoogleId, e.Message);
+                Assert.Equal(_telemetry.UserKey(GoogleId), e.Properties["UserKey"]);
+                Assert.All(e.Properties, p => Assert.DoesNotContain(GoogleId, p.Value?.ToString() ?? ""));
+            });
+            Assert.Equal(["ok", "forbidden"], _log.Entries.Select(e => (string)e.Properties["Outcome"]!));
+            Assert.All(_metrics.All, m => Assert.All(m.Tags, t => Assert.DoesNotContain("777", t.Value ?? "")));
+        }
+
+        [Fact]
+        public async Task TheSamePersonViewingTwiceOnOneDay_IsOneUserKey()
+        {
+            CallerIs(GoogleId, eligible: true);
+            SignalIs(new DrawdownBrakeDto(), cacheHit: true);
+
+            await _controller.GetDrawdownBrake(CancellationToken.None);
+            await _controller.GetDrawdownBrake(CancellationToken.None);
+
+            Assert.Single(_log.Entries.Select(e => e.Properties["UserKey"]).Distinct());
+            Assert.Equal(2, _metrics.Of("drawdownbrake.views").Count);
+        }
+
+        [Theory]
+        [InlineData(DrawdownBrakeRefreshResult.Updated, "updated")]
+        [InlineData(DrawdownBrakeRefreshResult.NoNewData, "no_new_data")]
+        [InlineData(DrawdownBrakeRefreshResult.SourceUnavailable, "source_unavailable")]
+        [InlineData(DrawdownBrakeRefreshResult.Throttled, "throttled")]
+        public async Task ARefresh_IsCountedUnderItsResult_AndIsNotAView(DrawdownBrakeRefreshResult result, string tag)
+        {
+            CallerIs(GoogleId, eligible: true);
+            _refresher.Setup(r => r.TryRefreshNowAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new DrawdownBrakeRefreshOutcome(result, result == DrawdownBrakeRefreshResult.Throttled ? 30 : null));
+            _brake.Setup(b => b.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new DrawdownBrakeDto());
+
+            await _controller.RefreshDrawdownBrake(CancellationToken.None);
+
+            var m = Assert.Single(_metrics.All);
+            Assert.Equal("drawdownbrake.refresh", m.Instrument);
+            Assert.Equal(1, m.Value);
+            Assert.Equal(new Dictionary<string, string?> { ["result"] = tag }, m.Tags);
+            // Reading the signal for the response is not a view: no views counter, no log line.
+            _brake.Verify(b => b.GetWithCacheStatusAsync(It.IsAny<CancellationToken>()), Times.Never);
+            Assert.Empty(_log.Entries);
+        }
+
+        [Fact]
+        public async Task AnIneligibleRefresh_CountsNothing()
+        {
+            CallerIs(GoogleId, eligible: false);
+
+            await _controller.RefreshDrawdownBrake(CancellationToken.None);
+
+            Assert.Empty(_metrics.All);
+            Assert.Empty(_log.Entries);
         }
 
         // ── the JSON contract (ARCHITECTURE.md) ─────────────────────────────

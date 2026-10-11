@@ -1672,13 +1672,14 @@ PM 需求 8（資料時間＋手動「重新整理資料」）、需求 9（可�
 ### 可觀測性（TASK-040）
 - 自動收集（零程式）：App Insights `requests`（回應時間、失敗）、`dependencies`（對 `www.twse.com.tw` 的請求數／失敗數／耗時）——後端已有 `UseAzureMonitor`。
 - 自訂：Meter `JackyAIApp.DrawdownBrake`（`drawdownbrake.views{outcome,cache}`、`drawdownbrake.refresh{result}`、`drawdownbrake.compute.duration`）＋每次檢視一行 log，內含「每日、每行程」假名 `UserKey`（SHA256(userId＋UTC 日期＋啟動時隨機 salt) 前 12 碼），只能算當日不重複人數、不可還原、不跨日追蹤。**任何 log／metric 都不含持股、股數、金額、email、Google ID。**
+  - 實作（TASK-040）：`views` 的 `cache=miss` 指「這次呼叫自己讀 DB 並重算」，`hit` 指拿到別人建好的那份（含等別人建完的呼叫）；`outcome=forbidden`（不在開放對象內）沒有查訊號，所以**沒有 `cache` 標籤**。`refresh` 的每個 `result` 由 controller 在 `TryRefreshNowAsync` 回來後記一次，refresh 回應裡順帶讀的訊號**不算 view**。`compute.duration` 由快取 miss 的那次建構記錄（refresh 觸發的重建也記）。每次 GET（含 `forbidden`）記一行 log，屬性 `Outcome`、`UserKey`。
 - KQL 初稿（**未實測**——沙箱沒有 App Insights 存取；表名用 Application Insights Logs 頁面的傳統名稱，首批資料進來後 Boss 或 Engineer 貼上校正欄位名）：
   ```kusto
   // 每日呼叫數、延遲、失敗
   requests | where timestamp > ago(14d) and name has "drawdown-brake" and name startswith "GET"
   | summarize calls=count(), p50=percentile(duration,50), p95=percentile(duration,95), failed=countif(success==false) by bin(timestamp,1d)
-  // 每日不重複使用者（假名）
-  traces | where timestamp > ago(14d) and message startswith "DrawdownBrake view"
+  // 每日不重複使用者（假名；forbidden＝不在開放對象內的呼叫，不算使用者）
+  traces | where timestamp > ago(14d) and message startswith "DrawdownBrake view" and tostring(customDimensions.Outcome) != "forbidden"
   | summarize users=dcount(tostring(customDimensions.UserKey)), views=count() by bin(timestamp,1d)
   // 證交所請求與失敗
   dependencies | where timestamp > ago(14d) and target has "twse.com.tw"
@@ -1688,6 +1689,7 @@ PM 需求 8（資料時間＋手動「重新整理資料」）、需求 9（可�
   | extend outcome=tostring(customDimensions.outcome), cache=tostring(customDimensions.cache), result=tostring(customDimensions.result)
   | summarize total=sum(valueSum) by name, outcome, cache, result, bin(timestamp,1d)
   ```
+  KQL 狀態：只依 `Outcome`／`UserKey` 屬性名與 Meter／instrument／標籤名調整過，**仍未對真實資料實測**（首批資料進來後由 Boss 貼上驗證）。`compute.duration` 是 Histogram：若 Azure Monitor 的 customMetrics 只提供 count／sum／min／max 而無百分位，compute 以平均（`valueSum/valueCount`）與 `valueMax` 判讀；`GET` 的 p95 一律看 `requests`。
 - **建議的「可開放全部使用者」技術門檻（Tech Lead 提議，Boss 決定）**：觀察期 ≥ 14 天（≥ 10 個交易日）且同時滿足 (1) `GET` p95 < 300 ms（快取 miss 的 `compute.duration` p95 < 800 ms）、5xx < 1%；(2) 共用 SQL 資料庫 DTU p95 < 50%（Azure Portal → SQL database → Metrics → DTU percentage），且此功能時段無尖峰；(3) 證交所請求失敗率每日 < 10%，`stale` 每週 ≤ 1 個交易日且每次 < 3 小時（確認 `StaleAfter=17:00` 不會每天誤報；否則只改兩個常數）。**非技術前提另計**：R1 合規、TASK-042、PM 對文案的最終確認。
 - 不做的事：Admin 儀表板（Portal 的 Logs 足夠；之後可另開任務做 Workbook）；把 Google 身分送第三方（DECISION-010）。
 
