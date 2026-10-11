@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 HIGH（Requirement：「0050 + 00631L『回落煞車』」第一階段；PM 標 HIGH）
@@ -55,10 +55,15 @@ HIGH（Requirement：「0050 + 00631L『回落煞車』」第一階段；PM 標 
 TASK-036 的 API 契約（已定義於 `ARCHITECTURE.md`，可平行開發；合併順序不拘，整合驗證需 036）。
 
 ## PR
-（待填）
+https://github.com/twjackysu/JackyAIApp/pull/432（branch `claude/nice-allen-x7oovf`）
 
 ## Result
-（待填）
+Frontend Engineer（2026-10-10）：
+- 實作完成：`Portfolio/drawdownBrake.ts`（PROFILES／composition／advise／設定）、`drawdownBrakeHoldings.ts`（持股擷取、分割防護、過期提示）、`drawdownBrakeCopy.ts`（警語／§10 文案／風險說明／隔日成交版回測）、`DrawdownBrakeCard.tsx`；`portfolioApis.getDrawdownBrake`、`DrawdownBrakeDto`、`User.drawdownBrakeEnabled`。
+- 驗證：`npm run lint`／`npm run test`（49 檔 396 項，新增 4 檔 96 項）／`npm run build` 全過；360px 與 400px 四個情境（含極端數字、進階設定與風險說明展開）實測無橫向捲動。
+- **未對真實端點驗證**（TASK-036 尚未合併）；合併後需整合驗證。
+- `SPLIT_EVENTS` 已以公開資訊交叉確認，與 Boss 常數相符（0050 2025-06-18 1 拆 4；00631L 2026-03-31 1 拆 22，皆為恢復交易日），未修改。
+- 與參考實作／範例的差異與待確認事項見 PR 描述：`E_target` 取截斷後 E、`prevState=null` 視為 OFFENSE、A4 以既有 `lookup` 端點取價、再平衡文案句型、「隔日成交」欄期間 1997–2026 為推定（請 PM／Boss 確認）、無任何持股者看不到卡片。
 
 ## Review
 2026-10-11 Tech Lead 審查 PR #432（head `42f8fbb`）：**技術審查通過 → READY FOR BOSS REVIEW**（不代表核准合併；Status 欄由 Engineer 分支維護，這裡不動以免合併衝突）。
