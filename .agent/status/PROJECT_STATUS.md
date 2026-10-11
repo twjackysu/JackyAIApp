@@ -3017,9 +3017,45 @@
 - **對其他任務**：TASK-038 待 #441 合併後可開工（請 Tech Lead 將其轉 READY，或確認我可據「041 已合併」自行接手）；TASK-043（前端）不受影響。
 - **ARCHITECTURE.md**：僅動「可觀測性」小節（任務書第 4 點授權）：補實作語意、唯一人數 KQL 排除 `forbidden`、註明 KQL 仍未實測。
 
+## 2026-10-11 — PM：Boss 看過正式環境後的兩點修正——NTSD 改計入曝險、00685L 併入正2 桶（排程執行）
+
+- **來源**：Issue #431，Boss 12:09 UTC 留言（TASK-046／PR #437 部署後的試用）：(1) 00685L 與 00631L 同性質，兩檔歸一類、合併計算加碼／減碼／不動；(2) 卡片寫「不含 NTSD NT$75,771」很怪，Boss 要的水位是含 NTSD 的。
+- **記錄**：新增 **DECISION-021**，**取代 DECISION-018**（NTSD 排除）；`REQUIREMENTS.md` 需求 12 更新為 **v4.3**——NTSD 照 1.5 倍計入曝險、卡片 E 與右上角水位恆一致、移除對帳行；NTSD 仍不給建議（歸「其他倍數商品」、一律「不動」，DECISION-020 不變）；00631L＋00685L 合為一列「正2 槓桿 ETF」，只給整組一個結論與金額。新增驗收條件、A27～A29（PM 小假設，Boss 可推翻），A24 作廢，R8／Priority／Tech Lead Actions 同步（優先序 HIGH，範圍小）。
+- **PM 的理解與限制**：「水位含 NTSD」＝NTSD 計入卡片曝險；若 Boss 其實要 NTSD 單獨一列並給建議會牴觸 DECISION-020（PM 判斷不需要）。PM **看不到 Boss 附的截圖**（GitHub 附件對排程沙箱回 403），依留言文字判斷。00685L 倍數為 2 是 PM 讀程式的理解（`PortfolioExposure` 台股代碼尾碼 L），未執行驗證。
+- **Boss**：沒有待回覆的事（小事 PM 自行假設並記錄）。
+- **Tech Lead**：請拆任務調整已合併的 TASK-046（清空排除表、正2 桶歸類、股數呈現 A28、績效揭露加註「00685L 視同 00631L」、測試與文案），並補一組「持有 NTSD、持有 00685L」的前後對照範例給 Boss；TASK-043 排在其後的順序不變。
+
+## 2026-10-11 — Tech Lead：Boss 對需求 12 的兩點修正（NTSD 計入、00685L 併入正 2）的技術設計與 TASK-047；#437～#442 事後審閱；TASK-038 轉 READY（排程執行，第 3 次）
+
+- **狀態**：無 open PR。#437（TASK-046）、#438（041）、#439（045）、#440（044）、#441（040）、#442（043）皆已由 Boss 合併，**Build and deploy run 526～531 全數成功**（正式環境＝master head）。這六個任務 → MERGED，Review 區補「事後審閱」（見各任務；PR 在審閱前已被合併，故為事後）。其中 TASK-044 我讀了端點與快取（匿名但無參數、單一快取＋單飛＋退避，公開端點成本與安全無疑慮）；TASK-046 我對照 `advise()` 與設計公式逐項一致；其餘依任務書 Result、CI 與部署核對，**未逐行讀 diff**。
+- **Boss 的新需求（#431，12:09 UTC）**：00685L 與 00631L 歸一類；水位要含 NTSD。PM 已於 d3b429c 記錄為 **DECISION-021**（取代 018）與需求 12 **v4.3**（A27～A29）。**我的技術設計與 PM 的假設一致**，寫入 `ARCHITECTURE.md`「回落煞車 — 台股正 2 類別（00631L＋00685L）與 NTSD 納入範圍」：純前端；`STRATEGY_EXCLUDED` 清空（對帳行機制保留，因為 PM 要「容易切換」）；新增單一成員表 `CORE_LEVERAGED_2X`（不做「TW 且倍數 2」通則，避免對沒點名的標的靜默給建議）；`advise` 數學不變，`00631L` 角色由 `lev2` 類別合計取代；`splitLev2Order` 是「買／賣哪一檔」的唯一決定處（減碼依現值比例＋持股上限、加碼依持有現值比例、都沒持有買 00631L＝PM 的 A28）。
+- **PM 要的「持有 NTSD、持有 00685L」前後對照**：`ARCHITECTURE.md` 情境 S7（獨立 Python 重算，並驗證冪等）。前：卡片 E 1.077 對不上水位 1.133、建議賣 0050 11,667 股／買 00631L 46,667 股；後：E＝水位 1.133，賣 0050 16,667 股、買 00631L 30,000 股＋00685L 30,000 股，無對帳行。S4～S6（兩檔都持有、都沒持有、只持有 00685L）同表。已貼 #431。
+- **任務**：**TASK-047**（Frontend，READY，HIGH）NTSD 計入＋正 2 類別＋文案＋（Optional）重新整理涵蓋價格失敗的持股；**TASK-048**（Backend，READY，LOW）PM A29 要求的測試鎖定——`PortfolioExposureTests` 加 `("群益臺灣加權正2","00685L","TW",2)` 與尾碼 fallback `("00685L",2)`，僅測試；**TASK-038**（Backend，MEDIUM）BLOCKED → READY（041、040 皆已合併）。
+- **與 PM 的唯一差異（已對齊）**：我原本在績效註記寫「追蹤指數不同」，那是我無法驗證的陳述，已改採 PM 的用語「00685L 視同 00631L（您的判斷），未單獨回測」。
+- **風險／待確認**：(1) **00685L 有沒有股票分割**——我無法驗證（沙箱無外網）；沒有 `SPLIT_EVENTS` 條目時，若 00685L 曾分割且 Boss 的快照早於分割日，該檔股數會錯。已請 Boss 在 #431 回答，非阻擋；Engineer 不得自行猜測。(2) NTSD 是美股（Yahoo 報價），價格失敗現在會暫停整張卡片的建議（與水位同一原因）；TASK-047 Optional 項讓「重新整理」重抓失敗的持股。(3) 其餘延續：KQL 未實測、`/finance` 的走勢圖待 Boss 目視確認有真實資料。
+- **給 PM**：無需動作；若不同意 S7 的分配結果或文案，在 `REQUIREMENTS.md` 改字即可（文案常數集中於 `drawdownBrakeCopy.ts`）。
+- **未動**：`REQUIREMENTS.md`、`DECISIONS.md`（PM 所有）、任何程式碼。
+- **驗證限制**：只改文件；演算法以獨立 Python 重算，TypeScript／C# 測試結果以 GitHub Actions 為準；沙箱連不到正式環境與外部 API。
+
+## 2026-10-11 — Tech Lead：Boss 確認 00685L 沒有分割（對話）
+
+- Boss（對話）：00685L 應該沒有做過分割，因為上市沒多久。→ TASK-047 與 `ARCHITECTURE.md` 的 `SPLIT_EVENTS` 項改為「**不新增 00685L 條目**」（Boss 確認，Tech Lead 無法獨立驗證）；上一則的風險 (1) 因此解除。日後若分割，在 `SPLIT_EVENTS` 加一行。
+- Boss 另提醒：00685L 與 00631L 同一類（2 倍）、NTSD 是另一類（1.5 倍）——與 DECISION-021、`ARCHITECTURE.md` 設計一致，無需變更。
+
 ## 2026-10-11 — Backend Engineer：TASK-038 盤中預估 PR 已開（排程執行）
 
 - **選擇**：無 open PR（#438／#440／#441 皆已由 Boss 合併）。Backend 任務中 TASK-038 的檔案狀態仍寫 BLOCKED，但擋住它的前提（TASK-041／040）已合併，據上一輪記錄視為可開工；其餘 Backend 任務（036／039／040／041／044）皆已完成。
-- **PR**：#443（MIS 指數 client＋解析器、全站共用 30 秒讀數〔重新整理 10 秒〕、預估公式、`estimate`／`estimateCorrected`、接上 `POST …/refresh`）。狀態 `PR_OPENED`，待 Tech Lead 審查；設計取捨（未用 TWStockLib、預估疊加在正式訊號之外、基準日檢查、更正持續時間）已列在 PR 描述。
+- **PR**：#443（MIS 指數 client＋解析器、全站共用 30 秒讀數〔重新整理 10 秒〕、預估公式、`estimate`／`estimateCorrected`、接上 `POST …/refresh`）。狀態 `PR_OPENED`，待 Tech Lead 審查；設計取捨（預估疊加在正式訊號之外、基準日檢查、更正持續時間）已列在 PR 描述。（原版自建 client；後續依 Boss 指示改經 TWStockLib，見下一則。）
 - **驗證**：`dotnet test --filter "Category!=LiveContract"` 1208/1208 通過；變異測試 29 個全部被抓到；PR CI（run 650）通過。**MIS 格式已由 GitHub Actions 實測驗證**（本分支手動 dispatch `contract-tests.yml`，run 38140029229，57/57 通過）：指數項目有 `c`／`ch`／`d`／`t`／`tlong`／`y`／`z`（皆字串），**不需要 cookie**，解析器吃得下；實際欄位已記在 `TASK-038.md` Result。**仍未實測**：盤中 `z` 更新行為與平日休市日。
 - **Tech Lead 待辦**：審查 #443；更新 `ARCHITECTURE.md`（契約區仍寫「`estimate` 第二階段前恆為 null」，第二階段章節仍標 BLOCKED）。
+
+## 2026-10-11 — Backend Engineer：TASK-038 MIS 改經 TWStockLib（Boss 指示「不自己造輪子」），並合入 master（#444）（排程執行）
+
+- **背景**：我的 session 開始時沒有 open PR，做到收尾時 #443（另一個 session，自建 MIS client）出現，故未重複開 PR，並在 #443 留言。Boss 回覆選擇 **(a)：以 #443 為基底，把自建 client 換成 TWStockLib**。
+- **TWStockLib**：PR #12（通用 `bypassCache` 參數）Boss 已合併，NuGet **2.2.1** 可用（剛發佈時 restore 一度因 nuget.org 索引延遲看不到，之後正常）。
+- **本分支**（`claude/exciting-cray-w4l3w6`）= #443 的全部提交 ＋「改經 TWStockLib」＋ merge master。因我只能推自己被指定的分支、不能改 #443 的分支，所以另開 PR；**合併本 PR 即等於合併 #443（其提交是本分支的祖先），請勿兩個都合併；合併後 #443 會自動顯示為已合併或可直接關閉。**
+- **程式變更（相對 #443）**：`MisTaiexClient` 改呼叫 `GetRealtimeQuoteAsync("t00", MarketType.TSE, bypassCache: true)`，刪除 `MisTaiexParser`；`IMisTaiexClient`／`MisIndexQuote`／`MisTaiexQuoteSource`／估算與更正邏輯不動。`TradeDate`／`QuotedAt` 由 lib 的 `SyncTime`（`tlong`）推得。
+- **衝突**：#443 的分支是從更舊的 master（`24d4c08`）切出，之後 master 多了 PM／Tech Lead 的文件提交與 #444（TASK-047，前端）。實際衝突只有兩個文件檔（`PROJECT_STATUS.md`、`TASK-038.md`），程式碼無衝突；已兩邊都保留。
+- **驗證**：`dotnet test --filter "Category!=LiveContract"` 1179 通過。用 #443 在 Actions 記錄的真實欄位集餵 lib 的 parser，`LastPrice`／`YesterdayClosingPrice`／`SyncTime`（台北 13:31）正確，`z` 為 `-` 時 `LastPrice` 為 null。**尚未驗證**：lib 的 HTTP 路徑（裸 GET、無自訂 User-Agent）在 Actions 上實際讀 `t00`——LiveContract 已改為走這條路，請看下一次 `contract-tests.yml`。
+- **TASK-048**（Backend，LOW，僅測試）本輪未做（單一 session 只能推一個分支）。
+

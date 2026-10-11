@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-PR_OPENED（PR #437，2026-10-11；Tech Lead 建立時為 READY，PM 於需求 12 v4.2 / DECISION-017·018·020 已決定產品規則）
+MERGED（PR #437，Boss 於 2026-10-11 合併；Build and deploy run 527 成功）
 
 ## Priority
 HIGH（Boss 在正式環境試用後直接提出：卡片曝險與他每天看的右上角「水位」對不上，用不下去）
@@ -73,4 +73,8 @@ https://github.com/twjackysu/JackyAIApp/pull/437（分支 `claude/nice-allen-47n
 - 注意：依本次排程的 Git 規則，本檔與截圖隨 PR 分支一起推送（任務書 Technical Notes 建議直接推 master 以免衝突；若 Tech Lead 偏好，可在合併前把 `.agent/` 的兩個 commit 拿掉）。
 
 ## Review
-（待填）
+**Tech Lead 事後審閱（2026-10-11，排程執行第 3 次；PR 由 Boss 先行合併並已部署，當時未走審閱）**
+- **已讀** `advise()` 並對照 `ARCHITECTURE.md` 需求 12 公式逐項核對：`C`／`A`／`E_act`／`c_min`／`I`／`e*`／clamp／分段／`aboveTarget`／`capped`／「可達 E」觸發判斷皆一致；`ScopeHoldings` 為 0 的退化路徑與原算法相同；先賣後買、`cashChange` 用實際股數。測試檔含 S1（−58,333／+116,667）、S2（−41,667／−83,333）、S3b（+33,333）的 golden。
+- 481 項測試、lint、prettier、build 皆過；4 情境 × 3 寬度無橫向捲動。
+- **Boss 試用後的回饋（#431 20:09）**：NTSD 排除造成「不含 NTSD NT$…」對帳行，Boss 要水位含 NTSD；並要 00685L 與 00631L 歸為一類 → **TASK-047**（本任務的設計預留了單一排除表，改動點即 `STRATEGY_EXCLUDED`）。
+- 結論：實作符合設計，無須追加修正。

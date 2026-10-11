@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED（PR #441，2026-10-11；待 Tech Lead 技術審查。TASK-041 已於 PR #438 合併，解除 BLOCKED）
+MERGED（PR #441，Boss 於 2026-10-11 合併；Build and deploy run 530 成功）
 
 ## Priority
 MEDIUM（PM 需求 9：`Features:DrawdownBrake:Audience` 改為 `All` 之前必備，不阻擋已合併的 #433）
@@ -52,4 +52,7 @@ TASK-041（快取與 refresh 結果在那裡產生）。
 - 設計取捨（`cache` 定義、`forbidden` 無 cache 標籤與 KQL 排除、記錄位置、telemetry 不拋例外）見 PR 描述。
 
 ## Review
-（待填）
+**Tech Lead 事後審閱（2026-10-11，排程執行第 3 次；PR 由 Boss 先行合併並已部署，當時未走審閱）**
+- 依任務書 Result、PR CI（run 646／647 成功）與部署結果核對，**未逐行讀 diff**。隱私面與設計一致：`UserKey` ＝ SHA256(userId:UTC 日期:行程 salt) 前 12 碼，只能算當日不重複人數；log 不含 userId／持股／金額。
+- 未驗證（Engineer 已自述）：App Insights 實際資料、KQL（初稿）、Histogram 在 customMetrics 的百分位。**Boss 部署後以 App Insights 貼查詢驗證**；若沒有百分位，改寫 `ARCHITECTURE.md`「compute p95 < 800 ms」門檻為平均／`valueMax`。
+- 結論：無須追加修正。

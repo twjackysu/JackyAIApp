@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED（PR #440，2026-10-11；待 Tech Lead 技術審查）
+MERGED（PR #440，Boss 於 2026-10-11 合併；Build and deploy run 529 成功）
 
 ## Priority
 MEDIUM（PM：需求「Stock Intelligence 大盤走勢比較圖」A 圖；與回落煞車互不依賴）
@@ -55,4 +55,9 @@ MEDIUM（PM：需求「Stock Intelligence 大盤走勢比較圖」A 圖；與回
 - **未驗證**：response compression 只驗了框架預設 MIME 清單涵蓋 `application/json`，未量實際位元組數。
 
 ## Review
-（待填）
+**Tech Lead 事後審閱（2026-10-11，排程執行第 3 次；PR 由 Boss 先行合併並已部署，當時未走審閱）**
+- **已讀** `FinanceController.GetMarketIndexHistory` 與 `CachedMarketIndexHistoryProvider`：端點匿名但**無任何參數**（不是 Yahoo proxy）；回應來自單一快取（1 小時新鮮＋`SingleFlight`＋失敗後 5 分鐘退避＋最後成功副本保留 7 天），上游請求量與訪客數無關（≤ 24 次／天）。公開端點的濫用面僅是讀記憶體，**成本與安全無疑慮**。
+- Engineer 的 6 項差異可接受：(1) 失敗退避 5 分鐘（比任務書更保守）；(2) HTTP 503＋`1050301`；(3)「非交易日」只判斷週末，國定假日 Yahoo 本來就不產生 bar，無影響；(4) 兩陣列長度不同整份作廢；(5) 用既有 `SingleFlight`；(6) `sealed record`。
+- 967 項離線測試通過；LiveContract（含 `^TWII` 6y 日線，走正式 `Parse`）手動 dispatch run 38126581317 成功。
+- 未驗證：回應壓縮後的實際位元組數（約 1,500 點 JSON，量級數十 KB，可忽略）。
+- 結論：無須追加修正。

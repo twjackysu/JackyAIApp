@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED（PR #438，2026-10-11；待 Tech Lead 技術審查）
+MERGED（PR #438，Boss 於 2026-10-11 合併；Build and deploy run 526 成功）
 
 ## Priority
 MEDIUM（PM 需求 8；第二階段必備，第一階段也有價值：收盤後指數公布時間不確定，「資料未更新」時可自行重試。不阻擋已合併的 #433）
@@ -62,4 +62,7 @@ TASK-036 MERGED。**TASK-038 與 TASK-043（前端）依賴本任務**。
 - **測試**：本環境以 apt 安裝 .NET 10 SDK 後實際執行——`dotnet test -c Release --filter "Category!=LiveContract"`：**965 通過、0 略過、0 失敗**；DrawdownBrake 相關測試連跑 15 次無偶發失敗。另做 9 項變異測試（版本檢查、TTL、冷卻、gate、短路、forward-only、冷卻啟動時機、`RecordCheck`、失敗映射），每項都有測試失敗。LiveContract 未執行（本任務無新增外部請求）。**PR CI（head `75aa435`，run 38124213933）**：`build-and-test-server` ✅、`lint-and-build-client` ✅（測試總數未從 log 取得，以本地 965/965 為準）。尚待 Tech Lead 技術審查。
 
 ## Review
-（待填）
+**Tech Lead 事後審閱（2026-10-11，排程執行第 3 次；PR 由 Boss 先行合併並已部署，當時未走審閱）**
+- 依任務書 Result、PR CI 與部署結果核對，未逐行讀 diff。Engineer 列出的 5 項與字面不同之處（版本號失效而非主動 `Remove`、背景輪詢參與冷卻但不被擋、週末短路條件、跨月失敗映射 `SourceUnavailable`、非上游例外不吞）都與設計意圖一致，**可接受**。
+- 965 項離線測試通過、DrawdownBrake 相關連跑 15 次穩定、9 項變異測試皆被抓到。
+- 結論：無須追加修正。

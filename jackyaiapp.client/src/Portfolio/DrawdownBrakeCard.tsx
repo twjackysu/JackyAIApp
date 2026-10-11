@@ -12,7 +12,7 @@ import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 
 import { ChartSectionCard } from './ChartSectionCard';
 import {
@@ -30,6 +30,7 @@ import {
   ProfileKey,
   resolveParams,
   saveBrakeSettings,
+  StrategyPrices,
   StrategySymbol,
 } from './drawdownBrake';
 import {
@@ -44,9 +45,11 @@ import {
   describeCashRowAdvice,
   describeComposition,
   describeCoreRowAdvice,
+  describeLev2RowAdvice,
   describeReconciliation,
   DISCLAIMER,
   fmtMultiple,
+  LEV2_ROW_TITLE,
   NO_SCOPE_ASSETS,
   OTHERS_ADVICE,
   OTHERS_REMINDER,
@@ -59,6 +62,8 @@ import {
   extractStrategyPositions,
   findSplitGuardHit,
   isSnapshotStale,
+  priceRefreshSymbols,
+  requiredPriceSymbols,
   splitGuardMessage,
   STALE_SNAPSHOT_MESSAGE,
 } from './drawdownBrakeHoldings';
@@ -67,6 +72,8 @@ import {
   BucketTotals,
   classifyPositions,
   CORE_FACTORS,
+  CORE_LEVERAGED_2X,
+  CORE_SYMBOLS,
   ScopeClassification,
   toScopeHoldings,
 } from './drawdownBrakeScope';
@@ -79,16 +86,15 @@ import { getApiErrorMessage } from '@/apis/utils/errorMessage';
 import { todayISO } from '@/utils/date';
 import { fmtNum, fmtQty } from '@/utils/format';
 
-const STRATEGY_SYMBOLS: StrategySymbol[] = ['0050', '00631L'];
-
 function isValidPrice(price: number | null | undefined): price is number {
   return typeof price === 'number' && Number.isFinite(price) && price > 0;
 }
 
 /** 持有且快照有價格 → 用快照價（已含交易時段的即時價）；否則（沒持有，或價格抓取失敗）查價。
- * 沒持有 0050 / 00631L 的使用者（PM 假設 A4）也要有價格才能換算建議股數。 */
-function useStrategyPrice(symbol: StrategySymbol, summaryPrice: number | null) {
-  const needLookup = summaryPrice == null;
+ * 沒持有 0050 / 00631L 的使用者（PM 假設 A4）也要有價格才能換算建議股數。`required` 為 false（這檔
+ * 不會用到，見 `requiredPriceSymbols`）時不查價。 */
+function useStrategyPrice(symbol: StrategySymbol, summaryPrice: number | null, required: boolean) {
+  const needLookup = required && summaryPrice == null;
   const { data, isLoading } = useLookupStockQuery({ market: 'TW', symbol }, { skip: !needLookup });
   const lookedUp = data?.data.currentPrice;
   const price = summaryPrice ?? (isValidPrice(lookedUp) ? lookedUp : null);
@@ -226,10 +232,12 @@ interface BucketRowProps {
   target?: number;
   /** 建議欄；其他持股固定為「不動（由您自行決定）」。 */
   adviceText: string;
+  /** 列內附屬的內容（台股正 2 類的各檔明細）。 */
+  children?: ReactNode;
 }
 
 /** 分桶表的一列。手機寬度下不用寬表格，改成堆疊式：標題一行，數字在可換行的格子裡，建議獨占一行。 */
-function BucketRow({ title, bucket, scopeAssets, target, adviceText }: BucketRowProps) {
+function BucketRow({ title, bucket, scopeAssets, target, adviceText, children }: BucketRowProps) {
   const { value } = usePrivacy();
   return (
     <Box
@@ -263,6 +271,56 @@ function BucketRow({ title, bucket, scopeAssets, target, adviceText }: BucketRow
       <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.75, overflowWrap: 'anywhere' }}>
         {`建議：${adviceText}`}
       </Typography>
+      {children}
+    </Box>
+  );
+}
+
+interface Lev2MemberRowsProps {
+  scope: ScopeClassification;
+  advice: Advice;
+  prices: StrategyPrices;
+}
+
+/** 台股正 2 類之下，縮排列出各檔的現值與建議股數（只列有持有或有建議的）。類別列給整組一個結論與金額，
+ * 股數怎麼分到各檔由 `splitLev2Order` 決定。 */
+function Lev2MemberRows({ scope, advice, prices }: Lev2MemberRowsProps) {
+  const { value } = usePrivacy();
+  const fmtAmount = (n: number) => value(fmtNum(n));
+  const members = CORE_LEVERAGED_2X.flatMap((symbol) => {
+    const holding = scope.lev2Holdings.find((h) => h.symbol === symbol);
+    const order = advice.orders.find((o) => o.symbol === symbol);
+    return holding || order ? [{ symbol, holding, order }] : [];
+  });
+  if (members.length === 0) return null;
+
+  return (
+    <Box
+      component="ul"
+      aria-label={`${LEV2_ROW_TITLE}各檔`}
+      sx={{ m: 0, mt: 1, p: 0, display: 'grid', gap: 1 }}
+    >
+      {members.map(({ symbol, holding, order }) => (
+        <Box
+          component="li"
+          key={symbol}
+          sx={{
+            listStyle: 'none',
+            minWidth: 0,
+            pl: 1.5,
+            borderLeft: '2px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {symbol}
+          </Typography>
+          <StatItem label="目前市值" value={`NT$${fmtAmount(holding?.value ?? 0)}`} />
+          <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5, overflowWrap: 'anywhere' }}>
+            {`建議：${describeCoreRowAdvice(order, prices[symbol] ?? 0, fmtAmount)}`}
+          </Typography>
+        </Box>
+      ))}
     </Box>
   );
 }
@@ -270,10 +328,11 @@ function BucketRow({ title, bucket, scopeAssets, target, adviceText }: BucketRow
 interface BucketListProps {
   scope: ScopeClassification;
   advice: Advice;
-  prices: Record<StrategySymbol, number>;
+  prices: StrategyPrices;
 }
 
-/** 12b 分桶表：0050、00631L、其他一倍商品、其他倍數商品（有才顯示）、現金類。沒有的桶不顯示。 */
+/** 12b 分桶表：0050、台股正 2（00631L／00685L，其下列各檔）、其他一倍商品、其他倍數商品（有才顯示）、
+ * 現金類。沒有的桶不顯示。 */
 function BucketList({ scope, advice, prices }: BucketListProps) {
   const { value } = usePrivacy();
   const fmtAmount = (n: number) => value(fmtNum(n));
@@ -296,17 +355,19 @@ function BucketList({ scope, advice, prices }: BucketListProps) {
             bucket={scope.core0050}
             scopeAssets={scopeAssets}
             target={targets['0050']}
-            adviceText={describeCoreRowAdvice(orderOf('0050'), prices['0050'], fmtAmount)}
+            adviceText={describeCoreRowAdvice(orderOf('0050'), prices['0050'] ?? 0, fmtAmount)}
           />
         )}
-        {showCore(scope.core00631L, targets['00631L']) && (
+        {showCore(scope.coreLev2, targets.lev2) && (
           <BucketRow
-            title="00631L"
-            bucket={scope.core00631L}
+            title={LEV2_ROW_TITLE}
+            bucket={scope.coreLev2}
             scopeAssets={scopeAssets}
-            target={targets['00631L']}
-            adviceText={describeCoreRowAdvice(orderOf('00631L'), prices['00631L'], fmtAmount)}
-          />
+            target={targets.lev2}
+            adviceText={describeLev2RowAdvice(advice.lev2Change, fmtAmount)}
+          >
+            <Lev2MemberRows scope={scope} advice={advice} prices={prices} />
+          </BucketRow>
         )}
         {scope.otherOne.count > 0 && (
           <BucketRow
@@ -366,21 +427,38 @@ function AdvicePanel({ summary, settings, active }: AdvicePanelProps) {
   const heldBySymbol = Object.fromEntries(held.map((h) => [h.symbol, h])) as Partial<
     Record<StrategySymbol, (typeof held)[number]>
   >;
-  const price0050 = useStrategyPrice('0050', heldBySymbol['0050']?.price ?? null);
-  const price00631L = useStrategyPrice('00631L', heldBySymbol['00631L']?.price ?? null);
-  const priceInfo = { '0050': price0050, '00631L': price00631L };
+  // 只有算得到股數用得上的標的才需要價格（見 `requiredPriceSymbols`）。hooks 不能放進迴圈，所以每個核心
+  // 標的各呼叫一次；`Record<StrategySymbol, …>` 讓日後在 `CORE_LEVERAGED_2X` 增加成員時這裡編譯失敗。
+  const required = requiredPriceSymbols(held);
+  const priceInfo: Record<StrategySymbol, ReturnType<typeof useStrategyPrice>> = {
+    '0050': useStrategyPrice(
+      '0050',
+      heldBySymbol['0050']?.price ?? null,
+      required.includes('0050'),
+    ),
+    '00631L': useStrategyPrice(
+      '00631L',
+      heldBySymbol['00631L']?.price ?? null,
+      required.includes('00631L'),
+    ),
+    '00685L': useStrategyPrice(
+      '00685L',
+      heldBySymbol['00685L']?.price ?? null,
+      required.includes('00685L'),
+    ),
+  };
 
   const guardHit = findSplitGuardHit(held, summary.effectiveDate);
   const snapshotStale = isSnapshotStale(summary.effectiveDate, todayISO());
 
-  const priceLoading = STRATEGY_SYMBOLS.some((s) => priceInfo[s].loading);
-  const missingPrice = STRATEGY_SYMBOLS.find(
-    (s) => priceInfo[s].price == null && !priceInfo[s].loading,
+  const priceLoading = required.some((s) => priceInfo[s].loading);
+  const missingPrice = required.find((s) => priceInfo[s].price == null && !priceInfo[s].loading);
+  const prices: StrategyPrices = Object.fromEntries(
+    required.flatMap((s) => {
+      const price = priceInfo[s].price;
+      return price == null ? [] : [[s, price]];
+    }),
   );
-  const prices = {
-    '0050': priceInfo['0050'].price ?? 0,
-    '00631L': priceInfo['00631L'].price ?? 0,
-  };
 
   // 依序擋下：分割疑慮 → 沒有流動資產 → 範圍內有價格失敗的持股 → 核心倍數異常 → 查價中／查不到價。
   // 寧可暫時沒有建議，也不給錯的股數。
@@ -549,7 +627,7 @@ function HoldingsInfo({ summary }: { summary: PortfolioSummaryDto }) {
         持股資料日期：{summary.effectiveDate ?? '—'}
       </Typography>
       <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-        {STRATEGY_SYMBOLS.map(
+        {CORE_SYMBOLS.map(
           (symbol) =>
             `${symbol} ${bySymbol[symbol] ? `${fmtQty(bySymbol[symbol].quantity)} 股` : '未持有'}`,
         ).join('、')}
@@ -766,8 +844,12 @@ function DrawdownBrakeContent({ summary }: { summary: PortfolioSummaryDto }) {
   const { data, isLoading, isError, error, refetch } = useGetDrawdownBrakeQuery();
   const signal = data?.data;
   const active = signal ? pickActiveSignal(signal) : null;
-  // 重新整理要重抓報價的標的：卡片實際使用且使用者持有的 0050／00631L。
-  const heldSymbols = extractStrategyPositions(summary.positions).map((h) => h.symbol);
+  // 重新整理要重抓報價的標的：使用者持有的核心標的（0050、00631L、00685L），加上範圍內價格取得失敗
+  // 的股票（例如 NTSD）— 失敗會暫停整張卡片的建議，這是使用者唯一的補救手段。
+  const refreshSymbols = priceRefreshSymbols(
+    extractStrategyPositions(summary.positions),
+    classifyPositions(summary.positions).priceFailed,
+  );
 
   const handleChange = (next: BrakeSettings) => {
     setSettings(next);
@@ -819,7 +901,7 @@ function DrawdownBrakeContent({ summary }: { summary: PortfolioSummaryDto }) {
       )}
 
       {/* 資料時間＋重新整理：有訊號資料的所有狀態都顯示（準備中、未更新、預估、正常）。 */}
-      {signal && <DrawdownBrakeFreshness signal={signal} heldSymbols={heldSymbols} />}
+      {signal && <DrawdownBrakeFreshness signal={signal} refreshSymbols={refreshSymbols} />}
 
       {signal && active && (
         <>
