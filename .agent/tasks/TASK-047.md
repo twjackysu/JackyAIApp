@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-PR_OPENED（PR #444，待 Tech Lead 審查）
+MERGED（PR #444，Boss 於 2026-10-11 合併；Build and deploy run 532 成功。Tech Lead 事後審閱見 Review）
 
 ## Priority
 HIGH（Boss 正在正式環境試用；NTSD 對帳行讓卡片曝險與右上角水位對不上，是 Boss 最初就要消除的落差）
@@ -79,4 +79,10 @@ https://github.com/twjackysu/JackyAIApp/pull/444（`claude/nice-allen-smkjdp` �
 - 流程：本 session 僅限推 feature branch，未能先把 `IN_PROGRESS` 推到 master（同 TASK-043）；未動 `PROJECT_STATUS.md`（避免檔尾衝突，交 Tech Lead 於審查時一併記錄）。
 
 ## Review
-（待填）
+**Tech Lead 事後審閱（2026-10-11，排程執行第 4 次；#444 在審閱前已被 Boss 合併並部署，當時未走審閱）**
+- 我讀了 `splitLev2Order`（買／賣哪一檔的唯一決定處）與 `SPLIT_EVENTS`，並對照 `ARCHITECTURE.md` 的 S4～S7：測試中的 golden 數字與設計逐項一致（S4 賣 00631L／00685L 各 22,000、買 0050 13,333；S5 買 00631L 120,000＋0050 3,333；S6 賣 00685L 55,000＋買 0050 13,333；S7 賣 0050 16,667、買 00631L／00685L 各 30,000）。其餘（`drawdownBrakeScope.ts`、卡片 UI、文案、重新整理）依 Result、CI（run 651／652 成功）與部署核對，**未逐行讀**。
+- `splitLev2Order` 行為核對：減碼依各檔現值比例且每檔不超過持有股數；加碼依持有現值比例；都沒持有買 00631L（PM A28）；價格無效的標的略過、不丟例外（上游在價格失敗時已暫停整張卡片的建議，所以不會用到不完整的分配）。
+- `SPLIT_EVENTS` 改為 `Partial<Record<…>>` 且不新增 00685L：符合 Boss 2026-10-11 的確認（上市未久、無分割）；`findSplitGuardHit` 對無條目的標的不擋，行為正確。日後若分割，在表中加一行。
+- Engineer 的自選項（`lev2Holdings` 選填且省略時視為全持有在 00631L；`Advice.lev2Change` ＝ Σ(實際建議股數×價格)；巢狀 `<ul>` 縮排明細；只在用得到時查價；`priceRefreshSymbols` 放在 `drawdownBrakeHoldings.ts`）皆**可接受**。Optional 項（重新整理一併重抓價格失敗的股票，上限 5 檔、基金不列）**接受**。
+- 已知限制（一次按下最多 8 個 `refresh-price`、各回整份 summary，有 30 秒客戶端冷卻）**接受**；日後若要更省，可由後端提供批次端點（Future Work，不排）。
+- 結論：無須追加修正。**仍需 Boss 在正式環境目視確認**：持有 NTSD、00685L 時，卡片 E 與右上角水位是同一個數字（S7）；NTSD 價格抓失敗時整張卡片暫停建議並列出 NTSD，按「重新整理資料」可重抓。

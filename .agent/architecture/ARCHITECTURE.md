@@ -1575,12 +1575,12 @@ GET /api/portfolio/drawdown-brake  → DrawdownBrakeDto
   "distanceToTriggerPct": 6.8,           // drawdownPct 距 -8 的空間；< 0 表示已低於觸發線
   "isStale": false,                      // 應有新資料卻沒有（休市日不算）
   "isInitializing": false,               // 表為空／回補中，此時 state 等欄位為 null
-  "estimate": null,                      // 第二階段（TASK-038）前恆為 null
-  "estimateCorrected": false,            // 第二階段：先前預估狀態與正式狀態不同
+  "estimate": null,                      // 盤中預估（TASK-038，#445 已上線）：只在平日台北 09:00 起、當日正式資料入庫前、且 MIS 有可用讀數時非 null；MIS 掛掉＝null，正式欄位不受影響
+  "estimateCorrected": false,            // 該 asOfDate 當日最後一次預估的狀態 ≠ 之後入庫的正式狀態（記憶體記錄 2 天；重啟後安靜地變 false）
   "lastCheckedAt": "2026-10-11T07:05:00+00:00" | null,  // UTC；伺服器最後一次成功向證交所取得可解析回應（背景或手動），記憶體保存，重啟後到第一次成功前為 null（TASK-041）
   "generatedAt": "2026-10-11T07:06:00+00:00"            // UTC；這份訊號的計算時間（60 秒快取填入時間）（TASK-041）
 }
-// estimate（第二階段）: { "asOfTime": ISO8601, "estimatedClose": 0, "state": ..., "prevState": ..., "drawdownPct": 0 }
+// estimate: { "asOfTime": ISO8601（MIS 自己的資料時間，不是伺服器請求時間）, "estimatedClose": 0（4 位）, "state": ..., "prevState": ...（＝正式 asOfDate 的狀態）, "drawdownPct": 0 }
 ```
 
 **前端（TASK-037）**
@@ -1589,10 +1589,15 @@ GET /api/portfolio/drawdown-brake  → DrawdownBrakeDto
 - 持股取自 `summary.positions`（`assetType==='STOCK' && market==='TW' && symbol ∈ {0050, 00631L}`）；現金＝使用者在卡片內輸入的 `strategyCashTWD`（PM 假設 A1，待 Q3 確認；介面可並列顯示其現金部位合計供參考，但不自動採用）。
 - **股票分割硬性防護（PM R2 的技術回應）**：前端常數表 `SPLIT_EVENTS = { '0050': {date:'2025-06-18', ratio:4}, '00631L': {date:'2026-03-31', ratio:22} }`（來源：Boss #431，PM 未驗證）。若 `summary.effectiveDate` 早於該標的有持股的分割日 → **不顯示買賣股數**，改顯示「你的持股快照建立於 {標的} 分割（{日期} 1 拆 {N}）之前，股數可能未調整，請先更新持股」。另加軟性提示：快照距今 > 7 天（PM 假設，待 Boss 確認）顯示「持股資料可能已過期，請先更新持股」。
 
-**第二階段（TASK-038，BLOCKED：待 TASK-036 合併；站外提醒待 Q2，另案）**
-- MIS `tse_t00.tw`：`預估報酬指數 = 昨日正式報酬指數 × (z ÷ y)`（`z`＝目前加權指數、`y`＝MIS 回傳的昨收，不另需價格指數序列）；以同一 `DrawdownBrakeCalculator` 對「正式序列＋預估點」重算。今日正式資料入庫後 `estimate=null`。
-- MIS 需先驗證格式與是否要先取 cookie；先查 TWStockLib 的 `GetLatestQuoteAsync` 是否能直接取指數，否則自建 client（走 `ExternalReadOnly`）。結果短快取（≈30 秒），一份全站共用，不隨使用者數放大請求。
-- 「訊號已更正」：記憶體內（`IMemoryCache`，TTL 2 天）記當日最後一次預估狀態；正式資料入庫後比對，不同則 `estimateCorrected=true`。遺失（重啟）時退化為不顯示，可接受（單 instance、提示性質）。
+**第二階段（TASK-038，已實作：PR #445，2026-10-11 合併部署；站外提醒待 Q2，另案）**
+- MIS `tse_t00.tw`：`預估報酬指數 = 昨日正式報酬指數 × (z ÷ y)`（`z`＝目前加權指數、`y`＝MIS 回傳的昨收，不另需價格指數序列）；以同一 `DrawdownBrakeCalculator` 對「正式序列＋預估點」重算（`DrawdownBrakeEstimator`，純函式）。今日正式資料入庫後 `estimate=null`。
+- **MIS 經 TWStockLib 2.2.1 讀取**（Boss 決定「不自己造輪子」；#443 原本自建 client／parser，已被 #445 取代）：`GetRealtimeQuoteAsync("t00", MarketType.TSE, bypassCache: true)`。`bypassCache` 是 twstocklib#12 新增的通用參數（lib 原本把報價固定快取 30 秒，與「手動重新整理最短 10 秒」衝突）。格式於 2026-10-11 由 Actions 實測：`z`／`y`／`tlong`／`d`／`t` 皆為字串、不需 cookie。
+- `MisTaiexClient` 保留為**薄的防腐層**（不是重造 lib）：lib 的 `StockQuote` 全欄位可為 null 且 `SyncTime` 是 UTC 值但 Kind 未指定、`IStockMarketService` 是 scoped，所以 singleton client 每次自開 scope、5 秒上限、代號須為 `t00`、單日漲跌 > ±15% 視為壞資料、一律回「無讀數」而非例外。走的是 lib 自己的 HttpClient（預設 client，不是 `ExternalReadOnly`）。
+- `MisTaiexQuoteSource`（singleton）：**全站一份讀數**，單飛、失敗也保存；看卡片接受 ≤ 30 秒的讀數、按重新整理接受 ≤ 10 秒（＝對 MIS 的全站最短請求間隔 10 秒），不隨使用者數放大請求。
+- `DrawdownBrakeService` 把預估**疊加在正式訊號之外**（不放進其 60 秒快取項目）：新讀數立即顯示、MIS 慢或掛掉不會重建或影響正式訊號；DTO 以 `MemberwiseClone` 複製（共用複本不被改動）。時間窗＝平日、台北 09:00 起、今日正式資料未入庫；**基準日檢查**：已存最新日與今天之間每個平日都必須是已知休市日，否則不給預估（寧缺勿錯）；讀數日期 ≠ 今天（休市日 MIS 回上一交易日）→ 無預估。
+- 「訊號已更正」：記憶體內（`IMemoryCache`，TTL 2 天）記當日最後一次預估狀態；正式資料入庫後比對，不同則 `estimateCorrected=true`。遺失（重啟）時退化為 false，可接受（單 instance、提示性質）。
+- 已知取捨：以價格指數近似報酬指數，除息旺季（約 6–8 月）略低估，由「訊號已更正」承接；休市日有人開卡片時 MIS 每 30 秒被問一次（全站上限，與人數無關）。
+- **尚未實測**：盤中 `z` 隨時間更新的行為、平日休市日的回應；lib 的 HTTP 路徑讀 `t00` 已驗證（LiveContract 已改走 lib 路徑；2026-10-11 Tech Lead 於 master 手動 dispatch，run 102 通過，此項已解除）。
 
 ### Reason
 - 訊號是共用市場資料，算一次存一份最便宜、也最容易測；個人建議只需持股＋兩個偏好，沿用既有 localStorage 偏好模式即可，**不必為此新增使用者設定表**。
@@ -1644,7 +1649,7 @@ PM 需求 8（資料時間＋手動「重新整理資料」）、需求 9（可�
 | `GET drawdown-brake` | **沒有任何快取**：每次讀全表（現約 750 列，每年 +245）並重算（CPU < 1 ms） | = DB |
 | 瀏覽器 RTK Query | 預設 `keepUnusedDataFor` 60 秒（此 query 未覆寫） | 60 秒 |
 | 股價（Portfolio summary） | `FetchStockAsync` 30 分鐘（`CacheTtl.Portfolio.StockPrice`）；台股盤中 9:00–13:30 疊加即時報價，快取 10 秒（`CacheTtl.Finance.TwRealtimeQuote`）；既有 `POST holdings/{symbol}/refresh-price` 會清掉 30 分鐘快取與 provider 的 sticky 狀態 | 盤中 ≤ 10 秒；盤後 ≤ 30 分鐘 |
-| 第二階段 MIS 預估（TASK-038，未做） | 設計為全站 ≈30 秒；手動重新整理最短 10 秒 | 10–30 秒 |
+| 第二階段 MIS 預估（TASK-038，#445 已上線） | `MisTaiexQuoteSource` 全站一份：檢視接受 ≤ 30 秒；手動重新整理最短 10 秒（含 `bypassCache`，繞過 lib 的 30 秒報價快取）。預估疊加在正式訊號之外，依 (正式快取項目, MIS 讀數) 各自快取 | 10–30 秒 |
 
 回答 Boss：「13:15 拿到舊值」——**正式訊號**在 13:15 本來就只有前一交易日的值（當日值 14:00 後才有），不是 cache 造成；**盤中價格**在台股盤中最多 10 秒舊；第二階段的**預估**最多 30 秒（按重新整理最短 10 秒）。真正會讓人誤會的是「看不出資料多新」，所以需求 8 的重點是顯示資料時間。
 

@@ -3065,3 +3065,18 @@
 - **選擇**：無 open PR；Backend 任務只剩 TASK-048（READY，無相依）。TASK-038 檔案狀態仍為 `PR_OPENED`，但其現行版 #445 已併入 master，後續狀態由 Tech Lead 處理。
 - **PR**：#446（僅 `PortfolioExposureTests.cs` 加兩列：`("群益臺灣加權正2","00685L","TW",2)`、`("00685L",2)`）。狀態 `PR_OPENED`，待 Tech Lead 審查。
 - **驗證**：`dotnet test --filter "Category!=LiveContract"` 1181/1181 通過。**變異驗證有一半無法成立**：只改壞 `正2` 規則時所有測試仍通過，因為 `00685L` 的 `L` 尾碼 fallback 同樣得 2（兩條規則互為備援）；改壞 `L` 規則則新列失敗，兩條一起改壞則名稱列也失敗。結果（00685L → 2）已鎖住，但單獨鎖 `正2` 名稱規則需另一列「名稱含正2、代碼不帶 L」——規格外，請 Tech Lead 決定是否另開任務。
+
+
+## 2026-10-11 — Tech Lead：#444／#445／#446 事後審閱；Boss 看到舊版卡片的根因＝部署競賽回滾（排程執行，第 4 次）
+
+- **狀態**：無 open PR。#444（TASK-047）、#445（TASK-038，取代 #443）、#446（TASK-048）皆由 Boss 在審閱前合併，三個任務 → **MERGED**，Review 區已補事後審閱（見各任務）。
+- **審閱深度**：TASK-038 的後端程式（`MisTaiexClient`／`MisTaiexQuoteSource`／`DrawdownBrakeEstimator`／`DrawdownBrakeService`、controller、DTO、DI）我**逐行讀了**，無須追加修正；TASK-047 我讀了 `splitLev2Order`／`SPLIT_EVENTS` 並對照 S4～S7 golden，其餘依 Result、CI、部署核對（未逐行讀）；TASK-048 僅兩列測試。
+- **TASK-048 的提問「單獨鎖 `正2` 名稱規則是否另開任務」→ 不開**（Technical Debt，不排）：結果（00685L → 2）已鎖住；要單獨鎖名稱規則需要「名稱含正2、代碼不帶 L」的標的，現實不存在。
+- **MIS 經 TWStockLib 已實測**：Tech Lead 於 master（`31bcbf8`）手動 dispatch `contract-tests.yml`，**run 102 通過**（週日、`z` 為數字，所以測試真的走到 lib 路徑）。尚未實測的只剩盤中 `z` 的更新行為與平日休市日。
+- **`ARCHITECTURE.md` 已更新**：契約區 `estimate`／`estimateCorrected`、第二階段章節（BLOCKED → 已實作，記錄 TWStockLib 決定、防腐層、疊加在正式訊號之外、基準日檢查）、Cache 盤點表。
+- **Boss 回報「00685L 沒併入、NTSD 沒計入」（對話，附截圖）**：不是沒人做。TASK-047 已在 master（#444，13:15 UTC 合併，run 532 部署成功）。**根因＝部署競賽**：13:50 UTC #445 與 #443 幾乎同時被標為已合併（#443 的提交是 #445 的祖先，GitHub 視為已合併），兩個部署同時跑；#443 的 `merge_commit_sha` 是它自己的分支頭 `f77ac7b`（從更舊的 master 切出，**不含 TASK-047**），run 534 在 13:54:10 比 run 533（13:53:13，部署完整的 master）**晚完成**，正式環境因此被回滾到沒有 TASK-047 的版本，直到 #446 合併後 run 535 於 14:46:42 才回到 master 最新。Boss 截圖的畫面（「不含 NTSD」對帳行、只有 00631L 一列、00685L 落在「其他倍數商品」）正是 `f77ac7b` 的樣子。工作流程沒有 `concurrency`、且部署 `merge_commit_sha`，是兩個疊加的缺陷（細節與時間線在 TASK-049）。
+- **目前正式環境**：run 535（`31bcbf8`，含全部變更）14:46:42 UTC 部署成功。我的沙箱連不到 `apps.jacky-studio.com`（proxy 403），**無法直接目視確認**，請 Boss 強制重新整理（Ctrl+Shift+R）後確認：卡片應出現「台股正 2（00631L／00685L）」一列、沒有「不含 NTSD」對帳行。SPA 分頁不重新載入就不會換新的 JS。
+- **新任務**：**TASK-049**（Backend，HIGH，READY）：workflow 加 `concurrency`（序列化）＋ PR 觸發的 run 改 checkout 執行當下的 `master` 最新，不再用 `merge_commit_sha`；同步更新根 `CLAUDE.md` 的 Deployment 說明。會改變 CLAUDE.md 記載的既有部署規則，所以合併前請 Boss 看一眼（不同意則退回最小版本，見任務書）。
+- **操作建議（TASK-049 合併前）**：一個 PR 的提交已被另一個 PR 包含時（如 #443 ⊂ #445），**直接 close 不要 merge**，否則會多一次拿舊 commit 的部署。
+- **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`。
+- **驗證限制**：沙箱無 .NET、連不到證交所／Yahoo／正式環境；以上結論來自 git 歷史、GitHub Actions 的 run／job 紀錄與 GitHub API（`merge_commit_sha`）。

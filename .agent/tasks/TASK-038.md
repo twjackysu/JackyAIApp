@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED（2026-10-11 Backend Engineer；待 Tech Lead 技術審查。TASK-041／040 已於 #438／#441 合併，據此接手。**依 Boss 指示，MIS 改經 TWStockLib 2.2.1 讀取**——見 Result 與 PR 區）
+MERGED（PR #445，Boss 於 2026-10-11 合併，取代 #443；Build and deploy run 533／534 成功。Tech Lead 事後審閱見 Review）
 
 ## Priority
 MEDIUM（PM：第二階段 MEDIUM；Boss 規格將盤中預估列為「建議做法」，回測主結果假設收盤集合競價成交，「隔日成交」版本績效明顯較差）
@@ -54,4 +54,19 @@ TASK-036 MERGED（#433）。**TASK-041**（手動重新整理端點、DTO 的 `l
 - **請 Tech Lead 更新 `ARCHITECTURE.md`**（我依規則未動）：契約區「`estimate` 第二階段前恆為 null」、第二階段章節的 BLOCKED 標示、Cache 盤點表的「MIS 預估（未做）」列；並視需要把「疊加在正式訊號之外」「基準日檢查」「未用 TWStockLib 的理由」寫入。
 
 ## Review
-（待填）
+**Tech Lead 事後審閱（2026-10-11，排程執行第 4 次；#445 在審閱前已被 Boss 合併並部署，當時未走審閱）**
+- 這次**有逐行讀**後端程式（`MisTaiexClient`／`MisTaiexQuoteSource`／`DrawdownBrakeEstimator`／`DrawdownBrakeService` 與 controller、DTO、DI 的 diff）；測試與 CI（#445 run 653／654 成功）依 Engineer 的 Result 與 Actions 核對，未逐行讀測試檔。
+- **結論：技術上可接受，無須追加修正。** 重點核對：
+  - 官方訊號不依賴 MIS：預估疊加在 60 秒快取之外，MIS 失敗只讓 `estimate=null`、`result` 不變；`WithEstimateAsync` 在無讀數且無更正時回傳共用的官方複本本身（零配置）。
+  - 對 MIS 的負載與使用者數無關：全站單一 `SemaphoreSlim` 單飛、讀數 ≤ 30 秒（重新整理 ≤ 10 秒）、**失敗也保存**；5 秒上限不綁呼叫者 token（`WaitAsync(timeout, ct)`），呼叫者自己取消才傳出例外。
+  - 「寧缺勿錯」三道門都在：時間窗（平日、09:00 起、今日正式資料未入庫）、基準日檢查（缺口的每個平日須為已知休市日，行事曆答不出＝不給）、讀數日期 ≠ 今天＝不給。`z` 為 `-`、`y` ≤ 0、單日漲跌 > 15%、代號不符一律「無讀數」。
+  - 預估公式與我在設計中寫的一致（`official × z ÷ y` 後整段重放 `DrawdownBrakeCalculator`），`prevState` 取正式 `asOfDate`。
+  - TWStockLib 2.1.1 → 2.2.1 為次版本升級，新增的是 `bypassCache` overload；既有呼叫端不受影響（1179 個離線測試通過）。
+- **Engineer 提出、請 Tech Lead 決定的項目**：
+  - 原版不用 TWStockLib 的理由（#443）：已被 Boss 的決定取代（#445 改用 lib）；lib 的 30 秒快取已由 `bypassCache` 解決。**接受 #445 現狀**。
+  - `estimateCorrected` 持續時間＝「記錄 TTL 2 天」與「該正式日仍是最新一天」較早者：**接受**（提示性質；週五的更正約到週日下午為止）。
+  - MIS 變慢時對 GET 的影響（最多多等 5 秒、僅限需要重新問 MIS 的那一次檢視與同時到達者）與 stale-while-revalidate 的取捨：**維持簡單版**，不改。理由：單一 instance、僅限開放對象、MIS 實測回得快；SWR 的代價是重啟後第一位檢視者看不到預估。若可觀測性（TASK-040 的 `compute.duration` 以外，另看 `dependencies` 對 `mis.twse.com.tw`）顯示 MIS 常態變慢再重議。
+  - 預估與 `drawdownbrake.views` 的 `cache` 標籤、不新增 MIS 專屬指標：**接受**（`dependencies` 已自動帶 `mis.twse.com.tw`，既有 KQL 的 `target has "twse.com.tw"` 涵蓋）。
+- **Nit（不阻擋、不另開任務，下次動到該檔時順手改）**：`PortfolioServiceExtensions.cs` 註冊 `MisTaiexClient` 的旁註仍寫「Uses the shared "ExternalReadOnly" client」，改經 TWStockLib 後不成立（lib 用預設 HttpClient）。
+- **`ARCHITECTURE.md` 已更新**（契約區 `estimate`／`estimateCorrected`、第二階段章節、Cache 盤點表）。
+- **仍未驗證（風險）**：(1) lib 的 HTTP 路徑（裸 GET、無自訂 User-Agent）在 Actions 上讀 `t00`——LiveContract 已改走該路徑，Tech Lead 於 2026-10-11 14:45 UTC 在 master（`31bcbf8`）手動 dispatch `contract-tests.yml`，**run 102 全數通過**（https://github.com/twjackysu/JackyAIApp/actions/runs/38148505894）。該次是週日、MIS 回上一交易日的收盤值（`z` 為數字），所以 `Mis_TaiexIndex_HasTheFieldsTheEstimateReads` 會真的走到 TWStockLib 的實際路徑——**這項風險解除**（我看不到逐項輸出，依 run 的整體結論與測試的 `z == "-"` 才略過的寫法判斷；若要看 `[live-contract]` 行請開該 run 的 log）；(2) 盤中 `z` 隨時間更新的行為、平日休市日的回應——**需 Boss 在下一個交易日盤中（2026-10-12 週一 09:00 起）以 admin 開 Portfolio 回落煞車卡片目視確認**：應出現「預估」區塊、資料時間（`asOfTime`）隨 MIS 前進；14:00 後正式資料入庫時預估消失；若預估狀態與正式不同，應出現「訊號已更正」。
