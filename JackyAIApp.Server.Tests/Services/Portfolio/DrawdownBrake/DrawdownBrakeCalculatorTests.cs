@@ -7,8 +7,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
     /// <summary>
     /// The 回落煞車 state machine (Issue #431 §1). The synthetic cases pin each rule on its own;
     /// the golden series pins the whole thing against an independent transcription of the Boss's
-    /// Python reference; the real-data cases wait on the Boss's backtest series (skipped, and
-    /// reported as skipped, until Fixtures/TaiexTotalReturn.csv exists).
+    /// Python reference; the real-data cases replay the Boss's backtest series
+    /// (Fixtures/TaiexTotalReturn.csv) and pin values from an independent implementation.
     /// </summary>
     public class DrawdownBrakeCalculatorTests
     {
@@ -228,7 +228,79 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             Assert.Contains(golden, g => g.State == BrakeState.OFFENSE);
         }
 
-        // ── Boss's real series (waiting on Fixtures/TaiexTotalReturn.csv) ───
+        // ── Boss's real series (Fixtures/TaiexTotalReturn.csv) ──────────────
+        //
+        // Source: the official 發行量加權股價報酬指數 snapshot the Boss checked into the repo at
+        // 回測數據/tw_backtest/data/taiex_tri.csv, copied verbatim (2003-01-02 ~ 2026-10-08, 5850
+        // rows). SHA256 of this file as stored here (LF, after .gitattributes `* text eol=lf`),
+        // first 16 hex digits: 97d1f46d43f1f6bf. The Boss's README lists e9f95b791f9b9e7c, which is
+        // the Windows CRLF form of the same data (restoring CRLF reproduces that hash).
+        //
+        // The expected values below come from an independent pure-Python replay of DECISION-013
+        // (sma < 60 days → up=false, high252 with min_periods=1, up wins, dd < −8% strictly,
+        // start OFFENSE), not from this calculator. If one stops matching, do not adjust the
+        // assertion: the data or the spec changed, and the Tech Lead needs to know.
+
+        [RequiresFixtureFact("TaiexTotalReturn.csv")]
+        public void Compute_BossBacktestSeries_MatchesTheIndependentReplay()
+        {
+            var closes = LoadCloses("TaiexTotalReturn.csv");
+
+            var days = DrawdownBrakeCalculator.Compute(closes);
+
+            Assert.Equal(5850, days.Count);
+            Assert.Equal(new DateOnly(2003, 1, 2), days[0].Date);
+
+            var last = days[^1];
+            Assert.Equal(new DateOnly(2026, 10, 8), last.Date);
+            Assert.Equal(BrakeState.OFFENSE, last.State);
+            Assert.Equal(114031.08m, last.Close);
+            Assert.Equal(115208.19m, last.High252);
+            Assert.Equal(105544.3732m, Math.Round(last.Sma60!.Value, 4));
+            Assert.InRange(last.Drawdown * 100, -1.0218m, -1.0216m); // −1.0217%
+
+            Assert.Equal(1344, days.Count(d => d.State == BrakeState.DEFENSE));
+            Assert.Equal(4506, days.Count(d => d.State == BrakeState.OFFENSE));
+
+            // Max drawdown against the 252-day high over the whole series.
+            Assert.InRange(days.Min(d => d.Drawdown) * 100, -53.595m, -53.585m); // −53.59%
+        }
+
+        [RequiresFixtureFact("TaiexTotalReturn.csv")]
+        public void Compute_BossBacktestSeries_SwitchesStatesOnTheExpectedDates()
+        {
+            var days = DrawdownBrakeCalculator.Compute(LoadCloses("TaiexTotalReturn.csv"));
+
+            var switches = new List<(DateOnly, BrakeState)>();
+            var previous = BrakeState.OFFENSE; // the machine starts in OFFENSE
+            foreach (var day in days)
+            {
+                if (day.State != previous) switches.Add((day.Date, day.State));
+                previous = day.State;
+            }
+
+            Assert.Equal(132, switches.Count);
+            Assert.Equal(
+                new[]
+                {
+                    (new DateOnly(2003, 2, 10), BrakeState.DEFENSE),
+                    (new DateOnly(2003, 4, 16), BrakeState.OFFENSE),
+                    (new DateOnly(2003, 4, 17), BrakeState.DEFENSE),
+                    (new DateOnly(2003, 4, 18), BrakeState.OFFENSE),
+                },
+                switches.Take(4).ToArray());
+            Assert.Equal(
+                new[]
+                {
+                    (new DateOnly(2026, 3, 31), BrakeState.DEFENSE),
+                    (new DateOnly(2026, 4, 1), BrakeState.OFFENSE),
+                    (new DateOnly(2026, 7, 17), BrakeState.DEFENSE),
+                    (new DateOnly(2026, 7, 21), BrakeState.OFFENSE),
+                    (new DateOnly(2026, 7, 28), BrakeState.DEFENSE),
+                    (new DateOnly(2026, 8, 5), BrakeState.OFFENSE),
+                },
+                switches.TakeLast(6).ToArray());
+        }
 
         [RequiresFixtureFact("TaiexTotalReturn.csv")]
         public void Compute_BossBacktestSeries_EndsOffenseNearTheHigh()
