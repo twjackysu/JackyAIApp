@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-BLOCKED（待 TASK-041 的端點契約合併；可先依 `ARCHITECTURE.md` 契約用 mock 平行開發，整合驗證需 041）
+PR_OPENED（2026-10-11 Frontend Engineer；PR #442，待 Tech Lead 審查。原為 BLOCKED（待 TASK-041）；041（#438）、046（#437）、042（#436）皆已合併，故開工）
 
 ## Priority
 MEDIUM（PM 需求 8；第二階段必備）
@@ -42,10 +42,14 @@ MEDIUM（PM 需求 8；第二階段必備）
 TASK-041（端點與 DTO 欄位）、TASK-042（已合併）、**TASK-046（需求 12：同一張卡片大改——分桶表、對帳行、移除策略現金輸入；043 應排在 046 之後開工，或至少從 046 合併後的 master 開分支，避免卡片衝突）**。
 
 ## PR
-（待填）
+https://github.com/twjackysu/JackyAIApp/pull/442（`claude/nice-allen-onfrhi` → `master`）
 
 ## Result
-（待填）
+- 實作：`refreshDrawdownBrake` mutation（回應的 `signal` 以 upsert 寫回 `getDrawdownBrake` 快取，失敗時快取不動）；`Portfolio/DrawdownBrakeRefresh.tsx`（資料時間＋按鈕＋回饋）、`drawdownBrakeRefresh.ts`（時間格式、倒數純函式）、文案進 `drawdownBrakeCopy.ts`。`DrawdownBrakeDto.lastCheckedAt`／`generatedAt` 改為必填。
+- 驗證：`npm run lint`（0 warnings）、`prettier --check`、`npm run test`（55 檔 596 項）、`npm run build` 全過；15 處變異測試皆被抓到；Chromium 實測 6 情境 × 1280／400／360px 無橫向捲動、無 console error，請求次數與快取更新符合預期。截圖（示意資料）：`TASK-043/desktop-1280-throttled.png`、`mobile-360-updated.png`、`mobile-360-error.png`。
+- 與任務書字面不同／自行選擇（詳見 PR 描述）：錯誤且無訊號資料時不顯示資料時間與按鈕；不論 `result` 都以回應 `signal` 更新快取；按下後一律客戶端冷卻 30 秒；價格時間不顯示（`PositionDto` 沒有該欄位）；`SignalSummary` 的「資料截止日」與新「訊號資料日期」重複未動。
+- 已知限制：重新整理只涵蓋 0050／00631L 的報價（範圍內其他持股報價失敗不會被重抓，需 Tech Lead 決定是否另開任務）；`refresh-price` 每次回整份 summary；客戶端冷卻只活在該次頁面載入。
+- 流程：本 session 僅限推 feature branch，未能先把 `IN_PROGRESS` 推到 master；未動 `PROJECT_STATUS.md`。
 
 ## Review
-（待填）
+（待 Tech Lead 審查）
