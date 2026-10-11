@@ -28,6 +28,7 @@ namespace JackyAIApp.Server.Services.Finance
         StockAnalysisBuilder analysisBuilder,
         IMacroEconomyProvider macroEconomyProvider,
         IMarketOverviewProvider marketOverviewProvider,
+        IMarketIndexHistoryProvider marketIndexHistoryProvider,
         IIndicatorProvider indicatorProvider,
         IFinnhubNewsProvider finnhubNewsProvider,
         IOpenAIPromptService openAIPromptService,
@@ -49,6 +50,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly StockAnalysisBuilder _analysisBuilder = analysisBuilder;
         private readonly IMacroEconomyProvider _macroEconomyProvider = macroEconomyProvider;
         private readonly IMarketOverviewProvider _marketOverviewProvider = marketOverviewProvider;
+        private readonly IMarketIndexHistoryProvider _marketIndexHistoryProvider = marketIndexHistoryProvider;
         private readonly IIndicatorProvider _indicatorProvider = indicatorProvider;
         private readonly IFinnhubNewsProvider _finnhubNewsProvider = finnhubNewsProvider;
         private readonly IOpenAIPromptService _openAIPromptService = openAIPromptService;
@@ -371,6 +373,19 @@ namespace JackyAIApp.Server.Services.Finance
                 _logger.LogError(ex, "Failed to fetch market overview data");
                 return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to fetch market overview data: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Multi-year daily TAIEX closes for the "same period, one line per year" chart. Caching,
+        /// single-flight and the last-good fallback live in the provider; this only maps "no data"
+        /// to an error rather than ever returning an empty or partial series as a success.
+        /// </summary>
+        public async Task<ServiceResult> GetMarketIndexHistoryAsync(CancellationToken cancellationToken)
+        {
+            var history = await _marketIndexHistoryProvider.GetAsync(cancellationToken);
+            return history is null
+                ? ServiceResult.Fail(ErrorCodes.MarketHistoryUnavailable, "Market index history is temporarily unavailable.")
+                : ServiceResult.Ok(history);
         }
 
         /// <summary>

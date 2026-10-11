@@ -1,11 +1,13 @@
 using System.Text.Json;
+using JackyAIApp.Server.Services.Finance.DataProviders;
 
 namespace JackyAIApp.Server.Tests.LiveContracts
 {
     /// <summary>
     /// Live contract tests for Yahoo Finance's unofficial v8 chart API (query1.finance.yahoo.com) —
     /// consumed directly by YahooFinanceMarketDataProvider, DividendService, MarketOverviewProvider,
-    /// and PortfolioService's US pricing path (THIRD_PARTY_CONTRACT_TESTS_PLAN.md section A1).
+    /// MarketIndexHistoryProvider (^TWII 6y daily), and PortfolioService's US pricing path
+    /// (THIRD_PARTY_CONTRACT_TESTS_PLAN.md section A1).
     /// Not official/documented — no SLA, so this is the highest-value contract to watch.
     ///
     /// Only runs on the scheduled contract-tests workflow, never in PR CI (see LiveContractBase).
@@ -98,6 +100,28 @@ namespace JackyAIApp.Server.Tests.LiveContracts
             var exDate = DateTimeOffset.FromUnixTimeSeconds(date.GetInt64()).UtcDateTime;
             Assert.True(exDate > DateTime.UtcNow.AddYears(-6) && exDate < DateTime.UtcNow.AddDays(1),
                 $"[{symbol}] dividend date {exDate:yyyy-MM-dd} is outside the expected 5-year window — 'date' unit may have changed.");
+        }
+
+        [Fact]
+        public async Task TaiexSixYearDailyHistory_PassesMarketIndexHistoryProviderChecks()
+        {
+            // The exact request MarketIndexHistoryProvider sends (range=6y, interval=1d), run through
+            // the exact parser and sanity checks production uses: >= 1,000 points, newest within 10
+            // days, no single-day move over 15%. Shape only — never a specific index level.
+            using var response = await Http.GetAsync(MarketIndexHistoryProvider.Url);
+            Assert.True(response.IsSuccessStatusCode,
+                $"Yahoo ^TWII 6y chart request failed: HTTP {(int)response.StatusCode}");
+            var json = await response.Content.ReadAsStringAsync();
+
+            var (history, rejection) = MarketIndexHistoryProvider.Parse(json, DateTimeOffset.UtcNow);
+
+            Assert.True(history is not null,
+                $"MarketIndexHistoryProvider would reject Yahoo's ^TWII 6y reply ({rejection}) — " +
+                "/api/finance/market-index-history would answer 'unavailable'. Check the shape, then the data.");
+            Assert.True(history.Points.Zip(history.Points.Skip(1), (a, b) => a.Date < b.Date).All(ok => ok),
+                "dates are not strictly ascending");
+            Assert.All(history.Points, p => Assert.True(p.Close > 0, $"{p.Date} close is not positive"));
+            Assert.Equal(history.Points[^1].Date, history.AsOf);
         }
 
         [Theory]
