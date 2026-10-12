@@ -1157,9 +1157,10 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
-
                     b.HasIndex("WordId");
+
+                    b.HasIndex("UserId", "WordId")
+                        .IsUnique();
 
                     b.ToTable("UserWords");
                 });

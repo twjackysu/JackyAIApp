@@ -18,6 +18,13 @@ namespace JackyAIApp.Server.Data
             modelBuilder.Entity<UserWord>()
                 .HasKey(uw => uw.Id);
 
+            // A word can be in a user's collection once. Adding checks first, but two adds landing
+            // together (a double click) both pass that check, and the duplicate they left broke
+            // every lookup that expects one row (delete, word detail, exam scheduling).
+            modelBuilder.Entity<UserWord>()
+                .HasIndex(uw => new { uw.UserId, uw.WordId })
+                .IsUnique();
+
             modelBuilder.Entity<UserWord>()
                 .HasOne(uw => uw.User)
                 .WithMany(u => u.UserWords)
