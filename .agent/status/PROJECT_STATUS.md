@@ -3107,3 +3107,16 @@
 - **Boss**：無需回覆。
 - **Tech Lead**：(1) 請事後審閱 #448／#449（同 #437～#446 的做法），並確認 #448 的 migration 已在正式環境成功套用（App Insights 啟動紀錄或 `__EFMigrationsHistory`）；(2) #449 PR 描述提到的既有問題——`src/Portfolio/DrawdownBrakeRefresh.tsx` 與 `drawdownBrakeRefresh.ts` 檔名只差大小寫，Windows 上 `tsc`／`vite build` 失敗、`DrawdownBrakeCard.test.tsx` 107 個測試失敗（Linux CI 正常）——這是技術債，是否排任務由 Tech Lead 決定，PM 不排優先序；(3) 是否把應用名稱／描述收斂成單一來源，由 Tech Lead 決定（PM 只要求兩處不可不一致）；(4) `ARCHITECTURE.md` 若要記錄 `AppPageMetadataMiddleware`／`SitePages`，由 Tech Lead 負責。
 - **未動**：程式碼、`boss/TECH_LEAD.md`、`ARCHITECTURE.md`、`tasks/*`。
+
+## 2026-10-12 — Tech Lead：Boss 直接合併 #448／#449 的事後審閱；contract test 月營收失敗研判（排程執行，第 6 次）
+
+- **狀態**：無 open PR；open issue 只剩 #409（`To Tech Lead`，2026-10-06 後無新留言）。TASK-001～049 全數 MERGED／結案，無 READY／IN_PROGRESS 任務，沒有新需求（`REQUIREMENTS.md`／`DECISIONS.md` 本次未變）。#431、#407 已被 Boss 於今天 03:40／03:44 UTC 以 `completed` 關閉，最後一則留言仍是 Tech Lead 的 2026-10-11 12:17 UTC，Q1／Q2／Q3 沒有回覆，功能維持 admin only。
+- **Boss 不經 TASK 流程直接合併的兩個 PR（審閱完，無須追加修正）**：
+  - **#449**（`AppPageMetadataMiddleware`、`HtmlMetadata`、`IndexHtmlTemplate`、`SitePages`）：所有值皆 `HtmlEncode`、取代用 `MatchEvaluator`、任何例外 fall through、`Cache-Control: no-store`；`og:url`／`og:image` 由請求 Host 組成但已編碼且不快取，無注入或快取汙染路徑。觀察：`SitePages.cs` 與 `apps.tsx` 的 app 名稱／描述是兩份手動同步的資料，沒有自動比對測試（Technical Debt，不排）。入口標題改為 `Jacky Studio — AI 學習、投資與實用工具`（Boss 的決定，覆寫 TASK-019 的舊標題；單字頁標題不變）。
+  - **#448**（遷移 `UniqueUserWord`、`RepositoryService`）：先以 `ROW_NUMBER()` 刪重複 `UserWords` 列（保留複習次數最多、其次最早者）再建 `(UserId, WordId)` 唯一索引；我核對沒有任何其他表 FK 指向 `UserWords.Id`，遷移註解成立；`AddWordAsync`／`AddWordPackAsync` 處理競態重複、`DeleteWordAsync` 刪所有符合列。風險：遷移於正式環境啟動時執行、刪除不可逆，deploy 成功不等於遷移成功，沙箱無法目視正式環境。
+  - 兩者的架構事實已寫入 `ARCHITECTURE.md` 最後一節；`CLAUDE.md`、程式碼未動。
+  - **回覆 PM 同日條目對 Tech Lead 的兩項請求**：(1) 事後審閱——完成，結論同上，與 DECISION-022／023 一致（品牌兩層分法技術上無問題：單字頁走 `WordPageMetadataMiddleware`，其餘走 `AppPageMetadataMiddleware`，兩者共用 `HtmlMetadata.Apply`）。(2) 「#448 migration 已在正式環境成功套用」——**無法確認**：遷移於啟動時執行，沙箱連不到正式環境，Actions 的 deploy 成功不代表遷移成功，遷移也不記錄刪除筆數。已請 Boss 在正式資料庫跑兩行查詢確認（見 `boss/TECH_LEAD.md` 第 26 項）。PM 對 A1（品牌兩層）與 SEO 取捨的觀察我無異議。
+- **Third-Party Contract Tests run 103（schedule，今天 06:45 UTC）失敗**：57 個中 3 個失敗，皆為 `TwseOpenApiContractTests.Revenue_t187ap05_L_ForTodaysRandomPicks_HasUsableMonthlyRevenue`（2882、1301、2308 查不到 `公司代號`），其餘 54 個通過；`MFI94U`、MIS `t00`、Yahoo `^TWII`、FundRich、SEC EDGAR、104 皆通過。前例：9/12 run 68 同一測試失敗（2891 查不到），9/13 run 69 成功。研判為證交所每月 10 日之後月營收資料集更新窗口的暫時現象；正式環境 `FetchRevenueData` 找不到列回 `null`，個股分析少一項月營收，不報錯。**未驗證**：沙箱連不到證交所（proxy 403），無法直接取回該資料集；「更新窗口」是依兩次日期吻合與 9/13 自動恢復的推論，不是實測。處置：不開任務、不通知 Boss；下次排程若 run 104 的 `t187ap05_L` 仍失敗，升級（測試容忍月初窗口，或確認資料集是否改版）。
+- **部署串行化實測**：run 538（#449，06:32:48 UTC）與 539（#448，06:33:29 UTC）連續觸發，539 的 job `started_at` 06:35:17，538 `completed_at` 06:35:16——`concurrency` 確實排隊；539 部署較新的 tip `1f5c747`。已更新 `ARCHITECTURE.md`「Deployment pipeline」的實測紀錄；「被取代的排隊 run 顯示 cancelled」仍未觀察到。
+- **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`、任何 TASK 檔。
+- **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／證交所；審閱依 git diff、GitHub Actions run／job 紀錄與 job 日誌，未在本機執行測試。
