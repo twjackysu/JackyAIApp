@@ -3090,3 +3090,5 @@
 - **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`。
 - **仍在等 Boss（非阻擋）**：2026-10-12（今天，週一）盤中目視確認 TASK-038 的盤中預估（見 `boss/TECH_LEAD.md` 第 24 項）；強制重新整理後確認卡片已是最新版；#431 的 Q1／Q2／Q3 未決（功能維持 admin only）。
 - **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／證交所／Yahoo；以上結論來自 git 歷史、GitHub Actions run／job 紀錄。
+- **paths-ignore 實測（同日）**：本次文件 push（`ba1187d`，只動 `.agent/**`）推上 `master` 後，`list_workflow_runs(event=push)` 最新仍是 run 537（`29845ef`），**沒有為 `ba1187d` 產生 Build and deploy run**——`paths-ignore` 過濾如預期運作（推送後約 1 分鐘內查詢；若之後有 run 補出現會在此更正）。未實測項只剩「被取代的排隊 run 顯示 cancelled」與「排隊 run 取較新 tip」。
+

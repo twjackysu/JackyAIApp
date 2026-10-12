@@ -69,7 +69,7 @@ HIGH（已發生一次：2026-10-11 約 13:54–14:46 UTC，正式環境被回�
   - `paths-ignore: ['.agent/**', '**.md']`：只動這些路徑的 push 不產生 run；混有任何程式碼檔就會部署（例如單獨改 `.github/workflows/CI.yml` 的 push 會多一次無害的重複部署）。Agent 的文件 push（TASK／STATUS／ARCHITECTURE／`boss/*.md`）皆落在 `.agent/**`，不會部署。✔
   - 最後一次部署若紅燈，不會自動補跑前面被取代的 run（它們已 cancelled）——`CLAUDE.md` Gotcha 已寫明處置（重跑或從 `master` `workflow_dispatch`）。✔
 - **已實測**：run 537（event=`push`，`master`＝`29845ef`）成功，證明 push 觸發與新 checkout 運作；Build／Test／Publish／Deploy 全綠。
-- **尚未實測、待事件發生時觀察**（任務書已誠實揭露，我同意）：(1) 「排隊中被取代的 run 顯示 cancelled」——需要兩個 PR 連續合併才會出現；(2) 「checkout 取執行當下的 tip 而非 `github.sha`」——只有在 run 排隊期間 master 又前進時才與舊行為有差；run 537 的 tip 恰好等於觸發 commit，區分不出來。(3) `paths-ignore` 的實際過濾——見 `PROJECT_STATUS.md` 本日條目（本次的文件 push 即為第一個實測）。
+- **尚未實測、待事件發生時觀察**（任務書已誠實揭露，我同意）：(1) 「排隊中被取代的 run 顯示 cancelled」——需要兩個 PR 連續合併才會出現；(2) 「checkout 取執行當下的 tip 而非 `github.sha`」——只有在 run 排隊期間 master 又前進時才與舊行為有差；run 537 的 tip 恰好等於觸發 commit，區分不出來。(3) ~~`paths-ignore` 的實際過濾~~ → **已實測**：2026-10-12 Tech Lead 的文件 push（`ba1187d`，只動 `.agent/**`）沒有產生 Build and deploy run（細節見 `PROJECT_STATUS.md` 同日條目）。
 - **接受的殘留風險（非本任務範圍，不排）**：`workflow_dispatch` 從非 `master` 分支仍可把舊／未合併內容部署到正式環境（這是它存在的目的，`CLAUDE.md` 已警告「never from an older branch」）。若 Boss 想擋，可加 guard（非 `master` 需額外確認），屬 Optional，不建議現在做。
 - **副作用（已寫入 `CLAUDE.md`）**：任何含程式碼的直接 push 到 `master` 都會部署（含 EF migration）。Agent 規則不變——程式碼一律走 PR。
 - 結論：無須追加修正。`ARCHITECTURE.md` 已補「部署流程」小節（本次提交）。
