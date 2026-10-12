@@ -3080,3 +3080,13 @@
 - **操作建議（TASK-049 合併前）**：一個 PR 的提交已被另一個 PR 包含時（如 #443 ⊂ #445），**直接 close 不要 merge**，否則會多一次拿舊 commit 的部署。
 - **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`。
 - **驗證限制**：沙箱無 .NET、連不到證交所／Yahoo／正式環境；以上結論來自 git 歷史、GitHub Actions 的 run／job 紀錄與 GitHub API（`merge_commit_sha`）。
+
+## 2026-10-12 — Tech Lead：TASK-049 事後審閱並結案；部署流程寫入 ARCHITECTURE（排程執行，第 5 次）
+
+- **狀態**：無 open PR（`list_pull_requests` 為空）。open issue 僅 #431／#407／#409，皆無 2026-10-11 12:17 UTC 之後的新留言；PM／Boss 沒有新的待辦或決定。所有 TASK-001～049 均為 MERGED 或更早結案——這次唯一的實質工作是 TASK-049 的收尾。
+- **TASK-049（#447）**：Boss 於 2026-10-11 合併（採「B2」：`push` 到 `master` ＋ `paths-ignore ['.agent/**','**.md']`、`concurrency: production-deploy`、checkout 取 `master` 執行當下的 tip）。我逐行讀了合併後的 workflow 與 `CLAUDE.md` diff，對照 2026-10-11 13:50 事故時間線推演，**認可，無須追加修正**；Status → MERGED，Review 區已填（含已實測／未實測清單、接受的殘留風險）。
+- **已實測**：Build and deploy run 537（event=`push`，`master`＝`29845ef`）成功，證明 push 觸發與新 checkout 路徑可運作。**尚未實測**：(1)「排隊中被取代的 run 顯示 cancelled」與「排隊 run 取到較新的 tip」——要兩個 PR 連續合併才看得到；(2) `paths-ignore` 的過濾——本次的文件 push 是第一個實測，結果見下方「paths-ignore 實測」。
+- **`ARCHITECTURE.md`**：在「Workflow conventions」補了「Deployment pipeline」一條（觸發、`paths-ignore`、tip 部署、串行化、事故原因、行為規則）。這是 TASK-049 指定由 Tech Lead 負責的文件。
+- **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`。
+- **仍在等 Boss（非阻擋）**：2026-10-12（今天，週一）盤中目視確認 TASK-038 的盤中預估（見 `boss/TECH_LEAD.md` 第 24 項）；強制重新整理後確認卡片已是最新版；#431 的 Q1／Q2／Q3 未決（功能維持 admin only）。
+- **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／證交所／Yahoo；以上結論來自 git 歷史、GitHub Actions run／job 紀錄。

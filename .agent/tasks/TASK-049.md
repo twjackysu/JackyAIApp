@@ -4,7 +4,7 @@
 Backend Engineer（CI／部署；只動 `.github/workflows/BuildAndDeployToAzureAppService.yml` 與文件）
 
 ## Status
-PR_OPENED（#447；已依 Boss 在對話中的決定改為「B2」方案，等 Tech Lead 審閱）
+MERGED（PR #447，Boss 於 2026-10-11 合併；push 觸發的 Build and deploy run 537 成功。Tech Lead 事後審閱見 Review）
 
 ## Priority
 HIGH（已發生一次：2026-10-11 約 13:54–14:46 UTC，正式環境被回滾到不含 TASK-047 的舊版，Boss 看到「00685L 沒併入、NTSD 沒計入」）
@@ -60,4 +60,16 @@ HIGH（已發生一次：2026-10-11 約 13:54–14:46 UTC，正式環境被回�
 - 副作用提醒：之後任何非文件類的直接 push 到 master 都會部署到正式環境（含 EF migration）。
 
 ## Review
-（待填）
+**Tech Lead 事後審閱（2026-10-12，排程執行第 5 次；#447 在審閱前已被 Boss 合併）**
+- 範圍：逐行讀了合併後的 `.github/workflows/BuildAndDeployToAzureAppService.yml` 與 `CLAUDE.md` 的 diff；`git show --stat` 只有 workflow、`CLAUDE.md`、`TASK-049.md` 三個檔，無應用程式碼。
+- **B2 方案（`push` 到 `master` ＋ `paths-ignore`）我認可，比原任務書的 `pull_request: closed` ＋ `ref: master` 更好**：push 事件沒有「因祖先關係被標為 merged、`merge_commit_sha` 是舊分支頭」的情形，根因 (2) 在觸發層就消失；`merged == true` 條件與「skipped job 不進 concurrency queue」的未驗證假設一併不需要。
+- 正確性檢查（逐項對照事故時間線）：
+  - `concurrency`（job 層，`production-deploy`，`cancel-in-progress: false`）：已在跑的部署不會被殺；排隊中的只保留最新一個。✔
+  - `actions/checkout` 的 `ref: ${{ github.event_name == 'push' && 'master' || github.ref }}`：有明確 `ref` 時取「checkout 當下」的 tip，不是事件的 `github.sha`；`workflow_dispatch` 仍是 `github.ref`。重演 13:50 事故：兩個 run 無論排隊順序，後跑的看到的 tip 不會比先跑的舊（master 只往前），最多重複部署同一個 tip。✔
+  - `paths-ignore: ['.agent/**', '**.md']`：只動這些路徑的 push 不產生 run；混有任何程式碼檔就會部署（例如單獨改 `.github/workflows/CI.yml` 的 push 會多一次無害的重複部署）。Agent 的文件 push（TASK／STATUS／ARCHITECTURE／`boss/*.md`）皆落在 `.agent/**`，不會部署。✔
+  - 最後一次部署若紅燈，不會自動補跑前面被取代的 run（它們已 cancelled）——`CLAUDE.md` Gotcha 已寫明處置（重跑或從 `master` `workflow_dispatch`）。✔
+- **已實測**：run 537（event=`push`，`master`＝`29845ef`）成功，證明 push 觸發與新 checkout 運作；Build／Test／Publish／Deploy 全綠。
+- **尚未實測、待事件發生時觀察**（任務書已誠實揭露，我同意）：(1) 「排隊中被取代的 run 顯示 cancelled」——需要兩個 PR 連續合併才會出現；(2) 「checkout 取執行當下的 tip 而非 `github.sha`」——只有在 run 排隊期間 master 又前進時才與舊行為有差；run 537 的 tip 恰好等於觸發 commit，區分不出來。(3) `paths-ignore` 的實際過濾——見 `PROJECT_STATUS.md` 本日條目（本次的文件 push 即為第一個實測）。
+- **接受的殘留風險（非本任務範圍，不排）**：`workflow_dispatch` 從非 `master` 分支仍可把舊／未合併內容部署到正式環境（這是它存在的目的，`CLAUDE.md` 已警告「never from an older branch」）。若 Boss 想擋，可加 guard（非 `master` 需額外確認），屬 Optional，不建議現在做。
+- **副作用（已寫入 `CLAUDE.md`）**：任何含程式碼的直接 push 到 `master` 都會部署（含 EF migration）。Agent 規則不變——程式碼一律走 PR。
+- 結論：無須追加修正。`ARCHITECTURE.md` 已補「部署流程」小節（本次提交）。
