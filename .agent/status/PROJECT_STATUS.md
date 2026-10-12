@@ -3092,3 +3092,18 @@
 - **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／證交所／Yahoo；以上結論來自 git 歷史、GitHub Actions run／job 紀錄。
 - **paths-ignore 實測（同日）**：本次文件 push（`ba1187d`，只動 `.agent/**`）推上 `master` 後，`list_workflow_runs(event=push)` 最新仍是 run 537（`29845ef`），**沒有為 `ba1187d` 產生 Build and deploy run**——`paths-ignore` 過濾如預期運作（推送後約 1 分鐘內查詢；若之後有 run 補出現會在此更正）。未實測項只剩「被取代的排隊 run 顯示 cancelled」與「排隊 run 取較新 tip」。
 
+
+## 2026-10-12 — PM：補登 Boss 直接合併的 #448、#449（排程執行）
+
+- **狀態**：無 open PR；唯一 open issue 是 #409（最後一則是 PM 2026-10-06 的盤點，Boss 沒有新留言）。Boss 在 Tech Lead 上次執行（2026-10-12 00:36 UTC）之後，自己撰寫並合併了兩個 PR，**沒有經過 task／PM／Tech Lead 流程**，所以產品文件與正式環境出現落差，這輪就是補上：
+  - **#448**（單字庫唯一性）：`UserWords` 加 `(UserId, WordId)` 唯一索引；migration 先清掉所有使用者的重複列（留複習次數最多、同樣則最早加入的一筆）；加入單字／單字包改為遇重複回「已經加過了」；刪除一律刪得掉。→ **DECISION-023**，`REQUIREMENTS.md`「Dictionary & Word Repository」新增 3 條驗收條件。
+  - **#449**（站台品牌與分享預覽）：伺服器依網址替換 title／description／Open Graph／`twitter:card`；首頁改為「Jacky Studio — AI 學習、投資與實用工具」，各應用「{名稱} | Jacky Studio」；單字頁補 Open Graph（title 格式不變）。→ **DECISION-022**（取代 2026-09-30 的首頁 title `English Coach - AI 英文學習與單字訓練`），`REQUIREMENTS.md` 新增「站台品牌與分享預覽」一節（已出貨、LOW）。
+- **PM 的觀察（皆為讀 PR 描述與程式的事實或假設，未實機驗證）**：
+  - 事實：`SitePages.cs` 與前端 `constants/apps.tsx` 各有一份應用名稱／描述（程式註解互相指向）；新增應用要改兩處。
+  - 假設 A1：品牌分兩層（平台＝Jacky Studio；英文學習與單字頁＝English Coach）是 Boss 有意的；若要連單字頁也改，會動到 DECISION-012。
+  - SEO 取捨：首頁不再帶「英文學習」關鍵字，英文相關入口由 `/english` 與單字頁承擔，單字頁（成長面主要資產）不受影響。
+  - 不確定：#448 的 migration 在正式環境實際刪了幾筆、是否成功套用，PM 不知道（PR 只說明本機 LocalDB 驗證）。
+  - 未驗證：LINE／Teams 實際預覽（有快取）。
+- **Boss**：無需回覆。
+- **Tech Lead**：(1) 請事後審閱 #448／#449（同 #437～#446 的做法），並確認 #448 的 migration 已在正式環境成功套用（App Insights 啟動紀錄或 `__EFMigrationsHistory`）；(2) #449 PR 描述提到的既有問題——`src/Portfolio/DrawdownBrakeRefresh.tsx` 與 `drawdownBrakeRefresh.ts` 檔名只差大小寫，Windows 上 `tsc`／`vite build` 失敗、`DrawdownBrakeCard.test.tsx` 107 個測試失敗（Linux CI 正常）——這是技術債，是否排任務由 Tech Lead 決定，PM 不排優先序；(3) 是否把應用名稱／描述收斂成單一來源，由 Tech Lead 決定（PM 只要求兩處不可不一致）；(4) `ARCHITECTURE.md` 若要記錄 `AppPageMetadataMiddleware`／`SitePages`，由 Tech Lead 負責。
+- **未動**：程式碼、`boss/TECH_LEAD.md`、`ARCHITECTURE.md`、`tasks/*`。

@@ -463,6 +463,17 @@ study words I actually care about instead of a fixed word bank.
 - [ ] Looking up a previously-generated word does not incur a new AI credit cost.
 - [ ] A saved word appears in the user's Repository and is available to the exam
       generators (Cloze/Translation/Sentence draw from it).
+- [ ] **(New, 2026-10-12, DECISION-023, shipped in PR #448)** A word appears **at most
+      once** in a user's Repository. Adding the same word again — including a double-click
+      or two simultaneous requests, or tapping the same word pack twice — answers "already
+      added", never an error, and leaves exactly one entry. A word pack adds only the words
+      not yet in the Repository.
+- [ ] **(New, 2026-10-12)** Deleting a Repository word always succeeds for a word that
+      exists (and reports "not found" for one that doesn't); opening a word's detail page and
+      recording an exam result against it never fail because of an earlier duplicate.
+- [ ] **(New, 2026-10-12)** Observation, not yet verified in production by PM: after the
+      migration cleaned existing duplicates (one kept per user+word: most reviews, then
+      earliest added), each affected user's remaining entry keeps its review progress.
 
 ### Priority
 HIGH — this is the core retention loop the rest of the product is built on.
@@ -1720,3 +1731,51 @@ so that 我能用歷史當參考，檢視這次和過去的差異。
 - [ ] 提議 B 圖（相似區段）的演算法、預設長度、可調範圍、「找得到」門檻、之後走勢長度，並**用幾個真實歷史例子**（含一個「找不到」的例子）給 Boss 過目——見 A12。可先行，預設標的為加權指數。
 - [ ] 兩張圖共用同一份歷史資料與快取；**不要**動回落煞車的報酬指數資料（TASK-036）或把這兩張圖放進 Portfolio。
 - [ ] 完成設計後回報工作量與風險；若發現資料來源的歷史長度不足以支撐 B 的相似搜尋，請告知 PM（可能影響 Boss 的預期）。
+
+---
+
+## Requirement: 站台品牌與分享預覽（Site Branding & Link Previews）— 已出貨（DECISION-022）
+
+> 補登：Boss 直接合併 PR #449，未經 task 流程；本節把已出貨的行為記為需求，之後變更以此為基準。
+
+### Goal
+把網站連結貼到 LINE／Teams 等聊天工具時，預覽顯示的是「被分享的那個應用」，而不是千篇一律的英文學習標題。
+
+### User Story
+As a 想把某個工具（例如 PDF 解鎖、投資組合）分享給朋友的使用者，
+I want 貼出網址後預覽顯示該工具的名稱與一句話說明，
+so that 對方一眼看得出這是什麼、願意點進來。
+
+### Requirements
+- 首頁與未對應頁面：標題「Jacky Studio — AI 學習、投資與實用工具」＋站台描述。
+- 每個應用頁：標題「{應用名稱} | Jacky Studio」＋該應用的描述（九個應用，名稱與描述與首頁卡片一致）。
+- 單字頁維持 DECISION-012 的 title 格式，預覽的標題與描述是該單字的內容。
+- 瀏覽器分頁標題與分享預覽一致。
+- 不執行 JavaScript 的預覽機器人也要看到正確內容。
+
+### Acceptance Criteria
+- [ ] 貼 `/pdf`、`/portfolio`、`/finance` 等網址到 LINE 或 Teams，預覽顯示該應用的名稱與描述，而不是「English Coach」。（預覽有快取，已被預覽過的舊網址可能延遲更新。）
+- [ ] 貼首頁網址，預覽顯示「Jacky Studio — AI 學習、投資與實用工具」。
+- [ ] 貼單字頁網址，預覽顯示該單字的標題與說明。
+- [ ] 瀏覽器分頁標題與上述預覽的標題一致。
+- [ ] 預覽機制出任何問題時，頁面照常打得開（不因 metadata 失敗而空白）。
+
+### Priority
+LOW（已出貨；後續只做成長面確有需要的小改進）
+
+### Scope
+#### In Scope
+- 已出貨的標題、描述、Open Graph 與 `twitter:card`。
+#### Out of Scope
+- 變更單字頁 title 格式（DECISION-012 不動）。
+#### Future Consideration
+- 每個應用專屬的預覽圖（目前全站共用 `JackyAIIcon.png`；需先有圖片素材）。
+- 重新評估首頁是否需要帶「英文學習」關鍵字（PM 觀察：目前由 `/english` 與單字頁承擔）。
+
+### Constraints
+- 預覽有快取，不可承諾「分享後立刻更新」。
+- 應用名稱與描述在前後端各有一份（`SitePages.cs` 與 `constants/apps.tsx`），新增應用時兩邊都要有；這是 PM 觀察到的維護風險，作法交 Tech Lead 決定。
+
+### Open Questions
+- 無需 Boss 回覆。PM 小假設：A1——品牌分兩層（平台＝Jacky Studio，英文學習與單字頁＝English Coach）是 Boss 有意的；若 Boss 想連單字頁也改成 Jacky Studio，請告知（會動到 DECISION-012）。
+

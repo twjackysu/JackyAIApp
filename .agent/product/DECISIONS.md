@@ -522,3 +522,45 @@ Boss 實際使用後，卡片又一次與他每天看的水位對不上（被排
 
 ### Source
 Boss（Issue #431 留言，2026-10-11）
+
+## DECISION-022: 網站整體品牌改為「Jacky Studio」，每個應用有自己的標題與分享預覽（取代首頁 title 為 English Coach 的舊格式）
+
+### Date
+2026-10-12
+
+### Decision
+- Boss 親自撰寫並合併 PR #449：首頁（`/`）與未對應頁面的標題／描述改為站台整體的 **「Jacky Studio — AI 學習、投資與實用工具」**；各應用頁（`/portfolio`、`/finance`、`/english`、`/pdf`、`/jobs`、`/slideshow`、`/data-analysis`、`/dashboards`、`/connectors`）標題為 **「{應用名稱} | Jacky Studio」**，各有自己的描述。伺服器在回傳 `index.html` 時替換 title／description／Open Graph／`twitter:card`，所以 LINE、Teams 這類不執行 JavaScript 的預覽機器人也看得到。
+- **取代**先前「首頁 title＝`English Coach - AI 英文學習與單字訓練`」（2026-09-30 Boss 定案、TASK-019）的格式。單字頁 title 維持 DECISION-012 的 `{單字} 英文意思、發音、例句 | English Coach`（#449 只替單字頁補上 Open Graph 標籤，未改 title）。
+- `og:image` 目前全站共用 `JackyAIIcon.png`；各應用專屬預覽圖尚未準備，屬未來考慮（需要先有圖片）。
+
+### Reason
+站台已從單一英文學習工具變成多應用平台（DECISION-003／009），不管貼哪個網址到 LINE／Teams，預覽卻都顯示「English Coach」，對財務、PDF 等工具的分享沒有幫助，也容易讓人以為整站只是英文學習。
+
+### Impact
+- 品牌現在有兩層：平台＝Jacky Studio，英文學習應用與單字頁＝English Coach。PM 判斷這是一致的分層（單字頁是 English Coach 的內容），不需要 Boss 處理。
+- SEO 取捨（PM 觀察，非要求）：首頁不再帶「英文學習」關鍵字；英文相關的搜尋入口改由 `/english` 與各單字頁承擔（DECISION-012 的單字頁 title 不變）。單字頁仍是成長面最主要的 SEO 資產，不受影響。
+- 預覽有快取，舊網址在 LINE／Teams 可能要一段時間才更新。
+- 這是 Boss 繞過 task 流程直接合併的變更；Tech Lead 事後審閱時請以此決定為準（見 PROJECT_STATUS 同日條目）。
+
+### Source
+Boss（PR #449，2026-10-12 合併）
+
+## DECISION-023: 單字庫「同一個人同一個字只能有一筆」；既有重複資料已一次清除
+
+### Date
+2026-10-12
+
+### Decision
+- Boss 親自撰寫並合併 PR #448：使用者的單字庫中，**同一個單字只能出現一次**（資料庫層強制）。連點「加入」或同一個單字包被點兩次時，後到的請求回「已經加過了」，不再是 500；刪除單字一律刪得掉。
+- 部署時的 migration 已對**所有使用者**清掉既有重複列：每組只留一筆，**複習次數最多的優先，同樣則留最早加入的**。被刪的是同一人同一字的多餘複本，保留的那筆保有最多的複習進度。此清除不可逆。
+
+### Reason
+單字庫曾出現同一個字兩筆，刪除任一筆都回 500；詳細頁打不開、考試結果也無法更新複習排程。這直接傷害英文學習這條核心留存迴路（DECISION-003／009），且單字庫是使用者累積的個人資產。
+
+### Impact
+- `REQUIREMENTS.md`「Dictionary & Word Repository」新增對應驗收條件。
+- PM 沒有掌握部署後的實際影響筆數（PR 描述只說明做法與本機驗證），不下「沒有使用者受影響」的結論；若有人回報「我的單字少了」，應先對照此保留規則。
+- 這是 Boss 繞過 task 流程直接合併的變更；Tech Lead 事後審閱請一併確認 migration 在正式環境已成功套用。
+
+### Source
+Boss（PR #448，2026-10-12 合併）
