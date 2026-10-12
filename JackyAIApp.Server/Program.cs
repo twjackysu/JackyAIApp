@@ -225,6 +225,9 @@ try
     // WordPageMetadataMiddleware and .agent/architecture/ARCHITECTURE.md ("SEO Phase B"). Any
     // other route, or any failure resolving the word, falls through unchanged.
     app.UseMiddleware<WordPageMetadataMiddleware>();
+    // Every other page: index.html with the metadata of the app being opened (/pdf, /portfolio,
+    // ...), so shared links preview as that app. See AppPageMetadataMiddleware.
+    app.UseMiddleware<AppPageMetadataMiddleware>();
 
     app.UseDefaultFiles();
     app.UseStaticFiles();

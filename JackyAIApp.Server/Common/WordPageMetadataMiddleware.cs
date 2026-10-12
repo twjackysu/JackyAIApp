@@ -24,11 +24,8 @@ namespace JackyAIApp.Server.Common
     public class WordPageMetadataMiddleware(RequestDelegate next, IWebHostEnvironment env)
     {
         private readonly RequestDelegate _next = next;
-        private readonly IWebHostEnvironment _env = env;
+        private readonly IndexHtmlTemplate _template = new(env);
         private static readonly TimeSpan LookupTimeout = TimeSpan.FromSeconds(3);
-
-        private readonly object _templateLock = new();
-        private string? _cachedTemplate;
 
         public async Task InvokeAsync(HttpContext context, IDictionaryService dictionaryService)
         {
@@ -45,7 +42,7 @@ namespace JackyAIApp.Server.Common
                 return;
             }
 
-            var template = GetTemplate();
+            var template = _template.Get();
             if (template == null)
             {
                 await _next(context);
@@ -110,46 +107,20 @@ namespace JackyAIApp.Server.Common
             }
         }
 
-        private string? GetTemplate()
-        {
-            if (_cachedTemplate != null)
-            {
-                return _cachedTemplate;
-            }
-
-            lock (_templateLock)
-            {
-                if (_cachedTemplate != null)
-                {
-                    return _cachedTemplate;
-                }
-
-                var fileInfo = _env.WebRootFileProvider.GetFileInfo("index.html");
-                if (!fileInfo.Exists)
-                {
-                    return null;
-                }
-
-                using var stream = fileInfo.CreateReadStream();
-                using var reader = new StreamReader(stream);
-                _cachedTemplate = reader.ReadToEnd();
-            }
-
-            return _cachedTemplate;
-        }
-
         /// <summary>Pure so it's testable without an <see cref="HttpContext"/> or a file provider.</summary>
         internal static string InjectMetadata(string template, DTO.Word word, string pageUrl)
         {
-            var title = System.Net.WebUtility.HtmlEncode(word.SeoTitle);
-            var description = System.Net.WebUtility.HtmlEncode(word.SeoDescription);
             var canonicalUrl = System.Net.WebUtility.HtmlEncode(pageUrl);
+
+            // Title, description and the Open Graph tags link previews read — the same rewrite every
+            // other page gets (see AppPageMetadataMiddleware), with this word's text.
+            var origin = new Uri(pageUrl).GetLeftPart(UriPartial.Authority);
+            var html = HtmlMetadata.Apply(
+                template, word.SeoTitle, word.SeoDescription, pageUrl, origin + BotPreviewMiddleware.GenericOgImagePath);
 
             // MatchEvaluator lambdas, not replacement strings — a replacement string would let a
             // literal "$" in word text (e.g. a definition mentioning a price) be misread by
             // Regex.Replace as a backreference token ($1, $&, ...) and silently corrupt the output.
-            var html = Regex.Replace(template, "<title>[\\s\\S]*?</title>", _ => $"<title>{title}</title>", RegexOptions.IgnoreCase);
-            html = Regex.Replace(html, "<meta[^>]*name=\"description\"[^>]*/?>", _ => $"<meta name=\"description\" content=\"{description}\" />", RegexOptions.IgnoreCase);
 
             var canonicalTag = $"<link rel=\"canonical\" href=\"{canonicalUrl}\" />";
             html = Regex.IsMatch(html, "<link[^>]*rel=\"canonical\"[^>]*/?>", RegexOptions.IgnoreCase)

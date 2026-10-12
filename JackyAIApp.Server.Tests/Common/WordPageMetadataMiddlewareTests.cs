@@ -37,6 +37,19 @@ namespace JackyAIApp.Server.Tests.Common
         }
 
         [Fact]
+        public void InjectMetadata_GivesLinkPreviewsTheWordsOwnText()
+        {
+            var word = MakeWord("apple 英文意思、發音、例句 | English Coach", "apple (noun): a fruit");
+
+            var html = WordPageMetadataMiddleware.InjectMetadata(Template, word, "https://example.com/english/dictionary/apple");
+
+            Assert.Contains("<meta property=\"og:title\" content=\"apple 英文意思、發音、例句 | English Coach\" />", html);
+            Assert.Contains("<meta property=\"og:description\" content=\"apple (noun): a fruit\" />", html);
+            Assert.Contains("<meta property=\"og:url\" content=\"https://example.com/english/dictionary/apple\" />", html);
+            Assert.Contains("<meta property=\"og:image\" content=\"https://example.com/JackyAIIcon.png\" />", html);
+        }
+
+        [Fact]
         public void InjectMetadata_ReplacesExistingCanonicalInsteadOfDuplicating()
         {
             var templateWithCanonical = Template.Replace("</head>", "<link rel=\"canonical\" href=\"https://example.com/old\" />\n</head>");
