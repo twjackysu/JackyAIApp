@@ -62,11 +62,10 @@ namespace JackyAIApp.Server.Services.Repository
             var cacheKey = $"GetWords_{userId}_WordId_{wordId}";
             if (!_memoryCache.TryGetValue(cacheKey, out DTO.Word? result))
             {
-                var userWord = await _dbContext.UserWords
-                    .Where(uw => uw.UserId == userId && uw.WordId == wordId)
-                    .SingleOrDefaultAsync();
+                var inCollection = await _dbContext.UserWords
+                    .AnyAsync(uw => uw.UserId == userId && uw.WordId == wordId);
 
-                if (userWord != null)
+                if (inCollection)
                 {
                     var sqlWord = await _dbContext.Words
                         .Include(w => w.Meanings)
@@ -109,10 +108,10 @@ namespace JackyAIApp.Server.Services.Repository
                 return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
             }
 
-            var existingUserWord = await _dbContext.UserWords
-                .SingleOrDefaultAsync(uw => uw.UserId == userId && uw.WordId == wordId);
+            var alreadyAdded = await _dbContext.UserWords
+                .AnyAsync(uw => uw.UserId == userId && uw.WordId == wordId);
 
-            if (existingUserWord != null)
+            if (alreadyAdded)
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "The word has already been added.");
             }
@@ -127,7 +126,20 @@ namespace JackyAIApp.Server.Services.Repository
             });
 
             user.LastUpdated = DateTime.UtcNow;
-            await _dbContext.SaveChangesAsync();
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // A second add of the same word (a double click) passed the check above too, and
+                // saved first; the unique index on (UserId, WordId) rejected this one. The word is
+                // in the collection either way — answer as if the check had caught it.
+                _dbContext.ChangeTracker.Clear();
+                if (!await _dbContext.UserWords.AnyAsync(uw => uw.UserId == userId && uw.WordId == wordId))
+                    throw;
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "The word has already been added.");
+            }
 
             _memoryCache.ClearCacheByContains($"GetWords_{userId}");
 
@@ -164,6 +176,7 @@ namespace JackyAIApp.Server.Services.Repository
             }
 
             int added = 0, alreadyHad = 0, failed = 0;
+            var pending = new List<string>();
 
             foreach (var text in pack.Words)
             {
@@ -176,7 +189,9 @@ namespace JackyAIApp.Server.Services.Repository
                     continue;
                 }
 
-                var exists = await _dbContext.UserWords
+                // pending: two words in the pack resolving to the same dictionary entry must not be
+                // added twice either.
+                var exists = pending.Contains(dto.Id) || await _dbContext.UserWords
                     .AnyAsync(uw => uw.UserId == userId && uw.WordId == dto.Id);
                 if (exists)
                 {
@@ -190,13 +205,46 @@ namespace JackyAIApp.Server.Services.Repository
                     WordId = dto.Id,
                     DateAdded = DateTime.UtcNow,
                 });
-                added++;
+                pending.Add(dto.Id);
             }
 
-            if (added > 0)
+            if (pending.Count > 0)
             {
                 user.LastUpdated = DateTime.UtcNow;
-                await _dbContext.SaveChangesAsync();
+                try
+                {
+                    await _dbContext.SaveChangesAsync();
+                    added = pending.Count;
+                }
+                catch (DbUpdateException)
+                {
+                    // Another request (the same pack added twice) saved some of these words between
+                    // the checks above and this save, and the unique index on (UserId, WordId)
+                    // rejected the whole batch. Add whatever is still missing.
+                    _dbContext.ChangeTracker.Clear();
+                    var nowInCollection = await _dbContext.UserWords
+                        .Where(uw => uw.UserId == userId && pending.Contains(uw.WordId))
+                        .Select(uw => uw.WordId)
+                        .ToListAsync();
+                    var stillMissing = pending.Except(nowInCollection).ToList();
+                    if (stillMissing.Count == pending.Count)
+                        throw; // none of them appeared meanwhile, so the failure is something else
+
+                    foreach (var wordId in stillMissing)
+                    {
+                        await _dbContext.UserWords.AddAsync(new UserWord
+                        {
+                            UserId = userId!,
+                            WordId = wordId,
+                            DateAdded = DateTime.UtcNow,
+                        });
+                    }
+                    (await _dbContext.Users.SingleAsync(x => x.Id == userId)).LastUpdated = DateTime.UtcNow;
+                    await _dbContext.SaveChangesAsync();
+
+                    added = stillMissing.Count;
+                    alreadyHad += pending.Count - stillMissing.Count;
+                }
                 _memoryCache.ClearCacheByContains($"GetWords_{userId}");
             }
 
@@ -221,17 +269,20 @@ namespace JackyAIApp.Server.Services.Repository
 
             var userId = _userService.GetUserId();
 
-            var userWord = await _dbContext.UserWords
-                .SingleOrDefaultAsync(uw => uw.UserId == userId && uw.WordId == wordId);
+            // Every matching row, not SingleOrDefault: that threw on the duplicates a double click
+            // could leave before (UserId, WordId) was unique, so such a word could never be removed.
+            var userWords = await _dbContext.UserWords
+                .Where(uw => uw.UserId == userId && uw.WordId == wordId)
+                .ToListAsync();
 
-            if (userWord == null)
+            if (userWords.Count == 0)
             {
                 return ServiceResult.Fail(ErrorCodes.NotFound, "The word ID was not found in your collection.");
             }
 
             _logger.LogInformation("User: {userId}, Deleting personal word: {wordId}", userId, wordId);
 
-            _dbContext.UserWords.Remove(userWord);
+            _dbContext.UserWords.RemoveRange(userWords);
 
             var user = await _dbContext.Users.FindAsync(userId);
             if (user != null)
