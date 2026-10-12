@@ -11,6 +11,12 @@ import WorkIcon from '@mui/icons-material/Work';
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import type { ReactElement } from 'react';
 
+/** Site name, as the server also uses it for each page's link-preview title
+ * (JackyAIApp.Server/Common/SitePages.cs). */
+export const SITE_NAME = 'Jacky Studio';
+/** Title of the portal (home) page; per-app pages are titled `${app.name} | ${SITE_NAME}`. */
+export const SITE_HOME_TITLE = 'Jacky Studio — AI 學習、投資與實用工具';
+
 export interface AppDef {
   /** Display name shown in the branded app bar and the portal catalog. */
   name: string;
@@ -22,7 +28,8 @@ export interface AppDef {
   allPaths: string[];
   /** Brand accent colour — gives each app its own identity. */
   color: string;
-  /** Short description shown on the portal catalog card. */
+  /** Short description shown on the portal catalog card — and in link previews, via the
+   * server's copy in SitePages.cs. */
   description: string;
   /**
    * A self-contained tool with nothing tied to an account. Hides the account menu, which does

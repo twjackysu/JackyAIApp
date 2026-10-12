@@ -18,6 +18,8 @@ import {
   JOB_SEARCH,
   PDF_UNLOCKER,
   PORTFOLIO,
+  SITE_HOME_TITLE,
+  SITE_NAME,
   SLIDESHOW,
   getCurrentApp,
 } from './constants/apps';
@@ -120,7 +122,7 @@ function App() {
           Dictionary route) can render its own <Helmet> with a more specific <title> —
           react-helmet-async lets the deepest-rendered one win for singleton tags. */}
       <Helmet>
-        <title>{currentApp?.name ?? "Jacky's Studio"}</title>
+        <title>{currentApp ? `${currentApp.name} | ${SITE_NAME}` : SITE_HOME_TITLE}</title>
       </Helmet>
       <AppBar
         position="static"
