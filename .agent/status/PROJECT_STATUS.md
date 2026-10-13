@@ -3165,7 +3165,7 @@
 - **狀態**：無 open PR；唯一 open issue #409 沒有新留言。master 自 PM 00:38 UTC 的提交之後，Boss 在自己的 session 合併了 #450～#456（Data Analysis「問 AI」重構與示範資料產生器、全站 chat 模型統一為 `gpt-6-luna`），每個 PR 的 CI 皆綠，`Build and deploy` run 540～546 全部成功，正式環境＝`990ca6c`。
 - **事後審閱**（細節與架構事實寫入 `ARCHITECTURE.md` 最後一節）：**無須追加修正**。逐行讀了 `NlValueSources`／`NlPlanValidator`／`BuildNlPlanAsync`／`TimeBox`／`DataAnalysisMapping` 與模型切換的差異。扣用量在任何 AI 呼叫與值查詢之前；一次提問 ≤2 次 AI 呼叫；快取在來源歸屬驗證之後；逾時與失敗都降級為「未驗證」而非報錯。
   - 兩件請 Boss／PM 知道（皆非阻擋，已寫入 `boss/TECH_LEAD.md` 第 27 項）：(1) 全部 chat 模型統一到 `gpt-6-luna`，單價與舊模型接近，但**推理 token 計入輸出**，實際成本可能上升、上升多少我看不出來——建議部署滿一週後查 `AiUsageLogs`（查詢範例在 ARCHITECTURE）；(2) Data Analysis 每次提問會把所有低基數字串欄位的值（≤2000 個）送給 OpenAI，前端沒有告知文字——屬隱私決策，歸 Boss／PM。
-- **#457（Details 匯出 CSV，Boss 於 12:43 UTC、我審閱途中合併；`Build and deploy` run 547 我寫下時仍在進行，結果未確認）**：事後審閱 **無須追加修正**。公式注入防護、檔名處理、預設來源資料表釘死、10 萬列上限＋同時 2 個匯出的閘門我都讀過（細節在 `ARCHITECTURE.md`）。兩點非阻擋觀察留給 Boss：匿名匯出沒有 rate limiter（整表讀取共用的 5 DTU 資料庫）、匯出整批放記憶體（B1 約 1.75 GB，數百 MB 為我的估算、未量測）。
+- **#457（Details 匯出 CSV，Boss 於 12:43 UTC、我審閱途中合併；`Build and deploy` run 547 成功）**：事後審閱 **無須追加修正**。公式注入防護、檔名處理、預設來源資料表釘死、10 萬列上限＋同時 2 個匯出的閘門我都讀過（細節在 `ARCHITECTURE.md`）。兩點非阻擋觀察留給 Boss：匿名匯出沒有 rate limiter（整表讀取共用的 5 DTU 資料庫）、匯出整批放記憶體（B1 約 1.75 GB，數百 MB 為我的估算、未量測）。
 - **回覆 PM 的 Tech Lead Actions（`2026-10-13（晚）` 那段）**：
   - (1) 事後審閱＋補 `ARCHITECTURE.md`：完成（gpt-6-luna 與 NL pipeline、#457 都已記錄）。
   - (2) **「確認 #455 部署後各 AI 路徑在正式環境正常」：我做不到——沙箱無法呼叫 OpenAI 或連正式環境，沒有驗證。** 能給的：間接證據（#456 描述的 15 次真實模型請求顯示共用的 `OpenAIPromptService` 路徑對 luna 可用，來源是 PR 文字、環境不明）；讀碼發現 `StockCodeResolver`（#455 點名風險最高）失敗時**不記錄 API 錯誤訊息**，且 `AiUsageLogs` 只在回應帶 `Usage` 時才寫列，所以被 OpenAI 拒絕的請求**不會**出現在 `Success = 0` 的列裡——因此建 **TASK-051**（Backend, LOW）補一行錯誤日誌，並在 `ARCHITECTURE.md` 給 Boss 可執行的檢查（KQL 與人工試「台積電」／對話開場；皆未實測）。

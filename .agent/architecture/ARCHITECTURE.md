@@ -1881,7 +1881,7 @@ Boss 在正式環境試用需求 12 後留言兩點：(1) **00685L 與 00631L �
 
 ## Boss 直接合併的變更備忘（#450～#457，Tech Lead 事後審閱 2026-10-13）
 
-八個 PR（#450～#457）由 Boss 在自己的 session 開發並合併（Co-Authored-By 為 Boss 自己的 Claude session），不走 TASK 流程；#450～#456 的 CI 皆綠、`Build and deploy` run 540～546 全部成功（`990ca6c`）；#457 於我審閱途中合併（`2a44448`，run 547 在我寫下時仍在進行，**結果未確認**）。以下只記錄**之後的 Agent 需要知道的架構事實**，並標明哪些是我讀碼得到、哪些無法驗證。
+八個 PR（#450～#457）由 Boss 在自己的 session 開發並合併（Co-Authored-By 為 Boss 自己的 Claude session），不走 TASK 流程；#450～#456 的 CI 皆綠、`Build and deploy` run 540～546 全部成功（`990ca6c`）；#457 於我審閱途中合併（`2a44448`），run 547 成功。以下只記錄**之後的 Agent 需要知道的架構事實**，並標明哪些是我讀碼得到、哪些無法驗證。
 
 ### #455 — 所有聊天模型統一為 `gpt-6-luna`（Boss 的決定，記錄以免被改回去）
 - **事實**：`NewModels.GPT_6_LUNA` 是唯一的 chat 模型常數（`GPT_5_NANO`／`GPT_4_1_NANO` 已刪）。`OpenAIPromptService` 預設模型、字典、Exam 各 generator、Listening、Finance（摘要／指標／趨勢）、Portfolio（`StockCategoryService`、ZhuTech）、`StockCodeResolver`、Conversation 開場（原 gpt-4o-mini＋temperature 0.8）、Data Analysis「問 AI」全部走它。Whisper／TTS／`claude-haiku-4-5`（`AnthropicChatService`）不在範圍。
@@ -1916,4 +1916,4 @@ Boss 在正式環境試用需求 12 後留言兩點：(1) **00685L 與 00631L �
 - **非阻擋觀察（Boss 的取捨，我不排）**：
   1. **匿名＋沒有 rate limiter**：App 內沒有任何 rate limiter（`AddRateLimiter` 無結果），預設來源的匯出只受「同時 2 個」限制；每次匯出是對**共用的 5 DTU 資料庫**整表讀取（示範表約 2 萬列），持續呼叫會拖慢全站。與既有匿名的 `details`／`summarize` 同級的暴露，但更重。最小硬化：匿名來源匯出上限降到約 20,000 列，或匯出要求登入——產品取捨。
   2. **記憶體**：匯出把整批列放在記憶體（每列一個 Dictionary），B1 約 1.75 GB。10 萬列的寬表可能達數百 MB（**我的估算，未量測**），2 個併發在使用者自己的大表上有壓垮行程的風險。Boss 驗證了「12 萬列約 2 秒」，但沒量記憶體。
-  3. 部署：run 547 於 12:43 UTC 啟動，我寫下時尚未完成。
+  3. 部署：run 547（12:43 UTC 啟動）成功。
