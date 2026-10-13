@@ -495,11 +495,12 @@ namespace JackyAIApp.Server.Controllers
                 ct.ThrowIfCancellationRequested();
                 var maxDate = await maxDateFetcher(col);
                 if (!string.IsNullOrEmpty(maxDate))
-                    dateLines.Add($"- {col}: latest = {maxDate}");
+                    dateLines.Add(NlDateRanges.Describe(col, maxDate));
             }
             var dateBlock = dateLines.Count > 0
-                ? "\n\nDATA DATE RANGE — the most recent date present in each date column. Use these (NOT today's date) "
-                  + "to resolve relative ranges like \"latest\", \"most recent\", \"this month\", \"last quarter\":\n"
+                ? "\n\nDATA DATE RANGE — the most recent date present in each date column, with the relative ranges "
+                  + "already computed from it (NOT from today's date). For \"latest\", \"this month\", \"last quarter\" "
+                  + "and the like, copy the matching range verbatim:\n"
                   + string.Join("\n", dateLines)
                 : "";
 
@@ -542,15 +543,10 @@ namespace JackyAIApp.Server.Controllers
                 _logger.LogInformation("NlSummarize: retrying plan generation after rejected values → {fb}", feedback);
                 var retry = await GeneratePlanAsync(retryMessage);
                 if (retry.Plan is not null)
-                {
-                    // A column the retry no longer filters on means "no real value matches" — keep the
-                    // first pass's note for it, or the user's condition would vanish without a word.
-                    var retryFilterCols = (retry.Plan.Filters ?? []).Select(f => f.FieldName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                    var carriedNotes = result.Rejected.Zip(result.Notes)
-                        .Where(p => !retryFilterCols.Contains(p.First.FieldName))
-                        .Select(p => p.Second);
-                    result = retry with { Notes = [.. carriedNotes, .. retry.Notes] };
-                }
+                    result = retry with
+                    {
+                        Notes = NlPlanValidator.MergeRetryNotes(result.Rejected, result.Notes, retry.Plan.Filters, retry.Rejected, retry.Notes),
+                    };
             }
 
             if (result.Notes.Count > 0)

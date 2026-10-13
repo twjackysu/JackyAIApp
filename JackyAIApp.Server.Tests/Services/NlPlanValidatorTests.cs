@@ -145,7 +145,62 @@ namespace JackyAIApp.Server.Tests.Services
                 Filters  = [Filter("Country", "In", "USA")],
             };
 
-            Assert.Equal("依月份分組，加總營收｜篩選：Country＝USA", NlPlanValidator.BuildInterpretation(plan));
+            Assert.Equal("依月份分組，加總 Revenue｜篩選：Country＝USA", NlPlanValidator.BuildInterpretation(plan));
+        }
+
+        /// <summary>
+        /// Reported: the line read 「加總營收」 on one run and 「加總Total Revenue」 on another, depending on
+        /// the alias the LLM chose. It now always names the field, whatever the alias says.
+        /// </summary>
+        [Theory]
+        [InlineData("營收")]
+        [InlineData("Total Revenue")]
+        [InlineData(null)]
+        public void Interpretation_NamesFieldsNotAliases(string? alias)
+        {
+            var plan = new SummarizeRequestDto
+            {
+                ViewBy   = [new GroupFieldDto { Type = "Plain", FieldName = "Region", Alias = alias }],
+                Measures = [new MeasureFieldDto { FieldName = "Revenue", Aggregation = AggregationType.Sum, Alias = alias }],
+            };
+
+            Assert.Equal("依 Region 分組，加總 Revenue", NlPlanValidator.BuildInterpretation(plan));
+        }
+
+        /// <summary>
+        /// Reported: 「越南各產品類別的營收」 showed 「資料中找不到「Vietnam」（Country 欄位）…」 twice. The retry
+        /// filtered Vietnam again, so its own note said the same thing as the first pass's carried note.
+        /// </summary>
+        [Fact]
+        public void MergeRetryNotes_ColumnRejectedAgain_NotedOnce()
+        {
+            var first = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "Vietnam")], Real);
+            var retry = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "Vietnam")], Real);
+
+            var notes = NlPlanValidator.MergeRetryNotes(first.Rejected, first.Notes, retry.Filters, retry.Rejected, retry.Notes);
+
+            Assert.Equal(["資料中找不到「Vietnam」（Country 欄位），已忽略此篩選條件。"], notes);
+        }
+
+        [Fact]
+        public void MergeRetryNotes_RetryDropsTheFilter_KeepsFirstNote()
+        {
+            var first = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "Vietnam")], Real);
+
+            var notes = NlPlanValidator.MergeRetryNotes(first.Rejected, first.Notes, [], [], []);
+
+            Assert.Equal(first.Notes, notes);
+        }
+
+        [Fact]
+        public void MergeRetryNotes_RetryFixesTheValue_NoNote()
+        {
+            var first = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "United Kingdom")], Real);
+            var retry = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "UK")], Real);
+
+            var notes = NlPlanValidator.MergeRetryNotes(first.Rejected, first.Notes, retry.Filters, retry.Rejected, retry.Notes);
+
+            Assert.Empty(notes);
         }
     }
 }
