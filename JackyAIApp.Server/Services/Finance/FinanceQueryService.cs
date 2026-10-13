@@ -389,7 +389,7 @@ namespace JackyAIApp.Server.Services.Finance
         }
 
         /// <summary>
-        /// "今日市場AI摘要" — a unified daily digest grounding gpt-5-nano in three sources
+        /// "今日市場AI摘要" — a unified daily digest grounding gpt-6-luna in three sources
         /// (market overview + global news + TW major announcements) and synthesising a
         /// global/Taiwan two-section narrative. The generated digest is shared (cached per
         /// day), but each user is charged <see cref="UsageCosts.MarketDigest"/> once per day
@@ -430,7 +430,7 @@ namespace JackyAIApp.Server.Services.Finance
         }
 
         /// <summary>
-        /// Gathers the three grounding sources in parallel and calls gpt-5-nano to produce the
+        /// Gathers the three grounding sources in parallel and calls gpt-6-luna to produce the
         /// unified digest. Pure generation — no caching or usage-limit logic.
         /// </summary>
         private async Task<(MarketDigestResponse? digest, string? error)> GenerateMarketDigestAsync(CancellationToken cancellationToken)

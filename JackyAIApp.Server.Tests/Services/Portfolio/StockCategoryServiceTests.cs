@@ -54,7 +54,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Null(subCategory);
             _promptService.Verify(x => x.GetCompletionAsync<CategoryClassificationResult>(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()), Times.Never);
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()), Times.Never);
             Assert.Empty(await _dbContext.StockSymbolInfos.ToListAsync());
         }
 
@@ -67,7 +67,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Null(subCategory);
             _promptService.Verify(x => x.GetCompletionAsync<CategoryClassificationResult>(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()), Times.Never);
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()), Times.Never);
         }
 
         [Fact]
@@ -75,7 +75,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
                     It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
                 .ReturnsAsync((new CategoryClassificationResult
                 {
                     Category = nameof(PortfolioCategory.Semiconductor),
@@ -110,7 +110,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal("晶圓代工", subCategory);
             _promptService.Verify(x => x.GetCompletionAsync<CategoryClassificationResult>(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()), Times.Never);
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()), Times.Never);
         }
 
         [Fact]
@@ -118,7 +118,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
                     It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
                 .ReturnsAsync((new CategoryClassificationResult
                 {
                     Category = "TotallyMadeUpCategory",
@@ -135,7 +135,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
                     It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
                 .ReturnsAsync(((CategoryClassificationResult?)null, "OpenAI error"));
 
             var (category, subCategory, _) = await _service.GetCategoryAsync(AssetType.STOCK, "AAPL", "Apple", "US");
@@ -152,7 +152,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // classification out across every distinct held symbol via Task.WhenAll.
             _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
                     It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
                 .ReturnsAsync((new CategoryClassificationResult
                 {
                     Category = nameof(PortfolioCategory.TechSoftware),
@@ -192,9 +192,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             string? capturedGrounding = null;
             _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
                     It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
-                .Callback<string, string, string?, IEnumerable<(string, string)>?, string?, float?>(
-                    (_, userMessage, _, _, _, _) => capturedGrounding = userMessage)
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .Callback<string, string, string?, IEnumerable<(string, string)>?, string?>(
+                    (_, userMessage, _, _, _) => capturedGrounding = userMessage)
                 .ReturnsAsync((new CategoryClassificationResult
                 {
                     Category = nameof(PortfolioCategory.Semiconductor),
@@ -214,9 +214,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             string? capturedGrounding = null;
             _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
                     It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
-                .Callback<string, string, string?, IEnumerable<(string, string)>?, string?, float?>(
-                    (_, userMessage, _, _, _, _) => capturedGrounding = userMessage)
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .Callback<string, string, string?, IEnumerable<(string, string)>?, string?>(
+                    (_, userMessage, _, _, _) => capturedGrounding = userMessage)
                 .ReturnsAsync((new CategoryClassificationResult
                 {
                     Category = nameof(PortfolioCategory.Semiconductor),
@@ -234,7 +234,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
                     It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
                 .ReturnsAsync((new CategoryClassificationResult
                 {
                     Category = nameof(PortfolioCategory.TechSoftware),
@@ -268,7 +268,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal(["軟體", "雲端", "AI"], tags);
             _promptService.Verify(x => x.GetCompletionAsync<CategoryClassificationResult>(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()), Times.Never);
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()), Times.Never);
         }
 
         [Fact]
@@ -289,9 +289,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             string? capturedGrounding = null;
             _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
                     It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>(), It.IsAny<float?>()))
-                .Callback<string, string, string?, IEnumerable<(string, string)>?, string?, float?>(
-                    (_, userMessage, _, _, _, _) => capturedGrounding = userMessage)
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .Callback<string, string, string?, IEnumerable<(string, string)>?, string?>(
+                    (_, userMessage, _, _, _) => capturedGrounding = userMessage)
                 .ReturnsAsync((new CategoryClassificationResult
                 {
                     Category = nameof(PortfolioCategory.TechSoftware),

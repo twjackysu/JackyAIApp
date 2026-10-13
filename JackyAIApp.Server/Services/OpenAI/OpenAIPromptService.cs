@@ -59,8 +59,7 @@ namespace JackyAIApp.Server.Services.OpenAI
             string userMessage,
             string? model = null,
             IEnumerable<(string User, string Assistant)>? examples = null,
-            string? feature = null,
-            float? temperature = null) where T : class
+            string? feature = null) where T : class
         {
             var systemPrompt = await _promptLoader.GetPromptAsync(systemPromptPath);
             if (systemPrompt == null)
@@ -70,7 +69,7 @@ namespace JackyAIApp.Server.Services.OpenAI
             }
 
             return await GetCompletionWithSystemPromptAsync<T>(
-                systemPrompt, userMessage, model, examples, feature ?? FeatureFromPromptPath(systemPromptPath), temperature);
+                systemPrompt, userMessage, model, examples, feature ?? FeatureFromPromptPath(systemPromptPath));
         }
 
         public async Task<(T? Result, string? Error)> GetCompletionWithSystemPromptAsync<T>(
@@ -78,8 +77,7 @@ namespace JackyAIApp.Server.Services.OpenAI
             string userMessage,
             string? model = null,
             IEnumerable<(string User, string Assistant)>? examples = null,
-            string? feature = null,
-            float? temperature = null) where T : class
+            string? feature = null) where T : class
         {
             var messages = new List<ChatMessage> { ChatMessage.FromSystem(systemPrompt) };
 
@@ -96,7 +94,7 @@ namespace JackyAIApp.Server.Services.OpenAI
             messages.Add(ChatMessage.FromUser(userMessage));
 
             var messagesTuples = messages.Select(m => (m.Role?.ToString().ToLower() ?? "user", m.Content ?? "")).ToList();
-            return await GetCompletionWithMessagesAsync<T>(messagesTuples, model, feature, temperature);
+            return await GetCompletionWithMessagesAsync<T>(messagesTuples, model, feature);
         }
 
         // "gpt-5*" and "gpt-6*" are this app's reasoning-family models; reasoning_effort is rejected
@@ -108,15 +106,14 @@ namespace JackyAIApp.Server.Services.OpenAI
 
         // Every prompt file routed through here must mention the word "json" somewhere in its
         // system/user text — the API rejects response_format=json_object otherwise.
-        private const int DefaultMaxCompletionTokens = 4096;
+        private const int DefaultMaxCompletionTokens = 16384;
 
         public async Task<(T? Result, string? Error)> GetCompletionWithMessagesAsync<T>(
             IEnumerable<(string Role, string Content)> messages,
             string? model = null,
-            string? feature = null,
-            float? temperature = null) where T : class
+            string? feature = null) where T : class
         {
-            var resolvedModel = model ?? NewModels.GPT_5_NANO;
+            var resolvedModel = model ?? NewModels.GPT_6_LUNA;
             try
             {
                 var chatMessages = messages.Select(m => m.Role.ToLower() switch
@@ -134,16 +131,13 @@ namespace JackyAIApp.Server.Services.OpenAI
                     // format instructions — occasional prose/markdown-wrapped/truncated replies
                     // were the main cause of "OpenAI could not generate ..." failures.
                     ResponseFormat = new ResponseFormat { Type = ResponseFormatType.JsonObject },
-                    // Without a cap, a reasoning model can spend its whole budget on invisible
-                    // reasoning tokens and return empty content for a large structured response
-                    // (e.g. a multi-sense dictionary entry). 4096 comfortably covers every prompt
-                    // in this app.
+                    // Caps the OUTPUT only (reasoning tokens included) — the prompt itself can be
+                    // as long as the context window. It bounds a runaway reply (a model stuck
+                    // repeating itself would otherwise run to the model's 128K output limit and
+                    // outlive every HTTP timeout), with room to spare for the largest structured
+                    // responses (a multi-sense dictionary entry, a reading exam).
                     MaxCompletionTokens = DefaultMaxCompletionTokens,
                 };
-                if (temperature.HasValue)
-                {
-                    request.Temperature = temperature.Value;
-                }
                 if (IsReasoningModel(resolvedModel))
                 {
                     // These are extraction/formatting tasks, not tasks needing deep reasoning —

@@ -67,7 +67,7 @@ namespace JackyAIApp.Server.Services.Finance
             if (usage == null) return Task.CompletedTask;
             return _usageLogger.LogChatAsync(
                 "finance.stockcode_resolver",
-                NewModels.GPT_5_NANO,
+                NewModels.GPT_6_LUNA,
                 usage.PromptTokens,
                 usage.CompletionTokens ?? 0,
                 response.Successful,

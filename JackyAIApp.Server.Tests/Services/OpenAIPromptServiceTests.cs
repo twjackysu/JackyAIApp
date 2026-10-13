@@ -66,7 +66,7 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Equal("ok", result!.Value);
             Assert.NotNull(captured);
             Assert.Equal(ResponseFormatType.JsonObject, captured!.ResponseFormat!.Type);
-            Assert.Equal(4096, captured.MaxCompletionTokens);
+            Assert.Equal(16384, captured.MaxCompletionTokens);
             Assert.Equal(ReasoningEffortType.Low, captured.ReasoningEffort);
         }
 
@@ -90,7 +90,7 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Null(captured!.ReasoningEffort);
             // Still gets the reliability improvements that apply to every model.
             Assert.Equal(ResponseFormatType.JsonObject, captured.ResponseFormat!.Type);
-            Assert.Equal(4096, captured.MaxCompletionTokens);
+            Assert.Equal(16384, captured.MaxCompletionTokens);
         }
 
         [Fact]
@@ -110,7 +110,7 @@ namespace JackyAIApp.Server.Tests.Services
 
             Assert.NotNull(captured);
             Assert.Equal(ReasoningEffortType.Low, captured!.ReasoningEffort);
-            Assert.Equal(4096, captured.MaxCompletionTokens);
+            Assert.Equal(16384, captured.MaxCompletionTokens);
         }
 
         [Fact]
