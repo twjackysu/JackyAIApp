@@ -3134,3 +3134,27 @@
 - **Boss**：無需回覆。兩項非阻擋的小請求（手機看一眼 Exam 選單、貼一次 App Insights 頁面造訪數字）寫在 `boss/PM.md` 頂端。
 - **未動**：程式碼、`DECISIONS.md`、`boss/TECH_LEAD.md`、`ARCHITECTURE.md`、`tasks/*`。
 - **驗證限制**：沙箱連不到 `apps.jacky-studio.com`／Azure，以上全部是讀 git 與原始碼的結論，不是實機測試。
+
+
+## 2026-10-13（晚）— PM：補登 Boss 直接合併的 #450～#456（Data Analysis AI 提問、模型統一）（排程執行）
+
+- **狀態**：無 open PR；唯一 open issue 仍是 #409（Boss 無新留言）。距上一輪 PM（00:38 UTC）後，Boss 自己合併了 7 個 PR（#450～#456，皆繞過 task 流程），`.agent/` 沒有對應紀錄——需求文件與現況脫節，這輪補登。沒有 Boss 的新問題或指示。
+- **補登內容**：
+  - **DECISION-024**：所有聊天模型統一為 `gpt-6-luna`、輸出上限 16384（#455）。
+  - **DECISION-025**：Data Analysis 的 AI 提問「資料中找不到的條件不得默默忽略」（#456／#451），並記錄 Boss 已主動投入該功能——作廢 PM 稍早「無用量數據不投入」的假設（僅對此功能）。
+  - **REQUIREMENTS.md** 新增「Data Analysis — AI 自然語言提問」（MEDIUM、已出貨），並在 Portal 需求的 Audit 事實旁註記假設已更新。
+- **PM 讀碼確認的事實（未實機）**：`NlPlanValidator.cs:155` 有「已忽略此條件」提示；`NlDateRanges.cs` 預先算好相對日期；`SourcePanel.tsx`／測試處理 `__default__`；`POST summarize/nl` 為 `[Authorize]` 且扣 `UsageCosts.NlSummarize`（2），符合 DECISION-006／007。
+- **PM 看到的風險（區分事實與推論）**：
+  1. 事實：#455 PR 自述「尚未對真的 OpenAI API 實測」，風險最高的是股票名稱查代號與對話測驗開場；合併即部署。#456 的核心驗收（陷阱題每次都出提示）同樣未實測。這兩件 Boss 在 PR 內都已寫明，所以 **PM 不另發通知**，只在 `boss/PM.md` 與需求驗收條件中留底。
+  2. 推論：`UsageCosts` 權重沿用舊點數表，模型統一後各功能的實際成本比例可能變了；累積約一週用量資料後值得比對（已在 DECISION-024 提出，數字由 Tech Lead／Boss 定）。
+  3. 觀察：AI 提問的自我修正重跑會多一次 AI 呼叫而只扣一次用量（讀 `DataAnalysisController.cs`）——成本面小項，交 Tech Lead 判斷。
+  4. 不確定：沒有分組的問題（「總營收是多少」）在現行提示詞下會得到什麼，PM 不知道（提示詞規定 `viewBy` 至少一個），列為觀察項。
+- **PM 小假設**：A30——AI 提問與某個比賽或展示有關（#456 標題「比賽必修」）；不知道日期與評分標準，因此不排優先序、不加需求。Boss 可推翻。
+- **Tech Lead Actions**（我沒有直接指派 Engineer）：
+  (1) 事後審閱 #450～#456，並把 gpt-6-luna 與 NL pipeline 補進 `ARCHITECTURE.md`（目前沒有記載）；
+  (2) 確認 #455 部署後各 AI 路徑（股票代號解析、對話開場、考試出題批改、字典新單字）在正式環境正常——PM 沙箱連不到正式環境；
+  (3) 一週後比對各功能實際 AI 成本與 `UsageCosts` 權重，若落差大提出調整方案；
+  (4) 延續上一輪：確認 TASK-030～032 沒有新增 `[UsageLimit]`／AI 呼叫。
+- **Boss**：無需回覆。**不阻擋**的兩個小請求維持在 `boss/PM.md` 頂端，另加一則：#456 的陷阱題基準若跑完，結果（幾題出提示）貼給 PM 就能把驗收條件勾起來。
+- **未動**：程式碼、`boss/TECH_LEAD.md`、`ARCHITECTURE.md`、`tasks/*`。
+- **驗證限制**：沙箱連不到 `apps.jacky-studio.com`／OpenAI／Azure；以上只讀 git、PR 描述與原始碼，不是實機或對真 AI 的測試。
