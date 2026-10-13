@@ -70,7 +70,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             return ServiceResult.Ok(new { maxDate });
         }
 
-        public ServiceResult GetDistinctValues(string sessionId, string field)
+        public ServiceResult GetDistinctValues(string sessionId, string field, int limit = 200)
         {
             if (!TryGetSession(sessionId, out var session))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "Session not found or expired.");
@@ -80,7 +80,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 .Where(v => !string.IsNullOrWhiteSpace(v))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Order()
-                .Take(200)
+                .Take(limit)
                 .ToList();
 
             return ServiceResult.Ok(new { values });
