@@ -1,4 +1,7 @@
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -15,6 +18,7 @@ import { formatCellValue } from '../utils/formatters';
 
 import { FilterEditor } from './FilterEditor';
 
+import type { DetailsExportResult } from '../../apis/dataAnalysisApis/exportCsv';
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter } from '../types';
 
@@ -33,6 +37,11 @@ interface DetailsTabProps {
   onPageChange: (page: number) => void;
   sourceId?: string;
   tableName?: string;
+  /** Downloads every row matching the filters (not just this page) as CSV. */
+  onExport: () => void;
+  exporting: boolean;
+  exportResult: DetailsExportResult | null;
+  exportError: string | null;
 }
 
 export function DetailsTab({
@@ -48,12 +57,57 @@ export function DetailsTab({
   onPageChange,
   sourceId,
   tableName,
+  onExport,
+  exporting,
+  exportResult,
+  exportError,
 }: DetailsTabProps) {
+  const truncated = exportResult != null && exportResult.total > exportResult.exported;
+
   return (
     <>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        瀏覽數字背後的原始資料列。篩選條件會立即套用。
-      </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1,
+          flexWrap: 'wrap',
+          mb: 2,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          瀏覽數字背後的原始資料列。篩選條件會立即套用。
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {exportResult && !truncated && (
+            <Typography variant="caption" color="text.secondary">
+              已匯出 {fmtNum(exportResult.exported)} 筆
+            </Typography>
+          )}
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={exporting ? <CircularProgress size={16} /> : <FileDownloadOutlinedIcon />}
+            onClick={onExport}
+            disabled={exporting}
+          >
+            {exporting ? '匯出中…' : '匯出 CSV'}
+          </Button>
+        </Box>
+      </Box>
+
+      {exportError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          匯出失敗：{exportError}
+        </Alert>
+      )}
+      {truncated && exportResult && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          已匯出前 {fmtNum(exportResult.exported)} 筆，符合條件的共 {fmtNum(exportResult.total)}{' '}
+          筆，超過單次匯出上限。請加上篩選條件縮小範圍，分批匯出。
+        </Alert>
+      )}
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         <FilterEditor

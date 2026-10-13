@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { useDetailsMutation } from '../../apis/dataAnalysisApis';
+import { exportDetailsCsv, type DetailsExportResult } from '../../apis/dataAnalysisApis/exportCsv';
 import { ROWS_PER_PAGE } from '../constants';
 import { toFilterDtos } from '../utils/groupField';
 
@@ -23,25 +24,48 @@ export function useDetails({
 }: UseDetailsParams) {
   const [page, setPage] = useState(0);
   const [detailsFilters, setDetailsFilters] = useState<ActiveFilter[]>([]);
+  const [exporting, setExporting] = useState(false);
+  const [exportResult, setExportResult] = useState<DetailsExportResult | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const [details, { data: detailsData, isLoading: detailsLoading, error: detailsError }] =
     useDetailsMutation();
+
+  // What the table shows — the CSV export asks for the same rows, just not one page at a time.
+  const query = () => ({
+    sessionId,
+    context:
+      !sessionId && ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
+    orderBy: dateField ? [{ fieldName: dateField, descending: true }] : [],
+    filters: toFilterDtos(detailsFilters, []), // Details tab has no field transforms
+  });
 
   // Auto-load whenever the tab is active or any dependency changes. Only the page on screen is
   // fetched; the response's totalCount is the filtered total, not the page size.
   useEffect(() => {
     if (tab !== 2) return;
-    details({
-      sessionId,
-      context:
-        !sessionId && ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
-      orderBy: dateField ? [{ fieldName: dateField, descending: true }] : [],
-      skip: page * ROWS_PER_PAGE,
-      take: ROWS_PER_PAGE,
-      filters: toFilterDtos(detailsFilters, []), // Details tab has no field transforms
-    });
+    details({ ...query(), skip: page * ROWS_PER_PAGE, take: ROWS_PER_PAGE });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, page, detailsFilters, ctxSourceId, ctxTableName, dateField, sessionId]);
+
+  // A previous export's notice describes other rows once the source or filters change.
+  useEffect(() => {
+    setExportResult(null);
+    setExportError(null);
+  }, [detailsFilters, ctxSourceId, ctxTableName, sessionId]);
+
+  const exportCsv = async () => {
+    setExporting(true);
+    setExportResult(null);
+    setExportError(null);
+    try {
+      setExportResult(await exportDetailsCsv(query()));
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleDetailsFiltersChange = (newFilters: ActiveFilter[]) => {
     setDetailsFilters(newFilters);
@@ -72,6 +96,10 @@ export function useDetails({
     detailsRows,
     detailsHeaders,
     detailsTotalCount,
+    exportCsv,
+    exporting,
+    exportResult,
+    exportError,
     reset,
   };
 }

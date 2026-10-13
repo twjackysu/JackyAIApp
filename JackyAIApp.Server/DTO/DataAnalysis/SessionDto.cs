@@ -33,6 +33,13 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public required string CanonicalType { get; init; }   // matches ColumnDataType enum string values
     }
 
+    /// <summary>Rows of a session for CSV export, and how many matched before the export cap.</summary>
+    public sealed record SessionExport(
+        string Name,
+        IReadOnlyList<string> Headers,
+        IReadOnlyList<Dictionary<string, string>> Rows,
+        int TotalCount);
+
     // ── Internal cache entry ──────────────────────────────────────────────────
 
     internal sealed class SessionData

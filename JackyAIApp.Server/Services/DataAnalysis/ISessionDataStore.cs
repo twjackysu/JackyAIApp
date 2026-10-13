@@ -16,5 +16,11 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         ServiceResult GetDistinctValues(string sessionId, string field, int limit = 200);
         ServiceResult Summarize(string sessionId, SummarizeRequestDto dto);
         ServiceResult Details(string sessionId, DetailsRequestDto dto);
+
+        /// <summary>
+        /// Every row passing the request's filters, in its sort order, up to <paramref name="maxRows"/>
+        /// (Skip/Take are ignored). Data is a <see cref="SessionExport"/>.
+        /// </summary>
+        ServiceResult Export(string sessionId, DetailsRequestDto dto, int maxRows);
     }
 }
