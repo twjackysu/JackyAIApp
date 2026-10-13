@@ -19,6 +19,11 @@ import type { DataSourceConfigDto, SessionInfo } from '../../apis/dataAnalysisAp
 import { ActionTooltip } from '@/components/hints';
 import { fmtNum } from '@/utils/format';
 
+// The default source's menu value. Not '': MUI Select treats '' as "nothing selected" and shows
+// an empty field, so picking the default option used to leave 來源 looking blank. The parent
+// still receives '' for the default source (see onSourceChange).
+const DEFAULT_SOURCE_VALUE = '__default__';
+
 interface SourcePanelProps {
   isLoggedIn: boolean;
   sources: DataSourceConfigDto[];
@@ -87,11 +92,14 @@ export function SourcePanel({
           <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 260 } }}>
             <InputLabel>來源</InputLabel>
             <Select
-              value={activeSourceId ?? ''}
+              value={activeSourceId || DEFAULT_SOURCE_VALUE}
               label="來源"
-              onChange={(e) => onSourceChange(e.target.value as string)}
+              onChange={(e) => {
+                const value = e.target.value as string;
+                onSourceChange(value === DEFAULT_SOURCE_VALUE ? '' : value);
+              }}
             >
-              <MenuItem value="">
+              <MenuItem value={DEFAULT_SOURCE_VALUE}>
                 <em>預設 (JackyAI SQL / dbo.Orders)</em>
               </MenuItem>
               {sources.map((s) => (
