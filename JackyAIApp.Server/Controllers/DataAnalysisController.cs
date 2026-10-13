@@ -373,6 +373,7 @@ namespace JackyAIApp.Server.Controllers
                     Interpretation = NlPlanValidator.BuildInterpretation(planResult.Plan),
                     Rows           = sessionRows,
                     Notes          = planResult.Notes.Count > 0 ? planResult.Notes : null,
+                    Unmatched      = planResult.Unmatched.Count > 0 ? planResult.Unmatched : null,
                 });
             }
 
@@ -420,6 +421,7 @@ namespace JackyAIApp.Server.Controllers
                 Interpretation = NlPlanValidator.BuildInterpretation(plan),
                 Rows           = result.Value!.Rows.Select(r => (object)r.Data),
                 Notes          = enginePlanResult.Notes.Count > 0 ? enginePlanResult.Notes : null,
+                Unmatched      = enginePlanResult.Unmatched.Count > 0 ? enginePlanResult.Unmatched : null,
             });
         }
 
@@ -429,10 +431,11 @@ namespace JackyAIApp.Server.Controllers
         /// validate it against the data (one self-correcting retry when values had to be removed).
         /// Date columns' max value is fetched via <paramref name="maxDateFetcher"/> and injected so the
         /// LLM can resolve "latest / most recent" requests against the data's real date range.
-        /// Returns the validated plan plus any soft notes (e.g. a requested filter value that didn't
-        /// exist and was dropped), or an error code + friendly message on failure.
+        /// Returns the validated plan plus any soft notes (a requested filter value that didn't exist and
+        /// was dropped, or a condition the LLM reported it couldn't map onto the data) and those unmatched
+        /// conditions in the user's wording, or an error code + friendly message on failure.
         /// </summary>
-        private async Task<(SummarizeRequestDto? Plan, ErrorCodes? Error, string? ErrorMessage, List<string> Notes)> BuildNlPlanAsync(
+        private async Task<(SummarizeRequestDto? Plan, ErrorCodes? Error, string? ErrorMessage, List<string> Notes, List<string> Unmatched)> BuildNlPlanAsync(
             List<(string Name, string CanonicalType)> fields,
             string query,
             string summarizePrompt,
@@ -441,7 +444,7 @@ namespace JackyAIApp.Server.Controllers
             CancellationToken ct)
         {
             if (fields.Count == 0)
-                return (null, ErrorCodes.BadRequest, "No fields found in source.", []);
+                return (null, ErrorCodes.BadRequest, "No fields found in source.", [], []);
 
             var fieldList    = string.Join(", ", fields.Select(f => $"{f.Name}({f.CanonicalType})"));
             var fieldNames   = fields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -482,7 +485,7 @@ namespace JackyAIApp.Server.Controllers
                 valueBudget -= cv.Values.Count;
             }
             var lovBlock = lovLines.Count > 0
-                ? "\n\nACTUAL VALUES for filterable columns — when filtering on these columns you MUST use exactly these values (match the user's intent to the closest value — synonyms, translations and abbreviations included; if none matches, omit that filter):\n"
+                ? "\n\nACTUAL VALUES for filterable columns — when filtering on these columns you MUST use exactly these values (match the user's intent to the closest value — synonyms, translations and abbreviations included; if none matches, omit that filter AND put the user's wording in \"unmatched\"):\n"
                   + string.Join("\n", lovLines)
                 : "";
 
@@ -512,7 +515,7 @@ namespace JackyAIApp.Server.Controllers
 
             var result = await GeneratePlanAsync(query);
             if (result.Plan is null)
-                return (null, ErrorCodes.BadRequest, result.ErrorMessage, []);
+                return (null, ErrorCodes.BadRequest, result.ErrorMessage, [], []);
 
             // ── Self-correction: one retry when validation had to remove values ──
             // Tell the LLM exactly which values don't exist and what the real ones are. Costs an extra
@@ -538,37 +541,44 @@ namespace JackyAIApp.Server.Controllers
                 var feedback = string.Join("\n", feedbackLines);
                 var retryMessage = $"{query}\n\n[CORRECTION] Your previous plan filtered on values that do not exist in the data:\n{feedback}\n"
                     + "Replace each with the allowed value that matches the user's intent (synonym, translation or abbreviation); "
-                    + "if none matches, omit that filter. Return the complete corrected JSON plan.";
+                    + "if none matches, omit that filter and put the user's wording for it in \"unmatched\". "
+                    + "Return the complete corrected JSON plan.";
 
                 _logger.LogInformation("NlSummarize: retrying plan generation after rejected values → {fb}", feedback);
                 var retry = await GeneratePlanAsync(retryMessage);
                 if (retry.Plan is not null)
                     result = retry with
                     {
-                        Notes = NlPlanValidator.MergeRetryNotes(result.Rejected, result.Notes, retry.Plan.Filters, retry.Rejected, retry.Notes),
+                        Notes = NlPlanValidator.MergeRetryNotes(
+                            result.Rejected, result.Notes, retry.Plan.Filters, retry.Rejected, retry.Notes, retry.Unmatched),
                     };
             }
 
-            if (result.Notes.Count > 0)
-                _logger.LogInformation("NlSummarize: dropped filter values → {notes}", string.Join("; ", result.Notes));
+            var finalNotes = NlPlanValidator.ComposeNotes(result.Notes, result.Unmatched);
+            if (finalNotes.Count > 0)
+                _logger.LogInformation("NlSummarize: dropped conditions → {notes}", string.Join("; ", finalNotes));
 
-            return (result.Plan, null, null, result.Notes);
+            return (result.Plan, null, null, finalNotes, result.Unmatched);
 
             // Generates a plan and validates it: field names must exist (else no plan), and every
             // String-column filter value is checked against the real data. The LLM can still invent a
             // value (e.g. on a column too large for the prompt, or ignoring the list); this check
-            // removes it deterministically and notes it for the user.
-            async Task<(SummarizeRequestDto? Plan, string? ErrorMessage, List<string> Notes, List<(string FieldName, List<string> Values)> Rejected)>
+            // removes it deterministically and notes it for the user. A value the LLM saw had no match
+            // and left out instead comes back in its own "unmatched" list.
+            async Task<(SummarizeRequestDto? Plan, string? ErrorMessage, List<string> Notes, List<(string FieldName, List<string> Values)> Rejected, List<string> Unmatched)>
                 GeneratePlanAsync(string userMessage)
             {
-                var (plan, llmError) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<SummarizeRequestDto>(
+                var (nlPlan, llmError) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<NlPlanDto>(
                     phase2System, userMessage, NewModels.GPT_6_LUNA, feature: "dataanalysis.nl_summarize");
 
-                if (plan is null || plan.ViewBy.Count == 0 || plan.Measures.Count == 0)
+                if (nlPlan?.ViewBy is not { Count: > 0 } || nlPlan.Measures is not { Count: > 0 })
                 {
                     _logger.LogWarning("NlSummarize: empty plan. LLM error={e}", llmError);
-                    return (null, "AI could not interpret your query. Please try rephrasing.", [], []);
+                    return (null, "AI could not interpret your query. Please try rephrasing.", [], [], []);
                 }
+
+                var plan      = nlPlan.ToSummarizeRequest();
+                var unmatched = NlPlanValidator.CleanUnmatched(nlPlan.Unmatched);
 
                 // Validate field names against schema (block hallucinated field names)
                 var allFieldRefs = plan.ViewBy.Select(v => v.FieldName)
@@ -578,11 +588,11 @@ namespace JackyAIApp.Server.Controllers
                 if (unknownField is not null)
                 {
                     _logger.LogWarning("NlSummarize: LLM hallucinated field '{f}'", unknownField);
-                    return (null, "AI referenced an unknown field. Please try rephrasing.", [], []);
+                    return (null, "AI referenced an unknown field. Please try rephrasing.", [], [], []);
                 }
 
                 if (plan.Filters is not { Count: > 0 })
-                    return (plan, null, [], []);
+                    return (plan, null, [], [], unmatched);
 
                 // Fully listed columns are checked against their list. Any other String column (more values
                 // than PromptValueLimit, beyond MaxLovColumns, or unreadable up front) is checked by looking
@@ -606,7 +616,7 @@ namespace JackyAIApp.Server.Controllers
                 }
 
                 var (validFilters, notes, rejected) = NlPlanValidator.ValidateFilterValues(plan.Filters, verifiable);
-                return (plan with { Filters = validFilters }, null, notes, rejected);
+                return (plan with { Filters = validFilters }, null, notes, rejected, unmatched);
             }
 
             // Real values resembling the rejected ones, for a column too large to list: search by each

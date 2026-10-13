@@ -101,19 +101,26 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// already notes: dropping the filter there means "no real value matches", and without the note the
         /// user's condition would vanish without a word. A column the retry rejected again is already
         /// covered by the retry's note, so carrying the first one too would show the same message twice.
+        /// When the retry reports unmatched conditions, nothing is carried: the retry has said in its own
+        /// words what it left out (「越南」), which the first pass's 「Vietnam」 note would only repeat.
         /// </summary>
         /// <param name="firstRejected">The first pass's rejected values; <paramref name="firstNotes"/>[i] describes [i].</param>
         /// <param name="firstNotes">The first pass's notes.</param>
         /// <param name="retryFilters">The retry plan's filters, after validation.</param>
         /// <param name="retryRejected">The retry's rejected values.</param>
         /// <param name="retryNotes">The retry's notes.</param>
+        /// <param name="retryUnmatched">The conditions the retry reported it could not map onto the data.</param>
         public static List<string> MergeRetryNotes(
             IReadOnlyList<(string FieldName, List<string> Values)> firstRejected,
             IReadOnlyList<string> firstNotes,
             IReadOnlyList<FilterDimensionDto>? retryFilters,
             IReadOnlyList<(string FieldName, List<string> Values)> retryRejected,
-            IReadOnlyList<string> retryNotes)
+            IReadOnlyList<string> retryNotes,
+            IReadOnlyList<string> retryUnmatched)
         {
+            if (retryUnmatched.Count > 0)
+                return [.. retryNotes];
+
             var covered = (retryFilters ?? []).Select(f => f.FieldName)
                 .Concat(retryRejected.Select(r => r.FieldName))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -122,6 +129,32 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 .Select(p => p.Second);
             return [.. carried, .. retryNotes];
         }
+
+        /// <summary>Upper bound on reported unmatched conditions — a question names only a few.</summary>
+        private const int MaxUnmatched = 5;
+
+        /// <summary>
+        /// The LLM's <c>unmatched</c> list, cleaned: trimmed, blanks and repeats removed, bounded.
+        /// </summary>
+        public static List<string> CleanUnmatched(IEnumerable<string?>? unmatched) =>
+            (unmatched ?? [])
+                .Select(u => u?.Trim())
+                .Where(u => !string.IsNullOrEmpty(u))
+                .Select(u => u!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxUnmatched)
+                .ToList();
+
+        /// <summary>
+        /// The final notes: the validator's (dropped invented values) followed by one per unmatched
+        /// condition, with any exact repeat removed. The unmatched note says the result lacks that one
+        /// condition rather than that it is unfiltered: other conditions (a date range…) may still apply.
+        /// </summary>
+        public static List<string> ComposeNotes(IEnumerable<string> validatorNotes, IEnumerable<string> unmatched) =>
+            validatorNotes
+                .Concat(unmatched.Select(u => $"資料中找不到符合「{u}」的值，已忽略此條件，以下結果未套用此篩選。"))
+                .Distinct()
+                .ToList();
 
         /// <summary>Ops whose values must equal (or be contained in) a real column value; ranges are excluded.</summary>
         /// <remarks>MapFilter treats null / unrecognised ops as "In", so those are validated too.</remarks>

@@ -177,7 +177,7 @@ namespace JackyAIApp.Server.Tests.Services
             var first = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "Vietnam")], Real);
             var retry = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "Vietnam")], Real);
 
-            var notes = NlPlanValidator.MergeRetryNotes(first.Rejected, first.Notes, retry.Filters, retry.Rejected, retry.Notes);
+            var notes = NlPlanValidator.MergeRetryNotes(first.Rejected, first.Notes, retry.Filters, retry.Rejected, retry.Notes, []);
 
             Assert.Equal(["資料中找不到「Vietnam」（Country 欄位），已忽略此篩選條件。"], notes);
         }
@@ -187,7 +187,7 @@ namespace JackyAIApp.Server.Tests.Services
         {
             var first = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "Vietnam")], Real);
 
-            var notes = NlPlanValidator.MergeRetryNotes(first.Rejected, first.Notes, [], [], []);
+            var notes = NlPlanValidator.MergeRetryNotes(first.Rejected, first.Notes, [], [], [], []);
 
             Assert.Equal(first.Notes, notes);
         }
@@ -198,9 +198,88 @@ namespace JackyAIApp.Server.Tests.Services
             var first = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "United Kingdom")], Real);
             var retry = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "UK")], Real);
 
-            var notes = NlPlanValidator.MergeRetryNotes(first.Rejected, first.Notes, retry.Filters, retry.Rejected, retry.Notes);
+            var notes = NlPlanValidator.MergeRetryNotes(first.Rejected, first.Notes, retry.Filters, retry.Rejected, retry.Notes, []);
 
             Assert.Empty(notes);
+        }
+
+        /// <summary>
+        /// First pass invents "Vietnam" (rejected, noted); the retry leaves it out and reports 「越南」.
+        /// The carried 「Vietnam」 note would only say the same thing again in other words.
+        /// </summary>
+        [Fact]
+        public void MergeRetryNotes_RetryReportsUnmatched_CarriesNothing()
+        {
+            var first = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "Vietnam")], Real);
+
+            var notes = NlPlanValidator.MergeRetryNotes(first.Rejected, first.Notes, [], [], [], ["越南"]);
+
+            Assert.Empty(notes);
+        }
+
+        [Fact]
+        public void CleanUnmatched_TrimsDropsBlanksAndRepeats()
+        {
+            Assert.Equal(["越南", "PayPal"], NlPlanValidator.CleanUnmatched([" 越南 ", "", null, "PayPal", "paypal", "越南", "  "]));
+            Assert.Empty(NlPlanValidator.CleanUnmatched(null));
+        }
+
+        /// <summary>
+        /// Reported (Bug 4): the model saw Vietnam wasn't in the list and simply left the filter out, so the
+        /// user got every country's revenue with no word. Each reported condition now becomes a note.
+        /// </summary>
+        [Fact]
+        public void ComposeNotes_UnmatchedBecomesNote_AfterValidatorNotes()
+        {
+            var notes = NlPlanValidator.ComposeNotes(["資料中找不到「Narnia」（Country 欄位），已忽略此篩選條件。"], ["越南"]);
+
+            Assert.Equal(
+                ["資料中找不到「Narnia」（Country 欄位），已忽略此篩選條件。",
+                 "資料中找不到符合「越南」的值，已忽略此條件，以下結果未套用此篩選。"],
+                notes);
+        }
+
+        [Fact]
+        public void ComposeNotes_NothingDropped_NoNotes()
+        {
+            Assert.Empty(NlPlanValidator.ComposeNotes([], []));
+        }
+
+        [Fact]
+        public void ComposeNotes_ExactRepeat_ShownOnce()
+        {
+            Assert.Single(NlPlanValidator.ComposeNotes([], ["越南", "越南"]));
+        }
+
+        /// <summary>
+        /// "unmatched" only feeds the note: the plan that runs, comes back to the client and is saved to a
+        /// dashboard never carries it.
+        /// </summary>
+        [Fact]
+        public void NlPlan_FromLlmJson_UnmatchedStaysOutOfTheExecutedPlan()
+        {
+            const string json = """
+                {"viewBy":[{"type":"Plain","fieldName":"ProductCategory"}],
+                 "measures":[{"fieldName":"Revenue","aggregation":"Sum"}],
+                 "filters":[],"unmatched":["越南"]}
+                """;
+
+            var nlPlan = Newtonsoft.Json.JsonConvert.DeserializeObject<NlPlanDto>(json)!;
+            var plan   = nlPlan.ToSummarizeRequest();
+
+            Assert.Equal(["越南"], nlPlan.Unmatched);
+            Assert.Equal("ProductCategory", Assert.Single(plan.ViewBy).FieldName);
+            Assert.DoesNotContain("unmatched", Newtonsoft.Json.JsonConvert.SerializeObject(plan), StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void NlPlan_FromLlmJson_WithoutUnmatched_IsNull()
+        {
+            var nlPlan = Newtonsoft.Json.JsonConvert.DeserializeObject<NlPlanDto>(
+                """{"viewBy":[{"type":"Plain","fieldName":"Region"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum"}]}""")!;
+
+            Assert.Null(nlPlan.Unmatched);
+            Assert.Empty(NlPlanValidator.CleanUnmatched(nlPlan.Unmatched));
         }
     }
 }

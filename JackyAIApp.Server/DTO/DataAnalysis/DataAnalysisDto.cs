@@ -145,6 +145,27 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public required string  Query     { get; init; }
     }
 
+    /// <summary>
+    /// The plan as the LLM writes it: a <see cref="SummarizeRequestDto"/> plus the conditions it could
+    /// not map onto the data. Kept apart so <see cref="Unmatched"/> never reaches an executed or saved
+    /// plan — it only becomes a note for the user.
+    /// </summary>
+    public sealed record NlPlanDto
+    {
+        public required List<GroupFieldDto>   ViewBy    { get; init; }
+        public required List<MeasureFieldDto> Measures  { get; init; }
+        public List<FilterDimensionDto>?      Filters   { get; init; }
+        /// <summary>
+        /// The user's own wording for each filter condition no real value matches (e.g. 「越南」 when
+        /// Country holds no Vietnam). Without it the LLM drops such a condition silently and the
+        /// unfiltered result reads like the answer.
+        /// </summary>
+        public List<string>?                  Unmatched { get; init; }
+
+        public SummarizeRequestDto ToSummarizeRequest() =>
+            new() { ViewBy = ViewBy, Measures = Measures, Filters = Filters };
+    }
+
     /// <summary>Response from the natural-language summarize endpoint.</summary>
     public sealed record NlSummarizeResponseDto
     {
@@ -159,5 +180,10 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         /// data and was therefore ignored. Empty/null when the plan matched the question cleanly.
         /// </summary>
         public List<string>?                 Notes          { get; init; }
+        /// <summary>
+        /// The user's wording for each condition the AI could not map onto the data and therefore left
+        /// out of the plan (each also has a note). Null when every condition was applied.
+        /// </summary>
+        public List<string>?                 Unmatched      { get; init; }
     }
 }

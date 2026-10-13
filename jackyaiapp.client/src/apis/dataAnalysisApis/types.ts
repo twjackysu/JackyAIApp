@@ -228,4 +228,6 @@ export interface NlSummarizeResult {
   rows: Record<string, unknown>[];
   /** Soft caveats, e.g. a requested filter value that didn't exist and was ignored. */
   notes?: string[];
+  /** The user's wording for conditions the AI couldn't map onto the data (each also has a note). */
+  unmatched?: string[];
 }
