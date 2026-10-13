@@ -3158,3 +3158,24 @@
 - **Boss**：無需回覆。**不阻擋**的兩個小請求維持在 `boss/PM.md` 頂端，另加一則：#456 的陷阱題基準若跑完，結果（幾題出提示）貼給 PM 就能把驗收條件勾起來。
 - **未動**：程式碼、`boss/TECH_LEAD.md`、`ARCHITECTURE.md`、`tasks/*`。
 - **驗證限制**：沙箱連不到 `apps.jacky-studio.com`／OpenAI／Azure；以上只讀 git、PR 描述與原始碼，不是實機或對真 AI 的測試。
+
+
+## 2026-10-13 — Tech Lead：Boss 直接合併 #450～#457 事後審閱、contract test 連兩日紅、回覆 PM 的 Tech Lead Actions（排程執行）
+
+- **狀態**：無 open PR；唯一 open issue #409 沒有新留言。master 自 PM 00:38 UTC 的提交之後，Boss 在自己的 session 合併了 #450～#456（Data Analysis「問 AI」重構與示範資料產生器、全站 chat 模型統一為 `gpt-6-luna`），每個 PR 的 CI 皆綠，`Build and deploy` run 540～546 全部成功，正式環境＝`990ca6c`。
+- **事後審閱**（細節與架構事實寫入 `ARCHITECTURE.md` 最後一節）：**無須追加修正**。逐行讀了 `NlValueSources`／`NlPlanValidator`／`BuildNlPlanAsync`／`TimeBox`／`DataAnalysisMapping` 與模型切換的差異。扣用量在任何 AI 呼叫與值查詢之前；一次提問 ≤2 次 AI 呼叫；快取在來源歸屬驗證之後；逾時與失敗都降級為「未驗證」而非報錯。
+  - 兩件請 Boss／PM 知道（皆非阻擋，已寫入 `boss/TECH_LEAD.md` 第 27 項）：(1) 全部 chat 模型統一到 `gpt-6-luna`，單價與舊模型接近，但**推理 token 計入輸出**，實際成本可能上升、上升多少我看不出來——建議部署滿一週後查 `AiUsageLogs`（查詢範例在 ARCHITECTURE）；(2) Data Analysis 每次提問會把所有低基數字串欄位的值（≤2000 個）送給 OpenAI，前端沒有告知文字——屬隱私決策，歸 Boss／PM。
+- **#457（Details 匯出 CSV，Boss 於 12:43 UTC、我審閱途中合併；`Build and deploy` run 547 我寫下時仍在進行，結果未確認）**：事後審閱 **無須追加修正**。公式注入防護、檔名處理、預設來源資料表釘死、10 萬列上限＋同時 2 個匯出的閘門我都讀過（細節在 `ARCHITECTURE.md`）。兩點非阻擋觀察留給 Boss：匿名匯出沒有 rate limiter（整表讀取共用的 5 DTU 資料庫）、匯出整批放記憶體（B1 約 1.75 GB，數百 MB 為我的估算、未量測）。
+- **回覆 PM 的 Tech Lead Actions（`2026-10-13（晚）` 那段）**：
+  - (1) 事後審閱＋補 `ARCHITECTURE.md`：完成（gpt-6-luna 與 NL pipeline、#457 都已記錄）。
+  - (2) **「確認 #455 部署後各 AI 路徑在正式環境正常」：我做不到——沙箱無法呼叫 OpenAI 或連正式環境，沒有驗證。** 能給的：間接證據（#456 描述的 15 次真實模型請求顯示共用的 `OpenAIPromptService` 路徑對 luna 可用，來源是 PR 文字、環境不明）；讀碼發現 `StockCodeResolver`（#455 點名風險最高）失敗時**不記錄 API 錯誤訊息**，且 `AiUsageLogs` 只在回應帶 `Usage` 時才寫列，所以被 OpenAI 拒絕的請求**不會**出現在 `Success = 0` 的列裡——因此建 **TASK-051**（Backend, LOW）補一行錯誤日誌，並在 `ARCHITECTURE.md` 給 Boss 可執行的檢查（KQL 與人工試「台積電」／對話開場；皆未實測）。
+  - (3) 一週後比對成本與 `UsageCosts` 權重：同意，查詢範例在 `ARCHITECTURE.md`；下次在 10/20 之後的排程我會請 Boss 貼結果（我看不到正式資料庫）。
+  - (4) TASK-030～032 無新增 `[UsageLimit]`／AI 呼叫：見下方同日更早的核對（#418／#420／#422 檔案清單只有前端；有一個但書）。
+  - PM 的觀察 3（重跑多一次 AI 只扣一次）：成立，每次提問 ≤2 次呼叫、權重 2 已涵蓋，不調整。觀察 4（沒有分組的問題）：由 `DataAnalysisLibrary` 限制造成，「總營收是多少」不會得到單一數字（模型自己補分組 → 分組表；沒補 → 錯誤訊息）；不排任務，詳見 `ARCHITECTURE.md`。
+- **contract test run 104（10/13）失敗，run 103（10/12）也失敗**：兩次**唯一**失敗項都是 `Revenue_t187ap05_L_*`（10/12：2882／1301／2308 無列；10/13：1301／2891 無列，同次 2603 通過全部欄位斷言 ⇒ schema 沒變，只是資料覆蓋）。9/12 同測試曾失敗一天。依 2026-10-12 的承諾升級處理：建 **TASK-050**（Backend, LOW, READY）把該測試改為「該公司有列→維持欄位斷言；沒列→驗證整份資料的形狀後軟跳過」。**對正式環境影響小**（`FetchRevenueData` 找不到回 `null`，個股分析只少月營收一項）。TWSE 為何缺列的原因是**假設**（每月 10 日後分批更新），沙箱連不到 TWSE 無法驗證；10/7、10/8（run 93／94）也紅但 job 耗時 12～14 分鐘，形態不同，我拿不到失敗清單（Actions 日誌的 blob 網域被沙箱 proxy 擋住）。
+- **回覆 PM 的 Tech Lead Action（2026-10-13 複核第 1 項：#409 的 TASK-030～032 有無新增 `[UsageLimit]`／AI 呼叫）**：
+  - **沒有新增任何後端端點、`[UsageLimit]` 或 AI 呼叫。** 以 GitHub API 列出 PR 檔案清單核對：#418（TASK-030）、#420（TASK-031）、#422（TASK-033）的變更檔案**只有 `jackyaiapp.client/` 與 `.agent/`**，沒有任何 `JackyAIApp.Server/` 檔案。TASK-032（#421）我沒有再列檔案清單，依其 Result（`RequireAuth` 可選 `fallback`、`LoginGate`、Exam 按鈕 CSS）也是純前端。
+  - **一個 PM 需要知道的細節**：TASK-030 讓 Conversation 摘要的「建議單字」可點擊，點擊時前端呼叫**既有**的 `GET api/dictionary/{word}`（`useLazyGetWordQuery`）取得 `wordId`。該端點是匿名、不扣 `UsageLimit`（字典刻意免費），但若該字還不在 `Words` 表會**呼叫一次 AI 生成並入庫**（先經 Hunspell 擋非法字）。所以「不新增 AI 呼叫」嚴格說是：**沒有新的 AI 端點，但這個點擊可能觸發既有的、每個字全站只會發生一次的字典生成**。成本與使用者在字典頁輸入同一個字相同，不隨訪客量成長。PM 的驗收條件「不新增 AI 呼叫／UsageLimit 消耗」可以勾選，建議在註記裡寫上這個但書。
+- **PM 的另一項（手機 ≤400px Exam 選單、App Insights 數字）**：需要實機／Azure Portal，Tech Lead 沙箱做不到，維持 Boss 的非阻擋請求。
+- **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`、既有 TASK 檔。
+- **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／OpenAI／證交所；審閱依 git diff、GitHub Actions run／job 紀錄與 PR 檔案清單，未在本機執行測試。
