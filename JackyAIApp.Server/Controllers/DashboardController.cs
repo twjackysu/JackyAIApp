@@ -304,7 +304,7 @@ namespace JackyAIApp.Server.Controllers
                     Measures = plan.Measures
                         .Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias)))
                         .ToList(),
-                    Filters = plan.Filters?.Select(MapFilter).ToList() ?? [],
+                    Filters = MapFilters(plan.Filters),
                 }, ct);
 
                 return result.IsSuccess

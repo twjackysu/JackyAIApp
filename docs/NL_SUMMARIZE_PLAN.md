@@ -44,11 +44,17 @@
 1. **Phase 1 LLM**（`NlFilterPlanSystem.txt` → `NlFilterPlanDto`）：給 schema + query，
    回「要 filter 哪幾個 **String** 欄位」。規則：只挑字串欄、number/datetime 不挑（之後用 range/transform）、
    純 group-by 的欄不挑。
-2. **後端抓 LoV**：只對 Phase 1 回的欄位查 distinct values（engine 走 `SummarizeAsync` Count；
-   session 走 `GetDistinctValues`），每欄注入最多 100 個值。
+2. **後端抓 LoV**：所有**低基數**字串欄（≤ 50 個不重複值，最多 30 欄）一律注入，再加上 Phase 1 挑中的
+   高基數欄（engine 走 `SummarizeAsync` Count，快取 5 分鐘；session 走 `GetDistinctValues`），每欄最多 100 個值。
+   （2026-10：原本只注入 Phase 1 挑的欄，Phase 1 常漏選同義詞所屬的欄 —「拉丁美洲」→ Region —
+   Phase 2 只好自己猜 "Latin America"。）
 3. **Phase 2 LLM**（`NlSummarizeSystem.txt` → `SummarizeRequestDto`）：給 schema + 真實值清單 + today，
    產最終 plan。prompt 規定 filter 值**必須**從真實清單複製，配不到就略過該 filter。
-4. 驗證欄位名 → 執行 → 回 `{ plan, interpretation, rows }`。
+4. 驗證欄位名 → **驗證篩選值**（`NlPlanValidator.ValidateFilterValues`：不存在的值移除並附中文提示）
+   → 有值被移除時，帶著「哪些值不存在、可選值有哪些」**重跑 Phase 2 一次** → 執行 → 回
+   `{ plan, interpretation, rows, notes }`。
+5. 日期 Between 的結束值若只有日期，執行時會改成「起日 ≤ x < 結束日+1」
+   （`DataAnalysisMapping.ExpandDateOnlyRangeEnds`），讓有時間的欄位包含結束日整天。
 
 共用 helper `BuildNlPlanAsync(fields, query, prompts, distinctFetcher, ct)` 兩條路（engine / session）共用，
 engine 只 `TryResolveAsync` 一次（schema + LoV + execute 共用同個 ctx，custom source 不重複建連線）。

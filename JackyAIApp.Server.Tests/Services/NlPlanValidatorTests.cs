@@ -28,9 +28,12 @@ namespace JackyAIApp.Server.Tests.Services
         [Fact]
         public void InventedValue_FilterIsDroppedWithChineseNote()
         {
-            var (filters, notes) = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "Taiwan")], Real);
+            var (filters, notes, rejected) = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "Taiwan")], Real);
 
             Assert.Empty(filters);
+            var (field, values) = Assert.Single(rejected);
+            Assert.Equal("Country", field);
+            Assert.Equal(["Taiwan"], values);
             var note = Assert.Single(notes);
             Assert.Equal("資料中找不到「Taiwan」（Country 欄位），已忽略此篩選條件。", note);
         }
@@ -38,7 +41,7 @@ namespace JackyAIApp.Server.Tests.Services
         [Fact]
         public void RealValue_IsKeptWithoutNote()
         {
-            var (filters, notes) = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "USA")], Real);
+            var (filters, notes, _) = NlPlanValidator.ValidateFilterValues([Filter("Country", "In", "USA")], Real);
 
             Assert.Equal(["USA"], Assert.Single(filters).Values);
             Assert.Empty(notes);
@@ -47,7 +50,7 @@ namespace JackyAIApp.Server.Tests.Services
         [Fact]
         public void CaseMismatch_IsRewrittenToCanonicalSpelling()
         {
-            var (filters, notes) = NlPlanValidator.ValidateFilterValues([Filter("Country", null, "usa", "JAPAN")], Real);
+            var (filters, notes, _) = NlPlanValidator.ValidateFilterValues([Filter("Country", null, "usa", "JAPAN")], Real);
 
             Assert.Equal(["USA", "Japan"], Assert.Single(filters).Values);
             Assert.Empty(notes);
@@ -56,7 +59,7 @@ namespace JackyAIApp.Server.Tests.Services
         [Fact]
         public void PartiallyInvented_KeepsRealValuesAndNotesTheRest()
         {
-            var (filters, notes) = NlPlanValidator.ValidateFilterValues(
+            var (filters, notes, _) = NlPlanValidator.ValidateFilterValues(
                 [Filter("Country", "In", "USA", "Taiwan", "Korea")], Real);
 
             Assert.Equal(["USA"], Assert.Single(filters).Values);
@@ -67,7 +70,7 @@ namespace JackyAIApp.Server.Tests.Services
         public void ColumnWithoutKnownValues_IsLeftUnvalidated()
         {
             // Not in the dictionary: a non-String column, or a value list that couldn't be fetched completely.
-            var (filters, notes) = NlPlanValidator.ValidateFilterValues([Filter("Region", "In", "Atlantis")], Real);
+            var (filters, notes, _) = NlPlanValidator.ValidateFilterValues([Filter("Region", "In", "Atlantis")], Real);
 
             Assert.Equal(["Atlantis"], Assert.Single(filters).Values);
             Assert.Empty(notes);
@@ -79,7 +82,7 @@ namespace JackyAIApp.Server.Tests.Services
         [InlineData("Between")]
         public void RangeOps_AreNotValueChecked(string op)
         {
-            var (filters, notes) = NlPlanValidator.ValidateFilterValues([Filter("Country", op, "M")], Real);
+            var (filters, notes, _) = NlPlanValidator.ValidateFilterValues([Filter("Country", op, "M")], Real);
 
             Assert.Single(filters);
             Assert.Empty(notes);
@@ -88,7 +91,7 @@ namespace JackyAIApp.Server.Tests.Services
         [Fact]
         public void Contains_KeepsSubstringOfARealValue()
         {
-            var (filters, notes) = NlPlanValidator.ValidateFilterValues(
+            var (filters, notes, _) = NlPlanValidator.ValidateFilterValues(
                 [Filter("Country", "Contains", "aus", "zzz")], Real);
 
             Assert.Equal(["aus"], Assert.Single(filters).Values);
@@ -98,7 +101,7 @@ namespace JackyAIApp.Server.Tests.Services
         [Fact]
         public void OnlyTheInventedFilterIsDropped_OthersSurvive()
         {
-            var (filters, notes) = NlPlanValidator.ValidateFilterValues(
+            var (filters, notes, _) = NlPlanValidator.ValidateFilterValues(
                 [Filter("Country", "In", "Taiwan"), Filter("CustomerSegment", "Equals", "enterprise")], Real);
 
             var kept = Assert.Single(filters);

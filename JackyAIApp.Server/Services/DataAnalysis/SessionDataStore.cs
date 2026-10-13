@@ -93,8 +93,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis
 
             var schemaLookup = session!.Schema.ToDictionary(s => s.Name, s => s.CanonicalType, StringComparer.OrdinalIgnoreCase);
 
-            var filtered = session.Rows.Where(row =>
-                (dto.Filters ?? []).All(f => MatchesFilter(row, f))).ToList();
+            var filters  = DataAnalysisMapping.ExpandDateOnlyRangeEnds(dto.Filters);
+            var filtered = session.Rows.Where(row => filters.All(f => MatchesFilter(row, f))).ToList();
 
             IEnumerable<IGrouping<string, Dictionary<string, string>>> groups;
             if (dto.ViewBy.Count == 0)
@@ -141,8 +141,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             if (!TryGetSession(sessionId, out var session))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "Session not found or expired.");
 
+            var filters  = DataAnalysisMapping.ExpandDateOnlyRangeEnds(dto.Filters);
             var filtered = session!.Rows
-                .Where(row => (dto.Filters ?? []).All(f => MatchesFilter(row, f)))
+                .Where(row => filters.All(f => MatchesFilter(row, f)))
                 .ToList();
 
             var schemaLookup = session.Schema.ToDictionary(s => s.Name, s => s.CanonicalType, StringComparer.OrdinalIgnoreCase);
