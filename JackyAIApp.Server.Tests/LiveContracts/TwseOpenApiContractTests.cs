@@ -73,8 +73,22 @@ namespace JackyAIApp.Server.Tests.LiveContracts
             if (await FetchArrayAsync("opendata/t187ap05_L") is not { } data) return;
             var stock = data.EnumerateArray().FirstOrDefault(r =>
                 r.TryGetProperty("公司代號", out var c) && c.GetString()?.Trim() == symbol);
-            Assert.True(stock.ValueKind != JsonValueKind.Undefined,
-                $"[t187ap05_L/{symbol}] no row with 公司代號=='{symbol}' — TWSEFundamentalDataProvider.FetchRevenueData filters on this field.");
+
+            // TWSE publishes this dataset in batches around the monthly filing deadline, so a given
+            // company can legitimately have no row for a few days. That is data coverage, not the
+            // contract — TWSEFundamentalDataProvider.FetchRevenueData returns null for it and the
+            // analysis just omits monthly revenue. Fall back to asserting the shape of the whole
+            // dataset so a renamed field still fails the test.
+            if (stock.ValueKind == JsonValueKind.Undefined)
+            {
+                var rowCount = data.GetArrayLength();
+                Assert.True(rowCount >= 100,
+                    $"[t187ap05_L/{symbol}] no row for '{symbol}' and the dataset has only {rowCount} rows (expected >= 100) — dataset shape changed.");
+                Assert.True(data.EnumerateArray().Any(HasUsableMonthlyRevenueRow),
+                    $"[t187ap05_L/{symbol}] no row for '{symbol}' and none of the {rowCount} rows has the expected fields " +
+                    "(公司代號, 營業收入-當月營收 > 0, 資料年月, 營業收入-去年同月增減(%), 營業收入-上月比較增減(%)) — dataset shape changed.");
+                return;
+            }
 
             Assert.True(stock.TryGetProperty("營業收入-當月營收", out var rev) &&
                 decimal.TryParse(rev.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var revVal) && revVal > 0,
@@ -86,6 +100,15 @@ namespace JackyAIApp.Server.Tests.LiveContracts
             Assert.True(stock.TryGetProperty("營業收入-上月比較增減(%)", out _),
                 $"[t187ap05_L/{symbol}] '營業收入-上月比較增減(%)' field missing.");
         }
+
+        private static bool HasUsableMonthlyRevenueRow(JsonElement row) =>
+            row.ValueKind == JsonValueKind.Object &&
+            row.TryGetProperty("公司代號", out _) &&
+            row.TryGetProperty("營業收入-當月營收", out var rev) && rev.ValueKind == JsonValueKind.String &&
+            decimal.TryParse(rev.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var revVal) && revVal > 0 &&
+            row.TryGetProperty("資料年月", out var month) && month.ValueKind == JsonValueKind.String && !string.IsNullOrEmpty(month.GetString()) &&
+            row.TryGetProperty("營業收入-去年同月增減(%)", out _) &&
+            row.TryGetProperty("營業收入-上月比較增減(%)", out _);
 
         [Theory]
         [MemberData(nameof(TodaysTwCompanyPicks))]
