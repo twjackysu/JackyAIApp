@@ -24,10 +24,10 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
     <PackageReference Include="Betalgo.Ranul.OpenAI" Version="9.2.6" />
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
-    <PackageReference Include="DataAnalysisLibrary.Core" Version="1.0.0" />
-    <PackageReference Include="DataAnalysisLibrary.Connectors.MsSql" Version="1.0.0" />
-    <PackageReference Include="DataAnalysisLibrary.Connectors.Adx" Version="1.0.0" />
-    <PackageReference Include="DataAnalysisLibrary.Connectors.PostgreSql" Version="1.0.0" />
+    <PackageReference Include="DataAnalysisLibrary.Core" Version="1.2.0" />
+    <PackageReference Include="DataAnalysisLibrary.Connectors.MsSql" Version="1.2.0" />
+    <PackageReference Include="DataAnalysisLibrary.Connectors.Adx" Version="1.2.0" />
+    <PackageReference Include="DataAnalysisLibrary.Connectors.PostgreSql" Version="1.2.0" />
     <PackageReference Include="DotnetSdkUtilities" Version="1.0.6" />
     <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="itext" Version="9.6.0" />

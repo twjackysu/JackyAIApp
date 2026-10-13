@@ -239,7 +239,8 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
-        /// Returns up to 200 distinct values for a given column (used for filter LoV picker).
+        /// Returns up to 200 distinct values for a given column (used for filter LoV picker), in the
+        /// column's natural order.
         /// </summary>
         [HttpGet("distinctvalues")]
         public async Task<IActionResult> GetDistinctValues(
@@ -254,7 +255,17 @@ namespace JackyAIApp.Server.Controllers
             using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
-            var values = await FetchEngineDistinctValuesAsync(ctx, field, ct);
+            var result = await ctx.Engine.DistinctValuesAsync(new DistinctValuesRequest
+            {
+                SourceKey = ctx.SourceKey, TableName = ctx.TableName, FieldNames = [field], Limit = 200,
+            }, ct);
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("GetDistinctValues: field={field} failed: {err}", field, result.ErrorMessage);
+                return _responseFactory.CreateOKResponse(new { values = Array.Empty<string>() });
+            }
+
+            var values = result.Value!.Fields[field].Values.Where(v => !string.IsNullOrEmpty(v)).ToList();
             return _responseFactory.CreateOKResponse(new { values });
         }
 
@@ -345,7 +356,7 @@ namespace JackyAIApp.Server.Controllers
 
                 var planResult = await BuildNlPlanAsync(
                     fields, dto.Query, summarizePrompt,
-                    col => Task.FromResult(GetSessionLov(dto.SessionId!, col, MaxDistinctValues)),
+                    new SessionNlValueSource(_sessionStore, dto.SessionId!),
                     col => Task.FromResult(GetSessionMaxDateValue(dto.SessionId!, col)), ct);
                 if (planResult.Plan is null)
                     return _responseFactory.CreateErrorResponse(planResult.Error!.Value, planResult.ErrorMessage!);
@@ -382,7 +393,8 @@ namespace JackyAIApp.Server.Controllers
 
             var enginePlanResult = await BuildNlPlanAsync(
                 engineFields, dto.Query, summarizePrompt,
-                col => FetchEngineLovCachedAsync(ctx, dto.Context?.SourceId, col, ct),
+                new EngineNlValueSource(ctx.Engine, ctx.SourceKey, ctx.TableName,
+                    dto.Context?.SourceId?.ToString() ?? "default", _cache, _logger),
                 col => FetchEngineMaxDateAsync(ctx, col, ct), ct);
             if (enginePlanResult.Plan is null)
                 return _responseFactory.CreateErrorResponse(enginePlanResult.Error!.Value, enginePlanResult.ErrorMessage!);
@@ -412,8 +424,8 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
-        /// The shared NL pipeline: read every String column's real values via
-        /// <paramref name="distinctValuesFetcher"/> → generate the plan with those values in the prompt →
+        /// The shared NL pipeline: read every String column's real values from
+        /// <paramref name="valueSource"/> → generate the plan with those values in the prompt →
         /// validate it against the data (one self-correcting retry when values had to be removed).
         /// Date columns' max value is fetched via <paramref name="maxDateFetcher"/> and injected so the
         /// LLM can resolve "latest / most recent" requests against the data's real date range.
@@ -424,7 +436,7 @@ namespace JackyAIApp.Server.Controllers
             List<(string Name, string CanonicalType)> fields,
             string query,
             string summarizePrompt,
-            Func<string, Task<List<string>>> distinctValuesFetcher,
+            INlValueSource valueSource,
             Func<string, Task<string?>> maxDateFetcher,
             CancellationToken ct)
         {
@@ -446,48 +458,28 @@ namespace JackyAIApp.Server.Controllers
                 .Take(3) // bound the number of extra MAX(date) queries
                 .ToList();
 
-            // ── Fetch every String column's real values (SELECT DISTINCT via a Count summarize) ──
+            // ── Fetch every String column's real values (one DistinctValues query) ──
             // Read straight from the data, so nothing about a particular dataset is hard-coded in the
             // prompt: whatever codes a column really holds ("LATAM", "Online"…) are what the LLM maps the
-            // user's wording onto. Columns up to PromptValueLimit values go into the prompt (within a total
-            // budget); larger ones (CustomerName…) are left out of it but still validated after generation.
-            // Kept in lovCache so validation doesn't re-query.
-            //
-            // Fetched a few columns at a time, and the whole phase is bounded by LovPhaseBudget: on a
-            // large custom source one column can take a long time, and the question must not wait on it.
-            // A column that isn't back in time is simply absent — not in the prompt, not validated.
-            var lovColumns = stringFieldList.Take(MaxLovColumns).ToList();
-            var gate       = new SemaphoreSlim(LovConcurrency);
-            var fetches    = lovColumns.ToDictionary(col => col, async col =>
-            {
-                await gate.WaitAsync(ct);
-                try { return await distinctValuesFetcher(col); }
-                finally { gate.Release(); }
-            }, StringComparer.OrdinalIgnoreCase);
-            await Task.WhenAny(Task.WhenAll(fetches.Values), Task.Delay(LovPhaseBudget, ct));
-            ct.ThrowIfCancellationRequested();
+            // user's wording onto. Each column returns at most PromptValueLimit values; a column with
+            // more (CustomerName…) is marked truncated, left out of the prompt, and validated by lookup
+            // instead. Null when the values couldn't be read in time — the question then runs without
+            // listed values, and filters are still validated by lookup.
+            var columnValues = await valueSource.DistinctAsync(stringFieldList.Take(MaxLovColumns).ToList(), PromptValueLimit, ct)
+                               ?? new Dictionary<string, ColumnValues>(StringComparer.OrdinalIgnoreCase);
 
-            var lovCache    = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var inPrompt    = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var lovLines    = new List<string>();
             var valueBudget = MaxPromptValues;
-            foreach (var col in lovColumns)
+            foreach (var col in stringFieldList)
             {
-                var fetch = fetches[col];
-                if (!fetch.IsCompletedSuccessfully)
-                {
-                    _logger.LogWarning("NlSummarize: values of {col} not fetched within {budget}s — left out", col, LovPhaseBudget.TotalSeconds);
-                    continue;
-                }
-
-                var values = fetch.Result;
-                lovCache[col] = values;
-                if (values.Count == 0 || values.Count > PromptValueLimit || values.Count > valueBudget)
+                if (!columnValues.TryGetValue(col, out var cv) ||
+                    cv.IsTruncated || cv.Values.Count == 0 || cv.Values.Count > valueBudget)
                     continue;
 
-                lovLines.Add($"- {col}: {string.Join(" | ", values)}");
+                lovLines.Add($"- {col}: {string.Join(" | ", cv.Values)}");
                 inPrompt.Add(col);
-                valueBudget -= values.Count;
+                valueBudget -= cv.Values.Count;
             }
             var lovBlock = lovLines.Count > 0
                 ? "\n\nACTUAL VALUES for filterable columns — when filtering on these columns you MUST use exactly these values (match the user's intent to the closest value — synonyms, translations and abbreviations included; if none matches, omit that filter):\n"
@@ -526,20 +518,23 @@ namespace JackyAIApp.Server.Controllers
             // call only on failure; if the retry is unusable, the first (already safe) plan stands.
             if (result.Rejected.Count > 0)
             {
-                var feedback = string.Join("\n", result.Rejected.Select(r =>
+                var feedbackLines = new List<string>();
+                foreach (var r in result.Rejected)
                 {
-                    var real = lovCache.GetValueOrDefault(r.FieldName) ?? [];
-                    var bad  = string.Join(", ", r.Values.Select(v => $"\"{v}\""));
+                    var bad = string.Join(", ", r.Values.Select(v => $"\"{v}\""));
                     if (inPrompt.Contains(r.FieldName))
-                        return $"- {r.FieldName}: {bad} — allowed values: {string.Join(" | ", real)}";
+                    {
+                        feedbackLines.Add($"- {r.FieldName}: {bad} — allowed values: {string.Join(" | ", columnValues[r.FieldName].Values)}");
+                        continue;
+                    }
 
-                    // Too many values to list — offer the ones that resemble what the LLM wrote.
-                    var candidates = r.Values.SelectMany(v => NlPlanValidator.SuggestCandidates(real, v))
-                        .Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxRetryCandidates).ToList();
-                    return candidates.Count > 0
+                    // Too many values to list — offer real values that resemble what the LLM wrote.
+                    var candidates = await FindCandidatesAsync(r.FieldName, r.Values);
+                    feedbackLines.Add(candidates.Count > 0
                         ? $"- {r.FieldName}: {bad} — closest real values: {string.Join(" | ", candidates)}"
-                        : $"- {r.FieldName}: {bad} — no similar value exists in this column";
-                }));
+                        : $"- {r.FieldName}: {bad} — no similar value exists in this column");
+                }
+                var feedback = string.Join("\n", feedbackLines);
                 var retryMessage = $"{query}\n\n[CORRECTION] Your previous plan filtered on values that do not exist in the data:\n{feedback}\n"
                     + "Replace each with the allowed value that matches the user's intent (synonym, translation or abbreviation); "
                     + "if none matches, omit that filter. Return the complete corrected JSON plan.";
@@ -593,25 +588,48 @@ namespace JackyAIApp.Server.Controllers
                 if (plan.Filters is not { Count: > 0 })
                     return (plan, null, [], []);
 
-                // Columns beyond MaxLovColumns are fetched now; one that missed the up-front budget is not
-                // retried (it already proved slow) and stays unvalidated.
-                foreach (var col in plan.Filters.Select(f => f.FieldName)
-                             .Where(stringFields.Contains)
-                             .Distinct(StringComparer.OrdinalIgnoreCase))
+                // Fully listed columns are checked against their list. Any other String column (more values
+                // than PromptValueLimit, beyond MaxLovColumns, or unreadable up front) is checked by looking
+                // up just the plan's values — when all its filters match exact values; a Contains filter
+                // can't be proven wrong by a lookup, so such a column stays unvalidated.
+                var verifiable = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+                foreach (var group in plan.Filters.Where(f => stringFields.Contains(f.FieldName))
+                             .GroupBy(f => f.FieldName, StringComparer.OrdinalIgnoreCase))
                 {
-                    if (lovCache.ContainsKey(col) || fetches.ContainsKey(col)) continue;
-                    ct.ThrowIfCancellationRequested();
-                    lovCache[col] = await distinctValuesFetcher(col);
-                }
+                    if (columnValues.TryGetValue(group.Key, out var cv) && !cv.IsTruncated && cv.Values.Count > 0)
+                    {
+                        verifiable[group.Key] = cv.Values;
+                        continue;
+                    }
+                    if (group.Any(f => f.Op is "Contains" or "GreaterThan" or "LessThan" or "Between"))
+                        continue;
 
-                // A list that hit the fetch cap may be missing real values, and an empty one means the
-                // fetch failed — neither can prove a value absent, so those columns stay unvalidated.
-                var verifiable = lovCache
-                    .Where(kv => kv.Value.Count > 0 && kv.Value.Count < MaxDistinctValues)
-                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+                    var matches = await valueSource.LookupAsync(group.Key, group.SelectMany(f => f.Values).Distinct().ToList(), ct);
+                    if (matches is not null)
+                        verifiable[group.Key] = matches;
+                }
 
                 var (validFilters, notes, rejected) = NlPlanValidator.ValidateFilterValues(plan.Filters, verifiable);
                 return (plan with { Filters = validFilters }, null, notes, rejected);
+            }
+
+            // Real values resembling the rejected ones, for a column too large to list: search by each
+            // whole value, then by its longest word, and rank what comes back.
+            async Task<List<string>> FindCandidatesAsync(string field, List<string> rejectedValues)
+            {
+                var found = new List<string>();
+                foreach (var value in rejectedValues.Take(3))
+                {
+                    var hits = await valueSource.SearchAsync(field, value.Trim(), MaxRetryCandidates, ct);
+                    if (hits.Count == 0)
+                    {
+                        var word = value.Split(' ', StringSplitOptions.RemoveEmptyEntries).MaxBy(w => w.Length);
+                        if (word is { Length: >= 3 } && word != value.Trim())
+                            hits = await valueSource.SearchAsync(field, word, MaxRetryCandidates, ct);
+                    }
+                    found.AddRange(NlPlanValidator.SuggestCandidates(hits, value));
+                }
+                return found.Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxRetryCandidates).ToList();
             }
         }
 
@@ -627,13 +645,6 @@ namespace JackyAIApp.Server.Controllers
             return null;
         }
 
-        /// <summary>
-        /// Distinct-value cap for the NL summarize agent. Far above the filter picker's 200 so the
-        /// post-Phase-2 value validation sees a column's complete value list; a list that reaches
-        /// this cap is treated as possibly incomplete and left unvalidated.
-        /// </summary>
-        private const int MaxDistinctValues = 5000;
-
         /// <summary>A String column with at most this many distinct values has them all listed in the prompt.</summary>
         private const int PromptValueLimit = 300;
 
@@ -643,101 +654,8 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Candidate values offered in the self-correction retry for a column too large to list.</summary>
         private const int MaxRetryCandidates = 20;
 
-        /// <summary>Bounds the distinct-value queries per NL request on very wide tables.</summary>
+        /// <summary>Bounds the String columns read per NL request on very wide tables.</summary>
         private const int MaxLovColumns = 30;
-
-        /// <summary>Distinct-value queries run in parallel per NL request (the default DB is 5 DTU).</summary>
-        private const int LovConcurrency = 4;
-
-        /// <summary>Longest wait for one column's distinct values before it is skipped.</summary>
-        private static readonly TimeSpan LovColumnTimeout = TimeSpan.FromSeconds(3);
-
-        /// <summary>Longest wait for the whole up-front distinct-value phase of one NL request.</summary>
-        private static readonly TimeSpan LovPhaseBudget = TimeSpan.FromSeconds(6);
-
-        /// <summary>
-        /// Shared LoV helper used by both <see cref="GetDistinctValues"/> and the NL summarize agent.
-        /// Groups by <paramref name="field"/> with a Count measure to get distinct values, up to <paramref name="limit"/>.
-        /// </summary>
-        private async Task<List<string>> FetchEngineDistinctValuesAsync(ResolvedCtx ctx, string field, CancellationToken ct, int limit = 200)
-        {
-            var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
-            {
-                SourceKey = ctx.SourceKey,
-                TableName = ctx.TableName,
-                ViewBy    = [new GroupField(field)],
-                Measures  = [new MeasureField(field, AggregationType.Count, "_cnt")],
-            }, ct);
-
-            if (!result.IsSuccess)
-            {
-                _logger.LogWarning("FetchEngineDistinctValues: field={field} failed: {err}", field, result.ErrorMessage);
-                return [];
-            }
-
-            var values = result.Value!.Rows
-                .Select(r => r[field]?.ToString())
-                .Where(v => !string.IsNullOrEmpty(v))
-                .Order()
-                .Take(limit)
-                .Select(v => v!)
-                .ToList();
-
-            _logger.LogDebug("FetchEngineDistinctValues: field={field} count={n} values=[{vals}]",
-                field, values.Count, string.Join(", ", values.Take(20)));
-
-            return values;
-        }
-
-        /// <summary>
-        /// The NL agent's LoV fetch, cached briefly. Each NL question reads every String column (about
-        /// 15 GROUP BYs on dbo.Orders), which the 5-DTU database shouldn't pay per question.
-        /// <para>
-        /// Bounded by <see cref="LovColumnTimeout"/>: the library's Summarize has no TOP/LIMIT, so a
-        /// high-cardinality column on a big source (millions of customer names) can run up to the SQL
-        /// connector's 120 s command timeout — and the ADX connector ignores the cancellation token
-        /// altogether. So the wait is cut by <see cref="TimeBox"/> rather than relying on cancellation
-        /// alone; a column that times out is remembered as empty for the cache period, so later
-        /// questions skip it instantly instead of paying the timeout again. Other failures return empty
-        /// without being cached. Never throws except for the caller's own cancellation.
-        /// </para>
-        /// </summary>
-        private async Task<List<string>> FetchEngineLovCachedAsync(ResolvedCtx ctx, Guid? sourceId, string field, CancellationToken ct)
-        {
-            var key = $"dataanalysis:lov:{sourceId?.ToString() ?? "default"}:{ctx.TableName}:{field}";
-            if (_cache.TryGetValue(key, out List<string>? cached) && cached is not null)
-                return cached;
-
-            try
-            {
-                var (timedOut, values) = await TimeBox.RunAsync(
-                    token => FetchEngineDistinctValuesAsync(ctx, field, token, MaxDistinctValues), LovColumnTimeout, ct);
-                if (timedOut)
-                {
-                    _logger.LogWarning("FetchEngineLov: field={field} exceeded {s}s — skipped for this source for 5 min",
-                        field, LovColumnTimeout.TotalSeconds);
-                    _cache.Set(key, new List<string>(), TimeSpan.FromMinutes(5));
-                    return [];
-                }
-
-                if (values!.Count > 0)
-                    _cache.Set(key, values, TimeSpan.FromMinutes(5));
-                return values;
-            }
-            catch (Exception ex) when (!ct.IsCancellationRequested)
-            {
-                _logger.LogWarning(ex, "FetchEngineLov: field={field} failed", field);
-                return [];
-            }
-        }
-
-        /// <summary>Returns distinct values for a column in session data (List-of-Values for filter planning).</summary>
-        private List<string> GetSessionLov(string sessionId, string field, int limit)
-        {
-            var result = _sessionStore.GetDistinctValues(sessionId, field, limit);
-            if (!result.IsSuccess) return [];
-            return ((IEnumerable<string>)((dynamic)result.Data!).values).ToList();
-        }
 
         /// <summary>Returns the max (latest) value of a date column on the resolved engine, as an ISO string, or null.</summary>
         private async Task<string?> FetchEngineMaxDateAsync(ResolvedCtx ctx, string field, CancellationToken ct)

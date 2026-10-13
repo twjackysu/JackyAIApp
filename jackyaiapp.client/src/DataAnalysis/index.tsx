@@ -121,7 +121,6 @@ export default function DataAnalysis() {
     ctxTableName,
     tab,
     dateField,
-    rowCountField,
     sessionId,
   });
 

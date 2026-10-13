@@ -4,10 +4,9 @@ using JackyAIApp.Server.Common;
 namespace JackyAIApp.Server.Tests.Common
 {
     /// <summary>
-    /// The NL agent reads every String column's distinct values before planning. DataAnalysisLibrary's
-    /// Summarize has no TOP/LIMIT, so a huge column (millions of customer names) can run up to the SQL
-    /// connector's 120 s command timeout — and the ADX connector ignores the cancellation token. These
-    /// tests pin that the wait still ends on time.
+    /// The NL agent reads every String column's distinct values before planning. On a big source that
+    /// query can run up to the SQL connector's 120 s command timeout, and the ADX connector ignores the
+    /// cancellation token altogether. These tests pin that the wait still ends on time.
     /// </summary>
     public class TimeBoxTests
     {

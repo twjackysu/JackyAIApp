@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { useDetailsMutation, useGetRowCountQuery } from '../../apis/dataAnalysisApis';
+import { useDetailsMutation } from '../../apis/dataAnalysisApis';
 import { ROWS_PER_PAGE } from '../constants';
 import { toFilterDtos } from '../utils/groupField';
 
@@ -11,8 +11,6 @@ interface UseDetailsParams {
   ctxTableName?: string;
   tab: number;
   dateField: string;
-  /** The date field when it really is a date column, which the row count needs; else undefined. */
-  rowCountField?: string;
   sessionId?: string;
 }
 
@@ -21,7 +19,6 @@ export function useDetails({
   ctxTableName,
   tab,
   dateField,
-  rowCountField,
   sessionId,
 }: UseDetailsParams) {
   const [page, setPage] = useState(0);
@@ -31,7 +28,7 @@ export function useDetails({
     useDetailsMutation();
 
   // Auto-load whenever the tab is active or any dependency changes. Only the page on screen is
-  // fetched; the total comes from the count below, not from pulling more rows.
+  // fetched; the response's totalCount is the filtered total, not the page size.
   useEffect(() => {
     if (tab !== 2) return;
     details({
@@ -46,18 +43,6 @@ export function useDetails({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, page, detailsFilters, ctxSourceId, ctxTableName, dateField, sessionId]);
 
-  // Database sources: the details response's totalCount is only the page size, so count the
-  // filtered rows separately. Cached per filter set, so paging doesn't refetch it.
-  const { data: dbTotal } = useGetRowCountQuery(
-    {
-      sourceId: ctxSourceId,
-      tableName: ctxTableName,
-      dateField: rowCountField ?? '',
-      filters: toFilterDtos(detailsFilters, []),
-    },
-    { skip: tab !== 2 || !!sessionId || !rowCountField },
-  );
-
   const handleDetailsFiltersChange = (newFilters: ActiveFilter[]) => {
     setDetailsFilters(newFilters);
     setPage(0);
@@ -70,11 +55,11 @@ export function useDetails({
 
   const detailsRows = detailsData?.data?.rows ?? [];
   const detailsHeaders = detailsRows.length > 0 ? Object.keys(detailsRows[0]) : [];
-  // Session uploads return the real filtered total. Without a count (no date column, or still
-  // loading) a full page means there may be more: -1 makes TablePagination show "more than N".
-  const knownTotal = sessionId ? detailsData?.data?.totalCount : dbTotal;
+  // Both database sources (DataAnalysisLibrary >= 1.1) and session uploads return the real
+  // filtered total. Until it arrives, a full page means there may be more: -1 makes
+  // TablePagination show "more than N".
   const detailsTotalCount =
-    knownTotal ??
+    detailsData?.data?.totalCount ??
     (detailsRows.length === ROWS_PER_PAGE ? -1 : page * ROWS_PER_PAGE + detailsRows.length);
 
   return {
