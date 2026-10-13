@@ -13,6 +13,7 @@ using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Prompt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.EntityFrameworkCore;
 using static JackyAIApp.Server.Common.DataAnalysisMapping;
 
@@ -34,7 +35,8 @@ namespace JackyAIApp.Server.Controllers
         ISessionDataStore sessionStore,
         IOpenAIPromptService openAIPromptService,
         IUsageLimitService usageLimitService,
-        IPromptLoader promptLoader) : ApiControllerBase
+        IPromptLoader promptLoader,
+        IMemoryCache cache) : ApiControllerBase
     {
         private readonly ILogger<DataAnalysisController> _logger               = logger;
         private readonly IMyResponseFactory              _responseFactory       = responseFactory;
@@ -45,6 +47,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IOpenAIPromptService            _openAIPromptService   = openAIPromptService;
         private readonly IUsageLimitService              _usageLimitService     = usageLimitService;
         private readonly IPromptLoader                   _promptLoader          = promptLoader;
+        private readonly IMemoryCache                    _cache                 = cache;
 
         // ── Default source constants ───────────────────────────────────────────
         private const string DefaultMsSqlKey   = "mssql";
@@ -236,7 +239,8 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
-        /// Returns up to 200 distinct values for a given column (used for filter LoV picker).
+        /// Returns up to 200 distinct values for a given column (used for filter LoV picker), in the
+        /// column's natural order.
         /// </summary>
         [HttpGet("distinctvalues")]
         public async Task<IActionResult> GetDistinctValues(
@@ -251,7 +255,17 @@ namespace JackyAIApp.Server.Controllers
             using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
-            var values = await FetchEngineDistinctValuesAsync(ctx, field, ct);
+            var result = await ctx.Engine.DistinctValuesAsync(new DistinctValuesRequest
+            {
+                SourceKey = ctx.SourceKey, TableName = ctx.TableName, FieldNames = [field], Limit = 200,
+            }, ct);
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("GetDistinctValues: field={field} failed: {err}", field, result.ErrorMessage);
+                return _responseFactory.CreateOKResponse(new { values = Array.Empty<string>() });
+            }
+
+            var values = result.Value!.Fields[field].Values.Where(v => !string.IsNullOrEmpty(v)).ToList();
             return _responseFactory.CreateOKResponse(new { values });
         }
 
@@ -271,7 +285,7 @@ namespace JackyAIApp.Server.Controllers
                 TableName = ctx.TableName,
                 ViewBy    = dto.ViewBy.Select(MapGroupField).ToList(),
                 Measures  = dto.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias))).ToList(),
-                Filters   = dto.Filters?.Select(MapFilter).ToList() ?? [],
+                Filters   = MapFilters(dto.Filters),
             }, ct);
 
             return result.IsSuccess
@@ -299,7 +313,7 @@ namespace JackyAIApp.Server.Controllers
                 OrderBy      = dto.OrderBy?.Select(o => new SortField(o.FieldName, o.Descending)).ToList() ?? [],
                 Skip         = dto.Skip,
                 Take         = Math.Min(dto.Take, 200),
-                Filters      = dto.Filters?.Select(MapFilter).ToList() ?? [],
+                Filters      = MapFilters(dto.Filters),
             }, ct);
 
             return result.IsSuccess
@@ -308,12 +322,12 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
-        /// Natural-language summarize. A two-phase "agent" pipeline:
-        /// (1) ask the LLM which string columns the query wants to filter on, (2) fetch the actual
-        /// distinct values (List-of-Values) for only those columns, (3) ask the LLM to produce the
-        /// final query plan using those real values, then execute it. This stops the LLM from
+        /// Natural-language summarize. A fixed "agent" pipeline: (1) fetch the actual distinct values
+        /// (List-of-Values) of the String columns, (2) ask the LLM for the query plan with those real
+        /// values in the prompt, (3) validate every filter value against the data — retrying once with
+        /// the correct options when one doesn't exist — then execute it. This stops the LLM from
         /// inventing filter values that don't exist in the data.
-        /// Returns <c>{ plan, interpretation, rows }</c>. Requires login — every call consumes usage budget.
+        /// Returns <c>{ plan, interpretation, rows, notes }</c>. Requires login — every call consumes usage budget.
         /// </summary>
         [HttpPost("summarize/nl")]
         [Authorize]
@@ -321,9 +335,8 @@ namespace JackyAIApp.Server.Controllers
             [FromBody] NlSummarizeRequestDto dto,
             CancellationToken ct = default)
         {
-            var filterPlanPrompt = _promptLoader.GetPrompt("Prompt/DataAnalysis/NlFilterPlanSystem.txt");
-            var summarizePrompt  = _promptLoader.GetPrompt("Prompt/DataAnalysis/NlSummarizeSystem.txt");
-            if (filterPlanPrompt is null || summarizePrompt is null)
+            var summarizePrompt = _promptLoader.GetPrompt("Prompt/DataAnalysis/NlSummarizeSystem.txt");
+            if (summarizePrompt is null)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Prompt configuration error.");
 
             var userId = CurrentUserId;
@@ -342,8 +355,8 @@ namespace JackyAIApp.Server.Controllers
                 if (charge is not null) return charge;
 
                 var planResult = await BuildNlPlanAsync(
-                    fields, dto.Query, filterPlanPrompt, summarizePrompt,
-                    col => Task.FromResult(GetSessionLov(dto.SessionId!, col, MaxDistinctValues)),
+                    fields, dto.Query, summarizePrompt,
+                    new SessionNlValueSource(_sessionStore, dto.SessionId!),
                     col => Task.FromResult(GetSessionMaxDateValue(dto.SessionId!, col)), ct);
                 if (planResult.Plan is null)
                     return _responseFactory.CreateErrorResponse(planResult.Error!.Value, planResult.ErrorMessage!);
@@ -379,8 +392,9 @@ namespace JackyAIApp.Server.Controllers
             if (engineCharge is not null) return engineCharge;
 
             var enginePlanResult = await BuildNlPlanAsync(
-                engineFields, dto.Query, filterPlanPrompt, summarizePrompt,
-                col => FetchEngineDistinctValuesAsync(ctx, col, ct, MaxDistinctValues),
+                engineFields, dto.Query, summarizePrompt,
+                new EngineNlValueSource(ctx.Engine, ctx.SourceKey, ctx.TableName,
+                    dto.Context?.SourceId?.ToString() ?? "default", _cache, _logger),
                 col => FetchEngineMaxDateAsync(ctx, col, ct), ct);
             if (enginePlanResult.Plan is null)
                 return _responseFactory.CreateErrorResponse(enginePlanResult.Error!.Value, enginePlanResult.ErrorMessage!);
@@ -392,7 +406,7 @@ namespace JackyAIApp.Server.Controllers
                 TableName = ctx.TableName,
                 ViewBy    = plan.ViewBy.Select(MapGroupField).ToList(),
                 Measures  = plan.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias))).ToList(),
-                Filters   = plan.Filters?.Select(MapFilter).ToList() ?? [],
+                Filters   = MapFilters(plan.Filters),
             }, ct);
 
             if (!result.IsSuccess)
@@ -410,8 +424,9 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
-        /// The shared two-phase LLM pipeline: plan which columns to filter → fetch their real
-        /// values via <paramref name="distinctValuesFetcher"/> → generate &amp; validate the final plan.
+        /// The shared NL pipeline: read every String column's real values from
+        /// <paramref name="valueSource"/> → generate the plan with those values in the prompt →
+        /// validate it against the data (one self-correcting retry when values had to be removed).
         /// Date columns' max value is fetched via <paramref name="maxDateFetcher"/> and injected so the
         /// LLM can resolve "latest / most recent" requests against the data's real date range.
         /// Returns the validated plan plus any soft notes (e.g. a requested filter value that didn't
@@ -420,9 +435,8 @@ namespace JackyAIApp.Server.Controllers
         private async Task<(SummarizeRequestDto? Plan, ErrorCodes? Error, string? ErrorMessage, List<string> Notes)> BuildNlPlanAsync(
             List<(string Name, string CanonicalType)> fields,
             string query,
-            string filterPlanPrompt,
             string summarizePrompt,
-            Func<string, Task<List<string>>> distinctValuesFetcher,
+            INlValueSource valueSource,
             Func<string, Task<string?>> maxDateFetcher,
             CancellationToken ct)
         {
@@ -432,10 +446,11 @@ namespace JackyAIApp.Server.Controllers
             var fieldList    = string.Join(", ", fields.Select(f => $"{f.Name}({f.CanonicalType})"));
             var fieldNames   = fields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
             // Only String columns are candidates for value-based filtering; numbers/dates use ranges.
-            var stringFields = fields
+            var stringFieldList = fields
                 .Where(f => string.Equals(f.CanonicalType, "String", StringComparison.OrdinalIgnoreCase))
                 .Select(f => f.Name)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                .ToList();
+            var stringFields = stringFieldList.ToHashSet(StringComparer.OrdinalIgnoreCase);
             // Date columns — their max value lets the LLM resolve relative dates ("latest", "this month").
             var dateFields = fields
                 .Where(f => f.CanonicalType is "DateTime" or "DateTimeOffset" or "Date")
@@ -443,37 +458,35 @@ namespace JackyAIApp.Server.Controllers
                 .Take(3) // bound the number of extra MAX(date) queries
                 .ToList();
 
-            // ── Phase 1: which string columns does the query want to filter on? ──
-            var phase1System = $"{filterPlanPrompt}\n\nAVAILABLE COLUMNS:\n{fieldList}";
-            var (filterPlan, _) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<NlFilterPlanDto>(
-                phase1System, query, NewModels.GPT_4_1_NANO, feature: "dataanalysis.nl_filter_plan");
+            // ── Fetch every String column's real values (one DistinctValues query) ──
+            // Read straight from the data, so nothing about a particular dataset is hard-coded in the
+            // prompt: whatever codes a column really holds ("LATAM", "Online"…) are what the LLM maps the
+            // user's wording onto. Each column returns at most PromptValueLimit values; a column with
+            // more (CustomerName…) is marked truncated, left out of the prompt, and validated by lookup
+            // instead. Null when the values couldn't be read in time — the question then runs without
+            // listed values, and filters are still validated by lookup.
+            var columnValues = await valueSource.DistinctAsync(stringFieldList.Take(MaxLovColumns).ToList(), PromptValueLimit, ct)
+                               ?? new Dictionary<string, ColumnValues>(StringComparer.OrdinalIgnoreCase);
 
-            var filterColumns = (filterPlan?.FilterColumns ?? [])
-                .Where(c => stringFields.Contains(c))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            _logger.LogInformation("NlSummarize Phase1: query={q} → filterColumns=[{cols}]",
-                query, string.Join(", ", filterColumns));
-
-            // ── Fetch List-of-Values for only the columns we'll filter on ──
-            // Cached so the post-Phase-2 value validation doesn't re-query these columns.
-            var lovCache = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            var lovLines = new List<string>();
-            foreach (var col in filterColumns)
+            var inPrompt    = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var lovLines    = new List<string>();
+            var valueBudget = MaxPromptValues;
+            foreach (var col in stringFieldList)
             {
-                ct.ThrowIfCancellationRequested();
-                var values = await distinctValuesFetcher(col);
-                lovCache[col] = values;
-                if (values.Count > 0)
-                    lovLines.Add($"- {col}: {string.Join(" | ", values.Take(100))}");
+                if (!columnValues.TryGetValue(col, out var cv) ||
+                    cv.IsTruncated || cv.Values.Count == 0 || cv.Values.Count > valueBudget)
+                    continue;
+
+                lovLines.Add($"- {col}: {string.Join(" | ", cv.Values)}");
+                inPrompt.Add(col);
+                valueBudget -= cv.Values.Count;
             }
             var lovBlock = lovLines.Count > 0
-                ? "\n\nACTUAL VALUES for filterable columns — when filtering on these columns you MUST use exactly these values (match the user's intent to the closest value; if none matches, omit that filter):\n"
+                ? "\n\nACTUAL VALUES for filterable columns — when filtering on these columns you MUST use exactly these values (match the user's intent to the closest value — synonyms, translations and abbreviations included; if none matches, omit that filter):\n"
                   + string.Join("\n", lovLines)
                 : "";
 
-            _logger.LogInformation("NlSummarize Phase2 lovBlock: {lov}", lovBlock.Length > 0 ? lovBlock : "(none)");
+            _logger.LogInformation("NlSummarize lovBlock: {lov}", lovBlock.Length > 0 ? lovBlock : "(none)");
 
             // ── Fetch the latest date per date column (for "latest / most recent" queries) ──
             var dateLines = new List<string>();
@@ -492,61 +505,132 @@ namespace JackyAIApp.Server.Controllers
 
             _logger.LogInformation("NlSummarize Phase2 dateBlock: {db}", dateBlock.Length > 0 ? dateBlock : "(none)");
 
-            // ── Phase 2: produce the final query plan using the real values ──
+            // ── Generate the query plan using the real values ──
             var today = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
             var phase2System = $"{summarizePrompt}\n\nAVAILABLE COLUMNS:\n{fieldList}\nTODAY: {today}{lovBlock}{dateBlock}";
-            var (plan, llmError) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<SummarizeRequestDto>(
-                phase2System, query, NewModels.GPT_4_1_NANO, feature: "dataanalysis.nl_summarize");
 
-            if (plan is null || plan.ViewBy.Count == 0 || plan.Measures.Count == 0)
-            {
-                _logger.LogWarning("NlSummarize: empty plan. LLM error={e}", llmError);
-                return (null, ErrorCodes.BadRequest, "AI could not interpret your query. Please try rephrasing.", []);
-            }
+            var result = await GeneratePlanAsync(query);
+            if (result.Plan is null)
+                return (null, ErrorCodes.BadRequest, result.ErrorMessage, []);
 
-            // Validate field names against schema (block hallucinated field names)
-            var allFieldRefs = plan.ViewBy.Select(v => v.FieldName)
-                .Concat(plan.Measures.Select(m => m.FieldName))
-                .Concat(plan.Filters?.Select(f => f.FieldName) ?? []);
-            var unknownField = allFieldRefs.FirstOrDefault(n => !fieldNames.Contains(n));
-            if (unknownField is not null)
+            // ── Self-correction: one retry when validation had to remove values ──
+            // Tell the LLM exactly which values don't exist and what the real ones are. Costs an extra
+            // call only on failure; if the retry is unusable, the first (already safe) plan stands.
+            if (result.Rejected.Count > 0)
             {
-                _logger.LogWarning("NlSummarize: LLM hallucinated field '{f}'", unknownField);
-                return (null, ErrorCodes.BadRequest, "AI referenced an unknown field. Please try rephrasing.", []);
-            }
-
-            // Validate filter VALUES against the real data. Phase 1 can miss a column (e.g. it reads
-            // "各產品類別" as a filter and skips Country), and then Phase 2 is free to invent a value
-            // ("Taiwan") on a column it never saw real values for. So every String-column filter in
-            // the final plan is checked here, deterministically: unknown values are removed and the
-            // user is told — notes are produced only when something was actually removed.
-            var notes = new List<string>();
-            if (plan.Filters is { Count: > 0 })
-            {
-                foreach (var col in plan.Filters.Select(f => f.FieldName)
-                             .Where(stringFields.Contains)
-                             .Distinct(StringComparer.OrdinalIgnoreCase))
+                var feedbackLines = new List<string>();
+                foreach (var r in result.Rejected)
                 {
-                    if (lovCache.ContainsKey(col)) continue;
-                    ct.ThrowIfCancellationRequested();
-                    lovCache[col] = await distinctValuesFetcher(col);
+                    var bad = string.Join(", ", r.Values.Select(v => $"\"{v}\""));
+                    if (inPrompt.Contains(r.FieldName))
+                    {
+                        feedbackLines.Add($"- {r.FieldName}: {bad} — allowed values: {string.Join(" | ", columnValues[r.FieldName].Values)}");
+                        continue;
+                    }
+
+                    // Too many values to list — offer real values that resemble what the LLM wrote.
+                    var candidates = await FindCandidatesAsync(r.FieldName, r.Values);
+                    feedbackLines.Add(candidates.Count > 0
+                        ? $"- {r.FieldName}: {bad} — closest real values: {string.Join(" | ", candidates)}"
+                        : $"- {r.FieldName}: {bad} — no similar value exists in this column");
+                }
+                var feedback = string.Join("\n", feedbackLines);
+                var retryMessage = $"{query}\n\n[CORRECTION] Your previous plan filtered on values that do not exist in the data:\n{feedback}\n"
+                    + "Replace each with the allowed value that matches the user's intent (synonym, translation or abbreviation); "
+                    + "if none matches, omit that filter. Return the complete corrected JSON plan.";
+
+                _logger.LogInformation("NlSummarize: retrying plan generation after rejected values → {fb}", feedback);
+                var retry = await GeneratePlanAsync(retryMessage);
+                if (retry.Plan is not null)
+                {
+                    // A column the retry no longer filters on means "no real value matches" — keep the
+                    // first pass's note for it, or the user's condition would vanish without a word.
+                    var retryFilterCols = (retry.Plan.Filters ?? []).Select(f => f.FieldName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var carriedNotes = result.Rejected.Zip(result.Notes)
+                        .Where(p => !retryFilterCols.Contains(p.First.FieldName))
+                        .Select(p => p.Second);
+                    result = retry with { Notes = [.. carriedNotes, .. retry.Notes] };
+                }
+            }
+
+            if (result.Notes.Count > 0)
+                _logger.LogInformation("NlSummarize: dropped filter values → {notes}", string.Join("; ", result.Notes));
+
+            return (result.Plan, null, null, result.Notes);
+
+            // Generates a plan and validates it: field names must exist (else no plan), and every
+            // String-column filter value is checked against the real data. The LLM can still invent a
+            // value (e.g. on a column too large for the prompt, or ignoring the list); this check
+            // removes it deterministically and notes it for the user.
+            async Task<(SummarizeRequestDto? Plan, string? ErrorMessage, List<string> Notes, List<(string FieldName, List<string> Values)> Rejected)>
+                GeneratePlanAsync(string userMessage)
+            {
+                var (plan, llmError) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<SummarizeRequestDto>(
+                    phase2System, userMessage, NewModels.GPT_4_1_NANO, feature: "dataanalysis.nl_summarize");
+
+                if (plan is null || plan.ViewBy.Count == 0 || plan.Measures.Count == 0)
+                {
+                    _logger.LogWarning("NlSummarize: empty plan. LLM error={e}", llmError);
+                    return (null, "AI could not interpret your query. Please try rephrasing.", [], []);
                 }
 
-                // A list that hit the fetch cap may be missing real values, and an empty one means the
-                // fetch failed — neither can prove a value absent, so those columns stay unvalidated.
-                var verifiable = lovCache
-                    .Where(kv => kv.Value.Count > 0 && kv.Value.Count < MaxDistinctValues)
-                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+                // Validate field names against schema (block hallucinated field names)
+                var allFieldRefs = plan.ViewBy.Select(v => v.FieldName)
+                    .Concat(plan.Measures.Select(m => m.FieldName))
+                    .Concat(plan.Filters?.Select(f => f.FieldName) ?? []);
+                var unknownField = allFieldRefs.FirstOrDefault(n => !fieldNames.Contains(n));
+                if (unknownField is not null)
+                {
+                    _logger.LogWarning("NlSummarize: LLM hallucinated field '{f}'", unknownField);
+                    return (null, "AI referenced an unknown field. Please try rephrasing.", [], []);
+                }
 
-                var (validFilters, valueNotes) = NlPlanValidator.ValidateFilterValues(plan.Filters, verifiable);
-                plan  = plan with { Filters = validFilters };
-                notes = valueNotes;
+                if (plan.Filters is not { Count: > 0 })
+                    return (plan, null, [], []);
+
+                // Fully listed columns are checked against their list. Any other String column (more values
+                // than PromptValueLimit, beyond MaxLovColumns, or unreadable up front) is checked by looking
+                // up just the plan's values — when all its filters match exact values; a Contains filter
+                // can't be proven wrong by a lookup, so such a column stays unvalidated.
+                var verifiable = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+                foreach (var group in plan.Filters.Where(f => stringFields.Contains(f.FieldName))
+                             .GroupBy(f => f.FieldName, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (columnValues.TryGetValue(group.Key, out var cv) && !cv.IsTruncated && cv.Values.Count > 0)
+                    {
+                        verifiable[group.Key] = cv.Values;
+                        continue;
+                    }
+                    if (group.Any(f => f.Op is "Contains" or "GreaterThan" or "LessThan" or "Between"))
+                        continue;
+
+                    var matches = await valueSource.LookupAsync(group.Key, group.SelectMany(f => f.Values).Distinct().ToList(), ct);
+                    if (matches is not null)
+                        verifiable[group.Key] = matches;
+                }
+
+                var (validFilters, notes, rejected) = NlPlanValidator.ValidateFilterValues(plan.Filters, verifiable);
+                return (plan with { Filters = validFilters }, null, notes, rejected);
             }
 
-            if (notes.Count > 0)
-                _logger.LogInformation("NlSummarize: dropped filter values → {notes}", string.Join("; ", notes));
-
-            return (plan, null, null, notes);
+            // Real values resembling the rejected ones, for a column too large to list: search by each
+            // whole value, then by its longest word, and rank what comes back.
+            async Task<List<string>> FindCandidatesAsync(string field, List<string> rejectedValues)
+            {
+                var found = new List<string>();
+                foreach (var value in rejectedValues.Take(3))
+                {
+                    var hits = await valueSource.SearchAsync(field, value.Trim(), MaxRetryCandidates, ct);
+                    if (hits.Count == 0)
+                    {
+                        var word = value.Split(' ', StringSplitOptions.RemoveEmptyEntries).MaxBy(w => w.Length);
+                        if (word is { Length: >= 3 } && word != value.Trim())
+                            hits = await valueSource.SearchAsync(field, word, MaxRetryCandidates, ct);
+                    }
+                    found.AddRange(NlPlanValidator.SuggestCandidates(hits, value));
+                }
+                return found.Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxRetryCandidates).ToList();
+            }
         }
 
         /// <summary>Charges NlSummarize usage. The endpoint is <c>[Authorize]</c>d so a user is always present; returns an error result when the daily usage limit is exceeded, else null.</summary>
@@ -561,54 +645,17 @@ namespace JackyAIApp.Server.Controllers
             return null;
         }
 
-        /// <summary>
-        /// Distinct-value cap for the NL summarize agent. Far above the filter picker's 200 so the
-        /// post-Phase-2 value validation sees a column's complete value list; a list that reaches
-        /// this cap is treated as possibly incomplete and left unvalidated.
-        /// </summary>
-        private const int MaxDistinctValues = 5000;
+        /// <summary>A String column with at most this many distinct values has them all listed in the prompt.</summary>
+        private const int PromptValueLimit = 300;
 
-        /// <summary>
-        /// Shared LoV helper used by both <see cref="GetDistinctValues"/> and the NL summarize agent.
-        /// Groups by <paramref name="field"/> with a Count measure to get distinct values, up to <paramref name="limit"/>.
-        /// </summary>
-        private async Task<List<string>> FetchEngineDistinctValuesAsync(ResolvedCtx ctx, string field, CancellationToken ct, int limit = 200)
-        {
-            var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
-            {
-                SourceKey = ctx.SourceKey,
-                TableName = ctx.TableName,
-                ViewBy    = [new GroupField(field)],
-                Measures  = [new MeasureField(field, AggregationType.Count, "_cnt")],
-            }, ct);
+        /// <summary>Total distinct values listed in the prompt across all columns (keeps wide tables bounded).</summary>
+        private const int MaxPromptValues = 2000;
 
-            if (!result.IsSuccess)
-            {
-                _logger.LogWarning("FetchEngineDistinctValues: field={field} failed: {err}", field, result.ErrorMessage);
-                return [];
-            }
+        /// <summary>Candidate values offered in the self-correction retry for a column too large to list.</summary>
+        private const int MaxRetryCandidates = 20;
 
-            var values = result.Value!.Rows
-                .Select(r => r[field]?.ToString())
-                .Where(v => !string.IsNullOrEmpty(v))
-                .Order()
-                .Take(limit)
-                .Select(v => v!)
-                .ToList();
-
-            _logger.LogDebug("FetchEngineDistinctValues: field={field} count={n} values=[{vals}]",
-                field, values.Count, string.Join(", ", values.Take(20)));
-
-            return values;
-        }
-
-        /// <summary>Returns distinct values for a column in session data (List-of-Values for filter planning).</summary>
-        private List<string> GetSessionLov(string sessionId, string field, int limit)
-        {
-            var result = _sessionStore.GetDistinctValues(sessionId, field, limit);
-            if (!result.IsSuccess) return [];
-            return ((IEnumerable<string>)((dynamic)result.Data!).values).ToList();
-        }
+        /// <summary>Bounds the String columns read per NL request on very wide tables.</summary>
+        private const int MaxLovColumns = 30;
 
         /// <summary>Returns the max (latest) value of a date column on the resolved engine, as an ISO string, or null.</summary>
         private async Task<string?> FetchEngineMaxDateAsync(ResolvedCtx ctx, string field, CancellationToken ct)

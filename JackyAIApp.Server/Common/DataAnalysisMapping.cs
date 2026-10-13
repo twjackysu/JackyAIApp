@@ -1,6 +1,7 @@
 using DataAnalysisLibrary.Core.Enums;
 using DataAnalysisLibrary.Core.Models.Common;
 using JackyAIApp.Server.DTO.DataAnalysis;
+using System.Globalization;
 
 namespace JackyAIApp.Server.Common
 {
@@ -10,6 +11,42 @@ namespace JackyAIApp.Server.Common
     /// </summary>
     public static class DataAnalysisMapping
     {
+        /// <summary>
+        /// Maps a request's filters to the library's model, after <see cref="ExpandDateOnlyRangeEnds"/>.
+        /// Use this rather than mapping filters one by one.
+        /// </summary>
+        public static List<FilterDimension> MapFilters(IEnumerable<FilterDimensionDto>? filters) =>
+            ExpandDateOnlyRangeEnds(filters).Select(MapFilter).ToList();
+
+        /// <summary>
+        /// Makes a date-only Between end inclusive of that whole day. A timestamp column compared with
+        /// "2026-10-13" sees 2026-10-13 00:00:00, so <c>BETWEEN '2026-10-12' AND '2026-10-13'</c> drops
+        /// every order placed later on the 13th — and the NL planner always ends relative ranges on the
+        /// data's latest date. Such a filter becomes <c>Between [start, end+1]</c> AND <c>LessThan end+1</c>,
+        /// i.e. start ≤ x &lt; end+1, which the library has no single operator for. Filters are ANDed by
+        /// every connector and by the session store, so the pair is exact on date, datetime and
+        /// date-like string columns alike.
+        /// </summary>
+        public static List<FilterDimensionDto> ExpandDateOnlyRangeEnds(IEnumerable<FilterDimensionDto>? filters)
+        {
+            var result = new List<FilterDimensionDto>();
+            foreach (var f in filters ?? [])
+            {
+                if (f.Op == "Between" && f.Values.Count >= 2 &&
+                    DateOnly.TryParseExact(f.Values[1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var end))
+                {
+                    var nextDay = end.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                    result.Add(f with { Values = [f.Values[0], nextDay] });
+                    result.Add(f with { Op = "LessThan", Values = [nextDay] });
+                }
+                else
+                {
+                    result.Add(f);
+                }
+            }
+            return result;
+        }
+
         /// <summary>Maps a <see cref="FilterDimensionDto"/> to a <see cref="FilterDimension"/>, honouring the optional Op.</summary>
         public static FilterDimension MapFilter(FilterDimensionDto f)
         {

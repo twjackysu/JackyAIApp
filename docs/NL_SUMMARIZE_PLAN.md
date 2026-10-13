@@ -34,23 +34,35 @@
 
 ---
 
-## 實作更新：2-phase 模擬 agent（避免 LLM 幻覺 filter 值）
+## 實作更新：先查真實值再組 plan 的 agent（避免 LLM 幻覺 filter 值）
 
 > 初版單次 call 會讓 LLM 自己猜 filter 值（例：使用者打「UK 的營收」，但 demo 的 Region 只有
 > APAC/EMEA/NAMER → LLM 幻覺出 "UK" → 篩不到 row）。改成後端自己當 agent，先查真實值再組 plan。
 
 固定步驟的 pipeline（不需 Dify、不需開放式 tool-use loop）：
 
-1. **Phase 1 LLM**（`NlFilterPlanSystem.txt` → `NlFilterPlanDto`）：給 schema + query，
-   回「要 filter 哪幾個 **String** 欄位」。規則：只挑字串欄、number/datetime 不挑（之後用 range/transform）、
-   純 group-by 的欄不挑。
-2. **後端抓 LoV**：只對 Phase 1 回的欄位查 distinct values（engine 走 `SummarizeAsync` Count；
-   session 走 `GetDistinctValues`），每欄注入最多 100 個值。
-3. **Phase 2 LLM**（`NlSummarizeSystem.txt` → `SummarizeRequestDto`）：給 schema + 真實值清單 + today，
-   產最終 plan。prompt 規定 filter 值**必須**從真實清單複製，配不到就略過該 filter。
-4. 驗證欄位名 → 執行 → 回 `{ plan, interpretation, rows }`。
+1. **後端抓 LoV**（`INlValueSource`：engine 走 `EngineNlValueSource`，上傳資料走 `SessionNlValueSource`）：
+   用 DataAnalysisLibrary 1.2 的 `DistinctValuesAsync` **一次查詢**取得所有字串欄（最多 30 欄）的不重複值，
+   每欄最多 300 個，超過就標記截斷（每欄只有 301 筆離開資料庫）；結果快取 5 分鐘。
+   沒截斷的欄位整份放進 prompt（總量上限 2000 個值）；截斷的（CustomerName 之類）不放 prompt。
+   prompt 不寫死任何資料集的值，AI 對照的是當下資料裡真正的代碼。
+   有時間上限（`TimeBox`，因為 ADX connector 不理會取消）：整個查詢 6 秒，逾時就當作「沒有真實值」繼續，
+   並快取 5 分鐘，之後的提問不用再等。
+2. **LLM 產 plan**（`NlSummarizeSystem.txt` → `SummarizeRequestDto`）：給 schema + 真實值清單 + today + 資料最新日期。
+   prompt 規定 filter 值**必須**從真實清單複製（中文、全名、同義詞要翻成清單裡的代碼），配不到就略過該 filter。
+3. 驗證欄位名 → **驗證篩選值**（`NlPlanValidator.ValidateFilterValues`：不存在的值移除並附中文提示）。
+   有整份清單的欄位直接比對；其他欄位（截斷、超過 30 欄、或沒查到）用 `LookupValuesAsync` 只查計畫裡的那幾個值
+   （每次 3 秒上限；Contains 條件無法用查找證明不存在，不驗證）
+   → 有值被移除時**重跑一次**，附上「哪些值不存在」＋可選值（有整份清單的給清單；其他欄位用 Contains 搜尋
+   相近值、再以 `SuggestCandidates` 排序）→ 執行 → 回 `{ plan, interpretation, rows, notes }`。
+4. 日期 Between 的結束值若只有日期，執行時會改成「起日 ≤ x < 結束日+1」
+   （`DataAnalysisMapping.ExpandDateOnlyRangeEnds`），讓有時間的欄位包含結束日整天。
 
-共用 helper `BuildNlPlanAsync(fields, query, prompts, distinctFetcher, ct)` 兩條路（engine / session）共用，
+> 2026-10 之前是兩階段：先問 LLM「要篩選哪些欄」（`NlFilterPlanSystem.txt`），只抓那幾欄的值。
+> Phase 1 常把「各產品類別」當篩選、或漏選同義詞所屬的欄（「拉丁美洲」→ Region），Phase 2 就只能自己猜值。
+> 現在每欄都直接查，Phase 1 那次呼叫已移除。
+
+共用 helper `BuildNlPlanAsync(fields, query, prompt, distinctFetcher, maxDateFetcher, ct)` 兩條路（engine / session）共用，
 engine 只 `TryResolveAsync` 一次（schema + LoV + execute 共用同個 ctx，custom source 不重複建連線）。
 credit 在 schema 解析成功後、LLM call 前扣（`TryChargeNlSummarizeAsync`）。
 

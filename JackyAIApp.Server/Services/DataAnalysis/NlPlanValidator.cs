@@ -13,7 +13,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// against that column's real distinct values. Matching is case-insensitive and a match is
         /// rewritten to the data's canonical spelling; values that match nothing are removed, and a
         /// filter left with no values is dropped entirely. One note is produced per filter that lost
-        /// values — and only then — so a plan that needed no correction yields no notes.
+        /// values — and only then — so a plan that needed no correction yields no notes. The removed
+        /// values are also returned per filter (Notes[i] describes Rejected[i]), so the caller can ask the
+        /// LLM to correct them.
         /// This is the last line of defence: whether or not Phase 1 offered the column's real values
         /// to the LLM, the executed plan can never filter on a value that doesn't exist.
         /// </summary>
@@ -22,12 +24,13 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// Distinct values per String column. A column that is absent (non-String, range filter,
         /// or a list that couldn't be fetched completely) is left unvalidated.
         /// </param>
-        public static (List<FilterDimensionDto> Filters, List<string> Notes) ValidateFilterValues(
+        public static (List<FilterDimensionDto> Filters, List<string> Notes, List<(string FieldName, List<string> Values)> Rejected) ValidateFilterValues(
             IReadOnlyList<FilterDimensionDto> filters,
             IReadOnlyDictionary<string, List<string>> realValues)
         {
-            var kept  = new List<FilterDimensionDto>();
-            var notes = new List<string>();
+            var kept     = new List<FilterDimensionDto>();
+            var notes    = new List<string>();
+            var rejected = new List<(string FieldName, List<string> Values)>();
 
             foreach (var filter in filters)
             {
@@ -51,6 +54,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
 
                 if (bad.Count > 0)
                 {
+                    rejected.Add((filter.FieldName, bad));
                     var shown = string.Join("、", bad.Select(v => $"「{v}」"));
                     notes.Add(good.Count > 0
                         ? $"資料中找不到{shown}（{filter.FieldName} 欄位），已從篩選條件中移除。"
@@ -61,7 +65,34 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                     kept.Add(filter with { Values = good });
             }
 
-            return (kept, notes);
+            return (kept, notes, rejected);
+        }
+
+        /// <summary>
+        /// Real values that resemble a rejected one, best first — for a column too large to list in
+        /// the self-correction retry. One contains the other ("Acme" ↔ "Acme Corp") ranks above sharing
+        /// a word ("Acme Holdings" ↔ "Acme Corp"); values with neither are not returned.
+        /// </summary>
+        public static IEnumerable<string> SuggestCandidates(IEnumerable<string> realValues, string rejected)
+        {
+            var target = rejected.Trim();
+            if (target.Length == 0) return [];
+            var targetTokens = Tokens(target);
+            return realValues
+                .Select(real => (real, score:
+                    real.Contains(target, StringComparison.OrdinalIgnoreCase) ||
+                    target.Contains(real, StringComparison.OrdinalIgnoreCase)
+                        ? 100
+                        : Tokens(real).Count(targetTokens.Contains)))
+                .Where(x => x.score > 0)
+                .OrderByDescending(x => x.score)
+                .ThenBy(x => x.real, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.real);
+
+            static HashSet<string> Tokens(string s) =>
+                s.Split(s.Where(c => !char.IsLetterOrDigit(c)).Distinct().ToArray(), StringSplitOptions.RemoveEmptyEntries)
+                 .Where(t => t.Length >= 2)
+                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>Ops whose values must equal (or be contained in) a real column value; ranges are excluded.</summary>
