@@ -33,7 +33,7 @@ LOW（只加日誌，不改行為。但它是 PM 的 Tech Lead Action「確認 #
 無。
 
 ## PR
-（尚無）
+https://github.com/twjackysu/JackyAIApp/pull/459（branch `claude/exciting-cray-1q2n9v`）
 
 ## Result
 
