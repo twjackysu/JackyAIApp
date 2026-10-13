@@ -389,7 +389,7 @@ namespace JackyAIApp.Server.Services.Finance
         }
 
         /// <summary>
-        /// "今日市場AI摘要" — a unified daily digest grounding gpt-5-nano in three sources
+        /// "今日市場AI摘要" — a unified daily digest grounding gpt-6-luna in three sources
         /// (market overview + global news + TW major announcements) and synthesising a
         /// global/Taiwan two-section narrative. The generated digest is shared (cached per
         /// day), but each user is charged <see cref="UsageCosts.MarketDigest"/> once per day
@@ -430,7 +430,7 @@ namespace JackyAIApp.Server.Services.Finance
         }
 
         /// <summary>
-        /// Gathers the three grounding sources in parallel and calls gpt-5-nano to produce the
+        /// Gathers the three grounding sources in parallel and calls gpt-6-luna to produce the
         /// unified digest. Pure generation — no caching or usage-limit logic.
         /// </summary>
         private async Task<(MarketDigestResponse? digest, string? error)> GenerateMarketDigestAsync(CancellationToken cancellationToken)
@@ -488,7 +488,7 @@ namespace JackyAIApp.Server.Services.Finance
             try
             {
                 var (result, error) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<MarketDigestResponse>(
-                    systemPrompt, userMessage, NewModels.GPT_4_1_NANO, feature: "finance.market_digest");
+                    systemPrompt, userMessage, NewModels.GPT_6_LUNA, feature: "finance.market_digest");
 
                 if (result is null || result.Points.Count == 0)
                     return (null, error ?? "Failed to generate market digest.");
@@ -606,7 +606,7 @@ namespace JackyAIApp.Server.Services.Finance
             try
             {
                 var (result, error) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<IndicatorInsight>(
-                    systemPrompt, userMessage, NewModels.GPT_4_1_NANO, feature: "finance.indicator_insight");
+                    systemPrompt, userMessage, NewModels.GPT_6_LUNA, feature: "finance.indicator_insight");
 
                 if (result is null)
                     return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, error ?? "Failed to generate insight.");

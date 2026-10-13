@@ -58,7 +58,7 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
    - Individual stock trend analysis with short/medium/long-term predictions
    - Taiwan Stock Exchange (TWSE) Open API integration
    - Strategic insights generation with bullish/bearish recommendations
-   - AI-powered stock data analysis using OpenAI GPT-4o-mini
+   - AI-powered stock data analysis using OpenAI gpt-6-luna
 
 5. **PDF Unlocker** (`/pdf`) - PDF processing utilities
    - Password removal from protected PDFs
@@ -132,7 +132,10 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 ### AI Service Integration
 - **OpenAI client** configured in dependency injection using Betalgo.Ranul.OpenAI
 - **Models used**: 
-  - GPT-4o-mini for conversations and text analysis
+  - gpt-6-luna (`NewModels.GPT_6_LUNA`) for every chat/JSON completion — the only chat model;
+    it is reasoning-family, so `OpenAIPromptService` sends `reasoning_effort=low`, never
+    `temperature` or `max_tokens`, and caps output with `max_completion_tokens` (16384, output
+    only — prompts can be far longer)
   - Whisper for audio transcription (STT)
   - TTS-1 and TTS-1-HD for text-to-speech synthesis — **fallback only**: when `AzureSpeech:Key`
     is configured, `ITextToSpeechService` resolves to `AzureSpeechTextToSpeechService` (Azure AI

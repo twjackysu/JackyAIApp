@@ -56,7 +56,7 @@ namespace JackyAIApp.Server.Services.Listening
 
             var (dto, error) = await promptService.GetCompletionAsync<ListeningQuestionGenerationResult>(
                 "Prompt/Exam/ListeningQuestionSystem.txt", scenario,
-                model: NewModels.GPT_4_1_NANO, examples: new[] { FewShotExample }, feature: Feature);
+                model: NewModels.GPT_6_LUNA, examples: new[] { FewShotExample }, feature: Feature);
 
             if (dto == null)
             {

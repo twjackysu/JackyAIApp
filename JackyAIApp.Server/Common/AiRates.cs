@@ -14,9 +14,7 @@ namespace JackyAIApp.Server.Common
         private static readonly Dictionary<string, (decimal InputPerM, decimal OutputPerM)> ChatRates =
             new(StringComparer.OrdinalIgnoreCase)
             {
-                ["gpt-5-nano"] = (0.05m, 0.40m),
-                ["gpt-4.1-nano"] = (0.10m, 0.40m),
-                ["gpt-4o-mini"] = (0.15m, 0.60m),
+                ["gpt-6-luna"] = (0.10m, 0.50m),
                 ["claude-haiku-4-5"] = (1.00m, 5.00m),
             };
 

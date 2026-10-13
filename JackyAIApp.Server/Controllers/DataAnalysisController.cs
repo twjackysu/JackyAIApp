@@ -562,7 +562,7 @@ namespace JackyAIApp.Server.Controllers
                 GeneratePlanAsync(string userMessage)
             {
                 var (plan, llmError) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<SummarizeRequestDto>(
-                    phase2System, userMessage, NewModels.GPT_4_1_NANO, feature: "dataanalysis.nl_summarize");
+                    phase2System, userMessage, NewModels.GPT_6_LUNA, feature: "dataanalysis.nl_summarize");
 
                 if (plan is null || plan.ViewBy.Count == 0 || plan.Measures.Count == 0)
                 {

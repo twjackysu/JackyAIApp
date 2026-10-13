@@ -158,7 +158,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             var (result, error) = await _promptService.GetCompletionAsync<CategoryClassificationResult>(
                 PromptPath, grounding,
-                model: NewModels.GPT_5_NANO, examples: [FewShotExample], feature: Feature);
+                model: NewModels.GPT_6_LUNA, examples: [FewShotExample], feature: Feature);
 
             if (result == null)
             {

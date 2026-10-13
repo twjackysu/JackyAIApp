@@ -1,4 +1,3 @@
-using Betalgo.Ranul.OpenAI.ObjectModels;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
@@ -233,7 +232,7 @@ namespace JackyAIApp.Server.Services.Exam
             var scenario = ListeningResponseScenarios[Random.Shared.Next(ListeningResponseScenarios.Length)];
             var (dto, error) = await _promptService.GetCompletionAsync<ListeningResponseGenerationResult>(
                 "Prompt/Exam/ListeningResponseSystem.txt", scenario,
-                model: NewModels.GPT_4_1_NANO, examples: new[] { ListeningResponseFewShotExample },
+                model: NewModels.GPT_6_LUNA, examples: new[] { ListeningResponseFewShotExample },
                 feature: ListeningResponseFeature);
 
             if (dto == null)
@@ -426,7 +425,7 @@ namespace JackyAIApp.Server.Services.Exam
             {
                 var (dto, error) = await _promptService.GetCompletionAsync<ReadingGenerationResult>(
                     "Prompt/Exam/ReadingSystem.txt", topic,
-                    model: NewModels.GPT_4_1_NANO, examples: new[] { ReadingFewShotExample },
+                    model: NewModels.GPT_6_LUNA, examples: new[] { ReadingFewShotExample },
                     feature: ReadingFeature);
 
                 if (dto == null)
@@ -621,7 +620,7 @@ namespace JackyAIApp.Server.Services.Exam
             var (grading, error) = await _promptService.GetCompletionAsync<WritingGradingResponse>(
                 "Prompt/Exam/WritingEvaluationSystem.txt",
                 JsonConvert.SerializeObject(request),
-                model: NewModels.GPT_4_1_NANO, examples: new[] { example },
+                model: NewModels.GPT_6_LUNA, examples: new[] { example },
                 feature: WritingFeature);
 
             if (grading == null)
@@ -798,14 +797,14 @@ namespace JackyAIApp.Server.Services.Exam
             // Was previously a raw ChatCompletion call outside IOpenAIPromptService — bypassed
             // the JSON-force/token-cap reliability fixes and, more importantly, the AiUsageLog
             // instrumentation, so this endpoint's cost was completely invisible. Routed through
-            // the shared wrapper now; Temperature=0.8 (vs. the wrapper's default) is preserved
-            // for scenario variety.
+            // the shared wrapper now. It used gpt-4o-mini at temperature 0.8 for scenario variety;
+            // gpt-6-luna is a reasoning model that takes only the default temperature (1), which
+            // varies at least as much.
             var (conversationStart, error) = await _promptService.GetCompletionAsync<ConversationStartResponse>(
                 "Prompt/Exam/ConversationStartSystem.txt",
                 JsonConvert.SerializeObject(request),
-                model: Models.Gpt_4o_mini,
-                feature: "exam.conversation_start",
-                temperature: 0.8f);
+                model: NewModels.GPT_6_LUNA,
+                feature: "exam.conversation_start");
 
             if (conversationStart == null)
             {
