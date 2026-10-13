@@ -233,7 +233,7 @@ namespace JackyAIApp.Server.Services.Exam
             var scenario = ListeningResponseScenarios[Random.Shared.Next(ListeningResponseScenarios.Length)];
             var (dto, error) = await _promptService.GetCompletionAsync<ListeningResponseGenerationResult>(
                 "Prompt/Exam/ListeningResponseSystem.txt", scenario,
-                model: NewModels.GPT_4_1_NANO, examples: new[] { ListeningResponseFewShotExample },
+                model: NewModels.GPT_6_LUNA, examples: new[] { ListeningResponseFewShotExample },
                 feature: ListeningResponseFeature);
 
             if (dto == null)
@@ -426,7 +426,7 @@ namespace JackyAIApp.Server.Services.Exam
             {
                 var (dto, error) = await _promptService.GetCompletionAsync<ReadingGenerationResult>(
                     "Prompt/Exam/ReadingSystem.txt", topic,
-                    model: NewModels.GPT_4_1_NANO, examples: new[] { ReadingFewShotExample },
+                    model: NewModels.GPT_6_LUNA, examples: new[] { ReadingFewShotExample },
                     feature: ReadingFeature);
 
                 if (dto == null)
@@ -621,7 +621,7 @@ namespace JackyAIApp.Server.Services.Exam
             var (grading, error) = await _promptService.GetCompletionAsync<WritingGradingResponse>(
                 "Prompt/Exam/WritingEvaluationSystem.txt",
                 JsonConvert.SerializeObject(request),
-                model: NewModels.GPT_4_1_NANO, examples: new[] { example },
+                model: NewModels.GPT_6_LUNA, examples: new[] { example },
                 feature: WritingFeature);
 
             if (grading == null)

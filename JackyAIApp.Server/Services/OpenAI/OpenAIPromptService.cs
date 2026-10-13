@@ -99,11 +99,12 @@ namespace JackyAIApp.Server.Services.OpenAI
             return await GetCompletionWithMessagesAsync<T>(messagesTuples, model, feature, temperature);
         }
 
-        // "gpt-5*" is this app's only reasoning-family model; reasoning_effort is rejected by the
-        // OpenAI API on non-reasoning models (e.g. gpt-4.1-nano callers that pass an explicit
+        // "gpt-5*" and "gpt-6*" are this app's reasoning-family models; reasoning_effort is rejected
+        // by the OpenAI API on non-reasoning models (e.g. gpt-4o-mini callers that pass an explicit
         // model), so it must only be sent when the resolved model actually supports it.
         private static bool IsReasoningModel(string model) =>
-            model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
+            model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase) ||
+            model.StartsWith("gpt-6", StringComparison.OrdinalIgnoreCase);
 
         // Every prompt file routed through here must mention the word "json" somewhere in its
         // system/user text — the API rejects response_format=json_object otherwise.

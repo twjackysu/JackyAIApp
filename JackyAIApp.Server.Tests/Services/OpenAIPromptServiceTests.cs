@@ -2,6 +2,7 @@ using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.SharedModels;
+using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.OpenAI;
@@ -81,14 +82,34 @@ namespace JackyAIApp.Server.Tests.Services
                     Choices = [new ChatChoiceResponse { Message = ChatMessage.FromAssistant("""{"value":"ok"}""") }],
                 });
 
-            // gpt-4.1-nano (used by Finance/Portfolio AI summaries) is not a reasoning model —
+            // gpt-4o-mini (used by the conversation exam) is not a reasoning model —
             // the OpenAI API rejects reasoning_effort on it with a 400.
-            await _service.GetCompletionWithMessagesAsync<TestDto>([("user", "hello")], "gpt-4.1-nano");
+            await _service.GetCompletionWithMessagesAsync<TestDto>([("user", "hello")], "gpt-4o-mini");
 
             Assert.NotNull(captured);
             Assert.Null(captured!.ReasoningEffort);
             // Still gets the reliability improvements that apply to every model.
             Assert.Equal(ResponseFormatType.JsonObject, captured.ResponseFormat!.Type);
+            Assert.Equal(4096, captured.MaxCompletionTokens);
+        }
+
+        [Fact]
+        public async Task GetCompletionWithMessagesAsync_Gpt6Luna_SetsLowReasoningEffort()
+        {
+            ChatCompletionCreateRequest? captured = null;
+            _chatCompletionMock
+                .Setup(x => x.CreateCompletion(It.IsAny<ChatCompletionCreateRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Callback<ChatCompletionCreateRequest, string, CancellationToken>((req, _, _) => captured = req)
+                .ReturnsAsync(new ChatCompletionCreateResponse
+                {
+                    Choices = [new ChatChoiceResponse { Message = ChatMessage.FromAssistant("""{"value":"ok"}""") }],
+                });
+
+            // gpt-6-luna is reasoning-family and defaults to medium effort; these prompts don't need it.
+            await _service.GetCompletionWithMessagesAsync<TestDto>([("user", "hello")], NewModels.GPT_6_LUNA);
+
+            Assert.NotNull(captured);
+            Assert.Equal(ReasoningEffortType.Low, captured!.ReasoningEffort);
             Assert.Equal(4096, captured.MaxCompletionTokens);
         }
 

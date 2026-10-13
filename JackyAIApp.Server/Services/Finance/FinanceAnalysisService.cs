@@ -9,7 +9,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly ILogger<FinanceAnalysisService> _logger;
         private readonly IOpenAIPromptService _openAIPromptService;
         private const int MAX_RETRY_ATTEMPTS = 3;
-        private const string TrendAnalysisModel = NewModels.GPT_4_1_NANO;
+        private const string TrendAnalysisModel = NewModels.GPT_6_LUNA;
 
         public FinanceAnalysisService(
             ILogger<FinanceAnalysisService> logger,

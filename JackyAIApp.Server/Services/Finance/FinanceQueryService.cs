@@ -488,7 +488,7 @@ namespace JackyAIApp.Server.Services.Finance
             try
             {
                 var (result, error) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<MarketDigestResponse>(
-                    systemPrompt, userMessage, NewModels.GPT_4_1_NANO, feature: "finance.market_digest");
+                    systemPrompt, userMessage, NewModels.GPT_6_LUNA, feature: "finance.market_digest");
 
                 if (result is null || result.Points.Count == 0)
                     return (null, error ?? "Failed to generate market digest.");
@@ -606,7 +606,7 @@ namespace JackyAIApp.Server.Services.Finance
             try
             {
                 var (result, error) = await _openAIPromptService.GetCompletionWithSystemPromptAsync<IndicatorInsight>(
-                    systemPrompt, userMessage, NewModels.GPT_4_1_NANO, feature: "finance.indicator_insight");
+                    systemPrompt, userMessage, NewModels.GPT_6_LUNA, feature: "finance.indicator_insight");
 
                 if (result is null)
                     return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, error ?? "Failed to generate insight.");

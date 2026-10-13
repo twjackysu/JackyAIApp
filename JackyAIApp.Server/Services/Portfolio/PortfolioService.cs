@@ -1503,7 +1503,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var userMessage = $"請以朱家泓技術分析觀點，總結「{sym} {pos.Name}」。以下為技術數據：\n\n{context}";
 
             var (summaryResult, summaryError) = await openAI.GetCompletionAsync<PortfolioAiSummaryDto>(
-                "Prompt/Portfolio/ZhuTechAnalysisSystem.txt", userMessage, NewModels.GPT_4_1_NANO);
+                "Prompt/Portfolio/ZhuTechAnalysisSystem.txt", userMessage, NewModels.GPT_6_LUNA);
             return (summaryResult, summaryError, summaryResult == null ? ErrorCodes.QueryOpenAIFailed : null);
         }
 

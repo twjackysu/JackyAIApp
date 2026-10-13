@@ -5,6 +5,7 @@ using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.AiUsage;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
+using ReasoningEffortType = Betalgo.Ranul.OpenAI.Contracts.Enums.ReasoningEffort;
 
 namespace JackyAIApp.Server.Services.Finance
 {
@@ -26,6 +27,9 @@ namespace JackyAIApp.Server.Services.Finance
         private const string BaseUrl = "https://openapi.twse.com.tw/v1";
         private const string UserAgent = "stock-analysis/1.0";
         private const string CompanyListCacheKey = "twse_company_list";
+
+        /// <summary>The answer is a stock code or "NONE"; the rest is headroom for low-effort reasoning.</summary>
+        private const int ResolveMaxCompletionTokens = 1024;
 
         public async Task<string> ResolveStockCodeAsync(string userInput, CancellationToken cancellationToken = default)
         {
@@ -169,9 +173,11 @@ namespace JackyAIApp.Server.Services.Finance
                 var completionRequest = new ChatCompletionCreateRequest
                 {
                     Messages = [ChatMessage.FromSystem(systemPrompt), ChatMessage.FromUser(userPrompt)],
-                    Model = NewModels.GPT_4_1_NANO,
-                    Temperature = 0.1f,
-                    MaxTokens = 10
+                    Model = NewModels.GPT_6_LUNA,
+                    // gpt-6-luna is a reasoning model: it rejects max_tokens, and its reasoning tokens
+                    // count against the cap, so a tight cap meant for the answer alone returns empty.
+                    ReasoningEffort = ReasoningEffortType.Low,
+                    MaxCompletionTokens = ResolveMaxCompletionTokens
                 };
 
                 var response = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
@@ -227,9 +233,11 @@ User: 'undefined company' → 'NONE'";
                 var completionRequest = new ChatCompletionCreateRequest
                 {
                     Messages = [ChatMessage.FromSystem(systemPrompt), ChatMessage.FromUser(userPrompt)],
-                    Model = NewModels.GPT_4_1_NANO,
-                    Temperature = 0.1f,
-                    MaxTokens = 50
+                    Model = NewModels.GPT_6_LUNA,
+                    // gpt-6-luna is a reasoning model: it rejects max_tokens, and its reasoning tokens
+                    // count against the cap, so a tight cap meant for the answer alone returns empty.
+                    ReasoningEffort = ReasoningEffortType.Low,
+                    MaxCompletionTokens = ResolveMaxCompletionTokens
                 };
 
                 var response = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
