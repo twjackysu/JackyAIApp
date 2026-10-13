@@ -77,10 +77,15 @@ read as integers.
 python generate_demo_data.py --format sql
 ```
 
-Each `.sql` script creates its own table and inserts the rows in one transaction:
-`dbo.DemoSalesOrders`, `dbo.DemoHrEmployees`, `dbo.DemoMarketingCampaigns`, ... Use
-`--table NAME=SCHEMA.TABLE` to choose another name. Run the scripts in SSMS (or `sqlcmd -i`).
+Each `.sql` script creates its own table: `dbo.DemoSalesOrders`, `dbo.DemoHrEmployees`,
+`dbo.DemoMarketingCampaigns`, ... Use `--table NAME=SCHEMA.TABLE` to choose another name. Run the
+scripts in SSMS (or `sqlcmd -i`).
 
+- **All or nothing.** Everything a script does, including the `DROP` and `CREATE`, runs in one
+  transaction. If it fails or you cancel it, the database is left as it was.
+- **Fast on small databases.** Rows are sent as JSON and read with `OPENJSON`, 2,000 rows per
+  statement, so even 20,000 rows load in seconds on a Basic Azure SQL database. The Messages tab
+  shows the progress. `OPENJSON` needs SQL Server 2016+ or Azure SQL (compatibility level 130+).
 - **Existing tables are safe.** A script stops with an error if its table already exists. Generate
   it with `--replace` to drop and recreate the table instead.
 - **The default source only reads dbo.Orders.** To query the `Demo*` tables, add a **SQL Server**
@@ -92,8 +97,8 @@ Each `.sql` script creates its own table and inserts the rows in one transaction
 python generate_demo_data.py --datasets sales_orders --format sql --table sales_orders=dbo.Orders --replace --end 2026-10-13
 ```
 
-This drops `dbo.Orders` and recreates it with the richer data. Keep a copy first, in case you want the
-old rows back:
+This drops `dbo.Orders` and recreates it with the richer data, in one transaction. Keep a copy first,
+in case you want the old rows back later:
 
 ```sql
 SELECT * INTO dbo.Orders_backup FROM dbo.Orders;
