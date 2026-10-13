@@ -152,6 +152,12 @@ export interface SummarizeResult {
   rows: Record<string, unknown>[];
 }
 
+export interface RowCountQueryParams extends SourceQueryParams {
+  /** A date column of the table; the count is grouped by its year (see getRowCount). */
+  dateField: string;
+  filters?: FilterDimensionDto[];
+}
+
 // ── Details ─────────────────────────────────────────────────────────────────
 
 export interface SortFieldDto {

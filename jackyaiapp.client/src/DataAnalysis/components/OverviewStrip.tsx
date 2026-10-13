@@ -40,7 +40,7 @@ function StatCard({ label, value, hint, loading }: StatCardProps) {
 }
 
 interface OverviewStripProps {
-  /** Pre-formatted row count, e.g. "1,234" or "200+"; undefined while unknown. */
+  /** Pre-formatted row count, e.g. "1,234"; undefined while unknown. */
   rowCountDisplay: string | undefined;
   rowCountLoading: boolean;
   columnCount: number;

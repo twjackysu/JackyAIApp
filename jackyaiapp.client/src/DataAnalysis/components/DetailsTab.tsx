@@ -18,6 +18,8 @@ import { FilterEditor } from './FilterEditor';
 import type { FieldDefinition } from '../../apis/dataAnalysisApis/types';
 import type { ActiveFilter } from '../types';
 
+import { fmtNum } from '@/utils/format';
+
 interface DetailsTabProps {
   fields: FieldDefinition[];
   detailsFilters: ActiveFilter[];
@@ -114,7 +116,7 @@ export function DetailsTab({
             rowsPerPageOptions={[ROWS_PER_PAGE]}
             onPageChange={(_, newPage) => onPageChange(newPage)}
             labelDisplayedRows={({ from, to, count }) =>
-              `${from}–${to}，共 ${count > 0 ? count : `超過 ${to}`} 筆`
+              `${fmtNum(from)}–${fmtNum(to)}，共 ${count >= 0 ? fmtNum(count) : `超過 ${fmtNum(to)}`} 筆`
             }
           />
         </Paper>
