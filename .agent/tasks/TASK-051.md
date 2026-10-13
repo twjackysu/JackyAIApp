@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 LOW（只加日誌，不改行為。但它是 PM 的 Tech Lead Action「確認 #455 部署後各 AI 路徑正常」唯一缺的觀測點）
