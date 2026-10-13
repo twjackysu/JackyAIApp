@@ -72,7 +72,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         {
             if (await FetchArrayAsync("opendata/t187ap05_L") is not { } data) return;
             var stock = data.EnumerateArray().FirstOrDefault(r =>
-                r.TryGetProperty("公司代號", out var c) && c.GetString()?.Trim() == symbol + "MUTATION");
+                r.TryGetProperty("公司代號", out var c) && c.GetString()?.Trim() == symbol);
 
             // TWSE publishes this dataset in batches around the monthly filing deadline, so a given
             // company can legitimately have no row for a few days. That is data coverage, not the
@@ -104,7 +104,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         private static bool HasUsableMonthlyRevenueRow(JsonElement row) =>
             row.ValueKind == JsonValueKind.Object &&
             row.TryGetProperty("公司代號", out _) &&
-            row.TryGetProperty("營業收入-當月營收MUTATION", out var rev) && rev.ValueKind == JsonValueKind.String &&
+            row.TryGetProperty("營業收入-當月營收", out var rev) && rev.ValueKind == JsonValueKind.String &&
             decimal.TryParse(rev.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var revVal) && revVal > 0 &&
             row.TryGetProperty("資料年月", out var month) && month.ValueKind == JsonValueKind.String && !string.IsNullOrEmpty(month.GetString()) &&
             row.TryGetProperty("營業收入-去年同月增減(%)", out _) &&
