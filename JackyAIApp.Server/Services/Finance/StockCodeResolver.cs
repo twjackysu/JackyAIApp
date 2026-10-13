@@ -74,6 +74,17 @@ namespace JackyAIApp.Server.Services.Finance
                 _userService.GetUserId());
         }
 
+        /// <summary>
+        /// A request OpenAI rejects outright (e.g. HTTP 400 on an unsupported parameter) usually carries no
+        /// <c>Usage</c>, so <see cref="LogUsageAsync"/> writes nothing and the caller only sees "not found".
+        /// This leaves the reason in the log, matching <c>OpenAIPromptService</c>.
+        /// </summary>
+        private void LogCompletionFailure(Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels.ChatCompletionCreateResponse response)
+        {
+            var errorMsg = response.Error?.Message ?? "OpenAI request failed";
+            _logger.LogError("OpenAI stock-code resolution failed: {Error}", errorMsg);
+        }
+
         private async Task<List<CompanyInfo>> GetCompanyListAsync(CancellationToken cancellationToken)
         {
             if (_memoryCache.TryGetValue(CompanyListCacheKey, out List<CompanyInfo>? cached))
@@ -182,7 +193,11 @@ namespace JackyAIApp.Server.Services.Finance
 
                 var response = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
                 await LogUsageAsync(response);
-                if (response.Successful)
+                if (!response.Successful)
+                {
+                    LogCompletionFailure(response);
+                }
+                else
                 {
                     var result = response.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
                     if (IsValidStockCode(result))
@@ -242,7 +257,11 @@ User: 'undefined company' → 'NONE'";
 
                 var response = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
                 await LogUsageAsync(response);
-                if (response.Successful)
+                if (!response.Successful)
+                {
+                    LogCompletionFailure(response);
+                }
+                else
                 {
                     var result = response.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
                     if (IsValidStockCode(result))

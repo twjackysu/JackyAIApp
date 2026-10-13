@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 LOW（只加日誌，不改行為。但它是 PM 的 Tech Lead Action「確認 #455 部署後各 AI 路徑正常」唯一缺的觀測點）
@@ -33,7 +33,7 @@ LOW（只加日誌，不改行為。但它是 PM 的 Tech Lead Action「確認 #
 無。
 
 ## PR
-（尚無）
+https://github.com/twjackysu/JackyAIApp/pull/459（branch `claude/exciting-cray-1q2n9v`）
 
 ## Result
 
