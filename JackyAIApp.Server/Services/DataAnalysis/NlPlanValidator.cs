@@ -68,6 +68,33 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             return (kept, notes, rejected);
         }
 
+        /// <summary>
+        /// Real values that resemble a rejected one, best first — for a column too large to list in
+        /// the self-correction retry. One contains the other ("Acme" ↔ "Acme Corp") ranks above sharing
+        /// a word ("Acme Holdings" ↔ "Acme Corp"); values with neither are not returned.
+        /// </summary>
+        public static IEnumerable<string> SuggestCandidates(IEnumerable<string> realValues, string rejected)
+        {
+            var target = rejected.Trim();
+            if (target.Length == 0) return [];
+            var targetTokens = Tokens(target);
+            return realValues
+                .Select(real => (real, score:
+                    real.Contains(target, StringComparison.OrdinalIgnoreCase) ||
+                    target.Contains(real, StringComparison.OrdinalIgnoreCase)
+                        ? 100
+                        : Tokens(real).Count(targetTokens.Contains)))
+                .Where(x => x.score > 0)
+                .OrderByDescending(x => x.score)
+                .ThenBy(x => x.real, StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.real);
+
+            static HashSet<string> Tokens(string s) =>
+                s.Split(s.Where(c => !char.IsLetterOrDigit(c)).Distinct().ToArray(), StringSplitOptions.RemoveEmptyEntries)
+                 .Where(t => t.Length >= 2)
+                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
         /// <summary>Ops whose values must equal (or be contained in) a real column value; ranges are excluded.</summary>
         /// <remarks>MapFilter treats null / unrecognised ops as "In", so those are validated too.</remarks>
         private static bool IsValueMatchOp(string? op) =>

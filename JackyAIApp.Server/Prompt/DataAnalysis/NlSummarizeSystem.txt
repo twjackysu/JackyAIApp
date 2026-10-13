@@ -68,11 +68,11 @@ viewBy (group) dimensions, not for measures.
 5. CRITICAL — filter values: when an "ACTUAL VALUES for filterable columns" block is provided below,
    any filter you add on one of those columns MUST use values copied EXACTLY from that block
    (match the user's wording to the closest real value, e.g. user "US"/"America" → "NAMER" if that
-   is the actual value). The user often writes Chinese or a full name while the data holds an English
-   code or abbreviation — translate and map it: 「拉丁美洲」/「中南美」→ "LATAM", 「亞太」→ "APAC",
-   「歐洲」/「歐非中東」→ "EMEA", 「美洲」/「北美」→ "AMER", 「英國」→ "UK", 「美國」→ "USA",
-   「線上」→ "Online", 「企業客戶」→ "Enterprise" (whenever those are the listed values).
-   NEVER invent a filter value that is not in the list. If the user's intent matches no available
+   is the actual value). The user often writes Chinese, a full name or a synonym while the data holds
+   an English code or abbreviation — translate the wording and pick the listed value that means the
+   same thing (a region, country, channel or segment name → its code in the list). Work out WHICH
+   column the term belongs to by looking through ALL the listed columns' values, not only the column
+   you first expected. NEVER invent a filter value that is not in the list. If the user's intent matches no available
    value, OMIT that filter rather than guessing.
 6. DATES — when the user restricts or refers to time, add a date filter on the date column. Use the
    "DATA DATE RANGE" block (the real latest date in the data) — NOT today's date — to resolve
@@ -85,15 +85,15 @@ viewBy (group) dimensions, not for measures.
    - "this year" / 「今年」 → Between [Jan 1 of the latest date's year, the latest date].
      "last year" / 「去年」 → Between [Jan 1, Dec 31] of the year before the latest date's year.
      A "per month / 每月" in the same question is grouping and does NOT replace this filter —
-     「今年每月的訂單數」 needs BOTH the DateTrunc Month group AND the this-year Between filter.
+     「今年每週的銷量」 needs BOTH the DateTrunc Week group AND the this-year Between filter.
    - "last quarter", "Q3 2024", "in 2023" → the matching Between range.
    - An explicit absolute range the user gives (e.g. "2024") is used verbatim.
    - If there is no DATA DATE RANGE block and the phrase is relative, OMIT the date filter rather than
      guessing a year.
    - NEVER add a date filter the user didn't ask for. 「每月」/「每季」/"monthly" alone is grouping, not
-     a time restriction: 「企業客戶每月營收」 has no date filter.
+     a time restriction: 「政府單位每季的銷售額」 has no date filter.
    - A date filter does NOT imply a date group. Only add a DateTrunc group when the user asks for a
-     breakdown by period (每月/每季/by month…): 「最新一個月各地區的營收」 groups by Region only.
+     breakdown by period (每月/每季/by month…): 「最近一個月各門市的銷售額」 groups by store only.
 7. If the question is ambiguous or cannot be answered with available fields, return: {"viewBy":[],"measures":[],"filters":[]}
 
 ## Few-shot Examples
@@ -128,31 +128,31 @@ COLUMNS: ProductName(String), Revenue(Decimal), OrderDate(DateTime)
 DATA DATE RANGE: OrderDate latest = 2024-09-18
 ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"ProductName"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"Total Revenue"}],"filters":[{"fieldName":"OrderDate","values":["2024-09-01","2024-09-18"],"op":"Between"}]}
 
-USER: "拉丁美洲各產品類別的訂單數"   (Chinese region name → the data's code)
-COLUMNS: OrderId(Integer), ProductCategory(String), Region(String), OrderDate(DateTime)
-ACTUAL VALUES: Region: AMER | APAC | EMEA | LATAM
-ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"ProductCategory"}],"measures":[{"fieldName":"OrderId","aggregation":"Count","alias":"訂單數"}],"filters":[{"fieldName":"Region","values":["LATAM"],"op":"In"}]}
+USER: "東南亞各產品線的訂單數"   (Chinese name → the code the data actually uses)
+COLUMNS: OrderNo(Integer), ProductLine(String), Market(String), SoldAt(DateTime)
+ACTUAL VALUES: Market: ANZ | GCN | NEA | SEA; ProductLine: Audio | Camera | Phone
+ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"ProductLine"}],"measures":[{"fieldName":"OrderNo","aggregation":"Count","alias":"訂單數"}],"filters":[{"fieldName":"Market","values":["SEA"],"op":"In"}]}
 
-USER: "線上通路各地區的營收"
-COLUMNS: Revenue(Decimal), Region(String), SalesChannel(String)
-ACTUAL VALUES: Region: AMER | APAC | EMEA | LATAM; SalesChannel: Direct | Online | Partner
-ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"Region"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"營收"}],"filters":[{"fieldName":"SalesChannel","values":["Online"],"op":"In"}]}
+USER: "實體門市各品牌的銷售額"   (the term belongs to a column you might not expect — check every list)
+COLUMNS: Amount(Decimal), Brand(String), Channel(String), City(String)
+ACTUAL VALUES: Brand: Alpha | Nova | Zen; Channel: E-commerce | Retail Store | Wholesale; City: Kaohsiung | Taichung | Taipei
+ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"Brand"}],"measures":[{"fieldName":"Amount","aggregation":"Sum","alias":"銷售額"}],"filters":[{"fieldName":"Channel","values":["Retail Store"],"op":"In"}]}
 
-USER: "最新一個月各地區的營收"   (latest calendar month; a date filter, but NO month group)
-COLUMNS: Region(String), Revenue(Decimal), OrderDate(DateTime)
-DATA DATE RANGE: OrderDate latest = 2026-10-13
-ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"Region"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"營收"}],"filters":[{"fieldName":"OrderDate","values":["2026-10-01","2026-10-13"],"op":"Between"}]}
+USER: "最近一個月各門市的銷售額"   (latest calendar month; a date filter, but NO month group)
+COLUMNS: Store(String), Amount(Decimal), SoldAt(DateTime)
+DATA DATE RANGE: SoldAt latest = 2025-06-20
+ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"Store"}],"measures":[{"fieldName":"Amount","aggregation":"Sum","alias":"銷售額"}],"filters":[{"fieldName":"SoldAt","values":["2025-06-01","2025-06-20"],"op":"Between"}]}
 
-USER: "今年每月的訂單數"   (month group AND this-year filter)
-COLUMNS: OrderId(Integer), OrderDate(DateTime)
-DATA DATE RANGE: OrderDate latest = 2026-10-13
-ASSISTANT: {"viewBy":[{"type":"DateTrunc","fieldName":"OrderDate","granularity":"Month","alias":"Month"}],"measures":[{"fieldName":"OrderId","aggregation":"Count","alias":"訂單數"}],"filters":[{"fieldName":"OrderDate","values":["2026-01-01","2026-10-13"],"op":"Between"}]}
+USER: "今年每週的銷量"   (week group AND this-year filter)
+COLUMNS: Units(Integer), SoldAt(DateTime)
+DATA DATE RANGE: SoldAt latest = 2025-06-20
+ASSISTANT: {"viewBy":[{"type":"DateTrunc","fieldName":"SoldAt","granularity":"Week","alias":"Week"}],"measures":[{"fieldName":"Units","aggregation":"Sum","alias":"銷量"}],"filters":[{"fieldName":"SoldAt","values":["2025-01-01","2025-06-20"],"op":"Between"}]}
 
-USER: "企業客戶每月營收"   (no time restriction mentioned → no date filter)
-COLUMNS: Revenue(Decimal), OrderDate(DateTime), CustomerSegment(String)
-ACTUAL VALUES: CustomerSegment: Consumer | Education | Enterprise | Government | SMB
-DATA DATE RANGE: OrderDate latest = 2026-10-13
-ASSISTANT: {"viewBy":[{"type":"DateTrunc","fieldName":"OrderDate","granularity":"Month","alias":"Month"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"營收"}],"filters":[{"fieldName":"CustomerSegment","values":["Enterprise"],"op":"In"}]}
+USER: "政府單位每季的銷售額"   (no time restriction mentioned → no date filter)
+COLUMNS: Amount(Decimal), SoldAt(DateTime), Sector(String)
+ACTUAL VALUES: Sector: Government | Healthcare | Retail
+DATA DATE RANGE: SoldAt latest = 2025-06-20
+ASSISTANT: {"viewBy":[{"type":"DateTrunc","fieldName":"SoldAt","granularity":"Quarter","alias":"Quarter"}],"measures":[{"fieldName":"Amount","aggregation":"Sum","alias":"銷售額"}],"filters":[{"fieldName":"Sector","values":["Government"],"op":"In"}]}
 
 USER: "average order value by price range"   (numeric column → NumericBin)
 COLUMNS: UnitPrice(Decimal), Revenue(Decimal), ProductName(String)

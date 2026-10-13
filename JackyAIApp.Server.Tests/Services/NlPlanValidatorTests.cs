@@ -111,6 +111,31 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         [Fact]
+        public void SuggestCandidates_ContainmentRanksAboveSharedWord()
+        {
+            string[] real = ["Acme Holdings", "Acme Corp", "Beta Ltd", "Corp Services"];
+
+            Assert.Equal(["Acme Corp", "Acme Holdings", "Corp Services"],
+                NlPlanValidator.SuggestCandidates(real, "Acme Corp Taiwan"));
+        }
+
+        [Fact]
+        public void SuggestCandidates_MatchesCjkSubstring()
+        {
+            string[] real = ["台積電股份有限公司", "聯發科技", "鴻海精密"];
+
+            Assert.Equal(["台積電股份有限公司"], NlPlanValidator.SuggestCandidates(real, "台積電"));
+        }
+
+        [Theory]
+        [InlineData("Zeta Inc")]
+        [InlineData("  ")]
+        public void SuggestCandidates_NothingSimilar_ReturnsEmpty(string rejected)
+        {
+            Assert.Empty(NlPlanValidator.SuggestCandidates(["Acme Corp", "Beta Ltd"], rejected));
+        }
+
+        [Fact]
         public void Interpretation_IsPlainChinese()
         {
             var plan = new SummarizeRequestDto

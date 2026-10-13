@@ -103,9 +103,9 @@ const NL_EXAMPLES = [
 ];
 
 // Staged progress shown while the NL agent runs. Mirrors the backend's real
-// phases (plan → fetch live values → execute); timing is simulated locally
+// phases (fetch live values → plan → execute); timing is simulated locally
 // since the request is a single HTTP call.
-const NL_STEPS = ['理解你的問題', '檢查資料中的實際數值', '執行查詢'];
+const NL_STEPS = ['檢查資料中的實際數值', '理解你的問題', '執行查詢'];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
