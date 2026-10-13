@@ -3,6 +3,7 @@ import { createApi } from '@reduxjs/toolkit/query/react';
 import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
+import { buildRowCountRequest, sumRowCounts } from './rowCount';
 import {
   DataSourceConfigDto,
   DetailsRequest,
@@ -14,6 +15,7 @@ import {
   MaxDateResult,
   NlSummarizeRequest,
   NlSummarizeResult,
+  RowCountQueryParams,
   SaveDataSourceConfigDto,
   SessionUploadRequest,
   SessionUploadResponse,
@@ -81,6 +83,15 @@ export const dataAnalysisApis = createApi({
       }),
     }),
 
+    /**
+     * Exact row count of a database table (optionally filtered), from one aggregate query.
+     * Session uploads don't need it: their details response already carries the total.
+     */
+    getRowCount: builder.query<number, RowCountQueryParams>({
+      query: (params) => ({ url: 'summarize', method: 'POST', body: buildRowCountRequest(params) }),
+      transformResponse: (res: ApiOkResponse<SummarizeResult>) => sumRowCounts(res.data),
+    }),
+
     /** Details — paginated raw rows. Pass sessionId to query in-memory session data. */
     details: builder.mutation<
       ApiOkResponse<DetailsResult>,
@@ -142,6 +153,7 @@ export const {
   useDeleteSourceMutation,
   useGetSchemaQuery,
   useSummarizeMutation,
+  useGetRowCountQuery,
   useDetailsMutation,
   useGetMaxDateQuery,
   useGetDistinctValuesQuery,

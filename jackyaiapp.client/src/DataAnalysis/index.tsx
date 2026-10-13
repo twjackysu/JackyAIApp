@@ -8,12 +8,12 @@ import { ThemeProvider } from '@mui/material/styles';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useGetUserInfoQuery } from '../apis/accountApis';
 import {
-  useDetailsMutation,
   useGetMaxDateQuery,
+  useGetRowCountQuery,
   useGetSchemaQuery,
   useNlSummarizeMutation,
 } from '../apis/dataAnalysisApis';
@@ -27,7 +27,7 @@ import { SourcePanel } from './components/SourcePanel';
 import { SummarizeTab } from './components/SummarizeTab';
 import { TabPanel } from './components/TabPanel';
 import { UploadDataDialog } from './components/UploadDataDialog';
-import { DEFAULT_TABLE } from './constants';
+import { DATE_CANONICAL_TYPES, DEFAULT_TABLE } from './constants';
 import { useDateField } from './hooks/useDateField';
 import { useDetails } from './hooks/useDetails';
 import { useSourceContext } from './hooks/useSourceContext';
@@ -110,7 +110,20 @@ export default function DataAnalysis() {
   };
 
   // ── Details ───────────────────────────────────────────────────────────────
-  const details = useDetails({ ctxSourceId, ctxTableName, tab, dateField, sessionId });
+  // Row counts group by the date field's year, so they need it to be a real date column.
+  const rowCountField = fields.some(
+    (f) => f.name === dateField && DATE_CANONICAL_TYPES.includes(f.canonicalType),
+  )
+    ? dateField
+    : undefined;
+  const details = useDetails({
+    ctxSourceId,
+    ctxTableName,
+    tab,
+    dateField,
+    rowCountField,
+    sessionId,
+  });
 
   // ── Max Date ──────────────────────────────────────────────────────────────
   const { data: maxDateData, isLoading: maxDateLoading } = useGetMaxDateQuery({
@@ -122,27 +135,17 @@ export default function DataAnalysis() {
   const maxDate = maxDateData?.data?.maxDate;
 
   // ── Row count (for the overview strip) ────────────────────────────────────
-  // Session uploads already know their row count. For DB sources the library's
-  // DetailsResult.TotalCount is just the returned page size (no real COUNT
-  // query), so fetch up to the 200-row server cap: below the cap the count is
-  // exact, at the cap we show "200+".
-  const [fetchRowCount, { data: rowCountData, isLoading: rowCountLoading }] = useDetailsMutation();
-  useEffect(() => {
-    if (sessionId) return;
-    fetchRowCount({
-      context: ctxSourceId ? { sourceId: ctxSourceId, tableName: ctxTableName } : undefined,
-      take: 200,
-      skip: 0,
-    });
-  }, [ctxSourceId, ctxTableName, sessionId, fetchRowCount]);
-  const dbRowCount = rowCountData?.data?.totalCount;
+  // Session uploads already know their row count. DB sources get an exact count from one
+  // aggregate query; the same query (no filters) backs the Details tab's total, so it's cached.
+  const { data: dbRowCount, isFetching: rowCountLoading } = useGetRowCountQuery(
+    { sourceId: ctxSourceId, tableName: ctxTableName, dateField: rowCountField ?? '', filters: [] },
+    { skip: !!sessionId || !rowCountField },
+  );
   const rowCountDisplay = sessionId
     ? sessionInfo && fmtNum(sessionInfo.rowCount)
     : dbRowCount == null
       ? undefined
-      : dbRowCount >= 200
-        ? '200+'
-        : fmtNum(dbRowCount);
+      : fmtNum(dbRowCount);
 
   // ── Source change: reset all query config ─────────────────────────────────
   const handleSourceChange = (id: string) => {
