@@ -452,14 +452,35 @@ namespace JackyAIApp.Server.Controllers
             // user's wording onto. Columns up to PromptValueLimit values go into the prompt (within a total
             // budget); larger ones (CustomerName…) are left out of it but still validated after generation.
             // Kept in lovCache so validation doesn't re-query.
+            //
+            // Fetched a few columns at a time, and the whole phase is bounded by LovPhaseBudget: on a
+            // large custom source one column can take a long time, and the question must not wait on it.
+            // A column that isn't back in time is simply absent — not in the prompt, not validated.
+            var lovColumns = stringFieldList.Take(MaxLovColumns).ToList();
+            var gate       = new SemaphoreSlim(LovConcurrency);
+            var fetches    = lovColumns.ToDictionary(col => col, async col =>
+            {
+                await gate.WaitAsync(ct);
+                try { return await distinctValuesFetcher(col); }
+                finally { gate.Release(); }
+            }, StringComparer.OrdinalIgnoreCase);
+            await Task.WhenAny(Task.WhenAll(fetches.Values), Task.Delay(LovPhaseBudget, ct));
+            ct.ThrowIfCancellationRequested();
+
             var lovCache    = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var inPrompt    = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var lovLines    = new List<string>();
             var valueBudget = MaxPromptValues;
-            foreach (var col in stringFieldList.Take(MaxLovColumns))
+            foreach (var col in lovColumns)
             {
-                ct.ThrowIfCancellationRequested();
-                var values = await distinctValuesFetcher(col);
+                var fetch = fetches[col];
+                if (!fetch.IsCompletedSuccessfully)
+                {
+                    _logger.LogWarning("NlSummarize: values of {col} not fetched within {budget}s — left out", col, LovPhaseBudget.TotalSeconds);
+                    continue;
+                }
+
+                var values = fetch.Result;
                 lovCache[col] = values;
                 if (values.Count == 0 || values.Count > PromptValueLimit || values.Count > valueBudget)
                     continue;
@@ -572,11 +593,13 @@ namespace JackyAIApp.Server.Controllers
                 if (plan.Filters is not { Count: > 0 })
                     return (plan, null, [], []);
 
+                // Columns beyond MaxLovColumns are fetched now; one that missed the up-front budget is not
+                // retried (it already proved slow) and stays unvalidated.
                 foreach (var col in plan.Filters.Select(f => f.FieldName)
                              .Where(stringFields.Contains)
                              .Distinct(StringComparer.OrdinalIgnoreCase))
                 {
-                    if (lovCache.ContainsKey(col)) continue;
+                    if (lovCache.ContainsKey(col) || fetches.ContainsKey(col)) continue;
                     ct.ThrowIfCancellationRequested();
                     lovCache[col] = await distinctValuesFetcher(col);
                 }
@@ -623,6 +646,15 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Bounds the distinct-value queries per NL request on very wide tables.</summary>
         private const int MaxLovColumns = 30;
 
+        /// <summary>Distinct-value queries run in parallel per NL request (the default DB is 5 DTU).</summary>
+        private const int LovConcurrency = 4;
+
+        /// <summary>Longest wait for one column's distinct values before it is skipped.</summary>
+        private static readonly TimeSpan LovColumnTimeout = TimeSpan.FromSeconds(3);
+
+        /// <summary>Longest wait for the whole up-front distinct-value phase of one NL request.</summary>
+        private static readonly TimeSpan LovPhaseBudget = TimeSpan.FromSeconds(6);
+
         /// <summary>
         /// Shared LoV helper used by both <see cref="GetDistinctValues"/> and the NL summarize agent.
         /// Groups by <paramref name="field"/> with a Count measure to get distinct values, up to <paramref name="limit"/>.
@@ -658,9 +690,17 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
-        /// The NL agent's LoV fetch, cached briefly. Each NL question now reads every low-cardinality
-        /// String column (about 15 GROUP BYs on dbo.Orders), which the 5-DTU database shouldn't pay
-        /// per question. Failed (empty) fetches aren't cached.
+        /// The NL agent's LoV fetch, cached briefly. Each NL question reads every String column (about
+        /// 15 GROUP BYs on dbo.Orders), which the 5-DTU database shouldn't pay per question.
+        /// <para>
+        /// Bounded by <see cref="LovColumnTimeout"/>: the library's Summarize has no TOP/LIMIT, so a
+        /// high-cardinality column on a big source (millions of customer names) can run up to the SQL
+        /// connector's 120 s command timeout — and the ADX connector ignores the cancellation token
+        /// altogether. So the wait is cut by <see cref="TimeBox"/> rather than relying on cancellation
+        /// alone; a column that times out is remembered as empty for the cache period, so later
+        /// questions skip it instantly instead of paying the timeout again. Other failures return empty
+        /// without being cached. Never throws except for the caller's own cancellation.
+        /// </para>
         /// </summary>
         private async Task<List<string>> FetchEngineLovCachedAsync(ResolvedCtx ctx, Guid? sourceId, string field, CancellationToken ct)
         {
@@ -668,10 +708,27 @@ namespace JackyAIApp.Server.Controllers
             if (_cache.TryGetValue(key, out List<string>? cached) && cached is not null)
                 return cached;
 
-            var values = await FetchEngineDistinctValuesAsync(ctx, field, ct, MaxDistinctValues);
-            if (values.Count > 0)
-                _cache.Set(key, values, TimeSpan.FromMinutes(5));
-            return values;
+            try
+            {
+                var (timedOut, values) = await TimeBox.RunAsync(
+                    token => FetchEngineDistinctValuesAsync(ctx, field, token, MaxDistinctValues), LovColumnTimeout, ct);
+                if (timedOut)
+                {
+                    _logger.LogWarning("FetchEngineLov: field={field} exceeded {s}s — skipped for this source for 5 min",
+                        field, LovColumnTimeout.TotalSeconds);
+                    _cache.Set(key, new List<string>(), TimeSpan.FromMinutes(5));
+                    return [];
+                }
+
+                if (values!.Count > 0)
+                    _cache.Set(key, values, TimeSpan.FromMinutes(5));
+                return values;
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "FetchEngineLov: field={field} failed", field);
+                return [];
+            }
         }
 
         /// <summary>Returns distinct values for a column in session data (List-of-Values for filter planning).</summary>

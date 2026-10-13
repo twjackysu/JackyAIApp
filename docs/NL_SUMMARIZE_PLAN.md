@@ -45,6 +45,8 @@
    快取 5 分鐘；session 走 `GetDistinctValues`）。不重複值 ≤ 300 的欄位整份放進 prompt（總量上限 2000 個值、
    最多 30 欄）；超過 300 的（CustomerName 之類）不放 prompt，但仍會驗證。prompt 不寫死任何資料集的值，
    AI 對照的是當下資料裡真正的代碼。
+   查詢有時間上限：同時跑 4 欄、單欄 3 秒、整段 6 秒（`TimeBox`；DALib 的 Summarize 沒有 TOP/LIMIT，
+   ADX connector 也不理會取消），沒回來的欄位就不放 prompt、不驗證；逾時的欄位 5 分鐘內直接跳過。
 2. **LLM 產 plan**（`NlSummarizeSystem.txt` → `SummarizeRequestDto`）：給 schema + 真實值清單 + today + 資料最新日期。
    prompt 規定 filter 值**必須**從真實清單複製（中文、全名、同義詞要翻成清單裡的代碼），配不到就略過該 filter。
 3. 驗證欄位名 → **驗證篩選值**（`NlPlanValidator.ValidateFilterValues`：不存在的值移除並附中文提示）
