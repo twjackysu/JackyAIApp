@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 LOW（僅測試；對正式環境無影響。目的是讓每日排程的 contract test 紅燈保持「有事才紅」）
@@ -49,8 +49,13 @@ LOW（僅測試；對正式環境無影響。目的是讓每日排程的 contrac
 無。
 
 ## PR
-（尚無）
+https://github.com/twjackysu/JackyAIApp/pull/458
 
 ## Result
+- 只改 `TwseOpenApiContractTests.cs`：該 symbol 有列 → 原四個欄位斷言不變；無列 → 改斷言整份資料 ≥ 100 列且至少一列具備五個欄位（含 `營業收入-當月營收` > 0），通過即 return；訊息帶 symbol 與實際列數。無日期條件、無產品程式碼變更。
+- 離線：`dotnet build` 0 error；`dotnet test --filter "Category!=LiveContract"` 1284／1284 通過。
+- `workflow_dispatch`（PR 分支）run 105：https://github.com/twjackysu/JackyAIApp/actions/runs/38431925311 → 57／57 通過，`Revenue_t187ap05_L_*` 1301、2603、2891 皆 Passed（日誌看不出各 symbol 走「有列」或「無列」路徑）。
+- 變異驗證 run 106：https://github.com/twjackysu/JackyAIApp/actions/runs/38432346128 → 強制查無列 + 整份資料欄位名改錯，3 個 Revenue 測試依預期失敗（`none of the 869 rows has the expected fields`），其餘 54 項通過；變異已 revert。
+- 假設（分批更新）仍未驗證；若 10/14 起仍有公司缺列，再回報 Tech Lead。
 
 ## Review
