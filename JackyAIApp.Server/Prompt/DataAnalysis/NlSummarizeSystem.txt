@@ -77,16 +77,19 @@ viewBy (group) dimensions, not for measures.
 6. DATES — when the user restricts or refers to time, add a date filter on the date column. Use the
    "DATA DATE RANGE" block (the real latest date in the data) — NOT today's date — to resolve
    relative phrases. Date filters do not need an ACTUAL VALUES list. Put dates as "yyyy-MM-dd" strings.
-   - "latest" / "most recent" / "current" / "最新" + month (「最新一個月」「最近一個月」「本月」) → the
-     CALENDAR month containing the latest date: Between [first day of that month, the latest date].
-     e.g. latest date 2024-09-18 → {"op":"Between","values":["2024-09-01","2024-09-18"]} — NOT a
-     rolling window reaching back into the previous month.
+   - The DATA DATE RANGE block already lists the relative ranges (latest month, previous month,
+     latest quarter, previous quarter, this year, last year) computed from the latest date. For any of
+     those phrases, COPY the listed range verbatim as {"op":"Between","values":[start, end]} — never
+     compute a range yourself.
+   - 「最新一個月」「最近一個月」「本月」「這個月」"latest / most recent / current month" → the listed
+     "latest month": the 1st of the latest date's month to the latest date. It is NOT the past 30 days
+     and does NOT start in the previous month.
    - "latest" / "最新" with no period word → treat as the latest MONTH (as above).
-   - "this year" / 「今年」 → Between [Jan 1 of the latest date's year, the latest date].
-     "last year" / 「去年」 → Between [Jan 1, Dec 31] of the year before the latest date's year.
+   - 「今年」"this year" → the listed "this year"; 「去年」"last year" → the listed "last year".
      A "per month / 每月" in the same question is grouping and does NOT replace this filter —
      「今年每週的銷量」 needs BOTH the DateTrunc Week group AND the this-year Between filter.
-   - "last quarter", "Q3 2024", "in 2023" → the matching Between range.
+   - 「上個月」"last month" → "previous month"; 「上一季」"last quarter" → "previous quarter".
+   - "Q3 2024", "in 2023" → the matching Between range.
    - An explicit absolute range the user gives (e.g. "2024") is used verbatim.
    - If there is no DATA DATE RANGE block and the phrase is relative, OMIT the date filter rather than
      guessing a year.
@@ -123,9 +126,9 @@ COLUMNS: Revenue(Decimal), OrderDate(DateTime), CustomerSegment(String)
 ACTUAL VALUES: CustomerSegment: Enterprise | Mid-Market | SMB
 ASSISTANT: {"viewBy":[{"type":"DateTrunc","fieldName":"OrderDate","granularity":"Quarter","alias":"Quarter"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"Total Revenue"}],"filters":[{"fieldName":"CustomerSegment","values":["Enterprise"],"op":"In"}]}
 
-USER: "latest revenue by product"   (asks for the most recent month; uses DATA DATE RANGE, not today)
+USER: "latest revenue by product"   (asks for the most recent month; copies the listed "latest month")
 COLUMNS: ProductName(String), Revenue(Decimal), OrderDate(DateTime)
-DATA DATE RANGE: OrderDate latest = 2024-09-18
+DATA DATE RANGE: OrderDate latest = 2024-09-18; latest month: 2024-09-01 ~ 2024-09-18; this year: 2024-01-01 ~ 2024-09-18
 ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"ProductName"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum","alias":"Total Revenue"}],"filters":[{"fieldName":"OrderDate","values":["2024-09-01","2024-09-18"],"op":"Between"}]}
 
 USER: "東南亞各產品線的訂單數"   (Chinese name → the code the data actually uses)
@@ -138,14 +141,14 @@ COLUMNS: Amount(Decimal), Brand(String), Channel(String), City(String)
 ACTUAL VALUES: Brand: Alpha | Nova | Zen; Channel: E-commerce | Retail Store | Wholesale; City: Kaohsiung | Taichung | Taipei
 ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"Brand"}],"measures":[{"fieldName":"Amount","aggregation":"Sum","alias":"銷售額"}],"filters":[{"fieldName":"Channel","values":["Retail Store"],"op":"In"}]}
 
-USER: "最近一個月各門市的銷售額"   (latest calendar month; a date filter, but NO month group)
+USER: "最近一個月各門市的銷售額"   (the listed "latest month", not the past 30 days; a date filter, but NO month group)
 COLUMNS: Store(String), Amount(Decimal), SoldAt(DateTime)
-DATA DATE RANGE: SoldAt latest = 2025-06-20
+DATA DATE RANGE: SoldAt latest = 2025-06-20; latest month: 2025-06-01 ~ 2025-06-20; previous month: 2025-05-01 ~ 2025-05-31
 ASSISTANT: {"viewBy":[{"type":"Plain","fieldName":"Store"}],"measures":[{"fieldName":"Amount","aggregation":"Sum","alias":"銷售額"}],"filters":[{"fieldName":"SoldAt","values":["2025-06-01","2025-06-20"],"op":"Between"}]}
 
-USER: "今年每週的銷量"   (week group AND this-year filter)
+USER: "今年每週的銷量"   (week group AND the listed "this year" filter)
 COLUMNS: Units(Integer), SoldAt(DateTime)
-DATA DATE RANGE: SoldAt latest = 2025-06-20
+DATA DATE RANGE: SoldAt latest = 2025-06-20; latest month: 2025-06-01 ~ 2025-06-20; this year: 2025-01-01 ~ 2025-06-20
 ASSISTANT: {"viewBy":[{"type":"DateTrunc","fieldName":"SoldAt","granularity":"Week","alias":"Week"}],"measures":[{"fieldName":"Units","aggregation":"Sum","alias":"銷量"}],"filters":[{"fieldName":"SoldAt","values":["2025-01-01","2025-06-20"],"op":"Between"}]}
 
 USER: "政府單位每季的銷售額"   (no time restriction mentioned → no date filter)

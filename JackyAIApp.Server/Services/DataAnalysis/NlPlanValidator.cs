@@ -95,6 +95,34 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                  .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// The notes for a plan that went through the self-correction retry. The retry's own notes come
+        /// through as-is. A first-pass note is kept only for a column the retry neither filters on nor
+        /// already notes: dropping the filter there means "no real value matches", and without the note the
+        /// user's condition would vanish without a word. A column the retry rejected again is already
+        /// covered by the retry's note, so carrying the first one too would show the same message twice.
+        /// </summary>
+        /// <param name="firstRejected">The first pass's rejected values; <paramref name="firstNotes"/>[i] describes [i].</param>
+        /// <param name="firstNotes">The first pass's notes.</param>
+        /// <param name="retryFilters">The retry plan's filters, after validation.</param>
+        /// <param name="retryRejected">The retry's rejected values.</param>
+        /// <param name="retryNotes">The retry's notes.</param>
+        public static List<string> MergeRetryNotes(
+            IReadOnlyList<(string FieldName, List<string> Values)> firstRejected,
+            IReadOnlyList<string> firstNotes,
+            IReadOnlyList<FilterDimensionDto>? retryFilters,
+            IReadOnlyList<(string FieldName, List<string> Values)> retryRejected,
+            IReadOnlyList<string> retryNotes)
+        {
+            var covered = (retryFilters ?? []).Select(f => f.FieldName)
+                .Concat(retryRejected.Select(r => r.FieldName))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var carried = firstRejected.Zip(firstNotes)
+                .Where(p => !covered.Contains(p.First.FieldName))
+                .Select(p => p.Second);
+            return [.. carried, .. retryNotes];
+        }
+
         /// <summary>Ops whose values must equal (or be contained in) a real column value; ranges are excluded.</summary>
         /// <remarks>MapFilter treats null / unrecognised ops as "In", so those are validated too.</remarks>
         private static bool IsValueMatchOp(string? op) =>
@@ -102,22 +130,29 @@ namespace JackyAIApp.Server.Services.DataAnalysis
 
         /// <summary>
         /// Plain-language description of the executed plan, e.g.
-        /// 「依月份分組，加總營收｜篩選：Country＝USA」.
+        /// 「依月份分組，加總 Revenue｜篩選：Country＝USA」.
+        /// Columns are always named by their field name, never by the LLM's alias: the alias comes back
+        /// in English or Chinese depending on the run, while the field name is stable and is what the
+        /// filters already show.
         /// </summary>
         public static string BuildInterpretation(SummarizeRequestDto plan)
         {
             var viewBy   = string.Join("、", plan.ViewBy.Select(DescribeGroup));
             var measures = string.Join("、", plan.Measures.Select(m =>
-                $"{DescribeAggregation(m.Aggregation.ToString())}{m.Alias ?? m.FieldName}"));
+                $"{DescribeAggregation(m.Aggregation.ToString()).TrimEnd()} {m.FieldName}"));
             var filters  = plan.Filters is { Count: > 0 }
                 ? "｜篩選：" + string.Join("；", plan.Filters.Select(DescribeFilter))
                 : "";
-            return $"依{viewBy}分組，{measures}{filters}";
+            return $"依{Spaced(viewBy)}分組，{measures}{filters}";
         }
 
-        /// <summary>A date bucket reads as its granularity (「月份」); its alias is usually just "Month".</summary>
+        /// <summary>A date bucket reads as its granularity (「月份」); any other group as its field name.</summary>
         private static string DescribeGroup(GroupFieldDto g) =>
-            g.Type == "DateTrunc" ? DescribeGranularity(g.Granularity) : g.Alias ?? g.FieldName;
+            g.Type == "DateTrunc" ? DescribeGranularity(g.Granularity) : g.FieldName;
+
+        /// <summary>Spaces a field name off adjacent Chinese text: 「依 Region 分組」, but 「依月份分組」.</summary>
+        private static string Spaced(string s) =>
+            (s.Length > 0 && char.IsAscii(s[0]) ? " " : "") + s + (s.Length > 0 && char.IsAscii(s[^1]) ? " " : "");
 
         private static string DescribeGranularity(string? granularity) => granularity switch
         {
