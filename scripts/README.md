@@ -11,5 +11,11 @@ and the actual database, which is exactly the kind of bug this rule exists
 to prevent — see `archive/` for the old scripts (all since folded into EF
 migrations; kept for reference only, do not re-run them).
 
-`seed_orders.sql` is the one exception: it's data seeding, not a schema
-change, so it doesn't belong in EF migrations.
+Data seeding is the exception, since it isn't a schema change:
+
+- `demo-data/` generates demo datasets for Data Analysis / Data Dashboard as
+  CSV or SQL Server scripts. Its `sales_orders` dataset matches the live
+  `dbo.Orders` and can replace it. See `demo-data/README.md`.
+- `seed_orders.sql` is the original `dbo.Orders` seed. It no longer matches
+  the live table (different categories, statuses and ID types), so prefer
+  `demo-data/`.
