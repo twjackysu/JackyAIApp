@@ -1135,6 +1135,11 @@ HIGH（直接對應 DECISION-003「留得住用戶」，且為純前端整合既
 
 ## Requirement: 匿名用量統計（DECISION-010）
 
+### Status
+**已實作並合併（TASK-029／PR #415）；驗收條件尚未逐條確認（2026-10-13 PM）。** 四條驗收都需要看 Azure Portal 或正式環境，PM 沙箱做不到，
+所以**不勾選**。尚缺的是「第一份實際數據」：Tech Lead 與 PM 的沙箱都沒有 App Insights 存取，只有 Boss 能在 Azure Portal 看到；
+上線約一週後的各頁面造訪／不重複使用者數，是功能去留與下一步排序的依據（非阻擋，建議 Boss 方便時貼一次數字，見 `boss/PM.md`）。
+
 ### Goal
 取得各模組的真實使用數據，作為「功能去留／投入優先序」的依據（Issue #409）。
 
@@ -1175,6 +1180,11 @@ MEDIUM（TASK-028 之後；為決策提供數據，不直接影響用戶）
 
 ## Requirement: 逐模組 UX／留存改進（Issue #409 後續，2026-10-06 PM 盤點）
 
+### Status
+**第 1～4、7 項已交付並合併（TASK-030／031／032，PR #418／#420 等）；PM 於 2026-10-13 以讀程式碼方式做產品面複核，驗收條件除最後一條外皆有對應實作（未實機執行）。**
+第 5、6 項（JobSearch 記憶、DataAnalysis／Connectors 引導，LOW）仍為 Future Work，不排程，等用量數據再決定（DECISION-010）。
+複核依據見下方各條驗收的註記；PM 不能代替實機驗證，Boss 或 QA 若發現落差請回報。
+
 ### Goal
 依 DECISION-009，六個首頁應用皆須持續改善 UX 與留存。本輪盤點以程式碼讀取為依據（未實機驗證），
 找出「任務完成後沒有下一步」與「失敗時使用者什麼都看不到」兩類最大缺口。
@@ -1198,13 +1208,13 @@ MEDIUM（TASK-028 之後；為決策提供數據，不直接影響用戶）
 7. **LOW — Exam 選單**手機寬度不得橫向溢出，並標示建議的起手測驗。
 
 ### Acceptance Criteria
-- [ ] 完成一輪 Cloze 或 Translation 後，結果頁列出答錯單字，且有一鍵加入複習與前往 `/review` 的入口；全對時不顯示空區塊。
-- [ ] Conversation 摘要中的建議單字可點擊加入單字庫，並有成功／失敗回饋。
-- [ ] PDF 解鎖輸入錯誤密碼時，畫面顯示明確錯誤訊息；成功時顯示完成提示。
-- [ ] 模擬單字查詢失敗時，Repository 顯示錯誤而非「沒有單字」警示。
-- [ ] 未登入訪客開啟 Repository 或 Exam，先看到價值說明與登入按鈕，而非空白頁。
-- [ ] 手機寬度（≤ 400px）Exam 選單無橫向捲動。
-- [ ] 以上項目不新增 AI 呼叫或 UsageLimit 消耗。
+- [x] 完成一輪 Cloze 或 Translation 後，結果頁列出答錯單字，且有一鍵加入複習與前往 `/review` 的入口；全對時不顯示空區塊。（PM 讀 `RoundResultScreen.tsx`：`wrongWords.length > 0` 才渲染、「全部加入單字庫」＋「前往複習」；未實機）
+- [x] Conversation 摘要中的建議單字可點擊加入單字庫，並有成功／失敗回饋。（`ConversationSummary.tsx`：Chip `onClick`＋Snackbar；未實機）
+- [x] PDF 解鎖輸入錯誤密碼時，畫面顯示明確錯誤訊息；成功時顯示完成提示。（`PDFUnlocker/index.tsx`：`Alert severity="error"`、下載檔名改為「原檔名-unlocked.pdf」，測試涵蓋；未實機）
+- [x] 模擬單字查詢失敗時，Repository 顯示錯誤而非「沒有單字」警示。（`Repository/index.tsx`：`isError` 時顯示「無法載入你的單字庫」＋原因；未實機）
+- [x] 未登入訪客開啟 Repository 或 Exam，先看到價值說明與登入按鈕，而非空白頁。（`auth/LoginGate.tsx`，測試斷言含「完全免費」；未實機）
+- [ ] 手機寬度（≤ 400px）Exam 選單無橫向捲動。（**PM 無法以讀程式碼確認**：`Exam/index.tsx` 有 `flexWrap: 'wrap'`，但版面是否溢出必須在實機或瀏覽器縮窄視窗才看得出來——請 Boss 手機看一眼，或交 QA。）
+- [ ] 以上項目不新增 AI 呼叫或 UsageLimit 消耗。（PM 看到這幾處只呼叫既有的加入單字／查詢 API，未見新增 `[UsageLimit]`，但沒有逐一追後端——此條請 Tech Lead 在回覆中確認。）
 
 ### Priority
 第 1 項 HIGH；第 2–4 項 MEDIUM；其餘 LOW（不全部標 HIGH）。

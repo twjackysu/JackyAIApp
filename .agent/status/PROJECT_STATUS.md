@@ -3120,3 +3120,17 @@
 - **部署串行化實測**：run 538（#449，06:32:48 UTC）與 539（#448，06:33:29 UTC）連續觸發，539 的 job `started_at` 06:35:17，538 `completed_at` 06:35:16——`concurrency` 確實排隊；539 部署較新的 tip `1f5c747`。已更新 `ARCHITECTURE.md`「Deployment pipeline」的實測紀錄；「被取代的排隊 run 顯示 cancelled」仍未觀察到。
 - **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`、任何 TASK 檔。
 - **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／證交所；審閱依 git diff、GitHub Actions run／job 紀錄與 job 日誌，未在本機執行測試。
+
+
+## 2026-10-13 — PM：#409 後續項目產品面複核、需求狀態同步（排程執行）
+
+- **狀態**：無 open PR；唯一 open issue 是 #409（最後一則仍是 PM 2026-10-06 的盤點，Boss 無新留言）；master 自 Tech Lead 2026-10-12 12:40 UTC 的提交之後沒有新提交。沒有新的 Boss 指示或決定，所以**沒有新的決策要記**（`DECISIONS.md` 未動）。
+- **這輪做的事**：Tech Lead 已把 #409 盤點的 HIGH／MEDIUM 項目做完並合併（TASK-028～033），但 `REQUIREMENTS.md` 的驗收條件仍全是未勾選——需求文件與現況脫節。依 §10 做產品面複核：
+  - **讀程式碼對照（事實，未實機執行）**：`RoundResultScreen.tsx`（答錯單字僅在有答錯時渲染、「全部加入單字庫」＋「前往複習」）、`ConversationSummary.tsx`（建議單字可點、Snackbar 回饋）、`PDFUnlocker/index.tsx`（錯誤 `Alert`、成功提示、檔名「原檔名-unlocked.pdf」）、`Repository/index.tsx`（`isError` 顯示「無法載入你的單字庫」而非空庫）、`auth/LoginGate.tsx`（價值說明，測試斷言含「完全免費」）。
+  - **結果**：「逐模組 UX／留存改進」7 條驗收中 5 條勾選；2 條不勾——(1) 手機 ≤400px Exam 選單不溢出：只看到 `flexWrap: 'wrap'`，版面必須實機看；(2) 「不新增 AI 呼叫／UsageLimit 消耗」：PM 沒逐一追後端，請 Tech Lead 在下次回覆確認。第 5、6 項（LOW）維持 Future Work。
+  - 「匿名用量統計」補了 Status：TASK-029 已合併，但四條驗收都要看 Azure Portal，PM／Tech Lead 沙箱皆無存取，**不勾選**。
+- **PM 的判斷（假設，Boss 可推翻）**：#409 是「讓產品成功」的長期授權，不是單一待辦；剩下的 LOW 項目（JobSearch 記憶、DataAnalysis／Connectors 引導）在沒有用量數據前不值得排工——這與 DECISION-009／010 一致，所以我**沒有**新增需求或催 Tech Lead 排任務。若 Boss 提供第一份用量數字，PM 再依數據重排優先序。
+- **Tech Lead Actions**：(1) 確認 #409 的 TASK-030～032 沒有新增 `[UsageLimit]` 或 AI 呼叫（驗收最後一條）；(2) 其餘無新需求，維持現狀。我沒有直接指派 Engineer。
+- **Boss**：無需回覆。兩項非阻擋的小請求（手機看一眼 Exam 選單、貼一次 App Insights 頁面造訪數字）寫在 `boss/PM.md` 頂端。
+- **未動**：程式碼、`DECISIONS.md`、`boss/TECH_LEAD.md`、`ARCHITECTURE.md`、`tasks/*`。
+- **驗證限制**：沙箱連不到 `apps.jacky-studio.com`／Azure，以上全部是讀 git 與原始碼的結論，不是實機測試。
