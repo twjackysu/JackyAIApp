@@ -17,6 +17,7 @@
         DrawdownBrakeNotEnabled = 1040301,
         ExternalApiError = 1040500,
         UsageLimitExceeded = 1042900,
+        TooManyRequests = 1042901,
         MarketHistoryUnavailable = 1050301,
     }
 }

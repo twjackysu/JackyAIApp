@@ -381,6 +381,10 @@ export default function DataAnalysis() {
             onPageChange={details.setPage}
             sourceId={ctxSourceId}
             tableName={ctxTableName}
+            onExport={details.exportCsv}
+            exporting={details.exporting}
+            exportResult={details.exportResult}
+            exportError={details.exportError}
           />
         </TabPanel>
 

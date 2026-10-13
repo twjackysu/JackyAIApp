@@ -141,19 +141,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             if (!TryGetSession(sessionId, out var session))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "Session not found or expired.");
 
-            var filters  = DataAnalysisMapping.ExpandDateOnlyRangeEnds(dto.Filters);
-            var filtered = session!.Rows
-                .Where(row => filters.All(f => MatchesFilter(row, f)))
-                .ToList();
-
-            var schemaLookup = session.Schema.ToDictionary(s => s.Name, s => s.CanonicalType, StringComparer.OrdinalIgnoreCase);
-            if (dto.OrderBy is { Count: > 0 })
-            {
-                var sort = dto.OrderBy[0];
-                filtered = sort.Descending
-                    ? filtered.OrderByDescending(r => SortKey(r, sort.FieldName, schemaLookup)).ToList()
-                    : filtered.OrderBy(r => SortKey(r, sort.FieldName, schemaLookup)).ToList();
-            }
+            var filtered = FilterAndSort(session!, dto);
 
             var totalCount = filtered.Count;
             var take = Math.Min(dto.Take, 200);
@@ -166,7 +154,40 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             return ServiceResult.Ok(new { rows, totalCount });
         }
 
+        public ServiceResult Export(string sessionId, DetailsRequestDto dto, int maxRows)
+        {
+            if (!TryGetSession(sessionId, out var session))
+                return ServiceResult.Fail(ErrorCodes.NotFound, "Session not found or expired.");
+
+            var filtered = FilterAndSort(session!, dto);
+
+            return ServiceResult.Ok(new SessionExport(
+                session!.Name,
+                session.Schema.Select(f => f.Name).ToList(),
+                filtered.Take(maxRows).ToList(),
+                filtered.Count));
+        }
+
         // ── Helpers ───────────────────────────────────────────────────────────────
+
+        /// <summary>The session's rows that pass the request's filters, in its sort order (first sort field only).</summary>
+        private static List<Dictionary<string, string>> FilterAndSort(SessionData session, DetailsRequestDto dto)
+        {
+            var filters  = DataAnalysisMapping.ExpandDateOnlyRangeEnds(dto.Filters);
+            var filtered = session.Rows
+                .Where(row => filters.All(f => MatchesFilter(row, f)))
+                .ToList();
+
+            var schemaLookup = session.Schema.ToDictionary(s => s.Name, s => s.CanonicalType, StringComparer.OrdinalIgnoreCase);
+            if (dto.OrderBy is { Count: > 0 })
+            {
+                var sort = dto.OrderBy[0];
+                filtered = sort.Descending
+                    ? filtered.OrderByDescending(r => SortKey(r, sort.FieldName, schemaLookup)).ToList()
+                    : filtered.OrderBy(r => SortKey(r, sort.FieldName, schemaLookup)).ToList();
+            }
+            return filtered;
+        }
 
         private bool TryGetSession(string sessionId, out SessionData? session)
         {

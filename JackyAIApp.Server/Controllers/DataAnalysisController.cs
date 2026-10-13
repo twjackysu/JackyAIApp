@@ -321,6 +321,99 @@ namespace JackyAIApp.Server.Controllers
                 : _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Details failed.");
         }
 
+        // ── CSV export ─────────────────────────────────────────────────────────
+
+        /// <summary>Most rows one CSV export returns; X-Total-Count still reports how many matched.</summary>
+        internal const int MaxExportRows = 100_000;
+
+        // A database export holds up to MaxExportRows rows in memory while it is written, so at most
+        // two run at once; the default source is anonymous, so this also bounds what callers can load.
+        private static readonly SemaphoreSlim ExportGate = new(2, 2);
+
+        /// <summary>
+        /// Every row matching the filters, in the requested order, as a CSV download — no paging,
+        /// one query, capped at <see cref="MaxExportRows"/>. Skip/Take in the body are ignored.
+        /// </summary>
+        [HttpPost("details/export")]
+        public async Task<IActionResult> ExportDetails(
+            [FromBody] DetailsRequestDto dto,
+            CancellationToken ct = default)
+        {
+            if (!await ExportGate.WaitAsync(0, ct))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.TooManyRequests, "Another export is running. Please try again shortly.");
+            try
+            {
+                using var ctx = await TryResolveAsync(dto.Context, ct);
+                if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+
+                var result = await ctx.Engine.DetailsAsync(new DetailsRequest
+                {
+                    SourceKey    = ctx.SourceKey,
+                    TableName    = ctx.TableName,
+                    SelectFields = dto.SelectFields ?? [],
+                    OrderBy      = dto.OrderBy?.Select(o => new SortField(o.FieldName, o.Descending)).ToList() ?? [],
+                    Skip         = 0,
+                    Take         = MaxExportRows,
+                    Filters      = MapFilters(dto.Filters),
+                }, ct);
+                if (!result.IsSuccess)
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Export failed.");
+
+                var rows = result.Value!.Rows;
+                IReadOnlyList<string> headers;
+                if (rows.Count > 0)
+                    headers = rows[0].Keys.ToList();
+                else if (dto.SelectFields is { Count: > 0 })
+                    headers = dto.SelectFields;
+                else
+                {
+                    // Nothing matched: still give the file its header row.
+                    var schema = await ctx.Engine.FieldListAsync(
+                        new FieldListRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName }, ct);
+                    headers = schema.IsSuccess ? schema.Value!.Fields.Select(f => f.Name).ToList() : [];
+                }
+
+                _logger.LogInformation("ExportDetails: source={sid} table={t} rows={n} total={total}",
+                    dto.Context?.SourceId, ctx.TableName, rows.Count, result.Value.TotalCount);
+
+                await WriteCsvResponseAsync(
+                    ctx.TableName, headers,
+                    rows.Select(r => headers.Select(h => r.TryGetValue(h, out var v) ? v : null)),
+                    rows.Count, result.Value.TotalCount, ct);
+                return new EmptyResult();
+            }
+            finally
+            {
+                ExportGate.Release();
+            }
+        }
+
+        /// <summary>
+        /// Streams a CSV download. The counts go in headers so the client can say when the export
+        /// was cut off at <see cref="MaxExportRows"/>.
+        /// </summary>
+        private async Task WriteCsvResponseAsync(
+            string name,
+            IReadOnlyList<string> headers,
+            IEnumerable<IEnumerable<object?>> rows,
+            int exportedCount,
+            int totalCount,
+            CancellationToken ct)
+        {
+            var safeName = string.Concat(name.Select(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' ? c : '_'));
+            var fileName = $"{(safeName.Length > 0 ? safeName : "export")}_{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
+
+            Response.ContentType = "text/csv; charset=utf-8";
+            Response.Headers.ContentDisposition = new Microsoft.Net.Http.Headers.ContentDispositionHeaderValue("attachment")
+            {
+                FileNameStar = fileName,
+            }.ToString();
+            Response.Headers["X-Exported-Count"] = exportedCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            Response.Headers["X-Total-Count"]    = totalCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            await CsvExportWriter.WriteAsync(Response.Body, headers, rows, ct);
+        }
+
         /// <summary>
         /// Natural-language summarize. A fixed "agent" pipeline: (1) fetch the actual distinct values
         /// (List-of-Values) of the String columns, (2) ask the LLM for the query plan with those real
@@ -718,5 +811,23 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("session/{sessionId}/details")]
         public IActionResult SessionDetails(string sessionId, [FromBody] DetailsRequestDto dto) =>
             _responseFactory.ToActionResult(_sessionStore.Details(sessionId, dto));
+
+        /// <summary>Every matching row of a session as a CSV download (see <see cref="ExportDetails"/>).</summary>
+        [HttpPost("session/{sessionId}/details/export")]
+        public async Task<IActionResult> SessionExportDetails(
+            string sessionId,
+            [FromBody] DetailsRequestDto dto,
+            CancellationToken ct = default)
+        {
+            var result = _sessionStore.Export(sessionId, dto, MaxExportRows);
+            if (!result.IsSuccess) return _responseFactory.ToActionResult(result);
+
+            var export = (SessionExport)result.Data!;
+            await WriteCsvResponseAsync(
+                export.Name, export.Headers,
+                export.Rows.Select(r => export.Headers.Select(h => (object?)(r.TryGetValue(h, out var v) ? v : null))),
+                export.Rows.Count, export.TotalCount, ct);
+            return new EmptyResult();
+        }
     }
 }
