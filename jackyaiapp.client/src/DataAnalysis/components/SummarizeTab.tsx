@@ -353,7 +353,7 @@ export function SummarizeTab({
             minRows={2}
             maxRows={5}
             fullWidth
-            placeholder="例如：「給我台灣地區各地區的總營收」"
+            placeholder="例如：「EMEA 地區各產品類別的營收」"
             value={nlQuery}
             onChange={(e) => setNlQuery(e.target.value)}
             onKeyDown={(e) => {

@@ -54,7 +54,10 @@ export function buildCartesianOption(
     data: categories,
     axisLabel: {
       rotate: manyCategories ? 35 : 0,
-      interval: manyCategories ? ('auto' as const) : 0,
+      // Let ECharts thin labels to fit the width — forcing every label (interval 0) crammed e.g.
+      // 25 monthly labels on top of each other below the rotation threshold.
+      interval: 'auto' as const,
+      hideOverlap: true,
       overflow: 'truncate' as const,
       width: 80,
     },

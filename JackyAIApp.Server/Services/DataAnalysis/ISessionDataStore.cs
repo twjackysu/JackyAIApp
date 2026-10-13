@@ -13,7 +13,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         ServiceResult Upload(SessionUploadDto dto);
         ServiceResult GetSchema(string sessionId);
         ServiceResult GetMaxDate(string sessionId, string dateField);
-        ServiceResult GetDistinctValues(string sessionId, string field);
+        ServiceResult GetDistinctValues(string sessionId, string field, int limit = 200);
         ServiceResult Summarize(string sessionId, SummarizeRequestDto dto);
         ServiceResult Details(string sessionId, DetailsRequestDto dto);
     }

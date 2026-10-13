@@ -343,7 +343,7 @@ namespace JackyAIApp.Server.Controllers
 
                 var planResult = await BuildNlPlanAsync(
                     fields, dto.Query, filterPlanPrompt, summarizePrompt,
-                    col => Task.FromResult(GetSessionLov(dto.SessionId!, col)),
+                    col => Task.FromResult(GetSessionLov(dto.SessionId!, col, MaxDistinctValues)),
                     col => Task.FromResult(GetSessionMaxDateValue(dto.SessionId!, col)), ct);
                 if (planResult.Plan is null)
                     return _responseFactory.CreateErrorResponse(planResult.Error!.Value, planResult.ErrorMessage!);
@@ -357,7 +357,7 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateOKResponse(new NlSummarizeResponseDto
                 {
                     Plan           = planResult.Plan,
-                    Interpretation = BuildInterpretation(planResult.Plan),
+                    Interpretation = NlPlanValidator.BuildInterpretation(planResult.Plan),
                     Rows           = sessionRows,
                     Notes          = planResult.Notes.Count > 0 ? planResult.Notes : null,
                 });
@@ -380,7 +380,7 @@ namespace JackyAIApp.Server.Controllers
 
             var enginePlanResult = await BuildNlPlanAsync(
                 engineFields, dto.Query, filterPlanPrompt, summarizePrompt,
-                col => FetchEngineDistinctValuesAsync(ctx, col, ct),
+                col => FetchEngineDistinctValuesAsync(ctx, col, ct, MaxDistinctValues),
                 col => FetchEngineMaxDateAsync(ctx, col, ct), ct);
             if (enginePlanResult.Plan is null)
                 return _responseFactory.CreateErrorResponse(enginePlanResult.Error!.Value, enginePlanResult.ErrorMessage!);
@@ -403,7 +403,7 @@ namespace JackyAIApp.Server.Controllers
             return _responseFactory.CreateOKResponse(new NlSummarizeResponseDto
             {
                 Plan           = plan,
-                Interpretation = BuildInterpretation(plan),
+                Interpretation = NlPlanValidator.BuildInterpretation(plan),
                 Rows           = result.Value!.Rows.Select(r => (object)r.Data),
                 Notes          = enginePlanResult.Notes.Count > 0 ? enginePlanResult.Notes : null,
             });
@@ -457,17 +457,16 @@ namespace JackyAIApp.Server.Controllers
                 query, string.Join(", ", filterColumns));
 
             // ── Fetch List-of-Values for only the columns we'll filter on ──
-            var lovLines   = new List<string>();
-            var lovColumns = new List<string>(); // columns we actually injected real values for
+            // Cached so the post-Phase-2 value validation doesn't re-query these columns.
+            var lovCache = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var lovLines = new List<string>();
             foreach (var col in filterColumns)
             {
                 ct.ThrowIfCancellationRequested();
                 var values = await distinctValuesFetcher(col);
+                lovCache[col] = values;
                 if (values.Count > 0)
-                {
                     lovLines.Add($"- {col}: {string.Join(" | ", values.Take(100))}");
-                    lovColumns.Add(col);
-                }
             }
             var lovBlock = lovLines.Count > 0
                 ? "\n\nACTUAL VALUES for filterable columns — when filtering on these columns you MUST use exactly these values (match the user's intent to the closest value; if none matches, omit that filter):\n"
@@ -516,19 +515,36 @@ namespace JackyAIApp.Server.Controllers
                 return (null, ErrorCodes.BadRequest, "AI referenced an unknown field. Please try rephrasing.", []);
             }
 
-            // Soft notes: a column we offered real values for, but which the final plan does NOT filter
-            // on, means the user's requested value matched nothing and was dropped — tell them so the
-            // result set (which is unfiltered on that column) isn't silently misleading.
-            var appliedFilterCols = (plan.Filters ?? [])
-                .Select(f => f.FieldName)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var notes = lovColumns
-                .Where(col => !appliedFilterCols.Contains(col))
-                .Select(col => $"No matching value for \"{col}\" was found in this data, so that filter was ignored.")
-                .ToList();
+            // Validate filter VALUES against the real data. Phase 1 can miss a column (e.g. it reads
+            // "各產品類別" as a filter and skips Country), and then Phase 2 is free to invent a value
+            // ("Taiwan") on a column it never saw real values for. So every String-column filter in
+            // the final plan is checked here, deterministically: unknown values are removed and the
+            // user is told — notes are produced only when something was actually removed.
+            var notes = new List<string>();
+            if (plan.Filters is { Count: > 0 })
+            {
+                foreach (var col in plan.Filters.Select(f => f.FieldName)
+                             .Where(stringFields.Contains)
+                             .Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    if (lovCache.ContainsKey(col)) continue;
+                    ct.ThrowIfCancellationRequested();
+                    lovCache[col] = await distinctValuesFetcher(col);
+                }
+
+                // A list that hit the fetch cap may be missing real values, and an empty one means the
+                // fetch failed — neither can prove a value absent, so those columns stay unvalidated.
+                var verifiable = lovCache
+                    .Where(kv => kv.Value.Count > 0 && kv.Value.Count < MaxDistinctValues)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
+                var (validFilters, valueNotes) = NlPlanValidator.ValidateFilterValues(plan.Filters, verifiable);
+                plan  = plan with { Filters = validFilters };
+                notes = valueNotes;
+            }
 
             if (notes.Count > 0)
-                _logger.LogInformation("NlSummarize: dropped filters → {notes}", string.Join("; ", notes));
+                _logger.LogInformation("NlSummarize: dropped filter values → {notes}", string.Join("; ", notes));
 
             return (plan, null, null, notes);
         }
@@ -546,10 +562,17 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
-        /// Shared LoV helper used by both <see cref="GetDistinctValues"/> and the NL summarize agent.
-        /// Groups by <paramref name="field"/> with a Count measure to get distinct values, up to 200.
+        /// Distinct-value cap for the NL summarize agent. Far above the filter picker's 200 so the
+        /// post-Phase-2 value validation sees a column's complete value list; a list that reaches
+        /// this cap is treated as possibly incomplete and left unvalidated.
         /// </summary>
-        private async Task<List<string>> FetchEngineDistinctValuesAsync(ResolvedCtx ctx, string field, CancellationToken ct)
+        private const int MaxDistinctValues = 5000;
+
+        /// <summary>
+        /// Shared LoV helper used by both <see cref="GetDistinctValues"/> and the NL summarize agent.
+        /// Groups by <paramref name="field"/> with a Count measure to get distinct values, up to <paramref name="limit"/>.
+        /// </summary>
+        private async Task<List<string>> FetchEngineDistinctValuesAsync(ResolvedCtx ctx, string field, CancellationToken ct, int limit = 200)
         {
             var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
             {
@@ -569,7 +592,7 @@ namespace JackyAIApp.Server.Controllers
                 .Select(r => r[field]?.ToString())
                 .Where(v => !string.IsNullOrEmpty(v))
                 .Order()
-                .Take(200)
+                .Take(limit)
                 .Select(v => v!)
                 .ToList();
 
@@ -580,9 +603,9 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>Returns distinct values for a column in session data (List-of-Values for filter planning).</summary>
-        private List<string> GetSessionLov(string sessionId, string field)
+        private List<string> GetSessionLov(string sessionId, string field, int limit)
         {
-            var result = _sessionStore.GetDistinctValues(sessionId, field);
+            var result = _sessionStore.GetDistinctValues(sessionId, field, limit);
             if (!result.IsSuccess) return [];
             return ((IEnumerable<string>)((dynamic)result.Data!).values).ToList();
         }
@@ -607,19 +630,6 @@ namespace JackyAIApp.Server.Controllers
             var result = _sessionStore.GetMaxDate(sessionId, field);
             if (!result.IsSuccess) return null;
             return (string?)((dynamic)result.Data!).maxDate;
-        }
-
-        // ── Helpers ───────────────────────────────────────────────────────────────
-
-        private static string BuildInterpretation(SummarizeRequestDto plan)
-        {
-            var viewBy   = string.Join(", ", plan.ViewBy.Select(v => v.Alias ?? v.FieldName));
-            var measures = string.Join(", ", plan.Measures.Select(m => $"{m.Aggregation}({m.Alias ?? m.FieldName})"));
-            var filters  = plan.Filters is { Count: > 0 }
-                ? " | Filters: " + string.Join("; ", plan.Filters.Select(f =>
-                    $"{f.FieldName} {f.Op ?? "In"} [{string.Join(", ", f.Values.Take(3))}{(f.Values.Count > 3 ? ", …" : "")}]"))
-                : "";
-            return $"Grouped by {viewBy}, {measures}{filters}";
         }
 
         // ═══════════════════════════════════════════════════════════════════════
