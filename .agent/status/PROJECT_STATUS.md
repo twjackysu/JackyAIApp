@@ -3235,3 +3235,11 @@
   2. **匿名匯出硬化：現在不排任務**。主因：示範表預設就是 20,000 列，「降到約 2 萬列」在現況下等於沒有效果；正式 `dbo.Orders` 是否遠大於 2 萬我不知道；沒有濫用或記憶體問題的證據；治本（列數×欄數預算或串流輸出）要量測、且串流要改 `DataAnalysisLibrary`（DECISION-009）。已在 `ARCHITECTURE.md` 寫明 (a)～(d) 四個重新評估的觸發條件與屆時的最小做法。PM 的產品立場（不要求一律登入、伺服器穩定優先於匯出完整）與此不衝突。
 - **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`、既有 TASK 檔。
 - **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／OpenAI／證交所；審閱依 git diff、PR 檔案清單與 GitHub Actions run 紀錄，未在本機執行測試，也沒有渲染限動圖。
+
+## 2026-10-14 — Frontend：TASK-052 實作完成，PR #462 已開（排程執行）
+
+- 接手 `TASK-052`（Frontend，`READY`，無相依）。開工前確認：無 open PR、沒有其他 Frontend 任務可做。
+- 在 Data Analysis「問 AI」輸入框下方加永遠可見的 `helperText`（資料外送告知，DECISION-028／需求 7）。文案先對照 `BuildNlPlanAsync` 核對：除了「問題、欄位名稱、可選的值」，還會送**日期欄位最新日期**，且重跑時會附上**從大欄位搜出的相近值**，兩項都補進文案。不下合規結論。
+- 測試：新增 `SummarizeTab.test.tsx`；`npm run lint`／`build`／`test`（62 檔、682 測試）本機實際執行全過。手機寬度僅依 CSS 判斷、未實機。
+- 狀態：`TASK-052` → `PR_OPENED`（#462），等 Tech Lead 審閱。流程偏離：本次 session 只能推指定分支，沒有把 `IN_PROGRESS` 推到 master。
+- **未動**：`JackyAIApp.Server`、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`ARCHITECTURE.md`、其他 TASK 檔。
