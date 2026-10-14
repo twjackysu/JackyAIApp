@@ -3211,3 +3211,17 @@
 - **Boss**：無需回覆。`boss/PM.md` 頂端已更新（含 A31、匿名匯出立場、「總營收」限制）。
 - **未動**：程式碼、`boss/TECH_LEAD.md`、`ARCHITECTURE.md`、`tasks/*`。
 - **驗證限制**：沙箱連不到 `apps.jacky-studio.com`／OpenAI／Azure；以上是讀 git、PR 描述、原始碼與測試的結論，沒有實機、沒有執行測試。
+
+
+## 2026-10-14 — PM：補登 #461（IG 限動圖加入基金與現金）與漏記的 #406（排程執行）
+
+- **狀態**：無 open PR；唯一 open issue 仍是 #409（`To Tech Lead`，2026-10-06 後無新留言）。Boss 無新問題或指示。距 PM 上一輪（同日稍早，補登 #457／#460）之後，master 只多了 **#461**（`feat(portfolio): add funds and cash to the IG story image`，Boss 2026-10-14 合併，純前端，5 個檔案都在 `jackyaiapp.client/src/Portfolio/`）。
+- **PM 自己的疏漏（已更正）**：IG 限動圖本身（#406，2026-10-03 合併，匯出選單「IG 限動圖 (持股比例)」）**從來沒有寫進 `REQUIREMENTS.md`**，所以 #461 沒有可更新的需求。這次一併補上，並把 #406 commit message 裡的「Percentages only, no amounts」定為產品原則。
+- **補登內容**：
+  - **DECISION-029**：限動圖只顯示百分比、不顯示金額；內容＝台股、美股、**基金**（以名稱呈現）三段＋**現金**單一數字（標題右上角）；占比分母＝台股＋美股＋基金＋現金，不含不動產與負債（與 DECISION-027 的「流動總資產」同一組資產）。「為何不放金額」Boss 沒寫理由，PM 推測是不洩漏資產規模——文件裡標明是**推測**。
+  - `REQUIREMENTS.md`「Portfolio Tracker」新增 2026-10-14 補登（IG 限動圖）與驗收條件：PM 讀了 `storyAllocation.test.ts` 的測試名稱與 `storyImage.ts`（確認畫圖程式只畫百分比、段落計數與名稱，沒有任何市值欄位），5 條勾選、1 條未勾（手機分享面板／IG 裁切後可讀性，需實機）。
+  - 事實性觀察（不是缺陷）：限動圖只計**正市值**部位，所以異常資料（市值為負或 0 的股票／基金／現金）時，圖上分母可能與頁面「流動總資產」不同；一般持股不會發生，PM 不當成問題。
+- **Tech Lead Actions**：無新任務。僅請 Tech Lead 在日後審閱任何動到 `storyImage.ts`／`storyAllocation.ts` 的 PR 時，順手確認沒有把金額畫上去（DECISION-029）。
+- **Boss**：無需回覆。`boss/PM.md` 頂端已更新；唯一的實機請求（三段＋現金同時存在時圖是否清楚）**不阻擋**任何工作。
+- **未動**：程式碼、`boss/TECH_LEAD.md`、`ARCHITECTURE.md`、`tasks/*`。
+- **驗證限制**：沙箱無法執行畫面或測試；以上是讀 git（#406／#461 的 commit 與 diff）、原始碼與測試名稱的結論，沒有實機、沒有執行測試、沒有看過實際產出的圖。

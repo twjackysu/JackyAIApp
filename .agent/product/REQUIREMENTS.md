@@ -935,6 +935,33 @@ sign-off, same as the original Skill-Building proposal):
     column is still hidden below the `sm` breakpoint (phones, unchanged); the
     group header share is not.
 
+- **IG 限動圖（持股比例）— 補登（2026-10-14，Boss，PR #406 於 2026-10-03、#461
+  於 2026-10-14 合併；DECISION-029）**。這個功能 #406 出貨時沒有記進需求，是 PM
+  的疏漏，現補上：
+  - **是什麼**：Portfolio 匯出選單的「IG 限動圖 (持股比例)」，在瀏覽器端畫一張
+    1080×1920 PNG（無伺服器、無 AI 成本），手機優先走分享面板、否則下載。
+    **只顯示百分比，不顯示任何金額**（#406 的設計，DECISION-029 把它定為產品原則）。
+  - **#461 的變更**：原本只有台股、美股兩段；現在多了 **基金** 一段（用基金名稱，
+    不用代號——代號對讀者沒意義），**現金** 只顯示一個數字（標題右上角，不列明細，
+    裁掉下半部圖時仍看得到）。各段標題的占比改為「該段 ÷（台股＋美股＋基金＋現金）」；
+    每一段內部的持股各自加總 100%。三段並存時改用緊湊版面（每段最多 5 列，其餘併入
+    「其他」）；一至兩段維持原版面；只有一段但有現金時，那一段也會顯示占比（因為不再是 100%）。
+  - **PM 讀 diff 的觀察（事實，不是缺陷）**：圖上的分母＝台股＋美股＋基金＋現金，
+    與 DECISION-027 的「流動總資產」同一組資產；不動產、負債不出現在圖上。差別：
+    限動圖只算**正市值**的部位，所以某檔部位市值為負或 0 時，圖上分母與頁面上的
+    流動總資產可能不同——一般持股不會發生，PM 不當成問題。
+  - Acceptance（讀 `storyAllocation.test.ts` 的測試名稱與 diff 確認有對應；**PM 沒有
+    執行測試、沒有看過實際產出的圖**）：
+    - [x] 圖上不出現任何金額，只有百分比（#406 設計；`storyImage.ts` 只畫 `pct`／`share`／`cashPct`）。
+    - [x] 基金自成一段、以名稱呈現（測試「lists funds as their own section, named by fund name rather than code」）。
+    - [x] 現金是單一數字、且納入每一段占比的分母（測試「adds cash as one figure and to every share's denominator」）。
+    - [x] 不動產、負債、非正市值的部位不出現，同代號合併（測試「ignores real estate, liability and non-positive positions, and merges duplicate symbols」）。
+    - [x] 三段並存時每段列數減少（測試「lists fewer rows per section when three sections share the image」）。
+    - [ ] 三段＋現金同時存在時，圖在手機分享面板與 IG 裁切後仍清楚可讀。（需要實機；
+          請 Boss 方便時看一眼，**不阻擋任何工作**。）
+  - Out of Scope（現況）：不顯示金額、不顯示報酬率、不含不動產／負債、無自訂樣式或
+    分享到 IG 以外平台的專屬版型。
+
 - **Proposal 4 (FIRE/goal tracking) — scoped as `TASK-018`
   (2026-09-27), Frontend only, READY, unclaimed.** Correction to the
   original framing: it reuses `PortfolioSummaryDto`'s existing
