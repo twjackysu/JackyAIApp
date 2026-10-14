@@ -18,15 +18,18 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useState } from 'react';
 
 import { loadFeeDiscountRate } from './feeDiscountRate';
+import { liquidSharePct, POSITION_SHARE_TOOLTIP } from './positionShare';
 import { usePrivacy } from './privacy';
 
 import { useRefreshPositionPriceMutation } from '@/apis/portfolioApis';
 import { PositionDto } from '@/apis/portfolioApis/types';
-import { ActionTooltip } from '@/components/hints';
+import { ActionTooltip, InfoPopover } from '@/components/hints';
 import { fmtNum as fmt, fmtQty, fmtSigned, fmtSignedPct, pnlColor } from '@/utils/format';
 
 interface Props {
   positions: PositionDto[];
+  /** Denominator of the 占比 column: `PortfolioSummaryDto.liquidGrossAssetsTWD`. */
+  liquidGrossAssetsTWD: number;
   onStockClick?: (p: PositionDto) => void;
 }
 
@@ -106,11 +109,8 @@ function PriceFailedBadge({ symbol, onRefresh, refreshing }: PriceFailedBadgePro
   );
 }
 
-export function PositionsTable({ positions, onStockClick }: Props) {
+export function PositionsTable({ positions, liquidGrossAssetsTWD, onStockClick }: Props) {
   const { value, showRatio } = usePrivacy();
-  // Weight % denominator is gross assets, not net worth — liability (the only negative
-  // value) must not shrink the denominator and inflate everyone else's percentage.
-  const total = positions.reduce((s, p) => s + Math.max(p.marketValueTWD, 0), 0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   if (positions.length === 0) {
@@ -130,6 +130,8 @@ export function PositionsTable({ positions, onStockClick }: Props) {
     <Box>
       {groups.map((g) => {
         const groupTotal = g.positions.reduce((s, p) => s + p.marketValueTWD, 0);
+        // Group keys match asset types where it matters: only REAL_ESTATE has no share.
+        const groupShare = liquidSharePct(groupTotal, g.key, liquidGrossAssetsTWD);
         const isExpanded = expanded[g.key] ?? true;
         return (
           <Accordion
@@ -152,11 +154,9 @@ export function PositionsTable({ positions, onStockClick }: Props) {
                   {GROUP_LABEL[g.key]}（{g.positions.length}）
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  {showRatio && total > 0 && (
+                  {showRatio && groupShare != null && (
                     <Typography variant="caption" color="text.secondary">
-                      {/* groupTotal is already negative for LIABILITY (sign-flip invariant,
-                          see PortfolioService), so this naturally renders e.g. "-3.2%". */}
-                      {((groupTotal / total) * 100).toFixed(1)}%
+                      {groupShare.toFixed(1)}%
                     </Typography>
                   )}
                   <Typography
@@ -171,7 +171,7 @@ export function PositionsTable({ positions, onStockClick }: Props) {
             <AccordionDetails sx={{ p: 0 }}>
               <PositionsGroupTable
                 positions={g.positions}
-                total={total}
+                liquidGrossAssetsTWD={liquidGrossAssetsTWD}
                 onStockClick={onStockClick}
               />
             </AccordionDetails>
@@ -184,11 +184,11 @@ export function PositionsTable({ positions, onStockClick }: Props) {
 
 interface GroupTableProps {
   positions: PositionDto[];
-  total: number;
+  liquidGrossAssetsTWD: number;
   onStockClick?: (p: PositionDto) => void;
 }
 
-function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps) {
+function PositionsGroupTable({ positions, liquidGrossAssetsTWD, onStockClick }: GroupTableProps) {
   const { value, change, showRatio } = usePrivacy();
   const [refreshPrice, { isLoading: isRefreshing, originalArgs }] =
     useRefreshPositionPriceMutation();
@@ -222,7 +222,17 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
             </TableCell>
             <TableCell align="right">市值 (TWD)</TableCell>
             <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-              占比
+              <Box
+                component="span"
+                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}
+              >
+                占比
+                <InfoPopover
+                  content={POSITION_SHARE_TOOLTIP}
+                  ariaLabel="占比計算方式"
+                  iconSize={14}
+                />
+              </Box>
             </TableCell>
             <TableCell align="right">未實現損益</TableCell>
           </TableRow>
@@ -323,9 +333,14 @@ function PositionsGroupTable({ positions, total, onStockClick }: GroupTableProps
                   )}
                 </TableCell>
                 <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                  {showRatio && total > 0
-                    ? `${((p.marketValueTWD / total) * 100).toFixed(1)}%`
-                    : '—'}
+                  {(() => {
+                    const share = liquidSharePct(
+                      p.marketValueTWD,
+                      p.assetType,
+                      liquidGrossAssetsTWD,
+                    );
+                    return showRatio && share != null ? `${share.toFixed(1)}%` : '—';
+                  })()}
                 </TableCell>
                 <TableCell align="right">
                   {p.unrealizedPnlTWD != null && p.unrealizedPnlPct != null ? (

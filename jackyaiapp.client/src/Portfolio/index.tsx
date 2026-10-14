@@ -680,7 +680,11 @@ export default function Portfolio() {
               sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}
             >
               <CardContent sx={{ p: 2 }}>
-                <PositionsTable positions={summary.positions} onStockClick={setSelected} />
+                <PositionsTable
+                  positions={summary.positions}
+                  liquidGrossAssetsTWD={summary.liquidGrossAssetsTWD}
+                  onStockClick={setSelected}
+                />
               </CardContent>
             </Card>
           </>
