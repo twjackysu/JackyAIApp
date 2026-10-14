@@ -906,6 +906,35 @@ sign-off, same as the original Skill-Building proposal):
   or sold in the amounts a rebalance suggests. PM view: consistent with the
   product's intent; no requirement conflict. The 回落煞車 card's
   "占總資產 X%" (需求 11, A9) uses the same denominator.
+- **Update to the holdings list 占比 (2026-10-14, Boss, PR #460 merged — recorded
+  by PM; DECISION-027)**: the 占比 column of the holdings list (each group's
+  header share and each holding's share) is now `市值 ÷ 流動總資產`
+  (`summary.liquidGrossAssetsTWD` = TW stock + US stock + fund + cash, before
+  subtracting debt) — the same denominator as 水位, 再平衡建議 and the 回落煞車
+  card. Before, the denominator was every positive position **including real
+  estate**, so a house shrank every other share (the PR's example: TW stocks
+  worth 600 of 1,000 liquid assets showed 15% next to a 3,000 house). Real
+  estate shows no share ("—"); liability shows a **negative** share of liquid
+  assets; an info popover on the column header states the formula. PM read the
+  diff (`positionShare.ts`, `PositionsTable.tsx`) and its tests; not run on the
+  real page. Acceptance:
+  - [x] A holdings list with TW stock 600 / US stock 200 / fund 100 / cash 100
+        (liquid 1,000) plus a 3,000 house shows 60% / 20% / 10% / 10% — the
+        house does not shrink them. (`PositionsTable.test.tsx` asserts exactly
+        these group and row shares; PM read it, did not run it.)
+  - [x] Real estate rows and the real-estate group show no share.
+  - [x] A liability shows a negative share of liquid assets (test: a 500 debt
+        shows −50.0%).
+  - [ ] The sum of the four liquid group shares reads ≈100% on the real page.
+        (Tech Lead's post-merge review, 2026-10-14, read the code and agrees
+        from the formula, with no objection and no further fix needed; nobody
+        has looked at real data — the sandbox can't reach production.)
+  - **PM view**: consistent with Boss's #434 direction (a house can't be traded
+    in the amounts a list share implies) — one denominator across the whole
+    Portfolio page. Fact from the diff, not a defect: the per-holding 占比
+    column is still hidden below the `sm` breakpoint (phones, unchanged); the
+    group header share is not.
+
 - **Proposal 4 (FIRE/goal tracking) — scoped as `TASK-018`
   (2026-09-27), Frontend only, READY, unclaimed.** Correction to the
   original framing: it reuses `PortfolioSummaryDto`'s existing
@@ -1215,7 +1244,7 @@ MEDIUM（TASK-028 之後；為決策提供數據，不直接影響用戶）
 - [x] 模擬單字查詢失敗時，Repository 顯示錯誤而非「沒有單字」警示。（`Repository/index.tsx`：`isError` 時顯示「無法載入你的單字庫」＋原因；未實機）
 - [x] 未登入訪客開啟 Repository 或 Exam，先看到價值說明與登入按鈕，而非空白頁。（`auth/LoginGate.tsx`，測試斷言含「完全免費」；未實機）
 - [ ] 手機寬度（≤ 400px）Exam 選單無橫向捲動。（**PM 無法以讀程式碼確認**：`Exam/index.tsx` 有 `flexWrap: 'wrap'`，但版面是否溢出必須在實機或瀏覽器縮窄視窗才看得出來——請 Boss 手機看一眼，或交 QA。）
-- [ ] 以上項目不新增 AI 呼叫或 UsageLimit 消耗。（PM 看到這幾處只呼叫既有的加入單字／查詢 API，未見新增 `[UsageLimit]`，但沒有逐一追後端——此條請 Tech Lead 在回覆中確認。）
+- [x] 以上項目不新增 AI 呼叫或 UsageLimit 消耗。（Tech Lead 2026-10-13 以 PR 檔案清單核對：#418／#420／#422 只動前端、沒有新增後端端點或 `[UsageLimit]`；TASK-032 依其 Result 也是純前端。**但書**：Conversation 摘要的建議單字被點擊時會呼叫既有的匿名字典查詢，若該字尚未入庫會觸發一次字典 AI 生成——每個字全站只發生一次、設計上就是免費，成本不隨訪客量成長。）
 
 ### Priority
 第 1 項 HIGH；第 2–4 項 MEDIUM；其餘 LOW（不全部標 HIGH）。
@@ -1229,7 +1258,7 @@ MEDIUM（TASK-028 之後；為決策提供數據，不直接影響用戶）
 
 #### Future Consideration
 - Portal 顯示投資組合變化（需輕量後端端點，見 PROJECT_STATUS 2026-10-04）
-- JobSearch 儲存職缺／提醒；DataAnalysis 匿名結果匯出
+- JobSearch 儲存職缺／提醒；~~DataAnalysis 匿名結果匯出~~（2026-10-13 Boss 以 #457 交付「明細 CSV 匯出」，預設來源匿名可用；見「Data Analysis — AI 自然語言提問」需求 8 與 DECISION-026）
 - #407 SEO：單字頁內部連結（相關單字、每日單字）以加速收錄，Tech Lead 已提出、待 PM 排序——PM 建議列 MEDIUM，成長面唯一的低成本槓桿
 
 ### Constraints
@@ -1792,9 +1821,10 @@ LOW（已出貨；後續只做成長面確有需要的小改進）
 
 
 
-## Requirement: Data Analysis — AI 自然語言提問（Boss 直接交付，PR #450～#456，2026-10-13）— 已出貨
+## Requirement: Data Analysis — AI 自然語言提問（Boss 直接交付，PR #450～#457，2026-10-13）— 已出貨
 
-> **性質**：這是 PM 事後補登，不是新需求。Boss 在 2026-10-13 一天內自己合併了 7 個 PR（#450～#456）。
+> **性質**：這是 PM 事後補登，不是新需求。Boss 在 2026-10-13 一天內自己合併了 8 個 PR（#450～#457；#457 為明細 CSV 匯出，2026-10-14 補登）。
+> 需求 7（資料外送告知）是 PM 在 2026-10-14 依 Tech Lead 的提醒新增的，**尚未實作**。
 > 之前 PM 的假設是「沒有用量數據前，Data Analysis 不值得投入」（見 Portal 需求 Audit 與 DECISION-010）；
 > 這批 PR 表示 Boss 已決定投入，該假設對 **Data Analysis 的 AI 提問** 不再適用（DECISION-025）。
 > 驗收條件寫的是 PR 已交付的行為；PM 只讀了程式碼與 PR 描述，**沒有實機、沒有對真的 AI 實測**。
@@ -1815,6 +1845,8 @@ so that 我不必自己設定篩選、分組與度量，也不會被默默錯誤
 - 使用者提到、但資料裡沒有對應值的條件，AI 須回報（`unmatched`）；畫面顯示黃色提示：「資料中找不到符合「X」的值，已忽略此條件，以下結果未套用此篩選。」
 - 修正前的量化基準（Boss 於 PR #456 自述）：5 題「資料裡沒有的條件」陷阱題 × 3 次，**15 次全部**默默拿掉篩選、沒有任何提示。
 - 明細頁只向資料庫拿當頁資料，筆數為精確計數（#452）；來源下拉選單選「預設」不再顯示空白（#450）。
+- **送給 OpenAI 的資料（Tech Lead 2026-10-13 審閱 `NlSummarize`／`BuildNlPlanAsync` 所述，PM 另 grep 前端確認）**：每次提問都會把來源裡「相異值 ≤300 個」的字串欄位（最多 30 欄、合計 ≤2000 個值）連同欄位名稱放進 prompt 送給 OpenAI；以前只送 AI 先挑出的相關欄位。預設示範資料無妨；使用者連自己的資料庫／上傳檔案時，低基數欄位若是人名、部門、客戶代碼，這些值也會送出。`jackyaiapp.client/src/DataAnalysis/` 目前**沒有任何**「資料會送給 AI 服務」的告知文字。
+- 明細頁的「匯出 CSV」（#457）：下載符合目前篩選與排序的**全部**列（不只當頁），上限 100,000 列；超過上限時以 `X-Exported-Count`／`X-Total-Count` 讓畫面提示被截斷；UTF-8 含 BOM（Excel 可開）；以 `=` `+` `-` `@` 開頭的文字會加前導單引號防試算表公式注入（數字不受影響）；資料庫來源同時最多 2 個匯出，其餘回 429。**預設來源（示範資料表 `dbo.Orders`）匿名即可匯出**，自訂來源須登入且只能匯出自己的來源。（Tech Lead 審閱；PM 未實機。）
 - 另有開發用的示範資料產生器 `scripts/demo-data/`（7 份已攤平的企業資料，可上傳 CSV 或產生 SQL；可選擇取代正式環境 `dbo.Orders`）——屬工具，不是使用者功能。
 
 ### Requirements
@@ -1824,6 +1856,8 @@ so that 我不必自己設定篩選、分組與度量，也不會被默默錯誤
 4. 相對日期說法（最新一個月、上個月、本季、今年、去年）以**資料最新日期**為準，結果可預期、可重現。
 5. 提問須登入並消耗每日用量；超過額度沿用既有的 429＋「聯絡作者提高額度」提示（DECISION-007），不新增付費或點數概念。
 6. 這個功能的資料量與等待時間不得讓頁面卡死：取不到欄位真實值時退化為不驗證、繼續回答，而不是報錯。
+7. **（新增，PM 2026-10-14，未實作）資料外送告知**：使用者在「問 AI」的輸入處就能看到一行說明，講明「為了理解問題，會把欄位名稱與各欄位可選的值傳送給 AI 服務（OpenAI）」，使用者不必去翻其他頁面。文案可由 Tech Lead／Frontend 微調，但須白話、不得暗示資料不會離開本站。依據：DECISION-028。
+8. **明細 CSV 匯出（#457，已出貨）**：匯出的檔案內容必須與畫面上目前的篩選、排序一致；被上限截斷時使用者必須看得到提示；Excel 直接開啟不得亂碼，也不得因為資料內容而執行公式。
 
 ### Acceptance Criteria
 - [ ] 對真實 AI 問 5 題陷阱題（資料裡沒有的國家／付款方式等）各 3 次，**每次**都出現「已忽略此條件」提示。（**未驗證**：PR #456 說明當天額度用完、尚未對真 AI 實測；Boss 計畫以 `run_benchmark.py --update G01,G02,G03,G04,G05` 驗證，該腳本不在 repo 內，PM 看不到。這是此功能最重要的一條。）
@@ -1832,6 +1866,10 @@ so that 我不必自己設定篩選、分組與度量，也不會被默默錯誤
 - [x] 「最新一個月」等相對區間由程式預先計算（`NlDateRanges.cs`）。（讀碼；未實機。）
 - [x] 來源下拉選「預設」時欄位顯示「預設」而非空白。（`SourcePanel.tsx` 用 `__default__`，`SourcePanel.test.tsx` 有對應測試；未實機。）
 - [ ] 手機寬度（≤ 400px）下，提示 Alert 與結果表不造成橫向捲動。（PM 無法以讀碼確認。）
+- [ ] （需求 7，**尚未實作**）「問 AI」輸入處有資料外送告知一行；訪客與已登入者看到的文字一致。
+- [x] 明細頁「匯出 CSV」存在，下載內容為符合目前篩選／排序的全部列，上限 10 萬列，被截斷時有提示。（#457 PR 描述自述以 12 萬列資料表驗證匯出 10 萬列、帶篩選時 27,424 列全出；`DataAnalysisExportTests`、`exportCsv.test.ts`、`DetailsTab.test.tsx` 涵蓋；PM 未重跑。）
+- [x] 以公式字元開頭的文字欄位匯出後前面加單引號、數字不受影響。（Tech Lead 逐行讀 `GuardFormula` 確認運算子優先序；有單元測試。）
+- [ ] 實際用 Excel 開啟匯出檔，中文不亂碼、含逗號與換行的欄位排版正確。（PM 無法驗證；程式面是 UTF-8 BOM＋RFC 4180。）
 
 ### Priority
 MEDIUM（Boss 已實際投入；PM 沒有數據判斷它相對於英文學習與投資組合的優先序）
@@ -1841,18 +1879,28 @@ MEDIUM（Boss 已實際投入；PM 沒有數據判斷它相對於英文學習與
 - 已登入使用者的 AI 提問行為、提示、日期解讀、用量扣除
 
 #### Out of Scope
-- 匿名使用 AI 提問；匿名結果匯出
+- 匿名使用 AI 提問；匯出彙總結果（目前只能匯出明細列）；讓使用者排除不想送給 AI 的欄位（見 Future Consideration）
 - DataAnalysisLibrary 本身的變更範圍須另行與 Boss 確認（DECISION-009）
 - 為 AI 提問另做計費或點數
 
 #### Future Consideration
-- 沒有分組的問題（例如「總營收是多少」）：提示詞規定 `viewBy` 至少一個，PM 不確定這類問題現在會得到什麼——需實測才知道，列為觀察項，不是已知缺陷。
+- 沒有分組的問題（例如「總營收是多少」）：**已知限制**（Tech Lead 2026-10-13 讀碼確認）——`DataAnalysisLibrary` 的彙總不接受沒有分組的請求，所以不會得到單一數字：模型自己補一個分組就得到分組表，沒補就是「AI could not interpret your query」。要支援單一彙總值須改 `DataAnalysisLibrary`（依 DECISION-009 須先與 Boss 確認）。PM 的判斷（假設）：「總營收是多少」是最自然的問法之一，若 A30（比賽／展示）成立，這可能是現場會被問到的題目；但沒有任何使用者或 Boss 回報撞到，所以**不排任務**，只在 `boss/PM.md` 留一行，由 Boss 決定。
+- 讓使用者（或資料來源擁有者）勾選「這個欄位不要送給 AI」：能降低需求 7 的隱私顧慮，但會增加設定負擔、且改變「問 AI」的準確度（被排除欄位的值無法驗證）。PM 目前只要求告知（需求 7）；是否進一步做，等有真實使用者連自己的資料庫、或 Boss 指示再評估。
+- 匿名匯出的硬化（Tech Lead 提出的取捨）：見下方「匿名匯出的產品立場」。
 - 「最新一個月」在月初（例如資料最新日期是 10/01）只會涵蓋 1 天，使用者可能不預期——PM 的觀察，未驗證，也沒有證據使用者問過。
 - 首次使用引導（原 LOW 第 6 項）：Boss 既然投入，之後可再評估，但不在這次範圍。
 
 ### Constraints
 - AI 的「不遺漏」靠模型自己回報（PR #456 的「限制」段）：模型若省略條件卻沒回報，程式無法發現。所以驗收必須靠對真 AI 的量化基準，不能只靠單元測試。
-- 每次提問可能有一次自我修正重跑（多一次 AI 呼叫）而只扣一次用量——成本面的觀察，交 Tech Lead 判斷要不要管。
+- 每次提問可能有一次自我修正重跑（多一次 AI 呼叫）而只扣一次用量——成本面的觀察。**Tech Lead 2026-10-13 回覆：成立，每次提問 ≤2 次呼叫、權重 2 已涵蓋，不調整。**
+
+### 匿名匯出的產品立場（PM 2026-10-14，假設，Boss 可推翻）
+Tech Lead 在審閱 #457 時提出兩個取捨：(1) 預設來源可匿名匯出，且 App 內沒有任何 rate limiter，每次匯出是對共用 5 DTU 資料庫的整表讀取；(2) 匯出整批放記憶體，使用者自己的大表（10 萬列寬表）可能吃掉數百 MB（Tech Lead 的估算，未量測）。PM 只談產品面：
+- 匿名匯出的價值是**讓人在不登入的情況下體驗示範資料**；示範資料表約 2 萬列，所以把匿名來源的匯出上限降到約 2 萬列**不會改變任何使用者看得到的行為**。若 Tech Lead 要硬化，PM 同意這個方向。
+- 不建議改成「匯出一律要登入」：會讓不想登入的訪客（含可能的展示場合，A30）看不到這個功能的價值，而 PM 沒有證據顯示匿名匯出已被濫用。
+- 對使用者自己的大表：**伺服器穩定優先於匯出完整**——寧可更早截斷並明確提示（需求 8 已要求提示），也不要讓行程記憶體爆掉。具體上限與做法交 Tech Lead。
+- 以上都不是現在就要做的任務；PM 沒有看到實際濫用或當機的證據。Tech Lead 認為值得做時再排。
 
 ### Open Questions
+- 無需 Boss 回覆。PM 小假設：**A31**（2026-10-14）——資料外送告知（需求 7）只需一行文案，PM 先定為預設（成本近零、可逆）；是否足以滿足個資法或 OpenAI 的使用條款，PM **未查證**，也不下結論（比照 DECISION-019 對 R1 的處理：Boss 若要查證再說）。Boss 若不要這行字，說一聲即可撤回。
 - 無需 Boss 回覆。PM 小假設：**A30**——Data Analysis 的 AI 提問是為了某個比賽或展示（PR #456 標題寫「比賽必修」）；PM 不知道日期與評分標準，因此不排優先序、不加需求。若 Boss 希望 PM 對齊評分標準或 demo 流程，請說一聲。

@@ -3193,3 +3193,21 @@
 - **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`。
 - **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／OpenAI／證交所；審閱依 git diff、GitHub Actions run 紀錄與測試原始碼，未在本機執行測試，也沒有目視畫面。
 
+
+
+## 2026-10-14 — PM：補登 #457、#460；回覆 Tech Lead 的隱私與匿名匯出提醒（排程執行）
+
+- **狀態**：無 open PR；Boss 無新問題或指示。距 PM 上輪（2026-10-13 晚）後 master 的變化：Tech Lead 的事後審閱（含 #457）、TASK-050／051 的 PR #458／#459 已由 Boss 合併（純測試／日誌，無產品面變動），以及 Boss 直接合併的 **#460**（持股清單占比）。**#457**（明細 CSV）在 PM 上輪補登之後才合併，一併補登。
+- **補登內容**：
+  - **DECISION-026**（#457）：Data Analysis 明細匯出 CSV，預設示範資料匿名可匯出。需求新增「Data Analysis」需求 8 與驗收條件；Future Consideration 的「DataAnalysis 匿名結果匯出」劃掉（明細版已出貨，彙總版沒有）。
+  - **DECISION-027**（#460）：持股清單「占比」分母改為流動總資產（不含房產），與水位／再平衡卡片一致（Tech Lead 同日事後審閱也確認三處分母相同、無須追加修正；已按其「請 PM 對齊需求文字」的提醒同步 Portfolio 需求）。Portfolio 需求新增 2026-10-14 更新與驗收條件；PM 讀了 `PositionsTable.test.tsx`，測試斷言 60／20／10／10%、房產無占比、負債 −50%。
+  - **DECISION-028**（PM 預設，A31）：Tech Lead 提出「問 AI」每次都把欄位名稱與低基數欄位的值（≤2000 個）送給 OpenAI，前端沒有任何告知；PM 決定先要求**在輸入處加一行白話告知**（需求 7）。不做阻擋式同意框、不做排除欄位（列 Future Consideration）。**PM 未查證**合規是否足夠、不下結論；Boss 可撤回。
+  - 需求「逐模組 UX」最後一條驗收（不新增 AI 呼叫／UsageLimit）依 Tech Lead 2026-10-13 的核對**勾選**，並註記字典生成的但書。
+  - Data Analysis 的「沒有分組的問題」由「觀察項」改為「已知限制」（Tech Lead 讀碼確認）；PM 不排任務，在 `boss/PM.md` 留一行讓 Boss 決定。
+- **PM 的產品立場（假設，Boss 可推翻；寫在需求「匿名匯出的產品立場」）**：匿名來源匯出上限降到約 2 萬列不改變任何可見行為（示範表約 2 萬列），PM 同意；不建議改成一律登入；使用者自己的大表以伺服器穩定優先、寧可更早截斷並提示。**現在不排任務**——沒有看到濫用或當機的證據；Tech Lead 認為值得做時再排。
+- **Tech Lead Actions**（PM 沒有直接指派 Engineer）：
+  1. 為需求 7／DECISION-028 拆一個小任務（Frontend，LOW～MEDIUM）：「問 AI」輸入處的一行資料外送告知。文案以您 `ARCHITECTURE.md` 建議的那句為底即可；請確認它在訪客與已登入者、手機寬度下都看得到。
+  2. 匿名匯出的硬化（上限／rate limiter／記憶體）：PM 的產品立場如上，是否排任務、排多高由 Tech Lead 決定。
+- **Boss**：無需回覆。`boss/PM.md` 頂端已更新（含 A31、匿名匯出立場、「總營收」限制）。
+- **未動**：程式碼、`boss/TECH_LEAD.md`、`ARCHITECTURE.md`、`tasks/*`。
+- **驗證限制**：沙箱連不到 `apps.jacky-studio.com`／OpenAI／Azure；以上是讀 git、PR 描述、原始碼與測試的結論，沒有實機、沒有執行測試。
