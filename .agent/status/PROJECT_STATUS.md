@@ -3225,3 +3225,13 @@
 - **Boss**：無需回覆。`boss/PM.md` 頂端已更新；唯一的實機請求（三段＋現金同時存在時圖是否清楚）**不阻擋**任何工作。
 - **未動**：程式碼、`boss/TECH_LEAD.md`、`ARCHITECTURE.md`、`tasks/*`。
 - **驗證限制**：沙箱無法執行畫面或測試；以上是讀 git（#406／#461 的 commit 與 diff）、原始碼與測試名稱的結論，沒有實機、沒有執行測試、沒有看過實際產出的圖。
+
+## 2026-10-14（第二次）— Tech Lead：#461 事後審閱、TASK-052 建立、匿名匯出硬化決定暫不排工（排程執行）
+
+- **狀態**：無 open PR；唯一 open issue 仍是 #409（`To Tech Lead`，2026-10-06 後無新留言）。master＝`a2f4f44`；`Build and deploy` run 551（#461）成功；排程 contract test **run 107 全數通過**（跑 master tip）——TASK-050 的第一個觀察點是綠的。距上輪 Tech Lead（5b47860）後的變化：PM 補登（d49a3fc：DECISION-026／027／028；392ff72：DECISION-029 限動圖）與 Boss 直接合併的 **#461**。
+- **#461（IG 限動圖加入基金與現金占比，Boss 直接合併、未走 TASK）事後審閱**：純前端（5 檔，+308／−91）。基金成為第三個區塊（以名稱列出）、現金是標題列右上的單一數字、各區塊占比的分母＝台股＋美股＋基金＋現金（與後端 `liquidGrossAssetsTWD` 同一組四類，所以與 #460 的清單占比、水位、再平衡口徑一致）；≤2 區塊版面不變，3 區塊用 COMPACT。分配邏輯有 7 個單元測試，canvas 繪圖沒有自動測試。**無須追加修正**；細節與未驗證項在 `ARCHITECTURE.md` 最後一節。**DECISION-029 的金額檢查（PM 在同日 PM 條目請我確認）**：#461 的 `storyImage.ts` 差異中所有 `fillText` 的內容只有百分比、檔數、標的名稱／代號，沒有任何 `marketValueTWD` 或金額被畫上去，對話框文字也寫「只顯示比例，不含金額」——**沒有把金額畫上去**。PM 的「異常資料（負值／0）分母可能與頁面不同」觀察屬實（限動圖只計正值），我認同不是問題。**PM 的需求文字**：Portfolio 需求若寫「限動圖只含台股、美股」，PM 已於同日補登對齊。
+- **PM 的 Tech Lead Actions 回覆**：
+  1. **建 TASK-052**（Frontend，LOW，READY）：「問 AI」輸入處的資料外送告知（DECISION-028／需求 7）。重點：永遠可見的 `helperText`（不用 Tooltip／Popover）、訪客與已登入者同文、文案須對照 `BuildNlPlanAsync` 實際送出的內容核對、不下合規結論、手機寬度要換行。
+  2. **匿名匯出硬化：現在不排任務**。主因：示範表預設就是 20,000 列，「降到約 2 萬列」在現況下等於沒有效果；正式 `dbo.Orders` 是否遠大於 2 萬我不知道；沒有濫用或記憶體問題的證據；治本（列數×欄數預算或串流輸出）要量測、且串流要改 `DataAnalysisLibrary`（DECISION-009）。已在 `ARCHITECTURE.md` 寫明 (a)～(d) 四個重新評估的觸發條件與屆時的最小做法。PM 的產品立場（不要求一律登入、伺服器穩定優先於匯出完整）與此不衝突。
+- **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`、既有 TASK 檔。
+- **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／OpenAI／證交所；審閱依 git diff、PR 檔案清單與 GitHub Actions run 紀錄，未在本機執行測試，也沒有渲染限動圖。

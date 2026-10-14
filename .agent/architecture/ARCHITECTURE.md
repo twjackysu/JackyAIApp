@@ -1933,3 +1933,29 @@ Boss 在正式環境試用需求 12 後留言兩點：(1) **00685L 與 00631L �
 - #458 只改 LiveContract 測試：`t187ap05_L` 查無該 symbol 列時改驗整份資料形狀（≥100 列＋至少一列具備五個欄位），有列時的欄位斷言不變；變異驗證（run 106）證明欄位更名仍會被抓到。正式程式碼不變。**下一次排程 contract test（10/14 早上，run 107）是第一個真正的觀察點**。
 - #459 讓 `StockCodeResolver` 在 OpenAI 回應失敗時 `LogError("OpenAI stock-code resolution failed: {Error}")`。2026-10-13 那節的檢查 KQL 現在可以加上這一條：`... or Message startswith "OpenAI stock-code resolution failed"`（**仍未實測**；沒有對真的 OpenAI 驗證 gpt-6-luna 在此路徑可用）。
 
+
+
+## Boss 直接合併的變更備忘（#461）、匿名匯出硬化的決定、TASK-052（Tech Lead 2026-10-14 第二次排程）
+
+#461 由 Boss 於 2026-10-14 10:18 +0800 合併（未走 TASK）；`Build and deploy` run 551 成功，正式環境＝`a2f4f44`。排程 contract test run 107（跑 master tip `a2f4f44`）**全數通過**——TASK-050 的第一個真實觀察點是綠的（綠只代表沒有失敗，我無法從 conclusion 判斷當天 `t187ap05_L` 走的是「有列」還是「形狀」路徑）。
+
+### #461 — IG 限動圖加入基金與現金占比（純前端，Portfolio）
+- **事實**：`storyAllocation.ts` 的 `buildStoryAllocation(positions, maxRows?)` 現在回傳 `{ tw, us, fund, cashPct }`。區塊＝台股、美股、**基金**（新增，`assetType === 'FUND'`，以基金**名稱**而非代碼列出，因代碼對讀者無意義）；現金只是一個數字（`cashPct`，畫在標題列右上，裁掉下方區塊也還在、不佔區塊高度）。不動產、負債、非正值部位一律不計。
+- **占比分母**：各區塊標題的占比＝該區塊 /（台股＋美股＋基金＋現金）；區塊內各檔仍各自加總 100%（裁掉下方區塊後圖仍自洽）。這四類與後端 `PortfolioService.liquidGrossAssetsTWD = twStock + usStock + cash + fund` **同一組**，所以限動圖的占比與 #460 的持倉清單占比、水位、再平衡建議是同一個口徑（我只比對了「哪四類」，沒有逐一比對負值部位的處理差異；限動圖只計正值，且負債／不動產本來就不在分母）。
+- **版面**：≤2 個區塊用 `ROOMY`（與改版前相同的尺寸與每區塊最多 8 列）；3 個區塊用 `COMPACT`（字級／甜甜圈縮小、每區塊最多 `STORY_MAX_ROWS_COMPACT`＝5 列，尾端併入「其他」）。單一區塊且**沒有現金**時不顯示占比（會是 100%）；有現金時顯示。選單項目由 `hasStocks` 改 `hasHoldings`（含基金）；只有現金時仍停用。
+- **審閱結論**：逐行讀 5 個檔案的差異（+308／−91）。`sectionCount`（`totals > 0` 的區塊數）與渲染端的 `sections.length >= 3` 判準一致；COMPACT 下 5 列的列高（`min(54, (bodyH−24)/5)`）算得過；兩個區塊以下的尺寸與舊版相同（`ROOMY.gap = 48`、區塊高 606 與舊的 `SECTION_HEIGHT` 一致）。分配邏輯有 7 個單元測試（市場正規化、現金進分母、基金以名稱列出、排除不動產／負債／非正值並合併重複 symbol、尾端併入「其他」、三區塊少列、全空）。CI run 681 綠、deploy run 551 成功。**無須追加修正**。
+- **未驗證／限制**：canvas 繪圖（`storyImage.ts`）沒有自動測試，只有分配邏輯有；我沒有渲染過產出的圖（沒有在沙箱建置前端並以瀏覽器畫出來，正式環境也連不到），所以三區塊 COMPACT 版面的實際外觀、長基金名稱被 `fitText` 截斷的樣子，**由 Boss 目視**（Boss 自己寫的 PR，大概已看過）。兩檔同名基金（不同 symbol）會各佔一列而名稱相同——極端情況，不處理。
+- **DECISION-029（限動圖只顯示百分比、不顯示金額）**：#461 的差異中所有 `fillText` 只畫百分比、檔數與標的名稱／代號，沒有 `marketValueTWD` 或任何金額，對話框也明寫「不含金額」——符合。**之後任何動到 `storyImage.ts`／`storyAllocation.ts` 的 PR 都要再確認這一點**（PM 的請求）。限動圖只計**正值**部位，所以異常資料（市值 ≤ 0）時分母可能與頁面「流動總資產」不同，一般持股不會發生，不處理。
+- **給 PM／之後的 Agent**：Portfolio 需求的限動圖語意已由 PM 在同日補登對齊（DECISION-029：台股、美股、基金＋現金一個數字）；技術上沒有衝突。
+
+### 匿名匯出硬化（#457）— **決定：現在不排任務**（Technical Debt／Future Work）
+PM（2026-10-14）同意「匿名來源上限降到約 2 萬列」的方向，把「要不要做」交給 Tech Lead。我的判斷與理由：
+1. **這個上限在現況下沒有效果**。示範資料表 `sales_orders` 預設就是 **20,000 列**（`scripts/demo-data/README.md`）；上限設 2 萬等於不限制，設得比 2 萬低會截掉示範資料，設得比 2 萬高又和現在差不多。真正會讓上限有意義的是「正式環境的 `dbo.Orders` 是否遠大於 2 萬列」——**我不知道**（沙箱連不到正式資料庫；它是否被換成別的資料也不確定，`CLAUDE.md`／README 只說「可選擇取代」）。
+2. 匿名的 `details`／`summarize` 本來就沒有 rate limiter，匯出多出來的只是「同時 ≤2 個、每個一次整表讀取」；沒有任何濫用、5 DTU 資料庫被拖慢或行程記憶體不足的證據（Application Insights 有 request 與例外資料，但我看不到）。
+3. 真正的風險（使用者**自己的**大表＋寬欄位，整批放記憶體）要靠「資料列數 × 欄數」的預算或串流輸出才能治本；後者要改 `DataAnalysisLibrary`（DECISION-009：須先與 Boss 確認），前者需要量測才能定出不是憑空的數字。為此現在動手是在猜。
+- **重新評估的觸發條件**（任一成立就排一個 Backend LOW 任務）：(a) 有人（Boss 或 PM）確認正式 `dbo.Orders` 遠大於 2 萬列；(b) App Insights 看到 `details/export` 的呼叫量或延遲異常、或 App Service 出現記憶體重啟；(c) Boss 要把匯出開放給更大的使用者自訂表，或要在公開展示場合使用；(d) Boss 指示。最小做法屆時仍是：預設來源上限降到「示範表列數＋餘裕」（例如 3 萬），自訂來源改成以「列數 × 欄數」為預算並在超過時沿用 `X-Exported-Count`／`X-Total-Count` 提示截斷。
+- 這不改變 `ExportGate`（同時 2 個）、`MaxExportRows`（10 萬）、`GuardFormula` 或任何已審閱的行為。
+
+### TASK-052 — 「問 AI」資料外送告知（Frontend，LOW，READY）
+- 依 DECISION-028（PM 預設、Boss 可撤回）。重點：永遠可見（輸入框 `helperText`，不放 Tooltip／Popover，見 `jackyaiapp.client/CLAUDE.md`），訪客與已登入者同文，三件事都寫（送什麼、送給誰、不暗示資料不離開本站），文案須對照 `BuildNlPlanAsync` 實際送出的內容核對（含重跑路徑）。
+- **我沒有替 PM 查合規**，任務書要求 Engineer 與審閱者都不下合規結論。
