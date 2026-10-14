@@ -77,8 +77,9 @@ export function StoryImageDialog({ open, onClose, alloc, date }: Props) {
       <DialogTitle>IG 限動圖</DialogTitle>
       <DialogContent>
         <DialogContentText sx={{ mb: 2 }}>
-          只顯示台股、美股各自的持股比例，不含金額。台股在上半、美股在下半，各自加總 100%，
-          不想放美股的話直接裁掉下半部即可。
+          只顯示比例，不含金額。台股、美股、基金由上到下排列，各自內部加總
+          100%，不想放的區塊直接從下方裁掉即可；
+          右上角是現金佔比，各區塊標題的佔比以台股＋美股＋基金＋現金合計為分母。
         </DialogContentText>
         {error && <Alert severity="error">產圖失敗：{error}</Alert>}
         <Box

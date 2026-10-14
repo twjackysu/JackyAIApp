@@ -69,7 +69,7 @@ function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
   const [fetchHistory, { isFetching }] = useLazyGetNetWorthHistoryQuery();
   const [storyOpen, setStoryOpen] = useState(false);
   const storyAlloc = useMemo(() => buildStoryAllocation(summary.positions), [summary.positions]);
-  const hasStocks = !!(storyAlloc.tw || storyAlloc.us);
+  const hasHoldings = !!(storyAlloc.tw || storyAlloc.us || storyAlloc.fund);
 
   const close = () => setAnchor(null);
 
@@ -99,7 +99,7 @@ function ExportMenu({ summary }: { summary: PortfolioSummaryDto }) {
         </MenuItem>
         <MenuItem onClick={exportHistory}>淨值歷史 (時間序列)</MenuItem>
         <MenuItem
-          disabled={!hasStocks}
+          disabled={!hasHoldings}
           onClick={() => {
             close();
             setStoryOpen(true);
