@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED
+MERGED（PR #458，Boss 於 2026-10-14 07:37 +0800 合併；push 觸發的 Build and deploy run 549 成功。Tech Lead 事後審閱見 Review）
 
 ## Priority
 LOW（僅測試；對正式環境無影響。目的是讓每日排程的 contract test 紅燈保持「有事才紅」）
@@ -59,3 +59,10 @@ https://github.com/twjackysu/JackyAIApp/pull/458
 - 假設（分批更新）仍未驗證；若 10/14 起仍有公司缺列，再回報 Tech Lead。
 
 ## Review
+**Tech Lead 事後審閱（2026-10-14，排程執行；#458 在審閱前已被 Boss 合併）**
+- 範圍：`git diff` 只動 `JackyAIApp.Server.Tests/LiveContracts/TwseOpenApiContractTests.cs`（+25／−2），無產品程式碼、migration、API。
+- 正確性：(1) 有列路徑的四個欄位斷言**原封不動**（符合「不放寬」）；(2) 無列路徑改驗整份資料——`GetArrayLength() >= 100` 且至少一列通過 `HasUsableMonthlyRevenueRow`（`公司代號`、`營業收入-當月營收` 為字串且可解析為正數、`資料年月` 非空、兩個增減欄位存在），通過即 `return`；(3) 沒有日期條件，符合需求 3；(4) 訊息帶 symbol 與實際列數。
+- 驗證品質好：run 105（PR 分支 `workflow_dispatch`）57／57 通過；**變異驗證 run 106 證明放寬後仍守得住欄位更名**（3 個 Revenue 測試依預期失敗，訊息 `none of the 869 rows has the expected fields`，其餘 54 項通過；暫時變異已 revert，master 上無殘留）。順便得到一個事實：資料集目前有 869 列，遠高於 100 的下限。
+- 取捨（已知、接受）：三個 symbol **都**沒列且資料集停更時，測試會是綠的——它不再是「資料新鮮度」警報。這符合任務定位（契約＝形狀）；正式環境對缺列本來就降級為 `null`，不需要為此紅燈。
+- **未驗證（沿用任務書）**：「TWSE 每月 10 日後分批更新」仍是假設；run 105 的日誌看不出各 symbol 走哪條路徑。**下一次排程 contract test（10/14 約 06:45–07:15 UTC，run 107，跑 master tip＝含此修正）是第一個真正的觀察點**——預期 Revenue 三項不再因缺列而紅。若仍紅，才是欄位／資料集改版，不再是覆蓋問題，屆時升級。
+- 結論：**無須追加修正**，結案。

@@ -1917,3 +1917,19 @@ Boss 在正式環境試用需求 12 後留言兩點：(1) **00685L 與 00631L �
   1. **匿名＋沒有 rate limiter**：App 內沒有任何 rate limiter（`AddRateLimiter` 無結果），預設來源的匯出只受「同時 2 個」限制；每次匯出是對**共用的 5 DTU 資料庫**整表讀取（示範表約 2 萬列），持續呼叫會拖慢全站。與既有匿名的 `details`／`summarize` 同級的暴露，但更重。最小硬化：匿名來源匯出上限降到約 20,000 列，或匯出要求登入——產品取捨。
   2. **記憶體**：匯出把整批列放在記憶體（每列一個 Dictionary），B1 約 1.75 GB。10 萬列的寬表可能達數百 MB（**我的估算，未量測**），2 個併發在使用者自己的大表上有壓垮行程的風險。Boss 驗證了「12 萬列約 2 秒」，但沒量記憶體。
   3. 部署：run 547（12:43 UTC 啟動）成功。
+
+
+## Boss 直接合併的變更備忘（#460）與 TASK-050／051 結案（Tech Lead 事後審閱 2026-10-14）
+
+#458（TASK-050）、#459（TASK-051）由 Boss 於 2026-10-14 07:37 +0800 合併，#460 由 Boss 自己的 session 開發並於 08:13 +0800 合併；`Build and deploy` run 548／549／550 全部成功，正式環境＝`e0ef06e`。
+
+### #460 — 持倉清單「占比」改以流動總資產為分母（純前端）
+- **事實**：`PositionsTable` 新增 prop `liquidGrossAssetsTWD`（來自 `PortfolioSummaryDto.LiquidGrossAssetsTWD`，後端 `PortfolioService` 既有欄位 = 台股＋美股＋基金＋現金，不扣負債、不含不動產），共用函式 `positionShare.ts` 的 `liquidSharePct(marketValueTWD, assetType, liquidGross)`：`REAL_ESTATE` 或分母 ≤ 0 → `null`（畫面顯示 `—`／不顯示群組占比）；`LIABILITY` 因 sign-flip invariant 已是負值 → 顯示負的占比。群組標頭與每列用同一個函式；欄位標題加 `InfoPopover` 說明分母（`POSITION_SHARE_TOOLTIP`）。後端、API、DTO 都沒動。
+- **為什麼重要（給之後的 Agent）**：現在**持倉清單占比、水位（`ExposureOfLiquidAssetsPct`）、再平衡建議（#434 起也是 `liquidGrossAssetsTWD`）三處分母一致**。以前清單用「所有正值部位（含不動產）」，一棟房會讓其他占比全部縮水（PR 的例子：台股 600／流動 1,000 顯示 15%）。新增持倉類資產時，`liquidSharePct` 只特別處理 `REAL_ESTATE`；`groupKeyOf` 的 `OTHER` 群組（防禦性後備，目前沒有對應的 assetType）若出現會以流動總資產為分母算占比，但它**不在**分母裡——若日後真的出現新 assetType，要同時決定它屬不屬於流動資產（後端 `twStock + usStock + cash + fund` 與這個函式要一起改）。
+- **審閱結論**：逐行讀了 `PositionsTable.tsx`／`index.tsx`／`positionShare.ts` 的差異。四個流動群組（台股／美股／基金／現金）占比總和 ≈ 100%，負債與不動產各自獨立；有單元測試（`positionShare.test.ts` 4 個、`PositionsTable.test.tsx` 3 個：分母不含不動產、不動產無占比、負債為負占比）。列內的占比欄在手機（xs）原本就隱藏，行為不變。**無須追加修正**。
+- **驗證限制**：沒有目視過畫面（沙箱連不到正式環境）；CI（run 680）綠、deploy run 550 成功。
+
+### #458（TASK-050）與 #459（TASK-051）
+- #458 只改 LiveContract 測試：`t187ap05_L` 查無該 symbol 列時改驗整份資料形狀（≥100 列＋至少一列具備五個欄位），有列時的欄位斷言不變；變異驗證（run 106）證明欄位更名仍會被抓到。正式程式碼不變。**下一次排程 contract test（10/14 早上，run 107）是第一個真正的觀察點**。
+- #459 讓 `StockCodeResolver` 在 OpenAI 回應失敗時 `LogError("OpenAI stock-code resolution failed: {Error}")`。2026-10-13 那節的檢查 KQL 現在可以加上這一條：`... or Message startswith "OpenAI stock-code resolution failed"`（**仍未實測**；沒有對真的 OpenAI 驗證 gpt-6-luna 在此路徑可用）。
+

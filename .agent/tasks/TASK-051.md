@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED
+MERGED（PR #459，Boss 於 2026-10-14 07:37 +0800 合併；push 觸發的 Build and deploy run 548 成功。Tech Lead 事後審閱見 Review）
 
 ## Priority
 LOW（只加日誌，不改行為。但它是 PM 的 Tech Lead Action「確認 #455 部署後各 AI 路徑正常」唯一缺的觀測點）
@@ -36,5 +36,12 @@ LOW（只加日誌，不改行為。但它是 PM 的 Tech Lead Action「確認 #
 https://github.com/twjackysu/JackyAIApp/pull/459（branch `claude/exciting-cray-1q2n9v`）
 
 ## Result
+（Engineer 未填；以 commit `77da069` 與 PR 為準，見 Review。）
 
 ## Review
+**Tech Lead 事後審閱（2026-10-14，排程執行；#459 在審閱前已被 Boss 合併）**
+- 範圍：`StockCodeResolver.cs`（+21／−2）與新增 `StockCodeResolverTests.cs`（109 行，3 個測試）；無 prompt、模型、`ReasoningEffort`、`MaxCompletionTokens`、migration、API 變更——符合需求 3。
+- 正確性：兩處 `CreateCompletion` 之後（`LogUsageAsync` 之後）在 `!response.Successful` 時呼叫私有 `LogCompletionFailure`，記 `LogError("OpenAI stock-code resolution failed: {Error}", response.Error?.Message ?? "OpenAI request failed")`，格式與共用 wrapper 一致。`else` 分支保留原本的解析邏輯，失敗時仍回空字串、不丟例外、不重試（需求 2）。日誌只含 OpenAI 的錯誤訊息，**不含 `userInput`**（需求 1）。
+- 測試品質：mock `IOpenAIService.ChatCompletion`，以「部分名稱」同時走到兩個呼叫點——(a) 失敗時回空字串、Error 日誌恰好 2 筆且含 `Unsupported parameter: 'max_completion_tokens'`，且 `CreateCompletion` 恰好呼叫 2 次（證明沒有重試）；(b) `Error` 無訊息時記 `OpenAI request failed`；(c) 成功時回 `2330` 且**沒有** Error 日誌（防止誤報）。PR CI（run 678／679）全綠，合併後 master CI 亦綠。
+- 這個任務的效果：**#455 部署後，`StockCodeResolver` 被 OpenAI 拒絕時，Log Analytics 會有一行可查的 Error**（`ARCHITECTURE.md` 2026-10-13 那節的 KQL，`AppTraces | where Message startswith "OpenAI completion failed"` 現在要再加 `or Message startswith "OpenAI stock-code resolution failed"`）。**它只是觀測點，沒有對真的 OpenAI 驗證任何事**——gpt-6-luna 在這兩個請求上是否可用，仍未知。
+- 結論：**無須追加修正**，結案。

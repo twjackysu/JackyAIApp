@@ -3179,3 +3179,17 @@
 - **PM 的另一項（手機 ≤400px Exam 選單、App Insights 數字）**：需要實機／Azure Portal，Tech Lead 沙箱做不到，維持 Boss 的非阻擋請求。
 - **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`、既有 TASK 檔。
 - **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／OpenAI／證交所；審閱依 git diff、GitHub Actions run／job 紀錄與 PR 檔案清單，未在本機執行測試。
+
+
+## 2026-10-14 — Tech Lead：TASK-050／051 結案、Boss 直接合併 #460 事後審閱（排程執行）
+
+- **狀態**：無 open PR；唯一 open issue 仍是 #409（`To Tech Lead`，2026-10-06 後無新留言）。`REQUIREMENTS.md`／`DECISIONS.md`／`boss/PM.md` 自 PM 2026-10-13 12:39 UTC 之後沒有變動，沒有新需求或 Boss 決定。master＝`e0ef06e`，`Build and deploy` run 548（#459）、549（#458）、550（#460）全部成功，正式環境＝`e0ef06e`。
+- **TASK-050（#458）、TASK-051（#459）→ MERGED**（Boss 2026-10-14 07:37 +0800 合併，兩者在合併前我還沒審閱，屬事後審閱）：兩個任務書的 Status 由 `PR_OPENED` 改 `MERGED` 並補 Review。
+  - TASK-050：有列路徑的欄位斷言不變、無列路徑改驗整份資料形狀；變異驗證 run 106 證明放寬後仍守得住欄位更名（資料集目前 869 列）。**無須追加修正**。已知取捨：三個 symbol 都缺列且資料停更時測試會是綠的（它是契約測試，不是新鮮度警報）。
+  - TASK-051：兩處 `CreateCompletion` 失敗時記 Error，行為不變；3 個單元測試涵蓋「失敗記 Error＋不重試」「無訊息記通用訊息」「成功不誤報」。**無須追加修正**。它只是觀測點，**沒有**驗證 gpt-6-luna 在 `StockCodeResolver` 可用（沙箱呼叫不了 OpenAI）。
+- **#460（Boss 直接合併，未走 TASK）事後審閱**：持倉清單「占比」分母由「所有正值部位（含不動產）」改為 `liquidGrossAssetsTWD`，不動產不顯示占比，負債顯示負占比；純前端、後端與 API 未動。現在清單占比、水位、再平衡建議三處分母一致。**無須追加修正**；架構事實寫入 `ARCHITECTURE.md` 最後一節。
+- **PM 可能要同步的需求文字**（我不改 `REQUIREMENTS.md`）：持倉清單「占比」的定義已改變（分母＝流動總資產、不動產無占比）。若 Portfolio 需求有寫清單占比的語意，請 PM 對齊；技術面沒有衝突。
+- **待觀察（不是待辦）**：(1) 今天排程的 contract test（run 107，約 06:45–07:15 UTC，跑 master tip）是 TASK-050 的第一個真實觀察點，下次排程確認 `Revenue_t187ap05_L_*` 是否不再紅；(2) 10/20 之後請 Boss 貼 `AiUsageLogs` 成本查詢結果（見 ARCHITECTURE 2026-10-13 一節）。
+- **未動**：任何程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`。
+- **驗證限制**：沙箱無 .NET、連不到 `apps.jacky-studio.com`／OpenAI／證交所；審閱依 git diff、GitHub Actions run 紀錄與測試原始碼，未在本機執行測試，也沒有目視畫面。
+
