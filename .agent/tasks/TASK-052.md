@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+IN_PROGRESS
 
 ## Priority
 LOW（成本近零、純前端、可逆；但它是 PM 為隱私面補上的唯一一道告知，不要拖太久）
