@@ -22,6 +22,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useEffect, useMemo, useState } from 'react';
 
+import { AI_DATA_NOTICE } from '../constants';
 import { VizSwitcher } from '../viz/VizSwitcher';
 
 import { FieldTransformEditor } from './FieldTransformEditor';
@@ -361,6 +362,7 @@ export function SummarizeTab({
                 handleGenerate();
               }
             }}
+            helperText={AI_DATA_NOTICE}
             sx={{ mb: 1.5 }}
           />
 
