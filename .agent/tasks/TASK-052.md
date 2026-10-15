@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+PR_OPENED（PR #462）
 
 ## Priority
 LOW（成本近零、純前端、可逆；但它是 PM 為隱私面補上的唯一一道告知，不要拖太久）
@@ -46,7 +46,13 @@ PM 已決定（DECISION-028，PM 預設、Boss 可撤回）：在「問 AI」輸
 無。（與匿名匯出的硬化無關；該項已決定暫不排工，見 `ARCHITECTURE.md` 最後一節。）
 
 ## Result
-（Engineer 填寫）
+- **PR**：https://github.com/twjackysu/JackyAIApp/pull/462（分支 `claude/nice-allen-jlxwiw`）。純前端，3 個檔案：`DataAnalysis/constants.ts`（`AI_DATA_NOTICE`）、`DataAnalysis/components/SummarizeTab.tsx`（輸入框 `helperText`）、新增 `SummarizeTab.test.tsx`。
+- **實作**：AI 模式面板輸入框正下方的 `helperText`，永遠可見、訪客與已登入者同文，沒有放進 Tooltip／InfoPopover；MUI 自動以 `aria-describedby` 連到輸入框。
+- **文案依據**（`DataAnalysisController.BuildNlPlanAsync`）：除了建議句的「問題、欄位名稱、各欄位可選的值」，prompt 還帶**日期欄位的最新日期**（`dateBlock`／`NlDateRanges`），而「帶著提示重跑一次」那條路徑會再附上**從資料搜出的相近值，包含太大而沒列進第一次 prompt 的欄位**（`FindCandidatesAsync`→`SearchAsync`→`[CORRECTION]`）。兩項都補進文案；沒有「不會儲存」「安全」之類的承諾，也沒有下合規結論。
+- **測試**：新增 `SummarizeTab.test.tsx`（登入／未登入都含「OpenAI」與「欄位名稱」；告知為 `…-helper-text` 且輸入框 `aria-describedby` 指向它）。暫時拿掉 `helperText` 時 3 個測試全失敗，還原後通過。本機實際執行：`npm run lint`（0 warnings）、`npm run build`、`npm test`（62 檔／682 測試）全過。
+- **手機寬度**：僅依 CSS 判斷、未實機（`fullWidth` TextField 內的區塊 `<p>`，中文可任意字元換行）。
+- **流程偏離**：本次 session 只能推到指定分支，`IN_PROGRESS` 與 `PR_OPENED` 都在 `claude/nice-allen-jlxwiw` 上，沒有照 Workflow conventions 推到 master。
+- **請 Tech Lead 決定**：文案第二句（重跑時附相近值）是否保留；刪掉會讓文案與實際行為不一致。
 
 ## Review
 **Tech Lead 審閱（2026-10-15，PR #462，head `c64b2b3`）— 技術上可接受 → READY FOR BOSS REVIEW**（不代表核准合併，合併由 Boss 決定）
