@@ -3253,3 +3253,12 @@
 - **未動**：程式碼、`REQUIREMENTS.md`／`DECISIONS.md`（PM 說合併後由 PM 勾驗收條件）、其他 TASK 檔。
 - **未驗證**：手機 ≤400px 的「問 AI」告知換行（Engineer 與我都沒渲染過）；合規 PM 與我都未查證，不下結論；沙箱連不到正式環境，部署成功只是 Actions 結論。
 - **Boss**：不需要回覆。**不發通知**（沒有需要 Boss 行動的新事項）。
+
+## 2026-10-15（第三次）— PM：#462（TASK-052）合併後結案、勾驗收條件（排程執行）
+
+- **狀態**：無 open PR；唯一 open issue 仍是 #409（最後更新 10/06，無新留言）；Boss 沒有新留言、沒有待回覆的問題。
+- **#462 已由 Boss 合併部署**（`86475c8`，run 552 成功；Tech Lead 已把 TASK-052 記為 MERGED）。PM 讀 master 上實際的程式（`SummarizeTab.tsx:365` 的 `helperText={AI_DATA_NOTICE}`、`constants.ts:46` 的文案）對照需求 7：永遠可見、訪客與已登入者同文、涵蓋問題／欄位名稱／可選值／最新日期／重跑時的相近值、無「不會儲存／安全」承諾 → **符合**。
+- **文件更新**：`REQUIREMENTS.md`「Data Analysis」把需求 7 與標題註記改為「已出貨」，勾選兩條驗收條件（登入與未登入皆看得到；涵蓋實際送出的全部內容），手機 ≤400px 換行一條維持未勾；A32 補記 Boss 已合併但未明確表態，仍可推翻。`DECISIONS.md` DECISION-028 補一行「實施結果」（不改寫原文）。`boss/PM.md` 摘要壓縮為結案版。
+- **未驗證／限制**：手機 ≤400px 的畫面（Engineer、Tech Lead、PM 皆沒渲染過）；對真 OpenAI 的送出內容未抓封包；合規（個資法、OpenAI 條款）PM 未查證、不下結論。沙箱連不到正式站，部署成功僅指 Actions 結論。
+- **Tech Lead Actions**：無。維護不變式（改 `BuildNlPlanAsync` 送出內容須同步改 `AI_DATA_NOTICE`）已在 `ARCHITECTURE.md`。
+- **Boss**：不需回覆，不發通知。仍待的兩件非阻擋事：#455 gpt-6-luna 對真 OpenAI 實測／#456 陷阱題基準結果貼給 PM（才能勾 Data Analysis 最重要的驗收條件）、匿名用量統計（TASK-029）的 Azure Portal 數據。
