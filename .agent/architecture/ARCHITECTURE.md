@@ -1956,9 +1956,13 @@ PM（2026-10-14）同意「匿名來源上限降到約 2 萬列」的方向，�
 - **重新評估的觸發條件**（任一成立就排一個 Backend LOW 任務）：(a) 有人（Boss 或 PM）確認正式 `dbo.Orders` 遠大於 2 萬列；(b) App Insights 看到 `details/export` 的呼叫量或延遲異常、或 App Service 出現記憶體重啟；(c) Boss 要把匯出開放給更大的使用者自訂表，或要在公開展示場合使用；(d) Boss 指示。最小做法屆時仍是：預設來源上限降到「示範表列數＋餘裕」（例如 3 萬），自訂來源改成以「列數 × 欄數」為預算並在超過時沿用 `X-Exported-Count`／`X-Total-Count` 提示截斷。
 - 這不改變 `ExportGate`（同時 2 個）、`MaxExportRows`（10 萬）、`GuardFormula` 或任何已審閱的行為。
 
-### TASK-052 — 「問 AI」資料外送告知（Frontend，LOW；PR #462 於 2026-10-15 審閱通過，待 Boss 合併）
+### TASK-052 — 「問 AI」資料外送告知（Frontend，LOW；PR #462 於 2026-10-15 審閱通過，同日由 Boss 合併並部署，見文末「合併結果」）
 - 依 DECISION-028（PM 預設、Boss 可撤回）。重點：永遠可見（輸入框 `helperText`，不放 Tooltip／Popover，見 `jackyaiapp.client/CLAUDE.md`），訪客與已登入者同文，三件事都寫（送什麼、送給誰、不暗示資料不離開本站），文案須對照 `BuildNlPlanAsync` 實際送出的內容核對（含重跑路徑）。
 - **我沒有替 PM 查合規**，任務書要求 Engineer 與審閱者都不下合規結論。
 - **審閱結果（2026-10-15）**：PR #462 以 `TextField` 的 `helperText`（`AI_DATA_NOTICE`，`DataAnalysis/constants.ts`）永遠顯示，訪客與已登入者同文。我逐行對照 `BuildNlPlanAsync`，prompt 實際帶的內容＝問題、全部欄位名稱＋型別、相異值 ≤300 欄位的值（≤30 欄、合計 ≤2000）、日期欄位（≤3）的最新日期與相對區間；**重跑**（`Rejected.Count > 0`）時另附 `FindCandidatesAsync` 從資料搜出的 ≤20 個相近真實值（含第一次因太大而沒列進 prompt 的欄位）。Engineer 發現任務建議句漏了「最新日期」與「重跑時的相近值」，兩項都補進文案，核對屬實，保留。查詢結果的資料列不會送給 OpenAI（整個管線唯一的 OpenAI 呼叫點是 `GeneratePlanAsync`）。
 - **不變式**：改動 `BuildNlPlanAsync` 放進 prompt 的內容時，必須同步改 `AI_DATA_NOTICE`；沒有自動測試能偵測兩者漂移（人工對應，與 `SitePages.cs`／`apps.tsx` 同類）。
 - **未驗證**：手機 ≤400px 的畫面（僅依 CSS 判斷，Engineer 與我都沒有渲染過）；沙箱沒有前端相依套件，前端測試以 CI（run 683 綠）為準。合規（個資法／OpenAI 條款）PM 與我都未查證，不下結論。
+
+### 合併結果（2026-10-15，第 11 次排程）
+- **PR #462 已由 Boss 於 2026-10-15 17:59 +0800 合併**（`86475c8`）；合併的 head 就是審閱過的 `c64b2b3`，無審閱後變更。`Build and deploy` run 552 成功，正式環境＝`86475c8`。TASK-052 → MERGED。上方「不變式」（改 `BuildNlPlanAsync` 的 prompt 內容必須同步改 `AI_DATA_NOTICE`）自此生效，改動該方法的 PR 審閱時要檢查。
+- 排程 contract test run 108（跑 `4162a56`）**全數通過**——TASK-050 改動後連兩次（run 107、108）綠。

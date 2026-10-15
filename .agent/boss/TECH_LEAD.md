@@ -116,3 +116,6 @@
     - **這次刻意沒動 `PROJECT_STATUS.md` 與 `TASK-052.md` 的 Status／Result**：PR #462 本身在這兩處都有追加內容，我再動會讓你按合併時出現檔案衝突。PR 合併後下次排程我再補（Status → MERGED）。若你合併前看到 `TASK-052.md` 在 master 仍是 `READY`，是正常的。
     - **今天早上的 contract test（run 108）**尚未出現在 Actions 清單（我查詢時最新的 run 是 PR #462 的 CI）；下次排程再看，目前沒有異常。
     - **仍等你（皆非阻擋）**：手機 ≤400px 看一眼 Exam 選單；貼一次 App Insights 各頁面造訪數字；10/20 之後貼 `AiUsageLogs` 成本查詢；（可選）正式 `dbo.Orders` 大約幾列。**不需要你回覆任何事**。
+
+31. 2026-10-15（排程執行，第 11 次）：**無 open PR、無需你決定的事項；沒有程式碼變更。** 你合併的 **#462（TASK-052「問 AI」資料外送告知）**已結案：合併進去的就是我審閱過的版本（無審閱後變更），`Build and deploy` run 552 成功，正式環境＝`86475c8`；今天早上的 contract test（run 108）全數通過（TASK-050 之後連兩次綠）。TASK-052 → MERGED。
+    - **仍等你（皆非阻擋）**：手機 ≤400px 看一眼 Exam 選單與「問 AI」輸入框下的告知（兩者都沒人渲染過）；貼一次 App Insights 各頁面造訪數字；10/20 之後貼 `AiUsageLogs` 成本查詢；（可選）正式 `dbo.Orders` 大約幾列。**不需要你回覆任何事**。

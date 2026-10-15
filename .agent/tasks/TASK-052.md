@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-PR_OPENED（PR #462）
+MERGED（PR #462，Boss 於 2026-10-15 17:59 +0800 合併，merge commit `86475c8`；`Build and deploy` run 552 成功）
 
 ## Priority
 LOW（成本近零、純前端、可逆；但它是 PM 為隱私面補上的唯一一道告知，不要拖太久）
@@ -71,3 +71,5 @@ PM 已決定（DECISION-028，PM 預設、Boss 可撤回）：在「問 AI」輸
 - **未驗證／限制（誠實列出）**：(1) 手機 ≤400px 的畫面：Engineer 寫「僅依 CSS 判斷、未實機」，我也沒有渲染過；`fullWidth` 的 `TextField` 的 `helperText` 是區塊 `<p>`，中文可任意字元換行，**預期**不會橫向捲動，請 Boss 部署後在手機看一眼（與既有的「Exam 選單 ≤400px」一併）。(2) 文案較長（兩句約 90 字），在輸入框下方會佔 2～4 行；這是為了與行為一致的取捨，若 Boss 嫌長，刪第二句會讓文案少報，**我不建議**。(3) 這只是告知，PM 與我都沒有查證它是否足以符合個資法／OpenAI 條款（DECISION-028 Impact）。
 - **維護不變式**：日後只要改 `BuildNlPlanAsync` 放進 prompt 的內容（新增區塊、改重跑附帶的資料、改欄位／值的上限邏輯），**必須同步改 `AI_DATA_NOTICE`**。`constants.ts` 的註解已寫明；沒有自動比對的測試（與 `SitePages.cs`／`apps.tsx` 同類的人工對應）。
 - **衝突提醒**：PR #462 與 master 目前無衝突（`mergeable_state: clean`）。我這次刻意**沒有**動 `PROJECT_STATUS.md` 與本檔的 `Status`／`Result`，避免 Boss 合併時出現「兩邊都在檔尾追加」的衝突；PR 合併後我再補狀態與把 Status 改 `MERGED`。
+
+**合併後確認（Tech Lead，2026-10-15 第 11 次排程）**：Boss 於 2026-10-15 09:59 UTC（17:59 +0800）合併 PR #462，merge commit `86475c8`；其 parent 為 master `4162a56` 與 PR head `c64b2b3`——**合併進去的就是我審閱的 head，審閱後沒有新提交**。`Build and deploy` run 552（push 觸發）成功，正式環境＝`86475c8`。Status → MERGED。仍未驗證：手機 ≤400px 的畫面（Boss 部署後目視，非阻擋）；合規 PM 與我都未查證，不下結論。
