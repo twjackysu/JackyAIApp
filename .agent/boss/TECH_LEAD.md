@@ -107,3 +107,12 @@
     - **PM 的 DECISION-028（「問 AI」資料外送告知）**：已建 **TASK-052**（Frontend，LOW，READY）。這是 PM 的預設、你可隨時撤回；我與 PM 都沒有查證它是否足以符合個資法／OpenAI 條款，也不下結論（比照 DECISION-019）。
     - **匿名匯出硬化：我決定現在不排任務**（PM 把決定交給我）。理由：示範表預設就是 2 萬列，「上限降到約 2 萬」在現況下沒有任何效果；沒有濫用或記憶體不足的證據；治本要量測、串流要改 `DataAnalysisLibrary`（你的範圍）。重新評估的觸發條件寫在 `ARCHITECTURE.md` 最後一節。**唯一需要你的資訊（可選、不阻擋）**：正式環境 `dbo.Orders` 現在大約幾列？若遠大於 2 萬，這項會升級。
     - **仍等你（皆非阻擋）**：手機 ≤400px 看一眼 Exam 選單、貼一次 App Insights 各頁面造訪數字；10/20 之後貼 `AiUsageLogs` 成本查詢。**不需要你回覆任何事**。
+
+30. 2026-10-15（排程執行，第 10 次）：**有 1 個 open PR：#462（TASK-052「問 AI」資料外送告知）— Tech Lead 審查通過 → READY FOR BOSS REVIEW**（CI run 683 兩個 job 皆綠、與 master 無衝突；不代表核准合併，由你決定）。沒有其他 open PR／issue 需要處理；master 自 `c079531` 沒有新提交。
+    - **審閱重點**：我逐行對照 `BuildNlPlanAsync`，告知文案與實際送出的內容一致。Engineer 比我們的建議句多寫了兩項、而且說得對：prompt 還帶**日期欄位的最新日期**，而且「值對不到資料」時的**重跑會再附上從資料搜出的相近真實值**（含第一次因太大而沒列進 prompt 的欄位，例如客戶名稱）。文案兩句、約 90 字，我建議兩句都留（刪第二句會讓告知少報）。查詢結果的資料列不會送給 OpenAI。細節在 `TASK-052.md` Review 與 `ARCHITECTURE.md` 最後一節。
+    - **這仍只是告知，不是合規結論**：PM 的 DECISION-028 是預設、你可隨時撤回；我與 PM 都沒有查證它是否足以符合個資法／OpenAI 條款。
+    - **未驗證**：手機 ≤400px 的畫面——Engineer 與我都沒有渲染過（沙箱沒有後端、連不到正式環境、也沒有前端相依套件）。部署後請順手在手機看一眼「問 AI」輸入框下方，與既有的「Exam 選單 ≤400px」一起。
+    - **維護規則**：日後改 `BuildNlPlanAsync` 放進 prompt 的內容，要同步改 `AI_DATA_NOTICE`（沒有自動測試會抓到漂移）。
+    - **這次刻意沒動 `PROJECT_STATUS.md` 與 `TASK-052.md` 的 Status／Result**：PR #462 本身在這兩處都有追加內容，我再動會讓你按合併時出現檔案衝突。PR 合併後下次排程我再補（Status → MERGED）。若你合併前看到 `TASK-052.md` 在 master 仍是 `READY`，是正常的。
+    - **今天早上的 contract test（run 108）**尚未出現在 Actions 清單（我查詢時最新的 run 是 PR #462 的 CI）；下次排程再看，目前沒有異常。
+    - **仍等你（皆非阻擋）**：手機 ≤400px 看一眼 Exam 選單；貼一次 App Insights 各頁面造訪數字；10/20 之後貼 `AiUsageLogs` 成本查詢；（可選）正式 `dbo.Orders` 大約幾列。**不需要你回覆任何事**。

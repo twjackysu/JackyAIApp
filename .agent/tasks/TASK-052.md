@@ -49,4 +49,19 @@ PM 已決定（DECISION-028，PM 預設、Boss 可撤回）：在「問 AI」輸
 （Engineer 填寫）
 
 ## Review
-（Tech Lead 審閱後填寫）
+**Tech Lead 審閱（2026-10-15，PR #462，head `c64b2b3`）— 技術上可接受 → READY FOR BOSS REVIEW**（不代表核准合併，合併由 Boss 決定）
+
+- **文案對照 `DataAnalysisController.BuildNlPlanAsync`（我逐行讀過，結論：文案與實際送出的內容一致）**：
+  - 「你的問題」＝`GeneratePlanAsync(query)` 的 user message。
+  - 「欄位名稱」＝`fieldList`（全部欄位的 `名稱(型別)`，`AVAILABLE COLUMNS`）。
+  - 「各欄位可選的值」＝`lovBlock`（相異值 ≤300 的字串欄位、最多 30 欄、合計 ≤2000 個值）。
+  - 「最新日期」＝`dateBlock`（最多 3 個日期欄位的 MAX，加上 `NlDateRanges.Describe` 算出的相對區間）。**Engineer 發現的、任務建議句沒寫的一項，核對屬實。**
+  - 「值找不到時，再附上相近的值重問一次」＝`result.Rejected.Count > 0` 才走的重跑；太大而沒列進第一次 prompt 的欄位，由 `FindCandidatesAsync`→`valueSource.SearchAsync` 取最多 `MaxRetryCandidates`（20）個真實值放進 `[CORRECTION]`——**這確實是第一次 prompt 沒有的資料（例如客戶名稱），不寫會讓文案少報**。Engineer 的「保留第二句」判斷正確，我同意保留。
+  - 此外 prompt 還含靜態系統提示與 `TODAY`（日期），不屬資料，不需寫。查詢結果的資料列**不會**送給 OpenAI（`GetCompletionWithSystemPromptAsync` 是整個管線唯一的 OpenAI 呼叫點）。
+  - 訪客／已登入者、資料庫／上傳檔案（`SessionNlValueSource`）兩條來源走同一個 `BuildNlPlanAsync`，所以一段文案涵蓋全部來源。
+- **實作**：`helperText={AI_DATA_NOTICE}` 在 `mode === 'ai'` 的 `<Paper>` 內，沒有 `isLoggedIn` 條件，故訪客與已登入者同文；不在 Tooltip／InfoPopover 內；不改 API、不新增依賴、不動 chips／最近查詢／按鈕。文案沒有「不會儲存」「安全」「已去識別化」之類承諾，也沒有合規結論——符合任務書。
+- **測試**：`SummarizeTab.test.tsx` 3 個測試（登入／未登入含「OpenAI」「欄位名稱」；告知為 `…-helper-text` 且 textarea 的 `aria-describedby` 指向它）。只比關鍵字、不比整句。CI run 683 兩個 job（`lint-and-build-client`、`build-and-test-server`）皆綠；PR 描述寫明本機 lint／build／test（62 檔／682 測試）全過，並做過變異驗證。**我沒有在沙箱重跑前端測試**（沒有 `node_modules`），以 CI 為準。
+- **範圍**：PR 改動 5 個檔案——3 個前端、`TASK-052.md`、`PROJECT_STATUS.md`；沒有動 `JackyAIApp.Server`、`.github/workflows/`、`CLAUDE.md`。流程偏離（`IN_PROGRESS` 沒推 master，因為 session 只能推指定分支）已在 PR 與 Result 說明，可接受。
+- **未驗證／限制（誠實列出）**：(1) 手機 ≤400px 的畫面：Engineer 寫「僅依 CSS 判斷、未實機」，我也沒有渲染過；`fullWidth` 的 `TextField` 的 `helperText` 是區塊 `<p>`，中文可任意字元換行，**預期**不會橫向捲動，請 Boss 部署後在手機看一眼（與既有的「Exam 選單 ≤400px」一併）。(2) 文案較長（兩句約 90 字），在輸入框下方會佔 2～4 行；這是為了與行為一致的取捨，若 Boss 嫌長，刪第二句會讓文案少報，**我不建議**。(3) 這只是告知，PM 與我都沒有查證它是否足以符合個資法／OpenAI 條款（DECISION-028 Impact）。
+- **維護不變式**：日後只要改 `BuildNlPlanAsync` 放進 prompt 的內容（新增區塊、改重跑附帶的資料、改欄位／值的上限邏輯），**必須同步改 `AI_DATA_NOTICE`**。`constants.ts` 的註解已寫明；沒有自動比對的測試（與 `SitePages.cs`／`apps.tsx` 同類的人工對應）。
+- **衝突提醒**：PR #462 與 master 目前無衝突（`mergeable_state: clean`）。我這次刻意**沒有**動 `PROJECT_STATUS.md` 與本檔的 `Status`／`Result`，避免 Boss 合併時出現「兩邊都在檔尾追加」的衝突；PR 合併後我再補狀態與把 Status 改 `MERGED`。
