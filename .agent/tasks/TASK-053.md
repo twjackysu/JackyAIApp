@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+IN_PROGRESS
 
 ## Priority
 HIGH（會讓評分／XP 靜默算錯；改動小、可測、遷移只新增一張表）
