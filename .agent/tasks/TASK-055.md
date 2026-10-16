@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+IN_PROGRESS
 
 ## Priority
 MEDIUM（PM 於 REQUIREMENTS「Stock Intelligence 自動趨勢線」需求 6 評為 MEDIUM；改動極小）
