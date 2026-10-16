@@ -77,6 +77,8 @@ export interface Trendline {
 
 export interface TrendlineAnalysis {
   lines: Trendline[];
+  /** ATR(14) of every bar; empty when there were too few bars to analyse. */
+  atrs: number[];
   swings: Swing[];
   majorSwings: Swing[];
   /** Value on the last bar of the support line still in force, if any. */
@@ -267,7 +269,7 @@ export function analyzeTrendlines(
 ): TrendlineAnalysis {
   const opt = { ...DEFAULT_TRENDLINE_OPTIONS, ...options };
   if (bars.length < opt.minLife * 2)
-    return { lines: [], swings: [], majorSwings: [], support: null, resistance: null };
+    return { lines: [], atrs: [], swings: [], majorSwings: [], support: null, resistance: null };
 
   const atrs = atr(bars);
   const swings = zigzag(bars, (i) => atrs[i] * opt.swingAtr);
@@ -286,5 +288,12 @@ export function analyzeTrendlines(
     return values.length > 0 ? values[0] : null;
   };
 
-  return { lines, swings, majorSwings, support: now('support'), resistance: now('resistance') };
+  return {
+    lines,
+    atrs,
+    swings,
+    majorSwings,
+    support: now('support'),
+    resistance: now('resistance'),
+  };
 }
