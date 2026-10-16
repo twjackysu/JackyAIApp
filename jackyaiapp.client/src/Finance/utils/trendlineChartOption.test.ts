@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildTrendlineOption,
+  chartPriceRange,
   distancePct,
   DOWN_COLOR,
-  RESISTANCE_COLOR,
-  SUPPORT_COLOR,
+  fmtPrice,
   UP_COLOR,
 } from './trendlineChartOption';
 
-import type { OhlcBar, TrendlineAnalysis } from './trendlines';
+import type { OhlcBar } from './trendlines';
 
 const bars: OhlcBar[] = [
   { date: '2026-10-13', open: 10, high: 12, low: 9, close: 11 },
@@ -17,28 +17,25 @@ const bars: OhlcBar[] = [
   { date: '2026-10-15', open: 10, high: 13, low: 10, close: 12.5 },
 ];
 
-const analysis: TrendlineAnalysis = {
-  lines: [
-    { side: 'support', start: 0, end: 2, slope: 0.5, intercept: 9, touches: 3, isActive: true },
-    { side: 'resistance', start: 0, end: 1, slope: 0, intercept: 12, touches: 2, isActive: false },
-  ],
-  swings: [],
-  majorSwings: [],
-  support: 10,
-  resistance: null,
-};
+describe('chartPriceRange', () => {
+  it('spans the lowest low to the highest high with 4% room', () => {
+    const range = chartPriceRange(bars);
+    expect(range.min).toBeCloseTo(9 - 0.16);
+    expect(range.max).toBeCloseTo(13 + 0.16);
+  });
+
+  it('still has room when every price is the same', () => {
+    const flat = chartPriceRange([{ date: '2026-10-13', open: 5, high: 5, low: 5, close: 5 }]);
+    expect(flat.max).toBeGreaterThan(flat.min);
+  });
+});
 
 describe('buildTrendlineOption', () => {
-  const option = buildTrendlineOption(bars, analysis);
+  const option = buildTrendlineOption(bars, { min: 8, max: 14 });
   const series = (option.series as Record<string, unknown>[])[0] as {
     data: number[][];
     itemStyle: Record<string, string>;
-    markLine: {
-      data: [
-        { coord: [string, number]; lineStyle: Record<string, unknown> },
-        { coord: [string, number] },
-      ][];
-    };
+    markLine?: unknown;
   };
 
   it('feeds ECharts open, close, low, high, red up and green down', () => {
@@ -46,13 +43,9 @@ describe('buildTrendlineOption', () => {
     expect(series.itemStyle).toMatchObject({ color: UP_COLOR, color0: DOWN_COLOR });
   });
 
-  it('draws each line from its first swing point to its end, bolder while in force', () => {
-    const [support, resistance] = series.markLine.data;
-    expect(support[0].coord).toEqual(['2026-10-13', 9]);
-    expect(support[1].coord).toEqual(['2026-10-15', 10]);
-    expect(support[0].lineStyle).toMatchObject({ color: SUPPORT_COLOR, width: 2.5 });
-    expect(resistance[1].coord).toEqual(['2026-10-14', 12]);
-    expect(resistance[0].lineStyle).toMatchObject({ color: RESISTANCE_COLOR, width: 1.5 });
+  it('fixes the price axis to the given range and leaves the lines to the overlay', () => {
+    expect(option.yAxis).toMatchObject({ min: 8, max: 14 });
+    expect(series.markLine).toBeUndefined();
   });
 });
 
@@ -60,5 +53,12 @@ describe('distancePct', () => {
   it('signs the distance of the close from the line', () => {
     expect(distancePct(101, 100)).toBe('+1.0%');
     expect(distancePct(97.5, 100)).toBe('-2.5%');
+  });
+});
+
+describe('fmtPrice', () => {
+  it('drops the decimals of an index but keeps a stock price', () => {
+    expect(fmtPrice(47180.61)).toBe('47,181');
+    expect(fmtPrice(31.456)).toBe('31.46');
   });
 });

@@ -134,6 +134,7 @@ describe('analyzeTrendlines on synthetic shapes', () => {
 
     expect(result).toEqual({
       lines: [],
+      atrs: [],
       swings: [],
       majorSwings: [],
       support: null,

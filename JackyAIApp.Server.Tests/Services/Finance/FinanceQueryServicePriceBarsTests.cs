@@ -11,7 +11,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
 {
     /// <summary>
     /// Daily OHLC bars for Stock Intelligence's trendline chart (<c>GET api/finance/price-bars</c>):
-    /// the TAIEX's last two years with its daily range, and a stock's cached history cleaned up.
+    /// the TAIEX's cached six years with their daily range, and a stock's cached history cleaned up.
     /// The trendlines themselves are found client-side.
     /// </summary>
     public class FinanceQueryServicePriceBarsTests
@@ -37,11 +37,11 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         // ---- TAIEX ---------------------------------------------------------------------------
 
         [Fact]
-        public async Task Taiex_ReturnsTheLastTwoYears_WithEachDaysRange()
+        public async Task Taiex_ReturnsTheWholeCachedSeries_WithEachDaysRange()
         {
             var asOf = new DateOnly(2026, 10, 15);
             var points = new List<MarketIndexPoint>();
-            for (var d = asOf.AddYears(-3); d <= asOf; d = d.AddDays(1))
+            for (var d = asOf.AddYears(-6); d <= asOf; d = d.AddDays(1))
                 points.Add(new MarketIndexPoint(d, 20000m) { Open = 19900m, High = 20100m, Low = 19800m });
             // A day the source gave no usable range for.
             points[^2] = new MarketIndexPoint(asOf.AddDays(-1), 21000m);
@@ -54,7 +54,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.Equal("TAIEX", bars.Code);
             Assert.Equal("加權指數", bars.Name);
             Assert.Equal(asOf, bars.AsOf);
-            Assert.Equal(asOf.AddYears(-2).AddDays(1), bars.Bars[0].Date);   // two years, not three
+            Assert.Equal(asOf.AddYears(-6), bars.Bars[0].Date);   // the chart picks its own start
             Assert.Equal(asOf, bars.Bars[^1].Date);
             Assert.Equal(new PriceBar(asOf, 19900m, 20100m, 19800m, 20000m), bars.Bars[^1]);
             Assert.Equal(new PriceBar(asOf.AddDays(-1), 21000m, 21000m, 21000m, 21000m), bars.Bars[^2]);   // flat at the close

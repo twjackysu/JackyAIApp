@@ -349,9 +349,6 @@ namespace JackyAIApp.Server.Services.Finance
             }
         }
 
-        /// <summary>The TAIEX trendline chart covers this much of the six cached years.</summary>
-        internal const int TaiexPriceBarYears = 2;
-
         /// <summary>Fewest bars worth drawing trendlines on.</summary>
         internal const int MinPriceBars = 30;
 
@@ -404,7 +401,7 @@ namespace JackyAIApp.Server.Services.Finance
         private const string TaiexCode = "TAIEX";
 
         /// <summary>
-        /// The last <see cref="TaiexPriceBarYears"/> years of the cached six-year TAIEX series. A day
+        /// The whole cached six-year TAIEX series; the chart picks its own start date out of it. A day
         /// the source gave no usable range for becomes a flat bar at its close.
         /// </summary>
         private async Task<ServiceResult> GetTaiexPriceBarsAsync(CancellationToken cancellationToken)
@@ -413,9 +410,7 @@ namespace JackyAIApp.Server.Services.Finance
             if (history is null)
                 return ServiceResult.Fail(ErrorCodes.ExternalApiError, "TAIEX history is currently unavailable.");
 
-            var from = history.AsOf.AddYears(-TaiexPriceBarYears);
             var bars = history.Points
-                .Where(p => p.Date > from)
                 .Select(p => p.Open is { } o && p.High is { } h && p.Low is { } l
                     ? new PriceBar(p.Date, o, h, l, p.Close)
                     : new PriceBar(p.Date, p.Close, p.Close, p.Close, p.Close))
