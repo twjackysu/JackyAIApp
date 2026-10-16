@@ -302,6 +302,23 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("DailyChallengeResults");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyChallengeSet", b =>
+                {
+                    b.Property<DateTime>("ChallengeDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("QuestionsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("ChallengeDate");
+
+                    b.ToTable("DailyChallengeSets");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyStockPrice", b =>
                 {
                     b.Property<int>("Id")

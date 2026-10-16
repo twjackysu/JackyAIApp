@@ -369,6 +369,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<UserConnector> UserConnectors { get; set; }
         public virtual DbSet<DailyUsage> DailyUsages { get; set; }
         public virtual DbSet<DailyChallengeResult> DailyChallengeResults { get; set; }
+        public virtual DbSet<DailyChallengeSet> DailyChallengeSets { get; set; }
         public virtual DbSet<DataSourceConfig> DataSourceConfigs { get; set; }
         public virtual DbSet<ExamAttempt> ExamAttempts { get; set; }
         public virtual DbSet<ListeningTest> ListeningTests { get; set; }
