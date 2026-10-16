@@ -1,11 +1,16 @@
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import UndoIcon from '@mui/icons-material/Undo';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -21,14 +26,18 @@ import {
   fmtPrice,
   RESISTANCE_COLOR,
   SUPPORT_COLOR,
+  trendlineColor,
+  trendlineName,
 } from '../utils/trendlineChartOption';
 import {
   autoDrawnLines,
   clearDrawings,
   currentLevels,
   lineGeometry,
+  lineValuesAt,
   loadDrawings,
   saveDrawings,
+  withSide,
   type CurrentLevel,
   type DrawnLine,
   type LineGeometry,
@@ -42,7 +51,7 @@ import {
   type RangeChoice,
   type RangePresetId,
 } from '../utils/trendlineRange';
-import { analyzeTrendlines } from '../utils/trendlines';
+import { analyzeTrendlines, type TrendlineSide } from '../utils/trendlines';
 
 import {
   measureFrame,
@@ -64,8 +73,8 @@ export const TRENDLINE_METHOD =
   '只留下真正的波段高低點；再把每兩個高點（或低點）都試著連成一條線，挑「被波段點碰觸最多、收盤最少穿越、' +
   '離價格最近」的那條。每條線至少連 2 個點，畫到被連續兩日收盤穿越（或單日穿越 1 倍 ATR），' +
   '或價格離開超過 3 倍 ATR 為止。線只從選的起始日期之後的 K 棒找，所以換起始日期會畫出不同的線。' +
-  '藍色是支撐、紫色是壓力（多數收盤在線上方就是支撐），粗線是今天仍有效的線。' +
-  '線可以自己拖曳、刪除或新畫，改過的線存在這個瀏覽器。';
+  '藍色是支撐、紫色是壓力，粗線是今天仍有效的線；滑過圖面可看當天每條線的價位。' +
+  '線可以自己拖曳、刪除、改成支撐或壓力，或選好種類後新畫，改過的線存在這個瀏覽器。';
 
 export const TRENDLINE_DISCLAIMER = '趨勢線僅供參考，不構成投資建議。';
 
@@ -162,8 +171,12 @@ function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
   const levels = currentLevels(geometries, lastClose);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [drawing, setDrawing] = useState(false);
+  /** The kind of line being drawn, if any. */
+  const [drawing, setDrawing] = useState<TrendlineSide | null>(null);
+  const [drawMenu, setDrawMenu] = useState<HTMLElement | null>(null);
   const selected = geometries.find((g) => g.id === selectedId) ?? null;
+  const otherSide = (side: TrendlineSide): TrendlineSide =>
+    side === 'support' ? 'resistance' : 'support';
 
   const store = (next: DrawnLine[] | null) => {
     setCustom(next);
@@ -190,7 +203,7 @@ function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
   };
   const addLine = (line: DrawnLine) => {
     apply([...lines, line]);
-    setDrawing(false);
+    setDrawing(null);
     setSelectedId(line.id);
   };
 
@@ -198,12 +211,17 @@ function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
     setRange(next);
     saveRange(code, next);
     setSelectedId(null);
-    setDrawing(false);
+    setDrawing(null);
   };
 
   // ── Chart geometry for the overlay ──
   const priceRange = useMemo(() => chartPriceRange(bars), [bars]);
-  const option = useMemo(() => buildTrendlineOption(bars, priceRange), [bars, priceRange]);
+  // The tooltip lists the lines over the hovered day, so the option follows the lines. A drag only
+  // moves the overlay's preview; the chart gets a new option once, when the line is let go.
+  const option = useMemo(
+    () => buildTrendlineOption(bars, priceRange, (index) => lineValuesAt(geometries, index)),
+    [bars, priceRange, geometries],
+  );
   const chartRef = useRef<EChartsHandle | null>(null);
   const [frame, setFrame] = useState<ChartFrame | null>(null);
   const remeasure = useRef(() => {});
@@ -227,7 +245,7 @@ function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
   const projection = useMemo(() => (frame ? projectionOf(frame) : null), [frame]);
 
   const hint = drawing
-    ? '在圖上點起點和終點（或按住拖曳）畫一條線，靠近 K 棒最高、最低點會自動對齊；按 Esc 取消。'
+    ? `畫${trendlineName(drawing)}：在圖上點起點和終點（或按住拖曳），靠近 K 棒最高、最低點會自動對齊；按 Esc 取消。`
     : selected
       ? '拖曳圓點調整端點、拖曳線段整條移動；鍵盤可用方向鍵微調、Delete 刪除。'
       : '點一下線就能拖曳或刪除，按「畫線」可以自己畫。';
@@ -236,7 +254,7 @@ function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
     <Box
       onKeyDown={(e) => {
         if (e.key !== 'Escape') return;
-        if (drawing) setDrawing(false);
+        if (drawing) setDrawing(null);
         else setSelectedId(null);
       }}
     >
@@ -304,27 +322,64 @@ function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
         spacing={0.5}
         sx={{ flexWrap: 'wrap', rowGap: 0.5, alignItems: 'center' }}
       >
-        <Button
-          size="small"
-          variant={drawing ? 'contained' : 'outlined'}
-          startIcon={<TimelineIcon />}
-          aria-pressed={drawing}
-          onClick={() => {
-            setDrawing((d) => !d);
-            setSelectedId(null);
-          }}
-        >
-          {drawing ? '取消畫線' : '畫線'}
-        </Button>
-        {selected && !drawing && (
+        {drawing ? (
           <Button
             size="small"
-            color="error"
-            startIcon={<DeleteOutlinedIcon />}
-            onClick={() => deleteLine(selected.id)}
+            variant="contained"
+            startIcon={<TimelineIcon />}
+            sx={{ bgcolor: trendlineColor(drawing) }}
+            onClick={() => setDrawing(null)}
           >
-            刪除這條線
+            取消畫{trendlineName(drawing)}
           </Button>
+        ) : (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<TimelineIcon />}
+            endIcon={<ArrowDropDownIcon />}
+            aria-haspopup="menu"
+            aria-expanded={drawMenu !== null}
+            onClick={(e) => setDrawMenu(e.currentTarget)}
+          >
+            畫線
+          </Button>
+        )}
+        <Menu anchorEl={drawMenu} open={drawMenu !== null} onClose={() => setDrawMenu(null)}>
+          {(['support', 'resistance'] as const).map((side) => (
+            <MenuItem
+              key={side}
+              onClick={() => {
+                setDrawMenu(null);
+                setDrawing(side);
+                setSelectedId(null);
+              }}
+            >
+              <ListItemIcon>
+                <TimelineIcon sx={{ color: trendlineColor(side) }} />
+              </ListItemIcon>
+              {trendlineName(side)}
+            </MenuItem>
+          ))}
+        </Menu>
+        {selected && !drawing && (
+          <>
+            <Button
+              size="small"
+              startIcon={<SwapVertIcon />}
+              onClick={() => changeLine(withSide(bars, selected, otherSide(selected.side)))}
+            >
+              改為{trendlineName(otherSide(selected.side))}
+            </Button>
+            <Button
+              size="small"
+              color="error"
+              startIcon={<DeleteOutlinedIcon />}
+              onClick={() => deleteLine(selected.id)}
+            >
+              刪除這條線
+            </Button>
+          </>
         )}
         {past.length > 0 && (
           <Button size="small" startIcon={<UndoIcon />} onClick={undo}>
@@ -350,7 +405,7 @@ function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
             onClick={() => {
               apply(null);
               setSelectedId(null);
-              setDrawing(false);
+              setDrawing(null);
             }}
           >
             還原自動線

@@ -6,6 +6,7 @@ import {
   distancePct,
   DOWN_COLOR,
   fmtPrice,
+  trendlineTooltip,
   UP_COLOR,
 } from './trendlineChartOption';
 
@@ -46,6 +47,35 @@ describe('buildTrendlineOption', () => {
   it('fixes the price axis to the given range and leaves the lines to the overlay', () => {
     expect(option.yAxis).toMatchObject({ min: 8, max: 14 });
     expect(series.markLine).toBeUndefined();
+  });
+});
+
+describe('trendlineTooltip', () => {
+  const text = (html: string) =>
+    html
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  it('shows the bar in Chinese, then each line over it, highest first', () => {
+    const html = trendlineTooltip(bars[0], [
+      { side: 'support', value: 9.5 },
+      { side: 'resistance', value: 12.25 },
+    ]);
+    expect(text(html)).toBe('2026-10-13 開 10 高 12 低 9 收 11 壓力線 12.25 支撐線 9.5');
+  });
+
+  it('is just the bar on a day no line covers', () => {
+    expect(text(trendlineTooltip(bars[1], []))).toBe('2026-10-14 開 11 高 11.5 低 9.5 收 10');
+  });
+
+  it('is what the option shows for the hovered bar', () => {
+    const option = buildTrendlineOption(bars, { min: 8, max: 14 }, (i) =>
+      i === 2 ? [{ side: 'support', value: 10 }] : [],
+    );
+    const formatter = (option.tooltip as { formatter: (p: unknown) => string }).formatter;
+    expect(text(formatter([{ dataIndex: 2 }]))).toContain('支撐線 10');
+    expect(text(formatter([{ dataIndex: 1 }]))).not.toContain('線');
   });
 });
 

@@ -9,6 +9,8 @@ import { TrendlineChart } from './TrendlineChart';
 import type { CandlestickChartOption } from '../charts/registerFinanceCharts';
 import type { PriceBarsData } from '@/apis/financeApis/types';
 
+const mocks = vi.hoisted(() => ({ option: null as CandlestickChartOption | null }));
+
 // A canvas can't run under jsdom. The stand-in lays the chart out the way ECharts would — bars
 // 10 px apart, the fixed price range over 300 px — so the overlay has something to measure.
 vi.mock('@/charts/ReactECharts', () => ({
@@ -19,6 +21,7 @@ vi.mock('@/charts/ReactECharts', () => ({
     ref?: Ref<unknown>;
     option: CandlestickChartOption;
   }) {
+    mocks.option = option;
     useImperativeHandle(ref, () => ({
       getEchartsInstance: () => ({
         convertToPixel: (finder: { xAxisIndex?: number }, value: string | number) => {
@@ -65,6 +68,15 @@ const press = (el: Element, x: number, y: number) =>
       );
   });
 const stored = () => JSON.parse(localStorage.getItem(DRAWINGS) ?? 'null');
+/** The menu renders outside the chart, at the end of the page. */
+const menuItem = (label: string) =>
+  [...document.querySelectorAll('[role="menuitem"]')].find((m) => m.textContent?.includes(label)) ??
+  null;
+/** What the tooltip shows for bar `index` of the chart. */
+const tooltip = (index: number) => {
+  const formatter = (mocks.option?.tooltip as { formatter: (p: unknown) => string }).formatter;
+  return formatter([{ dataIndex: index }]);
+};
 
 beforeEach(() => {
   localStorage.clear();
@@ -122,24 +134,33 @@ describe('TrendlineChart', () => {
     expect(stored()).toBeNull(); // back to the automatic lines, which aren't stored
   });
 
-  it('draws a line of the user’s own', () => {
+  it('draws a line of the kind picked from the menu, and turns it into the other kind', () => {
     render();
     click(button('清除全部'));
     expect(lineCount()).toBe(0);
-    expect(text()).toContain('支撐：目前沒有有效的線');
+    expect(text()).toContain('壓力：目前沒有有效的線');
 
     click(button('畫線'));
+    click(menuItem('壓力線'));
+    expect(button('取消畫壓力線')).not.toBeNull();
     const surface = container.querySelector('[data-testid="trendline-draw-surface"]') as Element;
-    // From the 100th bar to the newest, well under the price: a support in force today.
+    // From the 100th bar to the newest, well under the price — a resistance all the same, since
+    // that is what was asked for.
     const bars = Number(surface.getAttribute('width')) / 10; // the plot is 10 px a bar
     press(surface, 5 + 10 * 100, 300);
     press(surface, 5 + 10 * (bars - 1), 280);
 
     expect(lineCount()).toBe(1);
     expect(stored().lines).toHaveLength(1);
-    expect(stored().lines[0].toLatest).toBe(true);
-    expect(text()).toMatch(/支撐 ≈ [\d,]+（連 \d+ 點/);
+    expect(stored().lines[0]).toMatchObject({ toLatest: true, side: 'resistance' });
+    expect(text()).toMatch(/壓力 ≈ [\d,]+（連 \d+ 點/);
+    expect(text()).toContain('支撐：目前沒有有效的線');
     expect(button('刪除這條線')).not.toBeNull(); // the new line is selected
+
+    click(button('改為支撐線'));
+    expect(stored().lines[0].side).toBe('support');
+    expect(text()).toMatch(/支撐 ≈ [\d,]+（連 \d+ 點/);
+    expect(button('改為壓力線')).not.toBeNull();
   });
 
   it('opens with the stored drawing, and restores the automatic lines on request', () => {
@@ -164,6 +185,13 @@ describe('TrendlineChart', () => {
     render();
     expect(lineCount()).toBe(1);
     expect(text()).toContain('支撐 ≈ 42,000');
+
+    // The tooltip lists the line on the days it covers, with its value that day.
+    const last = (mocks.option?.xAxis as { data: string[] }).data.length - 1; // the shown year
+    expect(tooltip(last)).toContain('2026-10-16');
+    expect(tooltip(last)).toContain('支撐線');
+    expect(tooltip(last)).toContain('42,000');
+    expect(tooltip(last - 200)).not.toContain('支撐線');
 
     click(button('還原自動線'));
     expect(lineCount()).toBe(auto);

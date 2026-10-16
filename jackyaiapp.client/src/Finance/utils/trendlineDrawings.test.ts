@@ -7,10 +7,12 @@ import {
   currentLevels,
   indexOfDate,
   lineGeometry,
+  lineValuesAt,
   loadDrawings,
   moveLine,
   moveLineEnd,
   saveDrawings,
+  withSide,
   type DrawnLine,
   type LineGeometry,
 } from './trendlineDrawings';
@@ -108,7 +110,13 @@ describe('the automatic lines as editable lines', () => {
 describe('lineGeometry', () => {
   const bars = weekdayBars(30);
 
-  it('calls a line support when most closes are above it, resistance when below', () => {
+  it('keeps the kind of line it was given, wherever it is drawn', () => {
+    const above = line(['2026-01-05', 105], ['2026-01-20', 105]);
+    expect(geometry(bars, { ...above, side: 'support' }).side).toBe('support');
+    expect(geometry(bars, { ...above, side: 'resistance' }).side).toBe('resistance');
+  });
+
+  it('reads the kind off the chart for a line saved without one: support when most closes are above', () => {
     expect(geometry(bars, line(['2026-01-05', 95], ['2026-01-20', 95])).side).toBe('support');
     expect(geometry(bars, line(['2026-01-05', 105], ['2026-01-20', 105])).side).toBe('resistance');
   });
@@ -137,10 +145,46 @@ describe('lineGeometry', () => {
   });
 });
 
+describe('lineValuesAt', () => {
+  const bars = weekdayBars(30);
+  const geometries = [
+    geometry(bars, { ...line([bars[5].date, 90], [bars[15].date, 95]), side: 'support' }),
+    geometry(bars, { ...line([bars[10].date, 110], [bars[20].date, 105]), side: 'resistance' }),
+  ];
+
+  it('gives each line over a bar with its value there', () => {
+    expect(lineValuesAt(geometries, 3)).toEqual([]);
+    expect(lineValuesAt(geometries, 7)).toEqual([{ side: 'support', value: 91 }]);
+    expect(lineValuesAt(geometries, 12)).toEqual([
+      { side: 'support', value: 93.5 },
+      { side: 'resistance', value: 109 },
+    ]);
+  });
+});
+
 describe('editing', () => {
   const bars = weekdayBars(30);
   const last = bars.length - 1;
-  const base = geometry(bars, line([bars[5].date, 90], [bars[15].date, 95]));
+  const base = geometry(bars, {
+    ...line([bars[5].date, 90], [bars[15].date, 95]),
+    side: 'resistance',
+  });
+
+  it('keeps the kind of line through every edit', () => {
+    expect(moveLineEnd(bars, base, 'end', 20, 120).side).toBe('resistance');
+    expect(moveLine(bars, base, 0, -30).side).toBe('resistance');
+  });
+
+  it('turns a line into the other kind where it stands', () => {
+    const turned = withSide(bars, base, 'support');
+    expect(turned).toEqual({
+      id: 'l',
+      from: { date: bars[5].date, price: 90 },
+      to: { date: bars[15].date, price: 95 },
+      toLatest: false,
+      side: 'support',
+    });
+  });
 
   it('moves one end, snapped to a bar inside the chart', () => {
     const moved = moveLineEnd(bars, base, 'end', 20.4, 97);
@@ -167,15 +211,24 @@ describe('editing', () => {
     expect(moveLine(bars, base, -100, 0).from.date).toBe(bars[0].date);
   });
 
-  it('creates a line left to right, and none with both ends on one bar', () => {
-    const created = createLine(bars, 'n', { index: 20, price: 99 }, { index: 3.2, price: 91 });
+  it('creates a line of the chosen kind left to right, and none with both ends on one bar', () => {
+    const created = createLine(
+      bars,
+      'n',
+      'resistance',
+      { index: 20, price: 99 },
+      { index: 3.2, price: 91 },
+    );
     expect(created).toEqual({
       id: 'n',
       from: { date: bars[3].date, price: 91 },
       to: { date: bars[20].date, price: 99 },
       toLatest: false,
+      side: 'resistance',
     });
-    expect(createLine(bars, 'n', { index: 4, price: 91 }, { index: 4.3, price: 99 })).toBeNull();
+    expect(
+      createLine(bars, 'n', 'support', { index: 4, price: 91 }, { index: 4.3, price: 99 }),
+    ).toBeNull();
   });
 });
 
@@ -195,7 +248,14 @@ describe('storage', () => {
     localStorage.setItem('finance.trendlines.B', JSON.stringify({ version: 2, lines: [saved] }));
     localStorage.setItem(
       'finance.trendlines.C',
-      JSON.stringify({ version: 1, lines: [saved, { id: 'x', from: { date: 'soon', price: 1 } }] }),
+      JSON.stringify({
+        version: 1,
+        lines: [
+          saved,
+          { id: 'x', from: { date: 'soon', price: 1 } },
+          { ...saved, id: 'y', side: 'sideways' },
+        ],
+      }),
     );
     expect(loadDrawings('A')).toBeNull();
     expect(loadDrawings('B')).toBeNull();

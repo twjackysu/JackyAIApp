@@ -7,11 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 
-import {
-  DRAFT_COLOR,
-  fmtPrice,
-  trendlineColor as lineColor,
-} from '../../utils/trendlineChartOption';
+import { fmtPrice, trendlineColor as lineColor } from '../../utils/trendlineChartOption';
 import {
   createLine,
   moveLine,
@@ -66,8 +62,8 @@ export interface TrendlineOverlayProps {
   /** Where an edited line would be drawn, or null if it would fall off the chart. */
   measure: (line: DrawnLine) => LineGeometry | null;
   selectedId: string | null;
-  /** Clicks on the chart place a new line's ends instead of selecting lines. */
-  drawing: boolean;
+  /** The kind of line being drawn: clicks on the chart place its ends instead of selecting lines. */
+  drawing: LineGeometry['side'] | null;
   onSelect: (id: string | null) => void;
   /** A line was moved or reshaped; called once, when the drag ends. */
   onChange: (line: DrawnLine) => void;
@@ -86,7 +82,7 @@ interface Drag {
 /**
  * The trendlines, drawn in SVG over the candlestick chart so they can be picked up: press a line
  * to select it, then drag its ends or the whole line; arrow keys nudge a focused line and Delete
- * removes it. While `drawing`, two clicks (or one drag) on the chart make a new line. Ends snap to
+ * removes it. While `drawing`, two clicks (or one drag) on the chart make a new line of that kind. Ends snap to
  * bars, and to a bar's high or low when close to it.
  */
 export function TrendlineOverlay({
@@ -212,7 +208,7 @@ export function TrendlineOverlay({
         // selected or being drawn, a finger on a line, a handle or the drawing surface moves it
         // instead of the page; the chart's empty area isn't the svg's (no pointer events), so
         // swiping there still scrolls. Otherwise a swipe across a line scrolls too.
-        touchAction: selectedId !== null || drawing ? 'none' : 'auto',
+        touchAction: selectedId !== null || drawing !== null ? 'none' : 'auto',
       }}
     >
       <defs>
@@ -248,7 +244,7 @@ export function TrendlineOverlay({
                 stroke="transparent"
                 strokeWidth={LINE_HIT_WIDTH}
                 style={{
-                  pointerEvents: drawing ? 'none' : 'stroke',
+                  pointerEvents: drawing !== null ? 'none' : 'stroke',
                   cursor: isSelected ? 'move' : 'pointer',
                   outline: 'none',
                 }}
@@ -265,7 +261,7 @@ export function TrendlineOverlay({
         })}
       </g>
 
-      {selected && !drawing && (
+      {selected && drawing === null && (
         <g>
           {(['start', 'end'] as const).map((part) => {
             const cx = x(part === 'start' ? selected.x1 : selected.x2);
@@ -302,8 +298,9 @@ export function TrendlineOverlay({
         </g>
       )}
 
-      {drawing && (
+      {drawing !== null && (
         <DrawSurface
+          side={drawing}
           bars={bars}
           projection={projection}
           snap={snap}
@@ -354,6 +351,7 @@ function PriceLabel({
  * line is simply dropped.
  */
 function DrawSurface({
+  side,
   bars,
   projection,
   snap,
@@ -361,6 +359,7 @@ function DrawSurface({
   halo,
   onCreate,
 }: {
+  side: LineGeometry['side'];
   bars: OhlcBar[];
   projection: ChartProjection;
   snap: Snap;
@@ -374,14 +373,14 @@ function DrawSurface({
   const { x, y, plot } = projection;
 
   const finish = (start: Point, end: Point) => {
-    const line = createLine(bars, newLineId(), start, end);
+    const line = createLine(bars, newLineId(), side, start, end);
     if (line) onCreate(line);
     // Both ends on one bar: keep the start and wait for a second point elsewhere.
     else setDraft({ start, end });
   };
 
   const tip = draft?.end ?? hover;
-  const color = DRAFT_COLOR;
+  const color = lineColor(side);
 
   return (
     <>
