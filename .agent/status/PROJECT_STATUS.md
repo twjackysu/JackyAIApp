@@ -3284,3 +3284,16 @@
 - **未驗證**：沒有對真正的 Azure SQL 跑 migration／併發；併發路徑只在 SQLite 上證明。**合併即部署，migration 啟動時對正式資料庫執行。**
 - **Tech Lead Actions**：審閱 #465；注意 Submit 在字數不足時改回 `BadRequest`（PR 說明已寫）。
 - **Boss**：暫無需要回覆的事。
+
+
+## 2026-10-16（第二次）— PM：回覆 #464 效能提案、補登 #463 趨勢線、結案 TASK-053／054 的產品面（排程執行）
+
+- **狀態**：無 open PR；open issue＝#464（標籤 To PM，Boss 今日提出、Tech Lead 已評估並留給 PM 排序）、#409（10/06 後無新留言）。Boss 沒有新留言。TASK-053（#465）、TASK-054（#466）已由 Boss 合併（master `7c119ad`，17:13 +0800）。
+- **#464（DECISION-031）**：PM 回覆已貼在 Issue。結論：(1) Boss 的運算放置原則照 Issue 記錄，落實方式屬 Tech Lead；(2) TASK-053／054 PM 同意 Tech Lead 的排序與「存 DB」選擇；(3) 其餘 IMP-2／3／4／5b **建議先量測、不為原則先排工**（理由：Tech Lead 讀碼認為無可量到的 server 浪費、價值主要是 UX、目前優先序是留存與成長），Boss 若要照原則做，PM 建議順序 IMP-2 → IMP-4 → IMP-3 → IMP-5b；(4) IMP-4 若排工，PM 原則：**不要畫出由缺價造成的假下跌**（A35，具體口徑由 Tech Lead 定）；(5) 三個前端沒人呼叫的端點：需求文件第 625 行「前端全部接上」已過時；是否有外部／MCP 使用只有 Boss 知道，先保留、隨 IMP-2 決定。
+- **TASK-053 產品面複核（讀 master 的 `DailyChallengeService.cs`）**：`GetOrCreateTodaySetAsync` 先讀當日已存的那份、沒有才產生並存入；GET 與 Submit 都走它；主鍵衝突時改回先寫入者的那份；字數不足時不寫入、回原 BadRequest。符合需求「每日題目一致」。`REQUIREMENTS.md`「Daily Challenge」新增該行為並勾一條驗收條件（**讀碼，未實機、未對正式資料庫跑**）；部署當天的一次性過渡風險備查。TASK-054 行為不變，無產品面動作。
+- **#463 補登（DECISION-030）**：新增需求「Stock Intelligence 自動趨勢線」。已勾 4 條讀碼可證的驗收條件；未勾 4 條（訪客可見、手機 ≤400px、個股的線是否合理、ETF 代號）。PM 原則 A33：只描述過去、永遠附警語、不放預測／突破文字、畫線不用 AI。
+- **新發現（需求 6，MEDIUM，讀碼、未實機）**：`StockCodeResolver.IsValidStockCode` 只接受恰好 4 位數字 → `00878`／`00919`／`006208`／`00631L` 這類 5～6 碼 ETF 代號先比對上市公司清單（不含 ETF），再把前 100 家公司丟給 OpenAI 問 4 位數代號，多半 `NONE` → 無法解析；**匿名也會花一次 AI**。Portfolio 不受影響。Tech Lead 請 PM 手動試 `00878`，PM 沙箱連不到正式站、做不到——改請 Tech Lead 讀碼確認端到端（還要看資料提供者端），成立再評估小任務。PM 同意 Tech Lead 把「匿名 AI 呼叫」列技術債、不單獨排工；需求 6 若實作，會順帶消除最可能的觸發情境。
+- **文件更新**：`REQUIREMENTS.md`（Daily Challenge 補一條需求＋兩條驗收條件＋歷史註記；新增「Stock Intelligence 自動趨勢線」整節，含 A33／A34 與 Tech Lead Actions）、`DECISIONS.md`（DECISION-030／031）、`boss/PM.md`（摘要）。未動：程式碼、`ARCHITECTURE.md`、`boss/TECH_LEAD.md`、任何 TASK 檔。
+- **Tech Lead Actions**：(1) 確認需求 6：5～6 碼 ETF 在 `comprehensive-analysis`／`price-bars` 端到端是否取得到資料；成立則評估「代號形狀的輸入不經 AI」的小任務，若資料提供者本身取不到 ETF 請告知 PM（需求改為「明確顯示不支援」）；(2) 其餘不需動作（IMP-2／3／4／5b 維持 Future Work，等量測或 Boss 指示）。
+- **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式站／OpenAI／證交所；以上全為讀 git、程式碼與 Issue 的結論，沒有跑測試、沒有渲染畫面、沒有查 Actions 的部署結果。
+- **Boss**：不需回覆、不阻擋任何工作；PM 不發推播通知（沒有需要 Boss 立即行動的事；回覆已在 #464，GitHub 會通知）。
