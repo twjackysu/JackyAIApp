@@ -9,6 +9,7 @@ import { CategoryScoreCard } from './comprehensiveAnalysis/CategoryScoreCard';
 import { IndicatorTable } from './comprehensiveAnalysis/IndicatorTable';
 import { OverallScoreSection } from './comprehensiveAnalysis/OverallScoreSection';
 import { RiskSection } from './comprehensiveAnalysis/RiskSection';
+import { StockTrendlineSection } from './comprehensiveAnalysis/StockTrendlineSection';
 
 import type { StockAnalysisResultData, IndicatorCategory } from '@/apis/financeApis/types';
 
@@ -38,6 +39,8 @@ export const ComprehensiveAnalysisResult = ({ data }: Props) => {
         </Grid>
       )}
       <RiskSection data={data} />
+      <Divider sx={{ my: 3 }} />
+      <StockTrendlineSection stockCode={data.stockCode} market={data.market} />
       <Divider sx={{ my: 3 }} />
       <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 2 }}>
         <ListAltIcon fontSize="small" />

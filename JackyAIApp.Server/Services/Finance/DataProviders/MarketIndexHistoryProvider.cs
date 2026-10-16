@@ -94,12 +94,22 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 var taipeiNow = nowUtc.UtcDateTime.AddHours(8);
                 var today = DateOnly.FromDateTime(taipeiNow);
 
-                // date -> (the bar's own timestamp, its close). A later timestamp wins a same-date clash.
-                var byDate = new SortedDictionary<DateOnly, (long Stamp, decimal Close)>();
+                // The day's open/high/low are optional extras for the trendline chart: missing or
+                // inconsistent ones are dropped for that day, never a reason to reject the series.
+                var quote = doc.RootElement.GetProperty("chart").GetProperty("result")[0]
+                    .GetProperty("indicators").GetProperty("quote")[0];
+                var opens = OptionalArray(quote, "open", timestamps.GetArrayLength());
+                var highs = OptionalArray(quote, "high", timestamps.GetArrayLength());
+                var lows = OptionalArray(quote, "low", timestamps.GetArrayLength());
+
+                // date -> (the bar's own timestamp, its close, its range). A later timestamp wins a same-date clash.
+                var byDate = new SortedDictionary<DateOnly, (long Stamp, decimal Close, (decimal O, decimal H, decimal L)? Range)>();
                 var stamps = timestamps.EnumerateArray().GetEnumerator();
                 var values = closes.EnumerateArray().GetEnumerator();
+                var index = -1;
                 while (stamps.MoveNext() && values.MoveNext())
                 {
+                    index++;
                     if (stamps.Current.ValueKind != JsonValueKind.Number || !stamps.Current.TryGetInt64(out var stamp)) continue;
                     if (values.Current.ValueKind != JsonValueKind.Number || !values.Current.TryGetDouble(out var raw)) continue;
                     if (!double.IsFinite(raw) || raw <= 0 || raw >= MaxPlausibleClose) continue;
@@ -112,14 +122,19 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     catch (ArgumentOutOfRangeException) { continue; }
 
                     if (!byDate.TryGetValue(date, out var existing) || stamp >= existing.Stamp)
-                        byDate[date] = (stamp, close);
+                        byDate[date] = (stamp, close, Range(opens, highs, lows, index, close));
                 }
 
                 // Yahoo includes the bar in progress. Before the close is final, or on a weekend, it is not a close.
                 if (!IsFinal(today, taipeiNow.TimeOfDay))
                     byDate.Remove(today);
 
-                var points = byDate.Select(kv => new MarketIndexPoint(kv.Key, kv.Value.Close)).ToList();
+                var points = byDate.Select(kv => new MarketIndexPoint(kv.Key, kv.Value.Close)
+                {
+                    Open = kv.Value.Range?.O,
+                    High = kv.Value.Range?.H,
+                    Low = kv.Value.Range?.L,
+                }).ToList();
 
                 if (points.Count < MinPoints)
                     return (null, $"only {points.Count} usable points (need at least {MinPoints})");
@@ -137,6 +152,27 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
                 return (new MarketIndexHistoryResponse(Symbol, DisplayName, SourceName, last, points), null);
             }
+        }
+
+        /// <summary><paramref name="name"/>[] of Yahoo's quote, or null when it is absent or not as long as timestamp[].</summary>
+        private static JsonElement? OptionalArray(JsonElement quote, string name, int length) =>
+            quote.TryGetProperty(name, out var array) && array.ValueKind == JsonValueKind.Array && array.GetArrayLength() == length
+                ? array
+                : null;
+
+        /// <summary>The day's open/high/low, or null unless all three are positive and consistent with the close.</summary>
+        private static (decimal O, decimal H, decimal L)? Range(
+            JsonElement? opens, JsonElement? highs, JsonElement? lows, int index, decimal close)
+        {
+            static decimal? At(JsonElement? array, int i) =>
+                array is { } a && a[i].ValueKind == JsonValueKind.Number && a[i].TryGetDouble(out var v)
+                && double.IsFinite(v) && v > 0 && v < MaxPlausibleClose
+                    ? Math.Round((decimal)v, 2)
+                    : null;
+
+            if (At(opens, index) is not { } o || At(highs, index) is not { } h || At(lows, index) is not { } l)
+                return null;
+            return h >= Math.Max(o, close) && l <= Math.Min(o, close) ? (o, h, l) : null;
         }
 
         /// <summary>True when the bar dated <paramref name="today"/> is a settled close: a weekday, from 14:00 on.</summary>

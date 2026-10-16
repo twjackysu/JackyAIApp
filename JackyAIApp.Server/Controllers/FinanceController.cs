@@ -71,6 +71,18 @@ namespace JackyAIApp.Server.Controllers
             _responseFactory.ToActionResult(await _financeQueryService.GetMarketIndexHistoryAsync(cancellationToken));
 
         /// <summary>
+        /// Gets daily OHLC bars for Stock Intelligence's trendline chart; the trendlines are computed
+        /// in the browser. <paramref name="code"/> <c>TAIEX</c> gives the last two years of the index;
+        /// any other code gives the stock's recent history from the same cached provider the
+        /// comprehensive analysis uses (about six months), so it adds no upstream call per visit.
+        /// Anonymous like that analysis, no AI and no usage cost.
+        /// </summary>
+        [HttpGet("price-bars")]
+        public async Task<IActionResult> GetPriceBars(
+            [FromQuery] string code, [FromQuery] string? market = null, CancellationToken cancellationToken = default) =>
+            _responseFactory.ToActionResult(await _financeQueryService.GetPriceBarsAsync(code, market, cancellationToken));
+
+        /// <summary>
         /// Gets the AI-synthesised "今日市場AI摘要" daily digest (global macro + Taiwan focus),
         /// grounded in market data, global news, and TW major announcements. Charged
         /// <see cref="UsageCosts.MarketDigest"/> once per user per day (handled in-service so

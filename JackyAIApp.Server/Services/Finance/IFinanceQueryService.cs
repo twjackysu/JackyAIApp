@@ -18,6 +18,9 @@ namespace JackyAIApp.Server.Services.Finance
         Task<ServiceResult> GetMacroEconomyAsync(CancellationToken cancellationToken);
         Task<ServiceResult> GetMarketOverviewAsync(CancellationToken cancellationToken);
         Task<ServiceResult> GetMarketIndexHistoryAsync(CancellationToken cancellationToken);
+
+        /// <summary>Daily OHLC bars for the trendline chart: a stock's cached recent history, or the last two years of the TAIEX for code <c>TAIEX</c>.</summary>
+        Task<ServiceResult> GetPriceBarsAsync(string code, string? market, CancellationToken cancellationToken);
         Task<ServiceResult> GetMarketDigestAsync(CancellationToken cancellationToken);
         Task<ServiceResult> GetIndicatorsAsync(CancellationToken cancellationToken);
         Task<ServiceResult> GetIndicatorInsightAsync(string id, CancellationToken cancellationToken);

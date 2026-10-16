@@ -26,6 +26,7 @@ import {
   MarketOverview,
   IndicatorExplorer,
   MarketSeasonalChart,
+  TaiexTrendlineCard,
 } from './components';
 import { ComparisonCodeInput } from './components/comparison/ComparisonCodeInput';
 import { ComparisonResult } from './components/comparison/ComparisonResult';
@@ -112,6 +113,7 @@ function Finance() {
           <MarketOverview />
           <IndicatorExplorer />
           <MarketSeasonalChart />
+          <TaiexTrendlineCard />
         </>
       )}
       {/* Tabs */}
