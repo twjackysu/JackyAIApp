@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-ON_HOLD（2026-10-16 Boss 決定「AI 評分那段留在後端」，與本任務「刪除 C# 評分」的前提衝突；等 Boss 在 (1) 全部留後端、取消 IMP-2 與 (2) 前端另算一份、後端留一份給 AI 之間確認。**確認前不要開工。**）
+CANCELLED（2026-10-16 Boss 選 (1)：全部留後端、取消 IMP-2——評分只留後端一份，不做前端移植。本任務的工程師已完成並開了 PR #468（黃金資料，45/45 變異皆被抓到），Tech Lead 已關閉該 PR 不合併；分支 `claude/exciting-cray-fs6zh3` 保留，若日後重啟前端移植可撿回。）
 （原狀態：READY）
 
 ## Priority

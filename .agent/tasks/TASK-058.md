@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-ON_HOLD（2026-10-16 Boss 決定「AI 評分那段留在後端」，與本任務「刪除 C# 評分」的前提衝突；等 Boss 在 (1) 全部留後端、取消 IMP-2 與 (2) 前端另算一份、後端留一份給 AI 之間確認。**確認前不要開工。**）
+CANCELLED（2026-10-16 Boss 選 (1)：全部留後端、取消 IMP-2——評分只留後端一份，不做前端移植。未開工。後端評分（`StockScoreService`、builder 評分、`GET /api/finance/score/{code}`）全部保留。）
 （原狀態：BLOCKED（等 TASK-057 合併並部署；前端不再讀 `scoring`／`risk` 之後才能刪））
 
 ## Priority

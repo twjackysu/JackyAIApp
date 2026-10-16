@@ -3333,3 +3333,13 @@
 - **Tech Lead Actions**：(1) TASK-055 照常；PR 說明的兩件查證回報後請通知 PM；(2) IMP-2 等 Boss 二選一，PM 無新要求；(3) 無新任務。
 - **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式站／OpenAI／證交所；以上全為讀 git、程式碼與 Issue 的結論，沒有跑測試、沒有渲染畫面、沒有查 Actions。
 - **Boss**：只剩一個不阻擋的選擇（IMP-2 選 (1) 或 (2)，Tech Lead 已問、PM 已在 #464 留意見）；PM 不發推播通知——沒有需要 Boss 立即行動的事。
+
+## 2026-10-16（第五次）— Tech Lead：Boss 選 (1)，IMP-2 取消；審 #467；排 TASK-059
+
+- **Boss 決定**：IMP-2 選 **(1) 全部留後端、取消**。`TASK-056`／`057`／`058` → `CANCELLED`；後端評分、`score` 端點、AI prompt 的評分／風險兩段全部保留不動。PM 的 DECISION-032 第 3 點可據此結案（PM 預設亦是 (1)）。
+- **PR #468（TASK-056 黃金資料）**：工程師在 `ON_HOLD` 公告前已開工完成並開 PR，看到公告後自行改 draft 並標示請勿合併。Tech Lead 已**關閉**（不合併）並留言；分支保留。
+- **PR #467（TASK-055 ETF 代號）**：Tech Lead 審閱通過 → **READY FOR BOSS REVIEW**（CI 兩個 job 皆綠、與 master 無衝突；不代表核准合併）。細節在 PR 留言。合併後我補 `TASK-055.md` 的 Status／Review（該檔被此 PR 改動，現在動會衝突）。
+- **TASK-059**（Backend，READY，MEDIUM）：#467 查證的衍生。綜合分析查無資料回「成功但全空」並快取 12 小時；上游暫時故障會凍結某檔股票當天的分析。解法＝無價格且無指標回 `NotFound`、無價格不快取。**請 PM** 確認優先序與錯誤訊息文案（預設英文，比照既有 `Unable to resolve stock code…`）。
+- **請 PM**：不需更新 `REQUIREMENTS.md` 關於 IMP-2 的內容（取消）；IMP-3／4／5／6 的範圍結論照 DECISION-032。需求 6：待 #467 合併後勾「5～6 碼可查到、不為此呼叫 AI」，「查不到時明確訊息」改由 TASK-059 承接。
+- **未動**：程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`、`TASK-055.md`。
+- **驗證限制**：沙箱無 .NET、連不到正式環境／OpenAI／TWSE；#467 的審閱是讀差異＋CI 結果，沒有自己跑測試。

@@ -2073,3 +2073,9 @@ Boss 看完「C# 評分刪除後 AI 趨勢分析 prompt 會少『總分／方向
 - **衝突**：IMP-2 的前提是「C# 評分整個刪除、只留前端一份」。AI prompt 在後端組（`AnalyzeStockAsync` → `BuildQuantitativeContextSafeAsync` → `FormatQuantitativeContext`，之後在後端送 OpenAI），它需要後端有評分，所以 C# 評分不能整個刪。
 - **兩條路（已請 Boss 二選一，我建議 (1)）**：(1) **全部留後端、取消 IMP-2**——單一實作，符合 Boss「不要兩套邏輯」；損失＝拖權重不即時更新（維持現狀）與快取仍依設定分裂。(2) **前端另算一份顯示用、後端留一份給 AI**——要即時滑桿，但兩套並存，只能靠同一份黃金資料在 C# 與 TS 兩邊都測來對齊（正是 Issue 原提案提到、Boss 不喜歡的狀況）。
 - **處置**：TASK-056／057／058 全部改 `ON_HOLD`（確認前不開工）。**TASK-055（ETF 代號）不受影響，照常。** (1) 成立 → 056／057／058 取消；(2) 成立 → 056 照原樣做，057 照做，058 縮小為「只刪 `score` 端點與請求旗標，**保留** `StockScoreService`／builder 評分給 AI 用」，並在 C# 側也加入黃金資料比對測試。
+
+### 2026-10-16 後續（二）：Boss 選 (1) — IMP-2 取消；#467 審閱；TASK-059（Tech Lead）
+- **決定**：Boss 選 **(1) 全部留後端、取消 IMP-2**。評分／權重／風險只有後端 C# 一份（`StockScoreService`、`StockAnalysisBuilder.BuildScoring`、`GET /api/finance/score/{code}` 都保留），AI 趨勢分析 prompt 的「Overall Scoring／Risk Assessment」兩段**維持現狀**。TASK-056／057／058 → `CANCELLED`。代價（Boss 已知）：拖權重仍要重新查詢，`comprehensive-analysis` 快取仍依設定組合分裂。上方「IMP-2 設計」一節因此**僅作歷史紀錄**；日後若重啟前端移植，黃金資料工作留在已關閉的 PR #468（分支 `claude/exciting-cray-fs6zh3`，45/45 變異皆被抓到）。
+- **PR #468 已由 Tech Lead 關閉（未合併）**：TASK-056 的工程師在 `ON_HOLD` 公告進 master 之前就開工並完成；工程師看到公告後自行改為 draft 並標示「請勿在 Boss 決定前合併」，處置正確。教訓：任務書改 `ON_HOLD` 時若已有 `IN_PROGRESS` 的工程師，我應主動在該 PR／任務上通知；這次是工程師自己發現的。
+- **#467（TASK-055）審閱通過 → READY FOR BOSS REVIEW**（CI 綠、無衝突；不代表核准合併）。逐行對照後無要求修改；三個可選項（`IStockCodeResolver` 註解過時、一個測試把「空字串多花兩次 OpenAI」釘住、全形數字沿用原行為）都不需要再推。審閱細節在 PR 留言；`TASK-055.md` 的 Status／Review 待合併後補（該檔被 PR 改動，現在動會讓合併時衝突）。
+- **TASK-059（Backend，READY，MEDIUM）**：#467 工程師的查證揭露既有缺口——`GetComprehensiveAnalysisAsync` 不檢查結果有沒有資料就快取 12 小時（`CACHE_HOURS=12` 已核對）。不存在的代號得到「成功但全空」，真實代號遇上游暫時故障會凍結 12 小時。解法：沒有價格且沒有指標 → `NotFound`；沒有價格 → 不快取。順帶消除「用大量不存在的代號撐大無上限的 `IMemoryCache`」這條理論路徑；**不**限制呼叫次數（沒有 rate limiter 仍是技術債）。
