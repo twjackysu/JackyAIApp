@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-IN_PROGRESS
+PR_OPENED
 
 ## Priority
 MEDIUM（阻擋 TASK-057；本身只新增測試與一個 JSON 檔，不改任何正式程式）
@@ -58,7 +58,29 @@ Boss 在 Issue #464 決定（2026-10-16 20:01 +0800）：**IMP-2 做，C# 版評
 無（阻擋 TASK-057）。
 
 ## Result
-（Engineer 填寫）
+**PR**：https://github.com/twjackysu/JackyAIApp/pull/468（分支 `claude/exciting-cray-fs6zh3`）
+
+### 做了什麼
+- 新增 `JackyAIApp.Server.Tests/Services/Finance/Scoring/StockScoringGoldenFixtureTests.cs` 與 `jackyaiapp.client/src/Finance/utils/__fixtures__/stockScoringGolden.json`（473,531 bytes）。**不修改任何正式程式碼**（沒有把 `private` 改成 `internal`）。
+- 每個案例經由真正的 `StockAnalysisBuilder.BuildAsync` 產生（呼叫順序同 `FinanceQueryService.GetComprehensiveAnalysisAsync`，只 mock 資料提供者與 `IIndicatorEngine.CalculateAll`）；序列化用 API 設定；decimal 原樣輸出；一案例一行。
+- 預設比對、`UPDATE_GOLDEN=1` 才寫檔；找不到 repo 根目錄／缺檔／內容不同各有明確失敗訊息（內容不同時指出第一個不同的案例 id）。另一個測試把各地雷的**手算**預期值釘在對應案例上。
+- 案例共 215 個：手工 125（多於「約 60」，每個地雷獨立一案，id 對應見 PR 說明）＋ 確定性隨機 90（xorshift64、固定種子）。
+
+### 驗證（實際執行）
+- `dotnet test --filter "Category!=LiveContract"`：1346 通過、0 失敗（原 1344 ＋ 新增 2）。
+- `UPDATE_GOLDEN=1` 連跑兩次 `cmp` 相同（確定性）。
+- 變異檢查：任務書要求的兩個（`>= 60`→`> 60`、`MidpointRounding.AwayFromZero`）皆轉紅；另外 43 個（閾值 `>`/`>=`、`F1`→`F2`、`Min`→`Max`、少算 Strong、總分用未進位加總、面向順序、權重正規化、各旗標被忽略、文字…）**45/45 全部轉紅**；手動改 JSON 也轉紅。
+
+### 與任務書的差異（請 Tech Lead 知悉）
+1. **隨機案例 90 個，不是 ~300**：每個指標在輸入與輸出各寫一次（約 260 bytes），300 個會超過 1 MB。依 Requirement 7「超過就減少隨機案例數」下修，並把長度分佈改成偏短（70% 為 0–8 個指標）。若 Tech Lead 要更多隨機案例，需要先放寬 500 KB 的上限。
+2. 手工案例 125 個而非 ~60（合計僅約 250 KB）。
+3. `meta.sourceCommit` 寫的是產生當時的 master tip `55e50db`；評分三個來源檔最後被改動於 `0d03215`（PR #437），另列於 `scoringSourcesLastChangedIn`。
+4. 流程：本次排程 session 只能推指定分支，`IN_PROGRESS`／`PR_OPENED` 都在 `claude/exciting-cray-fs6zh3` 上（只動 `.agent/**`），沒有直接推 master。
+
+### 給 TASK-057 的提醒
+- 風險因子的 `F1` 是 **decimal 遇 `.x5` 往遠離 0 進位**，與 JS `toFixed(1)` 不同（RSI `80.05`：C# `"80.1"`，JS `"80.0"`）；`Math.Round(decimal, 1)` 是 half-even。兩者在 TS 都不能直接用 double 運算。案例：`risk-rsi-80_05-…`、`risk-rsi-80_35-…`、`risk-rsi-19_95-…`、`risk-volume-3_05-…`、`risk-pledge-30_05-…`、`round-*`、`cat-avg-60_05-…`、`gap-uses-rounded-scores-80_05-vs-50`。
+- `categoryScores` 的順序是各面向第一次出現的順序（依賴 `Dictionary` 列舉順序，非規格保證，但現行行為如此）。
+- 黃金資料是 C# 現行行為而非「正確」行為（含 `includeScoring=false` 時風險少「各面向分數差距大」、`score` 不限 0–100），要原樣保留。
 
 ## Review
 （Tech Lead 填寫）
