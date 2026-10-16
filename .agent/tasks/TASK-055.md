@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-IN_PROGRESS
+PR_OPENED
 
 ## Priority
 MEDIUM（PM 於 REQUIREMENTS「Stock Intelligence 自動趨勢線」需求 6 評為 MEDIUM；改動極小）
@@ -46,7 +46,22 @@ MEDIUM（PM 於 REQUIREMENTS「Stock Intelligence 自動趨勢線」需求 6 評
 無。
 
 ## Result
-（Engineer 填寫）
+**PR：** https://github.com/twjackysu/JackyAIApp/pull/467（分支 `claude/exciting-cray-2whj9h`）
+
+**實作**
+- 新增 `Services/Finance/TwStockCode.cs`（`internal static`）：台股代號形狀 `^\d{4,6}[A-Za-z]?$` 的唯一定義，`TryNormalize` 回傳 trim＋大寫後的代號。`MarketDataProviderFactory` 的 `TwStockPattern` 已刪，改用它（同一個規則，沒有第二份 regex）。
+- `StockCodeResolver.ResolveStockCodeAsync` 最前面命中形狀就直接回傳，不取公司清單、不呼叫 AI；原 `IsValidStockCode` 改名 `IsFourDigitCompanyCode`，只驗證 LLM 回傳值（仍嚴格 4 碼）。名稱輸入路徑、快取、提示詞、日誌未改；介面／controller／DTO／前端未動。
+
+**測試**（本機實際執行）：`dotnet test --filter "Category!=LiveContract"` → 1358 通過／0 失敗；`StockCodeResolverTests` 3 → 17（代號形狀 7 例：HTTP 0 請求、OpenAI 零呼叫；非代號形狀 4 例：走原路徑；LLM 回 5～6 碼被拒 3 例）。既有斷言未改，無新增編譯警告。
+
+**兩項查證**（讀碼，未實機；完整說明在 PR 描述）
+1. 不存在的代號（`9999`／`99999`）：`comprehensive-analysis` 回**成功**但近乎全空（`indicators: []`、`latestClose: null`、`companyName: ""`、`dataRange: "N/A"`、`scoring/risk: null`），並以 12 小時快取。相鄰觀察：真實代號遇上游暫時故障也會得到空結果並被快取 12 小時（分析層不檢查是否有資料）；5～6 碼不存在字串現在會到達 TWSE／TWStockLib，成本由 OpenAI 轉為 TWSE 呼叫。本任務未改，留給 PM 決定是否另開「明確訊息」任務。
+2. 5～6 碼 ETF：價格／技術指標／公司名稱預期都有（`TwListedCompanyService` 清單含 ETF）；籌碼的董監持股、大股東查不到，融資券／借券／當沖與基本面的 `BWIBBU_d` 是否含 ETF 不確定；月營收、EPS 多半查不到。所有 provider 皆有 try/catch 或回 null，**沒有任何一個會因查無列而丟例外**；最差是空 `ChipData`／`null` 基本面，對應指標被跳過。
+
+**Known issues / 給 Tech Lead**
+- `\d` 會匹配全形數字（沿用原 `TwStockPattern` 行為，為維持「同一個規則」未改）。
+- `IStockCodeResolver` 的 XML 註解仍寫 4-digit，已與行為不符；依第 4 點未動，請決定是否順手改。
+- 本 session 只能推指定分支，認領（`IN_PROGRESS`）未能直接推 master，隨本 PR 帶入。
 
 ## Review
 （Tech Lead 填寫）
