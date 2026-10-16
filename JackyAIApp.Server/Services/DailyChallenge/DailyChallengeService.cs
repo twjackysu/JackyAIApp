@@ -3,6 +3,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using static JackyAIApp.Server.Services.DailyChallenge.DailyChallengeConstants;
 
 namespace JackyAIApp.Server.Services.DailyChallenge
@@ -27,14 +28,9 @@ namespace JackyAIApp.Server.Services.DailyChallenge
             var existingResult = await _dbContext.DailyChallengeResults
                 .FirstOrDefaultAsync(r => r.UserId == userId && r.ChallengeDate == today);
 
-            var words = await LoadEligibleWordsAsync();
-            if (words.Count < MinWordsForChallenge)
-            {
-                return ServiceResult.Fail(ErrorCodes.BadRequest,
-                    $"Not enough words in the database to generate a challenge. Need at least {MinWordsForChallenge}.");
-            }
-
-            var questions = _questionGenerator.Generate(words, today);
+            var (questions, failure) = await GetOrCreateTodaySetAsync(today);
+            if (questions == null)
+                return failure!;
 
             return ServiceResult.Ok(new DailyChallengeResponse
             {
@@ -69,8 +65,9 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 });
             }
 
-            var words = await LoadEligibleWordsAsync();
-            var questions = _questionGenerator.Generate(words, today);
+            var (questions, failure) = await GetOrCreateTodaySetAsync(today);
+            if (questions == null)
+                return failure!;
 
             int score = 0;
             if (request.Answers != null)
@@ -204,6 +201,64 @@ namespace JackyAIApp.Server.Services.DailyChallenge
             });
         }
 
+        /// <summary>
+        /// Today's questions: the persisted set if one exists, otherwise generated from the current
+        /// dictionary and persisted. Every GET and submit that day must read the same set — the
+        /// generator draws all its shuffles and option orders from one date-seeded random stream, so
+        /// regenerating after the dictionary changed (a looked-up word is added, one is marked
+        /// invalid) would hand back different options and correct indexes than the user saw.
+        /// A null question list means the day cannot be served; <c>failure</c> says why.
+        /// </summary>
+        private async Task<(List<DailyChallengeQuestion>? Questions, ServiceResult? Failure)> GetOrCreateTodaySetAsync(DateTime today)
+        {
+            var existing = await _dbContext.DailyChallengeSets
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.ChallengeDate == today);
+            if (existing != null)
+                return (DeserializeQuestions(existing.QuestionsJson), null);
+
+            var words = await LoadEligibleWordsAsync();
+            if (words.Count < MinWordsForChallenge)
+            {
+                // Nothing is persisted: once enough words exist, the day's set is created then.
+                return (null, ServiceResult.Fail(ErrorCodes.BadRequest,
+                    $"Not enough words in the database to generate a challenge. Need at least {MinWordsForChallenge}."));
+            }
+
+            var questions = _questionGenerator.Generate(words, today);
+
+            var set = new DailyChallengeSet
+            {
+                ChallengeDate = today,
+                QuestionsJson = JsonSerializer.Serialize(questions),
+                CreatedAt = DateTime.UtcNow
+            };
+            _dbContext.DailyChallengeSets.Add(set);
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+                return (questions, null);
+            }
+            catch (DbUpdateException)
+            {
+                // Another request was first for the day and persisted its set between our read and
+                // this save; the primary key rejected ours. Drop our entity (leaving it tracked would
+                // make any later SaveChanges in this request, e.g. the submit result, retry the
+                // insert) and serve the set that won, so every user sees the same questions.
+                _dbContext.Entry(set).State = EntityState.Detached;
+                var winner = await _dbContext.DailyChallengeSets
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.ChallengeDate == today);
+                if (winner == null)
+                    throw; // not a key collision — the failure is something else
+                return (DeserializeQuestions(winner.QuestionsJson), null);
+            }
+        }
+
+        private static List<DailyChallengeQuestion> DeserializeQuestions(string json) =>
+            JsonSerializer.Deserialize<List<DailyChallengeQuestion>>(json)
+                ?? throw new InvalidOperationException("The persisted daily-challenge question set is empty or null.");
+
         private Task<List<Data.Models.SQL.Word>> LoadEligibleWordsAsync() =>
             _dbContext.Words
                 .Where(w => w.DataInvalid == null || w.DataInvalid == false)
@@ -214,6 +269,10 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 .Include(w => w.Meanings)
                     .ThenInclude(m => m.Tags)
                 .Where(w => w.Meanings.Any(m => m.Definitions.Any()))
+                // Split so the three collection Includes don't multiply into one cartesian result,
+                // and ordered so the generator always sees the words in the same sequence.
+                .AsSplitQuery()
+                .OrderBy(w => w.Id)
                 .ToListAsync();
 
         private static string GetLevel(int xp) => xp switch
