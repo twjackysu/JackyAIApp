@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+IN_PROGRESS
 
 ## Priority
 MEDIUM（阻擋 TASK-057；本身只新增測試與一個 JSON 檔，不改任何正式程式）
