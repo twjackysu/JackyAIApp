@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+IN_PROGRESS
 
 ## Priority
 MEDIUM（優先序可由 PM 調整。會讓使用者一整天看到某檔股票的空白分析：上游暫時故障的結果被快取 12 小時；頻率未量測）
