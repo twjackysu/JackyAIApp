@@ -3313,3 +3313,23 @@
 - **Boss 注意（皆不阻擋）**：AI 趨勢分析的輸入會少兩段（預設選擇，已在 #464 說明；反對請說一聲）；IMP-3 要不要做；`technical-indicators`／`chip-analysis` 要不要一併刪（預設保留）。
 - **未動**：程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`。
 - **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式環境／OpenAI／TWSE；全是讀碼與 Actions/Issue 紀錄的結論，沒有跑測試、沒有量測。
+
+## 2026-10-16（第四次）— Tech Lead：Boss 決定 AI 評分段留後端，IMP-2 暫停待確認
+
+- Boss 看完「C# 評分刪除後 AI 趨勢分析 prompt 少兩段」的說明後表示：**這段不要改成前端，留在後端。** 與 IMP-2「C# 評分整個刪除」衝突。
+- **處置**：`TASK-056`／`057`／`058` → `ON_HOLD`（確認前不開工）。`TASK-055`（ETF 代號）不受影響。已請 Boss 二選一：(1) 全部留後端、取消 IMP-2（我建議；單一實作）；(2) 前端另算一份顯示、後端留一份給 AI（即時滑桿，兩套並存，靠黃金資料雙邊對齊）。
+- **PM**：先不要更新 `REQUIREMENTS.md` 關於 IMP-2（設定即時生效、`score` 端點移除、AI prompt 少兩段）的內容，等 Boss 確認。需求 6（ETF）照 TASK-055 進行。
+- 驗證限制同前：只動文件，沒有程式碼變更。
+
+## 2026-10-16（第五次）— PM：記錄 Boss 在 #464 的範圍決定、IMP-2 暫停待 Boss 二選一、回覆 Tech Lead 關於 ETF 只有技術面的問題（排程執行）
+
+- **狀態**：無 open PR；open issue＝#464（最後留言＝Tech Lead 12:11Z；**「AI 評分留後端」那句不在 Issue 上**，PM 只從 Tech Lead 的 `TECH_LEAD.md` 第 34 項與 `ARCHITECTURE.md` 讀到轉述）、#409（10/06 後無新留言）。master＝`80a03ff`。GitHub MCP 工具這次沒載入，PM 改用 REST 讀 Issue。
+- **DECISION-032**：(1) 記錄已定案的 Boss 決定：IMP-4／5 先不做、IMP-6 不做、IMP-3 不排；Boss 設計偏好「不要兩套邏輯並存」。(2) **IMP-2 不定案**：「C# 版刪除」與「AI 評分留後端」衝突，TASK-056／057／058 維持 `ON_HOLD`。
+  PM 意見（預設，可推翻）：選 Tech Lead 的 (1)「全部留後端、取消 IMP-2」——只有它同時符合 Boss 兩句話與 DECISION-031 的放置原則；IMP-2 的好處只是滑桿即時，PM 沒有使用者嫌慢的證據；(2) 可能讓畫面分數與 AI 文字引用的分數不一致（依 Tech Lead 描述）。
+  依 Tech Lead 請求，**`REQUIREMENTS.md` 沒有寫任何 IMP-2 內容**。
+- **需求 6（ETF 代號）**：答覆 Tech Lead「ETF 只有技術面是否可接受」→ **可接受**（A36）。PM 讀 `StockScoreService.cs`／`CategoryWeightConfig.cs` 確認：權重只在有資料的面向間重新正規化，缺籌碼／基本面不會拉低總分。
+  新增產品條件（未驗證）：畫面要看得出分數只用了哪些面向、空面向不顯示成 0 分或中性分；不存在的代號要有明確訊息（待 TASK-055 PR 說明回報後 PM 決定是否另開小任務）。ETF 名稱搜尋列為 Future Consideration（LOW）。Tech Lead Actions 前兩項勾選。
+- **文件更新**：`DECISIONS.md`（DECISION-032）、`REQUIREMENTS.md`（趨勢線一節的需求 6 後續、驗收條件一條、Future Consideration、A36、Tech Lead Actions）、`boss/PM.md`（摘要新增一條）。
+- **Tech Lead Actions**：(1) TASK-055 照常；PR 說明的兩件查證回報後請通知 PM；(2) IMP-2 等 Boss 二選一，PM 無新要求；(3) 無新任務。
+- **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式站／OpenAI／證交所；以上全為讀 git、程式碼與 Issue 的結論，沒有跑測試、沒有渲染畫面、沒有查 Actions。
+- **Boss**：只剩一個不阻擋的選擇（IMP-2 選 (1) 或 (2)，Tech Lead 已問、PM 已在 #464 留意見）；PM 不發推播通知——沒有需要 Boss 立即行動的事。

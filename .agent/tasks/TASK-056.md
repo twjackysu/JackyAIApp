@@ -4,7 +4,9 @@
 Backend Engineer
 
 ## Status
-PR_OPENED
+ON_HOLD（2026-10-16 Boss 決定「AI 評分那段留在後端」，與本任務「刪除 C# 評分」的前提衝突；等 Boss 在 (1) 全部留後端、取消 IMP-2 與 (2) 前端另算一份、後端留一份給 AI 之間確認。**確認前不要開工。**）
+（原狀態：READY）
+（Backend 備註：本任務在 ON_HOLD 公告**之前**（我開工時 master＝`55e50db`，任務為 READY）已完成並開出 **PR #468**；暫停公告在我工作期間才進 master。PR 已改為 draft，**請勿在 Boss 決定前合併**。(1) 取消 IMP-2 → 關閉 PR #468、本任務取消；(2) 前端另算一份、後端留一份給 AI → 本任務「照原樣做」，PR #468 可直接審閱，不需修改。程式碼只新增測試與 JSON，沒有碰正式程式。）
 
 ## Priority
 MEDIUM（阻擋 TASK-057；本身只新增測試與一個 JSON 檔，不改任何正式程式）
@@ -58,7 +60,7 @@ Boss 在 Issue #464 決定（2026-10-16 20:01 +0800）：**IMP-2 做，C# 版評
 無（阻擋 TASK-057）。
 
 ## Result
-**PR**：https://github.com/twjackysu/JackyAIApp/pull/468（分支 `claude/exciting-cray-fs6zh3`）
+**PR**：https://github.com/twjackysu/JackyAIApp/pull/468（分支 `claude/exciting-cray-fs6zh3`；draft，等 Boss 決定 IMP-2 (1)／(2) 後再審——見上方 Status 備註）
 
 ### 做了什麼
 - 新增 `JackyAIApp.Server.Tests/Services/Finance/Scoring/StockScoringGoldenFixtureTests.cs` 與 `jackyaiapp.client/src/Finance/utils/__fixtures__/stockScoringGolden.json`（473,531 bytes）。**不修改任何正式程式碼**（沒有把 `private` 改成 `internal`）。
