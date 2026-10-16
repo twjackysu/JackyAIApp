@@ -16,6 +16,8 @@ import {
   IndicatorExplorerData,
   IndicatorInsightData,
   MarketIndexHistoryData,
+  PriceBarsData,
+  PriceBarsRequest,
 } from './types';
 
 // Define a service using a base URL and expected endpoints
@@ -78,6 +80,14 @@ export const financeApis = createApi({
       query: (id) => ({ url: `indicators/${id}/insight` }),
       keepUnusedDataFor: 3600,
     }),
+    /** Daily OHLC bars for the trendline chart (the lines are computed client-side). */
+    getPriceBars: builder.query<ApiOkResponse<PriceBarsData>, PriceBarsRequest>({
+      query: ({ code, market }) => ({
+        url: 'price-bars',
+        params: market ? { code, market } : { code },
+      }),
+      keepUnusedDataFor: 3600,
+    }),
   }),
 });
 
@@ -90,4 +100,5 @@ export const {
   useGetIndicatorsQuery,
   useGetMarketIndexHistoryQuery,
   useLazyGetIndicatorInsightQuery,
+  useGetPriceBarsQuery,
 } = financeApis;

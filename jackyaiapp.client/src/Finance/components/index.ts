@@ -8,3 +8,4 @@ export { ScoreGauge } from './ScoreGauge';
 export { MarketOverview } from './MarketOverview';
 export { IndicatorExplorer } from './IndicatorExplorer';
 export { MarketSeasonalChart } from './MarketSeasonalChart';
+export { TaiexTrendlineCard } from './TaiexTrendlineCard';

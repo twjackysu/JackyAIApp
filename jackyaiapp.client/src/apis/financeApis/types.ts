@@ -238,3 +238,28 @@ export interface MarketIndexHistoryData {
   asOf: string;
   points: MarketIndexPoint[];
 }
+
+// === Price Bars (趨勢線 K 線圖) Types ===
+
+export interface PriceBarsRequest {
+  /** A stock code or company name, or `TAIEX` for the weighted index's last two years. */
+  code: string;
+  market?: MarketRegion;
+}
+
+export interface PriceBar {
+  /** `YYYY-MM-DD`, ascending. */
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+export interface PriceBarsData {
+  /** Code as resolved, e.g. `2330`, `AAPL`, or `TAIEX`. */
+  code: string;
+  name: string;
+  asOf: string;
+  bars: PriceBar[];
+}
