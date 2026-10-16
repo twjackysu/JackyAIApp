@@ -35,8 +35,11 @@ namespace JackyAIApp.Server.Services.Finance
         {
             try
             {
-                if (IsValidStockCode(userInput))
-                    return userInput;
+                // Input that is already shaped like a TW code (incl. 5-6 digit ETFs such as 00878 / 00631L)
+                // is the answer: the company list only holds 4-digit listed companies, so sending it to the
+                // LLM can only fail (or cost a call to fail).
+                if (TwStockCode.TryNormalize(userInput, out var code))
+                    return code;
 
                 var companies = await GetCompanyListAsync(cancellationToken);
 
@@ -58,7 +61,12 @@ namespace JackyAIApp.Server.Services.Finance
             }
         }
 
-        private static bool IsValidStockCode(string input) =>
+        /// <summary>
+        /// Validates what the LLM answered, not what the user typed (that is <see cref="TwStockCode.TryNormalize"/>).
+        /// Stays strictly 4 digits: the company list holds only 4-digit listed companies, so a 5-6 digit
+        /// answer would be a hallucination.
+        /// </summary>
+        private static bool IsFourDigitCompanyCode(string input) =>
             !string.IsNullOrEmpty(input) && input.Length == 4 && input.All(char.IsDigit);
 
         private Task LogUsageAsync(Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels.ChatCompletionCreateResponse response)
@@ -200,7 +208,7 @@ namespace JackyAIApp.Server.Services.Finance
                 else
                 {
                     var result = response.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
-                    if (IsValidStockCode(result))
+                    if (IsFourDigitCompanyCode(result))
                     {
                         _logger.LogInformation("LLM resolved '{input}' to stock code '{code}'", userInput, result);
                         return result;
@@ -264,7 +272,7 @@ User: 'undefined company' → 'NONE'";
                 else
                 {
                     var result = response.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
-                    if (IsValidStockCode(result))
+                    if (IsFourDigitCompanyCode(result))
                         return result;
                 }
             }
