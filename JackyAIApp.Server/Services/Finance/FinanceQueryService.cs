@@ -335,6 +335,80 @@ namespace JackyAIApp.Server.Services.Finance
             }
         }
 
+        /// <summary>The TAIEX trendline chart covers this much of the six cached years.</summary>
+        internal const int TaiexPriceBarYears = 2;
+
+        /// <summary>Fewest bars worth drawing trendlines on.</summary>
+        internal const int MinPriceBars = 30;
+
+        public async Task<ServiceResult> GetPriceBarsAsync(string code, string? market, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "Stock code is required.");
+
+            if (code.Trim().Equals(TaiexCode, StringComparison.OrdinalIgnoreCase))
+                return await GetTaiexPriceBarsAsync(cancellationToken);
+
+            var region = Enum.TryParse<MarketRegion>(market, true, out var m) ? m : _providerFactory.DetectRegion(code);
+            string resolvedStockCode;
+            if (region == MarketRegion.TW)
+            {
+                resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(code, cancellationToken) ?? "";
+                if (string.IsNullOrEmpty(resolvedStockCode))
+                    return ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to resolve stock code for '{code}'.");
+            }
+            else
+            {
+                resolvedStockCode = code.Trim().ToUpperInvariant();
+            }
+
+            try
+            {
+                // The same cached provider the comprehensive analysis reads, so opening the chart after
+                // an analysis costs no extra upstream call.
+                var data = await _providerFactory.GetMarketDataProvider(region).FetchAsync(resolvedStockCode, cancellationToken);
+                var bars = data.HistoricalPrices
+                    .Where(p => p.Open > 0 && p.High > 0 && p.Low > 0 && p.Close > 0 && p.High >= p.Low)
+                    .GroupBy(p => DateOnly.FromDateTime(p.Date))
+                    .Select(g => g.Last())
+                    .OrderBy(p => p.Date)
+                    .Select(p => new PriceBar(DateOnly.FromDateTime(p.Date), p.Open, p.High, p.Low, p.Close))
+                    .ToList();
+                if (bars.Count < MinPriceBars)
+                    return ServiceResult.Fail(ErrorCodes.NotFound, $"Not enough price history for '{resolvedStockCode}'.");
+
+                var name = string.IsNullOrWhiteSpace(data.CompanyName) ? resolvedStockCode : data.CompanyName;
+                return ServiceResult.Ok(new PriceBarsResponse(resolvedStockCode, name, bars[^1].Date, bars));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load price bars for {stockCode} ({region})", resolvedStockCode, region);
+                return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Failed to load prices for '{resolvedStockCode}'.");
+            }
+        }
+
+        private const string TaiexCode = "TAIEX";
+
+        /// <summary>
+        /// The last <see cref="TaiexPriceBarYears"/> years of the cached six-year TAIEX series. A day
+        /// the source gave no usable range for becomes a flat bar at its close.
+        /// </summary>
+        private async Task<ServiceResult> GetTaiexPriceBarsAsync(CancellationToken cancellationToken)
+        {
+            var history = await _marketIndexHistoryProvider.GetAsync(cancellationToken);
+            if (history is null)
+                return ServiceResult.Fail(ErrorCodes.ExternalApiError, "TAIEX history is currently unavailable.");
+
+            var from = history.AsOf.AddYears(-TaiexPriceBarYears);
+            var bars = history.Points
+                .Where(p => p.Date > from)
+                .Select(p => p.Open is { } o && p.High is { } h && p.Low is { } l
+                    ? new PriceBar(p.Date, o, h, l, p.Close)
+                    : new PriceBar(p.Date, p.Close, p.Close, p.Close, p.Close))
+                .ToList();
+            return ServiceResult.Ok(new PriceBarsResponse(TaiexCode, history.Name, history.AsOf, bars));
+        }
+
         public async Task<ServiceResult> GetMacroEconomyAsync(CancellationToken cancellationToken)
         {
             var cacheKey = $"MacroEconomy_{DateTime.Now:yyyyMMdd}";

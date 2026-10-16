@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace JackyAIApp.Server.DTO.Finance
 {
     /// <summary>
@@ -18,5 +20,14 @@ namespace JackyAIApp.Server.DTO.Finance
         IReadOnlyList<MarketIndexPoint> Points);
 
     /// <summary>One trading day's close, rounded to 2 decimals.</summary>
-    public sealed record MarketIndexPoint(DateOnly Date, decimal Close);
+    public sealed record MarketIndexPoint(DateOnly Date, decimal Close)
+    {
+        // The day's range, for the trendline chart. Kept out of the JSON: the seasonal chart only
+        // needs closes, and six years of three more numbers each would triple what it downloads.
+        // Null when the source gave no usable range for that day.
+
+        [JsonIgnore] public decimal? Open { get; init; }
+        [JsonIgnore] public decimal? High { get; init; }
+        [JsonIgnore] public decimal? Low { get; init; }
+    }
 }
