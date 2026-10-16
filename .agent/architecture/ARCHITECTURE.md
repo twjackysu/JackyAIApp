@@ -1966,3 +1966,56 @@ PM（2026-10-14）同意「匿名來源上限降到約 2 萬列」的方向，�
 ### 合併結果（2026-10-15，第 11 次排程）
 - **PR #462 已由 Boss 於 2026-10-15 17:59 +0800 合併**（`86475c8`）；合併的 head 就是審閱過的 `c64b2b3`，無審閱後變更。`Build and deploy` run 552 成功，正式環境＝`86475c8`。TASK-052 → MERGED。上方「不變式」（改 `BuildNlPlanAsync` 的 prompt 內容必須同步改 `AI_DATA_NOTICE`）自此生效，改動該方法的 PR 審閱時要檢查。
 - 排程 contract test run 108（跑 `4162a56`）**全數通過**——TASK-050 改動後連兩次（run 107、108）綠。
+
+
+## Boss 直接合併的變更備忘（#463）與 Issue #464 效能提案評估（Tech Lead 2026-10-16，第 12 次排程）
+
+### #463 — Stock Intelligence 自動趨勢線（加權指數＋個股 K 線；Boss 直接合併，未走 TASK）
+#463 由 Boss 於 2026-10-16 10:08 +0800 合併（`5c6145e`）。CI run 684 綠、`Build and deploy` run 553 成功，正式環境＝`5c6145e`。我事後審閱了整個差異（後端 7 檔 +374、前端 14 檔 +1320）：**無須追加修正**。
+- **事實（後端）**：新增匿名 `GET /api/finance/price-bars?code=&market=`（`FinanceController` → `FinanceQueryService.GetPriceBarsAsync`）。`code=TAIEX` 取既有六年快取（`IMarketIndexHistoryProvider`）的最近兩年；Yahoo parser 多保留每日 O/H/L，**缺值或與收盤不一致時該日降級為「平 bar」（O=H=L=收盤），不拒絕整個序列**，且三欄 `[JsonIgnore]`——`market-index-history` 的輸出不變。其他代號走與 `comprehensive-analysis` 同一個快取 provider（近半年），去重、排序、丟掉壞日，不足 30 根回 `NotFound`。測試 `FinanceQueryServicePriceBarsTests`（216 行）。
+- **事實（前端）**：趨勢線全在瀏覽器算（`Finance/utils/trendlines.ts`）：ZigZag（反轉門檻 2×ATR(14)）→ 兩兩波段點配成候選線（相距 ≤150 根、區間內收盤穿越 ≤3%）→ 存活到「連兩日收盤穿越 0.25 ATR／單日穿越 1 ATR／離線超過 3 ATR」→ 評分（碰觸×3 − 穿越×2 − 平均距離 + 0.02×壽命）→ 同側重疊 >30% 只留最高分。門檻只用相對值（ATR 倍數、百分比），無寫死日期或價位。複雜度約「波段點對數 × 根數」，兩年約 500 根可忽略。K 線與 markLine 只在 `Finance/charts/registerFinanceCharts.ts` 註冊，不進共用 ECharts chunk。有 fixture（兩年加權指數）釘住 15 條線。
+- **合規／文案**：`TRENDLINE_DISCLAIMER`「趨勢線僅供參考，不構成投資建議。」常駐在圖下方；`InfoPopover` 說明畫法；`role="img"` 加 `aria-label`；卡片只列支撐／壓力價位與收盤距離，**沒有預測句**，與 DECISION-016 的「不放預測文字」一致。
+- **三點供 Boss／PM 知道（皆不阻擋，不排任務）**：
+  1. **「no AI」不完全準確（成本面，輕微）**：commit 與 controller 註解寫「no AI, no usage cost」。對 4 位數字代號與 US 代號是對的；但 `market=TW`（或 `TwStockPattern`＝`^\d{4,6}[A-Za-z]?$` 命中）時會經 `StockCodeResolver.ResolveStockCodeAsync`：**非 4 位數字且不是完整公司名稱的輸入，`FindExactCompanyMatchAsync` 無條件送一次 OpenAI（前 100 家公司清單，約 2–3K token＋低推理，上限 1024 completion token），若子字串有候選還會再一次 `ResolveWithAIAsync`**；結果**不快取**（只快取公司清單）。`comprehensive-analysis` 本來就有同一條匿名路徑，#463 只是多了第二個入口；全站沒有 rate limiter（同 #457 的觀察）。每次估 < US$0.001（**我的估算，未量**），前端正常流程傳的是分析後已解析的代碼，不會觸發。所以是「已存在的輕微暴露多了一個入口」，不是新的風險類別。可用 `AiUsageLogs` 看實際量（`Feature = 'finance.stockcode_resolver'`，匿名呼叫的 `UserId` 為空；**查詢未在正式資料庫執行過**）。最小硬化（若數字顯示有必要）：匿名請求跳過 AI 備援只做精確名稱比對，或把解析結果（含 `NONE`）快取 24 小時。→ 技術債，觸發條件＝`AiUsageLogs` 看到匿名呼叫量明顯異常。
+  2. **順帶發現（讀碼推論，未實測）**：`IsValidStockCode` 只接受**恰好 4 位數字**，所以 5–6 碼的 ETF（`00878`、`00919`、`00631L`）在 Stock Intelligence 會走「公司清單（只含上市公司，不含 ETF）→ 無精確符合 → OpenAI 回 `NONE` → 解析失敗」，而每次還多花一次 OpenAI 呼叫。若成立，熱門 ETF 無法做個股分析（也畫不出趨勢線）。Portfolio 不經此解析器（直接用 provider），不受影響。**請 PM 用 `00878` 手動試一次確認**；若成立是產品缺口（修法＝`IsValidStockCode` 放寬為 `TwStockPattern`，TASK 很小，但這屬 PM 的優先序，我不自行排）。
+  3. `PriceBarsResponse` 的 XML 註解說「one instance is cached and handed to every request」，但個股路徑每次請求都從（已快取的）provider 資料重組一份，沒有回應層快取；對 ≤130 筆做 LINQ，成本可忽略，只是註解不精確。
+- **需求紀錄缺口**：`REQUIREMENTS.md`／`DECISIONS.md` 找不到「趨勢線」（grep 無結果）。請 PM 比照 #448／#449／#461 補登。
+- **未驗證**：沒有渲染圖、沒看手機；沙箱無 .NET、無前端相依套件，測試結果以 Actions 為準；線的「品質」（15 條線是否合理）是 Boss 目視調出來的，我不評價。
+
+### Issue #464 — 「後端運算移到前端」效能提案評估（Boss 提出，標籤 To PM／To Tech Lead）
+**範圍**：Boss 指示的原則（使用者各自的資料、切畫面設定就要重算 → 前端；SQL 能算的 → SQL；全站共用算一次快取 → 後端；答案／XP／防竄改／金鑰／AI → 後端）我全數採用，下面是依原則逐項對照**實際程式**後的判斷。沙箱無 .NET、連不到正式環境，**全部是讀碼結論，沒有量測，沒有重現**。
+
+| ID | 判斷 | 分類 | 處置 |
+|---|---|---|---|
+| IMP-1 每日挑戰 | 同意，且**是正確性問題**，比提案寫的更急 | Required | **TASK-053**（Backend，HIGH，READY） |
+| IMP-5 第一步 | 同意；`ValueAsOfDate`（drawdown／日漲跌）有**同一個寫法**，提案只點到 `InvestedValueAsOfDate` | Optional（效能） | **TASK-054**（Backend，LOW，READY），兩處一起 |
+| IMP-2 | 方向同意；效益主要是 UX，不是省 server | Future Work | 待 PM 排序＋Boss 決定 C# 版去留 |
+| IMP-3 | 方向同意；沒有可量到的浪費 | Future Work | 先量測 |
+| IMP-4／IMP-5 第二步 | 提案的前提**部分已過時**；且有一個口徑問題要 PM／Boss 決定 | Future Work | 先量測，再決定 |
+| IMP-6 | 不做 | Out of Scope（收益趨近零） | 無 |
+| 三個無人呼叫的端點 | 先保留 | Technical Debt | 與 IMP-2 一併決定 |
+
+**IMP-1（每日挑戰）— 為什麼是正確性問題**：`DailyChallengeQuestionGenerator.Generate` 用同一個 `Random(seed)`：先為每個合格單字抽一個洗牌 key（用掉 N 個值），之後每題的錯誤選項與選項順序也從**同一條**亂數流抽。GET 與 Submit 各自重新產生題目，只要兩次之間合格單字數變了（任何人查了新字而 `DictionaryService` 新增了有定義的 `Word`，或某字被標 `DataInvalid`），亂數流位移，**五題的選項順序與 `CorrectIndex` 全部可能不同**，使用者的 `selectedIndex` 就被拿去對另一份題目。`LoadEligibleWordsAsync` 也沒有 `OrderBy`，列順序本身不受保證。這是我**讀碼推論**，沒有（也無法）在沙箱重現；TASK-053 要求 Engineer 先寫出會紅的回歸測試。**決定：持久化到 DB（新表 `DailyChallengeSet`，主鍵＝UTC 日期，加法式遷移），不用 `IMemoryCache`**——App Service 重啟／閒置會清記憶體（`PersistentTwHistoricalProvider` 同理），清掉後會用當時的字庫重算，漂移照樣發生。DB 讀一列主鍵與現有 `DailyChallengeResults` 查詢同級，不必再疊快取。`correctIndex` 本來就傳到前端，持久化沒有增加洩漏。回退方案（Boss 不要新表）寫在任務書：只加 `IMemoryCache`，解決載入量、不完全解決漂移。
+
+**IMP-4 的前提為什麼部分過時（這是我不把它排成 READY 的主因）**：提案寫「每次請求都要讀全部快照 → 深抓所有股價 → 基金淨值 → 逐日估值」。實際上 Portfolio 的資料層早就做了這些：`AllSnapshotsAsync` 有 30 秒快取＋single-flight（註解就寫「一次 page load 的 5 個請求折成一次查詢」）；股價 `CacheTtl.Portfolio.StockPrice`＝30 分、FX 4 小時、基金 NAV 6 小時、股息 24 小時，皆 single-flight；`GetNetWorthHistoryCoreAsync` 的逐日迴圈已用 cursor。所以「只改一個畫面設定」重跑的是**純記憶體的逐日估值**（天數 × 持倉數，180 天 × 30 檔約 5 千次迭代）加 JSON 序列化，不是重新讀庫與打外部 API。IMP-4「效益：高」我**無法從程式支持**；合併端點的真實收益是少幾次 HTTP round trip、切期間／分組即時、估值只有一份——這是 UX 與一致性，不是 server 成本。
+- **口徑問題（需要 PM／Boss 決定，不是純重構）**：兩套逐日估值的「缺價」語意是**刻意不同**的——net-worth 迴圈對缺價的持倉 `continue`（只少算那一檔，整日總和 `== 0` 才丟）；drawdown 的 `ValueAsOfDate` 只要有一檔缺價就整日回 `null`（整日丟掉）。合併成一套就必須選一個，**圖上的數字會在缺價日改變**。
+- **另兩個提案已寫到的矛盾**：各端點區間上限不一致（days 7–180／from-to ≤1 年／drawdown ≤3 年），而 `deep` 抓取的註解說 TW 約 6 個月——drawdown 3 年到底拿得到多長的歷史，需要實測才知道，新端點的上限要等這個答案。
+
+**IMP-3（折數＋XIRR）**：折數只在使用者改的當下才有「重算」，平常每次 summary 本來就要算；而 summary 的重成本部分（價格／FX／股息）都有快取。搬到前端要移植賣出成本（`floor` 取整、債券 ETF 證交稅率判斷）與 `Xirr.cs`（約 60 行、牛頓＋二分），並改 summary 契約與 6 個前端檔（`PositionsTable`、`ContributionWaterfallChart`、`portfolioExport`、`FireCard`／`fireTarget`、`HoldingDetailDrawer`、`DrawdownBrakeRefresh`）。這是**錢的算術**，前後端各一份的風險比一般 UI 計算高；所以若做，應「後端不再算」而不是兩邊並存。符合 Boss 的原則，但沒有量到的收益 → Future Work。
+
+**IMP-2（綜合分析評分）**：快取 key 含設定組合是事實（`FinanceQueryService.GetComprehensiveAnalysisAsync` 的 `configHash`），但 builder 的輸入（行情／籌碼／基本面 provider）各自有快取，改權重重算的只是 `StockScoreService` 的純運算（`StockScoreService` 346 行、`StockAnalysisBuilder` 295 行），成本很低。收益是**拉滑桿即時回饋**與快取不再因設定分裂——UX 價值，PM 排序。若做，我的設計建議：後端回傳全部指標（key 只用代號＋日期＋市場），前端算評分；**C# 評分整個刪除，不保留兩份靠測試對齊**（逐漸不一致的風險在「錢相關的建議文字」上不值得）。這會讓 `GET /api/finance/score/{code}` 失去實作 → 需 Boss 同意刪除匿名公開端點（可能有我看不到的外部呼叫者）。
+
+**無人呼叫的三個端點**：`technical-indicators/{code}`、`chip-analysis/{code}`、`score/{code}` 在前端與 repo 內 grep 都沒有呼叫者（只有 `comprehensive-analysis` 被使用；`REQUIREMENTS.md:625` 是 Credits 時期的舊稽核文字，當時前端確實有接）。三者皆匿名。保留的成本＝一點攻擊面（都走快取 provider），刪除的風險＝未知的外部呼叫者；**先保留**，與 IMP-2 一併決定。`score` 之外兩者與 IMP-2 無關，可獨立刪除，但沒有急迫性。
+
+**IMP-6（stats activity）**：查詢本來就限定單一使用者，且只 `Select` 日期欄位（不載入實體）；最多 366 天的挑戰列＋同期間的 exam attempt 列，SQL `GROUP BY` 能省的只是把約數百個 `DateTime` 變成最多 366 筆——收益趨近零。**不排任務**；日後有人本來就要改 `StatsController` 時順手做即可。
+
+**怎麼量測（給 Boss／PM 用，我連不到正式環境；KQL 未實測）**：Application Insights 的 Logs（classic 結構）：
+```
+requests
+| where timestamp > ago(7d) and url has "/api/portfolio/"
+| summarize n = count(), p50 = percentile(duration, 50), p95 = percentile(duration, 95), mx = max(duration) by name
+| order by p95 desc
+```
+（在 workspace-based 的 Log Analytics 則表名為 `AppRequests`、欄位 `DurationMs`、`Name`、`Url`。）重點看 `net-worth-history`、`drawdown`、`benchmark-comparison`、`summary` 四個。**判讀**：冷快取（重啟後第一次、每天第一次）會被外部抓取主導，看 p50（暖）而不是 max。若暖的 p95 都在數百 ms 內，IMP-3／4／5 第二步就是「UX／口徑統一」的取捨，不是 server 成本問題，可由 Boss／PM 依產品優先序決定；若有某個端點的暖 p95 在秒級，我再針對它拆任務。`PortfolioService` 已有 `Server-Timing`（`Timed(...)`，目前只掛在 summary），需要更細的拆解時可以把 `Timed` 加到其他三個端點（小改動，等數字再說）。
+
+**建議的順序**：TASK-053（先）→ TASK-054（可並行，LOW）→ Boss／PM 貼回上面的數字 → 再決定 IMP-3 → IMP-4（含口徑決定）→ IMP-5 第二步 → IMP-2。**Boss 不需要回覆任何事才能讓 053／054 開工**；若不要 053 的新表，回退成記憶體快取版即可（任務書有寫）。

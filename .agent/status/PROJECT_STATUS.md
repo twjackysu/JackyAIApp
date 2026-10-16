@@ -3262,3 +3262,17 @@
 - **未驗證／限制**：手機 ≤400px 的畫面（Engineer、Tech Lead、PM 皆沒渲染過）；對真 OpenAI 的送出內容未抓封包；合規（個資法、OpenAI 條款）PM 未查證、不下結論。沙箱連不到正式站，部署成功僅指 Actions 結論。
 - **Tech Lead Actions**：無。維護不變式（改 `BuildNlPlanAsync` 送出內容須同步改 `AI_DATA_NOTICE`）已在 `ARCHITECTURE.md`。
 - **Boss**：不需回覆，不發通知。仍待的兩件非阻擋事：#455 gpt-6-luna 對真 OpenAI 實測／#456 陷阱題基準結果貼給 PM（才能勾 Data Analysis 最重要的驗收條件）、匿名用量統計（TASK-029）的 Azure Portal 數據。
+
+
+## 2026-10-16 — Tech Lead：評估 Issue #464（效能提案）、審閱 #463（趨勢線）（排程執行，第 12 次）
+
+- **狀態**：無 open PR；open issue＝#464（Boss 今日 10:08 +0800 提出，標籤 To PM／To Tech Lead）、#409（10/06 後無新留言）。Boss 直接合併了 #463（Stock Intelligence 自動趨勢線，`5c6145e`）；`Build and deploy` run 553 成功。排程 contract test 今日（run 109）尚未出現在 Actions 清單（查詢時間約 11:20 +0800，通常 13:xx +0800 才跑），下次排程再看。
+- **#464 評估**（依據與逐項理由在 `ARCHITECTURE.md`「Issue #464 效能提案評估」，已回覆在 Issue）：
+  - 建立 **TASK-053**（Backend，HIGH，READY）：每日挑戰當日題目只產生一次並存 DB。**IMP-1 實為正確性問題**（GET／Submit 各自重新產生，亂數流在合格單字數變動時位移，選項順序與 `CorrectIndex` 可能整個改變 → 評分／XP 算錯；讀碼推論，未重現）。新增 `DailyChallengeSet` 表（加法式遷移），回退方案＝`IMemoryCache`。
+  - 建立 **TASK-054**（Backend，LOW，READY）：`ValueAsOfDate`＋`InvestedValueAsOfDate` 的 as-of 價格查詢改預排序＋二分搜尋（行為不變）。提案只點到後者，前者（drawdown／日漲跌用）是同一個寫法。
+  - IMP-2／3／4／5 第二步 → **Future Work，先量測**（Portfolio 資料層已有快取，提案「每次重讀快照／深抓股價」的前提部分過時；IMP-4 的兩套估值缺價語意刻意不同，合併是口徑決定）；IMP-6 → 不做；三個無人呼叫的端點 → 先保留，與 IMP-2 一併決定。
+- **#463 事後審閱**：無須追加修正。三點記錄（皆不排任務）：「no AI」不完全準確（TW 名稱會經 `StockCodeResolver` 打 OpenAI，既有路徑多一個匿名入口）；讀碼推論 5–6 碼 ETF 在 Stock Intelligence 可能解析失敗（請 PM 手動確認 `00878`）；趨勢線無需求／決策紀錄（請 PM 補登）。
+- **未動**：程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`、既有 TASK 檔。
+- **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式環境／OpenAI／證交所；以上為讀 git、原始碼與 Actions 紀錄的結論，沒有跑測試、沒有量測、沒有渲染畫面。KQL 與 `AiUsageLogs` 查詢未實測。
+- **PM Actions**：(1) 為 #463 補登需求／決策；(2) 為 #464 排優先序（TASK-053／054 已 READY；IMP-2／3／4 看 Boss 是否要不看數字就做）；(3) 手動試 `00878` 是否能在 Stock Intelligence 分析。
+- **Boss**：不需要回覆任何事。
