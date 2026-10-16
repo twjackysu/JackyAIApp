@@ -3313,3 +3313,10 @@
 - **Boss 注意（皆不阻擋）**：AI 趨勢分析的輸入會少兩段（預設選擇，已在 #464 說明；反對請說一聲）；IMP-3 要不要做；`technical-indicators`／`chip-analysis` 要不要一併刪（預設保留）。
 - **未動**：程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`。
 - **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式環境／OpenAI／TWSE；全是讀碼與 Actions/Issue 紀錄的結論，沒有跑測試、沒有量測。
+
+## 2026-10-16（第四次）— Tech Lead：Boss 決定 AI 評分段留後端，IMP-2 暫停待確認
+
+- Boss 看完「C# 評分刪除後 AI 趨勢分析 prompt 少兩段」的說明後表示：**這段不要改成前端，留在後端。** 與 IMP-2「C# 評分整個刪除」衝突。
+- **處置**：`TASK-056`／`057`／`058` → `ON_HOLD`（確認前不開工）。`TASK-055`（ETF 代號）不受影響。已請 Boss 二選一：(1) 全部留後端、取消 IMP-2（我建議；單一實作）；(2) 前端另算一份顯示、後端留一份給 AI（即時滑桿，兩套並存，靠黃金資料雙邊對齊）。
+- **PM**：先不要更新 `REQUIREMENTS.md` 關於 IMP-2（設定即時生效、`score` 端點移除、AI prompt 少兩段）的內容，等 Boss 確認。需求 6（ETF）照 TASK-055 進行。
+- 驗證限制同前：只動文件，沒有程式碼變更。

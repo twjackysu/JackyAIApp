@@ -4,7 +4,8 @@
 Backend Engineer
 
 ## Status
-READY
+ON_HOLD（2026-10-16 Boss 決定「AI 評分那段留在後端」，與本任務「刪除 C# 評分」的前提衝突；等 Boss 在 (1) 全部留後端、取消 IMP-2 與 (2) 前端另算一份、後端留一份給 AI 之間確認。**確認前不要開工。**）
+（原狀態：READY）
 
 ## Priority
 MEDIUM（阻擋 TASK-057；本身只新增測試與一個 JSON 檔，不改任何正式程式）
