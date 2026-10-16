@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-IN_PROGRESS
+PR_OPENED
 
 ## Priority
 HIGH（會讓評分／XP 靜默算錯；改動小、可測、遷移只新增一張表）
@@ -55,7 +55,14 @@ HIGH（會讓評分／XP 靜默算錯；改動小、可測、遷移只新增一�
 無。
 
 ## Result
-（Engineer 填寫）
+- **PR**：https://github.com/twjackysu/JackyAIApp/pull/465（分支 `claude/exciting-cray-lrijyv`）。後端 6 個檔案＋測試：新增 `Data/Models/DailyChallengeSet.cs`、`AzureSQLDBContext`（`DbSet`）、migration `20261016043749_AddDailyChallengeSet`（`.cs`／`.Designer.cs`／snapshot）、`DailyChallengeService.cs`、新增 `DailyChallengeServiceTests.cs`。
+- **實作**：`GetOrCreateTodaySetAsync(today)` 先以主鍵讀當日一列，沒有才 `LoadEligibleWordsAsync()`（已加 `AsSplitQuery`＋`OrderBy(Id)`）→ 字數不足回原 `BadRequest`／原訊息且不寫入 → `Generate` → 序列化 → insert。`DbUpdateException` 時把自己的 entity 設 `Detached`、重讀並回傳先寫入者的那份；重讀不到列代表不是主鍵衝突，原例外照丟。GET／Submit 都改用它；其餘邏輯與 `DailyChallengeQuestionGenerator`、API 契約、前端都沒動。
+- **Migration**：只有 `CreateTable "DailyChallengeSets"`（`ChallengeDate datetime2` PK、`QuestionsJson nvarchar(max)`、`CreatedAt datetime2`），`Down` 為 `DropTable`；snapshot diff 只多一段新 entity。Up／Down 已貼在 PR 說明。
+- **測試**：新增 11 個（SQLite shared-cache，真的主鍵衝突）。**先在未修改的 service 上跑過：7 紅 3 綠**，回歸測試 `Submit_AfterAWordIsAdded_StillGradesAgainstTheSetTheUserSaw` 為 `Expected: 5, Actual: 2`，連續兩次 GET 的選項順序不同。修改後 `dotnet test --filter "Category!=LiveContract"`：**1308 通過、0 失敗**；既有測試沒有改任何斷言。.NET 10.0.112 是我在沙箱用 `apt` 裝的（原本沒有 `dotnet`）。
+- **已知限制**：(1) 回歸測試的種子是今天的 UTC 日期（service 直接用 `DateTime.UtcNow`，沒為此加 `TimeProvider`）；位移後五題全相同的機率可忽略但不是 0，UTC 午夜前後跑也可能跨日。(2) Submit 在字數不足時現在回 `BadRequest`（過去會用不足 20 字的字庫硬產生題目）；GET 同條件本來就是 `BadRequest`，前端拿不到題目，所以實務上不會遇到。(3) 部署當天已 GET 未 Submit 的使用者仍有一次性風險（任務書已註明不處理）。
+- **未驗證**：沒有對真正的 Azure SQL 跑 migration 或併發（沙箱連不到）；併發路徑只在 SQLite 證明（主鍵衝突拋 `DbUpdateException`，SQL Server 的重複鍵也是 `DbUpdateException`，但我沒有實測）。
+- **流程偏離**：本次 session 只能推到指定分支，`IN_PROGRESS` 與 `PR_OPENED` 都在 `claude/exciting-cray-lrijyv` 上，沒有照 Workflow conventions 推到 master。
+- **TASK-054**：同為 READY、獨立，這次沒有動（一次一個 PR；等 #465 有結果再做）。
 
 ## Review
 （Tech Lead 填寫）

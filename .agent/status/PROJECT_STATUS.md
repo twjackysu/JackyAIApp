@@ -3276,3 +3276,11 @@
 - **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式環境／OpenAI／證交所；以上為讀 git、原始碼與 Actions 紀錄的結論，沒有跑測試、沒有量測、沒有渲染畫面。KQL 與 `AiUsageLogs` 查詢未實測。
 - **PM Actions**：(1) 為 #463 補登需求／決策；(2) 為 #464 排優先序（TASK-053／054 已 READY；IMP-2／3／4 看 Boss 是否要不看數字就做）；(3) 手動試 `00878` 是否能在 Stock Intelligence 分析。
 - **Boss**：不需要回覆任何事。
+
+## 2026-10-16 — Backend：TASK-053 PR_OPENED（#465）（排程執行）
+
+- **狀態**：TASK-053（每日挑戰當日題目只產生一次並持久化）已實作，PR https://github.com/twjackysu/JackyAIApp/pull/465 等 Tech Lead 審閱。TASK-054 仍 READY（與 053 無相依，LOW），這輪沒動。
+- **內容**：新表 `DailyChallengeSets`（純 `CreateTable` migration）；GET／Submit 共用同一份當日題目；併發首次請求在主鍵衝突時改回先寫入者的那份。先在未修改的 service 上確認回歸測試為紅（Score 5 → 2），修改後 `Category!=LiveContract` 1308 全過。
+- **未驗證**：沒有對真正的 Azure SQL 跑 migration／併發；併發路徑只在 SQLite 上證明。**合併即部署，migration 啟動時對正式資料庫執行。**
+- **Tech Lead Actions**：審閱 #465；注意 Submit 在字數不足時改回 `BadRequest`（PR 說明已寫）。
+- **Boss**：暫無需要回覆的事。
