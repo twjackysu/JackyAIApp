@@ -242,7 +242,7 @@ export interface MarketIndexHistoryData {
 // === Price Bars (趨勢線 K 線圖) Types ===
 
 export interface PriceBarsRequest {
-  /** A stock code or company name, or `TAIEX` for the weighted index's last two years. */
+  /** A stock code or company name, or `TAIEX` for the weighted index's last six years. */
   code: string;
   market?: MarketRegion;
 }

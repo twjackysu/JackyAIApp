@@ -72,7 +72,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>
         /// Gets daily OHLC bars for Stock Intelligence's trendline chart; the trendlines are computed
-        /// in the browser. <paramref name="code"/> <c>TAIEX</c> gives the last two years of the index;
+        /// in the browser. <paramref name="code"/> <c>TAIEX</c> gives the index's cached six years;
         /// any other code gives the stock's recent history from the same cached provider the
         /// comprehensive analysis uses (about six months), so it adds no upstream call per visit.
         /// Anonymous like that analysis, no AI and no usage cost.
