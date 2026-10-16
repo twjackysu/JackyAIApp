@@ -66,7 +66,7 @@ function render(props: Partial<TrendlineOverlayProps> = {}) {
         projection={projection}
         measure={measure}
         selectedId={null}
-        drawing={false}
+        drawing={null}
         {...handlers}
         {...props}
       />,
@@ -132,6 +132,7 @@ describe('TrendlineOverlay', () => {
       from: { date: bars[4].date, price: 90 },
       to: { date: bars[20].date, price: 96 },
       toLatest: false,
+      side: 'support',
     });
   });
 
@@ -170,8 +171,8 @@ describe('TrendlineOverlay', () => {
     expect(handlers.onDelete).toHaveBeenCalledWith('sup');
   });
 
-  it('draws a new line from two clicks', () => {
-    render({ drawing: true });
+  it('draws a new line of the chosen kind from two clicks', () => {
+    render({ drawing: 'resistance' });
     expect(hitLine().style.pointerEvents).toBe('none'); // clicks go to the drawing, not the lines
     pointer('pointerdown', surface(), at(3, 110));
     pointer('pointerup', surface(), at(3, 110));
@@ -181,12 +182,13 @@ describe('TrendlineOverlay', () => {
 
     const created = handlers.onCreate.mock.calls[0][0] as DrawnLine;
     expect(created.id).toMatch(/^user-/);
+    expect(created.side).toBe('resistance');
     expect(created.from).toEqual({ date: bars[3].date, price: expect.closeTo(110) });
     expect(created.to).toEqual({ date: bars[18].date, price: expect.closeTo(112) });
   });
 
   it('draws a new line from one drag, snapping its ends to highs and lows', () => {
-    render({ drawing: true });
+    render({ drawing: 'support' });
     pointer('pointerdown', surface(), at(2, 103.4)); // 4.2 px under the high of 104
     pointer('pointermove', surface(), at(29, 96.9));
     pointer('pointerup', surface(), at(29, 96.9));
@@ -195,10 +197,12 @@ describe('TrendlineOverlay', () => {
     expect(created.from).toEqual({ date: bars[2].date, price: 104 });
     expect(created.to).toEqual({ date: bars[29].date, price: 96 });
     expect(created.toLatest).toBe(true);
+    // Drawn as a support, it stays one though it sits above most closes.
+    expect(created.side).toBe('support');
   });
 
   it('waits for a second point when both clicks land on one bar', () => {
-    render({ drawing: true });
+    render({ drawing: 'support' });
     pointer('pointerdown', surface(), at(6, 110));
     pointer('pointerup', surface(), at(6, 110));
     pointer('pointerdown', surface(), at(6.2, 100));

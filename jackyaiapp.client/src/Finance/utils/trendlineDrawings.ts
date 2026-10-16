@@ -6,9 +6,8 @@
  * no longer follows the automatic lines, until they restore them.
  *
  * A line is anchored to dates, not bar indices, so it stays where it was drawn as new bars arrive
- * and an older bar drops off the left edge. Whether it is a support or a resistance is not stored:
- * it is read off the chart (most closes above it = support), so dragging a support line above the
- * price turns it into resistance, as on paper.
+ * and an older bar drops off the left edge. Whether it is a support or a resistance is the user's
+ * call (the automatic lines bring theirs): it stays put when the line is dragged across the price.
  */
 
 import {
@@ -18,6 +17,8 @@ import {
   type TrendlineAnalysis,
   type TrendlineSide,
 } from './trendlines';
+
+import type { LineValue } from './trendlineChartOption';
 
 import { readJson, removeKey, writeJson } from '@/utils/storage';
 
@@ -33,6 +34,11 @@ export interface DrawnLine {
   to: LinePoint;
   /** Keep extending the line to the newest bar: it reached the last bar when it was drawn. */
   toLatest: boolean;
+  /**
+   * Support or resistance. Absent only on lines saved before it was stored; those are read off
+   * the chart (most closes above the line = support) until they are next edited.
+   */
+  side?: TrendlineSide;
 }
 
 /** A line as it appears on the chart today. */
@@ -111,7 +117,7 @@ export function lineGeometry(
     if (bars[k].close >= at(k)) above++;
     else below++;
   }
-  const side: TrendlineSide = above >= below ? 'support' : 'resistance';
+  const side: TrendlineSide = line.side ?? (above >= below ? 'support' : 'resistance');
 
   const touches = analysis.swings.filter(
     (s) =>
@@ -131,6 +137,7 @@ export function autoDrawnLines(bars: OhlcBar[], analysis: TrendlineAnalysis): Dr
     from: { date: bars[l.start].date, price: lineAt(l, l.start) },
     to: { date: bars[l.end].date, price: lineAt(l, l.end) },
     toLatest: l.isActive,
+    side: l.side,
   }));
 }
 
@@ -148,6 +155,16 @@ export function currentLevels(
   return { support: nearest('support'), resistance: nearest('resistance') };
 }
 
+/** Each line drawn over bar `index`, with its value there. */
+export function lineValuesAt(geometries: LineGeometry[], index: number): LineValue[] {
+  return geometries
+    .filter((g) => g.x1 <= index && index <= g.x2)
+    .map((g) => ({
+      side: g.side,
+      value: g.y1 + ((g.y2 - g.y1) / (g.x2 - g.x1)) * (index - g.x1),
+    }));
+}
+
 // ── Edits ─────────────────────────────────────────────────────────────────────
 //
 // Every edit starts from the line as drawn (its geometry), snaps the ends to bars inside the
@@ -159,6 +176,7 @@ const toBar = (bars: OhlcBar[], index: number) =>
 function anchored(
   bars: OhlcBar[],
   id: string,
+  side: TrendlineSide,
   x1: number,
   y1: number,
   x2: number,
@@ -169,6 +187,7 @@ function anchored(
     from: { date: bars[x1].date, price: y1 },
     to: { date: bars[x2].date, price: y2 },
     toLatest: x2 === bars.length - 1,
+    side,
   };
 }
 
@@ -190,8 +209,8 @@ export function moveLineEnd(
   const { x1, y1 } = wholeStart(line);
   const x2 = Math.round(line.x2);
   return end === 'start'
-    ? anchored(bars, line.id, Math.min(toBar(bars, index), x2 - 1), price, x2, line.y2)
-    : anchored(bars, line.id, x1, y1, Math.max(toBar(bars, index), x1 + 1), price);
+    ? anchored(bars, line.id, line.side, Math.min(toBar(bars, index), x2 - 1), price, x2, line.y2)
+    : anchored(bars, line.id, line.side, x1, y1, Math.max(toBar(bars, index), x1 + 1), price);
 }
 
 /** `line` shifted by `byBars` bars and `byPrice` in price, kept inside the chart, slope unchanged. */
@@ -204,13 +223,22 @@ export function moveLine(
   const { x1, y1 } = wholeStart(line);
   const x2 = Math.round(line.x2);
   const shift = Math.min(bars.length - 1 - x2, Math.max(-x1, Math.round(byBars)));
-  return anchored(bars, line.id, x1 + shift, y1 + byPrice, x2 + shift, line.y2 + byPrice);
+  return anchored(
+    bars,
+    line.id,
+    line.side,
+    x1 + shift,
+    y1 + byPrice,
+    x2 + shift,
+    line.y2 + byPrice,
+  );
 }
 
-/** A new line between two points, or null if both fall on the same bar. */
+/** A new `side` line between two points, or null if both fall on the same bar. */
 export function createLine(
   bars: OhlcBar[],
   id: string,
+  side: TrendlineSide,
   p: { index: number; price: number },
   q: { index: number; price: number },
 ): DrawnLine | null {
@@ -218,8 +246,14 @@ export function createLine(
   const j = toBar(bars, q.index);
   if (i === j) return null;
   return i < j
-    ? anchored(bars, id, i, p.price, j, q.price)
-    : anchored(bars, id, j, q.price, i, p.price);
+    ? anchored(bars, id, side, i, p.price, j, q.price)
+    : anchored(bars, id, side, j, q.price, i, p.price);
+}
+
+/** `line` as the other kind: a support becomes a resistance and vice versa, drawn where it was. */
+export function withSide(bars: OhlcBar[], line: LineGeometry, side: TrendlineSide): DrawnLine {
+  const { x1, y1 } = wholeStart(line);
+  return anchored(bars, line.id, side, x1, y1, Math.round(line.x2), line.y2);
 }
 
 // ── Storage ───────────────────────────────────────────────────────────────────
@@ -245,7 +279,8 @@ const isLine = (l: unknown): l is DrawnLine =>
   typeof (l as DrawnLine).id === 'string' &&
   isPoint((l as DrawnLine).from) &&
   isPoint((l as DrawnLine).to) &&
-  typeof (l as DrawnLine).toLatest === 'boolean';
+  typeof (l as DrawnLine).toLatest === 'boolean' &&
+  [undefined, 'support', 'resistance'].includes((l as DrawnLine).side);
 
 /** The user's lines for `code`, or null if they never changed the automatic ones. */
 export function loadDrawings(code: string): DrawnLine[] | null {
