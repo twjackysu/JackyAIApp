@@ -191,6 +191,33 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.Equal("台積電", symbolInfo.Name);
         }
 
+        [Theory]
+        [InlineData("TSE", 43_046_982, 43_046_982)]   // TWSE publishes shares (成交股數)
+        [InlineData("OTC", 16_379, 16_379_000)]       // TPEx publishes lots (成交張數)
+        public async Task FetchAsync_HandsOutVolumeInShares_WhicheverExchange(
+            string twMarketType, long stored, long expectedShares)
+        {
+            // Rows keep what TWStockLib delivered; only the read scales a TPEx history, so the
+            // realtime overlay's today (shares) lines up with it.
+            var lastTradingDay = LastTradingDayBefore(DateOnly.FromDateTime(DateTime.Now));
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = Symbol, Market = "TW", TwMarketType = twMarketType, Name = "某公司",
+                DeepFetchedAt = DateTime.UtcNow.AddDays(-1),
+            });
+            _dbContext.DailyStockPrices.Add(new DailyStockPrice
+            {
+                Symbol = Symbol, Market = "TW", TradeDate = lastTradingDay,
+                Open = 890m, High = 905m, Low = 885m, Close = 900m, Volume = stored,
+            });
+            await _dbContext.SaveChangesAsync();
+
+            var result = await _provider.FetchAsync(Symbol);
+
+            Assert.Equal(expectedShares, Assert.Single(result.HistoricalPrices).Volume);
+            Assert.Equal(stored, (await _dbContext.DailyStockPrices.SingleAsync()).Volume);   // the row is untouched
+        }
+
         [Fact]
         public async Task FetchAsync_DbAlreadyCurrent_MakesNoNetworkCallAtAll()
         {

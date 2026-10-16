@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import taiex from '../utils/__fixtures__/taiex-2024-2026.json';
+import { TW_VOLUME } from '../utils/trendlineChartOption';
 
 import { TrendlineChart } from './TrendlineChart';
 
@@ -25,8 +26,8 @@ vi.mock('@/charts/ReactECharts', () => ({
     useImperativeHandle(ref, () => ({
       getEchartsInstance: () => ({
         convertToPixel: (finder: { xAxisIndex?: number }, value: string | number) => {
-          const x = option.xAxis as { data: string[] };
-          const y = option.yAxis as { min: number; max: number };
+          const x = (option.xAxis as { data: string[] }[])[0];
+          const y = (option.yAxis as { min: number; max: number }[])[0];
           return 'xAxisIndex' in finder
             ? 5 + 10 * x.data.indexOf(value as string)
             : 310 - (300 * ((value as number) - y.min)) / (y.max - y.min);
@@ -163,6 +164,23 @@ describe('TrendlineChart', () => {
     expect(button('改為壓力線')).not.toBeNull();
   });
 
+  it('puts a volume pane under a stock’s prices, and none under the index', () => {
+    render();
+    expect(mocks.option?.grid).toHaveLength(1); // the TAIEX: no unit, no volume
+
+    const stock = {
+      ...data,
+      code: '2330',
+      bars: data.bars.map((b, i) => ({ ...b, volume: 1_000_000 + i })),
+    };
+    act(() => root.render(<TrendlineChart data={stock} defaultRange="1y" volume={TW_VOLUME} />));
+    expect(mocks.option?.grid).toHaveLength(2);
+    const chartBox = container.querySelector('[data-testid="chart"]')?.parentElement?.parentElement;
+    expect(getComputedStyle(chartBox as Element).height).toBe('442px');
+    // The overlay still measures the price pane, so the lines are still drawn over it.
+    expect(lineCount()).toBeGreaterThan(0);
+  });
+
   it('opens with the stored drawing, and restores the automatic lines on request', () => {
     render();
     const auto = lineCount();
@@ -187,7 +205,7 @@ describe('TrendlineChart', () => {
     expect(text()).toContain('支撐 ≈ 42,000');
 
     // The tooltip lists the line on the days it covers, with its value that day.
-    const last = (mocks.option?.xAxis as { data: string[] }).data.length - 1; // the shown year
+    const last = (mocks.option?.xAxis as { data: string[] }[])[0].data.length - 1; // the shown year
     expect(tooltip(last)).toContain('2026-10-16');
     expect(tooltip(last)).toContain('支撐線');
     expect(tooltip(last)).toContain('42,000');

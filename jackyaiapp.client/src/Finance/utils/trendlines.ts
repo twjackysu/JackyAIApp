@@ -27,6 +27,8 @@ export interface OhlcBar {
   high: number;
   low: number;
   close: number;
+  /** Shares traded, when the source has them; the trendlines don't use it. */
+  volume?: number | null;
 }
 
 export interface TrendlineOptions {

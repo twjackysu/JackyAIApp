@@ -1,6 +1,6 @@
 import { CandlestickChart } from 'echarts/charts';
 
-import type { CandlestickSeriesOption } from 'echarts/charts';
+import type { BarSeriesOption, CandlestickSeriesOption } from 'echarts/charts';
 import type { GridComponentOption, TooltipComponentOption } from 'echarts/components';
 import type { ComposeOption } from 'echarts/core';
 
@@ -14,6 +14,7 @@ import { echarts } from '@/charts/echarts';
 // DataAnalysis/viz/registerDataAnalysisCharts.ts).
 echarts.use([CandlestickChart]);
 
+/** Candlesticks, with a volume pane of bars (registered app-wide) when there is volume. */
 export type CandlestickChartOption = ComposeOption<
-  CandlestickSeriesOption | GridComponentOption | TooltipComponentOption
+  CandlestickSeriesOption | BarSeriesOption | GridComponentOption | TooltipComponentOption
 >;

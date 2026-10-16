@@ -6,8 +6,12 @@ import {
   distancePct,
   DOWN_COLOR,
   fmtPrice,
+  fmtVolumeShort,
+  trendlineChartHeight,
   trendlineTooltip,
+  TW_VOLUME,
   UP_COLOR,
+  US_VOLUME,
 } from './trendlineChartOption';
 
 import type { OhlcBar } from './trendlines';
@@ -45,8 +49,70 @@ describe('buildTrendlineOption', () => {
   });
 
   it('fixes the price axis to the given range and leaves the lines to the overlay', () => {
-    expect(option.yAxis).toMatchObject({ min: 8, max: 14 });
+    expect((option.yAxis as unknown[])[0]).toMatchObject({ min: 8, max: 14 });
     expect(series.markLine).toBeUndefined();
+  });
+
+  it('has no volume pane without a unit, or without volume', () => {
+    expect(option.grid).toHaveLength(1);
+    expect(option.series).toHaveLength(1);
+    expect(
+      buildTrendlineOption(bars, { min: 8, max: 14 }, { volume: TW_VOLUME }).grid,
+    ).toHaveLength(1);
+  });
+});
+
+describe('the volume pane', () => {
+  const traded: OhlcBar[] = [
+    { ...bars[0], volume: 43_046_982 },
+    { ...bars[1], volume: null },
+    { ...bars[2], volume: 58_486_711 },
+  ];
+  const option = buildTrendlineOption(traded, { min: 8, max: 14 }, { volume: TW_VOLUME });
+  const volumeSeries = (option.series as Record<string, unknown>[])[1] as {
+    xAxisIndex: number;
+    yAxisIndex: number;
+    data: ({ value: number; itemStyle: { color: string } } | '-')[];
+  };
+
+  it('sits under the prices on its own axes, with the dates moved under it', () => {
+    expect(option.grid).toHaveLength(2);
+    expect(volumeSeries).toMatchObject({ xAxisIndex: 1, yAxisIndex: 1 });
+    const [priceX, volumeX] = option.xAxis as { axisLabel: { show?: boolean } }[];
+    expect(priceX.axisLabel.show).toBe(false);
+    expect(volumeX.axisLabel.show).not.toBe(false);
+    expect(trendlineChartHeight(true)).toBeGreaterThan(trendlineChartHeight(false));
+  });
+
+  it('draws each day in lots, coloured like its candle, and nothing for a day without volume', () => {
+    expect(volumeSeries.data[0]).toEqual({ value: 43_046.982, itemStyle: { color: UP_COLOR } });
+    expect(volumeSeries.data[1]).toBe('-');
+    expect(volumeSeries.data[2]).toEqual({ value: 58_486.711, itemStyle: { color: UP_COLOR } });
+    const down = buildTrendlineOption(
+      [{ ...bars[1], volume: 1000 }, ...traded],
+      { min: 8, max: 14 },
+      {
+        volume: TW_VOLUME,
+      },
+    );
+    expect(
+      (down.series as { data: { itemStyle: { color: string } }[] }[])[1].data[0].itemStyle.color,
+    ).toBe(DOWN_COLOR);
+  });
+
+  it('adds the day’s volume to the tooltip', () => {
+    const formatter = (option.tooltip as { formatter: (p: unknown) => string }).formatter;
+    expect(formatter([{ dataIndex: 0 }])).toContain('43,047 張');
+    expect(formatter([{ dataIndex: 1 }])).not.toContain('量');
+  });
+});
+
+describe('fmtVolumeShort', () => {
+  it('shortens to 萬 and 億', () => {
+    expect(fmtVolumeShort(8_000)).toBe('8,000');
+    expect(fmtVolumeShort(43_047)).toBe('4.3萬');
+    expect(fmtVolumeShort(1_500_000)).toBe('150萬');
+    expect(fmtVolumeShort(123_000_000)).toBe('1.2億');
   });
 });
 
@@ -69,9 +135,18 @@ describe('trendlineTooltip', () => {
     expect(text(trendlineTooltip(bars[1], []))).toBe('2026-10-14 開 11 高 11.5 低 9.5 收 10');
   });
 
+  it('shows the volume in the market’s unit', () => {
+    const day = { ...bars[1], volume: 52_345_678 };
+    expect(text(trendlineTooltip(day, [], TW_VOLUME))).toContain('收 10 量 52,346 張');
+    expect(text(trendlineTooltip(day, [], US_VOLUME))).toContain('量 52,345,678 股');
+    expect(text(trendlineTooltip(day, []))).not.toContain('量');
+  });
+
   it('is what the option shows for the hovered bar', () => {
-    const option = buildTrendlineOption(bars, { min: 8, max: 14 }, (i) =>
-      i === 2 ? [{ side: 'support', value: 10 }] : [],
+    const option = buildTrendlineOption(
+      bars,
+      { min: 8, max: 14 },
+      { linesAt: (i) => (i === 2 ? [{ side: 'support', value: 10 }] : []) },
     );
     const formatter = (option.tooltip as { formatter: (p: unknown) => string }).formatter;
     expect(text(formatter([{ dataIndex: 2 }]))).toContain('支撐線 10');

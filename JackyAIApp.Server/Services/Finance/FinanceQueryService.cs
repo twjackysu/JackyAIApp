@@ -383,7 +383,10 @@ namespace JackyAIApp.Server.Services.Finance
                     .GroupBy(p => DateOnly.FromDateTime(p.Date))
                     .Select(g => g.Last())
                     .OrderBy(p => p.Date)
-                    .Select(p => new PriceBar(DateOnly.FromDateTime(p.Date), p.Open, p.High, p.Low, p.Close))
+                    // A bar with no volume is one the persistent layer back-filled from a quote
+                    // (flat at the close, volume unknown), not a day nothing traded.
+                    .Select(p => new PriceBar(
+                        DateOnly.FromDateTime(p.Date), p.Open, p.High, p.Low, p.Close, p.Volume > 0 ? p.Volume : null))
                     .ToList();
                 if (bars.Count < MinPriceBars)
                     return ServiceResult.Fail(ErrorCodes.NotFound, $"Not enough price history for '{resolvedStockCode}'.");

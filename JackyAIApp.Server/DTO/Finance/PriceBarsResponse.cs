@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace JackyAIApp.Server.DTO.Finance
 {
     /// <summary>
@@ -13,5 +15,13 @@ namespace JackyAIApp.Server.DTO.Finance
 
     /// <summary>One trading day. For the TAIEX, a day without a usable range from the source has
     /// open = high = low = close.</summary>
-    public sealed record PriceBar(DateOnly Date, decimal Open, decimal High, decimal Low, decimal Close);
+    /// <param name="Volume">Shares traded (股, not 張), for a stock; null for the TAIEX and for a day
+    /// the source has no volume for (left out of the JSON).</param>
+    public sealed record PriceBar(
+        DateOnly Date,
+        decimal Open,
+        decimal High,
+        decimal Low,
+        decimal Close,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? Volume = null);
 }
