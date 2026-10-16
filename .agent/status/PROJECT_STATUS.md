@@ -3297,3 +3297,19 @@
 - **Tech Lead Actions**：(1) 確認需求 6：5～6 碼 ETF 在 `comprehensive-analysis`／`price-bars` 端到端是否取得到資料；成立則評估「代號形狀的輸入不經 AI」的小任務，若資料提供者本身取不到 ETF 請告知 PM（需求改為「明確顯示不支援」）；(2) 其餘不需動作（IMP-2／3／4／5b 維持 Future Work，等量測或 Boss 指示）。
 - **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式站／OpenAI／證交所；以上全為讀 git、程式碼與 Issue 的結論，沒有跑測試、沒有渲染畫面、沒有查 Actions 的部署結果。
 - **Boss**：不需回覆、不阻擋任何工作；PM 不發推播通知（沒有需要 Boss 立即行動的事；回覆已在 #464，GitHub 會通知）。
+
+## 2026-10-16（第三次）— Tech Lead：回覆 Boss 在 #464 的決定、排 IMP-2 與 ETF 代號任務、#465／#466 事後審閱（排程執行，第 13 次）
+
+- **狀態**：無 open PR；open issue＝#464（Boss 20:01 +0800 留言：「IMP-2 C# 版刪除…IMP-4/5 先不做、IMP-6 不做，可以排進任務了嗎」）、#409（10/06 後無新留言）。Boss 在 17:13 +0800 直接合併了 #465（TASK-053）與 #466（TASK-054），`Build and deploy` run 554／555 成功；contract test 今日（run 109）綠。
+- **回答 Boss「可以排進任務了嗎」→ 可以，已排**：
+  - **TASK-056**（Backend，READY，MEDIUM）：以現有 C# 經由真正的 `StockAnalysisBuilder.BuildAsync` 產生評分／風險的**黃金測試資料** `stockScoringGolden.json`（約 60 手工邊界＋約 300 確定性隨機案例）。
+  - **TASK-057**（Frontend，BLOCKED 於 056，MEDIUM）：評分／權重正規化／方向／建議文字／面向摘要／風險移植為 TypeScript 純函式，逐案比對黃金資料；請求只送 `{stockCode, market}`；拖權重與勾選面向即時生效、不再打 API。對現有後端也成立，可獨立部署。
+  - **TASK-058**（Backend，BLOCKED 於 057，MEDIUM）：刪除 C# 評分／風險、`GET /api/finance/score/{code}`、builder 的旗標／權重、請求欄位；快取 key 只剩代號＋日期＋市場；AI 趨勢分析 prompt 拿掉「Overall Scoring」「Risk Assessment」兩段。
+  - **IMP-3**：Boss 沒提 → 維持 Future Work，不排。**IMP-4／5 先不做、IMP-6 不做**：照 Boss。`technical-indicators`／`chip-analysis` 端點保留。
+  - 設計、地雷（half-even 進位、已進位加權分加總、整數閾值、`F1` 格式、`risk` 依賴 `scoring` 的怪癖）與連帶影響見 `ARCHITECTURE.md`「Issue #464 後續」。
+- **TASK-055**（Backend，READY，MEDIUM）：PM 需求 6 的 Tech Lead Action。**讀碼確認缺口成立**：`00878`／`00919`／`006208`／`00631L` 在 `StockCodeResolver` 不被視為代號，會先花一次 OpenAI 再失敗。解法＝「長得像台股代號的輸入直接當代號、不經 AI」（與前端 `detectMarket`／後端 `TwStockPattern` 同一個規則）。資料提供者端的讀碼推論：ETF 預期有技術面，籌碼／基本面多半是空的、不會壞（未實測）。
+- **#465／#466 事後審閱**：無須追加修正；`TASK-053`／`TASK-054` → MERGED，Review 區已填。
+- **請 PM**：(1) 更新 `REQUIREMENTS.md`（IMP-2：設定前端即時生效、`score` 端點移除、AI 趨勢分析輸入少兩段；需求 6：ETF 代號改走 TASK-055，資料面預期「ETF 只有技術面」是否可接受）；(2) 記錄 DECISION（Boss 於 #464 的決定）；(3) 057／058 完成後勾驗收。
+- **Boss 注意（皆不阻擋）**：AI 趨勢分析的輸入會少兩段（預設選擇，已在 #464 說明；反對請說一聲）；IMP-3 要不要做；`technical-indicators`／`chip-analysis` 要不要一併刪（預設保留）。
+- **未動**：程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`。
+- **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式環境／OpenAI／TWSE；全是讀碼與 Actions/Issue 紀錄的結論，沒有跑測試、沒有量測。

@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 LOW（沒有量測顯示它是瓶頸；行為不變、有既有測試釘住，所以風險也低。可以排在 TASK-053 之後）
@@ -54,4 +54,11 @@ LOW（沒有量測顯示它是瓶頸；行為不變、有既有測試釘住，�
 - **流程偏離**：本次 session 只能推到指定分支，`IN_PROGRESS` 與 `PR_OPENED` 都在 `claude/exciting-cray-lm9zkb` 上，沒有照 Workflow conventions 推到 master（只動 `.agent/**`，不會觸發部署）。
 
 ## Review
-（Tech Lead 填寫）
+（Tech Lead 事後審閱，2026-10-16 第 13 次排程；Boss 於 2026-10-16 17:13 +0800 直接合併為 #466，`7c119ad`，`Build and deploy` run 555 成功）
+
+**結論：無須追加修正。** 逐行讀了 `AsOfPriceSeries.cs` 與 `PortfolioService.cs` 的差異：
+
+- **語意等價（我自己推演一遍，不只信測試）**：舊寫法 `Where(Date.Date <= day).OrderByDescending(Date).FirstOrDefault()`。新寫法把來源以**完整 `Date`（含時間）**遞減排序一次（LINQ 排序穩定→完全相同者保持原序），key 取 `DateOnly`；因為依完整 `Date` 遞減，`DateOnly` 序列同樣單調非增，二分搜尋「第一個 key ≤ day」成立；同一天不同時間的重複取最晚者、完全相同取來源中最先者，與舊寫法一致。基金以 `yyyy-MM-dd` 字串 ordinal 比較，同理。沒有 `≤ day` 的價格回 `null`，兩個呼叫端分別維持「`?? 0`」與「`?? (UnitPrice ?? 0)`、且 NAV 存在但 ≤ 0 時略過」——正是 Engineer 不把 `null` 折成 0 的原因，正確。
+- **來源集合未被就地改動**（`OrderByDescending(...).ToArray()` 產生新陣列），符合「被快取共用的實例」的要求。`GetNetWorthHistoryCoreAsync` 沒動；同日重複時它（取最後一筆）與這兩處（取最晚時間、平手取最先）不一致的現況，PR 說明有記，**不要順手統一**。
+- **一點觀察（不排任務）**：日漲跌路徑（`summary`）只呼叫 `ValueAsOfDate` 兩次，新寫法要先把 `stockMap` 全部排序一次——成本與被取代的兩次掃描同量級，所以 summary 路徑基本上沒有收益也沒有損失；收益在 drawdown（最長 1095 天）與 benchmark 兩條逐日迴圈。Engineer 量到的 431 ms → 9 ms 是合成資料、沙箱單次，僅供量級。
+- **未驗證**：未對正式環境量測；隨機比對與變異檢查是 Engineer 的測試結果，我沒有重跑（沙箱無 .NET）。

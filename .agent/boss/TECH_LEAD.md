@@ -126,3 +126,11 @@
     - **請你（可選、不阻擋）貼一次量測**：`ARCHITECTURE.md` 有 App Insights 的 KQL（未實測），看 `net-worth-history`／`drawdown`／`benchmark-comparison`／`summary` 暖的 p50／p95。若都在數百 ms 內，其餘項目就純粹是產品優先序（符合你的原則，但不是 server 成本問題）；若有秒級的，我針對它拆任務。若你「不管數字，就是要照原則搬」，在 #464 說一聲，我依序拆 IMP-3 → IMP-4 → IMP-5b → IMP-2。
     - **你直接合併的 #463（趨勢線）我事後審閱了，無須追加修正**；`Build and deploy` run 553 成功，正式環境＝`5c6145e`。兩點請你知道：(a) commit 寫「no AI」，但 TW 名稱（非 4 位數字、非完整公司名）會經 `StockCodeResolver` **無條件打一次 OpenAI**（`comprehensive-analysis` 本來就有、`price-bars` 多一個匿名入口；全站沒有 rate limiter）；單次估 < US$0.001（未量）。看實際量：`AiUsageLogs` 的 `Feature='finance.stockcode_resolver'`（未實測）。**技術債，不排任務**，異常再升級。(b) 讀碼推論：`IsValidStockCode` 只收**恰好 4 位數字**，所以 5–6 碼 ETF（`00878`、`00919`、`00631L`）在 Stock Intelligence 可能查不到（Portfolio 不受影響）——請 PM 手動試 `00878` 確認，若成立是產品缺口。趨勢線本身沒有需求／決策紀錄，已請 PM 補登。
     - **仍等你（皆非阻擋）**：手機 ≤400px 看 Exam 選單與「問 AI」告知；貼 App Insights 各頁面造訪數字；10/20 之後貼 `AiUsageLogs` 成本查詢；（可選）正式 `dbo.Orders` 約幾列。
+
+33. 2026-10-16（排程執行，第 13 次）：**回覆你在 #464 的「可以排進任務了嗎」→ 可以，已排。**（同樣的內容我也回在 Issue 上。）
+    - **IMP-2（評分移到前端、C# 版刪除）拆三步**：**TASK-056**（Backend，READY）先用現有 C# 產生「黃金測試資料」→ **TASK-057**（Frontend）移植到 TypeScript 並逐案比對、拖權重即時生效 → **TASK-058**（Backend）刪 C# 評分、`GET /api/finance/score/{code}`、請求裡的旗標／權重。分三步是因為輸出是顯示給使用者的**分數與投資建議文字**，C# 一刪就沒有正確答案可對；進位（C# 是銀行家進位）與浮點累加是最容易靜默出錯的地方，黃金資料專門鎖定它們。每一步都能獨立部署。
+    - **IMP-4／IMP-5 先不做、IMP-6 不做**：照你的決定。**IMP-3 你沒提**：我維持 Future Work、不排（錢的算術兩份風險高、沒有量到的收益）；要做請說一聲。`technical-indicators`／`chip-analysis` 兩個端點我預設**保留**（與 IMP-2 無關）。
+    - **一個連帶影響請你知道（不阻擋，預設已選）**：AI 個股趨勢分析的 prompt 現在會附上後端算好的「總分／方向／建議／風險」；評分刪除後這兩段拿掉，AI 仍收到每個指標的值、分數、方向、訊號、理由。保留的話就得留一份 C# 評分，違反你「不要兩套邏輯」的決定，所以我選拿掉。AI 輸出品質的影響我**無法量測**（沙箱呼叫不了 OpenAI）。你若不同意請在 #464 說，058 的工程師被指示先停下來問。
+    - **TASK-055（ETF 代號）**：PM 請我確認的 `00878`／`00919`／`00631L` 查不到，**讀碼成立**——解析器只認 4 碼，會先花一次 OpenAI 再失敗；解法是「長得像代號的輸入直接當代號」。資料面（讀碼推論、未實測）：ETF 預期有技術面，籌碼／基本面多半是空的、不會壞。已排 TASK-055（READY，MEDIUM），與 IMP-2 互不相干可並行。
+    - **#465、#466 我事後審閱了，無須追加修正**（run 554／555 成功）。#466 我自己推演了二分搜尋與舊 LINQ 的語意等價（同日重複、無價、價為 0 都一致）。**#465 的 migration 在正式庫是否已套用我看不到**，方便時查 `SELECT MigrationId FROM __EFMigrationsHistory WHERE MigrationId LIKE '%AddDailyChallengeSet'`（應有一列）。
+    - **仍等你（皆非阻擋）**：手機 ≤400px 看 Exam 選單與「問 AI」告知；貼 App Insights 各頁面造訪數字；10/20 之後貼 `AiUsageLogs` 成本查詢；（可選）貼 portfolio 四個端點的暖 p50／p95（若你仍想先量測 IMP-3／4／5）。

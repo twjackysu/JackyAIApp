@@ -2019,3 +2019,51 @@ requests
 （在 workspace-based 的 Log Analytics 則表名為 `AppRequests`、欄位 `DurationMs`、`Name`、`Url`。）重點看 `net-worth-history`、`drawdown`、`benchmark-comparison`、`summary` 四個。**判讀**：冷快取（重啟後第一次、每天第一次）會被外部抓取主導，看 p50（暖）而不是 max。若暖的 p95 都在數百 ms 內，IMP-3／4／5 第二步就是「UX／口徑統一」的取捨，不是 server 成本問題，可由 Boss／PM 依產品優先序決定；若有某個端點的暖 p95 在秒級，我再針對它拆任務。`PortfolioService` 已有 `Server-Timing`（`Timed(...)`，目前只掛在 summary），需要更細的拆解時可以把 `Timed` 加到其他三個端點（小改動，等數字再說）。
 
 **建議的順序**：TASK-053（先）→ TASK-054（可並行，LOW）→ Boss／PM 貼回上面的數字 → 再決定 IMP-3 → IMP-4（含口徑決定）→ IMP-5 第二步 → IMP-2。**Boss 不需要回覆任何事才能讓 053／054 開工**；若不要 053 的新表，回退成記憶體快取版即可（任務書有寫）。
+
+## Issue #464 後續 — Boss 的決定、IMP-2 設計（TASK-056／057／058）、ETF 代號（TASK-055）、#465／#466 事後審閱（Tech Lead 2026-10-16，第 13 次排程）
+
+### Boss 在 #464 的決定（2026-10-16 20:01 +0800）
+- **IMP-2 做，且 C# 版評分刪除**（「我不喜歡兩套邏輯並存」）→ 這同時回答了我先前要 Boss 決定的事：`GET /api/finance/score/{code}` 隨之刪除。
+- **IMP-4／IMP-5 先不做、IMP-6 不做**。**IMP-3（折數＋XIRR）Boss 沒提**：維持 Future Work（PM 排最後、錢的算術兩份風險高、沒有量到的收益），不排任務；要做請 Boss 說一聲。
+- `technical-indicators/{code}`、`chip-analysis/{code}`：Boss 沒提 → **保留**（與 IMP-2 無關）。
+
+### IMP-2 設計：評分／權重／風險只留一份，放前端
+**現況（讀碼）**：`FinanceQueryService.GetComprehensiveAnalysisAsync` 的快取 key 含 `region_旗標×5_權重×3`；`StockAnalysisBuilder.BuildAsync` 依旗標決定抓哪些資料、過濾指標，再 `BuildScoring`（用 `CategoryWeightConfig` 預設 0.5／0.3／0.2 覆寫成請求權重）與 `StockScoreService.AssessRisk`。前端 `DEFAULT_CONFIG` 的預設權重是 0.2／0.3／0.5（與 C# 預設不同）。回應的 `IndicatorResult` 已含評分與風險需要的全部欄位（`category/score/direction/value/subValues`），所以**不需要新增任何欄位**。
+
+**目標形狀**：後端只回全部指標（key＝代號＋日期＋市場，全站一份）；前端依旗標過濾、正規化權重、算面向分數／總分／方向／建議／摘要／風險。拖滑桿即時更新。
+
+**拆成三步（為什麼不是一個任務）**：
+1. **TASK-056（Backend）**：用現有 C# 經由真正的 `StockAnalysisBuilder.BuildAsync` 產生黃金資料 `stockScoringGolden.json`（約 60 個手工邊界案例＋約 300 個確定性隨機案例），放在前端 `Finance/utils/__fixtures__/`。C# 刪除後那是唯一的「正確答案」；而輸出是會顯示給使用者的投資建議文字與分數，移植錯一個閾值使用者看不出來。
+2. **TASK-057（Frontend）**：純函式 `stockScoring.ts` 逐項移植並以黃金資料比對；hook 改為保存原始結果＋`useMemo` 衍生；請求只送 `{stockCode, market}`（對現有後端與 058 之後的後端都成立，所以 057 可獨立部署，不必與後端同時）。
+3. **TASK-058（Backend）**：刪 `Scoring/`、`score` 端點、builder 的評分／旗標／權重、請求欄位；快取 key 去掉 `configHash`；AI 趨勢分析 prompt 拿掉「Overall Scoring」「Risk Assessment」兩段。
+
+**移植的地雷（已寫進 056 的案例與 057 的需求；Tech Lead 審閱時逐項對）**：
+- **進位**：C# `Math.Round(decimal, 1)` 是 **half-even**；面向平均落在 `.25／.75`（四個指標）就會與四捨五入差 0.1。JS 沒有 decimal → 用整數（十分位）運算與 half-even helper，權重轉整數百分比。
+- **總分＝各面向「已進位」加權分的總和**，再拿這個總和判方向；浮點累加會讓 60.0 變 59.99999999999999 而判錯。
+- **面向方向用未進位的平均**（`總分 >= 80 × 個數` 整數比較）；風險分歧分數 `min(多,空)/總數×200` 的閾值（>30／>50／>60，嚴格大於）用整數交叉相乘。
+- **`F1` 格式**：C# decimal 遠離零進位；`toFixed(1)` 依二進位值，`80.05` 會變 `80.0`。
+- **權重**：只有「過濾後仍有指標」的面向參與正規化；總和為 0 時**不正規化**（加權分全 0）。
+- **`categoryScores` 順序**＝各面向第一次出現的順序（卡片照這個畫）。
+- **現行怪癖，原樣保留不修**：`risk` 永遠用 `scoring?.CategoryScores ?? []` 計算 → `includeScoring=false` 時風險因子「各面向分數差距大」不會出現。這讓「風險」依賴一個顯示開關；要不要改是產品決定（PM），不在 IMP-2。
+
+**連帶影響（Boss／PM 請知道）**：
+- **AI 個股趨勢分析（需登入、消耗用量）的 prompt 會少兩段**：`FormatQuantitativeContext` 目前把後端算的「總分／方向／建議／各面向分數」與「風險評估」餵給 AI（用 C# 預設權重 50／30／20）。評分刪除後這兩段拿掉；AI 仍收到每個指標的值／分數／方向／訊號／理由。這是**預設選擇**（保留＝留一份 C# 評分，違反 Boss 的決定）；對 AI 輸出品質的影響我**沒有也無法量測**（沙箱呼叫不了 OpenAI）。已在 Issue #464 告知 Boss；若 Boss 反對，058 工程師被指示先停下來問。
+- **使用者看得到的變化**：量化分析的權重／面向勾選即時生效（以前要重新查詢）；比較分頁與量化分頁共用同一份後端快取。其餘畫面與文案不變。
+- **舊分頁**：058 部署後仍開著舊版 SPA 的分頁會拿到沒有 `scoring` 的回應（不顯示分數），重新整理即恢復；可接受。
+- **收益誠實面**：評分本來就是便宜的純運算，對 server CPU 影響很小；收益是單一實作、快取不分裂、拖滑桿即時。**沒有可量到的效能收益**（與 10/16 的評估一致）。
+
+**需求面（PM 更新 `REQUIREMENTS.md`）**：「綜合分析的設定在前端即時生效」「`score` 端點移除」「AI 趨勢分析輸入不含綜合評分／風險段」。`REQUIREMENTS.md` 第 625～640 行附近的端點清單提到 `score`，058 之後過時。
+
+### 需求 6（5～6 碼 ETF 代號）→ TASK-055
+**讀碼結論成立**（`StockCodeResolver.cs`，沙箱連不到正式環境與 OpenAI，**未實機**）：`IsValidStockCode` 只收恰好 4 位數字；`00878` 這類輸入先取公司清單（`t187ap03_L`，只有上市公司）→ `FindExactCompanyMatchAsync` 無條件送一次 OpenAI（提示詞要求「只返回 4 位數字」）→ 通常 `NONE` → `ResolveWithAIAsync` 因清單中沒有名稱含 `00878` 的公司而直接回空（**第二次 AI 呼叫不會發生**）→ 空字串 → `comprehensive-analysis`／`price-bars` 回「Unable to resolve」。所以**每次查 ETF 代號花一次 OpenAI 又查不到**；LLM 會不會硬湊一個 4 碼代號我無法測（`IsValidStockCode` 會放行任何 4 碼回應）。前端 `detectMarket` 與後端 `MarketDataProviderFactory.TwStockPattern`（`^\d{4,6}[A-Za-z]?$`）早已把這類字串當台股代號，只有解析器沒跟上。
+- **資料提供者端（回答 PM 的第二問，讀碼推論，未實測）**：解析通過後，歷史價走 TWStockLib（Portfolio 就用它抓 `00631L`，所以 ETF 的 K 線與技術指標大概可用；`DetermineMarketType` 找不到時預設 TSE，上櫃 ETF 可能判錯）；TWSE 籌碼與基本面資料集都是逐列以「公司代號」比對，ETF 查不到列 → 欄位空值（各 `Fetch*` 內有 try/catch，找不到列回 `null`）。所以預期 **ETF 能出技術面，籌碼／基本面面向是空的或很薄**——前端以「有指標的面向」顯示，不會壞。這些由 TASK-055 的 PR 說明再讀碼確認。
+- **做法**：解析器對 `^\d{4,6}[A-Za-z]?$` 的輸入直接回傳（trim＋大寫），不取清單、不呼叫 AI；LLM 回傳值的驗證維持嚴格 4 碼（清單只有 4 碼公司）。兩個判斷分開命名。名稱輸入路徑一行不改。**ETF 名稱搜尋不在範圍**（需要 ETF 清單，PM 的優先序）。
+- 順帶效果：移除全站匿名 AI 暴露面中最可能的觸發情境（10/16 記錄的技術債 (a) 的一部分）；名稱輸入仍是技術債。
+
+### #465（TASK-053）、#466（TASK-054）事後審閱
+兩者皆由 Boss 於 2026-10-16 17:13 +0800 直接合併（run 554／555 成功）。**逐行讀了差異，無須追加修正**（細節在 `TASK-053.md`／`TASK-054.md` 的 Review）。記錄兩點：
+- TASK-054 的日漲跌（summary）路徑只呼叫兩次 `ValueAsOfDate`，新寫法要先把 `stockMap` 全排序一次——該路徑沒有收益也沒有損失；收益在 drawdown／benchmark 的逐日迴圈。
+- TASK-053 的 migration 只有 `CreateTable`，**但合併即部署、啟動時對正式庫執行**；沙箱看不到正式環境，是否已套用請 Boss 以 `__EFMigrationsHistory` 查（`LIKE '%AddDailyChallengeSet'` 應有一列）。
+
+### 驗證限制
+沙箱無 .NET、無前端相依套件、連不到正式環境／OpenAI／TWSE；以上全是讀 git、原始碼、Issue 與 Actions 紀錄的結論。IMP-2 的移植正確性靠 056 的黃金資料與 057 的比對測試，不靠我的推演；案例涵蓋度（尤其進位邊界）由 Tech Lead 在 056／057 審閱時檢查。

@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 HIGH（會讓評分／XP 靜默算錯；改動小、可測、遷移只新增一張表）
@@ -65,4 +65,12 @@ HIGH（會讓評分／XP 靜默算錯；改動小、可測、遷移只新增一�
 - **TASK-054**：同為 READY、獨立，這次沒有動（一次一個 PR；等 #465 有結果再做）。
 
 ## Review
-（Tech Lead 填寫）
+（Tech Lead 事後審閱，2026-10-16 第 13 次排程；Boss 於 2026-10-16 17:13 +0800 直接合併為 #465，`cc4b588`，`Build and deploy` run 554 成功）
+
+**結論：無須追加修正。** 逐行讀了 `DailyChallengeService.cs`、`DailyChallengeSet.cs`、migration 與 snapshot 的差異：
+
+- **Migration**：`AddDailyChallengeSet` 只有 `CreateTable "DailyChallengeSets"`（`ChallengeDate datetime2` PK、`QuestionsJson nvarchar(max)`、`CreatedAt datetime2`），`Down` 為 `DropTable`；snapshot 只多一段新 entity。符合「純新增資料表」。
+- **邏輯**：GET 與 Submit 都走 `GetOrCreateTodaySetAsync`；先以主鍵讀、沒有才 `LoadEligibleWordsAsync`（已 `AsSplitQuery`＋`OrderBy(Id)`）→ 字數不足回原 `BadRequest` 且不寫入 → `Generate` → 序列化 → insert。`DbUpdateException` 時把自己的 entity 設 `Detached`、重讀先寫入者的那份，重讀不到就 `throw;`（不是主鍵衝突則原例外照丟）。Submit 的其餘邏輯（已完成者、XP、streak、freeze）沒動。
+- **兩點我確認過、無問題**：(1) 任務書擔心的 `required` 成員反序列化——有 round trip 測試覆蓋（Engineer 的 Result 與測試清單）；(2) 衝突路徑 `Detached` 後同一個 request 之後的 `SaveChanges`（Submit 寫成績）不會重試 insert。
+- **已知取捨（沿用 Engineer 的說明）**：Submit 在字數不足時從「用不足 20 字的字庫硬產題」變成 `BadRequest`，與 GET 一致；前端在該情形本來就拿不到題目。回歸測試的種子是當天 UTC 日期（跨午夜跑有極小機率不穩，Engineer 已記）。
+- **未驗證**：沒有對真正的 Azure SQL 跑 migration／併發（沙箱連不到）；部署成功只代表 Actions 結論，不代表 migration 在正式庫已套用。請 Boss 方便時查 `SELECT MigrationId FROM __EFMigrationsHistory WHERE MigrationId LIKE '%AddDailyChallengeSet'`（應有一列）；第一位開 `/daily` 的使用者之後 `SELECT * FROM DailyChallengeSets` 應有當日一列。部署當天已 GET 未 Submit 的使用者有一次性風險（任務書已註明）。
