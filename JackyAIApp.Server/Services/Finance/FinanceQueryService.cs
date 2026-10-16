@@ -325,7 +325,21 @@ namespace JackyAIApp.Server.Services.Finance
 
                 var result = await builder.BuildAsync(cancellationToken);
                 result.Market = region.ToString();
-                _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
+
+                // No price and no indicator at all: the code doesn't exist, or every upstream
+                // came back empty (the TW price chain swallows its own exceptions into an empty
+                // MarketData). Say "not found" rather than succeed with a blank page, and never
+                // cache it — an upstream blip would otherwise freeze this stock blank for 12 hours.
+                if (result.LatestClose is null && result.Indicators.Count == 0)
+                {
+                    _logger.LogWarning("Comprehensive analysis found no market data for {stockCode} ({region})", resolvedStockCode, region);
+                    return ServiceResult.Fail(ErrorCodes.NotFound, $"No market data found for '{resolvedStockCode}'.");
+                }
+
+                // A missing price is most likely transient too, so a partial result is served but
+                // not cached; only results that carry a price are held for CACHE_HOURS.
+                if (result.LatestClose is not null)
+                    _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
                 return ServiceResult.Ok(result);
             }
             catch (Exception ex)
