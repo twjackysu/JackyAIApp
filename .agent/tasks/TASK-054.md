@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 LOW（沒有量測顯示它是瓶頸；行為不變、有既有測試釘住，所以風險也低。可以排在 TASK-053 之後）
@@ -45,7 +45,13 @@ LOW（沒有量測顯示它是瓶頸；行為不變、有既有測試釘住，�
 無（與 TASK-053 互不相干，可並行）。
 
 ## Result
-（Engineer 填寫）
+- **PR**：https://github.com/twjackysu/JackyAIApp/pull/466（分支 `claude/exciting-cray-lm9zkb`）。後端：新增 `Services/Portfolio/AsOfPriceSeries.cs`（`AsOfPriceSeries<TKey>`、`ForStock`／`ForFund`、`AsOfPriceBook`），`PortfolioService.cs` 的 `ValueAsOfDate`（drawdown、summary 日漲跌）與 `GetBenchmarkComparisonAsync` 的 `InvestedValueAsOfDate` 改用它；測試新增 `AsOfPriceSeriesTests`（17）與 `PortfolioAsOfValuationTests`（19）。
+- **實作**：每個 request 把每檔價格序列排序一次，之後 `CloseOnOrBefore(day)` 二分搜尋，沒有任何 `<= day` 的價格回 `null`（兩個呼叫端對「沒有價格」與「價格為 0」處理不同，所以不折成 0）。來源集合只列舉、不就地改動。`ValueAsOfDate` 的 `stockMap`／`fundMap` 兩個參數換成一個 `AsOfPriceBook`。API、DTO、輸出數字、`GetNetWorthHistoryCoreAsync` 都沒動。
+- **Requirement 3（同日重複）**：TW 持久層有 `(Symbol, TradeDate)` unique index 且 `Date` 一律午夜，今日疊加是取代最後一筆 → 不會重複；TW 直通、Yahoo（`Date` 含時間成分）、`FundDataService`（`List.Sort` 非穩定）都不去重，**無法排除**同日重複（讀碼結論，沙箱連不到上游，未實測）。因此沿用兩處原本的語意（含時間成分的 `Date` 取最大；完全相同取原序列最先出現者），**未統一**；已在 PR 說明記下 net-worth cursor 版（取最後一筆）在同日重複時與這兩處不一致。
+- **測試**：新增 36 個、既有測試未改任何一行。舊 LINQ 當 oracle 的隨機比對（60 個種子）、endpoint 層的基金／缺價／零價／同日重複測試——**這 19 個在舊實作上同樣全過**（暫時還原 `PortfolioService.cs` 跑過）。變異檢查（反轉同值順序）有 3 個測試轉紅，已還原。`dotnet test --filter "Category!=LiveContract"`：**1344 通過、0 失敗**（原 1308 ＋ 36）。.NET 10.0.112 是我在沙箱用 `apt` 裝的。
+- **前後量級**（合成資料、沙箱單次、僅供說明）：30 檔 × 750 筆 × 1095 天 = 32,850 次查詢，舊 ≈ 431 ms → 新（含排序）≈ 9 ms。比任務書估的「秒級」小；沒有對正式環境量測。
+- **已知限制**：基金 `dayKey` 沿用原本的 `date.ToString("yyyy-MM-dd")`（未改 culture）；benchmark 路徑的 `stockMap` 含 benchmark symbol，會多排序幾檔，未特別過濾。
+- **流程偏離**：本次 session 只能推到指定分支，`IN_PROGRESS` 與 `PR_OPENED` 都在 `claude/exciting-cray-lm9zkb` 上，沒有照 Workflow conventions 推到 master（只動 `.agent/**`，不會觸發部署）。
 
 ## Review
 （Tech Lead 填寫）

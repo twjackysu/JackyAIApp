@@ -575,8 +575,9 @@ namespace JackyAIApp.Server.Services.Portfolio
                     // between two unrelated rates into every day's figure. With no trade and no
                     // price move, US$30k of stock read as a NT$15,000 loss. Holding FX constant
                     // leaves price moves and holdings changes, which is what this figure is for.
+                    var asOfPrices = AsOfPriceBook.From(stockMap, fundMap);
                     var prevLiquidNetWorthTWD = ValueAsOfDate(
-                        prevSnapshot.Positions, prevTradingDay, fx, stockMap, fundMap,
+                        prevSnapshot.Positions, prevTradingDay, fx, asOfPrices,
                         includeRealEstate: false, includeLiability: true, fxFor: PositionFx);
 
                     if (prevLiquidNetWorthTWD.HasValue)
@@ -589,7 +590,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                         // assets instead inflates the % whenever there is debt, out of line with the
                         // two percentages shown beside it.
                         var prevLiquidGrossTWD = ValueAsOfDate(
-                            prevSnapshot.Positions, prevTradingDay, fx, stockMap, fundMap,
+                            prevSnapshot.Positions, prevTradingDay, fx, asOfPrices,
                             includeRealEstate: false, includeLiability: false, fxFor: PositionFx);
                         if (prevLiquidGrossTWD is > 0)
                             dayChangePct = Math.Round(dayChangeTWD.Value / prevLiquidGrossTWD.Value * 100, 2);
@@ -940,6 +941,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Distinct()
                 .ToList();
             var fundMap = await FetchFundsAsync(fundIds, ct);
+            var asOfPrices = AsOfPriceBook.From(stockMap, fundMap);
 
             var snapshotIdx = 0;
             var points = new List<DrawdownPointDto>();
@@ -956,7 +958,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (active == null) continue;
 
                 var fx = active.UsdTwdRate > 0 ? active.UsdTwdRate : 32m;
-                var total = ValueAsOfDate(active.Positions, date, fx, stockMap, fundMap);
+                var total = ValueAsOfDate(active.Positions, date, fx, asOfPrices);
                 // Null = a held position couldn't be priced as of this date yet (no-data), same gap
                 // semantics as GetNetWorthHistoryAsync's own "== 0" skip. A real negative total
                 // (debt exceeding assets) is > null and still a valid, kept data point.
@@ -1120,6 +1122,10 @@ namespace JackyAIApp.Server.Services.Portfolio
                     .ToDictionary(g => g.Key, g => g.Sum(r => r.AmountPerUnit)))
                 .ToArray();
 
+            // Sorted once per request (not per day × position); `stockMap` also holds the benchmark
+            // symbols, which this valuation never asks about — a few extra sorts, not worth a filter.
+            var asOfPrices = AsOfPriceBook.From(stockMap, fundMap);
+
             // Same cost-tracked universe as ComputeAnnualizedReturn's terminal value (costBasisTWD +
             // pnlTWD == market value of positions that actually have a recorded cost) — a position
             // with no cost basis filled in has no matching contribution flow driving the benchmark
@@ -1127,7 +1133,6 @@ namespace JackyAIApp.Server.Services.Portfolio
             // performance.
             decimal? InvestedValueAsOfDate(HoldingSnapshot snap, DateOnly date)
             {
-                var dt = date.ToDateTime(TimeOnly.MinValue);
                 var dayKey = date.ToString("yyyy-MM-dd");
                 var fx = snap.UsdTwdRate > 0 ? snap.UsdTwdRate : 32m;
                 decimal total = 0;
@@ -1136,22 +1141,19 @@ namespace JackyAIApp.Server.Services.Portfolio
                     if (!p.CostBasis.HasValue) continue;
                     if (p.AssetType == AssetType.STOCK)
                     {
-                        if (!stockMap.TryGetValue(p.Symbol, out var data)) return null;
-                        var price = data.HistoricalPrices
-                            .Where(x => x.Date.Date <= dt).OrderByDescending(x => x.Date)
-                            .FirstOrDefault()?.Close ?? 0;
+                        if (!asOfPrices.Stocks.TryGetValue(p.Symbol, out var series)) return null;
+                        var price = series.CloseOnOrBefore(date) ?? 0;
                         if (price <= 0) return null;
                         total += price * p.Quantity * (p.Currency == "USD" ? fx : 1m);
                     }
                     else if (p.AssetType == AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol) &&
-                             fundMap.TryGetValue(p.Symbol, out var nav))
+                             asOfPrices.Funds.TryGetValue(p.Symbol, out var fund))
                     {
-                        var price = nav.Prices
-                            .Where(x => string.CompareOrdinal(x.Date, dayKey) <= 0)
-                            .OrderByDescending(x => x.Date, StringComparer.Ordinal)
-                            .FirstOrDefault()?.Close ?? (p.UnitPrice ?? 0);
+                        // No NAV on or before the day falls back to the saved unit price; a NAV that
+                        // exists but is <= 0 does not (it skips the position) — hence the nullable.
+                        var price = fund.Prices.CloseOnOrBefore(dayKey) ?? (p.UnitPrice ?? 0);
                         if (price <= 0) continue;
-                        total += price * p.Quantity * (nav.Currency == "USD" ? fx : 1m);
+                        total += price * p.Quantity * (fund.Currency == "USD" ? fx : 1m);
                     }
                 }
                 return total;
@@ -1944,7 +1946,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// </summary>
         private static decimal? ValueAsOfDate(
             IEnumerable<HoldingPosition> positions, DateOnly date, decimal fx,
-            Dictionary<string, DTO.Finance.MarketData> stockMap, Dictionary<string, FundNavHistory> fundMap,
+            AsOfPriceBook prices,
             bool includeRealEstate = true, bool includeLiability = true,
             // Per-position TWD rate given the price currency. When null, USD converts at `fx` and
             // everything else at 1, which is what the history/drawdown callers want. The day change
@@ -1954,7 +1956,6 @@ namespace JackyAIApp.Server.Services.Portfolio
             decimal Fx(HoldingPosition p, string? currency) =>
                 fxFor?.Invoke(p, currency) ?? (currency == "USD" ? fx : 1m);
 
-            var dt = date.ToDateTime(TimeOnly.MinValue);
             var dayKey = date.ToString("yyyy-MM-dd");
             decimal total = 0;
 
@@ -1981,21 +1982,15 @@ namespace JackyAIApp.Server.Services.Portfolio
 
                 if (p.AssetType == AssetType.STOCK)
                 {
-                    if (stockMap.TryGetValue(p.Symbol, out var data))
-                        price = data.HistoricalPrices
-                            .Where(x => x.Date.Date <= dt)
-                            .OrderByDescending(x => x.Date)
-                            .FirstOrDefault()?.Close ?? 0;
+                    if (prices.Stocks.TryGetValue(p.Symbol, out var series))
+                        price = series.CloseOnOrBefore(date) ?? 0;
                 }
                 else // FUND
                 {
-                    if (!string.IsNullOrWhiteSpace(p.Symbol) && fundMap.TryGetValue(p.Symbol, out var nav))
+                    if (!string.IsNullOrWhiteSpace(p.Symbol) && prices.Funds.TryGetValue(p.Symbol, out var fund))
                     {
-                        priceCurrency = nav.Currency;
-                        price = nav.Prices
-                            .Where(x => string.CompareOrdinal(x.Date, dayKey) <= 0)
-                            .OrderByDescending(x => x.Date, StringComparer.Ordinal)
-                            .FirstOrDefault()?.Close ?? 0;
+                        priceCurrency = fund.Currency;
+                        price = fund.Prices.CloseOnOrBefore(dayKey) ?? 0;
                     }
                     if (price <= 0) price = p.UnitPrice ?? 0; // fallback, mirrors the live valuation loop
                 }
