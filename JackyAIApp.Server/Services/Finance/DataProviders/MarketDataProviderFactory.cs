@@ -1,5 +1,4 @@
 using JackyAIApp.Server.Services.Finance.DataProviders.US;
-using System.Text.RegularExpressions;
 
 namespace JackyAIApp.Server.Services.Finance.DataProviders
 {
@@ -11,9 +10,6 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     {
         private readonly IServiceProvider _serviceProvider;
 
-        // TW stock codes: 4-6 digits, optionally ending with a letter (e.g., "2330", "6547", "00878")
-        private static readonly Regex TwStockPattern = new(@"^\d{4,6}[A-Za-z]?$", RegexOptions.Compiled);
-
         public MarketDataProviderFactory(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
@@ -22,7 +18,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         public MarketRegion DetectRegion(string stockCode)
         {
             if (string.IsNullOrWhiteSpace(stockCode)) return MarketRegion.TW;
-            return TwStockPattern.IsMatch(stockCode.Trim()) ? MarketRegion.TW : MarketRegion.US;
+            return TwStockCode.TryNormalize(stockCode, out _) ? MarketRegion.TW : MarketRegion.US;
         }
 
         public IMarketDataProvider GetMarketDataProvider(MarketRegion region)
