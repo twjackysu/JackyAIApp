@@ -3,37 +3,79 @@ using DataAnalysisLibrary.Core.Enums;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.DataAnalysis;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 namespace JackyAIApp.Server.Services.DataAnalysis
 {
-    public class SessionDataStore(IMemoryCache cache) : ISessionDataStore
+    /// <summary>
+    /// Registered as a singleton: its <see cref="SessionUploadBudget"/> must count every session in the process.
+    /// </summary>
+    public class SessionDataStore(
+        IMemoryCache cache,
+        IOptions<SessionUploadOptions>? options = null,
+        SessionUploadBudget? budget = null) : ISessionDataStore
     {
         private readonly IMemoryCache _cache = cache;
+        private readonly SessionUploadOptions _limits = (options ?? Options.Create(new SessionUploadOptions())).Value;
+        private readonly SessionUploadBudget _budget =
+            budget ?? new SessionUploadBudget(options ?? Options.Create(new SessionUploadOptions()));
 
-        private const string SessionCachePrefix = "da_session_";
+        internal const string SessionCachePrefix = "da_session_";
         private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(2);
-        private const int MaxRows = 50_000;
+
+        /// <summary>
+        /// A row's own objects: the Dictionary (≈ 80 bytes), its bucket and entry arrays' headers, and its
+        /// slot in the row list.
+        /// </summary>
+        internal const int PerRowOverheadBytes = 136;
+
+        /// <summary>
+        /// A cell's objects besides its characters: the key and value strings' headers (≈ 24 bytes each;
+        /// the JSON reader allocates a fresh key string for every row) and the dictionary entry + bucket (≈ 28).
+        /// </summary>
+        internal const int PerCellOverheadBytes = 76;
 
         public ServiceResult Upload(SessionUploadDto dto)
         {
             if (dto.Rows is null || dto.Rows.Count == 0)
-                return ServiceResult.Fail(ErrorCodes.BadRequest, "No rows provided.");
+                return ServiceResult.Fail(ErrorCodes.BadRequest, "沒有可上傳的資料列。");
 
-            if (dto.Rows.Count > MaxRows)
-                return ServiceResult.Fail(ErrorCodes.BadRequest, $"Maximum {MaxRows:N0} rows per session.");
+            if (dto.Rows.Count > _limits.MaxRows)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, $"每次最多上傳 {_limits.MaxRows:N0} 列。");
+
+            var (bytes, shapeError) = Measure(dto.Rows, _limits);
+            if (shapeError is not null)
+                return ServiceResult.Fail(ErrorCodes.BadRequest, shapeError);
+            if (bytes > _limits.MaxSessionBytes)
+                return ServiceResult.Fail(ErrorCodes.PayloadTooLarge,
+                    $"資料量太大（單次上傳上限約 {_limits.MaxSessionBytes >> 20} MB 記憶體），請減少列數或欄數後再試。");
+
+            // Nothing is stored — no session id, cache untouched — unless the whole session fits the budget.
+            if (!_budget.TryReserve(bytes))
+                return ServiceResult.Fail(ErrorCodes.TooManyRequests, SessionUploadOptions.BusyMessage);
 
             var schema = InferSchema(dto.Rows);
             var expires = DateTimeOffset.UtcNow.Add(SessionTtl);
             var id = Guid.NewGuid().ToString("N");
             var name = dto.Name?.Trim() is { Length: > 0 } n ? n : "Uploaded Data";
 
-            _cache.Set(SessionCachePrefix + id, new SessionData
+            var entryOptions = new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = SessionTtl }
+                .RegisterPostEvictionCallback((_, _, _, _) => _budget.Release(bytes));
+            try
             {
-                Name = name,
-                Rows = dto.Rows,
-                Schema = schema,
-                ExpiresAt = expires,
-            }, SessionTtl);
+                _cache.Set(SessionCachePrefix + id, new SessionData
+                {
+                    Name = name,
+                    Rows = dto.Rows,
+                    Schema = schema,
+                    ExpiresAt = expires,
+                }, entryOptions);
+            }
+            catch
+            {
+                _budget.Release(bytes);
+                throw;
+            }
 
             return ServiceResult.Ok(new SessionUploadResponseDto
             {
@@ -169,6 +211,36 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// The upload's estimated in-memory size — Σ rows (<see cref="PerRowOverheadBytes"/> + Σ cells
+        /// (<see cref="PerCellOverheadBytes"/> + 2 bytes per character of name and value)) — or the reason
+        /// its shape is refused (a missing row, too many columns, an over-long name or cell). Stops counting
+        /// once past <see cref="SessionUploadOptions.MaxSessionBytes"/>.
+        /// </summary>
+        internal static (long Bytes, string? Error) Measure(List<Dictionary<string, string>> rows, SessionUploadOptions limits)
+        {
+            var columns = new HashSet<string>(StringComparer.Ordinal);
+            long bytes = 0;
+            foreach (var row in rows)
+            {
+                if (row is null) return (0, "資料列格式錯誤。");
+                if (row.Count > limits.MaxColumns) return (0, $"每份資料最多 {limits.MaxColumns} 欄。");
+
+                bytes += PerRowOverheadBytes;
+                foreach (var (key, value) in row)
+                {
+                    var valueLength = value?.Length ?? 0;
+                    if (key.Length > limits.MaxCellLength || valueLength > limits.MaxCellLength)
+                        return (0, $"欄位名稱與每個儲存格最多 {limits.MaxCellLength:N0} 個字元。");
+                    if (columns.Add(key) && columns.Count > limits.MaxColumns)
+                        return (0, $"每份資料最多 {limits.MaxColumns} 欄。");
+                    bytes += PerCellOverheadBytes + 2L * (key.Length + valueLength);
+                }
+                if (bytes > limits.MaxSessionBytes) return (bytes, null);
+            }
+            return (bytes, null);
+        }
 
         /// <summary>The session's rows that pass the request's filters, in its sort order (first sort field only).</summary>
         private static List<Dictionary<string, string>> FilterAndSort(SessionData session, DetailsRequestDto dto)

@@ -1,5 +1,6 @@
 using DataAnalysisLibrary.Connectors.MsSql;
 using DataAnalysisLibrary.Core.Engine;
+using JackyAIApp.Server.Common;
 
 namespace JackyAIApp.Server.Services.DataAnalysis
 {
@@ -15,7 +16,13 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         public static IServiceCollection AddDataAnalysisServices(this IServiceCollection services, string sqlConnectionString)
         {
             services.AddScoped<IDataSourceConfigService, DataSourceConfigService>();
-            services.AddScoped<ISessionDataStore, SessionDataStore>();
+
+            // Session uploads live in this process's memory, so the store and its byte budget are
+            // process-wide singletons; the admission filter reads the same budget before a body is read.
+            services.AddOptions<SessionUploadOptions>().BindConfiguration(SessionUploadOptions.SectionName);
+            services.AddSingleton<SessionUploadBudget>();
+            services.AddSingleton<ISessionDataStore, SessionDataStore>();
+            services.AddSingleton<SessionUploadAdmissionFilter>();
 
             services.AddSingleton(_ =>
                 new DataAnalysisEngineBuilder()

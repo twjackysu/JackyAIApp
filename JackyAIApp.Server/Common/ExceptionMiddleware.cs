@@ -22,6 +22,14 @@ namespace JackyAIApp.Server.Common
                 httpContext.Request.EnableBuffering();
                 await _next(httpContext);
             }
+            catch (BadHttpRequestException ex) when (!httpContext.Response.HasStarted)
+            {
+                // Kestrel refusing the request itself — e.g. a body over the action's [RequestSizeLimit]
+                // (413). The client's fault, not a server error: keep its status, and don't go on to log
+                // (and re-read) a body that was refused for being too big.
+                _logger.LogWarning("Request rejected by the server: {status} {message}", ex.StatusCode, ex.Message);
+                httpContext.Response.StatusCode = ex.StatusCode;
+            }
             catch (Exception ex)
             {
                 await HandleExceptionAsync(httpContext, ex);

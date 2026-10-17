@@ -190,6 +190,7 @@ try
     builder.Services.AddPortfolioServices();
     builder.Services.AddConnectorServices(builder.Configuration);
     builder.Services.AddDataAnalysisServices(sqlConnectionString);
+    builder.Services.AddAppRateLimiting();
 
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
     builder.Services.AddOpenAIService(options =>
@@ -242,6 +243,10 @@ try
     app.UseHttpsRedirection();
 
     app.UseAuthorization();
+
+    // After authentication (added implicitly at the start of the pipeline), so a policy can
+    // partition by the signed-in user; policies are opted into per action (RateLimitPolicies).
+    app.UseRateLimiter();
 
     app.MapControllers();
     app.MapHealthChecks("/api/health");

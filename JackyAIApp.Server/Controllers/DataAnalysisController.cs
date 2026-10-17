@@ -13,6 +13,7 @@ using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Prompt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.EntityFrameworkCore;
 using static JackyAIApp.Server.Common.DataAnalysisMapping;
@@ -883,8 +884,16 @@ namespace JackyAIApp.Server.Controllers
         // Session upload — temporary in-memory data source (see ISessionDataStore).
         // ═══════════════════════════════════════════════════════════════════════
 
-        /// <summary>Upload tabular data into a temporary in-memory session (expires in 2h, never persisted).</summary>
+        /// <summary>
+        /// Upload tabular data into a temporary in-memory session (expires in 2h, never persisted). Stays
+        /// anonymous, so it is bounded on every side: a rate limit (signed-in users each, anonymous callers
+        /// together), a pre-binding check of size, session budget and memory load, a body-size cap for
+        /// bodies without Content-Length, and the store's shape and memory limits (see SessionUploadOptions).
+        /// </summary>
         [HttpPost("session")]
+        [EnableRateLimiting(RateLimitPolicies.SessionUpload)]
+        [ServiceFilter(typeof(SessionUploadAdmissionFilter))]
+        [RequestSizeLimit(SessionUploadOptions.MaxRequestBodyBytes)]
         public IActionResult UploadSession([FromBody] SessionUploadDto dto) =>
             _responseFactory.ToActionResult(_sessionStore.Upload(dto));
 
