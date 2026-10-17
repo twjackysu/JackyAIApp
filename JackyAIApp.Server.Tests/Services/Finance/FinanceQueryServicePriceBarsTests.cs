@@ -29,10 +29,9 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         }
 
         // Only the dependencies price bars use are real; the rest are never touched.
-        private FinanceQueryService Service() => new(
-            NullLogger<FinanceQueryService>.Instance, null!, null!, _resolver.Object, null!, null!, null!, null!,
-            null!, null!, null!, null!, null!, null!, _index.Object, null!, null!, null!, null!,
-            _factory.Object, null!);
+        private StockAnalysisQueryService Service() => new(
+            NullLogger<StockAnalysisQueryService>.Instance, null!, null!, _resolver.Object, null!, null!,
+            null!, null!, null!, null!, null!, _index.Object, _factory.Object, null!);
 
         // ---- TAIEX ---------------------------------------------------------------------------
 
@@ -146,7 +145,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         {
             _resolver.Setup(r => r.ResolveStockCodeAsync("6999", It.IsAny<CancellationToken>())).ReturnsAsync("6999");
             _provider.Setup(p => p.FetchAsync("6999", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new MarketData { HistoricalPrices = Days(FinanceQueryService.MinPriceBars - 1, new DateTime(2026, 9, 1)) });
+                .ReturnsAsync(new MarketData { HistoricalPrices = Days(StockAnalysisQueryService.MinPriceBars - 1, new DateTime(2026, 9, 1)) });
 
             var result = await Service().GetPriceBarsAsync("6999", null, default);
 

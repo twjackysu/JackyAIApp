@@ -54,7 +54,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             });
         }
 
-        private FinanceQueryService Service()
+        private StockAnalysisQueryService Service()
         {
             var insider = new Mock<SECInsiderTradingProvider>(
                 Mock.Of<IHttpClientFactory>(), Mock.Of<IMemoryCache>(), Mock.Of<ILogger<SECInsiderTradingProvider>>());
@@ -65,13 +65,13 @@ namespace JackyAIApp.Server.Tests.Services.Finance
 
             // One service per test class instance, so each test has its own cache; a second call
             // within a test goes through the same cache the first one wrote to.
-            return _service ??= new FinanceQueryService(
-                NullLogger<FinanceQueryService>.Instance, null!, null!, _resolver.Object, null!, null!,
+            return _service ??= new StockAnalysisQueryService(
+                NullLogger<StockAnalysisQueryService>.Instance, null!, null!, _resolver.Object, null!,
                 new ExtendedMemoryCache(new MemoryCacheOptions()), null!, null!, null!, null!, builder,
-                null!, null!, null!, null!, null!, null!, null!, _factory.Object, null!);
+                null!, _factory.Object, null!);
         }
 
-        private FinanceQueryService? _service;
+        private StockAnalysisQueryService? _service;
 
         private static StockAnalysisRequest Request(string code = "2330") => new() { StockCode = code };
 

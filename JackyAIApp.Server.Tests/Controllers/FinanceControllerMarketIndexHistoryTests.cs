@@ -41,7 +41,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         // ---- Controller ------------------------------------------------------------------------
 
         private readonly Mock<IMyResponseFactory> _responseFactory = new();
-        private readonly Mock<IFinanceQueryService> _query = new();
+        private readonly Mock<IMarketDataQueryService> _query = new();
         private readonly FinanceController _controller;
 
         public FinanceControllerMarketIndexHistoryTests()
@@ -52,7 +52,8 @@ namespace JackyAIApp.Server.Tests.Controllers
                 .Returns<ErrorCodes, string>((code, msg) => new ObjectResult(new { code, msg }) { StatusCode = (int)code / 100 % 1000 });
 
             _controller = new FinanceController(
-                _responseFactory.Object, _query.Object, new Mock<IServiceScopeFactory>().Object,
+                _responseFactory.Object, Mock.Of<IStockAnalysisQueryService>(), _query.Object,
+                Mock.Of<IMarketInsightService>(), new Mock<IServiceScopeFactory>().Object,
                 NullLogger<FinanceController>.Instance);
         }
 
@@ -113,29 +114,13 @@ namespace JackyAIApp.Server.Tests.Controllers
 
         // ---- Query service ---------------------------------------------------------------------
 
-        private static FinanceQueryService QueryServiceOver(IMarketIndexHistoryProvider history) => new(
-            NullLogger<FinanceQueryService>.Instance,
-            new Mock<IUserService>().Object,
-            new Mock<ITWSEOpenAPIService>().Object,
-            new Mock<IStockCodeResolver>().Object,
-            new Mock<ITWSEDataService>().Object,
-            new Mock<IFinanceAnalysisService>().Object,
+        private static MarketDataQueryService QueryServiceOver(IMarketIndexHistoryProvider history) => new(
+            NullLogger<MarketDataQueryService>.Instance,
             new Mock<IExtendedMemoryCache>().Object,
-            new Mock<IMarketDataProvider>().Object,
-            new Mock<IIndicatorEngine>().Object,
-            new Mock<IChipDataProvider>().Object,
-            new Mock<IStockScoreService>().Object,
-            // A concrete class this endpoint never touches; skip building its nine dependencies.
-            (StockAnalysisBuilder)RuntimeHelpers.GetUninitializedObject(typeof(StockAnalysisBuilder)),
             new Mock<IMacroEconomyProvider>().Object,
             new Mock<IMarketOverviewProvider>().Object,
             history,
-            new Mock<IIndicatorProvider>().Object,
-            new Mock<IFinnhubNewsProvider>().Object,
-            new Mock<IOpenAIPromptService>().Object,
-            new Mock<IUsageLimitService>().Object,
-            new Mock<IMarketDataProviderFactory>().Object,
-            new Mock<IStockPredictionRecorder>().Object);
+            new Mock<IIndicatorProvider>().Object);
 
         [Fact]
         public async Task QueryService_PassesTheSeriesThrough()
