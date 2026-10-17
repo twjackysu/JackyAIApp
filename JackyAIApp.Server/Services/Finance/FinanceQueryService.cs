@@ -420,13 +420,11 @@ namespace JackyAIApp.Server.Services.Finance
         public async Task<ServiceResult> GetMacroEconomyAsync(CancellationToken cancellationToken)
         {
             var cacheKey = $"MacroEconomy_{DateTime.Now:yyyyMMdd}";
-            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
-                return ServiceResult.Ok(cachedResult);
-
             try
             {
-                var result = await _macroEconomyProvider.FetchAsync(cancellationToken);
-                _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(2));
+                var result = await _memoryCache.GetOrCreateSingleFlightAsync(
+                    cacheKey, TimeSpan.FromHours(2),
+                    () => _macroEconomyProvider.FetchAsync(CancellationToken.None), cancellationToken);
                 return ServiceResult.Ok(result);
             }
             catch (Exception ex)
@@ -439,15 +437,14 @@ namespace JackyAIApp.Server.Services.Finance
         public async Task<ServiceResult> GetMarketOverviewAsync(CancellationToken cancellationToken)
         {
             const string cacheKey = "MarketOverview";
-            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
-                return ServiceResult.Ok(cachedResult);
-
             try
             {
-                var result = await _marketOverviewProvider.FetchAsync(cancellationToken);
                 // Short TTL — these are intraday snapshots, but cache enough to shield the upstream
-                // (free, unofficial) source from per-request load.
-                _memoryCache.Set(cacheKey, result, TimeSpan.FromMinutes(3));
+                // (free, unofficial) source from per-request load; single-flight collapses the
+                // cold-cache burst into one fetch.
+                var result = await _memoryCache.GetOrCreateSingleFlightAsync(
+                    cacheKey, TimeSpan.FromMinutes(3),
+                    () => _marketOverviewProvider.FetchAsync(CancellationToken.None), cancellationToken);
                 return ServiceResult.Ok(result);
             }
             catch (Exception ex)
@@ -638,13 +635,11 @@ namespace JackyAIApp.Server.Services.Finance
                 return ServiceResult.Fail(ErrorCodes.InternalServerError, "Indicator data source is not configured (FRED API key missing).");
 
             const string cacheKey = "Indicators";
-            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
-                return ServiceResult.Ok(cachedResult);
-
             try
             {
-                var result = await _indicatorProvider.FetchAsync(cancellationToken);
-                _memoryCache.Set(cacheKey, result, TimeSpan.FromHours(6));
+                var result = await _memoryCache.GetOrCreateSingleFlightAsync(
+                    cacheKey, TimeSpan.FromHours(6),
+                    () => _indicatorProvider.FetchAsync(CancellationToken.None), cancellationToken);
                 return ServiceResult.Ok(result);
             }
             catch (Exception ex)
