@@ -228,6 +228,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     .ToListAsync(cancellationToken);
             }
 
+            // Rows keep volume as TWStockLib delivered it, which is per exchange: shares for TWSE,
+            // lots for TPEx (see TwVolume). Hand out shares either way, or the realtime overlay's
+            // today (shares) would sit a thousandfold off a TPEx history and every volume ratio and
+            // chart would be wrong. A market not yet resolved is read as TWSE, as the fetch does.
+            var twMarketType = (await db.StockSymbolInfos.FindAsync([stockCode], cancellationToken))?.TwMarketType;
+            var volumeScale = twMarketType == nameof(MarketType.OTC) ? TwVolume.SharesPerLot : 1;
+
             return new MarketData
             {
                 StockCode = stockCode,
@@ -239,7 +246,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     High = p.High,
                     Low = p.Low,
                     Close = p.Close,
-                    Volume = p.Volume,
+                    Volume = p.Volume * volumeScale,
                 }).ToList(),
             };
         }

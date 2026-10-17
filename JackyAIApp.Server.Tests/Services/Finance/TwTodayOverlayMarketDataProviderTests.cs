@@ -90,6 +90,39 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         }
 
         [Fact]
+        public async Task QuoteVolume_IsInLots_AndBecomesShares()
+        {
+            // The quote's running total is in 張; every other bar is in 股. Left as is, today's
+            // volume read a thousand times too small and the volume ratio called every day 量縮.
+            _quotes.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Quote(107.7m, totalVolume: 33_257));
+
+            var result = await Create().FetchLatestAsync(Symbol);
+
+            Assert.Equal(33_257_000, result.HistoricalPrices[^1].Volume);
+        }
+
+        [Theory]
+        [InlineData(33_257, 43_046_982)]   // TWSE's day bar also counts after-hours and block trades
+        [InlineData(50_000, 50_000_000)]   // a running total past an earlier day bar
+        public async Task TodaysBarAlreadyThere_KeepsTheLargerVolume(uint quoteLots, long expectedShares)
+        {
+            var history = HistoricalOnly();
+            history.HistoricalPrices.Add(new DailyPrice
+            {
+                Date = DateTime.Today, Open = 108m, High = 108m, Low = 107m, Close = 107.7m, Volume = 43_046_982,
+            });
+            _inner.Setup(x => x.FetchLatestAsync(Symbol, It.IsAny<CancellationToken>())).ReturnsAsync(history);
+            _quotes.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Quote(107.7m, totalVolume: quoteLots));
+
+            var result = await Create().FetchLatestAsync(Symbol);
+
+            Assert.Equal(2, result.HistoricalPrices.Count);   // replaced, not appended
+            Assert.Equal(expectedShares, result.HistoricalPrices[^1].Volume);
+        }
+
+        [Fact]
         public async Task OutsideTheQuoteWindow_SaysNothing()
         {
             // Before 09:00 there is no same-day quote to expect, so silence is correct — the
@@ -109,12 +142,13 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         // ── Helpers ───────────────────────────────────────────────────────────
 
         /// <summary>StockQuote inherits required members from StockData; fill them once here.</summary>
-        private static StockQuote Quote(decimal lastPrice) => new()
+        private static StockQuote Quote(decimal lastPrice, uint? totalVolume = null) => new()
         {
             Symbol = Symbol,
             Name = "元大台灣50",
             Market = MarketType.TSE,
             LastPrice = lastPrice,
+            TotalVolume = totalVolume,
         };
 
         private static MarketData HistoricalOnly() => new()

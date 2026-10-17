@@ -108,6 +108,25 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         }
 
         [Fact]
+        public async Task Stock_CarriesEachDaysVolumeInShares_AndNoneForADayWithout()
+        {
+            var start = new DateTime(2026, 4, 1);
+            var prices = Days(35, start);
+            prices[0].Volume = 43_046_982;
+            prices[1].Volume = 0;   // a day back-filled from a quote: volume unknown, not "nothing traded"
+            _provider.Setup(p => p.FetchAsync("AAPL", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData { StockCode = "AAPL", HistoricalPrices = prices });
+
+            var bars = Assert.IsType<PriceBarsResponse>((await Service().GetPriceBarsAsync("AAPL", "US", default)).Data);
+
+            Assert.Equal(43_046_982, bars.Bars[0].Volume);
+            Assert.Null(bars.Bars[1].Volume);
+            var json = JsonSerializer.Serialize(bars.Bars.Take(2), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            Assert.Contains("\"volume\":43046982", json);
+            Assert.Equal(1, json.Split("volume").Length - 1);   // an unknown volume is left out, not null
+        }
+
+        [Fact]
         public async Task UsStock_UsesTheCodeAsIs()
         {
             _provider.Setup(p => p.FetchAsync("AAPL", It.IsAny<CancellationToken>()))

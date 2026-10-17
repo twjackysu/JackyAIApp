@@ -22,6 +22,9 @@ import '../charts/registerFinanceCharts';
 import {
   buildTrendlineOption,
   chartPriceRange,
+  hasVolume,
+  trendlineChartHeight,
+  type VolumeUnit,
   distancePct,
   fmtPrice,
   RESISTANCE_COLOR,
@@ -78,7 +81,8 @@ export const TRENDLINE_METHOD =
 
 export const TRENDLINE_DISCLAIMER = '趨勢線僅供參考，不構成投資建議。';
 
-const CHART_HEIGHT = 360;
+/** Without a volume pane; the skeleton holds this much room while the bars load. */
+const CHART_HEIGHT = trendlineChartHeight(false);
 /** Undo steps kept. */
 const UNDO_DEPTH = 20;
 
@@ -125,6 +129,8 @@ export interface TrendlineChartProps {
   data: PriceBarsData;
   /** Where the chart starts until the user picks a start date. */
   defaultRange: RangePresetId;
+  /** How the market counts volume; without it (the TAIEX) there is no volume pane. */
+  volume?: VolumeUnit;
 }
 
 /**
@@ -137,7 +143,7 @@ export function TrendlineChart(props: TrendlineChartProps) {
   return <EditableTrendlineChart key={props.data.code} {...props} />;
 }
 
-function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
+function EditableTrendlineChart({ data, defaultRange, volume }: TrendlineChartProps) {
   const { code } = data;
   const allBars = data.bars;
   const allDates = useMemo(() => allBars.map((b) => b.date), [allBars]);
@@ -219,9 +225,14 @@ function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
   // The tooltip lists the lines over the hovered day, so the option follows the lines. A drag only
   // moves the overlay's preview; the chart gets a new option once, when the line is let go.
   const option = useMemo(
-    () => buildTrendlineOption(bars, priceRange, (index) => lineValuesAt(geometries, index)),
-    [bars, priceRange, geometries],
+    () =>
+      buildTrendlineOption(bars, priceRange, {
+        linesAt: (index) => lineValuesAt(geometries, index),
+        volume,
+      }),
+    [bars, priceRange, geometries, volume],
   );
+  const chartHeight = trendlineChartHeight(hasVolume(bars, volume));
   const chartRef = useRef<EChartsHandle | null>(null);
   const [frame, setFrame] = useState<ChartFrame | null>(null);
   const remeasure = useRef(() => {});
@@ -418,7 +429,7 @@ function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
       </Typography>
 
       <Box
-        sx={{ position: 'relative', height: CHART_HEIGHT }}
+        sx={{ position: 'relative', height: chartHeight }}
         onPointerDown={() => {
           if (!drawing) setSelectedId(null);
         }}
@@ -434,7 +445,7 @@ function EditableTrendlineChart({ data, defaultRange }: TrendlineChartProps) {
             theme={ECHARTS_THEME}
             onEvents={onEvents}
             onChartReady={onChartReady}
-            style={{ height: CHART_HEIGHT, width: '100%' }}
+            style={{ height: chartHeight, width: '100%' }}
           />
         </Box>
         {projection && (

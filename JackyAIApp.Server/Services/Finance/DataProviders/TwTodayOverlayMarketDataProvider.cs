@@ -150,12 +150,19 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 High = quote.HighestPrice ?? livePrice,
                 Low = quote.LowestPrice ?? livePrice,
                 Close = livePrice,
-                Volume = quote.TotalVolume ?? 0,
+                // The quote's running total is in lots; the bars it joins are in shares.
+                Volume = (quote.TotalVolume ?? 0) * TwVolume.SharesPerLot,
             };
 
             var prices = new List<DailyPrice>(source.HistoricalPrices);
             if (prices.Count > 0 && prices[^1].Date.Date == today)
+            {
+                // After the close TWSE's own bar for today can already be here, and its volume
+                // also counts the after-hours fixed-price and block trades the quote's running total
+                // leaves out — so the larger of the two is the day's.
+                todayBar.Volume = Math.Max(todayBar.Volume, prices[^1].Volume);
                 prices[^1] = todayBar;
+            }
             else
                 prices.Add(todayBar);
 

@@ -254,6 +254,8 @@ export interface PriceBar {
   high: number;
   low: number;
   close: number;
+  /** Shares traded (股, not 張). Absent for the TAIEX and for a day the source has none for. */
+  volume?: number;
 }
 
 export interface PriceBarsData {
