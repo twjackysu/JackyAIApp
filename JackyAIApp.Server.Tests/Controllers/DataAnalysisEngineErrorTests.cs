@@ -88,7 +88,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             AzureSQLDBContext? db = null, IDataSourceConfigService? configService = null, string? userId = null) =>
             new(NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object, FailingEngine(),
                 dbContext: db!, configService: configService!, sessionStore: null!,
-                openAIPromptService: null!, usageLimitService: null!, promptLoader: null!,
+                openAIPromptService: null!, usageLimitService: null!, promptLoader: null!, nlPlanner: null!,
                 cache: new MemoryCache(new MemoryCacheOptions()))
             {
                 ControllerContext = new ControllerContext { HttpContext = As(userId) },

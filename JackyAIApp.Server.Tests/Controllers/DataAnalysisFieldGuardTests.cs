@@ -4,6 +4,7 @@ using DataAnalysisLibrary.Core.Engine;
 using DataAnalysisLibrary.Core.Enums;
 using DataAnalysisLibrary.Core.Models.Requests;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Services.DataAnalysis;
 using JackyAIApp.Server.Controllers;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
@@ -101,6 +102,7 @@ namespace JackyAIApp.Server.Tests.Controllers
                 NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object, _engine,
                 dbContext: null!, configService: null!, sessionStore: null!,
                 openAIPromptService: openAI ?? null!, usageLimitService: null!, promptLoader: prompts.Object,
+                nlPlanner: new NlQueryPlanner(NullLogger<NlQueryPlanner>.Instance, openAI ?? null!),
                 cache: cache ?? new MemoryCache(new MemoryCacheOptions()));
             var http = new DefaultHttpContext();
             http.Response.Body = new MemoryStream();

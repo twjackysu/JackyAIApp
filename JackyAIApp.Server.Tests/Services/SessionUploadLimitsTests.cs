@@ -286,6 +286,7 @@ namespace JackyAIApp.Server.Tests.Services
                 .AddInMemoryCollection(new Dictionary<string, string?> { ["DataAnalysis:SessionUpload:MaxTotalBytes"] = "1000000" })
                 .Build());
             services.AddSingleton(Mock.Of<JackyAIApp.Server.Services.ITokenEncryptionService>());   // registered elsewhere in the app
+            services.AddSingleton(Mock.Of<JackyAIApp.Server.Services.OpenAI.IOpenAIPromptService>());   // registered elsewhere in the app (NlQueryPlanner needs it)
             services.AddDataAnalysisServices("Server=unused;User ID=u;Password=p;");
             using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
 
