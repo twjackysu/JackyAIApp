@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using System.Text.Json;
 
@@ -13,7 +14,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<MarketOverviewProvider> _logger;
 
-        private const string CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart";
+        private static readonly string CHART_URL = YahooChart.ChartBase;
 
         // (group, Yahoo symbol, display name) — output keeps this order within each group.
         private static readonly (string Group, string Symbol, string Name)[] Tickers =
@@ -57,8 +58,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 var url = $"{CHART_URL}/{Uri.EscapeDataString(symbol)}?range=1d&interval=1d";
 
                 var client = _httpClientFactory.CreateClient("ExternalReadOnly");
-                using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
+                using var request = YahooChart.Request(url);
 
                 using var response = await client.SendAsync(request, ct);
                 if (!response.IsSuccessStatusCode)

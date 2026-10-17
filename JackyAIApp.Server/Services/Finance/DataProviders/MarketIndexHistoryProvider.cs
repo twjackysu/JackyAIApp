@@ -1,4 +1,5 @@
 using System.Text.Json;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 
 namespace JackyAIApp.Server.Services.Finance.DataProviders
@@ -22,7 +23,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         internal const string Symbol = "^TWII";
         internal const string DisplayName = "加權指數（價格指數，不含息）";
         internal const string SourceName = "Yahoo Finance";
-        internal const string Url = "https://query1.finance.yahoo.com/v8/finance/chart/%5ETWII?range=6y&interval=1d";
+        internal static readonly string Url = $"{YahooChart.ChartBase}/%5ETWII?range=6y&interval=1d";
 
         /// <summary>Six years of trading days is about 1,450; far fewer means a truncated reply.</summary>
         internal const int MinPoints = 1000;
@@ -48,8 +49,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             try
             {
                 var client = httpClientFactory.CreateClient("ExternalReadOnly");
-                using var request = new HttpRequestMessage(HttpMethod.Get, Url);
-                request.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
+                using var request = YahooChart.Request(Url);
 
                 using var response = await client.SendAsync(request, cancellationToken);
                 if (!response.IsSuccessStatusCode)
