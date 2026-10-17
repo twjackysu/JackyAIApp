@@ -16,6 +16,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         public static IServiceCollection AddDataAnalysisServices(this IServiceCollection services, string sqlConnectionString)
         {
             services.AddScoped<IDataSourceConfigService, DataSourceConfigService>();
+            // The NL-query planner (LLM pipeline behind summarize/nl), extracted from the controller.
+            services.AddScoped<INlQueryPlanner, NlQueryPlanner>();
 
             // Session uploads live in this process's memory, so the store and its byte budget are
             // process-wide singletons; the admission filter reads the same budget before a body is read.
