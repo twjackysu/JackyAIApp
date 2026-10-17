@@ -114,7 +114,8 @@ namespace JackyAIApp.Server.Tests.Controllers
             DataAnalysisEngine defaultEngine, ISessionDataStore? sessions = null)
         {
             var controller = new DataAnalysisController(
-                NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object, defaultEngine,
+                NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
+                new DataSourceResolver(defaultEngine, null!, null!, NullLogger<DataSourceResolver>.Instance),
                 dbContext: null!, configService: null!, sessionStore: sessions ?? null!,
                 openAIPromptService: null!, usageLimitService: null!, promptLoader: null!, nlPlanner: null!,
                 cache: new MemoryCache(new MemoryCacheOptions()));

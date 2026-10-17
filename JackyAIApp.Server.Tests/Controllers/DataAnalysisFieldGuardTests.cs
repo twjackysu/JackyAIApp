@@ -99,7 +99,8 @@ namespace JackyAIApp.Server.Tests.Controllers
             var prompts = new Mock<IPromptLoader>();
             prompts.Setup(p => p.GetPrompt(It.IsAny<string>())).Returns("SYSTEM");
             var controller = new DataAnalysisController(
-                NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object, _engine,
+                NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
+                new DataSourceResolver(_engine, null!, null!, NullLogger<DataSourceResolver>.Instance),
                 dbContext: null!, configService: null!, sessionStore: null!,
                 openAIPromptService: openAI ?? null!, usageLimitService: null!, promptLoader: prompts.Object,
                 nlPlanner: new NlQueryPlanner(NullLogger<NlQueryPlanner>.Instance, openAI ?? null!),
@@ -391,7 +392,8 @@ namespace JackyAIApp.Server.Tests.Controllers
             await db.SaveChangesAsync();
 
             var controller = new DashboardController(
-                NullLogger<DashboardController>.Instance, ResponseFactory().Object, db, _engine,
+                NullLogger<DashboardController>.Instance, ResponseFactory().Object, db,
+                new DataSourceResolver(_engine, db, null!, NullLogger<DataSourceResolver>.Instance),
                 configService: null!, cache: new MemoryCache(new MemoryCacheOptions()))
             {
                 ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },

@@ -30,7 +30,7 @@ namespace JackyAIApp.Server.Controllers
     public class DataAnalysisController(
         ILogger<DataAnalysisController> logger,
         IMyResponseFactory responseFactory,
-        DataAnalysisEngine defaultEngine,
+        IDataSourceResolver resolver,
         AzureSQLDBContext dbContext,
         IDataSourceConfigService configService,
         ISessionDataStore sessionStore,
@@ -42,7 +42,7 @@ namespace JackyAIApp.Server.Controllers
     {
         private readonly ILogger<DataAnalysisController> _logger               = logger;
         private readonly IMyResponseFactory              _responseFactory       = responseFactory;
-        private readonly DataAnalysisEngine              _defaultEngine         = defaultEngine;
+        private readonly IDataSourceResolver             _resolver              = resolver;
         private readonly AzureSQLDBContext               _dbContext             = dbContext;
         private readonly IDataSourceConfigService        _configService         = configService;
         private readonly ISessionDataStore               _sessionStore          = sessionStore;
@@ -51,10 +51,6 @@ namespace JackyAIApp.Server.Controllers
         private readonly IPromptLoader                   _promptLoader          = promptLoader;
         private readonly INlQueryPlanner                 _nlPlanner             = nlPlanner;
         private readonly IMemoryCache                    _cache                 = cache;
-
-        // ── Default source constants ───────────────────────────────────────────
-        private const string DefaultMsSqlKey   = "mssql";
-        private const string DefaultTableName  = "dbo.Orders";
 
         // ── Engine resolution ──────────────────────────────────────────────────
 
@@ -65,51 +61,23 @@ namespace JackyAIApp.Server.Controllers
         /// The singleton default engine has <c>OwnsEngine = false</c> and must NOT be disposed
         /// here — its lifetime is managed by the DI container.
         /// </summary>
-        private sealed record ResolvedCtx(
-            DataAnalysisEngine Engine,
-            string             SourceKey,
-            string             TableName,
-            bool               OwnsEngine) : IDisposable
-        {
-            public void Dispose() { if (OwnsEngine) Engine.Dispose(); }
-        }
-
         /// <summary>
         /// The engine for the request's source, or null with the response to send instead: 404 when
         /// the source doesn't exist or isn't the caller's, 400 when its saved settings are refused
         /// (see <see cref="DataSourceConfigException"/>).
         /// </summary>
-        private async Task<(ResolvedCtx? Ctx, IActionResult? Rejection)> TryResolveAsync(
+        private async Task<(ResolvedSource? Ctx, IActionResult? Rejection)> TryResolveAsync(
             QueryContextDto? ctx, CancellationToken ct)
         {
-            if (ctx?.SourceId is null)
-                // The default source is the application's own database. Never honor a
-                // caller-supplied table name here — it is pinned to the demo table so
-                // the default source cannot be used to read arbitrary app tables.
-                return (new ResolvedCtx(_defaultEngine, DefaultMsSqlKey, DefaultTableName, OwnsEngine: false), null);
-
-            var notFound = _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
-            var userId = CurrentUserId;
-            // Custom sources require an authenticated user who owns the record.
-            if (userId is null) return (null, notFound);
-
-            var source = await _dbContext.DataSourceConfigs
-                .FirstOrDefaultAsync(s => s.Id == ctx.SourceId.Value && s.UserId == userId, ct);
-            if (source is null) return (null, notFound);
-
-            DataAnalysisEngine engine;
-            try
+            // A live query resolves the source as the signed-in caller (the record's owner).
+            var (source, status, message) = await _resolver.ResolveAsync(ctx?.SourceId, ctx?.TableName, CurrentUserId, ct);
+            return status switch
             {
-                engine = _configService.BuildEngine(source);
-            }
-            catch (DataSourceConfigException ex)
-            {
-                _logger.LogWarning("DataAnalysis: refused saved source {id}: {err}", source.Id, ex.Message);
-                return (null, _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, ex.Message));
-            }
-            var sourceKey = _configService.SourceKey(source.ConnectorType);
-            var tableName = ctx.TableName ?? source.DefaultTableName ?? "";
-            return (new ResolvedCtx(engine, sourceKey, tableName, OwnsEngine: true), null);
+                DataSourceResolution.Ok => (source, null),
+                DataSourceResolution.ConfigRefused =>
+                    (null, _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, message!)),
+                _ => (null, _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.")),
+            };
         }
 
         /// <summary>
@@ -119,7 +87,7 @@ namespace JackyAIApp.Server.Controllers
         /// source is the signed-in owner's own database: they get the driver's message, which is what
         /// they need to fix their connection or query.
         /// </summary>
-        private IActionResult EngineFailure(ResolvedCtx ctx, string? engineError, string genericMessage)
+        private IActionResult EngineFailure(ResolvedSource ctx, string? engineError, string genericMessage)
         {
             _logger.Log(ctx.OwnsEngine ? LogLevel.Warning : LogLevel.Error,
                 "DataAnalysis query failed: source={src} table={t}: {err}",
@@ -134,7 +102,7 @@ namespace JackyAIApp.Server.Controllers
         /// the schema can't be read — or null when the request may go to the engine.
         /// </summary>
         private async Task<IActionResult?> GuardFieldsAsync(
-            ResolvedCtx ctx, Func<IReadOnlySet<string>, string?> check, CancellationToken ct)
+            ResolvedSource ctx, Func<IReadOnlySet<string>, string?> check, CancellationToken ct)
         {
             // Only the default source (the engine this controller doesn't own) has a fixed table worth caching.
             var fields = await DataAnalysisFieldGuard.LoadFieldNamesAsync(
@@ -635,7 +603,7 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>Returns the max (latest) value of a date column on the resolved engine, as an ISO string, or null.</summary>
-        private async Task<string?> FetchEngineMaxDateAsync(ResolvedCtx ctx, string field, CancellationToken ct)
+        private async Task<string?> FetchEngineMaxDateAsync(ResolvedSource ctx, string field, CancellationToken ct)
         {
             var result = await ctx.Engine.MaxDateAsync(
                 new MaxDateRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName, DateFieldName = field }, ct);

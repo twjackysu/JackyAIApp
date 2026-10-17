@@ -86,7 +86,8 @@ namespace JackyAIApp.Server.Tests.Controllers
 
         private static DataAnalysisController Controller(
             AzureSQLDBContext? db = null, IDataSourceConfigService? configService = null, string? userId = null) =>
-            new(NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object, FailingEngine(),
+            new(NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
+                new DataSourceResolver(FailingEngine(), db!, configService!, NullLogger<DataSourceResolver>.Instance),
                 dbContext: db!, configService: configService!, sessionStore: null!,
                 openAIPromptService: null!, usageLimitService: null!, promptLoader: null!, nlPlanner: null!,
                 cache: new MemoryCache(new MemoryCacheOptions()))
@@ -219,7 +220,8 @@ namespace JackyAIApp.Server.Tests.Controllers
             await db.SaveChangesAsync();
 
             var controller = new DashboardController(
-                NullLogger<DashboardController>.Instance, ResponseFactory().Object, db, FailingEngine(),
+                NullLogger<DashboardController>.Instance, ResponseFactory().Object, db,
+                new DataSourceResolver(FailingEngine(), db, null!, NullLogger<DataSourceResolver>.Instance),
                 configService: null!, cache: new MemoryCache(new MemoryCacheOptions()))
             {
                 ControllerContext = new ControllerContext { HttpContext = As(null) },
