@@ -4,6 +4,7 @@ using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using Newtonsoft.Json;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
@@ -73,15 +74,20 @@ namespace JackyAIApp.Server.Services.Exam
         // a repeat becomes possible at all.
         private const int NoRepeatWindow = 30;
 
-        private async Task<HashSet<string>> GetRecentListeningTestIdsAsync(string userId, int take)
+        /// <summary>The ids of this user's most recently attempted items of one bank (whichever
+        /// <paramref name="idSelector"/> picks), newest first, deduped — the no-repeat window the
+        /// three exam banks each exclude from their pool.</summary>
+        private async Task<HashSet<string>> GetRecentAttemptIdsAsync(
+            string userId, int take, Expression<Func<SQL.ExamAttempt, string?>> idSelector)
         {
             var ids = await _dbContext.ExamAttempts
-                .Where(a => a.UserId == userId && a.ListeningTestId != null)
+                .Where(a => a.UserId == userId)
                 .OrderByDescending(a => a.CreatedAt)
-                .Select(a => a.ListeningTestId!)
+                .Select(idSelector)
+                .Where(id => id != null)
                 .Take(take * 3)
                 .ToListAsync();
-            return ids.Distinct().Take(take).ToHashSet();
+            return ids.Select(id => id!).Distinct().Take(take).ToHashSet();
         }
 
         public async Task<ServiceResult> GenerateListeningExamAsync()
@@ -96,23 +102,14 @@ namespace JackyAIApp.Server.Services.Exam
             var userId = _userService.GetUserId();
             var excludeIds = string.IsNullOrEmpty(userId)
                 ? new HashSet<string>()
-                : await GetRecentListeningTestIdsAsync(userId, NoRepeatWindow);
+                : await GetRecentAttemptIdsAsync(userId, NoRepeatWindow, a => a.ListeningTestId);
 
-            var poolQuery = _dbContext.ListeningTests.Where(t => !excludeIds.Contains(t.Id));
-            var poolCount = await poolQuery.CountAsync();
-            // Bank smaller than the exclusion window would empty the pool — fall back to a repeat.
-            if (poolCount == 0)
-            {
-                poolQuery = _dbContext.ListeningTests;
-                poolCount = count;
-            }
-
-            var skip = Random.Shared.Next(poolCount);
-            var test = await poolQuery
-                .Include(lt => lt.Options)
-                .OrderBy(lt => lt.Id)
-                .Skip(skip)
-                .FirstAsync();
+            // When nothing is excluded, the whole bank is the pool — skip the extra COUNT.
+            var unseenCount = excludeIds.Count == 0
+                ? count
+                : await _dbContext.ListeningTests.CountAsync(t => !excludeIds.Contains(t.Id));
+            var test = await PickRandomFromPoolAsync(
+                _dbContext.ListeningTests, q => q.Include(lt => lt.Options), excludeIds, unseenCount, count);
 
             return ServiceResult.Ok(new ListeningTestResponse
             {
@@ -187,26 +184,17 @@ namespace JackyAIApp.Server.Services.Exam
             })
         );
 
-        private async Task<HashSet<string>> GetRecentListeningResponseTestIdsAsync(string userId, int take)
+        /// <summary>Picks one random row from <paramref name="bank"/>, preferring rows whose id is
+        /// not in <paramref name="excludeIds"/> (the no-repeat window); falls back to the whole bank
+        /// when every row is excluded. <paramref name="include"/> applies that bank's own eager
+        /// loads. Shared by the three exam banks, which differed only in that shape.</summary>
+        private static async Task<T> PickRandomFromPoolAsync<T>(
+            IQueryable<T> bank, Func<IQueryable<T>, IQueryable<T>> include,
+            HashSet<string> excludeIds, int unseenCount, int totalCount) where T : class, SQL.IStringId
         {
-            var ids = await _dbContext.ExamAttempts
-                .Where(a => a.UserId == userId && a.ListeningResponseTestId != null)
-                .OrderByDescending(a => a.CreatedAt)
-                .Select(a => a.ListeningResponseTestId!)
-                .Take(take * 3)
-                .ToListAsync();
-            return ids.Distinct().Take(take).ToHashSet();
-        }
-
-        private async Task<SQL.ListeningResponseTest> PickFromPoolAsync(HashSet<string> excludeIds, int unseenCount, int totalCount)
-        {
-            var poolQuery = unseenCount > 0
-                ? _dbContext.ListeningResponseTests.Where(t => !excludeIds.Contains(t.Id))
-                : _dbContext.ListeningResponseTests;
+            var pool = unseenCount > 0 ? bank.Where(t => !excludeIds.Contains(t.Id)) : bank;
             var poolCount = unseenCount > 0 ? unseenCount : totalCount;
-
-            return await poolQuery
-                .Include(t => t.Options)
+            return await include(pool)
                 .OrderBy(t => t.Id)
                 .Skip(Random.Shared.Next(poolCount))
                 .FirstAsync();
@@ -217,7 +205,7 @@ namespace JackyAIApp.Server.Services.Exam
             var userId = _userService.GetUserId();
             var excludeIds = string.IsNullOrEmpty(userId)
                 ? new HashSet<string>()
-                : await GetRecentListeningResponseTestIdsAsync(userId, NoRepeatWindow);
+                : await GetRecentAttemptIdsAsync(userId, NoRepeatWindow, a => a.ListeningResponseTestId);
 
             var count = await _dbContext.ListeningResponseTests.CountAsync();
             var unseenCount = await _dbContext.ListeningResponseTests.CountAsync(t => !excludeIds.Contains(t.Id));
@@ -225,7 +213,7 @@ namespace JackyAIApp.Server.Services.Exam
 
             if (!shouldGenerate && unseenCount > 0)
             {
-                var existing = await PickFromPoolAsync(excludeIds, unseenCount, count);
+                var existing = await PickRandomFromPoolAsync(_dbContext.ListeningResponseTests, q => q.Include(t => t.Options), excludeIds, unseenCount, count);
                 return ServiceResult.Ok(ToListeningResponseDto(existing));
             }
 
@@ -242,7 +230,7 @@ namespace JackyAIApp.Server.Services.Exam
                 // Fall back to an existing one rather than a hard failure, if the bank has any.
                 if (count > 0)
                 {
-                    var fallback = await PickFromPoolAsync(excludeIds, unseenCount, count);
+                    var fallback = await PickRandomFromPoolAsync(_dbContext.ListeningResponseTests, q => q.Include(t => t.Options), excludeIds, unseenCount, count);
                     return ServiceResult.Ok(ToListeningResponseDto(fallback));
                 }
 
@@ -383,32 +371,6 @@ namespace JackyAIApp.Server.Services.Exam
             })
         );
 
-        private async Task<HashSet<string>> GetRecentReadingPassageIdsAsync(string userId, int take)
-        {
-            var ids = await _dbContext.ExamAttempts
-                .Where(a => a.UserId == userId && a.ReadingPassageId != null)
-                .OrderByDescending(a => a.CreatedAt)
-                .Select(a => a.ReadingPassageId!)
-                .Take(take * 3)
-                .ToListAsync();
-            return ids.Distinct().Take(take).ToHashSet();
-        }
-
-        private async Task<SQL.ReadingPassage> PickReadingFromPoolAsync(HashSet<string> excludeIds, int unseenCount, int totalCount)
-        {
-            var poolQuery = unseenCount > 0
-                ? _dbContext.ReadingPassages.Where(p => !excludeIds.Contains(p.Id))
-                : _dbContext.ReadingPassages;
-            var poolCount = unseenCount > 0 ? unseenCount : totalCount;
-
-            return await poolQuery
-                .Include(p => p.Questions)
-                    .ThenInclude(q => q.Options)
-                .OrderBy(p => p.Id)
-                .Skip(Random.Shared.Next(poolCount))
-                .FirstAsync();
-        }
-
         /// <summary>
         /// Asks for a passage and returns it only if it passes <see cref="ReadingPassageValidator"/>,
         /// retrying once. The retry is here because the failure this guards against — the model
@@ -454,7 +416,7 @@ namespace JackyAIApp.Server.Services.Exam
             var userId = _userService.GetUserId();
             var excludeIds = string.IsNullOrEmpty(userId)
                 ? new HashSet<string>()
-                : await GetRecentReadingPassageIdsAsync(userId, NoRepeatWindow);
+                : await GetRecentAttemptIdsAsync(userId, NoRepeatWindow, a => a.ReadingPassageId);
 
             var count = await _dbContext.ReadingPassages.CountAsync();
             var unseenCount = await _dbContext.ReadingPassages.CountAsync(p => !excludeIds.Contains(p.Id));
@@ -462,7 +424,7 @@ namespace JackyAIApp.Server.Services.Exam
 
             if (!shouldGenerate && unseenCount > 0)
             {
-                var existing = await PickReadingFromPoolAsync(excludeIds, unseenCount, count);
+                var existing = await PickRandomFromPoolAsync(_dbContext.ReadingPassages, q => q.Include(p => p.Questions).ThenInclude(qq => qq.Options), excludeIds, unseenCount, count);
                 return ServiceResult.Ok(ToReadingDto(existing));
             }
 
@@ -478,7 +440,7 @@ namespace JackyAIApp.Server.Services.Exam
                 // saving one bad passage serves it to everyone for as long as it is in there.
                 if (count > 0)
                 {
-                    var fallback = await PickReadingFromPoolAsync(excludeIds, unseenCount, count);
+                    var fallback = await PickRandomFromPoolAsync(_dbContext.ReadingPassages, q => q.Include(p => p.Questions).ThenInclude(qq => qq.Options), excludeIds, unseenCount, count);
                     return ServiceResult.Ok(ToReadingDto(fallback));
                 }
 

@@ -230,7 +230,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
     /// TOEIC Part 1 style "look at the picture, pick the best description" listening question.
     /// Standalone (not word-scoped) — pre-seeded via bulk import, not generated per-word.
     /// </summary>
-    public class ListeningTest
+    public class ListeningTest : IStringId
     {
         public required string Id { get; set; }
 
@@ -275,7 +275,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
     /// question. No image — generated live on demand (like Cloze/Translation/Sentence) and
     /// persisted for reuse once the bank has enough entries, rather than pre-seeded.
     /// </summary>
-    public class ListeningResponseTest
+    public class ListeningResponseTest : IStringId
     {
         public required string Id { get; set; }
 
@@ -309,7 +309,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
     /// shared across users — generated live on demand and persisted for reuse, same bank pattern
     /// as <see cref="ListeningResponseTest"/>.
     /// </summary>
-    public class ReadingPassage
+    public class ReadingPassage : IStringId
     {
         public required string Id { get; set; }
 
