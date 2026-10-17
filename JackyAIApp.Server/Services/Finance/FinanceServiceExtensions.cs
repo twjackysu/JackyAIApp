@@ -119,7 +119,11 @@ namespace JackyAIApp.Server.Services.Finance
             services.AddScoped<StockAnalysisBuilder>();
 
             // === Finance query orchestration (used by FinanceController) ===
-            services.AddScoped<IFinanceQueryService, FinanceQueryService>();
+            // Split by concern: per-stock analysis, shared market data, and the AI-backed market
+            // reads (MarketInsightService grounds its prompts in MarketDataQueryService's caches).
+            services.AddScoped<IStockAnalysisQueryService, StockAnalysisQueryService>();
+            services.AddScoped<IMarketDataQueryService, MarketDataQueryService>();
+            services.AddScoped<IMarketInsightService, MarketInsightService>();
 
             // === Prediction-accuracy tracking (TASK-013) ===
             services.AddScoped<IStockPredictionRecorder, StockPredictionRecorder>();
