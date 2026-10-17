@@ -138,7 +138,10 @@ namespace JackyAIApp.Server.Tests.Controllers
         public async Task ExportDetails_DefaultSource_WritesEveryRowInOneQueryWithoutPaging()
         {
             var details = new NamedBuilder<DetailsRequest>();
-            var engine = Engine(_ => Rows(("EMEA", 10.5m), ("APAC", 7m)), details);
+            // The ORDER BY column has to be in the table's schema to get past the field whitelist.
+            var engine = Engine(q => q == nameof(FieldListRequest)
+                ? [new Dictionary<string, object?> { ["Name"] = "OrderDate", ["DataType"] = "datetime2" }]
+                : Rows(("EMEA", 10.5m), ("APAC", 7m)), details);
             var (controller, response) = Controller(engine);
 
             var result = await controller.ExportDetails(new DetailsRequestDto

@@ -94,6 +94,27 @@ namespace JackyAIApp.Server.Controllers
             return new ResolvedCtx(engine, sourceKey, tableName, OwnsEngine: true);
         }
 
+        /// <summary>
+        /// The schema gate every engine query passes before it runs (see <see cref="DataAnalysisFieldGuard"/>).
+        /// Returns the response to send instead — 400 naming the unknown field or unsafe alias, or 500 when
+        /// the schema can't be read — or null when the request may go to the engine.
+        /// </summary>
+        private async Task<IActionResult?> GuardFieldsAsync(
+            ResolvedCtx ctx, Func<IReadOnlySet<string>, string?> check, CancellationToken ct)
+        {
+            // Only the default source (the engine this controller doesn't own) has a fixed table worth caching.
+            var fields = await DataAnalysisFieldGuard.LoadFieldNamesAsync(
+                ctx.Engine, ctx.SourceKey, ctx.TableName, ctx.OwnsEngine ? null : _cache, ct);
+            if (fields is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Schema query failed.");
+
+            var error = check(fields);
+            if (error is null) return null;
+
+            _logger.LogWarning("DataAnalysis: rejected query on table={t}: {err}", ctx.TableName, error);
+            return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, error);
+        }
+
         // ═══════════════════════════════════════════════════════════════════════
         // Source CRUD
         // ═══════════════════════════════════════════════════════════════════════
@@ -229,6 +250,9 @@ namespace JackyAIApp.Server.Controllers
             using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
+            if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.CheckField(fields, dateField), ct) is { } rejected)
+                return rejected;
+
             _logger.LogInformation("MaxDate: source={sid} table={t} field={f}", sourceId, ctx.TableName, dateField);
             var result = await ctx.Engine.MaxDateAsync(
                 new MaxDateRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName, DateFieldName = dateField }, ct);
@@ -255,6 +279,9 @@ namespace JackyAIApp.Server.Controllers
             using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
+            if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.CheckField(fields, field), ct) is { } rejected)
+                return rejected;
+
             var result = await ctx.Engine.DistinctValuesAsync(new DistinctValuesRequest
             {
                 SourceKey = ctx.SourceKey, TableName = ctx.TableName, FieldNames = [field], Limit = 200,
@@ -277,6 +304,9 @@ namespace JackyAIApp.Server.Controllers
         {
             using var ctx = await TryResolveAsync(dto.Context, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+
+            if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.Check(fields, dto), ct) is { } rejected)
+                return rejected;
 
             _logger.LogInformation("Summarize: source={sid} table={t}", dto.Context?.SourceId, ctx.TableName);
             var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
@@ -301,6 +331,9 @@ namespace JackyAIApp.Server.Controllers
         {
             using var ctx = await TryResolveAsync(dto.Context, ct);
             if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+
+            if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.Check(fields, dto), ct) is { } rejected)
+                return rejected;
 
             _logger.LogInformation("Details: source={sid} table={t} skip={s} take={tk}",
                 dto.Context?.SourceId, ctx.TableName, dto.Skip, dto.Take);
@@ -345,6 +378,9 @@ namespace JackyAIApp.Server.Controllers
             {
                 using var ctx = await TryResolveAsync(dto.Context, ct);
                 if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+
+                if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.Check(fields, dto), ct) is { } rejected)
+                    return rejected;
 
                 var result = await ctx.Engine.DetailsAsync(new DetailsRequest
                 {
@@ -481,6 +517,7 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, fieldResult.ErrorMessage ?? "Schema query failed.");
 
             var engineFields = fieldResult.Value!.Fields.Select(f => (f.Name, f.CanonicalType.ToString())).ToList();
+            var engineFieldNames = engineFields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             var engineCharge = await TryChargeNlSummarizeAsync(userId);
             if (engineCharge is not null) return engineCharge;
@@ -493,7 +530,15 @@ namespace JackyAIApp.Server.Controllers
             if (enginePlanResult.Plan is null)
                 return _responseFactory.CreateErrorResponse(enginePlanResult.Error!.Value, enginePlanResult.ErrorMessage!);
 
-            var plan = enginePlanResult.Plan;
+            // The same schema gate as the hand-built queries. The LLM's field names were already checked
+            // while the plan was made; an alias it wrote that isn't plain text is dropped, not fatal.
+            var plan = DataAnalysisFieldGuard.WithoutUnsafeAliases(enginePlanResult.Plan);
+            if (DataAnalysisFieldGuard.Check(engineFieldNames, plan) is { } planError)
+            {
+                _logger.LogWarning("NlSummarize: rejected plan on table={t}: {err}", ctx.TableName, planError);
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, planError);
+            }
+
             var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
             {
                 SourceKey = ctx.SourceKey,
