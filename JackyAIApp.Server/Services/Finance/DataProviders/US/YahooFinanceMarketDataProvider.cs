@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
@@ -15,7 +16,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
         private readonly IMemoryCache _cache;
         private readonly ILogger<YahooFinanceMarketDataProvider> _logger;
 
-        private const string CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart";
+        private static readonly string CHART_URL = YahooChart.ChartBase;
         private const int CACHE_HOURS = 1;
 
         public DataProviderType Type => DataProviderType.HistoricalPrice;
@@ -75,9 +76,8 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
         private async Task<MarketData> FetchUrlAsync(string url, string symbol, CancellationToken cancellationToken)
         {
             var client = _httpClientFactory.CreateClient("ExternalReadOnly");
-            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
-
-            var response = await client.GetAsync(url, cancellationToken);
+            using var request = YahooChart.Request(url);
+            using var response = await client.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
