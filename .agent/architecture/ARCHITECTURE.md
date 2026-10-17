@@ -2079,3 +2079,14 @@ Boss 看完「C# 評分刪除後 AI 趨勢分析 prompt 會少『總分／方向
 - **PR #468 已由 Tech Lead 關閉（未合併）**：TASK-056 的工程師在 `ON_HOLD` 公告進 master 之前就開工並完成；工程師看到公告後自行改為 draft 並標示「請勿在 Boss 決定前合併」，處置正確。教訓：任務書改 `ON_HOLD` 時若已有 `IN_PROGRESS` 的工程師，我應主動在該 PR／任務上通知；這次是工程師自己發現的。
 - **#467（TASK-055）審閱通過 → READY FOR BOSS REVIEW**（CI 綠、無衝突；不代表核准合併）。逐行對照後無要求修改；三個可選項（`IStockCodeResolver` 註解過時、一個測試把「空字串多花兩次 OpenAI」釘住、全形數字沿用原行為）都不需要再推。審閱細節在 PR 留言；`TASK-055.md` 的 Status／Review 待合併後補（該檔被 PR 改動，現在動會讓合併時衝突）。
 - **TASK-059（Backend，READY，MEDIUM）**：#467 工程師的查證揭露既有缺口——`GetComprehensiveAnalysisAsync` 不檢查結果有沒有資料就快取 12 小時（`CACHE_HOURS=12` 已核對）。不存在的代號得到「成功但全空」，真實代號遇上游暫時故障會凍結 12 小時。解法：沒有價格且沒有指標 → `NotFound`；沒有價格 → 不快取。順帶消除「用大量不存在的代號撐大無上限的 `IMemoryCache`」這條理論路徑；**不**限制呼叫次數（沒有 rate limiter 仍是技術債）。
+
+### 2026-10-17 後續：#467／#469 結案、#470／#471 趨勢線編輯器事後審閱（Tech Lead，排程執行第 14 次）
+- **狀態**：無 open PR；open issue 只有 #464、#409（自上次排程後都沒有新留言）。TASK-055（#467）、TASK-059（#469）已合併，Review 區已補（`TASK-055.md`、`TASK-059.md`）。`master`＝`ec6571c`，`Build and deploy` run 556～559 皆成功。
+- **`GetComprehensiveAnalysisAsync` 的快取規則（TASK-059，現況）**：`LatestClose == null && Indicators.Count == 0` → `NotFound`、不快取；有指標但沒價格 → 回傳、不快取；有價格 → 快取 `CACHE_HOURS`（12 小時）。**日後改這個方法，要保留「沒有價格就不快取」**，否則上游暫時故障會把一檔股票凍結空白半天。已知未處理（技術債，皆不排）：美股不存在的代號回 500（Yahoo 404 → `EnsureSuccessStatusCode()` 例外）；`YahooFinanceMarketDataProvider` 自身 1 小時快取不論有沒有價格都寫入。
+- **#470／#471（趨勢線可編輯＋起始日期＋tooltip 顯示線價位，Boss 直接合併）事後審閱：無須追加修正。** 17 個檔案、約 +2,300 行，前端為主；CI（lint／test／build 與後端測試）在 #470 head（run 695）與 #471 head（run 696）皆綠。
+  - **DECISION-030 的檢查（PM 要求「改這張圖的 PR，先確認警語還在、沒有新增預測／建議性文字」）**：警語 `TRENDLINE_DISCLAIMER`（「趨勢線僅供參考，不構成投資建議。」）仍在 `TrendlineChart.tsx` 並渲染於圖下方；我對 `5c6145e..ec6571c` 新增的行搜尋「突破／跌破／買進／賣出／建議／預測／看多／看空／目標價／停損」**沒有任何命中**。新增文字只有「支撐線／壓力線」的名稱與價位（描述，不是判斷）。
+  - **儲存**：使用者畫的線只存在瀏覽器 `localStorage`（key `finance.trendlines.{code}`），走既有 `utils/storage.ts` 的 `readJson`／`writeJson`（有 try/catch，儲存被擋時不丟例外）；讀取時逐條驗證格式、壞掉的只丟那一條（`loadDrawings`）。**不上傳、不進 AI、不影響其他裝置**；代價是換瀏覽器就沒有，產品面已接受（見 PM 的需求）。
+  - **互動**：拖曳用 pointer capture，`pointerup`／`pointercancel` 都會收尾（`endDrag`），沒有掛在 `window` 的監聽器需要手動清理。這部分是讀碼，**我沒有渲染過畫面、沒有在手機上試**（沙箱沒有前端相依套件）。
+  - **後端（`b05046d`）**：`GET api/finance/price-bars?code=TAIEX` 由「最近 2 年」改為回傳**整段已快取的 6 年**（約 1,500 根日 K；移除 `TaiexPriceBarYears`），讓圖自己依「起始日期」切。沒有新的上游呼叫（資料本來就由 `IMarketIndexHistoryProvider`（`CachedMarketIndexHistoryProvider` 裝飾）快取持有）；匿名、無 AI。回應量級約 100 KB 原始 JSON，`UseResponseCompression`（`EnableForHttps = true`）有開，**未量測**。若日後這個端點變成熱路徑，才考慮在伺服器切段或加 `Cache-Control`。
+- **請 PM**：(1) 需求 6 的後續（編輯、起始日期、tooltip 價位）若尚未補進 `REQUIREMENTS.md`／`DECISIONS.md`，請補登（#463 當時也是事後補）；(2) TASK-055 合併後，需求 6 可勾「5～6 碼可查到、不為此呼叫 AI」；「查不到時明確訊息」由 TASK-059 承接（已合併）。
+- **仍待 Boss 以正式環境確認、我看不到的事**：#465 的 `AddDailyChallengeSet` migration 是否已套用（`SELECT MigrationId FROM __EFMigrationsHistory WHERE MigrationId LIKE '%AddDailyChallengeSet'` 應有一列）；`00878`／`00919`／`00631L` 在 Stock Intelligence 實際查得到；趨勢線編輯器在手機上的拖曳手感。

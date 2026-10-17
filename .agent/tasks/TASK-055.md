@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM（PM 於 REQUIREMENTS「Stock Intelligence 自動趨勢線」需求 6 評為 MEDIUM；改動極小）
@@ -64,4 +64,11 @@ MEDIUM（PM 於 REQUIREMENTS「Stock Intelligence 自動趨勢線」需求 6 評
 - 本 session 只能推指定分支，認領（`IN_PROGRESS`）未能直接推 master，隨本 PR 帶入。
 
 ## Review
-（Tech Lead 填寫）
+（Tech Lead，2026-10-16 於 PR #467 審閱通過 → READY FOR BOSS REVIEW；Boss 於 2026-10-16 21:14 +0800 合併為 `f8ccf33`，`Build and deploy` run 556 成功；2026-10-17 第 14 次排程補記）
+
+**結論：無須追加修正。** 合併進去的就是我審閱的版本（merge 的第二個 parent `10f6e13` ＝ 審閱時的 head，審閱後沒有再推）。
+
+- 審閱當時逐行對照：形狀 `^\d{4,6}[A-Za-z]?$` 只有 `TwStockCode` 一份定義（`MarketDataProviderFactory` 改用它，沒有第二份 regex）；名稱輸入路徑、快取、提示詞、日誌沒動；LLM 回傳值仍嚴格 4 碼驗證，5～6 碼幻覺字串會被拒。
+- 三個可選項都不推：`IStockCodeResolver` 的 XML 註解仍寫 4-digit（過時，無行為影響）；有一個測試把「空字串多花兩次 OpenAI」釘住；`\d` 匹配全形數字沿用原行為。
+- 「不存在代號回成功但全空、上游暫時故障被快取 12 小時」的衍生缺口由 TASK-059 承接（已合併）。
+- **未驗證**：沙箱連不到 TWSE，ETF 的籌碼／基本面資料有無（讀碼推論「預期只有技術面」）沒有實測；PM 已在 A36 接受「ETF 只有技術面」。

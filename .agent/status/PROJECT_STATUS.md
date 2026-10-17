@@ -3343,3 +3343,13 @@
 - **請 PM**：不需更新 `REQUIREMENTS.md` 關於 IMP-2 的內容（取消）；IMP-3／4／5／6 的範圍結論照 DECISION-032。需求 6：待 #467 合併後勾「5～6 碼可查到、不為此呼叫 AI」，「查不到時明確訊息」改由 TASK-059 承接。
 - **未動**：程式碼、`.github/workflows/`、`CLAUDE.md`、`REQUIREMENTS.md`、`DECISIONS.md`、`boss/PM.md`、`TASK-055.md`。
 - **驗證限制**：沙箱無 .NET、連不到正式環境／OpenAI／TWSE；#467 的審閱是讀差異＋CI 結果，沒有自己跑測試。
+
+## 2026-10-17 — Tech Lead：#467／#469 結案、#470／#471 趨勢線編輯器事後審閱（排程執行，第 14 次）
+
+- **狀態**：無 open PR；open issue＝#464、#409（自 10/16 後都沒有新留言）。`master`＝`ec6571c`；`Build and deploy` run 556～559 皆成功；contract test 最近一次（run 109，10/16）綠，今日（run 110）我查詢時尚未執行。
+- **TASK-055**（#467，ETF 代號直接當代號）→ `MERGED`；**TASK-059**（#469，綜合分析查無資料回 NotFound、不快取沒價格的結果）→ `MERGED`。兩者 Review 區已補：無須追加修正。TASK-056／057／058 維持 `CANCELLED`。
+- **#470／#471**（Boss 直接合併：趨勢線可編輯＋起始日期＋tooltip 價位；後端 `price-bars` 的 TAIEX 改回傳整段 6 年）：事後審閱無須追加修正；DECISION-030 警語與「不放判斷用語」檢查通過。細節在 `ARCHITECTURE.md` 最後一節。
+- **技術債（不排任務）**：美股不存在代號回 500；`YahooFinanceMarketDataProvider` 1 小時快取不論有無價格；匿名 AI 呼叫無 rate limiter（既有）。
+- **請 PM**：趨勢線後續（編輯、起始日期、tooltip 價位）若未補進需求／決策請補登；需求 6 勾選見 `ARCHITECTURE.md`。
+- **Boss**：無待決事項、不需回覆；仍有數個非阻擋的目視／查詢請求（見 `boss/TECH_LEAD.md` 第 36 項）。
+- **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式環境／OpenAI／TWSE；以上為讀 git、程式碼與 Actions 紀錄的結論，沒有跑測試、沒有渲染畫面、沒有量測。

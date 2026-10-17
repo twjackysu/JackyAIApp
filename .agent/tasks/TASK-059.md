@@ -4,7 +4,7 @@
 Backend Engineer
 
 ## Status
-PR_OPENED
+MERGED
 
 ## Priority
 MEDIUM（優先序可由 PM 調整。會讓使用者一整天看到某檔股票的空白分析：上游暫時故障的結果被快取 12 小時；頻率未量測）
@@ -69,4 +69,15 @@ MEDIUM（優先序可由 PM 調整。會讓使用者一整天看到某檔股票�
 - 本 session 只能推指定分支，認領（`IN_PROGRESS`）未能直接推 master，隨本 PR 帶入。
 
 ## Review
-（Tech Lead 填寫）
+（Tech Lead 事後審閱，2026-10-17 第 14 次排程；Boss 於 2026-10-16 21:46 +0800 在 PR 開出約 6 分鐘後直接合併為 #469，`e933ee1`，`Build and deploy` run 557 成功；合併的 head 是 `55d4724`，CI run 692～694 皆綠）
+
+**結論：無須追加修正。** 逐行讀了 `FinanceQueryService.GetComprehensiveAnalysisAsync` 的差異與 4 個新測試：
+
+- **三條分支與任務書一致**：`LatestClose == null && Indicators.Count == 0` → `NotFound`（不快取、記一行 warning）；`LatestClose == null` 但有指標 → 回傳但不快取；有價格 → 照舊快取 12 小時。快取 key 仍含 `configHash`，未動。`GetComprehensiveAnalysisAsync` 只有 `FinanceController` 一個呼叫端，沒有其他程式依賴「成功但全空」。
+- **測試用真的 `StockAnalysisBuilder` ＋真的 `ExtendedMemoryCache`**，只 mock provider 與指標引擎；以 `Times.Exactly(2)`／`Assert.Same`／`Assert.NotSame` 直接證明「有沒有被快取」，不是間接推論。Engineer 回報還原修改後 1、2、4 失敗（我沒有重跑，沙箱無 .NET）。
+- **Engineer 的讀碼回報我認可，並決定如下（皆不排任務）**：
+  1. **美股不存在的代號回 500 而非 404**（`YahooFinanceMarketDataProvider.FetchUrlAsync` 對 404 `EnsureSuccessStatusCode()` 丟例外，`BuildAsync` 的 `priceTask` 沒有 `Safe` 包裝）。使用者仍看到錯誤訊息而不是空白，前端不分狀態碼同一條路徑，所以產品面沒有缺口；代價是這類輸入會在後端記成例外（Application Insights 可能出現噪音，**未量**）。列**技術債**，異常再升級。
+  2. **`YahooFinanceMarketDataProvider.FetchAsync` 自己有 1 小時快取，不論有沒有價格都寫入**：Yahoo「回成功但價格為空」會在 provider 層凍結 1 小時，分析層的修正擋不到。罕見（Yahoo 無資料通常是 404），影響上限 1 小時、僅單一代號。列**技術債**，不排。
+  3. **「技術面」「基本面」都關閉（純籌碼）的請求不抓價格**，`LatestClose` 恆為 `null`：無籌碼指標回 404、有則回結果但不快取。前端預設不會送這種組合，維持現狀。
+  4. 量化分頁與 Portfolio 深連結對錯誤顯示**固定文案**「綜合分析失敗，請檢查股票代碼是否正確」，只有比較分頁顯示後端訊息——與我寫任務書時的假設略有出入（我寫「前端已經會顯示失敗訊息」），但使用者看到的是明確錯誤而非空白，**不改**。若 PM 要在量化分頁顯示「找不到 {code}」，是另一個前端小改動，由 PM 決定。
+- **未驗證**：未對正式環境量測；上游吞例外的行為（`TWStockLibHistoricalProvider.FetchRangeAsync`）仍是讀碼結論。
