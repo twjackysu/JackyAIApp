@@ -15,6 +15,7 @@
         Unauthorized = 1040100,
         Forbidden = 1040300,
         DrawdownBrakeNotEnabled = 1040301,
+        PayloadTooLarge = 1041300,
         ExternalApiError = 1040500,
         UsageLimitExceeded = 1042900,
         TooManyRequests = 1042901,

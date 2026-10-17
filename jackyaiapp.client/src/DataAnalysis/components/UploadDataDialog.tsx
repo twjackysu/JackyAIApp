@@ -26,6 +26,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useRef, useState } from 'react';
 
 import { useUploadSessionMutation } from '../../apis/dataAnalysisApis';
+import { uploadErrorMessage } from '../uploadErrorMessage';
 
 import type { SessionInfo } from '../../apis/dataAnalysisApis/types';
 
@@ -95,8 +96,8 @@ export function UploadDataDialog({ open, onClose, onSessionCreated }: UploadData
         onSessionCreated(res.data);
         handleClose();
       }
-    } catch {
-      setErr('上傳失敗 — 請再試一次。');
+    } catch (error) {
+      setErr(uploadErrorMessage(error));
     }
   };
 
