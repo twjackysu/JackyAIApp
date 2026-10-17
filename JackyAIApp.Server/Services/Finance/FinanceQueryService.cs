@@ -139,12 +139,8 @@ namespace JackyAIApp.Server.Services.Finance
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while analyzing stock {stockCode}", request.StockCodeOrName);
-                var detailedError = $"Unexpected error occurred while analyzing stock '{request.StockCodeOrName}': {ex.Message}";
-                if (ex.InnerException != null)
-                {
-                    detailedError += $" Inner exception: {ex.InnerException.Message}";
-                }
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, detailedError);
+                return ServiceResult.Fail(ErrorCodes.InternalServerError,
+                    $"Unexpected error occurred while analyzing stock '{request.StockCodeOrName}'.");
             }
         }
 
@@ -273,7 +269,7 @@ namespace JackyAIApp.Server.Services.Finance
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error scoring stock {stockCode}", resolvedStockCode);
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to score stock '{resolvedStockCode}': {ex.Message}");
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to score stock '{resolvedStockCode}'.");
             }
         }
 
@@ -345,7 +341,7 @@ namespace JackyAIApp.Server.Services.Finance
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Comprehensive analysis failed for {stockCode} ({region})", resolvedStockCode, region);
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Analysis failed for '{resolvedStockCode}': {ex.Message}");
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Analysis failed for '{resolvedStockCode}'.");
             }
         }
 
@@ -436,7 +432,7 @@ namespace JackyAIApp.Server.Services.Finance
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to fetch macro economy data");
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to fetch macro economy data: {ex.Message}");
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, "Failed to fetch macro economy data.");
             }
         }
 
@@ -457,7 +453,7 @@ namespace JackyAIApp.Server.Services.Finance
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to fetch market overview data");
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to fetch market overview data: {ex.Message}");
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, "Failed to fetch market overview data.");
             }
         }
 
@@ -585,7 +581,7 @@ namespace JackyAIApp.Server.Services.Finance
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to generate market digest");
-                return (null, ex.Message);
+                return (null, "Failed to generate market digest.");
             }
         }
 
@@ -654,7 +650,7 @@ namespace JackyAIApp.Server.Services.Finance
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to fetch indicators");
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to fetch indicators: {ex.Message}");
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, "Failed to fetch indicators.");
             }
         }
 
@@ -703,7 +699,7 @@ namespace JackyAIApp.Server.Services.Finance
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to generate indicator insight for {id}", id);
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, $"Failed to generate insight: {ex.Message}");
+                return ServiceResult.Fail(ErrorCodes.InternalServerError, "Failed to generate insight.");
             }
         }
 
