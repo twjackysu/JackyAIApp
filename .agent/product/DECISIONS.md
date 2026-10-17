@@ -786,3 +786,57 @@ Boss（Issue #464 的原則）；排序與口徑原則為 PM 預設，Boss 可�
 
 ### Source
 Boss（#464 留言；「留後端」一句為 Tech Lead 轉述）；對 (1)／(2) 的意見為 PM 預設，Boss 可推翻。
+
+
+## DECISION-033: IMP-2 取消結案；5～6 碼 ETF 代號與「查無資料」已出貨（需求 6）
+
+### Date
+2026-10-17
+
+### Decision
+1. **結案 DECISION-032 第 3 點**：Boss 選 **(1) 全部留後端、取消 IMP-2**（PM 只從 Tech Lead 在 #464 的記錄與 `boss/TECH_LEAD.md` 第 35 項讀到；Boss 的原話在 session 中，不在 Issue 上，PM 沒看到）。
+   結果：評分／權重／風險只留後端一份；`GET /api/finance/score/{code}` 與 AI 趨勢分析的 prompt 維持現狀；TASK-056／057／058 CANCELLED。代價（Boss 已接受）：拖權重仍要重新查詢。
+   「不要兩套邏輯並存」（DECISION-032 第 2 點）不變。`technical-indicators`、`chip-analysis`、`score` 三個端點：PM 仍沒有保留或刪除的產品理由，不排任務。Tech Lead 認為 #464 可關閉，PM 同意；是否關閉由 Boss 決定。
+2. **需求 6 已出貨**：#467（TASK-055，5～6 碼代號直接當代號、不經 AI）與 #469（TASK-059，綜合分析查無資料回 `NotFound` 且不快取無價格結果）已由 Boss 合併（2026-10-16 21:14／21:46 +0800）。
+   PM 讀 master 確認：`TwStockCode.cs` 以 `^\d{4,6}[A-Za-z]?$` 判斷代號形狀；`FinanceQueryService.cs:336` 無價格且無指標時回 `NotFound`。**讀碼，未實機**（沙箱連不到正式站）。
+3. **回覆 Tech Lead 對 TASK-059 的兩個問題**：(a) 優先序 MEDIUM 同意（已出貨，無需調整）；(b) 訊息文案：後端英文 `No market data found for '{code}'.` **可接受**（A37，可推翻）——與既有 `Unable to resolve stock code…` 同風格；
+   代價是比較分頁會顯示「找不到 {code}：{英文}」中英混雜，量化分頁則是固定中文「綜合分析失敗，請檢查股票代碼是否正確」。PM 不為此排任務（LOW）；日後若統一成中文，屬小改動。
+4. **美股拼錯的代號回 500 而非 404**（TASK-059 工程師的讀碼發現，Known issues）：PM 的產品立場——使用者看到的是錯誤訊息而不是空白，**可接受，不排任務**；是否改成 404 屬 Tech Lead 的技術決定。
+   Yahoo 回成功但價格為空時，provider 層快取 1 小時：同樣不排，異常再升級。
+
+### Reason
+事實：`boss/TECH_LEAD.md` 第 35 項、`ARCHITECTURE.md`「Issue #464 後續」、TASK-055／059 的 Result、master 上的程式碼。
+推測（未驗證）：5～6 碼 ETF 在正式站已能查到技術面（資料提供者端為 Tech Lead 讀碼推論）；使用者覺得中英混雜的訊息可接受。
+
+### Impact
+- 無新任務。需求 6 的驗收條件更新（見 `REQUIREMENTS.md`「Stock Intelligence 自動趨勢線」）。
+- Boss 可選（不阻擋）：在 `/finance` 輸入一次 `00878`，並輸入一個不存在的代號（如 `99999`），確認結果與訊息。
+
+### Source
+Boss（IMP-2 取消，經 Tech Lead 轉述）；A37 與對 TASK-059 的回覆為 PM 預設，Boss 可推翻。
+
+
+## DECISION-034: Stock Intelligence 趨勢線可由使用者編輯，並可選起始日期（補登 #470／#471；Boss 直接交付）
+
+### Date
+2026-10-17
+
+### Decision
+Boss 在 2026-10-16 晚間直接合併 #470（`8c745e8`）與 #471（`ec6571c`），PM 事後補登，**不推翻**：
+1. **起始日期可選**：預設近 1 年（加權指數與個股一致）；預設按鈕 3 個月／半年／1 年／2 年／5 年／全部，或任選日期；加權指數最早可到 6 年前（`price-bars` 改回快取的全部六年）。自動線只在選定的起始日之後的 K 棒上找。
+2. **線可由使用者調整**：拖曳端點或整條線、刪除、新畫（先選支撐或壓力）、復原、「還原自動線」；游標滑過圖面時 tooltip 顯示開高低收與當天每條線的價位。
+3. **改過的線只存在這個瀏覽器**（localStorage，以代號為單位），不隨新資料自動重畫、**不跨裝置、不跟帳號**；畫面已明講（「改過的線存在這個瀏覽器」「不會再隨新資料自動重畫」）。
+4. **A33 原則不變**：圖上仍不放預測／買賣建議／「突破」文字；警語「趨勢線僅供參考，不構成投資建議。」仍常駐於圖下方（讀 `TrendlineChart.tsx:456`）。使用者自己畫的線同樣適用同一警語。
+5. **PM 的產品立場**：(a) 「描述過去、不給訊號」的原則是針對**程式自動產生**的內容；使用者自己畫的線是使用者的工具，不違反 A33。(b) 跨裝置同步（需要後端儲存）**不排**——沒有使用者要求的證據，且與「儲存在瀏覽器」的告知一致；Boss 若要，再開需求。(c) 起始日期可選使 DECISION-030 的「固定兩年／約半年」限制取消，該段 Future Consideration 已完成。
+
+### Reason
+事實：`281258f`、`614b58a`、`b05046d` 的 commit 說明與程式（`trendlineDrawings.ts`、`trendlineRange.ts`、`TrendlineChart.tsx`、`TaiexTrendlineCard.tsx`）。
+推測（未驗證）：使用者會想自己調整線；手機操作順暢（PM 讀到 `TrendlineOverlay.tsx` 只在選到線或畫線中才把 `touch-action` 設為 `none`，所以預設不應擋住頁面捲動，**但沒有實機**）。
+
+### Impact
+- 需求「Stock Intelligence 自動趨勢線」更新範圍、驗收條件與假設 A38（見 `REQUIREMENTS.md`）。
+- 沒有新任務。本功能純前端（唯一後端改動是 `price-bars` 的回傳範圍）；沒有新增 `[UsageLimit]` 或 AI 呼叫。
+- 先前寫的 Out of Scope「使用者自己調整線的參數」更新為：**線的位置與期間可調，演算法參數（ATR 倍數等）仍不開放**。
+
+### Source
+Boss（直接交付）；PM 事後補登；A38 為 PM 預設，Boss 可推翻。

@@ -3353,3 +3353,12 @@
 - **請 PM**：趨勢線後續（編輯、起始日期、tooltip 價位）若未補進需求／決策請補登；需求 6 勾選見 `ARCHITECTURE.md`。
 - **Boss**：無待決事項、不需回覆；仍有數個非阻擋的目視／查詢請求（見 `boss/TECH_LEAD.md` 第 36 項）。
 - **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式環境／OpenAI／TWSE；以上為讀 git、程式碼與 Actions 紀錄的結論，沒有跑測試、沒有渲染畫面、沒有量測。
+## 2026-10-17 — PM：IMP-2 結案、補登 #467／#469（需求 6 出貨）與 #470／#471（趨勢線編輯）（排程執行）
+
+- **狀態**：無 open PR；open issue＝#464（標籤 To Boss；最後留言是 Tech Lead 10/16 13:00Z，稱可關閉）、#409（10/06 後無新留言）。Boss 沒有新留言、沒有待回覆的問題。master＝`ec6571c`。自 PM 上次（`5fd789f`）以來 Boss 合併了 #467、#469、#470、#471。
+- **DECISION-033**：(1) 結案 DECISION-032 第 3 點——Boss 選 (1)，IMP-2 取消（PM 只從 Tech Lead 的記錄讀到，Boss 原話不在 Issue 上）；(2) 需求 6 出貨：PM 讀 master 的 `TwStockCode.cs`、`FinanceQueryService.cs:336` 確認 ETF 代號不經 AI、查無資料回 NotFound 且不快取（**讀碼，未實機**）；(3) 回覆 Tech Lead 對 TASK-059 的問題：優先序同意、英文訊息可接受（A37）；美股拼錯代號回 500 不排任務。
+- **DECISION-034**：補登 #470／#471（Boss 直接交付，未走 TASK）：起始日期可選、線可由使用者拖曳／刪除／新畫／改支撐壓力、tooltip 顯示每條線價位；線只存瀏覽器 localStorage、不跨裝置（A38）。A33（不放預測／建議、警語常駐）不變。PM 讀了 `trendlineDrawings.ts`、`trendlineRange.ts`、`TrendlineChart.tsx`、`TaiexTrendlineCard.tsx`，**沒有實機、沒看過畫面**。
+- **文件更新**：`DECISIONS.md`（DECISION-033／034）、`REQUIREMENTS.md`（趨勢線一節：需求 6 出貨、新增需求 7、驗收條件 +4 條未勾／+2 條已勾、Scope、A37／A38、Tech Lead Actions）、`boss/PM.md`（摘要改寫）。未動：程式碼、`ARCHITECTURE.md`、`boss/TECH_LEAD.md`、任何 TASK 檔。
+- **Tech Lead Actions**：無。Tech Lead 同日（第 14 次排程，`142f4c0`）已把 TASK-055／059 → `MERGED` 並事後審閱 #470／#471：無須追加修正、警語仍在、新增文字沒有判斷用語、localStorage 讀取逐條驗證且壞資料只丟那一條（PM 的 (b) 已由其讀碼回答）；手機拖曳手感 Tech Lead 與 PM 都沒渲染過，仍是 Boss 目視項。
+- **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式站／OpenAI／證交所；以上全為讀 git、程式碼與 Issue 的結論，沒有跑測試、沒有渲染畫面、沒有查 Actions 的部署結果。
+- **Boss**：不需回覆、不阻擋任何工作；PM 不發推播通知——沒有需要 Boss 立即行動的事。
