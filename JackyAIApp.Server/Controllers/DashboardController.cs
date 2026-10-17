@@ -12,6 +12,7 @@ using JackyAIApp.Server.Services.DataAnalysis;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using static JackyAIApp.Server.Common.DataAnalysisMapping;
 
 namespace JackyAIApp.Server.Controllers
@@ -30,13 +31,15 @@ namespace JackyAIApp.Server.Controllers
         IMyResponseFactory responseFactory,
         AzureSQLDBContext dbContext,
         DataAnalysisEngine defaultEngine,
-        IDataSourceConfigService configService) : ApiControllerBase
+        IDataSourceConfigService configService,
+        IMemoryCache cache) : ApiControllerBase
     {
         private readonly ILogger<DashboardController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly DataAnalysisEngine _defaultEngine = defaultEngine;
         private readonly IDataSourceConfigService _configService = configService;
+        private readonly IMemoryCache _cache = cache;
 
         // Built-in default source (matches DataAnalysisController).
         private const string DefaultMsSqlKey = "mssql";
@@ -296,6 +299,18 @@ namespace JackyAIApp.Server.Controllers
 
             try
             {
+                // The saved plan is the owner's input replayed for any viewer (anonymous for "Anyone"), so it
+                // passes the same schema gate as a live DataAnalysis query.
+                var fields = await DataAnalysisFieldGuard.LoadFieldNamesAsync(
+                    engine, sourceKey, tableName, ownsEngine ? null : _cache, ct);
+                if (fields is null)
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Schema query failed.");
+                if (DataAnalysisFieldGuard.Check(fields, plan) is { } planError)
+                {
+                    _logger.LogWarning("WidgetData: rejected widget {wid} plan: {err}", widgetId, planError);
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, planError);
+                }
+
                 var result = await engine.SummarizeAsync(new SummarizeRequest
                 {
                     SourceKey = sourceKey,
