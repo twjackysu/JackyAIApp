@@ -291,7 +291,15 @@ namespace JackyAIApp.Server.Controllers
                     .FirstOrDefaultAsync(s => s.Id == plan.Context.SourceId.Value && s.UserId == dash.UserId, ct);
                 if (source is null)
                     return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Data source not found.");
-                engine = _configService.BuildEngine(source);
+                try
+                {
+                    engine = _configService.BuildEngine(source);
+                }
+                catch (DataSourceConfigException ex)
+                {
+                    _logger.LogWarning("WidgetData: refused saved source {sid}: {err}", source.Id, ex.Message);
+                    return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, ex.Message);
+                }
                 sourceKey = _configService.SourceKey(source.ConnectorType);
                 tableName = plan.Context.TableName ?? source.DefaultTableName ?? "";
                 ownsEngine = true;
@@ -322,9 +330,18 @@ namespace JackyAIApp.Server.Controllers
                     Filters = MapFilters(plan.Filters),
                 }, ct);
 
-                return result.IsSuccess
-                    ? _responseFactory.CreateOKResponse(new { rows = result.Value!.Rows.Select(r => r.Data) })
-                    : _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Query failed.");
+                if (result.IsSuccess)
+                    return _responseFactory.CreateOKResponse(new { rows = result.Value!.Rows.Select(r => r.Data) });
+
+                // The driver's text names servers, tables and SQL. Only the source's owner looking at their
+                // own dashboard gets it, to debug their database; any other viewer — anonymous ones on an
+                // "Anyone" dashboard included, and everyone for the default source (the app's own
+                // database) — gets the generic message, and the detail stays in the log.
+                var showDetail = ownsEngine && userId == dash.UserId && !string.IsNullOrWhiteSpace(result.ErrorMessage);
+                _logger.Log(ownsEngine ? LogLevel.Warning : LogLevel.Error,
+                    "WidgetData: widget {wid} query failed on table={t}: {err}", widgetId, tableName, result.ErrorMessage);
+                return _responseFactory.CreateErrorResponse(
+                    ErrorCodes.InternalServerError, showDetail ? result.ErrorMessage! : "Query failed.");
             }
             finally
             {

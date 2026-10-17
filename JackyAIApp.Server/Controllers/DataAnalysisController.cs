@@ -71,27 +71,58 @@ namespace JackyAIApp.Server.Controllers
             public void Dispose() { if (OwnsEngine) Engine.Dispose(); }
         }
 
-        private async Task<ResolvedCtx?> TryResolveAsync(
+        /// <summary>
+        /// The engine for the request's source, or null with the response to send instead: 404 when
+        /// the source doesn't exist or isn't the caller's, 400 when its saved settings are refused
+        /// (see <see cref="DataSourceConfigException"/>).
+        /// </summary>
+        private async Task<(ResolvedCtx? Ctx, IActionResult? Rejection)> TryResolveAsync(
             QueryContextDto? ctx, CancellationToken ct)
         {
             if (ctx?.SourceId is null)
                 // The default source is the application's own database. Never honor a
                 // caller-supplied table name here — it is pinned to the demo table so
                 // the default source cannot be used to read arbitrary app tables.
-                return new ResolvedCtx(_defaultEngine, DefaultMsSqlKey, DefaultTableName, OwnsEngine: false);
+                return (new ResolvedCtx(_defaultEngine, DefaultMsSqlKey, DefaultTableName, OwnsEngine: false), null);
 
+            var notFound = _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
             var userId = CurrentUserId;
             // Custom sources require an authenticated user who owns the record.
-            if (userId is null) return null;
+            if (userId is null) return (null, notFound);
 
             var source = await _dbContext.DataSourceConfigs
                 .FirstOrDefaultAsync(s => s.Id == ctx.SourceId.Value && s.UserId == userId, ct);
-            if (source is null) return null;
+            if (source is null) return (null, notFound);
 
-            var engine = _configService.BuildEngine(source);
+            DataAnalysisEngine engine;
+            try
+            {
+                engine = _configService.BuildEngine(source);
+            }
+            catch (DataSourceConfigException ex)
+            {
+                _logger.LogWarning("DataAnalysis: refused saved source {id}: {err}", source.Id, ex.Message);
+                return (null, _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, ex.Message));
+            }
             var sourceKey = _configService.SourceKey(source.ConnectorType);
             var tableName = ctx.TableName ?? source.DefaultTableName ?? "";
-            return new ResolvedCtx(engine, sourceKey, tableName, OwnsEngine: true);
+            return (new ResolvedCtx(engine, sourceKey, tableName, OwnsEngine: true), null);
+        }
+
+        /// <summary>
+        /// The response for an engine query that failed. The default source is the app's own production
+        /// database behind anonymous endpoints, so the driver's text (server and object names, SQL
+        /// fragments) stays in the log and the caller gets <paramref name="genericMessage"/>. A custom
+        /// source is the signed-in owner's own database: they get the driver's message, which is what
+        /// they need to fix their connection or query.
+        /// </summary>
+        private IActionResult EngineFailure(ResolvedCtx ctx, string? engineError, string genericMessage)
+        {
+            _logger.Log(ctx.OwnsEngine ? LogLevel.Warning : LogLevel.Error,
+                "DataAnalysis query failed: source={src} table={t}: {err}",
+                ctx.OwnsEngine ? "custom" : "default", ctx.TableName, engineError);
+            var message = ctx.OwnsEngine && !string.IsNullOrWhiteSpace(engineError) ? engineError : genericMessage;
+            return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, message);
         }
 
         /// <summary>
@@ -146,13 +177,23 @@ namespace JackyAIApp.Server.Controllers
             if (userId is null)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
 
+            string configJson;
+            try
+            {
+                configJson = _configService.SerializeAndEncrypt(dto.Config, dto.ConnectorType);
+            }
+            catch (DataSourceConfigException ex)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, ex.Message);
+            }
+
             var entity = new DataSourceConfig
             {
                 Id               = Guid.NewGuid(),
                 UserId           = userId,
                 Name             = dto.Name,
                 ConnectorType    = dto.ConnectorType,
-                ConfigJson       = _configService.SerializeAndEncrypt(dto.Config, dto.ConnectorType),
+                ConfigJson       = configJson,
                 DefaultTableName = dto.DefaultTableName,
                 CreatedAt        = DateTimeOffset.UtcNow,
             };
@@ -179,14 +220,24 @@ namespace JackyAIApp.Server.Controllers
             if (entity is null)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
 
+            // Merge: non-secret fields always update; secret fields only update when
+            // the client sent a real value (not the masked placeholder "***"). The merged
+            // result is validated before anything on the entity changes.
+            string configJson;
+            try
+            {
+                configJson = _configService.MergeAndEncrypt(dto.Config, entity, dto.ConnectorType);
+            }
+            catch (DataSourceConfigException ex)
+            {
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, ex.Message);
+            }
+
             entity.Name             = dto.Name;
             entity.ConnectorType    = dto.ConnectorType;
             entity.DefaultTableName = dto.DefaultTableName;
             entity.UpdatedAt        = DateTimeOffset.UtcNow;
-
-            // Merge: non-secret fields always update; secret fields only update when
-            // the client sent a real value (not the masked placeholder "***").
-            entity.ConfigJson = _configService.MergeAndEncrypt(dto.Config, entity, dto.ConnectorType);
+            entity.ConfigJson       = configJson;
 
             await _dbContext.SaveChangesAsync(ct);
             return _responseFactory.CreateOKResponse(_configService.ToResponseDto(entity));
@@ -225,8 +276,9 @@ namespace JackyAIApp.Server.Controllers
             [FromQuery] string? tableName = null,
             CancellationToken   ct        = default)
         {
-            using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
-            if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+            var (ctx, rejection) = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
+            if (ctx is null) return rejection!;
+            using var _ = ctx;
 
             _logger.LogInformation("FieldList: source={sid} table={t}", sourceId, ctx.TableName);
             var result = await ctx.Engine.FieldListAsync(
@@ -234,7 +286,7 @@ namespace JackyAIApp.Server.Controllers
 
             return result.IsSuccess
                 ? _responseFactory.CreateOKResponse(result.Value)
-                : _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Schema query failed.");
+                : EngineFailure(ctx, result.ErrorMessage, "Schema query failed.");
         }
 
         /// <summary>
@@ -247,8 +299,9 @@ namespace JackyAIApp.Server.Controllers
             [FromQuery] string  dateField  = "OrderDate",
             CancellationToken   ct         = default)
         {
-            using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
-            if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+            var (ctx, rejection) = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
+            if (ctx is null) return rejection!;
+            using var _ = ctx;
 
             if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.CheckField(fields, dateField), ct) is { } rejected)
                 return rejected;
@@ -259,7 +312,7 @@ namespace JackyAIApp.Server.Controllers
 
             return result.IsSuccess
                 ? _responseFactory.CreateOKResponse(new { maxDate = result.Value!.MaxDate })
-                : _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "MaxDate query failed.");
+                : EngineFailure(ctx, result.ErrorMessage, "MaxDate query failed.");
         }
 
         /// <summary>
@@ -276,8 +329,9 @@ namespace JackyAIApp.Server.Controllers
             if (string.IsNullOrWhiteSpace(field))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "field is required.");
 
-            using var ctx = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
-            if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+            var (ctx, rejection) = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
+            if (ctx is null) return rejection!;
+            using var _ = ctx;
 
             if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.CheckField(fields, field), ct) is { } rejected)
                 return rejected;
@@ -302,8 +356,9 @@ namespace JackyAIApp.Server.Controllers
             [FromBody] SummarizeRequestDto dto,
             CancellationToken ct = default)
         {
-            using var ctx = await TryResolveAsync(dto.Context, ct);
-            if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+            var (ctx, rejection) = await TryResolveAsync(dto.Context, ct);
+            if (ctx is null) return rejection!;
+            using var _ = ctx;
 
             if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.Check(fields, dto), ct) is { } rejected)
                 return rejected;
@@ -320,7 +375,7 @@ namespace JackyAIApp.Server.Controllers
 
             return result.IsSuccess
                 ? _responseFactory.CreateOKResponse(new { rows = result.Value!.Rows.Select(r => r.Data) })
-                : _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Summarize failed.");
+                : EngineFailure(ctx, result.ErrorMessage, "Summarize failed.");
         }
 
         /// <summary>Paginated row-level data (DetailsAsync).</summary>
@@ -329,8 +384,9 @@ namespace JackyAIApp.Server.Controllers
             [FromBody] DetailsRequestDto dto,
             CancellationToken ct = default)
         {
-            using var ctx = await TryResolveAsync(dto.Context, ct);
-            if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+            var (ctx, rejection) = await TryResolveAsync(dto.Context, ct);
+            if (ctx is null) return rejection!;
+            using var _ = ctx;
 
             if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.Check(fields, dto), ct) is { } rejected)
                 return rejected;
@@ -351,7 +407,7 @@ namespace JackyAIApp.Server.Controllers
 
             return result.IsSuccess
                 ? _responseFactory.CreateOKResponse(new { rows = result.Value!.Rows, totalCount = result.Value!.TotalCount })
-                : _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Details failed.");
+                : EngineFailure(ctx, result.ErrorMessage, "Details failed.");
         }
 
         // ── CSV export ─────────────────────────────────────────────────────────
@@ -376,8 +432,9 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.TooManyRequests, "Another export is running. Please try again shortly.");
             try
             {
-                using var ctx = await TryResolveAsync(dto.Context, ct);
-                if (ctx is null) return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+                var (ctx, rejection) = await TryResolveAsync(dto.Context, ct);
+                if (ctx is null) return rejection!;
+                using var _ = ctx;
 
                 if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.Check(fields, dto), ct) is { } rejected)
                     return rejected;
@@ -393,7 +450,7 @@ namespace JackyAIApp.Server.Controllers
                     Filters      = MapFilters(dto.Filters),
                 }, ct);
                 if (!result.IsSuccess)
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, result.ErrorMessage ?? "Export failed.");
+                    return EngineFailure(ctx, result.ErrorMessage, "Export failed.");
 
                 var rows = result.Value!.Rows;
                 IReadOnlyList<string> headers;
@@ -507,14 +564,14 @@ namespace JackyAIApp.Server.Controllers
             }
 
             // ── Engine data source (default or custom) ─────────────────────────
-            using var ctx = await TryResolveAsync(dto.Context, ct);
-            if (ctx is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
+            var (ctx, rejection) = await TryResolveAsync(dto.Context, ct);
+            if (ctx is null) return rejection!;
+            using var _ = ctx;
 
             var fieldResult = await ctx.Engine.FieldListAsync(
                 new FieldListRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName }, ct);
             if (!fieldResult.IsSuccess)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, fieldResult.ErrorMessage ?? "Schema query failed.");
+                return EngineFailure(ctx, fieldResult.ErrorMessage, "Schema query failed.");
 
             var engineFields = fieldResult.Value!.Fields.Select(f => (f.Name, f.CanonicalType.ToString())).ToList();
             var engineFieldNames = engineFields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -549,8 +606,7 @@ namespace JackyAIApp.Server.Controllers
             }, ct);
 
             if (!result.IsSuccess)
-                return _responseFactory.CreateErrorResponse(
-                    ErrorCodes.InternalServerError, result.ErrorMessage ?? "Query execution failed.");
+                return EngineFailure(ctx, result.ErrorMessage, "Query execution failed.");
 
             _logger.LogInformation("NlSummarize: user={uid} query={q}", userId ?? "anon", dto.Query);
             return _responseFactory.CreateOKResponse(new NlSummarizeResponseDto

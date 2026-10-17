@@ -21,20 +21,42 @@ namespace JackyAIApp.Server.Services.DataAnalysis
 
         public DataAnalysisEngine BuildEngine(DataSourceConfig source)
         {
+            // A stored config is checked again before it gets a connection: one saved before the
+            // validator existed, or under older rules, is refused here with the reason rather than used.
             var decryptedConfigJson = _encryptionService.DecryptToken(source.ConfigJson);
-            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             return source.ConnectorType switch
             {
-                DataSourceConnectorType.MsSql => BuildMsSqlEngine(decryptedConfigJson, opts),
-                DataSourceConnectorType.Adx => BuildAdxEngine(decryptedConfigJson, opts),
-                _ => throw new NotSupportedException($"Unsupported connector type: {source.ConnectorType}")
+                DataSourceConnectorType.MsSql => BuildMsSqlEngine(
+                    ReadValidated<MsSqlSourceConfigDto>(decryptedConfigJson, DataSourceConfigValidator.Validate)),
+                DataSourceConnectorType.Adx => BuildAdxEngine(
+                    ReadValidated<AdxSourceConfigDto>(decryptedConfigJson, DataSourceConfigValidator.Validate)),
+                _ => throw new DataSourceConfigException($"Unsupported connector type: {source.ConnectorType}.")
             };
         }
 
-        private static DataAnalysisEngine BuildMsSqlEngine(string configJson, JsonSerializerOptions opts)
+        private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
+
+        /// <summary>
+        /// Reads a config and runs it through <see cref="DataSourceConfigValidator"/>; throws
+        /// <see cref="DataSourceConfigException"/> when it can't be read or is refused.
+        /// </summary>
+        private static T ReadValidated<T>(string configJson, Func<T?, string?> validate) where T : class
         {
-            var cfg = JsonSerializer.Deserialize<MsSqlSourceConfigDto>(configJson, opts)
-                      ?? throw new InvalidOperationException("Invalid MsSql config JSON.");
+            T? cfg;
+            try
+            {
+                cfg = JsonSerializer.Deserialize<T>(configJson, ReadOptions);
+            }
+            catch (JsonException)
+            {
+                throw new DataSourceConfigException("The data source settings could not be read.");
+            }
+            if (validate(cfg) is { } error) throw new DataSourceConfigException(error);
+            return cfg!;
+        }
+
+        private static DataAnalysisEngine BuildMsSqlEngine(MsSqlSourceConfigDto cfg)
+        {
             return new DataAnalysisEngineBuilder()
                 .AddSource(new MsSqlDataSourceFactory(new MsSqlConfig
                 {
@@ -44,10 +66,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 .Build();
         }
 
-        private static DataAnalysisEngine BuildAdxEngine(string configJson, JsonSerializerOptions opts)
+        private static DataAnalysisEngine BuildAdxEngine(AdxSourceConfigDto cfg)
         {
-            var cfg = JsonSerializer.Deserialize<AdxSourceConfigDto>(configJson, opts)
-                      ?? throw new InvalidOperationException("Invalid Adx config JSON.");
             return new DataAnalysisEngineBuilder()
                 .AddSource(new AdxDataSourceFactory(new AdxConfig
                 {
@@ -57,7 +77,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                     TenantId = cfg.TenantId,
                     ClientId = cfg.ClientId,
                     ClientSecret = cfg.ClientSecret,
-                    ConnectionString = cfg.ConnectionString
+                    // Never the raw connection string: the validator refuses one, and the service-principal
+                    // fields above are the only authentication a custom ADX source may use.
+                    ConnectionString = null,
                 }))
                 .Build();
         }
@@ -108,33 +130,61 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             };
         }
 
-        public string SerializeAndEncrypt(object config, DataSourceConnectorType type) =>
-            _encryptionService.EncryptToken(SerializeConfig(config, type));
+        public string SerializeAndEncrypt(object config, DataSourceConnectorType type)
+        {
+            var json = SerializeConfig(config, type);
+            EnsureValid(json, type);
+            return _encryptionService.EncryptToken(json);
+        }
 
         public string MergeAndEncrypt(object newConfig, DataSourceConfig existing, DataSourceConnectorType type)
         {
             var newJson = SerializeConfig(newConfig, type);
             var decryptedExisting = _encryptionService.DecryptToken(existing.ConfigJson);
             var mergedJson = MergeConfigSecrets(newJson, decryptedExisting, type);
+            // What gets stored is the merge (masked secrets filled in from the old config), so that is what is checked.
+            EnsureValid(mergedJson, type);
             return _encryptionService.EncryptToken(mergedJson);
+        }
+
+        private static void EnsureValid(string configJson, DataSourceConnectorType type)
+        {
+            switch (type)
+            {
+                case DataSourceConnectorType.MsSql:
+                    ReadValidated<MsSqlSourceConfigDto>(configJson, DataSourceConfigValidator.Validate);
+                    break;
+                case DataSourceConnectorType.Adx:
+                    ReadValidated<AdxSourceConfigDto>(configJson, DataSourceConfigValidator.Validate);
+                    break;
+                default:
+                    throw new DataSourceConfigException($"Unsupported connector type: {type}.");
+            }
         }
 
         private static string SerializeConfig(object config, DataSourceConnectorType type)
         {
             var opts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-            // config may arrive as JsonElement (System.Text.Json model binding)
-            if (config is JsonElement je)
+            try
             {
-                return type switch
+                // config may arrive as JsonElement (System.Text.Json model binding)
+                if (config is JsonElement je)
                 {
-                    DataSourceConnectorType.MsSql =>
-                        JsonSerializer.Serialize(je.Deserialize<MsSqlSourceConfigDto>(opts), opts),
-                    DataSourceConnectorType.Adx =>
-                        JsonSerializer.Serialize(je.Deserialize<AdxSourceConfigDto>(opts), opts),
-                    _ => je.GetRawText()
-                };
+                    return type switch
+                    {
+                        DataSourceConnectorType.MsSql =>
+                            JsonSerializer.Serialize(je.Deserialize<MsSqlSourceConfigDto>(opts), opts),
+                        DataSourceConnectorType.Adx =>
+                            JsonSerializer.Serialize(je.Deserialize<AdxSourceConfigDto>(opts), opts),
+                        _ => je.GetRawText()
+                    };
+                }
+                return JsonSerializer.Serialize(config, opts);
             }
-            return JsonSerializer.Serialize(config, opts);
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+            {
+                throw new DataSourceConfigException("The data source settings are missing a required field or are malformed.");
+            }
         }
 
         /// <summary>
