@@ -16,6 +16,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         public static IServiceCollection AddDataAnalysisServices(this IServiceCollection services, string sqlConnectionString)
         {
             services.AddScoped<IDataSourceConfigService, DataSourceConfigService>();
+            // Shared source resolution (default vs custom, ownership, saved-settings validation),
+            // used by both DataAnalysisController and dashboard widgets.
+            services.AddScoped<IDataSourceResolver, DataSourceResolver>();
             // The NL-query planner (LLM pipeline behind summarize/nl), extracted from the controller.
             services.AddScoped<INlQueryPlanner, NlQueryPlanner>();
 

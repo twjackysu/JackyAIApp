@@ -30,20 +30,16 @@ namespace JackyAIApp.Server.Controllers
         ILogger<DashboardController> logger,
         IMyResponseFactory responseFactory,
         AzureSQLDBContext dbContext,
-        DataAnalysisEngine defaultEngine,
+        IDataSourceResolver resolver,
         IDataSourceConfigService configService,
         IMemoryCache cache) : ApiControllerBase
     {
         private readonly ILogger<DashboardController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly AzureSQLDBContext _dbContext = dbContext;
-        private readonly DataAnalysisEngine _defaultEngine = defaultEngine;
+        private readonly IDataSourceResolver _resolver = resolver;
         private readonly IDataSourceConfigService _configService = configService;
         private readonly IMemoryCache _cache = cache;
-
-        // Built-in default source (matches DataAnalysisController).
-        private const string DefaultMsSqlKey = "mssql";
-        private const string DefaultTableName = "dbo.Orders";
 
         // "Anyone" = fully public (no login required); "Public" = any logged-in user.
         private static readonly string[] ValidVisibilities = ["Private", "Public", "Restricted", "Anyone"];
@@ -274,36 +270,19 @@ namespace JackyAIApp.Server.Controllers
             if (plan is null)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Invalid widget plan.");
 
-            // Resolve the engine as the dashboard owner (not the viewer).
-            DataAnalysisEngine engine;
-            string sourceKey;
-            string tableName;
-            var ownsEngine = false;
-            if (plan.Context?.SourceId is null)
-            {
-                engine = _defaultEngine;
-                sourceKey = DefaultMsSqlKey;
-                tableName = DefaultTableName;
-            }
-            else
-            {
-                var source = await _dbContext.DataSourceConfigs
-                    .FirstOrDefaultAsync(s => s.Id == plan.Context.SourceId.Value && s.UserId == dash.UserId, ct);
-                if (source is null)
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Data source not found.");
-                try
-                {
-                    engine = _configService.BuildEngine(source);
-                }
-                catch (DataSourceConfigException ex)
-                {
-                    _logger.LogWarning("WidgetData: refused saved source {sid}: {err}", source.Id, ex.Message);
-                    return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, ex.Message);
-                }
-                sourceKey = _configService.SourceKey(source.ConnectorType);
-                tableName = plan.Context.TableName ?? source.DefaultTableName ?? "";
-                ownsEngine = true;
-            }
+            // Resolve the engine as the dashboard OWNER (not the viewer), through the same shared,
+            // hardened path a live DataAnalysis query uses.
+            var (resolved, status, message) = await _resolver.ResolveAsync(
+                plan.Context?.SourceId, plan.Context?.TableName, dash.UserId, ct);
+            if (status == DataSourceResolution.ConfigRefused)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, message!);
+            if (resolved is null)
+                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Data source not found.");
+
+            var engine     = resolved.Engine;
+            var sourceKey  = resolved.SourceKey;
+            var tableName  = resolved.TableName;
+            var ownsEngine = resolved.OwnsEngine;
 
             try
             {
