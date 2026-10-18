@@ -6,7 +6,8 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 import { BENCHMARK_RETURN_TOOLTIP } from './benchmarkReturn';
-import { WIDE_RANGES } from './dayRanges';
+import { DEFAULT_WIDE_RANGE_DAYS, WIDE_RANGES } from './dayRanges';
+import { HistoryLimitNote } from './HistoryLimitNote';
 import { MASK, usePrivacy } from './privacy';
 import { RangePicker } from './RangePicker';
 import { StatBlock } from './StatBlock';
@@ -43,7 +44,7 @@ function ReturnStat({ label, pct, color }: { label: string; pct: number | null; 
 
 export function BenchmarkChart() {
   const { mode } = usePrivacy();
-  const [days, setDays] = useState(365);
+  const [days, setDays] = useState(DEFAULT_WIDE_RANGE_DAYS);
   const [symbols, setSymbols] = useState<string[]>(['0050']);
   const { data: res, isLoading, isFetching } = useGetBenchmarkComparisonQuery({ days, symbols });
   const comparison = res?.data;
@@ -147,6 +148,8 @@ export function BenchmarkChart() {
         </Box>
         <RangePicker ranges={WIDE_RANGES} value={days} onChange={setDays} />
       </Box>
+
+      <HistoryLimitNote days={days} />
 
       {isFetching && <LinearProgress sx={{ mb: 1 }} />}
 
