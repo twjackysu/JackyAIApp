@@ -258,26 +258,36 @@ namespace JackyAIApp.Server.Services.Finance
             }
         }
 
+        /// <summary>
+        /// The market a request is for — the explicit <paramref name="market"/> if it names one, else
+        /// detected from the code — and the code to use with it. A TW code or company name goes through
+        /// the resolver and fails with <paramref name="unresolvedError"/> when it matches nothing; a US
+        /// code is just normalised. The two callers differ only in that error code (comprehensive
+        /// analysis reports an upstream failure, the chart's price bars a plain not-found).
+        /// </summary>
+        private async Task<(MarketRegion Region, string Code, ServiceResult? Unresolved)> ResolveStockAsync(
+            string code, string? market, ErrorCodes unresolvedError, CancellationToken ct)
+        {
+            var region = Enum.TryParse<MarketRegion>(market, true, out var parsed)
+                ? parsed
+                : _providerFactory.DetectRegion(code);
+            if (region != MarketRegion.TW)
+                return (region, code.Trim().ToUpperInvariant(), null);
+
+            var resolved = await _stockCodeResolver.ResolveStockCodeAsync(code, ct) ?? "";
+            return string.IsNullOrEmpty(resolved)
+                ? (region, "", ServiceResult.Fail(unresolvedError, $"Unable to resolve stock code for '{code}'."))
+                : (region, resolved, null);
+        }
+
         public async Task<ServiceResult> GetComprehensiveAnalysisAsync(StockAnalysisRequest request, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(request.StockCode))
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Stock code is required.");
 
-            var region = !string.IsNullOrEmpty(request.Market)
-                ? Enum.TryParse<MarketRegion>(request.Market, true, out var m) ? m : _providerFactory.DetectRegion(request.StockCode)
-                : _providerFactory.DetectRegion(request.StockCode);
-
-            string resolvedStockCode;
-            if (region == MarketRegion.TW)
-            {
-                resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(request.StockCode, cancellationToken) ?? "";
-                if (string.IsNullOrEmpty(resolvedStockCode))
-                    return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{request.StockCode}'.");
-            }
-            else
-            {
-                resolvedStockCode = request.StockCode.Trim().ToUpperInvariant();
-            }
+            var (region, resolvedStockCode, unresolved) = await ResolveStockAsync(
+                request.StockCode, request.Market, ErrorCodes.ExternalApiError, cancellationToken);
+            if (unresolved is not null) return unresolved;
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
             var configHash = $"{region}_{request.IncludeTechnical}_{request.IncludeChip}_{request.IncludeFundamental}_{request.IncludeScoring}_{request.IncludeRisk}_{request.TechnicalWeight}_{request.ChipWeight}_{request.FundamentalWeight}";
@@ -341,18 +351,9 @@ namespace JackyAIApp.Server.Services.Finance
             if (code.Trim().Equals(TaiexCode, StringComparison.OrdinalIgnoreCase))
                 return await GetTaiexPriceBarsAsync(cancellationToken);
 
-            var region = Enum.TryParse<MarketRegion>(market, true, out var m) ? m : _providerFactory.DetectRegion(code);
-            string resolvedStockCode;
-            if (region == MarketRegion.TW)
-            {
-                resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(code, cancellationToken) ?? "";
-                if (string.IsNullOrEmpty(resolvedStockCode))
-                    return ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to resolve stock code for '{code}'.");
-            }
-            else
-            {
-                resolvedStockCode = code.Trim().ToUpperInvariant();
-            }
+            var (region, resolvedStockCode, unresolved) = await ResolveStockAsync(
+                code, market, ErrorCodes.NotFound, cancellationToken);
+            if (unresolved is not null) return unresolved;
 
             try
             {
