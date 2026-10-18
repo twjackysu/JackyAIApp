@@ -50,6 +50,8 @@ python reproduce_spec.py
 | `robust.py` | 只用 0050：煞車參數的穩定性、各次崩盤表現、深跌加碼測試 | `results/robust.txt` |
 | `lev_run.py 0.003 0.035` | 0050 + 00631L：1,386 組參數掃描、walk-forward | `results/lev_grid_lag*.csv`、`results/lev_walk_forward.csv` |
 | `lev_analyze.py` | 0050 + 00631L：進攻 × 防守對照表、實際資料驗證、崩盤表現、年報酬 | `results/lev_analyze.txt` |
+| `gap_study.py` | 跳空開低後的盤中表現（指數開盤價 vs 0050 成交價）、單日大跌後的報酬；`docs/DAILY_PLAYBOOK_PLAN.md` 引用 | `results/gap_study.txt` |
+| `brake_levels.py [額外資料.csv]` | 回落煞車「下一個交易日收盤」的觸發門檻（SMA60 與 -8% 的封閉解）；預設補上 2026-10-12～10-16 的報酬指數 | stdout |
 
 注意：`lev_analyze.py` 的表格使用 k=0（不保留現金）；規格中的配置有保留現金（k=0.2 / 0.1），所以規格數字以 `reproduce_spec.py` 為準。
 
