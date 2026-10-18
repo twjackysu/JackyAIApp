@@ -25,6 +25,7 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
 - **Google OAuth** authentication
 - **External API integrations**: Taiwan Stock Exchange (TWSE) Open API, Yahoo Finance, FundRich (基富通), TWStockLib (NuGet package, own test suite — see Testing Status)
 - **Resilience**: Polly retry + circuit breaker (`Microsoft.Extensions.Http.Resilience`) on the named `"ExternalReadOnly"` client and the bare default client (used by TWStockLib), scoped away from OpenAI/Dify to avoid retrying non-idempotent calls
+- **Third-party gateway** (`Services/ExternalApi/ThirdPartyGateway`): every request to TWSE/TPEx history goes through `IThirdPartyGateway.RunAsync(source, key, priority, fetch)` — identical in-flight requests share one fetch, Interactive is served before Background, and a per-source token bucket paces it (config section `ThirdPartyGateway`, live reload; the defaults are conservative guesses, no official limit is published). It does not cache — callers keep their own cache in front. The "token" is this rate-limit budget, nothing to do with LLM tokens
 
 ### Key Features & Modules
 1. **Dictionary** (`/dictionary`) - English learning with word lookup, audio, pronunciation, word repository
@@ -72,6 +73,7 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
    - US stock pricing + dividends via Yahoo Finance v8 chart API; fund NAV/dividends via FundRich
    - Total (含息) return: dividend history walked against the snapshot timeline so a dividend counts against whatever quantity was held on its ex-date; XIRR includes dividends as inflows
    - Exposure ratio accounts for leveraged/inverse ETF factors (`PortfolioExposure.Factor`)
+   - Drawdown and benchmark charts reach back up to 3 years, but the providers only keep ~6 months of prices. Older **TW** months are filled in the background by `TwHistoryBackfillService` (one month at a time, newest first across all stocks, Background priority, each month stored as it arrives; progress in `StockSymbolInfo.HistoryCoveredFrom`) and added to a request's prices by `DeepHistoryService`, which only reads — it never waits on an exchange. The responses carry `backfill { state, coveredFrom, targetFrom }` so the client can show progress and poll. The exchanges answer "no data" with a *successful empty* month (also for a code that does not exist), so an empty month for a stock the user held is treated as a failure, never as coverage. US stocks are not backfilled yet
 
 7. **Daily Challenge / Review / Stats** (`/daily`, `/review`, `/stats`) - Retention & gamification
    - Daily Challenge: 5-question date-seeded quiz generated from the word DB (no AI cost), always free

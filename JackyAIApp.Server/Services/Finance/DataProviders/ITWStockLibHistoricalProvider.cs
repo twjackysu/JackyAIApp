@@ -1,8 +1,16 @@
 using JackyAIApp.Server.DTO.Finance;
+using JackyAIApp.Server.Services.ExternalApi;
 using TWStockLib.Models;
 
 namespace JackyAIApp.Server.Services.Finance.DataProviders
 {
+    /// <summary>One month of daily bars from the exchange. <see cref="Succeeded"/> tells a month that
+    /// arrived — possibly empty, because the stock was not listed yet — from one that did not.</summary>
+    public sealed record TwMonthBars(bool Succeeded, IReadOnlyList<DailyPrice> Bars)
+    {
+        public static TwMonthBars Failed { get; } = new(false, []);
+    }
+
     /// <summary>
     /// The subset of <see cref="TWStockLibHistoricalProvider"/> that <see
     /// cref="PersistentTwHistoricalProvider"/> depends on directly (rather than <see
@@ -16,6 +24,16 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         Task<MarketData> FetchRangeAsync(
             string stockCode, DateTime startDate, DateTime endDate,
             MarketType? knownMarketType, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// One whole calendar month of one stock as the exchange has it — bars as delivered, volume
+        /// in the exchange's own unit (see <see cref="TwVolume"/>). Goes through the same gateway
+        /// request as a ranged fetch, so asking for a month somebody is already fetching joins that
+        /// request. Never throws for an upstream problem: <see cref="TwMonthBars.Succeeded"/> is false.
+        /// </summary>
+        Task<TwMonthBars> FetchMonthAsync(
+            string stockCode, DateOnly month, MarketType marketType, GatewayPriority priority,
+            CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Which TW market a symbol trades on, or <c>null</c> when that could not be established.

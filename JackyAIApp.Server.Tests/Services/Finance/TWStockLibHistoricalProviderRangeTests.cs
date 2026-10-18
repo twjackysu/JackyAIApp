@@ -141,6 +141,89 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         }
 
         [Fact]
+        public async Task FetchMonth_ReturnsTheWholeMonthAsDelivered_WithoutDaysThatHaveNoClose()
+        {
+            MonthReturns("2330", MarketType.TSE, 2026, 8,
+                Bar(new(2026, 8, 31), 11), Bar(new(2026, 8, 3), 10), Bar(new(2026, 8, 4), 0));
+
+            var month = await Provider().FetchMonthAsync("2330", new DateOnly(2026, 8, 1), MarketType.TSE, GatewayPriority.Background);
+
+            Assert.True(month.Succeeded);
+            Assert.Equal([new DateTime(2026, 8, 3), new DateTime(2026, 8, 31)], month.Bars.Select(b => b.Date));
+            Assert.Equal(1000, month.Bars[0].Volume);   // as delivered; the exchange's own unit
+        }
+
+        [Fact]
+        public async Task FetchMonth_ForAMonthWithNoTrading_SucceedsWithNothing()
+        {
+            MonthReturns("2330", MarketType.TSE, 2026, 8);
+
+            var month = await Provider().FetchMonthAsync("2330", new DateOnly(2026, 8, 1), MarketType.TSE, GatewayPriority.Background);
+
+            Assert.True(month.Succeeded);
+            Assert.Empty(month.Bars);
+        }
+
+        [Fact]
+        public async Task FetchMonth_TellsAMonthThatFailedFromOneThatWasEmpty()
+        {
+            _stockService
+                .Setup(s => s.GetHistoricalDataAsync("2330", It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(StockResult<IReadOnlyList<StockHistory>>.Fail(StockErrorCodes.UpstreamError, "503"));
+
+            var month = await Provider().FetchMonthAsync("2330", new DateOnly(2026, 8, 1), MarketType.TSE, GatewayPriority.Background);
+
+            Assert.False(month.Succeeded);
+        }
+
+        [Fact]
+        public async Task FetchMonth_GoesThroughTheGatewayWithTheCallersPriority_OnTheLaneOfItsMarket()
+        {
+            _spyGateway
+                .Setup(g => g.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<GatewayPriority>(),
+                    It.IsAny<Func<CancellationToken, Task<StockResult<IReadOnlyList<StockHistory>>>>>(), It.IsAny<CancellationToken>()))
+                .Returns((string source, string key, GatewayPriority priority,
+                    Func<CancellationToken, Task<StockResult<IReadOnlyList<StockHistory>>>> fetch, CancellationToken _) =>
+                {
+                    _requests.Add((source, key, priority));
+                    return Task.FromResult(StockResult<IReadOnlyList<StockHistory>>.Ok([]));
+                });
+
+            await Provider(_spyGateway.Object).FetchMonthAsync("6488", new DateOnly(2026, 8, 17), MarketType.OTC, GatewayPriority.Background);
+
+            // The same key a ranged fetch of that month uses, so the two share one request.
+            Assert.Equal([(ThirdPartySources.TpexHistory, "OTC:6488:202608", GatewayPriority.Background)], _requests);
+        }
+
+        [Fact]
+        public async Task FetchMonth_AGatewayFailure_IsAFailedMonth_NotAnException()
+        {
+            _spyGateway
+                .Setup(g => g.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<GatewayPriority>(),
+                    It.IsAny<Func<CancellationToken, Task<StockResult<IReadOnlyList<StockHistory>>>>>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new TimeoutException("twse-history did not answer"));
+
+            var month = await Provider(_spyGateway.Object).FetchMonthAsync(
+                "2330", new DateOnly(2026, 8, 1), MarketType.TSE, GatewayPriority.Background);
+
+            Assert.False(month.Succeeded);
+        }
+
+        [Fact]
+        public async Task FetchMonth_WhenTheCallerCancels_ThatIsNotSwallowedAsAFailedMonth()
+        {
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+            _spyGateway
+                .Setup(g => g.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<GatewayPriority>(),
+                    It.IsAny<Func<CancellationToken, Task<StockResult<IReadOnlyList<StockHistory>>>>>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new OperationCanceledException(cts.Token));
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Provider(_spyGateway.Object).FetchMonthAsync(
+                "2330", new DateOnly(2026, 8, 1), MarketType.TSE, GatewayPriority.Background, cts.Token));
+        }
+
+        [Fact]
         public async Task AGatewayFailure_IsAnEmptyResult_NotAnException()
         {
             // Same contract as before: this method never throws for an upstream problem.

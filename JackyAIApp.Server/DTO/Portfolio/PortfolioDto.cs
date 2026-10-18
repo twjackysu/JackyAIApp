@@ -206,6 +206,25 @@ namespace JackyAIApp.Server.DTO.Portfolio
         // Today's drawdown from the window's running peak — independent of the worst-episode fields
         // above (e.g. can be 0 even if MaxDrawdownPct shows a large past episode that's since recovered).
         public decimal CurrentDrawdownPct { get; set; }
+        // How far the background fetching of older prices has got, when the window reaches back
+        // further than the prices that are on hand. Null when nothing is being fetched.
+        public HistoryBackfillDto? Backfill { get; set; }
+    }
+
+    /// <summary>
+    /// A chart that reaches back further than the ~6 months of prices kept on hand is drawn from
+    /// whatever older months have been stored so far, while the rest are fetched in the background,
+    /// a month at a time. The client shows this as progress and asks again until
+    /// <see cref="State"/> is no longer <c>Running</c>.
+    /// </summary>
+    public class HistoryBackfillDto
+    {
+        public Services.Finance.DataProviders.BackfillState State { get; set; }
+        // yyyy-MM-dd. The earliest day every stock in the chart has prices from, so the chart
+        // already reaches back this far.
+        public string CoveredFrom { get; set; } = "";
+        // yyyy-MM-dd. The earliest day that was asked for.
+        public string TargetFrom { get; set; } = "";
     }
 
     /// <summary>One benchmark's simulated "what if every contribution had bought this instead"
@@ -248,6 +267,8 @@ namespace JackyAIApp.Server.DTO.Portfolio
         public List<decimal> PortfolioTWD { get; set; } = [];
         public decimal? PortfolioReturnPct { get; set; }
         public List<BenchmarkSeriesDto> Benchmarks { get; set; } = [];
+        // See HistoryBackfillDto. Null when nothing is being fetched.
+        public HistoryBackfillDto? Backfill { get; set; }
     }
 
     public class UpdateHistoryItem

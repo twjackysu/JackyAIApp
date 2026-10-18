@@ -43,7 +43,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         private readonly TimeProvider _timeProvider;
 
         private const string Market = "TW";
-        private const int LookbackMonths = 6;
+        internal const int LookbackMonths = 6;
         /// <summary>Shallow lookback for <see cref="FetchLatestAsync"/> — enough to cross a long
         /// weekend/holiday stretch and still land on the most recent finalized close. Adding a
         /// never-before-seen symbol only needs this, not the full 6-month window: valuation/day-
@@ -233,7 +233,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             // today (shares) would sit a thousandfold off a TPEx history and every volume ratio and
             // chart would be wrong. A market not yet resolved is read as TWSE, as the fetch does.
             var twMarketType = (await db.StockSymbolInfos.FindAsync([stockCode], cancellationToken))?.TwMarketType;
-            var volumeScale = twMarketType == nameof(MarketType.OTC) ? TwVolume.SharesPerLot : 1;
+            var volumeScale = TwVolume.ToSharesFactor(twMarketType);
 
             return new MarketData
             {
@@ -406,52 +406,8 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
         }
 
-        /// <summary>Persists bars strictly before <paramref name="today"/> — today's price is still
-        /// moving intraday (or, even after close, TWSE/TWStockLib give no documented guarantee of
-        /// exactly when it's actually final) and must never be frozen into the DB as a "close".</summary>
-        private async Task UpsertFinalizedBarsAsync(
-            AzureSQLDBContext db, string symbol, List<DailyPrice> bars, DateOnly today, CancellationToken ct)
-        {
-            var finalized = bars
-                .Where(b => DateOnly.FromDateTime(b.Date) < today && b.Close > 0)
-                .ToList();
-            if (finalized.Count == 0) return;
-
-            var dates = finalized.Select(b => DateOnly.FromDateTime(b.Date)).ToList();
-            var existingDates = (await db.DailyStockPrices
-                .Where(p => p.Symbol == symbol && p.Market == Market && dates.Contains(p.TradeDate))
-                .Select(p => p.TradeDate)
-                .ToListAsync(ct))
-                .ToHashSet();
-
-            var toAdd = finalized
-                .Where(b => !existingDates.Contains(DateOnly.FromDateTime(b.Date)))
-                .Select(b => new DailyStockPrice
-                {
-                    Symbol = symbol,
-                    Market = Market,
-                    TradeDate = DateOnly.FromDateTime(b.Date),
-                    Open = b.Open,
-                    High = b.High,
-                    Low = b.Low,
-                    Close = b.Close,
-                    Volume = b.Volume,
-                })
-                .ToList();
-            if (toAdd.Count == 0) return;
-
-            db.DailyStockPrices.AddRange(toAdd);
-            try
-            {
-                await db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateException ex)
-            {
-                // Concurrent cold-start requests can race to insert the same (Symbol, TradeDate) —
-                // the unique index rejects the loser, which is fine, the winner's row is identical
-                // data anyway (finalized bars are immutable).
-                _logger.LogDebug(ex, "Concurrent insert race for {Symbol} price rows, ignoring", symbol);
-            }
-        }
+        private Task UpsertFinalizedBarsAsync(
+            AzureSQLDBContext db, string symbol, List<DailyPrice> bars, DateOnly today, CancellationToken ct) =>
+            DailyStockPriceWriter.UpsertFinalizedAsync(db, symbol, bars, today, _logger, ct);
     }
 }
