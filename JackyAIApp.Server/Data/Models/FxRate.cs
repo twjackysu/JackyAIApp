@@ -60,5 +60,12 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// a mid-market quote. Business days only. Applies to US STOCK holdings.
         /// </summary>
         public const string Cathay = "CATHAY";
+
+        /// <summary>
+        /// The mid-market USD/TWD rate (the live open.er-api feed). What a USD holding converts at
+        /// when no published rate applies to it — a USD cash or real-estate position, or a stock or
+        /// fund whose 國泰 / 集保 rate is missing.
+        /// </summary>
+        public const string Mid = "MID";
     }
 }

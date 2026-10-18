@@ -36,6 +36,15 @@ namespace JackyAIApp.Server.Services.Portfolio
         ServerTiming? timing = null) : IPortfolioService
     {
         private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
+
+        /// <summary>USD/TWD used when no real rate is available: the live feed failed, or a snapshot was
+        /// saved without one (0). One number for both, so a fallback never differs between screens.</summary>
+        private const decimal FallbackUsdTwdRate = 32m;
+
+        /// <summary>The USD/TWD rate saved on a snapshot, or <see cref="FallbackUsdTwdRate"/> when it has none.
+        /// Used to rebuild history as of that snapshot; the current valuation uses the live rate instead.</summary>
+        private static decimal SnapshotFx(HoldingSnapshot snapshot) =>
+            snapshot.UsdTwdRate > 0 ? snapshot.UsdTwdRate : FallbackUsdTwdRate;
         private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
         private const string STOCK_CACHE_PREFIX = "portfolio_stock_";
         private const string SNAPSHOTS_CACHE_PREFIX = "portfolio_snapshots_";
@@ -318,14 +327,17 @@ namespace JackyAIApp.Server.Services.Portfolio
             // quote's day; everything else in USD at the mid-market rate. Falls back to mid-market
             // when a published rate is missing, since an FX lookup must never be what stops a
             // portfolio from being valued.
-            decimal PositionFx(HoldingPosition position, string? priceCurrency)
+            // Also says where the rate came from (null when none applies, i.e. TWD or a currency with
+            // no rate), so the response's FxRateSource is what was used, not a guess from the number.
+            (decimal Rate, string? Source) ResolveFx(HoldingPosition position, string? currency)
             {
-                if (string.IsNullOrWhiteSpace(priceCurrency) || priceCurrency == "TWD") return 1m;
-                if (position.AssetType == AssetType.FUND && tdccRates.TryGetValue(priceCurrency, out var fundFx))
-                    return fundFx;
-                if (CathayRateFor(position, priceCurrency) is { } usFx) return usFx;
-                return priceCurrency == "USD" ? fx : 1m;
+                if (string.IsNullOrWhiteSpace(currency) || currency == "TWD") return (1m, null);
+                if (position.AssetType == AssetType.FUND && tdccRates.TryGetValue(currency, out var fundFx))
+                    return (fundFx, FxRateSources.Tdcc);
+                if (CathayRateFor(position, currency) is { } usFx) return (usFx, FxRateSources.Cathay);
+                return currency == "USD" ? (fx, FxRateSources.Mid) : (1m, null);
             }
+            decimal PositionFx(HoldingPosition position, string? priceCurrency) => ResolveFx(position, priceCurrency).Rate;
 
             foreach (var p in snapshot.Positions)
             {
@@ -377,7 +389,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (p.AssetType is not (AssetType.CASH or AssetType.LIABILITY or AssetType.REAL_ESTATE) && currentPrice <= 0)
                     priceFailed = true;
 
-                var fxMul = PositionFx(p, priceCurrency);
+                var (fxMul, fxSource) = ResolveFx(p, priceCurrency);
                 // LIABILITY is the one place a position's value goes negative — this is the sole
                 // sign-flip point; every downstream sum (net worth, history, exports) just adds
                 // valueTWD and is correct with no special-casing.
@@ -393,17 +405,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 // Cost is converted by its own currency, which may differ from the pricing
                 // currency — but by the same convention, so a fund whose cost was paid in USD is
                 // not measured against a market value converted at a different rate.
-                var costCurrency = p.CostCurrency ?? p.Currency;
-                var costFxMul = 1m;
-                if (!string.IsNullOrWhiteSpace(costCurrency) && costCurrency != "TWD")
-                {
-                    if (p.AssetType == AssetType.FUND && tdccRates.TryGetValue(costCurrency, out var fundCostFx))
-                        costFxMul = fundCostFx;
-                    else if (CathayRateFor(p, costCurrency) is { } usCostFx)
-                        costFxMul = usCostFx;
-                    else if (costCurrency == "USD")
-                        costFxMul = fx;
-                }
+                var costFxMul = PositionFx(p, p.CostCurrency ?? p.Currency);
 
                 // Market exposure: leveraged ETFs amplify, bond/cash contribute nothing. Computed
                 // here (rather than after the P&L block below) because the TW sell-cost estimate
@@ -484,11 +486,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     EstimatedSellCostTWD = posEstimatedSellCostTWD,
                     ExposureFactor = exposureFactor,
                     FxRateUsed = fxMul == 1m ? null : fxMul,
-                    FxRateSource = fxMul == 1m
-                        ? null
-                        : p.AssetType == AssetType.FUND && tdccRates.ContainsValue(fxMul) ? FxRateSources.Tdcc
-                        : CathayRateFor(p, priceCurrency) == fxMul ? FxRateSources.Cathay
-                        : "MID",
+                    FxRateSource = fxSource,
                     PriceFetchFailed = priceFailed,
                     ValuationMethod = p.ValuationMethod,
                 });
@@ -818,7 +816,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 var active = snapshots[snapshotIdx].EffectiveDate <= date ? snapshots[snapshotIdx] : null;
                 if (active == null) continue;
 
-                var fx = active.UsdTwdRate > 0 ? active.UsdTwdRate : 32m;
+                var fx = SnapshotFx(active);
                 var groups = new Dictionary<string, decimal>();
                 decimal total = 0;
                 var dt = date.ToDateTime(TimeOnly.MinValue);
@@ -957,7 +955,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 var active = snapshots[snapshotIdx].EffectiveDate <= date ? snapshots[snapshotIdx] : null;
                 if (active == null) continue;
 
-                var fx = active.UsdTwdRate > 0 ? active.UsdTwdRate : 32m;
+                var fx = SnapshotFx(active);
                 var total = ValueAsOfDate(active.Positions, date, fx, asOfPrices);
                 // Null = a held position couldn't be priced as of this date yet (no-data), same gap
                 // semantics as GetNetWorthHistoryAsync's own "== 0" skip. A real negative total
@@ -1134,7 +1132,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             decimal? InvestedValueAsOfDate(HoldingSnapshot snap, DateOnly date)
             {
                 var dayKey = date.ToString("yyyy-MM-dd");
-                var fx = snap.UsdTwdRate > 0 ? snap.UsdTwdRate : 32m;
+                var fx = SnapshotFx(snap);
                 decimal total = 0;
                 foreach (var p in snap.Positions)
                 {
@@ -1174,7 +1172,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var prevCost = priorSnapshot?.Positions
                 .Where(p => p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
                 .Sum(p => p.CostBasis!.Value * ((p.CostCurrency ?? p.Currency) == "USD"
-                    ? (priorSnapshot.UsdTwdRate > 0 ? priorSnapshot.UsdTwdRate : 32m) : 1m)) ?? 0;
+                    ? SnapshotFx(priorSnapshot) : 1m)) ?? 0;
             if (prevCost > 0)
             {
                 for (var i = 0; i < benchmarkPriceLists.Count; i++)
@@ -1237,7 +1235,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     var snapCost = active.Positions
                         .Where(p => p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
                         .Sum(p => p.CostBasis!.Value * ((p.CostCurrency ?? p.Currency) == "USD"
-                            ? (active.UsdTwdRate > 0 ? active.UsdTwdRate : 32m) : 1m));
+                            ? SnapshotFx(active) : 1m));
                     var delta = snapCost - prevCost;
                     prevCost = snapCost;
                     contributionToday = delta;
@@ -1703,7 +1701,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     var currency = key.AssetType == AssetType.FUND
                         ? (fundMap.TryGetValue(key.Symbol, out var nav) ? nav.Currency : "TWD")
                         : record.Currency;
-                    var fxMul = currency == "USD" ? (snap.UsdTwdRate > 0 ? snap.UsdTwdRate : 32m) : 1m;
+                    var fxMul = currency == "USD" ? SnapshotFx(snap) : 1m;
 
                     byDate[record.ExDate] = byDate.GetValueOrDefault(record.ExDate)
                         + position.Quantity * record.AmountPerUnit * fxMul;
@@ -2114,7 +2112,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 logger.LogWarning(ex, "Failed to fetch USD/TWD rate, using fallback 32");
             }
 
-            return 32m; // fallback
+            return FallbackUsdTwdRate;
         }
     }
 }
