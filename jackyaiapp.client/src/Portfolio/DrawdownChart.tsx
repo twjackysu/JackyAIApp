@@ -5,8 +5,9 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import { WIDE_RANGES } from './dayRanges';
+import { DEFAULT_WIDE_RANGE_DAYS, WIDE_RANGES } from './dayRanges';
 import { currentDrawdownStatus } from './drawdownStatus';
+import { HistoryLimitNote } from './HistoryLimitNote';
 import { RangePicker } from './RangePicker';
 import { StatBlock } from './StatBlock';
 
@@ -17,7 +18,7 @@ import CenteredSpinner from '@/components/CenteredSpinner';
 import { LOSS_COLOR } from '@/utils/format';
 
 export function DrawdownChart() {
-  const [days, setDays] = useState(365);
+  const [days, setDays] = useState(DEFAULT_WIDE_RANGE_DAYS);
   const { data: res, isLoading, isFetching } = useGetDrawdownQuery(days);
   const analysis = res?.data;
   const points = analysis?.points ?? [];
@@ -77,6 +78,8 @@ export function DrawdownChart() {
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
         <RangePicker ranges={WIDE_RANGES} value={days} onChange={setDays} />
       </Box>
+
+      <HistoryLimitNote days={days} />
 
       {isFetching && <LinearProgress sx={{ mb: 1 }} />}
 
