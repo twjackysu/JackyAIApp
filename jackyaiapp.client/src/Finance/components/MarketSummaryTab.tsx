@@ -18,6 +18,8 @@ import Typography from '@mui/material/Typography';
 
 import type { DigestPoint } from '@/apis/financeApis/types';
 
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
+
 interface MarketSummaryTabProps {
   isAuthenticated: boolean;
   isMarketLoading: boolean;
@@ -134,14 +136,7 @@ export function MarketSummaryTab({
   }
 
   if (isMarketError) {
-    const message =
-      typeof marketError === 'object' &&
-      marketError !== null &&
-      'data' in marketError &&
-      typeof (marketError as { data?: { error?: { message?: string } } }).data?.error?.message ===
-        'string'
-        ? (marketError as { data: { error: { message: string } } }).data.error.message
-        : '無法產生今日市場摘要，請稍後再試。';
+    const message = getCaughtErrorMessage(marketError, '無法產生今日市場摘要，請稍後再試。');
     return (
       <Alert
         severity="error"

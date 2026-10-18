@@ -5,7 +5,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import { DayRange } from './dayRanges';
+import { NET_WORTH_RANGES } from './dayRanges';
 import {
   barCountsByGranularity,
   Granularity,
@@ -21,12 +21,6 @@ import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact, fmtNum, GAIN_COLOR, LOSS_COLOR } from '@/utils/format';
-
-const RANGES: DayRange[] = [
-  { label: '1M', days: 30 },
-  { label: '3M', days: 90 },
-  { label: '6M', days: 180 },
-];
 
 const GRANULARITIES: { label: string; value: Granularity }[] = [
   { label: '日', value: 'daily' },
@@ -141,7 +135,7 @@ export function FinancialChangesChart() {
             );
           })}
         </ButtonGroup>
-        <RangePicker ranges={RANGES} value={days} onChange={setDays} />
+        <RangePicker ranges={NET_WORTH_RANGES} value={days} onChange={setDays} />
       </Box>
 
       {unusableLabels.length > 0 && (
