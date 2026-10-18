@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
+using JackyAIApp.Server.Services.ExternalApi;
 using JackyAIApp.Server.Services.Portfolio;
 using Microsoft.Extensions.Caching.Memory;
 using TWStockLib.Models;
@@ -16,6 +17,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         private readonly IStockMarketService _stockService;
         private readonly ITwListedCompanyService _listedCompanies;
         private readonly IMemoryCache _cache;
+        private readonly IThirdPartyGateway _gateway;
         private readonly ILogger<TWStockLibHistoricalProvider> _logger;
 
         /// <summary>Default lookback period in months for historical data</summary>
@@ -30,11 +32,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             IStockMarketService stockService,
             ITwListedCompanyService listedCompanies,
             IMemoryCache cache,
+            IThirdPartyGateway gateway,
             ILogger<TWStockLibHistoricalProvider> logger)
         {
             _stockService = stockService ?? throw new ArgumentNullException(nameof(stockService));
             _listedCompanies = listedCompanies ?? throw new ArgumentNullException(nameof(listedCompanies));
             _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+            _gateway = gateway ?? throw new ArgumentNullException(nameof(gateway));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -73,7 +77,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     "Fetching historical data for {stockCode} from {start:yyyy-MM-dd} to {end:yyyy-MM-dd} on {market}",
                     stockCode, startDate, endDate, marketType);
 
-                var historyResult = await _stockService.GetHistoricalDataAsync(
+                var historyResult = await GetHistoryByMonthAsync(
                     stockCode, startDate, endDate, marketType, cancellationToken);
 
                 if (!historyResult.IsSuccess)
@@ -131,6 +135,41 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
 
             return marketData;
+        }
+
+        /// <summary>
+        /// The range as the exchange serves it: one request per month, a whole month whatever the range
+        /// asked for. Each month goes through the <see cref="IThirdPartyGateway"/>, so a long range is
+        /// paced instead of fired off at once, and two callers who need the same stock-month at the same
+        /// time share one request.
+        ///
+        /// All or nothing: if any month fails the whole range fails, as it did when TWStockLib fetched the
+        /// range in one call. <c>PersistentTwHistoricalProvider</c> relies on that — a partly successful
+        /// history would let it mark a symbol's history complete with a month missing in the middle.
+        /// </summary>
+        private async Task<StockResult<IReadOnlyList<StockHistory>>> GetHistoryByMonthAsync(
+            string stockCode, DateTime startDate, DateTime endDate, MarketType marketType, CancellationToken ct)
+        {
+            var source = marketType == MarketType.OTC ? ThirdPartySources.TpexHistory : ThirdPartySources.TwseHistory;
+
+            var requests = new List<Task<StockResult<IReadOnlyList<StockHistory>>>>();
+            for (var month = new DateTime(startDate.Year, startDate.Month, 1); month <= endDate; month = month.AddMonths(1))
+            {
+                var first = month;
+                var last = month.AddMonths(1).AddDays(-1);
+                requests.Add(_gateway.RunAsync(
+                    source, $"{marketType}:{stockCode}:{first:yyyyMM}", GatewayPriority.Interactive,
+                    token => _stockService.GetHistoricalDataAsync(stockCode, first, last, marketType, token), ct));
+            }
+
+            var results = await Task.WhenAll(requests);
+            var failed = results.FirstOrDefault(r => !r.IsSuccess);
+            if (failed is not null) return failed;
+
+            // The same cut TWStockLib made when it was handed the range itself.
+            IReadOnlyList<StockHistory> bars =
+                [.. results.SelectMany(r => r.Value!).Where(h => h.Date >= startDate && h.Date <= endDate)];
+            return StockResult<IReadOnlyList<StockHistory>>.Ok(bars);
         }
 
         /// <summary>

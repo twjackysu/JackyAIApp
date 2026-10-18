@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Services.ExternalApi;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Portfolio;
 using Microsoft.Extensions.Caching.Memory;
@@ -26,6 +27,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                 _stockService.Object,
                 _listedCompanies.Object,
                 new MemoryCache(new MemoryCacheOptions()),
+                Mock.Of<IThirdPartyGateway>(),
                 NullLogger<TWStockLibHistoricalProvider>.Instance);
         }
 
