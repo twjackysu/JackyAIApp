@@ -8,6 +8,7 @@ using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services.DataAnalysis;
+using JackyAIApp.Server.Services.ExternalApi;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Portfolio;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
@@ -185,6 +186,7 @@ try
     // scattered inline here, so the full DI graph is auditable module-by-module.
     builder.Services.AddCoreServices(builder.Configuration);
     builder.Services.AddVocabularyServices();
+    builder.Services.AddThirdPartyGateway();
     builder.Services.AddFinanceAnalysisServices();
     builder.Services.AddJobAggregatorServices();
     builder.Services.AddPortfolioServices();
