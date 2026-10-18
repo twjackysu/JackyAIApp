@@ -88,6 +88,40 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         };
 
         [Fact]
+        public async Task UnresolvableTwCode_IsAnExternalError_NotANotFound()
+        {
+            // The price-bars endpoint answers the same situation with NotFound; this one has always
+            // reported it as an upstream failure, and the two share one resolver helper that must keep both.
+            _resolver.Setup(r => r.ResolveStockCodeAsync("不存在的公司", It.IsAny<CancellationToken>())).ReturnsAsync("");
+
+            var result = await Service().GetComprehensiveAnalysisAsync(Request("不存在的公司"), default);
+
+            Assert.Equal(ErrorCodes.ExternalApiError, result.Error);
+            Assert.Contains("不存在的公司", result.ErrorMessage);
+            _price.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ExplicitUsMarket_SkipsTheResolver_AndNormalisesTheCode()
+        {
+            // DetectRegion says TW for everything in this fixture; the request's own market must win,
+            // so the builder reads the US provider (a TW request would use the TW one it was built with).
+            var us = new Mock<IMarketDataProvider>();
+            us.Setup(p => p.FetchAsync("AAPL", It.IsAny<CancellationToken>())).ReturnsAsync(NoData());
+            _factory.Setup(f => f.GetMarketDataProvider(MarketRegion.US)).Returns(us.Object);
+            _factory.Setup(f => f.GetChipDataProvider(MarketRegion.US)).Returns(_chip.Object);
+
+            var result = await Service().GetComprehensiveAnalysisAsync(
+                new StockAnalysisRequest { StockCode = " aapl ", Market = "US" }, default);
+
+            Assert.Equal(ErrorCodes.NotFound, result.Error);   // NoData: the lookup itself ran, for "AAPL"
+            Assert.Contains("AAPL", result.ErrorMessage);
+            _resolver.VerifyNoOtherCalls();
+            us.Verify(p => p.FetchAsync("AAPL", It.IsAny<CancellationToken>()), Times.Once);
+            _price.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task NoPriceAndNoIndicator_IsNotFound_AndIsNotCached()
         {
             _price.Setup(p => p.FetchAsync("9999", It.IsAny<CancellationToken>())).ReturnsAsync(NoData());
