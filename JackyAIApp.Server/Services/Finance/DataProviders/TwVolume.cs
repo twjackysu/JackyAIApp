@@ -10,5 +10,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     public static class TwVolume
     {
         public const long SharesPerLot = 1000;
+
+        /// <summary>What to multiply a stored bar's volume by to get shares: persisted rows keep the
+        /// exchange's own unit (lots for TPEx, so OTC). An unresolved market reads as TWSE, as the
+        /// fetch does.</summary>
+        public static long ToSharesFactor(string? twMarketType) =>
+            twMarketType == nameof(TWStockLib.Models.MarketType.OTC) ? SharesPerLot : 1;
     }
 }

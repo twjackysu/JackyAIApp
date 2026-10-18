@@ -150,17 +150,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         private async Task<StockResult<IReadOnlyList<StockHistory>>> GetHistoryByMonthAsync(
             string stockCode, DateTime startDate, DateTime endDate, MarketType marketType, CancellationToken ct)
         {
-            var source = marketType == MarketType.OTC ? ThirdPartySources.TpexHistory : ThirdPartySources.TwseHistory;
-
             var requests = new List<Task<StockResult<IReadOnlyList<StockHistory>>>>();
             for (var month = new DateTime(startDate.Year, startDate.Month, 1); month <= endDate; month = month.AddMonths(1))
-            {
-                var first = month;
-                var last = month.AddMonths(1).AddDays(-1);
-                requests.Add(_gateway.RunAsync(
-                    source, $"{marketType}:{stockCode}:{first:yyyyMM}", GatewayPriority.Interactive,
-                    token => _stockService.GetHistoricalDataAsync(stockCode, first, last, marketType, token), ct));
-            }
+                requests.Add(RequestMonthAsync(stockCode, month, marketType, GatewayPriority.Interactive, ct));
 
             var results = await Task.WhenAll(requests);
             var failed = results.FirstOrDefault(r => !r.IsSuccess);
@@ -170,6 +162,65 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             IReadOnlyList<StockHistory> bars =
                 [.. results.SelectMany(r => r.Value!).Where(h => h.Date >= startDate && h.Date <= endDate)];
             return StockResult<IReadOnlyList<StockHistory>>.Ok(bars);
+        }
+
+        /// <summary>One whole month of one stock, through the gateway on the lane of its market.
+        /// Keyed per symbol-month, so every caller wanting the same month at once shares one request.</summary>
+        private Task<StockResult<IReadOnlyList<StockHistory>>> RequestMonthAsync(
+            string stockCode, DateTime monthStart, MarketType marketType, GatewayPriority priority, CancellationToken ct)
+        {
+            var source = marketType == MarketType.OTC ? ThirdPartySources.TpexHistory : ThirdPartySources.TwseHistory;
+            var first = new DateTime(monthStart.Year, monthStart.Month, 1);
+            var last = first.AddMonths(1).AddDays(-1);
+            return _gateway.RunAsync(
+                source, $"{marketType}:{stockCode}:{first:yyyyMM}", priority,
+                token => _stockService.GetHistoricalDataAsync(stockCode, first, last, marketType, token), ct);
+        }
+
+        public async Task<TwMonthBars> FetchMonthAsync(
+            string stockCode, DateOnly month, MarketType marketType, GatewayPriority priority,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var result = await RequestMonthAsync(
+                    stockCode, month.ToDateTime(TimeOnly.MinValue), marketType, priority, cancellationToken);
+                if (!result.IsSuccess)
+                {
+                    _logger.LogWarning(
+                        "Month {month:yyyy-MM} of {stockCode} failed: {errorCode} - {errorMessage}",
+                        month, stockCode, result.ErrorCode, result.ErrorMessage);
+                    return TwMonthBars.Failed;
+                }
+
+                var bars = result.Value!
+                    .Where(h => h.ClosingPrice > 0)
+                    .OrderBy(h => h.Date)
+                    .Select(h => new DailyPrice
+                    {
+                        Date = h.Date,
+                        Open = h.OpeningPrice,
+                        High = h.HighestPrice,
+                        Low = h.LowestPrice,
+                        Close = h.ClosingPrice,
+                        Volume = h.TradeVolume,
+                        Turnover = (long)h.TurnOverInValue,
+                        Transactions = (int)h.NumberOfDeals,
+                    })
+                    .ToList();
+                return new TwMonthBars(true, bars);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // A gateway timeout or a throwing fetch: this month did not arrive, which is a
+                // different thing from arriving empty.
+                _logger.LogWarning(ex, "Month {month:yyyy-MM} of {stockCode} could not be fetched", month, stockCode);
+                return TwMonthBars.Failed;
+            }
         }
 
         /// <summary>

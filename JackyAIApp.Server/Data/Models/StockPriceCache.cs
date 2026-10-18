@@ -62,6 +62,14 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// forever and get needlessly re-fetched on every single call.</summary>
         public DateTime? DeepFetchedAt { get; set; }
 
+        /// <summary>First day of the oldest month whose bars are fully persisted for this symbol,
+        /// as far back as the background backfill has got (see TwHistoryBackfillService) — months
+        /// from here to the present are all in <see cref="DailyStockPrice"/>. Null until a backfill
+        /// has run; then the start is derived from <see cref="DeepFetchedAt"/> (the deep fetch's
+        /// ~6-month window). Month granularity on purpose: the exchange is asked for whole months,
+        /// so "covered" never has to mean "covered from the 14th".</summary>
+        public DateOnly? HistoryCoveredFrom { get; set; }
+
         /// <summary>Fixed-vocabulary bucket for the net-worth-history "view by 產業" chart —
         /// PortfolioCategory enum stored as its string name. Null = not yet classified (triggers
         /// lazy AI classification in StockCategoryService). CASH/LIABILITY never get a row here —

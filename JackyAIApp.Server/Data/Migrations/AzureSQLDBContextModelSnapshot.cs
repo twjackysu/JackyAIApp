@@ -955,6 +955,9 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<DateTime?>("DeepFetchedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateOnly?>("HistoryCoveredFrom")
+                        .HasColumnType("date");
+
                     b.Property<DateTime>("LastResolvedAt")
                         .HasColumnType("datetime2");
 

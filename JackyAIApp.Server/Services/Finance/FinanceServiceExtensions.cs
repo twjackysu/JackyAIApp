@@ -76,6 +76,15 @@ namespace JackyAIApp.Server.Services.Finance
                 return new TwTodayOverlayMarketDataProvider(cached, quoteSource, overlayLogger);
             });
 
+            // Older TW price history (beyond the ~6 months above), fetched in the background a month
+            // at a time behind the third-party gateway. One instance behind both faces — the queue a
+            // request puts work on is the one the worker takes it from — and the reader that adds
+            // what is stored to a chart's prices.
+            services.AddSingleton<TwHistoryBackfillService>();
+            services.AddSingleton<ITwHistoryBackfill>(sp => sp.GetRequiredService<TwHistoryBackfillService>());
+            services.AddHostedService(sp => sp.GetRequiredService<TwHistoryBackfillService>());
+            services.AddScoped<IDeepHistoryService, DeepHistoryService>();
+
             // Chip data provider (TWSE OpenAPI)
             services.AddScoped<TWSEChipDataProvider>();
             services.AddScoped<IChipDataProvider>(sp => sp.GetRequiredService<TWSEChipDataProvider>());
