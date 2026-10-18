@@ -11,10 +11,10 @@ import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
 
 import type { IndicatorSeries } from '@/apis/financeApis/types';
-import type { ApiErrorResponse } from '@/apis/types';
 import type { ECOption } from '@/charts/echarts';
 
 import { useGetIndicatorsQuery, useLazyGetIndicatorInsightQuery } from '@/apis/financeApis';
+import { getApiErrorMessage } from '@/apis/utils/errorMessage';
 import ReactECharts from '@/charts/ReactECharts';
 import { fmtNum } from '@/utils/format';
 
@@ -119,10 +119,10 @@ export const IndicatorExplorer = () => {
   const indicators = apiResponse?.data?.indicators ?? [];
 
   // Surface the real server reason instead of always blaming the API key.
-  const serverMessage =
-    error && typeof error === 'object' && 'data' in error
-      ? (error as { data?: ApiErrorResponse }).data?.error?.message
-      : undefined;
+  const message = getApiErrorMessage(
+    error,
+    isError ? '指標資料載入失敗，請稍後再試。' : '目前沒有指標資料。',
+  );
 
   if (isLoading) {
     return (
@@ -137,11 +137,7 @@ export const IndicatorExplorer = () => {
   }
 
   if (isError || indicators.length === 0) {
-    return (
-      <Alert severity="warning">
-        {serverMessage || (isError ? '指標資料載入失敗，請稍後再試。' : '目前沒有指標資料。')}
-      </Alert>
-    );
+    return <Alert severity="warning">{message}</Alert>;
   }
 
   return (

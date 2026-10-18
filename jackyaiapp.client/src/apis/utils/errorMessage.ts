@@ -27,11 +27,16 @@ function nonBlank(value: unknown): string | undefined {
  * as far as the response factory. A gateway HTML page, a bare text body, or a JSON object
  * in some other shape all land here too, and reading `.error.message` off those throws —
  * which crashed the whole tree, since this runs inside render.
+ *
+ * `fallback` is what to show when the error carries nothing fit for a user — a screen that has
+ * its own wording for "it failed" (here, usually Chinese) passes it instead of the generic
+ * {@link FALLBACK_ERROR_MESSAGE}. A message the server did send, and the network message, still win.
  */
 export function getApiErrorMessage(
   error: FetchBaseQueryError | SerializedError | undefined,
+  fallback: string = FALLBACK_ERROR_MESSAGE,
 ): string {
-  if (error == null) return FALLBACK_ERROR_MESSAGE;
+  if (error == null) return fallback;
 
   if ('status' in error && error.status === 'FETCH_ERROR') return NETWORK_ERROR_MESSAGE;
 
@@ -50,7 +55,7 @@ export function getApiErrorMessage(
     if (text && !text.startsWith('<') && text.length <= MAX_PLAIN_TEXT_LENGTH) return text;
   }
 
-  return FALLBACK_ERROR_MESSAGE;
+  return fallback;
 }
 
 /**
@@ -61,8 +66,11 @@ export function getApiErrorMessage(
  * own property chain — which is how a lookup for a key the API never sends ends up silently
  * falling through to a generic message.
  */
-export function getCaughtErrorMessage(error: unknown): string {
+export function getCaughtErrorMessage(
+  error: unknown,
+  fallback: string = FALLBACK_ERROR_MESSAGE,
+): string {
   return isRecord(error)
-    ? getApiErrorMessage(error as FetchBaseQueryError | SerializedError)
-    : FALLBACK_ERROR_MESSAGE;
+    ? getApiErrorMessage(error as FetchBaseQueryError | SerializedError, fallback)
+    : fallback;
 }

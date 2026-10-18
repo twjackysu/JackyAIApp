@@ -69,6 +69,42 @@ describe('getApiErrorMessage', () => {
   });
 });
 
+describe('the fallback a screen passes in', () => {
+  const custom = '無法產生今日市場摘要，請稍後再試。';
+
+  it('replaces the generic message when the error has nothing to show', () => {
+    expect(getApiErrorMessage(undefined, custom)).toBe(custom);
+    expect(getApiErrorMessage({ status: 500, data: { unexpected: true } }, custom)).toBe(custom);
+    expect(getApiErrorMessage({ status: 502, data: '<html>Bad Gateway</html>' }, custom)).toBe(
+      custom,
+    );
+    expect(getApiErrorMessage({ message: 'serialized' }, custom)).toBe(custom);
+  });
+
+  it('never hides what the server did say, or that the network is down', () => {
+    expect(
+      getApiErrorMessage(
+        { status: 429, data: { error: { code: 1, message: 'Daily limit' } } },
+        custom,
+      ),
+    ).toBe('Daily limit');
+    expect(getApiErrorMessage({ status: 401, data: 'Unauthorized' }, custom)).toBe('Unauthorized');
+    expect(
+      getApiErrorMessage({ status: 'FETCH_ERROR', error: 'TypeError: Failed to fetch' }, custom),
+    ).toBe(NETWORK_ERROR_MESSAGE);
+  });
+
+  it('is the generic message when none is passed', () => {
+    expect(getApiErrorMessage(undefined)).toBe(FALLBACK_ERROR_MESSAGE);
+  });
+
+  it('applies to an unwrap() rejection too, including a value that is not an error at all', () => {
+    expect(getCaughtErrorMessage({ status: 500, data: {} }, custom)).toBe(custom);
+    expect(getCaughtErrorMessage('boom', custom)).toBe(custom);
+    expect(getCaughtErrorMessage(null, custom)).toBe(custom);
+  });
+});
+
 describe('getCaughtErrorMessage', () => {
   it('reads a rejected unwrap() the same way as the typed version', () => {
     expect(

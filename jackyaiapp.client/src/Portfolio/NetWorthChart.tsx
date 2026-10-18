@@ -5,7 +5,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import { DayRange } from './dayRanges';
+import { NET_WORTH_RANGES } from './dayRanges';
 import { MASK, usePrivacy } from './privacy';
 import { RangePicker } from './RangePicker';
 
@@ -15,14 +15,6 @@ import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
 import ReactECharts from '@/charts/ReactECharts';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { fmtCompact } from '@/utils/format';
-
-// Narrower than WIDE_RANGES (Portfolio/RangePicker.tsx): GetNetWorthHistoryAsync clamps to
-// [7, 180] days server-side, unlike drawdown/benchmark comparison's [30, 1095].
-const RANGES: DayRange[] = [
-  { label: '1M', days: 30 },
-  { label: '3M', days: 90 },
-  { label: '6M', days: 180 },
-];
 
 // "liquidity" isn't a real backend groupBy mode — it's a client-side re-bucketing of the same
 // assetType-mode response (TwStock/UsStock/Cash/Fund collapsed into one "動產" series, Property
@@ -404,7 +396,7 @@ export function NetWorthChart() {
             </Button>
           ))}
         </ButtonGroup>
-        <RangePicker ranges={RANGES} value={days} onChange={setDays} />
+        <RangePicker ranges={NET_WORTH_RANGES} value={days} onChange={setDays} />
       </Box>
       {/* Cached data for this exact (days, groupBy) combo is stale and being revalidated in the
           background, OR we already fell through the isLoading gate above but a slower network
