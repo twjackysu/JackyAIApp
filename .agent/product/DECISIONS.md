@@ -840,3 +840,83 @@ Boss 在 2026-10-16 晚間直接合併 #470（`8c745e8`）與 #471（`ec6571c`�
 
 ### Source
 Boss（直接交付）；PM 事後補登；A38 為 PM 預設，Boss 可推翻。
+
+
+## DECISION-035: Portfolio 長區間圖表——預設 3 個月、台股歷史背景補資料、提示必須如實（補登 #485～#488；Boss 直接交付）
+
+### Date
+2026-10-19
+
+### Decision
+Boss 在 2026-10-18 直接合併 #485（`76b4aaa`）、#486（`d9178d1`）、#487（`ed51be1`）、#488（`f0e5433`），PM 事後補登，**不推翻**：
+1. 回撤分析與基準比較兩張圖**預設改開 3 個月**（原為 1 年）；選 6 個月／1 年／3 年仍可。原因（事實，#485 說明）：股價來源只保留約 6 個月，1 年／3 年的圖其實只畫得出約 6 個月，卻掛著「1Y」「3Y」。
+2. 後端新增**台股歷史背景補資料**：一次一個月、全站最新月份優先、以 Background 優先序經「第三方閘道」（排隊／合併相同請求／限速）慢慢補，補到的月份就存起來。回撤與基準回應帶 `backfill { state: Complete | Running | Stalled, coveredFrom, targetFrom }`。**美股與基金尚未補**（CLAUDE.md 已寫明）。
+3. **產品原則（PM，新）**：圖上標的區間若比實際畫出的區間長，畫面必須**如實**說明圖實際從哪天開始、是否還在補資料；不得讓「3Y」按鈕下默默只畫半年，也不得在已補到更早資料後還說「沒有價格」。
+4. **PM 發現的缺口（事實，讀 master `f0e5433`）**：#488 只做後端。前端 `HistoryLimitNote.tsx` 仍寫死「目前只保留約 6 個月的股價歷史…圖會從約 6 個月前開始」，條件只看天數（> 183 天就顯示）；整個 `jackyaiapp.client/src` 沒有任何地方讀 `backfill`，也沒有輪詢。結果：台股補到更早之後，這段提示變成**不實**，使用者也看不到「補資料中」。這是「Portfolio 長區間圖表的歷史深度」一節（`REQUIREMENTS.md`）的需求 3 要補的；PM 不知道 Boss 是否已在做（目前沒有 open PR），所以列給 Tech Lead，**若已在做請告知，不要重複**。
+
+### Reason
+事實：#485／#488 的 commit 說明、`HistoryLimitNote.tsx`、`dayRanges.ts`、`PortfolioDto.cs`（`HistoryBackfillDto`）、`TwHistoryBackfillService.cs`（`BackfillState`）、`grep -rn backfill jackyaiapp.client/src`（只有型別檔一處無關註解與 `HistoryLimitNote` 的註解）。
+推測（未驗證）：Boss 的下一個 PR 會接前端（#488 說明寫「so the client can show progress and poll」）；使用者在意 1 年／3 年的回撤（PM 沒有用量數據）。
+
+### Impact
+- 新增需求「Portfolio 長區間圖表的歷史深度」（`REQUIREMENTS.md`）。
+- Tech Lead：評估前端接 `backfill`（提示如實、補資料中自動更新）；是否需要新任務由 Tech Lead 決定。
+- 含美股／基金的持股組合，1 年／3 年圖仍只能畫約 6 個月（`coveredFrom` 是「所有股票都有價格的最早日」）——提示必須說清楚；是否補美股另列 Future Consideration，不排工。
+
+### Source
+Boss（直接交付）；PM 事後補登與原則 3、缺口 4 為 PM 產品判斷。
+
+
+## DECISION-036: Stock Intelligence K 線加成交量，台股成交量一律以「股」為底（補登 #472；Boss 直接交付）
+
+### Date
+2026-10-19
+
+### Decision
+Boss 在 2026-10-17 直接合併 #472（`707b7ec`），PM 事後補登，**不推翻**：
+1. 個股的 K 線圖在價格下方多一個**成交量區塊**，tooltip 也顯示當天成交量；單位台股「張」、美股「股」；**加權指數沒有成交量**（不顯示）。
+2. **資料修正（事實，commit 說明）**：台股成交量單位原本混用——證交所歷史是「股」，櫃買歷史與即時報價是「張」；即時報價的張數被當成股數放進序列，使「量比」讀成約千分之一。現已統一換算成股。這會影響**盤中看到的量比／相關指標**（讀碼推論：綜合分析的成交量類指標；PM 沒有逐項確認受影響的欄位）。
+3. 不改變 A33：圖上仍無預測／建議性文字，警語照舊。
+
+### Reason
+事實：commit `cd272eb` 說明與 `trendlineChartOption.ts`（`TW_VOLUME` 張＝1,000 股、`US_VOLUME` 股）。
+推測（未驗證）：修正前，盤中查台股的量比類指標偏低，可能影響過當時的評分文字與 AI 趨勢分析輸入（PM 無法回溯當時有多少次、也無法重現）。
+
+### Impact
+- 需求「Stock Intelligence 自動趨勢線」新增需求 8（見該節）。沒有新任務。
+- 已快取的舊分析（最長 12 小時）會自然過期；PM 不要求清除。
+
+### Source
+Boss（直接交付）；PM 事後補登。
+
+
+## DECISION-037: Data Analysis 匿名端點與自訂資料來源硬化，並記錄一項需 Boss 判斷的安全疑慮（補登 #473／#474／#478；Boss 直接交付）
+
+### Date
+2026-10-19
+
+### Decision
+Boss 在 2026-10-17 直接合併 #473（`c07c3c5`，Finance 錯誤不再回傳例外原文）、#474（`327b1a1`，欄位白名單＋`DataAnalysisLibrary` 1.2.1）、#478（`5e90dc9`，引擎錯誤不外洩、自訂來源驗證、匿名上傳限額）。PM 事後補登，**不推翻**，並把使用者看得到的行為寫進需求（`REQUIREMENTS.md`「Data Analysis 硬化」）：
+1. **匿名查詢端點**（schema／maxdate／distinctvalues／summarize／details／details/export／儀表板圖表資料）：請求裡的欄位名稱必須是該資料表真實存在的欄位（不分大小寫），別名只允許文字、數字、空白與 `_ - ( ) . % /`；不符回 400 並指出欄位。端點**仍然匿名**。
+2. **錯誤訊息**：預設來源（本站資料庫）的引擎錯誤只進記錄，使用者收到固定訊息；自訂來源的擁有者仍看得到驅動程式的訊息（方便除錯），其他人與匿名者看不到。Finance 的錯誤同樣改為固定訊息，細節只進記錄。
+3. **自訂來源只接受「帳密型」驗證**：SQL Server 僅 SqlPassword／ActiveDirectoryPassword／ActiveDirectoryServicePrincipal（或無）且須 User ID＋密碼；**不再允許** Managed Identity、Default、Workload Identity、Integrated、Interactive、Device Code；ADX 不再接受原始連線字串，須填租用戶／用戶端 ID／密碼，叢集位址須為純 https Kusto 主機。已存的舊設定若不符，**後端會拒絕（400＋原因）、不再連線**；但**來源管理視窗儲存失敗時只顯示固定的「儲存失敗 — 請檢查連線資訊後再試一次。」**（PM 讀 `SourceManagerDialog.tsx:157-159`，沒有顯示後端給的原因），使用者看不出是「這種驗證方式不再支援」。這是 PM 發現的小缺口，見需求「Data Analysis 硬化」需求 4。
+4. **匿名資料上傳（`POST /api/dataanalysis/session`）加上限額**：每個已登入使用者 10 分鐘內 5 次；**所有匿名者合計** 10 分鐘內 20 次；單檔本文 ≤ 32 MB、≤ 5 萬列、≤ 200 欄、每格／欄名 ≤ 1,000 字、估計記憶體 ≤ 64 MB；全站所有暫存資料合計估計 ≤ 256 MB；伺服器記憶體使用率 ≥ 98% 時暫停接收。被拒的上傳不會被存下，畫面顯示伺服器給的訊息（「目前上傳的資料量已達上限，請稍後再試。」等）。
+5. **PM 的產品立場（可推翻）——A39**：這些限制對「在本站體驗 Data Analysis 的訪客」影響很小，PM 接受。唯一的取捨：**匿名名額是全體共用的 20 次／10 分鐘**，少數人（或展示場合 A30）就可能讓其他匿名訪客暫時上傳不了；使用者看到的是「請稍後再試」而不是壞掉。PM 沒有用量或濫用數據，**現在不要求調整**；若 Boss 要在比賽／展示現場使用匿名上傳，請先告知，PM 再請 Tech Lead 看是否預先放寬。
+6. **需 Boss 判斷的一件事（PM 不下結論）**：見下方「風險」。
+
+### 風險（事實／假設／不確定分開）
+- **事實（#474 與 #478 的 commit 說明，PM 沒有重現）**：修補前，匿名端點把呼叫者給的欄位名稱與別名交給資料庫函式庫，而該函式庫（≤ 1.2.0）沒有跳脫識別字；commit 的描述是類似 `Region]; WAITFOR DELAY ...` 的名稱「會當成第二個語句送到本站自己的 SQL 資料庫」。1.2.1 在函式庫端補了跳脫（commit 稱為根本修正），白名單是第二道防線。另外，修補前登入的使用者可以設定自訂來源並使用 Managed Identity 之類的驗證——commit 的說法是修補後「伺服器自己的身分不可能再被指向任何資源」。
+- **假設（PM 推測，未驗證）**：「本站自己的資料庫」與存放使用者資料（帳號、單字庫、投資組合快照、用量記錄）的是**同一個** Azure SQL 資料庫 `JackyAI`；若連線帳號有讀取其他資料表的權限，則曾有被讀取的可能。PM 沒有看資料庫權限，也無法得知。
+- **不確定**：(1) 匿名端點**何時**開始暴露（本機 git 歷史只到 2026-10-13，PM 查不到）；(2) 是否曾有人實際利用——PM 沒有存取 Application Insights／Azure SQL 稽核紀錄；(3) 修補是否已部署成功（PM 沒有查 `Build and deploy`）；(4) 若有個資外洩，個資法等是否有通報義務——**PM 未查證、不下結論**（比照 DECISION-019）。
+- **PM 的建議（Boss 決定）**：花一次機會查 Application Insights 裡 `/api/dataanalysis/*` 請求的參數有沒有 `;`、`]`、`WAITFOR`、`--` 之類的怪字串，並確認連線帳號的資料庫權限範圍。查不到／保留期已過也是一個答案。PM 不建議為此做任何對外動作，除非查到實際利用的證據。
+
+### Reason
+事實：commit 說明（`de9de59`、`bebaa6f`、`e1444f5`、`4caa105`、`bcaf716`）、`DataAnalysisController.cs`（`summarize/nl` 與來源管理有 `[Authorize]`，其餘查詢端點沒有）、`SessionUploadOptions.cs`、`RateLimitPolicies.cs`、`uploadErrorMessage.ts`。
+推測：見上方「假設」。
+
+### Impact
+- 新增需求「Data Analysis 硬化」；沒有新任務（程式已合併）。
+- `boss/PM.md` 與 `To Boss` Issue #489 提出上述一件判斷；不阻擋任何工作。
+
+### Source
+Boss（直接交付）；PM 事後補登。A39、風險整理與建議為 PM 判斷。

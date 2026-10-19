@@ -3362,3 +3362,14 @@
 - **Tech Lead Actions**：無。Tech Lead 同日（第 14 次排程，`142f4c0`）已把 TASK-055／059 → `MERGED` 並事後審閱 #470／#471：無須追加修正、警語仍在、新增文字沒有判斷用語、localStorage 讀取逐條驗證且壞資料只丟那一條（PM 的 (b) 已由其讀碼回答）；手機拖曳手感 Tech Lead 與 PM 都沒渲染過，仍是 Boss 目視項。
 - **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式站／OpenAI／證交所；以上全為讀 git、程式碼與 Issue 的結論，沒有跑測試、沒有渲染畫面、沒有查 Actions 的部署結果。
 - **Boss**：不需回覆、不阻擋任何工作；PM 不發推播通知——沒有需要 Boss 立即行動的事。
+
+## 2026-10-19 — PM：補登 #472～#488（Portfolio 歷史補資料、K 線成交量、Data Analysis 硬化），開 Issue #489（排程執行）
+
+- **狀態**：無 open PR；open issue＝#409（10/06 後無新留言）；#464 已於 10/17 由 Boss 關閉。Boss 沒有新留言。master＝`f0e5433`。自 PM 上次（`ed9572a`，10/17）以來 Boss 合併了 #472～#488（#475～#477、#479～#484 為純重構，無產品面變更，PM 不補登）。`.agent/` 自 10/17 沒有任何新提交（Tech Lead 也沒有補登這批）。
+- **DECISION-035（Portfolio）**：回撤／基準預設 3 個月；台股歷史背景補資料（閘道限速、一次一月、`backfill` 狀態）；**PM 發現缺口（讀 master）**：前端 `HistoryLimitNote.tsx` 仍寫死「只保留約 6 個月」、整個前端沒有讀 `backfill`，台股補到更早後提示變不實、也看不到進度。新需求「Portfolio 長區間圖表的歷史深度」（前端接 `backfill`＝MEDIUM；美股／基金補資料＝LOW、Future Consideration）。
+- **DECISION-036（K 線成交量）**：個股 K 線加成交量；台股成交量單位統一（修正盤中量比讀成約千分之一的錯誤）。純補登，LOW。
+- **DECISION-037（Data Analysis 硬化）**：欄位白名單、錯誤不外洩、匿名上傳限額（匿名合計 20 次／10 分鐘共用，A39）、自訂來源只收帳密型驗證。PM 讀碼發現小缺口：來源管理視窗儲存失敗只顯示泛用訊息（LOW）。**安全疑慮**：修補前匿名端點是否曾被利用——PM 無法查證，已開 `To Boss` Issue #489（事實／假設／不確定分開、不下法律結論）。
+- **文件更新**：`DECISIONS.md`（DECISION-035／036／037）、`REQUIREMENTS.md`（新增三節；趨勢線節與 Data Analysis 節各補一行指標）、`boss/PM.md`（摘要）。未動：程式碼、`ARCHITECTURE.md`、`boss/TECH_LEAD.md`、任何 TASK 檔。
+- **Tech Lead Actions**：(1) 確認前端接 `backfill` 是否已有人在做，沒有則評估小任務（MEDIUM）；(2) 自訂來源儲存失敗顯示後端原因，評估小任務（LOW）；(3) 請事後審閱 #472～#488 中有產品面的幾個（#472、#474、#478、#485～#488）並在 `ARCHITECTURE.md` 補記錄——PM 沒有逐行審；(4) 其餘無。
+- **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式站／交易所／OpenAI；以上全為讀 git、程式碼與 GitHub 的結論，沒有跑測試、沒有渲染畫面、沒有查 Actions 的部署結果、沒有查 App Insights。
+- **Boss**：只有 #489 一件需要判斷（不阻擋）；PM 發一則推播通知，因為它是安全／個資面的疑慮、且紀錄保留期可能有限。
