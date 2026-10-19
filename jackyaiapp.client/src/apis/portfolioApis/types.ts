@@ -124,6 +124,25 @@ export interface NetWorthDataPoint {
   groups: NetWorthGroupValue[];
 }
 
+/**
+ * How far the background fetching of older Taiwan-stock prices has got, when a drawdown or
+ * benchmark range reaches back further than the prices on hand (HistoryBackfillDto). The first
+ * response holds only the months already stored; the rest arrive while `state` is `Running`.
+ * - `Complete` — everything asked for is stored.
+ * - `Running`  — months are still being fetched; ask again.
+ * - `Stalled`  — something is missing and nothing is working on it (a month kept failing, or the
+ *   queue is full); the server will not requeue it for about 10 minutes, so asking again soon is
+ *   pointless.
+ * Dates are `yyyy-MM-dd`.
+ */
+export interface HistoryBackfill {
+  state: 'Complete' | 'Running' | 'Stalled';
+  /** The earliest day every stock in the chart has prices from. */
+  coveredFrom: string;
+  /** The earliest day that was asked for. */
+  targetFrom: string;
+}
+
 /** One day's point on the drawdown curve — net worth vs. the running peak seen so far in the
  * requested window. drawdownPct is always <= 0 (0 on a new all-time high). */
 export interface DrawdownPoint {
@@ -146,6 +165,8 @@ export interface DrawdownAnalysis {
   underwaterDays: number | null;
   stillUnderwater: boolean;
   currentDrawdownPct: number;
+  /** Null when the range needs no older prices than the server has on hand. */
+  backfill?: HistoryBackfill | null;
 }
 
 /** One benchmark's simulated "what if every contribution had bought this instead" curve —
@@ -166,6 +187,8 @@ export interface BenchmarkComparison {
   portfolioTWD: number[];
   portfolioReturnPct: number | null;
   benchmarks: BenchmarkSeries[];
+  /** Null when the range needs no older prices than the server has on hand. */
+  backfill?: HistoryBackfill | null;
 }
 
 export interface UpdateHistoryItem {

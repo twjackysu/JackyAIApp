@@ -10,6 +10,7 @@ import { currentDrawdownStatus } from './drawdownStatus';
 import { HistoryLimitNote } from './HistoryLimitNote';
 import { RangePicker } from './RangePicker';
 import { StatBlock } from './StatBlock';
+import { useBackfillPolling } from './useBackfillPolling';
 
 import { useGetDrawdownQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
@@ -19,9 +20,19 @@ import { LOSS_COLOR } from '@/utils/format';
 
 export function DrawdownChart() {
   const [days, setDays] = useState(DEFAULT_WIDE_RANGE_DAYS);
-  const { data: res, isLoading, isFetching } = useGetDrawdownQuery(days);
+  // Polls while older prices are still being fetched in the background (backfill Running), driven
+  // by the response of the range being asked for — so it stops on a range that needs no backfill.
+  const [pollingInterval, setPollingInterval] = useState(0);
+  const {
+    data: res,
+    currentData,
+    isLoading,
+    isFetching,
+  } = useGetDrawdownQuery(days, { pollingInterval, skipPollingIfUnfocused: true });
   const analysis = res?.data;
   const points = analysis?.points ?? [];
+  const backfill = currentData?.data.backfill;
+  useBackfillPolling(backfill, setPollingInterval);
 
   if (isLoading) {
     return <CenteredSpinner sx={{ py: 6 }} />;
@@ -79,7 +90,11 @@ export function DrawdownChart() {
         <RangePicker ranges={WIDE_RANGES} value={days} onChange={setDays} />
       </Box>
 
-      <HistoryLimitNote days={days} />
+      <HistoryLimitNote
+        days={days}
+        backfill={backfill}
+        firstPointDate={currentData?.data.points[0]?.date}
+      />
 
       {isFetching && <LinearProgress sx={{ mb: 1 }} />}
 
