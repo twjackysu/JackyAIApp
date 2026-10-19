@@ -56,7 +56,7 @@ Boss 直接合併的 #488（`Build and deploy` run 576 成功，正式環境＝`
 無（#488 已部署）。
 
 ## Result
-- **PR**：（開 PR 後補號）分支 `claude/nice-allen-szv1lq`。純前端，無後端、`.github/workflows/`、`CLAUDE.md` 改動。開工前 `master`（`38d1134`）的 `HistoryLimitNote.tsx`／`types.ts` 都還沒有 `backfill`，Open PR 為 0，故未取消。
+- **PR**：https://github.com/twjackysu/JackyAIApp/pull/490（分支 `claude/nice-allen-szv1lq`）。純前端，無後端、`.github/workflows/`、`CLAUDE.md` 改動。開工前 `master`（`38d1134`）的 `HistoryLimitNote.tsx`／`types.ts` 都還沒有 `backfill`，Open PR 為 0，故未取消。
 - **實作**
   - `apis/portfolioApis/types.ts`：新增 `HistoryBackfill { state: 'Complete' | 'Running' | 'Stalled'; coveredFrom; targetFrom }`，`DrawdownAnalysis`、`BenchmarkComparison` 加 `backfill?: HistoryBackfill | null`。欄位名稱與字串列舉已對照 `HistoryBackfillDto`、`BackfillState`、`Program.cs` 的 `JsonStringEnumConverter` 與預設 camelCase。
   - 新增 `Portfolio/useBackfillPolling.ts`：`backfillPollingInterval(backfill)`（只有 `Running` 回 15000，其餘 0）與 `useBackfillPolling(backfill, setPollingInterval)`（effect）。圖表先宣告 `useState(0)` 當 `pollingInterval`，傳給 `useGet…Query(arg, { pollingInterval, skipPollingIfUnfocused: true })`，再由同一個 hook 回來的 `backfill` 更新，解掉「間隔要先於 hook 宣告」的循環。
