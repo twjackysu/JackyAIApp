@@ -2117,3 +2117,20 @@ Boss 看完「C# 評分刪除後 AI 趨勢分析 prompt 會少『總分／方向
   - **偵測途徑與限制**：(a) `ExceptionMiddleware` 只在**未處理的例外**時才把路徑、query string 與 JSON 請求本文記成 Information 級 log；引擎回傳失敗結果（修補前會把引擎錯誤文字直接回給呼叫者）不是例外，不會留下本文。所以 App Insights 的 traces 只可能找到「讓程式丟例外」的嘗試。(b) `requests` 表有 GET 端點的 URL（`schema`／`maxdate`／`distinctvalues` 的欄位在 query string），但 POST 的 JSON 本文（`summarize`／`details`／`details/export`）**不會**被記錄。(c) 更可靠的是資料庫端：Azure SQL 的 Query Store（通常預設開啟、保留期預設約 30 天，**未驗證**）可查語句文字，找 `WAITFOR`、`;`、非預期的 `sys.`／`INFORMATION_SCHEMA` 查詢；有開稽核或 Defender for SQL 的話看那邊。查不到或保留期已過，也是一個答案（與 PM 的建議一致）。
   - 這個專案的 git 歷史在沙箱裡只有約 100 個 commit（到 10/13 左右），我同樣無法回答「匿名端點從何時開始暴露」。
 - **驗證限制**：沙箱沒有 .NET，也連不到正式環境、OpenAI、證交所。以上是讀 git、程式碼與 Actions 紀錄的結論；**沒有跑測試、沒有渲染畫面、沒有量測**。特別是：我沒有在正式環境確認補齊真的在跑、跑多快；App Insights 搜尋 `Backfill:` 開頭的 traces（例如 `stored back to`、`giving up on`）可以看到進度與放棄的紀錄（未實測）。
+
+
+## PR #490（TASK-060 backfill 輪詢）與 #491（TASK-061 儲存錯誤訊息）審閱（Tech Lead 2026-10-20，排程執行第 16 次）
+
+兩個都是純前端、無後端／workflow／CLAUDE.md 變更；CI（lint、`npm run test`、build、server build/test）皆綠；結論都是 READY FOR BOSS REVIEW，不含新的架構決定。
+
+### #490：輪詢由「同一個 hook 的回應」決定
+- 循環問題（`pollingInterval` 要在宣告 query hook 時傳入，卻要由該 hook 回來的資料決定）的解法是 chart 內 `useState(0)` ＋ `useBackfillPolling(currentData?.data.backfill, setPollingInterval)`（`useEffect` 依 `backfillPollingInterval(backfill)` 更新）。**用 `currentData` 而不是 `data`**：換範圍時 `data` 會保留上一個範圍的回應，用它會拿舊狀態去決定要不要輪詢；`currentData` 在新範圍回來前是 `undefined`，間隔自然歸 0。圖本身仍用 `data`，換範圍時不閃空白。
+- 只有 `Running` 輪詢（15 秒、`skipPollingIfUnfocused: true`）。`Stalled` 不輪詢：後端 10 分鐘內不重排，輪詢只會讓 5 DTU 的資料庫白讀。這個間隔不在 `useBackfillPolling` 之外另設逾時上限——依讀碼 `Running` 會在有限步數內變成 `Complete`／`Stalled`（推論，未實測）。
+- 「何時顯示『圖從…開始』」不再以 `days > 183` 判斷 `Running`：後端是 `startDate < Today.AddMonths(-(LookbackMonths - 1))`（`LookbackMonths = 6` → 起點早於今天 − 5 個月）才會去延伸，6M（180 天）也會踩到。只有 `Complete`／null 才回到 `days > PRICE_HISTORY_DAYS` ＋「第一個點比範圍起點晚超過 14 天」的判斷。
+- 請求量：`Benchmark`、`Drawdown` 各自輪詢、都包在 `LazyMount`，最壞每 15 秒 2 次，每次讀一次 3Y × 持股數 的已存股價。補齊只在第一次選長區間（或新增持股）時發生。
+
+### #491：錯誤訊息的唯一出口
+- `catch` 用 `getCaughtErrorMessage(error, 原 fallback)`，沿用 `apis/utils/errorMessage.ts`（符合 CLAUDE.md「API Communication Pattern」）。後端 `DataSourceConfigException` 的訊息只有 validator 的固定字串與常數，沒有夾帶輸入的連線字串或內部資訊，所以原樣顯示不構成外洩；英文訊息與中文畫面並存是任務書接受的取捨，驗證規則日後會變，不做前端對照表。
+
+### 驗證限制
+我讀了兩個 PR 的完整 diff（含 #490 的 4 個測試檔，#491 的測試檔；只掃過兩個 PR 內的任務書變更），對照 `HistoryBackfillDto`、`BackfillState`、`PortfolioService.ExtendHistoryAsync`、`DataSourceConfigService`。**沒有本機重跑測試、沒有渲染、沒有對真後端驗證**；手機寬度兩個 PR 都是「僅依 CSS／MUI 預設判斷」，待 Boss 目視。

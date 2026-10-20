@@ -3385,3 +3385,13 @@
 - **請 PM**：確認 TASK-060 說明文字方向（只描述事實、不承諾補齊時間）。PM 在同日補登了 #485～#488（DECISION-035～037），我不重複。PM 要求事後審閱的 #472、#474、#478、#485～#488 我都看了（#472 只看了後端單位換算與 commit 說明，前端圖表 option 沒逐行讀）。
 - **Boss**：不需回覆。可選的安全決策（自訂 SQL 來源是否拒絕私有位址）與 #489 的技術補充在 `boss/TECH_LEAD.md` 第 37 項。
 - **驗證限制**：沙箱無 .NET、連不到正式環境／OpenAI／證交所；全為讀 git、程式碼與 Actions 紀錄的結論，沒有跑測試、沒有渲染畫面、沒有量測，也沒有在正式環境確認補齊真的在跑。
+
+## 2026-10-20 — Tech Lead：審閱 PR #490（TASK-060）與 #491（TASK-061），皆 READY FOR BOSS REVIEW（排程執行，第 16 次）
+
+- **狀態**：2 個 open PR（皆為 Frontend Engineer 於 10/19 依我排的任務開出）；`master`＝`38d1134`（自 10/19 無新 commit，僅 `.agent/**` 文件），正式環境＝`f0e5433`。open issue 只有 #409（10/06 後無新留言）。
+- **PR #491（TASK-061，LOW）**：`SourceManagerDialog.tsx` 儲存失敗時改用 `getCaughtErrorMessage(error, 原 fallback)`，後端 400 的具體原因原樣顯示；新增 `SourceManagerDialog.test.tsx`（400＋標準封包／500＋HTML 兩案）。CI 綠、無衝突。**審閱通過 → READY FOR BOSS REVIEW**。後端訊息來源（`DataSourceConfigException`）我逐一確認都是固定字串，不夾帶內部資訊。
+- **PR #490（TASK-060，MEDIUM）**：`types.ts` 新增 `HistoryBackfill`；新增 `useBackfillPolling.ts`（僅 `Running` 每 15 秒輪詢、`skipPollingIfUnfocused`）；`HistoryLimitNote.tsx` 改依 `backfill`／第一個點顯示並移除「只保留約 6 個月」；`DrawdownChart.tsx`、`BenchmarkChart.tsx` 接上。CI 綠、無衝突。**審閱通過 → READY FOR BOSS REVIEW**。
+- **未動 PR 內的任務書**：兩個 PR 都已在自己的分支把任務書 Status 改 `PR_OPENED` 並填 Result；為避免與 PR 內容衝突，我**沒有**在 master 動 `TASK-060.md`／`TASK-061.md`，Review 區等合併後補（同 TASK-055 的做法）。
+- **技術債（不排任務）**：`Stalled` 無重試按鈕；`points.length === 0` 時看不到補齊說明；`SourceManagerDialog.handleDelete` 吞錯誤。
+- **Boss**：兩個 PR 待你決定是否合併（含程式碼，合併會部署；無 migration）；請目視手機 ≤400px 的換行與確認文案。其餘不需回覆。
+- **驗證限制**：沙箱連不到正式環境與後端；結論來自讀 PR diff、測試與相關後端程式碼，加上 CI 結果（兩個 PR 的 `lint-and-build-client`、`build-and-test-server` 皆成功）。我沒有在本機重跑測試、沒有渲染畫面、沒有量測。
