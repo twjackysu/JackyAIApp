@@ -14,25 +14,31 @@ using SQL = JackyAIApp.Server.Data.Models.SQL;
 namespace JackyAIApp.Server.Services.Chatbot
 {
     /// <summary>
-    /// Calls Claude (Haiku) directly with the TW-stock MCP server attached, replacing the previous
-    /// Dify-hosted chatbot. Conversation history is stored locally (not on a third-party platform)
-    /// and re-sent as context on every turn — the Messages API is stateless.
+    /// Calls Claude (Haiku 5.5) directly with the TW-stock MCP server attached, replacing the
+    /// previous Dify-hosted chatbot. Conversation history is stored locally (not on a third-party
+    /// platform) and re-sent as context on every turn — the Messages API is stateless. Each stored
+    /// turn goes back with its own role (user / assistant), but only as the text that was shown:
+    /// the tool calls and the model's thinking from earlier turns are not stored or re-sent.
     /// </summary>
     public class AnthropicChatService(
         AzureSQLDBContext db,
         IAiUsageLogger usageLogger,
         IOptionsMonitor<Settings> settings,
-        ILogger<AnthropicChatService> logger) : IAnthropicChatService
+        ILogger<AnthropicChatService> logger,
+        TimeProvider? timeProvider = null) : IAnthropicChatService
     {
-        private const string ModelId = "claude-haiku-4-5";
+        // The usage log's model name; must name the same model as the request below.
+        private const string ModelId = "claude-haiku-5-5";
         private const string McpServerName = "tw-stock";
         private const string McpServerUrl = "https://TW-Stock-MCP-Server.fastmcp.app/mcp";
         private const string McpBeta = "mcp-client-2025-11-20";
-        // A turn that calls the MCP tool needs room for both the tool call itself and the
-        // follow-up analysis text — 2048 was observed truncating mid-analysis (empty final
-        // response, no error surfaced) on requests like "分析一下2330". Haiku is cheap enough
-        // ($1/$5 per MTok) that a generous ceiling costs pennies even in the worst case.
-        private const int MaxTokens = 8192;
+        // Haiku 5.5 thinks by default (adaptive), and that thinking counts toward this cap along
+        // with the MCP tool call and the analysis text. 2048 was once observed truncating
+        // mid-analysis (empty final response) on requests like "分析一下2330", and thinking only
+        // adds to what a turn needs. It is a ceiling, not a charge: a turn pays for what it uses.
+        private const int MaxTokens = 32000;
+
+        private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
         // The MCP connector runs its tool-call loop server-side with an internal 10-iteration
         // cap; hitting it ends the turn with stop_reason=pause_turn before any answer text is
@@ -41,9 +47,26 @@ namespace JackyAIApp.Server.Services.Chatbot
         // genuinely needs an unusually large number of tool calls fails fast instead of looping.
         private const int MaxPauseTurnRetries = 2;
 
-        private const string SystemPrompt =
+        /// <summary>
+        /// Today's date goes in up front: the model's training data ends well before it, and
+        /// without it a question about "today" or "the latest" is answered from that cutoff rather
+        /// than looked up with the tool.
+        /// </summary>
+        internal static string SystemPromptFor(DateOnly taipeiToday) =>
+            $"今天是 {taipeiToday:yyyy-MM-dd}（台北時間）。" +
             "你是JackyAIApp網站上的台股小幫手。有台股相關問題（股價、財報、籌碼等）時，使用tw-stock工具查詢最新資料再回答；" +
             "不確定或工具查無資料時要誠實告知，不要編造數字。只回答跟本網站功能或台股相關的問題，其他問題禮貌婉拒。用繁體中文，簡潔明確地回答。";
+
+        /// <summary>
+        /// What to tell the user when a turn ended without any answer text. A decline from the
+        /// model's safety classifiers (stop_reason=refusal; there is no server-side fallback for
+        /// Haiku) is not the same failure as running out of room, and asking to "try again" would
+        /// only get the same decline.
+        /// </summary>
+        internal static string NoAnswerMessage(BetaStopReason? stopReason) =>
+            stopReason == BetaStopReason.Refusal
+                ? "這個問題我無法回答，請換個問法，或詢問台股相關的問題。"
+                : "沒有收到完整回覆，可能是這次查詢需要的資料較多，請再試一次或縮短問題範圍。";
 
         public async Task<ChatStreamResult> StreamChatAsync(
             string userId, string message, string? conversationId, HttpResponse response, CancellationToken ct)
@@ -79,14 +102,18 @@ namespace JackyAIApp.Server.Services.Chatbot
                 })
                 .ToList();
 
+            var taipeiToday = DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime.AddHours(8));
             var streamParams = new MessageCreateParams
             {
-                Model = AnthropicModel.ClaudeHaiku4_5,
+                Model = AnthropicModel.ClaudeHaiku5_5,
                 MaxTokens = MaxTokens,
+                // Medium is Haiku 5.5's default; set explicitly so a change of default upstream
+                // cannot quietly change how much every turn thinks (and costs).
+                OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
                 Betas = [McpBeta],
                 McpServers = [new BetaRequestMcpServerUrlDefinition { Name = McpServerName, Url = McpServerUrl }],
                 Tools = [new BetaMcpToolset { McpServerName = McpServerName }],
-                System = SystemPrompt,
+                System = SystemPromptFor(taipeiToday),
                 Messages = requestMessages,
             };
 
@@ -173,10 +200,20 @@ namespace JackyAIApp.Server.Services.Chatbot
                     "Anthropic chat turn produced no text for conversation {ConversationId}. StopReason={StopReason}",
                     conversation.Id, stopReason?.ToString() ?? "(none)");
                 success = false;
-                errorMessage = "沒有收到完整回覆，可能是這次查詢需要的資料較多，請再試一次或縮短問題範圍。";
+                errorMessage = NoAnswerMessage(stopReason);
             }
 
-            if (accumulated.Length > 0)
+            // A decline can also arrive after some text has streamed. That text is a cut-off
+            // answer, so it is reported as a failure and not kept as the assistant's turn.
+            var refused = success && stopReason == BetaStopReason.Refusal;
+            if (refused)
+            {
+                logger.LogWarning("Anthropic chat turn was declined mid-answer for conversation {ConversationId}", conversation.Id);
+                success = false;
+                errorMessage = NoAnswerMessage(stopReason);
+            }
+
+            if (accumulated.Length > 0 && !refused)
             {
                 db.ChatMessages.Add(new SQL.ChatMessage
                 {

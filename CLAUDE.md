@@ -138,13 +138,18 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
     assistant below**; it is reasoning-family, so `OpenAIPromptService` sends
     `reasoning_effort=low`, never `temperature` or `max_tokens`, and caps output with
     `max_completion_tokens` (16384, output only — prompts can be far longer)
-  - **Finance AI assistant** (`/finance`, first tab; `AnthropicChatService`): Claude Haiku 4.5
-    (`claude-haiku-4-5`) called directly through the Anthropic API (key `Settings:AnthropicApiKey`) —
-    not Dify (removed) and not OpenAI. It uses Anthropic's MCP connector to attach the remote
-    `tw-stock` MCP server (`TW-Stock-MCP-Server.fastmcp.app`), which Anthropic's servers call, not
-    ours. The API is stateless, so conversations live in our own SQL tables (`ChatConversations`,
-    `ChatMessages`) and the whole history is re-sent every turn; replies stream to the browser as
-    SSE. Costs `UsageCosts.ChatMessage` per message, refunded if no reply ever started
+  - **Finance AI assistant** (`/finance`; `AnthropicChatService`): Claude Haiku 5.5
+    (`claude-haiku-5-5`, SDK `Anthropic` NuGet) called directly through the Anthropic API (key
+    `Settings:AnthropicApiKey`) — not Dify (removed) and not OpenAI. It uses Anthropic's MCP
+    connector to attach the remote `tw-stock` MCP server (`TW-Stock-MCP-Server.fastmcp.app`), which
+    Anthropic's servers call, not ours. Haiku 5.5 thinks by default (adaptive) and the thinking
+    counts toward `max_tokens`; effort is set explicitly to `medium`; it can decline a request
+    (`stop_reason: refusal`, no server-side fallback for Haiku), which is reported to the user as
+    such. The system prompt carries today's Taipei date. The API is stateless, so conversations
+    live in our own SQL tables (`ChatConversations`, `ChatMessages`) and the whole history is
+    re-sent every turn, each turn with its role but as its visible text only (earlier tool calls
+    and thinking are not kept); replies stream to the browser as SSE. Costs
+    `UsageCosts.ChatMessage` per message, refunded if no reply ever started
   - Whisper for audio transcription (STT)
   - TTS-1 and TTS-1-HD for text-to-speech synthesis — **fallback only**: when `AzureSpeech:Key`
     is configured, `ITextToSpeechService` resolves to `AzureSpeechTextToSpeechService` (Azure AI
