@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 LOW（純前端、幾行；#478 之後這個畫面變得更常被擋，使用者卻看不到為什麼）
@@ -34,7 +34,13 @@ LOW（純前端、幾行；#478 之後這個畫面變得更常被擋，使用者
 無。
 
 ## Result
-（尚未開工）
+- **PR**：https://github.com/twjackysu/JackyAIApp/pull/491（分支 `claude/nice-allen-f9pe65`）。純前端，2 個檔案：`DataAnalysis/components/SourceManagerDialog.tsx`、新增 `SourceManagerDialog.test.tsx`。
+- **實作**：`handleSave` 的 `catch` 改為 `setSaveError(getCaughtErrorMessage(error, SAVE_FAILED_FALLBACK))`，`SAVE_FAILED_FALLBACK` 即原本那句「儲存失敗 — 請檢查連線資訊後再試一次。」。後端訊息原樣顯示，沒有加前綴、沒有翻譯對照表（前綴會和 fallback 句的「儲存失敗」重複）。
+- **與任務書的小差異**：任務書寫 `getApiErrorMessage`；`catch` 綁定的型別是 `unknown`，`errorMessage.ts` 為此提供 `getCaughtErrorMessage`（它只是先判斷是物件再呼叫 `getApiErrorMessage`，行為相同），專案其他 `catch` 處（`ConnectorCard`、`DrawdownBrakeRefresh`）也用它，所以用這個。
+- **測試**：新增 `SourceManagerDialog.test.tsx`（沿用 `StarterPacks.test.tsx` 的 `react-dom/client`＋`act` 寫法；專案沒有安裝 Testing Library）。兩案：`{ status: 400, data: { error: { code, message } } }` → 畫面顯示該 `message` 且不含 fallback；`{ status: 500, data: '<html>…' }` → 顯示 fallback。把修改還原後第一案失敗（收到 fallback 句），還原回來後通過。本機實際執行：`npm run lint`（0 warnings）、`npm run build`、`npm test`（71 檔／758 測試）全過。
+- **其他吞錯誤的呼叫**（依 Technical Notes 提出，未處理）：`SourceManagerDialog.tsx` 的 `handleDelete` 是 `catch { /* RTK Query logs it */ }`，刪除失敗時畫面完全沒反應。該檔沒有「測試連線」呼叫。
+- **沒驗證的**：沙箱沒有 .NET，沒有對著真的後端打過 400；測試裡的封包形狀依任務書與 `getApiErrorMessage` 的契約手寫。手機寬度未實機（`Alert` 為既有元件，長英文訊息是否換行僅依 MUI 預設判斷）。
+- **流程偏離**：本次 session 只能推到指定分支，`IN_PROGRESS` 沒有推到 master（與 TASK-052／053／060 相同）。
 
 ## Review
 （尚無）

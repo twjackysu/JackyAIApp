@@ -44,7 +44,10 @@ import type {
   SaveDataSourceConfigDto,
 } from '../../apis/dataAnalysisApis/types';
 
+import { getCaughtErrorMessage } from '@/apis/utils/errorMessage';
 import { ActionTooltip } from '@/components/hints';
+
+const SAVE_FAILED_FALLBACK = '儲存失敗 — 請檢查連線資訊後再試一次。';
 
 interface SourceManagerDialogProps {
   open: boolean;
@@ -154,8 +157,10 @@ export function SourceManagerDialog({ open, onClose }: SourceManagerDialogProps)
         await createSource(dto).unwrap();
       }
       setView('list');
-    } catch {
-      setSaveError('儲存失敗 — 請檢查連線資訊後再試一次。');
+    } catch (error) {
+      // The server says why it refused (e.g. an auth mode it will not run as); only fall back to
+      // the generic line when it said nothing usable.
+      setSaveError(getCaughtErrorMessage(error, SAVE_FAILED_FALLBACK));
     }
   };
 
