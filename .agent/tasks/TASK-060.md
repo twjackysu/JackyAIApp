@@ -4,7 +4,7 @@
 Frontend Engineer
 
 ## Status
-READY
+PR_OPENED
 
 ## Priority
 MEDIUM（後端已部署並開始補資料，但畫面上現在寫的說明是錯的；純前端、可逆）
@@ -56,7 +56,22 @@ Boss 直接合併的 #488（`Build and deploy` run 576 成功，正式環境＝`
 無（#488 已部署）。
 
 ## Result
-（尚未開工）
+- **PR**：https://github.com/twjackysu/JackyAIApp/pull/490（分支 `claude/nice-allen-szv1lq`）。純前端，無後端、`.github/workflows/`、`CLAUDE.md` 改動。開工前 `master`（`38d1134`）的 `HistoryLimitNote.tsx`／`types.ts` 都還沒有 `backfill`，Open PR 為 0，故未取消。
+- **實作**
+  - `apis/portfolioApis/types.ts`：新增 `HistoryBackfill { state: 'Complete' | 'Running' | 'Stalled'; coveredFrom; targetFrom }`，`DrawdownAnalysis`、`BenchmarkComparison` 加 `backfill?: HistoryBackfill | null`。欄位名稱與字串列舉已對照 `HistoryBackfillDto`、`BackfillState`、`Program.cs` 的 `JsonStringEnumConverter` 與預設 camelCase。
+  - 新增 `Portfolio/useBackfillPolling.ts`：`backfillPollingInterval(backfill)`（只有 `Running` 回 15000，其餘 0）與 `useBackfillPolling(backfill, setPollingInterval)`（effect）。圖表先宣告 `useState(0)` 當 `pollingInterval`，傳給 `useGet…Query(arg, { pollingInterval, skipPollingIfUnfocused: true })`，再由同一個 hook 回來的 `backfill` 更新，解掉「間隔要先於 hook 宣告」的循環。
+  - `HistoryLimitNote.tsx` 改為依 `backfill`／`firstPointDate` 顯示；`DrawdownChart.tsx`、`BenchmarkChart.tsx` 各接上。`backfill`、第一個點、輪詢都取自 `currentData`（目前這個範圍的回應），所以換範圍、新範圍還沒回來時不會拿上一個範圍的狀態去輪詢或說明；圖本身仍用 `data`（換範圍時保留舊圖），`isFetching` 的 `LinearProgress` 照舊。
+  - 說明文字**不再依賴 `days > 183` 才出現**：後端 `backfill` 非 null 就有說明。這是刻意的——6M＝180 天，起點早於「今天 − 5 個月」，後端也會排補齊，所以 6M 也可能是 `Running`。只有 `Complete`／null 才回到 `days > 183` 的「圖從…開始」判斷。
+- **文案（逐字，Boss 可改；`{…}` 為 `yyyy-MM-dd`）**
+  - `Running`：「正在補齊更早的股價（已補到 {coveredFrom}，目標 {targetFrom}）。圖與數字會隨補齊自動更新；補齊期間最大回撤、報酬等數字是暫定的，補齊後可能改變。」
+  - `Stalled`：「部分股票更早的股價暫時抓不到（已補到 {coveredFrom}，目標 {targetFrom}），目前沒有在補。稍後重新整理頁面會再試。」
+  - `Complete`／null，且 `days > 183`、第一個點比「今天 − days」晚超過 14 天：「圖從 {第一個點的日期} 開始——更早沒有持倉紀錄，或沒有價格。」
+  - 其餘情況不顯示。
+- **測試**：`HistoryLimitNote.test.tsx` 改寫（舊的「約 6 個月」斷言換成新行為，並加上「任何狀態都不得出現『6 個月』」）；新增 `useBackfillPolling.test.ts`、`DrawdownChart.test.tsx`、`BenchmarkChart.test.tsx`（mock RTK hook 與 `ReactECharts`，斷言 hook 第二個參數的 `pollingInterval`／`skipPollingIfUnfocused`；涵蓋 Running→Complete 輪詢停止、Stalled 不輪詢、Complete 無「6 個月」、null＋late start 顯示「圖從…開始」）。變異驗證：把「只有 `Running` 才輪詢」改成「任何有 `backfill` 的都輪詢」，7 個測試失敗，還原後通過。本機實際執行：`npm run lint`（0 warnings）、`npm run build`、`npm test`（73 檔／775 測試）全過。
+- **手機寬度（≤400px）**：僅依 CSS 判斷、未實機。說明是 `Typography caption` 區塊（`display: block`），加了 `overflowWrap: 'anywhere'`，中文可任意字元換行、日期不會撐出橫向捲動。
+- **沒驗證的**：(1) 沙箱沒有 .NET、連不到正式環境，**沒有**對著真的後端看過 `Running → Complete` 的實際回應與補齊要多久；測試用的是依 `HistoryBackfillDto` 手寫的 fixture。(2) 15 秒間隔與 `skipPollingIfUnfocused` 只驗證了傳給 RTK Query 的參數，沒有在瀏覽器觀察實際請求節奏。(3) 「Running 一定在有限步數內變成另一個狀態」是任務書的讀碼推論，前端沒有加逾時上限，也沒驗證。
+- **觀察（不在本任務範圍，未處理）**：`Stalled` 只靠重新整理重試；目前頁面上沒有「重試」按鈕，若 Boss 想要可另開任務。圖表在 `points.length === 0` 時整張換成「資料不足」，此時即使 `Running` 也不會顯示補齊說明——第一個回應若是空的，使用者只會看到「資料不足」，但輪詢仍會進行（hook 在 early return 之前）。
+- **流程偏離**：本次 session 只能推指定分支 `claude/nice-allen-szv1lq`，`IN_PROGRESS` 沒有推到 master（與 TASK-052／053 相同）。
 
 ## Review
 （尚無）

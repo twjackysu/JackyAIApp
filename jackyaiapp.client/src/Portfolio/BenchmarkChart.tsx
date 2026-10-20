@@ -11,6 +11,7 @@ import { HistoryLimitNote } from './HistoryLimitNote';
 import { MASK, usePrivacy } from './privacy';
 import { RangePicker } from './RangePicker';
 import { StatBlock } from './StatBlock';
+import { useBackfillPolling } from './useBackfillPolling';
 
 import { useGetBenchmarkComparisonQuery } from '@/apis/portfolioApis';
 import { ECHARTS_THEME, ECOption } from '@/charts/echarts';
@@ -46,9 +47,22 @@ export function BenchmarkChart() {
   const { mode } = usePrivacy();
   const [days, setDays] = useState(DEFAULT_WIDE_RANGE_DAYS);
   const [symbols, setSymbols] = useState<string[]>(['0050']);
-  const { data: res, isLoading, isFetching } = useGetBenchmarkComparisonQuery({ days, symbols });
+  // Polls while older prices are still being fetched in the background (backfill Running), driven
+  // by the response of the range being asked for — so it stops on a range that needs no backfill.
+  const [pollingInterval, setPollingInterval] = useState(0);
+  const {
+    data: res,
+    currentData,
+    isLoading,
+    isFetching,
+  } = useGetBenchmarkComparisonQuery(
+    { days, symbols },
+    { pollingInterval, skipPollingIfUnfocused: true },
+  );
   const comparison = res?.data;
   const dates = comparison?.dates ?? [];
+  const backfill = currentData?.data.backfill;
+  useBackfillPolling(backfill, setPollingInterval);
 
   const toggleSymbol = (symbol: string) =>
     setSymbols((prev) => {
@@ -149,7 +163,11 @@ export function BenchmarkChart() {
         <RangePicker ranges={WIDE_RANGES} value={days} onChange={setDays} />
       </Box>
 
-      <HistoryLimitNote days={days} />
+      <HistoryLimitNote
+        days={days}
+        backfill={backfill}
+        firstPointDate={currentData?.data.dates[0]}
+      />
 
       {isFetching && <LinearProgress sx={{ mb: 1 }} />}
 
