@@ -68,7 +68,7 @@ namespace JackyAIApp.Server.Common
         /// <summary>Daily AI market digest (global + TW, charged once per user per day)</summary>
         public const ulong MarketDigest = 3;
 
-        /// <summary>Floating AI chatbot — charged per message sent</summary>
+        /// <summary>Finance AI assistant (chatbot) — charged per message sent</summary>
         public const ulong ChatMessage = 5;
 
         /// <summary>Text-to-speech synthesis</summary>

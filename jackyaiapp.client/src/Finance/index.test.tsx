@@ -46,7 +46,14 @@ const jsonResponse = (body: unknown) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
-function mount(signedIn: boolean) {
+const SIGNED_IN_USER = { id: 'u1', name: 'Jacky', email: 'j@example.com' };
+
+/** Who the page is told is signed in; `unknown` is a user-info request that has not answered yet. */
+type Visitor = 'signedIn' | 'signedOut' | 'unknown';
+
+let answerUserInfo: (visitor: 'signedIn' | 'signedOut') => void;
+
+async function mount(visitor: Visitor, entry = '/finance') {
   // Node's Request rejects the app's relative API paths; resolve them against a dummy origin.
   const OriginalRequest = globalThis.Request;
   class AbsoluteUrlRequest extends OriginalRequest {
@@ -58,15 +65,20 @@ function mount(signedIn: boolean) {
     }
   }
   vi.stubGlobal('Request', AbsoluteUrlRequest);
+
+  const userInfo = (v: 'signedIn' | 'signedOut') =>
+    jsonResponse({ data: v === 'signedIn' ? SIGNED_IN_USER : null });
+  let pendingUserInfo: ((r: Response) => void) | undefined;
+  answerUserInfo = (v) => pendingUserInfo?.(userInfo(v));
+
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (request: Request) =>
-      request.url.includes('/account/info')
-        ? jsonResponse({
-            data: signedIn ? { id: 'u1', name: 'Jacky', email: 'j@example.com' } : null,
-          })
-        : jsonResponse({ data: null }),
-    ),
+    vi.fn(async (request: Request) => {
+      if (!request.url.includes('/account/info')) return jsonResponse({ data: null });
+      if (visitor === 'unknown')
+        return new Promise<Response>((resolve) => (pendingUserInfo = resolve));
+      return userInfo(visitor);
+    }),
   );
 
   const store = configureStore({
@@ -77,15 +89,25 @@ function mount(signedIn: boolean) {
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(financeApis.middleware, accountApis.middleware),
   });
-  return act(async () => {
+  await act(async () => {
     root.render(
       <Provider store={store}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[entry]}>
           <Finance />
         </MemoryRouter>
       </Provider>,
     );
   });
+  await settle();
+}
+
+/** Lets the requests that were just made answer, and the page react to the answers. */
+async function settle() {
+  for (let i = 0; i < 4; i++) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+  }
 }
 
 beforeEach(() => {
@@ -102,54 +124,71 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const tabLabels = () =>
-  [...container.querySelectorAll('[role="tab"]')].map((t) => t.textContent?.trim());
+const tabs = () => [...container.querySelectorAll<HTMLElement>('[role="tab"]')];
+const tabLabels = () => tabs().map((t) => t.textContent?.trim());
+const selectedTab = () =>
+  tabs()
+    .find((t) => t.getAttribute('aria-selected') === 'true')
+    ?.textContent?.trim();
 
 const clickTab = (label: string) =>
   act(async () => {
-    const tab = [...container.querySelectorAll<HTMLElement>('[role="tab"]')].find(
-      (t) => t.textContent?.trim() === label,
-    );
-    tab!.click();
+    tabs()
+      .find((t) => t.textContent?.trim() === label)!
+      .click();
   });
 
+const assistant = () => container.querySelector('[data-testid="ai-assistant"]');
 /** The wrapper the page puts around the assistant, which is what gets hidden. */
-const assistantWrapper = () =>
-  container.querySelector<HTMLElement>('[data-testid="ai-assistant"]')?.parentElement ?? null;
+const assistantWrapper = () => assistant()?.parentElement ?? null;
+const SIGN_IN_PROMPT = 'AI 助手需要登入才能使用';
 
 describe('Finance page — AI assistant tab', () => {
-  it('has the assistant where 多股比較 used to be', async () => {
-    await mount(true);
-    expect(tabLabels()).toEqual(['綜合量化分析', 'AI 趨勢分析', '今日市場AI摘要', 'AI 助手']);
+  it('has the assistant first, where 多股比較 used to be the last', async () => {
+    await mount('signedIn');
+    expect(tabLabels()).toEqual(['AI 助手', '綜合量化分析', 'AI 趨勢分析', '今日市場AI摘要']);
   });
 
-  it('does not mount the assistant until its tab is opened', async () => {
-    await mount(true);
-    expect(container.querySelector('[data-testid="ai-assistant"]')).toBeNull();
-    expect(panel.mounts).toBe(0);
-  });
+  it('opens on the assistant, ready to use', async () => {
+    await mount('signedIn');
 
-  it('asks a signed-out visitor to sign in instead of showing the assistant', async () => {
-    await mount(false);
-    await clickTab('AI 助手');
-
-    expect(container.textContent).toContain('AI 助手需要登入才能使用');
-    expect(container.querySelector('[data-testid="ai-assistant"]')).toBeNull();
-  });
-
-  it('shows the assistant to a signed-in user, with no sign-in prompt', async () => {
-    await mount(true);
-    await clickTab('AI 助手');
-
-    expect(container.querySelector('[data-testid="ai-assistant"]')).not.toBeNull();
+    expect(selectedTab()).toBe('AI 助手');
+    expect(assistant()).not.toBeNull();
     expect(panel.active).toBe(true);
-    expect(container.textContent).not.toContain('AI 助手需要登入才能使用');
+    expect(container.textContent).not.toContain(SIGN_IN_PROMPT);
     expect(getComputedStyle(assistantWrapper()!).display).not.toBe('none');
   });
 
+  it('asks a signed-out visitor to sign in instead of showing the assistant', async () => {
+    await mount('signedOut');
+
+    expect(selectedTab()).toBe('AI 助手');
+    expect(container.textContent).toContain(SIGN_IN_PROMPT);
+    expect(assistant()).toBeNull();
+  });
+
+  it('does not tell a signed-in user to sign in while it is still finding out who they are', async () => {
+    await mount('unknown');
+    expect(container.textContent).not.toContain(SIGN_IN_PROMPT);
+    expect(container.querySelector('[role="progressbar"]')).not.toBeNull();
+    expect(assistant()).toBeNull();
+
+    await act(async () => answerUserInfo('signedIn'));
+    await settle();
+    expect(container.textContent).not.toContain(SIGN_IN_PROMPT);
+    expect(assistant()).not.toBeNull();
+  });
+
+  it('does ask once it knows the visitor is signed out', async () => {
+    await mount('unknown');
+    await act(async () => answerUserInfo('signedOut'));
+    await settle();
+
+    expect(container.textContent).toContain(SIGN_IN_PROMPT);
+  });
+
   it('keeps the same assistant (and so its conversation) when another tab is visited and back', async () => {
-    await mount(true);
-    await clickTab('AI 助手');
+    await mount('signedIn');
 
     await clickTab('綜合量化分析');
     expect(getComputedStyle(assistantWrapper()!).display).toBe('none');
@@ -162,11 +201,23 @@ describe('Finance page — AI assistant tab', () => {
   });
 
   it('shows the stock search only on the analysis tabs, not on the assistant', async () => {
-    await mount(true);
+    await mount('signedIn');
     const searchBox = () => container.querySelector('input[placeholder^="股票代碼"]');
+    expect(searchBox()).toBeNull();
+
+    await clickTab('綜合量化分析');
     expect(searchBox()).not.toBeNull();
 
     await clickTab('AI 助手');
     expect(searchBox()).toBeNull();
+  });
+
+  it('a link to a stock (?symbol=) still lands on its analysis, not on the assistant', async () => {
+    await mount('signedIn', '/finance?symbol=2330&market=TW');
+
+    expect(selectedTab()).toBe('綜合量化分析');
+    expect(container.querySelector<HTMLInputElement>('input[placeholder^="股票代碼"]')?.value).toBe(
+      '2330',
+    );
   });
 });

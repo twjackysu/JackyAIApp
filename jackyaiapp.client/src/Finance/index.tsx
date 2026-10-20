@@ -55,6 +55,7 @@ function Finance() {
     analysisTab,
     handleTabChange,
     isAuthenticated,
+    isAuthLoading,
     currentDate,
     digestPoints,
     isMarketLoading,
@@ -74,9 +75,11 @@ function Finance() {
 
   // The assistant keeps its conversation (and any reply still streaming) in its own state, so once
   // the tab has been opened the panel stays mounted and is only hidden when another tab is chosen.
-  const [assistantOpened, setAssistantOpened] = useState(false);
   const assistantActive = analysisTab === TAB_AI_ASSISTANT;
+  const [assistantOpened, setAssistantOpened] = useState(assistantActive);
   if (assistantActive && !assistantOpened) setAssistantOpened(true);
+  // Whether to ask the visitor to sign in: not while we still do not know who they are.
+  const signedOut = !isAuthLoading && !isAuthenticated;
 
   return (
     <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
@@ -128,19 +131,19 @@ function Finance() {
           allowScrollButtonsMobile
           sx={{ mb: 2 }}
         >
+          {/* Same order as the TAB_* indices in useFinanceAnalysis */}
+          <Tab icon={<SmartToyIcon />} iconPosition="start" label="AI 助手" />
           <Tab icon={<AssessmentIcon />} iconPosition="start" label="綜合量化分析" />
           <Tab icon={<AutoAwesomeIcon />} iconPosition="start" label="AI 趨勢分析" />
           <Tab icon={<ArticleIcon />} iconPosition="start" label="今日市場AI摘要" />
-          <Tab icon={<SmartToyIcon />} iconPosition="start" label="AI 助手" />
         </Tabs>
 
         {/* Login prompt for AI tabs */}
-        {!isAuthenticated && analysisTab === TAB_AI_TREND && (
+        {signedOut && analysisTab === TAB_AI_TREND && (
           <LoginRequiredAlert message="AI 趨勢分析需要登入才能使用（會消耗 AI token）" />
         )}
-        {!isAuthenticated && assistantActive && (
-          <LoginRequiredAlert message="AI 助手需要登入才能使用" />
-        )}
+        {signedOut && assistantActive && <LoginRequiredAlert message="AI 助手需要登入才能使用" />}
+        {isAuthLoading && assistantActive && <CenteredSpinner sx={{ p: 4 }} />}
 
         {/* AI assistant — a block of the page, kept mounted once opened (see assistantOpened) */}
         {isAuthenticated && assistantOpened && (

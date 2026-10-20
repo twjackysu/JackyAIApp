@@ -5,7 +5,12 @@ import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TAB_AI_TREND, TAB_QUANTITATIVE, useFinanceAnalysis } from './useFinanceAnalysis';
+import {
+  TAB_AI_ASSISTANT,
+  TAB_AI_TREND,
+  TAB_QUANTITATIVE,
+  useFinanceAnalysis,
+} from './useFinanceAnalysis';
 
 import { accountApis } from '@/apis/accountApis';
 import { financeApis } from '@/apis/financeApis';
@@ -125,8 +130,14 @@ describe('useFinanceAnalysis — comprehensiveError stays on its own tab', () =>
     vi.restoreAllMocks();
   });
 
+  it('opens on the AI assistant tab', () => {
+    expect(latest.analysisTab).toBe(TAB_AI_ASSISTANT);
+  });
+
   it('shows showComprehensiveErrorAlert on the quantitative tab after its own failed search', async () => {
-    expect(latest.analysisTab).toBe(TAB_QUANTITATIVE);
+    act(() => {
+      latest.handleTabChange(null, TAB_QUANTITATIVE);
+    });
     act(() => {
       latest.setStockSearchTerm('BAD');
     });
@@ -139,6 +150,9 @@ describe('useFinanceAnalysis — comprehensiveError stays on its own tab', () =>
   });
 
   it('clears a stale comprehensiveError when switching tabs', async () => {
+    act(() => {
+      latest.handleTabChange(null, TAB_QUANTITATIVE);
+    });
     act(() => {
       latest.setStockSearchTerm('BAD');
     });

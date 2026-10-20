@@ -18,11 +18,11 @@ type MarketCode = 'TW' | 'US';
 const detectMarket = (code: string): MarketCode =>
   /^\d{4,6}[A-Za-z]?$/.test(code.trim()) ? 'TW' : 'US';
 
-// Tab indices
-export const TAB_QUANTITATIVE = 0;
-export const TAB_AI_TREND = 1;
-export const TAB_MARKET_SUMMARY = 2;
-export const TAB_AI_ASSISTANT = 3;
+// Tab indices, in display order. The assistant comes first and is what the page opens on.
+export const TAB_AI_ASSISTANT = 0;
+export const TAB_QUANTITATIVE = 1;
+export const TAB_AI_TREND = 2;
+export const TAB_MARKET_SUMMARY = 3;
 
 const DEFAULT_CONFIG: AnalysisConfig = {
   includeTechnical: true,
@@ -46,11 +46,11 @@ export function useFinanceAnalysis() {
   const [stockSearchTerm, setStockSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<StockTrendAnalysis | null>(null);
   const [analysisResults, setAnalysisResults] = useState<StockAnalysisResultData | null>(null);
-  const [analysisTab, setAnalysisTab] = useState<number>(TAB_QUANTITATIVE);
+  const [analysisTab, setAnalysisTab] = useState<number>(TAB_AI_ASSISTANT);
   const [analysisConfig, setAnalysisConfig] = useState<AnalysisConfig>(DEFAULT_CONFIG);
 
   const currentDate = useMemo(() => todayISO(), []);
-  const { data: userInfo } = useGetUserInfoQuery();
+  const { data: userInfo, isLoading: isAuthLoading } = useGetUserInfoQuery();
   const isAuthenticated = !!userInfo?.data;
 
   const {
@@ -176,8 +176,10 @@ export function useFinanceAnalysis() {
     // tab
     analysisTab,
     handleTabChange,
-    // auth / misc
+    // auth / misc — `isAuthenticated` is false until `isAuthLoading` is over, so a tab that
+    // asks the visitor to sign in must wait for it or it flashes at every signed-in user
     isAuthenticated,
+    isAuthLoading,
     currentDate,
     // market digest query
     digestPoints,

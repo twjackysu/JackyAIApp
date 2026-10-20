@@ -4,16 +4,26 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { Avatar, Badge, Box, IconButton, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
+import { HISTORY_COLUMN_BREAKPOINT } from './historyColumn';
+
 import { ActionTooltip } from '@/components/hints';
 
 interface ChatHeaderProps {
   statusText: string;
   statusColor: string;
+  /** A reply is being written: starting over has to wait. */
+  busy: boolean;
   onOpenHistory: () => void;
   onNewChat: () => void;
 }
 
-const ChatHeader = ({ statusText, statusColor, onOpenHistory, onNewChat }: ChatHeaderProps) => {
+const ChatHeader = ({
+  statusText,
+  statusColor,
+  busy,
+  onOpenHistory,
+  onNewChat,
+}: ChatHeaderProps) => {
   const theme = useTheme();
 
   return (
@@ -60,15 +70,23 @@ const ChatHeader = ({ statusText, statusColor, onOpenHistory, onNewChat }: ChatH
         </Typography>
       </Stack>
       <Box sx={{ flexGrow: 1 }} />
+      {/* Only where the history is not already shown beside the chat (see HISTORY_COLUMN_BREAKPOINT) */}
       <ActionTooltip title="對話紀錄">
-        <IconButton onClick={onOpenHistory} color="inherit" aria-label="對話紀錄">
+        <IconButton
+          onClick={onOpenHistory}
+          color="inherit"
+          aria-label="對話紀錄"
+          sx={{ display: { [HISTORY_COLUMN_BREAKPOINT]: 'none' } }}
+        >
           <HistoryIcon />
         </IconButton>
       </ActionTooltip>
       <ActionTooltip title="新對話">
-        <IconButton onClick={onNewChat} color="inherit" aria-label="新對話">
-          <AddCommentIcon />
-        </IconButton>
+        <span>
+          <IconButton onClick={onNewChat} color="inherit" aria-label="新對話" disabled={busy}>
+            <AddCommentIcon />
+          </IconButton>
+        </span>
       </ActionTooltip>
     </Box>
   );

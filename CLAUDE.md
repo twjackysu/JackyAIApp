@@ -134,10 +134,17 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 ### AI Service Integration
 - **OpenAI client** configured in dependency injection using Betalgo.Ranul.OpenAI
 - **Models used**: 
-  - gpt-6-luna (`NewModels.GPT_6_LUNA`) for every chat/JSON completion — the only chat model;
-    it is reasoning-family, so `OpenAIPromptService` sends `reasoning_effort=low`, never
-    `temperature` or `max_tokens`, and caps output with `max_completion_tokens` (16384, output
-    only — prompts can be far longer)
+  - gpt-6-luna (`NewModels.GPT_6_LUNA`) for every chat/JSON completion **except the Finance AI
+    assistant below**; it is reasoning-family, so `OpenAIPromptService` sends
+    `reasoning_effort=low`, never `temperature` or `max_tokens`, and caps output with
+    `max_completion_tokens` (16384, output only — prompts can be far longer)
+  - **Finance AI assistant** (`/finance`, first tab; `AnthropicChatService`): Claude Haiku 4.5
+    (`claude-haiku-4-5`) called directly through the Anthropic API (key `Settings:AnthropicApiKey`) —
+    not Dify (removed) and not OpenAI. It uses Anthropic's MCP connector to attach the remote
+    `tw-stock` MCP server (`TW-Stock-MCP-Server.fastmcp.app`), which Anthropic's servers call, not
+    ours. The API is stateless, so conversations live in our own SQL tables (`ChatConversations`,
+    `ChatMessages`) and the whole history is re-sent every turn; replies stream to the browser as
+    SSE. Costs `UsageCosts.ChatMessage` per message, refunded if no reply ever started
   - Whisper for audio transcription (STT)
   - TTS-1 and TTS-1-HD for text-to-speech synthesis — **fallback only**: when `AzureSpeech:Key`
     is configured, `ITextToSpeechService` resolves to `AzureSpeechTextToSpeechService` (Azure AI
