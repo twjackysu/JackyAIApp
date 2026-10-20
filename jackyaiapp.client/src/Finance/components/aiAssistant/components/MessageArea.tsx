@@ -1,19 +1,24 @@
-import { OpenInFull, Visibility } from '@mui/icons-material';
+import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { Avatar, Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { useEffect, useRef } from 'react';
 
 import { Message } from '../types';
 
 import MarkdownMessage from '@/components/MarkdownMessage';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 
-interface MessageAreaWithBlocksProps {
+/** Within this many pixels of the end, the reader counts as "following" the conversation. */
+const FOLLOW_THRESHOLD_PX = 80;
+
+interface MessageAreaProps {
   messages: Message[];
   onPreview: (block: ParsedBlock) => void;
-  style?: React.CSSProperties;
-  ref?: React.Ref<HTMLDivElement>;
+  /** False while the panel's tab is hidden: a hidden element has no scroll position to keep. */
+  active: boolean;
 }
 
 // 單個區塊渲染組件
@@ -38,7 +43,7 @@ const BlockRenderer = ({
         variant="contained"
         size="small"
         disableElevation
-        startIcon={streaming ? <Visibility /> : <OpenInFull />}
+        startIcon={streaming ? <VisibilityIcon /> : <OpenInFullIcon />}
         onClick={() => onPreview(block)}
         sx={{
           textTransform: 'none',
@@ -53,8 +58,31 @@ const BlockRenderer = ({
   );
 };
 
-function MessageAreaWithBlocks({ messages, onPreview, style, ref }: MessageAreaWithBlocksProps) {
+function MessageArea({ messages, onPreview, active }: MessageAreaProps) {
   const theme = useTheme();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const followingRef = useRef(true);
+  const messageCountRef = useRef(messages.length);
+
+  // Scrolls this box itself, never the page: the chat now sits inside the page, and
+  // scrollIntoView on a sentinel would drag the whole page along with every streamed token.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !active) return;
+    // A new bubble (the reader's own message, or the reply starting) always follows to the end;
+    // a bubble that is merely growing as it streams follows only if the reader has not scrolled up.
+    if (messages.length !== messageCountRef.current) {
+      messageCountRef.current = messages.length;
+      followingRef.current = true;
+    }
+    if (followingRef.current) el.scrollTop = el.scrollHeight;
+  }, [messages, active]);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el || !active) return;
+    followingRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX;
+  };
 
   const scrollbarSx = {
     '&::-webkit-scrollbar': { width: '8px' },
@@ -72,14 +100,16 @@ function MessageAreaWithBlocks({ messages, onPreview, style, ref }: MessageAreaW
 
   return (
     <Box
+      ref={scrollRef}
+      onScroll={handleScroll}
       sx={{
-        flexGrow: 1,
-        px: { xs: 2, sm: 4 },
-        py: 3,
+        flex: 1,
+        minHeight: 0,
+        px: { xs: 1.5, sm: 3 },
+        py: 2.5,
         overflowY: 'auto',
         bgcolor: 'background.default',
         ...scrollbarSx,
-        ...style,
       }}
     >
       <Stack spacing={2.5}>
@@ -206,12 +236,9 @@ function MessageAreaWithBlocks({ messages, onPreview, style, ref }: MessageAreaW
             </Box>
           );
         })}
-
-        {/* 自動滾動參考點 */}
-        <div ref={ref} />
       </Stack>
     </Box>
   );
 }
 
-export default MessageAreaWithBlocks;
+export default MessageArea;

@@ -41,9 +41,6 @@ const PDFUnlocker = lazy(() => import('./PDFUnlocker'));
 const Portal = lazy(() => import('./Portal'));
 const Slideshow = lazy(() => import('./Slideshow'));
 
-// Floating AI chatbot — available on every page (auth-gated internally).
-const FloatingChatbot = lazy(() => import('./components/FloatingChatbot'));
-
 // Route config as plain objects (not JSX <Routes>) so englishLearningRoute's real
 // parent/child nesting with <Outlet/> can be composed in from a separate file — the
 // JSX <Routes> API only recognizes literal <Route> children in its own tree.
@@ -165,13 +162,6 @@ function App() {
       <Box sx={{ p: 2 }}>
         <Suspense fallback={<CenteredSpinner sx={{ p: 4 }} />}>{element}</Suspense>
       </Box>
-      {/* 懸浮 Chatbot — only on Finance: its Dify backend is wired to a TW-stock MCP server,
-          so it can only answer stock questions and is out of place elsewhere. */}
-      {currentApp?.name === FINANCE.name && (
-        <Suspense fallback={null}>
-          <FloatingChatbot />
-        </Suspense>
-      )}
       <Typography
         component="footer"
         variant="caption"

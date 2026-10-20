@@ -9,9 +9,4 @@ export interface Message {
   parsedBlocks?: ParsedBlock[];
 }
 
-export interface Position {
-  x: number;
-  y: number;
-}
-
 export type AgentStatus = 'online' | 'working' | 'offline';

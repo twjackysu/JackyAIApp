@@ -5,7 +5,7 @@ import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TAB_COMPARISON, TAB_QUANTITATIVE, useFinanceAnalysis } from './useFinanceAnalysis';
+import { TAB_AI_TREND, TAB_QUANTITATIVE, useFinanceAnalysis } from './useFinanceAnalysis';
 
 import { accountApis } from '@/apis/accountApis';
 import { financeApis } from '@/apis/financeApis';
@@ -49,7 +49,7 @@ const GOOD_ANALYSIS = {
   generatedAt: new Date().toISOString(),
 };
 
-describe('useFinanceAnalysis — comprehensiveError tab leakage (TASK-016)', () => {
+describe('useFinanceAnalysis — comprehensiveError stays on its own tab', () => {
   let container: HTMLDivElement;
   let root: Root;
   let latest: HookApi;
@@ -81,10 +81,9 @@ describe('useFinanceAnalysis — comprehensiveError tab leakage (TASK-016)', () 
     }
     vi.stubGlobal('Request', AbsoluteUrlRequest);
 
-    // `getComprehensiveAnalysis` is the single RTK Query mutation trigger shared by the
-    // quantitative tab and the comparison tab's concurrent per-stock calls — mock it so one
-    // stock code ("BAD") fails while the others succeed, exercising the actual interaction
-    // (a real dispatched thunk through fetchBaseQuery) instead of hand-constructing hook state.
+    // Mock `getComprehensiveAnalysis` so the stock code "BAD" fails while others succeed,
+    // exercising the actual interaction (a real dispatched thunk through fetchBaseQuery)
+    // instead of hand-constructing hook state.
     vi.stubGlobal(
       'fetch',
       vi.fn(async (request: Request) => {
@@ -126,37 +125,7 @@ describe('useFinanceAnalysis — comprehensiveError tab leakage (TASK-016)', () 
     vi.restoreAllMocks();
   });
 
-  it('keeps showComprehensiveErrorAlert false on the comparison tab even after a failed comparison run', async () => {
-    act(() => {
-      latest.handleTabChange(null, TAB_COMPARISON);
-    });
-    for (const code of ['GOOD', 'BAD']) {
-      act(() => {
-        latest.setComparisonInput(code);
-      });
-      act(() => {
-        latest.handleAddComparisonCode();
-      });
-    }
-    expect(latest.comparisonCodes).toEqual(['GOOD', 'BAD']);
-
-    await act(async () => {
-      await latest.runComparison();
-    });
-
-    // The mock genuinely distinguished the two codes — not every request just failed outright.
-    expect(latest.comparisonSlots.find((s) => s.code === 'GOOD')?.status).toBe('success');
-    expect(latest.comparisonSlots.find((s) => s.code === 'BAD')?.status).toBe('error');
-    // The shared mutation's error really did leak, per the Architecture/Tech-Lead
-    // investigation — this is what makes the bug reachable at all.
-    expect(latest.comprehensiveError).toBeTruthy();
-    expect(latest.analysisTab).toBe(TAB_COMPARISON);
-    // ...but the quantitative tab's page-level Alert must stay hidden while on comparison.
-    // Fails without the TASK-016 fix (the hook previously had no such gated flag at all).
-    expect(latest.showComprehensiveErrorAlert).toBe(false);
-  });
-
-  it('still shows showComprehensiveErrorAlert on the quantitative tab after its own failed search', async () => {
+  it('shows showComprehensiveErrorAlert on the quantitative tab after its own failed search', async () => {
     expect(latest.analysisTab).toBe(TAB_QUANTITATIVE);
     act(() => {
       latest.setStockSearchTerm('BAD');
@@ -179,9 +148,10 @@ describe('useFinanceAnalysis — comprehensiveError tab leakage (TASK-016)', () 
     expect(latest.showComprehensiveErrorAlert).toBe(true);
 
     act(() => {
-      latest.handleTabChange(null, TAB_COMPARISON);
+      latest.handleTabChange(null, TAB_AI_TREND);
     });
 
+    expect(latest.comprehensiveError).toBeUndefined();
     expect(latest.showComprehensiveErrorAlert).toBe(false);
   });
 });

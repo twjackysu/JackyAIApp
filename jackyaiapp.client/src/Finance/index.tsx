@@ -1,10 +1,10 @@
 import ArticleIcon from '@mui/icons-material/Article';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import InsightsIcon from '@mui/icons-material/Insights';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -18,6 +18,7 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { lazy, Suspense, useState } from 'react';
 
 import {
   StockAnalysisResult,
@@ -28,16 +29,20 @@ import {
   MarketSeasonalChart,
   TaiexTrendlineCard,
 } from './components';
-import { ComparisonCodeInput } from './components/comparison/ComparisonCodeInput';
-import { ComparisonResult } from './components/comparison/ComparisonResult';
+import { LoginRequiredAlert } from './components/LoginRequiredAlert';
 import { MarketSummaryTab } from './components/MarketSummaryTab';
 import {
   useFinanceAnalysis,
   TAB_QUANTITATIVE,
   TAB_AI_TREND,
   TAB_MARKET_SUMMARY,
-  TAB_COMPARISON,
+  TAB_AI_ASSISTANT,
 } from './hooks/useFinanceAnalysis';
+
+import CenteredSpinner from '@/components/CenteredSpinner';
+
+// Code-split: the assistant's streaming/markdown/HTML-preview code is only needed once the tab is opened.
+const AiAssistantPanel = lazy(() => import('./components/aiAssistant'));
 
 function Finance() {
   const {
@@ -65,16 +70,13 @@ function Finance() {
     hasStockResults,
     isAnyAnalyzing,
     isSearchTab,
-    comparisonInput,
-    setComparisonInput,
-    comparisonCodes,
-    comparisonSlots,
-    isComparing,
-    comparisonError,
-    handleAddComparisonCode,
-    handleRemoveComparisonCode,
-    runComparison,
   } = useFinanceAnalysis();
+
+  // The assistant keeps its conversation (and any reply still streaming) in its own state, so once
+  // the tab has been opened the panel stays mounted and is only hidden when another tab is chosen.
+  const [assistantOpened, setAssistantOpened] = useState(false);
+  const assistantActive = analysisTab === TAB_AI_ASSISTANT;
+  if (assistantActive && !assistantOpened) setAssistantOpened(true);
 
   return (
     <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
@@ -129,28 +131,24 @@ function Finance() {
           <Tab icon={<AssessmentIcon />} iconPosition="start" label="綜合量化分析" />
           <Tab icon={<AutoAwesomeIcon />} iconPosition="start" label="AI 趨勢分析" />
           <Tab icon={<ArticleIcon />} iconPosition="start" label="今日市場AI摘要" />
-          <Tab icon={<CompareArrowsIcon />} iconPosition="start" label="多股比較" />
+          <Tab icon={<SmartToyIcon />} iconPosition="start" label="AI 助手" />
         </Tabs>
 
         {/* Login prompt for AI tabs */}
         {!isAuthenticated && analysisTab === TAB_AI_TREND && (
-          <Alert
-            severity="info"
-            sx={{ mb: 2 }}
-            action={
-              <Button
-                color="inherit"
-                size="small"
-                onClick={() => {
-                  window.location.href = '/api/account/login/Google';
-                }}
-              >
-                登入
-              </Button>
-            }
-          >
-            AI 趨勢分析需要登入才能使用（會消耗 AI token）
-          </Alert>
+          <LoginRequiredAlert message="AI 趨勢分析需要登入才能使用（會消耗 AI token）" />
+        )}
+        {!isAuthenticated && assistantActive && (
+          <LoginRequiredAlert message="AI 助手需要登入才能使用" />
+        )}
+
+        {/* AI assistant — a block of the page, kept mounted once opened (see assistantOpened) */}
+        {isAuthenticated && assistantOpened && (
+          <Box sx={{ display: assistantActive ? 'block' : 'none' }}>
+            <Suspense fallback={<CenteredSpinner sx={{ p: 4 }} />}>
+              <AiAssistantPanel active={assistantActive} />
+            </Suspense>
+          </Box>
         )}
 
         {/* Search bar for stock analysis tabs */}
@@ -238,29 +236,6 @@ function Finance() {
             )}
           </>
         )}
-
-        {/* Multi-code input for the comparison tab */}
-        {analysisTab === TAB_COMPARISON && (
-          <>
-            <ComparisonCodeInput
-              codes={comparisonCodes}
-              inputValue={comparisonInput}
-              onInputChange={setComparisonInput}
-              onAdd={handleAddComparisonCode}
-              onRemove={handleRemoveComparisonCode}
-              onCompare={runComparison}
-              isComparing={isComparing}
-            />
-            {isComparing && (
-              <Box sx={{ mt: 2 }}>
-                <LinearProgress />
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  正在比較 {comparisonCodes.length} 檔股票的量化分析...
-                </Typography>
-              </Box>
-            )}
-          </>
-        )}
       </Paper>
       {/* Error states */}
       {analysisError && !isAnalyzing && (
@@ -273,18 +248,9 @@ function Finance() {
           綜合分析失敗，請檢查股票代碼是否正確
         </Alert>
       )}
-      {comparisonError && !isComparing && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {comparisonError}
-        </Alert>
-      )}
       {/* Stock analysis results */}
       {searchResults && <StockAnalysisResult data={searchResults} />}
       {analysisResults && <ComprehensiveAnalysisResult data={analysisResults} />}
-      {/* Comparison results */}
-      {analysisTab === TAB_COMPARISON && comparisonSlots.length > 0 && (
-        <ComparisonResult slots={comparisonSlots} />
-      )}
       {/* Market Summary Tab Content */}
       {analysisTab === TAB_MARKET_SUMMARY && (
         <MarketSummaryTab
