@@ -3395,3 +3395,15 @@
 - **技術債（不排任務）**：`Stalled` 無重試按鈕；`points.length === 0` 時看不到補齊說明；`SourceManagerDialog.handleDelete` 吞錯誤。
 - **Boss**：兩個 PR 待你決定是否合併（含程式碼，合併會部署；無 migration）；請目視手機 ≤400px 的換行與確認文案。其餘不需回覆。
 - **驗證限制**：沙箱連不到正式環境與後端；結論來自讀 PR diff、測試與相關後端程式碼，加上 CI 結果（兩個 PR 的 `lint-and-build-client`、`build-and-test-server` 皆成功）。我沒有在本機重跑測試、沒有渲染畫面、沒有量測。
+
+## 2026-10-20 — PM：#489 結案記錄、預審 PR #490／#491（排程執行）
+
+- **狀態**：ACTION_TAKEN。`master`＝`38d1134`（自 10/19 12:41Z 起沒有新提交）。open Issue 只有 #409（10/06 後無新留言）；**#489 已被 Boss 於 10/19 14:33Z 關閉**；open PR 兩個：**#490**（TASK-060，Portfolio 回撤／基準圖接上 `backfill`）、**#491**（TASK-061，自訂來源儲存失敗顯示後端原因），都是純前端、`mergeable_state` clean、尚未合併。
+- **DECISION-037 追加「更新（2026-10-20）」**：把 Boss 帳號在 #489 的查證留言記進去（PM 沒有 Azure／App Insights／SQL 權限，**沒有獨立重查**）。事實／不確定分開寫：修補已部署（run 561、566）；暴露區間兩段（5/24～6/9 預設來源接受任意資料表名稱，6/9～10/17 欄位未跳脫）；連線帳號是 SQL 伺服器管理員登入；稽核與 Defender 停用、App Insights 最早 7/22、Query Store 最早 10/11。**可查範圍沒有利用跡象，但 5/24～7/21 完全沒有紀錄，不能說沒被利用過**。「不做對外動作」記為 PM 推定 Boss 接受（A41，可推翻）；**法律／通報義務 PM 未查證、不下結論**。
+- **三個後續選項（Boss 關閉 Issue 時沒有表態，PM 不當成同意）**：(a) 匿名 API 專用唯讀帳號——PM 立場 MEDIUM、值得做（使用者看不到差異；防線降低機率、不降影響範圍），列為 `REQUIREMENTS.md`「Data Analysis 硬化」的**候選需求 6，未排工**；(b) 主應用降權——LOW 不排；(c) 稽核／Query Store 容量——稽核可能花錢（PM 未查價格），Boss 決定。**我選擇不另開 Issue 問 Boss**：(a) 不涉及金錢／法律／對外曝險，依 Boss 10/11 的工作方式由 PM 定優先序、Tech Lead 評估；(c) 若要花錢，等 Tech Lead 列出金額再問。
+- **PM 預審 PR #490**（讀 PR 說明與 `HistoryLimitNote.tsx`，未合併、未渲染）：需求 3 (a)(b)(c)(d) 文案符合，沒有承諾補齊時間（回答了 Tech Lead 10/19 請 PM 確認的事：同意）；(e)「美股／基金為何只有約 6 個月」只部分符合，畫面只會說「更早沒有持倉紀錄，或沒有價格」——**A42：PM 接受第一版，(e) 不勾、不擋合併、不排工**（要講得更明確需後端多給欄位，LOW、與「補美股／基金歷史」同批）。Engineer 的兩個觀察（`Stalled` 無重試按鈕、無資料點時看不到補齊說明）PM 判 LOW、不排。驗收條件等合併後讀 master 再勾。
+- **PM 預審 PR #491**：只把 `catch` 改成顯示後端訊息（無訊息才用原句），**同意**。顯示的是後端英文原文，中文介面會中英混雜——**A43：PM 接受，不排翻譯**。PR 沒處理「已存的、現在被拒絕的來源在查詢時怎麼呈現」，該項仍是 Tech Lead 的未確認項（只讀碼即可）。
+- **文件更新**：`DECISIONS.md`（DECISION-037 追加）、`REQUIREMENTS.md`（Portfolio 節標題與預審、Data Analysis 硬化節的候選需求 6／Open Questions／Tech Lead Actions／一條驗收備註）、`boss/PM.md`（摘要）。未動：程式碼、`ARCHITECTURE.md`、`boss/TECH_LEAD.md`、任何 TASK 檔。
+- **Tech Lead Actions**：(1) **評估候選需求 6**（唯讀帳號）：成本、遷移風險、對現有行為的影響；**不動正式環境、不開工**；(b)、(c) 附帶說明，(c) 若要花錢請列金額；(2) 審閱 #490、#491（CI、程式品質屬你的範圍）；(3) 確認「已存的、現在被拒絕的」自訂來源在查詢時前端的呈現（只讀碼）；(4) 其餘無。
+- **Boss**：不需回覆、不阻擋。待合併：#490、#491。**PM 沒有發推播通知**（Tech Lead 同日已審閱兩個 PR，CI 皆綠、READY FOR BOSS REVIEW）：沒有需要您行動的事，且 #489 的內容您自己已經看過。
+- **驗證限制**：沙箱無 .NET、無前端相依套件、連不到正式站／Azure／交易所／OpenAI；以上全為讀 git、程式碼、PR 說明與 Issue 的結論，沒有跑測試、沒有渲染畫面、沒有查 Actions 與 App Insights、沒有看 PR 的 CI 結果。
