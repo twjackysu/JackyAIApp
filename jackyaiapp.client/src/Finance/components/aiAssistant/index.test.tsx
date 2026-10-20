@@ -1,10 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import AiAssistantPanel from '.';
+import AiAssistantPanel, { type AssistantActivity } from '.';
 
 import type { ChatConversation, ChatHistoryMessage } from '@/apis/chatbotApis/types';
 
@@ -117,7 +117,27 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+let collapses: number;
+let activities: AssistantActivity[];
+const lastActivity = () => activities[activities.length - 1];
+
+/** The panel's owner holds the message being typed, as the one-line box does on the page. */
+function Harness() {
+  const [draft, setDraft] = useState('');
+  return (
+    <AiAssistantPanel
+      active
+      inputValue={draft}
+      onInputChange={setDraft}
+      onCollapse={() => (collapses += 1)}
+      onActivityChange={(a) => activities.push(a)}
+    />
+  );
+}
+
 async function mount() {
+  collapses = 0;
+  activities = [];
   const store = configureStore({
     reducer: { [chatbotApis.reducerPath]: chatbotApis.reducer },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(chatbotApis.middleware),
@@ -125,7 +145,7 @@ async function mount() {
   await act(async () =>
     root.render(
       <Provider store={store}>
-        <AiAssistantPanel active />
+        <Harness />
       </Provider>,
     ),
   );
@@ -182,6 +202,41 @@ describe('AiAssistantPanel', () => {
     expect(buttonByLabel('關閉')).toBeNull();
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.querySelector('.MuiFab-root')).toBeNull();
+  });
+
+  it('puts the cursor in the message box as soon as it is open', async () => {
+    await mount();
+    expect(document.activeElement).toBe(textarea());
+  });
+
+  it('folds back into its one-line box from the header', async () => {
+    await mount();
+    act(() => buttonByLabel('收合')!.click());
+    expect(collapses).toBe(1);
+  });
+
+  it('tells its owner when a reply is being written and when there is a conversation', async () => {
+    await mount();
+    expect(lastActivity()).toEqual({ busy: false, hasConversation: false });
+
+    let finish!: () => void;
+    chatReplies.push(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () =>
+            resolve(
+              sseReply({ type: 'delta', text: '答' }, { type: 'done', conversationId: 'conv-1' }),
+            );
+        }),
+    );
+    await send('問');
+    expect(lastActivity()).toEqual({ busy: true, hasConversation: true });
+
+    await act(async () => finish());
+    await waitForText('答');
+    await waitFor(() => expect(lastActivity()).toEqual({ busy: false, hasConversation: true }));
+    // Ready for the next message without clicking back into the box.
+    expect(document.activeElement).toBe(textarea());
   });
 
   it('sends the message, shows the streamed reply, and continues the same conversation', async () => {

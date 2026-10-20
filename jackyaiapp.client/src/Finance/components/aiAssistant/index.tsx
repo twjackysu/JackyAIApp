@@ -1,6 +1,6 @@
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import ChatHeader from './components/ChatHeader';
 import ChatInput from './components/ChatInput';
@@ -28,21 +28,40 @@ const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] =>
     timestamp: new Date(m.createdAt),
   }));
 
+/** What the folded one-line box shows about a conversation it is hiding. */
+export interface AssistantActivity {
+  /** A reply is being written. */
+  busy: boolean;
+  /** There is a conversation on screen (it is kept while folded). */
+  hasConversation: boolean;
+}
+
 interface AiAssistantPanelProps {
-  /** Whether the panel's tab is showing. The panel stays mounted while hidden so a reply that is
-   *  still streaming, and the conversation itself, survive switching to another tab. */
+  /** Whether the panel is open. It stays mounted while folded so a reply that is still streaming,
+   *  and the conversation itself, survive folding it away. */
   active: boolean;
+  /** The message being typed, shared with the one-line box so typing carries over either way. */
+  inputValue: string;
+  onInputChange: (value: string) => void;
+  /** Fold the panel back into its one-line box. */
+  onCollapse: () => void;
+  onActivityChange?: (activity: AssistantActivity) => void;
 }
 
 /**
- * The Finance page's AI assistant, laid out as a block of the page (the chatbot used to float
- * over it). Its backend is Claude with a TW-stock MCP server attached, so it only answers stock
- * questions — which is why it lives on this page and nowhere else. The caller is responsible for
- * only rendering it for a signed-in user.
+ * The Finance page's AI assistant as a block of the page (the chatbot used to float over it).
+ * Its backend is Claude with a TW-stock MCP server attached, so it only answers stock questions
+ * — which is why it lives on this page and nowhere else. The caller is responsible for only
+ * rendering it for a signed-in user.
  */
-function AiAssistantPanel({ active }: AiAssistantPanelProps) {
+function AiAssistantPanel({
+  active,
+  inputValue,
+  onInputChange: setInputValue,
+  onCollapse,
+  onActivityChange,
+}: AiAssistantPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState('');
   const [conversationId, setConversationId] = useState<string>('');
   const [currentStreamingContent, setCurrentStreamingContent] = useState<string>('');
 
@@ -61,6 +80,22 @@ function AiAssistantPanel({ active }: AiAssistantPanelProps) {
   const { statusText, statusColor } = useAgentStatus(streamingStatus);
   const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
   const busy = streamingStatus.isLoading;
+
+  // Opening the panel is the reader asking to type: the cursor goes to the end of the message
+  // they started in the one-line box. Also once a reply is done, since the box is disabled (and
+  // so loses focus) while it is written.
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!active || busy || !input) return;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }, [active, busy]);
+
+  const hasConversation = messages.length > 0;
+  useEffect(() => {
+    onActivityChange?.({ busy, hasConversation });
+  }, [busy, hasConversation, onActivityChange]);
 
   const handlePreview = (block: ParsedBlock) => {
     setPreviewBlock(block);
@@ -232,6 +267,7 @@ function AiAssistantPanel({ active }: AiAssistantPanelProps) {
             busy={busy}
             onOpenHistory={() => setHistoryOpen(true)}
             onNewChat={handleNewChat}
+            onCollapse={onCollapse}
           />
           <ProgressIndicator streamingStatus={streamingStatus} />
           <MessageArea messages={messages} onPreview={handlePreview} active={active} />
@@ -241,6 +277,7 @@ function AiAssistantPanel({ active }: AiAssistantPanelProps) {
             onSend={handleSendMessage}
             onKeyPress={handleKeyPress}
             disabled={busy}
+            inputRef={inputRef}
           />
         </Box>
 

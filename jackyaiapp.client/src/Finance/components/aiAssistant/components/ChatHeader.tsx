@@ -1,4 +1,5 @@
 import AddCommentIcon from '@mui/icons-material/AddComment';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import HistoryIcon from '@mui/icons-material/History';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { Avatar, Badge, Box, IconButton, Stack, Typography } from '@mui/material';
@@ -15,6 +16,8 @@ interface ChatHeaderProps {
   busy: boolean;
   onOpenHistory: () => void;
   onNewChat: () => void;
+  /** Folds the panel back into its one-line box (the conversation is kept). */
+  onCollapse: () => void;
 }
 
 const ChatHeader = ({
@@ -23,6 +26,7 @@ const ChatHeader = ({
   busy,
   onOpenHistory,
   onNewChat,
+  onCollapse,
 }: ChatHeaderProps) => {
   const theme = useTheme();
 
@@ -87,6 +91,11 @@ const ChatHeader = ({
             <AddCommentIcon />
           </IconButton>
         </span>
+      </ActionTooltip>
+      <ActionTooltip title="收合">
+        <IconButton onClick={onCollapse} color="inherit" aria-label="收合">
+          <ExpandLessIcon />
+        </IconButton>
       </ActionTooltip>
     </Box>
   );

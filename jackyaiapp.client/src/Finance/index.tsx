@@ -4,7 +4,6 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InsightsIcon from '@mui/icons-material/Insights';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -18,7 +17,6 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { lazy, Suspense, useState } from 'react';
 
 import {
   StockAnalysisResult,
@@ -29,6 +27,7 @@ import {
   MarketSeasonalChart,
   TaiexTrendlineCard,
 } from './components';
+import { AiAssistantLauncher } from './components/aiAssistant/AiAssistantLauncher';
 import { LoginRequiredAlert } from './components/LoginRequiredAlert';
 import { MarketSummaryTab } from './components/MarketSummaryTab';
 import {
@@ -36,13 +35,7 @@ import {
   TAB_QUANTITATIVE,
   TAB_AI_TREND,
   TAB_MARKET_SUMMARY,
-  TAB_AI_ASSISTANT,
 } from './hooks/useFinanceAnalysis';
-
-import CenteredSpinner from '@/components/CenteredSpinner';
-
-// Code-split: the assistant's streaming/markdown/HTML-preview code is only needed once the tab is opened.
-const AiAssistantPanel = lazy(() => import('./components/aiAssistant'));
 
 function Finance() {
   const {
@@ -73,11 +66,6 @@ function Finance() {
     isSearchTab,
   } = useFinanceAnalysis();
 
-  // The assistant keeps its conversation (and any reply still streaming) in its own state, so once
-  // the tab has been opened the panel stays mounted and is only hidden when another tab is chosen.
-  const assistantActive = analysisTab === TAB_AI_ASSISTANT;
-  const [assistantOpened, setAssistantOpened] = useState(assistantActive);
-  if (assistantActive && !assistantOpened) setAssistantOpened(true);
   // Whether to ask the visitor to sign in: not while we still do not know who they are.
   const signedOut = !isAuthLoading && !isAuthenticated;
 
@@ -113,6 +101,8 @@ function Finance() {
           {currentDate}
         </Typography>
       </Stack>
+      {/* AI assistant: a one-line box until it is used, then the whole conversation */}
+      <AiAssistantLauncher isAuthenticated={isAuthenticated} isAuthLoading={isAuthLoading} />
       {!hasStockResults && (
         <>
           <MarketOverview />
@@ -132,7 +122,6 @@ function Finance() {
           sx={{ mb: 2 }}
         >
           {/* Same order as the TAB_* indices in useFinanceAnalysis */}
-          <Tab icon={<SmartToyIcon />} iconPosition="start" label="AI 助手" />
           <Tab icon={<AssessmentIcon />} iconPosition="start" label="綜合量化分析" />
           <Tab icon={<AutoAwesomeIcon />} iconPosition="start" label="AI 趨勢分析" />
           <Tab icon={<ArticleIcon />} iconPosition="start" label="今日市場AI摘要" />
@@ -141,17 +130,6 @@ function Finance() {
         {/* Login prompt for AI tabs */}
         {signedOut && analysisTab === TAB_AI_TREND && (
           <LoginRequiredAlert message="AI 趨勢分析需要登入才能使用（會消耗 AI token）" />
-        )}
-        {signedOut && assistantActive && <LoginRequiredAlert message="AI 助手需要登入才能使用" />}
-        {isAuthLoading && assistantActive && <CenteredSpinner sx={{ p: 4 }} />}
-
-        {/* AI assistant — a block of the page, kept mounted once opened (see assistantOpened) */}
-        {isAuthenticated && assistantOpened && (
-          <Box sx={{ display: assistantActive ? 'block' : 'none' }}>
-            <Suspense fallback={<CenteredSpinner sx={{ p: 4 }} />}>
-              <AiAssistantPanel active={assistantActive} />
-            </Suspense>
-          </Box>
         )}
 
         {/* Search bar for stock analysis tabs */}

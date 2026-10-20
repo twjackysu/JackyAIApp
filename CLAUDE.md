@@ -60,6 +60,11 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
    - Taiwan Stock Exchange (TWSE) Open API integration
    - Strategic insights generation with bullish/bearish recommendations
    - AI-powered stock data analysis using OpenAI gpt-6-luna
+   - **AI assistant** (signed-in users; model and storage under AI Integration Patterns): at the top
+     of the page as a one-line box marked as a chat (not a search); focusing it opens the full
+     conversation in place — history column on `md`+, a drawer below that — and its header folds
+     it back. Folding keeps the conversation (and a reply still streaming). Below it, three tabs:
+     綜合量化分析 (default) / AI 趨勢分析 / 今日市場AI摘要
 
 5. **PDF Unlocker** (`/pdf`) - PDF processing utilities
    - Password removal from protected PDFs
