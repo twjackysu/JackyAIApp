@@ -13,21 +13,10 @@ interface Props {
   stockCode: string;
   /** Omitted when the caller has no scoring to show a direction chip for. */
   direction?: SignalDirection;
-  variant?: 'h5' | 'h6';
 }
 
-/**
- * Market chip + company name/code + (optional) direction chip — the identity fragment
- * `OverallScoreSection` and the multi-stock comparison header both need, without the score
- * gauge or recommendation text that only makes sense in a single-stock layout.
- */
-export const StockIdentitySummary = ({
-  market,
-  companyName,
-  stockCode,
-  direction,
-  variant = 'h5',
-}: Props) => (
+/** Market chip + company name/code + (optional) direction chip, as headed by `OverallScoreSection`. */
+export const StockIdentitySummary = ({ market, companyName, stockCode, direction }: Props) => (
   <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
     <Chip
       label={market === 'US' ? 'US' : 'TW'}
@@ -35,7 +24,7 @@ export const StockIdentitySummary = ({
       variant="outlined"
       sx={{ fontWeight: 'bold' }}
     />
-    <Typography variant={variant} sx={{ fontWeight: 'bold' }}>
+    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
       {companyName} ({stockCode})
     </Typography>
     {direction && (

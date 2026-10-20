@@ -22,9 +22,9 @@ interface ConversationDrawerProps {
   onSelect: (conversationId: string) => void;
   onNewChat: () => void;
   /**
-   * When provided, the drawer renders inside this element (the chat dialog's
-   * paper) instead of the whole screen — so its backdrop dims only the chat
-   * window rather than stacking a second full-screen backdrop over the dialog.
+   * When provided, the drawer renders inside this element (the chat panel) instead of over
+   * the whole screen — so its backdrop dims only the chat rather than the page around it.
+   * The element must be `position: relative`.
    */
   containerEl?: HTMLElement | null;
 }
@@ -63,7 +63,7 @@ const ConversationDrawer = ({
   };
 
   // When scoped to a container, position the modal/backdrop/paper absolutely so
-  // they stay within the chat dialog instead of covering the whole viewport.
+  // they stay within the chat panel instead of covering the whole viewport.
   const scoped = Boolean(containerEl);
 
   return (

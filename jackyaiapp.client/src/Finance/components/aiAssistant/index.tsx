@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import Paper from '@mui/material/Paper';
+import { useCallback, useEffect, useState } from 'react';
 
-import ChatDialogWithPreview from './components/ChatDialogWithPreview';
-import FloatingButton from './components/FloatingButton';
+import ChatHeader from './components/ChatHeader';
+import ChatInput from './components/ChatInput';
+import ConversationDrawer from './components/ConversationDrawer';
+import MessageArea from './components/MessageArea';
+import PreviewDialog from './components/PreviewDialog';
+import ProgressIndicator from './components/ProgressIndicator';
 import { useAgentStatus } from './hooks/useAgentStatus';
-import { useDraggable } from './hooks/useDraggable';
 import { Message } from './types';
 
-import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useLazyGetConversationMessagesQuery } from '@/apis/chatbotApis';
 import { ChatHistoryMessage } from '@/apis/chatbotApis/types';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
@@ -21,8 +24,19 @@ const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] =>
     timestamp: new Date(m.createdAt),
   }));
 
-function FloatingChatbot() {
-  const [isOpen, setIsOpen] = useState(false);
+interface AiAssistantPanelProps {
+  /** Whether the panel's tab is showing. The panel stays mounted while hidden so a reply that is
+   *  still streaming, and the conversation itself, survive switching to another tab. */
+  active: boolean;
+}
+
+/**
+ * The Finance page's AI assistant, laid out as a block of the page (the chatbot used to float
+ * over it). Its backend is Claude with a TW-stock MCP server attached, so it only answers stock
+ * questions — which is why it lives on this page and nowhere else. The caller is responsible for
+ * only rendering it for a signed-in user.
+ */
+function AiAssistantPanel({ active }: AiAssistantPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [conversationId, setConversationId] = useState<string>('');
@@ -32,14 +46,12 @@ function FloatingChatbot() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBlock, setPreviewBlock] = useState<ParsedBlock | null>(null);
 
-  // Conversation history drawer.
+  // Conversation history drawer, which slides over this panel (not over the page).
   const [historyOpen, setHistoryOpen] = useState(false);
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [panelEl, setPanelEl] = useState<HTMLElement | null>(null);
 
   const [fetchConversationMessages] = useLazyGetConversationMessagesQuery();
   const { sendStreamingMessage, streamingStatus } = useChatStreaming();
-  const { position, isDragging, fabRef, handleMouseDown } = useDraggable();
   const { statusText, statusColor } = useAgentStatus(streamingStatus);
   const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
 
@@ -50,7 +62,7 @@ function FloatingChatbot() {
 
   const handleClosePreview = () => setPreviewOpen(false);
 
-  // Start a fresh conversation (Dify assigns a new id on the next message).
+  // Start a fresh conversation (the server assigns a new id with the next reply).
   const handleNewChat = useCallback(() => {
     setMessages([]);
     setConversationId('');
@@ -58,7 +70,7 @@ function FloatingChatbot() {
     setPreviewOpen(false);
   }, []);
 
-  // Resume an existing conversation: load its history from Dify and make it active.
+  // Resume an existing conversation: load its stored history and make it active.
   const handleSelectConversation = useCallback(
     async (id: string) => {
       if (streamingStatus.isLoading) return;
@@ -103,37 +115,6 @@ function FloatingChatbot() {
     }
   }, [blocks]);
 
-  // 自動滾動到底部
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // 當訊息更新時自動滾動
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // 當 streaming 狀態變化時也滾動（確保即時更新時也能跟上）
-  useEffect(() => {
-    if (streamingStatus.isLoading) {
-      scrollToBottom();
-    }
-  }, [streamingStatus.currentEvent, streamingStatus.isLoading]);
-
-  const handleFabClick = (e: React.MouseEvent) => {
-    // 如果正在拖拉就不開啟聊天
-    if (isDragging) {
-      e.preventDefault();
-      return;
-    }
-    setIsOpen(true);
-  };
-
-  const handleClose = () => {
-    setIsOpen(false);
-    setHistoryOpen(false);
-  };
-
   const handleSendMessage = async () => {
     if (!inputValue.trim() || streamingStatus.isLoading) return;
 
@@ -177,9 +158,13 @@ function FloatingChatbot() {
       },
       // onError
       (error: string) => {
+        // `parsedBlocks` is cleared so the bubble falls back to rendering `content`: an empty
+        // block list is what a reply that never started looks like, and it draws nothing.
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id === botMessage.id ? { ...msg, content: `錯誤: ${error}` } : msg,
+            msg.id === botMessage.id
+              ? { ...msg, content: `錯誤: ${error}`, parsedBlocks: undefined }
+              : msg,
           ),
         );
       },
@@ -195,46 +180,48 @@ function FloatingChatbot() {
 
   return (
     <>
-      <FloatingButton
-        position={position}
-        isDragging={isDragging}
-        fabRef={fabRef}
-        onMouseDown={handleMouseDown}
-        onClick={handleFabClick}
-      />
+      <Paper
+        ref={setPanelEl}
+        variant="outlined"
+        sx={{
+          // `relative` + `overflow: hidden` keep the history drawer inside the panel.
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          height: 'clamp(420px, 72dvh, 760px)',
+          borderRadius: 2,
+          bgcolor: 'background.default',
+        }}
+      >
+        <ChatHeader
+          statusText={statusText}
+          statusColor={statusColor}
+          onOpenHistory={() => setHistoryOpen(true)}
+          onNewChat={handleNewChat}
+        />
+        <ProgressIndicator streamingStatus={streamingStatus} />
+        <MessageArea messages={messages} onPreview={handlePreview} active={active} />
+        <ChatInput
+          value={inputValue}
+          onChange={setInputValue}
+          onSend={handleSendMessage}
+          onKeyPress={handleKeyPress}
+          disabled={streamingStatus.isLoading}
+        />
+        <ConversationDrawer
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          activeConversationId={conversationId}
+          onSelect={handleSelectConversation}
+          onNewChat={handleNewChat}
+          containerEl={panelEl}
+        />
+      </Paper>
 
-      <ChatDialogWithPreview
-        open={isOpen}
-        onClose={handleClose}
-        messages={messages}
-        inputValue={inputValue}
-        onInputChange={setInputValue}
-        onSendMessage={handleSendMessage}
-        onKeyPress={handleKeyPress}
-        streamingStatus={streamingStatus}
-        statusText={statusText}
-        statusColor={statusColor}
-        messagesEndRef={messagesEndRef}
-        onOpenHistory={() => setHistoryOpen(true)}
-        onNewChat={handleNewChat}
-        historyOpen={historyOpen}
-        onCloseHistory={() => setHistoryOpen(false)}
-        activeConversationId={conversationId}
-        onSelectConversation={handleSelectConversation}
-        onPreview={handlePreview}
-        previewBlock={previewBlock}
-        previewOpen={previewOpen}
-        onClosePreview={handleClosePreview}
-      />
+      <PreviewDialog open={previewOpen} onClose={handleClosePreview} block={previewBlock} />
     </>
   );
 }
 
-/** Wrapper that only renders chatbot when user is authenticated (no redirect) */
-function AuthAwareFloatingChatbot() {
-  const { data: userInfo, isLoading } = useGetUserInfoQuery();
-  if (isLoading || !userInfo?.data) return null;
-  return <FloatingChatbot />;
-}
-
-export default AuthAwareFloatingChatbot;
+export default AiAssistantPanel;
