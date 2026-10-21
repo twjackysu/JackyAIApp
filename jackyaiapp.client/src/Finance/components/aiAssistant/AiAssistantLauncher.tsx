@@ -54,7 +54,8 @@ export function AiAssistantLauncher({ isAuthenticated, isAuthLoading }: AiAssist
   );
 
   return (
-    <Box sx={{ mb: 2 }}>
+    // More room below than between the market sections, which are one thing among themselves.
+    <Box sx={{ mb: { xs: 3, sm: 4 } }}>
       {!expanded && bar}
       {opened && (
         <Box sx={{ display: expanded ? 'block' : 'none' }}>

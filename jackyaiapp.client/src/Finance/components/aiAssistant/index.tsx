@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
+import { alpha, useTheme } from '@mui/material/styles';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import ChatHeader from './components/ChatHeader';
@@ -9,8 +9,8 @@ import ConversationList from './components/ConversationList';
 import { HISTORY_COLUMN_BREAKPOINT, HISTORY_COLUMN_WIDTH } from './components/historyColumn';
 import MessageArea from './components/MessageArea';
 import PreviewDialog from './components/PreviewDialog';
-import ProgressIndicator from './components/ProgressIndicator';
 import { useAgentStatus } from './hooks/useAgentStatus';
+import { ACCENT, ACCENT_GRADIENT, hairline, panelSurface } from './style';
 import { Message, PendingAttachment, QueuedMessage } from './types';
 import { readPaste } from './utils/paste';
 
@@ -128,7 +128,8 @@ function AiAssistantPanel({
   const dispatch = useAppDispatch();
   const [fetchConversationMessages] = useLazyGetConversationMessagesQuery();
   const { sendStreamingMessage, stop, streamingStatus } = useChatStreaming();
-  const { statusText, statusColor } = useAgentStatus(streamingStatus);
+  const { statusText } = useAgentStatus(streamingStatus);
+  const theme = useTheme();
   const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
   const busy = streamingStatus.isLoading;
 
@@ -395,17 +396,27 @@ function AiAssistantPanel({
 
   return (
     <>
-      <Paper
+      <Box
         ref={setPanelEl}
-        variant="outlined"
+        component="section"
+        aria-label="AI 助手"
         sx={{
           // `relative` + `overflow: hidden` keep the history drawer inside the panel.
           position: 'relative',
           display: 'flex',
           overflow: 'hidden',
-          height: 'clamp(420px, 72dvh, 760px)',
-          borderRadius: 2,
-          bgcolor: 'background.default',
+          height: 'clamp(460px, 74dvh, 780px)',
+          borderRadius: '20px',
+          // Its own surface, outlined in the accent gradient with a faint glow from the top
+          // corners, so it does not read as one more of the market-data cards below it.
+          border: '1px solid transparent',
+          background: [
+            `radial-gradient(520px circle at 0% 0%, ${alpha(ACCENT, 0.07)}, transparent 60%) padding-box`,
+            `radial-gradient(520px circle at 100% 0%, ${alpha('#818cf8', 0.06)}, transparent 60%) padding-box`,
+            `linear-gradient(${panelSurface(theme)}, ${panelSurface(theme)}) padding-box`,
+            `${ACCENT_GRADIENT} border-box`,
+          ].join(', '),
+          boxShadow: '0 30px 80px -48px rgba(52, 211, 153, 0.55)',
         }}
       >
         {/* Conversation history, always in view where there is room for it */}
@@ -414,9 +425,8 @@ function AiAssistantPanel({
             display: { xs: 'none', [HISTORY_COLUMN_BREAKPOINT]: 'block' },
             width: HISTORY_COLUMN_WIDTH,
             flexShrink: 0,
-            borderRight: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
+            borderRight: `1px solid ${hairline(theme)}`,
+            bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.02)',
           }}
         >
           <ConversationList
@@ -430,13 +440,11 @@ function AiAssistantPanel({
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <ChatHeader
             statusText={statusText}
-            statusColor={statusColor}
             busy={busy}
             onOpenHistory={() => setHistoryOpen(true)}
             onNewChat={handleNewChat}
             onCollapse={onCollapse}
           />
-          <ProgressIndicator streamingStatus={streamingStatus} />
           <MessageArea
             messages={messages}
             onPreview={handlePreview}
@@ -474,7 +482,7 @@ function AiAssistantPanel({
           busy={busy}
           containerEl={panelEl}
         />
-      </Paper>
+      </Box>
 
       <PreviewDialog open={previewOpen} onClose={handleClosePreview} block={previewBlock} />
     </>

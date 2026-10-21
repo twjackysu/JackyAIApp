@@ -1,14 +1,18 @@
+import CandlestickChartIcon from '@mui/icons-material/CandlestickChart';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
-import PersonIcon from '@mui/icons-material/Person';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
+import PieChartOutlineIcon from '@mui/icons-material/PieChartOutlined';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import { Avatar, Box, Button, Chip, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, ButtonBase, Paper, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useRef } from 'react';
 
 import { GREETING_SUGGESTIONS } from '../examples';
+import { ACCENT, accentWash, hairline } from '../style';
 import { Message } from '../types';
 
+import AssistantMark from './AssistantMark';
 import AttachmentChip from './AttachmentChip';
 
 import { TRUNCATED_NOTE } from '@/apis/chatbotApis/chatErrors';
@@ -19,6 +23,9 @@ import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 /** Within this many pixels of the end, the reader counts as "following" the conversation. */
 const FOLLOW_THRESHOLD_PX = 80;
 
+/** The conversation reads as one column of this width, however wide the panel. */
+const COLUMN_MAX_WIDTH = 780;
+
 interface MessageAreaProps {
   messages: Message[];
   onPreview: (block: ParsedBlock) => void;
@@ -28,8 +35,17 @@ interface MessageAreaProps {
   onSuggest?: (question: string) => void;
 }
 
-const GREETING =
-  '您好！我是台股 AI 助手，可以查個股走勢、財報與股利、三大法人籌碼、ETF、期貨選擇權和景氣指標，也能分析您附上的檔案或截圖。想問什麼呢？';
+export const GREETING_TITLE = '今天想研究哪一檔？';
+export const GREETING =
+  '我是台股 AI 助手，可以查個股走勢、財報與股利、三大法人籌碼、ETF、期貨選擇權和景氣指標，也能分析您附上的檔案或截圖。';
+
+/** One icon per suggestion, in GREETING_SUGGESTIONS' order (trend, financials, futures, ETF). */
+const SUGGESTION_ICONS = [
+  ShowChartIcon,
+  ReceiptLongIcon,
+  CandlestickChartIcon,
+  PieChartOutlineIcon,
+];
 
 // 單個區塊渲染組件
 const BlockRenderer = ({
@@ -50,20 +66,83 @@ const BlockRenderer = ({
   return (
     <Box sx={{ my: 1 }}>
       <Button
-        variant="contained"
+        variant="outlined"
         size="small"
-        disableElevation
         startIcon={streaming ? <VisibilityIcon /> : <OpenInFullIcon />}
         onClick={() => onPreview(block)}
-        sx={{
-          textTransform: 'none',
-          borderRadius: 2,
-          bgcolor: theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.main',
-          '&:hover': { bgcolor: 'primary.dark' },
-        }}
+        sx={{ borderRadius: 2, borderColor: hairline(theme), color: 'text.primary' }}
       >
         {streaming ? 'HTML 產生中…點擊預覽' : '開啟 HTML 預覽'}
       </Button>
+    </Box>
+  );
+};
+
+/** An empty conversation: what the assistant does, and a few questions to start from. */
+const Welcome = ({ onSuggest }: { onSuggest?: (question: string) => void }) => {
+  const theme = useTheme();
+  return (
+    <Box
+      sx={{
+        minHeight: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        gap: 1.5,
+        py: 3,
+      }}
+    >
+      <AssistantMark size={48} />
+      <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mt: 1 }}>
+        {GREETING_TITLE}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 520, lineHeight: 1.7 }}>
+        {GREETING}
+      </Typography>
+      {onSuggest && (
+        <Box
+          data-testid="greeting-suggestions"
+          sx={{
+            mt: 1.5,
+            width: '100%',
+            maxWidth: 560,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+            gap: 1,
+          }}
+        >
+          {GREETING_SUGGESTIONS.map((q, i) => {
+            const Icon = SUGGESTION_ICONS[i % SUGGESTION_ICONS.length];
+            return (
+              <ButtonBase
+                key={q}
+                onClick={() => onSuggest(q)}
+                sx={{
+                  justifyContent: 'flex-start',
+                  gap: 1.25,
+                  px: 1.75,
+                  py: 1.25,
+                  borderRadius: 3,
+                  textAlign: 'left',
+                  border: `1px solid ${hairline(theme)}`,
+                  bgcolor:
+                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.015)',
+                  transition: 'border-color 120ms, background-color 120ms',
+                  '&:hover, &.Mui-focusVisible': {
+                    borderColor: ACCENT,
+                    bgcolor: accentWash(theme, 0.08),
+                  },
+                }}
+              >
+                <Icon sx={{ fontSize: 18, color: ACCENT }} />
+                <Typography variant="body2">{q}</Typography>
+              </ButtonBase>
+            );
+          })}
+        </Box>
+      )}
     </Box>
   );
 };
@@ -94,20 +173,6 @@ function MessageArea({ messages, onPreview, active, onSuggest }: MessageAreaProp
     followingRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX;
   };
 
-  const scrollbarSx = {
-    '&::-webkit-scrollbar': { width: '8px' },
-    '&::-webkit-scrollbar-track': { backgroundColor: 'transparent' },
-    '&::-webkit-scrollbar-thumb': {
-      backgroundColor:
-        theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
-      borderRadius: '4px',
-      '&:hover': {
-        backgroundColor:
-          theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)',
-      },
-    },
-  };
-
   return (
     <Box
       ref={scrollRef}
@@ -115,179 +180,138 @@ function MessageArea({ messages, onPreview, active, onSuggest }: MessageAreaProp
       sx={{
         flex: 1,
         minHeight: 0,
-        px: { xs: 1.5, sm: 3 },
-        py: 2.5,
         overflowY: 'auto',
-        bgcolor: 'background.default',
-        ...scrollbarSx,
+        px: { xs: 1.5, sm: 3 },
+        py: 3,
+        '&::-webkit-scrollbar': { width: 8 },
+        '&::-webkit-scrollbar-track': { backgroundColor: 'transparent' },
+        '&::-webkit-scrollbar-thumb': { backgroundColor: hairline(theme), borderRadius: 4 },
       }}
     >
-      <Stack spacing={2.5}>
-        {messages.length === 0 && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <Avatar sx={{ mr: 1.5, bgcolor: theme.palette.success.main, width: 38, height: 38 }}>
-              <SmartToyIcon />
-            </Avatar>
-            <Paper
-              variant="outlined"
+      <Box
+        sx={{
+          maxWidth: COLUMN_MAX_WIDTH,
+          mx: 'auto',
+          minHeight: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+        }}
+      >
+        {messages.length === 0 && <Welcome onSuggest={onSuggest} />}
+
+        {messages.map((message) => {
+          const attachments = message.attachments && message.attachments.length > 0 && (
+            <Box
               sx={{
-                p: 2,
-                maxWidth: '85%',
-                borderRadius: '4px 16px 16px 16px',
-                backgroundColor: theme.palette.background.paper,
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 0.5,
+                justifyContent: message.isUser ? 'flex-end' : 'flex-start',
+                mb: 0.75,
               }}
             >
-              <Stack direction="column" spacing={0.5}>
-                <Typography
-                  variant="caption"
-                  sx={{ fontWeight: 700, color: theme.palette.success.main }}
+              {message.attachments.map((a) => {
+                const isFile = a.kind === 'image' || a.kind === 'pdf';
+                return (
+                  <AttachmentChip
+                    key={a.id}
+                    fileName={a.fileName}
+                    kind={a.kind}
+                    truncated={a.truncated}
+                    pageCount={a.pageCount}
+                    thumbnailUrl={a.kind === 'image' ? attachmentContentUrl(a.id) : undefined}
+                    href={isFile ? attachmentContentUrl(a.id) : undefined}
+                  />
+                );
+              })}
+            </Box>
+          );
+
+          // The reader's own message: a soft bubble on the right.
+          if (message.isUser) {
+            return (
+              <Box
+                key={message.id}
+                data-testid="user-message"
+                sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}
+              >
+                {attachments}
+                <Paper
+                  elevation={0}
+                  sx={{
+                    px: 2,
+                    py: 1.25,
+                    maxWidth: '85%',
+                    borderRadius: '18px 18px 6px 18px',
+                    bgcolor: accentWash(theme, 0.13),
+                    border: `1px solid ${accentWash(theme, 0.22)}`,
+                    color: 'text.primary',
+                  }}
                 >
-                  AI 助手
-                </Typography>
-                <MarkdownMessage content={GREETING} isOwnMessage={false} theme={theme} />
-                {onSuggest && (
+                  <MarkdownMessage content={message.content} isOwnMessage theme={theme} />
+                </Paper>
+              </Box>
+            );
+          }
+
+          // The assistant's answer: no bubble, the full column, its mark beside it.
+          return (
+            <Box key={message.id} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+              <Box sx={{ pt: 0.25 }}>
+                <AssistantMark size={26} />
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                {attachments}
+                {!message.parsedBlocks?.length && message.content ? (
+                  <MarkdownMessage content={message.content} isOwnMessage={false} theme={theme} />
+                ) : !message.parsedBlocks?.length ? (
+                  // The answer has not started: three dots in place of text.
                   <Box
-                    data-testid="greeting-suggestions"
-                    sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, pt: 0.5 }}
+                    aria-label="AI 助手思考中"
+                    sx={{
+                      display: 'flex',
+                      gap: 0.6,
+                      py: 1,
+                      '& span': {
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        bgcolor: 'text.secondary',
+                        animation: 'assistantDot 1.2s infinite ease-in-out',
+                      },
+                      '& span:nth-of-type(2)': { animationDelay: '0.15s' },
+                      '& span:nth-of-type(3)': { animationDelay: '0.3s' },
+                      '@keyframes assistantDot': {
+                        '0%, 80%, 100%': { opacity: 0.25, transform: 'translateY(0)' },
+                        '40%': { opacity: 1, transform: 'translateY(-3px)' },
+                      },
+                    }}
                   >
-                    {GREETING_SUGGESTIONS.map((q) => (
-                      <Chip
-                        key={q}
-                        label={q}
-                        size="small"
-                        variant="outlined"
-                        clickable
-                        onClick={() => onSuggest(q)}
-                      />
+                    <span />
+                    <span />
+                    <span />
+                  </Box>
+                ) : (
+                  <Box>
+                    {message.parsedBlocks!.map((block) => (
+                      <BlockRenderer key={block.id} block={block} onPreview={onPreview} />
                     ))}
                   </Box>
                 )}
-              </Stack>
-            </Paper>
-          </Box>
-        )}
-
-        {messages.map((message) => {
-          const isOwnMessage = message.isUser;
-          const timestamp = message.timestamp.toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-
-          return (
-            <Box
-              key={message.id}
-              sx={{
-                display: 'flex',
-                justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
-                alignItems: 'flex-start',
-              }}
-            >
-              {!isOwnMessage && (
-                <Avatar
-                  sx={{ mr: 1.5, bgcolor: theme.palette.success.main, width: 38, height: 38 }}
-                >
-                  <SmartToyIcon />
-                </Avatar>
-              )}
-              <Paper
-                variant="outlined"
-                sx={{
-                  px: 2,
-                  py: 1.5,
-                  maxWidth: '85%',
-                  borderRadius: isOwnMessage ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
-                  border: isOwnMessage ? 'none' : `1px solid ${theme.palette.divider}`,
-                  backgroundColor: isOwnMessage
-                    ? theme.palette.primary.main
-                    : theme.palette.background.paper,
-                  color: isOwnMessage
-                    ? theme.palette.primary.contrastText
-                    : theme.palette.text.primary,
-                  boxShadow: isOwnMessage
-                    ? '0 2px 8px rgba(25, 118, 210, 0.25)'
-                    : '0 2px 8px rgba(0, 0, 0, 0.06)',
-                }}
-              >
-                <Stack direction="column" spacing={0.5}>
-                  {!isOwnMessage && (
-                    <Typography
-                      variant="caption"
-                      sx={{ fontWeight: 700, color: theme.palette.success.main }}
-                    >
-                      AI 助手
-                    </Typography>
-                  )}
-
-                  {message.attachments && message.attachments.length > 0 && (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
-                      {message.attachments.map((a) => {
-                        const isFile = a.kind === 'image' || a.kind === 'pdf';
-                        return (
-                          <AttachmentChip
-                            key={a.id}
-                            fileName={a.fileName}
-                            kind={a.kind}
-                            truncated={a.truncated}
-                            pageCount={a.pageCount}
-                            thumbnailUrl={
-                              a.kind === 'image' ? attachmentContentUrl(a.id) : undefined
-                            }
-                            href={isFile ? attachmentContentUrl(a.id) : undefined}
-                            onBubble={isOwnMessage}
-                          />
-                        );
-                      })}
-                    </Box>
-                  )}
-
-                  {/* 渲染消息內容 */}
-                  {isOwnMessage || !message.parsedBlocks ? (
-                    <MarkdownMessage
-                      content={message.content}
-                      isOwnMessage={isOwnMessage}
-                      theme={theme}
-                    />
-                  ) : (
-                    <Box>
-                      {message.parsedBlocks.map((block) => (
-                        <BlockRenderer key={block.id} block={block} onPreview={onPreview} />
-                      ))}
-                    </Box>
-                  )}
-
-                  {message.truncated && (
-                    <Typography variant="caption" sx={{ color: 'warning.main' }}>
-                      {TRUNCATED_NOTE}
-                    </Typography>
-                  )}
-
+                {message.truncated && (
                   <Typography
                     variant="caption"
-                    sx={{
-                      alignSelf: 'flex-end',
-                      opacity: 0.7,
-                      color: isOwnMessage
-                        ? theme.palette.primary.contrastText
-                        : theme.palette.text.secondary,
-                    }}
+                    sx={{ display: 'block', mt: 0.5, color: 'warning.main' }}
                   >
-                    {timestamp}
+                    {TRUNCATED_NOTE}
                   </Typography>
-                </Stack>
-              </Paper>
-              {isOwnMessage && (
-                <Avatar
-                  sx={{ ml: 1.5, bgcolor: theme.palette.primary.main, width: 38, height: 38 }}
-                >
-                  <PersonIcon />
-                </Avatar>
-              )}
+                )}
+              </Box>
             </Box>
           );
         })}
-      </Stack>
+      </Box>
     </Box>
   );
 }

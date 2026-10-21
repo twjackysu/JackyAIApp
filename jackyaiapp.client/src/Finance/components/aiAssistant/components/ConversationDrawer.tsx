@@ -1,5 +1,7 @@
 import { Drawer } from '@mui/material';
 
+import { panelSurface } from '../style';
+
 import ConversationList from './ConversationList';
 
 interface ConversationDrawerProps {
@@ -39,7 +41,14 @@ const ConversationDrawer = ({
       // Position the modal, its backdrop and its paper absolutely so they stay within the panel.
       root: { container: containerEl, style: { position: 'absolute' } },
       backdrop: { style: { position: 'absolute' } },
-      paper: { sx: { width: { xs: '85%', sm: 280 }, position: 'absolute' } },
+      paper: {
+        sx: (theme) => ({
+          width: { xs: '85%', sm: 280 },
+          position: 'absolute',
+          backgroundImage: 'none',
+          bgcolor: panelSurface(theme),
+        }),
+      },
     }}
   >
     <ConversationList

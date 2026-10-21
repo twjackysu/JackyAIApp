@@ -1,5 +1,4 @@
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -11,6 +10,9 @@ import { useEffect, useRef, useState } from 'react';
 
 import { signInAndComeBack } from '../../../utils/signIn';
 import { EXAMPLE_QUESTIONS } from '../examples';
+import { ACCENT, ACCENT_GRADIENT, panelSurface } from '../style';
+
+import AssistantMark from './AssistantMark';
 
 import { ActionTooltip } from '@/components/hints';
 
@@ -53,7 +55,7 @@ export function CompactChatBar(props: CompactChatBarProps) {
   const theme = useTheme();
   const inputRef = useRef<HTMLInputElement>(null);
   const ready = state === 'ready';
-  const accent = theme.palette.success.main;
+  const accent = ACCENT;
 
   // A different question every few seconds shows how much can be asked.
   const [exampleIndex, setExampleIndex] = useState(0);
@@ -74,25 +76,28 @@ export function CompactChatBar(props: CompactChatBarProps) {
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1,
-        minHeight: 48,
-        px: 1.5,
-        borderRadius: 3,
-        border: '1px solid',
-        borderColor: alpha(accent, 0.45),
-        backgroundImage:
-          theme.palette.mode === 'dark'
-            ? 'linear-gradient(135deg, rgba(46,125,50,0.16), rgba(25,118,210,0.10))'
-            : 'linear-gradient(135deg, rgba(46,125,50,0.08), rgba(25,118,210,0.05))',
+        gap: 1.25,
+        minHeight: 52,
+        pl: 1.25,
+        pr: 1,
+        // The same gradient outline as the open panel: one thing, folded or not.
+        borderRadius: '16px',
+        border: '1px solid transparent',
+        background: [
+          `radial-gradient(400px circle at 0% 50%, ${alpha(ACCENT, 0.08)}, transparent 70%) padding-box`,
+          `linear-gradient(${panelSurface(theme)}, ${panelSurface(theme)}) padding-box`,
+          `${ACCENT_GRADIENT} border-box`,
+        ].join(', '),
+        boxShadow: '0 16px 40px -28px rgba(52, 211, 153, 0.6)',
         cursor: ready ? 'text' : 'default',
-        transition: 'border-color 120ms',
-        '&:hover': ready ? { borderColor: accent } : undefined,
+        transition: 'box-shadow 140ms',
+        '&:hover': ready ? { boxShadow: '0 16px 40px -20px rgba(52, 211, 153, 0.7)' } : undefined,
       }}
     >
-      <SmartToyIcon sx={{ color: accent, flexShrink: 0 }} />
+      <AssistantMark size={30} />
       <Typography
         variant="subtitle2"
-        sx={{ fontWeight: 700, color: accent, flexShrink: 0, display: { xs: 'none', sm: 'block' } }}
+        sx={{ fontWeight: 700, flexShrink: 0, display: { xs: 'none', sm: 'block' } }}
       >
         AI 助手
       </Typography>
