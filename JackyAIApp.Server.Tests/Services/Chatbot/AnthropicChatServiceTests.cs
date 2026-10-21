@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Anthropic.Models.Beta.Messages;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Services.Chatbot;
+using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Tests.Services.Chatbot
 {
@@ -64,5 +66,61 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             Assert.Equal(1.00m + 5.00m, AiRates.ChatCost("claude-haiku-4-5", 1_000_000, 1_000_000));
         }
+
+        [Fact]
+        public void CachedInput_IsCostedAtItsOwnRates()
+        {
+            // 50K in all: 10K uncached, 10K written to the cache (x1.25), 30K read from it (x0.1),
+            // at $0.10 per MTok; no output.
+            var cost = AiRates.ChatCost("claude-haiku-5-5", 50_000, 0, cacheWriteTokens: 10_000, cacheReadTokens: 30_000);
+            Assert.Equal((10_000 + 12_500 + 3_000) / 1_000_000m * 0.10m, cost);
+        }
+
+        [Fact]
+        public void TheLongPromptRateCard_IsChosenOnTheWholePrompt_CacheIncluded()
+        {
+            // Only 10K uncached, but 190K read from the cache: a 200K prompt, on the $0.50 card.
+            var cost = AiRates.ChatCost("claude-haiku-5-5", 200_000, 0, cacheReadTokens: 190_000);
+            Assert.Equal((10_000 + 19_000) / 1_000_000m * 0.50m, cost);
+        }
+
+        [Fact]
+        public void EveryTurn_AsksForTheConversationToBeCached()
+        {
+            var json = Body(AnthropicChatService.BuildRequest(new DateOnly(2026, 10, 21), []));
+
+            Assert.Equal("ephemeral", json.GetProperty("cache_control").GetProperty("type").GetString());
+        }
+
+        [Fact]
+        public void TheSameStoredConversation_IsSentAsTheSameBytes_SoTheNextTurnReadsItFromTheCache()
+        {
+            SQL.ChatMessage[] History()
+            {
+                var user = new SQL.ChatMessage { ConversationId = "c", Role = "user", Content = "看這張" };
+                user.Attachments.Add(new SQL.ChatAttachment
+                {
+                    Id = 1, UserId = "u", FileName = "圖.png", Kind = AttachmentKinds.Image, Text = "",
+                    BlobName = "b", MediaType = "image/png",
+                });
+                user.Attachments.Add(new SQL.ChatAttachment
+                {
+                    Id = 2, UserId = "u", FileName = "表.csv", Kind = AttachmentKinds.Csv, Text = "a,b",
+                });
+                return [user, new SQL.ChatMessage { ConversationId = "c", Role = "assistant", Content = "好的" }];
+            }
+            var files = new Dictionary<long, byte[]> { [1] = [1, 2, 3] };
+            string Render() => Body(AnthropicChatService.BuildRequest(
+                new DateOnly(2026, 10, 21), History().Select(m => AnthropicChatService.ToMessageParam(m, files)).ToList()))
+                .GetRawText();
+
+            var first = Render();
+            Assert.Contains("\"messages\":[{", first);
+            Assert.Equal(first, Render());
+        }
+
+        /// <summary>The request body as it goes over the wire.</summary>
+        private static JsonElement Body(MessageCreateParams request) =>
+            JsonSerializer.SerializeToElement(request).GetProperty("RawBodyData");
     }
 }

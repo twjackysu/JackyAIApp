@@ -48,13 +48,25 @@ namespace JackyAIApp.Server.Common
                 ["gpt-image-1-mini"] = 0.005m,
             };
 
+        // Anthropic prompt caching, as multiples of the input rate: a write to the 5-minute cache
+        // (the only TTL used) and a read from it.
+        private const decimal CacheWriteMultiplier = 1.25m;
+        private const decimal CacheReadMultiplier = 0.1m;
+
         /// <summary>USD cost of a chat completion, or null if the model's rate isn't known.</summary>
-        public static decimal? ChatCost(string model, int promptTokens, int completionTokens)
+        /// <param name="promptTokens">All input tokens, including those written to or read from the
+        /// prompt cache — the long-prompt rate card is chosen on this total.</param>
+        /// <param name="cacheWriteTokens">Of <paramref name="promptTokens"/>, written to the cache.</param>
+        /// <param name="cacheReadTokens">Of <paramref name="promptTokens"/>, read from the cache.</param>
+        public static decimal? ChatCost(string model, int promptTokens, int completionTokens,
+            int cacheWriteTokens = 0, int cacheReadTokens = 0)
         {
             if (!ChatRates.TryGetValue(model, out var r)) return null;
             if (LongPromptRates.TryGetValue(model, out var l) && promptTokens > l.AbovePromptTokens)
                 r = (l.InputPerM, l.OutputPerM);
-            return promptTokens / 1_000_000m * r.InputPerM
+            var uncached = promptTokens - cacheWriteTokens - cacheReadTokens;
+            return (uncached + cacheWriteTokens * CacheWriteMultiplier + cacheReadTokens * CacheReadMultiplier)
+                   / 1_000_000m * r.InputPerM
                  + completionTokens / 1_000_000m * r.OutputPerM;
         }
 

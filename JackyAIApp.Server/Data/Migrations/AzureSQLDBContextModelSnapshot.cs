@@ -115,6 +115,12 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<int?>("CacheReadTokens")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CacheWriteTokens")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CharacterCount")
                         .HasColumnType("int");
 

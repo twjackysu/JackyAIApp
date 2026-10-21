@@ -29,8 +29,17 @@ namespace JackyAIApp.Server.Data.Models.SQL
         [Required, MaxLength(60)]
         public required string Model { get; set; }
 
-        /// <summary>Chat only — input tokens billed. Null for TTS/Whisper.</summary>
+        /// <summary>Chat only — input tokens billed, all of them: with prompt caching this includes
+        /// <see cref="CacheWriteTokens"/> and <see cref="CacheReadTokens"/>. Null for TTS/Whisper.</summary>
         public int? PromptTokens { get; set; }
+
+        /// <summary>Chat only — of <see cref="PromptTokens"/>, those written to the prompt cache (billed
+        /// above the input rate). Null where the call does not use caching.</summary>
+        public int? CacheWriteTokens { get; set; }
+
+        /// <summary>Chat only — of <see cref="PromptTokens"/>, those read from the prompt cache (billed
+        /// at a fraction of the input rate). Null where the call does not use caching.</summary>
+        public int? CacheReadTokens { get; set; }
 
         /// <summary>Chat only — output tokens billed (includes reasoning tokens on reasoning models).</summary>
         public int? CompletionTokens { get; set; }

@@ -66,6 +66,46 @@ namespace JackyAIApp.Server.Services.Chatbot
         internal static string NoAnswerCode(BetaStopReason? stopReason) =>
             stopReason == BetaStopReason.Refusal ? ChatErrorCodes.Refused : ChatErrorCodes.NoAnswer;
 
+        /// <summary>
+        /// The request for one turn. The whole conversation, attachments included, is sent again on
+        /// every turn, so it is cached: the top-level cache_control puts the breakpoint on the last
+        /// block, and the next turn — the same prefix with its new messages after — reads everything
+        /// up to there at a tenth of the input price instead of paying for it again. The default
+        /// 5-minute TTL: a reader's next message usually comes within minutes, each read restarts
+        /// the 5 minutes, and a miss costs only a quarter more (the 1-hour TTL doubles every write).
+        /// For the prefix to match, everything ahead of the conversation must stay byte-identical
+        /// between turns: model, effort, tools and system prompt (which changes once a day, with
+        /// the date), and each stored turn must be rebuilt exactly as it was sent.
+        /// </summary>
+        internal static MessageCreateParams BuildRequest(DateOnly taipeiToday, List<BetaMessageParam> messages) => new()
+        {
+            Model = AnthropicModel.ClaudeHaiku5_5,
+            MaxTokens = MaxTokens,
+            // Medium is Haiku 5.5's default; set explicitly so a change of default upstream
+            // cannot quietly change how much every turn thinks (and costs).
+            OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
+            Betas = [McpBeta],
+            McpServers = [new BetaRequestMcpServerUrlDefinition { Name = McpServerName, Url = McpServerUrl }],
+            Tools = [new BetaMcpToolset { McpServerName = McpServerName }],
+            System = SystemPromptFor(taipeiToday),
+            Messages = messages,
+            CacheControl = new BetaCacheControlEphemeral(),
+        };
+
+        /// <summary>One request's token usage as the stream reports it, the latest report winning.</summary>
+        private sealed class TurnUsage
+        {
+            public long Input, CacheWrite, CacheRead, Output;
+
+            public void Update(long? input, long? cacheWrite, long? cacheRead, long? output)
+            {
+                if (input.HasValue) Input = input.Value;
+                if (cacheWrite.HasValue) CacheWrite = cacheWrite.Value;
+                if (cacheRead.HasValue) CacheRead = cacheRead.Value;
+                if (output.HasValue) Output = output.Value;
+            }
+        }
+
         public async Task<ChatStreamResult> StreamChatAsync(
             string userId, string message, string? conversationId, IReadOnlyCollection<SQL.ChatAttachment> attachments,
             HttpResponse response, CancellationToken ct)
@@ -112,25 +152,15 @@ namespace JackyAIApp.Server.Services.Chatbot
             var requestMessages = history.Select(m => ToMessageParam(m, files)).ToList();
 
             var taipeiToday = DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime.AddHours(8));
-            var streamParams = new MessageCreateParams
-            {
-                Model = AnthropicModel.ClaudeHaiku5_5,
-                MaxTokens = MaxTokens,
-                // Medium is Haiku 5.5's default; set explicitly so a change of default upstream
-                // cannot quietly change how much every turn thinks (and costs).
-                OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
-                Betas = [McpBeta],
-                McpServers = [new BetaRequestMcpServerUrlDefinition { Name = McpServerName, Url = McpServerUrl }],
-                Tools = [new BetaMcpToolset { McpServerName = McpServerName }],
-                System = SystemPromptFor(taipeiToday),
-                Messages = requestMessages,
-            };
+            var streamParams = BuildRequest(taipeiToday, requestMessages);
 
             StartEventStream(response);
 
             var accumulated = new StringBuilder();
             var streamingStarted = false;
-            long inputTokens = 0, outputTokens = 0;
+            // Totals over every attempt (a pause_turn retry is a request of its own). Input is all of
+            // it: uncached plus written to and read from the cache.
+            long inputTokens = 0, outputTokens = 0, cacheWriteTokens = 0, cacheReadTokens = 0;
             BetaStopReason? stopReason = null;
             var success = true;
             string? errorCode = null;
@@ -138,6 +168,9 @@ namespace JackyAIApp.Server.Services.Chatbot
             for (var attempt = 0; ; attempt++)
             {
                 stopReason = null;
+                // message_start gives this request's usage so far; the final message_delta gives its
+                // cumulative usage, which also counts the MCP connector's server-side tool calls.
+                var usage = new TurnUsage();
                 try
                 {
                     await foreach (var evt in client.Beta.Messages.CreateStreaming(streamParams, ct))
@@ -155,11 +188,13 @@ namespace JackyAIApp.Server.Services.Chatbot
                         }
                         else if (evt.TryPickStart(out var startEvt))
                         {
-                            inputTokens += startEvt.Message.Usage.InputTokens;
+                            var u = startEvt.Message.Usage;
+                            usage.Update(u.InputTokens, u.CacheCreationInputTokens, u.CacheReadInputTokens, u.OutputTokens);
                         }
                         else if (evt.TryPickDelta(out var msgDelta))
                         {
-                            if (msgDelta.Usage != null) outputTokens += msgDelta.Usage.OutputTokens;
+                            if (msgDelta.Usage is { } u)
+                                usage.Update(u.InputTokens, u.CacheCreationInputTokens, u.CacheReadInputTokens, u.OutputTokens);
                             if (msgDelta.Delta != null) stopReason = msgDelta.Delta.StopReason?.Value();
                         }
                     }
@@ -179,6 +214,13 @@ namespace JackyAIApp.Server.Services.Chatbot
                     // The reader left (closed the page): nothing to tell anyone, just stop.
                     success = false;
                     break;
+                }
+                finally
+                {
+                    inputTokens += usage.Input + usage.CacheWrite + usage.CacheRead;
+                    cacheWriteTokens += usage.CacheWrite;
+                    cacheReadTokens += usage.CacheRead;
+                    outputTokens += usage.Output;
                 }
 
                 // pause_turn = the MCP connector's server-side tool loop hit its internal
@@ -240,7 +282,13 @@ namespace JackyAIApp.Server.Services.Chatbot
                 await db.SaveChangesAsync(ct);
             }
 
-            await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)inputTokens, (int)outputTokens, success, userId);
+            // Cache reads that stay at zero turn after turn mean something in the prompt keeps
+            // changing ahead of the cached part (see BuildRequest).
+            logger.LogInformation(
+                "Chat turn for conversation {ConversationId}: {InputTokens} input tokens ({CacheReadTokens} read from cache, {CacheWriteTokens} written), {OutputTokens} output",
+                conversation.Id, inputTokens, cacheReadTokens, cacheWriteTokens, outputTokens);
+            await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)inputTokens, (int)outputTokens, success, userId,
+                (int)cacheWriteTokens, (int)cacheReadTokens);
 
             if (success)
                 await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, truncated }, ct);
