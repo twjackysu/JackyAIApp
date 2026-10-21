@@ -17,7 +17,7 @@ namespace JackyAIApp.Server.Services.WordOfTheDay
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         private readonly AzureSQLDBContext _dbContext = dbContext;
 
-        public async Task<ServiceResult> GetWordOfTheDayAsync()
+        public async Task<ServiceResult<DTO.Word>> GetWordOfTheDayAsync()
         {
             var userId = _userService.GetUserId();
             var cacheKey = $"GetWordOfTheDay_{userId}";

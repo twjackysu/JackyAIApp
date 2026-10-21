@@ -109,10 +109,10 @@ namespace JackyAIApp.Server.Tests.Services
             };
         }
 
-        private static List<DailyChallengeQuestion> QuestionsOf(ServiceResult result)
+        private static List<DailyChallengeQuestion> QuestionsOf(ServiceResult<DailyChallengeResponse> result)
         {
             Assert.True(result.IsSuccess, result.ErrorMessage);
-            return ((DailyChallengeResponse)result.Data!).Questions;
+            return result.Data!.Questions;
         }
 
         private static DailyChallengeSubmitRequest AnswerAllCorrectly(IEnumerable<DailyChallengeQuestion> questions) =>
@@ -172,7 +172,7 @@ namespace JackyAIApp.Server.Tests.Services
             var result = await CreateService(db2).SubmitChallengeAsync(AnswerAllCorrectly(questions));
 
             Assert.True(result.IsSuccess, result.ErrorMessage);
-            var submit = (DailyChallengeSubmitResponse)result.Data!;
+            var submit = result.Data!;
             Assert.Equal(DailyChallengeConstants.QuestionsPerChallenge, submit.Score);
         }
 
@@ -331,7 +331,7 @@ namespace JackyAIApp.Server.Tests.Services
                 .SubmitChallengeAsync(AnswerAllCorrectly(winnersQuestions));
 
             Assert.True(result.IsSuccess, result.ErrorMessage);
-            var submit = (DailyChallengeSubmitResponse)result.Data!;
+            var submit = result.Data!;
             Assert.Equal(DailyChallengeConstants.QuestionsPerChallenge, submit.Score);
 
             await using var verify = CreateContext();

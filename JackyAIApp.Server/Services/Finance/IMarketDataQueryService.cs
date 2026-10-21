@@ -1,4 +1,5 @@
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.DTO.Finance;
 
 namespace JackyAIApp.Server.Services.Finance
 {
@@ -9,9 +10,9 @@ namespace JackyAIApp.Server.Services.Finance
     /// </summary>
     public interface IMarketDataQueryService
     {
-        Task<ServiceResult> GetMacroEconomyAsync(CancellationToken cancellationToken);
-        Task<ServiceResult> GetMarketOverviewAsync(CancellationToken cancellationToken);
-        Task<ServiceResult> GetMarketIndexHistoryAsync(CancellationToken cancellationToken);
-        Task<ServiceResult> GetIndicatorsAsync(CancellationToken cancellationToken);
+        Task<ServiceResult<MacroEconomyResponse>> GetMacroEconomyAsync(CancellationToken cancellationToken);
+        Task<ServiceResult<MarketOverviewResponse>> GetMarketOverviewAsync(CancellationToken cancellationToken);
+        Task<ServiceResult<MarketIndexHistoryResponse>> GetMarketIndexHistoryAsync(CancellationToken cancellationToken);
+        Task<ServiceResult<IndicatorExplorerResponse>> GetIndicatorsAsync(CancellationToken cancellationToken);
     }
 }

@@ -256,7 +256,7 @@ namespace JackyAIApp.Server.Tests.Services
 
             // Assert
             Assert.True(result.IsSuccess);
-            var suggestions = (WordSuggestionsResponse)result.Data!;
+            var suggestions = result.Data!;
             Assert.Equal(new[] { "apple", "ample" }, suggestions.Suggestions);
         }
 
@@ -268,7 +268,7 @@ namespace JackyAIApp.Server.Tests.Services
 
             // Assert
             Assert.True(result.IsSuccess);
-            var suggestions = (WordSuggestionsResponse)result.Data!;
+            var suggestions = result.Data!;
             Assert.Empty(suggestions.Suggestions);
             _spellCheckerMock.Verify(x => x.Suggest(It.IsAny<string>()), Times.Never);
         }

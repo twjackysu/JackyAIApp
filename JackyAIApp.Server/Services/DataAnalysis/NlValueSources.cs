@@ -170,7 +170,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         private List<string> All(string field, int limit)
         {
             var result = store.GetDistinctValues(sessionId, field, limit);
-            return result.IsSuccess ? ((IEnumerable<string>)((dynamic)result.Data!).values).ToList() : [];
+            return result.IsSuccess ? result.Data.Values : [];
         }
     }
 }

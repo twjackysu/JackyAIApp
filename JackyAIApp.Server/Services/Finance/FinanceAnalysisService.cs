@@ -1,4 +1,5 @@
 using Betalgo.Ranul.OpenAI.ObjectModels;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
 
@@ -24,7 +25,7 @@ namespace JackyAIApp.Server.Services.Finance
         /// The system prompt (StockAnalysisSystem.txt) constrains the model to return the exact
         /// <see cref="StockTrendAnalysis"/> JSON shape, so no chat/streaming is involved.
         /// </summary>
-        public async Task<(StockTrendAnalysis? analysis, string? errorDetail)> AnalyzeStockWithAIAsync(string stockCodeOrName, string stockData, string userId, CancellationToken cancellationToken = default)
+        public async Task<ServiceResult<StockTrendAnalysis>> AnalyzeStockWithAIAsync(string stockCodeOrName, string stockData, string userId, CancellationToken cancellationToken = default)
         {
             // The system prompt references the data sections (technical/chip/fundamental by
             // timeframe) that GetStockDataAsync produced; pass them as the user message.
@@ -43,7 +44,7 @@ namespace JackyAIApp.Server.Services.Finance
                     analysis.LastUpdated = DateTime.UtcNow;
                     _logger.LogInformation("Successfully analyzed stock {stockCode} using OpenAI ({model})",
                         stockCodeOrName, TrendAnalysisModel);
-                    return (analysis, null);
+                    return ServiceResult.Ok(analysis);
                 }
 
                 lastError = error ?? "OpenAI returned no analysis";
@@ -54,7 +55,7 @@ namespace JackyAIApp.Server.Services.Finance
                     await Task.Delay(1000 * attempt, cancellationToken);
             }
 
-            return (null, lastError ?? "Analysis failed after all retry attempts");
+            return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, lastError ?? "Analysis failed after all retry attempts");
         }
 
     }

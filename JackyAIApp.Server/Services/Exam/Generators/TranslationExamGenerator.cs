@@ -18,12 +18,12 @@ namespace JackyAIApp.Server.Services.Exam.Generators
 
         public ExamType Type => ExamType.Translation;
 
-        public async Task<ServiceResult> GenerateAsync(SQL.Word word)
+        public async Task<ServiceResult<object>> GenerateAsync(SQL.Word word)
         {
             if (word.TranslationTests != null && word.TranslationTests.Count > 3)
             {
                 var randomTest = word.TranslationTests.ElementAt(Random.Shared.Next(word.TranslationTests.Count));
-                return ServiceResult.Ok(ToDto(randomTest, word.WordText, word.Id));
+                return ServiceResult.Ok<object>(ToDto(randomTest, word.WordText, word.Id));
             }
 
             var example = (
@@ -65,7 +65,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
                 _logger.LogInformation("TranslationTest added to DB for word: {Word}", word.WordText);
             }
 
-            return ServiceResult.Ok(ToDto(translationTest, word.WordText, word.Id));
+            return ServiceResult.Ok<object>(ToDto(translationTest, word.WordText, word.Id));
         }
 
         private static TranslationTestResponse ToDto(SQL.TranslationTest sql, string wordText, string wordId) => new()

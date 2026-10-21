@@ -504,7 +504,7 @@ namespace JackyAIApp.Server.Controllers
                 if (!schemaResult.IsSuccess)
                     return _responseFactory.CreateErrorResponse(schemaResult.Error!.Value, schemaResult.ErrorMessage!);
 
-                var sessionFields = (List<SessionFieldDefDto>)((dynamic)schemaResult.Data!).fields;
+                var sessionFields = schemaResult.Data.Fields;
                 var fields = sessionFields.Select(f => (f.Name, f.CanonicalType)).ToList();
 
                 var planResult = await _nlPlanner.BuildPlanAsync(
@@ -518,7 +518,7 @@ namespace JackyAIApp.Server.Controllers
                 if (!sessionResult.IsSuccess)
                     return _responseFactory.CreateErrorResponse(sessionResult.Error!.Value, sessionResult.ErrorMessage!);
 
-                var sessionRows = ((IEnumerable<Dictionary<string, object?>>)((dynamic)sessionResult.Data!).rows).Cast<object>();
+                var sessionRows = sessionResult.Data.Rows.Cast<object>();
                 _logger.LogInformation("NlSummarize: user={uid} session query={q}", userId ?? "anon", dto.Query);
                 return _responseFactory.CreateOKResponse(new NlSummarizeResponseDto
                 {
@@ -602,7 +602,7 @@ namespace JackyAIApp.Server.Controllers
         {
             var result = _sessionStore.GetMaxDate(sessionId, field);
             if (!result.IsSuccess) return null;
-            return (string?)((dynamic)result.Data!).maxDate;
+            return result.Data.MaxDate;
         }
 
         // ═══════════════════════════════════════════════════════════════════════
@@ -657,7 +657,7 @@ namespace JackyAIApp.Server.Controllers
             var result = _sessionStore.Export(sessionId, dto, MaxExportRows);
             if (!result.IsSuccess) return _responseFactory.ToActionResult(result);
 
-            var export = (SessionExport)result.Data!;
+            var export = result.Data;
             await WriteCsvResponseAsync(
                 export.Name, export.Headers,
                 export.Rows.Select(r => export.Headers.Select(h => (object?)(r.TryGetValue(h, out var v) ? v : null))),

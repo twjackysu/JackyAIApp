@@ -121,7 +121,7 @@ namespace JackyAIApp.Server.Tests.Services
                     new() { ["Region"] = "APAC", ["Customer"] = "Acme Holdings" },
                 ],
             });
-            return new SessionNlValueSource(store, ((SessionUploadResponseDto)upload.Data!).SessionId);
+            return new SessionNlValueSource(store, upload.Data!.SessionId);
         }
 
         [Fact]

@@ -50,7 +50,7 @@ namespace JackyAIApp.Server.Services.Finance
         private const int OPERATION_TIMEOUT_SECONDS = 60;
         private const int CACHE_HOURS = 12;
 
-        public async Task<ServiceResult> AnalyzeStockAsync(StockSearchRequest request, CancellationToken cancellationToken)
+        public async Task<ServiceResult<StockTrendAnalysis>> AnalyzeStockAsync(StockSearchRequest request, CancellationToken cancellationToken)
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(OPERATION_TIMEOUT_SECONDS));
@@ -71,7 +71,7 @@ namespace JackyAIApp.Server.Services.Finance
                 var currentDate = DateTime.Now.ToString("yyyyMMdd");
                 var cacheKey = $"StockAnalysis_{resolvedStockCode}_{currentDate}";
 
-                if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+                if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is StockTrendAnalysis cachedResult)
                 {
                     _logger.LogInformation("Returning cached stock analysis for stock: {stockCode}, date: {date}", resolvedStockCode, currentDate);
                     return ServiceResult.Ok(cachedResult);
@@ -100,12 +100,13 @@ namespace JackyAIApp.Server.Services.Finance
 
                 var userId = _userService.GetUserId() ?? "anonymous";
 
-                var (analysis, errorDetail) = await _financeAnalysisService.AnalyzeStockWithAIAsync(resolvedStockCode, stockData, userId, timeoutCts.Token);
-                if (analysis == null)
+                var analysisResult = await _financeAnalysisService.AnalyzeStockWithAIAsync(resolvedStockCode, stockData, userId, timeoutCts.Token);
+                if (!analysisResult.IsSuccess)
                 {
-                    var detailedError = $"Failed to analyze stock data for '{resolvedStockCode}'. Details: {errorDetail ?? "Unknown error"}";
-                    return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, detailedError);
+                    var detailedError = $"Failed to analyze stock data for '{resolvedStockCode}'. Details: {analysisResult.ErrorMessage}";
+                    return ServiceResult.Fail(analysisResult.Error.Value, detailedError);
                 }
+                var analysis = analysisResult.Data;
 
                 // Pure additive side effect (prediction-accuracy tracking, TASK-013) — persists
                 // 3 per-horizon rows so the trend calls above can later be checked against actual
@@ -129,7 +130,7 @@ namespace JackyAIApp.Server.Services.Finance
             }
         }
 
-        public async Task<ServiceResult> GetTechnicalIndicatorsAsync(string stockCode, CancellationToken cancellationToken)
+        public async Task<ServiceResult<TechnicalAnalysisResponse>> GetTechnicalIndicatorsAsync(string stockCode, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(stockCode))
             {
@@ -144,7 +145,7 @@ namespace JackyAIApp.Server.Services.Finance
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
             var cacheKey = $"TechnicalIndicators_{resolvedStockCode}_{currentDate}";
-            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is TechnicalAnalysisResponse cachedResult)
             {
                 return ServiceResult.Ok(cachedResult);
             }
@@ -178,7 +179,7 @@ namespace JackyAIApp.Server.Services.Finance
             return ServiceResult.Ok(response);
         }
 
-        public async Task<ServiceResult> GetChipAnalysisAsync(string stockCode, CancellationToken cancellationToken)
+        public async Task<ServiceResult<ChipAnalysisResponse>> GetChipAnalysisAsync(string stockCode, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(stockCode))
             {
@@ -193,7 +194,7 @@ namespace JackyAIApp.Server.Services.Finance
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
             var cacheKey = $"ChipAnalysis_{resolvedStockCode}_{currentDate}";
-            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is ChipAnalysisResponse cachedResult)
             {
                 return ServiceResult.Ok(cachedResult);
             }
@@ -225,7 +226,7 @@ namespace JackyAIApp.Server.Services.Finance
             return ServiceResult.Ok(response);
         }
 
-        public async Task<ServiceResult> GetStockScoreAsync(string stockCode, CancellationToken cancellationToken)
+        public async Task<ServiceResult<StockScoreResponse>> GetStockScoreAsync(string stockCode, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(stockCode))
             {
@@ -240,7 +241,7 @@ namespace JackyAIApp.Server.Services.Finance
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
             var cacheKey = $"StockScore_{resolvedStockCode}_{currentDate}";
-            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is StockScoreResponse cachedResult)
             {
                 return ServiceResult.Ok(cachedResult);
             }
@@ -265,7 +266,7 @@ namespace JackyAIApp.Server.Services.Finance
         /// code is just normalised. The two callers differ only in that error code (comprehensive
         /// analysis reports an upstream failure, the chart's price bars a plain not-found).
         /// </summary>
-        private async Task<(MarketRegion Region, string Code, ServiceResult? Unresolved)> ResolveStockAsync(
+        private async Task<(MarketRegion Region, string Code, ServiceFailure? Unresolved)> ResolveStockAsync(
             string code, string? market, ErrorCodes unresolvedError, CancellationToken ct)
         {
             var region = Enum.TryParse<MarketRegion>(market, true, out var parsed)
@@ -280,20 +281,20 @@ namespace JackyAIApp.Server.Services.Finance
                 : (region, resolved, null);
         }
 
-        public async Task<ServiceResult> GetComprehensiveAnalysisAsync(StockAnalysisRequest request, CancellationToken cancellationToken)
+        public async Task<ServiceResult<StockAnalysisResult>> GetComprehensiveAnalysisAsync(StockAnalysisRequest request, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(request.StockCode))
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Stock code is required.");
 
             var (region, resolvedStockCode, unresolved) = await ResolveStockAsync(
                 request.StockCode, request.Market, ErrorCodes.ExternalApiError, cancellationToken);
-            if (unresolved is not null) return unresolved;
+            if (unresolved is { } failure) return failure;
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
             var configHash = $"{region}_{request.IncludeTechnical}_{request.IncludeChip}_{request.IncludeFundamental}_{request.IncludeScoring}_{request.IncludeRisk}_{request.TechnicalWeight}_{request.ChipWeight}_{request.FundamentalWeight}";
             var cacheKey = $"ComprehensiveAnalysis_{resolvedStockCode}_{currentDate}_{configHash}";
 
-            if (_memoryCache.TryGetValue(cacheKey, out object? cachedResult))
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is StockAnalysisResult cachedResult)
                 return ServiceResult.Ok(cachedResult);
 
             try
@@ -343,7 +344,7 @@ namespace JackyAIApp.Server.Services.Finance
         /// <summary>Fewest bars worth drawing trendlines on.</summary>
         internal const int MinPriceBars = 30;
 
-        public async Task<ServiceResult> GetPriceBarsAsync(string code, string? market, CancellationToken cancellationToken)
+        public async Task<ServiceResult<PriceBarsResponse>> GetPriceBarsAsync(string code, string? market, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(code))
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Stock code is required.");
@@ -353,7 +354,7 @@ namespace JackyAIApp.Server.Services.Finance
 
             var (region, resolvedStockCode, unresolved) = await ResolveStockAsync(
                 code, market, ErrorCodes.NotFound, cancellationToken);
-            if (unresolved is not null) return unresolved;
+            if (unresolved is { } failure) return failure;
 
             try
             {
@@ -389,7 +390,7 @@ namespace JackyAIApp.Server.Services.Finance
         /// The whole cached six-year TAIEX series; the chart picks its own start date out of it. A day
         /// the source gave no usable range for becomes a flat bar at its close.
         /// </summary>
-        private async Task<ServiceResult> GetTaiexPriceBarsAsync(CancellationToken cancellationToken)
+        private async Task<ServiceResult<PriceBarsResponse>> GetTaiexPriceBarsAsync(CancellationToken cancellationToken)
         {
             var history = await _marketIndexHistoryProvider.GetAsync(cancellationToken);
             if (history is null)

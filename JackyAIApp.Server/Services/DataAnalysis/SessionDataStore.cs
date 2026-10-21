@@ -35,7 +35,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// </summary>
         internal const int PerCellOverheadBytes = 76;
 
-        public ServiceResult Upload(SessionUploadDto dto)
+        public ServiceResult<SessionUploadResponseDto> Upload(SessionUploadDto dto)
         {
             if (dto.Rows is null || dto.Rows.Count == 0)
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "沒有可上傳的資料列。");
@@ -87,15 +87,15 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             });
         }
 
-        public ServiceResult GetSchema(string sessionId)
+        public ServiceResult<SessionSchemaDto> GetSchema(string sessionId)
         {
             if (!TryGetSession(sessionId, out var session))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "Session not found or expired.");
 
-            return ServiceResult.Ok(new { fields = session!.Schema });
+            return ServiceResult.Ok(new SessionSchemaDto(session!.Schema));
         }
 
-        public ServiceResult GetMaxDate(string sessionId, string dateField)
+        public ServiceResult<SessionMaxDateDto> GetMaxDate(string sessionId, string dateField)
         {
             if (!TryGetSession(sessionId, out var session))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "Session not found or expired.");
@@ -109,10 +109,10 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 .ToList();
 
             var maxDate = values.Count > 0 ? values.Max().ToString("o") : null;
-            return ServiceResult.Ok(new { maxDate });
+            return ServiceResult.Ok(new SessionMaxDateDto(maxDate));
         }
 
-        public ServiceResult GetDistinctValues(string sessionId, string field, int limit = 200)
+        public ServiceResult<SessionDistinctValuesDto> GetDistinctValues(string sessionId, string field, int limit = 200)
         {
             if (!TryGetSession(sessionId, out var session))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "Session not found or expired.");
@@ -125,10 +125,10 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 .Take(limit)
                 .ToList();
 
-            return ServiceResult.Ok(new { values });
+            return ServiceResult.Ok(new SessionDistinctValuesDto(values));
         }
 
-        public ServiceResult Summarize(string sessionId, SummarizeRequestDto dto)
+        public ServiceResult<SessionRowsDto> Summarize(string sessionId, SummarizeRequestDto dto)
         {
             if (!TryGetSession(sessionId, out var session))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "Session not found or expired.");
@@ -175,10 +175,10 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 return dict;
             }).ToList();
 
-            return ServiceResult.Ok(new { rows });
+            return ServiceResult.Ok(new SessionRowsDto(rows));
         }
 
-        public ServiceResult Details(string sessionId, DetailsRequestDto dto)
+        public ServiceResult<SessionDetailsDto> Details(string sessionId, DetailsRequestDto dto)
         {
             if (!TryGetSession(sessionId, out var session))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "Session not found or expired.");
@@ -193,10 +193,10 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 kvp => kvp.Key,
                 kvp => (object?)kvp.Value)).ToList();
 
-            return ServiceResult.Ok(new { rows, totalCount });
+            return ServiceResult.Ok(new SessionDetailsDto(rows, totalCount));
         }
 
-        public ServiceResult Export(string sessionId, DetailsRequestDto dto, int maxRows)
+        public ServiceResult<SessionExport> Export(string sessionId, DetailsRequestDto dto, int maxRows)
         {
             if (!TryGetSession(sessionId, out var session))
                 return ServiceResult.Fail(ErrorCodes.NotFound, "Session not found or expired.");

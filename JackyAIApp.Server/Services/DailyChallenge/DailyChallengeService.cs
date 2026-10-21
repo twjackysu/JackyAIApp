@@ -17,7 +17,7 @@ namespace JackyAIApp.Server.Services.DailyChallenge
         private readonly IUserService _userService = userService;
         private readonly IDailyChallengeQuestionGenerator _questionGenerator = questionGenerator;
 
-        public async Task<ServiceResult> GetChallengeAsync()
+        public async Task<ServiceResult<DailyChallengeResponse>> GetChallengeAsync()
         {
             var userId = _userService.GetUserId();
             if (userId == null)
@@ -30,7 +30,7 @@ namespace JackyAIApp.Server.Services.DailyChallenge
 
             var (questions, failure) = await GetOrCreateTodaySetAsync(today);
             if (questions == null)
-                return failure!;
+                return failure!.Value;
 
             return ServiceResult.Ok(new DailyChallengeResponse
             {
@@ -41,7 +41,7 @@ namespace JackyAIApp.Server.Services.DailyChallenge
             });
         }
 
-        public async Task<ServiceResult> SubmitChallengeAsync(DailyChallengeSubmitRequest request)
+        public async Task<ServiceResult<DailyChallengeSubmitResponse>> SubmitChallengeAsync(DailyChallengeSubmitRequest request)
         {
             var userId = _userService.GetUserId();
             if (userId == null)
@@ -67,7 +67,7 @@ namespace JackyAIApp.Server.Services.DailyChallenge
 
             var (questions, failure) = await GetOrCreateTodaySetAsync(today);
             if (questions == null)
-                return failure!;
+                return failure!.Value;
 
             int score = 0;
             if (request.Answers != null)
@@ -116,7 +116,7 @@ namespace JackyAIApp.Server.Services.DailyChallenge
             });
         }
 
-        public async Task<ServiceResult> GetStatsAsync()
+        public async Task<ServiceResult<DailyChallengeStatsResponse>> GetStatsAsync()
         {
             var userId = _userService.GetUserId();
             if (userId == null)
@@ -150,7 +150,7 @@ namespace JackyAIApp.Server.Services.DailyChallenge
         /// invalid) would hand back different options and correct indexes than the user saw.
         /// A null question list means the day cannot be served; <c>failure</c> says why.
         /// </summary>
-        private async Task<(List<DailyChallengeQuestion>? Questions, ServiceResult? Failure)> GetOrCreateTodaySetAsync(DateTime today)
+        private async Task<(List<DailyChallengeQuestion>? Questions, ServiceFailure? Failure)> GetOrCreateTodaySetAsync(DateTime today)
         {
             var existing = await _dbContext.DailyChallengeSets
                 .AsNoTracking()

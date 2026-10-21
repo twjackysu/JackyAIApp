@@ -16,7 +16,10 @@ namespace JackyAIApp.Server.Services.Exam
         /// <summary>
         /// Returns an exam DTO for <paramref name="word"/>. The word is expected to be
         /// loaded together with its related test collections.
+        /// The payload is <c>object</c> because each exam type has its own DTO and the caller picks
+        /// the generator by <see cref="Type"/>; serialized as <c>object</c>, the response still
+        /// carries the DTO's own fields.
         /// </summary>
-        Task<ServiceResult> GenerateAsync(SQL.Word word);
+        Task<ServiceResult<object>> GenerateAsync(SQL.Word word);
     }
 }

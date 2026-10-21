@@ -22,7 +22,7 @@ namespace JackyAIApp.Server.Services.Repository
         private readonly IDictionaryService _dictionaryService = dictionaryService;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
 
-        public async Task<ServiceResult> GetWordsAsync(int pageNumber, int pageSize)
+        public async Task<ServiceResult<List<DTO.Word>>> GetWordsAsync(int pageNumber, int pageSize)
         {
             var userId = _userService.GetUserId();
             var cacheKey = $"GetWords_{userId}_Page_{pageNumber}_Size_{pageSize}";
@@ -53,10 +53,10 @@ namespace JackyAIApp.Server.Services.Repository
                 result = sqlWords.Select(WordMapper.ToDto).ToList();
                 _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(1));
             }
-            return ServiceResult.Ok(result);
+            return ServiceResult.Ok(result ?? []);
         }
 
-        public async Task<ServiceResult> GetWordAsync(string wordId)
+        public async Task<ServiceResult<DTO.Word?>> GetWordAsync(string wordId)
         {
             var userId = _userService.GetUserId();
             var cacheKey = $"GetWords_{userId}_WordId_{wordId}";
@@ -90,7 +90,7 @@ namespace JackyAIApp.Server.Services.Repository
             return ServiceResult.Ok(result);
         }
 
-        public async Task<ServiceResult> AddWordAsync(string wordId)
+        public async Task<ServiceResult<NoData>> AddWordAsync(string wordId)
         {
             if (string.IsNullOrEmpty(wordId))
             {
@@ -99,9 +99,7 @@ namespace JackyAIApp.Server.Services.Repository
 
             var userId = _userService.GetUserId();
 
-            var user = await _dbContext.Users
-                .Include(u => u.UserWords)
-                .SingleOrDefaultAsync(x => x.Id == userId);
+            var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
 
             if (user == null)
             {
@@ -143,10 +141,12 @@ namespace JackyAIApp.Server.Services.Repository
 
             _memoryCache.ClearCacheByContains($"GetWords_{userId}");
 
-            return ServiceResult.Ok(user);
+            // Nothing to return: the client only needs to know it worked (it used to get the whole
+            // User entity back, its saved words and internal fields included).
+            return ServiceResult.Ok();
         }
 
-        public ServiceResult GetWordPacks()
+        public ServiceResult<List<DTO.WordPackDto>> GetWordPacks()
         {
             var packs = WordPacks.All
                 .Select(p => new DTO.WordPackDto
@@ -160,7 +160,7 @@ namespace JackyAIApp.Server.Services.Repository
             return ServiceResult.Ok(packs);
         }
 
-        public async Task<ServiceResult> AddWordPackAsync(string packId)
+        public async Task<ServiceResult<DTO.AddWordPackResultDto>> AddWordPackAsync(string packId)
         {
             var pack = WordPacks.Find(packId);
             if (pack == null)
@@ -260,7 +260,7 @@ namespace JackyAIApp.Server.Services.Repository
             });
         }
 
-        public async Task<ServiceResult> DeleteWordAsync(string wordId)
+        public async Task<ServiceResult<NoData>> DeleteWordAsync(string wordId)
         {
             if (string.IsNullOrEmpty(wordId))
             {

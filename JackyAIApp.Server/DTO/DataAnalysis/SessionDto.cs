@@ -33,6 +33,20 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public required string CanonicalType { get; init; }   // matches ColumnDataType enum string values
     }
 
+    // ── Query results, as the client reads them ({ fields }, { maxDate }, ...) ──
+
+    public sealed record SessionSchemaDto(List<SessionFieldDefDto> Fields);
+
+    /// <summary>Latest value of a date column as ISO 8601, or null when the column has none.</summary>
+    public sealed record SessionMaxDateDto(string? MaxDate);
+
+    public sealed record SessionDistinctValuesDto(List<string> Values);
+
+    public sealed record SessionRowsDto(List<Dictionary<string, object>> Rows);
+
+    /// <summary>One page of matching rows, and how many matched in all.</summary>
+    public sealed record SessionDetailsDto(List<Dictionary<string, object>> Rows, int TotalCount);
+
     /// <summary>Rows of a session for CSV export, and how many matched before the export cap.</summary>
     public sealed record SessionExport(
         string Name,

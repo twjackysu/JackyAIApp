@@ -1,5 +1,6 @@
 using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 
 namespace JackyAIApp.Server.Services.Finance
@@ -19,7 +20,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly IMarketIndexHistoryProvider _marketIndexHistoryProvider = marketIndexHistoryProvider;
         private readonly IIndicatorProvider _indicatorProvider = indicatorProvider;
 
-        public async Task<ServiceResult> GetMacroEconomyAsync(CancellationToken cancellationToken)
+        public async Task<ServiceResult<MacroEconomyResponse>> GetMacroEconomyAsync(CancellationToken cancellationToken)
         {
             var cacheKey = $"MacroEconomy_{DateTime.Now:yyyyMMdd}";
             try
@@ -36,7 +37,7 @@ namespace JackyAIApp.Server.Services.Finance
             }
         }
 
-        public async Task<ServiceResult> GetMarketOverviewAsync(CancellationToken cancellationToken)
+        public async Task<ServiceResult<MarketOverviewResponse>> GetMarketOverviewAsync(CancellationToken cancellationToken)
         {
             const string cacheKey = "MarketOverview";
             try
@@ -61,7 +62,7 @@ namespace JackyAIApp.Server.Services.Finance
         /// single-flight and the last-good fallback live in the provider; this only maps "no data"
         /// to an error rather than ever returning an empty or partial series as a success.
         /// </summary>
-        public async Task<ServiceResult> GetMarketIndexHistoryAsync(CancellationToken cancellationToken)
+        public async Task<ServiceResult<MarketIndexHistoryResponse>> GetMarketIndexHistoryAsync(CancellationToken cancellationToken)
         {
             var history = await _marketIndexHistoryProvider.GetAsync(cancellationToken);
             return history is null
@@ -69,7 +70,7 @@ namespace JackyAIApp.Server.Services.Finance
                 : ServiceResult.Ok(history);
         }
 
-        public async Task<ServiceResult> GetIndicatorsAsync(CancellationToken cancellationToken)
+        public async Task<ServiceResult<IndicatorExplorerResponse>> GetIndicatorsAsync(CancellationToken cancellationToken)
         {
             if (!_indicatorProvider.IsConfigured)
                 return ServiceResult.Fail(ErrorCodes.InternalServerError, "Indicator data source is not configured (FRED API key missing).");

@@ -29,7 +29,7 @@ namespace JackyAIApp.Server.Services.Exam
         private const string NoWordsMessage =
             "No words are available yet to generate an exam from. Try searching a word in the Dictionary first.";
 
-        public async Task<ServiceResult> GenerateWordExamAsync(ExamType type)
+        public async Task<ServiceResult<object>> GenerateWordExamAsync(ExamType type)
         {
             var userId = _userService.GetUserId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
@@ -88,7 +88,7 @@ namespace JackyAIApp.Server.Services.Exam
             return ids.Select(id => id!).Distinct().Take(take).ToHashSet();
         }
 
-        public async Task<ServiceResult> GenerateListeningExamAsync()
+        public async Task<ServiceResult<ListeningTestResponse>> GenerateListeningExamAsync()
         {
             var count = await _dbContext.ListeningTests.CountAsync();
             if (count == 0)
@@ -123,7 +123,7 @@ namespace JackyAIApp.Server.Services.Exam
             });
         }
 
-        public async Task<ServiceResult> GetListeningOptionTextAsync(string optionId)
+        public async Task<ServiceResult<string>> GetListeningOptionTextAsync(string optionId)
         {
             var option = await _dbContext.ListeningTestOptions
                 .SingleOrDefaultAsync(o => o.Id == optionId);
@@ -133,7 +133,7 @@ namespace JackyAIApp.Server.Services.Exam
                 : ServiceResult.Ok(option.Text);
         }
 
-        public async Task<ServiceResult> GetListeningBankAsync(int pageNumber, int pageSize)
+        public async Task<ServiceResult<ListeningBankPageResponse>> GetListeningBankAsync(int pageNumber, int pageSize)
         {
             var totalCount = await _dbContext.ListeningTests.CountAsync();
             var items = await _dbContext.ListeningTests
@@ -198,7 +198,7 @@ namespace JackyAIApp.Server.Services.Exam
                 .FirstAsync();
         }
 
-        public async Task<ServiceResult> GenerateListeningResponseExamAsync()
+        public async Task<ServiceResult<ListeningResponseTestResponse>> GenerateListeningResponseExamAsync()
         {
             var userId = _userService.GetUserId();
             var excludeIds = string.IsNullOrEmpty(userId)
@@ -285,7 +285,7 @@ namespace JackyAIApp.Server.Services.Exam
             }).ToList(),
         };
 
-        public async Task<ServiceResult> GetListeningResponsePromptTextAsync(string testId)
+        public async Task<ServiceResult<string>> GetListeningResponsePromptTextAsync(string testId)
         {
             var test = await _dbContext.ListeningResponseTests.SingleOrDefaultAsync(t => t.Id == testId);
             return test == null
@@ -293,7 +293,7 @@ namespace JackyAIApp.Server.Services.Exam
                 : ServiceResult.Ok(test.Prompt);
         }
 
-        public async Task<ServiceResult> GetListeningResponseOptionTextAsync(string optionId)
+        public async Task<ServiceResult<string>> GetListeningResponseOptionTextAsync(string optionId)
         {
             var option = await _dbContext.ListeningResponseOptions.SingleOrDefaultAsync(o => o.Id == optionId);
             return option == null
@@ -409,7 +409,7 @@ namespace JackyAIApp.Server.Services.Exam
             return (null, lastRejection);
         }
 
-        public async Task<ServiceResult> GenerateReadingExamAsync()
+        public async Task<ServiceResult<ReadingPassageResponse>> GenerateReadingExamAsync()
         {
             var userId = _userService.GetUserId();
             var excludeIds = string.IsNullOrEmpty(userId)
@@ -513,7 +513,7 @@ namespace JackyAIApp.Server.Services.Exam
         /// calling user's own saved words. Both plain DB queries — no AI call, so this is
         /// deliberately not usage-limit-gated (unlike every other GET api/exam/* generation endpoint).
         /// </summary>
-        public async Task<ServiceResult> GenerateWritingPromptAsync()
+        public async Task<ServiceResult<WritingPromptResponse>> GenerateWritingPromptAsync()
         {
             var userId = _userService.GetUserId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
@@ -536,7 +536,7 @@ namespace JackyAIApp.Server.Services.Exam
             });
         }
 
-        public async Task<ServiceResult> GradeWritingAsync(WritingSubmissionRequest request)
+        public async Task<ServiceResult<WritingGradingResponse>> GradeWritingAsync(WritingSubmissionRequest request)
         {
             if (request == null || string.IsNullOrEmpty(request.Topic) || string.IsNullOrEmpty(request.Submission))
             {
@@ -589,7 +589,7 @@ namespace JackyAIApp.Server.Services.Exam
         /// due/weak/global-fallback behavior as Cloze/Translation/Sentence) and returns only its
         /// WordId. Deliberately does not include the word text — see DictationPromptResponse.
         /// </summary>
-        public async Task<ServiceResult> GenerateDictationExamAsync()
+        public async Task<ServiceResult<DictationPromptResponse>> GenerateDictationExamAsync()
         {
             var userId = _userService.GetUserId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
@@ -607,7 +607,7 @@ namespace JackyAIApp.Server.Services.Exam
             return ServiceResult.Ok(new DictationPromptResponse { WordId = wordId });
         }
 
-        public async Task<ServiceResult> GetDictationWordTextAsync(string wordId)
+        public async Task<ServiceResult<string>> GetDictationWordTextAsync(string wordId)
         {
             var word = await _dbContext.Words.SingleOrDefaultAsync(w => w.Id == wordId);
 
@@ -616,7 +616,7 @@ namespace JackyAIApp.Server.Services.Exam
                 : ServiceResult.Ok(word.WordText);
         }
 
-        public async Task<ServiceResult> GradeDictationAsync(DictationGradeRequest request)
+        public async Task<ServiceResult<DictationGradeResponse>> GradeDictationAsync(DictationGradeRequest request)
         {
             if (request == null || string.IsNullOrEmpty(request.WordId))
             {
@@ -681,7 +681,7 @@ namespace JackyAIApp.Server.Services.Exam
             return dp[n, m];
         }
 
-        public async Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse)
+        public async Task<ServiceResult<TranslationQualityGradingAssistantResponse>> GradeTranslationAsync(TranslationTestUserResponse userResponse)
         {
             if (userResponse == null || string.IsNullOrEmpty(userResponse.Translation) ||
                 string.IsNullOrEmpty(userResponse.ExaminationQuestion) || string.IsNullOrEmpty(userResponse.UnfamiliarWords))
@@ -721,7 +721,7 @@ namespace JackyAIApp.Server.Services.Exam
             return ServiceResult.Ok(grading);
         }
 
-        public async Task<ServiceResult> StartConversationAsync(ConversationStartRequest request)
+        public async Task<ServiceResult<ConversationStartResponse>> StartConversationAsync(ConversationStartRequest request)
         {
             var userId = _userService.GetUserId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
@@ -759,7 +759,7 @@ namespace JackyAIApp.Server.Services.Exam
             return ServiceResult.Ok(conversationStart);
         }
 
-        public async Task<ServiceResult> RespondToConversationAsync(ConversationResponseRequest request)
+        public async Task<ServiceResult<ConversationResponseResponse>> RespondToConversationAsync(ConversationResponseRequest request)
         {
             if (request == null || string.IsNullOrEmpty(request.UserMessage) || request.ConversationContext == null)
             {
@@ -788,7 +788,7 @@ namespace JackyAIApp.Server.Services.Exam
             return ServiceResult.Ok(response);
         }
 
-        public async Task<ServiceResult> SummarizeConversationAsync(ConversationSummaryRequest request)
+        public async Task<ServiceResult<ConversationSummaryResponse>> SummarizeConversationAsync(ConversationSummaryRequest request)
         {
             if (request == null || request.ConversationContext == null ||
                 request.ConversationHistory == null || request.ConversationHistory.Count == 0)
@@ -811,7 +811,7 @@ namespace JackyAIApp.Server.Services.Exam
             return ServiceResult.Ok(summary);
         }
 
-        public async Task<ServiceResult> TranscribeAudioAsync(Stream audioStream, string fileName)
+        public async Task<ServiceResult<WhisperTranscriptionResponse>> TranscribeAudioAsync(Stream audioStream, string fileName)
         {
             var userId = _userService.GetUserId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
@@ -835,7 +835,7 @@ namespace JackyAIApp.Server.Services.Exam
             return ServiceResult.Ok(new WhisperTranscriptionResponse { Text = text, DeliveryFeedback = deliveryFeedback });
         }
 
-        public async Task<ServiceResult> EvaluateSentenceAsync(SentenceTestUserResponse userResponse)
+        public async Task<ServiceResult<SentenceTestGradingResponse>> EvaluateSentenceAsync(SentenceTestUserResponse userResponse)
         {
             if (userResponse == null || string.IsNullOrEmpty(userResponse.UserSentence) ||
                 string.IsNullOrEmpty(userResponse.Word) || string.IsNullOrEmpty(userResponse.Prompt))
@@ -880,7 +880,7 @@ namespace JackyAIApp.Server.Services.Exam
             return ServiceResult.Ok(evaluation);
         }
 
-        public async Task<ServiceResult> RecordExamResultAsync(RecordExamResultRequest request)
+        public async Task<ServiceResult<RecordExamResultResponse>> RecordExamResultAsync(RecordExamResultRequest request)
         {
             var userId = _userService.GetUserId();
             if (string.IsNullOrEmpty(userId))
