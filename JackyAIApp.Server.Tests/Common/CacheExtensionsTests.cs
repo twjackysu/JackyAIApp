@@ -5,8 +5,9 @@ namespace JackyAIApp.Server.Tests.Common
 {
     /// <summary>
     /// GetOrCreateSingleFlightAsync is the shared cache+single-flight helper that replaces the
-    /// hand-written TryGetValue/Set pairs on the finance market endpoints (macro, overview,
-    /// indicators), so a cold-cache burst makes one upstream call, not N.
+    /// hand-written TryGetValue/Set pairs in front of shared upstream reads, so a cold-cache burst
+    /// makes one upstream call, not N. GroupToken/InvalidateGroup drop a set of entries together
+    /// (a user's word lists) without scanning keys.
     /// </summary>
     public class CacheExtensionsTests
     {
@@ -83,6 +84,86 @@ namespace JackyAIApp.Server.Tests.Common
             await cache.GetOrCreateSingleFlightAsync("k", TimeSpan.FromMinutes(5), Factory, default);
 
             Assert.Equal(2, calls); // null never cached, so both run
+        }
+
+        [Fact]
+        public async Task ResultTurnedDownByShouldCache_IsReturnedButNotCached()
+        {
+            using var cache = NewCache();
+            var key = Guid.NewGuid().ToString();
+            var calls = 0;
+            Task<List<int>> Factory() { calls++; return Task.FromResult(new List<int>()); }
+
+            var first = await cache.GetOrCreateSingleFlightAsync(key, TimeSpan.FromMinutes(5), Factory, default,
+                shouldCache: list => list.Count > 0);
+            await cache.GetOrCreateSingleFlightAsync(key, TimeSpan.FromMinutes(5), Factory, default,
+                shouldCache: list => list.Count > 0);
+
+            Assert.Empty(first);
+            Assert.Equal(2, calls);
+            Assert.False(cache.TryGetValue(key, out _));
+        }
+
+        // ---- Groups ----------------------------------------------------------------------------
+
+        private static void SetInGroup(IMemoryCache cache, string key, string group) =>
+            cache.Set(key, "v", new MemoryCacheEntryOptions().AddExpirationToken(cache.GroupToken(group)));
+
+        [Fact]
+        public void InvalidateGroup_DropsEveryEntryOfThatGroupAndNoOther()
+        {
+            using var cache = NewCache();
+            SetInGroup(cache, "a1", "a");
+            SetInGroup(cache, "a2", "a");
+            SetInGroup(cache, "b1", "b");
+            cache.Set("plain", "v");
+
+            cache.InvalidateGroup("a");
+
+            Assert.False(cache.TryGetValue("a1", out _));
+            Assert.False(cache.TryGetValue("a2", out _));
+            Assert.True(cache.TryGetValue("b1", out _));
+            Assert.True(cache.TryGetValue("plain", out _));
+        }
+
+        [Fact]
+        public void InvalidateGroup_EntriesSetAfterwardsFormAFreshGroup()
+        {
+            using var cache = NewCache();
+            SetInGroup(cache, "before", "g");
+            cache.InvalidateGroup("g");
+
+            SetInGroup(cache, "after", "g");
+            Assert.True(cache.TryGetValue("after", out _)); // not born expired
+
+            cache.InvalidateGroup("g");
+            Assert.False(cache.TryGetValue("after", out _));
+        }
+
+        [Fact]
+        public void InvalidateGroup_ForAGroupNeverUsed_DoesNothing()
+        {
+            using var cache = NewCache();
+            cache.Set("plain", "v");
+
+            cache.InvalidateGroup("never");
+
+            Assert.True(cache.TryGetValue("plain", out _));
+        }
+
+        [Fact]
+        public void GroupSurvivesCompaction()
+        {
+            // The group's token source is NeverRemove: evicted under memory pressure, it would
+            // leave its entries holding a token no later InvalidateGroup could cancel.
+            using var cache = NewCache();
+            cache.Set("kept", "v", new MemoryCacheEntryOptions { Priority = CacheItemPriority.NeverRemove }
+                .AddExpirationToken(cache.GroupToken("g")));
+
+            cache.Compact(1.0);
+            cache.InvalidateGroup("g");
+
+            Assert.False(cache.TryGetValue("kept", out _));
         }
     }
 }

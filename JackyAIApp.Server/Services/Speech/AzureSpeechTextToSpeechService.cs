@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Security;
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Services.AiUsage;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace JackyAIApp.Server.Services.Speech
@@ -28,7 +28,7 @@ namespace JackyAIApp.Server.Services.Speech
         IOptions<AzureSpeechOptions> options,
         ILogger<AzureSpeechTextToSpeechService> logger,
         IAiUsageLogger usageLogger,
-        IExtendedMemoryCache memoryCache) : ITextToSpeechService
+        IMemoryCache memoryCache) : ITextToSpeechService
     {
         public const string HttpClientName = "AzureSpeech";
 

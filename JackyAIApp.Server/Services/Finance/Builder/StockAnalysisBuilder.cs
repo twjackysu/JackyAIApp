@@ -135,9 +135,14 @@ namespace JackyAIApp.Server.Services.Finance.Builder
             };
 
             // 2.5 Let provider enrich fundamental data with derived ratios using market price
-            // Each provider implements its own logic (e.g., SEC computes P/E from EPS, TWSE is no-op)
+            // Each provider implements its own logic (e.g., SEC computes P/E from EPS, TWSE is no-op).
+            // On a copy: the fetched object is the provider's cached one. Enriched in place, SEC's raw
+            // book value and dividend became ratios, and the next request re-divided those ratios.
             if (context.Fundamentals != null && context.LatestClose.HasValue && context.LatestClose.Value > 0)
+            {
+                context.Fundamentals = context.Fundamentals.Copy();
                 fundamentalProvider.EnrichWithMarketPrice(context.Fundamentals, context.LatestClose.Value);
+            }
 
             // 3. Calculate & filter indicators
             var allIndicators = _indicatorEngine.CalculateAll(context);

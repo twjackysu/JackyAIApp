@@ -1647,11 +1647,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// </summary>
         private Task<List<HoldingSnapshot>> AllSnapshotsAsync(string userId, CancellationToken ct)
         {
-            var key = SNAPSHOTS_CACHE_PREFIX + userId;
-            if (cache.TryGetValue(key, out List<HoldingSnapshot>? cached) && cached != null)
-                return Task.FromResult(cached);
-
-            return SingleFlight.RunAsync(key, async () =>
+            return cache.GetOrCreateSingleFlightAsync(SNAPSHOTS_CACHE_PREFIX + userId, SnapshotsCacheTtl, async () =>
             {
                 // No tracking: read-only, and shared from the cache across requests. Tracking
                 // every position of every snapshot only added change-tracker work that grows
@@ -1662,7 +1658,6 @@ namespace JackyAIApp.Server.Services.Portfolio
                     .Where(s => s.UserId == userId)
                     .OrderBy(s => s.EffectiveDate)
                     .ToListAsync(CancellationToken.None);
-                cache.Set(key, snapshots, SnapshotsCacheTtl);
                 return snapshots;
             }, ct);
         }
@@ -2044,7 +2039,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // fetches; the rest await that one task. The underlying fetch runs with its own
             // CancellationToken.None (see SingleFlight's doc) so one caller cancelling never cancels
             // the fetch the others are still waiting on.
-            return await SingleFlight.RunAsync(key, async () =>
+            return await cache.GetOrCreateSingleFlightAsync(key, CacheTtl.Portfolio.StockPrice, async () =>
             {
                 try
                 {
@@ -2054,21 +2049,18 @@ namespace JackyAIApp.Server.Services.Portfolio
                     // layer (TwTodayOverlayMarketDataProvider, see FinanceServiceExtensions) — every
                     // caller of IMarketDataProvider gets it, not just Portfolio, so nothing extra
                     // happens here.
-                    var data = deep
+                    return deep
                         ? await provider.FetchAsync(symbol, CancellationToken.None)
                         : await provider.FetchLatestAsync(symbol, CancellationToken.None);
-
-                    // Only cache a usable result; an empty fetch shouldn't suppress the next retry.
-                    if (data.HistoricalPrices.Count > 0)
-                        cache.Set(key, data, CacheTtl.Portfolio.StockPrice);
-                    return data;
                 }
                 catch (Exception ex)
                 {
                     logger.LogWarning(ex, "Failed to fetch price for {Symbol}", symbol);
                     return null;
                 }
-            }, ct);
+            }, ct,
+                // Only cache a usable result; an empty fetch shouldn't suppress the next retry.
+                shouldCache: data => data?.HistoricalPrices.Count > 0);
         }
 
         /// <summary>Fetch every distinct stock symbol in parallel; failed symbols are omitted.</summary>
@@ -2172,23 +2164,25 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .ToDictionary(r => r.fundId, r => r.nav!);
         }
 
-        private async Task<decimal> FetchUsdTwdRateAsync(CancellationToken ct)
-        {
-            if (cache.TryGetValue(FX_CACHE_KEY, out decimal cached) && cached > 0)
-                return cached;
+        private async Task<decimal> FetchUsdTwdRateAsync(CancellationToken ct) =>
+            // No rate (the feed failed) is not cached, so the next valuation asks again; this one
+            // uses the fallback.
+            await cache.GetOrCreateSingleFlightAsync(FX_CACHE_KEY, CacheTtl.Portfolio.Fx, FetchUsdTwdRateUncachedAsync, ct)
+                ?? FallbackUsdTwdRate;
 
+        private async Task<decimal?> FetchUsdTwdRateUncachedAsync()
+        {
             try
             {
                 // BOT's flcsv endpoint now serves an anti-bot "Challenge Validation" HTML page to
                 // non-browser clients, so it always fell back to 32. Use a stable key-less JSON feed.
                 var client = httpClientFactory.CreateClient("ExternalReadOnly");
-                var json = await client.GetStringAsync(FX_URL, ct);
+                var json = await client.GetStringAsync(FX_URL, CancellationToken.None);
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("rates", out var rates) &&
                     rates.TryGetProperty("TWD", out var twd) &&
                     twd.TryGetDecimal(out var rate) && rate > 0)
                 {
-                    cache.Set(FX_CACHE_KEY, rate, CacheTtl.Portfolio.Fx);
                     return rate;
                 }
             }
@@ -2197,7 +2191,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 logger.LogWarning(ex, "Failed to fetch USD/TWD rate, using fallback 32");
             }
 
-            return FallbackUsdTwdRate;
+            return null;
         }
     }
 }

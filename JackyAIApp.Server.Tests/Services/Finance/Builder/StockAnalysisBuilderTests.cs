@@ -72,6 +72,34 @@ namespace JackyAIApp.Server.Tests.Services.Finance.Builder
         }
 
         [Fact]
+        public async Task BuildAsync_EnrichesACopy_SoTheProvidersCachedFundamentalsStayRaw()
+        {
+            // The provider hands back the object it caches, and SEC's enrichment turns its raw book
+            // value per share into P/B. Done in place, the next request re-divided that ratio.
+            SetupDefaults();
+            var cached = new FundamentalData { PBRatio = 50m }; // SEC stores BVPS here
+            _mockFundamentalDataProvider.Setup(p => p.FetchAsync("2330", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(cached);
+            var sec = new SECFundamentalDataProvider(
+                Mock.Of<IHttpClientFactory>(),
+                Mock.Of<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
+                Mock.Of<ILogger<SECFundamentalDataProvider>>());
+            var enriched = new List<FundamentalData>();
+            _mockFundamentalDataProvider
+                .Setup(p => p.EnrichWithMarketPrice(It.IsAny<FundamentalData>(), It.IsAny<decimal>()))
+                .Callback<FundamentalData, decimal>((data, price) => { sec.EnrichWithMarketPrice(data, price); enriched.Add(data); });
+
+            await CreateBuilder().ForStock("2330").BuildAsync();
+            await CreateBuilder().ForStock("2330").BuildAsync();
+
+            Assert.Equal(50m, cached.PBRatio);
+            Assert.Equal(2, enriched.Count);
+            Assert.All(enriched, e => Assert.NotSame(cached, e));
+            // Latest close 562 / BVPS 50, both times.
+            Assert.All(enriched, e => Assert.Equal(11.24m, e.PBRatio));
+        }
+
+        [Fact]
         public async Task BuildAsync_ThrowsWhenNoStockCode()
         {
             await Assert.ThrowsAsync<ArgumentException>(() => CreateBuilder().BuildAsync());

@@ -277,13 +277,18 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// its intraday price-overlay) share one network hit instead of each fetching it
         /// independently. Tries the resolved market first, then the other one.
         /// </summary>
-        private async Task<StockQuote?> GetCachedRealtimeQuoteAsync(
-            string stockCode, MarketType primaryMarket, CancellationToken ct)
-        {
-            var key = CacheTtl.Finance.TwRealtimeQuoteCacheKeyPrefix + stockCode;
-            if (_cache.TryGetValue(key, out StockQuote? cached))
-                return cached;
+        private Task<StockQuote?> GetCachedRealtimeQuoteAsync(
+            string stockCode, MarketType primaryMarket, CancellationToken ct) =>
+            // A portfolio and an analysis open at once ask for the same quote: one fetch for both.
+            // No quote (neither market answered) is not cached, so the next call tries again.
+            _cache.GetOrCreateSingleFlightAsync(
+                CacheTtl.Finance.TwRealtimeQuoteCacheKeyPrefix + stockCode, CacheTtl.Finance.TwRealtimeQuote,
+                () => FetchRealtimeQuoteAsync(stockCode, primaryMarket), ct);
 
+        private async Task<StockQuote?> FetchRealtimeQuoteAsync(string stockCode, MarketType primaryMarket)
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var ct = CancellationToken.None;
             var secondaryMarket = primaryMarket == MarketType.TSE ? MarketType.OTC : MarketType.TSE;
             var quoteResult = await _stockService.GetRealtimeQuoteAsync(stockCode, primaryMarket, ct);
             var quote = quoteResult.IsSuccess ? quoteResult.Value : null;
@@ -293,8 +298,6 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 quote = fallback.IsSuccess ? fallback.Value : null;
             }
 
-            if (quote != null)
-                _cache.Set(key, quote, CacheTtl.Finance.TwRealtimeQuote);
             return quote;
         }
     }

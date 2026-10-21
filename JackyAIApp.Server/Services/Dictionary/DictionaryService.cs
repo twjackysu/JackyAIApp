@@ -1,4 +1,3 @@
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
@@ -6,6 +5,7 @@ using JackyAIApp.Server.Mappers;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.SpellChecker;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 using System.Linq;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
@@ -16,13 +16,13 @@ namespace JackyAIApp.Server.Services.Dictionary
         ILogger<DictionaryService> logger,
         AzureSQLDBContext dbContext,
         IOpenAIPromptService promptService,
-        IExtendedMemoryCache memoryCache,
+        IMemoryCache memoryCache,
         ISpellChecker spellChecker) : IDictionaryService
     {
         private readonly ILogger<DictionaryService> _logger = logger;
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly IOpenAIPromptService _promptService = promptService;
-        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+        private readonly IMemoryCache _memoryCache = memoryCache;
         private readonly ISpellChecker _spellChecker = spellChecker;
 
         private static string CacheKey(string lowerWord) => $"Get_Dictionary_{lowerWord}";

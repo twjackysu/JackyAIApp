@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -58,24 +59,18 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             // versa serving deep data to a latest-only caller is harmless but wasteful to key together.
             var cacheKey = $"MarketData_{_inner.Type}_{(deep ? "deep" : "latest")}_{stockCode}_{DateTime.Today:yyyyMMdd}";
 
-            if (_cache.TryGetValue(cacheKey, out MarketData? cachedData) && cachedData != null)
-            {
-                _logger.LogDebug("Cache hit for {type} data of {stockCode}", _inner.Type, stockCode);
-                return cachedData;
-            }
-
-            _logger.LogDebug("Cache miss for {type} data of {stockCode}, fetching...", _inner.Type, stockCode);
-            var data = deep
-                ? await _inner.FetchAsync(stockCode, cancellationToken)
-                : await _inner.FetchLatestAsync(stockCode, cancellationToken);
-
-            // Only cache if we got meaningful data
-            if (data.HistoricalPrices.Count > 0 || data.Fundamentals != null || data.Chips != null)
-            {
-                _cache.Set(cacheKey, data, _cacheDuration);
-            }
-
-            return data;
+            // One fetch for a burst of callers on a cold key (a page asks for the same stock from
+            // several panels at once). Shared, so it runs without any one caller's token.
+            return await _cache.GetOrCreateSingleFlightAsync(cacheKey, _cacheDuration, () =>
+                {
+                    _logger.LogDebug("Cache miss for {type} data of {stockCode}, fetching...", _inner.Type, stockCode);
+                    return deep
+                        ? _inner.FetchAsync(stockCode, CancellationToken.None)
+                        : _inner.FetchLatestAsync(stockCode, CancellationToken.None);
+                },
+                cancellationToken,
+                // Only cache if we got meaningful data
+                shouldCache: data => data.HistoricalPrices.Count > 0 || data.Fundamentals != null || data.Chips != null);
         }
     }
 }

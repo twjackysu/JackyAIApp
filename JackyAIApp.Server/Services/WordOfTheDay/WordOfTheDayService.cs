@@ -1,4 +1,3 @@
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Mappers;
@@ -10,11 +9,11 @@ namespace JackyAIApp.Server.Services.WordOfTheDay
 {
     public class WordOfTheDayService(
         ICurrentUser currentUser,
-        IExtendedMemoryCache memoryCache,
+        IMemoryCache memoryCache,
         AzureSQLDBContext dbContext) : IWordOfTheDayService
     {
         private readonly ICurrentUser _currentUser = currentUser;
-        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+        private readonly IMemoryCache _memoryCache = memoryCache;
         private readonly AzureSQLDBContext _dbContext = dbContext;
 
         public async Task<ServiceResult<DTO.Word>> GetWordOfTheDayAsync()

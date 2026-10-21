@@ -1,6 +1,6 @@
+using Microsoft.Extensions.Caching.Memory;
 using System.Net;
 using System.Xml.Linq;
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Speech;
@@ -24,15 +24,10 @@ namespace JackyAIApp.Server.Tests.Services.Speech
         private const string Text = "Hello there.";
         private static readonly byte[] Mp3 = [0xFF, 0xFB, 0x90, 0x00];
 
-        private readonly Mock<IExtendedMemoryCache> _cache = new();
+        private readonly MemoryCache _cache = new(new MemoryCacheOptions());
         private readonly Mock<IAiUsageLogger> _usage = new();
         private readonly Mock<ILogger<AzureSpeechTextToSpeechService>> _logger = new();
         private readonly CapturingHandler _handler = new();
-
-        public AzureSpeechTextToSpeechServiceTests()
-        {
-            _cache.Setup(x => x.TryGetValue(It.IsAny<object>(), out It.Ref<object?>.IsAny)).Returns(false);
-        }
 
         // ── Success path ──────────────────────────────────────────────────────
 
@@ -45,7 +40,8 @@ namespace JackyAIApp.Server.Tests.Services.Speech
             Assert.Equal(Mp3, result.Audio);
             // The caller's model — not this provider's — keeps the key, because AudioController
             // computes the same key via TryGetCached to decide whether to bill.
-            _cache.Verify(x => x.Set(TtsCache.Key(Text, "alloy", "tts-1", 1.0f), Mp3, TtsCache.Ttl), Times.Once);
+            Assert.Equal(1, _cache.Count);
+            Assert.Equal(Mp3, _cache.Get<byte[]>(TtsCache.Key(Text, "alloy", "tts-1", 1.0f)));
         }
 
         [Fact]
@@ -118,9 +114,7 @@ namespace JackyAIApp.Server.Tests.Services.Speech
 
             Assert.False(result.Success);
             Assert.Null(result.Audio);
-            _cache.Verify(
-                x => x.Set(It.IsAny<object>(), It.IsAny<byte[]>(), It.IsAny<TimeSpan>()),
-                Times.Never);
+            Assert.Equal(0, _cache.Count);
         }
 
         [Fact]
@@ -181,8 +175,7 @@ namespace JackyAIApp.Server.Tests.Services.Speech
         [Fact]
         public void TryGetCached_HitReturnsTheStoredAudioWithoutCallingAzure()
         {
-            object? stored = Mp3;
-            _cache.Setup(x => x.TryGetValue(TtsCache.Key(Text, "alloy", "tts-1", 1.0f), out stored)).Returns(true);
+            _cache.Set(TtsCache.Key(Text, "alloy", "tts-1", 1.0f), Mp3);
 
             Assert.True(Create().TryGetCached(Text, "alloy", "tts-1", 1.0f, out var audio));
             Assert.Equal(Mp3, audio);
@@ -202,7 +195,7 @@ namespace JackyAIApp.Server.Tests.Services.Speech
                 Options.Create(options ?? new AzureSpeechOptions { Key = "test-key", Region = "japaneast" }),
                 _logger.Object,
                 _usage.Object,
-                _cache.Object);
+                _cache);
         }
 
         private static XElement ProsodyOf(string ssml) =>

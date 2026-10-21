@@ -76,6 +76,80 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
+        public async Task GetStockDividendsAsync_TwMarket_ListedSuffixUnknownToYahoo_FallsBackToOtc()
+        {
+            // Yahoo answers a symbol it doesn't know with 404: that is "try the next suffix".
+            const string otc = """{"chart":{"result":[{"meta":{"currency":"TWD"},"events":{"dividends":{"1700000000":{"amount":3,"date":1700000000}}}}]}}""";
+
+            var service = CreateService(req => req.RequestUri!.ToString().Contains(".TWO")
+                ? JsonResponse(otc)
+                : new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+
+            var records = await service.GetStockDividendsAsync("5483", "TW");
+
+            Assert.Equal(3m, Assert.Single(records).AmountPerUnit);
+        }
+
+        [Fact]
+        public async Task GetStockDividendsAsync_FailedFetch_IsNotCachedAsNoDividends()
+        {
+            // A 503 says nothing about the stock. Cached as "no dividends", it would have dropped
+            // the holding's dividends from the total return for a day.
+            const string json = """{"chart":{"result":[{"meta":{"currency":"USD"},"events":{"dividends":{"1754919000":{"amount":0.5,"date":1754919000}}}}]}}""";
+            var calls = 0;
+            var service = CreateService(_ => ++calls == 1
+                ? new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable)
+                : JsonResponse(json));
+
+            var first = await service.GetStockDividendsAsync("KO", "US");
+            var second = await service.GetStockDividendsAsync("KO", "US");
+
+            Assert.Empty(first);
+            Assert.Equal(0.5m, Assert.Single(second).AmountPerUnit);
+            Assert.Equal(2, calls);
+        }
+
+        [Fact]
+        public async Task GetStockDividendsAsync_TwMarket_ListedFetchFails_DoesNotFallBackOrCache()
+        {
+            // Failing on the listed suffix is not the 404 that sends us to OTC: we don't know which
+            // market the stock is on, so this call answers nothing and the next one asks again.
+            const string listed = """{"chart":{"result":[{"meta":{"currency":"TWD"},"events":{"dividends":{"1700000000":{"amount":4,"date":1700000000}}}}]}}""";
+            var calls = 0;
+            var otcCalled = false;
+            var service = CreateService(req =>
+            {
+                if (req.RequestUri!.ToString().Contains(".TWO")) otcCalled = true;
+                return ++calls == 1 ? new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError) : JsonResponse(listed);
+            });
+
+            var first = await service.GetStockDividendsAsync("2317", "TW");
+            var second = await service.GetStockDividendsAsync("2317", "TW");
+
+            Assert.Empty(first);
+            Assert.False(otcCalled);
+            Assert.Equal(4m, Assert.Single(second).AmountPerUnit);
+        }
+
+        [Fact]
+        public async Task GetFundDividendsAsync_FailedFetch_IsNotCachedAsNoDividends()
+        {
+            const string json = """
+            {"data":{"tableRow":{"history":[{"baseDay":"2026/03/10","exDividendDate":"2026/03/06","perUnitPrice":"5.9100"}]}}}
+            """;
+            var calls = 0;
+            var service = CreateService(_ => ++calls == 1
+                ? throw new HttpRequestException("network down")
+                : JsonResponse(json));
+
+            var first = await service.GetFundDividendsAsync("076010");
+            var second = await service.GetFundDividendsAsync("076010");
+
+            Assert.Empty(first);
+            Assert.Equal(5.91m, Assert.Single(second).AmountPerUnit);
+        }
+
+        [Fact]
         public async Task GetFundDividendsAsync_ParsesFundRichHistory()
         {
             const string json = """

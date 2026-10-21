@@ -1,4 +1,3 @@
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
@@ -7,6 +6,7 @@ using JackyAIApp.Server.Services.Dictionary;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.SpellChecker;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
 using SQLWord = JackyAIApp.Server.Data.Models.SQL.Word;
@@ -19,7 +19,7 @@ namespace JackyAIApp.Server.Tests.Services
     {
         private readonly Mock<ILogger<DictionaryService>> _loggerMock;
         private readonly Mock<IOpenAIPromptService> _promptServiceMock;
-        private readonly Mock<IExtendedMemoryCache> _memoryCacheMock;
+        private readonly MemoryCache _memoryCache = new(new MemoryCacheOptions());
         private readonly Mock<ISpellChecker> _spellCheckerMock;
         private readonly AzureSQLDBContext _dbContext;
         private readonly DictionaryService _service;
@@ -28,7 +28,6 @@ namespace JackyAIApp.Server.Tests.Services
         {
             _loggerMock = new Mock<ILogger<DictionaryService>>();
             _promptServiceMock = new Mock<IOpenAIPromptService>();
-            _memoryCacheMock = new Mock<IExtendedMemoryCache>();
             _spellCheckerMock = new Mock<ISpellChecker>();
 
             // By default treat words as valid; invalid-word tests override per word.
@@ -40,21 +39,18 @@ namespace JackyAIApp.Server.Tests.Services
                 .Options;
             _dbContext = new AzureSQLDBContext(options);
 
-            // Setup cache to always miss by default
-            _memoryCacheMock.Setup(x => x.TryGetValue(It.IsAny<string>(), out It.Ref<object?>.IsAny))
-                .Returns(false);
-
             _service = new DictionaryService(
                 _loggerMock.Object,
                 _dbContext,
                 _promptServiceMock.Object,
-                _memoryCacheMock.Object,
+                _memoryCache,
                 _spellCheckerMock.Object);
         }
 
         public void Dispose()
         {
             _dbContext.Dispose();
+            _memoryCache.Dispose();
         }
 
         #region GetWord Tests

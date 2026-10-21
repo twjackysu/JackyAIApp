@@ -1,5 +1,4 @@
 using System.Text;
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.Finance;
@@ -9,6 +8,7 @@ using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.Prediction;
 using JackyAIApp.Server.Services.Finance.Scoring;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Finance
 {
@@ -18,7 +18,7 @@ namespace JackyAIApp.Server.Services.Finance
         ITWSEOpenAPIService twseApiService,
         IStockCodeResolver stockCodeResolver,
         IFinanceAnalysisService financeAnalysisService,
-        IExtendedMemoryCache memoryCache,
+        IMemoryCache memoryCache,
         IMarketDataProvider marketDataProvider,
         IIndicatorEngine indicatorEngine,
         IChipDataProvider chipDataProvider,
@@ -33,7 +33,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly ITWSEOpenAPIService _twseApiService = twseApiService;
         private readonly IStockCodeResolver _stockCodeResolver = stockCodeResolver;
         private readonly IFinanceAnalysisService _financeAnalysisService = financeAnalysisService;
-        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+        private readonly IMemoryCache _memoryCache = memoryCache;
         private readonly IMarketDataProvider _marketDataProvider = marketDataProvider;
         private readonly IIndicatorEngine _indicatorEngine = indicatorEngine;
         private readonly IChipDataProvider _chipDataProvider = chipDataProvider;

@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Portfolio;
@@ -111,23 +112,19 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// costs a lookup in that rather than a database round trip. The hour's expiry only
         /// matters for changes made outside this process (another instance's refresh, a manual
         /// edit); this process's own refresh evicts it at once.</summary>
-        private async Task<CompanyList> GetAllAsync(CancellationToken ct)
-        {
-            if (cache.TryGetValue(CacheKey, out CompanyList? cached) && cached != null)
-                return cached;
-
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-            var entries = await db.TwListedCompanies
-                .AsNoTracking()
-                .Select(c => new Entry(c.Symbol, c.Name, c.Market))
-                .ToListAsync(ct);
-            var list = new CompanyList(entries, entries.ToDictionary(e => e.Symbol, StringComparer.OrdinalIgnoreCase));
-
+        private Task<CompanyList> GetAllAsync(CancellationToken ct) =>
             // An empty list isn't cached: before the first refresh has finished, the next lookup
             // should look again instead of finding nothing for an hour.
-            if (entries.Count > 0) cache.Set(CacheKey, list, TimeSpan.FromHours(1));
-            return list;
-        }
+            cache.GetOrCreateSingleFlightAsync(CacheKey, TimeSpan.FromHours(1), async () =>
+            {
+                // Shared by every caller waiting on it, so no one caller's token may stop it.
+                await using var db = await dbFactory.CreateDbContextAsync(CancellationToken.None);
+                var entries = await db.TwListedCompanies
+                    .AsNoTracking()
+                    .Select(c => new Entry(c.Symbol, c.Name, c.Market))
+                    .ToListAsync(CancellationToken.None);
+                return new CompanyList(entries, entries.ToDictionary(e => e.Symbol, StringComparer.OrdinalIgnoreCase));
+            }, ct, shouldCache: list => list.BySymbol.Count > 0);
 
         public async Task<DateTime?> GetLastRefreshedAtAsync(CancellationToken ct = default)
         {

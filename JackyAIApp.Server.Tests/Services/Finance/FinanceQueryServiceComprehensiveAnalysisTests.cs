@@ -1,4 +1,3 @@
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance;
@@ -67,7 +66,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // within a test goes through the same cache the first one wrote to.
             return _service ??= new StockAnalysisQueryService(
                 NullLogger<StockAnalysisQueryService>.Instance, null!, null!, _resolver.Object, null!,
-                new ExtendedMemoryCache(new MemoryCacheOptions()), null!, null!, null!, null!, builder,
+                new MemoryCache(new MemoryCacheOptions()), null!, null!, null!, null!, builder,
                 null!, _factory.Object, null!);
         }
 

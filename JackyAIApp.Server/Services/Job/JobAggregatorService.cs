@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Job;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -16,12 +17,6 @@ public class JobAggregatorService(
         var platformKey = string.Join(",", request.Platforms.OrderBy(p => p));
         var cacheKey = $"jobs:{normalizedKeywords}:{request.SearchStrategy}:{platformKey}";
 
-        if (cache.TryGetValue(cacheKey, out IReadOnlyList<JobListingDto>? cached) && cached is not null)
-        {
-            logger.LogInformation("Job search cache hit for key: {key}", cacheKey);
-            return cached;
-        }
-
         var selectedProviders = providers
             .Where(p => request.Platforms.Contains(p.PlatformId, StringComparer.OrdinalIgnoreCase))
             .ToList();
@@ -32,20 +27,23 @@ public class JobAggregatorService(
             return [];
         }
 
-        // Fetch from all selected providers in parallel
-        var tasks = selectedProviders.Select(p => FetchSafe(p, request.Keywords, request.SearchStrategy, ct));
-        var results = await Task.WhenAll(tasks);
+        // The same search from two people at once shares one round of provider calls.
+        return await cache.GetOrCreateSingleFlightAsync(cacheKey, CacheDuration, async () =>
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            // Fetch from all selected providers in parallel
+            var tasks = selectedProviders.Select(p => FetchSafe(p, request.Keywords, request.SearchStrategy, CancellationToken.None));
+            var results = await Task.WhenAll(tasks);
 
-        var merged = results
-            .SelectMany(r => r)
-            .DistinctBy(j => j.Id)                  // dedup by platform-scoped ID
-            .OrderByDescending(j => j.PostedAt)      // newest first
-            .ToList();
+            var merged = results
+                .SelectMany(r => r)
+                .DistinctBy(j => j.Id)                  // dedup by platform-scoped ID
+                .OrderByDescending(j => j.PostedAt)      // newest first
+                .ToList();
 
-        cache.Set(cacheKey, (IReadOnlyList<JobListingDto>)merged, CacheDuration);
-        logger.LogInformation("Job search completed: {count} results for '{keywords}'", merged.Count, request.Keywords);
-
-        return merged;
+            logger.LogInformation("Job search completed: {count} results for '{keywords}'", merged.Count, request.Keywords);
+            return (IReadOnlyList<JobListingDto>)merged;
+        }, ct);
     }
 
     private async Task<IReadOnlyList<JobListingDto>> FetchSafe(

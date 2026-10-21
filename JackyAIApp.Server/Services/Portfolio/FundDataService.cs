@@ -46,10 +46,15 @@ namespace JackyAIApp.Server.Services.Portfolio
             keyword = (keyword ?? "").Trim();
             if (keyword.Length < 1) return [];
 
-            var cacheKey = $"fund_search_{keyword}";
-            if (cache.TryGetValue(cacheKey, out List<FundSearchItem>? cached) && cached != null)
-                return cached;
+            // A failed search answers null, which is not cached, so the next call tries again.
+            return await cache.GetOrCreateSingleFlightAsync($"fund_search_{keyword}", CacheTtl.Portfolio.FundRich,
+                () => SearchFundsUncachedAsync(keyword), ct) ?? [];
+        }
 
+        private async Task<List<FundSearchItem>?> SearchFundsUncachedAsync(string keyword)
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var ct = CancellationToken.None;
             try
             {
                 var client = httpClientFactory.CreateClient("ExternalReadOnly");
@@ -80,13 +85,12 @@ namespace JackyAIApp.Server.Services.Portfolio
                     }
                 }
 
-                cache.Set(cacheKey, items, CacheTtl.Portfolio.FundRich);
                 return items;
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Fund search failed for {Keyword}", keyword);
-                return [];
+                return null;
             }
         }
 
@@ -95,15 +99,11 @@ namespace JackyAIApp.Server.Services.Portfolio
             fundId = (fundId ?? "").Trim();
             if (fundId.Length < 1) return null;
 
-            var cacheKey = $"fund_nav_{fundId}";
-            if (cache.TryGetValue(cacheKey, out FundNavHistory? cached) && cached != null)
-                return cached;
-
             // Single-flight: a cold cache can see this fundId requested by several Portfolio
             // endpoints at once (same page load). The shared fetch runs with its own
             // CancellationToken.None (see SingleFlight's doc) so one caller cancelling never cancels
-            // it for the others still waiting.
-            return await SingleFlight.RunAsync(cacheKey, async () =>
+            // it for the others still waiting. No history (failed, or none returned) is not cached.
+            return await cache.GetOrCreateSingleFlightAsync($"fund_nav_{fundId}", CacheTtl.Portfolio.FundRich, async () =>
             {
                 try
                 {
@@ -151,9 +151,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     // API returns newest-first; normalize to ascending by date.
                     prices.Sort((a, b) => string.CompareOrdinal(a.Date, b.Date));
 
-                    var result = new FundNavHistory(currency, prices);
-                    cache.Set(cacheKey, result, CacheTtl.Portfolio.FundRich);
-                    return result;
+                    return new FundNavHistory(currency, prices);
                 }
                 catch (Exception ex)
                 {

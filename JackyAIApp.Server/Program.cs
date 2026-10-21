@@ -2,7 +2,6 @@
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Azure.Storage.Blobs;
 using Betalgo.Ranul.OpenAI.Extensions;
-using DotnetSdkUtilities.Extensions.ServiceCollectionExtensions;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
@@ -134,7 +133,6 @@ try
         googleOptions.ClientId = builder.Configuration["Settings:Google:ClientId"]?.ToString() ?? "";
         googleOptions.ClientSecret = builder.Configuration["Settings:Google:ClientSecret"]?.ToString() ?? "";
     });
-    builder.Services.AddExtendedMemoryCache();
     builder.Services.AddMemoryCache();
     // Default timeout for every HttpClient the app creates (named, typed, or the
     // unnamed default from CreateClient()) — previously unbounded (~100s default),

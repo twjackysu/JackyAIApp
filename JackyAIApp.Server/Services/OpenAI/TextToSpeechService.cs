@@ -1,8 +1,8 @@
 using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Speech;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.OpenAI
 {
@@ -14,7 +14,7 @@ namespace JackyAIApp.Server.Services.OpenAI
         IOpenAIService openAIService,
         ILogger<TextToSpeechService> logger,
         IAiUsageLogger usageLogger,
-        IExtendedMemoryCache memoryCache) : ITextToSpeechService
+        IMemoryCache memoryCache) : ITextToSpeechService
     {
         public bool TryGetCached(string text, string voice, string model, float speed, out byte[]? audio) =>
             TtsCache.TryGet(memoryCache, text, voice, model, speed, out audio);

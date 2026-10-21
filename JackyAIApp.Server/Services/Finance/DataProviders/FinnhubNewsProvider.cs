@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
@@ -40,14 +41,19 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
         public async Task<IReadOnlyList<FinnhubNewsItem>> FetchAsync(CancellationToken cancellationToken = default)
         {
-            const string cacheKey = "FinnhubNews";
-            if (_cache.TryGetValue(cacheKey, out IReadOnlyList<FinnhubNewsItem>? cached) && cached != null)
-                return cached;
-
             var apiKey = _settings.CurrentValue.FinnhubApiKey?.Trim();
             if (string.IsNullOrWhiteSpace(apiKey))
                 return [];
 
+            // A failed fetch answers null, which is not cached, so the next call tries again.
+            return await _cache.GetOrCreateSingleFlightAsync("FinnhubNews", TimeSpan.FromMinutes(30),
+                () => FetchUncachedAsync(apiKey), cancellationToken) ?? [];
+        }
+
+        private async Task<IReadOnlyList<FinnhubNewsItem>?> FetchUncachedAsync(string apiKey)
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var cancellationToken = CancellationToken.None;
             try
             {
                 var client = _httpClientFactory.CreateClient("ExternalReadOnly");
@@ -58,14 +64,14 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 {
                     var body = await response.Content.ReadAsStringAsync(cancellationToken);
                     _logger.LogWarning("Finnhub news returned {status}: {body}", response.StatusCode, body);
-                    return [];
+                    return null;
                 }
 
                 var json = await response.Content.ReadAsStringAsync(cancellationToken);
                 using var doc = JsonDocument.Parse(json);
 
                 if (doc.RootElement.ValueKind != JsonValueKind.Array)
-                    return [];
+                    return null;
 
                 var cutoff = DateTimeOffset.UtcNow.AddHours(-LOOKBACK_HOURS).ToUnixTimeSeconds();
                 var items = new List<FinnhubNewsItem>();
@@ -89,13 +95,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     items.Add(new FinnhubNewsItem(headline, summary, source, dt));
                 }
 
-                _cache.Set(cacheKey, (IReadOnlyList<FinnhubNewsItem>)items, TimeSpan.FromMinutes(30));
                 return items;
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to fetch Finnhub news");
-                return [];
+                return null;
             }
         }
     }

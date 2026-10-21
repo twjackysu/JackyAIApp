@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using JackyAIApp.Server.Common;
@@ -48,92 +49,87 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (upperSymbol.Length == 0) return [];
 
             var upperMarket = (market ?? "").Trim().ToUpperInvariant();
-            var cacheKey = $"dividends_stock_{upperMarket}_{upperSymbol}";
-            if (cache.TryGetValue(cacheKey, out List<DividendRecord>? cached) && cached != null)
-                return cached;
 
             // Single-flight: a cold cache can see this symbol requested by several Portfolio
-            // endpoints at once (same page load). The shared fetch runs with its own
-            // CancellationToken.None (see SingleFlight's doc) so one caller cancelling never cancels
-            // it for the others still waiting.
-            return await SingleFlight.RunAsync(cacheKey, async () =>
-            {
-                List<DividendRecord> result;
-                if (upperMarket == "US")
-                {
-                    result = await FetchYahooDividendsAsync(upperSymbol, CancellationToken.None) ?? [];
-                }
-                else
-                {
-                    // TW has no listed/OTC flag in our data model, so try the listed suffix first and
-                    // fall back to OTC — mirrors how a human would guess without extra lookups.
-                    result = await FetchYahooDividendsAsync($"{upperSymbol}.TW", CancellationToken.None) ?? [];
-                    if (result.Count == 0)
-                    {
-                        var otc = await FetchYahooDividendsAsync($"{upperSymbol}.TWO", CancellationToken.None);
-                        if (otc != null) result = otc;
-                    }
-                }
+            // endpoints at once (same page load). A failed fetch answers null, which is not cached:
+            // it says nothing about the stock's dividends, so the next call asks again instead of
+            // counting none for a day.
+            return await cache.GetOrCreateSingleFlightAsync($"dividends_stock_{upperMarket}_{upperSymbol}",
+                CacheTtl.Portfolio.Dividend, () => FetchStockDividendsAsync(upperSymbol, upperMarket), ct) ?? [];
+        }
 
-                cache.Set(cacheKey, result, CacheTtl.Portfolio.Dividend);
-                return result;
-            }, ct);
+        private async Task<List<DividendRecord>?> FetchStockDividendsAsync(string upperSymbol, string upperMarket)
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var ct = CancellationToken.None;
+            try
+            {
+                if (upperMarket == "US")
+                    return await FetchYahooDividendsAsync(upperSymbol, ct) ?? [];
+
+                // TW has no listed/OTC flag in our data model, so try the listed suffix first and
+                // fall back to OTC — mirrors how a human would guess without extra lookups.
+                var listed = await FetchYahooDividendsAsync($"{upperSymbol}.TW", ct);
+                if (listed is { Count: > 0 }) return listed;
+                return await FetchYahooDividendsAsync($"{upperSymbol}.TWO", ct) ?? listed ?? [];
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Dividend fetch failed for {Symbol}", upperSymbol);
+                return null;
+            }
         }
 
         /// <summary>
         /// Returns null when the symbol/suffix combination doesn't resolve on Yahoo at all (so the
         /// caller can try the next suffix), vs. an empty list when it resolved but simply has no
-        /// dividend history (e.g. a growth stock that's never paid one).
+        /// dividend history (e.g. a growth stock that's never paid one). A failed fetch throws: it
+        /// is neither, and must not be cached as either.
         /// </summary>
         private async Task<List<DividendRecord>?> FetchYahooDividendsAsync(string yahooSymbol, CancellationToken ct)
         {
-            try
-            {
-                var client = httpClientFactory.CreateClient("ExternalReadOnly");
-                // interval=1mo keeps the payload small — only the events block is needed, not daily bars.
-                var url = $"{YAHOO_CHART_URL}/{yahooSymbol}?range=5y&interval=1mo&events=div";
+            var client = httpClientFactory.CreateClient("ExternalReadOnly");
+            // interval=1mo keeps the payload small — only the events block is needed, not daily bars.
+            var url = $"{YAHOO_CHART_URL}/{yahooSymbol}?range=5y&interval=1mo&events=div";
 
-                using var request = YahooChart.Request(url);
-                using var response = await client.SendAsync(request, ct);
-                if (!response.IsSuccessStatusCode) return null;
+            using var request = YahooChart.Request(url);
+            using var response = await client.SendAsync(request, ct);
+            // 404 is Yahoo's answer for a symbol it doesn't know. Anything else unsuccessful is a
+            // failed fetch, not an answer about the symbol.
+            if (response.StatusCode == HttpStatusCode.NotFound) return null;
+            response.EnsureSuccessStatusCode();
 
-                var json = await response.Content.ReadAsStringAsync(ct);
-                using var doc = JsonDocument.Parse(json);
-                var results = doc.RootElement.GetProperty("chart").GetProperty("result");
-                if (results.ValueKind != JsonValueKind.Array || results.GetArrayLength() == 0)
-                    return null;
-
-                var chartResult = results[0];
-                var currency = chartResult.GetProperty("meta").TryGetProperty("currency", out var c)
-                    ? c.GetString() ?? "TWD"
-                    : "TWD";
-
-                var records = new List<DividendRecord>();
-                if (chartResult.TryGetProperty("events", out var events) &&
-                    events.TryGetProperty("dividends", out var dividends) &&
-                    dividends.ValueKind == JsonValueKind.Object)
-                {
-                    foreach (var prop in dividends.EnumerateObject())
-                    {
-                        if (!prop.Value.TryGetProperty("amount", out var amountEl) ||
-                            !prop.Value.TryGetProperty("date", out var dateEl))
-                            continue;
-
-                        var amount = amountEl.GetDecimal();
-                        if (amount <= 0) continue;
-
-                        var exDate = DateOnly.FromDateTime(
-                            DateTimeOffset.FromUnixTimeSeconds(dateEl.GetInt64()).UtcDateTime);
-                        records.Add(new DividendRecord(exDate, amount, currency));
-                    }
-                }
-                return records;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Dividend fetch failed for {Symbol}", yahooSymbol);
+            var json = await response.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+            var results = doc.RootElement.GetProperty("chart").GetProperty("result");
+            if (results.ValueKind != JsonValueKind.Array || results.GetArrayLength() == 0)
                 return null;
+
+            var chartResult = results[0];
+            var currency = chartResult.GetProperty("meta").TryGetProperty("currency", out var c)
+                ? c.GetString() ?? "TWD"
+                : "TWD";
+
+            var records = new List<DividendRecord>();
+            if (chartResult.TryGetProperty("events", out var events) &&
+                events.TryGetProperty("dividends", out var dividends) &&
+                dividends.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in dividends.EnumerateObject())
+                {
+                    if (!prop.Value.TryGetProperty("amount", out var amountEl) ||
+                        !prop.Value.TryGetProperty("date", out var dateEl))
+                        continue;
+
+                    var amount = amountEl.GetDecimal();
+                    if (amount <= 0) continue;
+
+                    var exDate = DateOnly.FromDateTime(
+                        DateTimeOffset.FromUnixTimeSeconds(dateEl.GetInt64()).UtcDateTime);
+                    records.Add(new DividendRecord(exDate, amount, currency));
+                }
             }
+            return records;
         }
 
         public async Task<List<DividendRecord>> GetFundDividendsAsync(string fundId, CancellationToken ct = default)
@@ -141,15 +137,11 @@ namespace JackyAIApp.Server.Services.Portfolio
             fundId = (fundId ?? "").Trim();
             if (fundId.Length == 0) return [];
 
-            var cacheKey = $"dividends_fund_{fundId}";
-            if (cache.TryGetValue(cacheKey, out List<DividendRecord>? cached) && cached != null)
-                return cached;
-
             // Single-flight: a cold cache can see this fundId requested by several Portfolio
             // endpoints at once (same page load). The shared fetch runs with its own
             // CancellationToken.None (see SingleFlight's doc) so one caller cancelling never cancels
-            // it for the others still waiting.
-            return await SingleFlight.RunAsync(cacheKey, async () =>
+            // it for the others still waiting. A failed fetch answers null, which is not cached.
+            return await cache.GetOrCreateSingleFlightAsync($"dividends_fund_{fundId}", CacheTtl.Portfolio.Dividend, async () =>
             {
                 var result = new List<DividendRecord>();
                 try
@@ -190,12 +182,13 @@ namespace JackyAIApp.Server.Services.Portfolio
                 }
                 catch (Exception ex)
                 {
+                    // Not "no dividends": the next call asks again rather than count none for a day.
                     logger.LogWarning(ex, "Fund dividend fetch failed for {FundId}", fundId);
+                    return null;
                 }
 
-                cache.Set(cacheKey, result, CacheTtl.Portfolio.Dividend);
                 return result;
-            }, ct);
+            }, ct) ?? [];
         }
 
         // FundRich rejects requests without a same-origin Referer/Origin (HTTP 406) — same
