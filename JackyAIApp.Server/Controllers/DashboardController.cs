@@ -8,6 +8,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.DataAnalysis;
+using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.DataAnalysis;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,8 +33,10 @@ namespace JackyAIApp.Server.Controllers
         AzureSQLDBContext dbContext,
         IDataSourceResolver resolver,
         IDataSourceConfigService configService,
-        IMemoryCache cache) : ApiControllerBase
+        IMemoryCache cache,
+        ICurrentUser currentUser) : ControllerBase
     {
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly ILogger<DashboardController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly AzureSQLDBContext _dbContext = dbContext;
@@ -61,10 +64,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet]
         public async Task<IActionResult> List(CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var items = await _dbContext.Dashboards
                 .Where(d =>
                     d.UserId == userId ||
@@ -87,10 +87,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateDashboardRequest dto, CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var name = dto.Name?.Trim();
             if (string.IsNullOrEmpty(name))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Name is required.");
@@ -122,7 +119,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> Get(Guid id, CancellationToken ct = default)
         {
-            var userId = CurrentUserId; // may be null for anonymous (allowed only for "Anyone")
+            var userId = _currentUser.Id; // may be null for anonymous (allowed only for "Anyone")
 
             var dash = await _dbContext.Dashboards
                 .Include(d => d.Widgets)
@@ -152,10 +149,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("{id:guid}/share")]
         public async Task<IActionResult> GetShare(Guid id, CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var dash = await _dbContext.Dashboards
                 .Include(d => d.Shares).ThenInclude(s => s.User)
                 .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId, ct);
@@ -169,10 +163,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPut("{id:guid}/share")]
         public async Task<IActionResult> UpdateShare(Guid id, [FromBody] UpdateShareRequest dto, CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             if (!ValidVisibilities.Contains(dto.Visibility))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Invalid visibility.");
 
@@ -245,7 +236,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("{id:guid}/widgets/{widgetId:guid}/data")]
         public async Task<IActionResult> WidgetData(Guid id, Guid widgetId, CancellationToken ct = default)
         {
-            var userId = CurrentUserId; // may be null (allowed only for "Anyone")
+            var userId = _currentUser.Id; // may be null (allowed only for "Anyone")
 
             var dash = await _dbContext.Dashboards
                 .Include(d => d.Shares)
@@ -332,10 +323,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("{id:guid}/widgets")]
         public async Task<IActionResult> AddWidget(Guid id, [FromBody] AddWidgetRequest dto, CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             if (string.IsNullOrWhiteSpace(dto.VizType))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "VizType is required.");
 
@@ -373,10 +361,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Rename(Guid id, [FromBody] RenameDashboardRequest dto, CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var name = dto.Name?.Trim();
             if (string.IsNullOrEmpty(name))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "Name is required.");
@@ -396,10 +381,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var dash = await _dbContext.Dashboards
                 .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId, ct);
             if (dash is null)
@@ -414,10 +396,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPut("{id:guid}/layout")]
         public async Task<IActionResult> UpdateLayout(Guid id, [FromBody] UpdateLayoutRequest dto, CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var dash = await _dbContext.Dashboards
                 .Include(d => d.Widgets)
                 .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId, ct);
@@ -442,10 +421,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpDelete("{id:guid}/widgets/{widgetId:guid}")]
         public async Task<IActionResult> RemoveWidget(Guid id, Guid widgetId, CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var widget = await _dbContext.DashboardWidgets
                 .FirstOrDefaultAsync(w => w.Id == widgetId && w.DashboardId == id && w.Dashboard.UserId == userId, ct);
             if (widget is null)

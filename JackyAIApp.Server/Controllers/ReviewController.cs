@@ -24,20 +24,20 @@ namespace JackyAIApp.Server.Controllers
         private readonly ILogger<ReviewController> _logger;
         private readonly IMyResponseFactory _responseFactory;
         private readonly AzureSQLDBContext _dbContext;
-        private readonly IUserService _userService;
+        private readonly ICurrentUser _currentUser;
         private readonly ISpacedRepetitionService _srs;
 
         public ReviewController(
             ILogger<ReviewController> logger,
             IMyResponseFactory responseFactory,
             AzureSQLDBContext dbContext,
-            IUserService userService,
+            ICurrentUser currentUser,
             ISpacedRepetitionService srs)
         {
             _logger = logger;
             _responseFactory = responseFactory;
             _dbContext = dbContext;
-            _userService = userService;
+            _currentUser = currentUser;
             _srs = srs;
         }
 
@@ -48,10 +48,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("due")]
         public async Task<IActionResult> GetDueReviews()
         {
-            var userId = _userService.GetUserId();
-            if (userId == null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "User not found.");
-
+            var userId = _currentUser.RequireId();
             var today = DateTime.UtcNow.Date;
 
             var dueWords = await _dbContext.UserWords
@@ -98,10 +95,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("submit")]
         public async Task<IActionResult> SubmitReviews([FromBody] ReviewSubmitRequest request)
         {
-            var userId = _userService.GetUserId();
-            if (userId == null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "User not found.");
-
+            var userId = _currentUser.RequireId();
             if (request.Reviews == null || !request.Reviews.Any())
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "No reviews provided.");
 
@@ -148,10 +142,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("count")]
         public async Task<IActionResult> GetDueCount()
         {
-            var userId = _userService.GetUserId();
-            if (userId == null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "User not found.");
-
+            var userId = _currentUser.RequireId();
             var today = DateTime.UtcNow.Date;
             var count = await _dbContext.UserWords
                 .Where(uw => uw.UserId == userId)

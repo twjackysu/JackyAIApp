@@ -56,8 +56,8 @@ namespace JackyAIApp.Server.Tests.Services
         private static DailyChallengeService CreateService(
             AzureSQLDBContext db, IDailyChallengeQuestionGenerator? generator = null)
         {
-            var user = new Mock<IUserService>();
-            user.Setup(u => u.GetUserId()).Returns(UserId);
+            var user = new Mock<ICurrentUser>();
+            user.Setup(u => u.Id).Returns(UserId);
             return new DailyChallengeService(db, user.Object, generator ?? new DailyChallengeQuestionGenerator());
         }
 

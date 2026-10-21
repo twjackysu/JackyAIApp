@@ -19,20 +19,20 @@ namespace JackyAIApp.Server.Services.OpenAI
         private readonly IOpenAIService _openAIService;
         private readonly IPromptLoader _promptLoader;
         private readonly IAiUsageLogger _usageLogger;
-        private readonly IUserService _userService;
+        private readonly ICurrentUser _currentUser;
         private readonly ILogger<OpenAIPromptService> _logger;
 
         public OpenAIPromptService(
             IOpenAIService openAIService,
             IPromptLoader promptLoader,
             IAiUsageLogger usageLogger,
-            IUserService userService,
+            ICurrentUser currentUser,
             ILogger<OpenAIPromptService> logger)
         {
             _openAIService = openAIService ?? throw new ArgumentNullException(nameof(openAIService));
             _promptLoader = promptLoader ?? throw new ArgumentNullException(nameof(promptLoader));
             _usageLogger = usageLogger ?? throw new ArgumentNullException(nameof(usageLogger));
-            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -158,7 +158,7 @@ namespace JackyAIApp.Server.Services.OpenAI
                         usage.PromptTokens,
                         usage.CompletionTokens ?? 0,
                         completionResult.Successful,
-                        _userService.GetUserId());
+                        _currentUser.Id);
                 }
 
                 if (!completionResult.Successful)
@@ -217,7 +217,7 @@ namespace JackyAIApp.Server.Services.OpenAI
                     TimestampGranularities = [TimestampGranularityType.Word]
                 });
 
-                await _usageLogger.LogWhisperAsync(Models.WhisperV1, response.Successful, _userService.GetUserId());
+                await _usageLogger.LogWhisperAsync(Models.WhisperV1, response.Successful, _currentUser.Id);
 
                 if (!response.Successful)
                 {

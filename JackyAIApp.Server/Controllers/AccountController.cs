@@ -13,11 +13,11 @@ namespace JackyAIApp.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AccountController(ILogger<AccountController> logger, AzureSQLDBContext DBContext, IUserService userService, IMyResponseFactory responseFactory, IDrawdownBrakeAccess drawdownBrakeAccess) : ControllerBase
+    public class AccountController(ILogger<AccountController> logger, AzureSQLDBContext DBContext, ICurrentUser currentUser, IMyResponseFactory responseFactory, IDrawdownBrakeAccess drawdownBrakeAccess) : ControllerBase
     {
         private readonly ILogger<AccountController> _logger = logger;
         private readonly AzureSQLDBContext _DBContext = DBContext;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
 
         [HttpGet("login/{provider}")]
@@ -61,15 +61,15 @@ namespace JackyAIApp.Server.Controllers
                 ? stored
                 : "/";
 
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.Id;
             var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null && userId != null)
             {
                 user = new User()
                 {
                     Id = userId,
-                    Name = _userService.GetUserName(),
-                    Email = _userService.GetUserEmail(),
+                    Name = _currentUser.Name,
+                    Email = _currentUser.Email,
                     LastUpdated = DateTime.UtcNow,
                 };
                 _DBContext.Users.Add(user);
@@ -85,7 +85,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.Id;
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             _logger.LogInformation("User logged out: {UserId}", userId);
             return NoContent();
@@ -94,7 +94,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("info")]
         public async Task<IActionResult> GetUserInfo()
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.Id;
             if (string.IsNullOrEmpty(userId))
             {
                 return Unauthorized(new { error = "Not authenticated" });
@@ -105,7 +105,8 @@ namespace JackyAIApp.Server.Controllers
 
             if (user == null)
             {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "User not found.");
+                var missing = UserAccountFailures.Missing;
+                return _responseFactory.CreateErrorResponse(missing.Error, missing.Message);
             }
 
             user.DrawdownBrakeEnabled = drawdownBrakeAccess.IsEnabledFor(user.IsAdmin);

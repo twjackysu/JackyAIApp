@@ -35,7 +35,7 @@ namespace JackyAIApp.Server.Extensions
             services.AddHttpContextAccessor();
             services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
             services.AddScoped<IMyResponseFactory, ResponseFactory>();
-            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<ICurrentUser, CurrentUser>();
             services.Configure<UsageLimitOptions>(configuration.GetSection(UsageLimitOptions.SectionName));
             services.AddScoped<UsageLedger>();
             services.AddScoped<IUsageLimitService, UsageLimitService>();

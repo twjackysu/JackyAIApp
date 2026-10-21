@@ -16,7 +16,7 @@ namespace JackyAIApp.Server.Controllers
     public class ChatbotController(
         ILogger<ChatbotController> logger,
         IMyResponseFactory responseFactory,
-        IUserService userService,
+        ICurrentUser currentUser,
         IAnthropicChatService chatService,
         IUsageLimitService usageLimitService,
         UsageLedger usageLedger,
@@ -30,7 +30,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IAnthropicFileStore _anthropicFiles = anthropicFiles;
         private readonly ILogger<ChatbotController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly IAnthropicChatService _chatService = chatService;
         private readonly IUsageLimitService _usageLimitService = usageLimitService;
         private readonly UsageLedger _usageLedger = usageLedger;
@@ -50,13 +50,7 @@ namespace JackyAIApp.Server.Controllers
                 return;
             }
 
-            var userId = _userService.GetUserId();
-            if (string.IsNullOrEmpty(userId))
-            {
-                Response.StatusCode = 401;
-                await Response.WriteAsync("Not authenticated.");
-                return;
-            }
+            var userId = _currentUser.RequireId();
             _logger.LogInformation("User {UserId} started chat", userId);
 
             // Only the caller's own uploads that have not been sent yet; an id that is someone
@@ -148,9 +142,7 @@ namespace JackyAIApp.Server.Controllers
         [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadBytes + 64 * 1024)]
         public async Task<IActionResult> UploadAttachment(IFormFile? file, CancellationToken ct = default)
         {
-            var userId = _userService.GetUserId();
-            if (string.IsNullOrEmpty(userId))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+            var userId = _currentUser.RequireId();
             if (file == null || file.Length == 0)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "A file is required.");
 
@@ -269,10 +261,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpDelete("attachments/{attachmentId:long}")]
         public async Task<IActionResult> DeleteAttachment(long attachmentId, CancellationToken ct = default)
         {
-            var userId = _userService.GetUserId();
-            if (string.IsNullOrEmpty(userId))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var attachment = await _dbContext.ChatAttachments
                 .FirstOrDefaultAsync(a => a.Id == attachmentId && a.UserId == userId && a.MessageId == null, ct);
             if (attachment == null)
@@ -292,10 +281,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("attachments/{attachmentId:long}/content")]
         public async Task<IActionResult> GetAttachmentContent(long attachmentId, CancellationToken ct = default)
         {
-            var userId = _userService.GetUserId();
-            if (string.IsNullOrEmpty(userId))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var attachment = await _dbContext.ChatAttachments
                 .Where(a => a.Id == attachmentId && a.UserId == userId && a.BlobName != null)
                 .Select(a => new { a.BlobName, a.MediaType })
@@ -315,10 +301,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("conversations")]
         public async Task<IActionResult> GetConversations(CancellationToken ct = default)
         {
-            var userId = _userService.GetUserId();
-            if (string.IsNullOrEmpty(userId))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var result = await _dbContext.ChatConversations
                 .Where(c => c.UserId == userId)
                 .OrderByDescending(c => c.UpdatedAt)
@@ -340,9 +323,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("conversations/{conversationId}/messages")]
         public async Task<IActionResult> GetConversationMessages(string conversationId, CancellationToken ct = default)
         {
-            var userId = _userService.GetUserId();
-            if (string.IsNullOrEmpty(userId))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+            var userId = _currentUser.RequireId();
             if (string.IsNullOrWhiteSpace(conversationId))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "conversationId is required.");
 
@@ -386,10 +367,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("conversations/{conversationId}/stop")]
         public IActionResult StopConversation(string conversationId)
         {
-            var userId = _userService.GetUserId();
-            if (string.IsNullOrEmpty(userId))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var stopped = _turns.Stop(userId, conversationId);
             _logger.LogInformation("User {UserId} stopped conversation {ConversationId} (running: {Stopped})",
                 userId, conversationId, stopped);
@@ -400,9 +378,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpDelete("conversations/{conversationId}")]
         public async Task<IActionResult> DeleteConversation(string conversationId, CancellationToken ct = default)
         {
-            var userId = _userService.GetUserId();
-            if (string.IsNullOrEmpty(userId))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+            var userId = _currentUser.RequireId();
             if (string.IsNullOrWhiteSpace(conversationId))
                 return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "conversationId is required.");
 

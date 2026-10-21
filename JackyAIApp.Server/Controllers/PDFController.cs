@@ -12,12 +12,12 @@ namespace JackyAIApp.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class PDFController(ILogger<PDFController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, IUserService userService, IExtendedMemoryCache memoryCache) : ControllerBase
+    public class PDFController(ILogger<PDFController> logger, IOptionsMonitor<Settings> settings, IMyResponseFactory responseFactory, ICurrentUser currentUser, IExtendedMemoryCache memoryCache) : ControllerBase
     {
         private readonly ILogger<PDFController> _logger = logger;
         private readonly IOptionsMonitor<Settings> _settings = settings;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         [HttpPost("unlock")]
         public async Task<IActionResult> UnlockPdf(IFormFile pdfFile, [FromForm] string password)

@@ -7,12 +7,8 @@ namespace JackyAIApp.Server.Common
         /// <summary>
         /// Turns a <see cref="ServiceResult{T}"/> into the HTTP response it describes.
         ///
-        /// Lives as an extension on the factory rather than on a controller base class because the
-        /// controllers that need it do not share one base: two already derive from
-        /// <see cref="ApiControllerBase"/> and four from <c>ControllerBase</c>. Putting it on a base
-        /// would also mean giving that base a constructor parameter, which would shut out
-        /// controllers that want <see cref="ApiControllerBase.CurrentUserId"/> but have no response
-        /// factory of their own.
+        /// Lives as an extension on the factory rather than on a controller base class, so any
+        /// controller with a response factory can use it without deriving from anything.
         /// </summary>
         public static IActionResult ToActionResult<T>(this IMyResponseFactory responseFactory, ServiceResult<T> result) =>
             result.IsSuccess

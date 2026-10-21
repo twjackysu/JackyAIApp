@@ -12,26 +12,26 @@ namespace JackyAIApp.Server.Services.Repository
     public class RepositoryService(
         ILogger<RepositoryService> logger,
         AzureSQLDBContext dbContext,
-        IUserService userService,
+        ICurrentUser currentUser,
         IDictionaryService dictionaryService,
         IExtendedMemoryCache memoryCache) : IRepositoryService
     {
         private readonly ILogger<RepositoryService> _logger = logger;
         private readonly AzureSQLDBContext _dbContext = dbContext;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly IDictionaryService _dictionaryService = dictionaryService;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
 
         public async Task<ServiceResult<List<DTO.Word>>> GetWordsAsync(int pageNumber, int pageSize)
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
             var cacheKey = $"GetWords_{userId}_Page_{pageNumber}_Size_{pageSize}";
             if (!_memoryCache.TryGetValue(cacheKey, out List<DTO.Word>? result))
             {
                 var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
                 if (user == null)
                 {
-                    return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                    return UserAccountFailures.Missing;
                 }
 
                 var sqlWords = await _dbContext.UserWords
@@ -58,7 +58,7 @@ namespace JackyAIApp.Server.Services.Repository
 
         public async Task<ServiceResult<DTO.Word?>> GetWordAsync(string wordId)
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
             var cacheKey = $"GetWords_{userId}_WordId_{wordId}";
             if (!_memoryCache.TryGetValue(cacheKey, out DTO.Word? result))
             {
@@ -97,13 +97,13 @@ namespace JackyAIApp.Server.Services.Repository
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "The word ID is invalid.");
             }
 
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
 
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
 
             if (user == null)
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                return UserAccountFailures.Missing;
             }
 
             var alreadyAdded = await _dbContext.UserWords
@@ -118,7 +118,7 @@ namespace JackyAIApp.Server.Services.Repository
 
             await _dbContext.UserWords.AddAsync(new UserWord
             {
-                UserId = userId!,
+                UserId = userId,
                 WordId = wordId,
                 DateAdded = DateTime.UtcNow
             });
@@ -168,11 +168,11 @@ namespace JackyAIApp.Server.Services.Repository
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Unknown word pack.");
             }
 
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                return UserAccountFailures.Missing;
             }
 
             int added = 0, alreadyHad = 0, failed = 0;
@@ -201,7 +201,7 @@ namespace JackyAIApp.Server.Services.Repository
 
                 await _dbContext.UserWords.AddAsync(new UserWord
                 {
-                    UserId = userId!,
+                    UserId = userId,
                     WordId = dto.Id,
                     DateAdded = DateTime.UtcNow,
                 });
@@ -234,7 +234,7 @@ namespace JackyAIApp.Server.Services.Repository
                     {
                         await _dbContext.UserWords.AddAsync(new UserWord
                         {
-                            UserId = userId!,
+                            UserId = userId,
                             WordId = wordId,
                             DateAdded = DateTime.UtcNow,
                         });
@@ -267,7 +267,7 @@ namespace JackyAIApp.Server.Services.Repository
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "The word ID is invalid.");
             }
 
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
 
             // Every matching row, not SingleOrDefault: that threw on the duplicates a double click
             // could leave before (UserId, WordId) was unique, so such a word could never be removed.

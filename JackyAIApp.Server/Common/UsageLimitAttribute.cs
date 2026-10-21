@@ -30,11 +30,11 @@ namespace JackyAIApp.Server.Common
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
             var services = context.HttpContext.RequestServices;
-            var userService = services.GetRequiredService<IUserService>();
+            var currentUser = services.GetRequiredService<ICurrentUser>();
             var usageLimitService = services.GetRequiredService<IUsageLimitService>();
             var responseFactory = services.GetRequiredService<IMyResponseFactory>();
 
-            var userId = userService.GetUserId();
+            var userId = currentUser.Id;
             if (string.IsNullOrEmpty(userId))
             {
                 context.Result = responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not signed in.");

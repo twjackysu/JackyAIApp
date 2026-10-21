@@ -5,6 +5,7 @@ using DataAnalysisLibrary.Core.Engine;
 using DataAnalysisLibrary.Core.Enums;
 using DataAnalysisLibrary.Core.Models.Requests;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Tests.TestHelpers;
 using JackyAIApp.Server.Controllers;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
@@ -85,15 +86,18 @@ namespace JackyAIApp.Server.Tests.Controllers
         };
 
         private static DataAnalysisController Controller(
-            AzureSQLDBContext? db = null, IDataSourceConfigService? configService = null, string? userId = null) =>
-            new(NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
+            AzureSQLDBContext? db = null, IDataSourceConfigService? configService = null, string? userId = null)
+        {
+            var http = As(userId);
+            return new(NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
                 new DataSourceResolver(FailingEngine(), db!, configService!, NullLogger<DataSourceResolver>.Instance),
                 dbContext: db!, configService: configService!, sessionStore: null!,
                 openAIPromptService: null!, promptLoader: null!, nlPlanner: null!,
-                cache: new MemoryCache(new MemoryCacheOptions()))
+                cache: new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Of(http))
             {
-                ControllerContext = new ControllerContext { HttpContext = As(userId) },
+                ControllerContext = new ControllerContext { HttpContext = http },
             };
+        }
 
         private static SummarizeRequestDto Plan(Guid? sourceId = null) => new()
         {
@@ -222,7 +226,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             var controller = new DashboardController(
                 NullLogger<DashboardController>.Instance, ResponseFactory().Object, db,
                 new DataSourceResolver(FailingEngine(), db, null!, NullLogger<DataSourceResolver>.Instance),
-                configService: null!, cache: new MemoryCache(new MemoryCacheOptions()))
+                configService: null!, cache: new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Anonymous)
             {
                 ControllerContext = new ControllerContext { HttpContext = As(null) },
             };

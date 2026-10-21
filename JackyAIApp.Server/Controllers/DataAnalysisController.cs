@@ -37,8 +37,10 @@ namespace JackyAIApp.Server.Controllers
         IOpenAIPromptService openAIPromptService,
         IPromptLoader promptLoader,
         INlQueryPlanner nlPlanner,
-        IMemoryCache cache) : ApiControllerBase
+        IMemoryCache cache,
+        ICurrentUser currentUser) : ControllerBase
     {
+        private readonly ICurrentUser                    _currentUser           = currentUser;
         private readonly ILogger<DataAnalysisController> _logger               = logger;
         private readonly IMyResponseFactory              _responseFactory       = responseFactory;
         private readonly IDataSourceResolver             _resolver              = resolver;
@@ -68,7 +70,7 @@ namespace JackyAIApp.Server.Controllers
             QueryContextDto? ctx, CancellationToken ct)
         {
             // A live query resolves the source as the signed-in caller (the record's owner).
-            var (source, status, message) = await _resolver.ResolveAsync(ctx?.SourceId, ctx?.TableName, CurrentUserId, ct);
+            var (source, status, message) = await _resolver.ResolveAsync(ctx?.SourceId, ctx?.TableName, _currentUser.Id, ct);
             return status switch
             {
                 DataSourceResolution.Ok => (source, null),
@@ -124,10 +126,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("sources")]
         public async Task<IActionResult> GetSources(CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var sources = await _dbContext.DataSourceConfigs
                 .Where(s => s.UserId == userId)
                 .OrderBy(s => s.CreatedAt)
@@ -142,10 +141,7 @@ namespace JackyAIApp.Server.Controllers
             [FromBody] SaveDataSourceConfigDto dto,
             CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             string configJson;
             try
             {
@@ -180,10 +176,7 @@ namespace JackyAIApp.Server.Controllers
             [FromBody] SaveDataSourceConfigDto dto,
             CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var entity = await _dbContext.DataSourceConfigs
                 .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId, ct);
             if (entity is null)
@@ -217,10 +210,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpDelete("sources/{id:guid}")]
         public async Task<IActionResult> DeleteSource(Guid id, CancellationToken ct = default)
         {
-            var userId = CurrentUserId;
-            if (userId is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
-
+            var userId = _currentUser.RequireId();
             var entity = await _dbContext.DataSourceConfigs
                 .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId, ct);
             if (entity is null)
@@ -495,7 +485,7 @@ namespace JackyAIApp.Server.Controllers
             if (summarizePrompt is null)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Prompt configuration error.");
 
-            var userId = CurrentUserId;
+            var userId = _currentUser.Id;
 
             // ── Session data source ────────────────────────────────────────────
             if (!string.IsNullOrWhiteSpace(dto.SessionId))

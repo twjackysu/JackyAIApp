@@ -20,14 +20,14 @@ namespace JackyAIApp.Server.Controllers
         IMyResponseFactory responseFactory,
         IExamService examService,
         ITextToSpeechService ttsService,
-        IUserService userService,
+        ICurrentUser currentUser,
         IListeningQuestionGenerator listeningQuestionGenerator,
         AzureSQLDBContext dbContext) : ControllerBase
     {
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IExamService _examService = examService;
         private readonly ITextToSpeechService _ttsService = ttsService;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly IListeningQuestionGenerator _listeningQuestionGenerator = listeningQuestionGenerator;
         private readonly AzureSQLDBContext _dbContext = dbContext;
 
@@ -210,7 +210,7 @@ namespace JackyAIApp.Server.Controllers
                 return File(cachedAudio, "audio/mpeg");
             }
 
-            var result = await _ttsService.SynthesizeAsync(text, voice, model, speed, _userService.GetUserId());
+            var result = await _ttsService.SynthesizeAsync(text, voice, model, speed, _currentUser.Id);
             return result.Success && result.Audio != null
                 ? File(result.Audio, "audio/mpeg")
                 : _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to generate speech");
@@ -238,12 +238,12 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Admin access required.");
             }
 
-            return _responseFactory.ToActionResult(await _listeningQuestionGenerator.GenerateAsync(_userService.GetUserId()));
+            return _responseFactory.ToActionResult(await _listeningQuestionGenerator.GenerateAsync(_currentUser.Id));
         }
 
         private async Task<bool> IsAdminAsync()
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.Id;
             return !string.IsNullOrEmpty(userId) &&
                 await _dbContext.Users.AnyAsync(u => u.Id == userId && u.IsAdmin == true);
         }

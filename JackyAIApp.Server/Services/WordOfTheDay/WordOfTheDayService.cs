@@ -9,17 +9,17 @@ using SQL = JackyAIApp.Server.Data.Models.SQL;
 namespace JackyAIApp.Server.Services.WordOfTheDay
 {
     public class WordOfTheDayService(
-        IUserService userService,
+        ICurrentUser currentUser,
         IExtendedMemoryCache memoryCache,
         AzureSQLDBContext dbContext) : IWordOfTheDayService
     {
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         private readonly AzureSQLDBContext _dbContext = dbContext;
 
         public async Task<ServiceResult<DTO.Word>> GetWordOfTheDayAsync()
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.Id;
             var cacheKey = $"GetWordOfTheDay_{userId}";
             if (!_memoryCache.TryGetValue(cacheKey, out SQL.Word? result))
             {

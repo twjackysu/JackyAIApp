@@ -13,14 +13,14 @@ namespace JackyAIApp.Server.Services.Exam
     public class ExamService(
         ILogger<ExamService> logger,
         AzureSQLDBContext dbContext,
-        IUserService userService,
+        ICurrentUser currentUser,
         IOpenAIPromptService promptService,
         ISpacedRepetitionService spacedRepetition,
         IEnumerable<IWordExamGenerator> generators) : IExamService
     {
         private readonly ILogger<ExamService> _logger = logger;
         private readonly AzureSQLDBContext _dbContext = dbContext;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly IOpenAIPromptService _promptService = promptService;
         private readonly ISpacedRepetitionService _spacedRepetition = spacedRepetition;
         private readonly IReadOnlyDictionary<ExamType, IWordExamGenerator> _generators =
@@ -31,14 +31,14 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult<object>> GenerateWordExamAsync(ExamType type)
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                return UserAccountFailures.Missing;
             }
 
-            var randomWordId = await GetRandomUserWordIdAsync(userId!);
+            var randomWordId = await GetRandomUserWordIdAsync(userId);
             if (randomWordId == null)
             {
                 return ServiceResult.Fail(ErrorCodes.Forbidden, NoWordsMessage);
@@ -97,7 +97,7 @@ namespace JackyAIApp.Server.Services.Exam
                     "No listening questions are available yet.");
             }
 
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.Id;
             var excludeIds = string.IsNullOrEmpty(userId)
                 ? new HashSet<string>()
                 : await GetRecentAttemptIdsAsync(userId, NoRepeatWindow, a => a.ListeningTestId);
@@ -200,7 +200,7 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult<ListeningResponseTestResponse>> GenerateListeningResponseExamAsync()
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.Id;
             var excludeIds = string.IsNullOrEmpty(userId)
                 ? new HashSet<string>()
                 : await GetRecentAttemptIdsAsync(userId, NoRepeatWindow, a => a.ListeningResponseTestId);
@@ -411,7 +411,7 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult<ReadingPassageResponse>> GenerateReadingExamAsync()
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.Id;
             var excludeIds = string.IsNullOrEmpty(userId)
                 ? new HashSet<string>()
                 : await GetRecentAttemptIdsAsync(userId, NoRepeatWindow, a => a.ReadingPassageId);
@@ -515,15 +515,15 @@ namespace JackyAIApp.Server.Services.Exam
         /// </summary>
         public async Task<ServiceResult<WritingPromptResponse>> GenerateWritingPromptAsync()
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                return UserAccountFailures.Missing;
             }
 
             var topic = WritingTopics[Random.Shared.Next(WritingTopics.Length)];
-            var words = await GetRandomUserWordsAsync(userId!, 5);
+            var words = await GetRandomUserWordsAsync(userId, 5);
 
             return ServiceResult.Ok(new WritingPromptResponse
             {
@@ -591,14 +591,14 @@ namespace JackyAIApp.Server.Services.Exam
         /// </summary>
         public async Task<ServiceResult<DictationPromptResponse>> GenerateDictationExamAsync()
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                return UserAccountFailures.Missing;
             }
 
-            var wordId = await GetRandomUserWordIdAsync(userId!);
+            var wordId = await GetRandomUserWordIdAsync(userId);
             if (wordId == null)
             {
                 return ServiceResult.Fail(ErrorCodes.Forbidden, NoWordsMessage);
@@ -723,11 +723,11 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult<ConversationStartResponse>> StartConversationAsync(ConversationStartRequest request)
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                return UserAccountFailures.Missing;
             }
 
             if (request == null || string.IsNullOrEmpty(request.Scenario) ||
@@ -766,11 +766,11 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Invalid conversation request.");
             }
 
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                return UserAccountFailures.Missing;
             }
 
             var (response, error) = await _promptService.GetCompletionAsync<ConversationResponseResponse>(
@@ -813,11 +813,11 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult<WhisperTranscriptionResponse>> TranscribeAudioAsync(Stream audioStream, string fileName)
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.RequireId();
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                return UserAccountFailures.Missing;
             }
 
             var (result, error) = await _promptService.TranscribeAudioAsync(audioStream, fileName);
@@ -882,12 +882,7 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult<RecordExamResultResponse>> RecordExamResultAsync(RecordExamResultRequest request)
         {
-            var userId = _userService.GetUserId();
-            if (string.IsNullOrEmpty(userId))
-            {
-                return ServiceResult.Fail(ErrorCodes.Unauthorized, "Not signed in.");
-            }
-
+            var userId = _currentUser.RequireId();
             if (request == null || string.IsNullOrEmpty(request.ExamType))
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "ExamType is required.");

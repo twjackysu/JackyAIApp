@@ -4,6 +4,7 @@ using DataAnalysisLibrary.Core.Engine;
 using DataAnalysisLibrary.Core.Enums;
 using DataAnalysisLibrary.Core.Models.Requests;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Tests.TestHelpers;
 using JackyAIApp.Server.Services.DataAnalysis;
 using JackyAIApp.Server.Controllers;
 using JackyAIApp.Server.Data;
@@ -104,7 +105,7 @@ namespace JackyAIApp.Server.Tests.Controllers
                 dbContext: null!, configService: null!, sessionStore: null!,
                 openAIPromptService: openAI ?? null!, promptLoader: prompts.Object,
                 nlPlanner: new NlQueryPlanner(NullLogger<NlQueryPlanner>.Instance, openAI ?? null!),
-                cache: cache ?? new MemoryCache(new MemoryCacheOptions()));
+                cache: cache ?? new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Anonymous);
             var http = new DefaultHttpContext();
             http.Response.Body = new MemoryStream();
             controller.ControllerContext = new ControllerContext { HttpContext = http };
@@ -394,7 +395,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             var controller = new DashboardController(
                 NullLogger<DashboardController>.Instance, ResponseFactory().Object, db,
                 new DataSourceResolver(_engine, db, null!, NullLogger<DataSourceResolver>.Instance),
-                configService: null!, cache: new MemoryCache(new MemoryCacheOptions()))
+                configService: null!, cache: new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Anonymous)
             {
                 ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
             };

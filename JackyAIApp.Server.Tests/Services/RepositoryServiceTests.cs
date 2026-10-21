@@ -46,8 +46,8 @@ namespace JackyAIApp.Server.Tests.Services
 
         private RepositoryService CreateService(AzureSQLDBContext db)
         {
-            var user = new Mock<IUserService>();
-            user.Setup(u => u.GetUserId()).Returns(UserId);
+            var user = new Mock<ICurrentUser>();
+            user.Setup(u => u.Id).Returns(UserId);
             return new RepositoryService(
                 NullLogger<RepositoryService>.Instance, db, user.Object, _dictionary.Object,
                 new Mock<IExtendedMemoryCache>().Object);

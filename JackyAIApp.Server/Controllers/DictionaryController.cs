@@ -14,12 +14,12 @@ namespace JackyAIApp.Server.Controllers
         IMyResponseFactory responseFactory,
         IDictionaryService dictionaryService,
         AzureSQLDBContext dbContext,
-        IUserService userService) : ControllerBase
+        ICurrentUser currentUser) : ControllerBase
     {
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IDictionaryService _dictionaryService = dictionaryService;
         private readonly AzureSQLDBContext _dbContext = dbContext;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
 
         // Anonymous lookup is intentional — the dictionary is browsable without login.
         [HttpGet("{word}", Name = "Search word")]
@@ -39,7 +39,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPut("{word}/invalid", Name = "Make a word invalid")]
         public async Task<IActionResult> Invalid(string word)
         {
-            var userId = _userService.GetUserId();
+            var userId = _currentUser.Id;
             var isAdmin = !string.IsNullOrEmpty(userId) &&
                 await _dbContext.Users.AnyAsync(u => u.Id == userId && u.IsAdmin == true);
             if (!isAdmin)
