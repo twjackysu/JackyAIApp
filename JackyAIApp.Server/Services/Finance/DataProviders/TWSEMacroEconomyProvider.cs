@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
@@ -164,35 +165,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                if (_cache.TryGetValue("macro_FX", out List<ExchangeRate>? cached))
-                    return cached;
-
-                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
-                var csv = await client.GetStringAsync(BOT_FX_URL, ct);
-                var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-
-                var rates = new List<ExchangeRate>();
-                foreach (var line in lines.Skip(1)) // skip header
-                {
-                    var cols = line.Split(',');
-                    if (cols.Length < 13) continue;
-
-                    var currency = cols[0].Trim();
-                    if (!KeyCurrencies.ContainsKey(currency)) continue;
-
-                    rates.Add(new ExchangeRate
-                    {
-                        Currency = currency,
-                        DisplayName = KeyCurrencies[currency],
-                        BuyRate = ParseDec(cols[3]),   // 即期買入
-                        SellRate = ParseDec(cols[13]),  // 即期賣出
-                    });
-                }
-
-                if (rates.Count > 0)
-                    _cache.Set("macro_FX", rates, TimeSpan.FromHours(CACHE_HOURS));
-
-                return rates;
+                // An empty list (none of the key currencies parsed) is returned but not cached.
+                return await _cache.GetOrCreateSingleFlightAsync("macro_FX", TimeSpan.FromHours(CACHE_HOURS),
+                    FetchExchangeRatesUncachedAsync, ct, shouldCache: rates => rates.Count > 0);
             }
             catch (Exception ex)
             {
@@ -201,42 +176,41 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
         }
 
+        private async Task<List<ExchangeRate>> FetchExchangeRatesUncachedAsync()
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var ct = CancellationToken.None;
+            var client = _httpClientFactory.CreateClient("ExternalReadOnly");
+            var csv = await client.GetStringAsync(BOT_FX_URL, ct);
+            var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            var rates = new List<ExchangeRate>();
+            foreach (var line in lines.Skip(1)) // skip header
+            {
+                var cols = line.Split(',');
+                if (cols.Length < 13) continue;
+
+                var currency = cols[0].Trim();
+                if (!KeyCurrencies.ContainsKey(currency)) continue;
+
+                rates.Add(new ExchangeRate
+                {
+                    Currency = currency,
+                    DisplayName = KeyCurrencies[currency],
+                    BuyRate = ParseDec(cols[3]),   // 即期買入
+                    SellRate = ParseDec(cols[13]),  // 即期賣出
+                });
+            }
+
+            return rates;
+        }
+
         private async Task<BankRate?> FetchBankRates(CancellationToken ct)
         {
             try
             {
-                if (_cache.TryGetValue("macro_BankRate", out BankRate? cached))
-                    return cached;
-
-                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
-                var csv = await client.GetStringAsync(CBC_RATE_URL, ct);
-                var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-
-                // Find the latest entry for a major bank (臺灣銀行 or 第一銀行)
-                BankRate? result = null;
-                foreach (var line in lines.Skip(1).Reverse())
-                {
-                    var cols = line.Split(',');
-                    if (cols.Length < 31) continue;
-
-                    var bank = cols[0].Trim();
-                    if (bank != "臺灣銀行" && bank != "第一銀行") continue;
-
-                    result = new BankRate
-                    {
-                        BankName = bank,
-                        Period = cols[1].Trim(),
-                        OneYearFixed = ParseDec(cols[14]),      // 定存一年期固定
-                        OneYearFloating = ParseDec(cols[15]),   // 定存一年期機動
-                        BaseLendingRate = ParseDec(cols[30]),   // 基準利率
-                    };
-                    break;
-                }
-
-                if (result != null)
-                    _cache.Set("macro_BankRate", result, TimeSpan.FromHours(CACHE_HOURS));
-
-                return result;
+                return await _cache.GetOrCreateSingleFlightAsync("macro_BankRate", TimeSpan.FromHours(CACHE_HOURS),
+                    FetchBankRatesUncachedAsync, ct);
             }
             catch (Exception ex)
             {
@@ -245,25 +219,53 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
         }
 
-        // === Helpers ===
-
-        private async Task<T?> FetchJsonCached<T>(string url, string cacheKey, CancellationToken ct) where T : class
+        private async Task<BankRate?> FetchBankRatesUncachedAsync()
         {
-            if (_cache.TryGetValue(cacheKey, out T? cached))
-                return cached;
-
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var ct = CancellationToken.None;
             var client = _httpClientFactory.CreateClient("ExternalReadOnly");
-            var response = await client.GetAsync(url, ct);
-            response.EnsureSuccessStatusCode();
+            var csv = await client.GetStringAsync(CBC_RATE_URL, ct);
+            var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-            var json = await response.Content.ReadAsStringAsync(ct);
-            var result = JsonSerializer.Deserialize<T>(json);
+            // Find the latest entry for a major bank (臺灣銀行 or 第一銀行)
+            BankRate? result = null;
+            foreach (var line in lines.Skip(1).Reverse())
+            {
+                var cols = line.Split(',');
+                if (cols.Length < 31) continue;
 
-            if (result != null)
-                _cache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
+                var bank = cols[0].Trim();
+                if (bank != "臺灣銀行" && bank != "第一銀行") continue;
+
+                result = new BankRate
+                {
+                    BankName = bank,
+                    Period = cols[1].Trim(),
+                    OneYearFixed = ParseDec(cols[14]),      // 定存一年期固定
+                    OneYearFloating = ParseDec(cols[15]),   // 定存一年期機動
+                    BaseLendingRate = ParseDec(cols[30]),   // 基準利率
+                };
+                break;
+            }
 
             return result;
         }
+
+        // === Helpers ===
+
+        /// <summary>A market-wide document, fetched once for a burst of callers. A failed fetch throws
+        /// and a null body answers null; neither is cached.</summary>
+        private Task<T?> FetchJsonCached<T>(string url, string cacheKey, CancellationToken ct) where T : class =>
+            _cache.GetOrCreateSingleFlightAsync(cacheKey, TimeSpan.FromHours(CACHE_HOURS), async () =>
+            {
+                // Shared by every caller waiting on it, so no one caller's token may stop it.
+                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
+                var response = await client.GetAsync(url, CancellationToken.None);
+                response.EnsureSuccessStatusCode();
+
+                var json = await response.Content.ReadAsStringAsync(CancellationToken.None);
+                return JsonSerializer.Deserialize<T>(json);
+            }, ct);
 
         private static string GetStr(JsonElement el, string prop)
         {

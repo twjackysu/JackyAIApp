@@ -1,6 +1,6 @@
+using Microsoft.Extensions.Caching.Memory;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Controllers;
 using JackyAIApp.Server.DTO.Finance;
@@ -116,7 +116,7 @@ namespace JackyAIApp.Server.Tests.Controllers
 
         private static MarketDataQueryService QueryServiceOver(IMarketIndexHistoryProvider history) => new(
             NullLogger<MarketDataQueryService>.Instance,
-            new Mock<IExtendedMemoryCache>().Object,
+            new MemoryCache(new MemoryCacheOptions()),
             new Mock<IMacroEconomyProvider>().Object,
             new Mock<IMarketOverviewProvider>().Object,
             history,

@@ -1,4 +1,4 @@
-using DotnetSdkUtilities.Services;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Speech
 {
@@ -21,7 +21,7 @@ namespace JackyAIApp.Server.Services.Speech
         public static string Key(string text, string voice, string model, float speed) =>
             $"tts_{model}_{voice}_{speed}_{text}";
 
-        public static bool TryGet(IExtendedMemoryCache cache, string text, string voice, string model, float speed, out byte[]? audio)
+        public static bool TryGet(IMemoryCache cache, string text, string voice, string model, float speed, out byte[]? audio)
         {
             if (cache.TryGetValue(Key(text, voice, model, speed), out object? cached) && cached is byte[] cachedAudio)
             {
@@ -32,7 +32,7 @@ namespace JackyAIApp.Server.Services.Speech
             return false;
         }
 
-        public static void Set(IExtendedMemoryCache cache, string text, string voice, string model, float speed, byte[] audio) =>
+        public static void Set(IMemoryCache cache, string text, string voice, string model, float speed, byte[] audio) =>
             cache.Set(Key(text, voice, model, speed), audio, Ttl);
     }
 }

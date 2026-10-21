@@ -1,4 +1,4 @@
-using DotnetSdkUtilities.Services;
+using JackyAIApp.Server.Common;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Finance
@@ -10,12 +10,12 @@ namespace JackyAIApp.Server.Services.Finance
     {
         private readonly HttpClient _httpClient;
         private readonly ILogger<TWSEDataService> _logger;
-        private readonly IExtendedMemoryCache _memoryCache;
+        private readonly IMemoryCache _memoryCache;
 
         public TWSEDataService(
             IHttpClientFactory httpClientFactory,
             ILogger<TWSEDataService> logger,
-            IExtendedMemoryCache memoryCache)
+            IMemoryCache memoryCache)
         {
             _httpClient = httpClientFactory?.CreateClient("ExternalReadOnly") ?? throw new ArgumentNullException(nameof(httpClientFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -28,14 +28,16 @@ namespace JackyAIApp.Server.Services.Finance
         public async Task<string> GetRawMaterialInfoWithCacheAsync(CancellationToken cancellationToken = default)
         {
             var today = DateTime.Today.ToString("yyyyMMdd");
-            var apiCacheKey = $"twse_raw_data_{today}";
+            // Daily-published filings; cache 12h to avoid refetching the same data. Empty (the fetch
+            // failed) is returned but not cached, so the next call tries again.
+            return await _memoryCache.GetOrCreateSingleFlightAsync($"twse_raw_data_{today}", TimeSpan.FromHours(12),
+                FetchRawMaterialInfoAsync, cancellationToken, shouldCache: content => content.Length > 0);
+        }
 
-            // Check cache first
-            if (_memoryCache.TryGetValue(apiCacheKey, out string? cachedData) && !string.IsNullOrEmpty(cachedData))
-            {
-                return cachedData;
-            }
-
+        private async Task<string> FetchRawMaterialInfoAsync()
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var cancellationToken = CancellationToken.None;
             try
             {
                 string apiUrl = "https://openapi.twse.com.tw/v1/opendata/t187ap04_L";
@@ -44,12 +46,7 @@ namespace JackyAIApp.Server.Services.Finance
 
                 if (response.IsSuccessStatusCode)
                 {
-                    string jsonContent = await response.Content.ReadAsStringAsync(cancellationToken);
-
-                    // Daily-published filings; cache 12h to avoid refetching the same data.
-                    _memoryCache.Set(apiCacheKey, jsonContent, TimeSpan.FromHours(12));
-
-                    return jsonContent;
+                    return await response.Content.ReadAsStringAsync(cancellationToken);
                 }
                 else
                 {

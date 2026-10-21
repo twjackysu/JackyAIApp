@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
@@ -287,15 +288,16 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// <summary>
         /// Fetches a TWSE OpenAPI endpoint that returns a JSON array, with caching.
         /// </summary>
-        private async Task<JsonElement?> FetchTWSEArrayAsync(string path, CancellationToken ct)
+        private Task<JsonElement?> FetchTWSEArrayAsync(string path, CancellationToken ct) =>
+            // A market-wide array every stock's analysis reads: one fetch for a burst of them.
+            // Null (failed or empty) is not cached, so the next call tries again.
+            _cache.GetOrCreateSingleFlightAsync(
+                $"TWSE_{path}_{DateTime.Today:yyyyMMdd}", CACHE_DURATION, () => FetchTWSEArrayUncachedAsync(path), ct);
+
+        private async Task<JsonElement?> FetchTWSEArrayUncachedAsync(string path)
         {
-            var cacheKey = $"TWSE_{path}_{DateTime.Today:yyyyMMdd}";
-
-            if (_cache.TryGetValue(cacheKey, out JsonElement? cached) && cached != null)
-            {
-                return cached;
-            }
-
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var ct = CancellationToken.None;
             var url = $"{BASE_URL}/{path}";
             using var httpClient = _httpClientFactory.CreateClient("ExternalReadOnly");
             httpClient.DefaultRequestHeaders.Clear();
@@ -323,7 +325,6 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
 
             var element = doc.RootElement.Clone();
-            _cache.Set(cacheKey, element, CACHE_DURATION);
 
             _logger.LogDebug("Fetched and cached TWSE API {path} ({count} items)",
                 path, element.GetArrayLength());

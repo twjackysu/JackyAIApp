@@ -1,20 +1,20 @@
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.DataProviders;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Finance
 {
     public class MarketDataQueryService(
         ILogger<MarketDataQueryService> logger,
-        IExtendedMemoryCache memoryCache,
+        IMemoryCache memoryCache,
         IMacroEconomyProvider macroEconomyProvider,
         IMarketOverviewProvider marketOverviewProvider,
         IMarketIndexHistoryProvider marketIndexHistoryProvider,
         IIndicatorProvider indicatorProvider) : IMarketDataQueryService
     {
         private readonly ILogger<MarketDataQueryService> _logger = logger;
-        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+        private readonly IMemoryCache _memoryCache = memoryCache;
         private readonly IMacroEconomyProvider _macroEconomyProvider = macroEconomyProvider;
         private readonly IMarketOverviewProvider _marketOverviewProvider = marketOverviewProvider;
         private readonly IMarketIndexHistoryProvider _marketIndexHistoryProvider = marketIndexHistoryProvider;

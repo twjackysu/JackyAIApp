@@ -1,16 +1,16 @@
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Finance
 {
     public class MarketInsightService(
         ILogger<MarketInsightService> logger,
         ICurrentUser currentUser,
-        IExtendedMemoryCache memoryCache,
+        IMemoryCache memoryCache,
         IUsageLimitService usageLimitService,
         IFinnhubNewsProvider finnhubNewsProvider,
         ITWSEDataService twseDataService,
@@ -19,7 +19,7 @@ namespace JackyAIApp.Server.Services.Finance
     {
         private readonly ILogger<MarketInsightService> _logger = logger;
         private readonly ICurrentUser _currentUser = currentUser;
-        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+        private readonly IMemoryCache _memoryCache = memoryCache;
         private readonly IUsageLimitService _usageLimitService = usageLimitService;
         private readonly IFinnhubNewsProvider _finnhubNewsProvider = finnhubNewsProvider;
         private readonly ITWSEDataService _twseDataService = twseDataService;

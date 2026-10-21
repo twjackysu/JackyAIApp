@@ -53,6 +53,18 @@ JackyAIApp.Server/
 - A valid sign-in whose `Users` row is missing returns `UserAccountFailures.Missing` (401, "sign in
   again"): signing in recreates the row
 
+## Caching
+
+- `IMemoryCache` is the only cache (there is no `IExtendedMemoryCache`)
+- A read of shared upstream data goes through `cache.GetOrCreateSingleFlightAsync(key, ttl, factory, ct)`
+  (`Common/CacheExtensions.cs`): concurrent misses for one key share a single `factory` run. Return null
+  for a failure (not cached), and pass `shouldCache` to keep an answer from being cached (an empty list).
+  The factory is shared, so it uses `CancellationToken.None` and no request-scoped disposables (take an
+  `IDbContextFactory` context, not the request's `AzureSQLDBContext`)
+- A cached object is shared by every reader: never modify one in place (copy it first)
+- To drop several entries together, set them with `options.AddExpirationToken(cache.GroupToken(group))`
+  and call `cache.InvalidateGroup(group)`
+
 ## Taipei time and the trading calendar
 
 - Every TWSE rule runs on Taipei time: use `time.GetTaipeiNow()` / `GetTaipeiToday()`

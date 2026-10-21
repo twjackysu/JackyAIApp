@@ -39,19 +39,17 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
 
         public async Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
         {
-            var cacheKey = $"Yahoo_Chart_{stockCode.ToUpperInvariant()}";
-            if (_cache.TryGetValue(cacheKey, out MarketData? cached) && cached != null)
-                return cached;
-
             var symbol = stockCode.ToUpperInvariant();
-            var url = $"{CHART_URL}/{symbol}?range=6mo&interval=1d&includePrePost=false";
-            var result = await FetchUrlAsync(url, symbol, cancellationToken);
-
-            _cache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
-            _logger.LogInformation("Fetched {count} price records for {symbol} from Yahoo Finance",
-                result.HistoricalPrices.Count, symbol);
-
-            return result;
+            // A failed fetch throws and is not cached; the next call tries again.
+            return await _cache.GetOrCreateSingleFlightAsync($"Yahoo_Chart_{symbol}", TimeSpan.FromHours(CACHE_HOURS), async () =>
+            {
+                // Shared by every caller waiting on it, so no one caller's token may stop it.
+                var url = $"{CHART_URL}/{symbol}?range=6mo&interval=1d&includePrePost=false";
+                var result = await FetchUrlAsync(url, symbol, CancellationToken.None);
+                _logger.LogInformation("Fetched {count} price records for {symbol} from Yahoo Finance",
+                    result.HistoricalPrices.Count, symbol);
+                return result;
+            }, cancellationToken);
         }
 
         /// <summary>

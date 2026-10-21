@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
@@ -57,10 +58,15 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
         public async Task<FundamentalData?> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
         {
             var symbol = stockCode.ToUpperInvariant();
-            var cacheKey = $"SEC_Fundamental_{symbol}";
-            if (_cache.TryGetValue(cacheKey, out FundamentalData? cached))
-                return cached;
+            // Null (failed, or nothing SEC reports for it) is not cached, so the next call tries again.
+            return await _cache.GetOrCreateSingleFlightAsync(
+                $"SEC_Fundamental_{symbol}", TimeSpan.FromHours(CACHE_HOURS), () => FetchUncachedAsync(symbol), cancellationToken);
+        }
 
+        private async Task<FundamentalData?> FetchUncachedAsync(string symbol)
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var cancellationToken = CancellationToken.None;
             try
             {
                 // 1. Resolve ticker to CIK
@@ -76,12 +82,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
                 if (facts == null) return null;
 
                 // 3. Extract fundamental data
-                var result = ExtractFundamentals(facts, symbol);
-
-                if (result != null)
-                    _cache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
-
-                return result;
+                return ExtractFundamentals(facts, symbol);
             }
             catch (Exception ex)
             {
@@ -109,37 +110,33 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             return null;
         }
 
-        private async Task<JsonDocument?> FetchTickersCached(CancellationToken ct)
-        {
-            if (_cache.TryGetValue("SEC_Tickers", out JsonDocument? cached))
-                return cached;
+        /// <summary>Every ticker SEC knows: one list for all symbols, so two symbols looked up at once
+        /// share its fetch. A failed fetch throws and is not cached.</summary>
+        private async Task<JsonDocument?> FetchTickersCached(CancellationToken ct) =>
+            await _cache.GetOrCreateSingleFlightAsync("SEC_Tickers", TimeSpan.FromHours(24), async () =>
+            {
+                // Shared by every caller waiting on it, so no one caller's token may stop it.
+                var client = CreateClient();
+                var response = await client.GetAsync(TICKERS_URL, CancellationToken.None);
+                response.EnsureSuccessStatusCode();
 
-            var client = CreateClient();
-            var response = await client.GetAsync(TICKERS_URL, ct);
-            response.EnsureSuccessStatusCode();
-
-            var json = await response.Content.ReadAsStringAsync(ct);
-            var doc = JsonDocument.Parse(json);
-
-            _cache.Set("SEC_Tickers", doc, TimeSpan.FromHours(24));
-            return doc;
-        }
+                var json = await response.Content.ReadAsStringAsync(CancellationToken.None);
+                return JsonDocument.Parse(json);
+            }, ct);
 
         private async Task<JsonElement?> FetchCompanyFacts(string cik, CancellationToken ct)
         {
-            var cacheKey = $"SEC_Facts_{cik}";
-            if (_cache.TryGetValue(cacheKey, out JsonDocument? cached))
-                return cached?.RootElement;
+            var doc = await _cache.GetOrCreateSingleFlightAsync($"SEC_Facts_{cik}", TimeSpan.FromHours(CACHE_HOURS), async () =>
+            {
+                // Shared by every caller waiting on it, so no one caller's token may stop it.
+                var url = string.Format(FACTS_URL, cik);
+                var client = CreateClient();
+                var response = await client.GetAsync(url, CancellationToken.None);
+                response.EnsureSuccessStatusCode();
 
-            var url = string.Format(FACTS_URL, cik);
-            var client = CreateClient();
-            var response = await client.GetAsync(url, ct);
-            response.EnsureSuccessStatusCode();
-
-            var json = await response.Content.ReadAsStringAsync(ct);
-            var doc = JsonDocument.Parse(json);
-
-            _cache.Set(cacheKey, doc, TimeSpan.FromHours(CACHE_HOURS));
+                var json = await response.Content.ReadAsStringAsync(CancellationToken.None);
+                return JsonDocument.Parse(json);
+            }, ct);
             return doc.RootElement;
         }
 

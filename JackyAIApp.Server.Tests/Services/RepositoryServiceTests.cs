@@ -1,5 +1,5 @@
+using Microsoft.Extensions.Caching.Memory;
 using System.Data.Common;
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
@@ -50,7 +50,7 @@ namespace JackyAIApp.Server.Tests.Services
             user.Setup(u => u.Id).Returns(UserId);
             return new RepositoryService(
                 NullLogger<RepositoryService>.Instance, db, user.Object, _dictionary.Object,
-                new Mock<IExtendedMemoryCache>().Object);
+                new MemoryCache(new MemoryCacheOptions()));
         }
 
         private async Task SeedWordsAsync(params string[] ids)

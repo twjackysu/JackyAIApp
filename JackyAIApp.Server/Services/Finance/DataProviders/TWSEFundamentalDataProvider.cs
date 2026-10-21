@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
@@ -216,23 +217,19 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
         }
 
-        private async Task<List<T>?> FetchJsonArrayCached<T>(string url, string cacheKey, CancellationToken ct)
-        {
-            if (_cache.TryGetValue(cacheKey, out List<T>? cached))
-                return cached;
+        /// <summary>A market-wide array, fetched once for a burst of callers. A failed fetch throws
+        /// and a null body answers null; neither is cached.</summary>
+        private Task<List<T>?> FetchJsonArrayCached<T>(string url, string cacheKey, CancellationToken ct) =>
+            _cache.GetOrCreateSingleFlightAsync(cacheKey, TimeSpan.FromHours(CACHE_HOURS), async () =>
+            {
+                // Shared by every caller waiting on it, so no one caller's token may stop it.
+                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
+                var response = await client.GetAsync(url, CancellationToken.None);
+                response.EnsureSuccessStatusCode();
 
-            var client = _httpClientFactory.CreateClient("ExternalReadOnly");
-            var response = await client.GetAsync(url, ct);
-            response.EnsureSuccessStatusCode();
-
-            var json = await response.Content.ReadAsStringAsync(ct);
-            var result = JsonSerializer.Deserialize<List<T>>(json);
-
-            if (result != null)
-                _cache.Set(cacheKey, result, TimeSpan.FromHours(CACHE_HOURS));
-
-            return result;
-        }
+                var json = await response.Content.ReadAsStringAsync(CancellationToken.None);
+                return JsonSerializer.Deserialize<List<T>>(json);
+            }, ct);
 
         private static decimal? ParseDecimal(JsonElement element, string property)
         {

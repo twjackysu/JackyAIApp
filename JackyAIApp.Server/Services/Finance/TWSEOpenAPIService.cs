@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text;
 using System.Text.Json;
@@ -196,14 +197,17 @@ namespace JackyAIApp.Server.Services.Finance
         /// User-Agent is set per-request (not on the shared HttpClient) so concurrent calls are
         /// thread-safe — mutating DefaultRequestHeaders while parallel requests are in flight races.
         /// </summary>
-        private async Task<string> FetchRawWithCacheAsync(string url, string cacheKey, CancellationToken ct)
-        {
-            var datedKey = $"TWSERaw_{cacheKey}_{DateTime.Today:yyyyMMdd}";
-            if (_memoryCache.TryGetValue(datedKey, out string? cached) && !string.IsNullOrEmpty(cached))
-            {
-                return cached;
-            }
+        private Task<string> FetchRawWithCacheAsync(string url, string cacheKey, CancellationToken ct) =>
+            // A blank answer (failed, or an empty body) is returned but not cached, so the next call
+            // tries again.
+            _memoryCache.GetOrCreateSingleFlightAsync($"TWSERaw_{cacheKey}_{DateTime.Today:yyyyMMdd}",
+                TimeSpan.FromHours(CacheHours), () => FetchRawAsync(url, cacheKey), ct,
+                shouldCache: content => !string.IsNullOrWhiteSpace(content));
 
+        private async Task<string> FetchRawAsync(string url, string cacheKey)
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var ct = CancellationToken.None;
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -216,12 +220,7 @@ namespace JackyAIApp.Server.Services.Finance
                     return string.Empty;
                 }
 
-                var content = await response.Content.ReadAsStringAsync(ct);
-                if (!string.IsNullOrWhiteSpace(content))
-                {
-                    _memoryCache.Set(datedKey, content, TimeSpan.FromHours(CacheHours));
-                }
-                return content;
+                return await response.Content.ReadAsStringAsync(ct);
             }
             catch (Exception ex)
             {

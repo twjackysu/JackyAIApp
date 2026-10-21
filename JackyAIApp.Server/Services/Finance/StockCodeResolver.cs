@@ -1,6 +1,7 @@
 using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.AiUsage;
 using Microsoft.Extensions.Caching.Memory;
@@ -93,11 +94,16 @@ namespace JackyAIApp.Server.Services.Finance
             _logger.LogError("OpenAI stock-code resolution failed: {Error}", errorMsg);
         }
 
-        private async Task<List<CompanyInfo>> GetCompanyListAsync(CancellationToken cancellationToken)
-        {
-            if (_memoryCache.TryGetValue(CompanyListCacheKey, out List<CompanyInfo>? cached))
-                return cached ?? [];
+        private Task<List<CompanyInfo>> GetCompanyListAsync(CancellationToken cancellationToken) =>
+            // Every resolution reads the same list: one fetch for a burst of them. An empty list (the
+            // fetch failed, or nothing parsed) is returned but not cached, so the next call tries again.
+            _memoryCache.GetOrCreateSingleFlightAsync(CompanyListCacheKey, TimeSpan.FromHours(24),
+                FetchCompanyListAsync, cancellationToken, shouldCache: companies => companies.Count > 0);
 
+        private async Task<List<CompanyInfo>> FetchCompanyListAsync()
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var cancellationToken = CancellationToken.None;
             try
             {
                 SetUserAgent();
@@ -105,9 +111,7 @@ namespace JackyAIApp.Server.Services.Finance
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    var companies = ParseCompanyList(content);
-                    _memoryCache.Set(CompanyListCacheKey, companies, TimeSpan.FromHours(24));
-                    return companies;
+                    return ParseCompanyList(content);
                 }
             }
             catch (Exception ex)

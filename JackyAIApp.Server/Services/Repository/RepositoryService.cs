@@ -1,4 +1,3 @@
-using DotnetSdkUtilities.Services;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
@@ -14,13 +13,21 @@ namespace JackyAIApp.Server.Services.Repository
         AzureSQLDBContext dbContext,
         ICurrentUser currentUser,
         IDictionaryService dictionaryService,
-        IExtendedMemoryCache memoryCache) : IRepositoryService
+        IMemoryCache memoryCache) : IRepositoryService
     {
         private readonly ILogger<RepositoryService> _logger = logger;
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly ICurrentUser _currentUser = currentUser;
         private readonly IDictionaryService _dictionaryService = dictionaryService;
-        private readonly IExtendedMemoryCache _memoryCache = memoryCache;
+        private readonly IMemoryCache _memoryCache = memoryCache;
+
+        /// <summary>A user's cached word list and word lookups, dropped together whenever the list
+        /// changes (<see cref="CacheExtensions.InvalidateGroup(IMemoryCache, string)"/>).</summary>
+        private static string WordsGroup(string userId) => $"GetWords_{userId}";
+
+        private MemoryCacheEntryOptions WordsEntry(string userId) => new MemoryCacheEntryOptions()
+            .SetAbsoluteExpiration(TimeSpan.FromDays(1))
+            .AddExpirationToken(_memoryCache.GroupToken(WordsGroup(userId)));
 
         public async Task<ServiceResult<List<DTO.Word>>> GetWordsAsync(int pageNumber, int pageSize)
         {
@@ -51,7 +58,7 @@ namespace JackyAIApp.Server.Services.Repository
                     .ToListAsync();
 
                 result = sqlWords.Select(WordMapper.ToDto).ToList();
-                _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(1));
+                _memoryCache.Set(cacheKey, result, WordsEntry(userId));
             }
             return ServiceResult.Ok(result ?? []);
         }
@@ -84,7 +91,7 @@ namespace JackyAIApp.Server.Services.Repository
                         result = WordMapper.ToDto(sqlWord);
                     }
 
-                    _memoryCache.Set(cacheKey, result, TimeSpan.FromDays(1));
+                    _memoryCache.Set(cacheKey, result, WordsEntry(userId));
                 }
             }
             return ServiceResult.Ok(result);
@@ -139,7 +146,7 @@ namespace JackyAIApp.Server.Services.Repository
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "The word has already been added.");
             }
 
-            _memoryCache.ClearCacheByContains($"GetWords_{userId}");
+            _memoryCache.InvalidateGroup(WordsGroup(userId));
 
             // Nothing to return: the client only needs to know it worked (it used to get the whole
             // User entity back, its saved words and internal fields included).
@@ -245,7 +252,7 @@ namespace JackyAIApp.Server.Services.Repository
                     added = stillMissing.Count;
                     alreadyHad += pending.Count - stillMissing.Count;
                 }
-                _memoryCache.ClearCacheByContains($"GetWords_{userId}");
+                _memoryCache.InvalidateGroup(WordsGroup(userId));
             }
 
             _logger.LogInformation(
@@ -292,7 +299,7 @@ namespace JackyAIApp.Server.Services.Repository
 
             await _dbContext.SaveChangesAsync();
 
-            _memoryCache.ClearCacheByContains($"GetWords_{userId}");
+            _memoryCache.InvalidateGroup(WordsGroup(userId));
 
             return ServiceResult.Ok();
         }

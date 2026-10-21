@@ -1,4 +1,5 @@
 using HtmlAgilityPack;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
@@ -31,12 +32,15 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
             _logger = logger;
         }
 
-        public async Task<InsiderTradingSummary?> FetchAsync(string cik, string symbol, CancellationToken ct = default)
-        {
-            var cacheKey = $"SEC_Insider_{cik}";
-            if (_cache.TryGetValue(cacheKey, out InsiderTradingSummary? cached))
-                return cached;
+        public async Task<InsiderTradingSummary?> FetchAsync(string cik, string symbol, CancellationToken ct = default) =>
+            // Null (failed, or no transactions filed) is not cached, so the next call tries again.
+            await _cache.GetOrCreateSingleFlightAsync(
+                $"SEC_Insider_{cik}", TimeSpan.FromHours(CACHE_HOURS), () => FetchUncachedAsync(cik, symbol), ct);
 
+        private async Task<InsiderTradingSummary?> FetchUncachedAsync(string cik, string symbol)
+        {
+            // Shared by every caller waiting on it, so no one caller's token may stop it.
+            var ct = CancellationToken.None;
             try
             {
                 var html = await FetchOwnershipTable(cik, ct);
@@ -78,7 +82,6 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders.US
                 // Share-based metrics (always available)
                 summary.NetBuyingShares = purchases.Sum(t => t.Shares) - sales.Sum(t => t.Shares);
 
-                _cache.Set(cacheKey, summary, TimeSpan.FromHours(CACHE_HOURS));
                 return summary;
             }
             catch (Exception ex)
