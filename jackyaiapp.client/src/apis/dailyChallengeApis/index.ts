@@ -1,7 +1,9 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 
 import { apiBaseQuery } from '../baseQuery';
+import { refreshLearningStats } from '../statsApis';
 import { ApiOkResponse } from '../types';
+import { alsoRefresh } from '../utils/alsoRefresh';
 
 import {
   DailyChallengeResponse,
@@ -29,6 +31,9 @@ export const dailyChallengeApis = createApi({
         body,
       }),
       invalidatesTags: ['DailyChallenge', 'Stats'],
+      // 'Stats' above is this slice's own streak/XP card; the weekly report, leaderboard and
+      // activity heatmap live in statsApis.
+      onQueryStarted: alsoRefresh(refreshLearningStats),
     }),
     getStats: builder.query<ApiOkResponse<DailyChallengeStatsResponse>, void>({
       query: () => 'stats',

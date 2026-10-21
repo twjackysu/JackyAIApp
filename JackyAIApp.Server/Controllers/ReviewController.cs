@@ -1,6 +1,7 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Mappers;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.AspNetCore.Authorization;
@@ -79,23 +80,7 @@ namespace JackyAIApp.Server.Controllers
                 UserWordId = uw.Id,
                 WordText = uw.Word.WordText,
                 KKPhonics = uw.Word.KKPhonics,
-                Meanings = uw.Word.Meanings.Select(m => new WordMeaning
-                {
-                    PartOfSpeech = m.PartOfSpeech,
-                    Definitions = m.Definitions.Select(d => new Definition
-                    {
-                        English = d.English,
-                        Chinese = d.Chinese
-                    }).ToList(),
-                    ExampleSentences = m.ExampleSentences.Select(e => new ExampleSentence
-                    {
-                        English = e.English,
-                        Chinese = e.Chinese
-                    }).ToList(),
-                    Synonyms = m.Tags.Where(t => t.TagType == "Synonym").Select(t => t.Word).ToList(),
-                    Antonyms = m.Tags.Where(t => t.TagType == "Antonym").Select(t => t.Word).ToList(),
-                    RelatedWords = m.Tags.Where(t => t.TagType == "Related").Select(t => t.Word).ToList(),
-                }).ToList(),
+                Meanings = WordMapper.ToMeaningDtos(uw.Word.Meanings),
                 ReviewCount = uw.ReviewCount,
                 ConsecutiveCorrect = uw.ConsecutiveCorrect,
             }).ToList();

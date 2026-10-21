@@ -6,7 +6,7 @@ import {
   sanitizeRetryAfter,
   secondsLeft,
   THROTTLED_FALLBACK_SECONDS,
-} from './drawdownBrakeRefresh';
+} from './drawdownBrakeRefreshTiming';
 
 describe('formatLastChecked', () => {
   it('UTC ISO → 當地時間 MM/DD HH:mm（不論主機時區）', () => {
