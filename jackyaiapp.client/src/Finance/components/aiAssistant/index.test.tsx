@@ -236,6 +236,14 @@ const row = (title: string, within: ParentNode = container) =>
     r.textContent?.includes(title),
   )!;
 
+/** Waits for a conversation to be listed, then opens it. Waiting for its title's text is not
+ *  enough: the greeting's suggestions ("分析台積電最近的走勢") can hold the same words, so the
+ *  wait passes before the history has loaded. */
+async function openConversation(title: string) {
+  await waitFor(() => expect(row(title)).toBeDefined());
+  await act(async () => row(title).click());
+}
+
 describe('AiAssistantPanel', () => {
   it('is a block with a header and a greeting, not a dialog that can be closed', async () => {
     await mount();
@@ -688,8 +696,7 @@ describe('AiAssistantPanel — attachments', () => {
       ],
     };
     await mount();
-    await waitForText('看圖');
-    await act(async () => row('看圖').click());
+    await openConversation('看圖');
     await waitForText('看到了');
 
     const chip = container.querySelector<HTMLAnchorElement>('a.MuiChip-root')!;
@@ -784,9 +791,7 @@ describe('AiAssistantPanel — pasting', () => {
       ],
     };
     await mount();
-    await waitForText('持股分析');
-
-    await act(async () => row('持股分析').click());
+    await openConversation('持股分析');
     await waitForText('好的');
     expect(chips()).toEqual(['持股.xlsx']);
   });
@@ -893,8 +898,7 @@ describe('AiAssistantPanel — copy and edit', () => {
       ],
     };
     await mount();
-    await waitForText('台積電');
-    await act(async () => row('台積電').click());
+    await openConversation('台積電');
     await waitForText('收 210');
 
     await act(async () => actionOf('user-message', '台積電？', '編輯')!.click());
@@ -956,8 +960,7 @@ describe('AiAssistantPanel — copy and edit', () => {
     conversations = [conversation('c1', '台積電')];
     messagesOf = { c1: [turn(1, 'user', '台積電？'), turn(2, 'assistant', '收 1,050')] };
     await mount();
-    await waitForText('台積電');
-    await act(async () => row('台積電').click());
+    await openConversation('台積電');
     await waitForText('收 1,050');
 
     await act(async () => actionOf('user-message', '台積電？', '編輯')!.click());
@@ -991,9 +994,7 @@ describe('AiAssistantPanel — conversation history column', () => {
 
   it('opens a conversation from the column and carries on in it', async () => {
     await mount();
-    await waitForText('台積電財報');
-
-    await act(async () => row('台積電財報').click());
+    await openConversation('台積電財報');
     await waitForText('毛利率 59%');
     expect(container.textContent).toContain('台積電最新財報？');
 
@@ -1020,15 +1021,14 @@ describe('AiAssistantPanel — conversation history column', () => {
     );
     await send('剛問的問題');
 
-    await waitForText('剛問的問題');
+    // The words are in the sent message straight away; the row needs the list's refetch.
+    await waitFor(() => expect(row('剛問的問題')?.classList.contains('Mui-selected')).toBe(true));
     expect(listFetches).toBeGreaterThan(1);
-    expect(row('剛問的問題').classList.contains('Mui-selected')).toBe(true);
   });
 
   it('starts over with 新對話: the messages go and the next message carries no conversation id', async () => {
     await mount();
-    await waitForText('台積電財報');
-    await act(async () => row('台積電財報').click());
+    await openConversation('台積電財報');
     await waitForText('毛利率 59%');
 
     act(() => buttonByLabel('新對話')!.click());
@@ -1045,8 +1045,7 @@ describe('AiAssistantPanel — conversation history column', () => {
 
   it('deleting the conversation that is open clears the chat as well', async () => {
     await mount();
-    await waitForText('台積電財報');
-    await act(async () => row('台積電財報').click());
+    await openConversation('台積電財報');
     await waitForText('毛利率 59%');
 
     await act(async () => buttonByLabel('刪除對話', row('台積電財報'))!.click());
@@ -1059,8 +1058,7 @@ describe('AiAssistantPanel — conversation history column', () => {
 
   it('cannot be switched or restarted while a reply is being written', async () => {
     await mount();
-    await waitForText('台積電財報');
-    await act(async () => row('台積電財報').click());
+    await openConversation('台積電財報');
     await waitForText('毛利率 59%');
 
     let finish!: () => void;
