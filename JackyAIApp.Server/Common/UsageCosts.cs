@@ -71,6 +71,10 @@ namespace JackyAIApp.Server.Common
         /// <summary>Finance AI assistant (chatbot) — charged per message sent</summary>
         public const ulong ChatMessage = 5;
 
+        /// <summary>Each file sent with a chat message, on top of <see cref="ChatMessage"/>: its text
+        /// is sent to the model again on every later turn of the conversation.</summary>
+        public const ulong ChatAttachment = 2;
+
         /// <summary>Text-to-speech synthesis</summary>
         public const ulong TextToSpeech = 1;
 

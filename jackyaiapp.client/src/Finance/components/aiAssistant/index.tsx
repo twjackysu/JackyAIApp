@@ -11,9 +11,21 @@ import MessageArea from './components/MessageArea';
 import PreviewDialog from './components/PreviewDialog';
 import ProgressIndicator from './components/ProgressIndicator';
 import { useAgentStatus } from './hooks/useAgentStatus';
-import { Message } from './types';
+import { Message, PendingAttachment } from './types';
 
-import { chatbotApis, useLazyGetConversationMessagesQuery } from '@/apis/chatbotApis';
+import {
+  chatbotApis,
+  useDeleteChatAttachmentMutation,
+  useLazyGetConversationMessagesQuery,
+  useUploadChatAttachmentMutation,
+} from '@/apis/chatbotApis';
+import {
+  ATTACHMENT_ACCEPT,
+  ATTACHMENT_ERROR_MESSAGES,
+  attachmentErrorMessage,
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENTS,
+} from '@/apis/chatbotApis/chatErrors';
 import { ChatHistoryMessage } from '@/apis/chatbotApis/types';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
 import { ParsedBlock, useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
@@ -26,7 +38,20 @@ const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] =>
     content: m.content,
     isUser: m.role === 'user',
     timestamp: new Date(m.createdAt),
+    attachments: m.attachments,
   }));
+
+const ACCEPTED_EXTENSIONS = ATTACHMENT_ACCEPT.split(',');
+
+/** Why a picked file will not be uploaded at all, or undefined when it can be. */
+const rejectBeforeUpload = (file: File): string | undefined => {
+  const dot = file.name.lastIndexOf('.');
+  const extension = dot >= 0 ? file.name.slice(dot).toLowerCase() : '';
+  if (!ACCEPTED_EXTENSIONS.includes(extension)) return ATTACHMENT_ERROR_MESSAGES.unsupported;
+  if (file.size > MAX_ATTACHMENT_BYTES) return ATTACHMENT_ERROR_MESSAGES.tooLarge;
+  if (file.size === 0) return ATTACHMENT_ERROR_MESSAGES.unreadable;
+  return undefined;
+};
 
 /** What the folded one-line box shows about a conversation it is hiding. */
 export interface AssistantActivity {
@@ -80,6 +105,55 @@ function AiAssistantPanel({
   const { statusText, statusColor } = useAgentStatus(streamingStatus);
   const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
   const busy = streamingStatus.isLoading;
+
+  // Files picked for the next message. Each uploads as soon as it is picked, so the server has
+  // read it by the time the message is sent.
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [uploadAttachment] = useUploadChatAttachmentMutation();
+  const [deleteAttachment] = useDeleteChatAttachmentMutation();
+  const nextAttachmentKey = useRef(0);
+  // Chips removed while their upload was still running: the upload is deleted once it lands.
+  const removedWhileUploading = useRef(new Set<string>());
+
+  const updatePending = (key: string, patch: Partial<PendingAttachment>) =>
+    setPendingAttachments((prev) => prev.map((a) => (a.key === key ? { ...a, ...patch } : a)));
+
+  const handleAddFiles = (files: File[]) => {
+    // A failed chip is only there to say why; it does not take up one of the slots.
+    const taken = pendingAttachments.filter((a) => !a.error).length;
+    const added: PendingAttachment[] = files.map((file, i) => {
+      const key = `attachment-${nextAttachmentKey.current++}`;
+      const error =
+        taken + i >= MAX_ATTACHMENTS ? ATTACHMENT_ERROR_MESSAGES.tooMany : rejectBeforeUpload(file);
+      return { key, fileName: file.name, error };
+    });
+    setPendingAttachments((prev) => [...prev, ...added]);
+
+    added.forEach((pending, i) => {
+      if (pending.error) return;
+      uploadAttachment(files[i])
+        .unwrap()
+        .then((res) => {
+          if (removedWhileUploading.current.delete(pending.key)) {
+            deleteAttachment(res.data.id);
+          } else {
+            updatePending(pending.key, { attachment: res.data });
+          }
+        })
+        .catch((e: unknown) => {
+          removedWhileUploading.current.delete(pending.key);
+          updatePending(pending.key, { error: attachmentErrorMessage(e) });
+        });
+    });
+  };
+
+  const handleRemoveAttachment = (key: string) => {
+    const pending = pendingAttachments.find((a) => a.key === key);
+    if (!pending) return;
+    if (pending.attachment) deleteAttachment(pending.attachment.id);
+    else if (!pending.error) removedWhileUploading.current.add(key);
+    setPendingAttachments((prev) => prev.filter((a) => a.key !== key));
+  };
 
   // Opening the panel is the reader asking to type: the cursor goes to the end of the message
   // they started in the one-line box. Also once a reply is done, since the box is disabled (and
@@ -161,16 +235,20 @@ function AiAssistantPanel({
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || streamingStatus.isLoading) return;
+    if (pendingAttachments.some((a) => !a.attachment && !a.error)) return; // still uploading
 
+    const attachments = pendingAttachments.flatMap((a) => (a.attachment ? [a.attachment] : []));
     const userMessage: Message = {
       id: Date.now().toString(),
       content: inputValue,
       isUser: true,
       timestamp: new Date(),
+      attachments: attachments.length > 0 ? attachments : undefined,
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
+    setPendingAttachments([]);
 
     // 創建初始的 bot 訊息
     const botMessage: Message = {
@@ -186,6 +264,7 @@ function AiAssistantPanel({
     await sendStreamingMessage(
       userMessage.content,
       conversationId,
+      attachments.map((a) => a.id),
       // onMessageUpdate
       (content: string) => {
         setCurrentStreamingContent(content);
@@ -283,6 +362,9 @@ function AiAssistantPanel({
             onKeyPress={handleKeyPress}
             disabled={busy}
             inputRef={inputRef}
+            attachments={pendingAttachments}
+            onAddFiles={handleAddFiles}
+            onRemoveAttachment={handleRemoveAttachment}
           />
         </Box>
 

@@ -163,6 +163,51 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("AiUsageLogs");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatAttachment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<long?>("MessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("Truncated")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MessageId");
+
+                    b.HasIndex("UserId", "MessageId");
+
+                    b.ToTable("ChatAttachments");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatConversation", b =>
                 {
                     b.Property<string>("Id")
@@ -1282,6 +1327,16 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatAttachment", b =>
+                {
+                    b.HasOne("JackyAIApp.Server.Data.Models.SQL.ChatMessage", "Message")
+                        .WithMany("Attachments")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Message");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatMessage", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.ChatConversation", "Conversation")
@@ -1587,6 +1642,11 @@ namespace JackyAIApp.Server.Data.Migrations
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatConversation", b =>
                 {
                     b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatMessage", b =>
+                {
+                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ClozeTest", b =>

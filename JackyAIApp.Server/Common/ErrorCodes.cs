@@ -12,10 +12,14 @@
         OpenAIResponseUnsuccessful = 1040002,
         UnparseableFormat = 1040003,
         TheWordCannotBeFound = 1040004,
+        /// <summary>A chat attachment whose content cannot be read as its file type says.</summary>
+        AttachmentUnreadable = 1040005,
         Unauthorized = 1040100,
         Forbidden = 1040300,
         DrawdownBrakeNotEnabled = 1040301,
         PayloadTooLarge = 1041300,
+        /// <summary>A chat attachment of a file type that is not accepted.</summary>
+        AttachmentUnsupportedType = 1041500,
         ExternalApiError = 1040500,
         UsageLimitExceeded = 1042900,
         TooManyRequests = 1042901,

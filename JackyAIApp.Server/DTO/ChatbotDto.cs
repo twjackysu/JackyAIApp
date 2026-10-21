@@ -4,6 +4,9 @@ namespace JackyAIApp.Server.DTO
     {
         public string Message { get; set; } = string.Empty;
         public string? ConversationId { get; set; }
+
+        /// <summary>Uploaded attachments (POST attachments) to send with this message.</summary>
+        public List<long>? AttachmentIds { get; set; }
     }
 
     /// <summary>A conversation summary returned to the client (title from the first user message).</summary>
@@ -25,5 +28,24 @@ namespace JackyAIApp.Server.DTO
 
         public string Content { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
+
+        /// <summary>Files sent with a user message.</summary>
+        public List<ChatAttachmentDto> Attachments { get; set; } = [];
+    }
+
+    /// <summary>A file attached to a chat message, as far as the client needs to show it.</summary>
+    public class ChatAttachmentDto
+    {
+        public long Id { get; set; }
+        public string FileName { get; set; } = string.Empty;
+
+        /// <summary>"word", "excel", "csv" or "text".</summary>
+        public string Kind { get; set; } = string.Empty;
+
+        /// <summary>Characters of text read out of the file (after any cut).</summary>
+        public int CharCount { get; set; }
+
+        /// <summary>The file had more text than was kept.</summary>
+        public bool Truncated { get; set; }
     }
 }

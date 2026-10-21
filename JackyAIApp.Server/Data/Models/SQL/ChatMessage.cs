@@ -23,5 +23,8 @@ namespace JackyAIApp.Server.Data.Models.SQL
         public required string Content { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        /// <summary>Files sent with a user message (their text).</summary>
+        public virtual ICollection<ChatAttachment> Attachments { get; set; } = new List<ChatAttachment>();
     }
 }

@@ -307,6 +307,16 @@ namespace JackyAIApp.Server.Data
             modelBuilder.Entity<ChatMessage>()
                 .HasIndex(m => new { m.ConversationId, m.CreatedAt });
 
+            // Attachments go with their message (and so with the conversation).
+            modelBuilder.Entity<ChatAttachment>()
+                .HasOne(a => a.Message)
+                .WithMany(m => m.Attachments)
+                .HasForeignKey(a => a.MessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ChatAttachment>()
+                .HasIndex(a => new { a.UserId, a.MessageId });
+
             // Persistent TW stock price cache (shared across users, immutable finalized bars).
             modelBuilder.Entity<DailyStockPrice>()
                 .HasIndex(p => new { p.Symbol, p.TradeDate })
@@ -387,6 +397,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<AiUsageLog> AiUsageLogs { get; set; }
         public virtual DbSet<ChatConversation> ChatConversations { get; set; }
         public virtual DbSet<ChatMessage> ChatMessages { get; set; }
+        public virtual DbSet<ChatAttachment> ChatAttachments { get; set; }
         public virtual DbSet<DailyStockPrice> DailyStockPrices { get; set; }
         public virtual DbSet<FxRate> FxRates { get; set; }
         public virtual DbSet<StockSymbolInfo> StockSymbolInfos { get; set; }

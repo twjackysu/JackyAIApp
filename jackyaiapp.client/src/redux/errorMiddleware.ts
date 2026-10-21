@@ -13,7 +13,7 @@ export const rtkQueryErrorLogger: Middleware = (api: MiddlewareAPI) => (next) =>
   if (isRejectedWithValue(action)) {
     const payload = action.payload as {
       status?: number;
-      data?: { error?: { code?: number; message?: string } };
+      data?: { error?: { code?: string; message?: string } };
     };
 
     // 401 on a login-required endpoint → redirect to sign in
