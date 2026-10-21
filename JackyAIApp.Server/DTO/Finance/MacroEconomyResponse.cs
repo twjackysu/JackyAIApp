@@ -81,6 +81,9 @@ namespace JackyAIApp.Server.DTO.Finance
         /// <summary>Total margin balance (張)</summary>
         public long MarginBalanceTotal { get; set; }
 
+        /// <summary>Total margin balance at the previous trading day's close (張)</summary>
+        public long MarginPrevBalanceTotal { get; set; }
+
         /// <summary>Total short sell volume (張)</summary>
         public long ShortSellTotal { get; set; }
 
@@ -89,6 +92,23 @@ namespace JackyAIApp.Server.DTO.Finance
 
         /// <summary>Total short balance (張)</summary>
         public long ShortBalanceTotal { get; set; }
+
+        /// <summary>Total short balance at the previous trading day's close (張)</summary>
+        public long ShortPrevBalanceTotal { get; set; }
+
+        /// <summary>
+        /// Day's change in the margin balance (張): today's balance minus the previous day's. Not
+        /// buy − sell, which leaves out 融資現金償還 (repaid in cash). Null when no previous
+        /// balance was reported, rather than passing today's whole balance off as the change.
+        /// </summary>
+        public long? MarginChange => MarginPrevBalanceTotal > 0 ? MarginBalanceTotal - MarginPrevBalanceTotal : null;
+
+        /// <summary>
+        /// Day's change in the short balance (張): today's balance minus the previous day's. Not
+        /// sell − buy, which leaves out 融券現券償還 (returned in shares). Null as for
+        /// <see cref="MarginChange"/>.
+        /// </summary>
+        public long? ShortChange => ShortPrevBalanceTotal > 0 ? ShortBalanceTotal - ShortPrevBalanceTotal : null;
     }
 
     public class ExchangeRate

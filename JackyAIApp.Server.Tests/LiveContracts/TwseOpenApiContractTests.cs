@@ -155,6 +155,10 @@ namespace JackyAIApp.Server.Tests.LiveContracts
 
             Assert.True(first.TryGetProperty("Date", out var date) && !string.IsNullOrEmpty(date.GetString()),
                 "[FMTQIK] 'Date' missing/empty on first row.");
+            // MarketOverviewProvider picks the latest day by comparing these strings, so they must
+            // stay fixed-width 民國 YYYMMDD.
+            Assert.True(date.GetString() is { Length: 7 } d && d.All(char.IsAsciiDigit),
+                $"[FMTQIK] 'Date' '{date.GetString()}' is not 民國 YYYMMDD.");
             Assert.True(first.TryGetProperty("TAIEX", out var taiex) &&
                 decimal.TryParse(taiex.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var taiexVal) && taiexVal > 0,
                 "[FMTQIK] 'TAIEX' missing or not a positive number — TWSEMacroEconomyProvider.FetchMarketIndex reads this exact field.");
@@ -193,6 +197,9 @@ namespace JackyAIApp.Server.Tests.LiveContracts
             Assert.True(first.TryGetProperty("融券賣出", out _), "[MI_MARGN] '融券賣出' field missing.");
             Assert.True(first.TryGetProperty("融券買進", out _), "[MI_MARGN] '融券買進' field missing.");
             Assert.True(first.TryGetProperty("融券今日餘額", out _), "[MI_MARGN] '融券今日餘額' field missing.");
+            // MarginSummary.MarginChange/ShortChange are today's balance minus these.
+            Assert.True(first.TryGetProperty("融資前日餘額", out _), "[MI_MARGN] '融資前日餘額' field missing.");
+            Assert.True(first.TryGetProperty("融券前日餘額", out _), "[MI_MARGN] '融券前日餘額' field missing.");
         }
 
         // === B3: TWSEChipDataProvider ===

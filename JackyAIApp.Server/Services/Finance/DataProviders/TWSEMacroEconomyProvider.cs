@@ -145,9 +145,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     summary.MarginBuyTotal += GetLong(r, "融資買進");
                     summary.MarginSellTotal += GetLong(r, "融資賣出");
                     summary.MarginBalanceTotal += GetLong(r, "融資今日餘額");
+                    summary.MarginPrevBalanceTotal += GetLong(r, "融資前日餘額");
                     summary.ShortSellTotal += GetLong(r, "融券賣出");
                     summary.ShortBuyTotal += GetLong(r, "融券買進");
                     summary.ShortBalanceTotal += GetLong(r, "融券今日餘額");
+                    summary.ShortPrevBalanceTotal += GetLong(r, "融券前日餘額");
                 }
                 return summary;
             }
