@@ -20,9 +20,11 @@ namespace JackyAIApp.Server.Controllers
         IAnthropicChatService chatService,
         IUsageLimitService usageLimitService,
         IChatAttachmentStore attachmentStore,
+        IAnthropicFileStore anthropicFiles,
         AzureSQLDBContext dbContext) : ControllerBase
     {
         private readonly IChatAttachmentStore _attachmentStore = attachmentStore;
+        private readonly IAnthropicFileStore _anthropicFiles = anthropicFiles;
         private readonly ILogger<ChatbotController> _logger = logger;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IUserService _userService = userService;
@@ -171,6 +173,9 @@ namespace JackyAIApp.Server.Controllers
                 attachment.MediaType = prepared.MediaType;
                 attachment.PageCount = prepared.PageCount;
                 await _attachmentStore.SaveAsync(attachment.BlobName, prepared.Bytes, prepared.MediaType, ct);
+                // Uploaded once here, then only referred to on each turn. If this fails, the first
+                // message that sends the file tries again (AnthropicChatService).
+                attachment.AnthropicFileId = await _anthropicFiles.UploadAsync(prepared.Bytes, prepared.MediaType, ct);
             }
             _dbContext.ChatAttachments.Add(attachment);
             await _dbContext.SaveChangesAsync(ct);
@@ -199,9 +204,26 @@ namespace JackyAIApp.Server.Controllers
                 .ToListAsync(ct);
             var stale = _dbContext.ChatAttachments
                 .Where(a => a.UserId == userId && a.MessageId == null && !keep.Contains(a.Id));
-            var blobs = await stale.Where(a => a.BlobName != null).Select(a => a.BlobName!).ToListAsync(ct);
+            var files = await StoredFiles(stale).ToListAsync(ct);
             await stale.ExecuteDeleteAsync(ct);
+            await DeleteStoredFilesAsync(files, ct);
+        }
+
+        /// <summary>Where the files of these attachments are kept, for those that have any.</summary>
+        private static IQueryable<StoredFile> StoredFiles(IQueryable<ChatAttachment> attachments) =>
+            attachments
+                .Where(a => a.BlobName != null || a.AnthropicFileId != null)
+                .Select(a => new StoredFile(a.BlobName, a.AnthropicFileId));
+
+        private sealed record StoredFile(string? BlobName, string? AnthropicFileId);
+
+        /// <summary>Deletes attachments' files from both stores, once their rows are gone.</summary>
+        private async Task DeleteStoredFilesAsync(IReadOnlyCollection<StoredFile> files, CancellationToken ct)
+        {
+            var blobs = files.Where(f => f.BlobName != null).Select(f => f.BlobName!).ToList();
+            var fileIds = files.Where(f => f.AnthropicFileId != null).Select(f => f.AnthropicFileId!).ToList();
             if (blobs.Count > 0) await _attachmentStore.DeleteAsync(blobs, ct);
+            if (fileIds.Count > 0) await _anthropicFiles.DeleteAsync(fileIds, ct);
         }
 
         private static ChatAttachmentDto ToDto(ChatAttachment a) => new()
@@ -229,7 +251,7 @@ namespace JackyAIApp.Server.Controllers
 
             _dbContext.ChatAttachments.Remove(attachment);
             await _dbContext.SaveChangesAsync(ct);
-            if (attachment.BlobName != null) await _attachmentStore.DeleteAsync([attachment.BlobName], ct);
+            await DeleteStoredFilesAsync([new StoredFile(attachment.BlobName, attachment.AnthropicFileId)], ct);
 
             return _responseFactory.CreateOKResponse();
         }
@@ -343,14 +365,12 @@ namespace JackyAIApp.Server.Controllers
                 return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Conversation not found.");
 
             // The rows cascade (messages, then their attachments); the stored files do not.
-            var blobs = await _dbContext.ChatAttachments
-                .Where(a => a.Message!.ConversationId == conversationId && a.BlobName != null)
-                .Select(a => a.BlobName!)
-                .ToListAsync(ct);
+            var files = await StoredFiles(_dbContext.ChatAttachments
+                .Where(a => a.Message!.ConversationId == conversationId)).ToListAsync(ct);
 
             _dbContext.ChatConversations.Remove(conversation); // cascades to ChatMessages
             await _dbContext.SaveChangesAsync(ct);
-            if (blobs.Count > 0) await _attachmentStore.DeleteAsync(blobs, ct);
+            await DeleteStoredFilesAsync(files, ct);
 
             return _responseFactory.CreateOKResponse();
         }

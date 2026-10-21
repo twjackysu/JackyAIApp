@@ -144,6 +144,45 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public void ImagesAndPdfsInTheFilesApi_AreReferredToByFileId_NotSentAgain()
+        {
+            var message = new SQL.ChatMessage { ConversationId = "c", Role = "user", Content = "比較一下" };
+            message.Attachments.Add(new SQL.ChatAttachment
+            {
+                Id = 1, UserId = "u", FileName = "走勢.png", Kind = AttachmentKinds.Image, Text = "",
+                BlobName = "b1", MediaType = "image/png", AnthropicFileId = "file_img",
+            });
+            message.Attachments.Add(new SQL.ChatAttachment
+            {
+                Id = 2, UserId = "u", FileName = "年報.pdf", Kind = AttachmentKinds.Pdf, Text = "",
+                BlobName = "b2", MediaType = "application/pdf", PageCount = 3, AnthropicFileId = "file_pdf",
+            });
+            // Bytes at hand too: the file_id still wins, so the request stays small.
+            var files = new Dictionary<long, byte[]> { [1] = [1, 2, 3] };
+
+            var blocks = Wire(message, files);
+
+            Assert.Equal(4, blocks.Count);
+            Assert.Equal("[附件圖片：走勢.png]", blocks[0].GetProperty("text").GetString());
+            Assert.Equal("file", blocks[1].GetProperty("source").GetProperty("type").GetString());
+            Assert.Equal("file_img", blocks[1].GetProperty("source").GetProperty("file_id").GetString());
+            Assert.False(blocks[1].GetProperty("source").TryGetProperty("data", out _));
+            Assert.Equal("document", blocks[2].GetProperty("type").GetString());
+            Assert.Equal("年報.pdf", blocks[2].GetProperty("title").GetString());
+            Assert.Equal("file", blocks[2].GetProperty("source").GetProperty("type").GetString());
+            Assert.Equal("file_pdf", blocks[2].GetProperty("source").GetProperty("file_id").GetString());
+        }
+
+        [Theory]
+        [InlineData(404, "File `file_011` not found.", true)]
+        [InlineData(400, "{\"error\":{\"type\":\"invalid_request_error\",\"message\":\"File file_011 not found\"}}", true)]
+        [InlineData(404, "model: claude-x not found", false)]
+        [InlineData(400, "prompt is too long", false)]
+        [InlineData(500, "file not found", false)]
+        public void AFileIdTheFilesApiNoLongerHas_IsToldApartFromOtherErrors(int status, string message, bool missing) =>
+            Assert.Equal(missing, ChatErrorCodes.IsMissingFile(status, message));
+
+        [Fact]
         public void AFileThatIsGoneFromTheStore_IsReplacedByANoteSayingSo()
         {
             var message = new SQL.ChatMessage { ConversationId = "c", Role = "user", Content = "這張呢" };

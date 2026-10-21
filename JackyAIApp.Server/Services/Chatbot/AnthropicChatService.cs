@@ -23,6 +23,7 @@ namespace JackyAIApp.Server.Services.Chatbot
     public class AnthropicChatService(
         AzureSQLDBContext db,
         IChatAttachmentStore attachmentStore,
+        IAnthropicFileStore anthropicFiles,
         IAiUsageLogger usageLogger,
         IOptionsMonitor<Settings> settings,
         ILogger<AnthropicChatService> logger,
@@ -92,6 +93,45 @@ namespace JackyAIApp.Server.Services.Chatbot
             CacheControl = new BetaCacheControlEphemeral(),
         };
 
+        /// <summary>
+        /// Readies the conversation's images and PDFs to be sent. One already in the Files API is
+        /// sent by its file_id and needs nothing; any other (uploaded before the Files API was used,
+        /// or whose upload failed) is uploaded now from the attachment store and keeps its new
+        /// file_id. One that still cannot be uploaded goes as its bytes, returned here by attachment
+        /// id. With <paramref name="reupload"/>, every file is uploaded again, replacing file_ids the
+        /// Files API no longer resolves.
+        /// </summary>
+        private async Task<Dictionary<long, byte[]>> PrepareFilesAsync(
+            List<SQL.ChatMessage> history, bool reupload, CancellationToken ct)
+        {
+            var bytes = new Dictionary<long, byte[]>();
+            var replaced = new List<string>();
+            var changed = false;
+            foreach (var a in history.SelectMany(m => m.Attachments).Where(a => a.BlobName != null))
+            {
+                if (a.AnthropicFileId != null && !reupload) continue;
+
+                var content = await attachmentStore.ReadAsync(a.BlobName!, ct);
+                if (content == null)
+                {
+                    logger.LogWarning("Chat attachment {AttachmentId} has no stored file", a.Id);
+                    continue;
+                }
+                var fileId = await anthropicFiles.UploadAsync(content, a.MediaType ?? "application/octet-stream", ct);
+                if (a.AnthropicFileId != null) replaced.Add(a.AnthropicFileId);
+                if (fileId != a.AnthropicFileId)
+                {
+                    a.AnthropicFileId = fileId;
+                    changed = true;
+                }
+                if (fileId == null) bytes[a.Id] = content;
+            }
+            if (changed) await db.SaveChangesAsync(ct);
+            // Ids being replaced may still exist (a failure other than a missing file); not left behind.
+            if (replaced.Count > 0) await anthropicFiles.DeleteAsync(replaced, ct);
+            return bytes;
+        }
+
         /// <summary>One request's token usage as the stream reports it, the latest report winning.</summary>
         private sealed class TurnUsage
         {
@@ -138,21 +178,12 @@ namespace JackyAIApp.Server.Services.Chatbot
                 .OrderBy(m => m.CreatedAt)
                 .ToListAsync(ct);
 
-            // Images and PDFs are files in the attachment store, read again for every turn they are
-            // part of (the API keeps nothing between requests).
-            var files = new Dictionary<long, byte[]>();
-            foreach (var a in history.SelectMany(m => m.Attachments).Where(a => a.BlobName != null))
-            {
-                var content = await attachmentStore.ReadAsync(a.BlobName!, ct);
-                if (content != null) files[a.Id] = content;
-                else logger.LogWarning("Chat attachment {AttachmentId} has no stored file", a.Id);
-            }
+            var files = await PrepareFilesAsync(history, reupload: false, ct);
 
             var client = new AnthropicClient { ApiKey = apiKey };
-            var requestMessages = history.Select(m => ToMessageParam(m, files)).ToList();
-
             var taipeiToday = DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime.AddHours(8));
-            var streamParams = BuildRequest(taipeiToday, requestMessages);
+            var streamParams = BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList());
+            var filesReuploaded = false;
 
             StartEventStream(response);
 
@@ -198,6 +229,18 @@ namespace JackyAIApp.Server.Services.Chatbot
                             if (msgDelta.Delta != null) stopReason = msgDelta.Delta.StopReason?.Value();
                         }
                     }
+                }
+                catch (Exception ex) when (!ct.IsCancellationRequested && !streamingStarted && !filesReuploaded &&
+                                           ChatErrorCodes.IsMissingFile(ex))
+                {
+                    // A file_id the Files API no longer has: upload this conversation's files again from
+                    // the attachment store and try once more. Nothing has reached the reader yet.
+                    logger.LogWarning(ex, "Anthropic did not find a file of conversation {ConversationId}; uploading its files again",
+                        conversation.Id);
+                    filesReuploaded = true;
+                    files = await PrepareFilesAsync(history, reupload: true, ct);
+                    streamParams = BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList());
+                    continue;
                 }
                 catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
@@ -304,8 +347,9 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// PDF as a PDF document, each titled with its file name; an image as an image, after a line
         /// naming it (an image block has no title, and the reader may refer to it by name).
         /// </summary>
-        /// <param name="files">The stored files of image and PDF attachments, by attachment id; one
-        /// missing here is gone from the store, and the model is told so instead.</param>
+        /// <param name="files">The bytes of the image and PDF attachments not in the Files API, by
+        /// attachment id. An image or PDF with an <see cref="SQL.ChatAttachment.AnthropicFileId"/> is
+        /// referred to by it; one with neither is gone, and the model is told so instead.</param>
         internal static BetaMessageParam ToMessageParam(SQL.ChatMessage m, IReadOnlyDictionary<long, byte[]> files)
         {
             var role = m.Role == "user" ? Role.User : Role.Assistant;
@@ -322,8 +366,12 @@ namespace JackyAIApp.Server.Services.Chatbot
                         Source = new BetaPlainTextSource { Data = a.Truncated ? a.Text + TruncationNote : a.Text },
                         Title = a.FileName,
                     });
+                    continue;
                 }
-                else if (!files.TryGetValue(a.Id, out var content))
+
+                var fileId = a.AnthropicFileId;
+                byte[]? content = null;
+                if (fileId == null && !files.TryGetValue(a.Id, out content))
                 {
                     blocks.Add(new BetaTextBlockParam { Text = string.Format(MissingFileNote, a.FileName) });
                 }
@@ -331,7 +379,9 @@ namespace JackyAIApp.Server.Services.Chatbot
                 {
                     blocks.Add(new BetaRequestDocumentBlock
                     {
-                        Source = new BetaBase64PdfSource { Data = Convert.ToBase64String(content) },
+                        Source = fileId != null
+                            ? new BetaFileDocumentSource { FileID = fileId }
+                            : new BetaBase64PdfSource { Data = Convert.ToBase64String(content!) },
                         Title = a.FileName,
                     });
                 }
@@ -340,13 +390,15 @@ namespace JackyAIApp.Server.Services.Chatbot
                     blocks.Add(new BetaTextBlockParam { Text = string.Format(ImageNameNote, a.FileName) });
                     blocks.Add(new BetaImageBlockParam
                     {
-                        Source = new BetaBase64ImageSource
-                        {
-                            Data = Convert.ToBase64String(content),
-                            MediaType = a.MediaType == "image/png"
-                                ? Anthropic.Models.Beta.Messages.MediaType.ImagePng
-                                : Anthropic.Models.Beta.Messages.MediaType.ImageJpeg,
-                        },
+                        Source = fileId != null
+                            ? new BetaFileImageSource { FileID = fileId }
+                            : new BetaBase64ImageSource
+                            {
+                                Data = Convert.ToBase64String(content!),
+                                MediaType = a.MediaType == "image/png"
+                                    ? Anthropic.Models.Beta.Messages.MediaType.ImagePng
+                                    : Anthropic.Models.Beta.Messages.MediaType.ImageJpeg,
+                            },
                     });
                 }
             }
