@@ -39,13 +39,16 @@ namespace JackyAIApp.Server.DTO
         public long Id { get; set; }
         public string FileName { get; set; } = string.Empty;
 
-        /// <summary>"word", "excel", "csv" or "text".</summary>
+        /// <summary>"word", "excel", "csv", "text", "image" or "pdf".</summary>
         public string Kind { get; set; } = string.Empty;
 
-        /// <summary>Characters of text read out of the file (after any cut).</summary>
+        /// <summary>Characters of text read out of the file (after any cut); 0 for an image or a PDF.</summary>
         public int CharCount { get; set; }
 
         /// <summary>The file had more text than was kept.</summary>
         public bool Truncated { get; set; }
+
+        /// <summary>Pages of a PDF.</summary>
+        public int? PageCount { get; set; }
     }
 }

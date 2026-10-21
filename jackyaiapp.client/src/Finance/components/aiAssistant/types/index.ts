@@ -10,6 +10,8 @@ export interface PendingAttachment {
   attachment?: ChatAttachment;
   /** Set when the upload failed; the chip stays to say why until it is removed. */
   error?: string;
+  /** A local picture of an image file, until it is sent (an object URL, revoked with the chip). */
+  previewUrl?: string;
 }
 
 export interface Message {

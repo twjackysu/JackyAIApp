@@ -171,6 +171,10 @@ namespace JackyAIApp.Server.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("BlobName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -184,8 +188,15 @@ namespace JackyAIApp.Server.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
 
+                    b.Property<string>("MediaType")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<long?>("MessageId")
                         .HasColumnType("bigint");
+
+                    b.Property<int?>("PageCount")
+                        .HasColumnType("int");
 
                     b.Property<string>("Text")
                         .IsRequired()

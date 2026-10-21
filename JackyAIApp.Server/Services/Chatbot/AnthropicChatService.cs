@@ -22,6 +22,7 @@ namespace JackyAIApp.Server.Services.Chatbot
     /// </summary>
     public class AnthropicChatService(
         AzureSQLDBContext db,
+        IChatAttachmentStore attachmentStore,
         IAiUsageLogger usageLogger,
         IOptionsMonitor<Settings> settings,
         ILogger<AnthropicChatService> logger,
@@ -97,8 +98,18 @@ namespace JackyAIApp.Server.Services.Chatbot
                 .OrderBy(m => m.CreatedAt)
                 .ToListAsync(ct);
 
+            // Images and PDFs are files in the attachment store, read again for every turn they are
+            // part of (the API keeps nothing between requests).
+            var files = new Dictionary<long, byte[]>();
+            foreach (var a in history.SelectMany(m => m.Attachments).Where(a => a.BlobName != null))
+            {
+                var content = await attachmentStore.ReadAsync(a.BlobName!, ct);
+                if (content != null) files[a.Id] = content;
+                else logger.LogWarning("Chat attachment {AttachmentId} has no stored file", a.Id);
+            }
+
             var client = new AnthropicClient { ApiKey = apiKey };
-            var requestMessages = history.Select(ToMessageParam).ToList();
+            var requestMessages = history.Select(m => ToMessageParam(m, files)).ToList();
 
             var taipeiToday = DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime.AddHours(8));
             var streamParams = new MessageCreateParams
@@ -240,11 +251,14 @@ namespace JackyAIApp.Server.Services.Chatbot
         }
 
         /// <summary>
-        /// One stored turn as the API takes it. A message with attachments becomes a list of blocks:
-        /// each attachment as a plain-text document titled with its file name, then the message
-        /// itself — documents ahead of the question about them.
+        /// One stored turn as the API takes it. A message with attachments becomes a list of blocks,
+        /// attachments ahead of the question about them: a text file as a plain-text document and a
+        /// PDF as a PDF document, each titled with its file name; an image as an image, after a line
+        /// naming it (an image block has no title, and the reader may refer to it by name).
         /// </summary>
-        internal static BetaMessageParam ToMessageParam(SQL.ChatMessage m)
+        /// <param name="files">The stored files of image and PDF attachments, by attachment id; one
+        /// missing here is gone from the store, and the model is told so instead.</param>
+        internal static BetaMessageParam ToMessageParam(SQL.ChatMessage m, IReadOnlyDictionary<long, byte[]> files)
         {
             var role = m.Role == "user" ? Role.User : Role.Assistant;
             if (m.Attachments.Count == 0)
@@ -253,15 +267,50 @@ namespace JackyAIApp.Server.Services.Chatbot
             var blocks = new List<BetaContentBlockParam>();
             foreach (var a in m.Attachments.OrderBy(a => a.Id))
             {
-                blocks.Add(new BetaRequestDocumentBlock
+                if (!AttachmentKinds.IsFile(a.Kind))
                 {
-                    Source = new BetaPlainTextSource { Data = a.Truncated ? a.Text + TruncationNote : a.Text },
-                    Title = a.FileName,
-                });
+                    blocks.Add(new BetaRequestDocumentBlock
+                    {
+                        Source = new BetaPlainTextSource { Data = a.Truncated ? a.Text + TruncationNote : a.Text },
+                        Title = a.FileName,
+                    });
+                }
+                else if (!files.TryGetValue(a.Id, out var content))
+                {
+                    blocks.Add(new BetaTextBlockParam { Text = string.Format(MissingFileNote, a.FileName) });
+                }
+                else if (a.Kind == AttachmentKinds.Pdf)
+                {
+                    blocks.Add(new BetaRequestDocumentBlock
+                    {
+                        Source = new BetaBase64PdfSource { Data = Convert.ToBase64String(content) },
+                        Title = a.FileName,
+                    });
+                }
+                else
+                {
+                    blocks.Add(new BetaTextBlockParam { Text = string.Format(ImageNameNote, a.FileName) });
+                    blocks.Add(new BetaImageBlockParam
+                    {
+                        Source = new BetaBase64ImageSource
+                        {
+                            Data = Convert.ToBase64String(content),
+                            MediaType = a.MediaType == "image/png"
+                                ? Anthropic.Models.Beta.Messages.MediaType.ImagePng
+                                : Anthropic.Models.Beta.Messages.MediaType.ImageJpeg,
+                        },
+                    });
+                }
             }
             blocks.Add(new BetaTextBlockParam { Text = m.Content });
             return new BetaMessageParam { Role = role, Content = blocks };
         }
+
+        /// <summary>Names the image that follows it.</summary>
+        internal const string ImageNameNote = "[附件圖片：{0}]";
+
+        /// <summary>Stands in for an image or PDF whose stored file is gone.</summary>
+        internal const string MissingFileNote = "[附件「{0}」已無法讀取。]";
 
         /// <summary>Appended to a cut attachment, so the model does not answer as if it saw all of it.</summary>
         internal const string TruncationNote = "\n\n[此檔案內容過長，以上僅為前段，其餘已截斷。]";

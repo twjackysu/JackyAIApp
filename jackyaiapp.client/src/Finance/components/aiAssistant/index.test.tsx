@@ -147,6 +147,9 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  // A menu still closing when its test ended is a portal left in the body; it must not be found
+  // by the next test.
+  document.body.innerHTML = '';
   vi.unstubAllGlobals();
 });
 
@@ -385,6 +388,30 @@ async function attach(...files: File[]) {
 
 const file = (name: string, size = 10) => new File(['x'.repeat(size)], name);
 
+/** An item of the 「+」 menu, opening the menu first. */
+function menuItem(label: string) {
+  if (!document.querySelector('[role="menu"]')) act(() => buttonByLabel('附加')!.click());
+  return [...document.querySelectorAll<HTMLElement>('[role="menu"] li')].find((li) =>
+    li.textContent?.startsWith(label),
+  )!;
+}
+
+/** Pastes into the message box the way a browser fires it; says whether the panel took it over. */
+async function paste(data: { text?: string; html?: string; files?: File[] }) {
+  const event = new Event('paste', { bubbles: true, cancelable: true }) as Event & {
+    clipboardData: Pick<DataTransfer, 'getData' | 'files'>;
+  };
+  event.clipboardData = {
+    getData: (type: string) =>
+      (type === 'text/plain' ? data.text : type === 'text/html' ? data.html : '') ?? '',
+    files: (data.files ?? []) as unknown as FileList,
+  };
+  await act(async () => {
+    textarea().dispatchEvent(event);
+  });
+  return event.defaultPrevented;
+}
+
 /** The attachment chips in the message box, or (given `within`) in a bubble. */
 const chips = (within: ParentNode = container) =>
   [...within.querySelectorAll<HTMLElement>('.MuiChip-root')].map((c) => c.textContent);
@@ -445,10 +472,10 @@ describe('AiAssistantPanel — attachments', () => {
 
   it('turns down a file type it cannot read without uploading it', async () => {
     await mount();
-    await attach(file('scan.pdf'));
+    await attach(file('slides.pptx'));
 
     expect(uploads).toBe(0);
-    expect(container.textContent).toContain('scan.pdf：不支援這種檔案');
+    expect(container.textContent).toContain('slides.pptx：不支援這種檔案');
   });
 
   it('turns down a file over 10 MB without uploading it', async () => {
@@ -476,7 +503,99 @@ describe('AiAssistantPanel — attachments', () => {
     await waitForText('6.txt：一次最多附加 5 個檔案。');
     expect(uploads).toBe(5);
     await uploadsSettled();
-    expect(buttonByLabel('附加檔案')!.disabled).toBe(true);
+    expect(menuItem('附加檔案').getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('a PDF says how many pages it has and opens from its chip', async () => {
+    await mount();
+    uploadReplies.push(() =>
+      json({ data: { ...uploaded(11, '年報.pdf'), kind: 'pdf', pageCount: 12 } }),
+    );
+    await attach(file('年報.pdf'));
+    await uploadsSettled();
+
+    const chip = container.querySelector<HTMLAnchorElement>('a.MuiChip-root')!;
+    expect(chip.getAttribute('href')).toBe('/api/chatbot/attachments/11/content');
+    expect(chip.getAttribute('title')).toBe('年報.pdf（12 頁）');
+  });
+
+  it('a sent image shows as a picture from the server, and opens from its chip', async () => {
+    conversations = [conversation('c1', '看圖')];
+    messagesOf = {
+      c1: [
+        {
+          ...turn(1, 'user', '這張圖'),
+          attachments: [{ ...uploaded(5, '走勢.png'), kind: 'image' }],
+        },
+        turn(2, 'assistant', '看到了'),
+      ],
+    };
+    await mount();
+    await waitForText('看圖');
+    await act(async () => row('看圖').click());
+    await waitForText('看到了');
+
+    const chip = container.querySelector<HTMLAnchorElement>('a.MuiChip-root')!;
+    expect(chip.getAttribute('href')).toBe('/api/chatbot/attachments/5/content');
+    expect(chip.querySelector('img')!.getAttribute('src')).toBe(
+      '/api/chatbot/attachments/5/content',
+    );
+  });
+});
+
+describe('AiAssistantPanel — pasting', () => {
+  beforeEach(() => {
+    try {
+      localStorage.clear();
+    } catch {
+      // No storage here: the setting starts off either way.
+    }
+  });
+
+  it('a pasted screenshot is attached, named for when it was pasted', async () => {
+    await mount();
+    uploadReplies.push(() => json({ data: { ...uploaded(21, 'x.png'), kind: 'image' } }));
+
+    const handled = await paste({ files: [new File(['png'], 'image.png', { type: 'image/png' })] });
+
+    expect(handled).toBe(true);
+    expect(uploads).toBe(1);
+    expect(chips()[0]).toMatch(/^貼上的圖片-\d{6}\.png$/);
+  });
+
+  it('plain text is left for the browser to paste', async () => {
+    await mount();
+    expect(await paste({ text: '2330', html: '<b>2330</b>' })).toBe(false);
+  });
+
+  it('with 保留格式 on, a pasted table goes into the box as a Markdown table', async () => {
+    await mount();
+    const toggle = menuItem('貼上時保留格式'); // opens the menu in its own act
+    act(() => toggle.click());
+    expect(menuItem('貼上時保留格式').getAttribute('aria-checked')).toBe('true');
+
+    const handled = await paste({
+      text: '代號\t名稱\n2330\t台積電',
+      html: '<table><tr><td>代號</td><td>名稱</td></tr><tr><td>2330</td><td>台積電</td></tr></table>',
+    });
+
+    expect(handled).toBe(true);
+    // Columns are padded to line up; what matters is the table.
+    const value = textarea().value.replace(/ {2,}/g, ' ');
+    // On lines of its own, so what is typed next is not part of the table.
+    expect(value).toBe('| 代號 | 名稱 |\n| --- | --- |\n| 2330 | 台積電 |\n');
+  });
+
+  it('pasted text too long for the box is attached as a file instead', async () => {
+    await mount();
+    uploadReplies.push(() => json({ data: uploaded(22, 'x.txt') }));
+
+    const handled = await paste({ text: '很長的財報內容'.repeat(1000) });
+
+    expect(handled).toBe(true);
+    expect(textarea().value).toBe('');
+    expect(uploads).toBe(1);
+    expect(chips()[0]).toMatch(/^貼上的內容-\d{6}\.txt$/);
   });
 
   it('removing an uploaded file deletes it on the server and leaves it out of the message', async () => {
@@ -552,8 +671,9 @@ describe('AiAssistantPanel — conversation history column', () => {
   it('shows a conversation as soon as its first reply has come in, and keeps the list current', async () => {
     conversations = [];
     await mount();
-    await waitFor(() => expect(listFetches).toBe(1));
-    expect(container.textContent).toContain('還沒有任何對話');
+    // The empty list is on screen once its fetch has been answered, not when it was made.
+    await waitForText('還沒有任何對話');
+    expect(listFetches).toBe(1);
 
     whileAnswering = () => {
       conversations = [conversation('conv-new', '剛問的問題')];

@@ -14,6 +14,8 @@
         TheWordCannotBeFound = 1040004,
         /// <summary>A chat attachment whose content cannot be read as its file type says.</summary>
         AttachmentUnreadable = 1040005,
+        /// <summary>A PDF chat attachment with more pages than the model reads at once.</summary>
+        AttachmentTooManyPages = 1040006,
         Unauthorized = 1040100,
         Forbidden = 1040300,
         DrawdownBrakeNotEnabled = 1040301,

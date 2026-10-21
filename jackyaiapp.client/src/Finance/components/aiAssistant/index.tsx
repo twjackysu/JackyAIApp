@@ -12,6 +12,7 @@ import PreviewDialog from './components/PreviewDialog';
 import ProgressIndicator from './components/ProgressIndicator';
 import { useAgentStatus } from './hooks/useAgentStatus';
 import { Message, PendingAttachment } from './types';
+import { readPaste } from './utils/paste';
 
 import {
   chatbotApis,
@@ -51,6 +52,31 @@ const rejectBeforeUpload = (file: File): string | undefined => {
   if (file.size > MAX_ATTACHMENT_BYTES) return ATTACHMENT_ERROR_MESSAGES.tooLarge;
   if (file.size === 0) return ATTACHMENT_ERROR_MESSAGES.unreadable;
   return undefined;
+};
+
+const isImageFile = (file: File) => /\.(png|jpe?g|gif|webp)$/i.test(file.name);
+
+// Object URLs made for previews and not yet revoked. Not every environment can make them (tests);
+// a chip then shows its icon instead.
+const livePreviewUrls = new Set<string>();
+const createPreviewUrl = (file: File) => {
+  if (typeof URL.createObjectURL !== 'function') return undefined;
+  const url = URL.createObjectURL(file);
+  livePreviewUrls.add(url);
+  return url;
+};
+const revokePreviewUrl = (url: string | undefined) => {
+  if (!url || !livePreviewUrls.delete(url)) return;
+  URL.revokeObjectURL(url);
+};
+
+const KEEP_FORMATTING_KEY = 'aiAssistant.keepPasteFormatting';
+const readKeepFormatting = () => {
+  try {
+    return localStorage.getItem(KEEP_FORMATTING_KEY) === '1';
+  } catch {
+    return false;
+  }
 };
 
 /** What the folded one-line box shows about a conversation it is hiding. */
@@ -125,7 +151,8 @@ function AiAssistantPanel({
       const key = `attachment-${nextAttachmentKey.current++}`;
       const error =
         taken + i >= MAX_ATTACHMENTS ? ATTACHMENT_ERROR_MESSAGES.tooMany : rejectBeforeUpload(file);
-      return { key, fileName: file.name, error };
+      const previewUrl = !error && isImageFile(file) ? createPreviewUrl(file) : undefined;
+      return { key, fileName: file.name, error, previewUrl };
     });
     setPendingAttachments((prev) => [...prev, ...added]);
 
@@ -142,7 +169,8 @@ function AiAssistantPanel({
         })
         .catch((e: unknown) => {
           removedWhileUploading.current.delete(pending.key);
-          updatePending(pending.key, { error: attachmentErrorMessage(e) });
+          revokePreviewUrl(pending.previewUrl);
+          updatePending(pending.key, { error: attachmentErrorMessage(e), previewUrl: undefined });
         });
     });
   };
@@ -152,7 +180,45 @@ function AiAssistantPanel({
     if (!pending) return;
     if (pending.attachment) deleteAttachment(pending.attachment.id);
     else if (!pending.error) removedWhileUploading.current.add(key);
+    revokePreviewUrl(pending.previewUrl);
     setPendingAttachments((prev) => prev.filter((a) => a.key !== key));
+  };
+
+  // The local previews still held are let go when the panel goes away, too.
+  useEffect(() => () => livePreviewUrls.forEach(revokePreviewUrl), []);
+
+  // Whether pasted formatted text keeps its formatting (as Markdown); remembered in this browser.
+  const [keepFormatting, setKeepFormatting] = useState(readKeepFormatting);
+  const handleKeepFormattingChange = (keep: boolean) => {
+    setKeepFormatting(keep);
+    try {
+      localStorage.setItem(KEEP_FORMATTING_KEY, keep ? '1' : '0');
+    } catch {
+      // Storage unavailable (private window, blocked site data): the choice lasts this visit only.
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const result = readPaste(e.clipboardData, keepFormatting);
+    if (result.kind === 'default') return;
+    e.preventDefault();
+    if (result.kind === 'files') {
+      handleAddFiles(result.files);
+      return;
+    }
+    // Put the converted text where the browser would have put the pasted text. A block (a table,
+    // a list) goes on lines of its own: typed on straight after it, a question would become part
+    // of the table's last row.
+    const input = inputRef.current;
+    const start = input?.selectionStart ?? inputValue.length;
+    const end = input?.selectionEnd ?? inputValue.length;
+    const before = inputValue.slice(0, start);
+    const block = result.text.includes('\n');
+    const text =
+      (block && before && !before.endsWith('\n') ? '\n' : '') + result.text + (block ? '\n' : '');
+    setInputValue(before + text + inputValue.slice(end));
+    const caret = start + text.length;
+    requestAnimationFrame(() => inputRef.current?.setSelectionRange(caret, caret));
   };
 
   // Opening the panel is the reader asking to type: the cursor goes to the end of the message
@@ -248,6 +314,8 @@ function AiAssistantPanel({
 
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
+    // The sent message shows its images from the server from here on.
+    pendingAttachments.forEach((a) => revokePreviewUrl(a.previewUrl));
     setPendingAttachments([]);
 
     // 創建初始的 bot 訊息
@@ -365,6 +433,9 @@ function AiAssistantPanel({
             attachments={pendingAttachments}
             onAddFiles={handleAddFiles}
             onRemoveAttachment={handleRemoveAttachment}
+            onPaste={handlePaste}
+            keepFormatting={keepFormatting}
+            onKeepFormattingChange={handleKeepFormattingChange}
           />
         </Box>
 

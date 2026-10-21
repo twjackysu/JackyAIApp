@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -22,14 +22,17 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [InlineData("notes.txt", AttachmentKinds.Text)]
         [InlineData("README.md", AttachmentKinds.Text)]
         [InlineData("data.json", AttachmentKinds.Text)]
+        [InlineData("截圖.PNG", AttachmentKinds.Image)]
+        [InlineData("photo.jpeg", AttachmentKinds.Image)]
+        [InlineData("anim.gif", AttachmentKinds.Image)]
+        [InlineData("pic.webp", AttachmentKinds.Image)]
+        [InlineData("年報.pdf", AttachmentKinds.Pdf)]
         public void AcceptedFiles_AreKnownByTheirExtension(string fileName, string kind) =>
             Assert.Equal(kind, AttachmentTextExtractor.KindOf(fileName));
 
         [Theory]
         [InlineData("old.doc")]
         [InlineData("old.xls")]
-        [InlineData("scan.pdf")]
-        [InlineData("photo.png")]
         [InlineData("noextension")]
         public void OtherFiles_AreNotAccepted(string fileName) =>
             Assert.Null(AttachmentTextExtractor.KindOf(fileName));
@@ -160,7 +163,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         private static JsonElement Wire(SQL.ChatMessage message) =>
-            JsonSerializer.SerializeToElement(AnthropicChatService.ToMessageParam(message));
+            JsonSerializer.SerializeToElement(AnthropicChatService.ToMessageParam(message, new Dictionary<long, byte[]>()));
 
         private static string Normalize(string text) => text.Replace("\r\n", "\n");
 

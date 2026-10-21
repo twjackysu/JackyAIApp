@@ -25,8 +25,8 @@ export const chatErrorMessage = (code: string | undefined): string =>
 /** Shown under an answer that ran into the length limit. */
 export const TRUNCATED_NOTE = '回覆因長度上限被截斷，內容可能不完整。';
 
-/** The file types the server reads (AttachmentTextExtractor), for the file picker. */
-export const ATTACHMENT_ACCEPT = '.docx,.xlsx,.csv,.txt,.md,.json';
+/** The file types the server takes (AttachmentTextExtractor.KindOf), for the file picker. */
+export const ATTACHMENT_ACCEPT = '.docx,.xlsx,.csv,.txt,.md,.json,.pdf,.png,.jpg,.jpeg,.gif,.webp';
 
 /** Files sent with one message (ChatbotController.MaxAttachmentsPerMessage). */
 export const MAX_ATTACHMENTS = 5;
@@ -34,10 +34,14 @@ export const MAX_ATTACHMENTS = 5;
 /** Largest upload, matching the server's limit. */
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
+/** Pages per PDF (AttachmentFileProcessor.MaxPdfPages). */
+export const MAX_PDF_PAGES = 100;
+
 export const ATTACHMENT_ERROR_MESSAGES = {
-  unsupported: '不支援這種檔案，請上傳 Word（.docx）、Excel（.xlsx）、CSV 或文字檔。',
+  unsupported: '不支援這種檔案，請上傳 Word、Excel、CSV、文字檔、PDF 或圖片。',
   tooLarge: '檔案太大，上限 10 MB。',
   unreadable: '讀不出這個檔案的內容，可能已損毀、有密碼保護，或沒有文字。',
+  tooManyPages: `PDF 頁數太多，上限 ${MAX_PDF_PAGES} 頁，請只留需要的部分。`,
   tooMany: `一次最多附加 ${MAX_ATTACHMENTS} 個檔案。`,
   failed: '上傳失敗，請稍後再試。',
 } as const;
@@ -58,6 +62,8 @@ export const attachmentErrorMessage = (error: unknown): string => {
       return ATTACHMENT_ERROR_MESSAGES.tooLarge;
     case ErrorCodes.AttachmentUnreadable:
       return ATTACHMENT_ERROR_MESSAGES.unreadable;
+    case ErrorCodes.AttachmentTooManyPages:
+      return ATTACHMENT_ERROR_MESSAGES.tooManyPages;
   }
   return e?.status === 413 ? ATTACHMENT_ERROR_MESSAGES.tooLarge : ATTACHMENT_ERROR_MESSAGES.failed;
 };
