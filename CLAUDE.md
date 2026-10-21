@@ -60,6 +60,11 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
    - Taiwan Stock Exchange (TWSE) Open API integration
    - Strategic insights generation with bullish/bearish recommendations
    - AI-powered stock data analysis using OpenAI gpt-6-luna
+   - **AI assistant** (signed-in users; model and storage under AI Integration Patterns): at the top
+     of the page as a one-line box marked as a chat (not a search); focusing it opens the full
+     conversation in place — history column on `md`+, a drawer below that — and its header folds
+     it back. Folding keeps the conversation (and a reply still streaming). Below it, three tabs:
+     綜合量化分析 (default) / AI 趨勢分析 / 今日市場AI摘要
 
 5. **PDF Unlocker** (`/pdf`) - PDF processing utilities
    - Password removal from protected PDFs
@@ -134,10 +139,22 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 ### AI Service Integration
 - **OpenAI client** configured in dependency injection using Betalgo.Ranul.OpenAI
 - **Models used**: 
-  - gpt-6-luna (`NewModels.GPT_6_LUNA`) for every chat/JSON completion — the only chat model;
-    it is reasoning-family, so `OpenAIPromptService` sends `reasoning_effort=low`, never
-    `temperature` or `max_tokens`, and caps output with `max_completion_tokens` (16384, output
-    only — prompts can be far longer)
+  - gpt-6-luna (`NewModels.GPT_6_LUNA`) for every chat/JSON completion **except the Finance AI
+    assistant below**; it is reasoning-family, so `OpenAIPromptService` sends
+    `reasoning_effort=low`, never `temperature` or `max_tokens`, and caps output with
+    `max_completion_tokens` (16384, output only — prompts can be far longer)
+  - **Finance AI assistant** (`/finance`; `AnthropicChatService`): Claude Haiku 5.5
+    (`claude-haiku-5-5`, SDK `Anthropic` NuGet) called directly through the Anthropic API (key
+    `Settings:AnthropicApiKey`) — not Dify (removed) and not OpenAI. It uses Anthropic's MCP
+    connector to attach the remote `tw-stock` MCP server (`TW-Stock-MCP-Server.fastmcp.app`), which
+    Anthropic's servers call, not ours. Haiku 5.5 thinks by default (adaptive) and the thinking
+    counts toward `max_tokens`; effort is set explicitly to `medium`; it can decline a request
+    (`stop_reason: refusal`, no server-side fallback for Haiku), which is reported to the user as
+    such. The system prompt carries today's Taipei date. The API is stateless, so conversations
+    live in our own SQL tables (`ChatConversations`, `ChatMessages`) and the whole history is
+    re-sent every turn, each turn with its role but as its visible text only (earlier tool calls
+    and thinking are not kept); replies stream to the browser as SSE. Costs
+    `UsageCosts.ChatMessage` per message, refunded if no reply ever started
   - Whisper for audio transcription (STT)
   - TTS-1 and TTS-1-HD for text-to-speech synthesis — **fallback only**: when `AzureSpeech:Key`
     is configured, `ITextToSpeechService` resolves to `AzureSpeechTextToSpeechService` (Azure AI

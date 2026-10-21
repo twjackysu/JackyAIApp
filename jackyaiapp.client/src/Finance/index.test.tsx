@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { act, useEffect } from 'react';
+import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
@@ -12,30 +12,21 @@ import { financeApis } from '@/apis/financeApis';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// The page's widgets are exercised by their own tests; here only the page's own wiring matters.
+// The page's widgets and the assistant's panel are exercised by their own tests; here only the
+// page's own wiring matters.
 vi.mock('./components', () => ({
   StockAnalysisResult: () => null,
   ComprehensiveAnalysisResult: () => null,
   AnalysisConfigPanel: () => null,
-  MarketOverview: () => null,
+  MarketOverview: () => <div data-testid="market-overview" />,
   IndicatorExplorer: () => null,
   MarketSeasonalChart: () => null,
   TaiexTrendlineCard: () => null,
 }));
 vi.mock('./components/MarketSummaryTab', () => ({ MarketSummaryTab: () => null }));
-
-// Counts how often the panel is created, to tell "kept mounted" from "mounted again".
-const panel = vi.hoisted(() => ({ mounts: 0, active: undefined as boolean | undefined }));
-vi.mock('./components/aiAssistant', () => {
-  function StubAssistant({ active }: { active: boolean }) {
-    panel.active = active;
-    useEffect(() => {
-      panel.mounts += 1;
-    }, []);
-    return <div data-testid="ai-assistant">assistant</div>;
-  }
-  return { default: StubAssistant };
-});
+vi.mock('./components/aiAssistant', () => ({
+  default: () => <div data-testid="ai-assistant-panel" />,
+}));
 
 let container: HTMLDivElement;
 let root: Root;
@@ -46,7 +37,7 @@ const jsonResponse = (body: unknown) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
-function mount(signedIn: boolean) {
+async function mount(signedIn: boolean, entry = '/finance') {
   // Node's Request rejects the app's relative API paths; resolve them against a dummy origin.
   const OriginalRequest = globalThis.Request;
   class AbsoluteUrlRequest extends OriginalRequest {
@@ -77,20 +68,28 @@ function mount(signedIn: boolean) {
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(financeApis.middleware, accountApis.middleware),
   });
-  return act(async () => {
+  await act(async () => {
     root.render(
       <Provider store={store}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[entry]}>
           <Finance />
         </MemoryRouter>
       </Provider>,
     );
   });
+  await settle();
+}
+
+/** Lets the requests that were just made answer, and the page react to the answers. */
+async function settle() {
+  for (let i = 0; i < 4; i++) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+  }
 }
 
 beforeEach(() => {
-  panel.mounts = 0;
-  panel.active = undefined;
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -102,71 +101,60 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const tabLabels = () =>
-  [...container.querySelectorAll('[role="tab"]')].map((t) => t.textContent?.trim());
+const tabs = () => [...container.querySelectorAll<HTMLElement>('[role="tab"]')];
+const selectedTab = () =>
+  tabs()
+    .find((t) => t.getAttribute('aria-selected') === 'true')
+    ?.textContent?.trim();
+const assistantBox = () => container.querySelector<HTMLInputElement>('input[aria-label="AI 助手"]');
 
-const clickTab = (label: string) =>
-  act(async () => {
-    const tab = [...container.querySelectorAll<HTMLElement>('[role="tab"]')].find(
-      (t) => t.textContent?.trim() === label,
-    );
-    tab!.click();
-  });
+/** Whether `a` comes before `b` in the page. */
+const precedes = (a: Element, b: Element) =>
+  !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-/** The wrapper the page puts around the assistant, which is what gets hidden. */
-const assistantWrapper = () =>
-  container.querySelector<HTMLElement>('[data-testid="ai-assistant"]')?.parentElement ?? null;
-
-describe('Finance page — AI assistant tab', () => {
-  it('has the assistant where 多股比較 used to be', async () => {
+describe('Finance page', () => {
+  it('keeps the three analysis tabs, opening on the quantitative analysis', async () => {
     await mount(true);
-    expect(tabLabels()).toEqual(['綜合量化分析', 'AI 趨勢分析', '今日市場AI摘要', 'AI 助手']);
+
+    expect(tabs().map((t) => t.textContent?.trim())).toEqual([
+      '綜合量化分析',
+      'AI 趨勢分析',
+      '今日市場AI摘要',
+    ]);
+    expect(selectedTab()).toBe('綜合量化分析');
   });
 
-  it('does not mount the assistant until its tab is opened', async () => {
+  it('puts the AI assistant at the top, as a one-line box above everything else', async () => {
     await mount(true);
-    expect(container.querySelector('[data-testid="ai-assistant"]')).toBeNull();
-    expect(panel.mounts).toBe(0);
+
+    const box = assistantBox()!;
+    expect(box).not.toBeNull();
+    expect(precedes(box, container.querySelector('[data-testid="market-overview"]')!)).toBe(true);
+    expect(precedes(box, tabs()[0])).toBe(true);
+    // Folded: the conversation itself is not on the page until the box is used.
+    expect(container.querySelector('[data-testid="ai-assistant-panel"]')).toBeNull();
   });
 
-  it('asks a signed-out visitor to sign in instead of showing the assistant', async () => {
+  it('opens the conversation in place once the box is used', async () => {
+    await mount(true);
+    await act(async () => assistantBox()!.focus());
+    await settle();
+
+    expect(container.querySelector('[data-testid="ai-assistant-panel"]')).not.toBeNull();
+    expect(assistantBox()).toBeNull();
+  });
+
+  it('asks a signed-out visitor to sign in from the box', async () => {
     await mount(false);
-    await clickTab('AI 助手');
-
-    expect(container.textContent).toContain('AI 助手需要登入才能使用');
-    expect(container.querySelector('[data-testid="ai-assistant"]')).toBeNull();
+    expect(assistantBox()!.placeholder).toContain('登入後');
   });
 
-  it('shows the assistant to a signed-in user, with no sign-in prompt', async () => {
-    await mount(true);
-    await clickTab('AI 助手');
+  it('a link to a stock (?symbol=) still lands on its analysis', async () => {
+    await mount(true, '/finance?symbol=2330&market=TW');
 
-    expect(container.querySelector('[data-testid="ai-assistant"]')).not.toBeNull();
-    expect(panel.active).toBe(true);
-    expect(container.textContent).not.toContain('AI 助手需要登入才能使用');
-    expect(getComputedStyle(assistantWrapper()!).display).not.toBe('none');
-  });
-
-  it('keeps the same assistant (and so its conversation) when another tab is visited and back', async () => {
-    await mount(true);
-    await clickTab('AI 助手');
-
-    await clickTab('綜合量化分析');
-    expect(getComputedStyle(assistantWrapper()!).display).toBe('none');
-    expect(panel.active).toBe(false);
-
-    await clickTab('AI 助手');
-    expect(getComputedStyle(assistantWrapper()!).display).not.toBe('none');
-    expect(panel.active).toBe(true);
-    expect(panel.mounts).toBe(1);
-  });
-
-  it('shows the stock search only on the analysis tabs, not on the assistant', async () => {
-    await mount(true);
-    const searchBox = () => container.querySelector('input[placeholder^="股票代碼"]');
-    expect(searchBox()).not.toBeNull();
-
-    await clickTab('AI 助手');
-    expect(searchBox()).toBeNull();
+    expect(selectedTab()).toBe('綜合量化分析');
+    expect(container.querySelector<HTMLInputElement>('input[placeholder^="股票代碼"]')?.value).toBe(
+      '2330',
+    );
   });
 });

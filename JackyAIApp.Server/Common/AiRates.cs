@@ -15,7 +15,17 @@ namespace JackyAIApp.Server.Common
             new(StringComparer.OrdinalIgnoreCase)
             {
                 ["gpt-6-luna"] = (0.10m, 0.50m),
+                // Kept for the usage rows logged before the chatbot moved to Haiku 5.5.
                 ["claude-haiku-4-5"] = (1.00m, 5.00m),
+                ["claude-haiku-5-5"] = (0.10m, 0.50m),
+            };
+
+        // Models billed on a second, higher rate card once the prompt is longer than a threshold:
+        // (prompt tokens above which it applies, input, output) in USD per 1,000,000 tokens.
+        private static readonly Dictionary<string, (int AbovePromptTokens, decimal InputPerM, decimal OutputPerM)> LongPromptRates =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["claude-haiku-5-5"] = (100_000, 0.50m, 2.50m),
             };
 
         // TTS rates in USD per 1,000,000 input characters.
@@ -42,6 +52,8 @@ namespace JackyAIApp.Server.Common
         public static decimal? ChatCost(string model, int promptTokens, int completionTokens)
         {
             if (!ChatRates.TryGetValue(model, out var r)) return null;
+            if (LongPromptRates.TryGetValue(model, out var l) && promptTokens > l.AbovePromptTokens)
+                r = (l.InputPerM, l.OutputPerM);
             return promptTokens / 1_000_000m * r.InputPerM
                  + completionTokens / 1_000_000m * r.OutputPerM;
         }

@@ -1,19 +1,33 @@
 import AddCommentIcon from '@mui/icons-material/AddComment';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import HistoryIcon from '@mui/icons-material/History';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { Avatar, Badge, Box, IconButton, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+
+import { HISTORY_COLUMN_BREAKPOINT } from './historyColumn';
 
 import { ActionTooltip } from '@/components/hints';
 
 interface ChatHeaderProps {
   statusText: string;
   statusColor: string;
+  /** A reply is being written: starting over has to wait. */
+  busy: boolean;
   onOpenHistory: () => void;
   onNewChat: () => void;
+  /** Folds the panel back into its one-line box (the conversation is kept). */
+  onCollapse: () => void;
 }
 
-const ChatHeader = ({ statusText, statusColor, onOpenHistory, onNewChat }: ChatHeaderProps) => {
+const ChatHeader = ({
+  statusText,
+  statusColor,
+  busy,
+  onOpenHistory,
+  onNewChat,
+  onCollapse,
+}: ChatHeaderProps) => {
   const theme = useTheme();
 
   return (
@@ -60,14 +74,27 @@ const ChatHeader = ({ statusText, statusColor, onOpenHistory, onNewChat }: ChatH
         </Typography>
       </Stack>
       <Box sx={{ flexGrow: 1 }} />
+      {/* Only where the history is not already shown beside the chat (see HISTORY_COLUMN_BREAKPOINT) */}
       <ActionTooltip title="對話紀錄">
-        <IconButton onClick={onOpenHistory} color="inherit" aria-label="對話紀錄">
+        <IconButton
+          onClick={onOpenHistory}
+          color="inherit"
+          aria-label="對話紀錄"
+          sx={{ display: { [HISTORY_COLUMN_BREAKPOINT]: 'none' } }}
+        >
           <HistoryIcon />
         </IconButton>
       </ActionTooltip>
       <ActionTooltip title="新對話">
-        <IconButton onClick={onNewChat} color="inherit" aria-label="新對話">
-          <AddCommentIcon />
+        <span>
+          <IconButton onClick={onNewChat} color="inherit" aria-label="新對話" disabled={busy}>
+            <AddCommentIcon />
+          </IconButton>
+        </span>
+      </ActionTooltip>
+      <ActionTooltip title="收合">
+        <IconButton onClick={onCollapse} color="inherit" aria-label="收合">
+          <ExpandLessIcon />
         </IconButton>
       </ActionTooltip>
     </Box>

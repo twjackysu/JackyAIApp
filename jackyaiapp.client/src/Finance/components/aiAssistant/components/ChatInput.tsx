@@ -8,9 +8,10 @@ interface ChatInputProps {
   onSend: () => void;
   onKeyPress: (e: React.KeyboardEvent) => void;
   disabled: boolean;
+  inputRef?: React.Ref<HTMLTextAreaElement>;
 }
 
-const ChatInput = ({ value, onChange, onSend, onKeyPress, disabled }: ChatInputProps) => {
+const ChatInput = ({ value, onChange, onSend, onKeyPress, disabled, inputRef }: ChatInputProps) => {
   const theme = useTheme();
   const canSend = Boolean(value.trim()) && !disabled;
 
@@ -33,6 +34,7 @@ const ChatInput = ({ value, onChange, onSend, onKeyPress, disabled }: ChatInputP
           variant="outlined"
           placeholder="輸入訊息…（Enter 送出，Shift+Enter 換行）"
           value={value}
+          inputRef={inputRef}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyPress}
           disabled={disabled}

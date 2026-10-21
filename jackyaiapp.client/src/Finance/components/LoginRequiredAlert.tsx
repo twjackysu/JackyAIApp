@@ -1,6 +1,8 @@
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 
+import { signInAndComeBack } from '../utils/signIn';
+
 interface LoginRequiredAlertProps {
   message: string;
 }
@@ -11,13 +13,7 @@ export const LoginRequiredAlert = ({ message }: LoginRequiredAlertProps) => (
     severity="info"
     sx={{ mb: 2 }}
     action={
-      <Button
-        color="inherit"
-        size="small"
-        onClick={() => {
-          window.location.href = `/api/account/login/Google?ReturnUrl=${encodeURIComponent(window.location.pathname)}`;
-        }}
-      >
+      <Button color="inherit" size="small" onClick={signInAndComeBack}>
         登入
       </Button>
     }

@@ -125,8 +125,14 @@ describe('useFinanceAnalysis — comprehensiveError stays on its own tab', () =>
     vi.restoreAllMocks();
   });
 
-  it('shows showComprehensiveErrorAlert on the quantitative tab after its own failed search', async () => {
+  it('opens on the quantitative analysis tab', () => {
     expect(latest.analysisTab).toBe(TAB_QUANTITATIVE);
+  });
+
+  it('shows showComprehensiveErrorAlert on the quantitative tab after its own failed search', async () => {
+    act(() => {
+      latest.handleTabChange(null, TAB_QUANTITATIVE);
+    });
     act(() => {
       latest.setStockSearchTerm('BAD');
     });
@@ -139,6 +145,9 @@ describe('useFinanceAnalysis — comprehensiveError stays on its own tab', () =>
   });
 
   it('clears a stale comprehensiveError when switching tabs', async () => {
+    act(() => {
+      latest.handleTabChange(null, TAB_QUANTITATIVE);
+    });
     act(() => {
       latest.setStockSearchTerm('BAD');
     });
