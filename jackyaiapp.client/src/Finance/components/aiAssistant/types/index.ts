@@ -14,6 +14,13 @@ export interface PendingAttachment {
   previewUrl?: string;
 }
 
+/** A message sent while an answer was still being written, waiting for its turn. */
+export interface QueuedMessage {
+  key: string;
+  text: string;
+  attachments: ChatAttachment[];
+}
+
 export interface Message {
   id: string;
   content: string;

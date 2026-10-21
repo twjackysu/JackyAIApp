@@ -70,7 +70,9 @@ const errorEnvelope = (status: number, code: string) =>
 // What the server holds, and what was asked of it.
 let conversations: ChatConversation[];
 let messagesOf: Record<string, ChatHistoryMessage[]>;
-let chatReplies: Array<() => Response | Promise<Response>>;
+let chatReplies: Array<(init?: RequestInit) => Response | Promise<Response>>;
+/** Conversations the panel asked the server to stop. */
+let stops: string[];
 let chatBodies: Array<{ message: string; conversationId: string; attachmentIds: number[] }>;
 let listFetches: number;
 let deleted: string[];
@@ -91,6 +93,7 @@ beforeEach(() => {
   uploadReplies = [];
   uploads = 0;
   deletedAttachments = [];
+  stops = [];
   whileAnswering = undefined;
 
   // Node's Request rejects the app's relative API paths; resolve them against a dummy origin.
@@ -113,7 +116,12 @@ beforeEach(() => {
       if (url.endsWith('/api/chatbot/chat')) {
         chatBodies.push(JSON.parse(init!.body as string));
         whileAnswering?.();
-        return chatReplies.shift()!();
+        return chatReplies.shift()!(init);
+      }
+      const stop = url.match(/conversations\/([^/]+)\/stop$/);
+      if (stop && method === 'POST') {
+        stops.push(stop[1]);
+        return json({ data: { stopped: true } });
       }
       if (url.endsWith('/api/chatbot/attachments') && method === 'POST') {
         uploads += 1;
@@ -233,7 +241,7 @@ describe('AiAssistantPanel', () => {
     await mount();
 
     expect(container.textContent).toContain('AI 助手');
-    expect(container.textContent).toContain('您好！我是您的 AI 助手');
+    expect(container.textContent).toContain('您好！我是台股 AI 助手');
     expect(buttonByLabel('新對話')).not.toBeNull();
     expect(buttonByLabel('關閉')).toBeNull();
     expect(document.querySelector('[role="dialog"]')).toBeNull();
@@ -356,7 +364,42 @@ describe('AiAssistantPanel', () => {
     await waitForText('錯誤: AI 服務目前忙碌中，請稍後再試。');
   });
 
-  it('ignores Enter while a reply is still being written', async () => {
+  it('a message sent while a reply is being written waits, and goes once the reply is done', async () => {
+    await mount();
+    let finish!: () => void;
+    chatReplies.push(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () =>
+            resolve(
+              sseReply({ type: 'delta', text: '一' }, { type: 'done', conversationId: 'conv-1' }),
+            );
+        }),
+    );
+    await send('first');
+    // The box still takes typing.
+    expect(textarea().disabled).toBe(false);
+
+    await send('second');
+    expect(chatBodies).toHaveLength(1);
+    expect(queuedTexts()).toEqual(['second']);
+
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '二' }, { type: 'done', conversationId: 'conv-1' }),
+    );
+    await act(async () => finish());
+    await waitFor(() => expect(chatBodies).toHaveLength(2));
+    // Into the same conversation, the queue emptied.
+    expect(chatBodies[1]).toEqual({
+      message: 'second',
+      conversationId: 'conv-1',
+      attachmentIds: [],
+    });
+    await waitForText('二');
+    expect(queuedTexts()).toEqual([]);
+  });
+
+  it('a waiting message can be taken back before it goes', async () => {
     await mount();
     let finish!: () => void;
     chatReplies.push(
@@ -366,14 +409,128 @@ describe('AiAssistantPanel', () => {
         }),
     );
     await send('first');
-    expect(textarea().disabled).toBe(true);
+    await send('never mind');
 
-    await send('second');
-    expect(chatBodies).toHaveLength(1);
+    act(() => buttonByLabel('取消排隊')!.click());
+    expect(queuedTexts()).toEqual([]);
 
     await act(async () => finish());
+    await waitFor(() => expect(buttonByLabel('停止')).toBeNull());
+    expect(chatBodies).toHaveLength(1);
+  });
+
+  it('停止 tells the server, and keeps what was written, marked as stopped', async () => {
+    await mount();
+    chatReplies.push((init) =>
+      openReply(
+        init?.signal,
+        { type: 'start', conversationId: 'conv-1' },
+        { type: 'delta', text: '台積電目前' },
+      ),
+    );
+    await send('分析 2330');
+    await waitForText('台積電目前');
+
+    await act(async () => buttonByLabel('停止')!.click());
+
+    // Two paragraphs of the bubble: the partial answer, then the mark.
+    await waitFor(() => expect(container.textContent).toMatch(/台積電目前\s*（已中斷）/));
+    expect(stops).toEqual(['conv-1']);
+    await waitFor(() => expect(buttonByLabel('停止')).toBeNull());
+    expect(container.textContent).not.toContain('錯誤');
+  });
+
+  it('stopping with a message waiting breaks in: the waiting message goes straight away', async () => {
+    await mount();
+    chatReplies.push((init) =>
+      openReply(
+        init?.signal,
+        { type: 'start', conversationId: 'conv-1' },
+        { type: 'delta', text: '長篇分析' },
+      ),
+    );
+    await send('分析 2330');
+    await waitForText('長篇分析');
+    await send('改看 2317');
+
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '鴻海' }, { type: 'done', conversationId: 'conv-1' }),
+    );
+    await act(async () => buttonByLabel('停止')!.click());
+
+    await waitForText('鴻海');
+    expect(chatBodies.map((b) => b.message)).toEqual(['分析 2330', '改看 2317']);
+    expect(chatBodies[1].conversationId).toBe('conv-1');
+  });
+
+  it('stopping before the server has named a new conversation waits for the name, then stops it', async () => {
+    await mount();
+    let sendStart!: () => void;
+    chatReplies.push((init) => {
+      const encoder = new TextEncoder();
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            sendStart = () =>
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: 'start', conversationId: 'conv-new' })}\n\n`,
+                ),
+              );
+            init?.signal?.addEventListener('abort', () =>
+              controller.error(new DOMException('aborted', 'AbortError')),
+            );
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+      );
+    });
+    await send('hi');
+    await act(async () => buttonByLabel('停止')!.click());
+    expect(stops).toEqual([]);
+
+    await act(async () => sendStart());
+
+    await waitFor(() => expect(stops).toEqual(['conv-new']));
+    await waitForText('（已中斷）');
+  });
+
+  it('a suggestion under the greeting goes into the box, not straight to the assistant', async () => {
+    await mount();
+    const suggestion = [
+      ...container.querySelectorAll<HTMLElement>(
+        '[data-testid="greeting-suggestions"] .MuiChip-root',
+      ),
+    ][0];
+
+    await act(async () => suggestion.click());
+
+    expect(textarea().value).toBe(suggestion.textContent);
+    expect(chatBodies).toEqual([]);
   });
 });
+
+/** The messages waiting their turn, as listed above the box. */
+const queuedTexts = () =>
+  [...container.querySelectorAll<HTMLElement>('[data-testid="queued-message"]')].map(
+    (q) => q.querySelector('.MuiTypography-body2')!.textContent,
+  );
+
+/** A reply that streams these events and then stays open, until its request is dropped. */
+const openReply = (signal: AbortSignal | null | undefined, ...events: object[]) =>
+  new Response(
+    new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        for (const event of events)
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        signal?.addEventListener('abort', () =>
+          controller.error(new DOMException('aborted', 'AbortError')),
+        );
+      },
+    }),
+    { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+  );
 
 /** Picks files with the 「+」 button's file input. */
 async function attach(...files: File[]) {
@@ -414,7 +571,9 @@ async function paste(data: { text?: string; html?: string; files?: File[] }) {
 
 /** The attachment chips in the message box, or (given `within`) in a bubble. */
 const chips = (within: ParentNode = container) =>
-  [...within.querySelectorAll<HTMLElement>('.MuiChip-root')].map((c) => c.textContent);
+  [...within.querySelectorAll<HTMLElement>('.MuiChip-root')]
+    .filter((c) => !c.closest('[data-testid="greeting-suggestions"]'))
+    .map((c) => c.textContent);
 
 const uploadsSettled = () =>
   waitFor(() =>
@@ -696,7 +855,7 @@ describe('AiAssistantPanel — conversation history column', () => {
 
     act(() => buttonByLabel('新對話')!.click());
     expect(container.textContent).not.toContain('毛利率 59%');
-    expect(container.textContent).toContain('您好！我是您的 AI 助手');
+    expect(container.textContent).toContain('您好！我是台股 AI 助手');
 
     chatReplies.push(() =>
       sseReply({ type: 'delta', text: '全新的' }, { type: 'done', conversationId: 'conv-2' }),
@@ -716,7 +875,7 @@ describe('AiAssistantPanel — conversation history column', () => {
 
     await waitFor(() => expect(deleted).toEqual(['c1']));
     await waitFor(() => expect(container.textContent).not.toContain('毛利率 59%'));
-    expect(container.textContent).toContain('您好！我是您的 AI 助手');
+    expect(container.textContent).toContain('您好！我是台股 AI 助手');
     await waitFor(() => expect(container.textContent).not.toContain('台積電財報'));
   });
 

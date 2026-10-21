@@ -11,7 +11,7 @@ import MessageArea from './components/MessageArea';
 import PreviewDialog from './components/PreviewDialog';
 import ProgressIndicator from './components/ProgressIndicator';
 import { useAgentStatus } from './hooks/useAgentStatus';
-import { Message, PendingAttachment } from './types';
+import { Message, PendingAttachment, QueuedMessage } from './types';
 import { readPaste } from './utils/paste';
 
 import {
@@ -27,8 +27,8 @@ import {
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS,
 } from '@/apis/chatbotApis/chatErrors';
-import { ChatHistoryMessage } from '@/apis/chatbotApis/types';
-import { useChatStreaming } from '@/hooks/useChatStreaming';
+import { ChatAttachment, ChatHistoryMessage } from '@/apis/chatbotApis/types';
+import { stoppedContent, useChatStreaming } from '@/hooks/useChatStreaming';
 import { ParsedBlock, useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
 import { useAppDispatch } from '@/redux/hooks';
 
@@ -127,7 +127,7 @@ function AiAssistantPanel({
 
   const dispatch = useAppDispatch();
   const [fetchConversationMessages] = useLazyGetConversationMessagesQuery();
-  const { sendStreamingMessage, streamingStatus } = useChatStreaming();
+  const { sendStreamingMessage, stop, streamingStatus } = useChatStreaming();
   const { statusText, statusColor } = useAgentStatus(streamingStatus);
   const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
   const busy = streamingStatus.isLoading;
@@ -138,6 +138,7 @@ function AiAssistantPanel({
   const [uploadAttachment] = useUploadChatAttachmentMutation();
   const [deleteAttachment] = useDeleteChatAttachmentMutation();
   const nextAttachmentKey = useRef(0);
+  const nextTurnKey = useRef(0);
   // Chips removed while their upload was still running: the upload is deleted once it lands.
   const removedWhileUploading = useRef(new Set<string>());
 
@@ -299,77 +300,91 @@ function AiAssistantPanel({
     }
   }, [blocks]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || streamingStatus.isLoading) return;
-    if (pendingAttachments.some((a) => !a.attachment && !a.error)) return; // still uploading
-
-    const attachments = pendingAttachments.flatMap((a) => (a.attachment ? [a.attachment] : []));
+  /** Sends one message and writes its answer into a new bubble as it comes. */
+  const sendTurn = async (text: string, attachments: ChatAttachment[]) => {
     const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue,
+      id: `${Date.now()}-${nextTurnKey.current++}`,
+      content: text,
       isUser: true,
       timestamp: new Date(),
       attachments: attachments.length > 0 ? attachments : undefined,
     };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInputValue('');
-    // The sent message shows its images from the server from here on.
-    pendingAttachments.forEach((a) => revokePreviewUrl(a.previewUrl));
-    setPendingAttachments([]);
-
     // 創建初始的 bot 訊息
     const botMessage: Message = {
-      id: (Date.now() + 1).toString(),
+      id: `${Date.now()}-${nextTurnKey.current++}`,
       content: '',
       isUser: false,
       timestamp: new Date(),
       parsedBlocks: [],
     };
+    setMessages((prev) => [...prev, userMessage, botMessage]);
+    setCurrentStreamingContent('');
 
-    setMessages((prev) => [...prev, botMessage]);
+    const updateBot = (patch: Partial<Message>) =>
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === botMessage.id ? { ...msg, ...patch } : msg)),
+      );
 
-    await sendStreamingMessage(
-      userMessage.content,
+    await sendStreamingMessage({
+      message: text,
       conversationId,
-      attachments.map((a) => a.id),
-      // onMessageUpdate
-      (content: string) => {
+      attachmentIds: attachments.map((a) => a.id),
+      onStart: setConversationId,
+      onUpdate: (content) => {
         setCurrentStreamingContent(content);
-        setMessages((prev) =>
-          prev.map((msg) => (msg.id === botMessage.id ? { ...msg, content } : msg)),
-        );
+        updateBot({ content });
       },
-      // onComplete
-      (newConversationId?: string, truncated?: boolean) => {
-        // 更新 conversation_id
-        if (newConversationId) {
-          setConversationId(newConversationId);
-        }
-        if (truncated) {
-          setMessages((prev) =>
-            prev.map((msg) => (msg.id === botMessage.id ? { ...msg, truncated: true } : msg)),
-          );
-        }
+      onComplete: (newConversationId, truncated) => {
+        if (newConversationId) setConversationId(newConversationId);
+        if (truncated) updateBot({ truncated: true });
       },
-      // onError
-      (error: string) => {
-        // `parsedBlocks` is cleared so the bubble falls back to rendering `content`: an empty
-        // block list is what a reply that never started looks like, and it draws nothing.
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === botMessage.id
-              ? { ...msg, content: `錯誤: ${error}`, parsedBlocks: undefined }
-              : msg,
-          ),
-        );
-      },
-    );
+      // What was said before the stop stays, marked the way the server stores it. `parsedBlocks` is
+      // cleared so the bubble renders `content`, mark included.
+      onStopped: (partial) =>
+        updateBot({ content: stoppedContent(partial), parsedBlocks: undefined }),
+      // `parsedBlocks` is cleared so the bubble falls back to rendering `content`: an empty
+      // block list is what a reply that never started looks like, and it draws nothing.
+      onError: (error) => updateBot({ content: `錯誤: ${error}`, parsedBlocks: undefined }),
+    });
 
     // The turn is over, however it ended: the first message of a new conversation has just
     // created it on the server, and any turn moves it to the top. The column shows the list.
     dispatch(chatbotApis.util.invalidateTags(['Conversations']));
   };
+
+  // Messages sent while an answer is still being written wait here, and go out one at a time as
+  // each answer ends — however it ends, a stop included. (Stopping with one waiting is how to
+  // break in: the answer stops and the waiting message is sent straight away.)
+  const [queued, setQueued] = useState<QueuedMessage[]>([]);
+  useEffect(() => {
+    if (busy || queued.length === 0) return;
+    const [next, ...rest] = queued;
+    setQueued(rest);
+    void sendTurn(next.text, next.attachments);
+    // sendTurn is a fresh function every render; the queue moves on busy and the queue alone.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, queued]);
+
+  const handleSendMessage = () => {
+    if (!inputValue.trim()) return;
+    if (pendingAttachments.some((a) => !a.attachment && !a.error)) return; // still uploading
+
+    const text = inputValue;
+    const attachments = pendingAttachments.flatMap((a) => (a.attachment ? [a.attachment] : []));
+    setInputValue('');
+    // The sent message shows its images from the server from here on.
+    pendingAttachments.forEach((a) => revokePreviewUrl(a.previewUrl));
+    setPendingAttachments([]);
+
+    if (busy) {
+      setQueued((prev) => [...prev, { key: `queued-${nextTurnKey.current++}`, text, attachments }]);
+    } else {
+      void sendTurn(text, attachments);
+    }
+  };
+
+  const handleRemoveQueued = (key: string) =>
+    setQueued((prev) => prev.filter((q) => q.key !== key));
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -422,13 +437,24 @@ function AiAssistantPanel({
             onCollapse={onCollapse}
           />
           <ProgressIndicator streamingStatus={streamingStatus} />
-          <MessageArea messages={messages} onPreview={handlePreview} active={active} />
+          <MessageArea
+            messages={messages}
+            onPreview={handlePreview}
+            active={active}
+            onSuggest={(question) => {
+              setInputValue(question);
+              inputRef.current?.focus();
+            }}
+          />
           <ChatInput
             value={inputValue}
             onChange={setInputValue}
             onSend={handleSendMessage}
             onKeyPress={handleKeyPress}
-            disabled={busy}
+            busy={busy}
+            onStop={stop}
+            queued={queued}
+            onRemoveQueued={handleRemoveQueued}
             inputRef={inputRef}
             attachments={pendingAttachments}
             onAddFiles={handleAddFiles}

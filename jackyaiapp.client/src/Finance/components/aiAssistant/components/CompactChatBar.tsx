@@ -7,9 +7,10 @@ import IconButton from '@mui/material/IconButton';
 import InputBase from '@mui/material/InputBase';
 import { alpha, useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { signInAndComeBack } from '../../../utils/signIn';
+import { EXAMPLE_QUESTIONS } from '../examples';
 
 import { ActionTooltip } from '@/components/hints';
 
@@ -26,12 +27,19 @@ interface CompactChatBarProps {
   hasConversation: boolean;
 }
 
-const placeholderFor = ({ state, busy, hasConversation }: CompactChatBarProps) => {
+/** How long each example question stays in the idle box before the next one. */
+export const EXAMPLE_ROTATE_MS = 4000;
+
+/** The box is idle: nothing typed, nothing going on — it shows example questions in turn. */
+const isIdle = ({ state, busy, hasConversation, value }: CompactChatBarProps) =>
+  state === 'ready' && !busy && !hasConversation && !value;
+
+const placeholderFor = ({ state, busy, hasConversation }: CompactChatBarProps, example: string) => {
   if (state === 'signedOut') return '登入後即可問 AI 助手台股問題';
   if (state === 'loading') return 'AI 助手';
   if (busy) return 'AI 助手回覆中…';
   if (hasConversation) return '繼續剛才的對話…';
-  return '問 AI 助手台股問題，例如「2330 最近法人買賣超？」';
+  return `問 AI 助手，例如「${example}」`;
 };
 
 /**
@@ -46,6 +54,18 @@ export function CompactChatBar(props: CompactChatBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const ready = state === 'ready';
   const accent = theme.palette.success.main;
+
+  // A different question every few seconds shows how much can be asked.
+  const [exampleIndex, setExampleIndex] = useState(0);
+  const idle = isIdle(props);
+  useEffect(() => {
+    if (!idle) return;
+    const timer = setInterval(
+      () => setExampleIndex((i) => (i + 1) % EXAMPLE_QUESTIONS.length),
+      EXAMPLE_ROTATE_MS,
+    );
+    return () => clearInterval(timer);
+  }, [idle]);
 
   return (
     <Box
@@ -89,7 +109,7 @@ export function CompactChatBar(props: CompactChatBarProps) {
         }}
         readOnly={!ready}
         disabled={state === 'loading'}
-        placeholder={placeholderFor(props)}
+        placeholder={placeholderFor(props, EXAMPLE_QUESTIONS[exampleIndex])}
         inputProps={{ 'aria-label': 'AI 助手' }}
         sx={{ flex: 1, minWidth: 0, fontSize: '0.95rem' }}
       />
