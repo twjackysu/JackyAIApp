@@ -207,7 +207,7 @@ namespace JackyAIApp.Server.Services.Chatbot
             // First, so the reader can stop even the first turn of a new conversation.
             try
             {
-                await WriteSseAsync(response, new { type = "start", conversationId = conversation.Id }, turnCt);
+                await WriteSseAsync(response, new { type = "start", conversationId = conversation.Id, userMessageId = userMessage.Id }, turnCt);
             }
             catch (OperationCanceledException)
             {
@@ -343,14 +343,16 @@ namespace JackyAIApp.Server.Services.Chatbot
             // A stopped turn keeps what was said before the stop, marked as cut off — even if that is
             // nothing — so the reader sees it on reopening the conversation, and the model knows on the
             // next turn that this answer did not finish (as Claude Code records an interrupted turn).
+            SQL.ChatMessage? assistantMessage = null;
             if (stopped || (accumulated.Length > 0 && !refused))
             {
-                db.ChatMessages.Add(new SQL.ChatMessage
+                assistantMessage = new SQL.ChatMessage
                 {
                     ConversationId = conversation.Id,
                     Role = "assistant",
                     Content = stopped ? StoppedContent(accumulated.ToString()) : accumulated.ToString(),
-                });
+                };
+                db.ChatMessages.Add(assistantMessage);
 
                 conversation.UpdatedAt = DateTime.UtcNow;
                 conversation.Title ??= TitleFrom(message);
@@ -367,10 +369,10 @@ namespace JackyAIApp.Server.Services.Chatbot
                 (int)cacheWriteTokens, (int)cacheReadTokens);
 
             if (success)
-                await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, truncated }, ct);
+                await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, truncated, assistantMessageId = assistantMessage?.Id }, ct);
             else if (stopped && !ct.IsCancellationRequested)
                 // Stopped through the API while the reader is still listening.
-                await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, stopped = true }, ct);
+                await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, stopped = true, assistantMessageId = assistantMessage?.Id }, ct);
             else if (!ct.IsCancellationRequested)
                 await WriteSseAsync(response, new { type = "error", code = errorCode ?? ChatErrorCodes.Failed }, ct);
 

@@ -792,6 +792,186 @@ describe('AiAssistantPanel — pasting', () => {
   });
 });
 
+describe('AiAssistantPanel — copy and edit', () => {
+  let copied: string[];
+  beforeEach(() => {
+    copied = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn(async (text: string) => void copied.push(text)) },
+    });
+  });
+
+  /** A message's own button, found inside that message. */
+  const actionOf = (testId: 'user-message' | 'assistant-message', text: string, label: string) =>
+    buttonByLabel(
+      label,
+      [...container.querySelectorAll<HTMLElement>(`[data-testid="${testId}"]`)].find((m) =>
+        m.textContent?.includes(text),
+      )!,
+    );
+
+  /** Types into the message being edited. */
+  const typeInEditor = (text: string) => {
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="編輯訊息"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(
+        editor,
+        text,
+      );
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    return editor;
+  };
+
+  it('copies an answer as it was written, and says it did', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'delta', text: '**台積電**收 1,050' },
+        { type: 'done', conversationId: 'c1' },
+      ),
+    );
+    await send('2330？');
+    await waitForText('收 1,050');
+    await waitFor(() => expect(buttonByLabel('停止')).toBeNull());
+
+    await act(async () => actionOf('assistant-message', '收 1,050', '複製')!.click());
+
+    expect(copied).toEqual(['**台積電**收 1,050']);
+    expect(actionOf('assistant-message', '收 1,050', '已複製')).not.toBeNull();
+  });
+
+  it('copies the reader’s own message too', async () => {
+    await mount();
+    chatReplies.push(() => sseReply({ type: 'done', conversationId: 'c1' }));
+    await send('2330 最近如何？');
+    await waitFor(() => expect(buttonByLabel('停止')).toBeNull());
+
+    await act(async () => actionOf('user-message', '2330 最近如何？', '複製')!.click());
+
+    expect(copied).toEqual(['2330 最近如何？']);
+  });
+
+  it('an answer still being written has no buttons yet, and nothing can be edited meanwhile', async () => {
+    await mount();
+    let finish!: () => void;
+    chatReplies.push(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () =>
+            resolve(
+              sseReply(
+                { type: 'start', conversationId: 'c1', userMessageId: 7 },
+                { type: 'delta', text: '寫好了' },
+                { type: 'done', conversationId: 'c1' },
+              ),
+            );
+        }),
+    );
+    await send('hi');
+    expect(
+      container.querySelector('[data-testid="assistant-message"] button[aria-label="複製"]'),
+    ).toBeNull();
+    expect(actionOf('user-message', 'hi', '編輯')).toBeNull();
+
+    await act(async () => finish());
+    await waitForText('寫好了');
+    await waitFor(() => expect(buttonByLabel('停止')).toBeNull());
+    expect(actionOf('assistant-message', '寫好了', '複製')).not.toBeNull();
+    expect(actionOf('user-message', 'hi', '編輯')).not.toBeNull();
+  });
+
+  it('editing a message sends the new wording in its place, and what followed it goes', async () => {
+    conversations = [conversation('c1', '台積電')];
+    messagesOf = {
+      c1: [
+        turn(1, 'user', '台積電？'),
+        turn(2, 'assistant', '收 1,050'),
+        turn(3, 'user', '那鴻海？'),
+        turn(4, 'assistant', '收 210'),
+      ],
+    };
+    await mount();
+    await waitForText('台積電');
+    await act(async () => row('台積電').click());
+    await waitForText('收 210');
+
+    await act(async () => actionOf('user-message', '台積電？', '編輯')!.click());
+    expect(
+      container.querySelector<HTMLTextAreaElement>('textarea[aria-label="編輯訊息"]')!.value,
+    ).toBe('台積電？');
+    typeInEditor('聯發科？');
+
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'start', conversationId: 'c1', userMessageId: 5 },
+        { type: 'delta', text: '收 1,400' },
+        { type: 'done', conversationId: 'c1', assistantMessageId: 6 },
+      ),
+    );
+    await act(async () => {
+      [...container.querySelectorAll('button')].find((b) => b.textContent === '送出')!.click();
+    });
+
+    await waitForText('收 1,400');
+    expect(chatBodies).toEqual([
+      { message: '聯發科？', conversationId: 'c1', attachmentIds: [], editMessageId: 1 },
+    ]);
+    // The edited message and everything after it are gone; the new turn is all that follows.
+    for (const gone of ['台積電？', '收 1,050', '那鴻海？', '收 210'])
+      expect(container.textContent).not.toContain(gone);
+  });
+
+  it('a message sent in this visit can be edited too, once the server has named it', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'start', conversationId: 'c1', userMessageId: 41 },
+        { type: 'delta', text: '答' },
+        { type: 'done', conversationId: 'c1', assistantMessageId: 42 },
+      ),
+    );
+    await send('first');
+    await waitForText('答');
+    await waitFor(() => expect(buttonByLabel('停止')).toBeNull());
+
+    await act(async () => actionOf('user-message', 'first', '編輯')!.click());
+    const editor = typeInEditor('second');
+    chatReplies.push(() => sseReply({ type: 'done', conversationId: 'c1' }));
+    await act(async () => {
+      editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+
+    await waitFor(() => expect(chatBodies).toHaveLength(2));
+    expect(chatBodies[1]).toEqual({
+      message: 'second',
+      conversationId: 'c1',
+      attachmentIds: [],
+      editMessageId: 41,
+    });
+  });
+
+  it('Esc puts the message back as it was', async () => {
+    conversations = [conversation('c1', '台積電')];
+    messagesOf = { c1: [turn(1, 'user', '台積電？'), turn(2, 'assistant', '收 1,050')] };
+    await mount();
+    await waitForText('台積電');
+    await act(async () => row('台積電').click());
+    await waitForText('收 1,050');
+
+    await act(async () => actionOf('user-message', '台積電？', '編輯')!.click());
+    const editor = typeInEditor('改掉');
+    await act(async () => {
+      editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+
+    expect(container.querySelector('textarea[aria-label="編輯訊息"]')).toBeNull();
+    expect(container.textContent).toContain('台積電？');
+    expect(chatBodies).toEqual([]);
+  });
+});
+
 describe('AiAssistantPanel — conversation history column', () => {
   beforeEach(() => {
     conversations = [conversation('c1', '台積電財報'), conversation('c2', 'ETF 比較')];

@@ -23,6 +23,8 @@ export interface QueuedMessage {
 
 export interface Message {
   id: string;
+  /** The id the server stored it under, once known — what an edit refers to. */
+  serverId?: number;
   content: string;
   isUser: boolean;
   timestamp: Date;

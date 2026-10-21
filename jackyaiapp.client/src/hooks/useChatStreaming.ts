@@ -14,10 +14,16 @@ export interface StreamingStatus {
 /** Our own SSE event shape from ChatbotController — see AnthropicChatService.WriteSseAsync. A
  *  failure carries only a code; `chatErrorMessage` turns it into words. */
 type ChatStreamEvent =
-  | { type: 'start'; conversationId: string }
+  | { type: 'start'; conversationId: string; userMessageId?: number }
   | { type: 'delta'; text: string }
   | { type: 'tool_use'; name: string }
-  | { type: 'done'; conversationId: string; truncated?: boolean; stopped?: boolean }
+  | {
+      type: 'done';
+      conversationId: string;
+      truncated?: boolean;
+      stopped?: boolean;
+      assistantMessageId?: number | null;
+    }
   | { type: 'error'; code?: string };
 
 export interface ChatTurn {
@@ -25,14 +31,17 @@ export interface ChatTurn {
   conversationId: string | undefined;
   /** Uploaded files (useUploadChatAttachmentMutation) to send with this message. */
   attachmentIds: number[];
+  /** This message is an edit of the reader's stored message with this id: the server removes it and
+   *  everything after it, and sends its attachments again with the new wording. */
+  editMessageId?: number;
   /** The conversation the turn is in — known before any answer, so even a new one can be stopped. */
-  onStart?: (conversationId: string) => void;
+  onStart?: (conversationId: string, userMessageId?: number) => void;
   /** The answer so far, each time it grows. */
   onUpdate: (content: string) => void;
   /** `truncated`: the answer ran into the length limit and is cut short. */
-  onComplete: (conversationId?: string, truncated?: boolean) => void;
+  onComplete: (conversationId?: string, truncated?: boolean, assistantMessageId?: number) => void;
   /** The reader stopped the turn; `partial` is what had been written by then (the server keeps it). */
-  onStopped: (partial: string) => void;
+  onStopped: (partial: string, assistantMessageId?: number) => void;
   onError: (error: string) => void;
 }
 
@@ -85,6 +94,7 @@ export const useChatStreaming = () => {
       message,
       conversationId,
       attachmentIds,
+      editMessageId,
       onStart,
       onUpdate,
       onComplete,
@@ -104,7 +114,7 @@ export const useChatStreaming = () => {
             Accept: 'text/event-stream',
             'Cache-Control': 'no-cache',
           },
-          body: JSON.stringify({ message, conversationId, attachmentIds }),
+          body: JSON.stringify({ message, conversationId, attachmentIds, editMessageId }),
           signal: turn.abort.signal,
         });
 
@@ -145,7 +155,7 @@ export const useChatStreaming = () => {
               switch (event.type) {
                 case 'start':
                   turn.conversationId = event.conversationId;
-                  onStart?.(event.conversationId);
+                  onStart?.(event.conversationId, event.userMessageId);
                   // Stop was pressed before the server had named the conversation.
                   if (turn.stopRequested) {
                     void stopOnServer(event.conversationId);
@@ -164,8 +174,14 @@ export const useChatStreaming = () => {
                   }));
                   break;
                 case 'done':
-                  if (event.stopped) onStopped(accumulatedContent);
-                  else onComplete(event.conversationId, event.truncated === true);
+                  if (event.stopped)
+                    onStopped(accumulatedContent, event.assistantMessageId ?? undefined);
+                  else
+                    onComplete(
+                      event.conversationId,
+                      event.truncated === true,
+                      event.assistantMessageId ?? undefined,
+                    );
                   return;
                 case 'error':
                   onError(chatErrorMessage(event.code));

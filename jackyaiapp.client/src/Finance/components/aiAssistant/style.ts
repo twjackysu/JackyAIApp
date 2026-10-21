@@ -19,6 +19,16 @@ export const panelSurface = (theme: Theme) =>
 export const accentWash = (theme: Theme, strength = 0.12) =>
   alpha(theme.palette.mode === 'dark' ? ACCENT : '#059669', strength);
 
+/**
+ * For the element holding a message and its MessageActions: the actions fade in on hover and on
+ * keyboard focus, and stay visible where the device cannot hover (phones).
+ */
+export const revealActionsOnHover = {
+  '& .message-actions': { opacity: 0, transition: 'opacity 120ms' },
+  '&:hover .message-actions, &:focus-within .message-actions': { opacity: 1 },
+  '@media (hover: none)': { '& .message-actions': { opacity: 1 } },
+};
+
 /** Lines inside the panel: quieter than the theme's divider. */
 export const hairline = (theme: Theme) =>
   theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';
