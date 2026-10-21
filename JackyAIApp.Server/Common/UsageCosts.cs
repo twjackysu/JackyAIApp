@@ -75,6 +75,14 @@ namespace JackyAIApp.Server.Common
         /// is sent to the model again on every later turn of the conversation.</summary>
         public const ulong ChatAttachment = 2;
 
+        /// <summary>A PDF costs <see cref="ChatAttachment"/> plus this per 10 pages (rounded up): the
+        /// model reads every page as text and as a picture, again on every later turn.</summary>
+        public const ulong ChatPdfPer10Pages = 1;
+
+        /// <summary>What one attachment adds to the message it is sent with.</summary>
+        public static ulong ForChatAttachment(int? pdfPages) =>
+            ChatAttachment + (pdfPages is > 0 ? ChatPdfPer10Pages * (ulong)((pdfPages.Value + 9) / 10) : 0);
+
         /// <summary>Text-to-speech synthesis</summary>
         public const ulong TextToSpeech = 1;
 

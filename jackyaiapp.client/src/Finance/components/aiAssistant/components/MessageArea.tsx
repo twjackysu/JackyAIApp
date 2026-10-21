@@ -11,6 +11,7 @@ import { Message } from '../types';
 import AttachmentChip from './AttachmentChip';
 
 import { TRUNCATED_NOTE } from '@/apis/chatbotApis/chatErrors';
+import { attachmentContentUrl } from '@/apis/chatbotApis/types';
 import MarkdownMessage from '@/components/MarkdownMessage';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 
@@ -202,15 +203,23 @@ function MessageArea({ messages, onPreview, active }: MessageAreaProps) {
 
                   {message.attachments && message.attachments.length > 0 && (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
-                      {message.attachments.map((a) => (
-                        <AttachmentChip
-                          key={a.id}
-                          fileName={a.fileName}
-                          kind={a.kind}
-                          truncated={a.truncated}
-                          onBubble={isOwnMessage}
-                        />
-                      ))}
+                      {message.attachments.map((a) => {
+                        const isFile = a.kind === 'image' || a.kind === 'pdf';
+                        return (
+                          <AttachmentChip
+                            key={a.id}
+                            fileName={a.fileName}
+                            kind={a.kind}
+                            truncated={a.truncated}
+                            pageCount={a.pageCount}
+                            thumbnailUrl={
+                              a.kind === 'image' ? attachmentContentUrl(a.id) : undefined
+                            }
+                            href={isFile ? attachmentContentUrl(a.id) : undefined}
+                            onBubble={isOwnMessage}
+                          />
+                        );
+                      })}
                     </Box>
                   )}
 

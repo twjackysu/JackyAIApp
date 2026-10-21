@@ -12,7 +12,7 @@ namespace JackyAIApp.Server.Services.AiUsage
     public class AiUsageLogger(AzureSQLDBContext db, ILogger<AiUsageLogger> logger) : IAiUsageLogger
     {
         public Task LogChatAsync(string feature, string model, int promptTokens, int completionTokens,
-            bool success, string? userId) =>
+            bool success, string? userId, int? cacheWriteTokens = null, int? cacheReadTokens = null) =>
             SafeInsert(new AiUsageLog
             {
                 Feature = feature,
@@ -21,7 +21,10 @@ namespace JackyAIApp.Server.Services.AiUsage
                 PromptTokens = promptTokens,
                 CompletionTokens = completionTokens,
                 TotalTokens = promptTokens + completionTokens,
-                EstimatedCostUsd = AiRates.ChatCost(model, promptTokens, completionTokens),
+                CacheWriteTokens = cacheWriteTokens,
+                CacheReadTokens = cacheReadTokens,
+                EstimatedCostUsd = AiRates.ChatCost(model, promptTokens, completionTokens,
+                    cacheWriteTokens ?? 0, cacheReadTokens ?? 0),
                 Success = success,
                 UserId = userId,
             });

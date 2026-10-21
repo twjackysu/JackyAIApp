@@ -6,8 +6,11 @@ namespace JackyAIApp.Server.Services.AiUsage
     /// </summary>
     public interface IAiUsageLogger
     {
+        /// <param name="promptTokens">All input tokens, cached or not.</param>
+        /// <param name="cacheWriteTokens">Of those, written to the prompt cache; null when not caching.</param>
+        /// <param name="cacheReadTokens">Of those, read from the prompt cache; null when not caching.</param>
         Task LogChatAsync(string feature, string model, int promptTokens, int completionTokens,
-            bool success, string? userId);
+            bool success, string? userId, int? cacheWriteTokens = null, int? cacheReadTokens = null);
 
         Task LogTtsAsync(string model, int characterCount, bool success, string? userId);
 

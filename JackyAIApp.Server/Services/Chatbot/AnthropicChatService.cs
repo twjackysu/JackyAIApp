@@ -22,6 +22,7 @@ namespace JackyAIApp.Server.Services.Chatbot
     /// </summary>
     public class AnthropicChatService(
         AzureSQLDBContext db,
+        IChatAttachmentStore attachmentStore,
         IAiUsageLogger usageLogger,
         IOptionsMonitor<Settings> settings,
         ILogger<AnthropicChatService> logger,
@@ -65,6 +66,46 @@ namespace JackyAIApp.Server.Services.Chatbot
         internal static string NoAnswerCode(BetaStopReason? stopReason) =>
             stopReason == BetaStopReason.Refusal ? ChatErrorCodes.Refused : ChatErrorCodes.NoAnswer;
 
+        /// <summary>
+        /// The request for one turn. The whole conversation, attachments included, is sent again on
+        /// every turn, so it is cached: the top-level cache_control puts the breakpoint on the last
+        /// block, and the next turn — the same prefix with its new messages after — reads everything
+        /// up to there at a tenth of the input price instead of paying for it again. The default
+        /// 5-minute TTL: a reader's next message usually comes within minutes, each read restarts
+        /// the 5 minutes, and a miss costs only a quarter more (the 1-hour TTL doubles every write).
+        /// For the prefix to match, everything ahead of the conversation must stay byte-identical
+        /// between turns: model, effort, tools and system prompt (which changes once a day, with
+        /// the date), and each stored turn must be rebuilt exactly as it was sent.
+        /// </summary>
+        internal static MessageCreateParams BuildRequest(DateOnly taipeiToday, List<BetaMessageParam> messages) => new()
+        {
+            Model = AnthropicModel.ClaudeHaiku5_5,
+            MaxTokens = MaxTokens,
+            // Medium is Haiku 5.5's default; set explicitly so a change of default upstream
+            // cannot quietly change how much every turn thinks (and costs).
+            OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
+            Betas = [McpBeta],
+            McpServers = [new BetaRequestMcpServerUrlDefinition { Name = McpServerName, Url = McpServerUrl }],
+            Tools = [new BetaMcpToolset { McpServerName = McpServerName }],
+            System = SystemPromptFor(taipeiToday),
+            Messages = messages,
+            CacheControl = new BetaCacheControlEphemeral(),
+        };
+
+        /// <summary>One request's token usage as the stream reports it, the latest report winning.</summary>
+        private sealed class TurnUsage
+        {
+            public long Input, CacheWrite, CacheRead, Output;
+
+            public void Update(long? input, long? cacheWrite, long? cacheRead, long? output)
+            {
+                if (input.HasValue) Input = input.Value;
+                if (cacheWrite.HasValue) CacheWrite = cacheWrite.Value;
+                if (cacheRead.HasValue) CacheRead = cacheRead.Value;
+                if (output.HasValue) Output = output.Value;
+            }
+        }
+
         public async Task<ChatStreamResult> StreamChatAsync(
             string userId, string message, string? conversationId, IReadOnlyCollection<SQL.ChatAttachment> attachments,
             HttpResponse response, CancellationToken ct)
@@ -97,29 +138,29 @@ namespace JackyAIApp.Server.Services.Chatbot
                 .OrderBy(m => m.CreatedAt)
                 .ToListAsync(ct);
 
+            // Images and PDFs are files in the attachment store, read again for every turn they are
+            // part of (the API keeps nothing between requests).
+            var files = new Dictionary<long, byte[]>();
+            foreach (var a in history.SelectMany(m => m.Attachments).Where(a => a.BlobName != null))
+            {
+                var content = await attachmentStore.ReadAsync(a.BlobName!, ct);
+                if (content != null) files[a.Id] = content;
+                else logger.LogWarning("Chat attachment {AttachmentId} has no stored file", a.Id);
+            }
+
             var client = new AnthropicClient { ApiKey = apiKey };
-            var requestMessages = history.Select(ToMessageParam).ToList();
+            var requestMessages = history.Select(m => ToMessageParam(m, files)).ToList();
 
             var taipeiToday = DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime.AddHours(8));
-            var streamParams = new MessageCreateParams
-            {
-                Model = AnthropicModel.ClaudeHaiku5_5,
-                MaxTokens = MaxTokens,
-                // Medium is Haiku 5.5's default; set explicitly so a change of default upstream
-                // cannot quietly change how much every turn thinks (and costs).
-                OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
-                Betas = [McpBeta],
-                McpServers = [new BetaRequestMcpServerUrlDefinition { Name = McpServerName, Url = McpServerUrl }],
-                Tools = [new BetaMcpToolset { McpServerName = McpServerName }],
-                System = SystemPromptFor(taipeiToday),
-                Messages = requestMessages,
-            };
+            var streamParams = BuildRequest(taipeiToday, requestMessages);
 
             StartEventStream(response);
 
             var accumulated = new StringBuilder();
             var streamingStarted = false;
-            long inputTokens = 0, outputTokens = 0;
+            // Totals over every attempt (a pause_turn retry is a request of its own). Input is all of
+            // it: uncached plus written to and read from the cache.
+            long inputTokens = 0, outputTokens = 0, cacheWriteTokens = 0, cacheReadTokens = 0;
             BetaStopReason? stopReason = null;
             var success = true;
             string? errorCode = null;
@@ -127,6 +168,9 @@ namespace JackyAIApp.Server.Services.Chatbot
             for (var attempt = 0; ; attempt++)
             {
                 stopReason = null;
+                // message_start gives this request's usage so far; the final message_delta gives its
+                // cumulative usage, which also counts the MCP connector's server-side tool calls.
+                var usage = new TurnUsage();
                 try
                 {
                     await foreach (var evt in client.Beta.Messages.CreateStreaming(streamParams, ct))
@@ -144,11 +188,13 @@ namespace JackyAIApp.Server.Services.Chatbot
                         }
                         else if (evt.TryPickStart(out var startEvt))
                         {
-                            inputTokens += startEvt.Message.Usage.InputTokens;
+                            var u = startEvt.Message.Usage;
+                            usage.Update(u.InputTokens, u.CacheCreationInputTokens, u.CacheReadInputTokens, u.OutputTokens);
                         }
                         else if (evt.TryPickDelta(out var msgDelta))
                         {
-                            if (msgDelta.Usage != null) outputTokens += msgDelta.Usage.OutputTokens;
+                            if (msgDelta.Usage is { } u)
+                                usage.Update(u.InputTokens, u.CacheCreationInputTokens, u.CacheReadInputTokens, u.OutputTokens);
                             if (msgDelta.Delta != null) stopReason = msgDelta.Delta.StopReason?.Value();
                         }
                     }
@@ -168,6 +214,13 @@ namespace JackyAIApp.Server.Services.Chatbot
                     // The reader left (closed the page): nothing to tell anyone, just stop.
                     success = false;
                     break;
+                }
+                finally
+                {
+                    inputTokens += usage.Input + usage.CacheWrite + usage.CacheRead;
+                    cacheWriteTokens += usage.CacheWrite;
+                    cacheReadTokens += usage.CacheRead;
+                    outputTokens += usage.Output;
                 }
 
                 // pause_turn = the MCP connector's server-side tool loop hit its internal
@@ -229,7 +282,13 @@ namespace JackyAIApp.Server.Services.Chatbot
                 await db.SaveChangesAsync(ct);
             }
 
-            await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)inputTokens, (int)outputTokens, success, userId);
+            // Cache reads that stay at zero turn after turn mean something in the prompt keeps
+            // changing ahead of the cached part (see BuildRequest).
+            logger.LogInformation(
+                "Chat turn for conversation {ConversationId}: {InputTokens} input tokens ({CacheReadTokens} read from cache, {CacheWriteTokens} written), {OutputTokens} output",
+                conversation.Id, inputTokens, cacheReadTokens, cacheWriteTokens, outputTokens);
+            await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)inputTokens, (int)outputTokens, success, userId,
+                (int)cacheWriteTokens, (int)cacheReadTokens);
 
             if (success)
                 await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, truncated }, ct);
@@ -240,11 +299,14 @@ namespace JackyAIApp.Server.Services.Chatbot
         }
 
         /// <summary>
-        /// One stored turn as the API takes it. A message with attachments becomes a list of blocks:
-        /// each attachment as a plain-text document titled with its file name, then the message
-        /// itself — documents ahead of the question about them.
+        /// One stored turn as the API takes it. A message with attachments becomes a list of blocks,
+        /// attachments ahead of the question about them: a text file as a plain-text document and a
+        /// PDF as a PDF document, each titled with its file name; an image as an image, after a line
+        /// naming it (an image block has no title, and the reader may refer to it by name).
         /// </summary>
-        internal static BetaMessageParam ToMessageParam(SQL.ChatMessage m)
+        /// <param name="files">The stored files of image and PDF attachments, by attachment id; one
+        /// missing here is gone from the store, and the model is told so instead.</param>
+        internal static BetaMessageParam ToMessageParam(SQL.ChatMessage m, IReadOnlyDictionary<long, byte[]> files)
         {
             var role = m.Role == "user" ? Role.User : Role.Assistant;
             if (m.Attachments.Count == 0)
@@ -253,15 +315,50 @@ namespace JackyAIApp.Server.Services.Chatbot
             var blocks = new List<BetaContentBlockParam>();
             foreach (var a in m.Attachments.OrderBy(a => a.Id))
             {
-                blocks.Add(new BetaRequestDocumentBlock
+                if (!AttachmentKinds.IsFile(a.Kind))
                 {
-                    Source = new BetaPlainTextSource { Data = a.Truncated ? a.Text + TruncationNote : a.Text },
-                    Title = a.FileName,
-                });
+                    blocks.Add(new BetaRequestDocumentBlock
+                    {
+                        Source = new BetaPlainTextSource { Data = a.Truncated ? a.Text + TruncationNote : a.Text },
+                        Title = a.FileName,
+                    });
+                }
+                else if (!files.TryGetValue(a.Id, out var content))
+                {
+                    blocks.Add(new BetaTextBlockParam { Text = string.Format(MissingFileNote, a.FileName) });
+                }
+                else if (a.Kind == AttachmentKinds.Pdf)
+                {
+                    blocks.Add(new BetaRequestDocumentBlock
+                    {
+                        Source = new BetaBase64PdfSource { Data = Convert.ToBase64String(content) },
+                        Title = a.FileName,
+                    });
+                }
+                else
+                {
+                    blocks.Add(new BetaTextBlockParam { Text = string.Format(ImageNameNote, a.FileName) });
+                    blocks.Add(new BetaImageBlockParam
+                    {
+                        Source = new BetaBase64ImageSource
+                        {
+                            Data = Convert.ToBase64String(content),
+                            MediaType = a.MediaType == "image/png"
+                                ? Anthropic.Models.Beta.Messages.MediaType.ImagePng
+                                : Anthropic.Models.Beta.Messages.MediaType.ImageJpeg,
+                        },
+                    });
+                }
             }
             blocks.Add(new BetaTextBlockParam { Text = m.Content });
             return new BetaMessageParam { Role = role, Content = blocks };
         }
+
+        /// <summary>Names the image that follows it.</summary>
+        internal const string ImageNameNote = "[附件圖片：{0}]";
+
+        /// <summary>Stands in for an image or PDF whose stored file is gone.</summary>
+        internal const string MissingFileNote = "[附件「{0}」已無法讀取。]";
 
         /// <summary>Appended to a cut attachment, so the model does not answer as if it saw all of it.</summary>
         internal const string TruncationNote = "\n\n[此檔案內容過長，以上僅為前段，其餘已截斷。]";

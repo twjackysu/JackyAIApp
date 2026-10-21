@@ -1,14 +1,28 @@
 import AddIcon from '@mui/icons-material/Add';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import CheckIcon from '@mui/icons-material/Check';
 import SendIcon from '@mui/icons-material/Send';
-import { Box, IconButton, TextField, Tooltip, Typography, useMediaQuery } from '@mui/material';
+import {
+  Box,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  TextField,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+} from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import { PendingAttachment } from '../types';
 
 import AttachmentChip from './AttachmentChip';
 
 import { ATTACHMENT_ACCEPT, MAX_ATTACHMENTS } from '@/apis/chatbotApis/chatErrors';
+import { attachmentContentUrl } from '@/apis/chatbotApis/types';
 
 interface ChatInputProps {
   value: string;
@@ -21,6 +35,10 @@ interface ChatInputProps {
   attachments: PendingAttachment[];
   onAddFiles: (files: File[]) => void;
   onRemoveAttachment: (key: string) => void;
+  onPaste: (e: React.ClipboardEvent) => void;
+  /** Pasted formatted text (tables, lists) is turned into Markdown rather than plain text. */
+  keepFormatting: boolean;
+  onKeepFormattingChange: (keep: boolean) => void;
 }
 
 const ChatInput = ({
@@ -33,10 +51,14 @@ const ChatInput = ({
   attachments,
   onAddFiles,
   onRemoveAttachment,
+  onPaste,
+  keepFormatting,
+  onKeepFormattingChange,
 }: ChatInputProps) => {
   const theme = useTheme();
   const narrow = useMediaQuery(theme.breakpoints.down('sm'));
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const uploading = attachments.some((a) => !a.attachment && !a.error);
   const canSend = Boolean(value.trim()) && !disabled && !uploading;
   const failures = attachments.filter((a) => a.error);
@@ -64,6 +86,11 @@ const ChatInput = ({
                 uploading={!a.attachment && !a.error}
                 failed={Boolean(a.error)}
                 truncated={a.attachment?.truncated}
+                pageCount={a.attachment?.pageCount}
+                thumbnailUrl={a.previewUrl}
+                href={
+                  a.attachment?.kind === 'pdf' ? attachmentContentUrl(a.attachment.id) : undefined
+                }
                 onDelete={disabled ? undefined : () => onRemoveAttachment(a.key)}
               />
             ))}
@@ -95,18 +122,55 @@ const ChatInput = ({
             if (files.length > 0) onAddFiles(files);
           }}
         />
-        <Tooltip title="附加檔案（Word、Excel、CSV、文字檔）">
+        <Tooltip title="附加檔案、貼上設定">
           <span>
             <IconButton
-              aria-label="附加檔案"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={!canAttach}
+              aria-label="附加"
+              aria-haspopup="menu"
+              onClick={(e) => setMenuAnchor(e.currentTarget)}
+              disabled={disabled}
               sx={{ width: 44, height: 44 }}
             >
               <AddIcon />
             </IconButton>
           </span>
         </Tooltip>
+        <Menu
+          anchorEl={menuAnchor}
+          open={Boolean(menuAnchor)}
+          onClose={() => setMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        >
+          <MenuItem
+            disabled={!canAttach}
+            onClick={() => {
+              setMenuAnchor(null);
+              fileInputRef.current?.click();
+            }}
+          >
+            <ListItemIcon>
+              <AttachFileIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="附加檔案"
+              secondary={
+                canAttach ? 'Word、Excel、CSV、文字檔、PDF、圖片' : `最多 ${MAX_ATTACHMENTS} 個`
+              }
+            />
+          </MenuItem>
+          <MenuItem
+            role="menuitemcheckbox"
+            aria-checked={keepFormatting}
+            onClick={() => onKeepFormattingChange(!keepFormatting)}
+          >
+            <ListItemIcon>{keepFormatting && <CheckIcon fontSize="small" />}</ListItemIcon>
+            <ListItemText
+              primary="貼上時保留格式"
+              secondary={keepFormatting ? '表格、清單轉成 Markdown' : '只貼上純文字'}
+            />
+          </MenuItem>
+        </Menu>
         <TextField
           fullWidth
           multiline
@@ -118,6 +182,7 @@ const ChatInput = ({
           inputRef={inputRef}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyPress}
+          onPaste={onPaste}
           disabled={disabled}
           sx={{
             '& .MuiOutlinedInput-root': {

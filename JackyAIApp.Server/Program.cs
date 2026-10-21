@@ -64,13 +64,19 @@ try
     }
 
     // Blob Storage for listening-exam question images (pre-seeded via the bulk importer tool,
-    // not written to at request time). No-ops if unset — same pattern as App Insights above.
-    // Secret name in Key Vault: BlobStorage--ConnectionString.
+    // not written to at request time) and for the AI assistant's image and PDF attachments.
+    // Secret name in Key Vault: BlobStorage--ConnectionString. Without it (local development),
+    // listening images are unavailable and chat attachments are kept in memory only.
     var blobStorageConnectionString = builder.Configuration["BlobStorage:ConnectionString"];
     if (!string.IsNullOrEmpty(blobStorageConnectionString))
     {
         builder.Services.AddSingleton(new BlobServiceClient(blobStorageConnectionString));
         builder.Services.AddScoped<JackyAIApp.Server.Services.Listening.IListeningImageStorageService, JackyAIApp.Server.Services.Listening.ListeningImageStorageService>();
+        builder.Services.AddSingleton<JackyAIApp.Server.Services.Chatbot.IChatAttachmentStore, JackyAIApp.Server.Services.Chatbot.BlobChatAttachmentStore>();
+    }
+    else
+    {
+        builder.Services.AddSingleton<JackyAIApp.Server.Services.Chatbot.IChatAttachmentStore, JackyAIApp.Server.Services.Chatbot.InMemoryChatAttachmentStore>();
     }
 
     var configuration = builder.Configuration;

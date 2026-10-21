@@ -13,6 +13,12 @@ namespace JackyAIApp.Server.Services.Chatbot
         public const string Excel = "excel";
         public const string Csv = "csv";
         public const string Text = "text";
+        public const string Image = "image";
+        public const string Pdf = "pdf";
+
+        /// <summary>Kept as a file and sent to the model as it is (<see cref="AttachmentFileProcessor"/>),
+        /// rather than as text read out of it.</summary>
+        public static bool IsFile(string kind) => kind is Image or Pdf;
     }
 
     /// <param name="Kind">An <see cref="AttachmentKinds"/> value.</param>
@@ -46,6 +52,12 @@ namespace JackyAIApp.Server.Services.Chatbot
             [".txt"] = AttachmentKinds.Text,
             [".md"] = AttachmentKinds.Text,
             [".json"] = AttachmentKinds.Text,
+            [".png"] = AttachmentKinds.Image,
+            [".jpg"] = AttachmentKinds.Image,
+            [".jpeg"] = AttachmentKinds.Image,
+            [".gif"] = AttachmentKinds.Image,
+            [".webp"] = AttachmentKinds.Image,
+            [".pdf"] = AttachmentKinds.Pdf,
         };
 
         /// <summary>The file types accepted, for the client's file picker and error messages.</summary>
