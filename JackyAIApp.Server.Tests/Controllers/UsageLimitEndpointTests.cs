@@ -5,9 +5,9 @@ using JackyAIApp.Server.Controllers;
 namespace JackyAIApp.Server.Tests.Controllers
 {
     /// <summary>
-    /// Which endpoints charge, and how much. Charging lives on the endpoint (<see cref="UsageLimitAttribute"/>),
-    /// not inside the services, so this is the one place to check it — including the endpoints that
-    /// must stay free.
+    /// Which endpoints charge, and for which feature (its cost is in <see cref="UsageCosts.Of"/>).
+    /// Charging lives on the endpoint (<see cref="UsageLimitAttribute"/>), not inside the services,
+    /// so this is the one place to check it — including the endpoints that must stay free.
     /// </summary>
     public class UsageLimitEndpointTests
     {
@@ -15,29 +15,29 @@ namespace JackyAIApp.Server.Tests.Controllers
             controller.GetMethod(action, BindingFlags.Public | BindingFlags.Instance)!
                 .GetCustomAttribute<UsageLimitAttribute>();
 
-        public static TheoryData<string, ulong> ChargedExamEndpoints => new()
+        public static TheoryData<string, UsageFeature> ChargedExamEndpoints => new()
         {
-            { nameof(ExamController.GetClozeTest), UsageCosts.ClozeTest },
-            { nameof(ExamController.GetTranslationTest), UsageCosts.TranslationTest },
-            { nameof(ExamController.GetTranslationQualityGrading), UsageCosts.TranslationGrading },
-            { nameof(ExamController.StartConversationTest), UsageCosts.ConversationStart },
-            { nameof(ExamController.RespondToConversation), UsageCosts.ConversationResponse },
-            { nameof(ExamController.SummarizeConversation), UsageCosts.ConversationSummary },
-            { nameof(ExamController.TranscribeAudio), UsageCosts.AudioTranscription },
-            { nameof(ExamController.GetSentenceTest), UsageCosts.SentenceTest },
-            { nameof(ExamController.EvaluateSentence), UsageCosts.SentenceEvaluation },
-            { nameof(ExamController.GetListeningTest), UsageCosts.ListeningTest },
-            { nameof(ExamController.GetListeningResponseTest), UsageCosts.ListeningResponseTest },
-            { nameof(ExamController.GetReadingTest), UsageCosts.ReadingComprehensionTest },
-            { nameof(ExamController.EvaluateWriting), UsageCosts.WritingEvaluation },
-            { nameof(ExamController.GetDictationTest), UsageCosts.DictationTest },
+            { nameof(ExamController.GetClozeTest), UsageFeature.ClozeTest },
+            { nameof(ExamController.GetTranslationTest), UsageFeature.TranslationTest },
+            { nameof(ExamController.GetTranslationQualityGrading), UsageFeature.TranslationGrading },
+            { nameof(ExamController.StartConversationTest), UsageFeature.ConversationStart },
+            { nameof(ExamController.RespondToConversation), UsageFeature.ConversationResponse },
+            { nameof(ExamController.SummarizeConversation), UsageFeature.ConversationSummary },
+            { nameof(ExamController.TranscribeAudio), UsageFeature.AudioTranscription },
+            { nameof(ExamController.GetSentenceTest), UsageFeature.SentenceTest },
+            { nameof(ExamController.EvaluateSentence), UsageFeature.SentenceEvaluation },
+            { nameof(ExamController.GetListeningTest), UsageFeature.ListeningTest },
+            { nameof(ExamController.GetListeningResponseTest), UsageFeature.ListeningResponseTest },
+            { nameof(ExamController.GetReadingTest), UsageFeature.ReadingComprehensionTest },
+            { nameof(ExamController.EvaluateWriting), UsageFeature.WritingEvaluation },
+            { nameof(ExamController.GetDictationTest), UsageFeature.DictationTest },
         };
 
         [Theory]
         [MemberData(nameof(ChargedExamEndpoints))]
-        public void ExamEndpoint_Charges(string action, ulong cost)
+        public void ExamEndpoint_Charges(string action, UsageFeature feature)
         {
-            Assert.Equal(cost, UsageOf(typeof(ExamController), action)?.Cost);
+            Assert.Equal(feature, UsageOf(typeof(ExamController), action)?.Feature);
         }
 
         /// <summary>No AI cost of their own: the writing prompt and dictation grading are plain DB
@@ -58,15 +58,22 @@ namespace JackyAIApp.Server.Tests.Controllers
         [Fact]
         public void PortfolioAiSummary_Charges()
         {
-            Assert.Equal(UsageCosts.PortfolioAiSummary,
-                UsageOf(typeof(PortfolioController), nameof(PortfolioController.GetAiTechSummary))?.Cost);
+            Assert.Equal(UsageFeature.PortfolioAiSummary,
+                UsageOf(typeof(PortfolioController), nameof(PortfolioController.GetAiTechSummary))?.Feature);
+        }
+
+        [Fact]
+        public void StockAnalysis_Charges()
+        {
+            Assert.Equal(UsageFeature.StockAnalysis,
+                UsageOf(typeof(FinanceController), nameof(FinanceController.AnalyzeStock))?.Feature);
         }
 
         [Fact]
         public void DataAnalysisNlSummarize_Charges()
         {
-            Assert.Equal(UsageCosts.NlSummarize,
-                UsageOf(typeof(DataAnalysisController), nameof(DataAnalysisController.NlSummarize))?.Cost);
+            Assert.Equal(UsageFeature.NlSummarize,
+                UsageOf(typeof(DataAnalysisController), nameof(DataAnalysisController.NlSummarize))?.Feature);
         }
     }
 }

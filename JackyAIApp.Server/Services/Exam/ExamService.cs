@@ -885,7 +885,7 @@ namespace JackyAIApp.Server.Services.Exam
             var userId = _userService.GetUserId();
             if (string.IsNullOrEmpty(userId))
             {
-                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                return ServiceResult.Fail(ErrorCodes.Unauthorized, "Not signed in.");
             }
 
             if (request == null || string.IsNullOrEmpty(request.ExamType))

@@ -7,72 +7,39 @@ namespace JackyAIApp.Server.Common
     /// cost — except the gamification bonuses (DailyLoginBonus/DailyChallengeBonus/
     /// StreakMilestone7Day), which this mechanism does not model: usage is consumed, never
     /// granted, so there is nothing for a "bonus" to mean here.
+    /// What each feature covers is documented on <see cref="UsageFeature"/>.
     /// </summary>
     public static class UsageCosts
     {
-        // Dictionary word lookup is intentionally free — a generated word is saved to the
-        // Word table, so the OpenAI call only ever runs once per word, not once per user.
+        /// <summary>The cost of one use of <paramref name="feature"/>. For a chat message, the
+        /// message alone; what it costs with its attachments is <see cref="ForChatMessage"/>.</summary>
+        public static ulong Of(UsageFeature feature) => feature switch
+        {
+            UsageFeature.ClozeTest => 2,
+            UsageFeature.TranslationTest => 2,
+            UsageFeature.TranslationGrading => 1,
+            UsageFeature.ConversationStart => 3,
+            UsageFeature.ConversationResponse => 2,
+            UsageFeature.ConversationSummary => 2,
+            UsageFeature.SentenceTest => 2,
+            UsageFeature.SentenceEvaluation => 2,
+            UsageFeature.ListeningTest => 4,
+            UsageFeature.ListeningResponseTest => 4,
+            UsageFeature.ReadingComprehensionTest => 3,
+            UsageFeature.WritingEvaluation => 3,
+            UsageFeature.DictationTest => 1,
+            UsageFeature.AudioTranscription => 1,
+            UsageFeature.StockAnalysis => 5,
+            UsageFeature.MarketDigest => 3,
+            UsageFeature.ChatMessage => 5,
+            UsageFeature.TextToSpeech => 1,
+            UsageFeature.NlSummarize => 2,
+            UsageFeature.PortfolioAiSummary => 2,
+            _ => throw new ArgumentOutOfRangeException(nameof(feature), feature, "No usage cost for this feature."),
+        };
 
-        /// <summary>Cloze test generation</summary>
-        public const ulong ClozeTest = 2;
-
-        /// <summary>Translation test generation</summary>
-        public const ulong TranslationTest = 2;
-
-        /// <summary>Translation quality grading</summary>
-        public const ulong TranslationGrading = 1;
-
-        /// <summary>Conversation test (start)</summary>
-        public const ulong ConversationStart = 3;
-
-        /// <summary>Conversation response (each turn)</summary>
-        public const ulong ConversationResponse = 2;
-
-        /// <summary>Conversation end-of-session summary</summary>
-        public const ulong ConversationSummary = 2;
-
-        /// <summary>Sentence test generation</summary>
-        public const ulong SentenceTest = 2;
-
-        /// <summary>Sentence AI evaluation/grading</summary>
-        public const ulong SentenceEvaluation = 2;
-
-        /// <summary>Listening test (TOEIC Part 1 style) — bundles the question fetch plus the
-        /// TTS for its 4 candidate statements into one flat charge; playback itself is free.</summary>
-        public const ulong ListeningTest = 4;
-
-        /// <summary>Listening response test (TOEIC Part 2 style) — bundles the question fetch
-        /// plus TTS for the prompt and its 3 responses (4 audio clips total, same as ListeningTest).</summary>
-        public const ulong ListeningResponseTest = 4;
-
-        /// <summary>Reading comprehension test — a passage-sized text-only completion, charged
-        /// flat per play (cache hit or miss), same convention as ListeningResponseTest.</summary>
-        public const ulong ReadingComprehensionTest = 3;
-
-        /// <summary>Writing evaluation — the GET api/exam/writing prompt itself is a free DB
-        /// query (no AI cost, deliberately not usage-gated); the whole charge for the feature
-        /// sits here, on the one-shot paragraph grading call.</summary>
-        public const ulong WritingEvaluation = 3;
-
-        /// <summary>Dictation practice — one TTS clip per attempt (a single word, not
-        /// ListeningTest's four options), priced at raw TextToSpeech cost rather than
-        /// ListeningTest's bundled rate.</summary>
-        public const ulong DictationTest = 1;
-
-        /// <summary>Whisper audio transcription</summary>
-        public const ulong AudioTranscription = 1;
-
-        /// <summary>Stock analysis (AI-powered)</summary>
-        public const ulong StockAnalysis = 5;
-
-        /// <summary>Daily AI market digest (global + TW, charged once per user per day)</summary>
-        public const ulong MarketDigest = 3;
-
-        /// <summary>Finance AI assistant (chatbot) — charged per message sent</summary>
-        public const ulong ChatMessage = 5;
-
-        /// <summary>Each file sent with a chat message, on top of <see cref="ChatMessage"/>: its text
-        /// is sent to the model again on every later turn of the conversation.</summary>
+        /// <summary>Each file sent with a chat message, on top of the message: its text is sent to
+        /// the model again on every later turn of the conversation.</summary>
         public const ulong ChatAttachment = 2;
 
         /// <summary>A PDF costs <see cref="ChatAttachment"/> plus this per 10 pages (rounded up): the
@@ -83,13 +50,9 @@ namespace JackyAIApp.Server.Common
         public static ulong ForChatAttachment(int? pdfPages) =>
             ChatAttachment + (pdfPages is > 0 ? ChatPdfPer10Pages * (ulong)((pdfPages.Value + 9) / 10) : 0);
 
-        /// <summary>Text-to-speech synthesis</summary>
-        public const ulong TextToSpeech = 1;
-
-        /// <summary>Natural-language summarize (LLM translates query to parameters + executes)</summary>
-        public const ulong NlSummarize = 2;
-
-        /// <summary>Portfolio AI technical-analysis summary for a single position</summary>
-        public const ulong PortfolioAiSummary = 2;
+        /// <summary>A chat message with its attachments, given each attachment's PDF page count
+        /// (null for anything that is not a PDF).</summary>
+        public static ulong ForChatMessage(IEnumerable<int?> attachmentPdfPages) =>
+            attachmentPdfPages.Aggregate(Of(UsageFeature.ChatMessage), (sum, pages) => sum + ForChatAttachment(pages));
     }
 }

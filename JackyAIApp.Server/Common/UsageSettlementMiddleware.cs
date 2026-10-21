@@ -34,7 +34,7 @@ namespace JackyAIApp.Server.Common
             {
                 try
                 {
-                    await usageLimits.RefundAsync(charge.UserId, charge.Cost, charge.Feature);
+                    await usageLimits.RefundAsync(charge.UserId, charge.Feature, charge.Cost);
                 }
                 catch (Exception ex)
                 {

@@ -28,7 +28,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Analyzes a specific stock using TWSE APIs and OpenAI.</summary>
         [Authorize]
         [HttpPost("analyze-stock")]
-        [UsageLimit(UsageCosts.StockAnalysis, "stock_analysis")]
+        [UsageLimit(UsageFeature.StockAnalysis)]
         public async Task<IActionResult> AnalyzeStock([FromBody] StockSearchRequest request, CancellationToken cancellationToken = default) =>
             _responseFactory.ToActionResult(await _stockAnalysis.AnalyzeStockAsync(request, cancellationToken));
 
@@ -89,7 +89,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>
         /// Gets the AI-synthesised "今日市場AI摘要" daily digest (global macro + Taiwan focus),
         /// grounded in market data, global news, and TW major announcements. Charged
-        /// <see cref="UsageCosts.MarketDigest"/> once per user per day (handled in-service so
+        /// <see cref="UsageFeature.MarketDigest"/> once per user per day (handled in-service so
         /// cached same-day reads are free).
         /// </summary>
         [Authorize]

@@ -87,9 +87,8 @@ namespace JackyAIApp.Server.Controllers
             // here rather than through [UsageLimit] because the cost depends on the attachments.
             // Whether it is refunded is UsageLedger's rule, like every other charge: the stream has
             // sent 200 before it can fail, so a failure is reported to the ledger below.
-            var cost = UsageCosts.ChatMessage + attachments.Concat(editAttachments)
-                .Aggregate(0UL, (sum, a) => sum + UsageCosts.ForChatAttachment(a.PageCount));
-            if (!await _usageLimitService.TryConsumeAsync(userId, cost, "chatbot_message"))
+            var cost = UsageCosts.ForChatMessage(attachments.Concat(editAttachments).Select(a => a.PageCount));
+            if (!await _usageLimitService.TryConsumeAsync(userId, UsageFeature.ChatMessage, cost))
             {
                 Response.StatusCode = 429; // Too Many Requests
                 await Response.WriteAsync("Daily usage limit exceeded.");

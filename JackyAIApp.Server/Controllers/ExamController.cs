@@ -33,43 +33,43 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Generates a cloze test for the user based on their unfamiliar words.</summary>
         [HttpGet("cloze")]
-        [UsageLimit(UsageCosts.ClozeTest, "cloze_test")]
+        [UsageLimit(UsageFeature.ClozeTest)]
         public async Task<IActionResult> GetClozeTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Cloze));
 
         /// <summary>Generates a translation test for the user based on their unfamiliar words.</summary>
         [HttpGet("translation")]
-        [UsageLimit(UsageCosts.TranslationTest, "translation_test")]
+        [UsageLimit(UsageFeature.TranslationTest)]
         public async Task<IActionResult> GetTranslationTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Translation));
 
         /// <summary>Generates a translation quality grading.</summary>
         [HttpPost("translation/quality_grading")]
-        [UsageLimit(UsageCosts.TranslationGrading, "translation_grading")]
+        [UsageLimit(UsageFeature.TranslationGrading)]
         public async Task<IActionResult> GetTranslationQualityGrading([FromBody] TranslationTestUserResponse userResponse) =>
             _responseFactory.ToActionResult(await _examService.GradeTranslationAsync(userResponse));
 
         /// <summary>Starts a new conversation test by generating a scenario and first message.</summary>
         [HttpPost("conversation/start")]
-        [UsageLimit(UsageCosts.ConversationStart, "conversation_start")]
+        [UsageLimit(UsageFeature.ConversationStart)]
         public async Task<IActionResult> StartConversationTest([FromBody] ConversationStartRequest request) =>
             _responseFactory.ToActionResult(await _examService.StartConversationAsync(request));
 
         /// <summary>Processes user's response in a conversation and generates AI response with corrections if needed.</summary>
         [HttpPost("conversation/respond")]
-        [UsageLimit(UsageCosts.ConversationResponse, "conversation_response")]
+        [UsageLimit(UsageFeature.ConversationResponse)]
         public async Task<IActionResult> RespondToConversation([FromBody] ConversationResponseRequest request) =>
             _responseFactory.ToActionResult(await _examService.RespondToConversationAsync(request));
 
         /// <summary>Generates an end-of-session recap for a conversation (corrections, phrasings, word suggestions).</summary>
         [HttpPost("conversation/summary")]
-        [UsageLimit(UsageCosts.ConversationSummary, "conversation_summary")]
+        [UsageLimit(UsageFeature.ConversationSummary)]
         public async Task<IActionResult> SummarizeConversation([FromBody] ConversationSummaryRequest request) =>
             _responseFactory.ToActionResult(await _examService.SummarizeConversationAsync(request));
 
         /// <summary>Transcribes audio to text using OpenAI Whisper.</summary>
         [HttpPost("whisper/transcribe")]
-        [UsageLimit(UsageCosts.AudioTranscription, "audio_transcription")]
+        [UsageLimit(UsageFeature.AudioTranscription)]
         public async Task<IActionResult> TranscribeAudio(IFormFile audioFile)
         {
             if (audioFile == null || audioFile.Length == 0)
@@ -83,13 +83,13 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Generates a sentence formation test for the user based on their unfamiliar words.</summary>
         [HttpGet("sentence")]
-        [UsageLimit(UsageCosts.SentenceTest, "sentence_test")]
+        [UsageLimit(UsageFeature.SentenceTest)]
         public async Task<IActionResult> GetSentenceTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateWordExamAsync(ExamType.Sentence));
 
         /// <summary>Evaluates a user's sentence formation response and provides detailed feedback.</summary>
         [HttpPost("sentence/evaluate")]
-        [UsageLimit(UsageCosts.SentenceEvaluation, "sentence_evaluation")]
+        [UsageLimit(UsageFeature.SentenceEvaluation)]
         public async Task<IActionResult> EvaluateSentence([FromBody] SentenceTestUserResponse userResponse) =>
             _responseFactory.ToActionResult(await _examService.EvaluateSentenceAsync(userResponse));
 
@@ -101,7 +101,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Serves a random TOEIC Part 1 listening question from the pre-seeded bank. The
         /// flat charge covers both the question and TTS playback of its 4 options.</summary>
         [HttpGet("listening")]
-        [UsageLimit(UsageCosts.ListeningTest, "listening_test")]
+        [UsageLimit(UsageFeature.ListeningTest)]
         public async Task<IActionResult> GetListeningTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateListeningExamAsync());
 
@@ -120,7 +120,7 @@ namespace JackyAIApp.Server.Controllers
         /// (see ExamService.GenerateListeningResponseExamAsync); flat charge covers the prompt
         /// plus its 3 response options' TTS.</summary>
         [HttpGet("listening/response")]
-        [UsageLimit(UsageCosts.ListeningResponseTest, "listening_response_test")]
+        [UsageLimit(UsageFeature.ListeningResponseTest)]
         public async Task<IActionResult> GetListeningResponseTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateListeningResponseExamAsync());
 
@@ -145,7 +145,7 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>Serves a short reading passage with 3-4 comprehension questions from the
         /// shared bank. Not tied to the user's saved words — works with an empty repository.</summary>
         [HttpGet("reading")]
-        [UsageLimit(UsageCosts.ReadingComprehensionTest, "reading_test")]
+        [UsageLimit(UsageFeature.ReadingComprehensionTest)]
         public async Task<IActionResult> GetReadingTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateReadingExamAsync());
 
@@ -160,7 +160,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Grades an open-ended writing submission and provides detailed feedback.</summary>
         [HttpPost("writing/evaluate")]
-        [UsageLimit(UsageCosts.WritingEvaluation, "writing_evaluation")]
+        [UsageLimit(UsageFeature.WritingEvaluation)]
         public async Task<IActionResult> EvaluateWriting([FromBody] WritingSubmissionRequest request) =>
             _responseFactory.ToActionResult(await _examService.GradeWritingAsync(request));
 
@@ -170,7 +170,7 @@ namespace JackyAIApp.Server.Controllers
         /// the whole exercise. Flat charge covers the one TTS call the user is expected to make
         /// right after.</summary>
         [HttpGet("dictation")]
-        [UsageLimit(UsageCosts.DictationTest, "dictation_test")]
+        [UsageLimit(UsageFeature.DictationTest)]
         public async Task<IActionResult> GetDictationTest() =>
             _responseFactory.ToActionResult(await _examService.GenerateDictationExamAsync());
 

@@ -486,7 +486,7 @@ namespace JackyAIApp.Server.Controllers
         /// </summary>
         [HttpPost("summarize/nl")]
         [Authorize]
-        [UsageLimit(UsageCosts.NlSummarize, "nl_summarize")]
+        [UsageLimit(UsageFeature.NlSummarize)]
         public async Task<IActionResult> NlSummarize(
             [FromBody] NlSummarizeRequestDto dto,
             CancellationToken ct = default)

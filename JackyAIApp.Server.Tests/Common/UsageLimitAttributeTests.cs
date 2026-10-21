@@ -47,28 +47,28 @@ namespace JackyAIApp.Server.Tests.Common
             _userServiceMock.Setup(x => x.GetUserId()).Returns((string?)null);
             var expectedResult = new StatusCodeResult(403);
             _responseFactoryMock
-                .Setup(x => x.CreateErrorResponse(ErrorCodes.Forbidden, It.IsAny<string>()))
+                .Setup(x => x.CreateErrorResponse(ErrorCodes.Unauthorized, It.IsAny<string>()))
                 .Returns(expectedResult);
             var context = BuildContext();
             var nextCalled = false;
-            var attribute = new UsageLimitAttribute(5, "test_feature");
+            var attribute = new UsageLimitAttribute(UsageFeature.StockAnalysis);
 
             await attribute.OnActionExecutionAsync(context, NextDelegate(() => nextCalled = true));
 
             Assert.False(nextCalled);
             Assert.Same(expectedResult, context.Result);
             _usageLimitServiceMock.Verify(
-                x => x.TryConsumeAsync(It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>()), Times.Never);
+                x => x.TryConsumeAsync(It.IsAny<string>(), It.IsAny<UsageFeature>(), It.IsAny<ulong>()), Times.Never);
         }
 
         [Fact]
         public async Task OnActionExecutionAsync_WithinLimit_CallsNextWithoutSettingResult()
         {
             _userServiceMock.Setup(x => x.GetUserId()).Returns(TestUserId);
-            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, 5UL, "test_feature")).ReturnsAsync(true);
+            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, UsageFeature.StockAnalysis, UsageCosts.Of(UsageFeature.StockAnalysis))).ReturnsAsync(true);
             var context = BuildContext();
             var nextCalled = false;
-            var attribute = new UsageLimitAttribute(5, "test_feature");
+            var attribute = new UsageLimitAttribute(UsageFeature.StockAnalysis);
 
             await attribute.OnActionExecutionAsync(context, NextDelegate(() => nextCalled = true));
 
@@ -80,14 +80,14 @@ namespace JackyAIApp.Server.Tests.Common
         public async Task OnActionExecutionAsync_ExceedsLimit_ShortCircuitsWithUsageLimitExceeded()
         {
             _userServiceMock.Setup(x => x.GetUserId()).Returns(TestUserId);
-            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, 5UL, "test_feature")).ReturnsAsync(false);
+            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, UsageFeature.StockAnalysis, UsageCosts.Of(UsageFeature.StockAnalysis))).ReturnsAsync(false);
             var expectedResult = new StatusCodeResult(429);
             _responseFactoryMock
                 .Setup(x => x.CreateErrorResponse(ErrorCodes.UsageLimitExceeded, It.IsAny<string>()))
                 .Returns(expectedResult);
             var context = BuildContext();
             var nextCalled = false;
-            var attribute = new UsageLimitAttribute(5, "test_feature");
+            var attribute = new UsageLimitAttribute(UsageFeature.StockAnalysis);
 
             await attribute.OnActionExecutionAsync(context, NextDelegate(() => nextCalled = true));
 
@@ -99,14 +99,14 @@ namespace JackyAIApp.Server.Tests.Common
         public async Task OnActionExecutionAsync_ExceedsLimit_ErrorMessageNeverMentionsCreditsOrPayment()
         {
             _userServiceMock.Setup(x => x.GetUserId()).Returns(TestUserId);
-            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, 5UL, "test_feature")).ReturnsAsync(false);
+            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, UsageFeature.StockAnalysis, UsageCosts.Of(UsageFeature.StockAnalysis))).ReturnsAsync(false);
             string? capturedMessage = null;
             _responseFactoryMock
                 .Setup(x => x.CreateErrorResponse(ErrorCodes.UsageLimitExceeded, It.IsAny<string>()))
                 .Callback<ErrorCodes, string>((_, message) => capturedMessage = message)
                 .Returns(new StatusCodeResult(429));
             var context = BuildContext();
-            var attribute = new UsageLimitAttribute(5, "test_feature");
+            var attribute = new UsageLimitAttribute(UsageFeature.StockAnalysis);
 
             await attribute.OnActionExecutionAsync(context, NextDelegate(() => { }));
 
