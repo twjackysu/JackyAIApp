@@ -12,7 +12,7 @@ namespace JackyAIApp.Server.Tests.Common
 {
     public class UsageLimitAttributeTests
     {
-        private readonly Mock<IUserService> _userServiceMock = new();
+        private readonly Mock<ICurrentUser> _currentUserMock = new();
         private readonly Mock<IUsageLimitService> _usageLimitServiceMock = new();
         private readonly Mock<IMyResponseFactory> _responseFactoryMock = new();
 
@@ -21,7 +21,7 @@ namespace JackyAIApp.Server.Tests.Common
         private ActionExecutingContext BuildContext()
         {
             var services = new ServiceCollection();
-            services.AddSingleton(_userServiceMock.Object);
+            services.AddSingleton(_currentUserMock.Object);
             services.AddSingleton(_usageLimitServiceMock.Object);
             services.AddSingleton(_responseFactoryMock.Object);
 
@@ -44,7 +44,7 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public async Task OnActionExecutionAsync_Unauthenticated_ShortCircuitsWithoutCallingNext()
         {
-            _userServiceMock.Setup(x => x.GetUserId()).Returns((string?)null);
+            _currentUserMock.Setup(x => x.Id).Returns((string?)null);
             var expectedResult = new StatusCodeResult(403);
             _responseFactoryMock
                 .Setup(x => x.CreateErrorResponse(ErrorCodes.Unauthorized, It.IsAny<string>()))
@@ -64,7 +64,7 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public async Task OnActionExecutionAsync_WithinLimit_CallsNextWithoutSettingResult()
         {
-            _userServiceMock.Setup(x => x.GetUserId()).Returns(TestUserId);
+            _currentUserMock.Setup(x => x.Id).Returns(TestUserId);
             _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, UsageFeature.StockAnalysis, UsageCosts.Of(UsageFeature.StockAnalysis))).ReturnsAsync(true);
             var context = BuildContext();
             var nextCalled = false;
@@ -79,7 +79,7 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public async Task OnActionExecutionAsync_ExceedsLimit_ShortCircuitsWithUsageLimitExceeded()
         {
-            _userServiceMock.Setup(x => x.GetUserId()).Returns(TestUserId);
+            _currentUserMock.Setup(x => x.Id).Returns(TestUserId);
             _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, UsageFeature.StockAnalysis, UsageCosts.Of(UsageFeature.StockAnalysis))).ReturnsAsync(false);
             var expectedResult = new StatusCodeResult(429);
             _responseFactoryMock
@@ -98,7 +98,7 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public async Task OnActionExecutionAsync_ExceedsLimit_ErrorMessageNeverMentionsCreditsOrPayment()
         {
-            _userServiceMock.Setup(x => x.GetUserId()).Returns(TestUserId);
+            _currentUserMock.Setup(x => x.Id).Returns(TestUserId);
             _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(TestUserId, UsageFeature.StockAnalysis, UsageCosts.Of(UsageFeature.StockAnalysis))).ReturnsAsync(false);
             string? capturedMessage = null;
             _responseFactoryMock

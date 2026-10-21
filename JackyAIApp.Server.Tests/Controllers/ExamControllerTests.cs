@@ -22,7 +22,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         private readonly Mock<IMyResponseFactory> _responseFactoryMock;
         private readonly Mock<IExamService> _examServiceMock;
         private readonly Mock<ITextToSpeechService> _ttsServiceMock;
-        private readonly Mock<IUserService> _userServiceMock;
+        private readonly Mock<ICurrentUser> _currentUserMock;
         private readonly Mock<IListeningQuestionGenerator> _listeningQuestionGeneratorMock;
         private readonly AzureSQLDBContext _dbContext;
         private readonly ExamController _controller;
@@ -32,7 +32,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             _responseFactoryMock = new Mock<IMyResponseFactory>();
             _examServiceMock = new Mock<IExamService>();
             _ttsServiceMock = new Mock<ITextToSpeechService>();
-            _userServiceMock = new Mock<IUserService>();
+            _currentUserMock = new Mock<ICurrentUser>();
             _listeningQuestionGeneratorMock = new Mock<IListeningQuestionGenerator>();
 
             var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
@@ -47,7 +47,7 @@ namespace JackyAIApp.Server.Tests.Controllers
 
             _controller = new ExamController(
                 _responseFactoryMock.Object, _examServiceMock.Object, _ttsServiceMock.Object,
-                _userServiceMock.Object, _listeningQuestionGeneratorMock.Object, _dbContext);
+                _currentUserMock.Object, _listeningQuestionGeneratorMock.Object, _dbContext);
         }
 
         public void Dispose() => _dbContext.Dispose();
@@ -70,7 +70,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         public async Task GenerateListeningQuestion_NonAdmin_ReturnsForbidden()
         {
             await SeedUserAsync("user-1", isAdmin: false);
-            _userServiceMock.Setup(x => x.GetUserId()).Returns("user-1");
+            _currentUserMock.Setup(x => x.Id).Returns("user-1");
 
             var result = await _controller.GenerateListeningQuestion();
 
@@ -83,7 +83,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         public async Task GenerateListeningQuestion_Admin_CallsGenerator()
         {
             await SeedUserAsync("admin-1", isAdmin: true);
-            _userServiceMock.Setup(x => x.GetUserId()).Returns("admin-1");
+            _currentUserMock.Setup(x => x.Id).Returns("admin-1");
             _listeningQuestionGeneratorMock.Setup(x => x.GenerateAsync("admin-1"))
                 .ReturnsAsync(ServiceResult.Ok(new ListeningTestResponse { Id = "lst-new", ImageUrl = "https://img/lst-new.png", Options = [] }));
 
@@ -97,7 +97,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         public async Task GetListeningBank_NonAdmin_ReturnsForbidden()
         {
             await SeedUserAsync("user-2", isAdmin: false);
-            _userServiceMock.Setup(x => x.GetUserId()).Returns("user-2");
+            _currentUserMock.Setup(x => x.Id).Returns("user-2");
 
             var result = await _controller.GetListeningBank();
 

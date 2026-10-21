@@ -17,7 +17,7 @@ namespace JackyAIApp.Server.Tests.Controllers
     public class PortfolioControllerDrawdownBrakeTests : IDisposable
     {
         private readonly Mock<IMyResponseFactory> _responseFactory = new();
-        private readonly Mock<IUserService> _userService = new();
+        private readonly Mock<ICurrentUser> _currentUser = new();
         private readonly Mock<IDrawdownBrakeService> _brake = new();
         private readonly Mock<IDrawdownBrakeAccess> _access = new();
         private readonly Mock<ITaiexTotalReturnRefresher> _refresher = new();
@@ -45,7 +45,7 @@ namespace JackyAIApp.Server.Tests.Controllers
                 .Returns<ErrorCodes, string>((code, msg) => new ObjectResult(new { code, msg }) { StatusCode = (int)code / 100 % 1000 });
 
             _controller = new PortfolioController(
-                _responseFactory.Object, new Mock<IPortfolioService>().Object, _userService.Object,
+                _responseFactory.Object, new Mock<IPortfolioService>().Object, _currentUser.Object,
                 new ServerTiming(), _brake.Object, _access.Object, _refresher.Object, _telemetry);
         }
 
@@ -53,7 +53,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         public async Task EligibleUser_GetsTheSignal()
         {
             var dto = new DrawdownBrakeDto { State = BrakeState.OFFENSE, AsOfDate = new DateOnly(2026, 10, 8) };
-            _userService.Setup(u => u.GetUserId()).Returns("u1");
+            _currentUser.Setup(u => u.Id).Returns("u1");
             _access.Setup(a => a.IsEnabledForUserAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(true);
             _brake.Setup(b => b.GetWithCacheStatusAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new DrawdownBrakeLookup(dto, CacheHit: true));
@@ -66,7 +66,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         [Fact]
         public async Task IneligibleUser_Gets403_AndNoData()
         {
-            _userService.Setup(u => u.GetUserId()).Returns("u1");
+            _currentUser.Setup(u => u.Id).Returns("u1");
             _access.Setup(a => a.IsEnabledForUserAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
             var result = await _controller.GetDrawdownBrake(CancellationToken.None);
@@ -80,9 +80,9 @@ namespace JackyAIApp.Server.Tests.Controllers
         [Fact]
         public async Task NoUserId_IsRejectedBeforeAnythingIsLookedUp()
         {
-            _userService.Setup(u => u.GetUserId()).Returns((string?)null);
+            _currentUser.Setup(u => u.Id).Returns((string?)null);
 
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _controller.GetDrawdownBrake(CancellationToken.None));
+            await Assert.ThrowsAsync<NotSignedInException>(() => _controller.GetDrawdownBrake(CancellationToken.None));
 
             _access.Verify(a => a.IsEnabledForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
             _brake.Verify(b => b.GetWithCacheStatusAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -120,7 +120,7 @@ namespace JackyAIApp.Server.Tests.Controllers
 
         private void UserIsEligible(bool eligible)
         {
-            _userService.Setup(u => u.GetUserId()).Returns("u1");
+            _currentUser.Setup(u => u.Id).Returns("u1");
             _access.Setup(a => a.IsEnabledForUserAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(eligible);
         }
 
@@ -212,9 +212,9 @@ namespace JackyAIApp.Server.Tests.Controllers
         [Fact]
         public async Task Refresh_NoUserId_IsRejectedBeforeAnythingIsLookedUp()
         {
-            _userService.Setup(u => u.GetUserId()).Returns((string?)null);
+            _currentUser.Setup(u => u.Id).Returns((string?)null);
 
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _controller.RefreshDrawdownBrake(CancellationToken.None));
+            await Assert.ThrowsAsync<NotSignedInException>(() => _controller.RefreshDrawdownBrake(CancellationToken.None));
 
             _access.Verify(a => a.IsEnabledForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
             _refresher.Verify(r => r.TryRefreshNowAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -238,7 +238,7 @@ namespace JackyAIApp.Server.Tests.Controllers
 
         private void CallerIs(string userId, bool eligible)
         {
-            _userService.Setup(u => u.GetUserId()).Returns(userId);
+            _currentUser.Setup(u => u.Id).Returns(userId);
             _access.Setup(a => a.IsEnabledForUserAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(eligible);
         }
 

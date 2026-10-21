@@ -9,13 +9,15 @@ namespace JackyAIApp.Server.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class ConnectorsController : ApiControllerBase
+    public class ConnectorsController : ControllerBase
     {
         private readonly IConnectorService _connectorService;
+        private readonly ICurrentUser _currentUser;
 
-        public ConnectorsController(IConnectorService connectorService)
+        public ConnectorsController(IConnectorService connectorService, ICurrentUser currentUser)
         {
             _connectorService = connectorService;
+            _currentUser = currentUser;
         }
 
         /// <summary>
@@ -25,12 +27,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("status")]
         public async Task<ActionResult<ConnectorStatusDto[]>> GetStatus()
         {
-            var userId = CurrentUserId;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("User ID not found in claims");
-            }
-
+            var userId = _currentUser.RequireId();
             var statuses = await _connectorService.GetUserConnectorStatusAsync(userId);
             return Ok(statuses);
         }
@@ -44,12 +41,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("{provider}/connect")]
         public async Task<ActionResult<ConnectResponseDto>> Connect(string provider, [FromBody] CustomConnectRequestDto? customConfig = null)
         {
-            var userId = CurrentUserId;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("User ID not found in claims");
-            }
-
+            var userId = _currentUser.RequireId();
             if (string.IsNullOrEmpty(provider))
             {
                 return BadRequest("Provider name is required");
@@ -81,12 +73,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpDelete("{provider}")]
         public async Task<ActionResult> Disconnect(string provider)
         {
-            var userId = CurrentUserId;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("User ID not found in claims");
-            }
-
+            var userId = _currentUser.RequireId();
             if (string.IsNullOrEmpty(provider))
             {
                 return BadRequest("Provider name is required");
@@ -115,12 +102,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("{provider}/refresh")]
         public async Task<ActionResult> RefreshTokens(string provider)
         {
-            var userId = CurrentUserId;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("User ID not found in claims");
-            }
-
+            var userId = _currentUser.RequireId();
             var normalizedProvider = ConnectorProviders.Normalize(provider);
             if (normalizedProvider == null)
             {
@@ -144,12 +126,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("{provider}/token")]
         public async Task<ActionResult> GetAccessToken(string provider)
         {
-            var userId = CurrentUserId;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("User ID not found in claims");
-            }
-
+            var userId = _currentUser.RequireId();
             var normalizedProvider = ConnectorProviders.Normalize(provider);
             if (normalizedProvider == null)
             {
@@ -177,12 +154,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("{provider}/refresh-token")]
         public async Task<ActionResult> GetRefreshToken(string provider)
         {
-            var userId = CurrentUserId;
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("User ID not found in claims");
-            }
-
+            var userId = _currentUser.RequireId();
             var normalizedProvider = ConnectorProviders.Normalize(provider);
             if (normalizedProvider == null)
             {

@@ -52,7 +52,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                 _openAI.Object,
                 new MemoryCache(new MemoryCacheOptions()),
                 _usageLogger.Object,
-                new Mock<IUserService>().Object);
+                new Mock<ICurrentUser>().Object);
         }
 
         private void SetupCompletion(ChatCompletionCreateResponse response) =>

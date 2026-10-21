@@ -5,6 +5,7 @@ using DataAnalysisLibrary.Core.Base;
 using DataAnalysisLibrary.Core.Engine;
 using DataAnalysisLibrary.Core.Models.Requests;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Tests.TestHelpers;
 using JackyAIApp.Server.Controllers;
 using JackyAIApp.Server.DTO.DataAnalysis;
 using JackyAIApp.Server.Services.DataAnalysis;
@@ -118,7 +119,7 @@ namespace JackyAIApp.Server.Tests.Controllers
                 new DataSourceResolver(defaultEngine, null!, null!, NullLogger<DataSourceResolver>.Instance),
                 dbContext: null!, configService: null!, sessionStore: sessions ?? null!,
                 openAIPromptService: null!, promptLoader: null!, nlPlanner: null!,
-                cache: new MemoryCache(new MemoryCacheOptions()));
+                cache: new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Anonymous);
             var http = new DefaultHttpContext();
             http.Response.Body = new MemoryStream();
             controller.ControllerContext = new ControllerContext { HttpContext = http };

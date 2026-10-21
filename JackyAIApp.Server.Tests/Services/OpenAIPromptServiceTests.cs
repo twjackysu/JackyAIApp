@@ -43,7 +43,7 @@ namespace JackyAIApp.Server.Tests.Services
                 _openAIServiceMock.Object,
                 new Mock<IPromptLoader>().Object,
                 new Mock<IAiUsageLogger>().Object,
-                new Mock<IUserService>().Object,
+                new Mock<ICurrentUser>().Object,
                 NullLogger<OpenAIPromptService>.Instance);
         }
 

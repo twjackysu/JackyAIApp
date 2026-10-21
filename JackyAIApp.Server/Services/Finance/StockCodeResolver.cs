@@ -15,14 +15,14 @@ namespace JackyAIApp.Server.Services.Finance
         IOpenAIService openAIService,
         IMemoryCache memoryCache,
         IAiUsageLogger usageLogger,
-        IUserService userService) : IStockCodeResolver
+        ICurrentUser currentUser) : IStockCodeResolver
     {
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("ExternalReadOnly");
         private readonly ILogger<StockCodeResolver> _logger = logger;
         private readonly IOpenAIService _openAIService = openAIService;
         private readonly IMemoryCache _memoryCache = memoryCache;
         private readonly IAiUsageLogger _usageLogger = usageLogger;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
 
         private const string BaseUrl = "https://openapi.twse.com.tw/v1";
         private const string UserAgent = "stock-analysis/1.0";
@@ -79,7 +79,7 @@ namespace JackyAIApp.Server.Services.Finance
                 usage.PromptTokens,
                 usage.CompletionTokens ?? 0,
                 response.Successful,
-                _userService.GetUserId());
+                _currentUser.Id);
         }
 
         /// <summary>

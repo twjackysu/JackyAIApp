@@ -17,7 +17,7 @@ namespace JackyAIApp.Server.Tests.Services
 {
     public class ExamServiceTests : IDisposable
     {
-        private readonly Mock<IUserService> _userServiceMock;
+        private readonly Mock<ICurrentUser> _currentUserMock;
         private readonly Mock<IOpenAIPromptService> _promptServiceMock;
         private readonly AzureSQLDBContext _dbContext;
         private readonly ExamService _service;
@@ -25,7 +25,7 @@ namespace JackyAIApp.Server.Tests.Services
 
         public ExamServiceTests()
         {
-            _userServiceMock = new Mock<IUserService>();
+            _currentUserMock = new Mock<ICurrentUser>();
             _promptServiceMock = new Mock<IOpenAIPromptService>();
 
             var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
@@ -33,7 +33,7 @@ namespace JackyAIApp.Server.Tests.Services
                 .Options;
             _dbContext = new AzureSQLDBContext(options);
 
-            _userServiceMock.Setup(x => x.GetUserId()).Returns(_testUserId);
+            _currentUserMock.Setup(x => x.Id).Returns(_testUserId);
 
             var generators = new List<IWordExamGenerator>
             {
@@ -45,7 +45,7 @@ namespace JackyAIApp.Server.Tests.Services
             _service = new ExamService(
                 NullLogger<ExamService>.Instance,
                 _dbContext,
-                _userServiceMock.Object,
+                _currentUserMock.Object,
                 _promptServiceMock.Object,
                 new SpacedRepetitionService(),
                 generators);
@@ -56,13 +56,13 @@ namespace JackyAIApp.Server.Tests.Services
         #region Cloze Tests
 
         [Fact]
-        public async Task GenerateCloze_UserNotFound_ReturnsError()
+        public async Task GenerateCloze_UserRowMissing_AsksToSignInAgain()
         {
             var result = await _service.GenerateWordExamAsync(ExamType.Cloze);
 
             Assert.False(result.IsSuccess);
-            Assert.Equal(ErrorCodes.Forbidden, result.Error);
-            Assert.Equal("User not found.", result.ErrorMessage);
+            Assert.Equal(ErrorCodes.Unauthorized, result.Error);
+            Assert.Equal(UserAccountFailures.Missing.Message, result.ErrorMessage);
         }
 
         [Fact]
@@ -1136,12 +1136,12 @@ namespace JackyAIApp.Server.Tests.Services
         #region Writing Tests
 
         [Fact]
-        public async Task GenerateWritingPrompt_UserNotFound_ReturnsError()
+        public async Task GenerateWritingPrompt_UserRowMissing_AsksToSignInAgain()
         {
             var result = await _service.GenerateWritingPromptAsync();
 
             Assert.False(result.IsSuccess);
-            Assert.Equal(ErrorCodes.Forbidden, result.Error);
+            Assert.Equal(ErrorCodes.Unauthorized, result.Error);
         }
 
         [Fact]
@@ -1326,12 +1326,12 @@ namespace JackyAIApp.Server.Tests.Services
         #region Dictation Tests
 
         [Fact]
-        public async Task GenerateDictation_UserNotFound_ReturnsError()
+        public async Task GenerateDictation_UserRowMissing_AsksToSignInAgain()
         {
             var result = await _service.GenerateDictationExamAsync();
 
             Assert.False(result.IsSuccess);
-            Assert.Equal(ErrorCodes.Forbidden, result.Error);
+            Assert.Equal(ErrorCodes.Unauthorized, result.Error);
         }
 
         [Fact]

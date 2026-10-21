@@ -16,16 +16,16 @@ namespace JackyAIApp.Server.Controllers
     {
         private readonly IMyResponseFactory _responseFactory;
         private readonly AzureSQLDBContext _dbContext;
-        private readonly IUserService _userService;
+        private readonly ICurrentUser _currentUser;
 
         public StatsController(
             IMyResponseFactory responseFactory,
             AzureSQLDBContext dbContext,
-            IUserService userService)
+            ICurrentUser currentUser)
         {
             _responseFactory = responseFactory;
             _dbContext = dbContext;
-            _userService = userService;
+            _currentUser = currentUser;
         }
 
         /// <summary>
@@ -34,10 +34,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("weekly-report")]
         public async Task<IActionResult> GetWeeklyReport()
         {
-            var userId = _userService.GetUserId();
-            if (userId == null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "User not found.");
-
+            var userId = _currentUser.RequireId();
             var user = await _dbContext.Users.FindAsync(userId);
             if (user == null)
                 return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "User not found.");
@@ -98,10 +95,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("leaderboard")]
         public async Task<IActionResult> GetLeaderboard([FromQuery] int limit = 20)
         {
-            var userId = _userService.GetUserId();
-            if (userId == null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "User not found.");
-
+            var userId = _currentUser.RequireId();
             if (limit < 1) limit = 20;
             if (limit > 50) limit = 50;
 
@@ -172,10 +166,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("activity")]
         public async Task<IActionResult> GetActivity([FromQuery] int days = 365)
         {
-            var userId = _userService.GetUserId();
-            if (userId == null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "User not found.");
-
+            var userId = _currentUser.RequireId();
             if (days < 1) days = 365;
             if (days > 366) days = 366;
 

@@ -14,7 +14,7 @@ namespace JackyAIApp.Server.Services.Finance
 {
     public class StockAnalysisQueryService(
         ILogger<StockAnalysisQueryService> logger,
-        IUserService userService,
+        ICurrentUser currentUser,
         ITWSEOpenAPIService twseApiService,
         IStockCodeResolver stockCodeResolver,
         IFinanceAnalysisService financeAnalysisService,
@@ -29,7 +29,7 @@ namespace JackyAIApp.Server.Services.Finance
         IStockPredictionRecorder predictionRecorder) : IStockAnalysisQueryService
     {
         private readonly ILogger<StockAnalysisQueryService> _logger = logger;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly ITWSEOpenAPIService _twseApiService = twseApiService;
         private readonly IStockCodeResolver _stockCodeResolver = stockCodeResolver;
         private readonly IFinanceAnalysisService _financeAnalysisService = financeAnalysisService;
@@ -98,7 +98,7 @@ namespace JackyAIApp.Server.Services.Finance
                     stockData += FormatQuantitativeContext(quantResult);
                 }
 
-                var userId = _userService.GetUserId() ?? "anonymous";
+                var userId = _currentUser.Id ?? "anonymous";
 
                 var analysisResult = await _financeAnalysisService.AnalyzeStockWithAIAsync(resolvedStockCode, stockData, userId, timeoutCts.Token);
                 if (!analysisResult.IsSuccess)

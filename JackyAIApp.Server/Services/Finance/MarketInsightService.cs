@@ -9,7 +9,7 @@ namespace JackyAIApp.Server.Services.Finance
 {
     public class MarketInsightService(
         ILogger<MarketInsightService> logger,
-        IUserService userService,
+        ICurrentUser currentUser,
         IExtendedMemoryCache memoryCache,
         IUsageLimitService usageLimitService,
         IFinnhubNewsProvider finnhubNewsProvider,
@@ -18,7 +18,7 @@ namespace JackyAIApp.Server.Services.Finance
         IMarketDataQueryService marketData) : IMarketInsightService
     {
         private readonly ILogger<MarketInsightService> _logger = logger;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly IExtendedMemoryCache _memoryCache = memoryCache;
         private readonly IUsageLimitService _usageLimitService = usageLimitService;
         private readonly IFinnhubNewsProvider _finnhubNewsProvider = finnhubNewsProvider;
@@ -39,10 +39,7 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         public async Task<ServiceResult<MarketDigestResponse>> GetMarketDigestAsync(CancellationToken cancellationToken)
         {
-            var userId = _userService.GetUserId();
-            if (string.IsNullOrEmpty(userId))
-                return ServiceResult.Fail(ErrorCodes.Unauthorized, "Not signed in.");
-
+            var userId = _currentUser.RequireId();
             var today = DateTime.Now.ToString("yyyyMMdd");
 
             // 1) Ensure today's digest content exists (shared across users).

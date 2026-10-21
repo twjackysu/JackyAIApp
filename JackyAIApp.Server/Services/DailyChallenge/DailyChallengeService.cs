@@ -10,19 +10,16 @@ namespace JackyAIApp.Server.Services.DailyChallenge
 {
     public class DailyChallengeService(
         AzureSQLDBContext dbContext,
-        IUserService userService,
+        ICurrentUser currentUser,
         IDailyChallengeQuestionGenerator questionGenerator) : IDailyChallengeService
     {
         private readonly AzureSQLDBContext _dbContext = dbContext;
-        private readonly IUserService _userService = userService;
+        private readonly ICurrentUser _currentUser = currentUser;
         private readonly IDailyChallengeQuestionGenerator _questionGenerator = questionGenerator;
 
         public async Task<ServiceResult<DailyChallengeResponse>> GetChallengeAsync()
         {
-            var userId = _userService.GetUserId();
-            if (userId == null)
-                return ServiceResult.Fail(ErrorCodes.Unauthorized, "User not found.");
-
+            var userId = _currentUser.RequireId();
             var today = DateTime.UtcNow.Date;
 
             var existingResult = await _dbContext.DailyChallengeResults
@@ -43,10 +40,7 @@ namespace JackyAIApp.Server.Services.DailyChallenge
 
         public async Task<ServiceResult<DailyChallengeSubmitResponse>> SubmitChallengeAsync(DailyChallengeSubmitRequest request)
         {
-            var userId = _userService.GetUserId();
-            if (userId == null)
-                return ServiceResult.Fail(ErrorCodes.Unauthorized, "User not found.");
-
+            var userId = _currentUser.RequireId();
             var today = DateTime.UtcNow.Date;
 
             var existingResult = await _dbContext.DailyChallengeResults
@@ -118,10 +112,7 @@ namespace JackyAIApp.Server.Services.DailyChallenge
 
         public async Task<ServiceResult<DailyChallengeStatsResponse>> GetStatsAsync()
         {
-            var userId = _userService.GetUserId();
-            if (userId == null)
-                return ServiceResult.Fail(ErrorCodes.Unauthorized, "User not found.");
-
+            var userId = _currentUser.RequireId();
             var user = await _dbContext.Users.FindAsync(userId);
             if (user == null)
                 return ServiceResult.Fail(ErrorCodes.Unauthorized, "User not found.");

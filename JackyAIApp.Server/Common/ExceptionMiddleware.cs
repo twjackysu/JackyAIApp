@@ -1,3 +1,6 @@
+using JackyAIApp.Server.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
 using Newtonsoft.Json;
 using System.Net;
 using System.Text;
@@ -29,6 +32,14 @@ namespace JackyAIApp.Server.Common
                 // (and re-read) a body that was refused for being too big.
                 _logger.LogWarning("Request rejected by the server: {status} {message}", ex.StatusCode, ex.Message);
                 httpContext.Response.StatusCode = ex.StatusCode;
+            }
+            catch (NotSignedInException) when (!httpContext.Response.HasStarted)
+            {
+                // A signed-in user was required (ICurrentUser.RequireId) and there is none. Not a
+                // server error: answer it as the sign-in middleware would, in the usual envelope.
+                var responseFactory = httpContext.RequestServices.GetRequiredService<IMyResponseFactory>();
+                var result = responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not signed in.");
+                await result.ExecuteResultAsync(new ActionContext(httpContext, httpContext.GetRouteData(), new ActionDescriptor()));
             }
             catch (Exception ex)
             {
