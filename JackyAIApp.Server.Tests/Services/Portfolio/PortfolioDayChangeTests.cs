@@ -5,6 +5,7 @@ using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<IMarketDataProviderFactory> _providerFactory = new();
         private readonly PortfolioService _service;
+        private readonly Func<ITradingCalendar?, PortfolioService> _createService;
 
         public PortfolioDayChangeTests()
         {
@@ -43,7 +45,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var openAI = new Mock<IOpenAIPromptService>();
             var categoryService = new Mock<IStockCategoryService>();
 
-            _service = new PortfolioService(
+            _createService = calendar => new PortfolioService(
                 _dbContext,
                 _providerFactory.Object,
                 fundData.Object,
@@ -54,7 +56,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 cache,
                 openAI.Object,
                 NullLogger<PortfolioService>.Instance,
-                timeProvider: new FixedTime(Monday));
+                timeProvider: new FixedTime(Monday),
+                tradingCalendar: calendar);
+            _service = _createService(null);
         }
 
         public void Dispose() => _dbContext.Dispose();
@@ -82,6 +86,38 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // Day change is 20,500 - 20,000 = +500 (+2.50%)
             Assert.Equal(500m, summary.DayChangeTWD);
             Assert.Equal(2.50m, summary.DayChangePct);
+        }
+
+        /// <summary>Weekends closed, plus <paramref name="holiday"/>.</summary>
+        private sealed class HolidayCalendar(DateOnly holiday) : ITradingCalendar
+        {
+            public bool? IsMarketClosed(DateOnly date) => WeekdayTradingCalendar.IsWeekend(date) || date == holiday;
+        }
+
+        [Fact]
+        public async Task GetSummary_AfterAHoliday_ComparesWithTheTradingDayBeforeIt()
+        {
+            // Friday a market holiday: Monday's day change runs from Thursday's close, so cash put in
+            // on the holiday counts. With the weekday rule Friday was the previous trading day, and
+            // the holiday's own snapshot hid that deposit from the figure.
+            var thursday = Friday.AddDays(-1);
+            SetupStockPrices("2330", (thursday, 1000m), (Monday, 1050m));
+            var stock = () => new HoldingPosition
+            {
+                AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                Market = "TW", Currency = "TWD", Quantity = 10,
+            };
+            await SeedSnapshotAsync(thursday,
+                stock(), new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 10_000 });
+            await SeedSnapshotAsync(Friday,
+                stock(), new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 15_000 });
+
+            var summary = await _createService(new HolidayCalendar(Friday)).GetPortfolioSummaryAsync(TestUserId);
+
+            // Thursday 10 × 1000 + 10,000 = 20,000; Monday 10 × 1050 + 15,000 = 25,500.
+            Assert.Equal(5_500m, summary.DayChangeTWD);
+            // The weekday rule compared with the holiday instead: only the price move, 25,500 − 25,000.
+            Assert.Equal(500m, (await _service.GetPortfolioSummaryAsync(TestUserId)).DayChangeTWD);
         }
 
         [Fact]

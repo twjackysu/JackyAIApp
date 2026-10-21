@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using Microsoft.Extensions.DependencyInjection;
 using TWStockLib.Models;
 using TWStockLib.Services;
@@ -52,8 +53,6 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
         /// that happens to be the one asking MIS again), and so is everyone who arrives meanwhile; the
         /// library's HTTP client allows far longer, with retries.</summary>
         internal static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
-
-        private static readonly TimeSpan Taipei = TimeSpan.FromHours(8); // Taiwan has no DST
 
         public async Task<MisIndexQuote?> GetAsync(CancellationToken ct = default)
         {
@@ -128,7 +127,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
                 return null;
             }
 
-            var quotedAt = new DateTimeOffset(DateTime.SpecifyKind(syncTime, DateTimeKind.Utc)).ToOffset(Taipei);
+            var quotedAt = new DateTimeOffset(DateTime.SpecifyKind(syncTime, DateTimeKind.Utc)).ToOffset(TaipeiTime.Offset);
             return new MisIndexQuote(DateOnly.FromDateTime(quotedAt.DateTime), quotedAt, last, previous);
         }
     }

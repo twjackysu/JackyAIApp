@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Extensions;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Portfolio;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.EntityFrameworkCore;
@@ -35,7 +36,16 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             Assert.NotNull(provider.GetRequiredService<IDrawdownBrakeService>());
             Assert.NotNull(provider.GetRequiredService<IDrawdownBrakeAccess>());
             Assert.NotNull(provider.GetRequiredService<ITaiexTotalReturnStore>());
-            Assert.NotNull(provider.GetRequiredService<ITwseHolidayCalendar>());
+            Assert.NotNull(provider.GetRequiredService<ITradingCalendar>());
+        }
+
+        [Fact]
+        public void TheCalendar_IsLoadedInTheBackground_AndTheSameOneEverywhere()
+        {
+            using var provider = BuildProvider();
+
+            Assert.Same(provider.GetRequiredService<TwseTradingCalendar>(), provider.GetRequiredService<ITradingCalendar>());
+            Assert.Contains(provider.GetServices<IHostedService>(), s => s is TradingCalendarRefreshService);
         }
 
         [Fact]

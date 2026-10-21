@@ -1,3 +1,5 @@
+using JackyAIApp.Server.Common;
+
 namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
 {
     /// <summary>How a manual refresh ended. Serialized by name, so the member names are the API
@@ -209,7 +211,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
             }
         }
 
-        private DateTime TaipeiNow() => _time.GetUtcNow().UtcDateTime.AddHours(8); // Taiwan has no DST
+        private DateTime TaipeiNow() => _time.GetTaipeiNow();
 
         private static DrawdownBrakeRefreshOutcome Throttled(TimeSpan remaining) =>
             new(DrawdownBrakeRefreshResult.Throttled, Math.Max(1, (int)Math.Ceiling(remaining.TotalSeconds)));

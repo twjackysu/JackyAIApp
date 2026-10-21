@@ -2,6 +2,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -40,7 +41,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance
 
             _inner = new Mock<ITWStockLibHistoricalProvider>();
             _provider = new PersistentTwHistoricalProvider(
-                _inner.Object, new TestDbContextFactory(_options), NullLogger<PersistentTwHistoricalProvider>.Instance);
+                _inner.Object, new TestDbContextFactory(_options), NullLogger<PersistentTwHistoricalProvider>.Instance,
+                WeekdayTradingCalendar.Instance);
         }
 
         public void Dispose() => _dbContext.Dispose();
@@ -48,9 +50,9 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         /// <summary>Builds a second provider sharing the same in-memory DB/mock but with a pinned
         /// clock — needed only by the quote-fallback tests, which care about the 08:00 Taipei
         /// cutoff and can't rely on whatever real wall-clock time the suite happens to run at.</summary>
-        private PersistentTwHistoricalProvider BuildProviderWithTime(DateTimeOffset now) =>
+        private PersistentTwHistoricalProvider BuildProviderWithTime(DateTimeOffset now, ITradingCalendar? calendar = null) =>
             new(_inner.Object, new TestDbContextFactory(_options), NullLogger<PersistentTwHistoricalProvider>.Instance,
-                new FakeTimeProvider(now));
+                calendar ?? WeekdayTradingCalendar.Instance, new FakeTimeProvider(now));
 
         /// <summary>A Taipei clock reading hour:minute "today" — only the time-of-day matters for
         /// the 08:00 cutoff check, so which calendar date it lands on is irrelevant.</summary>
@@ -71,9 +73,6 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                 Task.FromResult(new AzureSQLDBContext(options));
         }
 
-        /// <summary>Most recent weekday before <paramref name="today"/> — mirrors the provider's
-        /// own (intentionally simple, holiday-unaware) LastTradingDayBefore so tests agree with it
-        /// regardless of which real day the suite happens to run on.</summary>
         [Fact]
         public async Task FetchAsync_MarketTypeUnresolved_DoesNotPersistAGuess()
         {
@@ -148,11 +147,15 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.Equal(MarketType.TSE.ToString(), info.TwMarketType);
         }
 
-        private static DateOnly LastTradingDayBefore(DateOnly today)
+        /// <summary>The last trading day before <paramref name="today"/> by the calendar these tests
+        /// give the provider (weekends only), so they agree with it whichever real day the suite runs on.</summary>
+        private static DateOnly LastTradingDayBefore(DateOnly today) =>
+            WeekdayTradingCalendar.Instance.PreviousTradingDay(today);
+
+        /// <summary>Weekends closed, plus <paramref name="holiday"/>.</summary>
+        private sealed class HolidayCalendar(DateOnly holiday) : ITradingCalendar
         {
-            var d = today.AddDays(-1);
-            while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(-1);
-            return d;
+            public bool? IsMarketClosed(DateOnly date) => WeekdayTradingCalendar.IsWeekend(date) || date == holiday;
         }
 
         [Fact]
@@ -216,6 +219,38 @@ namespace JackyAIApp.Server.Tests.Services.Finance
 
             Assert.Equal(expectedShares, Assert.Single(result.HistoricalPrices).Volume);
             Assert.Equal(stored, (await _dbContext.DailyStockPrices.SingleAsync()).Volume);   // the row is untouched
+        }
+
+        [Fact]
+        public async Task FetchAsync_DayAfterAHoliday_DbCurrentThroughTheDayBefore_MakesNoNetworkCall()
+        {
+            // The weekday before today was a market holiday. The stored history reaching the trading
+            // day before it is current; with the weekday rule the holiday looked missing, and every
+            // request that day gap-fetched for it again.
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var holiday = LastTradingDayBefore(today);
+            var tradingDayBefore = LastTradingDayBefore(holiday);
+
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電",
+                DeepFetchedAt = DateTime.UtcNow.AddDays(-1),
+            });
+            _dbContext.DailyStockPrices.Add(new DailyStockPrice
+            {
+                Symbol = Symbol, Market = "TW", TradeDate = tradingDayBefore,
+                Open = 890m, High = 905m, Low = 885m, Close = 900m, Volume = 1000,
+            });
+            await _dbContext.SaveChangesAsync();
+
+            var provider = BuildProviderWithTime(DateTimeOffset.UtcNow, new HolidayCalendar(holiday));
+            var result = await provider.FetchAsync(Symbol);
+
+            Assert.Equal(900m, Assert.Single(result.HistoricalPrices).Close);
+            _inner.Verify(x => x.FetchRangeAsync(
+                It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+                It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()), Times.Never);
+            _inner.Verify(x => x.GetLatestQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]

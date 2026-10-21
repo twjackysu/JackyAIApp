@@ -1,18 +1,20 @@
 using System.Net;
-using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Tests.TestHelpers;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
-namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
+namespace JackyAIApp.Server.Tests.Services.Market
 {
     /// <summary>
     /// The sample schedule follows the layout we expect from OpenAPI holidaySchedule (民國
     /// yyyMMdd dates, Name/Description text). That layout is an assumption until
     /// LiveContracts/TaiexContractTests has checked it against the live API.
+    ///
+    /// The calendar is loaded with <see cref="TwseTradingCalendar.RefreshAsync"/> (the background
+    /// refresh does that) and answers from memory: asking it never reaches TWSE.
     /// </summary>
-    public class TwseHolidayCalendarTests
+    public class TwseTradingCalendarTests
     {
         private const string Schedule =
             "[" +
@@ -25,12 +27,19 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         private int _calls;
         private Func<HttpResponseMessage> _respond = () => StubHttpMessageHandler.JsonResponse(Schedule);
 
-        private TwseHolidayCalendar CreateCalendar()
+        private TwseTradingCalendar CreateCalendar()
         {
             var factory = new Mock<IHttpClientFactory>();
             factory.Setup(f => f.CreateClient("ExternalReadOnly")).Returns(() =>
                 new HttpClient(new StubHttpMessageHandler(_ => { _calls++; return _respond(); }), disposeHandler: false));
-            return new TwseHolidayCalendar(factory.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<TwseHolidayCalendar>.Instance);
+            return new TwseTradingCalendar(factory.Object, NullLogger<TwseTradingCalendar>.Instance);
+        }
+
+        private async Task<TwseTradingCalendar> LoadedCalendar()
+        {
+            var calendar = CreateCalendar();
+            Assert.True(await calendar.RefreshAsync());
+            return calendar;
         }
 
         [Theory]
@@ -39,25 +48,38 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         [InlineData("2026-02-11", false)]  // listed, but it's the last trading day before the break
         [InlineData("2026-02-23", false)]  // listed, but it's the first trading day after
         [InlineData("2026-03-02", false)]  // not listed: an ordinary trading day
-        public async Task IsMarketClosedAsync_KnownYear(string date, bool closed)
+        [InlineData("2026-03-07", true)]   // a Saturday
+        public async Task IsMarketClosed_KnownYear(string date, bool closed)
         {
-            Assert.Equal(closed, await CreateCalendar().IsMarketClosedAsync(DateOnly.Parse(date)));
+            Assert.Equal(closed, (await LoadedCalendar()).IsMarketClosed(DateOnly.Parse(date)));
         }
 
         [Fact]
-        public async Task IsMarketClosedAsync_AYearTheScheduleDoesNotCover_IsUnknown()
+        public async Task AYearTheScheduleDoesNotCover_IsUnknown()
         {
-            Assert.Null(await CreateCalendar().IsMarketClosedAsync(new DateOnly(2027, 1, 4)));
+            Assert.Null((await LoadedCalendar()).IsMarketClosed(new DateOnly(2027, 1, 4)));
+        }
+
+        [Fact]
+        public void BeforeTheFirstLoad_AWeekdayIsUnknown_AndAWeekendIsClosed()
+        {
+            var calendar = CreateCalendar();
+
+            Assert.Null(calendar.IsMarketClosed(new DateOnly(2026, 1, 1)));
+            Assert.True(calendar.IsMarketClosed(new DateOnly(2026, 1, 3)));
+            Assert.Equal(0, _calls);
         }
 
         [Theory]
         [InlineData(HttpStatusCode.InternalServerError)]
         [InlineData(HttpStatusCode.Forbidden)]
-        public async Task IsMarketClosedAsync_FetchFails_IsUnknown(HttpStatusCode status)
+        public async Task FetchFails_LoadsNothing(HttpStatusCode status)
         {
             _respond = () => new HttpResponseMessage(status);
+            var calendar = CreateCalendar();
 
-            Assert.Null(await CreateCalendar().IsMarketClosedAsync(new DateOnly(2026, 1, 1)));
+            Assert.False(await calendar.RefreshAsync());
+            Assert.Null(calendar.IsMarketClosed(new DateOnly(2026, 1, 1)));
         }
 
         [Theory]
@@ -65,35 +87,36 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         [InlineData("{\"not\":\"an array\"}")]
         [InlineData("[]")]
         [InlineData("[{\"Name\":\"no date here\"}]")]
-        public async Task IsMarketClosedAsync_UnreadableSchedule_IsUnknown(string body)
+        public async Task UnreadableSchedule_LoadsNothing(string body)
         {
             _respond = () => StubHttpMessageHandler.JsonResponse(body);
+            var calendar = CreateCalendar();
 
-            Assert.Null(await CreateCalendar().IsMarketClosedAsync(new DateOnly(2026, 1, 1)));
+            Assert.False(await calendar.RefreshAsync());
+            Assert.Null(calendar.IsMarketClosed(new DateOnly(2026, 1, 1)));
         }
 
         [Fact]
-        public async Task TheScheduleIsFetchedOnce_ThenServedFromMemory()
+        public async Task Asking_NeverFetches()
         {
-            var calendar = CreateCalendar();
+            var calendar = await LoadedCalendar();
 
-            await calendar.IsMarketClosedAsync(new DateOnly(2026, 1, 1));
-            await calendar.IsMarketClosedAsync(new DateOnly(2026, 3, 2));
-            await calendar.IsMarketClosedAsync(new DateOnly(2027, 1, 4));
+            calendar.IsMarketClosed(new DateOnly(2026, 1, 1));
+            calendar.IsMarketClosed(new DateOnly(2026, 3, 2));
+            calendar.IsMarketClosed(new DateOnly(2027, 1, 4));
 
             Assert.Equal(1, _calls);
         }
 
         [Fact]
-        public async Task AFailedFetch_IsNotRetriedOnEveryCall()
+        public async Task AFailedReload_KeepsTheScheduleItHas()
         {
+            var calendar = await LoadedCalendar();
             _respond = () => new HttpResponseMessage(HttpStatusCode.InternalServerError);
-            var calendar = CreateCalendar();
 
-            await calendar.IsMarketClosedAsync(new DateOnly(2026, 1, 1));
-            await calendar.IsMarketClosedAsync(new DateOnly(2026, 1, 2));
+            Assert.False(await calendar.RefreshAsync());
 
-            Assert.Equal(1, _calls);
+            Assert.Equal(true, calendar.IsMarketClosed(new DateOnly(2026, 1, 1)));
         }
 
         [Theory]
@@ -107,7 +130,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         [InlineData("", 0, 0, 0)]
         public void TryParseDate_Cases(string text, int year, int month, int day)
         {
-            var ok = TwseHolidayCalendar.TryParseDate(text, out var date);
+            var ok = TwseTradingCalendar.TryParseDate(text, out var date);
 
             Assert.Equal(year != 0, ok);
             if (ok) Assert.Equal(new DateOnly(year, month, day), date);

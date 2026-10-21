@@ -1,4 +1,5 @@
 using JackyAIApp.Server.Extensions;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 
 namespace JackyAIApp.Server.Services.Portfolio
@@ -39,7 +40,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // second or two, inside the minimum gap and into a rate limit. The refresh retries hourly.
             services.AddSingleton<ITaiexTotalReturnClient, TaiexTotalReturnClient>();
             services.AddSingleton<ITaiexTotalReturnStore, TaiexTotalReturnStore>();
-            services.AddSingleton<ITwseHolidayCalendar, TwseHolidayCalendar>();
+            services.AddTradingCalendar();
             services.AddSingleton<ITaiexDataStatus, TaiexDataStatus>();
             // The intraday estimate's source (TASK-038): one shared reading of the index from MIS, so
             // the requests to MIS do not grow with the number of viewers. Uses the shared

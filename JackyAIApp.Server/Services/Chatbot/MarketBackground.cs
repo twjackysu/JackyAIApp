@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using System.Globalization;
 using System.Text;
 using JackyAIApp.Server.DTO.Finance;
@@ -74,7 +75,7 @@ namespace JackyAIApp.Server.Services.Chatbot
 
                 var text = Render(
                     new MarketBackgroundData(overview.Result, macro.Result, history.Result, indicators.Result),
-                    _time.GetUtcNow().ToOffset(TimeSpan.FromHours(8)));
+                    _time.GetUtcNow().ToOffset(TaipeiTime.Offset));
                 // Nothing at all is kept briefly, so a failing upstream is retried soon.
                 cache.Set(CacheKey, text, text == null ? TimeSpan.FromMinutes(2) : Lifetime);
                 return text;

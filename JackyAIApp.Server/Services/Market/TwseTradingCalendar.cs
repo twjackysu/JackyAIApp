@@ -1,51 +1,46 @@
 using System.Text.Json;
-using Microsoft.Extensions.Caching.Memory;
 
-namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
+namespace JackyAIApp.Server.Services.Market
 {
-    public interface ITwseHolidayCalendar
-    {
-        /// <summary>True when the exchange is closed on <paramref name="date"/>, false when it is
-        /// open, null when that cannot be told: the calendar could not be fetched or read, or does
-        /// not cover that year. Callers must treat null as "unknown", not as "open".</summary>
-        Task<bool?> IsMarketClosedAsync(DateOnly date, CancellationToken ct = default);
-    }
-
     /// <summary>
-    /// TWSE's market holiday schedule (OpenAPI <c>holidaySchedule</c>), used only to keep the
-    /// "data not updated" warning from firing on a day the market was shut. Held in memory:
-    /// rarely changes, and is asked about only after the day's data is already late.
+    /// TWSE's trading calendar: weekends, plus the market holiday schedule (OpenAPI
+    /// <c>holidaySchedule</c>). The schedule is loaded off the request path — at startup and then
+    /// twice a day, by <see cref="TradingCalendarRefreshService"/> — and held in memory, so asking
+    /// never waits on TWSE. A failed load keeps the schedule already held; until one succeeds, a
+    /// weekday is unknown (null), and callers fall back to the weekday rule.
     ///
     /// The response layout was not verifiable when this was written (the build environment cannot
     /// reach twse.com.tw), so reading it is deliberately forgiving and failure-tolerant: anything
-    /// unreadable makes <see cref="IsMarketClosedAsync"/> answer null and the caller falls back to
-    /// its calendar-free rule. <c>TwseOpenApiContractTests</c> checks the layout against the live
-    /// API. Entries the schedule lists that are trading days (the first day back after a break,
-    /// the last one before it) are not holidays.
+    /// unreadable leaves the weekdays unknown. <c>TaiexContractTests</c> checks the layout against
+    /// the live API. Entries the schedule lists that are trading days (the first day back after a
+    /// break, the last one before it) are not holidays.
     /// </summary>
-    public class TwseHolidayCalendar(
+    public class TwseTradingCalendar(
         IHttpClientFactory httpClientFactory,
-        IMemoryCache cache,
-        ILogger<TwseHolidayCalendar> logger) : ITwseHolidayCalendar
+        ILogger<TwseTradingCalendar> logger) : ITradingCalendar
     {
         internal const string Url = "https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule";
 
-        private const string CacheKey = "twse_holiday_schedule";
-        private static readonly TimeSpan FoundTtl = TimeSpan.FromHours(12);
-        private static readonly TimeSpan MissingTtl = TimeSpan.FromMinutes(10);
-
         private sealed record Schedule(HashSet<DateOnly> ClosedDays, HashSet<int> Years);
 
-        public async Task<bool?> IsMarketClosedAsync(DateOnly date, CancellationToken ct = default)
-        {
-            if (!cache.TryGetValue(CacheKey, out Schedule? schedule))
-            {
-                schedule = await FetchAsync(ct);
-                cache.Set(CacheKey, schedule, schedule is null ? MissingTtl : FoundTtl);
-            }
+        private volatile Schedule? _schedule;
 
+        public bool? IsMarketClosed(DateOnly date)
+        {
+            if (WeekdayTradingCalendar.IsWeekend(date)) return true;
+            var schedule = _schedule;
             if (schedule is null || !schedule.Years.Contains(date.Year)) return null;
             return schedule.ClosedDays.Contains(date);
+        }
+
+        /// <summary>Loads the schedule from TWSE. Keeps the one already held when the fetch or its
+        /// reading fails; true when a schedule was loaded.</summary>
+        public async Task<bool> RefreshAsync(CancellationToken ct = default)
+        {
+            var schedule = await FetchAsync(ct);
+            if (schedule is null) return false;
+            _schedule = schedule;
+            return true;
         }
 
         private async Task<Schedule?> FetchAsync(CancellationToken ct)
