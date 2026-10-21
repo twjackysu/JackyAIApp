@@ -1,7 +1,10 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 
 import { apiBaseQuery } from '../baseQuery';
+import { refreshReviewQueue } from '../reviewApis';
+import { refreshLearningStats } from '../statsApis';
 import { ApiOkResponse } from '../types';
+import { alsoRefresh } from '../utils/alsoRefresh';
 
 import {
   ConversationStartRequest,
@@ -121,6 +124,8 @@ export const examApis = createApi({
         method: 'POST',
         body,
       }),
+      // The attempt shows on the activity heatmap, and the server reschedules the tested word.
+      onQueryStarted: alsoRefresh(refreshReviewQueue, refreshLearningStats),
     }),
     getListeningTest: builder.query<ApiOkResponse<ListeningTestResponse>, void>({
       query: () => ({

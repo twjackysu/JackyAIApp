@@ -87,23 +87,7 @@ namespace JackyAIApp.Server.Mappers
         /// <summary>Maps an EF <see cref="SQL.Word"/> entity to the API DTO.</summary>
         public static DTO.Word ToDto(SQL.Word sqlWord)
         {
-            var meanings = sqlWord.Meanings.Select(m => new DTO.WordMeaning
-            {
-                PartOfSpeech = m.PartOfSpeech,
-                Definitions = m.Definitions.Select(d => new DTO.Definition
-                {
-                    English = d.English,
-                    Chinese = d.Chinese
-                }).ToList(),
-                ExampleSentences = m.ExampleSentences.Select(es => new DTO.ExampleSentence
-                {
-                    English = es.English,
-                    Chinese = es.Chinese
-                }).ToList(),
-                Synonyms = m.Tags.Where(t => t.TagType == Constants.TagTypes.Synonym).Select(t => t.Word).ToList(),
-                Antonyms = m.Tags.Where(t => t.TagType == Constants.TagTypes.Antonym).Select(t => t.Word).ToList(),
-                RelatedWords = m.Tags.Where(t => t.TagType == Constants.TagTypes.Related).Select(t => t.Word).ToList()
-            }).ToList();
+            var meanings = ToMeaningDtos(sqlWord.Meanings);
 
             return new DTO.Word
             {
@@ -130,6 +114,26 @@ namespace JackyAIApp.Server.Mappers
                 Meanings = meanings
             };
         }
+
+        /// <summary>Maps a word's meanings (definitions, examples, tags) to the API DTO.</summary>
+        public static List<DTO.WordMeaning> ToMeaningDtos(IEnumerable<SQL.WordMeaning> meanings) =>
+            meanings.Select(m => new DTO.WordMeaning
+            {
+                PartOfSpeech = m.PartOfSpeech,
+                Definitions = m.Definitions.Select(d => new DTO.Definition
+                {
+                    English = d.English,
+                    Chinese = d.Chinese
+                }).ToList(),
+                ExampleSentences = m.ExampleSentences.Select(es => new DTO.ExampleSentence
+                {
+                    English = es.English,
+                    Chinese = es.Chinese
+                }).ToList(),
+                Synonyms = m.Tags.Where(t => t.TagType == Constants.TagTypes.Synonym).Select(t => t.Word).ToList(),
+                Antonyms = m.Tags.Where(t => t.TagType == Constants.TagTypes.Antonym).Select(t => t.Word).ToList(),
+                RelatedWords = m.Tags.Where(t => t.TagType == Constants.TagTypes.Related).Select(t => t.Word).ToList()
+            }).ToList();
 
         private static void AddTags(SQL.WordMeaning meaning, string meaningId, List<string>? words, string tagType)
         {

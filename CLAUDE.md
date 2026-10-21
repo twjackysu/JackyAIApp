@@ -11,24 +11,29 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
 **Full-stack AI-powered application** with feature-based organization:
 
 ### Frontend Stack
-- **React 18** with TypeScript strict mode
-- **Material-UI v5** for UI components with dark theme support
+- **React 19** with TypeScript strict mode
+- **MUI v9** for UI components with dark theme support
 - **Redux Toolkit** with RTK Query for state/API management
-- **React Router v6** for navigation
+- **React Router v7** for navigation
 - **Vite** as build tool with SPA proxy to backend
 
 ### Backend Stack
 - **.NET 10 Web API** with Swagger documentation
-- **Entity Framework Core** with Azure SQL Database
+- **Entity Framework Core 10** with Azure SQL Database
 - **Azure integrations**: Key Vault for secrets, App Service hosting
-- **OpenAI integration** via Betalgo.Ranul.OpenAI package (v9.0.3)
+- **OpenAI integration** via Betalgo.Ranul.OpenAI package (v9.2)
+- **Anthropic integration** via the `Anthropic` SDK (Finance AI assistant, see AI Integration Patterns)
 - **Google OAuth** authentication
 - **External API integrations**: Taiwan Stock Exchange (TWSE) Open API, Yahoo Finance, FundRich (基富通), TWStockLib (NuGet package, own test suite — see Testing Status)
-- **Resilience**: Polly retry + circuit breaker (`Microsoft.Extensions.Http.Resilience`) on the named `"ExternalReadOnly"` client and the bare default client (used by TWStockLib), scoped away from OpenAI/Dify to avoid retrying non-idempotent calls
+- **Resilience**: Polly retry + circuit breaker (`Microsoft.Extensions.Http.Resilience`) on the named `"ExternalReadOnly"` client and the bare default client (used by TWStockLib), scoped away from the OpenAI/Anthropic clients to avoid retrying non-idempotent calls
 - **Third-party gateway** (`Services/ExternalApi/ThirdPartyGateway`): every request to TWSE/TPEx history goes through `IThirdPartyGateway.RunAsync(source, key, priority, fetch)` — identical in-flight requests share one fetch, Interactive is served before Background, and a per-source token bucket paces it (config section `ThirdPartyGateway`, live reload; the defaults are conservative guesses, no official limit is published). It does not cache — callers keep their own cache in front. The "token" is this rate-limit budget, nothing to do with LLM tokens
 
 ### Key Features & Modules
-1. **Dictionary** (`/dictionary`) - English learning with word lookup, audio, pronunciation, word repository
+The home portal (`/`) is the only place users switch between apps; the registry is
+`jackyaiapp.client/src/constants/apps.tsx`. The English-learning app (items 1-3 and 7) lives under
+`/english/...`.
+
+1. **Dictionary** (`/english/dictionary`) - English learning with word lookup, audio, pronunciation, word repository
    - Hunspell spell checking
    - Bilingual definitions (English/Chinese)
    - Synonyms, antonyms, related words
@@ -37,13 +42,13 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
    - Daily word recommendations
    - Audio pronunciation support
 
-2. **Repository** (`/repository`) - Personal word collection management
+2. **Repository** (`/english/repository`) - Personal word collection management
    - User personal vocabulary database
    - Word bookmarking and organization
    - Learning progress tracking
    - Integration with exam system
 
-3. **Exam System** (`/exam`) - Multiple English testing modes
+3. **Exam System** (`/english/exam`) - Multiple English testing modes
    - **Cloze Test**: Fill-in-the-blank questions based on user's vocabulary
    - **Translation Test**: Chinese-English translation practice with AI grading
    - **Conversation Test**: AI-powered scenario-based dialogue practice
@@ -52,7 +57,12 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
      - Voice recording and transcription
      - Real-time grammar correction
      - No dependency on user vocabulary (can be used without saved words)
-   - **Sentence Formation Test**: (In development)
+   - **Sentence Formation Test**: build a sentence with a saved word, AI-evaluated
+   - **Listening / Listening Response**: picture-based questions (images in Blob Storage, question
+     bank managed at `/admin/listening`) and pick-the-right-reply questions
+   - **Reading Comprehension**: AI-generated passages, validated before they are served
+   - **Writing**: topic prompt with AI grading
+   - **Dictation**: listen to a word and type it; graded locally (edit distance), no AI cost
 
 4. **Finance** (`/finance`) - Taiwan stock market analysis and insights
    - Daily financial news AI summaries from Taiwan Stock Exchange
@@ -71,21 +81,37 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
    - Batch PDF processing
    - File compression features
 
-6. **Portfolio** (`/portfolio`) - Holdings tracking (stock/fund/cash/liability)
+6. **Portfolio** (`/portfolio`) - Holdings tracking (stock/fund/cash/liability/real estate)
    - Snapshot-based model, **not** a transaction log — each save replaces the latest snapshot for that date
-   - Asset types: STOCK, FUND, CASH, LIABILITY (debt; negated at the single valuation point in `PortfolioService`, see code comments for the sign-flip invariant)
+   - Asset types: STOCK, FUND, CASH, LIABILITY (debt; negated at the single valuation point in `PortfolioService`, see code comments for the sign-flip invariant), REAL_ESTATE (its quantity *is* its current value, see `ValuationMethod`; kept out of P&L, XIRR and the liquid-asset figures)
    - TW stock pricing via TWStockLib; during 9:00-13:30 trading hours, overlays a realtime quote (bid/ask midpoint fallback) on top of the last historical close
    - US stock pricing + dividends via Yahoo Finance v8 chart API; fund NAV/dividends via FundRich
    - Total (含息) return: dividend history walked against the snapshot timeline so a dividend counts against whatever quantity was held on its ex-date; XIRR includes dividends as inflows
    - Exposure ratio accounts for leveraged/inverse ETF factors (`PortfolioExposure.Factor`)
    - Drawdown and benchmark charts reach back up to 3 years, but the providers only keep ~6 months of prices. Older **TW** months are filled in the background by `TwHistoryBackfillService` (one month at a time, newest first across all stocks, Background priority, each month stored as it arrives; progress in `StockSymbolInfo.HistoryCoveredFrom`) and added to a request's prices by `DeepHistoryService`, which only reads — it never waits on an exchange. The responses carry `backfill { state, coveredFrom, targetFrom }` so the client can show progress and poll. The exchanges answer "no data" with a *successful empty* month (also for a code that does not exist), so an empty month for a stock the user held is treated as a failure, never as coverage. US stocks are not backfilled yet
 
-7. **Daily Challenge / Review / Stats** (`/daily`, `/review`, `/stats`) - Retention & gamification
+7. **Daily Challenge / Review / Stats** (`/english/daily`, `/english/review`, `/english/stats`) - Retention & gamification
    - Daily Challenge: 5-question date-seeded quiz generated from the word DB (no AI cost), always free
    - Review: SM-2 spaced-repetition flashcards (`SpacedRepetitionService`), shared scheduling with exam results
-   - Streak + XP + level system; weekly report; anonymized leaderboard
+   - Streak + XP + level system; weekly report; anonymized leaderboard. The streak and level rules
+     live once, in `Services/DailyChallenge/StreakRules.cs` and `XpLevels.cs` — the submit path and
+     every display (stats, weekly report, leaderboard) go through them
 
-8. **Usage Limits** (DECISION-006/007) - No monetization; cost control only
+8. **Data Analysis** (`/data-analysis`) - Query and summarize tabular data (`DataAnalysisLibrary` NuGet packages)
+   - Built-in default source plus user-saved custom sources (SQL Server, Azure Data Explorer), and uploaded files held in a per-session store
+   - "問 AI": natural-language question → validated summarize plan (`NlQueryPlanner`)
+
+9. **Data Dashboard** (`/dashboards`) - Dashboards built from Data Analysis summarize results
+   - Each widget stores a re-runnable summarize plan; data is re-fetched on view
+   - Visibility Private / Public (any signed-in user) / Restricted (shared users) / Anyone (no sign-in)
+
+10. **Job Finder** (`/jobs`) - Job listings aggregated from 104 and Cake
+
+11. **Folder Slideshow** (`/slideshow`) - Plays the photos in a folder the user picks; runs entirely in the browser, no API
+
+12. **Connected Services** (`/connectors`) - OAuth connections to Atlassian (Jira) / Microsoft / Google, tokens stored encrypted
+
+13. **Usage Limits** (DECISION-006/007) - No monetization; cost control only
    - The old Credits & Payments system (prepaid credit balance, Stripe/PayPal/ECPay) is removed —
      the app has no payment/credit UI and looks free to every user
    - Every AI-powered endpoint is instead gated by a per-user, per-UTC-day weighted usage budget
@@ -110,7 +136,11 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 - **Test entities**: ClozeTest, TranslationTest, ClozeTestOption with user associations
 
 ### API Communication Pattern
-- **RTK Query slices** for each feature domain
+- **RTK Query slices** for each feature domain — each is its own `createApi`, so a tag one slice
+  invalidates never reaches another. Where a server write changes another slice's data (adding a
+  word changes the review queue, finishing a challenge changes the stats), the mutation sends the
+  invalidation across explicitly: `onQueryStarted: alsoRefresh(refreshReviewQueue, ...)`
+  (`apis/utils/alsoRefresh.ts`), with each affected slice exporting its own `refresh…` function
 - **TypeScript interfaces** for all API contracts in `apis/[feature]/types.ts`
 - **Error message extraction** via `apis/utils/errorMessage.ts` — the only supported way to turn
   an RTK Query error into display text, since `FetchBaseQueryError.data` is not guaranteed to hold
@@ -179,7 +209,7 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 
 ### Code Quality
 - **Frontend**: ESLint + Prettier with TypeScript strict mode
-- **Backend**: .NET 8 nullable reference types enabled
+- **Backend**: .NET 10, nullable reference types enabled
 - **Documentation**: Swagger auto-generation enabled
 - **Logging**: NLog with structured logging patterns
 

@@ -1,7 +1,9 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 
 import { apiBaseQuery } from '../baseQuery';
+import { refreshLearningStats } from '../statsApis';
 import { ApiOkResponse } from '../types';
+import { alsoRefresh, type SliceRefresh } from '../utils/alsoRefresh';
 
 import {
   DueReviewsResponse,
@@ -26,6 +28,8 @@ export const reviewApis = createApi({
         body,
       }),
       invalidatesTags: ['DueReviews', 'DueCount'],
+      // The weekly report counts the words reviewed.
+      onQueryStarted: alsoRefresh(refreshLearningStats),
     }),
     getDueCount: builder.query<ApiOkResponse<DueCountResponse>, void>({
       query: () => 'count',
@@ -33,5 +37,10 @@ export const reviewApis = createApi({
     }),
   }),
 });
+
+/** For mutations in other slices that change which words are due (adding or removing a word,
+ * recording an exam result, which reschedules the word). */
+export const refreshReviewQueue: SliceRefresh = (dispatch) =>
+  dispatch(reviewApis.util.invalidateTags(['DueReviews', 'DueCount']));
 
 export const { useGetDueReviewsQuery, useSubmitReviewsMutation, useGetDueCountQuery } = reviewApis;

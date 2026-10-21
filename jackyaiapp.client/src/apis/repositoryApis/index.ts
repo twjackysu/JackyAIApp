@@ -1,7 +1,10 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 
 import { apiBaseQuery } from '../baseQuery';
+import { refreshReviewQueue } from '../reviewApis';
+import { refreshLearningStats } from '../statsApis';
 import { ApiOkResponse } from '../types';
+import { alsoRefresh } from '../utils/alsoRefresh';
 
 import { AddWordPackResult, GetRepositoryWordRequest, PersonalWord, WordPack } from './types';
 
@@ -38,6 +41,8 @@ export const repositoryApis = createApi({
         method: 'PUT',
       }),
       invalidatesTags: ['PersonalWord'],
+      // A new word is due for review at once, and counts as a new word in the weekly report.
+      onQueryStarted: alsoRefresh(refreshReviewQueue, refreshLearningStats),
     }),
     deleteRepositoryWord: builder.mutation<ApiOkResponse<void>, string>({
       query: (wordId) => ({
@@ -45,6 +50,7 @@ export const repositoryApis = createApi({
         method: 'DELETE',
       }),
       invalidatesTags: (_, __, arg) => [{ type: 'PersonalWord', id: arg }],
+      onQueryStarted: alsoRefresh(refreshReviewQueue, refreshLearningStats),
     }),
     getWordPacks: builder.query<ApiOkResponse<WordPack[]>, void>({
       query: () => ({ url: 'packs' }),
@@ -55,6 +61,7 @@ export const repositoryApis = createApi({
         method: 'POST',
       }),
       invalidatesTags: ['PersonalWord'],
+      onQueryStarted: alsoRefresh(refreshReviewQueue, refreshLearningStats),
     }),
   }),
 });

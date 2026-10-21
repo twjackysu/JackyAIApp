@@ -22,7 +22,7 @@ import {
   PRICE_REFRESH_COOLDOWN_SECONDS,
   sanitizeRetryAfter,
   secondsLeft,
-} from './drawdownBrakeRefresh';
+} from './drawdownBrakeRefreshTiming';
 import { loadFeeDiscountRate } from './feeDiscountRate';
 
 import {

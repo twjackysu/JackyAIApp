@@ -2,6 +2,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.DailyChallenge;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -74,11 +75,6 @@ namespace JackyAIApp.Server.Controllers
             int usersWithLessXP = await _dbContext.Users.CountAsync(u => u.TotalXP > 0 && u.TotalXP < user.TotalXP);
             int percentile = totalUsers > 0 ? (int)Math.Round((double)usersWithLessXP / totalUsers * 100) : 50;
 
-            // Validate streak is current (forgive a single missed day, matching the streak freeze)
-            int displayStreak = user.CurrentStreak;
-            if (user.LastStreakDate.HasValue && (today - user.LastStreakDate.Value).Days > 2)
-                displayStreak = 0;
-
             return _responseFactory.CreateOKResponse(new WeeklyReportResponse
             {
                 NewWordsThisWeek = newWords,
@@ -87,9 +83,9 @@ namespace JackyAIApp.Server.Controllers
                 TotalAnswersThisWeek = totalAnswers,
                 WordsReviewedThisWeek = wordsReviewed,
                 XPEarnedThisWeek = xpFromChallenges,
-                CurrentStreak = displayStreak,
+                CurrentStreak = StreakRules.DisplayStreak(user, today),
                 TotalXP = user.TotalXP,
-                Level = GetLevel(user.TotalXP),
+                Level = XpLevels.For(user.TotalXP),
                 Percentile = percentile,
                 WeekStart = weekStart.ToString("yyyy-MM-dd"),
                 WeekEnd = weekEnd.ToString("yyyy-MM-dd"),
@@ -117,25 +113,25 @@ namespace JackyAIApp.Server.Controllers
                 .OrderByDescending(u => u.TotalXP)
                 .ThenByDescending(u => u.CurrentStreak)
                 .Take(limit)
-                .Select(u => new { u.Id, u.Name, u.Email, u.TotalXP, u.CurrentStreak, u.LastStreakDate })
+                .Select(u => new
+                {
+                    u.Id, u.Name, u.Email, u.TotalXP,
+                    u.CurrentStreak, u.LastStreakDate, u.StreakFreezesAvailable, u.LastFreezeGrantDate,
+                })
                 .ToListAsync();
 
             int rank = 0;
             var entries = topUsers.Select(u =>
             {
                 rank++;
-                // Validate streak (forgive a single missed day, matching the streak freeze)
-                int streak = u.CurrentStreak;
-                if (u.LastStreakDate.HasValue && (today - u.LastStreakDate.Value).Days > 2)
-                    streak = 0;
-
                 return new LeaderboardEntry
                 {
                     Rank = rank,
                     DisplayName = AnonymizeName(u.Name, u.Email),
                     TotalXP = u.TotalXP,
-                    CurrentStreak = streak,
-                    Level = GetLevel(u.TotalXP),
+                    CurrentStreak = StreakRules.DisplayStreak(
+                        u.CurrentStreak, u.LastStreakDate, u.StreakFreezesAvailable, u.LastFreezeGrantDate, today),
+                    Level = XpLevels.For(u.TotalXP),
                     IsCurrentUser = u.Id == userId,
                 };
             }).ToList();
@@ -148,17 +144,13 @@ namespace JackyAIApp.Server.Controllers
                 if (user != null && user.TotalXP > 0)
                 {
                     int userRank = await _dbContext.Users.CountAsync(u => u.TotalXP > user.TotalXP) + 1;
-                    int streak = user.CurrentStreak;
-                    if (user.LastStreakDate.HasValue && (today - user.LastStreakDate.Value).Days > 2)
-                        streak = 0;
-
                     currentUserEntry = new LeaderboardEntry
                     {
                         Rank = userRank,
                         DisplayName = AnonymizeName(user.Name, user.Email),
                         TotalXP = user.TotalXP,
-                        CurrentStreak = streak,
-                        Level = GetLevel(user.TotalXP),
+                        CurrentStreak = StreakRules.DisplayStreak(user, today),
+                        Level = XpLevels.For(user.TotalXP),
                         IsCurrentUser = true,
                     };
                 }
@@ -227,15 +219,6 @@ namespace JackyAIApp.Server.Controllers
                 ActiveDays = counts.Count,
             });
         }
-
-        private static string GetLevel(int xp) => xp switch
-        {
-            >= 5000 => "Master 👑",
-            >= 2000 => "Advanced 🎯",
-            >= 500 => "Explorer 🧭",
-            >= 100 => "Learner 📖",
-            _ => "Beginner 🌱"
-        };
 
         /// <summary>
         /// Anonymize user name: show first char + asterisks.
