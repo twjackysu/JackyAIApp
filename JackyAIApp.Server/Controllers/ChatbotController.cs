@@ -21,8 +21,10 @@ namespace JackyAIApp.Server.Controllers
         IUsageLimitService usageLimitService,
         IChatAttachmentStore attachmentStore,
         IAnthropicFileStore anthropicFiles,
+        ChatTurnRegistry turns,
         AzureSQLDBContext dbContext) : ControllerBase
     {
+        private readonly ChatTurnRegistry _turns = turns;
         private readonly IChatAttachmentStore _attachmentStore = attachmentStore;
         private readonly IAnthropicFileStore _anthropicFiles = anthropicFiles;
         private readonly ILogger<ChatbotController> _logger = logger;
@@ -347,6 +349,24 @@ namespace JackyAIApp.Server.Controllers
                 .ToListAsync(ct);
 
             return _responseFactory.CreateOKResponse(result);
+        }
+
+        /// <summary>
+        /// Stops the answer being written in one of the current user's conversations. What was said
+        /// before the stop is kept, marked as cut off; the stream ends with done { stopped: true }.
+        /// Succeeds whether or not an answer was still being written (it may just have finished).
+        /// </summary>
+        [HttpPost("conversations/{conversationId}/stop")]
+        public IActionResult StopConversation(string conversationId)
+        {
+            var userId = _userService.GetUserId();
+            if (string.IsNullOrEmpty(userId))
+                return _responseFactory.CreateErrorResponse(ErrorCodes.Unauthorized, "Not authenticated.");
+
+            var stopped = _turns.Stop(userId, conversationId);
+            _logger.LogInformation("User {UserId} stopped conversation {ConversationId} (running: {Stopped})",
+                userId, conversationId, stopped);
+            return _responseFactory.CreateOKResponse(new { stopped });
         }
 
         /// <summary>Deletes one of the current user's conversations (and its messages).</summary>

@@ -24,6 +24,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         AzureSQLDBContext db,
         IChatAttachmentStore attachmentStore,
         IAnthropicFileStore anthropicFiles,
+        ChatTurnRegistry turns,
         IAiUsageLogger usageLogger,
         IOptionsMonitor<Settings> settings,
         ILogger<AnthropicChatService> logger,
@@ -54,10 +55,21 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// without it a question about "today" or "the latest" is answered from that cutoff rather
         /// than looked up with the tool.
         /// </summary>
+        /// <remarks>
+        /// The scope below follows what the tw-stock server can look up. It mostly decides which
+        /// questions are in scope — the tools' own descriptions say how to use them.
+        /// </remarks>
         internal static string SystemPromptFor(DateOnly taipeiToday) =>
-            $"今天是 {taipeiToday:yyyy-MM-dd}（台北時間）。" +
-            "你是JackyAIApp網站上的台股小幫手。有台股相關問題（股價、財報、籌碼等）時，使用tw-stock工具查詢最新資料再回答；" +
-            "不確定或工具查無資料時要誠實告知，不要編造數字。只回答跟本網站功能或台股相關的問題，其他問題禮貌婉拒。用繁體中文，簡潔明確地回答。";
+            $"今天是 {taipeiToday:yyyy-MM-dd}（台北時間）。\n" +
+            "你是JackyAIApp網站上的台股投資助手，用tw-stock工具查詢台灣市場的資料再回答。可查的範圍：\n" +
+            "- 個股（上市、上櫃、興櫃）：股價與技術面、財報（損益、資產負債、現金流量，可回溯多期）、月營收、股利與除權息、法說會、重大訊息、董監與內部人持股、庫藏股\n" +
+            "- 籌碼：三大法人與外資動向、融資融券、集保股權分散（大戶與散戶）、當沖、處置與注意股\n" +
+            "- ETF：基本資料、折溢價、規模與受益人數、申購買回、成分股\n" +
+            "- 期貨與選擇權：行情（可回溯，含盤中走勢）、三大法人與大額交易人部位、Put/Call Ratio\n" +
+            "- 總體經濟：景氣燈號與領先、同時、落後指標、PMI／NMI、匯率\n" +
+            "回答原則：數字以工具查到的為準，並註明資料日期；查無資料或不確定時誠實說明，不要編造。" +
+            "使用者附上的檔案（報告、截圖、表格）可以一起分析。給出買賣方向的看法時，註明僅供參考、不構成投資建議。" +
+            "只回答台灣金融市場、投資理財或本網站功能相關的問題，其他問題禮貌婉拒。用繁體中文，簡潔明確地回答。";
 
         /// <summary>
         /// Why a turn ended without any answer text. A decline from the model's safety classifiers
@@ -185,7 +197,22 @@ namespace JackyAIApp.Server.Services.Chatbot
             var streamParams = BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList());
             var filesReuploaded = false;
 
+            // The turn ends early if the reader stops it (POST conversations/{id}/stop) or leaves.
+            using var turn = turns.Begin(userId, conversation.Id);
+            using var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct, turn.Token);
+            var turnCt = turnCts.Token;
+            var stopped = false;
+
             StartEventStream(response);
+            // First, so the reader can stop even the first turn of a new conversation.
+            try
+            {
+                await WriteSseAsync(response, new { type = "start", conversationId = conversation.Id }, turnCt);
+            }
+            catch (OperationCanceledException)
+            {
+                // Stopped already: the request below sees it straight away.
+            }
 
             var accumulated = new StringBuilder();
             var streamingStarted = false;
@@ -204,18 +231,18 @@ namespace JackyAIApp.Server.Services.Chatbot
                 var usage = new TurnUsage();
                 try
                 {
-                    await foreach (var evt in client.Beta.Messages.CreateStreaming(streamParams, ct))
+                    await foreach (var evt in client.Beta.Messages.CreateStreaming(streamParams, turnCt))
                     {
                         if (evt.TryPickContentBlockDelta(out var blockDelta) && blockDelta.Delta.TryPickText(out var textDelta))
                         {
                             streamingStarted = true;
                             accumulated.Append(textDelta.Text);
-                            await WriteSseAsync(response, new { type = "delta", text = textDelta.Text }, ct);
+                            await WriteSseAsync(response, new { type = "delta", text = textDelta.Text }, turnCt);
                         }
                         else if (evt.TryPickContentBlockStart(out var blockStart) &&
                                  blockStart.ContentBlock.TryPickBetaMcpToolUse(out var toolUse))
                         {
-                            await WriteSseAsync(response, new { type = "tool_use", name = toolUse.Name }, ct);
+                            await WriteSseAsync(response, new { type = "tool_use", name = toolUse.Name }, turnCt);
                         }
                         else if (evt.TryPickStart(out var startEvt))
                         {
@@ -230,7 +257,7 @@ namespace JackyAIApp.Server.Services.Chatbot
                         }
                     }
                 }
-                catch (Exception ex) when (!ct.IsCancellationRequested && !streamingStarted && !filesReuploaded &&
+                catch (Exception ex) when (!turnCt.IsCancellationRequested && !streamingStarted && !filesReuploaded &&
                                            ChatErrorCodes.IsMissingFile(ex))
                 {
                     // A file_id the Files API no longer has: upload this conversation's files again from
@@ -238,11 +265,11 @@ namespace JackyAIApp.Server.Services.Chatbot
                     logger.LogWarning(ex, "Anthropic did not find a file of conversation {ConversationId}; uploading its files again",
                         conversation.Id);
                     filesReuploaded = true;
-                    files = await PrepareFilesAsync(history, reupload: true, ct);
+                    files = await PrepareFilesAsync(history, reupload: true, turnCt);
                     streamParams = BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList());
                     continue;
                 }
-                catch (Exception ex) when (!ct.IsCancellationRequested)
+                catch (Exception ex) when (!turnCt.IsCancellationRequested)
                 {
                     success = false;
                     errorCode = ChatErrorCodes.For(ex);
@@ -252,9 +279,11 @@ namespace JackyAIApp.Server.Services.Chatbot
                         conversation.Id, errorCode);
                     break;
                 }
-                catch (OperationCanceledException)
+                catch (Exception) when (turnCt.IsCancellationRequested)
                 {
-                    // The reader left (closed the page): nothing to tell anyone, just stop.
+                    // The reader stopped the turn, or left. Whatever the SDK threw on the way out (it
+                    // need not be an OperationCanceledException), the turn ends here.
+                    stopped = true;
                     success = false;
                     break;
                 }
@@ -311,18 +340,22 @@ namespace JackyAIApp.Server.Services.Chatbot
             if (truncated)
                 logger.LogWarning("Anthropic chat turn hit max_tokens for conversation {ConversationId}", conversation.Id);
 
-            if (accumulated.Length > 0 && !refused)
+            // A stopped turn keeps what was said before the stop, marked as cut off — even if that is
+            // nothing — so the reader sees it on reopening the conversation, and the model knows on the
+            // next turn that this answer did not finish (as Claude Code records an interrupted turn).
+            if (stopped || (accumulated.Length > 0 && !refused))
             {
                 db.ChatMessages.Add(new SQL.ChatMessage
                 {
                     ConversationId = conversation.Id,
                     Role = "assistant",
-                    Content = accumulated.ToString(),
+                    Content = stopped ? StoppedContent(accumulated.ToString()) : accumulated.ToString(),
                 });
 
                 conversation.UpdatedAt = DateTime.UtcNow;
                 conversation.Title ??= TitleFrom(message);
-                await db.SaveChangesAsync(ct);
+                // Not the request's token: a stopped or abandoned turn is still saved.
+                await db.SaveChangesAsync(CancellationToken.None);
             }
 
             // Cache reads that stay at zero turn after turn mean something in the prompt keeps
@@ -335,11 +368,21 @@ namespace JackyAIApp.Server.Services.Chatbot
 
             if (success)
                 await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, truncated }, ct);
+            else if (stopped && !ct.IsCancellationRequested)
+                // Stopped through the API while the reader is still listening.
+                await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, stopped = true }, ct);
             else if (!ct.IsCancellationRequested)
                 await WriteSseAsync(response, new { type = "error", code = errorCode ?? ChatErrorCodes.Failed }, ct);
 
             return new ChatStreamResult(streamingStarted, conversation.Id, errorCode);
         }
+
+        /// <summary>Ends an answer the reader stopped; shown as it is, and read by the model as it is.</summary>
+        internal const string StoppedNote = "（已中斷）";
+
+        /// <summary>A stopped answer as stored: what was said before the stop, then <see cref="StoppedNote"/>.</summary>
+        internal static string StoppedContent(string partial) =>
+            string.IsNullOrWhiteSpace(partial) ? StoppedNote : $"{partial.TrimEnd()}\n\n{StoppedNote}";
 
         /// <summary>
         /// One stored turn as the API takes it. A message with attachments becomes a list of blocks,

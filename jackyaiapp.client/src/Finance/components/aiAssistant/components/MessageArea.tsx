@@ -2,10 +2,11 @@ import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import { Avatar, Box, Button, Paper, Stack, Typography } from '@mui/material';
+import { Avatar, Box, Button, Chip, Paper, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useRef } from 'react';
 
+import { GREETING_SUGGESTIONS } from '../examples';
 import { Message } from '../types';
 
 import AttachmentChip from './AttachmentChip';
@@ -23,7 +24,12 @@ interface MessageAreaProps {
   onPreview: (block: ParsedBlock) => void;
   /** False while the panel's tab is hidden: a hidden element has no scroll position to keep. */
   active: boolean;
+  /** A suggested question under the greeting was picked: put it in the message box. */
+  onSuggest?: (question: string) => void;
 }
+
+const GREETING =
+  '您好！我是台股 AI 助手，可以查個股走勢、財報與股利、三大法人籌碼、ETF、期貨選擇權和景氣指標，也能分析您附上的檔案或截圖。想問什麼呢？';
 
 // 單個區塊渲染組件
 const BlockRenderer = ({
@@ -62,7 +68,7 @@ const BlockRenderer = ({
   );
 };
 
-function MessageArea({ messages, onPreview, active }: MessageAreaProps) {
+function MessageArea({ messages, onPreview, active, onSuggest }: MessageAreaProps) {
   const theme = useTheme();
   const scrollRef = useRef<HTMLDivElement>(null);
   const followingRef = useRef(true);
@@ -139,11 +145,24 @@ function MessageArea({ messages, onPreview, active }: MessageAreaProps) {
                 >
                   AI 助手
                 </Typography>
-                <MarkdownMessage
-                  content="您好！我是您的 AI 助手，有什麼可以幫助您的嗎？"
-                  isOwnMessage={false}
-                  theme={theme}
-                />
+                <MarkdownMessage content={GREETING} isOwnMessage={false} theme={theme} />
+                {onSuggest && (
+                  <Box
+                    data-testid="greeting-suggestions"
+                    sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, pt: 0.5 }}
+                  >
+                    {GREETING_SUGGESTIONS.map((q) => (
+                      <Chip
+                        key={q}
+                        label={q}
+                        size="small"
+                        variant="outlined"
+                        clickable
+                        onClick={() => onSuggest(q)}
+                      />
+                    ))}
+                  </Box>
+                )}
               </Stack>
             </Paper>
           </Box>

@@ -70,7 +70,7 @@ const readerScrollsTo = (top: number) => {
 describe('MessageArea', () => {
   it('shows a greeting while the conversation is empty', () => {
     render([]);
-    expect(container.textContent).toContain('您好！我是您的 AI 助手');
+    expect(container.textContent).toContain('您好！我是台股 AI 助手');
   });
 
   it('follows a new message to the end', () => {
