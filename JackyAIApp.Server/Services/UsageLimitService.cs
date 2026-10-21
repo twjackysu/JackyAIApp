@@ -9,10 +9,13 @@ namespace JackyAIApp.Server.Services
     /// Backs <see cref="IUsageLimitService"/> with a single atomic conditional UPDATE against
     /// <c>DailyUsages</c> (no read-modify-write round trip), so two concurrent requests can never
     /// jointly overspend one user's daily budget. See ARCHITECTURE.md "Credits & Payments 移除設計".
+    /// Every charge it takes goes into the request's <see cref="UsageLedger"/>, which decides at the
+    /// end of the request whether it is refunded.
     /// </summary>
     public class UsageLimitService(
         AzureSQLDBContext dbContext,
         IOptions<UsageLimitOptions> options,
+        UsageLedger ledger,
         ILogger<UsageLimitService> logger,
         TimeProvider? timeProvider = null) : IUsageLimitService
     {
@@ -22,6 +25,14 @@ namespace JackyAIApp.Server.Services
         private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
         public async Task<bool> TryConsumeAsync(string userId, ulong cost, string feature)
+        {
+            var charged = await TryChargeAsync(userId, cost, feature);
+            if (charged)
+                ledger.RecordCharge(userId, cost, feature);
+            return charged;
+        }
+
+        private async Task<bool> TryChargeAsync(string userId, ulong cost, string feature)
         {
             // Usage weights (UsageCosts) are tiny constants — narrowing to long is always exact
             // and lets the atomic UPDATE below compare against a native bigint column.

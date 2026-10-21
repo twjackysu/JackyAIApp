@@ -89,7 +89,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             new(NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
                 new DataSourceResolver(FailingEngine(), db!, configService!, NullLogger<DataSourceResolver>.Instance),
                 dbContext: db!, configService: configService!, sessionStore: null!,
-                openAIPromptService: null!, usageLimitService: null!, promptLoader: null!, nlPlanner: null!,
+                openAIPromptService: null!, promptLoader: null!, nlPlanner: null!,
                 cache: new MemoryCache(new MemoryCacheOptions()))
             {
                 ControllerContext = new ControllerContext { HttpContext = As(userId) },

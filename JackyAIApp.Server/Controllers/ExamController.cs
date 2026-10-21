@@ -45,6 +45,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Generates a translation quality grading.</summary>
         [HttpPost("translation/quality_grading")]
+        [UsageLimit(UsageCosts.TranslationGrading, "translation_grading")]
         public async Task<IActionResult> GetTranslationQualityGrading([FromBody] TranslationTestUserResponse userResponse) =>
             _responseFactory.ToActionResult(await _examService.GradeTranslationAsync(userResponse));
 
@@ -56,6 +57,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Processes user's response in a conversation and generates AI response with corrections if needed.</summary>
         [HttpPost("conversation/respond")]
+        [UsageLimit(UsageCosts.ConversationResponse, "conversation_response")]
         public async Task<IActionResult> RespondToConversation([FromBody] ConversationResponseRequest request) =>
             _responseFactory.ToActionResult(await _examService.RespondToConversationAsync(request));
 
@@ -67,6 +69,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Transcribes audio to text using OpenAI Whisper.</summary>
         [HttpPost("whisper/transcribe")]
+        [UsageLimit(UsageCosts.AudioTranscription, "audio_transcription")]
         public async Task<IActionResult> TranscribeAudio(IFormFile audioFile)
         {
             if (audioFile == null || audioFile.Length == 0)
@@ -86,6 +89,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Evaluates a user's sentence formation response and provides detailed feedback.</summary>
         [HttpPost("sentence/evaluate")]
+        [UsageLimit(UsageCosts.SentenceEvaluation, "sentence_evaluation")]
         public async Task<IActionResult> EvaluateSentence([FromBody] SentenceTestUserResponse userResponse) =>
             _responseFactory.ToActionResult(await _examService.EvaluateSentenceAsync(userResponse));
 
@@ -156,6 +160,7 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Grades an open-ended writing submission and provides detailed feedback.</summary>
         [HttpPost("writing/evaluate")]
+        [UsageLimit(UsageCosts.WritingEvaluation, "writing_evaluation")]
         public async Task<IActionResult> EvaluateWriting([FromBody] WritingSubmissionRequest request) =>
             _responseFactory.ToActionResult(await _examService.GradeWritingAsync(request));
 

@@ -117,9 +117,23 @@ The home portal (`/`) is the only place users switch between apps; the registry 
    - Every AI-powered endpoint is instead gated by a per-user, per-UTC-day weighted usage budget
      (`IUsageLimitService`, `[UsageLimit(cost, feature)]`, weights centralized in
      `Common/UsageCosts.cs`); exceeding it returns HTTP 429 + `ErrorCodes.UsageLimitExceeded`,
-     surfaced client-side as a "contact the author for a higher limit" prompt
+     surfaced client-side by `UsageLimitModal`: the AI cost is paid by the author, the budget is a
+     free daily trial (resets 00:00 UTC = 08:00 Taiwan), please sponsor or email the author with
+     your account to have it reset or raised (sponsor button appears once
+     `constants/author.ts` `SPONSOR_URL` is set)
+   - The budget is a **trial allowance, not unlimited use**. Charge on the endpoint with
+     `[UsageLimit]`; charging before the action validates is fine, because of the refund rule:
+     a charge is refunded only when the request failed (status ≥ 400, an exception, or
+     `UsageLedger.MarkFailed` for a stream that already sent 200) **and** no AI provider billed.
+     Once a provider billed (`AiUsageLogger` reports it; chat reports it at `message_start`), a
+     failure keeps the charge. The rule lives only in `Services/UsageLedger.cs`, settled by
+     `Common/UsageSettlementMiddleware.cs`; no endpoint refunds by hand. Only three endpoints
+     charge inline, each for a reason: TTS (cache hits and anonymous use are free), the market AI
+     digest (once per user per day), chat (cost depends on attachments)
    - `UsageLimits:DailyBudget` (default 60) sets the shared default; `User.UsageLimitMultiplier`
-     lets the author raise an individual user's effective limit directly in the DB (no admin UI)
+     lets the author raise an individual user's effective limit directly in the DB (no admin UI).
+     Resetting today's usage is `UPDATE DailyUsages SET Used = 0` for that `UserId` and today's
+     UTC `[Date]`
 
 ## Code Organization Patterns
 

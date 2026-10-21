@@ -9,7 +9,7 @@ namespace JackyAIApp.Server.Services.AiUsage
     /// multi-second AI call is negligible) but wrapped so any failure is logged and swallowed —
     /// usage accounting must never surface as a user-facing error.
     /// </summary>
-    public class AiUsageLogger(AzureSQLDBContext db, ILogger<AiUsageLogger> logger) : IAiUsageLogger
+    public class AiUsageLogger(AzureSQLDBContext db, UsageLedger ledger, ILogger<AiUsageLogger> logger) : IAiUsageLogger
     {
         public Task LogChatAsync(string feature, string model, int promptTokens, int completionTokens,
             bool success, string? userId, int? cacheWriteTokens = null, int? cacheReadTokens = null) =>
@@ -27,7 +27,7 @@ namespace JackyAIApp.Server.Services.AiUsage
                     cacheWriteTokens ?? 0, cacheReadTokens ?? 0),
                 Success = success,
                 UserId = userId,
-            });
+            }, billed: promptTokens + completionTokens > 0);
 
         public Task LogTtsAsync(string model, int characterCount, bool success, string? userId) =>
             SafeInsert(new AiUsageLog
@@ -39,7 +39,7 @@ namespace JackyAIApp.Server.Services.AiUsage
                 EstimatedCostUsd = AiRates.TtsCost(model, characterCount),
                 Success = success,
                 UserId = userId,
-            });
+            }, billed: success);
 
         public Task LogWhisperAsync(string model, bool success, string? userId) =>
             SafeInsert(new AiUsageLog
@@ -51,7 +51,7 @@ namespace JackyAIApp.Server.Services.AiUsage
                 // so cost is left null and only the call count is recorded.
                 Success = success,
                 UserId = userId,
-            });
+            }, billed: success);
 
         public Task LogImageGenerationAsync(string feature, string model, int imageCount, bool success, string? userId) =>
             SafeInsert(new AiUsageLog
@@ -63,10 +63,17 @@ namespace JackyAIApp.Server.Services.AiUsage
                 EstimatedCostUsd = AiRates.ImageCost(model, imageCount),
                 Success = success,
                 UserId = userId,
-            });
+            }, billed: success);
 
-        private async Task SafeInsert(AiUsageLog entry)
+        /// <param name="entry">The row to write.</param>
+        /// <param name="billed">Whether the provider charged for this call — a chat call that consumed
+        /// any tokens (even one that failed or came back unusable), or a TTS / transcription / image call
+        /// that succeeded. Reported to the request's <see cref="UsageLedger"/>, which keeps the user's
+        /// usage charge from being refunded once the author has paid for the call.</param>
+        private async Task SafeInsert(AiUsageLog entry, bool billed)
         {
+            if (billed) ledger.MarkAiBilled();
+
             try
             {
                 db.AiUsageLogs.Add(entry);

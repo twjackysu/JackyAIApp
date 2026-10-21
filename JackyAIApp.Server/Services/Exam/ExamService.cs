@@ -15,7 +15,6 @@ namespace JackyAIApp.Server.Services.Exam
         AzureSQLDBContext dbContext,
         IUserService userService,
         IOpenAIPromptService promptService,
-        IUsageLimitService usageLimitService,
         ISpacedRepetitionService spacedRepetition,
         IEnumerable<IWordExamGenerator> generators) : IExamService
     {
@@ -23,7 +22,6 @@ namespace JackyAIApp.Server.Services.Exam
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly IUserService _userService = userService;
         private readonly IOpenAIPromptService _promptService = promptService;
-        private readonly IUsageLimitService _usageLimitService = usageLimitService;
         private readonly ISpacedRepetitionService _spacedRepetition = spacedRepetition;
         private readonly IReadOnlyDictionary<ExamType, IWordExamGenerator> _generators =
             generators.ToDictionary(g => g.Type);
@@ -545,16 +543,6 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Input cannot be null or empty.");
             }
 
-            // Not [UsageLimit] — this is the one-shot grading call, gated inline like
-            // GradeTranslationAsync/EvaluateSentenceAsync. The GET prompt endpoint above is the
-            // free half of this feature; the AI cost lives entirely here.
-            var userId = _userService.GetUserId();
-            if (!string.IsNullOrEmpty(userId) &&
-                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.WritingEvaluation, "writing_evaluation"))
-            {
-                return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
-            }
-
             var example = (
                 User: JsonConvert.SerializeObject(new WritingSubmissionRequest
                 {
@@ -695,14 +683,6 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult> GradeTranslationAsync(TranslationTestUserResponse userResponse)
         {
-            // Usage gate (conditional on an authenticated user)
-            var userId = _userService.GetUserId();
-            if (!string.IsNullOrEmpty(userId) &&
-                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.TranslationGrading, "translation_grading"))
-            {
-                return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
-            }
-
             if (userResponse == null || string.IsNullOrEmpty(userResponse.Translation) ||
                 string.IsNullOrEmpty(userResponse.ExaminationQuestion) || string.IsNullOrEmpty(userResponse.UnfamiliarWords))
             {
@@ -787,14 +767,6 @@ namespace JackyAIApp.Server.Services.Exam
             }
 
             var userId = _userService.GetUserId();
-
-            // Usage gate: each conversation turn costs usage
-            if (!string.IsNullOrEmpty(userId) &&
-                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.ConversationResponse, "conversation_response"))
-            {
-                return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
-            }
-
             var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
@@ -848,11 +820,6 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
             }
 
-            if (!await _usageLimitService.TryConsumeAsync(userId!, UsageCosts.AudioTranscription, "audio_transcription"))
-            {
-                return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
-            }
-
             var (result, error) = await _promptService.TranscribeAudioAsync(audioStream, fileName);
 
             if (result == null)
@@ -874,13 +841,6 @@ namespace JackyAIApp.Server.Services.Exam
                 string.IsNullOrEmpty(userResponse.Word) || string.IsNullOrEmpty(userResponse.Prompt))
             {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Input cannot be null or empty.");
-            }
-
-            var userId = _userService.GetUserId();
-            if (!string.IsNullOrEmpty(userId) &&
-                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.SentenceEvaluation, "sentence_evaluation"))
-            {
-                return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
             }
 
             var example = (

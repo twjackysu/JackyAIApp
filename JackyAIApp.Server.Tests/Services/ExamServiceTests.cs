@@ -19,7 +19,6 @@ namespace JackyAIApp.Server.Tests.Services
     {
         private readonly Mock<IUserService> _userServiceMock;
         private readonly Mock<IOpenAIPromptService> _promptServiceMock;
-        private readonly Mock<IUsageLimitService> _usageLimitServiceMock;
         private readonly AzureSQLDBContext _dbContext;
         private readonly ExamService _service;
         private readonly string _testUserId = "test-user-123";
@@ -28,7 +27,6 @@ namespace JackyAIApp.Server.Tests.Services
         {
             _userServiceMock = new Mock<IUserService>();
             _promptServiceMock = new Mock<IOpenAIPromptService>();
-            _usageLimitServiceMock = new Mock<IUsageLimitService>();
 
             var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -36,8 +34,6 @@ namespace JackyAIApp.Server.Tests.Services
             _dbContext = new AzureSQLDBContext(options);
 
             _userServiceMock.Setup(x => x.GetUserId()).Returns(_testUserId);
-            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>()))
-                .ReturnsAsync(true);
 
             var generators = new List<IWordExamGenerator>
             {
@@ -51,7 +47,6 @@ namespace JackyAIApp.Server.Tests.Services
                 _dbContext,
                 _userServiceMock.Object,
                 _promptServiceMock.Object,
-                _usageLimitServiceMock.Object,
                 new SpacedRepetitionService(),
                 generators);
         }
@@ -342,7 +337,7 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         [Fact]
-        public async Task TranscribeAudio_ServiceFails_DoesNotConsumeExtraCredits()
+        public async Task TranscribeAudio_ServiceFails_ReturnsError()
         {
             await SeedUserAsync();
             using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
@@ -352,9 +347,7 @@ namespace JackyAIApp.Server.Tests.Services
             var result = await _service.TranscribeAudioAsync(stream, "test.mp3");
 
             Assert.False(result.IsSuccess);
-            // Only the one AudioTranscription charge already asserted in setup — no second
-            // TryConsumeAsync call is made for delivery feedback (TASK-004: zero added cost).
-            _usageLimitServiceMock.Verify(x => x.TryConsumeAsync(It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>()), Times.Once);
+            Assert.Equal(ErrorCodes.QueryOpenAIFailed, result.Error);
         }
 
         [Fact]
@@ -1193,20 +1186,6 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         [Fact]
-        public async Task GenerateWritingPrompt_NeverConsumesCredits()
-        {
-            // TASK-008: the one exam-type "generation" endpoint with zero underlying AI cost —
-            // must never be credit-gated, unlike every other GET api/exam/* endpoint.
-            await SeedUserWithWordsAsync(5);
-
-            var result = await _service.GenerateWritingPromptAsync();
-
-            Assert.True(result.IsSuccess);
-            _usageLimitServiceMock.Verify(x => x.TryConsumeAsync(
-                It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>()), Times.Never);
-        }
-
-        [Fact]
         public async Task GradeWriting_NullInput_ReturnsError()
         {
             var result = await _service.GradeWritingAsync(null!);
@@ -1216,29 +1195,7 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         [Fact]
-        public async Task GradeWriting_UsageLimitExceeded_Returns429()
-        {
-            await SeedUserAsync();
-            _usageLimitServiceMock.Setup(x => x.TryConsumeAsync(_testUserId, UsageCosts.WritingEvaluation, It.IsAny<string>()))
-                .ReturnsAsync(false);
-            var request = new WritingSubmissionRequest
-            {
-                Topic = "a memorable experience you had",
-                RequiredWords = new List<string> { "adventure" },
-                Submission = "Some paragraph.",
-            };
-
-            var result = await _service.GradeWritingAsync(request);
-
-            Assert.False(result.IsSuccess);
-            Assert.Equal(ErrorCodes.UsageLimitExceeded, result.Error);
-            _promptServiceMock.Verify(x => x.GetCompletionAsync<WritingGradingResponse>(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task GradeWriting_ChargesCreditsExactlyOnce_AndReflectsUnusedRequiredWord()
+        public async Task GradeWriting_ReflectsUnusedRequiredWord()
         {
             await SeedUserAsync();
             var expected = new WritingGradingResponse
@@ -1273,7 +1230,6 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Equal(2, dto.WordsUsed.Count);
             Assert.True(dto.WordsUsed.Single(w => w.Word == "adventure").Used);
             Assert.False(dto.WordsUsed.Single(w => w.Word == "journey").Used);
-            _usageLimitServiceMock.Verify(x => x.TryConsumeAsync(_testUserId, UsageCosts.WritingEvaluation, It.IsAny<string>()), Times.Once);
         }
 
         [Fact]
@@ -1486,18 +1442,6 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.False(dto.IsCorrect);
             Assert.True(dto.Score > 0 && dto.Score < 100);
             Assert.Equal("sun", dto.CorrectText);
-        }
-
-        [Fact]
-        public async Task GradeDictation_NeverConsumesCredits()
-        {
-            var word = await SeedUserWithWordAsync();
-
-            var result = await _service.GradeDictationAsync(new DictationGradeRequest { WordId = word.Id, UserInput = "sun" });
-
-            Assert.True(result.IsSuccess);
-            _usageLimitServiceMock.Verify(x => x.TryConsumeAsync(
-                It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>()), Times.Never);
         }
 
         [Fact]

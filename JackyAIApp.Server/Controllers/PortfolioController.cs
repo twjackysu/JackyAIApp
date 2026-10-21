@@ -207,6 +207,7 @@ namespace JackyAIApp.Server.Controllers
         }
 
         [HttpGet("holdings/{market}/{symbol}/ai-summary")]
+        [UsageLimit(UsageCosts.PortfolioAiSummary, "portfolio_ai_summary")]
         public async Task<IActionResult> GetAiTechSummary(string market, string symbol, CancellationToken ct)
         {
             var userId = RequireUserId();

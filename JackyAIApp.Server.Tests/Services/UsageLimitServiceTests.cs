@@ -66,9 +66,10 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         private static UsageLimitService BuildService(
-            AzureSQLDBContext context, ulong dailyBudget = 10, TimeProvider? timeProvider = null) =>
+            AzureSQLDBContext context, ulong dailyBudget = 10, TimeProvider? timeProvider = null, UsageLedger? ledger = null) =>
             new(context,
                 Options.Create(new UsageLimitOptions { DailyBudget = dailyBudget }),
+                ledger ?? new UsageLedger(),
                 NullLogger<UsageLimitService>.Instance,
                 timeProvider);
 
@@ -101,6 +102,21 @@ namespace JackyAIApp.Server.Tests.Services
             var blocked = await service.TryConsumeAsync(TestUserId, 5, "test_feature");
 
             Assert.False(blocked);
+        }
+
+        [Fact]
+        public async Task TryConsumeAsync_RecordsOnlyTheChargesItTook_InTheRequestsLedger()
+        {
+            await SeedUserAsync();
+            using var context = CreateContext();
+            var ledger = new UsageLedger();
+            var service = BuildService(context, dailyBudget: 10, ledger: ledger);
+
+            Assert.True(await service.TryConsumeAsync(TestUserId, 7, "taken"));
+            Assert.False(await service.TryConsumeAsync(TestUserId, 5, "blocked"));
+
+            // A failed request with no AI billing gets back exactly what was taken.
+            Assert.Equal([new UsageCharge(TestUserId, 7, "taken")], ledger.TakeRefunds(responseFailed: true));
         }
 
         [Fact]
