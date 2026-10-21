@@ -42,6 +42,7 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IAnthropicChatService, AnthropicChatService>();
             services.AddScoped<IAnthropicFileStore, AnthropicFileStore>();
             services.AddSingleton<ChatTurnRegistry>();
+            services.AddScoped<IMarketBackground, MarketBackground>();
 
             services.AddSingleton<IPromptLoader, PromptLoader>();
             services.AddScoped<IOpenAIPromptService, OpenAIPromptService>();

@@ -25,6 +25,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         IChatAttachmentStore attachmentStore,
         IAnthropicFileStore anthropicFiles,
         ChatTurnRegistry turns,
+        IMarketBackground marketBackground,
         IAiUsageLogger usageLogger,
         IOptionsMonitor<Settings> settings,
         ILogger<AnthropicChatService> logger,
@@ -88,9 +89,16 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// the 5 minutes, and a miss costs only a quarter more (the 1-hour TTL doubles every write).
         /// For the prefix to match, everything ahead of the conversation must stay byte-identical
         /// between turns: model, effort, tools and system prompt (which changes once a day, with
-        /// the date), and each stored turn must be rebuilt exactly as it was sent.
+        /// the date, and with the market background every half hour — see IMarketBackground), and
+        /// each stored turn must be rebuilt exactly as it was sent.
+        /// <para>
+        /// The market background, when there is one, is a second system block with its own
+        /// breakpoint: it is the same for every reader until rebuilt, so tools and system prompt are
+        /// cached once for all conversations, not each on its own.
+        /// </para>
         /// </summary>
-        internal static MessageCreateParams BuildRequest(DateOnly taipeiToday, List<BetaMessageParam> messages) => new()
+        internal static MessageCreateParams BuildRequest(
+            DateOnly taipeiToday, List<BetaMessageParam> messages, string? marketBackground = null) => new()
         {
             Model = AnthropicModel.ClaudeHaiku5_5,
             MaxTokens = MaxTokens,
@@ -100,7 +108,13 @@ namespace JackyAIApp.Server.Services.Chatbot
             Betas = [McpBeta],
             McpServers = [new BetaRequestMcpServerUrlDefinition { Name = McpServerName, Url = McpServerUrl }],
             Tools = [new BetaMcpToolset { McpServerName = McpServerName }],
-            System = SystemPromptFor(taipeiToday),
+            System = marketBackground == null
+                ? SystemPromptFor(taipeiToday)
+                : new List<BetaTextBlockParam>
+                {
+                    new() { Text = SystemPromptFor(taipeiToday) },
+                    new() { Text = marketBackground, CacheControl = new BetaCacheControlEphemeral() },
+                },
             Messages = messages,
             CacheControl = new BetaCacheControlEphemeral(),
         };
@@ -194,7 +208,17 @@ namespace JackyAIApp.Server.Services.Chatbot
 
             var client = new AnthropicClient { ApiKey = apiKey };
             var taipeiToday = DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime.AddHours(8));
-            var streamParams = BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList());
+            // The page's market data as background; the turn goes ahead without it if it cannot be had.
+            string? background = null;
+            try
+            {
+                background = await marketBackground.GetAsync(ct);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Chat market background unavailable; answering without it");
+            }
+            var streamParams = BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList(), background);
             var filesReuploaded = false;
 
             // The turn ends early if the reader stops it (POST conversations/{id}/stop) or leaves.
@@ -266,7 +290,7 @@ namespace JackyAIApp.Server.Services.Chatbot
                         conversation.Id);
                     filesReuploaded = true;
                     files = await PrepareFilesAsync(history, reupload: true, turnCt);
-                    streamParams = BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList());
+                    streamParams = BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList(), background);
                     continue;
                 }
                 catch (Exception ex) when (!turnCt.IsCancellationRequested)
