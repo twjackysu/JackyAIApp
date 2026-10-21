@@ -54,6 +54,16 @@ namespace JackyAIApp.Server.Services.Chatbot
             _ => Failed,
         };
 
+        /// <summary>
+        /// The request referred to a file the Files API no longer has (deleted there, or the key now
+        /// belongs to another workspace) — something the caller can put right by uploading it again.
+        /// </summary>
+        public static bool IsMissingFile(Exception ex) =>
+            ex is AnthropicApiException api && IsMissingFile((int)api.StatusCode, $"{api.Message} {api.ResponseBody}");
+
+        internal static bool IsMissingFile(int status, string? message) =>
+            status is 400 or 404 && Mentions(message, "file") && Mentions(message, "not found");
+
         private static bool Mentions(string? text, string phrase) =>
             text?.Contains(phrase, StringComparison.OrdinalIgnoreCase) == true;
     }

@@ -51,6 +51,11 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// <summary>Pages of a PDF.</summary>
         public int? PageCount { get; set; }
 
+        /// <summary>The copy of an image or PDF in Anthropic's Files API (IAnthropicFileStore), which
+        /// a turn refers to instead of sending the file; null until it has been uploaded there.</summary>
+        [MaxLength(100)]
+        public string? AnthropicFileId { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }
