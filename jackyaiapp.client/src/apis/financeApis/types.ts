@@ -133,9 +133,14 @@ export interface MarginSummary {
   marginBuyTotal: number;
   marginSellTotal: number;
   marginBalanceTotal: number;
+  marginPrevBalanceTotal: number;
   shortSellTotal: number;
   shortBuyTotal: number;
   shortBalanceTotal: number;
+  shortPrevBalanceTotal: number;
+  /** Today's balance − the previous day's (includes repayments); null when no previous balance. */
+  marginChange: number | null;
+  shortChange: number | null;
 }
 
 export interface ExchangeRate {

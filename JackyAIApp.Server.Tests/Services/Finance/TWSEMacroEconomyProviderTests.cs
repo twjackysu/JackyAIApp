@@ -99,6 +99,52 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         }
 
         [Fact]
+        public async Task FetchAsync_MarginChange_IsTodaysBalanceMinusPreviousDays_IncludingRepayments()
+        {
+            // Two stocks whose sums are 2026-10-20's market-wide 信用交易統計. Buy − sell would give
+            // +13,339 / +26,124; the balances, which include 融資現金償還 (5,418) and 融券現券償還
+            // (12,123), give +7,921 / +14,001.
+            const string miMargn = """
+                [
+                  {"股票代號":"2330","融資買進":"200000","融資賣出":"180000","融資現金償還":"3000","融資前日餘額":"5000000","融資今日餘額":"5017000",
+                   "融券買進":"10000","融券賣出":"30000","融券現券償還":"8000","融券前日餘額":"100000","融券今日餘額":"112000"},
+                  {"股票代號":"2317","融資買進":"89957","融資賣出":"96618","融資現金償還":"2418","融資前日餘額":"4592706","融資今日餘額":"4583627",
+                   "融券買進":"6058","融券賣出":"12182","融券現券償還":"4123","融券前日餘額":"101911","融券今日餘額":"103912"}
+                ]
+                """;
+            var provider = CreateProvider(req =>
+                req.RequestUri!.ToString().Contains("MI_MARGN") ? StubHttpMessageHandler.JsonResponse(miMargn) : RouteNormal(req));
+
+            var margin = (await provider.FetchAsync()).Margin!;
+
+            Assert.Equal(289957L, margin.MarginBuyTotal);
+            Assert.Equal(276618L, margin.MarginSellTotal);
+            Assert.Equal(9592706L, margin.MarginPrevBalanceTotal);
+            Assert.Equal(9600627L, margin.MarginBalanceTotal);
+            Assert.Equal(7921L, margin.MarginChange);
+
+            Assert.Equal(42182L, margin.ShortSellTotal);
+            Assert.Equal(16058L, margin.ShortBuyTotal);
+            Assert.Equal(201911L, margin.ShortPrevBalanceTotal);
+            Assert.Equal(215912L, margin.ShortBalanceTotal);
+            Assert.Equal(14001L, margin.ShortChange);
+        }
+
+        [Fact]
+        public async Task FetchAsync_MarginWithoutPreviousBalances_HasNoChangeRatherThanTheWholeBalance()
+        {
+            const string miMargn = """[{"股票代號":"2330","融資今日餘額":"34401","融券今日餘額":"14"}]""";
+            var provider = CreateProvider(req =>
+                req.RequestUri!.ToString().Contains("MI_MARGN") ? StubHttpMessageHandler.JsonResponse(miMargn) : RouteNormal(req));
+
+            var margin = (await provider.FetchAsync()).Margin!;
+
+            Assert.Equal(34401L, margin.MarginBalanceTotal);
+            Assert.Null(margin.MarginChange);
+            Assert.Null(margin.ShortChange);
+        }
+
+        [Fact]
         public async Task FetchAsync_MissingNumericFields_DefaultToZeroInsteadOfThrowing()
         {
             const string fmtqikMissingFields = """[{"Date":"1150701"}]""";

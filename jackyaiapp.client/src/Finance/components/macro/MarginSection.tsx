@@ -13,8 +13,6 @@ import type { MacroEconomyData } from '@/apis/financeApis/types';
 export const MarginSection = ({ data }: { data: MacroEconomyData }) => {
   if (!data.margin) return null;
   const m = data.margin;
-  const marginNet = m.marginBuyTotal - m.marginSellTotal;
-  const shortNet = m.shortSellTotal - m.shortBuyTotal;
 
   return (
     <Card sx={{ height: '100%' }}>
@@ -41,7 +39,11 @@ export const MarginSection = ({ data }: { data: MacroEconomyData }) => {
                 }}
               >
                 <Typography variant="body2">增減:</Typography>
-                <ChangeText value={marginNet} />
+                {m.marginChange === null ? (
+                  <Typography variant="body2">—</Typography>
+                ) : (
+                  <ChangeText value={m.marginChange} />
+                )}
               </Stack>
               <Typography
                 variant="body2"
@@ -68,7 +70,11 @@ export const MarginSection = ({ data }: { data: MacroEconomyData }) => {
                 }}
               >
                 <Typography variant="body2">增減:</Typography>
-                <ChangeText value={shortNet} />
+                {m.shortChange === null ? (
+                  <Typography variant="body2">—</Typography>
+                ) : (
+                  <ChangeText value={m.shortChange} />
+                )}
               </Stack>
               <Typography
                 variant="body2"
