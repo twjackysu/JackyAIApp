@@ -58,7 +58,7 @@ namespace JackyAIApp.Server.Controllers
             // there), matching the pattern used for the NL-summarize and market-digest endpoints.
             var userId = _userService.GetUserId();
             if (!string.IsNullOrEmpty(userId) &&
-                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.TextToSpeech, "tts"))
+                !await _usageLimitService.TryConsumeAsync(userId, UsageFeature.TextToSpeech))
             {
                 return _responseFactory.CreateErrorResponse(
                     ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");

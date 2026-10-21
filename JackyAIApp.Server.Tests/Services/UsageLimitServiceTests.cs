@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
@@ -85,7 +86,7 @@ namespace JackyAIApp.Server.Tests.Services
             using var context = CreateContext();
             var service = BuildService(context, dailyBudget: 10);
 
-            var result = await service.TryConsumeAsync(TestUserId, 3, "test_feature");
+            var result = await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 3);
 
             Assert.True(result);
         }
@@ -97,9 +98,9 @@ namespace JackyAIApp.Server.Tests.Services
             using var context = CreateContext();
             var service = BuildService(context, dailyBudget: 10);
 
-            Assert.True(await service.TryConsumeAsync(TestUserId, 7, "test_feature"));
+            Assert.True(await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 7));
             // 7 + 5 = 12 > 10
-            var blocked = await service.TryConsumeAsync(TestUserId, 5, "test_feature");
+            var blocked = await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 5);
 
             Assert.False(blocked);
         }
@@ -112,11 +113,11 @@ namespace JackyAIApp.Server.Tests.Services
             var ledger = new UsageLedger();
             var service = BuildService(context, dailyBudget: 10, ledger: ledger);
 
-            Assert.True(await service.TryConsumeAsync(TestUserId, 7, "taken"));
-            Assert.False(await service.TryConsumeAsync(TestUserId, 5, "blocked"));
+            Assert.True(await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 7));
+            Assert.False(await service.TryConsumeAsync(TestUserId, UsageFeature.TranslationTest, 5));
 
             // A failed request with no AI billing gets back exactly what was taken.
-            Assert.Equal([new UsageCharge(TestUserId, 7, "taken")], ledger.TakeRefunds(responseFailed: true));
+            Assert.Equal([new UsageCharge(TestUserId, UsageFeature.ClozeTest, 7)], ledger.TakeRefunds(responseFailed: true));
         }
 
         [Fact]
@@ -126,7 +127,7 @@ namespace JackyAIApp.Server.Tests.Services
             using var context = CreateContext();
             var service = BuildService(context, dailyBudget: 10);
 
-            var result = await service.TryConsumeAsync(TestUserId, 11, "test_feature");
+            var result = await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 11);
 
             Assert.False(result);
         }
@@ -138,9 +139,9 @@ namespace JackyAIApp.Server.Tests.Services
             using var context = CreateContext();
             var service = BuildService(context, dailyBudget: 10);
 
-            Assert.True(await service.TryConsumeAsync(TestUserId, 6, "test_feature"));
+            Assert.True(await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 6));
             // 6 + 4 = 10, exactly the budget — must still pass ("<=", not "<").
-            Assert.True(await service.TryConsumeAsync(TestUserId, 4, "test_feature"));
+            Assert.True(await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 4));
         }
 
         [Fact]
@@ -153,15 +154,15 @@ namespace JackyAIApp.Server.Tests.Services
             using (var context = CreateContext())
             {
                 var service = BuildService(context, dailyBudget: 10, new FakeTimeProvider(day1));
-                Assert.True(await service.TryConsumeAsync(TestUserId, 10, "test_feature"));
-                Assert.False(await service.TryConsumeAsync(TestUserId, 1, "test_feature"));
+                Assert.True(await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 10));
+                Assert.False(await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 1));
             }
 
             using (var context = CreateContext())
             {
                 var service = BuildService(context, dailyBudget: 10, new FakeTimeProvider(day2));
                 // A new UTC day is an entirely separate budget, even though it's only seconds later.
-                var result = await service.TryConsumeAsync(TestUserId, 10, "test_feature");
+                var result = await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 10);
                 Assert.True(result);
             }
         }
@@ -174,7 +175,7 @@ namespace JackyAIApp.Server.Tests.Services
             var service = BuildService(context, dailyBudget: 10);
 
             // Default budget alone (10) could not cover this; the x3 multiplier (30) can.
-            var result = await service.TryConsumeAsync(TestUserId, 25, "test_feature");
+            var result = await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 25);
 
             Assert.True(result);
         }
@@ -191,7 +192,7 @@ namespace JackyAIApp.Server.Tests.Services
             using var context = CreateContext();
             var service = BuildService(context, dailyBudget: 10);
 
-            var result = await service.TryConsumeAsync("no-such-user", 5, "test_feature");
+            var result = await service.TryConsumeAsync("no-such-user", UsageFeature.ClozeTest, 5);
 
             Assert.False(result);
         }
@@ -202,12 +203,12 @@ namespace JackyAIApp.Server.Tests.Services
             await SeedUserAsync();
             using var context = CreateContext();
             var service = BuildService(context, dailyBudget: 10);
-            await service.TryConsumeAsync(TestUserId, 8, "test_feature");
+            await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 8);
 
-            await service.RefundAsync(TestUserId, 3, "test_feature");
+            await service.RefundAsync(TestUserId, UsageFeature.ClozeTest, 3);
 
             // 8 - 3 = 5 refunded back, so another 5 should now fit exactly at the limit (10).
-            var result = await service.TryConsumeAsync(TestUserId, 5, "test_feature");
+            var result = await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 5);
             Assert.True(result);
         }
 
@@ -217,14 +218,14 @@ namespace JackyAIApp.Server.Tests.Services
             await SeedUserAsync();
             using var context = CreateContext();
             var service = BuildService(context, dailyBudget: 10);
-            await service.TryConsumeAsync(TestUserId, 2, "test_feature");
+            await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 2);
 
             // Refund far more than was ever charged (e.g. a double-refund bug elsewhere).
-            await service.RefundAsync(TestUserId, 100, "test_feature");
+            await service.RefundAsync(TestUserId, UsageFeature.ClozeTest, 100);
 
             // If Used had gone negative (and the ulong column wrapped), this would incorrectly
             // read as already far over budget and block below. Used must have clamped at 0.
-            var result = await service.TryConsumeAsync(TestUserId, 10, "test_feature");
+            var result = await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 10);
             Assert.True(result);
         }
 
@@ -236,9 +237,9 @@ namespace JackyAIApp.Server.Tests.Services
             var service = BuildService(context, dailyBudget: 10);
 
             // Nothing was ever charged today — refunding should be a safe no-op.
-            await service.RefundAsync(TestUserId, 5, "test_feature");
+            await service.RefundAsync(TestUserId, UsageFeature.ClozeTest, 5);
 
-            var result = await service.TryConsumeAsync(TestUserId, 10, "test_feature");
+            var result = await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 10);
             Assert.True(result);
         }
 
@@ -253,7 +254,7 @@ namespace JackyAIApp.Server.Tests.Services
             {
                 using var context = CreateContext();
                 var service = BuildService(context, dailyBudget: budget);
-                return await service.TryConsumeAsync(TestUserId, 1, "concurrent_test");
+                return await service.TryConsumeAsync(TestUserId, UsageFeature.ClozeTest, 1);
             }));
 
             var results = await Task.WhenAll(tasks);

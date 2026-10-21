@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Services;
 
 namespace JackyAIApp.Server.Tests.Services
@@ -9,12 +10,12 @@ namespace JackyAIApp.Server.Tests.Services
     /// </summary>
     public class UsageLedgerTests
     {
-        private static readonly UsageCharge Charge = new("ledger-test-user", 3, "test_feature");
+        private static readonly UsageCharge Charge = new("ledger-test-user", UsageFeature.ClozeTest, 3);
 
         private static UsageLedger WithCharge()
         {
             var ledger = new UsageLedger();
-            ledger.RecordCharge(Charge.UserId, Charge.Cost, Charge.Feature);
+            ledger.RecordCharge(Charge.UserId, Charge.Feature, Charge.Cost);
             return ledger;
         }
 

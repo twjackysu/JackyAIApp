@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
@@ -17,7 +18,7 @@ namespace JackyAIApp.Server.Tests.Services
 
         private readonly UsageLedger _ledger = new();
 
-        public AiUsageLoggerTests() => _ledger.RecordCharge("logger-test-user", 2, "test_feature");
+        public AiUsageLoggerTests() => _ledger.RecordCharge("logger-test-user", UsageFeature.ClozeTest, 2);
 
         public void Dispose() => _db.Dispose();
 

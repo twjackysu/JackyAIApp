@@ -115,8 +115,9 @@ The home portal (`/`) is the only place users switch between apps; the registry 
    - The old Credits & Payments system (prepaid credit balance, Stripe/PayPal/ECPay) is removed —
      the app has no payment/credit UI and looks free to every user
    - Every AI-powered endpoint is instead gated by a per-user, per-UTC-day weighted usage budget
-     (`IUsageLimitService`, `[UsageLimit(cost, feature)]`, weights centralized in
-     `Common/UsageCosts.cs`); exceeding it returns HTTP 429 + `ErrorCodes.UsageLimitExceeded`,
+     (`IUsageLimitService`, `[UsageLimit(UsageFeature.X)]`; each `UsageFeature` has exactly one
+     cost, in `Common/UsageCosts.cs` `UsageCosts.Of`, so a charge names the feature, never a
+     cost); exceeding it returns HTTP 429 + `ErrorCodes.UsageLimitExceeded`,
      surfaced client-side by `UsageLimitModal`: the AI cost is paid by the author, the budget is a
      free daily trial (resets 00:00 UTC = 08:00 Taiwan), please sponsor or email the author with
      your account to have it reset or raised (sponsor button appears once
@@ -198,7 +199,8 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
     live in our own SQL tables (`ChatConversations`, `ChatMessages`) and the whole history is
     re-sent every turn, each turn with its role but as its visible text only (earlier tool calls
     and thinking are not kept); replies stream to the browser as SSE. Costs
-    `UsageCosts.ChatMessage` per message, refunded if no reply ever started
+    `UsageCosts.ForChatMessage` per message (the message plus its attachments), refunded only if
+    Anthropic never started the message (the usage refund rule)
   - Whisper for audio transcription (STT)
   - TTS-1 and TTS-1-HD for text-to-speech synthesis — **fallback only**: when `AzureSpeech:Key`
     is configured, `ITextToSpeechService` resolves to `AzureSpeechTextToSpeechService` (Azure AI

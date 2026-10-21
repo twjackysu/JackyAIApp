@@ -27,7 +27,7 @@ namespace JackyAIApp.Server.Tests.Common
         private static UsageLedger ChargedLedger()
         {
             var ledger = new UsageLedger();
-            ledger.RecordCharge(UserId, 4, "listening_test");
+            ledger.RecordCharge(UserId, UsageFeature.ListeningTest, 4);
             return ledger;
         }
 
@@ -49,7 +49,7 @@ namespace JackyAIApp.Server.Tests.Common
         {
             await Middleware(Respond(status)).InvokeAsync(BuildContext(), ChargedLedger());
 
-            _limits.Verify(x => x.RefundAsync(UserId, 4, "listening_test"), Times.Once);
+            _limits.Verify(x => x.RefundAsync(UserId, UsageFeature.ListeningTest, 4), Times.Once);
         }
 
         [Fact]
@@ -57,7 +57,7 @@ namespace JackyAIApp.Server.Tests.Common
         {
             await Middleware(Respond(200)).InvokeAsync(BuildContext(), ChargedLedger());
 
-            _limits.Verify(x => x.RefundAsync(It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>()), Times.Never);
+            _limits.Verify(x => x.RefundAsync(It.IsAny<string>(), It.IsAny<UsageFeature>(), It.IsAny<ulong>()), Times.Never);
         }
 
         [Fact]
@@ -68,7 +68,7 @@ namespace JackyAIApp.Server.Tests.Common
 
             await Middleware(Respond(502)).InvokeAsync(BuildContext(), ledger);
 
-            _limits.Verify(x => x.RefundAsync(It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>()), Times.Never);
+            _limits.Verify(x => x.RefundAsync(It.IsAny<string>(), It.IsAny<UsageFeature>(), It.IsAny<ulong>()), Times.Never);
         }
 
         [Fact]
@@ -78,13 +78,13 @@ namespace JackyAIApp.Server.Tests.Common
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => middleware.InvokeAsync(BuildContext(), ChargedLedger()));
 
-            _limits.Verify(x => x.RefundAsync(UserId, 4, "listening_test"), Times.Once);
+            _limits.Verify(x => x.RefundAsync(UserId, UsageFeature.ListeningTest, 4), Times.Once);
         }
 
         [Fact]
         public async Task RefundThatFails_DoesNotBreakTheResponse()
         {
-            _limits.Setup(x => x.RefundAsync(It.IsAny<string>(), It.IsAny<ulong>(), It.IsAny<string>()))
+            _limits.Setup(x => x.RefundAsync(It.IsAny<string>(), It.IsAny<UsageFeature>(), It.IsAny<ulong>()))
                 .ThrowsAsync(new InvalidOperationException("db down"));
 
             await Middleware(Respond(500)).InvokeAsync(BuildContext(), ChargedLedger());

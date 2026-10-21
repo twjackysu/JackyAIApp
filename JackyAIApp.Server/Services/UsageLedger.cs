@@ -1,7 +1,8 @@
+using JackyAIApp.Server.Common;
 namespace JackyAIApp.Server.Services
 {
     /// <summary>A usage charge taken during the current request.</summary>
-    public readonly record struct UsageCharge(string UserId, ulong Cost, string Feature);
+    public readonly record struct UsageCharge(string UserId, UsageFeature Feature, ulong Cost);
 
     /// <summary>
     /// The current request's usage charges, and the one rule that decides whether they are given back.
@@ -25,9 +26,9 @@ namespace JackyAIApp.Server.Services
         private bool _failed;
         private bool _settled;
 
-        public void RecordCharge(string userId, ulong cost, string feature)
+        public void RecordCharge(string userId, UsageFeature feature, ulong cost)
         {
-            lock (_lock) _charges.Add(new UsageCharge(userId, cost, feature));
+            lock (_lock) _charges.Add(new UsageCharge(userId, feature, cost));
         }
 
         /// <summary>An AI provider billed for a call this request made.</summary>

@@ -34,14 +34,14 @@ namespace JackyAIApp.Server.Services.Finance
         /// "今日市場AI摘要" — a unified daily digest grounding gpt-6-luna in three sources
         /// (market overview + global news + TW major announcements) and synthesising a
         /// global/Taiwan two-section narrative. The generated digest is shared (cached per
-        /// day), but each user is charged <see cref="UsageCosts.MarketDigest"/> once per day
+        /// day), but each user is charged <see cref="UsageFeature.MarketDigest"/> once per day
         /// to unlock it — repeat views the same day are free.
         /// </summary>
         public async Task<ServiceResult<MarketDigestResponse>> GetMarketDigestAsync(CancellationToken cancellationToken)
         {
             var userId = _userService.GetUserId();
             if (string.IsNullOrEmpty(userId))
-                return ServiceResult.Fail(ErrorCodes.Forbidden, "User not found.");
+                return ServiceResult.Fail(ErrorCodes.Unauthorized, "Not signed in.");
 
             var today = DateTime.Now.ToString("yyyyMMdd");
 
@@ -61,7 +61,7 @@ namespace JackyAIApp.Server.Services.Finance
             var chargeKey = $"MarketDigestCharged_{userId}_{today}";
             if (!_memoryCache.TryGetValue(chargeKey, out object? _))
             {
-                var ok = await _usageLimitService.TryConsumeAsync(userId, UsageCosts.MarketDigest, "market_digest");
+                var ok = await _usageLimitService.TryConsumeAsync(userId, UsageFeature.MarketDigest);
                 if (!ok)
                     return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
                 // Hold the guard until end of day so the user isn't charged again today.
