@@ -58,15 +58,12 @@ namespace JackyAIApp.Server.Services.Chatbot
             "不確定或工具查無資料時要誠實告知，不要編造數字。只回答跟本網站功能或台股相關的問題，其他問題禮貌婉拒。用繁體中文，簡潔明確地回答。";
 
         /// <summary>
-        /// What to tell the user when a turn ended without any answer text. A decline from the
-        /// model's safety classifiers (stop_reason=refusal; there is no server-side fallback for
-        /// Haiku) is not the same failure as running out of room, and asking to "try again" would
-        /// only get the same decline.
+        /// Why a turn ended without any answer text. A decline from the model's safety classifiers
+        /// (stop_reason=refusal; there is no server-side fallback for Haiku) is not the same failure
+        /// as running out of room, and asking to "try again" would only get the same decline.
         /// </summary>
-        internal static string NoAnswerMessage(BetaStopReason? stopReason) =>
-            stopReason == BetaStopReason.Refusal
-                ? "這個問題我無法回答，請換個問法，或詢問台股相關的問題。"
-                : "沒有收到完整回覆，可能是這次查詢需要的資料較多，請再試一次或縮短問題範圍。";
+        internal static string NoAnswerCode(BetaStopReason? stopReason) =>
+            stopReason == BetaStopReason.Refusal ? ChatErrorCodes.Refused : ChatErrorCodes.NoAnswer;
 
         public async Task<ChatStreamResult> StreamChatAsync(
             string userId, string message, string? conversationId, HttpResponse response, CancellationToken ct)
@@ -75,7 +72,9 @@ namespace JackyAIApp.Server.Services.Chatbot
             if (string.IsNullOrEmpty(apiKey))
             {
                 logger.LogError("Anthropic API key not configured");
-                return new ChatStreamResult(false, conversationId ?? "", "Chat service is not configured.");
+                StartEventStream(response);
+                await WriteSseAsync(response, new { type = "error", code = ChatErrorCodes.Unavailable }, ct);
+                return new ChatStreamResult(false, conversationId ?? "", ChatErrorCodes.Unavailable);
             }
 
             var conversation = await ResolveConversationAsync(userId, conversationId, ct);
@@ -117,18 +116,14 @@ namespace JackyAIApp.Server.Services.Chatbot
                 Messages = requestMessages,
             };
 
-            response.ContentType = "text/event-stream";
-            response.Headers.Append("Cache-Control", "no-cache");
-            response.Headers.Append("Connection", "keep-alive");
-            response.Headers.Append("Access-Control-Allow-Origin", "*");
-            response.HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
+            StartEventStream(response);
 
             var accumulated = new StringBuilder();
             var streamingStarted = false;
             long inputTokens = 0, outputTokens = 0;
             BetaStopReason? stopReason = null;
             var success = true;
-            string? errorMessage = null;
+            string? errorCode = null;
 
             for (var attempt = 0; ; attempt++)
             {
@@ -159,17 +154,20 @@ namespace JackyAIApp.Server.Services.Chatbot
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (!ct.IsCancellationRequested)
                 {
-                    logger.LogError(ex, "Anthropic chat streaming error for conversation {ConversationId}", conversation.Id);
                     success = false;
-                    errorMessage = "Chat request failed.";
-                    if (!streamingStarted)
-                    {
-                        await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)inputTokens, (int)outputTokens, success, userId);
-                        return new ChatStreamResult(false, conversation.Id, errorMessage);
-                    }
-                    await WriteSseAsync(response, new { type = "error", message = errorMessage }, ct);
+                    errorCode = ChatErrorCodes.For(ex);
+                    // The browser only gets the code; this is where the actual error is kept.
+                    logger.LogError(ex,
+                        "Anthropic chat streaming error for conversation {ConversationId}; reported as {ErrorCode}",
+                        conversation.Id, errorCode);
+                    break;
+                }
+                catch (OperationCanceledException)
+                {
+                    // The reader left (closed the page): nothing to tell anyone, just stop.
+                    success = false;
                     break;
                 }
 
@@ -200,7 +198,7 @@ namespace JackyAIApp.Server.Services.Chatbot
                     "Anthropic chat turn produced no text for conversation {ConversationId}. StopReason={StopReason}",
                     conversation.Id, stopReason?.ToString() ?? "(none)");
                 success = false;
-                errorMessage = NoAnswerMessage(stopReason);
+                errorCode = NoAnswerCode(stopReason);
             }
 
             // A decline can also arrive after some text has streamed. That text is a cut-off
@@ -210,8 +208,13 @@ namespace JackyAIApp.Server.Services.Chatbot
             {
                 logger.LogWarning("Anthropic chat turn was declined mid-answer for conversation {ConversationId}", conversation.Id);
                 success = false;
-                errorMessage = NoAnswerMessage(stopReason);
+                errorCode = ChatErrorCodes.Refused;
             }
+
+            // An answer that ran into the output cap is kept, but the reader is told it is cut short.
+            var truncated = success && stopReason == BetaStopReason.MaxTokens;
+            if (truncated)
+                logger.LogWarning("Anthropic chat turn hit max_tokens for conversation {ConversationId}", conversation.Id);
 
             if (accumulated.Length > 0 && !refused)
             {
@@ -230,17 +233,20 @@ namespace JackyAIApp.Server.Services.Chatbot
             await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)inputTokens, (int)outputTokens, success, userId);
 
             if (success)
-            {
-                await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id }, ct);
-            }
-            else if (streamingStarted)
-            {
-                // Some text already reached the client before the failure — tell it to stop
-                // waiting rather than leaving the request hanging.
-                await WriteSseAsync(response, new { type = "error", message = errorMessage }, ct);
-            }
+                await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, truncated }, ct);
+            else if (!ct.IsCancellationRequested)
+                await WriteSseAsync(response, new { type = "error", code = errorCode ?? ChatErrorCodes.Failed }, ct);
 
-            return new ChatStreamResult(streamingStarted, conversation.Id, errorMessage);
+            return new ChatStreamResult(streamingStarted, conversation.Id, errorCode);
+        }
+
+        private static void StartEventStream(HttpResponse response)
+        {
+            response.ContentType = "text/event-stream";
+            response.Headers.Append("Cache-Control", "no-cache");
+            response.Headers.Append("Connection", "keep-alive");
+            response.Headers.Append("Access-Control-Allow-Origin", "*");
+            response.HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
         }
 
         private async Task<SQL.ChatConversation> ResolveConversationAsync(string userId, string? conversationId, CancellationToken ct)

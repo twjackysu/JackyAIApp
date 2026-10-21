@@ -24,17 +24,14 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         public void ADecline_IsNotReportedAsRunningOutOfRoom()
         {
             // "Try again" would only get the same decline.
-            var declined = AnthropicChatService.NoAnswerMessage(BetaStopReason.Refusal);
-
-            Assert.Contains("無法回答", declined);
-            Assert.DoesNotContain("再試一次", declined);
+            Assert.Equal(ChatErrorCodes.Refused, AnthropicChatService.NoAnswerCode(BetaStopReason.Refusal));
         }
 
         [Theory]
         [InlineData(null)]
         [InlineData("max_tokens")]
         [InlineData("end_turn")]
-        public void AnyOtherEmptyTurn_SuggestsTryingAgain(string? stopReason)
+        public void AnyOtherEmptyTurn_IsANoAnswer(string? stopReason)
         {
             BetaStopReason? reason = stopReason switch
             {
@@ -43,7 +40,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
                 _ => null,
             };
 
-            Assert.Contains("再試一次", AnthropicChatService.NoAnswerMessage(reason));
+            Assert.Equal(ChatErrorCodes.NoAnswer, AnthropicChatService.NoAnswerCode(reason));
         }
 
         [Fact]
