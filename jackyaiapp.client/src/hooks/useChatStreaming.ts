@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { chatErrorMessage } from '@/apis/chatbotApis/chatErrors';
 import { getApiErrorMessage } from '@/apis/utils/errorMessage';
 import { useAppDispatch } from '@/redux/hooks';
 import { openUsageLimitModal } from '@/redux/uiSlice';
@@ -10,12 +11,13 @@ export interface StreamingStatus {
   statusText: string;
 }
 
-/** Our own SSE event shape from ChatbotController — see AnthropicChatService.WriteSseAsync. */
+/** Our own SSE event shape from ChatbotController — see AnthropicChatService.WriteSseAsync. A
+ *  failure carries only a code; `chatErrorMessage` turns it into words. */
 type ChatStreamEvent =
   | { type: 'delta'; text: string }
   | { type: 'tool_use'; name: string }
-  | { type: 'done'; conversationId: string }
-  | { type: 'error'; message: string };
+  | { type: 'done'; conversationId: string; truncated?: boolean }
+  | { type: 'error'; code?: string };
 
 export const useChatStreaming = () => {
   const dispatch = useAppDispatch();
@@ -30,7 +32,8 @@ export const useChatStreaming = () => {
       message: string,
       conversationId: string | undefined,
       onMessageUpdate: (content: string) => void,
-      onComplete: (conversationId?: string) => void,
+      /** `truncated`: the answer ran into the length limit and is cut short. */
+      onComplete: (conversationId?: string, truncated?: boolean) => void,
       onError: (error: string) => void,
     ) => {
       setStreamingStatus({ isLoading: true, currentEvent: null, statusText: '正在連接...' });
@@ -94,10 +97,10 @@ export const useChatStreaming = () => {
                   }));
                   break;
                 case 'done':
-                  onComplete(event.conversationId);
+                  onComplete(event.conversationId, event.truncated === true);
                   return;
                 case 'error':
-                  onError(event.message);
+                  onError(chatErrorMessage(event.code));
                   return;
               }
             } catch (e) {
@@ -109,7 +112,15 @@ export const useChatStreaming = () => {
         if (!accumulatedContent) onComplete(conversationId);
       } catch (error) {
         console.error('Streaming error:', error);
-        onError(error instanceof Error ? error.message : 'Unknown error occurred');
+        // A TypeError is fetch failing to reach the server at all; the Errors thrown above carry
+        // the app's own message for a refused request (the daily limit, signed out).
+        onError(
+          error instanceof TypeError
+            ? chatErrorMessage('busy')
+            : error instanceof Error
+              ? error.message
+              : chatErrorMessage('failed'),
+        );
       } finally {
         setStreamingStatus({ isLoading: false, currentEvent: null, statusText: '' });
       }

@@ -8,6 +8,7 @@ import { useEffect, useRef } from 'react';
 
 import { Message } from '../types';
 
+import { TRUNCATED_NOTE } from '@/apis/chatbotApis/chatErrors';
 import MarkdownMessage from '@/components/MarkdownMessage';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 
@@ -210,6 +211,12 @@ function MessageArea({ messages, onPreview, active }: MessageAreaProps) {
                         <BlockRenderer key={block.id} block={block} onPreview={onPreview} />
                       ))}
                     </Box>
+                  )}
+
+                  {message.truncated && (
+                    <Typography variant="caption" sx={{ color: 'warning.main' }}>
+                      {TRUNCATED_NOTE}
+                    </Typography>
                   )}
 
                   <Typography

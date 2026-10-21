@@ -262,12 +262,56 @@ describe('AiAssistantPanel', () => {
     expect(chatBodies[1]).toEqual({ message: '那 2317 呢？', conversationId: 'conv-1' });
   });
 
-  it('shows a failed reply inside the conversation instead of leaving an empty bubble', async () => {
+  it('shows a failed reply inside the conversation, in its own words for the code it got', async () => {
     await mount();
-    chatReplies.push(() => sseReply({ type: 'error', message: '額度已用完' }));
+    chatReplies.push(() => sseReply({ type: 'error', code: 'context_too_long' }));
     await send('hi');
 
-    await waitForText('錯誤: 額度已用完');
+    await waitForText('錯誤: 這段對話太長了，請開新對話繼續。');
+  });
+
+  it('a failure it has no words for still says the reply failed', async () => {
+    await mount();
+    chatReplies.push(() => sseReply({ type: 'error', code: 'something_new' }));
+    await send('hi');
+
+    await waitForText('錯誤: 回覆失敗，請稍後再試。');
+  });
+
+  it('says so under an answer that was cut short by the length limit', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'delta', text: '前半段的分析' },
+        { type: 'done', conversationId: 'conv-1', truncated: true },
+      ),
+    );
+    await send('分析 2330');
+
+    await waitForText('前半段的分析');
+    await waitForText('回覆因長度上限被截斷');
+  });
+
+  it('says nothing extra under a complete answer', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'delta', text: '完整答案' },
+        { type: 'done', conversationId: 'conv-1', truncated: false },
+      ),
+    );
+    await send('hi');
+
+    await waitForText('完整答案');
+    expect(container.textContent).not.toContain('截斷');
+  });
+
+  it('a request that cannot reach the server reads as the service being busy', async () => {
+    await mount();
+    chatReplies.push(() => Promise.reject(new TypeError('Failed to fetch')));
+    await send('hi');
+
+    await waitForText('錯誤: AI 服務目前忙碌中，請稍後再試。');
   });
 
   it('ignores Enter while a reply is still being written', async () => {

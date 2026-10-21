@@ -194,10 +194,15 @@ function AiAssistantPanel({
         );
       },
       // onComplete
-      (newConversationId?: string) => {
+      (newConversationId?: string, truncated?: boolean) => {
         // 更新 conversation_id
         if (newConversationId) {
           setConversationId(newConversationId);
+        }
+        if (truncated) {
+          setMessages((prev) =>
+            prev.map((msg) => (msg.id === botMessage.id ? { ...msg, truncated: true } : msg)),
+          );
         }
       },
       // onError

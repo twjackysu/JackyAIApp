@@ -64,15 +64,9 @@ namespace JackyAIApp.Server.Controllers
                 var result = await _chatService.StreamChatAsync(
                     userId, request.Message, request.ConversationId, Response, HttpContext.RequestAborted);
 
+                // The service has already told the client why (an SSE error event with a code).
                 if (!result.StreamingStarted)
-                {
                     await RefundChatMessageAsync(userId);
-                    if (!Response.HasStarted)
-                    {
-                        Response.StatusCode = 500;
-                        await Response.WriteAsync(result.ErrorMessage ?? "Chat request failed.");
-                    }
-                }
             }
             catch (Exception ex)
             {
