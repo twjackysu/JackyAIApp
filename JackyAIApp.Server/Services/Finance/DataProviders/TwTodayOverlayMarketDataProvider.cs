@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using TWStockLib.Models;
 
@@ -115,7 +116,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// NOT_FOUND, silently ignored in favor of the historical close.</summary>
         private bool HasTodayTwQuote()
         {
-            var taipeiNow = _timeProvider.GetUtcNow().UtcDateTime.AddHours(8);
+            var taipeiNow = _timeProvider.GetTaipeiNow();
             if (taipeiNow.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
             return taipeiNow.TimeOfDay >= new TimeSpan(9, 0, 0);
         }

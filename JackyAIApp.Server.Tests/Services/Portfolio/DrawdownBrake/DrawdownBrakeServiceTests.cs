@@ -1,4 +1,5 @@
 using System.Globalization;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Caching.Memory;
@@ -10,7 +11,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
     public class DrawdownBrakeServiceTests : IDisposable
     {
         private readonly Mock<ITaiexTotalReturnStore> _store = new();
-        private readonly Mock<ITwseHolidayCalendar> _calendar = new();
+        private readonly Mock<ITradingCalendar> _calendar = new();
         private readonly Mock<IMisTaiexQuoteSource> _quotes = new();
         private readonly FakeTime _time = new();
         private readonly TaiexDataStatus _status = new();
@@ -177,56 +178,56 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 
         // ── isStale ─────────────────────────────────────────────────────────
 
-        private async Task<bool> IsStaleAsync(DateTimeOffset now, DateOnly latest)
+        private bool IsStale(DateTimeOffset now, DateOnly latest)
         {
             _time.Now = now;
-            return await CreateService().IsStaleAsync(latest, now.UtcDateTime.AddHours(8), CancellationToken.None);
+            return CreateService().IsStale(latest, now.UtcDateTime.AddHours(8));
         }
 
         private void MarketIs(bool? closedToday) =>
-            _calendar.Setup(c => c.IsMarketClosedAsync(It.IsAny<DateOnly>(), It.IsAny<CancellationToken>())).ReturnsAsync(closedToday);
+            _calendar.Setup(c => c.IsMarketClosed(It.IsAny<DateOnly>())).Returns(closedToday);
 
         [Fact]
-        public async Task Stale_WeekdayAfter1700_TodayMissing_MarketOpen()
+        public void Stale_WeekdayAfter1700_TodayMissing_MarketOpen()
         {
             MarketIs(false);
-            Assert.True(await IsStaleAsync(Taipei(2026, 10, 8, 17), new DateOnly(2026, 10, 7)));
+            Assert.True(IsStale(Taipei(2026, 10, 8, 17), new DateOnly(2026, 10, 7)));
         }
 
         [Fact]
-        public async Task NotStale_WhenTheMarketWasClosedToday()
+        public void NotStale_WhenTheMarketWasClosedToday()
         {
             MarketIs(true);
-            Assert.False(await IsStaleAsync(Taipei(2026, 10, 8, 18), new DateOnly(2026, 10, 7)));
+            Assert.False(IsStale(Taipei(2026, 10, 8, 18), new DateOnly(2026, 10, 7)));
         }
 
         [Fact]
-        public async Task NotStale_Before1700()
+        public void NotStale_Before1700()
         {
             MarketIs(false);
-            Assert.False(await IsStaleAsync(Taipei(2026, 10, 8, 16, 59), new DateOnly(2026, 10, 7)));
+            Assert.False(IsStale(Taipei(2026, 10, 8, 16, 59), new DateOnly(2026, 10, 7)));
         }
 
         [Fact]
-        public async Task NotStale_OnAWeekend()
+        public void NotStale_OnAWeekend()
         {
             MarketIs(false);
-            Assert.False(await IsStaleAsync(Taipei(2026, 10, 10, 20), new DateOnly(2026, 10, 7)));
+            Assert.False(IsStale(Taipei(2026, 10, 10, 20), new DateOnly(2026, 10, 7)));
         }
 
         [Fact]
-        public async Task NotStale_WhenTodaysCloseIsIn()
+        public void NotStale_WhenTodaysCloseIsIn()
         {
             MarketIs(false);
-            Assert.False(await IsStaleAsync(Taipei(2026, 10, 8, 20), new DateOnly(2026, 10, 8)));
+            Assert.False(IsStale(Taipei(2026, 10, 8, 20), new DateOnly(2026, 10, 8)));
         }
 
         [Fact]
-        public async Task Stale_AfterAHolidayWeekend_WhenTodayIsATradingDayWithNoData()
+        public void Stale_AfterAHolidayWeekend_WhenTodayIsATradingDayWithNoData()
         {
             // Tue 2026-10-06 after 17:00; the last data is Thu 10-01, Fri 10-02 was a holiday, Mon 10-05 was not.
             MarketIs(false);
-            Assert.True(await IsStaleAsync(Taipei(2026, 10, 6, 18), new DateOnly(2026, 10, 1)));
+            Assert.True(IsStale(Taipei(2026, 10, 6, 18), new DateOnly(2026, 10, 1)));
         }
 
         [Theory]
@@ -234,12 +235,12 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         [InlineData("2026-10-08T18:00", "2026-10-06", true)]  // Tuesday is the newest: Wednesday and Thursday missing
         [InlineData("2026-10-05T18:00", "2026-10-02", false)] // Monday evening, Friday is the newest: the weekend doesn't count
         [InlineData("2026-10-06T18:00", "2026-10-02", true)]  // Tuesday evening, Friday is the newest: Monday and Tuesday missing
-        public async Task WithoutACalendar_StaleNeedsTwoOrMoreMissingWeekdays(string taipeiNow, string latest, bool expected)
+        public void WithoutACalendar_StaleNeedsTwoOrMoreMissingWeekdays(string taipeiNow, string latest, bool expected)
         {
             MarketIs(null);
             var now = DateTime.Parse(taipeiNow);
 
-            Assert.Equal(expected, await IsStaleAsync(
+            Assert.Equal(expected, IsStale(
                 new DateTimeOffset(now, TimeSpan.FromHours(8)).ToUniversalTime(), DateOnly.Parse(latest)));
         }
 

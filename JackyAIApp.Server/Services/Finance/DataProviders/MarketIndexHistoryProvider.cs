@@ -91,7 +91,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 if (timestamps.GetArrayLength() != closes.GetArrayLength())
                     return (null, $"timestamp[] has {timestamps.GetArrayLength()} entries but close[] has {closes.GetArrayLength()}");
 
-                var taipeiNow = nowUtc.UtcDateTime.AddHours(8);
+                var taipeiNow = TaipeiTime.ToTaipei(nowUtc);
                 var today = DateOnly.FromDateTime(taipeiNow);
 
                 // The day's open/high/low are optional extras for the trendline chart: missing or
@@ -118,7 +118,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     if (close <= 0) continue;
 
                     DateOnly date;
-                    try { date = DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeSeconds(stamp).UtcDateTime.AddHours(8)); }
+                    try { date = DateOnly.FromDateTime(TaipeiTime.ToTaipei(DateTimeOffset.FromUnixTimeSeconds(stamp))); }
                     catch (ArgumentOutOfRangeException) { continue; }
 
                     if (!byDate.TryGetValue(date, out var existing) || stamp >= existing.Stamp)

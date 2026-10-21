@@ -1,4 +1,5 @@
 using JackyAIApp.Server.DTO.Portfolio;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,7 +14,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         private static readonly DateOnly Thursday = new(2026, 10, 8);
 
         private readonly Mock<ITaiexTotalReturnStore> _store = new();
-        private readonly Mock<ITwseHolidayCalendar> _calendar = new();
+        private readonly Mock<ITradingCalendar> _calendar = new();
         private readonly Mock<IMisTaiexQuoteSource> _quotes = new();
         private readonly FakeTime _time = new();
         private readonly TaiexDataStatus _status = new();
@@ -61,7 +62,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         private void MarketClosedOn(params DateOnly[] days)
         {
             foreach (var d in days)
-                _calendar.Setup(c => c.IsMarketClosedAsync(d, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+                _calendar.Setup(c => c.IsMarketClosed(d)).Returns(true);
         }
 
         private void MisWasNeverAsked() =>
@@ -232,7 +233,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             MisSays(0.90m, tradeDate: new DateOnly(2026, 10, 12));
 
             Assert.NotNull((await CreateService().GetAsync()).Estimate);
-            _calendar.Verify(c => c.IsMarketClosedAsync(It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()), Times.Never);
+            _calendar.Verify(c => c.IsMarketClosed(It.IsAny<DateOnly>()), Times.Never);
         }
 
         [Fact]
@@ -252,7 +253,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             // Stored: Mon 10-05. Tue was a holiday; Wed 10-07 was a trading day we do not have.
             StoreHolds(Flat(new DateOnly(2026, 10, 5)));
             MarketClosedOn(new DateOnly(2026, 10, 6));
-            _calendar.Setup(c => c.IsMarketClosedAsync(new DateOnly(2026, 10, 7), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+            _calendar.Setup(c => c.IsMarketClosed(new DateOnly(2026, 10, 7))).Returns(false);
             MisSays(0.90m);
 
             Assert.Null((await CreateService().GetAsync()).Estimate);
@@ -263,7 +264,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
         public async Task WhereTheCalendarCannotSay_ThereIsNoEstimate_RatherThanAGuess()
         {
             StoreHolds(Flat(new DateOnly(2026, 10, 6)));
-            _calendar.Setup(c => c.IsMarketClosedAsync(It.IsAny<DateOnly>(), It.IsAny<CancellationToken>())).ReturnsAsync((bool?)null);
+            _calendar.Setup(c => c.IsMarketClosed(It.IsAny<DateOnly>())).Returns((bool?)null);
             MisSays(0.90m);
 
             Assert.Null((await CreateService().GetAsync()).Estimate);

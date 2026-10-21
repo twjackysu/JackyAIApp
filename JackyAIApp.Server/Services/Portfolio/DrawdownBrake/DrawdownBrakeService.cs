@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Portfolio;
+using JackyAIApp.Server.Services.Market;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
@@ -52,7 +53,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
     /// </summary>
     public class DrawdownBrakeService(
         ITaiexTotalReturnStore store,
-        ITwseHolidayCalendar calendar,
+        ITradingCalendar calendar,
         ITaiexDataStatus status,
         IMisTaiexQuoteSource quotes,
         IMemoryCache cache,
@@ -146,7 +147,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
         /// <summary>
         /// The official signal with the estimate and the "corrected" flag laid on, when there is
         /// anything to lay on; otherwise the shared official copy itself. MIS is asked, through the
-        /// shared reading, only while an estimate is wanted (<see cref="EstimateWantedAsync"/>).
+        /// shared reading, only while an estimate is wanted (<see cref="EstimateWanted"/>).
         /// </summary>
         private async Task<DrawdownBrakeDto> WithEstimateAsync(CachedSignal entry, TimeSpan quoteMaxAge, CancellationToken ct)
         {
@@ -154,12 +155,12 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
             // Initializing: no official day, so nothing to scale an estimate from or to overturn.
             if (official.AsOfDate is not { } asOf || official.State is not { } state) return official;
 
-            var taipeiNow = _time.GetUtcNow().UtcDateTime.AddHours(8); // Taiwan has no DST
+            var taipeiNow = _time.GetTaipeiNow();
             var today = DateOnly.FromDateTime(taipeiNow);
             var corrected = WasCorrected(asOf, state);
 
             MisQuoteSnapshot? snapshot = null;
-            if (await EstimateWantedAsync(asOf, today, taipeiNow, ct))
+            if (EstimateWanted(asOf, today, taipeiNow))
                 snapshot = await quotes.GetAsync(quoteMaxAge, ct);
 
             // A reading of another day (MIS answers a market holiday with the last session's) is no
@@ -191,19 +192,19 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
         /// rather than one from a stale base. (A holiday today needs no check: MIS then answers with the
         /// last session's date, which <see cref="WithEstimateAsync"/> turns away.)
         /// </summary>
-        private async Task<bool> EstimateWantedAsync(DateOnly asOf, DateOnly today, DateTime taipeiNow, CancellationToken ct)
+        private bool EstimateWanted(DateOnly asOf, DateOnly today, DateTime taipeiNow)
         {
             if (asOf >= today) return false;
             if (IsWeekend(today)) return false;
             if (taipeiNow.TimeOfDay < EstimateFrom) return false;
 
             for (var d = asOf.AddDays(1); d < today; d = d.AddDays(1))
-                if (!IsWeekend(d) && await calendar.IsMarketClosedAsync(d, ct) != true)
+                if (!IsWeekend(d) && calendar.IsMarketClosed(d) != true)
                     return false;
             return true;
         }
 
-        private static bool IsWeekend(DateOnly d) => d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+        private static bool IsWeekend(DateOnly d) => WeekdayTradingCalendar.IsWeekend(d);
 
         /// <summary>Remembers the state of the latest estimate of <paramref name="tradeDate"/>: what
         /// the official close will be compared with. In memory only; a restart forgets it, and the
@@ -229,7 +230,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
             var last = days[^1];
             var drawdownPct = last.Drawdown * 100;
 
-            var taipeiNow = generatedAt.UtcDateTime.AddHours(8); // Taiwan has no DST
+            var taipeiNow = TaipeiTime.ToTaipei(generatedAt);
             var signal = new DrawdownBrakeDto
             {
                 AsOfDate = last.Date,
@@ -241,7 +242,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
                 Sma60 = last.Sma60 is { } sma ? Math.Round(sma, 4) : null,
                 DrawdownPct = Math.Round(drawdownPct, 4),
                 DistanceToTriggerPct = Math.Round(drawdownPct + TriggerPct, 4),
-                IsStale = await IsStaleAsync(last.Date, taipeiNow, ct),
+                IsStale = IsStale(last.Date, taipeiNow),
                 LastCheckedAt = lastCheckedAt,
                 GeneratedAt = generatedAt,
             };
@@ -262,14 +263,14 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
         /// requiring two or more missing weekdays in a row, so a single closed day does not raise
         /// a warning (and a long break, like Lunar New Year, may).
         /// </summary>
-        internal async Task<bool> IsStaleAsync(DateOnly latest, DateTime taipeiNow, CancellationToken ct)
+        internal bool IsStale(DateOnly latest, DateTime taipeiNow)
         {
             var today = DateOnly.FromDateTime(taipeiNow);
-            if (today.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
+            if (IsWeekend(today)) return false;
             if (taipeiNow.TimeOfDay < StaleAfter) return false;
             if (latest >= today) return false;
 
-            return await calendar.IsMarketClosedAsync(today, ct) switch
+            return calendar.IsMarketClosed(today) switch
             {
                 true => false,
                 false => true,
@@ -282,7 +283,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
         {
             var count = 0;
             for (var d = latest.AddDays(1); d <= today; d = d.AddDays(1))
-                if (d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) count++;
+                if (!IsWeekend(d)) count++;
             return count;
         }
     }

@@ -1,6 +1,8 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Finance;
+using JackyAIApp.Server.Services.Market;
 using Microsoft.EntityFrameworkCore;
 using TWStockLib.Models;
 
@@ -40,6 +42,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         private readonly ITWStockLibHistoricalProvider _inner;
         private readonly IDbContextFactory<AzureSQLDBContext> _dbFactory;
         private readonly ILogger<PersistentTwHistoricalProvider> _logger;
+        private readonly ITradingCalendar _tradingCalendar;
         private readonly TimeProvider _timeProvider;
 
         private const string Market = "TW";
@@ -56,6 +59,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// <param name="inner">TWStockLib-backed source for the primary gap-fill and the quote fallback.</param>
         /// <param name="dbFactory">Creates a short-lived DbContext per call — see the class docs.</param>
         /// <param name="logger">Logger.</param>
+        /// <param name="tradingCalendar">Which day the stored history must reach: the last trading day before today.</param>
         /// <param name="timeProvider">Defaults to <see cref="TimeProvider.System"/>; overridable so
         /// <see cref="BackfillLastTradingDayFromQuoteAsync"/>'s morning cutoff is unit-testable
         /// instead of joining the rest of this codebase's untested wall-clock logic.</param>
@@ -63,11 +67,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             ITWStockLibHistoricalProvider inner,
             IDbContextFactory<AzureSQLDBContext> dbFactory,
             ILogger<PersistentTwHistoricalProvider> logger,
+            ITradingCalendar tradingCalendar,
             TimeProvider? timeProvider = null)
         {
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
             _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _tradingCalendar = tradingCalendar ?? throw new ArgumentNullException(nameof(tradingCalendar));
             _timeProvider = timeProvider ?? TimeProvider.System;
         }
 
@@ -131,7 +137,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             // for exactly when today's bar becomes available, so the DB just never gambles on it —
             // the tradeoff is the app can show yesterday's close for a few hours after today's
             // session actually closed, until the calendar date rolls over.
-            var lastTradingDay = LastTradingDayBefore(today);
+            // Holidays count: with the weekday rule the day after a weekday holiday took the holiday
+            // for the last trading day, found it missing, and gap-fetched again on every request
+            // that day; before 08:00 the quote backfill below would have stored a bar dated on the
+            // holiday (the previous close again, volume 0).
+            var lastTradingDay = _tradingCalendar.PreviousTradingDay(today);
             var needsForwardFetch = maxDate == null || maxDate.Value < lastTradingDay;
 
             var symbolInfo = await db.StockSymbolInfos.FindAsync([stockCode], cancellationToken);
@@ -218,7 +228,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             // yesterday's finalized close. Past that cutoff, a real gap is left for the primary
             // gap-fill to close on the next request instead of persisting through this fallback.
             var latestDate = existing.Count > 0 ? existing[^1].TradeDate : (DateOnly?)null;
-            var taipeiNow = _timeProvider.GetUtcNow().UtcDateTime.AddHours(8);
+            var taipeiNow = _timeProvider.GetTaipeiNow();
             if ((latestDate == null || latestDate.Value < lastTradingDay) && taipeiNow.TimeOfDay < new TimeSpan(8, 0, 0))
             {
                 await BackfillLastTradingDayFromQuoteAsync(db, stockCode, lastTradingDay, today, cancellationToken);
@@ -249,17 +259,6 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                     Volume = p.Volume * volumeScale,
                 }).ToList(),
             };
-        }
-
-        /// <summary>Most recent weekday before <paramref name="today"/>. Doesn't model exchange
-        /// holidays (same tolerance as PortfolioService.HasTodayTwQuote) — worst case is one
-        /// harmless extra gap-fetch that returns no new rows.</summary>
-        private static DateOnly LastTradingDayBefore(DateOnly today)
-        {
-            var d = today.AddDays(-1);
-            while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-                d = d.AddDays(-1);
-            return d;
         }
 
         /// <summary>Whether a deep fetch's result actually reaches back past the shallow window,

@@ -6,6 +6,7 @@ using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -35,8 +36,13 @@ namespace JackyAIApp.Server.Services.Portfolio
         ServerTiming? timing = null,
         // Optional for the same reason: without it the long-range charts keep to the ~6 months of
         // prices the providers hand out, as before older history was stored.
-        IDeepHistoryService? deepHistory = null) : IPortfolioService
+        IDeepHistoryService? deepHistory = null,
+        // Optional for the same reason: without it market holidays are not known, and the day
+        // change compares with the last weekday, as before the calendar.
+        ITradingCalendar? tradingCalendar = null) : IPortfolioService
     {
+        private readonly ITradingCalendar _tradingCalendar = tradingCalendar ?? WeekdayTradingCalendar.Instance;
+
         private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
 
         /// <summary>USD/TWD used when no real rate is available: the live feed failed, or a snapshot was
@@ -237,7 +243,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // Prefetch all stock prices and fund NAVs in parallel (cached) before the value loop,
             // covering both today's holdings and the previous trading day's holdings so sold positions
             // can be priced for the single-day liquid net worth change.
-            var prevTradingDay = PreviousTradingDay(Today);
+            var prevTradingDay = _tradingCalendar.PreviousTradingDay(Today);
             var prevSnapshot = allSnapshots.LastOrDefault(s => s.EffectiveDate <= prevTradingDay)
                 ?? allSnapshots.FirstOrDefault();
             var allPositions = prevSnapshot != null
@@ -1892,14 +1898,6 @@ namespace JackyAIApp.Server.Services.Portfolio
             var rate = Xirr.Compute(flows);
             if (rate is null || double.IsNaN(rate.Value) || double.IsInfinity(rate.Value)) return null;
             return Math.Round((decimal)(rate.Value * 100), 2);
-        }
-
-        /// <summary>Most recent weekday before <paramref name="from"/> (skips Sat/Sun only, not market holidays).</summary>
-        private static DateOnly PreviousTradingDay(DateOnly from)
-        {
-            var d = from.AddDays(-1);
-            while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(-1);
-            return d;
         }
 
         /// <summary>

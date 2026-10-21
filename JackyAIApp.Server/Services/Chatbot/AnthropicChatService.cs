@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using Anthropic;
 using Anthropic.Models.Beta.Messages;
 using JackyAIApp.Server.Configuration;
@@ -208,7 +209,7 @@ namespace JackyAIApp.Server.Services.Chatbot
             var files = await PrepareFilesAsync(history, reupload: false, ct);
 
             var client = new AnthropicClient { ApiKey = apiKey };
-            var taipeiToday = DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime.AddHours(8));
+            var taipeiToday = _time.GetTaipeiToday();
             // The page's market data as background; the turn goes ahead without it if it cannot be had.
             string? background = null;
             try

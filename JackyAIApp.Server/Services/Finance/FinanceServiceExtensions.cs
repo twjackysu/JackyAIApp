@@ -4,6 +4,7 @@ using JackyAIApp.Server.Services.Finance.DataProviders.US;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Prediction;
 using JackyAIApp.Server.Services.Finance.Scoring;
+using JackyAIApp.Server.Services.Market;
 using TWStockLib.Services;
 
 namespace JackyAIApp.Server.Services.Finance
@@ -24,6 +25,7 @@ namespace JackyAIApp.Server.Services.Finance
             services.AddScoped<IStockCodeResolver, StockCodeResolver>();
             services.AddScoped<ITWSEDataService, TWSEDataService>();
             services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
+            services.AddTradingCalendar();
 
             // Register TWStockLib services
             services.AddTwStock();

@@ -52,3 +52,13 @@ JackyAIApp.Server/
   throws `NotSignedInException`, which `ExceptionMiddleware` answers as 401 in the error envelope
 - A valid sign-in whose `Users` row is missing returns `UserAccountFailures.Missing` (401, "sign in
   again"): signing in recreates the row
+
+## Taipei time and the trading calendar
+
+- Every TWSE rule runs on Taipei time: use `time.GetTaipeiNow()` / `GetTaipeiToday()`
+  (`Common/TaipeiTime.cs`, extensions on the injected `TimeProvider`), never `UtcNow.AddHours(8)`.
+  `DateTime.Now` is the server's time zone (likely UTC on App Service), not Taiwan's
+- Which days TWSE trades: `ITradingCalendar` (`Services/Market`). `IsMarketClosed` answers from
+  memory — the holiday schedule is loaded in the background — and returns null for an unknown
+  weekday; `IsTradingDay` / `PreviousTradingDay` count that as a trading day.
+  `WeekdayTradingCalendar.Instance` is the weekdays-only stand-in (tests, optional parameters)

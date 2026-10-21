@@ -1,6 +1,6 @@
 using System.Text.Json;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -58,7 +58,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [Fact]
         public async Task HolidaySchedule_IsANonEmptyArrayWithParsableDates_ThatTheCalendarCanRead()
         {
-            var json = await TryFetchStringAsync(TwseHolidayCalendar.Url, "TWSE holidaySchedule");
+            var json = await TryFetchStringAsync(TwseTradingCalendar.Url, "TWSE holidaySchedule");
             if (json is null) return;
 
             using var doc = JsonDocument.Parse(json);
@@ -77,8 +77,8 @@ namespace JackyAIApp.Server.Tests.LiveContracts
                     ? row.EnumerateObject().FirstOrDefault(p => string.Equals(p.Name, "Date", StringComparison.OrdinalIgnoreCase)).Value
                     : default;
                 Assert.True(dateText.ValueKind == JsonValueKind.String, $"A holidaySchedule row has no string \"Date\": {row}");
-                Assert.True(TwseHolidayCalendar.TryParseDate(dateText.GetString()!, out var date),
-                    $"holidaySchedule \"Date\" {dateText} is in a format TwseHolidayCalendar cannot read.");
+                Assert.True(TwseTradingCalendar.TryParseDate(dateText.GetString()!, out var date),
+                    $"holidaySchedule \"Date\" {dateText} is in a format TwseTradingCalendar cannot read.");
                 dates.Add(date);
             }
 
@@ -89,9 +89,10 @@ namespace JackyAIApp.Server.Tests.LiveContracts
             // And the production reader gets an answer out of the same live data.
             var factory = new Mock<IHttpClientFactory>();
             factory.Setup(f => f.CreateClient("ExternalReadOnly")).Returns(() => Http);
-            var calendar = new TwseHolidayCalendar(factory.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<TwseHolidayCalendar>.Instance);
+            var calendar = new TwseTradingCalendar(factory.Object, NullLogger<TwseTradingCalendar>.Instance);
+            Assert.True(await calendar.RefreshAsync(), "TwseTradingCalendar could not load the live schedule.");
             var sample = dates.Max();
-            Assert.NotNull(await calendar.IsMarketClosedAsync(sample));
+            Assert.NotNull(calendar.IsMarketClosed(sample));
         }
 
         [Fact]
