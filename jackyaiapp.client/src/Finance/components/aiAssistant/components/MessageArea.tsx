@@ -8,6 +8,8 @@ import { useEffect, useRef } from 'react';
 
 import { Message } from '../types';
 
+import AttachmentChip from './AttachmentChip';
+
 import { TRUNCATED_NOTE } from '@/apis/chatbotApis/chatErrors';
 import MarkdownMessage from '@/components/MarkdownMessage';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
@@ -196,6 +198,20 @@ function MessageArea({ messages, onPreview, active }: MessageAreaProps) {
                     >
                       AI 助手
                     </Typography>
+                  )}
+
+                  {message.attachments && message.attachments.length > 0 && (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
+                      {message.attachments.map((a) => (
+                        <AttachmentChip
+                          key={a.id}
+                          fileName={a.fileName}
+                          kind={a.kind}
+                          truncated={a.truncated}
+                          onBubble={isOwnMessage}
+                        />
+                      ))}
+                    </Box>
                   )}
 
                   {/* 渲染消息內容 */}

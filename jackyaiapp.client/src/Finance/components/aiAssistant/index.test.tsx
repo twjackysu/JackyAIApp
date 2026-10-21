@@ -6,7 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import AiAssistantPanel, { type AssistantActivity } from '.';
 
-import type { ChatConversation, ChatHistoryMessage } from '@/apis/chatbotApis/types';
+import type {
+  ChatAttachment,
+  ChatConversation,
+  ChatHistoryMessage,
+} from '@/apis/chatbotApis/types';
 
 import { chatbotApis } from '@/apis/chatbotApis';
 
@@ -49,13 +53,31 @@ const turn = (id: number, role: 'user' | 'assistant', content: string): ChatHist
   createdAt: '2026-10-19T09:00:00Z',
 });
 
+const uploaded = (id: number, fileName: string, truncated = false): ChatAttachment => ({
+  id,
+  fileName,
+  kind: fileName.endsWith('.xlsx') ? 'excel' : 'text',
+  charCount: 100,
+  truncated,
+});
+
+const errorEnvelope = (status: number, code: string) =>
+  new Response(JSON.stringify({ error: { code, message: 'server wording, never shown' } }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
 // What the server holds, and what was asked of it.
 let conversations: ChatConversation[];
 let messagesOf: Record<string, ChatHistoryMessage[]>;
 let chatReplies: Array<() => Response | Promise<Response>>;
-let chatBodies: Array<{ message: string; conversationId: string }>;
+let chatBodies: Array<{ message: string; conversationId: string; attachmentIds: number[] }>;
 let listFetches: number;
 let deleted: string[];
+/** Answers to attachment uploads, in order. */
+let uploadReplies: Array<() => Response | Promise<Response>>;
+let uploads: number;
+let deletedAttachments: string[];
 /** Called while a chat turn is being answered, to let a test change the server's state first. */
 let whileAnswering: (() => void) | undefined;
 
@@ -66,6 +88,9 @@ beforeEach(() => {
   chatBodies = [];
   listFetches = 0;
   deleted = [];
+  uploadReplies = [];
+  uploads = 0;
+  deletedAttachments = [];
   whileAnswering = undefined;
 
   // Node's Request rejects the app's relative API paths; resolve them against a dummy origin.
@@ -89,6 +114,14 @@ beforeEach(() => {
         chatBodies.push(JSON.parse(init!.body as string));
         whileAnswering?.();
         return chatReplies.shift()!();
+      }
+      if (url.endsWith('/api/chatbot/attachments') && method === 'POST') {
+        uploads += 1;
+        return uploadReplies.shift()!();
+      }
+      if (url.includes('/api/chatbot/attachments/') && method === 'DELETE') {
+        deletedAttachments.push(url.split('/').pop()!);
+        return json({ data: null });
       }
       if (method === 'DELETE') {
         const id = url.split('/').pop()!;
@@ -252,14 +285,20 @@ describe('AiAssistantPanel', () => {
 
     await waitForText('台積電今天收 1000 元');
     expect(container.textContent).toContain('2330 今天如何？');
-    expect(chatBodies).toEqual([{ message: '2330 今天如何？', conversationId: '' }]);
+    expect(chatBodies).toEqual([
+      { message: '2330 今天如何？', conversationId: '', attachmentIds: [] },
+    ]);
 
     chatReplies.push(() =>
       sseReply({ type: 'delta', text: '好的' }, { type: 'done', conversationId: 'conv-1' }),
     );
     await send('那 2317 呢？');
     await waitForText('好的');
-    expect(chatBodies[1]).toEqual({ message: '那 2317 呢？', conversationId: 'conv-1' });
+    expect(chatBodies[1]).toEqual({
+      message: '那 2317 呢？',
+      conversationId: 'conv-1',
+      attachmentIds: [],
+    });
   });
 
   it('shows a failed reply inside the conversation, in its own words for the code it got', async () => {
@@ -333,6 +372,150 @@ describe('AiAssistantPanel', () => {
   });
 });
 
+/** Picks files with the 「+」 button's file input. */
+async function attach(...files: File[]) {
+  const input = container.querySelector<HTMLInputElement>(
+    'input[data-testid="chat-attachment-input"]',
+  )!;
+  await act(async () => {
+    Object.defineProperty(input, 'files', { value: files, configurable: true });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+const file = (name: string, size = 10) => new File(['x'.repeat(size)], name);
+
+/** The attachment chips in the message box, or (given `within`) in a bubble. */
+const chips = (within: ParentNode = container) =>
+  [...within.querySelectorAll<HTMLElement>('.MuiChip-root')].map((c) => c.textContent);
+
+const uploadsSettled = () =>
+  waitFor(() =>
+    expect(container.querySelector('.MuiChip-root .MuiCircularProgress-root')).toBeNull(),
+  );
+
+describe('AiAssistantPanel — attachments', () => {
+  it('uploads a picked file, then sends its id with the message and shows it on the bubble', async () => {
+    await mount();
+    uploadReplies.push(() => json({ data: uploaded(7, '持股.xlsx') }));
+    await attach(file('持股.xlsx'));
+    await uploadsSettled();
+    expect(chips()).toEqual(['持股.xlsx']);
+
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '你持有台積電' }, { type: 'done', conversationId: 'conv-1' }),
+    );
+    await send('幫我看這份持股');
+    await waitForText('你持有台積電');
+
+    expect(chatBodies).toEqual([
+      { message: '幫我看這份持股', conversationId: '', attachmentIds: [7] },
+    ]);
+    // Gone from the box, now on the sent message.
+    const bubble = [...container.querySelectorAll<HTMLElement>('.MuiPaper-root')].find(
+      (p) => p.textContent?.includes('幫我看這份持股') && !p.textContent.includes('你持有'),
+    )!;
+    expect(chips(bubble)).toEqual(['持股.xlsx']);
+    expect(chips()).toHaveLength(1);
+  });
+
+  it('does not send while a file is still uploading', async () => {
+    await mount();
+    let finish!: () => void;
+    uploadReplies.push(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () => resolve(json({ data: uploaded(8, 'notes.txt') }));
+        }),
+    );
+    await attach(file('notes.txt'));
+
+    await send('看一下');
+    expect(chatBodies).toHaveLength(0);
+
+    await act(async () => finish());
+    await uploadsSettled();
+    chatReplies.push(() => sseReply({ type: 'done', conversationId: 'conv-1' }));
+    await act(async () => {
+      textarea().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    await waitFor(() => expect(chatBodies).toHaveLength(1));
+    expect(chatBodies[0].attachmentIds).toEqual([8]);
+  });
+
+  it('turns down a file type it cannot read without uploading it', async () => {
+    await mount();
+    await attach(file('scan.pdf'));
+
+    expect(uploads).toBe(0);
+    expect(container.textContent).toContain('scan.pdf：不支援這種檔案');
+  });
+
+  it('turns down a file over 10 MB without uploading it', async () => {
+    await mount();
+    await attach(file('big.csv', 10 * 1024 * 1024 + 1));
+
+    expect(uploads).toBe(0);
+    expect(container.textContent).toContain('big.csv：檔案太大，上限 10 MB。');
+  });
+
+  it('says in its own words why the server could not read a file', async () => {
+    await mount();
+    uploadReplies.push(() => errorEnvelope(400, 'AttachmentUnreadable'));
+    await attach(file('broken.docx'));
+
+    await waitForText('broken.docx：讀不出這個檔案的內容');
+    expect(container.textContent).not.toContain('server wording');
+  });
+
+  it('takes at most five files for one message', async () => {
+    await mount();
+    for (let i = 1; i <= 5; i++) uploadReplies.push(() => json({ data: uploaded(i, `${i}.txt`) }));
+    await attach(...[1, 2, 3, 4, 5, 6].map((i) => file(`${i}.txt`)));
+
+    await waitForText('6.txt：一次最多附加 5 個檔案。');
+    expect(uploads).toBe(5);
+    await uploadsSettled();
+    expect(buttonByLabel('附加檔案')!.disabled).toBe(true);
+  });
+
+  it('removing an uploaded file deletes it on the server and leaves it out of the message', async () => {
+    await mount();
+    uploadReplies.push(() => json({ data: uploaded(9, 'a.txt') }));
+    await attach(file('a.txt'));
+    await uploadsSettled();
+
+    await act(async () => {
+      container
+        .querySelector('.MuiChip-root .MuiChip-deleteIcon')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await waitFor(() => expect(deletedAttachments).toEqual(['9']));
+    expect(chips()).toEqual([]);
+
+    chatReplies.push(() => sseReply({ type: 'done', conversationId: 'conv-1' }));
+    await send('沒有附件了');
+    await waitFor(() => expect(chatBodies).toHaveLength(1));
+    expect(chatBodies[0].attachmentIds).toEqual([]);
+  });
+
+  it('shows the files that were sent with a message when an old conversation is opened', async () => {
+    conversations = [conversation('c1', '持股分析')];
+    messagesOf = {
+      c1: [
+        { ...turn(1, 'user', '看這份'), attachments: [uploaded(3, '持股.xlsx')] },
+        turn(2, 'assistant', '好的'),
+      ],
+    };
+    await mount();
+    await waitForText('持股分析');
+
+    await act(async () => row('持股分析').click());
+    await waitForText('好的');
+    expect(chips()).toEqual(['持股.xlsx']);
+  });
+});
+
 describe('AiAssistantPanel — conversation history column', () => {
   beforeEach(() => {
     conversations = [conversation('c1', '台積電財報'), conversation('c2', 'ETF 比較')];
@@ -363,7 +546,7 @@ describe('AiAssistantPanel — conversation history column', () => {
     );
     await send('營收呢？');
     await waitForText('營收呢？好的');
-    expect(chatBodies).toEqual([{ message: '營收呢？', conversationId: 'c1' }]);
+    expect(chatBodies).toEqual([{ message: '營收呢？', conversationId: 'c1', attachmentIds: [] }]);
   });
 
   it('shows a conversation as soon as its first reply has come in, and keeps the list current', async () => {
@@ -400,7 +583,7 @@ describe('AiAssistantPanel — conversation history column', () => {
     );
     await send('第二則');
     await waitForText('全新的');
-    expect(chatBodies).toEqual([{ message: '第二則', conversationId: '' }]);
+    expect(chatBodies).toEqual([{ message: '第二則', conversationId: '', attachmentIds: [] }]);
   });
 
   it('deleting the conversation that is open clears the chat as well', async () => {

@@ -1,3 +1,5 @@
+import { ErrorCodes } from '../types';
+
 /**
  * What the reader is told when a chat turn fails. The server sends only a code (ChatErrorCodes on
  * the backend) — the wording lives here, and what actually went wrong is in the server log.
@@ -22,3 +24,40 @@ export const chatErrorMessage = (code: string | undefined): string =>
 
 /** Shown under an answer that ran into the length limit. */
 export const TRUNCATED_NOTE = '回覆因長度上限被截斷，內容可能不完整。';
+
+/** The file types the server reads (AttachmentTextExtractor), for the file picker. */
+export const ATTACHMENT_ACCEPT = '.docx,.xlsx,.csv,.txt,.md,.json';
+
+/** Files sent with one message (ChatbotController.MaxAttachmentsPerMessage). */
+export const MAX_ATTACHMENTS = 5;
+
+/** Largest upload, matching the server's limit. */
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+
+export const ATTACHMENT_ERROR_MESSAGES = {
+  unsupported: '不支援這種檔案，請上傳 Word（.docx）、Excel（.xlsx）、CSV 或文字檔。',
+  tooLarge: '檔案太大，上限 10 MB。',
+  unreadable: '讀不出這個檔案的內容，可能已損毀、有密碼保護，或沒有文字。',
+  tooMany: `一次最多附加 ${MAX_ATTACHMENTS} 個檔案。`,
+  failed: '上傳失敗，請稍後再試。',
+} as const;
+
+/** Shown on an attachment whose text was cut to the server's limit. */
+export const ATTACHMENT_TRUNCATED_NOTE = '內容過長，只讀取了前段';
+
+/**
+ * The message for a failed upload, judged on the error code (or a bare 413 from the server's
+ * body-size limit, which has no envelope); the server's own wording is never shown.
+ */
+export const attachmentErrorMessage = (error: unknown): string => {
+  const e = error as { status?: unknown; data?: { error?: { code?: unknown } } } | undefined;
+  switch (e?.data?.error?.code) {
+    case ErrorCodes.AttachmentUnsupportedType:
+      return ATTACHMENT_ERROR_MESSAGES.unsupported;
+    case ErrorCodes.PayloadTooLarge:
+      return ATTACHMENT_ERROR_MESSAGES.tooLarge;
+    case ErrorCodes.AttachmentUnreadable:
+      return ATTACHMENT_ERROR_MESSAGES.unreadable;
+  }
+  return e?.status === 413 ? ATTACHMENT_ERROR_MESSAGES.tooLarge : ATTACHMENT_ERROR_MESSAGES.failed;
+};

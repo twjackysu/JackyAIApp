@@ -3,7 +3,7 @@ import { createApi } from '@reduxjs/toolkit/query/react';
 import { apiBaseQuery } from '../baseQuery';
 import { ApiOkResponse } from '../types';
 
-import { ChatConversation, ChatHistoryMessage } from './types';
+import { ChatAttachment, ChatConversation, ChatHistoryMessage } from './types';
 
 export const chatbotApis = createApi({
   reducerPath: 'chatbotApis',
@@ -26,6 +26,20 @@ export const chatbotApis = createApi({
       query: (conversationId) => ({ url: `conversations/${conversationId}`, method: 'DELETE' }),
       invalidatesTags: ['Conversations'],
     }),
+
+    /** Upload a file to send with the next message; the server reads it into text. */
+    uploadChatAttachment: builder.mutation<ApiOkResponse<ChatAttachment>, File>({
+      query: (file) => {
+        const body = new FormData();
+        body.append('file', file);
+        return { url: 'attachments', method: 'POST', body };
+      },
+    }),
+
+    /** Remove an uploaded file that has not been sent. */
+    deleteChatAttachment: builder.mutation<ApiOkResponse<void>, number>({
+      query: (attachmentId) => ({ url: `attachments/${attachmentId}`, method: 'DELETE' }),
+    }),
   }),
 });
 
@@ -33,4 +47,6 @@ export const {
   useGetConversationsQuery,
   useLazyGetConversationMessagesQuery,
   useDeleteConversationMutation,
+  useUploadChatAttachmentMutation,
+  useDeleteChatAttachmentMutation,
 } = chatbotApis;

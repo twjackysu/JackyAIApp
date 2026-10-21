@@ -30,7 +30,7 @@ describe('rtkQueryErrorLogger — usage-limit dialog', () => {
   it('opens the usage-limit modal on a 429 carrying the UsageLimitExceeded error code', () => {
     const action = rejectedWithValueAction({
       status: 429,
-      data: { error: { code: 1042900, message: 'Usage limit exceeded.' } },
+      data: { error: { code: 'UsageLimitExceeded', message: 'Usage limit exceeded.' } },
     });
 
     const { dispatch, next } = runMiddleware(action);
@@ -42,7 +42,7 @@ describe('rtkQueryErrorLogger — usage-limit dialog', () => {
   it('does not open the modal for a 429 without the usage-limit error code', () => {
     const action = rejectedWithValueAction({
       status: 429,
-      data: { error: { code: 1050000, message: 'Some other error.' } },
+      data: { error: { code: 'InternalServerError', message: 'Some other error.' } },
     });
 
     const { dispatch } = runMiddleware(action);
@@ -53,7 +53,7 @@ describe('rtkQueryErrorLogger — usage-limit dialog', () => {
   it('does not open the modal for a non-429 error, even with a matching code', () => {
     const action = rejectedWithValueAction({
       status: 403,
-      data: { error: { code: 1042900, message: 'Usage limit exceeded.' } },
+      data: { error: { code: 'UsageLimitExceeded', message: 'Usage limit exceeded.' } },
     });
 
     const { dispatch } = runMiddleware(action);

@@ -19,7 +19,11 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// conversation history. Every failure, including one before any text, is reported as an
         /// <c>error</c> event.
         /// </summary>
+        /// <param name="attachments">The caller's still-unsent uploads, tracked by the same
+        /// request's context; they are attached to the saved user message and sent with it.</param>
         Task<ChatStreamResult> StreamChatAsync(
-            string userId, string message, string? conversationId, HttpResponse response, CancellationToken ct);
+            string userId, string message, string? conversationId,
+            IReadOnlyCollection<Data.Models.SQL.ChatAttachment> attachments,
+            HttpResponse response, CancellationToken ct);
     }
 }

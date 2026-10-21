@@ -31,6 +31,8 @@ export const useChatStreaming = () => {
     async (
       message: string,
       conversationId: string | undefined,
+      /** Uploaded files (useUploadChatAttachmentMutation) to send with this message. */
+      attachmentIds: number[],
       onMessageUpdate: (content: string) => void,
       /** `truncated`: the answer ran into the length limit and is cut short. */
       onComplete: (conversationId?: string, truncated?: boolean) => void,
@@ -46,7 +48,7 @@ export const useChatStreaming = () => {
             Accept: 'text/event-stream',
             'Cache-Control': 'no-cache',
           },
-          body: JSON.stringify({ message, conversationId }),
+          body: JSON.stringify({ message, conversationId, attachmentIds }),
         });
 
         if (!response.ok) {

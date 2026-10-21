@@ -1,14 +1,21 @@
+/**
+ * The `code` of the API's error envelope. The server serializes its ErrorCodes enum by name
+ * (JsonStringEnumConverter in Program.cs), so this is the name, not the number.
+ */
 export enum ErrorCodes {
-  InternalServerError = 1050000,
-  NotFound = 1040400,
-  BadRequest = 1040000,
-  OpenAIIsNotResponding = 1040001,
-  OpenAIResponseUnsuccessful = 1040002,
-  UnarseableFormat = 1040003,
-  TheWordCannotBeFound = 1040004,
-  Unauthorized = 1040100,
-  Forbidden = 1040300,
-  UsageLimitExceeded = 1042900,
+  InternalServerError = 'InternalServerError',
+  NotFound = 'NotFound',
+  BadRequest = 'BadRequest',
+  QueryOpenAIFailed = 'QueryOpenAIFailed',
+  OpenAIResponseUnsuccessful = 'OpenAIResponseUnsuccessful',
+  UnparseableFormat = 'UnparseableFormat',
+  TheWordCannotBeFound = 'TheWordCannotBeFound',
+  AttachmentUnreadable = 'AttachmentUnreadable',
+  Unauthorized = 'Unauthorized',
+  Forbidden = 'Forbidden',
+  PayloadTooLarge = 'PayloadTooLarge',
+  AttachmentUnsupportedType = 'AttachmentUnsupportedType',
+  UsageLimitExceeded = 'UsageLimitExceeded',
 }
 
 export interface ApiOkResponse<T> {

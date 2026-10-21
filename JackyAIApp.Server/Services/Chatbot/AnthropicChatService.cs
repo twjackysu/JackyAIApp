@@ -66,7 +66,8 @@ namespace JackyAIApp.Server.Services.Chatbot
             stopReason == BetaStopReason.Refusal ? ChatErrorCodes.Refused : ChatErrorCodes.NoAnswer;
 
         public async Task<ChatStreamResult> StreamChatAsync(
-            string userId, string message, string? conversationId, HttpResponse response, CancellationToken ct)
+            string userId, string message, string? conversationId, IReadOnlyCollection<SQL.ChatAttachment> attachments,
+            HttpResponse response, CancellationToken ct)
         {
             var apiKey = settings.CurrentValue.AnthropicApiKey;
             if (string.IsNullOrEmpty(apiKey))
@@ -79,27 +80,25 @@ namespace JackyAIApp.Server.Services.Chatbot
 
             var conversation = await ResolveConversationAsync(userId, conversationId, ct);
 
-            db.ChatMessages.Add(new SQL.ChatMessage
+            var userMessage = new SQL.ChatMessage
             {
                 ConversationId = conversation.Id,
                 Role = "user",
                 Content = message,
-            });
+            };
+            db.ChatMessages.Add(userMessage);
+            // The attachments become part of this message, and of the conversation from here on.
+            foreach (var attachment in attachments) attachment.Message = userMessage;
             await db.SaveChangesAsync(ct);
 
             var history = await db.ChatMessages
                 .Where(m => m.ConversationId == conversation.Id)
+                .Include(m => m.Attachments)
                 .OrderBy(m => m.CreatedAt)
                 .ToListAsync(ct);
 
             var client = new AnthropicClient { ApiKey = apiKey };
-            var requestMessages = history
-                .Select(m => new BetaMessageParam
-                {
-                    Role = m.Role == "user" ? Role.User : Role.Assistant,
-                    Content = m.Content,
-                })
-                .ToList();
+            var requestMessages = history.Select(ToMessageParam).ToList();
 
             var taipeiToday = DateOnly.FromDateTime(_time.GetUtcNow().UtcDateTime.AddHours(8));
             var streamParams = new MessageCreateParams
@@ -239,6 +238,33 @@ namespace JackyAIApp.Server.Services.Chatbot
 
             return new ChatStreamResult(streamingStarted, conversation.Id, errorCode);
         }
+
+        /// <summary>
+        /// One stored turn as the API takes it. A message with attachments becomes a list of blocks:
+        /// each attachment as a plain-text document titled with its file name, then the message
+        /// itself — documents ahead of the question about them.
+        /// </summary>
+        internal static BetaMessageParam ToMessageParam(SQL.ChatMessage m)
+        {
+            var role = m.Role == "user" ? Role.User : Role.Assistant;
+            if (m.Attachments.Count == 0)
+                return new BetaMessageParam { Role = role, Content = m.Content };
+
+            var blocks = new List<BetaContentBlockParam>();
+            foreach (var a in m.Attachments.OrderBy(a => a.Id))
+            {
+                blocks.Add(new BetaRequestDocumentBlock
+                {
+                    Source = new BetaPlainTextSource { Data = a.Truncated ? a.Text + TruncationNote : a.Text },
+                    Title = a.FileName,
+                });
+            }
+            blocks.Add(new BetaTextBlockParam { Text = m.Content });
+            return new BetaMessageParam { Role = role, Content = blocks };
+        }
+
+        /// <summary>Appended to a cut attachment, so the model does not answer as if it saw all of it.</summary>
+        internal const string TruncationNote = "\n\n[此檔案內容過長，以上僅為前段，其餘已截斷。]";
 
         private static void StartEventStream(HttpResponse response)
         {
