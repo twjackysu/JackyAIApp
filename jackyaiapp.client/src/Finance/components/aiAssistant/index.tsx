@@ -36,6 +36,7 @@ import { useAppDispatch } from '@/redux/hooks';
 const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] =>
   items.map((m) => ({
     id: String(m.id),
+    serverId: m.id,
     content: m.content,
     isUser: m.role === 'user',
     timestamp: new Date(m.createdAt),
@@ -301,8 +302,12 @@ function AiAssistantPanel({
     }
   }, [blocks]);
 
-  /** Sends one message and writes its answer into a new bubble as it comes. */
-  const sendTurn = async (text: string, attachments: ChatAttachment[]) => {
+  /**
+   * Sends one message and writes its answer into a new bubble as it comes. With `edited`, the
+   * message replaces that earlier one: it and everything after it go (here, and on the server), and
+   * its attachments go again with the new wording — the server re-attaches them itself.
+   */
+  const sendTurn = async (text: string, attachments: ChatAttachment[], edited?: Message) => {
     const userMessage: Message = {
       id: `${Date.now()}-${nextTurnKey.current++}`,
       content: text,
@@ -318,31 +323,41 @@ function AiAssistantPanel({
       timestamp: new Date(),
       parsedBlocks: [],
     };
-    setMessages((prev) => [...prev, userMessage, botMessage]);
+    setMessages((prev) => {
+      const from = edited ? prev.findIndex((m) => m.id === edited.id) : -1;
+      return [...(from >= 0 ? prev.slice(0, from) : prev), userMessage, botMessage];
+    });
     setCurrentStreamingContent('');
 
-    const updateBot = (patch: Partial<Message>) =>
-      setMessages((prev) =>
-        prev.map((msg) => (msg.id === botMessage.id ? { ...msg, ...patch } : msg)),
-      );
+    const update = (id: string, patch: Partial<Message>) =>
+      setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg)));
+    const updateBot = (patch: Partial<Message>) => update(botMessage.id, patch);
 
     await sendStreamingMessage({
       message: text,
       conversationId,
-      attachmentIds: attachments.map((a) => a.id),
-      onStart: setConversationId,
+      attachmentIds: edited ? [] : attachments.map((a) => a.id),
+      editMessageId: edited?.serverId,
+      onStart: (id, userMessageId) => {
+        setConversationId(id);
+        if (userMessageId) update(userMessage.id, { serverId: userMessageId });
+      },
       onUpdate: (content) => {
         setCurrentStreamingContent(content);
         updateBot({ content });
       },
-      onComplete: (newConversationId, truncated) => {
+      onComplete: (newConversationId, truncated, assistantMessageId) => {
         if (newConversationId) setConversationId(newConversationId);
-        if (truncated) updateBot({ truncated: true });
+        updateBot({ truncated: truncated || undefined, serverId: assistantMessageId });
       },
       // What was said before the stop stays, marked the way the server stores it. `parsedBlocks` is
       // cleared so the bubble renders `content`, mark included.
-      onStopped: (partial) =>
-        updateBot({ content: stoppedContent(partial), parsedBlocks: undefined }),
+      onStopped: (partial, assistantMessageId) =>
+        updateBot({
+          content: stoppedContent(partial),
+          parsedBlocks: undefined,
+          serverId: assistantMessageId,
+        }),
       // `parsedBlocks` is cleared so the bubble falls back to rendering `content`: an empty
       // block list is what a reply that never started looks like, and it draws nothing.
       onError: (error) => updateBot({ content: `錯誤: ${error}`, parsedBlocks: undefined }),
@@ -452,6 +467,11 @@ function AiAssistantPanel({
             onSuggest={(question) => {
               setInputValue(question);
               inputRef.current?.focus();
+            }}
+            busy={busy}
+            onEdit={(message, text) => {
+              if (busy) return;
+              void sendTurn(text, message.attachments ?? [], message);
             }}
           />
           <ChatInput

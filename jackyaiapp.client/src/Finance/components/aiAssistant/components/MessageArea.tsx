@@ -6,14 +6,16 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { Box, Button, ButtonBase, Paper, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { GREETING_SUGGESTIONS } from '../examples';
-import { ACCENT, accentWash, hairline } from '../style';
+import { ACCENT, accentWash, hairline, revealActionsOnHover } from '../style';
 import { Message } from '../types';
 
 import AssistantMark from './AssistantMark';
 import AttachmentChip from './AttachmentChip';
+import MessageActions from './MessageActions';
+import MessageEditor from './MessageEditor';
 
 import { TRUNCATED_NOTE } from '@/apis/chatbotApis/chatErrors';
 import { attachmentContentUrl } from '@/apis/chatbotApis/types';
@@ -33,6 +35,10 @@ interface MessageAreaProps {
   active: boolean;
   /** A suggested question under the greeting was picked: put it in the message box. */
   onSuggest?: (question: string) => void;
+  /** An answer is being written: no editing, and its own actions wait until it is done. */
+  busy?: boolean;
+  /** The reader edited one of their messages: send the new wording in its place. */
+  onEdit?: (message: Message, text: string) => void;
 }
 
 export const GREETING_TITLE = '今天想研究哪一檔？';
@@ -147,8 +153,17 @@ const Welcome = ({ onSuggest }: { onSuggest?: (question: string) => void }) => {
   );
 };
 
-function MessageArea({ messages, onPreview, active, onSuggest }: MessageAreaProps) {
+function MessageArea({
+  messages,
+  onPreview,
+  active,
+  onSuggest,
+  busy = false,
+  onEdit,
+}: MessageAreaProps) {
   const theme = useTheme();
+  // The reader's message being edited in place, by its id.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const followingRef = useRef(true);
   const messageCountRef = useRef(messages.length);
@@ -200,7 +215,7 @@ function MessageArea({ messages, onPreview, active, onSuggest }: MessageAreaProp
       >
         {messages.length === 0 && <Welcome onSuggest={onSuggest} />}
 
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const attachments = message.attachments && message.attachments.length > 0 && (
             <Box
               sx={{
@@ -228,36 +243,70 @@ function MessageArea({ messages, onPreview, active, onSuggest }: MessageAreaProp
             </Box>
           );
 
-          // The reader's own message: a soft bubble on the right.
+          // The reader's own message: a soft bubble on the right — or, being edited, a box in its place.
           if (message.isUser) {
+            const editing = editingId === message.id;
+            // Only a stored message (the server knows its id), and not while an answer is written.
+            const canEdit = Boolean(onEdit && message.serverId && !busy);
             return (
               <Box
                 key={message.id}
                 data-testid="user-message"
-                sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-end',
+                  ...revealActionsOnHover,
+                }}
               >
                 {attachments}
-                <Paper
-                  elevation={0}
-                  sx={{
-                    px: 2,
-                    py: 1.25,
-                    maxWidth: '85%',
-                    borderRadius: '18px 18px 6px 18px',
-                    bgcolor: accentWash(theme, 0.13),
-                    border: `1px solid ${accentWash(theme, 0.22)}`,
-                    color: 'text.primary',
-                  }}
-                >
-                  <MarkdownMessage content={message.content} isOwnMessage theme={theme} />
-                </Paper>
+                {editing ? (
+                  <MessageEditor
+                    initial={message.content}
+                    attachmentCount={message.attachments?.length ?? 0}
+                    onCancel={() => setEditingId(null)}
+                    onSubmit={(text) => {
+                      setEditingId(null);
+                      onEdit?.(message, text);
+                    }}
+                  />
+                ) : (
+                  <>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        px: 2,
+                        py: 1.25,
+                        maxWidth: '85%',
+                        borderRadius: '18px 18px 6px 18px',
+                        bgcolor: accentWash(theme, 0.13),
+                        border: `1px solid ${accentWash(theme, 0.22)}`,
+                        color: 'text.primary',
+                      }}
+                    >
+                      <MarkdownMessage content={message.content} isOwnMessage theme={theme} />
+                    </Paper>
+                    <MessageActions
+                      text={message.content}
+                      align="right"
+                      onEdit={canEdit ? () => setEditingId(message.id) : undefined}
+                    />
+                  </>
+                )}
               </Box>
             );
           }
 
+          // An answer still being written has nothing final to copy yet.
+          const answering = busy && index === messages.length - 1;
+
           // The assistant's answer: no bubble, the full column, its mark beside it.
           return (
-            <Box key={message.id} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+            <Box
+              key={message.id}
+              data-testid="assistant-message"
+              sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', ...revealActionsOnHover }}
+            >
               <Box sx={{ pt: 0.25 }}>
                 <AssistantMark size={26} />
               </Box>
@@ -306,6 +355,9 @@ function MessageArea({ messages, onPreview, active, onSuggest }: MessageAreaProp
                   >
                     {TRUNCATED_NOTE}
                   </Typography>
+                )}
+                {!answering && message.content && (
+                  <MessageActions text={message.content} align="left" />
                 )}
               </Box>
             </Box>

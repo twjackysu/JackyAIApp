@@ -67,15 +67,45 @@ namespace JackyAIApp.Server.Controllers
                     .OrderBy(a => a.Id)
                     .ToListAsync(HttpContext.RequestAborted);
 
+            // An edit sends the edited message's attachments again with its new wording.
+            var editId = request.EditMessageId;
+            if (editId != null && string.IsNullOrEmpty(request.ConversationId))
+            {
+                Response.StatusCode = 400;
+                await Response.WriteAsync("An edit needs its conversation.");
+                return;
+            }
+            var editAttachments = editId == null
+                ? []
+                : await _dbContext.ChatAttachments
+                    .Where(a => a.MessageId == editId && a.UserId == userId)
+                    .ToListAsync(HttpContext.RequestAborted);
+
             // Charge per message up front (anti-abuse / cost control), plus each attachment. Refunded
             // below if the model never started responding, so users aren't charged for nothing.
-            var cost = UsageCosts.ChatMessage +
-                attachments.Aggregate(0UL, (sum, a) => sum + UsageCosts.ForChatAttachment(a.PageCount));
+            var cost = UsageCosts.ChatMessage + attachments.Concat(editAttachments)
+                .Aggregate(0UL, (sum, a) => sum + UsageCosts.ForChatAttachment(a.PageCount));
             if (!await _usageLimitService.TryConsumeAsync(userId, cost, "chatbot_message"))
             {
                 Response.StatusCode = 429; // Too Many Requests
                 await Response.WriteAsync("Daily usage limit exceeded.");
                 return;
+            }
+
+            // Only once charged: a refused message must not have cut the conversation short.
+            if (editId != null)
+            {
+                var rewind = await ChatHistoryEditor.RewindAsync(
+                    _dbContext, userId, request.ConversationId!, editId.Value, HttpContext.RequestAborted);
+                if (rewind == null)
+                {
+                    await RefundChatMessageAsync(userId, cost);
+                    Response.StatusCode = 404;
+                    await Response.WriteAsync("Message not found.");
+                    return;
+                }
+                attachments = [.. rewind.KeptAttachments.Concat(attachments).Take(MaxAttachmentsPerMessage)];
+                await DeleteStoredFilesAsync(rewind.RemovedFiles, HttpContext.RequestAborted);
             }
 
             try
@@ -216,8 +246,6 @@ namespace JackyAIApp.Server.Controllers
             attachments
                 .Where(a => a.BlobName != null || a.AnthropicFileId != null)
                 .Select(a => new StoredFile(a.BlobName, a.AnthropicFileId));
-
-        private sealed record StoredFile(string? BlobName, string? AnthropicFileId);
 
         /// <summary>Deletes attachments' files from both stores, once their rows are gone.</summary>
         private async Task DeleteStoredFilesAsync(IReadOnlyCollection<StoredFile> files, CancellationToken ct)

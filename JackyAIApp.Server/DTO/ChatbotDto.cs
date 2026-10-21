@@ -7,6 +7,13 @@ namespace JackyAIApp.Server.DTO
 
         /// <summary>Uploaded attachments (POST attachments) to send with this message.</summary>
         public List<long>? AttachmentIds { get; set; }
+
+        /// <summary>
+        /// This message is an edit of the reader's earlier message with this id: the conversation goes
+        /// back to just before it (it and everything after are removed) and its attachments are sent
+        /// again with the new wording.
+        /// </summary>
+        public long? EditMessageId { get; set; }
     }
 
     /// <summary>A conversation summary returned to the client (title from the first user message).</summary>
