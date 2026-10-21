@@ -1,17 +1,19 @@
-import AddCommentIcon from '@mui/icons-material/AddComment';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import HistoryIcon from '@mui/icons-material/History';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import { Avatar, Badge, Box, IconButton, Stack, Typography } from '@mui/material';
+import ViewSidebarIcon from '@mui/icons-material/ViewSidebarOutlined';
+import { Box, IconButton, LinearProgress, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
+import { ACCENT, hairline } from '../style';
+
+import AssistantMark from './AssistantMark';
 import { HISTORY_COLUMN_BREAKPOINT } from './historyColumn';
 
 import { ActionTooltip } from '@/components/hints';
 
 interface ChatHeaderProps {
+  /** What the assistant is doing, while it answers. */
   statusText: string;
-  statusColor: string;
   /** A reply is being written: starting over has to wait. */
   busy: boolean;
   onOpenHistory: () => void;
@@ -20,9 +22,12 @@ interface ChatHeaderProps {
   onCollapse: () => void;
 }
 
+/**
+ * A slim bar: the assistant's mark and name, what it is doing, and the panel's actions. While an
+ * answer is written, a thin line runs along its lower edge instead of a separate progress row.
+ */
 const ChatHeader = ({
   statusText,
-  statusColor,
   busy,
   onOpenHistory,
   onNewChat,
@@ -33,70 +38,86 @@ const ChatHeader = ({
   return (
     <Box
       sx={{
+        position: 'relative',
         display: 'flex',
         alignItems: 'center',
-        gap: 1.5,
+        gap: 1.25,
         px: { xs: 1.5, sm: 2 },
-        py: 1,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        backgroundImage:
-          theme.palette.mode === 'dark'
-            ? 'linear-gradient(135deg, rgba(46,125,50,0.18), rgba(25,118,210,0.10))'
-            : 'linear-gradient(135deg, rgba(46,125,50,0.10), rgba(25,118,210,0.06))',
+        minHeight: 56,
+        borderBottom: `1px solid ${hairline(theme)}`,
       }}
     >
-      <Badge
-        overlap="circular"
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        badgeContent={
-          <Box
-            sx={{
-              width: 11,
-              height: 11,
-              borderRadius: '50%',
-              bgcolor: statusColor,
-              border: `2px solid ${theme.palette.background.paper}`,
-            }}
-          />
-        }
-      >
-        <Avatar sx={{ bgcolor: theme.palette.success.main, width: 40, height: 40 }}>
-          <SmartToyIcon />
-        </Avatar>
-      </Badge>
-      <Stack sx={{ minWidth: 0 }}>
-        <Typography variant="subtitle1" component="div" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-          AI 助手
-        </Typography>
-        <Typography variant="caption" color="text.secondary" noWrap>
-          {statusText}
-        </Typography>
-      </Stack>
-      <Box sx={{ flexGrow: 1 }} />
       {/* Only where the history is not already shown beside the chat (see HISTORY_COLUMN_BREAKPOINT) */}
       <ActionTooltip title="對話紀錄">
         <IconButton
           onClick={onOpenHistory}
-          color="inherit"
           aria-label="對話紀錄"
-          sx={{ display: { [HISTORY_COLUMN_BREAKPOINT]: 'none' } }}
+          size="small"
+          sx={{ display: { [HISTORY_COLUMN_BREAKPOINT]: 'none' }, color: 'text.secondary' }}
         >
-          <HistoryIcon />
+          <ViewSidebarIcon fontSize="small" />
         </IconButton>
       </ActionTooltip>
+      <AssistantMark size={30} />
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="subtitle2" component="div" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
+          AI 助手
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+          <Box
+            sx={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              flexShrink: 0,
+              bgcolor: busy ? 'info.main' : ACCENT,
+              boxShadow: busy ? undefined : `0 0 0 3px ${ACCENT}22`,
+            }}
+          />
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {busy ? statusText || '處理中…' : '台股資料已連線'}
+          </Typography>
+        </Box>
+      </Box>
+      <Box sx={{ flexGrow: 1 }} />
       <ActionTooltip title="新對話">
         <span>
-          <IconButton onClick={onNewChat} color="inherit" aria-label="新對話" disabled={busy}>
-            <AddCommentIcon />
+          <IconButton
+            onClick={onNewChat}
+            aria-label="新對話"
+            disabled={busy}
+            size="small"
+            sx={{ color: 'text.secondary' }}
+          >
+            <EditNoteIcon fontSize="small" />
           </IconButton>
         </span>
       </ActionTooltip>
       <ActionTooltip title="收合">
-        <IconButton onClick={onCollapse} color="inherit" aria-label="收合">
-          <ExpandLessIcon />
+        <IconButton
+          onClick={onCollapse}
+          aria-label="收合"
+          size="small"
+          sx={{ color: 'text.secondary' }}
+        >
+          <ExpandLessIcon fontSize="small" />
         </IconButton>
       </ActionTooltip>
+      {busy && (
+        <LinearProgress
+          sx={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: -1,
+            height: 2,
+            bgcolor: 'transparent',
+            '& .MuiLinearProgress-bar': {
+              backgroundImage: `linear-gradient(90deg, ${ACCENT}, #818cf8)`,
+            },
+          }}
+        />
+      )}
     </Box>
   );
 };

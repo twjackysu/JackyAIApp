@@ -241,7 +241,7 @@ describe('AiAssistantPanel', () => {
     await mount();
 
     expect(container.textContent).toContain('AI 助手');
-    expect(container.textContent).toContain('您好！我是台股 AI 助手');
+    expect(container.textContent).toContain('今天想研究哪一檔？');
     expect(buttonByLabel('新對話')).not.toBeNull();
     expect(buttonByLabel('關閉')).toBeNull();
     expect(document.querySelector('[role="dialog"]')).toBeNull();
@@ -498,9 +498,7 @@ describe('AiAssistantPanel', () => {
   it('a suggestion under the greeting goes into the box, not straight to the assistant', async () => {
     await mount();
     const suggestion = [
-      ...container.querySelectorAll<HTMLElement>(
-        '[data-testid="greeting-suggestions"] .MuiChip-root',
-      ),
+      ...container.querySelectorAll<HTMLElement>('[data-testid="greeting-suggestions"] button'),
     ][0];
 
     await act(async () => suggestion.click());
@@ -598,9 +596,9 @@ describe('AiAssistantPanel — attachments', () => {
       { message: '幫我看這份持股', conversationId: '', attachmentIds: [7] },
     ]);
     // Gone from the box, now on the sent message.
-    const bubble = [...container.querySelectorAll<HTMLElement>('.MuiPaper-root')].find(
-      (p) => p.textContent?.includes('幫我看這份持股') && !p.textContent.includes('你持有'),
-    )!;
+    const bubble = [
+      ...container.querySelectorAll<HTMLElement>('[data-testid="user-message"]'),
+    ].find((p) => p.textContent?.includes('幫我看這份持股') && !p.textContent.includes('你持有'))!;
     expect(chips(bubble)).toEqual(['持股.xlsx']);
     expect(chips()).toHaveLength(1);
   });
@@ -855,7 +853,7 @@ describe('AiAssistantPanel — conversation history column', () => {
 
     act(() => buttonByLabel('新對話')!.click());
     expect(container.textContent).not.toContain('毛利率 59%');
-    expect(container.textContent).toContain('您好！我是台股 AI 助手');
+    expect(container.textContent).toContain('今天想研究哪一檔？');
 
     chatReplies.push(() =>
       sseReply({ type: 'delta', text: '全新的' }, { type: 'done', conversationId: 'conv-2' }),
@@ -875,7 +873,7 @@ describe('AiAssistantPanel — conversation history column', () => {
 
     await waitFor(() => expect(deleted).toEqual(['c1']));
     await waitFor(() => expect(container.textContent).not.toContain('毛利率 59%'));
-    expect(container.textContent).toContain('您好！我是台股 AI 助手');
+    expect(container.textContent).toContain('今天想研究哪一檔？');
     await waitFor(() => expect(container.textContent).not.toContain('台積電財報'));
   });
 

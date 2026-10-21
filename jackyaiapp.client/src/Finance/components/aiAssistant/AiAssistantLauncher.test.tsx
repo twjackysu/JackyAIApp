@@ -84,7 +84,7 @@ describe('AiAssistantLauncher', () => {
     expect(box()).not.toBeNull();
     expect(box()!.placeholder).toContain('問 AI 助手');
     expect(container.textContent).toContain('AI 助手');
-    expect(container.querySelector('[data-testid="SmartToyIcon"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="AutoAwesomeIcon"]')).not.toBeNull();
     expect(panelEl()).toBeNull();
   });
 
