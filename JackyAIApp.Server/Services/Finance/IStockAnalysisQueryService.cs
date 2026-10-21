@@ -11,13 +11,13 @@ namespace JackyAIApp.Server.Services.Finance
     /// </summary>
     public interface IStockAnalysisQueryService
     {
-        Task<ServiceResult> AnalyzeStockAsync(StockSearchRequest request, CancellationToken cancellationToken);
-        Task<ServiceResult> GetTechnicalIndicatorsAsync(string stockCode, CancellationToken cancellationToken);
-        Task<ServiceResult> GetChipAnalysisAsync(string stockCode, CancellationToken cancellationToken);
-        Task<ServiceResult> GetStockScoreAsync(string stockCode, CancellationToken cancellationToken);
-        Task<ServiceResult> GetComprehensiveAnalysisAsync(StockAnalysisRequest request, CancellationToken cancellationToken);
+        Task<ServiceResult<StockTrendAnalysis>> AnalyzeStockAsync(StockSearchRequest request, CancellationToken cancellationToken);
+        Task<ServiceResult<TechnicalAnalysisResponse>> GetTechnicalIndicatorsAsync(string stockCode, CancellationToken cancellationToken);
+        Task<ServiceResult<ChipAnalysisResponse>> GetChipAnalysisAsync(string stockCode, CancellationToken cancellationToken);
+        Task<ServiceResult<StockScoreResponse>> GetStockScoreAsync(string stockCode, CancellationToken cancellationToken);
+        Task<ServiceResult<StockAnalysisResult>> GetComprehensiveAnalysisAsync(StockAnalysisRequest request, CancellationToken cancellationToken);
 
         /// <summary>Daily OHLC bars for the trendline chart: a stock's cached recent history, or about six years of the TAIEX for code <c>TAIEX</c>.</summary>
-        Task<ServiceResult> GetPriceBarsAsync(string code, string? market, CancellationToken cancellationToken);
+        Task<ServiceResult<PriceBarsResponse>> GetPriceBarsAsync(string code, string? market, CancellationToken cancellationToken);
     }
 }

@@ -1,6 +1,7 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Controllers;
 using JackyAIApp.Server.Data;
+using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Exam;
 using JackyAIApp.Server.Services.Listening;
@@ -84,7 +85,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             await SeedUserAsync("admin-1", isAdmin: true);
             _userServiceMock.Setup(x => x.GetUserId()).Returns("admin-1");
             _listeningQuestionGeneratorMock.Setup(x => x.GenerateAsync("admin-1"))
-                .ReturnsAsync(ServiceResult.Ok(new { Id = "lst-new" }));
+                .ReturnsAsync(ServiceResult.Ok(new ListeningTestResponse { Id = "lst-new", ImageUrl = "https://img/lst-new.png", Options = [] }));
 
             var result = await _controller.GenerateListeningQuestion();
 

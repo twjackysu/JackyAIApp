@@ -211,10 +211,7 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetAiTechSummary(string market, string symbol, CancellationToken ct)
         {
             var userId = RequireUserId();
-            var (result, error, errorCode) = await portfolioService.GetAiTechSummaryAsync(userId, market, symbol, ct);
-            if (result == null)
-                return responseFactory.CreateErrorResponse(errorCode ?? ErrorCodes.InternalServerError, error ?? "AI 總結失敗");
-            return responseFactory.CreateOKResponse(result);
+            return responseFactory.ToActionResult(await portfolioService.GetAiTechSummaryAsync(userId, market, symbol, ct));
         }
     }
 }

@@ -27,7 +27,7 @@ namespace JackyAIApp.Server.Services.Dictionary
 
         private static string CacheKey(string lowerWord) => $"Get_Dictionary_{lowerWord}";
 
-        public async Task<ServiceResult> GetWordAsync(string word)
+        public async Task<ServiceResult<DTO.Word>> GetWordAsync(string word)
         {
             var lowerWord = word.Trim().ToLower();
 
@@ -92,7 +92,7 @@ namespace JackyAIApp.Server.Services.Dictionary
             return ServiceResult.Ok(WordMapper.ToDto(dbWord));
         }
 
-        public async Task<ServiceResult> InvalidateWordAsync(string word)
+        public async Task<ServiceResult<DTO.Word>> InvalidateWordAsync(string word)
         {
             var lowerWord = word.Trim().ToLower();
             _memoryCache.Remove(CacheKey(lowerWord));
@@ -110,7 +110,7 @@ namespace JackyAIApp.Server.Services.Dictionary
             return ServiceResult.Ok(WordMapper.ToDto(result));
         }
 
-        public ServiceResult SuggestWords(string word)
+        public ServiceResult<WordSuggestionsResponse> SuggestWords(string word)
         {
             var lowerWord = word.Trim().ToLower();
             if (string.IsNullOrEmpty(lowerWord))

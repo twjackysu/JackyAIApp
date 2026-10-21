@@ -45,8 +45,8 @@ namespace JackyAIApp.Server.Tests.Services
             return (new SessionDataStore(cache, options, budget), cache, budget);
         }
 
-        private static string SessionId(ServiceResult result) =>
-            ((SessionUploadResponseDto)result.Data!).SessionId;
+        private static string SessionId(ServiceResult<SessionUploadResponseDto> result) =>
+            result.Data!.SessionId;
 
         // ── Shape and size of one upload ─────────────────────────────────────
 

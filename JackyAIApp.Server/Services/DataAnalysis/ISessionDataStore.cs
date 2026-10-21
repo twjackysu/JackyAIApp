@@ -10,17 +10,17 @@ namespace JackyAIApp.Server.Services.DataAnalysis
     /// </summary>
     public interface ISessionDataStore
     {
-        ServiceResult Upload(SessionUploadDto dto);
-        ServiceResult GetSchema(string sessionId);
-        ServiceResult GetMaxDate(string sessionId, string dateField);
-        ServiceResult GetDistinctValues(string sessionId, string field, int limit = 200);
-        ServiceResult Summarize(string sessionId, SummarizeRequestDto dto);
-        ServiceResult Details(string sessionId, DetailsRequestDto dto);
+        ServiceResult<SessionUploadResponseDto> Upload(SessionUploadDto dto);
+        ServiceResult<SessionSchemaDto> GetSchema(string sessionId);
+        ServiceResult<SessionMaxDateDto> GetMaxDate(string sessionId, string dateField);
+        ServiceResult<SessionDistinctValuesDto> GetDistinctValues(string sessionId, string field, int limit = 200);
+        ServiceResult<SessionRowsDto> Summarize(string sessionId, SummarizeRequestDto dto);
+        ServiceResult<SessionDetailsDto> Details(string sessionId, DetailsRequestDto dto);
 
         /// <summary>
         /// Every row passing the request's filters, in its sort order, up to <paramref name="maxRows"/>
         /// (Skip/Take are ignored). Data is a <see cref="SessionExport"/>.
         /// </summary>
-        ServiceResult Export(string sessionId, DetailsRequestDto dto, int maxRows);
+        ServiceResult<SessionExport> Export(string sessionId, DetailsRequestDto dto, int maxRows);
     }
 }

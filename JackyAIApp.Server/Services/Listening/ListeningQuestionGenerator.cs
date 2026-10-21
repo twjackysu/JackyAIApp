@@ -50,7 +50,7 @@ namespace JackyAIApp.Server.Services.Listening
             })
         );
 
-        public async Task<ServiceResult> GenerateAsync(string? userId)
+        public async Task<ServiceResult<ListeningTestResponse>> GenerateAsync(string? userId)
         {
             var scenario = Scenarios[Random.Shared.Next(Scenarios.Length)];
 

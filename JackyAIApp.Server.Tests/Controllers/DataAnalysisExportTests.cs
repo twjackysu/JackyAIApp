@@ -231,7 +231,7 @@ namespace JackyAIApp.Server.Tests.Controllers
                     new() { ["Region"] = "EMEA", ["Amount"] = "7.5", ["Day"] = "2026-01-04" },
                 ],
             });
-            return (store, ((SessionUploadResponseDto)upload.Data!).SessionId);
+            return (store, upload.Data!.SessionId);
         }
 
         [Fact]

@@ -1,4 +1,5 @@
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.DTO;
 
 namespace JackyAIApp.Server.Services.Listening
 {
@@ -6,6 +7,6 @@ namespace JackyAIApp.Server.Services.Listening
     /// image model), persists it to the bank, and returns it.</summary>
     public interface IListeningQuestionGenerator
     {
-        Task<ServiceResult> GenerateAsync(string? userId);
+        Task<ServiceResult<ListeningTestResponse>> GenerateAsync(string? userId);
     }
 }

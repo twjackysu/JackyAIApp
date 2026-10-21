@@ -85,14 +85,14 @@ namespace JackyAIApp.Server.Services.Chatbot
             }
         }
 
-        private async Task<T?> Fetch<T>(string what, Func<CancellationToken, Task<Common.ServiceResult>> get)
+        private async Task<T?> Fetch<T>(string what, Func<CancellationToken, Task<Common.ServiceResult<T>>> get)
             where T : class
         {
             using var timeout = new CancellationTokenSource(SourceTimeout);
             try
             {
                 var result = await get(timeout.Token);
-                return result.IsSuccess ? result.Data as T : null;
+                return result.IsSuccess ? result.Data : null;
             }
             catch (Exception ex)
             {

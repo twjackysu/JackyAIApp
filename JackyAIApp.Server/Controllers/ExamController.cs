@@ -193,14 +193,14 @@ namespace JackyAIApp.Server.Controllers
 
         /// <summary>Shared unbilled-TTS-lookup helper: resolves a ServiceResult&lt;string&gt; text
         /// lookup into a cached-or-freshly-synthesized audio response.</summary>
-        private async Task<IActionResult> ToAudioResultAsync(ServiceResult lookup)
+        private async Task<IActionResult> ToAudioResultAsync(ServiceResult<string> lookup)
         {
             if (!lookup.IsSuccess)
             {
-                return _responseFactory.CreateErrorResponse(lookup.Error!.Value, lookup.ErrorMessage!);
+                return _responseFactory.CreateErrorResponse(lookup.Error.Value, lookup.ErrorMessage);
             }
 
-            var text = (string)lookup.Data!;
+            var text = lookup.Data;
             const string voice = "alloy";
             var model = Models.Tts_1;
             const float speed = 1.0f;

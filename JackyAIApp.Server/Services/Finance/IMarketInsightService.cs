@@ -1,4 +1,5 @@
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.DTO.Finance;
 
 namespace JackyAIApp.Server.Services.Finance
 {
@@ -9,7 +10,7 @@ namespace JackyAIApp.Server.Services.Finance
     /// </summary>
     public interface IMarketInsightService
     {
-        Task<ServiceResult> GetMarketDigestAsync(CancellationToken cancellationToken);
-        Task<ServiceResult> GetIndicatorInsightAsync(string id, CancellationToken cancellationToken);
+        Task<ServiceResult<MarketDigestResponse>> GetMarketDigestAsync(CancellationToken cancellationToken);
+        Task<ServiceResult<IndicatorInsight>> GetIndicatorInsightAsync(string id, CancellationToken cancellationToken);
     }
 }

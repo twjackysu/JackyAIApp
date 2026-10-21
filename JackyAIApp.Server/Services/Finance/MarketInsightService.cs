@@ -37,7 +37,7 @@ namespace JackyAIApp.Server.Services.Finance
         /// day), but each user is charged <see cref="UsageCosts.MarketDigest"/> once per day
         /// to unlock it — repeat views the same day are free.
         /// </summary>
-        public async Task<ServiceResult> GetMarketDigestAsync(CancellationToken cancellationToken)
+        public async Task<ServiceResult<MarketDigestResponse>> GetMarketDigestAsync(CancellationToken cancellationToken)
         {
             var userId = _userService.GetUserId();
             if (string.IsNullOrEmpty(userId))
@@ -50,10 +50,10 @@ namespace JackyAIApp.Server.Services.Finance
             var digest = _memoryCache.TryGetValue(contentKey, out object? cached) ? cached as MarketDigestResponse : null;
             if (digest is null)
             {
-                var (generated, error) = await GenerateMarketDigestAsync(cancellationToken);
-                if (generated is null)
-                    return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, error ?? "Failed to generate market digest.");
-                digest = generated;
+                var generated = await GenerateMarketDigestAsync(cancellationToken);
+                if (!generated.IsSuccess)
+                    return generated.AsFailure();
+                digest = generated.Data;
                 _memoryCache.Set(contentKey, digest, TimeSpan.FromHours(CACHE_HOURS));
             }
 
@@ -75,7 +75,7 @@ namespace JackyAIApp.Server.Services.Finance
         /// Gathers the three grounding sources in parallel and calls gpt-6-luna to produce the
         /// unified digest. Pure generation — no caching or usage-limit logic.
         /// </summary>
-        private async Task<(MarketDigestResponse? digest, string? error)> GenerateMarketDigestAsync(CancellationToken cancellationToken)
+        private async Task<ServiceResult<MarketDigestResponse>> GenerateMarketDigestAsync(CancellationToken cancellationToken)
         {
             // Fetch the three sources in parallel. News + TW announcements are best-effort.
             var overviewTask = _marketData.GetMarketOverviewAsync(cancellationToken);
@@ -88,11 +88,11 @@ namespace JackyAIApp.Server.Services.Finance
 
             var overviewResult = overviewTask.Result;
             if (!overviewResult.IsSuccess)
-                return (null, overviewResult.ErrorMessage);
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, overviewResult.ErrorMessage);
 
-            var overview = (MarketOverviewResponse)overviewResult.Data!;
+            var overview = overviewResult.Data;
             if (overview.Quotes.Count == 0)
-                return (null, "No market data available for the digest.");
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, "No market data available for the digest.");
 
             var dataText = string.Join("\n", overview.Quotes.Select(q =>
             {
@@ -133,15 +133,15 @@ namespace JackyAIApp.Server.Services.Finance
                     systemPrompt, userMessage, NewModels.GPT_6_LUNA, feature: "finance.market_digest");
 
                 if (result is null || result.Points.Count == 0)
-                    return (null, error ?? "Failed to generate market digest.");
+                    return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, error ?? "Failed to generate market digest.");
 
                 result.GeneratedAt = DateTime.UtcNow;
-                return (result, null);
+                return ServiceResult.Ok(result);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to generate market digest");
-                return (null, "Failed to generate market digest.");
+                return ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, "Failed to generate market digest.");
             }
         }
 
@@ -192,21 +192,21 @@ namespace JackyAIApp.Server.Services.Finance
             }
         }
 
-        public async Task<ServiceResult> GetIndicatorInsightAsync(string id, CancellationToken cancellationToken)
+        public async Task<ServiceResult<IndicatorInsight>> GetIndicatorInsightAsync(string id, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(id))
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Indicator id is required.");
 
             var cacheKey = $"IndicatorInsight_{id}_{DateTime.Today:yyyyMMdd}";
-            if (_memoryCache.TryGetValue(cacheKey, out object? cached))
+            if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is IndicatorInsight cached)
                 return ServiceResult.Ok(cached);
 
             // Reuse the cached indicator set to build the prompt context.
             var indicatorsResult = await _marketData.GetIndicatorsAsync(cancellationToken);
             if (!indicatorsResult.IsSuccess)
-                return indicatorsResult;
+                return indicatorsResult.AsFailure();
 
-            var indicators = (IndicatorExplorerResponse)indicatorsResult.Data!;
+            var indicators = indicatorsResult.Data;
             var series = indicators.Indicators.FirstOrDefault(i => i.Id == id);
             if (series is null)
                 return ServiceResult.Fail(ErrorCodes.NotFound, $"Indicator '{id}' not found.");

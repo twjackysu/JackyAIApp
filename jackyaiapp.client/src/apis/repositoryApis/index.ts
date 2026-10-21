@@ -6,7 +6,7 @@ import { refreshLearningStats } from '../statsApis';
 import { ApiOkResponse } from '../types';
 import { alsoRefresh } from '../utils/alsoRefresh';
 
-import { AddWordPackResult, GetRepositoryWordRequest, PersonalWord, WordPack } from './types';
+import { AddWordPackResult, GetRepositoryWordRequest, WordPack } from './types';
 
 import { Word } from '@/apis/dictionaryApis/types';
 
@@ -35,7 +35,7 @@ export const repositoryApis = createApi({
       providesTags: (result, _, arg) =>
         result ? [{ type: 'PersonalWord' as const, id: arg }, 'PersonalWord'] : ['PersonalWord'],
     }),
-    putRepositoryWord: builder.mutation<ApiOkResponse<PersonalWord>, string>({
+    putRepositoryWord: builder.mutation<ApiOkResponse<void>, string>({
       query: (wordId) => ({
         url: `word/${wordId}`,
         method: 'PUT',

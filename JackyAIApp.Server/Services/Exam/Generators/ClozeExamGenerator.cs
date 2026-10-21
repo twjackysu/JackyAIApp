@@ -18,13 +18,13 @@ namespace JackyAIApp.Server.Services.Exam.Generators
 
         public ExamType Type => ExamType.Cloze;
 
-        public async Task<ServiceResult> GenerateAsync(SQL.Word word)
+        public async Task<ServiceResult<object>> GenerateAsync(SQL.Word word)
         {
             // Reuse a stored test once enough have accumulated.
             if (word.ClozeTests != null && word.ClozeTests.Count > 3)
             {
                 var randomTest = word.ClozeTests.ElementAt(Random.Shared.Next(word.ClozeTests.Count));
-                return ServiceResult.Ok(ToDto(randomTest, word.Id));
+                return ServiceResult.Ok<object>(ToDto(randomTest, word.Id));
             }
 
             var example = (
@@ -81,7 +81,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
                 _logger.LogInformation("ClozeTest added to DB for word: {Word}", word.WordText);
             }
 
-            return ServiceResult.Ok(ToDto(newClozeTest, word.Id));
+            return ServiceResult.Ok<object>(ToDto(newClozeTest, word.Id));
         }
 
         private static ClozeTestResponse ToDto(SQL.ClozeTest sql, string wordId) => new()

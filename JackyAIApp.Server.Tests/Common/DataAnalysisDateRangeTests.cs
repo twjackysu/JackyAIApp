@@ -75,11 +75,11 @@ namespace JackyAIApp.Server.Tests.Common
                     new() { ["OrderDate"] = "2026-10-14T00:00:00", ["Revenue"] = "1" },
                 ],
             });
-            var sessionId = ((SessionUploadResponseDto)upload.Data!).SessionId;
+            var sessionId = upload.Data!.SessionId;
 
             var result = store.Details(sessionId, new DetailsRequestDto { Filters = [Between("2026-10-12", "2026-10-13")] });
 
-            var totalCount = (int)result.Data!.GetType().GetProperty("totalCount")!.GetValue(result.Data)!;
+            var totalCount = result.Data!.TotalCount;
             Assert.Equal(2, totalCount);
         }
     }
