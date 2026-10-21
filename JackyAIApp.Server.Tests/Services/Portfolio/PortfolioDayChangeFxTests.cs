@@ -60,7 +60,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             _service = new PortfolioService(
                 _db, _providers.Object, new Mock<IFundDataService>().Object, dividends.Object,
                 new Mock<IStockCategoryService>().Object, twListedCompanies: null!, new Mock<IHttpClientFactory>().Object,
-                cache, new Mock<IOpenAIPromptService>().Object, new Mock<IUsageLimitService>().Object,
+                cache, new Mock<IOpenAIPromptService>().Object,
                 NullLogger<PortfolioService>.Instance,
                 timeProvider: new FixedTime(Monday),
                 cathayFx: cathay.Object);

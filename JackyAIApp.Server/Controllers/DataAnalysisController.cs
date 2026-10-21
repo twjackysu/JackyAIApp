@@ -35,7 +35,6 @@ namespace JackyAIApp.Server.Controllers
         IDataSourceConfigService configService,
         ISessionDataStore sessionStore,
         IOpenAIPromptService openAIPromptService,
-        IUsageLimitService usageLimitService,
         IPromptLoader promptLoader,
         INlQueryPlanner nlPlanner,
         IMemoryCache cache) : ApiControllerBase
@@ -47,7 +46,6 @@ namespace JackyAIApp.Server.Controllers
         private readonly IDataSourceConfigService        _configService         = configService;
         private readonly ISessionDataStore               _sessionStore          = sessionStore;
         private readonly IOpenAIPromptService            _openAIPromptService   = openAIPromptService;
-        private readonly IUsageLimitService              _usageLimitService     = usageLimitService;
         private readonly IPromptLoader                   _promptLoader          = promptLoader;
         private readonly INlQueryPlanner                 _nlPlanner             = nlPlanner;
         private readonly IMemoryCache                    _cache                 = cache;
@@ -488,6 +486,7 @@ namespace JackyAIApp.Server.Controllers
         /// </summary>
         [HttpPost("summarize/nl")]
         [Authorize]
+        [UsageLimit(UsageCosts.NlSummarize, "nl_summarize")]
         public async Task<IActionResult> NlSummarize(
             [FromBody] NlSummarizeRequestDto dto,
             CancellationToken ct = default)
@@ -507,9 +506,6 @@ namespace JackyAIApp.Server.Controllers
 
                 var sessionFields = (List<SessionFieldDefDto>)((dynamic)schemaResult.Data!).fields;
                 var fields = sessionFields.Select(f => (f.Name, f.CanonicalType)).ToList();
-
-                var charge = await TryChargeNlSummarizeAsync(userId);
-                if (charge is not null) return charge;
 
                 var planResult = await _nlPlanner.BuildPlanAsync(
                     fields, dto.Query, summarizePrompt,
@@ -546,9 +542,6 @@ namespace JackyAIApp.Server.Controllers
 
             var engineFields = fieldResult.Value!.Fields.Select(f => (f.Name, f.CanonicalType.ToString())).ToList();
             var engineFieldNames = engineFields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            var engineCharge = await TryChargeNlSummarizeAsync(userId);
-            if (engineCharge is not null) return engineCharge;
 
             var enginePlanResult = await _nlPlanner.BuildPlanAsync(
                 engineFields, dto.Query, summarizePrompt,
@@ -588,18 +581,6 @@ namespace JackyAIApp.Server.Controllers
                 Notes          = enginePlanResult.Notes.Count > 0 ? enginePlanResult.Notes : null,
                 Unmatched      = enginePlanResult.Unmatched.Count > 0 ? enginePlanResult.Unmatched : null,
             });
-        }
-
-        /// <summary>Charges NlSummarize usage. The endpoint is <c>[Authorize]</c>d so a user is always present; returns an error result when the daily usage limit is exceeded, else null.</summary>
-        private async Task<IActionResult?> TryChargeNlSummarizeAsync(string? userId)
-        {
-            if (userId is not null &&
-                !await _usageLimitService.TryConsumeAsync(userId, UsageCosts.NlSummarize, "nl_summarize"))
-            {
-                return _responseFactory.CreateErrorResponse(
-                    ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
-            }
-            return null;
         }
 
         /// <summary>Returns the max (latest) value of a date column on the resolved engine, as an ISO string, or null.</summary>

@@ -24,7 +24,6 @@ namespace JackyAIApp.Server.Services.Portfolio
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
         IOpenAIPromptService openAI,
-        IUsageLimitService usageLimitService,
         ILogger<PortfolioService> logger,
         TimeProvider? timeProvider = null,
         // Optional for the same reason TimeProvider is: tests construct this class directly. The
@@ -1482,11 +1481,6 @@ namespace JackyAIApp.Server.Services.Portfolio
                 ? p.AssetType == AssetType.FUND && p.Symbol == sym
                 : p.AssetType == AssetType.STOCK && p.Market == market.ToUpperInvariant() && p.Symbol == sym);
             if (pos == null) return (null, "找不到此持倉", ErrorCodes.NotFound);
-
-            if (!await usageLimitService.TryConsumeAsync(userId, UsageCosts.PortfolioAiSummary, "portfolio_ai_summary"))
-            {
-                return (null, "Daily usage limit exceeded.", ErrorCodes.UsageLimitExceeded);
-            }
 
             List<decimal> closes;
             List<decimal>? highs = null, lows = null;

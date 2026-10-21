@@ -19,6 +19,7 @@ namespace JackyAIApp.Server.Controllers
         IUserService userService,
         IAnthropicChatService chatService,
         IUsageLimitService usageLimitService,
+        UsageLedger usageLedger,
         IChatAttachmentStore attachmentStore,
         IAnthropicFileStore anthropicFiles,
         ChatTurnRegistry turns,
@@ -32,6 +33,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly IUserService _userService = userService;
         private readonly IAnthropicChatService _chatService = chatService;
         private readonly IUsageLimitService _usageLimitService = usageLimitService;
+        private readonly UsageLedger _usageLedger = usageLedger;
         private readonly AzureSQLDBContext _dbContext = dbContext;
 
         /// <summary>
@@ -81,8 +83,10 @@ namespace JackyAIApp.Server.Controllers
                     .Where(a => a.MessageId == editId && a.UserId == userId)
                     .ToListAsync(HttpContext.RequestAborted);
 
-            // Charge per message up front (anti-abuse / cost control), plus each attachment. Refunded
-            // below if the model never started responding, so users aren't charged for nothing.
+            // Charge per message up front (anti-abuse / cost control), plus each attachment. Charged
+            // here rather than through [UsageLimit] because the cost depends on the attachments.
+            // Whether it is refunded is UsageLedger's rule, like every other charge: the stream has
+            // sent 200 before it can fail, so a failure is reported to the ledger below.
             var cost = UsageCosts.ChatMessage + attachments.Concat(editAttachments)
                 .Aggregate(0UL, (sum, a) => sum + UsageCosts.ForChatAttachment(a.PageCount));
             if (!await _usageLimitService.TryConsumeAsync(userId, cost, "chatbot_message"))
@@ -99,7 +103,7 @@ namespace JackyAIApp.Server.Controllers
                     _dbContext, userId, request.ConversationId!, editId.Value, HttpContext.RequestAborted);
                 if (rewind == null)
                 {
-                    await RefundChatMessageAsync(userId, cost);
+                    // Refunded at the end of the request: a 404 with no AI call.
                     Response.StatusCode = 404;
                     await Response.WriteAsync("Message not found.");
                     return;
@@ -115,23 +119,19 @@ namespace JackyAIApp.Server.Controllers
 
                 // The service has already told the client why (an SSE error event with a code).
                 if (!result.StreamingStarted)
-                    await RefundChatMessageAsync(userId, cost);
+                    _usageLedger.MarkFailed();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled error during chat streaming");
+                _usageLedger.MarkFailed();
                 if (!Response.HasStarted)
                 {
-                    await RefundChatMessageAsync(userId, cost);
                     Response.StatusCode = 500;
                     await Response.WriteAsync("Internal server error");
                 }
             }
         }
-
-        /// <summary>Refunds a chat message charge when no answer was delivered.</summary>
-        private Task RefundChatMessageAsync(string userId, ulong cost) =>
-            _usageLimitService.RefundAsync(userId, cost, "chatbot_message");
 
         /// <summary>Files sent with one message, and unsent uploads kept per user.</summary>
         internal const int MaxAttachmentsPerMessage = 5;

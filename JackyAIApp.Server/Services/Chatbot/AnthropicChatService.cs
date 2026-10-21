@@ -27,6 +27,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         ChatTurnRegistry turns,
         IMarketBackground marketBackground,
         IAiUsageLogger usageLogger,
+        UsageLedger usageLedger,
         IOptionsMonitor<Settings> settings,
         ILogger<AnthropicChatService> logger,
         TimeProvider? timeProvider = null) : IAnthropicChatService
@@ -270,6 +271,8 @@ namespace JackyAIApp.Server.Services.Chatbot
                         }
                         else if (evt.TryPickStart(out var startEvt))
                         {
+                            // Anthropic bills from here on, whether or not any answer text follows.
+                            usageLedger.MarkAiBilled();
                             var u = startEvt.Message.Usage;
                             usage.Update(u.InputTokens, u.CacheCreationInputTokens, u.CacheReadInputTokens, u.OutputTokens);
                         }

@@ -221,6 +221,8 @@ try
     }
 
     app.UseResponseCompression();
+    // Outside ExceptionMiddleware, so it sees an unhandled exception as the 500 it becomes.
+    app.UseMiddleware<UsageSettlementMiddleware>();
     app.UseMiddleware<ExceptionMiddleware>();
 
     // Link-preview bots (LINE/Facebook/etc.) don't execute JS, so intercept them before the

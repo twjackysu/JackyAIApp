@@ -117,7 +117,7 @@ namespace JackyAIApp.Server.Tests.Controllers
                 NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
                 new DataSourceResolver(defaultEngine, null!, null!, NullLogger<DataSourceResolver>.Instance),
                 dbContext: null!, configService: null!, sessionStore: sessions ?? null!,
-                openAIPromptService: null!, usageLimitService: null!, promptLoader: null!, nlPlanner: null!,
+                openAIPromptService: null!, promptLoader: null!, nlPlanner: null!,
                 cache: new MemoryCache(new MemoryCacheOptions()));
             var http = new DefaultHttpContext();
             http.Response.Body = new MemoryStream();

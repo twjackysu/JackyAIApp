@@ -176,7 +176,6 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 new Mock<IHttpClientFactory>().Object,
                 cache,
                 new Mock<IOpenAIPromptService>().Object,
-                new Mock<IUsageLimitService>().Object,
                 NullLogger<PortfolioService>.Instance,
                 timeProvider: null,
                 tdccFx: _tdccFx.Object);

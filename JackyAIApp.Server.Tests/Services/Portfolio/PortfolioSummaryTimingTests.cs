@@ -50,7 +50,6 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 new Mock<IHttpClientFactory>().Object,
                 new MemoryCache(new MemoryCacheOptions()),
                 new Mock<IOpenAIPromptService>().Object,
-                new Mock<IUsageLimitService>().Object,
                 NullLogger<PortfolioService>.Instance,
                 timeProvider: new FixedTime(Today),
                 timing: _timing);
