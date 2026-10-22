@@ -6,7 +6,6 @@ using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Market;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using System.Diagnostics;
 
 namespace JackyAIApp.Server.Services.Portfolio
@@ -17,7 +16,6 @@ namespace JackyAIApp.Server.Services.Portfolio
         IPortfolioPriceLoader priceLoader,
         IDividendService dividendData,
         IStockCategoryService categoryService,
-        IMemoryCache cache,
         ILogger<PortfolioService> logger,
         TimeProvider? timeProvider = null,
         // Optional for the same reason TimeProvider is: tests construct this class directly. The
@@ -41,12 +39,6 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// live rate instead.</summary>
         private static decimal SnapshotFx(HoldingSnapshot snapshot) =>
             snapshot.UsdTwdRate > 0 ? snapshot.UsdTwdRate : PortfolioPriceLoader.FallbackUsdTwdRate;
-        private const string SNAPSHOTS_CACHE_PREFIX = "portfolio_snapshots_";
-
-        // Deliberately shorter than every other Portfolio TTL (CacheTtl.cs) — this only needs to
-        // survive one page-load burst of concurrent requests, not actually keep data "fresh" across
-        // user edits; SaveHoldingsAsync/DeleteSnapshotAsync invalidate it immediately regardless.
-        private static readonly TimeSpan SnapshotsCacheTtl = TimeSpan.FromSeconds(30);
 
         private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
@@ -117,7 +109,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             db.HoldingSnapshots.Add(snapshot);
             await db.SaveChangesAsync(ct);
-            cache.Remove(SNAPSHOTS_CACHE_PREFIX + userId);
+            snapshotReader.Invalidate(userId);
         }
 
         public async Task<SaveHoldingsRequest> GetLatestHoldingsAsync(string userId, CancellationToken ct = default)
@@ -183,7 +175,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             db.HoldingSnapshots.Remove(snapshot); // cascade deletes positions
             await db.SaveChangesAsync(ct);
-            cache.Remove(SNAPSHOTS_CACHE_PREFIX + userId);
+            snapshotReader.Invalidate(userId);
             return true;
         }
 
@@ -208,7 +200,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             string userId, decimal feeDiscountRate = 0.28m, CancellationToken ct = default)
         {
             var total = Stopwatch.StartNew();
-            var allSnapshots = await Timed("snapshots", () => AllSnapshotsAsync(userId, ct),
+            var allSnapshots = await Timed("snapshots", () => snapshotReader.AllAsync(userId, ct),
                 s => $"{s.Count} snapshots / {s.Sum(x => x.Positions.Count)} positions");
             if (allSnapshots.Count == 0) return new PortfolioSummaryDto();
             var snapshot = allSnapshots[^1];
@@ -717,7 +709,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         private async Task<List<NetWorthDataPoint>> GetNetWorthHistoryCoreAsync(
             string userId, DateOnly startDate, DateOnly endDate, NetWorthGroupBy groupBy, CancellationToken ct)
         {
-            var snapshots = await AllSnapshotsAsync(userId, ct);
+            var snapshots = await snapshotReader.AllAsync(userId, ct);
 
             if (snapshots.Count == 0) return [];
 
@@ -788,7 +780,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     r => r.Symbol, r => string.IsNullOrWhiteSpace(r.SubCategory) ? "未分類" : r.SubCategory);
             }
 
-            // Snapshots are sorted ascending by EffectiveDate (AllSnapshotsAsync), and `date` only
+            // Snapshots are sorted ascending by EffectiveDate (IHoldingSnapshotReader.AllAsync), and `date` only
             // ever increases below — walk a single cursor forward instead of re-scanning the whole
             // snapshot list ("active = latest with EffectiveDate <= date") on every day.
             var snapshotIdx = 0;
@@ -903,7 +895,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             days = Math.Clamp(days, 30, 1095);
 
-            var snapshots = await AllSnapshotsAsync(userId, ct);
+            var snapshots = await snapshotReader.AllAsync(userId, ct);
             if (snapshots.Count == 0) return new DrawdownAnalysisDto();
 
             var today = Today;
@@ -1046,7 +1038,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .ToList();
             if (symbols.Count == 0) symbols = [.. DefaultBenchmarkSymbols];
 
-            var snapshots = await AllSnapshotsAsync(userId, ct);
+            var snapshots = await snapshotReader.AllAsync(userId, ct);
             if (snapshots.Count == 0)
                 return new BenchmarkComparisonDto { Benchmarks = symbols.Select(s => new BenchmarkSeriesDto { Symbol = s }).ToList() };
 
@@ -1371,32 +1363,6 @@ namespace JackyAIApp.Server.Services.Portfolio
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Every snapshot for a user, oldest first — the full timeline, not just the latest.
-        ///
-        /// A single page load (summary + net-worth-history ×2 + benchmark + drawdown) calls this
-        /// 5 times for the same user. Short-TTL cache + single-flight collapses that into one
-        /// Include(Positions) query per burst; the TTL is short enough that a stale read between
-        /// edits is not a real concern, and <see cref="SaveHoldingsAsync"/>/
-        /// <see cref="DeleteSnapshotAsync"/> invalidate it immediately anyway.
-        /// </summary>
-        private Task<List<HoldingSnapshot>> AllSnapshotsAsync(string userId, CancellationToken ct)
-        {
-            return cache.GetOrCreateSingleFlightAsync(SNAPSHOTS_CACHE_PREFIX + userId, SnapshotsCacheTtl, async () =>
-            {
-                // No tracking: read-only, and shared from the cache across requests. Tracking
-                // every position of every snapshot only added change-tracker work that grows
-                // with the snapshot count.
-                var snapshots = await db.HoldingSnapshots
-                    .AsNoTracking()
-                    .Include(s => s.Positions)
-                    .Where(s => s.UserId == userId)
-                    .OrderBy(s => s.EffectiveDate)
-                    .ToListAsync(CancellationToken.None);
-                return snapshots;
-            }, ct);
-        }
 
         /// <summary>
         /// Per-ex-date TWD dividends earned by the COST-TRACKED stock/fund positions only, for the

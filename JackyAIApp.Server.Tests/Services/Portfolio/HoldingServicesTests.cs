@@ -6,6 +6,7 @@ using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Moq;
 
 namespace JackyAIApp.Server.Tests.Services.Portfolio
@@ -18,8 +19,13 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     {
         private const string UserId = "holding-user";
 
-        private readonly AzureSQLDBContext _db = new(new DbContextOptionsBuilder<AzureSQLDBContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        // A database per test (xUnit makes an instance per test).
+        private readonly DbContextOptions<AzureSQLDBContext> _options = new DbContextOptionsBuilder<AzureSQLDBContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+
+        private readonly AzureSQLDBContext _db;
+
+        public HoldingServicesTests() => _db = new AzureSQLDBContext(_options);
 
         public void Dispose() => _db.Dispose();
 
@@ -55,7 +61,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         public async Task FindLatestPosition_MatchesAStockOnItsMarket_AndAFundByIdAlone()
         {
             await SeedAsync();
-            var reader = new HoldingSnapshotReader(_db);
+            var reader = new PortfolioServiceBuilder(_db).BuildSnapshotReader();
 
             var stock = await reader.FindLatestPositionAsync(UserId, "tw", "2330", default);
             var fund = await reader.FindLatestPositionAsync(UserId, "FUND", "f1", default);
@@ -65,6 +71,27 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Null(await reader.FindLatestPositionAsync(UserId, "US", "2330", default));
             Assert.Null(await reader.FindLatestPositionAsync(UserId, "TW", "2317", default));
             Assert.Null(await reader.FindLatestPositionAsync("nobody", "TW", "2330", default));
+        }
+
+        [Fact]
+        public async Task TheTimeline_IsReadOnAContextOfItsOwn_AndCachedUntilInvalidated()
+        {
+            // One page load's requests share this read, and the one that started it may end first:
+            // the read must not live on that request's DbContext.
+            await SeedAsync();
+            var factory = new TestDbContextFactory(_options);
+            var reader = new HoldingSnapshotReader(factory, new MemoryCache(new MemoryCacheOptions()));
+            _db.Dispose(); // the request's context, gone
+
+            var first = await reader.AllAsync(UserId, default);
+            var second = await reader.AllAsync(UserId, default);
+            reader.Invalidate(UserId);
+            var afterInvalidate = await reader.AllAsync(UserId, default);
+
+            Assert.Equal([new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1)], first.Select(s => s.EffectiveDate));
+            Assert.Same(first, second);
+            Assert.NotSame(first, afterInvalidate);
+            Assert.Equal(2, factory.Created.Count); // one read per cache fill
         }
 
         [Fact]
