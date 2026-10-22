@@ -11,7 +11,7 @@ namespace JackyAIApp.Server.Data.Configurations
         public void Configure(EntityTypeBuilder<DataSourceConfig> builder)
         {
             builder.HasOne(ds => ds.User)
-                .WithMany(u => u.DataSourceConfigs)
+                .WithMany()
                 .HasForeignKey(ds => ds.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 

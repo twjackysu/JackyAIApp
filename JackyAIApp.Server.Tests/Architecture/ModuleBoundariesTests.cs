@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using JackyAIApp.Server.Services.Market;
 
 namespace JackyAIApp.Server.Tests.Architecture
 {
@@ -8,7 +7,8 @@ namespace JackyAIApp.Server.Tests.Architecture
     /// A source file belongs to the module of its namespace; every namespace it names — a <c>using</c>,
     /// or a fully qualified name in code — must be its own module's or one its module may use.
     /// Controllers and the DI registration (<c>Extensions</c>, <c>Program</c>) wire the modules
-    /// together, and DTOs are plain data shapes, so neither is held to it.
+    /// together, and DTOs are plain data shapes, so neither is held to it. Each table belongs to one
+    /// module too, and only that module's code touches it.
     /// </summary>
     public partial class ModuleBoundariesTests
     {
@@ -70,12 +70,58 @@ namespace JackyAIApp.Server.Tests.Architecture
             ["Tools"] = ["Platform"],
         };
 
+        /// <summary>
+        /// The module that owns each table (by its <c>DbSet</c> on <c>AzureSQLDBContext</c>). Another module
+        /// that needs the data asks the owner's services: Finance and Portfolio read prices through
+        /// MarketData, not from <c>DailyStockPrices</c>.
+        /// </summary>
+        private static readonly Dictionary<string, string> TableOwners = new()
+        {
+            ["Users"] = "Platform", ["DailyUsages"] = "Platform", ["AiUsageLogs"] = "Platform",
+            ["UserConnectors"] = "Platform", ["JiraConfigs"] = "Platform",
+
+            ["DailyStockPrices"] = "MarketData", ["StockSymbolInfos"] = "MarketData", ["TwListedCompanies"] = "MarketData",
+
+            ["Words"] = "English", ["WordMeanings"] = "English", ["Definitions"] = "English",
+            ["ExampleSentences"] = "English", ["WordMeaningTags"] = "English", ["UserWords"] = "English",
+            ["ClozeTests"] = "English", ["ClozeTestOptions"] = "English", ["TranslationTests"] = "English",
+            ["SentenceTests"] = "English", ["ExamAttempts"] = "English", ["ListeningTests"] = "English",
+            ["ListeningTestOptions"] = "English", ["ListeningResponseTests"] = "English",
+            ["ListeningResponseOptions"] = "English", ["ReadingPassages"] = "English", ["ReadingQuestions"] = "English",
+            ["ReadingQuestionOptions"] = "English", ["DailyChallengeResults"] = "English", ["DailyChallengeSets"] = "English",
+
+            ["StockPredictions"] = "Finance", ["ChatConversations"] = "Finance", ["ChatMessages"] = "Finance",
+            ["ChatAttachments"] = "Finance",
+
+            ["HoldingSnapshots"] = "Portfolio", ["HoldingPositions"] = "Portfolio", ["FxRates"] = "Portfolio",
+            ["StockClassifications"] = "Portfolio",
+            ["TaiexTotalReturnDailies"] = "Portfolio", // the 回落煞車 signal, read by nothing else
+
+            ["DataSourceConfigs"] = "DataAnalysis", ["Dashboards"] = "DataAnalysis", ["DashboardWidgets"] = "DataAnalysis",
+            ["DashboardShares"] = "DataAnalysis",
+        };
+
+        /// <summary>
+        /// Tables every module may touch. <c>Users</c> is the signed-in user's row: modules read it, and
+        /// English also writes it, because the XP and streak live on it (a known exception to ownership;
+        /// moving them to a table of English's own would need a data migration).
+        /// </summary>
+        private static readonly HashSet<string> SharedTables = ["Users"];
+
         /// <summary>Not held to the rule as a source (they and what is under them); anyone may name them.
         /// The root namespace itself is too, but not what is under it.</summary>
         private static readonly string[] Unchecked = [$"{Root}.Controllers", $"{Root}.Extensions", $"{Root}.DTO"];
 
         [GeneratedRegex(@"^\s*namespace\s+([\w.]+)", RegexOptions.Multiline)]
         private static partial Regex NamespaceDeclaration();
+
+        [GeneratedRegex(@"DbSet<\w+>\s+(\w+)\s*\{")]
+        private static partial Regex DbSetDeclaration();
+
+        /// <summary>A variable holding a context: a field, parameter or local of its type, or a context a
+        /// factory made (<c>await using var db = await dbFactory.CreateDbContextAsync(…)</c>).</summary>
+        [GeneratedRegex(@"\bAzureSQLDBContext\s+(\w+)|\bvar\s+(\w+)\s*=\s*(?:await\s+)?[\w.]*CreateDbContext(?:Async)?\(")]
+        private static partial Regex ContextVariable();
 
         [GeneratedRegex(@"\bJackyAIApp\.Server(?:\.\w+)+")]
         private static partial Regex QualifiedName();
@@ -177,6 +223,59 @@ namespace JackyAIApp.Server.Tests.Architecture
                 }
             }
             return violations;
+        }
+
+        private static HashSet<string> DbSets() =>
+            DbSetDeclaration().Matches(File.ReadAllText(Path.Combine(ServerSourceDir(), "Data", "AzureSQLDBContext.cs")))
+                .Select(m => m.Groups[1].Value)
+                .ToHashSet();
+
+        /// <summary>"file: its module → the table (its owner)" for every table it touches that it may not.</summary>
+        private static List<string> TableViolations()
+        {
+            var server = ServerSourceDir();
+            var tables = DbSets();
+            var violations = new List<string>();
+            foreach (var file in ServerSources())
+            {
+                var source = WithoutComments(File.ReadAllText(file));
+                var declared = NamespaceDeclaration().Match(source);
+                if (!declared.Success || IsUnchecked(declared.Groups[1].Value))
+                    continue;
+                var module = ModuleOfNamespace(declared.Groups[1].Value);
+                var contexts = ContextVariable().Matches(source)
+                    .Select(m => m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value)
+                    .ToHashSet();
+                if (module == null || contexts.Count == 0)
+                    continue;
+
+                var access = new Regex($@"\b(?:{string.Join('|', contexts.Select(Regex.Escape))})\s*\.\s*(\w+)\b");
+                foreach (var table in access.Matches(source).Select(m => m.Groups[1].Value).Where(tables.Contains).Distinct())
+                {
+                    var owner = TableOwners.GetValueOrDefault(table);
+                    if (owner == module || SharedTables.Contains(table))
+                        continue;
+                    violations.Add($"{Path.GetRelativePath(server, file)}: {module} → {table} ({owner ?? "no owner"})");
+                }
+            }
+            return violations;
+        }
+
+        [Fact]
+        public void EachModule_TouchesOnlyItsOwnTables()
+        {
+            var violations = TableViolations();
+            Assert.True(violations.Count == 0, "Tables touched by a module that does not own them:\n" + string.Join("\n", violations.Order()));
+        }
+
+        [Fact]
+        public void EveryTable_HasAnOwner()
+        {
+            var tables = DbSets();
+            Assert.True(tables.Count > 30);
+            Assert.All(tables, t => Assert.True(TableOwners.ContainsKey(t), $"{t} has no owning module in TableOwners"));
+            Assert.All(TableOwners.Keys, t => Assert.True(tables.Contains(t), $"{t} is in TableOwners but is no DbSet"));
+            Assert.All(TableOwners.Values.Distinct(), m => Assert.Contains(m, MayUse.Keys));
         }
 
         [Fact]

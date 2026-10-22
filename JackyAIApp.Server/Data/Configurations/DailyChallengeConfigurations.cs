@@ -11,7 +11,7 @@ namespace JackyAIApp.Server.Data.Configurations
         public void Configure(EntityTypeBuilder<DailyChallengeResult> builder)
         {
             builder.HasOne(dc => dc.User)
-                .WithMany(u => u.DailyChallengeResults)
+                .WithMany()
                 .HasForeignKey(dc => dc.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 

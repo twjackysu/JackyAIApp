@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using JackyAIApp.Server.Data.Models.Portfolio;
 
 namespace JackyAIApp.Server.Data.Models.SQL
 {
@@ -70,15 +69,6 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// The last date (UTC) a weekly streak freeze was granted, used to refill weekly.
         /// </summary>
         public DateTime? LastFreezeGrantDate { get; set; }
-
-        // Navigation properties
-        public ICollection<UserWord> UserWords { get; set; } = [];
-        public ICollection<JiraConfig> JiraConfigs { get; set; } = [];
-        public ICollection<UserConnector> UserConnectors { get; set; } = [];
-        public ICollection<DailyUsage> DailyUsages { get; set; } = [];
-        public ICollection<DailyChallengeResult> DailyChallengeResults { get; set; } = [];
-        public ICollection<DataSourceConfig> DataSourceConfigs { get; set; } = [];
-        public ICollection<HoldingSnapshot> HoldingSnapshots { get; set; } = [];
     }
 
     /// <summary>

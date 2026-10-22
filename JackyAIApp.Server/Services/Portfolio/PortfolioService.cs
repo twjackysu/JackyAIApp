@@ -418,7 +418,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .ToList();
             if (taggedSymbols.Count > 0)
             {
-                var tagRows = await Timed("tags", () => db.StockSymbolInfos
+                var tagRows = await Timed("tags", () => db.StockClassifications
                     .Where(s => taggedSymbols.Contains(s.Symbol) && s.Tags != null)
                     .Select(s => new { s.Symbol, s.Tags })
                     .ToListAsync(ct));

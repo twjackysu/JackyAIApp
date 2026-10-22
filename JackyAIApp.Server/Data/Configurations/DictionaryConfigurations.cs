@@ -20,7 +20,7 @@ namespace JackyAIApp.Server.Data.Configurations
                 .IsUnique();
 
             builder.HasOne(uw => uw.User)
-                .WithMany(u => u.UserWords)
+                .WithMany()
                 .HasForeignKey(uw => uw.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 

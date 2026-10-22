@@ -107,6 +107,29 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("HoldingSnapshots");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.StockClassification", b =>
+                {
+                    b.Property<string>("Symbol")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ClassifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SubCategory")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Tags")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Symbol");
+
+                    b.ToTable("StockClassifications");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.AiUsageLog", b =>
                 {
                     b.Property<long>("Id")
@@ -1012,12 +1035,6 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<string>("Symbol")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Category")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("ClassifiedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime?>("DeepFetchedAt")
                         .HasColumnType("datetime2");
 
@@ -1032,12 +1049,6 @@ namespace JackyAIApp.Server.Data.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SubCategory")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Tags")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("TwMarketType")
@@ -1343,7 +1354,7 @@ namespace JackyAIApp.Server.Data.Migrations
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.Portfolio.HoldingSnapshot", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany("HoldingSnapshots")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1397,7 +1408,7 @@ namespace JackyAIApp.Server.Data.Migrations
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyChallengeResult", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany("DailyChallengeResults")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1408,7 +1419,7 @@ namespace JackyAIApp.Server.Data.Migrations
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyUsage", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany("DailyUsages")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1460,7 +1471,7 @@ namespace JackyAIApp.Server.Data.Migrations
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DataSourceConfig", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany("DataSourceConfigs")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1532,7 +1543,7 @@ namespace JackyAIApp.Server.Data.Migrations
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.JiraConfig", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany("JiraConfigs")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1609,7 +1620,7 @@ namespace JackyAIApp.Server.Data.Migrations
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.UserConnector", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany("UserConnectors")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1620,7 +1631,7 @@ namespace JackyAIApp.Server.Data.Migrations
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.UserWord", b =>
                 {
                     b.HasOne("JackyAIApp.Server.Data.Models.SQL.User", "User")
-                        .WithMany("UserWords")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1703,23 +1714,6 @@ namespace JackyAIApp.Server.Data.Migrations
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ReadingQuestion", b =>
                 {
                     b.Navigation("Options");
-                });
-
-            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.User", b =>
-                {
-                    b.Navigation("DailyChallengeResults");
-
-                    b.Navigation("DailyUsages");
-
-                    b.Navigation("DataSourceConfigs");
-
-                    b.Navigation("HoldingSnapshots");
-
-                    b.Navigation("JiraConfigs");
-
-                    b.Navigation("UserConnectors");
-
-                    b.Navigation("UserWords");
                 });
 
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.Word", b =>

@@ -62,18 +62,17 @@ namespace JackyAIApp.Server.Services.Portfolio
             // that — this exact bug already bit PersistentTwHistoricalProvider (PR #209).
             await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
-            var info = await db.StockSymbolInfos.FindAsync([symbol], ct);
-            if (info?.Category != null && Enum.TryParse<PortfolioCategory>(info.Category, out var cached))
+            var info = await db.StockClassifications.FindAsync([symbol], ct);
+            if (info != null && Enum.TryParse<PortfolioCategory>(info.Category, out var cached))
                 return new StockCategoryInfo(cached, info.SubCategory, SplitTags(info.Tags));
 
             var result = await ClassifyAsync(db, symbol, name, market, ct);
 
             if (info == null)
             {
-                db.StockSymbolInfos.Add(new StockSymbolInfo
+                db.StockClassifications.Add(new StockClassification
                 {
                     Symbol = symbol,
-                    Market = market,
                     Category = result.Category.ToString(),
                     SubCategory = result.SubCategory,
                     Tags = JoinTags(result.Tags),
@@ -103,7 +102,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             return result;
         }
 
-        /// <summary>CSV round-trip for <see cref="StockSymbolInfo.Tags"/> — commas inside a tag are
+        /// <summary>CSV round-trip for <see cref="StockClassification.Tags"/> — commas inside a tag are
         /// impossible by construction (see the sanitizing in <see cref="ClassifyAsync"/>).</summary>
         internal static IReadOnlyList<string> SplitTags(string? csv) =>
             string.IsNullOrWhiteSpace(csv)
@@ -193,14 +192,14 @@ namespace JackyAIApp.Server.Services.Portfolio
         private static async Task<Dictionary<string, List<string>>> GetExistingSubCategoriesByCategoryAsync(
             AzureSQLDBContext db, CancellationToken ct)
         {
-            var rows = await db.StockSymbolInfos
-                .Where(s => s.Category != null && s.SubCategory != null)
+            var rows = await db.StockClassifications
+                .Where(s => s.SubCategory != null)
                 .Select(s => new { s.Category, s.SubCategory })
                 .Distinct()
                 .ToListAsync(ct);
 
             return rows
-                .GroupBy(r => r.Category!)
+                .GroupBy(r => r.Category)
                 .ToDictionary(g => g.Key, g => g.Select(r => r.SubCategory!).Distinct().ToList());
         }
 
@@ -209,7 +208,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// than per-category since a tag ("AI", "高股息") legitimately spans categories.</summary>
         private static async Task<List<string>> GetExistingTagsAsync(AzureSQLDBContext db, CancellationToken ct)
         {
-            var csvs = await db.StockSymbolInfos
+            var csvs = await db.StockClassifications
                 .Where(s => s.Tags != null)
                 .Select(s => s.Tags!)
                 .ToListAsync(ct);

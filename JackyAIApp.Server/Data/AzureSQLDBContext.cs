@@ -49,6 +49,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<DashboardShare> DashboardShares { get; set; }
         public virtual DbSet<HoldingSnapshot> HoldingSnapshots { get; set; }
         public virtual DbSet<HoldingPosition> HoldingPositions { get; set; }
+        public virtual DbSet<StockClassification> StockClassifications { get; set; }
         public virtual DbSet<AiUsageLog> AiUsageLogs { get; set; }
         public virtual DbSet<ChatConversation> ChatConversations { get; set; }
         public virtual DbSet<ChatMessage> ChatMessages { get; set; }

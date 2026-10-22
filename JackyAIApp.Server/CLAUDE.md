@@ -61,7 +61,15 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   of them for the other to reach into
 - The market-data namespace is `Services.Market`, not `Services.MarketData`: a namespace of that name
   under `Services` would hide the DTO class `MarketData` from every service
-- One `AzureSQLDBContext` for all modules (each module's entities have their own configuration file)
+- One `AzureSQLDBContext` for all modules (each module's entities have their own configuration file),
+  but each table belongs to one module and only its code touches it (`TableOwners` in the same test;
+  a new `DbSet` needs an owner there). Another module asks the owner's services: prices come from
+  MarketData, not from `DailyStockPrices`. A table holding two modules' data is split, as Portfolio's
+  AI classification was out of `StockSymbolInfos` into `StockClassifications`
+- `Users` is the one table every module may touch: the signed-in user's row. English also writes it,
+  because the XP and streak fields live on it, a known exception (moving them to an English table
+  would need a data migration). `User` has no navigation collections: a module's entity points at its
+  user (`HasOne(x => x.User).WithMany()`), the user does not list them
 
 ## Controllers
 

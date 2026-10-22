@@ -4,14 +4,15 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace JackyAIApp.Server.Data.Configurations
 {
-    // Portfolio: each user's dated holdings snapshots and their positions.
+    // Portfolio: each user's dated holdings snapshots and their positions, and the AI classification
+    // of the symbols held.
 
     public sealed class HoldingSnapshotConfiguration : IEntityTypeConfiguration<HoldingSnapshot>
     {
         public void Configure(EntityTypeBuilder<HoldingSnapshot> builder)
         {
             builder.HasOne(hs => hs.User)
-                .WithMany(u => u.HoldingSnapshots)
+                .WithMany()
                 .HasForeignKey(hs => hs.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
@@ -36,6 +37,14 @@ namespace JackyAIApp.Server.Data.Configurations
             builder.Property(hp => hp.Quantity).HasPrecision(18, 6);
             builder.Property(hp => hp.UnitPrice).HasPrecision(18, 6);
             builder.Property(hp => hp.CostBasis).HasPrecision(18, 4);
+        }
+    }
+
+    public sealed class StockClassificationConfiguration : IEntityTypeConfiguration<StockClassification>
+    {
+        public void Configure(EntityTypeBuilder<StockClassification> builder)
+        {
+            builder.HasKey(c => c.Symbol);
         }
     }
 }
