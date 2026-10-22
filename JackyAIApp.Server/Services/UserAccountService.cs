@@ -16,6 +16,10 @@ namespace JackyAIApp.Server.Services
         /// yet; nothing for an anonymous request.</summary>
         Task EnsureCreatedAsync(CancellationToken ct);
 
+        /// <summary>Whether the signed-in user's row exists. A service that needs the row to act
+        /// answers <see cref="UserAccountFailures.Missing"/> when it does not.</summary>
+        Task<bool> ExistsAsync(CancellationToken ct = default);
+
         /// <summary>The signed-in user's row, with <see cref="User.DrawdownBrakeEnabled"/> filled in;
         /// <see cref="UserAccountFailures.Missing"/> when there is none.</summary>
         Task<ServiceResult<User>> GetInfoAsync(CancellationToken ct);
@@ -45,6 +49,12 @@ namespace JackyAIApp.Server.Services
             });
             await dbContext.SaveChangesAsync(ct);
             logger.LogInformation("New user created: {UserId}", userId);
+        }
+
+        public Task<bool> ExistsAsync(CancellationToken ct = default)
+        {
+            var userId = currentUser.RequireId();
+            return dbContext.Users.AnyAsync(x => x.Id == userId, ct);
         }
 
         public async Task<ServiceResult<User>> GetInfoAsync(CancellationToken ct)

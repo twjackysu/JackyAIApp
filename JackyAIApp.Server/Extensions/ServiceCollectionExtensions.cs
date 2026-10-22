@@ -92,6 +92,8 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IWordExamGenerator, ClozeExamGenerator>();
             services.AddScoped<IWordExamGenerator, TranslationExamGenerator>();
             services.AddScoped<IWordExamGenerator, SentenceExamGenerator>();
+            services.AddScoped<IExamWordPicker, ExamWordPicker>();
+            services.AddScoped<IExamBankPicker, ExamBankPicker>();
             services.AddScoped<IExamService, ExamService>();
 
             services.AddScoped<IRepositoryService, RepositoryService>();

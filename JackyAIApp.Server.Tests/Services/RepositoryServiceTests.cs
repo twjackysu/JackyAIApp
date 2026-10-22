@@ -5,6 +5,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Dictionary;
+using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using JackyAIApp.Server.Services.Repository;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +51,8 @@ namespace JackyAIApp.Server.Tests.Services
             user.Setup(u => u.Id).Returns(UserId);
             return new RepositoryService(
                 NullLogger<RepositoryService>.Instance, db, user.Object, _dictionary.Object,
-                new MemoryCache(new MemoryCacheOptions()));
+                new MemoryCache(new MemoryCacheOptions()),
+                new UserAccountService(NullLogger<UserAccountService>.Instance, db, user.Object, Mock.Of<IDrawdownBrakeAccess>()));
         }
 
         private async Task SeedWordsAsync(params string[] ids)

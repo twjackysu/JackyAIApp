@@ -6,6 +6,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Exam;
 using JackyAIApp.Server.Services.Exam.Generators;
 using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -48,7 +49,11 @@ namespace JackyAIApp.Server.Tests.Services
                 _currentUserMock.Object,
                 _promptServiceMock.Object,
                 new SpacedRepetitionService(),
-                generators);
+                generators,
+                new ExamWordPicker(_dbContext),
+                new ExamBankPicker(_dbContext, _currentUserMock.Object),
+                new UserAccountService(
+                    NullLogger<UserAccountService>.Instance, _dbContext, _currentUserMock.Object, Mock.Of<IDrawdownBrakeAccess>()));
         }
 
         public void Dispose() => _dbContext.Dispose();
@@ -200,6 +205,32 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Single(savedWord.TranslationTests);
         }
 
+        [Fact]
+        public async Task GenerateSentence_GeneratesNewTest_SavesToDB()
+        {
+            var word = await SeedUserWithWordAsync();
+            var generatedTest = new DTO.SentenceTest
+            {
+                Prompt = "Use 'sun' to describe the weather.",
+                SampleAnswer = "The sun came out after the rain.",
+                Context = "Weather",
+                DifficultyLevel = 2,
+            };
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<DTO.SentenceTest>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((generatedTest, (string?)null));
+
+            var result = await _service.GenerateWordExamAsync(ExamType.Sentence);
+
+            var dto = Assert.IsType<SentenceTestResponse>(result.Data);
+            Assert.Equal(generatedTest.Prompt, dto.Prompt);
+            var savedWord = await _dbContext.Words
+                .Include(w => w.SentenceTests)
+                .FirstAsync(w => w.Id == word.Id);
+            Assert.Single(savedWord.SentenceTests);
+        }
+
         #endregion
 
         #region Translation Quality Grading Tests
@@ -285,9 +316,143 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Same(expectedResponse, result.Data);
         }
 
+        [Fact]
+        public async Task RespondToConversation_UserRowMissing_AsksToSignInAgain()
+        {
+            var result = await _service.RespondToConversationAsync(new ConversationResponseRequest
+            {
+                UserMessage = "Hello",
+                ConversationContext = new ConversationContext { Scenario = "Coffee Shop", UserRole = "Customer", AiRole = "Barista", TurnNumber = 3 },
+                ConversationHistory = new List<ConversationTurn>(),
+            });
+
+            Assert.Equal(ErrorCodes.Unauthorized, result.Error);
+            Assert.Equal(UserAccountFailures.Missing.Message, result.ErrorMessage);
+        }
+
+        private static ConversationStartRequest StartRequest() =>
+            new() { Scenario = "Coffee Shop", UserRole = "Customer", AiRole = "Barista" };
+
+        [Fact]
+        public async Task StartConversation_UserRowMissing_AsksToSignInAgain()
+        {
+            var result = await _service.StartConversationAsync(StartRequest());
+
+            Assert.Equal(ErrorCodes.Unauthorized, result.Error);
+            Assert.Equal(UserAccountFailures.Missing.Message, result.ErrorMessage);
+        }
+
+        [Fact]
+        public async Task StartConversation_WithoutARole_IsABadRequest()
+        {
+            await SeedUserAsync();
+
+            var result = await _service.StartConversationAsync(
+                new ConversationStartRequest { Scenario = "Coffee Shop", UserRole = "", AiRole = "Barista" });
+
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+            _promptServiceMock.Verify(x => x.GetCompletionAsync<ConversationStartResponse>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task StartConversation_ReturnsTheModelsOpening()
+        {
+            await SeedUserAsync();
+            var opening = new ConversationStartResponse
+            {
+                Scenario = "Coffee Shop", UserRole = "Customer", AiRole = "Barista",
+                Context = "A busy morning.", FirstMessage = "Hi! What can I get you?",
+            };
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ConversationStartResponse>(
+                "Prompt/Exam/ConversationStartSystem.txt", It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), "exam.conversation_start"))
+                .ReturnsAsync((opening, (string?)null));
+
+            var result = await _service.StartConversationAsync(StartRequest());
+
+            Assert.Same(opening, result.Data);
+        }
+
+        [Fact]
+        public async Task StartConversation_ModelFails_ReturnsError()
+        {
+            await SeedUserAsync();
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ConversationStartResponse>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync(((ConversationStartResponse?)null, "OpenAI error"));
+
+            var result = await _service.StartConversationAsync(StartRequest());
+
+            Assert.Equal(ErrorCodes.QueryOpenAIFailed, result.Error);
+        }
+
+        [Fact]
+        public async Task SummarizeConversation_WithoutHistory_IsABadRequest()
+        {
+            var result = await _service.SummarizeConversationAsync(new ConversationSummaryRequest
+            {
+                ConversationContext = new ConversationContext { Scenario = "Coffee Shop", UserRole = "Customer", AiRole = "Barista", TurnNumber = 3 },
+                ConversationHistory = new List<ConversationTurn>(),
+            });
+
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+        }
+
+        [Fact]
+        public async Task SummarizeConversation_ReturnsTheModelsSummary()
+        {
+            var summary = new ConversationSummaryResponse
+            {
+                CorrectionsReview = ["I want → I'd like"], BetterPhrasings = [], SuggestedWords = ["latte"],
+            };
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ConversationSummaryResponse>(
+                "Prompt/Exam/ConversationSummarySystem.txt", It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync((summary, (string?)null));
+
+            var result = await _service.SummarizeConversationAsync(new ConversationSummaryRequest
+            {
+                ConversationContext = new ConversationContext { Scenario = "Coffee Shop", UserRole = "Customer", AiRole = "Barista", TurnNumber = 3 },
+                ConversationHistory = [new ConversationTurn { Speaker = "user", Message = "I want a latte." }],
+            });
+
+            Assert.Same(summary, result.Data);
+        }
+
+        [Fact]
+        public async Task SummarizeConversation_ModelFails_ReturnsError()
+        {
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<ConversationSummaryResponse>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync(((ConversationSummaryResponse?)null, "OpenAI error"));
+
+            var result = await _service.SummarizeConversationAsync(new ConversationSummaryRequest
+            {
+                ConversationContext = new ConversationContext { Scenario = "Coffee Shop", UserRole = "Customer", AiRole = "Barista", TurnNumber = 3 },
+                ConversationHistory = [new ConversationTurn { Speaker = "user", Message = "I want a latte." }],
+            });
+
+            Assert.Equal(ErrorCodes.QueryOpenAIFailed, result.Error);
+        }
+
         #endregion
 
         #region Transcribe / Evaluate Tests
+
+        [Fact]
+        public async Task TranscribeAudio_UserRowMissing_AsksToSignInAgain()
+        {
+            using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+
+            var result = await _service.TranscribeAudioAsync(stream, "test.mp3");
+
+            Assert.Equal(ErrorCodes.Unauthorized, result.Error);
+            _promptServiceMock.Verify(x => x.TranscribeAudioAsync(It.IsAny<Stream>(), It.IsAny<string>()), Times.Never);
+        }
 
         [Fact]
         public async Task TranscribeAudio_ValidStream_ReturnsTranscription()
@@ -379,6 +544,33 @@ namespace JackyAIApp.Server.Tests.Services
 
             Assert.True(result.IsSuccess);
             Assert.Same(expectedEvaluation, result.Data);
+        }
+
+        [Fact]
+        public async Task EvaluateSentence_MissingInput_ReturnsError()
+        {
+            var result = await _service.EvaluateSentenceAsync(new SentenceTestUserResponse
+            {
+                Word = "adventure", Prompt = "Use adventure in a sentence", Context = "Travel", UserSentence = "", DifficultyLevel = 3,
+            });
+
+            Assert.Equal(ErrorCodes.BadRequest, result.Error);
+        }
+
+        [Fact]
+        public async Task EvaluateSentence_ModelFails_ReturnsError()
+        {
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<SentenceTestGradingResponse>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .ReturnsAsync(((SentenceTestGradingResponse?)null, "OpenAI error"));
+
+            var result = await _service.EvaluateSentenceAsync(new SentenceTestUserResponse
+            {
+                Word = "adventure", Prompt = "Use adventure in a sentence", Context = "Travel", UserSentence = "My adventure was fun.", DifficultyLevel = 3,
+            });
+
+            Assert.Equal(ErrorCodes.QueryOpenAIFailed, result.Error);
         }
 
         #endregion
@@ -509,6 +701,25 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.True(result.IsSuccess);
             var dto = Assert.IsType<ListeningTestResponse>(result.Data);
             Assert.Equal(unseen.Id, dto.Id);
+        }
+
+        [Fact]
+        public async Task GetListeningBank_IsNewestFirst_OnePageAtATime_WithTheTotal()
+        {
+            var oldest = await SeedListeningTestAsync();
+            var middle = await SeedListeningTestAsync();
+            var newest = await SeedListeningTestAsync();
+            var t0 = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+            (oldest.CreatedAt, middle.CreatedAt, newest.CreatedAt) = (t0, t0.AddHours(1), t0.AddHours(2));
+            await _dbContext.SaveChangesAsync();
+
+            var first = (await _service.GetListeningBankAsync(1, 2)).Data!;
+            var second = (await _service.GetListeningBankAsync(2, 2)).Data!;
+
+            Assert.Equal([newest.Id, middle.Id], first.Items.Select(i => i.Id));
+            Assert.Equal([oldest.Id], second.Items.Select(i => i.Id));
+            Assert.Equal((3, 3), (first.TotalCount, second.TotalCount));
+            Assert.Equal(4, first.Items[0].Options.Count);
         }
 
         private async Task<ListeningTest> SeedListeningTestAsync()
