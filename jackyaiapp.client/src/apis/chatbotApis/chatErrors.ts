@@ -28,7 +28,7 @@ export const TRUNCATED_NOTE = '回覆因長度上限被截斷，內容可能不�
 /** The file types the server takes (AttachmentTextExtractor.KindOf), for the file picker. */
 export const ATTACHMENT_ACCEPT = '.docx,.xlsx,.csv,.txt,.md,.json,.pdf,.png,.jpg,.jpeg,.gif,.webp';
 
-/** Files sent with one message (ChatbotController.MaxAttachmentsPerMessage). */
+/** Files sent with one message (ChatAttachmentLimits.MaxPerMessage). */
 export const MAX_ATTACHMENTS = 5;
 
 /** Largest upload, matching the server's limit. */

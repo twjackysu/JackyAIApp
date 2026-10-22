@@ -15,7 +15,6 @@ namespace JackyAIApp.Server.Tests.Controllers
         private static readonly HashSet<string> NotYetMoved =
         [
             "AccountController",
-            "ChatbotController",
             "DictionaryController",
             "ExamController",
             "ReviewController",
