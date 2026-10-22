@@ -58,4 +58,7 @@ namespace JackyAIApp.Server.DTO
         /// <summary>Pages of a PDF.</summary>
         public int? PageCount { get; set; }
     }
+
+    /// <summary>Whether an answer was still being written when the stop came.</summary>
+    public sealed record ChatStopResponse(bool Stopped);
 }
