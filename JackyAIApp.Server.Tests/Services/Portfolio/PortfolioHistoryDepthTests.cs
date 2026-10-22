@@ -33,7 +33,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<IMarketDataProviderFactory> _providerFactory = new();
         private readonly FakeDeepHistory _deepHistory = new();
-        private readonly PortfolioService _service;
+        private readonly DrawdownAnalysisService _drawdown;
+        private readonly BenchmarkComparisonService _benchmark;
 
         public PortfolioHistoryDepthTests()
         {
@@ -48,13 +49,15 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             dividendData.Setup(x => x.GetFundDividendsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<DividendRecord>());
 
-            _service = new PortfolioServiceBuilder(_dbContext)
+            var builder = new PortfolioServiceBuilder(_dbContext)
             {
                 Providers = _providerFactory.Object,
                 Dividends = dividendData.Object,
                 Time = new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)),
                 DeepHistory = _deepHistory,
-            }.Build();
+            };
+            _drawdown = builder.BuildDrawdown();
+            _benchmark = builder.BuildBenchmark();
         }
 
         public void Dispose() => _dbContext.Dispose();
@@ -125,7 +128,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 },
                 Running(new DateOnly(2026, 1, 1), FirstHeld));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 365);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 365);
 
             // Without the stored bar there is no price before 07-20, so nothing before it is drawn.
             Assert.Equal("2026-01-05", result.Points[0].Date);
@@ -146,7 +149,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             ProviderReturns("2330", (RecentBar, 1000m));
             _providerFactory.Setup(x => x.DetectRegion("0050")).Returns(MarketRegion.TW);
 
-            await _service.GetDrawdownAnalysisAsync(TestUserId, days: 365);
+            await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 365);
 
             var call = Assert.Single(_deepHistory.Calls);
             Assert.Equal(FirstHeld, call.Target);
@@ -163,7 +166,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(recent, Tsmc());
             ProviderReturns("2330", (recent, 1000m));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 90);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 90);
 
             Assert.Empty(_deepHistory.Calls);
             Assert.Null(result.Backfill);
@@ -177,7 +180,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             ProviderReturns("2330", (RecentBar, 1000m));
             _deepHistory.Throw = new InvalidOperationException("db down");
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 365);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 365);
 
             Assert.Equal("2026-07-20", result.Points[0].Date);
             Assert.Null(result.Backfill);
@@ -192,7 +195,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             _deepHistory.Respond = stocks => new DeepHistoryResult(
                 new Dictionary<string, MarketData>(stocks), Running(new DateOnly(2026, 5, 1), FirstHeld));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 365);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 365);
 
             Assert.Empty(result.Points);
             Assert.Equal(BackfillState.Running, result.Backfill?.State);
@@ -213,7 +216,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             _deepHistory.Respond = stocks => new DeepHistoryResult(
                 new Dictionary<string, MarketData>(stocks), Running(new DateOnly(2026, 5, 1), FirstHeld));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 365, ["0050"]);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 365, ["0050"]);
 
             var wants = Assert.Single(_deepHistory.Calls).Wants.ToDictionary(w => w.Symbol);
             Assert.Equal(new HistoryWant("0050", FirstHeld, null), wants["0050"]);
@@ -235,7 +238,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         public void AHeldStockIsNeededFromABitBeforeItWasFirstHeld_NotFromTheStartOfTheWindow()
         {
             var start = new DateOnly(2023, 1, 1);
-            var wants = PortfolioService.HistoryWants(
+            var wants = PortfolioHistoryExtender.HistoryWants(
                 [Snapshot(new DateOnly(2025, 6, 2), Stock("2330")), Snapshot(new DateOnly(2025, 9, 1), Stock("2330"), Stock("0050"))],
                 [], start);
 
@@ -248,7 +251,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         public void AStockHeldBeforeTheWindow_IsNeededFromTheStartOfTheWindow()
         {
             var start = new DateOnly(2025, 1, 1);
-            var wants = PortfolioService.HistoryWants([Snapshot(new DateOnly(2020, 3, 2), Stock("2330"))], [], start);
+            var wants = PortfolioHistoryExtender.HistoryWants([Snapshot(new DateOnly(2020, 3, 2), Stock("2330"))], [], start);
 
             Assert.Equal(new HistoryWant("2330", start, new DateOnly(2020, 3, 2)), Assert.Single(wants));
         }
@@ -257,7 +260,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         public void ABenchmarkIsNeededOverTheWholeWindow_EvenIfItIsAlsoHeldLater()
         {
             var start = new DateOnly(2023, 1, 1);
-            var wants = PortfolioService.HistoryWants([Snapshot(new DateOnly(2025, 6, 2), Stock("0050"))], ["0050", "0056"], start);
+            var wants = PortfolioHistoryExtender.HistoryWants([Snapshot(new DateOnly(2025, 6, 2), Stock("0050"))], ["0050", "0056"], start);
 
             var byCode = wants.ToDictionary(w => w.Symbol);
             Assert.Equal(new HistoryWant("0050", start, new DateOnly(2025, 6, 2)), byCode["0050"]);
@@ -271,7 +274,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var fund = new HoldingPosition { AssetType = AssetType.FUND, Symbol = "ALI006", Name = "fund", Market = "FUND", Currency = "TWD", Quantity = 1 };
             string[] benchmarks = ["B1", "B2", "B3", "B4", "B5", "B6", "B7"];
 
-            var wants = PortfolioService.HistoryWants(
+            var wants = PortfolioHistoryExtender.HistoryWants(
                 [Snapshot(new DateOnly(2025, 6, 2), Stock("2330"), cash, fund)], benchmarks, new DateOnly(2023, 1, 1));
 
             Assert.Equal(

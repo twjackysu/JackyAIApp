@@ -8,7 +8,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 {
     /// <summary>
     /// AsOfPriceSeries replaced a per-cell <c>Where(day &lt;= D).OrderByDescending(date).FirstOrDefault()</c>
-    /// in PortfolioService.ValueAsOfDate and GetBenchmarkComparisonAsync. It must return what that
+    /// in PortfolioValuation.ValueAsOfDate and BenchmarkComparisonService. It must return what that
     /// LINQ returned for every input — including same-day duplicates — so the old expressions live
     /// below as the oracle and the tests compare against them rather than against re-derived numbers.
     /// </summary>

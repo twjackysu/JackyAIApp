@@ -50,7 +50,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         /// <summary>Shallow lookback for <see cref="FetchLatestAsync"/> — enough to cross a long
         /// weekend/holiday stretch and still land on the most recent finalized close. Adding a
         /// never-before-seen symbol only needs this, not the full 6-month window: valuation/day-
-        /// change only ever look at the last couple of trading days (see PortfolioService.ValueAsOfDate),
+        /// change only ever look at the last couple of trading days (see PortfolioValuation.ValueAsOfDate),
         /// and every OTHER caller that genuinely needs deep history asks via FetchAsync instead.</summary>
         private const int LatestLookbackDays = 10;
 

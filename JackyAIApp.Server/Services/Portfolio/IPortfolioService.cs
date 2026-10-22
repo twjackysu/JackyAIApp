@@ -14,14 +14,5 @@ namespace JackyAIApp.Server.Services.Portfolio
             string userId, decimal feeDiscountRate = 0.28m, CancellationToken ct = default);
         Task<PortfolioSummaryDto> RefreshPositionPriceAsync(
             string userId, string symbol, decimal feeDiscountRate = 0.28m, CancellationToken ct = default);
-        Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(
-            string userId, int days, NetWorthGroupBy groupBy = NetWorthGroupBy.AssetType, CancellationToken ct = default);
-        Task<List<NetWorthDataPoint>> GetNetWorthHistoryAsync(
-            string userId, DateOnly? from, DateOnly? to, NetWorthGroupBy groupBy = NetWorthGroupBy.AssetType,
-            CancellationToken ct = default);
-        Task<DrawdownAnalysisDto> GetDrawdownAnalysisAsync(
-            string userId, int days, CancellationToken ct = default);
-        Task<BenchmarkComparisonDto> GetBenchmarkComparisonAsync(
-            string userId, int days, IReadOnlyList<string>? benchmarkSymbols = null, CancellationToken ct = default);
     }
 }

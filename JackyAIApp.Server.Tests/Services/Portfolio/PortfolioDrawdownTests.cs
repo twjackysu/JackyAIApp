@@ -38,7 +38,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<IMarketDataProviderFactory> _providerFactory;
-        private readonly PortfolioService _service;
+        private readonly DrawdownAnalysisService _drawdown;
 
         public PortfolioDrawdownTests()
         {
@@ -60,7 +60,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var openAI = new Mock<IOpenAIPromptService>();
             var categoryService = new Mock<IStockCategoryService>();
 
-            _service = new PortfolioServiceBuilder(_dbContext)
+            var builder = new PortfolioServiceBuilder(_dbContext)
             {
                 Providers = _providerFactory.Object,
                 FundData = fundData.Object,
@@ -69,7 +69,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 HttpClientFactory = httpClientFactory.Object,
                 Cache = cache,
                 Time = new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)),
-            }.Build();
+            };
+            _drawdown = builder.BuildDrawdown();
         }
 
         private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider
@@ -92,7 +93,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("2330", MarketRegion.TW,
                 (Weekday(0), 1000m), (Weekday(1), 1010m), (Weekday(2), 1020m));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Equal(0m, result.MaxDrawdownPct);
             Assert.Null(result.PeakDate);
@@ -118,7 +119,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 (Weekday(0), 1000m), (Weekday(1), 900m), (Weekday(2), 800m),
                 (Weekday(3), 950m), (Weekday(4), 1000m));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Equal(-20m, result.MaxDrawdownPct);
             Assert.Equal(Weekday(0).ToString("yyyy-MM-dd"), result.PeakDate);
@@ -146,7 +147,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // Weekday(1).
             SetupStockProvider("2330", MarketRegion.TW, (Weekday(0), 1000m), (Weekday(1), 700m));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
             var lastBusinessDay = LastBusinessDayOnOrBefore(FixedToday);
             var expectedUnderwaterDays = (lastBusinessDay.ToDateTime(TimeOnly.MinValue)
                 - Weekday(0).ToDateTime(TimeOnly.MinValue)).Days;
@@ -163,7 +164,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Fact]
         public async Task GetDrawdown_NoSnapshots_ReturnsEmptyAnalysis()
         {
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Empty(result.Points);
             Assert.Equal(0m, result.MaxDrawdownPct);

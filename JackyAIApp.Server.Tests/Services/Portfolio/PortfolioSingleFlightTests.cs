@@ -31,6 +31,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
         private readonly AzureSQLDBContext _dbContext;
         private readonly PortfolioService _service;
+        private readonly NetWorthHistoryService _netWorth;
         private readonly HoldingPriceService _prices;
         private readonly Mock<IMarketDataProviderFactory> _providerFactory = new();
         private readonly Mock<IMarketDataProvider> _provider = new();
@@ -68,6 +69,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 Time = new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)),
             };
             _service = builder.Build();
+            _netWorth = builder.BuildNetWorthHistory();
             // The same cache behind both, as in a request: the price history fetch is what the lookup reuses.
             _prices = builder.BuildPrices();
         }
@@ -172,7 +174,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             };
             _cache.Set("portfolio_snapshots_" + TestUserId, new List<HoldingSnapshot> { cachedSnapshot }, TimeSpan.FromSeconds(30));
 
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, 7);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, 7);
 
             Assert.NotEmpty(history);
             Assert.Empty(await _dbContext.HoldingSnapshots.ToListAsync());

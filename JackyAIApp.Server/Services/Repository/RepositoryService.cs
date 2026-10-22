@@ -22,7 +22,7 @@ namespace JackyAIApp.Server.Services.Repository
         private readonly IMemoryCache _memoryCache = memoryCache;
 
         /// <summary>A user's cached word list and word lookups, dropped together whenever the list
-        /// changes (<see cref="CacheExtensions.InvalidateGroup(IMemoryCache, string)"/>).</summary>
+        /// changes (<c>cache.InvalidateGroup</c>, see <see cref="CacheExtensions"/>).</summary>
         private static string WordsGroup(string userId) => $"GetWords_{userId}";
 
         private MemoryCacheEntryOptions WordsEntry(string userId) => new MemoryCacheEntryOptions()
