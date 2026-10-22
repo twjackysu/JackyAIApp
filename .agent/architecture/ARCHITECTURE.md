@@ -1259,7 +1259,7 @@ on Boss and does not block this work.
    (debt, already excluded from the other five). Total assets for a
    rebalancing pie = `LiquidGrossAssetsTWD + RealEstateTWD` — a one-line
    client-side sum, not a new endpoint.
-3. **No target/goal concept exists anywhere in `Data/Models/Portfolio.cs`**
+3. **No target/goal concept exists anywhere in `Data/Models/Portfolio/HoldingSnapshot.cs`**
    (confirmed) — expected, and not something this feature needs to add to
    the database (see next point).
 4. **There's already a direct precedent for a purely client-side, per-
@@ -1396,7 +1396,7 @@ remain the only items still waiting on Boss and do not block this work.
    multi-year compounding assumption anyway. The already-computed
    all-history XIRR (`AnnualizedReturnPct`) is the correct number to build
    on, not a new chart-derived rate.
-3. **No target/goal concept exists anywhere in `Data/Models/Portfolio.cs`**
+3. **No target/goal concept exists anywhere in `Data/Models/Portfolio/HoldingSnapshot.cs`**
    (confirmed, same as the rebalancing decision above) — expected, and for
    the same reason as `TASK-017`, this doesn't need a new database table.
 4. **Same direct precedent as `TASK-017`**: `Portfolio/feeDiscountRate.ts`

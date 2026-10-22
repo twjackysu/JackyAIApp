@@ -1,5 +1,4 @@
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.DataAnalysis;
 using JackyAIApp.Server.Services.OpenAI;
 

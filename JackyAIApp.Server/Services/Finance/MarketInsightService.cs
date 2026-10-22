@@ -1,5 +1,4 @@
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;

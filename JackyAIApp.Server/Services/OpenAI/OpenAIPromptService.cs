@@ -2,7 +2,6 @@ using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Prompt;
