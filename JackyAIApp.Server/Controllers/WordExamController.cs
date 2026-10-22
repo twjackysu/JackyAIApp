@@ -18,13 +18,13 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("cloze")]
         [UsageLimit(UsageFeature.ClozeTest)]
         public async Task<IActionResult> GetClozeTest() =>
-            responseFactory.ToActionResult(await wordExams.GenerateAsync(ExamType.Cloze));
+            responseFactory.ToActionResult(await wordExams.GenerateClozeAsync());
 
         /// <summary>Generates a translation test for the user based on their unfamiliar words.</summary>
         [HttpGet("translation")]
         [UsageLimit(UsageFeature.TranslationTest)]
         public async Task<IActionResult> GetTranslationTest() =>
-            responseFactory.ToActionResult(await wordExams.GenerateAsync(ExamType.Translation));
+            responseFactory.ToActionResult(await wordExams.GenerateTranslationAsync());
 
         /// <summary>Generates a translation quality grading.</summary>
         [HttpPost("translation/quality_grading")]
@@ -36,7 +36,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("sentence")]
         [UsageLimit(UsageFeature.SentenceTest)]
         public async Task<IActionResult> GetSentenceTest() =>
-            responseFactory.ToActionResult(await wordExams.GenerateAsync(ExamType.Sentence));
+            responseFactory.ToActionResult(await wordExams.GenerateSentenceAsync());
 
         /// <summary>Evaluates a user's sentence formation response and provides detailed feedback.</summary>
         [HttpPost("sentence/evaluate")]

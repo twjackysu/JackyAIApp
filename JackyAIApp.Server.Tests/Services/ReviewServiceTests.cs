@@ -105,6 +105,8 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Equal((1, 0), (words[1].ReviewCount, words[1].ConsecutiveCorrect));
             Assert.True(words[0].NextReviewDate > Today);
             Assert.Equal((0, (DateTime?)null), (words[2].ReviewCount, words[2].NextReviewDate));
+            // A missed answer is a review too; what the weekly report counts.
+            Assert.Equal([Today, Today, null], words.Select(w => w.LastReviewedDate));
         }
 
         [Fact]

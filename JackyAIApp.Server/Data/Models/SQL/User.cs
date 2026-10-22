@@ -38,14 +38,6 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// </summary>
         public bool? IsAdmin { get; set; }
 
-        /// <summary>
-        /// Whether this user may use the 回落煞車 feature (admin, or <c>Features:DrawdownBrake:Audience</c>
-        /// is <c>All</c>). Not stored: filled in by <c>GET api/account/info</c> so the client knows
-        /// whether to show the feature, and false everywhere else this entity is used.
-        /// </summary>
-        [NotMapped]
-        public bool DrawdownBrakeEnabled { get; set; }
-
         // Engagement / Gamification fields
 
         /// <summary>
@@ -115,6 +107,13 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// Next review date (UTC). Null means never reviewed — due immediately.
         /// </summary>
         public DateTime? NextReviewDate { get; set; }
+
+        /// <summary>
+        /// The UTC date of the latest review (a flashcard or an exam answer); null when never reviewed.
+        /// What the weekly report counts: <see cref="NextReviewDate"/> is when the word is due, so a word
+        /// reviewed weeks ago and scheduled for next month would pass a "this week" test on it.
+        /// </summary>
+        public DateTime? LastReviewedDate { get; set; }
 
         /// <summary>
         /// Current review interval in days. Starts at 1.

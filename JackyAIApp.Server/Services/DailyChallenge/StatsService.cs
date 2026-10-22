@@ -58,10 +58,9 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 .Where(uw => uw.UserId == userId && uw.DateAdded >= weekStart && uw.DateAdded < nextWeekStart)
                 .CountAsync(ct);
 
-            // Words reviewed this week (where review count > 0 and NextReviewDate was updated this week)
+            // Words last reviewed this week. A word reviewed twice this week counts once.
             int wordsReviewed = await dbContext.UserWords
-                .Where(uw => uw.UserId == userId && uw.ReviewCount > 0)
-                .Where(uw => uw.NextReviewDate != null && uw.NextReviewDate >= weekStart)
+                .Where(uw => uw.UserId == userId && uw.LastReviewedDate >= weekStart && uw.LastReviewedDate < nextWeekStart)
                 .CountAsync(ct);
 
             // Percentile: how many users have less XP than this user

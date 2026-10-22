@@ -1,6 +1,7 @@
 using DotnetSdkUtilities.Factory.ResponseFactory;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
+using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Chatbot;
@@ -89,9 +90,9 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IPublicWordList, PublicWordList>();
 
             // Exam services + per-type generator strategies
-            services.AddScoped<IWordExamGenerator, ClozeExamGenerator>();
-            services.AddScoped<IWordExamGenerator, TranslationExamGenerator>();
-            services.AddScoped<IWordExamGenerator, SentenceExamGenerator>();
+            services.AddScoped<IWordExamGenerator<ClozeTestResponse>, ClozeExamGenerator>();
+            services.AddScoped<IWordExamGenerator<TranslationTestResponse>, TranslationExamGenerator>();
+            services.AddScoped<IWordExamGenerator<SentenceTestResponse>, SentenceExamGenerator>();
             services.AddScoped<IExamWordPicker, ExamWordPicker>();
             services.AddScoped<IExamBankPicker, ExamBankPicker>();
             services.AddScoped<IWordExamService, WordExamService>();

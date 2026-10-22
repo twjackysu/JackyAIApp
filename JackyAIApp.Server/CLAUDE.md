@@ -22,6 +22,9 @@ dotnet ef database update
   in `Data/Configurations` (one file per feature), never in `OnModelCreating`, which only applies them
 - Changing an entity or a configuration needs a migration: `ModelMatchesMigrationsTests` fails while the
   model has changes no migration covers (startup's `Database.Migrate()` would refuse to run)
+- A migration that fills a column it adds wraps the `UPDATE` in `EXEC('…')` (`migrationBuilder.Sql`): in a
+  generated script both share one batch, which SQL Server compiles before the column exists. Try it on a
+  copy holding real-shaped rows first (`dotnet ef migrations script <previous> <new>` against a local DB)
 
 ## Backend Structure
 
@@ -122,6 +125,8 @@ JackyAIApp.Server/
   (a shared question bank, skipping the user's last 30 attempts), `IExamSpeech` with
   `ExamControllerBase.SpeakAsync` (the unbilled audio of a question's text), and `IExamResultRecorder`
   (the attempt log and the SM-2 schedules). Which exam endpoints charge is pinned by `UsageLimitEndpointTests`
+- The vocabulary exams (cloze, translation, sentence) are one `IWordExamGenerator<TQuestion>` each, returning
+  their own DTO, and one typed method each on `IWordExamService`, which picks the word for all of them
 
 ## Portfolio
 
