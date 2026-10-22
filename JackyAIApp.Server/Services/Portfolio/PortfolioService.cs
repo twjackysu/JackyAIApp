@@ -3,27 +3,21 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Portfolio;
-using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Market;
-using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Diagnostics;
-using System.Text;
 
 namespace JackyAIApp.Server.Services.Portfolio
 {
     public class PortfolioService(
         AzureSQLDBContext db,
-        IMarketDataProviderFactory providerFactory,
-        IFundDataService fundData,
+        IHoldingSnapshotReader snapshotReader,
+        IPortfolioPriceLoader priceLoader,
         IDividendService dividendData,
         IStockCategoryService categoryService,
-        ITwListedCompanyService twListedCompanies,
-        IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
-        IOpenAIPromptService openAI,
         ILogger<PortfolioService> logger,
         TimeProvider? timeProvider = null,
         // Optional for the same reason TimeProvider is: tests construct this class directly. The
@@ -42,18 +36,11 @@ namespace JackyAIApp.Server.Services.Portfolio
     {
         private readonly ITradingCalendar _tradingCalendar = tradingCalendar ?? WeekdayTradingCalendar.Instance;
 
-        private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
-
-        /// <summary>USD/TWD used when no real rate is available: the live feed failed, or a snapshot was
-        /// saved without one (0). One number for both, so a fallback never differs between screens.</summary>
-        private const decimal FallbackUsdTwdRate = 32m;
-
-        /// <summary>The USD/TWD rate saved on a snapshot, or <see cref="FallbackUsdTwdRate"/> when it has none.
-        /// Used to rebuild history as of that snapshot; the current valuation uses the live rate instead.</summary>
+        /// <summary>The USD/TWD rate saved on a snapshot, or <see cref="PortfolioPriceLoader.FallbackUsdTwdRate"/>
+        /// when it has none. Used to rebuild history as of that snapshot; the current valuation uses the
+        /// live rate instead.</summary>
         private static decimal SnapshotFx(HoldingSnapshot snapshot) =>
-            snapshot.UsdTwdRate > 0 ? snapshot.UsdTwdRate : FallbackUsdTwdRate;
-        private const string FX_CACHE_KEY = "portfolio_usd_twd_rate";
-        private const string STOCK_CACHE_PREFIX = "portfolio_stock_";
+            snapshot.UsdTwdRate > 0 ? snapshot.UsdTwdRate : PortfolioPriceLoader.FallbackUsdTwdRate;
         private const string SNAPSHOTS_CACHE_PREFIX = "portfolio_snapshots_";
 
         // Deliberately shorter than every other Portfolio TTL (CacheTtl.cs) — this only needs to
@@ -83,7 +70,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         public async Task SaveHoldingsAsync(string userId, SaveHoldingsRequest req, CancellationToken ct = default)
         {
             var effectiveDate = req.EffectiveDate ?? Today;
-            var usdTwdRate = await FetchUsdTwdRateAsync(ct);
+            var usdTwdRate = await priceLoader.FetchUsdTwdRateAsync(ct);
 
             // Replace any existing snapshot for that date (cascade deletes its positions)
             var existing = await db.HoldingSnapshots
@@ -135,7 +122,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         public async Task<SaveHoldingsRequest> GetLatestHoldingsAsync(string userId, CancellationToken ct = default)
         {
-            var snapshot = await LatestSnapshotAsync(userId, ct);
+            var snapshot = await snapshotReader.LatestAsync(userId, ct);
             if (snapshot == null)
                 return new SaveHoldingsRequest { EffectiveDate = Today };
 
@@ -233,7 +220,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             // Current valuation always uses the live rate; the rate stored on each snapshot is only
             // for reconstructing historical net worth (a stale fallback-32 shouldn't stick forever).
-            var fx = await Timed("fx", () => FetchUsdTwdRateAsync(ct));
+            var fx = await Timed("fx", () => priceLoader.FetchUsdTwdRateAsync(ct));
             var positions = new List<PositionDto>();
             decimal twStock = 0, usStock = 0, cash = 0, fund = 0, liability = 0, realEstate = 0;
             decimal costBasisTWD = 0, pnlTWD = 0, estimatedSellCostTWD = 0;
@@ -249,10 +236,10 @@ namespace JackyAIApp.Server.Services.Portfolio
                 ? snapshot.Positions.Concat(prevSnapshot.Positions).ToList()
                 : snapshot.Positions;
 
-            var stockTask = Timed("stocks", () => FetchStocksAsync(
+            var stockTask = Timed("stocks", () => priceLoader.FetchStocksAsync(
                 allPositions.Where(p => p.AssetType == AssetType.STOCK).Select(p => p.Symbol), deep: false, ct),
                 m => $"{m.Count} symbols");
-            var fundTask = Timed("funds", () => FetchFundsAsync(
+            var fundTask = Timed("funds", () => priceLoader.FetchFundsAsync(
                 allPositions.Where(p => p.AssetType == AssetType.FUND).Select(p => p.Symbol), ct),
                 m => $"{m.Count} funds");
             // Dividend histories don't depend on prices, so they load alongside them instead of
@@ -675,18 +662,11 @@ namespace JackyAIApp.Server.Services.Portfolio
             string userId, string symbol, decimal feeDiscountRate = 0.28m, CancellationToken ct = default)
         {
             symbol = (symbol ?? "").ToUpperInvariant();
-            var snapshot = await LatestSnapshotAsync(userId, ct);
+            var snapshot = await snapshotReader.LatestAsync(userId, ct);
             var owns = snapshot?.Positions.Any(p => p.AssetType == AssetType.STOCK && p.Symbol == symbol) ?? false;
 
             if (owns)
-            {
-                cache.Remove(STOCK_CACHE_PREFIX + "deep_" + symbol);
-                cache.Remove(STOCK_CACHE_PREFIX + "latest_" + symbol);
-
-                var region = providerFactory.DetectRegion(symbol);
-                var provider = providerFactory.GetMarketDataProvider(region);
-                await provider.InvalidateAsync(symbol, ct);
-            }
+                await priceLoader.InvalidateStockAsync(symbol, ct);
 
             return await GetPortfolioSummaryAsync(userId, feeDiscountRate, ct);
         }
@@ -758,7 +738,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // as of date" lookup can advance with a forward-only cursor instead of re-filtering +
             // re-sorting the whole history on every single day of the loop below.
             // Deep fetch — the day loop below walks the whole requested window per symbol.
-            var priceMap = (await FetchStocksAsync(stockSymbols, deep: true, ct))
+            var priceMap = (await priceLoader.FetchStocksAsync(stockSymbols, deep: true, ct))
                 .ToDictionary(kv => kv.Key, kv => kv.Value.HistoricalPrices.OrderBy(x => x.Date).ToList());
             var stockCursors = priceMap.Keys.ToDictionary(k => k, _ => 0);
 
@@ -773,7 +753,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // FetchFundsAsync's results are cached (FundDataService, up to 6h) and shared with other
             // callers — build separate sorted copies here rather than reordering navHist.Prices
             // in place, which would mutate the shared cached instance.
-            var fundNavMap = await FetchFundsAsync(fundIds, ct);
+            var fundNavMap = await priceLoader.FetchFundsAsync(fundIds, ct);
             var fundPriceMap = fundNavMap.ToDictionary(
                 kv => kv.Key,
                 kv => kv.Value.Prices.OrderBy(x => x.Date, StringComparer.Ordinal).ToList());
@@ -937,7 +917,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Select(p => p.Symbol)
                 .Distinct()
                 .ToList();
-            var stockMap = await FetchStocksAsync(stockSymbols, deep: true, ct);
+            var stockMap = await priceLoader.FetchStocksAsync(stockSymbols, deep: true, ct);
             var depth = await ExtendHistoryAsync(stockMap, snapshots, [], startDate, ct);
             stockMap = depth.Stocks;
 
@@ -947,7 +927,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Select(p => p.Symbol)
                 .Distinct()
                 .ToList();
-            var fundMap = await FetchFundsAsync(fundIds, ct);
+            var fundMap = await priceLoader.FetchFundsAsync(fundIds, ct);
             var asOfPrices = AsOfPriceBook.From(stockMap, fundMap);
 
             var snapshotIdx = 0;
@@ -1083,7 +1063,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .ToList();
             foreach (var s in symbols)
                 if (!stockSymbols.Contains(s)) stockSymbols.Add(s);
-            var stockMap = await FetchStocksAsync(stockSymbols, deep: true, ct);
+            var stockMap = await priceLoader.FetchStocksAsync(stockSymbols, deep: true, ct);
             var depth = await ExtendHistoryAsync(stockMap, snapshots, symbols, startDate, ct);
             stockMap = depth.Stocks;
 
@@ -1120,7 +1100,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 .Select(p => p.Symbol)
                 .Distinct()
                 .ToList();
-            var fundMap = await FetchFundsAsync(fundIds, ct);
+            var fundMap = await priceLoader.FetchFundsAsync(fundIds, ct);
 
             // 含息 inputs for both sides (see the method's remarks for why price-only is unfair to
             // a high-yield portfolio). Benchmark market is inferred from the symbol shape, matching
@@ -1390,250 +1370,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             };
         }
 
-        // ── Lookup + price history ───────────────────────────────────────────
-
-        public async Task<StockLookupDto?> LookupStockAsync(string market, string symbol, CancellationToken ct = default)
-        {
-            // Only the current price is shown here — shallow fetch.
-            var data = await FetchStockDataAsync(symbol, deep: false, ct);
-            if (data == null) return null;
-
-            var lastPrice = data.HistoricalPrices.LastOrDefault()?.Close ?? 0;
-            return new StockLookupDto
-            {
-                Symbol = symbol.ToUpperInvariant(),
-                CompanyName = data.CompanyName,
-                CurrentPrice = lastPrice,
-                Currency = market.ToUpperInvariant() == "US" ? "USD" : "TWD",
-            };
-        }
-
-        public async Task<HoldingPriceHistoryDto?> GetHoldingPriceHistoryAsync(
-            string userId, string market, string symbol, CancellationToken ct = default)
-        {
-            var snapshot = await LatestSnapshotAsync(userId, ct);
-            var sym = symbol.ToUpperInvariant();
-            var isFund = market.ToUpperInvariant() == "FUND";
-
-            var pos = snapshot?.Positions.FirstOrDefault(p => isFund
-                ? p.AssetType == AssetType.FUND && p.Symbol == sym
-                : p.AssetType == AssetType.STOCK && p.Market == market.ToUpperInvariant() && p.Symbol == sym);
-            if (pos == null) return null;
-
-            var rawAvg = pos.CostBasis.HasValue && pos.Quantity > 0
-                ? pos.CostBasis.Value / pos.Quantity
-                : (decimal?)null;
-
-            // The chart's prices are in the pricing currency, but the cost may have been paid in
-            // another (e.g. USD-priced fund bought with TWD). Convert the average cost into the
-            // chart currency so the cost line and "% vs 成本" line up with the price axis.
-            var fx = await FetchUsdTwdRateAsync(ct);
-            var costCurrency = string.IsNullOrWhiteSpace(pos.CostCurrency) ? pos.Currency : pos.CostCurrency;
-            decimal? AvgInCurrency(string chartCurrency) =>
-                rawAvg == null
-                    ? null
-                    : rawAvg.Value * (costCurrency == "USD" ? fx : 1m) / (chartCurrency == "USD" ? fx : 1m);
-
-            if (isFund)
-            {
-                var nav = await fundData.GetFundNavHistoryAsync(pos.Symbol, ct);
-                if (nav == null) return null;
-                return new HoldingPriceHistoryDto
-                {
-                    Symbol = pos.Symbol,
-                    CompanyName = pos.Name,
-                    Market = "FUND",
-                    Currency = nav.Currency,
-                    Quantity = pos.Quantity,
-                    AvgCost = AvgInCurrency(nav.Currency),
-                    Prices = nav.Prices,
-                };
-            }
-
-            // Chart needs the full series — deep fetch.
-            var data = await FetchStockDataAsync(symbol, deep: true, ct);
-            if (data == null) return null;
-
-            return new HoldingPriceHistoryDto
-            {
-                Symbol = pos.Symbol,
-                CompanyName = pos.Name,
-                Market = pos.Market,
-                Currency = pos.Currency,
-                Quantity = pos.Quantity,
-                AvgCost = AvgInCurrency(pos.Currency),
-                Prices = data.HistoricalPrices
-                    .Select(x => new PricePoint
-                    {
-                        Date = x.Date.ToString("yyyy-MM-dd"),
-                        Close = x.Close,
-                        High = x.High,
-                        Low = x.Low,
-                    })
-                    .ToList(),
-            };
-        }
-
-        // ── AI technical summary (朱家泓觀點) ─────────────────────────────────
-
-        public async Task<ServiceResult<PortfolioAiSummaryDto>> GetAiTechSummaryAsync(
-            string userId, string market, string symbol, CancellationToken ct = default)
-        {
-            var snapshot = await LatestSnapshotAsync(userId, ct);
-            var sym = symbol.ToUpperInvariant();
-            var isFund = market.ToUpperInvariant() == "FUND";
-            var pos = snapshot?.Positions.FirstOrDefault(p => isFund
-                ? p.AssetType == AssetType.FUND && p.Symbol == sym
-                : p.AssetType == AssetType.STOCK && p.Market == market.ToUpperInvariant() && p.Symbol == sym);
-            if (pos == null) return ServiceResult.Fail(ErrorCodes.NotFound, "找不到此持倉");
-
-            List<decimal> closes;
-            List<decimal>? highs = null, lows = null;
-            List<long>? vols = null;
-            string currency;
-
-            if (isFund)
-            {
-                var nav = await fundData.GetFundNavHistoryAsync(pos.Symbol, ct);
-                if (nav == null || nav.Prices.Count == 0) return ServiceResult.Fail(ErrorCodes.NotFound, "無歷史價格資料");
-                closes = nav.Prices.Select(p => p.Close).ToList();
-                currency = nav.Currency;
-            }
-            else
-            {
-                // Technical indicators (MAs, S/R) need real history — deep fetch.
-                var data = await FetchStockDataAsync(symbol, deep: true, ct);
-                if (data == null || data.HistoricalPrices.Count == 0) return ServiceResult.Fail(ErrorCodes.NotFound, "無歷史價格資料");
-                var hp = data.HistoricalPrices; // ascending by date
-                closes = hp.Select(p => p.Close).ToList();
-                highs = hp.Select(p => p.High).ToList();
-                lows = hp.Select(p => p.Low).ToList();
-                vols = hp.Select(p => p.Volume).ToList();
-                currency = pos.Currency;
-            }
-
-            var context = BuildTaContext(pos.Name, sym, isFund ? "基金" : pos.Market, currency, closes, highs, lows, vols);
-            var userMessage = $"請以朱家泓技術分析觀點，總結「{sym} {pos.Name}」。以下為技術數據：\n\n{context}";
-
-            var (summaryResult, summaryError) = await openAI.GetCompletionAsync<PortfolioAiSummaryDto>(
-                "Prompt/Portfolio/ZhuTechAnalysisSystem.txt", userMessage, NewModels.GPT_6_LUNA);
-            return summaryResult is null
-                ? ServiceResult.Fail(ErrorCodes.QueryOpenAIFailed, summaryError ?? "AI 總結失敗")
-                : ServiceResult.Ok(summaryResult);
-        }
-
-        /// <summary>Builds a compact technical-indicator brief (MAs, alignment, S/R, volume) for the LLM.</summary>
-        private static string BuildTaContext(string name, string symbol, string market, string currency,
-            List<decimal> closes, List<decimal>? highs, List<decimal>? lows, List<long>? vols)
-        {
-            decimal Ma(int n) => closes.Count >= n ? Math.Round(closes.TakeLast(n).Average(), 2) : 0m;
-            var last = Math.Round(closes[^1], 2);
-            var sb = new StringBuilder();
-            sb.AppendLine($"標的：{symbol} {name}（{market}，計價 {currency}）");
-            sb.AppendLine($"資料筆數：{closes.Count} 個交易日（由舊至新）");
-            sb.AppendLine($"最新收盤/淨值：{last}");
-
-            decimal ma5 = Ma(5), ma10 = Ma(10), ma20 = Ma(20), ma60 = Ma(60);
-            sb.AppendLine($"5日均：{ma5}；10日均：{ma10}；20日均(月線/生命線)：{ma20}；60日均(季線)：{ma60}");
-
-            var arrange = "資料不足";
-            if (ma5 > 0 && ma10 > 0 && ma20 > 0 && ma60 > 0)
-                arrange = ma5 > ma10 && ma10 > ma20 && ma20 > ma60 ? "均線多頭排列 (5>10>20>60)"
-                        : ma5 < ma10 && ma10 < ma20 && ma20 < ma60 ? "均線空頭排列 (5<10<20<60)"
-                        : "均線糾結/交錯（盤整）";
-            sb.AppendLine($"均線排列：{arrange}");
-            if (ma20 > 0)
-                sb.AppendLine($"股價相對月線：{(last >= ma20 ? "站上" : "跌破")}月線，乖離 {Math.Round((last - ma20) / ma20 * 100, 1)}%");
-
-            var win = Math.Min(20, closes.Count);
-            var recent = closes.TakeLast(win).ToList();
-            var hi20 = Math.Round(highs != null ? highs.TakeLast(win).Max() : recent.Max(), 2);
-            var lo20 = Math.Round(lows != null ? lows.TakeLast(win).Min() : recent.Min(), 2);
-            sb.AppendLine($"近{win}日高點(壓力)：{hi20}；近{win}日低點(支撐)：{lo20}");
-
-            var win60 = Math.Min(60, closes.Count);
-            var hi60 = Math.Round((highs ?? closes).TakeLast(win60).Max(), 2);
-            var lo60 = Math.Round((lows ?? closes).TakeLast(win60).Min(), 2);
-            sb.AppendLine($"近{win60}日高：{hi60}；近{win60}日低：{lo60}");
-
-            sb.AppendLine($"最近5筆收盤：{string.Join(", ", closes.TakeLast(5).Select(x => Math.Round(x, 2)))}");
-
-            if (vols != null && vols.Count >= 6)
-            {
-                var v5 = vols.TakeLast(5).Average();
-                var vPrev = vols.Count >= 10 ? vols.SkipLast(5).TakeLast(5).Average() : v5;
-                sb.AppendLine($"近5日均量：{(long)v5}；前5日均量：{(long)vPrev}（{(v5 >= vPrev ? "量增" : "量縮")}）");
-            }
-
-            return sb.ToString();
-        }
-
-        public Task<List<FundSearchItem>> SearchFundsAsync(string keyword, CancellationToken ct = default) =>
-            fundData.SearchFundsAsync(keyword, ct);
-
-        // ── Stock search (autocomplete by code or name) ──────────────────────
-
-        public async Task<List<StockSearchItem>> SearchStocksAsync(string market, string keyword, CancellationToken ct = default)
-        {
-            keyword = (keyword ?? "").Trim();
-            if (keyword.Length < 1) return [];
-            return market.ToUpperInvariant() == "US"
-                ? await SearchUsStocksAsync(keyword, ct)
-                : await twListedCompanies.SearchAsync(keyword, ct);
-        }
-
-        private static readonly HashSet<string> UsExchanges =
-            new(StringComparer.OrdinalIgnoreCase) { "NMS", "NYQ", "NGM", "NCM", "ASE", "PCX", "BTS", "NaN" };
-
-        private async Task<List<StockSearchItem>> SearchUsStocksAsync(string keyword, CancellationToken ct)
-        {
-            try
-            {
-                var client = httpClientFactory.CreateClient("ExternalReadOnly");
-                var url = $"https://query1.finance.yahoo.com/v1/finance/search?q={Uri.EscapeDataString(keyword)}&quotesCount=12&newsCount=0";
-                using var req = new HttpRequestMessage(HttpMethod.Get, url);
-                req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
-                using var resp = await client.SendAsync(req, ct);
-                resp.EnsureSuccessStatusCode();
-                var json = await resp.Content.ReadAsStringAsync(ct);
-
-                using var doc = System.Text.Json.JsonDocument.Parse(json);
-                var items = new List<StockSearchItem>();
-                if (doc.RootElement.TryGetProperty("quotes", out var quotes) &&
-                    quotes.ValueKind == System.Text.Json.JsonValueKind.Array)
-                {
-                    foreach (var q in quotes.EnumerateArray())
-                    {
-                        var type = q.TryGetProperty("quoteType", out var t) ? t.GetString() ?? "" : "";
-                        if (type != "EQUITY" && type != "ETF") continue;
-                        var exch = q.TryGetProperty("exchange", out var e) ? e.GetString() ?? "" : "";
-                        if (exch.Length > 0 && !UsExchanges.Contains(exch)) continue;
-                        var symbol = q.TryGetProperty("symbol", out var s) ? s.GetString() ?? "" : "";
-                        if (string.IsNullOrWhiteSpace(symbol) || symbol.Contains('.')) continue; // skip non-US listings
-                        var name = q.TryGetProperty("longname", out var ln) ? ln.GetString() ?? "" : "";
-                        if (string.IsNullOrWhiteSpace(name) && q.TryGetProperty("shortname", out var sn))
-                            name = sn.GetString() ?? "";
-                        items.Add(new StockSearchItem { Symbol = symbol, Name = name, Market = "US" });
-                        if (items.Count >= 12) break;
-                    }
-                }
-                return items;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "US stock search failed for {Keyword}", keyword);
-                return [];
-            }
-        }
-
         // ── Helpers ──────────────────────────────────────────────────────────
-
-        private async Task<HoldingSnapshot?> LatestSnapshotAsync(string userId, CancellationToken ct) =>
-            await db.HoldingSnapshots
-                .Include(s => s.Positions)
-                .Where(s => s.UserId == userId)
-                .OrderByDescending(s => s.EffectiveDate)
-                .FirstOrDefaultAsync(ct);
 
         /// <summary>
         /// Every snapshot for a user, oldest first — the full timeline, not just the latest.
@@ -2002,78 +1739,6 @@ namespace JackyAIApp.Server.Services.Portfolio
             return total;
         }
 
-        /// <summary>
-        /// Fetch one stock's market data, cached for 30 min so the same symbol isn't refetched
-        /// across the summary, the net-worth chart and the detail drawer. Returns null on failure.
-        ///
-        /// <paramref name="deep"/> controls how much history is actually fetched from source when
-        /// the symbol isn't already cached/persisted: pass false (latest-only) for callers that
-        /// just need the current price (summary valuation, day-change, stock lookup) — a
-        /// never-before-seen symbol then only costs a shallow fetch (~10 days for TW) instead of
-        /// the full ~6-month window. Pass true for anything that consumes more than the single most
-        /// recent price (price-history chart, net-worth chart, AI technical summary).
-        /// </summary>
-        private async Task<DTO.Finance.MarketData?> FetchStockDataAsync(string symbol, bool deep, CancellationToken ct)
-        {
-            if (string.IsNullOrWhiteSpace(symbol)) return null;
-
-            // Separate cache keys for deep vs latest-only — a shallow result must never be served
-            // back to a caller that needs the full series (see PersistentTwHistoricalProvider's own
-            // matching split for why: it's not just a perf nicety, a stale shallow cache hit would
-            // silently starve a chart/indicator caller of history it thinks it has).
-            var key = STOCK_CACHE_PREFIX + (deep ? "deep_" : "latest_") + symbol;
-            if (cache.TryGetValue(key, out DTO.Finance.MarketData? cached) && cached != null)
-                return cached;
-
-            // A shallow caller only ever reads the last point (see this method's own doc comment),
-            // and deep ⊇ latest, so if a deep fetch already landed for this symbol — likely from a
-            // concurrent chart/history request for the very same page load — reuse it instead of a
-            // second upstream hit. Not written back under the latest_ key: that cache must only ever
-            // hold a genuine shallow result (see the comment above).
-            if (!deep && cache.TryGetValue(STOCK_CACHE_PREFIX + "deep_" + symbol, out DTO.Finance.MarketData? deepCached) && deepCached != null)
-                return deepCached;
-
-            // Single-flight: on a cold cache, the summary/net-worth/benchmark/drawdown endpoints for
-            // the same symbol land here concurrently (same page load). Only the first caller actually
-            // fetches; the rest await that one task. The underlying fetch runs with its own
-            // CancellationToken.None (see SingleFlight's doc) so one caller cancelling never cancels
-            // the fetch the others are still waiting on.
-            return await cache.GetOrCreateSingleFlightAsync(key, CacheTtl.Portfolio.StockPrice, async () =>
-            {
-                try
-                {
-                    var region = providerFactory.DetectRegion(symbol);
-                    var provider = providerFactory.GetMarketDataProvider(region);
-                    // TW's provider chain already includes today's-price overlay as its outermost
-                    // layer (TwTodayOverlayMarketDataProvider, see FinanceServiceExtensions) — every
-                    // caller of IMarketDataProvider gets it, not just Portfolio, so nothing extra
-                    // happens here.
-                    return deep
-                        ? await provider.FetchAsync(symbol, CancellationToken.None)
-                        : await provider.FetchLatestAsync(symbol, CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Failed to fetch price for {Symbol}", symbol);
-                    return null;
-                }
-            }, ct,
-                // Only cache a usable result; an empty fetch shouldn't suppress the next retry.
-                shouldCache: data => data?.HistoricalPrices.Count > 0);
-        }
-
-        /// <summary>Fetch every distinct stock symbol in parallel; failed symbols are omitted.</summary>
-        private async Task<Dictionary<string, DTO.Finance.MarketData>> FetchStocksAsync(
-            IEnumerable<string> symbols, bool deep, CancellationToken ct)
-        {
-            var distinct = symbols.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
-            var results = await Task.WhenAll(
-                distinct.Select(async s => (symbol: s, data: await FetchStockDataAsync(s, deep, ct))));
-            return results
-                .Where(r => r.data != null)
-                .ToDictionary(r => r.symbol, r => r.data!);
-        }
-
         private sealed record ExtendedHistory(Dictionary<string, DTO.Finance.MarketData> Stocks, HistoryBackfillDto? Backfill);
 
         /// <summary>How many benchmark symbols one request may put on the backfill queue; the
@@ -2151,46 +1816,5 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         private static DateOnly Max(DateOnly a, DateOnly b) => a >= b ? a : b;
 
-        /// <summary>Fetch every distinct fund's NAV history in parallel (FundDataService caches each).</summary>
-        private async Task<Dictionary<string, FundNavHistory>> FetchFundsAsync(
-            IEnumerable<string> fundIds, CancellationToken ct)
-        {
-            var distinct = fundIds.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
-            var results = await Task.WhenAll(
-                distinct.Select(async f => (fundId: f, nav: await fundData.GetFundNavHistoryAsync(f, ct))));
-            return results
-                .Where(r => r.nav != null)
-                .ToDictionary(r => r.fundId, r => r.nav!);
-        }
-
-        private async Task<decimal> FetchUsdTwdRateAsync(CancellationToken ct) =>
-            // No rate (the feed failed) is not cached, so the next valuation asks again; this one
-            // uses the fallback.
-            await cache.GetOrCreateSingleFlightAsync(FX_CACHE_KEY, CacheTtl.Portfolio.Fx, FetchUsdTwdRateUncachedAsync, ct)
-                ?? FallbackUsdTwdRate;
-
-        private async Task<decimal?> FetchUsdTwdRateUncachedAsync()
-        {
-            try
-            {
-                // BOT's flcsv endpoint now serves an anti-bot "Challenge Validation" HTML page to
-                // non-browser clients, so it always fell back to 32. Use a stable key-less JSON feed.
-                var client = httpClientFactory.CreateClient("ExternalReadOnly");
-                var json = await client.GetStringAsync(FX_URL, CancellationToken.None);
-                using var doc = System.Text.Json.JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("rates", out var rates) &&
-                    rates.TryGetProperty("TWD", out var twd) &&
-                    twd.TryGetDecimal(out var rate) && rate > 0)
-                {
-                    return rate;
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to fetch USD/TWD rate, using fallback 32");
-            }
-
-            return null;
-        }
     }
 }

@@ -4,6 +4,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,35 +13,28 @@ using Moq;
 namespace JackyAIApp.Server.Tests.Services.Portfolio
 {
     /// <summary>
-    /// PortfolioService's half of TW stock search: it hands TW keywords to the listed-company
+    /// HoldingSearchService's half of TW stock search: it hands TW keywords to the listed-company
     /// list and does nothing else on the way. The list itself (refresh, matching, caching) is
     /// covered by <see cref="TwListedCompanyServiceTests"/>.
     /// </summary>
     [Collection(SingleFlightCollection.Name)]
-    public class PortfolioStockSearchTests : IDisposable
+    public class HoldingSearchServiceTests : IDisposable
     {
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<ITwListedCompanyService> _twList = new();
-        private readonly PortfolioService _service;
+        private readonly HoldingSearchService _service;
 
-        public PortfolioStockSearchTests()
+        public HoldingSearchServiceTests()
         {
             var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
                 .Options;
             _dbContext = new AzureSQLDBContext(options);
 
-            _service = new PortfolioService(
-                _dbContext,
-                new Mock<IMarketDataProviderFactory>().Object,
-                new Mock<IFundDataService>().Object,
-                new Mock<IDividendService>().Object,
-                new Mock<IStockCategoryService>().Object,
-                _twList.Object,
-                new Mock<IHttpClientFactory>().Object,
-                new MemoryCache(new MemoryCacheOptions()),
-                new Mock<IOpenAIPromptService>().Object,
-                NullLogger<PortfolioService>.Instance);
+            _service = new PortfolioServiceBuilder(_dbContext)
+            {
+                TwListedCompanies = _twList.Object,
+            }.BuildSearch();
         }
 
         public void Dispose() => _dbContext.Dispose();

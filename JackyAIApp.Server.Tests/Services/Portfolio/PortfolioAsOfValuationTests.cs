@@ -7,6 +7,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -51,18 +52,13 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             dividendData.Setup(x => x.GetFundDividendsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<DividendRecord>());
 
-            _service = new PortfolioService(
-                _dbContext,
-                _providerFactory.Object,
-                _fundData.Object,
-                dividendData.Object,
-                new Mock<IStockCategoryService>().Object,
-                twListedCompanies: null!,
-                new Mock<IHttpClientFactory>().Object,
-                new MemoryCache(new MemoryCacheOptions()),
-                new Mock<IOpenAIPromptService>().Object,
-                NullLogger<PortfolioService>.Instance,
-                new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)));
+            _service = new PortfolioServiceBuilder(_dbContext)
+            {
+                Providers = _providerFactory.Object,
+                FundData = _fundData.Object,
+                Dividends = dividendData.Object,
+                Time = new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)),
+            }.Build();
         }
 
         private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider

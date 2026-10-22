@@ -15,6 +15,9 @@ namespace JackyAIApp.Server.Controllers
     public class PortfolioController(
         IMyResponseFactory responseFactory,
         IPortfolioService portfolioService,
+        IHoldingSearchService holdingSearch,
+        IHoldingPriceService holdingPrices,
+        IHoldingAiSummaryService holdingAiSummary,
         ICurrentUser currentUser,
         ServerTiming timing,
         IDrawdownBrakeService drawdownBrakeService,
@@ -171,7 +174,7 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("lookup/{market}/{symbol}")]
         public async Task<IActionResult> LookupStock(string market, string symbol, CancellationToken ct)
         {
-            var result = await portfolioService.LookupStockAsync(market, symbol, ct);
+            var result = await holdingPrices.LookupStockAsync(market, symbol, ct);
             if (result == null) return NotFound();
             return responseFactory.CreateOKResponse(result);
         }
@@ -179,14 +182,14 @@ namespace JackyAIApp.Server.Controllers
         [HttpGet("stocks/search")]
         public async Task<IActionResult> SearchStocks([FromQuery] string market, [FromQuery] string keyword, CancellationToken ct)
         {
-            var result = await portfolioService.SearchStocksAsync(market ?? "TW", keyword ?? "", ct);
+            var result = await holdingSearch.SearchStocksAsync(market ?? "TW", keyword ?? "", ct);
             return responseFactory.CreateOKResponse(result);
         }
 
         [HttpGet("funds/search")]
         public async Task<IActionResult> SearchFunds([FromQuery] string keyword, CancellationToken ct)
         {
-            var result = await portfolioService.SearchFundsAsync(keyword ?? "", ct);
+            var result = await holdingSearch.SearchFundsAsync(keyword ?? "", ct);
             return responseFactory.CreateOKResponse(result);
         }
 
@@ -194,7 +197,7 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetHoldingPriceHistory(string market, string symbol, CancellationToken ct)
         {
             var userId = currentUser.RequireId();
-            var result = await portfolioService.GetHoldingPriceHistoryAsync(userId, market, symbol, ct);
+            var result = await holdingPrices.GetHoldingPriceHistoryAsync(userId, market, symbol, ct);
             if (result == null) return NotFound();
             return responseFactory.CreateOKResponse(result);
         }
@@ -204,7 +207,7 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetAiTechSummary(string market, string symbol, CancellationToken ct)
         {
             var userId = currentUser.RequireId();
-            return responseFactory.ToActionResult(await portfolioService.GetAiTechSummaryAsync(userId, market, symbol, ct));
+            return responseFactory.ToActionResult(await holdingAiSummary.GetAiTechSummaryAsync(userId, market, symbol, ct));
         }
     }
 }
