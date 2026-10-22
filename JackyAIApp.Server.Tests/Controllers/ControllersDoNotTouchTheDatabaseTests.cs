@@ -16,7 +16,6 @@ namespace JackyAIApp.Server.Tests.Controllers
         [
             "AccountController",
             "ChatbotController",
-            "DataAnalysisController",
             "DictionaryController",
             "ExamController",
             "ReviewController",

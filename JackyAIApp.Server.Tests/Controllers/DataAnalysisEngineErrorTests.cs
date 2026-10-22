@@ -91,7 +91,8 @@ namespace JackyAIApp.Server.Tests.Controllers
             var http = As(userId);
             return new(NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
                 new DataSourceResolver(FailingEngine(), db!, configService!, NullLogger<DataSourceResolver>.Instance),
-                dbContext: db!, configService: configService!, sessionStore: null!,
+                sources: new DataSourceStore(NullLogger<DataSourceStore>.Instance, db!, configService!, TestCurrentUser.Of(http)),
+                sessionStore: null!,
                 openAIPromptService: null!, promptLoader: null!, nlPlanner: null!,
                 cache: new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Of(http))
             {

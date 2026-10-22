@@ -20,6 +20,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             // used by both DataAnalysisController and dashboard widgets.
             services.AddScoped<IDataSourceResolver, DataSourceResolver>();
             services.AddScoped<IDashboardService, DashboardService>();
+            services.AddScoped<IDataSourceStore, DataSourceStore>();
             // The NL-query planner (LLM pipeline behind summarize/nl), extracted from the controller.
             services.AddScoped<INlQueryPlanner, NlQueryPlanner>();
 

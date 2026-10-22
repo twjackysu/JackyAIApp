@@ -102,7 +102,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             var controller = new DataAnalysisController(
                 NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
                 new DataSourceResolver(_engine, null!, null!, NullLogger<DataSourceResolver>.Instance),
-                dbContext: null!, configService: null!, sessionStore: null!,
+                sources: null!, sessionStore: null!,
                 openAIPromptService: openAI ?? null!, promptLoader: prompts.Object,
                 nlPlanner: new NlQueryPlanner(NullLogger<NlQueryPlanner>.Instance, openAI ?? null!),
                 cache: cache ?? new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Anonymous);
