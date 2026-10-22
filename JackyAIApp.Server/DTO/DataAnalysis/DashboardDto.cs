@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Data.Models.SQL;
 using System.Text.Json;
 
 namespace JackyAIApp.Server.DTO.DataAnalysis
@@ -8,7 +9,7 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public Guid Id { get; init; }
         public required string Name { get; init; }
         public int WidgetCount { get; init; }
-        public required string Visibility { get; init; }
+        public required DashboardVisibility Visibility { get; init; }
         /// <summary>True when the current user owns this dashboard (vs shared with them).</summary>
         public bool IsOwner { get; init; }
         public DateTimeOffset CreatedAt { get; init; }
@@ -19,7 +20,7 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
     {
         public Guid Id { get; init; }
         public required string Name { get; init; }
-        public required string Visibility { get; init; }
+        public required DashboardVisibility Visibility { get; init; }
         public bool IsOwner { get; init; }
         public required List<DashboardWidgetDto> Widgets { get; init; }
     }
@@ -27,7 +28,7 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
     /// <summary>Sharing settings (owner view).</summary>
     public sealed record ShareSettingsDto
     {
-        public required string Visibility { get; init; }
+        public required DashboardVisibility Visibility { get; init; }
         public required List<ShareMemberDto> Members { get; init; }
     }
 
@@ -41,6 +42,8 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
     /// <summary>Set visibility and (for Restricted) the full set of allowed users by email.</summary>
     public sealed record UpdateShareRequest
     {
+        /// <summary>A <see cref="DashboardVisibility"/> name, checked by the service so an unknown
+        /// one is answered in the error envelope rather than by model binding.</summary>
         public required string Visibility { get; init; }
         public List<string>? Emails { get; init; }
     }
@@ -56,6 +59,12 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         public int Y { get; init; }
         public int W { get; init; }
         public int H { get; init; }
+    }
+
+    /// <summary>A widget's rows, re-run from its saved plan.</summary>
+    public sealed record WidgetDataDto
+    {
+        public required IReadOnlyList<object> Rows { get; init; }
     }
 
     public sealed record CreateDashboardRequest
