@@ -1,6 +1,7 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
+using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.EntityFrameworkCore;
@@ -38,9 +39,13 @@ namespace JackyAIApp.Server.Tests.Services
             _currentUser.Setup(u => u.Email).Returns(email);
         }
 
-        private async Task<User> InfoForAsync(bool? isAdmin, bool enabled)
+        private async Task<AccountInfoResponse> InfoForAsync(bool? isAdmin, bool enabled)
         {
-            _db.Users.Add(new User { Id = "u1", LastUpdated = DateTime.UtcNow, IsAdmin = isAdmin });
+            _db.Users.Add(new User
+            {
+                Id = "u1", Name = "Jacky", Email = "jacky@example.com", LastUpdated = DateTime.UtcNow, IsAdmin = isAdmin,
+                UsageLimitMultiplier = 3m, TotalXP = 120,
+            });
             await _db.SaveChangesAsync();
             SignInAs("u1");
             _access.Setup(a => a.IsEnabledFor(isAdmin)).Returns(enabled);
@@ -56,11 +61,25 @@ namespace JackyAIApp.Server.Tests.Services
         public async Task Info_FeatureClosedToTheUser_SaysDisabled() =>
             Assert.False((await InfoForAsync(isAdmin: null, enabled: false)).DrawdownBrakeEnabled);
 
+        [Theory]
+        [InlineData(true, true)]
+        [InlineData(false, false)]
+        [InlineData(null, false)]
+        public async Task Info_IsAdmin_IsFalseUnlessTheRowSaysSo(bool? stored, bool expected) =>
+            Assert.Equal(expected, (await InfoForAsync(isAdmin: stored, enabled: false)).IsAdmin);
+
         [Fact]
-        public void TheFlag_IsComputedNotStored() =>
-            Assert.DoesNotContain(
-                _db.Model.FindEntityType(typeof(User))!.GetProperties(),
-                p => p.Name == nameof(User.DrawdownBrakeEnabled));
+        public async Task Info_CarriesOnlyWhatTheClientReads()
+        {
+            // Not the whole row: the usage-limit multiplier, XP, streaks and empty navigation
+            // collections went out with it while the endpoint returned the entity.
+            var json = System.Text.Json.JsonSerializer.SerializeToElement(
+                await InfoForAsync(isAdmin: null, enabled: true), new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+
+            Assert.Equal(["id", "name", "email", "isAdmin", "drawdownBrakeEnabled"], json.EnumerateObject().Select(p => p.Name));
+            Assert.Equal(("u1", "Jacky", "jacky@example.com"),
+                (json.GetProperty("id").GetString(), json.GetProperty("name").GetString(), json.GetProperty("email").GetString()));
+        }
 
         [Fact]
         public async Task Info_WithoutTheUsersRow_AsksToSignInAgain()

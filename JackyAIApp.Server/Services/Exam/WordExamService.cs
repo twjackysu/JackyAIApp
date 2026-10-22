@@ -9,12 +9,18 @@ namespace JackyAIApp.Server.Services.Exam
     /// <summary>
     /// The vocabulary-based exams — cloze, translation, sentence formation — and the AI grading of
     /// a translation or a sentence. A question is about one of the user's words
-    /// (<see cref="IExamWordPicker"/>) and comes from that type's <see cref="IWordExamGenerator"/>.
+    /// (<see cref="IExamWordPicker"/>) and comes from that type's <see cref="IWordExamGenerator{TQuestion}"/>.
     /// </summary>
     public interface IWordExamService
     {
-        /// <summary>Generates (or returns a cached) vocabulary-based exam for the current user.</summary>
-        Task<ServiceResult<object>> GenerateAsync(ExamType type);
+        /// <summary>A cloze question about one of the current user's words (generated, or a stored one).</summary>
+        Task<ServiceResult<ClozeTestResponse>> GenerateClozeAsync();
+
+        /// <summary>A translation question about one of the current user's words (generated, or a stored one).</summary>
+        Task<ServiceResult<TranslationTestResponse>> GenerateTranslationAsync();
+
+        /// <summary>A sentence-formation question about one of the current user's words (generated, or a stored one).</summary>
+        Task<ServiceResult<SentenceTestResponse>> GenerateSentenceAsync();
 
         Task<ServiceResult<TranslationQualityGradingAssistantResponse>> GradeTranslationAsync(TranslationTestUserResponse userResponse);
 
@@ -26,7 +32,9 @@ namespace JackyAIApp.Server.Services.Exam
         AzureSQLDBContext dbContext,
         ICurrentUser currentUser,
         IOpenAIPromptService promptService,
-        IEnumerable<IWordExamGenerator> generators,
+        IWordExamGenerator<ClozeTestResponse> cloze,
+        IWordExamGenerator<TranslationTestResponse> translation,
+        IWordExamGenerator<SentenceTestResponse> sentence,
         IExamWordPicker wordPicker,
         IUserAccountService accounts) : IWordExamService
     {
@@ -34,12 +42,18 @@ namespace JackyAIApp.Server.Services.Exam
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly ICurrentUser _currentUser = currentUser;
         private readonly IOpenAIPromptService _promptService = promptService;
-        private readonly IReadOnlyDictionary<ExamType, IWordExamGenerator> _generators =
-            generators.ToDictionary(g => g.Type);
         private readonly IExamWordPicker _wordPicker = wordPicker;
         private readonly IUserAccountService _accounts = accounts;
 
-        public async Task<ServiceResult<object>> GenerateAsync(ExamType type)
+        public Task<ServiceResult<ClozeTestResponse>> GenerateClozeAsync() => GenerateAsync(cloze);
+
+        public Task<ServiceResult<TranslationTestResponse>> GenerateTranslationAsync() => GenerateAsync(translation);
+
+        public Task<ServiceResult<SentenceTestResponse>> GenerateSentenceAsync() => GenerateAsync(sentence);
+
+        /// <summary>Picks one of the user's words (<see cref="IExamWordPicker"/>) and asks
+        /// <paramref name="generator"/> for a question about it.</summary>
+        private async Task<ServiceResult<TQuestion>> GenerateAsync<TQuestion>(IWordExamGenerator<TQuestion> generator)
         {
             var userId = _currentUser.RequireId();
             if (!await _accounts.ExistsAsync())
@@ -63,11 +77,6 @@ namespace JackyAIApp.Server.Services.Exam
             if (word == null)
             {
                 return ServiceResult.Fail(ErrorCodes.NotFound, "Word not found.");
-            }
-
-            if (!_generators.TryGetValue(type, out var generator))
-            {
-                return ServiceResult.Fail(ErrorCodes.BadRequest, $"Unsupported exam type: {type}");
             }
 
             return await generator.GenerateAsync(word);

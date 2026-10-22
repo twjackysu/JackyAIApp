@@ -1224,6 +1224,9 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.Property<double>("EaseFactor")
                         .HasColumnType("float");
 
+                    b.Property<DateTime?>("LastReviewedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("NextReviewDate")
                         .HasColumnType("datetime2");
 

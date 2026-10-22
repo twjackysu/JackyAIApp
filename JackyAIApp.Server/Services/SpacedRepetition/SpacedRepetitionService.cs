@@ -16,6 +16,7 @@ namespace JackyAIApp.Server.Services.SpacedRepetition
         {
             quality = Math.Clamp(quality, 0, 5);
             userWord.ReviewCount++;
+            userWord.LastReviewedDate = today;
 
             bool correct = quality >= 3;
             if (correct)

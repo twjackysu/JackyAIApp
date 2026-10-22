@@ -1,6 +1,7 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
+using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,9 +21,9 @@ namespace JackyAIApp.Server.Services
         /// answers <see cref="UserAccountFailures.Missing"/> when it does not.</summary>
         Task<bool> ExistsAsync(CancellationToken ct = default);
 
-        /// <summary>The signed-in user's row, with <see cref="User.DrawdownBrakeEnabled"/> filled in;
-        /// <see cref="UserAccountFailures.Missing"/> when there is none.</summary>
-        Task<ServiceResult<User>> GetInfoAsync(CancellationToken ct);
+        /// <summary>What the client needs about the signed-in user; <see cref="UserAccountFailures.Missing"/>
+        /// when their row is not there.</summary>
+        Task<ServiceResult<AccountInfoResponse>> GetInfoAsync(CancellationToken ct);
     }
 
     public class UserAccountService(
@@ -57,15 +58,18 @@ namespace JackyAIApp.Server.Services
             return dbContext.Users.AnyAsync(x => x.Id == userId, ct);
         }
 
-        public async Task<ServiceResult<User>> GetInfoAsync(CancellationToken ct)
+        public async Task<ServiceResult<AccountInfoResponse>> GetInfoAsync(CancellationToken ct)
         {
             var userId = currentUser.RequireId();
-            var user = await dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId, ct);
+            var user = await dbContext.Users
+                .Where(x => x.Id == userId)
+                .Select(x => new { x.Id, x.Name, x.Email, x.IsAdmin })
+                .SingleOrDefaultAsync(ct);
             if (user == null)
                 return UserAccountFailures.Missing;
 
-            user.DrawdownBrakeEnabled = drawdownBrakeAccess.IsEnabledFor(user.IsAdmin);
-            return ServiceResult.Ok(user);
+            return ServiceResult.Ok(new AccountInfoResponse(
+                user.Id, user.Name, user.Email, user.IsAdmin == true, drawdownBrakeAccess.IsEnabledFor(user.IsAdmin)));
         }
     }
 }

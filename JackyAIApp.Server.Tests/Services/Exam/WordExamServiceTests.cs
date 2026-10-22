@@ -35,12 +35,9 @@ namespace JackyAIApp.Server.Tests.Services.Exam
                 _dbContext,
                 _currentUserMock.Object,
                 _promptServiceMock.Object,
-                new List<IWordExamGenerator>
-                {
-                    new ClozeExamGenerator(NullLogger<ClozeExamGenerator>.Instance, _dbContext, _promptServiceMock.Object),
-                    new TranslationExamGenerator(NullLogger<TranslationExamGenerator>.Instance, _dbContext, _promptServiceMock.Object),
-                    new SentenceExamGenerator(NullLogger<SentenceExamGenerator>.Instance, _dbContext, _promptServiceMock.Object),
-                },
+                new ClozeExamGenerator(NullLogger<ClozeExamGenerator>.Instance, _dbContext, _promptServiceMock.Object),
+                new TranslationExamGenerator(NullLogger<TranslationExamGenerator>.Instance, _dbContext, _promptServiceMock.Object),
+                new SentenceExamGenerator(NullLogger<SentenceExamGenerator>.Instance, _dbContext, _promptServiceMock.Object),
                 new ExamWordPicker(_dbContext),
                 new UserAccountService(
                 NullLogger<UserAccountService>.Instance, _dbContext, _currentUserMock.Object, Mock.Of<IDrawdownBrakeAccess>()));
@@ -51,7 +48,7 @@ namespace JackyAIApp.Server.Tests.Services.Exam
         [Fact]
         public async Task GenerateCloze_UserRowMissing_AsksToSignInAgain()
         {
-            var result = await _service.GenerateAsync(ExamType.Cloze);
+            var result = await _service.GenerateClozeAsync();
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ErrorCodes.Unauthorized, result.Error);
@@ -63,7 +60,7 @@ namespace JackyAIApp.Server.Tests.Services.Exam
         {
             await SeedUserAsync();
 
-            var result = await _service.GenerateAsync(ExamType.Cloze);
+            var result = await _service.GenerateClozeAsync();
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ErrorCodes.Forbidden, result.Error);
@@ -97,7 +94,7 @@ namespace JackyAIApp.Server.Tests.Services.Exam
                     Options = new List<string> { "moon", "moan", "mood", "moot" }
                 }, (string?)null));
 
-            var result = await _service.GenerateAsync(ExamType.Cloze);
+            var result = await _service.GenerateClozeAsync();
 
             Assert.True(result.IsSuccess);
             Assert.Equal(word.Id, ((DTO.ClozeTestResponse)result.Data!).WordId);
@@ -108,10 +105,10 @@ namespace JackyAIApp.Server.Tests.Services.Exam
         {
             await SeedUserWithWordAndClozeTestsAsync(4);
 
-            var result = await _service.GenerateAsync(ExamType.Cloze);
+            var result = await _service.GenerateClozeAsync();
 
             Assert.True(result.IsSuccess);
-            var dto = Assert.IsType<DTO.ClozeTestResponse>(result.Data);
+            var dto = result.Data!;
             Assert.NotNull(dto.Question);
             Assert.NotNull(dto.WordId);
             _promptServiceMock.Verify(x => x.GetCompletionAsync<DTO.ClozeTest>(
@@ -134,10 +131,10 @@ namespace JackyAIApp.Server.Tests.Services.Exam
                 It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
                 .ReturnsAsync((generatedTest, (string?)null));
 
-            var result = await _service.GenerateAsync(ExamType.Cloze);
+            var result = await _service.GenerateClozeAsync();
 
             Assert.True(result.IsSuccess);
-            var dto = Assert.IsType<DTO.ClozeTestResponse>(result.Data);
+            var dto = result.Data!;
             Assert.Equal(generatedTest.Question, dto.Question);
             Assert.Equal(word.Id, dto.WordId);
 
@@ -157,7 +154,7 @@ namespace JackyAIApp.Server.Tests.Services.Exam
                 It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
                 .ReturnsAsync(((DTO.ClozeTest?)null, "OpenAI error"));
 
-            var result = await _service.GenerateAsync(ExamType.Cloze);
+            var result = await _service.GenerateClozeAsync();
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ErrorCodes.QueryOpenAIFailed, result.Error);
@@ -177,10 +174,10 @@ namespace JackyAIApp.Server.Tests.Services.Exam
                 It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
                 .ReturnsAsync((generatedTest, (string?)null));
 
-            var result = await _service.GenerateAsync(ExamType.Translation);
+            var result = await _service.GenerateTranslationAsync();
 
             Assert.True(result.IsSuccess);
-            var dto = Assert.IsType<TranslationTestResponse>(result.Data);
+            var dto = result.Data!;
             Assert.Equal(generatedTest.Chinese, dto.Chinese);
 
             var savedWord = await _dbContext.Words
@@ -205,9 +202,9 @@ namespace JackyAIApp.Server.Tests.Services.Exam
                 It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
                 .ReturnsAsync((generatedTest, (string?)null));
 
-            var result = await _service.GenerateAsync(ExamType.Sentence);
+            var result = await _service.GenerateSentenceAsync();
 
-            var dto = Assert.IsType<SentenceTestResponse>(result.Data);
+            var dto = result.Data!;
             Assert.Equal(generatedTest.Prompt, dto.Prompt);
             var savedWord = await _dbContext.Words
                 .Include(w => w.SentenceTests)

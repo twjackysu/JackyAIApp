@@ -51,11 +51,11 @@ namespace JackyAIApp.Server.Tests.Services
                 UserId = userId, ChallengeDate = day, Score = score, TotalQuestions = total, XPEarned = xp, CompletedAt = day,
             });
 
-        private void AddWord(string userId, DateTime added, int reviewCount = 0, DateTime? nextReview = null) =>
+        private void AddWord(string userId, DateTime added, DateTime? lastReviewed = null, DateTime? nextReview = null) =>
             _db.UserWords.Add(new UserWord
             {
                 UserId = userId, WordId = Guid.NewGuid().ToString(), DateAdded = added,
-                ReviewCount = reviewCount, NextReviewDate = nextReview,
+                ReviewCount = lastReviewed == null ? 0 : 1, LastReviewedDate = lastReviewed, NextReviewDate = nextReview,
             });
 
         private void AddExam(string userId, DateTime at) =>
@@ -73,9 +73,7 @@ namespace JackyAIApp.Server.Tests.Services
             AddWord("alice", Today.AddHours(1));
             AddWord("alice", Today.AddDays(-3).AddHours(23));            // last Sunday
             AddWord("bob", Today);
-            AddWord("alice", Today.AddDays(-30), reviewCount: 1, nextReview: Today.AddDays(3));
-            AddWord("alice", Today.AddDays(-30), reviewCount: 0, nextReview: Today.AddDays(3));
-            AddWord("alice", Today.AddDays(-30), reviewCount: 2, nextReview: Today.AddDays(-6));
+            AddWord("alice", Today.AddDays(-30), lastReviewed: Today.AddDays(-1), nextReview: Today);
             await _db.SaveChangesAsync();
 
             var report = (await As("alice").GetWeeklyReportAsync(default)).Data!;
@@ -86,6 +84,22 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Equal(2, report.NewWordsThisWeek);
             Assert.Equal(1, report.WordsReviewedThisWeek);
             Assert.Equal((4, 300, "Learner 📖"), (report.CurrentStreak, report.TotalXP, report.Level));
+        }
+
+        [Fact]
+        public async Task WeeklyReport_ReviewedWords_AreThoseLastReviewedThisWeek_NotThoseDueLater()
+        {
+            AddUser("alice");
+            AddWord("alice", Today.AddDays(-60), lastReviewed: Today.AddDays(-2), nextReview: Today.AddDays(4));   // Monday
+            AddWord("alice", Today.AddDays(-60), lastReviewed: Today, nextReview: Today.AddDays(1));
+            // Reviewed weeks ago and due next month: what the count used to take for this week's.
+            AddWord("alice", Today.AddDays(-60), lastReviewed: Today.AddDays(-20), nextReview: Today.AddDays(30));
+            AddWord("alice", Today.AddDays(-60), lastReviewed: Today.AddDays(-3), nextReview: Today.AddDays(3));   // last Sunday
+            AddWord("alice", Today.AddDays(-60), nextReview: null);                                              // never reviewed
+            AddWord("bob", Today.AddDays(-60), lastReviewed: Today, nextReview: Today.AddDays(1));
+            await _db.SaveChangesAsync();
+
+            Assert.Equal(2, (await As("alice").GetWeeklyReportAsync(default)).Data!.WordsReviewedThisWeek);
         }
 
         [Theory]
