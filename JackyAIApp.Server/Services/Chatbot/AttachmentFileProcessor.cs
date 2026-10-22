@@ -1,7 +1,10 @@
 using iText.Kernel.Pdf;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Gif;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
 
 namespace JackyAIApp.Server.Services.Chatbot
@@ -38,6 +41,23 @@ namespace JackyAIApp.Server.Services.Chatbot
         public const int MaxImageEdge = 1568;
         public const int MaxImagePixels = 1_150_000;
 
+        /// <summary>
+        /// The formats an image attachment is read as: the ones the chat accepts (.png, .jpg/.jpeg,
+        /// .gif, .webp) and the model reads. Left to itself, <see cref="Image.Load(Stream)"/> decodes any
+        /// format ImageSharp knows, detected from the content whatever the file is called, TIFF and BMP
+        /// included; a crafted BigTIFF named .png could keep a decoder thread busy (GHSA-wmxv-xphr-5c9g).
+        /// Any other format is refused when it is detected, before it is decoded.
+        /// </summary>
+        private static readonly DecoderOptions ImageDecoderOptions = new()
+        {
+            // Qualified: inside JackyAIApp.Server, Configuration is the app's own namespace.
+            Configuration = new SixLabors.ImageSharp.Configuration(
+                new PngConfigurationModule(),
+                new JpegConfigurationModule(),
+                new GifConfigurationModule(),
+                new WebpConfigurationModule()),
+        };
+
         /// <exception cref="UnreadableAttachmentException">Not an image, or not one that can be read.</exception>
         public static PreparedAttachmentFile PrepareImage(Stream content)
         {
@@ -45,7 +65,7 @@ namespace JackyAIApp.Server.Services.Chatbot
             SixLabors.ImageSharp.Formats.IImageFormat format;
             try
             {
-                image = Image.Load(content);
+                image = Image.Load(ImageDecoderOptions, content);
                 format = image.Metadata.DecodedImageFormat
                     ?? throw new UnreadableAttachmentException("Unknown image format.");
             }
