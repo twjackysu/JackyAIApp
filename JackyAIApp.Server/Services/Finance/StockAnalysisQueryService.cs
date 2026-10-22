@@ -15,7 +15,7 @@ namespace JackyAIApp.Server.Services.Finance
     public class StockAnalysisQueryService(
         ILogger<StockAnalysisQueryService> logger,
         ICurrentUser currentUser,
-        ITWSEOpenAPIService twseApiService,
+        ITwseAnalysisData twseAnalysisData,
         IStockCodeResolver stockCodeResolver,
         IFinanceAnalysisService financeAnalysisService,
         IMemoryCache memoryCache,
@@ -30,7 +30,7 @@ namespace JackyAIApp.Server.Services.Finance
     {
         private readonly ILogger<StockAnalysisQueryService> _logger = logger;
         private readonly ICurrentUser _currentUser = currentUser;
-        private readonly ITWSEOpenAPIService _twseApiService = twseApiService;
+        private readonly ITwseAnalysisData _twseAnalysisData = twseAnalysisData;
         private readonly IStockCodeResolver _stockCodeResolver = stockCodeResolver;
         private readonly IFinanceAnalysisService _financeAnalysisService = financeAnalysisService;
         private readonly IMemoryCache _memoryCache = memoryCache;
@@ -82,7 +82,7 @@ namespace JackyAIApp.Server.Services.Finance
                 // Gather the raw TWSE data and the quantitative indicators concurrently — they are
                 // independent (and share a date-keyed cache), so there's no reason to run them in
                 // series. The quant build is best-effort: failure just omits the structured context.
-                var stockDataTask = _twseApiService.GetStockDataAsync(resolvedStockCode, timeoutCts.Token);
+                var stockDataTask = _twseAnalysisData.DescribeAsync(resolvedStockCode, timeoutCts.Token);
                 var quantTask = BuildQuantitativeContextSafeAsync(resolvedStockCode, timeoutCts.Token);
                 await Task.WhenAll(stockDataTask, quantTask);
 

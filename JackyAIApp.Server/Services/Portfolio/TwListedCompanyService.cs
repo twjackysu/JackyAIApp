@@ -3,6 +3,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services.ExternalApi.Twse;
+using JackyAIApp.Server.Services.Finance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
@@ -189,7 +190,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (quotes is null) return null;
 
             var list = quotes
-                .Where(q => q.Name.Length > 0 && !IsWarrant(q.Code))
+                .Where(q => q.Name.Length > 0 && !TwStockCode.IsWarrant(q.Code))
                 .Select(q => (q.Code, q.Name, MarketType.TSE.ToString()))
                 .ToList();
             if (list.Count == 0)
@@ -229,7 +230,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 {
                     var symbol = ReadString(row, symbolField);
                     var name = ReadString(row, nameField);
-                    if (symbol.Length == 0 || name.Length == 0 || IsWarrant(symbol)) continue;
+                    if (symbol.Length == 0 || name.Length == 0 || TwStockCode.IsWarrant(symbol)) continue;
                     list.Add((symbol, name, market.ToString()));
                 }
 
@@ -253,15 +254,6 @@ namespace JackyAIApp.Server.Services.Portfolio
             && v.ValueKind == JsonValueKind.String
                 ? v.GetString()!.Trim()
                 : "";
-
-        /// <summary>
-        /// Warrants are six characters: TWSE's 03xxxx–08xxxx, TPEx's 7xxxxx (認售 and other kinds
-        /// end in a letter, e.g. 72414U). Nobody records a warrant as a holding here, and TPEx alone
-        /// lists ~11,000 of them, which would bury the stocks in search. Other six-character
-        /// symbols stay: 00xxxx ETFs (00981A), 01xxxT REITs, 02xxxx ETNs, 91xxxx DRs.
-        /// </summary>
-        internal static bool IsWarrant(string symbol) =>
-            symbol.Length == 6 && (symbol[0] == '7' || (symbol[0] == '0' && symbol[1] is >= '3' and <= '8'));
 
         private sealed record Entry(string Symbol, string Name, string? Market);
 

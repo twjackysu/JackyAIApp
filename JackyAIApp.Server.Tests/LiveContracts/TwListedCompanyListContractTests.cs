@@ -1,5 +1,6 @@
 using System.Text.Json;
 using JackyAIApp.Server.Services.ExternalApi.Twse;
+using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Portfolio;
 
 namespace JackyAIApp.Server.Tests.LiveContracts
@@ -38,7 +39,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
                 .Select(r => (
                     Symbol: r.TryGetProperty(symbolField, out var s) ? s.GetString()?.Trim() ?? "" : "",
                     Name: r.TryGetProperty(nameField, out var n) ? n.GetString()?.Trim() ?? "" : ""))
-                .Where(r => !TwListedCompanyService.IsWarrant(r.Symbol))
+                .Where(r => !TwStockCode.IsWarrant(r.Symbol))
                 .ToList();
 
             foreach (var symbol in expected)

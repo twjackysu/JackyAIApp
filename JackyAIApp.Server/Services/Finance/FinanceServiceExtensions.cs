@@ -21,7 +21,7 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         public static IServiceCollection AddFinanceAnalysisServices(this IServiceCollection services)
         {
-            services.AddScoped<ITWSEOpenAPIService, TWSEOpenAPIService>();
+            services.AddScoped<ITwseAnalysisData, TwseAnalysisData>();
             services.AddScoped<IStockCodeResolver, StockCodeResolver>();
             services.AddScoped<ITWSEDataService, TWSEDataService>();
             services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();

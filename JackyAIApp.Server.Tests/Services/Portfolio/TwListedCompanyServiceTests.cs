@@ -3,6 +3,7 @@ using System.Text;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.Services.ExternalApi.Twse;
+using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Portfolio;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -230,7 +231,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [InlineData("2887Z1", false)] // preferred
         [InlineData("1101B", false)]  // preferred
         public void IsWarrant(string symbol, bool expected) =>
-            Assert.Equal(expected, TwListedCompanyService.IsWarrant(symbol));
+            Assert.Equal(expected, TwStockCode.IsWarrant(symbol));
 
         // ── Search ──────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Portfolio;
-using JackyAIApp.Server.Services.Finance;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,7 +13,7 @@ namespace JackyAIApp.Server.Services.Portfolio
     {
         private readonly IDbContextFactory<AzureSQLDBContext> _dbFactory;
         private readonly IOpenAIPromptService _promptService;
-        private readonly ITWSEOpenAPIService _twseOpenApi;
+        private readonly ITwseOpenApi _twse;
         private readonly ILogger<StockCategoryService> _logger;
 
         private const string PromptPath = "Prompt/Portfolio/CategorySystem.txt";
@@ -40,12 +40,12 @@ namespace JackyAIApp.Server.Services.Portfolio
         public StockCategoryService(
             IDbContextFactory<AzureSQLDBContext> dbFactory,
             IOpenAIPromptService promptService,
-            ITWSEOpenAPIService twseOpenApi,
+            ITwseOpenApi twse,
             ILogger<StockCategoryService> logger)
         {
             _dbFactory = dbFactory ?? throw new ArgumentNullException(nameof(dbFactory));
             _promptService = promptService ?? throw new ArgumentNullException(nameof(promptService));
-            _twseOpenApi = twseOpenApi ?? throw new ArgumentNullException(nameof(twseOpenApi));
+            _twse = twse ?? throw new ArgumentNullException(nameof(twse));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -126,9 +126,10 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 try
                 {
-                    var profile = await _twseOpenApi.GetCompanyProfileAsync(symbol, ct);
-                    if (!string.IsNullOrWhiteSpace(profile))
-                        grounding += $"\nTWSE profile: {profile}";
+                    // 上市 companies only: an ETF or a 上櫃 stock has no row, and is classified without one.
+                    var profile = (await _twse.GetCompanyProfilesAsync(ct))?.FirstOrDefault(p => p.Code == symbol);
+                    if (profile != null)
+                        grounding += $"\nTWSE profile: {profile.ToText()}";
                 }
                 catch (Exception ex)
                 {

@@ -75,6 +75,76 @@ namespace JackyAIApp.Server.Tests.Services.ExternalApi
             Assert.Equal(1.5217099529812539m, revenue.RevenueMoM);
         }
 
+        public static TheoryData<string, string> StockRowDatasets => new()
+        {
+            { nameof(TwseOpenApi.GetMonthlyAveragesAsync), "Code" },
+            { nameof(TwseOpenApi.GetValuationRatiosAsync), "Code" },
+            { nameof(TwseOpenApi.GetDividendsAsync), "公司代號" },
+            { nameof(TwseOpenApi.GetIncomeStatementsAsync), "公司代號" },
+            { nameof(TwseOpenApi.GetBalanceSheetsAsync), "公司代號" },
+        };
+
+        [Theory]
+        [MemberData(nameof(StockRowDatasets))]
+        public async Task QuotedOnlyDatasets_AreKeyedByTheirOwnCodeField(string method, string codeField)
+        {
+            Answer($$"""[{"出表日期":"1151022","{{codeField}}":" 2330 ","名稱":"台積電"},{"Other":"1101"}]""");
+
+            var rows = await (Task<IReadOnlyList<TwseStockRow>?>)typeof(TwseOpenApi).GetMethod(method)!.Invoke(_twse, [CancellationToken.None])!;
+
+            var row = Assert.Single(rows!);
+            Assert.Equal("2330", row.Code);
+            Assert.Equal(["出表日期", codeField, "名稱"], row.Fields.Select(f => f.Key));
+        }
+
+        [Fact]
+        public async Task MonthlyAverages_LeaveOutWarrants()
+        {
+            // STOCK_DAY_AVG_ALL lists every warrant too: ~34,000 rows for ~1,400 securities.
+            Answer("""[{"Code":"2330"},{"Code":"00878"},{"Code":"030001"},{"Code":"08123P"},{"Code":"00981A"}]""");
+
+            Assert.Equal(["2330", "00878", "00981A"], (await _twse.GetMonthlyAveragesAsync())!.Select(r => r.Code));
+        }
+
+        [Fact]
+        public async Task MarketIndices_AreNamedByTheirIndex()
+        {
+            Answer("""[{"日期":"1151021","指數":"發行量加權股價指數","收盤指數":"46887.77"},{"日期":"1151021","指數":""}]""");
+
+            var index = Assert.Single((await _twse.GetMarketIndicesAsync())!);
+
+            Assert.Equal("發行量加權股價指數", index.Name);
+            Assert.Equal("指數: 發行量加權股價指數", index.ToText().Split(Environment.NewLine)[1]);
+        }
+
+        [Fact]
+        public async Task EachDataset_IsReadFromItsOwnUrl()
+        {
+            var urls = new List<string>();
+            _respond = request =>
+            {
+                urls.Add(request.RequestUri!.ToString());
+                return StubHttpMessageHandler.JsonResponse("""[{"Code":"2330","公司代號":"2330","指數":"x"}]""");
+            };
+
+            await _twse.GetDailyQuotesAsync();
+            await _twse.GetCompanyProfilesAsync();
+            await _twse.GetMonthlyRevenuesAsync();
+            await _twse.GetMonthlyAveragesAsync();
+            await _twse.GetValuationRatiosAsync();
+            await _twse.GetDividendsAsync();
+            await _twse.GetIncomeStatementsAsync();
+            await _twse.GetBalanceSheetsAsync();
+            await _twse.GetMarketIndicesAsync();
+
+            Assert.Equal(
+            [
+                "exchangeReport/STOCK_DAY_ALL", "opendata/t187ap03_L", "opendata/t187ap05_L",
+                "exchangeReport/STOCK_DAY_AVG_ALL", "exchangeReport/BWIBBU_ALL", "opendata/t187ap45_L",
+                "opendata/t187ap06_L_ci", "opendata/t187ap07_L_ci", "exchangeReport/MI_INDEX",
+            ], urls.Select(u => u[TwseOpenApi.BaseUrl.Length..]));
+        }
+
         [Theory]
         [InlineData("1,050.00", 1050.00)]
         [InlineData(" 12.5 ", 12.5)]
