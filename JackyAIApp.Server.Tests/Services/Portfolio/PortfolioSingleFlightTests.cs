@@ -6,6 +6,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -16,8 +17,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     /// <summary>
     /// TASK-025: cold-cache single-flight de-duplication, shallow/deep stock-fetch sharing, and
     /// the short-TTL snapshots cache in PortfolioService. See SingleFlightTests for coverage of
-    /// the underlying generic de-dup mechanism itself; this file covers how PortfolioService wires
-    /// it up.
+    /// the underlying generic de-dup mechanism itself; this file covers how the Portfolio services
+    /// wire it up (the stock fetches live in PortfolioPriceLoader, shared by all of them).
     /// </summary>
     [Collection(SingleFlightCollection.Name)]
     public class PortfolioSingleFlightTests : IDisposable
@@ -30,6 +31,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
         private readonly AzureSQLDBContext _dbContext;
         private readonly PortfolioService _service;
+        private readonly HoldingPriceService _prices;
         private readonly Mock<IMarketDataProviderFactory> _providerFactory = new();
         private readonly Mock<IMarketDataProvider> _provider = new();
         private readonly IMemoryCache _cache;
@@ -55,18 +57,19 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var openAI = new Mock<IOpenAIPromptService>();
             var categoryService = new Mock<IStockCategoryService>();
 
-            _service = new PortfolioService(
-                _dbContext,
-                _providerFactory.Object,
-                fundData.Object,
-                dividendData.Object,
-                categoryService.Object,
-                twListedCompanies: null!,
-                httpClientFactory.Object,
-                _cache,
-                openAI.Object,
-                NullLogger<PortfolioService>.Instance,
-                new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)));
+            var builder = new PortfolioServiceBuilder(_dbContext)
+            {
+                Providers = _providerFactory.Object,
+                FundData = fundData.Object,
+                Dividends = dividendData.Object,
+                Categories = categoryService.Object,
+                HttpClientFactory = httpClientFactory.Object,
+                Cache = _cache,
+                Time = new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)),
+            };
+            _service = builder.Build();
+            // The same cache behind both, as in a request: the price history fetch is what the lookup reuses.
+            _prices = builder.BuildPrices();
         }
 
         private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider
@@ -105,7 +108,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 });
 
             var calls = Enumerable.Range(0, 5)
-                .Select(_ => _service.LookupStockAsync("TW", symbol))
+                .Select(_ => _prices.LookupStockAsync("TW", symbol))
                 .ToList();
 
             await Task.Delay(50); // let every call reach the cache-miss/single-flight path first
@@ -142,12 +145,12 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             });
 
             // Deep fetch (price-history chart) populates the deep_ cache.
-            var history = await _service.GetHoldingPriceHistoryAsync(TestUserId, "TW", symbol);
+            var history = await _prices.GetHoldingPriceHistoryAsync(TestUserId, "TW", symbol);
             Assert.NotNull(history);
 
             // A shallow caller for the same symbol must be served from the deep cache instead of
             // issuing its own latest-only fetch.
-            var lookup = await _service.LookupStockAsync("TW", symbol);
+            var lookup = await _prices.LookupStockAsync("TW", symbol);
 
             Assert.Equal(500m, lookup!.CurrentPrice);
             _provider.Verify(p => p.FetchLatestAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);

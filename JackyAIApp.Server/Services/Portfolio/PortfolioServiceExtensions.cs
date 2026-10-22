@@ -16,7 +16,12 @@ namespace JackyAIApp.Server.Services.Portfolio
             services.AddScoped<ITdccFxService, TdccFxService>();
             services.AddScoped<ICathayFxService, CathayFxService>();
             services.AddScoped<IStockCategoryService, StockCategoryService>();
+            services.AddScoped<IHoldingSnapshotReader, HoldingSnapshotReader>();
+            services.AddScoped<IPortfolioPriceLoader, PortfolioPriceLoader>();
             services.AddScoped<IPortfolioService, PortfolioService>();
+            services.AddScoped<IHoldingSearchService, HoldingSearchService>();
+            services.AddScoped<IHoldingPriceService, HoldingPriceService>();
+            services.AddScoped<IHoldingAiSummaryService, HoldingAiSummaryService>();
             services.AddScoped<Common.ServerTiming>();
 
             // Singleton: holds the search list in memory and opens its own DbContexts through

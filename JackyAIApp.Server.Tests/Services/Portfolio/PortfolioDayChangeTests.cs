@@ -8,6 +8,7 @@ using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -45,19 +46,17 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var openAI = new Mock<IOpenAIPromptService>();
             var categoryService = new Mock<IStockCategoryService>();
 
-            _createService = calendar => new PortfolioService(
-                _dbContext,
-                _providerFactory.Object,
-                fundData.Object,
-                dividendData.Object,
-                categoryService.Object,
-                twListedCompanies: null!,
-                httpClientFactory.Object,
-                cache,
-                openAI.Object,
-                NullLogger<PortfolioService>.Instance,
-                timeProvider: new FixedTime(Monday),
-                tradingCalendar: calendar);
+            _createService = calendar => new PortfolioServiceBuilder(_dbContext)
+            {
+                Providers = _providerFactory.Object,
+                FundData = fundData.Object,
+                Dividends = dividendData.Object,
+                Categories = categoryService.Object,
+                HttpClientFactory = httpClientFactory.Object,
+                Cache = cache,
+                Time = new FixedTime(Monday),
+                Calendar = calendar,
+            }.Build();
             _service = _createService(null);
         }
 

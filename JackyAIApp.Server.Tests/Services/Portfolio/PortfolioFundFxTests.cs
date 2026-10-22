@@ -7,6 +7,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -166,19 +167,13 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var cache = new MemoryCache(new MemoryCacheOptions());
             cache.Set("portfolio_usd_twd_rate", MidRate, CacheTtl.Portfolio.Fx);
 
-            return new PortfolioService(
-                _db,
-                new Mock<IMarketDataProviderFactory>().Object,
-                _fundData.Object,
-                dividendData.Object,
-                new Mock<IStockCategoryService>().Object,
-                twListedCompanies: null!,
-                new Mock<IHttpClientFactory>().Object,
-                cache,
-                new Mock<IOpenAIPromptService>().Object,
-                NullLogger<PortfolioService>.Instance,
-                timeProvider: null,
-                tdccFx: _tdccFx.Object);
+            return new PortfolioServiceBuilder(_db)
+            {
+                FundData = _fundData.Object,
+                Dividends = dividendData.Object,
+                Cache = cache,
+                TdccFx = _tdccFx.Object,
+            }.Build();
         }
     }
 }

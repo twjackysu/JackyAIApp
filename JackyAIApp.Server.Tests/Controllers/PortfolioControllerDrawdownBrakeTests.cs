@@ -45,7 +45,8 @@ namespace JackyAIApp.Server.Tests.Controllers
                 .Returns<ErrorCodes, string>((code, msg) => new ObjectResult(new { code, msg }) { StatusCode = (int)code / 100 % 1000 });
 
             _controller = new PortfolioController(
-                _responseFactory.Object, new Mock<IPortfolioService>().Object, _currentUser.Object,
+                _responseFactory.Object, new Mock<IPortfolioService>().Object, new Mock<IHoldingSearchService>().Object,
+                new Mock<IHoldingPriceService>().Object, new Mock<IHoldingAiSummaryService>().Object, _currentUser.Object,
                 new ServerTiming(), _brake.Object, _access.Object, _refresher.Object, _telemetry);
         }
 

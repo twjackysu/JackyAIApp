@@ -6,6 +6,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -57,13 +58,14 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var cache = new MemoryCache(new MemoryCacheOptions());
             cache.Set("portfolio_usd_twd_rate", MidRate, TimeSpan.FromHours(1));
 
-            _service = new PortfolioService(
-                _db, _providers.Object, new Mock<IFundDataService>().Object, dividends.Object,
-                new Mock<IStockCategoryService>().Object, twListedCompanies: null!, new Mock<IHttpClientFactory>().Object,
-                cache, new Mock<IOpenAIPromptService>().Object,
-                NullLogger<PortfolioService>.Instance,
-                timeProvider: new FixedTime(Monday),
-                cathayFx: cathay.Object);
+            _service = new PortfolioServiceBuilder(_db)
+            {
+                Providers = _providers.Object,
+                Dividends = dividends.Object,
+                Cache = cache,
+                Time = new FixedTime(Monday),
+                CathayFx = cathay.Object,
+            }.Build();
         }
 
         public void Dispose() => _db.Dispose();
