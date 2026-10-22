@@ -103,6 +103,15 @@ JackyAIApp.Server/
   weekday; `IsTradingDay` / `PreviousTradingDay` count that as a trading day.
   `WeekdayTradingCalendar.Instance` is the weekdays-only stand-in (tests)
 
+## Exams
+
+- Each exam type has its own service in `Services/Exam` and its own controller, all under `api/Exam`;
+  there is no `ExamService`. A new exam type gets its own pair rather than joining another one
+- What the exams share: `IExamWordPicker` (which of the user's words to ask about), `IExamBankPicker`
+  (a shared question bank, skipping the user's last 30 attempts), `IExamSpeech` with
+  `ExamControllerBase.SpeakAsync` (the unbilled audio of a question's text), and `IExamResultRecorder`
+  (the attempt log and the SM-2 schedules). Which exam endpoints charge is pinned by `UsageLimitEndpointTests`
+
 ## Portfolio
 
 - What an `AssetType` is — market-priced or an amount, its sign, whether it has a cost, counts as

@@ -8,27 +8,26 @@ using Moq;
 namespace JackyAIApp.Server.Tests.Controllers
 {
     /// <summary>
-    /// Controller-level tests for behavior that lives in the controller itself
-    /// (HTTP concerns). The domain logic is covered by <see cref="Services.ExamServiceTests"/>.
+    /// What the conversation controller does itself (HTTP concerns). The domain logic is covered by
+    /// <see cref="Services.Exam.ConversationPracticeServiceTests"/>.
     /// </summary>
-    public class ExamControllerTests
+    public class ConversationPracticeControllerTests
     {
         private readonly Mock<IMyResponseFactory> _responseFactoryMock;
-        private readonly Mock<IExamService> _examServiceMock;
-        private readonly ExamController _controller;
+        private readonly Mock<IConversationPracticeService> _conversationsMock;
+        private readonly ConversationPracticeController _controller;
 
-        public ExamControllerTests()
+        public ConversationPracticeControllerTests()
         {
             _responseFactoryMock = new Mock<IMyResponseFactory>();
-            _examServiceMock = new Mock<IExamService>();
+            _conversationsMock = new Mock<IConversationPracticeService>();
 
             _responseFactoryMock.Setup(x => x.CreateOKResponse(It.IsAny<object>()))
                 .Returns<object>(data => new OkObjectResult(new { Success = true, Data = data }));
             _responseFactoryMock.Setup(x => x.CreateErrorResponse(It.IsAny<ErrorCodes>(), It.IsAny<string>()))
                 .Returns<ErrorCodes, string>((code, msg) => new BadRequestObjectResult(new { Success = false, Message = msg }));
 
-            _controller = new ExamController(
-                _responseFactoryMock.Object, Mock.Of<IExamSpeech>(), _examServiceMock.Object);
+            _controller = new ConversationPracticeController(_responseFactoryMock.Object, _conversationsMock.Object);
         }
 
         [Fact]
@@ -42,7 +41,7 @@ namespace JackyAIApp.Server.Tests.Controllers
                 ErrorCodes.BadRequest,
                 "No audio file provided."), Times.Once);
             // Service should not be touched when there is no file.
-            _examServiceMock.Verify(x => x.TranscribeAudioAsync(It.IsAny<Stream>(), It.IsAny<string>()), Times.Never);
+            _conversationsMock.Verify(x => x.TranscribeAudioAsync(It.IsAny<Stream>(), It.IsAny<string>()), Times.Never);
         }
     }
 }

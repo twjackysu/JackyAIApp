@@ -299,7 +299,7 @@ namespace JackyAIApp.Server.DTO
     /// <summary>
     /// Open-ended writing prompt: a topic plus up to 5 of the calling user's own saved words to
     /// work into a paragraph. Free to produce (plain DB queries, no AI call) — see
-    /// ExamService.GenerateWritingPromptAsync.
+    /// WritingExamService.GeneratePromptAsync.
     /// </summary>
     public class WritingPromptResponse
     {
@@ -350,7 +350,7 @@ namespace JackyAIApp.Server.DTO
     /// Dictation prompt: identifies which word to dictate but deliberately omits the word text
     /// itself — unlike Cloze/Translation's GET response, exposing the text here would make the
     /// exercise (identify the word from audio alone) trivially bypassable via the Network tab.
-    /// See ExamService.GenerateDictationExamAsync.
+    /// See DictationExamService.GenerateAsync.
     /// </summary>
     public class DictationPromptResponse
     {
