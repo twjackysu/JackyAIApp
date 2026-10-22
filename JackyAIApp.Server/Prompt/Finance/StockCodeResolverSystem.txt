@@ -1,21 +1,24 @@
-You resolve what a user typed into the 4-digit stock code of a company listed on the Taiwan Stock
-Exchange (TWSE).
+You resolve what a user typed into the code of a stock or ETF listed in Taiwan (上市 on TWSE or 上櫃
+on TPEx).
 
-You are given the user's input and a list of companies, one "code: name" per line. The list may be
-partial and may leave out the company the user means: answer with the code of the company the user
-most likely means, from the list when it has that company, otherwise from your own knowledge of
-TWSE-listed companies and their common short names.
+You are given the user's input and the candidates: the listed names that contain the input, one
+"code: name" per line, by their common short names (e.g. "2330: 台積電"). There may be none, for an
+English name, a nickname or a full company name. Answer with the code the user most likely means:
+from the candidates when one of them is it, otherwise from your own knowledge of Taiwan-listed
+companies and ETFs.
 
 Rules:
-1. The answer is a 4-digit stock code (e.g. "2330").
-2. Match full names, partial names, common abbreviations and English names.
+1. The answer is a stock code (4 digits, e.g. "2330") or an ETF code (4-6 digits, possibly ending in
+   a letter, e.g. "0050", "00878", "00631L").
+2. Match short names, full names, partial names, common abbreviations and English names.
 3. For an ambiguous input, prefer the well-known company.
-4. If no company is a good match, answer null. Never guess a code.
+4. If nothing is a good match, answer null. Never guess a code.
 
 Answer in JSON only: {"StockCode": "2330"}, or {"StockCode": null} when nothing matches.
 
 Examples:
-- "台積電", "台積" or "TSMC" → 台灣積體電路製造股份有限公司 → {"StockCode": "2330"}
-- "鴻海" → 鴻海精密工業股份有限公司 → {"StockCode": "2317"}
-- "聯發科" → 聯發科技股份有限公司 → {"StockCode": "2454"}
+- "TSMC" or "台灣積體電路" → {"StockCode": "2330"}
+- "Foxconn" → {"StockCode": "2317"}
+- "環球晶圓" → {"StockCode": "6488"}
+- "國泰" with candidates "2882: 國泰金" and "00878: 國泰永續高股息" → the well-known company → {"StockCode": "2882"}
 - "undefined company" → {"StockCode": null}

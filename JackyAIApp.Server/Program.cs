@@ -153,7 +153,7 @@ try
         .AddReadOnlyResilience();
 
     // Named client for read-only external market-data GETs (and FundRich's POST-as-query
-    // calls) — TWSE, Yahoo, FundRich, BOT/CBC via er-api, SEC, Finnhub, FRED. Deliberately
+    // calls) — TWSE, Yahoo, FundRich, er-api, CBC, SEC, Finnhub, FRED. Deliberately
     // NOT applied via ConfigureHttpClientDefaults: that would also retry OpenAI completions,
     // where a transport-level failure after the request already landed server-side would risk
     // a duplicate generation. These providers are all idempotent reads, so retrying is safe

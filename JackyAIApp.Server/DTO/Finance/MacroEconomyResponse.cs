@@ -119,11 +119,9 @@ namespace JackyAIApp.Server.DTO.Finance
         /// <summary>Currency display name</summary>
         public string DisplayName { get; set; } = string.Empty;
 
-        /// <summary>Bank buy (spot)</summary>
-        public decimal? BuyRate { get; set; }
-
-        /// <summary>Bank sell (spot)</summary>
-        public decimal? SellRate { get; set; }
+        /// <summary>TWD per one unit of <see cref="Currency"/>, mid-market (no bank buy/sell spread),
+        /// updated once a day</summary>
+        public decimal Rate { get; set; }
     }
 
     public class BankRate

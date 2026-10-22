@@ -1,18 +1,25 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
-using JackyAIApp.Server.Services.ExternalApi.Twse;
+using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.Portfolio;
 
 namespace JackyAIApp.Server.Services.Finance
 {
+    /// <summary>
+    /// Turns what the user typed (a code, a company's short name, an English name, a nickname) into a
+    /// TW stock or ETF code. Names are looked up in the TW symbol list (<see cref="ITwListedCompanyService"/>:
+    /// 上市 and 上櫃 stocks and ETFs by the short names people use, held in memory); the model is asked only
+    /// when that does not settle it, and its answer is taken only if the code is on that list.
+    /// </summary>
     public class StockCodeResolver(
         ILogger<StockCodeResolver> logger,
         IOpenAIPromptService promptService,
-        ITwseOpenApi twse) : IStockCodeResolver
+        ITwListedCompanyService listedCompanies) : IStockCodeResolver
     {
         private readonly ILogger<StockCodeResolver> _logger = logger;
         private readonly IOpenAIPromptService _promptService = promptService;
-        private readonly ITwseOpenApi _twse = twse;
+        private readonly ITwListedCompanyService _listedCompanies = listedCompanies;
 
         internal const string PromptPath = "Prompt/Finance/StockCodeResolverSystem.txt";
 
@@ -24,22 +31,36 @@ namespace JackyAIApp.Server.Services.Finance
             try
             {
                 // Input that is already shaped like a TW code (incl. 5-6 digit ETFs such as 00878 / 00631L)
-                // is the answer: the company list only holds 4-digit listed companies, so sending it to the
-                // LLM can only fail (or cost a call to fail).
+                // is the answer.
                 if (TwStockCode.TryNormalize(userInput, out var code))
                     return code;
 
-                var companies = await GetCompanyListAsync(cancellationToken);
+                var name = (userInput ?? "").Trim();
+                if (name.Length == 0)
+                    return string.Empty;
 
-                var exactMatch = await FindExactCompanyMatchAsync(companies, userInput);
-                if (!string.IsNullOrEmpty(exactMatch))
-                    return exactMatch;
+                // The listed names that contain the input (台積 → 台積電), by code.
+                var candidates = await _listedCompanies.SearchAsync(name, cancellationToken);
 
-                var aiResolvedCode = await ResolveWithAIAsync(userInput, companies);
-                if (!string.IsNullOrEmpty(aiResolvedCode))
-                    return aiResolvedCode;
+                var exact = candidates.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+                if (exact != null)
+                    return exact.Symbol;
+                if (candidates.Count == 1)
+                    return candidates[0].Symbol;
 
-                _logger.LogWarning("Could not resolve user input '{userInput}' to a stock code", userInput);
+                // Several names contain it, or none does (an English name, a nickname, a full legal name):
+                // the model picks.
+                var answer = await AskModelAsync(name, candidates);
+                if (answer.Length > 0 && await _listedCompanies.GetMarketTypeAsync(answer, cancellationToken) != null)
+                {
+                    _logger.LogInformation("LLM resolved '{input}' to stock code '{code}'", name, answer);
+                    return answer;
+                }
+
+                if (answer.Length > 0)
+                    _logger.LogWarning("LLM answered '{code}' for '{input}', which is not a listed code", answer, name);
+                else
+                    _logger.LogWarning("Could not resolve user input '{userInput}' to a stock code", name);
                 return string.Empty;
             }
             catch (Exception ex)
@@ -50,21 +71,16 @@ namespace JackyAIApp.Server.Services.Finance
         }
 
         /// <summary>
-        /// Validates what the LLM answered, not what the user typed (that is <see cref="TwStockCode.TryNormalize"/>).
-        /// Stays strictly 4 digits: the company list holds only 4-digit listed companies, so a 5-6 digit
-        /// answer would be a hallucination.
-        /// </summary>
-        private static bool IsFourDigitCompanyCode(string input) =>
-            !string.IsNullOrEmpty(input) && input.Length == 4 && input.All(char.IsDigit);
-
-        /// <summary>
-        /// Asks the model which company the user means, given <paramref name="companies"/> (both steps
-        /// share the one prompt). Empty when it names none, or anything but a 4-digit code. A failed
+        /// Asks the model which company or ETF the user means, given the <paramref name="candidates"/>
+        /// (possibly none). Empty when it names none, or anything not shaped like a TW code. A failed
         /// call is logged with its reason: otherwise the user only sees "not found".
         /// </summary>
-        private async Task<string> AskModelAsync(string userInput, IEnumerable<CompanyInfo> companies)
+        private async Task<string> AskModelAsync(string userInput, IReadOnlyCollection<StockSearchItem> candidates)
         {
-            var userMessage = $"User input: '{userInput}'\n\nCompanies:\n{string.Join("\n", companies.Select(c => $"{c.Code}: {c.Name}"))}";
+            var list = candidates.Count == 0
+                ? "(none of the listed names contains the input)"
+                : string.Join("\n", candidates.Select(c => $"{c.Symbol}: {c.Name}"));
+            var userMessage = $"User input: '{userInput}'\n\nCandidates:\n{list}";
             var (answer, error) = await _promptService.GetCompletionAsync<StockCodeResolution>(
                 PromptPath, userMessage, model: NewModels.GPT_6_LUNA, feature: UsageFeature);
             if (answer is null)
@@ -73,51 +89,7 @@ namespace JackyAIApp.Server.Services.Finance
                 return string.Empty;
             }
 
-            var code = answer.StockCode?.Trim() ?? "";
-            return IsFourDigitCompanyCode(code) ? code : string.Empty;
-        }
-
-        /// <summary>The 上市 companies (code and name); empty when TWSE's list could not be read.</summary>
-        private async Task<List<CompanyInfo>> GetCompanyListAsync(CancellationToken cancellationToken) =>
-            (await _twse.GetCompanyProfilesAsync(cancellationToken) ?? [])
-                .Where(p => p.Code.Length > 0 && p.Name.Length > 0)
-                .Select(p => new CompanyInfo { Code = p.Code, Name = p.Name })
-                .ToList();
-
-        private async Task<string> FindExactCompanyMatchAsync(List<CompanyInfo> companies, string userInput)
-        {
-            var exact = companies.FirstOrDefault(c => string.Equals(c.Name, userInput, StringComparison.OrdinalIgnoreCase));
-            if (exact != null) return exact.Code;
-
-            // The first 100 companies by code are mostly 1xxx and rarely the one meant. What makes this
-            // step work is the model knowing common short names (台積電 → 2330), which the substring
-            // search in ResolveWithAIAsync cannot find: 台積電 is not part of 台灣積體電路製造.
-            var result = await AskModelAsync(userInput, companies.Take(100));
-            if (result.Length > 0)
-                _logger.LogInformation("LLM resolved '{input}' to stock code '{code}'", userInput, result);
-            return result;
-        }
-
-        private async Task<string> ResolveWithAIAsync(string userInput, List<CompanyInfo> companies)
-        {
-            var potentialMatches = companies
-                .Where(c => c.Name.Contains(userInput, StringComparison.OrdinalIgnoreCase) || ContainsKeywords(c.Name, userInput))
-                .Take(20)
-                .ToList();
-
-            return potentialMatches.Count == 0 ? string.Empty : await AskModelAsync(userInput, potentialMatches);
-        }
-
-        private static bool ContainsKeywords(string companyName, string userInput)
-        {
-            var keywords = userInput.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            return keywords.Any(k => companyName.Contains(k, StringComparison.OrdinalIgnoreCase));
-        }
-
-        private class CompanyInfo
-        {
-            public string Code { get; set; } = string.Empty;
-            public string Name { get; set; } = string.Empty;
+            return TwStockCode.TryNormalize(answer.StockCode, out var code) ? code : string.Empty;
         }
     }
 }

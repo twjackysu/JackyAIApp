@@ -22,7 +22,9 @@
         PayloadTooLarge = 1041300,
         /// <summary>A chat attachment of a file type that is not accepted.</summary>
         AttachmentUnsupportedType = 1041500,
-        ExternalApiError = 1040500,
+        /// <summary>An upstream service failed or had no data: 502. It was 1040500 until 2026-10, which
+        /// by the rule above answered 405 Method Not Allowed.</summary>
+        ExternalApiError = 1050200,
         UsageLimitExceeded = 1042900,
         TooManyRequests = 1042901,
         MarketHistoryUnavailable = 1050301,

@@ -4,9 +4,8 @@ namespace JackyAIApp.Server.Tests.LiveContracts
 {
     /// <summary>
     /// Live contract test for open.er-api.com, the USD/TWD source PortfolioService uses for every
-    /// TWD conversion in the summary/history/dividend calculations
-    /// (THIRD_PARTY_CONTRACT_TESTS_PLAN.md section A3). A single fixed endpoint — no per-symbol
-    /// sampling needed.
+    /// TWD conversion in the summary/history/dividend calculations, and the macro view's exchange
+    /// rates. A single fixed endpoint — no per-symbol sampling needed.
     ///
     /// Only runs on the scheduled contract-tests workflow, never in PR CI (see LiveContractBase).
     /// </summary>
@@ -36,6 +35,11 @@ namespace JackyAIApp.Server.Tests.LiveContracts
             // TWD-converted number in the app.
             Assert.True(rate is > 15 and < 60,
                 $"USD/TWD rate {rate} is outside the sane 15–60 band — possible unit/format change upstream.");
+
+            // TWSEMacroEconomyProvider quotes these against TWD through the same answer.
+            foreach (var currency in new[] { "JPY", "EUR", "CNY", "GBP" })
+                Assert.True(rates.TryGetProperty(currency, out var perUsd) && perUsd.ValueKind == JsonValueKind.Number && perUsd.GetDecimal() > 0,
+                    $"open.er-api.com 'rates.{currency}' missing or not a positive number.");
         }
     }
 }
