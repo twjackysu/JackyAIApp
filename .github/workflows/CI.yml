@@ -33,14 +33,8 @@ jobs:
       # Excludes live contract tests (THIRD_PARTY_CONTRACT_TESTS_PLAN.md) — those hit real
       # third-party APIs and must never turn an unrelated PR red just because Yahoo/FundRich/etc.
       # is flaky. They run on a separate schedule (contract-tests.yml) instead.
-      run: dotnet test JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveContract" --logger "trx;LogFileName=test-results.trx"
-      
-    - name: Upload test results
-      uses: actions/upload-artifact@v7
-      if: always()
-      with:
-        name: test-results
-        path: JackyAIApp.Server.Tests/TestResults/test-results.trx
+      # No results artifact: nobody read the .trx; the run's log shows which test failed and why.
+      run: dotnet test JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveContract"
 
   lint-and-build-client:
     runs-on: ubuntu-latest

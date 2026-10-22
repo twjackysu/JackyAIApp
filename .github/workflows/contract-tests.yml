@@ -35,11 +35,6 @@ jobs:
         # see LiveContractBase.GetApiKey. Add the corresponding repo secret when those phases land.
         FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-      run: dotnet test JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category=LiveContract" --logger "trx;LogFileName=contract-test-results.trx"
-
-    - name: Upload test results
-      uses: actions/upload-artifact@v7
-      if: always()
-      with:
-        name: contract-test-results
-        path: JackyAIApp.Server.Tests/TestResults/contract-test-results.trx
+      # No results artifact: nobody read the .trx, and the run's log already shows which test
+      # failed and why.
+      run: dotnet test JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category=LiveContract"
