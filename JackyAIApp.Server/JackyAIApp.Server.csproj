@@ -47,12 +47,16 @@
     <PackageReference Include="NLog.MailKit" Version="6.1.6" />
     <PackageReference Include="NLog.Web.AspNetCore" Version="6.2.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
-    <!-- Listening-question image resize (ListeningImageProcessor). Held at 3.x: 4.x refuses to
-         build without a Six Labors license key. 3.1.12 carries two advisories fixed only in 4.1.2
-         (GHSA-j3p4-wp97-rph4: HistogramEqualization, never called here; GHSA-gwg2-r3hj-4w44: ICC
-         profile parsing). Inputs are OpenAI-generated images and the author's own imports, never
-         user uploads. Free under the Six Labors Split License for an individual with under
-         1M USD annual revenue. -->
+    <!-- Images: the listening-question resize (ListeningImageProcessor: OpenAI-generated images and
+         the author's own imports) and the AI assistant's chat attachments (AttachmentFileProcessor),
+         which are user uploads. Held at 3.x: 4.x refuses to build without a Six Labors license key.
+         3.1.12 carries five advisories fixed only in 4.1.2. Three are in code never run here:
+         HistogramEqualization (GHSA-j3p4-wp97-rph4) and the TIFF CCITT T4/T6 encoders
+         (GHSA-j9gm-c75j-xc9q, GHSA-jjfr-hcj7-qf5w). BigTIFF decoding (GHSA-wmxv-xphr-5c9g) is shut
+         off for attachments, which are only decoded as PNG/JPEG/GIF/WebP. ICC profile parsing
+         (GHSA-gwg2-r3hj-4w44, moderate) is still reachable through an uploaded PNG, JPEG or WebP
+         carrying a crafted profile; 4.1.2+ closes it. Free under the Six Labors Split License for
+         an individual with under 1M USD annual revenue. -->
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageReference Include="TWStockLib" Version="2.2.1" />
     <PackageReference Include="WeCantSpell.Hunspell" Version="7.0.1" />

@@ -57,6 +57,47 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Equal("JPEG", Image.DetectFormat(result.Bytes).Name);
         }
 
+        private static MemoryStream Encoded(string format)
+        {
+            using var image = new Image<Rgba32>(10, 10);
+            var stream = new MemoryStream();
+            Action<Stream> save = format switch
+            {
+                "Png" => image.SaveAsPng,
+                "Jpeg" => image.SaveAsJpeg,
+                "Gif" => image.SaveAsGif,
+                "Webp" => image.SaveAsWebp,
+                "Tiff" => image.SaveAsTiff,
+                "Bmp" => image.SaveAsBmp,
+                "Tga" => image.SaveAsTga,
+                _ => throw new ArgumentOutOfRangeException(nameof(format)),
+            };
+            save(stream);
+            stream.Position = 0;
+            return stream;
+        }
+
+        [Theory]
+        [InlineData("Png", "image/png")]
+        [InlineData("Jpeg", "image/jpeg")]
+        [InlineData("Gif", "image/jpeg")]
+        [InlineData("Webp", "image/jpeg")]
+        public void TheFormatsTheChatAccepts_AreRead(string format, string mediaType) =>
+            Assert.Equal(mediaType, AttachmentFileProcessor.PrepareImage(Encoded(format)).MediaType);
+
+        [Theory]
+        [InlineData("Tiff")]
+        [InlineData("Bmp")]
+        [InlineData("Tga")]
+        public void AnyOtherFormat_IsRefusedBeforeItIsDecoded(string format)
+        {
+            // Whatever the file is called: the content decides what a reader would make of it.
+            var refused = Assert.Throws<UnreadableAttachmentException>(() => AttachmentFileProcessor.PrepareImage(Encoded(format)));
+
+            // Refused as a format the reader does not know, not as an image that failed to decode.
+            Assert.IsType<UnknownImageFormatException>(refused.InnerException);
+        }
+
         [Fact]
         public void AFileThatIsNotAnImage_IsUnreadable() =>
             Assert.Throws<UnreadableAttachmentException>(() =>
