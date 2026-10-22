@@ -84,6 +84,12 @@ JackyAIApp.Server/
 - To drop several entries together, set them with `options.AddExpirationToken(cache.GroupToken(group))`
   and call `cache.InvalidateGroup(group)`
 
+## External data
+
+- TWSE's OpenAPI datasets are read through `ITwseOpenApi` (`Services/ExternalApi/Twse`): add a dataset
+  there — its URL, cache time and typed row — rather than fetching openapi.twse.com.tw from a service.
+  Callers keep their own reaction to a null (unreadable) dataset
+
 ## JSON
 
 - System.Text.Json only. Newtonsoft.Json still arrives transitively, but a test fails if the server

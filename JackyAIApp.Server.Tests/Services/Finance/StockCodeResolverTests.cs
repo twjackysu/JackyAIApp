@@ -1,4 +1,5 @@
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Prompt;
@@ -40,10 +41,10 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             httpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
             return new StockCodeResolver(
-                httpClientFactory.Object,
                 _logger,
                 _promptService.Object,
-                new MemoryCache(new MemoryCacheOptions()));
+                new TwseOpenApi(httpClientFactory.Object, new MemoryCache(new MemoryCacheOptions()),
+                    NullLogger<TwseOpenApi>.Instance, TimeProvider.System));
         }
 
         private void SetupAnswer(StockCodeResolution? answer, string? error = null) =>

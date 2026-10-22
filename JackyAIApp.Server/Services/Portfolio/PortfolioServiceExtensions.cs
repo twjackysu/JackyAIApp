@@ -32,7 +32,8 @@ namespace JackyAIApp.Server.Services.Portfolio
             // the factory, so the background refresher can share the one instance.
             services.AddSingleton<ITwListedCompanyService, TwListedCompanyService>();
             // The list refresh runs in the background, so it can afford to wait; measured from
-            // East US, the two gzipped dumps took 3.5–7.5s each.
+            // East US, the two gzipped dumps took 3.5–7.5s each. This client is TPEx's; TWSE's
+            // comes through ITwseOpenApi (AddTwseOpenApi).
             services.AddHttpClient(TwListedCompanyService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(90))
                 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
                 {

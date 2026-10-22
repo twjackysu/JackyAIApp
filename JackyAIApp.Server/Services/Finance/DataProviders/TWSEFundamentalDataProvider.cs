@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
 using System.Text.Json;
@@ -9,29 +10,31 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     /// <summary>
     /// Fetches fundamental data from TWSE OpenAPI endpoints:
     /// - BWIBBU_d: P/E ratio, P/B ratio, Dividend Yield
-    /// - t187ap05_L: Monthly revenue, YoY, MoM
+    /// - t187ap05_L: Monthly revenue, YoY, MoM (through <see cref="ITwseOpenApi"/>)
     /// - t187ap14_L: EPS (latest reported quarter)
+    /// - STOCK_DAY_ALL: the latest close, for an EPS derived from P/E (through <see cref="ITwseOpenApi"/>)
     /// </summary>
     public class TWSEFundamentalDataProvider : IFundamentalDataProvider
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMemoryCache _cache;
         private readonly ILogger<TWSEFundamentalDataProvider> _logger;
+        private readonly ITwseOpenApi _twse;
 
         private const string BWIBBU_URL = "https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_d";
-        private const string REVENUE_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap05_L";
         private const string EPS_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap14_L";
-        private const string STOCK_DAY_ALL_URL = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
         private const int CACHE_HOURS = 4;
 
         public TWSEFundamentalDataProvider(
             IHttpClientFactory httpClientFactory,
             IMemoryCache cache,
-            ILogger<TWSEFundamentalDataProvider> logger)
+            ILogger<TWSEFundamentalDataProvider> logger,
+            ITwseOpenApi twse)
         {
             _httpClientFactory = httpClientFactory;
             _cache = cache;
             _logger = logger;
+            _twse = twse;
         }
 
         public async Task<FundamentalData?> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
@@ -127,15 +130,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchJsonArrayCached<JsonElement>(REVENUE_URL, "Revenue_t187ap05", ct);
-                if (data == null) return null;
-                var stock = data.FirstOrDefault(r =>
-                    r.TryGetProperty("公司代號", out var code) && code.GetString()?.Trim() == stockCode);
+                var stock = (await _twse.GetMonthlyRevenuesAsync(ct))?.FirstOrDefault(r => r.Code == stockCode);
+                if (stock == null) return null;
 
-                if (stock.ValueKind == JsonValueKind.Undefined) return null;
-
-                var monthlyRevenue = ParseDecimalFromChinese(stock, "營業收入-當月營收");
-                var revenueMonth = stock.TryGetProperty("資料年月", out var rm) ? rm.GetString() : null;
+                var monthlyRevenue = stock.Revenue;
+                var revenueMonth = stock.DataMonth;
 
                 // Build label: 月營收=XXX百萬（11501）
                 string? revenueLabel = null;
@@ -149,8 +148,8 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
                 return new FundamentalData
                 {
                     MonthlyRevenue = monthlyRevenue,
-                    RevenueYoY = ParseDecimalFromChinese(stock, "營業收入-去年同月增減(%)"),
-                    RevenueMoM = ParseDecimalFromChinese(stock, "營業收入-上月比較增減(%)"),
+                    RevenueYoY = stock.RevenueYoY,
+                    RevenueMoM = stock.RevenueMoM,
                     RevenueMonth = revenueMonth,
                     RevenueLabel = revenueLabel
                 };
@@ -202,13 +201,8 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchJsonArrayCached<JsonElement>(STOCK_DAY_ALL_URL, "STOCK_DAY_ALL", ct);
-                if (data == null) return 0;
-                var stock = data.FirstOrDefault(r =>
-                    r.TryGetProperty("Code", out var code) && code.GetString() == stockCode);
-
-                if (stock.ValueKind == JsonValueKind.Undefined) return 0;
-                return ParseDecimal(stock, "ClosingPrice") ?? 0;
+                var quote = (await _twse.GetDailyQuotesAsync(ct))?.FirstOrDefault(q => q.Code == stockCode);
+                return quote?.ClosingPrice ?? 0;
             }
             catch (Exception ex)
             {

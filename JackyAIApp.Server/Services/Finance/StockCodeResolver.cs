@@ -1,25 +1,18 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using JackyAIApp.Server.Services.OpenAI;
-using Microsoft.Extensions.Caching.Memory;
-using System.Text.Json;
 
 namespace JackyAIApp.Server.Services.Finance
 {
     public class StockCodeResolver(
-        IHttpClientFactory httpClientFactory,
         ILogger<StockCodeResolver> logger,
         IOpenAIPromptService promptService,
-        IMemoryCache memoryCache) : IStockCodeResolver
+        ITwseOpenApi twse) : IStockCodeResolver
     {
-        private readonly HttpClient _httpClient = httpClientFactory.CreateClient("ExternalReadOnly");
         private readonly ILogger<StockCodeResolver> _logger = logger;
         private readonly IOpenAIPromptService _promptService = promptService;
-        private readonly IMemoryCache _memoryCache = memoryCache;
-
-        private const string BaseUrl = "https://openapi.twse.com.tw/v1";
-        private const string UserAgent = "stock-analysis/1.0";
-        private const string CompanyListCacheKey = "twse_company_list";
+        private readonly ITwseOpenApi _twse = twse;
 
         internal const string PromptPath = "Prompt/Finance/StockCodeResolverSystem.txt";
 
@@ -84,76 +77,12 @@ namespace JackyAIApp.Server.Services.Finance
             return IsFourDigitCompanyCode(code) ? code : string.Empty;
         }
 
-        private Task<List<CompanyInfo>> GetCompanyListAsync(CancellationToken cancellationToken) =>
-            // Every resolution reads the same list: one fetch for a burst of them. An empty list (the
-            // fetch failed, or nothing parsed) is returned but not cached, so the next call tries again.
-            _memoryCache.GetOrCreateSingleFlightAsync(CompanyListCacheKey, TimeSpan.FromHours(24),
-                FetchCompanyListAsync, cancellationToken, shouldCache: companies => companies.Count > 0);
-
-        private async Task<List<CompanyInfo>> FetchCompanyListAsync()
-        {
-            // Shared by every caller waiting on it, so no one caller's token may stop it.
-            var cancellationToken = CancellationToken.None;
-            try
-            {
-                SetUserAgent();
-                using var response = await _httpClient.GetAsync($"{BaseUrl}/opendata/t187ap03_L", cancellationToken);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return ParseCompanyList(content);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch company list from TWSE API");
-            }
-
-            return [];
-        }
-
-        private List<CompanyInfo> ParseCompanyList(string jsonContent)
-        {
-            var companies = new List<CompanyInfo>();
-            try
-            {
-                var jsonDoc = JsonDocument.Parse(jsonContent);
-                if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var item in jsonDoc.RootElement.EnumerateArray())
-                    {
-                        if (item.ValueKind == JsonValueKind.Object)
-                        {
-                            var info = ExtractCompanyInfo(item);
-                            if (info != null)
-                                companies.Add(info);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to parse company list");
-            }
-            return companies;
-        }
-
-        private CompanyInfo? ExtractCompanyInfo(JsonElement item)
-        {
-            try
-            {
-                string? code = null, name = null;
-                if (item.TryGetProperty("公司代號", out var cp)) code = cp.GetString();
-                if (item.TryGetProperty("公司名稱", out var np)) name = np.GetString();
-                if (!string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(name))
-                    return new CompanyInfo { Code = code, Name = name };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to extract company info from JSON element");
-            }
-            return null;
-        }
+        /// <summary>The 上市 companies (code and name); empty when TWSE's list could not be read.</summary>
+        private async Task<List<CompanyInfo>> GetCompanyListAsync(CancellationToken cancellationToken) =>
+            (await _twse.GetCompanyProfilesAsync(cancellationToken) ?? [])
+                .Where(p => p.Code.Length > 0 && p.Name.Length > 0)
+                .Select(p => new CompanyInfo { Code = p.Code, Name = p.Name })
+                .ToList();
 
         private async Task<string> FindExactCompanyMatchAsync(List<CompanyInfo> companies, string userInput)
         {
@@ -183,12 +112,6 @@ namespace JackyAIApp.Server.Services.Finance
         {
             var keywords = userInput.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             return keywords.Any(k => companyName.Contains(k, StringComparison.OrdinalIgnoreCase));
-        }
-
-        private void SetUserAgent()
-        {
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", UserAgent);
         }
 
         private class CompanyInfo
