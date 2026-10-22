@@ -6,7 +6,7 @@ using JackyAIApp.Server.Services.ExternalApi.Twse;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
-using TWStockLib.Models;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Services.Market
 {

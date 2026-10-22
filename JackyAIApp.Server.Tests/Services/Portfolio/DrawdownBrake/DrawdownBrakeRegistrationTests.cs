@@ -12,7 +12,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using TWStockLib.Services;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 {

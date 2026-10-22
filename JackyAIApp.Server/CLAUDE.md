@@ -130,6 +130,15 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `TwseOpenApiOnlyReaderTests` fails if any other server source names that host. Field names come
   trimmed (TWSE pads some, e.g. `"主旨 "`), so read a field by its plain name with `row.Value(field)`.
   Callers keep their own reaction to a null (unreadable) dataset
+- TWStockLib (prices, history, realtime quotes) is registered once, in `FinanceServiceExtensions`: its
+  named client (`TwStockOptions.HttpClientName`) gets the app's 30s timeout and read-only retries, and
+  the library's own rate limit is off (`TwStockRegistrationTests` pins all three)
+- Every TW daily volume the app stores or hands out is in shares, on both exchanges (TWStockLib converts
+  TPEx's lots since 2.3; rows stored before were converted by the `ConvertOtcVolumeToShares` migration).
+  Only the realtime quote's `TotalVolume` is still lots: multiply by `TwVolume.SharesPerLot`
+- In tests, set up the quote call as the interface method,
+  `GetRealtimeQuoteAsync(code, market, QuoteOptions?, CancellationToken)`: the shorter overloads are
+  extension methods, which Moq cannot set up
 
 ## JSON
 

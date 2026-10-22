@@ -3,8 +3,7 @@ using JackyAIApp.Server.Services.Market;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using TWStockLib.Models;
-using TWStockLib.Services;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Tests.Services.Finance
 {
@@ -38,7 +37,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _listedCompanies.Setup(x => x.GetMarketTypeAsync("6488", It.IsAny<CancellationToken>())).ReturnsAsync(market);
 
             Assert.Equal(market, await _provider.DetermineMarketType("6488"));
-            _stockService.Verify(x => x.GetAllStockListAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
+            _stockService.Verify(x => x.GetAllStockListAsync(It.IsAny<StockListOptions>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
@@ -48,7 +47,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                 .ReturnsAsync((MarketType?)null);
 
             Assert.Null(await _provider.DetermineMarketType("9999"));
-            _stockService.Verify(x => x.GetAllStockListAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
+            _stockService.Verify(x => x.GetAllStockListAsync(It.IsAny<StockListOptions>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
@@ -67,12 +66,12 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // quote instead of a failed TSE attempt first.
             _listedCompanies.Setup(x => x.GetMarketTypeAsync("6488", It.IsAny<CancellationToken>())).ReturnsAsync(MarketType.OTC);
             var quote = new StockQuote { Symbol = "6488", Name = "環球晶", Market = MarketType.OTC };
-            _stockService.Setup(x => x.GetRealtimeQuoteAsync("6488", MarketType.OTC, It.IsAny<CancellationToken>()))
+            _stockService.Setup(x => x.GetRealtimeQuoteAsync("6488", MarketType.OTC, It.IsAny<QuoteOptions>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(StockResult<StockQuote>.Ok(quote));
 
             Assert.Same(quote, await _provider.GetLatestQuoteAsync("6488", knownMarketType: null));
-            _stockService.Verify(x => x.GetRealtimeQuoteAsync("6488", MarketType.TSE, It.IsAny<CancellationToken>()), Times.Never);
-            _stockService.Verify(x => x.GetAllStockListAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
+            _stockService.Verify(x => x.GetRealtimeQuoteAsync("6488", MarketType.TSE, It.IsAny<QuoteOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+            _stockService.Verify(x => x.GetAllStockListAsync(It.IsAny<StockListOptions>(), It.IsAny<CancellationToken>()), Times.Never);
         }
     }
 }

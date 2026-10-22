@@ -1,6 +1,6 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
-using TWStockLib.Models;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Services.Market
 {
@@ -129,8 +129,8 @@ namespace JackyAIApp.Server.Services.Market
         {
             if (quote.LastPrice is > 0) return quote.LastPrice;
 
-            var bid = quote.Top5BuyPrice.Length > 0 ? quote.Top5BuyPrice[0] : 0;
-            var ask = quote.Top5SellPrice.Length > 0 ? quote.Top5SellPrice[0] : 0;
+            var bid = quote.Bids.Count > 0 ? quote.Bids[0].Price : 0;
+            var ask = quote.Asks.Count > 0 ? quote.Asks[0].Price : 0;
             if (bid > 0 && ask > 0) return Math.Round((bid + ask) / 2, 2);
             if (bid > 0) return bid;
             if (ask > 0) return ask;

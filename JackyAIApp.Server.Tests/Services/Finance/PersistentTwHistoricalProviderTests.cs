@@ -5,7 +5,7 @@ using JackyAIApp.Server.Services.Market;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using TWStockLib.Models;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Tests.Services.Finance
 {
@@ -194,13 +194,13 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         }
 
         [Theory]
-        [InlineData("TSE", 43_046_982, 43_046_982)]   // TWSE publishes shares (成交股數)
-        [InlineData("OTC", 16_379, 16_379_000)]       // TPEx publishes lots (成交張數)
-        public async Task FetchAsync_HandsOutVolumeInShares_WhicheverExchange(
-            string twMarketType, long stored, long expectedShares)
+        [InlineData("TSE", 43_046_982)]
+        [InlineData("OTC", 16_379_000)]
+        public async Task FetchAsync_HandsOutTheStoredVolume_WhicheverExchange(string twMarketType, long stored)
         {
-            // Rows keep what TWStockLib delivered; only the read scales a TPEx history, so the
-            // realtime overlay's today (shares) lines up with it.
+            // Rows are shares on both exchanges (TWStockLib converts TPEx's lots since 2.3; rows stored
+            // before were converted by the ConvertOtcVolumeToShares migration), so a TPEx row is not
+            // scaled again on the way out.
             var lastTradingDay = LastTradingDayBefore(DateOnly.FromDateTime(DateTime.Now));
             _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
             {
@@ -216,7 +216,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
 
             var result = await _provider.FetchAsync(Symbol);
 
-            Assert.Equal(expectedShares, Assert.Single(result.HistoricalPrices).Volume);
+            Assert.Equal(stored, Assert.Single(result.HistoricalPrices).Volume);
             Assert.Equal(stored, (await _dbContext.DailyStockPrices.SingleAsync()).Volume);   // the row is untouched
         }
 

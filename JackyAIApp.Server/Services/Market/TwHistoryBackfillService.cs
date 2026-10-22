@@ -2,7 +2,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.Services.ExternalApi;
 using Microsoft.EntityFrameworkCore;
-using TWStockLib.Models;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Services.Market
 {

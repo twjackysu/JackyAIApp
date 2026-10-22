@@ -1,6 +1,6 @@
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.ExternalApi;
-using TWStockLib.Models;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Services.Market
 {

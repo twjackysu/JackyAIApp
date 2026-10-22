@@ -1,7 +1,6 @@
 using JackyAIApp.Server.Common;
 using Microsoft.Extensions.DependencyInjection;
-using TWStockLib.Models;
-using TWStockLib.Services;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Services.Market
 {
@@ -62,7 +61,7 @@ namespace JackyAIApp.Server.Services.Market
                 var stocks = scope.ServiceProvider.GetRequiredService<IStockMarketService>();
 
                 // The library's own request keeps going if we give up on it, but nobody waits for it.
-                var result = await stocks.GetRealtimeQuoteAsync(IndexSymbol, MarketType.TSE, bypassCache: true, ct)
+                var result = await stocks.GetRealtimeQuoteAsync(IndexSymbol, MarketType.TSE, QuoteOptions.NoCache, ct)
                     .WaitAsync(timeout ?? DefaultTimeout, ct);
 
                 var quote = Read(result, out var rejection);
@@ -120,14 +119,14 @@ namespace JackyAIApp.Server.Services.Market
                 return null;
             }
 
-            // SyncTime is the UTC wall-clock time of tlong, with its Kind left unspecified.
+            // SyncTime is tlong as a Taiwan-time DateTimeOffset (+08:00).
             if (quote.SyncTime is not { } syncTime)
             {
                 rejection = "tlong (epoch ms) is missing or unreadable";
                 return null;
             }
 
-            var quotedAt = new DateTimeOffset(DateTime.SpecifyKind(syncTime, DateTimeKind.Utc)).ToOffset(TaipeiTime.Offset);
+            var quotedAt = syncTime.ToOffset(TaipeiTime.Offset);
             return new MisIndexQuote(DateOnly.FromDateTime(quotedAt.DateTime), quotedAt, last, previous);
         }
     }

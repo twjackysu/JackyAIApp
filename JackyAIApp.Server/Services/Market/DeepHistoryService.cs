@@ -53,10 +53,6 @@ namespace JackyAIApp.Server.Services.Market
                     .Where(p => p.Market == DailyStockPriceWriter.Market && symbols.Contains(p.Symbol) && p.TradeDate >= oldest)
                     .ToListAsync(ct))
                 .ToLookup(p => p.Symbol);
-            var marketTypes = await db.StockSymbolInfos
-                .AsNoTracking()
-                .Where(i => symbols.Contains(i.Symbol))
-                .ToDictionaryAsync(i => i.Symbol, i => i.TwMarketType, ct);
 
             foreach (var want in tw)
             {
@@ -67,7 +63,6 @@ namespace JackyAIApp.Server.Services.Market
                     ? DateOnly.FromDateTime(recent.HistoricalPrices.Min(p => p.Date))
                     : DateOnly.MaxValue;
                 var from = TwHistoryBackfillService.MonthStart(want.NeedFrom);
-                var factor = TwVolume.ToSharesFactor(marketTypes.GetValueOrDefault(want.Symbol));
 
                 var older = rows[want.Symbol]
                     .Where(p => p.TradeDate >= from && p.TradeDate < firstRecent)
@@ -79,7 +74,7 @@ namespace JackyAIApp.Server.Services.Market
                         High = p.High,
                         Low = p.Low,
                         Close = p.Close,
-                        Volume = p.Volume * factor,
+                        Volume = p.Volume,
                     })
                     .ToList();
                 if (older.Count == 0) continue;

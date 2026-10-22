@@ -4,7 +4,7 @@ using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Market;
 using Microsoft.EntityFrameworkCore;
-using TWStockLib.Models;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Services.Market
 {
@@ -238,13 +238,6 @@ namespace JackyAIApp.Server.Services.Market
                     .ToListAsync(cancellationToken);
             }
 
-            // Rows keep volume as TWStockLib delivered it, which is per exchange: shares for TWSE,
-            // lots for TPEx (see TwVolume). Hand out shares either way, or the realtime overlay's
-            // today (shares) would sit a thousandfold off a TPEx history and every volume ratio and
-            // chart would be wrong. A market not yet resolved is read as TWSE, as the fetch does.
-            var twMarketType = (await db.StockSymbolInfos.FindAsync([stockCode], cancellationToken))?.TwMarketType;
-            var volumeScale = TwVolume.ToSharesFactor(twMarketType);
-
             return new MarketData
             {
                 StockCode = stockCode,
@@ -256,7 +249,7 @@ namespace JackyAIApp.Server.Services.Market
                     High = p.High,
                     Low = p.Low,
                     Close = p.Close,
-                    Volume = p.Volume * volumeScale,
+                    Volume = p.Volume,
                 }).ToList(),
             };
         }

@@ -131,11 +131,11 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         }
 
         [Fact]
-        public async Task AnOtcStocksStoredVolume_IsHandedOutInShares()
+        public async Task AnOtcStocksStoredVolume_IsHandedOutAsStored()
         {
-            // Stored as TPEx delivers it (lots), like the recent bars before they are scaled.
+            // Stored in shares, as TWStockLib now gives TPEx's history: not scaled again.
             await InfoAsync("6488", "OTC");
-            await StoreAsync("6488", new DateOnly(2026, 2, 2), 80, volume: 7);
+            await StoreAsync("6488", new DateOnly(2026, 2, 2), 80, volume: 7000);
             var recent = Recent("6488", Bar(new DateOnly(2026, 5, 4)));
 
             var result = await _service.ExtendAsync(

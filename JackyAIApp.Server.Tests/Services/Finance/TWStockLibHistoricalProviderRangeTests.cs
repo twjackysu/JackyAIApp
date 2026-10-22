@@ -4,8 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
-using TWStockLib.Models;
-using TWStockLib.Services;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Tests.Services.Finance
 {
@@ -32,14 +31,23 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             return new ThirdPartyGateway(options.Object, TimeProvider.System, NullLogger<ThirdPartyGateway>.Instance);
         }
 
-        // StockHistory is built from the exchange's own row: date, volume, turnover, O, H, L, C, change, deals.
-        private static StockHistory Bar(DateTime day, decimal close = 100m) => new(
-            [day.ToString("yyyy-MM-dd"), "1000", "100000", $"{close}", $"{close}", $"{close}", $"{close}", "0", "10"]);
+        private static StockHistory Bar(DateTime day, decimal close = 100m) => new()
+        {
+            Date = DateOnly.FromDateTime(day),
+            TradeVolume = 1000,
+            TurnoverValue = 100000,
+            OpeningPrice = close,
+            HighestPrice = close,
+            LowestPrice = close,
+            ClosingPrice = close,
+            Change = 0,
+            NumberOfDeals = 10,
+        };
 
         private void MonthReturns(string symbol, MarketType market, int year, int month, params StockHistory[] bars) =>
             _stockService
-                .Setup(s => s.GetHistoricalDataAsync(symbol, new DateTime(year, month, 1),
-                    new DateTime(year, month, 1).AddMonths(1).AddDays(-1), market, It.IsAny<CancellationToken>()))
+                .Setup(s => s.GetHistoricalDataAsync(symbol, market, new DateOnly(year, month, 1),
+                    new DateOnly(year, month, 1).AddMonths(1).AddDays(-1), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(StockResult<IReadOnlyList<StockHistory>>.Ok(bars));
 
         [Fact]
@@ -57,7 +65,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                 [new DateTime(2026, 8, 31), new DateTime(2026, 9, 1), new DateTime(2026, 9, 30), new DateTime(2026, 10, 1)],
                 data.HistoricalPrices.Select(p => p.Date));
             _stockService.Verify(s => s.GetHistoricalDataAsync(
-                "2330", It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()), Times.Exactly(3));
+                "2330", MarketType.TSE, It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
         }
 
         [Fact]
@@ -70,7 +78,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
 
             Assert.Equal(2, data.HistoricalPrices.Count);
             _stockService.Verify(s => s.GetHistoricalDataAsync(
-                It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType>(), It.IsAny<CancellationToken>()),
+                It.IsAny<string>(), It.IsAny<MarketType>(), It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()),
                 Times.Once);
         }
 
@@ -105,7 +113,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             var release = new TaskCompletionSource();
             var calls = 0;
             _stockService
-                .Setup(s => s.GetHistoricalDataAsync("2330", It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .Setup(s => s.GetHistoricalDataAsync("2330", MarketType.TSE, It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()))
                 .Returns(async () =>
                 {
                     Interlocked.Increment(ref calls);
@@ -130,7 +138,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         {
             MonthReturns("2330", MarketType.TSE, 2026, 9, Bar(new(2026, 9, 1)));
             _stockService
-                .Setup(s => s.GetHistoricalDataAsync("2330", new DateTime(2026, 10, 1), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .Setup(s => s.GetHistoricalDataAsync("2330", MarketType.TSE, new DateOnly(2026, 10, 1), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(StockResult<IReadOnlyList<StockHistory>>.Fail(StockErrorCodes.UpstreamError, "503"));
 
             var data = await Provider().FetchRangeAsync("2330", new DateTime(2026, 9, 1), new DateTime(2026, 10, 10), MarketType.TSE);
@@ -167,7 +175,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         public async Task FetchMonth_TellsAMonthThatFailedFromOneThatWasEmpty()
         {
             _stockService
-                .Setup(s => s.GetHistoricalDataAsync("2330", It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .Setup(s => s.GetHistoricalDataAsync("2330", MarketType.TSE, It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(StockResult<IReadOnlyList<StockHistory>>.Fail(StockErrorCodes.UpstreamError, "503"));
 
             var month = await Provider().FetchMonthAsync("2330", new DateOnly(2026, 8, 1), MarketType.TSE, GatewayPriority.Background);
