@@ -1,9 +1,11 @@
 using System.Text.Json;
 using DotnetSdkUtilities.Factory.ResponseFactory;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace JackyAIApp.Server.Tests.Common
@@ -35,6 +37,41 @@ namespace JackyAIApp.Server.Tests.Common
             using var body = await JsonDocument.ParseAsync(http.Response.Body);
             var message = body.RootElement.GetProperty("error").GetProperty("message").GetString();
             Assert.StartsWith("An unexpected error occurred. Request ID: ", message);
+        }
+
+        [Fact]
+        public async Task UnhandledException_LogsWhichRequest_ButNotWhatWasInIt()
+        {
+            // The connector OAuth callback carries its authorization code in the query; bodies hold
+            // what people typed. Neither belongs in the log.
+            var http = NewContext();
+            http.Request.Method = "POST";
+            http.Request.Path = "/api/connectors/callback/Atlassian";
+            http.Request.QueryString = new QueryString("?code=secret-auth-code&state=xyz");
+            http.Request.ContentType = "application/json";
+            var body = """{"sentence":"my private diary entry"}"""u8.ToArray();
+            var original = new MemoryStream(body);
+            http.Request.Body = original;
+            http.Request.ContentLength = body.Length;
+            var logger = new RecordingLogger<ExceptionMiddleware>();
+            var middleware = new ExceptionMiddleware(async context =>
+            {
+                // The action read the body, as model binding does, then failed.
+                await new StreamReader(context.Request.Body).ReadToEndAsync();
+                throw new InvalidOperationException("boom");
+            }, logger);
+
+            await middleware.InvokeAsync(http);
+
+            var entry = Assert.Single(logger.Entries);
+            Assert.Equal(LogLevel.Error, entry.Level);
+            Assert.Contains("POST /api/connectors/callback/Atlassian", entry.Message);
+            Assert.Contains("code,state", entry.Message);
+            Assert.Contains($"application/json ({body.Length} bytes)", entry.Message);
+            Assert.DoesNotContain("secret-auth-code", entry.Message);
+            Assert.DoesNotContain("xyz", entry.Message);
+            Assert.DoesNotContain("diary", entry.Message);
+            Assert.Same(original, http.Request.Body); // no longer swapped for a buffered, rewindable copy
         }
 
         private sealed class StartedResponseFeature : HttpResponseFeature

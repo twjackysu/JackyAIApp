@@ -1,7 +1,6 @@
 using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
-using System.Text;
 
 namespace JackyAIApp.Server.Common
 {
@@ -20,14 +19,12 @@ namespace JackyAIApp.Server.Common
         {
             try
             {
-                httpContext.Request.EnableBuffering();
                 await _next(httpContext);
             }
             catch (BadHttpRequestException ex) when (!httpContext.Response.HasStarted)
             {
                 // Kestrel refusing the request itself — e.g. a body over the action's [RequestSizeLimit]
-                // (413). The client's fault, not a server error: keep its status, and don't go on to log
-                // (and re-read) a body that was refused for being too big.
+                // (413). The client's fault, not a server error: keep its status.
                 _logger.LogWarning("Request rejected by the server: {status} {message}", ex.StatusCode, ex.Message);
                 httpContext.Response.StatusCode = ex.StatusCode;
             }
@@ -42,8 +39,7 @@ namespace JackyAIApp.Server.Common
             catch (Exception ex)
             {
                 var requestId = Guid.NewGuid().ToString();
-                _logger.LogError(ex, "Unhandled exception. Request ID: {RequestId}", requestId);
-                await LogRequestDetailsAsync(httpContext, requestId);
+                LogUnhandled(httpContext.Request, ex, requestId);
 
                 // Part of the response is already sent (a stream): it can't become an error now.
                 // Rethrown, the server aborts it, so the client sees it fail rather than end early.
@@ -59,39 +55,16 @@ namespace JackyAIApp.Server.Common
             }
         }
 
-        private async Task LogRequestDetailsAsync(HttpContext context, string requestId)
-        {
-            var request = context.Request;
-            var sb = new StringBuilder();
-            
-            sb.AppendLine($"Request ID: {requestId}");
-            sb.AppendLine($"Request path: {request.Path}");
-            sb.AppendLine($"Request method: {request.Method}");
-
-            if (request.QueryString.HasValue)
-            {
-                sb.AppendLine($"Query string: {request.QueryString}");
-            }
-
-            if (request.HasFormContentType && request.Form != null)
-            {
-                foreach (var formField in request.Form)
-                {
-                    sb.AppendLine($"Form field {formField.Key}: {formField.Value}");
-                }
-            }
-            else if (request.ContentType != null && request.ContentType.Contains("application/json"))
-            {
-                if (request.Body.CanSeek)
-                {
-                    request.Body.Position = 0;
-                    using var reader = new StreamReader(request.Body, leaveOpen: true);
-                    var body = await reader.ReadToEndAsync();
-                    sb.AppendLine($"Request body: {body}");
-                }
-            }
-            
-            _logger.LogInformation(sb.ToString());
-        }
+        /// <summary>
+        /// Which request failed, without what was in it. The body, the form fields and the query
+        /// values are what people typed — sentences, uploaded data, sign-in codes (the connector
+        /// OAuth callback carries its authorization code in the query) — and are not logged. The
+        /// query's parameter names are, so the call can still be told apart.
+        /// </summary>
+        private void LogUnhandled(HttpRequest request, Exception exception, string requestId) =>
+            _logger.LogError(exception,
+                "Unhandled exception. Request ID: {RequestId}, {Method} {Path}, query parameters: {QueryKeys}, body: {ContentType} ({ContentLength} bytes)",
+                requestId, request.Method, request.Path.Value, string.Join(",", request.Query.Keys),
+                request.ContentType ?? "none", request.ContentLength);
     }
 }
