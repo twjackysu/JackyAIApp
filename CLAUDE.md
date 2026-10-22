@@ -201,7 +201,10 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
   - gpt-6-luna (`NewModels.GPT_6_LUNA`) for every chat/JSON completion **except the Finance AI
     assistant below**; it is reasoning-family, so `OpenAIPromptService` sends
     `reasoning_effort=low`, never `temperature` or `max_tokens`, and caps output with
-    `max_completion_tokens` (16384, output only — prompts can be far longer)
+    `max_completion_tokens` (16384, output only — prompts can be far longer). Its HttpClient waits 90s
+    (`AddOpenAIClient`, `Extensions/HttpClientTimeoutExtensions.cs`), not the app's 20s default for
+    external APIs: calls take 5-20s and more, and at 20s 1.6% were cut off after OpenAI had billed them.
+    90s stays under Cloudflare's 100s; no retries (a completion that reached OpenAI would be paid twice)
   - **Finance AI assistant** (`/finance`; `AnthropicChatService`): Claude Haiku 5.5
     (`claude-haiku-5-5`, SDK `Anthropic` NuGet) called directly through the Anthropic API (key
     `Settings:AnthropicApiKey`) — not Dify (removed) and not OpenAI. It uses Anthropic's MCP

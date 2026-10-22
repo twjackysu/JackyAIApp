@@ -2,7 +2,6 @@
 using JackyAIApp.Server.Services.Dictionary;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Azure.Storage.Blobs;
-using Betalgo.Ranul.OpenAI.Extensions;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
@@ -136,13 +135,8 @@ try
         googleOptions.ClientSecret = builder.Configuration["Settings:Google:ClientSecret"]?.ToString() ?? "";
     });
     builder.Services.AddMemoryCache();
-    // Default timeout for every HttpClient the app creates (named, typed, or the
-    // unnamed default from CreateClient()) — previously unbounded (~100s default),
-    // so one slow external API (TWSE/Yahoo/FundRich/SEC/FRED/...) could tie up a
-    // request thread far longer than a user will ever wait for a response.
-    // Individual AddHttpClient(...) registrations below can still override this.
-    builder.Services.ConfigureHttpClientDefaults(http =>
-        http.ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(20)));
+    // 20s for every HttpClient unless its registration says otherwise (OpenAI's does).
+    builder.Services.AddHttpClientDefaultTimeout();
 
     // Named client for read-only external market-data GETs (and FundRich's POST-as-query
     // calls) — TWSE, Yahoo, FundRich, er-api, CBC, SEC, Finnhub, FRED. Deliberately
@@ -192,11 +186,7 @@ try
     builder.Services.AddAppRateLimiting();
 
     var openAIKey = configuration.GetValue<string>("Settings:OpenAI:Key") ?? "";
-    builder.Services.AddOpenAIService(options =>
-    {
-        options.ApiKey = openAIKey;
-        options.UseBeta = true;
-    });
+    builder.Services.AddOpenAIClient(openAIKey);
 
     builder.Services.AddOptions().Configure<Settings>(builder.Configuration.GetSection("Settings"));
 
