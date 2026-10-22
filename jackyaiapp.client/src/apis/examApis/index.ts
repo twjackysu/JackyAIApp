@@ -1,10 +1,5 @@
-import { createApi } from '@reduxjs/toolkit/query/react';
-
-import { apiBaseQuery } from '../baseQuery';
-import { refreshReviewQueue } from '../reviewApis';
-import { refreshLearningStats } from '../statsApis';
+import { api, onSuccess } from '../api';
 import { ApiOkResponse } from '../types';
-import { alsoRefresh } from '../utils/alsoRefresh';
 
 import {
   ConversationStartRequest,
@@ -38,19 +33,16 @@ import {
   TranslationTestUserResponse,
 } from '@/apis/dictionaryApis/types';
 
-// Define a service using a base URL and expected endpoints
-export const examApis = createApi({
-  reducerPath: 'examApis',
-  baseQuery: apiBaseQuery('/api/exam'),
+export const examApis = api.injectEndpoints({
   endpoints: (builder) => ({
     getClozeTest: builder.query<ApiOkResponse<ClozeTest>, void>({
       query: () => ({
-        url: 'cloze',
+        url: 'exam/cloze',
       }),
     }),
     getTranslationTest: builder.query<ApiOkResponse<TranslationTestResponse>, void>({
       query: () => ({
-        url: 'translation',
+        url: 'exam/translation',
       }),
     }),
     getTranslationQualityGrading: builder.query<
@@ -58,7 +50,7 @@ export const examApis = createApi({
       TranslationTestUserResponse
     >({
       query: (body) => ({
-        url: 'translation/quality_grading',
+        url: 'exam/translation/quality_grading',
         method: 'POST',
         body,
       }),
@@ -68,7 +60,7 @@ export const examApis = createApi({
       ConversationStartRequest
     >({
       query: (body) => ({
-        url: 'conversation/start',
+        url: 'exam/conversation/start',
         method: 'POST',
         body,
       }),
@@ -78,7 +70,7 @@ export const examApis = createApi({
       ConversationResponseRequest
     >({
       query: (body) => ({
-        url: 'conversation/respond',
+        url: 'exam/conversation/respond',
         method: 'POST',
         body,
       }),
@@ -88,21 +80,21 @@ export const examApis = createApi({
       ConversationSummaryRequest
     >({
       query: (body) => ({
-        url: 'conversation/summary',
+        url: 'exam/conversation/summary',
         method: 'POST',
         body,
       }),
     }),
     transcribeAudio: builder.mutation<ApiOkResponse<WhisperTranscriptionResponse>, FormData>({
       query: (formData) => ({
-        url: 'whisper/transcribe',
+        url: 'exam/whisper/transcribe',
         method: 'POST',
         body: formData,
       }),
     }),
     getSentenceTest: builder.query<ApiOkResponse<SentenceTestResponse>, void>({
       query: () => ({
-        url: 'sentence',
+        url: 'exam/sentence',
       }),
     }),
     evaluateSentence: builder.mutation<
@@ -110,7 +102,7 @@ export const examApis = createApi({
       SentenceTestUserResponse
     >({
       query: (body) => ({
-        url: 'sentence/evaluate',
+        url: 'exam/sentence/evaluate',
         method: 'POST',
         body,
       }),
@@ -120,16 +112,16 @@ export const examApis = createApi({
       RecordExamResultRequest
     >({
       query: (body) => ({
-        url: 'record-result',
+        url: 'exam/record-result',
         method: 'POST',
         body,
       }),
       // The attempt shows on the activity heatmap, and the server reschedules the tested word.
-      onQueryStarted: alsoRefresh(refreshReviewQueue, refreshLearningStats),
+      invalidatesTags: onSuccess('DueReviews', 'DueCount', 'LearningStats'),
     }),
     getListeningTest: builder.query<ApiOkResponse<ListeningTestResponse>, void>({
       query: () => ({
-        url: 'listening',
+        url: 'exam/listening',
       }),
     }),
     getListeningBank: builder.query<
@@ -137,30 +129,30 @@ export const examApis = createApi({
       { pageNumber: number; pageSize: number }
     >({
       query: ({ pageNumber, pageSize }) => ({
-        url: `listening/admin/bank?pageNumber=${pageNumber}&pageSize=${pageSize}`,
+        url: `exam/listening/admin/bank?pageNumber=${pageNumber}&pageSize=${pageSize}`,
       }),
       providesTags: ['ListeningBank'],
     }),
     generateListeningQuestion: builder.mutation<ApiOkResponse<ListeningTestResponse>, void>({
       query: () => ({
-        url: 'listening/admin/generate',
+        url: 'exam/listening/admin/generate',
         method: 'POST',
       }),
       invalidatesTags: ['ListeningBank'],
     }),
     getListeningResponseTest: builder.query<ApiOkResponse<ListeningResponseTestResponse>, void>({
       query: () => ({
-        url: 'listening/response',
+        url: 'exam/listening/response',
       }),
     }),
     getReadingTest: builder.query<ApiOkResponse<ReadingPassageResponse>, void>({
       query: () => ({
-        url: 'reading',
+        url: 'exam/reading',
       }),
     }),
     getWritingPrompt: builder.query<ApiOkResponse<WritingPromptResponse>, void>({
       query: () => ({
-        url: 'writing',
+        url: 'exam/writing',
       }),
     }),
     evaluateWriting: builder.mutation<
@@ -168,25 +160,24 @@ export const examApis = createApi({
       WritingSubmissionRequest
     >({
       query: (body) => ({
-        url: 'writing/evaluate',
+        url: 'exam/writing/evaluate',
         method: 'POST',
         body,
       }),
     }),
     getDictationPrompt: builder.query<ApiOkResponse<DictationPromptResponse>, void>({
       query: () => ({
-        url: 'dictation',
+        url: 'exam/dictation',
       }),
     }),
     gradeDictation: builder.mutation<ApiOkResponse<DictationGradeResponse>, DictationGradeRequest>({
       query: (body) => ({
-        url: 'dictation/grade',
+        url: 'exam/dictation/grade',
         method: 'POST',
         body,
       }),
     }),
   }),
-  tagTypes: ['ListeningBank'],
 });
 
 export const {

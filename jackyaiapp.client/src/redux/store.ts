@@ -1,19 +1,15 @@
 import { configureStore } from '@reduxjs/toolkit';
 
 import { accountApis } from '@/apis/accountApis';
+import { api } from '@/apis/api';
 import { chatbotApis } from '@/apis/chatbotApis';
 import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
-import { dailyChallengeApis } from '@/apis/dailyChallengeApis';
 import { dashboardApis } from '@/apis/dashboardApis';
 import { dataAnalysisApis } from '@/apis/dataAnalysisApis';
 import { dictionaryApis } from '@/apis/dictionaryApis';
-import { examApis } from '@/apis/examApis';
 import { financeApis } from '@/apis/financeApis';
 import { jobApis } from '@/apis/jobApis';
 import { portfolioApis } from '@/apis/portfolioApis';
-import { repositoryApis } from '@/apis/repositoryApis';
-import { reviewApis } from '@/apis/reviewApis';
-import { statsApis } from '@/apis/statsApis';
 import { rtkQueryErrorLogger } from '@/redux/errorMiddleware';
 import uiReducer from '@/redux/uiSlice';
 
@@ -27,17 +23,15 @@ import uiReducer from '@/redux/uiSlice';
  * from one array makes that impossible.
  */
 const apiSlices = [
+  // The shared API: the English-learning features (repository, review, stats, daily challenge,
+  // exams) inject their endpoints into it, so their tags reach one another.
+  api,
   dictionaryApis,
-  repositoryApis,
   accountApis,
-  examApis,
   financeApis,
   jobApis,
   connectorsApi,
   dashboardApis,
-  dailyChallengeApis,
-  reviewApis,
-  statsApis,
   dataAnalysisApis,
   chatbotApis,
   portfolioApis,
@@ -46,7 +40,7 @@ const apiSlices = [
 type ApiSlice = (typeof apiSlices)[number];
 
 /**
- * `{ dictionaryApis: <its reducer>, repositoryApis: <its reducer>, ... }` — the same shape the
+ * `{ api: <its reducer>, dictionaryApis: <its reducer>, ... }` — the same shape the
  * reducer map was written out by hand. `Object.fromEntries` alone would widen this to a string
  * index signature and take `RootState` down with it, so the keys are recovered from each
  * slice's literal `reducerPath` instead.
