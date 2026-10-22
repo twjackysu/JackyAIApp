@@ -1,4 +1,5 @@
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text;
 using System.Text.Json;
@@ -13,6 +14,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly HttpClient _httpClient;
         private readonly ILogger<TWSEOpenAPIService> _logger;
         private readonly IMemoryCache _memoryCache;
+        private readonly ITwseOpenApi _twse;
         private const string BaseUrl = "https://openapi.twse.com.tw/v1";
         private const string UserAgent = "stock-analysis/1.0";
         private const int CacheHours = 4;
@@ -20,11 +22,13 @@ namespace JackyAIApp.Server.Services.Finance
         public TWSEOpenAPIService(
             IHttpClientFactory httpClientFactory,
             ILogger<TWSEOpenAPIService> logger,
-            IMemoryCache memoryCache)
+            IMemoryCache memoryCache,
+            ITwseOpenApi twse)
         {
             _httpClient = httpClientFactory?.CreateClient("ExternalReadOnly") ?? throw new ArgumentNullException(nameof(httpClientFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+            _twse = twse;
         }
 
         /// <summary>
@@ -110,20 +114,14 @@ namespace JackyAIApp.Server.Services.Finance
         /// <summary>
         /// Gets stock daily trading data from TWSE API.
         /// </summary>
-        public async Task<string> GetStockDailyTradingAsync(string stockCode, CancellationToken cancellationToken = default)
-        {
-            var content = await FetchRawWithCacheAsync($"{BaseUrl}/exchangeReport/STOCK_DAY_ALL", "STOCK_DAY_ALL", cancellationToken);
-            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
-        }
+        public async Task<string> GetStockDailyTradingAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            Describe(await _twse.GetDailyQuotesAsync(cancellationToken), stockCode);
 
         /// <summary>
         /// Gets company profile from TWSE API.
         /// </summary>
-        public async Task<string> GetCompanyProfileAsync(string stockCode, CancellationToken cancellationToken = default)
-        {
-            var content = await FetchRawWithCacheAsync($"{BaseUrl}/opendata/t187ap03_L", "t187ap03_L", cancellationToken);
-            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
-        }
+        public async Task<string> GetCompanyProfileAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            Describe(await _twse.GetCompanyProfilesAsync(cancellationToken), stockCode);
 
         /// <summary>
         /// Gets stock monthly average from TWSE API.
@@ -167,11 +165,30 @@ namespace JackyAIApp.Server.Services.Finance
         /// <summary>
         /// Gets monthly revenue data from TWSE API.
         /// </summary>
-        public async Task<string> GetMonthlyRevenueAsync(string stockCode, CancellationToken cancellationToken = default)
+        public async Task<string> GetMonthlyRevenueAsync(string stockCode, CancellationToken cancellationToken = default) =>
+            Describe(await _twse.GetMonthlyRevenuesAsync(cancellationToken), stockCode);
+
+        /// <summary>The stock's row of a dataset as "field: value" lines; empty when the dataset could
+        /// not be read (its section is then left out).</summary>
+        private static string Describe<T>(IReadOnlyList<T>? rows, string stockCode) where T : TwseRow
         {
-            var content = await FetchRawWithCacheAsync($"{BaseUrl}/opendata/t187ap05_L", "t187ap05_L", cancellationToken);
-            return string.IsNullOrEmpty(content) ? string.Empty : FilterStockDataByCode(content, stockCode);
+            if (rows == null) return string.Empty;
+            var row = rows.FirstOrDefault(r => CodeOf(r) == stockCode);
+            if (row == null) return $"No data found for stock code: {stockCode}";
+
+            var result = new StringBuilder();
+            foreach (var (name, value) in row.Fields)
+                result.AppendLine($"{name}: {value}");
+            return result.ToString();
         }
+
+        private static string CodeOf(TwseRow row) => row switch
+        {
+            TwseDailyQuote q => q.Code,
+            TwseCompanyProfile p => p.Code,
+            TwseMonthlyRevenue r => r.Code,
+            _ => "",
+        };
 
         /// <summary>
         /// Gets comprehensive income statement from TWSE API.

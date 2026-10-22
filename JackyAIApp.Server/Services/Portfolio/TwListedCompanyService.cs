@@ -2,6 +2,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Portfolio;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
@@ -52,11 +53,11 @@ namespace JackyAIApp.Server.Services.Portfolio
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
         ILogger<TwListedCompanyService> logger,
+        ITwseOpenApi twse,
         TimeProvider? timeProvider = null) : ITwListedCompanyService
     {
-        // Every 上市 security that traded on the latest trading day: stocks, ETFs, ETNs, preferred
-        // shares, DRs. No warrants.
-        internal const string TwseUrl = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
+        // The 上市 list is TWSE's daily quotes (STOCK_DAY_ALL, through ITwseOpenApi): every 上市
+        // security that traded on the latest trading day, stocks, ETFs, ETNs, preferred shares, DRs.
 
         // The 上櫃 equivalent: stocks and ETFs, ~1,000 rows, 357KB (58KB gzipped). Not
         // tpex_mainboard_daily_close_quotes, which adds ~11,000 warrants for 4.7MB: from the East US
@@ -64,10 +65,9 @@ namespace JackyAIApp.Server.Services.Portfolio
         // that one never arrived whole there.
         internal const string TpexUrl = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes";
 
-        /// <summary>Named client for the two dumps: gzip, and a timeout sized for a slow
+        /// <summary>Named client for the TPEx dump: gzip, and a timeout sized for a slow
         /// Taiwan-to-US path rather than for a user waiting on a request (see
-        /// PortfolioServiceExtensions). Uncompressed, STOCK_DAY_ALL alone took ~23s from East US,
-        /// past the 20s every other client gets.</summary>
+        /// PortfolioServiceExtensions). The TWSE dump comes through <see cref="ITwseOpenApi"/>'s own.</summary>
         internal const string HttpClientName = "TwListedCompanies";
 
         private const string CacheKey = "tw_listed_companies";
@@ -134,7 +134,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         public async Task<bool> RefreshAsync(CancellationToken ct = default)
         {
-            var twseTask = FetchListAsync(TwseUrl, "Code", "Name", MarketType.TSE, ct);
+            var twseTask = FetchTwseListAsync(ct);
             var tpexTask = FetchListAsync(TpexUrl, "SecuritiesCompanyCode", "CompanyName", MarketType.OTC, ct);
             var twse = await twseTask;
             var tpex = await tpexTask;
@@ -179,6 +179,25 @@ namespace JackyAIApp.Server.Services.Portfolio
                 "TW listed-company list refreshed: {Twse} TWSE + {Tpex} TPEx symbols, {Added} added, {Pruned} pruned",
                 twse.Count, tpex.Count, fresh.Keys.Count(s => !existing.ContainsKey(s)), pruned.Count);
             return true;
+        }
+
+        /// <summary>The 上市 (symbol, name, market) rows, warrants dropped. Null when TWSE's quotes could
+        /// not be read (<see cref="ITwseOpenApi"/> logs why) or leave nothing to list.</summary>
+        private async Task<List<(string Symbol, string Name, string Market)>?> FetchTwseListAsync(CancellationToken ct)
+        {
+            var quotes = await twse.GetDailyQuotesAsync(ct);
+            if (quotes is null) return null;
+
+            var list = quotes
+                .Where(q => q.Name.Length > 0 && !IsWarrant(q.Code))
+                .Select(q => (q.Code, q.Name, MarketType.TSE.ToString()))
+                .ToList();
+            if (list.Count == 0)
+            {
+                logger.LogWarning("TWSE listed-company list came back empty");
+                return null;
+            }
+            return list;
         }
 
         /// <summary>(symbol, name, market) rows from one exchange's dump, warrants dropped. Null on

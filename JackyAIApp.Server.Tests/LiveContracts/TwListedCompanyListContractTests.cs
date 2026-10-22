@@ -1,4 +1,5 @@
 using System.Text.Json;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using JackyAIApp.Server.Services.Portfolio;
 
 namespace JackyAIApp.Server.Tests.LiveContracts
@@ -18,7 +19,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         // symbol was delisted: TWSE stock / TWSE ETF, TPEx stock / TPEx ETF.
         public static TheoryData<string, string, string, string[]> Sources => new()
         {
-            { TwListedCompanyService.TwseUrl, "Code", "Name", new[] { "2330", "0050" } },
+            { TwseOpenApi.DailyQuotesUrl, "Code", "Name", new[] { "2330", "0050" } },
             { TwListedCompanyService.TpexUrl, "SecuritiesCompanyCode", "CompanyName", new[] { "8069", "006201" } },
         };
 

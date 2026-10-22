@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using JackyAIApp.Server.Services.Portfolio;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -24,6 +25,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private readonly AzureSQLDBContext _db;
         private readonly RoutingHandler _http = new();
         private readonly Mock<IHttpClientFactory> _httpFactory = new();
+        private readonly MemoryCache _twseCache = new(new MemoryCacheOptions());
         private readonly TwListedCompanyService _service;
 
         public TwListedCompanyServiceTests()
@@ -41,6 +43,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 _httpFactory.Object,
                 new MemoryCache(new MemoryCacheOptions()),
                 NullLogger<TwListedCompanyService>.Instance,
+                new TwseOpenApi(_httpFactory.Object, _twseCache, NullLogger<TwseOpenApi>.Instance, new FakeTime(Now)),
                 new FakeTime(Now));
         }
 
@@ -56,7 +59,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
         private void ServeLists(string twse, string tpex)
         {
-            _http.Respond(TwListedCompanyService.TwseUrl, HttpStatusCode.OK, twse);
+            _http.Respond(TwseOpenApi.DailyQuotesUrl, HttpStatusCode.OK, twse);
             _http.Respond(TwListedCompanyService.TpexUrl, HttpStatusCode.OK, tpex);
         }
 
@@ -79,7 +82,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         public async Task RefreshAsync_StoresBothExchangesWithoutWarrants()
         {
             ServeLists(
-                TwseJson(("2330", "台積電"), ("00981A", "主動統一台股增長")),
+                TwseJson(("2330", "台積電"), ("00981A", "主動統一台股增長"), ("030001", "某某元大5C購01"), ("08123P", "某某凱基5A售01")),
                 TpexJson(("6488", "環球晶"), ("00679B", "元大美債20年"), ("700019", "宏捷科統一5C購01"), ("72414U", "振曜群益5A售01")));
 
             Assert.True(await _service.RefreshAsync());
@@ -167,6 +170,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             { HttpStatusCode.OK, TwseJson(("2330", "台積電")), HttpStatusCode.OK, "[]" },
             { HttpStatusCode.OK, "{\"message\":\"maintenance\"}", HttpStatusCode.OK, TpexJson(("6488", "環球晶")) },
             { HttpStatusCode.OK, "<html>維護中</html>", HttpStatusCode.OK, TpexJson(("6488", "環球晶")) },
+            // Nothing left to list once the warrants are dropped: as broken as an empty list.
+            { HttpStatusCode.OK, TwseJson(("030001", "某某元大5C購01")), HttpStatusCode.OK, TpexJson(("6488", "環球晶")) },
+            { HttpStatusCode.OK, TpexJson(("6488", "環球晶")), HttpStatusCode.OK, TpexJson(("6488", "環球晶")) }, // TPEx's field names in TWSE's place
         };
 
         [Theory]
@@ -176,7 +182,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             // An old row that a successful refresh would prune: it must survive a failed one.
             await SeedAsync(new TwListedCompany { Symbol = "9999", Name = "舊資料", LastRefreshedAt = Now.UtcDateTime.AddDays(-40) });
-            _http.Respond(TwListedCompanyService.TwseUrl, twseStatus, twseBody);
+            _http.Respond(TwseOpenApi.DailyQuotesUrl, twseStatus, twseBody);
             _http.Respond(TwListedCompanyService.TpexUrl, tpexStatus, tpexBody);
 
             Assert.False(await _service.RefreshAsync());
@@ -186,23 +192,25 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
-        public async Task RefreshAsync_UsesItsOwnHttpClient()
+        public async Task RefreshAsync_UsesTheClientsRegisteredForTheDumps()
         {
-            // The named client is the one registered with gzip and a long timeout; the shared
-            // read-only client's 20s cut STOCK_DAY_ALL off from East US.
+            // Both named clients are registered with gzip and a long timeout; the shared read-only
+            // client's 20s cut STOCK_DAY_ALL off from East US. TWSE's dump comes through ITwseOpenApi.
             ServeLists(TwseJson(("2330", "台積電")), TpexJson(("6488", "環球晶")));
 
             Assert.True(await _service.RefreshAsync());
 
-            _httpFactory.Verify(f => f.CreateClient(TwListedCompanyService.HttpClientName), Times.Exactly(2));
-            _httpFactory.Verify(f => f.CreateClient(It.Is<string>(n => n != TwListedCompanyService.HttpClientName)), Times.Never);
+            _httpFactory.Verify(f => f.CreateClient(TwListedCompanyService.HttpClientName), Times.Once);
+            _httpFactory.Verify(f => f.CreateClient(TwseOpenApi.HttpClientName), Times.Once);
+            _httpFactory.Verify(f => f.CreateClient(It.Is<string>(n =>
+                n != TwListedCompanyService.HttpClientName && n != TwseOpenApi.HttpClientName)), Times.Never);
         }
 
         [Fact]
         public async Task RefreshAsync_NetworkFailure_ReturnsFalseInsteadOfThrowing()
         {
             _http.Throw(TwListedCompanyService.TpexUrl, new HttpRequestException("connection reset"));
-            _http.Respond(TwListedCompanyService.TwseUrl, HttpStatusCode.OK, TwseJson(("2330", "台積電")));
+            _http.Respond(TwseOpenApi.DailyQuotesUrl, HttpStatusCode.OK, TwseJson(("2330", "台積電")));
 
             Assert.False(await _service.RefreshAsync());
             Assert.Empty(await StoredAsync());

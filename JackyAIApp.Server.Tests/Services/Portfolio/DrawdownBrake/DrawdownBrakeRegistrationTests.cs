@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Extensions;
+using JackyAIApp.Server.Services.ExternalApi;
 using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Portfolio;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
@@ -25,6 +26,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
             services.AddDbContextFactory<AzureSQLDBContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
             services.AddPortfolioServices();
+            services.AddTwseOpenApi(); // the TW listed-company list reads TWSE through it (registered beside it in Program)
             return services.BuildServiceProvider();
         }
 
@@ -78,6 +80,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
             services.AddDbContextFactory<AzureSQLDBContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
             services.AddPortfolioServices();
+            services.AddTwseOpenApi(); // the TW listed-company list reads TWSE through it (registered beside it in Program)
 
             Assert.Contains(services, d => d.ServiceType == typeof(IHostedService));
 
@@ -96,6 +99,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
             services.AddDbContextFactory<AzureSQLDBContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
             services.AddPortfolioServices();
+            services.AddTwseOpenApi(); // the TW listed-company list reads TWSE through it (registered beside it in Program)
             services.AddHttpClient("WithResilience").AddReadOnlyResilience(); // the control: what the retry looks like when present
             using var provider = services.BuildServiceProvider();
             var options = provider.GetRequiredService<IOptionsMonitor<HttpClientFactoryOptions>>();
@@ -148,6 +152,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
             services.AddDbContextFactory<AzureSQLDBContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
             services.AddPortfolioServices();
+            services.AddTwseOpenApi(); // the TW listed-company list reads TWSE through it (registered beside it in Program)
             services.AddTwStock();
             using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 

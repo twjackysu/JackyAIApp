@@ -191,6 +191,7 @@ try
     builder.Services.AddCoreServices(builder.Configuration);
     builder.Services.AddVocabularyServices();
     builder.Services.AddThirdPartyGateway();
+    builder.Services.AddTwseOpenApi();
     builder.Services.AddFinanceAnalysisServices();
     builder.Services.AddJobAggregatorServices();
     builder.Services.AddPortfolioServices();
