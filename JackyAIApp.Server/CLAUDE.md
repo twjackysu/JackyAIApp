@@ -120,6 +120,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   The factory is shared, so it uses `CancellationToken.None` and no request-scoped disposables (take an
   `IDbContextFactory` context, not the request's `AzureSQLDBContext`)
 - A cached object is shared by every reader: never modify one in place (copy it first)
+- Work that must finish after its request — an AI answer others will read, which is paid for either way —
+  runs in a scope of its own (`IServiceScopeFactory.CreateAsyncScope()`), never with the request's scoped
+  services: those (its DbContext, the OpenAI client, `AiUsageLogger`) are disposed when the request ends.
+  `WordGenerator` is the pattern: a singleton holding one run per key (`SingleFlight`), each in its own scope
 - To drop several entries together, set them with `options.AddExpirationToken(cache.GroupToken(group))`
   and call `cache.InvalidateGroup(group)`
 

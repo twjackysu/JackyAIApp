@@ -131,7 +131,7 @@ namespace JackyAIApp.Server.Tests.Services
             await SeedWordsAsync(pack.Words.ToArray());
             foreach (var text in pack.Words)
             {
-                _dictionary.Setup(d => d.GetWordAsync(text)).ReturnsAsync(ServiceResult.Ok(new DTO.Word
+                _dictionary.Setup(d => d.GetWordAsync(text, It.IsAny<CancellationToken>())).ReturnsAsync(ServiceResult.Ok(new DTO.Word
                 {
                     Id = text, PartitionKey = text, DateAdded = DateTime.UtcNow, SeoTitle = "", SeoDescription = "",
                     Word = text, KKPhonics = "", Meanings = [],

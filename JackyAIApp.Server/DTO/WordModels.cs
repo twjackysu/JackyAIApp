@@ -49,6 +49,12 @@ namespace JackyAIApp.Server.DTO
         /// </summary>
         public required string SeoDescription { get; set; }
 
+        /// <summary>
+        /// The form looked up, when it is a regular inflection shown on this word's entry ("establishing"
+        /// on "establish"); null when this word itself was looked up.
+        /// </summary>
+        public string? InflectedForm { get; set; }
+
         public override string ToString()
         {
             return JsonSerializer.Serialize(this);

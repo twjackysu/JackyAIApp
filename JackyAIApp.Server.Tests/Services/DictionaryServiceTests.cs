@@ -6,8 +6,9 @@ using JackyAIApp.Server.Services.Dictionary;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.SpellChecker;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using SQLWord = JackyAIApp.Server.Data.Models.SQL.Word;
 using SQLWordMeaning = JackyAIApp.Server.Data.Models.SQL.WordMeaning;
@@ -17,41 +18,49 @@ namespace JackyAIApp.Server.Tests.Services
 {
     public class DictionaryServiceTests : IDisposable
     {
-        private readonly Mock<ILogger<DictionaryService>> _loggerMock;
         private readonly Mock<IOpenAIPromptService> _promptServiceMock;
         private readonly MemoryCache _memoryCache = new(new MemoryCacheOptions());
         private readonly Mock<ISpellChecker> _spellCheckerMock;
+        private readonly string _dbName = Guid.NewGuid().ToString();
+        private readonly InMemoryDatabaseRoot _dbRoot = new();
+        private readonly ServiceProvider _provider;
         private readonly AzureSQLDBContext _dbContext;
         private readonly DictionaryService _service;
 
         public DictionaryServiceTests()
         {
-            _loggerMock = new Mock<ILogger<DictionaryService>>();
             _promptServiceMock = new Mock<IOpenAIPromptService>();
             _spellCheckerMock = new Mock<ISpellChecker>();
 
-            // By default treat words as valid; invalid-word tests override per word.
+            // By default treat words as valid, and as base words (no root); tests override per word.
             _spellCheckerMock.Setup(x => x.Check(It.IsAny<string>())).Returns(true);
 
-            // Setup in-memory database
-            var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
-                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-                .Options;
-            _dbContext = new AzureSQLDBContext(options);
+            // The generator runs in scopes of its own; they share the in-memory database with the
+            // request's context below.
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddDbContext<AzureSQLDBContext>(o => o.UseInMemoryDatabase(_dbName, _dbRoot));
+            services.AddSingleton(_promptServiceMock.Object);
+            services.AddSingleton<IWordGenerator, WordGenerator>();
+            _provider = services.BuildServiceProvider();
 
-            _service = new DictionaryService(
-                _loggerMock.Object,
-                _dbContext,
-                _promptServiceMock.Object,
-                _memoryCache,
-                _spellCheckerMock.Object);
+            _dbContext = NewContext();
+            _service = NewService(_dbContext);
         }
 
         public void Dispose()
         {
             _dbContext.Dispose();
+            _provider.Dispose();
             _memoryCache.Dispose();
         }
+
+        private AzureSQLDBContext NewContext() =>
+            new(new DbContextOptionsBuilder<AzureSQLDBContext>().UseInMemoryDatabase(_dbName, _dbRoot).Options);
+
+        // Another request: its own context, the app's one generator and cache.
+        private DictionaryService NewService(AzureSQLDBContext db) =>
+            new(db, _provider.GetRequiredService<IWordGenerator>(), _memoryCache, _spellCheckerMock.Object);
 
         #region GetWord Tests
 
@@ -85,6 +94,7 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Equal("hello", dto.Word);
             Assert.Equal("hello 英文意思、發音、例句 | English Coach", dto.SeoTitle);
             Assert.StartsWith("hello (noun):", dto.SeoDescription);
+            Assert.Null(dto.InflectedForm);
 
             // Should NOT call OpenAI since word exists
             _promptServiceMock.Verify(x => x.GetCompletionAsync<WordBase>(
@@ -181,8 +191,9 @@ namespace JackyAIApp.Server.Tests.Services
                 It.IsAny<string>(), "book", It.IsAny<string>(),
                 It.IsAny<IEnumerable<(string, string)>>()), Times.Once);
 
-            // Verify DataInvalid is cleared
-            var updatedWord = await _dbContext.Words.FirstAsync(w => w.WordText == "book");
+            // Verify DataInvalid is cleared (read afresh: this context still tracks the seeded row)
+            await using var db = NewContext();
+            var updatedWord = await db.Words.FirstAsync(w => w.WordText == "book");
             Assert.Null(updatedWord.DataInvalid);
         }
 
@@ -201,6 +212,107 @@ namespace JackyAIApp.Server.Tests.Services
             // Assert
             Assert.False(result.IsSuccess);
             Assert.Equal(ErrorCodes.QueryOpenAIFailed, result.Error);
+        }
+
+        [Fact]
+        public async Task GetWord_CallerStopsWaiting_TheWordIsStillStoredAndNotGeneratedAgain()
+        {
+            // The word page stops waiting after a few seconds and its request ends, while OpenAI is
+            // still answering.
+            var asked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var answer = new TaskCompletionSource<(WordBase?, string?)>(TaskCreationOptions.RunContinuationsAsynchronously);
+            SetupPrompt().Callback(() => asked.TrySetResult()).Returns(answer.Task);
+
+            using var stopWaiting = new CancellationTokenSource();
+            var lookup = _service.GetWordAsync("test", stopWaiting.Token);
+            await asked.Task;
+            stopWaiting.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => lookup);
+            _dbContext.Dispose();
+
+            answer.SetResult((Generated("test"), null));
+            // Joins the run if it is still going; otherwise finds what it stored.
+            await _provider.GetRequiredService<IWordGenerator>().GenerateAsync("test", CancellationToken.None);
+
+            await using (var db = NewContext())
+                Assert.True(await db.Words.AnyAsync(w => w.WordText == "test"));
+
+            // The next visit reads it from the database.
+            await using var nextRequest = NewContext();
+            var result = await NewService(nextRequest).GetWordAsync("test");
+            Assert.True(result.IsSuccess);
+            VerifyPromptCalled(Times.Once());
+        }
+
+        [Fact]
+        public async Task GetWord_LookupsOfAWordBeingGenerated_ShareOneGeneration()
+        {
+            var asked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var answer = new TaskCompletionSource<(WordBase?, string?)>(TaskCreationOptions.RunContinuationsAsynchronously);
+            SetupPrompt().Callback(() => asked.TrySetResult()).Returns(answer.Task);
+
+            var first = _service.GetWordAsync("test");
+            await asked.Task;
+            await using var otherRequest = NewContext();
+            var second = NewService(otherRequest).GetWordAsync("test");
+            // Time for the second lookup to reach OpenAI too, were it to generate on its own.
+            await Task.Delay(200);
+            answer.SetResult((Generated("test"), null));
+
+            Assert.True((await first).IsSuccess);
+            Assert.True((await second).IsSuccess);
+            VerifyPromptCalled(Times.Once());
+        }
+
+        [Fact]
+        public async Task GetWord_RegularInflection_ShowsTheRootsEntry()
+        {
+            _spellCheckerMock.Setup(x => x.RootOf("establishing")).Returns("establish");
+            await SeedWordAsync("establish");
+
+            var result = await _service.GetWordAsync("establishing");
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("establish", result.Data!.Word);
+            Assert.Equal("establishing", result.Data.InflectedForm);
+            VerifyPromptCalled(Times.Never());
+        }
+
+        [Fact]
+        public async Task GetWord_RegularInflectionOfAWordNotStoredYet_GeneratesAndStoresTheRoot()
+        {
+            _spellCheckerMock.Setup(x => x.RootOf("establishing")).Returns("establish");
+            SetupPrompt().ReturnsAsync((Generated("establish"), (string?)null));
+
+            var result = await _service.GetWordAsync("establishing");
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("establish", result.Data!.Word);
+            Assert.Equal("establishing", result.Data.InflectedForm);
+            _promptServiceMock.Verify(x => x.GetCompletionAsync<WordBase>(
+                It.IsAny<string>(), "establish", It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>()), Times.Once);
+            await using var db = NewContext();
+            Assert.True(await db.Words.AnyAsync(w => w.WordText == "establish"));
+            Assert.False(await db.Words.AnyAsync(w => w.WordText == "establishing"));
+        }
+
+        [Fact]
+        public async Task GetWord_ModelAnswersWithAnotherWord_StoredUnderTheWordLookedUp()
+        {
+            // An irregular form keeps its own entry, but asked for "went" the model may define "go".
+            SetupPrompt().ReturnsAsync((Generated("go"), (string?)null));
+
+            var result = await _service.GetWordAsync("went");
+
+            Assert.True(result.IsSuccess);
+            await using (var db = NewContext())
+                Assert.True(await db.Words.AnyAsync(w => w.WordText == "went"));
+
+            // So the next lookup of it finds it instead of paying again.
+            await using var nextRequest = NewContext();
+            Assert.True((await NewService(nextRequest).GetWordAsync("went")).IsSuccess);
+            VerifyPromptCalled(Times.Once());
         }
 
         #endregion
@@ -272,6 +384,34 @@ namespace JackyAIApp.Server.Tests.Services
         #endregion
 
         #region Helper Methods
+
+        private Moq.Language.Flow.ISetup<IOpenAIPromptService, Task<(WordBase? Result, string? Error)>> SetupPrompt() =>
+            _promptServiceMock.Setup(x => x.GetCompletionAsync<WordBase>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>()));
+
+        private void VerifyPromptCalled(Times times) =>
+            _promptServiceMock.Verify(x => x.GetCompletionAsync<WordBase>(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IEnumerable<(string, string)>>()), times);
+
+        private static WordBase Generated(string word) => new()
+        {
+            Word = word,
+            KKPhonics = $"/{word}/",
+            Meanings = new List<DTO.WordMeaning>
+            {
+                new()
+                {
+                    PartOfSpeech = "noun",
+                    Definitions = new List<DTO.Definition> { new() { English = $"Definition of {word}", Chinese = $"{word}的定義" } },
+                    ExampleSentences = new List<DTO.ExampleSentence>(),
+                    Synonyms = new List<string>(),
+                    Antonyms = new List<string>(),
+                    RelatedWords = new List<string>()
+                }
+            }
+        };
 
         private async Task<SQLWord> SeedWordAsync(string wordText, bool isInvalid = false)
         {

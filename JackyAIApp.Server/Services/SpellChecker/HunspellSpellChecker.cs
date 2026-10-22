@@ -22,5 +22,13 @@ namespace JackyAIApp.Server.Services.SpellChecker
         public bool Check(string word) => _wordList.Check(word);
 
         public IReadOnlyList<string> Suggest(string word) => _wordList.Suggest(word).Take(5).ToList();
+
+        // Hunspell names the list entry an affix rule derived the word from; a word found as an entry
+        // itself has none.
+        public string? RootOf(string word)
+        {
+            var result = _wordList.CheckDetails(word);
+            return result.Correct && !string.IsNullOrEmpty(result.Root) ? result.Root : null;
+        }
     }
 }

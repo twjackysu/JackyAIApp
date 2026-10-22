@@ -26,7 +26,7 @@ namespace JackyAIApp.Server.Services.Dictionary
                 return;
             }
 
-            var result = await dictionaryService.GetWordAsync(word);
+            var result = await dictionaryService.GetWordAsync(word, context.RequestAborted);
             if (!result.IsSuccess || result.Data is not DTO.Word dto)
             {
                 // Unknown/invalid word — nothing word-specific to show; fall through to the SPA
@@ -36,7 +36,8 @@ namespace JackyAIApp.Server.Services.Dictionary
             }
 
             var baseUrl = $"{context.Request.Scheme}://{context.Request.Host}";
-            var pageUrl = $"{baseUrl}{SitemapController.DictionaryPathPrefix}/{Uri.EscapeDataString(word)}";
+            // The entry's own page: an inflection looked up ("establishing") is its root's entry.
+            var pageUrl = $"{baseUrl}{SitemapController.DictionaryPathPrefix}/{Uri.EscapeDataString(dto.Word)}";
 
             context.Response.StatusCode = StatusCodes.Status200OK;
             context.Response.ContentType = "text/html; charset=utf-8";

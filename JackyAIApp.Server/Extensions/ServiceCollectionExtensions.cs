@@ -87,6 +87,8 @@ namespace JackyAIApp.Server.Extensions
             // Spell-checker dictionary is expensive to load from disk; share one instance.
             services.AddSingleton<ISpellChecker, HunspellSpellChecker>();
             services.AddScoped<IDictionaryService, DictionaryService>();
+            // Holds the words being generated, so every lookup of one waits on the same run.
+            services.AddSingleton<IWordGenerator, WordGenerator>();
             services.AddScoped<IPublicWordList, PublicWordList>();
 
             // Exam services + per-type generator strategies

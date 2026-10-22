@@ -3,7 +3,9 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services.Dictionary;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using JackyAIApp.Server.Services.SpellChecker;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using SQLWord = JackyAIApp.Server.Data.Models.SQL.Word;
 
 namespace JackyAIApp.Server.Tests.Controllers
@@ -12,6 +14,7 @@ namespace JackyAIApp.Server.Tests.Controllers
     {
         private readonly AzureSQLDBContext _dbContext;
         private readonly SitemapController _controller;
+        private readonly Mock<ISpellChecker> _spellChecker = new();
 
         public SitemapControllerTests()
         {
@@ -20,7 +23,7 @@ namespace JackyAIApp.Server.Tests.Controllers
                 .Options;
             _dbContext = new AzureSQLDBContext(options);
 
-            _controller = new SitemapController(new PublicWordList(_dbContext))
+            _controller = new SitemapController(new PublicWordList(_dbContext, _spellChecker.Object))
             {
                 ControllerContext = new ControllerContext
                 {
@@ -78,6 +81,20 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.Contains("english/dictionary/apple", result.Content);
             Assert.DoesNotContain("english/dictionary/stale", result.Content);
             Assert.Equal("application/xml", result.ContentType?.Split(';')[0]);
+        }
+
+        [Fact]
+        public async Task GetSitemap_LeavesOutRowsStoredForAnInflection()
+        {
+            // Stored before inflections were shown on their root's entry; that page is "apple"'s now.
+            _spellChecker.Setup(s => s.RootOf("apples")).Returns("apple");
+            await SeedWordAsync("apple", isInvalid: false);
+            await SeedWordAsync("apples", isInvalid: false);
+
+            var result = Assert.IsType<ContentResult>(await _controller.GetSitemap());
+
+            Assert.Contains("english/dictionary/apple<", result.Content);
+            Assert.DoesNotContain("english/dictionary/apples", result.Content);
         }
 
         [Fact]
