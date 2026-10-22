@@ -13,13 +13,15 @@ namespace JackyAIApp.Server.Services.Repository
         AzureSQLDBContext dbContext,
         ICurrentUser currentUser,
         IDictionaryService dictionaryService,
-        IMemoryCache memoryCache) : IRepositoryService
+        IMemoryCache memoryCache,
+        IUserAccountService accounts) : IRepositoryService
     {
         private readonly ILogger<RepositoryService> _logger = logger;
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly ICurrentUser _currentUser = currentUser;
         private readonly IDictionaryService _dictionaryService = dictionaryService;
         private readonly IMemoryCache _memoryCache = memoryCache;
+        private readonly IUserAccountService _accounts = accounts;
 
         /// <summary>A user's cached word list and word lookups, dropped together whenever the list
         /// changes (<c>cache.InvalidateGroup</c>, see <see cref="CacheExtensions"/>).</summary>
@@ -35,8 +37,7 @@ namespace JackyAIApp.Server.Services.Repository
             var cacheKey = $"GetWords_{userId}_Page_{pageNumber}_Size_{pageSize}";
             if (!_memoryCache.TryGetValue(cacheKey, out List<DTO.Word>? result))
             {
-                var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
-                if (user == null)
+                if (!await _accounts.ExistsAsync())
                 {
                     return UserAccountFailures.Missing;
                 }

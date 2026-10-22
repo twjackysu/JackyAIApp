@@ -4,7 +4,6 @@ using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.EntityFrameworkCore;
-using System.Linq.Expressions;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Exam
@@ -15,7 +14,10 @@ namespace JackyAIApp.Server.Services.Exam
         ICurrentUser currentUser,
         IOpenAIPromptService promptService,
         ISpacedRepetitionService spacedRepetition,
-        IEnumerable<IWordExamGenerator> generators) : IExamService
+        IEnumerable<IWordExamGenerator> generators,
+        IExamWordPicker wordPicker,
+        IExamBankPicker bankPicker,
+        IUserAccountService accounts) : IExamService
     {
         private readonly ILogger<ExamService> _logger = logger;
         private readonly AzureSQLDBContext _dbContext = dbContext;
@@ -24,6 +26,9 @@ namespace JackyAIApp.Server.Services.Exam
         private readonly ISpacedRepetitionService _spacedRepetition = spacedRepetition;
         private readonly IReadOnlyDictionary<ExamType, IWordExamGenerator> _generators =
             generators.ToDictionary(g => g.Type);
+        private readonly IExamWordPicker _wordPicker = wordPicker;
+        private readonly IExamBankPicker _bankPicker = bankPicker;
+        private readonly IUserAccountService _accounts = accounts;
 
         private const string NoWordsMessage =
             "No words are available yet to generate an exam from. Try searching a word in the Dictionary first.";
@@ -31,13 +36,12 @@ namespace JackyAIApp.Server.Services.Exam
         public async Task<ServiceResult<object>> GenerateWordExamAsync(ExamType type)
         {
             var userId = _currentUser.RequireId();
-            var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
-            if (user == null)
+            if (!await _accounts.ExistsAsync())
             {
                 return UserAccountFailures.Missing;
             }
 
-            var randomWordId = await GetRandomUserWordIdAsync(userId);
+            var randomWordId = await _wordPicker.PickWordIdAsync(userId);
             if (randomWordId == null)
             {
                 return ServiceResult.Fail(ErrorCodes.Forbidden, NoWordsMessage);
@@ -63,50 +67,17 @@ namespace JackyAIApp.Server.Services.Exam
             return await generator.GenerateAsync(word);
         }
 
-        // How many of the user's most recent attempts to treat as "just seen" and exclude from
-        // re-selection. Sized well past one round (ROUND_SIZE=10 on the frontend) — a user who
-        // keeps playing past round boundaries still shouldn't hit a repeat for a while. Paired
-        // with ListeningResponseBankGrowthThreshold's "always generate while unseen < threshold"
-        // rule, the bank is forced to grow to at least NoRepeatWindow + threshold questions before
-        // a repeat becomes possible at all.
-        private const int NoRepeatWindow = 30;
-
-        /// <summary>The ids of this user's most recently attempted items of one bank (whichever
-        /// <paramref name="idSelector"/> picks), newest first, deduped — the no-repeat window the
-        /// three exam banks each exclude from their pool.</summary>
-        private async Task<HashSet<string>> GetRecentAttemptIdsAsync(
-            string userId, int take, Expression<Func<SQL.ExamAttempt, string?>> idSelector)
-        {
-            var ids = await _dbContext.ExamAttempts
-                .Where(a => a.UserId == userId)
-                .OrderByDescending(a => a.CreatedAt)
-                .Select(idSelector)
-                .Where(id => id != null)
-                .Take(take * 3)
-                .ToListAsync();
-            return ids.Select(id => id!).Distinct().Take(take).ToHashSet();
-        }
-
         public async Task<ServiceResult<ListeningTestResponse>> GenerateListeningExamAsync()
         {
-            var count = await _dbContext.ListeningTests.CountAsync();
-            if (count == 0)
+            var pool = await _bankPicker.OpenAsync(
+                _dbContext.ListeningTests, q => q.Include(lt => lt.Options), a => a.ListeningTestId);
+            if (pool.TotalCount == 0)
             {
                 return ServiceResult.Fail(ErrorCodes.NotFound,
                     "No listening questions are available yet.");
             }
 
-            var userId = _currentUser.Id;
-            var excludeIds = string.IsNullOrEmpty(userId)
-                ? new HashSet<string>()
-                : await GetRecentAttemptIdsAsync(userId, NoRepeatWindow, a => a.ListeningTestId);
-
-            // When nothing is excluded, the whole bank is the pool — skip the extra COUNT.
-            var unseenCount = excludeIds.Count == 0
-                ? count
-                : await _dbContext.ListeningTests.CountAsync(t => !excludeIds.Contains(t.Id));
-            var test = await PickRandomFromPoolAsync(
-                _dbContext.ListeningTests, q => q.Include(lt => lt.Options), excludeIds, unseenCount, count);
+            var test = await pool.PickAsync();
 
             return ServiceResult.Ok(new ListeningTestResponse
             {
@@ -181,36 +152,15 @@ namespace JackyAIApp.Server.Services.Exam
             })
         );
 
-        /// <summary>Picks one random row from <paramref name="bank"/>, preferring rows whose id is
-        /// not in <paramref name="excludeIds"/> (the no-repeat window); falls back to the whole bank
-        /// when every row is excluded. <paramref name="include"/> applies that bank's own eager
-        /// loads. Shared by the three exam banks, which differed only in that shape.</summary>
-        private static async Task<T> PickRandomFromPoolAsync<T>(
-            IQueryable<T> bank, Func<IQueryable<T>, IQueryable<T>> include,
-            HashSet<string> excludeIds, int unseenCount, int totalCount) where T : class, SQL.IStringId
-        {
-            var pool = unseenCount > 0 ? bank.Where(t => !excludeIds.Contains(t.Id)) : bank;
-            var poolCount = unseenCount > 0 ? unseenCount : totalCount;
-            return await include(pool)
-                .OrderBy(t => t.Id)
-                .Skip(Random.Shared.Next(poolCount))
-                .FirstAsync();
-        }
-
         public async Task<ServiceResult<ListeningResponseTestResponse>> GenerateListeningResponseExamAsync()
         {
-            var userId = _currentUser.Id;
-            var excludeIds = string.IsNullOrEmpty(userId)
-                ? new HashSet<string>()
-                : await GetRecentAttemptIdsAsync(userId, NoRepeatWindow, a => a.ListeningResponseTestId);
+            var pool = await _bankPicker.OpenAsync(
+                _dbContext.ListeningResponseTests, q => q.Include(t => t.Options), a => a.ListeningResponseTestId);
+            var shouldGenerate = pool.UnseenCount < ListeningResponseBankGrowthThreshold || Random.Shared.Next(5) == 0;
 
-            var count = await _dbContext.ListeningResponseTests.CountAsync();
-            var unseenCount = await _dbContext.ListeningResponseTests.CountAsync(t => !excludeIds.Contains(t.Id));
-            var shouldGenerate = unseenCount < ListeningResponseBankGrowthThreshold || Random.Shared.Next(5) == 0;
-
-            if (!shouldGenerate && unseenCount > 0)
+            if (!shouldGenerate && pool.UnseenCount > 0)
             {
-                var existing = await PickRandomFromPoolAsync(_dbContext.ListeningResponseTests, q => q.Include(t => t.Options), excludeIds, unseenCount, count);
+                var existing = await pool.PickAsync();
                 return ServiceResult.Ok(ToListeningResponseDto(existing));
             }
 
@@ -225,9 +175,9 @@ namespace JackyAIApp.Server.Services.Exam
                 _logger.LogError("Failed to generate listening response question: {Error}", error);
 
                 // Fall back to an existing one rather than a hard failure, if the bank has any.
-                if (count > 0)
+                if (pool.TotalCount > 0)
                 {
-                    var fallback = await PickRandomFromPoolAsync(_dbContext.ListeningResponseTests, q => q.Include(t => t.Options), excludeIds, unseenCount, count);
+                    var fallback = await pool.PickAsync();
                     return ServiceResult.Ok(ToListeningResponseDto(fallback));
                 }
 
@@ -300,8 +250,8 @@ namespace JackyAIApp.Server.Services.Exam
                 : ServiceResult.Ok(option.Text);
         }
 
-        // Same growth-threshold/no-repeat pattern as ListeningResponse — see comments above
-        // ListeningResponseBankGrowthThreshold and NoRepeatWindow.
+        // Same growth-threshold/no-repeat pattern as ListeningResponse — see the comment above
+        // ListeningResponseBankGrowthThreshold and ExamBankPicker.NoRepeatWindow.
         private const int ReadingBankGrowthThreshold = 20;
         private const string ReadingFeature = "exam.reading";
 
@@ -410,18 +360,13 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult<ReadingPassageResponse>> GenerateReadingExamAsync()
         {
-            var userId = _currentUser.Id;
-            var excludeIds = string.IsNullOrEmpty(userId)
-                ? new HashSet<string>()
-                : await GetRecentAttemptIdsAsync(userId, NoRepeatWindow, a => a.ReadingPassageId);
+            var pool = await _bankPicker.OpenAsync(
+                _dbContext.ReadingPassages, q => q.Include(p => p.Questions).ThenInclude(qq => qq.Options), a => a.ReadingPassageId);
+            var shouldGenerate = pool.UnseenCount < ReadingBankGrowthThreshold || Random.Shared.Next(5) == 0;
 
-            var count = await _dbContext.ReadingPassages.CountAsync();
-            var unseenCount = await _dbContext.ReadingPassages.CountAsync(p => !excludeIds.Contains(p.Id));
-            var shouldGenerate = unseenCount < ReadingBankGrowthThreshold || Random.Shared.Next(5) == 0;
-
-            if (!shouldGenerate && unseenCount > 0)
+            if (!shouldGenerate && pool.UnseenCount > 0)
             {
-                var existing = await PickRandomFromPoolAsync(_dbContext.ReadingPassages, q => q.Include(p => p.Questions).ThenInclude(qq => qq.Options), excludeIds, unseenCount, count);
+                var existing = await pool.PickAsync();
                 return ServiceResult.Ok(ToReadingDto(existing));
             }
 
@@ -435,9 +380,9 @@ namespace JackyAIApp.Server.Services.Exam
                 // Fall back to an existing one rather than a hard failure, if the bank has any.
                 // A rejected passage must never be persisted: the bank is shared and reused, so
                 // saving one bad passage serves it to everyone for as long as it is in there.
-                if (count > 0)
+                if (pool.TotalCount > 0)
                 {
-                    var fallback = await PickRandomFromPoolAsync(_dbContext.ReadingPassages, q => q.Include(p => p.Questions).ThenInclude(qq => qq.Options), excludeIds, unseenCount, count);
+                    var fallback = await pool.PickAsync();
                     return ServiceResult.Ok(ToReadingDto(fallback));
                 }
 
@@ -515,14 +460,13 @@ namespace JackyAIApp.Server.Services.Exam
         public async Task<ServiceResult<WritingPromptResponse>> GenerateWritingPromptAsync()
         {
             var userId = _currentUser.RequireId();
-            var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
-            if (user == null)
+            if (!await _accounts.ExistsAsync())
             {
                 return UserAccountFailures.Missing;
             }
 
             var topic = WritingTopics[Random.Shared.Next(WritingTopics.Length)];
-            var words = await GetRandomUserWordsAsync(userId, 5);
+            var words = await _wordPicker.PickSavedWordsAsync(userId, 5);
 
             return ServiceResult.Ok(new WritingPromptResponse
             {
@@ -584,20 +528,19 @@ namespace JackyAIApp.Server.Services.Exam
         }
 
         /// <summary>
-        /// Picks one word via the shared <see cref="GetRandomUserWordIdAsync"/> helper (same
+        /// Picks one word via <see cref="IExamWordPicker.PickWordIdAsync"/> (same
         /// due/weak/global-fallback behavior as Cloze/Translation/Sentence) and returns only its
         /// WordId. Deliberately does not include the word text — see DictationPromptResponse.
         /// </summary>
         public async Task<ServiceResult<DictationPromptResponse>> GenerateDictationExamAsync()
         {
             var userId = _currentUser.RequireId();
-            var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
-            if (user == null)
+            if (!await _accounts.ExistsAsync())
             {
                 return UserAccountFailures.Missing;
             }
 
-            var wordId = await GetRandomUserWordIdAsync(userId);
+            var wordId = await _wordPicker.PickWordIdAsync(userId);
             if (wordId == null)
             {
                 return ServiceResult.Fail(ErrorCodes.Forbidden, NoWordsMessage);
@@ -722,9 +665,7 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult<ConversationStartResponse>> StartConversationAsync(ConversationStartRequest request)
         {
-            var userId = _currentUser.RequireId();
-            var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
-            if (user == null)
+            if (!await _accounts.ExistsAsync())
             {
                 return UserAccountFailures.Missing;
             }
@@ -765,9 +706,7 @@ namespace JackyAIApp.Server.Services.Exam
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Invalid conversation request.");
             }
 
-            var userId = _currentUser.RequireId();
-            var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
-            if (user == null)
+            if (!await _accounts.ExistsAsync())
             {
                 return UserAccountFailures.Missing;
             }
@@ -812,9 +751,7 @@ namespace JackyAIApp.Server.Services.Exam
 
         public async Task<ServiceResult<WhisperTranscriptionResponse>> TranscribeAudioAsync(Stream audioStream, string fileName)
         {
-            var userId = _currentUser.RequireId();
-            var user = await _dbContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
-            if (user == null)
+            if (!await _accounts.ExistsAsync())
             {
                 return UserAccountFailures.Missing;
             }
@@ -981,107 +918,6 @@ namespace JackyAIApp.Server.Services.Exam
         {
             if (!correct) return 2;
             return score.HasValue && score.Value >= 85 ? 5 : 4;
-        }
-
-        /// <summary>
-        /// Picks a random WordId from the user's saved words at the database level
-        /// (COUNT + OFFSET) instead of loading the whole collection into memory.
-        /// </summary>
-        /// <summary>
-        /// Picks a word for the next exam question, biased toward the SM-2 review schedule
-        /// instead of pure uniform random — otherwise exams and the Review flow drift apart
-        /// and well-known words get quizzed just as often as weak ones. Falls back to a
-        /// random word from the whole dictionary when the user's repository is empty, so
-        /// exams work before anyone has favorited anything.
-        /// </summary>
-        private async Task<string?> GetRandomUserWordIdAsync(string userId)
-        {
-            var query = _dbContext.UserWords.Where(uw => uw.UserId == userId);
-            var count = await query.CountAsync();
-            if (count == 0)
-            {
-                return await GetRandomGlobalWordIdAsync();
-            }
-
-            var now = DateTime.UtcNow;
-
-            // Prefer words that are due (or have never been reviewed).
-            var dueQuery = query.Where(uw => uw.NextReviewDate == null || uw.NextReviewDate <= now);
-            var dueCount = await dueQuery.CountAsync();
-            if (dueCount > 0)
-            {
-                var skip = Random.Shared.Next(dueCount);
-                return await dueQuery
-                    .OrderBy(uw => uw.WordId)
-                    .Skip(skip)
-                    .Select(uw => uw.WordId)
-                    .FirstOrDefaultAsync();
-            }
-
-            // Nothing due yet — surface the weakest words (fewest consecutive-correct
-            // streaks) so struggling words still get practiced between scheduled reviews.
-            const int weakPoolSize = 10;
-            var weakestIds = await query
-                .OrderBy(uw => uw.ConsecutiveCorrect)
-                .ThenBy(uw => uw.ReviewCount)
-                .Select(uw => uw.WordId)
-                .Take(Math.Min(weakPoolSize, count))
-                .ToListAsync();
-
-            return weakestIds[Random.Shared.Next(weakestIds.Count)];
-        }
-
-        /// <summary>Random word from the whole dictionary, used when the user has no repository words yet.</summary>
-        private async Task<string?> GetRandomGlobalWordIdAsync()
-        {
-            var query = _dbContext.Words.Where(w => w.DataInvalid != true);
-            var count = await query.CountAsync();
-            if (count == 0)
-            {
-                return null;
-            }
-
-            var skip = Random.Shared.Next(count);
-            return await query
-                .OrderBy(w => w.Id)
-                .Skip(skip)
-                .Select(w => w.Id)
-                .FirstOrDefaultAsync();
-        }
-
-        /// <summary>
-        /// Picks up to <paramref name="take"/> distinct random rows from the user's saved words,
-        /// extending the same COUNT + OFFSET technique as <see cref="GetRandomUserWordIdAsync"/>
-        /// to several rows instead of loading the whole collection into memory. Returns fewer than
-        /// <paramref name="take"/> (down to none) when the user's repository is that small.
-        /// </summary>
-        private async Task<List<SQL.UserWord>> GetRandomUserWordsAsync(string userId, int take)
-        {
-            var query = _dbContext.UserWords.Where(uw => uw.UserId == userId);
-            var count = await query.CountAsync();
-            if (count == 0)
-            {
-                return [];
-            }
-
-            take = Math.Min(take, count);
-            var offsets = new HashSet<int>();
-            while (offsets.Count < take)
-            {
-                offsets.Add(Random.Shared.Next(count));
-            }
-
-            var results = new List<SQL.UserWord>();
-            foreach (var offset in offsets)
-            {
-                var userWord = await query
-                    .Include(uw => uw.Word)
-                    .OrderBy(uw => uw.WordId)
-                    .Skip(offset)
-                    .FirstAsync();
-                results.Add(userWord);
-            }
-            return results;
         }
     }
 }

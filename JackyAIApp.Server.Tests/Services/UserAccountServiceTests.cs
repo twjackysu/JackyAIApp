@@ -74,6 +74,18 @@ namespace JackyAIApp.Server.Tests.Services
         }
 
         [Fact]
+        public async Task Exists_IsWhetherTheSignedInUsersRowIsThere()
+        {
+            _db.Users.Add(new User { Id = "u1", LastUpdated = DateTime.UtcNow });
+            await _db.SaveChangesAsync();
+
+            SignInAs("u1");
+            Assert.True(await _service.ExistsAsync());
+            SignInAs("ghost");
+            Assert.False(await _service.ExistsAsync());
+        }
+
+        [Fact]
         public async Task TheFirstSignIn_CreatesTheRow_FromTheSignInClaims()
         {
             SignInAs("u1", "Jacky", "jacky@example.com");

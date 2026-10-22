@@ -69,7 +69,8 @@ JackyAIApp.Server/
 - Behind `[Authorize]`, take the id with `currentUser.RequireId()` and write no null check: it
   throws `NotSignedInException`, which `ExceptionMiddleware` answers as 401 in the error envelope
 - A valid sign-in whose `Users` row is missing returns `UserAccountFailures.Missing` (401, "sign in
-  again"): signing in recreates the row
+  again"): signing in recreates the row. A service that only needs the row to exist asks
+  `IUserAccountService.ExistsAsync()` rather than loading it
 
 ## Caching
 
