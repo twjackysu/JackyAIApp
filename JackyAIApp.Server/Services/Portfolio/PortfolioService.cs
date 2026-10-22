@@ -15,35 +15,24 @@ namespace JackyAIApp.Server.Services.Portfolio
         IHoldingSnapshotReader snapshotReader,
         IPortfolioPriceLoader priceLoader,
         IDividendService dividendData,
-        TimeProvider? timeProvider = null,
-        // Optional for the same reason TimeProvider is: tests construct this class directly. The
-        // container always supplies the real one (it is registered), and a null here simply means
-        // funds fall back to the mid-market rate — the behaviour before 集保 rates existed.
-        ITdccFxService? tdccFx = null,
-        ICathayFxService? cathayFx = null,
-        // Optional: tests have no request to report timings on.
-        ServerTiming? timing = null,
-        // Optional for the same reason: without it market holidays are not known, and the day
-        // change compares with the last weekday, as before the calendar.
-        ITradingCalendar? tradingCalendar = null) : IPortfolioService
+        TimeProvider timeProvider,
+        ITdccFxService tdccFx,
+        ICathayFxService cathayFx,
+        ServerTiming timing,
+        ITradingCalendar tradingCalendar) : IPortfolioService
     {
-        private readonly ITradingCalendar _tradingCalendar = tradingCalendar ?? WeekdayTradingCalendar.Instance;
-
-        private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
-
-        /// <summary>"Today" for every date walk in this service (XIRR, day change, dividends) — overridable via the constructor's
-        /// <c>timeProvider</c> parameter so tests can pin a fixed date instead of chasing the real
+        /// <summary>"Today" for every date walk in this service (XIRR, day change, dividends) — the
+        /// constructor's <c>timeProvider</c> lets tests pin a fixed date instead of chasing the real
         /// calendar (a relative-to-real-now test fixture drifts out of whatever window a test
         /// expects as time passes; see PortfolioDrawdownTests/PortfolioBenchmarkComparisonTests).</summary>
-        private DateOnly Today => DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime);
+        private DateOnly Today => DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
 
         /// <summary>Runs <paramref name="work"/>, recording how long it took in this request's
-        /// Server-Timing header when there is a request to report on.</summary>
+        /// Server-Timing header.</summary>
         private Task<T> Timed<T>(string name, Func<Task<T>> work, Func<T, string>? describe = null) =>
-            timing?.MeasureAsync(name, work, describe) ?? work();
+            timing.MeasureAsync(name, work, describe);
 
-        private Task Timed(string name, Func<Task> work) =>
-            timing?.MeasureAsync(name, work) ?? work();
+        private Task Timed(string name, Func<Task> work) => timing.MeasureAsync(name, work);
 
         // ── Save / read holdings ─────────────────────────────────────────────
 
@@ -187,7 +176,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // Prefetch all stock prices and fund NAVs in parallel (cached) before the value loop,
             // covering both today's holdings and the previous trading day's holdings so sold positions
             // can be priced for the single-day liquid net worth change.
-            var prevTradingDay = _tradingCalendar.PreviousTradingDay(Today);
+            var prevTradingDay = tradingCalendar.PreviousTradingDay(Today);
             var prevSnapshot = allSnapshots.LastOrDefault(s => s.EffectiveDate <= prevTradingDay)
                 ?? allSnapshots.FirstOrDefault();
             var allPositions = prevSnapshot != null
@@ -224,30 +213,26 @@ namespace JackyAIApp.Server.Services.Portfolio
             // The two rate sets don't depend on each other (one reads fundMap, the other stockMap,
             // both already fetched above), so their per-currency/per-date lookups all run together
             // via Task.WhenAll instead of two sequential foreach+await loops.
-            List<string> tdccCurrencies = tdccFx == null
-                ? []
-                : fundMap.Values
-                    .Select(n => n.Currency)
-                    .Where(c => !string.IsNullOrWhiteSpace(c) && c != "TWD")
-                    .Distinct()
-                    .ToList();
+            var tdccCurrencies = fundMap.Values
+                .Select(n => n.Currency)
+                .Where(c => !string.IsNullOrWhiteSpace(c) && c != "TWD")
+                .Distinct()
+                .ToList();
             // allPositions, not just today's: a US stock sold since the previous trading day is still
             // valued on that side of the day change, and must be valued at the same rate.
-            List<(string Currency, DateOnly Date)> cathayUsKeys = cathayFx == null
-                ? []
-                : allPositions
-                    .Where(p => p.Currency == "USD"
-                        && AssetValuationPolicy.For(p.AssetType).PublishedFx == PublishedFxSource.CathayOnQuoteDay)
-                    .Select(p => AssetValuationPolicy.For(p.AssetType).Latest(p, stockMap, fundMap)?.Day)
-                    .Where(d => d.HasValue)
-                    .Select(d => ("USD", d!.Value))
-                    .Distinct()
-                    .ToList();
+            var cathayUsKeys = allPositions
+                .Where(p => p.Currency == "USD"
+                    && AssetValuationPolicy.For(p.AssetType).PublishedFx == PublishedFxSource.CathayOnQuoteDay)
+                .Select(p => AssetValuationPolicy.For(p.AssetType).Latest(p, stockMap, fundMap)?.Day)
+                .Where(d => d.HasValue)
+                .Select(d => (Currency: "USD", Date: d!.Value))
+                .Distinct()
+                .ToList();
 
             var tdccRatesTask = Task.WhenAll(tdccCurrencies.Select(async currency =>
-                (Currency: currency, Rate: await tdccFx!.GetBuyRateAsync(currency, Today, ct))));
+                (Currency: currency, Rate: await tdccFx.GetBuyRateAsync(currency, Today, ct))));
             var cathayRatesTask = Task.WhenAll(cathayUsKeys.Select(async key =>
-                (Key: key, Rate: await cathayFx!.GetBuyRateAsync(key.Currency, key.Date, ct))));
+                (Key: key, Rate: await cathayFx.GetBuyRateAsync(key.Currency, key.Date, ct))));
             await Timed("fxrates", () => Task.WhenAll(tdccRatesTask, cathayRatesTask));
 
             var tdccRates = new Dictionary<string, decimal>();
@@ -511,7 +496,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 }
             }
 
-            timing?.Add("total", total.Elapsed);
+            timing.Add("total", total.Elapsed);
             return new PortfolioSummaryDto
             {
                 EffectiveDate = snapshot.EffectiveDate,

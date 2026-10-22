@@ -14,13 +14,11 @@ namespace JackyAIApp.Server.Services.Portfolio
         IHoldingSnapshotReader snapshotReader,
         IPortfolioPriceLoader priceLoader,
         PortfolioHistoryExtender historyExtender,
-        TimeProvider? timeProvider = null) : IDrawdownAnalysisService
+        TimeProvider timeProvider) : IDrawdownAnalysisService
     {
-        private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
-
         /// <summary>"Today" for every date walk here — the constructor's <c>timeProvider</c> lets
         /// tests pin a fixed date instead of chasing the real calendar.</summary>
-        private DateOnly Today => DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime);
+        private DateOnly Today => DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
 
         // ── Drawdown analysis ────────────────────────────────────────────────
 
