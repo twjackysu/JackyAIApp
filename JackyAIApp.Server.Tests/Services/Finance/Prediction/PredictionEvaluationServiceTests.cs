@@ -7,7 +7,7 @@ using JackyAIApp.Server.Services.Finance.Prediction;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using TWStockLib.Models;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Tests.Services.Finance.Prediction
 {

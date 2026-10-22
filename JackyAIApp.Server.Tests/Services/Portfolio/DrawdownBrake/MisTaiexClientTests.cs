@@ -3,8 +3,7 @@ using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using TWStockLib.Models;
-using TWStockLib.Services;
+using TWStockLib;
 using TWStockLib.Twse.Http;
 
 namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
@@ -12,11 +11,11 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
     /// <summary>The index through TWStockLib: what is asked, what is believed, and that nothing stands between the site and MIS.</summary>
     public class MisTaiexClientTests
     {
-        // 2026-10-12 13:25:05 Taipei = 05:25:05 UTC; TWStockLib hands it over as UTC wall-clock time, Kind unspecified.
-        private static readonly DateTime SyncTime = new(2026, 10, 12, 5, 25, 5, DateTimeKind.Unspecified);
+        // 2026-10-12 13:25:05 Taipei; TWStockLib 3 hands it over as a Taiwan-time (+08:00) DateTimeOffset.
+        private static readonly DateTimeOffset SyncTime = new(2026, 10, 12, 13, 25, 5, TimeSpan.FromHours(8));
 
         private static StockQuote Quote(
-            decimal? last = 23100.12m, decimal? yesterday = 22950.00m, DateTime? sync = null, bool noSync = false, string? symbol = "t00") =>
+            decimal? last = 23100.12m, decimal? yesterday = 22950.00m, DateTimeOffset? sync = null, bool noSync = false, string? symbol = "t00") =>
             new()
             {
                 Symbol = symbol!,
@@ -36,15 +35,15 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             private MisTaiexClient Create(TimeSpan? timeout = null)
             {
                 var services = new ServiceCollection();
-                // As the library registers it: scoped.
-                services.AddScoped(_ => _stocks.Object);
+                // As the library registers it (a singleton since 2.3); the client asks a scope for it all the same.
+                services.AddSingleton(_stocks.Object);
                 return new MisTaiexClient(
                     services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
                     NullLogger<MisTaiexClient>.Instance, timeout);
             }
 
             private void LibraryAnswers(StockResult<StockQuote> result) =>
-                _stocks.Setup(s => s.GetRealtimeQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType>(), true, It.IsAny<CancellationToken>()))
+                _stocks.Setup(s => s.GetRealtimeQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType>(), It.Is<QuoteOptions>(o => o != null && o.BypassCache), It.IsAny<CancellationToken>()))
                     .ReturnsAsync(result);
 
             [Fact]
@@ -54,9 +53,11 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 
                 var quote = await Create().GetAsync();
 
-                // bypassCache: true — the library's own 30-second cache must not stand between the site and MIS.
-                _stocks.Verify(s => s.GetRealtimeQuoteAsync("t00", MarketType.TSE, true, It.IsAny<CancellationToken>()), Times.Once);
-                _stocks.Verify(s => s.GetRealtimeQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType>(), It.IsAny<CancellationToken>()), Times.Never);
+                // QuoteOptions.NoCache — the library's own 30-second cache must not stand between the site and MIS.
+                _stocks.Verify(s => s.GetRealtimeQuoteAsync(
+                    "t00", MarketType.TSE, It.Is<QuoteOptions>(o => o != null && o.BypassCache), It.IsAny<CancellationToken>()), Times.Once);
+                _stocks.Verify(s => s.GetRealtimeQuoteAsync(
+                    It.IsAny<string>(), It.IsAny<MarketType>(), It.Is<QuoteOptions>(o => o == null || !o.BypassCache), It.IsAny<CancellationToken>()), Times.Never);
                 Assert.Equal(23100.12m, quote!.Last);
                 Assert.Equal(22950.00m, quote.PreviousClose);
             }
@@ -77,8 +78,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             [Fact]
             public async Task TheTradeDate_IsTheTaipeiDay_NotTheUtcDay()
             {
-                // 16:30 UTC on the 8th is 00:30 on the 9th in Taipei.
-                LibraryAnswers(StockResult<StockQuote>.Ok(Quote(sync: new DateTime(2026, 10, 8, 16, 30, 0))));
+                // Given in UTC, it still dates by Taipei: 16:30 UTC on the 8th is 00:30 on the 9th there.
+                LibraryAnswers(StockResult<StockQuote>.Ok(Quote(sync: new DateTimeOffset(2026, 10, 8, 16, 30, 0, TimeSpan.Zero))));
 
                 var quote = await Create().GetAsync();
 
@@ -115,7 +116,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             [Fact]
             public async Task ALibraryThatThrows_IsNoReading_NotAnException()
             {
-                _stocks.Setup(s => s.GetRealtimeQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType>(), true, It.IsAny<CancellationToken>()))
+                _stocks.Setup(s => s.GetRealtimeQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType>(), It.Is<QuoteOptions>(o => o != null && o.BypassCache), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(new HttpRequestException("connection reset"));
 
                 Assert.Null(await Create().GetAsync());
@@ -124,7 +125,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             [Fact]
             public async Task ALibraryThatNeverAnswers_IsGivenUpOnAtTheTimeLimit()
             {
-                _stocks.Setup(s => s.GetRealtimeQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType>(), true, It.IsAny<CancellationToken>()))
+                _stocks.Setup(s => s.GetRealtimeQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType>(), It.Is<QuoteOptions>(o => o != null && o.BypassCache), It.IsAny<CancellationToken>()))
                     .Returns(new TaskCompletionSource<StockResult<StockQuote>>().Task);
 
                 var started = DateTime.UtcNow;
@@ -136,7 +137,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
             [Fact]
             public async Task TheCallersOwnCancellation_IsStillACancellation()
             {
-                _stocks.Setup(s => s.GetRealtimeQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType>(), true, It.IsAny<CancellationToken>()))
+                _stocks.Setup(s => s.GetRealtimeQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType>(), It.Is<QuoteOptions>(o => o != null && o.BypassCache), It.IsAny<CancellationToken>()))
                     .Returns(new TaskCompletionSource<StockResult<StockQuote>>().Task);
                 using var cts = new CancellationTokenSource();
 
@@ -233,26 +234,28 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 
         public class ThroughTheRealLibrary
         {
-            private sealed class FakeFetcher(Func<string> body) : IStockHttpFetcher
+            /// <summary>MIS's answer, served to the library's own named client: its requests and parsing
+            /// are the real ones, only the network is not.</summary>
+            private sealed class Recorder(Func<string> body)
             {
                 public List<string> Urls { get; } = [];
 
-                public Task<string> GetStringAsync(string url, CancellationToken ct = default)
+                public HttpResponseMessage Respond(HttpRequestMessage request)
                 {
-                    Urls.Add(url);
-                    return Task.FromResult(body());
+                    Urls.Add(request.RequestUri!.ToString());
+                    return StubHttpMessageHandler.JsonResponse(body());
                 }
-
-                public Task<string> GetBig5StringAsync(string url, CancellationToken ct = default) => throw new NotSupportedException();
             }
 
-            private static (MisTaiexClient Client, FakeFetcher Fetcher, ServiceProvider Provider) Build(Func<string> body)
+            private static (MisTaiexClient Client, Recorder Fetcher, ServiceProvider Provider) Build(Func<string> body)
             {
-                var fetcher = new FakeFetcher(body);
+                var fetcher = new Recorder(body);
                 var services = new ServiceCollection();
                 services.AddLogging();
-                services.AddTwStock();
-                services.AddSingleton<IStockHttpFetcher>(fetcher); // after AddTwStock: replaces the real HTTP fetcher
+                services.AddTwStock(options => options.RateLimit.Enabled = false); // as the app registers it
+                // After AddTwStock, so this handler replaces the network under the library's client.
+                services.AddHttpClient(TwStockOptions.HttpClientName)
+                    .ConfigurePrimaryHttpMessageHandler(() => new StubHttpMessageHandler(fetcher.Respond));
                 var provider = services.BuildServiceProvider();
                 var client = new MisTaiexClient(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<MisTaiexClient>.Instance);
                 return (client, fetcher, provider);

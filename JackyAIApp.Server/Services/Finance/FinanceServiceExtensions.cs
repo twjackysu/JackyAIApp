@@ -1,10 +1,11 @@
+using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Market.US;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Prediction;
 using JackyAIApp.Server.Services.Finance.Scoring;
 using JackyAIApp.Server.Services.Market;
-using TWStockLib.Services;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Services.Finance
 {
@@ -25,8 +26,17 @@ namespace JackyAIApp.Server.Services.Finance
             services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
             services.AddTradingCalendar();
 
-            // Register TWStockLib services
-            services.AddTwStock();
+            // TWStockLib: TWSE/TPEx monthly history and MIS realtime quotes. Its built-in limiter (3
+            // requests per 5s per host) is off, as 2.x had none: the third-party gateway already paces
+            // the history, and the quotes go out one per held stock, which the limiter would queue.
+            services.AddTwStock(options => options.RateLimit.Enabled = false);
+            // Its requests go through its own named client. Retries absorb the transient TWSE /
+            // Azure-outbound flakiness behind the intermittent "查無股票" search failures (the
+            // library has a timeout but no retry); 30s instead of its 100s keeps a stalled exchange
+            // from holding a request (TWSE's full-market CSV alone measured ~13s, and 20s was seen
+            // aborting mid-read). After AddTwStock, so it replaces the library's defaults.
+            services.AddHttpClient(TwStockOptions.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30))
+                .AddReadOnlyResilience();
 
             // === Register all indicator calculators (Strategy Pattern) ===
             // Technical indicators

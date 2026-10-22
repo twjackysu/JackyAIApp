@@ -2,8 +2,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.ExternalApi;
 using Microsoft.Extensions.Caching.Memory;
-using TWStockLib.Models;
-using TWStockLib.Services;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Services.Market
 {
@@ -88,7 +87,7 @@ namespace JackyAIApp.Server.Services.Market
                 }
 
                 var historyList = historyResult.Value!
-                    .Where(h => h.ClosingPrice > 0) // Filter out invalid entries
+                    .Where(h => h.ClosingPrice is > 0) // a day without trades has no prices
                     .OrderBy(h => h.Date)
                     .ToList();
 
@@ -98,17 +97,7 @@ namespace JackyAIApp.Server.Services.Market
                     return marketData;
                 }
 
-                marketData.HistoricalPrices = historyList.Select(h => new DailyPrice
-                {
-                    Date = h.Date,
-                    Open = h.OpeningPrice,
-                    High = h.HighestPrice,
-                    Low = h.LowestPrice,
-                    Close = h.ClosingPrice,
-                    Volume = h.TradeVolume,
-                    Turnover = (long)h.TurnOverInValue,
-                    Transactions = (int)h.NumberOfDeals
-                }).ToList();
+                marketData.HistoricalPrices = historyList.Select(ToDailyPrice).ToList();
 
                 // Try to get company name from realtime quote
                 try
@@ -159,7 +148,8 @@ namespace JackyAIApp.Server.Services.Market
 
             // The same cut TWStockLib made when it was handed the range itself.
             IReadOnlyList<StockHistory> bars =
-                [.. results.SelectMany(r => r.Value!).Where(h => h.Date >= startDate && h.Date <= endDate)];
+                [.. results.SelectMany(r => r.Value!).Where(h =>
+                    h.Date.ToDateTime(TimeOnly.MinValue) >= startDate && h.Date.ToDateTime(TimeOnly.MinValue) <= endDate)];
             return StockResult<IReadOnlyList<StockHistory>>.Ok(bars);
         }
 
@@ -173,7 +163,29 @@ namespace JackyAIApp.Server.Services.Market
             var last = first.AddMonths(1).AddDays(-1);
             return _gateway.RunAsync(
                 source, $"{marketType}:{stockCode}:{first:yyyyMM}", priority,
-                token => _stockService.GetHistoricalDataAsync(stockCode, first, last, marketType, token), ct);
+                token => _stockService.GetHistoricalDataAsync(
+                    stockCode, marketType, DateOnly.FromDateTime(first), DateOnly.FromDateTime(last), token), ct);
+        }
+
+        /// <summary>
+        /// A traded day as a bar. Volume is shares and turnover NT$ on both exchanges: TWStockLib
+        /// converts TPEx's lots and thousands of NT$ (since 2.3). Only days with a close get here,
+        /// and such a day has all four prices; the close stands in for one missing all the same.
+        /// </summary>
+        private static DailyPrice ToDailyPrice(StockHistory h)
+        {
+            var close = h.ClosingPrice!.Value;
+            return new DailyPrice
+            {
+                Date = h.Date.ToDateTime(TimeOnly.MinValue),
+                Open = h.OpeningPrice ?? close,
+                High = h.HighestPrice ?? close,
+                Low = h.LowestPrice ?? close,
+                Close = close,
+                Volume = h.TradeVolume,
+                Turnover = (long)h.TurnoverValue,
+                Transactions = (int)h.NumberOfDeals,
+            };
         }
 
         public async Task<TwMonthBars> FetchMonthAsync(
@@ -193,19 +205,9 @@ namespace JackyAIApp.Server.Services.Market
                 }
 
                 var bars = result.Value!
-                    .Where(h => h.ClosingPrice > 0)
+                    .Where(h => h.ClosingPrice is > 0)
                     .OrderBy(h => h.Date)
-                    .Select(h => new DailyPrice
-                    {
-                        Date = h.Date,
-                        Open = h.OpeningPrice,
-                        High = h.HighestPrice,
-                        Low = h.LowestPrice,
-                        Close = h.ClosingPrice,
-                        Volume = h.TradeVolume,
-                        Turnover = (long)h.TurnOverInValue,
-                        Transactions = (int)h.NumberOfDeals,
-                    })
+                    .Select(ToDailyPrice)
                     .ToList();
                 return new TwMonthBars(true, bars);
             }

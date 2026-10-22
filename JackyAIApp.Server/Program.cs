@@ -144,16 +144,6 @@ try
     builder.Services.ConfigureHttpClientDefaults(http =>
         http.ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(20)));
 
-    // The bare unnamed default client (CreateClient() with no name) is used exclusively by
-    // TWStockLib's internal TwseHttpFetcher — all idempotent GETs. Retrying it absorbs the
-    // transient TWSE/Azure-outbound flakiness behind the intermittent "查無股票" search failures
-    // (TWStockLib had timeout but no retry). Override the 20s global default — TWSE's full-market
-    // STOCK_DAY_ALL CSV (Big5) alone measured ~13s round-trip; 20s left too little margin for
-    // prod network variance and was observed aborting mid-read (SSL stream disposed) rather than
-    // reaching the API's own error handling.
-    builder.Services.AddHttpClient(string.Empty, client => client.Timeout = TimeSpan.FromSeconds(30))
-        .AddReadOnlyResilience();
-
     // Named client for read-only external market-data GETs (and FundRich's POST-as-query
     // calls) — TWSE, Yahoo, FundRich, er-api, CBC, SEC, Finnhub, FRED. Deliberately
     // NOT applied via ConfigureHttpClientDefaults: that would also retry OpenAI completions,

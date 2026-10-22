@@ -44,7 +44,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// <summary>"TW" | "US" | "FUND".</summary>
         public required string Market { get; set; }
 
-        /// <summary>"TSE" | "OTC" (TWStockLib.Models.MarketType, stored as string to avoid a hard
+        /// <summary>"TSE" | "OTC" (TWStockLib.MarketType, stored as string to avoid a hard
         /// dependency from the data model on the third-party package's enum). Only set for TW
         /// symbols — resolved from the TW listed-company list (TwListedCompany.Market) and never
         /// re-resolved after that, since exchange listing is effectively permanent for a given

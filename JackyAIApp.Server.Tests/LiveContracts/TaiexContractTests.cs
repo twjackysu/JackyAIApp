@@ -4,7 +4,7 @@ using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using TWStockLib.Services;
+using TWStockLib;
 using JackyAIApp.Server.Services.ExternalApi.Twse;
 using Microsoft.Extensions.Caching.Memory;
 

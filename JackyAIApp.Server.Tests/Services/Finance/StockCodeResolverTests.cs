@@ -8,7 +8,7 @@ using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using TWStockLib.Models;
+using TWStockLib;
 
 namespace JackyAIApp.Server.Tests.Services.Finance
 {
