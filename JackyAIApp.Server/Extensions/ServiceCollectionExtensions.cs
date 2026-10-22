@@ -96,9 +96,11 @@ namespace JackyAIApp.Server.Extensions
 
             // Shared SM-2 scheduling (Review flow + exam-result feedback)
             services.AddScoped<ISpacedRepetitionService, SpacedRepetitionService>();
+            services.AddScoped<IReviewService, ReviewService>();
 
             services.AddSingleton<IDailyChallengeQuestionGenerator, DailyChallengeQuestionGenerator>();
             services.AddScoped<IDailyChallengeService, DailyChallengeService>();
+            services.AddScoped<IStatsService, StatsService>();
 
             return services;
         }
