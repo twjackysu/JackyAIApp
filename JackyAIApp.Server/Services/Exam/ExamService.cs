@@ -5,7 +5,6 @@ using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
-using Newtonsoft.Json;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Exam
@@ -170,7 +169,7 @@ namespace JackyAIApp.Server.Services.Exam
 
         private static readonly (string User, string Assistant) ListeningResponseFewShotExample = (
             User: "scheduling",
-            Assistant: JsonConvert.SerializeObject(new ListeningResponseGenerationResult
+            Assistant: AiJson.Serialize(new ListeningResponseGenerationResult
             {
                 Prompt = "When is the quarterly report due?",
                 Options =
@@ -313,7 +312,7 @@ namespace JackyAIApp.Server.Services.Exam
 
         private static readonly (string User, string Assistant) ReadingFewShotExample = (
             User: "travel",
-            Assistant: JsonConvert.SerializeObject(new ReadingGenerationResult
+            Assistant: AiJson.Serialize(new ReadingGenerationResult
             {
                 Title = "A Weekend Trip to the Mountains",
                 PassageText = "Last weekend, Maria decided to escape the noise of the city and drive up to the mountains with two friends. " +
@@ -544,14 +543,14 @@ namespace JackyAIApp.Server.Services.Exam
             }
 
             var example = (
-                User: JsonConvert.SerializeObject(new WritingSubmissionRequest
+                User: AiJson.Serialize(new WritingSubmissionRequest
                 {
                     Topic = "a memorable experience you had",
                     RequiredWords = new List<string> { "adventure", "journey", "unexpected" },
                     Submission = "Last summer I had an unexpected adventure when my flight got cancelled. " +
                         "It turned into a journey I will never forget, full of new friends and unplanned stops."
                 }),
-                Assistant: JsonConvert.SerializeObject(new WritingGradingResponse
+                Assistant: AiJson.Serialize(new WritingGradingResponse
                 {
                     Score = 88,
                     GrammarFeedback = "文法大致正確，時態一致，僅有少數用詞可以更道地。",
@@ -569,7 +568,7 @@ namespace JackyAIApp.Server.Services.Exam
 
             var (grading, error) = await _promptService.GetCompletionAsync<WritingGradingResponse>(
                 "Prompt/Exam/WritingEvaluationSystem.txt",
-                JsonConvert.SerializeObject(request),
+                AiJson.Serialize(request),
                 model: NewModels.GPT_6_LUNA, examples: new[] { example },
                 feature: WritingFeature);
 
@@ -690,13 +689,13 @@ namespace JackyAIApp.Server.Services.Exam
             }
 
             var example = (
-                User: JsonConvert.SerializeObject(new TranslationTestUserResponse
+                User: AiJson.Serialize(new TranslationTestUserResponse
                 {
                     UnfamiliarWords = "attentively",
                     ExaminationQuestion = "他專注地閱讀著一本有趣的書。",
                     Translation = "He was reading an interesting book attentively."
                 }),
-                Assistant: JsonConvert.SerializeObject(new TranslationQualityGradingAssistantResponse
+                Assistant: AiJson.Serialize(new TranslationQualityGradingAssistantResponse
                 {
                     Grade = "A",
                     Reason = "這個翻譯完整保留了原文的所有語意，語法和拼寫完全正確，語句流暢且符合英文的表達習慣。",
@@ -707,7 +706,7 @@ namespace JackyAIApp.Server.Services.Exam
 
             var (grading, error) = await _promptService.GetCompletionAsync<TranslationQualityGradingAssistantResponse>(
                 "Prompt/Exam/TranslationQualityGradingSystem.txt",
-                JsonConvert.SerializeObject(userResponse),
+                AiJson.Serialize(userResponse),
                 examples: new[] { example });
 
             if (grading == null)
@@ -744,7 +743,7 @@ namespace JackyAIApp.Server.Services.Exam
             // varies at least as much.
             var (conversationStart, error) = await _promptService.GetCompletionAsync<ConversationStartResponse>(
                 "Prompt/Exam/ConversationStartSystem.txt",
-                JsonConvert.SerializeObject(request),
+                AiJson.Serialize(request),
                 model: NewModels.GPT_6_LUNA,
                 feature: "exam.conversation_start");
 
@@ -775,7 +774,7 @@ namespace JackyAIApp.Server.Services.Exam
 
             var (response, error) = await _promptService.GetCompletionAsync<ConversationResponseResponse>(
                 "Prompt/Exam/ConversationResponseSystem.txt",
-                JsonConvert.SerializeObject(request));
+                AiJson.Serialize(request));
 
             if (response == null)
             {
@@ -798,7 +797,7 @@ namespace JackyAIApp.Server.Services.Exam
 
             var (summary, error) = await _promptService.GetCompletionAsync<ConversationSummaryResponse>(
                 "Prompt/Exam/ConversationSummarySystem.txt",
-                JsonConvert.SerializeObject(request));
+                AiJson.Serialize(request));
 
             if (summary == null)
             {
@@ -844,7 +843,7 @@ namespace JackyAIApp.Server.Services.Exam
             }
 
             var example = (
-                User: JsonConvert.SerializeObject(new SentenceTestUserResponse
+                User: AiJson.Serialize(new SentenceTestUserResponse
                 {
                     Word = "adventure",
                     Prompt = "Create a sentence using the word 'adventure' in the context of travel.",
@@ -853,7 +852,7 @@ namespace JackyAIApp.Server.Services.Exam
                     DifficultyLevel = 3,
                     GrammarPattern = "Past tense narrative"
                 }),
-                Assistant: JsonConvert.SerializeObject(new SentenceTestGradingResponse
+                Assistant: AiJson.Serialize(new SentenceTestGradingResponse
                 {
                     Score = 85,
                     GrammarFeedback = "語法正確，時態使用恰當。",
@@ -866,7 +865,7 @@ namespace JackyAIApp.Server.Services.Exam
 
             var (evaluation, error) = await _promptService.GetCompletionAsync<SentenceTestGradingResponse>(
                 "Prompt/Exam/SentenceEvaluationSystem.txt",
-                JsonConvert.SerializeObject(userResponse),
+                AiJson.Serialize(userResponse),
                 examples: new[] { example });
 
             if (evaluation == null)

@@ -1,8 +1,6 @@
 using JackyAIApp.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
-using Newtonsoft.Json;
-using System.Net;
 using System.Text;
 
 namespace JackyAIApp.Server.Common
@@ -43,29 +41,22 @@ namespace JackyAIApp.Server.Common
             }
             catch (Exception ex)
             {
-                await HandleExceptionAsync(httpContext, ex);
+                var requestId = Guid.NewGuid().ToString();
+                _logger.LogError(ex, "Unhandled exception. Request ID: {RequestId}", requestId);
+                await LogRequestDetailsAsync(httpContext, requestId);
+
+                // Part of the response is already sent (a stream): it can't become an error now.
+                // Rethrown, the server aborts it, so the client sees it fail rather than end early.
+                if (httpContext.Response.HasStarted) throw;
+
+                // The usual { error: { code, message } } envelope, written by MVC like any other
+                // result. It used to be the ObjectResult itself serialized by Newtonsoft
+                // ({"Value":…,"Formatters":…}), which the client could not read a message from.
+                var responseFactory = httpContext.RequestServices.GetRequiredService<IMyResponseFactory>();
+                var result = responseFactory.CreateErrorResponse(
+                    ErrorCodes.InternalServerError, $"An unexpected error occurred. Request ID: {requestId}");
+                await result.ExecuteResultAsync(new ActionContext(httpContext, httpContext.GetRouteData(), new ActionDescriptor()));
             }
-        }
-
-        private async Task HandleExceptionAsync(HttpContext context, Exception exception)
-        {
-            var responseFactory = context.RequestServices.GetService<IMyResponseFactory>();
-            
-            context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-
-            var requestId = Guid.NewGuid().ToString();
-            
-            // Log exception with request details
-            _logger.LogError(exception, "Unhandled exception. Request ID: {RequestId}", requestId);
-            await LogRequestDetailsAsync(context, requestId);
-
-            // Create standardized error response
-            var response = responseFactory?.CreateErrorResponse(
-                ErrorCodes.InternalServerError, 
-                $"An unexpected error occurred. Request ID: {requestId}");
-
-            await context.Response.WriteAsync(JsonConvert.SerializeObject(response));
         }
 
         private async Task LogRequestDetailsAsync(HttpContext context, string requestId)

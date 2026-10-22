@@ -1,11 +1,12 @@
 using Betalgo.Ranul.OpenAI.Interfaces;
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Prompt;
-using Newtonsoft.Json;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using ResponseFormatType = Betalgo.Ranul.OpenAI.Contracts.Enums.ResponseFormat;
 using ReasoningEffortType = Betalgo.Ranul.OpenAI.Contracts.Enums.ReasoningEffort;
@@ -177,7 +178,7 @@ namespace JackyAIApp.Server.Services.OpenAI
                 // Clean JSON from markdown code blocks if present
                 var cleanedContent = CleanJsonResponse(content);
 
-                var result = JsonConvert.DeserializeObject<T>(cleanedContent);
+                var result = AiJson.Deserialize<T>(cleanedContent);
                 if (result == null)
                 {
                     _logger.LogWarning("Failed to deserialize OpenAI response: {Content}", content);

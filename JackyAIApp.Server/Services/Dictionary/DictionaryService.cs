@@ -6,7 +6,6 @@ using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.SpellChecker;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using Newtonsoft.Json;
 using System.Linq;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
@@ -205,7 +204,7 @@ namespace JackyAIApp.Server.Services.Dictionary
                 }
             };
 
-            return ("set", JsonConvert.SerializeObject(exampleWord));
+            return ("set", AiJson.Serialize(exampleWord));
         }
     }
 }

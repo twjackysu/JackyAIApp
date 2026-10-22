@@ -2,7 +2,6 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
-using Newtonsoft.Json;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Exam.Generators
@@ -29,7 +28,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
 
             var example = (
                 User: "coast",
-                Assistant: JsonConvert.SerializeObject(new ClozeTest
+                Assistant: AiJson.Serialize(new ClozeTest
                 {
                     Question = "The lighthouse was built on the __________ to help guide ships safely to shore.",
                     Answer = "coast",

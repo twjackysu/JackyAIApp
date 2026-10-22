@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace JackyAIApp.Server.DTO
 {
@@ -10,13 +10,11 @@ namespace JackyAIApp.Server.DTO
         /// <summary>
         /// Unique identifier for a Word.
         /// </summary>
-        [JsonProperty(PropertyName = "id")]
         public required string Id { get; set; }
 
         /// <summary>
         /// Partition key for data distribution.
         /// </summary>
-        [JsonProperty(PropertyName = "partitionKey")]
         public required string PartitionKey { get; set; }
 
         /// <summary>
@@ -53,7 +51,7 @@ namespace JackyAIApp.Server.DTO
 
         public override string ToString()
         {
-            return JsonConvert.SerializeObject(this);
+            return JsonSerializer.Serialize(this);
         }
     }
 

@@ -2,7 +2,6 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
-using Newtonsoft.Json;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Exam.Generators
@@ -28,7 +27,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
 
             var example = (
                 User: "adventure",
-                Assistant: JsonConvert.SerializeObject(new SentenceTest
+                Assistant: AiJson.Serialize(new SentenceTest
                 {
                     Prompt = "Create a sentence using the word 'adventure' in the context of travel.",
                     SampleAnswer = "Last summer, I went on an amazing adventure to explore the mountains.",
