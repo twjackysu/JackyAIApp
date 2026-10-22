@@ -15,44 +15,44 @@ namespace JackyAIApp.Server.Tests.Controllers
             controller.GetMethod(action, BindingFlags.Public | BindingFlags.Instance)!
                 .GetCustomAttribute<UsageLimitAttribute>();
 
-        public static TheoryData<string, UsageFeature> ChargedExamEndpoints => new()
+        public static TheoryData<Type, string, UsageFeature> ChargedExamEndpoints => new()
         {
-            { nameof(ExamController.GetClozeTest), UsageFeature.ClozeTest },
-            { nameof(ExamController.GetTranslationTest), UsageFeature.TranslationTest },
-            { nameof(ExamController.GetTranslationQualityGrading), UsageFeature.TranslationGrading },
-            { nameof(ExamController.StartConversationTest), UsageFeature.ConversationStart },
-            { nameof(ExamController.RespondToConversation), UsageFeature.ConversationResponse },
-            { nameof(ExamController.SummarizeConversation), UsageFeature.ConversationSummary },
-            { nameof(ExamController.TranscribeAudio), UsageFeature.AudioTranscription },
-            { nameof(ExamController.GetSentenceTest), UsageFeature.SentenceTest },
-            { nameof(ExamController.EvaluateSentence), UsageFeature.SentenceEvaluation },
-            { nameof(ExamController.GetListeningTest), UsageFeature.ListeningTest },
-            { nameof(ExamController.GetListeningResponseTest), UsageFeature.ListeningResponseTest },
-            { nameof(ExamController.GetReadingTest), UsageFeature.ReadingComprehensionTest },
-            { nameof(ExamController.EvaluateWriting), UsageFeature.WritingEvaluation },
-            { nameof(ExamController.GetDictationTest), UsageFeature.DictationTest },
+            { typeof(ExamController), nameof(ExamController.GetClozeTest), UsageFeature.ClozeTest },
+            { typeof(ExamController), nameof(ExamController.GetTranslationTest), UsageFeature.TranslationTest },
+            { typeof(ExamController), nameof(ExamController.GetTranslationQualityGrading), UsageFeature.TranslationGrading },
+            { typeof(ExamController), nameof(ExamController.StartConversationTest), UsageFeature.ConversationStart },
+            { typeof(ExamController), nameof(ExamController.RespondToConversation), UsageFeature.ConversationResponse },
+            { typeof(ExamController), nameof(ExamController.SummarizeConversation), UsageFeature.ConversationSummary },
+            { typeof(ExamController), nameof(ExamController.TranscribeAudio), UsageFeature.AudioTranscription },
+            { typeof(ExamController), nameof(ExamController.GetSentenceTest), UsageFeature.SentenceTest },
+            { typeof(ExamController), nameof(ExamController.EvaluateSentence), UsageFeature.SentenceEvaluation },
+            { typeof(ListeningExamController), nameof(ListeningExamController.GetListeningTest), UsageFeature.ListeningTest },
+            { typeof(ListeningResponseExamController), nameof(ListeningResponseExamController.GetListeningResponseTest), UsageFeature.ListeningResponseTest },
+            { typeof(ReadingExamController), nameof(ReadingExamController.GetReadingTest), UsageFeature.ReadingComprehensionTest },
+            { typeof(ExamController), nameof(ExamController.EvaluateWriting), UsageFeature.WritingEvaluation },
+            { typeof(ExamController), nameof(ExamController.GetDictationTest), UsageFeature.DictationTest },
         };
 
         [Theory]
         [MemberData(nameof(ChargedExamEndpoints))]
-        public void ExamEndpoint_Charges(string action, UsageFeature feature)
+        public void ExamEndpoint_Charges(Type controller, string action, UsageFeature feature)
         {
-            Assert.Equal(feature, UsageOf(typeof(ExamController), action)?.Feature);
+            Assert.Equal(feature, UsageOf(controller, action)?.Feature);
         }
 
         /// <summary>No AI cost of their own: the writing prompt and dictation grading are plain DB
         /// work, recording a result is bookkeeping, and the audio is covered by the question's charge.</summary>
         [Theory]
-        [InlineData(nameof(ExamController.GetWritingPrompt))]
-        [InlineData(nameof(ExamController.GradeDictation))]
-        [InlineData(nameof(ExamController.RecordExamResult))]
-        [InlineData(nameof(ExamController.GetListeningOptionAudio))]
-        [InlineData(nameof(ExamController.GetListeningResponsePromptAudio))]
-        [InlineData(nameof(ExamController.GetListeningResponseOptionAudio))]
-        [InlineData(nameof(ExamController.GetDictationWordAudio))]
-        public void ExamEndpoint_IsFree(string action)
+        [InlineData(typeof(ExamController), nameof(ExamController.GetWritingPrompt))]
+        [InlineData(typeof(ExamController), nameof(ExamController.GradeDictation))]
+        [InlineData(typeof(ExamController), nameof(ExamController.RecordExamResult))]
+        [InlineData(typeof(ListeningExamController), nameof(ListeningExamController.GetListeningOptionAudio))]
+        [InlineData(typeof(ListeningResponseExamController), nameof(ListeningResponseExamController.GetListeningResponsePromptAudio))]
+        [InlineData(typeof(ListeningResponseExamController), nameof(ListeningResponseExamController.GetListeningResponseOptionAudio))]
+        [InlineData(typeof(ExamController), nameof(ExamController.GetDictationWordAudio))]
+        public void ExamEndpoint_IsFree(Type controller, string action)
         {
-            Assert.Null(UsageOf(typeof(ExamController), action));
+            Assert.Null(UsageOf(controller, action));
         }
 
         [Fact]

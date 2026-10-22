@@ -1,11 +1,6 @@
-using Betalgo.Ranul.OpenAI.ObjectModels;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
-using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Exam;
-using JackyAIApp.Server.Services.Listening;
-using JackyAIApp.Server.Services.OpenAI;
-using JackyAIApp.Server.Services.Speech;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,16 +11,11 @@ namespace JackyAIApp.Server.Controllers
     [ApiController]
     public class ExamController(
         IMyResponseFactory responseFactory,
-        IExamService examService,
-        ITextToSpeechService ttsService,
-        ICurrentUser currentUser,
-        IListeningQuestionGenerator listeningQuestionGenerator) : ControllerBase
+        IExamSpeech speech,
+        IExamService examService) : ExamControllerBase(responseFactory, speech)
     {
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IExamService _examService = examService;
-        private readonly ITextToSpeechService _ttsService = ttsService;
-        private readonly ICurrentUser _currentUser = currentUser;
-        private readonly IListeningQuestionGenerator _listeningQuestionGenerator = listeningQuestionGenerator;
 
         /// <summary>Generates a cloze test for the user based on their unfamiliar words.</summary>
         [HttpGet("cloze")]
@@ -94,57 +84,6 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> RecordExamResult([FromBody] RecordExamResultRequest request) =>
             _responseFactory.ToActionResult(await _examService.RecordExamResultAsync(request));
 
-        /// <summary>Serves a random TOEIC Part 1 listening question from the pre-seeded bank. The
-        /// flat charge covers both the question and TTS playback of its 4 options.</summary>
-        [HttpGet("listening")]
-        [UsageLimit(UsageFeature.ListeningTest)]
-        public async Task<IActionResult> GetListeningTest() =>
-            _responseFactory.ToActionResult(await _examService.GenerateListeningExamAsync());
-
-        /// <summary>Synthesizes speech for one listening-question option. Unbilled — the flat
-        /// "listening" charge already covers this; billing again per option would double-charge
-        /// for content the user must listen to just to answer.</summary>
-        [HttpGet("listening/audio")]
-        public async Task<IActionResult> GetListeningOptionAudio([FromQuery] string optionId)
-        {
-            var lookup = await _examService.GetListeningOptionTextAsync(optionId);
-            return await ToAudioResultAsync(lookup);
-        }
-
-        /// <summary>Serves a random/AI-generated TOEIC Part 2 "question + 3 spoken responses"
-        /// question. No image, so — unlike Part 1 — this generates live and grows its own bank
-        /// (see ExamService.GenerateListeningResponseExamAsync); flat charge covers the prompt
-        /// plus its 3 response options' TTS.</summary>
-        [HttpGet("listening/response")]
-        [UsageLimit(UsageFeature.ListeningResponseTest)]
-        public async Task<IActionResult> GetListeningResponseTest() =>
-            _responseFactory.ToActionResult(await _examService.GenerateListeningResponseExamAsync());
-
-        /// <summary>Synthesizes speech for a Part 2 question's opening prompt. Unbilled — covered
-        /// by the flat "listening/response" charge.</summary>
-        [HttpGet("listening/response/prompt-audio")]
-        public async Task<IActionResult> GetListeningResponsePromptAudio([FromQuery] string testId)
-        {
-            var lookup = await _examService.GetListeningResponsePromptTextAsync(testId);
-            return await ToAudioResultAsync(lookup);
-        }
-
-        /// <summary>Synthesizes speech for one Part 2 response option. Unbilled — covered by the
-        /// flat "listening/response" charge.</summary>
-        [HttpGet("listening/response/option-audio")]
-        public async Task<IActionResult> GetListeningResponseOptionAudio([FromQuery] string optionId)
-        {
-            var lookup = await _examService.GetListeningResponseOptionTextAsync(optionId);
-            return await ToAudioResultAsync(lookup);
-        }
-
-        /// <summary>Serves a short reading passage with 3-4 comprehension questions from the
-        /// shared bank. Not tied to the user's saved words — works with an empty repository.</summary>
-        [HttpGet("reading")]
-        [UsageLimit(UsageFeature.ReadingComprehensionTest)]
-        public async Task<IActionResult> GetReadingTest() =>
-            _responseFactory.ToActionResult(await _examService.GenerateReadingExamAsync());
-
         /// <summary>Serves an open-ended writing prompt (topic + up to 5 of the user's own saved
         /// words). Deliberately NOT usage-limit-gated: unlike every other exam-type "generation"
         /// endpoint, this one costs zero AI calls to produce (plain DB queries) — the whole
@@ -176,7 +115,7 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetDictationWordAudio([FromQuery] string wordId)
         {
             var lookup = await _examService.GetDictationWordTextAsync(wordId);
-            return await ToAudioResultAsync(lookup);
+            return await SpeakAsync(lookup);
         }
 
         /// <summary>Grades a dictation submission. Deliberately NOT usage-limit-gated: pure in-memory
@@ -186,43 +125,5 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("dictation/grade")]
         public async Task<IActionResult> GradeDictation([FromBody] DictationGradeRequest request) =>
             _responseFactory.ToActionResult(await _examService.GradeDictationAsync(request));
-
-        /// <summary>Shared unbilled-TTS-lookup helper: resolves a ServiceResult&lt;string&gt; text
-        /// lookup into a cached-or-freshly-synthesized audio response.</summary>
-        private async Task<IActionResult> ToAudioResultAsync(ServiceResult<string> lookup)
-        {
-            if (!lookup.IsSuccess)
-            {
-                return _responseFactory.CreateErrorResponse(lookup.Error.Value, lookup.ErrorMessage);
-            }
-
-            var text = lookup.Data;
-            const string voice = "alloy";
-            var model = Models.Tts_1;
-            const float speed = 1.0f;
-
-            if (_ttsService.TryGetCached(text, voice, model, speed, out var cachedAudio) && cachedAudio != null)
-            {
-                return File(cachedAudio, "audio/mpeg");
-            }
-
-            var result = await _ttsService.SynthesizeAsync(text, voice, model, speed, _currentUser.Id);
-            return result.Success && result.Audio != null
-                ? File(result.Audio, "audio/mpeg")
-                : _responseFactory.CreateErrorResponse(ErrorCodes.ExternalApiError, "Failed to generate speech");
-        }
-
-        /// <summary>Admin-only: paginated view of the listening question bank.</summary>
-        [AdminOnly]
-        [HttpGet("listening/admin/bank")]
-        public async Task<IActionResult> GetListeningBank([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20) =>
-            _responseFactory.ToActionResult(await _examService.GetListeningBankAsync(pageNumber, pageSize));
-
-        /// <summary>Admin-only: generates one new listening question (text + photo) via AI and adds
-        /// it to the bank. Not usage-limit-gated (admin/back-office action, not a user-facing feature).</summary>
-        [AdminOnly]
-        [HttpPost("listening/admin/generate")]
-        public async Task<IActionResult> GenerateListeningQuestion() =>
-            _responseFactory.ToActionResult(await _listeningQuestionGenerator.GenerateAsync(_currentUser.Id));
     }
 }

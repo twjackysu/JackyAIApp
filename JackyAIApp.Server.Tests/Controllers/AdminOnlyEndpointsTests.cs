@@ -29,8 +29,8 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.Equal(
             [
                 "DictionaryController.Invalid",
-                "ExamController.GenerateListeningQuestion",
-                "ExamController.GetListeningBank",
+                "ListeningExamController.GenerateListeningQuestion",
+                "ListeningExamController.GetListeningBank",
             ], adminOnly);
         }
 
