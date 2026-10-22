@@ -19,6 +19,10 @@ namespace JackyAIApp.Server.Services.Portfolio
             services.AddScoped<IHoldingSnapshotReader, HoldingSnapshotReader>();
             services.AddScoped<IPortfolioPriceLoader, PortfolioPriceLoader>();
             services.AddScoped<IPortfolioService, PortfolioService>();
+            services.AddScoped<PortfolioHistoryExtender>();
+            services.AddScoped<INetWorthHistoryService, NetWorthHistoryService>();
+            services.AddScoped<IDrawdownAnalysisService, DrawdownAnalysisService>();
+            services.AddScoped<IBenchmarkComparisonService, BenchmarkComparisonService>();
             services.AddScoped<IHoldingSearchService, HoldingSearchService>();
             services.AddScoped<IHoldingPriceService, HoldingPriceService>();
             services.AddScoped<IHoldingAiSummaryService, HoldingAiSummaryService>();

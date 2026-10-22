@@ -43,10 +43,21 @@ namespace JackyAIApp.Server.Tests.TestHelpers
             new(new TestDbContextFactory((DbContextOptions<AzureSQLDBContext>)db.GetService<IDbContextOptions>()), Cache);
 
         public PortfolioService Build() =>
-            new(db, BuildSnapshotReader(), BuildPriceLoader(), Dividends, Categories,
-                NullLogger<PortfolioService>.Instance,
+            new(db, BuildSnapshotReader(), BuildPriceLoader(), Dividends,
                 timeProvider: Time, tdccFx: TdccFx, cathayFx: CathayFx, timing: Timing,
-                deepHistory: DeepHistory, tradingCalendar: Calendar);
+                tradingCalendar: Calendar);
+
+        public PortfolioHistoryExtender BuildHistoryExtender() =>
+            new(NullLogger<PortfolioHistoryExtender>.Instance, Time, DeepHistory);
+
+        public NetWorthHistoryService BuildNetWorthHistory() =>
+            new(BuildSnapshotReader(), BuildPriceLoader(), Categories, Time);
+
+        public DrawdownAnalysisService BuildDrawdown() =>
+            new(BuildSnapshotReader(), BuildPriceLoader(), BuildHistoryExtender(), Time);
+
+        public BenchmarkComparisonService BuildBenchmark() =>
+            new(BuildSnapshotReader(), BuildPriceLoader(), Dividends, BuildHistoryExtender(), Time);
 
         public HoldingSearchService BuildSearch() =>
             new(TwListedCompanies, FundData, HttpClientFactory, NullLogger<HoldingSearchService>.Instance);

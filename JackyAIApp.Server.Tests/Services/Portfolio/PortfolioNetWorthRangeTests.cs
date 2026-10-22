@@ -31,7 +31,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
         private readonly AzureSQLDBContext _db;
         private readonly Mock<IMarketDataProviderFactory> _providers = new();
-        private readonly PortfolioService _service;
+        private readonly NetWorthHistoryService _netWorth;
 
         public PortfolioNetWorthRangeTests()
         {
@@ -45,12 +45,13 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             dividends.Setup(x => x.GetFundDividendsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<DividendRecord>());
 
-            _service = new PortfolioServiceBuilder(_db)
+            var builder = new PortfolioServiceBuilder(_db)
             {
                 Providers = _providers.Object,
                 Dividends = dividends.Object,
                 Time = new FixedTime(Today),
-            }.Build();
+            };
+            _netWorth = builder.BuildNetWorthHistory();
 
             // A flat price on every day from well before any snapshot to past today, so every
             // weekday inside a window produces a point and the window edges are what's measured.
@@ -66,7 +67,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             await SeedSnapshotAsync(new DateOnly(2026, 6, 1));
 
-            var history = await _service.GetNetWorthHistoryAsync(UserId, from: null, to: null);
+            var history = await _netWorth.GetNetWorthHistoryAsync(UserId, from: null, to: null);
 
             Assert.Equal("2026-09-07", history[0].Date); // 10-07 minus one calendar month (a Monday)
             Assert.Equal("2026-10-07", history[^1].Date);
@@ -78,7 +79,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // The requested behaviour for a newer user: not an empty month, but everything they have.
             await SeedSnapshotAsync(new DateOnly(2026, 9, 28));
 
-            var history = await _service.GetNetWorthHistoryAsync(UserId, from: new DateOnly(2026, 9, 7), to: Today);
+            var history = await _netWorth.GetNetWorthHistoryAsync(UserId, from: new DateOnly(2026, 9, 7), to: Today);
 
             Assert.Equal("2026-09-28", history[0].Date);
             Assert.Equal("2026-10-07", history[^1].Date);
@@ -91,7 +92,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             await SeedSnapshotAsync(new DateOnly(2026, 6, 1));
 
-            var history = await _service.GetNetWorthHistoryAsync(
+            var history = await _netWorth.GetNetWorthHistoryAsync(
                 UserId, from: new DateOnly(2026, 9, 1), to: new DateOnly(2026, 9, 15));
 
             Assert.Equal("2026-09-01", history[0].Date);
@@ -104,7 +105,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             await SeedSnapshotAsync(new DateOnly(2026, 6, 1));
 
-            var history = await _service.GetNetWorthHistoryAsync(
+            var history = await _netWorth.GetNetWorthHistoryAsync(
                 UserId, from: new DateOnly(2026, 9, 1), to: new DateOnly(2026, 12, 31));
 
             Assert.Equal("2026-10-07", history[^1].Date);
@@ -116,7 +117,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // Date inputs are edited one at a time, so a momentarily inverted pair is normal input.
             await SeedSnapshotAsync(new DateOnly(2026, 6, 1));
 
-            var history = await _service.GetNetWorthHistoryAsync(
+            var history = await _netWorth.GetNetWorthHistoryAsync(
                 UserId, from: new DateOnly(2026, 9, 15), to: new DateOnly(2026, 9, 1));
 
             Assert.Equal("2026-09-01", history[0].Date);
@@ -128,7 +129,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             await SeedSnapshotAsync(new DateOnly(2026, 6, 1));
 
-            var history = await _service.GetNetWorthHistoryAsync(UserId, from: null, to: new DateOnly(2026, 9, 15));
+            var history = await _netWorth.GetNetWorthHistoryAsync(UserId, from: null, to: new DateOnly(2026, 9, 15));
 
             Assert.Equal("2026-08-17", history[0].Date); // 08-15 is a Saturday; first weekday after it
             Assert.Equal("2026-09-15", history[^1].Date);
@@ -139,7 +140,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             await SeedSnapshotAsync(new DateOnly(2026, 9, 28));
 
-            var history = await _service.GetNetWorthHistoryAsync(
+            var history = await _netWorth.GetNetWorthHistoryAsync(
                 UserId, from: new DateOnly(2026, 8, 1), to: new DateOnly(2026, 8, 31));
 
             Assert.Empty(history);
@@ -150,7 +151,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             await SeedSnapshotAsync(new DateOnly(2020, 1, 1));
 
-            var history = await _service.GetNetWorthHistoryAsync(UserId, from: new DateOnly(2020, 1, 1), to: Today);
+            var history = await _netWorth.GetNetWorthHistoryAsync(UserId, from: new DateOnly(2020, 1, 1), to: Today);
 
             Assert.Equal("2025-10-07", history[0].Date); // one calendar year before 2026-10-07
             Assert.Equal("2026-10-07", history[^1].Date);
@@ -162,7 +163,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // The cap trims from the start, so the end the user asked for is always honoured.
             await SeedSnapshotAsync(new DateOnly(2020, 1, 1));
 
-            var history = await _service.GetNetWorthHistoryAsync(
+            var history = await _netWorth.GetNetWorthHistoryAsync(
                 UserId, from: new DateOnly(2021, 1, 1), to: new DateOnly(2024, 6, 28));
 
             Assert.Equal("2023-06-28", history[0].Date); // Wednesday
@@ -174,7 +175,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             await SeedSnapshotAsync(new DateOnly(2020, 1, 1));
 
-            var history = await _service.GetNetWorthHistoryAsync(
+            var history = await _netWorth.GetNetWorthHistoryAsync(
                 UserId, from: new DateOnly(2025, 10, 7), to: Today);
 
             Assert.Equal("2025-10-07", history[0].Date);
@@ -183,7 +184,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Fact]
         public async Task NoSnapshots_IsEmpty()
         {
-            Assert.Empty(await _service.GetNetWorthHistoryAsync(UserId, from: null, to: null));
+            Assert.Empty(await _netWorth.GetNetWorthHistoryAsync(UserId, from: null, to: null));
         }
 
         // ── The preset-span overload the other charts still use ────────────────
@@ -193,7 +194,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         {
             await SeedSnapshotAsync(new DateOnly(2026, 6, 1));
 
-            var history = await _service.GetNetWorthHistoryAsync(UserId, days: 30);
+            var history = await _netWorth.GetNetWorthHistoryAsync(UserId, days: 30);
 
             Assert.Equal("2026-09-07", history[0].Date); // 10-07 minus 30 days is Monday 09-07
             Assert.Equal("2026-10-07", history[^1].Date);

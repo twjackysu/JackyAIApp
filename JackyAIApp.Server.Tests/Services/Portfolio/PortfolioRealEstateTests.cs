@@ -29,6 +29,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
         private readonly AzureSQLDBContext _dbContext;
         private readonly PortfolioService _service;
+        private readonly NetWorthHistoryService _netWorth;
 
         public PortfolioRealEstateTests()
         {
@@ -49,7 +50,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var openAI = new Mock<IOpenAIPromptService>();
             var categoryService = new Mock<IStockCategoryService>();
 
-            _service = new PortfolioServiceBuilder(_dbContext)
+            var builder = new PortfolioServiceBuilder(_dbContext)
             {
                 Providers = providerFactory.Object,
                 FundData = fundData.Object,
@@ -57,7 +58,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 Categories = categoryService.Object,
                 HttpClientFactory = httpClientFactory.Object,
                 Cache = cache,
-            }.Build();
+            };
+            _service = builder.Build();
+            _netWorth = builder.BuildNetWorthHistory();
 
             _providerFactory = providerFactory;
         }
@@ -213,7 +216,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // Wide enough to always include today's date whatever weekday it happens to be — a
             // days:7 window starting from the snapshot date could land entirely on a skipped
             // weekend depending on which real day the suite runs on.
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, days: 90);
 
             var lastPoint = history.Last();
             var group = Assert.Single(lastPoint.Groups);
@@ -231,7 +234,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     Currency = "TWD", Quantity = 16_000_000,
                 });
 
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, groupBy: NetWorthGroupBy.Category);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, days: 90, groupBy: NetWorthGroupBy.Category);
 
             var lastPoint = history.Last();
             var group = Assert.Single(lastPoint.Groups);

@@ -41,7 +41,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private readonly Mock<IMarketDataProviderFactory> _providerFactory;
         private readonly Mock<IFundDataService> _fundData;
         private readonly Mock<IStockCategoryService> _categoryService;
-        private readonly PortfolioService _service;
+        private readonly NetWorthHistoryService _netWorth;
 
         public PortfolioNetWorthHistoryTests()
         {
@@ -63,7 +63,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var openAI = new Mock<IOpenAIPromptService>();
             _categoryService = new Mock<IStockCategoryService>();
 
-            _service = new PortfolioServiceBuilder(_dbContext)
+            var builder = new PortfolioServiceBuilder(_dbContext)
             {
                 Providers = _providerFactory.Object,
                 FundData = _fundData.Object,
@@ -71,7 +71,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 Categories = _categoryService.Object,
                 HttpClientFactory = httpClientFactory.Object,
                 Cache = cache,
-            }.Build();
+            };
+            _netWorth = builder.BuildNetWorthHistory();
         }
 
         public void Dispose() => _dbContext.Dispose();
@@ -94,7 +95,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 (Weekday(2), 500m),
                 (Weekday(4), 600m));
 
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, days: 90);
             var byDate = history.ToDictionary(p => p.Date);
 
             // Before the first price point exists at all: no data for that day (matches the old
@@ -122,7 +123,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(secondDate,
                 new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 250_000 });
 
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, days: 90);
             var byDate = history.ToDictionary(p => p.Date);
 
             Assert.Equal(100_000m, byDate[firstDate.ToString("yyyy-MM-dd")].TotalTWD);
@@ -150,7 +151,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     new() { Date = Weekday(1).ToString("yyyy-MM-dd"), Close = 12m },
                 }));
 
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, days: 90);
             var byDate = history.ToDictionary(p => p.Date);
 
             // Before any NAV point: falls back to the stored UnitPrice (10), matching the live
@@ -178,7 +179,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     AssetType.STOCK, "2330", "台積電", "TW", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new StockCategoryInfo(PortfolioCategory.Semiconductor, "晶圓代工", ["晶圓代工", "AI"]));
 
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Category);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Category);
             var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
 
             // AI-classified stock lands in its own category; CASH is mapped directly (no AI call).
@@ -207,7 +208,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     AssetType.STOCK, "2330", "台積電", "TW", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new StockCategoryInfo(PortfolioCategory.Semiconductor, "晶圓代工", ["晶圓代工", "AI"]));
 
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.SubCategory);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.SubCategory);
             var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
 
             // AI-classified stock lands under its free-form subCategory label; CASH gets a plain
@@ -233,7 +234,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                     AssetType.STOCK, "9999", "Mystery Corp", "US", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new StockCategoryInfo(PortfolioCategory.Other, null, []));
 
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.SubCategory);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.SubCategory);
             var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
 
             Assert.Equal(32_000m, GroupValue(point, "未分類")); // 10 * 100 * FX 32
@@ -247,7 +248,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 new HoldingPosition { AssetType = AssetType.CASH, Name = "台幣現金", Currency = "TWD", Quantity = 100_000 },
                 new HoldingPosition { AssetType = AssetType.CASH, Name = "美金現金", Currency = "USD", Quantity = 1_000 });
 
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Currency);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Currency);
             var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
 
             Assert.Equal(100_000m, GroupValue(point, "TWD"));
@@ -273,7 +274,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 
             SetupStockProvider("00631L", MarketRegion.TW, (snapshotDate, 200m));
 
-            var history = await _service.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Holding);
+            var history = await _netWorth.GetNetWorthHistoryAsync(TestUserId, days: 90, NetWorthGroupBy.Holding);
             var point = history.Single(p => p.Date == snapshotDate.ToString("yyyy-MM-dd"));
 
             // STOCK/FUND use the position's own Name verbatim; CASH/LIABILITY/REAL_ESTATE collapse

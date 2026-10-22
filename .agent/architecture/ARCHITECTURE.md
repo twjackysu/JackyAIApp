@@ -1244,7 +1244,7 @@ on Boss and does not block this work.
    per-*holding* concentration (each STOCK/FUND position's % of total
    holdings market value) — that's individual-position risk, not
    asset-class allocation. The actual `groupBy=category` logic lives
-   server-side in `PortfolioService.GetNetWorthHistoryAsync`
+   server-side in `NetWorthHistoryService.GetNetWorthHistoryAsync`
    (`GET api/portfolio/net-worth-history?groupBy=category`), and it returns
    a **daily time series** of category buckets, not a single current-
    allocation snapshot — heavier than this feature needs, and category

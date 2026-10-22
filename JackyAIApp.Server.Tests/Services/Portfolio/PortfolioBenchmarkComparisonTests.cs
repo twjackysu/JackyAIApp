@@ -37,7 +37,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<IMarketDataProviderFactory> _providerFactory;
         private readonly Mock<IDividendService> _dividendData;
-        private readonly PortfolioService _service;
+        private readonly BenchmarkComparisonService _benchmark;
 
         public PortfolioBenchmarkComparisonTests()
         {
@@ -59,7 +59,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var openAI = new Mock<IOpenAIPromptService>();
             var categoryService = new Mock<IStockCategoryService>();
 
-            _service = new PortfolioServiceBuilder(_dbContext)
+            var builder = new PortfolioServiceBuilder(_dbContext)
             {
                 Providers = _providerFactory.Object,
                 FundData = fundData.Object,
@@ -68,7 +68,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 HttpClientFactory = httpClientFactory.Object,
                 Cache = cache,
                 Time = new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)),
-            }.Build();
+            };
+            _benchmark = builder.BuildBenchmark();
         }
 
         private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider
@@ -94,7 +95,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // Benchmark (0050) at 100/unit on day 0 -> 90,000 / 100 = 900 simulated units.
             SetupStockProvider("0050", MarketRegion.TW, (Weekday(0), 100m), (Weekday(1), 110m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             // Only two real price bars given — both prices forward-fill from Weekday(1) through
             // "today", so the window has more than 2 dates; the values matter, not the count.
@@ -139,7 +140,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // Day0: 50,000 / 100 = 500 units. Day1 price rises to 200: buy 50,000 / 200 = 250 more units.
             SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 200m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             var day1Idx = result.Dates.IndexOf(day1.ToString("yyyy-MM-dd"));
             // (500 + 250) units * 200 = 150,000.
@@ -177,7 +178,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // "seeded at window-start price" from the bug's "bought at day0's price regardless".
             SetupStockProvider("0050", MarketRegion.TW, (oldDate, 50m), (day0, 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             var day0Idx = result.Dates.IndexOf(day0.ToString("yyyy-MM-dd"));
             // Correct: 500,000 seeded at the window-start price (50) = 10,000 units, plus the
@@ -213,7 +214,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("2330", MarketRegion.TW, (day0, 1000m), (day1, 1000m));
             SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             // The value curve still doubles — that part is real and worth plotting.
             var day0Idx = result.Dates.IndexOf(day0.ToString("yyyy-MM-dd"));
@@ -249,7 +250,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("2330", MarketRegion.TW, (day0, 1000m), (day1, 1000m), (Weekday(2), 1100m));
             SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 100m), (Weekday(2), 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             Assert.Equal(10m, result.PortfolioReturnPct);
             Assert.Equal(0m, result.Benchmarks.Single().ReturnPct); // benchmark price was flat
@@ -271,7 +272,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("2330", MarketRegion.TW, (Weekday(0), 1000m));
             SetupStockProvider("0050", MarketRegion.TW, (Weekday(0), 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             // Forward-fill produces many dates from Weekday(0) through "today", all flat at 0 since
             // the untracked-cost position never contributes to either side.
@@ -294,7 +295,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // No provider set up for "0050" at all — DetectRegion/GetMarketDataProvider return
             // Moq defaults, so FetchStocksAsync's per-symbol fetch fails soft for it.
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             Assert.Empty(result.Dates);
             Assert.Null(result.PortfolioReturnPct);
@@ -316,7 +317,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 200m));
             SetupStockProvider("QQQ", MarketRegion.US, (day0, 300m), (day1, 300m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(
+            var result = await _benchmark.GetBenchmarkComparisonAsync(
                 TestUserId, days: 30, benchmarkSymbols: ["0050", "QQQ"]);
 
             Assert.Equal(2, result.Benchmarks.Count);
@@ -343,7 +344,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("0050", MarketRegion.TW, (Weekday(0), 100m));
             // "NOPE" deliberately has no provider setup at all — should be silently dropped.
 
-            var result = await _service.GetBenchmarkComparisonAsync(
+            var result = await _benchmark.GetBenchmarkComparisonAsync(
                 TestUserId, days: 30, benchmarkSymbols: ["0050", "NOPE"]);
 
             var benchmark = Assert.Single(result.Benchmarks);
@@ -353,7 +354,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Fact]
         public async Task GetBenchmarkComparison_NoSnapshots_ReturnsEmptyResultWithRequestedSymbols()
         {
-            var result = await _service.GetBenchmarkComparisonAsync(
+            var result = await _benchmark.GetBenchmarkComparisonAsync(
                 TestUserId, days: 30, benchmarkSymbols: ["0050", "VT"]);
 
             Assert.Empty(result.Dates);
@@ -379,7 +380,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 100m));
             SetupDividends("0056", (day1, 5m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             // Price alone would be (95,000 - 100,000) / 100,000 = -5%.
             Assert.Equal(0m, result.PortfolioReturnPct);
@@ -403,7 +404,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("0050", MarketRegion.TW, (day0, 100m), (day1, 95m));
             SetupDividends("0050", (day1, 5m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             Assert.Equal(0m, result.PortfolioReturnPct);
             Assert.Equal(0m, result.Benchmarks.Single().ReturnPct); // not -5%
@@ -430,7 +431,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockProvider("0050", MarketRegion.TW, (day0, 100m));
             SetupDividends("0056", (saturday, 5m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
 
             // 5,000 of income on a flat 100,000 position.
             Assert.Equal(5m, result.PortfolioReturnPct);

@@ -37,7 +37,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         private readonly Mock<IMarketDataProviderFactory> _providerFactory = new();
         private readonly Mock<IFundDataService> _fundData = new();
         private readonly Dictionary<MarketRegion, Mock<IMarketDataProvider>> _regionProviders = new();
-        private readonly PortfolioService _service;
+        private readonly DrawdownAnalysisService _drawdown;
+        private readonly BenchmarkComparisonService _benchmark;
 
         public PortfolioAsOfValuationTests()
         {
@@ -52,13 +53,15 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             dividendData.Setup(x => x.GetFundDividendsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<DividendRecord>());
 
-            _service = new PortfolioServiceBuilder(_dbContext)
+            var builder = new PortfolioServiceBuilder(_dbContext)
             {
                 Providers = _providerFactory.Object,
                 FundData = _fundData.Object,
                 Dividends = dividendData.Object,
                 Time = new FakeTimeProvider(new DateTimeOffset(FixedToday.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)),
-            }.Build();
+            };
+            _drawdown = builder.BuildDrawdown();
+            _benchmark = builder.BuildBenchmark();
         }
 
         private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider
@@ -77,7 +80,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(Weekday(0), FundPosition("FND1", quantity: 10, unitPrice: 1));
             SetupFund("FND1", "TWD", (Weekday(0), 100m), (Weekday(2), 80m));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Equal(1000m, TotalOn(result, Weekday(0)));
             Assert.Equal(1000m, TotalOn(result, Weekday(1))); // no NAV published: yesterday's carries
@@ -92,7 +95,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(Weekday(0), FundPosition("FND1", quantity: 10, unitPrice: 1, currency: "TWD"));
             SetupFund("FND1", "USD", (Weekday(0), 100m));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Equal(100m * 10 * 32m, TotalOn(result, Weekday(0))); // snapshot rate is 32
         }
@@ -103,7 +106,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(Weekday(0), FundPosition("FND1", quantity: 10, unitPrice: 50));
             // _fundData has no setup for FND1: GetFundNavHistoryAsync yields null.
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Equal(500m, TotalOn(result, Weekday(0)));
             Assert.Equal(500m, TotalOn(result, Weekday(2)));
@@ -115,7 +118,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(Weekday(0), FundPosition("FND1", quantity: 10, unitPrice: 50));
             SetupFund("FND1", "TWD", (Weekday(2), 100m));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Equal(500m, TotalOn(result, Weekday(0)));
             Assert.Equal(500m, TotalOn(result, Weekday(1)));
@@ -128,7 +131,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(Weekday(0), StockPosition("2330", quantity: 100));
             SetupStockBars("2330", Bar(Weekday(2), 1000m), Bar(Weekday(3), 1100m));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Equal(Key(Weekday(2)), result.Points[0].Date);
         }
@@ -141,7 +144,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(Weekday(0), StockPosition("2330", quantity: 100));
             SetupStockBars("2330", Bar(Weekday(0), 1000m), Bar(Weekday(1), 0m), Bar(Weekday(2), 1000m));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             var dates = result.Points.Select(p => p.Date).ToList();
             Assert.Contains(Key(Weekday(0)), dates);
@@ -155,7 +158,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(Weekday(0), StockPosition("9999", quantity: 100));
             // No provider setup for 9999: the fetch yields nothing and the symbol is absent from the map.
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Empty(result.Points);
         }
@@ -172,7 +175,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockBars("2330",
                 [Bar(Weekday(0), 1000m), .. laterListedFirst ? new[] { evening, morning } : new[] { morning, evening }]);
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Equal(70_000m, TotalOn(result, Weekday(1)));
         }
@@ -186,7 +189,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(Weekday(0), StockPosition("2330", quantity: 100));
             SetupStockBars("2330", Bar(Weekday(0), 1000m), Bar(Weekday(1), firstClose), Bar(Weekday(1), secondClose));
 
-            var result = await _service.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
 
             Assert.Equal(expectedTotal, TotalOn(result, Weekday(1)));
         }
@@ -200,7 +203,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupFund("FND1", "TWD", (Weekday(0), 1000m), (Weekday(2), 1100m));
             SetupStockBars("0050", Bar(Weekday(0), 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
 
             Assert.Equal(10_000m, PortfolioOn(result, Weekday(0)));
             Assert.Equal(10_000m, PortfolioOn(result, Weekday(1)));
@@ -214,7 +217,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupFund("FND1", "TWD", (Weekday(2), 1100m));
             SetupStockBars("0050", Bar(Weekday(0), 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
 
             Assert.Equal(9_000m, PortfolioOn(result, Weekday(0)));
             Assert.Equal(9_000m, PortfolioOn(result, Weekday(1)));
@@ -228,7 +231,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupFund("FND1", "USD", (Weekday(0), 10m));
             SetupStockBars("0050", Bar(Weekday(0), 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
 
             Assert.Equal(10m * 10 * 32m, PortfolioOn(result, Weekday(0)));
         }
@@ -240,7 +243,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockBars("2330", Bar(Weekday(2), 1000m));
             SetupStockBars("0050", Bar(Weekday(0), 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
 
             Assert.Equal(Key(Weekday(2)), result.Dates[0]);
         }
@@ -252,7 +255,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             SetupStockBars("2330", Bar(Weekday(0), 1000m), Bar(Weekday(1), 0m), Bar(Weekday(2), 1000m));
             SetupStockBars("0050", Bar(Weekday(0), 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
 
             Assert.Contains(Key(Weekday(0)), result.Dates);
             Assert.DoesNotContain(Key(Weekday(1)), result.Dates);
@@ -265,7 +268,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             await SeedSnapshotAsync(Weekday(0), StockPosition("9999", quantity: 100, costBasis: 90_000));
             SetupStockBars("0050", Bar(Weekday(0), 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
 
             Assert.Empty(result.Dates);
         }
@@ -282,7 +285,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 [Bar(Weekday(0), 1000m), .. laterListedFirst ? new[] { evening, morning } : new[] { morning, evening }]);
             SetupStockBars("0050", Bar(Weekday(0), 100m));
 
-            var result = await _service.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
 
             Assert.Equal(70_000m, PortfolioOn(result, Weekday(1)));
         }

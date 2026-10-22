@@ -15,6 +15,9 @@ namespace JackyAIApp.Server.Controllers
     public class PortfolioController(
         IMyResponseFactory responseFactory,
         IPortfolioService portfolioService,
+        INetWorthHistoryService netWorthHistory,
+        IDrawdownAnalysisService drawdownAnalysis,
+        IBenchmarkComparisonService benchmarkComparison,
         IHoldingSearchService holdingSearch,
         IHoldingPriceService holdingPrices,
         IHoldingAiSummaryService holdingAiSummary,
@@ -102,8 +105,8 @@ namespace JackyAIApp.Server.Controllers
             // Either date selects the explicit-window mode; `days` stays for the charts that still
             // offer preset spans.
             var result = from.HasValue || to.HasValue
-                ? await portfolioService.GetNetWorthHistoryAsync(userId, from, to, parsedGroupBy, ct)
-                : await portfolioService.GetNetWorthHistoryAsync(userId, days, parsedGroupBy, ct);
+                ? await netWorthHistory.GetNetWorthHistoryAsync(userId, from, to, parsedGroupBy, ct)
+                : await netWorthHistory.GetNetWorthHistoryAsync(userId, days, parsedGroupBy, ct);
             return responseFactory.CreateOKResponse(result);
         }
 
@@ -111,7 +114,7 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> GetDrawdown([FromQuery] int days = 365, CancellationToken ct = default)
         {
             var userId = currentUser.RequireId();
-            var result = await portfolioService.GetDrawdownAnalysisAsync(userId, days, ct);
+            var result = await drawdownAnalysis.GetDrawdownAnalysisAsync(userId, days, ct);
             return responseFactory.CreateOKResponse(result);
         }
 
@@ -167,7 +170,7 @@ namespace JackyAIApp.Server.Controllers
             [FromQuery] int days = 365, [FromQuery] string[]? symbols = null, CancellationToken ct = default)
         {
             var userId = currentUser.RequireId();
-            var result = await portfolioService.GetBenchmarkComparisonAsync(userId, days, symbols, ct);
+            var result = await benchmarkComparison.GetBenchmarkComparisonAsync(userId, days, symbols, ct);
             return responseFactory.CreateOKResponse(result);
         }
 
