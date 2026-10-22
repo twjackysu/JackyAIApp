@@ -14,7 +14,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
 {
     /// <summary>
     /// StockCategoryService lazily classifies each held symbol into a fixed PortfolioCategory via
-    /// AI, caches the result in StockSymbolInfo forever (same DB-cache pattern as
+    /// AI, caches the result in StockClassifications forever (same DB-cache pattern as
     /// PersistentTwHistoricalProvider's market-type resolution), and never trusts the model's
     /// category string verbatim — anything outside the enum must fall back to Other. See
     /// .claude/plans/portfolio-industry-classification.md.
@@ -55,7 +55,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             _promptService.Verify(x => x.GetCompletionAsync<CategoryClassificationResult>(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()), Times.Never);
-            Assert.Empty(await _dbContext.StockSymbolInfos.ToListAsync());
+            Assert.Empty(await _dbContext.StockClassifications.ToListAsync());
         }
 
         [Fact]
@@ -87,10 +87,10 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal(PortfolioCategory.Semiconductor, category);
             Assert.Equal("晶圓代工", subCategory);
 
-            var persisted = await _dbContext.StockSymbolInfos.SingleAsync(s => s.Symbol == "2330");
+            var persisted = await _dbContext.StockClassifications.SingleAsync(s => s.Symbol == "2330");
             Assert.Equal(nameof(PortfolioCategory.Semiconductor), persisted.Category);
             Assert.Equal("晶圓代工", persisted.SubCategory);
-            Assert.NotNull(persisted.ClassifiedAt);
+            Assert.NotEqual(default, persisted.ClassifiedAt);
         }
 
         /// <summary>What the model was asked to classify, for the next GetCategoryAsync.</summary>
@@ -134,9 +134,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Fact]
         public async Task GetCategoryAsync_AlreadyClassifiedSymbol_ReturnsFromDbWithoutCallingAi()
         {
-            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            _dbContext.StockClassifications.Add(new StockClassification
             {
-                Symbol = "2330", Market = "TW",
+                Symbol = "2330",
                 Category = nameof(PortfolioCategory.Semiconductor), SubCategory = "晶圓代工",
                 ClassifiedAt = DateTime.UtcNow,
             });
@@ -203,7 +203,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 symbols.Select(s => _service.GetCategoryAsync(AssetType.STOCK, s, "Test " + s, "US")));
 
             Assert.All(results, r => Assert.Equal(PortfolioCategory.TechSoftware, r.Category));
-            var persistedCount = await _dbContext.StockSymbolInfos.CountAsync();
+            var persistedCount = await _dbContext.StockClassifications.CountAsync();
             Assert.Equal(symbols.Count, persistedCount);
         }
 
@@ -213,15 +213,15 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // The whole point of this grounding: each classification call is otherwise fully
             // independent, so without seeing what's already in use the model has no way to reuse a
             // label instead of inventing a fresh (inconsistent) variant every time.
-            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            _dbContext.StockClassifications.Add(new StockClassification
             {
-                Symbol = "NVDA", Market = "US",
+                Symbol = "NVDA",
                 Category = nameof(PortfolioCategory.Semiconductor), SubCategory = "晶片設計",
                 ClassifiedAt = DateTime.UtcNow,
             });
-            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            _dbContext.StockClassifications.Add(new StockClassification
             {
-                Symbol = "0056", Market = "TW",
+                Symbol = "0056",
                 Category = nameof(PortfolioCategory.DividendEquity), SubCategory = "高股息台股ETF",
                 ClassifiedAt = DateTime.UtcNow,
             });
@@ -285,16 +285,16 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             var (_, _, tags) = await _service.GetCategoryAsync(AssetType.STOCK, "AMZN", "Amazon", "US");
 
             Assert.Equal(["雲端", "AI", "電商", "廣告"], tags);
-            var persisted = await _dbContext.StockSymbolInfos.SingleAsync(s => s.Symbol == "AMZN");
+            var persisted = await _dbContext.StockClassifications.SingleAsync(s => s.Symbol == "AMZN");
             Assert.Equal("雲端,AI,電商,廣告", persisted.Tags);
         }
 
         [Fact]
         public async Task GetCategoryAsync_AlreadyClassifiedSymbol_ReturnsPersistedTags()
         {
-            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            _dbContext.StockClassifications.Add(new StockClassification
             {
-                Symbol = "MSFT", Market = "US",
+                Symbol = "MSFT",
                 Category = nameof(PortfolioCategory.TechSoftware), SubCategory = "軟體服務",
                 Tags = "軟體,雲端,AI",
                 ClassifiedAt = DateTime.UtcNow,
@@ -315,9 +315,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             // Same reuse-grounding requirement as subCategory: without the existing tag vocabulary
             // in-context, every classification invents near-duplicate variants (雲端/雲端服務)
             // that fragment any tag-based view.
-            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            _dbContext.StockClassifications.Add(new StockClassification
             {
-                Symbol = "GOOG", Market = "US",
+                Symbol = "GOOG",
                 Category = nameof(PortfolioCategory.TechSoftware), SubCategory = "網路服務",
                 Tags = "廣告,雲端,AI",
                 ClassifiedAt = DateTime.UtcNow,

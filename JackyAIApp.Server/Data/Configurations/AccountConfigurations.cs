@@ -11,7 +11,7 @@ namespace JackyAIApp.Server.Data.Configurations
         public void Configure(EntityTypeBuilder<JiraConfig> builder)
         {
             builder.HasOne(jc => jc.User)
-                .WithMany(u => u.JiraConfigs)
+                .WithMany()
                 .HasForeignKey(jc => jc.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
@@ -22,7 +22,7 @@ namespace JackyAIApp.Server.Data.Configurations
         public void Configure(EntityTypeBuilder<UserConnector> builder)
         {
             builder.HasOne(uc => uc.User)
-                .WithMany(u => u.UserConnectors)
+                .WithMany()
                 .HasForeignKey(uc => uc.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
@@ -41,7 +41,7 @@ namespace JackyAIApp.Server.Data.Configurations
             builder.HasKey(du => new { du.UserId, du.Date });
 
             builder.HasOne(du => du.User)
-                .WithMany(u => u.DailyUsages)
+                .WithMany()
                 .HasForeignKey(du => du.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 

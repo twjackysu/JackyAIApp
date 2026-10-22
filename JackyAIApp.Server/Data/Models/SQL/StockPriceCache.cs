@@ -29,11 +29,12 @@ namespace JackyAIApp.Server.Data.Models.SQL
     }
 
     /// <summary>
-    /// Per-symbol metadata cache, keyed by Symbol alone. Originally TW-only (market-type
-    /// resolution), now also holds cross-market AI category classification (US stocks, funds).
-    /// Symbol collisions across markets aren't a real concern in practice: TW codes are numeric
-    /// (4-6 digits, optional trailing letter), US tickers are alphabetic, and FundRich fund IDs
-    /// have an alphabetic prefix (e.g. "ALI006") — none of these formats overlap.
+    /// Per-symbol market-data metadata, keyed by Symbol alone: which TW exchange it trades on, and
+    /// how far back its price history is stored. The AI classification Portfolio adds is in
+    /// <see cref="Portfolio.StockClassification"/>, Portfolio's own table (until 2026-10 it was four
+    /// columns here). Symbol collisions across markets aren't a real concern in practice: TW codes
+    /// are numeric (4-6 digits, optional trailing letter), US tickers are alphabetic, and FundRich
+    /// fund IDs have an alphabetic prefix (e.g. "ALI006") — none of these formats overlap.
     /// </summary>
     public class StockSymbolInfo
     {
@@ -69,27 +70,6 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// ~6-month window). Month granularity on purpose: the exchange is asked for whole months,
         /// so "covered" never has to mean "covered from the 14th".</summary>
         public DateOnly? HistoryCoveredFrom { get; set; }
-
-        /// <summary>Fixed-vocabulary bucket for the net-worth-history "view by 產業" chart —
-        /// PortfolioCategory enum stored as its string name. Null = not yet classified (triggers
-        /// lazy AI classification in StockCategoryService). CASH/LIABILITY never get a row here —
-        /// they're mapped to Category.Cash/Liability directly without persistence.</summary>
-        public string? Category { get; set; }
-
-        /// <summary>Free-form Traditional-Chinese label from the AI classifier (e.g. "晶圓代工",
-        /// "高股息台股ETF") — display-only (tooltip/detail table), never used for chart grouping,
-        /// so inconsistency across symbols here doesn't matter.</summary>
-        public string? SubCategory { get; set; }
-
-        /// <summary>2-4 free-form Traditional-Chinese theme tags from the AI classifier, stored
-        /// comma-separated (e.g. "雲端,AI,廣告"). Unlike <see cref="SubCategory"/> (exactly one,
-        /// mutually exclusive, safe to stack in a chart), a holding can carry several tags — AMZN
-        /// is simultaneously 電商 and 雲端 — so tags must NEVER drive a stacked/summed chart
-        /// (double counting); display and non-stacked views only. CSV rather than a join table on
-        /// purpose: single-user app, always read whole-row into memory, normalization buys nothing.</summary>
-        public string? Tags { get; set; }
-
-        public DateTime? ClassifiedAt { get; set; }
     }
 
     /// <summary>

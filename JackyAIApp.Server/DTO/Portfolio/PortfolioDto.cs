@@ -62,7 +62,7 @@ namespace JackyAIApp.Server.DTO.Portfolio
         // Estimated brokerage fee + transaction tax if sold at the current price (TW STOCK only,
         // 0 for everything else). Already subtracted out of UnrealizedPnlTWD/Pct above.
         public decimal EstimatedSellCostTWD { get; set; }
-        // AI theme tags (0-4) from StockSymbolInfo.Tags — populated by a read-only lookup, so this
+        // AI theme tags (0-4) from StockClassification.Tags — populated by a read-only lookup, so this
         // stays empty until the symbol has been classified (the 產業/子類別 chart tabs trigger
         // that lazily; the summary itself never calls the AI). Display-only: a holding can carry
         // several tags, so these must never be summed/stacked anywhere.
