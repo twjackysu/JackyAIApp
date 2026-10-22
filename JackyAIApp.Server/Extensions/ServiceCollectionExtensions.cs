@@ -95,6 +95,10 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IExamWordPicker, ExamWordPicker>();
             services.AddScoped<IExamBankPicker, ExamBankPicker>();
             services.AddScoped<IExamService, ExamService>();
+            services.AddScoped<IListeningExamService, ListeningExamService>();
+            services.AddScoped<IListeningResponseExamService, ListeningResponseExamService>();
+            services.AddScoped<IReadingExamService, ReadingExamService>();
+            services.AddScoped<IExamSpeech, ExamSpeech>();
 
             services.AddScoped<IRepositoryService, RepositoryService>();
             services.AddScoped<IWordOfTheDayService, WordOfTheDayService>();
