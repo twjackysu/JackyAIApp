@@ -213,7 +213,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         public async Task WidgetData_DefaultSourceFailure_ReturnsGenericTextOnly()
         {
             var db = Db();
-            var dash = new Dashboard { Id = Guid.NewGuid(), UserId = "owner", Name = "Public board", Visibility = "Anyone" };
+            var dash = new Dashboard { Id = Guid.NewGuid(), UserId = "owner", Name = "Public board", Visibility = DashboardVisibility.Anyone };
             var widget = new DashboardWidget
             {
                 Id = Guid.NewGuid(), DashboardId = dash.Id, VizType = "bar",
@@ -223,10 +223,11 @@ namespace JackyAIApp.Server.Tests.Controllers
             db.DashboardWidgets.Add(widget);
             await db.SaveChangesAsync();
 
-            var controller = new DashboardController(
-                NullLogger<DashboardController>.Instance, ResponseFactory().Object, db,
+            var service = new DashboardService(
+                NullLogger<DashboardService>.Instance, db,
                 new DataSourceResolver(FailingEngine(), db, null!, NullLogger<DataSourceResolver>.Instance),
-                configService: null!, cache: new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Anonymous)
+                new MemoryCache(new MemoryCacheOptions()), TestCurrentUser.Anonymous);
+            var controller = new DashboardController(ResponseFactory().Object, service)
             {
                 ControllerContext = new ControllerContext { HttpContext = As(null) },
             };

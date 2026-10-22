@@ -289,6 +289,7 @@ namespace JackyAIApp.Server.Tests.Services
             services.AddSingleton(Mock.Of<JackyAIApp.Server.Services.ITokenEncryptionService>());   // registered elsewhere in the app
             services.AddSingleton(Mock.Of<JackyAIApp.Server.Services.OpenAI.IOpenAIPromptService>());   // registered elsewhere in the app (NlQueryPlanner needs it)
             services.AddDbContext<JackyAIApp.Server.Data.AzureSQLDBContext>(o => o.UseInMemoryDatabase("di-validate"));   // registered elsewhere in the app (DataSourceResolver needs it)
+            services.AddSingleton(Mock.Of<JackyAIApp.Server.Services.ICurrentUser>());   // registered elsewhere in the app (DashboardService needs it)
             services.AddDataAnalysisServices("Server=unused;User ID=u;Password=p;");
             using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
 

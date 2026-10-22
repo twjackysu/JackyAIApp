@@ -246,6 +246,10 @@ namespace JackyAIApp.Server.Data
                 .OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<Dashboard>()
                 .HasIndex(d => d.UserId);
+            // By name, as the column always held it ("Private", "Public", ...).
+            modelBuilder.Entity<Dashboard>()
+                .Property(d => d.Visibility)
+                .HasConversion<string>();
 
             modelBuilder.Entity<DashboardWidget>()
                 .HasOne(w => w.Dashboard)

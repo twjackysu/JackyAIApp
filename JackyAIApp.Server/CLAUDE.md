@@ -30,6 +30,16 @@ JackyAIApp.Server/
 └── Common/         # Error handling middleware, response factory
 ```
 
+## Controllers
+
+- A controller does HTTP only: binding, routing attributes, answering a service's result with
+  `responseFactory.ToActionResult(result)`. Queries, rules and writes live in a service. A
+  controller never takes `AzureSQLDBContext` or `IDbContextFactory` — `ControllersDoNotTouchTheDatabaseTests`
+  fails if one does. The controllers not moved yet are listed in that test; the list only shrinks
+- Who may see or change something is written once, in a policy next to its service (e.g.
+  `DashboardAccessPolicy`): EF expressions for the queries, a plain method for an entity already
+  loaded. Something you may not see answers NotFound, not Forbidden, so its existence isn't leaked
+
 ## Service results
 
 - A service method that a controller turns into a response returns `ServiceResult<T>` with the
@@ -82,4 +92,18 @@ JackyAIApp.Server/
 - Which days TWSE trades: `ITradingCalendar` (`Services/Market`). `IsMarketClosed` answers from
   memory — the holiday schedule is loaded in the background — and returns null for an unknown
   weekday; `IsTradingDay` / `PreviousTradingDay` count that as a trading day.
-  `WeekdayTradingCalendar.Instance` is the weekdays-only stand-in (tests, optional parameters)
+  `WeekdayTradingCalendar.Instance` is the weekdays-only stand-in (tests)
+
+## Portfolio
+
+- What an `AssetType` is — market-priced or an amount, its sign, whether it has a cost, counts as
+  liquid, pays dividends, its bucket and labels, where its price and FX rate come from, how a saved
+  row is normalized, how its latest or as-of price is read — comes from
+  `AssetValuationPolicy.For(type)` (`Services/Portfolio/AssetValuationPolicy.cs`). Add a fact there
+  rather than a new `AssetType is …` check
+- How a screen values a day, and what it does when a price is missing, stays with that screen:
+  the summary, drawdown/day change, net worth and benchmark comparison differ on purpose, pinned by
+  `PortfolioAsOfValuationTests` and `PortfolioSummaryPriceTests`
+- Tests build the Portfolio services with `TestHelpers/PortfolioServiceBuilder` (set only what the
+  test cares about; data sources it doesn't exercise default to `AbsentPortfolioSources`), never
+  by calling their constructors, so a constructor change touches one file
