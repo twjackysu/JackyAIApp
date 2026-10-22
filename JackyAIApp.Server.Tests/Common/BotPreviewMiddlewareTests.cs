@@ -65,7 +65,7 @@ namespace JackyAIApp.Server.Tests.Common
             await middleware.InvokeAsync(context, _dictionaryServiceMock.Object);
 
             Assert.True(nextCalled);
-            _dictionaryServiceMock.Verify(s => s.GetWordAsync(It.IsAny<string>()), Times.Never);
+            _dictionaryServiceMock.Verify(s => s.GetWordAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
@@ -95,7 +95,7 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public async Task InvokeAsync_FallsThrough_WhenWordLookupFails()
         {
-            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple"))
+            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ServiceResult.Fail(ErrorCodes.TheWordCannotBeFound, "not found"));
             var nextCalled = false;
             var middleware = new BotPreviewMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
@@ -117,7 +117,7 @@ namespace JackyAIApp.Server.Tests.Common
         [InlineData("WhatsApp/2.23")]
         public async Task InvokeAsync_ServesPreviewHtml_ForKnownBotUserAgents(string userAgent)
         {
-            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple"))
+            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ServiceResult.Ok(MakeWord("apple 英文意思、發音、例句 | English Coach", "apple (noun): a fruit")));
             var nextCalled = false;
             var middleware = new BotPreviewMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });

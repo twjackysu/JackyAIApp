@@ -50,7 +50,7 @@ namespace JackyAIApp.Server.Services.Dictionary
                 return;
             }
 
-            var dto = await TryGetWordAsync(dictionaryService, word);
+            var dto = await TryGetWordAsync(dictionaryService, word, context.RequestAborted);
             if (dto == null)
             {
                 await _next(context);
@@ -61,7 +61,8 @@ namespace JackyAIApp.Server.Services.Dictionary
             try
             {
                 var baseUrl = $"{context.Request.Scheme}://{context.Request.Host}";
-                var pageUrl = $"{baseUrl}{SitemapController.DictionaryPathPrefix}/{Uri.EscapeDataString(word)}";
+                // The entry's own page: an inflection looked up ("establishing") is its root's entry.
+                var pageUrl = $"{baseUrl}{SitemapController.DictionaryPathPrefix}/{Uri.EscapeDataString(dto.Word)}";
                 html = InjectMetadata(template, dto, pageUrl);
             }
             catch
@@ -88,18 +89,15 @@ namespace JackyAIApp.Server.Services.Dictionary
             await context.Response.WriteAsync(html);
         }
 
-        private static async Task<DTO.Word?> TryGetWordAsync(IDictionaryService dictionaryService, string word)
+        private static async Task<DTO.Word?> TryGetWordAsync(IDictionaryService dictionaryService, string word, CancellationToken requestAborted)
         {
+            // Past the timeout the lookup is cancelled, so none of it outlives this request. A word still
+            // being generated then is not lost: the generation carries on and stores it (IWordGenerator).
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(requestAborted);
+            timeout.CancelAfter(LookupTimeout);
             try
             {
-                var lookupTask = dictionaryService.GetWordAsync(word);
-                var winner = await Task.WhenAny(lookupTask, Task.Delay(LookupTimeout));
-                if (winner != lookupTask)
-                {
-                    return null;
-                }
-
-                var result = await lookupTask;
+                var result = await dictionaryService.GetWordAsync(word, timeout.Token).WaitAsync(timeout.Token);
                 return result.IsSuccess && result.Data is DTO.Word dto ? dto : null;
             }
             catch

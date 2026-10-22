@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import { useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -82,9 +83,10 @@ function Dictionary() {
         <Helmet>
           <title>{data.data.seoTitle}</title>
           <meta name="description" content={data.data.seoDescription} />
+          {/* The entry's own page: an inflection looked up ("establishing") is its root's entry. */}
           <link
             rel="canonical"
-            href={`${window.location.origin}${DICTIONARY_PATH}/${encodeURIComponent(word ?? '')}`}
+            href={`${window.location.origin}${DICTIONARY_PATH}/${encodeURIComponent(data.data.word)}`}
           />
         </Helmet>
       )}
@@ -113,6 +115,11 @@ function Dictionary() {
             width: { xs: '100%', sm: data?.data.meanings.length == 1 ? '80%' : '100%' },
           }}
         >
+          {data?.data.inflectedForm && !isFetching && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, textAlign: 'center' }}>
+              {data.data.inflectedForm} 是 {data.data.word} 的變化形
+            </Typography>
+          )}
           <WordCard
             word={data?.data}
             isFetching={isFetching || personalWordsIsFetching}

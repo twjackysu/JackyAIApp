@@ -14,6 +14,11 @@ export interface Word extends WordBase {
    */
   seoTitle: string;
   seoDescription: string;
+  /**
+   * The form looked up, when it is a regular inflection shown on this word's entry
+   * ("establishing" on "establish"); absent when this word itself was looked up.
+   */
+  inflectedForm?: string | null;
 }
 
 interface WordBase {

@@ -12,9 +12,10 @@ namespace JackyAIApp.Server.Services.Dictionary
     {
         /// <summary>
         /// Returns the definition for <paramref name="word"/>, generating it via
-        /// OpenAI and persisting it when not already cached/stored.
+        /// OpenAI and persisting it when not already cached/stored (see <see cref="IWordGenerator"/>).
+        /// <paramref name="ct"/> stops the lookup, not a generation it waits on: that one is stored anyway.
         /// </summary>
-        Task<ServiceResult<DTO.Word>> GetWordAsync(string word);
+        Task<ServiceResult<DTO.Word>> GetWordAsync(string word, CancellationToken ct = default);
 
         /// <summary>Marks a stored word as invalid so it will be regenerated next lookup.</summary>
         Task<ServiceResult<DTO.Word>> InvalidateWordAsync(string word);

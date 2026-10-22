@@ -129,7 +129,7 @@ namespace JackyAIApp.Server.Tests.Common
             await middleware.InvokeAsync(context, _dictionaryServiceMock.Object);
 
             Assert.True(nextCalled);
-            _dictionaryServiceMock.Verify(s => s.GetWordAsync(It.IsAny<string>()), Times.Never);
+            _dictionaryServiceMock.Verify(s => s.GetWordAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
@@ -142,7 +142,7 @@ namespace JackyAIApp.Server.Tests.Common
             await middleware.InvokeAsync(context, _dictionaryServiceMock.Object);
 
             Assert.True(nextCalled);
-            _dictionaryServiceMock.Verify(s => s.GetWordAsync(It.IsAny<string>()), Times.Never);
+            _dictionaryServiceMock.Verify(s => s.GetWordAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
@@ -155,13 +155,13 @@ namespace JackyAIApp.Server.Tests.Common
             await middleware.InvokeAsync(context, _dictionaryServiceMock.Object);
 
             Assert.True(nextCalled);
-            _dictionaryServiceMock.Verify(s => s.GetWordAsync(It.IsAny<string>()), Times.Never);
+            _dictionaryServiceMock.Verify(s => s.GetWordAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
         public async Task InvokeAsync_FallsThrough_WhenWordIsUnknown()
         {
-            _dictionaryServiceMock.Setup(s => s.GetWordAsync("nosuchword"))
+            _dictionaryServiceMock.Setup(s => s.GetWordAsync("nosuchword", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ServiceResult.Fail(ErrorCodes.TheWordCannotBeFound, "not found"));
             var nextCalled = false;
             var middleware = new WordPageMetadataMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, MakeEnv(Template));
@@ -178,7 +178,7 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public async Task InvokeAsync_FallsThrough_WhenLookupThrows()
         {
-            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple")).ThrowsAsync(new InvalidOperationException("boom"));
+            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple", It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("boom"));
             var nextCalled = false;
             var middleware = new WordPageMetadataMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, MakeEnv(Template));
             var context = MakeContext("/english/dictionary/apple", "GET");
@@ -191,7 +191,7 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public async Task InvokeAsync_ServesInjectedHtml_ForGet()
         {
-            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple"))
+            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ServiceResult.Ok(MakeWord("apple 英文意思、發音、例句 | English Coach", "apple (noun): a fruit")));
             var nextCalled = false;
             var middleware = new WordPageMetadataMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, MakeEnv(Template));
@@ -214,7 +214,7 @@ namespace JackyAIApp.Server.Tests.Common
         [Fact]
         public async Task InvokeAsync_SetsHeadersButWritesNoBody_ForHead()
         {
-            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple"))
+            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ServiceResult.Ok(MakeWord("apple 英文意思、發音、例句 | English Coach", "apple (noun): a fruit")));
             var nextCalled = false;
             var middleware = new WordPageMetadataMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, MakeEnv(Template));
@@ -230,6 +230,48 @@ namespace JackyAIApp.Server.Tests.Common
             Assert.Equal("no-store", context.Response.Headers["Cache-Control"].ToString());
             Assert.True(context.Response.ContentLength > 0);
             Assert.Equal(0, responseBody.Length); // headers only, per HTTP HEAD semantics
+        }
+
+        [Fact]
+        public async Task InvokeAsync_AnInflectionLookedUp_PointsAtItsRootsPage()
+        {
+            var entry = MakeWord("establish 英文意思、發音、例句 | English Coach", "establish (verb): to set up", "establish");
+            entry.InflectedForm = "establishing";
+            _dictionaryServiceMock.Setup(s => s.GetWordAsync("establishing", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Ok(entry));
+            var middleware = new WordPageMetadataMiddleware(_ => Task.CompletedTask, MakeEnv(Template));
+            var context = MakeContext("/english/dictionary/establishing", "GET");
+            var responseBody = new MemoryStream();
+            context.Response.Body = responseBody;
+
+            await middleware.InvokeAsync(context, _dictionaryServiceMock.Object);
+
+            responseBody.Seek(0, SeekOrigin.Begin);
+            var body = new StreamReader(responseBody).ReadToEnd();
+            Assert.Contains("<link rel=\"canonical\" href=\"https://example.com/english/dictionary/establish\" />", body);
+            Assert.DoesNotContain("dictionary/establishing", body);
+        }
+
+        [Fact]
+        public async Task InvokeAsync_StopsWaitingWhenTheRequestIsGone_AndFallsThrough()
+        {
+            // A lookup that would never answer (a word being generated): the lookup is cancelled with
+            // the request, not left running after it.
+            CancellationToken passed = default;
+            _dictionaryServiceMock.Setup(s => s.GetWordAsync("apple", It.IsAny<CancellationToken>()))
+                .Callback((string _, CancellationToken ct) => passed = ct)
+                .Returns(new TaskCompletionSource<ServiceResult<Word>>().Task);
+            var nextCalled = false;
+            var middleware = new WordPageMetadataMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, MakeEnv(Template));
+            var context = MakeContext("/english/dictionary/apple", "GET");
+            using var aborted = new CancellationTokenSource();
+            context.RequestAborted = aborted.Token;
+            aborted.Cancel();
+
+            await middleware.InvokeAsync(context, _dictionaryServiceMock.Object).WaitAsync(TimeSpan.FromSeconds(2));
+
+            Assert.True(nextCalled);
+            Assert.True(passed.IsCancellationRequested);
         }
 
         private static DefaultHttpContext MakeContext(string path, string method)
@@ -260,11 +302,11 @@ namespace JackyAIApp.Server.Tests.Common
             return envMock.Object;
         }
 
-        private static Word MakeWord(string seoTitle, string seoDescription) => new()
+        private static Word MakeWord(string seoTitle, string seoDescription, string word = "apple") => new()
         {
             Id = Guid.NewGuid().ToString(),
             PartitionKey = "word",
-            Word = "apple",
+            Word = word,
             KKPhonics = "/ˈæpəl/",
             Meanings = [],
             DateAdded = DateTime.UtcNow,

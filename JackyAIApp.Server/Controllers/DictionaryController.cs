@@ -16,9 +16,9 @@ namespace JackyAIApp.Server.Controllers
 
         // Anonymous lookup is intentional — the dictionary is browsable without login.
         [HttpGet("{word}", Name = "Search word")]
-        public async Task<IActionResult> Get(string word)
+        public async Task<IActionResult> Get(string word, CancellationToken ct)
         {
-            var result = await _dictionaryService.GetWordAsync(word);
+            var result = await _dictionaryService.GetWordAsync(word, ct);
             return _responseFactory.ToActionResult(result);
         }
 
