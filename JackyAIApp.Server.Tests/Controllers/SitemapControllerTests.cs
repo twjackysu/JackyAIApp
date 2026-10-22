@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Controllers;
 using JackyAIApp.Server.Data;
+using JackyAIApp.Server.Services.Dictionary;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,7 +20,7 @@ namespace JackyAIApp.Server.Tests.Controllers
                 .Options;
             _dbContext = new AzureSQLDBContext(options);
 
-            _controller = new SitemapController(_dbContext)
+            _controller = new SitemapController(new PublicWordList(_dbContext))
             {
                 ControllerContext = new ControllerContext
                 {

@@ -1,6 +1,5 @@
-using JackyAIApp.Server.Data;
+using JackyAIApp.Server.Services.Dictionary;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Text;
 
 namespace JackyAIApp.Server.Controllers
@@ -16,25 +15,19 @@ namespace JackyAIApp.Server.Controllers
     /// an absolute route template instead.
     /// </remarks>
     [ApiController]
-    public class SitemapController(AzureSQLDBContext dbContext) : ControllerBase
+    public class SitemapController(IPublicWordList publicWords) : ControllerBase
     {
-        private readonly AzureSQLDBContext _dbContext = dbContext;
-
         /// <summary>Path prefix of the frontend's public word-detail route (TASK-002).</summary>
         internal const string DictionaryPathPrefix = "/english/dictionary";
 
         [HttpGet("/sitemap.xml")]
-        public async Task<IActionResult> GetSitemap()
+        public async Task<IActionResult> GetSitemap(CancellationToken ct = default)
         {
-            // Cheap by design: a single projection over the indexed WordText column, no per-word
-            // AI calls. Word count is small enough today for one file — revisit with a sitemap
-            // index + chunked sub-sitemaps only once this approaches Google's ~50k URL/file cap.
-            var wordTexts = await _dbContext.Words
-                .Where(w => !w.DataInvalid.HasValue || !w.DataInvalid.Value)
-                .Select(w => new { w.WordText, w.LastUpdated })
-                .ToListAsync();
+            // Word count is small enough today for one file — revisit with a sitemap index +
+            // chunked sub-sitemaps only once this approaches Google's ~50k URL/file cap.
+            var words = await publicWords.ListAsync(ct);
 
-            var xml = BuildSitemapXml(wordTexts.Select(w => (w.WordText, (DateTime?)w.LastUpdated)), BaseUrl());
+            var xml = BuildSitemapXml(words.Select(w => (w.WordText, (DateTime?)w.LastUpdated)), BaseUrl());
             return Content(xml, "application/xml", Encoding.UTF8);
         }
 

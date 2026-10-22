@@ -7,19 +7,10 @@ namespace JackyAIApp.Server.Tests.Controllers
 {
     /// <summary>
     /// A controller does HTTP — binding, the current user, turning a ServiceResult into a response —
-    /// and reaches the database only through services (JackyAIApp.Server/CLAUDE.md). The controllers
-    /// that still take a DbContext are listed until they are moved; the list only ever shrinks.
+    /// and reaches the database only through services (JackyAIApp.Server/CLAUDE.md).
     /// </summary>
     public class ControllersDoNotTouchTheDatabaseTests
     {
-        private static readonly HashSet<string> NotYetMoved =
-        [
-            "AccountController",
-            "DictionaryController",
-            "ExamController",
-            "SitemapController",
-        ];
-
         private static IEnumerable<Type> Controllers() =>
             typeof(DashboardController).Assembly.GetTypes()
                 .Where(t => typeof(ControllerBase).IsAssignableFrom(t) && !t.IsAbstract);
@@ -34,7 +25,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         public void NoController_TakesADbContext()
         {
             var offenders = Controllers()
-                .Where(c => TakesTheDatabase(c) && !NotYetMoved.Contains(c.Name))
+                .Where(TakesTheDatabase)
                 .Select(c => c.Name)
                 .ToList();
 
@@ -42,14 +33,10 @@ namespace JackyAIApp.Server.Tests.Controllers
         }
 
         [Fact]
-        public void TheNotYetMovedList_NamesOnlyControllersThatStillDo()
+        public void TheCheck_SeesTheControllers()
         {
-            var stale = NotYetMoved
-                .Where(name => !Controllers().Any(c => c.Name == name && TakesTheDatabase(c)))
-                .ToList();
-
-            // Moved one? Take it off the list.
-            Assert.Empty(stale);
+            // Guards the test above against passing because it found nothing to look at.
+            Assert.Contains(Controllers(), c => c == typeof(DashboardController));
         }
     }
 }

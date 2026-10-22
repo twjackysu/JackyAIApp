@@ -1,6 +1,5 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Controllers;
-using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Exam;
@@ -8,7 +7,6 @@ using JackyAIApp.Server.Services.Listening;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Speech;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Moq;
 
 namespace JackyAIApp.Server.Tests.Controllers
@@ -17,14 +15,13 @@ namespace JackyAIApp.Server.Tests.Controllers
     /// Controller-level tests for behavior that lives in the controller itself
     /// (HTTP concerns). The domain logic is covered by <see cref="Services.ExamServiceTests"/>.
     /// </summary>
-    public class ExamControllerTests : IDisposable
+    public class ExamControllerTests
     {
         private readonly Mock<IMyResponseFactory> _responseFactoryMock;
         private readonly Mock<IExamService> _examServiceMock;
         private readonly Mock<ITextToSpeechService> _ttsServiceMock;
         private readonly Mock<ICurrentUser> _currentUserMock;
         private readonly Mock<IListeningQuestionGenerator> _listeningQuestionGeneratorMock;
-        private readonly AzureSQLDBContext _dbContext;
         private readonly ExamController _controller;
 
         public ExamControllerTests()
@@ -35,11 +32,6 @@ namespace JackyAIApp.Server.Tests.Controllers
             _currentUserMock = new Mock<ICurrentUser>();
             _listeningQuestionGeneratorMock = new Mock<IListeningQuestionGenerator>();
 
-            var options = new DbContextOptionsBuilder<AzureSQLDBContext>()
-                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-                .Options;
-            _dbContext = new AzureSQLDBContext(options);
-
             _responseFactoryMock.Setup(x => x.CreateOKResponse(It.IsAny<object>()))
                 .Returns<object>(data => new OkObjectResult(new { Success = true, Data = data }));
             _responseFactoryMock.Setup(x => x.CreateErrorResponse(It.IsAny<ErrorCodes>(), It.IsAny<string>()))
@@ -47,10 +39,8 @@ namespace JackyAIApp.Server.Tests.Controllers
 
             _controller = new ExamController(
                 _responseFactoryMock.Object, _examServiceMock.Object, _ttsServiceMock.Object,
-                _currentUserMock.Object, _listeningQuestionGeneratorMock.Object, _dbContext);
+                _currentUserMock.Object, _listeningQuestionGeneratorMock.Object);
         }
-
-        public void Dispose() => _dbContext.Dispose();
 
         [Fact]
         public async Task TranscribeAudio_NoFile_ReturnsError()
@@ -66,23 +56,11 @@ namespace JackyAIApp.Server.Tests.Controllers
             _examServiceMock.Verify(x => x.TranscribeAudioAsync(It.IsAny<Stream>(), It.IsAny<string>()), Times.Never);
         }
 
+        // Who may call the listening admin endpoints is [AdminOnly]'s job (AdminOnlyAttributeTests,
+        // AdminOnlyEndpointsTests); the action itself only runs for an admin.
         [Fact]
-        public async Task GenerateListeningQuestion_NonAdmin_ReturnsForbidden()
+        public async Task GenerateListeningQuestion_CallsGenerator_AsTheSignedInUser()
         {
-            await SeedUserAsync("user-1", isAdmin: false);
-            _currentUserMock.Setup(x => x.Id).Returns("user-1");
-
-            var result = await _controller.GenerateListeningQuestion();
-
-            Assert.IsType<BadRequestObjectResult>(result);
-            _responseFactoryMock.Verify(x => x.CreateErrorResponse(ErrorCodes.Forbidden, It.IsAny<string>()), Times.Once);
-            _listeningQuestionGeneratorMock.Verify(x => x.GenerateAsync(It.IsAny<string>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task GenerateListeningQuestion_Admin_CallsGenerator()
-        {
-            await SeedUserAsync("admin-1", isAdmin: true);
             _currentUserMock.Setup(x => x.Id).Returns("admin-1");
             _listeningQuestionGeneratorMock.Setup(x => x.GenerateAsync("admin-1"))
                 .ReturnsAsync(ServiceResult.Ok(new ListeningTestResponse { Id = "lst-new", ImageUrl = "https://img/lst-new.png", Options = [] }));
@@ -91,31 +69,6 @@ namespace JackyAIApp.Server.Tests.Controllers
 
             Assert.IsType<OkObjectResult>(result);
             _listeningQuestionGeneratorMock.Verify(x => x.GenerateAsync("admin-1"), Times.Once);
-        }
-
-        [Fact]
-        public async Task GetListeningBank_NonAdmin_ReturnsForbidden()
-        {
-            await SeedUserAsync("user-2", isAdmin: false);
-            _currentUserMock.Setup(x => x.Id).Returns("user-2");
-
-            var result = await _controller.GetListeningBank();
-
-            Assert.IsType<BadRequestObjectResult>(result);
-            _examServiceMock.Verify(x => x.GetListeningBankAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
-        }
-
-        private async Task<Data.Models.SQL.User> SeedUserAsync(string userId, bool isAdmin)
-        {
-            var user = new Data.Models.SQL.User
-            {
-                Id = userId,
-                LastUpdated = DateTime.UtcNow,
-                IsAdmin = isAdmin,
-            };
-            _dbContext.Users.Add(user);
-            await _dbContext.SaveChangesAsync();
-            return user;
         }
     }
 }
