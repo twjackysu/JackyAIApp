@@ -284,10 +284,7 @@ export interface DrawdownBrakeDto {
 // POST drawdown-brake/refresh (TASK-041). Always HTTP 200 — `Throttled` included, since 429 on this
 // site means a usage limit. `signal` is the server's latest signal whatever the result.
 export type DrawdownBrakeRefreshResult =
-  | 'Updated'
-  | 'NoNewData'
-  | 'SourceUnavailable'
-  | 'Throttled';
+  'Updated' | 'NoNewData' | 'SourceUnavailable' | 'Throttled';
 
 export interface DrawdownBrakeRefreshDto {
   result: DrawdownBrakeRefreshResult;

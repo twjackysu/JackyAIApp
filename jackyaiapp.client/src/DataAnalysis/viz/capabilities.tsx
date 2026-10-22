@@ -1,3 +1,6 @@
+// This file exports viz metadata (data with icon elements), not a component — Fast Refresh's
+// component-only-export check doesn't apply to it.
+/* eslint-disable react-refresh/only-export-components */
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DonutLargeIcon from '@mui/icons-material/DonutLarge';
