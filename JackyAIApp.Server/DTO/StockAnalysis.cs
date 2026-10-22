@@ -23,4 +23,11 @@ namespace JackyAIApp.Server.DTO
     {
         public string StockCodeOrName { get; set; } = string.Empty;
     }
+
+    /// <summary>The model's answer to "which stock does the user mean" (Prompt/Finance/StockCodeResolverSystem.txt).</summary>
+    public class StockCodeResolution
+    {
+        /// <summary>A 4-digit TWSE code, or null when nothing matches.</summary>
+        public string? StockCode { get; set; }
+    }
 }

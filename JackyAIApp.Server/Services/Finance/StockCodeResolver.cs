@@ -1,36 +1,30 @@
-using Betalgo.Ranul.OpenAI.Interfaces;
-using Betalgo.Ranul.OpenAI.ObjectModels;
-using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
-using JackyAIApp.Server.Services.AiUsage;
+using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
-using ReasoningEffortType = Betalgo.Ranul.OpenAI.Contracts.Enums.ReasoningEffort;
 
 namespace JackyAIApp.Server.Services.Finance
 {
     public class StockCodeResolver(
         IHttpClientFactory httpClientFactory,
         ILogger<StockCodeResolver> logger,
-        IOpenAIService openAIService,
-        IMemoryCache memoryCache,
-        IAiUsageLogger usageLogger,
-        ICurrentUser currentUser) : IStockCodeResolver
+        IOpenAIPromptService promptService,
+        IMemoryCache memoryCache) : IStockCodeResolver
     {
         private readonly HttpClient _httpClient = httpClientFactory.CreateClient("ExternalReadOnly");
         private readonly ILogger<StockCodeResolver> _logger = logger;
-        private readonly IOpenAIService _openAIService = openAIService;
+        private readonly IOpenAIPromptService _promptService = promptService;
         private readonly IMemoryCache _memoryCache = memoryCache;
-        private readonly IAiUsageLogger _usageLogger = usageLogger;
-        private readonly ICurrentUser _currentUser = currentUser;
 
         private const string BaseUrl = "https://openapi.twse.com.tw/v1";
         private const string UserAgent = "stock-analysis/1.0";
         private const string CompanyListCacheKey = "twse_company_list";
 
-        /// <summary>The answer is a stock code or "NONE"; the rest is headroom for low-effort reasoning.</summary>
-        private const int ResolveMaxCompletionTokens = 1024;
+        internal const string PromptPath = "Prompt/Finance/StockCodeResolverSystem.txt";
+
+        /// <summary>The usage-log label this call has always had (the prompt path would give another).</summary>
+        internal const string UsageFeature = "finance.stockcode_resolver";
 
         public async Task<string> ResolveStockCodeAsync(string userInput, CancellationToken cancellationToken = default)
         {
@@ -44,11 +38,11 @@ namespace JackyAIApp.Server.Services.Finance
 
                 var companies = await GetCompanyListAsync(cancellationToken);
 
-                var exactMatch = await FindExactCompanyMatchAsync(companies, userInput, cancellationToken);
+                var exactMatch = await FindExactCompanyMatchAsync(companies, userInput);
                 if (!string.IsNullOrEmpty(exactMatch))
                     return exactMatch;
 
-                var aiResolvedCode = await ResolveWithAIAsync(userInput, companies, cancellationToken);
+                var aiResolvedCode = await ResolveWithAIAsync(userInput, companies);
                 if (!string.IsNullOrEmpty(aiResolvedCode))
                     return aiResolvedCode;
 
@@ -70,28 +64,24 @@ namespace JackyAIApp.Server.Services.Finance
         private static bool IsFourDigitCompanyCode(string input) =>
             !string.IsNullOrEmpty(input) && input.Length == 4 && input.All(char.IsDigit);
 
-        private Task LogUsageAsync(Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels.ChatCompletionCreateResponse response)
-        {
-            var usage = response.Usage;
-            if (usage == null) return Task.CompletedTask;
-            return _usageLogger.LogChatAsync(
-                "finance.stockcode_resolver",
-                NewModels.GPT_6_LUNA,
-                usage.PromptTokens,
-                usage.CompletionTokens ?? 0,
-                response.Successful,
-                _currentUser.Id);
-        }
-
         /// <summary>
-        /// A request OpenAI rejects outright (e.g. HTTP 400 on an unsupported parameter) usually carries no
-        /// <c>Usage</c>, so <see cref="LogUsageAsync"/> writes nothing and the caller only sees "not found".
-        /// This leaves the reason in the log, matching <c>OpenAIPromptService</c>.
+        /// Asks the model which company the user means, given <paramref name="companies"/> (both steps
+        /// share the one prompt). Empty when it names none, or anything but a 4-digit code. A failed
+        /// call is logged with its reason: otherwise the user only sees "not found".
         /// </summary>
-        private void LogCompletionFailure(Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels.ChatCompletionCreateResponse response)
+        private async Task<string> AskModelAsync(string userInput, IEnumerable<CompanyInfo> companies)
         {
-            var errorMsg = response.Error?.Message ?? "OpenAI request failed";
-            _logger.LogError("OpenAI stock-code resolution failed: {Error}", errorMsg);
+            var userMessage = $"User input: '{userInput}'\n\nCompanies:\n{string.Join("\n", companies.Select(c => $"{c.Code}: {c.Name}"))}";
+            var (answer, error) = await _promptService.GetCompletionAsync<StockCodeResolution>(
+                PromptPath, userMessage, model: NewModels.GPT_6_LUNA, feature: UsageFeature);
+            if (answer is null)
+            {
+                _logger.LogWarning("Stock-code resolution failed for '{userInput}': {Error}", userInput, error);
+                return string.Empty;
+            }
+
+            var code = answer.StockCode?.Trim() ?? "";
+            return IsFourDigitCompanyCode(code) ? code : string.Empty;
         }
 
         private Task<List<CompanyInfo>> GetCompanyListAsync(CancellationToken cancellationToken) =>
@@ -165,126 +155,28 @@ namespace JackyAIApp.Server.Services.Finance
             return null;
         }
 
-        private async Task<string> FindExactCompanyMatchAsync(List<CompanyInfo> companies, string userInput, CancellationToken cancellationToken)
+        private async Task<string> FindExactCompanyMatchAsync(List<CompanyInfo> companies, string userInput)
         {
-            try
-            {
-                var exact = companies.FirstOrDefault(c => string.Equals(c.Name, userInput, StringComparison.OrdinalIgnoreCase));
-                if (exact != null) return exact.Code;
+            var exact = companies.FirstOrDefault(c => string.Equals(c.Name, userInput, StringComparison.OrdinalIgnoreCase));
+            if (exact != null) return exact.Code;
 
-                var companyList = companies
-                    .Take(100)
-                    .Select(c => $"{c.Code}:{c.Name}")
-                    .ToList();
-
-                var systemPrompt = @"你是台灣證券交易所的股票代號查詢助手。
-給定用戶輸入和公司列表，請找出最匹配的公司代號。
-
-規則：
-1. 只返回4位數字的股票代號 (例如: 2330)
-2. 如果找不到匹配，返回 'NONE'
-3. 優先考慮知名公司和常見簡稱
-4. 支援部分匹配和簡稱
-
-例子：
-- 用戶輸入 '台積電' 或 '台積' → 找到 '台灣積體電路製造股份有限公司' → 返回 '2330'
-- 用戶輸入 '鴻海' → 找到 '鴻海精密工業股份有限公司' → 返回 '2317'
-- 用戶輸入 '聯發科' → 找到對應公司 → 返回代號";
-
-                var userPrompt = $"用戶輸入: '{userInput}'\n\n公司列表:\n{string.Join("\n", companyList)}\n\n請返回最匹配的股票代號:";
-
-                var completionRequest = new ChatCompletionCreateRequest
-                {
-                    Messages = [ChatMessage.FromSystem(systemPrompt), ChatMessage.FromUser(userPrompt)],
-                    Model = NewModels.GPT_6_LUNA,
-                    // gpt-6-luna is a reasoning model: it rejects max_tokens, and its reasoning tokens
-                    // count against the cap, so a tight cap meant for the answer alone returns empty.
-                    ReasoningEffort = ReasoningEffortType.Low,
-                    MaxCompletionTokens = ResolveMaxCompletionTokens
-                };
-
-                var response = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
-                await LogUsageAsync(response);
-                if (!response.Successful)
-                {
-                    LogCompletionFailure(response);
-                }
-                else
-                {
-                    var result = response.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
-                    if (IsFourDigitCompanyCode(result))
-                    {
-                        _logger.LogInformation("LLM resolved '{input}' to stock code '{code}'", userInput, result);
-                        return result;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "LLM company matching failed for input '{userInput}'", userInput);
-            }
-            return string.Empty;
+            // The first 100 companies by code are mostly 1xxx and rarely the one meant. What makes this
+            // step work is the model knowing common short names (台積電 → 2330), which the substring
+            // search in ResolveWithAIAsync cannot find: 台積電 is not part of 台灣積體電路製造.
+            var result = await AskModelAsync(userInput, companies.Take(100));
+            if (result.Length > 0)
+                _logger.LogInformation("LLM resolved '{input}' to stock code '{code}'", userInput, result);
+            return result;
         }
 
-        private async Task<string> ResolveWithAIAsync(string userInput, List<CompanyInfo> companies, CancellationToken cancellationToken)
+        private async Task<string> ResolveWithAIAsync(string userInput, List<CompanyInfo> companies)
         {
-            try
-            {
-                var potentialMatches = companies
-                    .Where(c => c.Name.Contains(userInput, StringComparison.OrdinalIgnoreCase) || ContainsKeywords(c.Name, userInput))
-                    .Take(20)
-                    .Select(c => $"{c.Code}: {c.Name}")
-                    .ToList();
+            var potentialMatches = companies
+                .Where(c => c.Name.Contains(userInput, StringComparison.OrdinalIgnoreCase) || ContainsKeywords(c.Name, userInput))
+                .Take(20)
+                .ToList();
 
-                if (potentialMatches.Count == 0)
-                    return string.Empty;
-
-                var systemPrompt = @"You are a stock code resolver for Taiwan Stock Exchange (TWSE).
-Given a user input and a list of potential company matches, return ONLY the 4-digit stock code that best matches the user's intent.
-
-Rules:
-1. Return ONLY the 4-digit stock code (e.g., '2330')
-2. If no good match exists, return 'NONE'
-3. Consider common abbreviations and variations
-4. Prioritize well-known companies for ambiguous inputs
-
-Examples:
-User: '台積電' → '2330'
-User: 'TSMC' → '2330'
-User: '台積' → '2330'
-User: '鴻海' → '2317'
-User: 'undefined company' → 'NONE'";
-
-                var userPrompt = $"User input: '{userInput}'\n\nPotential matches:\n{string.Join("\n", potentialMatches)}\n\nReturn the best matching stock code:";
-
-                var completionRequest = new ChatCompletionCreateRequest
-                {
-                    Messages = [ChatMessage.FromSystem(systemPrompt), ChatMessage.FromUser(userPrompt)],
-                    Model = NewModels.GPT_6_LUNA,
-                    // gpt-6-luna is a reasoning model: it rejects max_tokens, and its reasoning tokens
-                    // count against the cap, so a tight cap meant for the answer alone returns empty.
-                    ReasoningEffort = ReasoningEffortType.Low,
-                    MaxCompletionTokens = ResolveMaxCompletionTokens
-                };
-
-                var response = await _openAIService.ChatCompletion.CreateCompletion(completionRequest);
-                await LogUsageAsync(response);
-                if (!response.Successful)
-                {
-                    LogCompletionFailure(response);
-                }
-                else
-                {
-                    var result = response.Choices?.FirstOrDefault()?.Message?.Content?.Trim() ?? "";
-                    if (IsFourDigitCompanyCode(result))
-                        return result;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "AI resolution failed for input '{userInput}'", userInput);
-            }
-            return string.Empty;
+            return potentialMatches.Count == 0 ? string.Empty : await AskModelAsync(userInput, potentialMatches);
         }
 
         private static bool ContainsKeywords(string companyName, string userInput)

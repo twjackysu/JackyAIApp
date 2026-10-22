@@ -1,23 +1,19 @@
-using Betalgo.Ranul.OpenAI.Interfaces;
-using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
-using Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels;
-using Betalgo.Ranul.OpenAI.ObjectModels.SharedModels;
-using JackyAIApp.Server.Services;
-using JackyAIApp.Server.Services.AiUsage;
+using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.Finance;
+using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.Prompt;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace JackyAIApp.Server.Tests.Services.Finance
 {
     /// <summary>
-    /// A request OpenAI rejects outright (e.g. HTTP 400 on a parameter the model does not accept)
-    /// carries no <c>Usage</c>, so no AiUsageLogs row is written, and the resolver itself returned an
-    /// empty string with nothing in the log: every typed company name just became "not found".
-    /// These tests pin that both OpenAI calls leave the reason in the log while the behaviour
-    /// (empty result, no throw, no retry) stays the same.
+    /// Both of the resolver's model calls go through <see cref="IOpenAIPromptService"/> with the one
+    /// prompt file. A failed call leaves its reason in the log (otherwise every typed company name just
+    /// becomes "not found"), and the answer is accepted only as a 4-digit code.
     /// </summary>
     public class StockCodeResolverTests
     {
@@ -28,16 +24,13 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         // 100 companies" call and the "match against keyword-filtered candidates" call.
         private const string PartialName = "台灣積體";
 
-        private readonly Mock<IChatCompletionService> _chatCompletion = new();
-        private readonly Mock<IOpenAIService> _openAI = new();
-        private readonly Mock<IAiUsageLogger> _usageLogger = new();
+        private readonly Mock<IOpenAIPromptService> _promptService = new();
         private readonly RecordingLogger<StockCodeResolver> _logger = new();
+        private readonly List<string> _userMessages = [];
         private int _httpRequests;
 
         private StockCodeResolver Create()
         {
-            _openAI.Setup(x => x.ChatCompletion).Returns(_chatCompletion.Object);
-
             var httpClient = StubHttpMessageHandler.CreateClient(_ =>
             {
                 Interlocked.Increment(ref _httpRequests);
@@ -49,70 +42,73 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             return new StockCodeResolver(
                 httpClientFactory.Object,
                 _logger,
-                _openAI.Object,
-                new MemoryCache(new MemoryCacheOptions()),
-                _usageLogger.Object,
-                new Mock<ICurrentUser>().Object);
+                _promptService.Object,
+                new MemoryCache(new MemoryCacheOptions()));
         }
 
-        private void SetupCompletion(ChatCompletionCreateResponse response) =>
-            _chatCompletion
-                .Setup(x => x.CreateCompletion(It.IsAny<ChatCompletionCreateRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(response);
+        private void SetupAnswer(StockCodeResolution? answer, string? error = null) =>
+            _promptService
+                .Setup(x => x.GetCompletionAsync<StockCodeResolution>(
+                    StockCodeResolver.PromptPath, It.IsAny<string>(), It.IsAny<string?>(),
+                    It.IsAny<IEnumerable<(string User, string Assistant)>?>(), StockCodeResolver.UsageFeature))
+                .Callback<string, string, string?, IEnumerable<(string User, string Assistant)>?, string?>(
+                    (_, user, _, _, _) => _userMessages.Add(user))
+                .ReturnsAsync((answer, error));
+
+        private void VerifyCalls(Times times) =>
+            _promptService.Verify(
+                x => x.GetCompletionAsync<StockCodeResolution>(
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(),
+                    It.IsAny<IEnumerable<(string User, string Assistant)>?>(), It.IsAny<string?>()),
+                times);
 
         [Fact]
-        public async Task OpenAIRejectsRequest_ReturnsEmptyAndLogsErrorForEachCall()
+        public async Task ModelCallFails_ReturnsEmptyAndLogsTheReasonForEachCall()
         {
-            SetupCompletion(new ChatCompletionCreateResponse
-            {
-                Error = new Error { MessageObject = "Unsupported parameter: 'max_completion_tokens'" },
-            });
+            SetupAnswer(null, "Unsupported parameter: 'max_completion_tokens'");
 
             var result = await Create().ResolveStockCodeAsync(PartialName);
 
             Assert.Equal(string.Empty, result);
-            var failures = _logger.Entries.Where(e => e.Level == LogLevel.Error).ToList();
+            var failures = _logger.Entries.Where(e => e.Message.Contains("Stock-code resolution failed")).ToList();
             Assert.Equal(2, failures.Count);
             Assert.All(failures, e =>
             {
-                Assert.Contains("OpenAI stock-code resolution failed", e.Message);
+                Assert.Equal(LogLevel.Warning, e.Level);
                 Assert.Contains("Unsupported parameter: 'max_completion_tokens'", e.Message);
             });
             // Both calls ran exactly once: no retry.
-            _chatCompletion.Verify(
-                x => x.CreateCompletion(It.IsAny<ChatCompletionCreateRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-                Times.Exactly(2));
+            VerifyCalls(Times.Exactly(2));
         }
 
         [Fact]
-        public async Task OpenAIRejectsRequestWithoutErrorMessage_LogsGenericMessage()
+        public async Task ModelAnswersWithStockCode_ReturnsIt()
         {
-            SetupCompletion(new ChatCompletionCreateResponse { Error = new Error() });
-
-            var result = await Create().ResolveStockCodeAsync(PartialName);
-
-            Assert.Equal(string.Empty, result);
-            var failures = _logger.Entries.Where(e => e.Level == LogLevel.Error).ToList();
-            Assert.NotEmpty(failures);
-            Assert.All(failures, e => Assert.Contains("OpenAI request failed", e.Message));
-        }
-
-        [Fact]
-        public async Task OpenAIAnswersWithStockCode_ReturnsItWithoutErrorLog()
-        {
-            SetupCompletion(new ChatCompletionCreateResponse
-            {
-                Choices = [new ChatChoiceResponse { Message = ChatMessage.FromAssistant("2330") }],
-            });
+            SetupAnswer(new StockCodeResolution { StockCode = " 2330 " });
 
             var result = await Create().ResolveStockCodeAsync(PartialName);
 
             Assert.Equal("2330", result);
-            Assert.DoesNotContain(_logger.Entries, e => e.Level == LogLevel.Error);
+            Assert.DoesNotContain(_logger.Entries, e => e.Level >= LogLevel.Warning);
+            // The first step answered; the second never ran.
+            VerifyCalls(Times.Once());
+            Assert.Contains("User input: '台灣積體'", Assert.Single(_userMessages));
+            Assert.Contains("2330: 台灣積體電路製造股份有限公司", _userMessages[0]);
+        }
+
+        [Fact]
+        public async Task ModelFindsNothing_ReturnsEmpty()
+        {
+            SetupAnswer(new StockCodeResolution { StockCode = null });
+
+            var result = await Create().ResolveStockCodeAsync(PartialName);
+
+            Assert.Equal(string.Empty, result);
+            VerifyCalls(Times.Exactly(2));
         }
 
         // Input that already looks like a TW code (4-6 digits, optional trailing letter — the same rule
-        // MarketDataProviderFactory routes on) is the answer: no company list fetch, no LLM call.
+        // MarketDataProviderFactory routes on) is the answer: no company list fetch, no model call.
         [Theory]
         [InlineData("00878", "00878")]
         [InlineData("00919", "00919")]
@@ -121,20 +117,16 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         [InlineData("00631l", "00631L")]
         [InlineData("2330", "2330")]
         [InlineData("  2330  ", "2330")]
-        public async Task CodeShapedInput_ReturnsNormalizedCodeWithoutHttpOrOpenAI(string input, string expected)
+        public async Task CodeShapedInput_ReturnsNormalizedCodeWithoutHttpOrModel(string input, string expected)
         {
             var result = await Create().ResolveStockCodeAsync(input);
 
             Assert.Equal(expected, result);
             Assert.Equal(0, _httpRequests);
-            _openAI.Verify(x => x.ChatCompletion, Times.Never);
-            _chatCompletion.Verify(
-                x => x.CreateCompletion(It.IsAny<ChatCompletionCreateRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-                Times.Never);
-            _usageLogger.VerifyNoOtherCalls();
+            VerifyCalls(Times.Never());
         }
 
-        // Looks code-ish but is not a TW code: takes the original path (company list, then the LLM).
+        // Looks code-ish but is not a TW code: takes the original path (company list, then the model).
         [Theory]
         [InlineData("123")]       // too short
         [InlineData("1234567")]   // too long
@@ -142,36 +134,41 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         [InlineData("")]
         public async Task NonCodeShapedInput_TakesTheOriginalNamePath(string input)
         {
-            SetupCompletion(new ChatCompletionCreateResponse
-            {
-                Choices = [new ChatChoiceResponse { Message = ChatMessage.FromAssistant("NONE") }],
-            });
+            SetupAnswer(new StockCodeResolution { StockCode = null });
 
             var result = await Create().ResolveStockCodeAsync(input);
 
             Assert.Equal(string.Empty, result);
             Assert.Equal(1, _httpRequests); // the company list
-            _chatCompletion.Verify(
-                x => x.CreateCompletion(It.IsAny<ChatCompletionCreateRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-                Times.AtLeastOnce);
+            VerifyCalls(Times.AtLeastOnce());
         }
 
-        // The relaxed rule is for what the *user typed*. What the LLM answers stays strictly 4 digits:
+        // The relaxed rule is for what the *user typed*. What the model answers stays strictly 4 digits:
         // the company list holds only 4-digit listed companies, so a 5-6 digit answer is a hallucination.
         [Theory]
         [InlineData("00878")]
         [InlineData("006208")]
         [InlineData("00631L")]
-        public async Task OpenAIAnswersWithNonFourDigitCode_IsRejected(string answer)
+        [InlineData("NONE")]
+        public async Task ModelAnswersWithAnythingButAFourDigitCode_IsRejected(string answer)
         {
-            SetupCompletion(new ChatCompletionCreateResponse
-            {
-                Choices = [new ChatChoiceResponse { Message = ChatMessage.FromAssistant(answer) }],
-            });
+            SetupAnswer(new StockCodeResolution { StockCode = answer });
 
             var result = await Create().ResolveStockCodeAsync(PartialName);
 
             Assert.Equal(string.Empty, result);
+        }
+
+        [Fact]
+        public void ThePromptIsEmbedded_AndAsksForJson()
+        {
+            // OpenAIPromptService requests response_format=json_object, which OpenAI rejects unless
+            // the prompt mentions JSON.
+            var prompt = new PromptLoader(NullLogger<PromptLoader>.Instance).GetPrompt(StockCodeResolver.PromptPath);
+
+            Assert.NotNull(prompt);
+            Assert.Contains("JSON", prompt);
+            Assert.Contains("\"StockCode\"", prompt);
         }
     }
 }
