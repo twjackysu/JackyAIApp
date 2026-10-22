@@ -801,7 +801,7 @@ surface (`PortfolioAiSummary` is the only paid action here).
 
 ### Gap Audit (2026-09-20, DECISION-005 follow-through)
 PM read the actual code (`PortfolioController.cs`, `PortfolioService.cs`,
-`Data/Models/Portfolio.cs`, the `Portfolio/` frontend) rather than relying on
+`Data/Models/Portfolio/HoldingSnapshot.cs`, the `Portfolio/` frontend) rather than relying on
 this doc's prior (stale, now-corrected above) description. Findings:
 - **Same cross-module gap Finance's own audit found independently**: a
   portfolio holder gets *less* AI insight on a stock they actually own than

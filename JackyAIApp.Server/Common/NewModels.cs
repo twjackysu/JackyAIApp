@@ -1,4 +1,4 @@
-﻿namespace JackyAIApp.Server.DTO
+﻿namespace JackyAIApp.Server.Common
 {
     public class NewModels
     {

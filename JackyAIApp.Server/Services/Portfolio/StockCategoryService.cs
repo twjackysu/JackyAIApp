@@ -2,7 +2,6 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.Data.Models.SQL;
-using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.OpenAI;

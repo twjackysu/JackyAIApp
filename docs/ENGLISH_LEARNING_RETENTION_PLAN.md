@@ -45,7 +45,7 @@ Solid foundation already in place — most early-stage apps lack this:
   `scripts/add_datasourceconfigs_table.sql`) to apply to the live Azure SQL DB, in addition to the
   model + `DbSet` + `OnModelCreating` config so fresh DBs get it automatically.
 - **DbContext**: `JackyAIApp.Server/Data/AzureSQLDBContext.cs`.
-- **Models**: `JackyAIApp.Server/Data/Models/` (`SQLUser.cs` has `User` + `UserWord`).
+- **Models**: `JackyAIApp.Server/Data/Models/SQL/` (`User.cs` has `User` + `UserWord`).
 - **Exam service**: `JackyAIApp.Server/Services/Exam/ExamService.cs` + `Generators/`.
 - **Credit costs**: `JackyAIApp.Server/Common/CreditCosts.cs` +
   `jackyaiapp.client/src/constants/creditCosts.ts`.
@@ -195,7 +195,7 @@ single biggest drop-off moment.
   needed (e.g. `User.StreakFreezesAvailable`, `LastFreezeGrantDate`) with a `scripts/` column-add
   script. Never show guilt-trip copy.
 
-**Touches:** Daily Challenge submit / streak logic, `SQLUser.cs`, `scripts/`, Stats display.
+**Touches:** Daily Challenge submit / streak logic, `Data/Models/SQL/User.cs`, `scripts/`, Stats display.
 
 ### P2 — later
 
