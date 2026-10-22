@@ -1,4 +1,5 @@
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
@@ -6,7 +7,6 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Exam;
 using JackyAIApp.Server.Services.Exam.Generators;
 using JackyAIApp.Server.Services.OpenAI;
-using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using JackyAIApp.Server.Services.SpacedRepetition;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;

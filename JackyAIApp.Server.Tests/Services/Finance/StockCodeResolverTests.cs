@@ -1,8 +1,8 @@
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.OpenAI;
-using JackyAIApp.Server.Services.Portfolio;
 using JackyAIApp.Server.Services.Prompt;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Logging;

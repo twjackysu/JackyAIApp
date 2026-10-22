@@ -1,5 +1,5 @@
 using JackyAIApp.Server.DTO.Finance;
-using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Portfolio;
 
 namespace JackyAIApp.Server.Tests.TestHelpers

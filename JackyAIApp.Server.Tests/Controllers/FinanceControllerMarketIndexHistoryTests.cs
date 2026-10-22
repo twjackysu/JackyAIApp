@@ -1,13 +1,13 @@
 using Microsoft.Extensions.Caching.Memory;
+using JackyAIApp.Server.Services;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Controllers;
 using JackyAIApp.Server.DTO.Finance;
-using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Finance.Builder;
-using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Prediction;
 using JackyAIApp.Server.Services.Finance.Scoring;

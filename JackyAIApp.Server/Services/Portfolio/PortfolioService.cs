@@ -557,9 +557,9 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// Manual retry for a position stuck showing "報價失敗" — busts both this request-scoped
         /// in-memory cache entry and the provider's own persisted sticky state (e.g. a TW symbol
         /// wrongly resolved to the other market once and never re-checked since, see
-        /// <see cref="Finance.DataProviders.PersistentTwHistoricalProvider.InvalidateAsync"/>) for
+        /// <see cref="Market.PersistentTwHistoricalProvider.InvalidateAsync"/>) for
         /// just this one symbol, then returns a freshly recomputed summary. Only STOCK positions
-        /// route through <see cref="Finance.DataProviders.IMarketDataProviderFactory"/> at all (FUND pricing goes through
+        /// route through <see cref="Market.IMarketDataProviderFactory"/> at all (FUND pricing goes through
         /// <see cref="IFundDataService"/> instead), so a symbol not currently held as a STOCK is a
         /// silent no-op rather than an error — this also stops the endpoint being usable to force
         /// arbitrary external-API fetches for symbols the caller doesn't even hold.

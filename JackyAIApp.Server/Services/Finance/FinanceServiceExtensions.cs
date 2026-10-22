@@ -1,6 +1,5 @@
 using JackyAIApp.Server.Services.Finance.Builder;
-using JackyAIApp.Server.Services.Finance.DataProviders;
-using JackyAIApp.Server.Services.Finance.DataProviders.US;
+using JackyAIApp.Server.Services.Market.US;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Prediction;
 using JackyAIApp.Server.Services.Finance.Scoring;

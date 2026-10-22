@@ -1,4 +1,5 @@
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
+using JackyAIApp.Server.Services.Market;
 
 namespace JackyAIApp.Server.Tests.Services.Portfolio.DrawdownBrake
 {

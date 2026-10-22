@@ -19,6 +19,9 @@ Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE
 
 ### Backend Stack
 - **.NET 10 Web API** with Swagger documentation
+- **Modules** (one project): Platform, MarketData, English, Finance, Portfolio, DataAnalysis, Tools — which
+  namespaces each owns and which modules it may use is in [JackyAIApp.Server/CLAUDE.md](JackyAIApp.Server/CLAUDE.md)
+  ("Modules"), enforced by `ModuleBoundariesTests`
 - **Entity Framework Core 10** with Azure SQL Database
 - **Azure integrations**: Key Vault for secrets, App Service hosting
 - **OpenAI integration** via Betalgo.Ranul.OpenAI package (v9.2)

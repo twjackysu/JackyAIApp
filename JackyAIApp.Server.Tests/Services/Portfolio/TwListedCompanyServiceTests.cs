@@ -1,10 +1,9 @@
 using System.Net;
+using JackyAIApp.Server.Services.Market;
 using System.Text;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.Services.ExternalApi.Twse;
-using JackyAIApp.Server.Services.Finance;
-using JackyAIApp.Server.Services.Portfolio;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;

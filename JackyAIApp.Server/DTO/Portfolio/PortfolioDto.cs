@@ -1,4 +1,5 @@
 using JackyAIApp.Server.Data.Models.Portfolio;
+using JackyAIApp.Server.Services.Market;
 
 namespace JackyAIApp.Server.DTO.Portfolio
 {
@@ -219,7 +220,7 @@ namespace JackyAIApp.Server.DTO.Portfolio
     /// </summary>
     public class HistoryBackfillDto
     {
-        public Services.Finance.DataProviders.BackfillState State { get; set; }
+        public Services.Market.BackfillState State { get; set; }
         // yyyy-MM-dd. The earliest day every stock in the chart has prices from, so the chart
         // already reaches back this far.
         public string CoveredFrom { get; set; } = "";

@@ -9,6 +9,9 @@ namespace JackyAIApp.Server.Common
     /// </summary>
     internal static class HtmlMetadata
     {
+        /// <summary>Generic site image used as og:image on every page — no per-page image generation.</summary>
+        internal const string GenericOgImagePath = "/JackyAIIcon.png";
+
         /// <summary>Pure, so it is testable without an HttpContext. Every value is HTML-encoded, and
         /// existing tags are replaced rather than duplicated.</summary>
         internal static string Apply(string html, string title, string description, string pageUrl, string imageUrl)

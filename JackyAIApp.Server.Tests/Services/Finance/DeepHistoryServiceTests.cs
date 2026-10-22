@@ -1,7 +1,7 @@
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Finance;
-using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 

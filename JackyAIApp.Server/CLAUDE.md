@@ -38,6 +38,31 @@ JackyAIApp.Server/
 └── Common/         # Error handling middleware, response factory
 ```
 
+## Modules
+
+The server is one project in modules, each a set of namespaces; `Architecture/ModuleBoundariesTests`
+holds the map and fails on any use the table does not allow (a `using` or a fully qualified name in
+code; comments do not count). A new `Services.Something` namespace is in no module until given one.
+
+| Module | Namespaces | May use |
+|---|---|---|
+| Platform | `Common`, `Configuration`, `Data`, `Services` (only what is directly in it: current user, accounts, usage limits, connectors, `DrawdownBrakeAccess`), `Services.AiUsage`, `.OpenAI`, `.Prompt`, `.Speech`, `.ExternalApi` (the gateway) | — |
+| MarketData | `Services.Market` (prices, history and backfill, fundamentals/chips/macro providers, TW symbol list, MIS TAIEX quote, trading calendar, `TwStockCode`), `Services.ExternalApi.Twse` | Platform |
+| English | `Services.Dictionary`, `.Repository`, `.Exam`, `.Listening`, `.SpacedRepetition`, `.DailyChallenge`, `.WordOfTheDay`, `.SpellChecker`, `Mappers` | Platform |
+| Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest), `Services.Chatbot` | MarketData, Platform |
+| Portfolio | `Services.Portfolio` | MarketData, Platform |
+| DataAnalysis | `Services.DataAnalysis` | Platform |
+| Tools | `Services.Job` | Platform |
+
+- Controllers, `Extensions` (the DI registration) and `Program` wire modules together and DTOs are plain
+  data, so none is held to the table. A file that is about one feature lives in that feature's module,
+  even a middleware or a filter (the word-page middlewares are English's)
+- Data two features both need goes in a module both may use (that is why MarketData exists), not in one
+  of them for the other to reach into
+- The market-data namespace is `Services.Market`, not `Services.MarketData`: a namespace of that name
+  under `Services` would hide the DTO class `MarketData` from every service
+- One `AzureSQLDBContext` for all modules (each module's entities have their own configuration file)
+
 ## Controllers
 
 - A controller does HTTP only: binding, routing attributes, answering a service's result with

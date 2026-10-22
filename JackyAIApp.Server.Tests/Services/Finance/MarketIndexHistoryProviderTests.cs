@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using JackyAIApp.Server.DTO.Finance;
-using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;

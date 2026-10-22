@@ -41,7 +41,7 @@ namespace JackyAIApp.Server.Tests.Common
             Assert.Contains("content=\"apple (noun): a fruit\"", html);
             Assert.Contains("property=\"og:title\" content=\"apple 英文意思、發音、例句 | English Coach\"", html);
             Assert.Contains("property=\"og:url\" content=\"https://example.com/english/dictionary/apple\"", html);
-            Assert.Contains($"property=\"og:image\" content=\"https://example.com{BotPreviewMiddleware.GenericOgImagePath}\"", html);
+            Assert.Contains($"property=\"og:image\" content=\"https://example.com{HtmlMetadata.GenericOgImagePath}\"", html);
         }
 
         [Fact]

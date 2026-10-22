@@ -1,6 +1,6 @@
 using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.DTO.Portfolio;
-using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 
 namespace JackyAIApp.Server.Services.Portfolio
 {

@@ -1,6 +1,6 @@
 using System.Net;
 using JackyAIApp.Server.Configuration;
-using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;

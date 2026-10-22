@@ -16,7 +16,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
 
         public required string StockCode { get; set; }
 
-        /// <summary>"TW" | "US" — matches <c>Services.Finance.DataProviders.MarketRegion</c>'s name.</summary>
+        /// <summary>"TW" | "US" — matches <c>Services.Market.MarketRegion</c>'s name.</summary>
         public required string Market { get; set; }
 
         /// <summary>Who triggered the originating `analyze-stock` call. Traceability only — never

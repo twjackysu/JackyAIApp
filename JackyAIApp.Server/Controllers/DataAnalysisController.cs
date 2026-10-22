@@ -1,4 +1,5 @@
 using DataAnalysisLibrary.Core.Engine;
+using JackyAIApp.Server.Extensions;
 using DataAnalysisLibrary.Core.Enums;
 using DataAnalysisLibrary.Core.Models.Common;
 using DataAnalysisLibrary.Core.Models.Requests;

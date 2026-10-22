@@ -1,8 +1,8 @@
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services.OpenAI;
-using JackyAIApp.Server.Services.Portfolio;
 
 namespace JackyAIApp.Server.Services.Finance
 {

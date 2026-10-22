@@ -1,7 +1,7 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.ExternalApi.Twse;
-using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.Extensions.Caching.Memory;
 

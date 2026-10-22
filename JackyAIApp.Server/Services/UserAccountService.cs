@@ -2,7 +2,6 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
-using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.EntityFrameworkCore;
 
 namespace JackyAIApp.Server.Services

@@ -36,7 +36,7 @@ namespace JackyAIApp.Server.Services.Portfolio.DrawdownBrake
 
     /// <summary>
     /// Keeps <c>TaiexTotalReturnDaily</c> current from outside any request, in the manner of
-    /// <see cref="TwListedCompanyRefreshService"/>: checks at startup and then hourly, and a
+    /// <see cref="Market.TwListedCompanyRefreshService"/>: checks at startup and then hourly, and a
     /// failed round is simply tried again an hour later, so no bookkeeping is needed to survive
     /// restarts. Each check decides what to fetch from what is stored:
     ///

@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
+using JackyAIApp.Server.Services.Market;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.Services.Finance;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.ExternalApi.Twse
