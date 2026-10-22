@@ -53,9 +53,8 @@ namespace JackyAIApp.Server.Services.Portfolio
             AssetType assetType, string symbol, string name, string market, CancellationToken ct = default)
         {
             // Mapped directly, never sent to the AI — see PortfolioCategory's doc comment.
-            if (assetType == AssetType.CASH) return StockCategoryInfo.Direct(PortfolioCategory.Cash);
-            if (assetType == AssetType.LIABILITY) return StockCategoryInfo.Direct(PortfolioCategory.Liability);
-            if (assetType == AssetType.REAL_ESTATE) return StockCategoryInfo.Direct(PortfolioCategory.Property);
+            if (AssetValuationPolicy.For(assetType).FixedCategory is { } fixedCategory)
+                return StockCategoryInfo.Direct(fixedCategory);
             if (string.IsNullOrWhiteSpace(symbol)) return StockCategoryInfo.Direct(PortfolioCategory.Other);
 
             // Fresh context per call: this is fanned out across many symbols concurrently by

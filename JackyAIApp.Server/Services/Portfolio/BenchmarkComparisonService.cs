@@ -182,7 +182,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             // of just its own incremental delta — badly distorting the simulated return.
             var priorSnapshot = snapshots.LastOrDefault(s => s.EffectiveDate <= startDate);
             var prevCost = priorSnapshot?.Positions
-                .Where(p => p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
+                .Where(p => AssetValuationPolicy.For(p.AssetType).HasCostBasis && p.CostBasis.HasValue)
                 .Sum(p => p.CostBasis!.Value * ((p.CostCurrency ?? p.Currency) == "USD"
                     ? SnapshotFx(priorSnapshot) : 1m)) ?? 0;
             if (prevCost > 0)
@@ -245,7 +245,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (date == active.EffectiveDate)
                 {
                     var snapCost = active.Positions
-                        .Where(p => p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
+                        .Where(p => AssetValuationPolicy.For(p.AssetType).HasCostBasis && p.CostBasis.HasValue)
                         .Sum(p => p.CostBasis!.Value * ((p.CostCurrency ?? p.Currency) == "USD"
                             ? SnapshotFx(active) : 1m));
                     var delta = snapCost - prevCost;
@@ -348,7 +348,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             var keys = orderedSnapshots
                 .SelectMany(s => s.Positions)
-                .Where(p => (p.AssetType == AssetType.STOCK || p.AssetType == AssetType.FUND)
+                .Where(p => AssetValuationPolicy.For(p.AssetType).PaysDividends
                     && p.CostBasis.HasValue && !string.IsNullOrWhiteSpace(p.Symbol))
                 .Select(p => (p.AssetType, Symbol: p.Symbol, Market: p.Market))
                 .Distinct()
@@ -357,9 +357,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             var fetched = await Task.WhenAll(keys.Select(async key => (
                 Key: key,
-                Records: key.AssetType == AssetType.STOCK
-                    ? await dividendData.GetStockDividendsAsync(key.Symbol, key.Market, ct)
-                    : await dividendData.GetFundDividendsAsync(key.Symbol, ct)
+                Records: await dividendData.GetDividendsAsync(key.AssetType, key.Symbol, key.Market, ct)
             )));
 
             foreach (var (key, records) in fetched)

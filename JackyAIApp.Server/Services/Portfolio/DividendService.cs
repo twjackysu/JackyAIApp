@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Data.Models.Portfolio;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Portfolio
@@ -33,6 +34,20 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         /// <summary>Cash distributions for a fund via FundRich. Records carry no currency (see <see cref="DividendRecord"/>).</summary>
         Task<List<DividendRecord>> GetFundDividendsAsync(string fundId, CancellationToken ct = default);
+    }
+
+    public static class DividendServiceExtensions
+    {
+        /// <summary>The dividends of a holding whose type <see cref="AssetValuationPolicy.PaysDividends"/>,
+        /// from that type's source: a stock's from Yahoo, a fund's from FundRich.</summary>
+        public static Task<List<DividendRecord>> GetDividendsAsync(
+            this IDividendService dividends, AssetType type, string symbol, string market, CancellationToken ct) =>
+            type switch
+            {
+                AssetType.STOCK => dividends.GetStockDividendsAsync(symbol, market, ct),
+                AssetType.FUND => dividends.GetFundDividendsAsync(symbol, ct),
+                _ => throw new ArgumentOutOfRangeException(nameof(type), type, "This asset type pays no dividends."),
+            };
     }
 
     public class DividendService(
