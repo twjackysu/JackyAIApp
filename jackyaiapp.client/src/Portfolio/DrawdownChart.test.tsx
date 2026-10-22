@@ -74,8 +74,7 @@ const respondWith = (data: DrawdownAnalysis) => {
 /** The `pollingInterval` the chart last asked the query hook for. */
 const lastPolling = () => {
   const options = mocks.drawdown.mock.lastCall?.[1] as
-    | { pollingInterval: number; skipPollingIfUnfocused: boolean }
-    | undefined;
+    { pollingInterval: number; skipPollingIfUnfocused: boolean } | undefined;
   return options;
 };
 

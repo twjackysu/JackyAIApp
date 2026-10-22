@@ -1,9 +1,5 @@
 export type QuestionType =
-  | 'VocabularyDefinition'
-  | 'FillInTheBlank'
-  | 'Synonym'
-  | 'Antonym'
-  | 'Translation';
+  'VocabularyDefinition' | 'FillInTheBlank' | 'Synonym' | 'Antonym' | 'Translation';
 
 export interface DailyChallengeQuestion {
   id: number;

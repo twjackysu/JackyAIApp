@@ -28,7 +28,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             var httpClientFactory = new Mock<IHttpClientFactory>();
             httpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
-            var settings = new Settings { Google = new Google(), FinnhubApiKey = apiKey };
+            var settings = new Settings { Google = new(), FinnhubApiKey = apiKey };
             var optionsMonitor = new Mock<IOptionsMonitor<Settings>>();
             optionsMonitor.Setup(o => o.CurrentValue).Returns(settings);
 

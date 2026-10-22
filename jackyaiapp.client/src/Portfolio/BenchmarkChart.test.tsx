@@ -64,8 +64,7 @@ const respondWith = (data: BenchmarkComparison) => {
 /** The query options the chart last asked the hook for (the hook's second argument). */
 const lastOptions = () =>
   mocks.benchmark.mock.lastCall?.[1] as
-    | { pollingInterval: number; skipPollingIfUnfocused: boolean }
-    | undefined;
+    { pollingInterval: number; skipPollingIfUnfocused: boolean } | undefined;
 
 const render = () => {
   act(() => root.render(<BenchmarkChart />));

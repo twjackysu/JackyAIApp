@@ -33,7 +33,10 @@ const Connectors: React.FC = () => {
     message: '',
   });
 
-  const handleClose = (_event?: React.SyntheticEvent | Event, reason?: SnackbarCloseReason) => {
+  const handleClose = (
+    _event?: React.SyntheticEvent | Event | null,
+    reason?: SnackbarCloseReason,
+  ) => {
     if (reason === 'clickaway') {
       return;
     }
