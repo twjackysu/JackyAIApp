@@ -35,7 +35,10 @@ JackyAIApp.Server/
 - A controller does HTTP only: binding, routing attributes, answering a service's result with
   `responseFactory.ToActionResult(result)`. Queries, rules and writes live in a service. A
   controller never takes `AzureSQLDBContext` or `IDbContextFactory` — `ControllersDoNotTouchTheDatabaseTests`
-  fails if one does. The controllers not moved yet are listed in that test; the list only shrinks
+  fails if one does
+- An endpoint only admins may call takes `[AdminOnly]` (`Common/AdminOnlyAttribute.cs`, 403 for anyone
+  else) next to `[Authorize]`; the action never checks `IsAdmin` itself. `AdminOnlyEndpointsTests` lists
+  the admin endpoints, so adding or dropping one is a deliberate test change
 - Who may see or change something is written once, in a policy next to its service (e.g.
   `DashboardAccessPolicy`): EF expressions for the queries, a plain method for an entity already
   loaded. Something you may not see answers NotFound, not Forbidden, so its existence isn't leaked

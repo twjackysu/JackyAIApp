@@ -1,22 +1,18 @@
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.Data;
-using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.Services;
-using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace JackyAIApp.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AccountController(ILogger<AccountController> logger, AzureSQLDBContext DBContext, ICurrentUser currentUser, IMyResponseFactory responseFactory, IDrawdownBrakeAccess drawdownBrakeAccess) : ControllerBase
+    public class AccountController(ILogger<AccountController> logger, IUserAccountService accounts, ICurrentUser currentUser, IMyResponseFactory responseFactory) : ControllerBase
     {
         private readonly ILogger<AccountController> _logger = logger;
-        private readonly AzureSQLDBContext _DBContext = DBContext;
+        private readonly IUserAccountService _accounts = accounts;
         private readonly ICurrentUser _currentUser = currentUser;
         private readonly IMyResponseFactory _responseFactory = responseFactory;
 
@@ -61,22 +57,7 @@ namespace JackyAIApp.Server.Controllers
                 ? stored
                 : "/";
 
-            var userId = _currentUser.Id;
-            var user = await _DBContext.Users.SingleOrDefaultAsync(x => x.Id == userId);
-            if (user == null && userId != null)
-            {
-                user = new User()
-                {
-                    Id = userId,
-                    Name = _currentUser.Name,
-                    Email = _currentUser.Email,
-                    LastUpdated = DateTime.UtcNow,
-                };
-                _DBContext.Users.Add(user);
-
-                await _DBContext.SaveChangesAsync();
-                _logger.LogInformation("New user created: {UserId}", userId);
-            }
+            await _accounts.EnsureCreatedAsync(HttpContext.RequestAborted);
 
             return LocalRedirect(returnUrl);
         }
@@ -92,25 +73,14 @@ namespace JackyAIApp.Server.Controllers
         }
 
         [HttpGet("info")]
-        public async Task<IActionResult> GetUserInfo()
+        public async Task<IActionResult> GetUserInfo(CancellationToken ct = default)
         {
-            var userId = _currentUser.Id;
-            if (string.IsNullOrEmpty(userId))
+            if (string.IsNullOrEmpty(_currentUser.Id))
             {
                 return Unauthorized(new { error = "Not authenticated" });
             }
 
-            var user = await _DBContext.Users
-                .SingleOrDefaultAsync(x => x.Id == userId);
-
-            if (user == null)
-            {
-                var missing = UserAccountFailures.Missing;
-                return _responseFactory.CreateErrorResponse(missing.Error, missing.Message);
-            }
-
-            user.DrawdownBrakeEnabled = drawdownBrakeAccess.IsEnabledFor(user.IsAdmin);
-            return _responseFactory.CreateOKResponse(user);
+            return _responseFactory.ToActionResult(await _accounts.GetInfoAsync(ct));
         }
     }
 }

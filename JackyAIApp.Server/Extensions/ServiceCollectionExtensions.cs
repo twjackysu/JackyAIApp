@@ -36,6 +36,8 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IApiResponseFactory, ApiResponseFactory>();
             services.AddScoped<IMyResponseFactory, ResponseFactory>();
             services.AddScoped<ICurrentUser, CurrentUser>();
+            services.AddScoped<IAdminAccess, AdminAccess>();
+            services.AddScoped<IUserAccountService, UserAccountService>();
             services.Configure<UsageLimitOptions>(configuration.GetSection(UsageLimitOptions.SectionName));
             services.AddScoped<UsageLedger>();
             services.AddScoped<IUsageLimitService, UsageLimitService>();
@@ -84,6 +86,7 @@ namespace JackyAIApp.Server.Extensions
             // Spell-checker dictionary is expensive to load from disk; share one instance.
             services.AddSingleton<ISpellChecker, HunspellSpellChecker>();
             services.AddScoped<IDictionaryService, DictionaryService>();
+            services.AddScoped<IPublicWordList, PublicWordList>();
 
             // Exam services + per-type generator strategies
             services.AddScoped<IWordExamGenerator, ClozeExamGenerator>();

@@ -1,6 +1,5 @@
 using Betalgo.Ranul.OpenAI.ObjectModels;
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Exam;
@@ -9,7 +8,6 @@ using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Speech;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -21,15 +19,13 @@ namespace JackyAIApp.Server.Controllers
         IExamService examService,
         ITextToSpeechService ttsService,
         ICurrentUser currentUser,
-        IListeningQuestionGenerator listeningQuestionGenerator,
-        AzureSQLDBContext dbContext) : ControllerBase
+        IListeningQuestionGenerator listeningQuestionGenerator) : ControllerBase
     {
         private readonly IMyResponseFactory _responseFactory = responseFactory;
         private readonly IExamService _examService = examService;
         private readonly ITextToSpeechService _ttsService = ttsService;
         private readonly ICurrentUser _currentUser = currentUser;
         private readonly IListeningQuestionGenerator _listeningQuestionGenerator = listeningQuestionGenerator;
-        private readonly AzureSQLDBContext _dbContext = dbContext;
 
         /// <summary>Generates a cloze test for the user based on their unfamiliar words.</summary>
         [HttpGet("cloze")]
@@ -217,35 +213,16 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>Admin-only: paginated view of the listening question bank.</summary>
+        [AdminOnly]
         [HttpGet("listening/admin/bank")]
-        public async Task<IActionResult> GetListeningBank([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
-        {
-            if (!await IsAdminAsync())
-            {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Admin access required.");
-            }
-
-            return _responseFactory.ToActionResult(await _examService.GetListeningBankAsync(pageNumber, pageSize));
-        }
+        public async Task<IActionResult> GetListeningBank([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20) =>
+            _responseFactory.ToActionResult(await _examService.GetListeningBankAsync(pageNumber, pageSize));
 
         /// <summary>Admin-only: generates one new listening question (text + photo) via AI and adds
         /// it to the bank. Not usage-limit-gated (admin/back-office action, not a user-facing feature).</summary>
+        [AdminOnly]
         [HttpPost("listening/admin/generate")]
-        public async Task<IActionResult> GenerateListeningQuestion()
-        {
-            if (!await IsAdminAsync())
-            {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.Forbidden, "Admin access required.");
-            }
-
-            return _responseFactory.ToActionResult(await _listeningQuestionGenerator.GenerateAsync(_currentUser.Id));
-        }
-
-        private async Task<bool> IsAdminAsync()
-        {
-            var userId = _currentUser.Id;
-            return !string.IsNullOrEmpty(userId) &&
-                await _dbContext.Users.AnyAsync(u => u.Id == userId && u.IsAdmin == true);
-        }
+        public async Task<IActionResult> GenerateListeningQuestion() =>
+            _responseFactory.ToActionResult(await _listeningQuestionGenerator.GenerateAsync(_currentUser.Id));
     }
 }
