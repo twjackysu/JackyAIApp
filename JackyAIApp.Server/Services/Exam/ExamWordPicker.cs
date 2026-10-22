@@ -1,3 +1,4 @@
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
@@ -28,6 +29,10 @@ namespace JackyAIApp.Server.Services.Exam
 
     public class ExamWordPicker(AzureSQLDBContext dbContext) : IExamWordPicker
     {
+        /// <summary>What an exam answers when <see cref="PickWordIdAsync"/> finds no word at all.</summary>
+        public static ServiceFailure NoWords => ServiceResult.Fail(ErrorCodes.Forbidden,
+            "No words are available yet to generate an exam from. Try searching a word in the Dictionary first.");
+
         /// <summary>How many of the weakest words a pick chooses from when none is due.</summary>
         private const int WeakPoolSize = 10;
 
