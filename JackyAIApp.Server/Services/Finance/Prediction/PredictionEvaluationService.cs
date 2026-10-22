@@ -1,8 +1,8 @@
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Finance;
-using JackyAIApp.Server.Services.Finance.DataProviders;
-using JackyAIApp.Server.Services.Finance.DataProviders.US;
+using JackyAIApp.Server.Services.Market;
+using JackyAIApp.Server.Services.Market.US;
 using Microsoft.EntityFrameworkCore;
 
 namespace JackyAIApp.Server.Services.Finance.Prediction

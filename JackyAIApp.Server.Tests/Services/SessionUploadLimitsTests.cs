@@ -1,4 +1,5 @@
 using System.Net;
+using JackyAIApp.Server.Extensions;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Text.Json;

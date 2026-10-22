@@ -1,6 +1,5 @@
 using JackyAIApp.Server.Services.ExternalApi;
-using JackyAIApp.Server.Services.Finance.DataProviders;
-using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Services.Market;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;

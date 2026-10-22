@@ -1,5 +1,5 @@
-using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Job;
+using JackyAIApp.Server.Common;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Services.Job;

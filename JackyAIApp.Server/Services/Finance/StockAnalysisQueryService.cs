@@ -3,7 +3,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Finance.Builder;
-using JackyAIApp.Server.Services.Finance.DataProviders;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Finance.Prediction;

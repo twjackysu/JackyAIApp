@@ -1,4 +1,5 @@
 using System.Globalization;
+using JackyAIApp.Server.Services.Market;
 using System.Text.Json;
 
 namespace JackyAIApp.Server.Tests.LiveContracts

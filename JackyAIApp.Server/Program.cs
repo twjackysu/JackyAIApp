@@ -1,4 +1,5 @@
 ﻿using Azure.Identity;
+using JackyAIApp.Server.Services.Dictionary;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Azure.Storage.Blobs;
 using Betalgo.Ranul.OpenAI.Extensions;
@@ -8,6 +9,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services.DataAnalysis;
 using JackyAIApp.Server.Services.ExternalApi;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Portfolio;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;

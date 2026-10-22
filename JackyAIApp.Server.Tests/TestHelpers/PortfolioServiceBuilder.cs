@@ -1,6 +1,5 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
-using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;

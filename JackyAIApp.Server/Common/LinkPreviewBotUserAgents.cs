@@ -2,7 +2,7 @@ namespace JackyAIApp.Server.Common
 {
     /// <summary>
     /// User-Agent markers for known non-JS-executing link-preview crawlers (LINE/Facebook/etc.),
-    /// used by <see cref="BotPreviewMiddleware"/> to decide when to serve the server-rendered
+    /// used by <see cref="Services.Dictionary.BotPreviewMiddleware"/> to decide when to serve the server-rendered
     /// preview shell instead of the SPA. Each platform's UA is officially documented and rarely
     /// changes — unlike adversarial bot detection, this needs no ongoing tuning. Add a platform
     /// here (with a comment linking its UA documentation) rather than anywhere else in the

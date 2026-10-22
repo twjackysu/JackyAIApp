@@ -1,6 +1,5 @@
 using System.Net;
-using JackyAIApp.Server.Services.Finance.DataProviders;
-using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;

@@ -6,7 +6,7 @@ namespace JackyAIApp.Server.Common
     /// title baked into the build. Link-preview crawlers read only this raw HTML; the SPA's own
     /// &lt;title&gt; (react-helmet) arrives too late for them.
     /// <para>
-    /// Same approach as <see cref="WordPageMetadataMiddleware"/>, which runs first and keeps
+    /// Same approach as <see cref="Services.Dictionary.WordPageMetadataMiddleware"/>, which runs first and keeps
     /// handling dictionary word pages with their per-word text. Only page navigations are
     /// touched: GET/HEAD, not under /api, /swagger or the OAuth callback, and not a file (any path
     /// whose last segment has an extension). Anything that goes wrong falls through to the normal
@@ -40,7 +40,7 @@ namespace JackyAIApp.Server.Common
                 html = HtmlMetadata.Apply(
                     template, meta.Title, meta.Description,
                     pageUrl: baseUrl + context.Request.Path.ToUriComponent(),
-                    imageUrl: baseUrl + BotPreviewMiddleware.GenericOgImagePath);
+                    imageUrl: baseUrl + HtmlMetadata.GenericOgImagePath);
             }
             catch
             {

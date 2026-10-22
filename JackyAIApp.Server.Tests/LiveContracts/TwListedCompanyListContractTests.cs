@@ -1,7 +1,6 @@
 using System.Text.Json;
+using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.ExternalApi.Twse;
-using JackyAIApp.Server.Services.Finance;
-using JackyAIApp.Server.Services.Portfolio;
 
 namespace JackyAIApp.Server.Tests.LiveContracts
 {

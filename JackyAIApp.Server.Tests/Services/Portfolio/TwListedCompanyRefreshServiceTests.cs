@@ -1,4 +1,4 @@
-using JackyAIApp.Server.Services.Portfolio;
+using JackyAIApp.Server.Services.Market;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 

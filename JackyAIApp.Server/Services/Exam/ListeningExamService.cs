@@ -8,7 +8,7 @@ namespace JackyAIApp.Server.Services.Exam
     /// <summary>
     /// TOEIC Part 1 style "look at the picture, pick the best description" listening questions,
     /// served from the pre-seeded bank (Tools/ListeningBankImporter, or the admin generator). Not
-    /// word-scoped, so it doesn't go through <see cref="IWordExamGenerator"/>.
+    /// word-scoped, so it doesn't go through <see cref="IWordExamGenerator{TQuestion}"/>.
     /// </summary>
     public interface IListeningExamService
     {

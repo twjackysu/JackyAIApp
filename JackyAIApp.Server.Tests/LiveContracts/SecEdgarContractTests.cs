@@ -1,4 +1,5 @@
 using System.Text.Json;
+using JackyAIApp.Server.Services.Market.US;
 using HtmlAgilityPack;
 
 namespace JackyAIApp.Server.Tests.LiveContracts
