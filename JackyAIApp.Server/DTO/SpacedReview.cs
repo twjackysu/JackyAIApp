@@ -42,4 +42,7 @@ namespace JackyAIApp.Server.DTO
         public int CorrectCount { get; set; }
         public int XPEarned { get; set; }
     }
+
+    /// <summary>How many words are due for review now.</summary>
+    public sealed record ReviewDueCountResponse(int DueCount);
 }

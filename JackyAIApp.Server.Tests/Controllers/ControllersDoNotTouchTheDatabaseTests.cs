@@ -17,9 +17,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             "AccountController",
             "DictionaryController",
             "ExamController",
-            "ReviewController",
             "SitemapController",
-            "StatsController",
         ];
 
         private static IEnumerable<Type> Controllers() =>
