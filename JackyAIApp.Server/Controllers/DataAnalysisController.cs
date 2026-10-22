@@ -3,8 +3,6 @@ using DataAnalysisLibrary.Core.Enums;
 using DataAnalysisLibrary.Core.Models.Common;
 using DataAnalysisLibrary.Core.Models.Requests;
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.Data;
-using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.DataAnalysis;
 using JackyAIApp.Server.Services;
@@ -15,7 +13,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.EntityFrameworkCore;
 using static JackyAIApp.Server.Common.DataAnalysisMapping;
 
 namespace JackyAIApp.Server.Controllers
@@ -31,8 +28,7 @@ namespace JackyAIApp.Server.Controllers
         ILogger<DataAnalysisController> logger,
         IMyResponseFactory responseFactory,
         IDataSourceResolver resolver,
-        AzureSQLDBContext dbContext,
-        IDataSourceConfigService configService,
+        IDataSourceStore sources,
         ISessionDataStore sessionStore,
         IOpenAIPromptService openAIPromptService,
         IPromptLoader promptLoader,
@@ -44,8 +40,7 @@ namespace JackyAIApp.Server.Controllers
         private readonly ILogger<DataAnalysisController> _logger               = logger;
         private readonly IMyResponseFactory              _responseFactory       = responseFactory;
         private readonly IDataSourceResolver             _resolver              = resolver;
-        private readonly AzureSQLDBContext               _dbContext             = dbContext;
-        private readonly IDataSourceConfigService        _configService         = configService;
+        private readonly IDataSourceStore                _sources               = sources;
         private readonly ISessionDataStore               _sessionStore          = sessionStore;
         private readonly IOpenAIPromptService            _openAIPromptService   = openAIPromptService;
         private readonly IPromptLoader                   _promptLoader          = promptLoader;
@@ -124,49 +119,16 @@ namespace JackyAIApp.Server.Controllers
         /// <summary>List the current user's saved data-source connectors.</summary>
         [Authorize]
         [HttpGet("sources")]
-        public async Task<IActionResult> GetSources(CancellationToken ct = default)
-        {
-            var userId = _currentUser.RequireId();
-            var sources = await _dbContext.DataSourceConfigs
-                .Where(s => s.UserId == userId)
-                .OrderBy(s => s.CreatedAt)
-                .ToListAsync(ct);
-            return _responseFactory.CreateOKResponse(sources.Select(_configService.ToResponseDto).ToList());
-        }
+        public async Task<IActionResult> GetSources(CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _sources.ListAsync(ct));
 
         /// <summary>Save a new data-source connector for the current user.</summary>
         [Authorize]
         [HttpPost("sources")]
         public async Task<IActionResult> CreateSource(
             [FromBody] SaveDataSourceConfigDto dto,
-            CancellationToken ct = default)
-        {
-            var userId = _currentUser.RequireId();
-            string configJson;
-            try
-            {
-                configJson = _configService.SerializeAndEncrypt(dto.Config, dto.ConnectorType);
-            }
-            catch (DataSourceConfigException ex)
-            {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, ex.Message);
-            }
-
-            var entity = new DataSourceConfig
-            {
-                Id               = Guid.NewGuid(),
-                UserId           = userId,
-                Name             = dto.Name,
-                ConnectorType    = dto.ConnectorType,
-                ConfigJson       = configJson,
-                DefaultTableName = dto.DefaultTableName,
-                CreatedAt        = DateTimeOffset.UtcNow,
-            };
-            _dbContext.DataSourceConfigs.Add(entity);
-            await _dbContext.SaveChangesAsync(ct);
-            _logger.LogInformation("Created DataSourceConfig {id} ({name}) for user {uid}", entity.Id, entity.Name, userId);
-            return _responseFactory.CreateOKResponse(_configService.ToResponseDto(entity));
-        }
+            CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _sources.CreateAsync(dto, ct));
 
         /// <summary>Update one of the current user's data-source connectors.</summary>
         [Authorize]
@@ -174,52 +136,14 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> UpdateSource(
             Guid id,
             [FromBody] SaveDataSourceConfigDto dto,
-            CancellationToken ct = default)
-        {
-            var userId = _currentUser.RequireId();
-            var entity = await _dbContext.DataSourceConfigs
-                .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId, ct);
-            if (entity is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
-
-            // Merge: non-secret fields always update; secret fields only update when
-            // the client sent a real value (not the masked placeholder "***"). The merged
-            // result is validated before anything on the entity changes.
-            string configJson;
-            try
-            {
-                configJson = _configService.MergeAndEncrypt(dto.Config, entity, dto.ConnectorType);
-            }
-            catch (DataSourceConfigException ex)
-            {
-                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, ex.Message);
-            }
-
-            entity.Name             = dto.Name;
-            entity.ConnectorType    = dto.ConnectorType;
-            entity.DefaultTableName = dto.DefaultTableName;
-            entity.UpdatedAt        = DateTimeOffset.UtcNow;
-            entity.ConfigJson       = configJson;
-
-            await _dbContext.SaveChangesAsync(ct);
-            return _responseFactory.CreateOKResponse(_configService.ToResponseDto(entity));
-        }
+            CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _sources.UpdateAsync(id, dto, ct));
 
         /// <summary>Delete one of the current user's data-source connectors.</summary>
         [Authorize]
         [HttpDelete("sources/{id:guid}")]
-        public async Task<IActionResult> DeleteSource(Guid id, CancellationToken ct = default)
-        {
-            var userId = _currentUser.RequireId();
-            var entity = await _dbContext.DataSourceConfigs
-                .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId, ct);
-            if (entity is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.");
-
-            _dbContext.DataSourceConfigs.Remove(entity);
-            await _dbContext.SaveChangesAsync(ct);
-            return _responseFactory.CreateOKResponse();
-        }
+        public async Task<IActionResult> DeleteSource(Guid id, CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _sources.DeleteAsync(id, ct));
 
         // ═══════════════════════════════════════════════════════════════════════
         // Query endpoints  (all accept optional QueryContext for custom source)
