@@ -82,12 +82,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (startDate < firstDate) startDate = firstDate;
 
             // Fetch price history for every distinct stock symbol that appears in any snapshot
-            var stockSymbols = snapshots
-                .SelectMany(s => s.Positions)
-                .Where(p => p.AssetType == AssetType.STOCK)
-                .Select(p => p.Symbol)
-                .Distinct()
-                .ToList();
+            var stockSymbols = snapshots.SelectMany(s => s.Positions).SymbolsPricedBy(PriceSource.StockQuote);
 
             // Sorted ascending by date (defensively re-sorted here even though upstream fetchers
             // already do this, since the cursor walk below depends on it) so each symbol's "price
@@ -99,12 +94,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var stockCursors = priceMap.Keys.ToDictionary(k => k, _ => 0);
 
             // Fund NAV histories — gives funds a real daily curve instead of a flat line.
-            var fundIds = snapshots
-                .SelectMany(s => s.Positions)
-                .Where(p => p.AssetType == AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol))
-                .Select(p => p.Symbol)
-                .Distinct()
-                .ToList();
+            var fundIds = snapshots.SelectMany(s => s.Positions).SymbolsPricedBy(PriceSource.FundNav);
 
             // FetchFundsAsync's results are cached (FundDataService, up to 6h) and shared with other
             // callers — build separate sorted copies here rather than reordering navHist.Prices
@@ -182,7 +172,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                         // summary endpoint's valuation loop. Every downstream sum (here: `total`) just adds.
                         Add(GroupKey(groupBy, p, categoryMap, subCategoryMap), policy.Sign * p.Quantity * fxMul);
                     }
-                    else if (p.AssetType == AssetType.FUND)
+                    else if (policy.PriceSource == PriceSource.FundNav)
                     {
                         decimal nav = p.UnitPrice ?? 0; // fallback: flat value stored at save time
                         var fundFxMul = fxMul; // default to stored currency until NAV tells us otherwise

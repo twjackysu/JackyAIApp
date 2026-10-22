@@ -195,10 +195,10 @@ namespace JackyAIApp.Server.Services.Portfolio
                 : snapshot.Positions;
 
             var stockTask = Timed("stocks", () => priceLoader.FetchStocksAsync(
-                allPositions.Where(p => p.AssetType == AssetType.STOCK).Select(p => p.Symbol), deep: false, ct),
+                allPositions.SymbolsPricedBy(PriceSource.StockQuote), deep: false, ct),
                 m => $"{m.Count} symbols");
             var fundTask = Timed("funds", () => priceLoader.FetchFundsAsync(
-                allPositions.Where(p => p.AssetType == AssetType.FUND).Select(p => p.Symbol), ct),
+                allPositions.SymbolsPricedBy(PriceSource.FundNav), ct),
                 m => $"{m.Count} funds");
             // Dividend histories don't depend on prices, so they load alongside them instead of
             // after. On a cold cache (every restart, and daily) they are one external call per
@@ -236,11 +236,11 @@ namespace JackyAIApp.Server.Services.Portfolio
             List<(string Currency, DateOnly Date)> cathayUsKeys = cathayFx == null
                 ? []
                 : allPositions
-                    .Where(p => p.AssetType == AssetType.STOCK && p.Currency == "USD"
-                        && stockMap.ContainsKey(p.Symbol))
-                    .Select(p => stockMap[p.Symbol].HistoricalPrices.LastOrDefault()?.Date)
+                    .Where(p => p.Currency == "USD"
+                        && AssetValuationPolicy.For(p.AssetType).PublishedFx == PublishedFxSource.CathayOnQuoteDay)
+                    .Select(p => AssetValuationPolicy.For(p.AssetType).Latest(p, stockMap, fundMap)?.Day)
                     .Where(d => d.HasValue)
-                    .Select(d => ("USD", DateOnly.FromDateTime(d!.Value)))
+                    .Select(d => ("USD", d!.Value))
                     .Distinct()
                     .ToList();
 
@@ -261,13 +261,10 @@ namespace JackyAIApp.Server.Services.Portfolio
             // The 國泰世華 rate that goes with this holding's own quote, if we have one.
             decimal? CathayRateFor(HoldingPosition position, string currency)
             {
-                if (position.AssetType != AssetType.STOCK || !stockMap.TryGetValue(position.Symbol, out var data))
-                    return null;
-                var priceDate = data.HistoricalPrices.LastOrDefault()?.Date;
-                if (priceDate == null) return null;
-                return cathayRatesByDate.TryGetValue((currency, DateOnly.FromDateTime(priceDate.Value)), out var r)
-                    ? r
-                    : null;
+                var policy = AssetValuationPolicy.For(position.AssetType);
+                if (policy.PublishedFx != PublishedFxSource.CathayOnQuoteDay) return null;
+                if (policy.Latest(position, stockMap, fundMap)?.Day is not { } quoteDay) return null;
+                return cathayRatesByDate.TryGetValue((currency, quoteDay), out var r) ? r : null;
             }
 
             // The rate a position converts to TWD at. The valuation loop below and the previous
@@ -284,7 +281,8 @@ namespace JackyAIApp.Server.Services.Portfolio
             (decimal Rate, string? Source) ResolveFx(HoldingPosition position, string? currency)
             {
                 if (string.IsNullOrWhiteSpace(currency) || currency == "TWD") return (1m, null);
-                if (position.AssetType == AssetType.FUND && tdccRates.TryGetValue(currency, out var fundFx))
+                if (AssetValuationPolicy.For(position.AssetType).PublishedFx == PublishedFxSource.Tdcc
+                    && tdccRates.TryGetValue(currency, out var fundFx))
                     return (fundFx, FxRateSources.Tdcc);
                 if (CathayRateFor(position, currency) is { } usFx) return (usFx, FxRateSources.Cathay);
                 return currency == "USD" ? (fx, FxRateSources.Mid) : (1m, null);
@@ -295,41 +293,15 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 var policy = AssetValuationPolicy.For(p.AssetType);
                 decimal currentPrice;
-                bool priceFailed = false;
-                // Pricing currency: stocks/cash use the stored currency; funds use the live NAV
-                // currency from FundRich (authoritative), not a manually-picked value.
+                // Pricing currency: the stored one, except a fund's live NAV currency from FundRich
+                // (authoritative), not a manually-picked value — see the policy's Latest.
                 var priceCurrency = p.Currency;
 
-                if (p.AssetType == AssetType.STOCK)
+                if (policy.IsMarketPriced)
                 {
-                    if (stockMap.TryGetValue(p.Symbol, out var data))
-                        currentPrice = data.HistoricalPrices.LastOrDefault()?.Close ?? 0;
-                    else
-                    {
-                        currentPrice = 0;
-                        priceFailed = true;
-                    }
-                }
-                else if (p.AssetType == AssetType.FUND)
-                {
-                    // Prefer live NAV from FundRich; fall back to the value stored at save time.
-                    currentPrice = p.UnitPrice ?? 0;
-                    if (!string.IsNullOrWhiteSpace(p.Symbol))
-                    {
-                        if (fundMap.TryGetValue(p.Symbol, out var nav))
-                        {
-                            priceCurrency = nav.Currency;
-                            var latest = nav.Prices.LastOrDefault()?.Close;
-                            if (latest is > 0)
-                                currentPrice = latest.Value;
-                            else if (currentPrice <= 0)
-                                priceFailed = true;
-                        }
-                        else if (currentPrice <= 0)
-                        {
-                            priceFailed = true;
-                        }
-                    }
+                    var latest = policy.Latest(p, stockMap, fundMap);
+                    currentPrice = latest?.Price ?? 0;
+                    if (latest is { } quote) priceCurrency = quote.Currency;
                 }
                 else // an amount, not a price × quantity — always "priced" at 1, no external lookup needed.
                 {
@@ -338,8 +310,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
                 // A market-priced position with no usable price has no real market value. Treat it
                 // as "price unavailable" so we don't book a phantom loss of the full cost.
-                if (policy.IsMarketPriced && currentPrice <= 0)
-                    priceFailed = true;
+                var priceFailed = policy.IsMarketPriced && currentPrice <= 0;
 
                 var (fxMul, fxSource) = ResolveFx(p, priceCurrency);
                 // The policy's Sign is the one place a position's value goes negative (a liability) —
@@ -613,7 +584,8 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             symbol = (symbol ?? "").ToUpperInvariant();
             var snapshot = await snapshotReader.LatestAsync(userId, ct);
-            var owns = snapshot?.Positions.Any(p => p.AssetType == AssetType.STOCK && p.Symbol == symbol) ?? false;
+            var owns = snapshot?.Positions.Any(p =>
+                AssetValuationPolicy.For(p.AssetType).PriceSource == PriceSource.StockQuote && p.Symbol == symbol) ?? false;
 
             if (owns)
                 await priceLoader.InvalidateStockAsync(symbol, ct);
@@ -722,10 +694,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                         p.AssetType == key.AssetType && p.Symbol == key.Symbol && p.Market == key.Market);
                     if (position == null || position.Quantity <= 0) continue;
 
-                    // FundRich's dividend history has no currency field; fall back to the fund's NAV currency.
-                    var currency = key.AssetType == AssetType.FUND
-                        ? (fundMap.TryGetValue(key.Symbol, out var nav) ? nav.Currency : "TWD")
-                        : record.Currency;
+                    var currency = AssetValuationPolicy.For(key.AssetType).DividendCurrency(record, key.Symbol, fundMap);
                     var fxMul = currency == "USD" ? fx : 1m;
 
                     var amountTWD = position.Quantity * record.AmountPerUnit * fxMul;
@@ -803,22 +772,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             IEnumerable<HoldingPosition> positions, DateOnly cutoff,
             Dictionary<string, DTO.Finance.MarketData> stockMap, Dictionary<string, FundNavHistory> fundMap)
         {
-            foreach (var p in positions)
-            {
-                if (p.AssetType == AssetType.STOCK && stockMap.TryGetValue(p.Symbol, out var data))
-                {
-                    var latest = data.HistoricalPrices.LastOrDefault()?.Date;
-                    if (latest.HasValue && DateOnly.FromDateTime(latest.Value) > cutoff) return true;
-                }
-                else if (p.AssetType == AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol) &&
-                         fundMap.TryGetValue(p.Symbol, out var nav))
-                {
-                    var latestStr = nav.Prices.LastOrDefault()?.Date;
-                    if (latestStr != null && DateOnly.TryParse(latestStr, out var latestDate) && latestDate > cutoff)
-                        return true;
-                }
-            }
-            return false;
+            return positions.Any(p => AssetValuationPolicy.For(p.AssetType).Latest(p, stockMap, fundMap)?.Day > cutoff);
         }
 
         private static bool ArePositionsEqual(ICollection<HoldingPosition> a, ICollection<HoldingPosition> b)

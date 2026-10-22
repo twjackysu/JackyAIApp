@@ -46,22 +46,12 @@ namespace JackyAIApp.Server.Services.Portfolio
             var startDate = today.AddDays(-days);
             if (startDate < firstDate) startDate = firstDate;
 
-            var stockSymbols = snapshots
-                .SelectMany(s => s.Positions)
-                .Where(p => p.AssetType == AssetType.STOCK)
-                .Select(p => p.Symbol)
-                .Distinct()
-                .ToList();
+            var stockSymbols = snapshots.SelectMany(s => s.Positions).SymbolsPricedBy(PriceSource.StockQuote);
             var stockMap = await priceLoader.FetchStocksAsync(stockSymbols, deep: true, ct);
             var depth = await historyExtender.ExtendHistoryAsync(stockMap, snapshots, [], startDate, ct);
             stockMap = depth.Stocks;
 
-            var fundIds = snapshots
-                .SelectMany(s => s.Positions)
-                .Where(p => p.AssetType == AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol))
-                .Select(p => p.Symbol)
-                .Distinct()
-                .ToList();
+            var fundIds = snapshots.SelectMany(s => s.Positions).SymbolsPricedBy(PriceSource.FundNav);
             var fundMap = await priceLoader.FetchFundsAsync(fundIds, ct);
             var asOfPrices = AsOfPriceBook.From(stockMap, fundMap);
 

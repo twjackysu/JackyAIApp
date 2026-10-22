@@ -113,6 +113,17 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
+        public async Task Drawdown_FundWhoseNavIsZero_FallsBackToTheSavedUnitPrice()
+        {
+            await SeedSnapshotAsync(Weekday(0), FundPosition("FND1", quantity: 10, unitPrice: 50));
+            SetupFund("FND1", "TWD", (Weekday(0), 0m));
+
+            var result = await _drawdown.GetDrawdownAnalysisAsync(TestUserId, days: 30);
+
+            Assert.Equal(500m, TotalOn(result, Weekday(0)));
+        }
+
+        [Fact]
         public async Task Drawdown_FundBeforeItsFirstNav_FallsBackToTheSavedUnitPrice()
         {
             await SeedSnapshotAsync(Weekday(0), FundPosition("FND1", quantity: 10, unitPrice: 50));
@@ -260,6 +271,39 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Contains(Key(Weekday(0)), result.Dates);
             Assert.DoesNotContain(Key(Weekday(1)), result.Dates);
             Assert.Contains(Key(Weekday(2)), result.Dates);
+        }
+
+        // The two pins below are where the benchmark's portfolio side differs from the drawdown's on
+        // purpose: a fund the day can't be priced for is left out of it, not valued at its saved unit
+        // price.
+
+        [Fact]
+        public async Task Benchmark_FundWithNoNavHistoryAtAll_IsLeftOutOfThePortfolioSide()
+        {
+            await SeedSnapshotAsync(Weekday(0),
+                StockPosition("2330", quantity: 10, costBasis: 9_000),
+                FundPosition("FND1", quantity: 10, unitPrice: 50, costBasis: 500));
+            SetupStockBars("2330", Bar(Weekday(0), 1000m));
+            SetupStockBars("0050", Bar(Weekday(0), 100m));
+
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
+
+            Assert.Equal(10_000m, PortfolioOn(result, Weekday(0)));
+        }
+
+        [Fact]
+        public async Task Benchmark_FundWhoseNavIsZero_IsLeftOutOfThePortfolioSide()
+        {
+            await SeedSnapshotAsync(Weekday(0),
+                StockPosition("2330", quantity: 10, costBasis: 9_000),
+                FundPosition("FND1", quantity: 10, unitPrice: 50, costBasis: 500));
+            SetupStockBars("2330", Bar(Weekday(0), 1000m));
+            SetupFund("FND1", "TWD", (Weekday(0), 0m));
+            SetupStockBars("0050", Bar(Weekday(0), 100m));
+
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30, ["0050"]);
+
+            Assert.Equal(10_000m, PortfolioOn(result, Weekday(0)));
         }
 
         [Fact]

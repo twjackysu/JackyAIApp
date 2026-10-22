@@ -70,12 +70,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             var startDate = today.AddDays(-days);
             if (startDate < firstDate) startDate = firstDate;
 
-            var stockSymbols = snapshots
-                .SelectMany(s => s.Positions)
-                .Where(p => p.AssetType == AssetType.STOCK)
-                .Select(p => p.Symbol)
-                .Distinct()
-                .ToList();
+            var stockSymbols = snapshots.SelectMany(s => s.Positions).SymbolsPricedBy(PriceSource.StockQuote);
             foreach (var s in symbols)
                 if (!stockSymbols.Contains(s)) stockSymbols.Add(s);
             var stockMap = await priceLoader.FetchStocksAsync(stockSymbols, deep: true, ct);
@@ -109,12 +104,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 return prices[cursors[idx]].Date.Date <= dt ? prices[cursors[idx]].Close : 0;
             }
 
-            var fundIds = snapshots
-                .SelectMany(s => s.Positions)
-                .Where(p => p.AssetType == AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol))
-                .Select(p => p.Symbol)
-                .Distinct()
-                .ToList();
+            var fundIds = snapshots.SelectMany(s => s.Positions).SymbolsPricedBy(PriceSource.FundNav);
             var fundMap = await priceLoader.FetchFundsAsync(fundIds, ct);
 
             // 含息 inputs for both sides (see the method's remarks for why price-only is unfair to
@@ -143,28 +133,27 @@ namespace JackyAIApp.Server.Services.Portfolio
             // performance.
             decimal? InvestedValueAsOfDate(HoldingSnapshot snap, DateOnly date)
             {
-                var dayKey = date.ToString("yyyy-MM-dd");
                 var fx = SnapshotFx(snap);
                 decimal total = 0;
                 foreach (var p in snap.Positions)
                 {
                     if (!p.CostBasis.HasValue) continue;
-                    if (p.AssetType == AssetType.STOCK)
+                    var policy = AssetValuationPolicy.For(p.AssetType);
+                    if (policy.PriceAsOf(p, date, asOfPrices) is not { } asOf)
                     {
-                        if (!asOfPrices.Stocks.TryGetValue(p.Symbol, out var series)) return null;
-                        var price = series.CloseOnOrBefore(date) ?? 0;
-                        if (price <= 0) return null;
-                        total += price * p.Quantity * (p.Currency == "USD" ? fx : 1m);
+                        // No history for it: a stock makes the day unknown; a fund is left out.
+                        if (policy.PriceSource == PriceSource.StockQuote) return null;
+                        continue;
                     }
-                    else if (p.AssetType == AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol) &&
-                             asOfPrices.Funds.TryGetValue(p.Symbol, out var fund))
+                    // No NAV on or before the day falls back to the saved unit price; a NAV that
+                    // exists but is <= 0 does not — hence Close ?? StoredPrice, not a "<= 0" test.
+                    var price = asOf.Close ?? policy.StoredPrice(p) ?? 0;
+                    if (price <= 0)
                     {
-                        // No NAV on or before the day falls back to the saved unit price; a NAV that
-                        // exists but is <= 0 does not (it skips the position) — hence the nullable.
-                        var price = fund.Prices.CloseOnOrBefore(dayKey) ?? (p.UnitPrice ?? 0);
-                        if (price <= 0) continue;
-                        total += price * p.Quantity * (fund.Currency == "USD" ? fx : 1m);
+                        if (policy.PriceSource == PriceSource.StockQuote) return null;
+                        continue;
                     }
+                    total += price * p.Quantity * (asOf.Currency == "USD" ? fx : 1m);
                 }
                 return total;
             }
@@ -372,10 +361,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                     if (snap == null || position == null || position.Quantity <= 0 || !position.CostBasis.HasValue)
                         continue;
 
-                    // FundRich's dividend history has no currency field; fall back to the fund's NAV currency.
-                    var currency = key.AssetType == AssetType.FUND
-                        ? (fundMap.TryGetValue(key.Symbol, out var nav) ? nav.Currency : "TWD")
-                        : record.Currency;
+                    var currency = AssetValuationPolicy.For(key.AssetType).DividendCurrency(record, key.Symbol, fundMap);
                     var fxMul = currency == "USD" ? SnapshotFx(snap) : 1m;
 
                     byDate[record.ExDate] = byDate.GetValueOrDefault(record.ExDate)

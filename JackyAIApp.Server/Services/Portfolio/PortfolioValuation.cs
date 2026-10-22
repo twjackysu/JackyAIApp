@@ -30,7 +30,6 @@ namespace JackyAIApp.Server.Services.Portfolio
             decimal Fx(HoldingPosition p, string? currency) =>
                 fxFor?.Invoke(p, currency) ?? (currency == "USD" ? fx : 1m);
 
-            var dayKey = date.ToString("yyyy-MM-dd");
             decimal total = 0;
 
             foreach (var p in positions)
@@ -44,26 +43,12 @@ namespace JackyAIApp.Server.Services.Portfolio
                     continue;
                 }
 
-                decimal price = 0;
-                var priceCurrency = p.Currency;
-
-                if (p.AssetType == AssetType.STOCK)
-                {
-                    if (prices.Stocks.TryGetValue(p.Symbol, out var series))
-                        price = series.CloseOnOrBefore(date) ?? 0;
-                }
-                else // FUND
-                {
-                    if (!string.IsNullOrWhiteSpace(p.Symbol) && prices.Funds.TryGetValue(p.Symbol, out var fund))
-                    {
-                        priceCurrency = fund.Currency;
-                        price = fund.Prices.CloseOnOrBefore(dayKey) ?? 0;
-                    }
-                    if (price <= 0) price = p.UnitPrice ?? 0; // fallback, mirrors the live valuation loop
-                }
-
+                var asOf = policy.PriceAsOf(p, date, prices);
+                var price = asOf?.Close ?? 0;
+                // A fund falls back to its saved unit price, mirroring the live valuation loop.
+                if (price <= 0) price = policy.StoredPrice(p) ?? 0;
                 if (price <= 0) return null;
-                total += price * p.Quantity * Fx(p, priceCurrency);
+                total += price * p.Quantity * Fx(p, asOf?.Currency ?? p.Currency);
             }
 
             return total;

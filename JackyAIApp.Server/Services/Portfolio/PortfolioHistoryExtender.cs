@@ -78,7 +78,9 @@ namespace JackyAIApp.Server.Services.Portfolio
             foreach (var snapshot in snapshots)
                 foreach (var position in snapshot.Positions)
                 {
-                    if (position.AssetType != AssetType.STOCK || string.IsNullOrWhiteSpace(position.Symbol)) continue;
+                    // Only stock quotes are backfilled; a fund's NAV history comes whole from FundRich.
+                    if (AssetValuationPolicy.For(position.AssetType).PriceSource != PriceSource.StockQuote
+                        || string.IsNullOrWhiteSpace(position.Symbol)) continue;
                     if (!heldFrom.TryGetValue(position.Symbol, out var first) || snapshot.EffectiveDate < first)
                         heldFrom[position.Symbol] = snapshot.EffectiveDate;
                 }
