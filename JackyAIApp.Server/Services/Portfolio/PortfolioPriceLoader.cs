@@ -34,6 +34,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
     public class PortfolioPriceLoader(
         IMarketDataProviderFactory providerFactory,
+        ITwQuotePrefetcher twQuotes,
         IFundDataService fundData,
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
@@ -55,17 +56,9 @@ namespace JackyAIApp.Server.Services.Portfolio
             // back to a caller that needs the full series (see PersistentTwHistoricalProvider's own
             // matching split for why: it's not just a perf nicety, a stale shallow cache hit would
             // silently starve a chart/indicator caller of history it thinks it has).
-            var key = STOCK_CACHE_PREFIX + (deep ? "deep_" : "latest_") + symbol;
-            if (cache.TryGetValue(key, out MarketData? cached) && cached != null)
+            var key = StockKey(symbol, deep);
+            if (TryGetCachedStock(symbol, deep, out var cached))
                 return cached;
-
-            // A shallow caller only ever reads the last point (see FetchStockAsync's doc comment),
-            // and deep ⊇ latest, so if a deep fetch already landed for this symbol — likely from a
-            // concurrent chart/history request for the very same page load — reuse it instead of a
-            // second upstream hit. Not written back under the latest_ key: that cache must only ever
-            // hold a genuine shallow result (see the comment above).
-            if (!deep && cache.TryGetValue(STOCK_CACHE_PREFIX + "deep_" + symbol, out MarketData? deepCached) && deepCached != null)
-                return deepCached;
 
             // Single-flight: on a cold cache, the summary/net-worth/benchmark/drawdown endpoints for
             // the same symbol land here concurrently (same page load). Only the first caller actually
@@ -100,11 +93,34 @@ namespace JackyAIApp.Server.Services.Portfolio
             IEnumerable<string> symbols, bool deep, CancellationToken ct)
         {
             var distinct = symbols.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+
+            // The quotes of the TW stocks about to be fetched, in one batch: each stock's fetch then
+            // finds its quote cached instead of asking MIS on its own (see ITwQuotePrefetcher).
+            await twQuotes.PrefetchAsync(
+                distinct.Where(s => providerFactory.DetectRegion(s) == MarketRegion.TW && !TryGetCachedStock(s, deep, out _))
+                    .ToList(),
+                ct);
+
             var results = await Task.WhenAll(
                 distinct.Select(async s => (symbol: s, data: await FetchStockAsync(s, deep, ct))));
             return results
                 .Where(r => r.data != null)
                 .ToDictionary(r => r.symbol, r => r.data!);
+        }
+
+        private static string StockKey(string symbol, bool deep) => STOCK_CACHE_PREFIX + (deep ? "deep_" : "latest_") + symbol;
+
+        private bool TryGetCachedStock(string symbol, bool deep, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out MarketData? data)
+        {
+            if (cache.TryGetValue(StockKey(symbol, deep), out data) && data != null)
+                return true;
+
+            // A shallow caller only ever reads the last point (see FetchStockAsync's doc comment),
+            // and deep ⊇ latest, so if a deep fetch already landed for this symbol — likely from a
+            // concurrent chart/history request for the very same page load — reuse it instead of a
+            // second upstream hit. Not written back under the latest_ key: that cache must only ever
+            // hold a genuine shallow result (see FetchStockAsync).
+            return !deep && cache.TryGetValue(StockKey(symbol, deep: true), out data) && data != null;
         }
 
         public async Task<Dictionary<string, FundNavHistory>> FetchFundsAsync(
@@ -150,8 +166,8 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         public async Task InvalidateStockAsync(string symbol, CancellationToken ct)
         {
-            cache.Remove(STOCK_CACHE_PREFIX + "deep_" + symbol);
-            cache.Remove(STOCK_CACHE_PREFIX + "latest_" + symbol);
+            cache.Remove(StockKey(symbol, deep: true));
+            cache.Remove(StockKey(symbol, deep: false));
 
             var region = providerFactory.DetectRegion(symbol);
             var provider = providerFactory.GetMarketDataProvider(region);

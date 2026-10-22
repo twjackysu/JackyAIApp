@@ -20,6 +20,14 @@ namespace JackyAIApp.Server.Tests.TestHelpers
         /// the providers hand out.</summary>
         public static readonly IDeepHistoryService DeepHistory = new NoDeepHistory();
 
+        /// <summary>No batch of quotes: each TW stock is quoted on its own.</summary>
+        public static readonly ITwQuotePrefetcher TwQuotes = new NoTwQuotes();
+
+        private sealed class NoTwQuotes : ITwQuotePrefetcher
+        {
+            public Task PrefetchAsync(IReadOnlyCollection<string> stockCodes, CancellationToken ct) => Task.CompletedTask;
+        }
+
         private sealed class NoTdccFx : ITdccFxService
         {
             public Task<decimal?> GetBuyRateAsync(string currency, DateOnly asOf, CancellationToken ct = default) =>

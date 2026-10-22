@@ -31,10 +31,11 @@ namespace JackyAIApp.Server.Tests.TestHelpers
         public ICathayFxService CathayFx { get; init; } = AbsentPortfolioSources.CathayFx;
         public ServerTiming Timing { get; init; } = new();
         public IDeepHistoryService DeepHistory { get; init; } = AbsentPortfolioSources.DeepHistory;
+        public ITwQuotePrefetcher TwQuotes { get; init; } = AbsentPortfolioSources.TwQuotes;
         public ITradingCalendar Calendar { get; init; } = WeekdayTradingCalendar.Instance;
 
         public PortfolioPriceLoader BuildPriceLoader() =>
-            new(Providers, FundData, HttpClientFactory, Cache, NullLogger<PortfolioPriceLoader>.Instance);
+            new(Providers, TwQuotes, FundData, HttpClientFactory, Cache, NullLogger<PortfolioPriceLoader>.Instance);
 
         /// <summary>Over a factory handing out contexts on <paramref name="db"/>'s options: with an
         /// InMemory database they see the same data as the test's own context.</summary>

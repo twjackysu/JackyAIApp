@@ -23,11 +23,15 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _stockService.Object, Mock.Of<ITwListedCompanyService>(), new MemoryCache(new MemoryCacheOptions()),
             gateway ?? RealGateway(), NullLogger<TWStockLibHistoricalProvider>.Instance);
 
-        /// <summary>The real gateway with the default limits (a burst far bigger than any test uses).</summary>
+        /// <summary>The real gateway with the exchange lanes unpaced: these tests are about which months
+        /// are asked for, not when (the default lanes start one every 1.7s).</summary>
         private static ThirdPartyGateway RealGateway()
         {
+            var unpaced = new ThirdPartyGatewayOptions();
+            unpaced.Sources[ThirdPartySources.TwseHistory] = new() { MinIntervalMs = 0 };
+            unpaced.Sources[ThirdPartySources.TpexHistory] = new() { MinIntervalMs = 0 };
             var options = new Mock<IOptionsMonitor<ThirdPartyGatewayOptions>>();
-            options.Setup(o => o.CurrentValue).Returns(new ThirdPartyGatewayOptions());
+            options.Setup(o => o.CurrentValue).Returns(unpaced);
             return new ThirdPartyGateway(options.Object, TimeProvider.System, NullLogger<ThirdPartyGateway>.Instance);
         }
 

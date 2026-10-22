@@ -114,9 +114,13 @@ namespace JackyAIApp.Server.Services.Market
         /// has no DST, so a fixed UTC+8 offset is exact — no TimeZoneInfo lookup needed. Does not
         /// account for exchange holidays: a holiday just means the quote below comes back stale/
         /// NOT_FOUND, silently ignored in favor of the historical close.</summary>
-        private bool HasTodayTwQuote()
+        private bool HasTodayTwQuote() => UsesTodayQuote(_timeProvider);
+
+        /// <summary>When the overlay reads today's quote (see <see cref="HasTodayTwQuote"/>): what
+        /// <see cref="TwQuotePrefetcher"/> prefetches for.</summary>
+        internal static bool UsesTodayQuote(TimeProvider time)
         {
-            var taipeiNow = _timeProvider.GetTaipeiNow();
+            var taipeiNow = time.GetTaipeiNow();
             if (taipeiNow.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
             return taipeiNow.TimeOfDay >= new TimeSpan(9, 0, 0);
         }

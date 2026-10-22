@@ -26,10 +26,15 @@ namespace JackyAIApp.Server.Services.ExternalApi
         /// <summary>Settings by source name (see <see cref="ThirdPartySources"/>).</summary>
         public Dictionary<string, ThirdPartySourceOptions> Sources { get; set; } = new(StringComparer.OrdinalIgnoreCase)
         {
-            // The exchanges publish no rate limit we could find, so these are conservative guesses: a
-            // page load's burst goes through at once, a long backfill settles to one request a second.
-            [ThirdPartySources.TwseHistory] = new() { MinIntervalMs = 1000 },
-            [ThirdPartySources.TpexHistory] = new() { MinIntervalMs = 1000 },
+            // TWStockLib lets at most 3 requests in any 5 s reach an exchange host (its built-in limit:
+            // the pace past which the exchanges are known to block an IP; none is published) and
+            // queues the rest first come, first served. These lanes stay within it — one request at a
+            // time, one every 1.7 s, so never more than 3 in 5 s — so nothing waits inside the library,
+            // and the order here (interactive first) is the one that holds. A bucket of one has no
+            // room for a background reserve: a backfill request is at most one interval ahead of a
+            // user's.
+            [ThirdPartySources.TwseHistory] = new() { MinIntervalMs = 1700, Burst = 1 },
+            [ThirdPartySources.TpexHistory] = new() { MinIntervalMs = 1700, Burst = 1 },
             [ThirdPartySources.YahooChart] = new() { MinIntervalMs = 250, Burst = 40 },
         };
 
