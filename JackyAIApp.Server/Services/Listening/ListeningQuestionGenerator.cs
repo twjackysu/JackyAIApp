@@ -7,7 +7,6 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.OpenAI;
-using Newtonsoft.Json;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Listening
@@ -37,7 +36,7 @@ namespace JackyAIApp.Server.Services.Listening
         // (imagePrompt, option text) stays English.
         private static readonly (string User, string Assistant) FewShotExample = (
             User: "office",
-            Assistant: JsonConvert.SerializeObject(new ListeningQuestionGenerationResult
+            Assistant: AiJson.Serialize(new ListeningQuestionGenerationResult
             {
                 ImagePrompt = "A man in a business suit is standing in a bright office, pointing at a bar chart on a whiteboard while a female colleague looks on.",
                 Options =

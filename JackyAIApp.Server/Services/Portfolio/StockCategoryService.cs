@@ -7,7 +7,6 @@ using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 
 namespace JackyAIApp.Server.Services.Portfolio
 {
@@ -31,7 +30,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         // that fix's commit history); baked in here from the start instead of discovered later.
         private static readonly (string User, string Assistant) FewShotExample = (
             User: "Symbol: 2330\nName: 台積電\nMarket: TW\nTWSE profile: {\"公司代號\":\"2330\",\"公司名稱\":\"台灣積體電路製造股份有限公司\",\"產業別\":\"24\"}",
-            Assistant: JsonConvert.SerializeObject(new CategoryClassificationResult
+            Assistant: AiJson.Serialize(new CategoryClassificationResult
             {
                 Category = nameof(PortfolioCategory.Semiconductor),
                 SubCategory = "晶圓代工",

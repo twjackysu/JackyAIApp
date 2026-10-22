@@ -65,6 +65,15 @@ JackyAIApp.Server/
 - To drop several entries together, set them with `options.AddExpirationToken(cache.GroupToken(group))`
   and call `cache.InvalidateGroup(group)`
 
+## JSON
+
+- System.Text.Json only. Newtonsoft.Json still arrives transitively, but a test fails if the server
+  references it
+- JSON exchanged with an AI model — a few-shot example or payload written into a prompt, a model's
+  answer parsed back — goes through `AiJson.Serialize` / `AiJson.Deserialize` (`Common/AiJson.cs`).
+  Its options read what models actually write (any-case names, numbers in quotes, a missing
+  `required` field as null, enum names, non-ISO dates) and keep Chinese unescaped in prompts
+
 ## Taipei time and the trading calendar
 
 - Every TWSE rule runs on Taipei time: use `time.GetTaipeiNow()` / `GetTaipeiToday()`

@@ -1,4 +1,5 @@
 using DataAnalysisLibrary.Core.Enums;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.DataAnalysis;
 using JackyAIApp.Server.Services.DataAnalysis;
 
@@ -264,18 +265,18 @@ namespace JackyAIApp.Server.Tests.Services
                  "filters":[],"unmatched":["越南"]}
                 """;
 
-            var nlPlan = Newtonsoft.Json.JsonConvert.DeserializeObject<NlPlanDto>(json)!;
+            var nlPlan = AiJson.Deserialize<NlPlanDto>(json)!;
             var plan   = nlPlan.ToSummarizeRequest();
 
             Assert.Equal(["越南"], nlPlan.Unmatched);
             Assert.Equal("ProductCategory", Assert.Single(plan.ViewBy).FieldName);
-            Assert.DoesNotContain("unmatched", Newtonsoft.Json.JsonConvert.SerializeObject(plan), StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("unmatched", AiJson.Serialize(plan), StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
         public void NlPlan_FromLlmJson_WithoutUnmatched_IsNull()
         {
-            var nlPlan = Newtonsoft.Json.JsonConvert.DeserializeObject<NlPlanDto>(
+            var nlPlan = AiJson.Deserialize<NlPlanDto>(
                 """{"viewBy":[{"type":"Plain","fieldName":"Region"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum"}]}""")!;
 
             Assert.Null(nlPlan.Unmatched);

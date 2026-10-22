@@ -2,7 +2,6 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.OpenAI;
-using Newtonsoft.Json;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Exam.Generators
@@ -28,7 +27,7 @@ namespace JackyAIApp.Server.Services.Exam.Generators
 
             var example = (
                 User: "appetizer",
-                Assistant: JsonConvert.SerializeObject(new TranslationTest
+                Assistant: AiJson.Serialize(new TranslationTest
                 {
                     English = "Soup is often a good choice for an appetizer.",
                     Chinese = "湯經常是開胃菜的好選擇。"
