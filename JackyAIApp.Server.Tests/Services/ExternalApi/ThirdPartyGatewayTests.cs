@@ -191,6 +191,25 @@ namespace JackyAIApp.Server.Tests.Services.ExternalApi
             Assert.Equal(new[] { 1, 2, 3, 4, 5 }, await Task.WhenAll(calls));
         }
 
+        [Theory]
+        [InlineData(ThirdPartySources.TwseHistory)]
+        [InlineData(ThirdPartySources.TpexHistory)]
+        public void TheExchangeLanes_NeverLetMoreThroughThanTWStockLibsLimitAllows(string source)
+        {
+            // What TWStockLib lets reach a host in any window, as the app registers it (its default).
+            var limit = new TWStockLib.TwStockOptions().RateLimit;
+            var lane = new ThirdPartyGatewayOptions().For(source);
+
+            // The most a lane starts in any window of that length: its bucket at once, then one per
+            // interval (ABurstGoesOutAtOnce_ThenTheSourceIsPaced shows the gateway keeps to both). At
+            // or under the limit, nothing queues inside the library, where interactive and background
+            // requests would be served first come, first served.
+            var mostInAWindow = lane.Burst + (int)Math.Ceiling(limit.Window.TotalMilliseconds / lane.MinIntervalMs) - 1;
+            Assert.True(lane.MinIntervalMs > 0, "the lane is paced");
+            Assert.True(mostInAWindow <= limit.PermitLimit,
+                $"{source} can start {mostInAWindow} requests in {limit.Window.TotalSeconds}s; TWStockLib lets {limit.PermitLimit} through");
+        }
+
         [Fact]
         public async Task ASourceWithNoPacing_StillBoundsConcurrency()
         {

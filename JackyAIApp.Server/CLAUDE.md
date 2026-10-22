@@ -136,7 +136,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   Callers keep their own reaction to a null (unreadable) dataset
 - TWStockLib (prices, history, realtime quotes) is registered once, in `FinanceServiceExtensions`: its
   named client (`TwStockOptions.HttpClientName`) gets the app's 30s timeout and read-only retries, and
-  the library's own rate limit is off (`TwStockRegistrationTests` pins all three)
+  the library's own rate limit stays on at its default, 3 requests in any 5s per host
+  (`TwStockRegistrationTests` pins all three). History goes through the gateway, whose exchange lanes
+  keep within that limit; code asking for the realtime quotes of many stocks batches them first with
+  `ITwQuotePrefetcher` (one MIS request per 50), as `PortfolioPriceLoader.FetchStocksAsync` does, rather
+  than one request per stock
 - Every TW daily volume the app stores or hands out is in shares, on both exchanges (TWStockLib converts
   TPEx's lots since 2.3; rows stored before were converted by the `ConvertOtcVolumeToShares` migration).
   Only the realtime quote's `TotalVolume` is still lots: multiply by `TwVolume.SharesPerLot`

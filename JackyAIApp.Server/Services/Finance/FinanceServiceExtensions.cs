@@ -26,10 +26,13 @@ namespace JackyAIApp.Server.Services.Finance
             services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
             services.AddTradingCalendar();
 
-            // TWStockLib: TWSE/TPEx monthly history and MIS realtime quotes. Its built-in limiter (3
-            // requests per 5s per host) is off, as 2.x had none: the third-party gateway already paces
-            // the history, and the quotes go out one per held stock, which the limiter would queue.
-            services.AddTwStock(options => options.RateLimit.Enabled = false);
+            // TWStockLib: TWSE/TPEx monthly history and MIS realtime quotes, with its built-in limit on:
+            // at most 3 requests in any 5s per exchange host, the rest queued (within the client's
+            // timeout), so a burst of ours cannot get the server's IP blocked. The gateway's history
+            // lanes stay within it (ThirdPartyGatewayOptions), and a page's quotes go out in batches
+            // (ITwQuotePrefetcher) rather than one request per stock.
+            services.AddTwStock();
+            services.AddScoped<ITwQuotePrefetcher, TwQuotePrefetcher>();
             // Its requests go through its own named client. Retries absorb the transient TWSE /
             // Azure-outbound flakiness behind the intermittent "查無股票" search failures (the
             // library has a timeout but no retry); 30s instead of its 100s keeps a stalled exchange
