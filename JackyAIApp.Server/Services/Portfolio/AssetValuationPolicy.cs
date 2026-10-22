@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data.Models.Portfolio;
+using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.DTO.Portfolio;
 
 namespace JackyAIApp.Server.Services.Portfolio
@@ -7,6 +8,28 @@ namespace JackyAIApp.Server.Services.Portfolio
     /// <summary>Where a holding's value is shown in the summary and the "by asset type" charts. The
     /// names are the series keys the client draws (net worth history's AssetType mode).</summary>
     public enum AssetBucket { TwStock, UsStock, Fund, Cash, Property, Liability }
+
+    /// <summary>Where a market-priced holding's price comes from: a stock's quotes (the market data
+    /// providers) or a fund's NAV (FundRich). The two are fetched, cached and backfilled separately.</summary>
+    public enum PriceSource { None, StockQuote, FundNav }
+
+    /// <summary>The published rate a holding converts at instead of the mid-market one, when there is one.</summary>
+    public enum PublishedFxSource
+    {
+        None,
+        /// <summary>集保's rate of the day: what a fund bought through 基富通 actually settles at.</summary>
+        Tdcc,
+        /// <summary>國泰世華's rate for the day of the holding's own quote (US stocks).</summary>
+        CathayOnQuoteDay,
+    }
+
+    /// <summary>A holding's latest price among the prices in hand, the currency it is in, and the
+    /// day it is from (null when unknown). A price of 0 means there is none to be had.</summary>
+    public readonly record struct LatestPrice(decimal Price, string Currency, DateOnly? Day);
+
+    /// <summary>The close on or before a day from a holding's price history, and its currency.
+    /// Close is null when the history has nothing that early; what that means is up to the caller.</summary>
+    public readonly record struct AsOfPrice(decimal? Close, string Currency);
 
     /// <summary>
     /// What one <see cref="AssetType"/> is, as the Portfolio screens need to know it: whether it has a
@@ -59,6 +82,29 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         public abstract AssetBucket BucketOf(HoldingPosition position);
 
+        public virtual PriceSource PriceSource => PriceSource.None;
+
+        public virtual PublishedFxSource PublishedFx => PublishedFxSource.None;
+
+        /// <summary>The price saved with the holding, to value it at when the market can't say: a
+        /// fund's unit price. Null for the others.</summary>
+        public virtual decimal? StoredPrice(HoldingPosition position) => null;
+
+        /// <summary>The latest price from the fetched maps, falling back to <see cref="StoredPrice"/>;
+        /// null when the type has no price (an amount) or, for a stock, when none was fetched.</summary>
+        public virtual LatestPrice? Latest(
+            HoldingPosition position,
+            IReadOnlyDictionary<string, MarketData> stocks, IReadOnlyDictionary<string, FundNavHistory> funds) => null;
+
+        /// <summary>The close on or before <paramref name="date"/> from the holding's own history; null
+        /// when there is no history for it at all. Does not fall back to <see cref="StoredPrice"/>: the
+        /// screens differ on when that applies.</summary>
+        internal virtual AsOfPrice? PriceAsOf(HoldingPosition position, DateOnly date, AsOfPriceBook prices) => null;
+
+        /// <summary>The currency one of the holding's dividends was paid in.</summary>
+        public virtual string DividendCurrency(DividendRecord record, string symbol, IReadOnlyDictionary<string, FundNavHistory> funds) =>
+            record.Currency;
+
         /// <summary>Keeps the stored unit price (a fund's fallback when its NAV can't be fetched).</summary>
         protected virtual bool StoresUnitPrice => false;
 
@@ -100,6 +146,22 @@ namespace JackyAIApp.Server.Services.Portfolio
             public override bool IsMarketPriced => true;
             public override AssetBucket BucketOf(HoldingPosition position) =>
                 position.Market == "US" ? AssetBucket.UsStock : AssetBucket.TwStock;
+            public override PriceSource PriceSource => PriceSource.StockQuote;
+            public override PublishedFxSource PublishedFx => PublishedFxSource.CathayOnQuoteDay;
+
+            public override LatestPrice? Latest(
+                HoldingPosition position,
+                IReadOnlyDictionary<string, MarketData> stocks, IReadOnlyDictionary<string, FundNavHistory> funds)
+            {
+                if (!stocks.TryGetValue(position.Symbol, out var data)) return null;
+                var last = data.HistoricalPrices.LastOrDefault();
+                return new(last?.Close ?? 0, position.Currency, last is null ? null : DateOnly.FromDateTime(last.Date));
+            }
+
+            internal override AsOfPrice? PriceAsOf(HoldingPosition position, DateOnly date, AsOfPriceBook prices) =>
+                prices.Stocks.TryGetValue(position.Symbol, out var series)
+                    ? new AsOfPrice(series.CloseOnOrBefore(date), position.Currency)
+                    : null;
         }
 
         private sealed class FundPolicy : AssetValuationPolicy
@@ -108,6 +170,33 @@ namespace JackyAIApp.Server.Services.Portfolio
             public override bool IsMarketPriced => true;
             protected override bool StoresUnitPrice => true;
             public override AssetBucket BucketOf(HoldingPosition position) => AssetBucket.Fund;
+            public override PriceSource PriceSource => PriceSource.FundNav;
+            public override PublishedFxSource PublishedFx => PublishedFxSource.Tdcc;
+            public override decimal? StoredPrice(HoldingPosition position) => position.UnitPrice;
+
+            /// <summary>The latest NAV, in the NAV's currency — FundRich's is authoritative, not the
+            /// one picked by hand. Without a usable NAV, the saved unit price; still in the NAV's
+            /// currency when there is a NAV history at all.</summary>
+            public override LatestPrice? Latest(
+                HoldingPosition position,
+                IReadOnlyDictionary<string, MarketData> stocks, IReadOnlyDictionary<string, FundNavHistory> funds)
+            {
+                var stored = position.UnitPrice ?? 0;
+                if (string.IsNullOrWhiteSpace(position.Symbol) || !funds.TryGetValue(position.Symbol, out var nav))
+                    return new(stored, position.Currency, null);
+                var last = nav.Prices.LastOrDefault();
+                DateOnly? day = last != null && DateOnly.TryParse(last.Date, out var d) ? d : null;
+                return new(last?.Close is > 0 ? last.Close : stored, nav.Currency, day);
+            }
+
+            internal override AsOfPrice? PriceAsOf(HoldingPosition position, DateOnly date, AsOfPriceBook prices) =>
+                !string.IsNullOrWhiteSpace(position.Symbol) && prices.Funds.TryGetValue(position.Symbol, out var fund)
+                    ? new AsOfPrice(fund.Prices.CloseOnOrBefore(date.ToString("yyyy-MM-dd")), fund.Currency)
+                    : null;
+
+            /// <summary>FundRich's dividend history has no currency: the fund's NAV currency, else TWD.</summary>
+            public override string DividendCurrency(DividendRecord record, string symbol, IReadOnlyDictionary<string, FundNavHistory> funds) =>
+                funds.TryGetValue(symbol, out var nav) ? nav.Currency : "TWD";
         }
 
         private sealed class CashPolicy : AssetValuationPolicy
