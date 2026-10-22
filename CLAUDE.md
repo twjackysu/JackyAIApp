@@ -192,7 +192,10 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
     (`claude-haiku-5-5`, SDK `Anthropic` NuGet) called directly through the Anthropic API (key
     `Settings:AnthropicApiKey`) — not Dify (removed) and not OpenAI. It uses Anthropic's MCP
     connector to attach the remote `tw-stock` MCP server (`TW-Stock-MCP-Server.fastmcp.app`), which
-    Anthropic's servers call, not ours. Haiku 5.5 thinks by default (adaptive) and the thinking
+    Anthropic's servers call, not ours. Its tools are deferred behind the regex tool search (not
+    BM25, which misses Chinese queries), except a few always loaded
+    (`AnthropicChatService.AlwaysLoadedTools`; the turn log names the tools each turn called, to
+    keep that list honest). Haiku 5.5 thinks by default (adaptive) and the thinking
     counts toward `max_tokens`; effort is set explicitly to `medium`; it can decline a request
     (`stop_reason: refusal`, no server-side fallback for Haiku), which is reported to the user as
     such. The system prompt carries today's Taipei date. The API is stateless, so conversations
