@@ -3,7 +3,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.Portfolio;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.Portfolio;
-using JackyAIApp.Server.Services.Finance;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +23,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
     {
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<IOpenAIPromptService> _promptService;
-        private readonly Mock<ITWSEOpenAPIService> _twseOpenApi;
+        private readonly Mock<ITwseOpenApi> _twse;
         private readonly StockCategoryService _service;
 
         public StockCategoryServiceTests()
@@ -34,12 +34,12 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             _dbContext = new AzureSQLDBContext(options);
 
             _promptService = new Mock<IOpenAIPromptService>();
-            _twseOpenApi = new Mock<ITWSEOpenAPIService>();
-            _twseOpenApi.Setup(x => x.GetCompanyProfileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync("");
+            _twse = new Mock<ITwseOpenApi>();
+            _twse.Setup(x => x.GetCompanyProfilesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync((IReadOnlyList<TwseCompanyProfile>?)null);
 
             _service = new StockCategoryService(
-                new TestDbContextFactory(options), _promptService.Object, _twseOpenApi.Object,
+                new TestDbContextFactory(options), _promptService.Object, _twse.Object,
                 NullLogger<StockCategoryService>.Instance);
         }
 
@@ -91,6 +91,44 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal(nameof(PortfolioCategory.Semiconductor), persisted.Category);
             Assert.Equal("晶圓代工", persisted.SubCategory);
             Assert.NotNull(persisted.ClassifiedAt);
+        }
+
+        /// <summary>What the model was asked to classify, for the next GetCategoryAsync.</summary>
+        private List<string> CaptureGrounding()
+        {
+            var groundings = new List<string>();
+            _promptService.Setup(x => x.GetCompletionAsync<CategoryClassificationResult>(
+                    It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                    It.IsAny<IEnumerable<(string, string)>>(), It.IsAny<string>()))
+                .Callback<string, string, string?, IEnumerable<(string, string)>?, string?>((_, grounding, _, _, _) => groundings.Add(grounding))
+                .ReturnsAsync((new CategoryClassificationResult { Category = nameof(PortfolioCategory.Semiconductor), SubCategory = "晶圓代工" }, (string?)null));
+            return groundings;
+        }
+
+        [Fact]
+        public async Task GetCategoryAsync_ATwseListedCompany_IsGroundedInItsTwseProfileRow()
+        {
+            _twse.Setup(x => x.GetCompanyProfilesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync([new TwseCompanyProfile("2330", "台灣積體電路製造股份有限公司",
+                    [KeyValuePair.Create("公司代號", "2330"), KeyValuePair.Create("產業別", "24")])]);
+            var groundings = CaptureGrounding();
+
+            await _service.GetCategoryAsync(AssetType.STOCK, "2330", "台積電", "TW");
+
+            var expected = $"\nTWSE profile: 公司代號: 2330{Environment.NewLine}產業別: 24{Environment.NewLine}";
+            Assert.Contains(expected, Assert.Single(groundings));
+        }
+
+        [Fact]
+        public async Task GetCategoryAsync_ASymbolWithoutAProfileRow_IsClassifiedWithoutOne()
+        {
+            _twse.Setup(x => x.GetCompanyProfilesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync([new TwseCompanyProfile("2330", "台積電", [KeyValuePair.Create("公司代號", "2330")])]);
+            var groundings = CaptureGrounding();
+
+            await _service.GetCategoryAsync(AssetType.STOCK, "0050", "元大台灣50", "TW");
+
+            Assert.DoesNotContain("TWSE profile", Assert.Single(groundings));
         }
 
         [Fact]

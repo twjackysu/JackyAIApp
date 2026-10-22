@@ -28,7 +28,7 @@ namespace JackyAIApp.Server.Services.Finance
         public async Task<ServiceResult<StockTrendAnalysis>> AnalyzeStockWithAIAsync(string stockCodeOrName, string stockData, string userId, CancellationToken cancellationToken = default)
         {
             // The system prompt references the data sections (technical/chip/fundamental by
-            // timeframe) that GetStockDataAsync produced; pass them as the user message.
+            // timeframe) that TwseAnalysisData.DescribeAsync produced; pass them as the user message.
             var userMessage = $"請分析股票「{stockCodeOrName}」，以下是依時間維度整理的資料：\n\n{stockData}";
 
             string? lastError = null;

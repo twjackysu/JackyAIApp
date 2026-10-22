@@ -11,17 +11,18 @@ using Moq;
 namespace JackyAIApp.Server.Tests.Services.Finance
 {
     /// <summary>
-    /// The text the stock AI analysis is given (<see cref="TWSEOpenAPIService.GetStockDataAsync"/>):
+    /// The text the stock AI analysis is given (<see cref="TwseAnalysisData.DescribeAsync"/>):
     /// each TWSE dataset's row for the stock, field by field, under its section heading. Fixtures
     /// only, no network calls.
     /// </summary>
-    public class TWSEOpenAPIServiceTests
+    public class TwseAnalysisDataTests
     {
         private static string Fixture(string name) =>
             File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures/TWSE", name));
 
         private readonly ConcurrentDictionary<string, int> _requests = new();
         private readonly HashSet<string> _failing = [];
+        private string? _indices;
 
         private HttpResponseMessage Route(HttpRequestMessage request)
         {
@@ -34,7 +35,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                 "STOCK_DAY_ALL" => Fixture("stock_day_all.json"),
                 "t187ap03_L" => Fixture("company_list_t187ap03_l.json"),
                 "t187ap05_L" => Fixture("revenue_t187ap05_l.json"),
-                "MI_INDEX" => Fixture("mi_index.json"),
+                "MI_INDEX" => _indices ?? Fixture("mi_index.json"),
                 "STOCK_DAY_AVG_ALL" => """[{"Date":"1151021","Code":"2330","Name":"台積電","ClosingPrice":"1050.00","MonthlyAveragePrice":"1032.15"}]""",
                 "BWIBBU_ALL" => """[{"Code":"2330","Name":"台積電","PEratio":"32.80","DividendYield":"0.90","PBratio":"10.74"}]""",
                 "t187ap45_L" => """[{"公司代號":"2330","公司名稱":"台積電","股利年度":"114","股東配發-盈餘分配之現金股利(元/股)":"4.5"}]""",
@@ -44,14 +45,14 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             });
         }
 
-        private TWSEOpenAPIService CreateService()
+        private TwseAnalysisData CreateService()
         {
             var factory = new Mock<IHttpClientFactory>();
             factory.Setup(f => f.CreateClient(It.IsAny<string>()))
                 .Returns(() => StubHttpMessageHandler.CreateClient(Route));
-            var cache = new MemoryCache(new MemoryCacheOptions());
-            return new TWSEOpenAPIService(factory.Object, NullLogger<TWSEOpenAPIService>.Instance, cache,
-                new TwseOpenApi(factory.Object, cache, NullLogger<TwseOpenApi>.Instance, TimeProvider.System));
+            return new TwseAnalysisData(
+                new TwseOpenApi(factory.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<TwseOpenApi>.Instance, TimeProvider.System),
+                NullLogger<TwseAnalysisData>.Instance);
         }
 
         /// <summary>The lines under one section heading, up to the blank line that ends it.</summary>
@@ -74,7 +75,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         [Fact]
         public async Task EachDatasetsRowForTheStock_IsListedFieldByField_UnderItsSection()
         {
-            var text = await CreateService().GetStockDataAsync("2330");
+            var text = await CreateService().DescribeAsync("2330");
 
             Assert.Equal(RowLines("stock_day_all.json", "Code", "2330"), Section(text, "Daily Trading Data (Technical)"));
             Assert.Equal(RowLines("company_list_t187ap03_l.json", "公司代號", "2330"), Section(text, "Company Profile"));
@@ -86,7 +87,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         [Fact]
         public async Task AStockMissingFromADataset_SaysSo_InThatSection()
         {
-            var text = await CreateService().GetStockDataAsync("9999");
+            var text = await CreateService().DescribeAsync("9999");
 
             Assert.Equal(["No data found for stock code: 9999"], Section(text, "Daily Trading Data (Technical)"));
             Assert.Equal(["No data found for stock code: 9999"], Section(text, "Company Profile"));
@@ -99,7 +100,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _failing.Add("STOCK_DAY_ALL");
             _failing.Add("t187ap05_L");
 
-            var text = await CreateService().GetStockDataAsync("2330");
+            var text = await CreateService().DescribeAsync("2330");
 
             Assert.DoesNotContain("--- Daily Trading Data (Technical) ---", text);
             Assert.DoesNotContain("--- Monthly Revenue (Fundamental) ---", text);
@@ -112,7 +113,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             foreach (var e in new[] { "STOCK_DAY_ALL", "t187ap03_L", "t187ap05_L", "MI_INDEX", "STOCK_DAY_AVG_ALL", "BWIBBU_ALL", "t187ap45_L", "t187ap06_L_ci", "t187ap07_L_ci" })
                 _failing.Add(e);
 
-            var text = await CreateService().GetStockDataAsync("2330");
+            var text = await CreateService().DescribeAsync("2330");
 
             // The timeframe headings alone are past the 200 characters below which the service
             // answers "Limited data available", so that note is never what comes back.
@@ -125,13 +126,12 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         {
             var service = CreateService();
 
-            await service.GetStockDataAsync("2330");
-            await service.GetStockDataAsync("1101");
-            await service.GetCompanyProfileAsync("1101");
+            await service.DescribeAsync("2330");
+            await service.DescribeAsync("1101");
+            await service.DescribeAsync("9999");
 
-            Assert.Equal(1, _requests["STOCK_DAY_ALL"]);
-            Assert.Equal(1, _requests["t187ap03_L"]);
-            Assert.Equal(1, _requests["t187ap05_L"]);
+            Assert.All(_requests.Values, count => Assert.Equal(1, count));
+            Assert.Equal(9, _requests.Count);
         }
 
         [Fact]
@@ -139,23 +139,27 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         {
             var service = CreateService();
             _failing.Add("t187ap03_L");
-            Assert.Equal("", await service.GetCompanyProfileAsync("2330"));
+            Assert.Empty(Section(await service.DescribeAsync("2330"), "Company Profile"));
 
             _failing.Clear();
-            var profile = await service.GetCompanyProfileAsync("2330");
+            var text = await service.DescribeAsync("2330");
 
-            Assert.Contains("公司代號: 2330", profile);
+            Assert.Contains("公司代號: 2330", Section(text, "Company Profile"));
             Assert.Equal(2, _requests["t187ap03_L"]);
         }
 
         [Fact]
-        public async Task TheCompanyProfile_AloneIsTheStocksRow()
+        public async Task TheMarketIndices_AreListedWholeRowByRow_UpToTheirBudget()
         {
-            // What the portfolio's stock categorizer grounds its classification on.
-            var profile = await CreateService().GetCompanyProfileAsync("1101");
+            var rows = Enumerable.Range(1, 30).Select(i => $$"""{"日期":"1151021","指數":"指數{{i}}","收盤指數":"{{1000 + i}}.00"}""");
+            _indices = "[" + string.Join(",", rows) + "]";
 
-            Assert.Equal(RowLines("company_list_t187ap03_l.json", "公司代號", "1101"),
-                profile.Replace("\r\n", "\n").TrimEnd('\n').Split('\n').ToList());
+            var section = Section(await CreateService().DescribeAsync("2330"), "Market Index & Institutional Activity (Chip)");
+
+            Assert.Equal(["日期: 1151021", "指數: 指數1", "收盤指數: 1001.00", "日期: 1151021", "指數: 指數2"], section.Take(5));
+            Assert.Equal("...", section[^1]);
+            Assert.True(section.Count % 3 == 1, "only whole rows, then the ellipsis");
+            Assert.InRange(section.Sum(l => l.Length + Environment.NewLine.Length), 900, 1010);
         }
     }
 }
