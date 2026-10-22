@@ -4,6 +4,8 @@ using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.Portfolio;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -35,10 +37,13 @@ namespace JackyAIApp.Server.Tests.TestHelpers
         public PortfolioPriceLoader BuildPriceLoader() =>
             new(Providers, FundData, HttpClientFactory, Cache, NullLogger<PortfolioPriceLoader>.Instance);
 
-        public HoldingSnapshotReader BuildSnapshotReader() => new(db);
+        /// <summary>Over a factory handing out contexts on <paramref name="db"/>'s options: with an
+        /// InMemory database they see the same data as the test's own context.</summary>
+        public HoldingSnapshotReader BuildSnapshotReader() =>
+            new(new TestDbContextFactory((DbContextOptions<AzureSQLDBContext>)db.GetService<IDbContextOptions>()), Cache);
 
         public PortfolioService Build() =>
-            new(db, BuildSnapshotReader(), BuildPriceLoader(), Dividends, Categories, Cache,
+            new(db, BuildSnapshotReader(), BuildPriceLoader(), Dividends, Categories,
                 NullLogger<PortfolioService>.Instance,
                 timeProvider: Time, tdccFx: TdccFx, cathayFx: CathayFx, timing: Timing,
                 deepHistory: DeepHistory, tradingCalendar: Calendar);
