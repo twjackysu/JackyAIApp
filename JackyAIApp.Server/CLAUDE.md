@@ -18,13 +18,18 @@ dotnet ef migrations add [MigrationName]
 dotnet ef database update
 ```
 
+- An entity's keys, relationships, indexes and column types go in its own `IEntityTypeConfiguration<T>`
+  in `Data/Configurations` (one file per feature), never in `OnModelCreating`, which only applies them
+- Changing an entity or a configuration needs a migration: `ModelMatchesMigrationsTests` fails while the
+  model has changes no migration covers (startup's `Database.Migrate()` would refuse to run)
+
 ## Backend Structure
 
 ```
 JackyAIApp.Server/
 ├── Controllers/    # API controllers (RESTful, base route: /api/[controller])
 ├── Services/       # Business logic with dependency injection
-├── Data/           # EF Context, Models, Migrations
+├── Data/           # EF Context, Models, Configurations, Migrations
 ├── DTO/            # Data transfer objects
 ├── Prompt/         # AI prompt templates by feature
 └── Common/         # Error handling middleware, response factory
