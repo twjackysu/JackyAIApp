@@ -10,9 +10,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance
 {
     /// <summary>
     /// Parses real response shapes captured from TWSE OpenAPI's market-wide endpoints (FMTQIK,
-    /// MI_INDEX, MI_MARGN) — fixtures only, no network calls. THIRD_PARTY_CONTRACT_TESTS_PLAN.md
-    /// section B2. Also covers the Bank of Taiwan FX CSV parser (B5) and CBC bank-rate CSV parser
-    /// (B6, Phase 3) — both fetched in the same Task.WhenAll as the JSON endpoints above.
+    /// MI_INDEX, MI_MARGN) — fixtures only, no network calls. Also covers the exchange rates
+    /// (open.er-api.com) and the CBC bank-rate CSV parser, fetched in the same Task.WhenAll.
     /// </summary>
     public class TWSEMacroEconomyProviderTests
     {
@@ -31,6 +30,13 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                 new TwseOpenApi(httpClientFactory.Object, cache, NullLogger<TwseOpenApi>.Instance, TimeProvider.System));
         }
 
+        /// <summary>open.er-api.com's latest/USD as it answered on 2026-10-22, trimmed to the
+        /// currencies read plus one that is not.</summary>
+        private const string ErApiLatestUsd = """
+            {"result":"success","base_code":"USD","time_last_update_utc":"Thu, 22 Oct 2026 00:02:31 +0000",
+             "rates":{"USD":1,"TWD":32.411205,"JPY":158.100039,"EUR":0.890292,"CNY":6.689327,"GBP":0.746668,"AUD":1.52}}
+            """;
+
         private static HttpResponseMessage CsvResponse(string csv, HttpStatusCode status = HttpStatusCode.OK) =>
             new(status) { Content = new StringContent(csv) };
 
@@ -40,7 +46,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             if (url.Contains("FMTQIK")) return StubHttpMessageHandler.JsonResponse(ReadFixture("fmtqik.json"));
             if (url.Contains("MI_INDEX")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_index.json"));
             if (url.Contains("MI_MARGN")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_margn.json"));
-            if (url.Contains("rate.bot.com.tw")) return CsvResponse(ReadFixture("bot_fx.csv"));
+            if (url.Contains("open.er-api.com")) return StubHttpMessageHandler.JsonResponse(ErApiLatestUsd);
             if (url.Contains("cbc.gov.tw")) return CsvResponse(ReadFixture("cbc_a13rate.csv"));
             throw new InvalidOperationException($"Unexpected URL in test: {url}");
         }
@@ -76,14 +82,13 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             var expectedMarginBuyTotal = 2411 + 16 + 13 + 13038;
             Assert.Equal(expectedMarginBuyTotal, result.Margin!.MarginBuyTotal);
 
-            // === B5: Bank of Taiwan FX CSV ===
-            Assert.Equal(5, result.ExchangeRates.Count); // USD/JPY/EUR/CNY/GBP in bot_fx.csv fixture
-            var usd = result.ExchangeRates.Single(r => r.Currency == "USD");
-            Assert.Equal("美元", usd.DisplayName);
-            Assert.Equal(32.245m, usd.BuyRate);  // cols[3], 即期匯率買入
-            Assert.Equal(32.345m, usd.SellRate); // cols[13], 即期匯率賣出
+            // === Exchange rates: TWD per unit, from rates quoted per USD ===
+            Assert.Equal(
+                [("USD", "美元", 32.4112m), ("JPY", "日圓", 0.2050m), ("EUR", "歐元", 36.4051m),
+                 ("CNY", "人民幣", 4.8452m), ("GBP", "英鎊", 43.4078m)],
+                result.ExchangeRates.Select(r => (r.Currency, r.DisplayName, r.Rate)));
 
-            // === B6: CBC bank-rate CSV ===
+            // === CBC bank-rate CSV ===
             Assert.NotNull(result.BankRate);
             // 陽信銀行/華南銀行 are not 臺灣銀行/第一銀行 so must be filtered out; the parser walks
             // rows bottom-to-top (Reverse()) and returns the first match — with the fixture order
@@ -174,7 +179,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.NotNull(result.Margin);
             Assert.Equal(0L, result.Margin!.MarginBuyTotal);
 
-            // Empty CSV body (the fallback for bot/cbc above) must degrade to empty/null, not throw.
+            // An empty body (the fallback for er-api/cbc above) must degrade to empty/null, not throw.
             Assert.Empty(result.ExchangeRates);
             Assert.Null(result.BankRate);
         }
@@ -207,32 +212,34 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.Null(result.BankRate);
         }
 
-        [Fact]
-        public async Task FetchExchangeRates_BotAntiBotChallengeHtml_DegradesToEmptyInsteadOfThrowing()
+        [Theory]
+        [InlineData("""{"result":"error","error-type":"quota-reached"}""")]
+        [InlineData("""{"result":"success","rates":{"USD":1,"JPY":158.1}}""")] // no TWD to quote against
+        [InlineData("""<!DOCTYPE html><html><head><title>Challenge Validation</title></head></html>""")]
+        public async Task FetchExchangeRates_AnAnswerWithoutRates_IsEmpty_AndTheRestStillArrives(string answer)
         {
-            // Bank of Taiwan is known to serve a "Challenge Validation" HTML page to non-browser
-            // clients instead of the CSV (verified live while implementing this test — see
-            // TwseMacroCsvContractTests). The parser has no special-case detection for this; it
-            // just splits lines/commas as usual. Confirms that garbage-shaped input degrades to an
-            // empty list rather than throwing, so the rest of FetchAsync's Task.WhenAll still
-            // completes.
-            const string challengeHtml = """<!DOCTYPE html><html><head><title>Challenge Validation</title></head><body>blocked</body></html>""";
-
-            var provider = CreateProvider(req =>
-            {
-                var url = req.RequestUri!.ToString();
-                if (url.Contains("rate.bot.com.tw")) return CsvResponse(challengeHtml);
-                if (url.Contains("cbc.gov.tw")) return CsvResponse(ReadFixture("cbc_a13rate.csv"));
-                if (url.Contains("FMTQIK")) return StubHttpMessageHandler.JsonResponse(ReadFixture("fmtqik.json"));
-                if (url.Contains("MI_INDEX")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_index.json"));
-                if (url.Contains("MI_MARGN")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_margn.json"));
-                throw new InvalidOperationException($"Unexpected URL: {url}");
-            });
+            var provider = CreateProvider(req => req.RequestUri!.ToString().Contains("open.er-api.com")
+                ? StubHttpMessageHandler.JsonResponse(answer)
+                : RouteNormal(req));
 
             var result = await provider.FetchAsync();
 
             Assert.Empty(result.ExchangeRates);
-            Assert.NotNull(result.BankRate); // CBC parse is unaffected by the BOT failure
+            Assert.NotNull(result.BankRate);
+            Assert.NotEmpty(result.MarketIndex);
+        }
+
+        [Fact]
+        public async Task FetchExchangeRates_ACurrencyWithoutARate_IsLeftOut()
+        {
+            const string withoutJpy = """{"result":"success","rates":{"USD":1,"TWD":32.4,"JPY":null,"EUR":0.9,"CNY":"6.7","GBP":0}}""";
+            var provider = CreateProvider(req => req.RequestUri!.ToString().Contains("open.er-api.com")
+                ? StubHttpMessageHandler.JsonResponse(withoutJpy)
+                : RouteNormal(req));
+
+            var result = await provider.FetchAsync();
+
+            Assert.Equal([("USD", 32.4m), ("EUR", 36m)], result.ExchangeRates.Select(r => (r.Currency, r.Rate)));
         }
 
         [Fact]
@@ -244,7 +251,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             {
                 var url = req.RequestUri!.ToString();
                 if (url.Contains("cbc.gov.tw")) return CsvResponse(malformedCsv);
-                if (url.Contains("rate.bot.com.tw")) return CsvResponse(ReadFixture("bot_fx.csv"));
+                if (url.Contains("open.er-api.com")) return StubHttpMessageHandler.JsonResponse(ErApiLatestUsd);
                 if (url.Contains("FMTQIK")) return StubHttpMessageHandler.JsonResponse(ReadFixture("fmtqik.json"));
                 if (url.Contains("MI_INDEX")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_index.json"));
                 if (url.Contains("MI_MARGN")) return StubHttpMessageHandler.JsonResponse(ReadFixture("mi_margn.json"));
@@ -254,7 +261,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             var result = await provider.FetchAsync();
 
             Assert.Null(result.BankRate);
-            Assert.NotEmpty(result.ExchangeRates); // BOT parse is unaffected by the CBC failure
+            Assert.NotEmpty(result.ExchangeRates); // the rates are unaffected by the CBC failure
         }
     }
 }

@@ -61,6 +61,9 @@ JackyAIApp.Server/
   would accept anything, another `ServiceResult` included, and wrap it
 - `OpenAIPromptService` keeps its own `(T? Result, string? Error)`: it is the AI client, with no
   HTTP error code of its own; the service calling it decides the `ErrorCodes`
+- An `ErrorCodes` value's middle three digits are its HTTP status (`1040400` → 404): an upstream
+  failure is `ExternalApiError` (502), something the user asked for that does not exist `NotFound`.
+  `ErrorCodesTests` checks every code answers 400–599 and none 405
 
 ## Current user
 

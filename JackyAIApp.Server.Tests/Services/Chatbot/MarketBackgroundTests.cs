@@ -28,7 +28,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
                     MarginBalanceTotal = 9_600_627, MarginPrevBalanceTotal = 9_592_706,
                     ShortBalanceTotal = 215_912, ShortPrevBalanceTotal = 201_911,
                 },
-                ExchangeRates = [new() { Currency = "USD", DisplayName = "美元", BuyRate = 32.4m, SellRate = 32.5m }],
+                ExchangeRates = [new() { Currency = "USD", DisplayName = "美元", Rate = 32.4112m }],
                 BankRate = new BankRate { BankName = "臺銀", Period = "11509", OneYearFixed = 1.725m, BaseLendingRate = 2.9m },
             },
             History(),

@@ -65,7 +65,7 @@ namespace JackyAIApp.Server.Services.Finance
                 var resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(request.StockCodeOrName, timeoutCts.Token);
                 if (string.IsNullOrEmpty(resolvedStockCode))
                 {
-                    return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Unable to find stock code for '{request.StockCodeOrName}'. Please verify the company name or stock code. Searched in TWSE company database but found no matches.");
+                    return ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to find stock code for '{request.StockCodeOrName}'. Please verify the company name or stock code. Searched in TWSE company database but found no matches.");
                 }
 
                 var currentDate = DateTime.Now.ToString("yyyyMMdd");
@@ -140,7 +140,7 @@ namespace JackyAIApp.Server.Services.Finance
             var resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(stockCode, cancellationToken);
             if (string.IsNullOrEmpty(resolvedStockCode))
             {
-                return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
+                return ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to resolve stock code for '{stockCode}'.");
             }
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
@@ -189,7 +189,7 @@ namespace JackyAIApp.Server.Services.Finance
             var resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(stockCode, cancellationToken);
             if (string.IsNullOrEmpty(resolvedStockCode))
             {
-                return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
+                return ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to resolve stock code for '{stockCode}'.");
             }
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
@@ -236,7 +236,7 @@ namespace JackyAIApp.Server.Services.Finance
             var resolvedStockCode = await _stockCodeResolver.ResolveStockCodeAsync(stockCode, cancellationToken);
             if (string.IsNullOrEmpty(resolvedStockCode))
             {
-                return ServiceResult.Fail(ErrorCodes.ExternalApiError, $"Unable to resolve stock code for '{stockCode}'.");
+                return ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to resolve stock code for '{stockCode}'.");
             }
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
@@ -262,12 +262,10 @@ namespace JackyAIApp.Server.Services.Finance
         /// <summary>
         /// The market a request is for — the explicit <paramref name="market"/> if it names one, else
         /// detected from the code — and the code to use with it. A TW code or company name goes through
-        /// the resolver and fails with <paramref name="unresolvedError"/> when it matches nothing; a US
-        /// code is just normalised. The two callers differ only in that error code (comprehensive
-        /// analysis reports an upstream failure, the chart's price bars a plain not-found).
+        /// the resolver and fails as not found when it matches nothing; a US code is just normalised.
         /// </summary>
         private async Task<(MarketRegion Region, string Code, ServiceFailure? Unresolved)> ResolveStockAsync(
-            string code, string? market, ErrorCodes unresolvedError, CancellationToken ct)
+            string code, string? market, CancellationToken ct)
         {
             var region = Enum.TryParse<MarketRegion>(market, true, out var parsed)
                 ? parsed
@@ -277,7 +275,7 @@ namespace JackyAIApp.Server.Services.Finance
 
             var resolved = await _stockCodeResolver.ResolveStockCodeAsync(code, ct) ?? "";
             return string.IsNullOrEmpty(resolved)
-                ? (region, "", ServiceResult.Fail(unresolvedError, $"Unable to resolve stock code for '{code}'."))
+                ? (region, "", ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to resolve stock code for '{code}'."))
                 : (region, resolved, null);
         }
 
@@ -286,8 +284,7 @@ namespace JackyAIApp.Server.Services.Finance
             if (string.IsNullOrWhiteSpace(request.StockCode))
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Stock code is required.");
 
-            var (region, resolvedStockCode, unresolved) = await ResolveStockAsync(
-                request.StockCode, request.Market, ErrorCodes.ExternalApiError, cancellationToken);
+            var (region, resolvedStockCode, unresolved) = await ResolveStockAsync(request.StockCode, request.Market, cancellationToken);
             if (unresolved is { } failure) return failure;
 
             var currentDate = DateTime.Now.ToString("yyyyMMdd");
@@ -352,8 +349,7 @@ namespace JackyAIApp.Server.Services.Finance
             if (code.Trim().Equals(TaiexCode, StringComparison.OrdinalIgnoreCase))
                 return await GetTaiexPriceBarsAsync(cancellationToken);
 
-            var (region, resolvedStockCode, unresolved) = await ResolveStockAsync(
-                code, market, ErrorCodes.NotFound, cancellationToken);
+            var (region, resolvedStockCode, unresolved) = await ResolveStockAsync(code, market, cancellationToken);
             if (unresolved is { } failure) return failure;
 
             try

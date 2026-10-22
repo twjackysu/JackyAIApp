@@ -87,15 +87,15 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         };
 
         [Fact]
-        public async Task UnresolvableTwCode_IsAnExternalError_NotANotFound()
+        public async Task UnresolvableTwCode_IsANotFound()
         {
-            // The price-bars endpoint answers the same situation with NotFound; this one has always
-            // reported it as an upstream failure, and the two share one resolver helper that must keep both.
+            // What the user typed matches nothing: not an upstream failure (as this endpoint once
+            // reported it), and the same answer the price-bars endpoint gives.
             _resolver.Setup(r => r.ResolveStockCodeAsync("不存在的公司", It.IsAny<CancellationToken>())).ReturnsAsync("");
 
             var result = await Service().GetComprehensiveAnalysisAsync(Request("不存在的公司"), default);
 
-            Assert.Equal(ErrorCodes.ExternalApiError, result.Error);
+            Assert.Equal(ErrorCodes.NotFound, result.Error);
             Assert.Contains("不存在的公司", result.ErrorMessage);
             _price.VerifyNoOtherCalls();
         }

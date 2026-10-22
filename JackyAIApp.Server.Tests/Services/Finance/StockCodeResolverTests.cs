@@ -1,51 +1,66 @@
 using JackyAIApp.Server.DTO;
-using JackyAIApp.Server.Services.ExternalApi.Twse;
+using JackyAIApp.Server.DTO.Portfolio;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.OpenAI;
+using JackyAIApp.Server.Services.Portfolio;
 using JackyAIApp.Server.Services.Prompt;
 using JackyAIApp.Server.Tests.TestHelpers;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using TWStockLib.Models;
 
 namespace JackyAIApp.Server.Tests.Services.Finance
 {
     /// <summary>
-    /// Both of the resolver's model calls go through <see cref="IOpenAIPromptService"/> with the one
-    /// prompt file. A failed call leaves its reason in the log (otherwise every typed company name just
-    /// becomes "not found"), and the answer is accepted only as a 4-digit code.
+    /// Names are looked up in the TW symbol list first (上市 and 上櫃, short names, ETFs); the model is
+    /// asked only when that does not settle it, through <see cref="IOpenAIPromptService"/> with the one
+    /// prompt file, and its answer is taken only if the code is on the list. A failed call leaves its
+    /// reason in the log (otherwise every typed company name just becomes "not found").
     /// </summary>
     public class StockCodeResolverTests
     {
-        private const string CompanyListJson =
-            """[{"公司代號":"2330","公司名稱":"台灣積體電路製造股份有限公司"}]""";
+        /// <summary>Searches the way <see cref="TwListedCompanyService"/> does: code prefix or name
+        /// contains, code-prefix matches first.</summary>
+        private sealed class FakeListedCompanies(params (string Symbol, string Name, MarketType Market)[] list) : ITwListedCompanyService
+        {
+            public int Lookups { get; private set; }
 
-        // Not an exact company name, but contained in one: reaches both the "match against the first
-        // 100 companies" call and the "match against keyword-filtered candidates" call.
-        private const string PartialName = "台灣積體";
+            public Task<List<StockSearchItem>> SearchAsync(string keyword, CancellationToken ct = default)
+            {
+                Lookups++;
+                return Task.FromResult(list
+                    .Where(c => c.Symbol.StartsWith(keyword, StringComparison.OrdinalIgnoreCase)
+                        || c.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(c => c.Symbol.StartsWith(keyword, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                    .ThenBy(c => c.Symbol, StringComparer.Ordinal)
+                    .Select(c => new StockSearchItem { Symbol = c.Symbol, Name = c.Name, Market = "TW" })
+                    .ToList());
+            }
+
+            public Task<MarketType?> GetMarketTypeAsync(string symbol, CancellationToken ct = default)
+            {
+                Lookups++;
+                return Task.FromResult(list.Where(c => c.Symbol == symbol).Select(c => (MarketType?)c.Market).FirstOrDefault());
+            }
+
+            public Task<bool> RefreshAsync(CancellationToken ct = default) => throw new NotSupportedException();
+            public Task<DateTime?> GetLastRefreshedAtAsync(CancellationToken ct = default) => throw new NotSupportedException();
+        }
+
+        private readonly FakeListedCompanies _listed = new(
+            ("2330", "台積電", MarketType.TSE),
+            ("2882", "國泰金", MarketType.TSE),
+            ("00878", "國泰永續高股息", MarketType.TSE),
+            ("6488", "環球晶", MarketType.OTC),
+            ("2603", "長榮", MarketType.TSE),
+            ("2618", "長榮航", MarketType.TSE));
 
         private readonly Mock<IOpenAIPromptService> _promptService = new();
         private readonly RecordingLogger<StockCodeResolver> _logger = new();
         private readonly List<string> _userMessages = [];
-        private int _httpRequests;
 
-        private StockCodeResolver Create()
-        {
-            var httpClient = StubHttpMessageHandler.CreateClient(_ =>
-            {
-                Interlocked.Increment(ref _httpRequests);
-                return StubHttpMessageHandler.JsonResponse(CompanyListJson);
-            });
-            var httpClientFactory = new Mock<IHttpClientFactory>();
-            httpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
-
-            return new StockCodeResolver(
-                _logger,
-                _promptService.Object,
-                new TwseOpenApi(httpClientFactory.Object, new MemoryCache(new MemoryCacheOptions()),
-                    NullLogger<TwseOpenApi>.Instance, TimeProvider.System));
-        }
+        private StockCodeResolver Create() => new(_logger, _promptService.Object, _listed);
 
         private void SetupAnswer(StockCodeResolution? answer, string? error = null) =>
             _promptService
@@ -63,38 +78,76 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                     It.IsAny<IEnumerable<(string User, string Assistant)>?>(), It.IsAny<string?>()),
                 times);
 
-        [Fact]
-        public async Task ModelCallFails_ReturnsEmptyAndLogsTheReasonForEachCall()
+        // Input that already looks like a TW code (4-6 digits, optional trailing letter — the same rule
+        // MarketDataProviderFactory routes on) is the answer: no lookup, no model call.
+        [Theory]
+        [InlineData("00878", "00878")]
+        [InlineData("006208", "006208")]
+        [InlineData("00631l", "00631L")]
+        [InlineData("  2330  ", "2330")]
+        public async Task CodeShapedInput_ReturnsNormalizedCode_WithoutLookupOrModel(string input, string expected)
         {
-            SetupAnswer(null, "Unsupported parameter: 'max_completion_tokens'");
+            Assert.Equal(expected, await Create().ResolveStockCodeAsync(input));
+            Assert.Equal(0, _listed.Lookups);
+            VerifyCalls(Times.Never());
+        }
 
-            var result = await Create().ResolveStockCodeAsync(PartialName);
-
-            Assert.Equal(string.Empty, result);
-            var failures = _logger.Entries.Where(e => e.Message.Contains("Stock-code resolution failed")).ToList();
-            Assert.Equal(2, failures.Count);
-            Assert.All(failures, e =>
-            {
-                Assert.Equal(LogLevel.Warning, e.Level);
-                Assert.Contains("Unsupported parameter: 'max_completion_tokens'", e.Message);
-            });
-            // Both calls ran exactly once: no retry.
-            VerifyCalls(Times.Exactly(2));
+        [Theory]
+        [InlineData("台積電", "2330")]
+        [InlineData("環球晶", "6488")]          // 上櫃: not in TWSE's company list, which the model had to guess
+        [InlineData("國泰永續高股息", "00878")]  // an ETF
+        [InlineData("長榮", "2603")]            // also part of 長榮航's name
+        public async Task AListedName_IsItsCode_WithoutTheModel(string input, string expected)
+        {
+            Assert.Equal(expected, await Create().ResolveStockCodeAsync(input));
+            VerifyCalls(Times.Never());
         }
 
         [Fact]
-        public async Task ModelAnswersWithStockCode_ReturnsIt()
+        public async Task OneListedNameContainingTheInput_IsItsCode_WithoutTheModel()
+        {
+            Assert.Equal("2330", await Create().ResolveStockCodeAsync("台積"));
+            VerifyCalls(Times.Never());
+        }
+
+        [Fact]
+        public async Task SeveralListedNamesContainingTheInput_TheModelPicksAmongThem()
+        {
+            SetupAnswer(new StockCodeResolution { StockCode = "2882" });
+
+            Assert.Equal("2882", await Create().ResolveStockCodeAsync("國泰"));
+            var message = Assert.Single(_userMessages);
+            Assert.Contains("User input: '國泰'", message);
+            Assert.Contains("00878: 國泰永續高股息\n2882: 國泰金", message);
+        }
+
+        [Fact]
+        public async Task NoListedNameContainingTheInput_TheModelAnswersFromItsOwnKnowledge()
         {
             SetupAnswer(new StockCodeResolution { StockCode = " 2330 " });
 
-            var result = await Create().ResolveStockCodeAsync(PartialName);
-
-            Assert.Equal("2330", result);
+            Assert.Equal("2330", await Create().ResolveStockCodeAsync("TSMC"));
+            Assert.Contains("(none of the listed names contains the input)", Assert.Single(_userMessages));
             Assert.DoesNotContain(_logger.Entries, e => e.Level >= LogLevel.Warning);
-            // The first step answered; the second never ran.
-            VerifyCalls(Times.Once());
-            Assert.Contains("User input: '台灣積體'", Assert.Single(_userMessages));
-            Assert.Contains("2330: 台灣積體電路製造股份有限公司", _userMessages[0]);
+        }
+
+        [Fact]
+        public async Task TheModelNamingAListedEtf_IsTaken()
+        {
+            SetupAnswer(new StockCodeResolution { StockCode = "00878" });
+
+            Assert.Equal("00878", await Create().ResolveStockCodeAsync("Cathay ESG high dividend"));
+        }
+
+        [Theory]
+        [InlineData("9999")]   // shaped like a code, but nothing listed has it
+        [InlineData("NONE")]
+        [InlineData("23A0")]
+        public async Task TheModelNamingAnythingButAListedCode_IsRejected(string answer)
+        {
+            SetupAnswer(new StockCodeResolution { StockCode = answer });
+
+            Assert.Equal(string.Empty, await Create().ResolveStockCodeAsync("TSMC"));
         }
 
         [Fact]
@@ -102,62 +155,39 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         {
             SetupAnswer(new StockCodeResolution { StockCode = null });
 
-            var result = await Create().ResolveStockCodeAsync(PartialName);
-
-            Assert.Equal(string.Empty, result);
-            VerifyCalls(Times.Exactly(2));
+            Assert.Equal(string.Empty, await Create().ResolveStockCodeAsync("TSMC"));
+            VerifyCalls(Times.Once());
         }
 
-        // Input that already looks like a TW code (4-6 digits, optional trailing letter — the same rule
-        // MarketDataProviderFactory routes on) is the answer: no company list fetch, no model call.
-        [Theory]
-        [InlineData("00878", "00878")]
-        [InlineData("00919", "00919")]
-        [InlineData("006208", "006208")]
-        [InlineData("00631L", "00631L")]
-        [InlineData("00631l", "00631L")]
-        [InlineData("2330", "2330")]
-        [InlineData("  2330  ", "2330")]
-        public async Task CodeShapedInput_ReturnsNormalizedCodeWithoutHttpOrModel(string input, string expected)
+        [Fact]
+        public async Task ModelCallFails_ReturnsEmptyAndLogsTheReason()
         {
-            var result = await Create().ResolveStockCodeAsync(input);
+            SetupAnswer(null, "Unsupported parameter: 'max_completion_tokens'");
 
-            Assert.Equal(expected, result);
-            Assert.Equal(0, _httpRequests);
-            VerifyCalls(Times.Never());
+            Assert.Equal(string.Empty, await Create().ResolveStockCodeAsync("TSMC"));
+            var failure = Assert.Single(_logger.Entries, e => e.Message.Contains("Stock-code resolution failed"));
+            Assert.Equal(LogLevel.Warning, failure.Level);
+            Assert.Contains("Unsupported parameter: 'max_completion_tokens'", failure.Message);
+            VerifyCalls(Times.Once()); // no retry
         }
 
-        // Looks code-ish but is not a TW code: takes the original path (company list, then the model).
+        // Looks code-ish but is not a TW code: looked up as a name.
         [Theory]
         [InlineData("123")]       // too short
         [InlineData("1234567")]   // too long
-        [InlineData("23A0")]      // letter in the middle
-        [InlineData("")]
-        public async Task NonCodeShapedInput_TakesTheOriginalNamePath(string input)
+        public async Task NonCodeShapedInput_IsLookedUpAsAName(string input)
         {
             SetupAnswer(new StockCodeResolution { StockCode = null });
 
-            var result = await Create().ResolveStockCodeAsync(input);
-
-            Assert.Equal(string.Empty, result);
-            Assert.Equal(1, _httpRequests); // the company list
-            VerifyCalls(Times.AtLeastOnce());
+            Assert.Equal(string.Empty, await Create().ResolveStockCodeAsync(input));
+            Assert.True(_listed.Lookups > 0);
         }
 
-        // The relaxed rule is for what the *user typed*. What the model answers stays strictly 4 digits:
-        // the company list holds only 4-digit listed companies, so a 5-6 digit answer is a hallucination.
-        [Theory]
-        [InlineData("00878")]
-        [InlineData("006208")]
-        [InlineData("00631L")]
-        [InlineData("NONE")]
-        public async Task ModelAnswersWithAnythingButAFourDigitCode_IsRejected(string answer)
+        [Fact]
+        public async Task NoInput_IsNoCode()
         {
-            SetupAnswer(new StockCodeResolution { StockCode = answer });
-
-            var result = await Create().ResolveStockCodeAsync(PartialName);
-
-            Assert.Equal(string.Empty, result);
+            Assert.Equal(string.Empty, await Create().ResolveStockCodeAsync("  "));
+            VerifyCalls(Times.Never());
         }
 
         [Fact]

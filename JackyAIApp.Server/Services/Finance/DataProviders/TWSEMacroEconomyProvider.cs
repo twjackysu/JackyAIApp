@@ -3,6 +3,7 @@ using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.ExternalApi.Twse;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
+using System.Text.Json;
 
 namespace JackyAIApp.Server.Services.Finance.DataProviders
 {
@@ -11,7 +12,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     /// - TWSE FMTQIK: Market index (TAIEX), through <see cref="ITwseOpenApi"/>
     /// - TWSE MI_INDEX: Sector indices, through <see cref="ITwseOpenApi"/>
     /// - TWSE MI_MARGN: Margin trading summary, through <see cref="ITwseOpenApi"/>
-    /// - Bank of Taiwan: Exchange rates (CSV)
+    /// - open.er-api.com: Exchange rates against TWD (mid-market, JSON)
     /// - CBC: Bank interest rates (CSV)
     /// </summary>
     public class TWSEMacroEconomyProvider : IMacroEconomyProvider
@@ -21,7 +22,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         private readonly ILogger<TWSEMacroEconomyProvider> _logger;
         private readonly ITwseOpenApi _twse;
 
-        private const string BOT_FX_URL = "https://rate.bot.com.tw/xrt/flcsv/0/day";
+        private const string FX_URL = "https://open.er-api.com/v6/latest/USD";
         private const string CBC_RATE_URL = "https://www.cbc.gov.tw/public/data/OpenData/A13Rate.csv";
         private const int CACHE_HOURS = 2;
 
@@ -181,28 +182,34 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             // Shared by every caller waiting on it, so no one caller's token may stop it.
             var ct = CancellationToken.None;
             var client = _httpClientFactory.CreateClient("ExternalReadOnly");
-            var csv = await client.GetStringAsync(BOT_FX_URL, ct);
-            var lines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            // Not Bank of Taiwan's flcsv: it answers non-browser clients with an anti-bot
+            // "Challenge Validation" page, so its spot buy/sell never arrived. open.er-api.com (what
+            // Portfolio converts USD at) quotes every currency per USD, one mid-market rate a day.
+            using var doc = JsonDocument.Parse(await client.GetStringAsync(FX_URL, ct));
 
             var rates = new List<ExchangeRate>();
-            foreach (var line in lines.Skip(1)) // skip header
+            if (!doc.RootElement.TryGetProperty("rates", out var perUsd) || !TryReadRate(perUsd, "TWD", out var twdPerUsd))
+                return rates;
+
+            foreach (var (currency, name) in KeyCurrencies)
             {
-                var cols = line.Split(',');
-                if (cols.Length < 13) continue;
-
-                var currency = cols[0].Trim();
-                if (!KeyCurrencies.ContainsKey(currency)) continue;
-
+                if (!TryReadRate(perUsd, currency, out var currencyPerUsd)) continue;
                 rates.Add(new ExchangeRate
                 {
                     Currency = currency,
-                    DisplayName = KeyCurrencies[currency],
-                    BuyRate = ParseDec(cols[3]),   // 即期買入
-                    SellRate = ParseDec(cols[13]),  // 即期賣出
+                    DisplayName = name,
+                    Rate = Math.Round(twdPerUsd / currencyPerUsd, 4),
                 });
             }
 
             return rates;
+
+            static bool TryReadRate(JsonElement rates, string currency, out decimal rate)
+            {
+                rate = 0;
+                return rates.ValueKind == JsonValueKind.Object && rates.TryGetProperty(currency, out var value)
+                    && value.ValueKind == JsonValueKind.Number && value.TryGetDecimal(out rate) && rate > 0;
+            }
         }
 
         private async Task<BankRate?> FetchBankRates(CancellationToken ct)

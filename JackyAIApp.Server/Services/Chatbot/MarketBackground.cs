@@ -166,9 +166,8 @@ namespace JackyAIApp.Server.Services.Chatbot
 
             if (data.Macro?.ExchangeRates is { Count: > 0 } rates)
             {
-                var rows = rates.Select(r => (IEnumerable<string>)
-                    [r.Currency, Opt(r.BuyRate, v => N(v, 4)), Opt(r.SellRate, v => N(v, 4))]).ToList();
-                tables.Add(Table("台銀即期匯率", "幣別,買,賣", rows));
+                var rows = rates.Select(r => (IEnumerable<string>)[r.Currency, N(r.Rate, 4)]).ToList();
+                tables.Add(Table("匯率_市場中價", "幣別,兌台幣", rows));
             }
 
             if (data.Macro?.BankRate is { } bank &&

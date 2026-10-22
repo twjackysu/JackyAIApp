@@ -146,8 +146,8 @@ export interface MarginSummary {
 export interface ExchangeRate {
   currency: string;
   displayName: string;
-  buyRate: number | null;
-  sellRate: number | null;
+  /** TWD per one unit of the currency, mid-market (no bank buy/sell spread). */
+  rate: number;
 }
 
 export interface BankRate {
