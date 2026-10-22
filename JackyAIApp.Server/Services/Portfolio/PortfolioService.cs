@@ -63,35 +63,13 @@ namespace JackyAIApp.Server.Services.Portfolio
                 UserId = userId,
                 EffectiveDate = effectiveDate,
                 UsdTwdRate = usdTwdRate,
+                // Each type keeps only the fields it has a use for (see AssetValuationPolicy.Normalize).
+                // A row of an asset type that doesn't exist (the API binds numbers too) is dropped
+                // like an empty one, rather than stored for every later read to trip over.
                 Positions = req.Positions
-                    // Defensive: a stock/fund row is meaningless without a symbol, even if the client skipped validation.
-                    // CASH, LIABILITY, and REAL_ESTATE are symbol-less by design (amount only).
-                    .Where(p => p.Quantity > 0 && (p.AssetType is AssetType.CASH or AssetType.LIABILITY or AssetType.REAL_ESTATE
-                        || !string.IsNullOrWhiteSpace(p.Symbol)))
-                    .Select(p => new HoldingPosition
-                    {
-                        AssetType = p.AssetType,
-                        Symbol = (p.Symbol ?? "").ToUpperInvariant(),
-                        Name = p.Name ?? "",
-                        Market = (p.Market ?? "").ToUpperInvariant(),
-                        Currency = string.IsNullOrWhiteSpace(p.Currency) ? "TWD" : p.Currency.ToUpperInvariant(),
-                        // Cost may be paid in a different currency than the NAV/price (e.g. USD-priced
-                        // fund bought with TWD). Default to the pricing currency when unspecified.
-                        // CASH/LIABILITY/REAL_ESTATE have no cost-basis concept, so no cost currency either.
-                        CostCurrency = p.AssetType is AssetType.CASH or AssetType.LIABILITY or AssetType.REAL_ESTATE
-                            ? null
-                            : (string.IsNullOrWhiteSpace(p.CostCurrency)
-                                ? (string.IsNullOrWhiteSpace(p.Currency) ? "TWD" : p.Currency)
-                                : p.CostCurrency).ToUpperInvariant(),
-                        Quantity = p.Quantity,
-                        // Fund NAV is fetched live; UnitPrice kept only as a fallback if ever supplied.
-                        UnitPrice = p.AssetType == AssetType.FUND ? p.UnitPrice : null,
-                        // Optional cost basis drives P&L for stocks/funds. Never set for CASH/LIABILITY/
-                        // REAL_ESTATE — debt has no cost basis, and real estate's Quantity already IS
-                        // its current value (see ValuationMethod), so neither should enter P&L or XIRR.
-                        CostBasis = p.AssetType is AssetType.CASH or AssetType.LIABILITY or AssetType.REAL_ESTATE ? null : p.CostBasis,
-                        ValuationMethod = p.AssetType == AssetType.REAL_ESTATE ? p.ValuationMethod : null,
-                    })
+                    .Where(p => Enum.IsDefined(p.AssetType))
+                    .Select(p => AssetValuationPolicy.For(p.AssetType).Normalize(p))
+                    .OfType<HoldingPosition>()
                     .ToList(),
             };
 
@@ -315,6 +293,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             foreach (var p in snapshot.Positions)
             {
+                var policy = AssetValuationPolicy.For(p.AssetType);
                 decimal currentPrice;
                 bool priceFailed = false;
                 // Pricing currency: stocks/cash use the stored currency; funds use the live NAV
@@ -352,28 +331,21 @@ namespace JackyAIApp.Server.Services.Portfolio
                         }
                     }
                 }
-                else // CASH, LIABILITY, or REAL_ESTATE — always "priced" at 1, no external lookup needed.
+                else // an amount, not a price × quantity — always "priced" at 1, no external lookup needed.
                 {
                     currentPrice = 1;
                 }
 
-                // A priceable (non-cash, non-liability, non-real-estate) position with no usable
-                // price has no real market value. Treat it as "price unavailable" so we don't book a
-                // phantom loss of the full cost.
-                if (p.AssetType is not (AssetType.CASH or AssetType.LIABILITY or AssetType.REAL_ESTATE) && currentPrice <= 0)
+                // A market-priced position with no usable price has no real market value. Treat it
+                // as "price unavailable" so we don't book a phantom loss of the full cost.
+                if (policy.IsMarketPriced && currentPrice <= 0)
                     priceFailed = true;
 
                 var (fxMul, fxSource) = ResolveFx(p, priceCurrency);
-                // LIABILITY is the one place a position's value goes negative — this is the sole
-                // sign-flip point; every downstream sum (net worth, history, exports) just adds
-                // valueTWD and is correct with no special-casing.
-                var valueLocal = p.AssetType switch
-                {
-                    AssetType.CASH => p.Quantity,
-                    AssetType.LIABILITY => -p.Quantity,
-                    AssetType.REAL_ESTATE => p.Quantity,
-                    _ => currentPrice * p.Quantity,
-                };
+                // The policy's Sign is the one place a position's value goes negative (a liability) —
+                // the sole sign-flip point; every downstream sum (net worth, history, exports) just
+                // adds valueTWD and is correct with no special-casing.
+                var valueLocal = policy.Sign * (policy.IsMarketPriced ? currentPrice * p.Quantity : p.Quantity);
                 var valueTWD = valueLocal * fxMul;
 
                 // Cost is converted by its own currency, which may differ from the pricing
@@ -392,9 +364,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
                 decimal? posCostTWD = null, posPnlTWD = null, posPnlPct = null;
                 decimal posEstimatedSellCostTWD = 0;
-                // LIABILITY.CostBasis and REAL_ESTATE.CostBasis are always null (enforced at save
-                // time), so neither ever enters P&L/XIRR without needing an explicit exclusion here.
-                if (p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
+                if (policy.HasCostBasis && p.CostBasis.HasValue)
                 {
                     posCostTWD = p.CostBasis.Value * costFxMul;
                     // Only compute P&L when we have a real price; otherwise valueTWD is 0
@@ -428,16 +398,16 @@ namespace JackyAIApp.Server.Services.Portfolio
                     }
                 }
 
-                switch (p.AssetType)
+                switch (policy.BucketOf(p))
                 {
-                    case AssetType.STOCK when p.Market == "US": usStock += valueTWD; break;
-                    case AssetType.STOCK: twStock += valueTWD; break;
-                    case AssetType.CASH: cash += valueTWD; break;
-                    case AssetType.FUND: fund += valueTWD; break;
-                    case AssetType.REAL_ESTATE: realEstate += valueTWD; break;
+                    case AssetBucket.UsStock: usStock += valueTWD; break;
+                    case AssetBucket.TwStock: twStock += valueTWD; break;
+                    case AssetBucket.Cash: cash += valueTWD; break;
+                    case AssetBucket.Fund: fund += valueTWD; break;
+                    case AssetBucket.Property: realEstate += valueTWD; break;
                     // valueTWD is already negative here — this is display total (owed amount),
                     // shown positive by negating at the DTO boundary below.
-                    case AssetType.LIABILITY: liability += valueTWD; break;
+                    case AssetBucket.Liability: liability += valueTWD; break;
                 }
 
                 equityExposureTWD += valueTWD * exposureFactor;
@@ -633,7 +603,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// wrongly resolved to the other market once and never re-checked since, see
         /// <see cref="Finance.DataProviders.PersistentTwHistoricalProvider.InvalidateAsync"/>) for
         /// just this one symbol, then returns a freshly recomputed summary. Only STOCK positions
-        /// route through <see cref="IMarketDataProviderFactory"/> at all (FUND pricing goes through
+        /// route through <see cref="Finance.DataProviders.IMarketDataProviderFactory"/> at all (FUND pricing goes through
         /// <see cref="IFundDataService"/> instead), so a symbol not currently held as a STOCK is a
         /// silent no-op rather than an error — this also stops the endpoint being usable to force
         /// arbitrary external-API fetches for symbols the caller doesn't even hold.
@@ -686,8 +656,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             var keys = orderedSnapshots
                 .SelectMany(s => s.Positions)
-                .Where(p => (p.AssetType == AssetType.STOCK || p.AssetType == AssetType.FUND)
-                    && !string.IsNullOrWhiteSpace(p.Symbol))
+                .Where(p => AssetValuationPolicy.For(p.AssetType).PaysDividends && !string.IsNullOrWhiteSpace(p.Symbol))
                 .Select(p => (p.AssetType, Symbol: p.Symbol, Market: p.Market))
                 .Distinct()
                 .ToList();
@@ -695,9 +664,7 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             var fetched = await Task.WhenAll(keys.Select(async key => (
                 Key: key,
-                Records: key.AssetType == AssetType.STOCK
-                    ? await dividendData.GetStockDividendsAsync(key.Symbol, key.Market, ct)
-                    : await dividendData.GetFundDividendsAsync(key.Symbol, ct)
+                Records: await dividendData.GetDividendsAsync(key.AssetType, key.Symbol, key.Market, ct)
             )));
             return fetched.ToList();
         }
@@ -809,7 +776,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 var snapFx = s.UsdTwdRate > 0 ? s.UsdTwdRate : fallbackFx;
                 var snapCost = s.Positions
-                    .Where(p => p.AssetType != AssetType.CASH && p.CostBasis.HasValue)
+                    .Where(p => AssetValuationPolicy.For(p.AssetType).HasCostBasis && p.CostBasis.HasValue)
                     .Sum(p => p.CostBasis!.Value * ((p.CostCurrency ?? p.Currency) == "USD" ? snapFx : 1m));
                 var delta = snapCost - prevCost;
                 if (delta != 0) flows.Add((s.EffectiveDate, (double)(-delta))); // contribution = outflow

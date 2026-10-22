@@ -59,7 +59,8 @@ namespace JackyAIApp.Server.Services.Portfolio
 
         public static decimal Factor(AssetType type, string? name, string? symbol, string? market)
         {
-            if (type is AssetType.CASH or AssetType.LIABILITY or AssetType.REAL_ESTATE) return 0m;
+            // Only a market-priced holding moves with the market.
+            if (!AssetValuationPolicy.For(type).IsMarketPriced) return 0m;
             name ??= "";
             symbol ??= "";
 

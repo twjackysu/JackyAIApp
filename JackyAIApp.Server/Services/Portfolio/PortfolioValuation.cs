@@ -35,19 +35,12 @@ namespace JackyAIApp.Server.Services.Portfolio
 
             foreach (var p in positions)
             {
-                if (p.AssetType == AssetType.REAL_ESTATE)
+                var policy = AssetValuationPolicy.For(p.AssetType);
+                if (!policy.IsMarketPriced)
                 {
-                    if (includeRealEstate) total += p.Quantity * Fx(p, p.Currency);
-                    continue;
-                }
-                if (p.AssetType == AssetType.CASH)
-                {
-                    total += p.Quantity * Fx(p, p.Currency);
-                    continue;
-                }
-                if (p.AssetType == AssetType.LIABILITY)
-                {
-                    if (includeLiability) total -= p.Quantity * Fx(p, p.Currency);
+                    // Real estate is the one holding that isn't liquid; a liability the one that counts negative.
+                    var excluded = (!includeRealEstate && !policy.CountsAsLiquid) || (!includeLiability && policy.Sign < 0);
+                    if (!excluded) total += policy.Sign * p.Quantity * Fx(p, p.Currency);
                     continue;
                 }
 

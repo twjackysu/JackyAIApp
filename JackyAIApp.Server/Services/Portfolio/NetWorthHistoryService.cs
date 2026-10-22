@@ -127,7 +127,7 @@ namespace JackyAIApp.Server.Services.Portfolio
             {
                 var classifiable = snapshots
                     .SelectMany(s => s.Positions)
-                    .Where(p => p.AssetType is AssetType.STOCK or AssetType.FUND && !string.IsNullOrWhiteSpace(p.Symbol))
+                    .Where(p => AssetValuationPolicy.For(p.AssetType).FixedCategory is null && !string.IsNullOrWhiteSpace(p.Symbol))
                     .GroupBy(p => p.Symbol)
                     .Select(g => g.Last()) // most recent name/market info for that symbol
                     .ToList();
@@ -174,20 +174,13 @@ namespace JackyAIApp.Server.Services.Portfolio
                 foreach (var p in active.Positions)
                 {
                     var fxMul = p.Currency == "USD" ? fx : 1m;
+                    var policy = AssetValuationPolicy.For(p.AssetType);
 
-                    if (p.AssetType == AssetType.CASH)
+                    if (!policy.IsMarketPriced)
                     {
-                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap, PortfolioCategory.Cash), p.Quantity * fxMul);
-                    }
-                    else if (p.AssetType == AssetType.REAL_ESTATE)
-                    {
-                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap, PortfolioCategory.Property), p.Quantity * fxMul);
-                    }
-                    else if (p.AssetType == AssetType.LIABILITY)
-                    {
-                        // Negative — the sole sign-flip point, same invariant as the summary
-                        // endpoint's valuation loop. Every downstream sum (here: `total`) just adds.
-                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap, PortfolioCategory.Liability), -(p.Quantity * fxMul));
+                        // Negative for a liability — the sole sign-flip point, same invariant as the
+                        // summary endpoint's valuation loop. Every downstream sum (here: `total`) just adds.
+                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap), policy.Sign * p.Quantity * fxMul);
                     }
                     else if (p.AssetType == AssetType.FUND)
                     {
@@ -211,7 +204,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                             }
                         }
                         if (nav > 0)
-                            Add(GroupKey(groupBy, p, categoryMap, subCategoryMap, PortfolioCategory.Other), nav * p.Quantity * fundFxMul);
+                            Add(GroupKey(groupBy, p, categoryMap, subCategoryMap), nav * p.Quantity * fundFxMul);
                     }
                     else // STOCK
                     {
@@ -223,7 +216,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                         if (prices[idx].Date.Date > dt) continue; // no price at/before this date yet
                         var close = prices[idx].Close;
                         if (close <= 0) continue;
-                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap, PortfolioCategory.Other), close * p.Quantity * fxMul);
+                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap), close * p.Quantity * fxMul);
                     }
                 }
 
@@ -243,60 +236,35 @@ namespace JackyAIApp.Server.Services.Portfolio
             return result;
         }
 
-        /// <summary>Group key for one position under the requested groupBy mode. `fallbackCategory`
-        /// is only used in Category mode, for asset types that skip the categoryMap lookup (CASH/
-        /// LIABILITY are mapped directly to Cash/Liability without ever entering categoryMap; a
-        /// STOCK/FUND symbol somehow missing from a pre-warmed categoryMap falls back to Other
-        /// rather than throwing).</summary>
+        /// <summary>Group key for one position under the requested groupBy mode. A type with a fixed
+        /// category or label (cash, liabilities, real estate) never enters the AI classification maps;
+        /// a stock/fund symbol somehow missing from a pre-warmed categoryMap falls back to Other
+        /// rather than throwing.</summary>
         private static string GroupKey(
             NetWorthGroupBy groupBy, HoldingPosition p,
-            Dictionary<string, PortfolioCategory> categoryMap, Dictionary<string, string> subCategoryMap,
-            PortfolioCategory fallbackCategory)
+            Dictionary<string, PortfolioCategory> categoryMap, Dictionary<string, string> subCategoryMap)
         {
+            var policy = AssetValuationPolicy.For(p.AssetType);
             return groupBy switch
             {
-                NetWorthGroupBy.Category => p.AssetType switch
-                {
-                    AssetType.CASH => nameof(PortfolioCategory.Cash),
-                    AssetType.LIABILITY => nameof(PortfolioCategory.Liability),
-                    AssetType.REAL_ESTATE => nameof(PortfolioCategory.Property),
-                    _ => (categoryMap.TryGetValue(p.Symbol, out var cat) ? cat : fallbackCategory).ToString(),
-                },
-                // Free-form (not the closed PortfolioCategory enum) — CASH/LIABILITY/REAL_ESTATE get
-                // a plain Chinese label directly since there's no AI classification to look up for them.
-                NetWorthGroupBy.SubCategory => p.AssetType switch
-                {
-                    AssetType.CASH => "現金",
-                    AssetType.LIABILITY => "負債",
-                    AssetType.REAL_ESTATE => "不動產",
-                    _ => subCategoryMap.TryGetValue(p.Symbol, out var sub) ? sub : "未分類",
-                },
+                NetWorthGroupBy.Category => (policy.FixedCategory
+                    ?? (categoryMap.TryGetValue(p.Symbol, out var cat) ? cat : PortfolioCategory.Other)).ToString(),
+                // Free-form (not the closed PortfolioCategory enum) — a fixed-label type gets its plain
+                // Chinese label directly since there's no AI classification to look up for it.
+                NetWorthGroupBy.SubCategory => policy.FixedLabel
+                    ?? (subCategoryMap.TryGetValue(p.Symbol, out var sub) ? sub : "未分類"),
                 NetWorthGroupBy.Currency => p.Currency == "USD" ? "USD" : "TWD",
-                // Verbatim per-holding name for STOCK/FUND; CASH/LIABILITY/REAL_ESTATE collapse into
-                // one bucket each (same labels as SubCategory mode) instead of splitting by their
-                // free-form Name — multiple cash/liability entries would otherwise clutter the
-                // per-holding legend with entries the user doesn't think of as distinct "holdings".
-                NetWorthGroupBy.Holding => p.AssetType switch
-                {
-                    AssetType.CASH => "現金",
-                    AssetType.LIABILITY => "負債",
-                    AssetType.REAL_ESTATE => "不動產",
-                    _ => string.IsNullOrWhiteSpace(p.Name)
+                // Verbatim per-holding name for STOCK/FUND; a fixed-label type collapses into one
+                // bucket (same label as SubCategory mode) instead of splitting by its free-form
+                // Name — multiple cash/liability entries would otherwise clutter the per-holding
+                // legend with entries the user doesn't think of as distinct "holdings".
+                NetWorthGroupBy.Holding => policy.FixedLabel
+                    ?? (string.IsNullOrWhiteSpace(p.Name)
                         ? (string.IsNullOrWhiteSpace(p.Symbol) ? "未命名" : p.Symbol)
-                        : p.Name,
-                },
-                _ => p.AssetType switch
-                {
-                    AssetType.CASH => "Cash",
-                    AssetType.LIABILITY => "Liability",
-                    // "Property", not "RealEstate": PortfolioCategory.RealEstate (category-mode key)
-                    // is REIT stocks/ETFs, a different concept from this literal owned property —
-                    // matches Category mode's own key for this AssetType (nameof(Property)) so both
-                    // modes render the exact same series identity/color for it.
-                    AssetType.REAL_ESTATE => "Property",
-                    AssetType.FUND => "Fund",
-                    _ => p.Market == "US" ? "UsStock" : "TwStock", // STOCK
-                },
+                        : p.Name),
+                // Real estate is "Property", the same key as its Category mode, so both modes render
+                // the exact same series identity/color for it.
+                _ => policy.BucketOf(p).ToString(),
             };
         }
     }
