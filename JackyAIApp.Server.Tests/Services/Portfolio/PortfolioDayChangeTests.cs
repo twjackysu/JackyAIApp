@@ -55,7 +55,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 HttpClientFactory = httpClientFactory.Object,
                 Cache = cache,
                 Time = new FixedTime(Monday),
-                Calendar = calendar,
+                Calendar = calendar ?? WeekdayTradingCalendar.Instance,
             }.Build();
             _service = _createService(null);
         }

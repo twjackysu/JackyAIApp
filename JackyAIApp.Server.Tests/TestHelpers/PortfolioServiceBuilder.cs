@@ -14,8 +14,8 @@ namespace JackyAIApp.Server.Tests.TestHelpers
 {
     /// <summary>
     /// Builds <see cref="PortfolioService"/>, and the services split out of it, from what a test cares
-    /// about: set those, and everything else is an empty mock (or, for the optional ones, absent, as
-    /// before). The one place to change when their constructors do.
+    /// about: set those, and everything else is an empty mock, or a source with nothing to say
+    /// (<see cref="AbsentPortfolioSources"/>). The one place to change when their constructors do.
     /// </summary>
     internal sealed class PortfolioServiceBuilder(AzureSQLDBContext db)
     {
@@ -27,12 +27,12 @@ namespace JackyAIApp.Server.Tests.TestHelpers
         public IHttpClientFactory HttpClientFactory { get; init; } = new Mock<IHttpClientFactory>().Object;
         public IMemoryCache Cache { get; init; } = new MemoryCache(new MemoryCacheOptions());
         public IOpenAIPromptService OpenAI { get; init; } = new Mock<IOpenAIPromptService>().Object;
-        public TimeProvider? Time { get; init; }
-        public ITdccFxService? TdccFx { get; init; }
-        public ICathayFxService? CathayFx { get; init; }
-        public ServerTiming? Timing { get; init; }
-        public IDeepHistoryService? DeepHistory { get; init; }
-        public ITradingCalendar? Calendar { get; init; }
+        public TimeProvider Time { get; init; } = TimeProvider.System;
+        public ITdccFxService TdccFx { get; init; } = AbsentPortfolioSources.TdccFx;
+        public ICathayFxService CathayFx { get; init; } = AbsentPortfolioSources.CathayFx;
+        public ServerTiming Timing { get; init; } = new();
+        public IDeepHistoryService DeepHistory { get; init; } = AbsentPortfolioSources.DeepHistory;
+        public ITradingCalendar Calendar { get; init; } = WeekdayTradingCalendar.Instance;
 
         public PortfolioPriceLoader BuildPriceLoader() =>
             new(Providers, FundData, HttpClientFactory, Cache, NullLogger<PortfolioPriceLoader>.Instance);

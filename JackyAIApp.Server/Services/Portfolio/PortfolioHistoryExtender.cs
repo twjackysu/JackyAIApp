@@ -10,16 +10,12 @@ namespace JackyAIApp.Server.Services.Portfolio
     /// </summary>
     public class PortfolioHistoryExtender(
         ILogger<PortfolioHistoryExtender> logger,
-        TimeProvider? timeProvider = null,
-        // Optional: without it the long-range charts keep to the ~6 months of prices the
-        // providers hand out, as before older history was stored.
-        IDeepHistoryService? deepHistory = null)
+        TimeProvider timeProvider,
+        IDeepHistoryService deepHistory)
     {
-        private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
-
         /// <summary>"Today" for every date walk here — the constructor's <c>timeProvider</c> lets
         /// tests pin a fixed date instead of chasing the real calendar.</summary>
-        private DateOnly Today => DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime);
+        private DateOnly Today => DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
 
         public sealed record ExtendedHistory(Dictionary<string, DTO.Finance.MarketData> Stocks, HistoryBackfillDto? Backfill);
 
@@ -46,7 +42,7 @@ namespace JackyAIApp.Server.Services.Portfolio
         {
             // A window the providers already cover needs nothing from this.
             var deepWindowStart = Today.AddMonths(-(PersistentTwHistoricalProvider.LookbackMonths - 1));
-            if (deepHistory is null || startDate >= deepWindowStart) return new ExtendedHistory(stocks, null);
+            if (startDate >= deepWindowStart) return new ExtendedHistory(stocks, null);
 
             try
             {
