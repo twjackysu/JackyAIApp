@@ -23,6 +23,39 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public void TheSystemPrompt_SaysHowToFindADeferredTool_AndToWriteEverythingInChinese()
+        {
+            var prompt = AnthropicChatService.SystemPromptFor(new DateOnly(2026, 10, 21));
+
+            Assert.Contains("tool_search_tool_regex", prompt);
+            Assert.Contains("不必再搜尋", prompt);
+            Assert.Contains("包括呼叫工具之間的說明，都用繁體中文", prompt);
+        }
+
+        [Fact]
+        public void TheToolsAreFoundWithARegexSearch_ExceptTheAlwaysLoadedOnes()
+        {
+            var tools = Body(AnthropicChatService.BuildRequest(new DateOnly(2026, 10, 21), []))
+                .GetProperty("tools").EnumerateArray().ToList();
+
+            Assert.Contains(tools, t => t.GetProperty("type").GetString() == "tool_search_tool_regex_20251119");
+            // BM25 found almost no tool for questions asked in Chinese.
+            Assert.DoesNotContain(tools, t => t.GetProperty("type").GetString()!.StartsWith("tool_search_tool_bm25"));
+
+            var toolset = Assert.Single(tools, t => t.GetProperty("type").GetString() == "mcp_toolset");
+            Assert.Equal("tw-stock", toolset.GetProperty("mcp_server_name").GetString());
+            Assert.True(toolset.GetProperty("default_config").GetProperty("defer_loading").GetBoolean());
+
+            var configs = toolset.GetProperty("configs");
+            Assert.Equal(AnthropicChatService.AlwaysLoadedTools.Length, configs.EnumerateObject().Count());
+            foreach (var name in AnthropicChatService.AlwaysLoadedTools)
+                Assert.False(configs.GetProperty(name).GetProperty("defer_loading").GetBoolean());
+
+            // A deferred tool with a cache breakpoint is a 400; the toolset defers by default.
+            Assert.False(toolset.TryGetProperty("cache_control", out _));
+        }
+
+        [Fact]
         public void ADecline_IsNotReportedAsRunningOutOfRoom()
         {
             // "Try again" would only get the same decline.

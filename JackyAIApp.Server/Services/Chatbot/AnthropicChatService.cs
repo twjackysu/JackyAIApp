@@ -54,6 +54,23 @@ namespace JackyAIApp.Server.Services.Chatbot
         private const int MaxPauseTurnRetries = 2;
 
         /// <summary>
+        /// The tw-stock tools whose definitions go with every request; the server's other tools
+        /// (177 in all, ~53K tokens of definitions) are deferred and found with the regex tool search
+        /// when a question needs one. Measured 2026-10-22 on 8 questions: same answers, ~133K → ~21K
+        /// context tokens a question. Keyed by the server's own tool name, no server prefix. A guess
+        /// at the most asked-for ones — no record of which tools are called was kept before; the turn
+        /// log now names them (see StreamChatAsync), so revisit this list from there.
+        /// </summary>
+        internal static readonly string[] AlwaysLoadedTools =
+        [
+            "get_realtime_quote",
+            "get_stock_history",
+            "get_technical_indicators",
+            "get_twse_institutional_investors_summary",
+            "get_company_monthly_revenue",
+        ];
+
+        /// <summary>
         /// Today's date goes in up front: the model's training data ends well before it, and
         /// without it a question about "today" or "the latest" is answered from that cutoff rather
         /// than looked up with the tool.
@@ -72,7 +89,14 @@ namespace JackyAIApp.Server.Services.Chatbot
             "- 總體經濟：景氣燈號與領先、同時、落後指標、PMI／NMI、匯率\n" +
             "回答原則：數字以工具查到的為準，並註明資料日期；查無資料或不確定時誠實說明，不要編造。" +
             "使用者附上的檔案（報告、截圖、表格）可以一起分析。給出買賣方向的看法時，註明僅供參考、不構成投資建議。" +
-            "只回答台灣金融市場、投資理財或本網站功能相關的問題，其他問題禮貌婉拒。用繁體中文，簡潔明確地回答。";
+            "只回答台灣金融市場、投資理財或本網站功能相關的問題，其他問題禮貌婉拒。用繁體中文，簡潔明確地回答。\n" +
+            // Unsure whether a tool it found can be called again, the model searched aimlessly
+            // and once ended the turn with no answer.
+            "工具採延遲載入：其他工具先用 tool_search_tool_regex 搜尋，pattern 可中英文關鍵字並用（例如「外資|institutional」）。" +
+            "搜到的工具在整段對話中都能直接重複呼叫，不必再搜尋。\n" +
+            // Every text delta reaches the reader, the notes between tool calls included; on a
+            // retried tool call Haiku wrote those in English.
+            "回覆中的所有文字，包括呼叫工具之間的說明，都用繁體中文。";
 
         /// <summary>
         /// Why a turn ended without any answer text. A decline from the model's safety classifiers
@@ -109,7 +133,19 @@ namespace JackyAIApp.Server.Services.Chatbot
             OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
             Betas = [McpBeta],
             McpServers = [new BetaRequestMcpServerUrlDefinition { Name = McpServerName, Url = McpServerUrl }],
-            Tools = [new BetaMcpToolset { McpServerName = McpServerName }],
+            // Regex, not BM25: BM25 found almost no tool for questions asked in Chinese. No
+            // cache_control on a deferred tool (the API answers 400); the top-level breakpoint
+            // below still caches the tools ahead of it.
+            Tools =
+            [
+                new BetaToolSearchToolRegex20251119 { Type = BetaToolSearchToolRegex20251119Type.ToolSearchToolRegex20251119 },
+                new BetaMcpToolset
+                {
+                    McpServerName = McpServerName,
+                    DefaultConfig = new BetaMcpToolDefaultConfig { DeferLoading = true },
+                    Configs = AlwaysLoadedTools.ToDictionary(name => name, _ => new BetaMcpToolConfig { DeferLoading = false }),
+                },
+            ],
             System = marketBackground == null
                 ? SystemPromptFor(taipeiToday)
                 : new List<BetaTextBlockParam>
@@ -245,6 +281,9 @@ namespace JackyAIApp.Server.Services.Chatbot
             // Totals over every attempt (a pause_turn retry is a request of its own). Input is all of
             // it: uncached plus written to and read from the cache.
             long inputTokens = 0, outputTokens = 0, cacheWriteTokens = 0, cacheReadTokens = 0;
+            // The tw-stock tools this turn called, in order, and how often it searched for one.
+            var toolsCalled = new List<string>();
+            var toolSearches = 0;
             BetaStopReason? stopReason = null;
             var success = true;
             string? errorCode = null;
@@ -265,10 +304,19 @@ namespace JackyAIApp.Server.Services.Chatbot
                             accumulated.Append(textDelta.Text);
                             await WriteSseAsync(response, new { type = "delta", text = textDelta.Text }, turnCt);
                         }
-                        else if (evt.TryPickContentBlockStart(out var blockStart) &&
-                                 blockStart.ContentBlock.TryPickBetaMcpToolUse(out var toolUse))
+                        else if (evt.TryPickContentBlockStart(out var blockStart))
                         {
-                            await WriteSseAsync(response, new { type = "tool_use", name = toolUse.Name }, turnCt);
+                            if (blockStart.ContentBlock.TryPickBetaMcpToolUse(out var toolUse))
+                            {
+                                toolsCalled.Add(toolUse.Name);
+                                await WriteSseAsync(response, new { type = "tool_use", name = toolUse.Name }, turnCt);
+                            }
+                            // A tool search (server_tool_use, answered by a tool_search_tool_result
+                            // block) carries no text for the reader; it is only counted.
+                            else if (blockStart.ContentBlock.TryPickBetaServerToolUse(out _))
+                            {
+                                toolSearches++;
+                            }
                         }
                         else if (evt.TryPickStart(out var startEvt))
                         {
@@ -389,10 +437,12 @@ namespace JackyAIApp.Server.Services.Chatbot
             }
 
             // Cache reads that stay at zero turn after turn mean something in the prompt keeps
-            // changing ahead of the cached part (see BuildRequest).
+            // changing ahead of the cached part (see BuildRequest). The tools called are what
+            // AlwaysLoadedTools should follow.
             logger.LogInformation(
-                "Chat turn for conversation {ConversationId}: {InputTokens} input tokens ({CacheReadTokens} read from cache, {CacheWriteTokens} written), {OutputTokens} output",
-                conversation.Id, inputTokens, cacheReadTokens, cacheWriteTokens, outputTokens);
+                "Chat turn for conversation {ConversationId}: {InputTokens} input tokens ({CacheReadTokens} read from cache, {CacheWriteTokens} written), {OutputTokens} output; tools called [{ToolsCalled}] after {ToolSearches} tool searches",
+                conversation.Id, inputTokens, cacheReadTokens, cacheWriteTokens, outputTokens,
+                string.Join(",", toolsCalled), toolSearches);
             await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)inputTokens, (int)outputTokens, success, userId,
                 (int)cacheWriteTokens, (int)cacheReadTokens);
 
