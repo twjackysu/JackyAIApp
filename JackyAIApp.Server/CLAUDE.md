@@ -76,7 +76,7 @@ JackyAIApp.Server/
 
 - `IMemoryCache` is the only cache (there is no `IExtendedMemoryCache`)
 - A read of shared upstream data goes through `cache.GetOrCreateSingleFlightAsync(key, ttl, factory, ct)`
-  (`Common/CacheExtensions.cs`): concurrent misses for one key share a single `factory` run. Return null
+  (`Common/CacheExtensions.cs`): concurrent misses for one key on one cache share a single `factory` run. Return null
   for a failure (not cached), and pass `shouldCache` to keep an answer from being cached (an empty list).
   The factory is shared, so it uses `CancellationToken.None` and no request-scoped disposables (take an
   `IDbContextFactory` context, not the request's `AzureSQLDBContext`)
@@ -86,8 +86,10 @@ JackyAIApp.Server/
 
 ## External data
 
-- TWSE's OpenAPI datasets are read through `ITwseOpenApi` (`Services/ExternalApi/Twse`): add a dataset
+- Every TWSE OpenAPI dataset is read through `ITwseOpenApi` (`Services/ExternalApi/Twse`): add a dataset
   there — its URL, cache time and typed row — rather than fetching openapi.twse.com.tw from a service.
+  `TwseOpenApiOnlyReaderTests` fails if any other server source names that host. Field names come
+  trimmed (TWSE pads some, e.g. `"主旨 "`), so read a field by its plain name with `row.Value(field)`.
   Callers keep their own reaction to a null (unreadable) dataset
 
 ## JSON

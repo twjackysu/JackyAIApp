@@ -4,6 +4,8 @@ using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Tests.Services.Finance
 {
@@ -37,7 +39,9 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             });
             var factory = new Mock<IHttpClientFactory>();
             factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
-            return new MarketOverviewProvider(factory.Object, _quotes.Object, NullLogger<MarketOverviewProvider>.Instance);
+            return new MarketOverviewProvider(factory.Object, _quotes.Object,
+                new TwseOpenApi(factory.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<TwseOpenApi>.Instance, TimeProvider.System),
+                NullLogger<MarketOverviewProvider>.Instance);
         }
 
         private void MisAnswers(MisIndexQuote? quote) =>

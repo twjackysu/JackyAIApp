@@ -1,38 +1,25 @@
-using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.ExternalApi.Twse;
-using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
-using System.Text.Json;
 
 namespace JackyAIApp.Server.Services.Finance.DataProviders
 {
     /// <summary>
-    /// Fetches fundamental data from TWSE OpenAPI endpoints:
+    /// Fundamental data from TWSE's OpenAPI datasets (through <see cref="ITwseOpenApi"/>):
     /// - BWIBBU_d: P/E ratio, P/B ratio, Dividend Yield
-    /// - t187ap05_L: Monthly revenue, YoY, MoM (through <see cref="ITwseOpenApi"/>)
+    /// - t187ap05_L: Monthly revenue, YoY, MoM
     /// - t187ap14_L: EPS (latest reported quarter)
-    /// - STOCK_DAY_ALL: the latest close, for an EPS derived from P/E (through <see cref="ITwseOpenApi"/>)
+    /// - STOCK_DAY_ALL: the latest close, for an EPS derived from P/E
     /// </summary>
     public class TWSEFundamentalDataProvider : IFundamentalDataProvider
     {
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IMemoryCache _cache;
         private readonly ILogger<TWSEFundamentalDataProvider> _logger;
         private readonly ITwseOpenApi _twse;
 
-        private const string BWIBBU_URL = "https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_d";
-        private const string EPS_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap14_L";
-        private const int CACHE_HOURS = 4;
-
         public TWSEFundamentalDataProvider(
-            IHttpClientFactory httpClientFactory,
-            IMemoryCache cache,
             ILogger<TWSEFundamentalDataProvider> logger,
             ITwseOpenApi twse)
         {
-            _httpClientFactory = httpClientFactory;
-            _cache = cache;
             _logger = logger;
             _twse = twse;
         }
@@ -104,19 +91,15 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchJsonArrayCached<JsonElement>(BWIBBU_URL, "BWIBBU_d", ct);
-                if (data == null) return null;
-                var stock = data.FirstOrDefault(r =>
-                    r.TryGetProperty("Code", out var code) && code.GetString() == stockCode);
-
-                if (stock.ValueKind == JsonValueKind.Undefined) return null;
+                var stock = (await _twse.GetDailyValuationsAsync(ct))?.FirstOrDefault(r => r.Code == stockCode);
+                if (stock == null) return null;
 
                 return new FundamentalData
                 {
                     PERatio = ParseDecimal(stock, "PEratio"),
                     PBRatio = ParseDecimal(stock, "PBratio"),
                     DividendYield = ParseDecimal(stock, "DividendYield"),
-                    FiscalYearQuarter = stock.TryGetProperty("FiscalYearQuarter", out var fq) ? fq.GetString() : null
+                    FiscalYearQuarter = stock.Value("FiscalYearQuarter")
                 };
             }
             catch (Exception ex)
@@ -165,16 +148,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchJsonArrayCached<JsonElement>(EPS_URL, "EPS_t187ap14", ct);
-                if (data == null) return null;
-                var stock = data.FirstOrDefault(r =>
-                    r.TryGetProperty("公司代號", out var code) && code.GetString()?.Trim() == stockCode);
-
-                if (stock.ValueKind == JsonValueKind.Undefined) return null;
+                var stock = (await _twse.GetQuarterlyEpsAsync(ct))?.FirstOrDefault(r => r.Code == stockCode);
+                if (stock == null) return null;
 
                 // Build EPS data period from 年度 + 季別 fields
-                var year = stock.TryGetProperty("年度", out var y) ? y.GetString()?.Trim() : null;
-                var quarter = stock.TryGetProperty("季別", out var q) ? q.GetString()?.Trim() : null;
+                var year = stock.Value("年度")?.Trim();
+                var quarter = stock.Value("季別")?.Trim();
                 string? epsPeriod = (year, quarter) switch
                 {
                     (not null, not null) => $"{year}年Q{quarter}",
@@ -211,32 +190,16 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             }
         }
 
-        /// <summary>A market-wide array, fetched once for a burst of callers. A failed fetch throws
-        /// and a null body answers null; neither is cached.</summary>
-        private Task<List<T>?> FetchJsonArrayCached<T>(string url, string cacheKey, CancellationToken ct) =>
-            _cache.GetOrCreateSingleFlightAsync(cacheKey, TimeSpan.FromHours(CACHE_HOURS), async () =>
-            {
-                // Shared by every caller waiting on it, so no one caller's token may stop it.
-                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
-                var response = await client.GetAsync(url, CancellationToken.None);
-                response.EnsureSuccessStatusCode();
-
-                var json = await response.Content.ReadAsStringAsync(CancellationToken.None);
-                return JsonSerializer.Deserialize<List<T>>(json);
-            }, ct);
-
-        private static decimal? ParseDecimal(JsonElement element, string property)
+        private static decimal? ParseDecimal(TwseRow row, string field)
         {
-            if (!element.TryGetProperty(property, out var prop)) return null;
-            var str = prop.GetString()?.Trim();
+            var str = row.Value(field)?.Trim();
             if (string.IsNullOrEmpty(str) || str == "-" || str == "N/A") return null;
             return decimal.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out var val) ? val : null;
         }
 
-        private static decimal? ParseDecimalFromChinese(JsonElement element, string property)
+        private static decimal? ParseDecimalFromChinese(TwseRow row, string field)
         {
-            if (!element.TryGetProperty(property, out var prop)) return null;
-            var str = prop.GetString()?.Trim();
+            var str = row.Value(field)?.Trim();
             if (string.IsNullOrEmpty(str) || str == "-" || str == "N/A") return null;
             // Remove commas and whitespace
             str = str.Replace(",", "").Replace(" ", "");

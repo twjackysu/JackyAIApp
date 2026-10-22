@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
 
@@ -7,7 +9,7 @@ namespace JackyAIApp.Server.Common
     {
         /// <summary>
         /// Returns the cached value for <paramref name="key"/>, or computes it once and caches it for
-        /// <paramref name="ttl"/>. Concurrent misses for the same key share a single
+        /// <paramref name="ttl"/>. Concurrent misses for the same key on the same cache share a single
         /// <paramref name="factory"/> run (see <see cref="SingleFlight"/>) instead of each hitting the
         /// upstream — the de-duplication a plain <c>TryGetValue</c>/<c>Set</c> pair lacks, so on a cold
         /// cache a burst of requests for the same shared resource makes one external call, not N.
@@ -28,7 +30,7 @@ namespace JackyAIApp.Server.Common
             if (cache.TryGetValue(key, out T? cached) && cached is not null)
                 return cached;
 
-            return await SingleFlight.RunAsync(key, async () =>
+            return await SingleFlight.RunAsync(FlightKey(cache, key), async () =>
             {
                 // The flight winner re-checks: an earlier flight may have filled the cache while we queued.
                 if (cache.TryGetValue(key, out T? current) && current is not null)
@@ -40,6 +42,16 @@ namespace JackyAIApp.Server.Common
                 return result;
             }, ct);
         }
+
+        // A flight is shared by the callers of one cache. The app has one, but two caches (every test
+        // builds its own) hold two different values under the same key, and must not wait on each
+        // other's fetch.
+        private static readonly ConditionalWeakTable<IMemoryCache, string> FlightPrefixes = new();
+        private static long _lastFlightPrefix;
+
+        private static string FlightKey(IMemoryCache cache, string key) =>
+            FlightPrefixes.GetValue(cache, static _ => Interlocked.Increment(ref _lastFlightPrefix).ToString(CultureInfo.InvariantCulture))
+            + ":" + key;
 
         /// <summary>
         /// A change token for the entries of <paramref name="group"/>: an entry set with it

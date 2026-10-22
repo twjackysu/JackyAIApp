@@ -11,9 +11,18 @@ namespace JackyAIApp.Server.Services.ExternalApi.Twse
     /// <summary>
     /// A row of a TWSE OpenAPI dataset. <see cref="Fields"/> is every field as TWSE sent it, in its
     /// order — what an AI prompt quotes; the typed properties of each row type are the ones code reads.
+    /// Field names are trimmed: TWSE pads a few of them ("主旨 " in t187ap04_L).
     /// </summary>
     public abstract record TwseRow(IReadOnlyList<KeyValuePair<string, string>> Fields)
     {
+        /// <summary>A field's value as TWSE sent it; null when the row has no such field.</summary>
+        public string? Value(string field)
+        {
+            foreach (var (name, value) in Fields)
+                if (name == field) return value;
+            return null;
+        }
+
         /// <summary>Every field as a "field: value" line, in TWSE's order — how a prompt quotes a row.</summary>
         public string ToText()
         {
@@ -24,10 +33,15 @@ namespace JackyAIApp.Server.Services.ExternalApi.Twse
         }
     }
 
-    /// <summary>One stock's row of a dataset that is only ever quoted whole (monthly average price,
-    /// valuation ratios, dividends, income statement, balance sheet).</summary>
+    /// <summary>One stock's row of a dataset keyed by stock code; its other fields are read by name
+    /// (<see cref="TwseRow.Value"/>) or quoted whole. Some datasets have several rows per stock (one
+    /// per director, per major shareholder).</summary>
     public sealed record TwseStockRow(string Code, IReadOnlyList<KeyValuePair<string, string>> Fields)
         : TwseRow(Fields);
+
+    /// <summary>One row of a dataset not keyed by a stock: a trading day of the market (FMTQIK), an
+    /// announcement (t187ap04_L), a holiday (holidaySchedule).</summary>
+    public sealed record TwseDataRow(IReadOnlyList<KeyValuePair<string, string>> Fields) : TwseRow(Fields);
 
     /// <summary>One of the market's indices on the latest trading day (MI_INDEX).</summary>
     public sealed record TwseMarketIndex(string Name, IReadOnlyList<KeyValuePair<string, string>> Fields)
@@ -81,6 +95,41 @@ namespace JackyAIApp.Server.Services.ExternalApi.Twse
 
         /// <summary>Every market index's close on the latest trading day (MI_INDEX).</summary>
         Task<IReadOnlyList<TwseMarketIndex>?> GetMarketIndicesAsync(CancellationToken ct = default);
+
+        /// <summary>The market's totals for each trading day of the month so far: TAIEX, its change,
+        /// volume, value, transactions (FMTQIK).</summary>
+        Task<IReadOnlyList<TwseDataRow>?> GetMarketDaysAsync(CancellationToken ct = default);
+
+        /// <summary>Margin trading and short selling by stock on the latest trading day (MI_MARGN).</summary>
+        Task<IReadOnlyList<TwseStockRow>?> GetMarginTradingAsync(CancellationToken ct = default);
+
+        /// <summary>The 20 stocks foreign investors hold the largest share of (MI_QFIIS_sort_20).</summary>
+        Task<IReadOnlyList<TwseStockRow>?> GetForeignHoldingsTop20Async(CancellationToken ct = default);
+
+        /// <summary>Shares available to borrow by stock (SBL TWT96U), keyed by its TWSE code.</summary>
+        Task<IReadOnlyList<TwseStockRow>?> GetSecuritiesLendingAsync(CancellationToken ct = default);
+
+        /// <summary>Directors' and supervisors' holdings and pledges, one row each (t187ap11_L).</summary>
+        Task<IReadOnlyList<TwseStockRow>?> GetDirectorHoldingsAsync(CancellationToken ct = default);
+
+        /// <summary>Shareholders holding more than 10%, one row each (t187ap02_L).</summary>
+        Task<IReadOnlyList<TwseStockRow>?> GetMajorShareholdersAsync(CancellationToken ct = default);
+
+        /// <summary>Stocks with day trading suspended (TWTB4U).</summary>
+        Task<IReadOnlyList<TwseStockRow>?> GetDayTradingSuspensionsAsync(CancellationToken ct = default);
+
+        /// <summary>P/E, P/B and dividend yield by stock, with their fiscal quarter (BWIBBU_d).</summary>
+        Task<IReadOnlyList<TwseStockRow>?> GetDailyValuationsAsync(CancellationToken ct = default);
+
+        /// <summary>The latest reported quarter's EPS and income by company (t187ap14_L).</summary>
+        Task<IReadOnlyList<TwseStockRow>?> GetQuarterlyEpsAsync(CancellationToken ct = default);
+
+        /// <summary>Today's material announcements (重大訊息, t187ap04_L). On a day without any this is
+        /// null like a failed read, and asked for again next time.</summary>
+        Task<IReadOnlyList<TwseDataRow>?> GetMaterialInfoAsync(CancellationToken ct = default);
+
+        /// <summary>The market holiday schedule of the year (holidaySchedule).</summary>
+        Task<IReadOnlyList<TwseDataRow>?> GetHolidayScheduleAsync(CancellationToken ct = default);
     }
 
     public class TwseOpenApi(
@@ -105,10 +154,29 @@ namespace JackyAIApp.Server.Services.ExternalApi.Twse
         internal const string BalanceSheetsUrl = BaseUrl + "opendata/t187ap07_L_ci";
         // Takes no query: the response=json&date=&type= the old www.twse.com.tw API wanted change nothing here.
         internal const string MarketIndicesUrl = BaseUrl + "exchangeReport/MI_INDEX";
+        internal const string MarketDaysUrl = BaseUrl + "exchangeReport/FMTQIK";
+        internal const string MarginTradingUrl = BaseUrl + "exchangeReport/MI_MARGN";
+        internal const string ForeignHoldingsTop20Url = BaseUrl + "fund/MI_QFIIS_sort_20";
+        internal const string SecuritiesLendingUrl = BaseUrl + "SBL/TWT96U";
+        internal const string DirectorHoldingsUrl = BaseUrl + "opendata/t187ap11_L";
+        internal const string MajorShareholdersUrl = BaseUrl + "opendata/t187ap02_L";
+        internal const string DayTradingSuspensionsUrl = BaseUrl + "exchangeReport/TWTB4U";
+        internal const string DailyValuationsUrl = BaseUrl + "exchangeReport/BWIBBU_d";
+        internal const string QuarterlyEpsUrl = BaseUrl + "opendata/t187ap14_L";
+        internal const string MaterialInfoUrl = BaseUrl + "opendata/t187ap04_L";
+        internal const string HolidayScheduleUrl = BaseUrl + "holidaySchedule/holidaySchedule";
+
+        // How long a dataset is served before it is downloaded again (and never past the Taipei day).
+        // The market's own totals change once a day, after the close, and the market pages read them
+        // soon after: two hours. Per-stock data and filings: four. The calendar and the day's
+        // announcements: twelve. Company data: a day.
+        private static readonly TimeSpan MarketTotals = TimeSpan.FromHours(2);
+        private static readonly TimeSpan PerStock = TimeSpan.FromHours(4);
+        private static readonly TimeSpan HalfADay = TimeSpan.FromHours(12);
 
         private sealed record Dataset<T>(string Url, TimeSpan Ttl, Func<JsonElement, T?> Read) where T : class;
 
-        private static readonly Dataset<TwseDailyQuote> DailyQuotes = new(DailyQuotesUrl, TimeSpan.FromHours(4),
+        private static readonly Dataset<TwseDailyQuote> DailyQuotes = new(DailyQuotesUrl, PerStock,
             row => Text(row, "Code") is { Length: > 0 } code
                 ? new TwseDailyQuote(code, Text(row, "Name"), Number(row, "ClosingPrice"), FieldsOf(row))
                 : null);
@@ -119,7 +187,7 @@ namespace JackyAIApp.Server.Services.ExternalApi.Twse
                 ? new TwseCompanyProfile(code, Text(row, "公司名稱"), FieldsOf(row))
                 : null);
 
-        private static readonly Dataset<TwseMonthlyRevenue> MonthlyRevenues = new(MonthlyRevenuesUrl, TimeSpan.FromHours(4),
+        private static readonly Dataset<TwseMonthlyRevenue> MonthlyRevenues = new(MonthlyRevenuesUrl, PerStock,
             row => Text(row, "公司代號") is { Length: > 0 } code
                 ? new TwseMonthlyRevenue(code,
                     Text(row, "資料年月") is { Length: > 0 } month ? month : null,
@@ -136,13 +204,29 @@ namespace JackyAIApp.Server.Services.ExternalApi.Twse
         private static readonly Dataset<TwseStockRow> IncomeStatements = StockRows(IncomeStatementsUrl, "公司代號");
         private static readonly Dataset<TwseStockRow> BalanceSheets = StockRows(BalanceSheetsUrl, "公司代號");
 
-        private static readonly Dataset<TwseMarketIndex> MarketIndices = new(MarketIndicesUrl, TimeSpan.FromHours(4),
+        private static readonly Dataset<TwseMarketIndex> MarketIndices = new(MarketIndicesUrl, MarketTotals,
             row => Text(row, "指數") is { Length: > 0 } name ? new TwseMarketIndex(name, FieldsOf(row)) : null);
 
-        private static Dataset<TwseStockRow> StockRows(string url, string codeField, bool dropWarrants = false) => new(url, TimeSpan.FromHours(4),
-            row => Text(row, codeField) is { Length: > 0 } code && !(dropWarrants && TwStockCode.IsWarrant(code))
-                ? new TwseStockRow(code, FieldsOf(row))
-                : null);
+        private static readonly Dataset<TwseDataRow> MarketDays = DataRows(MarketDaysUrl, MarketTotals);
+        private static readonly Dataset<TwseStockRow> MarginTrading = StockRows(MarginTradingUrl, "股票代號", MarketTotals);
+        private static readonly Dataset<TwseStockRow> ForeignHoldingsTop20 = StockRows(ForeignHoldingsTop20Url, "Code");
+        private static readonly Dataset<TwseStockRow> SecuritiesLending = StockRows(SecuritiesLendingUrl, "TWSECode");
+        private static readonly Dataset<TwseStockRow> DirectorHoldings = StockRows(DirectorHoldingsUrl, "公司代號");
+        private static readonly Dataset<TwseStockRow> MajorShareholders = StockRows(MajorShareholdersUrl, "公司代號");
+        private static readonly Dataset<TwseStockRow> DayTradingSuspensions = StockRows(DayTradingSuspensionsUrl, "Code");
+        private static readonly Dataset<TwseStockRow> DailyValuations = StockRows(DailyValuationsUrl, "Code");
+        private static readonly Dataset<TwseStockRow> QuarterlyEps = StockRows(QuarterlyEpsUrl, "公司代號");
+        private static readonly Dataset<TwseDataRow> MaterialInfo = DataRows(MaterialInfoUrl, HalfADay);
+        // Not cached: the trading calendar holds the schedule itself, and reloads it on its own schedule.
+        private static readonly Dataset<TwseDataRow> HolidaySchedule = DataRows(HolidayScheduleUrl, TimeSpan.Zero);
+
+        private static Dataset<TwseStockRow> StockRows(string url, string codeField, TimeSpan? ttl = null, bool dropWarrants = false) =>
+            new(url, ttl ?? PerStock,
+                row => Text(row, codeField) is { Length: > 0 } code && !(dropWarrants && TwStockCode.IsWarrant(code))
+                    ? new TwseStockRow(code, FieldsOf(row))
+                    : null);
+
+        private static Dataset<TwseDataRow> DataRows(string url, TimeSpan ttl) => new(url, ttl, row => new TwseDataRow(FieldsOf(row)));
 
         public Task<IReadOnlyList<TwseDailyQuote>?> GetDailyQuotesAsync(CancellationToken ct = default) => GetAsync(DailyQuotes, ct);
 
@@ -162,9 +246,31 @@ namespace JackyAIApp.Server.Services.ExternalApi.Twse
 
         public Task<IReadOnlyList<TwseMarketIndex>?> GetMarketIndicesAsync(CancellationToken ct = default) => GetAsync(MarketIndices, ct);
 
+        public Task<IReadOnlyList<TwseDataRow>?> GetMarketDaysAsync(CancellationToken ct = default) => GetAsync(MarketDays, ct);
+
+        public Task<IReadOnlyList<TwseStockRow>?> GetMarginTradingAsync(CancellationToken ct = default) => GetAsync(MarginTrading, ct);
+
+        public Task<IReadOnlyList<TwseStockRow>?> GetForeignHoldingsTop20Async(CancellationToken ct = default) => GetAsync(ForeignHoldingsTop20, ct);
+
+        public Task<IReadOnlyList<TwseStockRow>?> GetSecuritiesLendingAsync(CancellationToken ct = default) => GetAsync(SecuritiesLending, ct);
+
+        public Task<IReadOnlyList<TwseStockRow>?> GetDirectorHoldingsAsync(CancellationToken ct = default) => GetAsync(DirectorHoldings, ct);
+
+        public Task<IReadOnlyList<TwseStockRow>?> GetMajorShareholdersAsync(CancellationToken ct = default) => GetAsync(MajorShareholders, ct);
+
+        public Task<IReadOnlyList<TwseStockRow>?> GetDayTradingSuspensionsAsync(CancellationToken ct = default) => GetAsync(DayTradingSuspensions, ct);
+
+        public Task<IReadOnlyList<TwseStockRow>?> GetDailyValuationsAsync(CancellationToken ct = default) => GetAsync(DailyValuations, ct);
+
+        public Task<IReadOnlyList<TwseStockRow>?> GetQuarterlyEpsAsync(CancellationToken ct = default) => GetAsync(QuarterlyEps, ct);
+
+        public Task<IReadOnlyList<TwseDataRow>?> GetMaterialInfoAsync(CancellationToken ct = default) => GetAsync(MaterialInfo, ct);
+
+        public Task<IReadOnlyList<TwseDataRow>?> GetHolidayScheduleAsync(CancellationToken ct = default) => GetAsync(HolidaySchedule, ct);
+
         private Task<IReadOnlyList<T>?> GetAsync<T>(Dataset<T> dataset, CancellationToken ct) where T : class =>
             cache.GetOrCreateSingleFlightAsync($"twse:{dataset.Url}:{time.GetTaipeiToday():yyyyMMdd}", dataset.Ttl,
-                () => FetchAsync(dataset), ct, shouldCache: rows => rows is not null);
+                () => FetchAsync(dataset), ct, shouldCache: rows => rows is not null && dataset.Ttl > TimeSpan.Zero);
 
         private async Task<IReadOnlyList<T>?> FetchAsync<T>(Dataset<T> dataset) where T : class
         {
@@ -230,12 +336,12 @@ namespace JackyAIApp.Server.Services.ExternalApi.Twse
         }
 
         /// <summary>One string per field name across every row and dataset (a few hundred names in all),
-        /// instead of one per field of every row: STOCK_DAY_AVG_ALL alone has ~34,000 rows.</summary>
+        /// instead of one per field of every row; trimmed, as TWSE pads a few.</summary>
         private static readonly ConcurrentDictionary<string, string> FieldNames = new();
 
         private static IReadOnlyList<KeyValuePair<string, string>> FieldsOf(JsonElement row) =>
             row.EnumerateObject()
-                .Select(p => KeyValuePair.Create(FieldNames.GetOrAdd(p.Name, p.Name), p.Value.ValueKind switch
+                .Select(p => KeyValuePair.Create(FieldNames.GetOrAdd(p.Name, static name => name.Trim()), p.Value.ValueKind switch
                 {
                     JsonValueKind.String => p.Value.GetString() ?? "",
                     JsonValueKind.True => "true",

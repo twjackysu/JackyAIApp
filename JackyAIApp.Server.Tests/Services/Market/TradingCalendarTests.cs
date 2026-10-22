@@ -2,6 +2,8 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Services.Market;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Tests.Services.Market
 {
@@ -65,7 +67,7 @@ namespace JackyAIApp.Server.Tests.Services.Market
             var calls = 0;
             var succeed = true;
             var factory = new Mock<IHttpClientFactory>();
-            factory.Setup(f => f.CreateClient("ExternalReadOnly")).Returns(() =>
+            factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(() =>
                 new HttpClient(new TestHelpers.StubHttpMessageHandler(_ =>
                 {
                     calls++;
@@ -74,7 +76,8 @@ namespace JackyAIApp.Server.Tests.Services.Market
                         : new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError);
                 }), disposeHandler: false));
             var time = new FixedTime(new DateTimeOffset(2026, 10, 12, 0, 0, 0, TimeSpan.Zero));
-            var calendar = new TwseTradingCalendar(factory.Object, NullLogger<TwseTradingCalendar>.Instance);
+            var calendar = new TwseTradingCalendar(
+                new TwseOpenApi(factory.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<TwseOpenApi>.Instance, TimeProvider.System), NullLogger<TwseTradingCalendar>.Instance);
             var service = new TradingCalendarRefreshService(calendar, NullLogger<TradingCalendarRefreshService>.Instance, time);
             return (service, () => calls, ok => succeed = ok, time);
         }

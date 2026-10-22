@@ -23,7 +23,6 @@ namespace JackyAIApp.Server.Services.Finance
         {
             services.AddScoped<ITwseAnalysisData, TwseAnalysisData>();
             services.AddScoped<IStockCodeResolver, StockCodeResolver>();
-            services.AddScoped<ITWSEDataService, TWSEDataService>();
             services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
             services.AddTradingCalendar();
 

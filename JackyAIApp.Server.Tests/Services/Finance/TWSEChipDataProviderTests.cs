@@ -4,6 +4,7 @@ using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 
 namespace JackyAIApp.Server.Tests.Services.Finance
 {
@@ -32,7 +33,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             httpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>()))
                 .Returns(() => StubHttpMessageHandler.CreateClient(responder));
             var cache = new MemoryCache(new MemoryCacheOptions());
-            return new TWSEChipDataProvider(httpClientFactory.Object, cache, NullLogger<TWSEChipDataProvider>.Instance);
+            return new TWSEChipDataProvider(new TwseOpenApi(httpClientFactory.Object, cache, NullLogger<TwseOpenApi>.Instance, TimeProvider.System), NullLogger<TWSEChipDataProvider>.Instance);
         }
 
         private static HttpResponseMessage RouteNormal(HttpRequestMessage request)

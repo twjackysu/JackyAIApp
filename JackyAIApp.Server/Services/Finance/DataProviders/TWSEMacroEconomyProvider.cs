@@ -1,16 +1,16 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
-using System.Text.Json;
 
 namespace JackyAIApp.Server.Services.Finance.DataProviders
 {
     /// <summary>
     /// Fetches macro economy data from multiple free sources:
-    /// - TWSE FMTQIK: Market index (TAIEX)
-    /// - TWSE MI_INDEX: Sector indices
-    /// - TWSE MI_MARGN: Margin trading summary
+    /// - TWSE FMTQIK: Market index (TAIEX), through <see cref="ITwseOpenApi"/>
+    /// - TWSE MI_INDEX: Sector indices, through <see cref="ITwseOpenApi"/>
+    /// - TWSE MI_MARGN: Margin trading summary, through <see cref="ITwseOpenApi"/>
     /// - Bank of Taiwan: Exchange rates (CSV)
     /// - CBC: Bank interest rates (CSV)
     /// </summary>
@@ -19,10 +19,8 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMemoryCache _cache;
         private readonly ILogger<TWSEMacroEconomyProvider> _logger;
+        private readonly ITwseOpenApi _twse;
 
-        private const string FMTQIK_URL = "https://openapi.twse.com.tw/v1/exchangeReport/FMTQIK";
-        private const string MI_INDEX_URL = "https://openapi.twse.com.tw/v1/exchangeReport/MI_INDEX";
-        private const string MI_MARGN_URL = "https://openapi.twse.com.tw/v1/exchangeReport/MI_MARGN";
         private const string BOT_FX_URL = "https://rate.bot.com.tw/xrt/flcsv/0/day";
         private const string CBC_RATE_URL = "https://www.cbc.gov.tw/public/data/OpenData/A13Rate.csv";
         private const int CACHE_HOURS = 2;
@@ -53,11 +51,13 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         public TWSEMacroEconomyProvider(
             IHttpClientFactory httpClientFactory,
             IMemoryCache cache,
-            ILogger<TWSEMacroEconomyProvider> logger)
+            ILogger<TWSEMacroEconomyProvider> logger,
+            ITwseOpenApi twse)
         {
             _httpClientFactory = httpClientFactory;
             _cache = cache;
             _logger = logger;
+            _twse = twse;
         }
 
         public async Task<MacroEconomyResponse> FetchAsync(CancellationToken ct = default)
@@ -86,7 +86,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchJsonCached<List<JsonElement>>(FMTQIK_URL, "macro_FMTQIK", ct);
+                var data = await _twse.GetMarketDaysAsync(ct);
                 if (data == null) return null;
 
                 return data.Select(r => new MarketIndexDay
@@ -110,7 +110,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchJsonCached<List<JsonElement>>(MI_INDEX_URL, "macro_MI_INDEX", ct);
+                var data = await _twse.GetMarketIndicesAsync(ct);
                 if (data == null) return null;
 
                 return data
@@ -137,7 +137,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchJsonCached<List<JsonElement>>(MI_MARGN_URL, "macro_MI_MARGN", ct);
+                var data = await _twse.GetMarginTradingAsync(ct);
                 if (data == null) return null;
 
                 var summary = new MarginSummary();
@@ -253,36 +253,17 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
         // === Helpers ===
 
-        /// <summary>A market-wide document, fetched once for a burst of callers. A failed fetch throws
-        /// and a null body answers null; neither is cached.</summary>
-        private Task<T?> FetchJsonCached<T>(string url, string cacheKey, CancellationToken ct) where T : class =>
-            _cache.GetOrCreateSingleFlightAsync(cacheKey, TimeSpan.FromHours(CACHE_HOURS), async () =>
-            {
-                // Shared by every caller waiting on it, so no one caller's token may stop it.
-                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
-                var response = await client.GetAsync(url, CancellationToken.None);
-                response.EnsureSuccessStatusCode();
+        private static string GetStr(TwseRow row, string field) => row.Value(field)?.Trim() ?? "";
 
-                var json = await response.Content.ReadAsStringAsync(CancellationToken.None);
-                return JsonSerializer.Deserialize<T>(json);
-            }, ct);
-
-        private static string GetStr(JsonElement el, string prop)
+        private static decimal GetDec(TwseRow row, string field)
         {
-            return el.TryGetProperty(prop, out var v) ? v.GetString()?.Trim() ?? "" : "";
-        }
-
-        private static decimal GetDec(JsonElement el, string prop)
-        {
-            if (!el.TryGetProperty(prop, out var v)) return 0;
-            var s = v.GetString()?.Trim().Replace(",", "") ?? "";
+            var s = row.Value(field)?.Trim().Replace(",", "") ?? "";
             return decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0;
         }
 
-        private static long GetLong(JsonElement el, string prop)
+        private static long GetLong(TwseRow row, string field)
         {
-            if (!el.TryGetProperty(prop, out var v)) return 0;
-            var s = v.GetString()?.Trim().Replace(",", "") ?? "";
+            var s = row.Value(field)?.Trim().Replace(",", "") ?? "";
             return long.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var l) ? l : 0;
         }
 

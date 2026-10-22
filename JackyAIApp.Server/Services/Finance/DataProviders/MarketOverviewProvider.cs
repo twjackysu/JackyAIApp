@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
 using System.Globalization;
 using System.Text.Json;
@@ -16,17 +17,16 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
     /// still held 10/16's close, so the day's −529.15 showed as −818.37). The live reading is MIS
     /// <c>t00</c> (z now, y the previous close), shared with the 回落煞車 estimate through
     /// <see cref="IMisTaiexQuoteSource"/>; when MIS has none (before the open, or down), the latest
-    /// day of OpenAPI FMTQIK, whose <c>Change</c> is the exchange's own.</para>
+    /// day of OpenAPI FMTQIK (through <see cref="ITwseOpenApi"/>), whose <c>Change</c> is the exchange's own.</para>
     /// </summary>
     public class MarketOverviewProvider : IMarketOverviewProvider
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMisTaiexQuoteSource _taiexQuotes;
+        private readonly ITwseOpenApi _twse;
         private readonly ILogger<MarketOverviewProvider> _logger;
 
         private static readonly string CHART_URL = YahooChart.ChartBase;
-
-        internal const string FMTQIK_URL = "https://openapi.twse.com.tw/v1/exchangeReport/FMTQIK";
 
         /// <summary>The ticker served from TWSE instead of Yahoo; kept in <see cref="Tickers"/> for its place.</summary>
         internal const string TaiexSymbol = "^TWII";
@@ -49,10 +49,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         public MarketOverviewProvider(
             IHttpClientFactory httpClientFactory,
             IMisTaiexQuoteSource taiexQuotes,
+            ITwseOpenApi twse,
             ILogger<MarketOverviewProvider> logger)
         {
             _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
             _taiexQuotes = taiexQuotes ?? throw new ArgumentNullException(nameof(taiexQuotes));
+            _twse = twse ?? throw new ArgumentNullException(nameof(twse));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -122,19 +124,11 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
             try
             {
-                var client = _httpClientFactory.CreateClient("ExternalReadOnly");
-                using var response = await client.GetAsync(FMTQIK_URL, ct);
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("FMTQIK returned {status}", response.StatusCode);
-                    return null;
-                }
-
-                var rows = JsonSerializer.Deserialize<List<JsonElement>>(await response.Content.ReadAsStringAsync(ct));
+                var rows = await _twse.GetMarketDaysAsync(ct);
                 // Date is 民國 YYYMMDD, so the largest is the latest trading day.
                 var latest = rows?
                     .Where(r => ParseTwseDecimal(r, "TAIEX") is > 0 && ParseTwseDecimal(r, "Change").HasValue)
-                    .MaxBy(r => r.TryGetProperty("Date", out var d) ? d.GetString() : null);
+                    .MaxBy(r => r.Value("Date"));
                 if (latest is not { } day)
                     return null;
 
@@ -166,11 +160,9 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             };
         }
 
-        private static decimal? ParseTwseDecimal(JsonElement element, string property)
+        private static decimal? ParseTwseDecimal(TwseRow row, string field)
         {
-            if (!element.TryGetProperty(property, out var prop) || prop.ValueKind != JsonValueKind.String)
-                return null;
-            var s = prop.GetString()?.Trim().Replace(",", "");
+            var s = row.Value(field)?.Trim().Replace(",", "");
             return decimal.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : null;
         }
 
