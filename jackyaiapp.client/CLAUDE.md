@@ -15,13 +15,22 @@ npm run preview      # Preview production build
 
 ```
 jackyaiapp.client/src/
-├── apis/           # RTK Query API slices (dictionaryApis, financeApis, etc.)
+├── apis/           # RTK Query: the shared api.ts and the feature slices (dictionaryApis, financeApis, etc.)
 ├── [Feature]/      # Feature-based components (Dictionary/, Finance/, etc.)
 ├── components/     # Reusable UI components
 ├── redux/          # Store configuration
 ├── auth/           # Authentication components
 └── constants/      # App configuration
 ```
+
+## API slices
+
+- A feature in the shared API (`apis/api.ts`: repository, review, stats, daily challenge, exam)
+  adds endpoints with `api.injectEndpoints` in its own `apis/[feature]/index.ts`, paths relative to
+  `/api`. A new tag goes in `TAG_TYPES` there.
+- When a mutation changes data another feature shows, it invalidates that data's tag with
+  `invalidatesTags: onSuccess(...)` (not a bare array: RTK Query also applies that to a mutation the
+  server answered with an error). `apis/api.test.ts` pins which mutation refreshes what.
 
 ## UI Conventions
 

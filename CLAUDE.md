@@ -152,11 +152,13 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 - **Test entities**: ClozeTest, TranslationTest, ClozeTestOption with user associations
 
 ### API Communication Pattern
-- **RTK Query slices** for each feature domain — each is its own `createApi`, so a tag one slice
-  invalidates never reaches another. Where a server write changes another slice's data (adding a
-  word changes the review queue, finishing a challenge changes the stats), the mutation sends the
-  invalidation across explicitly: `onQueryStarted: alsoRefresh(refreshReviewQueue, ...)`
-  (`apis/utils/alsoRefresh.ts`), with each affected slice exporting its own `refresh…` function
+- **RTK Query**: one shared API, `apis/api.ts`, that feature slices inject their endpoints into
+  (`api.injectEndpoints`, paths relative to `/api`), so a tag one feature invalidates reaches every
+  other feature's queries. Where a server write changes another feature's data (adding a word
+  changes the review queue, finishing a challenge changes the stats), the mutation names that
+  data's tag, with `invalidatesTags: onSuccess(...)` (a failed mutation refetches nothing). All tags
+  are listed in `apis/api.ts`. The English-learning slices (repository, review, stats, daily
+  challenge, exam) are in it; the others are still their own `createApi` and share no tags
 - **TypeScript interfaces** for all API contracts in `apis/[feature]/types.ts`
 - **Error message extraction** via `apis/utils/errorMessage.ts` — the only supported way to turn
   an RTK Query error into display text, since `FetchBaseQueryError.data` is not guaranteed to hold
