@@ -54,6 +54,28 @@ namespace JackyAIApp.Server.Tests.Common
         }
 
         [Fact]
+        public async Task TwoCaches_DoNotShareAFetch()
+        {
+            // Same key, different caches (as in parallel tests): each has its own value to fetch.
+            using var first = NewCache();
+            using var second = NewCache();
+            var gate = new TaskCompletionSource();
+            async Task<string> Factory(string value)
+            {
+                await gate.Task;
+                return value;
+            }
+
+            var key = Guid.NewGuid().ToString();
+            var a = first.GetOrCreateSingleFlightAsync(key, TimeSpan.FromMinutes(5), () => Factory("a"), default);
+            var b = second.GetOrCreateSingleFlightAsync(key, TimeSpan.FromMinutes(5), () => Factory("b"), default);
+            gate.SetResult();
+
+            Assert.Equal("a", await a);
+            Assert.Equal("b", await b);
+        }
+
+        [Fact]
         public async Task ThrowingFactoryIsNotCached_NextCallRetries()
         {
             using var cache = NewCache();

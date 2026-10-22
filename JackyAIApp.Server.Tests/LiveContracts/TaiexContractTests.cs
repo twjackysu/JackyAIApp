@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using TWStockLib.Services;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Tests.LiveContracts
 {
@@ -58,7 +60,7 @@ namespace JackyAIApp.Server.Tests.LiveContracts
         [Fact]
         public async Task HolidaySchedule_IsANonEmptyArrayWithParsableDates_ThatTheCalendarCanRead()
         {
-            var json = await TryFetchStringAsync(TwseTradingCalendar.Url, "TWSE holidaySchedule");
+            var json = await TryFetchStringAsync(TwseOpenApi.HolidayScheduleUrl, "TWSE holidaySchedule");
             if (json is null) return;
 
             using var doc = JsonDocument.Parse(json);
@@ -88,8 +90,9 @@ namespace JackyAIApp.Server.Tests.LiveContracts
 
             // And the production reader gets an answer out of the same live data.
             var factory = new Mock<IHttpClientFactory>();
-            factory.Setup(f => f.CreateClient("ExternalReadOnly")).Returns(() => Http);
-            var calendar = new TwseTradingCalendar(factory.Object, NullLogger<TwseTradingCalendar>.Instance);
+            factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(() => Http);
+            var calendar = new TwseTradingCalendar(
+                new TwseOpenApi(factory.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<TwseOpenApi>.Instance, TimeProvider.System), NullLogger<TwseTradingCalendar>.Instance);
             Assert.True(await calendar.RefreshAsync(), "TwseTradingCalendar could not load the live schedule.");
             var sample = dates.Max();
             Assert.NotNull(calendar.IsMarketClosed(sample));

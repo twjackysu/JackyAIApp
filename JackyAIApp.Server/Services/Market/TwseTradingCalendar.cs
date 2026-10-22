@@ -1,10 +1,10 @@
-using System.Text.Json;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 
 namespace JackyAIApp.Server.Services.Market
 {
     /// <summary>
     /// TWSE's trading calendar: weekends, plus the market holiday schedule (OpenAPI
-    /// <c>holidaySchedule</c>). The schedule is loaded off the request path — at startup and then
+    /// <c>holidaySchedule</c>, through <see cref="ITwseOpenApi"/>). The schedule is loaded off the request path — at startup and then
     /// twice a day, by <see cref="TradingCalendarRefreshService"/> — and held in memory, so asking
     /// never waits on TWSE. A failed load keeps the schedule already held; until one succeeds, a
     /// weekday is unknown (null), and callers fall back to the weekday rule.
@@ -16,11 +16,9 @@ namespace JackyAIApp.Server.Services.Market
     /// break, the last one before it) are not holidays.
     /// </summary>
     public class TwseTradingCalendar(
-        IHttpClientFactory httpClientFactory,
+        ITwseOpenApi twse,
         ILogger<TwseTradingCalendar> logger) : ITradingCalendar
     {
-        internal const string Url = "https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule";
-
         private sealed record Schedule(HashSet<DateOnly> ClosedDays, HashSet<int> Years);
 
         private volatile Schedule? _schedule;
@@ -45,70 +43,40 @@ namespace JackyAIApp.Server.Services.Market
 
         private async Task<Schedule?> FetchAsync(CancellationToken ct)
         {
-            try
-            {
-                var client = httpClientFactory.CreateClient("ExternalReadOnly");
-                using var req = new HttpRequestMessage(HttpMethod.Get, Url);
-                req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0");
-                req.Headers.TryAddWithoutValidation("Accept", "application/json");
-                using var resp = await client.SendAsync(req, ct);
-                resp.EnsureSuccessStatusCode();
-                return Parse(await resp.Content.ReadAsStringAsync(ct), logger);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-            {
-                logger.LogWarning(ex, "TWSE holiday schedule fetch failed");
-                return null;
-            }
+            // Null when the schedule could not be read (ITwseOpenApi logs why).
+            var rows = await twse.GetHolidayScheduleAsync(ct);
+            return rows is null ? null : Parse(rows, logger);
         }
 
-        private static Schedule? Parse(string body, ILogger logger)
+        private static Schedule? Parse(IReadOnlyList<TwseRow> rows, ILogger logger)
         {
-            JsonDocument doc;
-            try { doc = JsonDocument.Parse(body); }
-            catch (JsonException)
+            var closed = new HashSet<DateOnly>();
+            var years = new HashSet<int>();
+            foreach (var row in rows)
             {
-                logger.LogWarning("TWSE holiday schedule is not JSON");
+                if (!TryGetString(row, "Date", out var dateText) || !TryParseDate(dateText, out var date)) continue;
+                years.Add(date.Year);
+
+                var text = (TryGetString(row, "Name", out var n) ? n : "") + (TryGetString(row, "Description", out var d) ? d : "");
+                if (text.Contains("開始交易日") || text.Contains("最後交易日")) continue;
+                closed.Add(date);
+            }
+
+            if (years.Count == 0)
+            {
+                logger.LogWarning("TWSE holiday schedule had no readable dates");
                 return null;
             }
-
-            using (doc)
-            {
-                if (doc.RootElement.ValueKind != JsonValueKind.Array)
-                {
-                    logger.LogWarning("TWSE holiday schedule is not a JSON array");
-                    return null;
-                }
-
-                var closed = new HashSet<DateOnly>();
-                var years = new HashSet<int>();
-                foreach (var row in doc.RootElement.EnumerateArray())
-                {
-                    if (row.ValueKind != JsonValueKind.Object) continue;
-                    if (!TryGetString(row, "Date", out var dateText) || !TryParseDate(dateText, out var date)) continue;
-
-                    years.Add(date.Year);
-                    var text = (TryGetString(row, "Name", out var n) ? n : "") + (TryGetString(row, "Description", out var d) ? d : "");
-                    if (text.Contains("開始交易日") || text.Contains("最後交易日")) continue;
-                    closed.Add(date);
-                }
-
-                if (years.Count == 0)
-                {
-                    logger.LogWarning("TWSE holiday schedule had no readable dates");
-                    return null;
-                }
-                return new Schedule(closed, years);
-            }
+            return new Schedule(closed, years);
         }
 
-        private static bool TryGetString(JsonElement row, string name, out string value)
+        private static bool TryGetString(TwseRow row, string name, out string value)
         {
             value = "";
-            foreach (var p in row.EnumerateObject())
+            foreach (var (field, text) in row.Fields)
             {
-                if (!string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase) || p.Value.ValueKind != JsonValueKind.String) continue;
-                value = p.Value.GetString() ?? "";
+                if (!string.Equals(field, name, StringComparison.OrdinalIgnoreCase)) continue;
+                value = text;
                 return true;
             }
             return false;

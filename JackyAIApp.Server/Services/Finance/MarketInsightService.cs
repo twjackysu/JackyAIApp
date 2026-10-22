@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 using JackyAIApp.Server.Services.Finance.DataProviders;
 using JackyAIApp.Server.Services.OpenAI;
 using Microsoft.Extensions.Caching.Memory;
@@ -12,7 +13,7 @@ namespace JackyAIApp.Server.Services.Finance
         IMemoryCache memoryCache,
         IUsageLimitService usageLimitService,
         IFinnhubNewsProvider finnhubNewsProvider,
-        ITWSEDataService twseDataService,
+        ITwseOpenApi twse,
         IOpenAIPromptService openAIPromptService,
         IMarketDataQueryService marketData) : IMarketInsightService
     {
@@ -21,7 +22,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly IMemoryCache _memoryCache = memoryCache;
         private readonly IUsageLimitService _usageLimitService = usageLimitService;
         private readonly IFinnhubNewsProvider _finnhubNewsProvider = finnhubNewsProvider;
-        private readonly ITWSEDataService _twseDataService = twseDataService;
+        private readonly ITwseOpenApi _twse = twse;
         private readonly IOpenAIPromptService _openAIPromptService = openAIPromptService;
         // The cached market-overview and indicator sets this service grounds its prompts in; reused
         // (not re-fetched) so the digest rides the same 3-minute overview cache every visitor shares.
@@ -147,45 +148,48 @@ namespace JackyAIApp.Server.Services.Finance
         /// </summary>
         private async Task<string> GetTwseMajorNewsTextSafeAsync(CancellationToken cancellationToken)
         {
-            const int MAX_ITEMS = 60;
             try
             {
-                var raw = await _twseDataService.GetRawMaterialInfoWithCacheAsync(cancellationToken);
-                if (string.IsNullOrWhiteSpace(raw))
-                    return "";
-
-                using var doc = System.Text.Json.JsonDocument.Parse(raw);
-                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array)
-                    return "";
-
-                var lines = new List<string>();
-                foreach (var item in doc.RootElement.EnumerateArray())
-                {
-                    if (lines.Count >= MAX_ITEMS) break;
-
-                    string Get(params string[] keys)
-                    {
-                        foreach (var k in keys)
-                            if (item.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String)
-                                return v.GetString() ?? "";
-                        return "";
-                    }
-
-                    var code = Get("公司代號", "Code", "CompanyCode");
-                    var name = Get("公司名稱", "Name", "CompanyName");
-                    var subject = Get("主旨", "Subject", "Title");
-                    if (string.IsNullOrWhiteSpace(subject)) continue;
-
-                    lines.Add($"{code} {name}：{subject}".Trim());
-                }
-
-                return string.Join("\n", lines);
+                return MajorNewsText(await _twse.GetMaterialInfoAsync(cancellationToken));
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to build TWSE major-news text for digest");
                 return "";
             }
+        }
+
+        /// <summary>One "code name：subject" line per announcement, at most 60, skipping those
+        /// without a subject; empty when there are none.</summary>
+        internal static string MajorNewsText(IReadOnlyList<TwseRow>? announcements)
+        {
+            const int MAX_ITEMS = 60;
+            if (announcements == null)
+                return "";
+
+            var lines = new List<string>();
+            foreach (var item in announcements)
+            {
+                if (lines.Count >= MAX_ITEMS) break;
+
+                string Get(params string[] keys)
+                {
+                    foreach (var k in keys)
+                        if (item.Value(k) is { } value)
+                            return value;
+                    return "";
+                }
+
+                var code = Get("公司代號", "Code", "CompanyCode");
+                var name = Get("公司名稱", "Name", "CompanyName");
+                // TWSE wraps a long subject onto several lines; the line breaks fall mid-sentence.
+                var subject = Get("主旨", "Subject", "Title").ReplaceLineEndings("");
+                if (string.IsNullOrWhiteSpace(subject)) continue;
+
+                lines.Add($"{code} {name}：{subject}".Trim());
+            }
+
+            return string.Join("\n", lines);
         }
 
         public async Task<ServiceResult<IndicatorInsight>> GetIndicatorInsightAsync(string id, CancellationToken cancellationToken)

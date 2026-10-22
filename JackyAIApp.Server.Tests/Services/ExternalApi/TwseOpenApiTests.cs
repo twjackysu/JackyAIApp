@@ -82,11 +82,19 @@ namespace JackyAIApp.Server.Tests.Services.ExternalApi
             { nameof(TwseOpenApi.GetDividendsAsync), "公司代號" },
             { nameof(TwseOpenApi.GetIncomeStatementsAsync), "公司代號" },
             { nameof(TwseOpenApi.GetBalanceSheetsAsync), "公司代號" },
+            { nameof(TwseOpenApi.GetMarginTradingAsync), "股票代號" },
+            { nameof(TwseOpenApi.GetForeignHoldingsTop20Async), "Code" },
+            { nameof(TwseOpenApi.GetSecuritiesLendingAsync), "TWSECode" },
+            { nameof(TwseOpenApi.GetDirectorHoldingsAsync), "公司代號" },
+            { nameof(TwseOpenApi.GetMajorShareholdersAsync), "公司代號" },
+            { nameof(TwseOpenApi.GetDayTradingSuspensionsAsync), "Code" },
+            { nameof(TwseOpenApi.GetDailyValuationsAsync), "Code" },
+            { nameof(TwseOpenApi.GetQuarterlyEpsAsync), "公司代號" },
         };
 
         [Theory]
         [MemberData(nameof(StockRowDatasets))]
-        public async Task QuotedOnlyDatasets_AreKeyedByTheirOwnCodeField(string method, string codeField)
+        public async Task StockDatasets_AreKeyedByTheirOwnCodeField(string method, string codeField)
         {
             Answer($$"""[{"出表日期":"1151022","{{codeField}}":" 2330 ","名稱":"台積電"},{"Other":"1101"}]""");
 
@@ -107,6 +115,39 @@ namespace JackyAIApp.Server.Tests.Services.ExternalApi
         }
 
         [Fact]
+        public async Task FieldNames_AreTrimmed_AndReadByName()
+        {
+            // t187ap04_L really names its subject "主旨 ".
+            Answer("""[{"公司代號":"2330"," 主旨 ":"董事會決議","說明":"..."}]""");
+
+            var row = Assert.Single((await _twse.GetMaterialInfoAsync())!);
+
+            Assert.Equal(["公司代號", "主旨", "說明"], row.Fields.Select(f => f.Key));
+            Assert.Equal("董事會決議", row.Value("主旨"));
+            Assert.Null(row.Value("Subject"));
+        }
+
+        [Fact]
+        public async Task DataRows_NeedNoCode()
+        {
+            Answer("""[{"Date":"1151021","TAIEX":"46887.77"},{"Date":"1151022","TAIEX":"47000.00"}]""");
+
+            Assert.Equal(["1151021", "1151022"], (await _twse.GetMarketDaysAsync())!.Select(r => r.Value("Date")));
+        }
+
+        [Fact]
+        public async Task TheHolidaySchedule_IsReadAfreshEachTime()
+        {
+            // The trading calendar holds it, and decides itself when to reload.
+            Answer("""[{"Name":"開國紀念日","Date":"1150101"}]""");
+
+            await _twse.GetHolidayScheduleAsync();
+            await _twse.GetHolidayScheduleAsync();
+
+            Assert.Equal(2, _requests.Count);
+        }
+
+        [Fact]
         public async Task MarketIndices_AreNamedByTheirIndex()
         {
             Answer("""[{"日期":"1151021","指數":"發行量加權股價指數","收盤指數":"46887.77"},{"日期":"1151021","指數":""}]""");
@@ -124,7 +165,7 @@ namespace JackyAIApp.Server.Tests.Services.ExternalApi
             _respond = request =>
             {
                 urls.Add(request.RequestUri!.ToString());
-                return StubHttpMessageHandler.JsonResponse("""[{"Code":"2330","公司代號":"2330","指數":"x"}]""");
+                return StubHttpMessageHandler.JsonResponse("""[{"Code":"2330","公司代號":"2330","指數":"x","股票代號":"2330","TWSECode":"2330"}]""");
             };
 
             await _twse.GetDailyQuotesAsync();
@@ -136,12 +177,26 @@ namespace JackyAIApp.Server.Tests.Services.ExternalApi
             await _twse.GetIncomeStatementsAsync();
             await _twse.GetBalanceSheetsAsync();
             await _twse.GetMarketIndicesAsync();
+            await _twse.GetMarketDaysAsync();
+            await _twse.GetMarginTradingAsync();
+            await _twse.GetForeignHoldingsTop20Async();
+            await _twse.GetSecuritiesLendingAsync();
+            await _twse.GetDirectorHoldingsAsync();
+            await _twse.GetMajorShareholdersAsync();
+            await _twse.GetDayTradingSuspensionsAsync();
+            await _twse.GetDailyValuationsAsync();
+            await _twse.GetQuarterlyEpsAsync();
+            await _twse.GetMaterialInfoAsync();
+            await _twse.GetHolidayScheduleAsync();
 
             Assert.Equal(
             [
                 "exchangeReport/STOCK_DAY_ALL", "opendata/t187ap03_L", "opendata/t187ap05_L",
                 "exchangeReport/STOCK_DAY_AVG_ALL", "exchangeReport/BWIBBU_ALL", "opendata/t187ap45_L",
                 "opendata/t187ap06_L_ci", "opendata/t187ap07_L_ci", "exchangeReport/MI_INDEX",
+                "exchangeReport/FMTQIK", "exchangeReport/MI_MARGN", "fund/MI_QFIIS_sort_20", "SBL/TWT96U",
+                "opendata/t187ap11_L", "opendata/t187ap02_L", "exchangeReport/TWTB4U", "exchangeReport/BWIBBU_d",
+                "opendata/t187ap14_L", "opendata/t187ap04_L", "holidaySchedule/holidaySchedule",
             ], urls.Select(u => u[TwseOpenApi.BaseUrl.Length..]));
         }
 

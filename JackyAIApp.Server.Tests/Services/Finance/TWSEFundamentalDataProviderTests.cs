@@ -27,7 +27,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             var httpClientFactory = new Mock<IHttpClientFactory>();
             httpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
             var cache = new MemoryCache(new MemoryCacheOptions());
-            return new TWSEFundamentalDataProvider(httpClientFactory.Object, cache, NullLogger<TWSEFundamentalDataProvider>.Instance,
+            return new TWSEFundamentalDataProvider(NullLogger<TWSEFundamentalDataProvider>.Instance,
                 new TwseOpenApi(httpClientFactory.Object, cache, NullLogger<TwseOpenApi>.Instance, TimeProvider.System));
         }
 

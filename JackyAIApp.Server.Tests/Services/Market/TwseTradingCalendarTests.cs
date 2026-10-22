@@ -3,6 +3,8 @@ using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JackyAIApp.Server.Tests.Services.Market
 {
@@ -30,9 +32,10 @@ namespace JackyAIApp.Server.Tests.Services.Market
         private TwseTradingCalendar CreateCalendar()
         {
             var factory = new Mock<IHttpClientFactory>();
-            factory.Setup(f => f.CreateClient("ExternalReadOnly")).Returns(() =>
+            factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(() =>
                 new HttpClient(new StubHttpMessageHandler(_ => { _calls++; return _respond(); }), disposeHandler: false));
-            return new TwseTradingCalendar(factory.Object, NullLogger<TwseTradingCalendar>.Instance);
+            return new TwseTradingCalendar(
+                new TwseOpenApi(factory.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<TwseOpenApi>.Instance, TimeProvider.System), NullLogger<TwseTradingCalendar>.Instance);
         }
 
         private async Task<TwseTradingCalendar> LoadedCalendar()

@@ -1,33 +1,24 @@
-using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.Finance;
-using Microsoft.Extensions.Caching.Memory;
-using System.Text.Json;
+using JackyAIApp.Server.Services.ExternalApi.Twse;
 
 namespace JackyAIApp.Server.Services.Finance.DataProviders
 {
     /// <summary>
-    /// Fetches chip (籌碼面) data from TWSE OpenAPI endpoints.
-    /// Includes margin trading, foreign holdings, short selling, and director holdings.
+    /// Chip (籌碼面) data from TWSE's OpenAPI datasets (through <see cref="ITwseOpenApi"/>):
+    /// margin trading, foreign holdings, short selling, and director holdings.
     /// </summary>
     public class TWSEChipDataProvider : IMarketDataProvider, IChipDataProvider
     {
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IMemoryCache _cache;
+        private readonly ITwseOpenApi _twse;
         private readonly ILogger<TWSEChipDataProvider> _logger;
-
-        private const string BASE_URL = "https://openapi.twse.com.tw/v1";
-        private const string USER_AGENT = "stock-analysis/1.0";
-        private static readonly TimeSpan CACHE_DURATION = TimeSpan.FromHours(4);
 
         public DataProviderType Type => DataProviderType.Chip;
 
         public TWSEChipDataProvider(
-            IHttpClientFactory httpClientFactory,
-            IMemoryCache cache,
+            ITwseOpenApi twse,
             ILogger<TWSEChipDataProvider> logger)
         {
-            _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
-            _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+            _twse = twse ?? throw new ArgumentNullException(nameof(twse));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -67,12 +58,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchTWSEArrayAsync("exchangeReport/MI_MARGN", ct);
+                var data = await _twse.GetMarginTradingAsync(ct);
                 if (data == null) return;
 
-                foreach (var item in data.Value.EnumerateArray())
+                foreach (var item in data)
                 {
-                    if (GetJsonString(item, "股票代號")?.Trim() == stockCode)
+                    if (item.Code == stockCode)
                     {
                         chipData.MarginBuyVolume = ParseLong(GetJsonString(item, "融資買進"));
                         chipData.MarginSellVolume = ParseLong(GetJsonString(item, "融資賣出"));
@@ -110,12 +101,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
             try
             {
                 // Try top-20 list first (has per-stock data)
-                var top20Data = await FetchTWSEArrayAsync("fund/MI_QFIIS_sort_20", ct);
+                var top20Data = await _twse.GetForeignHoldingsTop20Async(ct);
                 if (top20Data != null)
                 {
-                    foreach (var item in top20Data.Value.EnumerateArray())
+                    foreach (var item in top20Data)
                     {
-                        if (GetJsonString(item, "Code")?.Trim() == stockCode)
+                        if (item.Code == stockCode)
                         {
                             chipData.ForeignHoldingShares = ParseLong(GetJsonString(item, "SharesHeld")?.Replace(",", ""));
                             chipData.ForeignHoldingPercentage = ParseDecimal(GetJsonString(item, "SharesHeldPer"));
@@ -144,12 +135,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchTWSEArrayAsync("SBL/TWT96U", ct);
+                var data = await _twse.GetSecuritiesLendingAsync(ct);
                 if (data == null) return;
 
-                foreach (var item in data.Value.EnumerateArray())
+                foreach (var item in data)
                 {
-                    if (GetJsonString(item, "TWSECode")?.Trim() == stockCode)
+                    if (item.Code == stockCode)
                     {
                         chipData.SBLAvailableVolume = ParseLong(
                             GetJsonString(item, "TWSEAvailableVolume")?.Replace(",", ""));
@@ -173,16 +164,16 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchTWSEArrayAsync("opendata/t187ap11_L", ct);
+                var data = await _twse.GetDirectorHoldingsAsync(ct);
                 if (data == null) return;
 
                 var directors = new List<DirectorHolding>();
                 long totalPledged = 0;
                 long totalHeld = 0;
 
-                foreach (var item in data.Value.EnumerateArray())
+                foreach (var item in data)
                 {
-                    if (GetJsonString(item, "公司代號")?.Trim() == stockCode)
+                    if (item.Code == stockCode)
                     {
                         var held = ParseLong(GetJsonString(item, "目前持股"));
                         var pledged = ParseLong(GetJsonString(item, "設質股數"));
@@ -226,14 +217,14 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchTWSEArrayAsync("opendata/t187ap02_L", ct);
+                var data = await _twse.GetMajorShareholdersAsync(ct);
                 if (data == null) return;
 
                 var shareholders = new List<string>();
 
-                foreach (var item in data.Value.EnumerateArray())
+                foreach (var item in data)
                 {
-                    if (GetJsonString(item, "公司代號")?.Trim() == stockCode)
+                    if (item.Code == stockCode)
                     {
                         var name = GetJsonString(item, "大股東名稱");
                         if (!string.IsNullOrEmpty(name))
@@ -262,12 +253,12 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
         {
             try
             {
-                var data = await FetchTWSEArrayAsync("exchangeReport/TWTB4U", ct);
+                var data = await _twse.GetDayTradingSuspensionsAsync(ct);
                 if (data == null) return;
 
-                foreach (var item in data.Value.EnumerateArray())
+                foreach (var item in data)
                 {
-                    if (GetJsonString(item, "Code")?.Trim() == stockCode)
+                    if (item.Code == stockCode)
                     {
                         var suspension = GetJsonString(item, "Suspension")?.Trim();
                         chipData.DayTradingSuspended = !string.IsNullOrEmpty(suspension);
@@ -285,61 +276,7 @@ namespace JackyAIApp.Server.Services.Finance.DataProviders
 
         #region Helper Methods
 
-        /// <summary>
-        /// Fetches a TWSE OpenAPI endpoint that returns a JSON array, with caching.
-        /// </summary>
-        private Task<JsonElement?> FetchTWSEArrayAsync(string path, CancellationToken ct) =>
-            // A market-wide array every stock's analysis reads: one fetch for a burst of them.
-            // Null (failed or empty) is not cached, so the next call tries again.
-            _cache.GetOrCreateSingleFlightAsync(
-                $"TWSE_{path}_{DateTime.Today:yyyyMMdd}", CACHE_DURATION, () => FetchTWSEArrayUncachedAsync(path), ct);
-
-        private async Task<JsonElement?> FetchTWSEArrayUncachedAsync(string path)
-        {
-            // Shared by every caller waiting on it, so no one caller's token may stop it.
-            var ct = CancellationToken.None;
-            var url = $"{BASE_URL}/{path}";
-            using var httpClient = _httpClientFactory.CreateClient("ExternalReadOnly");
-            httpClient.DefaultRequestHeaders.Clear();
-            httpClient.DefaultRequestHeaders.Add("User-Agent", USER_AGENT);
-
-            var response = await httpClient.GetAsync(url, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("TWSE API {path} returned {status}", path, response.StatusCode);
-                return null;
-            }
-
-            var content = await response.Content.ReadAsStringAsync(ct);
-            if (string.IsNullOrWhiteSpace(content) || content == "[]")
-            {
-                _logger.LogDebug("TWSE API {path} returned empty data", path);
-                return null;
-            }
-
-            var doc = JsonDocument.Parse(content);
-            if (doc.RootElement.ValueKind != JsonValueKind.Array)
-            {
-                _logger.LogWarning("TWSE API {path} did not return an array", path);
-                return null;
-            }
-
-            var element = doc.RootElement.Clone();
-
-            _logger.LogDebug("Fetched and cached TWSE API {path} ({count} items)",
-                path, element.GetArrayLength());
-
-            return element;
-        }
-
-        private static string? GetJsonString(JsonElement element, string propertyName)
-        {
-            if (element.TryGetProperty(propertyName, out var prop))
-            {
-                return prop.GetString();
-            }
-            return null;
-        }
+        private static string? GetJsonString(TwseRow row, string field) => row.Value(field);
 
         private static long ParseLong(string? value)
         {
