@@ -10,74 +10,12 @@ import { HISTORY_COLUMN_BREAKPOINT, HISTORY_COLUMN_WIDTH } from './components/hi
 import MessageArea from './components/MessageArea';
 import PreviewDialog from './components/PreviewDialog';
 import { useAgentStatus } from './hooks/useAgentStatus';
-import { isImageFile, prepareChatImage, UnreadableImageError } from './prepareChatImage';
+import { useChatConversation } from './hooks/useChatConversation';
+import { useKeepPasteFormatting } from './hooks/useKeepPasteFormatting';
+import { usePendingAttachments } from './hooks/usePendingAttachments';
+import { usePreview } from './hooks/usePreview';
 import { ACCENT, ACCENT_GRADIENT, hairline, panelSurface } from './style';
-import { Message, PendingAttachment, QueuedMessage } from './types';
-import { readPaste } from './utils/paste';
-
-import {
-  chatbotApis,
-  useDeleteChatAttachmentMutation,
-  useLazyGetConversationMessagesQuery,
-  useUploadChatAttachmentMutation,
-} from '@/apis/chatbotApis';
-import {
-  ATTACHMENT_ACCEPT,
-  ATTACHMENT_ERROR_MESSAGES,
-  attachmentErrorMessage,
-  MAX_ATTACHMENT_BYTES,
-  MAX_ATTACHMENTS,
-} from '@/apis/chatbotApis/chatErrors';
-import { ChatAttachment, ChatHistoryMessage } from '@/apis/chatbotApis/types';
-import { stoppedContent, useChatStreaming } from '@/hooks/useChatStreaming';
-import { ParsedBlock, useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
-import { useAppDispatch } from '@/redux/hooks';
-
-/** Maps stored conversation rows (one per turn) into chat bubbles. */
-const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] =>
-  items.map((m) => ({
-    id: String(m.id),
-    serverId: m.id,
-    content: m.content,
-    isUser: m.role === 'user',
-    timestamp: new Date(m.createdAt),
-    attachments: m.attachments,
-  }));
-
-const ACCEPTED_EXTENSIONS = ATTACHMENT_ACCEPT.split(',');
-
-/** Why a picked file will not be uploaded at all, or undefined when it can be. */
-const rejectBeforeUpload = (file: File): string | undefined => {
-  const dot = file.name.lastIndexOf('.');
-  const extension = dot >= 0 ? file.name.slice(dot).toLowerCase() : '';
-  if (!ACCEPTED_EXTENSIONS.includes(extension)) return ATTACHMENT_ERROR_MESSAGES.unsupported;
-  if (file.size > MAX_ATTACHMENT_BYTES) return ATTACHMENT_ERROR_MESSAGES.tooLarge;
-  if (file.size === 0) return ATTACHMENT_ERROR_MESSAGES.unreadable;
-  return undefined;
-};
-
-// Object URLs made for previews and not yet revoked. Not every environment can make them (tests);
-// a chip then shows its icon instead.
-const livePreviewUrls = new Set<string>();
-const createPreviewUrl = (file: File) => {
-  if (typeof URL.createObjectURL !== 'function') return undefined;
-  const url = URL.createObjectURL(file);
-  livePreviewUrls.add(url);
-  return url;
-};
-const revokePreviewUrl = (url: string | undefined) => {
-  if (!url || !livePreviewUrls.delete(url)) return;
-  URL.revokeObjectURL(url);
-};
-
-const KEEP_FORMATTING_KEY = 'aiAssistant.keepPasteFormatting';
-const readKeepFormatting = () => {
-  try {
-    return localStorage.getItem(KEEP_FORMATTING_KEY) === '1';
-  } catch {
-    return false;
-  }
-};
+import { insertPastedText, readPaste } from './utils/paste';
 
 /** What the folded one-line box shows about a conversation it is hiding. */
 export interface AssistantActivity {
@@ -112,120 +50,18 @@ function AiAssistantPanel({
   onCollapse,
   onActivityChange,
 }: AiAssistantPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [conversationId, setConversationId] = useState<string>('');
-  const [currentStreamingContent, setCurrentStreamingContent] = useState<string>('');
-
-  // On-demand preview (HTML / Markdown) — opened from a button inside a message.
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewBlock, setPreviewBlock] = useState<ParsedBlock | null>(null);
+  const conversation = useChatConversation();
+  const { messages, conversationId, busy } = conversation;
+  const preview = usePreview(conversation.blocks, conversation.currentHtmlBlock);
+  const attachments = usePendingAttachments();
+  const [keepFormatting, setKeepFormatting] = useKeepPasteFormatting();
+  const { statusText } = useAgentStatus(conversation.streamingStatus);
+  const theme = useTheme();
 
   // The history is a fixed column beside the chat on wide screens. Where that would leave the chat
   // too narrow, it is a drawer that slides over this panel (not over the page) instead.
   const [historyOpen, setHistoryOpen] = useState(false);
   const [panelEl, setPanelEl] = useState<HTMLElement | null>(null);
-
-  const dispatch = useAppDispatch();
-  const [fetchConversationMessages] = useLazyGetConversationMessagesQuery();
-  const { sendStreamingMessage, stop, streamingStatus } = useChatStreaming();
-  const { statusText } = useAgentStatus(streamingStatus);
-  const theme = useTheme();
-  const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
-  const busy = streamingStatus.isLoading;
-
-  // Files picked for the next message. Each uploads as soon as it is picked, so the server has
-  // read it by the time the message is sent.
-  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
-  const [uploadAttachment] = useUploadChatAttachmentMutation();
-  const [deleteAttachment] = useDeleteChatAttachmentMutation();
-  const nextAttachmentKey = useRef(0);
-  const nextTurnKey = useRef(0);
-  // Chips removed while their upload was still running: the upload is deleted once it lands.
-  const removedWhileUploading = useRef(new Set<string>());
-
-  const updatePending = (key: string, patch: Partial<PendingAttachment>) =>
-    setPendingAttachments((prev) => prev.map((a) => (a.key === key ? { ...a, ...patch } : a)));
-
-  const handleAddFiles = (files: File[]) => {
-    // A failed chip is only there to say why; it does not take up one of the slots.
-    const taken = pendingAttachments.filter((a) => !a.error).length;
-    const added: PendingAttachment[] = files.map((file, i) => {
-      const key = `attachment-${nextAttachmentKey.current++}`;
-      const error =
-        taken + i >= MAX_ATTACHMENTS ? ATTACHMENT_ERROR_MESSAGES.tooMany : rejectBeforeUpload(file);
-      const previewUrl = !error && isImageFile(file) ? createPreviewUrl(file) : undefined;
-      return { key, fileName: file.name, error, previewUrl };
-    });
-    setPendingAttachments((prev) => [...prev, ...added]);
-
-    added.forEach((pending, i) => {
-      if (pending.error) return;
-      prepareChatImage(files[i])
-        .then((file) => uploadAttachment(file).unwrap())
-        .then((res) => {
-          if (removedWhileUploading.current.delete(pending.key)) {
-            deleteAttachment(res.data.id);
-          } else {
-            updatePending(pending.key, { attachment: res.data });
-          }
-        })
-        .catch((e: unknown) => {
-          removedWhileUploading.current.delete(pending.key);
-          revokePreviewUrl(pending.previewUrl);
-          const error =
-            e instanceof UnreadableImageError
-              ? ATTACHMENT_ERROR_MESSAGES.unreadable
-              : attachmentErrorMessage(e);
-          updatePending(pending.key, { error, previewUrl: undefined });
-        });
-    });
-  };
-
-  const handleRemoveAttachment = (key: string) => {
-    const pending = pendingAttachments.find((a) => a.key === key);
-    if (!pending) return;
-    if (pending.attachment) deleteAttachment(pending.attachment.id);
-    else if (!pending.error) removedWhileUploading.current.add(key);
-    revokePreviewUrl(pending.previewUrl);
-    setPendingAttachments((prev) => prev.filter((a) => a.key !== key));
-  };
-
-  // The local previews still held are let go when the panel goes away, too.
-  useEffect(() => () => livePreviewUrls.forEach(revokePreviewUrl), []);
-
-  // Whether pasted formatted text keeps its formatting (as Markdown); remembered in this browser.
-  const [keepFormatting, setKeepFormatting] = useState(readKeepFormatting);
-  const handleKeepFormattingChange = (keep: boolean) => {
-    setKeepFormatting(keep);
-    try {
-      localStorage.setItem(KEEP_FORMATTING_KEY, keep ? '1' : '0');
-    } catch {
-      // Storage unavailable (private window, blocked site data): the choice lasts this visit only.
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const result = readPaste(e.clipboardData, keepFormatting);
-    if (result.kind === 'default') return;
-    e.preventDefault();
-    if (result.kind === 'files') {
-      handleAddFiles(result.files);
-      return;
-    }
-    // Put the converted text where the browser would have put the pasted text. A block (a table,
-    // a list) goes on lines of its own: typed on straight after it, a question would become part
-    // of the table's last row.
-    const input = inputRef.current;
-    const start = input?.selectionStart ?? inputValue.length;
-    const end = input?.selectionEnd ?? inputValue.length;
-    const before = inputValue.slice(0, start);
-    const block = result.text.includes('\n');
-    const text =
-      (block && before && !before.endsWith('\n') ? '\n' : '') + result.text + (block ? '\n' : '');
-    setInputValue(before + text + inputValue.slice(end));
-    const caret = start + text.length;
-    requestAnimationFrame(() => inputRef.current?.setSelectionRange(caret, caret));
-  };
 
   // Opening the panel is the reader asking to type: the cursor goes to the end of the message
   // they started in the one-line box. Also once a reply is done, since the box is disabled (and
@@ -243,167 +79,47 @@ function AiAssistantPanel({
     onActivityChange?.({ busy, hasConversation });
   }, [busy, hasConversation, onActivityChange]);
 
-  const handlePreview = (block: ParsedBlock) => {
-    setPreviewBlock(block);
-    setPreviewOpen(true);
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const result = readPaste(e.clipboardData, keepFormatting);
+    if (result.kind === 'default') return;
+    e.preventDefault();
+    if (result.kind === 'files') {
+      attachments.add(result.files);
+      return;
+    }
+    // Put the converted text where the browser would have put the pasted text.
+    const input = inputRef.current;
+    const { value, caret } = insertPastedText(
+      inputValue,
+      input?.selectionStart ?? inputValue.length,
+      input?.selectionEnd ?? inputValue.length,
+      result.text,
+    );
+    setInputValue(value);
+    requestAnimationFrame(() => inputRef.current?.setSelectionRange(caret, caret));
   };
 
-  const handleClosePreview = () => setPreviewOpen(false);
-
-  // Start a fresh conversation (the server assigns a new id with the next reply). Not while a
-  // reply is still coming in: it would carry on into the old conversation under an empty screen.
+  // Switching conversation, or starting over, closes a preview of the old one.
+  const { newChat, selectConversation } = conversation;
+  const { close: closePreview } = preview;
   const handleNewChat = useCallback(() => {
-    if (busy) return;
-    setMessages([]);
-    setConversationId('');
-    setCurrentStreamingContent('');
-    setPreviewOpen(false);
-  }, [busy]);
-
-  // Resume an existing conversation: load its stored history and make it active.
+    if (newChat()) closePreview();
+  }, [newChat, closePreview]);
   const handleSelectConversation = useCallback(
     async (id: string) => {
-      if (busy) return;
-      try {
-        const res = await fetchConversationMessages(id).unwrap();
-        setMessages(mapHistoryToMessages(res.data));
-        setConversationId(id);
-        setCurrentStreamingContent('');
-        setPreviewOpen(false);
-      } catch (e) {
-        console.error('Failed to load conversation messages:', e);
-      }
+      if (await selectConversation(id)) closePreview();
     },
-    [fetchConversationMessages, busy],
+    [selectConversation, closePreview],
   );
-
-  // While a preview is open on a still-streaming HTML block, keep it in sync with
-  // the latest parsed content (guarded by content/completeness to avoid render loops).
-  useEffect(() => {
-    if (!previewOpen || !previewBlock || previewBlock.isComplete) return;
-    const live = currentHtmlBlock ?? blocks.find((b) => b.contentType === 'html');
-    if (
-      live &&
-      (live.content !== previewBlock.content || live.isComplete !== previewBlock.isComplete)
-    ) {
-      setPreviewBlock(live);
-    }
-  }, [currentHtmlBlock, blocks, previewOpen, previewBlock]);
-
-  // 實時更新最後一條 bot 消息的 parsedBlocks
-  useEffect(() => {
-    if (blocks.length > 0) {
-      setMessages((prev) => {
-        const lastMessage = prev[prev.length - 1];
-        if (lastMessage && !lastMessage.isUser) {
-          return prev.map((msg, index) =>
-            index === prev.length - 1 ? { ...msg, parsedBlocks: blocks } : msg,
-          );
-        }
-        return prev;
-      });
-    }
-  }, [blocks]);
-
-  /**
-   * Sends one message and writes its answer into a new bubble as it comes. With `edited`, the
-   * message replaces that earlier one: it and everything after it go (here, and on the server), and
-   * its attachments go again with the new wording — the server re-attaches them itself.
-   */
-  const sendTurn = async (text: string, attachments: ChatAttachment[], edited?: Message) => {
-    const userMessage: Message = {
-      id: `${Date.now()}-${nextTurnKey.current++}`,
-      content: text,
-      isUser: true,
-      timestamp: new Date(),
-      attachments: attachments.length > 0 ? attachments : undefined,
-    };
-    // 創建初始的 bot 訊息
-    const botMessage: Message = {
-      id: `${Date.now()}-${nextTurnKey.current++}`,
-      content: '',
-      isUser: false,
-      timestamp: new Date(),
-      parsedBlocks: [],
-    };
-    setMessages((prev) => {
-      const from = edited ? prev.findIndex((m) => m.id === edited.id) : -1;
-      return [...(from >= 0 ? prev.slice(0, from) : prev), userMessage, botMessage];
-    });
-    setCurrentStreamingContent('');
-
-    const update = (id: string, patch: Partial<Message>) =>
-      setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg)));
-    const updateBot = (patch: Partial<Message>) => update(botMessage.id, patch);
-
-    await sendStreamingMessage({
-      message: text,
-      conversationId,
-      attachmentIds: edited ? [] : attachments.map((a) => a.id),
-      editMessageId: edited?.serverId,
-      onStart: (id, userMessageId) => {
-        setConversationId(id);
-        if (userMessageId) update(userMessage.id, { serverId: userMessageId });
-      },
-      onUpdate: (content) => {
-        setCurrentStreamingContent(content);
-        updateBot({ content });
-      },
-      onComplete: (newConversationId, truncated, assistantMessageId) => {
-        if (newConversationId) setConversationId(newConversationId);
-        updateBot({ truncated: truncated || undefined, serverId: assistantMessageId });
-      },
-      // What was said before the stop stays, marked the way the server stores it. `parsedBlocks` is
-      // cleared so the bubble renders `content`, mark included.
-      onStopped: (partial, assistantMessageId) =>
-        updateBot({
-          content: stoppedContent(partial),
-          parsedBlocks: undefined,
-          serverId: assistantMessageId,
-        }),
-      // `parsedBlocks` is cleared so the bubble falls back to rendering `content`: an empty
-      // block list is what a reply that never started looks like, and it draws nothing.
-      onError: (error) => updateBot({ content: `錯誤: ${error}`, parsedBlocks: undefined }),
-    });
-
-    // The turn is over, however it ended: the first message of a new conversation has just
-    // created it on the server, and any turn moves it to the top. The column shows the list.
-    dispatch(chatbotApis.util.invalidateTags(['Conversations']));
-  };
-
-  // Messages sent while an answer is still being written wait here, and go out one at a time as
-  // each answer ends — however it ends, a stop included. (Stopping with one waiting is how to
-  // break in: the answer stops and the waiting message is sent straight away.)
-  const [queued, setQueued] = useState<QueuedMessage[]>([]);
-  useEffect(() => {
-    if (busy || queued.length === 0) return;
-    const [next, ...rest] = queued;
-    setQueued(rest);
-    void sendTurn(next.text, next.attachments);
-    // sendTurn is a fresh function every render; the queue moves on busy and the queue alone.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busy, queued]);
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
-    if (pendingAttachments.some((a) => !a.attachment && !a.error)) return; // still uploading
-
+    if (attachments.uploading) return;
     const text = inputValue;
-    const attachments = pendingAttachments.flatMap((a) => (a.attachment ? [a.attachment] : []));
+    const sent = attachments.takeForMessage();
     setInputValue('');
-    // The sent message shows its images from the server from here on.
-    pendingAttachments.forEach((a) => revokePreviewUrl(a.previewUrl));
-    setPendingAttachments([]);
-
-    if (busy) {
-      setQueued((prev) => [...prev, { key: `queued-${nextTurnKey.current++}`, text, attachments }]);
-    } else {
-      void sendTurn(text, attachments);
-    }
+    conversation.send(text, sent);
   };
-
-  const handleRemoveQueued = (key: string) =>
-    setQueued((prev) => prev.filter((q) => q.key !== key));
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -465,17 +181,14 @@ function AiAssistantPanel({
           />
           <MessageArea
             messages={messages}
-            onPreview={handlePreview}
+            onPreview={preview.show}
             active={active}
             onSuggest={(question) => {
               setInputValue(question);
               inputRef.current?.focus();
             }}
             busy={busy}
-            onEdit={(message, text) => {
-              if (busy) return;
-              void sendTurn(text, message.attachments ?? [], message);
-            }}
+            onEdit={conversation.edit}
           />
           <ChatInput
             value={inputValue}
@@ -483,16 +196,16 @@ function AiAssistantPanel({
             onSend={handleSendMessage}
             onKeyPress={handleKeyPress}
             busy={busy}
-            onStop={stop}
-            queued={queued}
-            onRemoveQueued={handleRemoveQueued}
+            onStop={conversation.stop}
+            queued={conversation.queued}
+            onRemoveQueued={conversation.removeQueued}
             inputRef={inputRef}
-            attachments={pendingAttachments}
-            onAddFiles={handleAddFiles}
-            onRemoveAttachment={handleRemoveAttachment}
+            attachments={attachments.pending}
+            onAddFiles={attachments.add}
+            onRemoveAttachment={attachments.remove}
             onPaste={handlePaste}
             keepFormatting={keepFormatting}
-            onKeepFormattingChange={handleKeepFormattingChange}
+            onKeepFormattingChange={setKeepFormatting}
           />
         </Box>
 
@@ -507,7 +220,7 @@ function AiAssistantPanel({
         />
       </Box>
 
-      <PreviewDialog open={previewOpen} onClose={handleClosePreview} block={previewBlock} />
+      <PreviewDialog open={preview.open} onClose={preview.close} block={preview.block} />
     </>
   );
 }

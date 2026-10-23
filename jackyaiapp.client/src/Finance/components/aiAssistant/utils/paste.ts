@@ -96,3 +96,21 @@ export const readPaste = (
   }
   return markdown ? { kind: 'text', text: markdown } : { kind: 'default' };
 };
+
+/**
+ * The message box's text after pasting `text` over the selection `start`–`end`, and where the caret
+ * goes: where the browser would have put the pasted text. A block (a table, a list) goes on lines
+ * of its own: typed on straight after it, a question would become part of the table's last row.
+ */
+export const insertPastedText = (
+  value: string,
+  start: number,
+  end: number,
+  text: string,
+): { value: string; caret: number } => {
+  const before = value.slice(0, start);
+  const block = text.includes('\n');
+  const inserted =
+    (block && before && !before.endsWith('\n') ? '\n' : '') + text + (block ? '\n' : '');
+  return { value: before + inserted + value.slice(end), caret: start + inserted.length };
+};

@@ -43,6 +43,10 @@ jackyaiapp.client/src/
   page keeps only its states (loading, error, empty, the dashboard) — `Portfolio/index.tsx` with
   `PortfolioHeader`, `PortfolioDashboard`, `NetWorthCard`, `AllocationCard`. A section takes the DTO it
   shows (`summary`), not one prop per field
+- A component whose bulk is state rather than markup splits into hooks instead: the component keeps
+  the layout and wires them together. `Finance/components/aiAssistant` is the pattern: the conversation
+  and its queue are `useChatConversation`, the picked files `usePendingAttachments`, the preview
+  `usePreview`
 - Split without changing what renders: the component's existing tests stay as they are and must pass.
   One without tests gets them first, run against the code as it is (`Portfolio/index.test.tsx`)
 
