@@ -888,5 +888,121 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                 It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
                 It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()), Times.Never);
         }
+            // ── What the gap-fill and the quote fallback leave alone ──────────────
+
+        private void Stored(DateOnly day, decimal close = 900m, DateTimeOffset? deepFetchedAt = null)
+        {
+            if (_dbContext.StockSymbolInfos.Find(Symbol) is null)
+                _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+                {
+                    Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電", DeepFetchedAt = deepFetchedAt?.UtcDateTime,
+                });
+            _dbContext.DailyStockPrices.Add(new DailyStockPrice
+            {
+                Symbol = Symbol, Market = "TW", TradeDate = day, Open = close - 10, High = close + 5, Low = close - 15, Close = close, Volume = 1000,
+            });
+            _dbContext.SaveChanges();
+        }
+
+        [Fact]
+        public async Task FetchLatestAsync_NeverDeepFetched_ButCurrent_MakesNoNetworkCall()
+        {
+            // Only a deep caller cares that the six months were never fetched.
+            Stored(LastTradingDayBefore(Today));
+
+            await _provider.FetchLatestAsync(Symbol);
+
+            _inner.Verify(x => x.FetchRangeAsync(
+                It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task FetchLatestAsync_ThatHappensToGetOldHistory_StillDoesNotMarkDeepFetched()
+        {
+            var lastTradingDay = LastTradingDayBefore(Today);
+            _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = Symbol,
+                    HistoricalPrices =
+                    [
+                        new() { Date = Today.AddDays(-40).ToDateTime(TimeOnly.MinValue), Open = 1, High = 1, Low = 1, Close = 1, Volume = 1 },
+                        new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Open = 2, High = 2, Low = 2, Close = 2, Volume = 1 },
+                    ],
+                });
+
+            await _provider.FetchLatestAsync(Symbol);
+
+            Assert.Null((await _dbContext.StockSymbolInfos.AsNoTracking().SingleAsync(s => s.Symbol == Symbol)).DeepFetchedAt);
+        }
+
+        [Fact]
+        public async Task FetchAsync_GapFillThatThrows_ServesWhatIsStored()
+        {
+            var stale = LastTradingDayBefore(LastTradingDayBefore(Today));
+            Stored(stale, deepFetchedAt: DateTimeOffset.UtcNow);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new HttpRequestException("TWSE down"));
+
+            var result = await _provider.FetchAsync(Symbol);
+
+            Assert.Equal(stale, DateOnly.FromDateTime(Assert.Single(result.HistoricalPrices).Date));
+        }
+
+        [Fact]
+        public async Task StoredBars_AreHandedOutWithEveryPrice()
+        {
+            Stored(LastTradingDayBefore(Today), close: 900m, deepFetchedAt: DateTimeOffset.UtcNow);
+
+            var bar = Assert.Single((await _provider.FetchAsync(Symbol)).HistoricalPrices);
+
+            Assert.Equal((890m, 905m, 885m, 900m, 1000L), (bar.Open, bar.High, bar.Low, bar.Close, bar.Volume));
+        }
+
+        [Fact]
+        public async Task FetchLatestAsync_Before0800_WithTheLastTradingDayStored_DoesNotAskTheQuote()
+        {
+            Stored(LastTradingDayBefore(Today));
+
+            await BuildProviderWithTime(TaipeiTime(7, 30)).FetchLatestAsync(Symbol);
+
+            _inner.Verify(x => x.GetLatestQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task FetchLatestAsync_AtExactly0800_NoLongerAsksTheQuote()
+        {
+            Stored(LastTradingDayBefore(LastTradingDayBefore(Today)));
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData { StockCode = Symbol, HistoricalPrices = [] });
+
+            await BuildProviderWithTime(TaipeiTime(8, 0)).FetchLatestAsync(Symbol);
+
+            _inner.Verify(x => x.GetLatestQuoteAsync(It.IsAny<string>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task FetchLatestAsync_NothingStoredBefore0800_BackfillsTheLastTradingDayFromTheQuote()
+        {
+            var lastTradingDay = LastTradingDayBefore(Today);
+            _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData { StockCode = Symbol, HistoricalPrices = [] });
+            _inner.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new StockQuote
+                {
+                    Symbol = Symbol, Name = "台積電", Market = MarketType.TSE, YesterdayClosingPrice = 35.45m, SyncTime = TaipeiTime(7, 25),
+                });
+
+            var result = await BuildProviderWithTime(TaipeiTime(7, 30)).FetchLatestAsync(Symbol);
+
+            var bar = Assert.Single(result.HistoricalPrices);
+            Assert.Equal((lastTradingDay, 35.45m), (DateOnly.FromDateTime(bar.Date), bar.Close));
+        }
     }
 }
