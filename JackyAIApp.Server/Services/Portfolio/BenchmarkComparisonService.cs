@@ -83,10 +83,12 @@ namespace JackyAIApp.Server.Services.Portfolio
             var dates = new List<string>();
             var portfolioValues = new List<decimal>();
             var portfolioReturn = new TimeWeightedReturn();
-            // Income earned but not yet in a recorded day's growth: an ex-date can fall on a day that is not
-            // recorded (a weekend, a day some symbol has no price), and dropped income would vanish.
-            decimal portfolioIncome = 0;
+            // Income and contributions not yet in a recorded day's growth. A day may not be recorded (a weekend,
+            // a day something has no price), and what happened on it must still count, once, on the next one.
+            decimal portfolioIncome = 0, contribution = 0;
             var snapshotsInEffect = new SnapshotCursor(snapshots);
+            // The snapshot whose cost is in previousCost.
+            var applied = investedBefore;
 
             for (var date = startDate; date <= today; date = date.AddDays(1))
             {
@@ -98,16 +100,18 @@ namespace JackyAIApp.Server.Services.Portfolio
                 if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
                 if (snapshotsInEffect.ActiveOn(date) is not { } active) continue;
 
-                // A snapshot's contribution applies once, the day it takes effect, before the benchmarks are
-                // priced for that day — as the portfolio side prices its new positions that same day.
-                decimal contribution = 0;
-                if (date == active.EffectiveDate)
+                // A snapshot's contribution applies once, the first day it is found in effect — the day it takes
+                // effect, or the next weekday for one dated on a weekend — before the benchmarks are priced for
+                // that day, as the portfolio side prices its new positions that same day.
+                if (!ReferenceEquals(active, applied))
                 {
                     var cost = CostTrackedCostTWD(active);
-                    contribution = cost - previousCost;
+                    var change = cost - previousCost;
                     previousCost = cost;
-                    if (contribution != 0)
-                        foreach (var leg in legs) leg.Invest(contribution, date);
+                    applied = active;
+                    contribution += change;
+                    if (change != 0)
+                        foreach (var leg in legs) leg.Invest(change, date);
                 }
 
                 // A day counts only when the portfolio and every benchmark have a price for it.
@@ -119,6 +123,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 foreach (var leg in legs) leg.Record(date, contribution);
                 portfolioReturn.Record(portfolioValue, contribution, portfolioIncome);
                 portfolioIncome = 0;
+                contribution = 0;
             }
 
             var result = new BenchmarkComparisonDto

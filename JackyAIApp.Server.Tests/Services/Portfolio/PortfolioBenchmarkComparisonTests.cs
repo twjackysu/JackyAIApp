@@ -138,6 +138,72 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal(32_000m, Assert.Single(result.Benchmarks).ValuesTWD[day0]);
         }
 
+        // ── A contribution on a day that is not recorded ────────────────────────────────────────
+
+        private static HoldingPosition Tsmc(int shares) => new()
+        {
+            AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+            Market = "TW", Currency = "TWD", Quantity = shares, CostBasis = shares * 1000m,
+        };
+
+        private static (DateOnly, decimal)[] Flat(decimal close, int fromWeekday = 0) =>
+            [.. Enumerable.Range(fromWeekday, 15).Select(i => (Weekday(i), close))];
+
+        [Fact]
+        public async Task GetBenchmarkComparison_ASnapshotDatedOnAWeekend_IsAContributionOnTheNextTradingDay_NotAGain()
+        {
+            // Prices never move; the holding doubles in a snapshot saved on Saturday.
+            var saturday = AnchorMonday.AddDays(5);
+            await SeedSnapshotAsync(Weekday(0), Tsmc(10));
+            await SeedSnapshotAsync(saturday, Tsmc(20));
+            SetupStockProvider("2330", MarketRegion.TW, Flat(1000m));
+            SetupStockProvider("0050", MarketRegion.TW, Flat(100m));
+
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+
+            Assert.Equal(0m, result.PortfolioReturnPct);
+            var benchmark = Assert.Single(result.Benchmarks);
+            Assert.Equal(0m, benchmark.ReturnPct);
+            // Monday: the 10,000 more bought 100 more units.
+            Assert.Equal(20_000m, benchmark.ValuesTWD[result.Dates.IndexOf(saturday.AddDays(2).ToString("yyyy-MM-dd"))]);
+        }
+
+        [Fact]
+        public async Task GetBenchmarkComparison_AContributionOnADayThePortfolioCannotBeValued_IsNotAGain()
+        {
+            // The snapshot adds 2317, whose prices start the next day: the portfolio has no value on the
+            // snapshot's own day, so the contribution counts on the next day that is recorded.
+            await SeedSnapshotAsync(Weekday(0), Tsmc(10));
+            await SeedSnapshotAsync(Weekday(3), Tsmc(10), new HoldingPosition
+            {
+                AssetType = AssetType.STOCK, Symbol = "2317", Name = "鴻海",
+                Market = "TW", Currency = "TWD", Quantity = 100, CostBasis = 20_000m,
+            });
+            SetupStockProvider("2330", MarketRegion.TW, Flat(1000m));
+            SetupStockProvider("2317", MarketRegion.TW, Flat(200m, fromWeekday: 4));
+            SetupStockProvider("0050", MarketRegion.TW, Flat(100m));
+
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+
+            Assert.DoesNotContain(Weekday(3).ToString("yyyy-MM-dd"), result.Dates);
+            Assert.Equal(0m, result.PortfolioReturnPct);
+            Assert.Equal(0m, Assert.Single(result.Benchmarks).ReturnPct);
+        }
+
+        [Fact]
+        public async Task GetBenchmarkComparison_ABenchmarkWithNoPriceYet_BuysAtItsFirstPrice()
+        {
+            await SeedSnapshotAsync(Weekday(0), Tsmc(10));
+            SetupStockProvider("2330", MarketRegion.TW, Flat(1000m));
+            SetupStockProvider("0050", MarketRegion.TW, Flat(100m, fromWeekday: 2));
+
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+
+            var benchmark = Assert.Single(result.Benchmarks);
+            Assert.Equal(10_000m, benchmark.ValuesTWD[result.Dates.IndexOf(Weekday(2).ToString("yyyy-MM-dd"))]);
+            Assert.Equal(0m, benchmark.ReturnPct);
+        }
+
         [Fact]
         public async Task GetBenchmarkComparison_SecondContribution_BuysMoreUnitsAtNewPrice()
         {
