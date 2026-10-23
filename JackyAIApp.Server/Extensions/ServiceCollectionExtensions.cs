@@ -4,6 +4,7 @@ using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
+using JackyAIApp.Server.Services.Assistant;
 using JackyAIApp.Server.Services.Chatbot;
 using JackyAIApp.Server.Services.DailyChallenge;
 using JackyAIApp.Server.Services.Dictionary;
@@ -49,7 +50,7 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IChatAttachmentService, ChatAttachmentService>();
             services.AddScoped<IChatConversationService, ChatConversationService>();
             services.AddSingleton<ChatTurnRegistry>();
-            services.AddScoped<IMarketBackground, MarketBackground>();
+            services.AddScoped<IChatProfiles, ChatProfiles>();
 
             services.AddSingleton<IPromptLoader, PromptLoader>();
             services.AddScoped<IOpenAIPromptService, OpenAIPromptService>();

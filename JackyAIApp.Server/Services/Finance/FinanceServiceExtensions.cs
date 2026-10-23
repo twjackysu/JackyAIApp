@@ -1,4 +1,6 @@
 using JackyAIApp.Server.Extensions;
+using JackyAIApp.Server.Services.Assistant;
+using JackyAIApp.Server.Services.Finance.Assistant;
 using JackyAIApp.Server.Services.Finance.Builder;
 using JackyAIApp.Server.Services.Market.US;
 using JackyAIApp.Server.Services.Finance.Indicators;
@@ -25,6 +27,11 @@ namespace JackyAIApp.Server.Services.Finance
             services.AddScoped<IStockCodeResolver, StockCodeResolver>();
             services.AddScoped<IFinanceAnalysisService, FinanceAnalysisService>();
             services.AddTradingCalendar();
+
+            // The /finance page's AI assistant: its profile for the shared chat engine, and the
+            // market background that profile sends.
+            services.AddScoped<IMarketBackground, MarketBackground>();
+            services.AddScoped<IChatProfile, FinanceChatProfile>();
 
             // TWStockLib: TWSE/TPEx monthly history and MIS realtime quotes, with its built-in limit on:
             // at most 3 requests in any 5s per exchange host, the rest queued (within the client's

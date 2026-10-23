@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using JackyAIApp.Server.DTO.Finance;
-using JackyAIApp.Server.Services.Chatbot;
+using JackyAIApp.Server.Services.Finance.Assistant;
+using JackyAIApp.Server.Tests.TestHelpers;
 
 namespace JackyAIApp.Server.Tests.Services.Chatbot
 {
@@ -106,7 +107,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [Fact]
         public void TheBackground_IsASecondSystemBlock_CachedForEveryConversation()
         {
-            var request = AnthropicChatService.BuildRequest(new DateOnly(2026, 10, 21), [], "# 市場背景");
+            var request = FinanceChatRequest.Build(new DateOnly(2026, 10, 21), [], "# 市場背景");
             var system = JsonSerializer.SerializeToElement(request).GetProperty("RawBodyData").GetProperty("system");
 
             Assert.Equal(2, system.GetArrayLength());

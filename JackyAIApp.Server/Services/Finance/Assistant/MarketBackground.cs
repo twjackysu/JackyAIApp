@@ -2,10 +2,9 @@ using JackyAIApp.Server.Common;
 using System.Globalization;
 using System.Text;
 using JackyAIApp.Server.DTO.Finance;
-using JackyAIApp.Server.Services.Finance;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace JackyAIApp.Server.Services.Chatbot
+namespace JackyAIApp.Server.Services.Finance.Assistant
 {
     /// <summary>The market-wide data the /finance page shows, whichever parts could be had.</summary>
     public sealed record MarketBackgroundData(

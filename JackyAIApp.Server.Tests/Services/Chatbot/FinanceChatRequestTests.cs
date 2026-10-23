@@ -1,5 +1,7 @@
 using System.Text.Json;
-using JackyAIApp.Server.Services.Chatbot;
+using JackyAIApp.Server.Services.Assistant;
+using JackyAIApp.Server.Services.Finance.Assistant;
+using JackyAIApp.Server.Tests.TestHelpers;
 
 namespace JackyAIApp.Server.Tests.Services.Chatbot
 {
@@ -34,13 +36,13 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [Fact]
         public void TheSystemPrompt_IsWordForWordTheFinanceOne()
         {
-            Assert.Equal(ExpectedSystemPrompt, AnthropicChatService.SystemPromptFor(Today));
+            Assert.Equal(ExpectedSystemPrompt, FinanceChatProfile.SystemPromptFor(Today));
         }
 
         [Fact]
         public void WithoutABackground_TheSystemPromptIsAPlainString()
         {
-            var system = Body(AnthropicChatService.BuildRequest(Today, [])).GetProperty("system");
+            var system = Body(FinanceChatRequest.Build(Today, [])).GetProperty("system");
 
             Assert.Equal(JsonValueKind.String, system.ValueKind);
             Assert.Equal(ExpectedSystemPrompt, system.GetString());
@@ -49,7 +51,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [Fact]
         public void TheModel_ItsOutputCap_AndItsEffort_AreFinances()
         {
-            var body = Body(AnthropicChatService.BuildRequest(Today, []));
+            var body = Body(FinanceChatRequest.Build(Today, []));
 
             Assert.Equal("claude-haiku-5-5", body.GetProperty("model").GetString());
             Assert.Equal(32000, body.GetProperty("max_tokens").GetInt32());
@@ -59,7 +61,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [Fact]
         public void TheTwStockServer_IsTheOnlyMcpServer_AndTheOnlyTools_AreItsToolsetAndTheSearch()
         {
-            var request = AnthropicChatService.BuildRequest(Today, []);
+            var request = FinanceChatRequest.Build(Today, []);
             var body = Body(request);
 
             var server = Assert.Single(body.GetProperty("mcp_servers").EnumerateArray().ToList());
@@ -75,7 +77,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
                     "get_realtime_quote", "get_stock_history", "get_technical_indicators",
                     "get_twse_institutional_investors_summary", "get_company_monthly_revenue",
                 },
-                AnthropicChatService.AlwaysLoadedTools);
+                ChatTurnRequest.AlwaysLoadedTools);
 
             // The MCP connector's beta goes with the request (as a header, outside the body).
             Assert.Contains("mcp-client-2025-11-20", JsonSerializer.Serialize(request));
@@ -84,7 +86,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [Fact]
         public void TheBodyHasNoFieldBeyondTheOnesPinnedHere()
         {
-            var body = Body(AnthropicChatService.BuildRequest(Today, [], "# 市場背景"));
+            var body = Body(FinanceChatRequest.Build(Today, [], "# 市場背景"));
 
             Assert.Equal(
                 new[] { "cache_control", "max_tokens", "mcp_servers", "messages", "model", "output_config", "system", "tools" },

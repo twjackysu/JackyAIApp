@@ -3,18 +3,19 @@ using Anthropic.Models.Beta.Messages;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services.AiUsage;
-using JackyAIApp.Server.Services.Connectors;
+using JackyAIApp.Server.Services.Assistant;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using AnthropicModel = Anthropic.Models.Messages.Model;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Chatbot
 {
     /// <summary>
-    /// Calls Claude (Haiku 5.5) directly with the TW-stock MCP server attached, replacing the
-    /// previous Dify-hosted chatbot. Conversation history is stored locally (not on a third-party
-    /// platform) and re-sent as context on every turn — the Messages API is stateless. Each stored
+    /// The shared chat engine: calls Claude (Haiku 5.5) directly, with what the app's profile
+    /// (<see cref="IChatProfile"/>) brings — its system prompt, background and tools (Finance's
+    /// attaches the TW-stock MCP server) — replacing the previous Dify-hosted chatbot. Conversation
+    /// history is stored locally (not on a third-party platform) and re-sent as context on every
+    /// turn — the Messages API is stateless. Each stored
     /// turn goes back with its own role (user / assistant), but only as the text that was shown:
     /// the tool calls and the model's thinking from earlier turns are not stored or re-sent.
     /// </summary>
@@ -23,7 +24,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         IChatAttachmentStore attachmentStore,
         IAnthropicFileStore anthropicFiles,
         ChatTurnRegistry turns,
-        IMarketBackground marketBackground,
+        IChatProfiles profiles,
         IAiUsageLogger usageLogger,
         UsageLedger usageLedger,
         IOptionsMonitor<Settings> settings,
@@ -31,49 +32,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         ILogger<AnthropicChatService> logger,
         TimeProvider? timeProvider = null) : IAnthropicChatService
     {
-        // The usage log's model name; must name the same model as the request below.
-        private const string ModelId = "claude-haiku-5-5";
-        private const string McpServerName = TwStockMcp.Name;
-        private const string McpServerUrl = TwStockMcp.Url;
-        private const string McpBeta = TwStockMcp.ConnectorBeta;
-        // Haiku 5.5 thinks by default (adaptive), and that thinking counts toward this cap along
-        // with the MCP tool call and the analysis text. 2048 was once observed truncating
-        // mid-analysis (empty final response) on requests like "分析一下2330", and thinking only
-        // adds to what a turn needs. It is a ceiling, not a charge: a turn pays for what it uses.
-        private const int MaxTokens = 32000;
-
         private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
-
-        /// <summary>The tw-stock tools that are not deferred (<see cref="TwStockMcp.AlwaysLoadedTools"/>).</summary>
-        internal static readonly string[] AlwaysLoadedTools = [.. TwStockMcp.AlwaysLoadedTools];
-
-        /// <summary>
-        /// Today's date goes in up front: the model's training data ends well before it, and
-        /// without it a question about "today" or "the latest" is answered from that cutoff rather
-        /// than looked up with the tool.
-        /// </summary>
-        /// <remarks>
-        /// The scope below follows what the tw-stock server can look up. It mostly decides which
-        /// questions are in scope — the tools' own descriptions say how to use them.
-        /// </remarks>
-        internal static string SystemPromptFor(DateOnly taipeiToday) =>
-            $"今天是 {taipeiToday:yyyy-MM-dd}（台北時間）。\n" +
-            "你是JackyAIApp網站上的台股投資助手，用tw-stock工具查詢台灣市場的資料再回答。可查的範圍：\n" +
-            "- 個股（上市、上櫃、興櫃）：股價與技術面、財報（損益、資產負債、現金流量，可回溯多期）、月營收、股利與除權息、法說會、重大訊息、董監與內部人持股、庫藏股\n" +
-            "- 籌碼：三大法人與外資動向、融資融券、集保股權分散（大戶與散戶）、當沖、處置與注意股\n" +
-            "- ETF：基本資料、折溢價、規模與受益人數、申購買回、成分股\n" +
-            "- 期貨與選擇權：行情（可回溯，含盤中走勢）、三大法人與大額交易人部位、Put/Call Ratio\n" +
-            "- 總體經濟：景氣燈號與領先、同時、落後指標、PMI／NMI、匯率\n" +
-            "回答原則：數字以工具查到的為準，並註明資料日期；查無資料或不確定時誠實說明，不要編造。" +
-            "使用者附上的檔案（報告、截圖、表格）可以一起分析。給出買賣方向的看法時，註明僅供參考、不構成投資建議。" +
-            "只回答台灣金融市場、投資理財或本網站功能相關的問題，其他問題禮貌婉拒。用繁體中文，簡潔明確地回答。\n" +
-            // Unsure whether a tool it found can be called again, the model searched aimlessly
-            // and once ended the turn with no answer.
-            "工具採延遲載入：其他工具先用 tool_search_tool_regex 搜尋，pattern 可中英文關鍵字並用（例如「外資|institutional」）。" +
-            "搜到的工具在整段對話中都能直接重複呼叫，不必再搜尋。\n" +
-            // Every text delta reaches the reader, the notes between tool calls included; on a
-            // retried tool call Haiku wrote those in English.
-            "回覆中的所有文字，包括呼叫工具之間的說明，都用繁體中文。";
 
         /// <summary>
         /// Why a turn ended without any answer text. A decline from the model's safety classifiers
@@ -82,57 +41,6 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// </summary>
         internal static string NoAnswerCode(BetaStopReason? stopReason) =>
             stopReason == BetaStopReason.Refusal ? ChatErrorCodes.Refused : ChatErrorCodes.NoAnswer;
-
-        /// <summary>
-        /// The request for one turn. The whole conversation, attachments included, is sent again on
-        /// every turn, so it is cached: the top-level cache_control puts the breakpoint on the last
-        /// block, and the next turn — the same prefix with its new messages after — reads everything
-        /// up to there at a tenth of the input price instead of paying for it again. The default
-        /// 5-minute TTL: a reader's next message usually comes within minutes, each read restarts
-        /// the 5 minutes, and a miss costs only a quarter more (the 1-hour TTL doubles every write).
-        /// For the prefix to match, everything ahead of the conversation must stay byte-identical
-        /// between turns: model, effort, tools and system prompt (which changes once a day, with
-        /// the date, and with the market background every half hour — see IMarketBackground), and
-        /// each stored turn must be rebuilt exactly as it was sent.
-        /// <para>
-        /// The market background, when there is one, is a second system block with its own
-        /// breakpoint: it is the same for every reader until rebuilt, so tools and system prompt are
-        /// cached once for all conversations, not each on its own.
-        /// </para>
-        /// </summary>
-        internal static MessageCreateParams BuildRequest(
-            DateOnly taipeiToday, List<BetaMessageParam> messages, string? marketBackground = null) => new()
-        {
-            Model = AnthropicModel.ClaudeHaiku5_5,
-            MaxTokens = MaxTokens,
-            // Medium is Haiku 5.5's default; set explicitly so a change of default upstream
-            // cannot quietly change how much every turn thinks (and costs).
-            OutputConfig = new BetaOutputConfig { Effort = Effort.Medium },
-            Betas = [McpBeta],
-            McpServers = [new BetaRequestMcpServerUrlDefinition { Name = McpServerName, Url = McpServerUrl }],
-            // Regex, not BM25: BM25 found almost no tool for questions asked in Chinese. No
-            // cache_control on a deferred tool (the API answers 400); the top-level breakpoint
-            // below still caches the tools ahead of it.
-            Tools =
-            [
-                new BetaToolSearchToolRegex20251119 { Type = BetaToolSearchToolRegex20251119Type.ToolSearchToolRegex20251119 },
-                new BetaMcpToolset
-                {
-                    McpServerName = McpServerName,
-                    DefaultConfig = new BetaMcpToolDefaultConfig { DeferLoading = true },
-                    Configs = AlwaysLoadedTools.ToDictionary(name => name, _ => new BetaMcpToolConfig { DeferLoading = false }),
-                },
-            ],
-            System = marketBackground == null
-                ? SystemPromptFor(taipeiToday)
-                : new List<BetaTextBlockParam>
-                {
-                    new() { Text = SystemPromptFor(taipeiToday) },
-                    new() { Text = marketBackground, CacheControl = new BetaCacheControlEphemeral() },
-                },
-            Messages = messages,
-            CacheControl = new BetaCacheControlEphemeral(),
-        };
 
         /// <summary>
         /// Readies the conversation's images and PDFs to be sent. One already in the Files API is
@@ -174,7 +82,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         }
 
         public async Task<ChatStreamResult> StreamChatAsync(
-            string userId, string message, string? conversationId, IReadOnlyCollection<SQL.ChatAttachment> attachments,
+            string userId, string profileKey, string message, string? conversationId, IReadOnlyCollection<SQL.ChatAttachment> attachments,
             HttpResponse response, CancellationToken ct)
         {
             var apiKey = settings.CurrentValue.AnthropicApiKey;
@@ -185,11 +93,12 @@ namespace JackyAIApp.Server.Services.Chatbot
                 return new ChatStreamResult(false, conversationId ?? "", ChatErrorCodes.Unavailable);
             }
 
+            var profile = profiles.Find(profileKey)
+                ?? throw new ArgumentException($"No chat profile '{profileKey}'", nameof(profileKey));
             var (conversation, userMessage, history) = await StartTurnAsync(userId, message, conversationId, attachments, ct);
-            var taipeiToday = _time.GetTaipeiToday();
-            var background = await MarketBackgroundAsync(ct);
+            var setup = await profile.SetupAsync(_time.GetTaipeiToday(), ct);
             Task<MessageCreateParams> RequestFor(bool reupload, CancellationToken token) =>
-                RequestForAsync(history, taipeiToday, background, reupload, token);
+                RequestForAsync(history, setup, reupload, token);
             var request = await RequestFor(reupload: false, ct);
 
             // The turn ends early if the reader stops it (POST conversations/{id}/stop) or leaves.
@@ -202,7 +111,7 @@ namespace JackyAIApp.Server.Services.Chatbot
                 .RunAsync(request, token => RequestFor(reupload: true, token), turnCts.Token);
             var verdict = TurnVerdict.Of(outcome);
             var answerId = await SaveAnswerAsync(conversation, message, verdict.Saved);
-            await ReportTurnAsync(userId, conversation.Id, outcome, verdict);
+            await ReportTurnAsync(userId, profile, conversation.Id, outcome, verdict);
             await EndStreamAsync(sse, conversation.Id, verdict, answerId, ct);
             return new ChatStreamResult(outcome.StreamingStarted, conversation.Id, verdict.ErrorCode);
         }
@@ -236,26 +145,12 @@ namespace JackyAIApp.Server.Services.Chatbot
             return (conversation, userMessage, history);
         }
 
-        /// <summary>The page's market data as background; the turn goes ahead without it if it cannot be had.</summary>
-        private async Task<string?> MarketBackgroundAsync(CancellationToken ct)
-        {
-            try
-            {
-                return await marketBackground.GetAsync(ct);
-            }
-            catch (Exception ex) when (!ct.IsCancellationRequested)
-            {
-                logger.LogWarning(ex, "Chat market background unavailable; answering without it");
-                return null;
-            }
-        }
-
         /// <summary>The request for the conversation so far, its files readied first (see <see cref="PrepareFilesAsync"/>).</summary>
         private async Task<MessageCreateParams> RequestForAsync(
-            List<SQL.ChatMessage> history, DateOnly taipeiToday, string? background, bool reupload, CancellationToken ct)
+            List<SQL.ChatMessage> history, ChatProfileSetup setup, bool reupload, CancellationToken ct)
         {
             var files = await PrepareFilesAsync(history, reupload, ct);
-            return BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList(), background);
+            return ChatTurnRequest.Build(setup, history.Select(m => ToMessageParam(m, files)).ToList());
         }
 
         /// <summary>First, so the reader can stop even the first turn of a new conversation.</summary>
@@ -292,7 +187,8 @@ namespace JackyAIApp.Server.Services.Chatbot
         }
 
         /// <summary>The turn in the server log, and its tokens in the usage log.</summary>
-        private async Task ReportTurnAsync(string userId, string conversationId, TurnOutcome outcome, TurnVerdict verdict)
+        private async Task ReportTurnAsync(
+            string userId, IChatProfile profile, string conversationId, TurnOutcome outcome, TurnVerdict verdict)
         {
             if (verdict.Truncated)
                 logger.LogWarning("Anthropic chat turn hit max_tokens for conversation {ConversationId}", conversationId);
@@ -308,14 +204,14 @@ namespace JackyAIApp.Server.Services.Chatbot
             }
 
             // Cache reads that stay at zero turn after turn mean something in the prompt keeps
-            // changing ahead of the cached part (see BuildRequest). The tools called are what
-            // AlwaysLoadedTools should follow.
+            // changing ahead of the cached part (see ChatTurnRequest.Build). The tools called are what
+            // TwStockMcp.AlwaysLoadedTools should follow.
             var tokens = outcome.Tokens;
             logger.LogInformation(
                 "Chat turn for conversation {ConversationId}: {InputTokens} input tokens ({CacheReadTokens} read from cache, {CacheWriteTokens} written), {OutputTokens} output; tools called [{ToolsCalled}] after {ToolSearches} tool searches",
                 conversationId, tokens.Input, tokens.CacheRead, tokens.CacheWrite, tokens.Output,
                 string.Join(",", outcome.ToolsCalled), outcome.ToolSearches);
-            await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)tokens.Input, (int)tokens.Output, verdict.Success, userId,
+            await usageLogger.LogChatAsync(profile.UsageLogFeature, ChatTurnRequest.ModelId, (int)tokens.Input, (int)tokens.Output, verdict.Success, userId,
                 (int)tokens.CacheWrite, (int)tokens.CacheRead);
         }
 

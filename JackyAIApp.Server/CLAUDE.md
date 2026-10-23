@@ -55,9 +55,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 | MarketData | `Services.Market` (prices, history and backfill, fundamentals/chips/macro providers, TW symbol list, MIS TAIEX quote, trading calendar, `TwStockCode`), `Services.ExternalApi.Twse` | Platform |
 | English | `Services.Dictionary`, `.Repository`, `.Exam`, `.Listening`, `.SpacedRepetition`, `.DailyChallenge`, `.WordOfTheDay`, `.SpellChecker`, `Mappers` | Platform |
 | Connectors | `Services.Connectors` (what the AI may use: connector definitions and the hosted MCP servers, e.g. `TwStockMcp`; see docs/ai-native/design/03) | Platform |
-| Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest), `Services.Chatbot` | Connectors, MarketData, Platform |
+| Assistant | `Services.Assistant` (chat profiles, the turn's request), `Services.Chatbot` (the shared chat engine: turns, stream, history, attachments) | Connectors, Platform |
+| Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest; `Services.Finance.Assistant`: the /finance assistant's profile and market background) | Assistant, Connectors, MarketData, Platform |
 | Portfolio | `Services.Portfolio` | MarketData, Platform |
-| DataAnalysis | `Services.DataAnalysis` | Platform |
+| DataAnalysis | `Services.DataAnalysis` | Assistant, Connectors, Platform |
 | Tools | `Services.Job` | Platform |
 
 - Controllers, `Extensions` (the DI registration) and `Program` wire modules together and DTOs are plain
@@ -212,8 +213,15 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   test cares about; data sources it doesn't exercise default to `AbsentPortfolioSources`), never
   by calling their constructors, so a constructor change touches one file
 
-## Finance AI assistant (chat)
+## AI assistant (chat)
 
+- One chat engine for every app's assistant (`Services.Chatbot`, module Assistant); an app brings an
+  `IChatProfile` (`Services/Assistant/IChatProfile.cs`): its key, the feature its tokens are logged under,
+  and per turn a `ChatProfileSetup` — system prompt, a background cached for every reader, whether the
+  tw-stock MCP server goes with it. The request for a turn is `ChatTurnRequest.Build` (model, effort,
+  output cap and cache breakpoints are the same for every profile). A profile lives in its app's module
+  and is registered there (`services.AddScoped<IChatProfile, …>()`); Finance's is `FinanceChatProfile`
+  (`Services/Finance/Assistant`), whose request `FinanceChatRequestTests` pins field by field
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,

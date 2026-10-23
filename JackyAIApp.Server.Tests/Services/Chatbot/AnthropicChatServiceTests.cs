@@ -1,7 +1,10 @@
 using System.Text.Json;
 using Anthropic.Models.Beta.Messages;
 using JackyAIApp.Server.Common;
+using JackyAIApp.Server.Services.Assistant;
 using JackyAIApp.Server.Services.Chatbot;
+using JackyAIApp.Server.Services.Finance.Assistant;
+using JackyAIApp.Server.Tests.TestHelpers;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Tests.Services.Chatbot
@@ -16,7 +19,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [Fact]
         public void TheSystemPrompt_StartsWithTodaysDateInTaipei()
         {
-            var prompt = AnthropicChatService.SystemPromptFor(new DateOnly(2026, 10, 21));
+            var prompt = FinanceChatProfile.SystemPromptFor(new DateOnly(2026, 10, 21));
 
             Assert.StartsWith("今天是 2026-10-21（台北時間）。", prompt);
             Assert.Contains("tw-stock", prompt);
@@ -25,7 +28,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [Fact]
         public void TheSystemPrompt_SaysHowToFindADeferredTool_AndToWriteEverythingInChinese()
         {
-            var prompt = AnthropicChatService.SystemPromptFor(new DateOnly(2026, 10, 21));
+            var prompt = FinanceChatProfile.SystemPromptFor(new DateOnly(2026, 10, 21));
 
             Assert.Contains("tool_search_tool_regex", prompt);
             Assert.Contains("不必再搜尋", prompt);
@@ -35,7 +38,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [Fact]
         public void TheToolsAreFoundWithARegexSearch_ExceptTheAlwaysLoadedOnes()
         {
-            var tools = Body(AnthropicChatService.BuildRequest(new DateOnly(2026, 10, 21), []))
+            var tools = Body(FinanceChatRequest.Build(new DateOnly(2026, 10, 21), []))
                 .GetProperty("tools").EnumerateArray().ToList();
 
             Assert.Contains(tools, t => t.GetProperty("type").GetString() == "tool_search_tool_regex_20251119");
@@ -47,8 +50,8 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.True(toolset.GetProperty("default_config").GetProperty("defer_loading").GetBoolean());
 
             var configs = toolset.GetProperty("configs");
-            Assert.Equal(AnthropicChatService.AlwaysLoadedTools.Length, configs.EnumerateObject().Count());
-            foreach (var name in AnthropicChatService.AlwaysLoadedTools)
+            Assert.Equal(ChatTurnRequest.AlwaysLoadedTools.Length, configs.EnumerateObject().Count());
+            foreach (var name in ChatTurnRequest.AlwaysLoadedTools)
                 Assert.False(configs.GetProperty(name).GetProperty("defer_loading").GetBoolean());
 
             // A deferred tool with a cache breakpoint is a 400; the toolset defers by default.
@@ -120,7 +123,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [Fact]
         public void EveryTurn_AsksForTheConversationToBeCached()
         {
-            var json = Body(AnthropicChatService.BuildRequest(new DateOnly(2026, 10, 21), []));
+            var json = Body(FinanceChatRequest.Build(new DateOnly(2026, 10, 21), []));
 
             Assert.Equal("ephemeral", json.GetProperty("cache_control").GetProperty("type").GetString());
         }
@@ -143,7 +146,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
                 return [user, new SQL.ChatMessage { ConversationId = "c", Role = "assistant", Content = "好的" }];
             }
             var files = new Dictionary<long, byte[]> { [1] = [1, 2, 3] };
-            string Render() => Body(AnthropicChatService.BuildRequest(
+            string Render() => Body(FinanceChatRequest.Build(
                 new DateOnly(2026, 10, 21), History().Select(m => AnthropicChatService.ToMessageParam(m, files)).ToList()))
                 .GetRawText();
 

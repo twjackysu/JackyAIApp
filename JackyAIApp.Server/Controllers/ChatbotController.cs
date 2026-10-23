@@ -2,6 +2,7 @@ using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Chatbot;
+using JackyAIApp.Server.Services.Finance.Assistant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -92,7 +93,7 @@ namespace JackyAIApp.Server.Controllers
             try
             {
                 var result = await _chatService.StreamChatAsync(
-                    userId, request.Message, request.ConversationId, attachments, Response, HttpContext.RequestAborted);
+                    userId, FinanceChatProfile.ProfileKey, request.Message, request.ConversationId, attachments, Response, HttpContext.RequestAborted);
 
                 // The service has already told the client why (an SSE error event with a code).
                 if (!result.StreamingStarted)

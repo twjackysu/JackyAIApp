@@ -7,10 +7,13 @@ using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
+using JackyAIApp.Server.Services.Assistant;
 using JackyAIApp.Server.Services.Chatbot;
+using JackyAIApp.Server.Services.Finance.Assistant;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
@@ -43,7 +46,8 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             var settings = new Mock<IOptionsMonitor<Settings>>();
             settings.Setup(s => s.CurrentValue).Returns(() => new Settings { Google = new JackyAIApp.Server.Configuration.Google(), AnthropicApiKey = _apiKey });
-            return new AnthropicChatService(_db, _attachments.Object, _files.Object, _turns, _background.Object, _usage.Object,
+            var profiles = new ChatProfiles([new FinanceChatProfile(_background.Object, NullLogger<FinanceChatProfile>.Instance)]);
+            return new AnthropicChatService(_db, _attachments.Object, _files.Object, _turns, profiles, _usage.Object,
                 _ledger, settings.Object, new TestClientFactory(_anthropic), _log);
         }
 
@@ -78,7 +82,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             var context = new DefaultHttpContext();
             body ??= new RecordingBody();
             context.Response.Body = body;
-            var result = await Service().StreamChatAsync(User, message, conversationId, attachments ?? [], context.Response, ct);
+            var result = await Service().StreamChatAsync(User, FinanceChatProfile.ProfileKey, message, conversationId, attachments ?? [], context.Response, ct);
             return new Turn(result, body.Events());
         }
 

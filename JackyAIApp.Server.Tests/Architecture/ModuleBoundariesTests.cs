@@ -46,8 +46,12 @@ namespace JackyAIApp.Server.Tests.Architecture
             // tools and users' installations): docs/ai-native/design/03.
             [$"{Root}.Services.Connectors"] = "Connectors",
 
+            // The shared chat engine every app's assistant runs on (the turn, its stream, its
+            // history and attachments); each app brings an IChatProfile of its own: docs/ai-native/design/04.
+            [$"{Root}.Services.Assistant"] = "Assistant",
+            [$"{Root}.Services.Chatbot"] = "Assistant",
+
             [$"{Root}.Services.Finance"] = "Finance",
-            [$"{Root}.Services.Chatbot"] = "Finance",
 
             [$"{Root}.Services.Portfolio"] = "Portfolio",
 
@@ -69,9 +73,10 @@ namespace JackyAIApp.Server.Tests.Architecture
             ["MarketData"] = ["Platform"],
             ["English"] = ["Platform"],
             ["Connectors"] = ["Platform"],
-            ["Finance"] = ["Connectors", "MarketData", "Platform"],
+            ["Assistant"] = ["Connectors", "Platform"],
+            ["Finance"] = ["Assistant", "Connectors", "MarketData", "Platform"],
             ["Portfolio"] = ["MarketData", "Platform"],
-            ["DataAnalysis"] = ["Platform"],
+            ["DataAnalysis"] = ["Assistant", "Connectors", "Platform"],
             ["Tools"] = ["Platform"],
         };
 
@@ -95,8 +100,9 @@ namespace JackyAIApp.Server.Tests.Architecture
             ["ListeningResponseOptions"] = "English", ["ReadingPassages"] = "English", ["ReadingQuestions"] = "English",
             ["ReadingQuestionOptions"] = "English", ["DailyChallengeResults"] = "English", ["DailyChallengeSets"] = "English",
 
-            ["StockPredictions"] = "Finance", ["ChatConversations"] = "Finance", ["ChatMessages"] = "Finance",
-            ["ChatAttachments"] = "Finance",
+            ["ChatConversations"] = "Assistant", ["ChatMessages"] = "Assistant", ["ChatAttachments"] = "Assistant",
+
+            ["StockPredictions"] = "Finance",
 
             ["HoldingSnapshots"] = "Portfolio", ["HoldingPositions"] = "Portfolio", ["FxRates"] = "Portfolio",
             ["StockClassifications"] = "Portfolio",
@@ -319,6 +325,8 @@ namespace JackyAIApp.Server.Tests.Architecture
         [InlineData("JackyAIApp.Server.Services.ExternalApi.ThirdPartyGateway", "Platform")]
         [InlineData("JackyAIApp.Server.Services.Portfolio.DrawdownBrake", "Portfolio")]
         [InlineData("JackyAIApp.Server.Services.ICurrentUser", "Platform")]
+        [InlineData("JackyAIApp.Server.Services.Chatbot.AnthropicChatService", "Assistant")]
+        [InlineData("JackyAIApp.Server.Services.Finance.Assistant.FinanceChatProfile", "Finance")]
         public void AName_BelongsToTheModuleOfItsLongestPrefix(string name, string module) =>
             Assert.Equal(module, ModuleOfName(name));
 
