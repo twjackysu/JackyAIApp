@@ -1,6 +1,6 @@
 # 04 — 共用 AI chat
 
-> 把 Stock Intelligence 的 assistant 變成一套「引擎 + profile」，Finance、Data Analysis、全站助理都用它。**Finance 的行為不能變差**：重構前後，Finance 的既有測試（伺服器 `AnthropicChatServiceTests`、`AnthropicChatStreamTests`、`TurnVerdictTests`…；前端 panel 62 個測試）原封不動要過。
+> 把 Stock Intelligence 的 assistant 變成一套「引擎 + profile」，Finance、Data Analysis、全站助理都用它。**Finance 的行為不能變差**：重構前後，Finance 的既有測試（伺服器 `AnthropicChatServiceTests`、`AnthropicChatStreamTests`、`TurnVerdictTests`…；前端 panel 62 個測試）斷言不改、全部要過（見 §3）。
 
 ## 1. 後端：引擎 + profile
 
@@ -26,7 +26,7 @@ public sealed record ChatProfileSetup(
     IReadOnlyCollection<string> SiteToolGroups); // 本站工具：哪些群組（"data-analysis"、"english"…）
 ```
 
-- `FinanceChatProfile`（Finance 模組）：把現在 `AnthropicChatService` 裡的常數、`SystemPromptFor`、`MarketBackground` 原樣搬過去，**產出的 request 與現在逐位元相同**（新增一個 golden test：同一輸入，重構前後 `BuildRequest` 序列化結果一樣）。Finance 預設**不**加使用者 connector（避免改變它的行為與成本），之後若要加，是一個 flag。
+- `FinanceChatProfile`（Finance 模組）：把現在 `AnthropicChatService` 裡的常數、`SystemPromptFor`、`MarketBackground` 原樣搬過去，**產出的 request 與現在相同**（重構前先加 characterization test 鎖住，見 §3）。Finance 預設**不**加使用者 connector（避免改變它的行為與成本），之後若要加，是一個 flag。
 - `DataAnalysisChatProfile`（DataAnalysis 模組）：資料分析的 system prompt；工具 = data-analysis 本站工具 + 使用者 connector；page context = 目前選的資料源。
 - `StudioChatProfile`（全站）：所有本站工具群組 + 使用者 connector + tw-stock（hosted）；page context = 目前路由與頁面提供的摘要。
 
@@ -86,7 +86,7 @@ round > 3 時每輪加收 1 點（inline，見 06）；超過預算 → 結束�
 
 ### 2.1 搬家與參數化
 
-- `Finance/components/aiAssistant/` 的 panel、hooks、utils 搬到 `src/components/aiChat/`，依 client CLAUDE.md 的「元件長大就變資料夾、狀態抽 hook」。Finance 留一個薄 wrapper（`Finance/components/aiAssistant/index.tsx` re-export + 設定），**import 路徑與 Finance 測試不變**。
+- `Finance/components/aiAssistant/` 的 panel、hooks、utils 搬到 `src/components/aiChat/`，依 client CLAUDE.md 的「元件長大就變資料夾、狀態抽 hook」。Finance 留一個薄 wrapper（`Finance/components/aiAssistant/index.tsx` re-export + 設定），Finance 測試只允許改 import 路徑。
 - `AiChatConfig`：
   ```ts
   interface AiChatConfig {
@@ -100,7 +100,7 @@ round > 3 時每輪加收 1 點（inline，見 06）；超過預算 → 結束�
   ```
 - `useChatStreaming` 修正跨 chunk 半行的 bug（先寫測試重現），並把事件解析抽成純函式 `parseSseChunk(buffer, chunk) → { events, rest }`（有測試）。**這是工具卡片的前提**（100 KB 的卡片一定跨 chunk），階段 1 第一個前端任務。
 - 寫死的台股文案要參數化：`CompactChatBar.tsx`、`MessageArea.tsx`、`ChatHeader.tsx`（「台股資料已連線」）、`ChatInput.tsx`；工具進度改用 `displayName`（不然會印出 `c3__search`）。
-- 新增：`ToolActivity`（工具進度列）、`ToolCard` renderer 註冊表（`table`、`chart`、`word`、`portfolio`、`dashboard`、`link`）、`ApprovalCard`（允許／拒絕／一律允許）。
+- 新增：`ToolActivity`（工具進度列）、`ToolCard` renderer 註冊表（`table`、`chart`、`word`、`portfolio`、`dashboard`、`link`）、`ApprovalCard`（允許／拒絕；「一律允許」列為延伸）。
 
 ### 2.2 三個嵌入點
 
@@ -112,6 +112,6 @@ round > 3 時每輪加收 1 點（inline，見 06）；超過預算 → 結束�
 
 ## 3. 不退化的保證
 
-1. **先**單獨 commit 一個 golden test：把 Finance 的 `BuildRequest` 序列化成 JSON 存成檔案比對（含 system、tools、mcp_servers、betas），CI 綠了才開始重構。
+1. **先**單獨 commit 一個 characterization test：把 Finance 的 `BuildRequest` 序列化成 JSON，逐項斷言 model、max_tokens、effort、betas、mcp_servers、tools（種類、defer 設定、always-loaded 清單）、system 兩段與 cache_control。（本機不能跑 dotnet，產不出整檔快照，所以用逐項斷言。）CI 綠了才開始重構。
 2. 伺服器既有 chat 測試的**斷言不改**；但 `AnthropicChatServiceTests`、`AnthropicChatStreamTests`、`MarketBackgroundTests` 直接呼叫 `AnthropicChatService.BuildRequest`／`SystemPromptFor`／`AlwaysLoadedTools`、用位置參數建構 service，搬到 profile 後要**機械式改指向**（類別名、using、建構子），並在 PROGRESS 註明「只改指向」。前端 aiAssistant 的測試同理：只允許改 import 路徑。
 3. Finance profile 不加任何新工具或成本。

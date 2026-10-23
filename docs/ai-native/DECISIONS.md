@@ -13,3 +13,4 @@
 - **D-009（2026-10-24，評審後）一個 migration**：`ChatConversations.Profile`（預設 finance）、`ChatMessages.CardsJson`、`ConnectorInstallations`（`(UserId, DefinitionKey)` filtered unique，排除 custom）。只新增，不改既有欄位。
 - **D-010（2026-10-24，評審後）優先序**：垂直切片（Data Analysis 對話 + 免認證／API key MCP + 確認卡）先於 MCP OAuth；MCP OAuth 是 Jacky 的明確要求，排在 M3，不砍。「以後都允許」、工具變更偵測、MCP Apps、本站 MCP server 列為延伸。
 - **D-011（2026-10-24）Connectors 重新在首頁 portal 顯示**（原本因 Google scope 問題隱藏），因為它成了 AI 的核心入口；一行可改回。
+- **D-012（2026-10-24 04:10）設計提早定稿**：第 1 輪就完成研究、草稿與評審修正，依指示提早開工（M1），不等到 10/25。

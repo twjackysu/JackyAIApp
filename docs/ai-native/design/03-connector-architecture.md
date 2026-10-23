@@ -116,7 +116,7 @@ public enum ToolPermission { Auto, Confirm, Disabled }
 - 401 → 安裝狀態 `NeedsAuth`，對話中回「請到 Connectors 重新連線」的工具錯誤（不是整輪失敗）。
 - 403 `insufficient_scope` → 狀態 `NeedsAuth`，記下需要的 scope，重新授權時用聯集（step-up）。
 - 呼叫逾時 30 秒；結果大小上限 100 KB（截斷並註明）。
-- 若 SDK 在 CI 上有相容性問題，退路是自己寫最小的 Streamable HTTP JSON-RPC（`tools/list`、`tools/call`）——規格 2026-07-28 是 stateless，最小實作很小。
+- 若 SDK 在 CI 上有相容性問題，退路是自己寫最小的 Streamable HTTP JSON-RPC client。注意：多數公開 MCP server 仍跑 2025-06／2025-11 版（要 `initialize` 握手與 `Mcp-Session-Id`），所以退路也必須支援舊版握手，不能只做 2026-07-28 的 stateless。
 
 ## 5. 認證流程
 
