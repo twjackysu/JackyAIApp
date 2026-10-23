@@ -16,6 +16,9 @@
         AttachmentUnreadable = 1040005,
         /// <summary>A PDF chat attachment with more pages than the model reads at once.</summary>
         AttachmentTooManyPages = 1040006,
+        /// <summary>An image attachment larger than the browser makes one: sent by a page loaded before images
+        /// were downsized there, which a reload fixes.</summary>
+        AttachmentImageTooLarge = 1040007,
         Unauthorized = 1040100,
         Forbidden = 1040300,
         DrawdownBrakeNotEnabled = 1040301,

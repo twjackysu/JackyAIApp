@@ -34,7 +34,8 @@ function ListeningTestCard() {
             component="img"
             src={imageUrl}
             alt="Listening question"
-            sx={{ width: '100%', borderRadius: 1, mb: 2 }}
+            // Cropped to 4:3 here, not on the server: the model draws a square, which is stored as it is.
+            sx={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 1, mb: 2 }}
           />
         )
       }

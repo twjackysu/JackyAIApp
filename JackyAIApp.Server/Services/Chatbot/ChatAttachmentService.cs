@@ -106,6 +106,12 @@ namespace JackyAIApp.Server.Services.Chatbot
                 logger.LogWarning(ex, "User {UserId} uploaded an unreadable {Kind} attachment", userId, kind);
                 return ServiceResult.Fail(ErrorCodes.AttachmentUnreadable, "The file could not be read.");
             }
+            catch (ImageTooLargeException ex)
+            {
+                // A page loaded before images were downsized in the browser: a reload sends a smaller one.
+                logger.LogInformation(ex, "User {UserId} uploaded an image larger than the browser makes one", userId);
+                return ServiceResult.Fail(ErrorCodes.AttachmentImageTooLarge, "The image is larger than expected; reload the page.");
+            }
             catch (TooManyPagesException ex)
             {
                 logger.LogInformation("User {UserId} uploaded a PDF of {Pages} pages", userId, ex.Pages);
