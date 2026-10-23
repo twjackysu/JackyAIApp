@@ -160,395 +160,185 @@ namespace JackyAIApp.Server.Services.Portfolio
             if (allSnapshots.Count == 0) return new PortfolioSummaryDto();
             var snapshot = allSnapshots[^1];
 
-            // Defensive clamp rather than rejecting the request — this is a display-affecting
-            // client-supplied value (not persisted anywhere server-side), not a validated business
-            // input. 0 would mean free trades, > 1 is not a discount at all.
+            // A display setting the client sends, so clamped rather than rejected: 0 would be free
+            // trades, and above 1 is no discount at all.
             feeDiscountRate = Math.Clamp(feeDiscountRate, 0.01m, 1m);
 
-            // Current valuation always uses the live rate; the rate stored on each snapshot is only
-            // for reconstructing historical net worth (a stale fallback-32 shouldn't stick forever).
-            var fx = await Timed("fx", () => priceLoader.FetchUsdTwdRateAsync(ct));
-            var positions = new List<PositionDto>();
-            decimal twStock = 0, usStock = 0, cash = 0, fund = 0, liability = 0, realEstate = 0;
-            decimal costBasisTWD = 0, pnlTWD = 0, estimatedSellCostTWD = 0;
-            decimal equityExposureTWD = 0; // Σ market value × exposure factor (leverage/bond-adjusted)
-
-            // Prefetch all stock prices and fund NAVs in parallel (cached) before the value loop,
-            // covering both today's holdings and the previous trading day's holdings so sold positions
-            // can be priced for the single-day liquid net worth change.
-            var prevTradingDay = tradingCalendar.PreviousTradingDay(Today);
-            var prevSnapshot = allSnapshots.LastOrDefault(s => s.EffectiveDate <= prevTradingDay)
+            // The previous trading day's holdings are priced too, for the day change: a position sold
+            // since still counts on that side.
+            var previousTradingDay = tradingCalendar.PreviousTradingDay(Today);
+            var previous = allSnapshots.LastOrDefault(s => s.EffectiveDate <= previousTradingDay)
                 ?? allSnapshots.FirstOrDefault();
-            var allPositions = prevSnapshot != null
-                ? snapshot.Positions.Concat(prevSnapshot.Positions).ToList()
+            var allPositions = previous != null
+                ? snapshot.Positions.Concat(previous.Positions).ToList()
                 : snapshot.Positions;
 
-            var stockTask = Timed("stocks", () => priceLoader.FetchStocksAsync(
-                allPositions.SymbolsPricedBy(PriceSource.StockQuote), deep: false, ct),
-                m => $"{m.Count} symbols");
-            var fundTask = Timed("funds", () => priceLoader.FetchFundsAsync(
-                allPositions.SymbolsPricedBy(PriceSource.FundNav), ct),
-                m => $"{m.Count} funds");
-            // Dividend histories don't depend on prices, so they load alongside them instead of
-            // after. On a cold cache (every restart, and daily) they are one external call per
-            // stock/fund ever held, which used to sit on the critical path behind the price fetch.
+            // The live rate: the one saved with a snapshot only reconstructs that snapshot's own day.
+            var fx = await Timed("fx", () => priceLoader.FetchUsdTwdRateAsync(ct));
+            // Dividend histories don't depend on prices, so they load while the prices do.
             var dividendTask = Timed("dividends", () => FetchDividendRecordsAsync(allSnapshots, ct),
                 d => $"{d.Count} holdings");
-            await Task.WhenAll(stockTask, fundTask);
-            var stockMap = stockTask.Result;
-            var fundMap = fundTask.Result;
+            var prices = await LoadPricesAsync(allPositions, fx, ct);
 
-            // 集保 settlement rates for the fund currencies actually held, and 國泰世華 board rates
-            // for US stocks (keyed by the date of the close being priced — NOT today; 國泰 複委託
-            // states 總預估現值 = 股數 × 最新價 × 昨收匯率, so the rate that belongs to the quote is
-            // the one published for that quote's own day, not today's). Only funds settle through
-            // 集保; prices come from one shared fetch above, so in practice every US holding lands
-            // on the same date and cathayUsKeys is one lookup.
-            //
-            // 基富通 is converted back to TWD at the rate 集保 negotiates with 華南銀行, so that is
-            // what the holder really receives and what 基富通's own app displays — valuing it at a
-            // mid-market rate instead put this app ~0.5% away from the number the user was
-            // reconciling against.
-            //
-            // The two rate sets don't depend on each other (one reads fundMap, the other stockMap,
-            // both already fetched above), so their per-currency/per-date lookups all run together
-            // via Task.WhenAll instead of two sequential foreach+await loops.
-            var tdccCurrencies = fundMap.Values
+            var valued = snapshot.Positions.Select(p => PositionValuation.Value(p, prices, feeDiscountRate)).ToList();
+            var totals = PortfolioTotals.Of(valued);
+            var positions = valued.Select(v => v.Row).ToList();
+
+            // 含息: each dividend counts against the quantity held on its ex-date, over the whole timeline.
+            var (totalDividendsTWD, dividendsByPosition, dividendFlows) =
+                ComputeDividends(allSnapshots, fx, prices.Funds, await dividendTask);
+            foreach (var p in positions)
+            {
+                if (dividendsByPosition.TryGetValue((p.AssetType, p.Symbol, p.Market), out var dividends))
+                    p.DividendsTWD = dividends;
+            }
+            await AttachTagsAsync(positions, ct);
+
+            // XIRR is 含息 too: dividends are cash the user received.
+            var annualizedReturnPct = ComputeAnnualizedReturn(
+                allSnapshots, fx, totals.CostBasis + totals.UnrealizedPnl, dividendFlows, Today);
+            var dayChange = DayChange(snapshot, previous, previousTradingDay, allPositions, prices, totals);
+
+            timing.Add("total", total.Elapsed);
+            return BuildSummary(snapshot, fx, totals, totalDividendsTWD, annualizedReturnPct, dayChange, positions);
+        }
+
+        /// <summary>
+        /// The prices of <paramref name="positions"/> (stocks and fund NAVs, fetched together) and the rates
+        /// they convert at: the 集保 rates of the fund currencies held, and the 國泰世華 rates for the days the
+        /// US stock quotes belong to (in practice one day, prices coming from one fetch). See
+        /// <see cref="PositionFxResolver"/> for which position converts at which.
+        /// </summary>
+        private async Task<PortfolioPrices> LoadPricesAsync(
+            ICollection<HoldingPosition> positions, decimal midUsdTwd, CancellationToken ct)
+        {
+            var stockTask = Timed("stocks", () => priceLoader.FetchStocksAsync(
+                positions.SymbolsPricedBy(PriceSource.StockQuote), deep: false, ct),
+                m => $"{m.Count} symbols");
+            var fundTask = Timed("funds", () => priceLoader.FetchFundsAsync(
+                positions.SymbolsPricedBy(PriceSource.FundNav), ct),
+                m => $"{m.Count} funds");
+            await Task.WhenAll(stockTask, fundTask);
+            var stocks = stockTask.Result;
+            var funds = fundTask.Result;
+
+            var tdccCurrencies = funds.Values
                 .Select(n => n.Currency)
                 .Where(c => !string.IsNullOrWhiteSpace(c) && c != "TWD")
                 .Distinct()
                 .ToList();
-            // allPositions, not just today's: a US stock sold since the previous trading day is still
-            // valued on that side of the day change, and must be valued at the same rate.
-            var cathayUsKeys = allPositions
+            var cathayKeys = positions
                 .Where(p => p.Currency == "USD"
                     && AssetValuationPolicy.For(p.AssetType).PublishedFx == PublishedFxSource.CathayOnQuoteDay)
-                .Select(p => AssetValuationPolicy.For(p.AssetType).Latest(p, stockMap, fundMap)?.Day)
+                .Select(p => AssetValuationPolicy.For(p.AssetType).Latest(p, stocks, funds)?.Day)
                 .Where(d => d.HasValue)
                 .Select(d => (Currency: "USD", Date: d!.Value))
                 .Distinct()
                 .ToList();
 
-            var tdccRatesTask = Task.WhenAll(tdccCurrencies.Select(async currency =>
+            var tdccTask = Task.WhenAll(tdccCurrencies.Select(async currency =>
                 (Currency: currency, Rate: await tdccFx.GetBuyRateAsync(currency, Today, ct))));
-            var cathayRatesTask = Task.WhenAll(cathayUsKeys.Select(async key =>
+            var cathayTask = Task.WhenAll(cathayKeys.Select(async key =>
                 (Key: key, Rate: await cathayFx.GetBuyRateAsync(key.Currency, key.Date, ct))));
-            await Timed("fxrates", () => Task.WhenAll(tdccRatesTask, cathayRatesTask));
+            await Timed("fxrates", () => Task.WhenAll(tdccTask, cathayTask));
 
-            var tdccRates = new Dictionary<string, decimal>();
-            foreach (var (currency, rate) in tdccRatesTask.Result)
-                if (rate is > 0) tdccRates[currency] = rate.Value;
+            var tdccRates = tdccTask.Result.Where(r => r.Rate is > 0).ToDictionary(r => r.Currency, r => r.Rate!.Value);
+            var cathayRates = cathayTask.Result.Where(r => r.Rate is > 0).ToDictionary(r => r.Key, r => r.Rate!.Value);
+            return new PortfolioPrices(stocks, funds,
+                new PositionFxResolver(midUsdTwd, tdccRates, cathayRates, stocks, funds));
+        }
 
-            var cathayRatesByDate = new Dictionary<(string Currency, DateOnly Date), decimal>();
-            foreach (var (key, rate) in cathayRatesTask.Result)
-                if (rate is > 0) cathayRatesByDate[key] = rate.Value;
-
-            // The 國泰世華 rate that goes with this holding's own quote, if we have one.
-            decimal? CathayRateFor(HoldingPosition position, string currency)
-            {
-                var policy = AssetValuationPolicy.For(position.AssetType);
-                if (policy.PublishedFx != PublishedFxSource.CathayOnQuoteDay) return null;
-                if (policy.Latest(position, stockMap, fundMap)?.Day is not { } quoteDay) return null;
-                return cathayRatesByDate.TryGetValue((currency, quoteDay), out var r) ? r : null;
-            }
-
-            // The rate a position converts to TWD at. The valuation loop below and the previous
-            // trading day's valuation for the day change both go through this, so the two sides of
-            // the day change always use the same rate for the same position: a difference between
-            // them is then price or holdings, never a mismatch of rate sources.
-            //
-            // Funds convert at the 集保 published rate; US stocks at the 國泰世華 rate for their
-            // quote's day; everything else in USD at the mid-market rate. Falls back to mid-market
-            // when a published rate is missing, since an FX lookup must never be what stops a
-            // portfolio from being valued.
-            // Also says where the rate came from (null when none applies, i.e. TWD or a currency with
-            // no rate), so the response's FxRateSource is what was used, not a guess from the number.
-            (decimal Rate, string? Source) ResolveFx(HoldingPosition position, string? currency)
-            {
-                if (string.IsNullOrWhiteSpace(currency) || currency == "TWD") return (1m, null);
-                if (AssetValuationPolicy.For(position.AssetType).PublishedFx == PublishedFxSource.Tdcc
-                    && tdccRates.TryGetValue(currency, out var fundFx))
-                    return (fundFx, FxRateSources.Tdcc);
-                if (CathayRateFor(position, currency) is { } usFx) return (usFx, FxRateSources.Cathay);
-                return currency == "USD" ? (fx, FxRateSources.Mid) : (1m, null);
-            }
-            decimal PositionFx(HoldingPosition position, string? priceCurrency) => ResolveFx(position, priceCurrency).Rate;
-
-            foreach (var p in snapshot.Positions)
-            {
-                var policy = AssetValuationPolicy.For(p.AssetType);
-                decimal currentPrice;
-                // Pricing currency: the stored one, except a fund's live NAV currency from FundRich
-                // (authoritative), not a manually-picked value — see the policy's Latest.
-                var priceCurrency = p.Currency;
-
-                if (policy.IsMarketPriced)
-                {
-                    var latest = policy.Latest(p, stockMap, fundMap);
-                    currentPrice = latest?.Price ?? 0;
-                    if (latest is { } quote) priceCurrency = quote.Currency;
-                }
-                else // an amount, not a price × quantity — always "priced" at 1, no external lookup needed.
-                {
-                    currentPrice = 1;
-                }
-
-                // A market-priced position with no usable price has no real market value. Treat it
-                // as "price unavailable" so we don't book a phantom loss of the full cost.
-                var priceFailed = policy.IsMarketPriced && currentPrice <= 0;
-
-                var (fxMul, fxSource) = ResolveFx(p, priceCurrency);
-                // The policy's Sign is the one place a position's value goes negative (a liability) —
-                // the sole sign-flip point; every downstream sum (net worth, history, exports) just
-                // adds valueTWD and is correct with no special-casing.
-                var valueLocal = policy.Sign * (policy.IsMarketPriced ? currentPrice * p.Quantity : p.Quantity);
-                var valueTWD = valueLocal * fxMul;
-
-                // Cost is converted by its own currency, which may differ from the pricing
-                // currency — but by the same convention, so a fund whose cost was paid in USD is
-                // not measured against a market value converted at a different rate.
-                var costFxMul = PositionFx(p, p.CostCurrency ?? p.Currency);
-
-                // Market exposure: leveraged ETFs amplify, bond/cash contribute nothing. Computed
-                // here (rather than after the P&L block below) because the TW sell-cost estimate
-                // reuses it: exposureFactor == 0 already means "bond/money-market ETF" per
-                // PortfolioExposure's own classification (name keywords take priority over its
-                // code-suffix fallback), including the "except leveraged/inverse" carve-out — a
-                // leveraged name match returns its multiplier before the bond check ever runs, so
-                // a leveraged bond ETF's factor is never 0. No separate detection needed here.
-                var exposureFactor = PortfolioExposure.Factor(p.AssetType, p.Name, p.Symbol, p.Market);
-
-                decimal? posCostTWD = null, posPnlTWD = null, posPnlPct = null;
-                decimal posEstimatedSellCostTWD = 0;
-                if (policy.HasCostBasis && p.CostBasis.HasValue)
-                {
-                    posCostTWD = p.CostBasis.Value * costFxMul;
-                    // Only compute P&L when we have a real price; otherwise valueTWD is 0
-                    // and we'd report a fake loss equal to the entire cost basis.
-                    if (!priceFailed)
-                    {
-                        posPnlTWD = valueTWD - posCostTWD;
-
-                        // Estimated sell-side transaction cost, TW stocks/ETFs only (US/funds have
-                        // different fee schedules and aren't modeled here). Buy-side fee is
-                        // deliberately NOT deducted: CostBasis is manually entered by the user and
-                        // typically already reflects what they actually paid (broker statements
-                        // include the buy commission), so subtracting it again here would
-                        // double-count it. Brokerage commission applies uniformly regardless of
-                        // instrument; the 證交稅 rate depends on it — 0% bond/money-market ETF
-                        // (exposureFactor == 0), 0.1% other TW ETF (code prefix "00" is TWSE's own
-                        // ETF numbering convention, not a heuristic), 0.3% individual stock.
-                        if (p.AssetType == AssetType.STOCK && p.Market == "TW")
-                        {
-                            var taxRate = exposureFactor == 0m ? 0m : (p.Symbol.StartsWith("00") ? 0.001m : 0.003m);
-                            var feeRate = 0.001425m * feeDiscountRate;
-                            // Floor to whole dollars — brokers round transaction costs down, not to cents.
-                            posEstimatedSellCostTWD = Math.Floor(valueTWD * feeRate) + Math.Floor(valueTWD * taxRate);
-                            posPnlTWD -= posEstimatedSellCostTWD;
-                        }
-
-                        posPnlPct = posCostTWD > 0 ? Math.Round(posPnlTWD.Value / posCostTWD.Value * 100, 2) : 0;
-                        costBasisTWD += posCostTWD.Value;
-                        pnlTWD += posPnlTWD.Value;
-                        estimatedSellCostTWD += posEstimatedSellCostTWD;
-                    }
-                }
-
-                switch (policy.BucketOf(p))
-                {
-                    case AssetBucket.UsStock: usStock += valueTWD; break;
-                    case AssetBucket.TwStock: twStock += valueTWD; break;
-                    case AssetBucket.Cash: cash += valueTWD; break;
-                    case AssetBucket.Fund: fund += valueTWD; break;
-                    case AssetBucket.Property: realEstate += valueTWD; break;
-                    // valueTWD is already negative here — this is display total (owed amount),
-                    // shown positive by negating at the DTO boundary below.
-                    case AssetBucket.Liability: liability += valueTWD; break;
-                }
-
-                equityExposureTWD += valueTWD * exposureFactor;
-
-                positions.Add(new PositionDto
-                {
-                    AssetType = p.AssetType,
-                    Symbol = p.Symbol,
-                    Name = p.Name,
-                    Market = p.Market,
-                    Currency = priceCurrency,
-                    CostCurrency = p.CostCurrency,
-                    Quantity = p.Quantity,
-                    CurrentPrice = currentPrice,
-                    MarketValueLocal = valueLocal,
-                    MarketValueTWD = valueTWD,
-                    CostBasisTWD = posCostTWD,
-                    UnrealizedPnlTWD = posPnlTWD,
-                    UnrealizedPnlPct = posPnlPct,
-                    EstimatedSellCostTWD = posEstimatedSellCostTWD,
-                    ExposureFactor = exposureFactor,
-                    FxRateUsed = fxMul == 1m ? null : fxMul,
-                    FxRateSource = fxSource,
-                    PriceFetchFailed = priceFailed,
-                    ValuationMethod = p.ValuationMethod,
-                });
-            }
-
-            // liability is already negative (see the valuation loop above), so this is a plain sum —
-            // no special-casing needed for net worth to correctly net out debt.
-            var netWorthTWD = twStock + usStock + cash + fund + realEstate + liability;
-
-            // Total (含息) return: walk the whole snapshot timeline so a dividend counts against
-            // whatever quantity was actually held on its ex-date, not today's quantity.
-            var (totalDividendsTWD, dividendsByPosition, dividendFlows) =
-                ComputeDividends(allSnapshots, fx, fundMap, await dividendTask);
-            foreach (var p in positions)
-            {
-                if (dividendsByPosition.TryGetValue((p.AssetType, p.Symbol, p.Market), out var div))
-                    p.DividendsTWD = div;
-            }
-            var totalReturnPnlTWD = pnlTWD + totalDividendsTWD;
-
-            // AI theme tags: read-only lookup against whatever's already classified/persisted —
-            // deliberately NOT categoryService.GetCategoryAsync, which lazily triggers an AI call
-            // per never-seen symbol; the summary is the hot path and must not pay AI latency/cost.
-            // Unclassified symbols just show no tags until a 產業/子類別 chart view classifies them.
-            var taggedSymbols = positions
+        /// <summary>
+        /// The AI theme tags already stored for the symbols held. Never classifies a new symbol (that is an
+        /// AI call, and the summary is the hot path): an unclassified one shows no tags until a 產業/子類別
+        /// chart classifies it.
+        /// </summary>
+        private async Task AttachTagsAsync(List<PositionDto> positions, CancellationToken ct)
+        {
+            var symbols = positions
                 .Where(p => !string.IsNullOrWhiteSpace(p.Symbol))
                 .Select(p => p.Symbol)
                 .Distinct()
                 .ToList();
-            if (taggedSymbols.Count > 0)
+            if (symbols.Count == 0) return;
+
+            var rows = await Timed("tags", () => db.StockClassifications
+                .Where(s => symbols.Contains(s.Symbol) && s.Tags != null)
+                .Select(s => new { s.Symbol, s.Tags })
+                .ToListAsync(ct));
+            var tags = rows.ToDictionary(r => r.Symbol, r => StockCategoryService.SplitTags(r.Tags));
+            foreach (var p in positions)
             {
-                var tagRows = await Timed("tags", () => db.StockClassifications
-                    .Where(s => taggedSymbols.Contains(s.Symbol) && s.Tags != null)
-                    .Select(s => new { s.Symbol, s.Tags })
-                    .ToListAsync(ct));
-                var tagMap = tagRows.ToDictionary(r => r.Symbol, r => StockCategoryService.SplitTags(r.Tags));
-                foreach (var p in positions)
-                {
-                    if (tagMap.TryGetValue(p.Symbol, out var tags))
-                        p.Tags = tags.ToList();
-                }
+                if (tags.TryGetValue(p.Symbol, out var symbolTags))
+                    p.Tags = symbolTags.ToList();
             }
+        }
 
-            // XIRR is 含息 (total return): dividends are real cash inflows, so leaving them out
-            // would understate the annualized return relative to what the user actually earned.
-            var annualizedReturnPct = ComputeAnnualizedReturn(
-                allSnapshots, fx, costBasisTWD + pnlTWD, dividendFlows, Today);
+        /// <summary>
+        /// The day's change in liquid net worth (流動淨資產: liquid assets net of debt, no real estate)
+        /// against the previous trading day's holdings at that day's closes, and that as a % of the previous
+        /// day's liquid gross assets — the basis of the other headline percentages. Null until there is
+        /// something to compare: holdings that changed, or a price newer than the previous trading day's
+        /// close. Before today's prices land both days read alike, and 0 would be misleading.
+        /// </summary>
+        private static (decimal? TWD, decimal? Pct) DayChange(
+            HoldingSnapshot today, HoldingSnapshot? previous, DateOnly previousTradingDay,
+            ICollection<HoldingPosition> allPositions, PortfolioPrices prices, PortfolioTotals totals)
+        {
+            if (previous == null) return (null, null);
+            var holdingsChanged = today.Id != previous.Id && !ArePositionsEqual(today.Positions, previous.Positions);
+            if (!holdingsChanged && !HasNewerPriceThan(allPositions, previousTradingDay, prices.Stocks, prices.Funds))
+                return (null, null);
 
-            // Shared denominator for unrealized and total-return %: gross liquid assets only —
-            // real estate is manually-valued and shouldn't dilute a price-driven %, and liability
-            // isn't netted out so a mortgage doesn't inflate the ratio the way "÷ (assets - debt)" would.
-            var liquidGrossAssetsTWD = twStock + usStock + cash + fund;
-            // Liquid assets net of debt — the actual equity backing a leveraged position, and the
-            // foundation for liquid net assets (流動淨資產 / 流動資產淨值). Real estate is excluded
-            // on purpose: a house can't be liquidated to meet immediate obligations. `liability`
-            // is already negative here (see the sign-flip invariant at the single valuation point above).
-            var liquidNetWorthTWD = liquidGrossAssetsTWD + liability;
+            // Both sides convert at today's rates (prices.Fx), not at the rate saved with the earlier
+            // snapshot: that is a mid-market rate from whenever it was saved, and mixing the two put the gap
+            // between unrelated rates into every day's figure. Holding FX constant leaves what this figure
+            // is for, price moves and trades.
+            var asOfPrices = AsOfPriceBook.From(prices.Stocks, prices.Funds);
+            var previousLiquidNetWorth = ValueAsOfDate(
+                previous.Positions, previousTradingDay, prices.Fx.MidUsdTwd, asOfPrices,
+                includeRealEstate: false, includeLiability: true, fxFor: prices.Fx.RateFor);
+            if (!previousLiquidNetWorth.HasValue) return (null, null);
 
-            // Day change: measures single-day rise or fall in liquid net assets (流動淨資產 = liquid gross
-            // assets + liability, excluding real estate) vs the previous trading day.
-            //
-            // Positions baseline: uses the active snapshot on or before the previous trading day (falling
-            // back to today's snapshot if no prior snapshot exists). If the user sold stock into cash
-            // or deposited funds, the change in liquid net assets is reflected even if the current snapshot
-            // has no stock positions.
-            //
-            // Guard: when holdings haven't changed between the two days, require at least one held position
-            // to have a published price newer than the previous trading day's close. Otherwise, before
-            // today's market data lands, today and previous trading day resolve to identical prices and
-            // would misleadingly show $0 / 0.00% rather than "no new data yet".
-            decimal? dayChangeTWD = null, dayChangePct = null;
-            if (prevSnapshot != null)
-            {
-                var holdingsChanged = snapshot.Id != prevSnapshot.Id
-                    && !ArePositionsEqual(snapshot.Positions, prevSnapshot.Positions);
-                var hasNewerPrice = HasNewerPriceThan(allPositions, prevTradingDay, stockMap, fundMap);
+            var change = totals.LiquidNetWorth - previousLiquidNetWorth.Value;
+            var previousLiquidGross = ValueAsOfDate(
+                previous.Positions, previousTradingDay, prices.Fx.MidUsdTwd, asOfPrices,
+                includeRealEstate: false, includeLiability: false, fxFor: prices.Fx.RateFor);
+            return (change, previousLiquidGross is > 0 ? Math.Round(change / previousLiquidGross.Value * 100, 2) : null);
+        }
 
-                if (holdingsChanged || hasNewerPrice)
-                {
-                    // Valued at today's rates through the same PositionFx as today's side, not at
-                    // the rate stored on the earlier snapshot. That stored rate is the mid-market
-                    // rate from whenever the snapshot was saved (possibly weeks ago) and a different
-                    // source from the 國泰/集保 rates on today's side; mixing them put the gap
-                    // between two unrelated rates into every day's figure. With no trade and no
-                    // price move, US$30k of stock read as a NT$15,000 loss. Holding FX constant
-                    // leaves price moves and holdings changes, which is what this figure is for.
-                    var asOfPrices = AsOfPriceBook.From(stockMap, fundMap);
-                    var prevLiquidNetWorthTWD = ValueAsOfDate(
-                        prevSnapshot.Positions, prevTradingDay, fx, asOfPrices,
-                        includeRealEstate: false, includeLiability: true, fxFor: PositionFx);
-
-                    if (prevLiquidNetWorthTWD.HasValue)
-                    {
-                        dayChangeTWD = liquidNetWorthTWD - prevLiquidNetWorthTWD.Value;
-
-                        // % of the previous day's gross liquid assets (excl. real estate, not net of
-                        // liability): the same basis as UnrealizedPnlPct/TotalReturnPct and the
-                        // 流動資產 headline above them, as the user asked for. Dividing by net
-                        // assets instead inflates the % whenever there is debt, out of line with the
-                        // two percentages shown beside it.
-                        var prevLiquidGrossTWD = ValueAsOfDate(
-                            prevSnapshot.Positions, prevTradingDay, fx, asOfPrices,
-                            includeRealEstate: false, includeLiability: false, fxFor: PositionFx);
-                        if (prevLiquidGrossTWD is > 0)
-                            dayChangePct = Math.Round(dayChangeTWD.Value / prevLiquidGrossTWD.Value * 100, 2);
-                    }
-                }
-            }
-
-            timing.Add("total", total.Elapsed);
+        private static PortfolioSummaryDto BuildSummary(
+            HoldingSnapshot snapshot, decimal fx, PortfolioTotals totals, decimal totalDividendsTWD,
+            decimal? annualizedReturnPct, (decimal? TWD, decimal? Pct) dayChange, List<PositionDto> positions)
+        {
+            var totalReturnPnlTWD = totals.UnrealizedPnl + totalDividendsTWD;
             return new PortfolioSummaryDto
             {
                 EffectiveDate = snapshot.EffectiveDate,
                 UsdTwdRate = fx,
-                TotalNetWorthTWD = netWorthTWD,
-                TwStockTWD = twStock,
-                UsStockTWD = usStock,
-                CashTWD = cash,
-                FundTWD = fund,
-                RealEstateTWD = realEstate,
-                // Display as a positive "amount owed"; liability itself is negative for the net-worth sum.
-                LiabilityTWD = -liability,
-                // Gross liquid assets — excludes real estate, not net of liability. Denominator
-                // for the three headline %s above/below; also surfaced directly so the UI can show
-                // it next to 流動資產淨值 (which IS net of liability).
-                LiquidGrossAssetsTWD = liquidGrossAssetsTWD,
-                CostBasisTWD = costBasisTWD,
-                UnrealizedPnlTWD = pnlTWD,
-                UnrealizedPnlPct = liquidGrossAssetsTWD > 0
-                    ? Math.Round(pnlTWD / liquidGrossAssetsTWD * 100, 2) : 0,
-                EstimatedSellCostTWD = estimatedSellCostTWD,
+                TotalNetWorthTWD = totals.NetWorth,
+                TwStockTWD = totals.TwStock,
+                UsStockTWD = totals.UsStock,
+                CashTWD = totals.Cash,
+                FundTWD = totals.Fund,
+                RealEstateTWD = totals.RealEstate,
+                // Shown as a positive amount owed.
+                LiabilityTWD = -totals.Liability,
+                LiquidGrossAssetsTWD = totals.LiquidGrossAssets,
+                CostBasisTWD = totals.CostBasis,
+                UnrealizedPnlTWD = totals.UnrealizedPnl,
+                UnrealizedPnlPct = totals.PctOfLiquidGrossAssets(totals.UnrealizedPnl),
+                EstimatedSellCostTWD = totals.EstimatedSellCost,
                 TotalDividendsTWD = totalDividendsTWD,
                 TotalReturnPnlTWD = totalReturnPnlTWD,
-                TotalReturnPct = liquidGrossAssetsTWD > 0
-                    ? Math.Round(totalReturnPnlTWD / liquidGrossAssetsTWD * 100, 2) : 0,
+                TotalReturnPct = totals.PctOfLiquidGrossAssets(totalReturnPnlTWD),
                 AnnualizedReturnPct = annualizedReturnPct,
-                MarketExposureTWD = equityExposureTWD,
-                // Deployment level: how much of what's actually held carries market risk, with no
-                // regard for how it was financed. Debt is deliberately NOT netted out here — that's
-                // the whole point of having this alongside the leverage multiple below, which
-                // answers the different question of how big the position is relative to own money.
-                ExposureOfLiquidAssetsPct = liquidGrossAssetsTWD > 0
-                    ? Math.Round(equityExposureTWD / liquidGrossAssetsTWD * 100, 1)
-                    : null,
-                LiquidExposureMultiple = liquidNetWorthTWD > 0
-                    ? Math.Round(equityExposureTWD / liquidNetWorthTWD, 2)
-                    : null,
-                // Fraction of a market-wide decline that would wipe liquid net worth out. Solving
-                // `netWorth + exposure * f = 0` for f gives f = -netWorth / exposure, so this is
-                // exactly (liquid net worth ÷ exposure) — the reciprocal of the exposure ratio
-                // above, which is the whole point: exposure/equity has its singularity at equity=0
-                // (the most dangerous moment, where it explodes then flips sign and reads as a
-                // meaningless negative), while equity/exposure divides by a quantity that can't go
-                // negative and only degenerates at exposure=0 — the *safest* state, trivially
-                // rendered as "no market exposure". Negative values are meaningful here: already
-                // insolvent. Assumes every position moves together at beta 1, so it's a
-                // deliberately conservative approximation, not a precise risk figure.
-                DrawdownBufferPct = equityExposureTWD > 0
-                    ? Math.Round(liquidNetWorthTWD / equityExposureTWD * 100, 1)
-                    : null,
-                DayChangeTWD = dayChangeTWD,
-                DayChangePct = dayChangePct,
+                MarketExposureTWD = totals.Exposure,
+                ExposureOfLiquidAssetsPct = totals.ExposureOfLiquidAssetsPct,
+                LiquidExposureMultiple = totals.LiquidExposureMultiple,
+                DrawdownBufferPct = totals.DrawdownBufferPct,
+                DayChangeTWD = dayChange.TWD,
+                DayChangePct = dayChange.Pct,
                 Positions = positions.OrderByDescending(p => p.MarketValueTWD).ToList(),
             };
         }
