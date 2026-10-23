@@ -12,6 +12,7 @@ import AssistantMark from './AssistantMark';
 import AttachmentChip from './AttachmentChip';
 import MessageActions from './MessageActions';
 import MessageEditor from './MessageEditor';
+import ToolActivity from './ToolActivity';
 
 import { TRUNCATED_NOTE } from '@/apis/chatbotApis/chatErrors';
 import { attachmentContentUrl } from '@/apis/chatbotApis/types';
@@ -296,6 +297,7 @@ function MessageArea({
               </Box>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 {attachments}
+                {message.toolSteps && <ToolActivity steps={message.toolSteps} />}
                 {!message.parsedBlocks?.length && message.content ? (
                   <MarkdownMessage content={message.content} isOwnMessage={false} theme={theme} />
                 ) : !message.parsedBlocks?.length ? (

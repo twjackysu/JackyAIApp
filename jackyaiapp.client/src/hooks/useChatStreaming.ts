@@ -13,12 +13,17 @@ export interface StreamingStatus {
   statusText: string;
 }
 
+/** A tool call starting, or one of our own tools finishing (hosted tools send no result). */
+export type ToolEvent =
+  | { type: 'tool_use'; name: string; id?: string; displayName?: string }
+  | { type: 'tool_result'; id: string; name: string; ok: boolean; durationMs?: number };
+
 /** Our own SSE event shape from ChatbotController — written by AnthropicChatService through
  *  SseStream. A failure carries only a code; `chatErrorMessage` turns it into words. */
 type ChatStreamEvent =
   | { type: 'start'; conversationId: string; userMessageId?: number }
   | { type: 'delta'; text: string }
-  | { type: 'tool_use'; name: string }
+  | ToolEvent
   | {
       type: 'done';
       conversationId: string;
@@ -45,6 +50,8 @@ export interface ChatTurn {
   /** The reader stopped the turn; `partial` is what had been written by then (the server keeps it). */
   onStopped: (partial: string, assistantMessageId?: number) => void;
   onError: (error: string) => void;
+  /** A tool call started or finished. */
+  onToolEvent?: (event: ToolEvent) => void;
 }
 
 /** What the server keeps of a stopped answer, ending it (AnthropicChatService.StoppedContent). */
@@ -107,6 +114,7 @@ export const useChatStreaming = ({ errorMessages }: ChatStreamingOptions = {}) =
       onComplete,
       onStopped,
       onError,
+      onToolEvent,
     }: ChatTurn) => {
       const turn = { abort: new AbortController(), conversationId, stopRequested: false };
       turnRef.current = turn;
@@ -173,6 +181,10 @@ export const useChatStreaming = ({ errorMessages }: ChatStreamingOptions = {}) =
                   currentEvent: 'tool_use',
                   statusText: `🔄 正在查詢 ${event.name}...`,
                 }));
+                onToolEvent?.(event);
+                break;
+              case 'tool_result':
+                onToolEvent?.(event);
                 break;
               case 'done':
                 if (event.stopped)

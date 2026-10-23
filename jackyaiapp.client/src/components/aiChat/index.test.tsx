@@ -342,6 +342,37 @@ describe('AiAssistantPanel', () => {
     await waitForText('錯誤: 這段對話太長了，請開新對話繼續。');
   });
 
+  it('shows the tools an answer used above it, each closed once the answer is done', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'tool_use', name: 'get_realtime_quote' },
+        { type: 'tool_use', name: 'get_stock_history' },
+        { type: 'delta', text: '台積電今天收 1000 元' },
+        { type: 'done', conversationId: 'c1' },
+      ),
+    );
+    await send('台積電');
+
+    await waitForText('台積電今天收 1000 元');
+    const steps = [...container.querySelectorAll('[data-testid="tool-activity"] li')];
+    expect(steps.map((li) => li.getAttribute('aria-label'))).toEqual([
+      'realtime quote（完成）',
+      'stock history（完成）',
+    ]);
+  });
+
+  it('an answer that used no tool shows no tool list', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '你好' }, { type: 'done', conversationId: 'c1' }),
+    );
+    await send('hi');
+
+    await waitForText('你好');
+    expect(container.querySelector('[data-testid="tool-activity"]')).toBeNull();
+  });
+
   it("a decline is told in the app's own words when its config has them", async () => {
     await mount();
     chatReplies.push(() => sseReply({ type: 'error', code: 'refused' }));

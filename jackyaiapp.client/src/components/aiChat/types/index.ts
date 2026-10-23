@@ -1,3 +1,5 @@
+import { ToolStep } from '../utils/toolActivity';
+
 import { ChatAttachment } from '@/apis/chatbotApis/types';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
 
@@ -32,6 +34,8 @@ export interface Message {
   parsedBlocks?: ParsedBlock[];
   /** The answer ran into the length limit and is cut short. */
   truncated?: boolean;
+  /** The tools an answer used, in order (see ToolActivity). */
+  toolSteps?: ToolStep[];
   /** Files sent with a user message. */
   attachments?: ChatAttachment[];
 }

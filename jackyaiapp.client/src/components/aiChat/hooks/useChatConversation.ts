@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Message, QueuedMessage } from '../types';
+import { applyToolEvent, settleToolSteps, ToolStep } from '../utils/toolActivity';
 
 import { chatbotApis, useLazyGetConversationMessagesQuery } from '@/apis/chatbotApis';
 import { ChatAttachment, ChatHistoryMessage } from '@/apis/chatbotApis/types';
@@ -110,6 +111,18 @@ export function useChatConversation(options?: ChatStreamingOptions) {
     const update = (id: string, patch: Partial<Message>) =>
       setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg)));
     const updateBot = (patch: Partial<Message>) => update(botMessage.id, patch);
+    // The tool steps change from their own last state, not from a copy taken when the turn began.
+    const updateSteps = (next: (steps: ToolStep[]) => ToolStep[]) =>
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== botMessage.id) return msg;
+          const steps = next(msg.toolSteps ?? []);
+          // An answer that used no tool keeps no list.
+          return steps.length > 0 ? { ...msg, toolSteps: steps } : msg;
+        }),
+      );
+    const settleSteps = (answered: boolean) =>
+      updateSteps((steps) => settleToolSteps(steps, answered));
 
     await sendStreamingMessage({
       message: text,
@@ -127,18 +140,26 @@ export function useChatConversation(options?: ChatStreamingOptions) {
       onComplete: (newConversationId, truncated, assistantMessageId) => {
         if (newConversationId) setConversationId(newConversationId);
         updateBot({ truncated: truncated || undefined, serverId: assistantMessageId });
+        settleSteps(true);
       },
+      onToolEvent: (event) => updateSteps((steps) => applyToolEvent(steps, event)),
       // What was said before the stop stays, marked the way the server stores it. `parsedBlocks` is
       // cleared so the bubble renders `content`, mark included.
-      onStopped: (partial, assistantMessageId) =>
+      onStopped: (partial, assistantMessageId) => {
         updateBot({
           content: stoppedContent(partial),
           parsedBlocks: undefined,
           serverId: assistantMessageId,
-        }),
+        });
+        // The calls made before the stop did run; none is left spinning.
+        settleSteps(true);
+      },
       // `parsedBlocks` is cleared so the bubble falls back to rendering `content`: an empty
       // block list is what a reply that never started looks like, and it draws nothing.
-      onError: (error) => updateBot({ content: `錯誤: ${error}`, parsedBlocks: undefined }),
+      onError: (error) => {
+        updateBot({ content: `錯誤: ${error}`, parsedBlocks: undefined });
+        settleSteps(false);
+      },
     });
 
     // The turn is over, however it ended: the first message of a new conversation has just
