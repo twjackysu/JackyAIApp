@@ -36,12 +36,14 @@ export function usePendingAttachments() {
     setPending((prev) => prev.map((a) => (a.key === key ? { ...a, ...patch } : a)));
 
   const add = (files: File[]) => {
-    // A failed chip is only there to say why; it does not take up one of the slots.
-    const taken = pending.filter((a) => !a.error).length;
-    const added: PendingAttachment[] = files.map((file, i) => {
+    // A failed chip is only there to say why; it does not take up one of the slots — one already
+    // there, or one turned down in this same pick.
+    let taken = pending.filter((a) => !a.error).length;
+    const added: PendingAttachment[] = files.map((file) => {
       const key = `attachment-${nextKey.current++}`;
       const error =
-        taken + i >= MAX_ATTACHMENTS ? ATTACHMENT_ERROR_MESSAGES.tooMany : rejectBeforeUpload(file);
+        taken >= MAX_ATTACHMENTS ? ATTACHMENT_ERROR_MESSAGES.tooMany : rejectBeforeUpload(file);
+      if (!error) taken += 1;
       const previewUrl = !error && isImageFile(file) ? createPreviewUrl(file) : undefined;
       return { key, fileName: file.name, error, previewUrl };
     });

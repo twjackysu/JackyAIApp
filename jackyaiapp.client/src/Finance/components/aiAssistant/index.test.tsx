@@ -810,6 +810,25 @@ describe('AiAssistantPanel — attachments', () => {
     expect(container.textContent).not.toContain('一次最多附加 5 個檔案');
   });
 
+  it('nor does one turned down in the same pick: five good files still go, a sixth does not', async () => {
+    await mount();
+    for (let i = 1; i <= 5; i++) uploadReplies.push(() => json({ data: uploaded(i, `${i}.txt`) }));
+    await attach(
+      file('slides.pptx'),
+      file('1.txt'),
+      file('big.csv', 10 * 1024 * 1024 + 1),
+      ...[2, 3, 4, 5, 6].map((i) => file(`${i}.txt`)),
+    );
+
+    await waitForText('6.txt：一次最多附加 5 個檔案。');
+    await uploadsSettled();
+    expect(uploads).toBe(5);
+    expect(container.textContent).toContain('slides.pptx：不支援這種檔案');
+    expect(container.textContent).toContain('big.csv：檔案太大');
+    for (const name of ['1.txt', '2.txt', '3.txt', '4.txt', '5.txt'])
+      expect(container.textContent).not.toContain(`${name}：`);
+  });
+
   it('a file removed while it is still uploading is deleted on the server once it lands', async () => {
     await mount();
     let finish!: () => void;
