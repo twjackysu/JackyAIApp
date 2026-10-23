@@ -229,7 +229,50 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             _values.Verify(v => v.LookupAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
+        [Fact]
+        public async Task AnEmptyLatestDate_IsLeftOutOfThePrompt()
+        {
+            _plans.Enqueue(Plan());
+
+            await PlanAsync(maxDate: _ => Task.FromResult<string?>(""));
+
+            Assert.DoesNotContain("DATA DATE RANGE", Assert.Single(_asked).System);
+        }
+
+        [Fact]
+        public async Task ANumericColumnsExactFilter_IsNotLookedUp()
+        {
+            _values.Setup(v => v.LookupAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([]);
+            _plans.Enqueue(Plan([Filter("Amount", "Equals", "100")]));
+
+            var result = await PlanAsync();
+
+            Assert.Equal("100", Assert.Single(Assert.Single(result.Plan!.Filters!).Values));
+            _values.Verify(v => v.LookupAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
         // ── the correction ──────────────────────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task AColumnReadWholeButLeftOutOfThePrompt_IsCheckedByItsValues_ButCorrectedLikeOneTooLargeToList()
+        {
+            // Codes takes the whole 2000 the prompt lists; Region is read whole but not listed.
+            var fields = new List<(string, string)> { ("Codes", "String"), ("Region", "String"), ("Amount", "Decimal") };
+            _distinct = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Codes"] = new(Many("code", 2000), false),
+                ["Region"] = Listed("APAC", "EMEA"),
+            };
+            _plans.Enqueue(Plan([Filter("Region", "In", "Asia")]));
+            _plans.Enqueue(Plan());
+
+            await PlanAsync(fields);
+
+            Assert.DoesNotContain("- Region:", _asked[0].System);
+            _values.Verify(v => v.LookupAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+            Assert.Equal(Correction("- Region: \"Asia\" — no similar value exists in this column"), _asked[1].User);
+        }
 
         [Fact]
         public async Task AValueNotInAListedColumn_IsCorrectedOnce_WithThatColumnsValues()

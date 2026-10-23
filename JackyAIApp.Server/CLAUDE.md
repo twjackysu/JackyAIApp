@@ -223,3 +223,15 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - The Anthropic client comes from `IAnthropicClientFactory`, so `AnthropicChatStreamTests` can give the real
   SDK an `HttpClient` serving recorded API streams: a whole turn is tested offline, from the SSE the reader
   gets to what is saved and logged. A change to how a turn reads the stream gets a case there
+
+## Data analysis: questions in plain language
+
+- `NlQueryPlanner.BuildPlanAsync` only orchestrates. Which columns are String or date columns is
+  `NlSchema`; which String columns' real values are read (300 a column) and listed in the prompt (2000 in
+  all), and which can check a plan against all their values, is `NlPromptValues`; the wording sent to the
+  LLM is `NlPrompt`; the LLM calls of one question — a plan checked against the data, and its one
+  correction — are `NlPlanRun`. The rules for filter values and notes stay in `NlPlanValidator`, the
+  relative dates in `NlDateRanges`. Change a rule in its unit, each of which has its own tests
+- `NlQueryPlannerPipelineTests` pins the whole pipeline against a mocked LLM and value source: what each
+  call is told and asked, what the source is queried for, and which plan and notes come back. A change to
+  what the LLM sees gets a case there
