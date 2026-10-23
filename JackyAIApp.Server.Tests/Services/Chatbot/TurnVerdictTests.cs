@@ -33,18 +33,13 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
                 TurnVerdict.Of(Outcome(text, stopReason: null, stopped: true)));
         }
 
-        [Fact]
-        public void AFailedRequest_KeepsTheTextItSent_AsItIs()
+        [Theory]
+        [InlineData("說到一半", ChatErrorCodes.Busy)]
+        [InlineData("", ChatErrorCodes.ContextTooLong)]
+        public void AFailedRequest_KeepsNothing_NotEvenTheTextItSent(string text, string code)
         {
-            Assert.Equal(new TurnVerdict(false, ChatErrorCodes.Busy, false, false, "說到一半"),
-                TurnVerdict.Of(Outcome("說到一半", stopReason: null, errorCode: ChatErrorCodes.Busy)));
-        }
-
-        [Fact]
-        public void AFailedRequestWithNoText_KeepsNothing()
-        {
-            Assert.Equal(new TurnVerdict(false, ChatErrorCodes.ContextTooLong, false, false, null),
-                TurnVerdict.Of(Outcome("", stopReason: null, errorCode: ChatErrorCodes.ContextTooLong)));
+            Assert.Equal(new TurnVerdict(false, code, false, false, null),
+                TurnVerdict.Of(Outcome(text, stopReason: null, errorCode: code)));
         }
 
         [Theory]

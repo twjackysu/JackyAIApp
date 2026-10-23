@@ -336,6 +336,19 @@ describe('AiAssistantPanel', () => {
     await waitForText('錯誤: 回覆失敗，請稍後再試。');
   });
 
+  // The server keeps nothing of a reply that failed (TurnVerdict.Of), so reopening the conversation
+  // shows what the bubble showed here: the error, not the cut-off answer.
+  it('a reply that fails after some text shows only the error, dropping the cut-off answer', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '說到一半的分析' }, { type: 'error', code: 'busy' }),
+    );
+    await send('hi');
+
+    await waitForText('錯誤: AI 服務目前忙碌中，請稍後再試。');
+    expect(container.textContent).not.toContain('說到一半的分析');
+  });
+
   it('says so under an answer that was cut short by the length limit', async () => {
     await mount();
     chatReplies.push(() =>
