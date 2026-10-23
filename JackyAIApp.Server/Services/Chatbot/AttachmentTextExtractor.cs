@@ -125,7 +125,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         {
             using var doc = SpreadsheetDocument.Open(content, false);
             var workbookPart = doc.WorkbookPart ?? throw new UnreadableAttachmentException("The workbook has no data.");
-            var sharedStrings = workbookPart.SharedStringTablePart?.SharedStringTable
+            var sharedStrings = workbookPart.SharedStringTablePart?.SharedStringTable?
                 .Elements<SharedStringItem>().Select(s => s.InnerText).ToArray() ?? [];
 
             var sb = new StringBuilder();
