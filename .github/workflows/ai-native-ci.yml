@@ -1,0 +1,109 @@
+name: CI (feature/ai-native)
+
+# Same checks as CI.yml, run on every push to the long-lived feature/ai-native branch. That branch is
+# developed by a scheduled loop that pushes directly (no PR), so CI.yml never runs for it, and the
+# loop's cloud session cannot reach NuGet: this workflow is the only place the server is built and
+# tested. The session cannot read job logs either (they live on blob storage it cannot reach), only
+# check-run annotations, so compiler errors (setup-dotnet's problem matcher) and failed tests (the
+# TRX step below) are reported as annotations.
+#
+# Deploys nothing. Delete this file when feature/ai-native is merged into master.
+on:
+  push:
+    branches: [feature/ai-native]
+    paths-ignore:
+      - '.loop/**'
+      - 'docs/**'
+      - '**.md'
+
+concurrency:
+  group: ai-native-ci
+  cancel-in-progress: true
+
+jobs:
+  build-and-test-server:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore JackyAIApp.Server/JackyAIApp.Server.csproj
+
+    - name: Restore test dependencies
+      run: dotnet restore JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj
+
+    - name: Build Server
+      run: dotnet build JackyAIApp.Server/JackyAIApp.Server.csproj --configuration Release --no-restore
+
+    - name: Build Tests
+      run: dotnet build JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release --no-restore
+
+    - name: Run tests
+      run: >-
+        dotnet test JackyAIApp.Server.Tests/JackyAIApp.Server.Tests.csproj --configuration Release
+        --no-build --filter "Category!=LiveContract"
+        --logger "trx;LogFileName=results.trx" --results-directory TestResults
+
+    - name: Report failed tests as annotations
+      if: failure()
+      run: |
+        python3 - <<'EOF'
+        import glob
+        import xml.etree.ElementTree as ET
+
+        ns = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
+        failed = []
+        for path in glob.glob("TestResults/*.trx"):
+            for r in ET.parse(path).getroot().iterfind(".//t:UnitTestResult", ns):
+                if r.get("outcome") == "Failed":
+                    message = (r.findtext(".//t:Message", default="", namespaces=ns) or "").strip()
+                    stack = (r.findtext(".//t:StackTrace", default="", namespaces=ns) or "").strip()
+                    stack = "\n".join(stack.splitlines()[:4])
+                    failed.append((r.get("testName"), message, stack))
+
+        def escape(text):
+            return text.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+
+        # GitHub keeps at most 10 error annotations per step; the first one carries the count.
+        if failed:
+            print(f"::error title={len(failed)} test(s) failed::{escape(', '.join(n for n, _, _ in failed)[:3000])}")
+        for name, message, stack in failed[:9]:
+            print(f"::error title=Test failed: {escape(name)[:200]}::{escape((message + chr(10) + stack)[:3000])}")
+        EOF
+
+  lint-and-build-client:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: jackyaiapp.client
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: jackyaiapp.client/package-lock.json
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Lint
+      run: npm run lint
+
+    - name: Test
+      run: npm run test
+
+    - name: Build
+      run: npm run build
