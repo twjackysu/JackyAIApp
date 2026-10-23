@@ -32,6 +32,15 @@ jackyaiapp.client/src/
   `invalidatesTags: onSuccess(...)` (not a bare array: RTK Query also applies that to a mutation the
   server answered with an error). `apis/api.test.ts` pins which mutation refreshes what.
 
+## Component structure
+
+- A component that outgrows one file becomes a folder of the same name: `index.tsx` keeps the
+  composition (and the export, so imports do not change), each section is its own file, and a rule the
+  JSX was deciding inline — which notice wins, what is shown when — is a pure function with its own
+  tests. `Portfolio/DrawdownBrakeCard/` is the pattern: why advice is held back is `noAdviceReason`
+  (one reason, in order), the prices it is computed at `useStrategyPrices`
+- Split without changing what renders: the component's existing tests stay as they are and must pass
+
 ## UI Conventions
 
 ### No hover-only tooltips

@@ -16,14 +16,14 @@ import {
   refreshResultMessage,
   signalDateLabel,
   throttledMessage,
-} from './drawdownBrakeCopy';
+} from '../drawdownBrakeCopy';
 import {
   formatLastChecked,
   PRICE_REFRESH_COOLDOWN_SECONDS,
   sanitizeRetryAfter,
   secondsLeft,
-} from './drawdownBrakeRefreshTiming';
-import { loadFeeDiscountRate } from './feeDiscountRate';
+} from '../drawdownBrakeRefreshTiming';
+import { loadFeeDiscountRate } from '../feeDiscountRate';
 
 import {
   useRefreshDrawdownBrakeMutation,
