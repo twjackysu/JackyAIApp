@@ -16,7 +16,6 @@ namespace JackyAIApp.Server.Services.Listening
         AzureSQLDBContext dbContext,
         IOpenAIPromptService promptService,
         IOpenAIService openAIService,
-        IListeningImageProcessor imageProcessor,
         IListeningImageStorageService imageStorageService,
         IAiUsageLogger usageLogger) : IListeningQuestionGenerator
     {
@@ -79,6 +78,10 @@ namespace JackyAIApp.Server.Services.Listening
                 // gpt-image-1-mini only supports 1024x1024 / 1024x1536 / 1536x1024 / auto —
                 // 1792x1024 (a DALL-E 3 size present in the SDK's enum) is rejected by the API.
                 Size = ImageSize.Size1024,
+                // A JPEG straight from the model, compressed to about 100–200 KB: it is stored as it is, and
+                // the page crops it to 4:3 — the server decodes no image.
+                OutputFormat = ImageOutputFormat.Jpeg,
+                OutputCompression = 70,
                 N = 1,
             });
 
@@ -92,11 +95,16 @@ namespace JackyAIApp.Server.Services.Listening
                     "Query failed, OpenAI could not generate the question image.");
             }
 
-            var rawImageBytes = Convert.FromBase64String(b64);
-            var processedImageBytes = imageProcessor.ResizeAndCompress(rawImageBytes);
+            var imageBytes = Convert.FromBase64String(b64);
+            if (ImageHeader.Read(imageBytes)?.MediaType != ImageHeader.Jpeg)
+            {
+                logger.LogError("OpenAI returned a listening question image that is not a JPEG");
+                return ServiceResult.Fail(ErrorCodes.ExternalApiError,
+                    "Query failed, OpenAI returned an unexpected image.");
+            }
 
             var listeningTestId = Guid.NewGuid().ToString();
-            var imageUrl = await imageStorageService.UploadAsync($"{listeningTestId}.jpg", processedImageBytes);
+            var imageUrl = await imageStorageService.UploadAsync($"{listeningTestId}.jpg", imageBytes);
 
             var listeningTest = new SQL.ListeningTest
             {

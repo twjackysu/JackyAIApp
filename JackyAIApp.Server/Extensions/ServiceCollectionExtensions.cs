@@ -73,7 +73,6 @@ namespace JackyAIApp.Server.Extensions
             {
                 services.AddScoped<ITextToSpeechService, TextToSpeechService>();
             }
-            services.AddScoped<Services.Listening.IListeningImageProcessor, Services.Listening.ListeningImageProcessor>();
             services.AddScoped<Services.Listening.IListeningQuestionGenerator, Services.Listening.ListeningQuestionGenerator>();
 
             return services;

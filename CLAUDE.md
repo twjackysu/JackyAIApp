@@ -285,7 +285,7 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
     jacky-studio.com only `apps` (and its `asuid.apps` TXT) is defined; the apex and `www`
     have no records
 - **Process**: Build → Test → Publish → Deploy with Azure publish profile (ubuntu runner)
-- **Linux**: no Windows-only APIs (System.Drawing.Common throws there; images use ImageSharp),
+- **Linux**: no Windows-only APIs (System.Drawing.Common throws there),
   and file paths are case-sensitive
 - **Azure resources** (`MyAppResourceGroup`, East US unless noted), all in use unless marked:
   - `jackyai-linux` + plan `ASP-JackyAI-Linux` (B1) — the app
@@ -340,6 +340,11 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 - **Authentication**: Google OAuth only, no local user registration
 - **Secrets**: Never commit API keys - use Azure Key Vault
 - **PDF Processing**: Sanitize user inputs for PDF operations
+- **Images**: the server never decodes an image — an image decoder is where image libraries' security
+  bugs are. A chat image is downsized in the browser (`prepareChatImage.ts`) and the server only reads its
+  header (`Common/ImageHeader`: PNG or JPEG, within the size the browser makes); a listening question's
+  image comes from OpenAI as a JPEG and the page crops it to 4:3. There is no image library: ImageSharp
+  was removed in 2026-10, for its decoder vulnerabilities and v4's build-time license key
 - **HTTPS**: Enforced in all environments
 - **Input Validation**: Comprehensive validation on all API endpoints
 

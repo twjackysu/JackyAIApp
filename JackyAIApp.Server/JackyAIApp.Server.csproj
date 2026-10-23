@@ -57,7 +57,6 @@
          (GHSA-gwg2-r3hj-4w44, moderate) is still reachable through an uploaded PNG, JPEG or WebP
          carrying a crafted profile; 4.1.2+ closes it. Free under the Six Labors Split License for
          an individual with under 1M USD annual revenue. -->
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageReference Include="TWStockLib" Version="3.0.0" />
     <PackageReference Include="WeCantSpell.Hunspell" Version="7.0.1" />
   </ItemGroup>
