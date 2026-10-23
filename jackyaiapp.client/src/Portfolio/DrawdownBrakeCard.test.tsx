@@ -380,6 +380,44 @@ describe('DrawdownBrakeCard', () => {
       expect(text).not.toContain('建議賣出');
     });
 
+    it('isInitializing 又 isStale：只說「資料準備中」，不說資料未更新或沒有訊號', () => {
+      brakeResult(
+        makeSignal({
+          isInitializing: true,
+          isStale: true,
+          state: null,
+          prevState: null,
+          asOfDate: null,
+          lastSwitchDate: null,
+          close: null,
+          high252: null,
+          sma60: null,
+          drawdownPct: null,
+          distanceToTriggerPct: null,
+        }),
+      );
+      const text = textOf(render(makeSummary([cash(1_000_000)])));
+      expect(text).toContain('資料準備中');
+      expect(text).not.toContain('資料未更新');
+      expect(text).not.toContain('目前沒有可用的大盤訊號');
+    });
+
+    it('不是準備中、卻缺狀態欄位 → 「目前沒有可用的大盤訊號」，不顯示建議', () => {
+      brakeResult(makeSignal({ state: null, drawdownPct: null, distanceToTriggerPct: null }));
+      const text = textOf(render(makeSummary([cash(1_000_000)])));
+      expect(text).toContain('目前沒有可用的大盤訊號');
+      expect(text).not.toContain('目前狀態');
+      expect(text).not.toContain('目標配置：');
+    });
+
+    it('重抓失敗但手上已有訊號 → 不顯示錯誤，照舊顯示狀態與建議', () => {
+      brakeResult(makeSignal(), { isError: true, error: { status: 'FETCH_ERROR', error: 'x' } });
+      const text = textOf(render(makeSummary([cash(1_000_000)])));
+      expect(text).not.toContain('Cannot reach the server');
+      expect(text).toContain('目前狀態');
+      expect(text).toContain('目標配置：');
+    });
+
     it('isStale：顯示「資料未更新」，仍沿用最近的狀態計算', () => {
       brakeResult(makeSignal({ isStale: true }));
       const text = textOf(render(makeSummary()));
@@ -458,6 +496,7 @@ describe('DrawdownBrakeCard', () => {
       expect(text).toContain('目前沒有可納入的流動資產');
       expect(text).not.toContain('建議買進');
       expect(text).not.toContain('建議賣出');
+      expect(text).not.toContain('目標配置：');
       expect(text).not.toMatch(/NaN|Infinity/);
     });
 
@@ -480,6 +519,57 @@ describe('DrawdownBrakeCard', () => {
       const html = render(makeSummary([cash(1_000_000)]));
       expect(html).toContain('MuiSkeleton');
       expect(textOf(html)).not.toContain('建議買進');
+      expect(textOf(html)).not.toContain('目標配置：');
+    });
+
+    it('查到的價格是 0 → 當成查不到，不拿它算股數', () => {
+      lookupPrices({ '0050': 0, '00631L': 50 });
+      const text = textOf(render(makeSummary([cash(1_000_000)])));
+      expect(text).toContain('無法取得 0050 的最新價格');
+      expect(text).not.toContain('建議買進');
+    });
+
+    it('剛好在觸發點上（距離 0）→ 顯示 0.0%，不說「已低於」', () => {
+      brakeResult(makeSignal({ drawdownPct: -8, distanceToTriggerPct: 0 }));
+      const text = textOf(render(makeSummary()));
+      expect(text).toContain('距煞車觸發點 0.0%');
+      expect(text).not.toContain('已低於');
+    });
+
+    it('狀態與建議的標籤顏色：進攻綠、防守橘；加碼綠、減碼橘、不動中性', () => {
+      const chipColor = (html: string, label: string) => {
+        const dom = document.createElement('div');
+        dom.innerHTML = html;
+        const chip = Array.from(dom.querySelectorAll('.MuiChip-label')).find(
+          (el) => el.textContent === label,
+        )?.parentElement;
+        return chip?.className.match(/MuiChip-color(\w+)/)?.[1];
+      };
+
+      brakeResult(makeSignal({ state: 'OFFENSE', prevState: 'DEFENSE' }));
+      const buying = render(makeSummary([cash(1_000_000)]));
+      expect(chipColor(buying, '進攻')).toBe('Success');
+      expect(chipColor(buying, '加碼')).toBe('Success');
+
+      brakeResult(
+        makeSignal({
+          state: 'DEFENSE',
+          prevState: 'OFFENSE',
+          drawdownPct: -8.4,
+          distanceToTriggerPct: -0.4,
+        }),
+      );
+      const selling = render(
+        makeSummary([stock('0050', 2000, 100), stock('00631L', 12_000, 50), cash(200_000)]),
+      );
+      expect(chipColor(selling, '防守')).toBe('Warning');
+      expect(chipColor(selling, '減碼')).toBe('Warning');
+
+      brakeResult(makeSignal());
+      const holding = render(
+        makeSummary([stock('0050', 2000, 100), stock('00631L', 11_800, 50), cash(210_000)]),
+      );
+      expect(chipColor(holding, '不動')).toBe('Default');
     });
   });
 
@@ -627,6 +717,22 @@ describe('DrawdownBrakeCard', () => {
       it('有其他持股：提醒「未經回測、僅計入整體曝險、不給建議」', () => {
         const text = textOf(render(makeSummary(s1())));
         expect(text).toContain('其他持股未經回測，僅計入整體曝險、不給建議，由您自行決定。');
+      });
+
+      it('只有其他倍數商品（NTSD）、沒有其他一倍商品：同樣提醒', () => {
+        const text = textOf(
+          render(makeSummary([stock('0050', 400, 100), cash(20_000), ntsd(10_000)])),
+        );
+        expect(text).not.toContain('其他一倍商品');
+        expect(text).toContain('其他持股未經回測，僅計入整體曝險、不給建議，由您自行決定。');
+      });
+
+      it('沒持有現金、但目標配置有現金 → 仍列現金類與現金類的註記', () => {
+        const text = textOf(
+          render(makeSummary([stock('0050', 2000, 100), stock('00631L', 12_000, 50)])),
+        );
+        expect(text).toContain('現金類');
+        expect(text).toContain('現金類包含外幣現金與債券／貨幣型商品');
       });
 
       it('其他持股在進攻、防守、再平衡都「不動」，沒有任何買賣其他持股的建議', () => {
@@ -966,6 +1072,8 @@ describe('DrawdownBrakeCard', () => {
       expect(text).toContain('預估訊號（盤中）');
       expect(text).toContain('觸發回落煞車，進入防守');
       expect(text).toContain('-8.4%');
+      // 預估沒有自己的距離欄位：-8.4% 距 -8% 觸發線，已低於 0.4%。
+      expect(text).toContain('距煞車觸發點 已低於 0.4%');
     });
 
     it('estimateCorrected → 顯示「訊號已更正」', () => {
@@ -1023,6 +1131,112 @@ describe('DrawdownBrakeCard', () => {
 
     it('顯示持股資料日期', () => {
       expect(textOf(render(makeSummary([], '2026-10-09')))).toContain('持股資料日期：2026-10-09');
+    });
+
+    it('分割提示旁的目標曝險跟著狀態：進攻 1.4 倍、防守 0 倍', () => {
+      const summary = makeSummary([stock('0050', 500, 100), cash(500_000)], '2025-06-17');
+      expect(textOf(render(summary))).toContain('整體有效曝險的目標是 1.4 倍');
+
+      brakeResult(
+        makeSignal({
+          state: 'DEFENSE',
+          prevState: 'DEFENSE',
+          drawdownPct: -9,
+          distanceToTriggerPct: -1,
+        }),
+      );
+      expect(textOf(render(summary))).toContain('整體有效曝險的目標是 0 倍');
+    });
+  });
+
+  describe('同時有好幾個原因擋下建議：分割疑慮蓋過其他提示，查價的狀態等前面都沒問題才顯示', () => {
+    // 分割疑慮 → 沒有流動資產 → 範圍內價格取得失敗、核心倍數異常（兩者都列）→ 查價中 → 查不到價。
+    const failedAapl = () =>
+      stock('AAPL', 5, 0, {
+        market: 'US',
+        currency: 'USD',
+        priceFetchFailed: true,
+        marketValueTWD: 0,
+      });
+    const lookupLoading = () =>
+      mocks.lookup.mockImplementation(() => ({ data: undefined, isLoading: true, isError: false }));
+
+    it('分割疑慮＋價格取得失敗 → 只有分割提示', () => {
+      const text = textOf(
+        render(makeSummary([stock('0050', 500, 100), cash(500_000), failedAapl()], '2025-06-17')),
+      );
+      expect(text).toContain('0050 分割（2025-06-18 1 拆 4）');
+      expect(text).not.toContain('價格取得失敗');
+    });
+
+    it('分割疑慮＋核心倍數異常 → 只有分割提示', () => {
+      const text = textOf(
+        render(
+          makeSummary(
+            [stock('0050', 500, 100), stock('00685L', 500, 20, { exposureFactor: 1 })],
+            '2025-06-17',
+          ),
+        ),
+      );
+      expect(text).toContain('0050 分割（2025-06-18 1 拆 4）');
+      expect(text).not.toContain('曝險倍數與策略定義');
+    });
+
+    it('價格取得失敗＋核心倍數異常 → 兩個提示都列，各自說明', () => {
+      const text = textOf(
+        render(
+          makeSummary([
+            stock('00685L', 500, 20, { exposureFactor: 1 }),
+            cash(20_000),
+            failedAapl(),
+          ]),
+        ),
+      );
+      expect(text).toContain('1 檔持股價格取得失敗');
+      expect(text).toContain('00685L 的曝險倍數與策略定義（2 倍）不符');
+    });
+
+    it('價格取得失敗＋查價中 → 只有價格取得失敗，沒有骨架', () => {
+      lookupLoading();
+      const html = render(makeSummary([cash(1_000_000), failedAapl()]));
+      expect(textOf(html)).toContain('1 檔持股價格取得失敗');
+      expect(html).not.toContain('MuiSkeleton');
+    });
+
+    it('核心倍數異常＋查價中 → 只有倍數提示，沒有骨架', () => {
+      lookupLoading();
+      const html = render(
+        makeSummary([stock('00685L', 500, 20, { exposureFactor: 1 }), cash(20_000)]),
+      );
+      expect(textOf(html)).toContain('00685L 的曝險倍數與策略定義（2 倍）不符');
+      expect(html).not.toContain('MuiSkeleton');
+    });
+
+    it('價格取得失敗＋查不到價 → 只有價格取得失敗', () => {
+      lookupPrices({ '0050': undefined, '00631L': 50 });
+      const text = textOf(render(makeSummary([cash(1_000_000), failedAapl()])));
+      expect(text).toContain('1 檔持股價格取得失敗');
+      expect(text).not.toContain('無法取得 0050 的最新價格');
+    });
+
+    it('核心倍數異常＋查不到價 → 只有倍數提示', () => {
+      lookupPrices({ '0050': undefined, '00631L': 50 });
+      const text = textOf(
+        render(makeSummary([stock('00685L', 500, 20, { exposureFactor: 1 }), cash(20_000)])),
+      );
+      expect(text).toContain('00685L 的曝險倍數與策略定義（2 倍）不符');
+      expect(text).not.toContain('無法取得 0050 的最新價格');
+    });
+
+    it('一檔查價中、另一檔查不到 → 先等查價（骨架），還不說查不到', () => {
+      mocks.lookup.mockImplementation((arg: { symbol: string }) =>
+        arg.symbol === '00631L'
+          ? { data: undefined, isLoading: true, isError: false }
+          : { data: undefined, isLoading: false, isError: true },
+      );
+      const html = render(makeSummary([cash(1_000_000)]));
+      expect(html).toContain('MuiSkeleton');
+      expect(textOf(html)).not.toContain('無法取得');
     });
   });
 
@@ -1256,6 +1470,38 @@ describe('DrawdownBrakeCard', () => {
       expect(JSON.parse(localStorage.getItem('portfolio.drawdownBrake') ?? '{}').defenseE).toBe(
         0.3,
       );
+    });
+
+    it('最低現金比例 k：超出 0～0.5 標示錯誤且不存；合法值才存；清空回到依風險等級', async () => {
+      await mount();
+      await act(async () => {
+        button('進階設定').click();
+      });
+      const input = () => container.querySelector('input[type="number"]') as HTMLInputElement;
+      const typeK = async (text: string) => {
+        await act(async () => {
+          const setValue = Object.getOwnPropertyDescriptor(
+            HTMLInputElement.prototype,
+            'value',
+          )!.set!;
+          setValue.call(input(), text);
+          input().dispatchEvent(new Event('input', { bubbles: true }));
+        });
+      };
+      const savedK = () =>
+        JSON.parse(localStorage.getItem('portfolio.drawdownBrake') ?? '{}').minCashRatio;
+
+      await typeK('0.8');
+      expect(container.textContent).toContain('請輸入 0 到 0.5 之間的數值');
+      expect(savedK()).toBeUndefined();
+
+      await typeK('0.3');
+      expect(container.textContent).not.toContain('請輸入 0 到 0.5 之間的數值');
+      expect(savedK()).toBe(0.3);
+
+      await typeK('');
+      expect(savedK()).toBeUndefined();
+      expect(container.textContent).toContain('留空則依風險等級（目前 0.2）');
     });
 
     it('警語在互動後仍然可見，沒有關閉鈕', async () => {
