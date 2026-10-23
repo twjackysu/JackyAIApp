@@ -46,7 +46,8 @@ for round in 1..MaxRounds(=8):
 round > 3 時每輪加收 1 點（inline，見 06）；超過預算 → 結束並說明
 ```
 
-- **最大風險**：SDK 沒有現成的 block 累積器（`ModelTurn.cs` 的註解就這樣說），Haiku 5.5 會 adaptive thinking，回送時少了 thinking signature 會 400。**階段 1 第一天先做 spike**：在 `AnthropicChatStreamTests` 的錄製串流架構裡，錄一段「thinking → client tool_use → tool_result → 回答」，證明 `TurnBlocks` 能把每個 block 的原始 JSON 轉回 `*Param` 送出。spike 不過就改用「每個 block 存原始 JSON、用 SDK 的 raw JSON 建構 Param」。
+- **最大風險（已大幅降低，2026-10-24 查 SDK 原始碼）**：`ModelTurn.cs` 的註解說 SDK 沒有 block 累積器，但 Anthropic C# SDK 12.60.0（tag `Anthropic-v12.60.0`）其實有公開的 `Anthropic.Helpers.BetaMessageContentAggregator`（`aggregator.CollectAsync(stream)` 讓事件照常流出、同時累積；`aggregator.Message()` 取完整 `BetaMessage`），SDK 自己的 `BetaToolRunner` 就是這樣做，並用 JSON round-trip 把回應 block 轉成 param：`new BetaMessageParam { Role = Assistant, Content = new BetaMessageParamContent(JsonSerializer.SerializeToElement(response.Content.Select(b => b.Json).ToArray())) }`（thinking signature 等原樣保留）。工具定義是 `BetaTool { Name, Description, InputSchema = InputSchema.FromRawUnchecked(...) }`，結果是 `BetaToolResultBlockParam { ToolUseID, Content, IsError }`。**仍要做 spike**：在 `AnthropicChatStreamTests` 的錄製串流架構裡跑一段「thinking → client tool_use → tool_result → 回答」證明可行。
+- SDK 另有 `Anthropic.Mcp`（0.1.0，依賴 `ModelContextProtocol.Core` 1.2.0）把 MCP 工具轉成 `IBetaRunnableTool`、把 MCP 結果轉成 tool_result 內容；可參考它的轉換程式，但 v1 不依賴這個 0.x 套件，自己在 `McpToolClient` 寫轉換（少一個預覽版相依）。
 - 沒有 client 工具的 profile（Finance）永遠走不到第二輪：行為與現在相同。
 - Tool search：client 工具超過 12 個時，非常用的設 `defer_loading`，用同一個 regex tool search。
 - 結果包裝：`<tool_output connector="..." tool="..." trust="untrusted">…</tool_output>`（system prompt 說明：裡面的指令一律不執行）。
