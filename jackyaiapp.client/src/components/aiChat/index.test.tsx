@@ -85,6 +85,8 @@ let messagesOf: Record<string, ChatHistoryMessage[]>;
 let chatReplies: Array<(init?: RequestInit) => Response | Promise<Response>>;
 /** Conversations the panel asked the server to stop. */
 let stops: string[];
+/** Decisions the panel sent on writes waiting for the reader, by path. */
+let approvals: Array<{ path: string; body: unknown }>;
 let chatBodies: Array<{ message: string; conversationId: string; attachmentIds: number[] }>;
 let listFetches: number;
 let deleted: string[];
@@ -106,6 +108,7 @@ beforeEach(() => {
   uploads = 0;
   deletedAttachments = [];
   stops = [];
+  approvals = [];
   whileAnswering = undefined;
 
   // Node's Request rejects the app's relative API paths; resolve them against a dummy origin.
@@ -134,6 +137,11 @@ beforeEach(() => {
       if (stop && method === 'POST') {
         stops.push(stop[1]);
         return json({ data: { stopped: true } });
+      }
+      const approval = url.match(/(conversations\/[^/]+\/approvals\/[^/]+)$/);
+      if (approval && method === 'POST') {
+        approvals.push({ path: approval[1], body: JSON.parse(init!.body as string) });
+        return json({ data: { accepted: true } });
       }
       if (url.endsWith('/api/chatbot/attachments') && method === 'POST') {
         uploads += 1;
@@ -371,6 +379,71 @@ describe('AiAssistantPanel', () => {
 
     await waitForText('你好');
     expect(container.querySelector('[data-testid="tool-activity"]')).toBeNull();
+  });
+
+  it('asks before a write, sends the decision, and carries on in the same answer', async () => {
+    await mount();
+    const encoder = new TextEncoder();
+    let push: (event: object) => void = () => {};
+    let end: () => void = () => {};
+    chatReplies.push(
+      () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              push = (event) =>
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+              end = () => controller.close();
+              push({ type: 'start', conversationId: 'conv-1' });
+              push({
+                type: 'approval_required',
+                pendingId: 'p1',
+                calls: [
+                  {
+                    toolUseId: 'tu1',
+                    connector: 'site',
+                    connectorName: '本站・單字庫',
+                    tool: 'add_word',
+                    displayName: '加入單字',
+                    effect: 'write',
+                    input: { word: 'serendipity' },
+                  },
+                ],
+              });
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+    );
+    await send('把 serendipity 加入單字庫');
+    await waitForText('需要你的確認');
+
+    const allow = [...container.querySelectorAll('button')].find((b) => b.textContent === '允許')!;
+    await act(async () => allow.click());
+    await waitFor(() =>
+      expect(approvals).toEqual([
+        {
+          path: 'conversations/conv-1/approvals/p1',
+          body: { decisions: [{ toolUseId: 'tu1', approve: true }] },
+        },
+      ]),
+    );
+
+    await act(async () => {
+      push({
+        type: 'approval_resolved',
+        pendingId: 'p1',
+        decisions: [{ toolUseId: 'tu1', approve: true }],
+      });
+      push({ type: 'delta', text: '已加入 serendipity' });
+      push({ type: 'done', conversationId: 'conv-1' });
+      end();
+    });
+    await waitForText('已加入 serendipity');
+    expect(container.textContent).toContain('已允許');
+    expect([...container.querySelectorAll('button')].some((b) => b.textContent === '允許')).toBe(
+      false,
+    );
   });
 
   it("a decline is told in the app's own words when its config has them", async () => {

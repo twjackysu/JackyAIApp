@@ -1,0 +1,128 @@
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import ApprovalCard from './ApprovalCard';
+
+import type { ApprovalCall, PendingApproval } from '../utils/approval';
+
+let container: HTMLDivElement;
+let root: Root;
+
+beforeEach(() => {
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+});
+
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+});
+
+const call = (toolUseId: string, patch: Partial<ApprovalCall> = {}): ApprovalCall => ({
+  toolUseId,
+  connector: 'site',
+  connectorName: '本站・單字庫',
+  tool: 'add_word',
+  displayName: '加入單字',
+  effect: 'write',
+  input: { word: 'serendipity' },
+  ...patch,
+});
+
+const buttons = () => [...container.querySelectorAll('button')];
+const button = (text: string) => buttons().find((b) => b.textContent === text)!;
+const click = (el: HTMLElement) => act(() => el.click());
+
+function render(
+  approval: PendingApproval,
+  onSubmit = vi.fn(),
+  state: 'pending' | 'sending' | 'resolved' | 'failed' = 'pending',
+  decisions?: { toolUseId: string; approve: boolean }[],
+) {
+  act(() =>
+    root.render(
+      <ApprovalCard approval={approval} state={state} decisions={decisions} onSubmit={onSubmit} />,
+    ),
+  );
+  return onSubmit;
+}
+
+describe('ApprovalCard', () => {
+  it('shows what the call would do and send', () => {
+    render({ pendingId: 'p', calls: [call('a')] });
+
+    expect(container.textContent).toContain('需要你的確認');
+    expect(container.textContent).toContain('本站・單字庫');
+    expect(container.textContent).toContain('加入單字');
+    expect(container.textContent).toContain('word:serendipity');
+    // The site's own tool runs here: no "on ○○" line.
+    expect(container.textContent).not.toContain('上執行');
+  });
+
+  it('one call is allowed or refused straight away', () => {
+    const allow = render({ pendingId: 'p', calls: [call('a')] });
+    click(button('允許'));
+    expect(allow).toHaveBeenCalledWith([{ toolUseId: 'a', approve: true }]);
+
+    const refuse = render({ pendingId: 'p', calls: [call('a')] }, vi.fn());
+    click(button('拒絕'));
+    expect(refuse).toHaveBeenCalledWith([{ toolUseId: 'a', approve: false }]);
+  });
+
+  it('several calls are decided one by one and sent together, once all are decided', () => {
+    const onSubmit = render({
+      pendingId: 'p',
+      calls: [call('a'), call('b', { displayName: '建立 issue' })],
+    });
+    const send = () => button('送出');
+
+    expect(send().disabled).toBe(true);
+    expect(container.textContent).toContain('每一項都選好允許或拒絕後才能送出');
+
+    const [allowA, , , refuseB] = buttons().filter(
+      (b) => b.textContent === '允許' || b.textContent === '拒絕',
+    );
+    click(allowA);
+    expect(send().disabled).toBe(true);
+    click(refuseB);
+    expect(send().disabled).toBe(false);
+
+    click(send());
+    expect(onSubmit).toHaveBeenCalledWith([
+      { toolUseId: 'a', approve: true },
+      { toolUseId: 'b', approve: false },
+    ]);
+  });
+
+  it("names where an outside connector's action happens, and warns about one that cannot be undone", () => {
+    render({
+      pendingId: 'p',
+      calls: [call('a', { connector: 'jira', connectorName: 'Jira', effect: 'destructive' })],
+      tainted: true,
+    });
+
+    expect(container.textContent).toContain('這個動作會在 Jira 上執行');
+    expect(container.textContent).toContain('無法復原');
+    expect(container.textContent).toContain('這段對話讀過外部內容，寫入動作一律需要確認。');
+  });
+
+  it('once answered, keeps what was decided in place of the buttons', () => {
+    render({ pendingId: 'p', calls: [call('a'), call('b')] }, vi.fn(), 'resolved', [
+      { toolUseId: 'a', approve: true },
+      { toolUseId: 'b', approve: false },
+    ]);
+
+    expect(buttons()).toHaveLength(0);
+    expect(container.textContent).toContain('已允許');
+    expect(container.textContent).toContain('已拒絕');
+  });
+
+  it('a decision that did not arrive can be sent again', () => {
+    render({ pendingId: 'p', calls: [call('a')] }, vi.fn(), 'failed');
+
+    expect(container.textContent).toContain('沒有送達，請再試一次。');
+    expect(button('允許')).toBeDefined();
+  });
+});

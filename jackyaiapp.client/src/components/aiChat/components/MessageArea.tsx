@@ -7,7 +7,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useAiChatConfig } from '../config';
 import { ACCENT, accentWash, hairline, revealActionsOnHover } from '../style';
 import { Message } from '../types';
+import { ApprovalDecision } from '../utils/approval';
 
+import ApprovalCard from './ApprovalCard';
 import AssistantMark from './AssistantMark';
 import AttachmentChip from './AttachmentChip';
 import MessageActions from './MessageActions';
@@ -36,6 +38,8 @@ interface MessageAreaProps {
   busy?: boolean;
   /** The reader edited one of their messages: send the new wording in its place. */
   onEdit?: (message: Message, text: string) => void;
+  /** The reader allowed or refused the writes an answer is waiting on. */
+  onDecide?: (pendingId: string, decisions: ApprovalDecision[]) => void;
 }
 
 // 單個區塊渲染組件
@@ -145,6 +149,7 @@ function MessageArea({
   onSuggest,
   busy = false,
   onEdit,
+  onDecide,
 }: MessageAreaProps) {
   const theme = useTheme();
   // The reader's message being edited in place, by its id.
@@ -298,6 +303,16 @@ function MessageArea({
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 {attachments}
                 {message.toolSteps && <ToolActivity steps={message.toolSteps} />}
+                {message.approval && (
+                  <ApprovalCard
+                    approval={message.approval.request}
+                    state={message.approval.state}
+                    decisions={message.approval.decisions}
+                    onSubmit={(decisions) =>
+                      onDecide?.(message.approval!.request.pendingId, decisions)
+                    }
+                  />
+                )}
                 {!message.parsedBlocks?.length && message.content ? (
                   <MarkdownMessage content={message.content} isOwnMessage={false} theme={theme} />
                 ) : !message.parsedBlocks?.length ? (

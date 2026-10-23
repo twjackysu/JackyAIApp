@@ -18,12 +18,34 @@ export type ToolEvent =
   | { type: 'tool_use'; name: string; id?: string; displayName?: string }
   | { type: 'tool_result'; id: string; name: string; ok: boolean; durationMs?: number };
 
+/** A write waiting for the reader's decision, and the server saying the decisions arrived
+ *  (components/aiChat/utils/approval). The stream stays open in between. */
+export type ApprovalEvent =
+  | { type: 'approval_required'; pendingId: string; calls: ApprovalCallEvent[]; tainted?: boolean }
+  | {
+      type: 'approval_resolved';
+      pendingId: string;
+      decisions: { toolUseId: string; approve: boolean }[];
+    };
+
+/** One call in an `approval_required` event, as the server sends it. */
+export interface ApprovalCallEvent {
+  toolUseId: string;
+  connector: string;
+  connectorName?: string;
+  tool: string;
+  displayName: string;
+  effect: 'read' | 'write' | 'destructive';
+  input: Record<string, unknown>;
+}
+
 /** Our own SSE event shape from ChatbotController — written by AnthropicChatService through
  *  SseStream. A failure carries only a code; `chatErrorMessage` turns it into words. */
 type ChatStreamEvent =
   | { type: 'start'; conversationId: string; userMessageId?: number }
   | { type: 'delta'; text: string }
   | ToolEvent
+  | ApprovalEvent
   | {
       type: 'done';
       conversationId: string;
@@ -52,6 +74,8 @@ export interface ChatTurn {
   onError: (error: string) => void;
   /** A tool call started or finished. */
   onToolEvent?: (event: ToolEvent) => void;
+  /** A write needs the reader's decision, or the decisions arrived. */
+  onApprovalEvent?: (event: ApprovalEvent) => void;
 }
 
 /** What the server keeps of a stopped answer, ending it (AnthropicChatService.StoppedContent). */
@@ -115,6 +139,7 @@ export const useChatStreaming = ({ errorMessages }: ChatStreamingOptions = {}) =
       onStopped,
       onError,
       onToolEvent,
+      onApprovalEvent,
     }: ChatTurn) => {
       const turn = { abort: new AbortController(), conversationId, stopRequested: false };
       turnRef.current = turn;
@@ -185,6 +210,10 @@ export const useChatStreaming = ({ errorMessages }: ChatStreamingOptions = {}) =
                 break;
               case 'tool_result':
                 onToolEvent?.(event);
+                break;
+              case 'approval_required':
+              case 'approval_resolved':
+                onApprovalEvent?.(event);
                 break;
               case 'done':
                 if (event.stopped)

@@ -1,3 +1,4 @@
+import { MessageApproval } from '../utils/approval';
 import { ToolStep } from '../utils/toolActivity';
 
 import { ChatAttachment } from '@/apis/chatbotApis/types';
@@ -36,6 +37,8 @@ export interface Message {
   truncated?: boolean;
   /** The tools an answer used, in order (see ToolActivity). */
   toolSteps?: ToolStep[];
+  /** A write the answer is waiting on the reader to allow or refuse (see ApprovalCard). */
+  approval?: MessageApproval;
   /** Files sent with a user message. */
   attachments?: ChatAttachment[];
 }

@@ -1,0 +1,50 @@
+/**
+ * A write the assistant wants to make, waiting for the reader's yes or no (docs/ai-native/design/04
+ * §1.3): the server sends `approval_required` and holds the turn until the decisions arrive, then
+ * carries on in the same stream (`approval_resolved`).
+ */
+import type { ApprovalCallEvent } from '@/hooks/useChatStreaming';
+
+/** One call to decide: its connector's key ("site" for the site's own tools) and what the reader
+ *  calls it ("本站・單字庫", "Jira"), the tool, whether it reads, writes or cannot be undone, and
+ *  its arguments as the model wrote them. */
+export type ApprovalCall = ApprovalCallEvent;
+
+export interface PendingApproval {
+  pendingId: string;
+  calls: ApprovalCall[];
+  /** The conversation has read outside (untrusted) content: every write needs a yes. */
+  tainted?: boolean;
+}
+
+export interface ApprovalDecision {
+  toolUseId: string;
+  approve: boolean;
+}
+
+/** Where a card is: waiting for the reader, sent, or answered by the server. */
+export type ApprovalState = 'pending' | 'sending' | 'resolved' | 'failed';
+
+/** An approval as an answer carries it. */
+export interface MessageApproval {
+  request: PendingApproval;
+  state: ApprovalState;
+  decisions?: ApprovalDecision[];
+}
+
+/** The site's own tools: no "on ○○" line, the action happens here. */
+export const SITE_CONNECTOR = 'site';
+
+/** An argument as one short line: text as it is, anything else as compact JSON, cut at 120. */
+export const formatArgument = (value: unknown): string => {
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  if (text === undefined) return String(value);
+  return text.length > 120 ? `${text.slice(0, 119)}…` : text;
+};
+
+/** The decisions to send: one per call, a call left undecided counted as a no. */
+export const decisionsFor = (
+  calls: readonly ApprovalCall[],
+  chosen: Readonly<Record<string, boolean>>,
+): ApprovalDecision[] =>
+  calls.map((c) => ({ toolUseId: c.toolUseId, approve: chosen[c.toolUseId] === true }));

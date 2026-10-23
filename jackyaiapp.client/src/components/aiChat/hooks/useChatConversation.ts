@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Message, QueuedMessage } from '../types';
+import { ApprovalDecision, MessageApproval } from '../utils/approval';
 import { applyToolEvent, settleToolSteps, ToolStep } from '../utils/toolActivity';
 
 import { chatbotApis, useLazyGetConversationMessagesQuery } from '@/apis/chatbotApis';
@@ -81,6 +82,16 @@ export function useChatConversation(options?: ChatStreamingOptions) {
     }
   }, [blocks]);
 
+  /** Changes the approval card waiting under that pendingId, wherever it is. */
+  const updateApproval = (pendingId: string, patch: Partial<MessageApproval>) =>
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.approval?.request.pendingId === pendingId
+          ? { ...msg, approval: { ...msg.approval, ...patch } }
+          : msg,
+      ),
+    );
+
   /**
    * Sends one message and writes its answer into a new bubble as it comes. With `edited`, the
    * message replaces that earlier one: it and everything after it go (here, and on the server), and
@@ -143,6 +154,15 @@ export function useChatConversation(options?: ChatStreamingOptions) {
         settleSteps(true);
       },
       onToolEvent: (event) => updateSteps((steps) => applyToolEvent(steps, event)),
+      onApprovalEvent: (event) =>
+        event.type === 'approval_required'
+          ? updateBot({
+              approval: {
+                request: { pendingId: event.pendingId, calls: event.calls, tainted: event.tainted },
+                state: 'pending',
+              },
+            })
+          : updateApproval(event.pendingId, { state: 'resolved', decisions: event.decisions }),
       // What was said before the stop stays, marked the way the server stores it. `parsedBlocks` is
       // cleared so the bubble renders `content`, mark included.
       onStopped: (partial, assistantMessageId) => {
@@ -195,6 +215,29 @@ export function useChatConversation(options?: ChatStreamingOptions) {
     void sendTurn(text, message.attachments ?? [], message);
   };
 
+  /**
+   * Sends the reader's decisions on a write the answer is waiting for. The answer carries on in its
+   * own stream once the server has them (`approval_resolved` marks the card answered); one that did
+   * not arrive can be sent again.
+   */
+  const decide = async (pendingId: string, decisions: ApprovalDecision[]) => {
+    if (!conversationId) return;
+    updateApproval(pendingId, { state: 'sending', decisions });
+    try {
+      const res = await fetch(
+        `/api/chatbot/conversations/${encodeURIComponent(conversationId)}/approvals/${encodeURIComponent(pendingId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ decisions }),
+        },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      updateApproval(pendingId, { state: 'failed' });
+    }
+  };
+
   const removeQueued = (key: string) => setQueued((prev) => prev.filter((q) => q.key !== key));
 
   return {
@@ -209,6 +252,7 @@ export function useChatConversation(options?: ChatStreamingOptions) {
     send,
     edit,
     removeQueued,
+    decide,
     newChat,
     selectConversation,
   };
