@@ -72,13 +72,28 @@ namespace JackyAIApp.Server.Services.Portfolio
             // Sorted once per request; it also holds the benchmarks, which the portfolio side never asks about.
             var asOfPrices = AsOfPriceBook.From(stockMap, fundMap);
 
+            return Compare(new ComparisonWindow(snapshots, startDate, today, portfolioDividends, asOfPrices), legs, depth.Backfill);
+        }
+
+        /// <summary>The inputs of one comparison's day-by-day walk.</summary>
+        private sealed record ComparisonWindow(
+            List<HoldingSnapshot> Snapshots, DateOnly Start, DateOnly End,
+            IReadOnlyDictionary<DateOnly, decimal> PortfolioDividends, AsOfPriceBook Prices);
+
+        /// <summary>
+        /// Walks the window one day at a time: each contribution buys into every benchmark, and each day the
+        /// portfolio and every benchmark have a price for goes onto the curves and into the returns.
+        /// </summary>
+        private static BenchmarkComparisonDto Compare(
+            ComparisonWindow window, BenchmarkLeg[] legs, HistoryBackfillDto? backfill)
+        {
             // What was invested before the window counts as bought at the window's start price — the same
             // baseline as the portfolio side, which simply values those holdings on that day. Otherwise the
             // first snapshot inside the window would "buy" the whole cumulative cost on its own date.
-            var investedBefore = snapshots.LastOrDefault(s => s.EffectiveDate <= startDate);
+            var investedBefore = window.Snapshots.LastOrDefault(s => s.EffectiveDate <= window.Start);
             var previousCost = investedBefore != null ? CostTrackedCostTWD(investedBefore) : 0;
             if (previousCost > 0)
-                foreach (var leg in legs) leg.Seed(previousCost, startDate);
+                foreach (var leg in legs) leg.Seed(previousCost, window.Start);
 
             var dates = new List<string>();
             var portfolioValues = new List<decimal>();
@@ -86,15 +101,15 @@ namespace JackyAIApp.Server.Services.Portfolio
             // Income and contributions not yet in a recorded day's growth. A day may not be recorded (a weekend,
             // a day something has no price), and what happened on it must still count, once, on the next one.
             decimal portfolioIncome = 0, contribution = 0;
-            var snapshotsInEffect = new SnapshotCursor(snapshots);
+            var snapshotsInEffect = new SnapshotCursor(window.Snapshots);
             // The snapshot whose cost is in previousCost.
             var applied = investedBefore;
 
-            for (var date = startDate; date <= today; date = date.AddDays(1))
+            for (var date = window.Start; date <= window.End; date = date.AddDays(1))
             {
                 // Before any skip, and before the day's contribution: a distribution is earned by what was
                 // held going into its ex-date.
-                portfolioIncome += portfolioDividends.GetValueOrDefault(date);
+                portfolioIncome += window.PortfolioDividends.GetValueOrDefault(date);
                 foreach (var leg in legs) leg.AccrueDividends(date);
 
                 if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
@@ -115,7 +130,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 }
 
                 // A day counts only when the portfolio and every benchmark have a price for it.
-                if (CostTrackedValueAsOf(active, date, asOfPrices) is not { } portfolioValue) continue;
+                if (CostTrackedValueAsOf(active, date, window.Prices) is not { } portfolioValue) continue;
                 if (legs.Any(leg => leg.PriceOn(date) <= 0)) continue;
 
                 dates.Add(date.ToString("yyyy-MM-dd"));
@@ -131,7 +146,7 @@ namespace JackyAIApp.Server.Services.Portfolio
                 Dates = dates,
                 PortfolioTWD = portfolioValues,
                 Benchmarks = legs.Select(leg => new BenchmarkSeriesDto { Symbol = leg.Symbol, ValuesTWD = leg.Values }).ToList(),
-                Backfill = depth.Backfill,
+                Backfill = backfill,
             };
             if (dates.Count == 0) return result;
 
