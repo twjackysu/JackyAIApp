@@ -12,6 +12,11 @@
          it, so none missing (CS1591), or only some of a method's parameters documented (CS1573), is
          a warning. A malformed comment (CS1570, CS1734) still is. -->
     <NoWarn>CS1591;CS1573</NoWarn>
+    <!-- A warning fails the build, so none stays. Except a NuGet vulnerability advisory (NU1901-NU1904)
+         or the advisory feed being unreachable (NU1900): a new advisory on a package must not stop
+         an unrelated change from deploying; it is a warning to act on. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
