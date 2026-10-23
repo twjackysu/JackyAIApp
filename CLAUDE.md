@@ -246,7 +246,8 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 
 ### Code Quality
 - **Frontend**: ESLint + Prettier with TypeScript strict mode
-- **Backend**: .NET 10, nullable reference types enabled
+- **Backend**: .NET 10, nullable reference types enabled, a compiler warning fails the build
+  (NuGet vulnerability advisories excepted; see [JackyAIApp.Server/CLAUDE.md](JackyAIApp.Server/CLAUDE.md))
 - **Documentation**: Swagger auto-generation enabled
 - **Logging**: NLog with structured logging patterns
 
