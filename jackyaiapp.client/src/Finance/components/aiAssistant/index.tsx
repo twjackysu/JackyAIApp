@@ -10,6 +10,7 @@ import { HISTORY_COLUMN_BREAKPOINT, HISTORY_COLUMN_WIDTH } from './components/hi
 import MessageArea from './components/MessageArea';
 import PreviewDialog from './components/PreviewDialog';
 import { useAgentStatus } from './hooks/useAgentStatus';
+import { isImageFile, prepareChatImage, UnreadableImageError } from './prepareChatImage';
 import { ACCENT, ACCENT_GRADIENT, hairline, panelSurface } from './style';
 import { Message, PendingAttachment, QueuedMessage } from './types';
 import { readPaste } from './utils/paste';
@@ -54,8 +55,6 @@ const rejectBeforeUpload = (file: File): string | undefined => {
   if (file.size === 0) return ATTACHMENT_ERROR_MESSAGES.unreadable;
   return undefined;
 };
-
-const isImageFile = (file: File) => /\.(png|jpe?g|gif|webp)$/i.test(file.name);
 
 // Object URLs made for previews and not yet revoked. Not every environment can make them (tests);
 // a chip then shows its icon instead.
@@ -161,8 +160,8 @@ function AiAssistantPanel({
 
     added.forEach((pending, i) => {
       if (pending.error) return;
-      uploadAttachment(files[i])
-        .unwrap()
+      prepareChatImage(files[i])
+        .then((file) => uploadAttachment(file).unwrap())
         .then((res) => {
           if (removedWhileUploading.current.delete(pending.key)) {
             deleteAttachment(res.data.id);
@@ -173,7 +172,11 @@ function AiAssistantPanel({
         .catch((e: unknown) => {
           removedWhileUploading.current.delete(pending.key);
           revokePreviewUrl(pending.previewUrl);
-          updatePending(pending.key, { error: attachmentErrorMessage(e), previewUrl: undefined });
+          const error =
+            e instanceof UnreadableImageError
+              ? ATTACHMENT_ERROR_MESSAGES.unreadable
+              : attachmentErrorMessage(e);
+          updatePending(pending.key, { error, previewUrl: undefined });
         });
     });
   };

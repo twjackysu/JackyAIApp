@@ -12,6 +12,7 @@ export enum ErrorCodes {
   TheWordCannotBeFound = 'TheWordCannotBeFound',
   AttachmentUnreadable = 'AttachmentUnreadable',
   AttachmentTooManyPages = 'AttachmentTooManyPages',
+  AttachmentImageTooLarge = 'AttachmentImageTooLarge',
   Unauthorized = 'Unauthorized',
   Forbidden = 'Forbidden',
   PayloadTooLarge = 'PayloadTooLarge',

@@ -7,9 +7,9 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
+
+using JackyAIApp.Server.Tests.TestHelpers;
 
 namespace JackyAIApp.Server.Tests.Services.Chatbot
 {
@@ -93,13 +93,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
 
         private static MemoryStream Text(string text) => new(Encoding.UTF8.GetBytes(text));
 
-        private static MemoryStream Png()
-        {
-            var stream = new MemoryStream();
-            using (var image = new Image<Rgba32>(20, 20)) image.SaveAsPng(stream);
-            stream.Position = 0;
-            return stream;
-        }
+        private static MemoryStream Png() => new(TestImages.Png(20, 20));
 
         [Fact]
         public async Task ATextFile_IsKeptAsItsText_WithNoStoredFile()
@@ -150,6 +144,19 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Equal(ErrorCodes.AttachmentUnreadable, empty.Error);
             Assert.Equal("The file has no text.", empty.ErrorMessage);
             Assert.Empty(Db().ChatAttachments);
+        }
+
+        [Fact]
+        public async Task AnImageLargerThanTheBrowserMakesOne_AsksForAReload_AndKeepsNothing()
+        {
+            // A page loaded before images were downsized in the browser sends the photo as it is.
+            using var content = new MemoryStream(TestImages.Jpeg(4032, 3024));
+
+            var result = await As("alice").UploadAsync("相片.jpg", content.Length, content, default);
+
+            Assert.Equal(ErrorCodes.AttachmentImageTooLarge, result.Error);
+            Assert.Empty(Db().ChatAttachments);
+            _anthropic.Verify(a => a.UploadAsync(It.IsAny<byte[]>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]

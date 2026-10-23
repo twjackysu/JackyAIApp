@@ -42,6 +42,7 @@ export const ATTACHMENT_ERROR_MESSAGES = {
   tooLarge: '檔案太大，上限 10 MB。',
   unreadable: '讀不出這個檔案的內容，可能已損毀、有密碼保護，或沒有文字。',
   tooManyPages: `PDF 頁數太多，上限 ${MAX_PDF_PAGES} 頁，請只留需要的部分。`,
+  staleImage: '圖片尺寸超過上限，請重新整理頁面後再上傳。',
   tooMany: `一次最多附加 ${MAX_ATTACHMENTS} 個檔案。`,
   failed: '上傳失敗，請稍後再試。',
 } as const;
@@ -64,6 +65,9 @@ export const attachmentErrorMessage = (error: unknown): string => {
       return ATTACHMENT_ERROR_MESSAGES.unreadable;
     case ErrorCodes.AttachmentTooManyPages:
       return ATTACHMENT_ERROR_MESSAGES.tooManyPages;
+    // Only a page loaded before images were downsized in the browser sends one this large.
+    case ErrorCodes.AttachmentImageTooLarge:
+      return ATTACHMENT_ERROR_MESSAGES.staleImage;
   }
   return e?.status === 413 ? ATTACHMENT_ERROR_MESSAGES.tooLarge : ATTACHMENT_ERROR_MESSAGES.failed;
 };

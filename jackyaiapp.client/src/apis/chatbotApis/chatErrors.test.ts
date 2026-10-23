@@ -20,6 +20,12 @@ describe('attachmentErrorMessage', () => {
     );
   });
 
+  it('an image larger than this page makes one asks for a reload', () => {
+    expect(attachmentErrorMessage(envelope(400, 'AttachmentImageTooLarge'))).toBe(
+      ATTACHMENT_ERROR_MESSAGES.staleImage,
+    );
+  });
+
   it('a bare 413 from the body-size limit is a file that is too large', () => {
     expect(attachmentErrorMessage({ status: 413, data: '' })).toBe(
       ATTACHMENT_ERROR_MESSAGES.tooLarge,

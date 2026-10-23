@@ -3,8 +3,7 @@ using System.Text.Json;
 using iText.Kernel.Pdf;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Services.Chatbot;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using JackyAIApp.Server.Tests.TestHelpers;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Tests.Services.Chatbot
@@ -15,93 +14,68 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
     /// </summary>
     public class AttachmentFileProcessorTests
     {
-        [Fact]
-        public void AnImageLargerThanTheModelReads_IsScaledDown_KeepingItsShape()
-        {
-            var result = AttachmentFileProcessor.PrepareImage(Png(4000, 2000));
+        // The browser downsizes an image before uploading it (prepareChatImage.ts); the server only reads
+        // its header, keeps it as it is, and refuses one the browser would not have sent.
 
-            using var image = Image.Load(result.Bytes);
-            Assert.True(Math.Max(image.Width, image.Height) <= AttachmentFileProcessor.MaxImageEdge);
-            // At 2:1 the area is what binds, and it is used nearly in full.
-            Assert.InRange(image.Width * image.Height,
-                AttachmentFileProcessor.MaxImagePixels * 0.99, AttachmentFileProcessor.MaxImagePixels);
-            Assert.Equal(2.0, (double)image.Width / image.Height, 1);
+        private static MemoryStream Stream(byte[] bytes) => new(bytes);
+
+        [Theory]
+        [InlineData(1568, 733)]    // the long edge at its cap
+        [InlineData(1072, 1072)]   // the area just under 1.15 megapixels
+        [InlineData(300, 200)]
+        public void AnImageTheBrowserPrepared_IsKeptAsItIs(int width, int height)
+        {
+            var png = TestImages.Png(width, height);
+
+            var result = AttachmentFileProcessor.PrepareImage(Stream(png));
+
+            Assert.Equal(png, result.Bytes);
+            Assert.Equal("image/png", result.MediaType);
             Assert.Null(result.PageCount);
         }
 
         [Fact]
-        public void ASmallImage_IsKeptAtItsSize()
+        public void AJpeg_IsKeptAsAJpeg()
         {
-            var result = AttachmentFileProcessor.PrepareImage(Png(300, 200));
+            var jpeg = TestImages.Jpeg(1200, 900, exifBytes: 2000);
 
-            using var image = Image.Load(result.Bytes);
-            Assert.Equal((300, 200), (image.Width, image.Height));
-        }
+            var result = AttachmentFileProcessor.PrepareImage(Stream(jpeg));
 
-        [Fact]
-        public void APng_StaysAPng_SoTextInAScreenshotStaysSharp()
-        {
-            Assert.Equal("image/png", AttachmentFileProcessor.PrepareImage(Png(10, 10)).MediaType);
-        }
-
-        [Fact]
-        public void OtherImages_BecomeJpegs()
-        {
-            using var gif = new MemoryStream();
-            using (var image = new Image<Rgba32>(10, 10)) image.SaveAsGif(gif);
-            gif.Position = 0;
-
-            var result = AttachmentFileProcessor.PrepareImage(gif);
-
+            Assert.Equal(jpeg, result.Bytes);
             Assert.Equal("image/jpeg", result.MediaType);
-            Assert.Equal("JPEG", Image.DetectFormat(result.Bytes).Name);
         }
 
-        private static MemoryStream Encoded(string format)
+        public static TheoryData<string, byte[]> LargerThanTheBrowserMakesOne => new()
         {
-            using var image = new Image<Rgba32>(10, 10);
-            var stream = new MemoryStream();
-            Action<Stream> save = format switch
-            {
-                "Png" => image.SaveAsPng,
-                "Jpeg" => image.SaveAsJpeg,
-                "Gif" => image.SaveAsGif,
-                "Webp" => image.SaveAsWebp,
-                "Tiff" => image.SaveAsTiff,
-                "Bmp" => image.SaveAsBmp,
-                "Tga" => image.SaveAsTga,
-                _ => throw new ArgumentOutOfRangeException(nameof(format)),
-            };
-            save(stream);
-            stream.Position = 0;
-            return stream;
-        }
+            { "long edge", TestImages.Png(1569, 100) },
+            { "area", TestImages.Jpeg(1200, 1000) },
+            { "bytes", [.. TestImages.Png(100, 100), .. new byte[AttachmentFileProcessor.MaxImageBytes]] },
+        };
 
         [Theory]
-        [InlineData("Png", "image/png")]
-        [InlineData("Jpeg", "image/jpeg")]
-        [InlineData("Gif", "image/jpeg")]
-        [InlineData("Webp", "image/jpeg")]
-        public void TheFormatsTheChatAccepts_AreRead(string format, string mediaType) =>
-            Assert.Equal(mediaType, AttachmentFileProcessor.PrepareImage(Encoded(format)).MediaType);
-
-        [Theory]
-        [InlineData("Tiff")]
-        [InlineData("Bmp")]
-        [InlineData("Tga")]
-        public void AnyOtherFormat_IsRefusedBeforeItIsDecoded(string format)
+        [MemberData(nameof(LargerThanTheBrowserMakesOne))]
+        public void AnImageLargerThanTheBrowserMakesOne_IsRefused(string _, byte[] image)
         {
-            // Whatever the file is called: the content decides what a reader would make of it.
-            var refused = Assert.Throws<UnreadableAttachmentException>(() => AttachmentFileProcessor.PrepareImage(Encoded(format)));
-
-            // Refused as a format the reader does not know, not as an image that failed to decode.
-            Assert.IsType<UnknownImageFormatException>(refused.InnerException);
+            Assert.Throws<ImageTooLargeException>(() => AttachmentFileProcessor.PrepareImage(Stream(image)));
         }
 
-        [Fact]
-        public void AFileThatIsNotAnImage_IsUnreadable() =>
-            Assert.Throws<UnreadableAttachmentException>(() =>
-                AttachmentFileProcessor.PrepareImage(new MemoryStream(Encoding.UTF8.GetBytes("renamed.txt"))));
+        public static TheoryData<string, byte[]> NotAPngOrJpeg => new()
+        {
+            { "GIF", [.. "GIF89a"u8, 1, 0, 1, 0, 0, 0, 0] },
+            { "WebP", [.. "RIFF"u8, 0x24, 0, 0, 0, .. "WEBPVP8 "u8, 0, 0, 0, 0] },
+            { "TIFF", [0x49, 0x49, 0x2A, 0x00, 8, 0, 0, 0, .. new byte[20]] },
+            { "BMP", [.. "BM"u8, .. new byte[30]] },
+            { "text renamed .png", "renamed.txt"u8.ToArray() },
+        };
+
+        [Theory]
+        [MemberData(nameof(NotAPngOrJpeg))]
+        public void AnythingButAPngOrJpeg_IsUnreadable(string _, byte[] content)
+        {
+            // Whatever the file is called: the content decides. The browser turns a GIF or a WebP into one
+            // of the two before it is uploaded.
+            Assert.Throws<UnreadableAttachmentException>(() => AttachmentFileProcessor.PrepareImage(Stream(content)));
+        }
 
         [Fact]
         public void APdf_IsKeptAsItIs_WithItsPageCount()
@@ -242,14 +216,6 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         private static List<JsonElement> Wire(SQL.ChatMessage message, Dictionary<long, byte[]> files) =>
             JsonSerializer.SerializeToElement(AnthropicChatService.ToMessageParam(message, files))
                 .GetProperty("content").EnumerateArray().ToList();
-
-        private static MemoryStream Png(int width, int height)
-        {
-            var stream = new MemoryStream();
-            using (var image = new Image<Rgba32>(width, height)) image.SaveAsPng(stream);
-            stream.Position = 0;
-            return stream;
-        }
 
         private static byte[] Pdf(int pages)
         {

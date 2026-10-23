@@ -1,11 +1,5 @@
 using iText.Kernel.Pdf;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Formats.Gif;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.Processing;
+using JackyAIApp.Server.Common;
 
 namespace JackyAIApp.Server.Services.Chatbot
 {
@@ -13,6 +7,10 @@ namespace JackyAIApp.Server.Services.Chatbot
     /// <param name="MediaType">The media type of <paramref name="Bytes"/>.</param>
     /// <param name="PageCount">Pages of a PDF; null for an image.</param>
     public sealed record PreparedAttachmentFile(byte[] Bytes, string MediaType, int? PageCount);
+
+    /// <summary>An image larger than the browser makes one (<see cref="AttachmentFileProcessor.PrepareImage"/>).</summary>
+    public sealed class ImageTooLargeException(int width, int height, long bytes)
+        : Exception($"The image is {width}x{height}, {bytes} bytes.");
 
     /// <summary>A PDF with more pages than the model is sent in one request.</summary>
     public sealed class TooManyPagesException(int pages) : Exception($"The PDF has {pages} pages.")
@@ -34,74 +32,33 @@ namespace JackyAIApp.Server.Services.Chatbot
         public const int MaxPdfPages = 100;
 
         /// <summary>
-        /// The model scales any larger image down to this before reading it, so a bigger one only
-        /// costs storage and upload time: the long edge is capped here, and the area at about
-        /// 1.15 megapixels.
+        /// The size the browser downsizes an image to before uploading it (prepareChatImage.ts): the long
+        /// edge is capped here, and the area at about 1.15 megapixels — the model's standard resolution,
+        /// which keeps an image's cost at about 1,500 tokens.
         /// </summary>
         public const int MaxImageEdge = 1568;
         public const int MaxImagePixels = 1_150_000;
 
-        /// <summary>
-        /// The formats an image attachment is read as: the ones the chat accepts (.png, .jpg/.jpeg,
-        /// .gif, .webp) and the model reads. Left to itself, <see cref="Image.Load(Stream)"/> decodes any
-        /// format ImageSharp knows, detected from the content whatever the file is called, TIFF and BMP
-        /// included; a crafted BigTIFF named .png could keep a decoder thread busy (GHSA-wmxv-xphr-5c9g).
-        /// Any other format is refused when it is detected, before it is decoded.
-        /// </summary>
-        private static readonly DecoderOptions ImageDecoderOptions = new()
-        {
-            // Qualified: inside JackyAIApp.Server, Configuration is the app's own namespace.
-            Configuration = new SixLabors.ImageSharp.Configuration(
-                new PngConfigurationModule(),
-                new JpegConfigurationModule(),
-                new GifConfigurationModule(),
-                new WebpConfigurationModule()),
-        };
+        /// <summary>Largest image kept: the model takes 10 MB of base64 per image, about 7.5 MB of file.</summary>
+        public const long MaxImageBytes = 7 * 1024 * 1024;
 
-        /// <exception cref="UnreadableAttachmentException">Not an image, or not one that can be read.</exception>
+        /// <summary>
+        /// An image as the browser prepared it — downsized to <see cref="MaxImageEdge"/> and
+        /// <see cref="MaxImagePixels"/>, and a PNG or a JPEG — checked from its header and kept as it is.
+        /// Nothing is decoded on the server: an image decoder is where image libraries' security bugs are,
+        /// and the model reads the image itself.
+        /// </summary>
+        /// <exception cref="UnreadableAttachmentException">Not a PNG or a JPEG.</exception>
+        /// <exception cref="ImageTooLargeException">Larger than the browser makes one.</exception>
         public static PreparedAttachmentFile PrepareImage(Stream content)
         {
-            Image image;
-            SixLabors.ImageSharp.Formats.IImageFormat format;
-            try
-            {
-                image = Image.Load(ImageDecoderOptions, content);
-                format = image.Metadata.DecodedImageFormat
-                    ?? throw new UnreadableAttachmentException("Unknown image format.");
-            }
-            catch (UnreadableAttachmentException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new UnreadableAttachmentException("Could not read the file as an image.", ex);
-            }
-
-            using (image)
-            {
-                var scale = Math.Min(1.0, Math.Min(
-                    (double)MaxImageEdge / Math.Max(image.Width, image.Height),
-                    Math.Sqrt((double)MaxImagePixels / ((double)image.Width * image.Height))));
-                if (scale < 1.0)
-                {
-                    image.Mutate(x => x.Resize(
-                        Math.Max(1, (int)(image.Width * scale)),
-                        Math.Max(1, (int)(image.Height * scale))));
-                }
-                // An animated GIF is read as its first frame.
-                while (image.Frames.Count > 1) image.Frames.RemoveFrame(image.Frames.Count - 1);
-
-                // A PNG stays lossless (screenshots, charts with text); everything else becomes a JPEG.
-                using var output = new MemoryStream();
-                if (format.Name == "PNG")
-                {
-                    image.Save(output, new PngEncoder());
-                    return new PreparedAttachmentFile(output.ToArray(), "image/png", null);
-                }
-                image.Save(output, new JpegEncoder { Quality = 85 });
-                return new PreparedAttachmentFile(output.ToArray(), "image/jpeg", null);
-            }
+            using var buffer = new MemoryStream();
+            content.CopyTo(buffer);
+            var bytes = buffer.ToArray();
+            var header = ImageHeader.Read(bytes) ?? throw new UnreadableAttachmentException("Not a PNG or a JPEG.");
+            if (bytes.Length > MaxImageBytes || Math.Max(header.Width, header.Height) > MaxImageEdge || header.Pixels > MaxImagePixels)
+                throw new ImageTooLargeException(header.Width, header.Height, bytes.Length);
+            return new PreparedAttachmentFile(bytes, header.MediaType, null);
         }
 
         /// <exception cref="UnreadableAttachmentException">Not a PDF, damaged, or password protected.</exception>
