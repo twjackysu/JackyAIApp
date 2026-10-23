@@ -208,6 +208,12 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   its error code, cut at the output cap, what is kept as the assistant's message) is `TurnVerdict.Of`; a
   turn's tokens over its requests are `TokenTotals`; the event stream is `SseStream`. Change a rule in its
   unit, each of which has its own tests
+- What a turn keeps as the assistant's message: an answer (one cut at the output cap included); a turn
+  the reader stopped, its text so far ending in `（已中斷）`; nothing for a turn that failed — an API error
+  even after some text, no answer text, a decline. The client shows a failed turn only as its error and
+  drops any text it had, so reopening the conversation shows what the reader saw, and the model never
+  takes a cut-off answer for a finished one. Server and client keep to this together (`TurnVerdictTests`,
+  and the assistant panel's test for a reply that fails after some text)
 - The Anthropic client comes from `IAnthropicClientFactory`, so `AnthropicChatStreamTests` can give the real
   SDK an `HttpClient` serving recorded API streams: a whole turn is tested offline, from the SSE the reader
   gets to what is saved and logged. A change to how a turn reads the stream gets a case there

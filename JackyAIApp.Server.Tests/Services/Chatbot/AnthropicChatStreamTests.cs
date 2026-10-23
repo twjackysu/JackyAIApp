@@ -322,7 +322,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
-        public async Task AnErrorAfterSomeText_IsReported_ButWhatWasSaidIsKeptAsItIs()
+        public async Task AnErrorAfterSomeText_IsReported_AndTheCutOffAnswerIsNotKept()
         {
             _anthropic.Reply(Sse.Start(), Sse.Text("說到一半"), Sse.Error("overloaded_error", "Overloaded"));
 
@@ -331,7 +331,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Equal(new[] { "start", "delta", "error" }, turn.Events.Select(Type));
             Assert.Equal(ChatErrorCodes.Busy, turn.Events[^1].GetProperty("code").GetString());
             Assert.Equal(new ChatStreamResult(true, Messages()[0].ConversationId, ChatErrorCodes.Busy), turn.Result);
-            Assert.Equal("說到一半", Messages()[1].Content);
+            Assert.Equal(new[] { "user" }, Messages().Select(m => m.Role));
         }
 
         [Fact]

@@ -11,8 +11,8 @@ export interface StreamingStatus {
   statusText: string;
 }
 
-/** Our own SSE event shape from ChatbotController — see AnthropicChatService.WriteSseAsync. A
- *  failure carries only a code; `chatErrorMessage` turns it into words. */
+/** Our own SSE event shape from ChatbotController — written by AnthropicChatService through
+ *  SseStream. A failure carries only a code; `chatErrorMessage` turns it into words. */
 type ChatStreamEvent =
   | { type: 'start'; conversationId: string; userMessageId?: number }
   | { type: 'delta'; text: string }

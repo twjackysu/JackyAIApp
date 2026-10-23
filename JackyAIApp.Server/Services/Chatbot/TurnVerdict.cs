@@ -18,26 +18,29 @@ namespace JackyAIApp.Server.Services.Chatbot
             if (outcome.Stopped)
                 return new(false, null, false, true, AnthropicChatService.StoppedContent(outcome.Text));
 
-            // A request that failed after some text keeps that text as it is.
+            // A failed request keeps nothing, not even the text it had sent: the reader is shown only the
+            // error (the client drops the cut-off answer), so reopening the conversation shows what they
+            // saw, and the model does not take a cut-off answer for a finished one on the next turn.
             if (outcome.ErrorCode != null)
-                return Failed(outcome.ErrorCode, outcome.Text.Length > 0 ? outcome.Text : null);
+                return Failed(outcome.ErrorCode);
 
             // The stream can complete with no exception yet produce zero text — e.g. the MCP
             // tool call plus follow-up analysis ran out of MaxTokens before any answer text was
             // written. Treat that as a failure rather than silently sending "done" with nothing
             // to show (previously left the chat bubble blank forever with no error surfaced).
             if (outcome.Text.Length == 0)
-                return Failed(AnthropicChatService.NoAnswerCode(outcome.StopReason), null);
+                return Failed(AnthropicChatService.NoAnswerCode(outcome.StopReason));
 
             // A decline can also arrive after some text has streamed. That text is a cut-off
             // answer, so it is reported as a failure and not kept as the assistant's turn.
             if (outcome.StopReason == BetaStopReason.Refusal)
-                return Failed(ChatErrorCodes.Refused, null);
+                return Failed(ChatErrorCodes.Refused);
 
             // An answer that ran into the output cap is kept, but the reader is told it is cut short.
             return new(true, null, outcome.StopReason == BetaStopReason.MaxTokens, false, outcome.Text);
         }
 
-        private static TurnVerdict Failed(string errorCode, string? saved) => new(false, errorCode, false, false, saved);
+        /// <summary>A turn that did not answer keeps nothing; only a stop keeps what was said.</summary>
+        private static TurnVerdict Failed(string errorCode) => new(false, errorCode, false, false, null);
     }
 }
