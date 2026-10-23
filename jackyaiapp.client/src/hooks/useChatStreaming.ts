@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
+import { finishSseLines, splitSseLines } from './sseLines';
+
 import { chatErrorMessage } from '@/apis/chatbotApis/chatErrors';
 import { getApiErrorMessage } from '@/apis/utils/errorMessage';
 import { useAppDispatch } from '@/redux/hooks';
@@ -141,57 +143,63 @@ export const useChatStreaming = () => {
 
         setStreamingStatus((prev) => ({ ...prev, statusText: '正在生成回應...' }));
 
+        // Handles one event; true once the turn has ended (done or error).
+        const handle = (data: string): boolean => {
+          try {
+            const event = JSON.parse(data) as ChatStreamEvent;
+
+            switch (event.type) {
+              case 'start':
+                turn.conversationId = event.conversationId;
+                onStart?.(event.conversationId, event.userMessageId);
+                // Stop was pressed before the server had named the conversation.
+                if (turn.stopRequested) {
+                  void stopOnServer(event.conversationId);
+                  turn.abort.abort();
+                }
+                break;
+              case 'delta':
+                accumulatedContent += event.text;
+                onUpdate(accumulatedContent);
+                break;
+              case 'tool_use':
+                setStreamingStatus((prev) => ({
+                  ...prev,
+                  currentEvent: 'tool_use',
+                  statusText: `🔄 正在查詢 ${event.name}...`,
+                }));
+                break;
+              case 'done':
+                if (event.stopped)
+                  onStopped(accumulatedContent, event.assistantMessageId ?? undefined);
+                else
+                  onComplete(
+                    event.conversationId,
+                    event.truncated === true,
+                    event.assistantMessageId ?? undefined,
+                  );
+                return true;
+              case 'error':
+                onError(chatErrorMessage(event.code));
+                return true;
+            }
+          } catch (e) {
+            console.warn('Failed to parse SSE line:', data, e);
+          }
+          return false;
+        };
+
+        // A chunk can end mid-line; the unfinished line waits for the next one (splitSseLines).
+        let rest = '';
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const lines = decoder.decode(value, { stream: true }).split('\n');
-
-          for (const line of lines) {
-            if (!line.trim() || !line.startsWith('data: ')) continue;
-            try {
-              const event = JSON.parse(line.slice(6)) as ChatStreamEvent;
-
-              switch (event.type) {
-                case 'start':
-                  turn.conversationId = event.conversationId;
-                  onStart?.(event.conversationId, event.userMessageId);
-                  // Stop was pressed before the server had named the conversation.
-                  if (turn.stopRequested) {
-                    void stopOnServer(event.conversationId);
-                    turn.abort.abort();
-                  }
-                  break;
-                case 'delta':
-                  accumulatedContent += event.text;
-                  onUpdate(accumulatedContent);
-                  break;
-                case 'tool_use':
-                  setStreamingStatus((prev) => ({
-                    ...prev,
-                    currentEvent: 'tool_use',
-                    statusText: `🔄 正在查詢 ${event.name}...`,
-                  }));
-                  break;
-                case 'done':
-                  if (event.stopped)
-                    onStopped(accumulatedContent, event.assistantMessageId ?? undefined);
-                  else
-                    onComplete(
-                      event.conversationId,
-                      event.truncated === true,
-                      event.assistantMessageId ?? undefined,
-                    );
-                  return;
-                case 'error':
-                  onError(chatErrorMessage(event.code));
-                  return;
-              }
-            } catch (e) {
-              console.warn('Failed to parse SSE line:', line, e);
-            }
-          }
+          const lines = splitSseLines(rest, decoder.decode(value, { stream: true }));
+          rest = lines.rest;
+          for (const data of lines.data) if (handle(data)) return;
         }
+        for (const data of finishSseLines(rest + decoder.decode())) if (handle(data)) return;
 
         if (!accumulatedContent) onComplete(conversationId);
       } catch (error) {
