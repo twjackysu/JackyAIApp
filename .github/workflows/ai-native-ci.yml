@@ -103,7 +103,8 @@ jobs:
       run: npm run lint
 
     - name: Test
-      run: npm run test
+      # The github-actions reporter turns each failed test into an annotation (the loop cannot read logs).
+      run: npm run test -- --reporter=default --reporter=github-actions
 
     - name: Build
       run: npm run build

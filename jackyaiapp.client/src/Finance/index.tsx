@@ -27,7 +27,6 @@ import {
   MarketSeasonalChart,
   TaiexTrendlineCard,
 } from './components';
-import { AiAssistantLauncher } from './components/aiAssistant/AiAssistantLauncher';
 import { LoginRequiredAlert } from './components/LoginRequiredAlert';
 import { MarketSummaryTab } from './components/MarketSummaryTab';
 import {
@@ -36,6 +35,8 @@ import {
   TAB_AI_TREND,
   TAB_MARKET_SUMMARY,
 } from './hooks/useFinanceAnalysis';
+
+import { AiAssistantLauncher } from '@/components/aiChat/AiAssistantLauncher';
 
 function Finance() {
   const {

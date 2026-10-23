@@ -24,7 +24,7 @@ vi.mock('./components', () => ({
   TaiexTrendlineCard: () => null,
 }));
 vi.mock('./components/MarketSummaryTab', () => ({ MarketSummaryTab: () => null }));
-vi.mock('./components/aiAssistant', () => ({
+vi.mock('@/components/aiChat', () => ({
   default: () => <div data-testid="ai-assistant-panel" />,
 }));
 

@@ -44,7 +44,7 @@ jackyaiapp.client/src/
   `PortfolioHeader`, `PortfolioDashboard`, `NetWorthCard`, `AllocationCard`. A section takes the DTO it
   shows (`summary`), not one prop per field
 - A component whose bulk is state rather than markup splits into hooks instead: the component keeps
-  the layout and wires them together. `Finance/components/aiAssistant` is the pattern: the conversation
+  the layout and wires them together. `components/aiChat` (the AI chat shared by the apps; Finance's assistant is its first user) is the pattern: the conversation
   and its queue are `useChatConversation`, the picked files `usePendingAttachments`, the preview
   `usePreview`
 - Split without changing what renders: the component's existing tests stay as they are and must pass.

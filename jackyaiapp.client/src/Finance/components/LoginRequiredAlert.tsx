@@ -1,7 +1,7 @@
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 
-import { signInAndComeBack } from '../utils/signIn';
+import { signInAndComeBack } from '@/utils/signIn';
 
 interface LoginRequiredAlertProps {
   message: string;

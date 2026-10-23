@@ -8,13 +8,13 @@ import { alpha, useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { useEffect, useRef, useState } from 'react';
 
-import { signInAndComeBack } from '../../../utils/signIn';
 import { EXAMPLE_QUESTIONS } from '../examples';
 import { ACCENT, ACCENT_GRADIENT, panelSurface } from '../style';
 
 import AssistantMark from './AssistantMark';
 
 import { ActionTooltip } from '@/components/hints';
+import { signInAndComeBack } from '@/utils/signIn';
 
 interface CompactChatBarProps {
   value: string;
