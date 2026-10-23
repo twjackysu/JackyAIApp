@@ -11,6 +11,11 @@ dotnet test                   # JackyAIApp.Server.Tests — offline unit tests +
 dotnet publish --configuration Release
 ```
 
+- A warning fails the build, in the server and the test project alike (`TreatWarningsAsErrors`): fix it
+  rather than adding it to `NoWarn`, which holds only the doc-comment rules the code does not follow on
+  purpose. A NuGet vulnerability advisory (NU1900–NU1904) stays a warning, so a new one does not stop a
+  deploy; it still needs acting on (`dotnet list package --vulnerable`)
+
 ## Database Migrations (Entity Framework)
 
 ```bash
