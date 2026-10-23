@@ -216,3 +216,227 @@ describe('TrendlineChart', () => {
     expect(localStorage.getItem(DRAWINGS)).toBeNull();
   });
 });
+
+describe('TrendlineChart — choices, selection and drawing', () => {
+  const firstLine = () => container.querySelector('[data-line-id]') as SVGLineElement;
+  /** Selects a line the way a keyboard user does: focusing it. */
+  const select = (line: Element = firstLine()) => act(() => (line as SVGElement).focus());
+  const isSelected = () => button('刪除這條線') !== null;
+  const escape = (el: Element = container.firstElementChild!) =>
+    act(() => {
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+  const startDrawing = (kind: '支撐線' | '壓力線') => {
+    // A real click moves the focus to the button (jsdom's does not); the menu gives it back there.
+    act(() => button('畫線')!.focus());
+    click(button('畫線'));
+    click(menuItem(kind));
+  };
+  const caption = () => container.querySelector('.MuiTypography-caption')?.textContent ?? '';
+  const pressedPreset = () =>
+    [...container.querySelectorAll('[aria-label="圖表區間"] button')]
+      .filter((b) => b.getAttribute('aria-pressed') === 'true')
+      .map((b) => b.textContent);
+  const typeStartDate = (value: string) =>
+    act(() => {
+      const input = container.querySelector('input[type="date"]') as HTMLInputElement;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  const storeDrawing = (...lines: object[]) =>
+    localStorage.setItem(DRAWINGS, JSON.stringify({ version: 1, lines }));
+  const mine = {
+    id: 'mine',
+    from: { date: '2026-08-25', price: 40000 },
+    to: { date: '2026-10-16', price: 42000 },
+    toLatest: true,
+  };
+
+  it('opens at the range stored for this code', () => {
+    localStorage.setItem(RANGE, JSON.stringify({ preset: '6m' }));
+    render();
+    expect(startDate()).toBe('2026-04-16');
+    expect(pressedPreset()).toEqual(['半年']);
+  });
+
+  it('a stored range no longer offered shows as 全部; a start date of its own shows no range', () => {
+    localStorage.setItem(RANGE, JSON.stringify({ preset: '2y' }));
+    render();
+    expect(pressedPreset()).toEqual(['全部']);
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    localStorage.setItem(RANGE, JSON.stringify({ from: '2025-03-01' }));
+    render();
+    expect(pressedPreset()).toEqual([]);
+  });
+
+  it('another code is another chart: its own range, nothing selected', () => {
+    render();
+    click(button('半年'));
+    select();
+    expect(isSelected()).toBe(true);
+
+    act(() => root.render(<TrendlineChart data={{ ...data, code: '2330' }} defaultRange="1y" />));
+    expect(startDate()).toBe('2025-10-16');
+    expect(isSelected()).toBe(false);
+  });
+
+  it('the start date box takes the history’s first day to the latest start, and ignores a half-typed date', () => {
+    render();
+    const input = container.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(input.min).toBe('2024-10-16');
+    expect(input.max).not.toBe('');
+    typeStartDate('');
+    expect(startDate()).toBe('2025-10-16');
+    expect(localStorage.getItem(RANGE)).toBeNull();
+  });
+
+  it('says what to do next: click a line, drag it, or where to draw', () => {
+    render();
+    expect(caption()).toBe('點一下線就能拖曳或刪除，按「畫線」可以自己畫。');
+    select();
+    expect(caption()).toBe('拖曳圓點調整端點、拖曳線段整條移動；鍵盤可用方向鍵微調、Delete 刪除。');
+    startDrawing('壓力線');
+    expect(caption()).toMatch(/^畫壓力線：在圖上點起點和終點/);
+  });
+
+  it('a level chip gives the distance from the close', () => {
+    render();
+    expect(text()).toMatch(/(支撐|壓力) ≈ [\d,.]+（連 \d+ 點，收盤距離 [-+]?[\d.]+%）/);
+  });
+
+  it('nothing to undo, restore or say about a drawing until something is changed', () => {
+    render();
+    expect(button('復原')).toBeNull();
+    expect(button('還原自動線')).toBeNull();
+    expect(text()).not.toContain('調整過的版本');
+    click(button('清除全部'));
+    expect(button('清除全部')).toBeNull(); // nothing left to clear
+    expect(button('復原')).not.toBeNull();
+  });
+
+  it('Esc stops drawing first, and only then lets go of the selected line', () => {
+    render();
+    select();
+    escape(firstLine());
+    expect(isSelected()).toBe(false);
+
+    startDrawing('支撐線');
+    escape();
+    expect(button('畫線')).not.toBeNull();
+    expect(button('取消畫支撐線')).toBeNull();
+  });
+
+  it('picking a kind of line closes the menu, lets go of the line, and its button stops drawing', () => {
+    render();
+    select();
+    startDrawing('支撐線');
+    expect(isSelected()).toBe(false);
+    click(button('取消畫支撐線'));
+    expect(button('畫線')?.getAttribute('aria-expanded')).toBe('false');
+    expect(isSelected()).toBe(false);
+  });
+
+  it('while drawing, a line focused from the keyboard gets no buttons of its own', () => {
+    render();
+    startDrawing('壓力線');
+    select();
+    expect(isSelected()).toBe(false);
+  });
+
+  it('pressing the chart away from a line lets go of it', () => {
+    render();
+    select();
+    const chartBox =
+      container.querySelector('[data-testid="chart"]')!.parentElement!.parentElement!;
+    act(() => {
+      chartBox.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    });
+    expect(isSelected()).toBe(false);
+  });
+
+  it('pressing the chart while drawing keeps the line focused from the keyboard', () => {
+    render();
+    startDrawing('壓力線');
+    select();
+    const chartBox =
+      container.querySelector('[data-testid="chart"]')!.parentElement!.parentElement!;
+    act(() => {
+      chartBox.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    });
+    click(button('取消畫壓力線'));
+    expect(isSelected()).toBe(true);
+  });
+
+  it('a new range lets go of the line and stops drawing', () => {
+    // A line of one's own keeps its id over both ranges, so it would still be found selected.
+    storeDrawing(mine);
+    render();
+    select();
+    click(button('半年'));
+    expect(isSelected()).toBe(false);
+
+    startDrawing('支撐線');
+    click(button('1年'));
+    expect(button('取消畫支撐線')).toBeNull();
+  });
+
+  it('undo lets go of the selected line', () => {
+    render();
+    select();
+    click(button('改為'));
+    expect(isSelected()).toBe(true);
+    click(button('復原'));
+    expect(isSelected()).toBe(false);
+  });
+
+  it('還原自動線 also stops drawing', () => {
+    storeDrawing(mine);
+    render();
+    startDrawing('壓力線');
+    click(button('還原自動線'));
+    expect(button('取消畫壓力線')).toBeNull();
+  });
+
+  it('keeps twenty steps to undo', () => {
+    render();
+    select();
+    for (let i = 0; i < 21; i++) click(button('改為'));
+    for (let i = 0; i < 20; i++) click(button('復原'));
+    expect(button('復原')).toBeNull();
+    // The oldest step is gone: what is left is the first change, not the automatic lines.
+    expect(text()).toContain('調整過的版本');
+  });
+
+  it('a change lets go of a stored line wholly before the history; one before the start date stays', () => {
+    const gone = {
+      id: 'gone',
+      from: { date: '2020-01-02', price: 10000 },
+      to: { date: '2020-03-02', price: 11000 },
+      toLatest: false,
+    };
+    const earlier = {
+      id: 'earlier',
+      from: { date: '2025-01-02', price: 20000 },
+      to: { date: '2025-03-03', price: 21000 },
+      toLatest: false,
+    };
+    storeDrawing(gone, earlier, mine);
+    render();
+    // Only the line inside the shown year is drawn — and counted as drawn.
+    expect(lineCount()).toBe(1);
+    expect(container.querySelector('[role="img"]')?.getAttribute('aria-label')).toContain(
+      '共 1 條趨勢線',
+    );
+
+    select();
+    click(button('改為'));
+    expect(stored().lines.map((l: { id: string }) => l.id)).toEqual(['earlier', 'mine']);
+  });
+
+  it('says how far the data goes, and the close', () => {
+    render();
+    expect(text()).toContain('2025-10-16 起，資料至 2026-10-16，收盤 47,458。');
+  });
+});
