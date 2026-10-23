@@ -23,9 +23,9 @@ namespace JackyAIApp.Server.Services.Portfolio
         /// symbols are typed by the caller, and each is a month-by-month fetch from the exchange.</summary>
         private const int MaxBenchmarkBackfills = 5;
 
-        /// <summary>The first day the prices are needed from, for a stock held from
-        /// <paramref name="heldFrom"/>: a few days earlier, so the day it was first held is priced
-        /// from the close before it, not from nothing, across a weekend or a holiday.</summary>
+        /// <summary>How many days before a stock was first held its prices are needed from, so
+        /// the day it was first held is priced from the close before it, not from nothing,
+        /// across a weekend or a holiday.</summary>
         private const int HistoryMarginDays = 10;
 
         /// <summary>

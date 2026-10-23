@@ -42,10 +42,10 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
 
     public sealed record SessionDistinctValuesDto(List<string> Values);
 
-    public sealed record SessionRowsDto(List<Dictionary<string, object>> Rows);
+    public sealed record SessionRowsDto(List<Dictionary<string, object?>> Rows);
 
     /// <summary>One page of matching rows, and how many matched in all.</summary>
-    public sealed record SessionDetailsDto(List<Dictionary<string, object>> Rows, int TotalCount);
+    public sealed record SessionDetailsDto(List<Dictionary<string, object?>> Rows, int TotalCount);
 
     /// <summary>Rows of a session for CSV export, and how many matched before the export cap.</summary>
     public sealed record SessionExport(

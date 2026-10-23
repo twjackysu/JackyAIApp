@@ -13,7 +13,7 @@ namespace JackyAIApp.Server.Services.Job.Providers;
 ///   { query, filters: { locations: ["Taiwan"] }, sort_by, page, per_page }
 /// (sort_by is required; "popularity" | "latest".)
 ///
-/// History: this used to scrape the __NEXT_DATA__ island off www.cake.me/jobs?q=...&location_list[0]=Taiwan.
+/// History: this used to scrape the __NEXT_DATA__ island off www.cake.me/jobs?q=...&amp;location_list[0]=Taiwan.
 /// Cake now 308-redirects any query/location URL to an SEO path (/jobs/{q}/in-Taiwan), and those
 /// paths sit behind a Cloudflare challenge (403 "Just a moment...") — so the scrape returned zero
 /// jobs for every search. The API host has no such challenge.

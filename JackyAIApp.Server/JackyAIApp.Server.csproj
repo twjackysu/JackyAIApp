@@ -8,7 +8,10 @@
     <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
     <SpaProxyServerUrl>https://localhost:5173</SpaProxyServerUrl>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
-    <NoWarn>CS1591</NoWarn>
+    <!-- Doc comments say what the code does not: a member or a parameter gets one only when it needs
+         it, so none missing (CS1591), or only some of a method's parameters documented (CS1573), is
+         a warning. A malformed comment (CS1570, CS1734) still is. -->
+    <NoWarn>CS1591;CS1573</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

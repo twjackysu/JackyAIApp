@@ -4,14 +4,14 @@ namespace JackyAIApp.Server.Common
 {
     /// <summary>
     /// De-duplicates concurrent cache-miss fetches for the same key: the first caller starts
-    /// <paramref name="factory"/> and every other concurrent caller for the same key awaits that
+    /// <c>factory</c> and every other concurrent caller for the same key awaits that
     /// same in-flight task instead of issuing its own redundant upstream call.
     ///
-    /// <paramref name="factory"/> must not take a per-caller <see cref="CancellationToken"/> — it
+    /// <c>factory</c> must not take a per-caller <see cref="CancellationToken"/> — it
     /// is shared by every caller currently waiting on the key, so one caller cancelling must never
     /// cancel the fetch for the others. Pass <see cref="CancellationToken.None"/> (or a token
     /// scoped to the whole app, not a single request) to whatever the factory calls internally.
-    /// The per-caller <paramref name="ct"/> here only stops *this* caller from waiting any longer;
+    /// The per-caller <c>ct</c> here only stops *this* caller from waiting any longer;
     /// it does not touch the shared task.
     ///
     /// Keys are a single flat namespace shared by every call site (matching how they already share

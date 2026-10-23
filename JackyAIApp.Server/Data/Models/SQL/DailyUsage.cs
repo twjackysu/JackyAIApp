@@ -7,7 +7,7 @@ namespace JackyAIApp.Server.Data.Models.SQL
     /// consumption (DECISION-006/007). One row per (UserId, Date) — composite primary key, not a
     /// surrogate id, so <see cref="Services.IUsageLimitService"/> can target the exact row with a
     /// single atomic conditional UPDATE (or insert-if-missing) instead of a read-modify-write
-    /// round trip. See ARCHITECTURE.md "Credits & Payments 移除設計".
+    /// round trip. See ARCHITECTURE.md "Credits &amp; Payments 移除設計".
     /// </summary>
     public class DailyUsage
     {

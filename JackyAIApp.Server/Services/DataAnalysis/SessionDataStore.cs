@@ -120,6 +120,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             var values = session!.Rows
                 .Select(r => r.GetValueOrDefault(field))
                 .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Select(v => v!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Order()
                 .Take(limit)
