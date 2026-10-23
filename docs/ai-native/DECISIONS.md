@@ -14,3 +14,4 @@
 - **D-010（2026-10-24，評審後）優先序**：垂直切片（Data Analysis 對話 + 免認證／API key MCP + 確認卡）先於 MCP OAuth；MCP OAuth 是 Jacky 的明確要求，排在 M3，不砍。「以後都允許」、工具變更偵測、MCP Apps、本站 MCP server 列為延伸。
 - **D-011（2026-10-24）Connectors 重新在首頁 portal 顯示**（原本因 Google scope 問題隱藏），因為它成了 AI 的核心入口；一行可改回。
 - **D-012（2026-10-24 04:10）設計提早定稿**：第 1 輪就完成研究、草稿與評審修正，依指示提早開工（M1），不等到 10/25。
+- **D-013（2026-10-24 04:15，Jacky 建議，不改主線）知識庫（KB）connector 列為 M4 延伸**：不自架 vector DB，讓使用者接自己的 KB。(1) Atlassian 直接用官方 Atlassian Remote MCP Server 放進目錄（OAuth，順便當 M3 MCP OAuth 的真實案例）；(2) AWS Bedrock Knowledge Bases 原生 connector：使用者填 region、KB ID、IAM 金鑰（加密存），唯讀工具 `kb_search` 呼叫 Retrieve API；(3) PostgreSQL + pgvector 原生 connector：連線字串、表／欄位、embedding 模型（查詢必須用與入庫相同的模型 embedding），唯讀 `kb_search`。連線資料一律走 SafeHttp／SSRF 規則（pgvector 的主機也要擋內網）。

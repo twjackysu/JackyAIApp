@@ -47,6 +47,7 @@
 3. 文件：root／server／client `CLAUDE.md` 寫入新架構。
 
 延伸（有時間才做，依驚艷程度排序）：
+- 知識庫 connector（D-013）：目錄加入 Atlassian Remote MCP；Bedrock Knowledge Bases 與 pgvector 原生 connector（唯讀 `kb_search`）。
 - MCP Apps：支援 `ui://` 資源，在 sandboxed iframe 顯示（我們是 MCP client，能 `resources/read`）。
 - 工具 schema 變更偵測（rug pull）。
 - 「以後都允許」。
