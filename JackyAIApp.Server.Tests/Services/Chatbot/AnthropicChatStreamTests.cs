@@ -10,7 +10,7 @@ using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Chatbot;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
@@ -34,6 +34,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         private readonly Mock<IMarketBackground> _background = new();
         private readonly Mock<IAiUsageLogger> _usage = new();
         private readonly UsageLedger _ledger = new();
+        private readonly RecordingLogger _log = new();
         private string? _apiKey = "test-key";
 
         public void Dispose() => _db.Dispose();
@@ -43,7 +44,22 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             var settings = new Mock<IOptionsMonitor<Settings>>();
             settings.Setup(s => s.CurrentValue).Returns(() => new Settings { Google = new JackyAIApp.Server.Configuration.Google(), AnthropicApiKey = _apiKey });
             return new AnthropicChatService(_db, _attachments.Object, _files.Object, _turns, _background.Object, _usage.Object,
-                _ledger, settings.Object, new TestClientFactory(_anthropic), NullLogger<AnthropicChatService>.Instance);
+                _ledger, settings.Object, new TestClientFactory(_anthropic), _log);
+        }
+
+        /// <summary>Keeps each log entry's named values (the message template's placeholders).</summary>
+        private sealed class RecordingLogger : ILogger<AnthropicChatService>
+        {
+            public List<IReadOnlyList<KeyValuePair<string, object?>>> Entries { get; } = [];
+
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+                Func<TState, Exception?, string> formatter)
+            {
+                if (state is IReadOnlyList<KeyValuePair<string, object?>> values) Entries.Add(values);
+            }
         }
 
         private sealed class TestClientFactory(HttpMessageHandler handler) : IAnthropicClientFactory
@@ -200,6 +216,65 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Contains("file_new", _anthropic.Requests[1]);
             Assert.Equal("file_new", _db.ChatAttachments.AsNoTracking().Single().AnthropicFileId);
             _files.Verify(f => f.DeleteAsync(It.Is<IEnumerable<string>>(ids => ids.Single() == "file_old"), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task AFileStillMissingAfterUploadingAgain_IsNotUploadedAThirdTime()
+        {
+            var image = new SQL.ChatAttachment
+            {
+                UserId = User, FileName = "chart.png", Kind = AttachmentKinds.Image, Text = "",
+                BlobName = "blob-1", MediaType = "image/png", AnthropicFileId = "file_old",
+            };
+            _db.ChatAttachments.Add(image);
+            await _db.SaveChangesAsync();
+            _attachments.Setup(a => a.ReadAsync("blob-1", It.IsAny<CancellationToken>())).ReturnsAsync([1, 2, 3]);
+            _files.Setup(f => f.UploadAsync(It.IsAny<byte[]>(), "image/png", It.IsAny<CancellationToken>())).ReturnsAsync("file_new");
+            _anthropic.Fail(HttpStatusCode.NotFound, "not_found_error", "File not found: file_old");
+            _anthropic.Fail(HttpStatusCode.NotFound, "not_found_error", "File not found: file_new");
+
+            var turn = await AskAsync(attachments: [image]);
+
+            Assert.Equal(2, _anthropic.Requests.Count);
+            Assert.Equal(ChatErrorCodes.Unavailable, turn.Events[^1].GetProperty("code").GetString());
+            _files.Verify(f => f.UploadAsync(It.IsAny<byte[]>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task APauseTurnAfterSomeText_IsNotRetried_SoTheReaderNeverGetsTheTextTwice()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.Text("先查一下"), Sse.End("pause_turn"));
+
+            var turn = await AskAsync();
+
+            Assert.Single(_anthropic.Requests);
+            Assert.Equal("done", Type(turn.Events[^1]));
+            Assert.Equal("先查一下", Messages()[1].Content);
+        }
+
+        [Fact]
+        public async Task ARetryThatEndsWithoutAStopReason_IsNotTakenForAnotherPause()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.End("pause_turn"));
+            _anthropic.Reply(Sse.Start());   // cut off before message_delta
+
+            var turn = await AskAsync();
+
+            Assert.Equal(2, _anthropic.Requests.Count);
+            Assert.Equal(ChatErrorCodes.NoAnswer, turn.Events[^1].GetProperty("code").GetString());
+        }
+
+        [Fact]
+        public async Task TheTurnLog_NamesTheToolsCalled_AndCountsTheToolSearches()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.ToolSearch(), Sse.ToolUse("get_realtime_quote"), Sse.ToolSearch(),
+                Sse.ToolUse("get_margin_balance"), Sse.Text("好"), Sse.End("end_turn"));
+
+            await AskAsync();
+
+            var entry = _log.Entries.Single(e => e.Any(kv => kv.Key == "ToolsCalled"));
+            Assert.Equal("get_realtime_quote,get_margin_balance", entry.Single(kv => kv.Key == "ToolsCalled").Value);
+            Assert.Equal(2, entry.Single(kv => kv.Key == "ToolSearches").Value);
         }
 
         // ── failures ────────────────────────────────────────────────────────────────────────────

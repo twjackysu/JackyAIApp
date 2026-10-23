@@ -199,3 +199,15 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - Tests build the Portfolio services with `TestHelpers/PortfolioServiceBuilder` (set only what the
   test cares about; data sources it doesn't exercise default to `AbsentPortfolioSources`), never
   by calling their constructors, so a constructor change touches one file
+
+## Finance AI assistant (chat)
+
+- `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
+  stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
+  no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,
+  its error code, cut at the output cap, what is kept as the assistant's message) is `TurnVerdict.Of`; a
+  turn's tokens over its requests are `TokenTotals`; the event stream is `SseStream`. Change a rule in its
+  unit, each of which has its own tests
+- The Anthropic client comes from `IAnthropicClientFactory`, so `AnthropicChatStreamTests` can give the real
+  SDK an `HttpClient` serving recorded API streams: a whole turn is tested offline, from the SSE the reader
+  gets to what is saved and logged. A change to how a turn reads the stream gets a case there
