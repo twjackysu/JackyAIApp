@@ -119,6 +119,26 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
+        public async Task GetBenchmarkComparison_ACostInUsd_IsContributedAtTheSnapshotsRate()
+        {
+            // US$1,000 of cost at the snapshot's 32 is a NT$32,000 contribution: 320 units of 0050 at 100.
+            await SeedSnapshotAsync(Weekday(0),
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "SPY", Name = "SPY",
+                    Market = "US", Currency = "USD", CostCurrency = "USD", Quantity = 2, CostBasis = 1_000m,
+                });
+            SetupStockProvider("SPY", MarketRegion.US, (Weekday(0), 500m));
+            SetupStockProvider("0050", MarketRegion.TW, (Weekday(0), 100m));
+
+            var result = await _benchmark.GetBenchmarkComparisonAsync(TestUserId, days: 30);
+
+            var day0 = result.Dates.IndexOf(Weekday(0).ToString("yyyy-MM-dd"));
+            Assert.Equal(32_000m, result.PortfolioTWD[day0]);
+            Assert.Equal(32_000m, Assert.Single(result.Benchmarks).ValuesTWD[day0]);
+        }
+
+        [Fact]
         public async Task GetBenchmarkComparison_SecondContribution_BuysMoreUnitsAtNewPrice()
         {
             var day0 = Weekday(0);

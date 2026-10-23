@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data.Models.Portfolio;
+using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.DTO.Portfolio;
 using static JackyAIApp.Server.Services.Portfolio.PortfolioValuation;
 
@@ -72,186 +73,167 @@ namespace JackyAIApp.Server.Services.Portfolio
             string userId, DateOnly startDate, DateOnly endDate, NetWorthGroupBy groupBy, CancellationToken ct)
         {
             var snapshots = await snapshotReader.AllAsync(userId, ct);
-
             if (snapshots.Count == 0) return [];
 
             // Nothing exists before the first snapshot, so a window reaching further back starts there.
-            var firstDate = snapshots[0].EffectiveDate;
-            if (startDate < firstDate) startDate = firstDate;
+            if (startDate < snapshots[0].EffectiveDate) startDate = snapshots[0].EffectiveDate;
 
-            // Fetch price history for every distinct stock symbol that appears in any snapshot
-            var stockSymbols = snapshots.SelectMany(s => s.Positions).SymbolsPricedBy(PriceSource.StockQuote);
-
-            // Sorted ascending by date (defensively re-sorted here even though upstream fetchers
-            // already do this, since the cursor walk below depends on it) so each symbol's "price
-            // as of date" lookup can advance with a forward-only cursor instead of re-filtering +
-            // re-sorting the whole history on every single day of the loop below.
-            // Deep fetch — the day loop below walks the whole requested window per symbol.
-            var priceMap = (await priceLoader.FetchStocksAsync(stockSymbols, deep: true, ct))
-                .ToDictionary(kv => kv.Key, kv => kv.Value.HistoricalPrices.OrderBy(x => x.Date).ToList());
-            var stockCursors = priceMap.Keys.ToDictionary(k => k, _ => 0);
-
-            // Fund NAV histories — gives funds a real daily curve instead of a flat line.
-            var fundIds = snapshots.SelectMany(s => s.Positions).SymbolsPricedBy(PriceSource.FundNav);
-
-            // FetchFundsAsync's results are cached (FundDataService, up to 6h) and shared with other
-            // callers — build separate sorted copies here rather than reordering navHist.Prices
-            // in place, which would mutate the shared cached instance.
-            var fundNavMap = await priceLoader.FetchFundsAsync(fundIds, ct);
-            var fundPriceMap = fundNavMap.ToDictionary(
-                kv => kv.Key,
-                kv => kv.Value.Prices.OrderBy(x => x.Date, StringComparer.Ordinal).ToList());
-            var fundCursors = fundNavMap.Keys.ToDictionary(k => k, _ => 0);
-
-            // Only resolved when actually needed (groupBy: category/subCategory) — one AI-
-            // classification call per distinct STOCK/FUND symbol, warmed concurrently up front just
-            // like the price fetches above rather than sequentially inside the day loop. CASH/
-            // LIABILITY don't need a lookup (mapped directly by the switch below); most calls are
-            // cache hits after the first time a symbol is ever seen (StockCategoryService persists
-            // to StockSymbolInfo).
-            var categoryMap = new Dictionary<string, PortfolioCategory>();
-            var subCategoryMap = new Dictionary<string, string>();
-            if (groupBy is NetWorthGroupBy.Category or NetWorthGroupBy.SubCategory)
-            {
-                var classifiable = snapshots
-                    .SelectMany(s => s.Positions)
-                    .Where(p => AssetValuationPolicy.For(p.AssetType).FixedCategory is null && !string.IsNullOrWhiteSpace(p.Symbol))
-                    .GroupBy(p => p.Symbol)
-                    .Select(g => g.Last()) // most recent name/market info for that symbol
-                    .ToList();
-                var resolved = await Task.WhenAll(classifiable.Select(async p =>
-                {
-                    var (category, subCategory, _) = await categoryService.GetCategoryAsync(p.AssetType, p.Symbol, p.Name, p.Market, ct);
-                    return (p.Symbol, Category: category, SubCategory: subCategory);
-                }));
-                categoryMap = resolved.ToDictionary(r => r.Symbol, r => r.Category);
-                // Falls back to the (Traditional Chinese) category name when the AI didn't return a
-                // subCategory (e.g. classification failed, or genuinely Other) — better than an
-                // empty/undefined series key.
-                subCategoryMap = resolved.ToDictionary(
-                    r => r.Symbol, r => string.IsNullOrWhiteSpace(r.SubCategory) ? "未分類" : r.SubCategory);
-            }
-
-            // Snapshots are sorted ascending by EffectiveDate (IHoldingSnapshotReader.AllAsync), and `date` only
-            // ever increases below — walk a single cursor forward instead of re-scanning the whole
-            // snapshot list ("active = latest with EffectiveDate <= date") on every day.
-            var snapshotIdx = 0;
+            // Deep: the day loop walks the whole window for every symbol.
+            var stocks = await priceLoader.FetchStocksAsync(
+                snapshots.SelectMany(s => s.Positions).SymbolsPricedBy(PriceSource.StockQuote), deep: true, ct);
+            var funds = await priceLoader.FetchFundsAsync(
+                snapshots.SelectMany(s => s.Positions).SymbolsPricedBy(PriceSource.FundNav), ct);
+            var grouping = await NetWorthGrouping.LoadAsync(groupBy, snapshots, categoryService, ct);
+            var values = new NetWorthDayValuation(stocks, funds);
+            var snapshotsInEffect = new SnapshotCursor(snapshots);
 
             var result = new List<NetWorthDataPoint>();
             for (var date = startDate; date <= endDate; date = date.AddDays(1))
             {
-                if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday) continue;
+                if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
+                if (snapshotsInEffect.ActiveOn(date) is not { } active) continue;
 
-                while (snapshotIdx + 1 < snapshots.Count && snapshots[snapshotIdx + 1].EffectiveDate <= date)
-                    snapshotIdx++;
-                var active = snapshots[snapshotIdx].EffectiveDate <= date ? snapshots[snapshotIdx] : null;
-                if (active == null) continue;
-
-                var fx = SnapshotFx(active);
-                var groups = new Dictionary<string, decimal>();
-                decimal total = 0;
-                var dt = date.ToDateTime(TimeOnly.MinValue);
-                var dayKey = date.ToString("yyyy-MM-dd");
-
-                void Add(string key, decimal valueTWD)
-                {
-                    groups[key] = groups.GetValueOrDefault(key) + valueTWD;
-                    total += valueTWD;
-                }
-
-                foreach (var p in active.Positions)
-                {
-                    var fxMul = p.Currency == "USD" ? fx : 1m;
-                    var policy = AssetValuationPolicy.For(p.AssetType);
-
-                    if (!policy.IsMarketPriced)
-                    {
-                        // Negative for a liability — the sole sign-flip point, same invariant as the
-                        // summary endpoint's valuation loop. Every downstream sum (here: `total`) just adds.
-                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap), policy.Sign * p.Quantity * fxMul);
-                    }
-                    else if (policy.PriceSource == PriceSource.FundNav)
-                    {
-                        decimal nav = p.UnitPrice ?? 0; // fallback: flat value stored at save time
-                        var fundFxMul = fxMul; // default to stored currency until NAV tells us otherwise
-                        if (!string.IsNullOrWhiteSpace(p.Symbol) &&
-                            fundNavMap.TryGetValue(p.Symbol, out var navHist))
-                        {
-                            fundFxMul = navHist.Currency == "USD" ? fx : 1m;
-                            var prices = fundPriceMap[p.Symbol];
-                            if (prices.Count > 0)
-                            {
-                                var idx = fundCursors[p.Symbol];
-                                // Both sides are ISO yyyy-MM-dd strings → ordinal compare is chronological.
-                                while (idx + 1 < prices.Count &&
-                                       string.CompareOrdinal(prices[idx + 1].Date, dayKey) <= 0)
-                                    idx++;
-                                fundCursors[p.Symbol] = idx;
-                                if (string.CompareOrdinal(prices[idx].Date, dayKey) <= 0 && prices[idx].Close > 0)
-                                    nav = prices[idx].Close;
-                            }
-                        }
-                        if (nav > 0)
-                            Add(GroupKey(groupBy, p, categoryMap, subCategoryMap), nav * p.Quantity * fundFxMul);
-                    }
-                    else // STOCK
-                    {
-                        if (!priceMap.TryGetValue(p.Symbol, out var prices) || prices.Count == 0) continue;
-                        var idx = stockCursors[p.Symbol];
-                        while (idx + 1 < prices.Count && prices[idx + 1].Date.Date <= dt)
-                            idx++;
-                        stockCursors[p.Symbol] = idx;
-                        if (prices[idx].Date.Date > dt) continue; // no price at/before this date yet
-                        var close = prices[idx].Close;
-                        if (close <= 0) continue;
-                        Add(GroupKey(groupBy, p, categoryMap, subCategoryMap), close * p.Quantity * fxMul);
-                    }
-                }
-
-                // Only "== 0" (not "<= 0"): a day where nothing could be priced lands on exactly
-                // 0 and should be skipped as no-data. A real negative total (debt exceeding assets)
-                // is a valid data point and must not be dropped from the chart.
-                if (total == 0) continue;
-
-                result.Add(new NetWorthDataPoint
-                {
-                    Date = date.ToString("yyyy-MM-dd"),
-                    TotalTWD = total,
-                    Groups = groups.Select(kv => new NetWorthGroupValue { Key = kv.Key, ValueTWD = kv.Value }).ToList(),
-                });
+                var point = PointOn(date, active, values, grouping);
+                // Exactly 0 is a day where nothing could be priced: no data. A negative total (debt over
+                // assets) is a real point.
+                if (point.TotalTWD == 0) continue;
+                result.Add(point);
             }
-
             return result;
         }
 
-        /// <summary>Group key for one position under the requested groupBy mode. A type with a fixed
-        /// category or label (cash, liabilities, real estate) never enters the AI classification maps;
-        /// a stock/fund symbol somehow missing from a pre-warmed categoryMap falls back to Other
-        /// rather than throwing.</summary>
-        private static string GroupKey(
-            NetWorthGroupBy groupBy, HoldingPosition p,
-            Dictionary<string, PortfolioCategory> categoryMap, Dictionary<string, string> subCategoryMap)
+        private static NetWorthDataPoint PointOn(
+            DateOnly date, HoldingSnapshot active, NetWorthDayValuation values, NetWorthGrouping grouping)
+        {
+            var fx = SnapshotFx(active);
+            var groups = new Dictionary<string, decimal>();
+            decimal total = 0;
+            foreach (var p in active.Positions)
+            {
+                if (values.ValueOn(p, date, fx) is not { } valueTWD) continue;
+                var key = grouping.KeyFor(p);
+                groups[key] = groups.GetValueOrDefault(key) + valueTWD;
+                total += valueTWD;
+            }
+            return new NetWorthDataPoint
+            {
+                Date = date.ToString("yyyy-MM-dd"),
+                TotalTWD = total,
+                Groups = groups.Select(kv => new NetWorthGroupValue { Key = kv.Key, ValueTWD = kv.Value }).ToList(),
+            };
+        }
+    }
+
+    /// <summary>
+    /// A position's value on one day of the net worth history, by this screen's own rules for a missing
+    /// price (the screens differ on purpose, see <c>PortfolioAsOfValuationTests</c>). An amount counts as
+    /// itself, negative for a debt. A fund is valued at its last NAV on or before the day, else at the unit
+    /// price saved with it (a NAV of 0 or below counts as missing), converted by the NAV's currency once it
+    /// has a NAV history at all. A stock is valued at its last close on or before the day, else not at all.
+    /// </summary>
+    internal sealed class NetWorthDayValuation(
+        IReadOnlyDictionary<string, MarketData> stocks, IReadOnlyDictionary<string, FundNavHistory> funds)
+    {
+        private readonly Dictionary<string, ForwardPriceCursor<DateOnly>> _stockPrices =
+            stocks.ToDictionary(kv => kv.Key, kv => ForwardPriceCursor.ForStock(kv.Value.HistoricalPrices));
+        private readonly Dictionary<string, ForwardPriceCursor<string>> _fundNavs =
+            funds.ToDictionary(kv => kv.Key, kv => ForwardPriceCursor.ForFund(kv.Value.Prices));
+
+        /// <summary>In TWD at the snapshot's <paramref name="fx"/>; null when it has no value that day.
+        /// Days in non-decreasing order.</summary>
+        public decimal? ValueOn(HoldingPosition p, DateOnly date, decimal fx)
+        {
+            var fxMul = p.Currency == "USD" ? fx : 1m;
+            var policy = AssetValuationPolicy.For(p.AssetType);
+
+            // policy.Sign is the one place a value turns negative (a debt): the total just adds.
+            if (!policy.IsMarketPriced) return policy.Sign * p.Quantity * fxMul;
+
+            if (policy.PriceSource == PriceSource.FundNav)
+            {
+                var nav = p.UnitPrice ?? 0;
+                if (!string.IsNullOrWhiteSpace(p.Symbol) && funds.TryGetValue(p.Symbol, out var history))
+                {
+                    fxMul = history.Currency == "USD" ? fx : 1m;
+                    if (_fundNavs[p.Symbol].CloseOnOrBefore(date.ToString("yyyy-MM-dd")) is decimal close && close > 0)
+                        nav = close;
+                }
+                return nav > 0 ? nav * p.Quantity * fxMul : null;
+            }
+
+            return _stockPrices.TryGetValue(p.Symbol, out var prices) && prices.CloseOnOrBefore(date) is decimal last && last > 0
+                ? last * p.Quantity * fxMul
+                : null;
+        }
+    }
+
+    /// <summary>
+    /// How the net worth history groups positions into series. The category modes need each stock or fund
+    /// classified (an AI call per distinct symbol, mostly cache hits — StockCategoryService persists them),
+    /// so those are resolved once, all at once, and only for those modes.
+    /// </summary>
+    internal sealed class NetWorthGrouping
+    {
+        private readonly NetWorthGroupBy _groupBy;
+        private readonly Dictionary<string, PortfolioCategory> _categories;
+        private readonly Dictionary<string, string> _subCategories;
+
+        private NetWorthGrouping(
+            NetWorthGroupBy groupBy, Dictionary<string, PortfolioCategory> categories, Dictionary<string, string> subCategories)
+        {
+            _groupBy = groupBy;
+            _categories = categories;
+            _subCategories = subCategories;
+        }
+
+        public static async Task<NetWorthGrouping> LoadAsync(
+            NetWorthGroupBy groupBy, IEnumerable<HoldingSnapshot> snapshots, IStockCategoryService categoryService, CancellationToken ct)
+        {
+            if (groupBy is not (NetWorthGroupBy.Category or NetWorthGroupBy.SubCategory))
+                return new NetWorthGrouping(groupBy, [], []);
+
+            var classifiable = snapshots
+                .SelectMany(s => s.Positions)
+                .Where(p => AssetValuationPolicy.For(p.AssetType).FixedCategory is null && !string.IsNullOrWhiteSpace(p.Symbol))
+                .GroupBy(p => p.Symbol)
+                .Select(g => g.Last()) // the most recent name/market for the symbol
+                .ToList();
+            var resolved = await Task.WhenAll(classifiable.Select(async p =>
+            {
+                var (category, subCategory, _) = await categoryService.GetCategoryAsync(p.AssetType, p.Symbol, p.Name, p.Market, ct);
+                return (p.Symbol, Category: category, SubCategory: subCategory);
+            }));
+            return new NetWorthGrouping(
+                groupBy,
+                resolved.ToDictionary(r => r.Symbol, r => r.Category),
+                // No sub-category (classification failed, or genuinely other): a named bucket, not an empty key.
+                resolved.ToDictionary(r => r.Symbol, r => string.IsNullOrWhiteSpace(r.SubCategory) ? "未分類" : r.SubCategory));
+        }
+
+        /// <summary>
+        /// The series a position belongs to. A type with a fixed category or label (cash, debt, real estate)
+        /// never needs a classification; a stock or fund missing from the classifications is Other rather than
+        /// an error.
+        /// </summary>
+        public string KeyFor(HoldingPosition p)
         {
             var policy = AssetValuationPolicy.For(p.AssetType);
-            return groupBy switch
+            return _groupBy switch
             {
                 NetWorthGroupBy.Category => (policy.FixedCategory
-                    ?? (categoryMap.TryGetValue(p.Symbol, out var cat) ? cat : PortfolioCategory.Other)).ToString(),
-                // Free-form (not the closed PortfolioCategory enum) — a fixed-label type gets its plain
-                // Chinese label directly since there's no AI classification to look up for it.
+                    ?? (_categories.TryGetValue(p.Symbol, out var category) ? category : PortfolioCategory.Other)).ToString(),
+                // Free-form (not the closed PortfolioCategory enum): a fixed-label type gets its plain label.
                 NetWorthGroupBy.SubCategory => policy.FixedLabel
-                    ?? (subCategoryMap.TryGetValue(p.Symbol, out var sub) ? sub : "未分類"),
+                    ?? (_subCategories.TryGetValue(p.Symbol, out var sub) ? sub : "未分類"),
                 NetWorthGroupBy.Currency => p.Currency == "USD" ? "USD" : "TWD",
-                // Verbatim per-holding name for STOCK/FUND; a fixed-label type collapses into one
-                // bucket (same label as SubCategory mode) instead of splitting by its free-form
-                // Name — multiple cash/liability entries would otherwise clutter the per-holding
-                // legend with entries the user doesn't think of as distinct "holdings".
+                // Each stock or fund by name; a fixed-label type is one bucket (the SubCategory label), so several
+                // cash or debt entries do not clutter the legend as if they were separate holdings.
                 NetWorthGroupBy.Holding => policy.FixedLabel
                     ?? (string.IsNullOrWhiteSpace(p.Name)
                         ? (string.IsNullOrWhiteSpace(p.Symbol) ? "未命名" : p.Symbol)
                         : p.Name),
-                // Real estate is "Property", the same key as its Category mode, so both modes render
-                // the exact same series identity/color for it.
+                // Real estate is "Property", the same key as its Category mode, so both modes give it the same
+                // series identity and colour.
                 _ => policy.BucketOf(p).ToString(),
             };
         }
