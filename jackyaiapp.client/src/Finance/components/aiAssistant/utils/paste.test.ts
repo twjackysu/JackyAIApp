@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { htmlToMarkdown, LONG_PASTE_CHARS, readPaste } from './paste';
+import { htmlToMarkdown, insertPastedText, LONG_PASTE_CHARS, readPaste } from './paste';
 
 const clipboard = (data: { text?: string; html?: string; files?: File[] }) => ({
   getData: (type: string) =>
@@ -94,6 +94,29 @@ describe('readPaste', () => {
   it('text right at the limit still goes in the box', () => {
     expect(readPaste(clipboard({ text: 'x'.repeat(LONG_PASTE_CHARS) }), false).kind).toBe(
       'default',
+    );
+  });
+});
+
+describe('insertPastedText', () => {
+  it('puts a line of text in place of the selection, the caret after it', () => {
+    expect(insertPastedText('分析 XXXX 的走勢', 3, 7, '2330')).toEqual({
+      value: '分析 2330 的走勢',
+      caret: 7,
+    });
+  });
+
+  it('puts a block on lines of its own, after what was typed before it', () => {
+    expect(insertPastedText('看這張表', 4, 4, '| a |\n| b |')).toEqual({
+      value: '看這張表\n| a |\n| b |\n',
+      caret: 17,
+    });
+  });
+
+  it('a block at the start of the box, or after a line break, needs no line break before it', () => {
+    expect(insertPastedText('', 0, 0, '| a |\n| b |').value).toBe('| a |\n| b |\n');
+    expect(insertPastedText('看這張表\n', 5, 5, '| a |\n| b |').value).toBe(
+      '看這張表\n| a |\n| b |\n',
     );
   });
 });
