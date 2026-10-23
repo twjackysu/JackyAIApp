@@ -1,5 +1,6 @@
 using JackyAIApp.Server.DTO.Finance;
 using JackyAIApp.Server.Services.Market;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -17,6 +18,27 @@ namespace JackyAIApp.Server.Tests.Services.Finance
     public class CachedMarketDataProviderTests
     {
         private const string Symbol = "00864B";
+
+        [Fact]
+        public async Task AnEntry_IsForTheDayInTaipei_SoANewOneStartsAtMidnightThere()
+        {
+            var inner = new Mock<IMarketDataProvider>();
+            inner.Setup(p => p.Type).Returns(DataProviderType.HistoricalPrice);
+            inner.Setup(p => p.FetchLatestAsync(Symbol, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => new MarketData { StockCode = Symbol, HistoricalPrices = [new DailyPrice { Date = DateTime.UtcNow, Close = 47m }] });
+            var clock = new TestClock(TestClock.Taipei(new DateOnly(2026, 10, 21), 23, 50));
+            var provider = new CachedMarketDataProvider(
+                inner.Object, new MemoryCache(new MemoryCacheOptions()), NullLogger<CachedMarketDataProvider>.Instance,
+                timeProvider: clock);
+
+            await provider.FetchLatestAsync(Symbol);
+            clock.Now = TestClock.Taipei(new DateOnly(2026, 10, 22), 0, 10);   // still the 21st in UTC
+            await provider.FetchLatestAsync(Symbol);
+            await provider.InvalidateAsync(Symbol);   // clears the 22nd's entry, the one now in use
+            await provider.FetchLatestAsync(Symbol);
+
+            inner.Verify(p => p.FetchLatestAsync(Symbol, It.IsAny<CancellationToken>()), Times.Exactly(3));
+        }
 
         [Fact]
         public async Task InvalidateAsync_DelegatesToInnerProvider()

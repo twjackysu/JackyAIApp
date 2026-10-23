@@ -77,7 +77,7 @@ namespace JackyAIApp.Server.Services.Market
                 var quote = await _quoteSource.GetLatestQuoteAsync(stockCode, knownMarketType: null, ct);
                 var livePrice = quote != null ? EffectiveLivePrice(quote) : null;
                 if (quote != null && livePrice is > 0)
-                    return WithRealtimeOverlay(data, quote, livePrice.Value);
+                    return WithRealtimeOverlay(data, quote, livePrice.Value, _timeProvider.GetTaipeiNow().Date);
 
                 // Reached without an exception: the quote came back missing or unusable. This is
                 // the likelier of the two failure shapes — a non-JSON response parses to null
@@ -145,9 +145,8 @@ namespace JackyAIApp.Server.Services.Market
         /// replaced/appended from a realtime quote, so <c>HistoricalPrices.LastOrDefault()</c>
         /// reflects the live price. Never mutates <paramref name="source"/> itself — it may be the
         /// same object instance cached (up to 4h) by <see cref="CachedMarketDataProvider"/>.</summary>
-        private static MarketData WithRealtimeOverlay(MarketData source, StockQuote quote, decimal livePrice)
+        private static MarketData WithRealtimeOverlay(MarketData source, StockQuote quote, decimal livePrice, DateTime today)
         {
-            var today = DateTime.Today;
             var todayBar = new DailyPrice
             {
                 Date = today,

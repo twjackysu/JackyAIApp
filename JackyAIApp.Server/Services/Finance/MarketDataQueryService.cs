@@ -11,7 +11,8 @@ namespace JackyAIApp.Server.Services.Finance
         IMacroEconomyProvider macroEconomyProvider,
         IMarketOverviewProvider marketOverviewProvider,
         IMarketIndexHistoryProvider marketIndexHistoryProvider,
-        IIndicatorProvider indicatorProvider) : IMarketDataQueryService
+        IIndicatorProvider indicatorProvider,
+        TimeProvider? timeProvider = null) : IMarketDataQueryService
     {
         private readonly ILogger<MarketDataQueryService> _logger = logger;
         private readonly IMemoryCache _memoryCache = memoryCache;
@@ -19,10 +20,11 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly IMarketOverviewProvider _marketOverviewProvider = marketOverviewProvider;
         private readonly IMarketIndexHistoryProvider _marketIndexHistoryProvider = marketIndexHistoryProvider;
         private readonly IIndicatorProvider _indicatorProvider = indicatorProvider;
+        private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
         public async Task<ServiceResult<MacroEconomyResponse>> GetMacroEconomyAsync(CancellationToken cancellationToken)
         {
-            var cacheKey = $"MacroEconomy_{DateTime.Now:yyyyMMdd}";
+            var cacheKey = $"MacroEconomy_{_time.GetTaipeiToday():yyyyMMdd}";
             try
             {
                 var result = await _memoryCache.GetOrCreateSingleFlightAsync(

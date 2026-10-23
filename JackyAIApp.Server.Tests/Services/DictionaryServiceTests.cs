@@ -5,6 +5,7 @@ using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.Dictionary;
 using JackyAIApp.Server.Services.OpenAI;
 using JackyAIApp.Server.Services.SpellChecker;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Memory;
@@ -22,6 +23,8 @@ namespace JackyAIApp.Server.Tests.Services
         private readonly MemoryCache _memoryCache = new(new MemoryCacheOptions());
         private readonly Mock<ISpellChecker> _spellCheckerMock;
         private readonly string _dbName = Guid.NewGuid().ToString();
+        // 01:00 in Taipei, still the day before in UTC: a stored time that is Taipei's would show here.
+        private readonly TestClock _clock = new(new DateTimeOffset(2026, 10, 22, 17, 0, 0, TimeSpan.Zero));
         private readonly InMemoryDatabaseRoot _dbRoot = new();
         private readonly ServiceProvider _provider;
         private readonly AzureSQLDBContext _dbContext;
@@ -41,6 +44,7 @@ namespace JackyAIApp.Server.Tests.Services
             services.AddLogging();
             services.AddDbContext<AzureSQLDBContext>(o => o.UseInMemoryDatabase(_dbName, _dbRoot));
             services.AddSingleton(_promptServiceMock.Object);
+            services.AddSingleton<TimeProvider>(_clock);
             services.AddSingleton<IWordGenerator, WordGenerator>();
             _provider = services.BuildServiceProvider();
 
@@ -60,7 +64,7 @@ namespace JackyAIApp.Server.Tests.Services
 
         // Another request: its own context, the app's one generator and cache.
         private DictionaryService NewService(AzureSQLDBContext db) =>
-            new(db, _provider.GetRequiredService<IWordGenerator>(), _memoryCache, _spellCheckerMock.Object);
+            new(db, _provider.GetRequiredService<IWordGenerator>(), _memoryCache, _spellCheckerMock.Object, _clock);
 
         #region GetWord Tests
 
@@ -195,6 +199,7 @@ namespace JackyAIApp.Server.Tests.Services
             await using var db = NewContext();
             var updatedWord = await db.Words.FirstAsync(w => w.WordText == "book");
             Assert.Null(updatedWord.DataInvalid);
+            Assert.Equal(_clock.Now.UtcDateTime, updatedWord.LastUpdated);
         }
 
         [Fact]
@@ -335,6 +340,19 @@ namespace JackyAIApp.Server.Tests.Services
             // Verify DB updated
             var updatedWord = await _dbContext.Words.FirstAsync(w => w.WordText == "hello");
             Assert.True(updatedWord.DataInvalid);
+            Assert.Equal(_clock.Now.UtcDateTime, updatedWord.LastUpdated);
+        }
+
+        [Fact]
+        public async Task AGeneratedWord_IsStampedInUtc()
+        {
+            SetupPrompt().ReturnsAsync((Generated("apple"), null));
+
+            await _service.GetWordAsync("apple");
+
+            await using var db = NewContext();
+            var stored = await db.Words.SingleAsync(w => w.WordText == "apple");
+            Assert.Equal((_clock.Now.UtcDateTime, _clock.Now.UtcDateTime), (stored.DateAdded, stored.LastUpdated));
         }
 
         [Fact]

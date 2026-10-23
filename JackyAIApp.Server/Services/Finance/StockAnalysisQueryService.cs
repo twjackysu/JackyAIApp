@@ -26,7 +26,8 @@ namespace JackyAIApp.Server.Services.Finance
         StockAnalysisBuilder analysisBuilder,
         IMarketIndexHistoryProvider marketIndexHistoryProvider,
         IMarketDataProviderFactory providerFactory,
-        IStockPredictionRecorder predictionRecorder) : IStockAnalysisQueryService
+        IStockPredictionRecorder predictionRecorder,
+        TimeProvider? timeProvider = null) : IStockAnalysisQueryService
     {
         private readonly ILogger<StockAnalysisQueryService> _logger = logger;
         private readonly ICurrentUser _currentUser = currentUser;
@@ -42,6 +43,7 @@ namespace JackyAIApp.Server.Services.Finance
         private readonly IMarketIndexHistoryProvider _marketIndexHistoryProvider = marketIndexHistoryProvider;
         private readonly IMarketDataProviderFactory _providerFactory = providerFactory;
         private readonly IStockPredictionRecorder _predictionRecorder = predictionRecorder;
+        private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
         // Was 300s (5 min) — far longer than any user-facing request should ever take, and long
         // enough for a stuck analysis to tie up a thread and pile up under load. Data fetches now
@@ -49,6 +51,9 @@ namespace JackyAIApp.Server.Services.Finance
         // slowest external call plus the OpenAI analysis (incl. its retries).
         private const int OPERATION_TIMEOUT_SECONDS = 60;
         private const int CACHE_HOURS = 12;
+
+        /// <summary>The day an analysis is cached for: Taipei's, so a new day's starts at midnight there.</summary>
+        private string TaipeiDay() => _time.GetTaipeiToday().ToString("yyyyMMdd");
 
         public async Task<ServiceResult<StockTrendAnalysis>> AnalyzeStockAsync(StockSearchRequest request, CancellationToken cancellationToken)
         {
@@ -68,7 +73,7 @@ namespace JackyAIApp.Server.Services.Finance
                     return ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to find stock code for '{request.StockCodeOrName}'. Please verify the company name or stock code. Searched in TWSE company database but found no matches.");
                 }
 
-                var currentDate = DateTime.Now.ToString("yyyyMMdd");
+                var currentDate = TaipeiDay();
                 var cacheKey = $"StockAnalysis_{resolvedStockCode}_{currentDate}";
 
                 if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is StockTrendAnalysis cachedResult)
@@ -143,7 +148,7 @@ namespace JackyAIApp.Server.Services.Finance
                 return ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to resolve stock code for '{stockCode}'.");
             }
 
-            var currentDate = DateTime.Now.ToString("yyyyMMdd");
+            var currentDate = TaipeiDay();
             var cacheKey = $"TechnicalIndicators_{resolvedStockCode}_{currentDate}";
             if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is TechnicalAnalysisResponse cachedResult)
             {
@@ -192,7 +197,7 @@ namespace JackyAIApp.Server.Services.Finance
                 return ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to resolve stock code for '{stockCode}'.");
             }
 
-            var currentDate = DateTime.Now.ToString("yyyyMMdd");
+            var currentDate = TaipeiDay();
             var cacheKey = $"ChipAnalysis_{resolvedStockCode}_{currentDate}";
             if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is ChipAnalysisResponse cachedResult)
             {
@@ -239,7 +244,7 @@ namespace JackyAIApp.Server.Services.Finance
                 return ServiceResult.Fail(ErrorCodes.NotFound, $"Unable to resolve stock code for '{stockCode}'.");
             }
 
-            var currentDate = DateTime.Now.ToString("yyyyMMdd");
+            var currentDate = TaipeiDay();
             var cacheKey = $"StockScore_{resolvedStockCode}_{currentDate}";
             if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is StockScoreResponse cachedResult)
             {
@@ -287,7 +292,7 @@ namespace JackyAIApp.Server.Services.Finance
             var (region, resolvedStockCode, unresolved) = await ResolveStockAsync(request.StockCode, request.Market, cancellationToken);
             if (unresolved is { } failure) return failure;
 
-            var currentDate = DateTime.Now.ToString("yyyyMMdd");
+            var currentDate = TaipeiDay();
             var configHash = $"{region}_{request.IncludeTechnical}_{request.IncludeChip}_{request.IncludeFundamental}_{request.IncludeScoring}_{request.IncludeRisk}_{request.TechnicalWeight}_{request.ChipWeight}_{request.FundamentalWeight}";
             var cacheKey = $"ComprehensiveAnalysis_{resolvedStockCode}_{currentDate}_{configHash}";
 

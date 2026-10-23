@@ -118,7 +118,9 @@ namespace JackyAIApp.Server.Services.Market
         {
             await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
 
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            // Taipei's today, the exchange's own day: yesterday's bar counts as final from midnight there.
+            var taipeiNow = _timeProvider.GetTaipeiNow();
+            var today = DateOnly.FromDateTime(taipeiNow);
             // Always query/return whatever's persisted within the full 6-month window — reading a
             // few extra already-cached rows costs nothing (no network call), and lets a shallow
             // FetchLatestAsync call transparently benefit from a prior deep fetch if one happened.
@@ -136,7 +138,7 @@ namespace JackyAIApp.Server.Services.Market
             // Deliberately simple/conservative: TWSE/TWStockLib don't publish a documented guarantee
             // for exactly when today's bar becomes available, so the DB just never gambles on it —
             // the tradeoff is the app can show yesterday's close for a few hours after today's
-            // session actually closed, until the calendar date rolls over.
+            // session actually closed, until the calendar date rolls over (at midnight in Taipei).
             // Holidays count: with the weekday rule the day after a weekday holiday took the holiday
             // for the last trading day, found it missing, and gap-fetched again on every request
             // that day; before 08:00 the quote backfill below would have stored a bar dated on the
@@ -174,7 +176,7 @@ namespace JackyAIApp.Server.Services.Market
                         ? neededWindowStart.ToDateTime(TimeOnly.MinValue)
                         : maxDate?.AddDays(1).ToDateTime(TimeOnly.MinValue) ?? neededWindowStart.ToDateTime(TimeOnly.MinValue);
                     var fetched = await _inner.FetchRangeAsync(
-                        stockCode, fetchStart, DateTime.Now, marketType, cancellationToken);
+                        stockCode, fetchStart, taipeiNow, marketType, cancellationToken);
 
                     if (!string.IsNullOrWhiteSpace(fetched.CompanyName))
                     {
@@ -228,7 +230,6 @@ namespace JackyAIApp.Server.Services.Market
             // yesterday's finalized close. Past that cutoff, a real gap is left for the primary
             // gap-fill to close on the next request instead of persisting through this fallback.
             var latestDate = existing.Count > 0 ? existing[^1].TradeDate : (DateOnly?)null;
-            var taipeiNow = _timeProvider.GetTaipeiNow();
             if ((latestDate == null || latestDate.Value < lastTradingDay) && taipeiNow.TimeOfDay < new TimeSpan(8, 0, 0))
             {
                 await BackfillLastTradingDayFromQuoteAsync(db, stockCode, lastTradingDay, today, cancellationToken);
@@ -377,6 +378,14 @@ namespace JackyAIApp.Server.Services.Market
             {
                 var quote = await _inner.GetLatestQuoteAsync(symbol, knownMarketType: null, ct);
                 if (quote?.YesterdayClosingPrice is not > 0) return;
+                // The quote's yesterday is the target day only once the quote is from a later session.
+                // Until MIS moves on to the next day its yesterday is the day before the target, and
+                // a stored day is never written again, so that close would stay wrong for good.
+                if (quote.SyncTime is not { } syncTime || DateOnly.FromDateTime(TaipeiTime.ToTaipei(syncTime)) <= targetDate)
+                {
+                    _logger.LogDebug("Quote for {Symbol} is not from after {TargetDate}; leaving the gap", symbol, targetDate);
+                    return;
+                }
 
                 var closePrice = quote.YesterdayClosingPrice.Value;
                 var bar = new DailyPrice

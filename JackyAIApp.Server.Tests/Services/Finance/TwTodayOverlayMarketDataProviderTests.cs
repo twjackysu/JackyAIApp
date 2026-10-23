@@ -110,7 +110,8 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             var history = HistoricalOnly();
             history.HistoricalPrices.Add(new DailyPrice
             {
-                Date = DateTime.Today, Open = 108m, High = 108m, Low = 107m, Close = 107.7m, Volume = 43_046_982,
+                // FridayAfternoon's day in Taipei: the bar the overlay's today replaces.
+                Date = new DateTime(2026, 9, 11), Open = 108m, High = 108m, Low = 107m, Close = 107.7m, Volume = 43_046_982,
             });
             _inner.Setup(x => x.FetchLatestAsync(Symbol, It.IsAny<CancellationToken>())).ReturnsAsync(history);
             _quotes.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))

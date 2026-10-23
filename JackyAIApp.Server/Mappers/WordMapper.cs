@@ -11,7 +11,8 @@ namespace JackyAIApp.Server.Mappers
     public static class WordMapper
     {
         /// <summary>Builds a brand-new <see cref="SQL.Word"/> entity from a generated definition.</summary>
-        public static SQL.Word ToEntity(DTO.WordBase wordbase)
+        /// <param name="now">When it is stored, in UTC.</param>
+        public static SQL.Word ToEntity(DTO.WordBase wordbase, DateTime now)
         {
             var newWordId = Guid.NewGuid().ToString();
             var word = new SQL.Word
@@ -19,8 +20,8 @@ namespace JackyAIApp.Server.Mappers
                 Id = newWordId,
                 WordText = wordbase.Word,
                 KKPhonics = wordbase.KKPhonics,
-                DateAdded = DateTime.Now,
-                LastUpdated = DateTime.Now,
+                DateAdded = now,
+                LastUpdated = now,
                 Meanings = new List<SQL.WordMeaning>()
             };
 

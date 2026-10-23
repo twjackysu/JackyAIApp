@@ -142,7 +142,8 @@ The home portal (`/`) is the only place users switch between apps; the registry 
      failure keeps the charge. The rule lives only in `Services/UsageLedger.cs`, settled by
      `Common/UsageSettlementMiddleware.cs`; no endpoint refunds by hand. Only three endpoints
      charge inline, each for a reason: TTS (cache hits and anonymous use are free), the market AI
-     digest (once per user per day), chat (cost depends on attachments)
+     digest (once per user per budget day, the UTC day; the digest itself is new each Taipei day),
+     chat (cost depends on attachments)
    - `UsageLimits:DailyBudget` (default 60) sets the shared default; `User.UsageLimitMultiplier`
      lets the author raise an individual user's effective limit directly in the DB (no admin UI).
      Resetting today's usage is `UPDATE DailyUsages SET Used = 0` for that `UserId` and today's
