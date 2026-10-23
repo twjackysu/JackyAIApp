@@ -110,7 +110,7 @@ export default function ApprovalCard({ approval, state, decisions, onSubmit }: A
               {decided.get(call.toolUseId) ? '已允許' : '已拒絕'}
             </Typography>
           ) : single ? (
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, mt: 1, '& .MuiButton-root': { minHeight: 44 } }}>
               <Button
                 size="small"
                 variant="contained"
@@ -138,7 +138,7 @@ export default function ApprovalCard({ approval, state, decisions, onSubmit }: A
                 v && setChosen((prev) => ({ ...prev, [call.toolUseId]: v === 'yes' }))
               }
               aria-label={`${call.displayName}：允許或拒絕`}
-              sx={{ mt: 1 }}
+              sx={{ mt: 1, '& .MuiToggleButton-root': { minHeight: 44, px: 2 } }}
             >
               <ToggleButton value="yes">允許</ToggleButton>
               <ToggleButton value="no">拒絕</ToggleButton>
@@ -153,7 +153,7 @@ export default function ApprovalCard({ approval, state, decisions, onSubmit }: A
           variant="contained"
           disabled={!allChosen}
           onClick={() => onSubmit(decisionsFor(approval.calls, chosen))}
-          sx={{ mt: 1 }}
+          sx={{ mt: 1, minHeight: 44 }}
         >
           送出
         </Button>
