@@ -43,6 +43,7 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<UsageLedger>();
             services.AddScoped<IUsageLimitService, UsageLimitService>();
             services.AddScoped<IAiUsageLogger, AiUsageLogger>();
+            services.AddSingleton<IAnthropicClientFactory, AnthropicClientFactory>();
             services.AddScoped<IAnthropicChatService, AnthropicChatService>();
             services.AddScoped<IAnthropicFileStore, AnthropicFileStore>();
             services.AddScoped<IChatAttachmentService, ChatAttachmentService>();

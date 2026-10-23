@@ -1,14 +1,10 @@
 using JackyAIApp.Server.Common;
-using Anthropic;
 using Anthropic.Models.Beta.Messages;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services.AiUsage;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using System.Text;
-using System.Text.Json;
 using AnthropicModel = Anthropic.Models.Messages.Model;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
@@ -30,6 +26,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         IAiUsageLogger usageLogger,
         UsageLedger usageLedger,
         IOptionsMonitor<Settings> settings,
+        IAnthropicClientFactory clientFactory,
         ILogger<AnthropicChatService> logger,
         TimeProvider? timeProvider = null) : IAnthropicChatService
     {
@@ -45,13 +42,6 @@ namespace JackyAIApp.Server.Services.Chatbot
         private const int MaxTokens = 32000;
 
         private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
-
-        // The MCP connector runs its tool-call loop server-side with an internal 10-iteration
-        // cap; hitting it ends the turn with stop_reason=pause_turn before any answer text is
-        // produced. Retrying the same request from scratch (not a true resume — see below) often
-        // succeeds if the stall was a transient MCP-server hiccup. Bounded so a query that
-        // genuinely needs an unusually large number of tool calls fails fast instead of looping.
-        private const int MaxPauseTurnRetries = 2;
 
         /// <summary>
         /// The tw-stock tools whose definitions go with every request; the server's other tools
@@ -196,20 +186,6 @@ namespace JackyAIApp.Server.Services.Chatbot
             return bytes;
         }
 
-        /// <summary>One request's token usage as the stream reports it, the latest report winning.</summary>
-        private sealed class TurnUsage
-        {
-            public long Input, CacheWrite, CacheRead, Output;
-
-            public void Update(long? input, long? cacheWrite, long? cacheRead, long? output)
-            {
-                if (input.HasValue) Input = input.Value;
-                if (cacheWrite.HasValue) CacheWrite = cacheWrite.Value;
-                if (cacheRead.HasValue) CacheRead = cacheRead.Value;
-                if (output.HasValue) Output = output.Value;
-            }
-        }
-
         public async Task<ChatStreamResult> StreamChatAsync(
             string userId, string message, string? conversationId, IReadOnlyCollection<SQL.ChatAttachment> attachments,
             HttpResponse response, CancellationToken ct)
@@ -218,11 +194,40 @@ namespace JackyAIApp.Server.Services.Chatbot
             if (string.IsNullOrEmpty(apiKey))
             {
                 logger.LogError("Anthropic API key not configured");
-                StartEventStream(response);
-                await WriteSseAsync(response, new { type = "error", code = ChatErrorCodes.Unavailable }, ct);
+                await SseStream.Open(response).WriteAsync(new { type = "error", code = ChatErrorCodes.Unavailable }, ct);
                 return new ChatStreamResult(false, conversationId ?? "", ChatErrorCodes.Unavailable);
             }
 
+            var (conversation, userMessage, history) = await StartTurnAsync(userId, message, conversationId, attachments, ct);
+            var taipeiToday = _time.GetTaipeiToday();
+            var background = await MarketBackgroundAsync(ct);
+            Task<MessageCreateParams> RequestFor(bool reupload, CancellationToken token) =>
+                RequestForAsync(history, taipeiToday, background, reupload, token);
+            var request = await RequestFor(reupload: false, ct);
+
+            // The turn ends early if the reader stops it (POST conversations/{id}/stop) or leaves.
+            using var turn = turns.Begin(userId, conversation.Id);
+            using var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct, turn.Token);
+            var sse = SseStream.Open(response);
+            await WriteStartAsync(sse, conversation.Id, userMessage.Id, turnCts.Token);
+
+            var outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id)
+                .RunAsync(request, token => RequestFor(reupload: true, token), turnCts.Token);
+            var verdict = TurnVerdict.Of(outcome);
+            var answerId = await SaveAnswerAsync(conversation, message, verdict.Saved);
+            await ReportTurnAsync(userId, conversation.Id, outcome, verdict);
+            await EndStreamAsync(sse, conversation.Id, verdict, answerId, ct);
+            return new ChatStreamResult(outcome.StreamingStarted, conversation.Id, verdict.ErrorCode);
+        }
+
+        /// <summary>
+        /// The conversation the turn belongs to (a new one when none is given, or it is not this
+        /// user's), with the user's message and its attachments saved into it, and its whole history.
+        /// </summary>
+        private async Task<(SQL.ChatConversation Conversation, SQL.ChatMessage UserMessage, List<SQL.ChatMessage> History)>
+            StartTurnAsync(string userId, string message, string? conversationId,
+                IReadOnlyCollection<SQL.ChatAttachment> attachments, CancellationToken ct)
+        {
             var conversation = await ResolveConversationAsync(userId, conversationId, ct);
 
             var userMessage = new SQL.ChatMessage
@@ -241,220 +246,103 @@ namespace JackyAIApp.Server.Services.Chatbot
                 .Include(m => m.Attachments)
                 .OrderBy(m => m.CreatedAt)
                 .ToListAsync(ct);
+            return (conversation, userMessage, history);
+        }
 
-            var files = await PrepareFilesAsync(history, reupload: false, ct);
-
-            var client = new AnthropicClient { ApiKey = apiKey };
-            var taipeiToday = _time.GetTaipeiToday();
-            // The page's market data as background; the turn goes ahead without it if it cannot be had.
-            string? background = null;
+        /// <summary>The page's market data as background; the turn goes ahead without it if it cannot be had.</summary>
+        private async Task<string?> MarketBackgroundAsync(CancellationToken ct)
+        {
             try
             {
-                background = await marketBackground.GetAsync(ct);
+                return await marketBackground.GetAsync(ct);
             }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
                 logger.LogWarning(ex, "Chat market background unavailable; answering without it");
+                return null;
             }
-            var streamParams = BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList(), background);
-            var filesReuploaded = false;
+        }
 
-            // The turn ends early if the reader stops it (POST conversations/{id}/stop) or leaves.
-            using var turn = turns.Begin(userId, conversation.Id);
-            using var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct, turn.Token);
-            var turnCt = turnCts.Token;
-            var stopped = false;
+        /// <summary>The request for the conversation so far, its files readied first (see <see cref="PrepareFilesAsync"/>).</summary>
+        private async Task<MessageCreateParams> RequestForAsync(
+            List<SQL.ChatMessage> history, DateOnly taipeiToday, string? background, bool reupload, CancellationToken ct)
+        {
+            var files = await PrepareFilesAsync(history, reupload, ct);
+            return BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList(), background);
+        }
 
-            StartEventStream(response);
-            // First, so the reader can stop even the first turn of a new conversation.
+        /// <summary>First, so the reader can stop even the first turn of a new conversation.</summary>
+        private static async Task WriteStartAsync(SseStream sse, string conversationId, long userMessageId, CancellationToken turnCt)
+        {
             try
             {
-                await WriteSseAsync(response, new { type = "start", conversationId = conversation.Id, userMessageId = userMessage.Id }, turnCt);
+                await sse.WriteAsync(new { type = "start", conversationId, userMessageId }, turnCt);
             }
             catch (OperationCanceledException)
             {
-                // Stopped already: the request below sees it straight away.
+                // Stopped already: the request after this sees it straight away.
             }
+        }
 
-            var accumulated = new StringBuilder();
-            var streamingStarted = false;
-            // Totals over every attempt (a pause_turn retry is a request of its own). Input is all of
-            // it: uncached plus written to and read from the cache.
-            long inputTokens = 0, outputTokens = 0, cacheWriteTokens = 0, cacheReadTokens = 0;
-            // The tw-stock tools this turn called, in order, and how often it searched for one.
-            var toolsCalled = new List<string>();
-            var toolSearches = 0;
-            BetaStopReason? stopReason = null;
-            var success = true;
-            string? errorCode = null;
+        /// <summary>Adds the answer the verdict keeps as the conversation's next message; its id, or null if none is kept.</summary>
+        private async Task<long?> SaveAnswerAsync(SQL.ChatConversation conversation, string message, string? content)
+        {
+            if (content == null) return null;
 
-            for (var attempt = 0; ; attempt++)
+            var answer = new SQL.ChatMessage
             {
-                stopReason = null;
-                // message_start gives this request's usage so far; the final message_delta gives its
-                // cumulative usage, which also counts the MCP connector's server-side tool calls.
-                var usage = new TurnUsage();
-                try
-                {
-                    await foreach (var evt in client.Beta.Messages.CreateStreaming(streamParams, turnCt))
-                    {
-                        if (evt.TryPickContentBlockDelta(out var blockDelta) && blockDelta.Delta.TryPickText(out var textDelta))
-                        {
-                            streamingStarted = true;
-                            accumulated.Append(textDelta.Text);
-                            await WriteSseAsync(response, new { type = "delta", text = textDelta.Text }, turnCt);
-                        }
-                        else if (evt.TryPickContentBlockStart(out var blockStart))
-                        {
-                            if (blockStart.ContentBlock.TryPickBetaMcpToolUse(out var toolUse))
-                            {
-                                toolsCalled.Add(toolUse.Name);
-                                await WriteSseAsync(response, new { type = "tool_use", name = toolUse.Name }, turnCt);
-                            }
-                            // A tool search (server_tool_use, answered by a tool_search_tool_result
-                            // block) carries no text for the reader; it is only counted.
-                            else if (blockStart.ContentBlock.TryPickBetaServerToolUse(out _))
-                            {
-                                toolSearches++;
-                            }
-                        }
-                        else if (evt.TryPickStart(out var startEvt))
-                        {
-                            // Anthropic bills from here on, whether or not any answer text follows.
-                            usageLedger.MarkAiBilled();
-                            var u = startEvt.Message.Usage;
-                            usage.Update(u.InputTokens, u.CacheCreationInputTokens, u.CacheReadInputTokens, u.OutputTokens);
-                        }
-                        else if (evt.TryPickDelta(out var msgDelta))
-                        {
-                            if (msgDelta.Usage is { } u)
-                                usage.Update(u.InputTokens, u.CacheCreationInputTokens, u.CacheReadInputTokens, u.OutputTokens);
-                            if (msgDelta.Delta != null) stopReason = msgDelta.Delta.StopReason?.Value();
-                        }
-                    }
-                }
-                catch (Exception ex) when (!turnCt.IsCancellationRequested && !streamingStarted && !filesReuploaded &&
-                                           ChatErrorCodes.IsMissingFile(ex))
-                {
-                    // A file_id the Files API no longer has: upload this conversation's files again from
-                    // the attachment store and try once more. Nothing has reached the reader yet.
-                    logger.LogWarning(ex, "Anthropic did not find a file of conversation {ConversationId}; uploading its files again",
-                        conversation.Id);
-                    filesReuploaded = true;
-                    files = await PrepareFilesAsync(history, reupload: true, turnCt);
-                    streamParams = BuildRequest(taipeiToday, history.Select(m => ToMessageParam(m, files)).ToList(), background);
-                    continue;
-                }
-                catch (Exception ex) when (!turnCt.IsCancellationRequested)
-                {
-                    success = false;
-                    errorCode = ChatErrorCodes.For(ex);
-                    // The browser only gets the code; this is where the actual error is kept.
-                    logger.LogError(ex,
-                        "Anthropic chat streaming error for conversation {ConversationId}; reported as {ErrorCode}",
-                        conversation.Id, errorCode);
-                    break;
-                }
-                catch (Exception) when (turnCt.IsCancellationRequested)
-                {
-                    // The reader stopped the turn, or left. Whatever the SDK threw on the way out (it
-                    // need not be an OperationCanceledException), the turn ends here.
-                    stopped = true;
-                    success = false;
-                    break;
-                }
-                finally
-                {
-                    inputTokens += usage.Input + usage.CacheWrite + usage.CacheRead;
-                    cacheWriteTokens += usage.CacheWrite;
-                    cacheReadTokens += usage.CacheRead;
-                    outputTokens += usage.Output;
-                }
+                ConversationId = conversation.Id,
+                Role = "assistant",
+                Content = content,
+            };
+            db.ChatMessages.Add(answer);
 
-                // pause_turn = the MCP connector's server-side tool loop hit its internal
-                // iteration cap before producing any answer text. Nothing has reached the client
-                // yet (streamingStarted is false), so a from-scratch retry is invisible to the
-                // user — NOT a true mid-conversation resume (the SDK has no block-accumulation
-                // helper to reconstruct the partial assistant turn), just "try the whole request
-                // again," which is enough for the common case of a transient MCP hiccup.
-                if (!streamingStarted && stopReason == BetaStopReason.PauseTurn && attempt < MaxPauseTurnRetries)
-                {
+            conversation.UpdatedAt = DateTime.UtcNow;
+            conversation.Title ??= TitleFrom(message);
+            // Not the request's token: a stopped or abandoned turn is still saved.
+            await db.SaveChangesAsync(CancellationToken.None);
+            return answer.Id;
+        }
+
+        /// <summary>The turn in the server log, and its tokens in the usage log.</summary>
+        private async Task ReportTurnAsync(string userId, string conversationId, TurnOutcome outcome, TurnVerdict verdict)
+        {
+            if (verdict.Truncated)
+                logger.LogWarning("Anthropic chat turn hit max_tokens for conversation {ConversationId}", conversationId);
+            // Requests that went through but whose answer did not count: no text, or declined mid-answer.
+            else if (!verdict.Success && !verdict.Stopped && outcome.ErrorCode == null)
+            {
+                if (outcome.Text.Length == 0)
                     logger.LogWarning(
-                        "Anthropic chat turn hit pause_turn with no output for conversation {ConversationId}; retrying (attempt {Attempt}/{Max})",
-                        conversation.Id, attempt + 1, MaxPauseTurnRetries);
-                    continue;
-                }
-
-                break;
-            }
-
-            // The stream can complete with no exception yet produce zero text — e.g. the MCP
-            // tool call plus follow-up analysis ran out of MaxTokens before any answer text was
-            // written. Treat that as a failure rather than silently sending "done" with nothing
-            // to show (previously left the chat bubble blank forever with no error surfaced).
-            if (success && accumulated.Length == 0)
-            {
-                logger.LogWarning(
-                    "Anthropic chat turn produced no text for conversation {ConversationId}. StopReason={StopReason}",
-                    conversation.Id, stopReason?.ToString() ?? "(none)");
-                success = false;
-                errorCode = NoAnswerCode(stopReason);
-            }
-
-            // A decline can also arrive after some text has streamed. That text is a cut-off
-            // answer, so it is reported as a failure and not kept as the assistant's turn.
-            var refused = success && stopReason == BetaStopReason.Refusal;
-            if (refused)
-            {
-                logger.LogWarning("Anthropic chat turn was declined mid-answer for conversation {ConversationId}", conversation.Id);
-                success = false;
-                errorCode = ChatErrorCodes.Refused;
-            }
-
-            // An answer that ran into the output cap is kept, but the reader is told it is cut short.
-            var truncated = success && stopReason == BetaStopReason.MaxTokens;
-            if (truncated)
-                logger.LogWarning("Anthropic chat turn hit max_tokens for conversation {ConversationId}", conversation.Id);
-
-            // A stopped turn keeps what was said before the stop, marked as cut off — even if that is
-            // nothing — so the reader sees it on reopening the conversation, and the model knows on the
-            // next turn that this answer did not finish (as Claude Code records an interrupted turn).
-            SQL.ChatMessage? assistantMessage = null;
-            if (stopped || (accumulated.Length > 0 && !refused))
-            {
-                assistantMessage = new SQL.ChatMessage
-                {
-                    ConversationId = conversation.Id,
-                    Role = "assistant",
-                    Content = stopped ? StoppedContent(accumulated.ToString()) : accumulated.ToString(),
-                };
-                db.ChatMessages.Add(assistantMessage);
-
-                conversation.UpdatedAt = DateTime.UtcNow;
-                conversation.Title ??= TitleFrom(message);
-                // Not the request's token: a stopped or abandoned turn is still saved.
-                await db.SaveChangesAsync(CancellationToken.None);
+                        "Anthropic chat turn produced no text for conversation {ConversationId}. StopReason={StopReason}",
+                        conversationId, outcome.StopReason?.ToString() ?? "(none)");
+                else
+                    logger.LogWarning("Anthropic chat turn was declined mid-answer for conversation {ConversationId}", conversationId);
             }
 
             // Cache reads that stay at zero turn after turn mean something in the prompt keeps
             // changing ahead of the cached part (see BuildRequest). The tools called are what
             // AlwaysLoadedTools should follow.
+            var tokens = outcome.Tokens;
             logger.LogInformation(
                 "Chat turn for conversation {ConversationId}: {InputTokens} input tokens ({CacheReadTokens} read from cache, {CacheWriteTokens} written), {OutputTokens} output; tools called [{ToolsCalled}] after {ToolSearches} tool searches",
-                conversation.Id, inputTokens, cacheReadTokens, cacheWriteTokens, outputTokens,
-                string.Join(",", toolsCalled), toolSearches);
-            await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)inputTokens, (int)outputTokens, success, userId,
-                (int)cacheWriteTokens, (int)cacheReadTokens);
+                conversationId, tokens.Input, tokens.CacheRead, tokens.CacheWrite, tokens.Output,
+                string.Join(",", outcome.ToolsCalled), outcome.ToolSearches);
+            await usageLogger.LogChatAsync("chatbot.tw_stock", ModelId, (int)tokens.Input, (int)tokens.Output, verdict.Success, userId,
+                (int)tokens.CacheWrite, (int)tokens.CacheRead);
+        }
 
-            if (success)
-                await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, truncated, assistantMessageId = assistantMessage?.Id }, ct);
-            else if (stopped && !ct.IsCancellationRequested)
+        /// <summary>The turn's last event: done, or the error code. A reader who has left gets none.</summary>
+        private static async Task EndStreamAsync(
+            SseStream sse, string conversationId, TurnVerdict verdict, long? answerId, CancellationToken ct)
+        {
+            if (verdict.Success)
+                await sse.WriteAsync(new { type = "done", conversationId, truncated = verdict.Truncated, assistantMessageId = answerId }, ct);
+            else if (verdict.Stopped && !ct.IsCancellationRequested)
                 // Stopped through the API while the reader is still listening.
-                await WriteSseAsync(response, new { type = "done", conversationId = conversation.Id, stopped = true, assistantMessageId = assistantMessage?.Id }, ct);
+                await sse.WriteAsync(new { type = "done", conversationId, stopped = true, assistantMessageId = answerId }, ct);
             else if (!ct.IsCancellationRequested)
-                await WriteSseAsync(response, new { type = "error", code = errorCode ?? ChatErrorCodes.Failed }, ct);
-
-            return new ChatStreamResult(streamingStarted, conversation.Id, errorCode);
+                await sse.WriteAsync(new { type = "error", code = verdict.ErrorCode ?? ChatErrorCodes.Failed }, ct);
         }
 
         /// <summary>Ends an answer the reader stopped; shown as it is, and read by the model as it is.</summary>
@@ -538,15 +426,6 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// <summary>Appended to a cut attachment, so the model does not answer as if it saw all of it.</summary>
         internal const string TruncationNote = "\n\n[此檔案內容過長，以上僅為前段，其餘已截斷。]";
 
-        private static void StartEventStream(HttpResponse response)
-        {
-            response.ContentType = "text/event-stream";
-            response.Headers.Append("Cache-Control", "no-cache");
-            response.Headers.Append("Connection", "keep-alive");
-            response.Headers.Append("Access-Control-Allow-Origin", "*");
-            response.HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
-        }
-
         private async Task<SQL.ChatConversation> ResolveConversationAsync(string userId, string? conversationId, CancellationToken ct)
         {
             if (!string.IsNullOrEmpty(conversationId))
@@ -564,12 +443,5 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         private static string TitleFrom(string message) =>
             message.Length > 30 ? string.Concat(message.AsSpan(0, 30), "…") : message;
-
-        private static async Task WriteSseAsync(HttpResponse response, object payload, CancellationToken ct)
-        {
-            var json = JsonSerializer.Serialize(payload);
-            await response.WriteAsync($"data: {json}\n\n", ct);
-            await response.Body.FlushAsync(ct);
-        }
     }
 }
