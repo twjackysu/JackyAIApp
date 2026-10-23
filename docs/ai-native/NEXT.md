@@ -37,8 +37,14 @@
 - `AiChatConfig`（design/04 §2.1），Finance 的設定放 `Finance/aiChatConfig.ts`，Launcher/Panel 透過 props 或 context 拿 config。
 - 寫死的台股文案參數化：`CompactChatBar.tsx`、`MessageArea.tsx`（`GREETING_TITLE`）、`ChatHeader.tsx`（「台股資料已連線」）、`ChatInput.tsx`、`examples.ts`、`chatErrors.ts` 的 `refused`。
 - `useChatStreaming` 的 `/api/chatbot/chat` body 加 `profile`（後端 M1-5 完成後才送）。
-- 既有測試斷言不改。
+- 既有測試斷言不改。注意：`index.test.tsx`（第 200 行的 `root.render`）、`AiAssistantLauncher.test.tsx`（`render()`）、`MessageArea.test.tsx`（`render()`）、`Finance/index.test.tsx` 都斷言 Finance 的文案（「今天想研究哪一檔？」「AI 助手」「問 AI 助手」）。作法：config 用 React context 提供，測試的 render helper 包上 Finance 的 config（只改 setup，不改斷言，記在 PROGRESS）。
 
-## 4. 之後
+## 4. 已經先做好的 M2 零件（直接用）
+
+- `Services/Connectors/SafeHttp.cs`：`SafeHttp.CreateHandler()`——之後註冊一個具名 HttpClient（逾時 15 秒，**不要**掛 resilience 重試），MCP、PRM、AS metadata、token、DCR 全部走它。
+- `Services/Connectors/OutboundAddressPolicy.cs`、`McpServerUrl.Normalize`（https、canonical URI，錯誤訊息中文）。
+- `ToolNames.ForModel(connectorKey, toolName)`：送給模型的工具名稱（前綴、非法字元換 `_`、超過 64 字截斷接 6 碼 hash）。
+
+## 5. 之後
 
 依 `design/07-implementation-plan.md`：M2 垂直切片（工具框架、同請求確認、Data Analysis 工具與對話、connector 框架、/connectors v2），目標 10/29。
