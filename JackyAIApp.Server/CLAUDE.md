@@ -185,6 +185,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   row is normalized, how its latest or as-of price is read — comes from
   `AssetValuationPolicy.For(type)` (`Services/Portfolio/AssetValuationPolicy.cs`). Add a fact there
   rather than a new `AssetType is …` check
+- The summary (`GetPortfolioSummaryAsync`) only orchestrates. Which rate converts a position is
+  `PositionFxResolver`; one position's value, cost and P&L is `PositionValuation.Value`; the TW sell cost
+  is `TwSellCost`; the sums and headline ratios are `PortfolioTotals`. Change a rule in its unit, each of
+  which has its own tests, rather than in the orchestration
 - How a screen values a day, and what it does when a price is missing, stays with that screen:
   the summary, drawdown/day change, net worth and benchmark comparison differ on purpose, pinned by
   `PortfolioAsOfValuationTests` and `PortfolioSummaryPriceTests`

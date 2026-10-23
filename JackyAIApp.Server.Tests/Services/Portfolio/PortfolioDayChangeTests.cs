@@ -207,6 +207,29 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Null(summary.DayChangePct);
         }
 
+        [Fact]
+        public async Task GetSummary_HoldingsChangedButNoNewerPrice_StillReflectsTheTrade()
+        {
+            // Monday before the open: no Monday price yet, but the stock was sold into cash — the trade
+            // alone is something to compare.
+            SetupStockPrices("2330", (Friday, 1000m));
+
+            await SeedSnapshotAsync(Friday,
+                new HoldingPosition
+                {
+                    AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電",
+                    Market = "TW", Currency = "TWD", Quantity = 10,
+                },
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 10_000 });
+            await SeedSnapshotAsync(Monday,
+                new HoldingPosition { AssetType = AssetType.CASH, Name = "現金", Currency = "TWD", Quantity = 20_500 });
+
+            var summary = await _service.GetPortfolioSummaryAsync(TestUserId);
+
+            Assert.Equal(500m, summary.DayChangeTWD);
+            Assert.Equal(2.50m, summary.DayChangePct);
+        }
+
         private async Task SeedSnapshotAsync(DateOnly effectiveDate, params HoldingPosition[] positions)
         {
             _dbContext.HoldingSnapshots.Add(new HoldingSnapshot
