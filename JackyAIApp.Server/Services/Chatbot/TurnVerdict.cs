@@ -6,7 +6,10 @@ namespace JackyAIApp.Server.Services.Chatbot
     /// What a turn's outcome means: whether it answered, the code it fails with, whether the answer
     /// ran into the output cap, and what is kept as the assistant's message.
     /// </summary>
+    /// <param name="Success">Whether the turn answered.</param>
     /// <param name="ErrorCode">Null for an answer, and for a turn the reader stopped.</param>
+    /// <param name="Truncated">The answer ran into the output cap.</param>
+    /// <param name="Stopped">The reader stopped the turn, or left.</param>
     /// <param name="Saved">The assistant message to keep, or null to keep none.</param>
     internal sealed record TurnVerdict(bool Success, string? ErrorCode, bool Truncated, bool Stopped, string? Saved)
     {

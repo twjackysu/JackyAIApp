@@ -33,6 +33,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         /// Lists each column in order while its values fit what is left of the total; one that does not
         /// fit is skipped, and a later, smaller one may still be listed.
         /// </summary>
+        /// <param name="stringColumns">The String columns, in the source's order.</param>
         /// <param name="read">The values read per column; null when they could not be read in time.</param>
         public static NlPromptValues Select(IReadOnlyList<string> stringColumns, IReadOnlyDictionary<string, ColumnValues>? read)
         {

@@ -6,6 +6,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
 {
     /// <summary>One plan from the LLM, checked against the data.</summary>
     /// <param name="Plan">Null when the plan was unusable (<paramref name="ErrorMessage"/> says why).</param>
+    /// <param name="ErrorMessage">Why there is no plan, for the user.</param>
     /// <param name="Notes">One per filter that lost values the data does not have.</param>
     /// <param name="Rejected">Those values, per filter (<paramref name="Notes"/>[i] describes [i]): what the correction names.</param>
     /// <param name="Unmatched">Conditions the LLM said it could not map onto the data, in the user's wording.</param>

@@ -8,9 +8,11 @@ namespace JackyAIApp.Server.Services.Chatbot
     /// How a turn's requests ended, before anything is made of it (that is <see cref="TurnVerdict"/>).
     /// </summary>
     /// <param name="Text">The answer text the reader was sent.</param>
+    /// <param name="StreamingStarted">Whether any answer text reached the reader.</param>
     /// <param name="StopReason">The last request's stop_reason, if it got that far.</param>
     /// <param name="Stopped">The reader stopped the turn, or left.</param>
     /// <param name="ErrorCode">Why a request failed (<see cref="ChatErrorCodes"/>), or null.</param>
+    /// <param name="Tokens">The turn's tokens over all its requests.</param>
     /// <param name="ToolsCalled">The tw-stock tools the turn called, in order.</param>
     /// <param name="ToolSearches">How often it searched for a tool.</param>
     internal sealed record TurnOutcome(
@@ -39,6 +41,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         private BetaStopReason? _stopReason;
         private TokenTotals _tokens;
 
+        /// <param name="request">The turn's first request.</param>
         /// <param name="reuploadFiles">The request again, with the conversation's files uploaded again.</param>
         /// <param name="ct">Cancelled when the reader stops the turn or leaves.</param>
         public async Task<TurnOutcome> RunAsync(
