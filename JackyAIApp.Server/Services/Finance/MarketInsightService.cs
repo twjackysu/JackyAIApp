@@ -15,7 +15,8 @@ namespace JackyAIApp.Server.Services.Finance
         IFinnhubNewsProvider finnhubNewsProvider,
         ITwseOpenApi twse,
         IOpenAIPromptService openAIPromptService,
-        IMarketDataQueryService marketData) : IMarketInsightService
+        IMarketDataQueryService marketData,
+        TimeProvider? timeProvider = null) : IMarketInsightService
     {
         private readonly ILogger<MarketInsightService> _logger = logger;
         private readonly ICurrentUser _currentUser = currentUser;
@@ -27,6 +28,7 @@ namespace JackyAIApp.Server.Services.Finance
         // The cached market-overview and indicator sets this service grounds its prompts in; reused
         // (not re-fetched) so the digest rides the same 3-minute overview cache every visitor shares.
         private readonly IMarketDataQueryService _marketData = marketData;
+        private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
         private const int CACHE_HOURS = 12;
 
@@ -40,10 +42,12 @@ namespace JackyAIApp.Server.Services.Finance
         public async Task<ServiceResult<MarketDigestResponse>> GetMarketDigestAsync(CancellationToken cancellationToken)
         {
             var userId = _currentUser.RequireId();
-            var today = DateTime.Now.ToString("yyyyMMdd");
+            // The digest is today's in Taipei: a new one from midnight there. The charge is once per day
+            // of the usage budget, which is the UTC day (it resets at 00:00 UTC, 08:00 in Taipei).
+            var utcNow = _time.GetUtcNow().UtcDateTime;
 
             // 1) Ensure today's digest content exists (shared across users).
-            var contentKey = $"MarketDigest_{today}";
+            var contentKey = $"MarketDigest_{_time.GetTaipeiToday():yyyyMMdd}";
             var digest = _memoryCache.TryGetValue(contentKey, out object? cached) ? cached as MarketDigestResponse : null;
             if (digest is null)
             {
@@ -54,15 +58,15 @@ namespace JackyAIApp.Server.Services.Finance
                 _memoryCache.Set(contentKey, digest, TimeSpan.FromHours(CACHE_HOURS));
             }
 
-            // 2) Charge once per user per day (cached reads the same day are free).
-            var chargeKey = $"MarketDigestCharged_{userId}_{today}";
+            // 2) Charge once per user per budget day (cached reads the same day are free).
+            var chargeKey = $"MarketDigestCharged_{userId}_{utcNow:yyyyMMdd}";
             if (!_memoryCache.TryGetValue(chargeKey, out object? _))
             {
                 var ok = await _usageLimitService.TryConsumeAsync(userId, UsageFeature.MarketDigest);
                 if (!ok)
                     return ServiceResult.Fail(ErrorCodes.UsageLimitExceeded, "Daily usage limit exceeded.");
-                // Hold the guard until end of day so the user isn't charged again today.
-                _memoryCache.Set(chargeKey, true, DateTime.Today.AddDays(1) - DateTime.Now);
+                // Hold the guard until the budget resets, so the user isn't charged again on its day.
+                _memoryCache.Set(chargeKey, true, utcNow.Date.AddDays(1) - utcNow);
             }
 
             return ServiceResult.Ok(digest);
@@ -197,7 +201,7 @@ namespace JackyAIApp.Server.Services.Finance
             if (string.IsNullOrWhiteSpace(id))
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "Indicator id is required.");
 
-            var cacheKey = $"IndicatorInsight_{id}_{DateTime.Today:yyyyMMdd}";
+            var cacheKey = $"IndicatorInsight_{id}_{_time.GetTaipeiToday():yyyyMMdd}";
             if (_memoryCache.TryGetValue(cacheKey, out object? cachedEntry) && cachedEntry is IndicatorInsight cached)
                 return ServiceResult.Ok(cached);
 

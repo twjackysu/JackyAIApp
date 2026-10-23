@@ -1,5 +1,6 @@
 using JackyAIApp.Server.Services.ExternalApi;
 using JackyAIApp.Server.Services.Market;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -19,9 +20,9 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         private readonly Mock<IThirdPartyGateway> _spyGateway = new();
         private readonly List<(string Source, string Key, GatewayPriority Priority)> _requests = [];
 
-        private TWStockLibHistoricalProvider Provider(IThirdPartyGateway? gateway = null) => new(
+        private TWStockLibHistoricalProvider Provider(IThirdPartyGateway? gateway = null, TimeProvider? clock = null) => new(
             _stockService.Object, Mock.Of<ITwListedCompanyService>(), new MemoryCache(new MemoryCacheOptions()),
-            gateway ?? RealGateway(), NullLogger<TWStockLibHistoricalProvider>.Instance);
+            gateway ?? RealGateway(), NullLogger<TWStockLibHistoricalProvider>.Instance, clock);
 
         /// <summary>The real gateway with the exchange lanes unpaced: these tests are about which months
         /// are asked for, not when (the default lanes start one every 1.7s).</summary>
@@ -247,6 +248,41 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                 "2330", new DateTime(2026, 10, 1), new DateTime(2026, 10, 10), MarketType.TSE);
 
             Assert.Empty(data.HistoricalPrices);
+        }
+
+        // 00:30 on 1 November in Taipei is still 31 October in UTC: the server's day until 08:00 there.
+        private static readonly TestClock JustPastMidnightOnNov1 = new(TestClock.Taipei(new DateOnly(2026, 11, 1), 0, 30));
+
+        private IEnumerable<string> MonthsAsked()
+        {
+            _spyGateway
+                .Setup(g => g.RunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<GatewayPriority>(),
+                    It.IsAny<Func<CancellationToken, Task<StockResult<IReadOnlyList<StockHistory>>>>>(), It.IsAny<CancellationToken>()))
+                .Callback((string source, string key, GatewayPriority priority,
+                    Func<CancellationToken, Task<StockResult<IReadOnlyList<StockHistory>>>> _, CancellationToken _) =>
+                    _requests.Add((source, key, priority)))
+                .ReturnsAsync(StockResult<IReadOnlyList<StockHistory>>.Ok([]));
+            return _requests.Select(r => r.Key).Order();
+        }
+
+        [Fact]
+        public async Task TheLatestPrices_ReachTodayInTaipei()
+        {
+            var months = MonthsAsked();
+
+            await Provider(_spyGateway.Object, JustPastMidnightOnNov1).FetchLatestAsync("2330");
+
+            Assert.Equal(["TSE:2330:202610", "TSE:2330:202611"], months);
+        }
+
+        [Fact]
+        public async Task TheFullHistory_ReachesTodayInTaipei()
+        {
+            var months = MonthsAsked();
+
+            await Provider(_spyGateway.Object, JustPastMidnightOnNov1).FetchAsync("2330");
+
+            Assert.Equal("TSE:2330:202611", months.Last());
         }
     }
 }

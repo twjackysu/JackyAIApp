@@ -13,12 +13,14 @@ namespace JackyAIApp.Server.Services.Dictionary
         AzureSQLDBContext dbContext,
         IWordGenerator wordGenerator,
         IMemoryCache memoryCache,
-        ISpellChecker spellChecker) : IDictionaryService
+        ISpellChecker spellChecker,
+        TimeProvider? timeProvider = null) : IDictionaryService
     {
         private readonly AzureSQLDBContext _dbContext = dbContext;
         private readonly IWordGenerator _wordGenerator = wordGenerator;
         private readonly IMemoryCache _memoryCache = memoryCache;
         private readonly ISpellChecker _spellChecker = spellChecker;
+        private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
         private static string CacheKey(string lowerWord) => $"Get_Dictionary_{lowerWord}";
 
@@ -91,7 +93,7 @@ namespace JackyAIApp.Server.Services.Dictionary
             }
 
             result.DataInvalid = true;
-            result.LastUpdated = DateTime.Now;
+            result.LastUpdated = _time.GetUtcNow().UtcDateTime;
             await _dbContext.SaveChangesAsync();
 
             return ServiceResult.Ok(WordMapper.ToDto(result));

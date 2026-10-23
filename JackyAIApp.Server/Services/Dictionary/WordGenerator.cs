@@ -28,8 +28,11 @@ namespace JackyAIApp.Server.Services.Dictionary
     /// the request that started it. Run in the request's scope, a lookup the page stopped waiting for
     /// was paid for, then failed to save on a disposed context, and the next visit paid again.
     /// </summary>
-    public sealed class WordGenerator(IServiceScopeFactory scopes, ILogger<WordGenerator> logger) : IWordGenerator
+    public sealed class WordGenerator(
+        IServiceScopeFactory scopes, ILogger<WordGenerator> logger, TimeProvider? timeProvider = null) : IWordGenerator
     {
+        private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+
         // Runs are shared by the callers of this instance (the app has one; each test builds its own).
         private readonly string _flightPrefix = $"word-generation:{Guid.NewGuid():N}:";
 
@@ -66,13 +69,14 @@ namespace JackyAIApp.Server.Services.Dictionary
             if (!string.Equals(wordbase.Word, lowerWord, StringComparison.OrdinalIgnoreCase))
                 wordbase.Word = lowerWord;
 
+            var now = _time.GetUtcNow().UtcDateTime;
             if (dbWord != null)
             {
-                UpdateExistingWord(db, dbWord, wordbase);
+                UpdateExistingWord(db, dbWord, wordbase, now);
             }
             else
             {
-                dbWord = WordMapper.ToEntity(wordbase);
+                dbWord = WordMapper.ToEntity(wordbase, now);
                 db.Words.Add(dbWord);
             }
 
@@ -81,12 +85,12 @@ namespace JackyAIApp.Server.Services.Dictionary
             return dbWord;
         }
 
-        private static void UpdateExistingWord(AzureSQLDBContext db, SQL.Word dbWord, WordBase wordbase)
+        private static void UpdateExistingWord(AzureSQLDBContext db, SQL.Word dbWord, WordBase wordbase, DateTime now)
         {
             dbWord.DataInvalid = null;
             dbWord.WordText = wordbase.Word;
             dbWord.KKPhonics = wordbase.KKPhonics;
-            dbWord.LastUpdated = DateTime.Now;
+            dbWord.LastUpdated = now;
 
             // Clear existing meanings
             if (dbWord.Meanings != null)

@@ -17,6 +17,7 @@ namespace JackyAIApp.Server.Services.Market
         private readonly IMemoryCache _cache;
         private readonly IThirdPartyGateway _gateway;
         private readonly ILogger<TWStockLibHistoricalProvider> _logger;
+        private readonly TimeProvider _time;
 
         /// <summary>Default lookback period in months for historical data</summary>
         private const int DEFAULT_LOOKBACK_MONTHS = 6;
@@ -31,22 +32,29 @@ namespace JackyAIApp.Server.Services.Market
             ITwListedCompanyService listedCompanies,
             IMemoryCache cache,
             IThirdPartyGateway gateway,
-            ILogger<TWStockLibHistoricalProvider> logger)
+            ILogger<TWStockLibHistoricalProvider> logger,
+            TimeProvider? timeProvider = null)
         {
             _stockService = stockService ?? throw new ArgumentNullException(nameof(stockService));
             _listedCompanies = listedCompanies ?? throw new ArgumentNullException(nameof(listedCompanies));
             _cache = cache ?? throw new ArgumentNullException(nameof(cache));
             _gateway = gateway ?? throw new ArgumentNullException(nameof(gateway));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _time = timeProvider ?? TimeProvider.System;
         }
 
-        public Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default) =>
-            FetchRangeAsync(stockCode, DateTime.Now.AddMonths(-DEFAULT_LOOKBACK_MONTHS), DateTime.Now,
-                knownMarketType: null, cancellationToken);
+        // The ranges end at today in Taipei, the exchange's own day.
+        public Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default)
+        {
+            var now = _time.GetTaipeiNow();
+            return FetchRangeAsync(stockCode, now.AddMonths(-DEFAULT_LOOKBACK_MONTHS), now, knownMarketType: null, cancellationToken);
+        }
 
-        public Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default) =>
-            FetchRangeAsync(stockCode, DateTime.Now.AddDays(-LATEST_LOOKBACK_DAYS), DateTime.Now,
-                knownMarketType: null, cancellationToken);
+        public Task<MarketData> FetchLatestAsync(string stockCode, CancellationToken cancellationToken = default)
+        {
+            var now = _time.GetTaipeiNow();
+            return FetchRangeAsync(stockCode, now.AddDays(-LATEST_LOOKBACK_DAYS), now, knownMarketType: null, cancellationToken);
+        }
 
         /// <summary>
         /// Fetch a specific date range rather than the fixed <see cref="DEFAULT_LOOKBACK_MONTHS"/>

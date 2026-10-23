@@ -21,6 +21,9 @@ namespace JackyAIApp.Server.Tests.Services.Finance
     {
         private const string Symbol = "2330";
 
+        // Every test runs on this day in Taipei (a Wednesday), whatever day and hour the suite runs at.
+        private static readonly DateOnly Today = new(2026, 10, 21);
+
         private readonly AzureSQLDBContext _dbContext;
         private readonly Mock<ITWStockLibHistoricalProvider> _inner;
         private readonly PersistentTwHistoricalProvider _provider;
@@ -41,22 +44,21 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             _inner = new Mock<ITWStockLibHistoricalProvider>();
             _provider = new PersistentTwHistoricalProvider(
                 _inner.Object, new TestDbContextFactory(_options), NullLogger<PersistentTwHistoricalProvider>.Instance,
-                WeekdayTradingCalendar.Instance);
+                WeekdayTradingCalendar.Instance, new FakeTimeProvider(TaipeiTime(14)));
         }
 
         public void Dispose() => _dbContext.Dispose();
 
-        /// <summary>Builds a second provider sharing the same in-memory DB/mock but with a pinned
-        /// clock — needed only by the quote-fallback tests, which care about the 08:00 Taipei
-        /// cutoff and can't rely on whatever real wall-clock time the suite happens to run at.</summary>
+        /// <summary>Builds a second provider sharing the same in-memory DB/mock but with its own
+        /// clock — for the tests that care about the hour: the 08:00 Taipei cutoff of the quote
+        /// fallback, or the day turning at midnight in Taipei.</summary>
         private PersistentTwHistoricalProvider BuildProviderWithTime(DateTimeOffset now, ITradingCalendar? calendar = null) =>
             new(_inner.Object, new TestDbContextFactory(_options), NullLogger<PersistentTwHistoricalProvider>.Instance,
                 calendar ?? WeekdayTradingCalendar.Instance, new FakeTimeProvider(now));
 
-        /// <summary>A Taipei clock reading hour:minute "today" — only the time-of-day matters for
-        /// the 08:00 cutoff check, so which calendar date it lands on is irrelevant.</summary>
-        private static DateTimeOffset TaipeiTime(int hour, int minute = 0) =>
-            new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).AddHours(hour - 8).AddMinutes(minute);
+        /// <summary>The Taipei clock at hour:minute on <see cref="Today"/>, or on <paramref name="day"/>.</summary>
+        private static DateTimeOffset TaipeiTime(int hour, int minute = 0, DateOnly? day = null) =>
+            new((day ?? Today).ToDateTime(new TimeOnly(hour, minute)), TimeSpan.FromHours(8));
 
         private sealed class FakeTimeProvider(DateTimeOffset now) : TimeProvider
         {
@@ -96,7 +98,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // The point of not persisting: the symbol has to be able to come right on its own once
             // the list catches up, without anyone clearing a row by hand.
             const string otcSymbol = "8299";
-            var lastTradingDay = LastTradingDayBefore(DateOnly.FromDateTime(DateTime.Now));
+            var lastTradingDay = LastTradingDayBefore(Today);
 
             _inner.SetupSequence(x => x.DetermineMarketType(otcSymbol))
                 .ReturnsAsync((MarketType?)null)
@@ -127,7 +129,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         {
             // Guard against over-correcting: a real resolution must still be cached, or every
             // request pays the isin lookup again.
-            var lastTradingDay = LastTradingDayBefore(DateOnly.FromDateTime(DateTime.Now));
+            var lastTradingDay = LastTradingDayBefore(Today);
             _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
             _inner.Setup(x => x.FetchRangeAsync(
                     Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<MarketType?>(), It.IsAny<CancellationToken>()))
@@ -160,7 +162,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         [Fact]
         public async Task FetchAsync_EmptyDb_FetchesFullWindowAndPersistsFinalizedBarsOnly()
         {
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
 
             _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
@@ -201,7 +203,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // Rows are shares on both exchanges (TWStockLib converts TPEx's lots since 2.3; rows stored
             // before were converted by the ConvertOtcVolumeToShares migration), so a TPEx row is not
             // scaled again on the way out.
-            var lastTradingDay = LastTradingDayBefore(DateOnly.FromDateTime(DateTime.Now));
+            var lastTradingDay = LastTradingDayBefore(Today);
             _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
             {
                 Symbol = Symbol, Market = "TW", TwMarketType = twMarketType, Name = "某公司",
@@ -226,7 +228,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // The weekday before today was a market holiday. The stored history reaching the trading
             // day before it is current; with the weekday rule the holiday looked missing, and every
             // request that day gap-fetched for it again.
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var holiday = LastTradingDayBefore(today);
             var tradingDayBefore = LastTradingDayBefore(holiday);
 
@@ -242,7 +244,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             });
             await _dbContext.SaveChangesAsync();
 
-            var provider = BuildProviderWithTime(DateTimeOffset.UtcNow, new HolidayCalendar(holiday));
+            var provider = BuildProviderWithTime(TaipeiTime(14), new HolidayCalendar(holiday));
             var result = await provider.FetchAsync(Symbol);
 
             Assert.Equal(900m, Assert.Single(result.HistoricalPrices).Close);
@@ -255,7 +257,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         [Fact]
         public async Task FetchAsync_DbAlreadyCurrent_MakesNoNetworkCallAtAll()
         {
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
             // "Already current" always means through yesterday's trading day — today's own close is
             // never persisted, so it's never part of what "current" means for the DB.
@@ -287,7 +289,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         [Fact]
         public async Task FetchAsync_PartialDb_OnlyFetchesTheGap()
         {
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
             var staleDate = lastTradingDay.AddDays(-10);
 
@@ -337,7 +339,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         {
             // e.g. sold on 1/1, bought back around 5/1 — nobody queried this symbol in between,
             // so the DB's last row is ~4 months stale, well within the 6-month window.
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
             var staleDate = lastTradingDay.AddMonths(-4);
 
@@ -392,7 +394,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // A gap longer than the lookback window (e.g. sold 2 years ago) — the stale row falls
             // outside the 6-month window PersistentTwHistoricalProvider actually serves, so it's
             // correctly ignored rather than triggering a multi-year gap-fetch nobody needs.
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
             var ancientDate = today.AddMonths(-8);
             var expectedWindowStart = today.AddMonths(-6);
@@ -431,7 +433,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         [Fact]
         public async Task FetchAsync_CalledTwiceSameDay_SecondCallDoesNotDuplicateRows()
         {
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
 
             _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
@@ -478,7 +480,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // lost the race. The IDbContextFactory fix gives each FetchAsync call its own
             // context, so this must complete cleanly for many symbols fetched in parallel.
             var symbols = Enumerable.Range(1, 20).Select(i => $"S{i:0000}").ToList();
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
 
             _inner.Setup(x => x.DetermineMarketType(It.IsAny<string>())).ReturnsAsync(MarketType.TSE);
@@ -513,7 +515,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         {
             // Adding a never-before-seen symbol to a portfolio should not pay the full 6-month
             // cost — just enough to know the current price (~10 days, crosses weekends/holidays).
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
             var expectedShallowStart = today.AddDays(-10);
 
@@ -551,7 +553,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // (deep). Without the DeepFetchedAt marker, the naive "is maxDate stale" check alone
             // would see the shallow data's maxDate already at today and wrongly conclude "nothing
             // to fetch", silently serving 10 days of history to a caller that thinks it has 6 months.
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
             var expectedDeepStart = today.AddMonths(-6);
 
@@ -609,7 +611,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // pre-market) doesn't have yesterday's row yet, so the primary gap-fill returns
             // nothing for it — but the realtime-quote endpoint's YesterdayClosingPrice already
             // does, and is used as a second, independent source to close that specific gap.
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
             var staleDate = lastTradingDay.AddDays(-1);
 
@@ -631,7 +633,11 @@ namespace JackyAIApp.Server.Tests.Services.Finance
                     Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new MarketData { StockCode = Symbol, HistoricalPrices = new List<DailyPrice>() });
             _inner.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new StockQuote { Symbol = Symbol, Name = "台積電", Market = MarketType.TSE, YesterdayClosingPrice = 35.45m });
+                .ReturnsAsync(new StockQuote
+                {
+                    Symbol = Symbol, Name = "台積電", Market = MarketType.TSE, YesterdayClosingPrice = 35.45m,
+                    SyncTime = TaipeiTime(7, 25),   // this morning's: its yesterday is the missing day
+                });
 
             var provider = BuildProviderWithTime(TaipeiTime(7, 30));
             var result = await provider.FetchLatestAsync(Symbol);
@@ -649,7 +655,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // Same gap as the test above, but past the 08:00 cutoff — the server clock isn't
             // guaranteed exact, so this fallback only trusts itself within a margin well before
             // market open (09:00) rather than persisting a quote-derived bar close to the boundary.
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
             var staleDate = lastTradingDay.AddDays(-1);
 
@@ -677,7 +683,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         [Fact]
         public async Task FetchLatestAsync_PrimaryGapFillAlreadyClosedTheGap_DoesNotCallQuoteFallback()
         {
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
 
             _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
@@ -718,6 +724,75 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.Empty(persisted);
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task FetchLatestAsync_AQuoteNotFromAfterTheMissingDay_IsNotStoredAsItsClose(bool hasSyncTime)
+        {
+            // Before MIS moves on to the new day, the quote is still the missing day's own session and
+            // its "yesterday" is the day before: stored as the missing day's close, it would stay wrong
+            // for good. A quote that cannot say when it is from is not trusted either.
+            var lastTradingDay = LastTradingDayBefore(Today);
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電",
+                DeepFetchedAt = DateTime.UtcNow.AddDays(-1),
+            });
+            _dbContext.DailyStockPrices.Add(new DailyStockPrice
+            {
+                Symbol = Symbol, Market = "TW", TradeDate = lastTradingDay.AddDays(-1),
+                Open = 890m, High = 905m, Low = 885m, Close = 890m, Volume = 1000,
+            });
+            await _dbContext.SaveChangesAsync();
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData { StockCode = Symbol, HistoricalPrices = new List<DailyPrice>() });
+            _inner.Setup(x => x.GetLatestQuoteAsync(Symbol, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new StockQuote
+                {
+                    Symbol = Symbol, Name = "台積電", Market = MarketType.TSE, YesterdayClosingPrice = 890m,
+                    SyncTime = hasSyncTime ? TaipeiTime(13, 30, lastTradingDay) : null,
+                });
+
+            await BuildProviderWithTime(TaipeiTime(7, 30)).FetchLatestAsync(Symbol);
+
+            Assert.DoesNotContain(await _dbContext.DailyStockPrices.ToListAsync(), p => p.TradeDate == lastTradingDay);
+        }
+
+        [Fact]
+        public async Task FetchAsync_JustAfterMidnightInTaipei_WantsYesterdaysBar()
+        {
+            // 00:30 in Taipei is still the day before in UTC: the day the history must reach turns
+            // with Taipei's date, not the server's.
+            var lastTradingDay = LastTradingDayBefore(Today);
+            _dbContext.StockSymbolInfos.Add(new StockSymbolInfo
+            {
+                Symbol = Symbol, Market = "TW", TwMarketType = "TSE", Name = "台積電",
+                DeepFetchedAt = DateTime.UtcNow.AddDays(-1),
+            });
+            _dbContext.DailyStockPrices.Add(new DailyStockPrice
+            {
+                Symbol = Symbol, Market = "TW", TradeDate = LastTradingDayBefore(lastTradingDay),
+                Open = 890m, High = 905m, Low = 885m, Close = 890m, Volume = 1000,
+            });
+            await _dbContext.SaveChangesAsync();
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData
+                {
+                    StockCode = Symbol,
+                    HistoricalPrices = [new() { Date = lastTradingDay.ToDateTime(TimeOnly.MinValue), Open = 900m, High = 910m, Low = 895m, Close = 905m, Volume = 1000 }],
+                });
+
+            var result = await BuildProviderWithTime(TaipeiTime(0, 30)).FetchAsync(Symbol);
+
+            Assert.Equal(lastTradingDay, DateOnly.FromDateTime(result.HistoricalPrices[^1].Date));
+            // The range asked for ends today in Taipei too.
+            _inner.Verify(x => x.FetchRangeAsync(
+                Symbol, It.IsAny<DateTime>(), It.Is<DateTime>(end => DateOnly.FromDateTime(end) == Today),
+                MarketType.TSE, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
         [Fact]
         public async Task FetchAsync_DeepFetchReturnsOnlyRecentDays_DoesNotMarkDeepFetched()
         {
@@ -726,7 +801,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // didn't throw. needsBackwardFetch then stays false forever, so no later call retries,
             // and every historical valuation before the gap silently prices the position at zero —
             // which surfaced as a ~13.5M phantom one-day jump on the net worth chart.
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
 
             _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
@@ -764,7 +839,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
         public async Task FetchAsync_DeepFetchReturnsHistoryOlderThanShallowWindow_MarksDeepFetched()
         {
             // The healthy path must still mark, or every deep call would re-fetch six months forever.
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
 
             _inner.Setup(x => x.DetermineMarketType(Symbol)).ReturnsAsync(MarketType.TSE);
             _inner.Setup(x => x.FetchRangeAsync(
@@ -791,7 +866,7 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             // A shallow caller (summary valuation) asking about a symbol some other feature already
             // deep-fetched should just transparently get the (cheap, already-persisted) latest price
             // — no reason to restrict the DB read to a narrower window than what's already cached.
-            var today = DateOnly.FromDateTime(DateTime.Now);
+            var today = Today;
             var lastTradingDay = LastTradingDayBefore(today);
 
             _dbContext.StockSymbolInfos.Add(new StockSymbolInfo

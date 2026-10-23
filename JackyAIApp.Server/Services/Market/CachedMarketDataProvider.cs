@@ -6,7 +6,7 @@ namespace JackyAIApp.Server.Services.Market
 {
     /// <summary>
     /// Decorator that adds caching to any IMarketDataProvider.
-    /// Cache key is based on provider type, stock code, and current date.
+    /// Cache key is based on provider type, stock code, and the date in Taipei.
     /// </summary>
     public class CachedMarketDataProvider : IMarketDataProvider
     {
@@ -14,6 +14,7 @@ namespace JackyAIApp.Server.Services.Market
         private readonly IMemoryCache _cache;
         private readonly ILogger<CachedMarketDataProvider> _logger;
         private readonly TimeSpan _cacheDuration;
+        private readonly TimeProvider _time;
 
         public DataProviderType Type => _inner.Type;
 
@@ -21,12 +22,14 @@ namespace JackyAIApp.Server.Services.Market
             IMarketDataProvider inner,
             IMemoryCache cache,
             ILogger<CachedMarketDataProvider> logger,
-            TimeSpan? cacheDuration = null)
+            TimeSpan? cacheDuration = null,
+            TimeProvider? timeProvider = null)
         {
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
             _cache = cache ?? throw new ArgumentNullException(nameof(cache));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _cacheDuration = cacheDuration ?? TimeSpan.FromHours(4);
+            _time = timeProvider ?? TimeProvider.System;
         }
 
         public Task<MarketData> FetchAsync(string stockCode, CancellationToken cancellationToken = default) =>
@@ -46,18 +49,21 @@ namespace JackyAIApp.Server.Services.Market
         /// </summary>
         public async Task InvalidateAsync(string stockCode, CancellationToken cancellationToken = default)
         {
-            var today = DateTime.Today.ToString("yyyyMMdd");
-            _cache.Remove($"MarketData_{_inner.Type}_deep_{stockCode}_{today}");
-            _cache.Remove($"MarketData_{_inner.Type}_latest_{stockCode}_{today}");
+            _cache.Remove(CacheKey(stockCode, deep: true));
+            _cache.Remove(CacheKey(stockCode, deep: false));
             await _inner.InvalidateAsync(stockCode, cancellationToken);
         }
+
+        /// <summary>Today's entry, Taipei's today: a new trading day's prices are a new entry from midnight there.</summary>
+        private string CacheKey(string stockCode, bool deep) =>
+            $"MarketData_{_inner.Type}_{(deep ? "deep" : "latest")}_{stockCode}_{_time.GetTaipeiToday():yyyyMMdd}";
 
         private async Task<MarketData> FetchInternalAsync(string stockCode, bool deep, CancellationToken cancellationToken)
         {
             // Separate cache keys for deep vs latest-only — a shallow FetchLatestAsync result must
             // never be served back to a caller that asked for the full (deep) series, and vice
             // versa serving deep data to a latest-only caller is harmless but wasteful to key together.
-            var cacheKey = $"MarketData_{_inner.Type}_{(deep ? "deep" : "latest")}_{stockCode}_{DateTime.Today:yyyyMMdd}";
+            var cacheKey = CacheKey(stockCode, deep);
 
             // One fetch for a burst of callers on a cold key (a page asks for the same stock from
             // several panels at once). Shared, so it runs without any one caller's token.

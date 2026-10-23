@@ -160,8 +160,14 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 ## Taipei time and the trading calendar
 
 - Every TWSE rule runs on Taipei time: use `time.GetTaipeiNow()` / `GetTaipeiToday()`
-  (`Common/TaipeiTime.cs`, extensions on the injected `TimeProvider`), never `UtcNow.AddHours(8)`.
-  `DateTime.Now` is the server's time zone (likely UTC on App Service), not Taiwan's
+  (`Common/TaipeiTime.cs`, extensions on the injected `TimeProvider`), never `UtcNow.AddHours(8)`
+- The server never reads the local clock: `DateTime.Now` / `Today` are the host's zone (UTC on App
+  Service, Taipei on a developer's machine), and `NoLocalClockTests` fails on one. What a reader in
+  Taiwan calls today — the market's day, the day an analysis, digest or indicator insight is cached
+  for — is `GetTaipeiToday()`. The usage budget's day (so also the market digest's once-a-day charge)
+  and stored timestamps are UTC, `time.GetUtcNow()`
+- A day that turns at the wrong hour is easy to miss: test it across midnight in Taipei, which is
+  16:00 UTC the day before (`TestHelpers/TestClock`)
 - Which days TWSE trades: `ITradingCalendar` (`Services/Market`). `IsMarketClosed` answers from
   memory — the holiday schedule is loaded in the background — and returns null for an unknown
   weekday; `IsTradingDay` / `PreviousTradingDay` count that as a trading day.

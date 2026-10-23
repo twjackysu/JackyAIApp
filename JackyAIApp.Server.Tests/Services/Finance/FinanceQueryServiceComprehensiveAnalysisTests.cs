@@ -6,6 +6,7 @@ using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Market.US;
 using JackyAIApp.Server.Services.Finance.Indicators;
 using JackyAIApp.Server.Services.Finance.Scoring;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -67,10 +68,11 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             return _service ??= new StockAnalysisQueryService(
                 NullLogger<StockAnalysisQueryService>.Instance, null!, null!, _resolver.Object, null!,
                 new MemoryCache(new MemoryCacheOptions()), null!, null!, null!, null!, builder,
-                null!, _factory.Object, null!);
+                null!, _factory.Object, null!, _clock);
         }
 
         private StockAnalysisQueryService? _service;
+        private readonly TestClock _clock = new(TestClock.Taipei(new DateOnly(2026, 10, 21), 14));
 
         private static StockAnalysisRequest Request(string code = "2330") => new() { StockCode = code };
 
@@ -167,6 +169,21 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             Assert.Equal("TW", firstResult.Market);
             Assert.Same(firstResult, second.Data);   // the very object the first call cached
             _price.Verify(p => p.FetchAsync("2330", It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task AnAnalysis_IsCachedForTheDayInTaipei_NotTheServersDay()
+        {
+            _price.Setup(p => p.FetchAsync("2330", It.IsAny<CancellationToken>())).ReturnsAsync(WithPrices);
+            var service = Service();
+
+            _clock.Now = TestClock.Taipei(new DateOnly(2026, 10, 21), 23, 50);
+            var lateEvening = await service.GetComprehensiveAnalysisAsync(Request(), default);
+            _clock.Now = TestClock.Taipei(new DateOnly(2026, 10, 22), 0, 10);   // still the 21st in UTC
+            var pastMidnight = await service.GetComprehensiveAnalysisAsync(Request(), default);
+
+            Assert.NotSame(lateEvening.Data, pastMidnight.Data);
+            _price.Verify(p => p.FetchAsync("2330", It.IsAny<CancellationToken>()), Times.Exactly(2));
         }
 
         [Fact]
