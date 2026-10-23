@@ -4,6 +4,7 @@ using System.Text.Json;
 using Anthropic;
 using Anthropic.Helpers;
 using Anthropic.Models.Beta.Messages;
+using AnthropicModel = Anthropic.Models.Messages.Model;
 
 namespace JackyAIApp.Server.Tests.Services.Chatbot
 {
