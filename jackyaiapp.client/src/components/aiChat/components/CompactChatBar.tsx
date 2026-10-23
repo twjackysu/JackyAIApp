@@ -8,7 +8,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { useEffect, useRef, useState } from 'react';
 
-import { EXAMPLE_QUESTIONS } from '../examples';
+import { useAiChatConfig } from '../config';
 import { ACCENT, ACCENT_GRADIENT, panelSurface } from '../style';
 
 import AssistantMark from './AssistantMark';
@@ -36,8 +36,12 @@ export const EXAMPLE_ROTATE_MS = 4000;
 const isIdle = ({ state, busy, hasConversation, value }: CompactChatBarProps) =>
   state === 'ready' && !busy && !hasConversation && !value;
 
-const placeholderFor = ({ state, busy, hasConversation }: CompactChatBarProps, example: string) => {
-  if (state === 'signedOut') return '登入後即可問 AI 助手台股問題';
+const placeholderFor = (
+  { state, busy, hasConversation }: CompactChatBarProps,
+  example: string,
+  signedOut: string,
+) => {
+  if (state === 'signedOut') return signedOut;
   if (state === 'loading') return 'AI 助手';
   if (busy) return 'AI 助手回覆中…';
   if (hasConversation) return '繼續剛才的對話…';
@@ -56,6 +60,7 @@ export function CompactChatBar(props: CompactChatBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const ready = state === 'ready';
   const accent = ACCENT;
+  const { examples, signedOutPlaceholder } = useAiChatConfig();
 
   // A different question every few seconds shows how much can be asked.
   const [exampleIndex, setExampleIndex] = useState(0);
@@ -63,11 +68,11 @@ export function CompactChatBar(props: CompactChatBarProps) {
   useEffect(() => {
     if (!idle) return;
     const timer = setInterval(
-      () => setExampleIndex((i) => (i + 1) % EXAMPLE_QUESTIONS.length),
+      () => setExampleIndex((i) => (i + 1) % examples.length),
       EXAMPLE_ROTATE_MS,
     );
     return () => clearInterval(timer);
-  }, [idle]);
+  }, [idle, examples.length]);
 
   return (
     <Box
@@ -114,7 +119,11 @@ export function CompactChatBar(props: CompactChatBarProps) {
         }}
         readOnly={!ready}
         disabled={state === 'loading'}
-        placeholder={placeholderFor(props, EXAMPLE_QUESTIONS[exampleIndex])}
+        placeholder={placeholderFor(
+          props,
+          examples[exampleIndex % examples.length],
+          signedOutPlaceholder,
+        )}
         inputProps={{ 'aria-label': 'AI 助手' }}
         sx={{ flex: 1, minWidth: 0, fontSize: '0.95rem' }}
       />

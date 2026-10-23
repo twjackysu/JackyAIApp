@@ -18,6 +18,7 @@ import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
+import { FINANCE_AI_CHAT } from './aiChatConfig';
 import {
   StockAnalysisResult,
   ComprehensiveAnalysisResult,
@@ -103,7 +104,11 @@ function Finance() {
         </Typography>
       </Stack>
       {/* AI assistant: a one-line box until it is used, then the whole conversation */}
-      <AiAssistantLauncher isAuthenticated={isAuthenticated} isAuthLoading={isAuthLoading} />
+      <AiAssistantLauncher
+        config={FINANCE_AI_CHAT}
+        isAuthenticated={isAuthenticated}
+        isAuthLoading={isAuthLoading}
+      />
       {!hasStockResults && (
         <>
           <MarketOverview />

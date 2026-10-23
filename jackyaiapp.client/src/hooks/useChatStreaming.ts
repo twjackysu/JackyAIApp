@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { finishSseLines, splitSseLines } from './sseLines';
 
-import { chatErrorMessage } from '@/apis/chatbotApis/chatErrors';
+import { ChatErrorCode, chatErrorMessage } from '@/apis/chatbotApis/chatErrors';
 import { getApiErrorMessage } from '@/apis/utils/errorMessage';
 import { useAppDispatch } from '@/redux/hooks';
 import { openUsageLimitModal } from '@/redux/uiSlice';
@@ -61,7 +61,12 @@ const stopOnServer = (conversationId: string) =>
     // The turn ends anyway once the request is dropped; the stop call only makes it immediate.
   });
 
-export const useChatStreaming = () => {
+export interface ChatStreamingOptions {
+  /** The app's own wording for some failure codes, in place of the shared one (`chatErrorMessage`). */
+  errorMessages?: Partial<Record<ChatErrorCode, string>>;
+}
+
+export const useChatStreaming = ({ errorMessages }: ChatStreamingOptions = {}) => {
   const dispatch = useAppDispatch();
   const [streamingStatus, setStreamingStatus] = useState<StreamingStatus>({
     isLoading: false,
@@ -180,7 +185,10 @@ export const useChatStreaming = () => {
                   );
                 return true;
               case 'error':
-                onError(chatErrorMessage(event.code));
+                onError(
+                  (event.code && errorMessages?.[event.code as ChatErrorCode]) ||
+                    chatErrorMessage(event.code),
+                );
                 return true;
             }
           } catch (e) {
@@ -222,7 +230,7 @@ export const useChatStreaming = () => {
         setStreamingStatus({ isLoading: false, currentEvent: null, statusText: '' });
       }
     },
-    [dispatch],
+    [dispatch, errorMessages],
   );
 
   return { sendStreamingMessage, stop, streamingStatus };

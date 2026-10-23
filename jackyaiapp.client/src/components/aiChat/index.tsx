@@ -9,6 +9,7 @@ import ConversationList from './components/ConversationList';
 import { HISTORY_COLUMN_BREAKPOINT, HISTORY_COLUMN_WIDTH } from './components/historyColumn';
 import MessageArea from './components/MessageArea';
 import PreviewDialog from './components/PreviewDialog';
+import { useAiChatConfig } from './config';
 import { useAgentStatus } from './hooks/useAgentStatus';
 import { useChatConversation } from './hooks/useChatConversation';
 import { useKeepPasteFormatting } from './hooks/useKeepPasteFormatting';
@@ -38,9 +39,9 @@ interface AiAssistantPanelProps {
 }
 
 /**
- * The Finance page's AI assistant as a block of the page (the chatbot used to float over it).
- * Its backend is Claude with a TW-stock MCP server attached, so it only answers stock questions
- * — which is why it lives on this page and nowhere else. The caller is responsible for only
+ * An app's AI assistant as a block of its page (the chatbot used to float over it). What it is
+ * about — its greeting, examples, the server's profile — comes from the `AiChatConfig` above it
+ * (Finance's: Claude with the TW-stock MCP server attached). The caller is responsible for only
  * rendering it for a signed-in user.
  */
 function AiAssistantPanel({
@@ -50,7 +51,8 @@ function AiAssistantPanel({
   onCollapse,
   onActivityChange,
 }: AiAssistantPanelProps) {
-  const conversation = useChatConversation();
+  const config = useAiChatConfig();
+  const conversation = useChatConversation({ errorMessages: config.errorMessages });
   const { messages, conversationId, busy } = conversation;
   const preview = usePreview(conversation.blocks, conversation.currentHtmlBlock);
   const attachments = usePendingAttachments();

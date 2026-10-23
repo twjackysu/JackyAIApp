@@ -13,6 +13,8 @@ import type {
 } from '@/apis/chatbotApis/types';
 
 import { chatbotApis } from '@/apis/chatbotApis';
+import { AiChatConfigContext } from '@/components/aiChat/config';
+import { FINANCE_AI_CHAT } from '@/Finance/aiChatConfig';
 
 // The HTML viewer is lazy-loaded and sandboxes the page in an iframe; here it just shows what it
 // was given.
@@ -199,7 +201,9 @@ async function mount(initialDraft = '') {
   await act(async () =>
     root.render(
       <Provider store={store}>
-        <Harness initialDraft={initialDraft} />
+        <AiChatConfigContext value={FINANCE_AI_CHAT}>
+          <Harness initialDraft={initialDraft} />
+        </AiChatConfigContext>
       </Provider>,
     ),
   );
@@ -336,6 +340,14 @@ describe('AiAssistantPanel', () => {
     await send('hi');
 
     await waitForText('錯誤: 這段對話太長了，請開新對話繼續。');
+  });
+
+  it("a decline is told in the app's own words when its config has them", async () => {
+    await mount();
+    chatReplies.push(() => sseReply({ type: 'error', code: 'refused' }));
+    await send('hi');
+
+    await waitForText('錯誤: 這個問題我無法回答，請換個問法，或詢問台股相關的問題。');
   });
 
   it('a failure it has no words for still says the reply failed', async () => {

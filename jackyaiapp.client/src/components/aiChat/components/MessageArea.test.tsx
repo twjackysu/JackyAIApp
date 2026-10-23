@@ -6,6 +6,9 @@ import { Message } from '../types';
 
 import MessageArea from './MessageArea';
 
+import { AiChatConfigContext } from '@/components/aiChat/config';
+import { FINANCE_AI_CHAT } from '@/Finance/aiChatConfig';
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /** jsdom does no layout, so the box's scroll geometry is whatever the test says it is. */
@@ -57,7 +60,13 @@ const message = (id: string, content: string, isUser = false): Message => ({
 });
 
 const render = (messages: Message[], active = true) =>
-  act(() => root.render(<MessageArea messages={messages} onPreview={vi.fn()} active={active} />));
+  act(() =>
+    root.render(
+      <AiChatConfigContext value={FINANCE_AI_CHAT}>
+        <MessageArea messages={messages} onPreview={vi.fn()} active={active} />
+      </AiChatConfigContext>,
+    ),
+  );
 
 /** The reader drags the scrollbar to `top`. */
 const readerScrollsTo = (top: number) => {

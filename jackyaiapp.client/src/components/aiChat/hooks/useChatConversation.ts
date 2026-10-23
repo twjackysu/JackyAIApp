@@ -4,7 +4,7 @@ import { Message, QueuedMessage } from '../types';
 
 import { chatbotApis, useLazyGetConversationMessagesQuery } from '@/apis/chatbotApis';
 import { ChatAttachment, ChatHistoryMessage } from '@/apis/chatbotApis/types';
-import { stoppedContent, useChatStreaming } from '@/hooks/useChatStreaming';
+import { ChatStreamingOptions, stoppedContent, useChatStreaming } from '@/hooks/useChatStreaming';
 import { useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
 import { useAppDispatch } from '@/redux/hooks';
 
@@ -23,14 +23,14 @@ export const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] =>
  * The conversation on screen: its messages, the reply being written into the last of them, the
  * messages waiting for it, and switching to another conversation or a new one.
  */
-export function useChatConversation() {
+export function useChatConversation(options?: ChatStreamingOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string>('');
   const [currentStreamingContent, setCurrentStreamingContent] = useState<string>('');
 
   const dispatch = useAppDispatch();
   const [fetchConversationMessages] = useLazyGetConversationMessagesQuery();
-  const { sendStreamingMessage, stop, streamingStatus } = useChatStreaming();
+  const { sendStreamingMessage, stop, streamingStatus } = useChatStreaming(options);
   const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
   const busy = streamingStatus.isLoading;
   const nextTurnKey = useRef(0);

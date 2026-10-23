@@ -4,6 +4,7 @@ import ViewSidebarIcon from '@mui/icons-material/ViewSidebarOutlined';
 import { Box, IconButton, LinearProgress, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
+import { useAiChatConfig } from '../config';
 import { ACCENT, hairline } from '../style';
 
 import AssistantMark from './AssistantMark';
@@ -34,6 +35,7 @@ const ChatHeader = ({
   onCollapse,
 }: ChatHeaderProps) => {
   const theme = useTheme();
+  const { connectedLabel } = useAiChatConfig();
 
   return (
     <Box
@@ -75,7 +77,7 @@ const ChatHeader = ({
             }}
           />
           <Typography variant="caption" color="text.secondary" noWrap>
-            {busy ? statusText || '處理中…' : '台股資料已連線'}
+            {busy ? statusText || '處理中…' : connectedLabel}
           </Typography>
         </Box>
       </Box>

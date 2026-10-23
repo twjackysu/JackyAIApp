@@ -1,14 +1,10 @@
-import CandlestickChartIcon from '@mui/icons-material/CandlestickChart';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
-import PieChartOutlineIcon from '@mui/icons-material/PieChartOutlined';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import ShowChartIcon from '@mui/icons-material/ShowChart';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { Box, Button, ButtonBase, Paper, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useRef, useState } from 'react';
 
-import { GREETING_SUGGESTIONS } from '../examples';
+import { useAiChatConfig } from '../config';
 import { ACCENT, accentWash, hairline, revealActionsOnHover } from '../style';
 import { Message } from '../types';
 
@@ -40,18 +36,6 @@ interface MessageAreaProps {
   /** The reader edited one of their messages: send the new wording in its place. */
   onEdit?: (message: Message, text: string) => void;
 }
-
-export const GREETING_TITLE = '今天想研究哪一檔？';
-export const GREETING =
-  '我是台股 AI 助手，可以查個股走勢、財報與股利、三大法人籌碼、ETF、期貨選擇權和景氣指標，也能分析您附上的檔案或截圖。';
-
-/** One icon per suggestion, in GREETING_SUGGESTIONS' order (trend, financials, futures, ETF). */
-const SUGGESTION_ICONS = [
-  ShowChartIcon,
-  ReceiptLongIcon,
-  CandlestickChartIcon,
-  PieChartOutlineIcon,
-];
 
 // 單個區塊渲染組件
 const BlockRenderer = ({
@@ -87,6 +71,7 @@ const BlockRenderer = ({
 /** An empty conversation: what the assistant does, and a few questions to start from. */
 const Welcome = ({ onSuggest }: { onSuggest?: (question: string) => void }) => {
   const theme = useTheme();
+  const { greetingTitle, greeting, suggestions } = useAiChatConfig();
   return (
     <Box
       sx={{
@@ -102,10 +87,10 @@ const Welcome = ({ onSuggest }: { onSuggest?: (question: string) => void }) => {
     >
       <AssistantMark size={48} />
       <Typography variant="h6" component="h2" sx={{ fontWeight: 700, mt: 1 }}>
-        {GREETING_TITLE}
+        {greetingTitle}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 520, lineHeight: 1.7 }}>
-        {GREETING}
+        {greeting}
       </Typography>
       {onSuggest && (
         <Box
@@ -119,8 +104,7 @@ const Welcome = ({ onSuggest }: { onSuggest?: (question: string) => void }) => {
             gap: 1,
           }}
         >
-          {GREETING_SUGGESTIONS.map((q, i) => {
-            const Icon = SUGGESTION_ICONS[i % SUGGESTION_ICONS.length];
+          {suggestions.map(({ text: q, icon: Icon }) => {
             return (
               <ButtonBase
                 key={q}

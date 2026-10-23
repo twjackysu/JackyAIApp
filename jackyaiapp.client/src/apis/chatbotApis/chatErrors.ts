@@ -9,7 +9,7 @@ export const CHAT_ERROR_MESSAGES = {
   request_too_large: '這次送出的內容太大，請縮短或分次送出。',
   busy: 'AI 服務目前忙碌中，請稍後再試。',
   unavailable: 'AI 助手暫時無法使用，請聯絡站長。',
-  refused: '這個問題我無法回答，請換個問法，或詢問台股相關的問題。',
+  refused: '這個問題我無法回答，請換個問法。',
   no_answer: '沒有收到完整回覆，可能是這次查詢需要的資料較多，請再試一次或縮短問題範圍。',
   failed: '回覆失敗，請稍後再試。',
 } as const;

@@ -20,6 +20,7 @@ import {
 import { alpha, useTheme } from '@mui/material/styles';
 import { useRef, useState } from 'react';
 
+import { useAiChatConfig } from '../config';
 import { ACCENT, ACCENT_GRADIENT, hairline } from '../style';
 import { PendingAttachment, QueuedMessage } from '../types';
 
@@ -76,6 +77,7 @@ const ChatInput = ({
   onKeepFormattingChange,
 }: ChatInputProps) => {
   const theme = useTheme();
+  const { inputPlaceholder } = useAiChatConfig();
   const narrow = useMediaQuery(theme.breakpoints.down('sm'));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -187,8 +189,8 @@ const ChatInput = ({
                   ? '先輸入下一則…'
                   : '回覆中，可以先輸入下一則（回覆完自動送出）'
                 : narrow
-                  ? '問台股、財報、ETF…'
-                  : '問台股、財報、ETF、期貨…（Enter 送出，Shift+Enter 換行）'
+                  ? inputPlaceholder.narrow
+                  : inputPlaceholder.wide
             }
             value={value}
             inputRef={inputRef}

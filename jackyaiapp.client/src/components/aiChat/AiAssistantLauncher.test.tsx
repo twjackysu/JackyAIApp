@@ -6,6 +6,8 @@ import { AiAssistantLauncher } from './AiAssistantLauncher';
 
 import type { AssistantActivity } from '.';
 
+import { FINANCE_AI_CHAT } from '@/Finance/aiChatConfig';
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 interface PanelProps {
@@ -46,7 +48,7 @@ afterEach(() => {
 });
 
 async function render(auth: { isAuthenticated: boolean; isAuthLoading: boolean }) {
-  await act(async () => root.render(<AiAssistantLauncher {...auth} />));
+  await act(async () => root.render(<AiAssistantLauncher config={FINANCE_AI_CHAT} {...auth} />));
 }
 const signedIn = { isAuthenticated: true, isAuthLoading: false };
 
