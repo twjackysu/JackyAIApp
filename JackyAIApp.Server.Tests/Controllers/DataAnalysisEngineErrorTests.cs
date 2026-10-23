@@ -86,19 +86,8 @@ namespace JackyAIApp.Server.Tests.Controllers
         };
 
         private static DataAnalysisController Controller(
-            AzureSQLDBContext? db = null, IDataSourceConfigService? configService = null, string? userId = null)
-        {
-            var http = As(userId);
-            return new(NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
-                new DataSourceResolver(FailingEngine(), db!, configService!, NullLogger<DataSourceResolver>.Instance),
-                sources: new DataSourceStore(NullLogger<DataSourceStore>.Instance, db!, configService!, TestCurrentUser.Of(http)),
-                sessionStore: null!,
-                openAIPromptService: null!, promptLoader: null!, nlPlanner: null!,
-                cache: new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Of(http))
-            {
-                ControllerContext = new ControllerContext { HttpContext = http },
-            };
-        }
+            AzureSQLDBContext? db = null, IDataSourceConfigService? configService = null, string? userId = null) =>
+            new DataAnalysisControllerBuilder { DefaultEngine = FailingEngine(), Db = db, ConfigService = configService, UserId = userId }.Build();
 
         private static SummarizeRequestDto Plan(Guid? sourceId = null) => new()
         {

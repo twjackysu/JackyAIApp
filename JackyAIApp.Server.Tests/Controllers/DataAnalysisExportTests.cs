@@ -103,27 +103,11 @@ namespace JackyAIApp.Server.Tests.Controllers
                 ["Revenue"] = r.Revenue,
             }).ToList();
 
-        private static Mock<IMyResponseFactory> ResponseFactory()
-        {
-            var factory = new Mock<IMyResponseFactory>();
-            factory.Setup(f => f.CreateErrorResponse(It.IsAny<ErrorCodes>(), It.IsAny<string>()))
-                   .Returns((ErrorCodes code, string message) => new ObjectResult(message) { StatusCode = (int)code / 100 % 1000 });
-            return factory;
-        }
-
         private static (DataAnalysisController Controller, HttpResponse Response) Controller(
             DataAnalysisEngine defaultEngine, ISessionDataStore? sessions = null)
         {
-            var controller = new DataAnalysisController(
-                NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
-                new DataSourceResolver(defaultEngine, null!, null!, NullLogger<DataSourceResolver>.Instance),
-                sources: null!, sessionStore: sessions ?? null!,
-                openAIPromptService: null!, promptLoader: null!, nlPlanner: null!,
-                cache: new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Anonymous);
-            var http = new DefaultHttpContext();
-            http.Response.Body = new MemoryStream();
-            controller.ControllerContext = new ControllerContext { HttpContext = http };
-            return (controller, http.Response);
+            var controller = new DataAnalysisControllerBuilder { DefaultEngine = defaultEngine, Sessions = sessions }.Build();
+            return (controller, controller.HttpContext.Response);
         }
 
         private static string Body(HttpResponse response)
