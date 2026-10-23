@@ -14,6 +14,16 @@ import type {
 
 import { chatbotApis } from '@/apis/chatbotApis';
 
+// The HTML viewer is lazy-loaded and sandboxes the page in an iframe; here it just shows what it
+// was given.
+vi.mock('@/components/HtmlViewer', async () => {
+  const { createElement } = await import('react');
+  return {
+    default: ({ content }: { content: string }) =>
+      createElement('pre', { 'data-testid': 'html-preview' }, content),
+  };
+});
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 let container: HTMLDivElement;
@@ -166,8 +176,8 @@ let activities: AssistantActivity[];
 const lastActivity = () => activities[activities.length - 1];
 
 /** The panel's owner holds the message being typed, as the one-line box does on the page. */
-function Harness() {
-  const [draft, setDraft] = useState('');
+function Harness({ initialDraft }: { initialDraft: string }) {
+  const [draft, setDraft] = useState(initialDraft);
   return (
     <AiAssistantPanel
       active
@@ -179,7 +189,7 @@ function Harness() {
   );
 }
 
-async function mount() {
+async function mount(initialDraft = '') {
   collapses = 0;
   activities = [];
   const store = configureStore({
@@ -189,7 +199,7 @@ async function mount() {
   await act(async () =>
     root.render(
       <Provider store={store}>
-        <Harness />
+        <Harness initialDraft={initialDraft} />
       </Provider>,
     ),
   );
@@ -522,10 +532,115 @@ describe('AiAssistantPanel', () => {
       ...container.querySelectorAll<HTMLElement>('[data-testid="greeting-suggestions"] button'),
     ][0];
 
+    // A real click moves the focus to the suggestion first; jsdom's click() does not.
+    act(() => suggestion.focus());
     await act(async () => suggestion.click());
 
     expect(textarea().value).toBe(suggestion.textContent);
     expect(chatBodies).toEqual([]);
+    // The cursor is back in the box, ready to send or change it.
+    expect(document.activeElement).toBe(textarea());
+  });
+
+  it('opening puts the cursor after the message started in the one-line box', async () => {
+    await mount('台積電的');
+    expect(document.activeElement).toBe(textarea());
+    expect([textarea().selectionStart, textarea().selectionEnd]).toEqual([4, 4]);
+  });
+
+  it('a message of only spaces is not sent', async () => {
+    await mount();
+    await send('   ');
+    expect(chatBodies).toEqual([]);
+  });
+
+  it('the box empties as soon as a message goes', async () => {
+    await mount();
+    chatReplies.push(() => sseReply({ type: 'done', conversationId: 'conv-1' }));
+    await send('hi');
+    expect(textarea().value).toBe('');
+  });
+
+  it('Shift+Enter starts a new line instead of sending', async () => {
+    await mount();
+    act(() => {
+      const setValue = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      )!.set!;
+      setValue.call(textarea(), '第一行');
+      textarea().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      textarea().dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true }),
+      );
+    });
+    expect(chatBodies).toEqual([]);
+    expect(textarea().value).toBe('第一行');
+  });
+
+  it('taking back one waiting message leaves the others waiting', async () => {
+    await mount();
+    let finish!: () => void;
+    chatReplies.push(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () => resolve(sseReply({ type: 'done', conversationId: 'conv-1' }));
+        }),
+    );
+    await send('first');
+    await send('second');
+    await send('third');
+    expect(queuedTexts()).toEqual(['second', 'third']);
+
+    act(() => buttonByLabel('取消排隊')!.click());
+    expect(queuedTexts()).toEqual(['third']);
+
+    chatReplies.push(() => sseReply({ type: 'done', conversationId: 'conv-1' }));
+    await act(async () => finish());
+    await waitFor(() => expect(chatBodies.map((b) => b.message)).toEqual(['first', 'third']));
+  });
+
+  it('an HTML answer opens in a preview, which follows it while it is still being written', async () => {
+    await mount();
+    let push!: (text: string) => void;
+    let end!: () => void;
+    chatReplies.push(() => {
+      const encoder = new TextEncoder();
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            const event = (e: object) =>
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
+            event({ type: 'start', conversationId: 'conv-1' });
+            push = (text) => event({ type: 'delta', text });
+            end = () => {
+              event({ type: 'done', conversationId: 'conv-1' });
+              controller.close();
+            };
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+      );
+    });
+    await send('畫一張表');
+    await act(async () => push('```html\n<p>第一列'));
+    const previewButton = () =>
+      [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('預覽'));
+    await waitFor(() => expect(previewButton()).toBeDefined());
+    await act(async () => previewButton()!.click());
+
+    const shown = () => document.querySelector('[data-testid="html-preview"]');
+    await waitFor(() => expect(shown()?.textContent).toContain('第一列'));
+    await act(async () => push('第二列</p>\n```'));
+    await waitFor(() => expect(shown()?.textContent).toContain('第二列'));
+    await act(async () => end());
+    await waitFor(() => expect(buttonByLabel('停止')).toBeNull());
+
+    // Starting over closes the preview of the old conversation.
+    await act(async () => buttonByLabel('新對話')!.click());
+    await waitFor(() => expect(shown()).toBeNull());
   });
 });
 
@@ -684,6 +799,100 @@ describe('AiAssistantPanel — attachments', () => {
     expect(menuItem('附加檔案').getAttribute('aria-disabled')).toBe('true');
   });
 
+  it('a file turned down does not take one of the five places', async () => {
+    await mount();
+    for (let i = 1; i <= 5; i++) uploadReplies.push(() => json({ data: uploaded(i, `${i}.txt`) }));
+    await attach(file('slides.pptx'));
+    await attach(...[1, 2, 3, 4, 5].map((i) => file(`${i}.txt`)));
+
+    await uploadsSettled();
+    expect(uploads).toBe(5);
+    expect(container.textContent).not.toContain('一次最多附加 5 個檔案');
+  });
+
+  it('a file removed while it is still uploading is deleted on the server once it lands', async () => {
+    await mount();
+    let finish!: () => void;
+    uploadReplies.push(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () => resolve(json({ data: uploaded(8, 'notes.txt') }));
+        }),
+    );
+    await attach(file('notes.txt'));
+    await act(async () => {
+      container
+        .querySelector('.MuiChip-root .MuiChip-deleteIcon')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(chips()).toEqual([]);
+
+    await act(async () => finish());
+    await waitFor(() => expect(deletedAttachments).toEqual(['8']));
+    expect(chips()).toEqual([]);
+  });
+
+  it('an image the browser cannot read says so, and is not uploaded', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn().mockRejectedValue(new Error('bad image')));
+    await mount();
+    await attach(new File(['x'], '壞掉.png', { type: 'image/png' }));
+
+    await waitForText('壞掉.png：讀不出這個檔案的內容');
+    expect(uploads).toBe(0);
+  });
+
+  describe('local previews of images', () => {
+    let made: string[];
+    let revoked: string[];
+    const original = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+    beforeEach(() => {
+      made = [];
+      revoked = [];
+      URL.createObjectURL = vi.fn(() => {
+        made.push(`blob:${made.length + 1}`);
+        return made[made.length - 1];
+      });
+      URL.revokeObjectURL = vi.fn((url: string) => void revoked.push(url));
+    });
+    afterEach(() => {
+      URL.createObjectURL = original.create;
+      URL.revokeObjectURL = original.revoke;
+    });
+
+    const localPictures = () =>
+      [...container.querySelectorAll('.MuiChip-root img')].filter((img) =>
+        img.getAttribute('src')?.startsWith('blob:'),
+      );
+
+    it('an image turned down gets no local preview', async () => {
+      await mount();
+      await attach(new File(['x'.repeat(10 * 1024 * 1024 + 1)], '大圖.png', { type: 'image/png' }));
+      expect(container.textContent).toContain('大圖.png：檔案太大');
+      expect(made).toEqual([]);
+    });
+
+    it('an uploaded image shows its local picture until the message goes', async () => {
+      await mount();
+      uploadReplies.push(() => json({ data: { ...uploaded(31, '走勢.png'), kind: 'image' } }));
+      await attach(new File(['x'], '走勢.png', { type: 'image/png' }));
+      await uploadsSettled();
+      expect(localPictures().map((img) => img.getAttribute('src'))).toEqual(['blob:1']);
+
+      chatReplies.push(() => sseReply({ type: 'done', conversationId: 'conv-1' }));
+      await send('這張圖');
+      expect(revoked).toEqual(['blob:1']);
+    });
+
+    it('an image whose upload fails lets its local picture go', async () => {
+      await mount();
+      uploadReplies.push(() => errorEnvelope(400, 'AttachmentUnreadable'));
+      await attach(new File(['x'], '走勢.png', { type: 'image/png' }));
+      await waitForText('走勢.png：讀不出這個檔案的內容');
+      expect(localPictures()).toHaveLength(0);
+      expect(revoked).toEqual(['blob:1']);
+    });
+  });
+
   it('a PDF says how many pages it has and opens from its chip', async () => {
     await mount();
     uploadReplies.push(() =>
@@ -761,6 +970,16 @@ describe('AiAssistantPanel — pasting', () => {
     const value = textarea().value.replace(/ {2,}/g, ' ');
     // On lines of its own, so what is typed next is not part of the table.
     expect(value).toBe('| 代號 | 名稱 |\n| --- | --- |\n| 2330 | 台積電 |\n');
+  });
+
+  it('保留格式 is remembered in this browser, on and off', async () => {
+    await mount();
+    const turnOn = menuItem('貼上時保留格式');
+    act(() => turnOn.click());
+    expect(localStorage.getItem('aiAssistant.keepPasteFormatting')).toBe('1');
+    const turnOff = menuItem('貼上時保留格式');
+    act(() => turnOff.click());
+    expect(localStorage.getItem('aiAssistant.keepPasteFormatting')).toBe('0');
   });
 
   it('pasted text too long for the box is attached as a file instead', async () => {
@@ -969,6 +1188,37 @@ describe('AiAssistantPanel — copy and edit', () => {
     });
   });
 
+  it('an edited message keeps its files: the server re-attaches them, so no ids are sent', async () => {
+    conversations = [conversation('c1', '持股')];
+    messagesOf = {
+      c1: [
+        { ...turn(1, 'user', '看這份'), attachments: [uploaded(3, '持股.xlsx')] },
+        turn(2, 'assistant', '好的'),
+      ],
+    };
+    await mount();
+    await openConversation('持股');
+    await waitForText('好的');
+
+    await act(async () => actionOf('user-message', '看這份', '編輯')!.click());
+    typeInEditor('只看台股');
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '台股部分' }, { type: 'done', conversationId: 'c1' }),
+    );
+    await act(async () => {
+      [...container.querySelectorAll('button')].find((b) => b.textContent === '送出')!.click();
+    });
+
+    await waitForText('台股部分');
+    expect(chatBodies).toEqual([
+      { message: '只看台股', conversationId: 'c1', attachmentIds: [], editMessageId: 1 },
+    ]);
+    const bubble = [
+      ...container.querySelectorAll<HTMLElement>('[data-testid="user-message"]'),
+    ].find((m) => m.textContent?.includes('只看台股'))!;
+    expect(chips(bubble)).toEqual(['持股.xlsx']);
+  });
+
   it('Esc puts the message back as it was', async () => {
     conversations = [conversation('c1', '台積電')];
     messagesOf = { c1: [turn(1, 'user', '台積電？'), turn(2, 'assistant', '收 1,050')] };
@@ -995,6 +1245,14 @@ describe('AiAssistantPanel — conversation history column', () => {
       c1: [turn(1, 'user', '台積電最新財報？'), turn(2, 'assistant', '毛利率 59%')],
       c2: [turn(3, 'user', '0050 和 006208？'), turn(4, 'assistant', '費用率差不多')],
     };
+  });
+
+  it('an opened conversation counts as one, even with a single stored message', async () => {
+    conversations = [conversation('c3', '只問了一句')];
+    messagesOf = { c3: [turn(9, 'user', '只問了一句？')] };
+    await mount();
+    await openConversation('只問了一句');
+    await waitFor(() => expect(lastActivity()).toEqual({ busy: false, hasConversation: true }));
   });
 
   it('lists the conversations beside the chat without anything having to be opened', async () => {
