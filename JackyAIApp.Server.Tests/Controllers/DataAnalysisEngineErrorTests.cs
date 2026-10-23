@@ -213,10 +213,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             db.DashboardWidgets.Add(widget);
             await db.SaveChangesAsync();
 
-            var service = new DashboardService(
-                NullLogger<DashboardService>.Instance, db,
-                new DataSourceResolver(FailingEngine(), db, null!, NullLogger<DataSourceResolver>.Instance),
-                new MemoryCache(new MemoryCacheOptions()), TestCurrentUser.Anonymous);
+            var service = new DashboardServiceBuilder { Db = db, Viewer = TestCurrentUser.Anonymous, DefaultEngine = FailingEngine() }.Build();
             var controller = new DashboardController(ResponseFactory().Object, service)
             {
                 ControllerContext = new ControllerContext { HttpContext = As(null) },

@@ -228,9 +228,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 
 - `DataAnalysisController` does HTTP only. The engine queries (schema, max date, distinct values,
   summarize, details, CSV export) are `IDataAnalysisQueryService`, the question in plain language is
-  `INlSummarizeService`; both take the request's source, the schema gate and the answer to a failed query
-  from `EngineSources` (the default source's driver text stays in the log, a custom source's owner gets
-  it). Each answer is a record (`MaxDateDto`, `DistinctValuesDto`, `SummarizeRowsDto`, `DetailsPageDto`).
+  `INlSummarizeService`. They and dashboard widgets take the source, the schema gate, the summarize and the
+  answer to a failed query from `EngineSources`: the default source's driver text stays in the log, and a
+  custom source's goes only to its owner. A widget resolves its source as the dashboard's owner, so any
+  allowed viewer sees it, and passes `viewerIsOwner` so no other viewer gets that text. Each answer is a record (`MaxDateDto`, `DistinctValuesDto`, `SummarizeRowsDto`, `DetailsPageDto`).
   An export hands its rows to the controller's CSV writer while the service still holds the gate that lets
   two run at once
 - Tests build the controller with `TestHelpers/DataAnalysisControllerBuilder`, never its constructor;

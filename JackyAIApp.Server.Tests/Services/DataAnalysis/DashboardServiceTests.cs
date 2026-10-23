@@ -5,6 +5,7 @@ using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.DataAnalysis;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.DataAnalysis;
+using JackyAIApp.Server.Tests.TestHelpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -38,8 +39,7 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         {
             var user = new Mock<ICurrentUser>();
             user.Setup(u => u.Id).Returns(userId);
-            return new DashboardService(NullLogger<DashboardService>.Instance, _db,
-                new Mock<IDataSourceResolver>(MockBehavior.Strict).Object, new MemoryCache(new MemoryCacheOptions()), user.Object);
+            return new DashboardServiceBuilder { Db = _db, Viewer = user.Object }.Build();
         }
 
         private async Task<Guid> CreateAsync(DashboardVisibility visibility = DashboardVisibility.Private, params string[] sharedWithEmails)

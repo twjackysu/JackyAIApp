@@ -120,7 +120,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 return rejected;
 
             logger.LogInformation("Summarize: source={sid} table={t}", dto.Context?.SourceId, source.TableName);
-            var result = await source.Engine.SummarizeAsync(SummarizeRequestFor(source, dto), ct);
+            var result = await sources.SummarizeAsync(source, dto, ct);
 
             return result.IsSuccess
                 ? ServiceResult.Ok(new SummarizeRowsDto(result.Value!.Rows.Select(r => r.Data)))
@@ -193,16 +193,6 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 export.Rows.Count, export.TotalCount));
             return ServiceResult.Ok();
         }
-
-        /// <summary>The engine request for a summarize plan; the NL question runs its plan the same way.</summary>
-        internal static SummarizeRequest SummarizeRequestFor(ResolvedSource source, SummarizeRequestDto dto) => new()
-        {
-            SourceKey = source.SourceKey,
-            TableName = source.TableName,
-            ViewBy    = dto.ViewBy.Select(MapGroupField).ToList(),
-            Measures  = dto.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias))).ToList(),
-            Filters   = MapFilters(dto.Filters),
-        };
 
         private static DetailsRequest DetailsRequestFor(ResolvedSource source, DetailsRequestDto dto, int skip, int take) => new()
         {

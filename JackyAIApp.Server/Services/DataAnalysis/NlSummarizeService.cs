@@ -89,7 +89,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
                 return ServiceResult.Fail(ErrorCodes.BadRequest, planError);
             }
 
-            var result = await source.Engine.SummarizeAsync(DataAnalysisQueryService.SummarizeRequestFor(source, plan), ct);
+            var result = await sources.SummarizeAsync(source, plan, ct);
             if (!result.IsSuccess)
                 return sources.QueryFailed(source, result.ErrorMessage, "Query execution failed.");
 
