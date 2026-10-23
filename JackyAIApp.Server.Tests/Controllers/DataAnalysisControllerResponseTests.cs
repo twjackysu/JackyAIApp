@@ -290,6 +290,19 @@ namespace JackyAIApp.Server.Tests.Controllers
         }
 
         [Fact]
+        public async Task OnTheEngine_APlanNamingAColumnTheTableLacks_IsRefusedBeforeItRuns()
+        {
+            // The planner checks field names too; this gate stands even if a plan gets past it.
+            PlannerAnswers(new NlPlanResult(RegionRevenue() with { ViewBy = [new GroupFieldDto { FieldName = "Salary" }] }, null, null, [], []));
+
+            var (status, message) = Error(await Controller().NlSummarize(new NlSummarizeRequestDto { Query = "by salary" }));
+
+            Assert.Equal(400, status);
+            Assert.Contains("Salary", message);
+            Assert.Empty(_builders.Summarize.Requests);
+        }
+
+        [Fact]
         public async Task OnTheEngine_APlanThatFailsToRun_IsA500()
         {
             Fail(nameof(SummarizeRequest));

@@ -51,14 +51,18 @@ namespace JackyAIApp.Server.Tests.TestHelpers
             };
             http.Response.Body = new MemoryStream();
             var currentUser = TestCurrentUser.Of(http);
+            var cache = Cache ?? new MemoryCache(new MemoryCacheOptions());
 
-            return new DataAnalysisController(
-                NullLogger<DataAnalysisController>.Instance, Responses ?? MessageResponses(),
+            var engines = new EngineSources(
                 new DataSourceResolver(DefaultEngine, Db!, ConfigService!, NullLogger<DataSourceResolver>.Instance),
-                sources: new DataSourceStore(NullLogger<DataSourceStore>.Instance, Db!, ConfigService!, currentUser),
-                sessionStore: Sessions!,
-                openAIPromptService: null!, promptLoader: Prompts!, nlPlanner: NlPlanner!,
-                cache: Cache ?? new MemoryCache(new MemoryCacheOptions()), currentUser: currentUser)
+                currentUser, cache, NullLogger<EngineSources>.Instance);
+            return new DataAnalysisController(
+                Responses ?? MessageResponses(),
+                new DataSourceStore(NullLogger<DataSourceStore>.Instance, Db!, ConfigService!, currentUser),
+                Sessions!,
+                new DataAnalysisQueryService(engines, Sessions!, NullLogger<DataAnalysisQueryService>.Instance),
+                new NlSummarizeService(Prompts!, NlPlanner!, Sessions!, engines,
+                    cache, currentUser, NullLogger<NlSummarizeService>.Instance))
             {
                 ControllerContext = new ControllerContext { HttpContext = http },
             };

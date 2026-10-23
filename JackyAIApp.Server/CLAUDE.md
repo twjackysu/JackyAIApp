@@ -224,8 +224,17 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   SDK an `HttpClient` serving recorded API streams: a whole turn is tested offline, from the SSE the reader
   gets to what is saved and logged. A change to how a turn reads the stream gets a case there
 
-## Data analysis: questions in plain language
+## Data analysis
 
+- `DataAnalysisController` does HTTP only. The engine queries (schema, max date, distinct values,
+  summarize, details, CSV export) are `IDataAnalysisQueryService`, the question in plain language is
+  `INlSummarizeService`; both take the request's source, the schema gate and the answer to a failed query
+  from `EngineSources` (the default source's driver text stays in the log, a custom source's owner gets
+  it). Each answer is a record (`MaxDateDto`, `DistinctValuesDto`, `SummarizeRowsDto`, `DetailsPageDto`).
+  An export hands its rows to the controller's CSV writer while the service still holds the gate that lets
+  two run at once
+- Tests build the controller with `TestHelpers/DataAnalysisControllerBuilder`, never its constructor;
+  `DataAnalysisControllerResponseTests` pins what each endpoint answers
 - `NlQueryPlanner.BuildPlanAsync` only orchestrates. Which columns are String or date columns is
   `NlSchema`; which String columns' real values are read (300 a column) and listed in the prompt (2000 in
   all), and which can check a plan against all their values, is `NlPromptValues`; the wording sent to the

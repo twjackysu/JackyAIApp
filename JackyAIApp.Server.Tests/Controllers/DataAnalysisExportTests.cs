@@ -140,7 +140,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             var request = Assert.Single(details.Requests);
             Assert.Equal("dbo.Orders", request.TableName);   // default source stays pinned
             Assert.Equal(0, request.Skip);
-            Assert.Equal(DataAnalysisController.MaxExportRows, request.Take);
+            Assert.Equal(DataAnalysisQueryService.MaxExportRows, request.Take);
             Assert.Equal("OrderDate", Assert.Single(request.OrderBy).FieldName);
 
             Assert.StartsWith("text/csv", response.ContentType);
@@ -154,7 +154,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         [Fact]
         public async Task ExportDetails_MoreRowsThanTheCap_ReportsTheRealTotal()
         {
-            var full = Enumerable.Range(0, DataAnalysisController.MaxExportRows)
+            var full = Enumerable.Range(0, DataAnalysisQueryService.MaxExportRows)
                 .Select(i => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["Id"] = i })
                 .ToList();
             // A full page makes the library count separately (through the Summarize builder).
@@ -168,7 +168,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.Equal("100000", response.Headers["X-Exported-Count"]);
             Assert.Equal("123456", response.Headers["X-Total-Count"]);
             var lines = Body(response).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
-            Assert.Equal(DataAnalysisController.MaxExportRows + 1, lines.Length);   // + header
+            Assert.Equal(DataAnalysisQueryService.MaxExportRows + 1, lines.Length);   // + header
         }
 
         [Fact]

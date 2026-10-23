@@ -1,117 +1,32 @@
-using DataAnalysisLibrary.Core.Engine;
-using JackyAIApp.Server.Extensions;
-using DataAnalysisLibrary.Core.Enums;
-using DataAnalysisLibrary.Core.Models.Common;
-using DataAnalysisLibrary.Core.Models.Requests;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.DTO.DataAnalysis;
-using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services.DataAnalysis;
-using JackyAIApp.Server.Services.OpenAI;
-using JackyAIApp.Server.Services.Prompt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Caching.Memory;
-using static JackyAIApp.Server.Common.DataAnalysisMapping;
 
 namespace JackyAIApp.Server.Controllers
 {
     /// <summary>
-    /// Demo controller that showcases all four DataAnalysisLibrary query types.
-    /// Supports a built-in default source (dbo.Orders via JackyAI SQL) plus
-    /// user-saved custom sources (SQL Server or Azure Data Explorer).
+    /// The Data Analysis page: queries on the built-in default source (dbo.Orders via JackyAI SQL), on a
+    /// signed-in user's saved custom source (SQL Server or Azure Data Explorer), or on an uploaded session.
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     public class DataAnalysisController(
-        ILogger<DataAnalysisController> logger,
         IMyResponseFactory responseFactory,
-        IDataSourceResolver resolver,
         IDataSourceStore sources,
         ISessionDataStore sessionStore,
-        IOpenAIPromptService openAIPromptService,
-        IPromptLoader promptLoader,
-        INlQueryPlanner nlPlanner,
-        IMemoryCache cache,
-        ICurrentUser currentUser) : ControllerBase
+        IDataAnalysisQueryService queries,
+        INlSummarizeService nlSummarize) : ControllerBase
     {
-        private readonly ICurrentUser                    _currentUser           = currentUser;
-        private readonly ILogger<DataAnalysisController> _logger               = logger;
-        private readonly IMyResponseFactory              _responseFactory       = responseFactory;
-        private readonly IDataSourceResolver             _resolver              = resolver;
-        private readonly IDataSourceStore                _sources               = sources;
-        private readonly ISessionDataStore               _sessionStore          = sessionStore;
-        private readonly IOpenAIPromptService            _openAIPromptService   = openAIPromptService;
-        private readonly IPromptLoader                   _promptLoader          = promptLoader;
-        private readonly INlQueryPlanner                 _nlPlanner             = nlPlanner;
-        private readonly IMemoryCache                    _cache                 = cache;
-
-        // ── Engine resolution ──────────────────────────────────────────────────
-
-        /// <summary>
-        /// Resolved query context.  When <c>OwnsEngine</c> is <c>true</c> the engine was
-        /// built on-the-fly for a custom source and <em>must</em> be disposed after the
-        /// request completes to release the underlying connector resources (e.g. Kusto client).
-        /// The singleton default engine has <c>OwnsEngine = false</c> and must NOT be disposed
-        /// here — its lifetime is managed by the DI container.
-        /// </summary>
-        /// <summary>
-        /// The engine for the request's source, or null with the response to send instead: 404 when
-        /// the source doesn't exist or isn't the caller's, 400 when its saved settings are refused
-        /// (see <see cref="DataSourceConfigException"/>).
-        /// </summary>
-        private async Task<(ResolvedSource? Ctx, IActionResult? Rejection)> TryResolveAsync(
-            QueryContextDto? ctx, CancellationToken ct)
-        {
-            // A live query resolves the source as the signed-in caller (the record's owner).
-            var (source, status, message) = await _resolver.ResolveAsync(ctx?.SourceId, ctx?.TableName, _currentUser.Id, ct);
-            return status switch
-            {
-                DataSourceResolution.Ok => (source, null),
-                DataSourceResolution.ConfigRefused =>
-                    (null, _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, message!)),
-                _ => (null, _responseFactory.CreateErrorResponse(ErrorCodes.NotFound, "Source not found.")),
-            };
-        }
-
-        /// <summary>
-        /// The response for an engine query that failed. The default source is the app's own production
-        /// database behind anonymous endpoints, so the driver's text (server and object names, SQL
-        /// fragments) stays in the log and the caller gets <paramref name="genericMessage"/>. A custom
-        /// source is the signed-in owner's own database: they get the driver's message, which is what
-        /// they need to fix their connection or query.
-        /// </summary>
-        private IActionResult EngineFailure(ResolvedSource ctx, string? engineError, string genericMessage)
-        {
-            _logger.Log(ctx.OwnsEngine ? LogLevel.Warning : LogLevel.Error,
-                "DataAnalysis query failed: source={src} table={t}: {err}",
-                ctx.OwnsEngine ? "custom" : "default", ctx.TableName, engineError);
-            var message = ctx.OwnsEngine && !string.IsNullOrWhiteSpace(engineError) ? engineError : genericMessage;
-            return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, message);
-        }
-
-        /// <summary>
-        /// The schema gate every engine query passes before it runs (see <see cref="DataAnalysisFieldGuard"/>).
-        /// Returns the response to send instead — 400 naming the unknown field or unsafe alias, or 500 when
-        /// the schema can't be read — or null when the request may go to the engine.
-        /// </summary>
-        private async Task<IActionResult?> GuardFieldsAsync(
-            ResolvedSource ctx, Func<IReadOnlySet<string>, string?> check, CancellationToken ct)
-        {
-            // Only the default source (the engine this controller doesn't own) has a fixed table worth caching.
-            var fields = await DataAnalysisFieldGuard.LoadFieldNamesAsync(
-                ctx.Engine, ctx.SourceKey, ctx.TableName, ctx.OwnsEngine ? null : _cache, ct);
-            if (fields is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Schema query failed.");
-
-            var error = check(fields);
-            if (error is null) return null;
-
-            _logger.LogWarning("DataAnalysis: rejected query on table={t}: {err}", ctx.TableName, error);
-            return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, error);
-        }
+        private readonly IMyResponseFactory         _responseFactory = responseFactory;
+        private readonly IDataSourceStore           _sources         = sources;
+        private readonly ISessionDataStore          _sessionStore    = sessionStore;
+        private readonly IDataAnalysisQueryService  _queries         = queries;
+        private readonly INlSummarizeService        _nlSummarize     = nlSummarize;
 
         // ═══════════════════════════════════════════════════════════════════════
         // Source CRUD
@@ -150,375 +65,63 @@ namespace JackyAIApp.Server.Controllers
         // Query endpoints  (all accept optional QueryContext for custom source)
         // ═══════════════════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Returns the schema of the target table (FieldListAsync).
-        /// Pass sourceId + tableName as query parameters to use a custom source.
-        /// </summary>
+        /// <summary>The schema of the target table. Pass sourceId + tableName to use a custom source.</summary>
         [HttpGet("schema")]
         public async Task<IActionResult> GetSchema(
             [FromQuery] Guid?   sourceId  = null,
             [FromQuery] string? tableName = null,
-            CancellationToken   ct        = default)
-        {
-            var (ctx, rejection) = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
-            if (ctx is null) return rejection!;
-            using var _ = ctx;
+            CancellationToken   ct        = default) =>
+            _responseFactory.ToActionResult(await _queries.GetSchemaAsync(Context(sourceId, tableName), ct));
 
-            _logger.LogInformation("FieldList: source={sid} table={t}", sourceId, ctx.TableName);
-            var result = await ctx.Engine.FieldListAsync(
-                new FieldListRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName }, ct);
-
-            return result.IsSuccess
-                ? _responseFactory.CreateOKResponse(result.Value)
-                : EngineFailure(ctx, result.ErrorMessage, "Schema query failed.");
-        }
-
-        /// <summary>
-        /// Returns the MAX value of the date field (MaxDateAsync).
-        /// </summary>
+        /// <summary>The MAX value of the date field.</summary>
         [HttpGet("maxdate")]
         public async Task<IActionResult> GetMaxDate(
             [FromQuery] Guid?   sourceId   = null,
             [FromQuery] string? tableName  = null,
             [FromQuery] string  dateField  = "OrderDate",
-            CancellationToken   ct         = default)
-        {
-            var (ctx, rejection) = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
-            if (ctx is null) return rejection!;
-            using var _ = ctx;
+            CancellationToken   ct         = default) =>
+            _responseFactory.ToActionResult(await _queries.GetMaxDateAsync(Context(sourceId, tableName), dateField, ct));
 
-            if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.CheckField(fields, dateField), ct) is { } rejected)
-                return rejected;
-
-            _logger.LogInformation("MaxDate: source={sid} table={t} field={f}", sourceId, ctx.TableName, dateField);
-            var result = await ctx.Engine.MaxDateAsync(
-                new MaxDateRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName, DateFieldName = dateField }, ct);
-
-            return result.IsSuccess
-                ? _responseFactory.CreateOKResponse(new { maxDate = result.Value!.MaxDate })
-                : EngineFailure(ctx, result.ErrorMessage, "MaxDate query failed.");
-        }
-
-        /// <summary>
-        /// Returns up to 200 distinct values for a given column (used for filter LoV picker), in the
-        /// column's natural order.
-        /// </summary>
+        /// <summary>Up to 200 distinct values for a column (the filter LoV picker), in the column's natural order.</summary>
         [HttpGet("distinctvalues")]
         public async Task<IActionResult> GetDistinctValues(
             [FromQuery] string  field,
             [FromQuery] Guid?   sourceId  = null,
             [FromQuery] string? tableName = null,
-            CancellationToken   ct        = default)
-        {
-            if (string.IsNullOrWhiteSpace(field))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, "field is required.");
+            CancellationToken   ct        = default) =>
+            _responseFactory.ToActionResult(await _queries.GetDistinctValuesAsync(Context(sourceId, tableName), field, ct));
 
-            var (ctx, rejection) = await TryResolveAsync(new QueryContextDto { SourceId = sourceId, TableName = tableName }, ct);
-            if (ctx is null) return rejection!;
-            using var _ = ctx;
-
-            if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.CheckField(fields, field), ct) is { } rejected)
-                return rejected;
-
-            var result = await ctx.Engine.DistinctValuesAsync(new DistinctValuesRequest
-            {
-                SourceKey = ctx.SourceKey, TableName = ctx.TableName, FieldNames = [field], Limit = 200,
-            }, ct);
-            if (!result.IsSuccess)
-            {
-                _logger.LogWarning("GetDistinctValues: field={field} failed: {err}", field, result.ErrorMessage);
-                return _responseFactory.CreateOKResponse(new { values = Array.Empty<string>() });
-            }
-
-            var values = result.Value!.Fields[field].Values.Where(v => !string.IsNullOrEmpty(v)).ToList();
-            return _responseFactory.CreateOKResponse(new { values });
-        }
-
-        /// <summary>GroupBy + Measures aggregation (SummarizeAsync).</summary>
+        /// <summary>GroupBy + Measures aggregation.</summary>
         [HttpPost("summarize")]
-        public async Task<IActionResult> Summarize(
-            [FromBody] SummarizeRequestDto dto,
-            CancellationToken ct = default)
-        {
-            var (ctx, rejection) = await TryResolveAsync(dto.Context, ct);
-            if (ctx is null) return rejection!;
-            using var _ = ctx;
+        public async Task<IActionResult> Summarize([FromBody] SummarizeRequestDto dto, CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _queries.SummarizeAsync(dto, ct));
 
-            if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.Check(fields, dto), ct) is { } rejected)
-                return rejected;
-
-            _logger.LogInformation("Summarize: source={sid} table={t}", dto.Context?.SourceId, ctx.TableName);
-            var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
-            {
-                SourceKey = ctx.SourceKey,
-                TableName = ctx.TableName,
-                ViewBy    = dto.ViewBy.Select(MapGroupField).ToList(),
-                Measures  = dto.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias))).ToList(),
-                Filters   = MapFilters(dto.Filters),
-            }, ct);
-
-            return result.IsSuccess
-                ? _responseFactory.CreateOKResponse(new { rows = result.Value!.Rows.Select(r => r.Data) })
-                : EngineFailure(ctx, result.ErrorMessage, "Summarize failed.");
-        }
-
-        /// <summary>Paginated row-level data (DetailsAsync).</summary>
+        /// <summary>Paginated row-level data.</summary>
         [HttpPost("details")]
-        public async Task<IActionResult> Details(
-            [FromBody] DetailsRequestDto dto,
-            CancellationToken ct = default)
-        {
-            var (ctx, rejection) = await TryResolveAsync(dto.Context, ct);
-            if (ctx is null) return rejection!;
-            using var _ = ctx;
-
-            if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.Check(fields, dto), ct) is { } rejected)
-                return rejected;
-
-            _logger.LogInformation("Details: source={sid} table={t} skip={s} take={tk}",
-                dto.Context?.SourceId, ctx.TableName, dto.Skip, dto.Take);
-
-            var result = await ctx.Engine.DetailsAsync(new DetailsRequest
-            {
-                SourceKey    = ctx.SourceKey,
-                TableName    = ctx.TableName,
-                SelectFields = dto.SelectFields ?? [],
-                OrderBy      = dto.OrderBy?.Select(o => new SortField(o.FieldName, o.Descending)).ToList() ?? [],
-                Skip         = dto.Skip,
-                Take         = Math.Min(dto.Take, 200),
-                Filters      = MapFilters(dto.Filters),
-            }, ct);
-
-            return result.IsSuccess
-                ? _responseFactory.CreateOKResponse(new { rows = result.Value!.Rows, totalCount = result.Value!.TotalCount })
-                : EngineFailure(ctx, result.ErrorMessage, "Details failed.");
-        }
-
-        // ── CSV export ─────────────────────────────────────────────────────────
-
-        /// <summary>Most rows one CSV export returns; X-Total-Count still reports how many matched.</summary>
-        internal const int MaxExportRows = 100_000;
-
-        // A database export holds up to MaxExportRows rows in memory while it is written, so at most
-        // two run at once; the default source is anonymous, so this also bounds what callers can load.
-        private static readonly SemaphoreSlim ExportGate = new(2, 2);
+        public async Task<IActionResult> Details([FromBody] DetailsRequestDto dto, CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _queries.DetailsAsync(dto, ct));
 
         /// <summary>
-        /// Every row matching the filters, in the requested order, as a CSV download — no paging,
-        /// one query, capped at <see cref="MaxExportRows"/>. Skip/Take in the body are ignored.
+        /// Every row matching the filters, in the requested order, as a CSV download (see
+        /// <see cref="IDataAnalysisQueryService.ExportAsync"/>). Skip/Take in the body are ignored.
         /// </summary>
         [HttpPost("details/export")]
-        public async Task<IActionResult> ExportDetails(
-            [FromBody] DetailsRequestDto dto,
-            CancellationToken ct = default)
-        {
-            if (!await ExportGate.WaitAsync(0, ct))
-                return _responseFactory.CreateErrorResponse(ErrorCodes.TooManyRequests, "Another export is running. Please try again shortly.");
-            try
-            {
-                var (ctx, rejection) = await TryResolveAsync(dto.Context, ct);
-                if (ctx is null) return rejection!;
-                using var _ = ctx;
-
-                if (await GuardFieldsAsync(ctx, fields => DataAnalysisFieldGuard.Check(fields, dto), ct) is { } rejected)
-                    return rejected;
-
-                var result = await ctx.Engine.DetailsAsync(new DetailsRequest
-                {
-                    SourceKey    = ctx.SourceKey,
-                    TableName    = ctx.TableName,
-                    SelectFields = dto.SelectFields ?? [],
-                    OrderBy      = dto.OrderBy?.Select(o => new SortField(o.FieldName, o.Descending)).ToList() ?? [],
-                    Skip         = 0,
-                    Take         = MaxExportRows,
-                    Filters      = MapFilters(dto.Filters),
-                }, ct);
-                if (!result.IsSuccess)
-                    return EngineFailure(ctx, result.ErrorMessage, "Export failed.");
-
-                var rows = result.Value!.Rows;
-                IReadOnlyList<string> headers;
-                if (rows.Count > 0)
-                    headers = rows[0].Keys.ToList();
-                else if (dto.SelectFields is { Count: > 0 })
-                    headers = dto.SelectFields;
-                else
-                {
-                    // Nothing matched: still give the file its header row.
-                    var schema = await ctx.Engine.FieldListAsync(
-                        new FieldListRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName }, ct);
-                    headers = schema.IsSuccess ? schema.Value!.Fields.Select(f => f.Name).ToList() : [];
-                }
-
-                _logger.LogInformation("ExportDetails: source={sid} table={t} rows={n} total={total}",
-                    dto.Context?.SourceId, ctx.TableName, rows.Count, result.Value.TotalCount);
-
-                await WriteCsvResponseAsync(
-                    ctx.TableName, headers,
-                    rows.Select(r => headers.Select(h => r.TryGetValue(h, out var v) ? v : null)),
-                    rows.Count, result.Value.TotalCount, ct);
-                return new EmptyResult();
-            }
-            finally
-            {
-                ExportGate.Release();
-            }
-        }
+        public async Task<IActionResult> ExportDetails([FromBody] DetailsRequestDto dto, CancellationToken ct = default) =>
+            Csv(await _queries.ExportAsync(dto, export => WriteCsvAsync(export, ct), ct));
 
         /// <summary>
-        /// Streams a CSV download. The counts go in headers so the client can say when the export
-        /// was cut off at <see cref="MaxExportRows"/>.
-        /// </summary>
-        private async Task WriteCsvResponseAsync(
-            string name,
-            IReadOnlyList<string> headers,
-            IEnumerable<IEnumerable<object?>> rows,
-            int exportedCount,
-            int totalCount,
-            CancellationToken ct)
-        {
-            var safeName = string.Concat(name.Select(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' ? c : '_'));
-            var fileName = $"{(safeName.Length > 0 ? safeName : "export")}_{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
-
-            Response.ContentType = "text/csv; charset=utf-8";
-            Response.Headers.ContentDisposition = new Microsoft.Net.Http.Headers.ContentDispositionHeaderValue("attachment")
-            {
-                FileNameStar = fileName,
-            }.ToString();
-            Response.Headers["X-Exported-Count"] = exportedCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            Response.Headers["X-Total-Count"]    = totalCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-            await CsvExportWriter.WriteAsync(Response.Body, headers, rows, ct);
-        }
-
-        /// <summary>
-        /// Natural-language summarize. A fixed "agent" pipeline: (1) fetch the actual distinct values
-        /// (List-of-Values) of the String columns, (2) ask the LLM for the query plan with those real
-        /// values in the prompt, (3) validate every filter value against the data — retrying once with
-        /// the correct options when one doesn't exist — then execute it. This stops the LLM from
-        /// inventing filter values that don't exist in the data.
-        /// Returns <c>{ plan, interpretation, rows, notes }</c>. Requires login — every call consumes usage budget.
+        /// Natural-language summarize (see <see cref="INlSummarizeService"/>): the plan the AI made, what
+        /// it understood, the rows, and the conditions it could not apply. Requires login — every call
+        /// consumes usage budget.
         /// </summary>
         [HttpPost("summarize/nl")]
         [Authorize]
         [UsageLimit(UsageFeature.NlSummarize)]
-        public async Task<IActionResult> NlSummarize(
-            [FromBody] NlSummarizeRequestDto dto,
-            CancellationToken ct = default)
-        {
-            var summarizePrompt = _promptLoader.GetPrompt("Prompt/DataAnalysis/NlSummarizeSystem.txt");
-            if (summarizePrompt is null)
-                return _responseFactory.CreateErrorResponse(ErrorCodes.InternalServerError, "Prompt configuration error.");
+        public async Task<IActionResult> NlSummarize([FromBody] NlSummarizeRequestDto dto, CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _nlSummarize.SummarizeAsync(dto, ct));
 
-            var userId = _currentUser.Id;
-
-            // ── Session data source ────────────────────────────────────────────
-            if (!string.IsNullOrWhiteSpace(dto.SessionId))
-            {
-                var schemaResult = _sessionStore.GetSchema(dto.SessionId);
-                if (!schemaResult.IsSuccess)
-                    return _responseFactory.CreateErrorResponse(schemaResult.Error!.Value, schemaResult.ErrorMessage!);
-
-                var sessionFields = schemaResult.Data.Fields;
-                var fields = sessionFields.Select(f => (f.Name, f.CanonicalType)).ToList();
-
-                var planResult = await _nlPlanner.BuildPlanAsync(
-                    fields, dto.Query, summarizePrompt,
-                    new SessionNlValueSource(_sessionStore, dto.SessionId!),
-                    col => Task.FromResult(GetSessionMaxDateValue(dto.SessionId!, col)), ct);
-                if (planResult.Plan is null)
-                    return _responseFactory.CreateErrorResponse(planResult.Error!.Value, planResult.ErrorMessage!);
-
-                var sessionResult = _sessionStore.Summarize(dto.SessionId!, planResult.Plan);
-                if (!sessionResult.IsSuccess)
-                    return _responseFactory.CreateErrorResponse(sessionResult.Error!.Value, sessionResult.ErrorMessage!);
-
-                var sessionRows = sessionResult.Data.Rows.Cast<object>();
-                _logger.LogInformation("NlSummarize: user={uid} session query={q}", userId ?? "anon", dto.Query);
-                return _responseFactory.CreateOKResponse(new NlSummarizeResponseDto
-                {
-                    Plan           = planResult.Plan,
-                    Interpretation = NlPlanValidator.BuildInterpretation(planResult.Plan),
-                    Rows           = sessionRows,
-                    Notes          = planResult.Notes.Count > 0 ? planResult.Notes : null,
-                    Unmatched      = planResult.Unmatched.Count > 0 ? planResult.Unmatched : null,
-                });
-            }
-
-            // ── Engine data source (default or custom) ─────────────────────────
-            var (ctx, rejection) = await TryResolveAsync(dto.Context, ct);
-            if (ctx is null) return rejection!;
-            using var _ = ctx;
-
-            var fieldResult = await ctx.Engine.FieldListAsync(
-                new FieldListRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName }, ct);
-            if (!fieldResult.IsSuccess)
-                return EngineFailure(ctx, fieldResult.ErrorMessage, "Schema query failed.");
-
-            var engineFields = fieldResult.Value!.Fields.Select(f => (f.Name, f.CanonicalType.ToString())).ToList();
-            var engineFieldNames = engineFields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            var enginePlanResult = await _nlPlanner.BuildPlanAsync(
-                engineFields, dto.Query, summarizePrompt,
-                new EngineNlValueSource(ctx.Engine, ctx.SourceKey, ctx.TableName,
-                    dto.Context?.SourceId?.ToString() ?? "default", _cache, _logger),
-                col => FetchEngineMaxDateAsync(ctx, col, ct), ct);
-            if (enginePlanResult.Plan is null)
-                return _responseFactory.CreateErrorResponse(enginePlanResult.Error!.Value, enginePlanResult.ErrorMessage!);
-
-            // The same schema gate as the hand-built queries. The LLM's field names were already checked
-            // while the plan was made; an alias it wrote that isn't plain text is dropped, not fatal.
-            var plan = DataAnalysisFieldGuard.WithoutUnsafeAliases(enginePlanResult.Plan);
-            if (DataAnalysisFieldGuard.Check(engineFieldNames, plan) is { } planError)
-            {
-                _logger.LogWarning("NlSummarize: rejected plan on table={t}: {err}", ctx.TableName, planError);
-                return _responseFactory.CreateErrorResponse(ErrorCodes.BadRequest, planError);
-            }
-
-            var result = await ctx.Engine.SummarizeAsync(new SummarizeRequest
-            {
-                SourceKey = ctx.SourceKey,
-                TableName = ctx.TableName,
-                ViewBy    = plan.ViewBy.Select(MapGroupField).ToList(),
-                Measures  = plan.Measures.Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias))).ToList(),
-                Filters   = MapFilters(plan.Filters),
-            }, ct);
-
-            if (!result.IsSuccess)
-                return EngineFailure(ctx, result.ErrorMessage, "Query execution failed.");
-
-            _logger.LogInformation("NlSummarize: user={uid} query={q}", userId ?? "anon", dto.Query);
-            return _responseFactory.CreateOKResponse(new NlSummarizeResponseDto
-            {
-                Plan           = plan,
-                Interpretation = NlPlanValidator.BuildInterpretation(plan),
-                Rows           = result.Value!.Rows.Select(r => (object)r.Data),
-                Notes          = enginePlanResult.Notes.Count > 0 ? enginePlanResult.Notes : null,
-                Unmatched      = enginePlanResult.Unmatched.Count > 0 ? enginePlanResult.Unmatched : null,
-            });
-        }
-
-        /// <summary>Returns the max (latest) value of a date column on the resolved engine, as an ISO string, or null.</summary>
-        private async Task<string?> FetchEngineMaxDateAsync(ResolvedSource ctx, string field, CancellationToken ct)
-        {
-            var result = await ctx.Engine.MaxDateAsync(
-                new MaxDateRequest { SourceKey = ctx.SourceKey, TableName = ctx.TableName, DateFieldName = field }, ct);
-
-            if (!result.IsSuccess)
-            {
-                _logger.LogWarning("FetchEngineMaxDate: field={field} failed: {err}", field, result.ErrorMessage);
-                return null;
-            }
-            return result.Value!.MaxDate?.ToString("yyyy-MM-dd");
-        }
-
-        /// <summary>Returns the max (latest) value of a date column in session data, as an ISO string, or null.</summary>
-        private string? GetSessionMaxDateValue(string sessionId, string field)
-        {
-            var result = _sessionStore.GetMaxDate(sessionId, field);
-            if (!result.IsSuccess) return null;
-            return result.Data.MaxDate;
-        }
+        private static QueryContextDto Context(Guid? sourceId, string? tableName) =>
+            new() { SourceId = sourceId, TableName = tableName };
 
         // ═══════════════════════════════════════════════════════════════════════
         // Session upload — temporary in-memory data source (see ISessionDataStore).
@@ -567,17 +170,33 @@ namespace JackyAIApp.Server.Controllers
         public async Task<IActionResult> SessionExportDetails(
             string sessionId,
             [FromBody] DetailsRequestDto dto,
-            CancellationToken ct = default)
-        {
-            var result = _sessionStore.Export(sessionId, dto, MaxExportRows);
-            if (!result.IsSuccess) return _responseFactory.ToActionResult(result);
+            CancellationToken ct = default) =>
+            Csv(await _queries.ExportSessionAsync(sessionId, dto, export => WriteCsvAsync(export, ct)));
 
-            var export = result.Data;
-            await WriteCsvResponseAsync(
-                export.Name, export.Headers,
-                export.Rows.Select(r => export.Headers.Select(h => (object?)(r.TryGetValue(h, out var v) ? v : null))),
-                export.Rows.Count, export.TotalCount, ct);
-            return new EmptyResult();
+        // ── CSV download ───────────────────────────────────────────────────────
+
+        /// <summary>The file has been written to the response already; a failure is answered as usual.</summary>
+        private IActionResult Csv(ServiceResult<NoData> result) =>
+            result.IsSuccess ? new EmptyResult() : _responseFactory.ToActionResult(result);
+
+        /// <summary>
+        /// Streams a CSV download. The counts go in headers so the client can say when the export
+        /// was cut off at <see cref="DataAnalysisQueryService.MaxExportRows"/>.
+        /// </summary>
+        private async Task WriteCsvAsync(CsvExport export, CancellationToken ct)
+        {
+            var safeName = string.Concat(export.Name.Select(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' ? c : '_'));
+            var fileName = $"{(safeName.Length > 0 ? safeName : "export")}_{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
+
+            Response.ContentType = "text/csv; charset=utf-8";
+            Response.Headers.ContentDisposition = new Microsoft.Net.Http.Headers.ContentDispositionHeaderValue("attachment")
+            {
+                FileNameStar = fileName,
+            }.ToString();
+            Response.Headers["X-Exported-Count"] = export.ExportedCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            Response.Headers["X-Total-Count"]    = export.TotalCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            await CsvExportWriter.WriteAsync(Response.Body, export.Headers, export.Rows, ct);
         }
     }
 }

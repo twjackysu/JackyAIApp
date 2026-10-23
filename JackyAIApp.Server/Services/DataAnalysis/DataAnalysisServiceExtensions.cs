@@ -17,12 +17,16 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         {
             services.AddScoped<IDataSourceConfigService, DataSourceConfigService>();
             // Shared source resolution (default vs custom, ownership, saved-settings validation),
-            // used by both DataAnalysisController and dashboard widgets.
+            // used by the query endpoints, the NL question and dashboard widgets.
             services.AddScoped<IDataSourceResolver, DataSourceResolver>();
             services.AddScoped<IDashboardService, DashboardService>();
             services.AddScoped<IDataSourceStore, DataSourceStore>();
             // The NL-query planner (LLM pipeline behind summarize/nl), extracted from the controller.
             services.AddScoped<INlQueryPlanner, NlQueryPlanner>();
+            // The engine queries and the NL question behind DataAnalysisController.
+            services.AddScoped<EngineSources>();
+            services.AddScoped<IDataAnalysisQueryService, DataAnalysisQueryService>();
+            services.AddScoped<INlSummarizeService, NlSummarizeService>();
 
             // Session uploads live in this process's memory, so the store and its byte budget are
             // process-wide singletons; the admission filter reads the same budget before a body is read.
