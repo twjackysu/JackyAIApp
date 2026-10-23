@@ -30,8 +30,8 @@ namespace JackyAIApp.Server.Tests.TestHelpers
             IDataSourceResolver resolver = DefaultEngine is null
                 ? new Mock<IDataSourceResolver>(MockBehavior.Strict).Object
                 : new DataSourceResolver(DefaultEngine, Db, ConfigService!, NullLogger<DataSourceResolver>.Instance);
-            return new DashboardService(
-                NullLogger<DashboardService>.Instance, Db, resolver, new MemoryCache(new MemoryCacheOptions()), Viewer);
+            var engines = new EngineSources(resolver, Viewer, new MemoryCache(new MemoryCacheOptions()), NullLogger<EngineSources>.Instance);
+            return new DashboardService(NullLogger<DashboardService>.Instance, Db, engines, Viewer);
         }
     }
 }

@@ -135,6 +135,21 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         }
 
         [Fact]
+        public async Task AWidgetsSavedFilters_GoToTheEngine()
+        {
+            var (dashboard, widget) = await WidgetAsync(planJson: """
+                {"viewBy":[{"fieldName":"Region"}],"measures":[{"fieldName":"Revenue","aggregation":"Sum"}],
+                 "filters":[{"fieldName":"Region","values":["EMEA","APAC"],"op":"In"}]}
+                """);
+
+            await WidgetDataAsync(dashboard, widget, viewer: null);
+
+            var filter = Assert.Single(Assert.Single(_summarized.Requests).Filters);
+            Assert.Equal("Region", filter.FieldName);
+            Assert.Equal(["EMEA", "APAC"], filter.Values);
+        }
+
+        [Fact]
         public async Task AnyoneWhoMayViewTheBoard_SeesAWidgetOnItsOwnersCustomSource()
         {
             var source = await OwnersSourceAsync();
@@ -171,11 +186,11 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         }
 
         [Fact]
-        public async Task ASourceThatNoLongerExists_IsNotFound()
+        public async Task ASourceThatNoLongerExists_IsNotFound_InTheSameWordsAsALiveQuery()
         {
             var (dashboard, widget) = await WidgetAsync(sourceId: Guid.NewGuid());
 
-            Assert.Equal((404, "Data source not found."), Error(await WidgetDataAsync(dashboard, widget, Owner)));
+            Assert.Equal((404, "Source not found."), Error(await WidgetDataAsync(dashboard, widget, Owner)));
         }
 
         [Fact]

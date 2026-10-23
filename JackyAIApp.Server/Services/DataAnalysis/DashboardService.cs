@@ -1,14 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using DataAnalysisLibrary.Core.Models.Common;
-using DataAnalysisLibrary.Core.Models.Requests;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO.DataAnalysis;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using static JackyAIApp.Server.Common.DataAnalysisMapping;
 
 namespace JackyAIApp.Server.Services.DataAnalysis
 {
@@ -36,8 +32,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
     public class DashboardService(
         ILogger<DashboardService> logger,
         AzureSQLDBContext dbContext,
-        IDataSourceResolver resolver,
-        IMemoryCache cache,
+        EngineSources engines,
         ICurrentUser currentUser) : IDashboardService
     {
         private static readonly JsonSerializerOptions PlanJsonOptions = new()
@@ -237,61 +232,25 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             if (plan is null)
                 return ServiceResult.Fail(ErrorCodes.InternalServerError, "Invalid widget plan.");
 
-            // Resolve the engine as the dashboard OWNER (not the viewer), through the same shared,
-            // hardened path a live DataAnalysis query uses.
-            var (resolved, status, message) = await resolver.ResolveAsync(
-                plan.Context?.SourceId, plan.Context?.TableName, dash.UserId, ct);
-            if (status == DataSourceResolution.ConfigRefused)
-                return ServiceResult.Fail(ErrorCodes.BadRequest, message!);
-            if (resolved is null)
-                return ServiceResult.Fail(ErrorCodes.NotFound, "Data source not found.");
+            // Resolved as the dashboard OWNER (not the viewer), so a custom-source widget works for any
+            // allowed viewer, through the same path a live DataAnalysis query takes.
+            var (source, failure) = await engines.ResolveAsync(plan.Context, dash.UserId, ct);
+            if (source is null) return failure!.Value;
+            using var _ = source;
 
-            var engine = resolved.Engine;
-            var sourceKey = resolved.SourceKey;
-            var tableName = resolved.TableName;
-            var ownsEngine = resolved.OwnsEngine;
+            // The saved plan is the owner's input replayed for any viewer (anonymous for Anyone), so it
+            // passes the same schema gate as a live DataAnalysis query.
+            if (await engines.GuardAsync(source, fields => DataAnalysisFieldGuard.Check(fields, plan), ct) is { } rejected)
+                return rejected;
 
-            try
-            {
-                // The saved plan is the owner's input replayed for any viewer (anonymous for Anyone), so it
-                // passes the same schema gate as a live DataAnalysis query.
-                var fields = await DataAnalysisFieldGuard.LoadFieldNamesAsync(
-                    engine, sourceKey, tableName, ownsEngine ? null : cache, ct);
-                if (fields is null)
-                    return ServiceResult.Fail(ErrorCodes.InternalServerError, "Schema query failed.");
-                if (DataAnalysisFieldGuard.Check(fields, plan) is { } planError)
-                {
-                    logger.LogWarning("WidgetData: rejected widget {wid} plan: {err}", widgetId, planError);
-                    return ServiceResult.Fail(ErrorCodes.BadRequest, planError);
-                }
+            var result = await engines.SummarizeAsync(source, plan, ct);
+            if (result.IsSuccess)
+                return ServiceResult.Ok(new WidgetDataDto { Rows = result.Value!.Rows.Select(r => (object)r.Data).ToList() });
 
-                var result = await engine.SummarizeAsync(new SummarizeRequest
-                {
-                    SourceKey = sourceKey,
-                    TableName = tableName,
-                    ViewBy = plan.ViewBy.Select(MapGroupField).ToList(),
-                    Measures = plan.Measures
-                        .Select(m => new MeasureField(m.FieldName, m.Aggregation, NullIfEmpty(m.Alias)))
-                        .ToList(),
-                    Filters = MapFilters(plan.Filters),
-                }, ct);
-
-                if (result.IsSuccess)
-                    return ServiceResult.Ok(new WidgetDataDto { Rows = result.Value!.Rows.Select(r => (object)r.Data).ToList() });
-
-                // The driver's text names servers, tables and SQL. Only the source's owner looking at their
-                // own dashboard gets it, to debug their database; any other viewer — anonymous ones on an
-                // Anyone dashboard included, and everyone for the default source (the app's own
-                // database) — gets the generic message, and the detail stays in the log.
-                var showDetail = ownsEngine && userId == dash.UserId && !string.IsNullOrWhiteSpace(result.ErrorMessage);
-                logger.Log(ownsEngine ? LogLevel.Warning : LogLevel.Error,
-                    "WidgetData: widget {wid} query failed on table={t}: {err}", widgetId, tableName, result.ErrorMessage);
-                return ServiceResult.Fail(ErrorCodes.InternalServerError, showDetail ? result.ErrorMessage! : "Query failed.");
-            }
-            finally
-            {
-                if (ownsEngine) engine.Dispose();
-            }
+            // The driver's text names servers, tables and SQL. Only the source's owner looking at their own
+            // dashboard gets it, to debug their database; any other viewer — anonymous ones on an Anyone
+            // dashboard included — gets the generic message, and the detail stays in the log.
+            return engines.QueryFailed(source, result.ErrorMessage, "Query failed.", viewerIsOwner: userId == dash.UserId);
         }
 
         /// <summary>Adds a widget (owner only), placed below the existing ones.</summary>
