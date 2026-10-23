@@ -39,7 +39,12 @@ jackyaiapp.client/src/
   JSX was deciding inline — which notice wins, what is shown when — is a pure function with its own
   tests. `Portfolio/DrawdownBrakeCard/` is the pattern: why advice is held back is `noAdviceReason`
   (one reason, in order), the prices it is computed at `useStrategyPrices`
-- Split without changing what renders: the component's existing tests stay as they are and must pass
+- A feature's page is already its folder's `index.tsx`, so its sections become files beside it and the
+  page keeps only its states (loading, error, empty, the dashboard) — `Portfolio/index.tsx` with
+  `PortfolioHeader`, `PortfolioDashboard`, `NetWorthCard`, `AllocationCard`. A section takes the DTO it
+  shows (`summary`), not one prop per field
+- Split without changing what renders: the component's existing tests stay as they are and must pass.
+  One without tests gets them first, run against the code as it is (`Portfolio/index.test.tsx`)
 
 ## UI Conventions
 
