@@ -31,13 +31,14 @@ namespace JackyAIApp.Server.Services.Chatbot
         Task DeleteAsync(IEnumerable<string> fileIds, CancellationToken ct);
     }
 
-    public class AnthropicFileStore(IOptionsMonitor<Settings> settings, ILogger<AnthropicFileStore> logger)
+    public class AnthropicFileStore(
+        IOptionsMonitor<Settings> settings, IAnthropicClientFactory clientFactory, ILogger<AnthropicFileStore> logger)
         : IAnthropicFileStore
     {
         private AnthropicClient? Client()
         {
             var apiKey = settings.CurrentValue.AnthropicApiKey;
-            return string.IsNullOrEmpty(apiKey) ? null : new AnthropicClient { ApiKey = apiKey };
+            return string.IsNullOrEmpty(apiKey) ? null : clientFactory.Create(apiKey);
         }
 
         public async Task<string?> UploadAsync(byte[] content, string mediaType, CancellationToken ct)

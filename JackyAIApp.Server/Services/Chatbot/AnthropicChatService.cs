@@ -30,6 +30,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         IAiUsageLogger usageLogger,
         UsageLedger usageLedger,
         IOptionsMonitor<Settings> settings,
+        IAnthropicClientFactory clientFactory,
         ILogger<AnthropicChatService> logger,
         TimeProvider? timeProvider = null) : IAnthropicChatService
     {
@@ -244,7 +245,7 @@ namespace JackyAIApp.Server.Services.Chatbot
 
             var files = await PrepareFilesAsync(history, reupload: false, ct);
 
-            var client = new AnthropicClient { ApiKey = apiKey };
+            var client = clientFactory.Create(apiKey);
             var taipeiToday = _time.GetTaipeiToday();
             // The page's market data as background; the turn goes ahead without it if it cannot be had.
             string? background = null;
