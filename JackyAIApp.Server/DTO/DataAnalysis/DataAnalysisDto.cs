@@ -186,4 +186,18 @@ namespace JackyAIApp.Server.DTO.DataAnalysis
         /// </summary>
         public List<string>?                 Unmatched      { get; init; }
     }
+
+    // ── Engine query answers ─────────────────────────────────────────────────
+
+    /// <summary>The latest value of a date column; null when the table or the column holds none.</summary>
+    public sealed record MaxDateDto(DateTimeOffset? MaxDate);
+
+    /// <summary>A column's distinct values for the filter picker, empty ones left out.</summary>
+    public sealed record DistinctValuesDto(List<string> Values);
+
+    /// <summary>The aggregated rows of a summarize.</summary>
+    public sealed record SummarizeRowsDto(IEnumerable<IReadOnlyDictionary<string, object?>> Rows);
+
+    /// <summary>One page of matching rows, and how many matched in all.</summary>
+    public sealed record DetailsPageDto(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount);
 }

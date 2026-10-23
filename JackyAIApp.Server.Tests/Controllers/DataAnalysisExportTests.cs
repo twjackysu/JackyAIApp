@@ -103,27 +103,11 @@ namespace JackyAIApp.Server.Tests.Controllers
                 ["Revenue"] = r.Revenue,
             }).ToList();
 
-        private static Mock<IMyResponseFactory> ResponseFactory()
-        {
-            var factory = new Mock<IMyResponseFactory>();
-            factory.Setup(f => f.CreateErrorResponse(It.IsAny<ErrorCodes>(), It.IsAny<string>()))
-                   .Returns((ErrorCodes code, string message) => new ObjectResult(message) { StatusCode = (int)code / 100 % 1000 });
-            return factory;
-        }
-
         private static (DataAnalysisController Controller, HttpResponse Response) Controller(
             DataAnalysisEngine defaultEngine, ISessionDataStore? sessions = null)
         {
-            var controller = new DataAnalysisController(
-                NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
-                new DataSourceResolver(defaultEngine, null!, null!, NullLogger<DataSourceResolver>.Instance),
-                sources: null!, sessionStore: sessions ?? null!,
-                openAIPromptService: null!, promptLoader: null!, nlPlanner: null!,
-                cache: new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Anonymous);
-            var http = new DefaultHttpContext();
-            http.Response.Body = new MemoryStream();
-            controller.ControllerContext = new ControllerContext { HttpContext = http };
-            return (controller, http.Response);
+            var controller = new DataAnalysisControllerBuilder { DefaultEngine = defaultEngine, Sessions = sessions }.Build();
+            return (controller, controller.HttpContext.Response);
         }
 
         private static string Body(HttpResponse response)
@@ -156,7 +140,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             var request = Assert.Single(details.Requests);
             Assert.Equal("dbo.Orders", request.TableName);   // default source stays pinned
             Assert.Equal(0, request.Skip);
-            Assert.Equal(DataAnalysisController.MaxExportRows, request.Take);
+            Assert.Equal(DataAnalysisQueryService.MaxExportRows, request.Take);
             Assert.Equal("OrderDate", Assert.Single(request.OrderBy).FieldName);
 
             Assert.StartsWith("text/csv", response.ContentType);
@@ -170,7 +154,7 @@ namespace JackyAIApp.Server.Tests.Controllers
         [Fact]
         public async Task ExportDetails_MoreRowsThanTheCap_ReportsTheRealTotal()
         {
-            var full = Enumerable.Range(0, DataAnalysisController.MaxExportRows)
+            var full = Enumerable.Range(0, DataAnalysisQueryService.MaxExportRows)
                 .Select(i => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["Id"] = i })
                 .ToList();
             // A full page makes the library count separately (through the Summarize builder).
@@ -184,7 +168,7 @@ namespace JackyAIApp.Server.Tests.Controllers
             Assert.Equal("100000", response.Headers["X-Exported-Count"]);
             Assert.Equal("123456", response.Headers["X-Total-Count"]);
             var lines = Body(response).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
-            Assert.Equal(DataAnalysisController.MaxExportRows + 1, lines.Length);   // + header
+            Assert.Equal(DataAnalysisQueryService.MaxExportRows + 1, lines.Length);   // + header
         }
 
         [Fact]

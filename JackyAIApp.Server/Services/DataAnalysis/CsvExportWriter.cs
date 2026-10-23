@@ -3,6 +3,12 @@ using System.Text;
 
 namespace JackyAIApp.Server.Services.DataAnalysis
 {
+    /// <summary>Rows to write as a CSV download, under <paramref name="Name"/>, with the counts its headers report.</summary>
+    /// <param name="ExportedCount">The rows in the file.</param>
+    /// <param name="TotalCount">The rows that matched, more than <paramref name="ExportedCount"/> when the export was capped.</param>
+    public sealed record CsvExport(
+        string Name, IReadOnlyList<string> Headers, IEnumerable<IEnumerable<object?>> Rows, int ExportedCount, int TotalCount);
+
     /// <summary>
     /// Writes Data Analysis rows as a downloadable CSV: UTF-8 with a BOM (so Excel shows Chinese),
     /// CRLF line ends, RFC 4180 quoting, and culture-invariant numbers and dates.

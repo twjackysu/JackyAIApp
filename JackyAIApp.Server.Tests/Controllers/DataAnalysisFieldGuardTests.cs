@@ -99,17 +99,13 @@ namespace JackyAIApp.Server.Tests.Controllers
         {
             var prompts = new Mock<IPromptLoader>();
             prompts.Setup(p => p.GetPrompt(It.IsAny<string>())).Returns("SYSTEM");
-            var controller = new DataAnalysisController(
-                NullLogger<DataAnalysisController>.Instance, ResponseFactory().Object,
-                new DataSourceResolver(_engine, null!, null!, NullLogger<DataSourceResolver>.Instance),
-                sources: null!, sessionStore: null!,
-                openAIPromptService: openAI ?? null!, promptLoader: prompts.Object,
-                nlPlanner: new NlQueryPlanner(NullLogger<NlQueryPlanner>.Instance, openAI ?? null!),
-                cache: cache ?? new MemoryCache(new MemoryCacheOptions()), currentUser: TestCurrentUser.Anonymous);
-            var http = new DefaultHttpContext();
-            http.Response.Body = new MemoryStream();
-            controller.ControllerContext = new ControllerContext { HttpContext = http };
-            return controller;
+            return new DataAnalysisControllerBuilder
+            {
+                DefaultEngine = _engine,
+                Prompts = prompts.Object,
+                NlPlanner = new NlQueryPlanner(NullLogger<NlQueryPlanner>.Instance, openAI ?? null!),
+                Cache = cache,
+            }.Build();
         }
 
         private static (int? Status, string? Message) Error(IActionResult result)
