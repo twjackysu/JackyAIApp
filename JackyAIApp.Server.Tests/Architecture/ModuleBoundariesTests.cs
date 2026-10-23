@@ -42,6 +42,10 @@ namespace JackyAIApp.Server.Tests.Architecture
             [$"{Root}.Services.SpellChecker"] = "English",
             [$"{Root}.Mappers"] = "English",
 
+            // What the AI may use (connector definitions, the hosted MCP servers, and later the
+            // tools and users' installations): docs/ai-native/design/03.
+            [$"{Root}.Services.Connectors"] = "Connectors",
+
             [$"{Root}.Services.Finance"] = "Finance",
             [$"{Root}.Services.Chatbot"] = "Finance",
 
@@ -64,7 +68,8 @@ namespace JackyAIApp.Server.Tests.Architecture
             ["Platform"] = [],
             ["MarketData"] = ["Platform"],
             ["English"] = ["Platform"],
-            ["Finance"] = ["MarketData", "Platform"],
+            ["Connectors"] = ["Platform"],
+            ["Finance"] = ["Connectors", "MarketData", "Platform"],
             ["Portfolio"] = ["MarketData", "Platform"],
             ["DataAnalysis"] = ["Platform"],
             ["Tools"] = ["Platform"],

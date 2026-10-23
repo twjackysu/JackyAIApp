@@ -3,6 +3,7 @@ using Anthropic.Models.Beta.Messages;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services.AiUsage;
+using JackyAIApp.Server.Services.Connectors;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using AnthropicModel = Anthropic.Models.Messages.Model;
@@ -32,9 +33,9 @@ namespace JackyAIApp.Server.Services.Chatbot
     {
         // The usage log's model name; must name the same model as the request below.
         private const string ModelId = "claude-haiku-5-5";
-        private const string McpServerName = "tw-stock";
-        private const string McpServerUrl = "https://TW-Stock-MCP-Server.fastmcp.app/mcp";
-        private const string McpBeta = "mcp-client-2025-11-20";
+        private const string McpServerName = TwStockMcp.Name;
+        private const string McpServerUrl = TwStockMcp.Url;
+        private const string McpBeta = TwStockMcp.ConnectorBeta;
         // Haiku 5.5 thinks by default (adaptive), and that thinking counts toward this cap along
         // with the MCP tool call and the analysis text. 2048 was once observed truncating
         // mid-analysis (empty final response) on requests like "分析一下2330", and thinking only
@@ -43,22 +44,8 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
-        /// <summary>
-        /// The tw-stock tools whose definitions go with every request; the server's other tools
-        /// (177 in all, ~53K tokens of definitions) are deferred and found with the regex tool search
-        /// when a question needs one. Measured 2026-10-22 on 8 questions: same answers, ~133K → ~21K
-        /// context tokens a question. Keyed by the server's own tool name, no server prefix. A guess
-        /// at the most asked-for ones — no record of which tools are called was kept before; the turn
-        /// log now names them (see StreamChatAsync), so revisit this list from there.
-        /// </summary>
-        internal static readonly string[] AlwaysLoadedTools =
-        [
-            "get_realtime_quote",
-            "get_stock_history",
-            "get_technical_indicators",
-            "get_twse_institutional_investors_summary",
-            "get_company_monthly_revenue",
-        ];
+        /// <summary>The tw-stock tools that are not deferred (<see cref="TwStockMcp.AlwaysLoadedTools"/>).</summary>
+        internal static readonly string[] AlwaysLoadedTools = [.. TwStockMcp.AlwaysLoadedTools];
 
         /// <summary>
         /// Today's date goes in up front: the model's training data ends well before it, and

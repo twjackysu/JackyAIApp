@@ -54,7 +54,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 | Platform | `Common`, `Configuration`, `Data`, `Services` (only what is directly in it: current user, accounts, usage limits, connectors, `DrawdownBrakeAccess`), `Services.AiUsage`, `.OpenAI`, `.Prompt`, `.Speech`, `.ExternalApi` (the gateway) | — |
 | MarketData | `Services.Market` (prices, history and backfill, fundamentals/chips/macro providers, TW symbol list, MIS TAIEX quote, trading calendar, `TwStockCode`), `Services.ExternalApi.Twse` | Platform |
 | English | `Services.Dictionary`, `.Repository`, `.Exam`, `.Listening`, `.SpacedRepetition`, `.DailyChallenge`, `.WordOfTheDay`, `.SpellChecker`, `Mappers` | Platform |
-| Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest), `Services.Chatbot` | MarketData, Platform |
+| Connectors | `Services.Connectors` (what the AI may use: connector definitions and the hosted MCP servers, e.g. `TwStockMcp`; see docs/ai-native/design/03) | Platform |
+| Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest), `Services.Chatbot` | Connectors, MarketData, Platform |
 | Portfolio | `Services.Portfolio` | MarketData, Platform |
 | DataAnalysis | `Services.DataAnalysis` | Platform |
 | Tools | `Services.Job` | Platform |
