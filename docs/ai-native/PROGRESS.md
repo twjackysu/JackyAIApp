@@ -1,5 +1,14 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-24 05:42 – 第 2 輪（M1-5、M1-7、M2 前端零件）
+
+- 合併 master（#569 Data Analysis 頁拆檔，純前端）：本機 lint／test（1130）／build 全過。
+- **M1-5 共用 chat 引擎 profile 抽象（後端）**：新 module Assistant（`Services.Chatbot` + `Services.Assistant`）、`IChatProfile`／`ChatProfileSetup`／`IChatProfiles`、`ChatTurnRequest.Build`、`FinanceChatProfile` 與 `MarketBackground` 搬到 `Services.Finance.Assistant`、controller 傳 `"finance"`。Finance 的 request 測試只改指向（`TestHelpers/FinanceChatRequest`），斷言不變；新增 `ChatProfileTests` 5 個。server CLAUDE.md 模組表與「AI assistant (chat)」更新。**尚未經 CI 驗證**（見問題）。
+- **M1-7 前端 config 化**：`AiChatConfig` + context，Finance 文案搬到 `Finance/aiChatConfig.ts`；refused 文案 app 可覆寫。既有測試斷言不改，只在 render 外包 config。
+- **M2 前端零件**：`ToolActivity`（回答上方顯示用了哪些工具，Finance 現有的 tw-stock 工具立刻受惠）、`ApprovalCard` + `decide()`（human-in-the-loop 確認卡，接設計 04 §1.3 的 SSE 事件與端點）、`ToolPermissionToggle`（自動／需確認／停用）。
+- 驗證：前端每次 push 前本機 lint、test（最後 102 檔 1161 個）、build 全過。
+- **問題（阻礙）**：GitHub Actions 從本輪起不執行任何 job——annotation 是「The job was not started because recent account payments have failed or your spending limit needs to be increased」（run 40029336575，rerun 一次同樣結果；之後 40030813265 等也是）。後端無法 build／測試。已寫進 FOR_JACKY 第 0 條，決策 D-016。
+
 ## 2026-10-24 03:42 – 第 1 輪（續：提早開工 M1）
 
 - 設計定稿（D-012），開始 M1：

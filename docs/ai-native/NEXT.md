@@ -1,50 +1,35 @@
 # NEXT — 下一輪從最上面開始
 
-> 設計已定稿（PLAN.md）。現在在 **M1 引擎與共用元件**（目標 10/27）。
+> 設計已定稿（PLAN.md）。M1 進行中（目標 10/27）。
 
-## 0. 每輪固定動作（Jacky 2026-10-24 要求）
+## 0. 每輪固定動作
 
-- **開工時與收尾前都同步 master**：`git fetch origin master` → 有新 commit 就 `git merge origin/master`（**不用 rebase**：branch 已 push，禁止 force push 與改寫歷史；見 D-014）。有其他 agent 同時在 master 開發，所以要常同步，衝突在這裡解決。合併後要等 CI 綠。
+- **開工時與收尾前都同步 master**：`git fetch origin master` → 有新 commit 就 `git merge origin/master`（**不用 rebase**，D-014）。
+- **先看 CI 是否恢復**：`gh run list -R twjackysu/JackyAIApp --branch feature/ai-native --limit 3`。若最新一次仍是 failure，用 check-runs annotation 看原因；若還是「recent account payments have failed…」就是帳單問題（FOR_JACKY 第 0 條），不是程式碼問題（D-016）。可以 `gh run rerun <id>` 試一次。
 
-## 1. M1-5 共用 chat 引擎：profile 抽象 + 模組重整（server，最大的一塊）
+## 1. CI 恢復後第一件事：驗證尚未經 CI 的後端 commit
 
-已完成的前置：`FinanceChatRequestTests`（逐欄位鎖住 Finance request，CI 綠）、`ClientToolRoundTripTests`（SDK 往返可行）、`Services.Connectors` 模組與 `TwStockMcp`。
+- `6a75d3a refactor(chat): 共用 chat 引擎的 profile 抽象（M1-5）`——唯一的後端變更。最可能出錯的地方：`IAnthropicChatService.cs` 的 `<see cref="Assistant.IChatProfile.Key"/>`（若 CS1574 就改成全名）、`ChatTurnRequest.Build` 回傳的 `MessageCreateParams` 初始化、`ModuleBoundariesTests`（新 module Assistant、TableOwners）、`AnthropicChatStreamTests` 的 `ChatProfiles([...])` 建構。紅了就照 annotation 修；修不好用 `git revert`。
+- 只要 CI 還沒恢復，就**不要**再疊大型後端變更（D-016）。
 
-依序做，**每一步都要讓 `FinanceChatRequestTests`、`AnthropicChatServiceTests`、`AnthropicChatStreamTests`、`MarketBackgroundTests` 保持綠**（斷言不改，只允許機械式改指向，D-006）：
+## 2. 前端（本機可完整驗證，CI 停擺時優先）
 
-1. `ModuleBoundariesTests`：新增 module `Assistant` = `Services.Chatbot` + `Services.Assistant`，MayUse `Connectors, Platform`；Finance MayUse 加 `Assistant`；DataAnalysis MayUse 加 `Assistant, Connectors`；English/Portfolio 加 `Connectors`。`TableOwners` 的 `ChatConversations`/`ChatMessages`/`ChatAttachments` 改歸 `Assistant`。server `CLAUDE.md` 模組表同步。
-2. `MarketBackground.cs`（用到 `Services.Finance`、`DTO.Finance`，所以不能留在 Assistant）搬到 `Services/Finance/Assistant/MarketBackground.cs`，namespace `Services.Finance.Assistant`。`MarketBackgroundTests` 改 using。
-3. 新 `Services/Assistant/IChatProfile.cs`：
-   ```csharp
-   public interface IChatProfile { string Key { get; } string UsageLogFeature { get; }
-       Task<ChatProfileSetup> SetupAsync(DateOnly taipeiToday, CancellationToken ct); }
-   public sealed record ChatProfileSetup(string SystemPrompt, string? CachedBackground, bool AttachTwStock);
-   ```
-   （先只放 Finance 需要的；工具相關欄位 M2 再加。）`IChatProfiles`（DI 拿 `IEnumerable<IChatProfile>`，用 key 查）。
-4. `Services/Assistant/ChatRequest.cs`：`static MessageCreateParams Build(ChatProfileSetup setup, List<BetaMessageParam> messages)`——把 `AnthropicChatService.BuildRequest` 的本體搬過來，model/effort/max_tokens 不變；`AttachTwStock` 為真時加 `TwStockMcp` 的 server、beta、regex tool search、toolset。
-5. `Services/Finance/Assistant/FinanceChatProfile.cs`：`Key = "finance"`、`UsageLogFeature = "chatbot.tw_stock"`、`SystemPromptFor(DateOnly)`（從 AnthropicChatService 原文搬來）、`SetupAsync` 讀 `IMarketBackground`（失敗回 null 並 log，原 `MarketBackgroundAsync` 的行為）。
-6. `AnthropicChatService`：建構子把 `IMarketBackground` 換成 `IChatProfiles`；`StreamChatAsync` 多一個 `string profileKey` 參數（controller 先傳 `"finance"`）；`ReportTurnAsync` 用 `profile.UsageLogFeature`。為了讓測試只改指向，保留 `internal static MessageCreateParams BuildRequest(DateOnly, List<BetaMessageParam>, string? background = null)` 作為 **Finance 的 facade**？——不行，Assistant 不能引用 Finance。改法：測試改呼叫 `ChatRequest.Build(new ChatProfileSetup(FinanceChatProfile.SystemPromptFor(d), background, AttachTwStock: true), messages)`；`AnthropicChatService.AlwaysLoadedTools` 改 `TwStockMcp.AlwaysLoadedTools`；`SystemPromptFor` 改 `FinanceChatProfile.SystemPromptFor`。`AnthropicChatStreamTests` 的 `Service()` 改傳 profiles（`new FinanceChatProfile(_background.Object, ...)`）。
-7. DI：`services.AddScoped<IChatProfile, FinanceChatProfile>()`（Finance 的註冊處）、`IChatProfiles`。
-8. push、等 CI；紅了看 annotation 修。
+1. **/connectors v2 介面**（設計 05 §3）：在現有 `Connectors/index.tsx` 上加「已連線／目錄／進階」三區、詳情抽屜（工具表用 `ToolPermissionToggle`）、「新增 MCP server」三步對話框。API 還沒有：先定義 `apis/connectorsApis` 的新型別與 endpoint（`GET api/connectors/catalog`、`GET/POST/DELETE api/connectors/installations`、`POST .../probe`、`POST .../test`、`PUT .../tools/{name}`，照設計 03），UI 對假資料寫測試；後端好了再接。現有 Google/Microsoft/Atlassian 卡片與「複製 token」行為不能變（`ConnectorCard`）。
+2. **Data Analysis 的 AI 對話前端**：`DataAnalysis/aiChatConfig.ts`（profile `data-analysis`、問候語、範例：「上個月各地區營收？」「畫出近 12 個月趨勢」「把這張圖存成 dashboard widget」），以及在 `/data-analysis` 最上方放 `AiAssistantLauncher`。**等後端 profile（M1-6 + data-analysis profile）完成才掛上頁面**，否則會用 Finance 的 prompt 回答。
+3. `useChatStreaming` 送 `profile`（`config.profile`）：要同時改 `index.test.tsx` 斷言 chat body 的那幾個測試（那是 M1-6 的 API 變更，不是退化，PROGRESS 註明）。
+4. 小整理：`ToolEffect` 在 `components/aiChat/utils/approval`（經 `ApprovalCallEvent`）與 `Connectors/toolPermission` 各有一份，可以合成一個共用型別（例如 `apis/connectorsApis/types.ts`）。
+5. 工具卡片（`tool_result.card`）的 renderer 註冊表（table／chart／link），設計 04 §2.1；chart 用 `DataAnalysis/viz`。
 
-## 2. M1-6 Migration（一個）
+## 3. 後端（CI 恢復後）
 
-`ChatConversations.Profile`（nvarchar(40)，not null，default `'finance'`）、`ChatMessages.CardsJson`（nvarchar(max) null）、`ConnectorInstallations`（欄位見 design/03 §3；filtered unique `(UserId, DefinitionKey) WHERE DefinitionKey <> 'custom'`）。參考 `Data/Migrations/20260913120000_AddUniqueIndexOnWordText*` 手寫 migration + Designer + 更新 `AzureSQLDBContextModelSnapshot.cs`。對話端點（list/get/delete/resolve）加 profile 檢查（不符 = NotFound）。
-
-## 3. M1-7 前端 config 化（client，本機可完整驗證）
-
-`components/aiChat` 已從 `Finance/components/aiAssistant` 搬好（本輪，純搬家）。接著：
-- `AiChatConfig`（design/04 §2.1），Finance 的設定放 `Finance/aiChatConfig.ts`，Launcher/Panel 透過 props 或 context 拿 config。
-- 寫死的台股文案參數化：`CompactChatBar.tsx`、`MessageArea.tsx`（`GREETING_TITLE`）、`ChatHeader.tsx`（「台股資料已連線」）、`ChatInput.tsx`、`examples.ts`、`chatErrors.ts` 的 `refused`。
-- `useChatStreaming` 的 `/api/chatbot/chat` body 加 `profile`（後端 M1-5 完成後才送）。
-- 既有測試斷言不改。注意：`index.test.tsx`（第 200 行的 `root.render`）、`AiAssistantLauncher.test.tsx`（`render()`）、`MessageArea.test.tsx`（`render()`）、`Finance/index.test.tsx` 都斷言 Finance 的文案（「今天想研究哪一檔？」「AI 助手」「問 AI 助手」）。作法：config 用 React context 提供，測試的 render helper 包上 Finance 的 config（只改 setup，不改斷言，記在 PROGRESS）。
+1. **M1-6 Migration（一個）**：`ChatConversations.Profile`（nvarchar(40)，not null，default `'finance'`）、`ChatMessages.CardsJson`（nvarchar(max) null）、`ConnectorInstallations`（欄位見 design/03 §3；filtered unique `(UserId, DefinitionKey) WHERE DefinitionKey <> 'custom'`）。參考 `Data/Migrations/20261022111134_SplitStockClassification*` 手寫 migration + Designer（= 新 snapshot 全文）+ 更新 `AzureSQLDBContextModelSnapshot.cs`。對話端點（list/get/delete/resolve）加 profile 檢查（不符 = NotFound），`DTO.ChatRequest` 加 `Profile`（預設 finance，controller 用 `IChatProfiles.Find` 驗證，找不到 400）。
+2. **M2 後端**：工具框架（`IAiTool`、`AiToolDescriptor`、`ToolEffect`）、`ModelTurn` 的 client tool loop（`BetaMessageContentAggregator`，spike 已證明可行）、SSE `tool_result`／`approval_required`／`approval_resolved`（前端已就緒，事件欄位見 `hooks/useChatStreaming.ts` 的 `ToolEvent`／`ApprovalEvent`）、`ChatApprovalRegistry` + `POST api/chatbot/conversations/{id}/approvals/{pendingId}`（body `{ decisions: [{ toolUseId, approve }] }`，前端 `useChatConversation.decide` 已在送）、Data Analysis profile 與 `ask_data` 工具（D-007）、connector 框架（None/ApiKey/Bearer）走 `SafeHttp`。
 
 ## 4. 已經先做好的 M2 零件（直接用）
 
-- `Services/Connectors/SafeHttp.cs`：`SafeHttp.CreateHandler()`——之後註冊一個具名 HttpClient（逾時 15 秒，**不要**掛 resilience 重試），MCP、PRM、AS metadata、token、DCR 全部走它。
-- `Services/Connectors/OutboundAddressPolicy.cs`、`McpServerUrl.Normalize`（https、canonical URI，錯誤訊息中文）。
-- `ToolNames.ForModel(connectorKey, toolName)`：送給模型的工具名稱（前綴、非法字元換 `_`、超過 64 字截斷接 6 碼 hash）。
+- 後端：`Services/Connectors/SafeHttp.cs`（具名 HttpClient，逾時 15 秒，不掛重試）、`OutboundAddressPolicy`、`McpServerUrl.Normalize`、`ToolNames.ForModel`。
+- 前端：`ToolActivity`、`ApprovalCard`、`useChatConversation.decide`、`ToolPermissionToggle`、`AiChatConfig`。
 
 ## 5. 之後
 
-依 `design/07-implementation-plan.md`：M2 垂直切片（工具框架、同請求確認、Data Analysis 工具與對話、connector 框架、/connectors v2），目標 10/29。
+依 `design/07-implementation-plan.md`：M2 垂直切片目標 10/29（CI 停擺可能讓後端延後，前端先行）。

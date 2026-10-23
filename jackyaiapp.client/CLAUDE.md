@@ -46,7 +46,12 @@ jackyaiapp.client/src/
 - A component whose bulk is state rather than markup splits into hooks instead: the component keeps
   the layout and wires them together. `components/aiChat` (the AI chat shared by the apps; Finance's assistant is its first user) is the pattern: the conversation
   and its queue are `useChatConversation`, the picked files `usePendingAttachments`, the preview
-  `usePreview`
+  `usePreview`. What differs between apps' assistants (greeting, example questions, suggestions,
+  placeholders, the server profile, error wording) is an `AiChatConfig` (`components/aiChat/config.ts`)
+  that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`); the chat's
+  parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools
+  an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`),
+  a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`)
 - Split without changing what renders: the component's existing tests stay as they are and must pass.
   One without tests gets them first, run against the code as it is (`Portfolio/index.test.tsx`)
 
