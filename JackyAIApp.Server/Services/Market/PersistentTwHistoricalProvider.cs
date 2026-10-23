@@ -121,139 +121,107 @@ namespace JackyAIApp.Server.Services.Market
             // Taipei's today, the exchange's own day: yesterday's bar counts as final from midnight there.
             var taipeiNow = _timeProvider.GetTaipeiNow();
             var today = DateOnly.FromDateTime(taipeiNow);
-            // Always query/return whatever's persisted within the full 6-month window — reading a
-            // few extra already-cached rows costs nothing (no network call), and lets a shallow
-            // FetchLatestAsync call transparently benefit from a prior deep fetch if one happened.
-            var windowStart = today.AddMonths(-LookbackMonths);
-            var neededWindowStart = deep ? windowStart : today.AddDays(-LatestLookbackDays);
-
-            var existing = await db.DailyStockPrices
-                .Where(p => p.Symbol == stockCode && p.Market == Market && p.TradeDate >= windowStart)
-                .OrderBy(p => p.TradeDate)
-                .ToListAsync(cancellationToken);
-
-            var maxDate = existing.Count > 0 ? existing[^1].TradeDate : (DateOnly?)null;
-            // The DB only ever holds finalized bars (TradeDate < today, see UpsertFinalizedBarsAsync)
-            // — today's own close is never persisted, regardless of trading-session close time.
-            // Deliberately simple/conservative: TWSE/TWStockLib don't publish a documented guarantee
-            // for exactly when today's bar becomes available, so the DB just never gambles on it —
-            // the tradeoff is the app can show yesterday's close for a few hours after today's
-            // session actually closed, until the calendar date rolls over (at midnight in Taipei).
-            // Holidays count: with the weekday rule the day after a weekday holiday took the holiday
-            // for the last trading day, found it missing, and gap-fetched again on every request
-            // that day; before 08:00 the quote backfill below would have stored a bar dated on the
-            // holiday (the previous close again, volume 0).
             var lastTradingDay = _tradingCalendar.PreviousTradingDay(today);
-            var needsForwardFetch = maxDate == null || maxDate.Value < lastTradingDay;
+            // Always read whatever's stored within the full 6-month window — a few extra stored rows cost
+            // nothing (no network call), and a shallow call benefits from a prior deep fetch if one happened.
+            var windowStart = today.AddMonths(-LookbackMonths);
 
+            var stored = await StoredBarsAsync(db, stockCode, windowStart, cancellationToken);
             var symbolInfo = await db.StockSymbolInfos.FindAsync([stockCode], cancellationToken);
-            // Only a *deep* request cares whether a deep fetch has ever actually run for this
-            // symbol — e.g. a symbol added to a portfolio (shallow FetchLatestAsync, ~10 days
-            // persisted) that a chart or technical-indicator call later asks about via FetchAsync
-            // (deep). Without this, needsForwardFetch alone would see maxDate == today and wrongly
-            // conclude "nothing to do", silently starving the deep caller of 6 months of history it
-            // thinks it has. Deliberately keyed on an explicit "has this ever run" marker rather
-            // than inferring from the oldest persisted row's date — a symbol with genuinely less
-            // than 6 months of trading history (e.g. a recent IPO) would otherwise look "not deep
-            // enough" forever and get needlessly re-fetched on every single call.
-            var needsBackwardFetch = deep && symbolInfo?.DeepFetchedAt == null;
-            var needsFetch = needsForwardFetch || needsBackwardFetch;
-
             var companyName = symbolInfo?.Name;
 
-            if (needsFetch)
+            var fetchFrom = TwGapFill.Plan(
+                deep, deep ? windowStart : today.AddDays(-LatestLookbackDays), LastDay(stored), lastTradingDay,
+                deepFetchedBefore: symbolInfo?.DeepFetchedAt != null);
+            if (fetchFrom is { } from)
             {
-                try
+                var (done, fetchedName) = await GapFillAsync(db, stockCode, from, deep, taipeiNow, cancellationToken);
+                if (done)
                 {
-                    var marketType = await ResolveAndPersistMarketTypeAsync(db, stockCode, cancellationToken);
-                    // Only ask TWStockLib for what's actually missing — the whole point of this
-                    // provider is to stop paying the full-window cost on every cold start. A
-                    // backward gap means the cached range doesn't reach back far enough for this
-                    // (deep) call, so re-fetch the whole needed window rather than just the forward
-                    // gap — UpsertFinalizedBarsAsync below already dedupes against existing rows, so
-                    // re-fetching an overlapping range is harmless.
-                    var fetchStart = needsBackwardFetch
-                        ? neededWindowStart.ToDateTime(TimeOnly.MinValue)
-                        : maxDate?.AddDays(1).ToDateTime(TimeOnly.MinValue) ?? neededWindowStart.ToDateTime(TimeOnly.MinValue);
-                    var fetched = await _inner.FetchRangeAsync(
-                        stockCode, fetchStart, taipeiNow, marketType, cancellationToken);
-
-                    if (!string.IsNullOrWhiteSpace(fetched.CompanyName))
-                    {
-                        companyName = fetched.CompanyName;
-                        await PersistCompanyNameAsync(db, stockCode, fetched.CompanyName, cancellationToken);
-                    }
-
-                    await UpsertFinalizedBarsAsync(db, stockCode, fetched.HistoricalPrices, today, cancellationToken);
-
-                    // Only claim "deep fetched" once the fetch actually delivered history older
-                    // than the shallow window. Marking it purely because FetchRangeAsync didn't
-                    // throw is what let a thin upstream response pin a symbol to a handful of days
-                    // forever: needsBackwardFetch then stays false, so no later deep call ever
-                    // retries, and every historical valuation before that gap silently values the
-                    // position at zero (GetNetWorthHistoryAsync skips unpriceable positions but
-                    // still emits the day). That produced a ~13.5M phantom one-day jump on the net
-                    // worth chart the moment the prices did start.
-                    //
-                    // A genuinely new listing with less than this much history re-attempts on each
-                    // deep call. That is cheap, self-correcting once it accumulates history, and
-                    // strictly better than being wrong forever.
-                    if (deep && HasDeepCoverage(fetched.HistoricalPrices, today))
-                        await MarkDeepFetchedAsync(db, stockCode, cancellationToken);
-
+                    companyName = fetchedName ?? companyName;
                     // Re-read so the returned list is the consistent, sorted merge of old + new.
-                    existing = await db.DailyStockPrices
-                        .Where(p => p.Symbol == stockCode && p.Market == Market && p.TradeDate >= windowStart)
-                        .OrderBy(p => p.TradeDate)
-                        .ToListAsync(cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    // Fall through and serve whatever's already in the DB rather than failing the
-                    // whole request — matches TWStockLibHistoricalProvider's own fail-soft behavior.
-                    _logger.LogWarning(ex, "Gap-fill fetch failed for {Symbol}, serving DB-only data", stockCode);
+                    stored = await StoredBarsAsync(db, stockCode, windowStart, cancellationToken);
                 }
             }
 
-            // The gap-fill above can still leave the single most recent trading day missing — e.g.
-            // queried pre-market before TWSE's own STOCK_DAY endpoint has that day's row yet, or
-            // the gap-fill above threw and got swallowed. The realtime-quote endpoint's
-            // YesterdayClosingPrice is a second, independent source for exactly that one day
-            // (populated by the exchange well before market open), so try it as a fallback before
-            // giving up on the gap. Re-checks against the current `existing` (freshly re-read above
-            // if the gap-fill ran, otherwise whatever was originally loaded) rather than the
-            // pre-fetch `maxDate`, so this is a no-op once the primary gap-fill already succeeded.
-            // Cut off at 08:00 Taipei: this fallback exists purely to smooth over the pre-market
-            // window before TWStockLib's own data has caught up, and the server clock isn't
-            // guaranteed exact — an hour of margin before market open (09:00) means even a
-            // meaningfully skewed clock can't accidentally treat a still-forming session as
-            // yesterday's finalized close. Past that cutoff, a real gap is left for the primary
-            // gap-fill to close on the next request instead of persisting through this fallback.
-            var latestDate = existing.Count > 0 ? existing[^1].TradeDate : (DateOnly?)null;
-            if ((latestDate == null || latestDate.Value < lastTradingDay) && taipeiNow.TimeOfDay < new TimeSpan(8, 0, 0))
+            if (TwGapFill.ShouldBackfillFromQuote(LastDay(stored), lastTradingDay, taipeiNow))
             {
                 await BackfillLastTradingDayFromQuoteAsync(db, stockCode, lastTradingDay, today, cancellationToken);
-                existing = await db.DailyStockPrices
-                    .Where(p => p.Symbol == stockCode && p.Market == Market && p.TradeDate >= windowStart)
-                    .OrderBy(p => p.TradeDate)
-                    .ToListAsync(cancellationToken);
+                stored = await StoredBarsAsync(db, stockCode, windowStart, cancellationToken);
             }
 
-            return new MarketData
-            {
-                StockCode = stockCode,
-                CompanyName = companyName ?? "",
-                HistoricalPrices = existing.Select(p => new DailyPrice
-                {
-                    Date = p.TradeDate.ToDateTime(TimeOnly.MinValue),
-                    Open = p.Open,
-                    High = p.High,
-                    Low = p.Low,
-                    Close = p.Close,
-                    Volume = p.Volume,
-                }).ToList(),
-            };
+            return ToMarketData(stockCode, companyName, stored);
         }
+
+        /// <summary>The stored bars from <paramref name="from"/> on, oldest first.</summary>
+        private static Task<List<DailyStockPrice>> StoredBarsAsync(
+            AzureSQLDBContext db, string stockCode, DateOnly from, CancellationToken ct) =>
+            db.DailyStockPrices
+                .Where(p => p.Symbol == stockCode && p.Market == Market && p.TradeDate >= from)
+                .OrderBy(p => p.TradeDate)
+                .ToListAsync(ct);
+
+        private static DateOnly? LastDay(List<DailyStockPrice> bars) => bars.Count > 0 ? bars[^1].TradeDate : null;
+
+        /// <summary>
+        /// Fetches from <paramref name="from"/> to now and stores the finalized bars, the company name and,
+        /// for a deep request, that the symbol has been deep-fetched. A failure is logged and the request
+        /// is served from what is stored (Done is false) — matching TWStockLibHistoricalProvider's own
+        /// fail-soft behavior.
+        /// </summary>
+        /// <returns>Whether it got through, and the company name the exchange gave (null if none).</returns>
+        private async Task<(bool Done, string? CompanyName)> GapFillAsync(
+            AzureSQLDBContext db, string stockCode, DateOnly from, bool deep, DateTime taipeiNow, CancellationToken ct)
+        {
+            var today = DateOnly.FromDateTime(taipeiNow);
+            try
+            {
+                var marketType = await ResolveAndPersistMarketTypeAsync(db, stockCode, ct);
+                var fetched = await _inner.FetchRangeAsync(stockCode, from.ToDateTime(TimeOnly.MinValue), taipeiNow, marketType, ct);
+
+                string? companyName = null;
+                if (!string.IsNullOrWhiteSpace(fetched.CompanyName))
+                {
+                    companyName = fetched.CompanyName;
+                    await PersistCompanyNameAsync(db, stockCode, fetched.CompanyName, ct);
+                }
+
+                await UpsertFinalizedBarsAsync(db, stockCode, fetched.HistoricalPrices, today, ct);
+
+                // Only claim "deep fetched" once the fetch actually delivered history older than the
+                // shallow window. Marking it purely because the fetch didn't throw is what let a thin
+                // upstream response pin a symbol to a handful of days forever: no later deep call retried,
+                // and every historical valuation before that gap silently valued the position at zero
+                // (GetNetWorthHistoryAsync skips unpriceable positions but still emits the day) — a ~13.5M
+                // phantom one-day jump on the net worth chart the moment the prices did start. A genuinely
+                // new listing with less history re-attempts on each deep call: cheap, self-correcting once
+                // it accumulates history, and strictly better than being wrong forever.
+                if (deep && HasDeepCoverage(fetched.HistoricalPrices, today))
+                    await MarkDeepFetchedAsync(db, stockCode, ct);
+
+                return (true, companyName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Gap-fill fetch failed for {Symbol}, serving DB-only data", stockCode);
+                return (false, null);
+            }
+        }
+
+        private static MarketData ToMarketData(string stockCode, string? companyName, List<DailyStockPrice> stored) => new()
+        {
+            StockCode = stockCode,
+            CompanyName = companyName ?? "",
+            HistoricalPrices = stored.Select(p => new DailyPrice
+            {
+                Date = p.TradeDate.ToDateTime(TimeOnly.MinValue),
+                Open = p.Open,
+                High = p.High,
+                Low = p.Low,
+                Close = p.Close,
+                Volume = p.Volume,
+            }).ToList(),
+        };
 
         /// <summary>Whether a deep fetch's result actually reaches back past the shallow window,
         /// i.e. it really is deep history rather than the same few recent days a
@@ -267,7 +235,7 @@ namespace JackyAIApp.Server.Services.Market
         }
 
         /// <summary>Marks that a deep fetch has run for this symbol at least once — see the
-        /// needsBackwardFetch comment in <see cref="FetchInternalAsync"/> for why this can't just
+        /// backward fetch in <see cref="TwGapFill.Plan"/> for why this can't just
         /// be inferred from the oldest persisted row's date.</summary>
         private async Task MarkDeepFetchedAsync(AzureSQLDBContext db, string symbol, CancellationToken ct)
         {

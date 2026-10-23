@@ -4,6 +4,9 @@ using System.Text;
 namespace JackyAIApp.Server.Services.DataAnalysis
 {
     /// <summary>Rows to write as a CSV download, under <paramref name="Name"/>, with the counts its headers report.</summary>
+    /// <param name="Name">What the file is named after (a table or a session).</param>
+    /// <param name="Headers">The header row, and the order of every row's cells.</param>
+    /// <param name="Rows">Each row's cells, in the order of <paramref name="Headers"/>.</param>
     /// <param name="ExportedCount">The rows in the file.</param>
     /// <param name="TotalCount">The rows that matched, more than <paramref name="ExportedCount"/> when the export was capped.</param>
     public sealed record CsvExport(

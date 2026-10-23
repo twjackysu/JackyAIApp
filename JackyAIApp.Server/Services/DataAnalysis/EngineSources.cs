@@ -49,6 +49,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis
         public ServiceFailure QueryFailed(ResolvedSource source, string? engineError, string genericMessage) =>
             QueryFailed(source, engineError, genericMessage, viewerIsOwner: true);
 
+        /// <param name="source">The source the query ran on.</param>
+        /// <param name="engineError">The driver's text.</param>
+        /// <param name="genericMessage">What anyone else is told.</param>
         /// <param name="viewerIsOwner">Whether whoever gets the answer owns the source: a dashboard's other
         /// viewers (anonymous ones on an Anyone dashboard included) never get the driver's text.</param>
         public ServiceFailure QueryFailed(ResolvedSource source, string? engineError, string genericMessage, bool viewerIsOwner)

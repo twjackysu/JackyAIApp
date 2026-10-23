@@ -10,7 +10,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis
     /// <summary>
     /// The DataAnalysisLibrary queries behind the Data Analysis page, on the built-in default source or a
     /// signed-in user's custom source (<see cref="QueryContextDto"/>). Every query passes the schema gate
-    /// first, and a failure is answered by <see cref="EngineSources.QueryFailed"/>.
+    /// first, and a failure is answered by <c>EngineSources.QueryFailed</c>.
     /// </summary>
     public interface IDataAnalysisQueryService
     {

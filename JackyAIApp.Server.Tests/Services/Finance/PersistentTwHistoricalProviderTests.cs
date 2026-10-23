@@ -1004,5 +1004,28 @@ namespace JackyAIApp.Server.Tests.Services.Finance
             var bar = Assert.Single(result.HistoricalPrices);
             Assert.Equal((lastTradingDay, 35.45m), (DateOnly.FromDateTime(bar.Date), bar.Close));
         }
+            [Fact]
+        public async Task ARenamedCompany_ComesBackUnderTheNameTheExchangeGivesNow()
+        {
+            var stale = LastTradingDayBefore(LastTradingDayBefore(Today));
+            Stored(stale, deepFetchedAt: DateTimeOffset.UtcNow);   // stored as 台積電
+            _inner.Setup(x => x.FetchRangeAsync(
+                    Symbol, It.IsAny<DateTime>(), It.IsAny<DateTime>(), MarketType.TSE, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new MarketData { StockCode = Symbol, CompanyName = "台灣積體電路", HistoricalPrices = [] });
+
+            Assert.Equal("台灣積體電路", (await _provider.FetchAsync(Symbol)).CompanyName);
+        }
+
+        [Fact]
+        public async Task ABarOnTheWindowsFirstDay_IsHandedOut()
+        {
+            var first = Today.AddMonths(-PersistentTwHistoricalProvider.LookbackMonths);
+            Stored(first, deepFetchedAt: DateTimeOffset.UtcNow);
+            Stored(LastTradingDayBefore(Today));
+
+            var result = await _provider.FetchAsync(Symbol);
+
+            Assert.Equal(first, DateOnly.FromDateTime(result.HistoricalPrices[0].Date));
+        }
     }
 }

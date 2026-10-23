@@ -11,6 +11,7 @@ namespace JackyAIApp.Server.Mappers
     public static class WordMapper
     {
         /// <summary>Builds a brand-new <see cref="SQL.Word"/> entity from a generated definition.</summary>
+        /// <param name="wordbase">The definition the model generated.</param>
         /// <param name="now">When it is stored, in UTC.</param>
         public static SQL.Word ToEntity(DTO.WordBase wordbase, DateTime now)
         {
