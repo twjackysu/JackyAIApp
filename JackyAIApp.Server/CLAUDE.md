@@ -189,6 +189,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `PositionFxResolver`; one position's value, cost and P&L is `PositionValuation.Value`; the TW sell cost
   is `TwSellCost`; the sums and headline ratios are `PortfolioTotals`. Change a rule in its unit, each of
   which has its own tests, rather than in the orchestration
+- The day loops (benchmark comparison, net worth history) walk days forward with `ForwardPriceCursor` (a
+  price on or before each day) and `SnapshotCursor` (the snapshot in effect); a benchmark is a `BenchmarkLeg`
+  and every curve's return a `TimeWeightedReturn`. The net worth history's own missing-price rules are
+  `NetWorthDayValuation`, its series keys `NetWorthGrouping`
 - How a screen values a day, and what it does when a price is missing, stays with that screen:
   the summary, drawdown/day change, net worth and benchmark comparison differ on purpose, pinned by
   `PortfolioAsOfValuationTests` and `PortfolioSummaryPriceTests`
