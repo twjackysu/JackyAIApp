@@ -1,5 +1,18 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-24 15:42 – 第 7 輪（M4：TestKit、Google 日曆、step-up、以後直接執行、rug pull）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。
+- **TestKit**：`TestHelpers/FakeMcpServer`（Streamable HTTP MCP server，給真的 SDK）、`FakeAuthorizationServer`（MCP 401＋PRM＋AS metadata＋DCR＋token 端點，驗 PKCE／redirect URI／resource、refresh token 輪替；`Approve` 扮使用者）、`FakeWeb`、`TestStateService`。`McpOAuthSignInTests` 走完 probe → 新增 → 授權 → 回呼 → 列工具 → chat 呼叫工具 → 到期 refresh → 撤銷後重新授權（第一次 CI 紅：測試共用一個 DbContext，回呼拿到已追蹤的舊列沒存到 Ok；改成每個請求一個 context，跟 app 一樣）。`SiteToolDefinitionsTests` 檢查本站每個工具的 Definition。
+- **Google 日曆原生 connector**：`GoogleCalendarTool`（`google_calendar_events`，今天／明天／7 天，台北時間），沿用既有 Google 帳號連線；沒連線回連結卡。`AiToolDescriptor.OutsideText`：行事曆邀請是別人寫的字，讀過後這輪的寫入一律先問（D-039）。Studio 提示與建議「我今天有什麼行程？」。table 卡片欄位可 `nowrap`。
+- **MCP step-up**：403 `insufficient_scope` → scope 併進登入、NeedsAuth、保留 token，重新授權時一起要（D-040）。
+- **確認卡「以後直接執行」**：本站工具的寫入、沒讀過外部內容時可勾，允許後設成自動（D-041）。
+- **rug pull 防護**：重新列工具時，設成自動的工具若說明／schema／效果變了改回需確認（D-042）。
+- **OAuth 回呼中文訊息**（`kind=mcp`，D-043）。
+- 文件：CONTRIBUTING（原生 connector、TestKit）、server／client CLAUDE.md、SHOWCASE（Google 日曆 demo 步驟與截圖、確認卡截圖更新）。
+- 驗證：每個後端 commit 先 cscheck（0 個新診斷）再看 CI：40075630687（TestKit，紅一次如上）、40076039924（修正＋Google 日曆）、40076727511（step-up）、40077184496（回呼訊息）、40077412480（工具一致性）、40078062263（以後直接執行＋rug pull）、**40078794952（本輪最後一次含程式碼的 push：nowrap）綠**。前端 lint、test（115 檔 1271 個）、build 全過；playwright 截圖 Studio 讀 Google 日曆、確認卡。
+- 問題：無阻礙。Google 日曆在 production 的實際權限需要 Jacky 驗（FOR_JACKY 8）。
+
 ## 2026-10-24 13:41 – 第 6 輪（MCP OAuth、Portfolio／學習進度工具、用說的存 dashboard、SHOWCASE 初稿）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。
