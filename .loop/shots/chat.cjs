@@ -246,6 +246,17 @@ async function ask(page, text, placeholder) {
     await page.screenshot({ path: `${out}/studio-approval-${name}.png` });
     await page.close();
 
+    // Studio：指令列——打「review」出現「前往『複習』」「查字典：review」（不問 AI）
+    page = await open(browser, viewport, studioWord);
+    await page.goto('http://localhost:5173/');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(800);
+    await page.getByRole('textbox').last().fill('review');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${out}/studio-quick-${name}.png` });
+    await page.close();
+
     // Studio：語音輸入（聆聽中）
     page = await open(browser, viewport, studioWord);
     await page.goto('http://localhost:5173/english');

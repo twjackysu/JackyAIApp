@@ -1,6 +1,6 @@
 import Box from '@mui/material/Box';
 import { alpha, useTheme } from '@mui/material/styles';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 import ChatHeader from './components/ChatHeader';
 import ChatInput from './components/ChatInput';
@@ -48,6 +48,8 @@ interface AiAssistantPanelProps {
   onAskSent?: () => void;
   /** An answer takes the reader to a page of the site (Studio AI's `open_page` with `go`); without it, only its link. */
   onNavigate?: (path: string) => void;
+  /** Over the message box, from the app that holds the panel (Studio AI's quick actions for what is typed). */
+  inputAccessory?: ReactNode;
 }
 
 /**
@@ -66,6 +68,7 @@ function AiAssistantPanel({
   ask,
   onAskSent,
   onNavigate,
+  inputAccessory,
 }: AiAssistantPanelProps) {
   const sheet = variant === 'sheet';
   const config = useAiChatConfig();
@@ -237,6 +240,7 @@ function AiAssistantPanel({
             onAlwaysAllow={conversation.allowAlways}
             onFollowUp={(question) => conversation.send(question, [])}
           />
+          {inputAccessory}
           <ChatInput
             value={inputValue}
             onChange={setInputValue}

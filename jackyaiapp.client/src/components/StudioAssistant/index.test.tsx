@@ -1,4 +1,4 @@
-import { act, useEffect } from 'react';
+import { act, useEffect, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, useLocation, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -20,6 +20,9 @@ const mocks = vi.hoisted(() => ({
     onAskSent?: () => void;
     onNavigate?: (path: string) => void;
     onActivityChange?: (a: { busy: boolean; hasConversation: boolean }) => void;
+    inputValue: string;
+    onInputChange: (value: string) => void;
+    inputAccessory?: ReactNode;
   } | null,
   narrow: false,
 }));
@@ -29,7 +32,7 @@ vi.mock('@/apis/accountApis', () => ({ useGetUserInfoQuery: () => mocks.user }))
 vi.mock('@/components/aiChat', () => ({
   default: (props: NonNullable<typeof mocks.panel>) => {
     mocks.panel = props;
-    return <div data-testid="panel" />;
+    return <div data-testid="panel">{props.inputAccessory}</div>;
   },
 }));
 
@@ -213,6 +216,35 @@ describe('StudioAssistant', () => {
     await settle();
     await act(async () => mocks.panel!.onAskSent!());
     expect(mocks.panel!.ask).toBeUndefined();
+  });
+
+  it('offers to go straight to a page named in the box, without the AI, and goes there', async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+    const quick = () => [...document.querySelectorAll('[data-testid="quick-actions"] button')];
+    expect(quick()).toEqual([]);
+
+    await act(async () => mocks.panel!.onInputChange('帶我去複習'));
+    expect(quick().map((b) => b.textContent)).toEqual(['前往「複習」']);
+
+    await act(async () => (quick()[0] as HTMLButtonElement).click());
+    await settle();
+    expect(router.pathname).toBe('/english/review');
+    expect(mocks.panel!.active).toBe(false);
+    expect(mocks.panel!.inputValue).toBe('');
+  });
+
+  it('offers the dictionary page of one English word typed in the box', async () => {
+    await render('/english');
+    await act(async () => button()!.click());
+    await settle();
+    await act(async () => mocks.panel!.onInputChange('serendipity'));
+    const quick = [...document.querySelectorAll('[data-testid="quick-actions"] button')];
+    expect(quick.map((b) => b.textContent)).toEqual(['查字典：serendipity']);
+    await act(async () => (quick[0] as HTMLButtonElement).click());
+    await settle();
+    expect(router.pathname).toBe('/english/dictionary/serendipity');
   });
 
   it('is not opened by a page’s ask where it is not shown', async () => {

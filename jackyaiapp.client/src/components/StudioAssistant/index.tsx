@@ -8,6 +8,8 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { ASK_STUDIO_EVENT, askedOf, type AskStudioDetail } from './askStudio';
+import QuickActions from './QuickActions';
+import { quickActionsFor, type QuickAction } from './quickActions';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
 
 import type { AssistantActivity } from '@/components/aiChat';
@@ -69,6 +71,18 @@ export default function StudioAssistant() {
     },
     [navigate],
   );
+  // A quick action (what is typed names a page, or is one English word) goes there at once, without the
+  // AI: the box is emptied and the drawer closes, as a command bar would, on every screen.
+  const quickActions = useMemo(() => quickActionsFor(draft, pathname), [draft, pathname]);
+  const pickQuick = useCallback(
+    (action: QuickAction) => {
+      setDraft('');
+      setOpen(false);
+      navigate(action.path);
+    },
+    [navigate],
+  );
+
   // Closed by hand meanwhile: the reader has taken over, nothing closes it for them later.
   const closeByHand = useCallback(() => {
     afterAnswer.current.close = false;
@@ -154,6 +168,7 @@ export default function StudioAssistant() {
                 onActivityChange={onActivity}
                 onInputChange={setDraft}
                 onCollapse={closeByHand}
+                inputAccessory={<QuickActions actions={quickActions} onPick={pickQuick} />}
               />
             </Suspense>
           </Box>
