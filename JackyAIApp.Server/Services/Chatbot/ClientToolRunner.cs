@@ -71,6 +71,15 @@ namespace JackyAIApp.Server.Services.Chatbot
             _logger = logger;
         }
 
+        /// <summary>
+        /// Whether the turn has read anything from an outside connector. Once it has, every call that is not
+        /// a read waits for the reader, whatever its permission says.
+        /// </summary>
+        public bool Tainted { get; private set; }
+
+        private bool AsksFirst(IAiTool tool) =>
+            _askFirst.Contains(tool.Descriptor.Name) || (Tainted && tool.Descriptor.Effect != ToolEffect.Read);
+
         /// <summary>The cards the reader was shown so far, in order (JSON as sent), to keep with the answer.</summary>
         public List<JsonElement> Cards { get; } = [];
 
@@ -83,7 +92,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         {
             var asked = new List<(BetaToolUseBlock Call, IAiTool Tool)>();
             foreach (var call in calls)
-                if (_byName.TryGetValue(call.Name, out var tool) && _askFirst.Contains(call.Name))
+                if (_byName.TryGetValue(call.Name, out var tool) && AsksFirst(tool))
                     asked.Add((call, tool));
             var (allowed, timedOut) = asked.Count > 0
                 ? await AskAsync(asked, ct)
@@ -109,6 +118,10 @@ namespace JackyAIApp.Server.Services.Chatbot
                     card,
                     durationMs,
                 }, ct);
+                // What an outside connector said may be written to steer the model; from here on in the
+                // turn, nothing that changes anything runs without the reader (docs/ai-native/design/06).
+                if (_byName.TryGetValue(call.Name, out var ran) && ran.Descriptor.Connector != AiToolDescriptor.SiteConnector)
+                    Tainted = true;
                 results.Add(new BetaToolResultBlockParam
                 {
                     ToolUseID = call.ID,
@@ -171,6 +184,7 @@ namespace JackyAIApp.Server.Services.Chatbot
             {
                 type = "approval_required",
                 pendingId = waiting.PendingId,
+                tainted = Tainted,
                 calls = calls.Select(c => new
                 {
                     toolUseId = c.Call.ID,

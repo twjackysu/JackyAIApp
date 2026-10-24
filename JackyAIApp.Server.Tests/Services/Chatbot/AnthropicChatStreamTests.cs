@@ -417,13 +417,18 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             public string UsageLogFeature => "chatbot.test";
 
             public Task<ChatProfileSetup> SetupAsync(ChatProfileContext context, CancellationToken ct) =>
-                Task.FromResult(new ChatProfileSetup("你是助手。", null, AttachTwStock: false, Tools: [Lookup, Save]));
+                Task.FromResult(new ChatProfileSetup("你是助手。", null, AttachTwStock: false, Tools: [Lookup, Save, .. Extra]));
+
+            /// <summary>More tools for a test that needs them (an outside connector's).</summary>
+            public List<IAiTool> Extra { get; } = [];
         }
 
-        private sealed class RecordingTool(string name, string displayName, ToolEffect effect) : IAiTool
+        private sealed class RecordingTool(string name, string displayName, ToolEffect effect, string connector = AiToolDescriptor.SiteConnector)
+            : IAiTool
         {
             public AiToolDescriptor Descriptor { get; } = new(name, displayName, "測試用工具",
-                JsonSerializer.SerializeToElement(new { type = "object", properties = new { word = new { type = "string" } } }), effect);
+                JsonSerializer.SerializeToElement(new { type = "object", properties = new { word = new { type = "string" } } }), effect,
+                connector);
 
             public List<(JsonElement Input, AiToolContext Context)> Calls { get; } = [];
 
@@ -654,6 +659,27 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             await turn;
 
             Assert.Single(_toolProfile.Lookup.Calls);
+        }
+
+        [Fact]
+        public async Task AfterAnOutsideConnectorsResult_AWriteThatRunsOnItsOwn_IsAskedAnyway()
+        {
+            _toolProfile.Extra.Add(new RecordingTool("m1__search", "Notion・搜尋", ToolEffect.Read, connector: "inst-1"));
+            _permissions.Site["save_word"] = ToolPermission.Auto;
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "m1__search", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_2", "save_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+            var body = new RecordingBody();
+
+            var turn = AskAsync(profile: ToolProfile.ProfileKey, body: body);
+            var (conversationId, pendingId, asked) = await AskedAsync(body);
+            Assert.True(asked.GetProperty("tainted").GetBoolean());
+            Assert.Equal("toolu_2", Assert.Single(asked.GetProperty("calls").EnumerateArray()).GetProperty("toolUseId").GetString());
+            Assert.Empty(_toolProfile.Save.Calls);
+            Assert.True(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_2", true)]));
+            await turn;
+
+            Assert.Single(_toolProfile.Save.Calls);
         }
 
         [Fact]

@@ -241,7 +241,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   (`ChatTurnRequest.UntrustedToolOutputInstruction`). What the AI may do with each tool is the reader's
   choice on the connectors page (`IToolPermissionSource`, `ToolPermissions`: by default a read runs on its own
   and anything else asks first; a destructive one can never run on its own): a tool they turned off is not
-  offered, and a call of one that asks first runs only once the reader allows it: a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
+  offered, and a call of one that asks first runs only once the reader allows it (and once a turn has read an
+  outside connector's result, every call that is not a read asks first, whatever its permission; the
+  question then says `tainted`): a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
   calls: id, connector, tool, display name, effect, input), and the turn waits **in its own request**
   (`ChatApprovalRegistry`, a singleton in memory like `ChatTurnRegistry`; at most
   `ClientToolRunner.ApprovalTimeout`, 3 minutes, writing a `: ping` comment line every 20s so Cloudflare does
