@@ -5,6 +5,7 @@ import {
   studioChatConfig,
   studioFollowUpsFor as followUpsOn,
   studioShownOn,
+  dictionaryWordOf,
   studioSuggestionsFor,
 } from './studioChat';
 
@@ -25,7 +26,28 @@ describe('studioShownOn', () => {
   });
 });
 
+describe('dictionaryWordOf', () => {
+  it('reads the word of a dictionary page, and nothing else', () => {
+    expect(dictionaryWordOf('/english/dictionary/Serendipity')).toBe('serendipity');
+    expect(dictionaryWordOf("/english/dictionary/o'clock")).toBe("o'clock");
+    expect(dictionaryWordOf('/english/dictionary/o%27clock')).toBe("o'clock");
+    expect(dictionaryWordOf('/english/dictionary')).toBeUndefined();
+    expect(dictionaryWordOf('/english/dictionary/two%20words')).toBeUndefined();
+    expect(dictionaryWordOf('/english/dictionary/%E0%A4%A')).toBeUndefined();
+    expect(dictionaryWordOf('/english/dictionary/word/more')).toBeUndefined();
+  });
+});
+
 describe('studioSuggestionsFor', () => {
+  it('on a word’s dictionary page, offers to do something with that word first', () => {
+    const texts = studioSuggestionsFor('/english/dictionary/serendipity').map((s) => s.text);
+    expect(texts.slice(0, 2)).toEqual([
+      '把 serendipity 加入我的單字庫',
+      '用 serendipity 造三個例句，附中文翻譯',
+    ]);
+    expect(texts).toHaveLength(4);
+  });
+
   it('starts with the page’s own suggestions', () => {
     expect(studioSuggestionsFor('/english/review')[0].text).toContain('serendipity');
     expect(studioSuggestionsFor('/portfolio')[0].text).toContain('持股');

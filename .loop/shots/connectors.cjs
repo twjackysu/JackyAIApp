@@ -69,6 +69,8 @@ const catalog = {
       if (p === '/api/connectors/status') return json([]);
       if (p === '/api/connectors/catalog') return json({ data: process.env.EMPTY ? { entries: [], installed: [], customLimit: 10 } : catalog });
       if (p === '/api/connectors/site-tokens') return json({ data: tokens });
+      if (p === '/api/connectors/installations/probe') return json({ data: { serverUrl: 'https://kb.example.com/mcp', auth: 'apiKey', authorizationServer: null, registration: null, serverName: '公司內部知識庫' } });
+      if (p === '/api/connectors/installations' && route.request().method() === 'POST') return json({ data: { ...catalog.installed[3], id: 'i-9' } });
       if (p.startsWith('/api/')) return json({ data: null });
       const file = path.join(dist, p === '/' || !path.extname(p) ? 'index.html' : p);
       if (!fs.existsSync(file)) return route.fulfill({ status: 404, body: '' });
@@ -96,6 +98,21 @@ const catalog = {
     await page.getByText('Jacky Studio 本站功能').first().click();
     await page.waitForTimeout(600);
     await page.screenshot({ path: `${out}/connectors-drawer-site-${name}.png` });
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+
+    // 新增 MCP server 對話框的三個步驟：網址 → 認證（伺服器要 API key）→ 完成（列出工具）
+    await page.getByRole('button', { name: '新增 MCP server' }).click();
+    await page.waitForTimeout(500);
+    await page.getByLabel('MCP server 網址').fill('https://kb.example.com/mcp');
+    await page.screenshot({ path: `${out}/connectors-add-1-${name}.png` });
+    await page.getByRole('button', { name: '檢查' }).click();
+    await page.waitForTimeout(600);
+    await page.getByLabel('Token').fill('sk-live-0123456789');
+    await page.screenshot({ path: `${out}/connectors-add-2-${name}.png` });
+    await page.getByRole('button', { name: '連線' }).click();
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `${out}/connectors-add-3-${name}.png` });
     await page.close();
   }
   await browser.close();

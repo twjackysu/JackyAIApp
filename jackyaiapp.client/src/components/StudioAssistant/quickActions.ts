@@ -1,7 +1,7 @@
 /**
  * What Studio AI can do at once, while the reader is still typing, without asking the AI: a few
- * words naming a page ("複習", "portfolio") offer to go there, and one English word offers its
- * dictionary page. Pressing one goes straight there — no tokens, no usage budget, no waiting — so
+ * words naming a page ("複習", "portfolio") or one of the reader's dashboards ("業績") offer to go
+ * there, and one English word offers its dictionary page. Pressing one goes straight there — no tokens, no usage budget, no waiting — so
  * ⌘K is also the site's command bar; anything else is still sent to the AI as typed.
  */
 
@@ -11,7 +11,13 @@ export interface QuickAction {
   label: string;
   /** A path on this site. */
   path: string;
-  kind: 'page' | 'word';
+  kind: 'page' | 'dashboard' | 'word';
+}
+
+/** A dashboard the reader can open (the /dashboards list: their own and those shared with them). */
+export interface QuickDashboard {
+  id: string;
+  name: string;
 }
 
 interface QuickPage {
@@ -88,6 +94,13 @@ const ENGLISH_WORD = /^[a-z][a-z'-]{2,29}$/i;
 /** Shorter than this, what was typed must be a page's word exactly ("re" would match half the site). */
 const MIN_PREFIX = 3;
 
+/** At most this many of the reader's dashboards, so a page or the word still has room. */
+const MAX_DASHBOARDS = 2;
+/** A dashboard's name is matched anywhere in it from this long ("業績" in 「每月業績追蹤」). */
+const MIN_NAME_PART = 2;
+/** A longer name is cut in its label. */
+const MAX_LABEL_NAME = 20;
+
 const on = (path: string, page: string) => path === page || path.startsWith(`${page}/`);
 
 /** The page's name in what was typed, without "take me to". */
@@ -110,23 +123,59 @@ function fit(page: QuickPage, q: string): number {
   return 0;
 }
 
+/** How well a dashboard's name fits what was typed: 2 the whole name, 1 a part of it, 0 neither. */
+function fitName(name: string, q: string): number {
+  const n = name.trim().toLowerCase();
+  if (n === q) return 2;
+  return q.length >= MIN_NAME_PART && n.includes(q) ? 1 : 0;
+}
+
+const labelName = (name: string) => {
+  const n = name.trim();
+  return n.length > MAX_LABEL_NAME ? `${n.slice(0, MAX_LABEL_NAME)}…` : n;
+};
+
 /**
- * The actions for what the reader has typed on `currentPath`: the pages it names, those it names
- * exactly first (never the page they are on), then the word's dictionary page; at most three.
+ * The actions for what the reader has typed on `currentPath`: the pages and the reader's
+ * `dashboards` it names, those it names exactly first (never the one they are on), then the word's
+ * dictionary page; at most three.
  */
-export function quickActionsFor(draft: string, currentPath: string): QuickAction[] {
+export function quickActionsFor(
+  draft: string,
+  currentPath: string,
+  dashboards: readonly QuickDashboard[] = [],
+): QuickAction[] {
   const q = queryOf(draft);
   if (q.length === 0 || q.length > MAX_QUERY) return [];
 
-  const pages = QUICK_PAGES.map((page) => ({ page, score: fit(page, q) }))
-    .filter(({ page, score }) => score > 0 && !on(currentPath, page.path))
-    .sort((a, b) => b.score - a.score)
-    .map(({ page }): QuickAction => ({
+  const pages = QUICK_PAGES.map((page) => ({
+    score: fit(page, q),
+    action: {
       key: `page:${page.path}`,
       label: `前往「${page.title}」`,
       path: page.path,
       kind: 'page',
-    }));
+    } satisfies QuickAction,
+  })).filter(({ score, action }) => score > 0 && !on(currentPath, action.path));
+
+  const boards = dashboards
+    .map((board) => ({
+      score: fitName(board.name, q),
+      action: {
+        key: `dashboard:${board.id}`,
+        label: `打開「${labelName(board.name)}」`,
+        path: `/dashboards/${encodeURIComponent(board.id)}`,
+        kind: 'dashboard',
+      } satisfies QuickAction,
+    }))
+    .filter(({ score, action }) => score > 0 && currentPath !== action.path)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_DASHBOARDS);
+
+  // A stable sort: at the same fit, the site's pages come before the reader's dashboards.
+  const named = [...pages, ...boards]
+    .sort((a, b) => b.score - a.score)
+    .map(({ action }): QuickAction => action);
 
   const word = draft.trim();
   const lookUp: QuickAction[] =
@@ -142,5 +191,5 @@ export function quickActionsFor(draft: string, currentPath: string): QuickAction
       : [];
 
   // Pages first: a word that is also a page's name ("review") is more often the page.
-  return [...pages, ...lookUp].slice(0, MAX_ACTIONS);
+  return [...named, ...lookUp].slice(0, MAX_ACTIONS);
 }

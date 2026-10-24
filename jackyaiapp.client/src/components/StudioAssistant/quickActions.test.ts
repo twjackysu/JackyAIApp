@@ -55,6 +55,45 @@ describe('quickActionsFor', () => {
     expect(paths('英文', '/english/review')).toEqual([]);
   });
 
+  it('offers the reader’s dashboards by a part of their name, the whole name first', () => {
+    const boards = [
+      { id: 'a', name: '業績追蹤' },
+      { id: 'b', name: '每月業績' },
+      { id: 'c', name: '業績' },
+      { id: 'd', name: 'Inventory' },
+    ];
+    const at = (draft: string, path = '/') =>
+      quickActionsFor(draft, path, boards).map((a) => a.path);
+    // The whole name first, then at most two in all.
+    expect(at('業績')).toEqual(['/dashboards/c', '/dashboards/a']);
+    expect(at('打開業績追蹤')).toEqual(['/dashboards/a']);
+    expect(at('invent')).toEqual(['/dashboards/d', '/english/dictionary/invent']);
+    // Not the one the reader is on, nor a single character.
+    expect(at('業績追蹤', '/dashboards/a')).toEqual([]);
+    expect(at('業')).toEqual([]);
+    expect(quickActionsFor('inventory', '/', boards)[0]).toEqual({
+      key: 'dashboard:d',
+      label: '打開「Inventory」',
+      path: '/dashboards/d',
+      kind: 'dashboard',
+    });
+  });
+
+  it('puts a page before a dashboard of the same name, and cuts a long name in its label', () => {
+    const boards = [
+      { id: 'r', name: 'Review' },
+      { id: 'l', name: '這是一個名字非常非常長的業績追蹤儀表板（2026 年版）' },
+    ];
+    expect(quickActionsFor('review', '/', boards).map((a) => a.path)).toEqual([
+      '/english/review',
+      '/dashboards/r',
+      '/english/dictionary/review',
+    ]);
+    expect(quickActionsFor('業績', '/', boards)[0].label).toBe(
+      '打開「這是一個名字非常非常長的業績追蹤儀表板（…」',
+    );
+  });
+
   it('offers at most three', () => {
     expect(quickActionsFor('d', '/').length).toBeLessThanOrEqual(3);
     for (const page of QUICK_PAGES)

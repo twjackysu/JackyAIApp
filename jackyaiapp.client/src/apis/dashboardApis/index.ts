@@ -98,6 +98,7 @@ export const dashboardApis = createApi({
 
 export const {
   useGetDashboardsQuery,
+  useLazyGetDashboardsQuery,
   useGetDashboardQuery,
   useCreateDashboardMutation,
   useAddWidgetMutation,

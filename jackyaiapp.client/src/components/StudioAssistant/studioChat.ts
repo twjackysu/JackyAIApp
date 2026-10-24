@@ -36,6 +36,25 @@ const PORTFOLIO: AiChatSuggestion[] = [
   { text: '幫我看看我的持股，哪幾檔虧最多？', icon: PieChartIcon },
   { text: '我的資產配置現在偏重哪裡？', icon: PieChartIcon },
 ];
+/** A word's dictionary page as the server's `open_page` makes it: letters, an apostrophe or a hyphen. */
+const DICTIONARY_WORD = /^\/english\/dictionary\/([a-z][a-z'-]{0,29})$/i;
+
+/** The English word whose dictionary page `path` is, lowercase, or undefined. */
+export function dictionaryWordOf(path: string): string | undefined {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(path);
+  } catch {
+    return undefined;
+  }
+  return DICTIONARY_WORD.exec(decoded)?.[1].toLowerCase();
+}
+
+/** On a word's dictionary page: about that word, which the reader is reading. */
+const wordSuggestions = (word: string): AiChatSuggestion[] => [
+  { text: `把 ${word} 加入我的單字庫`, icon: AutoStoriesIcon },
+  { text: `用 ${word} 造三個例句，附中文翻譯`, icon: AutoStoriesIcon },
+];
 /** On one dashboard (`/dashboards/{id}`), which the server's prompt names as "this dashboard". */
 const DASHBOARD: AiChatSuggestion[] = [{ text: READ_DASHBOARD_PROMPT, icon: DashboardIcon }];
 const CONNECTORS: AiChatSuggestion[] = [
@@ -50,15 +69,18 @@ const COMMON: AiChatSuggestion[] = [
 
 /** Suggestions for the page the reader is on: two about it, if it has its own, then the site's. */
 export function studioSuggestionsFor(path: string): AiChatSuggestion[] {
-  const own = on(path, '/english')
-    ? ENGLISH
-    : on(path, '/portfolio')
-      ? PORTFOLIO
-      : on(path, '/connectors')
-        ? CONNECTORS
-        : path.startsWith('/dashboards/')
-          ? DASHBOARD
-          : [];
+  const word = dictionaryWordOf(path);
+  const own = word
+    ? wordSuggestions(word)
+    : on(path, '/english')
+      ? ENGLISH
+      : on(path, '/portfolio')
+        ? PORTFOLIO
+        : on(path, '/connectors')
+          ? CONNECTORS
+          : path.startsWith('/dashboards/')
+            ? DASHBOARD
+            : [];
   return [...own, ...COMMON].slice(0, 4);
 }
 
@@ -99,7 +121,7 @@ export function studioChatConfig(path: string): AiChatConfig {
     title: 'Studio AI',
     greetingTitle: '我是 Studio AI，想做什麼？',
     greeting:
-      '我在網站的每一頁都在：告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。',
+      '告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。打頁面名稱、dashboard 名稱或一個英文單字，可以不經 AI 直接前往。',
     examples: ['這個網站可以做哪些事？', '幫我查一個英文單字', '我的投資組合現在怎麼樣？'],
     suggestions: studioSuggestionsFor(path),
     connectedLabel: '全站助理',

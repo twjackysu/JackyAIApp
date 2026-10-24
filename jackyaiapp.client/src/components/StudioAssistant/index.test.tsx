@@ -25,9 +25,14 @@ const mocks = vi.hoisted(() => ({
     inputAccessory?: ReactNode;
   } | null,
   narrow: false,
+  boards: [] as { id: string; name: string }[],
+  loadBoards: vi.fn(),
 }));
 vi.mock('@mui/material/useMediaQuery', () => ({ default: () => mocks.narrow }));
 vi.mock('@/apis/accountApis', () => ({ useGetUserInfoQuery: () => mocks.user }));
+vi.mock('@/apis/dashboardApis', () => ({
+  useLazyGetDashboardsQuery: () => [mocks.loadBoards, { data: { data: mocks.boards } }],
+}));
 // The real panel is tested on its own; here only what Studio AI hands it.
 vi.mock('@/components/aiChat', () => ({
   default: (props: NonNullable<typeof mocks.panel>) => {
@@ -43,6 +48,8 @@ beforeEach(() => {
   mocks.user = { data: { data: { id: 'u1' } } };
   mocks.panel = null;
   mocks.narrow = false;
+  mocks.boards = [];
+  mocks.loadBoards = vi.fn();
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -271,6 +278,26 @@ describe('StudioAssistant', () => {
     await act(async () => (quick[0] as HTMLButtonElement).click());
     await settle();
     expect(router.pathname).toBe('/english/dictionary/serendipity');
+  });
+
+  it('offers to open one of the reader’s dashboards by its name, read again each time it opens', async () => {
+    mocks.boards = [{ id: 'b1', name: '每月業績追蹤' }];
+    await render('/');
+    expect(mocks.loadBoards).not.toHaveBeenCalled();
+    await act(async () => button()!.click());
+    await settle();
+    expect(mocks.loadBoards).toHaveBeenCalledTimes(1);
+
+    await act(async () => mocks.panel!.onInputChange('業績'));
+    const quick = [...document.querySelectorAll('[data-testid="quick-actions"] button')];
+    expect(quick.map((b) => b.textContent)).toEqual(['打開「每月業績追蹤」']);
+    await act(async () => (quick[0] as HTMLButtonElement).click());
+    await settle();
+    expect(router.pathname).toBe('/dashboards/b1');
+
+    await act(async () => button()!.click());
+    await settle();
+    expect(mocks.loadBoards).toHaveBeenCalledTimes(2);
   });
 
   it('is not opened by a page’s ask where it is not shown', async () => {

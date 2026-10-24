@@ -15,6 +15,7 @@ import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat'
 import type { AssistantActivity } from '@/components/aiChat';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
+import { useLazyGetDashboardsQuery } from '@/apis/dashboardApis';
 import { AiChatConfigContext } from '@/components/aiChat/config';
 import { ACCENT_GRADIENT } from '@/components/aiChat/style';
 import CenteredSpinner from '@/components/CenteredSpinner';
@@ -78,10 +79,19 @@ export default function StudioAssistant() {
     },
     [navigate],
   );
-  // A quick action (what is typed names a page, or is one English word) goes there at once, without the
-  // AI: the box is emptied and the drawer closes, as a command bar would, on every screen. The reader has
-  // taken over, so a page an answer still being written was going to take them to is dropped.
-  const quickActions = useMemo(() => quickActionsFor(draft, pathname), [draft, pathname]);
+  // A quick action (what is typed names a page or one of the reader's dashboards, or is one English word)
+  // goes there at once, without the AI: the box is emptied and the drawer closes, as a command bar would, on
+  // every screen. The reader has taken over, so a page an answer still being written was going to take them
+  // to is dropped. The dashboards are the /dashboards list, read each time the drawer opens (Studio AI may
+  // have saved a new one meanwhile, on the server).
+  const [loadBoards, { data: boardList }] = useLazyGetDashboardsQuery();
+  useEffect(() => {
+    if (open) void loadBoards();
+  }, [open, loadBoards]);
+  const quickActions = useMemo(
+    () => quickActionsFor(draft, pathname, boardList?.data ?? []),
+    [draft, pathname, boardList],
+  );
   const pickQuick = useCallback(
     (action: QuickAction) => {
       afterAnswer.current = { close: false };

@@ -1,4 +1,5 @@
 import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
+import DashboardIcon from '@mui/icons-material/DashboardOutlined';
 import MenuBookIcon from '@mui/icons-material/MenuBookOutlined';
 import { Box, ButtonBase, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -6,6 +7,8 @@ import { useTheme } from '@mui/material/styles';
 import type { QuickAction } from './quickActions';
 
 import { ACCENT, accentWash, hairline } from '@/components/aiChat/style';
+
+const ICONS = { page: ArrowOutwardIcon, dashboard: DashboardIcon, word: MenuBookIcon } as const;
 
 /**
  * What Studio AI can do at once for what is being typed (`quickActionsFor`), over the message box: a
@@ -40,7 +43,7 @@ export default function QuickActions({
             不用問 AI，直接：
           </Typography>
           {actions.map((action) => {
-            const Icon = action.kind === 'word' ? MenuBookIcon : ArrowOutwardIcon;
+            const Icon = ICONS[action.kind];
             return (
               <ButtonBase
                 key={action.key}
