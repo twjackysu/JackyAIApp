@@ -11,9 +11,10 @@
 | **Studio AI**：任何頁面右下角按鈕或 ⌘K／Ctrl+K 叫出，知道你在哪一頁 | 共用 chat 引擎的 `studio` profile；本站功能都是工具（`ISiteTool`） | 「網站本身就是工具」：同一個 AI 到處都在 |
 | 「查 serendipity，加入我的單字庫」→ 單字卡 → **確認卡** → 加入 | `look_up_word`（讀）、`add_word_to_repository`（寫，先確認） | Agent 會動手，所以 human-in-the-loop |
 | 「我的投資組合現在怎麼樣？」→ **持倉表格卡片** + 重點分析 | `portfolio_summary`，照 /portfolio 的估值 | 結果是 UI，不是一坨文字（generative UI） |
+| 「我今天有什麼行程？」→ **Google 日曆表格卡片** + 空檔建議 | 原生 connector `google_calendar_events`：用既有 Google 帳號連線（唯讀），行程標題視為外部文字 | 不只 MCP：自家程式呼叫 API 也是同一套工具抽象 |
 | /data-analysis 最上方的 AI 對話：問問題 → **互動圖表** → 「存到業績追蹤 dashboard」→ 確認 → 完成 | `ask_data`（沿用 問 AI 的檢查過的查詢管線）、`describe_data`、`save_to_dashboard` | AI 只用經過驗證的查詢，不自己寫 SQL |
 | **Connectors**：目錄一鍵加入 tw-stock、DeepWiki；貼任何 MCP URL 自動偵測登入方式 | MCP 官方 SDK（Streamable HTTP）、SafeHttp 防 SSRF | MCP 是 AI 接工具的標準 |
-| 需要登入的 MCP server：**自動跑完 MCP 授權規格** | 401 → PRM（RFC 9728）→ AS metadata（RFC 8414／OIDC）→ DCR／CIMD／手填 client → PKCE S256 + `resource` + `iss` → token 加密 → 到期自動 refresh | 2025-11 起的 MCP 授權規格（PRM、CIMD、RFC 8707 resource、RFC 9207 iss） |
+| 需要登入的 MCP server：**自動跑完 MCP 授權規格** | 401 → PRM（RFC 9728）→ AS metadata（RFC 8414／OIDC）→ DCR／CIMD／手填 client → PKCE S256 + `resource` + `iss` → token 加密 → 到期自動 refresh → 403 `insufficient_scope` 時 step-up | 2025-11 起的 MCP 授權規格（PRM、CIMD、RFC 8707 resource、RFC 9207 iss） |
 | 每個工具「自動／需確認／停用」；讀過外部資料後的寫入一律先問 | `ToolPermissions`、taint（D-031）、工具結果包成不可信資料 | prompt injection 防護 |
 | /finance 的 Stock Intelligence：**行為不變** | 同一套共用 chat（`FinanceChatRequestTests` 逐欄位鎖住） | — |
 
@@ -27,6 +28,8 @@
    ![確認卡](screenshots/studio-approval-desktop.png)
 3. **我的資產（1 分鐘）**：到 /portfolio → ⌘K →「幫我看看我的持股，哪幾檔虧最多？」→ 持倉表格卡片 + 重點。
    ![Studio 讀投資組合](screenshots/studio-portfolio-desktop.png)
+   接著問「我今天有什麼行程？」（需先在 /connectors 的帳號連線連上 Google）→ Google 日曆表格卡片與空檔。
+   ![Studio 讀 Google 日曆](screenshots/studio-calendar-desktop.png)
 4. **資料 → 圖表 → dashboard（2 分鐘）**：/data-analysis → 最上方對話框「畫出各地區每月營收，存到『業績追蹤』dashboard」→ 圖表卡片 → 確認卡「存到 dashboard」→ 允許 → 點連結卡打開 dashboard，看到同一張圖（之後會用最新資料重畫）。
    ![Data Analysis 對話](screenshots/data-analysis-chat-desktop.png)
 5. **接上外面的世界（2 分鐘）**：/connectors → 目錄裡的 Notion 或 Linear 按「前往授權」→ 用自己的帳號登入 → 回到 /connectors 顯示已連線與工具 → Studio 問「我在 Linear 上還有哪些未完成的 issue？」。或一鍵加入 DeepWiki → 回到 Studio 問「twjackysu/JackyAIApp 這個 repo 的架構是什麼？」→ 工具進度顯示「DeepWiki・…」→ 回答。再示範「新增 MCP server」：貼一個需要 OAuth 的 MCP URL → 「找到了！這個 server 用 OAuth 登入（xxx）」→ 前往授權 → 回來後工具列表出現。
@@ -49,7 +52,7 @@ flowchart LR
   subgraph Server["ASP.NET Core"]
     Chat["Chat 引擎（Services.Chatbot）<br/>agent loop・SSE・確認・usage 計費"]
     Profiles["IChatProfile<br/>studio / data-analysis / finance"]
-    Site["本站工具 ISiteTool<br/>字典・單字庫・Portfolio・open_page"]
+    Site["本站工具 ISiteTool<br/>字典・單字庫・Portfolio・Google 日曆・open_page"]
     DATools["ask_data・describe_data・save_to_dashboard"]
     CTS["ConnectorToolSource<br/>使用者的 MCP connector"]
     OAuth["MCP OAuth<br/>PRM・AS metadata・CIMD/DCR・PKCE・refresh"]
