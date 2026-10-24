@@ -37,7 +37,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
     /// one): a write, so the reader is asked first. The widget stores the chart's plan with the page's
     /// source and re-runs it on every view, as one added from the chart card does.
     /// </summary>
-    public sealed class SaveToDashboardTool(IDashboardService dashboards, DataAnalysisCharts charts) : IAiTool
+    public sealed class SaveToDashboardTool(IDashboardService dashboards, DataAnalysisCharts charts) : IAiTool, IDescribesCall
     {
         public const string Name = "save_to_dashboard";
 
@@ -67,6 +67,15 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
             ToolEffect.Write);
 
         public AiToolDescriptor Descriptor => Definition;
+
+        public string? Describe(JsonElement input, AiToolContext context)
+        {
+            var name = Text(input, "dashboard")?.Trim();
+            if (string.IsNullOrEmpty(name)) return null;
+            var chart = Text(input, "chartId") is { } id ? charts.Recall(context, id) : null;
+            var title = Text(input, "title")?.Trim() is { Length: > 0 } t ? t : chart?.Title ?? "這張圖";
+            return $"把「{title}」存到 dashboard「{name}」";
+        }
 
         public async Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
         {

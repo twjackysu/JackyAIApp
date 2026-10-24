@@ -61,6 +61,17 @@ describe('ApprovalCard', () => {
     expect(container.textContent).not.toContain('上執行');
   });
 
+  it('says in words what a call would do when its tool says, above the exact arguments', () => {
+    render({
+      pendingId: 'p',
+      calls: [call('a', { summary: '把「serendipity」加入你的單字庫' }), call('b')],
+    });
+
+    const summaries = [...container.querySelectorAll('[data-testid="approval-summary"]')];
+    expect(summaries.map((s) => s.textContent)).toEqual(['把「serendipity」加入你的單字庫']);
+    expect(container.textContent).toContain('word:serendipity');
+  });
+
   it('one call is allowed or refused straight away', () => {
     const allow = render({ pendingId: 'p', calls: [call('a')] });
     click(button('允許'));

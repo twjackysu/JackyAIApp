@@ -5,7 +5,7 @@
 ## 狀態
 
 - 設計：**設計定稿**（2026-10-24 04:10，經一次對抗式評審並修正；之後的調整記在 DECISIONS.md）。
-- 階段：1（開發）。M1 完成；**M2 垂直切片完成（10/24，提早）**：agent loop、同請求確認、工具權限與 taint、Data Analysis 助理、connector 目錄與自己的 MCP server（免認證／API key／Bearer）、/connectors 回到 portal。M3 已開始：Studio AI（⌘K 全站助理、open_page、English 的查字典／加入單字庫）完成；剩 MCP OAuth、Portfolio 工具。所有後端變更都由 branch CI 驗證（綠）。
+- 階段：1（開發）。M1、M2 完成；**M3 大致完成（10/24，提早）**：Studio AI（⌘K）、本站工具（字典、單字庫、學習進度、投資組合、open_page）、Data Analysis 用說的存 dashboard、**MCP OAuth**（PRM／AS metadata／DCR／CIMD／手填、PKCE、resource、iss、refresh）、目錄的 Notion／Linear。剩 403 step-up（可選）。SHOWCASE 初稿已寫。所有後端變更都由 branch CI 驗證（綠）。
 
 ## 目標
 

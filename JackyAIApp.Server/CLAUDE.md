@@ -244,7 +244,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   offered, and a call of one that asks first runs only once the reader allows it (and once a turn has read an
   outside connector's result, every call that is not a read asks first, whatever its permission; the
   question then says `tainted`): a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
-  calls: id, connector, tool, display name, effect, input), and the turn waits **in its own request**
+  calls: id, connector, tool, display name, effect, input, and a `summary` in words when a site tool says one,
+  `IDescribesCall`, never a connector's), and the turn waits **in its own request**
   (`ChatApprovalRegistry`, a singleton in memory like `ChatTurnRegistry`; at most
   `ClientToolRunner.ApprovalTimeout`, 3 minutes, writing a `: ping` comment line every 20s so Cloudflare does
   not close the idle stream) until `POST conversations/{id}/approvals/{pendingId}` brings the decisions (only

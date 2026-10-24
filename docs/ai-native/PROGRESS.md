@@ -1,5 +1,16 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-24 13:41 – 第 6 輪（MCP OAuth、Portfolio／學習進度工具、用說的存 dashboard、SHOWCASE 初稿）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。
+- **MCP OAuth（M3）**：`McpOAuthDiscovery`（401 的 `WWW-Authenticate` → PRM → AS metadata〔RFC 8414 → OIDC〕，驗 resource／issuer、必須 S256、只收 https、64KB、全經 SafeHttp）、`McpOAuthFlow`（成為 client：DCR → CIMD → 手填〔D-034〕；authorize 帶 PKCE、resource、scope、state，verifier 只在伺服器；回呼驗 state、一次性、iss 後換 token）、`McpOAuthTokens`（到期前 60 秒 refresh、每個安裝一把鎖、失敗且過期 → NeedsAuth 保留 client）、端點 `installations/{id}/authorize`、`callback/mcp`（字面路由）、`oauth/client-metadata`；probe 遇 401 回 oauth。工具呼叫被拒認證 → connector 標 NeedsAuth。PRM 的 resource 接受同源上層路徑（D-035）。目錄加 Notion、Linear（OAuth，未實測，D-037）。前端原本就準備好，playwright 截圖確認目錄與「偵測到 OAuth」對話框。
+- **本站工具**：Portfolio 的 `portfolio_summary`（Portfolio 模組可以用 Connectors；4 欄持倉表格卡片放得進 Studio 側邊）、English 的 `learning_progress`（到期複習、每日挑戰、連續天數、XP），Studio 提示與 /portfolio 建議更新。
+- **Data Analysis 用說的存 dashboard**：`ask_data` 回傳 `chartId`（`DataAnalysisCharts`，記憶體、依使用者與對話），`save_to_dashboard`（寫入 → 確認卡）存使用者看到的那張圖到同名 dashboard 或新建（D-036）。
+- **SHOWCASE.md 初稿**：亮點表、8 分鐘 demo 腳本（附截圖）、mermaid 架構圖、合併檢查清單、本機試跑、已知限制、日誌表。
+- 文件：server CLAUDE.md（模組表、Studio、Connectors 的 MCP OAuth 三個單元、Data analysis）、CONTRIBUTING-CONNECTORS（目錄可用 oauth）。
+- 驗證：每個後端 commit 先 cscheck（0 個新診斷），再看 CI：40068025275（OAuth）、40068413684（Portfolio）、40068952998（save_to_dashboard）、40069345138（Notion／Linear）、40069571595（NeedsAuth）綠；之後的 run 見 NEXT §1。前端 lint／相關測試／build 過。
+- 問題：無阻礙。Notion／Linear 的實際 OAuth 流程無法在 session 內測（連不到外網）。
+
 ## 2026-10-24 11:42 – 第 5 輪（確認流程、connector 後端、自己的 MCP server、Studio AI）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。

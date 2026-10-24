@@ -171,6 +171,21 @@ namespace JackyAIApp.Server.Services.Chatbot
             return checkedCard;
         }
 
+        /// <summary>What a site tool says one call would do, for the card; none from a connector's tool, or on any failure.</summary>
+        private string? Summary(BetaToolUseBlock call, IAiTool tool)
+        {
+            if (tool is not IDescribesCall describes || tool.Descriptor.Connector != AiToolDescriptor.SiteConnector) return null;
+            try
+            {
+                var text = describes.Describe(JsonSerializer.SerializeToElement(call.Input), _context)?.Trim();
+                return string.IsNullOrEmpty(text) ? null : text.Length > 200 ? text[..200] : text;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
         /// <summary>
         /// Puts <paramref name="calls"/> to the reader and waits for their decisions, by call id (true =
         /// allowed); every one a no if none came within <see cref="ApprovalTimeout"/> (TimedOut). The
@@ -194,6 +209,7 @@ namespace JackyAIApp.Server.Services.Chatbot
                     displayName = c.Tool.Descriptor.DisplayName,
                     effect = c.Tool.Descriptor.Effect.WireName(),
                     input = JsonSerializer.SerializeToElement(c.Call.Input),
+                    summary = Summary(c.Call, c.Tool),
                 }).ToList(),
             }, ct);
 

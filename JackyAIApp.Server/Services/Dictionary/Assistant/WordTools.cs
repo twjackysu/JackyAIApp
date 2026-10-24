@@ -82,7 +82,7 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
     }
 
     /// <summary>Adds a word to the reader's word repository — a write, so the reader is asked first.</summary>
-    public sealed class AddWordToRepositoryTool(IDictionaryService dictionary, IRepositoryService repository) : ISiteTool
+    public sealed class AddWordToRepositoryTool(IDictionaryService dictionary, IRepositoryService repository) : ISiteTool, IDescribesCall
     {
         public const string Name = "add_word_to_repository";
 
@@ -94,6 +94,9 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
             ToolEffect.Write);
 
         public AiToolDescriptor Descriptor => Definition;
+
+        public string? Describe(JsonElement input, AiToolContext context) =>
+            WordInput.Of(input) is { } word ? $"把「{word}」加入你的單字庫" : null;
 
         public async Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
         {

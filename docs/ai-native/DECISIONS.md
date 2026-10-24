@@ -35,3 +35,8 @@
 - **D-031（2026-10-24 12:30）讀過外部 connector 結果後，同一輪的寫入一律先問（taint 只算一輪）**：前幾輪的外部內容只以助理的文字回到歷史，風險較低；之後若要跨輪，存在對話上。
 - **D-032（2026-10-24 12:30）Studio AI 只給登入者、不在 /finance、/data-analysis（各有自己的助理）與幻燈片顯示**；沒有 tw-stock（市場問題請到 /finance）。本站工具用 `ISiteTool` 由功能模組註冊（不需頁面狀態的工具），Studio 全部拿到。
 - **D-033（2026-10-24 12:30）目錄只列可以加的項目**：本站功能永遠在「AI 可以使用的」；內建 MCP 先放 tw-stock 與 DeepWiki（都免登入、Streamable HTTP），一律用目錄的網址、每人一次。
+- **D-034（2026-10-24 14:20）MCP OAuth 成為 client 的順序：DCR → CIMD → 手填**（design/03 §5.2 原本 CIMD 優先，規格也偏好 CIMD）：CIMD 要授權伺服器在使用者登入當下經 Cloudflare 抓我們的 metadata 文件（main site 只收 Cloudflare 流量、可能有 bot 防護），失敗只會出現在對方頁面；DCR 失敗發生在我們的請求裡，可以給人話。伺服器沒有 registration_endpoint 才用 CIMD。使用者自己填了 client id 時一律用它。本機（localhost）沒有 CIMD。
+- **D-035（2026-10-24 14:20）PRM 的 `resource` 接受同源的上層路徑**（RFC 9728 要求完全相同，但 Notion 等伺服器常回 origin）：與官方 TypeScript SDK 的 `checkResourceAllowed` 相同——scheme／host／port 相同，伺服器路徑在 resource 路徑之內；送給授權伺服器的 `resource` 用 PRM 寫的值。
+- **D-036（2026-10-24 14:20）`save_to_dashboard` 用 ask_data 的 chartId，不重新查詢**：圖表的 plan 以短 id 暫存在記憶體（依使用者與對話分開，2 小時），模型只能存使用者看過的圖、不能自己寫 plan，也不會重複收費。重啟後 id 失效，模型會被告知先重新查一次。
+- **D-037（2026-10-24 14:20）目錄加入 Notion、Linear（OAuth）**：兩者都是 Streamable HTTP、支援 DCR 與 PKCE（官方文件）。session 連不到外網，**沒有實測**；合併後請 Jacky 在 production 試一次（FOR_JACKY 7）。
+- **D-038（2026-10-24 14:20）Portfolio 工具是唯讀、預設自動**：使用者問自己的資產時才會被呼叫；送給模型的是本站已估值的數字（不含交易明細）。想更保守的人可以在 Connectors 把它設成「需確認」或停用。

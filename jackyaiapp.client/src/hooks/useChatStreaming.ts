@@ -47,6 +47,8 @@ export interface ApprovalCallEvent {
   displayName: string;
   effect: ToolEffect;
   input: Record<string, unknown>;
+  /** What the call would do, in words, from the site's own tool (never a connector's); null when it has none. */
+  summary?: string | null;
 }
 
 /** Our own SSE event shape from ChatbotController — written by AnthropicChatService through

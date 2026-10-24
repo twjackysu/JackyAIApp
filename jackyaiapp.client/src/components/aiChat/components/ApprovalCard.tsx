@@ -85,6 +85,11 @@ export default function ApprovalCard({ approval, state, decisions, onSubmit }: A
               {where(call)}
             </Typography>
           )}
+          {call.summary && (
+            <Typography variant="body2" sx={{ mt: 0.5 }} data-testid="approval-summary">
+              {call.summary}
+            </Typography>
+          )}
           <Box component="dl" sx={{ m: 0, mt: 0.5, fontSize: '0.8rem' }}>
             {Object.entries(call.input).map(([key, value]) => (
               <Box key={key} sx={{ display: 'flex', gap: 1, minWidth: 0 }}>

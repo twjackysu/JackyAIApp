@@ -78,4 +78,15 @@ namespace JackyAIApp.Server.Services.Connectors
         /// </summary>
         Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct);
     }
+
+    /// <summary>
+    /// A tool of the site's own that can say in words what one call of it would do ("把「serendipity」加入你的單字庫"),
+    /// shown on the confirmation card above the call's exact arguments. Only the site's own tools: a connector's
+    /// words would be an outside server's, which the card must not present as ours.
+    /// </summary>
+    public interface IDescribesCall
+    {
+        /// <summary>The call in one short sentence; null when the input says too little to tell.</summary>
+        string? Describe(JsonElement input, AiToolContext context);
+    }
 }
