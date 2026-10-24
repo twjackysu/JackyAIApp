@@ -60,6 +60,8 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         internal const int InvalidRequest = -32600;
         internal const int MethodNotFound = -32601;
         internal const int InvalidParams = -32602;
+        /// <summary>MCP's own code for a resource that is not there.</summary>
+        internal const int ResourceNotFound = -32002;
 
         private readonly IReadOnlyList<ISiteTool> _tools = siteTools.ToList();
 
@@ -90,6 +92,8 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 "ping" => Result(id, new JsonObject()),
                 "tools/list" => Result(id, await ListToolsAsync(holder, ct)),
                 "tools/call" => await CallToolAsync(id, parameters, holder, siteOrigin, ct),
+                "resources/list" => Result(id, new JsonObject { ["resources"] = new JsonArray(SiteMcpApp.ResourceJson()) }),
+                "resources/read" => ReadResource(id, parameters),
                 _ => Error(id, MethodNotFound, $"Method not found: {method}"),
             };
         }
@@ -103,7 +107,16 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
             return new JsonObject
             {
                 ["protocolVersion"] = version,
-                ["capabilities"] = new JsonObject { ["tools"] = new JsonObject { ["listChanged"] = false } },
+                ["capabilities"] = new JsonObject
+                {
+                    ["tools"] = new JsonObject { ["listChanged"] = false },
+                    // The one resource is the MCP App drawing the tools' cards (SiteMcpApp).
+                    ["resources"] = new JsonObject { ["listChanged"] = false },
+                    ["extensions"] = new JsonObject
+                    {
+                        [SiteMcpApp.ExtensionKey] = new JsonObject { ["mimeTypes"] = new JsonArray(SiteMcpApp.MimeType) },
+                    },
+                },
                 ["serverInfo"] = new JsonObject { ["name"] = ServerName, ["title"] = ServerTitle, ["version"] = "1.0" },
                 ["instructions"] = Instructions,
             };
@@ -145,7 +158,18 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 // Only a tool reading other people's words (a calendar invite) reaches past the reader's own data.
                 ["openWorldHint"] = tool.OutsideText,
             },
+            // Every site tool's result has a card; a client drawing MCP Apps shows it with this app.
+            ["_meta"] = SiteMcpApp.ToolMeta(),
         };
+
+        private static SiteMcpReply ReadResource(JsonNode id, JsonObject? parameters)
+        {
+            var uri = parameters?["uri"]?.GetValueKind() == JsonValueKind.String ? (string?)parameters["uri"] : null;
+            if (uri == null) return Error(id, InvalidParams, "resources/read needs a uri.");
+            return uri == SiteMcpApp.ResourceUri
+                ? Result(id, SiteMcpApp.ReadResult())
+                : Error(id, ResourceNotFound, $"Resource not found: {uri}");
+        }
 
         private async Task<SiteMcpReply> CallToolAsync(
             JsonNode id, JsonObject? parameters, SiteTokenHolder holder, string siteOrigin, CancellationToken ct)
@@ -171,11 +195,14 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
 
             var text = outcome.Content.Length > MaxResultChars ? outcome.Content[..MaxResultChars] + TruncatedNote : outcome.Content;
             if (!outcome.IsError && LinkLine(outcome.Card, siteOrigin) is { } link) text += "\n\n" + link;
-            return Result(id, new JsonObject
+            var result = new JsonObject
             {
                 ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = text }),
                 ["isError"] = outcome.IsError,
-            });
+            };
+            if (!outcome.IsError && SiteMcpApp.StructuredContent(outcome.Card, siteOrigin) is { } structured)
+                result["structuredContent"] = structured;
+            return Result(id, result);
         }
 
         /// <summary>
@@ -186,21 +213,22 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         internal static string? LinkLine(object? card, string siteOrigin)
         {
             if (card == null || JsonSerializer.SerializeToNode(card) is not JsonObject node) return null;
-            if (StringOf(node["kind"]) != "link" || StringOf(node["href"])?.Trim() is not { Length: > 0 } href) return null;
-
-            string url;
-            if (href.StartsWith('/'))
-            {
-                if (href.StartsWith("//") || href.StartsWith("/\\")) return null;
-                url = siteOrigin.TrimEnd('/') + href;
-            }
-            else if (Uri.TryCreate(href, UriKind.Absolute, out var absolute) && absolute.Scheme == Uri.UriSchemeHttps)
-                url = absolute.AbsoluteUri;
-            else
-                return null;
+            if (StringOf(node["kind"]) != "link" || AbsoluteHref(StringOf(node["href"]), siteOrigin) is not { } url) return null;
 
             var title = StringOf(node["title"])?.Trim();
             return string.IsNullOrEmpty(title) ? url : $"{title}：{url}";
+        }
+
+        /// <summary>A card's link in full: a path on the site after its origin, an https address as it is; else null.</summary>
+        public static string? AbsoluteHref(string? href, string siteOrigin)
+        {
+            href = href?.Trim();
+            if (string.IsNullOrEmpty(href)) return null;
+            if (href.StartsWith('/'))
+                return href.StartsWith("//") || href.StartsWith("/\\") ? null : siteOrigin.TrimEnd('/') + href;
+            return Uri.TryCreate(href, UriKind.Absolute, out var absolute) && absolute.Scheme == Uri.UriSchemeHttps
+                ? absolute.AbsoluteUri
+                : null;
         }
 
         private static string? StringOf(JsonNode? node) =>

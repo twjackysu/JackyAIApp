@@ -43,6 +43,14 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         private readonly FakeTool _clear = new("clear_words", ToolEffect.Destructive);
         private readonly FakeTool _linked = new("open_repository", ToolEffect.Read,
             (_, _) => new AiToolResult("單字庫有 3 個字。", Card: new { kind = "link", title = "我的單字庫", href = "/english/repository" }));
+        private readonly FakeTool _table = new("portfolio", ToolEffect.Read,
+            (_, _) => new AiToolResult("2 筆持倉。", Card: new
+            {
+                kind = "table",
+                title = "投資組合",
+                columns = new object[] { new { key = "name", label = "持倉" }, new { key = "value", label = "市值", numeric = true } },
+                rows = new object[] { new Dictionary<string, object?> { ["name"] = "台積電", ["value"] = 1000 } },
+            }));
         private readonly FakeTool _broken = new("broken", ToolEffect.Read, (_, _) => throw new InvalidOperationException("connection string Server=secret"));
 
         private Dictionary<string, ToolPermission> _chosen = [];
@@ -52,7 +60,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
             var permissions = new Mock<IToolPermissionSource>();
             permissions.Setup(p => p.ChosenAsync("u1", SiteConnector.Key, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(() => _chosen);
-            return new SiteMcpServer([_lookUp, _calendar, _addWord, _clear, _linked, _broken], permissions.Object,
+            return new SiteMcpServer([_lookUp, _calendar, _addWord, _clear, _linked, _table, _broken], permissions.Object,
                 TimeProvider.System, NullLogger<SiteMcpServer>.Instance);
         }
 
@@ -117,7 +125,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         [Fact]
         public async Task AnUnknownMethod_IsMethodNotFound()
         {
-            var reply = await Server().HandleAsync(Request("resources/list"), ReadOnly, Origin, CancellationToken.None);
+            var reply = await Server().HandleAsync(Request("prompts/list"), ReadOnly, Origin, CancellationToken.None);
 
             Assert.Equal(SiteMcpServer.MethodNotFound, (int)reply.Body!["error"]!["code"]!);
         }
@@ -144,13 +152,13 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         [Fact]
         public async Task AReadOnlyToken_SeesTheReads_Only()
         {
-            Assert.Equal(new[] { "look_up_word", "calendar", "open_repository", "broken" }, await ToolNamesFor(ReadOnly));
+            Assert.Equal(new[] { "look_up_word", "calendar", "open_repository", "portfolio", "broken" }, await ToolNamesFor(ReadOnly));
         }
 
         [Fact]
         public async Task ATokenThatAllowsWrites_SeesTheWritesToo_ButNeverWhatCannotBeUndone()
         {
-            Assert.Equal(new[] { "look_up_word", "calendar", "add_word", "open_repository", "broken" }, await ToolNamesFor(WithWrites));
+            Assert.Equal(new[] { "look_up_word", "calendar", "add_word", "open_repository", "portfolio", "broken" }, await ToolNamesFor(WithWrites));
         }
 
         [Fact]
@@ -158,7 +166,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         {
             _chosen = new() { ["look_up_word"] = ToolPermission.Disabled, ["add_word"] = ToolPermission.Disabled };
 
-            Assert.Equal(new[] { "calendar", "open_repository", "broken" }, await ToolNamesFor(WithWrites));
+            Assert.Equal(new[] { "calendar", "open_repository", "portfolio", "broken" }, await ToolNamesFor(WithWrites));
         }
 
         [Fact]
@@ -276,6 +284,100 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
                 SiteMcpServer.LinkLine(JsonSerializer.SerializeToElement(new { kind = "link", href = "/portfolio" }), Origin));
         }
 
+        // ---- MCP Apps: the card drawn by a client that draws apps ----
+
+        [Fact]
+        public async Task Initialize_DeclaresTheAppExtension_AndResources()
+        {
+            var result = await ResultOf(Request("initialize", new JsonObject { ["protocolVersion"] = "2025-11-25" }));
+
+            var capabilities = result["capabilities"]!;
+            Assert.NotNull(capabilities["resources"]);
+            Assert.Equal(SiteMcpApp.MimeType, (string?)capabilities["extensions"]![SiteMcpApp.ExtensionKey]!["mimeTypes"]![0]);
+        }
+
+        [Fact]
+        public async Task EveryTool_NamesTheApp()
+        {
+            var tools = (await ResultOf(Request("tools/list"), WithWrites))["tools"]!.AsArray();
+
+            Assert.All(tools, t => Assert.Equal(SiteMcpApp.ResourceUri, (string?)t!["_meta"]!["ui"]!["resourceUri"]));
+        }
+
+        [Fact]
+        public async Task TheApp_IsListed_AndReadAsAnMcpAppPage()
+        {
+            var listed = await ResultOf(Request("resources/list"));
+            var resource = Assert.Single(listed["resources"]!.AsArray())!;
+            Assert.Equal(SiteMcpApp.ResourceUri, (string?)resource["uri"]);
+            Assert.Equal(SiteMcpApp.MimeType, (string?)resource["mimeType"]);
+
+            var read = await ResultOf(Request("resources/read", new JsonObject { ["uri"] = SiteMcpApp.ResourceUri }));
+            var content = Assert.Single(read["contents"]!.AsArray())!;
+            Assert.Equal(SiteMcpApp.MimeType, (string?)content["mimeType"]);
+            Assert.StartsWith("<!doctype html>", (string?)content["text"]);
+        }
+
+        [Fact]
+        public async Task AResourceThatIsNotThere_IsResourceNotFound()
+        {
+            var reply = await Server().HandleAsync(
+                Request("resources/read", new JsonObject { ["uri"] = "ui://jacky-studio/other.html" }), ReadOnly, Origin, CancellationToken.None);
+
+            Assert.Equal(SiteMcpServer.ResourceNotFound, (int)reply.Body!["error"]!["code"]!);
+        }
+
+        [Fact]
+        public void TheApp_DrawsText_Only_AndLoadsNothingFromOutside()
+        {
+            var html = SiteMcpApp.Html;
+
+            Assert.Contains("ui/initialize", html);
+            Assert.Contains("ui/notifications/initialized", html);
+            Assert.Contains("ui/notifications/size-changed", html);
+            Assert.Contains("ui/open-link", html);
+            Assert.DoesNotContain("innerHTML", html);
+            Assert.DoesNotContain("<script src", html);
+            Assert.DoesNotContain("<link", html);
+            Assert.DoesNotContain("http://", html);
+        }
+
+        [Fact]
+        public async Task ALinksCard_IsTheStructuredContent_WithItsAddressInFull()
+        {
+            var result = await ResultOf(Call("open_repository"));
+
+            var card = result["structuredContent"]!["card"]!;
+            Assert.Equal("link", (string?)card["kind"]);
+            Assert.Equal("https://apps.jacky-studio.com/english/repository", (string?)card["href"]);
+        }
+
+        [Fact]
+        public async Task ATablesCard_IsTheStructuredContent()
+        {
+            var result = await ResultOf(Call("portfolio"));
+
+            var card = result["structuredContent"]!["card"]!;
+            Assert.Equal("table", (string?)card["kind"]);
+            Assert.Equal("台積電", (string?)card["rows"]![0]!["name"]);
+            Assert.Equal("2 筆持倉。", (string?)result["content"]![0]!["text"]);
+        }
+
+        [Fact]
+        public async Task AResultWithoutACard_OrAFailure_HasNoStructuredContent()
+        {
+            Assert.Null((await ResultOf(Call("calendar")))["structuredContent"]);
+            Assert.Null((await ResultOf(Call("broken")))["structuredContent"]);
+        }
+
+        [Theory]
+        [InlineData("chart")]
+        [InlineData("link")]
+        public void ACardTheAppDoesNotDraw_OrALinkThatMayNotBeFollowed_IsLeftOut(string kind)
+        {
+            Assert.Null(SiteMcpApp.StructuredContent(new { kind, href = "javascript:alert(1)", data = new { } }, Origin));
+        }
+
         // ---- The real SDK's client against this server (what Claude Desktop, Cursor and others do) ----
 
         /// <summary>Hands the SDK's requests to the server as the controller would.</summary>
@@ -310,7 +412,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
                 .ListToolsAsync(Endpoint, McpAuth.None, CancellationToken.None);
 
             Assert.Equal("Jacky Studio", listed.ServerName);
-            Assert.Equal(new[] { ("look_up_word", ToolEffect.Read), ("calendar", ToolEffect.Read), ("add_word", ToolEffect.Write), ("open_repository", ToolEffect.Read), ("broken", ToolEffect.Read) },
+            Assert.Equal(new[] { ("look_up_word", ToolEffect.Read), ("calendar", ToolEffect.Read), ("add_word", ToolEffect.Write), ("open_repository", ToolEffect.Read), ("portfolio", ToolEffect.Read), ("broken", ToolEffect.Read) },
                 listed.Tools.Select(t => (t.Name, t.Effect)));
             Assert.Equal("initialize", bridge.Methods[0]);
             Assert.Contains("tools/list", bridge.Methods);
