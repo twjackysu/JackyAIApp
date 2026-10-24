@@ -222,3 +222,13 @@ sequenceDiagram
 - **同意頁** `/oauth/authorize`（`OAuthConsent`）：未登入先用 Google 登入並帶著完整 query 回來；`GET api/oauth/consent` 檢查 client、redirect（不在註冊清單就停在本站，不導回，防 open redirect）、`response_type=code`、PKCE S256、`resource`；顯示「誰、回到哪個網站、可否寫入」。寫入與否是**使用者**勾的，不是 client 要的 scope。`POST api/oauth/consent` 產生授權碼（記憶體 5 分鐘、一次性）並回 `redirect_uri?code&state&iss`，拒絕則 `error=access_denied`。
 - **token** `POST /api/oauth/token`（form）：授權碼第一次嘗試就作廢（就算後面的檢查失敗）、client 與 redirect 必須相同、PKCE、`resource`；發的 access token 就是一個 PAT（以 client 名稱命名、90 天），所以 /connectors 的清單看得到、可撤銷。沒有 refresh token：到期後 client 重新請使用者授權。
 - 測試：`SiteOAuthServerTests` 走完註冊 → 同意 → 換 token → MCP server 收下 token，以及每一關的拒絕。
+- 第 9 輪：`register`、`token` 兩個匿名端點加 rate limit（`site-oauth`，每個位址每分鐘 30 次，位址取 `CF-Connecting-IP`，因為正式站只收 Cloudflare 的流量，D-049），被擋時回 OAuth 的錯誤格式；OAuth 發的 token 標 `ViaOAuth`，/connectors 的清單顯示「經 OAuth 登入」。
+
+### 9.2 本站是 MCP App（第 9 輪）
+
+MCP Apps 擴充（`io.modelcontextprotocol/ui`）讓支援的 client（Claude、ChatGPT）在回答下方用 sandboxed iframe 畫 server 提供的 UI。本站用它把工具的卡片（站內 chat 裡的表格、連結卡）原樣帶到別家的 AI 裡：
+
+- **一個 app 畫所有卡片**（`SiteMcpApp`）：資源 `ui://jacky-studio/card.html`，`text/html;profile=mcp-app`，script 與 style 全部內嵌（不需要任何外部網域，host 預設的 CSP 就夠），只用 `textContent` 寫值（不用 innerHTML），連結只經 host 的 `ui/open-link`、只到 https。跟 host 的 `hostContext.theme` 切深淺色，內容高度用 `ui/notifications/size-changed` 回報。
+- **宣告**：`initialize` 的 capabilities 有 `resources` 與 `extensions["io.modelcontextprotocol/ui"].mimeTypes`；`tools/list` 每個工具帶 `_meta.ui.resourceUri`；`resources/list`、`resources/read`（其他 uri → -32002）。server 沒有 session，看不到 client 在 initialize 有沒有宣告支援，所以一律提供（D-050）：不支援的 client 會忽略 `_meta` 與 `structuredContent`。
+- **資料**：`tools/call` 成功且工具有卡片時，結果多一個 `structuredContent: { card }`——table 原樣，link 的 `href` 補成完整網址（本站路徑 → issuer + 路徑；只收 https）；其他 kind、不能跟的連結、超過 200k 字元則不放。文字（`content`）照舊，連結卡另外在文字後附「標題：完整網址」，讓不畫 app 的 client 也能給使用者連結。
+- **測試**：`SiteMcpServerTests` 的 MCP Apps 區塊（宣告、資源、structuredContent、HTML 不含 innerHTML 與外部載入）；畫面用 playwright 自己扮 host（`ui/initialize` → `tool-result` → `size-changed`）截圖（`screenshots/mcp-app-card-*.png`），含 `<img onerror>` 當資料時只顯示成文字。

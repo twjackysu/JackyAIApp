@@ -354,7 +354,15 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   out stays on the site, never sent back), choosing whether writes are allowed; the code (`SiteOAuthCodes`, in memory,
   5 minutes) is spent by the first try at `POST api/oauth/token` (form; PKCE S256, same client and redirect,
   `resource`), which answers with one of the reader's personal access tokens, named after the client, 90 days, no
-  refresh token
+  refresh token. The anonymous `register` and `token` are held to 30 requests a minute per address
+  (`RateLimitPolicies.SiteOAuth`, by `CF-Connecting-IP`: the site takes only Cloudflare's traffic), answered in OAuth's
+  error shape; a token made this way is `ViaOAuth`, which the connectors page shows
+- The site's MCP server is also an MCP App (the `io.modelcontextprotocol/ui` extension, design/03 §9.2), so a client that
+  draws apps (Claude, ChatGPT) shows a tool's card the way the site's own chat does: `SiteMcpApp` is one self-contained
+  HTML page (`ui://jacky-studio/card.html`, script and style inline, values written as text, links only through the
+  host's `ui/open-link`), every tool names it in `_meta.ui`, and a result with a table or link card carries it as
+  `structuredContent.card` (a link's address made whole). Being sessionless, the server cannot tell whether the client
+  said it draws apps, so it always offers it; others ignore it. A link card's address also follows the text in full
 - `ConnectorCatalogService` answers the page (`AiConnectorsController`, `api/connectors/catalog`,
   `tool-permissions`, `installations/{id}/enabled`, `installations/{id}`, in the `{ data }` envelope; the
   account connections' endpoints of `ConnectorsController`, under the same route, are unchanged) and, as

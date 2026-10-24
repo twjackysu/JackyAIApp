@@ -50,3 +50,6 @@
 - **D-046（2026-10-24 18:00）PAT 只存 SHA-256、可撤銷＝刪列**，驗證方案 `SiteToken` 只掛在 `/api/mcp`（cookie 不在那裡生效，token 也不能用在其他端點）。
 - **D-047（2026-10-24 18:20）本站當 OAuth 授權伺服器，但 DCR 不用資料表**（client_id = data protection 保護的註冊內容）、授權碼放記憶體（單一 instance）、access token 就是 PAT（以 client 名稱命名、90 天、不發 refresh token）：少一張表與一個 migration，使用者在同一個清單看到並撤銷所有外部 AI。代價：重啟時正在登入的人要重來；金鑰換了 client 要重新註冊（client 會自動做）。
 - **D-048（2026-10-24 18:20）OAuth 的寫入權限由使用者在同意頁勾選**，不照 client 要求的 scope；client 要了 `mcp:write` 時只在勾選框旁註明「它要求了」。
+- **D-049（2026-10-24 19:50）本站 OAuth 的 `register`／`token` 依「位址」限流（每分鐘 30 次），位址取 `CF-Connecting-IP`**：這兩個端點匿名，沒有使用者或 token 可分；全體共用一個窗口會讓任何人擋掉所有人的登入。正式站的 App Service 只收 Cloudflare 的 IP 範圍，所以這個 header 是 Cloudflare 寫的、可信；本機沒有它時用連線的位址。被擋時回 OAuth 的 `temporarily_unavailable`（429）而不是本站的 envelope。
+- **D-050（2026-10-24 20:00）本站 MCP server 一律提供 MCP App（`_meta.ui`、`structuredContent`、`resources`）**：server 沒有 session，`tools/list` 看不到 client 在 initialize 有沒有宣告 `io.modelcontextprotocol/ui`；不支援的 client 依規格忽略這些欄位，文字照舊。一個 app 畫所有卡片（table、link），不為每個工具各做一頁；站內 chat 仍用宣告式卡片（D-019 不變）。
+- **D-051（2026-10-24 19:50）`SiteAccessTokens.ViaOAuth` 直接加進 `AddSiteAccessTokens` migration**（不另開 migration）：那個 migration 只在這個 branch、還沒進 production，合併時是一次建表。
