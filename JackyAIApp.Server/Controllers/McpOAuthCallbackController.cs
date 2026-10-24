@@ -24,9 +24,10 @@ namespace JackyAIApp.Server.Controllers
             var outcome = await oauth.CompleteAsync(code, state, iss, error, ct);
             var page = $"{AuthCallbackController.FrontendBaseUrl(Request)}/connectors";
             var provider = Uri.EscapeDataString(outcome.Provider);
+            // kind=mcp: the page tells an AI connector's reader what happened in words of its own.
             return Redirect(outcome.Ok
-                ? $"{page}?success=true&provider={provider}"
-                : $"{page}?error={Uri.EscapeDataString(outcome.Error ?? "callback_failed")}&provider={provider}");
+                ? $"{page}?success=true&provider={provider}&kind=mcp"
+                : $"{page}?error={Uri.EscapeDataString(outcome.Error ?? "callback_failed")}&provider={provider}&kind=mcp");
         }
 
         /// <summary>Client ID Metadata Document: who we are to an authorization server that fetches this URL.</summary>

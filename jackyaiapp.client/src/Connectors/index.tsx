@@ -6,6 +6,7 @@ import React, { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import AiConnectorsSection from './AiConnectorsSection';
+import { callbackNotice } from './callbackNotice';
 import ConnectorCard from './ConnectorCard';
 
 import {
@@ -52,34 +53,14 @@ const Connectors: React.FC = () => {
   };
   // Handle OAuth callback results
   useEffect(() => {
-    const success = searchParams.get('success');
-    const error = searchParams.get('error');
-    const provider = searchParams.get('provider');
-
-    if (success === 'true' && provider) {
-      setState({
-        open: true,
-        message: `Successfully connected to ${provider}`,
-        severity: 'success',
-      });
-      refreshAll();
-    } else if (error && provider) {
-      const errorMessages: Record<string, string> = {
-        access_denied: 'Access was denied by the user',
-        invalid_request: 'Invalid request parameters',
-        callback_failed: 'Failed to process the authorization',
-        internal_error: 'An internal error occurred',
-        missing_parameters: 'Missing required parameters',
-        invalid_provider: 'Invalid provider specified',
-      };
-      const message = errorMessages[error] || `Failed to connect to ${provider}`;
-
-      setState({ open: true, message, severity: 'error' });
-      // setState({ open: true, message, severity: 'error' });
+    const notice = callbackNotice(searchParams);
+    if (notice) {
+      setState({ open: true, ...notice });
+      if (notice.severity === 'success') refreshAll();
     }
 
     // Clean up URL parameters
-    if (success || error) {
+    if (searchParams.get('success') || searchParams.get('error')) {
       window.history.replaceState({}, '', '/connectors');
     }
   }, [searchParams, refreshAll]);
