@@ -269,8 +269,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   registers (English's `look_up_word`, `add_word_to_repository`, a write, so asked first, and `learning_progress`,
   the words due for review, the daily challenge, streak and XP, and `review_quiz`, a few multiple-choice questions on
   the reader's due words, else those due soonest (`IReviewQuizService`, `Services/SpacedRepetition`: the daily challenge's
-  generator, `GenerateFor`, no AI), shown as a `quiz` card the reader answers on, which sends the answers to the review
-  schedule itself; a read, since making it changes nothing; the model is told the words, and the questions and answers only
+  generator, `GenerateFor`, no AI; the wrong options from the reader's other saved words, topped up from the dictionary by
+  id), shown as a `quiz` card the reader answers on, which sends the answers to the review schedule itself when the words
+  are due; a read, since making it changes nothing; the model is told the words, and the questions and answers only
   for a client that cannot draw the card: `Services/Dictionary/Assistant`; Portfolio's `portfolio_summary`, the reader's own portfolio as
   /portfolio values it, a table card of the positions: `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events`)
   and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market. Its prompt also says

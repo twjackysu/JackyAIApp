@@ -81,7 +81,9 @@ jackyaiapp.client/src/
   are offered by their name or two characters of it (「打開『業績追蹤』」). On a word's dictionary page its suggestions are about
   that word (`dictionaryWordOf`). A review quiz (`review_quiz`) comes as a `quiz` card, Studio AI's own renderer
   (`QuizCardView`, `quizCard.parseQuizCard`): one question at a time, right or wrong shown at once, and after the last the
-  answers go to the review schedule as the review page sends them (`review/submit`, right 4, wrong 1), no AI involved. A page opens it with a message sent through `askStudio(text, { fresh? })` (`StudioAssistant/askStudio`, a window
+  answers go to the review schedule as the review page sends them (`review/submit`, right 4, wrong 1), no AI involved —
+  only for words that are due, and only the first time: a card drawn again from a reopened conversation (a renderer's
+  `saved`, which `ToolCards` passes for stored cards) and a quiz on words not yet due are practice, recording nothing. A page opens it with a message sent through `askStudio(text, { fresh? })` (`StudioAssistant/askStudio`, a window
   event; the panel's `ask` prop sends each id once; `fresh` sends it as the first message of a new conversation,
   `useChatConversation`'s `send(…, { fresh: true })`, queued like any message while an answer is written): the home
   page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in only, nothing asked until clicked) sends `BRIEFING_PROMPT`,
