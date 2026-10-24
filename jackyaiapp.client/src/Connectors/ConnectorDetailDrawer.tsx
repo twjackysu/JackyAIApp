@@ -13,7 +13,7 @@ import {
 import { useState } from 'react';
 
 import CategoryIcon from './CategoryIcon';
-import { HEALTH_VIEW } from './connectorView';
+import { drawerDescription, HEALTH_VIEW } from './connectorView';
 import { EFFECT_LABELS } from './toolPermission';
 import ToolPermissionToggle from './ToolPermissionToggle';
 
@@ -111,9 +111,11 @@ function DetailBody({
           </IconButton>
         </ActionTooltip>
       </Stack>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {connector.description}
-      </Typography>
+      {drawerDescription(connector) && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {drawerDescription(connector)}
+        </Typography>
+      )}
 
       {connector.lastError && (
         <Alert severity={connector.health === 'needsAuth' ? 'warning' : 'error'} sx={{ mb: 2 }}>

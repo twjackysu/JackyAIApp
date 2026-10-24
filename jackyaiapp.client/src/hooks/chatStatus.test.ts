@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ANSWERING, WAITING_FOR_READER, statusAfter } from './chatStatus';
+import { ANSWERING, WAITING_FOR_READER, statusAfter, withToolLabel } from './chatStatus';
 
 describe('statusAfter', () => {
   it('names a tool by the name the reader is shown', () => {
@@ -29,5 +29,41 @@ describe('statusAfter', () => {
     expect(
       statusAfter({ type: 'approval_resolved', pendingId: 'p1', decisions: [] }).statusText,
     ).toBe(ANSWERING);
+  });
+});
+
+describe('withToolLabel', () => {
+  const labels = { get_stock_history: '個股歷史股價' };
+
+  it("names a hosted tool by the app's label, so the header and its chip say it in words", () => {
+    const event = withToolLabel({ type: 'tool_use', name: 'get_stock_history' }, labels);
+    expect(event).toEqual({
+      type: 'tool_use',
+      name: 'get_stock_history',
+      displayName: '個股歷史股價',
+    });
+    expect(statusAfter(event).statusText).toBe('🔄 正在使用「個股歷史股價」…');
+  });
+
+  it("keeps the server's display name", () => {
+    const event = {
+      type: 'tool_use' as const,
+      id: 't1',
+      name: 'get_stock_history',
+      displayName: '查歷史',
+    };
+    expect(withToolLabel(event, labels)).toBe(event);
+  });
+
+  it('leaves a tool the labels do not know, a result, and an app without labels as they are', () => {
+    const unknown = { type: 'tool_use' as const, name: 'get_etf_info' };
+    expect(withToolLabel(unknown, labels)).toBe(unknown);
+    expect(withToolLabel({ type: 'tool_use', name: 'toString' }, labels)).toEqual({
+      type: 'tool_use',
+      name: 'toString',
+    });
+    const result = { type: 'tool_result' as const, id: 't1', name: 'get_stock_history', ok: true };
+    expect(withToolLabel(result, labels)).toBe(result);
+    expect(withToolLabel(unknown, undefined)).toBe(unknown);
   });
 });

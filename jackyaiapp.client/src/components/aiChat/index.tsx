@@ -73,6 +73,7 @@ function AiAssistantPanel({
     errorMessages: config.errorMessages,
     profile: config.profile,
     pageContext: config.pageContext,
+    toolLabels: config.toolLabels,
     onNavigate,
   });
   const { messages, conversationId, busy } = conversation;

@@ -98,3 +98,16 @@ export function installedOrder(connectors: readonly InstalledConnector[]): Insta
     (a, b) => rank(a) - rank(b) || a.displayName.localeCompare(b.displayName, 'zh-Hant'),
   );
 }
+
+/**
+ * The line under a connector's name in its drawer. A server of the reader's own is described by its
+ * address, which the drawer already lists under 網址, so it says nothing rather than the same twice.
+ */
+export function drawerDescription(
+  connector: Pick<InstalledConnector, 'description' | 'serverUrl' | 'alwaysOn'>,
+): string | null {
+  const text = connector.description.trim();
+  if (!text) return null;
+  if (!connector.alwaysOn && connector.serverUrl && text === connector.serverUrl) return null;
+  return text;
+}

@@ -1,5 +1,21 @@
 import type { ApprovalEvent, ToolEvent } from './useChatStreaming';
 
+/**
+ * A tool call named for the reader by the app's own labels (`AiChatConfig.toolLabels`) when the server
+ * gave it no display name: a hosted tool (Finance's tw-stock, run by Anthropic's MCP connector) has none.
+ * The server's display name always wins; a tool the labels do not know keeps its own name.
+ */
+export function withToolLabel(
+  event: ToolEvent,
+  labels: Readonly<Record<string, string>> | undefined,
+): ToolEvent {
+  if (event.type !== 'tool_use' || event.displayName || !labels) return event;
+  const label = Object.prototype.hasOwnProperty.call(labels, event.name)
+    ? labels[event.name]
+    : undefined;
+  return label ? { ...event, displayName: label } : event;
+}
+
 /** What the chat's header says the turn is doing, after one of its events. */
 export interface ChatStatus {
   currentEvent: string;

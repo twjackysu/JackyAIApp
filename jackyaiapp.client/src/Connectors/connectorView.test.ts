@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  drawerDescription,
   catalogCategories,
   catalogEntries,
   connectAction,
@@ -77,5 +78,24 @@ describe('toolCounts', () => {
       ],
     });
     expect(toolCounts(c)).toEqual({ auto: 1, confirm: 2, disabled: 0 });
+  });
+});
+
+describe('drawerDescription', () => {
+  it("keeps a catalog connector's description", () => {
+    expect(drawerDescription(installed())).toBe('問任何 GitHub repo 的問題');
+  });
+
+  it('says nothing when the description is only the address the drawer lists anyway', () => {
+    const own = installed({
+      definitionKey: 'custom',
+      description: 'https://kb.example.com/mcp',
+      serverUrl: 'https://kb.example.com/mcp',
+    });
+    expect(drawerDescription(own)).toBeNull();
+  });
+
+  it('says nothing for an empty description', () => {
+    expect(drawerDescription(installed({ description: '  ' }))).toBeNull();
   });
 });

@@ -57,6 +57,17 @@ const studioPortfolio = [
   done,
 ];
 
+// /finance：hosted 的 tw-stock 工具（沒有顯示名稱、沒有卡片），回答後的接著問。
+const financeTrend = [
+  start,
+  { type: 'tool_use', id: 't1', name: 'get_stock_history' },
+  { type: 'tool_result', id: 't1', name: 'get_stock_history', ok: true, durationMs: 1200 },
+  { type: 'tool_use', id: 't2', name: 'get_technical_indicators' },
+  { type: 'tool_result', id: 't2', name: 'get_technical_indicators', ok: true, durationMs: 800 },
+  delta('**台積電（2330）近一個月**收在 1,450 元，月漲 6.2%。\n\n- 均線：5 日 > 20 日 > 60 日，多頭排列。\n- RSI(14) 68，接近過熱但還沒到 70。\n- 量能：上漲時放量、回檔時縮量，籌碼穩定。\n\n短線偏多，但追高前可以等回測 20 日線（約 1,390 元）。'),
+  done,
+];
+
 const dataChart = [
   start,
   { type: 'tool_use', id: 't1', name: 'ask_data', displayName: '查詢資料' },
@@ -214,6 +225,7 @@ async function ask(page, text, placeholder) {
 (async () => {
   const browser = await chromium.launch();
   for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
+
     // 首頁 →「AI 今日簡報」→ Studio 一次叫三個工具
     let briefingPage = await open(browser, viewport, briefing);
     await briefingPage.goto('http://localhost:5173/');
@@ -293,6 +305,18 @@ async function ask(page, text, placeholder) {
     await page.waitForTimeout(600);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `${out}/data-analysis-followups-${name}.png` });
+    await page.close();
+
+    // /finance：一行的對話框 → 展開 → 送一則 → 工具 chip 與接著問（不能比原本差）
+    page = await open(browser, viewport, financeTrend);
+    await page.goto('http://localhost:5173/finance');
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: `${out}/finance-collapsed-${name}.png` });
+    await page.getByPlaceholder(/問 AI 助手/).first().click();
+    await page.waitForTimeout(800);
+    await ask(page, '分析台積電最近的走勢', /問台股/);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `${out}/finance-answer-${name}.png` });
     await page.close();
 
     // dashboard 頁：擁有者看到「AI 解讀」→ Studio AI 開新對話讀這個 dashboard

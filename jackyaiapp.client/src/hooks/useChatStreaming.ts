@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ANSWERING, statusAfter } from './chatStatus';
+import { ANSWERING, statusAfter, withToolLabel } from './chatStatus';
 import { finishSseLines, splitSseLines } from './sseLines';
 
 import type { ToolEffect } from '@/apis/connectorsApis/types';
@@ -116,12 +116,15 @@ export interface ChatStreamingOptions {
   profile?: string;
   /** The page's context for this turn's tools (`AiChatConfig.pageContext`), as it is when a message is sent. */
   pageContext?: Readonly<Record<string, string>>;
+  /** Words for tools the server sends no display name for (`AiChatConfig.toolLabels`), by tool name. */
+  toolLabels?: Readonly<Record<string, string>>;
 }
 
 export const useChatStreaming = ({
   errorMessages,
   profile,
   pageContext,
+  toolLabels,
 }: ChatStreamingOptions = {}) => {
   const dispatch = useAppDispatch();
   const [streamingStatus, setStreamingStatus] = useState<StreamingStatus>({
@@ -237,10 +240,12 @@ export const useChatStreaming = ({
                 onUpdate(accumulatedContent);
                 break;
               case 'tool_use':
-              case 'tool_result':
-                setStreamingStatus((prev) => ({ ...prev, ...statusAfter(event) }));
-                onToolEvent?.(event);
+              case 'tool_result': {
+                const named = withToolLabel(event, toolLabels);
+                setStreamingStatus((prev) => ({ ...prev, ...statusAfter(named) }));
+                onToolEvent?.(named);
                 break;
+              }
               case 'approval_required':
               case 'approval_resolved':
                 setStreamingStatus((prev) => ({ ...prev, ...statusAfter(event) }));
@@ -305,7 +310,7 @@ export const useChatStreaming = ({
         setStreamingStatus({ isLoading: false, currentEvent: null, statusText: '' });
       }
     },
-    [dispatch, errorMessages, profile, pageContext],
+    [dispatch, errorMessages, profile, pageContext, toolLabels],
   );
 
   return { sendStreamingMessage, stop, streamingStatus };

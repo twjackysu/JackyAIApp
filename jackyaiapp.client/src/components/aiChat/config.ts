@@ -41,6 +41,11 @@ export interface AiChatConfig {
   disclaimer: string;
   /** Wording of this app's own for some failures (a decline that names the app's subject). */
   errorMessages?: Partial<Record<ChatErrorCode, string>>;
+  /**
+   * Words for this app's tools that the server names no display name for, by tool name: Finance's
+   * hosted tw-stock tools, which Anthropic's MCP connector runs. A tool not listed is shown by its own name.
+   */
+  toolLabels?: Readonly<Record<string, string>>;
   /** How this app draws kinds of tool card the chat does not (cards/toolCard), by kind. */
   cardRenderers?: Readonly<Record<string, ToolCardRenderer>>;
   /**
