@@ -5,7 +5,7 @@
 ## 狀態
 
 - 設計：**設計定稿**（2026-10-24 04:10，經一次對抗式評審並修正；之後的調整記在 DECISIONS.md）。
-- 階段：1（開發，M1 進行中；M1-5 與 M1-7 完成，M1-5 待 CI 驗證——GitHub Actions 帳單問題停擺中，見 FOR_JACKY 0）。
+- 階段：1（開發）。M1 完成；M2 垂直切片（agent loop、對話 profile、Data Analysis 助理與 ask_data／describe_data）程式碼已到位，剩確認流程與 connector 端點。所有後端 commit 待 CI 驗證——GitHub Actions 帳單問題停擺中（FOR_JACKY 0），期間以 `.loop/cscheck` 離線型別檢查（D-021）。
 
 ## 目標
 

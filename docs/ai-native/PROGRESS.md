@@ -1,5 +1,18 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-24 09:41 – 第 4 輪（離線型別檢查、agent loop、對話 profile、Data Analysis 助理）
+
+- 開工：master 沒有新 commit；CI 仍因帳單停擺（rerun 40045469489 同樣「recent account payments have failed」）。
+- **`.loop/cscheck`（D-021）**：NuGet 與 CI 都不能用，改用 apt 的 dotnet-sdk-10.0 內附的 Roslyn 直接編譯 server／tests，Anthropic SDK、xunit assert、Moq、EF Core 用 GitHub 上的原始碼當參考編譯，與 master 比較只列新診斷（約 1 分鐘）。驗證過會抓到故意放的型別錯誤；上一輪未經 CI 的 `6a75d3a` 檢查結果 0 個新診斷。
+- **agent loop（M2 核心，`d1c413e`）**：`IAiTool`／`AiToolDescriptor`／`ToolEffect`、`ChatProfileSetup.Tools`、`ChatTurnRequest` 加 client tools 與「工具結果是不可信資料」提示、`ModelTurn` 用 `BetaMessageContentAggregator` 多輪（最多 8 次請求）、`ClientToolRunner`（逐一執行、30 秒逾時、SSE `tool_result`、`<tool_output trust="untrusted">` 包裝且不能被提前關閉）。寫入型工具在確認流程完成前不執行（D-023）。Finance 沒有工具，路徑不變。
+- **對話屬於 profile（`7e8948d`）**：migration `AddChatProfileAndCards`（只新增 `ChatConversations.Profile`、`ChatMessages.CardsJson`，手寫 Designer＝新 snapshot），`ChatRequest.Profile`（未知 → 收費前 400）、列表 `?profile=`、不同 profile 的對話不續聊不 rewind；前端列表帶 profile。D-022：connector 表另一個 migration。
+- **page context ＋ Data Analysis 助理**：`ChatProfileContext`（UserId、台北日期、Page）、`ChatRequest.Context`（最多 8 個短項目）、`DataAnalysisChatProfile`（key `data-analysis`）與 `AskDataTool`（包既有 問 AI 管線，照 NlSummarize 收費，回 chart 卡片，plan 帶頁面的資料源）。前端 `AiChatConfig.pageContext`、`/data-analysis` 最上方掛上 `AiAssistantLauncher`，歡迎建議改成 ask_data 答得出來的問題（D-024）。
+- **`describe_data` 工具**（欄位、型別、日期範圍，不收費）、**卡片存進 `CardsJson`**（重新打開對話時畫出來，前端 `Message.cards` 經 `parseToolCard` 過濾）、AI chat 底部免責說明改由 app 設定（Data Analysis 不再顯示「不構成投資建議」）。
+- playwright（`dist/` + 假 API + 模擬 SSE）截圖確認 /data-analysis 的對話、圖表卡片、手機版面，存到 `docs/ai-native/screenshots/`。
+- server CLAUDE.md 的「AI assistant (chat)」與「Data analysis」補上 agent loop、profile、page context、ask_data、describe_data、卡片儲存。
+- 驗證：每個後端 commit cscheck 0 個新診斷（只剩已知雜訊）；前端 lint、test（1249）、build 全過。CI 無法驗證（帳單），所有後端測試都還沒實際跑過（NEXT 第 1 節列了清單與最可能出錯的地方）。
+- 問題：無新的阻礙；CI 停擺仍是最大風險。
+
 ## 2026-10-24 07:41 – 第 3 輪（/connectors v2 前端）
 
 - 開工：master 沒有新 commit；branch CI 仍因帳單停擺（rerun 40033649446 一樣「recent account payments have failed」，D-016），所以本輪只做本機可完整驗證的前端。

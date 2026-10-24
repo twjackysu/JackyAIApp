@@ -292,6 +292,7 @@ namespace JackyAIApp.Server.Tests.Services
             services.AddSingleton(Mock.Of<JackyAIApp.Server.Services.Prompt.IPromptLoader>());   // registered elsewhere in the app (NlSummarizeService needs it)
             services.AddDbContext<JackyAIApp.Server.Data.AzureSQLDBContext>(o => o.UseInMemoryDatabase("di-validate"));   // registered elsewhere in the app (DataSourceResolver needs it)
             services.AddSingleton(Mock.Of<JackyAIApp.Server.Services.ICurrentUser>());   // registered elsewhere in the app (DashboardService needs it)
+            services.AddSingleton(Mock.Of<JackyAIApp.Server.Services.IUsageLimitService>());   // registered elsewhere in the app (the AI assistant's ask_data charges it)
             services.AddDataAnalysisServices("Server=unused;User ID=u;Password=p;");
             using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
 
