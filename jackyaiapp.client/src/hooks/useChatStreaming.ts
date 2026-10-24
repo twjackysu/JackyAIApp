@@ -284,7 +284,7 @@ export const useChatStreaming = ({ errorMessages, profile }: ChatStreamingOption
         setStreamingStatus({ isLoading: false, currentEvent: null, statusText: '' });
       }
     },
-    [dispatch, errorMessages],
+    [dispatch, errorMessages, profile],
   );
 
   return { sendStreamingMessage, stop, streamingStatus };
