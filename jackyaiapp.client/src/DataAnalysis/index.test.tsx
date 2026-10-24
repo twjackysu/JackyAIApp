@@ -45,6 +45,9 @@ const stub = (name: string) => (p: Props) => {
   return `[${name}]`;
 };
 vi.mock('../components/DataAnalysisNav', () => ({ DataAnalysisNav: () => '[Nav]' }));
+// The assistant's panel is its own chunk, fetched once the visitor is signed in; as on /finance's
+// test, a stand-in, so the fetch does not outlive the test.
+vi.mock('@/components/aiChat', () => ({ default: () => '[AiAssistantPanel]' }));
 vi.mock('./components/SourcePanel', () => ({ SourcePanel: (p: Props) => stub('SourcePanel')(p) }));
 vi.mock('./components/OverviewStrip', () => ({
   OverviewStrip: (p: Props) => stub('OverviewStrip')(p),
