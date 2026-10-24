@@ -26,7 +26,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
         private readonly DbContextOptions<AzureSQLDBContext> _options = new DbContextOptionsBuilder<AzureSQLDBContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
-        private readonly AzureSQLDBContext _db;
+        // One context a request, as the app has: a context kept across them would answer from rows it already tracks.
+        private readonly List<AzureSQLDBContext> _requests = [];
         private readonly MemoryCache _cache = new(new MemoryCacheOptions());
         private readonly TestStateService _states = new();
         private readonly TestClock _clock = new(new DateTimeOffset(2026, 10, 24, 4, 0, 0, TimeSpan.Zero));
@@ -36,7 +37,6 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
         public McpOAuthSignInTests()
         {
-            _db = new AzureSQLDBContext(_options);
             var encryption = new Mock<ITokenEncryptionService>();
             encryption.Setup(e => e.EncryptToken(It.IsAny<string>())).Returns<string>(s => "enc:" + s);
             encryption.Setup(e => e.DecryptToken(It.IsAny<string>())).Returns<string>(s => s["enc:".Length..]);
@@ -48,22 +48,29 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
         public void Dispose()
         {
-            _db.Dispose();
+            foreach (var db in _requests) db.Dispose();
             _cache.Dispose();
         }
 
         // ── the services as the app wires them, every outbound request to the fake web ─────────────
+
+        private AzureSQLDBContext Request()
+        {
+            var db = new AzureSQLDBContext(_options);
+            _requests.Add(db);
+            return db;
+        }
 
         private McpToolClient Mcp() => new(_web, NullLoggerFactory.Instance);
 
         private McpOAuthTokens Tokens() =>
             new(new TestDbContextFactory(_options), _secrets, new McpOAuthEndpoints(_web), _clock, NullLogger<McpOAuthTokens>.Instance);
 
-        private McpOAuthFlow Flow() => new(_db, _user, _states, _cache, new McpOAuthDiscovery(_web), new McpOAuthEndpoints(_web), Mcp(),
+        private McpOAuthFlow Flow() => new(Request(), _user, _states, _cache, new McpOAuthDiscovery(_web), new McpOAuthEndpoints(_web), Mcp(),
             _secrets, UrlSource(), _clock, NullLogger<McpOAuthFlow>.Instance);
 
         private ConnectorInstallService Install() =>
-            new(_db, _user, Mcp(), _secrets, new McpOAuthDiscovery(_web), Flow(), Tokens(), UrlSource(), _clock);
+            new(Request(), _user, Mcp(), _secrets, new McpOAuthDiscovery(_web), Flow(), Tokens(), UrlSource(), _clock);
 
         private static McpOAuthUrlSource UrlSource() => new(Microsoft.Extensions.Options.Options.Create(
             new JackyAIApp.Server.Configuration.ConnectorOptions { CallbackBaseUrl = "https://apps.example.com/api/connectors/callback" }));
