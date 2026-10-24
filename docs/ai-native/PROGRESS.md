@@ -1,5 +1,17 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-24 11:42 – 第 5 輪（確認流程、connector 後端、自己的 MCP server、Studio AI）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。
+- **同請求確認（human-in-the-loop）**：`ChatApprovalRegistry`、`approval_required`／`approval_resolved`、`: ping`、`POST conversations/{id}/approvals/{pendingId}`；拒絕／逾時回報模型「沒有執行」，按停止整輪結束（D-026）。後端 `ToolCardGuard` 守卡片上限。CI 40059904526 綠。
+- **Connector 後端**：migration `AddConnectorInstallations`（新表，手寫 Designer＋snapshot，CI 的 `ModelMatchesMigrationsTests` 過）、`IAiTool` 搬到 Connectors（D-027）、`ToolPermissions`、`SiteToolSet`、`ConnectorCatalogService`＋`AiConnectorsController`（catalog、tool-permissions、enabled、delete）；chat 每輪照使用者設定（停用不送、需確認才問）。CI 40060529705 綠。
+- **自己的 MCP server**：`McpToolClient`（官方 SDK、Streamable HTTP、一律 SafeHttp，D-029）、`ConnectorInstallService`（probe、新增：免認證／API key／Bearer，憑證加密；test）、`ConnectorToolSource`（工具名 `m1__…`）接進 Data Analysis 助理。用 HttpMessageHandler 扮 MCP server 跑真 SDK 的測試在 CI 通過（40061092086）。之後加 taint（讀過外部結果後寫入一律先問，D-031）、目錄的內建 MCP（tw-stock、DeepWiki，D-033）。
+- **Studio AI**：後端 `studio` profile（頁面清單、目前頁面、`open_page`）、English 的 `look_up_word`／`add_word_to_repository`（寫入 → 確認卡，`ISiteTool`）；前端 `components/StudioAssistant`（右下角按鈕＋⌘K／Ctrl+K、右側抽屜／手機全螢幕、`AiAssistantPanel variant="sheet"`）。Connectors 回到首頁 portal。
+- playwright（`dist/`＋假 API＋模擬 SSE）截圖：Studio 回答與連結卡（桌機、手機）、確認卡、/connectors 有自訂 MCP 時，存到 `screenshots/`。
+- `CONTRIBUTING-CONNECTORS.md` 完成（三種貢獻方式、程式樣板、測試樣板、安全清單）；三份 CLAUDE.md 更新。
+- 驗證：每個後端 commit 先跑 cscheck（只剩已知雜訊；MCP SDK 原始碼已加入 cscheck），再看 CI；前端 lint／test（1260+）／build 全過。CI：40059904526、40060529705、40061092086、40061855784、40062208900、40062408658 綠。
+- 問題：`7d5a813` 的 CI 前端測試紅一次——/data-analysis 頁面測試在登入狀態下 launcher 預先載入面板 chunk，測試結束後 import 才完成（EnvironmentTeardownError）；照 /finance 測試 mock 面板修好（`5702005`）。
+
 ## 2026-10-24 09:41 – 第 4 輪（離線型別檢查、agent loop、對話 profile、Data Analysis 助理）
 
 - 開工：master 沒有新 commit；CI 仍因帳單停擺（rerun 40045469489 同樣「recent account payments have failed」）。

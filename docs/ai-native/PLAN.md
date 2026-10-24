@@ -5,7 +5,7 @@
 ## 狀態
 
 - 設計：**設計定稿**（2026-10-24 04:10，經一次對抗式評審並修正；之後的調整記在 DECISIONS.md）。
-- 階段：1（開發）。M1 完成；M2 垂直切片（agent loop、對話 profile、Data Analysis 助理與 ask_data／describe_data）程式碼已到位，剩確認流程與 connector 端點。所有後端 commit 待 CI 驗證——GitHub Actions 帳單問題停擺中（FOR_JACKY 0），期間以 `.loop/cscheck` 離線型別檢查（D-021）。
+- 階段：1（開發）。M1 完成；**M2 垂直切片完成（10/24，提早）**：agent loop、同請求確認、工具權限與 taint、Data Analysis 助理、connector 目錄與自己的 MCP server（免認證／API key／Bearer）、/connectors 回到 portal。M3 已開始：Studio AI（⌘K 全站助理、open_page、English 的查字典／加入單字庫）完成；剩 MCP OAuth、Portfolio 工具。所有後端變更都由 branch CI 驗證（綠）。
 
 ## 目標
 

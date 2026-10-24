@@ -7,3 +7,5 @@
 2. **確認 `dbo.Orders`（Data Analysis 預設資料源）的欄位**是否適合 demo（地區、日期、金額）。不適合的話 demo 會改用 `docs/ai-native/demo/` 的範例 CSV 上傳。
 3. **既有 `GET api/connectors/{provider}/token`、`/refresh-token`** 會把原始 token 傳給瀏覽器（「複製 token」按鈕）。這次為了不退化沒有移除；建議合併後評估是否拿掉。
 4. （待補：MCP OAuth 的 redirect URI、CIMD 文件網址——M3 時寫入）
+5. **Connectors 重新放回首頁 portal**（D-011／D-020）：原本因 Google 帳號連線的 scope 問題隱藏，帳號連線那一塊沒有改。不想顯示的話把 `apps.tsx` 的 `portalDestinations` 拿掉 `CONNECTORS`。
+6. **Studio AI 會呼叫你的 Anthropic key**（每則訊息照既有 chat 收費），字典查不到的字會由 OpenAI 產生一次（與字典頁相同）。

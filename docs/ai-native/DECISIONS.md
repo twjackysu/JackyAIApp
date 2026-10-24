@@ -27,3 +27,11 @@
 - **D-023（2026-10-24 10:30）確認流程完成前，`ToolEffect` 不是 Read 的工具一律不執行**：回給模型「需要使用者確認，請使用者自己到頁面操作」。避免在 human-in-the-loop 做好前就有寫入動作經由 AI 發生。
 - **D-024（2026-10-24 10:30）Data Analysis 的 page context**：每則訊息帶 `context`（`sourceId`／`tableName` 或 `sessionId`，空的 = 預設資料源），伺服器只保留 8 個短項目；`ask_data` 每次照 `NlSummarize` 收費；圖表卡片的 plan 只在非上傳檔（session）時附上，因為 session 不能變成 dashboard widget。歡迎畫面的建議改成 ask_data 真的答得出來的問題（原本的「有哪些欄位」「存成 widget」移除，後者由卡片上的按鈕做）。
 - **D-025（2026-10-24 10:55）CI 恢復後 cscheck 仍保留在 `.loop/`**：當作 push 前的快速檢查（1 分鐘 vs CI 3～5 分鐘），但以 CI 為準；它抓不到執行期問題（DI 註冊、EF 模型、測試行為）。合併前與 `.loop/` 一起刪除。
+- **D-026（2026-10-24 12:30）確認逾時（3 分鐘）視為拒絕、但整輪不結束**：工具回報模型「使用者沒有在時限內確認」，模型照常回答；design/04 原本寫「逾時視為全部拒絕並結束」，改成讓模型收尾，使用者回來看得到一句說明而不是空白。按「停止」仍是整輪結束、什麼都不執行。
+- **D-027（2026-10-24 12:30）`IAiTool` 等工具契約搬到 `Services.Connectors`**（design/03 原本就放這裡，第 4 輪實作時暫放 Assistant）：Connectors 模組只能用 Platform，目錄要列出本站工具與其權限；Assistant、DataAnalysis、English 都能用 Connectors。
+- **D-028（2026-10-24 12:30）工具權限的 key**：本站工具用 `site`（最多一列），其他 connector 用安裝 id（自訂 MCP 可以有多個）。停用 connector 保留憑證（只是不提供工具），移除才刪掉。
+- **D-029（2026-10-24 12:30）MCP client 只用 Streamable HTTP、每次請求一個 session**（不自動退回舊的 SSE transport、不保留 session）：簡單、沒有 session 遺失問題；代價是每次呼叫多一次 initialize。只支援舊 SSE 的伺服器目前連不上（錯誤訊息會提示要 Streamable HTTP 端點）。
+- **D-030（2026-10-24 12:30）沒有 OAuth 之前，偵測到 401 的伺服器回 `auth: apiKey`**：讓使用者貼 token／API key。OAuth（PRM/CIMD/DCR/PKCE）仍在 M3。
+- **D-031（2026-10-24 12:30）讀過外部 connector 結果後，同一輪的寫入一律先問（taint 只算一輪）**：前幾輪的外部內容只以助理的文字回到歷史，風險較低；之後若要跨輪，存在對話上。
+- **D-032（2026-10-24 12:30）Studio AI 只給登入者、不在 /finance、/data-analysis（各有自己的助理）與幻燈片顯示**；沒有 tw-stock（市場問題請到 /finance）。本站工具用 `ISiteTool` 由功能模組註冊（不需頁面狀態的工具），Studio 全部拿到。
+- **D-033（2026-10-24 12:30）目錄只列可以加的項目**：本站功能永遠在「AI 可以使用的」；內建 MCP 先放 tw-stock 與 DeepWiki（都免登入、Streamable HTTP），一律用目錄的網址、每人一次。

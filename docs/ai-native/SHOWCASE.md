@@ -14,7 +14,7 @@
 ## 合回 master 的檢查清單
 - [ ] app setting／Key Vault secret
 - [ ] OAuth App 與 redirect URI
-- [ ] EF migration（會在 production 啟動時執行）：`20261024100000_AddChatProfileAndCards`（`ChatConversations.Profile` 預設 finance、`ChatMessages.CardsJson`，只新增欄位）
+- [ ] EF migration（會在 production 啟動時執行）：`20261024100000_AddChatProfileAndCards`（`ChatConversations.Profile` 預設 finance、`ChatMessages.CardsJson`，只新增欄位）、`20261024120000_AddConnectorInstallations`（新表 `ConnectorInstallations`，不動既有表）
 - [ ] 刪除 `.github/workflows/ai-native-ci.yml` 與 `.loop/`
 - [ ] 合併後會自動部署到 production
 
