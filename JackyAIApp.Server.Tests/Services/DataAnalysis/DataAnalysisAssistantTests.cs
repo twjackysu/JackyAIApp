@@ -262,6 +262,38 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
                 w.Plan.GetProperty("context").GetProperty("sourceId").GetString() == Source.ToString() &&
                 w.Plan.GetProperty("measures")[0].GetProperty("fieldName").GetString() == "Amount"), It.IsAny<CancellationToken>()));
             Assert.Equal($"/dashboards/{Board}", JsonSerializer.SerializeToElement(result.Card).GetProperty("href").GetString());
+            // Not asked to open it: the link card is all.
+            Assert.Null(result.Navigate);
+        }
+
+        [Fact]
+        public async Task AskedToOpenIt_TheSavedDashboardIsWhereThePageGoes_AndTheCardSaysSo()
+        {
+            var chartId = await ChartIdAsync();
+            Dashboards();
+            var (_, save) = await SetupAsync(Page(), SaveToDashboardTool.Name);
+            var input = Input(new { chartId, dashboard = "業績", open = true });
+
+            var result = await save.RunAsync(input, Ctx, CancellationToken.None);
+
+            Assert.False(result.IsError);
+            Assert.Equal($"/dashboards/{Board}", result.Navigate);
+            Assert.Equal("把「每月營收」存到 dashboard「業績」，存好後打開它", ((IDescribesCall)save).Describe(input, Ctx));
+        }
+
+        [Fact]
+        public async Task ASaveThatFails_GoesNowhere()
+        {
+            var chartId = await ChartIdAsync();
+            Dashboards();
+            _dashboards.Setup(d => d.AddWidgetAsync(It.IsAny<Guid>(), It.IsAny<AddWidgetRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((ServiceResult<DashboardWidgetDto>)ServiceResult.Fail(ErrorCodes.InternalServerError, "x"));
+            var (_, save) = await SetupAsync(Page(), SaveToDashboardTool.Name);
+
+            var result = await save.RunAsync(Input(new { chartId, dashboard = "業績", open = true }), Ctx, CancellationToken.None);
+
+            Assert.True(result.IsError);
+            Assert.Null(result.Navigate);
         }
 
         [Fact]

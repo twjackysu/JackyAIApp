@@ -1,5 +1,5 @@
 import Box from '@mui/material/Box';
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 import { CompactChatBar } from './components/CompactChatBar';
 import { AiChatConfig, AiChatConfigContext } from './config';
@@ -19,6 +19,10 @@ interface AiAssistantLauncherProps {
   isAuthenticated: boolean;
   /** The visitor's sign-in state is still being fetched. */
   isAuthLoading: boolean;
+  /** An answer takes the reader to a page of the site (a tool result's `navigate`, e.g. Data Analysis's
+   *  `save_to_dashboard` asked to open what it saved). Called once the answer is done: the assistant is part of
+   *  this page, so leaving it while the answer is written would end it. Without it, only the answer's link. */
+  onNavigate?: (path: string) => void;
 }
 
 /**
@@ -31,6 +35,7 @@ export function AiAssistantLauncher({
   config,
   isAuthenticated,
   isAuthLoading,
+  onNavigate,
 }: AiAssistantLauncherProps) {
   const [expanded, setExpanded] = useState(false);
   // Mounted on first open and kept: the conversation lives in the panel.
@@ -48,6 +53,22 @@ export function AiAssistantLauncher({
     setExpanded(true);
   }, [isAuthenticated]);
   const collapse = useCallback(() => setExpanded(false), []);
+
+  // Where an answer asked to go, kept until that answer is done (the last one asked wins).
+  const goAfterAnswer = useRef<string | undefined>(undefined);
+  const holdNavigation = useCallback((path: string) => {
+    goAfterAnswer.current = path;
+  }, []);
+  const onActivity = useCallback(
+    (next: AssistantActivity) => {
+      setActivity(next);
+      const path = goAfterAnswer.current;
+      if (next.busy || !path) return;
+      goAfterAnswer.current = undefined;
+      onNavigate?.(path);
+    },
+    [onNavigate],
+  );
 
   const bar = (
     <CompactChatBar
@@ -74,7 +95,8 @@ export function AiAssistantLauncher({
                 inputValue={draft}
                 onInputChange={setDraft}
                 onCollapse={collapse}
-                onActivityChange={setActivity}
+                onActivityChange={onActivity}
+                onNavigate={onNavigate ? holdNavigation : undefined}
               />
             </Suspense>
           </Box>

@@ -42,7 +42,9 @@ const where = (call: ApprovalCall) =>
 /**
  * The assistant asking before it changes something: each call it wants to make, with what it
  * would send, to allow or refuse one by one, then one 送出. A single call gets 允許 / 拒絕 straight
- * away. Once sent, the card keeps what was decided.
+ * away. Once sent, the card keeps what was decided. A call the site describes in words (`summary`, written by
+ * the site's own code from the arguments) shows that, its raw arguments (ids such as a chartId) behind a
+ * toggle; one without (an outside connector's) always shows its arguments.
  */
 export default function ApprovalCard({
   approval,
@@ -54,6 +56,7 @@ export default function ApprovalCard({
   const theme = useTheme();
   const [chosen, setChosen] = useState<Record<string, boolean>>({});
   const [always, setAlways] = useState<Record<string, boolean>>({});
+  const [shown, setShown] = useState<Record<string, boolean>>({});
   const submit = (sent: ApprovalDecision[]) => {
     onSubmit(sent);
     const allowed = approval.calls.filter(
@@ -115,18 +118,37 @@ export default function ApprovalCard({
               {call.summary}
             </Typography>
           )}
-          <Box component="dl" sx={{ m: 0, mt: 0.5, fontSize: '0.8rem' }}>
-            {Object.entries(call.input).map(([key, value]) => (
-              <Box key={key} sx={{ display: 'flex', gap: 1, minWidth: 0 }}>
-                <Box component="dt" sx={{ color: 'text.secondary', flexShrink: 0 }}>
-                  {key}:
+          {call.summary && Object.keys(call.input).length > 0 && (
+            <Button
+              size="small"
+              color="inherit"
+              aria-expanded={shown[call.toolUseId] === true}
+              onClick={() =>
+                setShown((prev) => ({ ...prev, [call.toolUseId]: !prev[call.toolUseId] }))
+              }
+              sx={{ mt: 0.25, px: 0.5, minWidth: 0, fontSize: '0.75rem', color: 'text.secondary' }}
+            >
+              {shown[call.toolUseId] ? '隱藏送出的參數' : '顯示送出的參數'}
+            </Button>
+          )}
+          {(!call.summary || shown[call.toolUseId]) && (
+            <Box
+              component="dl"
+              data-testid="approval-arguments"
+              sx={{ m: 0, mt: 0.5, fontSize: '0.8rem' }}
+            >
+              {Object.entries(call.input).map(([key, value]) => (
+                <Box key={key} sx={{ display: 'flex', gap: 1, minWidth: 0 }}>
+                  <Box component="dt" sx={{ color: 'text.secondary', flexShrink: 0 }}>
+                    {key}:
+                  </Box>
+                  <Box component="dd" sx={{ m: 0, wordBreak: 'break-word' }}>
+                    {formatArgument(value)}
+                  </Box>
                 </Box>
-                <Box component="dd" sx={{ m: 0, wordBreak: 'break-word' }}>
-                  {formatArgument(value)}
-                </Box>
-              </Box>
-            ))}
-          </Box>
+              ))}
+            </Box>
+          )}
 
           {!open ? (
             <Typography

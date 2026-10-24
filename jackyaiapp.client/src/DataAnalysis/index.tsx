@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import { ThemeProvider } from '@mui/material/styles';
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useGetUserInfoQuery } from '../apis/accountApis';
 import { useGetSchemaQuery } from '../apis/dataAnalysisApis';
@@ -37,6 +38,8 @@ export default function DataAnalysis() {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const { data: userInfoRes, isLoading: isAuthLoading } = useGetUserInfoQuery();
   const isLoggedIn = !!userInfoRes?.data;
+  // An answer that saved a chart and was asked to open it takes the reader to that dashboard.
+  const navigate = useNavigate();
 
   // ── Source context ────────────────────────────────────────────────────────
   const {
@@ -126,6 +129,7 @@ export default function DataAnalysis() {
           config={aiChat}
           isAuthenticated={isLoggedIn}
           isAuthLoading={isAuthLoading}
+          onNavigate={navigate}
         />
 
         <SourcePanel

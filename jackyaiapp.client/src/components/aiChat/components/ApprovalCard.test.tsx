@@ -61,15 +61,32 @@ describe('ApprovalCard', () => {
     expect(container.textContent).not.toContain('上執行');
   });
 
-  it('says in words what a call would do when its tool says, above the exact arguments', () => {
+  it('says in words what a call would do when its tool says, its arguments behind a toggle', () => {
     render({
       pendingId: 'p',
-      calls: [call('a', { summary: '把「serendipity」加入你的單字庫' }), call('b')],
+      calls: [
+        call('a', { summary: '把「圖」存到 dashboard「業績」', input: { chartId: 'chart-k3f9' } }),
+        call('b'),
+      ],
     });
 
     const summaries = [...container.querySelectorAll('[data-testid="approval-summary"]')];
-    expect(summaries.map((s) => s.textContent)).toEqual(['把「serendipity」加入你的單字庫']);
+    expect(summaries.map((s) => s.textContent)).toEqual(['把「圖」存到 dashboard「業績」']);
+    // The described call keeps its ids out of sight; the one without words shows what it sends.
+    expect(container.textContent).not.toContain('chart-k3f9');
     expect(container.textContent).toContain('word:serendipity');
+
+    const toggle = button('顯示送出的參數');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    click(toggle);
+    expect(container.textContent).toContain('chartId:chart-k3f9');
+    click(button('隱藏送出的參數'));
+    expect(container.textContent).not.toContain('chart-k3f9');
+  });
+
+  it('offers no toggle for a described call with nothing to send', () => {
+    render({ pendingId: 'p', calls: [call('a', { summary: '做一件事', input: {} })] });
+    expect(buttons().some((b) => b.textContent === '顯示送出的參數')).toBe(false);
   });
 
   it('one call is allowed or refused straight away', () => {

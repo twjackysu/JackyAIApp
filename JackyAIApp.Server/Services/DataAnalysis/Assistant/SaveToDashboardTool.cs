@@ -35,7 +35,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
     /// <summary>
     /// Saves a chart <c>ask_data</c> showed to one of the reader's dashboards (one of that name, or a new
     /// one): a write, so the reader is asked first. The widget stores the chart's plan with the page's
-    /// source and re-runs it on every view, as one added from the chart card does.
+    /// source and re-runs it on every view, as one added from the chart card does. With <c>open</c> (the reader asked to
+    /// see it once saved), the result also takes their page to the dashboard (<see cref="AiToolResult.Navigate"/>; the
+    /// page waits for the answer to finish, since leaving it ends the chat).
     /// </summary>
     public sealed class SaveToDashboardTool(IDashboardService dashboards, DataAnalysisCharts charts) : IAiTool, IDescribesCall
     {
@@ -61,6 +63,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                     chartId = new { type = "string", description = "ask_data 回傳的 chartId" },
                     dashboard = new { type = "string", description = "dashboard 名稱，例如「業績追蹤」；使用者沒說就取一個簡短的名稱" },
                     title = new { type = "string", description = "這張圖在 dashboard 上的標題（可省略，沿用圖表標題）" },
+                    open = new { type = "boolean", description = "使用者要求存好後直接打開 dashboard（例如「存完打開」「帶我去看」）時才設為 true；回答結束後頁面會切到那個 dashboard" },
                 },
                 required = new[] { "chartId", "dashboard" },
             }),
@@ -74,7 +77,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
             if (string.IsNullOrEmpty(name)) return null;
             var chart = Text(input, "chartId") is { } id ? charts.Recall(context, id) : null;
             var title = Text(input, "title")?.Trim() is { Length: > 0 } t ? t : chart?.Title ?? "這張圖";
-            return $"把「{title}」存到 dashboard「{name}」";
+            return Flag(input, "open")
+                ? $"把「{title}」存到 dashboard「{name}」，存好後打開它"
+                : $"把「{title}」存到 dashboard「{name}」";
         }
 
         public async Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
@@ -107,6 +112,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
             if (!added.IsSuccess) return AiToolResult.Error("加入 dashboard 失敗，請稍後再試。");
 
             var dashboardName = existing?.Name ?? name;
+            var href = $"/dashboards/{dashboardId}";
             return new AiToolResult(
                 existing == null
                     ? $"已建立 dashboard「{dashboardName}」，並把「{title ?? "這張圖"}」存進去。"
@@ -115,11 +121,15 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                 {
                     kind = "link",
                     title = dashboardName,
-                    href = $"/dashboards/{dashboardId}",
+                    href,
                     description = $"「{title ?? "圖表"}」已存進這個 dashboard，打開時會用最新資料重畫",
                     actionLabel = "打開 dashboard",
-                });
+                },
+                Navigate: Flag(input, "open") ? href : null);
         }
+
+        private static bool Flag(JsonElement input, string name) =>
+            input.ValueKind == JsonValueKind.Object && input.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
 
         private static string? Text(JsonElement input, string name) =>
             input.ValueKind == JsonValueKind.Object && input.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String

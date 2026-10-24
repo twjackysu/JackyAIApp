@@ -16,6 +16,7 @@ interface PanelProps {
   onInputChange: (value: string) => void;
   onCollapse: () => void;
   onActivityChange?: (activity: AssistantActivity) => void;
+  onNavigate?: (path: string) => void;
 }
 
 // The real panel is tested on its own; here only what the launcher hands it and does with it.
@@ -47,8 +48,13 @@ afterEach(() => {
   container.remove();
 });
 
-async function render(auth: { isAuthenticated: boolean; isAuthLoading: boolean }) {
-  await act(async () => root.render(<AiAssistantLauncher config={FINANCE_AI_CHAT} {...auth} />));
+async function render(
+  auth: { isAuthenticated: boolean; isAuthLoading: boolean },
+  onNavigate?: (path: string) => void,
+) {
+  await act(async () =>
+    root.render(<AiAssistantLauncher config={FINANCE_AI_CHAT} {...auth} onNavigate={onNavigate} />),
+  );
 }
 const signedIn = { isAuthenticated: true, isAuthLoading: false };
 
@@ -170,5 +176,30 @@ describe('AiAssistantLauncher', () => {
     expect([...container.querySelectorAll('button')].some((b) => b.textContent === '登入')).toBe(
       false,
     );
+  });
+
+  it('goes where an answer asked only once that answer is done, since leaving ends it', async () => {
+    const navigate = vi.fn();
+    await render(signedIn, navigate);
+    await focusBox();
+
+    act(() => panel.props!.onActivityChange!({ busy: true, hasConversation: true }));
+    act(() => panel.props!.onNavigate!('/dashboards/d1'));
+    expect(navigate).not.toHaveBeenCalled();
+
+    act(() => panel.props!.onActivityChange!({ busy: false, hasConversation: true }));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('/dashboards/d1');
+
+    // The next answer that asks nothing goes nowhere.
+    act(() => panel.props!.onActivityChange!({ busy: true, hasConversation: true }));
+    act(() => panel.props!.onActivityChange!({ busy: false, hasConversation: true }));
+    expect(navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives the panel no way to move the page when the page did not ask for one', async () => {
+    await render(signedIn);
+    await focusBox();
+
+    expect(panel.props!.onNavigate).toBeUndefined();
   });
 });

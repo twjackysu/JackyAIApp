@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   props: {} as Record<string, Record<string, unknown>>,
 }));
 
+vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
 vi.mock('../apis/accountApis', () => ({ useGetUserInfoQuery: () => mocks.user() }));
 vi.mock('../apis/dataAnalysisApis', () => ({
   useGetSchemaQuery: (...a: unknown[]) => mocks.schema(...a),
