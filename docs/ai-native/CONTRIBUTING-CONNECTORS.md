@@ -24,7 +24,7 @@ new("my-server", "顯示名稱",
 ```
 
 - 必須是 **Streamable HTTP**、**https**、**公開位址**（所有連線都經 `SafeHttp`，內網與保留位址會被擋）。
-- 目前只支援免登入（`"none"`）；需要 OAuth 的等 M3（design/07）。需要 API key 的請使用者用「新增 MCP server」自己加。
+- `authKind` 是 `"none"`（免登入）或 `"oauth"`（照 MCP 授權規格自動探索、成為 client、授權，見 server CLAUDE.md 的 Connectors）。OAuth 的伺服器要支援 PKCE S256 與 CIMD 或 dynamic client registration，加入前先用「新增 MCP server」貼網址試一次。需要 API key 的請使用者用「新增 MCP server」自己加。
 - `BuiltInMcpConnectorsTests` 會自動檢查 key 唯一、格式、網址、欄位齊全——不用另寫測試。
 - 工具清單是加入時向伺服器 `tools/list` 讀的；每個工具的效果照 MCP annotations：`readOnlyHint: true` → 讀取（預設自動執行），`destructiveHint: true` → 無法復原（一定先問、不能設自動），其他 → 寫入（預設先問）。
 

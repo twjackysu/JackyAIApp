@@ -88,16 +88,15 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
             title = $"投資組合　淨資產 {Money(s.TotalNetWorthTWD)} TWD",
             columns = new object[]
             {
-                new { key = "name", label = "名稱" },
-                new { key = "symbol", label = "代號" },
-                new { key = "value", label = "市值（TWD）", numeric = true },
-                new { key = "pnl", label = "未實現損益", numeric = true },
+                new { key = "name", label = "持倉" },
+                new { key = "value", label = "市值", numeric = true },
+                new { key = "pnl", label = "損益", numeric = true },
                 new { key = "pnlPct", label = "損益 %", numeric = true },
             },
             rows = s.Positions.OrderByDescending(p => Math.Abs(p.MarketValueTWD)).Select(p => new Dictionary<string, object?>
             {
-                ["name"] = p.Name,
-                ["symbol"] = p.Symbol,
+                // One column for both, so the table fits the assistant's sheet.
+                ["name"] = string.IsNullOrEmpty(p.Symbol) || p.Symbol == p.Name ? p.Name : $"{p.Name}（{p.Symbol}）",
                 ["value"] = Math.Round(p.MarketValueTWD),
                 ["pnl"] = p.UnrealizedPnlTWD is { } pnl ? Math.Round(pnl) : null,
                 ["pnlPct"] = p.UnrealizedPnlPct is { } pct ? Math.Round(pct, 2) : null,

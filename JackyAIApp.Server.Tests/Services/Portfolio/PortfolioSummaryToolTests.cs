@@ -65,7 +65,8 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
             Assert.Equal("table", card.GetProperty("kind").GetString());
             var rows = card.GetProperty("rows");
             Assert.Equal(2, rows.GetArrayLength());
-            Assert.Equal("2330", rows[0].GetProperty("symbol").GetString());
+            Assert.Equal("台積電（2330）", rows[0].GetProperty("name").GetString());
+            Assert.Equal(4, card.GetProperty("columns").GetArrayLength());
             Assert.Equal(1_000_000m, rows[0].GetProperty("value").GetDecimal());
             Assert.Equal(JsonValueKind.Null, rows[1].GetProperty("pnl").ValueKind);
             Assert.All(card.GetProperty("columns").EnumerateArray(), c => Assert.False(string.IsNullOrEmpty(c.GetProperty("key").GetString())));
