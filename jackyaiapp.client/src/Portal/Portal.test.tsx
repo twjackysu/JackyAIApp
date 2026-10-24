@@ -48,6 +48,15 @@ describe('Portal', () => {
     expect(html).not.toContain('使用 Google 登入');
   });
 
+  it('logged in: offers the AI briefing, which asks nothing until clicked', () => {
+    const asked = vi.fn();
+    window.addEventListener('studio:ask', asked);
+    const html = render();
+    window.removeEventListener('studio:ask', asked);
+    expect(html).toContain('AI 今日簡報');
+    expect(asked).not.toHaveBeenCalled();
+  });
+
   it('logged in, nothing due: hides the review item and shows completed challenge', () => {
     mocks.due.mockReturnValue(ok({ dueCount: 0 }));
     mocks.stats.mockReturnValue(stats({ todayCompleted: true, todayScore: 4 }));
@@ -71,6 +80,7 @@ describe('Portal', () => {
     const html = render();
     expect(html).toContain('使用 Google 登入');
     expect(html).not.toContain('aria-label="今日"');
+    expect(html).not.toContain('AI 今日簡報');
     expect(html.indexOf('English Coach')).toBeLessThan(html.indexOf('Wealth Portfolio'));
     expect(html).toContain('Job Finder'); // other apps stay visible
   });

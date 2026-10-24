@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { askStudio } from './askStudio';
 import { isStudioShortcut } from './studioChat';
 
 import StudioAssistant from '.';
@@ -11,12 +12,17 @@ import StudioAssistant from '.';
 
 const mocks = vi.hoisted(() => ({
   user: { data: { data: { id: 'u1' } } } as { data: unknown },
-  panel: null as { active: boolean; variant?: string; onCollapse: () => void } | null,
+  panel: null as {
+    active: boolean;
+    variant?: string;
+    onCollapse: () => void;
+    ask?: { id: number; text: string };
+  } | null,
 }));
 vi.mock('@/apis/accountApis', () => ({ useGetUserInfoQuery: () => mocks.user }));
 // The real panel is tested on its own; here only what Studio AI hands it.
 vi.mock('@/components/aiChat', () => ({
-  default: (props: { active: boolean; variant?: string; onCollapse: () => void }) => {
+  default: (props: NonNullable<typeof mocks.panel>) => {
     mocks.panel = props;
     return <div data-testid="panel" />;
   },
@@ -111,6 +117,25 @@ describe('StudioAssistant', () => {
     await settle();
 
     expect(mocks.panel?.active).toBe(true);
+  });
+
+  it('opens with the message a page asks it, a new one each time', async () => {
+    await render('/');
+    await act(async () => askStudio('給我今天的簡報'));
+    await settle();
+    expect(mocks.panel).toMatchObject({ active: true, ask: { id: 1, text: '給我今天的簡報' } });
+
+    await act(async () => mocks.panel!.onCollapse());
+    await act(async () => askStudio('給我今天的簡報'));
+    await settle();
+    expect(mocks.panel).toMatchObject({ active: true, ask: { id: 2, text: '給我今天的簡報' } });
+  });
+
+  it('is not opened by a page’s ask where it is not shown', async () => {
+    await render('/finance');
+    await act(async () => askStudio('給我今天的簡報'));
+    await settle();
+    expect(mocks.panel).toBeNull();
   });
 });
 

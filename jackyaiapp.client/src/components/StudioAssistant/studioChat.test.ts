@@ -28,6 +28,7 @@ describe('studioSuggestionsFor', () => {
 
   it('has the site’s suggestions everywhere', () => {
     expect(studioSuggestionsFor('/jobs').map((s) => s.text)).toEqual([
+      '給我今天的簡報',
       '這個網站可以做哪些事？',
       '我今天有什麼行程？',
       '怎麼讓你使用我自己的 MCP server？',

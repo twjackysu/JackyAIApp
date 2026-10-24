@@ -192,11 +192,18 @@ let activities: AssistantActivity[];
 const lastActivity = () => activities[activities.length - 1];
 
 /** The panel's owner holds the message being typed, as the one-line box does on the page. */
-function Harness({ initialDraft }: { initialDraft: string }) {
+function Harness({
+  initialDraft,
+  ask,
+}: {
+  initialDraft: string;
+  ask?: { id: number; text: string };
+}) {
   const [draft, setDraft] = useState(initialDraft);
   return (
     <AiAssistantPanel
       active
+      ask={ask}
       inputValue={draft}
       onInputChange={setDraft}
       onCollapse={() => (collapses += 1)}
@@ -205,7 +212,7 @@ function Harness({ initialDraft }: { initialDraft: string }) {
   );
 }
 
-async function mount(initialDraft = '') {
+async function mount(initialDraft = '', ask?: { id: number; text: string }) {
   collapses = 0;
   activities = [];
   const store = configureStore({
@@ -216,7 +223,7 @@ async function mount(initialDraft = '') {
     root.render(
       <Provider store={store}>
         <AiChatConfigContext value={FINANCE_AI_CHAT}>
-          <Harness initialDraft={initialDraft} />
+          <Harness initialDraft={initialDraft} ask={ask} />
         </AiChatConfigContext>
       </Provider>,
     ),
@@ -347,6 +354,26 @@ describe('AiAssistantPanel', () => {
       attachmentIds: [],
       profile: 'finance',
     });
+  });
+
+  it('sends what a page asked (askStudio) once, as if typed', async () => {
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '早安' }, { type: 'done', conversationId: 'conv-1' }),
+    );
+    await mount('', { id: 1, text: '給我今天的簡報' });
+    await waitForText('早安');
+    // Typing re-renders the panel with the same ask: nothing is sent again.
+    act(() => {
+      const setValue = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      )!.set!;
+      setValue.call(textarea(), '謝謝');
+      textarea().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(chatBodies).toEqual([
+      { message: '給我今天的簡報', conversationId: '', attachmentIds: [], profile: 'finance' },
+    ]);
   });
 
   it('shows a failed reply inside the conversation, in its own words for the code it got', async () => {

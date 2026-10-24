@@ -2,6 +2,9 @@ using System.Text.Json;
 using JackyAIApp.Server.Services.Assistant;
 using JackyAIApp.Server.Services.Assistant.Studio;
 using JackyAIApp.Server.Services.Connectors;
+using JackyAIApp.Server.Services.Connectors.Google;
+using JackyAIApp.Server.Services.Dictionary.Assistant;
+using JackyAIApp.Server.Services.Portfolio.Assistant;
 using Moq;
 
 namespace JackyAIApp.Server.Tests.Services.Assistant
@@ -34,6 +37,18 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             Assert.Contains("讓其他 AI 使用本站", setup.SystemPrompt);
             Assert.False(setup.AttachTwStock);
             Assert.Equal(OpenPageTool.Name, Assert.Single(setup.Tools!).Descriptor.Name);
+        }
+
+        [Fact]
+        public async Task TheMorningBriefing_CallsTheThreeToolsByTheirOwnNames()
+        {
+            var setup = await SetupAsync();
+
+            // The home page's 「AI 今日簡報」 sends 「給我今天的簡報」 (client: askStudio's BRIEFING_PROMPT).
+            Assert.Contains("給我今天的簡報", setup.SystemPrompt);
+            Assert.Contains(GoogleCalendarTool.Name, setup.SystemPrompt);
+            Assert.Contains(LearningProgressTool.Name, setup.SystemPrompt);
+            Assert.Contains(PortfolioSummaryTool.Name, setup.SystemPrompt);
         }
 
         [Theory]

@@ -1,8 +1,11 @@
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import AutoStoriesIcon from '@mui/icons-material/AutoStoriesOutlined';
 import EventIcon from '@mui/icons-material/EventOutlined';
 import ExploreIcon from '@mui/icons-material/ExploreOutlined';
 import ExtensionIcon from '@mui/icons-material/ExtensionOutlined';
 import PieChartIcon from '@mui/icons-material/PieChartOutlined';
+
+import { BRIEFING_PROMPT } from './askStudio';
 
 import type { AiChatConfig, AiChatSuggestion } from '@/components/aiChat/config';
 
@@ -36,6 +39,7 @@ const CONNECTORS: AiChatSuggestion[] = [
   { text: '怎麼讓 Claude 或 ChatGPT 使用這個網站？', icon: ExtensionIcon },
 ];
 const COMMON: AiChatSuggestion[] = [
+  { text: BRIEFING_PROMPT, icon: AutoAwesomeIcon },
   { text: '這個網站可以做哪些事？', icon: ExploreIcon },
   { text: '我今天有什麼行程？', icon: EventIcon },
   { text: '怎麼讓你使用我自己的 MCP server？', icon: ExtensionIcon },

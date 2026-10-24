@@ -5,6 +5,7 @@ import Fab from '@mui/material/Fab';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
+import { ASK_STUDIO_EVENT, askedText } from './askStudio';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
@@ -19,7 +20,8 @@ const AiAssistantPanel = lazy(() => import('@/components/aiChat'));
  * Studio AI on every page (docs/ai-native/design/05 §1): a button in the lower right corner, or ⌘K /
  * Ctrl+K, opens the assistant in a drawer on the right (the whole screen on a phone). Only for a
  * signed-in reader, and not on pages that have an assistant of their own. The conversation stays
- * while the drawer is closed, a reply still being written included.
+ * while the drawer is closed, a reply still being written included. A page can also open it with a
+ * message sent (`askStudio`, the home page's briefing).
  */
 export default function StudioAssistant() {
   const { pathname } = useLocation();
@@ -31,6 +33,8 @@ export default function StudioAssistant() {
   // Mounted on first open and kept, so the conversation lives on.
   const [opened, setOpened] = useState(false);
   const [draft, setDraft] = useState('');
+  // A message a page asked Studio AI (askStudio); the id tells the panel a new one from the last.
+  const [ask, setAsk] = useState<{ id: number; text: string } | undefined>();
   const config = useMemo(() => studioChatConfig(pathname), [pathname]);
 
   useEffect(() => {
@@ -43,6 +47,19 @@ export default function StudioAssistant() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [shown]);
+
+  useEffect(() => {
+    if (!shown) return;
+    const onAsk = (e: Event) => {
+      const text = askedText(e);
+      if (!text) return;
+      setOpened(true);
+      setOpen(true);
+      setAsk((prev) => ({ id: (prev?.id ?? 0) + 1, text }));
+    };
+    window.addEventListener(ASK_STUDIO_EVENT, onAsk);
+    return () => window.removeEventListener(ASK_STUDIO_EVENT, onAsk);
   }, [shown]);
 
   // A page without the button closes the drawer (the conversation is kept for when it comes back).
@@ -92,6 +109,7 @@ export default function StudioAssistant() {
                 variant="sheet"
                 active={open}
                 inputValue={draft}
+                ask={ask}
                 onInputChange={setDraft}
                 onCollapse={() => setOpen(false)}
               />

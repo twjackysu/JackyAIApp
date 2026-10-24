@@ -82,6 +82,32 @@ const dataChart = [
   },
 ];
 
+const briefing = [
+  start,
+  { type: 'tool_use', id: 't1', name: 'google_calendar_events', displayName: 'Google 日曆' },
+  { type: 'tool_use', id: 't2', name: 'learning_progress', displayName: '學習進度' },
+  { type: 'tool_use', id: 't3', name: 'portfolio_summary', displayName: '投資組合' },
+  {
+    type: 'tool_result', id: 't1', name: 'google_calendar_events', ok: true, durationMs: 640,
+    card: {
+      kind: 'table', title: '今天（10/24）的行程', totalRows: null,
+      columns: [{ key: 'time', label: '時間', numeric: false, nowrap: true }, { key: 'title', label: '行程', numeric: false }],
+      rows: [
+        { time: '09:30–10:00', title: '團隊站會' },
+        { time: '14:00–15:30', title: '客戶需求訪談（台北辦公室）' },
+        { time: '19:00–20:00', title: '健身' },
+      ],
+    },
+  },
+  {
+    type: 'tool_result', id: 't2', name: 'learning_progress', ok: true, durationMs: 210,
+    card: { kind: 'link', title: '12 個單字待複習', description: '連續 18 天・今日挑戰還沒做', href: '/english/review', actionLabel: '開始複習' },
+  },
+  { type: 'tool_result', id: 't3', name: 'portfolio_summary', ok: true, durationMs: 930 },
+  delta('早安！這是你今天的簡報：\n\n**📅 今天的行程**：三個行程，10:00–14:00 整段空檔，下午的客戶訪談記得提早出發。\n\n**📚 學習**：12 個單字待複習，已連續 18 天——今日挑戰還沒做，5 題約 2 分鐘。\n\n**💰 資產**：淨值約 222 萬，未實現損益 +47 萬；長榮（2603）跌了 18%，是今天最值得留意的一檔。\n\n👉 建議先趁早上的空檔把 12 個單字複習完，保住連續紀錄。'),
+  done,
+];
+
 // 頁面內的 fetch 替身：/api/chatbot/chat 回一個照順序送出事件的串流。
 const fakeChat = (events) => {
   const realFetch = window.fetch.bind(window);
@@ -112,6 +138,8 @@ async function open(browser, viewport, events) {
     if (p === '/api/account/info') return json({ data: user });
     if (p.startsWith('/api/chatbot/conversations')) return json({ data: [] });
     if (p === '/api/dataanalysis/sources') return json({ data: [] });
+    if (p.startsWith('/api/review/due')) return json({ data: { dueCount: 12 } });
+    if (p.includes('dailychallenge/stats') || p.includes('DailyChallenge/stats')) return json({ data: { currentStreak: 18, todayCompleted: false, todayScore: null } });
     if (p.startsWith('/api/')) return json({ data: null });
     const file = path.join(dist, p === '/' || !path.extname(p) ? 'index.html' : p);
     if (!fs.existsSync(file)) return route.fulfill({ status: 404, body: '' });
@@ -131,6 +159,16 @@ async function ask(page, text, placeholder) {
 (async () => {
   const browser = await chromium.launch();
   for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
+    // 首頁 →「AI 今日簡報」→ Studio 一次叫三個工具
+    let briefingPage = await open(browser, viewport, briefing);
+    await briefingPage.goto('http://localhost:5173/');
+    await briefingPage.waitForTimeout(1500);
+    await briefingPage.screenshot({ path: `${out}/home-briefing-card-${name}.png` });
+    await briefingPage.getByText('AI 今日簡報').click();
+    await briefingPage.waitForTimeout(3000);
+    await briefingPage.screenshot({ path: `${out}/studio-briefing-${name}.png` });
+    await briefingPage.close();
+
     // Studio：首頁 → ⌘K → 查字並加入單字庫（停在確認卡）
     let page = await open(browser, viewport, studioWord);
     await page.goto('http://localhost:5173/');

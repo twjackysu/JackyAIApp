@@ -39,6 +39,8 @@ interface AiAssistantPanelProps {
   /** `inline` (a block of the page, the default) or `sheet`: it fills a drawer of its own (Studio AI),
    *  with no history column beside it — the history opens over it, as on a phone. */
   variant?: 'inline' | 'sheet';
+  /** A message to send as if the reader had typed it (Studio AI's `askStudio`): each id is sent once. */
+  ask?: { id: number; text: string };
 }
 
 /**
@@ -54,6 +56,7 @@ function AiAssistantPanel({
   onCollapse,
   onActivityChange,
   variant = 'inline',
+  ask,
 }: AiAssistantPanelProps) {
   const sheet = variant === 'sheet';
   const config = useAiChatConfig();
@@ -84,6 +87,16 @@ function AiAssistantPanel({
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
   }, [active, busy]);
+
+  // A page asked (askStudio): send it once, into the conversation on screen (queued behind a reply
+  // still being written, as a typed message would be).
+  const { send } = conversation;
+  const sentAsk = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!ask || sentAsk.current === ask.id) return;
+    sentAsk.current = ask.id;
+    send(ask.text, []);
+  }, [ask, send]);
 
   const hasConversation = messages.length > 0;
   useEffect(() => {

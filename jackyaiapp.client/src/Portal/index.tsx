@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import { cloneElement } from 'react';
 import { Link } from 'react-router-dom';
 
+import BriefingCard from './BriefingCard';
 import TodaySection from './TodaySection';
 
 import type { AppDef } from '@/constants/apps';
@@ -134,6 +135,7 @@ function Portal() {
       </Box>
 
       {isLoggedIn === false && <GuestIntro />}
+      {isLoggedIn && <BriefingCard />}
       {isLoggedIn && <TodaySection />}
 
       {/* Catalog */}
