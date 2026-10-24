@@ -22,8 +22,10 @@ namespace JackyAIApp.Server.Controllers
         IChatAttachmentService attachments,
         IChatConversationService conversations,
         IChatProfiles profiles,
-        ChatTurnRegistry turns) : ControllerBase
+        ChatTurnRegistry turns,
+        ChatApprovalRegistry approvals) : ControllerBase
     {
+        private readonly ChatApprovalRegistry _approvals = approvals;
         private readonly IChatProfiles _profiles = profiles;
         private readonly ChatTurnRegistry _turns = turns;
         private readonly IChatAttachmentService _attachments = attachments;
@@ -198,6 +200,24 @@ namespace JackyAIApp.Server.Controllers
             _logger.LogInformation("User {UserId} stopped conversation {ConversationId} (running: {Stopped})",
                 userId, conversationId, stopped);
             return _responseFactory.CreateOKResponse(new ChatStopResponse(stopped));
+        }
+
+        /// <summary>
+        /// The reader's decisions on the writes an answer in one of their conversations is waiting for
+        /// (<c>approval_required</c>); the answer carries on in its own stream. NotFound when nothing of
+        /// theirs is waiting under that id: it was decided already, or timed out, or the turn is over.
+        /// </summary>
+        [HttpPost("conversations/{conversationId}/approvals/{pendingId}")]
+        public IActionResult DecideApproval(string conversationId, string pendingId, [FromBody] ChatApprovalRequest request)
+        {
+            var userId = _currentUser.RequireId();
+            var decisions = request.Decisions.Select(d => new ChatApprovalDecision(d.ToolUseId, d.Approve)).ToList();
+            ServiceResult<ChatApprovalResponse> result = _approvals.Resolve(userId, conversationId, pendingId, decisions)
+                ? ServiceResult.Ok(new ChatApprovalResponse(true))
+                : ServiceResult.Fail(ErrorCodes.NotFound, "這個確認已經處理過或已逾時。");
+            _logger.LogInformation("User {UserId} decided approval {PendingId} in conversation {ConversationId} ({Approved}/{Count} allowed, accepted: {Accepted})",
+                userId, pendingId, conversationId, decisions.Count(d => d.Approve), decisions.Count, result.IsSuccess);
+            return _responseFactory.ToActionResult(result);
         }
 
         /// <summary>Deletes one of the current user's conversations (and its messages).</summary>

@@ -25,6 +25,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         IChatAttachmentStore attachmentStore,
         IAnthropicFileStore anthropicFiles,
         ChatTurnRegistry turns,
+        ChatApprovalRegistry approvals,
         IChatProfiles profiles,
         IAiUsageLogger usageLogger,
         UsageLedger usageLedger,
@@ -109,7 +110,7 @@ namespace JackyAIApp.Server.Services.Chatbot
             await WriteStartAsync(sse, conversation.Id, userMessage.Id, turnCts.Token);
 
             var tools = setup.Tools is { Count: > 0 }
-                ? new ClientToolRunner(setup.Tools, sse, new AiToolContext(userId, conversation.Id), _time, logger)
+                ? new ClientToolRunner(setup.Tools, sse, new AiToolContext(userId, conversation.Id), approvals, _time, logger)
                 : null;
             var outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id, tools)
                 .RunAsync(request, token => RequestFor(reupload: true, token), turnCts.Token);

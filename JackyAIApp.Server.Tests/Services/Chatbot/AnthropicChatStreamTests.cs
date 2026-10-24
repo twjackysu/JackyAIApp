@@ -34,6 +34,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         private readonly Mock<IChatAttachmentStore> _attachments = new();
         private readonly Mock<IAnthropicFileStore> _files = new();
         private readonly ChatTurnRegistry _turns = new();
+        private readonly ChatApprovalRegistry _approvals = new();
         private readonly Mock<IMarketBackground> _background = new();
         private readonly Mock<IAiUsageLogger> _usage = new();
         private readonly UsageLedger _ledger = new();
@@ -48,7 +49,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             var settings = new Mock<IOptionsMonitor<Settings>>();
             settings.Setup(s => s.CurrentValue).Returns(() => new Settings { Google = new JackyAIApp.Server.Configuration.Google(), AnthropicApiKey = _apiKey });
             var profiles = new ChatProfiles([new FinanceChatProfile(_background.Object, NullLogger<FinanceChatProfile>.Instance), _toolProfile]);
-            return new AnthropicChatService(_db, _attachments.Object, _files.Object, _turns, profiles, _usage.Object,
+            return new AnthropicChatService(_db, _attachments.Object, _files.Object, _turns, _approvals, profiles, _usage.Object,
                 _ledger, settings.Object, new TestClientFactory(_anthropic), _log);
         }
 
@@ -497,22 +498,107 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
                 request.GetProperty("tools").EnumerateArray().Select(t => t.GetProperty("name").GetString()));
         }
 
+        /// <summary>The turn so far, once it has asked the reader: the conversation and the question's id.</summary>
+        private static async Task<(string ConversationId, string PendingId, JsonElement Asked)> AskedAsync(RecordingBody body)
+        {
+            var asked = await body.EventAsync("approval_required");
+            var start = body.Events().First(e => Type(e) == "start");
+            return (start.GetProperty("conversationId").GetString()!, asked.GetProperty("pendingId").GetString()!, asked);
+        }
+
         [Fact]
-        public async Task AToolThatChangesSomething_IsNotRun_AndTheModelIsToldItNeedsTheReader()
+        public async Task AToolThatChangesSomething_WaitsForTheReader_AndRunsOnceAllowed_InTheSameStream()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "save_word", "{\"word\":\"serendipity\"}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("已加入單字庫。"), Sse.End("end_turn"));
+            var body = new RecordingBody();
+
+            var turn = AskAsync(profile: ToolProfile.ProfileKey, body: body);
+            var (conversationId, pendingId, asked) = await AskedAsync(body);
+            // Nothing runs before the reader says yes.
+            Assert.Empty(_toolProfile.Save.Calls);
+            var call = Assert.Single(asked.GetProperty("calls").EnumerateArray());
+            Assert.Equal("toolu_1", call.GetProperty("toolUseId").GetString());
+            Assert.Equal("site", call.GetProperty("connector").GetString());
+            Assert.Equal("save_word", call.GetProperty("tool").GetString());
+            Assert.Equal("加入單字庫", call.GetProperty("displayName").GetString());
+            Assert.Equal("write", call.GetProperty("effect").GetString());
+            Assert.Equal("serendipity", call.GetProperty("input").GetProperty("word").GetString());
+
+            Assert.True(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_1", true)]));
+            var result = await turn;
+
+            Assert.Equal(new[] { "start", "tool_use", "approval_required", "approval_resolved", "tool_result", "delta", "done" },
+                result.Events.Select(Type));
+            var resolved = result.Events[3];
+            Assert.Equal(pendingId, resolved.GetProperty("pendingId").GetString());
+            Assert.True(Assert.Single(resolved.GetProperty("decisions").EnumerateArray()).GetProperty("approve").GetBoolean());
+            Assert.Single(_toolProfile.Save.Calls);
+            Assert.True(result.Events[4].GetProperty("ok").GetBoolean());
+            // The question is over: a second answer finds nothing.
+            Assert.False(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_1", true)]));
+        }
+
+        [Fact]
+        public async Task AWriteTheReaderDeclines_IsNotRun_AndTheModelIsToldSo()
         {
             _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "save_word", "{\"word\":\"x\"}"), Sse.End("tool_use"));
-            _anthropic.Reply(Sse.Start(), Sse.Text("請到單字庫頁面自己加入。"), Sse.End("end_turn"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("好的，沒有加入。"), Sse.End("end_turn"));
+            var body = new RecordingBody();
 
-            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+            var turn = AskAsync(profile: ToolProfile.ProfileKey, body: body);
+            var (conversationId, pendingId, _) = await AskedAsync(body);
+            Assert.True(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_1", false)]));
+            var result = await turn;
 
             Assert.Empty(_toolProfile.Save.Calls);
             Assert.Null(Messages()[1].CardsJson);
-            var result = turn.Events.Single(e => Type(e) == "tool_result");
-            Assert.False(result.GetProperty("ok").GetBoolean());
-            Assert.Equal(JsonValueKind.Null, result.GetProperty("card").ValueKind);
+            var toolEvent = result.Events.Single(e => Type(e) == "tool_result");
+            Assert.False(toolEvent.GetProperty("ok").GetBoolean());
+            Assert.Equal(JsonValueKind.Null, toolEvent.GetProperty("card").ValueKind);
             var toolResult = JsonDocument.Parse(_anthropic.Requests[1]).RootElement.GetProperty("messages")[2].GetProperty("content")[0];
             Assert.True(toolResult.GetProperty("is_error").GetBoolean());
-            Assert.Contains(ClientToolRunner.NeedsApprovalMessage, toolResult.GetProperty("content").GetString());
+            Assert.Contains(ClientToolRunner.DeclinedMessage, toolResult.GetProperty("content").GetString());
+            Assert.Equal("done", Type(result.Events[^1]));
+        }
+
+        [Fact]
+        public async Task OnlyTheWritesOfAReplyAreAsked_ItsReadsRunAsUsual()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "lookup_word", "{\"word\":\"x\"}"),
+                Sse.ClientToolUse("toolu_2", "save_word", "{\"word\":\"x\"}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+            var body = new RecordingBody();
+
+            var turn = AskAsync(profile: ToolProfile.ProfileKey, body: body);
+            var (conversationId, pendingId, asked) = await AskedAsync(body);
+            Assert.Equal("toolu_2", Assert.Single(asked.GetProperty("calls").EnumerateArray()).GetProperty("toolUseId").GetString());
+            // An answer for the wrong conversation, or for a call it did not ask about, does nothing.
+            Assert.False(_approvals.Resolve(User, "another", pendingId, [new ChatApprovalDecision("toolu_2", true)]));
+            Assert.True(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_1", true)]));
+            await turn;
+
+            Assert.Single(_toolProfile.Lookup.Calls);
+            Assert.Empty(_toolProfile.Save.Calls);   // toolu_2 was not decided on: a no
+        }
+
+        [Fact]
+        public async Task StoppingATurnWaitingForTheReader_EndsIt_WithoutRunningTheWrite()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "save_word", "{}"), Sse.End("tool_use"));
+            var body = new RecordingBody();
+
+            var turn = AskAsync(profile: ToolProfile.ProfileKey, body: body);
+            var (conversationId, pendingId, _) = await AskedAsync(body);
+            Assert.True(_turns.Stop(User, conversationId));
+            var result = await turn;
+
+            Assert.Empty(_toolProfile.Save.Calls);
+            Assert.Single(_anthropic.Requests);
+            var done = result.Events[^1];
+            Assert.Equal("done", Type(done));
+            Assert.True(done.GetProperty("stopped").GetBoolean());
+            Assert.False(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_1", true)]));
         }
 
         [Fact]
@@ -723,6 +809,19 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
                 var bytes = buffer.ToArray();
                 Write(bytes, 0, bytes.Length);
                 return ValueTask.CompletedTask;
+            }
+
+            /// <summary>The first event of <paramref name="type"/>, once it has been written.</summary>
+            public async Task<JsonElement> EventAsync(string type)
+            {
+                var waited = System.Diagnostics.Stopwatch.StartNew();
+                while (true)
+                {
+                    var found = Events().Where(e => e.GetProperty("type").GetString() == type).ToList();
+                    if (found.Count > 0) return found[0];
+                    if (waited.Elapsed > TimeSpan.FromSeconds(10)) throw new TimeoutException($"No {type} event");
+                    await Task.Delay(10);
+                }
             }
 
             public List<JsonElement> Events()

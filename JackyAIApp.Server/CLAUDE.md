@@ -237,9 +237,18 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   (thinking signatures included) with the results, at most `ModelTurn.MaxToolRounds` requests a turn. A result
   goes back wrapped as untrusted data (`ClientToolRunner.Wrap`, `<tool_output trust="untrusted">`, which the
   content cannot close), and the request's system prompt says what that means
-  (`ChatTurnRequest.UntrustedToolOutputInstruction`). A tool whose effect is not `Read` is not run yet: the
-  model is told it needs the reader (asking the reader is docs/ai-native/design/04 §1.3). A failing tool is
-  reported to the model as failed, never with its exception's text. The cards a turn's tools showed are kept
+  (`ChatTurnRequest.UntrustedToolOutputInstruction`). A call whose effect is not `Read` runs only once the reader
+  allows it: a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
+  calls: id, connector, tool, display name, effect, input), and the turn waits **in its own request**
+  (`ChatApprovalRegistry`, a singleton in memory like `ChatTurnRegistry`; at most
+  `ClientToolRunner.ApprovalTimeout`, 3 minutes, writing a `: ping` comment line every 20s so Cloudflare does
+  not close the idle stream) until `POST conversations/{id}/approvals/{pendingId}` brings the decisions (only
+  that user, that conversation, once; a call left out is a no; NotFound otherwise), then `approval_resolved`.
+  A declined or unanswered call is reported to the model as not done; stopping the turn while it waits ends
+  it with nothing run. Nothing of the turn is stored while it waits, so reloading the page loses the
+  question. A failing tool is reported to the model as failed, never with its exception's text. A tool's card
+  is held to what the client draws before it is sent (`ToolCardGuard`: a known shape of kind, a table cut to
+  12 columns and 200 rows, a link only to this site or https, 200k characters in all), and the cards a turn's tools showed are kept
   with its answer (`ChatMessages.CardsJson`, a JSON array as streamed) and come back as `ChatMessageDto.Cards`
   when the conversation is reopened; the model still gets the text only. Without tools (Finance) a turn is
   one request, read exactly as before

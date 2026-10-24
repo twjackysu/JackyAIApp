@@ -79,4 +79,19 @@ namespace JackyAIApp.Server.DTO
 
     /// <summary>Whether an answer was still being written when the stop came.</summary>
     public sealed record ChatStopResponse(bool Stopped);
+
+    /// <summary>The reader's decisions on the writes an answer is waiting for (one per call; one left out is a no).</summary>
+    public sealed class ChatApprovalRequest
+    {
+        public List<ChatApprovalDecisionDto> Decisions { get; set; } = [];
+    }
+
+    public sealed class ChatApprovalDecisionDto
+    {
+        public string ToolUseId { get; set; } = string.Empty;
+        public bool Approve { get; set; }
+    }
+
+    /// <summary>The decisions reached the answer waiting for them.</summary>
+    public sealed record ChatApprovalResponse(bool Accepted);
 }

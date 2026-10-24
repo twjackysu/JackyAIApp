@@ -30,5 +30,15 @@ namespace JackyAIApp.Server.Services.Chatbot
             await _response.WriteAsync($"data: {json}\n\n", ct);
             await _response.Body.FlushAsync(ct);
         }
+
+        /// <summary>
+        /// A comment line, which readers skip: keeps a stream that is waiting (for the reader's decision)
+        /// from being closed as idle on the way (Cloudflare drops one after 100s).
+        /// </summary>
+        public async Task WriteCommentAsync(string comment, CancellationToken ct)
+        {
+            await _response.WriteAsync($": {comment}\n\n", ct);
+            await _response.Body.FlushAsync(ct);
+        }
     }
 }

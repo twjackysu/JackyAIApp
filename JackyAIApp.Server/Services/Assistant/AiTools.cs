@@ -15,6 +15,18 @@ namespace JackyAIApp.Server.Services.Assistant
         Destructive,
     }
 
+    public static class ToolEffects
+    {
+        /// <summary>The effect as the client names it (<c>ToolEffect</c> in the client's connectors API types).</summary>
+        public static string WireName(this ToolEffect effect) => effect switch
+        {
+            ToolEffect.Read => "read",
+            ToolEffect.Write => "write",
+            ToolEffect.Destructive => "destructive",
+            _ => throw new ArgumentOutOfRangeException(nameof(effect), effect, null),
+        };
+    }
+
     /// <summary>A tool as the model and the reader see it.</summary>
     /// <param name="Name">The name the model calls it by: letters, digits, <c>_</c> and <c>-</c>, at most 64
     /// (<see cref="Connectors.ToolNames"/> makes a connector's names fit).</param>
@@ -22,8 +34,16 @@ namespace JackyAIApp.Server.Services.Assistant
     /// <param name="Description">What it does and when to use it, for the model.</param>
     /// <param name="InputSchema">The JSON Schema of its input: an object schema.</param>
     /// <param name="Effect">What calling it does.</param>
+    /// <param name="Connector">Whose tool it is, as the reader is asked about it: <see cref="AiToolDescriptor.SiteConnector"/> for
+    /// the site's own, else the connector's key.</param>
+    /// <param name="ConnectorName">What the reader calls that connector ("Jira"); null for the site's own.</param>
     public sealed record AiToolDescriptor(
-        string Name, string DisplayName, string Description, JsonElement InputSchema, ToolEffect Effect);
+        string Name, string DisplayName, string Description, JsonElement InputSchema, ToolEffect Effect,
+        string Connector = AiToolDescriptor.SiteConnector, string? ConnectorName = null)
+    {
+        /// <summary>The connector key of the site's own tools (the client's <c>SITE_CONNECTOR</c>).</summary>
+        public const string SiteConnector = "site";
+    }
 
     /// <summary>Who a tool runs for, and in which conversation.</summary>
     public sealed record AiToolContext(string UserId, string ConversationId);

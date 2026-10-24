@@ -11,6 +11,13 @@ namespace JackyAIApp.Server.Services.Chatbot
     /// the tool_result blocks the next request carries. Every result goes back to the model wrapped
     /// as untrusted data (<see cref="Wrap"/>): what a tool returns may come from anyone, and an
     /// instruction inside it is not the reader's.
+    /// <para>
+    /// A call whose effect is not <see cref="ToolEffect.Read"/> runs only once the reader allows it: the
+    /// reply's such calls are put to them together (<c>approval_required</c>), and the turn waits in its
+    /// own stream (<see cref="ChatApprovalRegistry"/>, at most <see cref="ApprovalTimeout"/>, a comment
+    /// line every <see cref="PingEvery"/> so the stream is not closed as idle). A call they decline, or
+    /// leave unanswered, is reported to the model as not done.
+    /// </para>
     /// </summary>
     internal sealed class ClientToolRunner
     {
@@ -23,9 +30,14 @@ namespace JackyAIApp.Server.Services.Chatbot
         internal const string UnknownToolMessage = "沒有這個工具。";
         internal const string FailedMessage = "工具執行失敗，請換個方式或告訴使用者稍後再試。";
         internal const string TimedOutMessage = "工具逾時沒有回應，請告訴使用者稍後再試。";
-        // Until the reader can be asked (docs/ai-native/design/04 §1.3), a tool that changes
-        // anything is never run: the model is told, and tells the reader.
-        internal const string NeedsApprovalMessage = "這個動作需要使用者確認，目前還不能由 AI 直接執行；請告訴使用者可以自己到對應的頁面操作。";
+        internal const string DeclinedMessage = "使用者拒絕了這個動作，沒有執行。不要再次嘗試同樣的動作，除非使用者明確要求。";
+        internal const string ApprovalTimedOutMessage = "使用者沒有在時限內確認這個動作，沒有執行。請告訴使用者需要時可以再要求一次。";
+
+        /// <summary>How long a turn waits for the reader to allow its writes before counting them as declined.</summary>
+        public static readonly TimeSpan ApprovalTimeout = TimeSpan.FromMinutes(3);
+
+        /// <summary>How often a waiting stream sends a comment line.</summary>
+        public static readonly TimeSpan PingEvery = TimeSpan.FromSeconds(20);
         internal const string TruncatedNote = "\n[結果過長，以上僅為前段。]";
 
         // As the API's own JSON (Program.cs): camelCase, enums by name — a card may carry a DTO the
@@ -38,15 +50,18 @@ namespace JackyAIApp.Server.Services.Chatbot
         private readonly Dictionary<string, IAiTool> _byName;
         private readonly SseStream _sse;
         private readonly AiToolContext _context;
+        private readonly ChatApprovalRegistry _approvals;
         private readonly TimeProvider _time;
         private readonly ILogger _logger;
 
         public ClientToolRunner(
-            IReadOnlyList<IAiTool> tools, SseStream sse, AiToolContext context, TimeProvider time, ILogger logger)
+            IReadOnlyList<IAiTool> tools, SseStream sse, AiToolContext context, ChatApprovalRegistry approvals,
+            TimeProvider time, ILogger logger)
         {
             _byName = tools.ToDictionary(t => t.Descriptor.Name, StringComparer.Ordinal);
             _sse = sse;
             _context = context;
+            _approvals = approvals;
             _time = time;
             _logger = logger;
         }
@@ -61,14 +76,24 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// <summary>Runs the calls in order; the reader stopping the turn or leaving stops them (<paramref name="ct"/>).</summary>
         public async Task<List<BetaContentBlockParam>> RunAsync(IReadOnlyList<BetaToolUseBlock> calls, CancellationToken ct)
         {
+            var asked = new List<(BetaToolUseBlock Call, IAiTool Tool)>();
+            foreach (var call in calls)
+                if (_byName.TryGetValue(call.Name, out var tool) && tool.Descriptor.Effect != ToolEffect.Read)
+                    asked.Add((call, tool));
+            var (allowed, timedOut) = asked.Count > 0
+                ? await AskAsync(asked, ct)
+                : ((IReadOnlyDictionary<string, bool>)new Dictionary<string, bool>(), false);
+
             var results = new List<BetaContentBlockParam>();
             foreach (var call in calls)
             {
                 var started = _time.GetTimestamp();
-                var result = await RunOneAsync(call, ct);
+                var result = allowed.TryGetValue(call.ID, out var yes) && !yes
+                    ? AiToolResult.Error(timedOut ? ApprovalTimedOutMessage : DeclinedMessage)
+                    : await RunOneAsync(call, ct);
                 var durationMs = (long)_time.GetElapsedTime(started).TotalMilliseconds;
 
-                var card = result.IsError || result.Card == null ? (JsonElement?)null : JsonSerializer.SerializeToElement(result.Card, CardJson);
+                var card = result.IsError || result.Card == null ? null : CardOf(call.Name, result.Card);
                 if (card != null) Cards.Add(card.Value);
                 await _sse.WriteAsync(new
                 {
@@ -93,8 +118,6 @@ namespace JackyAIApp.Server.Services.Chatbot
         {
             if (!_byName.TryGetValue(call.Name, out var tool))
                 return AiToolResult.Error(UnknownToolMessage);
-            if (tool.Descriptor.Effect != ToolEffect.Read)
-                return AiToolResult.Error(NeedsApprovalMessage);
 
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(CallTimeout);
@@ -118,6 +141,75 @@ namespace JackyAIApp.Server.Services.Chatbot
                 _logger.LogError(ex, "Chat tool {Tool} failed in conversation {ConversationId}", call.Name, _context.ConversationId);
                 return AiToolResult.Error(FailedMessage);
             }
+        }
+
+        /// <summary>The card as the reader may be sent it (<see cref="ToolCardGuard"/>), or null.</summary>
+        private JsonElement? CardOf(string toolName, object card)
+        {
+            var checkedCard = ToolCardGuard.Check(JsonSerializer.SerializeToElement(card, CardJson));
+            if (checkedCard == null)
+                _logger.LogWarning("Chat tool {Tool} showed a card that is not sent, in conversation {ConversationId}",
+                    toolName, _context.ConversationId);
+            return checkedCard;
+        }
+
+        /// <summary>
+        /// Puts <paramref name="calls"/> to the reader and waits for their decisions, by call id (true =
+        /// allowed); every one a no if none came within <see cref="ApprovalTimeout"/> (TimedOut). The
+        /// reader stopping the turn or leaving ends the wait (<paramref name="ct"/>).
+        /// </summary>
+        private async Task<(IReadOnlyDictionary<string, bool> Allowed, bool TimedOut)> AskAsync(
+            IReadOnlyList<(BetaToolUseBlock Call, IAiTool Tool)> calls, CancellationToken ct)
+        {
+            using var waiting = _approvals.Begin(_context.UserId, _context.ConversationId, calls.Select(c => c.Call.ID).ToList());
+            await _sse.WriteAsync(new
+            {
+                type = "approval_required",
+                pendingId = waiting.PendingId,
+                calls = calls.Select(c => new
+                {
+                    toolUseId = c.Call.ID,
+                    connector = c.Tool.Descriptor.Connector,
+                    connectorName = c.Tool.Descriptor.ConnectorName,
+                    tool = c.Call.Name,
+                    displayName = c.Tool.Descriptor.DisplayName,
+                    effect = c.Tool.Descriptor.Effect.WireName(),
+                    input = JsonSerializer.SerializeToElement(c.Call.Input),
+                }).ToList(),
+            }, ct);
+
+            var started = _time.GetTimestamp();
+            IReadOnlyDictionary<string, bool> decided;
+            var timedOut = false;
+            while (true)
+            {
+                var left = ApprovalTimeout - _time.GetElapsedTime(started);
+                if (left <= TimeSpan.Zero)
+                {
+                    timedOut = true;
+                    decided = calls.ToDictionary(c => c.Call.ID, _ => false, StringComparer.Ordinal);
+                    _logger.LogInformation("Chat approval {PendingId} in conversation {ConversationId} timed out",
+                        waiting.PendingId, _context.ConversationId);
+                    break;
+                }
+                try
+                {
+                    decided = await waiting.Decided.WaitAsync(left < PingEvery ? left : PingEvery, _time, ct);
+                    break;
+                }
+                catch (TimeoutException)
+                {
+                    await _sse.WriteCommentAsync("ping", ct);
+                }
+            }
+
+            await _sse.WriteAsync(new
+            {
+                type = "approval_resolved",
+                pendingId = waiting.PendingId,
+                decisions = calls.Select(c => new { toolUseId = c.Call.ID, approve = decided[c.Call.ID] }).ToList(),
+            }, ct);
+            return (decided, timedOut);
         }
 
         /// <summary>

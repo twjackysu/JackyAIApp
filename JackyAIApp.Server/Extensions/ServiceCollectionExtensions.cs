@@ -50,6 +50,7 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IChatAttachmentService, ChatAttachmentService>();
             services.AddScoped<IChatConversationService, ChatConversationService>();
             services.AddSingleton<ChatTurnRegistry>();
+            services.AddSingleton<ChatApprovalRegistry>();
             services.AddScoped<IChatProfiles, ChatProfiles>();
 
             services.AddSingleton<IPromptLoader, PromptLoader>();
