@@ -5,8 +5,10 @@ namespace JackyAIApp.Server.DTO
 
     /// <summary>One of the reader's tokens, without the token itself (it is shown only when made).</summary>
     /// <param name="Hint">Its start and end ("jsk_AbC…xYz9").</param>
+    /// <param name="ViaOAuth">Made by another AI's OAuth sign-in (named after its client), not on the connectors page.</param>
     public sealed record SiteAccessTokenDto(
-        string Id, string Name, string Hint, bool AllowWrites, DateTime CreatedAt, DateTime ExpiresAt, DateTime? LastUsedAt);
+        string Id, string Name, string Hint, bool AllowWrites, DateTime CreatedAt, DateTime ExpiresAt, DateTime? LastUsedAt,
+        bool ViaOAuth);
 
     /// <summary>A token just made: <paramref name="Token"/> is the only time it is shown.</summary>
     public sealed record CreatedSiteAccessTokenDto(SiteAccessTokenDto Info, string Token);

@@ -10,6 +10,7 @@ const token = (over: Partial<SiteAccessToken>): SiteAccessToken => ({
   name: 'Claude Desktop',
   hint: 'jsk_AbC…xYz9',
   allowWrites: false,
+  viaOAuth: false,
   createdAt: '2026-10-24T09:00:00',
   expiresAt: '2027-01-22T09:00:00',
   lastUsedAt: null,

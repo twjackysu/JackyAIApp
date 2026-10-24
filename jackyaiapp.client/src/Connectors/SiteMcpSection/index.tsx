@@ -120,6 +120,7 @@ export default function SiteMcpSection({ notify }: SiteMcpSectionProps) {
                       color={t.allowWrites ? 'warning' : 'default'}
                       variant="outlined"
                     />
+                    {t.viaOAuth && <Chip size="small" label="經 OAuth 登入" variant="outlined" />}
                   </Stack>
                   <Typography variant="caption" color="text.secondary" component="p">
                     <Box component="code" sx={{ fontFamily: 'monospace' }}>

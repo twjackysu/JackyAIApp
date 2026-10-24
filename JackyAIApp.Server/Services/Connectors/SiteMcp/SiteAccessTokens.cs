@@ -69,7 +69,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
 
         /// <summary>
         /// Makes a token for <paramref name="userId"/> without asking who is signed in (the OAuth token endpoint, which
-        /// a client calls with the reader's consent in a code): the token, or null when they have <see cref="SiteAccessTokenService.Limit"/>.
+        /// a client calls with the reader's consent in a code): the token (marked as made by OAuth), or null when they have <see cref="SiteAccessTokenService.Limit"/>.
         /// </summary>
         Task<string?> IssueAsync(string userId, string name, bool allowWrites, int days, CancellationToken ct);
     }
@@ -104,17 +104,17 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 return ServiceResult.Fail(ErrorCodes.BadRequest, $"請替這個 token 取個名字（{MaxNameLength} 字以內）。");
             if (!Lifetimes.Contains(request.ExpiresInDays))
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "有效期限只能是 30、90 或 365 天。");
-            var issued = await IssueRowAsync(userId, name, request.AllowWrites, request.ExpiresInDays, ct);
+            var issued = await IssueRowAsync(userId, name, request.AllowWrites, request.ExpiresInDays, viaOAuth: false, ct);
             if (issued is not { } made)
                 return ServiceResult.Fail(ErrorCodes.BadRequest, $"最多只能有 {Limit} 個 token，請先撤銷用不到的。");
             return ServiceResult.Ok(new CreatedSiteAccessTokenDto(Dto(made.Row), made.Token));
         }
 
         public async Task<string?> IssueAsync(string userId, string name, bool allowWrites, int days, CancellationToken ct) =>
-            (await IssueRowAsync(userId, name, allowWrites, days, ct))?.Token;
+            (await IssueRowAsync(userId, name, allowWrites, days, viaOAuth: true, ct))?.Token;
 
         private async Task<(SQL.SiteAccessToken Row, string Token)?> IssueRowAsync(
-            string userId, string name, bool allowWrites, int days, CancellationToken ct)
+            string userId, string name, bool allowWrites, int days, bool viaOAuth, CancellationToken ct)
         {
             if (await db.SiteAccessTokens.CountAsync(t => t.UserId == userId, ct) >= Limit) return null;
 
@@ -127,6 +127,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 TokenHash = SiteAccessTokenFormat.Hash(token),
                 Hint = SiteAccessTokenFormat.Hint(token),
                 AllowWrites = allowWrites,
+                ViaOAuth = viaOAuth,
                 CreatedAt = now,
                 ExpiresAt = now.AddDays(days),
             };
@@ -165,6 +166,6 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         }
 
         private static SiteAccessTokenDto Dto(SQL.SiteAccessToken t) =>
-            new(t.Id, t.Name, t.Hint, t.AllowWrites, t.CreatedAt, t.ExpiresAt, t.LastUsedAt);
+            new(t.Id, t.Name, t.Hint, t.AllowWrites, t.CreatedAt, t.ExpiresAt, t.LastUsedAt, t.ViaOAuth);
     }
 }

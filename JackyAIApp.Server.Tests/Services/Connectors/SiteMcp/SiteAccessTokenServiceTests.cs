@@ -52,6 +52,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
             Assert.DoesNotContain(token, row.TokenHash);
             Assert.Equal("Cursor", row.Name);
             Assert.True(row.AllowWrites);
+            Assert.False(row.ViaOAuth);
+            Assert.False(data.Info.ViaOAuth);
             Assert.Equal(_clock.Now.UtcDateTime.AddDays(30), row.ExpiresAt);
             Assert.Equal($"{token[..7]}…{token[^4..]}", data.Info.Hint);
 

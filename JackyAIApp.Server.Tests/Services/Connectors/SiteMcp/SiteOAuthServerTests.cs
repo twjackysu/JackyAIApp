@@ -138,6 +138,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
             Assert.False(holder.AllowWrites); // the reader's choice, not the scope the client asked for
             var row = Assert.Single(_db.SiteAccessTokens);
             Assert.Equal("Claude", row.Name);
+            Assert.True(row.ViaOAuth);
             Assert.Equal(_clock.Now.UtcDateTime.AddDays(SiteOAuthServer.TokenLifetimeDays), row.ExpiresAt);
         }
 

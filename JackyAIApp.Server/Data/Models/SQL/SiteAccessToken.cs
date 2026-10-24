@@ -30,6 +30,12 @@ namespace JackyAIApp.Server.Data.Models.SQL
         /// <summary>Whether the site's tools that add or change something are offered too; reads only otherwise.</summary>
         public bool AllowWrites { get; set; }
 
+        /// <summary>
+        /// Made by the site's OAuth sign-in for another AI's client (Claude.ai, ChatGPT), named after that client, rather
+        /// than by the user on the connectors page.
+        /// </summary>
+        public bool ViaOAuth { get; set; }
+
         public DateTime CreatedAt { get; set; }
 
         /// <summary>When it stops working (UTC).</summary>

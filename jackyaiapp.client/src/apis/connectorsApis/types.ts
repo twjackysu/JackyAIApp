@@ -154,6 +154,8 @@ export interface SiteAccessToken {
   hint: string;
   /** Whether the site's tools that add or change something are offered too. */
   allowWrites: boolean;
+  /** Made by another AI's OAuth sign-in (Claude.ai, ChatGPT), named after its client, not on this page. */
+  viaOAuth: boolean;
   createdAt: string;
   expiresAt: string;
   lastUsedAt: string | null;

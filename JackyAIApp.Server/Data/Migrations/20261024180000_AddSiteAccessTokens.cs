@@ -24,6 +24,7 @@ namespace JackyAIApp.Server.Data.Migrations
                     TokenHash = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
                     Hint = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     AllowWrites = table.Column<bool>(type: "bit", nullable: false),
+                    ViaOAuth = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     LastUsedAt = table.Column<DateTime>(type: "datetime2", nullable: true)

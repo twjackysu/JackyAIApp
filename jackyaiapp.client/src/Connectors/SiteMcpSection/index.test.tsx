@@ -54,6 +54,7 @@ const token = (over: Partial<SiteAccessToken> = {}): SiteAccessToken => ({
   name: 'Claude Desktop',
   hint: 'jsk_AbC…xYz9',
   allowWrites: false,
+  viaOAuth: false,
   createdAt: '2026-10-24T09:00:00',
   expiresAt: '2099-01-22T09:00:00',
   lastUsedAt: null,
@@ -89,12 +90,19 @@ describe('SiteMcpSection', () => {
       ],
       limit: 10,
     });
+    expect(text()).not.toContain('經 OAuth 登入');
     expect(text()).toContain('Claude Desktop');
     expect(text()).toContain('jsk_AbC…xYz9');
     expect(text()).toContain('唯讀');
     expect(text()).toContain('可寫入');
     expect(text()).toContain('從未使用');
     expect(text()).toContain('最後使用 2026/10/20');
+  });
+
+  it('marks a token another AI got by signing in with OAuth', () => {
+    render({ tokens: [token({ name: 'Claude', viaOAuth: true })], limit: 10 });
+    expect(text()).toContain('Claude');
+    expect(text()).toContain('經 OAuth 登入');
   });
 
   it('makes no more tokens at the limit', () => {
