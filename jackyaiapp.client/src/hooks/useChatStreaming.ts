@@ -18,7 +18,15 @@ export interface StreamingStatus {
 /** A tool call starting, or one of our own tools finishing (hosted tools send no result). */
 export type ToolEvent =
   | { type: 'tool_use'; name: string; id?: string; displayName?: string }
-  | { type: 'tool_result'; id: string; name: string; ok: boolean; durationMs?: number };
+  | {
+      type: 'tool_result';
+      id: string;
+      name: string;
+      ok: boolean;
+      durationMs?: number;
+      /** What the result shows in the answer; unchecked until `parseToolCard`. */
+      card?: unknown;
+    };
 
 /** A write waiting for the reader's decision, and the server saying the decisions arrived
  *  (components/aiChat/utils/approval). The stream stays open in between. */

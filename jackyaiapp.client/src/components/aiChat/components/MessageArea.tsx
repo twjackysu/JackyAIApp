@@ -4,6 +4,7 @@ import { Box, Button, ButtonBase, Paper, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useRef, useState } from 'react';
 
+import ToolCards from '../cards/ToolCards';
 import { useAiChatConfig } from '../config';
 import { ACCENT, accentWash, hairline, revealActionsOnHover } from '../style';
 import { Message } from '../types';
@@ -303,6 +304,7 @@ function MessageArea({
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 {attachments}
                 {message.toolSteps && <ToolActivity steps={message.toolSteps} />}
+                {message.toolSteps && <ToolCards steps={message.toolSteps} />}
                 {message.approval && (
                   <ApprovalCard
                     approval={message.approval.request}

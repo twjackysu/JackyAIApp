@@ -75,7 +75,7 @@ round > 3 時每輪加收 1 點（inline，見 06）；超過預算 → 結束�
 | `start` | conversationId, userMessageId | 不變 |
 | `delta` | text | 不變 |
 | `tool_use` | name（+ 新增 id, connector, displayName） | hosted 與 client 工具開始 |
-| `tool_result` | id, name, ok, card?, durationMs | client 工具完成（新） |
+| `tool_result` | id, name, ok, card?, durationMs | client 工具完成（新）。card：`{ kind: 'table', title?, columns: [{ key, label?, numeric? }], rows, totalRows? }`、`{ kind: 'link', title, href（本站路徑或 https）, description?, actionLabel? }`，或 app 自己畫的 `{ kind, title?, data }`；前端 `parseToolCard` 會再過濾一次（純文字、上限 12 欄 200 列），後端也要守同樣上限 |
 | `approval_required` | pendingId, calls[{toolUseId, connector, tool, displayName, effect, input}] | 需要確認（新），串流**不結束**，等決定 |
 | `approval_resolved` | pendingId, decisions | 決定送達後（新） |
 | `done` | 不變：每一輪成功結束一定送 | |

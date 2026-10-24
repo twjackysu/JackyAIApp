@@ -5,6 +5,8 @@
  * only `tool_use` — it has no result event — so its step stays running until the answer ends,
  * when `settleToolSteps` closes every step still open.
  */
+import { parseToolCard, type ToolCard } from '../cards/toolCard';
+
 import type { ToolEvent } from '@/hooks/useChatStreaming';
 
 export type { ToolEvent };
@@ -21,6 +23,8 @@ export interface ToolStep {
   label: string;
   status: ToolStepStatus;
   durationMs?: number;
+  /** What its result shows in the answer (a table, a link…), checked by `parseToolCard`. */
+  card?: ToolCard;
 }
 
 /** A tool name the server gave no display name for, made readable: `get_stock_history` → `stock history`. */
@@ -47,8 +51,17 @@ export function applyToolEvent(steps: readonly ToolStep[], event: ToolEvent): To
   }
   const index = steps.findIndex((s) => s.id === event.id && s.status === 'running');
   if (index < 0) return [...steps];
+  // A failed call shows no card: what it returned is not a result.
+  const card = event.ok ? parseToolCard(event.card) : null;
   return steps.map((s, i) =>
-    i === index ? { ...s, status: event.ok ? 'done' : 'failed', durationMs: event.durationMs } : s,
+    i === index
+      ? {
+          ...s,
+          status: event.ok ? 'done' : 'failed',
+          durationMs: event.durationMs,
+          ...(card ? { card } : {}),
+        }
+      : s,
   );
 }
 

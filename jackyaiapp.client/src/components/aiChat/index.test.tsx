@@ -370,6 +370,38 @@ describe('AiAssistantPanel', () => {
     ]);
   });
 
+  it("draws a tool result's card in the answer, above its text", async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'tool_use', name: 'ask_data', id: 't1', displayName: '查詢資料' },
+        {
+          type: 'tool_result',
+          id: 't1',
+          name: 'ask_data',
+          ok: true,
+          card: {
+            kind: 'table',
+            title: '各地區營收',
+            columns: [
+              { key: 'region', label: '地區' },
+              { key: 'revenue', label: '營收', numeric: true },
+            ],
+            rows: [{ region: '北區', revenue: 1200 }],
+          },
+        },
+        { type: 'delta', text: '北區最高' },
+        { type: 'done', conversationId: 'c1' },
+      ),
+    );
+    await send('各地區營收');
+
+    await waitForText('北區最高');
+    const card = container.querySelector('[data-testid="tool-card"]');
+    expect(card?.textContent).toContain('各地區營收');
+    expect(card?.textContent).toContain('1,200');
+  });
+
   it('an answer that used no tool shows no tool list', async () => {
     await mount();
     chatReplies.push(() =>

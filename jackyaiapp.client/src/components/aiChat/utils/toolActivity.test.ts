@@ -54,6 +54,30 @@ describe('applyToolEvent', () => {
     expect(steps[1].durationMs).toBe(40);
   });
 
+  it("keeps a successful result's card, checked", () => {
+    const steps = applyToolEvent(applyToolEvent([], { type: 'tool_use', name: 'a', id: 't1' }), {
+      type: 'tool_result',
+      id: 't1',
+      name: 'a',
+      ok: true,
+      card: { kind: 'link', title: '單字', href: '/english/dictionary/x' },
+    });
+    expect(steps[0].card).toMatchObject({ kind: 'link', href: '/english/dictionary/x' });
+  });
+
+  it('shows no card for a failed call, or one that cannot be drawn safely', () => {
+    const use = applyToolEvent([], { type: 'tool_use', name: 'a', id: 't1' });
+    const card = { kind: 'link', title: 'x', href: '/x' };
+    expect(
+      applyToolEvent(use, { type: 'tool_result', id: 't1', name: 'a', ok: false, card })[0].card,
+    ).toBeUndefined();
+    const unsafe = { kind: 'link', title: 'x', href: 'javascript:alert(1)' };
+    expect(
+      applyToolEvent(use, { type: 'tool_result', id: 't1', name: 'a', ok: true, card: unsafe })[0]
+        .card,
+    ).toBeUndefined();
+  });
+
   it('a result for no running step changes nothing', () => {
     const steps = applyToolEvent([], { type: 'tool_use', name: 'a', id: 't1' });
 

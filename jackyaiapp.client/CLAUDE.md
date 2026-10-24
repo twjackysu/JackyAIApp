@@ -51,7 +51,11 @@ jackyaiapp.client/src/
   that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`); the chat's
   parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools
   an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`),
-  a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`)
+  a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`). What a tool's
+  result shows in the answer is a card (`tool_result.card`, `cards/`): it comes from a tool, so it is
+  untrusted, and `parseToolCard` keeps only plain text and numbers within limits and links to this site
+  or https. The chat draws `table` and `link`; another kind is drawn by the app's renderer for it
+  (`AiChatConfig.cardRenderers`), or not at all
 - `/connectors` (`Connectors/index.tsx`) keeps the account connections (Google/Microsoft/Atlassian,
   `ConnectorCard`, unchanged) and puts above them what the AI may use, `AiConnectorsSection`: the
   reader's connectors (`InstalledSection`, each opening `ConnectorDetailDrawer` with the tools'

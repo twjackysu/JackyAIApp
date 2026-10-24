@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 
+import type { ToolCardRenderer } from './cards/toolCard';
 import type { ChatErrorCode } from '@/apis/chatbotApis/chatErrors';
 import type SvgIcon from '@mui/material/SvgIcon';
 
@@ -33,6 +34,8 @@ export interface AiChatConfig {
   inputPlaceholder: { narrow: string; wide: string };
   /** Wording of this app's own for some failures (a decline that names the app's subject). */
   errorMessages?: Partial<Record<ChatErrorCode, string>>;
+  /** How this app draws kinds of tool card the chat does not (cards/toolCard), by kind. */
+  cardRenderers?: Readonly<Record<string, ToolCardRenderer>>;
 }
 
 export const AiChatConfigContext = createContext<AiChatConfig | null>(null);
