@@ -406,7 +406,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   saved) its result also takes the page there (`AiToolResult.Navigate`, as Studio AI's `open_page` with `go`).
   `read_dashboard` (`ReadDashboardTool`, an `ISiteTool`, so Studio AI's and the site MCP server's, not this page's) reads one of
   the reader's dashboards as it is now: each chart's rows re-run through `IDashboardService.GetWidgetDataAsync` (the first 6
-  charts, 40 rows each), by id or name, and only a dashboard they own: a shared one holds someone else's titles and data Which data it reads is the page context the client
+  charts, 40 rows each, within 20s: a chart not done by then and those after it are reported as not read), by id or name,
+  and only a dashboard they own: a shared one holds someone else's titles and data. Its rows are `OutsideText` (a source can
+  hold other people's words) Which data it reads is the page context the client
   sends with each message (`sourceId`/`tableName`, or `sessionId`; none = the default source), read by
   `DataAnalysisPage.From`; whether the reader may read that source is the query's own check
 - `NlQueryPlanner.BuildPlanAsync` only orchestrates. Which columns are String or date columns is

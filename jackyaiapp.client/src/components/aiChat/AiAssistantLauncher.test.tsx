@@ -187,13 +187,35 @@ describe('AiAssistantLauncher', () => {
     act(() => panel.props!.onNavigate!('/dashboards/d1'));
     expect(navigate).not.toHaveBeenCalled();
 
-    act(() => panel.props!.onActivityChange!({ busy: false, hasConversation: true }));
+    act(() =>
+      panel.props!.onActivityChange!({ busy: false, hasConversation: true, answered: true }),
+    );
     expect(navigate).toHaveBeenCalledExactlyOnceWith('/dashboards/d1');
 
     // The next answer that asks nothing goes nowhere.
     act(() => panel.props!.onActivityChange!({ busy: true, hasConversation: true }));
-    act(() => panel.props!.onActivityChange!({ busy: false, hasConversation: true }));
+    act(() =>
+      panel.props!.onActivityChange!({ busy: false, hasConversation: true, answered: true }),
+    );
     expect(navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays when the reader stopped the answer, and forgets where it was going', async () => {
+    const navigate = vi.fn();
+    await render(signedIn, navigate);
+    await focusBox();
+
+    act(() => panel.props!.onActivityChange!({ busy: true, hasConversation: true }));
+    act(() => panel.props!.onNavigate!('/dashboards/d1'));
+    act(() =>
+      panel.props!.onActivityChange!({ busy: false, hasConversation: true, answered: false }),
+    );
+    act(() => panel.props!.onActivityChange!({ busy: true, hasConversation: true }));
+    act(() =>
+      panel.props!.onActivityChange!({ busy: false, hasConversation: true, answered: true }),
+    );
+
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('gives the panel no way to move the page when the page did not ask for one', async () => {

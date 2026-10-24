@@ -21,7 +21,8 @@ interface AiAssistantLauncherProps {
   isAuthLoading: boolean;
   /** An answer takes the reader to a page of the site (a tool result's `navigate`, e.g. Data Analysis's
    *  `save_to_dashboard` asked to open what it saved). Called once the answer is done: the assistant is part of
-   *  this page, so leaving it while the answer is written would end it. Without it, only the answer's link. */
+   *  this page, so leaving it while the answer is written would end it; not when the reader stopped it, or it failed.
+   *  Without it, only the answer's link. */
   onNavigate?: (path: string) => void;
 }
 
@@ -65,7 +66,8 @@ export function AiAssistantLauncher({
       const path = goAfterAnswer.current;
       if (next.busy || !path) return;
       goAfterAnswer.current = undefined;
-      onNavigate?.(path);
+      // Stopped, or failed after the tool ran: the reader stays, with the answer's link.
+      if (next.answered) onNavigate?.(path);
     },
     [onNavigate],
   );

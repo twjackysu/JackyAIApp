@@ -75,13 +75,18 @@ jackyaiapp.client/src/
   event; the panel's `ask` prop sends each id once; `fresh` sends it as the first message of a new conversation,
   `useChatConversation`'s `send(…, { fresh: true })`, queued like any message while an answer is written): the home
   page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in only, nothing asked until clicked) sends `BRIEFING_PROMPT`,
-  always fresh, so it neither resends an old conversation's history nor inherits that conversation's tainted writes. A tool result's `navigate` (Studio AI's `open_page` with `go`, a path on this site only, `sitePathOf`, as it streams,
+  always fresh, so it neither resends an old conversation's history nor inherits that conversation's tainted writes. A dashboard's owner gets
+  「AI 解讀」 (`READ_DASHBOARD_PROMPT`, fresh; the server names the dashboard on screen and `read_dashboard` reads it), which is
+  also Studio AI's first suggestion on a dashboard. A tool result's `navigate` (Studio AI's `open_page` with `go`, a path on this site only, `sitePathOf`, as it streams,
   never from a reopened conversation) moves the page under the drawer through the panel's `onNavigate`; on a phone the
   drawer then closes once the answer is done. On a page without the button only the button goes: the drawer, and the conversation in it, stay
   mounted once opened (one of its own link cards may lead to /finance). An app's own assistant (`AiAssistantLauncher`) moves the page only when
   the page passes `onNavigate` (/data-analysis: `save_to_dashboard` asked to open what it saved), and only once the answer is
-  done, since the assistant is part of the page it would leave. Leaving a page that holds a chat stops
+  done (`AssistantActivity.answered`: not when the reader stopped it, or it failed), since the assistant is part of the page
+  it would leave. Leaving a page that holds a chat stops
   its answer (`useChatStreaming` stops on unmount), and a stream that ends without `done` or `error` is a failure
+- A dashboard is read on a phone one chart a row (`Dashboard/viewLayout`, below 600px, in the saved layout's reading
+  order): only the view; editing, and wider screens, keep the layout as saved
 - An answer's HTML preview (`HtmlViewer`) is a `sandbox=""` iframe, never markup in the page: the answer can
   echo what a tool read (someone else's words)
 - `/connectors` (`Connectors/index.tsx`) keeps the account connections (Google/Microsoft/Atlassian,

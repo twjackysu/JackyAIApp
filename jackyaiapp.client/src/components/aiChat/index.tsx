@@ -24,6 +24,8 @@ export interface AssistantActivity {
   busy: boolean;
   /** There is a conversation on screen (it is kept while folded). */
   hasConversation: boolean;
+  /** The last answer on screen finished as an answer (`Message.answered`): not stopped, not failed. */
+  answered?: boolean;
 }
 
 interface AiAssistantPanelProps {
@@ -115,9 +117,10 @@ function AiAssistantPanel({
   }, [ask, send, closePreview, onAskSent]);
 
   const hasConversation = messages.length > 0;
+  const answered = messages[messages.length - 1]?.answered === true;
   useEffect(() => {
-    onActivityChange?.({ busy, hasConversation });
-  }, [busy, hasConversation, onActivityChange]);
+    onActivityChange?.({ busy, hasConversation, answered });
+  }, [busy, hasConversation, answered, onActivityChange]);
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const result = readPaste(e.clipboardData, keepFormatting);

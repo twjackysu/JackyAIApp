@@ -310,7 +310,7 @@ describe('AiAssistantPanel', () => {
 
   it('tells its owner when a reply is being written and when there is a conversation', async () => {
     await mount();
-    expect(lastActivity()).toEqual({ busy: false, hasConversation: false });
+    expect(lastActivity()).toEqual({ busy: false, hasConversation: false, answered: false });
 
     let finish!: () => void;
     chatReplies.push(
@@ -323,11 +323,13 @@ describe('AiAssistantPanel', () => {
         }),
     );
     await send('問');
-    expect(lastActivity()).toEqual({ busy: true, hasConversation: true });
+    expect(lastActivity()).toEqual({ busy: true, hasConversation: true, answered: false });
 
     await act(async () => finish());
     await waitForText('答');
-    await waitFor(() => expect(lastActivity()).toEqual({ busy: false, hasConversation: true }));
+    await waitFor(() =>
+      expect(lastActivity()).toEqual({ busy: false, hasConversation: true, answered: true }),
+    );
     // Ready for the next message without clicking back into the box.
     expect(document.activeElement).toBe(textarea());
   });
@@ -1697,7 +1699,9 @@ describe('AiAssistantPanel — conversation history column', () => {
     messagesOf = { c3: [turn(9, 'user', '只問了一句？')] };
     await mount();
     await openConversation('只問了一句');
-    await waitFor(() => expect(lastActivity()).toEqual({ busy: false, hasConversation: true }));
+    await waitFor(() =>
+      expect(lastActivity()).toEqual({ busy: false, hasConversation: true, answered: false }),
+    );
   });
 
   it('lists the conversations beside the chat without anything having to be opened', async () => {
