@@ -18,6 +18,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
     {
         private static readonly SiteTokenHolder ReadOnly = new("u1", "t1", AllowWrites: false);
         private static readonly SiteTokenHolder WithWrites = new("u1", "t2", AllowWrites: true);
+        private const string Origin = "https://apps.jacky-studio.com";
 
         private sealed class FakeTool(string name, ToolEffect effect, Func<JsonElement, AiToolContext, AiToolResult>? run = null, bool outsideText = false)
             : ISiteTool
@@ -40,6 +41,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         private readonly FakeTool _calendar = new("calendar", ToolEffect.Read, outsideText: true);
         private readonly FakeTool _addWord = new("add_word", ToolEffect.Write);
         private readonly FakeTool _clear = new("clear_words", ToolEffect.Destructive);
+        private readonly FakeTool _linked = new("open_repository", ToolEffect.Read,
+            (_, _) => new AiToolResult("單字庫有 3 個字。", Card: new { kind = "link", title = "我的單字庫", href = "/english/repository" }));
         private readonly FakeTool _broken = new("broken", ToolEffect.Read, (_, _) => throw new InvalidOperationException("connection string Server=secret"));
 
         private Dictionary<string, ToolPermission> _chosen = [];
@@ -49,7 +52,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
             var permissions = new Mock<IToolPermissionSource>();
             permissions.Setup(p => p.ChosenAsync("u1", SiteConnector.Key, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(() => _chosen);
-            return new SiteMcpServer([_lookUp, _calendar, _addWord, _clear, _broken], permissions.Object,
+            return new SiteMcpServer([_lookUp, _calendar, _addWord, _clear, _linked, _broken], permissions.Object,
                 TimeProvider.System, NullLogger<SiteMcpServer>.Instance);
         }
 
@@ -62,7 +65,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
 
         private async Task<JsonObject> ResultOf(JsonObject request, SiteTokenHolder? holder = null)
         {
-            var reply = await Server().HandleAsync(request, holder ?? ReadOnly, CancellationToken.None);
+            var reply = await Server().HandleAsync(request, holder ?? ReadOnly, Origin, CancellationToken.None);
             Assert.Equal(StatusCodes.Status200OK, reply.StatusCode);
             var body = reply.Body!;
             Assert.Null(body["error"]);
@@ -92,7 +95,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         [Fact]
         public async Task TheRequestsId_ComesBackAsSent()
         {
-            var reply = await Server().HandleAsync(Request("ping", id: "abc-1"), ReadOnly, CancellationToken.None);
+            var reply = await Server().HandleAsync(Request("ping", id: "abc-1"), ReadOnly, Origin, CancellationToken.None);
 
             var body = reply.Body!;
             Assert.Equal("abc-1", (string?)body["id"]);
@@ -105,7 +108,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         {
             var notification = new JsonObject { ["jsonrpc"] = "2.0", ["method"] = "notifications/initialized" };
 
-            var reply = await Server().HandleAsync(notification, ReadOnly, CancellationToken.None);
+            var reply = await Server().HandleAsync(notification, ReadOnly, Origin, CancellationToken.None);
 
             Assert.Equal(StatusCodes.Status202Accepted, reply.StatusCode);
             Assert.Null(reply.Body);
@@ -114,7 +117,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         [Fact]
         public async Task AnUnknownMethod_IsMethodNotFound()
         {
-            var reply = await Server().HandleAsync(Request("resources/list"), ReadOnly, CancellationToken.None);
+            var reply = await Server().HandleAsync(Request("resources/list"), ReadOnly, Origin, CancellationToken.None);
 
             Assert.Equal(SiteMcpServer.MethodNotFound, (int)reply.Body!["error"]!["code"]!);
         }
@@ -132,7 +135,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         [MemberData(nameof(NotOneMessage))]
         public async Task SomethingThatIsNotOneJsonRpcRequest_IsAnInvalidRequest(string json)
         {
-            var reply = await Server().HandleAsync(JsonNode.Parse(json), ReadOnly, CancellationToken.None);
+            var reply = await Server().HandleAsync(JsonNode.Parse(json), ReadOnly, Origin, CancellationToken.None);
 
             Assert.Equal(StatusCodes.Status400BadRequest, reply.StatusCode);
             Assert.Equal(SiteMcpServer.InvalidRequest, (int)reply.Body!["error"]!["code"]!);
@@ -141,13 +144,13 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         [Fact]
         public async Task AReadOnlyToken_SeesTheReads_Only()
         {
-            Assert.Equal(new[] { "look_up_word", "calendar", "broken" }, await ToolNamesFor(ReadOnly));
+            Assert.Equal(new[] { "look_up_word", "calendar", "open_repository", "broken" }, await ToolNamesFor(ReadOnly));
         }
 
         [Fact]
         public async Task ATokenThatAllowsWrites_SeesTheWritesToo_ButNeverWhatCannotBeUndone()
         {
-            Assert.Equal(new[] { "look_up_word", "calendar", "add_word", "broken" }, await ToolNamesFor(WithWrites));
+            Assert.Equal(new[] { "look_up_word", "calendar", "add_word", "open_repository", "broken" }, await ToolNamesFor(WithWrites));
         }
 
         [Fact]
@@ -155,7 +158,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         {
             _chosen = new() { ["look_up_word"] = ToolPermission.Disabled, ["add_word"] = ToolPermission.Disabled };
 
-            Assert.Equal(new[] { "calendar", "broken" }, await ToolNamesFor(WithWrites));
+            Assert.Equal(new[] { "calendar", "open_repository", "broken" }, await ToolNamesFor(WithWrites));
         }
 
         [Fact]
@@ -200,7 +203,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         [Fact]
         public async Task AWrite_AReadOnlyTokenCannotSee_CannotBeCalledEither()
         {
-            var reply = await Server().HandleAsync(Call("add_word"), ReadOnly, CancellationToken.None);
+            var reply = await Server().HandleAsync(Call("add_word"), ReadOnly, Origin, CancellationToken.None);
 
             Assert.Equal(SiteMcpServer.InvalidParams, (int)reply.Body!["error"]!["code"]!);
             Assert.Empty(_addWord.Calls);
@@ -214,7 +217,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         [InlineData("no_such_tool")]
         public async Task AToolNotOffered_IsAnUnknownTool(string tool)
         {
-            var reply = await Server().HandleAsync(Call(tool), WithWrites, CancellationToken.None);
+            var reply = await Server().HandleAsync(Call(tool), WithWrites, Origin, CancellationToken.None);
 
             Assert.Equal(SiteMcpServer.InvalidParams, (int)reply.Body!["error"]!["code"]!);
             Assert.Empty(_clear.Calls);
@@ -224,7 +227,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         public async Task ArgumentsThatAreNotAnObject_AreInvalidParams()
         {
             var reply = await Server().HandleAsync(
-                Request("tools/call", new JsonObject { ["name"] = "look_up_word", ["arguments"] = new JsonArray() }), ReadOnly, CancellationToken.None);
+                Request("tools/call", new JsonObject { ["name"] = "look_up_word", ["arguments"] = new JsonArray() }), ReadOnly, Origin, CancellationToken.None);
 
             Assert.Equal(SiteMcpServer.InvalidParams, (int)reply.Body!["error"]!["code"]!);
             Assert.Empty(_lookUp.Calls);
@@ -239,6 +242,38 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
             var text = (string?)result["content"]![0]!["text"];
             Assert.Equal(SiteMcpServer.FailedMessage, text);
             Assert.DoesNotContain("secret", result.ToJsonString());
+        }
+
+        [Fact]
+        public async Task ALinkCard_ComesBackAsALineWithTheAddressInFull()
+        {
+            var result = await ResultOf(Call("open_repository"));
+
+            Assert.Equal("單字庫有 3 個字。\n\n我的單字庫：https://apps.jacky-studio.com/english/repository",
+                (string?)result["content"]![0]!["text"]);
+        }
+
+        [Theory]
+        [InlineData("/english/dictionary/serendipity", "https://apps.jacky-studio.com/english/dictionary/serendipity")]
+        [InlineData("https://calendar.google.com/event?eid=1", "https://calendar.google.com/event?eid=1")]
+        [InlineData("//evil.example/x", null)]
+        [InlineData("/\\evil.example/x", null)]
+        [InlineData("http://plain.example/x", null)]
+        [InlineData("javascript:alert(1)", null)]
+        public void ALinksAddress_IsTheSitesPathInFull_OrHttpsOnly(string href, string? url)
+        {
+            var line = SiteMcpServer.LinkLine(new { kind = "link", title = "看看", href }, Origin + "/");
+
+            Assert.Equal(url == null ? null : "看看：" + url, line);
+        }
+
+        [Fact]
+        public void ACardThatIsNotALink_AddsNothing()
+        {
+            Assert.Null(SiteMcpServer.LinkLine(new { kind = "table", columns = new[] { "a" }, rows = Array.Empty<object>() }, Origin));
+            Assert.Null(SiteMcpServer.LinkLine(null, Origin));
+            Assert.Equal("https://apps.jacky-studio.com/portfolio",
+                SiteMcpServer.LinkLine(JsonSerializer.SerializeToElement(new { kind = "link", href = "/portfolio" }), Origin));
         }
 
         // ---- The real SDK's client against this server (what Claude Desktop, Cursor and others do) ----
@@ -257,7 +292,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
                 if (request.Method != HttpMethod.Post) return new HttpResponseMessage(HttpStatusCode.MethodNotAllowed);
                 var message = JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct));
                 (Shared ?? Methods).Add((string?)message?["method"] ?? "");
-                var reply = await server.HandleAsync(message, holder, ct);
+                var reply = await server.HandleAsync(message, holder, Origin, ct);
                 var response = new HttpResponseMessage((HttpStatusCode)reply.StatusCode);
                 if (reply.Body != null) response.Content = new StringContent(reply.Body.ToJsonString(), Encoding.UTF8, "application/json");
                 return response;
@@ -275,7 +310,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
                 .ListToolsAsync(Endpoint, McpAuth.None, CancellationToken.None);
 
             Assert.Equal("Jacky Studio", listed.ServerName);
-            Assert.Equal(new[] { ("look_up_word", ToolEffect.Read), ("calendar", ToolEffect.Read), ("add_word", ToolEffect.Write), ("broken", ToolEffect.Read) },
+            Assert.Equal(new[] { ("look_up_word", ToolEffect.Read), ("calendar", ToolEffect.Read), ("add_word", ToolEffect.Write), ("open_repository", ToolEffect.Read), ("broken", ToolEffect.Read) },
                 listed.Tools.Select(t => (t.Name, t.Effect)));
             Assert.Equal("initialize", bridge.Methods[0]);
             Assert.Contains("tools/list", bridge.Methods);

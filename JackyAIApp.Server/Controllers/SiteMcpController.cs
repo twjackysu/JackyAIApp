@@ -1,11 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Connectors.SiteMcp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 
 namespace JackyAIApp.Server.Controllers
 {
@@ -18,7 +20,7 @@ namespace JackyAIApp.Server.Controllers
     [Route("api/mcp")]
     [Authorize(AuthenticationSchemes = SiteTokenAuthenticationHandler.SchemeName)]
     [EnableRateLimiting(RateLimitPolicies.SiteMcp)]
-    public class SiteMcpController(ISiteMcpServer server) : ControllerBase
+    public class SiteMcpController(ISiteMcpServer server, IOptions<ConnectorOptions> options) : ControllerBase
     {
         /// <summary>The largest message taken; a tool's arguments are a few short fields.</summary>
         public const int MaxMessageBytes = 1_000_000;
@@ -43,7 +45,8 @@ namespace JackyAIApp.Server.Controllers
             }
 
             var holder = SiteTokenAuthenticationHandler.HolderOf(User) ?? throw new NotSignedInException();
-            return Reply(await server.HandleAsync(message, holder, ct));
+            var origin = SiteOAuthUrls.From(options.Value, $"{Request.Scheme}://{Request.Host}").Issuer;
+            return Reply(await server.HandleAsync(message, holder, origin, ct));
         }
 
         /// <summary>No stream to open and no session to end: this server answers each POST on its own.</summary>

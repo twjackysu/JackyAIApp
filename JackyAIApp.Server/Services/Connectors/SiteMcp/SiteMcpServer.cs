@@ -25,7 +25,11 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
     /// </summary>
     public interface ISiteMcpServer
     {
-        Task<SiteMcpReply> HandleAsync(JsonNode? message, SiteTokenHolder holder, CancellationToken ct);
+        /// <param name="siteOrigin">
+        /// The site's public origin (<see cref="SiteOAuthUrls.Issuer"/>): a tool's link to a page of the site is a path,
+        /// which means nothing to another client, so the result names it in full.
+        /// </param>
+        Task<SiteMcpReply> HandleAsync(JsonNode? message, SiteTokenHolder holder, string siteOrigin, CancellationToken ct);
     }
 
     public sealed class SiteMcpServer(
@@ -59,7 +63,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
 
         private readonly IReadOnlyList<ISiteTool> _tools = siteTools.ToList();
 
-        public async Task<SiteMcpReply> HandleAsync(JsonNode? message, SiteTokenHolder holder, CancellationToken ct)
+        public async Task<SiteMcpReply> HandleAsync(JsonNode? message, SiteTokenHolder holder, string siteOrigin, CancellationToken ct)
         {
             // One message a POST: JSON-RPC batches were dropped from MCP in 2025-06-18.
             if (message is not JsonObject request || request["jsonrpc"]?.GetValueKind() != JsonValueKind.String ||
@@ -85,7 +89,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 "initialize" => Result(id, Initialize(parameters)),
                 "ping" => Result(id, new JsonObject()),
                 "tools/list" => Result(id, await ListToolsAsync(holder, ct)),
-                "tools/call" => await CallToolAsync(id, parameters, holder, ct),
+                "tools/call" => await CallToolAsync(id, parameters, holder, siteOrigin, ct),
                 _ => Error(id, MethodNotFound, $"Method not found: {method}"),
             };
         }
@@ -143,7 +147,8 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
             },
         };
 
-        private async Task<SiteMcpReply> CallToolAsync(JsonNode id, JsonObject? parameters, SiteTokenHolder holder, CancellationToken ct)
+        private async Task<SiteMcpReply> CallToolAsync(
+            JsonNode id, JsonObject? parameters, SiteTokenHolder holder, string siteOrigin, CancellationToken ct)
         {
             var name = parameters?["name"]?.GetValueKind() == JsonValueKind.String ? (string?)parameters["name"] : null;
             if (name == null) return Error(id, InvalidParams, "tools/call needs a tool name.");
@@ -165,12 +170,41 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 name, holder.TokenId, outcome.IsError ? "error" : "ok", (long)time.GetElapsedTime(started).TotalMilliseconds);
 
             var text = outcome.Content.Length > MaxResultChars ? outcome.Content[..MaxResultChars] + TruncatedNote : outcome.Content;
+            if (!outcome.IsError && LinkLine(outcome.Card, siteOrigin) is { } link) text += "\n\n" + link;
             return Result(id, new JsonObject
             {
                 ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = text }),
                 ["isError"] = outcome.IsError,
             });
         }
+
+        /// <summary>
+        /// A link card as a line of text with the address in full (<c>標題：https://…</c>), for the other client's model to
+        /// give the reader: the card itself is drawn only by the site's own chat, and its <c>href</c> is usually a path.
+        /// Null for any other card, or a link that is neither a path on the site nor https.
+        /// </summary>
+        internal static string? LinkLine(object? card, string siteOrigin)
+        {
+            if (card == null || JsonSerializer.SerializeToNode(card) is not JsonObject node) return null;
+            if (StringOf(node["kind"]) != "link" || StringOf(node["href"])?.Trim() is not { Length: > 0 } href) return null;
+
+            string url;
+            if (href.StartsWith('/'))
+            {
+                if (href.StartsWith("//") || href.StartsWith("/\\")) return null;
+                url = siteOrigin.TrimEnd('/') + href;
+            }
+            else if (Uri.TryCreate(href, UriKind.Absolute, out var absolute) && absolute.Scheme == Uri.UriSchemeHttps)
+                url = absolute.AbsoluteUri;
+            else
+                return null;
+
+            var title = StringOf(node["title"])?.Trim();
+            return string.IsNullOrEmpty(title) ? url : $"{title}：{url}";
+        }
+
+        private static string? StringOf(JsonNode? node) =>
+            node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
         private async Task<AiToolResult> RunAsync(ISiteTool tool, JsonElement input, SiteTokenHolder holder, CancellationToken ct)
         {

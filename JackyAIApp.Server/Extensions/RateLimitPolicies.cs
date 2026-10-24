@@ -24,6 +24,21 @@ namespace JackyAIApp.Server.Extensions
 
         internal const int SiteMcpPermitsPerMinute = 120;
 
+        /// <summary>
+        /// The OAuth endpoints another AI's client calls without signing in (POST /api/oauth/register, /api/oauth/token),
+        /// per address: a sign-in takes two calls, so only a loop or a flood comes near the limit.
+        /// </summary>
+        public const string SiteOAuth = "site-oauth";
+
+        internal const int SiteOAuthPermitsPerMinute = 30;
+
+        /// <summary>
+        /// The visitor's address as Cloudflare saw it. The site only takes requests from Cloudflare's ranges (the App
+        /// Service's access restrictions, root CLAUDE.md "Deployment"), so the header is Cloudflare's own; without it (a
+        /// developer's machine) the connection's address.
+        /// </summary>
+        internal const string CloudflareClientIpHeader = "CF-Connecting-IP";
+
         internal const string AnonymousPartition = "anonymous";
         internal const int SessionUploadPermitsPerUser = 5;
         internal const int SessionUploadPermitsAnonymous = 20;
@@ -48,6 +63,17 @@ namespace JackyAIApp.Server.Extensions
                 "token:" + (http.User.FindFirst(SiteTokenAuthenticationHandler.TokenIdClaim)?.Value ?? AnonymousPartition),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = SiteMcpPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
 
+        internal static RateLimitPartition<string> SiteOAuthPartition(HttpContext http) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                "address:" + ClientAddress(http),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = SiteOAuthPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
+        internal static string ClientAddress(HttpContext http)
+        {
+            var forwarded = http.Request.Headers[CloudflareClientIpHeader].ToString().Trim();
+            return forwarded.Length > 0 ? forwarded : http.Connection.RemoteIpAddress?.ToString() ?? AnonymousPartition;
+        }
+
         private static FixedWindowRateLimiterOptions Window(int permits) => new()
         {
             PermitLimit = permits,
@@ -62,6 +88,7 @@ namespace JackyAIApp.Server.Extensions
                 options.OnRejected = WriteRejectionAsync;
                 options.AddPolicy(SessionUpload, SessionUploadPartition);
                 options.AddPolicy(SiteMcp, SiteMcpPartition);
+                options.AddPolicy(SiteOAuth, SiteOAuthPartition);
             });
 
         /// <summary>The same envelope <see cref="IMyResponseFactory"/> gives every other API error.</summary>
@@ -73,6 +100,16 @@ namespace JackyAIApp.Server.Extensions
                     ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
 
             var policy = http.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
+            if (policy == SiteOAuth)
+            {
+                // An OAuth client reads OAuth's own error shape, not the app's envelope.
+                var reply = SiteOAuthReply.Error("temporarily_unavailable", "Too many requests; try again shortly.",
+                    StatusCodes.Status429TooManyRequests);
+                http.Response.StatusCode = reply.StatusCode;
+                http.Response.ContentType = "application/json";
+                await http.Response.WriteAsync(reply.Body.ToJsonString(), ct);
+                return;
+            }
             var message = policy == SessionUpload ? SessionUploadOptions.BusyMessage : "請求太頻繁，請稍後再試。";
 
             var result = http.RequestServices.GetRequiredService<IMyResponseFactory>()

@@ -390,5 +390,58 @@ namespace JackyAIApp.Server.Tests.Services
             using var body = await JsonDocument.ParseAsync(http.Response.Body);
             Assert.Equal(SessionUploadOptions.BusyMessage, body.RootElement.GetProperty("error").GetProperty("message").GetString());
         }
+
+        // ── The site's OAuth endpoints (another AI's client, anonymous) ───────
+
+        [Fact]
+        public void SiteOAuth_EachAddressGetsItsOwnWindow_AsCloudflareSawIt()
+        {
+            var a = RateLimitPolicies.SiteOAuthPartition(Caller(null, "203.0.113.7"));
+            var b = RateLimitPolicies.SiteOAuthPartition(Caller(null, "198.51.100.23"));
+
+            Assert.NotEqual(a.PartitionKey, b.PartitionKey);
+
+            var behindCloudflare = new DefaultHttpContext();
+            behindCloudflare.Connection.RemoteIpAddress = IPAddress.Parse("172.64.0.1");
+            behindCloudflare.Request.Headers["CF-Connecting-IP"] = "203.0.113.7";
+            Assert.Equal("203.0.113.7", RateLimitPolicies.ClientAddress(behindCloudflare));
+
+            var direct = new DefaultHttpContext();
+            direct.Connection.RemoteIpAddress = IPAddress.Parse("127.0.0.1");
+            Assert.Equal("127.0.0.1", RateLimitPolicies.ClientAddress(direct));
+        }
+
+        [Fact]
+        public void SiteOAuth_WindowAllowsItsPermitsThenRefuses()
+        {
+            var partition = RateLimitPolicies.SiteOAuthPartition(Caller(null, "203.0.113.7"));
+            using var limiter = partition.Factory(partition.PartitionKey);
+
+            for (var i = 0; i < RateLimitPolicies.SiteOAuthPermitsPerMinute; i++)
+                Assert.True(limiter.AttemptAcquire().IsAcquired, $"permit {i + 1}");
+            Assert.False(limiter.AttemptAcquire().IsAcquired);
+        }
+
+        [Fact]
+        public async Task SiteOAuth_Rejection_IsInOAuthsOwnShape()
+        {
+            var http = new DefaultHttpContext { RequestServices = new ServiceCollection().BuildServiceProvider() };
+            http.Response.Body = new MemoryStream();
+            http.SetEndpoint(new Endpoint(_ => Task.CompletedTask,
+                new EndpointMetadataCollection(new EnableRateLimitingAttribute(RateLimitPolicies.SiteOAuth)), "token"));
+            using var limiter = new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 1, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
+            });
+            limiter.AttemptAcquire();
+            using var lease = limiter.AttemptAcquire();
+
+            await RateLimitPolicies.WriteRejectionAsync(new OnRejectedContext { HttpContext = http, Lease = lease }, default);
+
+            Assert.Equal(429, http.Response.StatusCode);
+            http.Response.Body.Position = 0;
+            using var body = await JsonDocument.ParseAsync(http.Response.Body);
+            Assert.Equal("temporarily_unavailable", body.RootElement.GetProperty("error").GetString());
+        }
     }
 }

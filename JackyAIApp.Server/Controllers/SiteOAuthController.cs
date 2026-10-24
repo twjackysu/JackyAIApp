@@ -2,9 +2,11 @@ using System.Text.Json.Nodes;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Extensions;
 using JackyAIApp.Server.Services.Connectors.SiteMcp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 namespace JackyAIApp.Server.Controllers
@@ -31,10 +33,12 @@ namespace JackyAIApp.Server.Controllers
         public IActionResult AuthorizationServer() => Json(StatusCodes.Status200OK, oauth.AuthorizationServerMetadata(Urls));
 
         [HttpPost("/api/oauth/register")]
+        [EnableRateLimiting(RateLimitPolicies.SiteOAuth)]
         [RequestSizeLimit(16_000)]
         public IActionResult Register([FromBody] SiteOAuthRegisterRequestDto request) => Reply(oauth.Register(request));
 
         [HttpPost("/api/oauth/token")]
+        [EnableRateLimiting(RateLimitPolicies.SiteOAuth)]
         [Consumes("application/x-www-form-urlencoded")]
         [RequestSizeLimit(16_000)]
         public async Task<IActionResult> Token([FromForm] SiteOAuthTokenRequestDto request, CancellationToken ct = default)
