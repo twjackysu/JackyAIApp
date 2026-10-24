@@ -7,7 +7,7 @@ using SQL = JackyAIApp.Server.Data.Models.SQL;
 namespace JackyAIApp.Server.Services.Connectors
 {
     /// <summary>
-    /// Adding an MCP server of the reader's own and checking it (docs/ai-native/design/03 §5.1, §7): with no
+    /// Adding a catalog MCP server (<see cref="BuiltInMcpConnectors"/>) or one of the reader's own, and checking it (docs/ai-native/design/03 §5.1, §7): with no
     /// credentials, an API key in a header of theirs, or a bearer token. Signing in with OAuth is not
     /// offered yet (design/07, M3).
     /// </summary>
@@ -52,25 +52,35 @@ namespace JackyAIApp.Server.Services.Connectors
         public async Task<ServiceResult<InstalledConnectorDto>> CreateAsync(CreateInstallationRequestDto request, CancellationToken ct)
         {
             var userId = currentUser.RequireId();
-            if (request.DefinitionKey != SQL.ConnectorInstallation.CustomKey)
+            var custom = request.DefinitionKey == SQL.ConnectorInstallation.CustomKey;
+            var builtIn = custom ? null : BuiltInMcpConnectors.Find(request.DefinitionKey);
+            if (!custom && builtIn == null)
                 return ServiceResult.Fail(ErrorCodes.NotFound, "目錄裡沒有這個 connector。");
 
-            var (url, urlError) = McpServerUrl.Normalize(request.ServerUrl);
+            // A catalog entry's server is the catalog's, whatever the request says.
+            var (url, urlError) = McpServerUrl.Normalize(builtIn?.Url ?? request.ServerUrl);
             if (url == null) return ServiceResult.Fail(ErrorCodes.BadRequest, urlError!);
 
             var (auth, authKind, authError) = AuthFrom(request);
             if (authError != null) return ServiceResult.Fail(ErrorCodes.BadRequest, authError);
 
-            var count = await db.ConnectorInstallations.CountAsync(
-                c => c.UserId == userId && c.DefinitionKey == SQL.ConnectorInstallation.CustomKey, ct);
-            if (count >= ConnectorCatalogService.CustomLimit)
+            if (builtIn != null)
+            {
+                if (await db.ConnectorInstallations.AnyAsync(c => c.UserId == userId && c.DefinitionKey == builtIn.Key, ct))
+                    return ServiceResult.Fail(ErrorCodes.BadRequest, "這個 connector 已經加過了。");
+            }
+            else if (await db.ConnectorInstallations.CountAsync(
+                         c => c.UserId == userId && c.DefinitionKey == SQL.ConnectorInstallation.CustomKey, ct)
+                     >= ConnectorCatalogService.CustomLimit)
+            {
                 return ServiceResult.Fail(ErrorCodes.BadRequest, $"最多可以加 {ConnectorCatalogService.CustomLimit} 個自己的 MCP server。");
+            }
 
             var now = time.GetUtcNow().UtcDateTime;
             var row = new SQL.ConnectorInstallation
             {
                 UserId = userId,
-                DefinitionKey = SQL.ConnectorInstallation.CustomKey,
+                DefinitionKey = builtIn?.Key ?? SQL.ConnectorInstallation.CustomKey,
                 ServerUrl = url.ToString(),
                 AuthKind = authKind,
                 EncryptedSecret = secrets.Seal(auth),
@@ -80,7 +90,7 @@ namespace JackyAIApp.Server.Services.Connectors
             // A URL we may not reach is not kept at all.
             if (blocked != null) return ServiceResult.Fail(ErrorCodes.BadRequest, blocked);
 
-            row.DisplayName = Trimmed(request.DisplayName, 100) ?? row.DisplayName ?? url.Host;
+            row.DisplayName = builtIn?.DisplayName ?? Trimmed(request.DisplayName, 100) ?? row.DisplayName ?? url.Host;
             db.ConnectorInstallations.Add(row);
             await db.SaveChangesAsync(ct);
             return ServiceResult.Ok(ConnectorCatalogService.InstalledDto(row));

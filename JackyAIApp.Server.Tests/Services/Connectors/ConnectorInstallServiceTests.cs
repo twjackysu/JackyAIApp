@@ -156,6 +156,24 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public async Task ACatalogServer_IsAddedAtItsOwnUrl_Once()
+        {
+            var deepWiki = BuiltInMcpConnectors.Find("deepwiki")!;
+            _mcp.Setup(m => m.ListToolsAsync(new Uri(deepWiki.Url), McpAuth.None, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new McpServerTools("DeepWiki MCP", [Search]));
+            var request = new CreateInstallationRequestDto { DefinitionKey = "deepwiki", AuthKind = "none", ServerUrl = "https://evil.example/mcp" };
+
+            var created = (await Service().CreateAsync(request, default)).Data!;
+
+            Assert.Equal("deepwiki", created.DefinitionKey);
+            Assert.Equal(deepWiki.Url, created.ServerUrl);
+            Assert.Equal(deepWiki.DisplayName, created.DisplayName);
+            Assert.Equal("dev", created.Category);
+            Assert.Equal(ErrorCodes.BadRequest, (await Service().CreateAsync(request, default)).Error);
+            Assert.Single(_db.ConnectorInstallations.AsNoTracking());
+        }
+
+        [Fact]
         public async Task OnlyACatalogKeyOrCustom_CanBeAdded()
         {
             var result = await Service().CreateAsync(new CreateInstallationRequestDto { DefinitionKey = "nope", AuthKind = "none" }, default);

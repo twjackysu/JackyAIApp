@@ -65,7 +65,9 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal("ok", site.Health);
             Assert.Equal(new[] { ("ask_data", "read", "auto"), ("save_widget", "write", "confirm"), ("clear_words", "destructive", "confirm") },
                 site.Tools.Select(t => (t.Name, t.Effect, t.Permission)));
-            Assert.Equal(SiteConnector.Key, Assert.Single(catalog.Entries).Key);
+            // The catalog lists what can be added: the built-in MCP servers, not the site's own tools.
+            Assert.Equal(BuiltInMcpConnectors.All.Select(d => d.Key), catalog.Entries.Select(e => e.Key));
+            Assert.All(catalog.Entries, e => Assert.False(e.Installed));
             Assert.Equal(ConnectorCatalogService.CustomLimit, catalog.CustomLimit);
         }
 

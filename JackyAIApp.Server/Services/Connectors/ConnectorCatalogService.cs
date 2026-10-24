@@ -62,11 +62,11 @@ namespace JackyAIApp.Server.Services.Connectors
             var installed = new List<InstalledConnectorDto> { SiteDto(siteRow) };
             installed.AddRange(rows.Where(r => r.DefinitionKey != SiteConnector.Key).Select(InstalledDto));
 
-            var entries = new List<CatalogEntryDto>
-            {
-                new(SiteConnector.Key, SiteConnector.DisplayName, SiteConnector.Description, "site",
-                    SiteConnector.Publisher, "none", null, Installed: true),
-            };
+            // The site's own tools are always among the installed, so the catalog lists only what can be added.
+            var entries = BuiltInMcpConnectors.All
+                .Select(d => new CatalogEntryDto(d.Key, d.DisplayName, d.Description, d.Category, d.Publisher, d.AuthKind,
+                    d.DocsUrl, Installed: rows.Any(r => r.DefinitionKey == d.Key)))
+                .ToList();
             return ServiceResult.Ok(new ConnectorCatalogDto(entries, installed, CustomLimit));
         }
 
@@ -176,8 +176,10 @@ namespace JackyAIApp.Server.Services.Connectors
                 .Select(t => new ConnectorToolDto(t.Name, t.Title, t.Description, t.Effect.WireName(),
                     ToolPermissions.For(t.Name, t.Effect, chosen).WireName()))
                 .ToList();
-            return new InstalledConnectorDto(row.Id, row.DefinitionKey, row.DisplayName ?? row.DefinitionKey,
-                row.ServerUrl == null ? "" : $"MCP server：{new Uri(row.ServerUrl).Host}", "data",
+            var builtIn = BuiltInMcpConnectors.Find(row.DefinitionKey);
+            return new InstalledConnectorDto(row.Id, row.DefinitionKey, row.DisplayName ?? builtIn?.DisplayName ?? row.DefinitionKey,
+                builtIn?.Description ?? (row.ServerUrl == null ? "" : $"MCP server：{new Uri(row.ServerUrl).Host}"),
+                builtIn?.Category ?? "data",
                 row.ServerUrl, AuthKindWireName(row.AuthKind), HealthOf(row), AlwaysOn: false, row.LastError, row.LastTestedAt,
                 [], tools);
         }

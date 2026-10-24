@@ -291,6 +291,13 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   to its profile (a tool's descriptor is a `static readonly Definition`, so the list and the tool agree); the
   tools themselves still come with the profile, since one may need the page it is asked from. The site has
   a row only once the reader changed one of its tools' permissions
+- The catalog's remote MCP servers are `BuiltInMcpConnectors` (tw-stock, DeepWiki; no sign-in): adding one is a
+  line there, checked by `BuiltInMcpConnectorsTests`. Each is added once per reader, always at its own URL
+  (`ConnectorInstallService`, which also adds a server of the reader's own: no credentials, an API key in a
+  header of theirs or a bearer token, stored with `ConnectorSecrets`; OAuth is not offered yet). The MCP client
+  is `McpToolClient` (the official SDK over Streamable HTTP, every request through `SafeHttp`, a session per
+  request); the chat gets a reader's connectors' tools from `ConnectorToolSource` (named `m1__…` per turn,
+  their connector the installation's id)
 - `ConnectorCatalogService` answers the page (`AiConnectorsController`, `api/connectors/catalog`,
   `tool-permissions`, `installations/{id}/enabled`, `installations/{id}`, in the `{ data }` envelope; the
   account connections' endpoints of `ConnectorsController`, under the same route, are unchanged) and, as
