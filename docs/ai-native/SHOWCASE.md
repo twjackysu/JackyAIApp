@@ -9,6 +9,7 @@
 | 你看到的 | 背後 | 為什麼跟上 2026 的趨勢 |
 |---|---|---|
 | **Studio AI**：任何頁面右下角按鈕或 ⌘K／Ctrl+K 叫出，知道你在哪一頁 | 共用 chat 引擎的 `studio` profile；本站功能都是工具（`ISiteTool`） | 「網站本身就是工具」：同一個 AI 到處都在 |
+| **⌘K 也是指令列**：在 Studio 打「複習」「portfolio」或一個英文單字，輸入框上方立刻出現「前往『複習』」「查字典：review」，按下直接到（不問 AI、不花用量）；打完整的問題就交給 AI | 前端的 `quickActionsFor`（頁面清單由測試對齊伺服器的 `SitePages`），只認頁面名稱與單一英文單字 | Raycast／Linear 式的指令列與 AI 助理合而為一：簡單的事零延遲，複雜的事交給 agent |
 | **用說的**：三個助理的輸入框都有麥克風，說「給我今天的簡報」字就出現在框裡 | 瀏覽器內建的 Web Speech API（zh-TW），不經本站伺服器、不花 AI 額度；Firefox 沒有就不顯示 | 語音是 2026 AI 助理的基本互動 |
 | **AI 今日簡報**：首頁一鍵，Studio AI 同時讀行程、學習進度、投資組合，整理成三段重點與「先做哪件事」 | `askStudio`（任何頁面帶一句話打開 Studio）；模型在一次回覆裡呼叫三個工具，卡片與文字一起出現 | Agent 的價值是「跨 app 組合」：一個問題用到三個資料源 |
 | **「帶我去複習」→ 頁面真的切過去**，對話留在旁邊說明到了之後怎麼做；每個回答下方有 2–3 個 **「接著問」** 一鍵續問 | `open_page` 的 `go` → `tool_result.navigate`（只限本站工具、站內路徑、沒讀過外部內容）；接著問依回答用到的工具決定（不花 token） | AI 不只回答，還會操作網站本身 |
@@ -22,7 +23,7 @@
 | 每個工具「自動／需確認／停用」；確認卡可勾「以後直接執行」；讀過外部資料（含行事曆邀請）後的寫入一律先問；工具說明被改了就改回需確認 | `ToolPermissions`、taint（D-031、`OutsideText`）、工具結果包成不可信資料、`CachedTools.Changed`（rug pull） | prompt injection 與 tool poisoning 防護 |
 | **網站本身就是 MCP server**：在 /connectors 產生 token，一鍵複製 Claude Code／Claude Desktop／Cursor／VS Code 的設定，別家的 AI 就能查字典、看你的學習進度與投資組合 | `POST /api/mcp`（Streamable HTTP、JSON 回應、無 session）、只存雜湊的 PAT、預設唯讀、跟 /connectors 的權限連動；**Claude.ai／ChatGPT 只要貼網址**：本站同時是 OAuth 授權伺服器（PRM、AS metadata、DCR、PKCE、同意頁） | MCP 是雙向的：網站不只是 MCP client，也是 MCP server |
 | **在 Claude.ai／ChatGPT 裡也看得到本站的卡片**：問「我的投資組合」，回答下方直接出現本站的持倉表格（深淺色跟著 host） | MCP Apps（`ui://` 資源、`structuredContent`、postMessage 的 `ui/initialize`／`tool-result`／`size-changed`），一個內嵌的 HTML 畫所有卡片 | MCP Apps（2026 的 generative UI 標準）：工具不只回文字，也回 UI |
-| /finance 的 Stock Intelligence：**行為不變** | 同一套共用 chat（`FinanceChatRequestTests` 逐欄位鎖住） | — |
+| /finance 的 Stock Intelligence：**行為不變**，工具 chip 與進度改用中文（「個股歷史股價」「技術指標」），回答下方有「接著問」 | 同一套共用 chat（`FinanceChatRequestTests` 逐欄位鎖住請求）；中文名稱是前端的對照表（`FINANCE_TOOL_LABELS`） | — |
 
 ## Demo 腳本（約 9 分鐘）
 
@@ -33,6 +34,8 @@
    ![Studio 的今日簡報](screenshots/studio-briefing-desktop.png)
    ![語音輸入](screenshots/studio-voice-desktop.png)
    ![Studio 打開](screenshots/studio-open-desktop.png)
+   **指令列**：在 Studio 輸入框打「review」→ 上方出現「前往『複習』」與「查字典：review」，按一下就到，完全不經 AI；打一整句問題就照常送給 AI。
+   ![⌘K 指令列](screenshots/studio-quick-desktop.png)
 2. **AI 操作網站（30 秒）**：在首頁 ⌘K →「帶我去複習」→ 背後的頁面直接切到「複習」，Studio 說明怎麼翻牌（手機上回答完抽屜自動收起，再按按鈕對話還在）。
    ![帶我去複習](screenshots/studio-go-desktop.png)
 3. **本站即工具（1 分鐘）**：輸入「serendipity 是什麼？幫我加入單字庫」→ 回答上方顯示用了「查字典」→ 單字連結卡 → 出現**確認卡**「加入單字庫：serendipity」→ 按「允許」→「已加入」與「前往單字庫」。
@@ -62,7 +65,8 @@
    ![MCP App 的「加入單字庫」按鈕](screenshots/mcp-app-action-light.png)
    ![讓其他 AI 使用本站](screenshots/site-mcp-section-desktop.png)
    ![產生 token 與設定](screenshots/site-mcp-token-desktop.png)
-9. **Stock Intelligence（30 秒）**：/finance 問一檔股票，跟以前一樣。
+9. **Stock Intelligence（30 秒）**：/finance 問「分析台積電最近的走勢」，跟以前一樣；回答上方的工具 chip 現在是中文（「個股歷史股價」「技術指標」），下方有「接著問」。
+   ![Stock Intelligence](screenshots/finance-answer-desktop.png)
 10. **收尾**：下面的架構圖，以及「新增一個 connector 要寫多少 code」（[CONTRIBUTING-CONNECTORS.md](CONTRIBUTING-CONNECTORS.md)）。
 
 ## 架構
@@ -126,6 +130,7 @@ flowchart LR
 - MCP client 只支援 Streamable HTTP（不支援舊 SSE transport，D-029）；每次請求一個 session。
 - 本站 MCP server 的 OAuth 沒有 refresh token（90 天後重新授權），授權碼存在記憶體（重啟時正在登入的人要重來）；只用假的 client 測過，Claude.ai／ChatGPT 的實際流程要合併後實測（FOR_JACKY 9）。Claude Desktop 的設定檔方式要經 `mcp-remote`（需要 Node.js）。
 - 讀過外部內容（外部 connector、Google 日曆）的對話，之後每一輪的寫入都會先問（D-055），連「以後直接執行」的工具也一樣——今日簡報讀了日曆，所以同一個對話接著「加入單字庫」會出確認卡；開新對話就不會。
+- /finance 的助理還不會讀使用者自己的投資組合（D-073：Finance 會改走 agent loop 並同時用 hosted MCP 與本站工具，這個組合沒辦法在開發環境對真的 API 驗證）。上線後確認 Studio 的 agent loop 穩定，就能讓 Stock Intelligence 回答「我的持股裡哪幾檔被外資賣超？」——這是最值得做的下一步。
 - 本站的 MCP App 只用 playwright 自己扮的 host 驗證過（照規格的 `ui/initialize`、`tool-result`、`size-changed`、`open-link`）；Claude.ai／ChatGPT 實際怎麼畫要合併後實測（FOR_JACKY 9）。站內 Studio AI 的卡片仍是宣告式 JSON（D-019），沒有改用 iframe。
 
 ## 開發日誌與統計
@@ -146,5 +151,6 @@ flowchart LR
 | 10/24 | 10 | taint 跨訊息保存、首頁「AI 今日簡報」（askStudio）、確認卡放在文字之後、標題列顯示工具名稱與「等你確認」、手機表格卡片、語音輸入、MCP App 卡片上的「加入單字庫」按鈕 |
 | 10/25 | 11 | 今日簡報開新對話、回答下方的「接著問」、圖表卡片直接換圖、「帶我去」（AI 直接切換頁面）、審查修正 |
 | 10/25 | 12 | Data Analysis「存完打開」（存好 dashboard 後頁面直接切過去）、dashboard 的「AI 解讀」（`read_dashboard`）、確認卡只說一句話（原始參數收起來）、手機 dashboard 一列一張圖、截圖巡檢 |
+| 10/25 | 13 | 巡檢 /finance 與 /connectors 目錄、抽屜：/finance 的工具 chip 改中文、自訂 MCP server 的抽屜不再重複網址；⌘K 指令列（打頁面名稱或英文單字直接去，不經 AI） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

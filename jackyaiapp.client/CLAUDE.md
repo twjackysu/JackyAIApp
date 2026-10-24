@@ -49,7 +49,9 @@ jackyaiapp.client/src/
   `usePreview`, speaking a message instead of typing it `useSpeechInput` (the browser's Web Speech API,
   zh-TW; the words go into the box after what was typed and the reader still sends; no button where the browser
   cannot listen, e.g. Firefox). What differs between apps' assistants (greeting, example questions, suggestions,
-  placeholders, the server profile, error wording) is an `AiChatConfig` (`components/aiChat/config.ts`)
+  placeholders, the server profile, error wording, words for tools the server names no display name for,
+  `toolLabels`: Finance's hosted tw-stock tools, `FINANCE_TOOL_LABELS`, so its chips and header read 「個股歷史股價」
+  rather than "stock history") is an `AiChatConfig` (`components/aiChat/config.ts`)
   that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`); the chat's
   parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools
   an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`),
@@ -71,7 +73,11 @@ jackyaiapp.client/src/
   drawer, the history behind its button, the header's last action closes) under the `studio` profile, with
   the path as its page context. Only for a signed-in reader, and not where a page has an assistant of its own
   (/finance, /data-analysis) or fills the screen; which pages, the suggestions per page and the shortcut are
-  `studioChat`. A page opens it with a message sent through `askStudio(text, { fresh? })` (`StudioAssistant/askStudio`, a window
+  `studioChat`. It is the site's command bar too: while the reader types, a few words naming a page ("複習",
+  "portfolio", "帶我去 dashboards") or one English word offer to go straight there (`quickActionsFor`, shown over the
+  box by `QuickActions` through the panel's `inputAccessory`): a press navigates, empties the box and closes the
+  drawer, with no AI and no usage; Enter still sends the text to the AI. Its page list, `QUICK_PAGES`, is held to the
+  server's `SitePages.cs` by its test. A page opens it with a message sent through `askStudio(text, { fresh? })` (`StudioAssistant/askStudio`, a window
   event; the panel's `ask` prop sends each id once; `fresh` sends it as the first message of a new conversation,
   `useChatConversation`'s `send(…, { fresh: true })`, queued like any message while an answer is written): the home
   page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in only, nothing asked until clicked) sends `BRIEFING_PROMPT`,

@@ -9,7 +9,9 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
 
     /// <summary>
     /// The site's pages, as the client's app registry (<c>jackyaiapp.client/src/constants/apps.tsx</c>) and
-    /// the English app's routes have them.
+    /// the English app's routes have them. Studio AI's quick actions on the client
+    /// (<c>components/StudioAssistant/quickActions.ts</c>) list the same pages, and its test reads this file
+    /// for them: keep each page a <c>new("key", "/path", …)</c> line.
     /// </summary>
     public static class SitePages
     {
