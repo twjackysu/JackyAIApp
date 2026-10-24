@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Services.Connectors;
@@ -34,7 +35,7 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
     }
 
     /// <summary>Looks a word up in the site's dictionary (as its page does: one not stored yet is generated once and kept).</summary>
-    public sealed class LookUpWordTool(IDictionaryService dictionary) : ISiteTool
+    public sealed class LookUpWordTool(IDictionaryService dictionary) : ISiteTool, IOffersAppActions
     {
         public const string Name = "look_up_word";
 
@@ -49,6 +50,12 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
             ToolEffect.Read);
 
         public AiToolDescriptor Descriptor => Definition;
+
+        /// <summary>In another AI's frame, the word's card can add it to the repository with one press.</summary>
+        public IReadOnlyList<SiteAppAction> AppActionsFor(JsonElement input) =>
+            WordInput.Of(input) is { } word
+                ? [new SiteAppAction(AddWordToRepositoryTool.Name, "加入單字庫", new JsonObject { ["word"] = word })]
+                : [];
 
         public async Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
         {

@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
 namespace JackyAIApp.Server.Services.Connectors
 {
     /// <summary>
@@ -15,6 +18,24 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <see cref="SiteToolSet"/>), and an assistant that offers the site's tools, Studio AI, gets them all.
     /// </summary>
     public interface ISiteTool : IAiTool;
+
+    /// <summary>
+    /// A button a tool's card offers in another AI's frame (the site's MCP App, design/03 §9.2): pressing it calls
+    /// <paramref name="Tool"/>, another of the site's tools, with <paramref name="Arguments"/>, through that AI's host
+    /// (<c>tools/call</c> from the app). The reader pressing it is the asking: there is no model in between.
+    /// </summary>
+    public sealed record SiteAppAction(string Tool, string Label, JsonObject Arguments);
+
+    /// <summary>
+    /// A site tool whose card has a next step the reader may take with one press (a word looked up → add it to the
+    /// repository). The site's MCP server offers an action only when the token may use its tool (a write only with a
+    /// token that allows writes, never one the reader turned off).
+    /// </summary>
+    public interface IOffersAppActions
+    {
+        /// <summary>The buttons for the card of a call with <paramref name="input"/>; none when the input says too little.</summary>
+        IReadOnlyList<SiteAppAction> AppActionsFor(JsonElement input);
+    }
 
     /// <summary>The connector the site's own tools belong to: always there, nothing to sign in to.</summary>
     public static class SiteConnector

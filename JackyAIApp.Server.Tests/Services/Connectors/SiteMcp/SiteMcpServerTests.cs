@@ -51,6 +51,25 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
                 columns = new object[] { new { key = "name", label = "持倉" }, new { key = "value", label = "市值", numeric = true } },
                 rows = new object[] { new Dictionary<string, object?> { ["name"] = "台積電", ["value"] = 1000 } },
             }));
+        /// <summary>A word's card with a button to add the word (to <c>add_word</c>), as the dictionary's lookup offers.</summary>
+        private sealed class WordCardTool : ISiteTool, IOffersAppActions
+        {
+            public AiToolDescriptor Descriptor { get; } = new("word_card", "單字卡", "單字卡說明",
+                JsonSerializer.SerializeToElement(new { type = "object" }), ToolEffect.Read);
+
+            public IReadOnlyList<SiteAppAction> AppActionsFor(JsonElement input) =>
+            [
+                new("add_word", "加入單字庫", new JsonObject { ["word"] = input.GetProperty("word").GetString() }),
+                new("not_a_tool", "不存在", new JsonObject()),
+            ];
+
+            public Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct) =>
+                Task.FromResult(new AiToolResult("serendipity：意外發現的好運",
+                    Card: new { kind = "link", title = "serendipity", href = "/english/dictionary/serendipity" }));
+        }
+
+        /// <summary>Tools a test adds to the server's (left out of the lists the other tests check).</summary>
+        private readonly List<ISiteTool> _extra = [];
         private readonly FakeTool _broken = new("broken", ToolEffect.Read, (_, _) => throw new InvalidOperationException("connection string Server=secret"));
 
         private Dictionary<string, ToolPermission> _chosen = [];
@@ -60,7 +79,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
             var permissions = new Mock<IToolPermissionSource>();
             permissions.Setup(p => p.ChosenAsync("u1", SiteConnector.Key, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(() => _chosen);
-            return new SiteMcpServer([_lookUp, _calendar, _addWord, _clear, _linked, _table, _broken], permissions.Object,
+            return new SiteMcpServer([_lookUp, _calendar, _addWord, _clear, _linked, _table, _broken, .. _extra], permissions.Object,
                 TimeProvider.System, NullLogger<SiteMcpServer>.Instance);
         }
 
@@ -365,6 +384,24 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
             Assert.Equal("table", (string?)card["kind"]);
             Assert.Equal("台積電", (string?)card["rows"]![0]!["name"]);
             Assert.Equal("2 筆持倉。", (string?)result["content"]![0]!["text"]);
+        }
+
+        [Fact]
+        public async Task ACardsButton_IsOffered_OnlyWhereTheTokenMayCallItsTool()
+        {
+            _extra.Add(new WordCardTool());
+            var args = new JsonObject { ["word"] = "serendipity" };
+
+            var withWrites = await ResultOf(Call("word_card", args), WithWrites);
+            var action = Assert.Single(withWrites["structuredContent"]!["actions"]!.AsArray())!;
+            Assert.Equal("add_word", (string?)action["tool"]);
+            Assert.Equal("加入單字庫", (string?)action["label"]);
+            Assert.Equal("serendipity", (string?)action["arguments"]!["word"]);
+
+            // A read-only token, or a write the reader turned off, has no button: the host could not call it.
+            Assert.Null((await ResultOf(Call("word_card", args), ReadOnly))["structuredContent"]!["actions"]);
+            _chosen = new() { ["add_word"] = ToolPermission.Disabled };
+            Assert.Null((await ResultOf(Call("word_card", args), WithWrites))["structuredContent"]!["actions"]);
         }
 
         [Fact]

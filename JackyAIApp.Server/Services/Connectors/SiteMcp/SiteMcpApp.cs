@@ -73,6 +73,27 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
             return structured.ToJsonString().Length > MaxCardChars ? null : structured;
         }
 
+        /// <summary>The most buttons one card offers.</summary>
+        public const int MaxActions = 3;
+
+        /// <summary>
+        /// Puts a card's buttons (<see cref="SiteAppAction"/>) on its structured content as <c>actions</c>
+        /// (<c>[{ tool, label, arguments }]</c>), only those whose tool is in <paramref name="offered"/>: what this token may
+        /// call. The app draws them; pressing one sends <c>tools/call</c> through the host.
+        /// </summary>
+        public static void AddActions(JsonObject structured, IReadOnlyList<SiteAppAction> actions, IReadOnlySet<string> offered)
+        {
+            var allowed = new JsonArray();
+            foreach (var action in actions.Where(a => offered.Contains(a.Tool)).Take(MaxActions))
+                allowed.Add(new JsonObject
+                {
+                    ["tool"] = action.Tool,
+                    ["label"] = action.Label,
+                    ["arguments"] = action.Arguments.DeepClone(),
+                });
+            if (allowed.Count > 0) structured["actions"] = allowed;
+        }
+
         private static string? StringOf(JsonNode? node) =>
             node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
@@ -106,6 +127,10 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
               td.nowrap { white-space: nowrap; }
               .more { color: var(--muted); font-size: 12px; margin-top: 6px; }
               button { background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 6px; padding: 6px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+              button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+              button:disabled { opacity: .6; cursor: default; }
+              .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+              .note { color: var(--muted); font-size: 12px; }
               .hidden { display: none; }
             </style>
             </head>
@@ -173,6 +198,42 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 app.appendChild(button);
               }
 
+              // A card's buttons: each calls one of the site's tools through the host (tools/call), the reader's press
+              // being the asking. What comes back is shown as text.
+              function drawActions(actions) {
+                if (!Array.isArray(actions) || actions.length === 0) return;
+                var row = el("div", "actions"), note = el("span", "note");
+                actions.slice(0, 3).forEach(function (a) {
+                  if (!a || typeof a.tool !== "string" || typeof a.label !== "string") return;
+                  var args = a.arguments && typeof a.arguments === "object" ? a.arguments : {};
+                  var button = el("button", "secondary", a.label);
+                  button.type = "button";
+                  button.addEventListener("click", function () {
+                    button.disabled = true;
+                    note.textContent = "處理中…";
+                    request("tools/call", { name: a.tool, arguments: args }).then(function (result) {
+                      var first = result && Array.isArray(result.content) && result.content[0];
+                      var text = first && typeof first.text === "string" ? first.text : "";
+                      if (result && result.isError) {
+                        button.disabled = false;
+                        note.textContent = text || "沒有成功，請再試一次。";
+                      } else {
+                        button.textContent = "✓ " + a.label;
+                        note.textContent = text.split("\n")[0];
+                      }
+                      reportSize();
+                    }).catch(function () {
+                      button.disabled = false;
+                      note.textContent = "這裡沒辦法直接執行，請在對話裡請 AI 幫你做。";
+                      reportSize();
+                    });
+                  });
+                  row.appendChild(button);
+                });
+                row.appendChild(note);
+                app.appendChild(row);
+              }
+
               function draw(result) {
                 var card = result && result.structuredContent && result.structuredContent.card;
                 app.textContent = "";
@@ -182,6 +243,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                   app.className = "";
                   app.appendChild(el("div", "brand", "Jacky Studio"));
                   if (card.kind === "table") drawTable(card); else drawLink(card);
+                  drawActions(result.structuredContent.actions);
                 }
                 reportSize();
               }

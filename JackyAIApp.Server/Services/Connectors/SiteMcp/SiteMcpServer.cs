@@ -199,7 +199,8 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
             var name = parameters?["name"]?.GetValueKind() == JsonValueKind.String ? (string?)parameters["name"] : null;
             if (name == null) return Error(id, InvalidParams, "tools/call needs a tool name.");
             // A tool this holder may not use is answered as one that does not exist: what is withheld is not told.
-            var tool = (await OfferedAsync(holder, ct)).FirstOrDefault(t => t.Descriptor.Name == name);
+            var offered = await OfferedAsync(holder, ct);
+            var tool = offered.FirstOrDefault(t => t.Descriptor.Name == name);
             if (tool == null) return Error(id, InvalidParams, $"Unknown tool: {name}");
 
             var arguments = parameters!["arguments"] switch
@@ -223,7 +224,11 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 ["isError"] = outcome.IsError,
             };
             if (!outcome.IsError && SiteMcpApp.StructuredContent(outcome.Card, siteOrigin) is { } structured)
+            {
+                if (tool is IOffersAppActions offers)
+                    SiteMcpApp.AddActions(structured, offers.AppActionsFor(input), offered.Select(t => t.Descriptor.Name).ToHashSet());
                 result["structuredContent"] = structured;
+            }
             return Result(id, result);
         }
 
