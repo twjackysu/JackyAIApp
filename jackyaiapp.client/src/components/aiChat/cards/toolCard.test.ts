@@ -117,6 +117,9 @@ describe('safeHref', () => {
   });
   it('refuses a protocol-relative URL, which leaves the site', () => {
     expect(safeHref('//evil.example')).toBeNull();
+    expect(safeHref('/\\evil.example')).toBeNull();
+    expect(safeHref('/\t/evil.example')).toBeNull();
+    expect(safeHref('/\n/evil.example')).toBeNull();
   });
   it('refuses data: and other schemes', () => {
     expect(safeHref('data:text/html,hi')).toBeNull();

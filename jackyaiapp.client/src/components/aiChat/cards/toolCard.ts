@@ -69,7 +69,10 @@ const cell = (v: unknown): CardCell =>
 export function safeHref(raw: unknown): string | null {
   const href = text(raw, 2000);
   if (!href) return null;
-  if (href.startsWith('/') && !href.startsWith('//')) return href;
+  // A browser drops tabs and newlines and reads "\\" as "/": "/\t/x" and "/\\x" would both leave the site.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(href)) return null;
+  if (href.startsWith('/')) return href[1] === '/' || href[1] === '\\' ? null : href;
   try {
     return new URL(href).protocol === 'https:' ? href : null;
   } catch {

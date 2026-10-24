@@ -47,6 +47,8 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         [InlineData("http://example.com/a", false)]
         [InlineData("javascript:alert(1)", false)]
         [InlineData("//evil.example/a", false)]
+        [InlineData("/\t/evil.example/a", false)]
+        [InlineData("/\n/evil.example/a", false)]
         [InlineData("/\\evil.example/a", false)]
         [InlineData("data:text/html,x", false)]
         public void ALink_GoesOnlyToThisSiteOrHttps(string href, bool sent)

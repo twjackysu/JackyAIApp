@@ -245,7 +245,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         public static string? AbsoluteHref(string? href, string siteOrigin)
         {
             href = href?.Trim();
-            if (string.IsNullOrEmpty(href)) return null;
+            if (string.IsNullOrEmpty(href) || href.Any(char.IsControl)) return null;
             if (href.StartsWith('/'))
                 return href.StartsWith("//") || href.StartsWith("/\\") ? null : siteOrigin.TrimEnd('/') + href;
             return Uri.TryCreate(href, UriKind.Absolute, out var absolute) && absolute.Scheme == Uri.UriSchemeHttps

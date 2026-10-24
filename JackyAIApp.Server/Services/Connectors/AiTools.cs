@@ -41,8 +41,15 @@ namespace JackyAIApp.Server.Services.Connectors
     /// read as an outside connector's are (<see cref="ReadsOutsideText"/>).</param>
     public sealed record AiToolDescriptor(
         string Name, string DisplayName, string Description, JsonElement InputSchema, ToolEffect Effect,
-        string Connector = AiToolDescriptor.SiteConnector, string? ConnectorName = null, bool OutsideText = false)
+        string Connector = AiToolDescriptor.SiteConnector, string? ConnectorName = null, bool OutsideText = false,
+        string? PermissionKey = null)
     {
+        /// <summary>
+        /// The name the reader's permission for this tool is kept under: the server's own tool name for a connector's
+        /// tool (<see cref="Name"/> is the per-turn <c>m1__…</c> the model sees), the name itself for the site's.
+        /// </summary>
+        public string PermissionName => PermissionKey ?? Name;
+
         /// <summary>The connector key of the site's own tools (the client's <c>SITE_CONNECTOR</c>).</summary>
         public const string SiteConnector = "site";
 

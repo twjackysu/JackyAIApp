@@ -221,10 +221,18 @@ namespace JackyAIApp.Server.Services.Chatbot
                 var left = ApprovalTimeout - _time.GetElapsedTime(started);
                 if (left <= TimeSpan.Zero)
                 {
-                    timedOut = true;
-                    decided = calls.ToDictionary(c => c.Call.ID, _ => false, StringComparer.Ordinal);
-                    _logger.LogInformation("Chat approval {PendingId} in conversation {ConversationId} timed out",
-                        waiting.PendingId, _context.ConversationId);
+                    // Settle it as a no, unless the reader's answer got in first: then that answer stands, and a
+                    // POST after this point is refused rather than taken and ignored.
+                    var none = calls.ToDictionary(c => c.Call.ID, _ => false, StringComparer.Ordinal);
+                    if (waiting.Decide(none))
+                    {
+                        timedOut = true;
+                        decided = none;
+                        _logger.LogInformation("Chat approval {PendingId} in conversation {ConversationId} timed out",
+                            waiting.PendingId, _context.ConversationId);
+                    }
+                    else
+                        decided = await waiting.Decided;
                     break;
                 }
                 try

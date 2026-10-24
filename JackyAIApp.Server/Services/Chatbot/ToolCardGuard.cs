@@ -63,6 +63,8 @@ namespace JackyAIApp.Server.Services.Chatbot
         {
             if (href is not JsonValue value || !value.TryGetValue<string>(out var text)) return false;
             text = text.Trim();
+            // A browser drops tabs and newlines from a URL, so "/\t/evil.example" would become "//evil.example".
+            if (text.Any(char.IsControl)) return false;
             if (text.StartsWith('/')) return !text.StartsWith("//") && !text.StartsWith("/\\");
             return Uri.TryCreate(text, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
         }

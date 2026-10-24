@@ -270,6 +270,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         [InlineData("/\\evil.example/x", null)]
         [InlineData("http://plain.example/x", null)]
         [InlineData("javascript:alert(1)", null)]
+        [InlineData("/\t/evil.example/x", null)]
         public void ALinksAddress_IsTheSitesPathInFull_OrHttpsOnly(string href, string? url)
         {
             var line = SiteMcpServer.LinkLine(new { kind = "link", title = "看看", href }, Origin + "/");

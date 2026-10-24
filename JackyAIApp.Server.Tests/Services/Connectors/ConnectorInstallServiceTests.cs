@@ -376,6 +376,24 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
         // ── the chat's side ─────────────────────────────────────────────────────────────────────
 
+        [Fact]
+        public async Task ToolsWhoseNamesClash_OnceMadeApiSafe_AreOfferedOnce()
+        {
+            var dotted = Search with { Name = "files.read" };
+            var underscored = Search with { Name = "files_read" };
+            _db.ConnectorInstallations.Add(new SQL.ConnectorInstallation
+            {
+                UserId = User, DefinitionKey = SQL.ConnectorInstallation.CustomKey, ServerUrl = Url.ToString(),
+                ToolsCacheJson = CachedTools.Serialize([dotted, underscored, dotted]),
+            });
+            _db.SaveChanges();
+
+            var tool = Assert.Single(await Source().ForUserAsync(User, default));
+
+            Assert.Equal("m1__files_read", tool.Descriptor.Name);
+            Assert.Equal("files.read", tool.Descriptor.PermissionName);
+        }
+
         private ConnectorToolSource Source() => new(_db, _mcp.Object, Tokens(), NullLogger<ConnectorToolSource>.Instance);
 
         [Fact]
@@ -396,6 +414,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             var tool = Assert.Single(tools);
             Assert.Equal("m1__search", tool.Descriptor.Name);
+            // The reader's permission is kept under the server's name, which the chat looks it up by.
+            Assert.Equal("search", tool.Descriptor.PermissionName);
             Assert.Equal(id, tool.Descriptor.Connector);
             Assert.Equal("Notes", tool.Descriptor.ConnectorName);
             Assert.Equal(ToolEffect.Read, tool.Descriptor.Effect);

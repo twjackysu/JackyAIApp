@@ -31,6 +31,7 @@ namespace JackyAIApp.Server.Services.Connectors
                 .ToListAsync(ct);
 
             var tools = new List<IAiTool>();
+            var names = new HashSet<string>(StringComparer.Ordinal);
             for (var i = 0; i < rows.Count; i++)
             {
                 var row = rows[i];
@@ -41,7 +42,11 @@ namespace JackyAIApp.Server.Services.Connectors
                 foreach (var tool in CachedTools.Parse(row.ToolsCacheJson))
                 {
                     if (ToolPermissions.For(tool.Name, tool.Effect, chosen) == ToolPermission.Disabled) continue;
-                    tools.Add(new McpConnectorTool(row, shortKey, tool, mcp, tokens, logger));
+                    var connectorTool = new McpConnectorTool(row, shortKey, tool, mcp, tokens, logger);
+                    // A server listing a name twice, or two that read the same once made API-safe ("files.read",
+                    // "files_read"): only the first, since the API refuses a request naming a tool twice.
+                    if (!names.Add(connectorTool.Descriptor.Name)) continue;
+                    tools.Add(connectorTool);
                 }
             }
             return tools;
@@ -63,7 +68,8 @@ namespace JackyAIApp.Server.Services.Connectors
             tool.InputSchema,
             tool.Effect,
             installation.Id,
-            installation.DisplayName ?? installation.DefinitionKey);
+            installation.DisplayName ?? installation.DefinitionKey,
+            PermissionKey: tool.Name);
 
         public async Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
         {

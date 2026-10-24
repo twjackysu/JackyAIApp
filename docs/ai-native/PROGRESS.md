@@ -1,5 +1,17 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-24 19:42 – 第 9 輪（本站 MCP server 成為 MCP App、收尾、安全審查）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。
+- **本站 MCP server 收尾**：連結卡的相對網址在 tools/call 結果文字後補成「標題：完整網址」；`register`／`token` 依 `CF-Connecting-IP` 每分鐘 30 次（D-049，被擋回 OAuth 格式）；OAuth 發的 token 標 `ViaOAuth`（直接改還沒上線的 `AddSiteAccessTokens` migration，D-051），/connectors 顯示「經 OAuth 登入」；serverInfo 帶 `websiteUrl`、`icons`。
+- **MCP App**（D-050，design/03 §9.2）：`SiteMcpApp`（`ui://jacky-studio/card.html`，內嵌、只用 textContent、連結經 `ui/open-link`、跟 host 深淺色），initialize 宣告 `resources` 與 `io.modelcontextprotocol/ui`，每個工具 `_meta.ui.resourceUri`，結果多 `structuredContent.card`。Claude／ChatGPT 裡會畫出本站的持倉表格與單字卡。
+- **Studio 引導**：問「怎麼讓 Claude 用這個網站」→ Connectors 連結與說明；/connectors 的 Studio 建議多一則；「讓其他 AI 使用本站」說明改寫（Claude.ai／ChatGPT 貼網址、其他用 token）。
+- **安全審查**（subagent，唯讀，範圍：SiteMcp、OAuth 授權伺服器、MCP OAuth client、SafeHttp）：無高／中風險；修三個低風險（DCR redirect 總長、SafeHttp 不走 proxy＋擋 168.63.129.16、MCP App 只收 parent 訊息），兩個接受（D-052）。
+- `.loop/shots/`：`connectors.cjs`（dist＋假 API）、`mcp-app.cjs`（自己扮 MCP Apps host；`<img onerror>` 當資料只顯示成文字、按鈕走 open-link），截圖存進 `screenshots/`（`mcp-app-card-*`、`site-mcp-section-*`）。
+- 文件：design/03 §9.1–9.2、server CLAUDE.md、SHOWCASE（亮點、demo 第 7 步、截圖、日誌）、CONTRIBUTING、FOR_JACKY 9、PLAN、D-049～D-052。
+- 驗證：每個後端 commit 先 cscheck（0 個新診斷）再看 CI：40091300375（收尾）、40091669851（ViaOAuth migration）、40091861427（Studio）、40092081827（MCP App）、40092790787（前端說明）、40093015146（icons）、40093462486（安全修正，見下）。前端 lint、test（120 檔 1295 個）、build 全過。
+- 問題：cscheck 的 EF 參考這輪幾乎綁不到（base／head 都 999 種診斷），EF 相關檔案的錯誤會被蓋住，以 CI 為準（NEXT §1）。
+
 ## 2026-10-24 17:42 – 第 8 輪（本站對外的 MCP server：PAT、OAuth 授權伺服器、同意頁）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。
