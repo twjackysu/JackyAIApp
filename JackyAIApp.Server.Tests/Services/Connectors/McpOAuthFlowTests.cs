@@ -126,10 +126,10 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
-        public async Task AnAuthorizationServerThatTakesOurMetadataDocument_HasItsUrlAsOurClientId()
+        public async Task AnAuthorizationServerThatOnlyTakesOurMetadataDocument_HasItsUrlAsOurClientId()
         {
             _discovery.Setup(d => d.DiscoverAsync(Url, It.IsAny<McpAuthChallenge>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(AuthServer with { ClientIdMetadataDocumentSupported = true });
+                .ReturnsAsync(AuthServer with { ClientIdMetadataDocumentSupported = true, RegistrationEndpoint = null });
 
             var grant = await Flow().PrepareAsync(Url, null, default);
 

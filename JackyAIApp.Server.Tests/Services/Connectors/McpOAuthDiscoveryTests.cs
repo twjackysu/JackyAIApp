@@ -216,14 +216,14 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
-        public void HowWeBecomeAClient_PrefersOurMetadataDocument_ThenRegistering()
+        public void HowWeBecomeAClient_PrefersRegistering_ThenOurMetadataDocument()
         {
             var server = new McpOAuthServer("r", "https://a", new Uri("https://a/x"), new Uri("https://a/t"), new Uri("https://a/r"), true, false, null);
             var site = new McpOAuthUrls("https://s/cb/mcp", "https://s/meta");
 
-            Assert.Equal("cimd", site.RegistrationFor(server));
-            Assert.Equal("dcr", (site with { ClientMetadataUrl = null }).RegistrationFor(server));
-            Assert.Equal("dcr", site.RegistrationFor(server with { ClientIdMetadataDocumentSupported = false }));
+            Assert.Equal("dcr", site.RegistrationFor(server));
+            Assert.Equal("cimd", site.RegistrationFor(server with { RegistrationEndpoint = null }));
+            Assert.Equal("manual", (site with { ClientMetadataUrl = null }).RegistrationFor(server with { RegistrationEndpoint = null }));
             Assert.Equal("manual", site.RegistrationFor(server with { ClientIdMetadataDocumentSupported = false, RegistrationEndpoint = null }));
         }
 

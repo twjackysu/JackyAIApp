@@ -55,10 +55,15 @@ namespace JackyAIApp.Server.Services.Connectors
             return new McpOAuthUrls(callback + CallbackPath, metadata);
         }
 
-        /// <summary>How we become a client of <paramref name="server"/>: cimd, dcr or manual (the reader registers one).</summary>
+        /// <summary>
+        /// How we become a client of <paramref name="server"/>: dcr, cimd or manual (the reader registers one).
+        /// Registering comes first when a server offers both (docs/ai-native D-034): with our metadata document the
+        /// authorization server must fetch it from us, through Cloudflare, at the moment the reader signs in, and a
+        /// failure there shows on its page, not ours; a registration fails here, where we can say why.
+        /// </summary>
         public string RegistrationFor(McpOAuthServer server) =>
-            server.ClientIdMetadataDocumentSupported && ClientMetadataUrl != null ? "cimd"
-            : server.RegistrationEndpoint != null ? "dcr"
+            server.RegistrationEndpoint != null ? "dcr"
+            : server.ClientIdMetadataDocumentSupported && ClientMetadataUrl != null ? "cimd"
             : "manual";
     }
 

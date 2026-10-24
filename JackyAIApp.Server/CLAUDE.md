@@ -305,9 +305,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   protected resource metadata (RFC 9728; its `resource` must be the server's origin and a path the server is
   within) and the authorization server's metadata (RFC 8414, then OpenID discovery; its `issuer` must match, and
   without PKCE S256 it is refused); every fetch is https only, through `SafeHttp`, at most 64KB. `McpOAuthFlow`
-  becomes its client when the connector is added (our Client ID Metadata Document, `GET
-  api/connectors/oauth/client-metadata`, when the server takes one and the site is on a public https address;
-  else dynamic registration; else the client id the reader typed), sends the reader there (`POST
+  becomes its client when the connector is added (dynamic registration when the server offers it; else our Client
+  ID Metadata Document, `GET api/connectors/oauth/client-metadata`, when the server takes one and the site is on a
+  public https address; else the client id the reader typed — the reader's own id wins), sends the reader there (`POST
   installations/{id}/authorize`: PKCE S256, `resource`, `scope`, a signed `state`; the verifier stays in
   `IMemoryCache` on the server, 10 minutes, once), and takes them back at `GET api/connectors/callback/mcp` (a
   literal route, matched before the account connections' `callback/{provider}`): the state, then `iss` (RFC 9207),
