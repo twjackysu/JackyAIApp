@@ -39,6 +39,7 @@ const Finance = lazy(() => import('./Finance'));
 const Portfolio = lazy(() => import('./Portfolio'));
 const JobSearch = lazy(() => import('./JobSearch'));
 const PDFUnlocker = lazy(() => import('./PDFUnlocker'));
+const OAuthConsent = lazy(() => import('./OAuthConsent'));
 const Portal = lazy(() => import('./Portal'));
 const Slideshow = lazy(() => import('./Slideshow'));
 
@@ -94,6 +95,9 @@ const routes: RouteObject[] = [
       </RequireAuth>
     ),
   },
+  // Another AI asking to use the site's MCP server (its OAuth sign-in): the page asks a signed-out
+  // visitor to sign in itself, keeping the request's query, which RequireAuth would drop.
+  { path: '/oauth/authorize', element: <OAuthConsent /> },
   { path: '/login-error', element: <LoginError /> },
 ];
 

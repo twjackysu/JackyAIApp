@@ -14,8 +14,8 @@ import type { AiChatConfig, AiChatSuggestion } from '@/components/aiChat/config'
 
 /** Pages with an assistant of their own: Studio AI's button stays out of its way there. */
 const OWN_ASSISTANT = ['/finance', '/data-analysis'];
-/** Pages that fill the screen with something else. */
-const FULL_SCREEN = ['/slideshow'];
+/** Pages that fill the screen with something else, or ask the reader one thing (another AI's sign-in). */
+const FULL_SCREEN = ['/slideshow', '/oauth'];
 
 const on = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`);
 

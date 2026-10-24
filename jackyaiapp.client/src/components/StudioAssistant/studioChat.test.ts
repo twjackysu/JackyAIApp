@@ -15,6 +15,7 @@ describe('studioShownOn', () => {
     expect(studioShownOn('/data-analysis')).toBe(false);
     expect(studioShownOn('/data-analysis/x')).toBe(false);
     expect(studioShownOn('/slideshow')).toBe(false);
+    expect(studioShownOn('/oauth/authorize')).toBe(false);
   });
 });
 
