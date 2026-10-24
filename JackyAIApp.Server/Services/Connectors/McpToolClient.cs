@@ -11,6 +11,9 @@ namespace JackyAIApp.Server.Services.Connectors
     {
         public static readonly McpAuth None = new(null, null);
 
+        /// <summary>A bearer token in <c>Authorization</c>.</summary>
+        public static McpAuth BearerToken(string token) => new("Authorization", $"Bearer {token}");
+
         /// <summary>The headers it adds to every request.</summary>
         internal Dictionary<string, string>? Headers() =>
             string.IsNullOrEmpty(HeaderName) || string.IsNullOrEmpty(Value) ? null : new() { [HeaderName] = Value };

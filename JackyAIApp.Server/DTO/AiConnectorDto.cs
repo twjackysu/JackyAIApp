@@ -78,5 +78,8 @@ namespace JackyAIApp.Server.DTO
     public sealed record McpProbeResultDto(
         string ServerUrl, string Auth, string? AuthorizationServer, string? Registration, string? ServerName);
 
+    /// <summary>Where to send the reader to sign in (an authorization server's URL).</summary>
+    public sealed record AuthorizeRedirectDto(string RedirectUrl);
+
     public sealed record ConnectionTestResultDto(bool Ok, long LatencyMs, string? Error, InstalledConnectorDto Connector);
 }

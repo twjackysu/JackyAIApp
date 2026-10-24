@@ -1,0 +1,98 @@
+using System.Collections.Concurrent;
+using JackyAIApp.Server.Data;
+using Microsoft.EntityFrameworkCore;
+using SQL = JackyAIApp.Server.Data.Models.SQL;
+
+namespace JackyAIApp.Server.Services.Connectors
+{
+    /// <summary>The credentials a request to a connector's server goes with, an OAuth sign-in's refreshed when it is about to expire.</summary>
+    public interface IMcpOAuthTokens
+    {
+        /// <summary>
+        /// The connector's credentials (<see cref="ConnectorSecrets.AuthOf"/>); for an OAuth sign-in whose access
+        /// token expires within <see cref="McpOAuthTokens.RefreshAhead"/>, a new one first. A refresh the
+        /// authorization server refuses marks the connector NeedsAuth and leaves it without credentials.
+        /// </summary>
+        Task<McpAuth> AuthOfAsync(SQL.ConnectorInstallation installation, CancellationToken ct);
+    }
+
+    /// <summary>
+    /// Refreshes one connector at a time (a lock per installation): two requests refreshing together would
+    /// spend the refresh token twice, and an authorization server that rotates them would revoke the sign-in.
+    /// The one that waited reads the row again and finds the new token. The refresh is its own unit of work
+    /// (a context from <see cref="IDbContextFactory{TContext}"/>), not the request's tracked rows.
+    /// </summary>
+    public sealed class McpOAuthTokens(
+        IDbContextFactory<AzureSQLDBContext> dbFactory,
+        ConnectorSecrets secrets,
+        IMcpOAuthEndpoints endpoints,
+        TimeProvider time,
+        ILogger<McpOAuthTokens> logger) : IMcpOAuthTokens
+    {
+        /// <summary>How long before it expires an access token is refreshed.</summary>
+        public static readonly TimeSpan RefreshAhead = TimeSpan.FromSeconds(60);
+
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new();
+
+        public async Task<McpAuth> AuthOfAsync(SQL.ConnectorInstallation installation, CancellationToken ct)
+        {
+            var grant = secrets.GrantOf(installation);
+            if (grant == null || !IsDue(grant, time.GetUtcNow().UtcDateTime)) return secrets.AuthOf(installation);
+
+            var gate = Locks.GetOrAdd(installation.Id, _ => new SemaphoreSlim(1, 1));
+            await gate.WaitAsync(ct);
+            try
+            {
+                await using var db = await dbFactory.CreateDbContextAsync(ct);
+                var row = await db.ConnectorInstallations.FirstOrDefaultAsync(c => c.Id == installation.Id, ct);
+                if (row == null) return McpAuth.None;
+                grant = secrets.GrantOf(row);
+                var now = time.GetUtcNow().UtcDateTime;
+                // Refreshed by the request this one waited for.
+                if (grant == null || !IsDue(grant, now)) return secrets.AuthOf(row);
+                if (string.IsNullOrEmpty(grant.RefreshToken))
+                    return grant.ExpiresAt > now ? secrets.AuthOf(row) : await SignedOutAsync(db, row, grant, "登入已過期，請重新授權。", ct);
+
+                try
+                {
+                    var tokens = await endpoints.RequestTokenAsync(new Uri(grant.TokenEndpoint), new Dictionary<string, string>
+                    {
+                        ["grant_type"] = "refresh_token",
+                        ["refresh_token"] = grant.RefreshToken,
+                        ["resource"] = grant.Resource,
+                    }, grant.ClientId, grant.ClientSecret, ct);
+                    grant = McpOAuthFlow.WithTokens(grant, tokens, now);
+                    row.EncryptedSecret = secrets.Seal(grant);
+                    row.UpdatedAt = now;
+                    await db.SaveChangesAsync(ct);
+                    return McpAuth.BearerToken(grant.AccessToken!);
+                }
+                catch (McpOAuthException ex)
+                {
+                    logger.LogWarning(ex, "Connector {InstallationId}'s sign-in could not be refreshed", row.Id);
+                    // Still valid for a few seconds: use it; the next request tries again.
+                    return grant.ExpiresAt > now ? secrets.AuthOf(row) : await SignedOutAsync(db, row, grant, "登入已過期，請重新授權。", ct);
+                }
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        internal static bool IsDue(McpOAuthGrant grant, DateTime now) =>
+            grant.ExpiresAt is { } expires && expires - RefreshAhead <= now;
+
+        private async Task<McpAuth> SignedOutAsync(
+            AzureSQLDBContext db, SQL.ConnectorInstallation row, McpOAuthGrant grant, string why, CancellationToken ct)
+        {
+            // The client stays (so signing in again needs no new registration); the tokens go.
+            row.EncryptedSecret = secrets.Seal(grant with { AccessToken = null, RefreshToken = null, ExpiresAt = null });
+            row.LastStatus = "NeedsAuth";
+            row.LastError = why;
+            row.UpdatedAt = time.GetUtcNow().UtcDateTime;
+            await db.SaveChangesAsync(ct);
+            return McpAuth.None;
+        }
+    }
+}

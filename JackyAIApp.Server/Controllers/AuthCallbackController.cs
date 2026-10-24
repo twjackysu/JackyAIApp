@@ -34,7 +34,7 @@ namespace JackyAIApp.Server.Controllers
             [FromQuery] string? error,
             [FromQuery] string? error_description)
         {
-            var frontendBaseUrl = GetFrontendBaseUrl();
+            var frontendBaseUrl = FrontendBaseUrl(HttpContext.Request);
 
             try
             {
@@ -84,17 +84,18 @@ namespace JackyAIApp.Server.Controllers
             }
         }
 
-        private string GetFrontendBaseUrl()
+        /// <summary>Where the page that started a sign-in is; also <see cref="McpOAuthCallbackController"/>'s.</summary>
+        internal static string FrontendBaseUrl(HttpRequest request)
         {
             // In development, use localhost:5173 (Vite default)
             // In production, use the actual domain
-            if (HttpContext.Request.Host.Host.Contains("localhost"))
+            if (request.Host.Host.Contains("localhost"))
             {
                 return "https://localhost:5173";
             }
 
             // For production, you might want to get this from configuration
-            return $"https://{HttpContext.Request.Host}";
+            return $"https://{request.Host}";
         }
     }
 }

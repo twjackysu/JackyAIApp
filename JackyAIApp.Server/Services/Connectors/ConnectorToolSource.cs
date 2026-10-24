@@ -17,7 +17,7 @@ namespace JackyAIApp.Server.Services.Connectors
     }
 
     public sealed class ConnectorToolSource(
-        AzureSQLDBContext db, IMcpToolClient mcp, ConnectorSecrets secrets, ILogger<ConnectorToolSource> logger) : IConnectorToolSource
+        AzureSQLDBContext db, IMcpToolClient mcp, IMcpOAuthTokens tokens, ILogger<ConnectorToolSource> logger) : IConnectorToolSource
     {
         /// <summary>The most connectors' tools one turn is offered.</summary>
         public const int MaxConnectors = 10;
@@ -41,7 +41,7 @@ namespace JackyAIApp.Server.Services.Connectors
                 foreach (var tool in CachedTools.Parse(row.ToolsCacheJson))
                 {
                     if (ToolPermissions.For(tool.Name, tool.Effect, chosen) == ToolPermission.Disabled) continue;
-                    tools.Add(new McpConnectorTool(row, shortKey, tool, mcp, secrets, logger));
+                    tools.Add(new McpConnectorTool(row, shortKey, tool, mcp, tokens, logger));
                 }
             }
             return tools;
@@ -50,7 +50,7 @@ namespace JackyAIApp.Server.Services.Connectors
 
     /// <summary>One tool of a reader's MCP server, as the chat runs it.</summary>
     internal sealed class McpConnectorTool(
-        SQL.ConnectorInstallation installation, string shortKey, CachedTool tool, IMcpToolClient mcp, ConnectorSecrets secrets,
+        SQL.ConnectorInstallation installation, string shortKey, CachedTool tool, IMcpToolClient mcp, IMcpOAuthTokens tokens,
         ILogger logger) : IAiTool
     {
         private readonly string _connectorName = installation.DisplayName ?? installation.DefinitionKey;
@@ -69,7 +69,8 @@ namespace JackyAIApp.Server.Services.Connectors
         {
             try
             {
-                var outcome = await mcp.CallToolAsync(new Uri(installation.ServerUrl!), secrets.AuthOf(installation), tool.Name, input, ct);
+                var auth = await tokens.AuthOfAsync(installation, ct);
+                var outcome = await mcp.CallToolAsync(new Uri(installation.ServerUrl!), auth, tool.Name, input, ct);
                 return outcome.IsError
                     ? AiToolResult.Error(string.IsNullOrWhiteSpace(outcome.Text) ? "工具回報失敗。" : outcome.Text)
                     : new AiToolResult(outcome.Text);

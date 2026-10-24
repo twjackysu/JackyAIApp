@@ -15,7 +15,8 @@ namespace JackyAIApp.Server.Controllers
     [Route("api/connectors")]
     [Authorize]
     public class AiConnectorsController(
-        IConnectorCatalogService catalog, IConnectorInstallService installs, IMyResponseFactory responseFactory) : ControllerBase
+        IConnectorCatalogService catalog, IConnectorInstallService installs, IMcpOAuthFlow oauth, IMyResponseFactory responseFactory)
+        : ControllerBase
     {
         [HttpGet("catalog")]
         public async Task<IActionResult> GetCatalog(CancellationToken ct = default) =>
@@ -33,6 +34,11 @@ namespace JackyAIApp.Server.Controllers
         [HttpPost("installations/{installationId}/test")]
         public async Task<IActionResult> Test(string installationId, CancellationToken ct = default) =>
             responseFactory.ToActionResult(await installs.TestAsync(installationId, ct));
+
+        /// <summary>Starts signing in to an OAuth connector: where to send the reader.</summary>
+        [HttpPost("installations/{installationId}/authorize")]
+        public async Task<IActionResult> Authorize(string installationId, CancellationToken ct = default) =>
+            responseFactory.ToActionResult(await oauth.StartAsync(installationId, ct));
 
         [HttpPut("tool-permissions")]
         public async Task<IActionResult> SetToolPermission([FromBody] ToolPermissionRequestDto request, CancellationToken ct = default) =>

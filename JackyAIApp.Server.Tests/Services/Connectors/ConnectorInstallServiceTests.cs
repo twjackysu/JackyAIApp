@@ -18,14 +18,22 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         private const string User = "u1";
         private static readonly Uri Url = new("https://mcp.example.com/mcp");
 
-        private readonly AzureSQLDBContext _db = new(new DbContextOptionsBuilder<AzureSQLDBContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        private static readonly McpOAuthUrls SiteUrls = new("https://apps.example.com/api/connectors/callback/mcp",
+            "https://apps.example.com/api/connectors/oauth/client-metadata");
+
+        private readonly DbContextOptions<AzureSQLDBContext> _options = new DbContextOptionsBuilder<AzureSQLDBContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        private readonly AzureSQLDBContext _db;
         private readonly Mock<IMcpToolClient> _mcp = new();
+        private readonly Mock<IMcpOAuthDiscovery> _discovery = new();
+        private readonly Mock<IMcpOAuthFlow> _oauth = new();
+        private readonly Mock<IMcpOAuthEndpoints> _endpoints = new(MockBehavior.Strict);
         private readonly TestClock _clock = new(new DateTimeOffset(2026, 10, 24, 4, 0, 0, TimeSpan.Zero));
         private readonly ConnectorSecrets _secrets;
 
         public ConnectorInstallServiceTests()
         {
+            _db = new AzureSQLDBContext(_options);
             var encryption = new Mock<ITokenEncryptionService>();
             encryption.Setup(e => e.EncryptToken(It.IsAny<string>())).Returns<string>(s => "enc:" + s);
             encryption.Setup(e => e.DecryptToken(It.IsAny<string>())).Returns<string>(s => s["enc:".Length..]);
@@ -38,8 +46,15 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         {
             var user = new Mock<ICurrentUser>();
             user.Setup(u => u.Id).Returns(User);
-            return new ConnectorInstallService(_db, user.Object, _mcp.Object, _secrets, _clock);
+            return new ConnectorInstallService(_db, user.Object, _mcp.Object, _secrets, _discovery.Object, _oauth.Object, Tokens(),
+                UrlSource(), _clock);
         }
+
+        private McpOAuthTokens Tokens() =>
+            new(new TestDbContextFactory(_options), _secrets, _endpoints.Object, _clock, NullLogger<McpOAuthTokens>.Instance);
+
+        private static McpOAuthUrlSource UrlSource() => new(Microsoft.Extensions.Options.Options.Create(
+            new JackyAIApp.Server.Configuration.ConnectorOptions { CallbackBaseUrl = "https://apps.example.com/api/connectors/callback" }));
 
         private static readonly CachedTool Search = new("search", "搜尋", "找東西", ToolEffect.Read,
             JsonSerializer.SerializeToElement(new { type = "object" }));
@@ -111,7 +126,6 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         [InlineData("apiKey", "k1", "Bad Header")]
         [InlineData("apiKey", "line\nbreak", "X-Key")]
         [InlineData("bearer", null, null)]
-        [InlineData("oauth", null, null)]
         [InlineData("password", null, null)]
         public async Task CredentialsThatCannotBeUsed_AreABadRequest_AndNothingIsSaved(string authKind, string? value, string? header)
         {
@@ -238,9 +252,87 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Equal(ErrorCodes.NotFound, (await Service().TestAsync("theirs", default)).Error);
         }
 
+        // ── OAuth ───────────────────────────────────────────────────────────────────────────────
+
+        private static readonly McpOAuthServer AuthServer = new("https://mcp.example.com/mcp", "https://auth.example.com",
+            new Uri("https://auth.example.com/authorize"), new Uri("https://auth.example.com/token"), null,
+            ClientIdMetadataDocumentSupported: true, IssParameterSupported: true, Scope: null);
+
+        [Fact]
+        public async Task AProbe_OfAServerWithAnAuthorizationServer_SaysOAuth_AndHowWeBecomeItsClient()
+        {
+            ServerFails(McpFailure.NeedsAuth);
+            var challenge = new McpAuthChallenge(null, null);
+            _discovery.Setup(d => d.ChallengeAsync(Url, It.IsAny<CancellationToken>())).ReturnsAsync(challenge);
+            _discovery.Setup(d => d.DiscoverAsync(Url, challenge, It.IsAny<CancellationToken>())).ReturnsAsync(AuthServer);
+
+            var probe = (await Service().ProbeAsync("https://mcp.example.com/mcp", default)).Data!;
+
+            Assert.Equal(("oauth", "auth.example.com", "cimd"), (probe.Auth, probe.AuthorizationServer, probe.Registration));
+        }
+
+        [Fact]
+        public async Task AProbe_WhoseMetadataLeadsNowhere_AsksForAKey()
+        {
+            ServerFails(McpFailure.NeedsAuth);
+            _discovery.Setup(d => d.ChallengeAsync(Url, It.IsAny<CancellationToken>())).ReturnsAsync(new McpAuthChallenge(null, null));
+            _discovery.Setup(d => d.DiscoverAsync(Url, It.IsAny<McpAuthChallenge>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new McpOAuthException("沒有"));
+
+            Assert.Equal("apiKey", (await Service().ProbeAsync("https://mcp.example.com/mcp", default)).Data!.Auth);
+        }
+
+        [Fact]
+        public async Task AnOAuthServer_IsSavedWaitingForTheReaderToSignIn_WithItsClient()
+        {
+            var grant = McpOAuthGrant.For(AuthServer, "client-1", null);
+            _oauth.Setup(o => o.PrepareAsync(Url, It.IsAny<McpCredentialsDto?>(), It.IsAny<CancellationToken>())).ReturnsAsync(grant);
+
+            var connector = (await Service().CreateAsync(Request("oauth"), default)).Data!;
+
+            Assert.Equal(("needsAuth", "oauth", "mcp.example.com"), (connector.Health, connector.AuthKind, connector.DisplayName));
+            var row = _db.ConnectorInstallations.AsNoTracking().Single();
+            Assert.Equal(grant, _secrets.GrantOf(row));
+            Assert.Equal(McpAuth.None, _secrets.AuthOf(row));
+            _mcp.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task AnOAuthServerWeCannotBecomeAClientOf_IsNotSaved()
+        {
+            _oauth.Setup(o => o.PrepareAsync(Url, It.IsAny<McpCredentialsDto?>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new McpOAuthException("請填 client id"));
+
+            var result = await Service().CreateAsync(Request("oauth"), default);
+
+            Assert.Equal((ErrorCodes.BadRequest, "請填 client id"), (result.Error, result.ErrorMessage));
+            Assert.Empty(_db.ConnectorInstallations.AsNoTracking());
+        }
+
+        [Fact]
+        public async Task ASignedInServersTool_IsCalledWithItsAccessToken()
+        {
+            ServerHas(Search);
+            _db.ConnectorInstallations.Add(new SQL.ConnectorInstallation
+            {
+                UserId = User, DefinitionKey = SQL.ConnectorInstallation.CustomKey, ServerUrl = Url.ToString(), AuthKind = "OAuth",
+                ToolsCacheJson = CachedTools.Serialize([Search]),
+                EncryptedSecret = _secrets.Seal(McpOAuthGrant.For(AuthServer, "c", null) with
+                {
+                    AccessToken = "at", ExpiresAt = _clock.Now.UtcDateTime.AddHours(1),
+                }),
+            });
+            _db.SaveChanges();
+            _mcp.Setup(m => m.CallToolAsync(Url, McpAuth.BearerToken("at"), "search", It.IsAny<JsonElement>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new McpToolOutcome("ok", false));
+            var tool = Assert.Single(await Source().ForUserAsync(User, default));
+
+            Assert.Equal(new AiToolResult("ok"), await tool.RunAsync(JsonSerializer.SerializeToElement(new { }), new AiToolContext(User, "c1"), default));
+        }
+
         // ── the chat's side ─────────────────────────────────────────────────────────────────────
 
-        private ConnectorToolSource Source() => new(_db, _mcp.Object, _secrets, NullLogger<ConnectorToolSource>.Instance);
+        private ConnectorToolSource Source() => new(_db, _mcp.Object, Tokens(), NullLogger<ConnectorToolSource>.Instance);
 
         [Fact]
         public async Task TheChat_IsOfferedTheToolsOfTheReadersServersThatAreOn_ExceptThoseTurnedOff()

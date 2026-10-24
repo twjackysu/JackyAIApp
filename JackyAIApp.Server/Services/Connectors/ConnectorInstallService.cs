@@ -7,9 +7,9 @@ using SQL = JackyAIApp.Server.Data.Models.SQL;
 namespace JackyAIApp.Server.Services.Connectors
 {
     /// <summary>
-    /// Adding a catalog MCP server (<see cref="BuiltInMcpConnectors"/>) or one of the reader's own, and checking it (docs/ai-native/design/03 §5.1, §7): with no
-    /// credentials, an API key in a header of theirs, or a bearer token. Signing in with OAuth is not
-    /// offered yet (design/07, M3).
+    /// Adding a catalog MCP server (<see cref="BuiltInMcpConnectors"/>) or one of the reader's own, and checking it (docs/ai-native/design/03 §5, §7): with no
+    /// credentials, an API key in a header of theirs, a bearer token, or an OAuth sign-in (<see cref="IMcpOAuthFlow"/>:
+    /// the connector is saved as NeedsAuth and the reader is then sent to sign in).
     /// </summary>
     public interface IConnectorInstallService
     {
@@ -24,10 +24,17 @@ namespace JackyAIApp.Server.Services.Connectors
     }
 
     public sealed class ConnectorInstallService(
-        AzureSQLDBContext db, ICurrentUser currentUser, IMcpToolClient mcp, ConnectorSecrets secrets, TimeProvider time)
+        AzureSQLDBContext db,
+        ICurrentUser currentUser,
+        IMcpToolClient mcp,
+        ConnectorSecrets secrets,
+        IMcpOAuthDiscovery discovery,
+        IMcpOAuthFlow oauth,
+        IMcpOAuthTokens tokens,
+        McpOAuthUrlSource urls,
+        TimeProvider time)
         : IConnectorInstallService
     {
-        internal const string OAuthNotYet = "OAuth 登入的 MCP server 還不支援，請改用 API key 或 Bearer token。";
 
         public async Task<ServiceResult<McpProbeResultDto>> ProbeAsync(string? serverUrl, CancellationToken ct)
         {
@@ -40,8 +47,7 @@ namespace JackyAIApp.Server.Services.Connectors
             }
             catch (McpServerException ex) when (ex.Failure == McpFailure.NeedsAuth)
             {
-                // Without OAuth (M3), a server that wants credentials is given a key or token by hand.
-                return ServiceResult.Ok(new McpProbeResultDto(url.ToString(), "apiKey", null, null, null));
+                return ServiceResult.Ok(await SignInOfAsync(url, ct));
             }
             catch (McpServerException ex)
             {
@@ -61,7 +67,8 @@ namespace JackyAIApp.Server.Services.Connectors
             var (url, urlError) = McpServerUrl.Normalize(builtIn?.Url ?? request.ServerUrl);
             if (url == null) return ServiceResult.Fail(ErrorCodes.BadRequest, urlError!);
 
-            var (auth, authKind, authError) = AuthFrom(request);
+            var signIn = request.AuthKind == "oauth";
+            var (auth, authKind, authError) = signIn ? (McpAuth.None, "OAuth", null) : AuthFrom(request);
             if (authError != null) return ServiceResult.Fail(ErrorCodes.BadRequest, authError);
 
             if (builtIn != null)
@@ -86,11 +93,28 @@ namespace JackyAIApp.Server.Services.Connectors
                 EncryptedSecret = secrets.Seal(auth),
                 CreatedAt = now,
             };
-            var (_, blocked) = await RefreshAsync(row, auth, ct);
-            // A URL we may not reach is not kept at all.
-            if (blocked != null) return ServiceResult.Fail(ErrorCodes.BadRequest, blocked);
+            if (signIn)
+            {
+                // Worked out on the server again, whatever the probe told the page.
+                try
+                {
+                    row.EncryptedSecret = secrets.Seal(await oauth.PrepareAsync(url, request.Credentials, ct));
+                }
+                catch (McpOAuthException ex)
+                {
+                    return ServiceResult.Fail(ErrorCodes.BadRequest, ex.Message);
+                }
+                row.LastStatus = "NeedsAuth";
+                row.UpdatedAt = now;
+            }
+            else
+            {
+                var (_, blocked) = await InstallationTools.RefreshAsync(row, auth, mcp, time, ct);
+                // A URL we may not reach is not kept at all.
+                if (blocked != null) return ServiceResult.Fail(ErrorCodes.BadRequest, blocked);
+            }
 
-            row.DisplayName = builtIn?.DisplayName ?? Trimmed(request.DisplayName, 100) ?? row.DisplayName ?? url.Host;
+            row.DisplayName = builtIn?.DisplayName ?? InstallationTools.Trimmed(request.DisplayName, 100) ?? row.DisplayName ?? url.Host;
             db.ConnectorInstallations.Add(row);
             await db.SaveChangesAsync(ct);
             return ServiceResult.Ok(ConnectorCatalogService.InstalledDto(row));
@@ -103,7 +127,7 @@ namespace JackyAIApp.Server.Services.Connectors
             if (row?.ServerUrl == null) return ServiceResult.Fail(ErrorCodes.NotFound, "找不到這個 connector。");
 
             var started = time.GetTimestamp();
-            var (ok, blocked) = await RefreshAsync(row, secrets.AuthOf(row), ct);
+            var (ok, blocked) = await InstallationTools.RefreshAsync(row, await tokens.AuthOfAsync(row, ct), mcp, time, ct);
             var latency = (long)time.GetElapsedTime(started).TotalMilliseconds;
             await db.SaveChangesAsync(ct);
             return ServiceResult.Ok(new ConnectionTestResultDto(ok, latency, ok ? null : blocked ?? row.LastError,
@@ -111,30 +135,25 @@ namespace JackyAIApp.Server.Services.Connectors
         }
 
         /// <summary>
-        /// Lists the server's tools into <paramref name="row"/> and records how it went. True when they were
-        /// listed; with the reason when the address is one we may not reach.
+        /// What a server that answered 401 wants: an OAuth sign-in when its metadata leads to an authorization
+        /// server we can use, else a key or token typed by hand.
         /// </summary>
-        private async Task<(bool Ok, string? Blocked)> RefreshAsync(SQL.ConnectorInstallation row, McpAuth auth, CancellationToken ct)
+        private async Task<McpProbeResultDto> SignInOfAsync(Uri url, CancellationToken ct)
         {
-            var now = time.GetUtcNow().UtcDateTime;
-            row.LastTestedAt = now;
-            row.UpdatedAt = now;
             try
             {
-                var listed = await mcp.ListToolsAsync(new Uri(row.ServerUrl!), auth, ct);
-                row.ToolsCacheJson = CachedTools.Serialize(listed.Tools);
-                row.ToolsFetchedAt = now;
-                row.LastStatus = "Ok";
-                row.LastError = null;
-                row.DisplayName ??= Trimmed(listed.ServerName, 100);
-                return (true, null);
+                var challenge = await discovery.ChallengeAsync(url, ct);
+                if (challenge != null)
+                {
+                    var found = await discovery.DiscoverAsync(url, challenge, ct);
+                    return new McpProbeResultDto(url.ToString(), "oauth", new Uri(found.Issuer).Host, urls.Urls.RegistrationFor(found), null);
+                }
             }
-            catch (McpServerException ex)
+            catch (Exception ex) when (ex is McpOAuthException or McpServerException)
             {
-                row.LastStatus = ex.Failure == McpFailure.NeedsAuth ? "NeedsAuth" : "Error";
-                row.LastError = ex.Message;
-                return (false, ex.Failure == McpFailure.Blocked ? ex.Message : null);
+                // No sign-in we can use: a key or token, as before.
             }
+            return new McpProbeResultDto(url.ToString(), "apiKey", null, null, null);
         }
 
         /// <summary>The credentials the request gives, as stored and sent; or why they cannot be used.</summary>
@@ -158,8 +177,6 @@ namespace JackyAIApp.Server.Services.Connectors
                     return IsHeaderValue(value)
                         ? (new McpAuth(header, value), "ApiKey", null)
                         : (McpAuth.None, "", "API key 含有不能放在 HTTP header 的字元。");
-                case "oauth":
-                    return (McpAuth.None, "", OAuthNotYet);
                 default:
                     return (McpAuth.None, "", "不認得的登入方式。");
             }
@@ -177,11 +194,5 @@ namespace JackyAIApp.Server.Services.Connectors
 
         private static bool IsHeaderValue(string value) =>
             value.Length <= 4000 && value.All(c => c is >= ' ' and <= '~');
-
-        private static string? Trimmed(string? text, int max)
-        {
-            var t = text?.Trim();
-            return string.IsNullOrEmpty(t) ? null : t.Length > max ? t[..max] : t;
-        }
     }
 }
