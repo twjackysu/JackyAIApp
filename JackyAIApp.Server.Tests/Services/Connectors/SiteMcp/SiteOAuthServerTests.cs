@@ -233,6 +233,18 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         }
 
         [Fact]
+        public void ARegistration_WhoseRedirectsComeToTooMuch_IsRefused_NotAFailure()
+        {
+            // Ten addresses each within the limit, escaped to far more in the client id (& → \u0026).
+            var uris = Enumerable.Range(0, 10).Select(i => $"https://a.example/{i}?" + new string('&', 450)).ToList();
+
+            var reply = Server(null).Register(new SiteOAuthRegisterRequestDto { RedirectUris = uris });
+
+            Assert.Equal("invalid_redirect_uri", (string?)reply.Body["error"]);
+            Assert.Equal(StatusCodes.Status400BadRequest, reply.StatusCode);
+        }
+
+        [Fact]
         public async Task AReaderWithTooManyTokens_GetsNoMore()
         {
             var clientId = RegisterClient();

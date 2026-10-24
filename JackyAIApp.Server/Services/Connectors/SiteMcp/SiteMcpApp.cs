@@ -197,6 +197,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
               }
 
               window.addEventListener("message", function (event) {
+                if (event.source !== window.parent) return; // only the host speaks to the app
                 var m = event.data;
                 if (!m || m.jsonrpc !== "2.0") return;
                 if (m.id !== undefined && m.method === undefined) {

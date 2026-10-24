@@ -45,6 +45,9 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         public const int MaxRedirectUris = 10;
         public const int MaxNameLength = 40;
 
+        /// <summary>The most the redirect URIs of one registration may come to, together.</summary>
+        public const int MaxRedirectUrisLength = 2_000;
+
         private readonly IDataProtector _protector = protection.CreateProtector("SiteMcp.OAuthClient.v1");
 
         private sealed record Stored(string N, string[] R);
@@ -53,6 +56,8 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         public string? Register(string? clientName, IReadOnlyList<string>? redirectUris)
         {
             if (redirectUris is not { Count: > 0 and <= MaxRedirectUris } || !redirectUris.All(SiteOAuthRedirects.IsAllowed)) return null;
+            // The client id carries them all and travels in /oauth/authorize's query: keep it well inside a request line.
+            if (redirectUris.Sum(u => u.Length) > MaxRedirectUrisLength) return null;
             var name = NameOf(clientName);
             var json = JsonSerializer.Serialize(new Stored(name, redirectUris.Distinct(StringComparer.Ordinal).ToArray()));
             return _protector.Protect(json);

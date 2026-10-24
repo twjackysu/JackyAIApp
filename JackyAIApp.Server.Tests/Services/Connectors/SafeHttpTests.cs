@@ -19,6 +19,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         [InlineData("172.31.255.255")]
         [InlineData("192.168.1.1")]
         [InlineData("169.254.169.254")] // the cloud metadata service
+        [InlineData("168.63.129.16")]   // Azure's platform address
         [InlineData("100.64.0.1")]
         [InlineData("100.127.255.255")]
         [InlineData("192.0.0.8")]

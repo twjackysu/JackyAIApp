@@ -39,6 +39,7 @@ namespace JackyAIApp.Server.Services.Connectors
             || (b[0] == 198 && (b[1] & 0xFE) == 18)          // 198.18/15 benchmarking
             || (b[0] == 198 && b[1] == 51 && b[2] == 100)    // 198.51.100/24 documentation
             || (b[0] == 203 && b[1] == 0 && b[2] == 113)     // 203.0.113/24 documentation
+            || (b[0] == 168 && b[1] == 63 && b[2] == 129 && b[3] == 16) // Azure's platform address (DNS, WireServer)
             || b[0] >= 224);                                 // multicast, reserved, broadcast
 
         private static bool IsPublicV6(IPAddress address)

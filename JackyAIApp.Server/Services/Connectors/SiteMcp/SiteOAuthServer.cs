@@ -92,10 +92,10 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
             if (request.TokenEndpointAuthMethod is { } method && method != "none")
                 return SiteOAuthReply.Error("invalid_client_metadata", "Only public clients (token_endpoint_auth_method none, with PKCE) are supported.");
             var uris = request.RedirectUris ?? [];
-            if (clients.Register(request.ClientName, uris) is not { } clientId)
-                return SiteOAuthReply.Error("invalid_redirect_uri", "Redirect URIs must be https, or http to localhost (at most 10).");
+            if (clients.Register(request.ClientName, uris) is not { } clientId || clients.Read(clientId) is not { } client)
+                return SiteOAuthReply.Error("invalid_redirect_uri",
+                    "Redirect URIs must be https, or http to localhost (at most 10, 2000 characters in all).");
 
-            var client = clients.Read(clientId)!;
             var registered = new JsonArray();
             foreach (var uri in client.RedirectUris) registered.Add(uri);
             return new SiteOAuthReply(StatusCodes.Status201Created, new JsonObject

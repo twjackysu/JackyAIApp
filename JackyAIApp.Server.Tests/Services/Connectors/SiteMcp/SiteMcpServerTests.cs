@@ -339,6 +339,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
             Assert.Contains("ui/notifications/size-changed", html);
             Assert.Contains("ui/open-link", html);
             Assert.DoesNotContain("innerHTML", html);
+            Assert.Contains("event.source !== window.parent", html);
             Assert.DoesNotContain("<script src", html);
             Assert.DoesNotContain("<link", html);
             Assert.DoesNotContain("http://", html);

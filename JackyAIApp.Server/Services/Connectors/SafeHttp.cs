@@ -21,6 +21,8 @@ namespace JackyAIApp.Server.Services.Connectors
             {
                 AllowAutoRedirect = false,
                 UseCookies = false,
+                // A proxy (HTTPS_PROXY on the host) would be the address checked below, not the target's.
+                UseProxy = false,
                 ConnectTimeout = TimeSpan.FromSeconds(10),
                 ConnectCallback = async (context, ct) =>
                 {
