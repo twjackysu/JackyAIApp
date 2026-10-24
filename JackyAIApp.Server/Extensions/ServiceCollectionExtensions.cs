@@ -119,7 +119,9 @@ namespace JackyAIApp.Server.Extensions
             // The English app's tools for Studio AI (the site's own tools, docs/ai-native/design/03).
             services.AddScoped<ISiteTool, LookUpWordTool>();
             services.AddScoped<ISiteTool, AddWordToRepositoryTool>();
-            services.AddSingleton(new SiteToolSet("英文學習", [LookUpWordTool.Definition, AddWordToRepositoryTool.Definition]));
+            services.AddScoped<ISiteTool, LearningProgressTool>();
+            services.AddSingleton(new SiteToolSet("英文學習",
+                [LookUpWordTool.Definition, AddWordToRepositoryTool.Definition, LearningProgressTool.Definition]));
             services.AddScoped<IWordOfTheDayService, WordOfTheDayService>();
 
             // Shared SM-2 scheduling (Review flow + exam-result feedback)

@@ -261,8 +261,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `StudioChatProfile`): the site's pages (`SitePages`, kept in step with the client's app registry) and the one
   the reader is on (page context `path`) in its prompt, `open_page` (`OpenPageTool`, a link card to a page, a
   word's dictionary page included; a word that is not plain letters is dropped), every `ISiteTool` a feature
-  registers (English's `look_up_word` and `add_word_to_repository`, a write, so asked first:
-  `Services/Dictionary/Assistant/WordTools.cs`; Portfolio's `portfolio_summary`, the reader's own portfolio as
+  registers (English's `look_up_word`, `add_word_to_repository`, a write, so asked first, and `learning_progress`,
+  the words due for review, the daily challenge, streak and XP: `Services/Dictionary/Assistant`; Portfolio's `portfolio_summary`, the reader's own portfolio as
   /portfolio values it, a table card of the positions: `Services/Portfolio/Assistant`) and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
