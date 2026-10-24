@@ -88,7 +88,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
             var parameters = request["params"] as JsonObject;
             return method switch
             {
-                "initialize" => Result(id, Initialize(parameters)),
+                "initialize" => Result(id, Initialize(parameters, siteOrigin)),
                 "ping" => Result(id, new JsonObject()),
                 "tools/list" => Result(id, await ListToolsAsync(holder, ct)),
                 "tools/call" => await CallToolAsync(id, parameters, holder, siteOrigin, ct),
@@ -98,7 +98,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
             };
         }
 
-        private static JsonObject Initialize(JsonObject? parameters)
+        private static JsonObject Initialize(JsonObject? parameters, string siteOrigin)
         {
             var asked = parameters?["protocolVersion"]?.GetValueKind() == JsonValueKind.String
                 ? (string?)parameters["protocolVersion"]
@@ -117,8 +117,30 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                         [SiteMcpApp.ExtensionKey] = new JsonObject { ["mimeTypes"] = new JsonArray(SiteMcpApp.MimeType) },
                     },
                 },
-                ["serverInfo"] = new JsonObject { ["name"] = ServerName, ["title"] = ServerTitle, ["version"] = "1.0" },
+                ["serverInfo"] = ServerInfo(siteOrigin),
                 ["instructions"] = Instructions,
+            };
+        }
+
+        /// <summary>
+        /// Who the server is, with the site's address and icon (2025-11-25's <c>websiteUrl</c> and <c>icons</c>), which a
+        /// client shows next to the connector; one speaking an older version ignores them.
+        /// </summary>
+        internal static JsonObject ServerInfo(string siteOrigin)
+        {
+            var origin = siteOrigin.TrimEnd('/');
+            return new JsonObject
+            {
+                ["name"] = ServerName,
+                ["title"] = ServerTitle,
+                ["version"] = "1.0",
+                ["websiteUrl"] = origin + "/",
+                ["icons"] = new JsonArray(new JsonObject
+                {
+                    ["src"] = origin + "/apple-touch-icon.png",
+                    ["mimeType"] = "image/png",
+                    ["sizes"] = new JsonArray("180x180"),
+                }),
             };
         }
 

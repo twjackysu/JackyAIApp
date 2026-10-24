@@ -96,6 +96,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
 
             Assert.Equal(answered, (string?)result["protocolVersion"]);
             Assert.Equal("Jacky Studio", (string?)result["serverInfo"]!["title"]);
+            Assert.Equal("https://apps.jacky-studio.com/", (string?)result["serverInfo"]!["websiteUrl"]);
+            Assert.Equal("https://apps.jacky-studio.com/apple-touch-icon.png", (string?)result["serverInfo"]!["icons"]![0]!["src"]);
             Assert.NotNull(result["capabilities"]!["tools"]);
             Assert.Contains("Jacky Studio", (string?)result["instructions"]);
         }
