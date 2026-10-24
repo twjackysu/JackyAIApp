@@ -33,7 +33,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.False(string.IsNullOrWhiteSpace(d.Description));
             Assert.False(string.IsNullOrWhiteSpace(d.Publisher));
             Assert.Contains(d.Category, new[] { "data", "dev", "productivity", "finance" });
-            Assert.Equal("none", d.AuthKind);
+            Assert.Contains(d.AuthKind, new[] { "none", "oauth" });
             var (url, error) = McpServerUrl.Normalize(d.Url);
             Assert.Null(error);
             Assert.NotNull(url);

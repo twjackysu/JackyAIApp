@@ -298,6 +298,20 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public async Task ACatalogEntryThatSignsIn_GoesThroughOAuth_WhateverTheRequestSays()
+        {
+            var notion = BuiltInMcpConnectors.Find("notion")!;
+            _oauth.Setup(o => o.PrepareAsync(new Uri(notion.Url), It.IsAny<McpCredentialsDto?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(McpOAuthGrant.For(AuthServer, "c", null));
+
+            var connector = (await Service().CreateAsync(
+                new CreateInstallationRequestDto { DefinitionKey = "notion", AuthKind = "none" }, default)).Data!;
+
+            Assert.Equal(("notion", "needsAuth", "Notion"), (connector.DefinitionKey, connector.Health, connector.DisplayName));
+            _mcp.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task AnOAuthServerWeCannotBecomeAClientOf_IsNotSaved()
         {
             _oauth.Setup(o => o.PrepareAsync(Url, It.IsAny<McpCredentialsDto?>(), It.IsAny<CancellationToken>()))

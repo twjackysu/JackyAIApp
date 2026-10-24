@@ -67,7 +67,8 @@ namespace JackyAIApp.Server.Services.Connectors
             var (url, urlError) = McpServerUrl.Normalize(builtIn?.Url ?? request.ServerUrl);
             if (url == null) return ServiceResult.Fail(ErrorCodes.BadRequest, urlError!);
 
-            var signIn = request.AuthKind == "oauth";
+            // A catalog entry signs in its own way, whatever the request says.
+            var signIn = (builtIn?.AuthKind ?? request.AuthKind) == "oauth";
             var (auth, authKind, authError) = signIn ? (McpAuth.None, "OAuth", null) : AuthFrom(request);
             if (authError != null) return ServiceResult.Fail(ErrorCodes.BadRequest, authError);
 

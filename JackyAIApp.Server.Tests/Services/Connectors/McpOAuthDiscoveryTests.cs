@@ -169,6 +169,22 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
                 new McpOAuthDiscovery(web).DiscoverAsync(Server, new McpAuthChallenge(null, null), default));
         }
 
+        [Theory]
+        [InlineData("https://mcp.example.com/mcp", true)]
+        [InlineData("https://MCP.example.com/mcp/", true)]
+        [InlineData("https://mcp.example.com", true)]
+        [InlineData("https://mcp.example.com/", true)]
+        [InlineData("https://mcp.example.com/mc", false)]
+        [InlineData("https://mcp.example.com/other", false)]
+        [InlineData("https://mcp.example.com:8443/mcp", false)]
+        [InlineData("http://mcp.example.com/mcp", false)]
+        [InlineData("https://evil.example.com/mcp", false)]
+        [InlineData("https://mcp.example.com/mcp?x=1", false)]
+        public void AResource_CoversTheServer_OnlyAtItsOriginAndAPathItIsWithin(string resource, bool covers)
+        {
+            Assert.Equal(covers, McpOAuthDiscovery.Covers(resource, Server));
+        }
+
         [Fact]
         public async Task NoMetadataAnywhere_IsRefused_InWords()
         {

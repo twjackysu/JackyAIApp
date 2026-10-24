@@ -103,7 +103,7 @@ namespace JackyAIApp.Server.Services.Connectors
 
             // The metadata must be about this server, or another server's sign-in would be used for it.
             var resource = Text(prm, "resource");
-            if (resource == null || !SameUrl(resource, server.ToString()))
+            if (resource == null || !Covers(resource, server))
                 throw new McpOAuthException("伺服器的 OAuth 設定與網址不符，基於安全不能使用。");
 
             var issuer = prm.TryGetProperty("authorization_servers", out var servers) && servers.ValueKind == JsonValueKind.Array
@@ -245,6 +245,21 @@ namespace JackyAIApp.Server.Services.Connectors
             Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps && string.IsNullOrEmpty(uri.Fragment)
                 ? uri
                 : null;
+
+        /// <summary>
+        /// Whether a protected resource identifier covers the server's URL: the same origin, and a path the
+        /// server's is within (servers often name their origin, e.g. <c>https://mcp.example.com</c> for
+        /// <c>…/mcp</c>; the MCP SDKs accept the same). Never another host, scheme or port.
+        /// </summary>
+        internal static bool Covers(string resource, Uri server)
+        {
+            if (!Uri.TryCreate(resource, UriKind.Absolute, out var r) || !string.IsNullOrEmpty(r.Query) || !string.IsNullOrEmpty(r.Fragment) ||
+                Uri.Compare(r, server, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) != 0)
+                return false;
+            var within = r.AbsolutePath.TrimEnd('/');
+            var path = server.AbsolutePath.TrimEnd('/');
+            return path == within || path.StartsWith(within + "/", StringComparison.Ordinal);
+        }
 
         /// <summary>The same URL, but for the host's case and a trailing slash.</summary>
         internal static bool SameUrl(string a, string b) =>
