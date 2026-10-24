@@ -76,14 +76,17 @@ export const QUICK_PAGES: readonly QuickPage[] = [
   },
 ];
 
-/** Words that only say "take me there", before the page's name. */
-const GO_WORDS = ['帶我去', '前往', '打開', '開啟', '進入', '去', 'go to', 'open'];
+/** Words that only say "take me there", before the page's name (an English one with a space after it). */
+const GO_WORDS = ['帶我去', '前往', '打開', '開啟', '進入', '去', 'go to ', 'open '];
 
 const MAX_ACTIONS = 3;
 /** Longer than this it is a question for the AI, not a page's name. */
 const MAX_QUERY = 24;
-/** One English word as the dictionary takes it (Studio's open_page drops anything else too). */
-const ENGLISH_WORD = /^[a-z][a-z'-]{1,29}$/i;
+/** One English word as the dictionary takes it (Studio's open_page drops anything else too), of three
+ *  letters or more: "hi" and "ok" open a chat, they are not looked up. */
+const ENGLISH_WORD = /^[a-z][a-z'-]{2,29}$/i;
+/** Shorter than this, what was typed must be a page's word exactly ("re" would match half the site). */
+const MIN_PREFIX = 3;
 
 const on = (path: string, page: string) => path === page || path.startsWith(`${page}/`);
 
@@ -91,7 +94,7 @@ const on = (path: string, page: string) => path === page || path.startsWith(`${p
 function queryOf(draft: string): string {
   let q = draft.trim().toLowerCase();
   for (const go of GO_WORDS) {
-    if (q.startsWith(go)) {
+    if (q.startsWith(go) && q.length > go.length) {
       q = q.slice(go.length).trim();
       break;
     }
@@ -103,7 +106,7 @@ function queryOf(draft: string): string {
 function fit(page: QuickPage, q: string): number {
   if (page.words.includes(q)) return 2;
   // A single letter or character would match half the site.
-  if (q.length >= 2 && page.words.some((w) => w.startsWith(q))) return 1;
+  if (q.length >= MIN_PREFIX && page.words.some((w) => w.startsWith(q))) return 1;
   return 0;
 }
 
@@ -116,7 +119,7 @@ export function quickActionsFor(draft: string, currentPath: string): QuickAction
   if (q.length === 0 || q.length > MAX_QUERY) return [];
 
   const pages = QUICK_PAGES.map((page) => ({ page, score: fit(page, q) }))
-    .filter(({ page, score }) => score > 0 && page.path !== currentPath)
+    .filter(({ page, score }) => score > 0 && !on(currentPath, page.path))
     .sort((a, b) => b.score - a.score)
     .map(({ page }): QuickAction => ({
       key: `page:${page.path}`,

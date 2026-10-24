@@ -42,6 +42,17 @@ describe('quickActionsFor', () => {
     expect(paths('d')).toEqual([]);
     expect(paths('   ')).toEqual([]);
     expect(paths('帶我去')).toEqual([]);
+    expect(paths('hi')).toEqual([]);
+    expect(paths('re')).toEqual([]);
+  });
+
+  it('takes a lone go-word as a word, and only strips one followed by a name', () => {
+    expect(paths('open')).toEqual(['/english/dictionary/open']);
+    expect(paths('opening')).toEqual(['/english/dictionary/opening']);
+  });
+
+  it('does not offer the page the reader is already somewhere in', () => {
+    expect(paths('英文', '/english/review')).toEqual([]);
   });
 
   it('offers at most three', () => {

@@ -53,8 +53,13 @@ export default function StudioAssistant() {
   const navigate = useNavigate();
   const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'));
   const afterAnswer = useRef<{ close: boolean; path?: string }>({ close: false });
+  // The reader went somewhere with a quick action while an answer was written: the rest of that answer
+  // takes them nowhere (cleared when it is done).
+  const tookOver = useRef(false);
+  const busyRef = useRef(false);
   const goTo = useCallback(
     (path: string) => {
+      if (tookOver.current) return;
       if (studioShownOn(path)) navigate(path);
       else afterAnswer.current.path = path;
       if (fullScreen) afterAnswer.current.close = true;
@@ -63,7 +68,9 @@ export default function StudioAssistant() {
   );
   const onActivity = useCallback(
     ({ busy }: AssistantActivity) => {
+      busyRef.current = busy;
       if (busy) return;
+      tookOver.current = false;
       const { close, path } = afterAnswer.current;
       afterAnswer.current = { close: false };
       if (close) setOpen(false);
@@ -78,6 +85,7 @@ export default function StudioAssistant() {
   const pickQuick = useCallback(
     (action: QuickAction) => {
       afterAnswer.current = { close: false };
+      tookOver.current = busyRef.current;
       setDraft('');
       setOpen(false);
       navigate(action.path);

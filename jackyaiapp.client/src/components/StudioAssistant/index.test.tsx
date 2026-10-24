@@ -239,15 +239,26 @@ describe('StudioAssistant', () => {
     await render('/');
     await act(async () => button()!.click());
     await settle();
+    await act(async () => mocks.panel!.onActivityChange!({ busy: true, hasConversation: true }));
     await act(async () => mocks.panel!.onNavigate!('/finance'));
     await act(async () => mocks.panel!.onInputChange('複習'));
     const quick = document.querySelector<HTMLButtonElement>('[data-testid="quick-actions"] button');
     await act(async () => quick!.click());
     await settle();
 
+    // A later result of the same answer does not move them again either.
+    await act(async () => mocks.panel!.onNavigate!('/portfolio'));
+    await settle();
+    expect(router.pathname).toBe('/english/review');
+
     await act(async () => mocks.panel!.onActivityChange!({ busy: false, hasConversation: true }));
     await settle();
     expect(router.pathname).toBe('/english/review');
+
+    // The next answer may take them somewhere again.
+    await act(async () => mocks.panel!.onNavigate!('/portfolio'));
+    await settle();
+    expect(router.pathname).toBe('/portfolio');
   });
 
   it('offers the dictionary page of one English word typed in the box', async () => {
