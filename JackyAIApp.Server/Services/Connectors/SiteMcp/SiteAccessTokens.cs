@@ -66,6 +66,12 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         /// expired. Notes when it was used (at most once a minute, so a busy client does not write every request).
         /// </summary>
         Task<SiteTokenHolder?> AuthenticateAsync(string token, CancellationToken ct);
+
+        /// <summary>
+        /// Makes a token for <paramref name="userId"/> without asking who is signed in (the OAuth token endpoint, which
+        /// a client calls with the reader's consent in a code): the token, or null when they have <see cref="SiteAccessTokenService.Limit"/>.
+        /// </summary>
+        Task<string?> IssueAsync(string userId, string name, bool allowWrites, int days, CancellationToken ct);
     }
 
     public sealed class SiteAccessTokenService(AzureSQLDBContext db, ICurrentUser currentUser, TimeProvider time) : ISiteAccessTokenService
@@ -98,24 +104,35 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                 return ServiceResult.Fail(ErrorCodes.BadRequest, $"請替這個 token 取個名字（{MaxNameLength} 字以內）。");
             if (!Lifetimes.Contains(request.ExpiresInDays))
                 return ServiceResult.Fail(ErrorCodes.BadRequest, "有效期限只能是 30、90 或 365 天。");
-            if (await db.SiteAccessTokens.CountAsync(t => t.UserId == userId, ct) >= Limit)
+            var issued = await IssueRowAsync(userId, name, request.AllowWrites, request.ExpiresInDays, ct);
+            if (issued is not { } made)
                 return ServiceResult.Fail(ErrorCodes.BadRequest, $"最多只能有 {Limit} 個 token，請先撤銷用不到的。");
+            return ServiceResult.Ok(new CreatedSiteAccessTokenDto(Dto(made.Row), made.Token));
+        }
+
+        public async Task<string?> IssueAsync(string userId, string name, bool allowWrites, int days, CancellationToken ct) =>
+            (await IssueRowAsync(userId, name, allowWrites, days, ct))?.Token;
+
+        private async Task<(SQL.SiteAccessToken Row, string Token)?> IssueRowAsync(
+            string userId, string name, bool allowWrites, int days, CancellationToken ct)
+        {
+            if (await db.SiteAccessTokens.CountAsync(t => t.UserId == userId, ct) >= Limit) return null;
 
             var token = SiteAccessTokenFormat.Generate();
             var now = time.GetUtcNow().UtcDateTime;
             var row = new SQL.SiteAccessToken
             {
                 UserId = userId,
-                Name = name,
+                Name = name.Length > MaxNameLength ? name[..MaxNameLength] : name,
                 TokenHash = SiteAccessTokenFormat.Hash(token),
                 Hint = SiteAccessTokenFormat.Hint(token),
-                AllowWrites = request.AllowWrites,
+                AllowWrites = allowWrites,
                 CreatedAt = now,
-                ExpiresAt = now.AddDays(request.ExpiresInDays),
+                ExpiresAt = now.AddDays(days),
             };
             db.SiteAccessTokens.Add(row);
             await db.SaveChangesAsync(ct);
-            return ServiceResult.Ok(new CreatedSiteAccessTokenDto(Dto(row), token));
+            return (row, token);
         }
 
         public async Task<ServiceResult<NoData>> RevokeAsync(string tokenId, CancellationToken ct)

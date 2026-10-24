@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using JackyAIApp.Server.Configuration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
@@ -14,7 +15,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
     /// </summary>
     public sealed class SiteTokenAuthenticationHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder,
-        ISiteAccessTokenService tokens)
+        ISiteAccessTokenService tokens, IOptions<ConnectorOptions> connectorOptions)
         : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
     {
         public const string SchemeName = "SiteToken";
@@ -47,7 +48,9 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
         {
             Response.StatusCode = StatusCodes.Status401Unauthorized;
             var error = Request.Headers.Authorization.Count > 0 ? ", error=\"invalid_token\"" : "";
-            Response.Headers.WWWAuthenticate = $"Bearer realm=\"jacky-studio\"{error}";
+            // Where an OAuth client finds how to sign in (MCP authorization, RFC 9728 §5.1).
+            var metadata = SiteOAuthUrls.From(connectorOptions.Value, $"{Request.Scheme}://{Request.Host}").ResourceMetadata;
+            Response.Headers.WWWAuthenticate = $"Bearer realm=\"jacky-studio\", resource_metadata=\"{metadata}\"{error}";
             return Task.CompletedTask;
         }
 

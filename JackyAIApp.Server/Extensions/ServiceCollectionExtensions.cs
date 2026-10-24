@@ -194,6 +194,10 @@ namespace JackyAIApp.Server.Extensions
             // The site's own MCP server (design/03 §9): another AI uses the site's tools with a reader's personal access token.
             services.AddScoped<ISiteAccessTokenService, SiteAccessTokenService>();
             services.AddScoped<ISiteMcpServer, SiteMcpServer>();
+            // …and its OAuth sign-in (design/03 §9.1), for clients that only sign in that way (Claude.ai, ChatGPT).
+            services.AddSingleton<SiteOAuthClients>();
+            services.AddSingleton<SiteOAuthCodes>();
+            services.AddScoped<ISiteOAuthServer, SiteOAuthServer>();
 
             return services;
         }
