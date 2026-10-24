@@ -467,6 +467,20 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task AnotherAssistantsConversation_IsNotContinued_ANewOneOfThisAssistantIs()
+        {
+            var finance = await ConversationAsync();
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(conversationId: finance.Id, profile: ToolProfile.ProfileKey);
+
+            Assert.NotEqual(finance.Id, turn.Result.ConversationId);
+            var created = _db.ChatConversations.AsNoTracking().Single(c => c.Id == turn.Result.ConversationId);
+            Assert.Equal(ToolProfile.ProfileKey, created.Profile);
+            Assert.Empty(_db.ChatMessages.AsNoTracking().Where(m => m.ConversationId == finance.Id));
+        }
+
+        [Fact]
         public async Task ATurnWithTools_TellsTheModelTheirResultsAreData()
         {
             _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));

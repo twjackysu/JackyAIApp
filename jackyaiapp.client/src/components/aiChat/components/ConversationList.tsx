@@ -3,6 +3,7 @@ import EditNoteIcon from '@mui/icons-material/EditNote';
 import { Box, Button, IconButton, List, ListItemButton, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
+import { useAiChatConfig } from '../config';
 import { ACCENT, accentWash, hairline } from '../style';
 import { periodOf } from '../utils/period';
 
@@ -41,7 +42,9 @@ const ConversationList = ({
   onDone,
 }: ConversationListProps) => {
   const theme = useTheme();
-  const { data, isFetching } = useGetConversationsQuery(undefined, {
+  const { profile } = useAiChatConfig();
+  // Only this assistant's: another one's conversation would be continued with this one's prompt.
+  const { data, isFetching } = useGetConversationsQuery(profile, {
     refetchOnMountOrArgChange: true,
   });
   const [deleteConversation, { isLoading: isDeleting }] = useDeleteConversationMutation();

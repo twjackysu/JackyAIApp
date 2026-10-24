@@ -52,7 +52,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             await SeedAsync();
 
-            var result = await ChatHistoryEditor.RewindAsync(_db, "u1", "c1", 3, CancellationToken.None);
+            var result = await ChatHistoryEditor.RewindAsync(_db, "u1", "c1", 3, "finance", CancellationToken.None);
 
             Assert.NotNull(result);
             Assert.Equal([1L, 2L], await _db.ChatMessages.OrderBy(m => m.Id).Select(m => m.Id).ToListAsync());
@@ -63,7 +63,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             await SeedAsync();
 
-            var result = await ChatHistoryEditor.RewindAsync(_db, "u1", "c1", 3, CancellationToken.None);
+            var result = await ChatHistoryEditor.RewindAsync(_db, "u1", "c1", 3, "finance", CancellationToken.None);
 
             Assert.Equal([10L, 11L], result!.KeptAttachments.Select(a => a.Id).OrderBy(id => id));
             // Unsent again, so the chat request can attach them to the edited message.
@@ -76,7 +76,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             await SeedAsync();
 
-            var result = await ChatHistoryEditor.RewindAsync(_db, "u1", "c1", 3, CancellationToken.None);
+            var result = await ChatHistoryEditor.RewindAsync(_db, "u1", "c1", 3, "finance", CancellationToken.None);
 
             Assert.Equal([new StoredFile("b12", "file_12")], result!.RemovedFiles);
             Assert.False(await _db.ChatAttachments.AnyAsync(a => a.Id == 12));
@@ -91,7 +91,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             await SeedAsync();
 
-            var result = await ChatHistoryEditor.RewindAsync(_db, userId, conversationId, messageId, CancellationToken.None);
+            var result = await ChatHistoryEditor.RewindAsync(_db, userId, conversationId, messageId, "finance", CancellationToken.None);
 
             Assert.Null(result);
             Assert.Equal(6, await _db.ChatMessages.CountAsync());

@@ -1,6 +1,7 @@
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services;
+using JackyAIApp.Server.Services.Assistant;
 using JackyAIApp.Server.Services.Chatbot;
 using JackyAIApp.Server.Services.Finance.Assistant;
 using Microsoft.AspNetCore.Authorization;
@@ -20,8 +21,10 @@ namespace JackyAIApp.Server.Controllers
         UsageLedger usageLedger,
         IChatAttachmentService attachments,
         IChatConversationService conversations,
+        IChatProfiles profiles,
         ChatTurnRegistry turns) : ControllerBase
     {
+        private readonly IChatProfiles _profiles = profiles;
         private readonly ChatTurnRegistry _turns = turns;
         private readonly IChatAttachmentService _attachments = attachments;
         private readonly IChatConversationService _conversations = conversations;
@@ -46,8 +49,16 @@ namespace JackyAIApp.Server.Controllers
                 return;
             }
 
+            // Before any charge: a message for no assistant is not answered.
+            if (_profiles.Find(request.Profile) == null)
+            {
+                Response.StatusCode = 400;
+                await Response.WriteAsync("Unknown assistant.");
+                return;
+            }
+
             var userId = _currentUser.RequireId();
-            _logger.LogInformation("User {UserId} started chat", userId);
+            _logger.LogInformation("User {UserId} started chat with {Profile}", userId, request.Profile);
 
             var attachments = await _attachments.TakeUnsentAsync(request.AttachmentIds, HttpContext.RequestAborted);
 
@@ -79,7 +90,7 @@ namespace JackyAIApp.Server.Controllers
             if (editId != null)
             {
                 var kept = await _conversations.RewindForEditAsync(
-                    request.ConversationId!, editId.Value, HttpContext.RequestAborted);
+                    request.ConversationId!, editId.Value, request.Profile, HttpContext.RequestAborted);
                 if (kept == null)
                 {
                     // Refunded at the end of the request: a 404 with no AI call.
@@ -93,7 +104,7 @@ namespace JackyAIApp.Server.Controllers
             try
             {
                 var result = await _chatService.StreamChatAsync(
-                    userId, FinanceChatProfile.ProfileKey, request.Message, request.ConversationId, attachments, Response, HttpContext.RequestAborted);
+                    userId, request.Profile, request.Message, request.ConversationId, attachments, Response, HttpContext.RequestAborted);
 
                 // The service has already told the client why (an SSE error event with a code).
                 if (!result.StreamingStarted)
@@ -149,11 +160,13 @@ namespace JackyAIApp.Server.Controllers
         }
 
         /// <summary>
-        /// Lists the current user's conversations (most-recently updated first).
+        /// Lists the current user's conversations with one assistant (most-recently updated first);
+        /// Finance's when none is named, as the /finance page asked before there were others.
         /// </summary>
         [HttpGet("conversations")]
-        public async Task<IActionResult> GetConversations(CancellationToken ct = default) =>
-            _responseFactory.ToActionResult(await _conversations.ListAsync(ct));
+        public async Task<IActionResult> GetConversations(
+            [FromQuery] string profile = FinanceChatProfile.ProfileKey, CancellationToken ct = default) =>
+            _responseFactory.ToActionResult(await _conversations.ListAsync(profile, ct));
 
         /// <summary>
         /// Returns the message history of a conversation (oldest first) for the current user.

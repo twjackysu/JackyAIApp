@@ -23,16 +23,18 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// <summary>
         /// Removes a user's message and every later one in its conversation, keeping its attachments
         /// (unsent again) for the edited message. Null when it is not one of the user's own messages
-        /// in that conversation.
+        /// in that conversation, or the conversation is another assistant's than <paramref name="profile"/>
+        /// (the edit would be answered in a new conversation, so nothing here may go).
         /// </summary>
         public static async Task<RewindResult?> RewindAsync(
-            AzureSQLDBContext db, string userId, string conversationId, long messageId, CancellationToken ct)
+            AzureSQLDBContext db, string userId, string conversationId, long messageId, string profile, CancellationToken ct)
         {
             var target = await db.ChatMessages
                 .Include(m => m.Attachments)
                 .FirstOrDefaultAsync(m => m.Id == messageId && m.Role == "user" &&
                                           m.ConversationId == conversationId &&
-                                          m.Conversation!.UserId == userId, ct);
+                                          m.Conversation!.UserId == userId &&
+                                          m.Conversation.Profile == profile, ct);
             if (target == null) return null;
 
             // Later messages by when they were written; the id breaks ties the clock cannot.

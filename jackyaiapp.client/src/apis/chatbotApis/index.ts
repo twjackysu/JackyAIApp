@@ -10,9 +10,9 @@ export const chatbotApis = createApi({
   baseQuery: apiBaseQuery('/api/chatbot'),
   tagTypes: ['Conversations'],
   endpoints: (builder) => ({
-    /** List the current user's conversations (most-recently updated first). */
-    getConversations: builder.query<ApiOkResponse<ChatConversation[]>, void>({
-      query: () => 'conversations',
+    /** List the current user's conversations with one assistant (a chat profile), most recently updated first. */
+    getConversations: builder.query<ApiOkResponse<ChatConversation[]>, string>({
+      query: (profile) => ({ url: 'conversations', params: { profile } }),
       providesTags: ['Conversations'],
     }),
 

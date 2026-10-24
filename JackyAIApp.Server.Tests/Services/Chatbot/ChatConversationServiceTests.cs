@@ -109,7 +109,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
                 new SQL.ChatConversation { Id = "bobs", UserId = "bob", Title = "bob", UpdatedAt = _t0.AddHours(2) });
             await db.SaveChangesAsync();
 
-            var list = (await As("alice").ListAsync(default)).Data!;
+            var list = (await As("alice").ListAsync("finance", default)).Data!;
 
             Assert.Equal(["new", "old"], list.Select(c => c.Id));
             Assert.Equal(["新對話", "舊的"], list.Select(c => c.Title));
@@ -164,7 +164,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             await SeedAsync();
 
-            var kept = await As("alice").RewindForEditAsync("c1", 1, default);
+            var kept = await As("alice").RewindForEditAsync("c1", 1, "finance", default);
 
             Assert.Equal([10L, 11L], kept!.Select(a => a.Id).Order());
             var db = Db();
@@ -180,10 +180,33 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             await SeedAsync();
 
-            Assert.Null(await As("alice").RewindForEditAsync("c2", 5, default));
-            Assert.Null(await As("alice").RewindForEditAsync("c1", 2, default)); // an answer, not a question
+            Assert.Null(await As("alice").RewindForEditAsync("c2", 5, "finance", default));
+            Assert.Null(await As("alice").RewindForEditAsync("c1", 2, "finance", default)); // an answer, not a question
             Assert.Equal(5, Db().ChatMessages.Count());
             Assert.Empty(_anthropicDeleted);
+        }
+
+        [Fact]
+        public async Task RewindForEdit_InAnotherAssistantsConversation_IsNull_AndRemovesNothing()
+        {
+            // The edit would be answered in a new conversation of the asking assistant.
+            await SeedAsync();
+
+            Assert.Null(await As("alice").RewindForEditAsync("c1", 3, "data-analysis", default));
+            Assert.Equal(5, Db().ChatMessages.Count());
+        }
+
+        [Fact]
+        public async Task List_HasOnlyTheNamedAssistantsConversations()
+        {
+            var db = Db();
+            db.ChatConversations.AddRange(
+                new SQL.ChatConversation { Id = "fin", UserId = "alice", Title = "台積電", UpdatedAt = _t0 },
+                new SQL.ChatConversation { Id = "data", UserId = "alice", Title = "營收", UpdatedAt = _t0, Profile = "data-analysis" });
+            await db.SaveChangesAsync();
+
+            Assert.Equal(["fin"], (await As("alice").ListAsync("finance", default)).Data!.Select(c => c.Id));
+            Assert.Equal(["data"], (await As("alice").ListAsync("data-analysis", default)).Data!.Select(c => c.Id));
         }
     }
 }

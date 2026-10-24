@@ -24,6 +24,13 @@ namespace JackyAIApp.Server.Data.Models.SQL
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        /// <summary>
+        /// An assistant message's cards, as a JSON array: what its tools showed the reader (a table, a
+        /// chart, a link), drawn again when the conversation is reopened. Null for none. Never sent
+        /// back to the model, which gets the message's text only.
+        /// </summary>
+        public string? CardsJson { get; set; }
+
         /// <summary>Files sent with a user message (their text).</summary>
         public virtual ICollection<ChatAttachment> Attachments { get; set; } = new List<ChatAttachment>();
     }

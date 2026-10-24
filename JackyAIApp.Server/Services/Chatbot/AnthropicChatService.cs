@@ -95,7 +95,7 @@ namespace JackyAIApp.Server.Services.Chatbot
 
             var profile = profiles.Find(profileKey)
                 ?? throw new ArgumentException($"No chat profile '{profileKey}'", nameof(profileKey));
-            var (conversation, userMessage, history) = await StartTurnAsync(userId, message, conversationId, attachments, ct);
+            var (conversation, userMessage, history) = await StartTurnAsync(userId, profile.Key, message, conversationId, attachments, ct);
             var setup = await profile.SetupAsync(_time.GetTaipeiToday(), ct);
             Task<MessageCreateParams> RequestFor(bool reupload, CancellationToken token) =>
                 RequestForAsync(history, setup, reupload, token);
@@ -121,13 +121,14 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         /// <summary>
         /// The conversation the turn belongs to (a new one when none is given, or it is not this
-        /// user's), with the user's message and its attachments saved into it, and its whole history.
+        /// user's with this assistant), with the user's message and its attachments saved into it, and
+        /// its whole history.
         /// </summary>
         private async Task<(SQL.ChatConversation Conversation, SQL.ChatMessage UserMessage, List<SQL.ChatMessage> History)>
-            StartTurnAsync(string userId, string message, string? conversationId,
+            StartTurnAsync(string userId, string profileKey, string message, string? conversationId,
                 IReadOnlyCollection<SQL.ChatAttachment> attachments, CancellationToken ct)
         {
-            var conversation = await ResolveConversationAsync(userId, conversationId, ct);
+            var conversation = await ResolveConversationAsync(userId, profileKey, conversationId, ct);
 
             var userMessage = new SQL.ChatMessage
             {
@@ -312,16 +313,21 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// <summary>Appended to a cut attachment, so the model does not answer as if it saw all of it.</summary>
         internal const string TruncationNote = "\n\n[此檔案內容過長，以上僅為前段，其餘已截斷。]";
 
-        private async Task<SQL.ChatConversation> ResolveConversationAsync(string userId, string? conversationId, CancellationToken ct)
+        /// <summary>
+        /// The conversation to continue, or a new one. Another assistant's conversation is never
+        /// continued: its history would be answered with this one's prompt and tools.
+        /// </summary>
+        private async Task<SQL.ChatConversation> ResolveConversationAsync(
+            string userId, string profileKey, string? conversationId, CancellationToken ct)
         {
             if (!string.IsNullOrEmpty(conversationId))
             {
                 var existing = await db.ChatConversations
-                    .FirstOrDefaultAsync(c => c.Id == conversationId && c.UserId == userId, ct);
+                    .FirstOrDefaultAsync(c => c.Id == conversationId && c.UserId == userId && c.Profile == profileKey, ct);
                 if (existing != null) return existing;
             }
 
-            var conversation = new SQL.ChatConversation { UserId = userId };
+            var conversation = new SQL.ChatConversation { UserId = userId, Profile = profileKey };
             db.ChatConversations.Add(conversation);
             await db.SaveChangesAsync(ct);
             return conversation;

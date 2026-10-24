@@ -14,6 +14,12 @@ namespace JackyAIApp.Server.DTO
         /// again with the new wording.
         /// </summary>
         public long? EditMessageId { get; set; }
+
+        /// <summary>
+        /// The assistant the message is for (a chat profile's key). Finance's by default: the
+        /// /finance page sent no profile before there was more than one assistant.
+        /// </summary>
+        public string Profile { get; set; } = "finance";
     }
 
     /// <summary>A conversation summary returned to the client (title from the first user message).</summary>

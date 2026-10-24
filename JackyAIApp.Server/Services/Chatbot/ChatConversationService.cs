@@ -13,8 +13,8 @@ namespace JackyAIApp.Server.Services.Chatbot
     /// </summary>
     public interface IChatConversationService
     {
-        /// <summary>The user's conversations, most recently updated first.</summary>
-        Task<ServiceResult<List<ChatConversationDto>>> ListAsync(CancellationToken ct);
+        /// <summary>The user's conversations with one assistant (a chat profile's key), most recently updated first.</summary>
+        Task<ServiceResult<List<ChatConversationDto>>> ListAsync(string profile, CancellationToken ct);
 
         /// <summary>A conversation's messages, oldest first.</summary>
         Task<ServiceResult<List<ChatMessageDto>>> GetMessagesAsync(string conversationId, CancellationToken ct);
@@ -26,9 +26,10 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// Removes one of the user's messages and every later one in its conversation
         /// (<see cref="ChatHistoryEditor"/>), deleting the removed attachments' files. Returns the
         /// edited message's attachments, unsent again, to go with its new wording; null when it is
-        /// not one of the user's own messages in that conversation.
+        /// not one of the user's own messages in that conversation, or the conversation is not
+        /// <paramref name="profile"/>'s.
         /// </summary>
-        Task<List<ChatAttachment>?> RewindForEditAsync(string conversationId, long messageId, CancellationToken ct);
+        Task<List<ChatAttachment>?> RewindForEditAsync(string conversationId, long messageId, string profile, CancellationToken ct);
     }
 
     public class ChatConversationService(
@@ -39,11 +40,11 @@ namespace JackyAIApp.Server.Services.Chatbot
         private static ServiceFailure ConversationIdRequired => ServiceResult.Fail(ErrorCodes.BadRequest, "conversationId is required.");
         private static ServiceFailure ConversationNotFound => ServiceResult.Fail(ErrorCodes.NotFound, "Conversation not found.");
 
-        public async Task<ServiceResult<List<ChatConversationDto>>> ListAsync(CancellationToken ct)
+        public async Task<ServiceResult<List<ChatConversationDto>>> ListAsync(string profile, CancellationToken ct)
         {
             var userId = currentUser.RequireId();
             var result = await dbContext.ChatConversations
-                .Where(c => c.UserId == userId)
+                .Where(c => c.UserId == userId && c.Profile == profile)
                 .OrderByDescending(c => c.UpdatedAt)
                 .Select(c => new ChatConversationDto
                 {
@@ -117,10 +118,10 @@ namespace JackyAIApp.Server.Services.Chatbot
             return ServiceResult.Ok();
         }
 
-        public async Task<List<ChatAttachment>?> RewindForEditAsync(string conversationId, long messageId, CancellationToken ct)
+        public async Task<List<ChatAttachment>?> RewindForEditAsync(string conversationId, long messageId, string profile, CancellationToken ct)
         {
             var userId = currentUser.RequireId();
-            var rewind = await ChatHistoryEditor.RewindAsync(dbContext, userId, conversationId, messageId, ct);
+            var rewind = await ChatHistoryEditor.RewindAsync(dbContext, userId, conversationId, messageId, profile, ct);
             if (rewind == null)
                 return null;
 

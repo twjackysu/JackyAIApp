@@ -17,6 +17,13 @@ namespace JackyAIApp.Server.Data.Models.SQL
         [Required, MaxLength(255)]
         public required string UserId { get; set; }
 
+        /// <summary>
+        /// The assistant the conversation belongs to (an <c>IChatProfile</c>'s key: "finance",
+        /// "data-analysis"…); it is only ever continued, listed and opened as that one's.
+        /// </summary>
+        [Required, MaxLength(40)]
+        public string Profile { get; set; } = "finance";
+
         /// <summary>Auto-generated from the first user message; null until the first turn completes.</summary>
         [MaxLength(200)]
         public string? Title { get; set; }

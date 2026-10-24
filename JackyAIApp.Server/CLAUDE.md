@@ -222,6 +222,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   output cap and cache breakpoints are the same for every profile). A profile lives in its app's module
   and is registered there (`services.AddScoped<IChatProfile, …>()`); Finance's is `FinanceChatProfile`
   (`Services/Finance/Assistant`), whose request `FinanceChatRequestTests` pins field by field
+- A conversation belongs to one profile (`ChatConversations.Profile`, "finance" for every one from before
+  there were others). The chat body names it (`ChatRequest.Profile`, default "finance"; an unknown one is
+  400 before any charge), the list takes `?profile=` (same default), and a conversation of another profile is
+  never continued (a new one is started) nor rewound for an edit: its history would be answered with this
+  profile's prompt and tools
 - A profile's own tools (`ChatProfileSetup.Tools`, each an `IAiTool` in `Services/Assistant/AiTools.cs`: a
   descriptor — name, display name, description, input schema, `ToolEffect` — and `RunAsync`) are run by the
   server, unlike tw-stock's, which Anthropic's MCP connector runs. With any, `ModelTurn` is an agent loop: a

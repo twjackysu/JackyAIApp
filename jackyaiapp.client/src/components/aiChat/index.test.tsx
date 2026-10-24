@@ -164,7 +164,8 @@ beforeEach(() => {
       }
       const messages = url.match(/conversations\/([^/]+)\/messages$/);
       if (messages) return json({ data: messagesOf[messages[1]] ?? [] });
-      if (url.endsWith('/api/chatbot/conversations')) {
+      // The list is the assistant's own (the server filters by profile).
+      if (url.endsWith('/api/chatbot/conversations?profile=finance')) {
         listFetches += 1;
         return json({ data: conversations });
       }
