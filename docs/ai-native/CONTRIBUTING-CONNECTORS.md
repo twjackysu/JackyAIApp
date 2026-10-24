@@ -68,6 +68,7 @@ services.AddSingleton(new SiteToolSet("功能名稱", [MyTool.Definition]));   /
 - 工具在**目前使用者**的 request scope 裡執行（`ICurrentUser` 就是提問的人）。
 - 寫入型工具不用自己做確認：`ClientToolRunner` 會先送確認卡（`approval_required`），使用者允許才呼叫 `RunAsync`。
 - 卡片會經 `ToolCardGuard`（後端）與 `parseToolCard`（前端）過濾：純文字、table 最多 12 欄 200 列、連結只能是本站路徑或 https。
+- 同一張卡片不用多寫任何東西就會出現在**別家的 AI** 裡：本站 MCP server 把 table／link 卡片放進 `structuredContent.card`，Claude、ChatGPT 這類支援 MCP Apps 的 client 用 `SiteMcpApp` 畫出來（design/03 §9.2）；link 的本站路徑會自動補成完整網址。所以卡片的欄位名稱與標題要讓沒看過本站的人也看得懂。
 
 ### 原生 connector（以 Google 日曆為例）
 
