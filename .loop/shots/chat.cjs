@@ -82,6 +82,18 @@ const dataChart = [
   },
 ];
 
+// 「帶我去複習」：open_page 帶 go，頁面直接切到 /english/review（抽屜與對話留著）。
+const studioGo = [
+  start,
+  { type: 'tool_use', id: 't1', name: 'open_page', displayName: '開啟頁面' },
+  {
+    type: 'tool_result', id: 't1', name: 'open_page', ok: true, durationMs: 4, navigate: '/english/review',
+    card: { kind: 'link', title: '複習', href: '/english/review', description: '間隔重複（SM-2）的單字卡複習', actionLabel: '前往' },
+  },
+  delta('已經帶你到**複習**頁了：看完正面想一想再翻牌，依記得的程度按「忘了／模糊／記得」，系統會排好下次複習的時間。'),
+  done,
+];
+
 // 同一張圖，回答結束（沒有存 dashboard）：底下有「接著問」，圖表卡片可以自己換圖。
 const dataChartDone = [
   ...dataChart.slice(0, 3),
@@ -205,6 +217,22 @@ async function ask(page, text, placeholder) {
     await page.getByRole('button', { name: '語音輸入' }).click();
     await page.waitForTimeout(800);
     await page.screenshot({ path: `${out}/studio-voice-${name}.png` });
+    await page.close();
+
+    // Studio：首頁 → ⌘K →「帶我去複習」→ 頁面切換到 /english/review
+    page = await open(browser, viewport, studioGo);
+    await page.goto('http://localhost:5173/');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(800);
+    await ask(page, '帶我去複習');
+    await page.screenshot({ path: `${out}/studio-go-${name}.png` });
+    if (name === 'phone') {
+      // 手機上回答結束後抽屜收起，看到的就是複習頁；再按按鈕，對話還在。
+      await page.getByRole('button', { name: '開啟 Studio AI' }).click();
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: `${out}/studio-go-reopened-${name}.png` });
+    }
     await page.close();
 
     // Studio：/portfolio → ⌘K → 持倉表格

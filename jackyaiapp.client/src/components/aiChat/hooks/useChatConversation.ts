@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { parseToolCard, type ToolCard } from '../cards/toolCard';
+import { parseToolCard, sitePathOf, type ToolCard } from '../cards/toolCard';
 import { Message, QueuedMessage } from '../types';
 import {
   alwaysAllowRequest,
@@ -51,7 +51,13 @@ const storedCards = (raw: unknown): Pick<Message, 'cards'> => {
  * The conversation on screen: its messages, the reply being written into the last of them, the
  * messages waiting for it, and switching to another conversation or a new one.
  */
-export function useChatConversation(options?: ChatStreamingOptions) {
+export interface ChatConversationOptions extends ChatStreamingOptions {
+  /** A tool result moved the reader's page (`tool_result.navigate`, a path on this site); only as it streams,
+   *  never from a reopened conversation. Without it the result's link card is all the reader gets. */
+  onNavigate?: (path: string) => void;
+}
+
+export function useChatConversation(options?: ChatConversationOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string>('');
   const [currentStreamingContent, setCurrentStreamingContent] = useState<string>('');
@@ -59,6 +65,11 @@ export function useChatConversation(options?: ChatStreamingOptions) {
   const dispatch = useAppDispatch();
   const [fetchConversationMessages] = useLazyGetConversationMessagesQuery();
   const { sendStreamingMessage, stop, streamingStatus } = useChatStreaming(options);
+  // The latest handler, whenever the result arrives (a turn's callbacks are the render's that sent it).
+  const onNavigateRef = useRef(options?.onNavigate);
+  useEffect(() => {
+    onNavigateRef.current = options?.onNavigate;
+  });
   const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
   const busy = streamingStatus.isLoading;
   const nextTurnKey = useRef(0);
@@ -201,7 +212,11 @@ export function useChatConversation(options?: ChatStreamingOptions) {
         });
         settleSteps(true);
       },
-      onToolEvent: (event) => updateSteps((steps) => applyToolEvent(steps, event)),
+      onToolEvent: (event) => {
+        updateSteps((steps) => applyToolEvent(steps, event));
+        const path = event.type === 'tool_result' && event.ok ? sitePathOf(event.navigate) : null;
+        if (path) onNavigateRef.current?.(path);
+      },
       onApprovalEvent: (event) =>
         event.type === 'approval_required'
           ? updateBot({

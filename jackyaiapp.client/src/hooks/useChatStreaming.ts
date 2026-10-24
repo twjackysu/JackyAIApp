@@ -27,6 +27,9 @@ export type ToolEvent =
       durationMs?: number;
       /** What the result shows in the answer; unchecked until `parseToolCard`. */
       card?: unknown;
+      /** A path on this site the reader's page goes to now (Studio AI's `open_page` when asked to take them
+       *  there); unchecked until `sitePathOf`. */
+      navigate?: unknown;
     };
 
 /** A write waiting for the reader's decision, and the server saying the decisions arrived

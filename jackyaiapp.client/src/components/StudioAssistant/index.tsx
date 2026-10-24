@@ -2,11 +2,15 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import Fab from '@mui/material/Fab';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { ASK_STUDIO_EVENT, askedOf, type AskStudioDetail } from './askStudio';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
+
+import type { AssistantActivity } from '@/components/aiChat';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { AiChatConfigContext } from '@/components/aiChat/config';
@@ -39,6 +43,25 @@ export default function StudioAssistant() {
   const askId = useRef(0);
   const askSent = useCallback(() => setAsk(undefined), []);
   const config = useMemo(() => studioChatConfig(pathname), [pathname]);
+
+  // An answer that takes the reader to a page (open_page with go): the page changes under the drawer; on a
+  // phone, where the drawer is the whole screen, it closes once the answer is done (they read what to do there
+  // first), so they see where they are. The conversation stays.
+  const navigate = useNavigate();
+  const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'));
+  const closeAfterAnswer = useRef(false);
+  const goTo = useCallback(
+    (path: string) => {
+      navigate(path);
+      if (fullScreen) closeAfterAnswer.current = true;
+    },
+    [navigate, fullScreen],
+  );
+  const onActivity = useCallback(({ busy }: AssistantActivity) => {
+    if (busy || !closeAfterAnswer.current) return;
+    closeAfterAnswer.current = false;
+    setOpen(false);
+  }, []);
 
   useEffect(() => {
     if (!shown) return;
@@ -115,6 +138,8 @@ export default function StudioAssistant() {
                 inputValue={draft}
                 ask={ask}
                 onAskSent={askSent}
+                onNavigate={goTo}
+                onActivityChange={onActivity}
                 onInputChange={setDraft}
                 onCollapse={() => setOpen(false)}
               />

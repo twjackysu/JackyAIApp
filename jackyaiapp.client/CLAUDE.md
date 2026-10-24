@@ -74,7 +74,9 @@ jackyaiapp.client/src/
   event; the panel's `ask` prop sends each id once; `fresh` sends it as the first message of a new conversation,
   `useChatConversation`'s `send(…, { fresh: true })`, queued like any message while an answer is written): the home
   page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in only, nothing asked until clicked) sends `BRIEFING_PROMPT`,
-  always fresh, so it neither resends an old conversation's history nor inherits that conversation's tainted writes. On a page without the button only the button goes: the drawer, and the conversation in it, stay
+  always fresh, so it neither resends an old conversation's history nor inherits that conversation's tainted writes. A tool result's `navigate` (Studio AI's `open_page` with `go`, a path on this site only, `sitePathOf`, as it streams,
+  never from a reopened conversation) moves the page under the drawer through the panel's `onNavigate`; on a phone the
+  drawer then closes once the answer is done. On a page without the button only the button goes: the drawer, and the conversation in it, stay
   mounted once opened (one of its own link cards may lead to /finance). Leaving a page that holds a chat stops
   its answer (`useChatStreaming` stops on unmount), and a stream that ends without `done` or `error` is a failure
 - An answer's HTML preview (`HtmlViewer`) is a `sandbox=""` iframe, never markup in the page: the answer can

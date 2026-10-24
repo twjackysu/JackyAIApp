@@ -44,6 +44,8 @@ interface AiAssistantPanelProps {
   ask?: { id: number; text: string; fresh?: boolean };
   /** The `ask` was sent: its owner drops it, so a panel mounted again does not send it twice. */
   onAskSent?: () => void;
+  /** An answer takes the reader to a page of the site (Studio AI's `open_page` with `go`); without it, only its link. */
+  onNavigate?: (path: string) => void;
 }
 
 /**
@@ -61,6 +63,7 @@ function AiAssistantPanel({
   variant = 'inline',
   ask,
   onAskSent,
+  onNavigate,
 }: AiAssistantPanelProps) {
   const sheet = variant === 'sheet';
   const config = useAiChatConfig();
@@ -68,6 +71,7 @@ function AiAssistantPanel({
     errorMessages: config.errorMessages,
     profile: config.profile,
     pageContext: config.pageContext,
+    onNavigate,
   });
   const { messages, conversationId, busy } = conversation;
   const preview = usePreview(conversation.blocks, conversation.currentHtmlBlock);

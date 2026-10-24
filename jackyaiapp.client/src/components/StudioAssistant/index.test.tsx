@@ -1,6 +1,6 @@
 import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter, useNavigate, type NavigateFunction } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { askStudio } from './askStudio';
@@ -18,8 +18,12 @@ const mocks = vi.hoisted(() => ({
     onCollapse: () => void;
     ask?: { id: number; text: string; fresh?: boolean };
     onAskSent?: () => void;
+    onNavigate?: (path: string) => void;
+    onActivityChange?: (a: { busy: boolean; hasConversation: boolean }) => void;
   } | null,
+  narrow: false,
 }));
+vi.mock('@mui/material/useMediaQuery', () => ({ default: () => mocks.narrow }));
 vi.mock('@/apis/accountApis', () => ({ useGetUserInfoQuery: () => mocks.user }));
 // The real panel is tested on its own; here only what Studio AI hands it.
 vi.mock('@/components/aiChat', () => ({
@@ -35,6 +39,7 @@ let root: Root;
 beforeEach(() => {
   mocks.user = { data: { data: { id: 'u1' } } };
   mocks.panel = null;
+  mocks.narrow = false;
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -56,12 +61,14 @@ async function render(path: string) {
   );
 }
 
-const router: { navigate?: NavigateFunction } = {};
+const router: { navigate?: NavigateFunction; pathname?: string } = {};
 function CaptureNavigate() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   useEffect(() => {
     router.navigate = navigate;
-  }, [navigate]);
+    router.pathname = pathname;
+  }, [navigate, pathname]);
   return null;
 }
 
@@ -137,6 +144,40 @@ describe('StudioAssistant', () => {
     await act(async () => askStudio('給我今天的簡報', { fresh: true }));
     await settle();
     expect(mocks.panel!.ask).toEqual({ id: 1, text: '給我今天的簡報', fresh: true });
+  });
+
+  it('goes to the page an answer takes the reader to, the drawer and its conversation still open', async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+
+    await act(async () => mocks.panel!.onNavigate!('/english/review'));
+    await settle();
+
+    expect(router.pathname).toBe('/english/review');
+    expect(mocks.panel!.active).toBe(true);
+  });
+
+  it('on a phone, closes once the answer that took the reader there is done', async () => {
+    mocks.narrow = true;
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+
+    await act(async () => mocks.panel!.onNavigate!('/english/review'));
+    await settle();
+    // Still answering: they read what to do there first.
+    await act(async () => mocks.panel!.onActivityChange!({ busy: true, hasConversation: true }));
+    expect(mocks.panel!.active).toBe(true);
+
+    await act(async () => mocks.panel!.onActivityChange!({ busy: false, hasConversation: true }));
+    expect(router.pathname).toBe('/english/review');
+    expect(mocks.panel!.active).toBe(false);
+
+    // The next answer does not close it again.
+    await act(async () => button()!.click());
+    await act(async () => mocks.panel!.onActivityChange!({ busy: false, hasConversation: true }));
+    expect(mocks.panel!.active).toBe(true);
   });
 
   it('drops a message once the panel has sent it, so it is never sent twice', async () => {

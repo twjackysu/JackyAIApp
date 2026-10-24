@@ -194,12 +194,16 @@ const lastActivity = () => activities[activities.length - 1];
 /** The panel's owner holds the message being typed, as the one-line box does on the page. */
 type Ask = { id: number; text: string; fresh?: boolean };
 
+/** Pages an answer took the reader to (`onNavigate`). */
+let navigations: string[];
+
 function Harness({ initialDraft, ask }: { initialDraft: string; ask?: Ask }) {
   const [draft, setDraft] = useState(initialDraft);
   return (
     <AiAssistantPanel
       active
       ask={ask}
+      onNavigate={(path) => navigations.push(path)}
       inputValue={draft}
       onInputChange={setDraft}
       onCollapse={() => (collapses += 1)}
@@ -213,6 +217,7 @@ let renderAsk: (ask?: Ask) => Promise<void>;
 async function mount(initialDraft = '', ask?: Ask) {
   collapses = 0;
   activities = [];
+  navigations = [];
   const store = configureStore({
     reducer: { [chatbotApis.reducerPath]: chatbotApis.reducer },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(chatbotApis.middleware),
@@ -562,6 +567,31 @@ describe('AiAssistantPanel', () => {
     await act(async () => finish());
     await waitForText('外資買超');
     expect(offered()).toEqual([]);
+  });
+
+  it('goes where a tool result takes the reader, only to a page of this site, only for a call that worked', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'tool_use', id: 't1', name: 'open_page' },
+        { type: 'tool_result', id: 't1', name: 'open_page', ok: true, navigate: '/english/review' },
+        { type: 'tool_use', id: 't2', name: 'open_page' },
+        {
+          type: 'tool_result',
+          id: 't2',
+          name: 'open_page',
+          ok: true,
+          navigate: 'https://evil.example/',
+        },
+        { type: 'tool_use', id: 't3', name: 'open_page' },
+        { type: 'tool_result', id: 't3', name: 'open_page', ok: false, navigate: '/portfolio' },
+        { type: 'delta', text: '到了' },
+        { type: 'done', conversationId: 'c1' },
+      ),
+    );
+    await send('帶我去複習');
+    await waitForText('到了');
+    expect(navigations).toEqual(['/english/review']);
   });
 
   it("draws a tool result's card in the answer, above its text", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CARD_LIMITS, parseToolCard, safeHref, type TableCard } from './toolCard';
+import { CARD_LIMITS, parseToolCard, safeHref, sitePathOf, type TableCard } from './toolCard';
 
 describe('parseToolCard: a table', () => {
   const raw = {
@@ -124,5 +124,15 @@ describe('safeHref', () => {
   it('refuses data: and other schemes', () => {
     expect(safeHref('data:text/html,hi')).toBeNull();
     expect(safeHref('mailto:a@b.c')).toBeNull();
+  });
+});
+
+describe('sitePathOf', () => {
+  it('is a path on this site, never another site', () => {
+    expect(sitePathOf('/english/review')).toBe('/english/review');
+    expect(sitePathOf('https://evil.example/')).toBeNull();
+    expect(sitePathOf('//evil.example')).toBeNull();
+    expect(sitePathOf('/\\evil.example')).toBeNull();
+    expect(sitePathOf(42)).toBeNull();
   });
 });

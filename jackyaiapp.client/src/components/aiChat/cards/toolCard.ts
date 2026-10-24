@@ -80,6 +80,12 @@ export function safeHref(raw: unknown): string | null {
   }
 }
 
+/** A path on this site a tool result may move the reader's page to (`tool_result.navigate`); never another site. */
+export function sitePathOf(raw: unknown): string | null {
+  const href = safeHref(raw);
+  return href?.startsWith('/') ? href : null;
+}
+
 function parseTable(raw: Record<string, unknown>): TableCard | null {
   if (!Array.isArray(raw.columns) || !Array.isArray(raw.rows)) return null;
   const columns = raw.columns

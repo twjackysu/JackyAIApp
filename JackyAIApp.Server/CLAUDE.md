@@ -263,7 +263,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - Studio AI, the assistant on every page, is the profile `studio` (`Services/Assistant/Studio`,
   `StudioChatProfile`): the site's pages (`SitePages`, kept in step with the client's app registry) and the one
   the reader is on (page context `path`) in its prompt, `open_page` (`OpenPageTool`, a link card to a page, a
-  word's dictionary page included; a word that is not plain letters is dropped), every `ISiteTool` a feature
+  word's dictionary page included; a word that is not plain letters is dropped; with `go`, when the reader asked to be
+  taken there, the result's `AiToolResult.Navigate` also moves their page: `tool_result.navigate`, which `ClientToolRunner`
+  sends only for a site tool's call and only as a plain path on this site, never a connector's), every `ISiteTool` a feature
   registers (English's `look_up_word`, `add_word_to_repository`, a write, so asked first, and `learning_progress`,
   the words due for review, the daily challenge, streak and XP: `Services/Dictionary/Assistant`; Portfolio's `portfolio_summary`, the reader's own portfolio as
   /portfolio values it, a table card of the positions: `Services/Portfolio/Assistant`; Connectors' `google_calendar_events`)
