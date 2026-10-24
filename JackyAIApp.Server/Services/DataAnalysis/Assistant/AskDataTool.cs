@@ -2,6 +2,7 @@ using System.Text.Json;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.DataAnalysis;
 using JackyAIApp.Server.Services.Assistant;
+using JackyAIApp.Server.Services.Connectors;
 
 namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
 {
@@ -30,7 +31,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
         internal const string LimitMessage = "使用者今天的 AI 額度已用完，請告訴使用者明天（台北時間 08:00 重置）再試。";
         internal const string NoQuestionMessage = "請提供 question：要問這份資料的問題。";
 
-        public AiToolDescriptor Descriptor { get; } = new(
+        /// <summary>The tool as the model and the reader see it (also listed on the connectors page).</summary>
+        public static readonly AiToolDescriptor Definition = new(
             Name,
             "查詢資料",
             "用自然語言查詢使用者畫面上這份資料（彙總、分組、篩選、排行、趨勢），回傳彙總後的資料列，並在對話中畫成圖表。" +
@@ -47,6 +49,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                 required = new[] { "question" },
             }),
             ToolEffect.Read);
+
+        public AiToolDescriptor Descriptor => Definition;
 
         public async Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
         {

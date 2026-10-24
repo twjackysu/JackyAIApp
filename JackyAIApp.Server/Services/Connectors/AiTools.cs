@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace JackyAIApp.Server.Services.Assistant
+namespace JackyAIApp.Server.Services.Connectors
 {
     /// <summary>What calling a tool does, which decides whether the reader is asked first (docs/ai-native/design/03).</summary>
     public enum ToolEffect
@@ -29,7 +29,7 @@ namespace JackyAIApp.Server.Services.Assistant
 
     /// <summary>A tool as the model and the reader see it.</summary>
     /// <param name="Name">The name the model calls it by: letters, digits, <c>_</c> and <c>-</c>, at most 64
-    /// (<see cref="Connectors.ToolNames"/> makes a connector's names fit).</param>
+    /// (<see cref="ToolNames"/> makes a connector's names fit).</param>
     /// <param name="DisplayName">What the reader is shown while it runs, in Traditional Chinese.</param>
     /// <param name="Description">What it does and when to use it, for the model.</param>
     /// <param name="InputSchema">The JSON Schema of its input: an object schema.</param>
@@ -65,7 +65,7 @@ namespace JackyAIApp.Server.Services.Assistant
     /// <summary>
     /// A tool the server runs itself, in the reader's name: one of the site's own (a word lookup, a
     /// data question) or, later, one of a connector's. A profile hands its tools to the turn through
-    /// <see cref="ChatProfileSetup.Tools"/>.
+    /// <c>ChatProfileSetup.Tools</c>.
     /// </summary>
     public interface IAiTool
     {

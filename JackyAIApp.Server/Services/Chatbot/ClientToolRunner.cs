@@ -1,6 +1,6 @@
 using Anthropic.Models.Beta.Messages;
-using JackyAIApp.Server.Services.Assistant;
 using System.Text.Json;
+using JackyAIApp.Server.Services.Connectors;
 
 namespace JackyAIApp.Server.Services.Chatbot
 {
@@ -12,7 +12,8 @@ namespace JackyAIApp.Server.Services.Chatbot
     /// as untrusted data (<see cref="Wrap"/>): what a tool returns may come from anyone, and an
     /// instruction inside it is not the reader's.
     /// <para>
-    /// A call whose effect is not <see cref="ToolEffect.Read"/> runs only once the reader allows it: the
+    /// A call of a tool that asks first (by default one whose effect is not <see cref="ToolEffect.Read"/>,
+    /// see <see cref="ToolPermissions"/>) runs only once the reader allows it: the
     /// reply's such calls are put to them together (<c>approval_required</c>), and the turn waits in its
     /// own stream (<see cref="ChatApprovalRegistry"/>, at most <see cref="ApprovalTimeout"/>, a comment
     /// line every <see cref="PingEvery"/> so the stream is not closed as idle). A call they decline, or
@@ -48,17 +49,21 @@ namespace JackyAIApp.Server.Services.Chatbot
         };
 
         private readonly Dictionary<string, IAiTool> _byName;
+        private readonly IReadOnlySet<string> _askFirst;
         private readonly SseStream _sse;
         private readonly AiToolContext _context;
         private readonly ChatApprovalRegistry _approvals;
         private readonly TimeProvider _time;
         private readonly ILogger _logger;
 
+        /// <param name="askFirst">The tools whose calls wait for the reader (their permission, see
+        /// <see cref="ToolPermissions"/>).</param>
         public ClientToolRunner(
-            IReadOnlyList<IAiTool> tools, SseStream sse, AiToolContext context, ChatApprovalRegistry approvals,
-            TimeProvider time, ILogger logger)
+            IReadOnlyList<IAiTool> tools, IReadOnlySet<string> askFirst, SseStream sse, AiToolContext context,
+            ChatApprovalRegistry approvals, TimeProvider time, ILogger logger)
         {
             _byName = tools.ToDictionary(t => t.Descriptor.Name, StringComparer.Ordinal);
+            _askFirst = askFirst;
             _sse = sse;
             _context = context;
             _approvals = approvals;
@@ -78,7 +83,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         {
             var asked = new List<(BetaToolUseBlock Call, IAiTool Tool)>();
             foreach (var call in calls)
-                if (_byName.TryGetValue(call.Name, out var tool) && tool.Descriptor.Effect != ToolEffect.Read)
+                if (_byName.TryGetValue(call.Name, out var tool) && _askFirst.Contains(call.Name))
                     asked.Add((call, tool));
             var (allowed, timedOut) = asked.Count > 0
                 ? await AskAsync(asked, ct)

@@ -54,7 +54,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 | Platform | `Common`, `Configuration`, `Data`, `Services` (only what is directly in it: current user, accounts, usage limits, connectors, `DrawdownBrakeAccess`), `Services.AiUsage`, `.OpenAI`, `.Prompt`, `.Speech`, `.ExternalApi` (the gateway) | — |
 | MarketData | `Services.Market` (prices, history and backfill, fundamentals/chips/macro providers, TW symbol list, MIS TAIEX quote, trading calendar, `TwStockCode`), `Services.ExternalApi.Twse` | Platform |
 | English | `Services.Dictionary`, `.Repository`, `.Exam`, `.Listening`, `.SpacedRepetition`, `.DailyChallenge`, `.WordOfTheDay`, `.SpellChecker`, `Mappers` | Platform |
-| Connectors | `Services.Connectors` (what the AI may use: connector definitions and the hosted MCP servers, e.g. `TwStockMcp`; see docs/ai-native/design/03) | Platform |
+| Connectors | `Services.Connectors` (what the AI may use: the tool contract `IAiTool`, the site's own tools as features register them, the reader's connectors and tool permissions, the hosted MCP servers, e.g. `TwStockMcp`; see docs/ai-native/design/03) | Platform |
 | Assistant | `Services.Assistant` (chat profiles, the turn's request), `Services.Chatbot` (the shared chat engine: turns, stream, history, attachments) | Connectors, Platform |
 | Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest; `Services.Finance.Assistant`: the /finance assistant's profile and market background) | Assistant, Connectors, MarketData, Platform |
 | Portfolio | `Services.Portfolio` | MarketData, Platform |
@@ -228,8 +228,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   never continued (a new one is started) nor rewound for an edit: its history would be answered with this
   profile's prompt and tools. A message also carries the page's context (`ChatRequest.Context`, at most 8
   short entries, `ChatbotController.PageContext`), which the profile gets in `ChatProfileContext.Page`
-- A profile's own tools (`ChatProfileSetup.Tools`, each an `IAiTool` in `Services/Assistant/AiTools.cs`: a
-  descriptor — name, display name, description, input schema, `ToolEffect` — and `RunAsync`) are run by the
+- A profile's own tools (`ChatProfileSetup.Tools`, each an `IAiTool` in `Services/Connectors/AiTools.cs`: a
+  descriptor — name, display name, description, input schema, `ToolEffect`, the connector it belongs to,
+  `site` for the site's own — and `RunAsync`) are run by the
   server, unlike tw-stock's, which Anthropic's MCP connector runs. With any, `ModelTurn` is an agent loop: a
   reply that stops with tool_use is collected whole while it streams (the SDK's `BetaMessageContentAggregator`),
   `ClientToolRunner` runs its calls one by one (30s each; the reader sees `tool_use` with `id`/`displayName`,
@@ -237,8 +238,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   (thinking signatures included) with the results, at most `ModelTurn.MaxToolRounds` requests a turn. A result
   goes back wrapped as untrusted data (`ClientToolRunner.Wrap`, `<tool_output trust="untrusted">`, which the
   content cannot close), and the request's system prompt says what that means
-  (`ChatTurnRequest.UntrustedToolOutputInstruction`). A call whose effect is not `Read` runs only once the reader
-  allows it: a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
+  (`ChatTurnRequest.UntrustedToolOutputInstruction`). What the AI may do with each tool is the reader's
+  choice on the connectors page (`IToolPermissionSource`, `ToolPermissions`: by default a read runs on its own
+  and anything else asks first; a destructive one can never run on its own): a tool they turned off is not
+  offered, and a call of one that asks first runs only once the reader allows it: a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
   calls: id, connector, tool, display name, effect, input), and the turn waits **in its own request**
   (`ChatApprovalRegistry`, a singleton in memory like `ChatTurnRegistry`; at most
   `ClientToolRunner.ApprovalTimeout`, 3 minutes, writing a `: ping` comment line every 20s so Cloudflare does
@@ -267,6 +270,24 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - The Anthropic client comes from `IAnthropicClientFactory`, so `AnthropicChatStreamTests` can give the real
   SDK an `HttpClient` serving recorded API streams: a whole turn is tested offline, from the SSE the reader
   gets to what is saved and logged. A change to how a turn reads the stream gets a case there
+
+## Connectors (what the AI may use)
+
+- docs/ai-native/design/03 is the design. A user's connectors are `ConnectorInstallations` (module
+  Connectors): one row per catalog entry they added (a filtered unique index on `(UserId, DefinitionKey)`
+  leaves out `custom`, an MCP server of their own, which may be many), with its credentials encrypted, on or
+  off, the tools it last listed (`ToolsCacheJson`, read leniently by `CachedTools`: it came from an outside
+  server) and the reader's permission for each tool (`ToolSettingsJson`, `ToolPermissions.Parse`)
+- The site's own tools are a connector that is always there (`SiteConnector`, key `site`). A feature lists
+  its tools for the connectors page with `services.AddSingleton(new SiteToolSet(group, [descriptors]))` next
+  to its profile (a tool's descriptor is a `static readonly Definition`, so the list and the tool agree); the
+  tools themselves still come with the profile, since one may need the page it is asked from. The site has
+  a row only once the reader changed one of its tools' permissions
+- `ConnectorCatalogService` answers the page (`AiConnectorsController`, `api/connectors/catalog`,
+  `tool-permissions`, `installations/{id}/enabled`, `installations/{id}`, in the `{ data }` envelope; the
+  account connections' endpoints of `ConnectorsController`, under the same route, are unchanged) and, as
+  `IToolPermissionSource`, each chat turn. Someone else's connector, or the site's own for turning off or
+  removing, is NotFound
 
 ## Data analysis
 

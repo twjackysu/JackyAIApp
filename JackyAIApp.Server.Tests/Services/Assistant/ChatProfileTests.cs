@@ -1,5 +1,6 @@
 using System.Text.Json;
 using JackyAIApp.Server.Services.Assistant;
+using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services.Finance.Assistant;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;

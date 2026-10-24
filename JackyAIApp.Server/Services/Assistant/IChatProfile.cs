@@ -1,3 +1,5 @@
+using JackyAIApp.Server.Services.Connectors;
+
 namespace JackyAIApp.Server.Services.Assistant
 {
     /// <summary>

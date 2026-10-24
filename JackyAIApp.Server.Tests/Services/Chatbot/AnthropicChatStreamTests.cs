@@ -5,6 +5,7 @@ using Anthropic;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
+using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Assistant;
@@ -35,6 +36,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         private readonly Mock<IAnthropicFileStore> _files = new();
         private readonly ChatTurnRegistry _turns = new();
         private readonly ChatApprovalRegistry _approvals = new();
+        private readonly ChosenPermissions _permissions = new();
         private readonly Mock<IMarketBackground> _background = new();
         private readonly Mock<IAiUsageLogger> _usage = new();
         private readonly UsageLedger _ledger = new();
@@ -49,7 +51,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             var settings = new Mock<IOptionsMonitor<Settings>>();
             settings.Setup(s => s.CurrentValue).Returns(() => new Settings { Google = new JackyAIApp.Server.Configuration.Google(), AnthropicApiKey = _apiKey });
             var profiles = new ChatProfiles([new FinanceChatProfile(_background.Object, NullLogger<FinanceChatProfile>.Instance), _toolProfile]);
-            return new AnthropicChatService(_db, _attachments.Object, _files.Object, _turns, _approvals, profiles, _usage.Object,
+            return new AnthropicChatService(_db, _attachments.Object, _files.Object, _turns, _approvals, _permissions, profiles, _usage.Object,
                 _ledger, settings.Object, new TestClientFactory(_anthropic), _log);
         }
 
@@ -395,6 +397,16 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         // ── tools the server runs (the agent loop) ─────────────────────────────────────────────
 
         /// <summary>A profile with tools of its own, as Data Analysis and Studio AI have.</summary>
+        /// <summary>What the reader set on the connectors page, by connector and tool.</summary>
+        private sealed class ChosenPermissions : IToolPermissionSource
+        {
+            public Dictionary<string, ToolPermission> Site { get; } = [];
+
+            public Task<IReadOnlyDictionary<string, ToolPermission>> ChosenAsync(string userId, string connectorKey, CancellationToken ct) =>
+                Task.FromResult<IReadOnlyDictionary<string, ToolPermission>>(
+                    connectorKey == AiToolDescriptor.SiteConnector ? Site : new Dictionary<string, ToolPermission>());
+        }
+
         private sealed class ToolProfile : IChatProfile
         {
             public const string ProfileKey = "test-tools";
@@ -599,6 +611,49 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Equal("done", Type(done));
             Assert.True(done.GetProperty("stopped").GetBoolean());
             Assert.False(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_1", true)]));
+        }
+
+        [Fact]
+        public async Task AToolTheReaderTurnedOff_IsNotOffered()
+        {
+            _permissions.Site["save_word"] = ToolPermission.Disabled;
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+
+            await AskAsync(profile: ToolProfile.ProfileKey);
+
+            var request = JsonDocument.Parse(Assert.Single(_anthropic.Requests)).RootElement;
+            Assert.Equal(new[] { "lookup_word" },
+                request.GetProperty("tools").EnumerateArray().Select(t => t.GetProperty("name").GetString()));
+        }
+
+        [Fact]
+        public async Task AWriteTheReaderLetsRunOnItsOwn_IsNotAsked()
+        {
+            _permissions.Site["save_word"] = ToolPermission.Auto;
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "save_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("已加入。"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            Assert.DoesNotContain(turn.Events, e => Type(e) == "approval_required");
+            Assert.Single(_toolProfile.Save.Calls);
+        }
+
+        [Fact]
+        public async Task AReadTheReaderWantsToBeAskedAbout_WaitsForThem()
+        {
+            _permissions.Site["lookup_word"] = ToolPermission.Confirm;
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "lookup_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+            var body = new RecordingBody();
+
+            var turn = AskAsync(profile: ToolProfile.ProfileKey, body: body);
+            var (conversationId, pendingId, asked) = await AskedAsync(body);
+            Assert.Equal("read", Assert.Single(asked.GetProperty("calls").EnumerateArray()).GetProperty("effect").GetString());
+            Assert.True(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_1", true)]));
+            await turn;
+
+            Assert.Single(_toolProfile.Lookup.Calls);
         }
 
         [Fact]

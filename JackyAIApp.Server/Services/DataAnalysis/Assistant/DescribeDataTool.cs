@@ -1,6 +1,6 @@
 using System.Text.Json;
 using JackyAIApp.Server.Common;
-using JackyAIApp.Server.Services.Assistant;
+using JackyAIApp.Server.Services.Connectors;
 
 namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
 {
@@ -18,12 +18,15 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
 
         private static readonly HashSet<string> DateTypes = ["DateTime", "DateTimeOffset", "Date"];
 
-        public AiToolDescriptor Descriptor { get; } = new(
+        /// <summary>The tool as the model and the reader see it (also listed on the connectors page).</summary>
+        public static readonly AiToolDescriptor Definition = new(
             Name,
             "讀取資料結構",
             "列出使用者畫面上這份資料的欄位名稱與型別，以及日期欄位的最新日期。不確定有哪些欄位、或使用者問資料內容時先呼叫。",
             JsonSerializer.SerializeToElement(new { type = "object", properties = new { } }),
             ToolEffect.Read);
+
+        public AiToolDescriptor Descriptor => Definition;
 
         public async Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
         {

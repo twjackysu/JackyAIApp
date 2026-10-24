@@ -2,6 +2,7 @@ using DataAnalysisLibrary.Connectors.MsSql;
 using DataAnalysisLibrary.Core.Engine;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Services.Assistant;
+using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services.DataAnalysis.Assistant;
 
 namespace JackyAIApp.Server.Services.DataAnalysis
@@ -31,6 +32,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             services.AddScoped<INlSummarizeService, NlSummarizeService>();
             // The page's AI assistant (the shared chat engine's "data-analysis" profile).
             services.AddScoped<IChatProfile, DataAnalysisChatProfile>();
+            // Its tools, as the connectors page lists them under the site's own.
+            services.AddSingleton(new SiteToolSet("資料分析", [AskDataTool.Definition, DescribeDataTool.Definition]));
 
             // Session uploads live in this process's memory, so the store and its byte budget are
             // process-wide singletons; the admission filter reads the same budget before a body is read.

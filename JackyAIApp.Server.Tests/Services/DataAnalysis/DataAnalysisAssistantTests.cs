@@ -2,6 +2,7 @@ using System.Text.Json;
 using DataAnalysisLibrary.Core.Enums;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.DTO.DataAnalysis;
+using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Assistant;
 using JackyAIApp.Server.Services.DataAnalysis;

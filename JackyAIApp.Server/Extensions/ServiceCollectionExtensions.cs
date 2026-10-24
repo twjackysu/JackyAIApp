@@ -2,6 +2,7 @@ using DotnetSdkUtilities.Factory.ResponseFactory;
 using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.DTO;
+using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Assistant;
@@ -156,6 +157,11 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<ITokenEncryptionService, TokenEncryptionService>();
             services.AddScoped<IStateService, StateService>();
             services.AddScoped<IConnectorService, ConnectorService>();
+            // What the AI may use (docs/ai-native/design/03): the connectors page and each chat turn
+            // read the same installations.
+            services.AddScoped<ConnectorCatalogService>();
+            services.AddScoped<IConnectorCatalogService>(sp => sp.GetRequiredService<ConnectorCatalogService>());
+            services.AddScoped<IToolPermissionSource>(sp => sp.GetRequiredService<ConnectorCatalogService>());
 
             return services;
         }

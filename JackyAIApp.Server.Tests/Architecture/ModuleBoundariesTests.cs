@@ -102,6 +102,8 @@ namespace JackyAIApp.Server.Tests.Architecture
 
             ["ChatConversations"] = "Assistant", ["ChatMessages"] = "Assistant", ["ChatAttachments"] = "Assistant",
 
+            ["ConnectorInstallations"] = "Connectors",
+
             ["StockPredictions"] = "Finance",
 
             ["HoldingSnapshots"] = "Portfolio", ["HoldingPositions"] = "Portfolio", ["FxRates"] = "Portfolio",

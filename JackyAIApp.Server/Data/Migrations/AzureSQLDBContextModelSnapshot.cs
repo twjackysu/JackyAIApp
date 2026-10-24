@@ -364,6 +364,79 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("ClozeTestOptions");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ConnectorInstallation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("AuthKind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DefinitionKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("EncryptedSecret")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("LastTestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ServerUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ToolSettingsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ToolsCacheJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ToolsFetchedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "DefinitionKey")
+                        .IsUnique()
+                        .HasFilter("[DefinitionKey] <> 'custom'");
+
+                    b.ToTable("ConnectorInstallations");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.DailyChallengeResult", b =>
                 {
                     b.Property<int>("Id")

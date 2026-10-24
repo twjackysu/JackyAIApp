@@ -4,6 +4,7 @@ using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Assistant;
+using JackyAIApp.Server.Services.Connectors;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
@@ -26,6 +27,7 @@ namespace JackyAIApp.Server.Services.Chatbot
         IAnthropicFileStore anthropicFiles,
         ChatTurnRegistry turns,
         ChatApprovalRegistry approvals,
+        IToolPermissionSource toolPermissions,
         IChatProfiles profiles,
         IAiUsageLogger usageLogger,
         UsageLedger usageLedger,
@@ -98,7 +100,8 @@ namespace JackyAIApp.Server.Services.Chatbot
             var profile = profiles.Find(profileKey)
                 ?? throw new ArgumentException($"No chat profile '{profileKey}'", nameof(profileKey));
             var (conversation, userMessage, history) = await StartTurnAsync(userId, profile.Key, message, conversationId, attachments, ct);
-            var setup = await profile.SetupAsync(new ChatProfileContext(userId, _time.GetTaipeiToday(), pageContext), ct);
+            var (setup, askFirst) = await WithPermissionsAsync(
+                userId, await profile.SetupAsync(new ChatProfileContext(userId, _time.GetTaipeiToday(), pageContext), ct), ct);
             Task<MessageCreateParams> RequestFor(bool reupload, CancellationToken token) =>
                 RequestForAsync(history, setup, reupload, token);
             var request = await RequestFor(reupload: false, ct);
@@ -110,7 +113,7 @@ namespace JackyAIApp.Server.Services.Chatbot
             await WriteStartAsync(sse, conversation.Id, userMessage.Id, turnCts.Token);
 
             var tools = setup.Tools is { Count: > 0 }
-                ? new ClientToolRunner(setup.Tools, sse, new AiToolContext(userId, conversation.Id), approvals, _time, logger)
+                ? new ClientToolRunner(setup.Tools, askFirst, sse, new AiToolContext(userId, conversation.Id), approvals, _time, logger)
                 : null;
             var outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id, tools)
                 .RunAsync(request, token => RequestFor(reupload: true, token), turnCts.Token);
@@ -119,6 +122,32 @@ namespace JackyAIApp.Server.Services.Chatbot
             await ReportTurnAsync(userId, profile, conversation.Id, outcome, verdict);
             await EndStreamAsync(sse, conversation.Id, verdict, answerId, ct);
             return new ChatStreamResult(outcome.StreamingStarted, conversation.Id, verdict.ErrorCode);
+        }
+
+        /// <summary>
+        /// The profile's tools as the reader set them on the connectors page (docs/ai-native/design/03
+        /// §2.2): one they turned off is not offered at all, and the names of those that wait for the
+        /// reader before each call (by default every one that is not a read).
+        /// </summary>
+        private async Task<(ChatProfileSetup Setup, IReadOnlySet<string> AskFirst)> WithPermissionsAsync(
+            string userId, ChatProfileSetup setup, CancellationToken ct)
+        {
+            var askFirst = new HashSet<string>(StringComparer.Ordinal);
+            if (setup.Tools is not { Count: > 0 }) return (setup, askFirst);
+
+            var offered = new List<IAiTool>();
+            foreach (var group in setup.Tools.GroupBy(t => t.Descriptor.Connector))
+            {
+                var chosen = await toolPermissions.ChosenAsync(userId, group.Key, ct);
+                foreach (var tool in group)
+                {
+                    var permission = ToolPermissions.For(tool.Descriptor.Name, tool.Descriptor.Effect, chosen);
+                    if (permission == ToolPermission.Disabled) continue;
+                    offered.Add(tool);
+                    if (ToolPermissions.AsksFirst(permission)) askFirst.Add(tool.Descriptor.Name);
+                }
+            }
+            return (setup with { Tools = offered }, askFirst);
         }
 
         /// <summary>
