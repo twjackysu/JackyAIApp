@@ -204,6 +204,7 @@ namespace JackyAIApp.Server.Services.Connectors
             try
             {
                 var listed = await mcp.ListToolsAsync(new Uri(row.ServerUrl!), auth, ct);
+                AskFirstWhereChanged(row, CachedTools.Changed(CachedTools.Parse(row.ToolsCacheJson), listed.Tools));
                 row.ToolsCacheJson = CachedTools.Serialize(listed.Tools);
                 row.ToolsFetchedAt = now;
                 row.LastStatus = "Ok";
@@ -217,6 +218,20 @@ namespace JackyAIApp.Server.Services.Connectors
                 row.LastError = ex.Message;
                 return (false, ex.Failure == McpFailure.Blocked ? ex.Message : null);
             }
+        }
+
+        /// <summary>
+        /// A tool the reader let run on its own that now says something else (<see cref="CachedTools.Changed"/>) asks
+        /// first again: the reader trusted what it said then, not what it says now.
+        /// </summary>
+        internal static void AskFirstWhereChanged(SQL.ConnectorInstallation row, IReadOnlyList<string> changed)
+        {
+            if (changed.Count == 0) return;
+            var chosen = ToolPermissions.Parse(row.ToolSettingsJson);
+            var trusted = changed.Where(name => chosen.TryGetValue(name, out var p) && p == ToolPermission.Auto).ToList();
+            if (trusted.Count == 0) return;
+            foreach (var name in trusted) chosen[name] = ToolPermission.Confirm;
+            row.ToolSettingsJson = ToolPermissions.Serialize(chosen);
         }
 
         public static string? Trimmed(string? text, int max)

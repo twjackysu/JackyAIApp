@@ -53,6 +53,26 @@ namespace JackyAIApp.Server.Services.Connectors
 
         public static string Serialize(IEnumerable<CachedTool> tools) => JsonSerializer.Serialize(tools, Json);
 
+        /// <summary>
+        /// The tools of <paramref name="after"/> that were in <paramref name="before"/> but say something else now:
+        /// their title, description, schema or effect. A server can change what a tool says it does after the reader
+        /// trusted it (a "rug pull"), so such a tool is not run on its own on the strength of the old words.
+        /// </summary>
+        public static IReadOnlyList<string> Changed(IReadOnlyList<CachedTool> before, IReadOnlyList<CachedTool> after)
+        {
+            var old = before.GroupBy(t => t.Name, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+            return after
+                .Where(t => old.TryGetValue(t.Name, out var was) && !Same(was, t))
+                .Select(t => t.Name)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+        }
+
+        // The schema as JSON writes it, so the same schema stored and fresh from the server compare equal.
+        private static bool Same(CachedTool a, CachedTool b) =>
+            a.Title == b.Title && a.Description == b.Description && a.Effect == b.Effect &&
+            JsonSerializer.Serialize(a.InputSchema) == JsonSerializer.Serialize(b.InputSchema);
+
         private static string? StringOf(JsonElement e, string property) =>
             e.TryGetProperty(property, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
     }
