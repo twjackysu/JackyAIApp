@@ -356,6 +356,33 @@ describe('AiAssistantPanel', () => {
     });
   });
 
+  it('takes a spoken message after what was typed, for the reader to send', async () => {
+    let recognition!: { onresult: (e: unknown) => void; onend: () => void };
+    vi.stubGlobal(
+      'webkitSpeechRecognition',
+      class {
+        onresult = null;
+        onend = null;
+        start() {
+          recognition = this as unknown as typeof recognition;
+        }
+        stop() {}
+        abort() {}
+      },
+    );
+    await mount('幫我查');
+    await act(async () => buttonByLabel('語音輸入')!.click());
+    act(() =>
+      recognition.onresult({
+        results: [Object.assign([{ transcript: '單字' }], { isFinal: true })],
+      }),
+    );
+    act(() => recognition.onend());
+
+    expect(textarea().value).toBe('幫我查單字');
+    expect(chatBodies).toEqual([]);
+  });
+
   it('sends what a page asked (askStudio) once, as if typed', async () => {
     chatReplies.push(() =>
       sseReply({ type: 'delta', text: '早安' }, { type: 'done', conversationId: 'conv-1' }),

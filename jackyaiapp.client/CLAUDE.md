@@ -46,12 +46,16 @@ jackyaiapp.client/src/
 - A component whose bulk is state rather than markup splits into hooks instead: the component keeps
   the layout and wires them together. `components/aiChat` (the AI chat shared by the apps; Finance's assistant is its first user) is the pattern: the conversation
   and its queue are `useChatConversation`, the picked files `usePendingAttachments`, the preview
-  `usePreview`. What differs between apps' assistants (greeting, example questions, suggestions,
+  `usePreview`, speaking a message instead of typing it `useSpeechInput` (the browser's Web Speech API,
+  zh-TW; the words go into the box after what was typed and the reader still sends; no button where the browser
+  cannot listen, e.g. Firefox). What differs between apps' assistants (greeting, example questions, suggestions,
   placeholders, the server profile, error wording) is an `AiChatConfig` (`components/aiChat/config.ts`)
   that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`); the chat's
   parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools
   an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`),
-  a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`; for a site tool's write, outside a
+  a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`; while it waits it comes after the
+  answer's text, with no thinking dots, and once answered it stays above the text as a record; the header says
+  what the turn is doing, `hooks/chatStatus`, a tool by its display name and「等你確認」while it waits; for a site tool's write, outside a
   conversation that read outside content, it offers to let the tool run on its own from now on, `canAlwaysAllow`, which
   sets the same permission as the connectors page). What a tool's
   result shows in the answer is a card (`tool_result.card`, `cards/`): it comes from a tool, so it is
@@ -63,7 +67,9 @@ jackyaiapp.client/src/
   drawer, the history behind its button, the header's last action closes) under the `studio` profile, with
   the path as its page context. Only for a signed-in reader, and not where a page has an assistant of its own
   (/finance, /data-analysis) or fills the screen; which pages, the suggestions per page and the shortcut are
-  `studioChat`. On a page without the button only the button goes: the drawer, and the conversation in it, stay
+  `studioChat`. A page opens it with a message sent through `askStudio(text)` (`StudioAssistant/askStudio`, a window
+  event; the panel's `ask` prop sends each id once): the home page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in
+  only, nothing asked until clicked) sends `BRIEFING_PROMPT`. On a page without the button only the button goes: the drawer, and the conversation in it, stay
   mounted once opened (one of its own link cards may lead to /finance). Leaving a page that holds a chat stops
   its answer (`useChatStreaming` stops on unmount), and a stream that ends without `done` or `error` is a failure
 - An answer's HTML preview (`HtmlViewer`) is a `sandbox=""` iframe, never markup in the page: the answer can

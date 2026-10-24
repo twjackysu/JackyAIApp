@@ -9,6 +9,8 @@
 | 你看到的 | 背後 | 為什麼跟上 2026 的趨勢 |
 |---|---|---|
 | **Studio AI**：任何頁面右下角按鈕或 ⌘K／Ctrl+K 叫出，知道你在哪一頁 | 共用 chat 引擎的 `studio` profile；本站功能都是工具（`ISiteTool`） | 「網站本身就是工具」：同一個 AI 到處都在 |
+| **用說的**：三個助理的輸入框都有麥克風，說「給我今天的簡報」字就出現在框裡 | 瀏覽器內建的 Web Speech API（zh-TW），不經本站伺服器、不花 AI 額度；Firefox 沒有就不顯示 | 語音是 2026 AI 助理的基本互動 |
+| **AI 今日簡報**：首頁一鍵，Studio AI 同時讀行程、學習進度、投資組合，整理成三段重點與「先做哪件事」 | `askStudio`（任何頁面帶一句話打開 Studio）；模型在一次回覆裡呼叫三個工具，卡片與文字一起出現 | Agent 的價值是「跨 app 組合」：一個問題用到三個資料源 |
 | 「查 serendipity，加入我的單字庫」→ 單字卡 → **確認卡** → 加入 | `look_up_word`（讀）、`add_word_to_repository`（寫，先確認） | Agent 會動手，所以 human-in-the-loop |
 | 「我的投資組合現在怎麼樣？」→ **持倉表格卡片** + 重點分析 | `portfolio_summary`，照 /portfolio 的估值 | 結果是 UI，不是一坨文字（generative UI） |
 | 「我今天有什麼行程？」→ **Google 日曆表格卡片** + 空檔建議 | 原生 connector `google_calendar_events`：用既有 Google 帳號連線（唯讀），行程標題視為外部文字 | 不只 MCP：自家程式呼叫 API 也是同一套工具抽象 |
@@ -24,7 +26,10 @@
 
 前置：production（或本機）已有 `Settings:AnthropicApiKey`；用一般帳號登入；Portfolio 有一份快照；/data-analysis 的預設資料源可用（見 FOR_JACKY 2）。
 
-1. **開場（30 秒）**：首頁 → 按 ⌘K → 右側滑出 Studio AI，建議問題依目前頁面變化。
+1. **開場：AI 今日簡報（1 分鐘）**：首頁最上方「AI 今日簡報」→ 右側滑出 Studio AI，一次呼叫 Google 日曆、學習進度、投資組合三個工具（回答上方三個工具 chip）→ 行程表格、「12 個單字待複習」卡片、三段重點與「建議先做的事」。之後任何頁面按 ⌘K 都叫得出它，建議問題依目前頁面變化；按輸入框的麥克風可以用說的。
+   ![首頁的 AI 今日簡報](screenshots/home-briefing-card-desktop.png)
+   ![Studio 的今日簡報](screenshots/studio-briefing-desktop.png)
+   ![語音輸入](screenshots/studio-voice-desktop.png)
    ![Studio 打開](screenshots/studio-open-desktop.png)
 2. **本站即工具（1 分鐘）**：輸入「serendipity 是什麼？幫我加入單字庫」→ 回答上方顯示用了「查字典」→ 單字連結卡 → 出現**確認卡**「加入單字庫：serendipity」→ 按「允許」→「已加入」與「前往單字庫」。
    ![確認卡](screenshots/studio-approval-desktop.png)
@@ -34,6 +39,7 @@
    ![Studio 讀 Google 日曆](screenshots/studio-calendar-desktop.png)
 4. **資料 → 圖表 → dashboard（2 分鐘）**：/data-analysis → 最上方對話框「畫出各地區每月營收，存到『業績追蹤』dashboard」→ 圖表卡片 → 確認卡「存到 dashboard」→ 允許 → 點連結卡打開 dashboard，看到同一張圖（之後會用最新資料重畫）。
    ![Data Analysis 對話](screenshots/data-analysis-chat-desktop.png)
+   ![存到 dashboard 的確認卡](screenshots/data-analysis-save-desktop.png)
 5. **接上外面的世界（2 分鐘）**：/connectors → 目錄裡的 Notion 或 Linear 按「前往授權」→ 用自己的帳號登入 → 回到 /connectors 顯示已連線與工具 → Studio 問「我在 Linear 上還有哪些未完成的 issue？」。或一鍵加入 DeepWiki → 回到 Studio 問「twjackysu/JackyAIApp 這個 repo 的架構是什麼？」→ 工具進度顯示「DeepWiki・…」→ 回答。再示範「新增 MCP server」：貼一個需要 OAuth 的 MCP URL → 「找到了！這個 server 用 OAuth 登入（xxx）」→ 前往授權 → 回來後工具列表出現。
    ![Connectors：目錄裡的 Notion、Linear 一鍵授權](screenshots/connectors-oauth-desktop.png)
    ![自己的 MCP server：偵測到 OAuth](screenshots/add-mcp-oauth-desktop.png)
@@ -108,7 +114,7 @@ flowchart LR
 - 確認流程在同一個請求裡等待：重新整理頁面會失去待確認的問題（D-026）。
 - MCP client 只支援 Streamable HTTP（不支援舊 SSE transport，D-029）；每次請求一個 session。
 - 本站 MCP server 的 OAuth 沒有 refresh token（90 天後重新授權），授權碼存在記憶體（重啟時正在登入的人要重來）；只用假的 client 測過，Claude.ai／ChatGPT 的實際流程要合併後實測（FOR_JACKY 9）。Claude Desktop 的設定檔方式要經 `mcp-remote`（需要 Node.js）。
-- taint 只算一輪（D-031）。
+- 讀過外部內容（外部 connector、Google 日曆）的對話，之後每一輪的寫入都會先問（D-055），連「以後直接執行」的工具也一樣——今日簡報讀了日曆，所以同一個對話接著「加入單字庫」會出確認卡；開新對話就不會。
 - 本站的 MCP App 只用 playwright 自己扮的 host 驗證過（照規格的 `ui/initialize`、`tool-result`、`size-changed`、`open-link`）；Claude.ai／ChatGPT 實際怎麼畫要合併後實測（FOR_JACKY 9）。站內 Studio AI 的卡片仍是宣告式 JSON（D-019），沒有改用 iframe。
 
 ## 開發日誌與統計
@@ -126,5 +132,6 @@ flowchart LR
 | 10/24 | 7 | TestKit、Google 日曆、step-up、以後直接執行、rug pull 防護 |
 | 10/24 | 8 | 本站對外的 MCP server（PAT、/connectors 的設定一鍵複製、OAuth 授權伺服器與同意頁） |
 | 10/24 | 9 | 本站 MCP server 成為 MCP App（別家 AI 裡畫出本站卡片）、OAuth 端點 rate limit、「經 OAuth 登入」標示、Studio 引導 |
+| 10/24 | 10 | taint 跨訊息保存、首頁「AI 今日簡報」（askStudio）、確認卡放在文字之後、標題列顯示工具名稱與「等你確認」、手機表格卡片、語音輸入 |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

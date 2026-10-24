@@ -145,6 +145,16 @@ async function open(browser, viewport, events) {
     if (!fs.existsSync(file)) return route.fulfill({ status: 404, body: '' });
     return route.fulfill({ body: fs.readFileSync(file), contentType: types[path.extname(file)] || 'text/html' });
   });
+  // 語音輸入的替身：按下麥克風後「聽到」一句話，停在聆聽中。
+  await page.addInitScript(() => {
+    window.SpeechRecognition = window.webkitSpeechRecognition = class {
+      start() {
+        setTimeout(() => this.onresult?.({ results: [Object.assign([{ transcript: '給我今天的簡報' }], { isFinal: false })] }), 300);
+      }
+      stop() { this.onend?.(); }
+      abort() { this.onend?.(); }
+    };
+  });
   return page;
 }
 
@@ -177,6 +187,17 @@ async function ask(page, text, placeholder) {
     await page.waitForTimeout(800);
     await ask(page, 'serendipity 是什麼？幫我加入單字庫');
     await page.screenshot({ path: `${out}/studio-approval-${name}.png` });
+    await page.close();
+
+    // Studio：語音輸入（聆聽中）
+    page = await open(browser, viewport, studioWord);
+    await page.goto('http://localhost:5173/english');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(800);
+    await page.getByRole('button', { name: '語音輸入' }).click();
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `${out}/studio-voice-${name}.png` });
     await page.close();
 
     // Studio：/portfolio → ⌘K → 持倉表格

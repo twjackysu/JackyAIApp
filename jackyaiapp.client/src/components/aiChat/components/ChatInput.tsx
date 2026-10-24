@@ -3,6 +3,8 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
+import MicIcon from '@mui/icons-material/Mic';
+import MicNoneIcon from '@mui/icons-material/MicNoneOutlined';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import StopRoundedIcon from '@mui/icons-material/StopRounded';
 import {
@@ -18,9 +20,10 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useAiChatConfig } from '../config';
+import { joinSpeech, useSpeechInput } from '../hooks/useSpeechInput';
 import { ACCENT, ACCENT_GRADIENT, hairline } from '../style';
 import { PendingAttachment, QueuedMessage } from '../types';
 
@@ -28,6 +31,7 @@ import AttachmentChip from './AttachmentChip';
 
 import { ATTACHMENT_ACCEPT, MAX_ATTACHMENTS } from '@/apis/chatbotApis/chatErrors';
 import { attachmentContentUrl } from '@/apis/chatbotApis/types';
+import { ActionTooltip } from '@/components/hints';
 
 /** The composer lines up with the conversation column above it. */
 const COLUMN_MAX_WIDTH = 780;
@@ -56,8 +60,8 @@ interface ChatInputProps {
 }
 
 /**
- * The composer: one rounded box holding the files to send, the message and its buttons — attach
- * on the left, stop and send on the right. Messages waiting their turn are listed above it.
+ * The composer: one rounded box holding the files to send, the message and its buttons — attach and
+ * speak on the left, stop and send on the right. Messages waiting their turn are listed above it.
  */
 const ChatInput = ({
   value,
@@ -86,6 +90,14 @@ const ChatInput = ({
   const failures = attachments.filter((a) => a.error);
   const canAttach = attachments.length - failures.length < MAX_ATTACHMENTS;
   const dark = theme.palette.mode === 'dark';
+
+  // What was heard goes after what the reader had typed when they started speaking; they still send it.
+  const typedBeforeSpeaking = useRef('');
+  const onHeard = useCallback(
+    (heard: string) => onChange(joinSpeech(typedBeforeSpeaking.current, heard)),
+    [onChange],
+  );
+  const speech = useSpeechInput(onHeard);
 
   return (
     <Box sx={{ px: { xs: 1.5, sm: 3 }, pt: 1, pb: 1.25 }}>
@@ -265,6 +277,42 @@ const ChatInput = ({
               </MenuItem>
             </Menu>
 
+            {speech.supported && (
+              <ActionTooltip title={speech.listening ? '停止聽寫' : '用說的（語音輸入）'}>
+                <IconButton
+                  aria-label={speech.listening ? '停止聽寫' : '語音輸入'}
+                  aria-pressed={speech.listening}
+                  size="small"
+                  onClick={() => {
+                    if (!speech.listening) typedBeforeSpeaking.current = value;
+                    speech.toggle();
+                  }}
+                  sx={{
+                    border: `1px solid ${speech.listening ? alpha(ACCENT, 0.7) : hairline(theme)}`,
+                    color: speech.listening ? ACCENT : 'text.secondary',
+                    ...(speech.listening && {
+                      animation: 'speechPulse 1.4s ease-in-out infinite',
+                      '@keyframes speechPulse': {
+                        '0%, 100%': { boxShadow: `0 0 0 0 ${alpha(ACCENT, 0.45)}` },
+                        '50%': { boxShadow: `0 0 0 6px ${alpha(ACCENT, 0)}` },
+                      },
+                    }),
+                  }}
+                >
+                  {speech.listening ? (
+                    <MicIcon fontSize="small" />
+                  ) : (
+                    <MicNoneIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </ActionTooltip>
+            )}
+            {speech.listening && (
+              <Typography variant="caption" sx={{ color: ACCENT, ml: 0.5 }} aria-live="polite">
+                聆聽中…
+              </Typography>
+            )}
+
             <Box sx={{ flex: 1 }} />
 
             {busy && (
@@ -309,6 +357,16 @@ const ChatInput = ({
           </Box>
         </Box>
 
+        {speech.error && (
+          <Typography
+            variant="caption"
+            component="p"
+            role="alert"
+            sx={{ textAlign: 'center', color: 'warning.main', mt: 0.75, mb: 0 }}
+          >
+            {speech.error}
+          </Typography>
+        )}
         <Typography
           variant="caption"
           component="p"
