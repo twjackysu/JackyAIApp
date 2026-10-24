@@ -39,6 +39,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         private readonly UsageLedger _ledger = new();
         private readonly RecordingLogger _log = new();
         private string? _apiKey = "test-key";
+        private readonly ToolProfile _toolProfile = new();
 
         public void Dispose() => _db.Dispose();
 
@@ -46,7 +47,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             var settings = new Mock<IOptionsMonitor<Settings>>();
             settings.Setup(s => s.CurrentValue).Returns(() => new Settings { Google = new JackyAIApp.Server.Configuration.Google(), AnthropicApiKey = _apiKey });
-            var profiles = new ChatProfiles([new FinanceChatProfile(_background.Object, NullLogger<FinanceChatProfile>.Instance)]);
+            var profiles = new ChatProfiles([new FinanceChatProfile(_background.Object, NullLogger<FinanceChatProfile>.Instance), _toolProfile]);
             return new AnthropicChatService(_db, _attachments.Object, _files.Object, _turns, profiles, _usage.Object,
                 _ledger, settings.Object, new TestClientFactory(_anthropic), _log);
         }
@@ -77,12 +78,12 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
 
         private async Task<Turn> AskAsync(
             string message = "分析一下2330", string? conversationId = null, SQL.ChatAttachment[]? attachments = null,
-            CancellationToken ct = default, RecordingBody? body = null)
+            CancellationToken ct = default, RecordingBody? body = null, string profile = FinanceChatProfile.ProfileKey)
         {
             var context = new DefaultHttpContext();
             body ??= new RecordingBody();
             context.Response.Body = body;
-            var result = await Service().StreamChatAsync(User, FinanceChatProfile.ProfileKey, message, conversationId, attachments ?? [], context.Response, ct);
+            var result = await Service().StreamChatAsync(User, profile, message, conversationId, attachments ?? [], context.Response, ct);
             return new Turn(result, body.Events());
         }
 
@@ -389,6 +390,154 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Equal("部分回答\n\n" + AnthropicChatService.StoppedNote, Messages()[1].Content);
         }
 
+        // ── tools the server runs (the agent loop) ─────────────────────────────────────────────
+
+        /// <summary>A profile with tools of its own, as Data Analysis and Studio AI have.</summary>
+        private sealed class ToolProfile : IChatProfile
+        {
+            public const string ProfileKey = "test-tools";
+            public RecordingTool Lookup { get; } = new("lookup_word", "查單字", ToolEffect.Read);
+            public RecordingTool Save { get; } = new("save_word", "加入單字庫", ToolEffect.Write);
+
+            public string Key => ProfileKey;
+            public string UsageLogFeature => "chatbot.test";
+
+            public Task<ChatProfileSetup> SetupAsync(DateOnly taipeiToday, CancellationToken ct) =>
+                Task.FromResult(new ChatProfileSetup("你是助手。", null, AttachTwStock: false, Tools: [Lookup, Save]));
+        }
+
+        private sealed class RecordingTool(string name, string displayName, ToolEffect effect) : IAiTool
+        {
+            public AiToolDescriptor Descriptor { get; } = new(name, displayName, "測試用工具",
+                JsonSerializer.SerializeToElement(new { type = "object", properties = new { word = new { type = "string" } } }), effect);
+
+            public List<(JsonElement Input, AiToolContext Context)> Calls { get; } = [];
+
+            public Func<JsonElement, AiToolResult> Result { get; set; } = _ => new AiToolResult("serendipity：意外的好運",
+                Card: new { kind = "link", title = "serendipity", href = "/english/dictionary/serendipity" });
+
+            public Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
+            {
+                Calls.Add((input.Clone(), context));
+                return Task.FromResult(Result(input));
+            }
+        }
+
+        [Fact]
+        public async Task AToolCall_IsRun_ItsResultGoesBack_AndTheAnswerFollowsInTheSameStream()
+        {
+            _anthropic.Reply(Sse.Start(input: 100), Sse.Text("我查一下。"),
+                Sse.ClientToolUse("toolu_1", "lookup_word", "{\"word\":\"serendipity\"}"), Sse.End("tool_use", output: 30));
+            _anthropic.Reply(Sse.Start(input: 200), Sse.Text("它的意思是意外的好運。"), Sse.End("end_turn", output: 40));
+
+            var turn = await AskAsync("serendipity 是什麼意思", profile: ToolProfile.ProfileKey);
+
+            Assert.Equal(new[] { "start", "delta", "tool_use", "tool_result", "delta", "done" }, turn.Events.Select(Type));
+            var use = turn.Events[2];
+            Assert.Equal("toolu_1", use.GetProperty("id").GetString());
+            Assert.Equal("查單字", use.GetProperty("displayName").GetString());
+            var result = turn.Events[3];
+            Assert.Equal("toolu_1", result.GetProperty("id").GetString());
+            Assert.True(result.GetProperty("ok").GetBoolean());
+            Assert.Equal("link", result.GetProperty("card").GetProperty("kind").GetString());
+            // The second reply is a new paragraph, not the end of the first one's sentence.
+            Assert.Equal("\n\n它的意思是意外的好運。", turn.Events[4].GetProperty("text").GetString());
+
+            var (input, context) = Assert.Single(_toolProfile.Lookup.Calls);
+            Assert.Equal("serendipity", input.GetProperty("word").GetString());
+            Assert.Equal(User, context.UserId);
+            Assert.Equal(turn.Result.ConversationId, context.ConversationId);
+
+            // The second request sends the first reply back whole, then the result, marked untrusted.
+            Assert.Equal(2, _anthropic.Requests.Count);
+            var messages = JsonDocument.Parse(_anthropic.Requests[1]).RootElement.GetProperty("messages");
+            Assert.Equal(3, messages.GetArrayLength());
+            var reply = messages[1].GetProperty("content");
+            Assert.Equal("tool_use", reply[1].GetProperty("type").GetString());
+            Assert.Equal("serendipity", reply[1].GetProperty("input").GetProperty("word").GetString());
+            var toolResult = messages[2].GetProperty("content")[0];
+            Assert.Equal("tool_result", toolResult.GetProperty("type").GetString());
+            Assert.Equal("toolu_1", toolResult.GetProperty("tool_use_id").GetString());
+            Assert.Contains("trust=\"untrusted\"", toolResult.GetProperty("content").GetString());
+            Assert.Contains("意外的好運", toolResult.GetProperty("content").GetString());
+
+            Assert.Equal("我查一下。\n\n它的意思是意外的好運。", Messages()[1].Content);
+            // Tokens of both requests.
+            _usage.Verify(u => u.LogChatAsync("chatbot.test", "claude-haiku-5-5", 300, 70, true, User, 0, 0), Times.Once);
+        }
+
+        [Fact]
+        public async Task ATurnWithTools_TellsTheModelTheirResultsAreData()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+
+            await AskAsync(profile: ToolProfile.ProfileKey);
+
+            var request = JsonDocument.Parse(Assert.Single(_anthropic.Requests)).RootElement;
+            Assert.Contains("<tool_output trust=\"untrusted\">", request.GetProperty("system").GetString());
+            Assert.Equal(new[] { "lookup_word", "save_word" },
+                request.GetProperty("tools").EnumerateArray().Select(t => t.GetProperty("name").GetString()));
+        }
+
+        [Fact]
+        public async Task AToolThatChangesSomething_IsNotRun_AndTheModelIsToldItNeedsTheReader()
+        {
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "save_word", "{\"word\":\"x\"}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("請到單字庫頁面自己加入。"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            Assert.Empty(_toolProfile.Save.Calls);
+            var result = turn.Events.Single(e => Type(e) == "tool_result");
+            Assert.False(result.GetProperty("ok").GetBoolean());
+            Assert.Equal(JsonValueKind.Null, result.GetProperty("card").ValueKind);
+            var toolResult = JsonDocument.Parse(_anthropic.Requests[1]).RootElement.GetProperty("messages")[2].GetProperty("content")[0];
+            Assert.True(toolResult.GetProperty("is_error").GetBoolean());
+            Assert.Contains(ClientToolRunner.NeedsApprovalMessage, toolResult.GetProperty("content").GetString());
+        }
+
+        [Fact]
+        public async Task AToolThatThrows_IsReportedToTheModelAsFailed_WithoutItsMessage()
+        {
+            _toolProfile.Lookup.Result = _ => throw new InvalidOperationException("connection string Server=secret");
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "lookup_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("查詢失敗了。"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            Assert.False(turn.Events.Single(e => Type(e) == "tool_result").GetProperty("ok").GetBoolean());
+            Assert.DoesNotContain("secret", _anthropic.Requests[1]);
+            var toolResult = JsonDocument.Parse(_anthropic.Requests[1]).RootElement.GetProperty("messages")[2].GetProperty("content")[0];
+            Assert.Contains(ClientToolRunner.FailedMessage, toolResult.GetProperty("content").GetString());
+            Assert.Equal("done", Type(turn.Events[^1]));
+        }
+
+        [Fact]
+        public async Task AModelThatKeepsCallingTools_IsStoppedAfterTheLastRound()
+        {
+            for (var i = 0; i < ModelTurn.MaxToolRounds; i++)
+                _anthropic.Reply(Sse.Start(), Sse.ClientToolUse($"toolu_{i}", "lookup_word", "{}"), Sse.End("tool_use"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            Assert.Equal(ModelTurn.MaxToolRounds, _anthropic.Requests.Count);
+            Assert.Equal(ModelTurn.MaxToolRounds - 1, _toolProfile.Lookup.Calls.Count);
+            Assert.Equal("error", Type(turn.Events[^1]));
+        }
+
+        [Fact]
+        public async Task AFinanceTurnThatStopsForATool_IsNotTreatedAsAToolRound()
+        {
+            // Finance has no tools of its own: a tool_use stop is read as before (no text: no answer).
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "lookup_word", "{}"), Sse.End("tool_use"));
+
+            var turn = await AskAsync();
+
+            Assert.Single(_anthropic.Requests);
+            Assert.DoesNotContain(turn.Events, e => Type(e) is "tool_use" or "tool_result");
+            Assert.Equal("error", Type(turn.Events[^1]));
+        }
+
         // ── the recorded API ────────────────────────────────────────────────────────────────────
 
         /// <summary>Anthropic's streaming events, as the Messages API sends them.</summary>
@@ -424,6 +573,20 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
                 {
                     type = "content_block_start", index,
                     content_block = new { type = "mcp_tool_use", id = "mcptoolu_1", name, server_name = "tw-stock", input = new { } },
+                }) + Event("content_block_stop", new { type = "content_block_stop", index });
+            }
+
+            /// <summary>A call of a tool the server runs itself (a profile's own), with its input as JSON.</summary>
+            public static string ClientToolUse(string id, string name, string inputJson)
+            {
+                var index = _block++;
+                return Event("content_block_start", new
+                {
+                    type = "content_block_start", index,
+                    content_block = new { type = "tool_use", id, name, input = new { } },
+                }) + Event("content_block_delta", new
+                {
+                    type = "content_block_delta", index, delta = new { type = "input_json_delta", partial_json = inputJson },
                 }) + Event("content_block_stop", new { type = "content_block_stop", index });
             }
 

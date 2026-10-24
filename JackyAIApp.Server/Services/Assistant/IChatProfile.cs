@@ -27,7 +27,10 @@ namespace JackyAIApp.Server.Services.Assistant
     /// <param name="CachedBackground">Data the same for every reader until rebuilt, sent as a second
     /// system block with a cache breakpoint of its own; null for none.</param>
     /// <param name="AttachTwStock">Whether the tw-stock MCP server and its tools go with the turn.</param>
-    public sealed record ChatProfileSetup(string SystemPrompt, string? CachedBackground, bool AttachTwStock);
+    /// <param name="Tools">The tools the server runs itself for this turn (<see cref="IAiTool"/>); null or
+    /// empty for none, and then the turn is one request, as it always was.</param>
+    public sealed record ChatProfileSetup(
+        string SystemPrompt, string? CachedBackground, bool AttachTwStock, IReadOnlyList<IAiTool>? Tools = null);
 
     /// <summary>The registered profiles, by key.</summary>
     public interface IChatProfiles

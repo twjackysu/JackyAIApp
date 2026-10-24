@@ -107,7 +107,10 @@ namespace JackyAIApp.Server.Services.Chatbot
             var sse = SseStream.Open(response);
             await WriteStartAsync(sse, conversation.Id, userMessage.Id, turnCts.Token);
 
-            var outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id)
+            var tools = setup.Tools is { Count: > 0 }
+                ? new ClientToolRunner(setup.Tools, sse, new AiToolContext(userId, conversation.Id), _time, logger)
+                : null;
+            var outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id, tools)
                 .RunAsync(request, token => RequestFor(reupload: true, token), turnCts.Token);
             var verdict = TurnVerdict.Of(outcome);
             var answerId = await SaveAnswerAsync(conversation, message, verdict.Saved);

@@ -35,6 +35,53 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             Assert.Equal("ephemeral", system[1].GetProperty("cache_control").GetProperty("type").GetString());
         }
 
+        private sealed class NamedTool(string name) : IAiTool
+        {
+            public AiToolDescriptor Descriptor { get; } = new(name, name, $"{name} 的說明",
+                JsonSerializer.SerializeToElement(new { type = "object", properties = new { q = new { type = "string" } }, required = new[] { "q" } }),
+                ToolEffect.Read);
+
+            public Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct) =>
+                Task.FromResult(new AiToolResult("ok"));
+        }
+
+        [Fact]
+        public void AProfileWithNoToolsOfItsOwn_SendsTheSameRequestAsBefore()
+        {
+            var without = JsonSerializer.Serialize(ChatTurnRequest.Build(new ChatProfileSetup("你是助手。", null, AttachTwStock: true), []));
+            var empty = JsonSerializer.Serialize(ChatTurnRequest.Build(new ChatProfileSetup("你是助手。", null, AttachTwStock: true, Tools: []), []));
+
+            Assert.Equal(without, empty);
+        }
+
+        [Fact]
+        public void ToolsOfItsOwn_GoSortedByName_WithTheirSchema_AndThePromptSaysTheirResultsAreData()
+        {
+            var setup = new ChatProfileSetup("你是助手。", null, AttachTwStock: false, Tools: [new NamedTool("b_tool"), new NamedTool("a_tool")]);
+            var body = Body(ChatTurnRequest.Build(setup, []));
+
+            var tools = body.GetProperty("tools");
+            Assert.Equal(new[] { "a_tool", "b_tool" }, tools.EnumerateArray().Select(t => t.GetProperty("name").GetString()));
+            Assert.Equal("a_tool 的說明", tools[0].GetProperty("description").GetString());
+            Assert.Equal("object", tools[0].GetProperty("input_schema").GetProperty("type").GetString());
+            Assert.Equal("q", tools[0].GetProperty("input_schema").GetProperty("required")[0].GetString());
+            Assert.Equal("你是助手。" + ChatTurnRequest.UntrustedToolOutputInstruction, body.GetProperty("system").GetString());
+            Assert.False(body.TryGetProperty("mcp_servers", out _));
+        }
+
+        [Fact]
+        public void ToolsOfItsOwn_WithTwStock_FollowTheTwStockTools()
+        {
+            var setup = new ChatProfileSetup("你是助手。", null, AttachTwStock: true, Tools: [new NamedTool("a_tool")]);
+            var body = Body(ChatTurnRequest.Build(setup, []));
+
+            Assert.Equal(new[] { "tool_search_tool_regex_20251119", "mcp_toolset", null },
+                body.GetProperty("tools").EnumerateArray()
+                    .Select(t => t.TryGetProperty("type", out var type) ? type.GetString() : null));
+            Assert.Equal("a_tool", body.GetProperty("tools")[2].GetProperty("name").GetString());
+            Assert.Equal(1, body.GetProperty("mcp_servers").GetArrayLength());
+        }
+
         [Fact]
         public void Profiles_AreFoundByTheirKey_AndAnUnknownKeyIsNone()
         {

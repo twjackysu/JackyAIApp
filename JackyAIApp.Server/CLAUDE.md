@@ -222,6 +222,19 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   output cap and cache breakpoints are the same for every profile). A profile lives in its app's module
   and is registered there (`services.AddScoped<IChatProfile, …>()`); Finance's is `FinanceChatProfile`
   (`Services/Finance/Assistant`), whose request `FinanceChatRequestTests` pins field by field
+- A profile's own tools (`ChatProfileSetup.Tools`, each an `IAiTool` in `Services/Assistant/AiTools.cs`: a
+  descriptor — name, display name, description, input schema, `ToolEffect` — and `RunAsync`) are run by the
+  server, unlike tw-stock's, which Anthropic's MCP connector runs. With any, `ModelTurn` is an agent loop: a
+  reply that stops with tool_use is collected whole while it streams (the SDK's `BetaMessageContentAggregator`),
+  `ClientToolRunner` runs its calls one by one (30s each; the reader sees `tool_use` with `id`/`displayName`,
+  then `tool_result` with `ok`, `card`, `durationMs`), and the next request sends the reply back unchanged
+  (thinking signatures included) with the results, at most `ModelTurn.MaxToolRounds` requests a turn. A result
+  goes back wrapped as untrusted data (`ClientToolRunner.Wrap`, `<tool_output trust="untrusted">`, which the
+  content cannot close), and the request's system prompt says what that means
+  (`ChatTurnRequest.UntrustedToolOutputInstruction`). A tool whose effect is not `Read` is not run yet: the
+  model is told it needs the reader (asking the reader is docs/ai-native/design/04 §1.3). A failing tool is
+  reported to the model as failed, never with its exception's text. Without tools (Finance) a turn is one
+  request, read exactly as before
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,
