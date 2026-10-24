@@ -1,5 +1,17 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 03:42 – 第 13 輪（巡檢 /finance 與 /connectors、/finance 工具中文名稱、⌘K 指令列、審查）
+
+- 開工：master 只有「chore: remove details」，已在 branch 裡；上一輪最後的 CI 綠。這輪起 clone 是 shallow，`git fetch --unshallow` 後才看得到完整歷史。
+- **巡檢**：`connectors.cjs` 加了目錄（tw-stock、DeepWiki、Notion、Linear）與四個已安裝的 connector（本站、DeepWiki、Notion 需要重新授權、自訂的 bearer server），拍目錄、三個詳情抽屜；`chat.cjs` 加 /finance（一行框 → 展開 → 送出 → 工具 chip、接著問）。首頁手機版下半部看過，沒問題。
+- 發現並修好：自訂 MCP server 的抽屜把網址列兩次（`drawerDescription`）；/finance 的工具 chip 寫「stock history」（**D-071**：`AiChatConfig.toolLabels`、`FINANCE_TOOL_LABELS`，`withToolLabel` 在 `useChatStreaming` 補 `displayName`，標題列也變中文）。
+- **⌘K 指令列**（D-072）：Studio 輸入框打頁面名稱或一個英文單字 → 上方「前往『複習』」「查字典：review」，按下直接去，不經 AI；`QUICK_PAGES` 由測試讀伺服器的 `SitePages.cs` 對齊。面板新 prop `inputAccessory`。
+- 評估後不做：/finance 的助理讀投資組合（D-073，無法驗證 hosted MCP＋本站工具的組合，怕 /finance 壞掉）。NEXT 的「dashboard 頁的接著問帶去 /data-analysis」也不做（價值小）。
+- **審查**（subagent，D-074）：無高風險；一個中風險（指令列換頁後同一回答的 navigate 仍會帶走）與四個低風險已修。
+- 文件：client CLAUDE.md、SitePages.cs 註解、D-071～D-074、SHOWCASE（亮點、demo 第 1 步指令列、第 9 步 /finance 截圖、後續建議、日誌）；截圖 `studio-quick-*`、`finance-answer-*`、`connectors-desktop`（換新）、`connectors-drawer-*`。
+- 驗證：前端 lint、test（128 檔 1376 個）、build 全過；CI 40127740177（工具中文名）綠、40128623308 **紅一次**（SitePages.cs 註解裡寫了 `new("key", "/path", …)`，被前端一致性測試當成頁面）→ 40129014469 綠、**40129836280（本輪最後一次含程式碼的 push：審查修正）綠**。
+- 問題：無阻礙。
+
 ## 2026-10-25 01:42 – 第 12 輪（「存完打開」、dashboard 的 AI 解讀、確認卡精簡、手機 dashboard、審查）
 
 - 開工：master 只有 README 精簡（已在 branch 裡）；上一輪最後的 CI 綠。
