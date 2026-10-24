@@ -4,6 +4,7 @@ using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services.Connectors.Google;
+using JackyAIApp.Server.Services.Connectors.SiteMcp;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Assistant;
@@ -190,6 +191,9 @@ namespace JackyAIApp.Server.Extensions
             // A native connector (design/03 §2): the reader's Google Calendar through their Google account connection.
             services.AddScoped<ISiteTool, GoogleCalendarTool>();
             services.AddSingleton(new SiteToolSet("Google 日曆", [GoogleCalendarTool.Definition]));
+            // The site's own MCP server (design/03 §8): another AI uses the site's tools with a reader's personal access token.
+            services.AddScoped<ISiteAccessTokenService, SiteAccessTokenService>();
+            services.AddScoped<ISiteMcpServer, SiteMcpServer>();
 
             return services;
         }

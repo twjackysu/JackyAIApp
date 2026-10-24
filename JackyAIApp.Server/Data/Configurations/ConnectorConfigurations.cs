@@ -18,4 +18,15 @@ namespace JackyAIApp.Server.Data.Configurations
             builder.HasIndex(c => c.UserId);
         }
     }
+
+    public sealed class SiteAccessTokenConfiguration : IEntityTypeConfiguration<SiteAccessToken>
+    {
+        public void Configure(EntityTypeBuilder<SiteAccessToken> builder)
+        {
+            // A request's token is looked up by its hash.
+            builder.HasIndex(t => t.TokenHash).IsUnique();
+
+            builder.HasIndex(t => t.UserId);
+        }
+    }
 }

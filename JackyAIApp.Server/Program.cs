@@ -12,6 +12,8 @@ using JackyAIApp.Server.Services.Market;
 using JackyAIApp.Server.Services.Finance;
 using JackyAIApp.Server.Services.Portfolio;
 using JackyAIApp.Server.Services.Portfolio.DrawdownBrake;
+using JackyAIApp.Server.Services.Connectors.SiteMcp;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
@@ -133,7 +135,10 @@ try
     {
         googleOptions.ClientId = builder.Configuration["Settings:Google:ClientId"]?.ToString() ?? "";
         googleOptions.ClientSecret = builder.Configuration["Settings:Google:ClientSecret"]?.ToString() ?? "";
-    });
+    })
+    // Another AI's personal access token, for the site's own MCP server only (its endpoint names the scheme;
+    // everything else keeps the cookie).
+    .AddScheme<AuthenticationSchemeOptions, SiteTokenAuthenticationHandler>(SiteTokenAuthenticationHandler.SchemeName, null);
     builder.Services.AddMemoryCache();
     // 20s for every HttpClient unless its registration says otherwise (OpenAI's does).
     builder.Services.AddHttpClientDefaultTimeout();

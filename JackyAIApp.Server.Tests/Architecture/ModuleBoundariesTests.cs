@@ -102,7 +102,7 @@ namespace JackyAIApp.Server.Tests.Architecture
 
             ["ChatConversations"] = "Assistant", ["ChatMessages"] = "Assistant", ["ChatAttachments"] = "Assistant",
 
-            ["ConnectorInstallations"] = "Connectors",
+            ["ConnectorInstallations"] = "Connectors", ["SiteAccessTokens"] = "Connectors",
 
             ["StockPredictions"] = "Finance",
 

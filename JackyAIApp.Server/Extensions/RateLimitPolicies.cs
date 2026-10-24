@@ -2,6 +2,7 @@ using System.Globalization;
 using JackyAIApp.Server.Common;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
+using JackyAIApp.Server.Services.Connectors.SiteMcp;
 using JackyAIApp.Server.Services.DataAnalysis;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
@@ -17,6 +18,11 @@ namespace JackyAIApp.Server.Extensions
     {
         /// <summary>The anonymous session upload (POST /api/dataanalysis/session).</summary>
         public const string SessionUpload = "dataanalysis-session-upload";
+
+        /// <summary>The site's own MCP server (POST /api/mcp), per token: another AI's client may loop.</summary>
+        public const string SiteMcp = "site-mcp";
+
+        internal const int SiteMcpPermitsPerMinute = 120;
 
         internal const string AnonymousPartition = "anonymous";
         internal const int SessionUploadPermitsPerUser = 5;
@@ -36,6 +42,12 @@ namespace JackyAIApp.Server.Extensions
                 : RateLimitPartition.GetFixedWindowLimiter("user:" + userId, _ => Window(SessionUploadPermitsPerUser));
         }
 
+        /// <summary>Each token its own window (the endpoint signs in by token only, so there is always one).</summary>
+        internal static RateLimitPartition<string> SiteMcpPartition(HttpContext http) =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                "token:" + (http.User.FindFirst(SiteTokenAuthenticationHandler.TokenIdClaim)?.Value ?? AnonymousPartition),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = SiteMcpPermitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+
         private static FixedWindowRateLimiterOptions Window(int permits) => new()
         {
             PermitLimit = permits,
@@ -49,6 +61,7 @@ namespace JackyAIApp.Server.Extensions
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
                 options.OnRejected = WriteRejectionAsync;
                 options.AddPolicy(SessionUpload, SessionUploadPartition);
+                options.AddPolicy(SiteMcp, SiteMcpPartition);
             });
 
         /// <summary>The same envelope <see cref="IMyResponseFactory"/> gives every other API error.</summary>

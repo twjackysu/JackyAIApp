@@ -33,6 +33,7 @@ namespace JackyAIApp.Server.Data
         public virtual DbSet<JiraConfig> JiraConfigs { get; set; }
         public virtual DbSet<UserConnector> UserConnectors { get; set; }
         public virtual DbSet<ConnectorInstallation> ConnectorInstallations { get; set; }
+        public virtual DbSet<SiteAccessToken> SiteAccessTokens { get; set; }
         public virtual DbSet<DailyUsage> DailyUsages { get; set; }
         public virtual DbSet<DailyChallengeResult> DailyChallengeResults { get; set; }
         public virtual DbSet<DailyChallengeSet> DailyChallengeSets { get; set; }
