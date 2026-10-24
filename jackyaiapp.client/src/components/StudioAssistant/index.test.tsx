@@ -235,6 +235,21 @@ describe('StudioAssistant', () => {
     expect(mocks.panel!.inputValue).toBe('');
   });
 
+  it('drops the page an answer still being written would take the reader to, once they went elsewhere', async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+    await act(async () => mocks.panel!.onNavigate!('/finance'));
+    await act(async () => mocks.panel!.onInputChange('複習'));
+    const quick = document.querySelector<HTMLButtonElement>('[data-testid="quick-actions"] button');
+    await act(async () => quick!.click());
+    await settle();
+
+    await act(async () => mocks.panel!.onActivityChange!({ busy: false, hasConversation: true }));
+    await settle();
+    expect(router.pathname).toBe('/english/review');
+  });
+
   it('offers the dictionary page of one English word typed in the box', async () => {
     await render('/english');
     await act(async () => button()!.click());

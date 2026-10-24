@@ -72,10 +72,12 @@ export default function StudioAssistant() {
     [navigate],
   );
   // A quick action (what is typed names a page, or is one English word) goes there at once, without the
-  // AI: the box is emptied and the drawer closes, as a command bar would, on every screen.
+  // AI: the box is emptied and the drawer closes, as a command bar would, on every screen. The reader has
+  // taken over, so a page an answer still being written was going to take them to is dropped.
   const quickActions = useMemo(() => quickActionsFor(draft, pathname), [draft, pathname]);
   const pickQuick = useCallback(
     (action: QuickAction) => {
+      afterAnswer.current = { close: false };
       setDraft('');
       setOpen(false);
       navigate(action.path);
