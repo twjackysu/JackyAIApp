@@ -32,7 +32,7 @@ export default function ToolPermissionToggle({
       disabled={disabled}
       onChange={(_, next: ToolPermission | null) => next && onChange(next)}
       aria-label={`${toolName} 的權限`}
-      sx={{ '& .MuiToggleButton-root': { minHeight: 36, px: 1.5 } }}
+      sx={{ '& .MuiToggleButton-root': { minHeight: 36, px: 1.5, whiteSpace: 'nowrap' } }}
     >
       {allowedPermissions(effect).map((p) => (
         <ToggleButton key={p} value={p}>

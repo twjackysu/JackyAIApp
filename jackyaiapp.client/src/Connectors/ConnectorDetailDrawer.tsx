@@ -4,14 +4,10 @@ import {
   Box,
   Button,
   Chip,
+  Divider,
   Drawer,
   IconButton,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
@@ -21,7 +17,7 @@ import { HEALTH_VIEW } from './connectorView';
 import { EFFECT_LABELS } from './toolPermission';
 import ToolPermissionToggle from './ToolPermissionToggle';
 
-import type { InstalledConnector, ToolPermission } from '@/apis/connectorsApis/types';
+import type { InstalledConnector, ToolEffect, ToolPermission } from '@/apis/connectorsApis/types';
 
 import { ActionTooltip } from '@/components/hints';
 
@@ -31,6 +27,12 @@ const AUTH_LABELS: Record<InstalledConnector['authKind'], string> = {
   bearer: 'Bearer token',
   oauth: 'OAuth',
   existingProvider: '帳號連線',
+};
+
+const EFFECT_COLORS: Record<ToolEffect, 'default' | 'warning' | 'error'> = {
+  read: 'default',
+  write: 'warning',
+  destructive: 'error',
 };
 
 export interface ConnectorDetailActions {
@@ -202,48 +204,41 @@ function DetailBody({
       {connector.tools.length === 0 ? (
         <Typography color="text.secondary">還沒讀到工具，按「測試連線」讀一次。</Typography>
       ) : (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>工具</TableCell>
-              <TableCell>效果</TableCell>
-              <TableCell>權限</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {connector.tools.map((t) => (
-              <TableRow key={t.name}>
-                <TableCell>
+        <Stack divider={<Divider flexItem />} spacing={1.5}>
+          {connector.tools.map((t) => (
+            // One column on a phone, the switch beside the name from sm up.
+            <Stack
+              key={t.name}
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}
+            >
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {t.title ?? t.name}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {t.description}
-                  </Typography>
-                </TableCell>
-                <TableCell>
                   <Chip
                     size="small"
                     variant="outlined"
                     label={EFFECT_LABELS[t.effect]}
-                    color={
-                      t.effect === 'read' ? 'default' : t.effect === 'write' ? 'warning' : 'error'
-                    }
+                    color={EFFECT_COLORS[t.effect]}
                   />
-                </TableCell>
-                <TableCell>
-                  <ToolPermissionToggle
-                    toolName={t.title ?? t.name}
-                    effect={t.effect}
-                    value={t.permission}
-                    disabled={busy}
-                    onChange={(p) => onPermission(t.name, p)}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                </Stack>
+                <Typography variant="caption" color="text.secondary">
+                  {t.description}
+                </Typography>
+              </Box>
+              <ToolPermissionToggle
+                toolName={t.title ?? t.name}
+                effect={t.effect}
+                value={t.permission}
+                disabled={busy}
+                onChange={(p) => onPermission(t.name, p)}
+              />
+            </Stack>
+          ))}
+        </Stack>
       )}
     </Box>
   );

@@ -18,6 +18,11 @@ import {
   ToolPermissionRequest,
 } from './types';
 
+import type { ApiOkResponse } from '../types';
+
+/** The new endpoints answer in the app's `{ data }` envelope (the older ones above do not). */
+const unwrapData = <T>(res: ApiOkResponse<T>): T => res.data;
+
 /** Refetch the catalog only after a write the server accepted (one it refused changed nothing). */
 const refreshCatalog = (_result: unknown, error: unknown): 'ConnectorCatalog'[] =>
   error ? [] : ['ConnectorCatalog'];
@@ -66,20 +71,25 @@ export const connectorsApi = createApi({
     // AI connectors: what the AI may use (docs/ai-native/design/03 §7).
     getConnectorCatalog: builder.query<ConnectorCatalog, void>({
       query: () => 'catalog',
+      transformResponse: unwrapData,
       providesTags: ['ConnectorCatalog'],
     }),
     probeMcpServer: builder.mutation<McpProbeResult, { serverUrl: string }>({
       query: (body) => ({ url: 'installations/probe', method: 'POST', body }),
+      transformResponse: unwrapData,
     }),
     createInstallation: builder.mutation<InstalledConnector, CreateInstallationRequest>({
       query: (body) => ({ url: 'installations', method: 'POST', body }),
+      transformResponse: unwrapData,
       invalidatesTags: refreshCatalog,
     }),
     authorizeInstallation: builder.mutation<ConnectResponse, string>({
       query: (id) => ({ url: `installations/${id}/authorize`, method: 'POST' }),
+      transformResponse: unwrapData,
     }),
     testInstallation: builder.mutation<ConnectionTestResult, string>({
       query: (id) => ({ url: `installations/${id}/test`, method: 'POST' }),
+      transformResponse: unwrapData,
       invalidatesTags: refreshCatalog,
     }),
     setInstallationEnabled: builder.mutation<InstalledConnector, { id: string; enabled: boolean }>({
@@ -88,6 +98,7 @@ export const connectorsApi = createApi({
         method: 'PUT',
         body: { enabled },
       }),
+      transformResponse: unwrapData,
       invalidatesTags: refreshCatalog,
     }),
     removeInstallation: builder.mutation<void, string>({
@@ -96,6 +107,7 @@ export const connectorsApi = createApi({
     }),
     setToolPermission: builder.mutation<InstalledConnector, ToolPermissionRequest>({
       query: (body) => ({ url: 'tool-permissions', method: 'PUT', body }),
+      transformResponse: unwrapData,
       invalidatesTags: refreshCatalog,
     }),
   }),

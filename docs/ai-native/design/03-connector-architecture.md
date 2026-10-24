@@ -184,7 +184,7 @@ sequenceDiagram
 | GET | `api/connectors/callback/mcp` | OAuth 回呼 |
 | GET | `api/connectors/oauth/client-metadata` | CIMD 文件（匿名） |
 
-既有的 `api/connectors/status`、`{provider}/connect` 等全部保留。
+新端點照 server 規範回 `ServiceResult` → `{ data: … }` 信封（前端 `transformResponse` 取 `data`）；既有的 `api/connectors/status`、`{provider}/connect` 等（回原始 JSON，沒有信封）全部保留不改。
 
 ## 8. 模組（評審後修正：不能有環、直接引用才算）
 

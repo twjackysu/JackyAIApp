@@ -123,12 +123,12 @@ export const DASHBOARDS: AppDef = {
 };
 
 export const CONNECTORS: AppDef = {
-  name: 'Connected Services',
+  name: 'Connectors',
   path: '/connectors',
   icon: <LinkIcon fontSize="small" />,
   allPaths: ['/connectors'],
   color: '#0D9488',
-  description: '管理已連接的外部資料來源與服務。',
+  description: '讓 AI 使用你的工具與服務。',
 };
 
 // The four standalone applications.
