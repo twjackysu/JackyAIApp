@@ -203,6 +203,7 @@ async function open(browser, viewport, events) {
     if (p === '/api/account/info') return json({ data: user });
     if (p.startsWith('/api/chatbot/conversations')) return json({ data: [] });
     if (p === '/api/dataanalysis/sources') return json({ data: [] });
+    if (p === '/api/review/submit') return json({ data: { wordsReviewed: 3, correctCount: 2, xpEarned: 6 } });
     if (p.startsWith('/api/review/due')) return json({ data: { dueCount: 12 } });
     if (p.includes('dailychallenge/stats') || p.includes('DailyChallenge/stats')) return json({ data: { currentStreak: 18, todayCompleted: false, todayScore: null } });
     if (p === `/api/dashboard/${BOARD}`) return json({ data: {
@@ -317,6 +318,13 @@ async function ask(page, text, placeholder) {
     await page.getByRole('button', { name: /a feeling of deep sadness/ }).click();
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${out}/studio-quiz-answered-${name}.png` });
+    await page.getByRole('button', { name: '下一題' }).click();
+    await page.getByRole('button', { name: 'ephemeral' }).click();
+    await page.getByRole('button', { name: '下一題' }).click();
+    await page.getByRole('button', { name: 'meticulous' }).click();
+    await page.getByRole('button', { name: '看結果' }).click();
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${out}/studio-quiz-result-${name}.png` });
     await page.close();
 
     // Studio：/portfolio → ⌘K → 持倉表格

@@ -46,6 +46,7 @@
    接著到 /english → ⌘K → 第一個建議「考我今天該複習的單字」→ 回答裡出現**測驗卡**，直接按選項：對錯與解說立刻出現，三題答完顯示「答對 2 / 3 題」並記進複習排程（+XP），下方「再考我 3 題」。
    ![Studio 的複習小測驗](screenshots/studio-quiz-desktop.png)
    ![作答後立刻顯示答案與解說](screenshots/studio-quiz-answered-desktop.png)
+   ![答完：答對幾題、記進複習排程與 XP](screenshots/studio-quiz-result-phone.png)
 4. **我的資產（1 分鐘）**：到 /portfolio → ⌘K →「幫我看看我的持股，哪幾檔虧最多？」→ 持倉表格卡片 + 重點。
    ![Studio 讀投資組合](screenshots/studio-portfolio-desktop.png)
    回答下方的「接著問」：按「哪一檔佔比最高？風險集中嗎？」直接續問。
