@@ -11,7 +11,7 @@
 
 ## 1. CI 狀態
 
-- 第 11 輪最後一次含程式碼的 push 是審查修正（CI 40111291190，見 PROGRESS）。開工時照 §0 看最新一次。
+- 第 11 輪最後一次含程式碼的 push 是「接著問不提議目前頁面」（CI 40111733787 綠）。開工時照 §0 看最新一次。
 - cscheck 對 EF 相關檔案幾乎沒用，第 10、11 輪都直接以 CI 為準（每次 2–3 分鐘）；只動 Chatbot／Assistant 的小改動 CI 一次就綠。
 - 截圖：`.loop/shots/chat.cjs`（Studio／Data Analysis／今日簡報／語音／帶我去／換圖＋接著問，桌機＋手機）、`connectors.cjs`、`mcp-app.cjs`。用法寫在各檔開頭。
 

@@ -10,7 +10,7 @@
 - **審查**（subagent，D-065）：無高風險；兩個中風險（taint 後仍會自動換頁、去 /finance 時回答串流進被關的抽屜）與一個低風險已修；dashboards 的存取沒有問題。
 - 截圖：`.loop/shots/chat.cjs` 加「帶我去」（桌機、手機收起後再打開）與 Data Analysis 換圖＋接著問；存進 `screenshots/`（`studio-go-*`、`data-analysis-followups-*`、`studio-portfolio-*` 更新）。
 - 文件：兩份 CLAUDE.md、SHOWCASE（亮點、demo 第 2 步「帶我去」、換圖與接著問、日誌）、DECISIONS D-061～D-065。
-- 驗證：前端 lint、test（125 檔 1345 個）、build 全過；CI 40109000286（簡報＋接著問）、40109618018（換圖）、40109752797（open_page go，後端第一次就綠）、40110765141（前端 navigate）、40111291190（審查修正，綠）。
+- 驗證：前端 lint、test（125 檔 1345 個）、build 全過；CI 40109000286（簡報＋接著問）、40109618018（換圖）、40109752797（open_page go，後端第一次就綠）、40110765141（前端 navigate）、40111291190（審查修正，綠）、**40111733787（本輪最後一次含程式碼的 push）綠**。
 - 問題：無阻礙。
 
 ## 2026-10-24 21:42 – 第 10 輪（跨訊息 taint、AI 今日簡報、語音輸入、MCP App 按鈕、畫面巡檢）
