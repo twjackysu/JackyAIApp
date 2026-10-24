@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
     variant?: string;
     onCollapse: () => void;
     ask?: { id: number; text: string };
+    onAskSent?: () => void;
   } | null,
 }));
 vi.mock('@/apis/accountApis', () => ({ useGetUserInfoQuery: () => mocks.user }));
@@ -129,6 +130,14 @@ describe('StudioAssistant', () => {
     await act(async () => askStudio('給我今天的簡報'));
     await settle();
     expect(mocks.panel).toMatchObject({ active: true, ask: { id: 2, text: '給我今天的簡報' } });
+  });
+
+  it('drops a message once the panel has sent it, so it is never sent twice', async () => {
+    await render('/');
+    await act(async () => askStudio('給我今天的簡報'));
+    await settle();
+    await act(async () => mocks.panel!.onAskSent!());
+    expect(mocks.panel!.ask).toBeUndefined();
   });
 
   it('is not opened by a page’s ask where it is not shown', async () => {

@@ -2,7 +2,7 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import Fab from '@mui/material/Fab';
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { ASK_STUDIO_EVENT, askedText } from './askStudio';
@@ -34,7 +34,10 @@ export default function StudioAssistant() {
   const [opened, setOpened] = useState(false);
   const [draft, setDraft] = useState('');
   // A message a page asked Studio AI (askStudio); the id tells the panel a new one from the last.
+  // Kept until the panel has sent it, then dropped (the id keeps counting).
   const [ask, setAsk] = useState<{ id: number; text: string } | undefined>();
+  const askId = useRef(0);
+  const askSent = useCallback(() => setAsk(undefined), []);
   const config = useMemo(() => studioChatConfig(pathname), [pathname]);
 
   useEffect(() => {
@@ -56,7 +59,8 @@ export default function StudioAssistant() {
       if (!text) return;
       setOpened(true);
       setOpen(true);
-      setAsk((prev) => ({ id: (prev?.id ?? 0) + 1, text }));
+      askId.current += 1;
+      setAsk({ id: askId.current, text });
     };
     window.addEventListener(ASK_STUDIO_EVENT, onAsk);
     return () => window.removeEventListener(ASK_STUDIO_EVENT, onAsk);
@@ -110,6 +114,7 @@ export default function StudioAssistant() {
                 active={open}
                 inputValue={draft}
                 ask={ask}
+                onAskSent={askSent}
                 onInputChange={setDraft}
                 onCollapse={() => setOpen(false)}
               />

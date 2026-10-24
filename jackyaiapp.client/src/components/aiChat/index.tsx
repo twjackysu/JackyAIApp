@@ -41,6 +41,8 @@ interface AiAssistantPanelProps {
   variant?: 'inline' | 'sheet';
   /** A message to send as if the reader had typed it (Studio AI's `askStudio`): each id is sent once. */
   ask?: { id: number; text: string };
+  /** The `ask` was sent: its owner drops it, so a panel mounted again does not send it twice. */
+  onAskSent?: () => void;
 }
 
 /**
@@ -57,6 +59,7 @@ function AiAssistantPanel({
   onActivityChange,
   variant = 'inline',
   ask,
+  onAskSent,
 }: AiAssistantPanelProps) {
   const sheet = variant === 'sheet';
   const config = useAiChatConfig();
@@ -96,7 +99,8 @@ function AiAssistantPanel({
     if (!ask || sentAsk.current === ask.id) return;
     sentAsk.current = ask.id;
     send(ask.text, []);
-  }, [ask, send]);
+    onAskSent?.();
+  }, [ask, send, onAskSent]);
 
   const hasConversation = messages.length > 0;
   useEffect(() => {

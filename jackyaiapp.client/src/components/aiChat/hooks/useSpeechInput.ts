@@ -78,6 +78,8 @@ export interface SpeechInput {
   error: string | null;
   /** Starts listening, or stops (keeping what was heard). */
   toggle: () => void;
+  /** Stops at once, dropping anything still to come (the message was sent). */
+  cancel: () => void;
 }
 
 /**
@@ -126,5 +128,7 @@ export function useSpeechInput(onHeard: (transcript: string) => void, lang = 'zh
     }
   }, [lang]);
 
-  return { supported, listening, error, toggle };
+  const cancel = useCallback(() => recognition.current?.abort(), []);
+
+  return { supported, listening, error, toggle, cancel };
 }

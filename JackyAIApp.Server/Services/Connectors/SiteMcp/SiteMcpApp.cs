@@ -143,10 +143,14 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
               var nextId = 1, pending = {}, ready = false;
 
               function send(message) { window.parent.postMessage(message, "*"); }
-              function request(method, params) {
+              // timeoutMs: give up on a host that never answers (it may not let apps call tools).
+              function request(method, params, timeoutMs) {
                 var id = nextId++;
                 return new Promise(function (resolve, reject) {
                   pending[id] = { resolve: resolve, reject: reject };
+                  if (timeoutMs) setTimeout(function () {
+                    if (pending[id]) { delete pending[id]; reject(new Error("timeout")); }
+                  }, timeoutMs);
                   send({ jsonrpc: "2.0", id: id, method: method, params: params });
                 });
               }
@@ -211,7 +215,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                   button.addEventListener("click", function () {
                     button.disabled = true;
                     note.textContent = "處理中…";
-                    request("tools/call", { name: a.tool, arguments: args }).then(function (result) {
+                    request("tools/call", { name: a.tool, arguments: args }, 30000).then(function (result) {
                       var first = result && Array.isArray(result.content) && result.content[0];
                       var text = first && typeof first.text === "string" ? first.text : "";
                       if (result && result.isError) {

@@ -383,6 +383,39 @@ describe('AiAssistantPanel', () => {
     expect(chatBodies).toEqual([]);
   });
 
+  it('stops listening when the message is sent, so a late result does not refill the box', async () => {
+    let recognition!: { onresult: (e: unknown) => void; onend: () => void; aborted?: boolean };
+    vi.stubGlobal(
+      'webkitSpeechRecognition',
+      class {
+        onresult = null;
+        onend = null;
+        start() {
+          recognition = this as unknown as typeof recognition;
+        }
+        stop() {}
+        abort() {
+          recognition.aborted = true;
+        }
+      },
+    );
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '好' }, { type: 'done', conversationId: 'conv-1' }),
+    );
+    await mount();
+    await act(async () => buttonByLabel('語音輸入')!.click());
+    act(() =>
+      recognition.onresult({
+        results: [Object.assign([{ transcript: '你好' }], { isFinal: false })],
+      }),
+    );
+    await act(async () => {
+      textarea().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(recognition.aborted).toBe(true);
+    expect(chatBodies[0]).toMatchObject({ message: '你好' });
+  });
+
   it('sends what a page asked (askStudio) once, as if typed', async () => {
     chatReplies.push(() =>
       sseReply({ type: 'delta', text: '早安' }, { type: 'done', conversationId: 'conv-1' }),

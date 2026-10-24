@@ -207,7 +207,11 @@ const ChatInput = ({
             value={value}
             inputRef={inputRef}
             onChange={(e) => onChange(e.target.value)}
-            onKeyDown={onKeyPress}
+            onKeyDown={(e) => {
+              // A message sent while listening: what is still heard must not refill the emptied box.
+              if (e.key === 'Enter' && !e.shiftKey) speech.cancel();
+              onKeyPress(e);
+            }}
             onPaste={onPaste}
             inputProps={{ 'aria-label': '訊息' }}
             sx={{ px: 2, pt: 1.5, pb: 0.5, fontSize: '0.95rem', lineHeight: 1.6 }}
@@ -338,7 +342,10 @@ const ChatInput = ({
             {(!busy || canSend) && (
               <IconButton
                 aria-label={busy ? '排入佇列' : '送出'}
-                onClick={onSend}
+                onClick={() => {
+                  speech.cancel();
+                  onSend();
+                }}
                 disabled={!canSend}
                 size="small"
                 sx={{
