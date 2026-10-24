@@ -1,3 +1,4 @@
+import { ToolCard } from '../cards/toolCard';
 import { MessageApproval } from '../utils/approval';
 import { ToolStep } from '../utils/toolActivity';
 
@@ -37,6 +38,8 @@ export interface Message {
   truncated?: boolean;
   /** The tools an answer used, in order (see ToolActivity). */
   toolSteps?: ToolStep[];
+  /** A reopened answer's cards, as stored with it (its tool steps are not kept). */
+  cards?: ToolCard[];
   /** A write the answer is waiting on the reader to allow or refuse (see ApprovalCard). */
   approval?: MessageApproval;
   /** Files sent with a user message. */

@@ -6,6 +6,7 @@ using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Assistant;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 using SQL = JackyAIApp.Server.Data.Models.SQL;
 
 namespace JackyAIApp.Server.Services.Chatbot
@@ -113,7 +114,7 @@ namespace JackyAIApp.Server.Services.Chatbot
             var outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id, tools)
                 .RunAsync(request, token => RequestFor(reupload: true, token), turnCts.Token);
             var verdict = TurnVerdict.Of(outcome);
-            var answerId = await SaveAnswerAsync(conversation, message, verdict.Saved);
+            var answerId = await SaveAnswerAsync(conversation, message, verdict.Saved, outcome.Cards);
             await ReportTurnAsync(userId, profile, conversation.Id, outcome, verdict);
             await EndStreamAsync(sse, conversation.Id, verdict, answerId, ct);
             return new ChatStreamResult(outcome.StreamingStarted, conversation.Id, verdict.ErrorCode);
@@ -170,8 +171,12 @@ namespace JackyAIApp.Server.Services.Chatbot
             }
         }
 
-        /// <summary>Adds the answer the verdict keeps as the conversation's next message; its id, or null if none is kept.</summary>
-        private async Task<long?> SaveAnswerAsync(SQL.ChatConversation conversation, string message, string? content)
+        /// <summary>
+        /// Adds the answer the verdict keeps as the conversation's next message, with the cards its
+        /// tools showed; its id, or null if none is kept.
+        /// </summary>
+        private async Task<long?> SaveAnswerAsync(
+            SQL.ChatConversation conversation, string message, string? content, IReadOnlyList<JsonElement>? cards)
         {
             if (content == null) return null;
 
@@ -180,6 +185,7 @@ namespace JackyAIApp.Server.Services.Chatbot
                 ConversationId = conversation.Id,
                 Role = "assistant",
                 Content = content,
+                CardsJson = cards is { Count: > 0 } ? JsonSerializer.Serialize(cards) : null,
             };
             db.ChatMessages.Add(answer);
 

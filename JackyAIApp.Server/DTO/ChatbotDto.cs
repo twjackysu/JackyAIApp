@@ -50,6 +50,12 @@ namespace JackyAIApp.Server.DTO
 
         /// <summary>Files sent with a user message.</summary>
         public List<ChatAttachmentDto> Attachments { get; set; } = [];
+
+        /// <summary>
+        /// The cards an assistant message's tools showed (a JSON array of <c>{ kind, … }</c>, as the
+        /// stream's <c>tool_result.card</c>); null for none.
+        /// </summary>
+        public System.Text.Json.JsonElement? Cards { get; set; }
     }
 
     /// <summary>A file attached to a chat message, as far as the client needs to show it.</summary>

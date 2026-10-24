@@ -32,4 +32,6 @@ export interface ChatHistoryMessage {
   content: string;
   createdAt: string;
   attachments?: ChatAttachment[];
+  /** The cards an answer's tools showed (`{ kind, … }`, unchecked until `parseToolCard`); null for none. */
+  cards?: unknown[] | null;
 }

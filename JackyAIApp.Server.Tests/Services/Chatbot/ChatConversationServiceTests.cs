@@ -197,6 +197,23 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task Messages_BringBackTheCardsAnAnswerShowed()
+        {
+            var db = Db();
+            db.ChatConversations.Add(new SQL.ChatConversation { Id = "c1", UserId = "alice", UpdatedAt = _t0 });
+            db.ChatMessages.AddRange(
+                Message(1, "c1", "user", "每月營收"),
+                new SQL.ChatMessage { Id = 2, ConversationId = "c1", Role = "assistant", Content = "如圖", CreatedAt = _t0.AddMinutes(2),
+                    CardsJson = "[{\"kind\":\"chart\",\"title\":\"每月營收\"}]" });
+            await db.SaveChangesAsync();
+
+            var messages = (await As("alice").GetMessagesAsync("c1", default)).Data!;
+
+            Assert.Null(messages[0].Cards);
+            Assert.Equal("chart", messages[1].Cards!.Value[0].GetProperty("kind").GetString());
+        }
+
+        [Fact]
         public async Task List_HasOnlyTheNamedAssistantsConversations()
         {
             var db = Db();

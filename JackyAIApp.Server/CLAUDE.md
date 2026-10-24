@@ -239,8 +239,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   content cannot close), and the request's system prompt says what that means
   (`ChatTurnRequest.UntrustedToolOutputInstruction`). A tool whose effect is not `Read` is not run yet: the
   model is told it needs the reader (asking the reader is docs/ai-native/design/04 §1.3). A failing tool is
-  reported to the model as failed, never with its exception's text. Without tools (Finance) a turn is one
-  request, read exactly as before
+  reported to the model as failed, never with its exception's text. The cards a turn's tools showed are kept
+  with its answer (`ChatMessages.CardsJson`, a JSON array as streamed) and come back as `ChatMessageDto.Cards`
+  when the conversation is reopened; the model still gets the text only. Without tools (Finance) a turn is
+  one request, read exactly as before
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,

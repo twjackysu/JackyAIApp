@@ -305,6 +305,7 @@ function MessageArea({
                 {attachments}
                 {message.toolSteps && <ToolActivity steps={message.toolSteps} />}
                 {message.toolSteps && <ToolCards steps={message.toolSteps} />}
+                {!message.toolSteps && message.cards && <ToolCards cards={message.cards} />}
                 {message.approval && (
                   <ApprovalCard
                     approval={message.approval.request}

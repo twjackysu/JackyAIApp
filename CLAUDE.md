@@ -112,6 +112,10 @@ The home portal (`/`) is the only place users switch between apps; the registry 
 8. **Data Analysis** (`/data-analysis`) - Query and summarize tabular data (`DataAnalysisLibrary` NuGet packages)
    - Built-in default source plus user-saved custom sources (SQL Server, Azure Data Explorer), and uploaded files held in a per-session store
    - "問 AI": natural-language question → validated summarize plan (`NlQueryPlanner`)
+   - **AI assistant** (signed-in users) at the top of the page, the same shared chat as /finance's
+     (`components/aiChat`, server profile `data-analysis`): it reads the source on screen with its tools
+     (`describe_data`, `ask_data` — the 問 AI pipeline), answers with charts drawn by the page's own
+     renderers, each one addable to a dashboard
 
 9. **Data Dashboard** (`/dashboards`) - Dashboards built from Data Analysis summarize results
    - Each widget stores a re-runnable summarize plan; data is re-fetched on view

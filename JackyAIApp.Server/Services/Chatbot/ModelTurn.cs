@@ -17,9 +17,10 @@ namespace JackyAIApp.Server.Services.Chatbot
     /// <param name="Tokens">The turn's tokens over all its requests.</param>
     /// <param name="ToolsCalled">The tools the turn called, in order (tw-stock's and the profile's own).</param>
     /// <param name="ToolSearches">How often it searched for a tool.</param>
+    /// <param name="Cards">The cards the profile's tools showed the reader, in order; null for none.</param>
     internal sealed record TurnOutcome(
         string Text, bool StreamingStarted, BetaStopReason? StopReason, bool Stopped, string? ErrorCode,
-        TokenTotals Tokens, IReadOnlyList<string> ToolsCalled, int ToolSearches);
+        TokenTotals Tokens, IReadOnlyList<string> ToolsCalled, int ToolSearches, IReadOnlyList<JsonElement>? Cards = null);
 
     /// <summary>
     /// The requests of one chat turn: streams the model's answer to the reader as it comes, retries a
@@ -113,7 +114,8 @@ namespace JackyAIApp.Server.Services.Chatbot
             }
 
             return new TurnOutcome(
-                _text.ToString(), _streamingStarted, _stopReason, stopped, errorCode, _tokens, _toolsCalled, _toolSearches);
+                _text.ToString(), _streamingStarted, _stopReason, stopped, errorCode, _tokens, _toolsCalled, _toolSearches,
+                tools is { Cards.Count: > 0 } ? tools.Cards : null);
         }
 
         /// <summary>

@@ -3,6 +3,7 @@ using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Data.Models.SQL;
 using JackyAIApp.Server.DTO;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace JackyAIApp.Server.Services.Chatbot
 {
@@ -69,29 +70,44 @@ namespace JackyAIApp.Server.Services.Chatbot
             if (!owned)
                 return ConversationNotFound;
 
-            var result = await dbContext.ChatMessages
+            var rows = await dbContext.ChatMessages
                 .Where(m => m.ConversationId == conversationId)
                 .OrderBy(m => m.CreatedAt)
-                .Select(m => new ChatMessageDto
+                .Select(m => new
                 {
-                    Id = m.Id,
-                    Role = m.Role,
-                    Content = m.Content,
-                    CreatedAt = m.CreatedAt,
-                    Attachments = m.Attachments
-                        .OrderBy(a => a.Id)
-                        .Select(a => new ChatAttachmentDto
-                        {
-                            Id = a.Id,
-                            FileName = a.FileName,
-                            Kind = a.Kind,
-                            CharCount = a.Text.Length,
-                            Truncated = a.Truncated,
-                            PageCount = a.PageCount,
-                        })
-                        .ToList(),
+                    m.CardsJson,
+                    Message = new ChatMessageDto
+                    {
+                        Id = m.Id,
+                        Role = m.Role,
+                        Content = m.Content,
+                        CreatedAt = m.CreatedAt,
+                        Attachments = m.Attachments
+                            .OrderBy(a => a.Id)
+                            .Select(a => new ChatAttachmentDto
+                            {
+                                Id = a.Id,
+                                FileName = a.FileName,
+                                Kind = a.Kind,
+                                CharCount = a.Text.Length,
+                                Truncated = a.Truncated,
+                                PageCount = a.PageCount,
+                            })
+                            .ToList(),
+                    },
                 })
                 .ToListAsync(ct);
+
+            // The cards go back as the JSON they were stored as (the stream's tool_result.card).
+            var result = rows.Select(r =>
+            {
+                if (r.CardsJson != null)
+                {
+                    using var cards = JsonDocument.Parse(r.CardsJson);
+                    r.Message.Cards = cards.RootElement.Clone();
+                }
+                return r.Message;
+            }).ToList();
 
             return ServiceResult.Ok(result);
         }

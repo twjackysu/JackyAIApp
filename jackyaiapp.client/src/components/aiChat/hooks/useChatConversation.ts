@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { parseToolCard, type ToolCard } from '../cards/toolCard';
 import { Message, QueuedMessage } from '../types';
 import { ApprovalDecision, MessageApproval } from '../utils/approval';
 import { applyToolEvent, settleToolSteps, ToolStep } from '../utils/toolActivity';
@@ -19,7 +20,15 @@ export const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] =>
     isUser: m.role === 'user',
     timestamp: new Date(m.createdAt),
     attachments: m.attachments,
+    ...storedCards(m.cards),
   }));
+
+/** The cards stored with an answer, each checked as a streamed one is (`parseToolCard`). */
+const storedCards = (raw: unknown): Pick<Message, 'cards'> => {
+  if (!Array.isArray(raw)) return {};
+  const cards = raw.map(parseToolCard).filter((c): c is ToolCard => c !== null);
+  return cards.length > 0 ? { cards } : {};
+};
 
 /**
  * The conversation on screen: its messages, the reply being written into the last of them, the

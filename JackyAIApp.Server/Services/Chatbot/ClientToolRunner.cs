@@ -51,6 +51,9 @@ namespace JackyAIApp.Server.Services.Chatbot
             _logger = logger;
         }
 
+        /// <summary>The cards the reader was shown so far, in order (JSON as sent), to keep with the answer.</summary>
+        public List<JsonElement> Cards { get; } = [];
+
         /// <summary>The name the reader is shown for a call of this tool, or null if it is not one of these.</summary>
         public string? DisplayNameOf(string toolName) =>
             _byName.TryGetValue(toolName, out var tool) ? tool.Descriptor.DisplayName : null;
@@ -65,13 +68,15 @@ namespace JackyAIApp.Server.Services.Chatbot
                 var result = await RunOneAsync(call, ct);
                 var durationMs = (long)_time.GetElapsedTime(started).TotalMilliseconds;
 
+                var card = result.IsError || result.Card == null ? (JsonElement?)null : JsonSerializer.SerializeToElement(result.Card, CardJson);
+                if (card != null) Cards.Add(card.Value);
                 await _sse.WriteAsync(new
                 {
                     type = "tool_result",
                     id = call.ID,
                     name = call.Name,
                     ok = !result.IsError,
-                    card = result.IsError || result.Card == null ? (JsonElement?)null : JsonSerializer.SerializeToElement(result.Card, CardJson),
+                    card,
                     durationMs,
                 }, ct);
                 results.Add(new BetaToolResultBlockParam

@@ -463,6 +463,9 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Contains("意外的好運", toolResult.GetProperty("content").GetString());
 
             Assert.Equal("我查一下。\n\n它的意思是意外的好運。", Messages()[1].Content);
+            // The card is kept with the answer, to be drawn again when the conversation is reopened.
+            var cards = JsonDocument.Parse(Messages()[1].CardsJson!).RootElement;
+            Assert.Equal("link", Assert.Single(cards.EnumerateArray()).GetProperty("kind").GetString());
             // Tokens of both requests.
             _usage.Verify(u => u.LogChatAsync("chatbot.test", "claude-haiku-5-5", 300, 70, true, User, 0, 0), Times.Once);
         }
@@ -503,6 +506,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             var turn = await AskAsync(profile: ToolProfile.ProfileKey);
 
             Assert.Empty(_toolProfile.Save.Calls);
+            Assert.Null(Messages()[1].CardsJson);
             var result = turn.Events.Single(e => Type(e) == "tool_result");
             Assert.False(result.GetProperty("ok").GetBoolean());
             Assert.Equal(JsonValueKind.Null, result.GetProperty("card").ValueKind);

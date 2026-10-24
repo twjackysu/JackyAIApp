@@ -11,13 +11,23 @@ import type { ToolCard } from './toolCard';
 import type { ToolStep } from '../utils/toolActivity';
 
 /**
- * The cards an answer's tools returned, in the order they ran, above its text. The chat draws
- * tables and links; any other kind is drawn by the app's renderer for it, or not at all.
+ * The cards an answer's tools returned, in the order they ran, above its text: from the answer's
+ * tool steps while it streams, or the cards stored with it when a conversation is reopened. The
+ * chat draws tables and links; any other kind is drawn by the app's renderer for it, or not at all.
  */
-export default function ToolCards({ steps }: { steps: readonly ToolStep[] }) {
+export default function ToolCards({
+  steps,
+  cards,
+}: {
+  steps?: readonly ToolStep[];
+  cards?: readonly ToolCard[];
+}) {
   const theme = useTheme();
   const { cardRenderers } = useAiChatConfig();
-  const drawn = steps
+  const items = steps
+    ? steps.map((s) => ({ key: s.key, card: s.card }))
+    : (cards ?? []).map((card, i) => ({ key: `saved-${i}`, card }));
+  const drawn = items
     .map((s) => ({ key: s.key, view: s.card ? cardView(s.card, cardRenderers) : null }))
     .filter((c) => c.view !== null);
   if (drawn.length === 0) return null;
