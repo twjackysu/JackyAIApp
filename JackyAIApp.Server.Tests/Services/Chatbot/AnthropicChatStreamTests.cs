@@ -423,7 +423,8 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             public List<IAiTool> Extra { get; } = [];
         }
 
-        private sealed class RecordingTool(string name, string displayName, ToolEffect effect, string connector = AiToolDescriptor.SiteConnector)
+        private sealed class RecordingTool(string name, string displayName, ToolEffect effect, string connector = AiToolDescriptor.SiteConnector,
+            bool outsideText = false)
             : IAiTool, IDescribesCall
         {
             /// <summary>What the tool says a call would do (shown on the confirmation card); none by default.</summary>
@@ -433,7 +434,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
 
             public AiToolDescriptor Descriptor { get; } = new(name, displayName, "測試用工具",
                 JsonSerializer.SerializeToElement(new { type = "object", properties = new { word = new { type = "string" } } }), effect,
-                connector);
+                connector, OutsideText: outsideText);
 
             public List<(JsonElement Input, AiToolContext Context)> Calls { get; } = [];
 
@@ -705,6 +706,25 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             await turn;
 
             Assert.Single(_toolProfile.Save.Calls);
+        }
+
+        [Fact]
+        public async Task AfterASiteToolsResultThatHoldsOtherPeoplesWords_AWriteIsAskedToo()
+        {
+            _toolProfile.Extra.Add(new RecordingTool("calendar", "Google 日曆", ToolEffect.Read, outsideText: true));
+            _permissions.Site["save_word"] = ToolPermission.Auto;
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "calendar", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_2", "save_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+            var body = new RecordingBody();
+
+            var turn = AskAsync(profile: ToolProfile.ProfileKey, body: body);
+            var (conversationId, pendingId, asked) = await AskedAsync(body);
+            Assert.True(asked.GetProperty("tainted").GetBoolean());
+            Assert.True(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_2", false)]));
+            await turn;
+
+            Assert.Empty(_toolProfile.Save.Calls);
         }
 
         [Fact]

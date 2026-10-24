@@ -37,12 +37,20 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <param name="Connector">Whose tool it is, as the reader is asked about it: <see cref="AiToolDescriptor.SiteConnector"/> for
     /// the site's own, else the connector's key.</param>
     /// <param name="ConnectorName">What the reader calls that connector ("Jira"); null for the site's own.</param>
+    /// <param name="OutsideText">A site tool whose results hold words of other people's (a calendar invite's title):
+    /// read as an outside connector's are (<see cref="ReadsOutsideText"/>).</param>
     public sealed record AiToolDescriptor(
         string Name, string DisplayName, string Description, JsonElement InputSchema, ToolEffect Effect,
-        string Connector = AiToolDescriptor.SiteConnector, string? ConnectorName = null)
+        string Connector = AiToolDescriptor.SiteConnector, string? ConnectorName = null, bool OutsideText = false)
     {
         /// <summary>The connector key of the site's own tools (the client's <c>SITE_CONNECTOR</c>).</summary>
         public const string SiteConnector = "site";
+
+        /// <summary>
+        /// Whether a result may hold text written to steer the model: every outside connector's, and a site tool's
+        /// marked <see cref="OutsideText"/>. Once a turn read one, nothing that changes anything runs without the reader.
+        /// </summary>
+        public bool ReadsOutsideText => Connector != SiteConnector || OutsideText;
     }
 
     /// <summary>Who a tool runs for, and in which conversation.</summary>

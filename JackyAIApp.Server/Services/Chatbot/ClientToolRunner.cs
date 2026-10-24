@@ -118,9 +118,9 @@ namespace JackyAIApp.Server.Services.Chatbot
                     card,
                     durationMs,
                 }, ct);
-                // What an outside connector said may be written to steer the model; from here on in the
-                // turn, nothing that changes anything runs without the reader (docs/ai-native/design/06).
-                if (_byName.TryGetValue(call.Name, out var ran) && ran.Descriptor.Connector != AiToolDescriptor.SiteConnector)
+                // What an outside connector (or someone's calendar invite) said may be written to steer the model;
+                // from here on in the turn, nothing that changes anything runs without the reader (docs/ai-native/design/06).
+                if (_byName.TryGetValue(call.Name, out var ran) && ran.Descriptor.ReadsOutsideText)
                     Tainted = true;
                 results.Add(new BetaToolResultBlockParam
                 {
