@@ -292,13 +292,30 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   to its profile (a tool's descriptor is a `static readonly Definition`, so the list and the tool agree); the
   tools themselves still come with the profile, since one may need the page it is asked from. The site has
   a row only once the reader changed one of its tools' permissions
-- The catalog's remote MCP servers are `BuiltInMcpConnectors` (tw-stock, DeepWiki; no sign-in): adding one is a
-  line there, checked by `BuiltInMcpConnectorsTests`. Each is added once per reader, always at its own URL
-  (`ConnectorInstallService`, which also adds a server of the reader's own: no credentials, an API key in a
-  header of theirs or a bearer token, stored with `ConnectorSecrets`; OAuth is not offered yet). The MCP client
-  is `McpToolClient` (the official SDK over Streamable HTTP, every request through `SafeHttp`, a session per
-  request); the chat gets a reader's connectors' tools from `ConnectorToolSource` (named `m1__…` per turn,
-  their connector the installation's id)
+- The catalog's remote MCP servers are `BuiltInMcpConnectors` (tw-stock, DeepWiki with no sign-in; Notion, Linear
+  with OAuth): adding one is a line there, checked by `BuiltInMcpConnectorsTests`. Each is added once per reader,
+  always at its own URL and its own way of signing in (`ConnectorInstallService`, which also adds a server of the
+  reader's own: no credentials, an API key in a header of theirs, a bearer token, or OAuth; stored with
+  `ConnectorSecrets`). The MCP client is `McpToolClient` (the official SDK over Streamable HTTP, every request
+  through `SafeHttp`, a session per request); the chat gets a reader's connectors' tools from
+  `ConnectorToolSource` (named `m1__…` per turn, their connector the installation's id). A call the server
+  refuses for its credentials marks the connector NeedsAuth
+- Signing in to an MCP server (MCP authorization, design/03 §5.2) is three units. `McpOAuthDiscovery` asks the
+  server without credentials and follows its 401 (`WWW-Authenticate` `resource_metadata`, `scope`) to its
+  protected resource metadata (RFC 9728; its `resource` must be the server's origin and a path the server is
+  within) and the authorization server's metadata (RFC 8414, then OpenID discovery; its `issuer` must match, and
+  without PKCE S256 it is refused); every fetch is https only, through `SafeHttp`, at most 64KB. `McpOAuthFlow`
+  becomes its client when the connector is added (our Client ID Metadata Document, `GET
+  api/connectors/oauth/client-metadata`, when the server takes one and the site is on a public https address;
+  else dynamic registration; else the client id the reader typed), sends the reader there (`POST
+  installations/{id}/authorize`: PKCE S256, `resource`, `scope`, a signed `state`; the verifier stays in
+  `IMemoryCache` on the server, 10 minutes, once), and takes them back at `GET api/connectors/callback/mcp` (a
+  literal route, matched before the account connections' `callback/{provider}`): the state, then `iss` (RFC 9207),
+  then the code for tokens, kept encrypted as a `McpOAuthGrant`. `McpOAuthTokens` gives each call its credentials,
+  refreshing a token due within 60s, one refresh at a time per connector (a rotated refresh token spent twice
+  would end the sign-in); a refused refresh of an expired token marks the connector NeedsAuth and keeps the
+  client. The redirect URI and the metadata URL come from `Connectors:CallbackBaseUrl` (`McpOAuthUrls`); an
+  authorization server's own words never reach the reader, only an OAuth error code
 - `ConnectorCatalogService` answers the page (`AiConnectorsController`, `api/connectors/catalog`,
   `tool-permissions`, `installations/{id}/enabled`, `installations/{id}`, in the `{ data }` envelope; the
   account connections' endpoints of `ConnectorsController`, under the same route, are unchanged) and, as

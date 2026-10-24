@@ -14,6 +14,12 @@ namespace JackyAIApp.Server.Services.Connectors
         /// authorization server refuses marks the connector NeedsAuth and leaves it without credentials.
         /// </summary>
         Task<McpAuth> AuthOfAsync(SQL.ConnectorInstallation installation, CancellationToken ct);
+
+        /// <summary>
+        /// The connector's server refused its credentials during a call (401/403): it is marked NeedsAuth, so the
+        /// connectors page asks the reader to sign in again or update the key.
+        /// </summary>
+        Task CredentialsRefusedAsync(string installationId, CancellationToken ct);
     }
 
     /// <summary>
@@ -78,6 +84,17 @@ namespace JackyAIApp.Server.Services.Connectors
             {
                 gate.Release();
             }
+        }
+
+        public async Task CredentialsRefusedAsync(string installationId, CancellationToken ct)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+            var row = await db.ConnectorInstallations.FirstOrDefaultAsync(c => c.Id == installationId, ct);
+            if (row == null) return;
+            row.LastStatus = "NeedsAuth";
+            row.LastError = "伺服器不接受目前的認證資料，請重新授權或更新 key。";
+            row.UpdatedAt = time.GetUtcNow().UtcDateTime;
+            await db.SaveChangesAsync(ct);
         }
 
         internal static bool IsDue(McpOAuthGrant grant, DateTime now) =>

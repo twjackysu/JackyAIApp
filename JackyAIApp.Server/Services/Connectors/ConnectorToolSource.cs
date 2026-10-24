@@ -78,6 +78,7 @@ namespace JackyAIApp.Server.Services.Connectors
             catch (McpServerException ex)
             {
                 logger.LogWarning(ex, "MCP tool {Tool} of connector {InstallationId} failed ({Failure})", tool.Name, installation.Id, ex.Failure);
+                if (ex.Failure == McpFailure.NeedsAuth) await tokens.CredentialsRefusedAsync(installation.Id, CancellationToken.None);
                 return AiToolResult.Error(ex.Failure == McpFailure.NeedsAuth
                     ? $"「{_connectorName}」需要重新連線：請告訴使用者到 Connectors 頁面更新它的認證。"
                     : $"「{_connectorName}」目前無法使用：{ex.Message}");

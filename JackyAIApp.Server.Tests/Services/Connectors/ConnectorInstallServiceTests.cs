@@ -400,6 +400,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
 
             Assert.True(result.IsError);
             Assert.Contains("重新連線", result.Content);
+            Assert.Equal("NeedsAuth", _db.ConnectorInstallations.AsNoTracking().Single().LastStatus);
         }
     }
 }
