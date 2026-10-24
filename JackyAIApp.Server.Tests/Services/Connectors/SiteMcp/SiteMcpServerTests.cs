@@ -390,18 +390,18 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
         public async Task ACardsButton_IsOffered_OnlyWhereTheTokenMayCallItsTool()
         {
             _extra.Add(new WordCardTool());
-            var args = new JsonObject { ["word"] = "serendipity" };
+            static JsonObject WordArgs() => new() { ["word"] = "serendipity" };
 
-            var withWrites = await ResultOf(Call("word_card", args), WithWrites);
+            var withWrites = await ResultOf(Call("word_card", WordArgs()), WithWrites);
             var action = Assert.Single(withWrites["structuredContent"]!["actions"]!.AsArray())!;
             Assert.Equal("add_word", (string?)action["tool"]);
             Assert.Equal("加入單字庫", (string?)action["label"]);
             Assert.Equal("serendipity", (string?)action["arguments"]!["word"]);
 
             // A read-only token, or a write the reader turned off, has no button: the host could not call it.
-            Assert.Null((await ResultOf(Call("word_card", args), ReadOnly))["structuredContent"]!["actions"]);
+            Assert.Null((await ResultOf(Call("word_card", WordArgs()), ReadOnly))["structuredContent"]!["actions"]);
             _chosen = new() { ["add_word"] = ToolPermission.Disabled };
-            Assert.Null((await ResultOf(Call("word_card", args), WithWrites))["structuredContent"]!["actions"]);
+            Assert.Null((await ResultOf(Call("word_card", WordArgs()), WithWrites))["structuredContent"]!["actions"]);
         }
 
         [Fact]

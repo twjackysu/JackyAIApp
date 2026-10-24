@@ -46,9 +46,10 @@
 6. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；按「停止」整輪什麼都不執行。
 7. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
    **或在 Claude.ai**：設定 → Connectors → 新增自訂 connector，只貼 `https://apps.jacky-studio.com/api/mcp` → 跳到本站的同意頁「Claude 想用你的身分使用 Jacky Studio 的工具，完成後會回到 claude.ai」→ 允許 → 回到 Claude.ai，工具出現。
-   接著在 Claude.ai 問「我的投資組合現在怎麼樣？」→ 回答下方出現 **Jacky Studio 的持倉表格卡片**（MCP App），問「serendipity 是什麼」→ 單字卡，按「看完整解釋」開到本站字典頁。
+   接著在 Claude.ai 問「我的投資組合現在怎麼樣？」→ 回答下方出現 **Jacky Studio 的持倉表格卡片**（MCP App），問「serendipity 是什麼」→ 單字卡，按「看完整解釋」開到本站字典頁；token 允許寫入時卡片上還有「加入單字庫」，在 Claude 裡按一下就加進本站的單字庫（MCP App 經 host 呼叫 `tools/call`）。
    ![其他 AI 的 OAuth 同意頁](screenshots/site-mcp-oauth-consent-desktop.png)
    ![MCP App：在別家 AI 裡畫出本站卡片（以 playwright 扮 host 的截圖）](screenshots/mcp-app-card-light.png)
+   ![MCP App 的「加入單字庫」按鈕](screenshots/mcp-app-action-light.png)
    ![讓其他 AI 使用本站](screenshots/site-mcp-section-desktop.png)
    ![產生 token 與設定](screenshots/site-mcp-token-desktop.png)
 8. **Stock Intelligence（30 秒）**：/finance 問一檔股票，跟以前一樣。
@@ -132,6 +133,6 @@ flowchart LR
 | 10/24 | 7 | TestKit、Google 日曆、step-up、以後直接執行、rug pull 防護 |
 | 10/24 | 8 | 本站對外的 MCP server（PAT、/connectors 的設定一鍵複製、OAuth 授權伺服器與同意頁） |
 | 10/24 | 9 | 本站 MCP server 成為 MCP App（別家 AI 裡畫出本站卡片）、OAuth 端點 rate limit、「經 OAuth 登入」標示、Studio 引導 |
-| 10/24 | 10 | taint 跨訊息保存、首頁「AI 今日簡報」（askStudio）、確認卡放在文字之後、標題列顯示工具名稱與「等你確認」、手機表格卡片、語音輸入 |
+| 10/24 | 10 | taint 跨訊息保存、首頁「AI 今日簡報」（askStudio）、確認卡放在文字之後、標題列顯示工具名稱與「等你確認」、手機表格卡片、語音輸入、MCP App 卡片上的「加入單字庫」按鈕 |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

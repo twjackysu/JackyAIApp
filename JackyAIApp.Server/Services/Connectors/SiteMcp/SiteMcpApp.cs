@@ -199,7 +199,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
               }
 
               // A card's buttons: each calls one of the site's tools through the host (tools/call), the reader's press
-              // being the asking. What comes back is shown as text.
+              // being the asking. A failure's text is shown (as text); a success just says so.
               function drawActions(actions) {
                 if (!Array.isArray(actions) || actions.length === 0) return;
                 var row = el("div", "actions"), note = el("span", "note");
@@ -218,8 +218,9 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
                         button.disabled = false;
                         note.textContent = text || "沒有成功，請再試一次。";
                       } else {
+                        // The tool's text is written for a model ("…the reader's repository"); the reader gets a plain done.
                         button.textContent = "✓ " + a.label;
-                        note.textContent = text.split("\n")[0];
+                        note.textContent = "完成";
                       }
                       reportSize();
                     }).catch(function () {

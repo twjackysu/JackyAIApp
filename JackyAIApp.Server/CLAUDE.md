@@ -367,6 +367,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   host's `ui/open-link`), every tool names it in `_meta.ui`, and a result with a table or link card carries it as
   `structuredContent.card` (a link's address made whole). Being sessionless, the server cannot tell whether the client
   said it draws apps, so it always offers it; others ignore it. A link card's address also follows the text in full
+- A card can carry buttons there (`structuredContent.actions`: `{ tool, label, arguments }`): a site tool that is
+  `IOffersAppActions` names the next step (the dictionary's lookup: add the word to the repository), and the server keeps
+  only those whose tool the token may call (`SiteMcpApp.AddActions`). Pressing one sends `tools/call` from the app through
+  the host; the reader's press is the asking, with no model in between
 - `ConnectorCatalogService` answers the page (`AiConnectorsController`, `api/connectors/catalog`,
   `tool-permissions`, `installations/{id}/enabled`, `installations/{id}`, in the `{ data }` envelope; the
   account connections' endpoints of `ConnectorsController`, under the same route, are unchanged) and, as

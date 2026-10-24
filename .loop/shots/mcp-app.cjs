@@ -19,7 +19,8 @@ const results = [
       { name: '現金', value: 250000, pnl: null, pnlPct: null },
     ] } } },
   { isError: false, structuredContent: { card: { kind: 'link', title: 'serendipity /ˌsɛrənˈdɪpəti/', description: '意外發現珍奇事物的本領',
-    href: 'https://apps.jacky-studio.com/english/dictionary/serendipity', actionLabel: '看完整解釋' } } },
+    href: 'https://apps.jacky-studio.com/english/dictionary/serendipity', actionLabel: '看完整解釋' },
+    actions: [{ tool: 'add_word_to_repository', label: '加入單字庫', arguments: { word: 'serendipity' } }] } },
 ];
 
 (async () => {
@@ -42,6 +43,7 @@ const results = [
           else if (m.method === 'ui/notifications/initialized') f.contentWindow.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: result }, '*');
           else if (m.method === 'ui/notifications/size-changed') f.height = m.params.height;
           else if (m.method === 'ui/open-link') { window.opened.push(m.params.url); reply({}); }
+          else if (m.method === 'tools/call') { window.called = m.params; setTimeout(() => reply({ content: [{ type: 'text', text: '已把「serendipity」加入使用者的單字庫。' }], isError: false }), 200); }
         });
         f.srcdoc = html;
       });
@@ -50,6 +52,10 @@ const results = [
     await page.screenshot({ path: `${out}/mcp-app-card-${theme}.png` });
     await page.frames()[2].click('button');
     await page.waitForTimeout(200);
+    await page.frames()[2].click('button.secondary');
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${out}/mcp-app-action-${theme}.png` });
+    console.log(theme, 'called', await page.evaluate(() => JSON.stringify(window.called)));
     console.log(theme, 'heights', await page.evaluate(() => [f0.height, f1.height]), 'opened', await page.evaluate(() => window.opened));
     await page.close();
   }
