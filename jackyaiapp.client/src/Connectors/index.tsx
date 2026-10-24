@@ -5,6 +5,7 @@ import Snackbar, { SnackbarCloseReason } from '@mui/material/Snackbar';
 import React, { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import AiConnectorsSection from './AiConnectorsSection';
 import ConnectorCard from './ConnectorCard';
 
 import {
@@ -114,10 +115,10 @@ const Connectors: React.FC = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
-            Connected Services
+            Connectors
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Connect your external accounts to sync data and enhance your workflow.
+            讓 AI 使用你的工具與服務。
           </Typography>
         </Box>
         <ActionTooltip title="Refresh status">
@@ -126,6 +127,12 @@ const Connectors: React.FC = () => {
           </IconButton>
         </ActionTooltip>
       </Box>
+      <AiConnectorsSection
+        notify={(message, severity) => setState({ open: true, message, severity })}
+      />
+      <Typography variant="h6" component="h2" gutterBottom>
+        帳號連線（Google／Microsoft／Atlassian）
+      </Typography>
       <Grid container spacing={3}>
         {connectors?.map((connector) => (
           <Grid

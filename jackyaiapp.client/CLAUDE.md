@@ -52,6 +52,13 @@ jackyaiapp.client/src/
   parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools
   an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`),
   a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`)
+- `/connectors` (`Connectors/index.tsx`) keeps the account connections (Google/Microsoft/Atlassian,
+  `ConnectorCard`, unchanged) and puts above them what the AI may use, `AiConnectorsSection`: the
+  reader's connectors (`InstalledSection`, each opening `ConnectorDetailDrawer` with the tools'
+  `ToolPermissionToggle`), the catalog (`CatalogSection`) and adding an MCP server of their own
+  (`AddMcpServerDialog`: URL → credentials → tools). Which entries show, in what order, and what
+  「連線」does for one are `connectorView`; the dialog's checks and the request it sends are
+  `AddMcpServerDialog/addMcpServer`. The catalog failing to load leaves the account connections working
 - Split without changing what renders: the component's existing tests stay as they are and must pass.
   One without tests gets them first, run against the code as it is (`Portfolio/index.test.tsx`)
 

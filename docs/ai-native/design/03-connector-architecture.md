@@ -169,16 +169,17 @@ sequenceDiagram
 - **加一個原生 connector**：新增一個資料夾 `Services/Connectors/Native/<Name>/`，實作 `INativeConnector` 與數個 `IAiTool`，在 `ConnectorServiceExtensions` 一行 `services.AddNativeConnector<GoogleCalendarConnector>()`。測試樣板：`NativeConnectorTestKit`（假的 token、假的 HttpMessageHandler、驗 schema 是合法 JSON Schema、驗每個工具都有 Effect）。
 - **加一個本站工具**：在該功能模組實作 `IAiTool`，`services.AddSiteTool<T>()`。同一個 TestKit。
 
-## 7. 端點（草案）
+## 7. 端點（前端已照這份實作，第 3 輪定稿；型別見 `jackyaiapp.client/src/apis/connectorsApis/types.ts`）
 
 | 方法 | 路由 | 說明 |
 |---|---|---|
-| GET | `api/connectors/catalog` | 目錄（含本站工具、內建 MCP、既有 OAuth provider）＋ 我的安裝狀態 |
-| POST | `api/connectors/installations` | 安裝內建 MCP 或新增自訂 MCP（URL、認證） |
-| POST | `api/connectors/installations/{id}/authorize` | 開始 OAuth，回 redirect URL |
-| POST | `api/connectors/installations/{id}/test` | 測試連線，回工具清單與耗時 |
-| PUT | `api/connectors/installations/{id}/tools` | 每個工具的權限 |
-| PUT | `api/connectors/installations/{id}/enabled` | 啟用／停用 |
+| GET | `api/connectors/catalog` | `ConnectorCatalog`：`entries`（目錄，含本站工具、內建 MCP、既有 OAuth provider〔`authKind: existingProvider`，前端不在目錄重複列，用既有卡片〕，各帶 `installed`）、`installed`（我的 connector，本站工具 `alwaysOn`、還沒有列時 `id: null`）、`customLimit` |
+| POST | `api/connectors/installations/probe` | body `{ serverUrl }`；**不儲存**。正規化 URL、SSRF 檢查（拒絕時 400 + 人話）、不帶 token 打一次判斷 `auth: none / apiKey / oauth`，OAuth 時附 `authorizationServer`、`registration: cimd / dcr / manual`；`serverName` 取 MCP `initialize` 的 serverInfo（有的話） |
+| POST | `api/connectors/installations` | `CreateInstallationRequest`：內建（`definitionKey` = 目錄 key，不帶 URL）或自訂（`custom` + `serverUrl` + `displayName`）、`authKind`、`credentials`（`headerName`/`value` 或手填 `clientId`/`clientSecret`）。非 OAuth 時存好就測試一次並回 `InstalledConnector`（含工具）；OAuth 回 `health: needsAuth` 的 connector，前端接著呼叫 authorize |
+| POST | `api/connectors/installations/{id}/authorize` | 開始 OAuth，回 `{ redirectUrl }` |
+| POST | `api/connectors/installations/{id}/test` | `ConnectionTestResult`：`ok`、`latencyMs`、`error`（人話）、更新後的 `connector` |
+| PUT | `api/connectors/tool-permissions` | body `{ definitionKey, installationId, toolName, permission }`；`installationId: null` = 沒有列的內建 connector（例如本站工具），伺服器第一次調整時建立列（§3）。回更新後的 `InstalledConnector`。Destructive 工具設 `auto` → 400 |
+| PUT | `api/connectors/installations/{id}/enabled` | body `{ enabled }`，回 `InstalledConnector`（停用 = `health: disabled`） |
 | DELETE | `api/connectors/installations/{id}` | 移除（清 secret） |
 | GET | `api/connectors/callback/mcp` | OAuth 回呼 |
 | GET | `api/connectors/oauth/client-metadata` | CIMD 文件（匿名） |

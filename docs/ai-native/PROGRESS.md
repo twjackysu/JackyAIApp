@@ -1,5 +1,16 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-24 07:41 – 第 3 輪（/connectors v2 前端）
+
+- 開工：master 沒有新 commit；branch CI 仍因帳單停擺（rerun 40033649446 一樣「recent account payments have failed」，D-016），所以本輪只做本機可完整驗證的前端。
+- **/connectors v2**（設計 05 §3）：先補 `Connectors/index.test.tsx` 鎖住現有頁面行為（帳號卡片、連線導向、中斷、OAuth 回呼訊息），再演進：
+  - `AiConnectorsSection`：「AI 可以使用的」（`InstalledSection`，健康狀態 chip、工具權限計數）、「目錄」（`CatalogSection`，分類 chip、一鍵連線／填 key／前往授權）、「新增 MCP server」。目錄載入失敗只顯示一行說明，下方帳號連線照常（後端還沒做時、或合併後端點壞掉時都不會拖垮頁面）。
+  - `ConnectorDetailDrawer`：網址、登入方式、scope、最後測試、測試連線／重新授權／停用／移除（二次確認），工具表用 `ToolPermissionToggle`；本站工具（alwaysOn）只能調權限。
+  - `AddMcpServerDialog`：網址 → 伺服器偵測（probe）→ 認證（none／bearer／API key／OAuth，含手填 client）→ 列出工具與權限可直接調。目錄中要 key 的項目直接從認證步驟開始。
+  - API 契約：`apis/connectorsApis` 新增 8 個 endpoint 與型別，定稿寫進設計 03 §7（新增 `installations/probe`、`tool-permissions`；`installationId: null` 代表沒有列的內建 connector）。
+  - `ToolEffect`／`ToolPermission` 改由 API 型別提供（`toolPermission.ts` 轉出、`useChatStreaming` 的 `ToolEvent.effect` 用同一型別）。
+- 頁面標題由「Connected Services」改為「Connectors — 讓 AI 使用你的工具與服務」（設計 05 §3），既有卡片區加上小標題。
+
 ## 2026-10-24 05:42 – 第 2 輪（M1-5、M1-7、M2 前端零件）
 
 - 合併 master（#569 Data Analysis 頁拆檔，純前端）：本機 lint／test（1130）／build 全過。

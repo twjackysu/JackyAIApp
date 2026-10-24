@@ -1,10 +1,12 @@
-/**
+import type { ToolEffect, ToolPermission } from '@/apis/connectorsApis/types';
+
+/*
  * What the AI may do with one connector tool (docs/ai-native/design/03 §2.2): run it on its own,
  * ask the reader first, or not see it at all. The server holds the rule (and has the last word);
  * the page offers only what it would accept.
  */
-export type ToolPermission = 'auto' | 'confirm' | 'disabled';
-export type ToolEffect = 'read' | 'write' | 'destructive';
+
+export type { ToolEffect, ToolPermission };
 
 export const PERMISSION_LABELS: Record<ToolPermission, string> = {
   auto: '自動',

@@ -37,6 +37,9 @@ vi.mock('./ConnectorCard', async () => {
   };
 });
 
+// What the AI may use has its own tests (AiConnectorsSection.test.tsx); here it only has to be there.
+vi.mock('./AiConnectorsSection', () => ({ default: () => '[AiConnectors]' }));
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const status = (provider: string, isConnected: boolean): ConnectorStatus => ({
@@ -83,6 +86,11 @@ const button = (label: string) =>
   [...container.querySelectorAll('button')].find((b) => b.textContent === label)!;
 
 describe('Connectors page — the account connections', () => {
+  it('shows what the AI may use above the account connections', () => {
+    render();
+    expect(text().indexOf('[AiConnectors]')).toBeLessThan(text().indexOf('[Card Google on]'));
+  });
+
   it('lists one card per provider', () => {
     render();
     expect(text()).toContain('[Card Google on]');

@@ -2,6 +2,8 @@ import { useCallback, useRef, useState } from 'react';
 
 import { finishSseLines, splitSseLines } from './sseLines';
 
+import type { ToolEffect } from '@/apis/connectorsApis/types';
+
 import { ChatErrorCode, chatErrorMessage } from '@/apis/chatbotApis/chatErrors';
 import { getApiErrorMessage } from '@/apis/utils/errorMessage';
 import { useAppDispatch } from '@/redux/hooks';
@@ -35,7 +37,7 @@ export interface ApprovalCallEvent {
   connectorName?: string;
   tool: string;
   displayName: string;
-  effect: 'read' | 'write' | 'destructive';
+  effect: ToolEffect;
   input: Record<string, unknown>;
 }
 
