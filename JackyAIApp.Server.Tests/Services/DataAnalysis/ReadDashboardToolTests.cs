@@ -149,10 +149,36 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         }
 
         [Fact]
-        public void ItOnlyReads()
+        public void ItOnlyReads_AndItsRowsAreOutsideText()
         {
             Assert.Equal(ToolEffect.Read, ReadDashboardTool.Definition.Effect);
-            Assert.False(ReadDashboardTool.Definition.ReadsOutsideText);
+            // A source's rows can hold other people's words: once read, writes ask first and the page is not moved.
+            Assert.True(ReadDashboardTool.Definition.ReadsOutsideText);
+        }
+
+        [Fact]
+        public async Task ASlowChart_KeepsWhatWasRead_AndSaysTheRestWereNot()
+        {
+            var fast = Guid.NewGuid();
+            var slow = Guid.NewGuid();
+            var after = Guid.NewGuid();
+            Detail(true, Widget(fast, "快的"), Widget(slow, "慢的"), Widget(after, "之後的"));
+            Rows(fast, 1);
+            _dashboards.Setup(d => d.GetWidgetDataAsync(Board, slow, It.IsAny<CancellationToken>()))
+                .Returns(async (Guid _, Guid _, CancellationToken token) =>
+                {
+                    await Task.Delay(Timeout.Infinite, token);
+                    return ServiceResult.Ok(new WidgetDataDto { Rows = [] });
+                });
+            var tool = new ReadDashboardTool(_dashboards.Object) { ReadBudget = TimeSpan.FromMilliseconds(200) };
+
+            var result = await tool.RunAsync(Input(new { dashboard = Board.ToString() }), Ctx, CancellationToken.None);
+
+            Assert.False(result.IsError);
+            Assert.Contains("\"營收\":100", result.Content);
+            Assert.Contains("這張圖的資料讀太久", result.Content);
+            Assert.Contains("另有 1 張圖沒有讀取", result.Content);
+            _dashboards.Verify(d => d.GetWidgetDataAsync(Board, after, It.IsAny<CancellationToken>()), Times.Never);
         }
     }
 }

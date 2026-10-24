@@ -268,10 +268,12 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   sends only for a site tool's call and only as a plain path on this site, never a connector's), every `ISiteTool` a feature
   registers (English's `look_up_word`, `add_word_to_repository`, a write, so asked first, and `learning_progress`,
   the words due for review, the daily challenge, streak and XP: `Services/Dictionary/Assistant`; Portfolio's `portfolio_summary`, the reader's own portfolio as
-  /portfolio values it, a table card of the positions: `Services/Portfolio/Assistant`; Connectors' `google_calendar_events`)
+  /portfolio values it, a table card of the positions: `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events`)
   and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market. Its prompt also says
   what the morning briefing is (the home page's 「給我今天的簡報」: the calendar, `learning_progress` and
-  `portfolio_summary` in one reply, three short parts; `StudioChatProfileTests` pins the tool names it uses)
+  `portfolio_summary` in one reply, three short parts; `StudioChatProfileTests` pins the tool names it uses). On a
+  dashboard's page (`/dashboards/{id}`, `StudioChatProfile.DashboardOf`, an id that parses or nothing) the prompt names that
+  dashboard, so "this dashboard" is the one on screen
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,
@@ -401,7 +403,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   model is told (`chartId`, `DataAnalysisCharts`, in memory per reader and conversation), so `save_to_dashboard`
   (`SaveToDashboardTool`, a write, so asked first) saves exactly the chart the reader saw to the dashboard they named
   (one they own of that name, or a new one) without asking the data again; with `open` (the reader asked to see it once
-  saved) its result also takes the page there (`AiToolResult.Navigate`, as Studio AI's `open_page` with `go`). Which data it reads is the page context the client
+  saved) its result also takes the page there (`AiToolResult.Navigate`, as Studio AI's `open_page` with `go`).
+  `read_dashboard` (`ReadDashboardTool`, an `ISiteTool`, so Studio AI's and the site MCP server's, not this page's) reads one of
+  the reader's dashboards as it is now: each chart's rows re-run through `IDashboardService.GetWidgetDataAsync` (the first 6
+  charts, 40 rows each), by id or name, and only a dashboard they own: a shared one holds someone else's titles and data Which data it reads is the page context the client
   sends with each message (`sourceId`/`tableName`, or `sessionId`; none = the default source), read by
   `DataAnalysisPage.From`; whether the reader may read that source is the query's own check
 - `NlQueryPlanner.BuildPlanAsync` only orchestrates. Which columns are String or date columns is

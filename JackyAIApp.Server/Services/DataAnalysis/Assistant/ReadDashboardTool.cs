@@ -11,7 +11,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
     /// title, kind and rows, re-run as the dashboard page does (<see cref="IDashboardService.GetWidgetDataAsync"/>), as text
     /// for the model, and a link card to the dashboard. Only a dashboard the reader owns: one shared with them holds
     /// someone else's titles and data, words the model would read as if they were the reader's, so it is left to the page.
-    /// A read: nothing changes, no usage is charged (the widgets' queries are the page's own, run without an LLM).
+    /// A read: nothing changes, no usage is charged (the widgets' queries are the page's own, run without an LLM). Its rows
+    /// come from the reader's data sources, which can hold other people's words (tickets, reviews), so it is
+    /// <see cref="AiToolDescriptor.OutsideText"/>: Studio AI's tools are broader than the data page's.
     /// </summary>
     public sealed class ReadDashboardTool(IDashboardService dashboards) : ISiteTool
     {
@@ -22,6 +24,12 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
 
         /// <summary>The most rows of a chart the model is told.</summary>
         internal const int MaxRowsPerWidget = 40;
+
+        /// <summary>
+        /// How long the charts are read for, within a tool call's 30s: a chart not done by then, and those after it, are
+        /// reported as not read, so a slow source loses the rest, not what was read.
+        /// </summary>
+        internal TimeSpan ReadBudget { get; init; } = TimeSpan.FromSeconds(20);
 
         public static readonly AiToolDescriptor Definition = new(
             Name,
@@ -38,7 +46,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                 },
                 required = new[] { "dashboard" },
             }),
-            ToolEffect.Read);
+            ToolEffect.Read,
+            OutsideText: true);
 
         public AiToolDescriptor Descriptor => Definition;
 
@@ -70,11 +79,25 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
             var widgets = dashboard.Widgets;
             text.AppendLine($"Dashboard「{dashboard.Name}」，共 {widgets.Count} 張圖（依頁面上由上而下的順序）。數字是現在用最新資料重算的結果：");
             if (widgets.Count == 0) text.AppendLine("（還沒有任何圖。可以在資料分析頁請 AI 畫圖後存進來。）");
+            using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            budget.CancelAfter(ReadBudget);
+            var read = 0;
             foreach (var widget in widgets.Take(MaxWidgets))
             {
+                if (budget.IsCancellationRequested) break;
                 text.AppendLine();
                 text.AppendLine($"## {(string.IsNullOrWhiteSpace(widget.Title) ? "未命名的圖" : widget.Title)}（{widget.VizType}）");
-                var data = await dashboards.GetWidgetDataAsync(id, widget.Id, ct);
+                read++;
+                ServiceResult<WidgetDataDto> data;
+                try
+                {
+                    data = await dashboards.GetWidgetDataAsync(id, widget.Id, budget.Token);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    text.AppendLine("這張圖的資料讀太久，沒有讀完。");
+                    break;
+                }
                 if (!data.IsSuccess)
                 {
                     text.AppendLine("這張圖的資料現在讀不到。");
@@ -86,8 +109,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                     : $"共 {rows.Count} 列：");
                 text.AppendLine(AiJson.Serialize(rows.Take(MaxRowsPerWidget).ToList()));
             }
-            if (widgets.Count > MaxWidgets)
-                text.AppendLine().AppendLine($"…另有 {widgets.Count - MaxWidgets} 張圖沒有讀取，請使用者直接打開 dashboard 看。");
+            if (widgets.Count > read)
+                text.AppendLine().AppendLine($"…另有 {widgets.Count - read} 張圖沒有讀取，請使用者直接打開 dashboard 看。");
 
             return new AiToolResult(text.ToString().TrimEnd(), Card: new
             {

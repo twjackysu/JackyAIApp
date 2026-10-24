@@ -77,6 +77,9 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
             if (string.IsNullOrEmpty(name)) return null;
             var chart = Text(input, "chartId") is { } id ? charts.Recall(context, id) : null;
             var title = Text(input, "title")?.Trim() is { Length: > 0 } t ? t : chart?.Title ?? "這張圖";
+            // The model writes the names: each is cut, so what the reader is asked about ("存好後打開") always shows.
+            title = Short(title);
+            name = Short(name);
             return Flag(input, "open")
                 ? $"把「{title}」存到 dashboard「{name}」，存好後打開它"
                 : $"把「{title}」存到 dashboard「{name}」";
@@ -127,6 +130,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                 },
                 Navigate: Flag(input, "open") ? href : null);
         }
+
+        private static string Short(string text) => text.Length > 40 ? text[..39] + "…" : text;
 
         private static bool Flag(JsonElement input, string name) =>
             input.ValueKind == JsonValueKind.Object && input.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
