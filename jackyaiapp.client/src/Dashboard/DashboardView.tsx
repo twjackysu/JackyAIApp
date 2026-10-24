@@ -1,4 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -22,6 +23,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { DashboardWidgetView } from './DashboardWidgetView';
 import { ShareDialog } from './ShareDialog';
+import { viewLayout } from './viewLayout';
 
 import type { DashboardVisibility } from '@/apis/dashboardApis/types';
 
@@ -33,6 +35,7 @@ import {
   useUpdateLayoutMutation,
 } from '@/apis/dashboardApis';
 import { DataAnalysisNav } from '@/components/DataAnalysisNav';
+import { askStudio, READ_DASHBOARD_PROMPT } from '@/components/StudioAssistant/askStudio';
 import { dataAnalysisTheme } from '@/DataAnalysis/theme';
 import { GRID_COLS, GRID_ROW_HEIGHT } from '@/DataAnalysis/viz/ResizableWidget';
 
@@ -145,9 +148,10 @@ export default function DashboardView() {
     }
   };
 
+  // Read on a phone, one chart a row (viewLayout); edited, the layout as saved.
   const layout: (LayoutItem & { static?: boolean })[] = editing
     ? localLayout
-    : widgets.map((w) => ({ i: w.id, x: w.x, y: w.y, w: w.w, h: w.h, static: true }));
+    : viewLayout(widgets, width);
 
   return (
     <ThemeProvider theme={dataAnalysisTheme}>
@@ -225,6 +229,16 @@ export default function DashboardView() {
                 ) : (
                   isOwner && (
                     <>
+                      {widgets.length > 0 && (
+                        // Studio AI reads this dashboard as it is now (read_dashboard), in a conversation of its own.
+                        <Button
+                          size="small"
+                          startIcon={<AutoAwesomeIcon />}
+                          onClick={() => askStudio(READ_DASHBOARD_PROMPT, { fresh: true })}
+                        >
+                          AI 解讀
+                        </Button>
+                      )}
                       <Button
                         size="small"
                         startIcon={<ShareIcon />}

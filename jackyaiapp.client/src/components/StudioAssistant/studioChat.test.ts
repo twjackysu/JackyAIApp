@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { READ_DASHBOARD_PROMPT } from './askStudio';
 import {
   studioChatConfig,
   studioFollowUpsFor as followUpsOn,
@@ -29,6 +30,13 @@ describe('studioSuggestionsFor', () => {
     expect(studioSuggestionsFor('/english/review')[0].text).toContain('serendipity');
     expect(studioSuggestionsFor('/portfolio')[0].text).toContain('持股');
     expect(studioSuggestionsFor('/connectors')[0].text).toContain('Claude');
+    // On one dashboard: read it. Not on the list of them, where "this dashboard" is none.
+    expect(studioSuggestionsFor('/dashboards/8f3c2a10-0000-4000-8000-000000000001')[0].text).toBe(
+      READ_DASHBOARD_PROMPT,
+    );
+    expect(studioSuggestionsFor('/dashboards').map((s) => s.text)).not.toContain(
+      READ_DASHBOARD_PROMPT,
+    );
   });
 
   it('has the site’s suggestions everywhere', () => {
@@ -62,5 +70,10 @@ describe('studioFollowUpsFor', () => {
     expect(learning('/')).toEqual(['帶我去複習', '帶我去每日挑戰']);
     expect(learning('/english/review')).toEqual(['帶我去每日挑戰']);
     expect(learning('/english/daily')).toEqual(['帶我去複習']);
+  });
+
+  it('carries on from a dashboard it read', () => {
+    const rule = followUpsOn('/dashboards/x').find((r) => r.tools?.includes('read_dashboard'));
+    expect(rule?.texts.length).toBeGreaterThan(0);
   });
 });

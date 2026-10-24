@@ -1,11 +1,12 @@
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import AutoStoriesIcon from '@mui/icons-material/AutoStoriesOutlined';
+import DashboardIcon from '@mui/icons-material/DashboardOutlined';
 import EventIcon from '@mui/icons-material/EventOutlined';
 import ExploreIcon from '@mui/icons-material/ExploreOutlined';
 import ExtensionIcon from '@mui/icons-material/ExtensionOutlined';
 import PieChartIcon from '@mui/icons-material/PieChartOutlined';
 
-import { BRIEFING_PROMPT } from './askStudio';
+import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
 
 import type { AiChatConfig, AiChatSuggestion } from '@/components/aiChat/config';
 
@@ -35,6 +36,8 @@ const PORTFOLIO: AiChatSuggestion[] = [
   { text: '幫我看看我的持股，哪幾檔虧最多？', icon: PieChartIcon },
   { text: '我的資產配置現在偏重哪裡？', icon: PieChartIcon },
 ];
+/** On one dashboard (`/dashboards/{id}`), which the server's prompt names as "this dashboard". */
+const DASHBOARD: AiChatSuggestion[] = [{ text: READ_DASHBOARD_PROMPT, icon: DashboardIcon }];
 const CONNECTORS: AiChatSuggestion[] = [
   { text: '怎麼讓 Claude 或 ChatGPT 使用這個網站？', icon: ExtensionIcon },
 ];
@@ -53,7 +56,9 @@ export function studioSuggestionsFor(path: string): AiChatSuggestion[] {
       ? PORTFOLIO
       : on(path, '/connectors')
         ? CONNECTORS
-        : [];
+        : path.startsWith('/dashboards/')
+          ? DASHBOARD
+          : [];
   return [...own, ...COMMON].slice(0, 4);
 }
 
@@ -73,6 +78,10 @@ const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
     texts: ['哪一檔佔比最高？風險集中嗎？', '我的資產配置偏重哪裡？'],
   },
   { tools: ['google_calendar_events'], texts: ['明天呢？', '這週哪天比較空？'] },
+  {
+    tools: ['read_dashboard'],
+    texts: ['哪張圖的變化最大？為什麼？', '有沒有看起來不正常的數字？'],
+  },
 ];
 
 /** Studio AI's follow-ups on `path`: none that would take the reader to the page they are on. */

@@ -41,3 +41,7 @@ export function askedOf(event: Event): AskStudioDetail | null {
 /** What the morning briefing asks (the home page's card); the server's prompt says what it covers.
  *  Always in a conversation of its own. */
 export const BRIEFING_PROMPT = '給我今天的簡報';
+
+/** What a dashboard's 「AI 解讀」 asks (its owner only): the server's prompt names the dashboard on screen, and
+ *  `read_dashboard` reads it as it is now. Always in a conversation of its own. */
+export const READ_DASHBOARD_PROMPT = '幫我解讀這個 dashboard：最重要的變化與值得注意的地方';

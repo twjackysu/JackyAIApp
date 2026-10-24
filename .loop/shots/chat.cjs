@@ -101,6 +101,19 @@ const dataChartDone = [
   done,
 ];
 
+// dashboard 頁的「AI 解讀」：read_dashboard 讀正在看的 dashboard（用最新資料重算），回答兩個重點。
+const BOARD = '8f3c2a10-0000-4000-8000-000000000001';
+const dashboardRead = [
+  start,
+  { type: 'tool_use', id: 't1', name: 'read_dashboard', displayName: '讀取 dashboard' },
+  {
+    type: 'tool_result', id: 't1', name: 'read_dashboard', ok: true, durationMs: 1300,
+    card: { kind: 'link', title: '業績追蹤', href: `/dashboards/${BOARD}`, description: '2 張圖，剛用最新資料重算', actionLabel: '打開 dashboard' },
+  },
+  delta('「業績追蹤」最值得注意的兩件事：\n\n1. **北區是成長引擎**：每月營收連五個月上升（820 → 1,060，+29%），9 月已佔三區合計的 45%。\n2. **南區在下滑**：同期從 610 掉到 550（-10%），是三區裡唯一連續下降的，值得查是客戶流失還是單價問題。\n\n中區大致持平；「各地區營收佔比」的圓餅圖也反映同樣的結構——北區比重持續擴大。'),
+  done,
+];
+
 const briefing = [
   start,
   { type: 'tool_use', id: 't1', name: 'google_calendar_events', displayName: 'Google 日曆' },
@@ -159,6 +172,19 @@ async function open(browser, viewport, events) {
     if (p === '/api/dataanalysis/sources') return json({ data: [] });
     if (p.startsWith('/api/review/due')) return json({ data: { dueCount: 12 } });
     if (p.includes('dailychallenge/stats') || p.includes('DailyChallenge/stats')) return json({ data: { currentStreak: 18, todayCompleted: false, todayScore: null } });
+    if (p === `/api/dashboard/${BOARD}`) return json({ data: {
+      id: BOARD, name: '業績追蹤', visibility: 'Private', isOwner: true,
+      widgets: [
+        { id: 'w1', title: '各地區每月營收', vizType: 'line', x: 0, y: 0, w: 6, h: 8,
+          plan: { viewBy: [{ type: 'DateTrunc', fieldName: 'OrderDate', alias: '月份', granularity: 'Month' }, { type: 'Field', fieldName: 'Region', alias: '地區' }], measures: [{ fieldName: 'Amount', aggregation: 'Sum', alias: '營收' }] } },
+        { id: 'w2', title: '各地區營收佔比', vizType: 'pie', x: 6, y: 0, w: 6, h: 8,
+          plan: { viewBy: [{ type: 'Field', fieldName: 'Region', alias: '地區' }], measures: [{ fieldName: 'Amount', aggregation: 'Sum', alias: '營收' }] } },
+      ],
+    } });
+    if (p === `/api/dashboard/${BOARD}/widgets/w1/data`) return json({ data: { rows: ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09'].flatMap((m, i) => [
+      { 月份: m, 地區: '北區', 營收: 820 + i * 60 }, { 月份: m, 地區: '中區', 營收: 540 + i * 25 + (i % 2) * 40 }, { 月份: m, 地區: '南區', 營收: 610 - i * 15 },
+    ]) } });
+    if (p === `/api/dashboard/${BOARD}/widgets/w2/data`) return json({ data: { rows: [{ 地區: '北區', 營收: 4700 }, { 地區: '中區', 營收: 2850 }, { 地區: '南區', 營收: 2900 }] } });
     if (p.startsWith('/api/')) return json({ data: null });
     const file = path.join(dist, p === '/' || !path.extname(p) ? 'index.html' : p);
     if (!fs.existsSync(file)) return route.fulfill({ status: 404, body: '' });
@@ -267,6 +293,16 @@ async function ask(page, text, placeholder) {
     await page.waitForTimeout(600);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `${out}/data-analysis-followups-${name}.png` });
+    await page.close();
+
+    // dashboard 頁：擁有者看到「AI 解讀」→ Studio AI 開新對話讀這個 dashboard
+    page = await open(browser, viewport, dashboardRead);
+    await page.goto(`http://localhost:5173/dashboards/${BOARD}`);
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: `${out}/dashboard-ai-button-${name}.png` });
+    await page.getByRole('button', { name: 'AI 解讀' }).click();
+    await page.waitForTimeout(3500);
+    await page.screenshot({ path: `${out}/studio-dashboard-${name}.png` });
     await page.close();
   }
   await browser.close();
