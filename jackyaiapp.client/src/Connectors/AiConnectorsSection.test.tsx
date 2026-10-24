@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   setPermission: vi.fn(),
   dialog: vi.fn(),
+  refetch: vi.fn(),
 }));
 
 vi.mock('@/apis/connectorsApis/connectorsApis', () => ({
@@ -62,9 +63,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function render(data = catalog()) {
-  mocks.catalog.mockReturnValue({ data, isLoading: false, error: undefined });
-  act(() => root.render(<AiConnectorsSection notify={notify} />));
+function render(data = catalog(), refreshSignal = 0) {
+  mocks.catalog.mockReturnValue({
+    data,
+    isLoading: false,
+    error: undefined,
+    refetch: mocks.refetch,
+  });
+  act(() => root.render(<AiConnectorsSection notify={notify} refreshSignal={refreshSignal} />));
 }
 
 const text = () => document.body.textContent ?? '';
@@ -83,6 +89,13 @@ describe('AiConnectorsSection', () => {
     act(() => root.render(<AiConnectorsSection notify={notify} />));
     expect(text()).toContain('AI connectors 目前無法載入');
     expect(text()).toContain('帳號連線不受影響');
+  });
+
+  it('reads the catalog again when the page asks for fresh status', () => {
+    render();
+    expect(mocks.refetch).not.toHaveBeenCalled();
+    render(catalog(), 1);
+    expect(mocks.refetch).toHaveBeenCalledTimes(1);
   });
 
   it('says what to do when nothing is connected yet', () => {

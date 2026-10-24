@@ -23,8 +23,7 @@
 
 1. **掛上 Data Analysis 的 AI 對話**：`DataAnalysis/aiChatConfig.ts`（`DATA_ANALYSIS_AI_CHAT`，含 chart renderer）已就緒；在 `/data-analysis` 最上方放 `<AiAssistantLauncher config={DATA_ANALYSIS_AI_CHAT} …/>`。**等後端 data-analysis profile 完成才掛**，否則會用 Finance 的 prompt 回答。page context（目前選的資料源）怎麼帶給後端還沒定：建議 `ChatStreamingOptions` 加 `context?: Record<string, string>`（例如 `{ sourceId }`），一起寫進 design/04。
 2. **Studio AI（全站助理）前端外殼**（設計 05 §1）：右下角按鈕 + ⌘K、桌機右側抽屜／手機全螢幕，內容用 `AiAssistantPanel`（可能需要讓 panel 支援「抽屜」版面，不要複製一份）。profile `studio`，等後端 profile 再掛到 `App.tsx`。
-3. 小整理：Connectors 頁右上的重新整理只 refetch 帳號連線狀態，沒有 refetch catalog（`AiConnectorsSection` 自己的 query）；可以讓頁面傳一個 `refreshSignal` 或改用 `connectorsApi.util.invalidateTags(['ConnectorCatalog'])`（注意 `index.test.tsx` 是 mock 整個 connectorsApis 模組、沒有 redux store）。
-4. 後端 catalog 端點完成後：把 `CONNECTORS` 放回 `apps.tsx` 的 `portalDestinations`（D-011、D-020）。
+3. 後端 catalog 端點完成後：把 `CONNECTORS` 放回 `apps.tsx` 的 `portalDestinations`（D-011、D-020）。
 
 ## 4. 已經先做好的零件（直接用）
 

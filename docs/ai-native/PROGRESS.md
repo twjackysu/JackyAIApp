@@ -14,8 +14,9 @@
 - **工具結果卡片（generative UI，D-019）**：`components/aiChat/cards`（`parseToolCard` 過濾不可信內容、`TableCardView`、`LinkCardView`、`ToolCards`），`AiChatConfig.cardRenderers` 讓 app 註冊自己的 kind；`ToolStep.card` 由 `tool_result.card` 而來。截圖確認 Finance 對話裡的表格與連結卡片。
 - **Data Analysis 助理的設定**（`DataAnalysis/aiChatConfig.ts`，未掛上頁面）與 `chart` 卡片（`assistant/ChartCardView`，用頁面的 `renderViz`，有 plan 就能「加到 dashboard」）。
 - **chat 每一輪送 `profile`**（`ChatStreamingOptions.profile`）：後端還沒有這個欄位時 System.Text.Json 預設略過，不影響 Finance；`index.test.tsx` 斷言 chat body 的測試加上 `profile: 'finance'`（API 變更，非退化）。
+- Connectors 頁的重新整理（與 OAuth 成功回來）同時重讀 AI connector 目錄（`refreshSignal`）。
 - 決策 D-018～D-020。
-- 驗證：每次 push 前本機 lint、test（最後 111 檔 1242 個）、build 全過。CI 無法驗證（帳單），本輪沒有後端變更。
+- 驗證：每次 push 前本機 lint、test（最後 111 檔 1244 個）、build 全過。CI 無法驗證（帳單），本輪沒有後端變更。
 - 問題：中途 auto mode classifier 連續 6 次沒有回應（Bash 暫時不能用），改用 Write/Edit 先寫文件，之後恢復。有一個 commit（`feat(client): AI chat 的每一輪送出 profile`）push 時帶了一個 lint 警告（useCallback 依賴），下一個 commit 立刻修好。
 
 ## 2026-10-24 05:42 – 第 2 輪（M1-5、M1-7、M2 前端零件）

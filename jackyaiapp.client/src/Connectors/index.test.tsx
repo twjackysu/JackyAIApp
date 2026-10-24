@@ -38,7 +38,9 @@ vi.mock('./ConnectorCard', async () => {
 });
 
 // What the AI may use has its own tests (AiConnectorsSection.test.tsx); here it only has to be there.
-vi.mock('./AiConnectorsSection', () => ({ default: () => '[AiConnectors]' }));
+vi.mock('./AiConnectorsSection', () => ({
+  default: (p: { refreshSignal: number }) => `[AiConnectors ${p.refreshSignal}]`,
+}));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -88,7 +90,16 @@ const button = (label: string) =>
 describe('Connectors page — the account connections', () => {
   it('shows what the AI may use above the account connections', () => {
     render();
-    expect(text().indexOf('[AiConnectors]')).toBeLessThan(text().indexOf('[Card Google on]'));
+    expect(text().indexOf('[AiConnectors 0]')).toBeLessThan(text().indexOf('[Card Google on]'));
+  });
+
+  it('refreshing reads the account status and the AI part again', () => {
+    render();
+    act(() =>
+      container.querySelector<HTMLButtonElement>('button[aria-label="Refresh status"]')!.click(),
+    );
+    expect(mocks.refetch).toHaveBeenCalled();
+    expect(text()).toContain('[AiConnectors 1]');
   });
 
   it('lists one card per provider', () => {

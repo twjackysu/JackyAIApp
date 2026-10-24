@@ -1,6 +1,6 @@
 import { Add } from '@mui/icons-material';
 import { Alert, Box, Button, Stack, Typography } from '@mui/material';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import AddMcpServerDialog from './AddMcpServerDialog';
 import CatalogSection from './CatalogSection';
@@ -24,6 +24,8 @@ import CenteredSpinner from '@/components/CenteredSpinner';
 
 interface AiConnectorsSectionProps {
   notify: (message: string, severity: 'success' | 'error') => void;
+  /** Goes up each time the page asks for fresh status (its refresh button, a sign-in coming back). */
+  refreshSignal?: number;
 }
 
 const keyOf = (c: InstalledConnector) => c.id ?? c.definitionKey;
@@ -33,8 +35,14 @@ const keyOf = (c: InstalledConnector) => c.id ?? c.definitionKey;
  * and adding an MCP server of their own. The account connections below it are separate and keep
  * working when this part cannot load.
  */
-export default function AiConnectorsSection({ notify }: AiConnectorsSectionProps) {
-  const { data: catalog, isLoading, error } = useGetConnectorCatalogQuery();
+export default function AiConnectorsSection({
+  notify,
+  refreshSignal = 0,
+}: AiConnectorsSectionProps) {
+  const { data: catalog, isLoading, error, refetch } = useGetConnectorCatalogQuery();
+  useEffect(() => {
+    if (refreshSignal > 0) refetch();
+  }, [refreshSignal, refetch]);
   const [createInstallation] = useCreateInstallationMutation();
   const [authorizeInstallation] = useAuthorizeInstallationMutation();
   const [testInstallation, { isLoading: testing }] = useTestInstallationMutation();

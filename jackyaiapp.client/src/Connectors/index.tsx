@@ -29,6 +29,12 @@ const Connectors: React.FC = () => {
   const { data: connectors, isLoading, error, refetch } = useGetConnectorStatusQuery();
   const [connectProvider] = useConnectProviderMutation();
   const [disconnectProvider] = useDisconnectProviderMutation();
+  // The AI part keeps its own data; this tells it to read it again with the account status.
+  const [refreshSignal, setRefreshSignal] = React.useState(0);
+  const refreshAll = React.useCallback(() => {
+    refetch();
+    setRefreshSignal((n) => n + 1);
+  }, [refetch]);
   const [state, setState] = React.useState<State>({
     open: false,
     message: '',
@@ -56,7 +62,7 @@ const Connectors: React.FC = () => {
         message: `Successfully connected to ${provider}`,
         severity: 'success',
       });
-      refetch();
+      refreshAll();
     } else if (error && provider) {
       const errorMessages: Record<string, string> = {
         access_denied: 'Access was denied by the user',
@@ -76,7 +82,7 @@ const Connectors: React.FC = () => {
     if (success || error) {
       window.history.replaceState({}, '', '/connectors');
     }
-  }, [searchParams, refetch]);
+  }, [searchParams, refreshAll]);
 
   const handleToggle = async (
     provider: string,
@@ -122,12 +128,13 @@ const Connectors: React.FC = () => {
           </Typography>
         </Box>
         <ActionTooltip title="Refresh status">
-          <IconButton onClick={() => refetch()}>
+          <IconButton onClick={refreshAll}>
             <Refresh />
           </IconButton>
         </ActionTooltip>
       </Box>
       <AiConnectorsSection
+        refreshSignal={refreshSignal}
         notify={(message, severity) => setState({ open: true, message, severity })}
       />
       <Typography variant="h6" component="h2" gutterBottom>
