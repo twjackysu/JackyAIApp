@@ -41,7 +41,10 @@ export default function TableCardView({ card }: { card: TableCard }) {
                   <TableCell
                     key={c.key}
                     align={c.numeric ? 'right' : 'left'}
-                    sx={c.numeric ? { fontVariantNumeric: 'tabular-nums' } : undefined}
+                    sx={{
+                      ...(c.numeric && { fontVariantNumeric: 'tabular-nums' }),
+                      ...(c.nowrap && { whiteSpace: 'nowrap' }),
+                    }}
                   >
                     {show(row[c.key])}
                   </TableCell>

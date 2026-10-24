@@ -40,3 +40,8 @@
 - **D-036（2026-10-24 14:20）`save_to_dashboard` 用 ask_data 的 chartId，不重新查詢**：圖表的 plan 以短 id 暫存在記憶體（依使用者與對話分開，2 小時），模型只能存使用者看過的圖、不能自己寫 plan，也不會重複收費。重啟後 id 失效，模型會被告知先重新查一次。
 - **D-037（2026-10-24 14:20）目錄加入 Notion、Linear（OAuth）**：兩者都是 Streamable HTTP、支援 DCR 與 PKCE（官方文件）。session 連不到外網，**沒有實測**；合併後請 Jacky 在 production 試一次（FOR_JACKY 7）。
 - **D-038（2026-10-24 14:20）Portfolio 工具是唯讀、預設自動**：使用者問自己的資產時才會被呼叫；送給模型的是本站已估值的數字（不含交易明細）。想更保守的人可以在 Connectors 把它設成「需確認」或停用。
+- **D-039（2026-10-24 16:00）Google 日曆是「本站工具」型的原生 connector**（`ISiteTool`，connector 是 `site`，Connectors 頁「本站功能」下的「Google 日曆」組），不另做一種 connector 列：權限沿用現成的 site 設定，token 用既有 Google 帳號連線（scope 原本就有 `calendar.readonly`）。為了不讓行事曆邀請（別人能寫的字）繞過 taint，`AiToolDescriptor` 加 `OutsideText`：本站工具的結果含外部文字時，跟外部 connector 一樣讓這輪之後的寫入一律先問。沒連線時不是錯誤，回連結卡到 /connectors。
+- **D-040（2026-10-24 16:05）MCP step-up：403 `insufficient_scope` → 把 scope 併進登入、標 NeedsAuth、保留 token**（其他工具照用），重新授權時一起要；scope token 只收 RFC 6749 NQCHAR、合計最多 1000 字。SDK 的例外沒有 header，所以 `McpToolClient` 用 DelegatingHandler 記下拒絕的 `WWW-Authenticate`。
+- **D-041（2026-10-24 16:20）確認卡的「以後直接執行」只給本站工具的寫入、而且這段對話沒讀過外部內容**：外部 connector 的工具名是每輪的 `m1__…`，要到 Connectors 頁調；無法復原的永遠要問；讀過外部內容後伺服器反正都會問。勾了且按允許才設成自動（同 `PUT tool-permissions`）。
+- **D-042（2026-10-24 16:25）rug pull 防護只把「使用者明確設成自動」的工具改回需確認**：重新列工具時標題、說明、schema（以 JSON 重寫比較）或效果變了才算。預設自動的讀取不動（讀取的結果本來就會 taint 這輪，寫入一律先問），避免伺服器一更新說明就打擾使用者。
+- **D-043（2026-10-24 16:10）MCP OAuth 回呼帶 `kind=mcp`**：/connectors 對 AI connector 用中文說明結果與下一步；帳號連線（Google／Microsoft／Atlassian）的英文訊息不變（頁面既有測試鎖住）。

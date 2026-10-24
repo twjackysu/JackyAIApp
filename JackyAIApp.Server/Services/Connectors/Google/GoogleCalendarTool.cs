@@ -112,7 +112,7 @@ namespace JackyAIApp.Server.Services.Connectors.Google
             title = $"Google 日曆・{range.Label}",
             columns = new object[]
             {
-                new { key = "when", label = "時間" },
+                new { key = "when", label = "時間", nowrap = true },
                 new { key = "title", label = "行程" },
                 new { key = "location", label = "地點" },
             },

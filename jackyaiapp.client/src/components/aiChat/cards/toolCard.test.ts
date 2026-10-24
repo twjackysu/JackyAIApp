@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CARD_LIMITS, parseToolCard, safeHref } from './toolCard';
+import { CARD_LIMITS, parseToolCard, safeHref, type TableCard } from './toolCard';
 
 describe('parseToolCard: a table', () => {
   const raw = {
@@ -31,6 +31,20 @@ describe('parseToolCard: a table', () => {
       ],
       totalRows: 40,
     });
+  });
+
+  it('keeps a column that should not wrap, and only a true one', () => {
+    const card = parseToolCard({
+      ...raw,
+      columns: [
+        { key: 'region', label: '地區', nowrap: true },
+        { key: 'revenue', label: '營收', nowrap: 'yes' },
+      ],
+    });
+    expect((card as TableCard).columns).toEqual([
+      { key: 'region', label: '地區', numeric: false, nowrap: true },
+      { key: 'revenue', label: '營收', numeric: false },
+    ]);
   });
 
   it('turns anything but text and numbers into an empty cell', () => {

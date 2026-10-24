@@ -10,3 +10,4 @@
 5. **Connectors 重新放回首頁 portal**（D-011／D-020）：原本因 Google 帳號連線的 scope 問題隱藏，帳號連線那一塊沒有改。不想顯示的話把 `apps.tsx` 的 `portalDestinations` 拿掉 `CONNECTORS`。
 6. **Studio AI 會呼叫你的 Anthropic key**（每則訊息照既有 chat 收費），字典查不到的字會由 OpenAI 產生一次（與字典頁相同）。
 7. **合併後實測 Notion／Linear 的 OAuth 一鍵授權**（D-037）：開發環境連不到它們，流程只用假的授權伺服器測過。失敗時 /connectors 的 connector 會顯示原因（OAuth 錯誤碼），請把畫面上的訊息記下來。
+8. **Google 日曆（Studio AI 的 `google_calendar_events`）用的是既有 Google 帳號連線**，scope 原本就有 `calendar.readonly`，不用改設定。合併後請用自己的帳號在 /connectors 連一次 Google，再問 Studio「我今天有什麼行程？」確認 production 的 Google OAuth app 真的有日曆權限（若 Google 回 403，工具會請使用者重新連線；那就要到 Google Cloud Console 確認 OAuth consent screen 的 scope 與 Calendar API 已啟用）。

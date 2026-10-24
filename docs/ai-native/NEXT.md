@@ -1,6 +1,6 @@
 # NEXT — 下一輪從最上面開始
 
-> 設計已定稿（PLAN.md）。M1、M2 完成；M3 大致完成（Studio AI、本站工具、MCP OAuth、Notion／Linear 目錄）。接下來是 M4（擴充與貢獻）與打磨；11/4 起功能凍結。
+> 設計已定稿（PLAN.md）。M1–M3 完成；M4 必要項目完成（第 7 輪：TestKit、Google 日曆、step-up、確認卡「以後直接執行」、rug pull 防護）。接下來是 M4 延伸與打磨；11/4 起功能凍結。
 
 ## 0. 每輪固定動作
 
@@ -11,20 +11,27 @@
 
 ## 1. CI 狀態
 
-- 第 6 輪最後一次含程式碼的 push 是「確認卡顯示工具自己的說明」（見 PROGRESS 第 6 輪的 run id）。開工時照 §0 看最新一次。
+- 第 7 輪最後一次含程式碼的 push 是「防 rug pull」（見 PROGRESS 第 7 輪的 run id）。開工時照 §0 看最新一次。
 
 ## 2. 下一步（依序）
 
-1. **M4：TestKit 與貢獻樣板**（design/07）：把測試裡重複的假 MCP server（`McpToolClientTests.FakeMcpServer`）與假網站（`McpOAuthDiscoveryTests.FakeWeb`）整理成 `TestHelpers/FakeMcpServer`、`TestHelpers/FakeAuthorizationServer`（一個 handler 同時扮 MCP server 401 + PRM + AS + token 端點），寫一個「完整 OAuth 流程」的整合測試（probe → create → authorize → callback → 列工具 → refresh），並在 CONTRIBUTING-CONNECTORS 提到它。
-2. **Google Calendar 原生範例（M4）**：沿用既有 Google 帳號連線（`ConnectorService` 的 token），做一個 `ISiteTool` 型的原生 connector（列出今天／這週行程，唯讀）。先確認既有 Google 連線的 scope 是否含 Calendar（`appsettings.json` 的 `Connectors:Providers:Google:Scopes`）；不含的話只做框架與假實作，FOR_JACKY 註記要加 scope。
-3. **403 step-up**（MCP 授權，可選）：工具呼叫回 403 `insufficient_scope` 時把 `scope` 併進 grant 並標 NeedsAuth，重新授權時帶新 scope。需要從 `McpToolClient` 拿到 `WWW-Authenticate`（SDK 的例外沒有 header：可能要在 `IMcpHttpHandlerSource` 包一層 DelegatingHandler 記下最後一個 401/403 的 header）。
-4. **打磨**：Studio 在 /data-analysis 以外問資料問題時的引導；`ConnectorDetailDrawer` 的「測試連線」用 playwright 走一次；/connectors 的 OAuth 回呼訊息（現在是既有的英文訊息）考慮對 AI connector 顯示中文。
-5. **SHOWCASE 定稿**（11/4–11/5）：補 Data Analysis 存 dashboard 的確認卡截圖、手機截圖、最終統計（輪數、commit 數）。
+M4 的必要項目都完成了（TestKit、Google 日曆原生範例、CONTRIBUTING、CLAUDE.md），403 step-up 也做了。剩下的是 M4 延伸（挑最驚艷的一個做深）與打磨；11/4 起功能凍結。
+
+1. **本站對外的 MCP server（M4 延伸，建議先做）**：讓 Claude Desktop／Cursor／ChatGPT 直接用 Jacky Studio 的工具（`ISiteTool` 全部：查字典、加單字、學習進度、投資組合、Google 日曆）——「網站本身就是 MCP server」。
+   - 先研究：`ModelContextProtocol.AspNetCore`（官方 SDK 的 server 端，版本要跟 csproj 裡的 `ModelContextProtocol.Core` 一致；本機不能 restore，加套件後靠 CI 驗證，cscheck 抓不到它的型別）。不能用就自己寫最小 Streamable HTTP server（`initialize`、`tools/list`、`tools/call`，JSON 回應、無 session）。
+   - 認證：個人存取 token（PAT，使用者在 /connectors 產生、只顯示一次、存 SHA-256 雜湊；新表要手寫 migration＋Designer＋snapshot），`Authorization: Bearer`。之後再考慮 OAuth（要自己當授權伺服器，太大）。
+   - 安全：寫入型工具在外部 client 上沒有本站的確認卡 → **只開放讀取型工具**，或寫入要求 PAT 有 write 範圍；usage 照 `UsageCosts`；每個 PAT 可撤銷、記最後使用時間。
+   - UX：/connectors 新增一區「讓其他 AI 使用本站」：產生 token、複製設定（Claude Desktop 的 JSON、`claude mcp add` 指令）。
+2. **或：MCP Apps**（`ui://` 資源在 sandboxed iframe 顯示）：比較炫但規格新、client 端複雜（postMessage bridge、CSP）。上面那項做完還有時間再評估。
+3. **打磨**：
+   - playwright 走一次 /connectors：「本站功能」下多了「Google 日曆」組、`ConnectorDetailDrawer` 的「測試連線」、OAuth 回呼的中文訊息（`?success=true&provider=Notion&kind=mcp`）。
+   - Studio 在 /data-analysis 以外問資料問題時的引導（提示已說到 /data-analysis 問，可加 open_page 範例）。
+4. **SHOWCASE 定稿**（11/4–11/5）：補 Data Analysis 存 dashboard 的確認卡截圖、手機截圖、最終統計（輪數、commit 數）。
 
 ## 3. 已經做好的零件
 
-- 後端：`SafeHttp`、`OutboundAddressPolicy`、`McpServerUrl`、`ToolNames`、`IChatProfile`／`ChatTurnRequest`、agent loop（`ClientToolRunner`：確認、權限、taint、卡片守門）、`ChatApprovalRegistry`、`ConnectorInstallations`＋`ConnectorCatalogService`／`ConnectorInstallService`／`ConnectorToolSource`／`ConnectorSecrets`／`McpToolClient`、`BuiltInMcpConnectors`（tw-stock、DeepWiki、Notion、Linear）、**MCP OAuth**（`McpOAuthDiscovery`、`McpOAuthFlow`、`McpOAuthTokens`、`McpOAuthEndpoints`、`McpOAuthUrls`、`McpOAuthCallbackController`）、`SiteToolSet`／`ISiteTool`、`StudioChatProfile`＋`OpenPageTool`、English 的 `WordTools`／`LearningProgressTool`、Portfolio 的 `PortfolioSummaryTool`、Data Analysis 的 `AskDataTool`／`DescribeDataTool`／`SaveToDashboardTool`＋`DataAnalysisCharts`。
-- 前端：`components/aiChat`（`AiChatConfig`、`variant="sheet"`、ToolActivity、ApprovalCard、卡片）、`components/StudioAssistant`、/connectors v2（含 OAuth 路徑）、/data-analysis 的 AI 對話。
+- 後端：`SafeHttp`、`OutboundAddressPolicy`、`McpServerUrl`、`ToolNames`、`IChatProfile`／`ChatTurnRequest`、agent loop（`ClientToolRunner`：確認、權限、taint、卡片守門）、`ChatApprovalRegistry`、`ConnectorInstallations`＋`ConnectorCatalogService`／`ConnectorInstallService`／`ConnectorToolSource`／`ConnectorSecrets`／`McpToolClient`、`BuiltInMcpConnectors`（tw-stock、DeepWiki、Notion、Linear）、**MCP OAuth**（`McpOAuthDiscovery`、`McpOAuthFlow`、`McpOAuthTokens`、`McpOAuthEndpoints`、`McpOAuthUrls`、`McpOAuthCallbackController`）、`SiteToolSet`／`ISiteTool`、`StudioChatProfile`＋`OpenPageTool`、English 的 `WordTools`／`LearningProgressTool`、Portfolio 的 `PortfolioSummaryTool`、Data Analysis 的 `AskDataTool`／`DescribeDataTool`／`SaveToDashboardTool`＋`DataAnalysisCharts`、Connectors 的 `GoogleCalendarTool`（原生 connector）、`AiToolDescriptor.OutsideText`、step-up（`McpServerException.RequiredScope`）、`CachedTools.Changed`（rug pull）。測試的假網路在 `TestHelpers`：`FakeMcpServer`、`FakeAuthorizationServer`、`FakeWeb`、`TestStateService`；本站工具的一致性由 `SiteToolDefinitionsTests` 檢查。
+- 前端：`components/aiChat`（`AiChatConfig`、`variant="sheet"`、ToolActivity、ApprovalCard〔含「以後直接執行」〕、卡片）、`Connectors/callbackNotice`、`components/StudioAssistant`、/connectors v2（含 OAuth 路徑）、/data-analysis 的 AI 對話。
 
 ## 4. 之後
 

@@ -114,6 +114,8 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.False(result.IsError);
             var card = CardJson(result);
             Assert.Equal("table", card.GetProperty("kind").GetString());
+            // A time range reads wrong broken over two lines in the assistant's narrow sheet.
+            Assert.True(card.GetProperty("columns")[0].GetProperty("nowrap").GetBoolean());
             var rows = card.GetProperty("rows").EnumerateArray()
                 .Select(r => (r.GetProperty("when").GetString()!, r.GetProperty("title").GetString()!, r.GetProperty("location").GetString()!))
                 .ToList();

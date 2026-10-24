@@ -5,7 +5,7 @@
 ## 狀態
 
 - 設計：**設計定稿**（2026-10-24 04:10，經一次對抗式評審並修正；之後的調整記在 DECISIONS.md）。
-- 階段：1（開發）。M1、M2 完成；**M3 大致完成（10/24，提早）**：Studio AI（⌘K）、本站工具（字典、單字庫、學習進度、投資組合、open_page）、Data Analysis 用說的存 dashboard、**MCP OAuth**（PRM／AS metadata／DCR／CIMD／手填、PKCE、resource、iss、refresh）、目錄的 Notion／Linear。剩 403 step-up（可選）。SHOWCASE 初稿已寫。所有後端變更都由 branch CI 驗證（綠）。
+- 階段：1（開發）。M1、M2 完成；**M3 大致完成（10/24，提早）**：Studio AI（⌘K）、本站工具（字典、單字庫、學習進度、投資組合、open_page）、Data Analysis 用說的存 dashboard、**MCP OAuth**（PRM／AS metadata／DCR／CIMD／手填、PKCE、resource、iss、refresh）、目錄的 Notion／Linear。**M4 必要項目完成（10/24 第 7 輪）**：TestKit（假 MCP server／授權伺服器、完整 OAuth 整合測試、本站工具一致性測試）、Google 日曆原生 connector、403 step-up、確認卡「以後直接執行」、rug pull 防護。SHOWCASE 初稿已寫。所有後端變更都由 branch CI 驗證（綠）。
 
 ## 目標
 

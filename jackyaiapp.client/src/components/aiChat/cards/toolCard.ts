@@ -11,10 +11,18 @@ import type { ComponentType } from 'react';
 
 export type CardCell = string | number | null;
 
+export interface TableColumn {
+  key: string;
+  label: string;
+  numeric: boolean;
+  nowrap?: true;
+}
+
 export interface TableCard {
   kind: 'table';
   title: string | null;
-  columns: { key: string; label: string; numeric: boolean }[];
+  /** `nowrap`: a cell that reads wrong broken over lines (a time range). */
+  columns: TableColumn[];
   rows: Record<string, CardCell>[];
   /** The rows the tool found, when more than it sent. */
   totalRows: number | null;
@@ -77,8 +85,9 @@ function parseTable(raw: Record<string, unknown>): TableCard | null {
       key: text(c.key, 100),
       label: text(c.label, 100) ?? text(c.key, 100),
       numeric: c.numeric === true,
+      ...(c.nowrap === true ? { nowrap: true as const } : {}),
     }))
-    .filter((c): c is { key: string; label: string; numeric: boolean } => c.key !== null)
+    .filter((c): c is TableColumn => c.key !== null)
     .slice(0, CARD_LIMITS.columns);
   if (columns.length === 0) return null;
   const rows = raw.rows
