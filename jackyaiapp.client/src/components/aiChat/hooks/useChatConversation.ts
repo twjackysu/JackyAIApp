@@ -2,11 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { parseToolCard, type ToolCard } from '../cards/toolCard';
 import { Message, QueuedMessage } from '../types';
-import { ApprovalDecision, MessageApproval } from '../utils/approval';
+import {
+  alwaysAllowRequest,
+  ApprovalCall,
+  ApprovalDecision,
+  MessageApproval,
+} from '../utils/approval';
 import { applyToolEvent, settleToolSteps, ToolStep } from '../utils/toolActivity';
 
 import { chatbotApis, useLazyGetConversationMessagesQuery } from '@/apis/chatbotApis';
 import { ChatAttachment, ChatHistoryMessage } from '@/apis/chatbotApis/types';
+import { connectorsApi } from '@/apis/connectorsApis/connectorsApis';
 import { ChatStreamingOptions, stoppedContent, useChatStreaming } from '@/hooks/useChatStreaming';
 import { useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
 import { useAppDispatch } from '@/redux/hooks';
@@ -247,6 +253,13 @@ export function useChatConversation(options?: ChatStreamingOptions) {
     }
   };
 
+  /** Lets the tools of these allowed calls run without asking from now on, as the connectors page would. */
+  const allowAlways = (calls: ApprovalCall[]) => {
+    for (const call of calls) {
+      void dispatch(connectorsApi.endpoints.setToolPermission.initiate(alwaysAllowRequest(call)));
+    }
+  };
+
   const removeQueued = (key: string) => setQueued((prev) => prev.filter((q) => q.key !== key));
 
   return {
@@ -262,6 +275,7 @@ export function useChatConversation(options?: ChatStreamingOptions) {
     edit,
     removeQueued,
     decide,
+    allowAlways,
     newChat,
     selectConversation,
   };

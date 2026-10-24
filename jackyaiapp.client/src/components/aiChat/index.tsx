@@ -202,6 +202,7 @@ function AiAssistantPanel({
             busy={busy}
             onEdit={conversation.edit}
             onDecide={(pendingId, decisions) => void conversation.decide(pendingId, decisions)}
+            onAlwaysAllow={conversation.allowAlways}
           />
           <ChatInput
             value={inputValue}

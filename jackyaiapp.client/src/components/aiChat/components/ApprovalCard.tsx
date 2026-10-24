@@ -1,7 +1,15 @@
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import GppMaybeOutlinedIcon from '@mui/icons-material/GppMaybeOutlined';
-import { Box, Button, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Checkbox,
+  FormControlLabel,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useState } from 'react';
 
@@ -9,6 +17,7 @@ import {
   ApprovalCall,
   ApprovalDecision,
   ApprovalState,
+  canAlwaysAllow,
   decisionsFor,
   formatArgument,
   PendingApproval,
@@ -21,6 +30,8 @@ interface ApprovalCardProps {
   /** What was decided, once sent (shown in place of the buttons). */
   decisions?: readonly ApprovalDecision[];
   onSubmit: (decisions: ApprovalDecision[]) => void;
+  /** The calls the reader allowed and asked to let run on their own from now on (`canAlwaysAllow`). */
+  onAlwaysAllow?: (calls: ApprovalCall[]) => void;
 }
 
 const where = (call: ApprovalCall) =>
@@ -33,9 +44,23 @@ const where = (call: ApprovalCall) =>
  * would send, to allow or refuse one by one, then one 送出. A single call gets 允許 / 拒絕 straight
  * away. Once sent, the card keeps what was decided.
  */
-export default function ApprovalCard({ approval, state, decisions, onSubmit }: ApprovalCardProps) {
+export default function ApprovalCard({
+  approval,
+  state,
+  decisions,
+  onSubmit,
+  onAlwaysAllow,
+}: ApprovalCardProps) {
   const theme = useTheme();
   const [chosen, setChosen] = useState<Record<string, boolean>>({});
+  const [always, setAlways] = useState<Record<string, boolean>>({});
+  const submit = (sent: ApprovalDecision[]) => {
+    onSubmit(sent);
+    const allowed = approval.calls.filter(
+      (c) => always[c.toolUseId] && sent.some((d) => d.toolUseId === c.toolUseId && d.approve),
+    );
+    if (allowed.length > 0) onAlwaysAllow?.(allowed);
+  };
   const single = approval.calls.length === 1;
   const open = state === 'pending' || state === 'failed';
   const decided = new Map(decisions?.map((d) => [d.toolUseId, d.approve]));
@@ -120,7 +145,7 @@ export default function ApprovalCard({ approval, state, decisions, onSubmit }: A
                 size="small"
                 variant="contained"
                 startIcon={<CheckIcon />}
-                onClick={() => onSubmit(decisionsFor(approval.calls, { [call.toolUseId]: true }))}
+                onClick={() => submit(decisionsFor(approval.calls, { [call.toolUseId]: true }))}
               >
                 允許
               </Button>
@@ -129,7 +154,7 @@ export default function ApprovalCard({ approval, state, decisions, onSubmit }: A
                 variant="outlined"
                 color="inherit"
                 startIcon={<CloseIcon />}
-                onClick={() => onSubmit(decisionsFor(approval.calls, {}))}
+                onClick={() => submit(decisionsFor(approval.calls, {}))}
               >
                 拒絕
               </Button>
@@ -149,6 +174,26 @@ export default function ApprovalCard({ approval, state, decisions, onSubmit }: A
               <ToggleButton value="no">拒絕</ToggleButton>
             </ToggleButtonGroup>
           )}
+          {open && onAlwaysAllow && canAlwaysAllow(call, approval.tainted) && (
+            <FormControlLabel
+              sx={{
+                mt: 0.5,
+                ml: 0,
+                minHeight: 44,
+                '& .MuiFormControlLabel-label': { fontSize: '0.8rem' },
+              }}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={always[call.toolUseId] === true}
+                  onChange={(e) =>
+                    setAlways((prev) => ({ ...prev, [call.toolUseId]: e.target.checked }))
+                  }
+                />
+              }
+              label={`允許後，以後「${call.displayName}」直接執行（可到 Connectors 改回）`}
+            />
+          )}
         </Box>
       ))}
 
@@ -157,7 +202,7 @@ export default function ApprovalCard({ approval, state, decisions, onSubmit }: A
           size="small"
           variant="contained"
           disabled={!allChosen}
-          onClick={() => onSubmit(decisionsFor(approval.calls, chosen))}
+          onClick={() => submit(decisionsFor(approval.calls, chosen))}
           sx={{ mt: 1, minHeight: 44 }}
         >
           送出

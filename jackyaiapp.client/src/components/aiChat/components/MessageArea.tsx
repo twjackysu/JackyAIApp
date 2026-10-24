@@ -8,7 +8,7 @@ import ToolCards from '../cards/ToolCards';
 import { useAiChatConfig } from '../config';
 import { ACCENT, accentWash, hairline, revealActionsOnHover } from '../style';
 import { Message } from '../types';
-import { ApprovalDecision } from '../utils/approval';
+import { ApprovalCall, ApprovalDecision } from '../utils/approval';
 
 import ApprovalCard from './ApprovalCard';
 import AssistantMark from './AssistantMark';
@@ -41,6 +41,8 @@ interface MessageAreaProps {
   onEdit?: (message: Message, text: string) => void;
   /** The reader allowed or refused the writes an answer is waiting on. */
   onDecide?: (pendingId: string, decisions: ApprovalDecision[]) => void;
+  /** Lets the tools of these allowed calls run on their own from now on (the approval card's checkbox). */
+  onAlwaysAllow?: (calls: ApprovalCall[]) => void;
 }
 
 // 單個區塊渲染組件
@@ -151,6 +153,7 @@ function MessageArea({
   busy = false,
   onEdit,
   onDecide,
+  onAlwaysAllow,
 }: MessageAreaProps) {
   const theme = useTheme();
   // The reader's message being edited in place, by its id.
@@ -314,6 +317,7 @@ function MessageArea({
                     onSubmit={(decisions) =>
                       onDecide?.(message.approval!.request.pendingId, decisions)
                     }
+                    onAlwaysAllow={onAlwaysAllow}
                   />
                 )}
                 {!message.parsedBlocks?.length && message.content ? (

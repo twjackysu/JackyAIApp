@@ -3,6 +3,7 @@
  * §1.3): the server sends `approval_required` and holds the turn until the decisions arrive, then
  * carries on in the same stream (`approval_resolved`).
  */
+import type { ToolPermissionRequest } from '@/apis/connectorsApis/types';
 import type { ApprovalCallEvent } from '@/hooks/useChatStreaming';
 
 /** One call to decide: its connector's key ("site" for the site's own tools) and what the reader
@@ -48,3 +49,19 @@ export const decisionsFor = (
   chosen: Readonly<Record<string, boolean>>,
 ): ApprovalDecision[] =>
   calls.map((c) => ({ toolUseId: c.toolUseId, approve: chosen[c.toolUseId] === true }));
+
+/**
+ * Whether the card offers to let the call's tool run on its own from now on: a site tool's write (an outside
+ * connector's tools are set on the connectors page, and a destructive one never runs on its own), and only in a
+ * conversation that has not read outside content, where the server would ask anyway.
+ */
+export const canAlwaysAllow = (call: ApprovalCall, tainted?: boolean): boolean =>
+  call.connector === SITE_CONNECTOR && call.effect === 'write' && !tainted;
+
+/** The connectors page's request that lets the call's tool run without asking (`PUT tool-permissions`). */
+export const alwaysAllowRequest = (call: ApprovalCall): ToolPermissionRequest => ({
+  definitionKey: SITE_CONNECTOR,
+  installationId: null,
+  toolName: call.tool,
+  permission: 'auto',
+});

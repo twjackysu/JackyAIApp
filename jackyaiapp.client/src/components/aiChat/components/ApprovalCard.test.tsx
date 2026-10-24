@@ -136,4 +136,55 @@ describe('ApprovalCard', () => {
     expect(container.textContent).toContain('沒有送達，請再試一次。');
     expect(button('允許')).toBeDefined();
   });
+
+  describe('letting a site tool run on its own from now on', () => {
+    const checkbox = () => container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+
+    function renderWith(approval: PendingApproval) {
+      const onSubmit = vi.fn();
+      const onAlwaysAllow = vi.fn();
+      act(() =>
+        root.render(
+          <ApprovalCard
+            approval={approval}
+            state="pending"
+            onSubmit={onSubmit}
+            onAlwaysAllow={onAlwaysAllow}
+          />,
+        ),
+      );
+      return { onSubmit, onAlwaysAllow };
+    }
+
+    it('goes with an allowed call when ticked', () => {
+      const { onSubmit, onAlwaysAllow } = renderWith({ pendingId: 'p', calls: [call('a')] });
+      expect(container.textContent).toContain('以後「加入單字」直接執行');
+
+      click(checkbox()!);
+      click(button('允許'));
+
+      expect(onSubmit).toHaveBeenCalledWith([{ toolUseId: 'a', approve: true }]);
+      expect(onAlwaysAllow).toHaveBeenCalledWith([expect.objectContaining({ toolUseId: 'a' })]);
+    });
+
+    it('is nothing when the call is refused, or the box left alone', () => {
+      const first = renderWith({ pendingId: 'p', calls: [call('a')] });
+      click(checkbox()!);
+      click(button('拒絕'));
+      expect(first.onAlwaysAllow).not.toHaveBeenCalled();
+
+      const second = renderWith({ pendingId: 'q', calls: [call('b')] });
+      click(button('允許'));
+      expect(second.onAlwaysAllow).not.toHaveBeenCalled();
+    });
+
+    it('is not offered for a destructive call, an outside connector’s, or after outside content', () => {
+      renderWith({ pendingId: 'p', calls: [call('a', { effect: 'destructive' })] });
+      expect(checkbox()).toBeNull();
+      renderWith({ pendingId: 'q', calls: [call('b', { connector: 'inst-1' })] });
+      expect(checkbox()).toBeNull();
+      renderWith({ pendingId: 'r', calls: [call('c')], tainted: true });
+      expect(checkbox()).toBeNull();
+    });
+  });
 });
