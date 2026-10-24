@@ -28,7 +28,7 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
             new("jobs", "/jobs", "找工作", "104 與 Cake 的職缺彙整"),
             new("data-analysis", "/data-analysis", "資料分析", "查詢與彙總表格資料（SQL Server、Azure Data Explorer、上傳檔案），有自己的資料分析 AI 助理"),
             new("dashboards", "/dashboards", "Dashboards", "由資料分析結果做成的儀表板"),
-            new("connectors", "/connectors", "Connectors", "管理 AI 可以使用的工具：本站功能與使用者自己的 MCP server，以及每個工具的權限"),
+            new("connectors", "/connectors", "Connectors", "管理 AI 可以使用的工具：本站功能與使用者自己的 MCP server，以及每個工具的權限；「讓其他 AI 使用本站」可以讓 Claude、ChatGPT、Cursor 等用本站的功能"),
             new("pdf", "/pdf", "PDF 解鎖", "移除 PDF 密碼"),
             new("slideshow", "/slideshow", "資料夾幻燈片", "播放使用者選的資料夾裡的照片（只在瀏覽器裡執行）"),
         ];

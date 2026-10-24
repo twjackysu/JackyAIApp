@@ -23,6 +23,7 @@ describe('studioSuggestionsFor', () => {
   it('starts with the page’s own suggestions', () => {
     expect(studioSuggestionsFor('/english/review')[0].text).toContain('serendipity');
     expect(studioSuggestionsFor('/portfolio')[0].text).toContain('持股');
+    expect(studioSuggestionsFor('/connectors')[0].text).toContain('Claude');
   });
 
   it('has the site’s suggestions everywhere', () => {

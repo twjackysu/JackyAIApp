@@ -31,6 +31,7 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
 
             Assert.Contains("2026-10-24", setup.SystemPrompt);
             Assert.Contains("/data-analysis", setup.SystemPrompt);
+            Assert.Contains("讓其他 AI 使用本站", setup.SystemPrompt);
             Assert.False(setup.AttachTwStock);
             Assert.Equal(OpenPageTool.Name, Assert.Single(setup.Tools!).Descriptor.Name);
         }

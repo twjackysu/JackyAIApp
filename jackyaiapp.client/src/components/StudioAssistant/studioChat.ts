@@ -32,6 +32,9 @@ const PORTFOLIO: AiChatSuggestion[] = [
   { text: '幫我看看我的持股，哪幾檔虧最多？', icon: PieChartIcon },
   { text: '我的資產配置現在偏重哪裡？', icon: PieChartIcon },
 ];
+const CONNECTORS: AiChatSuggestion[] = [
+  { text: '怎麼讓 Claude 或 ChatGPT 使用這個網站？', icon: ExtensionIcon },
+];
 const COMMON: AiChatSuggestion[] = [
   { text: '這個網站可以做哪些事？', icon: ExploreIcon },
   { text: '我今天有什麼行程？', icon: EventIcon },
@@ -40,7 +43,13 @@ const COMMON: AiChatSuggestion[] = [
 
 /** Suggestions for the page the reader is on: two about it, if it has its own, then the site's. */
 export function studioSuggestionsFor(path: string): AiChatSuggestion[] {
-  const own = on(path, '/english') ? ENGLISH : on(path, '/portfolio') ? PORTFOLIO : [];
+  const own = on(path, '/english')
+    ? ENGLISH
+    : on(path, '/portfolio')
+      ? PORTFOLIO
+      : on(path, '/connectors')
+        ? CONNECTORS
+        : [];
   return [...own, ...COMMON].slice(0, 4);
 }
 
