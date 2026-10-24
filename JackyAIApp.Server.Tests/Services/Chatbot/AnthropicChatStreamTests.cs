@@ -716,6 +716,26 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task AfterOutsideText_ASiteToolNoLongerMovesTheReadersPage_OnlyItsLinkIsShown()
+        {
+            _toolProfile.Extra.Add(new RecordingTool("calendar", "Google 日曆", ToolEffect.Read, outsideText: true));
+            _toolProfile.Extra.Add(new RecordingTool("go_there", "開啟頁面", ToolEffect.Read)
+            {
+                Result = _ => new AiToolResult("好", Card: new { kind = "link", title = "複習", href = "/english/review" },
+                    Navigate: "/english/review"),
+            });
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "calendar", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_2", "go_there", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            var result = turn.Events.Where(e => Type(e) == "tool_result").Last();
+            Assert.Equal(JsonValueKind.Null, result.GetProperty("navigate").ValueKind);
+            Assert.Equal("link", result.GetProperty("card").GetProperty("kind").GetString());
+        }
+
+        [Fact]
         public async Task AConnectorsTool_NeverPutsWordsOfItsOwnOnTheCard()
         {
             _toolProfile.Extra.Add(new RecordingTool("m1__create", "Notion・建立", ToolEffect.Write, connector: "inst-1")

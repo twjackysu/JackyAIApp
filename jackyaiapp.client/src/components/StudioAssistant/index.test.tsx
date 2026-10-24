@@ -180,6 +180,33 @@ describe('StudioAssistant', () => {
     expect(mocks.panel!.active).toBe(true);
   });
 
+  it('goes to a page with an assistant of its own only once the answer is done', async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+
+    await act(async () => mocks.panel!.onNavigate!('/finance'));
+    await settle();
+    expect(router.pathname).toBe('/');
+
+    await act(async () => mocks.panel!.onActivityChange!({ busy: false, hasConversation: true }));
+    await settle();
+    expect(router.pathname).toBe('/finance');
+  });
+
+  it('on a phone, a drawer the reader closed meanwhile is not closed for them later', async () => {
+    mocks.narrow = true;
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+    await act(async () => mocks.panel!.onNavigate!('/english/review'));
+    await act(async () => mocks.panel!.onCollapse());
+    await settle();
+    await act(async () => button()!.click());
+    await act(async () => mocks.panel!.onActivityChange!({ busy: false, hasConversation: true }));
+    expect(mocks.panel!.active).toBe(true);
+  });
+
   it('drops a message once the panel has sent it, so it is never sent twice', async () => {
     await render('/');
     await act(async () => askStudio('給我今天的簡報'));

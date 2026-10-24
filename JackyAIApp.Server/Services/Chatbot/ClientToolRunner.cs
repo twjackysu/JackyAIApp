@@ -168,10 +168,11 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         /// <summary>
         /// Where the reader's page goes now: only a site tool's own (a connector's tool never moves the reader's page),
-        /// only a plain path on this site, and nothing after a failure.
+        /// only a plain path on this site, nothing after a failure, and nothing once the conversation has read outside
+        /// text (<see cref="Tainted"/>), which could have asked for it: then the link card is all, and the reader decides.
         /// </summary>
         private string? NavigateOf(string toolName, AiToolResult result) =>
-            !result.IsError && result.Navigate is { } path && ToolCardGuard.IsSitePath(path) &&
+            !Tainted && !result.IsError && result.Navigate is { } path && ToolCardGuard.IsSitePath(path) &&
             _byName.TryGetValue(toolName, out var tool) && tool.Descriptor.Connector == AiToolDescriptor.SiteConnector
                 ? path
                 : null;

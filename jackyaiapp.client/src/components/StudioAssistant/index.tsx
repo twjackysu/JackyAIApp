@@ -46,20 +46,32 @@ export default function StudioAssistant() {
 
   // An answer that takes the reader to a page (open_page with go): the page changes under the drawer; on a
   // phone, where the drawer is the whole screen, it closes once the answer is done (they read what to do there
-  // first), so they see where they are. The conversation stays.
+  // first), so they see where they are. A page with an assistant of its own (/finance) has no Studio AI to read
+  // the answer in, so going there waits for the answer too. The conversation stays.
   const navigate = useNavigate();
   const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'));
-  const closeAfterAnswer = useRef(false);
+  const afterAnswer = useRef<{ close: boolean; path?: string }>({ close: false });
   const goTo = useCallback(
     (path: string) => {
-      navigate(path);
-      if (fullScreen) closeAfterAnswer.current = true;
+      if (studioShownOn(path)) navigate(path);
+      else afterAnswer.current.path = path;
+      if (fullScreen) afterAnswer.current.close = true;
     },
     [navigate, fullScreen],
   );
-  const onActivity = useCallback(({ busy }: AssistantActivity) => {
-    if (busy || !closeAfterAnswer.current) return;
-    closeAfterAnswer.current = false;
+  const onActivity = useCallback(
+    ({ busy }: AssistantActivity) => {
+      if (busy) return;
+      const { close, path } = afterAnswer.current;
+      afterAnswer.current = { close: false };
+      if (close) setOpen(false);
+      if (path) navigate(path);
+    },
+    [navigate],
+  );
+  // Closed by hand meanwhile: the reader has taken over, nothing closes it for them later.
+  const closeByHand = useCallback(() => {
+    afterAnswer.current.close = false;
     setOpen(false);
   }, []);
 
@@ -125,7 +137,7 @@ export default function StudioAssistant() {
       <Drawer
         anchor="right"
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={closeByHand}
         keepMounted={opened}
         slotProps={{ paper: { sx: { width: { xs: '100%', sm: 480 }, maxWidth: '100%' } } }}
       >
@@ -141,7 +153,7 @@ export default function StudioAssistant() {
                 onNavigate={goTo}
                 onActivityChange={onActivity}
                 onInputChange={setDraft}
-                onCollapse={() => setOpen(false)}
+                onCollapse={closeByHand}
               />
             </Suspense>
           </Box>
