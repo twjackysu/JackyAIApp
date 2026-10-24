@@ -59,10 +59,14 @@ export default function SiteMcpSection({ notify }: SiteMcpSectionProps) {
         </Typography>
         <Chip size="small" label="MCP server" color="primary" variant="outlined" />
       </Stack>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        支援 MCP 的 AI 可以用你的身分使用本站的工具：查字典、加單字、學習進度、投資組合、Google
+        日曆，在 Claude、ChatGPT 裡還會畫出跟本站 AI
+        助理一樣的表格與卡片。它們拿得到的工具跟上面「本站功能」的權限一致，停用的不會提供。
+      </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Claude Desktop、Claude Code、Cursor、VS Code 等支援 MCP 的
-        AI，可以用你的身分使用本站的工具： 查字典、加單字、學習進度、投資組合、Google
-        日曆。它們拿得到的工具跟上面「本站功能」的權限一致，停用的不會提供。
+        Claude.ai、ChatGPT：在它們的 connector 設定貼上下面的網址，登入後在本站按同意就好。Claude
+        Code、Claude Desktop、Cursor、VS Code：產生一個 token，複製對應的設定。
       </Typography>
 
       <Typography variant="subtitle2" gutterBottom>
