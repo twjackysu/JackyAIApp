@@ -11,7 +11,9 @@
 - playwright（`dist/` + 假 API + 模擬 SSE）截圖確認 /data-analysis 的對話、圖表卡片、手機版面，存到 `docs/ai-native/screenshots/`。
 - server CLAUDE.md 的「AI assistant (chat)」與「Data analysis」補上 agent loop、profile、page context、ask_data、describe_data、卡片儲存。
 - 驗證：每個後端 commit cscheck 0 個新診斷（只剩已知雜訊）；前端 lint、test（1249）、build 全過。CI 無法驗證（帳單），所有後端測試都還沒實際跑過（NEXT 第 1 節列了清單與最可能出錯的地方）。
-- 問題：無新的阻礙；CI 停擺仍是最大風險。
+- **CI 在 10:14 左右恢復**（不知道誰處理的，FOR_JACKY 0 已劃掉）：`7e8948d`（含 agent loop、migration、profile）CI 綠；`f643aae`／`0a26878` 的 run 40055177229 只有一個測試紅——`SessionUploadLimitsTests` 單獨註冊 DataAnalysis 服務做 DI 驗證，少了 `IUsageLimitService`（`c595fe4` 補 mock）。cscheck 抓不到這類執行期 DI 問題。
+- 收尾合併 master（`5dc1160` README 精簡），merge `9c450c4`：**CI run 40055896595 綠**（server build＋全部測試、client）——本輪與上一輪所有後端變更都已由 CI 驗證。
+- 問題：停擺期間無法驗證是主要風險，已解除。
 
 ## 2026-10-24 07:41 – 第 3 輪（/connectors v2 前端）
 

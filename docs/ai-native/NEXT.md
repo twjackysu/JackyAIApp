@@ -1,26 +1,19 @@
 # NEXT — 下一輪從最上面開始
 
-> 設計已定稿（PLAN.md）。M1 大致完成；M2 垂直切片（Data Analysis 對話）後端與前端都已寫好、已掛上頁面，**但所有後端 commit 都還沒經過 CI**（GitHub Actions 帳單停擺，FOR_JACKY 0）。
+> 設計已定稿（PLAN.md）。M1 完成；M2 垂直切片（Data Analysis 對話：agent loop、ask_data／describe_data、圖表卡片、對話 profile）已掛上頁面。GitHub Actions 10:14 左右恢復，停擺期間的後端 commit 已由 CI 跑過（見第 1 節）。
 
 ## 0. 每輪固定動作
 
 - **開工時與收尾前都同步 master**：`git fetch origin master` → 有新 commit 就 `git merge origin/master`（**不用 rebase**，D-014）。
-- **先看 CI 是否恢復**：`gh run list -R twjackysu/JackyAIApp --branch feature/ai-native --limit 3`。仍是「recent account payments have failed…」就是帳單問題（D-016），不是程式碼問題。
-- **後端改動一律先跑離線型別檢查**（D-021）：`sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0`（約 1 分鐘），然後 `CSCHECK_OUT=/tmp/cscheck .loop/cscheck/run.sh`（約 1 分鐘；第一次會 clone Anthropic SDK、xunit、Moq、EF Core 原始碼）。輸出只列「比 master 新增的診斷」；`*.Designer.cs` 的 `CS0616/CS0653/CS1503` 與 EF 擴充方法（`AsNoTracking` 等）的 `CS1061` 是已知雜訊；「找不到的名稱」若只有第三方型別（DataAnalysisLibrary、AggregationType、Betalgo…）也是雜訊。其他任何一行都要修好才 push。
+- **先看 CI**：`gh run list -R twjackysu/JackyAIApp --branch feature/ai-native --limit 3`；紅的先修（annotation 看法見排程指示）。若又出現「recent account payments have failed…」就是帳單問題（D-016），不是程式碼問題。
+- **後端改動建議先跑離線型別檢查**（D-021，CI 一輪 3～5 分鐘，cscheck 1 分鐘、可在等 CI 時先抓錯）：`sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0`（約 1 分鐘），然後 `CSCHECK_OUT=/tmp/cscheck .loop/cscheck/run.sh`（約 1 分鐘；第一次會 clone Anthropic SDK、xunit、Moq、EF Core 原始碼）。輸出只列「比 master 新增的診斷」；`*.Designer.cs` 的 `CS0616/CS0653/CS1503` 與 EF 擴充方法（`AsNoTracking` 等）的 `CS1061` 是已知雜訊；「找不到的名稱」若只有第三方型別（DataAnalysisLibrary、AggregationType、Betalgo…）也是雜訊。其他任何一行都要修好才 push。
 - 畫面驗證：`npm run build` 後用 playwright `page.route` 從 `dist/` 回檔案、`/api/*` 回假資料（`/api/account/info` 要回 `{ data: { id, name, isAdmin, drawdownBrakeEnabled } }`），chat 的 SSE 用 `route.fulfill({ contentType: 'text/event-stream', body })` 模擬。
 
-## 1. CI 恢復後第一件事：讓這些尚未經 CI 的後端 commit 變綠
+## 1. CI 狀態
 
-依序（全部 cscheck 0 新診斷，但測試從沒跑過）：
-1. `6a75d3a` 共用 chat 引擎的 profile 抽象（M1-5）。
-2. `d1c413e` agent loop（`IAiTool`、`ClientToolRunner`、`ModelTurn` 多輪）。最可能出錯：`AnthropicChatStreamTests` 新的 6 個 agent loop 案例（SSE 事件順序、第二個請求的 messages 形狀、`is_error` 欄位名、token 加總 300/70）、`ChatProfileTests` 的 tools 序列化（client tool 沒有 `type` 欄位的假設）。
-3. `7e8948d` migration `AddChatProfileAndCards`（`ModelMatchesMigrationsTests` 會驗證手寫的 Designer／snapshot）＋ profile 檢查。
-4. `f643aae` page context（`ChatProfileContext`、`ChatRequest.Context`、`ChatbotController.PageContext`）＋ `DataAnalysisChatProfile`／`AskDataTool`（`DataAnalysisAssistantTests`、`ChatbotPageContextTests`）。也要看 `ModuleBoundariesTests`（`Services.DataAnalysis.Assistant` 用 `Services.Assistant`，表上允許）。
-5. `0a26878` `DescribeDataTool`（`IDataAnalysisQueryService`／`ISessionDataStore`；`FieldListResult.Fields` 的 `CanonicalType.ToString()` 照 NlSummarizeService 的寫法）。
-6. `d02b0ba` 卡片存進 `ChatMessages.CardsJson`、`ChatMessageDto.Cards`（`GetMessagesAsync` 改成先投影成匿名型別再補 Cards；`ChatConversationServiceTests.Messages_BringBackTheCardsAnAnswerShowed`）。
-- 紅了照 annotation 修；真的修不好用 `git revert`（不要 reset）。
+- 第 4 輪收尾時 `9c450c4` 的 CI run 40055896595 綠：停擺期間累積的後端（profile 抽象、agent loop、migration、Data Analysis 助理、卡片儲存）全部已驗證。開工時照 §0 看最新一次；紅的先修。
 
-## 2. 後端（依序；CI 停擺也可以做，但每步都要 cscheck）
+## 2. 後端（依序）
 
 1. **確認流程（human-in-the-loop，design/04 §1.3，D-004、D-023）**：`ChatApprovalRegistry`（單例，pendingId → TCS，3 分鐘逾時，20 秒 `: ping`）、`ClientToolRunner` 遇到非 Read 工具送 `approval_required { pendingId, calls: [{ toolUseId, connector, tool, displayName, effect, input }] }` 並等待、`POST api/chatbot/conversations/{id}/approvals/{pendingId}`（body `{ decisions: [{ toolUseId, approve }] }`，只接受同一使用者）、`approval_resolved`。前端 `ApprovalCard`／`useChatConversation.decide` 已就緒（看 `components/aiChat/utils/approval.ts` 的事件型別，欄位要一致）。
 2. **後端守卡片上限**（D-019：table 12 欄／200 列、連結只允許本站路徑或 https；chart 20 欄／500 列）：目前只有前端 `parseToolCard` 過濾，`AskDataTool` 自己限 500 列；MCP 工具接進來前要在 `ClientToolRunner` 統一檢查。

@@ -26,3 +26,4 @@
 - **D-022（2026-10-24 10:30）D-009 的「一個 migration」拆開**：先做 `AddChatProfileAndCards`（只新增兩個欄位），`ConnectorInstallations` 等 connector 端點時再另一個 migration。理由：CI 停擺，手寫 Designer 每錯一次就是一輪；connector 表的欄位到實作時可能還會調整。
 - **D-023（2026-10-24 10:30）確認流程完成前，`ToolEffect` 不是 Read 的工具一律不執行**：回給模型「需要使用者確認，請使用者自己到頁面操作」。避免在 human-in-the-loop 做好前就有寫入動作經由 AI 發生。
 - **D-024（2026-10-24 10:30）Data Analysis 的 page context**：每則訊息帶 `context`（`sourceId`／`tableName` 或 `sessionId`，空的 = 預設資料源），伺服器只保留 8 個短項目；`ask_data` 每次照 `NlSummarize` 收費；圖表卡片的 plan 只在非上傳檔（session）時附上，因為 session 不能變成 dashboard widget。歡迎畫面的建議改成 ask_data 真的答得出來的問題（原本的「有哪些欄位」「存成 widget」移除，後者由卡片上的按鈕做）。
+- **D-025（2026-10-24 10:55）CI 恢復後 cscheck 仍保留在 `.loop/`**：當作 push 前的快速檢查（1 分鐘 vs CI 3～5 分鐘），但以 CI 為準；它抓不到執行期問題（DI 註冊、EF 模型、測試行為）。合併前與 `.loop/` 一起刪除。
