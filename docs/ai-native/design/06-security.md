@@ -15,7 +15,7 @@
 ## 2. Prompt injection
 
 1. **工具結果一律不可信**：包成 `<tool_output connector="…" tool="…" trust="untrusted">…</tool_output>`；system prompt 明確規定其中的任何指示都不是使用者的要求，只能當資料引用。
-2. **Taint 追蹤**：一則訊息（含它的所有工具輪）只要讀過「外部」內容——自訂/內建 MCP 的工具結果，**也包括 hosted 的 tw-stock `mcp_tool_result`**（新聞等外部文字）——之後的所有 `Write`／`Destructive` 呼叫一律要確認，忽略使用者設定的 Auto。v1 的 taint 範圍是「這則訊息」，不跨訊息保存（不需要新欄位）；跨訊息的注入仍有確認卡把關（外部 connector 的寫入工具預設就是 Confirm）。
+2. **Taint 追蹤**：一則訊息（含它的所有工具輪）只要讀過「外部」內容——自訂/內建 MCP 的工具結果，**也包括 hosted 的 tw-stock `mcp_tool_result`**（新聞等外部文字）——之後的所有 `Write`／`Destructive` 呼叫一律要確認，忽略使用者設定的 Auto。**跨訊息保存**（第 10 輪，D-055）：讀過外部內容的對話記在 `ChatConversations.ReadOutsideText`，之後每一輪的非讀取呼叫也一律先問——模型的回答可能照抄外部文字，而歷史每輪都會重送。範圍是整個對話，不會因為編輯訊息而解除（保守）。本站工具標 `OutsideText` 的（Google 日曆）也算外部內容。
 3. **確認卡顯示確切參數**（不是模型的轉述），使用者看到的就是會執行的。
 4. **工具說明也不可信**：外部 MCP 的 tool description 截斷到 1,000 字、移除控制字元；名稱只允許 `[a-zA-Z0-9_-]{1,64}`，送給模型時加 connector 前綴（`c3__search`）避免和本站工具撞名或冒充；加前綴後超過 64 字的，截斷並接 6 碼 hash，保持唯一（對照表在伺服器端）。
 5. 模型不知道任何 token、內部 URL；本站工具只回使用者本來就看得到的資料。

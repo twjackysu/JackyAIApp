@@ -24,6 +24,14 @@ namespace JackyAIApp.Server.Data.Models.SQL
         [Required, MaxLength(40)]
         public string Profile { get; set; } = "finance";
 
+        /// <summary>
+        /// Whether a turn of it read outside text: an outside connector's result, or a site tool's that holds
+        /// other people's words (<c>AiToolDescriptor.ReadsOutsideText</c>). Its answers may repeat that text, and
+        /// the history is sent again every turn, so from then on every call that is not a read asks the reader
+        /// first, in this conversation's later turns as in that one (docs/ai-native/design/06 §2).
+        /// </summary>
+        public bool ReadOutsideText { get; set; }
+
         /// <summary>Auto-generated from the first user message; null until the first turn completes.</summary>
         [MaxLength(200)]
         public string? Title { get; set; }

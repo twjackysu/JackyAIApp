@@ -244,7 +244,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   offered, and a call of one that asks first runs only once the reader allows it (and once a turn has read an
   outside connector's result, or a site tool's marked `OutsideText` because it holds other people's words, a
   calendar invite's, `AiToolDescriptor.ReadsOutsideText`, every call that is not a read asks first, whatever its
-  permission; the question then says `tainted`): a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
+  permission, in that turn and every later turn of the conversation, `ChatConversations.ReadOutsideText`: its answers may
+  repeat that text and are sent again as history; the question then says `tainted`): a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
   calls: id, connector, tool, display name, effect, input, and a `summary` in words when a site tool says one,
   `IDescribesCall`, never a connector's), and the turn waits **in its own request**
   (`ChatApprovalRegistry`, a singleton in memory like `ChatTurnRegistry`; at most

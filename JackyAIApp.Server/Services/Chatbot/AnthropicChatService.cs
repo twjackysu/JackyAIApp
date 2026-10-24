@@ -113,11 +113,12 @@ namespace JackyAIApp.Server.Services.Chatbot
             await WriteStartAsync(sse, conversation.Id, userMessage.Id, turnCts.Token);
 
             var tools = setup.Tools is { Count: > 0 }
-                ? new ClientToolRunner(setup.Tools, askFirst, sse, new AiToolContext(userId, conversation.Id), approvals, _time, logger)
+                ? new ClientToolRunner(setup.Tools, askFirst, conversation.ReadOutsideText, sse, new AiToolContext(userId, conversation.Id), approvals, _time, logger)
                 : null;
             var outcome = await new ModelTurn(clientFactory.Create(apiKey), sse, usageLedger, logger, conversation.Id, tools)
                 .RunAsync(request, token => RequestFor(reupload: true, token), turnCts.Token);
             var verdict = TurnVerdict.Of(outcome);
+            if (tools?.Tainted == true) await RememberOutsideTextAsync(conversation);
             var answerId = await SaveAnswerAsync(conversation, message, verdict.Saved, outcome.Cards);
             await ReportTurnAsync(userId, profile, conversation.Id, outcome, verdict);
             await EndStreamAsync(sse, conversation.Id, verdict, answerId, ct);
@@ -199,6 +200,19 @@ namespace JackyAIApp.Server.Services.Chatbot
             {
                 // Stopped already: the request after this sees it straight away.
             }
+        }
+
+        /// <summary>
+        /// Marks the conversation as having read outside text (<see cref="SQL.ChatConversation.ReadOutsideText"/>),
+        /// so its later turns' writes ask first too. Whether or not an answer is kept: a stopped turn's text
+        /// so far is, and the model may already have taken the outside text's words as its own.
+        /// </summary>
+        private async Task RememberOutsideTextAsync(SQL.ChatConversation conversation)
+        {
+            if (conversation.ReadOutsideText) return;
+            conversation.ReadOutsideText = true;
+            // Not the request's token, as for the answer.
+            await db.SaveChangesAsync(CancellationToken.None);
         }
 
         /// <summary>

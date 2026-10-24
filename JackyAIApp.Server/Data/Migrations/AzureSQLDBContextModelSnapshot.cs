@@ -266,6 +266,9 @@ namespace JackyAIApp.Server.Data.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
 
+                    b.Property<bool>("ReadOutsideText")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Title")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");

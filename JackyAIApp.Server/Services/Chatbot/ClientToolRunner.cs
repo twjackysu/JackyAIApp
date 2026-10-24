@@ -58,10 +58,13 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         /// <param name="askFirst">The tools whose calls wait for the reader (their permission, see
         /// <see cref="ToolPermissions"/>).</param>
+        /// <param name="tainted">Whether an earlier turn of the conversation read outside text already
+        /// (<c>ChatConversation.ReadOutsideText</c>): its answers, sent again as history, may repeat it.</param>
         public ClientToolRunner(
-            IReadOnlyList<IAiTool> tools, IReadOnlySet<string> askFirst, SseStream sse, AiToolContext context,
+            IReadOnlyList<IAiTool> tools, IReadOnlySet<string> askFirst, bool tainted, SseStream sse, AiToolContext context,
             ChatApprovalRegistry approvals, TimeProvider time, ILogger logger)
         {
+            Tainted = tainted;
             _byName = tools.ToDictionary(t => t.Descriptor.Name, StringComparer.Ordinal);
             _askFirst = askFirst;
             _sse = sse;
@@ -72,8 +75,9 @@ namespace JackyAIApp.Server.Services.Chatbot
         }
 
         /// <summary>
-        /// Whether the turn has read anything from an outside connector. Once it has, every call that is not
-        /// a read waits for the reader, whatever its permission says.
+        /// Whether the conversation has read outside text: in this turn (an outside connector's result, or a
+        /// site tool's marked <see cref="AiToolDescriptor.ReadsOutsideText"/>) or an earlier one. Once it has,
+        /// every call that is not a read waits for the reader, whatever its permission says.
         /// </summary>
         public bool Tainted { get; private set; }
 

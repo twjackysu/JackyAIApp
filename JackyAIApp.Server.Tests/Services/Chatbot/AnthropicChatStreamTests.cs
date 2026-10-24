@@ -752,6 +752,51 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task AConversationThatReadOutsideText_RemembersIt_AndItsLaterTurnsWritesAreAskedToo()
+        {
+            // The first turn's answer may repeat the invite's words, and it is sent again as history.
+            _toolProfile.Extra.Add(new RecordingTool("calendar", "Google 日曆", ToolEffect.Read, outsideText: true));
+            _permissions.Site["save_word"] = ToolPermission.Auto;
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "calendar", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("你今天有兩個會議。"), Sse.End("end_turn"));
+            var first = await AskAsync("我今天有什麼行程？", profile: ToolProfile.ProfileKey);
+            var conversationId = first.Result.ConversationId;
+            Assert.True(_db.ChatConversations.AsNoTracking().Single(c => c.Id == conversationId).ReadOutsideText);
+            Assert.DoesNotContain(first.Events, e => Type(e) == "approval_required");
+
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_2", "save_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+            var body = new RecordingBody();
+            var turn = AskAsync("照會議說的，把 serendipity 加進單字庫", conversationId, profile: ToolProfile.ProfileKey, body: body);
+            var (askedIn, pendingId, asked) = await AskedAsync(body);
+            Assert.Equal(conversationId, askedIn);
+            Assert.True(asked.GetProperty("tainted").GetBoolean());
+            Assert.Empty(_toolProfile.Save.Calls);
+            Assert.True(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_2", true)]));
+            await turn;
+
+            Assert.Single(_toolProfile.Save.Calls);
+        }
+
+        [Fact]
+        public async Task AConversationThatReadOnlyTheSitesOwnData_LetsALaterAutoWriteRunOnItsOwn()
+        {
+            _permissions.Site["save_word"] = ToolPermission.Auto;
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "lookup_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("serendipity 是意外的幸運。"), Sse.End("end_turn"));
+            var first = await AskAsync("serendipity 是什麼？", profile: ToolProfile.ProfileKey);
+            var conversationId = first.Result.ConversationId;
+            Assert.False(_db.ChatConversations.AsNoTracking().Single(c => c.Id == conversationId).ReadOutsideText);
+
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_2", "save_word", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("加好了"), Sse.End("end_turn"));
+            var second = await AskAsync("加進單字庫", conversationId, profile: ToolProfile.ProfileKey);
+
+            Assert.DoesNotContain(second.Events, e => Type(e) == "approval_required");
+            Assert.Single(_toolProfile.Save.Calls);
+        }
+
+        [Fact]
         public async Task AToolThatThrows_IsReportedToTheModelAsFailed_WithoutItsMessage()
         {
             _toolProfile.Lookup.Result = _ => throw new InvalidOperationException("connection string Server=secret");
