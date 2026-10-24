@@ -53,7 +53,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 |---|---|---|
 | Platform | `Common`, `Configuration`, `Data`, `Services` (only what is directly in it: current user, accounts, usage limits, connectors, `DrawdownBrakeAccess`), `Services.AiUsage`, `.OpenAI`, `.Prompt`, `.Speech`, `.ExternalApi` (the gateway) | — |
 | MarketData | `Services.Market` (prices, history and backfill, fundamentals/chips/macro providers, TW symbol list, MIS TAIEX quote, trading calendar, `TwStockCode`), `Services.ExternalApi.Twse` | Platform |
-| English | `Services.Dictionary`, `.Repository`, `.Exam`, `.Listening`, `.SpacedRepetition`, `.DailyChallenge`, `.WordOfTheDay`, `.SpellChecker`, `Mappers` | Platform |
+| English | `Services.Dictionary` (with `.Assistant`: its tools for Studio AI), `.Repository`, `.Exam`, `.Listening`, `.SpacedRepetition`, `.DailyChallenge`, `.WordOfTheDay`, `.SpellChecker`, `Mappers` | Connectors, Platform |
 | Connectors | `Services.Connectors` (what the AI may use: the tool contract `IAiTool`, the site's own tools as features register them, the reader's connectors and tool permissions, the hosted MCP servers, e.g. `TwStockMcp`; see docs/ai-native/design/03) | Platform |
 | Assistant | `Services.Assistant` (chat profiles, the turn's request), `Services.Chatbot` (the shared chat engine: turns, stream, history, attachments) | Connectors, Platform |
 | Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest; `Services.Finance.Assistant`: the /finance assistant's profile and market background) | Assistant, Connectors, MarketData, Platform |
@@ -260,8 +260,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - Studio AI, the assistant on every page, is the profile `studio` (`Services/Assistant/Studio`,
   `StudioChatProfile`): the site's pages (`SitePages`, kept in step with the client's app registry) and the one
   the reader is on (page context `path`) in its prompt, `open_page` (`OpenPageTool`, a link card to a page, a
-  word's dictionary page included; a word that is not plain letters is dropped) and the reader's connectors'
-  tools. No tw-stock: /finance has its own assistant for the market
+  word's dictionary page included; a word that is not plain letters is dropped), every `ISiteTool` a feature
+  registers (English's `look_up_word` and `add_word_to_repository`, a write, so asked first:
+  `Services/Dictionary/Assistant/WordTools.cs`) and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,

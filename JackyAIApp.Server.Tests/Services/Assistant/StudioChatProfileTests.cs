@@ -11,13 +11,14 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
     {
         private static readonly DateOnly Today = new(2026, 10, 24);
         private readonly List<IAiTool> _connectorTools = [];
+        private readonly List<ISiteTool> _siteTools = [];
 
         private async Task<ChatProfileSetup> SetupAsync(string? path = null)
         {
             var connectors = new Mock<IConnectorToolSource>();
             connectors.Setup(c => c.ForUserAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(() => _connectorTools.ToList());
             var page = path == null ? new Dictionary<string, string>() : new Dictionary<string, string> { [StudioChatProfile.PathKey] = path };
-            return await new StudioChatProfile(connectors.Object).SetupAsync(new ChatProfileContext("u1", Today, page), default);
+            return await new StudioChatProfile(_siteTools, connectors.Object).SetupAsync(new ChatProfileContext("u1", Today, page), default);
         }
 
         private static ChatProfileContext At(string path) =>
@@ -52,6 +53,19 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             var setup = await SetupAsync("/english/repository");
 
             Assert.Contains("使用者現在在「我的單字庫」", setup.SystemPrompt);
+        }
+
+        [Fact]
+        public async Task TheFeaturesTools_ComeAfterOpenPage()
+        {
+            var lookUp = new Mock<ISiteTool>();
+            lookUp.Setup(t => t.Descriptor).Returns(new AiToolDescriptor("look_up_word", "查字典", "說明",
+                JsonSerializer.SerializeToElement(new { type = "object" }), ToolEffect.Read));
+            _siteTools.Add(lookUp.Object);
+
+            var setup = await SetupAsync();
+
+            Assert.Equal(new[] { OpenPageTool.Name, "look_up_word" }, setup.Tools!.Select(t => t.Descriptor.Name));
         }
 
         [Fact]

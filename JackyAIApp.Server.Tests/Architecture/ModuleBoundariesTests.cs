@@ -71,7 +71,7 @@ namespace JackyAIApp.Server.Tests.Architecture
         {
             ["Platform"] = [],
             ["MarketData"] = ["Platform"],
-            ["English"] = ["Platform"],
+            ["English"] = ["Connectors", "Platform"],
             ["Connectors"] = ["Platform"],
             ["Assistant"] = ["Connectors", "Platform"],
             ["Finance"] = ["Assistant", "Connectors", "MarketData", "Platform"],

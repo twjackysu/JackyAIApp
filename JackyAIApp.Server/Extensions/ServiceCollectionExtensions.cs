@@ -10,6 +10,7 @@ using JackyAIApp.Server.Services.Assistant.Studio;
 using JackyAIApp.Server.Services.Chatbot;
 using JackyAIApp.Server.Services.DailyChallenge;
 using JackyAIApp.Server.Services.Dictionary;
+using JackyAIApp.Server.Services.Dictionary.Assistant;
 using JackyAIApp.Server.Services.Exam;
 using JackyAIApp.Server.Services.Exam.Generators;
 using JackyAIApp.Server.Services.Job;
@@ -115,6 +116,10 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<IExamSpeech, ExamSpeech>();
 
             services.AddScoped<IRepositoryService, RepositoryService>();
+            // The English app's tools for Studio AI (the site's own tools, docs/ai-native/design/03).
+            services.AddScoped<ISiteTool, LookUpWordTool>();
+            services.AddScoped<ISiteTool, AddWordToRepositoryTool>();
+            services.AddSingleton(new SiteToolSet("英文學習", [LookUpWordTool.Definition, AddWordToRepositoryTool.Definition]));
             services.AddScoped<IWordOfTheDayService, WordOfTheDayService>();
 
             // Shared SM-2 scheduling (Review flow + exam-result feedback)

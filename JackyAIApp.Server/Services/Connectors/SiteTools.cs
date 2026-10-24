@@ -9,6 +9,13 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <param name="Group">What the reader calls the feature they belong to ("資料分析").</param>
     public sealed record SiteToolSet(string Group, IReadOnlyList<AiToolDescriptor> Tools);
 
+    /// <summary>
+    /// One of the site's own tools that needs nothing of the page it is asked from (a word lookup, adding
+    /// a word): a feature registers it (<c>services.AddScoped&lt;ISiteTool, …&gt;()</c>, and lists it in a
+    /// <see cref="SiteToolSet"/>), and an assistant that offers the site's tools, Studio AI, gets them all.
+    /// </summary>
+    public interface ISiteTool : IAiTool;
+
     /// <summary>The connector the site's own tools belong to: always there, nothing to sign in to.</summary>
     public static class SiteConnector
     {
