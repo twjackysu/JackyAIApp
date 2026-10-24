@@ -1,5 +1,18 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-24 23:42 – 第 11 輪（今日簡報開新對話、接著問、圖表卡片換圖、「帶我去」、審查）
+
+- 開工：master 的新 commit 已在 branch 裡；上一輪最後的 CI 綠。
+- **今日簡報開新對話**（D-061）：`askStudio(text, { fresh })` → 面板 `ask.fresh` → `useChatConversation.send(…, { fresh: true })`（`conversationId: ''`、清掉畫面上的舊對話；回答中時照樣排隊，輪到才開新對話）。測試：開新對話且之後接著新的、排隊中的 fresh。
+- **接著問**（D-062）：`utils/followUps`（依回答用到的工具，最多 3 個、不重複、不含剛問的）、`FollowUps`、`Message.answered`；Studio、Data Analysis、Finance 各自的規則（Studio 不會在複習頁提議「帶我去複習」，`studioFollowUpsFor`）。按下直接送出。
+- **圖表卡片換圖**（D-063）：`ChartCardView` 列出資料適用的圖（`matcher.evaluate`），換圖不問 AI；「加到 dashboard」存畫面上的那種。
+- **「帶我去」**（D-064）：`open_page` 的 `go` → `AiToolResult.Navigate` → `tool_result.navigate`（本站工具、站內路徑、沒讀過外部內容才送）→ 前端 `sitePathOf`、`onNavigate`；Studio 換頁、手機上回答完才收起、/finance 這類頁面回答完才去。
+- **審查**（subagent，D-065）：無高風險；兩個中風險（taint 後仍會自動換頁、去 /finance 時回答串流進被關的抽屜）與一個低風險已修；dashboards 的存取沒有問題。
+- 截圖：`.loop/shots/chat.cjs` 加「帶我去」（桌機、手機收起後再打開）與 Data Analysis 換圖＋接著問；存進 `screenshots/`（`studio-go-*`、`data-analysis-followups-*`、`studio-portfolio-*` 更新）。
+- 文件：兩份 CLAUDE.md、SHOWCASE（亮點、demo 第 2 步「帶我去」、換圖與接著問、日誌）、DECISIONS D-061～D-065。
+- 驗證：前端 lint、test（125 檔 1345 個）、build 全過；CI 40109000286（簡報＋接著問）、40109618018（換圖）、40109752797（open_page go，後端第一次就綠）、40110765141（前端 navigate）、40111291190（審查修正，綠）。
+- 問題：無阻礙。
+
 ## 2026-10-24 21:42 – 第 10 輪（跨訊息 taint、AI 今日簡報、語音輸入、MCP App 按鈕、畫面巡檢）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。

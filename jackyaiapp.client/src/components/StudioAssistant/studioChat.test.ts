@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { studioChatConfig, studioShownOn, studioSuggestionsFor } from './studioChat';
+import {
+  studioChatConfig,
+  studioFollowUpsFor as followUpsOn,
+  studioShownOn,
+  studioSuggestionsFor,
+} from './studioChat';
 
 describe('studioShownOn', () => {
   it('is shown on the pages without an assistant of their own', () => {
@@ -46,5 +51,16 @@ describe('studioChatConfig', () => {
 
   it('keeps the path short', () => {
     expect(studioChatConfig(`/${'a'.repeat(300)}`).pageContext!.path).toHaveLength(100);
+  });
+});
+
+describe('studioFollowUpsFor', () => {
+  const learning = (path: string) =>
+    followUpsOn(path).find((r) => r.tools?.includes('learning_progress'))!.texts;
+
+  it('offers to take the reader to a page, but not to the one they are on', () => {
+    expect(learning('/')).toEqual(['帶我去複習', '帶我去每日挑戰']);
+    expect(learning('/english/review')).toEqual(['帶我去每日挑戰']);
+    expect(learning('/english/daily')).toEqual(['帶我去複習']);
   });
 });
