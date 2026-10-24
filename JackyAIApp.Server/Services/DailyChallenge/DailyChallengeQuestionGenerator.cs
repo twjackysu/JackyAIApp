@@ -15,7 +15,18 @@ namespace JackyAIApp.Server.Services.DailyChallenge
             var rng = new Random(seed);
 
             var shuffled = allWords.OrderBy(_ => rng.Next()).ToList();
+            return Build(shuffled.Take(QuestionsPerChallenge).ToList(), shuffled, rng);
+        }
 
+        public List<DailyChallengeQuestion> GenerateFor(IReadOnlyList<SQL.Word> targets, IReadOnlyList<SQL.Word> pool, int seed) =>
+            Build(targets, pool, new Random(seed));
+
+        /// <summary>
+        /// One question per target, in order, its type taking turns; the wrong options come from <paramref name="pool"/>
+        /// (the target itself left out).
+        /// </summary>
+        private static List<DailyChallengeQuestion> Build(IReadOnlyList<SQL.Word> targets, IReadOnlyList<SQL.Word> pool, Random rng)
+        {
             var questions = new List<DailyChallengeQuestion>();
             var questionTypes = new[]
             {
@@ -26,10 +37,10 @@ namespace JackyAIApp.Server.Services.DailyChallenge
                 QuestionType.VocabularyDefinition
             };
 
-            for (int i = 0; i < QuestionsPerChallenge && i < shuffled.Count; i++)
+            for (int i = 0; i < targets.Count; i++)
             {
-                var targetWord = shuffled[i];
-                var otherWords = shuffled.Where(w => w.Id != targetWord.Id).ToList();
+                var targetWord = targets[i];
+                var otherWords = pool.Where(w => w.Id != targetWord.Id).ToList();
                 var type = questionTypes[i % questionTypes.Length];
 
                 var question = type switch
