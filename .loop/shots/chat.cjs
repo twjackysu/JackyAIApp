@@ -75,10 +75,10 @@ const dataChart = [
       },
     },
   },
-  delta('北區營收連續五個月成長（820 → 1,060），南區則緩步下滑。我把這張圖存到「業績追蹤」dashboard，請確認：'),
+  delta('北區營收連續五個月成長（820 → 1,060），南區則緩步下滑。我把這張圖存到「業績追蹤」dashboard，存好就幫你打開，請確認：'),
   {
     type: 'approval_required', pendingId: 'p1', tainted: false,
-    calls: [{ toolUseId: 't2', connector: 'site', connectorName: 'Jacky Studio', tool: 'save_to_dashboard', displayName: '存到 dashboard', effect: 'write', input: { chartId: 'k3f9', dashboard: '業績追蹤' }, summary: '把「各地區每月營收」存到 dashboard「業績追蹤」（新建）' }],
+    calls: [{ toolUseId: 't2', connector: 'site', connectorName: 'Jacky Studio', tool: 'save_to_dashboard', displayName: '存到 dashboard', effect: 'write', input: { chartId: 'chart-k3f9', dashboard: '業績追蹤', open: true }, summary: '把「各地區每月營收」存到 dashboard「業績追蹤」，存好後打開它' }],
   },
 ];
 
@@ -251,7 +251,7 @@ async function ask(page, text, placeholder) {
     await page.waitForTimeout(2000);
     await page.getByPlaceholder(/問 AI 助手/).first().click(); // 一行的對話框：聚焦後展開成完整對話
     await page.waitForTimeout(800);
-    await ask(page, '畫出各地區每月營收，存到「業績追蹤」dashboard', /問你的資料/);
+    await ask(page, '畫出各地區每月營收，存到「業績追蹤」dashboard，存完打開', /問你的資料/);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `${out}/data-analysis-save-${name}.png` });
     await page.close();

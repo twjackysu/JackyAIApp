@@ -400,7 +400,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   dashboard widget; none for an uploaded file's session). A chart with a plan is also kept for a while by a short id the
   model is told (`chartId`, `DataAnalysisCharts`, in memory per reader and conversation), so `save_to_dashboard`
   (`SaveToDashboardTool`, a write, so asked first) saves exactly the chart the reader saw to the dashboard they named
-  (one they own of that name, or a new one) without asking the data again. Which data it reads is the page context the client
+  (one they own of that name, or a new one) without asking the data again; with `open` (the reader asked to see it once
+  saved) its result also takes the page there (`AiToolResult.Navigate`, as Studio AI's `open_page` with `go`). Which data it reads is the page context the client
   sends with each message (`sourceId`/`tableName`, or `sessionId`; none = the default source), read by
   `DataAnalysisPage.From`; whether the reader may read that source is the query's own check
 - `NlQueryPlanner.BuildPlanAsync` only orchestrates. Which columns are String or date columns is

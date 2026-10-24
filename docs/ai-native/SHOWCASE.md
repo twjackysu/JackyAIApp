@@ -41,7 +41,7 @@
    回答下方的「接著問」：按「哪一檔佔比最高？風險集中嗎？」直接續問。
    接著問「我今天有什麼行程？」（需先在 /connectors 的帳號連線連上 Google）→ Google 日曆表格卡片與空檔。
    ![Studio 讀 Google 日曆](screenshots/studio-calendar-desktop.png)
-5. **資料 → 圖表 → dashboard（2 分鐘）**：/data-analysis → 最上方對話框「畫出各地區每月營收，存到『業績追蹤』dashboard」→ 圖表卡片 → 確認卡「存到 dashboard」→ 允許 → 點連結卡打開 dashboard，看到同一張圖（之後會用最新資料重畫）。
+5. **資料 → 圖表 → dashboard（2 分鐘）**：/data-analysis → 最上方對話框「畫出各地區每月營收，存到『業績追蹤』dashboard，存完打開」→ 圖表卡片 → 確認卡用一句話說明「把『各地區每月營收』存到 dashboard『業績追蹤』，存好後打開它」（chartId 這類原始參數收在「顯示送出的參數」）→ 允許 → 回答結束後頁面自己切到那個 dashboard，看到同一張圖（之後會用最新資料重畫）。沒說「打開」就只留連結卡。
    ![Data Analysis 對話](screenshots/data-analysis-chat-desktop.png)
    ![存到 dashboard 的確認卡](screenshots/data-analysis-save-desktop.png)
    圖表卡片上的圖示可以直接換成直條圖、圓餅圖…（不再問 AI）；下方的「接著問」一鍵續問。
@@ -141,5 +141,6 @@ flowchart LR
 | 10/24 | 9 | 本站 MCP server 成為 MCP App（別家 AI 裡畫出本站卡片）、OAuth 端點 rate limit、「經 OAuth 登入」標示、Studio 引導 |
 | 10/24 | 10 | taint 跨訊息保存、首頁「AI 今日簡報」（askStudio）、確認卡放在文字之後、標題列顯示工具名稱與「等你確認」、手機表格卡片、語音輸入、MCP App 卡片上的「加入單字庫」按鈕 |
 | 10/25 | 11 | 今日簡報開新對話、回答下方的「接著問」、圖表卡片直接換圖、「帶我去」（AI 直接切換頁面）、審查修正 |
+| 10/25 | 12 | Data Analysis「存完打開」（存好 dashboard 後頁面直接切過去）、確認卡只說一句話（原始參數收起來）、全站截圖巡檢 |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

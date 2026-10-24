@@ -53,7 +53,8 @@ jackyaiapp.client/src/
   that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`); the chat's
   parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools
   an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`),
-  a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`; while it waits it comes after the
+  a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`; a call the site describes in words,
+  `summary`, shows that with its raw arguments behind 「顯示送出的參數」, an outside connector's always shows them; while it waits it comes after the
   answer's text, with no thinking dots, and once answered it stays above the text as a record; the header says
   what the turn is doing, `hooks/chatStatus`, a tool by its display name and「等你確認」while it waits; for a site tool's write, outside a
   conversation that read outside content, it offers to let the tool run on its own from now on, `canAlwaysAllow`, which
@@ -77,7 +78,9 @@ jackyaiapp.client/src/
   always fresh, so it neither resends an old conversation's history nor inherits that conversation's tainted writes. A tool result's `navigate` (Studio AI's `open_page` with `go`, a path on this site only, `sitePathOf`, as it streams,
   never from a reopened conversation) moves the page under the drawer through the panel's `onNavigate`; on a phone the
   drawer then closes once the answer is done. On a page without the button only the button goes: the drawer, and the conversation in it, stay
-  mounted once opened (one of its own link cards may lead to /finance). Leaving a page that holds a chat stops
+  mounted once opened (one of its own link cards may lead to /finance). An app's own assistant (`AiAssistantLauncher`) moves the page only when
+  the page passes `onNavigate` (/data-analysis: `save_to_dashboard` asked to open what it saved), and only once the answer is
+  done, since the assistant is part of the page it would leave. Leaving a page that holds a chat stops
   its answer (`useChatStreaming` stops on unmount), and a stream that ends without `done` or `error` is a failure
 - An answer's HTML preview (`HtmlViewer`) is a `sandbox=""` iframe, never markup in the page: the answer can
   echo what a tool read (someone else's words)
