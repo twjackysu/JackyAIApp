@@ -16,7 +16,7 @@
 | **Connectors**：目錄一鍵加入 tw-stock、DeepWiki；貼任何 MCP URL 自動偵測登入方式 | MCP 官方 SDK（Streamable HTTP）、SafeHttp 防 SSRF | MCP 是 AI 接工具的標準 |
 | 需要登入的 MCP server：**自動跑完 MCP 授權規格** | 401 → PRM（RFC 9728）→ AS metadata（RFC 8414／OIDC）→ DCR／CIMD／手填 client → PKCE S256 + `resource` + `iss` → token 加密 → 到期自動 refresh → 403 `insufficient_scope` 時 step-up | 2025-11 起的 MCP 授權規格（PRM、CIMD、RFC 8707 resource、RFC 9207 iss） |
 | 每個工具「自動／需確認／停用」；確認卡可勾「以後直接執行」；讀過外部資料（含行事曆邀請）後的寫入一律先問；工具說明被改了就改回需確認 | `ToolPermissions`、taint（D-031、`OutsideText`）、工具結果包成不可信資料、`CachedTools.Changed`（rug pull） | prompt injection 與 tool poisoning 防護 |
-| **網站本身就是 MCP server**：在 /connectors 產生 token，一鍵複製 Claude Code／Claude Desktop／Cursor／VS Code 的設定，別家的 AI 就能查字典、看你的學習進度與投資組合 | `POST /api/mcp`（Streamable HTTP、JSON 回應、無 session）、只存雜湊的 PAT、預設唯讀、跟 /connectors 的權限連動 | MCP 是雙向的：網站不只是 MCP client，也是 MCP server |
+| **網站本身就是 MCP server**：在 /connectors 產生 token，一鍵複製 Claude Code／Claude Desktop／Cursor／VS Code 的設定，別家的 AI 就能查字典、看你的學習進度與投資組合 | `POST /api/mcp`（Streamable HTTP、JSON 回應、無 session）、只存雜湊的 PAT、預設唯讀、跟 /connectors 的權限連動；**Claude.ai／ChatGPT 只要貼網址**：本站同時是 OAuth 授權伺服器（PRM、AS metadata、DCR、PKCE、同意頁） | MCP 是雙向的：網站不只是 MCP client，也是 MCP server |
 | /finance 的 Stock Intelligence：**行為不變** | 同一套共用 chat（`FinanceChatRequestTests` 逐欄位鎖住） | — |
 
 ## Demo 腳本（約 8 分鐘）
@@ -38,6 +38,8 @@
    ![自己的 MCP server：偵測到 OAuth](screenshots/add-mcp-oauth-desktop.png)
 6. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；按「停止」整輪什麼都不執行。
 7. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
+   **或在 Claude.ai**：設定 → Connectors → 新增自訂 connector，只貼 `https://apps.jacky-studio.com/api/mcp` → 跳到本站的同意頁「Claude 想用你的身分使用 Jacky Studio 的工具，完成後會回到 claude.ai」→ 允許 → 回到 Claude.ai，工具出現。
+   ![其他 AI 的 OAuth 同意頁](screenshots/site-mcp-oauth-consent-desktop.png)
    ![讓其他 AI 使用本站](screenshots/site-mcp-section-desktop.png)
    ![產生 token 與設定](screenshots/site-mcp-token-desktop.png)
 8. **Stock Intelligence（30 秒）**：/finance 問一檔股票，跟以前一樣。
@@ -88,7 +90,8 @@ flowchart LR
 - [ ] **EF migration**（production 啟動時執行，只新增、不動既有資料）：`20261024100000_AddChatProfileAndCards`（`ChatConversations.Profile` 預設 finance、`ChatMessages.CardsJson`）、`20261024120000_AddConnectorInstallations`（新表）、`20261024180000_AddSiteAccessTokens`（新表）。
 - [ ] 刪除 `.github/workflows/ai-native-ci.yml`、`.loop/`。
 - [ ] 合併後會自動部署到 production（Build and deploy）。
-- [ ] **Cloudflare**：`/api/mcp` 會被非瀏覽器的 client（Claude Code、mcp-remote）呼叫；若開了 Bot Fight Mode／Super Bot Fight Mode，請替 `apps.jacky-studio.com/api/mcp` 加例外（FOR_JACKY 9）。
+- [ ] **本站 OAuth 不用新設定**：issuer 是既有 `Connectors__CallbackBaseUrl` 的 origin；client 註冊用 ASP.NET Core data protection（App Service 會保存金鑰；若重啟後 Claude.ai 說 client 無效，重新加一次 connector 即可）。
+- [ ] **Cloudflare**：`/api/mcp`、`/api/oauth/*`、`/.well-known/*` 會被非瀏覽器的 client（Claude Code、mcp-remote）呼叫；若開了 Bot Fight Mode／Super Bot Fight Mode，請替 `apps.jacky-studio.com/api/mcp` 加例外（FOR_JACKY 9）。
 - [ ] 用量：AI 對話照既有每日預算計費（每則訊息 `UsageCosts.ForChatMessage`、`ask_data` 照 問 AI）。
 
 ## 本機試跑
@@ -101,7 +104,7 @@ flowchart LR
 
 - 確認流程在同一個請求裡等待：重新整理頁面會失去待確認的問題（D-026）。
 - MCP client 只支援 Streamable HTTP（不支援舊 SSE transport，D-029）；每次請求一個 session。
-- 本站 MCP server 只收個人存取 token，沒有 OAuth：Claude.ai 網頁版、ChatGPT 的 connector 要求 OAuth，所以目前接不上；Claude Desktop 要經 `mcp-remote`（需要 Node.js）。下一步可以讓本站當 OAuth 授權伺服器（PRM + AS metadata + DCR）。
+- 本站 MCP server 的 OAuth 沒有 refresh token（90 天後重新授權），授權碼存在記憶體（重啟時正在登入的人要重來）；只用假的 client 測過，Claude.ai／ChatGPT 的實際流程要合併後實測（FOR_JACKY 9）。Claude Desktop 的設定檔方式要經 `mcp-remote`（需要 Node.js）。
 - taint 只算一輪（D-031）。
 - 延伸：MCP Apps（工具回傳互動 UI）。
 
@@ -118,6 +121,6 @@ flowchart LR
 | 10/24 | 5 | 同請求確認、connector 後端、自己的 MCP server、Studio AI |
 | 10/24 | 6 | MCP OAuth、Portfolio 工具、用說的存 dashboard、本頁初稿 |
 | 10/24 | 7 | TestKit、Google 日曆、step-up、以後直接執行、rug pull 防護 |
-| 10/24 | 8 | 本站對外的 MCP server（PAT、/connectors 的設定一鍵複製） |
+| 10/24 | 8 | 本站對外的 MCP server（PAT、/connectors 的設定一鍵複製、OAuth 授權伺服器與同意頁） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

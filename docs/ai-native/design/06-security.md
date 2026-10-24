@@ -78,4 +78,4 @@
 - **沒有確認卡**：外部 client 的模型可能被它讀到的其他內容注入；寫入由對方 client 的確認把關（Claude、Cursor 預設每次問），這也是預設唯讀的原因。我們回的工具 `annotations`（`readOnlyHint`、`destructiveHint`、`openWorldHint`）讓 client 判斷要不要問。
 - **回給外部的內容**：工具結果原樣（含 Google 日曆裡別人寫的字，標 `openWorldHint`）；例外不回內文、逾時 30 秒、最多 40k 字。
 - **成本**：工具不呼叫本站的 LLM（查字典遇到新字時的 OpenAI 產生與匿名查字典相同），所以不經 usage limit。
-
+- **OAuth（§9.1）**：只收 public client + PKCE S256；redirect URI 必須在 client 註冊時給的清單裡，否則停在本站顯示錯誤（不導回，防 open redirect）；註冊的 redirect 只能 https 或 loopback。授權碼 256 bits、5 分鐘、第一次嘗試就作廢；換 token 時驗 client、redirect、verifier、`resource`（RFC 8707）；回呼帶 `iss`（RFC 9207）。同意頁顯示 client 自稱的名稱與**實際導回的網域**（名稱可以假冒，網域不行）。寫入權限由使用者勾選。同意 POST 靠 SameSite=Lax cookie，別的網站不能代按。

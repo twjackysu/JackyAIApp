@@ -74,6 +74,10 @@ jackyaiapp.client/src/
   Below it, `SiteMcpSection` lets other AIs use the site: the site's MCP address, the reader's tokens (revoked after a
   second click) and `CreateTokenDialog`, which shows a new token once, with the settings for Claude Code, Claude
   Desktop, Cursor and VS Code filled in (`clientConfigs`); what a token's row says is `tokenView`
+- `/oauth/authorize` (`OAuthConsent`) is where another AI's OAuth sign-in to the site's MCP server asks the reader:
+  who asks, where they go back to, whether writes are allowed. Not under `RequireAuth`, which would drop the query: a
+  signed-out visitor signs in from the page and comes back with the whole request (`authorizeRequestOf` keeps only
+  OAuth's fields). Studio AI's button stays off it
 - Split without changing what renders: the component's existing tests stay as they are and must pass.
   One without tests gets them first, run against the code as it is (`Portfolio/index.test.tsx`)
 

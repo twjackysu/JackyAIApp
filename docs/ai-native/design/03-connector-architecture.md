@@ -206,9 +206,19 @@ sequenceDiagram
 反過來：讓 Claude Desktop、Claude Code、Cursor、VS Code 等「別人的 AI」用本站的工具——網站本身就是一個 MCP server。
 
 - **端點** `POST /api/mcp`（`SiteMcpController` → `ISiteMcpServer`，`Services/Connectors/SiteMcp`）：Streamable HTTP、**沒有 session**，每個 POST 一則 JSON-RPC、回 `application/json`（規格允許不用 SSE）；通知回 202。方法：`initialize`（回 client 要的協定版本 2025-11-25／06-18／03-26，否則最新的）、`ping`、`tools/list`、`tools/call`。GET／DELETE 回 405。不收 batch（2025-06-18 起規格已移除）。檢查 `Origin`（有就必須同源，防 DNS rebinding）。
-- **認證**：個人存取 token（PAT），`Authorization: Bearer jsk_…`。驗證方案 `SiteToken` **只**掛在這個端點（`[Authorize(AuthenticationSchemes = …)]`）：這裡不讀 cookie（別的網站無法借使用者的瀏覽器呼叫），其他端點也不收 token（token 不能拿來產生 token）。principal 帶跟 cookie 一樣的 `NameIdentifier`，所以 `ICurrentUser` 與所有服務照常運作。token 是 `jsk_` + 32 bytes base64url，表 `SiteAccessTokens` 只存 SHA-256；可撤銷（刪列）、30／90／365 天、每人 10 個、最後使用時間每分鐘最多寫一次。暫不做 OAuth（本站要當授權伺服器，太大；見 SHOWCASE 已知限制）。
+- **認證**：個人存取 token（PAT），`Authorization: Bearer jsk_…`。驗證方案 `SiteToken` **只**掛在這個端點（`[Authorize(AuthenticationSchemes = …)]`）：這裡不讀 cookie（別的網站無法借使用者的瀏覽器呼叫），其他端點也不收 token（token 不能拿來產生 token）。principal 帶跟 cookie 一樣的 `NameIdentifier`，所以 `ICurrentUser` 與所有服務照常運作。token 是 `jsk_` + 32 bytes base64url，表 `SiteAccessTokens` 只存 SHA-256；可撤銷（刪列）、30／90／365 天、每人 10 個、最後使用時間每分鐘最多寫一次。Claude.ai、ChatGPT 這類只用 OAuth 的 client 走 §9.1。
 - **提供哪些工具**：所有 `ISiteTool`（字典、單字庫、學習進度、投資組合、Google 日曆），扣掉使用者在 /connectors「本站功能」停用的；讀取一律提供，**寫入只給建立時勾了「允許寫入」的 token**，無法復原的永遠不給。外部 client 沒有本站的確認卡，所以寫入由對方 AI 自己的確認把關，預設 token 唯讀。不提供的工具呼叫時回「Unknown tool」（不透露存在）。工具的 `annotations` 帶 `readOnlyHint`、`destructiveHint`、`openWorldHint`（`OutsideText`）。
 - **其他**：每個工具 30 秒逾時、結果最多 40k 字、例外不回內文；每個 token 每分鐘 120 次（rate limiter `site-mcp`）；工具在本站不產生 AI 費用（對方的模型自己付），所以不經 usage limit；`AiToolContext.ConversationId` 是 `mcp:{tokenId}`。
 - **管理** `api/connectors/site-tokens`（GET 清單、POST 產生〔只回一次 token〕、DELETE 撤銷），在 /connectors 的「讓其他 AI 使用本站」：伺服器網址、token 清單、產生後一鍵複製 Claude Code 指令、Claude Desktop（經 `mcp-remote`）、Cursor、VS Code 的設定。
 - **測試**：`SiteMcpServerTests` 除了協定與工具篩選，還用官方 SDK 的 client（`McpToolClient`）端對端打這個 server。
 
+### 9.1 本站當 OAuth 授權伺服器（同一輪後半）
+
+讓「貼上網址 → 登入 → 完成」的 client（Claude.ai 自訂 connector、ChatGPT、照 MCP 授權規格的任何 client）也能用：
+
+- `GET /.well-known/oauth-protected-resource`（與 `/api/mcp` 的 path-inserted 版本）：`resource` = `{issuer}/api/mcp`、`authorization_servers` = `[issuer]`、scope `mcp:read`／`mcp:write`。`/api/mcp` 的 401 帶 `resource_metadata`。
+- `GET /.well-known/oauth-authorization-server`：authorize = `{issuer}/oauth/authorize`（前端頁面）、token、registration、只有 `code`、`authorization_code`、`none`（public client）、PKCE `S256`、`authorization_response_iss_parameter_supported`。issuer 是 `Connectors:CallbackBaseUrl` 的 origin（沒設定時用請求的 origin）。
+- **DCR 不用資料表**（`SiteOAuthClients`）：client_id 就是 `{名稱, redirect URIs}` 經 ASP.NET Core data protection 加密簽章後的字串，讀回來即可；redirect 只能 https 或 http 的 loopback。金鑰換了 client_id 就失效，client 會重新註冊。
+- **同意頁** `/oauth/authorize`（`OAuthConsent`）：未登入先用 Google 登入並帶著完整 query 回來；`GET api/oauth/consent` 檢查 client、redirect（不在註冊清單就停在本站，不導回，防 open redirect）、`response_type=code`、PKCE S256、`resource`；顯示「誰、回到哪個網站、可否寫入」。寫入與否是**使用者**勾的，不是 client 要的 scope。`POST api/oauth/consent` 產生授權碼（記憶體 5 分鐘、一次性）並回 `redirect_uri?code&state&iss`，拒絕則 `error=access_denied`。
+- **token** `POST /api/oauth/token`（form）：授權碼第一次嘗試就作廢（就算後面的檢查失敗）、client 與 redirect 必須相同、PKCE、`resource`；發的 access token 就是一個 PAT（以 client 名稱命名、90 天），所以 /connectors 的清單看得到、可撤銷。沒有 refresh token：到期後 client 重新請使用者授權。
+- 測試：`SiteOAuthServerTests` 走完註冊 → 同意 → 換 token → MCP server 收下 token，以及每一關的拒絕。

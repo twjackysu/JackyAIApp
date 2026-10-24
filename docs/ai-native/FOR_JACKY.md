@@ -11,5 +11,5 @@
 6. **Studio AI 會呼叫你的 Anthropic key**（每則訊息照既有 chat 收費），字典查不到的字會由 OpenAI 產生一次（與字典頁相同）。
 7. **合併後實測 Notion／Linear 的 OAuth 一鍵授權**（D-037）：開發環境連不到它們，流程只用假的授權伺服器測過。失敗時 /connectors 的 connector 會顯示原因（OAuth 錯誤碼），請把畫面上的訊息記下來。
 8. **Google 日曆（Studio AI 的 `google_calendar_events`）用的是既有 Google 帳號連線**，scope 原本就有 `calendar.readonly`，不用改設定。合併後請用自己的帳號在 /connectors 連一次 Google，再問 Studio「我今天有什麼行程？」確認 production 的 Google OAuth app 真的有日曆權限（若 Google 回 403，工具會請使用者重新連線；那就要到 Google Cloud Console 確認 OAuth consent screen 的 scope 與 Calendar API 已啟用）。
-9. **本站 MCP server（`/api/mcp`）實測**：合併後到 /connectors「讓其他 AI 使用本站」產生一個唯讀 token，複製 Claude Code 那行指令執行，再問 Claude Code「用 jacky-studio 查 serendipity」。若連不上：先看 Cloudflare 是否擋了非瀏覽器流量（Bot Fight Mode／WAF），需要的話替 `/api/mcp` 加例外；App Service 的 access restriction 只收 Cloudflare，不受影響。Claude Desktop 的設定經 `npx mcp-remote`，需要電腦上有 Node.js。
+9. **本站 MCP server（`/api/mcp`）實測**：合併後到 /connectors「讓其他 AI 使用本站」產生一個唯讀 token，複製 Claude Code 那行指令執行，再問 Claude Code「用 jacky-studio 查 serendipity」。若連不上：先看 Cloudflare 是否擋了非瀏覽器流量（Bot Fight Mode／WAF），需要的話替 `/api/mcp` 加例外；App Service 的 access restriction 只收 Cloudflare，不受影響。Claude Desktop 的設定經 `npx mcp-remote`，需要電腦上有 Node.js。**也請試 Claude.ai 的自訂 connector**（只貼 `https://apps.jacky-studio.com/api/mcp`，走本站 OAuth 與同意頁），以及 ChatGPT 的開發者模式 connector（如果你的帳號有）；失敗時記下 client 顯示的錯誤與 App Insights 裡 `/api/oauth/*` 的請求。
 

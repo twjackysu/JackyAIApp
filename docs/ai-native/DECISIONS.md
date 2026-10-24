@@ -45,3 +45,8 @@
 - **D-041（2026-10-24 16:20）確認卡的「以後直接執行」只給本站工具的寫入、而且這段對話沒讀過外部內容**：外部 connector 的工具名是每輪的 `m1__…`，要到 Connectors 頁調；無法復原的永遠要問；讀過外部內容後伺服器反正都會問。勾了且按允許才設成自動（同 `PUT tool-permissions`）。
 - **D-042（2026-10-24 16:25）rug pull 防護只把「使用者明確設成自動」的工具改回需確認**：重新列工具時標題、說明、schema（以 JSON 重寫比較）或效果變了才算。預設自動的讀取不動（讀取的結果本來就會 taint 這輪，寫入一律先問），避免伺服器一更新說明就打擾使用者。
 - **D-043（2026-10-24 16:10）MCP OAuth 回呼帶 `kind=mcp`**：/connectors 對 AI connector 用中文說明結果與下一步；帳號連線（Google／Microsoft／Atlassian）的英文訊息不變（頁面既有測試鎖住）。
+- **D-044（2026-10-24 18:00）本站對外 MCP server 用自己寫的最小 Streamable HTTP server**，不加 `ModelContextProtocol.AspNetCore` 套件：無 session、每個 POST 一則 JSON-RPC、JSON 回應，四個方法；本機不能 restore 新套件，自己寫的部分可完整測試，且用官方 SDK 的 client 端對端驗證相容。
+- **D-045（2026-10-24 18:00）外部 client 沒有確認卡 → token 預設唯讀**，寫入要建立時（或 OAuth 同意頁）勾選；無法復原的工具永遠不提供；權限跟 /connectors「本站功能」連動（停用就不提供，需確認的讀取照樣提供）。不經 usage limit：本站工具不呼叫本站的 LLM。
+- **D-046（2026-10-24 18:00）PAT 只存 SHA-256、可撤銷＝刪列**，驗證方案 `SiteToken` 只掛在 `/api/mcp`（cookie 不在那裡生效，token 也不能用在其他端點）。
+- **D-047（2026-10-24 18:20）本站當 OAuth 授權伺服器，但 DCR 不用資料表**（client_id = data protection 保護的註冊內容）、授權碼放記憶體（單一 instance）、access token 就是 PAT（以 client 名稱命名、90 天、不發 refresh token）：少一張表與一個 migration，使用者在同一個清單看到並撤銷所有外部 AI。代價：重啟時正在登入的人要重來；金鑰換了 client 要重新註冊（client 會自動做）。
+- **D-048（2026-10-24 18:20）OAuth 的寫入權限由使用者在同意頁勾選**，不照 client 要求的 scope；client 要了 `mcp:write` 時只在勾選框旁註明「它要求了」。

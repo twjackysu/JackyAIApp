@@ -344,6 +344,17 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   not offered is an unknown tool. There is no confirmation card out there, so the other client's own asking is what
   guards a write. 120 requests a minute per token (`RateLimitPolicies.SiteMcp`); no usage charge, since the other
   client's model does the AI work. `SiteMcpServerTests` also runs the real SDK's client against it
+- For clients that sign in to MCP servers only with OAuth (Claude.ai, ChatGPT), the site is that server's authorization
+  server too (`SiteOAuthServer`, `SiteOAuthController`, design/03 §9.1): the 401 names its protected resource metadata
+  (RFC 9728, `/.well-known/oauth-protected-resource[/api/mcp]`), which names the site as the authorization server
+  (RFC 8414, `/.well-known/oauth-authorization-server`; the issuer is the origin of `Connectors:CallbackBaseUrl`). A
+  client registers (`POST api/oauth/register`, public clients only, redirects https or loopback) with no table: its
+  client id is its registration under data protection (`SiteOAuthClients`). The reader answers on the client's
+  `/oauth/authorize` page (`GET`/`POST api/oauth/consent`, by cookie; a request whose client or redirect does not check
+  out stays on the site, never sent back), choosing whether writes are allowed; the code (`SiteOAuthCodes`, in memory,
+  5 minutes) is spent by the first try at `POST api/oauth/token` (form; PKCE S256, same client and redirect,
+  `resource`), which answers with one of the reader's personal access tokens, named after the client, 90 days, no
+  refresh token
 - `ConnectorCatalogService` answers the page (`AiConnectorsController`, `api/connectors/catalog`,
   `tool-permissions`, `installations/{id}/enabled`, `installations/{id}`, in the `{ data }` envelope; the
   account connections' endpoints of `ConnectorsController`, under the same route, are unchanged) and, as
