@@ -1,5 +1,18 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 01:42 – 第 12 輪（「存完打開」、dashboard 的 AI 解讀、確認卡精簡、手機 dashboard、審查）
+
+- 開工：master 只有 README 精簡（已在 branch 裡）；上一輪最後的 CI 綠。
+- **畫面巡檢**：三個截圖腳本全部重拍、逐張看。發現：存 dashboard 的確認卡列出 `chartId: k3f9` 這種對使用者無意義的參數；手機上 dashboard 兩張圖並排、圖例被截成「1/3」。
+- **確認卡精簡**（D-067）：本站工具有一句話說明時，原始參數收進「顯示送出的參數」；外部 connector 照舊全列。
+- **「存完打開」**（D-066）：`save_to_dashboard` 的 `open` → `Navigate`；`AiAssistantLauncher` 的 `onNavigate` 等回答正常結束才換頁（停止或失敗不換，`AssistantActivity.answered`）；/data-analysis 傳 `useNavigate()`，Finance 不變。
+- **dashboard 的「AI 解讀」**（D-068）：Studio／本站 MCP server 的 `read_dashboard`（只讀自己的、每張圖用最新資料重算、6 張 × 40 列、20 秒預算、`OutsideText`）；在 `/dashboards/{id}` 時 Studio 的 prompt 寫出那個 id；擁有者在 dashboard 標題旁有「AI 解讀」（開新對話），Studio 在 dashboard 頁的建議與接著問。
+- **手機 dashboard 一列一張圖**（D-069，`Dashboard/viewLayout`，只改顯示）。
+- **審查**（subagent，D-070）：無高風險；中風險（read_dashboard 整個逾時）與三個低風險已修，兩個低風險接受。
+- 截圖：`.loop/shots/chat.cjs` 加 dashboard 場景；新增 `dashboard-ai-button-*`、`studio-dashboard-*`，更新 `data-analysis-save-*`、`studio-approval-*`。SHOWCASE 亮點一列、demo 第 5 步、日誌。
+- 驗證：前端 lint、test（126 檔 1354 個）、build 全過；CI 40118152832（存完打開）、40118543937（read_dashboard，第一次就綠）、40119335774（AI 解讀＋手機版面）、40119697002（審查修正）、**40120425041（本輪最後一次含程式碼的 push：停止時不換頁）綠**。
+- 問題：`messages.at()` 在 vitest 能跑、`tsc` 的 lib 不認得（build 才抓到）——前端改動一定要跑 `npm run build`。
+
 ## 2026-10-24 23:42 – 第 11 輪（今日簡報開新對話、接著問、圖表卡片換圖、「帶我去」、審查）
 
 - 開工：master 的新 commit 已在 branch 裡；上一輪最後的 CI 綠。
