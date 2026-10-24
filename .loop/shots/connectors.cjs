@@ -109,6 +109,7 @@ const catalog = {
     await page.getByRole('button', { name: '檢查' }).click();
     await page.waitForTimeout(600);
     await page.getByLabel('Token').fill('sk-live-0123456789');
+    await page.waitForTimeout(400); // 「連線」從停用變可用的轉場
     await page.screenshot({ path: `${out}/connectors-add-2-${name}.png` });
     await page.getByRole('button', { name: '連線' }).click();
     await page.waitForTimeout(800);

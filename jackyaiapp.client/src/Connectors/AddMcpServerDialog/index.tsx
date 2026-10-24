@@ -262,12 +262,27 @@ function AddMcpServerForm({ preset, onClose, onAuthorize }: AddMcpServerDialogPr
               讀取類的工具預設自動使用，其他的每次都會先問你。可以在這裡或之後在詳情頁調整。
             </Typography>
             {added.tools.map((t) => (
-              <Stack key={t.name} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              // On a phone the toggle goes under the tool, as in the detail drawer, so its words are not cut.
+              <Stack
+                key={t.name}
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+                sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}
+              >
                 <Stack sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {t.title ?? t.name}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
                     {EFFECT_LABELS[t.effect]}・{t.description}
                   </Typography>
                 </Stack>
