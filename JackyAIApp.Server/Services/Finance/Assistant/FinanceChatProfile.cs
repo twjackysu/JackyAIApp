@@ -14,8 +14,8 @@ namespace JackyAIApp.Server.Services.Finance.Assistant
 
         public string UsageLogFeature => "chatbot.tw_stock";
 
-        public async Task<ChatProfileSetup> SetupAsync(DateOnly taipeiToday, CancellationToken ct) =>
-            SetupFor(taipeiToday, await MarketBackgroundAsync(ct));
+        public async Task<ChatProfileSetup> SetupAsync(ChatProfileContext context, CancellationToken ct) =>
+            SetupFor(context.TaipeiToday, await MarketBackgroundAsync(ct));
 
         /// <summary>Finance's setup for a day, with that background (null for none).</summary>
         internal static ChatProfileSetup SetupFor(DateOnly taipeiToday, string? marketBackground) =>

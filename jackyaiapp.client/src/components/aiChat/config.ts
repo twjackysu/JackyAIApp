@@ -36,6 +36,12 @@ export interface AiChatConfig {
   errorMessages?: Partial<Record<ChatErrorCode, string>>;
   /** How this app draws kinds of tool card the chat does not (cards/toolCard), by kind. */
   cardRenderers?: Readonly<Record<string, ToolCardRenderer>>;
+  /**
+   * What the page says about itself, sent with every message for the assistant's tools (Data
+   * Analysis: the source on screen, `sourceId`/`tableName` or `sessionId`). The server keeps at most
+   * 8 short entries. The page passes the config again whenever this changes.
+   */
+  pageContext?: Readonly<Record<string, string>>;
 }
 
 export const AiChatConfigContext = createContext<AiChatConfig | null>(null);

@@ -15,10 +15,22 @@ namespace JackyAIApp.Server.Services.Assistant
         string UsageLogFeature { get; }
 
         /// <summary>
-        /// What a turn starts from today. Never fails for a background that cannot be had: the turn
-        /// goes ahead without it.
+        /// What a turn starts from. Never fails for a background that cannot be had: the turn goes
+        /// ahead without it.
         /// </summary>
-        Task<ChatProfileSetup> SetupAsync(DateOnly taipeiToday, CancellationToken ct);
+        Task<ChatProfileSetup> SetupAsync(ChatProfileContext context, CancellationToken ct);
+    }
+
+    /// <summary>What a turn's setup may depend on.</summary>
+    /// <param name="UserId">Who is asking; the profile's tools run for them.</param>
+    /// <param name="TaipeiToday">Today in Taipei, for the prompt.</param>
+    /// <param name="Page">What the page the reader asks from says about itself (Data Analysis: the
+    /// source on screen), as the client sent it: the reader's own input, checked by the profile
+    /// that reads it, and never anyone else's data.</param>
+    public sealed record ChatProfileContext(string UserId, DateOnly TaipeiToday, IReadOnlyDictionary<string, string> Page)
+    {
+        /// <summary>A page value, or null when the page sent none.</summary>
+        public string? PageValue(string key) => Page.TryGetValue(key, out var value) ? value : null;
     }
 
     /// <summary>What a turn of one profile is sent with, ahead of the conversation.</summary>

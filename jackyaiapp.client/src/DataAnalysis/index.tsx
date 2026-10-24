@@ -1,11 +1,12 @@
 import Box from '@mui/material/Box';
 import { ThemeProvider } from '@mui/material/styles';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useGetUserInfoQuery } from '../apis/accountApis';
 import { useGetSchemaQuery } from '../apis/dataAnalysisApis';
 import { DataAnalysisNav } from '../components/DataAnalysisNav';
 
+import { DATA_ANALYSIS_AI_CHAT } from './aiChatConfig';
 import { AnalysisTabs } from './components/AnalysisTabs';
 import { DetailsTab } from './components/DetailsTab';
 import { OverviewStrip } from './components/OverviewStrip';
@@ -24,14 +25,17 @@ import { useOverviewFacts } from './hooks/useOverviewFacts';
 import { useSourceContext } from './hooks/useSourceContext';
 import { useSummarize } from './hooks/useSummarize';
 import { dataAnalysisTheme } from './theme';
+import { dataAnalysisPageContext } from './utils/aiPageContext';
 import { makeViewByEntry } from './utils/groupField';
 import { tableForSource } from './utils/pageRules';
+
+import { AiAssistantLauncher } from '@/components/aiChat/AiAssistantLauncher';
 
 export default function DataAnalysis() {
   const [tab, setTab] = useState(1);
 
   // ── Auth ──────────────────────────────────────────────────────────────────
-  const { data: userInfoRes } = useGetUserInfoQuery();
+  const { data: userInfoRes, isLoading: isAuthLoading } = useGetUserInfoQuery();
   const isLoggedIn = !!userInfoRes?.data;
 
   // ── Source context ────────────────────────────────────────────────────────
@@ -57,6 +61,19 @@ export default function DataAnalysis() {
   } = useSourceContext(isLoggedIn);
 
   const sessionId = sessionInfo?.sessionId;
+
+  // The assistant reads the data on screen: the page tells it which with every message.
+  const aiChat = useMemo(
+    () => ({
+      ...DATA_ANALYSIS_AI_CHAT,
+      pageContext: dataAnalysisPageContext({
+        sourceId: ctxSourceId,
+        tableName: ctxTableName,
+        sessionId,
+      }),
+    }),
+    [ctxSourceId, ctxTableName, sessionId],
+  );
 
   // ── Schema ────────────────────────────────────────────────────────────────
   const {
@@ -104,6 +121,12 @@ export default function DataAnalysis() {
       <Box>
         <DataAnalysisNav />
         <PageHeader />
+        {/* AI assistant: a one-line box until it is used, then the whole conversation (as on /finance) */}
+        <AiAssistantLauncher
+          config={aiChat}
+          isAuthenticated={isLoggedIn}
+          isAuthLoading={isAuthLoading}
+        />
 
         <SourcePanel
           isLoggedIn={isLoggedIn}

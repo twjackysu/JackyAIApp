@@ -20,6 +20,12 @@ namespace JackyAIApp.Server.DTO
         /// /finance page sent no profile before there was more than one assistant.
         /// </summary>
         public string Profile { get; set; } = "finance";
+
+        /// <summary>
+        /// What the asking page says about itself, for the assistant (Data Analysis: the source on
+        /// screen). Short keys and values only; the controller drops anything past its limits.
+        /// </summary>
+        public Dictionary<string, string>? Context { get; set; }
     }
 
     /// <summary>A conversation summary returned to the client (title from the first user message).</summary>

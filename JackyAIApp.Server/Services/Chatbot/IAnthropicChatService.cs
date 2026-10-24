@@ -23,9 +23,11 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// that is not registered throws.</param>
         /// <param name="attachments">The caller's still-unsent uploads, tracked by the same
         /// request's context; they are attached to the saved user message and sent with it.</param>
+        /// <param name="pageContext">What the asking page says about itself (<see cref="Assistant.ChatProfileContext.Page"/>).</param>
         Task<ChatStreamResult> StreamChatAsync(
             string userId, string profileKey, string message, string? conversationId,
             IReadOnlyCollection<Data.Models.SQL.ChatAttachment> attachments,
+            IReadOnlyDictionary<string, string> pageContext,
             HttpResponse response, CancellationToken ct);
     }
 }

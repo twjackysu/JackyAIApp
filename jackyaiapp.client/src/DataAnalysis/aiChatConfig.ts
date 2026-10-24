@@ -12,11 +12,11 @@ import type { AiChatConfig } from '@/components/aiChat/config';
  * Shown in turn as the one-line box's placeholder and as suggestions under the greeting.
  */
 export const DATA_ANALYSIS_EXAMPLE_QUESTIONS = [
-  '這份資料有哪些欄位？',
+  '幫我找出這份資料最值得注意的三件事',
   '上個月各地區營收是多少？',
   '畫出近 12 個月的營收趨勢',
   '哪個產品類別成長最快？',
-  '把這張圖存成 dashboard widget',
+  '比較今年和去年各月的營收',
 ] as const;
 
 /**
@@ -28,13 +28,13 @@ export const DATA_ANALYSIS_AI_CHAT: AiChatConfig = {
   profile: 'data-analysis',
   greetingTitle: '想從資料裡知道什麼？',
   greeting:
-    '我是資料分析 AI 助手，可以直接查詢、彙總畫面上選的資料源，畫成圖表，還能把結果存成 dashboard widget。用平常說話的方式問就好。',
+    '我是資料分析 AI 助手，會自己查詢、彙總畫面上選的資料，畫成圖表並說明重點；圖表可以一鍵加到 dashboard。用平常說話的方式問就好。',
   examples: DATA_ANALYSIS_EXAMPLE_QUESTIONS,
   suggestions: [
-    { text: '這份資料有哪些欄位？', icon: TravelExploreIcon },
+    { text: '幫我找出這份資料最值得注意的三件事', icon: TravelExploreIcon },
     { text: '上個月各地區營收是多少？', icon: TableChartIcon },
     { text: '畫出近 12 個月的營收趨勢', icon: ShowChartIcon },
-    { text: '把這張圖存成 dashboard widget', icon: DashboardCustomizeIcon },
+    { text: '比較今年和去年各月的營收', icon: DashboardCustomizeIcon },
   ],
   connectedLabel: '資料源已連線',
   signedOutPlaceholder: '登入後即可問 AI 你的資料',

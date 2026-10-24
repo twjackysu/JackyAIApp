@@ -226,7 +226,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   there were others). The chat body names it (`ChatRequest.Profile`, default "finance"; an unknown one is
   400 before any charge), the list takes `?profile=` (same default), and a conversation of another profile is
   never continued (a new one is started) nor rewound for an edit: its history would be answered with this
-  profile's prompt and tools
+  profile's prompt and tools. A message also carries the page's context (`ChatRequest.Context`, at most 8
+  short entries, `ChatbotController.PageContext`), which the profile gets in `ChatProfileContext.Page`
 - A profile's own tools (`ChatProfileSetup.Tools`, each an `IAiTool` in `Services/Assistant/AiTools.cs`: a
   descriptor — name, display name, description, input schema, `ToolEffect` — and `RunAsync`) are run by the
   server, unlike tw-stock's, which Anthropic's MCP connector runs. With any, `ModelTurn` is an agent loop: a
@@ -268,6 +269,14 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   two run at once
 - Tests build the controller with `TestHelpers/DataAnalysisControllerBuilder`, never its constructor;
   `DataAnalysisControllerResponseTests` pins what each endpoint answers
+- The page's AI assistant is the chat profile `data-analysis` (`Services/DataAnalysis/Assistant`,
+  `DataAnalysisChatProfile`). Its one tool, `ask_data` (`AskDataTool`), answers a question in plain language
+  through `INlSummarizeService` — the same checked plan, correction and notes as 問 AI, never a query of the
+  model's own — charging each call as `UsageFeature.NlSummarize`, and shows the result as a `chart` card (the
+  client's viz id, the rows, group/date hints, and the plan with the page's source, so it can become a
+  dashboard widget; none for an uploaded file's session). Which data it reads is the page context the client
+  sends with each message (`sourceId`/`tableName`, or `sessionId`; none = the default source), read by
+  `DataAnalysisPage.From`; whether the reader may read that source is the query's own check
 - `NlQueryPlanner.BuildPlanAsync` only orchestrates. Which columns are String or date columns is
   `NlSchema`; which String columns' real values are read (300 a column) and listed in the prompt (2000 in
   all), and which can check a plan against all their values, is `NlPromptValues`; the wording sent to the

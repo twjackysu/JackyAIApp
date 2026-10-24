@@ -108,9 +108,15 @@ export interface ChatStreamingOptions {
   /** The server's chat profile the turns are for (`AiChatConfig.profile`); the server's default
    *  (finance) when left out. */
   profile?: string;
+  /** The page's context for this turn's tools (`AiChatConfig.pageContext`), as it is when a message is sent. */
+  pageContext?: Readonly<Record<string, string>>;
 }
 
-export const useChatStreaming = ({ errorMessages, profile }: ChatStreamingOptions = {}) => {
+export const useChatStreaming = ({
+  errorMessages,
+  profile,
+  pageContext,
+}: ChatStreamingOptions = {}) => {
   const dispatch = useAppDispatch();
   const [streamingStatus, setStreamingStatus] = useState<StreamingStatus>({
     isLoading: false,
@@ -167,7 +173,14 @@ export const useChatStreaming = ({ errorMessages, profile }: ChatStreamingOption
             Accept: 'text/event-stream',
             'Cache-Control': 'no-cache',
           },
-          body: JSON.stringify({ message, conversationId, attachmentIds, editMessageId, profile }),
+          body: JSON.stringify({
+            message,
+            conversationId,
+            attachmentIds,
+            editMessageId,
+            profile,
+            context: pageContext,
+          }),
           signal: turn.abort.signal,
         });
 
@@ -284,7 +297,7 @@ export const useChatStreaming = ({ errorMessages, profile }: ChatStreamingOption
         setStreamingStatus({ isLoading: false, currentEvent: null, statusText: '' });
       }
     },
-    [dispatch, errorMessages, profile],
+    [dispatch, errorMessages, profile, pageContext],
   );
 
   return { sendStreamingMessage, stop, streamingStatus };

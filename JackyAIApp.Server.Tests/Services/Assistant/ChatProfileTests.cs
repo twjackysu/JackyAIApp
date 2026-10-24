@@ -100,7 +100,7 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             background.Setup(b => b.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync("# 市場背景");
             var finance = new FinanceChatProfile(background.Object, NullLogger<FinanceChatProfile>.Instance);
 
-            var setup = await finance.SetupAsync(Today, CancellationToken.None);
+            var setup = await finance.SetupAsync(new ChatProfileContext("u1", Today, new Dictionary<string, string>()), CancellationToken.None);
 
             Assert.Equal(new ChatProfileSetup(FinanceChatProfile.SystemPromptFor(Today), "# 市場背景", AttachTwStock: true), setup);
             Assert.Equal("chatbot.tw_stock", finance.UsageLogFeature);
@@ -113,7 +113,7 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             background.Setup(b => b.GetAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new HttpRequestException("TWSE down"));
             var finance = new FinanceChatProfile(background.Object, NullLogger<FinanceChatProfile>.Instance);
 
-            var setup = await finance.SetupAsync(Today, CancellationToken.None);
+            var setup = await finance.SetupAsync(new ChatProfileContext("u1", Today, new Dictionary<string, string>()), CancellationToken.None);
 
             Assert.Null(setup.CachedBackground);
             Assert.True(setup.AttachTwStock);

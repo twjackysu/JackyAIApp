@@ -28,7 +28,12 @@ namespace JackyAIApp.Server.Services.Chatbot
         internal const string NeedsApprovalMessage = "這個動作需要使用者確認，目前還不能由 AI 直接執行；請告訴使用者可以自己到對應的頁面操作。";
         internal const string TruncatedNote = "\n[結果過長，以上僅為前段。]";
 
-        private static readonly JsonSerializerOptions CardJson = new(JsonSerializerDefaults.Web);
+        // As the API's own JSON (Program.cs): camelCase, enums by name — a card may carry a DTO the
+        // client also gets from an endpoint (a chart's summarize plan).
+        private static readonly JsonSerializerOptions CardJson = new(JsonSerializerDefaults.Web)
+        {
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+        };
 
         private readonly Dictionary<string, IAiTool> _byName;
         private readonly SseStream _sse;

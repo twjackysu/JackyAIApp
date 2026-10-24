@@ -104,7 +104,8 @@ namespace JackyAIApp.Server.Controllers
             try
             {
                 var result = await _chatService.StreamChatAsync(
-                    userId, request.Profile, request.Message, request.ConversationId, attachments, Response, HttpContext.RequestAborted);
+                    userId, request.Profile, request.Message, request.ConversationId, attachments,
+                    PageContext(request.Context), Response, HttpContext.RequestAborted);
 
                 // The service has already told the client why (an SSE error event with a code).
                 if (!result.StreamingStarted)
@@ -121,6 +122,15 @@ namespace JackyAIApp.Server.Controllers
                 }
             }
         }
+
+        /// <summary>The page's context as a turn takes it: at most 8 entries, keys of 40 characters and values of 200.</summary>
+        internal static IReadOnlyDictionary<string, string> PageContext(Dictionary<string, string>? context) =>
+            context == null
+                ? new Dictionary<string, string>()
+                : context
+                    .Where(p => p.Key.Length is > 0 and <= 40 && p.Value != null && p.Value.Length <= 200)
+                    .Take(8)
+                    .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
 
         /// <summary>
         /// Readies a file to be sent with the next chat message (<see cref="IChatAttachmentService.UploadAsync"/>).

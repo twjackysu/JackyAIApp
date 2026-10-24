@@ -55,6 +55,7 @@ function AiAssistantPanel({
   const conversation = useChatConversation({
     errorMessages: config.errorMessages,
     profile: config.profile,
+    pageContext: config.pageContext,
   });
   const { messages, conversationId, busy } = conversation;
   const preview = usePreview(conversation.blocks, conversation.currentHtmlBlock);

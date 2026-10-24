@@ -83,7 +83,8 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             var context = new DefaultHttpContext();
             body ??= new RecordingBody();
             context.Response.Body = body;
-            var result = await Service().StreamChatAsync(User, profile, message, conversationId, attachments ?? [], context.Response, ct);
+            var result = await Service().StreamChatAsync(User, profile, message, conversationId, attachments ?? [],
+                new Dictionary<string, string>(), context.Response, ct);
             return new Turn(result, body.Events());
         }
 
@@ -402,7 +403,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             public string Key => ProfileKey;
             public string UsageLogFeature => "chatbot.test";
 
-            public Task<ChatProfileSetup> SetupAsync(DateOnly taipeiToday, CancellationToken ct) =>
+            public Task<ChatProfileSetup> SetupAsync(ChatProfileContext context, CancellationToken ct) =>
                 Task.FromResult(new ChatProfileSetup("你是助手。", null, AttachTwStock: false, Tools: [Lookup, Save]));
         }
 
