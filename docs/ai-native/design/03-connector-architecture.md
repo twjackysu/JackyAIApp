@@ -200,3 +200,15 @@ sequenceDiagram
 - 本站工具：各模組實作 `IAiTool`，用 `services.AddSiteTool<T>(group)` 註冊；Assistant 的 `SiteToolSource` 從 DI 拿 `IEnumerable<SiteToolRegistration>`，不引用任何功能模組。
 - `ChatConversations` / `ChatMessages` / `ChatAttachments` 改由 Assistant 擁有（`TableOwners` 更新）；`ConnectorInstallations` 歸 Connectors；`UserConnectors` 仍歸 Platform（不搬）。
 - 這張表同步寫進 server `CLAUDE.md` 的 Modules 表（實作時）。
+
+## 9. 本站對外的 MCP server（第 8 輪，M4 延伸）
+
+反過來：讓 Claude Desktop、Claude Code、Cursor、VS Code 等「別人的 AI」用本站的工具——網站本身就是一個 MCP server。
+
+- **端點** `POST /api/mcp`（`SiteMcpController` → `ISiteMcpServer`，`Services/Connectors/SiteMcp`）：Streamable HTTP、**沒有 session**，每個 POST 一則 JSON-RPC、回 `application/json`（規格允許不用 SSE）；通知回 202。方法：`initialize`（回 client 要的協定版本 2025-11-25／06-18／03-26，否則最新的）、`ping`、`tools/list`、`tools/call`。GET／DELETE 回 405。不收 batch（2025-06-18 起規格已移除）。檢查 `Origin`（有就必須同源，防 DNS rebinding）。
+- **認證**：個人存取 token（PAT），`Authorization: Bearer jsk_…`。驗證方案 `SiteToken` **只**掛在這個端點（`[Authorize(AuthenticationSchemes = …)]`）：這裡不讀 cookie（別的網站無法借使用者的瀏覽器呼叫），其他端點也不收 token（token 不能拿來產生 token）。principal 帶跟 cookie 一樣的 `NameIdentifier`，所以 `ICurrentUser` 與所有服務照常運作。token 是 `jsk_` + 32 bytes base64url，表 `SiteAccessTokens` 只存 SHA-256；可撤銷（刪列）、30／90／365 天、每人 10 個、最後使用時間每分鐘最多寫一次。暫不做 OAuth（本站要當授權伺服器，太大；見 SHOWCASE 已知限制）。
+- **提供哪些工具**：所有 `ISiteTool`（字典、單字庫、學習進度、投資組合、Google 日曆），扣掉使用者在 /connectors「本站功能」停用的；讀取一律提供，**寫入只給建立時勾了「允許寫入」的 token**，無法復原的永遠不給。外部 client 沒有本站的確認卡，所以寫入由對方 AI 自己的確認把關，預設 token 唯讀。不提供的工具呼叫時回「Unknown tool」（不透露存在）。工具的 `annotations` 帶 `readOnlyHint`、`destructiveHint`、`openWorldHint`（`OutsideText`）。
+- **其他**：每個工具 30 秒逾時、結果最多 40k 字、例外不回內文；每個 token 每分鐘 120 次（rate limiter `site-mcp`）；工具在本站不產生 AI 費用（對方的模型自己付），所以不經 usage limit；`AiToolContext.ConversationId` 是 `mcp:{tokenId}`。
+- **管理** `api/connectors/site-tokens`（GET 清單、POST 產生〔只回一次 token〕、DELETE 撤銷），在 /connectors 的「讓其他 AI 使用本站」：伺服器網址、token 清單、產生後一鍵複製 Claude Code 指令、Claude Desktop（經 `mcp-remote`）、Cursor、VS Code 的設定。
+- **測試**：`SiteMcpServerTests` 除了協定與工具篩選，還用官方 SDK 的 client（`McpToolClient`）端對端打這個 server。
+

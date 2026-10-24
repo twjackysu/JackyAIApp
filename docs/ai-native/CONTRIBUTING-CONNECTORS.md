@@ -96,3 +96,8 @@ services.AddSingleton(new SiteToolSet("功能名稱", [MyTool.Definition]));   /
 - [ ] 對外連線一律走 `SafeHttp`（不要自己 `new HttpClient()` 打使用者給的網址）。
 - [ ] 回傳內容會當不可信資料包起來給模型；不要在工具裡「信任」外部回來的指示。
 - [ ] 需要花 AI 額度的工具照 usage limit 規則收費（參考 `AskDataTool` 收 `UsageFeature.NlSummarize`）。
+
+## 附：你的工具也會出現在本站的 MCP server
+
+寫好的 `ISiteTool` 不只 Studio AI 用得到：本站對外的 MCP server（`POST /api/mcp`，design/03 §9）會把它提供給使用者接上的 Claude Desktop、Cursor 等。讀取型工具一律提供；`ToolEffect.Write` 只給允許寫入的 token；`Destructive` 永遠不提供。所以 **`Effect` 要老實標**，說明（`Description`）也要寫得讓別家的模型看得懂。不需要另外註冊。
+

@@ -69,3 +69,13 @@
 - 工具清單快取；重新列出時若「既有工具的 schema 或說明變了」→ 該工具權限重設為 Confirm，並在 connector 頁標「已變更」。
 - 新出現的工具預設 Confirm（就算 readOnlyHint）。
 - 自訂 MCP 每人最多 20 個；每輪最多送給模型 64 個 client 工具（其餘 defer + tool search）。
+
+## 9. 本站對外的 MCP server（第 8 輪）
+
+- **token 外洩**：只存 SHA-256（資料表外洩拿不到 token）；建立時只顯示一次、關掉對話框前端就丟掉；有效期限最長 1 年；可隨時撤銷（刪列，下一個請求就被拒）；清單只顯示頭尾幾個字。每個 token 每分鐘 120 次。
+- **token 能做的事最小化**：只能打 `/api/mcp`（驗證方案只掛在那個端點），不能讀其他 API、不能產生新 token；預設唯讀，寫入要建立時明確勾選，無法復原的工具永遠不提供；使用者在 /connectors 停用的本站工具不提供。
+- **CSRF／DNS rebinding**：端點不讀 cookie；有 `Origin` 而且不是本站就 403。
+- **沒有確認卡**：外部 client 的模型可能被它讀到的其他內容注入；寫入由對方 client 的確認把關（Claude、Cursor 預設每次問），這也是預設唯讀的原因。我們回的工具 `annotations`（`readOnlyHint`、`destructiveHint`、`openWorldHint`）讓 client 判斷要不要問。
+- **回給外部的內容**：工具結果原樣（含 Google 日曆裡別人寫的字，標 `openWorldHint`）；例外不回內文、逾時 30 秒、最多 40k 字。
+- **成本**：工具不呼叫本站的 LLM（查字典遇到新字時的 OpenAI 產生與匿名查字典相同），所以不經 usage limit。
+

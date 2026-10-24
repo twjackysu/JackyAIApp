@@ -11,7 +11,7 @@ namespace JackyAIApp.Server.Services.Connectors.SiteMcp
     }
 
     /// <summary>
-    /// The site's own MCP server (docs/ai-native/design/03 §8): another AI — Claude Desktop, Claude Code, Cursor, ChatGPT —
+    /// The site's own MCP server (docs/ai-native/design/03 §9): another AI — Claude Desktop, Claude Code, Cursor, ChatGPT —
     /// uses the site's tools (every <see cref="ISiteTool"/> a feature registers) in the name of the reader whose token it
     /// holds. Streamable HTTP without sessions: every POST is one JSON-RPC message answered with JSON, which the transport
     /// allows (no SSE, no server-to-client requests). The methods are <c>initialize</c>, <c>ping</c>, <c>tools/list</c>

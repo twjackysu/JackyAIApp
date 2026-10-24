@@ -70,7 +70,10 @@ jackyaiapp.client/src/
   `ToolPermissionToggle`), the catalog (`CatalogSection`) and adding an MCP server of their own
   (`AddMcpServerDialog`: URL → credentials → tools). Which entries show, in what order, and what
   「連線」does for one are `connectorView`; the dialog's checks and the request it sends are
-  `AddMcpServerDialog/addMcpServer`. The catalog failing to load leaves the account connections working
+  `AddMcpServerDialog/addMcpServer`. The catalog failing to load leaves the account connections working.
+  Below it, `SiteMcpSection` lets other AIs use the site: the site's MCP address, the reader's tokens (revoked after a
+  second click) and `CreateTokenDialog`, which shows a new token once, with the settings for Claude Code, Claude
+  Desktop, Cursor and VS Code filled in (`clientConfigs`); what a token's row says is `tokenView`
 - Split without changing what renders: the component's existing tests stay as they are and must pass.
   One without tests gets them first, run against the code as it is (`Portfolio/index.test.tsx`)
 

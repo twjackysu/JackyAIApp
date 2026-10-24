@@ -54,7 +54,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 | Platform | `Common`, `Configuration`, `Data`, `Services` (only what is directly in it: current user, accounts, usage limits, connectors, `DrawdownBrakeAccess`), `Services.AiUsage`, `.OpenAI`, `.Prompt`, `.Speech`, `.ExternalApi` (the gateway) | — |
 | MarketData | `Services.Market` (prices, history and backfill, fundamentals/chips/macro providers, TW symbol list, MIS TAIEX quote, trading calendar, `TwStockCode`), `Services.ExternalApi.Twse` | Platform |
 | English | `Services.Dictionary` (with `.Assistant`: its tools for Studio AI), `.Repository`, `.Exam`, `.Listening`, `.SpacedRepetition`, `.DailyChallenge`, `.WordOfTheDay`, `.SpellChecker`, `Mappers` | Connectors, Platform |
-| Connectors | `Services.Connectors` (what the AI may use: the tool contract `IAiTool`, the site's own tools as features register them, the reader's connectors and tool permissions, the hosted MCP servers, e.g. `TwStockMcp`; native connectors, `.Google`; see docs/ai-native/design/03) | Platform |
+| Connectors | `Services.Connectors` (what the AI may use: the tool contract `IAiTool`, the site's own tools as features register them, the reader's connectors and tool permissions, the hosted MCP servers, e.g. `TwStockMcp`; native connectors, `.Google`; the site's own MCP server, `.SiteMcp`; see docs/ai-native/design/03) | Platform |
 | Assistant | `Services.Assistant` (chat profiles, the turn's request), `Services.Chatbot` (the shared chat engine: turns, stream, history, attachments) | Connectors, Platform |
 | Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest; `Services.Finance.Assistant`: the /finance assistant's profile and market background) | Assistant, Connectors, MarketData, Platform |
 | Portfolio | `Services.Portfolio` (with `.Assistant`: its tool for Studio AI) | Connectors, MarketData, Platform |
@@ -331,6 +331,19 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   401 with `resource_metadata`, PRM, AS metadata, registration, a token endpoint checking PKCE and rotating refresh
   tokens; `Approve` plays the reader), `FakeWeb` (fixed answers by URL). `McpOAuthSignInTests` runs a sign-in end
   to end with every real unit, one DbContext a request as the app has
+- The site is an MCP server too, for another AI (Claude Desktop, Claude Code, Cursor) to use the site's tools in a
+  reader's name (`Services/Connectors/SiteMcp`, design/03 §9). `POST api/mcp` (`SiteMcpController` → `SiteMcpServer`) is
+  Streamable HTTP without sessions: one JSON-RPC message a POST, answered with JSON (`initialize`, `ping`, `tools/list`,
+  `tools/call`; a notification is 202), and a request with an `Origin` of another site is refused. It signs in only by a
+  personal access token (`Authorization: Bearer jsk_…`, the `SiteToken` scheme, `SiteTokenAuthenticationHandler`), named
+  on that endpoint alone: the cookie is not read there and the token opens nothing else, and its principal has the
+  cookie's `NameIdentifier`, so `ICurrentUser` works as for the reader. A token (`SiteAccessTokens`, only its SHA-256
+  kept, `SiteAccessTokenService`) is made, listed and revoked on the connectors page (`api/connectors/site-tokens`, by
+  cookie), shown once, lasts 30, 90 or 365 days, ten a reader. What it is offered: every `ISiteTool` the reader did not
+  turn off, the reads always, the writes only with a token made to allow them, nothing that cannot be undone; a tool
+  not offered is an unknown tool. There is no confirmation card out there, so the other client's own asking is what
+  guards a write. 120 requests a minute per token (`RateLimitPolicies.SiteMcp`); no usage charge, since the other
+  client's model does the AI work. `SiteMcpServerTests` also runs the real SDK's client against it
 - `ConnectorCatalogService` answers the page (`AiConnectorsController`, `api/connectors/catalog`,
   `tool-permissions`, `installations/{id}/enabled`, `installations/{id}`, in the `{ data }` envelope; the
   account connections' endpoints of `ConnectorsController`, under the same route, are unchanged) and, as

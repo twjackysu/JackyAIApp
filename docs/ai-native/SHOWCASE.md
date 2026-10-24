@@ -1,8 +1,8 @@
 # Studio AI — 成果發表（11/5）
 
-> **初稿（2026-10-24 第 6 輪）**。功能還在擴充，階段 2（11/4–11/5）定稿並補齊截圖與統計。故事線的來源是 [design/02](design/02-vision-and-showcase.md)。
+> **初稿（2026-10-24 第 6 輪，第 8 輪補上本站 MCP server）**。功能還在擴充，階段 2（11/4–11/5）定稿並補齊截圖與統計。故事線的來源是 [design/02](design/02-vision-and-showcase.md)。
 
-**一句話：一個在每一頁都叫得出來的 AI 助理，會用本站自己的功能，也能接上你在外面的任何 remote MCP server（含 OAuth 登入），而且會改變東西的動作一定先問你。**
+**一句話：一個在每一頁都叫得出來的 AI 助理，會用本站自己的功能，也能接上你在外面的任何 remote MCP server（含 OAuth 登入），而且會改變東西的動作一定先問你。反過來，網站本身也是一個 MCP server：你的 Claude Desktop、Cursor 也能用本站的功能。**
 
 ## 功能與亮點
 
@@ -16,6 +16,7 @@
 | **Connectors**：目錄一鍵加入 tw-stock、DeepWiki；貼任何 MCP URL 自動偵測登入方式 | MCP 官方 SDK（Streamable HTTP）、SafeHttp 防 SSRF | MCP 是 AI 接工具的標準 |
 | 需要登入的 MCP server：**自動跑完 MCP 授權規格** | 401 → PRM（RFC 9728）→ AS metadata（RFC 8414／OIDC）→ DCR／CIMD／手填 client → PKCE S256 + `resource` + `iss` → token 加密 → 到期自動 refresh → 403 `insufficient_scope` 時 step-up | 2025-11 起的 MCP 授權規格（PRM、CIMD、RFC 8707 resource、RFC 9207 iss） |
 | 每個工具「自動／需確認／停用」；確認卡可勾「以後直接執行」；讀過外部資料（含行事曆邀請）後的寫入一律先問；工具說明被改了就改回需確認 | `ToolPermissions`、taint（D-031、`OutsideText`）、工具結果包成不可信資料、`CachedTools.Changed`（rug pull） | prompt injection 與 tool poisoning 防護 |
+| **網站本身就是 MCP server**：在 /connectors 產生 token，一鍵複製 Claude Code／Claude Desktop／Cursor／VS Code 的設定，別家的 AI 就能查字典、看你的學習進度與投資組合 | `POST /api/mcp`（Streamable HTTP、JSON 回應、無 session）、只存雜湊的 PAT、預設唯讀、跟 /connectors 的權限連動 | MCP 是雙向的：網站不只是 MCP client，也是 MCP server |
 | /finance 的 Stock Intelligence：**行為不變** | 同一套共用 chat（`FinanceChatRequestTests` 逐欄位鎖住） | — |
 
 ## Demo 腳本（約 8 分鐘）
@@ -36,8 +37,11 @@
    ![Connectors：目錄裡的 Notion、Linear 一鍵授權](screenshots/connectors-oauth-desktop.png)
    ![自己的 MCP server：偵測到 OAuth](screenshots/add-mcp-oauth-desktop.png)
 6. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；按「停止」整輪什麼都不執行。
-7. **Stock Intelligence（30 秒）**：/finance 問一檔股票，跟以前一樣。
-8. **收尾**：下面的架構圖，以及「新增一個 connector 要寫多少 code」（[CONTRIBUTING-CONNECTORS.md](CONTRIBUTING-CONNECTORS.md)）。
+7. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
+   ![讓其他 AI 使用本站](screenshots/site-mcp-section-desktop.png)
+   ![產生 token 與設定](screenshots/site-mcp-token-desktop.png)
+8. **Stock Intelligence（30 秒）**：/finance 問一檔股票，跟以前一樣。
+9. **收尾**：下面的架構圖，以及「新增一個 connector 要寫多少 code」（[CONTRIBUTING-CONNECTORS.md](CONTRIBUTING-CONNECTORS.md)）。
 
 ## 架構
 
@@ -57,7 +61,9 @@ flowchart LR
     CTS["ConnectorToolSource<br/>使用者的 MCP connector"]
     OAuth["MCP OAuth<br/>PRM・AS metadata・CIMD/DCR・PKCE・refresh"]
     Safe["SafeHttp（只連公開位址）"]
+    SiteMcp["本站 MCP server<br/>POST /api/mcp・PAT"]
   end
+  Others["Claude Desktop・Claude Code・Cursor・VS Code"]
   Anthropic["Anthropic Messages API<br/>（tw-stock 走 MCP connector）"]
   MCP["使用者的 remote MCP servers"]
   AS["Authorization servers"]
@@ -69,6 +75,7 @@ flowchart LR
   Chat <--> Anthropic
   CTS --> Safe --> MCP
   OAuth --> Safe --> AS
+  Others -->|Bearer jsk_…| SiteMcp --> Site
 ```
 
 - **設計模式**：一個 chat 引擎 + 每個 app 一個 profile（system prompt、工具、page context）；工具一律是 `IAiTool`（描述 + `RunAsync`），本站功能、Data Analysis、外部 MCP 都一樣；工具結果是不可信資料，卡片是宣告式 JSON 由前端 renderer 畫。
@@ -78,9 +85,10 @@ flowchart LR
 
 - [ ] **不需要新的 secret**：Studio AI、Data Analysis 助理共用既有的 `Settings:AnthropicApiKey`；MCP token 用既有的 `TokenEncryption:Key` 加密。
 - [ ] **MCP OAuth 的網址**（不用註冊 OAuth app，是給外部授權伺服器看的）：redirect URI `https://apps.jacky-studio.com/api/connectors/callback/mcp`、client metadata `https://apps.jacky-studio.com/api/connectors/oauth/client-metadata`，都由既有的 `Connectors__CallbackBaseUrl` 推出來，不用新設定。
-- [ ] **EF migration**（production 啟動時執行，只新增、不動既有資料）：`20261024100000_AddChatProfileAndCards`（`ChatConversations.Profile` 預設 finance、`ChatMessages.CardsJson`）、`20261024120000_AddConnectorInstallations`（新表）。
+- [ ] **EF migration**（production 啟動時執行，只新增、不動既有資料）：`20261024100000_AddChatProfileAndCards`（`ChatConversations.Profile` 預設 finance、`ChatMessages.CardsJson`）、`20261024120000_AddConnectorInstallations`（新表）、`20261024180000_AddSiteAccessTokens`（新表）。
 - [ ] 刪除 `.github/workflows/ai-native-ci.yml`、`.loop/`。
 - [ ] 合併後會自動部署到 production（Build and deploy）。
+- [ ] **Cloudflare**：`/api/mcp` 會被非瀏覽器的 client（Claude Code、mcp-remote）呼叫；若開了 Bot Fight Mode／Super Bot Fight Mode，請替 `apps.jacky-studio.com/api/mcp` 加例外（FOR_JACKY 9）。
 - [ ] 用量：AI 對話照既有每日預算計費（每則訊息 `UsageCosts.ForChatMessage`、`ask_data` 照 問 AI）。
 
 ## 本機試跑
@@ -93,9 +101,9 @@ flowchart LR
 
 - 確認流程在同一個請求裡等待：重新整理頁面會失去待確認的問題（D-026）。
 - MCP client 只支援 Streamable HTTP（不支援舊 SSE transport，D-029）；每次請求一個 session。
-- MCP OAuth 的 step-up（403 insufficient_scope 重新授權）尚未做。
+- 本站 MCP server 只收個人存取 token，沒有 OAuth：Claude.ai 網頁版、ChatGPT 的 connector 要求 OAuth，所以目前接不上；Claude Desktop 要經 `mcp-remote`（需要 Node.js）。下一步可以讓本站當 OAuth 授權伺服器（PRM + AS metadata + DCR）。
 - taint 只算一輪（D-031）。
-- 延伸：MCP Apps（工具回傳互動 UI）、本站對外提供 MCP server。
+- 延伸：MCP Apps（工具回傳互動 UI）。
 
 ## 開發日誌與統計
 
@@ -109,5 +117,7 @@ flowchart LR
 | 10/24 | 4 | agent loop、Data Analysis 助理、離線型別檢查 |
 | 10/24 | 5 | 同請求確認、connector 後端、自己的 MCP server、Studio AI |
 | 10/24 | 6 | MCP OAuth、Portfolio 工具、用說的存 dashboard、本頁初稿 |
+| 10/24 | 7 | TestKit、Google 日曆、step-up、以後直接執行、rug pull 防護 |
+| 10/24 | 8 | 本站對外的 MCP server（PAT、/connectors 的設定一鍵複製） |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。
