@@ -18,7 +18,7 @@
 
 M4 必要項目與延伸（本站 MCP server、OAuth、MCP App）都完成了。11/4 起功能凍結，剩下的輪數用在「讓 demo 更穩、更驚艷」與合併前的品質。
 
-1. **合併前的整體審查，剩下的範圍**（中）：第 9 輪已審完本站 MCP server／OAuth 授權伺服器／MCP OAuth client／SafeHttp（D-052）。下一輪請 subagent（唯讀）審其餘後端：agent loop 與確認（`ClientToolRunner`、`ChatApprovalRegistry`、`ModelTurn`、`AnthropicChatService`）、connector 安裝與權限（`ConnectorInstallService`、`ConnectorCatalogService`、`ToolPermissions`、`CachedTools`）、本站工具（Data Analysis、English、Portfolio、Google 日曆），重點是 CLAUDE.md 規範（模組邊界、ServiceResult、ICurrentUser、TaipeiTime、AiJson、controller 不碰 DB）、別人的資料（userId 篩選）、usage 計費與退款規則、prompt injection。把確認過的問題修掉。
+1. **合併前審查，剩下的範圍**（小～中）：第 9 輪兩次 subagent 唯讀審查已涵蓋本站 MCP server／OAuth／MCP OAuth client／SafeHttp（D-052）與 agent loop、connector 安裝與權限、本站工具（D-053，含一個高風險已修）。剩下：前端（`components/aiChat` 的 SSE 解析與確認卡、`Connectors/`、`OAuthConsent`）與 Data Analysis 的 dashboard 存取。同樣請 subagent 唯讀審、自己驗證後再修。
 2. **用 `.loop/shots/` 做畫面巡檢**（小～中）：照 `connectors.cjs` 的寫法再加 Studio（⌘K → 問答 → 確認卡）與 /data-analysis 的腳本，桌機＋手機各一張，檢查文字溢出、按鈕擠壓、深色模式；更新 SHOWCASE 截圖。
 3. **（選做）MCP App 的互動**：單字卡上「加入單字庫」按鈕從 iframe 經 host 的 `tools/call` 呼叫 `add_word_to_repository`（只有可寫入的 token 才顯示；工具 `_meta.ui.visibility`）。規格的 app→host `tools/call` 細節要先查；做不完就列為後續。
 4. **（選做）跨輪 taint**：讀過外部內容的對話，之後幾輪的寫入也先問（存在 `ChatConversations`，要 migration——還沒進 production 的 migration 可以直接改，見 D-051 的做法）。

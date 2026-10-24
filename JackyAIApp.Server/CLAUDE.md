@@ -303,7 +303,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   reader's own: no credentials, an API key in a header of theirs, a bearer token, or OAuth; stored with
   `ConnectorSecrets`). The MCP client is `McpToolClient` (the official SDK over Streamable HTTP, every request
   through `SafeHttp`, a session per request); the chat gets a reader's connectors' tools from
-  `ConnectorToolSource` (named `m1__…` per turn, their connector the installation's id). A call the server
+  `ConnectorToolSource` (named `m1__…` per turn, their connector the installation's id; the reader's permission for one is
+  kept and looked up under the server's own name, `AiToolDescriptor.PermissionName`; two that come to one name are offered once). A call the server
   refuses for its credentials marks the connector NeedsAuth
 - Signing in to an MCP server (MCP authorization, design/03 §5.2) is three units. `McpOAuthDiscovery` asks the
   server without credentials and follows its 401 (`WWW-Authenticate` `resource_metadata`, `scope`) to its

@@ -7,6 +7,7 @@
 - **MCP App**（D-050，design/03 §9.2）：`SiteMcpApp`（`ui://jacky-studio/card.html`，內嵌、只用 textContent、連結經 `ui/open-link`、跟 host 深淺色），initialize 宣告 `resources` 與 `io.modelcontextprotocol/ui`，每個工具 `_meta.ui.resourceUri`，結果多 `structuredContent.card`。Claude／ChatGPT 裡會畫出本站的持倉表格與單字卡。
 - **Studio 引導**：問「怎麼讓 Claude 用這個網站」→ Connectors 連結與說明；/connectors 的 Studio 建議多一則；「讓其他 AI 使用本站」說明改寫（Claude.ai／ChatGPT 貼網址、其他用 token）。
 - **安全審查**（subagent，唯讀，範圍：SiteMcp、OAuth 授權伺服器、MCP OAuth client、SafeHttp）：無高／中風險；修三個低風險（DCR redirect 總長、SafeHttp 不走 proxy＋擋 168.63.129.16、MCP App 只收 parent 訊息），兩個接受（D-052）。
+- **第二次審查**（agent loop、connector、本站工具）：**高風險**——外部 connector 工具在 /connectors 設的「需確認」在 chat 沒生效（權限用伺服器名存、chat 用 `m1__…` 查），改 `AiToolDescriptor.PermissionName` 並加端對端測試；中風險——清理後同名的工具會讓對話每輪中斷，改成只留第一個；低風險——確認逾時的競態、卡片連結的控制字元（前後端都擋）。D-053。
 - `.loop/shots/`：`connectors.cjs`（dist＋假 API）、`mcp-app.cjs`（自己扮 MCP Apps host；`<img onerror>` 當資料只顯示成文字、按鈕走 open-link），截圖存進 `screenshots/`（`mcp-app-card-*`、`site-mcp-section-*`）。
 - 文件：design/03 §9.1–9.2、server CLAUDE.md、SHOWCASE（亮點、demo 第 7 步、截圖、日誌）、CONTRIBUTING、FOR_JACKY 9、PLAN、D-049～D-052。
 - 驗證：每個後端 commit 先 cscheck（0 個新診斷）再看 CI：40091300375（收尾）、40091669851（ViaOAuth migration）、40091861427（Studio）、40092081827（MCP App）、40092790787（前端說明）、40093015146（icons）、40093462486（安全修正，見下）。前端 lint、test（120 檔 1295 個）、build 全過。
