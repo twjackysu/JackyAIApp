@@ -45,4 +45,38 @@ namespace JackyAIApp.Server.DTO
     {
         public bool Enabled { get; set; }
     }
+
+    /// <summary>What the reader typed to reach a server.</summary>
+    public sealed class McpCredentialsDto
+    {
+        /// <summary>For an API key: the header it goes in.</summary>
+        public string? HeaderName { get; set; }
+        public string? Value { get; set; }
+        public string? ClientId { get; set; }
+        public string? ClientSecret { get; set; }
+    }
+
+    public sealed class CreateInstallationRequestDto
+    {
+        /// <summary>A catalog entry's key, or <c>custom</c> for an MCP server of the reader's own.</summary>
+        public string DefinitionKey { get; set; } = string.Empty;
+        public string? DisplayName { get; set; }
+        public string? ServerUrl { get; set; }
+
+        /// <summary>none, apiKey, bearer or oauth.</summary>
+        public string AuthKind { get; set; } = "none";
+        public McpCredentialsDto? Credentials { get; set; }
+    }
+
+    public sealed class ProbeRequestDto
+    {
+        public string? ServerUrl { get; set; }
+    }
+
+    /// <param name="Auth">none, oauth or apiKey.</param>
+    /// <param name="Registration">cimd, dcr or manual, for OAuth; null otherwise.</param>
+    public sealed record McpProbeResultDto(
+        string ServerUrl, string Auth, string? AuthorizationServer, string? Registration, string? ServerName);
+
+    public sealed record ConnectionTestResultDto(bool Ok, long LatencyMs, string? Error, InstalledConnectorDto Connector);
 }

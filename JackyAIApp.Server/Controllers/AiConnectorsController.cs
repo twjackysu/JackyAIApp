@@ -14,11 +14,25 @@ namespace JackyAIApp.Server.Controllers
     [ApiController]
     [Route("api/connectors")]
     [Authorize]
-    public class AiConnectorsController(IConnectorCatalogService catalog, IMyResponseFactory responseFactory) : ControllerBase
+    public class AiConnectorsController(
+        IConnectorCatalogService catalog, IConnectorInstallService installs, IMyResponseFactory responseFactory) : ControllerBase
     {
         [HttpGet("catalog")]
         public async Task<IActionResult> GetCatalog(CancellationToken ct = default) =>
             responseFactory.ToActionResult(await catalog.GetAsync(ct));
+
+        /// <summary>Looks at an MCP server's URL; saves nothing.</summary>
+        [HttpPost("installations/probe")]
+        public async Task<IActionResult> Probe([FromBody] ProbeRequestDto request, CancellationToken ct = default) =>
+            responseFactory.ToActionResult(await installs.ProbeAsync(request.ServerUrl, ct));
+
+        [HttpPost("installations")]
+        public async Task<IActionResult> Create([FromBody] CreateInstallationRequestDto request, CancellationToken ct = default) =>
+            responseFactory.ToActionResult(await installs.CreateAsync(request, ct));
+
+        [HttpPost("installations/{installationId}/test")]
+        public async Task<IActionResult> Test(string installationId, CancellationToken ct = default) =>
+            responseFactory.ToActionResult(await installs.TestAsync(installationId, ct));
 
         [HttpPut("tool-permissions")]
         public async Task<IActionResult> SetToolPermission([FromBody] ToolPermissionRequestDto request, CancellationToken ct = default) =>

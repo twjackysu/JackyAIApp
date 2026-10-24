@@ -162,6 +162,12 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<ConnectorCatalogService>();
             services.AddScoped<IConnectorCatalogService>(sp => sp.GetRequiredService<ConnectorCatalogService>());
             services.AddScoped<IToolPermissionSource>(sp => sp.GetRequiredService<ConnectorCatalogService>());
+            services.AddScoped<IConnectorInstallService, ConnectorInstallService>();
+            services.AddScoped<IConnectorToolSource, ConnectorToolSource>();
+            services.AddScoped<ConnectorSecrets>();
+            // A user's MCP server is reached only through SafeHttp (public addresses only).
+            services.AddSingleton<IMcpHttpHandlerSource, SafeMcpHttpHandlerSource>();
+            services.AddSingleton<IMcpToolClient, McpToolClient>();
 
             return services;
         }

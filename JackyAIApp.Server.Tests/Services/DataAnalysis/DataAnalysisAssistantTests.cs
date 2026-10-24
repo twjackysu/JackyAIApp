@@ -22,6 +22,7 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         private readonly Mock<IUsageLimitService> _usage = new();
         private readonly Mock<IDataAnalysisQueryService> _queries = new();
         private readonly Mock<ISessionDataStore> _sessions = new();
+        private readonly List<IAiTool> _connectorTools = [];
         private NlSummarizeRequestDto? _asked;
 
         public DataAnalysisAssistantTests()
@@ -52,7 +53,9 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         /// <summary>The profile's setup, and its ask_data tool (or the tool named).</summary>
         private async Task<(ChatProfileSetup Setup, IAiTool Tool)> SetupAsync(ChatProfileContext context, string tool = AskDataTool.Name)
         {
-            var setup = await new DataAnalysisChatProfile(_nl.Object, _queries.Object, _sessions.Object, _usage.Object)
+            var connectors = new Mock<IConnectorToolSource>();
+            connectors.Setup(c => c.ForUserAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(() => _connectorTools.ToList());
+            var setup = await new DataAnalysisChatProfile(_nl.Object, _queries.Object, _sessions.Object, _usage.Object, connectors.Object)
                 .SetupAsync(context, CancellationToken.None);
             return (setup, Assert.Single(setup.Tools!, t => t.Descriptor.Name == tool));
         }
@@ -71,6 +74,21 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             Assert.Equal(new[] { AskDataTool.Name, DescribeDataTool.Name }, setup.Tools!.Select(t => t.Descriptor.Name));
             Assert.All(setup.Tools!, t => Assert.Equal(ToolEffect.Read, t.Descriptor.Effect));
             Assert.Equal("object", tool.Descriptor.InputSchema.GetProperty("type").GetString());
+        }
+
+        [Fact]
+        public async Task TheReadersConnectors_AreOfferedAfterThePagesTools_AndThePromptSaysTheyAreOutside()
+        {
+            var outside = new Mock<IAiTool>();
+            outside.Setup(t => t.Descriptor).Returns(new AiToolDescriptor("m1__search", "Notion・搜尋", "說明",
+                JsonSerializer.SerializeToElement(new { type = "object" }), ToolEffect.Read, "inst-1", "Notion"));
+            _connectorTools.Add(outside.Object);
+
+            var (setup, _) = await SetupAsync(Page());
+
+            Assert.Equal(new[] { AskDataTool.Name, DescribeDataTool.Name, "m1__search" }, setup.Tools!.Select(t => t.Descriptor.Name));
+            Assert.Equal(DataAnalysisChatProfile.SystemPromptFor(Today, hasConnectors: true), setup.SystemPrompt);
+            Assert.Contains("外部 connector", setup.SystemPrompt);
         }
 
         [Fact]

@@ -32,7 +32,10 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <summary>What the reader chose for a connector's tools, for a turn of the chat.</summary>
     public interface IToolPermissionSource
     {
-        /// <summary>The reader's own choices for the tools of <paramref name="connectorKey"/> (none = the defaults).</summary>
+        /// <summary>
+        /// The reader's own choices for the tools of a connector (none = the defaults): <paramref name="connectorKey"/>
+        /// is <see cref="SiteConnector.Key"/> for the site's own, else the installation's id.
+        /// </summary>
         Task<IReadOnlyDictionary<string, ToolPermission>> ChosenAsync(string userId, string connectorKey, CancellationToken ct);
     }
 
@@ -69,8 +72,10 @@ namespace JackyAIApp.Server.Services.Connectors
 
         public async Task<IReadOnlyDictionary<string, ToolPermission>> ChosenAsync(string userId, string connectorKey, CancellationToken ct)
         {
+            // The site's own tools go by its key (one row at most); any other connector's by its installation's id.
             var json = await db.ConnectorInstallations.AsNoTracking()
-                .Where(c => c.UserId == userId && c.DefinitionKey == connectorKey)
+                .Where(c => c.UserId == userId &&
+                            (connectorKey == SiteConnector.Key ? c.DefinitionKey == SiteConnector.Key : c.Id == connectorKey))
                 .Select(c => c.ToolSettingsJson)
                 .FirstOrDefaultAsync(ct);
             return ToolPermissions.Parse(json);
@@ -164,14 +169,15 @@ namespace JackyAIApp.Server.Services.Connectors
                 "site", null, "none", "ok", AlwaysOn: true, null, null, [], tools);
         }
 
-        private static InstalledConnectorDto InstalledDto(SQL.ConnectorInstallation row)
+        internal static InstalledConnectorDto InstalledDto(SQL.ConnectorInstallation row)
         {
             var chosen = ToolPermissions.Parse(row.ToolSettingsJson);
             var tools = CachedTools.Parse(row.ToolsCacheJson)
                 .Select(t => new ConnectorToolDto(t.Name, t.Title, t.Description, t.Effect.WireName(),
                     ToolPermissions.For(t.Name, t.Effect, chosen).WireName()))
                 .ToList();
-            return new InstalledConnectorDto(row.Id, row.DefinitionKey, row.DisplayName ?? row.DefinitionKey, "", "data",
+            return new InstalledConnectorDto(row.Id, row.DefinitionKey, row.DisplayName ?? row.DefinitionKey,
+                row.ServerUrl == null ? "" : $"MCP server：{new Uri(row.ServerUrl).Host}", "data",
                 row.ServerUrl, AuthKindWireName(row.AuthKind), HealthOf(row), AlwaysOn: false, row.LastError, row.LastTestedAt,
                 [], tools);
         }
