@@ -1,6 +1,6 @@
-import { act } from 'react';
+import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isStudioShortcut } from './studioChat';
@@ -42,10 +42,20 @@ async function render(path: string) {
   await act(async () =>
     root.render(
       <MemoryRouter initialEntries={[path]}>
+        <CaptureNavigate />
         <StudioAssistant />
       </MemoryRouter>,
     ),
   );
+}
+
+const router: { navigate?: NavigateFunction } = {};
+function CaptureNavigate() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    router.navigate = navigate;
+  }, [navigate]);
+  return null;
 }
 
 const button = () =>
@@ -77,6 +87,20 @@ describe('StudioAssistant', () => {
     expect(mocks.panel).toMatchObject({ active: true, variant: 'sheet' });
     await act(async () => mocks.panel!.onCollapse());
     expect(mocks.panel!.active).toBe(false);
+  });
+
+  it('keeps the conversation when the reader goes to a page with an assistant of its own', async () => {
+    await render('/english');
+    await act(async () => button()!.click());
+    await settle();
+    const panel = document.querySelector('[data-testid="panel"]');
+
+    await act(async () => router.navigate!('/finance'));
+    await settle();
+
+    expect(button()).toBeNull();
+    expect(mocks.panel!.active).toBe(false);
+    expect(document.querySelector('[data-testid="panel"]')).toBe(panel);
   });
 
   it('opens on ⌘K / Ctrl+K', async () => {

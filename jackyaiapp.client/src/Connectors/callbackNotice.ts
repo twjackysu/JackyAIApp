@@ -39,7 +39,7 @@ export function callbackNotice(params: URLSearchParams): CallbackNotice | null {
   const error = params.get('error');
   if (!error) return null;
   const message = mcp
-    ? (MCP_ERRORS[error] ?? `「${provider}」沒有連上，請重新授權一次。`)
+    ? (MCP_ERRORS[error] ?? '沒有連上，請重新授權一次。')
     : (ACCOUNT_ERRORS[error] ?? `Failed to connect to ${provider}`);
   return { severity: 'error', message: mcp ? `「${provider}」：${message}` : message };
 }

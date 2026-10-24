@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { finishSseLines, splitSseLines } from './sseLines';
 
@@ -148,6 +148,10 @@ export const useChatStreaming = ({
     }
   }, []);
 
+  // Leaving the page that holds the chat stops its answer: nobody is left to read it, and the server
+  // would go on writing (and paying for) it.
+  useEffect(() => stop, [stop]);
+
   const sendStreamingMessage = useCallback(
     async ({
       message,
@@ -278,7 +282,10 @@ export const useChatStreaming = ({
         }
         for (const data of finishSseLines(rest + decoder.decode())) if (handle(data)) return;
 
-        if (!accumulatedContent) onComplete(conversationId);
+        // Every turn the server finishes ends with `done` or `error`: a stream that just stops was cut
+        // (a proxy, the network), so it is not an answer, however much of one arrived.
+        if (turn.stopRequested) onStopped(accumulatedContent);
+        else onError(chatErrorMessage('failed'));
       } catch (error) {
         if (turn.stopRequested) {
           onStopped(accumulatedContent);

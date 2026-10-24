@@ -4,6 +4,8 @@ import { Box, IconButton, Paper, ToggleButton, ToggleButtonGroup, Typography } f
 import { useEffect, useRef, useState } from 'react';
 
 // 語言註冊集中在 syntaxHighlight，這裡不再自己 registerLanguage（html 是 xml 的 alias）。
+import { escapeHtml } from './escapeHtml';
+
 import { hljs } from '@/components/syntaxHighlight';
 
 interface HtmlViewerProps {
@@ -48,7 +50,7 @@ function HtmlViewer({ content, isComplete = false, title, onClose }: HtmlViewerP
       return highlighted.value;
     } catch (error) {
       console.warn('Failed to highlight code:', error);
-      return content;
+      return escapeHtml(content);
     }
   };
 
@@ -103,7 +105,21 @@ function HtmlViewer({ content, isComplete = false, title, onClose }: HtmlViewerP
             }}
           >
             {isComplete ? (
-              <div dangerouslySetInnerHTML={{ __html: content }} />
+              // The HTML is an AI answer, which can echo what a tool or connector read (a calendar invite, an
+              // issue): never in the site's own page. A sandboxed frame with no permissions runs no script and
+              // has an origin of its own, so the markup can only be looked at.
+              <iframe
+                title={title || 'HTML Preview'}
+                sandbox=""
+                srcDoc={content}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  minHeight: 320,
+                  border: 0,
+                  background: '#fff',
+                }}
+              />
             ) : (
               <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 4 }}>
                 Preview will be available when HTML is complete...

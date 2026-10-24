@@ -31,7 +31,7 @@ describe('callbackNotice', () => {
     expect(denied?.severity).toBe('error');
     expect(denied?.message).toBe('「Notion」：你在授權頁沒有允許，所以沒有連上。');
     expect(of('error=odd&provider=Linear&kind=mcp')?.message).toBe(
-      '「Linear」：「Linear」沒有連上，請重新授權一次。',
+      '「Linear」：沒有連上，請重新授權一次。',
     );
   });
 });

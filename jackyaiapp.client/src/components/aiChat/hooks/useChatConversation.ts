@@ -149,6 +149,16 @@ export function useChatConversation(options?: ChatStreamingOptions) {
       );
     const settleSteps = (answered: boolean) =>
       updateSteps((steps) => settleToolSteps(steps, answered));
+    // A question left open when the turn ended was never answered: the server ran none of it, and
+    // a click now would find nothing waiting. It shows as decided, every call declined.
+    const closeApproval = () =>
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botMessage.id && msg.approval && msg.approval.state !== 'resolved'
+            ? { ...msg, approval: { ...msg.approval, state: 'resolved', decisions: [] } }
+            : msg,
+        ),
+      );
 
     await sendStreamingMessage({
       message: text,
@@ -188,12 +198,14 @@ export function useChatConversation(options?: ChatStreamingOptions) {
         });
         // The calls made before the stop did run; none is left spinning.
         settleSteps(true);
+        closeApproval();
       },
       // `parsedBlocks` is cleared so the bubble falls back to rendering `content`: an empty
       // block list is what a reply that never started looks like, and it draws nothing.
       onError: (error) => {
         updateBot({ content: `錯誤: ${error}`, parsedBlocks: undefined });
         settleSteps(false);
+        closeApproval();
       },
     });
 

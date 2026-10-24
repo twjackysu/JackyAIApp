@@ -485,6 +485,37 @@ describe('AiAssistantPanel', () => {
     );
   });
 
+  it('a question the turn ended without is no longer offered', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'start', conversationId: 'conv-1' },
+        {
+          type: 'approval_required',
+          pendingId: 'p1',
+          calls: [
+            {
+              toolUseId: 'tu1',
+              connector: 'site',
+              connectorName: '本站・單字庫',
+              tool: 'add_word',
+              displayName: '加入單字',
+              effect: 'write',
+              input: { word: 'serendipity' },
+            },
+          ],
+        },
+        { type: 'error', code: 'busy' },
+      ),
+    );
+    await send('把 serendipity 加入單字庫');
+
+    await waitForText('錯誤:');
+    expect([...container.querySelectorAll('button')].some((b) => b.textContent === '允許')).toBe(
+      false,
+    );
+  });
+
   it("a decline is told in the app's own words when its config has them", async () => {
     await mount();
     chatReplies.push(() => sseReply({ type: 'error', code: 'refused' }));
@@ -512,6 +543,15 @@ describe('AiAssistantPanel', () => {
 
     await waitForText('錯誤: AI 服務目前忙碌中，請稍後再試。');
     expect(container.textContent).not.toContain('說到一半的分析');
+  });
+
+  it('a stream cut before the server finished is an error, not an answer', async () => {
+    await mount();
+    chatReplies.push(() => sseReply({ type: 'delta', text: '說到一半' }));
+    await send('hi');
+
+    await waitForText('錯誤:');
+    expect(container.textContent).not.toContain('說到一半');
   });
 
   it('says so under an answer that was cut short by the length limit', async () => {

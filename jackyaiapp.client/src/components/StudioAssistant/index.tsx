@@ -50,30 +50,34 @@ export default function StudioAssistant() {
     if (!shown) setOpen(false);
   }, [shown]);
 
-  if (!shown) return null;
+  // Signed out, there is nothing to keep. On a page without the button (one of Studio's own links goes to
+  // /finance) only the button goes: unmounting the panel would drop the conversation mid-reply.
+  if (!signedIn || (!shown && !opened)) return null;
 
   return (
     <AiChatConfigContext value={config}>
-      <ActionTooltip title="Studio AI（⌘K）">
-        <Fab
-          aria-label="開啟 Studio AI"
-          onClick={() => {
-            setOpened(true);
-            setOpen(true);
-          }}
-          sx={{
-            position: 'fixed',
-            right: { xs: 16, sm: 24 },
-            bottom: { xs: 'calc(16px + env(safe-area-inset-bottom))', sm: 24 },
-            zIndex: (theme) => theme.zIndex.speedDial,
-            color: '#fff',
-            backgroundImage: ACCENT_GRADIENT,
-            display: open ? 'none' : undefined,
-          }}
-        >
-          <AutoAwesomeIcon />
-        </Fab>
-      </ActionTooltip>
+      {shown && (
+        <ActionTooltip title="Studio AI（⌘K）">
+          <Fab
+            aria-label="開啟 Studio AI"
+            onClick={() => {
+              setOpened(true);
+              setOpen(true);
+            }}
+            sx={{
+              position: 'fixed',
+              right: { xs: 16, sm: 24 },
+              bottom: { xs: 'calc(16px + env(safe-area-inset-bottom))', sm: 24 },
+              zIndex: (theme) => theme.zIndex.speedDial,
+              color: '#fff',
+              backgroundImage: ACCENT_GRADIENT,
+              display: open ? 'none' : undefined,
+            }}
+          >
+            <AutoAwesomeIcon />
+          </Fab>
+        </ActionTooltip>
+      )}
       <Drawer
         anchor="right"
         open={open}
