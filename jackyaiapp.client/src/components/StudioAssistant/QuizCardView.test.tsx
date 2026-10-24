@@ -31,11 +31,11 @@ afterEach(() => {
   container.remove();
 });
 
-const card = (totalDue = 7) => ({
+const card = (totalDue = 7, fromDue = true) => ({
   kind: 'quiz',
   title: '複習小測驗',
   data: {
-    fromDue: true,
+    fromDue,
     totalDue,
     questions: [
       {
@@ -58,11 +58,14 @@ const card = (totalDue = 7) => ({
   },
 });
 
-function render(c: ReturnType<typeof card> | { kind: string; title: null; data: object }) {
+function render(
+  c: ReturnType<typeof card> | { kind: string; title: null; data: object },
+  saved = false,
+) {
   act(() =>
     root.render(
       <MemoryRouter>
-        <QuizCardView card={c as Parameters<typeof QuizCardView>[0]['card']} />
+        <QuizCardView card={c as Parameters<typeof QuizCardView>[0]['card']} saved={saved} />
       </MemoryRouter>,
     ),
   );
@@ -123,6 +126,30 @@ describe('QuizCardView', () => {
     expect(container.textContent).toContain('沒有記進複習排程');
     press('再試一次');
     expect(mocks.submit).toHaveBeenCalledTimes(2);
+  });
+
+  const answerAll = () => {
+    press('luck in finding');
+    press('下一題');
+    press('ephemeral');
+    press('看結果');
+  };
+
+  it('records nothing again for a quiz drawn from a reopened conversation: it is practice', () => {
+    render(card(), true);
+    expect(container.textContent).toContain('練習・第 1 / 2 題');
+    answerAll();
+    expect(container.textContent).toContain('全對');
+    expect(container.textContent).toContain('之前答過，這次是練習');
+    expect(mocks.submit).not.toHaveBeenCalled();
+  });
+
+  it('records nothing for words not yet due, which an early answer would push further out', () => {
+    render(card(0, false));
+    answerAll();
+    expect(container.textContent).toContain('還沒到期，這次是練習');
+    expect(container.textContent).not.toContain('去複習');
+    expect(mocks.submit).not.toHaveBeenCalled();
   });
 
   it('draws nothing for a quiz card that holds no question', () => {

@@ -64,6 +64,18 @@ namespace JackyAIApp.Server.Tests.Services.Dictionary
         }
 
         [Fact]
+        public async Task WordsNotYetDue_AreSaidToBePractice()
+        {
+            _quizzes.Setup(q => q.CreateAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Ok(TwoQuestions with { FromDue = false, TotalDueCount = 0 }));
+
+            var result = await RunAsync(new { });
+
+            Assert.Contains("這次是練習，不會記進複習排程", result.Content);
+            Assert.False(Card(result).GetProperty("data").GetProperty("fromDue").GetBoolean());
+        }
+
+        [Fact]
         public async Task ACountThatIsNotANumber_IsTheDefault()
         {
             _quizzes.Setup(q => q.CreateAsync(ReviewQuizTool.DefaultCount, It.IsAny<CancellationToken>())).ReturnsAsync(ServiceResult.Ok(TwoQuestions));

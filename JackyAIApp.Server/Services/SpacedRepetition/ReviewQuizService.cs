@@ -40,8 +40,11 @@ namespace JackyAIApp.Server.Services.SpacedRepetition
     {
         public const int MaxQuestions = 5;
 
-        /// <summary>The most other words the wrong options are drawn from (the dictionary's latest).</summary>
+        /// <summary>The most other words the wrong options are drawn from.</summary>
         internal const int PoolSize = 60;
+
+        /// <summary>Fewer of the reader's own other words than this, and the dictionary's fill the pool.</summary>
+        internal const int MinOwnPool = 12;
 
         public async Task<ServiceResult<ReviewQuiz>> CreateAsync(int count, CancellationToken ct)
         {
@@ -70,14 +73,23 @@ namespace JackyAIApp.Server.Services.SpacedRepetition
             var targets = (await WithMeanings(dbContext.Words.Where(w => targetIds.Contains(w.Id)))
                     .ToListAsync(ct))
                 .ToDictionary(w => w.Id);
-            var others = await WithMeanings(dbContext.Words
+            // The wrong options: the reader's other saved words first (words they are learning), then, for a small
+            // repository, the dictionary's first by id. Both read along an index, never sorting the whole dictionary.
+            var others = await WithMeanings(Askable(dbContext.Words)
                     .Where(w => !targetIds.Contains(w.Id) &&
-                                (w.DataInvalid == null || w.DataInvalid == false) &&
-                                w.Meanings.Any(m => m.Definitions.Any()))
-                    .OrderByDescending(w => w.LastUpdated)
-                    .ThenBy(w => w.Id)
+                                dbContext.UserWords.Any(uw => uw.UserId == userId && uw.WordId == w.Id))
+                    .OrderBy(w => w.Id)
                     .Take(PoolSize))
                 .ToListAsync(ct);
+            if (others.Count < MinOwnPool)
+            {
+                var have = others.Select(w => w.Id).Concat(targetIds).ToList();
+                others.AddRange(await WithMeanings(Askable(dbContext.Words)
+                        .Where(w => !have.Contains(w.Id))
+                        .OrderBy(w => w.Id)
+                        .Take(PoolSize - others.Count))
+                    .ToListAsync(ct));
+            }
 
             // A word removed between the two reads is left out.
             var asked = picked.Where(p => targets.ContainsKey(p.WordId)).ToList();
@@ -90,6 +102,10 @@ namespace JackyAIApp.Server.Services.SpacedRepetition
                 .ToList();
             return ServiceResult.Ok(new ReviewQuiz(questions, FromDue: totalDue > 0, totalDue));
         }
+
+        /// <summary>Words a question can be made of: valid, with a definition.</summary>
+        private static IQueryable<SQL.Word> Askable(IQueryable<SQL.Word> words) =>
+            words.Where(w => (w.DataInvalid == null || w.DataInvalid == false) && w.Meanings.Any(m => m.Definitions.Any()));
 
         private static IQueryable<SQL.Word> WithMeanings(IQueryable<SQL.Word> words) =>
             words

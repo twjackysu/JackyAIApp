@@ -60,8 +60,9 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
     /// <summary>
     /// A short quiz on the reader's own words, in the chat (Studio AI's 「考我今天的單字」): a few multiple-choice
     /// questions on the words due for review (<see cref="IReviewQuizService"/>, the daily challenge's kinds, no AI), shown
-    /// as a <c>quiz</c> card the reader answers on; the card sends each answer to the review schedule itself, as the
-    /// review page does. A read: making the quiz changes nothing and charges nothing. The model is told the words, and
+    /// as a <c>quiz</c> card the reader answers on; for words that are due, the card sends the answers to the review
+    /// schedule itself, as the review page does (words not yet due are practice: an early answer would push them out).
+    /// A read: making the quiz changes nothing and charges nothing. The model is told the words, and
     /// the questions and answers only for a client that cannot draw the card (another AI through the site's MCP server).
     /// </summary>
     public sealed class ReviewQuizTool(IReviewQuizService quizzes) : ISiteTool
@@ -113,7 +114,8 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
             var text = new StringBuilder();
             text.AppendLine($"已出 {quiz.Questions.Count} 題小測驗，考的字：{string.Join("、", quiz.Questions.Select(q => q.Word))}" +
                             (quiz.FromDue ? $"（到期該複習的共 {quiz.TotalDueCount} 個）。" : "（今天沒有到期的字，挑的是最快要複習的）。"));
-            text.AppendLine("題目已經顯示在使用者畫面上的卡片裡，他會直接在卡片上作答，答案會記進複習排程。" +
+            text.AppendLine("題目已經顯示在使用者畫面上的卡片裡，他會直接在卡片上作答" +
+                            (quiz.FromDue ? "，答案會記進複習排程。" : "；這些字還沒到期，這次是練習，不會記進複習排程。") +
                             "請用一兩句話請他作答；不要在回答中重複題目，也不要說出答案。");
             text.AppendLine();
             text.AppendLine("以下只供看不到卡片的情況使用（例如在其他 AI 裡）：一次問一題，等使用者作答後再公布那一題的答案。");

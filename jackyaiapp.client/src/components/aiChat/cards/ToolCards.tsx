@@ -28,7 +28,7 @@ export default function ToolCards({
     ? steps.map((s) => ({ key: s.key, card: s.card }))
     : (cards ?? []).map((card, i) => ({ key: `saved-${i}`, card }));
   const drawn = items
-    .map((s) => ({ key: s.key, view: s.card ? cardView(s.card, cardRenderers) : null }))
+    .map((s) => ({ key: s.key, view: s.card ? cardView(s.card, cardRenderers, !steps) : null }))
     .filter((c) => c.view !== null);
   if (drawn.length === 0) return null;
 
@@ -55,9 +55,10 @@ export default function ToolCards({
 function cardView(
   card: ToolCard,
   renderers: ReturnType<typeof useAiChatConfig>['cardRenderers'],
+  saved: boolean,
 ): React.ReactNode {
   if (card.kind === 'table' && 'columns' in card) return <TableCardView card={card} />;
   if (card.kind === 'link' && 'href' in card) return <LinkCardView card={card} />;
   const Renderer = 'data' in card ? renderers?.[card.kind] : undefined;
-  return Renderer && 'data' in card ? <Renderer card={card} /> : null;
+  return Renderer && 'data' in card ? <Renderer card={card} saved={saved} /> : null;
 }

@@ -137,6 +137,25 @@ describe('ToolCards', () => {
     expect(cards().map((c) => c.textContent)).toEqual(['[chart 趨勢]', 'x前往']);
   });
 
+  it("tells the app's renderer whether the card is a saved one, drawn again from a reopened conversation", () => {
+    const Quiz = ({ saved }: { card: CustomCard; saved?: boolean }) => (
+      <span>{saved ? 'saved' : 'live'}</span>
+    );
+    const cfg = config({ cardRenderers: { quiz: Quiz } });
+    render([step('q', { kind: 'quiz', title: null, data: {} })], cfg);
+    expect(cards().map((c) => c.textContent)).toEqual(['live']);
+    act(() =>
+      root.render(
+        <MemoryRouter>
+          <AiChatConfigContext.Provider value={cfg}>
+            <ToolCards cards={[{ kind: 'quiz', title: null, data: {} }]} />
+          </AiChatConfigContext.Provider>
+        </MemoryRouter>,
+      ),
+    );
+    expect(cards().map((c) => c.textContent)).toEqual(['saved']);
+  });
+
   it('leaves out a kind nobody draws', () => {
     render([step('c', { kind: 'chart', title: null, data: {} })]);
     expect(cards()).toHaveLength(0);

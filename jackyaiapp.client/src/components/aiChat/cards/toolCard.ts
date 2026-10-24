@@ -46,7 +46,11 @@ export interface CustomCard {
 
 export type ToolCard = TableCard | LinkCard | CustomCard;
 
-export type ToolCardRenderer = ComponentType<{ card: CustomCard }>;
+/**
+ * `saved`: the card was stored with an answer and is drawn again from a reopened conversation, not shown by a tool
+ * that just ran: anything it does that counts (an answer recorded) has been done once already.
+ */
+export type ToolCardRenderer = ComponentType<{ card: CustomCard; saved?: boolean }>;
 
 export const CARD_LIMITS = { columns: 12, rows: 200, text: 500 } as const;
 

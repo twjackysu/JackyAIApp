@@ -19,19 +19,28 @@ const LETTERS = 'ABCDEF';
  * Studio AI's review quiz in the answer (`review_quiz`): one question at a time, answered with a press, the right
  * answer and its explanation shown at once; when the last is done, the answers go to the review schedule (the review
  * page's own call, so the words come back as SM-2 decides, and right answers earn XP). Nothing is asked of the AI.
+ * Only a quiz on words that are due, the first time: one drawn again from a reopened conversation (`saved`) was
+ * answered already, and a word not yet due would be pushed further out by an early answer, so those are practice.
  */
-export default function QuizCardView({ card }: { card: CustomCard }) {
+export default function QuizCardView({
+  card,
+  saved = false,
+}: {
+  card: CustomCard;
+  saved?: boolean;
+}) {
   const quiz = useMemo(() => parseQuizCard(card), [card]);
-  return quiz ? <Quiz quiz={quiz} /> : null;
+  return quiz ? <Quiz quiz={quiz} saved={saved} /> : null;
 }
 
-function Quiz({ quiz }: { quiz: QuizCardData }) {
+function Quiz({ quiz, saved }: { quiz: QuizCardData; saved: boolean }) {
   const theme = useTheme();
   const total = quiz.questions.length;
   const [index, setIndex] = useState(0);
   const [picked, setPicked] = useState<(number | null)[]>(() => quiz.questions.map(() => null));
   const [finished, setFinished] = useState(false);
   const [submit, sent] = useSubmitReviewsMutation();
+  const recorded = quiz.fromDue && !saved;
 
   const send = () =>
     void submit({
@@ -48,6 +57,7 @@ function Quiz({ quiz }: { quiz: QuizCardData }) {
         {quiz.title}
       </Typography>
       <Typography variant="caption" color="text.secondary">
+        {recorded ? '' : '練習・'}
         {finished ? `${total} 題` : `第 ${index + 1} / ${total} 題`}
       </Typography>
     </Stack>
@@ -55,7 +65,7 @@ function Quiz({ quiz }: { quiz: QuizCardData }) {
 
   if (finished) {
     const right = quiz.questions.filter((q, i) => picked[i] === q.correctIndex).length;
-    const moreDue = quiz.fromDue ? quiz.totalDue - total : 0;
+    const moreDue = quiz.fromDue ? Math.max(0, quiz.totalDue - total) : 0;
     return (
       <Box data-testid="quiz-card">
         {header}
@@ -88,13 +98,17 @@ function Quiz({ quiz }: { quiz: QuizCardData }) {
           sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}
         >
           <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 160 }}>
-            {sent.isLoading
-              ? '記進複習排程中…'
-              : sent.isSuccess
-                ? `已記進複習排程${sent.data?.data?.xpEarned ? `・+${sent.data.data.xpEarned} XP` : ''}`
-                : sent.isError
-                  ? '沒有記進複習排程。'
-                  : ''}
+            {!recorded
+              ? saved
+                ? '這份測驗之前答過，這次是練習，不再記進複習排程。'
+                : '這些字還沒到期，這次是練習，不記進複習排程。'
+              : sent.isLoading
+                ? '記進複習排程中…'
+                : sent.isSuccess
+                  ? `已記進複習排程${sent.data?.data?.xpEarned ? `・+${sent.data.data.xpEarned} XP` : ''}`
+                  : sent.isError
+                    ? '沒有記進複習排程。'
+                    : ''}
           </Typography>
           {sent.isError && (
             <Button size="small" onClick={send}>
@@ -188,7 +202,7 @@ function Quiz({ quiz }: { quiz: QuizCardData }) {
               onClick={() => {
                 if (!last) return setIndex(index + 1);
                 setFinished(true);
-                send();
+                if (recorded) send();
               }}
             >
               {last ? '看結果' : '下一題'}
