@@ -402,9 +402,13 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         {
             public Dictionary<string, ToolPermission> Site { get; } = [];
 
+            /// <summary>Other connectors' choices, by connector key, each by the server's own tool name.</summary>
+            public Dictionary<string, Dictionary<string, ToolPermission>> Others { get; } = [];
+
             public Task<IReadOnlyDictionary<string, ToolPermission>> ChosenAsync(string userId, string connectorKey, CancellationToken ct) =>
                 Task.FromResult<IReadOnlyDictionary<string, ToolPermission>>(
-                    connectorKey == AiToolDescriptor.SiteConnector ? Site : new Dictionary<string, ToolPermission>());
+                    connectorKey == AiToolDescriptor.SiteConnector ? Site
+                    : Others.TryGetValue(connectorKey, out var chosen) ? chosen : new Dictionary<string, ToolPermission>());
         }
 
         private sealed class ToolProfile : IChatProfile
@@ -424,7 +428,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         private sealed class RecordingTool(string name, string displayName, ToolEffect effect, string connector = AiToolDescriptor.SiteConnector,
-            bool outsideText = false)
+            bool outsideText = false, string? permissionKey = null)
             : IAiTool, IDescribesCall
         {
             /// <summary>What the tool says a call would do (shown on the confirmation card); none by default.</summary>
@@ -434,7 +438,7 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
 
             public AiToolDescriptor Descriptor { get; } = new(name, displayName, "測試用工具",
                 JsonSerializer.SerializeToElement(new { type = "object", properties = new { word = new { type = "string" } } }), effect,
-                connector, OutsideText: outsideText);
+                connector, OutsideText: outsideText, PermissionKey: permissionKey);
 
             public List<(JsonElement Input, AiToolContext Context)> Calls { get; } = [];
 
@@ -667,6 +671,26 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             await turn;
 
             Assert.Single(_toolProfile.Lookup.Calls);
+        }
+
+        [Fact]
+        public async Task AConnectorsRead_TheReaderWantsToBeAskedAbout_WaitsForThem_ByTheServersOwnName()
+        {
+            // Kept on the connectors page under the server's name ("search"); the model sees "m1__search".
+            _permissions.Others["inst-1"] = new() { ["search"] = ToolPermission.Confirm };
+            var search = new RecordingTool("m1__search", "Notes・搜尋", ToolEffect.Read, connector: "inst-1", permissionKey: "search");
+            _toolProfile.Extra.Add(search);
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "m1__search", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("好"), Sse.End("end_turn"));
+            var body = new RecordingBody();
+
+            var turn = AskAsync(profile: ToolProfile.ProfileKey, body: body);
+            var (conversationId, pendingId, _) = await AskedAsync(body);
+            Assert.Empty(search.Calls);
+            Assert.True(_approvals.Resolve(User, conversationId, pendingId, [new ChatApprovalDecision("toolu_1", true)]));
+            await turn;
+
+            Assert.Single(search.Calls);
         }
 
         [Fact]
