@@ -66,6 +66,9 @@ namespace JackyAIApp.Server.Tests.TestHelpers
         /// <summary>The <c>grant_type</c> of every token request it granted, in order.</summary>
         public List<string> TokensGranted { get; } = [];
 
+        /// <summary>The <c>scope</c> of every sign-in the reader approved, in order.</summary>
+        public List<string?> ScopesAsked { get; } = [];
+
         /// <summary>Every URL asked, in order.</summary>
         public List<string> Asked { get; } = [];
 
@@ -94,6 +97,7 @@ namespace JackyAIApp.Server.Tests.TestHelpers
                 throw new InvalidOperationException("No PKCE S256 challenge");
             if (query["resource"] != Server.ToString()) throw new InvalidOperationException($"Resource is {query["resource"]}");
 
+            ScopesAsked.Add(query["scope"]);
             var code = $"code-{++_issued}";
             _codes[code] = new IssuedCode(clientId, redirectUri, query["code_challenge"]!, query["resource"]);
             return new Redirect(redirectUri, code, query["state"], Issuer);

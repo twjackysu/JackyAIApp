@@ -17,9 +17,11 @@ namespace JackyAIApp.Server.Services.Connectors
 
         /// <summary>
         /// The connector's server refused its credentials during a call (401/403): it is marked NeedsAuth, so the
-        /// connectors page asks the reader to sign in again or update the key.
+        /// connectors page asks the reader to sign in again or update the key. A refusal that named the scope the
+        /// call needs (<paramref name="requiredScope"/>, MCP authorization's step-up) adds it to an OAuth sign-in's
+        /// scope, so signing in again asks for it; the tokens stay for the calls they are enough for.
         /// </summary>
-        Task CredentialsRefusedAsync(string installationId, CancellationToken ct);
+        Task CredentialsRefusedAsync(string installationId, string? requiredScope, CancellationToken ct);
     }
 
     /// <summary>
@@ -86,15 +88,53 @@ namespace JackyAIApp.Server.Services.Connectors
             }
         }
 
-        public async Task CredentialsRefusedAsync(string installationId, CancellationToken ct)
+        public async Task CredentialsRefusedAsync(string installationId, string? requiredScope, CancellationToken ct)
         {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-            var row = await db.ConnectorInstallations.FirstOrDefaultAsync(c => c.Id == installationId, ct);
-            if (row == null) return;
-            row.LastStatus = "NeedsAuth";
-            row.LastError = "伺服器不接受目前的認證資料，請重新授權或更新 key。";
-            row.UpdatedAt = time.GetUtcNow().UtcDateTime;
-            await db.SaveChangesAsync(ct);
+            // The same lock as a refresh: both write the sign-in.
+            var gate = Locks.GetOrAdd(installationId, _ => new SemaphoreSlim(1, 1));
+            await gate.WaitAsync(ct);
+            try
+            {
+                await using var db = await dbFactory.CreateDbContextAsync(ct);
+                var row = await db.ConnectorInstallations.FirstOrDefaultAsync(c => c.Id == installationId, ct);
+                if (row == null) return;
+                var grant = secrets.GrantOf(row);
+                var stepUp = grant != null && requiredScope != null ? WithScope(grant.Scope, requiredScope) : null;
+                if (stepUp != null)
+                {
+                    row.EncryptedSecret = secrets.Seal(grant! with { Scope = stepUp });
+                    row.LastError = "這個動作需要更多權限，請重新授權。";
+                }
+                else
+                {
+                    row.LastError = "伺服器不接受目前的認證資料，請重新授權或更新 key。";
+                }
+                row.LastStatus = "NeedsAuth";
+                row.UpdatedAt = time.GetUtcNow().UtcDateTime;
+                await db.SaveChangesAsync(ct);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        /// <summary>The most scope one sign-in asks for, however many refusals added to it.</summary>
+        internal const int MaxScopeLength = 1000;
+
+        /// <summary>
+        /// A sign-in's scope with the one a refusal asked for (each scope token once, in order); null when the
+        /// refusal named no usable token or the sum would be too long. A scope token is RFC 6749 §3.3's NQCHAR.
+        /// </summary>
+        internal static string? WithScope(string? granted, string required)
+        {
+            static IEnumerable<string> Tokens(string? scope) =>
+                (scope ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Where(t => t.All(c => c is '!' or (>= '#' and <= '[') or (>= ']' and <= '~')));
+            var asked = Tokens(required).ToList();
+            if (asked.Count == 0) return null;
+            var sum = string.Join(' ', Tokens(granted).Concat(asked).Distinct(StringComparer.Ordinal));
+            return sum.Length <= MaxScopeLength ? sum : null;
         }
 
         internal static bool IsDue(McpOAuthGrant grant, DateTime now) =>

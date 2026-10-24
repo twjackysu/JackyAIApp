@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using ModelContextProtocol.Client;
@@ -42,6 +43,12 @@ namespace JackyAIApp.Server.Services.Connectors
     public sealed class McpServerException(McpFailure failure, string message, Exception? inner = null) : Exception(message, inner)
     {
         public McpFailure Failure { get; } = failure;
+
+        /// <summary>
+        /// For a refusal that named the scope the request needs (403 <c>insufficient_scope</c>, MCP authorization's
+        /// step-up): that scope, as the server wrote it. Signing in again asks for it too.
+        /// </summary>
+        public string? RequiredScope { get; init; }
     }
 
     /// <summary>The HTTP handler requests to a user's MCP server go through.</summary>
@@ -109,7 +116,8 @@ namespace JackyAIApp.Server.Services.Connectors
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(RequestTimeout);
-            var http = new HttpClient(handlers.Create(), disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
+            var refusals = new RefusalRecorder(handlers.Create());
+            var http = new HttpClient(refusals, disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
             try
             {
                 await using var transport = new HttpClientTransport(new HttpClientTransportOptions
@@ -131,8 +139,42 @@ namespace JackyAIApp.Server.Services.Connectors
             }
             catch (Exception ex) when (ex is not McpServerException)
             {
-                throw Classify(ex, timeout.IsCancellationRequested);
+                var failure = Classify(ex, timeout.IsCancellationRequested);
+                if (failure.Failure == McpFailure.NeedsAuth && refusals.InsufficientScope is { } scope)
+                    throw new McpServerException(McpFailure.NeedsAuth, "這個動作需要更多權限，請重新授權。", ex) { RequiredScope = scope };
+                throw failure;
             }
+        }
+
+        /// <summary>
+        /// Keeps the scope the server's refusal asked for, which the SDK's exception does not carry: a 403 (or 401)
+        /// whose <c>WWW-Authenticate</c> says <c>error="insufficient_scope"</c> with a <c>scope</c>.
+        /// </summary>
+        private sealed class RefusalRecorder(HttpMessageHandler inner) : DelegatingHandler(inner)
+        {
+            public string? InsufficientScope { get; private set; }
+
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+            {
+                var response = await base.SendAsync(request, ct);
+                if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+                    InsufficientScope = InsufficientScopeOf(response.Headers.WwwAuthenticate) ?? InsufficientScope;
+                return response;
+            }
+        }
+
+        /// <summary>The scope a Bearer challenge says is missing (RFC 6750 §3.1 <c>insufficient_scope</c>); null for any other.</summary>
+        internal static string? InsufficientScopeOf(HttpHeaderValueCollection<AuthenticationHeaderValue> headers)
+        {
+            foreach (var challenge in headers)
+            {
+                if (!string.Equals(challenge.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase)) continue;
+                var parameters = McpOAuthDiscovery.ParametersOf(challenge.Parameter);
+                if (parameters.TryGetValue("error", out var error) && error == "insufficient_scope" &&
+                    parameters.TryGetValue("scope", out var scope) && !string.IsNullOrWhiteSpace(scope))
+                    return scope.Trim();
+            }
+            return null;
         }
 
         /// <summary>What a failure of a request comes to, in words for the reader (never the server's own text).</summary>

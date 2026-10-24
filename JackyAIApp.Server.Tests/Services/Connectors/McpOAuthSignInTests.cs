@@ -206,6 +206,30 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public async Task ACallThatNeedsMoreScope_AsksForItWhenTheReaderSignsInAgain()
+        {
+            var id = await SignedInAsync();
+            Assert.Equal(FakeAuthorizationServer.Scope, _web.ScopesAsked.Single());
+            _web.McpServer.CallsNeedScope = "notes:write";
+
+            var refused = await Run(await ChatToolAsync("add_note"));
+
+            Assert.True(refused.IsError);
+            Assert.Contains("更多權限", refused.Content);
+            var row = Row(id);
+            Assert.Equal("NeedsAuth", row.LastStatus);
+            var grant = _secrets.GrantOf(row)!;
+            Assert.Equal("notes:read notes:write", grant.Scope);
+            // The token stays for what it is enough for.
+            Assert.NotNull(grant.AccessToken);
+
+            _web.McpServer.CallsNeedScope = null;
+            await SignInAgainAsync(id);
+            Assert.Equal("notes:read notes:write", _web.ScopesAsked[^1]);
+            Assert.Equal(new AiToolResult("找到 2 則筆記"), await Run(await ChatToolAsync("add_note")));
+        }
+
+        [Fact]
         public async Task ACodeComesBackOnce()
         {
             var created = await Install().CreateAsync(new CreateInstallationRequestDto

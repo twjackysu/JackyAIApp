@@ -78,10 +78,10 @@ namespace JackyAIApp.Server.Services.Connectors
             catch (McpServerException ex)
             {
                 logger.LogWarning(ex, "MCP tool {Tool} of connector {InstallationId} failed ({Failure})", tool.Name, installation.Id, ex.Failure);
-                if (ex.Failure == McpFailure.NeedsAuth) await tokens.CredentialsRefusedAsync(installation.Id, CancellationToken.None);
-                return AiToolResult.Error(ex.Failure == McpFailure.NeedsAuth
-                    ? $"「{_connectorName}」需要重新連線：請告訴使用者到 Connectors 頁面更新它的認證。"
-                    : $"「{_connectorName}」目前無法使用：{ex.Message}");
+                if (ex.Failure == McpFailure.NeedsAuth) await tokens.CredentialsRefusedAsync(installation.Id, ex.RequiredScope, CancellationToken.None);
+                return AiToolResult.Error(ex.Failure != McpFailure.NeedsAuth ? $"「{_connectorName}」目前無法使用：{ex.Message}"
+                    : ex.RequiredScope != null ? $"「{_connectorName}」的這個動作需要更多權限：請告訴使用者到 Connectors 頁面重新授權它，再試一次。"
+                    : $"「{_connectorName}」需要重新連線：請告訴使用者到 Connectors 頁面更新它的認證。");
             }
         }
     }

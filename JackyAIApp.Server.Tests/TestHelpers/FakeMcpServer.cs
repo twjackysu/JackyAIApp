@@ -41,6 +41,12 @@ namespace JackyAIApp.Server.Tests.TestHelpers
         /// <summary>The <c>WWW-Authenticate</c> of a 401 (MCP authorization: where the sign-in is described).</summary>
         public string? Challenge { get; init; }
 
+        /// <summary>
+        /// A scope every <c>tools/call</c> needs and the credentials lack: such a call is answered 403
+        /// <c>insufficient_scope</c> naming it (MCP authorization's step-up). None by default.
+        /// </summary>
+        public string? CallsNeedScope { get; set; }
+
         /// <summary>The JSON-RPC method of every request with credentials it took, in order.</summary>
         public List<string> Methods { get; } = [];
 
@@ -71,6 +77,12 @@ namespace JackyAIApp.Server.Tests.TestHelpers
             var method = message["method"]?.GetValue<string>() ?? "";
             Methods.Add(method);
             Authorizations.Add(request.Headers.Authorization?.ToString());
+            if (method == "tools/call" && CallsNeedScope is { } needed)
+            {
+                var forbidden = new HttpResponseMessage(HttpStatusCode.Forbidden);
+                forbidden.Headers.TryAddWithoutValidation("WWW-Authenticate", $"Bearer error=\"insufficient_scope\", scope=\"{needed}\"");
+                return forbidden;
+            }
             if (message["id"] is not { } id) return new HttpResponseMessage(HttpStatusCode.Accepted);
 
             JsonNode result = method switch

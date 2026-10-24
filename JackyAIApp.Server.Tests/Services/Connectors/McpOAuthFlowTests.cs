@@ -294,6 +294,15 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
             Assert.Null(_secrets.GrantOf(row)!.AccessToken);
         }
 
+        [Fact]
+        public void AStepUp_AddsTheScopeACallNeeded_OnceEach_AndOnlyScopeTokens()
+        {
+            Assert.Equal("notes:read notes:write", McpOAuthTokens.WithScope("notes:read", "notes:write notes:read"));
+            Assert.Equal("a", McpOAuthTokens.WithScope(null, " a "));
+            Assert.Null(McpOAuthTokens.WithScope("a", "\"quoted\" back\\slash"));
+            Assert.Null(McpOAuthTokens.WithScope(new string('a', McpOAuthTokens.MaxScopeLength), "b"));
+        }
+
         // ── the authorization server's endpoints ────────────────────────────────────────────────
 
         [Fact]

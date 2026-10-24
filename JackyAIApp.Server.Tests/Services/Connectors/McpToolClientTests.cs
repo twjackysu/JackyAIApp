@@ -76,6 +76,28 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
         }
 
         [Fact]
+        public async Task ARefusalThatNamesTheScopeACallNeeds_SaysWhichScope()
+        {
+            var server = new FakeMcpServer { CallsNeedScope = "notes:write" };
+
+            var ex = await Assert.ThrowsAsync<McpServerException>(() => Client(server).CallToolAsync(Server, McpAuth.None, "add_note",
+                JsonSerializer.SerializeToElement(new { }), CancellationToken.None));
+
+            Assert.Equal((McpFailure.NeedsAuth, "notes:write"), (ex.Failure, ex.RequiredScope));
+        }
+
+        [Fact]
+        public void OnlyAnInsufficientScopeChallenge_NamesAScope()
+        {
+            var headers = new HttpResponseMessage().Headers.WwwAuthenticate;
+            headers.Add(new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "error=\"invalid_token\", scope=\"a\""));
+            Assert.Null(McpToolClient.InsufficientScopeOf(headers));
+
+            headers.Add(new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "error=\"insufficient_scope\", scope=\" a b \""));
+            Assert.Equal("a b", McpToolClient.InsufficientScopeOf(headers));
+        }
+
+        [Fact]
         public void AnAddressThatIsNotPublic_IsBlocked_InTheReadersWords()
         {
             var ex = McpToolClient.Classify(new HttpRequestException("x", new BlockedAddressException("10.0.0.1")), timedOut: false);
