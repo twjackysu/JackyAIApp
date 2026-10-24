@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Frontend commands live in [jackyaiapp.client/CLAUDE.md](jackyaiapp.client/CLAUDE.md); backend and EF migration commands live in [JackyAIApp.Server/CLAUDE.md](JackyAIApp.Server/CLAUDE.md).
 
+**README.md is deliberately minimal** (short description, disclaimer, license): the repo is public, but the
+owner does not want it to double as a how-to-clone-and-run guide. Keep setup, stack, architecture and
+deployment detail here and in the sub-`CLAUDE.md` files, not in the README; do not expand the README back.
+
 ## Architecture Overview
 
 **Full-stack AI-powered application** with feature-based organization:
@@ -243,6 +247,8 @@ Frontend and backend directory trees live in [jackyaiapp.client/CLAUDE.md](jacky
 ## Development Workflow
 
 ### Local Development Setup
+Prerequisites: .NET 10 SDK, Node.js 20.19+, SQL Server (local or Azure), Key Vault access for production
+secrets; API keys needed for OpenAI, Anthropic and Google OAuth.
 1. **Backend**: `dotnet run` in JackyAIApp.Server (auto-starts with HTTPS)
 2. **Frontend**: `npm run dev` in jackyaiapp.client (proxies API calls to backend)
 3. **Database**: Local SQL Server or connection to Azure SQL Database
