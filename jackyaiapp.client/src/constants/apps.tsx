@@ -135,13 +135,13 @@ export const CONNECTORS: AppDef = {
 export const apps: AppDef[] = [PORTFOLIO, FINANCE, ENGLISH_LEARNING, JOB_SEARCH, DATA_ANALYSIS];
 
 // Everything reachable from the home portal — the ONLY place users switch between sites.
-// CONNECTORS is deliberately excluded: the feature currently has a permission issue with the
-// Google MCP scopes and isn't ready to surface to users. Route/branding stay intact for anyone
-// hitting /connectors directly.
-export const portalDestinations: AppDef[] = [...apps, DASHBOARDS];
+// CONNECTORS is back (docs/ai-native DECISIONS D-011/D-020): it is where the reader lets the AI use
+// their tools and MCP servers. It had been hidden over the Google account connection's scopes, which
+// are unchanged; drop it from this list to hide it again.
+export const portalDestinations: AppDef[] = [...apps, DASHBOARDS, CONNECTORS];
 
-// Every brandable destination, including ones not surfaced in the portal (e.g. PDF, Connectors).
-const allAppDefs: AppDef[] = [...portalDestinations, CONNECTORS, PDF_UNLOCKER, SLIDESHOW];
+// Every brandable destination, including ones not surfaced in the portal (e.g. PDF).
+const allAppDefs: AppDef[] = [...portalDestinations, PDF_UNLOCKER, SLIDESHOW];
 
 /** Resolve which app a given pathname belongs to, or null for the portal / neutral routes. */
 export const getCurrentApp = (path: string): AppDef | null =>

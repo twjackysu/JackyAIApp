@@ -129,7 +129,11 @@ The home portal (`/`) is the only place users switch between apps; the registry 
 
 11. **Folder Slideshow** (`/slideshow`) - Plays the photos in a folder the user picks; runs entirely in the browser, no API
 
-12. **Connected Services** (`/connectors`) - OAuth connections to Atlassian (Jira) / Microsoft / Google, tokens stored encrypted
+12. **Connectors** (`/connectors`, on the portal) - what the AI may use: the site's own tools (always on) and the
+    reader's own remote MCP servers (no sign-in, an API key or a bearer token; OAuth not yet), with a permission per
+    tool (run on its own / ask first / off); the Data Analysis assistant offers their tools. Below that, the
+    account OAuth connections to Atlassian (Jira) / Microsoft / Google, unchanged. Tokens stored encrypted.
+    Design: docs/ai-native/design/03; backend in [JackyAIApp.Server/CLAUDE.md](JackyAIApp.Server/CLAUDE.md) ("Connectors")
 
 13. **Usage Limits** (DECISION-006/007) - No monetization; cost control only
    - The old Credits & Payments system (prepaid credit balance, Stripe/PayPal/ECPay) is removed —
