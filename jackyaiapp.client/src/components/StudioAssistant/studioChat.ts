@@ -28,8 +28,8 @@ const ENGLISH: AiChatSuggestion[] = [
   { text: '我想複習今天該複習的單字', icon: AutoStoriesIcon },
 ];
 const PORTFOLIO: AiChatSuggestion[] = [
-  { text: '要在哪裡記錄我這個月的持股？', icon: PieChartIcon },
-  { text: '回落煞車是什麼？在哪裡看？', icon: PieChartIcon },
+  { text: '幫我看看我的持股，哪幾檔虧最多？', icon: PieChartIcon },
+  { text: '我的資產配置現在偏重哪裡？', icon: PieChartIcon },
 ];
 const COMMON: AiChatSuggestion[] = [
   { text: '這個網站可以做哪些事？', icon: ExploreIcon },
@@ -50,7 +50,7 @@ export function studioChatConfig(path: string): AiChatConfig {
     greetingTitle: '我是 Studio AI，想做什麼？',
     greeting:
       '我在網站的每一頁都在：告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。',
-    examples: ['這個網站可以做哪些事？', '幫我查一個英文單字', '怎麼接上我自己的 MCP server？'],
+    examples: ['這個網站可以做哪些事？', '幫我查一個英文單字', '我的投資組合現在怎麼樣？'],
     suggestions: studioSuggestionsFor(path),
     connectedLabel: '全站助理',
     signedOutPlaceholder: '登入後即可使用 Studio AI',
