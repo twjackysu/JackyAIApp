@@ -52,7 +52,10 @@ function AiAssistantPanel({
   onActivityChange,
 }: AiAssistantPanelProps) {
   const config = useAiChatConfig();
-  const conversation = useChatConversation({ errorMessages: config.errorMessages });
+  const conversation = useChatConversation({
+    errorMessages: config.errorMessages,
+    profile: config.profile,
+  });
   const { messages, conversationId, busy } = conversation;
   const preview = usePreview(conversation.blocks, conversation.currentHtmlBlock);
   const attachments = usePendingAttachments();

@@ -87,7 +87,12 @@ let chatReplies: Array<(init?: RequestInit) => Response | Promise<Response>>;
 let stops: string[];
 /** Decisions the panel sent on writes waiting for the reader, by path. */
 let approvals: Array<{ path: string; body: unknown }>;
-let chatBodies: Array<{ message: string; conversationId: string; attachmentIds: number[] }>;
+let chatBodies: Array<{
+  message: string;
+  conversationId: string;
+  attachmentIds: number[];
+  profile?: string;
+}>;
 let listFetches: number;
 let deleted: string[];
 /** Answers to attachment uploads, in order. */
@@ -327,7 +332,7 @@ describe('AiAssistantPanel', () => {
     await waitForText('台積電今天收 1000 元');
     expect(container.textContent).toContain('2330 今天如何？');
     expect(chatBodies).toEqual([
-      { message: '2330 今天如何？', conversationId: '', attachmentIds: [] },
+      { message: '2330 今天如何？', conversationId: '', attachmentIds: [], profile: 'finance' },
     ]);
 
     chatReplies.push(() =>
@@ -339,6 +344,7 @@ describe('AiAssistantPanel', () => {
       message: '那 2317 呢？',
       conversationId: 'conv-1',
       attachmentIds: [],
+      profile: 'finance',
     });
   });
 
@@ -573,6 +579,7 @@ describe('AiAssistantPanel', () => {
       message: 'second',
       conversationId: 'conv-1',
       attachmentIds: [],
+      profile: 'finance',
     });
     await waitForText('二');
     expect(queuedTexts()).toEqual([]);
@@ -877,7 +884,7 @@ describe('AiAssistantPanel — attachments', () => {
     await waitForText('你持有台積電');
 
     expect(chatBodies).toEqual([
-      { message: '幫我看這份持股', conversationId: '', attachmentIds: [7] },
+      { message: '幫我看這份持股', conversationId: '', attachmentIds: [7], profile: 'finance' },
     ]);
     // Gone from the box, now on the sent message.
     const bubble = [
@@ -1319,7 +1326,13 @@ describe('AiAssistantPanel — copy and edit', () => {
 
     await waitForText('收 1,400');
     expect(chatBodies).toEqual([
-      { message: '聯發科？', conversationId: 'c1', attachmentIds: [], editMessageId: 1 },
+      {
+        message: '聯發科？',
+        conversationId: 'c1',
+        attachmentIds: [],
+        editMessageId: 1,
+        profile: 'finance',
+      },
     ]);
     // The edited message and everything after it are gone; the new turn is all that follows.
     for (const gone of ['台積電？', '收 1,050', '那鴻海？', '收 210'])
@@ -1352,6 +1365,7 @@ describe('AiAssistantPanel — copy and edit', () => {
       conversationId: 'c1',
       attachmentIds: [],
       editMessageId: 41,
+      profile: 'finance',
     });
   });
 
@@ -1378,7 +1392,13 @@ describe('AiAssistantPanel — copy and edit', () => {
 
     await waitForText('台股部分');
     expect(chatBodies).toEqual([
-      { message: '只看台股', conversationId: 'c1', attachmentIds: [], editMessageId: 1 },
+      {
+        message: '只看台股',
+        conversationId: 'c1',
+        attachmentIds: [],
+        editMessageId: 1,
+        profile: 'finance',
+      },
     ]);
     const bubble = [
       ...container.querySelectorAll<HTMLElement>('[data-testid="user-message"]'),
@@ -1441,7 +1461,9 @@ describe('AiAssistantPanel — conversation history column', () => {
     );
     await send('營收呢？');
     await waitForText('營收呢？好的');
-    expect(chatBodies).toEqual([{ message: '營收呢？', conversationId: 'c1', attachmentIds: [] }]);
+    expect(chatBodies).toEqual([
+      { message: '營收呢？', conversationId: 'c1', attachmentIds: [], profile: 'finance' },
+    ]);
   });
 
   it('shows a conversation as soon as its first reply has come in, and keeps the list current', async () => {
@@ -1478,7 +1500,9 @@ describe('AiAssistantPanel — conversation history column', () => {
     );
     await send('第二則');
     await waitForText('全新的');
-    expect(chatBodies).toEqual([{ message: '第二則', conversationId: '', attachmentIds: [] }]);
+    expect(chatBodies).toEqual([
+      { message: '第二則', conversationId: '', attachmentIds: [], profile: 'finance' },
+    ]);
   });
 
   it('deleting the conversation that is open clears the chat as well', async () => {

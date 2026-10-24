@@ -105,9 +105,12 @@ const stopOnServer = (conversationId: string) =>
 export interface ChatStreamingOptions {
   /** The app's own wording for some failure codes, in place of the shared one (`chatErrorMessage`). */
   errorMessages?: Partial<Record<ChatErrorCode, string>>;
+  /** The server's chat profile the turns are for (`AiChatConfig.profile`); the server's default
+   *  (finance) when left out. */
+  profile?: string;
 }
 
-export const useChatStreaming = ({ errorMessages }: ChatStreamingOptions = {}) => {
+export const useChatStreaming = ({ errorMessages, profile }: ChatStreamingOptions = {}) => {
   const dispatch = useAppDispatch();
   const [streamingStatus, setStreamingStatus] = useState<StreamingStatus>({
     isLoading: false,
@@ -164,7 +167,7 @@ export const useChatStreaming = ({ errorMessages }: ChatStreamingOptions = {}) =
             Accept: 'text/event-stream',
             'Cache-Control': 'no-cache',
           },
-          body: JSON.stringify({ message, conversationId, attachmentIds, editMessageId }),
+          body: JSON.stringify({ message, conversationId, attachmentIds, editMessageId, profile }),
           signal: turn.abort.signal,
         });
 
