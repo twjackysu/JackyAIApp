@@ -12,9 +12,11 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
     /// against the data, its one correction, the unmatched conditions; docs/ai-native D-007), so the
     /// assistant gets the same checked answer the page gives, never a query of its own making. Each
     /// call is charged as a 問 AI question. The reader sees the result as a chart card they can add to
-    /// a dashboard.
+    /// a dashboard; the model is told the chart's id (<see cref="DataAnalysisCharts"/>), so it can save it
+    /// there too (<see cref="SaveToDashboardTool"/>).
     /// </summary>
-    public sealed class AskDataTool(INlSummarizeService nlSummarize, IUsageLimitService usageLimits, DataAnalysisPage page) : IAiTool
+    public sealed class AskDataTool(
+        INlSummarizeService nlSummarize, IUsageLimitService usageLimits, DataAnalysisPage page, DataAnalysisCharts charts) : IAiTool
     {
         public const string Name = "ask_data";
 
@@ -72,8 +74,14 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
             var answer = result.Data!;
             var rows = answer.Rows.Select(ToRow).ToList();
             var chart = Text(input, "chart") is { } c && Charts.Contains(c) ? c : DefaultChart;
+            var title = Text(input, "title") ?? answer.Interpretation;
+            // A session (an uploaded file) lasts only as long as the reader's visit, so a plan over one
+            // cannot become a dashboard widget.
+            var plan = page.SessionId == null ? answer.Plan with { Context = page.QueryContext } : null;
+            var chartId = plan == null ? null : charts.Remember(context, new RememberedChart(plan, chart, title));
             var content = AiJson.Serialize(new
             {
+                chartId,
                 interpretation = answer.Interpretation,
                 notes = answer.Notes,
                 unmatched = answer.Unmatched,
@@ -81,7 +89,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                 rows = rows.Take(MaxRowsForModel),
                 rowsCut = rows.Count > MaxRowsForModel,
             });
-            return new AiToolResult(content, Card: ChartCard(answer, rows, chart, Text(input, "title") ?? answer.Interpretation));
+            return new AiToolResult(content, Card: ChartCard(answer, rows, chart, title, plan));
         }
 
         /// <summary>
@@ -89,7 +97,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
         /// group-bys and dates (as the page works them out for its own 問 AI), and the plan with the
         /// page's source, which is what a dashboard widget stores.
         /// </summary>
-        private object ChartCard(NlSummarizeResponseDto answer, List<Dictionary<string, object?>> rows, string chart, string? title)
+        private static object ChartCard(
+            NlSummarizeResponseDto answer, List<Dictionary<string, object?>> rows, string chart, string? title, SummarizeRequestDto? plan)
         {
             var groups = answer.Plan.ViewBy.Select(g => g.Alias ?? g.FieldName).ToList();
             var headers = rows.Count > 0
@@ -106,9 +115,7 @@ namespace JackyAIApp.Server.Services.DataAnalysis.Assistant
                     rows = rows.Take(MaxRowsForCard),
                     groupHints = groups,
                     temporalHints = answer.Plan.ViewBy.Where(g => g.Type == "DateTrunc").Select(g => g.Alias ?? g.FieldName),
-                    // A session (an uploaded file) lasts only as long as the reader's visit, so a plan
-                    // over one cannot become a dashboard widget.
-                    plan = page.SessionId == null ? answer.Plan with { Context = page.QueryContext } : null,
+                    plan,
                 },
             };
         }

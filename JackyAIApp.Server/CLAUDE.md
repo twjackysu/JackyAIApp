@@ -323,7 +323,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   through `INlSummarizeService` — the same checked plan, correction and notes as 問 AI, never a query of the
   model's own — charging each call as `UsageFeature.NlSummarize`, and shows the result as a `chart` card (the
   client's viz id, the rows, group/date hints, and the plan with the page's source, so it can become a
-  dashboard widget; none for an uploaded file's session). Which data it reads is the page context the client
+  dashboard widget; none for an uploaded file's session). A chart with a plan is also kept for a while by a short id the
+  model is told (`chartId`, `DataAnalysisCharts`, in memory per reader and conversation), so `save_to_dashboard`
+  (`SaveToDashboardTool`, a write, so asked first) saves exactly the chart the reader saw to the dashboard they named
+  (one they own of that name, or a new one) without asking the data again. Which data it reads is the page context the client
   sends with each message (`sourceId`/`tableName`, or `sessionId`; none = the default source), read by
   `DataAnalysisPage.From`; whether the reader may read that source is the query's own check
 - `NlQueryPlanner.BuildPlanAsync` only orchestrates. Which columns are String or date columns is

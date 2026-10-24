@@ -28,13 +28,13 @@ export const DATA_ANALYSIS_AI_CHAT: AiChatConfig = {
   profile: 'data-analysis',
   greetingTitle: '想從資料裡知道什麼？',
   greeting:
-    '我是資料分析 AI 助手，會自己查詢、彙總畫面上選的資料，畫成圖表並說明重點；圖表可以一鍵加到 dashboard。用平常說話的方式問就好。',
+    '我是資料分析 AI 助手，會自己查詢、彙總畫面上選的資料，畫成圖表並說明重點；說一聲「存到 dashboard」我就幫你存（會先問你）。用平常說話的方式問就好。',
   examples: DATA_ANALYSIS_EXAMPLE_QUESTIONS,
   suggestions: [
     { text: '幫我找出這份資料最值得注意的三件事', icon: TravelExploreIcon },
     { text: '上個月各地區營收是多少？', icon: TableChartIcon },
     { text: '畫出近 12 個月的營收趨勢', icon: ShowChartIcon },
-    { text: '比較今年和去年各月的營收', icon: DashboardCustomizeIcon },
+    { text: '畫出各地區每月營收，存到「業績追蹤」dashboard', icon: DashboardCustomizeIcon },
   ],
   connectedLabel: '資料源已連線',
   disclaimer: 'AI 回答可能有誤，重要的數字請以明細資料核對。',

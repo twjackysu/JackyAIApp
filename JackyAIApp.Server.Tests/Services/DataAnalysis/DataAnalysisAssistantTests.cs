@@ -7,6 +7,7 @@ using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.Assistant;
 using JackyAIApp.Server.Services.DataAnalysis;
 using JackyAIApp.Server.Services.DataAnalysis.Assistant;
+using Microsoft.Extensions.Caching.Memory;
 using Moq;
 
 namespace JackyAIApp.Server.Tests.Services.DataAnalysis
@@ -23,6 +24,8 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         private readonly Mock<IDataAnalysisQueryService> _queries = new();
         private readonly Mock<ISessionDataStore> _sessions = new();
         private readonly List<IAiTool> _connectorTools = [];
+        private readonly Mock<IDashboardService> _dashboards = new();
+        private readonly DataAnalysisCharts _charts = new(new MemoryCache(new MemoryCacheOptions()));
         private NlSummarizeRequestDto? _asked;
 
         public DataAnalysisAssistantTests()
@@ -55,7 +58,8 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         {
             var connectors = new Mock<IConnectorToolSource>();
             connectors.Setup(c => c.ForUserAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(() => _connectorTools.ToList());
-            var setup = await new DataAnalysisChatProfile(_nl.Object, _queries.Object, _sessions.Object, _usage.Object, connectors.Object)
+            var setup = await new DataAnalysisChatProfile(
+                    _nl.Object, _queries.Object, _sessions.Object, _usage.Object, connectors.Object, _dashboards.Object, _charts)
                 .SetupAsync(context, CancellationToken.None);
             return (setup, Assert.Single(setup.Tools!, t => t.Descriptor.Name == tool));
         }
@@ -63,7 +67,7 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         private static JsonElement Input(object value) => JsonSerializer.SerializeToElement(value);
 
         [Fact]
-        public async Task TheProfile_HasItsPromptAndItsReadOnlyTools_AndNoTwStock()
+        public async Task TheProfile_HasItsPromptAndItsTools_OnlySavingWrites_AndNoTwStock()
         {
             var (setup, tool) = await SetupAsync(Page());
 
@@ -71,8 +75,8 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             Assert.Contains("2026-10-24", setup.SystemPrompt);
             Assert.False(setup.AttachTwStock);
             Assert.Null(setup.CachedBackground);
-            Assert.Equal(new[] { AskDataTool.Name, DescribeDataTool.Name }, setup.Tools!.Select(t => t.Descriptor.Name));
-            Assert.All(setup.Tools!, t => Assert.Equal(ToolEffect.Read, t.Descriptor.Effect));
+            Assert.Equal(new[] { AskDataTool.Name, DescribeDataTool.Name, SaveToDashboardTool.Name }, setup.Tools!.Select(t => t.Descriptor.Name));
+            Assert.Equal(new[] { SaveToDashboardTool.Name }, setup.Tools!.Where(t => t.Descriptor.Effect != ToolEffect.Read).Select(t => t.Descriptor.Name));
             Assert.Equal("object", tool.Descriptor.InputSchema.GetProperty("type").GetString());
         }
 
@@ -86,7 +90,7 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
 
             var (setup, _) = await SetupAsync(Page());
 
-            Assert.Equal(new[] { AskDataTool.Name, DescribeDataTool.Name, "m1__search" }, setup.Tools!.Select(t => t.Descriptor.Name));
+            Assert.Equal(new[] { AskDataTool.Name, DescribeDataTool.Name, SaveToDashboardTool.Name, "m1__search" }, setup.Tools!.Select(t => t.Descriptor.Name));
             Assert.Equal(DataAnalysisChatProfile.SystemPromptFor(Today, hasConnectors: true), setup.SystemPrompt);
             Assert.Contains("外部 connector", setup.SystemPrompt);
         }
@@ -216,6 +220,79 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
 
             Assert.True(result.IsError);
             Assert.Contains("找不到資料源", result.Content);
+        }
+
+        // ── saving a chart to a dashboard ───────────────────────────────────────────────────────
+
+        private static readonly Guid Board = Guid.Parse("99999999-0000-0000-0000-000000000001");
+
+        private async Task<string> ChartIdAsync(params (string Key, string Value)[] page)
+        {
+            var (_, ask) = await SetupAsync(Page(page));
+            var result = await ask.RunAsync(Input(new { question = "每月營收", chart = "line", title = "每月營收" }), Ctx, CancellationToken.None);
+            return JsonDocument.Parse(result.Content).RootElement.GetProperty("chartId").GetString()!;
+        }
+
+        private void Dashboards(params DashboardSummaryDto[] owned)
+        {
+            _dashboards.Setup(d => d.ListAsync(It.IsAny<CancellationToken>())).ReturnsAsync(ServiceResult.Ok(owned.ToList()));
+            _dashboards.Setup(d => d.CreateAsync(It.IsAny<CreateDashboardRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CreateDashboardRequest r, CancellationToken _) => ServiceResult.Ok(new DashboardSummaryDto
+                {
+                    Id = Board, Name = r.Name, Visibility = default, IsOwner = true,
+                }));
+            _dashboards.Setup(d => d.AddWidgetAsync(It.IsAny<Guid>(), It.IsAny<AddWidgetRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Ok(new DashboardWidgetDto { Id = Guid.NewGuid(), VizType = "line", Plan = default }));
+        }
+
+        [Fact]
+        public async Task AChartAskDataShowed_IsSavedToANewDashboard_WithItsCheckedPlanAndThePagesSource()
+        {
+            var chartId = await ChartIdAsync(("sourceId", Source.ToString()), ("tableName", "dbo.Orders"));
+            Dashboards();
+            var (_, save) = await SetupAsync(Page(), SaveToDashboardTool.Name);
+
+            var result = await save.RunAsync(Input(new { chartId, dashboard = "業績" }), Ctx, CancellationToken.None);
+
+            Assert.False(result.IsError);
+            Assert.Contains("已建立 dashboard「業績」", result.Content);
+            _dashboards.Verify(d => d.CreateAsync(It.Is<CreateDashboardRequest>(r => r.Name == "業績"), It.IsAny<CancellationToken>()));
+            _dashboards.Verify(d => d.AddWidgetAsync(Board, It.Is<AddWidgetRequest>(w =>
+                w.VizType == "line" && w.Title == "每月營收" &&
+                w.Plan.GetProperty("context").GetProperty("sourceId").GetString() == Source.ToString() &&
+                w.Plan.GetProperty("measures")[0].GetProperty("fieldName").GetString() == "Amount"), It.IsAny<CancellationToken>()));
+            Assert.Equal($"/dashboards/{Board}", JsonSerializer.SerializeToElement(result.Card).GetProperty("href").GetString());
+        }
+
+        [Fact]
+        public async Task ADashboardOfThatName_TheReaderOwns_IsTheOneUsed()
+        {
+            var chartId = await ChartIdAsync();
+            var mine = Guid.NewGuid();
+            Dashboards(
+                new DashboardSummaryDto { Id = Guid.NewGuid(), Name = "業績", Visibility = default, IsOwner = false },
+                new DashboardSummaryDto { Id = mine, Name = "業績", Visibility = default, IsOwner = true });
+            var (_, save) = await SetupAsync(Page(), SaveToDashboardTool.Name);
+
+            await save.RunAsync(Input(new { chartId, dashboard = "業績", title = "月營收" }), Ctx, CancellationToken.None);
+
+            _dashboards.Verify(d => d.CreateAsync(It.IsAny<CreateDashboardRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+            _dashboards.Verify(d => d.AddWidgetAsync(mine, It.Is<AddWidgetRequest>(w => w.Title == "月營收"), It.IsAny<CancellationToken>()));
+        }
+
+        [Fact]
+        public async Task AChartOfAnotherConversation_OrOfAnUploadedFile_CannotBeSaved()
+        {
+            var chartId = await ChartIdAsync();
+            var (_, save) = await SetupAsync(Page(), SaveToDashboardTool.Name);
+
+            var other = await save.RunAsync(Input(new { chartId, dashboard = "業績" }), new AiToolContext("u1", "conv-2"), CancellationToken.None);
+            Assert.True(other.IsError);
+
+            var (_, ask) = await SetupAsync(Page(("sessionId", "s-1")));
+            var uploaded = await ask.RunAsync(Input(new { question = "總計" }), Ctx, CancellationToken.None);
+            Assert.Equal(JsonValueKind.Null, JsonDocument.Parse(uploaded.Content).RootElement.GetProperty("chartId").ValueKind);
+            _dashboards.VerifyNoOtherCalls();
         }
 
         [Fact]

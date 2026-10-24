@@ -33,7 +33,8 @@ namespace JackyAIApp.Server.Services.DataAnalysis
             // The page's AI assistant (the shared chat engine's "data-analysis" profile).
             services.AddScoped<IChatProfile, DataAnalysisChatProfile>();
             // Its tools, as the connectors page lists them under the site's own.
-            services.AddSingleton(new SiteToolSet("資料分析", [AskDataTool.Definition, DescribeDataTool.Definition]));
+            services.AddSingleton<DataAnalysisCharts>();
+            services.AddSingleton(new SiteToolSet("資料分析", [AskDataTool.Definition, DescribeDataTool.Definition, SaveToDashboardTool.Definition]));
 
             // Session uploads live in this process's memory, so the store and its byte budget are
             // process-wide singletons; the admission filter reads the same budget before a body is read.
