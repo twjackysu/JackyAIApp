@@ -45,7 +45,14 @@ export default function StudioAssistant() {
   const [ask, setAsk] = useState<(AskStudioDetail & { id: number }) | undefined>();
   const askId = useRef(0);
   const askSent = useCallback(() => setAsk(undefined), []);
-  const config = useMemo(() => studioChatConfig(pathname), [pathname]);
+  // The reader's dashboards (the /dashboards list), read each time the drawer opens (Studio AI may have saved a
+  // new one meanwhile, on the server): the command bar opens them by name, and on /dashboards a suggestion reads one.
+  const [loadBoards, { data: boardList }] = useLazyGetDashboardsQuery();
+  useEffect(() => {
+    if (open) void loadBoards();
+  }, [open, loadBoards]);
+  const boards = boardList?.data;
+  const config = useMemo(() => studioChatConfig(pathname, boards), [pathname, boards]);
 
   // An answer that takes the reader to a page (open_page with go): the page changes under the drawer; on a
   // phone, where the drawer is the whole screen, it closes once the answer is done (they read what to do there
@@ -82,15 +89,10 @@ export default function StudioAssistant() {
   // A quick action (what is typed names a page or one of the reader's dashboards, or is one English word)
   // goes there at once, without the AI: the box is emptied and the drawer closes, as a command bar would, on
   // every screen. The reader has taken over, so a page an answer still being written was going to take them
-  // to is dropped. The dashboards are the /dashboards list, read each time the drawer opens (Studio AI may
-  // have saved a new one meanwhile, on the server).
-  const [loadBoards, { data: boardList }] = useLazyGetDashboardsQuery();
-  useEffect(() => {
-    if (open) void loadBoards();
-  }, [open, loadBoards]);
+  // to is dropped.
   const quickActions = useMemo(
-    () => quickActionsFor(draft, pathname, boardList?.data ?? []),
-    [draft, pathname, boardList],
+    () => quickActionsFor(draft, pathname, boards ?? []),
+    [draft, pathname, boards],
   );
   const pickQuick = useCallback(
     (action: QuickAction) => {

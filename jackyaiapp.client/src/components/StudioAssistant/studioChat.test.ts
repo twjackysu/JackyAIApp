@@ -39,6 +39,23 @@ describe('dictionaryWordOf', () => {
 });
 
 describe('studioSuggestionsFor', () => {
+  it('on the dashboards list, offers to read the first of the reader’s own', () => {
+    const boards = [
+      { name: '別人分享的', isOwner: false },
+      { name: '業績追蹤', isOwner: true },
+    ];
+    expect(studioSuggestionsFor('/dashboards', boards)[0].text).toBe(
+      '幫我解讀「業績追蹤」這個 dashboard',
+    );
+    // None of their own, or a name too long to be found again: the site's suggestions.
+    expect(studioSuggestionsFor('/dashboards', [boards[0]])[0].text).toBe(
+      studioSuggestionsFor('/jobs')[0].text,
+    );
+    expect(
+      studioSuggestionsFor('/dashboards', [{ name: 'x'.repeat(31), isOwner: true }])[0].text,
+    ).toBe(studioSuggestionsFor('/jobs')[0].text);
+  });
+
   it('on a word’s dictionary page, offers to do something with that word first', () => {
     const texts = studioSuggestionsFor('/english/dictionary/serendipity').map((s) => s.text);
     expect(texts.slice(0, 2)).toEqual([

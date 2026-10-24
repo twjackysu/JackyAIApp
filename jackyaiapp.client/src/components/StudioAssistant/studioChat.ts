@@ -69,20 +69,45 @@ const COMMON: AiChatSuggestion[] = [
   { text: '怎麼讓你使用我自己的 MCP server？', icon: ExtensionIcon },
 ];
 
-/** Suggestions for the page the reader is on: two about it, if it has its own, then the site's. */
-export function studioSuggestionsFor(path: string): AiChatSuggestion[] {
+/** A dashboard of the reader's, as the /dashboards list gives it. */
+export interface StudioDashboard {
+  name: string;
+  isOwner: boolean;
+}
+
+/** A name longer than this is not put in a suggestion (read_dashboard finds a dashboard by its whole name). */
+const MAX_SUGGESTED_NAME = 30;
+
+/** On the dashboards list: reading the first of the reader's own (read_dashboard reads only those). */
+function dashboardsSuggestions(dashboards: readonly StudioDashboard[]): AiChatSuggestion[] {
+  const name = dashboards.find((d) => d.isOwner && d.name.trim())?.name.trim();
+  return name && name.length <= MAX_SUGGESTED_NAME
+    ? [{ text: `幫我解讀「${name}」這個 dashboard`, icon: DashboardIcon }]
+    : [];
+}
+
+/**
+ * Suggestions for the page the reader is on: two about it, if it has its own, then the site's. `dashboards`
+ * is the reader's /dashboards list, once read.
+ */
+export function studioSuggestionsFor(
+  path: string,
+  dashboards: readonly StudioDashboard[] = [],
+): AiChatSuggestion[] {
   const word = dictionaryWordOf(path);
   const own = word
     ? wordSuggestions(word)
-    : on(path, '/english')
-      ? ENGLISH
-      : on(path, '/portfolio')
-        ? PORTFOLIO
-        : on(path, '/connectors')
-          ? CONNECTORS
-          : path.startsWith('/dashboards/')
-            ? DASHBOARD
-            : [];
+    : path === '/dashboards'
+      ? dashboardsSuggestions(dashboards)
+      : on(path, '/english')
+        ? ENGLISH
+        : on(path, '/portfolio')
+          ? PORTFOLIO
+          : on(path, '/connectors')
+            ? CONNECTORS
+            : path.startsWith('/dashboards/')
+              ? DASHBOARD
+              : [];
   return [...own, ...COMMON].slice(0, 4);
 }
 
@@ -118,7 +143,10 @@ export function studioFollowUpsFor(path: string): NonNullable<AiChatConfig['foll
 }
 
 /** Studio AI's config on `path`; the path goes with every message as the page context. */
-export function studioChatConfig(path: string): AiChatConfig {
+export function studioChatConfig(
+  path: string,
+  dashboards: readonly StudioDashboard[] = [],
+): AiChatConfig {
   return {
     profile: 'studio',
     title: 'Studio AI',
@@ -126,7 +154,7 @@ export function studioChatConfig(path: string): AiChatConfig {
     greeting:
       '告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。打頁面名稱、dashboard 名稱或一個英文單字，可以不經 AI 直接前往。',
     examples: ['這個網站可以做哪些事？', '幫我查一個英文單字', '我的投資組合現在怎麼樣？'],
-    suggestions: studioSuggestionsFor(path),
+    suggestions: studioSuggestionsFor(path, dashboards),
     connectedLabel: '全站助理',
     signedOutPlaceholder: '登入後即可使用 Studio AI',
     inputPlaceholder: {
