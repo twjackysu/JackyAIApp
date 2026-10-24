@@ -1,5 +1,15 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-24 17:42 – 第 8 輪（本站對外的 MCP server：PAT、OAuth 授權伺服器、同意頁）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。
+- **本站 MCP server**（D-044～D-046）：`POST /api/mcp`（自己寫的最小 Streamable HTTP server，無 session、JSON 回應，initialize／ping／tools/list／tools/call）、`SiteToken` 驗證方案只掛在這個端點、PAT（`jsk_`、只存 SHA-256、30／90／365 天、每人 10 個、可撤銷）、migration `AddSiteAccessTokens`（新表）、提供的工具照 /connectors 權限與 token（預設唯讀、寫入要勾、無法復原的不給）、每 token 每分鐘 120 次、檢查 Origin。測試含**官方 SDK 的 client 端對端打這個 server**。
+- **/connectors「讓其他 AI 使用本站」**：伺服器網址、token 清單（唯讀／可寫入、最後使用、到期）、兩段式撤銷、產生後只顯示一次 token 並附 Claude Code／Claude Desktop（mcp-remote）／Cursor／VS Code 設定一鍵複製。
+- **本站當 OAuth 授權伺服器**（D-047、D-048）：PRM、AS metadata、DCR（不用資料表，data protection）、同意頁 `/oauth/authorize`（未登入先登入並帶著 query 回來；顯示 client 與實際導回網域；使用者決定可否寫入）、一次性授權碼＋PKCE＋resource＋iss、access token 就是 PAT（90 天）。Claude.ai／ChatGPT 只要貼網址。
+- 文件：design/03 §9／§9.1、design/06 §9、兩份 CLAUDE.md、CONTRIBUTING 附註、SHOWCASE（demo 第 7 步、架構圖、合併清單）、FOR_JACKY 9。
+- 驗證：每個後端 commit 先 cscheck（0 個新診斷，只剩 EF 雜訊）再看 CI：40083725395（MCP server＋PAT＋migration，第一次就綠）、40084568532（前端）、OAuth 零件、40085264395（OAuth 端點）、**40085800201（本輪最後一次含程式碼的 push：同意頁）綠**。前端 lint、test（120 檔 1294 個）、build 全過；playwright 截圖 /connectors 的新區塊、token 對話框、同意頁（桌機、手機）。
+- 問題：無阻礙。Claude.ai／ChatGPT 的實際 OAuth 流程與 Cloudflare 是否擋非瀏覽器流量，要合併後實測（FOR_JACKY 9）。
+
 ## 2026-10-24 15:42 – 第 7 輪（M4：TestKit、Google 日曆、step-up、以後直接執行、rug pull）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。
