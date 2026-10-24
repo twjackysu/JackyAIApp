@@ -138,6 +138,53 @@ describe('MessageArea', () => {
     expect(geometry.scrollTop).toBe(1000);
   });
 
+  describe('a write waiting for the reader', () => {
+    const asking = (state: 'pending' | 'resolved', content: string): Message => ({
+      ...message('2', content),
+      approval: {
+        request: {
+          pendingId: 'p1',
+          calls: [
+            {
+              toolUseId: 't1',
+              connector: 'site',
+              tool: 'add_word_to_repository',
+              displayName: '加入單字庫',
+              effect: 'write',
+              input: { word: 'serendipity' },
+            },
+          ],
+        },
+        state,
+        decisions: state === 'resolved' ? [{ toolUseId: 't1', approve: true }] : undefined,
+      },
+    });
+    /** Whether the card comes after the answer's text in the page. */
+    const cardAfterText = () => {
+      const card = container.querySelector('[aria-label="需要你的確認"]')!;
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      let text: Node | null = walker.nextNode();
+      while (text && !text.textContent?.includes('請確認')) text = walker.nextNode();
+      return Boolean(text!.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING);
+    };
+
+    it('asks below the text that leads up to it', () => {
+      render([message('1', 'hi', true), asking('pending', '我幫你加入單字庫，請確認：')]);
+      expect(cardAfterText()).toBe(true);
+    });
+
+    it('shows no thinking dots while the turn waits on the reader', () => {
+      render([message('1', 'hi', true), asking('pending', '')]);
+      expect(container.querySelector('[aria-label="需要你的確認"]')).not.toBeNull();
+      expect(container.querySelector('[aria-label="AI 助手思考中"]')).toBeNull();
+    });
+
+    it('once answered, stays above the text as a record of what ran', () => {
+      render([message('1', 'hi', true), asking('resolved', '請確認：……已加入。')]);
+      expect(cardAfterText()).toBe(false);
+    });
+  });
+
   it('never scrolls the page itself', () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;

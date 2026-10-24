@@ -293,6 +293,19 @@ function MessageArea({
 
           // An answer still being written has nothing final to copy yet.
           const answering = busy && index === messages.length - 1;
+          // A question still waiting for the reader comes after the text that leads up to it, where they are
+          // reading, and no "thinking" dots go with it (the turn waits on them); once answered it is a record
+          // of what ran, above the text with the tools' cards.
+          const awaitingReader = message.approval != null && message.approval.state !== 'resolved';
+          const approvalCard = message.approval && (
+            <ApprovalCard
+              approval={message.approval.request}
+              state={message.approval.state}
+              decisions={message.approval.decisions}
+              onSubmit={(decisions) => onDecide?.(message.approval!.request.pendingId, decisions)}
+              onAlwaysAllow={onAlwaysAllow}
+            />
+          );
 
           // The assistant's answer: no bubble, the full column, its mark beside it.
           return (
@@ -309,46 +322,38 @@ function MessageArea({
                 {message.toolSteps && <ToolActivity steps={message.toolSteps} />}
                 {message.toolSteps && <ToolCards steps={message.toolSteps} />}
                 {!message.toolSteps && message.cards && <ToolCards cards={message.cards} />}
-                {message.approval && (
-                  <ApprovalCard
-                    approval={message.approval.request}
-                    state={message.approval.state}
-                    decisions={message.approval.decisions}
-                    onSubmit={(decisions) =>
-                      onDecide?.(message.approval!.request.pendingId, decisions)
-                    }
-                    onAlwaysAllow={onAlwaysAllow}
-                  />
-                )}
+                {!awaitingReader && approvalCard}
                 {!message.parsedBlocks?.length && message.content ? (
                   <MarkdownMessage content={message.content} isOwnMessage={false} theme={theme} />
                 ) : !message.parsedBlocks?.length ? (
-                  // The answer has not started: three dots in place of text.
-                  <Box
-                    aria-label="AI 助手思考中"
-                    sx={{
-                      display: 'flex',
-                      gap: 0.6,
-                      py: 1,
-                      '& span': {
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        bgcolor: 'text.secondary',
-                        animation: 'assistantDot 1.2s infinite ease-in-out',
-                      },
-                      '& span:nth-of-type(2)': { animationDelay: '0.15s' },
-                      '& span:nth-of-type(3)': { animationDelay: '0.3s' },
-                      '@keyframes assistantDot': {
-                        '0%, 80%, 100%': { opacity: 0.25, transform: 'translateY(0)' },
-                        '40%': { opacity: 1, transform: 'translateY(-3px)' },
-                      },
-                    }}
-                  >
-                    <span />
-                    <span />
-                    <span />
-                  </Box>
+                  awaitingReader ? null : (
+                    // The answer has not started: three dots in place of text.
+                    <Box
+                      aria-label="AI 助手思考中"
+                      sx={{
+                        display: 'flex',
+                        gap: 0.6,
+                        py: 1,
+                        '& span': {
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          bgcolor: 'text.secondary',
+                          animation: 'assistantDot 1.2s infinite ease-in-out',
+                        },
+                        '& span:nth-of-type(2)': { animationDelay: '0.15s' },
+                        '& span:nth-of-type(3)': { animationDelay: '0.3s' },
+                        '@keyframes assistantDot': {
+                          '0%, 80%, 100%': { opacity: 0.25, transform: 'translateY(0)' },
+                          '40%': { opacity: 1, transform: 'translateY(-3px)' },
+                        },
+                      }}
+                    >
+                      <span />
+                      <span />
+                      <span />
+                    </Box>
+                  )
                 ) : (
                   <Box>
                     {message.parsedBlocks!.map((block) => (
@@ -356,6 +361,7 @@ function MessageArea({
                     ))}
                   </Box>
                 )}
+                {awaitingReader && approvalCard}
                 {message.truncated && (
                   <Typography
                     variant="caption"

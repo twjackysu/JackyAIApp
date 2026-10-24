@@ -11,6 +11,10 @@ import {
 
 import type { CardCell, TableCard } from './toolCard';
 
+// A number never reads right broken over lines, and its column takes only what it needs, leaving the
+// rest to the text (a stock's name) rather than splitting it.
+const numericCell = { whiteSpace: 'nowrap', width: '1%' } as const;
+
 const show = (v: CardCell) =>
   v === null ? '—' : typeof v === 'number' ? v.toLocaleString('zh-TW') : v;
 
@@ -24,11 +28,16 @@ export default function TableCardView({ card }: { card: TableCard }) {
         </Typography>
       )}
       <TableContainer sx={{ maxHeight: 320 }}>
-        <Table size="small" stickyHeader>
+        {/* Narrow padding: the card often sits in a side sheet or on a phone. */}
+        <Table size="small" stickyHeader sx={{ '& .MuiTableCell-root': { px: 1 } }}>
           <TableHead>
             <TableRow>
               {card.columns.map((c) => (
-                <TableCell key={c.key} align={c.numeric ? 'right' : 'left'}>
+                <TableCell
+                  key={c.key}
+                  align={c.numeric ? 'right' : 'left'}
+                  sx={c.numeric ? numericCell : undefined}
+                >
                   {c.label}
                 </TableCell>
               ))}
@@ -42,7 +51,7 @@ export default function TableCardView({ card }: { card: TableCard }) {
                     key={c.key}
                     align={c.numeric ? 'right' : 'left'}
                     sx={{
-                      ...(c.numeric && { fontVariantNumeric: 'tabular-nums' }),
+                      ...(c.numeric && { ...numericCell, fontVariantNumeric: 'tabular-nums' }),
                       ...(c.nowrap && { whiteSpace: 'nowrap' }),
                     }}
                   >

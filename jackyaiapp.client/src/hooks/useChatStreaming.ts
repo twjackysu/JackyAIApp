@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { ANSWERING, statusAfter } from './chatStatus';
 import { finishSseLines, splitSseLines } from './sseLines';
 
 import type { ToolEffect } from '@/apis/connectorsApis/types';
@@ -211,7 +212,7 @@ export const useChatStreaming = ({
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
-        setStreamingStatus((prev) => ({ ...prev, statusText: '正在生成回應...' }));
+        setStreamingStatus((prev) => ({ ...prev, statusText: ANSWERING }));
 
         // Handles one event; true once the turn has ended (done or error).
         const handle = (data: string): boolean => {
@@ -233,18 +234,13 @@ export const useChatStreaming = ({
                 onUpdate(accumulatedContent);
                 break;
               case 'tool_use':
-                setStreamingStatus((prev) => ({
-                  ...prev,
-                  currentEvent: 'tool_use',
-                  statusText: `🔄 正在查詢 ${event.name}...`,
-                }));
-                onToolEvent?.(event);
-                break;
               case 'tool_result':
+                setStreamingStatus((prev) => ({ ...prev, ...statusAfter(event) }));
                 onToolEvent?.(event);
                 break;
               case 'approval_required':
               case 'approval_resolved':
+                setStreamingStatus((prev) => ({ ...prev, ...statusAfter(event) }));
                 onApprovalEvent?.(event);
                 break;
               case 'done':
