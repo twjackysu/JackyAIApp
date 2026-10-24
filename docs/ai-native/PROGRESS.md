@@ -1,5 +1,18 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-24 21:42 – 第 10 輪（跨訊息 taint、AI 今日簡報、語音輸入、MCP App 按鈕、畫面巡檢）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。
+- **跨訊息 taint**（D-055）：`ChatConversations.ReadOutsideText`（直接加進還沒上線的 `AddChatProfileAndCards`，三個 Designer 與 snapshot 一起補），讀過外部內容的對話之後每輪的寫入都先問；兩個端對端測試。
+- **畫面巡檢**（`.loop/shots/chat.cjs`：Studio 確認卡、持倉表格、Data Analysis 存 dashboard、今日簡報、語音，桌機＋手機；chat 串流用頁面內 fetch 替身，可停在確認卡）。發現並修好：確認卡排在回答文字上方、等確認時還在顯示「思考中」、標題列顯示原始工具名「正在查詢 look_up_word」且等確認時不變（`hooks/chatStatus`，D-057）、表格卡片在手機放不下 4 欄（數字欄不換行、窄邊距）。
+- **首頁「AI 今日簡報」**（D-056）：`askStudio(text)` 讓任何頁面帶一句話打開 Studio；Studio 的 prompt 定義簡報（日曆＋學習進度＋投資組合，三段＋先做哪件事）；Studio 建議第一個就是它。
+- **語音輸入**（D-058）：三個助理的輸入框都有麥克風（瀏覽器 Web Speech API、zh-TW、即時顯示，不自動送出；Firefox 不顯示）。
+- **MCP App 卡片按鈕**（D-059）：`IOffersAppActions`／`SiteAppAction`，查字典的卡片在 Claude／ChatGPT 裡多「加入單字庫」，經 host 的 `tools/call`，只給能呼叫該工具的 token。
+- **審查**（subagent）：無高／中風險，三個低風險已修（D-060）。
+- 文件：兩份 CLAUDE.md、design/03 §9.2、design/06 §2、SHOWCASE（亮點兩列、demo 第 1 步改成今日簡報、新截圖、日誌）。
+- 驗證：CI 40099476741（taint，第一次就綠）、40100615860（前端）、40101302429（今日簡報）、40102307019 **紅一次**（測試重用同一個 JsonObject 當兩次 arguments：「node already has a parent」）→ 40102535138 綠、**40103374636（本輪最後一次含程式碼的 push：審查修正）綠**。前端 lint、test（124 檔 1327 個）、build 全過。
+- 問題：Chromium 自己有 `SpeechRecognition`（不只 webkit 前綴），截圖腳本要兩個都換掉。
+
 ## 2026-10-24 19:42 – 第 9 輪（本站 MCP server 成為 MCP App、收尾、安全審查）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。

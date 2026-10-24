@@ -1,6 +1,6 @@
 # NEXT — 下一輪從最上面開始
 
-> 設計已定稿（PLAN.md）。M1–M3 完成；M4 必要項目完成（第 7 輪）；M4 延伸「本站對外的 MCP server＋OAuth」完成（第 8 輪）、「MCP App」完成（第 9 輪）。接下來是收尾與打磨；11/4 起功能凍結。
+> 設計已定稿（PLAN.md）。M1–M4 與延伸（本站 MCP server、OAuth、MCP App）都完成；第 10 輪加了跨訊息 taint、AI 今日簡報、語音輸入、MCP App 按鈕。11/4 起功能凍結；在那之前還有很多輪，可以再加「少而精」的驚艷點，但每一個都要能 demo、有測試。
 
 ## 0. 每輪固定動作
 
@@ -11,24 +11,24 @@
 
 ## 1. CI 狀態
 
-- 第 9 輪最後一次含程式碼的 push 是前端審查修正，CI 40096172144 綠。開工時照 §0 看最新一次。
-- **cscheck 這一輪起變弱**：base／head 都是 999 種診斷，EF 的型別幾乎都綁不到（連 `CancellationToken` 都出現兩種），所以 EF 相關檔案的錯誤會被雜訊蓋住；非 EF 檔案（SiteMcp、RateLimitPolicies 等）仍有效。可以試著刪掉 `/tmp/cscheck/src/efcore` 重新 clone，或接受現狀、以 CI 為準。
+- 第 10 輪最後一次含程式碼的 push 是審查修正（`16504570`），CI 40103374636 綠。開工時照 §0 看最新一次。
+- cscheck 對 EF 相關檔案幾乎沒用（base／head 都 999 種診斷），第 10 輪沒有跑，直接以 CI 為準（每次 2–3 分鐘）。
+- 截圖：`.loop/shots/chat.cjs`（Studio／Data Analysis／今日簡報／語音，桌機＋手機）、`connectors.cjs`、`mcp-app.cjs`（自己扮 host，含按鈕的 `tools/call`）。用法寫在各檔開頭。
 
 ## 2. 下一步（依序）
 
-M4 必要項目與延伸（本站 MCP server、OAuth、MCP App）都完成了。11/4 起功能凍結，剩下的輪數用在「讓 demo 更穩、更驚艷」與合併前的品質。
-
-1. **合併前審查的尾巴**（小）：第 9 輪三次 subagent 唯讀審查（D-052～D-054）已涵蓋後端 MCP／OAuth／agent loop／connector／本站工具與前端 chat／Connectors／OAuthConsent。沒審到的：Data Analysis 的 dashboard 存取與 `SaveToDashboardTool` 以外的 dashboard 程式（master 原有，風險低）。可以跳過，或請 subagent 快速看一次。
-2. **用 `.loop/shots/` 做畫面巡檢**（小～中）：照 `connectors.cjs` 的寫法再加 Studio（⌘K → 問答 → 確認卡）與 /data-analysis 的腳本，桌機＋手機各一張，檢查文字溢出、按鈕擠壓、深色模式；更新 SHOWCASE 截圖。
-3. **（選做）MCP App 的互動**：單字卡上「加入單字庫」按鈕從 iframe 經 host 的 `tools/call` 呼叫 `add_word_to_repository`（只有可寫入的 token 才顯示；工具 `_meta.ui.visibility`）。規格的 app→host `tools/call` 細節要先查；做不完就列為後續。
-4. **（選做）跨輪 taint**：讀過外部內容的對話，之後幾輪的寫入也先問（存在 `ChatConversations`，要 migration——還沒進 production 的 migration 可以直接改，見 D-051 的做法）。
-5. **SHOWCASE 定稿**（11/4–11/5）：補 Data Analysis 存 dashboard 的確認卡截圖、手機截圖、最終統計（輪數、commit 數：`git rev-list --count --no-merges origin/master..HEAD`）。
+1. **今日簡報開新對話**（小）：`askStudio` 加 `{ fresh: true }`，簡報不要接在畫面上的舊對話後面（舊對話整段歷史重送很貴，而且簡報讀了日曆會讓那個對話之後的寫入都要確認，D-055）。注意 `useChatConversation.newChat()` 之後同一個 tick 的 `send` 會不會拿到舊的 conversationId——先寫測試。
+2. **建議的下一步問題（follow-up chips）**（中）：回答結束後顯示 2–3 個可點的後續問題（Data Analysis：「改成長條圖」「只看北區」「存到 dashboard」；Studio：依用到的工具）。做法候選：前端依 `toolSteps` 決定（不花 token，可測）；或請模型在最後輸出固定格式再解析（較聰明但要處理串流與不可信）。先做前端規則版。
+3. **Data Analysis 助理的深度**（中）：問完圖表後「換成圓餅圖」——`ask_data` 已回 chart 卡片，前端 `ChartCardView` 能不能讓使用者自己切 viz（不再問 AI）？看 `VizSwitcher` 能否重用。
+4. **（選做）Studio 能操作頁面**：client-side 工具（例如在 /data-analysis 幫使用者填好資料源），需要設計「前端工具」的 SSE 往返，較大，先寫 design/04 的小節再決定。
+5. **合併前審查的尾巴**（小）：Data Analysis 的 dashboard 存取程式（master 原有，風險低）可以請 subagent 看一次。
+6. **SHOWCASE 定稿**（11/4–11/5）：最終統計（輪數、commit 數：`git rev-list --count --no-merges origin/master..HEAD`）、所有截圖再拍一次、demo 腳本走一遍。
 
 ## 3. 已經做好的零件
 
-- 後端：`SafeHttp`、`OutboundAddressPolicy`、`McpServerUrl`、`ToolNames`、`IChatProfile`／`ChatTurnRequest`、agent loop（`ClientToolRunner`：確認、權限、taint、卡片守門）、`ChatApprovalRegistry`、`ConnectorInstallations`＋`ConnectorCatalogService`／`ConnectorInstallService`／`ConnectorToolSource`／`ConnectorSecrets`／`McpToolClient`、`BuiltInMcpConnectors`（tw-stock、DeepWiki、Notion、Linear）、**MCP OAuth**（`McpOAuthDiscovery`、`McpOAuthFlow`、`McpOAuthTokens`、`McpOAuthEndpoints`、`McpOAuthUrls`、`McpOAuthCallbackController`）、`SiteToolSet`／`ISiteTool`、`StudioChatProfile`＋`OpenPageTool`、English 的 `WordTools`／`LearningProgressTool`、Portfolio 的 `PortfolioSummaryTool`、Data Analysis 的 `AskDataTool`／`DescribeDataTool`／`SaveToDashboardTool`＋`DataAnalysisCharts`、Connectors 的 `GoogleCalendarTool`（原生 connector）、`AiToolDescriptor.OutsideText`、step-up（`McpServerException.RequiredScope`）、`CachedTools.Changed`（rug pull）、**本站 MCP server**（`Services/Connectors/SiteMcp`：`SiteMcpServer`、`SiteAccessTokenService`、`SiteTokenAuthenticationHandler`、`SiteOAuthServer`／`SiteOAuthClients`／`SiteOAuthCodes`／`Pkce`；controllers `SiteMcpController`、`SiteAccessTokensController`、`SiteOAuthController`）。測試的假網路在 `TestHelpers`：`FakeMcpServer`、`FakeAuthorizationServer`、`FakeWeb`、`TestStateService`；本站工具的一致性由 `SiteToolDefinitionsTests` 檢查。
-- 本站 MCP server 的 MCP App：`SiteMcpApp`（`ui://jacky-studio/card.html`），畫面用 `.loop/shots/mcp-app.cjs`（自己扮 host，含 `<img onerror>` 當資料）驗證；/connectors 用 `.loop/shots/connectors.cjs`。
-- 前端：`components/aiChat`（`AiChatConfig`、`variant="sheet"`、ToolActivity、ApprovalCard〔含「以後直接執行」〕、卡片）、`Connectors/callbackNotice`、`components/StudioAssistant`、/connectors v2（含 OAuth 路徑）、/data-analysis 的 AI 對話、`Connectors/SiteMcpSection`（token 與設定）、`OAuthConsent`（/oauth/authorize）。
+- 後端：`SafeHttp`、`OutboundAddressPolicy`、`McpServerUrl`、`ToolNames`、`IChatProfile`／`ChatTurnRequest`、agent loop（`ClientToolRunner`：確認、權限、taint、卡片守門）、`ChatApprovalRegistry`、`ChatConversations.ReadOutsideText`（跨訊息 taint）、`ConnectorInstallations`＋`ConnectorCatalogService`／`ConnectorInstallService`／`ConnectorToolSource`／`ConnectorSecrets`／`McpToolClient`、`BuiltInMcpConnectors`（tw-stock、DeepWiki、Notion、Linear）、**MCP OAuth**（`McpOAuthDiscovery`、`McpOAuthFlow`、`McpOAuthTokens`、`McpOAuthEndpoints`、`McpOAuthUrls`、`McpOAuthCallbackController`）、`SiteToolSet`／`ISiteTool`、`StudioChatProfile`＋`OpenPageTool`、English 的 `WordTools`／`LearningProgressTool`、Portfolio 的 `PortfolioSummaryTool`、Data Analysis 的 `AskDataTool`／`DescribeDataTool`／`SaveToDashboardTool`＋`DataAnalysisCharts`、Connectors 的 `GoogleCalendarTool`（原生 connector）、`AiToolDescriptor.OutsideText`、step-up（`McpServerException.RequiredScope`）、`CachedTools.Changed`（rug pull）、**本站 MCP server**（`Services/Connectors/SiteMcp`：`SiteMcpServer`、`SiteAccessTokenService`、`SiteTokenAuthenticationHandler`、`SiteOAuthServer`／`SiteOAuthClients`／`SiteOAuthCodes`／`Pkce`；controllers `SiteMcpController`、`SiteAccessTokensController`、`SiteOAuthController`）。測試的假網路在 `TestHelpers`：`FakeMcpServer`、`FakeAuthorizationServer`、`FakeWeb`、`TestStateService`；本站工具的一致性由 `SiteToolDefinitionsTests` 檢查。
+- 本站 MCP server 的 MCP App：`SiteMcpApp`（`ui://jacky-studio/card.html`；卡片按鈕 `IOffersAppActions`／`AddActions`），畫面用 `.loop/shots/mcp-app.cjs`（自己扮 host，含 `<img onerror>` 當資料）驗證；/connectors 用 `.loop/shots/connectors.cjs`。
+- 前端：`components/aiChat`（`AiChatConfig`、`variant="sheet"`、ToolActivity、ApprovalCard〔含「以後直接執行」；等待時在文字之後〕、卡片、`hooks/useSpeechInput` 語音、`ask` prop）、`hooks/chatStatus`、`StudioAssistant/askStudio`、`Portal/BriefingCard`、`Connectors/callbackNotice`、`components/StudioAssistant`、/connectors v2（含 OAuth 路徑）、/data-analysis 的 AI 對話、`Connectors/SiteMcpSection`（token 與設定）、`OAuthConsent`（/oauth/authorize）。
 
 ## 4. 之後
 
