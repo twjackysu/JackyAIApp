@@ -23,7 +23,10 @@ SRC=$OUT/src
 mkdir -p "$SRC"
 [ -d "$SRC/anthropic" ] || { git clone -q --depth 1 --branch Anthropic-v12.60.0 https://github.com/anthropics/anthropic-sdk-csharp "$SRC/anthropic" || true; }
 [ -d "$SRC/xunit-assert" ] || { git clone -q --depth 1 https://github.com/xunit/assert.xunit "$SRC/xunit-assert" || true; }
-export CSCHECK_REFS="Anthropic=$SRC/anthropic/src/Anthropic;xunit.assert=$SRC/xunit-assert;xunit.stubs=$REPO/.loop/cscheck/stubs"
+[ -d "$SRC/moq" ] || { git clone -q --depth 1 --branch v4.20.72 https://github.com/devlooped/moq "$SRC/moq" || true; }
+[ -d "$SRC/efcore" ] || { git clone -q --depth 1 --branch v10.0.13 --filter=blob:none --sparse https://github.com/dotnet/efcore "$SRC/efcore" \
+  && git -C "$SRC/efcore" sparse-checkout set src/EFCore src/EFCore.Abstractions src/EFCore.Relational src/EFCore.SqlServer src/EFCore.InMemory src/Shared || true; }
+export CSCHECK_REFS="Anthropic=$SRC/anthropic/src/Anthropic;xunit.assert=$SRC/xunit-assert;xunit.stubs=$REPO/.loop/cscheck/stubs;Moq=$SRC/moq/src/Moq;Microsoft.EntityFrameworkCore=$SRC/efcore/src"
 
 rm -rf "$OUT/base" && mkdir -p "$OUT/base"
 git -C "$REPO" archive "$BASE" JackyAIApp.Server JackyAIApp.Server.Tests | tar -x -C "$OUT/base"
