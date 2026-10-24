@@ -42,8 +42,8 @@ namespace JackyAIApp.Server.Tests.Architecture
             [$"{Root}.Services.SpellChecker"] = "English",
             [$"{Root}.Mappers"] = "English",
 
-            // What the AI may use (connector definitions, the hosted MCP servers, and later the
-            // tools and users' installations): docs/ai-native/design/03.
+            // What the AI may use (the tool contract, the site's tools as features list them, users'
+            // connectors and tool permissions, the MCP client, the hosted MCP servers): docs/ai-native/design/03.
             [$"{Root}.Services.Connectors"] = "Connectors",
 
             // The shared chat engine every app's assistant runs on (the turn, its stream, its

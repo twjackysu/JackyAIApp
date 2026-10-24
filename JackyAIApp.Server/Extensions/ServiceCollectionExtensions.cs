@@ -6,6 +6,7 @@ using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Assistant;
+using JackyAIApp.Server.Services.Assistant.Studio;
 using JackyAIApp.Server.Services.Chatbot;
 using JackyAIApp.Server.Services.DailyChallenge;
 using JackyAIApp.Server.Services.Dictionary;
@@ -53,6 +54,9 @@ namespace JackyAIApp.Server.Extensions
             services.AddSingleton<ChatTurnRegistry>();
             services.AddSingleton<ChatApprovalRegistry>();
             services.AddScoped<IChatProfiles, ChatProfiles>();
+            // Studio AI, the assistant on every page, and its own tool (listed with the site's tools).
+            services.AddScoped<IChatProfile, StudioChatProfile>();
+            services.AddSingleton(new SiteToolSet("全站", [OpenPageTool.Definition]));
 
             services.AddSingleton<IPromptLoader, PromptLoader>();
             services.AddScoped<IOpenAIPromptService, OpenAIPromptService>();

@@ -257,6 +257,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   with its answer (`ChatMessages.CardsJson`, a JSON array as streamed) and come back as `ChatMessageDto.Cards`
   when the conversation is reopened; the model still gets the text only. Without tools (Finance) a turn is
   one request, read exactly as before
+- Studio AI, the assistant on every page, is the profile `studio` (`Services/Assistant/Studio`,
+  `StudioChatProfile`): the site's pages (`SitePages`, kept in step with the client's app registry) and the one
+  the reader is on (page context `path`) in its prompt, `open_page` (`OpenPageTool`, a link card to a page, a
+  word's dictionary page included; a word that is not plain letters is dropped) and the reader's connectors'
+  tools. No tw-stock: /finance has its own assistant for the market
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,
