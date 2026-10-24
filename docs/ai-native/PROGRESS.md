@@ -1,5 +1,16 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 05:41 – 第 14 輪（指令列打開 dashboard、頁面建議、複習小測驗、審查）
+
+- 開工：master 的新 commit（chore: remove details）已在 branch 裡；上一輪最後的 CI 綠。
+- **巡檢**（字典頁、/portfolio、/dashboards 列表上的 Studio；新增 MCP server 三步驟的手機版）：字典頁的建議還是泛用的「幫我查 serendipity」→ 改成畫面上那個字（`dictionaryWordOf`）；手機上新增 MCP server 完成步驟的工具說明被權限按鈕擠成「Search t…」→ 窄螢幕時按鈕放到下面。歡迎訊息加一句指令列提示。
+- **指令列打開 dashboard**（D-075）：打名稱的一部分 →「打開『每月業績追蹤』」；列表每次打開抽屜重讀；/dashboards 列表頁的第一個建議「幫我解讀『X』這個 dashboard」。
+- **複習小測驗**（D-076）：`review_quiz`（`ReviewQuizService`：到期的字，沒有就用最快要複習的；每日挑戰的產生器 `GenerateFor`，不花 AI）→ `quiz` 卡片（`QuizCardView`：一次一題、立刻對錯與解說、答完送 `review/submit` 記進 SM-2＋XP）；/english 的第一個建議「考我今天該複習的單字」，接著問「再考我 3 題」。
+- **審查**（subagent，D-077）：無高風險；兩個中風險已修（重開對話的測驗卡可重複記分 → 卡片 renderer 的 `saved`，只當練習；沒到期的字提早作答會把排程推遠 → 只當練習），一個低風險已修（干擾選項不再排序整張 Words 表）。
+- 文件：兩份 CLAUDE.md、D-075～D-077、SHOWCASE（亮點一列、demo 第 1、3 步、日誌）；截圖 `studio-quiz-*`、`studio-quiz-result-*`、`studio-dictionary-desktop`、`studio-quick-dashboard-*`、`connectors-add-*`。
+- 驗證：前端 lint、test（約 1394 個）、build 全過；CI 40136255328（指令列＋建議）、40136894481（review_quiz 後端，第一次就綠）、40137508555（quiz 卡片）、40138680323（審查修正）綠；**40139002502（本輪最後一次含程式碼的 push：/dashboards 建議）綠**。前端全部測試 1395 個通過。
+- 問題：無阻礙。
+
 ## 2026-10-25 03:42 – 第 13 輪（巡檢 /finance 與 /connectors、/finance 工具中文名稱、⌘K 指令列、審查）
 
 - 開工：master 只有「chore: remove details」，已在 branch 裡；上一輪最後的 CI 綠。這輪起 clone 是 shallow，`git fetch --unshallow` 後才看得到完整歷史。

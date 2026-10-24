@@ -1,6 +1,6 @@
 # NEXT — 下一輪從最上面開始
 
-> 設計已定稿（PLAN.md）。M1–M4 與延伸（本站 MCP server、OAuth、MCP App）都完成；第 10 輪加了跨訊息 taint、AI 今日簡報、語音輸入、MCP App 按鈕；第 11 輪加了接著問、圖表卡片換圖、「帶我去」；第 12 輪加了「存完打開」、dashboard 的「AI 解讀」（`read_dashboard`）、確認卡精簡、手機 dashboard 一欄；第 13 輪加了 ⌘K 指令列（`quickActions`）與 /finance 工具中文名稱（`toolLabels`）。11/4 起功能凍結；在那之前還有很多輪，可以再加「少而精」的驚艷點，但每一個都要能 demo、有測試。
+> 設計已定稿（PLAN.md）。M1–M4 與延伸（本站 MCP server、OAuth、MCP App）都完成；第 10 輪加了跨訊息 taint、AI 今日簡報、語音輸入、MCP App 按鈕；第 11 輪加了接著問、圖表卡片換圖、「帶我去」；第 12 輪加了「存完打開」、dashboard 的「AI 解讀」（`read_dashboard`）、確認卡精簡、手機 dashboard 一欄；第 13 輪加了 ⌘K 指令列（`quickActions`）與 /finance 工具中文名稱（`toolLabels`）；第 14 輪加了指令列打開 dashboard、字典頁與 /dashboards 的 Studio 建議、**複習小測驗**（`review_quiz`＋可作答的 quiz 卡片）。11/4 起功能凍結；在那之前還有很多輪，可以再加「少而精」的驚艷點，但每一個都要能 demo、有測試。
 
 ## 0. 每輪固定動作
 
@@ -11,22 +11,22 @@
 
 ## 1. CI 狀態
 
-- 第 13 輪最後一次含程式碼的 push 是「審查修正（指令列）」（CI 40129836280 綠）。開工時照 §0 看最新一次。
+- 第 14 輪最後一次含程式碼的 push 是「/dashboards 列表頁的 Studio 建議」（CI 40139002502 綠）。開工時照 §0 看最新一次。
 - clone 可能是 shallow：開工先 `git fetch --unshallow origin`（否則 merge-base 與 `rev-list --count` 不對）。
-- 截圖：`.loop/shots/chat.cjs`（Studio／**指令列**／Data Analysis／今日簡報／語音／帶我去／換圖＋接著問／dashboard 的 AI 解讀／**/finance**，桌機＋手機）、`connectors.cjs`（目錄、**抽屜**、site-mcp；`EMPTY=1` 回空目錄）、`mcp-app.cjs`。chat.cjs 全跑約 3 分鐘；只想拍一個情境，可以照第 13 輪的做法把其他情境切掉另存一份在 scratch。
-- **前端改動一定要跑 `npm run build`**（vitest 不做型別檢查），**改了 `SitePages.cs` 也要跑前端測試**（`quickActions.test.ts` 讀它）。
+- 截圖：`.loop/shots/chat.cjs`（Studio／指令列／**測驗（作答到結果）**／Data Analysis／今日簡報／語音／帶我去／換圖＋接著問／dashboard 的 AI 解讀／/finance，桌機＋手機）、`connectors.cjs`（目錄、抽屜、site-mcp、**新增 MCP server 三步驟**；`EMPTY=1` 回空目錄）、`mcp-app.cjs`。只想拍一個情境：把 chat.cjs 的 dist 路徑改成絕對路徑、只留那一段，另存在 scratch 跑（第 14 輪的做法）。
+- **前端改動一定要跑 `npm run build`**（vitest 不做型別檢查），**改了 `SitePages.cs` 也要跑前端測試**（`quickActions.test.ts` 讀它）。`npm run lint`＋`npm run test` 加起來超過 2 分鐘，放背景跑（`(… > /tmp/x.log; echo $? >> …) &`）再看 log。
 
 ## 2. 下一步（依序）
 
-1. **巡檢剩下的頁面（小）**：/english 的字典頁（Studio 的建議）、/portfolio 上的 Studio、/dashboards 列表頁的 Studio 建議（目前只有共用的）；`connectors.cjs` 再拍「新增 MCP server」對話框三個步驟的手機版。發現的問題直接修。
-2. **指令列的延伸（小，選做）**：在 Studio 的歡迎畫面加一行提示「打頁面名稱可以直接前往」；或在 /dashboards/{id} 以外，打 dashboard 名稱就出現「打開『業績追蹤』」（要讀 `dashboardApis` 的列表，只列自己的；先評估是否值得）。
-3. **SHOWCASE 定稿**（11/4–11/5）：最終統計（輪數、commit 數：`git rev-list --count --no-merges origin/master..HEAD`）、demo 腳本走一遍、合併檢查清單再對一次 migration 清單（`git diff --stat origin/master -- JackyAIApp.Server/Data/Migrations`）。
+1. **測驗的延伸（小，選做）**：每日挑戰也能在 Studio 裡做？（每日挑戰是固定題目＋送出會記分，跟 review_quiz 不同，要另外評估）；或首頁「AI 今日簡報」裡學習那段加一句「要不要考你幾題？」（只改 Studio prompt 的簡報定義＋`StudioChatProfileTests`）。
+2. **巡檢**：/english/repository、/english/exam 上的 Studio（建議是否合適）；本站 MCP server 的 `tools/list` 現在多了 `review_quiz`——確認 `SiteMcpServerTests` 的工具清單斷言（如果有）與 MCP App 對 `quiz` 卡片不畫（只回文字）是預期的；可在 `SiteMcpApp` 加 quiz 的畫法（評估：MCP App 的按鈕要經 host 的 `tools/call`，作答要記進排程得再加一個寫入工具，不值得的話就維持純文字）。
+3. **SHOWCASE 定稿**（11/4–11/5）：最終統計（輪數、commit 數：`git rev-list --count --no-merges origin/master..HEAD`）、demo 腳本走一遍、合併檢查清單再對一次 migration 清單（`git diff --stat origin/master -- JackyAIApp.Server/Data/Migrations`；第 14 輪沒有新 migration）。
 
 ## 3. 已經做好的零件
 
-- 後端：`SafeHttp`、`OutboundAddressPolicy`、`McpServerUrl`、`ToolNames`、`IChatProfile`／`ChatTurnRequest`、agent loop（`ClientToolRunner`：確認、權限、taint、卡片守門）、`ChatApprovalRegistry`、`ChatConversations.ReadOutsideText`（跨訊息 taint）、`ConnectorInstallations`＋`ConnectorCatalogService`／`ConnectorInstallService`／`ConnectorToolSource`／`ConnectorSecrets`／`McpToolClient`、`BuiltInMcpConnectors`（tw-stock、DeepWiki、Notion、Linear）、**MCP OAuth**（`McpOAuthDiscovery`、`McpOAuthFlow`、`McpOAuthTokens`、`McpOAuthEndpoints`、`McpOAuthUrls`、`McpOAuthCallbackController`）、`SiteToolSet`／`ISiteTool`、`StudioChatProfile`＋`OpenPageTool`、English 的 `WordTools`／`LearningProgressTool`、Portfolio 的 `PortfolioSummaryTool`、Data Analysis 的 `AskDataTool`／`DescribeDataTool`／`SaveToDashboardTool`（含 `open`）＋`DataAnalysisCharts`、`ReadDashboardTool`（Studio 與本站 MCP server 用）、Connectors 的 `GoogleCalendarTool`（原生 connector）、`AiToolDescriptor.OutsideText`、step-up（`McpServerException.RequiredScope`）、`CachedTools.Changed`（rug pull）、**本站 MCP server**（`Services/Connectors/SiteMcp`：`SiteMcpServer`、`SiteAccessTokenService`、`SiteTokenAuthenticationHandler`、`SiteOAuthServer`／`SiteOAuthClients`／`SiteOAuthCodes`／`Pkce`；controllers `SiteMcpController`、`SiteAccessTokensController`、`SiteOAuthController`）。測試的假網路在 `TestHelpers`：`FakeMcpServer`、`FakeAuthorizationServer`、`FakeWeb`、`TestStateService`；本站工具的一致性由 `SiteToolDefinitionsTests` 檢查。
+- 後端：`SafeHttp`、`OutboundAddressPolicy`、`McpServerUrl`、`ToolNames`、`IChatProfile`／`ChatTurnRequest`、agent loop（`ClientToolRunner`：確認、權限、taint、卡片守門）、`ChatApprovalRegistry`、`ChatConversations.ReadOutsideText`（跨訊息 taint）、`ConnectorInstallations`＋`ConnectorCatalogService`／`ConnectorInstallService`／`ConnectorToolSource`／`ConnectorSecrets`／`McpToolClient`、`BuiltInMcpConnectors`（tw-stock、DeepWiki、Notion、Linear）、**MCP OAuth**（`McpOAuthDiscovery`、`McpOAuthFlow`、`McpOAuthTokens`、`McpOAuthEndpoints`、`McpOAuthUrls`、`McpOAuthCallbackController`）、`SiteToolSet`／`ISiteTool`、`StudioChatProfile`＋`OpenPageTool`、English 的 `WordTools`／`LearningProgressTool`／`ReviewQuizTool`（＋`IReviewQuizService`、`IDailyChallengeQuestionGenerator.GenerateFor`）、Portfolio 的 `PortfolioSummaryTool`、Data Analysis 的 `AskDataTool`／`DescribeDataTool`／`SaveToDashboardTool`（含 `open`）＋`DataAnalysisCharts`、`ReadDashboardTool`（Studio 與本站 MCP server 用）、Connectors 的 `GoogleCalendarTool`（原生 connector）、`AiToolDescriptor.OutsideText`、step-up（`McpServerException.RequiredScope`）、`CachedTools.Changed`（rug pull）、**本站 MCP server**（`Services/Connectors/SiteMcp`：`SiteMcpServer`、`SiteAccessTokenService`、`SiteTokenAuthenticationHandler`、`SiteOAuthServer`／`SiteOAuthClients`／`SiteOAuthCodes`／`Pkce`；controllers `SiteMcpController`、`SiteAccessTokensController`、`SiteOAuthController`）。測試的假網路在 `TestHelpers`：`FakeMcpServer`、`FakeAuthorizationServer`、`FakeWeb`、`TestStateService`；本站工具的一致性由 `SiteToolDefinitionsTests` 檢查。
 - 本站 MCP server 的 MCP App：`SiteMcpApp`（`ui://jacky-studio/card.html`；卡片按鈕 `IOffersAppActions`／`AddActions`），畫面用 `.loop/shots/mcp-app.cjs`（自己扮 host，含 `<img onerror>` 當資料）驗證；/connectors 用 `.loop/shots/connectors.cjs`。
-- 前端：`components/aiChat`（`AiChatConfig`、`variant="sheet"`、ToolActivity、ApprovalCard〔含「以後直接執行」；等待時在文字之後〕、卡片、`hooks/useSpeechInput` 語音、`ask` prop〔含 `fresh`〕、`utils/followUps`＋`FollowUps`、`onNavigate`＋`sitePathOf`；`AiAssistantLauncher` 的 `onNavigate` 等回答正常結束）、`Dashboard/viewLayout`、dashboard 的「AI 解讀」（`READ_DASHBOARD_PROMPT`）、`hooks/chatStatus`、`StudioAssistant/askStudio`、`StudioAssistant/quickActions`＋`QuickActions`（面板的 `inputAccessory`）、`AiChatConfig.toolLabels`＋`withToolLabel`、`Portal/BriefingCard`、`Connectors/callbackNotice`、`components/StudioAssistant`、/connectors v2（含 OAuth 路徑）、/data-analysis 的 AI 對話、`Connectors/SiteMcpSection`（token 與設定）、`OAuthConsent`（/oauth/authorize）。
+- 前端：`components/aiChat`（`AiChatConfig`、`variant="sheet"`、ToolActivity、ApprovalCard〔含「以後直接執行」；等待時在文字之後〕、卡片、`hooks/useSpeechInput` 語音、`ask` prop〔含 `fresh`〕、`utils/followUps`＋`FollowUps`、`onNavigate`＋`sitePathOf`；`AiAssistantLauncher` 的 `onNavigate` 等回答正常結束）、`Dashboard/viewLayout`、dashboard 的「AI 解讀」（`READ_DASHBOARD_PROMPT`）、`hooks/chatStatus`、`StudioAssistant/askStudio`、`StudioAssistant/quickActions`＋`QuickActions`（面板的 `inputAccessory`；含讀者的 dashboard）、`StudioAssistant/QuizCardView`＋`quizCard`（卡片 renderer 的 `saved`）、`AiChatConfig.toolLabels`＋`withToolLabel`、`Portal/BriefingCard`、`Connectors/callbackNotice`、`components/StudioAssistant`、/connectors v2（含 OAuth 路徑）、/data-analysis 的 AI 對話、`Connectors/SiteMcpSection`（token 與設定）、`OAuthConsent`（/oauth/authorize）。
 
 ## 4. 之後
 
