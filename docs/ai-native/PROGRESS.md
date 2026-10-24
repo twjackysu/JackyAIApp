@@ -8,9 +8,10 @@
 - **Studio 引導**：問「怎麼讓 Claude 用這個網站」→ Connectors 連結與說明；/connectors 的 Studio 建議多一則；「讓其他 AI 使用本站」說明改寫（Claude.ai／ChatGPT 貼網址、其他用 token）。
 - **安全審查**（subagent，唯讀，範圍：SiteMcp、OAuth 授權伺服器、MCP OAuth client、SafeHttp）：無高／中風險；修三個低風險（DCR redirect 總長、SafeHttp 不走 proxy＋擋 168.63.129.16、MCP App 只收 parent 訊息），兩個接受（D-052）。
 - **第二次審查**（agent loop、connector、本站工具）：**高風險**——外部 connector 工具在 /connectors 設的「需確認」在 chat 沒生效（權限用伺服器名存、chat 用 `m1__…` 查），改 `AiToolDescriptor.PermissionName` 並加端對端測試；中風險——清理後同名的工具會讓對話每輪中斷，改成只留第一個；低風險——確認逾時的競態、卡片連結的控制字元（前後端都擋）。D-053。
+- **第三次審查**（前端）：**高風險**——AI 回答的 HTML 預覽原本 innerHTML 在本站 origin，改成無權限 sandbox iframe；中風險——Studio 換頁不再丟對話、斷掉的串流當失敗、離開頁面停止串流；低——回合結束關閉確認卡、回呼訊息重複名稱。D-054。
 - `.loop/shots/`：`connectors.cjs`（dist＋假 API）、`mcp-app.cjs`（自己扮 MCP Apps host；`<img onerror>` 當資料只顯示成文字、按鈕走 open-link），截圖存進 `screenshots/`（`mcp-app-card-*`、`site-mcp-section-*`）。
 - 文件：design/03 §9.1–9.2、server CLAUDE.md、SHOWCASE（亮點、demo 第 7 步、截圖、日誌）、CONTRIBUTING、FOR_JACKY 9、PLAN、D-049～D-052。
-- 驗證：每個後端 commit 先 cscheck（0 個新診斷）再看 CI：40091300375（收尾）、40091669851（ViaOAuth migration）、40091861427（Studio）、40092081827（MCP App）、40092790787（前端說明）、40093015146（icons）、40093462486（安全修正，見下）。前端 lint、test（120 檔 1295 個）、build 全過。
+- 驗證：每個後端 commit 先 cscheck（0 個新診斷）再看 CI：40091300375（收尾）、40091669851（ViaOAuth migration）、40091861427（Studio）、40092081827（MCP App）、40092790787（前端說明）、40093015146（icons）、40093462486（安全修正）、40094057242／40094269512（第二次審查修正與測試）、**40096172144（本輪最後一次含程式碼的 push：前端審查修正）綠**。前端 lint、test（121 檔 1300 個）、build 全過。
 - 問題：cscheck 的 EF 參考這輪幾乎綁不到（base／head 都 999 種診斷），EF 相關檔案的錯誤會被蓋住，以 CI 為準（NEXT §1）。
 
 ## 2026-10-24 17:42 – 第 8 輪（本站對外的 MCP server：PAT、OAuth 授權伺服器、同意頁）

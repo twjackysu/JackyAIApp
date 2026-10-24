@@ -11,14 +11,14 @@
 
 ## 1. CI 狀態
 
-- 第 9 輪最後一次含程式碼的 push 見 PROGRESS 第 9 輪（serverInfo 圖示）。開工時照 §0 看最新一次。
+- 第 9 輪最後一次含程式碼的 push 是前端審查修正，CI 40096172144 綠。開工時照 §0 看最新一次。
 - **cscheck 這一輪起變弱**：base／head 都是 999 種診斷，EF 的型別幾乎都綁不到（連 `CancellationToken` 都出現兩種），所以 EF 相關檔案的錯誤會被雜訊蓋住；非 EF 檔案（SiteMcp、RateLimitPolicies 等）仍有效。可以試著刪掉 `/tmp/cscheck/src/efcore` 重新 clone，或接受現狀、以 CI 為準。
 
 ## 2. 下一步（依序）
 
 M4 必要項目與延伸（本站 MCP server、OAuth、MCP App）都完成了。11/4 起功能凍結，剩下的輪數用在「讓 demo 更穩、更驚艷」與合併前的品質。
 
-1. **合併前審查，剩下的範圍**（小～中）：第 9 輪兩次 subagent 唯讀審查已涵蓋本站 MCP server／OAuth／MCP OAuth client／SafeHttp（D-052）與 agent loop、connector 安裝與權限、本站工具（D-053，含一個高風險已修）。剩下：前端（`components/aiChat` 的 SSE 解析與確認卡、`Connectors/`、`OAuthConsent`）與 Data Analysis 的 dashboard 存取。同樣請 subagent 唯讀審、自己驗證後再修。
+1. **合併前審查的尾巴**（小）：第 9 輪三次 subagent 唯讀審查（D-052～D-054）已涵蓋後端 MCP／OAuth／agent loop／connector／本站工具與前端 chat／Connectors／OAuthConsent。沒審到的：Data Analysis 的 dashboard 存取與 `SaveToDashboardTool` 以外的 dashboard 程式（master 原有，風險低）。可以跳過，或請 subagent 快速看一次。
 2. **用 `.loop/shots/` 做畫面巡檢**（小～中）：照 `connectors.cjs` 的寫法再加 Studio（⌘K → 問答 → 確認卡）與 /data-analysis 的腳本，桌機＋手機各一張，檢查文字溢出、按鈕擠壓、深色模式；更新 SHOWCASE 截圖。
 3. **（選做）MCP App 的互動**：單字卡上「加入單字庫」按鈕從 iframe 經 host 的 `tools/call` 呼叫 `add_word_to_repository`（只有可寫入的 token 才顯示；工具 `_meta.ui.visibility`）。規格的 app→host `tools/call` 細節要先查；做不完就列為後續。
 4. **（選做）跨輪 taint**：讀過外部內容的對話，之後幾輪的寫入也先問（存在 `ChatConversations`，要 migration——還沒進 production 的 migration 可以直接改，見 D-051 的做法）。

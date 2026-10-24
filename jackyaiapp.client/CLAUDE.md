@@ -63,7 +63,11 @@ jackyaiapp.client/src/
   drawer, the history behind its button, the header's last action closes) under the `studio` profile, with
   the path as its page context. Only for a signed-in reader, and not where a page has an assistant of its own
   (/finance, /data-analysis) or fills the screen; which pages, the suggestions per page and the shortcut are
-  `studioChat`
+  `studioChat`. On a page without the button only the button goes: the drawer, and the conversation in it, stay
+  mounted once opened (one of its own link cards may lead to /finance). Leaving a page that holds a chat stops
+  its answer (`useChatStreaming` stops on unmount), and a stream that ends without `done` or `error` is a failure
+- An answer's HTML preview (`HtmlViewer`) is a `sandbox=""` iframe, never markup in the page: the answer can
+  echo what a tool read (someone else's words)
 - `/connectors` (`Connectors/index.tsx`) keeps the account connections (Google/Microsoft/Atlassian,
   `ConnectorCard`, unchanged) and puts above them what the AI may use, `AiConnectorsSection`: the
   reader's connectors (`InstalledSection`, each opening `ConnectorDetailDrawer` with the tools'
