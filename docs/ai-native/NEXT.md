@@ -20,7 +20,7 @@
 1. **Data Analysis 的「帶我去」**（中，選做）：AI 存完 dashboard 後的連結卡可以用 `go` 直接打開該 dashboard？目前只有 Studio 的 `open_page` 會送 navigate；Data Analysis 的 `SaveToDashboardTool` 若要用，要在 /data-analysis 的面板接 `onNavigate`（`AiAssistantLauncher` 要把它傳下去），且只在使用者明確說「存完打開」時。先評估值不值得。
 2. **全站巡檢（中）**：用 `.loop/shots/*.cjs` 重拍所有 SHOWCASE 截圖，桌機＋手機，逐張看：文字是否被截斷、深淺色、空狀態。發現的問題直接修。
 3. **SHOWCASE 定稿**（11/4–11/5）：最終統計（輪數、commit 數：`git rev-list --count --no-merges origin/master..HEAD`）、demo 腳本走一遍、合併檢查清單再對一次 migration 清單（`git diff --stat origin/master -- JackyAIApp.Server/Data/Migrations`）。
-4. **（選做）Finance 的接著問**：目前只依 `get_stock_history`／`get_technical_indicators`／`get_realtime_quote` 與兩個財報工具。若 tw-stock MCP 的工具名稱跟 TWStock server 不同，接著問就不會出現（無害）；有空時確認 `AnthropicChatService.AlwaysLoadedTools` 與 log 裡的實際名稱。
+4. ~~Finance 的接著問的工具名稱~~：已確認與 `AnthropicChatService.AlwaysLoadedTools` 一致（`get_realtime_quote`、`get_stock_history`、`get_technical_indicators`）；hosted 工具沒有 tool_result，回答結束時 `settleToolSteps` 把它們標成完成，所以接著問會出現（面板測試涵蓋）。
 
 ## 3. 已經做好的零件
 
