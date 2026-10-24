@@ -16,6 +16,9 @@ import {
   InstalledConnector,
   ConnectionTestResult,
   ToolPermissionRequest,
+  SiteAccessTokenList,
+  CreateSiteAccessTokenRequest,
+  CreatedSiteAccessToken,
 } from './types';
 
 import type { ApiOkResponse } from '../types';
@@ -27,10 +30,13 @@ const unwrapData = <T>(res: ApiOkResponse<T>): T => res.data;
 const refreshCatalog = (_result: unknown, error: unknown): 'ConnectorCatalog'[] =>
   error ? [] : ['ConnectorCatalog'];
 
+const refreshSiteTokens = (_result: unknown, error: unknown): 'SiteTokens'[] =>
+  error ? [] : ['SiteTokens'];
+
 export const connectorsApi = createApi({
   reducerPath: 'connectorsApi',
   baseQuery: apiBaseQuery('/api/connectors/', 'include'), // Include cookies for authentication
-  tagTypes: ['ConnectorStatus', 'ConnectorCatalog'],
+  tagTypes: ['ConnectorStatus', 'ConnectorCatalog', 'SiteTokens'],
   endpoints: (builder) => ({
     getConnectorStatus: builder.query<ConnectorStatus[], void>({
       query: () => 'status',
@@ -110,6 +116,22 @@ export const connectorsApi = createApi({
       transformResponse: unwrapData,
       invalidatesTags: refreshCatalog,
     }),
+
+    // Letting other AIs use the site: the tokens of its own MCP server (/api/mcp).
+    getSiteTokens: builder.query<SiteAccessTokenList, void>({
+      query: () => 'site-tokens',
+      transformResponse: unwrapData,
+      providesTags: ['SiteTokens'],
+    }),
+    createSiteToken: builder.mutation<CreatedSiteAccessToken, CreateSiteAccessTokenRequest>({
+      query: (body) => ({ url: 'site-tokens', method: 'POST', body }),
+      transformResponse: unwrapData,
+      invalidatesTags: refreshSiteTokens,
+    }),
+    revokeSiteToken: builder.mutation<void, string>({
+      query: (id) => ({ url: `site-tokens/${id}`, method: 'DELETE' }),
+      invalidatesTags: refreshSiteTokens,
+    }),
   }),
 });
 
@@ -128,4 +150,7 @@ export const {
   useSetInstallationEnabledMutation,
   useRemoveInstallationMutation,
   useSetToolPermissionMutation,
+  useGetSiteTokensQuery,
+  useCreateSiteTokenMutation,
+  useRevokeSiteTokenMutation,
 } = connectorsApi;

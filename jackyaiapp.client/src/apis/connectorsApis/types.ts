@@ -142,3 +142,38 @@ export interface ToolPermissionRequest {
   toolName: string;
   permission: ToolPermission;
 }
+
+/**
+ * A personal access token another AI (Claude Desktop, Cursor…) uses the site's own MCP server with
+ * (`/api/mcp`). The token itself is shown only once, when it is made.
+ */
+export interface SiteAccessToken {
+  id: string;
+  name: string;
+  /** Its start and end ("jsk_AbC…xYz9"), to tell it from the reader's others. */
+  hint: string;
+  /** Whether the site's tools that add or change something are offered too. */
+  allowWrites: boolean;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface SiteAccessTokenList {
+  tokens: SiteAccessToken[];
+  /** The most tokens one reader may have. */
+  limit: number;
+}
+
+export interface CreateSiteAccessTokenRequest {
+  name: string;
+  allowWrites: boolean;
+  /** 30, 90 or 365. */
+  expiresInDays: number;
+}
+
+export interface CreatedSiteAccessToken {
+  info: SiteAccessToken;
+  /** The token itself: the only time it is shown. */
+  token: string;
+}

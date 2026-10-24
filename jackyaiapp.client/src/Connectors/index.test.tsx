@@ -42,6 +42,9 @@ vi.mock('./AiConnectorsSection', () => ({
   default: (p: { refreshSignal: number }) => `[AiConnectors ${p.refreshSignal}]`,
 }));
 
+// Letting other AIs use the site has its own tests (SiteMcpSection/index.test.tsx).
+vi.mock('./SiteMcpSection', () => ({ default: () => '[SiteMcp]' }));
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const status = (provider: string, isConnected: boolean): ConnectorStatus => ({

@@ -8,6 +8,7 @@ import { useSearchParams } from 'react-router-dom';
 import AiConnectorsSection from './AiConnectorsSection';
 import { callbackNotice } from './callbackNotice';
 import ConnectorCard from './ConnectorCard';
+import SiteMcpSection from './SiteMcpSection';
 
 import {
   useConnectProviderMutation,
@@ -118,6 +119,7 @@ const Connectors: React.FC = () => {
         refreshSignal={refreshSignal}
         notify={(message, severity) => setState({ open: true, message, severity })}
       />
+      <SiteMcpSection notify={(message, severity) => setState({ open: true, message, severity })} />
       <Typography variant="h6" component="h2" gutterBottom>
         帳號連線（Google／Microsoft／Atlassian）
       </Typography>
