@@ -77,7 +77,11 @@ jackyaiapp.client/src/
   "portfolio", "帶我去 dashboards") or one English word offer to go straight there (`quickActionsFor`, shown over the
   box by `QuickActions` through the panel's `inputAccessory`): a press navigates, empties the box and closes the
   drawer, with no AI and no usage; Enter still sends the text to the AI. Its page list, `QUICK_PAGES`, is held to the
-  server's `SitePages.cs` by its test. A page opens it with a message sent through `askStudio(text, { fresh? })` (`StudioAssistant/askStudio`, a window
+  server's `SitePages.cs` by its test; the reader's dashboards (the /dashboards list, read each time the drawer opens)
+  are offered by their name or two characters of it (「打開『業績追蹤』」). On a word's dictionary page its suggestions are about
+  that word (`dictionaryWordOf`). A review quiz (`review_quiz`) comes as a `quiz` card, Studio AI's own renderer
+  (`QuizCardView`, `quizCard.parseQuizCard`): one question at a time, right or wrong shown at once, and after the last the
+  answers go to the review schedule as the review page sends them (`review/submit`, right 4, wrong 1), no AI involved. A page opens it with a message sent through `askStudio(text, { fresh? })` (`StudioAssistant/askStudio`, a window
   event; the panel's `ask` prop sends each id once; `fresh` sends it as the first message of a new conversation,
   `useChatConversation`'s `send(…, { fresh: true })`, queued like any message while an answer is written): the home
   page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in only, nothing asked until clicked) sends `BRIEFING_PROMPT`,
