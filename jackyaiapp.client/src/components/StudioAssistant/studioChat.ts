@@ -1,4 +1,5 @@
 import AutoStoriesIcon from '@mui/icons-material/AutoStoriesOutlined';
+import EventIcon from '@mui/icons-material/EventOutlined';
 import ExploreIcon from '@mui/icons-material/ExploreOutlined';
 import ExtensionIcon from '@mui/icons-material/ExtensionOutlined';
 import PieChartIcon from '@mui/icons-material/PieChartOutlined';
@@ -33,6 +34,7 @@ const PORTFOLIO: AiChatSuggestion[] = [
 ];
 const COMMON: AiChatSuggestion[] = [
   { text: '這個網站可以做哪些事？', icon: ExploreIcon },
+  { text: '我今天有什麼行程？', icon: EventIcon },
   { text: '怎麼讓你使用我自己的 MCP server？', icon: ExtensionIcon },
 ];
 

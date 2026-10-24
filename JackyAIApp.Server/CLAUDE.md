@@ -54,7 +54,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 | Platform | `Common`, `Configuration`, `Data`, `Services` (only what is directly in it: current user, accounts, usage limits, connectors, `DrawdownBrakeAccess`), `Services.AiUsage`, `.OpenAI`, `.Prompt`, `.Speech`, `.ExternalApi` (the gateway) | — |
 | MarketData | `Services.Market` (prices, history and backfill, fundamentals/chips/macro providers, TW symbol list, MIS TAIEX quote, trading calendar, `TwStockCode`), `Services.ExternalApi.Twse` | Platform |
 | English | `Services.Dictionary` (with `.Assistant`: its tools for Studio AI), `.Repository`, `.Exam`, `.Listening`, `.SpacedRepetition`, `.DailyChallenge`, `.WordOfTheDay`, `.SpellChecker`, `Mappers` | Connectors, Platform |
-| Connectors | `Services.Connectors` (what the AI may use: the tool contract `IAiTool`, the site's own tools as features register them, the reader's connectors and tool permissions, the hosted MCP servers, e.g. `TwStockMcp`; see docs/ai-native/design/03) | Platform |
+| Connectors | `Services.Connectors` (what the AI may use: the tool contract `IAiTool`, the site's own tools as features register them, the reader's connectors and tool permissions, the hosted MCP servers, e.g. `TwStockMcp`; native connectors, `.Google`; see docs/ai-native/design/03) | Platform |
 | Assistant | `Services.Assistant` (chat profiles, the turn's request), `Services.Chatbot` (the shared chat engine: turns, stream, history, attachments) | Connectors, Platform |
 | Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest; `Services.Finance.Assistant`: the /finance assistant's profile and market background) | Assistant, Connectors, MarketData, Platform |
 | Portfolio | `Services.Portfolio` (with `.Assistant`: its tool for Studio AI) | Connectors, MarketData, Platform |
@@ -242,8 +242,9 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   choice on the connectors page (`IToolPermissionSource`, `ToolPermissions`: by default a read runs on its own
   and anything else asks first; a destructive one can never run on its own): a tool they turned off is not
   offered, and a call of one that asks first runs only once the reader allows it (and once a turn has read an
-  outside connector's result, every call that is not a read asks first, whatever its permission; the
-  question then says `tainted`): a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
+  outside connector's result, or a site tool's marked `OutsideText` because it holds other people's words, a
+  calendar invite's, `AiToolDescriptor.ReadsOutsideText`, every call that is not a read asks first, whatever its
+  permission; the question then says `tainted`): a reply's such calls are put to them together (SSE `approval_required` with `pendingId` and the
   calls: id, connector, tool, display name, effect, input, and a `summary` in words when a site tool says one,
   `IDescribesCall`, never a connector's), and the turn waits **in its own request**
   (`ChatApprovalRegistry`, a singleton in memory like `ChatTurnRegistry`; at most
@@ -264,7 +265,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   word's dictionary page included; a word that is not plain letters is dropped), every `ISiteTool` a feature
   registers (English's `look_up_word`, `add_word_to_repository`, a write, so asked first, and `learning_progress`,
   the words due for review, the daily challenge, streak and XP: `Services/Dictionary/Assistant`; Portfolio's `portfolio_summary`, the reader's own portfolio as
-  /portfolio values it, a table card of the positions: `Services/Portfolio/Assistant`) and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market
+  /portfolio values it, a table card of the positions: `Services/Portfolio/Assistant`; Connectors' `google_calendar_events`)
+  and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,
@@ -317,6 +319,16 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   would end the sign-in); a refused refresh of an expired token marks the connector NeedsAuth and keeps the
   client. The redirect URI and the metadata URL come from `Connectors:CallbackBaseUrl` (`McpOAuthUrls`); an
   authorization server's own words never reach the reader, only an OAuth error code
+- A native connector is the site's own code calling a service's API with the reader's account connection (the
+  token from `IConnectorService`): an `ISiteTool` in `Services/Connectors/<Service>`. `GoogleCalendarTool`
+  (`google_calendar_events`, `Services/Connectors/Google`) reads the primary calendar (today, tomorrow or 7 days,
+  whole Taipei days; scope `calendar.readonly`) as a table card; without a Google connection, or one Google refuses,
+  it answers with a link card to /connectors rather than an error. Its results are `OutsideText`
+- Tests of the connectors' outbound requests use the fakes in `TestHelpers` (each an `IMcpHttpHandlerSource`):
+  `FakeMcpServer` (a Streamable HTTP MCP server for the real SDK), `FakeAuthorizationServer` (a whole MCP sign-in:
+  401 with `resource_metadata`, PRM, AS metadata, registration, a token endpoint checking PKCE and rotating refresh
+  tokens; `Approve` plays the reader), `FakeWeb` (fixed answers by URL). `McpOAuthSignInTests` runs a sign-in end
+  to end with every real unit, one DbContext a request as the app has
 - `ConnectorCatalogService` answers the page (`AiConnectorsController`, `api/connectors/catalog`,
   `tool-permissions`, `installations/{id}/enabled`, `installations/{id}`, in the `{ data }` envelope; the
   account connections' endpoints of `ConnectorsController`, under the same route, are unchanged) and, as

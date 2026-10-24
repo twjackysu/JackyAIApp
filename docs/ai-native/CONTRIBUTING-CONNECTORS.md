@@ -8,6 +8,7 @@ AI 能用的東西分三種，貢獻方式由簡到繁：
 |---|---|---|
 | 一個現成的 **remote MCP server**（免登入） | `BuiltInMcpConnectors.All` 加一行 | `tw-stock`、`deepwiki` |
 | 一個 **本站功能**，讓 Studio AI 能用 | 實作 `ISiteTool`、註冊兩行 | `LookUpWordTool`、`AddWordToRepositoryTool` |
+| 一個 **原生 connector**：本站程式直接呼叫某個服務的 API，用使用者既有的帳號連線 | 一樣是 `ISiteTool`，token 從 `IConnectorService` 拿 | `GoogleCalendarTool`（Google 日曆，唯讀） |
 | 一個只在某個 app 的助理裡用、需要頁面狀態的工具 | 實作 `IAiTool`，由該 app 的 `IChatProfile` 每輪建立 | `AskDataTool`、`DescribeDataTool` |
 
 使用者自己的 MCP server 不用改程式：到 `/connectors` →「新增 MCP server」貼網址即可（免登入、API key、Bearer token）。
@@ -68,11 +69,25 @@ services.AddSingleton(new SiteToolSet("功能名稱", [MyTool.Definition]));   /
 - 寫入型工具不用自己做確認：`ClientToolRunner` 會先送確認卡（`approval_required`），使用者允許才呼叫 `RunAsync`。
 - 卡片會經 `ToolCardGuard`（後端）與 `parseToolCard`（前端）過濾：純文字、table 最多 12 欄 200 列、連結只能是本站路徑或 https。
 
+### 原生 connector（以 Google 日曆為例）
+
+`Services/Connectors/Google/GoogleCalendarTool.cs` 是範本：
+
+- token 用 `IConnectorService.GetAccessTokenAsync(context.UserId, ConnectorProviders.Google)` 拿（既有帳號連線，過期會自己 refresh）；scope 是 `Connectors:Providers:<Provider>:Scopes`，需要新 scope 時寫進 FOR_JACKY（已連線的人要重新連線）。
+- **沒連線不是錯誤**：回一句請使用者到 Connectors 連線的話，加一張 `href = "/connectors"` 的連結卡。對方回 401／403 也一樣（多半是 scope 不夠或過期）。其他失敗回 `AiToolResult.Error`，不帶對方的原文。
+- 打固定網址的 GET 用具名 client `ExternalReadOnly`（有重試）；**使用者給的網址**才一定要 `SafeHttp`。
+- 結果裡有**別人能寫的字**（行事曆邀請的標題、email 主旨、Jira 留言）就在 descriptor 設 `OutsideText: true`：這輪之後的寫入一律先問使用者，跟外部 MCP connector 一樣（`AiToolDescriptor.ReadsOutsideText`）。外部文字也要壓成一行、截長度。
+- 時間一律台北時間（`time.GetTaipeiToday()`），測試用 `TestClock` 跨台北午夜。
+
 ## 3. 測試樣板
 
 - 本站工具：mock 服務，直接呼叫 `RunAsync`，斷言 `Content`、`Card`、`IsError`，並測不合法的 input（參考 `Services/Dictionary/WordToolsTests.cs`）。
 - 跟 chat 整合（確認、權限、不可信包裝）已由 `AnthropicChatStreamTests` 涵蓋，不必重測。
-- MCP client 的行為參考 `McpToolClientTests`：用 `HttpMessageHandler` 扮演 MCP server、跑真的 SDK。
+- 原生 connector：`GoogleCalendarToolTests`——mock `IConnectorService` 的 token、`StubHttpMessageHandler` 扮對方 API，測沒連線、請求內容（網址、Bearer、時間範圍）、解析、401／403、其他失敗。
+- `JackyAIApp.Server.Tests/TestHelpers` 的假網路（都實作 `IMcpHttpHandlerSource`，直接交給 `McpToolClient`、`McpOAuthDiscovery`、`McpOAuthEndpoints`）：
+  - `FakeMcpServer`：最小的 Streamable HTTP MCP server（真的 SDK 跟它講協定），工具清單、要求的 header／token、401 的 `WWW-Authenticate` 都可設定；記下每個方法與 `Authorization`。範例：`McpToolClientTests`。
+  - `FakeAuthorizationServer`：一整套 MCP 授權——MCP server 回 401＋`resource_metadata`、PRM、AS metadata、DCR、token 端點（驗 PKCE、redirect URI、resource；refresh token 用一次就作廢）；`Approve(url)` 扮使用者在授權頁按允許。範例：`McpOAuthSignInTests`（probe → 新增 → 授權 → 回呼 → 列工具 → chat 呼叫工具 → 到期 refresh → 撤銷後重新授權）。新的登入方式照它寫一個完整流程的測試。
+  - `FakeWeb`：幾個網址各回固定答案，測單一端點（`McpOAuthDiscoveryTests`）。
 
 ## 4. 安全清單（PR 前自己檢查）
 
