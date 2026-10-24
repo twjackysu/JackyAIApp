@@ -11,6 +11,12 @@ namespace JackyAIApp.Server.Services.Repository
         Task<ServiceResult<NoData>> AddWordAsync(string wordId);
         Task<ServiceResult<NoData>> DeleteWordAsync(string wordId);
 
+        /// <summary>
+        /// The words the user added most recently (newest first, at most <see cref="SavedWords.MaxRecent"/>), each with
+        /// its first meaning's part of speech and Chinese, and how many the collection holds in all.
+        /// </summary>
+        Task<ServiceResult<SavedWords>> GetRecentWordsAsync(int count, CancellationToken ct = default);
+
         /// <summary>Lists the built-in starter word packs (metadata only).</summary>
         ServiceResult<List<DTO.WordPackDto>> GetWordPacks();
 

@@ -1,6 +1,7 @@
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import AutoStoriesIcon from '@mui/icons-material/AutoStoriesOutlined';
 import DashboardIcon from '@mui/icons-material/DashboardOutlined';
+import EditNoteIcon from '@mui/icons-material/EditNoteOutlined';
 import EventIcon from '@mui/icons-material/EventOutlined';
 import ExploreIcon from '@mui/icons-material/ExploreOutlined';
 import ExtensionIcon from '@mui/icons-material/ExtensionOutlined';
@@ -33,6 +34,12 @@ export function studioShownOn(path: string): boolean {
 const ENGLISH: AiChatSuggestion[] = [
   { text: '考我今天該複習的單字', icon: QuizIcon },
   { text: '幫我查 serendipity 是什麼意思', icon: AutoStoriesIcon },
+];
+/** The reader's own words (saved_words): writing with them is what the repository page cannot do itself. */
+export const WRITE_WITH_MY_WORDS = '用我單字庫裡最近存的字寫一段短文';
+const REPOSITORY: AiChatSuggestion[] = [
+  { text: WRITE_WITH_MY_WORDS, icon: EditNoteIcon },
+  { text: '考我今天該複習的單字', icon: QuizIcon },
 ];
 const PORTFOLIO: AiChatSuggestion[] = [
   { text: '幫我看看我的持股，哪幾檔虧最多？', icon: PieChartIcon },
@@ -99,15 +106,17 @@ export function studioSuggestionsFor(
     ? wordSuggestions(word)
     : path === '/dashboards'
       ? dashboardsSuggestions(dashboards)
-      : on(path, '/english')
-        ? ENGLISH
-        : on(path, '/portfolio')
-          ? PORTFOLIO
-          : on(path, '/connectors')
-            ? CONNECTORS
-            : path.startsWith('/dashboards/')
-              ? DASHBOARD
-              : [];
+      : on(path, '/english/repository')
+        ? REPOSITORY
+        : on(path, '/english')
+          ? ENGLISH
+          : on(path, '/portfolio')
+            ? PORTFOLIO
+            : on(path, '/connectors')
+              ? CONNECTORS
+              : path.startsWith('/dashboards/')
+                ? DASHBOARD
+                : [];
   return [...own, ...COMMON].slice(0, 4);
 }
 
@@ -123,6 +132,7 @@ const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
   { tools: ['add_word_to_repository'], texts: ['我今天還有哪些字要複習？'] },
   { tools: ['learning_progress'], texts: ['考我幾題', '帶我去複習', '帶我去每日挑戰'] },
   { tools: ['review_quiz'], texts: ['再考我 3 題', '帶我去複習'] },
+  { tools: ['saved_words'], texts: ['換個主題再寫一段', '考我幾題'] },
   {
     tools: ['portfolio_summary'],
     texts: ['哪一檔佔比最高？風險集中嗎？', '我的資產配置偏重哪裡？'],

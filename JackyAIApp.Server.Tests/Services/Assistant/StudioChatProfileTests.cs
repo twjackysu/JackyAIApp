@@ -49,6 +49,16 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             Assert.Contains(GoogleCalendarTool.Name, setup.SystemPrompt);
             Assert.Contains(LearningProgressTool.Name, setup.SystemPrompt);
             Assert.Contains(PortfolioSummaryTool.Name, setup.SystemPrompt);
+            // …and offers a quiz when words are due.
+            Assert.Contains(ReviewQuizTool.Name, setup.SystemPrompt);
+        }
+
+        [Fact]
+        public async Task WritingWithTheReadersOwnWords_NamesTheSavedWordsTool()
+        {
+            var setup = await SetupAsync();
+
+            Assert.Contains(SavedWordsTool.Name, setup.SystemPrompt);
         }
 
         [Theory]

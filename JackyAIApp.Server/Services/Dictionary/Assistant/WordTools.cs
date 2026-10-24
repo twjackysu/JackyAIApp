@@ -120,4 +120,81 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
                 : AiToolResult.Error("加入單字庫失敗，請告訴使用者稍後再試。");
         }
     }
+    /// <summary>
+    /// The words the reader saved most recently, each with its first meaning, and how many they have — so Studio AI
+    /// can write with the reader's own words (a short passage, sentences) or talk about their collection. The words
+    /// and meanings are the site's dictionary's, not anyone else's text.
+    /// </summary>
+    public sealed class SavedWordsTool(IRepositoryService repository) : ISiteTool
+    {
+        public const string Name = "saved_words";
+
+        internal const int DefaultCount = 15;
+
+        public static readonly AiToolDescriptor Definition = new(
+            Name,
+            "我的單字庫",
+            "列出使用者單字庫裡最近加入的單字（新的在前，含詞性與中文意思）與單字庫的總字數。" +
+            "使用者想用自己的單字寫短文、造句、出題以外的練習，或問單字庫裡有哪些字時使用。",
+            JsonSerializer.SerializeToElement(new
+            {
+                type = "object",
+                properties = new
+                {
+                    count = new
+                    {
+                        type = "integer",
+                        minimum = 1,
+                        maximum = SavedWords.MaxRecent,
+                        description = $"要列出幾個最近加入的字，預設 {DefaultCount}",
+                    },
+                },
+            }),
+            ToolEffect.Read);
+
+        public AiToolDescriptor Descriptor => Definition;
+
+        private static readonly object DictionaryCard = new
+        {
+            kind = "link",
+            title = "字典",
+            href = "/english/dictionary",
+            description = "查單字並加入單字庫",
+            actionLabel = "去查單字",
+        };
+
+        public async Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
+        {
+            var count = input.ValueKind == JsonValueKind.Object && input.TryGetProperty("count", out var given) &&
+                        given.ValueKind == JsonValueKind.Number && given.TryGetInt32(out var n)
+                ? n
+                : DefaultCount;
+            var read = await repository.GetRecentWordsAsync(count, ct);
+            if (!read.IsSuccess) return AiToolResult.Error("單字庫暫時讀不到，請告訴使用者稍後再試。");
+
+            var saved = read.Data!;
+            if (saved.Words.Count == 0)
+                return new AiToolResult(
+                    "使用者的單字庫還是空的。建議他先查幾個字並加入單字庫（可以用 look_up_word、add_word_to_repository）。",
+                    Card: DictionaryCard);
+
+            var text = new StringBuilder();
+            text.AppendLine($"使用者的單字庫共 {saved.Total} 個字，最近加入的 {saved.Words.Count} 個（新的在前）：");
+            foreach (var w in saved.Words)
+            {
+                var meaning = string.Join(" ", new[] { w.PartOfSpeech is { Length: > 0 } pos ? $"({pos})" : null, w.Chinese }.Where(x => !string.IsNullOrWhiteSpace(x)));
+                text.AppendLine(meaning.Length > 0 ? $"- {w.Word} {meaning}" : $"- {w.Word}");
+            }
+            text.AppendLine("用這些字寫短文或造句時，把用到的單字用粗體標出，並在最後附上中文翻譯。");
+
+            return new AiToolResult(text.ToString().TrimEnd(), Card: new
+            {
+                kind = "link",
+                title = "我的單字庫",
+                href = "/english/repository",
+                description = $"共 {saved.Total} 個字，最近加入：{string.Join("、", saved.Words.Take(5).Select(w => w.Word))}",
+                actionLabel = "前往單字庫",
+            });
+        }
+    }
 }

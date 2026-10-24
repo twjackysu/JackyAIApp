@@ -177,6 +177,50 @@ namespace JackyAIApp.Server.Tests.Services
             Assert.Equal(ErrorCodes.NotFound, result.Error);
         }
 
+        [Fact]
+        public async Task GetRecentWordsAsync_NewestFirst_WithTheFirstMeaning_AndTheTotal()
+        {
+            await SeedWordsAsync("advocate", "brisk", "candid");
+            var now = DateTime.UtcNow;
+            await using (var seed = new AzureSQLDBContext(_options))
+            {
+                seed.WordMeanings.Add(new WordMeaning { Id = "m1", WordId = "brisk", PartOfSpeech = "adjective" });
+                seed.WordMeanings.Add(new WordMeaning { Id = "m2", WordId = "brisk", PartOfSpeech = "verb" });
+                seed.Definitions.Add(new Definition { Id = "d1", WordMeaningId = "m1", English = "quick", Chinese = "輕快的" });
+                seed.Definitions.Add(new Definition { Id = "d2", WordMeaningId = "m2", English = "to move", Chinese = "使活躍" });
+                seed.UserWords.Add(new UserWord { UserId = UserId, WordId = "advocate", DateAdded = now.AddDays(-3) });
+                seed.UserWords.Add(new UserWord { UserId = UserId, WordId = "brisk", DateAdded = now.AddDays(-1) });
+                seed.UserWords.Add(new UserWord { UserId = UserId, WordId = "candid", DateAdded = now.AddDays(-2) });
+                seed.Users.Add(new User { Id = "someone-else", LastUpdated = now });
+                seed.UserWords.Add(new UserWord { UserId = "someone-else", WordId = "advocate", DateAdded = now });
+                await seed.SaveChangesAsync();
+            }
+
+            await using var db = new AzureSQLDBContext(_options);
+            var result = await CreateService(db).GetRecentWordsAsync(2);
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(3, result.Data!.Total);
+            Assert.Equal(new[] { "brisk", "candid" }, result.Data.Words.Select(w => w.Word));
+            Assert.Equal(new SavedWord("brisk", "adjective", "輕快的"), result.Data.Words[0]);
+            Assert.Equal(new SavedWord("candid", null, null), result.Data.Words[1]);
+        }
+
+        [Fact]
+        public async Task GetRecentWordsAsync_KeepsTheCountWithinItsLimits()
+        {
+            await SeedWordsAsync("advocate");
+            await using (var seed = new AzureSQLDBContext(_options))
+            {
+                seed.UserWords.Add(new UserWord { UserId = UserId, WordId = "advocate", DateAdded = DateTime.UtcNow });
+                await seed.SaveChangesAsync();
+            }
+
+            await using var db = new AzureSQLDBContext(_options);
+            Assert.Single((await CreateService(db).GetRecentWordsAsync(0)).Data!.Words);
+            Assert.Single((await CreateService(db).GetRecentWordsAsync(1000)).Data!.Words);
+        }
+
         /// <summary>Inserts the given words for the test user through a separate context the first
         /// time the intercepted context saves — after its service has checked, before it writes.</summary>
         private sealed class RacingAddInterceptor(

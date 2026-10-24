@@ -304,5 +304,28 @@ namespace JackyAIApp.Server.Services.Repository
 
             return ServiceResult.Ok();
         }
+
+        public async Task<ServiceResult<SavedWords>> GetRecentWordsAsync(int count, CancellationToken ct = default)
+        {
+            var userId = _currentUser.RequireId();
+            var take = Math.Clamp(count, 1, SavedWords.MaxRecent);
+
+            var mine = _dbContext.UserWords.AsNoTracking().Where(uw => uw.UserId == userId);
+            var total = await mine.CountAsync(ct);
+            // Only the word and its first meaning's part of speech and Chinese: a list for the AI, not the entries.
+            var words = await mine
+                .OrderByDescending(uw => uw.DateAdded)
+                .ThenByDescending(uw => uw.Id)
+                .Take(take)
+                .Select(uw => new SavedWord(
+                    uw.Word.WordText,
+                    uw.Word.Meanings.OrderBy(m => m.Id).Select(m => m.PartOfSpeech).FirstOrDefault(),
+                    uw.Word.Meanings.OrderBy(m => m.Id)
+                        .Select(m => m.Definitions.OrderBy(d => d.Id).Select(d => d.Chinese).FirstOrDefault())
+                        .FirstOrDefault()))
+                .ToListAsync(ct);
+
+            return ServiceResult.Ok(new SavedWords(total, words));
+        }
     }
 }

@@ -7,6 +7,7 @@ import {
   studioShownOn,
   dictionaryWordOf,
   studioSuggestionsFor,
+  WRITE_WITH_MY_WORDS,
 } from './studioChat';
 
 describe('studioShownOn', () => {
@@ -65,6 +66,12 @@ describe('studioSuggestionsFor', () => {
     expect(texts).toHaveLength(4);
   });
 
+  it('on the repository, offers to write with the reader’s own words first', () => {
+    const texts = studioSuggestionsFor('/english/repository').map((s) => s.text);
+    expect(texts[0]).toBe(WRITE_WITH_MY_WORDS);
+    expect(texts[1]).toBe('考我今天該複習的單字');
+  });
+
   it('starts with the page’s own suggestions', () => {
     expect(studioSuggestionsFor('/english/review')[0].text).toBe('考我今天該複習的單字');
     expect(studioSuggestionsFor('/portfolio')[0].text).toContain('持股');
@@ -114,6 +121,11 @@ describe('studioFollowUpsFor', () => {
   it('after a quiz, offers another one', () => {
     const quiz = followUpsOn('/').find((r) => r.tools?.includes('review_quiz'))!;
     expect(quiz.texts).toEqual(['再考我 3 題', '帶我去複習']);
+  });
+
+  it('after writing with the reader’s words, offers another passage or a quiz', () => {
+    const rule = followUpsOn('/english/repository').find((r) => r.tools?.includes('saved_words'))!;
+    expect(rule.texts).toEqual(['換個主題再寫一段', '考我幾題']);
   });
 
   it('carries on from a dashboard it read', () => {

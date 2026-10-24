@@ -123,8 +123,9 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<ISiteTool, AddWordToRepositoryTool>();
             services.AddScoped<ISiteTool, LearningProgressTool>();
             services.AddScoped<ISiteTool, ReviewQuizTool>();
+            services.AddScoped<ISiteTool, SavedWordsTool>();
             services.AddSingleton(new SiteToolSet("英文學習",
-                [LookUpWordTool.Definition, AddWordToRepositoryTool.Definition, LearningProgressTool.Definition, ReviewQuizTool.Definition]));
+                [LookUpWordTool.Definition, AddWordToRepositoryTool.Definition, SavedWordsTool.Definition, LearningProgressTool.Definition, ReviewQuizTool.Definition]));
             services.AddScoped<IWordOfTheDayService, WordOfTheDayService>();
 
             // Shared SM-2 scheduling (Review flow + exam-result feedback)
