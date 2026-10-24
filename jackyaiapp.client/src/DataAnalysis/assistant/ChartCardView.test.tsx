@@ -73,7 +73,39 @@ describe('ChartCardView', () => {
 
   it('offers no dashboard for a result without a plan', () => {
     render({ ...data, plan: undefined });
-    expect(container.querySelector('button')).toBeNull();
+    expect([...container.querySelectorAll('button')].map((b) => b.textContent)).not.toContain(
+      '加到 dashboard',
+    );
+  });
+
+  it('draws it as another chart the data fits when the reader picks one, and adds that one', () => {
+    render({
+      ...data,
+      viz: 'column',
+      headers: ['region', 'revenue'],
+      rows: [
+        { region: '北區', revenue: 100 },
+        { region: '南區', revenue: 80 },
+      ],
+      groupHints: ['region'],
+      temporalHints: [],
+    });
+    const offered = [
+      ...container.querySelectorAll<HTMLButtonElement>('[aria-label="換一種圖表"] button'),
+    ];
+    const labels = offered.map((b) => b.getAttribute('aria-label'));
+    expect(labels).toContain('圓餅圖 (Pie)');
+    // Only what fits: one category and one measure is no sankey.
+    expect(labels).not.toContain('桑基圖 (Sankey)');
+    expect(offered.find((b) => b.getAttribute('aria-pressed') === 'true')?.value).toBe('column');
+
+    act(() => offered.find((b) => b.value === 'pie')!.click());
+    expect(mocks.renderViz.mock.lastCall![0]).toBe('pie');
+    const add = [...container.querySelectorAll('button')].find(
+      (b) => b.textContent === '加到 dashboard',
+    )!;
+    act(() => add.click());
+    expect(container.textContent).toContain('[AddToDashboard pie]');
   });
 
   it('draws nothing for data it cannot check', () => {

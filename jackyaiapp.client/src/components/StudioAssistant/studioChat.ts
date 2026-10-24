@@ -62,7 +62,10 @@ const STUDIO_FOLLOW_UPS: AiChatConfig['followUps'] = [
   { tools: ['look_up_word'], texts: ['把這個字加入我的單字庫', '用這個字造三個例句'] },
   { tools: ['add_word_to_repository'], texts: ['我今天還有哪些字要複習？'] },
   { tools: ['learning_progress'], texts: ['帶我去複習', '帶我去每日挑戰'] },
-  { tools: ['portfolio_summary'], texts: ['哪一檔佔比最高？風險集中嗎？', '帶我去投資組合頁'] },
+  {
+    tools: ['portfolio_summary'],
+    texts: ['哪一檔佔比最高？風險集中嗎？', '我的資產配置偏重哪裡？'],
+  },
   { tools: ['google_calendar_events'], texts: ['明天呢？', '這週哪天比較空？'] },
 ];
 

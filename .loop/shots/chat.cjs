@@ -82,6 +82,13 @@ const dataChart = [
   },
 ];
 
+// 同一張圖，回答結束（沒有存 dashboard）：底下有「接著問」，圖表卡片可以自己換圖。
+const dataChartDone = [
+  ...dataChart.slice(0, 3),
+  delta('北區營收連續五個月成長（820 → 1,060），南區則緩步下滑，中區持平。'),
+  done,
+];
+
 const briefing = [
   start,
   { type: 'tool_use', id: 't1', name: 'google_calendar_events', displayName: 'Google 日曆' },
@@ -219,6 +226,19 @@ async function ask(page, text, placeholder) {
     await ask(page, '畫出各地區每月營收，存到「業績追蹤」dashboard', /問你的資料/);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `${out}/data-analysis-save-${name}.png` });
+    await page.close();
+
+    // /data-analysis：回答結束 → 圖表卡片換成直條圖、底下的「接著問」
+    page = await open(browser, viewport, dataChartDone);
+    await page.goto('http://localhost:5173/data-analysis');
+    await page.waitForTimeout(2000);
+    await page.getByPlaceholder(/問 AI 助手/).first().click();
+    await page.waitForTimeout(800);
+    await ask(page, '畫出各地區每月營收', /問你的資料/);
+    await page.getByRole('button', { name: /直條圖/ }).first().click();
+    await page.waitForTimeout(600);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `${out}/data-analysis-followups-${name}.png` });
     await page.close();
   }
   await browser.close();
