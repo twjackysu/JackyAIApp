@@ -56,6 +56,12 @@ jackyaiapp.client/src/
   untrusted, and `parseToolCard` keeps only plain text and numbers within limits and links to this site
   or https. The chat draws `table` and `link`; another kind is drawn by the app's renderer for it
   (`AiChatConfig.cardRenderers`), or not at all
+- Studio AI (`components/StudioAssistant`, mounted once in `App.tsx`) is the same chat as a sheet: a button
+  in the lower right, or ⌘K / Ctrl+K, opens `AiAssistantPanel` with `variant="sheet"` (fills a right-hand
+  drawer, the history behind its button, the header's last action closes) under the `studio` profile, with
+  the path as its page context. Only for a signed-in reader, and not where a page has an assistant of its own
+  (/finance, /data-analysis) or fills the screen; which pages, the suggestions per page and the shortcut are
+  `studioChat`
 - `/connectors` (`Connectors/index.tsx`) keeps the account connections (Google/Microsoft/Atlassian,
   `ConnectorCard`, unchanged) and puts above them what the AI may use, `AiConnectorsSection`: the
   reader's connectors (`InstalledSection`, each opening `ConnectorDetailDrawer` with the tools'

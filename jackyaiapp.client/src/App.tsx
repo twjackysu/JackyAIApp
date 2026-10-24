@@ -11,6 +11,7 @@ import { Navigate, useLocation, useRoutes, type RouteObject } from 'react-router
 import RequireAuth from './auth/RequireAuth';
 import LoginError from './components/LoginError';
 import UsageLimitModal from './components/Modals/UsageLimitModal';
+import StudioAssistant from './components/StudioAssistant';
 import UserProfileMenu from './components/UserProfileMenu';
 import {
   DATA_ANALYSIS,
@@ -171,6 +172,7 @@ function App() {
         本站使用匿名統計（Cookie）以改善服務
       </Typography>
       <UsageLimitModal />
+      <StudioAssistant />
     </>
   );
 }

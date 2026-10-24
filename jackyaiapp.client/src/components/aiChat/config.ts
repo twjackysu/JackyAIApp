@@ -18,6 +18,8 @@ export interface AiChatSuggestion {
 export interface AiChatConfig {
   /** The server's chat profile (IChatProfile.Key). */
   profile: string;
+  /** The assistant's name in the panel's header; "AI 助手" when not set. */
+  title?: string;
   /** Over the greeting of a new conversation. */
   greetingTitle: string;
   /** What the assistant can do, in a sentence or two. */

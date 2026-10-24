@@ -36,6 +36,9 @@ interface AiAssistantPanelProps {
   /** Fold the panel back into its one-line box. */
   onCollapse: () => void;
   onActivityChange?: (activity: AssistantActivity) => void;
+  /** `inline` (a block of the page, the default) or `sheet`: it fills a drawer of its own (Studio AI),
+   *  with no history column beside it — the history opens over it, as on a phone. */
+  variant?: 'inline' | 'sheet';
 }
 
 /**
@@ -50,7 +53,9 @@ function AiAssistantPanel({
   onInputChange: setInputValue,
   onCollapse,
   onActivityChange,
+  variant = 'inline',
 }: AiAssistantPanelProps) {
+  const sheet = variant === 'sheet';
   const config = useAiChatConfig();
   const conversation = useChatConversation({
     errorMessages: config.errorMessages,
@@ -145,8 +150,8 @@ function AiAssistantPanel({
           position: 'relative',
           display: 'flex',
           overflow: 'hidden',
-          height: 'clamp(460px, 74dvh, 780px)',
-          borderRadius: '20px',
+          height: sheet ? '100%' : 'clamp(460px, 74dvh, 780px)',
+          borderRadius: sheet ? 0 : '20px',
           // Its own surface, outlined in the accent gradient with a faint glow from the top
           // corners, so it does not read as one more of the market-data cards below it.
           border: '1px solid transparent',
@@ -162,7 +167,7 @@ function AiAssistantPanel({
         {/* Conversation history, always in view where there is room for it */}
         <Box
           sx={{
-            display: { xs: 'none', [HISTORY_COLUMN_BREAKPOINT]: 'block' },
+            display: sheet ? 'none' : { xs: 'none', [HISTORY_COLUMN_BREAKPOINT]: 'block' },
             width: HISTORY_COLUMN_WIDTH,
             flexShrink: 0,
             borderRight: `1px solid ${hairline(theme)}`,
@@ -184,6 +189,7 @@ function AiAssistantPanel({
             onOpenHistory={() => setHistoryOpen(true)}
             onNewChat={handleNewChat}
             onCollapse={onCollapse}
+            sheet={sheet}
           />
           <MessageArea
             messages={messages}

@@ -1,3 +1,4 @@
+import CloseIcon from '@mui/icons-material/Close';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ViewSidebarIcon from '@mui/icons-material/ViewSidebarOutlined';
@@ -21,6 +22,9 @@ interface ChatHeaderProps {
   onNewChat: () => void;
   /** Folds the panel back into its one-line box (the conversation is kept). */
   onCollapse: () => void;
+  /** The panel fills a drawer of its own: the history is always behind its button, and the last
+   *  action closes the drawer. */
+  sheet?: boolean;
 }
 
 /**
@@ -33,9 +37,11 @@ const ChatHeader = ({
   onOpenHistory,
   onNewChat,
   onCollapse,
+  sheet = false,
 }: ChatHeaderProps) => {
   const theme = useTheme();
-  const { connectedLabel } = useAiChatConfig();
+  const { connectedLabel, title = 'AI 助手' } = useAiChatConfig();
+  const closeLabel = sheet ? '關閉' : '收合';
 
   return (
     <Box
@@ -55,7 +61,10 @@ const ChatHeader = ({
           onClick={onOpenHistory}
           aria-label="對話紀錄"
           size="small"
-          sx={{ display: { [HISTORY_COLUMN_BREAKPOINT]: 'none' }, color: 'text.secondary' }}
+          sx={{
+            display: sheet ? undefined : { [HISTORY_COLUMN_BREAKPOINT]: 'none' },
+            color: 'text.secondary',
+          }}
         >
           <ViewSidebarIcon fontSize="small" />
         </IconButton>
@@ -63,7 +72,7 @@ const ChatHeader = ({
       <AssistantMark size={30} />
       <Box sx={{ minWidth: 0 }}>
         <Typography variant="subtitle2" component="div" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
-          AI 助手
+          {title}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
           <Box
@@ -95,14 +104,14 @@ const ChatHeader = ({
           </IconButton>
         </span>
       </ActionTooltip>
-      <ActionTooltip title="收合">
+      <ActionTooltip title={closeLabel}>
         <IconButton
           onClick={onCollapse}
-          aria-label="收合"
+          aria-label={closeLabel}
           size="small"
           sx={{ color: 'text.secondary' }}
         >
-          <ExpandLessIcon fontSize="small" />
+          {sheet ? <CloseIcon fontSize="small" /> : <ExpandLessIcon fontSize="small" />}
         </IconButton>
       </ActionTooltip>
       {busy && (
