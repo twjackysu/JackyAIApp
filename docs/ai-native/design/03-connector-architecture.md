@@ -151,7 +151,7 @@ sequenceDiagram
   S->>S: 驗 state、驗 iss（RFC 9207 表）
   S->>A: 換 token（code_verifier、resource）
   S->>S: 加密存入安裝，LastStatus=Ok，列工具
-  S-->>B: redirect /connectors?connected=…
+  S-->>B: redirect /connectors?success=true&provider={名稱}（失敗：?error={code}&provider=…，沿用既有參數，D-018）
 ```
 
 - state：沿用 `IStateService.GenerateState(userId, provider)`，provider 傳 `mcp:{installationId}`（介面不變）；PKCE verifier 與 expected issuer 存在**伺服器端**（`IMemoryCache`，10 分鐘，key 為 nonce），不放在瀏覽器。
