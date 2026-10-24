@@ -693,6 +693,28 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
             Assert.Single(search.Calls);
         }
 
+        [Theory]
+        [InlineData(AiToolDescriptor.SiteConnector, "/english/review", "/english/review")]
+        [InlineData(AiToolDescriptor.SiteConnector, "//evil.example/x", null)]
+        [InlineData(AiToolDescriptor.SiteConnector, "https://evil.example/", null)]
+        [InlineData(AiToolDescriptor.SiteConnector, "/\\evil.example", null)]
+        [InlineData("inst-1", "/english/review", null)]
+        public async Task OnlyASiteTool_MovesTheReadersPage_AndOnlyWithinTheSite(string connector, string navigate, string? sent)
+        {
+            _toolProfile.Extra.Add(new RecordingTool("go_there", "開啟頁面", ToolEffect.Read, connector)
+            {
+                Result = _ => new AiToolResult("好", Navigate: navigate),
+            });
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "go_there", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("到了"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            var result = turn.Events.Single(e => Type(e) == "tool_result");
+            if (sent == null) Assert.Equal(JsonValueKind.Null, result.GetProperty("navigate").ValueKind);
+            else Assert.Equal(sent, result.GetProperty("navigate").GetString());
+        }
+
         [Fact]
         public async Task AConnectorsTool_NeverPutsWordsOfItsOwnOnTheCard()
         {

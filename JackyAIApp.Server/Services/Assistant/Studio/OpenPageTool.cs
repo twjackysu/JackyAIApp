@@ -6,7 +6,8 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
 {
     /// <summary>
     /// Gives the reader a link to one of the site's pages (a word's dictionary page included), shown as a
-    /// card they can follow. It only reads: nothing changes, and the reader decides whether to go.
+    /// card they can follow; when they asked to be taken there (<c>go</c>), their page also goes there at once
+    /// (<see cref="AiToolResult.Navigate"/>). It only reads: nothing changes, and only the site's own pages are reached.
     /// </summary>
     public sealed partial class OpenPageTool : IAiTool
     {
@@ -18,6 +19,7 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
             Name,
             "開啟頁面",
             "給使用者本網站某個頁面的連結（在對話中顯示成可點的卡片）。使用者想做的事有對應的頁面時使用，例如查單字就給 dictionary 加上 word。" +
+            "使用者明確要你帶他過去或打開某頁（「帶我去」「打開」「我要去」）時把 go 設成 true，畫面會直接切換到那一頁（對話保留）；只是推薦時不要設。" +
             "可用的頁面：" + string.Join("；", SitePages.All.Select(p => $"{p.Key}＝{p.Title}（{p.Description}）")),
             JsonSerializer.SerializeToElement(new
             {
@@ -26,6 +28,7 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
                 {
                     page = new { type = "string", @enum = SitePages.All.Select(p => p.Key).ToArray(), description = "要開的頁面" },
                     word = new { type = "string", description = "page 是 dictionary 時要查的英文單字（可省略）" },
+                    go = new { type = "boolean", description = "使用者要你現在就帶他過去時為 true（畫面直接切換）" },
                 },
                 required = new[] { "page" },
             }),
@@ -52,9 +55,11 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
                 title = $"{word}｜字典";
             }
 
+            var go = input.TryGetProperty("go", out var g) && g.ValueKind == JsonValueKind.True;
             return Task.FromResult(new AiToolResult(
-                $"已在對話中給使用者「{title}」的連結（{href}）。",
-                Card: new { kind = "link", title, href, description = page.Description, actionLabel = "前往" }));
+                go ? $"已帶使用者到「{title}」（{href}），對話中也有連結。" : $"已在對話中給使用者「{title}」的連結（{href}）。",
+                Card: new { kind = "link", title, href, description = page.Description, actionLabel = "前往" },
+                Navigate: go ? href : null));
         }
     }
 }

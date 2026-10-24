@@ -58,6 +58,11 @@ namespace JackyAIApp.Server.Services.Chatbot
             return true;
         }
 
+        /// <summary>A path on this site: one slash, then not another or a backslash (<c>//host</c>, <c>/\host</c> leave it), no control characters.</summary>
+        internal static bool IsSitePath(string path) =>
+            path.Length is > 0 and <= 2000 && path[0] == '/' && !path.StartsWith("//") && !path.StartsWith("/\\") &&
+            !path.Any(char.IsControl);
+
         /// <summary>A path on this site (not <c>//host</c>), or an absolute https URL.</summary>
         internal static bool IsSafeHref(JsonNode? href)
         {

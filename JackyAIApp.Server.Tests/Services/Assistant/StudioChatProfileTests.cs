@@ -112,6 +112,19 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             Assert.Equal("/portfolio", card.GetProperty("href").GetString());
         }
 
+        [Fact]
+        public async Task OpenPage_TakesTheReaderThere_OnlyWhenAskedTo()
+        {
+            var go = await OpenAsync(new { page = "dictionary", word = "apple", go = true });
+            var link = await OpenAsync(new { page = "dictionary", word = "apple" });
+            var notQuite = await OpenAsync(new { page = "dictionary", word = "apple", go = "true" });
+
+            Assert.Equal("/english/dictionary/apple", go.Navigate);
+            Assert.Equal("/english/dictionary/apple", JsonSerializer.SerializeToElement(go.Card).GetProperty("href").GetString());
+            Assert.Null(link.Navigate);
+            Assert.Null(notQuite.Navigate);
+        }
+
         [Theory]
         [InlineData("Serendipity", "/english/dictionary/serendipity")]
         [InlineData("ice cream", "/english/dictionary/ice%20cream")]

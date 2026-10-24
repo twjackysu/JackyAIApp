@@ -121,6 +121,7 @@ namespace JackyAIApp.Server.Services.Chatbot
                     ok = !result.IsError,
                     card,
                     durationMs,
+                    navigate = NavigateOf(call.Name, result),
                 }, ct);
                 // What an outside connector (or someone's calendar invite) said may be written to steer the model;
                 // from here on in the turn, nothing that changes anything runs without the reader (docs/ai-native/design/06).
@@ -164,6 +165,16 @@ namespace JackyAIApp.Server.Services.Chatbot
                 return AiToolResult.Error(FailedMessage);
             }
         }
+
+        /// <summary>
+        /// Where the reader's page goes now: only a site tool's own (a connector's tool never moves the reader's page),
+        /// only a plain path on this site, and nothing after a failure.
+        /// </summary>
+        private string? NavigateOf(string toolName, AiToolResult result) =>
+            !result.IsError && result.Navigate is { } path && ToolCardGuard.IsSitePath(path) &&
+            _byName.TryGetValue(toolName, out var tool) && tool.Descriptor.Connector == AiToolDescriptor.SiteConnector
+                ? path
+                : null;
 
         /// <summary>The card as the reader may be sent it (<see cref="ToolCardGuard"/>), or null.</summary>
         private JsonElement? CardOf(string toolName, object card)

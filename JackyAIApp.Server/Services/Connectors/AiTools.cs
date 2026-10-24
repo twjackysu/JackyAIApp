@@ -71,7 +71,9 @@ namespace JackyAIApp.Server.Services.Connectors
     /// <param name="Content">The result as text, for the model.</param>
     /// <param name="IsError">The call failed; <paramref name="Content"/> says why, in words the model can pass on.</param>
     /// <param name="Card">What the reader is shown, or null for nothing.</param>
-    public sealed record AiToolResult(string Content, bool IsError = false, object? Card = null)
+    /// <param name="Navigate">A path on this site the reader's page goes to now (Studio AI's <c>open_page</c> when they
+    /// asked to be taken there). Sent only for a site tool's call, and only a plain path (<c>ClientToolRunner</c>).</param>
+    public sealed record AiToolResult(string Content, bool IsError = false, object? Card = null, string? Navigate = null)
     {
         /// <summary>A failed call, with what the model is told.</summary>
         public static AiToolResult Error(string message) => new(message, IsError: true);
