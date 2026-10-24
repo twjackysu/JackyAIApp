@@ -24,7 +24,7 @@ export default function BriefingCard() {
       }}
     >
       <CardActionArea
-        onClick={() => askStudio(BRIEFING_PROMPT)}
+        onClick={() => askStudio(BRIEFING_PROMPT, { fresh: true })}
         sx={{
           borderRadius: 'inherit',
           bgcolor: 'background.paper',

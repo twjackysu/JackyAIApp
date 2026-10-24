@@ -44,4 +44,11 @@ export const DATA_ANALYSIS_AI_CHAT: AiChatConfig = {
     wide: '問問你的資料，例如：去年各月營收趨勢，畫成折線圖（Enter 送出，Shift+Enter 換行）',
   },
   cardRenderers: { chart: ChartCardView },
+  // After a chart, the next things one does with it; after a look at the columns, a first question.
+  followUps: [
+    { tools: ['save_to_dashboard'], texts: ['再畫一張不同角度的圖，存到同一個 dashboard'] },
+    { tools: ['ask_data'], texts: ['這個結果有什麼值得注意的？', '把這張圖存到 dashboard'] },
+    { tools: ['describe_data'], texts: ['幫我找出這份資料最值得注意的三件事'] },
+    { texts: ['畫出近 12 個月的趨勢'] },
+  ],
 };

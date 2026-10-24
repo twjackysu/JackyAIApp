@@ -39,8 +39,9 @@ interface AiAssistantPanelProps {
   /** `inline` (a block of the page, the default) or `sheet`: it fills a drawer of its own (Studio AI),
    *  with no history column beside it — the history opens over it, as on a phone. */
   variant?: 'inline' | 'sheet';
-  /** A message to send as if the reader had typed it (Studio AI's `askStudio`): each id is sent once. */
-  ask?: { id: number; text: string };
+  /** A message to send as if the reader had typed it (Studio AI's `askStudio`): each id is sent once,
+   *  `fresh` as the first message of a new conversation (`SendOptions.fresh`). */
+  ask?: { id: number; text: string; fresh?: boolean };
   /** The `ask` was sent: its owner drops it, so a panel mounted again does not send it twice. */
   onAskSent?: () => void;
 }
@@ -91,16 +92,23 @@ function AiAssistantPanel({
     input.setSelectionRange(input.value.length, input.value.length);
   }, [active, busy]);
 
-  // A page asked (askStudio): send it once, into the conversation on screen (queued behind a reply
-  // still being written, as a typed message would be).
+  // A page asked (askStudio): send it once, into the conversation on screen or a new one (queued
+  // behind a reply still being written, as a typed message would be).
   const { send } = conversation;
+  const { close: closePreview } = preview;
   const sentAsk = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!ask || sentAsk.current === ask.id) return;
     sentAsk.current = ask.id;
-    send(ask.text, []);
+    if (ask.fresh) {
+      // A preview of the old conversation's answer has nothing to do with the new one.
+      closePreview();
+      send(ask.text, [], { fresh: true });
+    } else {
+      send(ask.text, []);
+    }
     onAskSent?.();
-  }, [ask, send, onAskSent]);
+  }, [ask, send, closePreview, onAskSent]);
 
   const hasConversation = messages.length > 0;
   useEffect(() => {
@@ -129,7 +137,6 @@ function AiAssistantPanel({
 
   // Switching conversation, or starting over, closes a preview of the old one.
   const { newChat, selectConversation } = conversation;
-  const { close: closePreview } = preview;
   const handleNewChat = useCallback(() => {
     if (newChat()) closePreview();
   }, [newChat, closePreview]);
@@ -220,6 +227,7 @@ function AiAssistantPanel({
             onEdit={conversation.edit}
             onDecide={(pendingId, decisions) => void conversation.decide(pendingId, decisions)}
             onAlwaysAllow={conversation.allowAlways}
+            onFollowUp={(question) => conversation.send(question, [])}
           />
           <ChatInput
             value={inputValue}

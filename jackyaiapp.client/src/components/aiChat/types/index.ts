@@ -23,6 +23,8 @@ export interface QueuedMessage {
   key: string;
   text: string;
   attachments: ChatAttachment[];
+  /** Goes as the first message of a new conversation (`SendOptions.fresh`). */
+  fresh?: boolean;
 }
 
 export interface Message {
@@ -44,6 +46,8 @@ export interface Message {
   approval?: MessageApproval;
   /** Files sent with a user message. */
   attachments?: ChatAttachment[];
+  /** An answer that came to its end in this session (not stopped, failed or reopened): follow-ups go under it. */
+  answered?: boolean;
 }
 
 export type AgentStatus = 'online' | 'working' | 'offline';

@@ -5,7 +5,7 @@ import Fab from '@mui/material/Fab';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import { ASK_STUDIO_EVENT, askedText } from './askStudio';
+import { ASK_STUDIO_EVENT, askedOf, type AskStudioDetail } from './askStudio';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
@@ -35,7 +35,7 @@ export default function StudioAssistant() {
   const [draft, setDraft] = useState('');
   // A message a page asked Studio AI (askStudio); the id tells the panel a new one from the last.
   // Kept until the panel has sent it, then dropped (the id keeps counting).
-  const [ask, setAsk] = useState<{ id: number; text: string } | undefined>();
+  const [ask, setAsk] = useState<(AskStudioDetail & { id: number }) | undefined>();
   const askId = useRef(0);
   const askSent = useCallback(() => setAsk(undefined), []);
   const config = useMemo(() => studioChatConfig(pathname), [pathname]);
@@ -55,12 +55,12 @@ export default function StudioAssistant() {
   useEffect(() => {
     if (!shown) return;
     const onAsk = (e: Event) => {
-      const text = askedText(e);
-      if (!text) return;
+      const asked = askedOf(e);
+      if (!asked) return;
       setOpened(true);
       setOpen(true);
       askId.current += 1;
-      setAsk({ id: askId.current, text });
+      setAsk({ id: askId.current, ...asked });
     };
     window.addEventListener(ASK_STUDIO_EVENT, onAsk);
     return () => window.removeEventListener(ASK_STUDIO_EVENT, onAsk);

@@ -49,6 +49,17 @@ export const FINANCE_AI_CHAT: AiChatConfig = {
     narrow: '問台股、財報、ETF…',
     wide: '問台股、財報、ETF、期貨…（Enter 送出，Shift+Enter 換行）',
   },
+  // After a stock's prices, its chips and financials; after its financials, its peers.
+  followUps: [
+    {
+      tools: ['get_stock_history', 'get_technical_indicators', 'get_realtime_quote'],
+      texts: ['它的三大法人最近在買還是賣？', '幫我做它的財報體檢'],
+    },
+    {
+      tools: ['get_company_income_statement', 'get_company_profitability_analysis'],
+      texts: ['跟同業比起來如何？', '它的股利政策穩定嗎？'],
+    },
+  ],
   errorMessages: {
     refused: '這個問題我無法回答，請換個問法，或詢問台股相關的問題。',
   },

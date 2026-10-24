@@ -57,7 +57,10 @@ jackyaiapp.client/src/
   answer's text, with no thinking dots, and once answered it stays above the text as a record; the header says
   what the turn is doing, `hooks/chatStatus`, a tool by its display name and「等你確認」while it waits; for a site tool's write, outside a
   conversation that read outside content, it offers to let the tool run on its own from now on, `canAlwaysAllow`, which
-  sets the same permission as the connectors page). What a tool's
+  sets the same permission as the connectors page). Under the last answer that finished
+  in this session (`Message.answered`), `FollowUps` offers up to three questions to carry on with, which a press sends:
+  `AiChatConfig.followUps`, rules by the tools the answer used, picked by `utils/followUps` on the client (no tokens, and
+  nothing a tool read can steer them). What a tool's
   result shows in the answer is a card (`tool_result.card`, `cards/`): it comes from a tool, so it is
   untrusted, and `parseToolCard` keeps only plain text and numbers within limits and links to this site
   or https. The chat draws `table` and `link`; another kind is drawn by the app's renderer for it
@@ -67,9 +70,11 @@ jackyaiapp.client/src/
   drawer, the history behind its button, the header's last action closes) under the `studio` profile, with
   the path as its page context. Only for a signed-in reader, and not where a page has an assistant of its own
   (/finance, /data-analysis) or fills the screen; which pages, the suggestions per page and the shortcut are
-  `studioChat`. A page opens it with a message sent through `askStudio(text)` (`StudioAssistant/askStudio`, a window
-  event; the panel's `ask` prop sends each id once): the home page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in
-  only, nothing asked until clicked) sends `BRIEFING_PROMPT`. On a page without the button only the button goes: the drawer, and the conversation in it, stay
+  `studioChat`. A page opens it with a message sent through `askStudio(text, { fresh? })` (`StudioAssistant/askStudio`, a window
+  event; the panel's `ask` prop sends each id once; `fresh` sends it as the first message of a new conversation,
+  `useChatConversation`'s `send(…, { fresh: true })`, queued like any message while an answer is written): the home
+  page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in only, nothing asked until clicked) sends `BRIEFING_PROMPT`,
+  always fresh, so it neither resends an old conversation's history nor inherits that conversation's tainted writes. On a page without the button only the button goes: the drawer, and the conversation in it, stay
   mounted once opened (one of its own link cards may lead to /finance). Leaving a page that holds a chat stops
   its answer (`useChatStreaming` stops on unmount), and a stream that ends without `done` or `error` is a failure
 - An answer's HTML preview (`HtmlViewer`) is a `sandbox=""` iframe, never markup in the page: the answer can

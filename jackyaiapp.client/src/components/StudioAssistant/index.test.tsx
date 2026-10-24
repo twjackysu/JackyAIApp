@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
     active: boolean;
     variant?: string;
     onCollapse: () => void;
-    ask?: { id: number; text: string };
+    ask?: { id: number; text: string; fresh?: boolean };
     onAskSent?: () => void;
   } | null,
 }));
@@ -130,6 +130,13 @@ describe('StudioAssistant', () => {
     await act(async () => askStudio('給我今天的簡報'));
     await settle();
     expect(mocks.panel).toMatchObject({ active: true, ask: { id: 2, text: '給我今天的簡報' } });
+  });
+
+  it('hands on a message asked for a new conversation as such (the briefing)', async () => {
+    await render('/');
+    await act(async () => askStudio('給我今天的簡報', { fresh: true }));
+    await settle();
+    expect(mocks.panel!.ask).toEqual({ id: 1, text: '給我今天的簡報', fresh: true });
   });
 
   it('drops a message once the panel has sent it, so it is never sent twice', async () => {

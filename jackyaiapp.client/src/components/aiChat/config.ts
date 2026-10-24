@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 
 import type { ToolCardRenderer } from './cards/toolCard';
+import type { FollowUpRule } from './utils/followUps';
 import type { ChatErrorCode } from '@/apis/chatbotApis/chatErrors';
 import type SvgIcon from '@mui/material/SvgIcon';
 
@@ -28,6 +29,8 @@ export interface AiChatConfig {
   examples: readonly string[];
   /** Under the greeting, the same every time. */
   suggestions: readonly AiChatSuggestion[];
+  /** Questions offered under the last answer, by the tools it used (`utils/followUps`); none when not set. */
+  followUps?: readonly FollowUpRule[];
   /** The header's status while idle: what the assistant is connected to. */
   connectedLabel: string;
   /** The one-line box's placeholder for a visitor who is not signed in. */

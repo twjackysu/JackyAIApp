@@ -192,13 +192,9 @@ let activities: AssistantActivity[];
 const lastActivity = () => activities[activities.length - 1];
 
 /** The panel's owner holds the message being typed, as the one-line box does on the page. */
-function Harness({
-  initialDraft,
-  ask,
-}: {
-  initialDraft: string;
-  ask?: { id: number; text: string };
-}) {
+type Ask = { id: number; text: string; fresh?: boolean };
+
+function Harness({ initialDraft, ask }: { initialDraft: string; ask?: Ask }) {
   const [draft, setDraft] = useState(initialDraft);
   return (
     <AiAssistantPanel
@@ -212,22 +208,27 @@ function Harness({
   );
 }
 
-async function mount(initialDraft = '', ask?: { id: number; text: string }) {
+let renderAsk: (ask?: Ask) => Promise<void>;
+
+async function mount(initialDraft = '', ask?: Ask) {
   collapses = 0;
   activities = [];
   const store = configureStore({
     reducer: { [chatbotApis.reducerPath]: chatbotApis.reducer },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(chatbotApis.middleware),
   });
-  await act(async () =>
-    root.render(
-      <Provider store={store}>
-        <AiChatConfigContext value={FINANCE_AI_CHAT}>
-          <Harness initialDraft={initialDraft} ask={ask} />
-        </AiChatConfigContext>
-      </Provider>,
-    ),
-  );
+  // Rendering again with another ask is the panel's owner handing it a new one (Studio AI does).
+  renderAsk = (next?: Ask) =>
+    act(async () =>
+      root.render(
+        <Provider store={store}>
+          <AiChatConfigContext value={FINANCE_AI_CHAT}>
+            <Harness initialDraft={initialDraft} ask={next} />
+          </AiChatConfigContext>
+        </Provider>,
+      ),
+    );
+  await renderAsk(ask);
 }
 
 const textarea = () =>
@@ -436,6 +437,63 @@ describe('AiAssistantPanel', () => {
     ]);
   });
 
+  it('a page that asks for a new conversation gets one: the old one leaves the screen and is not continued', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '舊的回答' }, { type: 'done', conversationId: 'conv-1' }),
+    );
+    await send('之前的問題');
+    await waitForText('舊的回答');
+
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '早安' }, { type: 'done', conversationId: 'conv-2' }),
+    );
+    await renderAsk({ id: 1, text: '給我今天的簡報', fresh: true });
+    await waitForText('早安');
+    expect(chatBodies[1]).toEqual({
+      message: '給我今天的簡報',
+      conversationId: '',
+      attachmentIds: [],
+      profile: 'finance',
+    });
+    expect(container.textContent).not.toContain('之前的問題');
+
+    // The next message continues the new conversation, not the old one.
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '好' }, { type: 'done', conversationId: 'conv-2' }),
+    );
+    await send('謝謝');
+    await waitFor(() => expect(chatBodies).toHaveLength(3));
+    expect(chatBodies[2].conversationId).toBe('conv-2');
+  });
+
+  it('a new conversation asked for while a reply is being written waits for it, then starts', async () => {
+    await mount();
+    let finish!: () => void;
+    chatReplies.push(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () =>
+            resolve(
+              sseReply({ type: 'delta', text: '一' }, { type: 'done', conversationId: 'conv-1' }),
+            );
+        }),
+    );
+    await send('first');
+    await renderAsk({ id: 1, text: '給我今天的簡報', fresh: true });
+    expect(chatBodies).toHaveLength(1);
+    expect(queuedTexts()).toEqual(['給我今天的簡報']);
+
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '早安' }, { type: 'done', conversationId: 'conv-2' }),
+    );
+    await act(async () => finish());
+    await waitFor(() => expect(chatBodies).toHaveLength(2));
+    expect(chatBodies[1].conversationId).toBe('');
+    await waitForText('早安');
+    expect(container.textContent).not.toContain('first');
+  });
+
   it('shows a failed reply inside the conversation, in its own words for the code it got', async () => {
     await mount();
     chatReplies.push(() => sseReply({ type: 'error', code: 'context_too_long' }));
@@ -462,6 +520,48 @@ describe('AiAssistantPanel', () => {
       'realtime quote（完成）',
       'stock history（完成）',
     ]);
+  });
+
+  it('offers questions to carry on with under the last answer, by the tools it used; one sends', async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'tool_use', name: 'get_stock_history' },
+        { type: 'delta', text: '台積電今天收 1000 元' },
+        { type: 'done', conversationId: 'c1' },
+      ),
+    );
+    await send('台積電');
+    await waitForText('台積電今天收 1000 元');
+    const offered = () =>
+      [...container.querySelectorAll('[data-testid="follow-ups"] button')].map(
+        (b) => b.textContent,
+      );
+    expect(offered()).toEqual(['它的三大法人最近在買還是賣？', '幫我做它的財報體檢']);
+
+    let finish!: () => void;
+    chatReplies.push(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () =>
+            resolve(
+              sseReply({ type: 'delta', text: '外資買超' }, { type: 'done', conversationId: 'c1' }),
+            );
+        }),
+    );
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[data-testid="follow-ups"] button')!.click(),
+    );
+    await waitFor(() => expect(chatBodies).toHaveLength(2));
+    expect(chatBodies[1]).toMatchObject({
+      message: '它的三大法人最近在買還是賣？',
+      conversationId: 'c1',
+    });
+    // None while the next answer is written, and none under an answer that used no such tool.
+    expect(offered()).toEqual([]);
+    await act(async () => finish());
+    await waitForText('外資買超');
+    expect(offered()).toEqual([]);
   });
 
   it("draws a tool result's card in the answer, above its text", async () => {

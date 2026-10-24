@@ -9,10 +9,12 @@ import { useAiChatConfig } from '../config';
 import { ACCENT, accentWash, hairline, revealActionsOnHover } from '../style';
 import { Message } from '../types';
 import { ApprovalCall, ApprovalDecision } from '../utils/approval';
+import { followUpsFor } from '../utils/followUps';
 
 import ApprovalCard from './ApprovalCard';
 import AssistantMark from './AssistantMark';
 import AttachmentChip from './AttachmentChip';
+import FollowUps from './FollowUps';
 import MessageActions from './MessageActions';
 import MessageEditor from './MessageEditor';
 import ToolActivity from './ToolActivity';
@@ -43,6 +45,8 @@ interface MessageAreaProps {
   onDecide?: (pendingId: string, decisions: ApprovalDecision[]) => void;
   /** Lets the tools of these allowed calls run on their own from now on (the approval card's checkbox). */
   onAlwaysAllow?: (calls: ApprovalCall[]) => void;
+  /** A question offered under the last answer was picked: send it. */
+  onFollowUp?: (question: string) => void;
 }
 
 // 單個區塊渲染組件
@@ -154,8 +158,16 @@ function MessageArea({
   onEdit,
   onDecide,
   onAlwaysAllow,
+  onFollowUp,
 }: MessageAreaProps) {
   const theme = useTheme();
+  const { followUps: followUpRules } = useAiChatConfig();
+  // Only under the last answer, once nothing is being written.
+  const last = messages[messages.length - 1];
+  const followUps =
+    onFollowUp && last && !busy
+      ? followUpsFor(last, messages[messages.length - 2]?.content, followUpRules)
+      : [];
   // The reader's message being edited in place, by its id.
   const [editingId, setEditingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -372,6 +384,9 @@ function MessageArea({
                 )}
                 {!answering && message.content && (
                   <MessageActions text={message.content} align="left" />
+                )}
+                {message === last && onFollowUp && (
+                  <FollowUps texts={followUps} onPick={onFollowUp} />
                 )}
               </Box>
             </Box>

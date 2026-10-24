@@ -17,6 +17,17 @@ import { ChatStreamingOptions, stoppedContent, useChatStreaming } from '@/hooks/
 import { useStreamingHtmlParser } from '@/hooks/useStreamingHtmlParser';
 import { useAppDispatch } from '@/redux/hooks';
 
+/** How a message goes. */
+export interface SendOptions {
+  /**
+   * As the first message of a new conversation rather than into the one on screen (the home page's
+   * briefing): the old one's whole history is not sent again, and what it read does not make this
+   * one's writes ask first. While an answer is being written it waits like any message, then starts
+   * the new conversation.
+   */
+  fresh?: boolean;
+}
+
 /** Maps stored conversation rows (one per turn) into chat bubbles. */
 export const mapHistoryToMessages = (items: ChatHistoryMessage[]): Message[] =>
   items.map((m) => ({
@@ -112,7 +123,12 @@ export function useChatConversation(options?: ChatStreamingOptions) {
    * message replaces that earlier one: it and everything after it go (here, and on the server), and
    * its attachments go again with the new wording — the server re-attaches them itself.
    */
-  const sendTurn = async (text: string, attachments: ChatAttachment[], edited?: Message) => {
+  const sendTurn = async (
+    text: string,
+    attachments: ChatAttachment[],
+    edited?: Message,
+    fresh = false,
+  ) => {
     const userMessage: Message = {
       id: `${Date.now()}-${nextTurnKey.current++}`,
       content: text,
@@ -129,10 +145,13 @@ export function useChatConversation(options?: ChatStreamingOptions) {
       parsedBlocks: [],
     };
     setMessages((prev) => {
+      if (fresh) return [userMessage, botMessage];
       const from = edited ? prev.findIndex((m) => m.id === edited.id) : -1;
       return [...(from >= 0 ? prev.slice(0, from) : prev), userMessage, botMessage];
     });
     setCurrentStreamingContent('');
+    // This render's conversationId is the old one: a fresh message names none, so the server starts one.
+    if (fresh) setConversationId('');
 
     const update = (id: string, patch: Partial<Message>) =>
       setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, ...patch } : msg)));
@@ -162,7 +181,7 @@ export function useChatConversation(options?: ChatStreamingOptions) {
 
     await sendStreamingMessage({
       message: text,
-      conversationId,
+      conversationId: fresh ? '' : conversationId,
       attachmentIds: edited ? [] : attachments.map((a) => a.id),
       editMessageId: edited?.serverId,
       onStart: (id, userMessageId) => {
@@ -175,7 +194,11 @@ export function useChatConversation(options?: ChatStreamingOptions) {
       },
       onComplete: (newConversationId, truncated, assistantMessageId) => {
         if (newConversationId) setConversationId(newConversationId);
-        updateBot({ truncated: truncated || undefined, serverId: assistantMessageId });
+        updateBot({
+          truncated: truncated || undefined,
+          serverId: assistantMessageId,
+          answered: true,
+        });
         settleSteps(true);
       },
       onToolEvent: (event) => updateSteps((steps) => applyToolEvent(steps, event)),
@@ -222,17 +245,21 @@ export function useChatConversation(options?: ChatStreamingOptions) {
     if (busy || queued.length === 0) return;
     const [next, ...rest] = queued;
     setQueued(rest);
-    void sendTurn(next.text, next.attachments);
+    void sendTurn(next.text, next.attachments, undefined, next.fresh);
     // sendTurn is a fresh function every render; the queue moves on busy and the queue alone.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy, queued]);
 
   /** Sends a message now, or, while an answer is being written, once it is done. */
-  const send = (text: string, attachments: ChatAttachment[]) => {
+  const send = (text: string, attachments: ChatAttachment[], options?: SendOptions) => {
+    const fresh = options?.fresh === true;
     if (busy) {
-      setQueued((prev) => [...prev, { key: `queued-${nextTurnKey.current++}`, text, attachments }]);
+      setQueued((prev) => [
+        ...prev,
+        { key: `queued-${nextTurnKey.current++}`, text, attachments, ...(fresh && { fresh }) },
+      ]);
     } else {
-      void sendTurn(text, attachments);
+      void sendTurn(text, attachments, undefined, fresh);
     }
   };
 

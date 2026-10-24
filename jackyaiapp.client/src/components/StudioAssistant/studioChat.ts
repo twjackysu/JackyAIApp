@@ -57,6 +57,15 @@ export function studioSuggestionsFor(path: string): AiChatSuggestion[] {
   return [...own, ...COMMON].slice(0, 4);
 }
 
+/** What to ask next, by the site tool the answer used (the server's names, `SiteToolSet`). */
+const STUDIO_FOLLOW_UPS: AiChatConfig['followUps'] = [
+  { tools: ['look_up_word'], texts: ['把這個字加入我的單字庫', '用這個字造三個例句'] },
+  { tools: ['add_word_to_repository'], texts: ['我今天還有哪些字要複習？'] },
+  { tools: ['learning_progress'], texts: ['帶我去複習', '帶我去每日挑戰'] },
+  { tools: ['portfolio_summary'], texts: ['哪一檔佔比最高？風險集中嗎？', '帶我去投資組合頁'] },
+  { tools: ['google_calendar_events'], texts: ['明天呢？', '這週哪天比較空？'] },
+];
+
 /** Studio AI's config on `path`; the path goes with every message as the page context. */
 export function studioChatConfig(path: string): AiChatConfig {
   return {
@@ -75,6 +84,7 @@ export function studioChatConfig(path: string): AiChatConfig {
     },
     disclaimer: 'AI 回答可能有誤；會改變資料的動作都會先請你確認。',
     pageContext: { path: path.slice(0, 100) },
+    followUps: STUDIO_FOLLOW_UPS,
   };
 }
 
