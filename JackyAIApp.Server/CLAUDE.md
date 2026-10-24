@@ -270,7 +270,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - Tests build the controller with `TestHelpers/DataAnalysisControllerBuilder`, never its constructor;
   `DataAnalysisControllerResponseTests` pins what each endpoint answers
 - The page's AI assistant is the chat profile `data-analysis` (`Services/DataAnalysis/Assistant`,
-  `DataAnalysisChatProfile`). Its one tool, `ask_data` (`AskDataTool`), answers a question in plain language
+  `DataAnalysisChatProfile`). `describe_data` (`DescribeDataTool`, free) lists the columns, their types and the
+  latest date of up to 3 date columns; `ask_data` (`AskDataTool`) answers a question in plain language
   through `INlSummarizeService` — the same checked plan, correction and notes as 問 AI, never a query of the
   model's own — charging each call as `UsageFeature.NlSummarize`, and shows the result as a `chart` card (the
   client's viz id, the rows, group/date hints, and the plan with the page's source, so it can become a

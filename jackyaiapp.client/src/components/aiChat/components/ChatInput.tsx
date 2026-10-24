@@ -77,7 +77,7 @@ const ChatInput = ({
   onKeepFormattingChange,
 }: ChatInputProps) => {
   const theme = useTheme();
-  const { inputPlaceholder } = useAiChatConfig();
+  const { inputPlaceholder, disclaimer } = useAiChatConfig();
   const narrow = useMediaQuery(theme.breakpoints.down('sm'));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -314,7 +314,7 @@ const ChatInput = ({
           component="p"
           sx={{ textAlign: 'center', color: 'text.disabled', mt: 0.75, mb: 0, fontSize: '0.7rem' }}
         >
-          AI 回答可能有誤，數據請以官方資料為準，不構成投資建議。
+          {disclaimer}
         </Typography>
       </Box>
     </Box>

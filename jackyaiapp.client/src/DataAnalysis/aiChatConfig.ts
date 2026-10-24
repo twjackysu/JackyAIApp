@@ -37,6 +37,7 @@ export const DATA_ANALYSIS_AI_CHAT: AiChatConfig = {
     { text: '比較今年和去年各月的營收', icon: DashboardCustomizeIcon },
   ],
   connectedLabel: '資料源已連線',
+  disclaimer: 'AI 回答可能有誤，重要的數字請以明細資料核對。',
   signedOutPlaceholder: '登入後即可問 AI 你的資料',
   inputPlaceholder: {
     narrow: '問問你的資料…',

@@ -33,6 +33,7 @@ const config = (patch: Partial<AiChatConfig> = {}): AiChatConfig => ({
   examples: [],
   suggestions: [],
   connectedLabel: '',
+  disclaimer: '',
   signedOutPlaceholder: '',
   inputPlaceholder: { narrow: '', wide: '' },
   ...patch,

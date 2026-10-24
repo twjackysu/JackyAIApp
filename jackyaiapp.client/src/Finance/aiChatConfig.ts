@@ -43,6 +43,7 @@ export const FINANCE_AI_CHAT: AiChatConfig = {
     { text: '0050 現在溢價多少？', icon: PieChartOutlineIcon },
   ],
   connectedLabel: '台股資料已連線',
+  disclaimer: 'AI 回答可能有誤，數據請以官方資料為準，不構成投資建議。',
   signedOutPlaceholder: '登入後即可問 AI 助手台股問題',
   inputPlaceholder: {
     narrow: '問台股、財報、ETF…',

@@ -19,6 +19,8 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
 
         private readonly Mock<INlSummarizeService> _nl = new();
         private readonly Mock<IUsageLimitService> _usage = new();
+        private readonly Mock<IDataAnalysisQueryService> _queries = new();
+        private readonly Mock<ISessionDataStore> _sessions = new();
         private NlSummarizeRequestDto? _asked;
 
         public DataAnalysisAssistantTests()
@@ -46,16 +48,18 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         private static ChatProfileContext Page(params (string Key, string Value)[] values) =>
             new("u1", Today, values.ToDictionary(v => v.Key, v => v.Value));
 
-        private async Task<(ChatProfileSetup Setup, IAiTool Tool)> SetupAsync(ChatProfileContext context)
+        /// <summary>The profile's setup, and its ask_data tool (or the tool named).</summary>
+        private async Task<(ChatProfileSetup Setup, IAiTool Tool)> SetupAsync(ChatProfileContext context, string tool = AskDataTool.Name)
         {
-            var setup = await new DataAnalysisChatProfile(_nl.Object, _usage.Object).SetupAsync(context, CancellationToken.None);
-            return (setup, Assert.Single(setup.Tools!));
+            var setup = await new DataAnalysisChatProfile(_nl.Object, _queries.Object, _sessions.Object, _usage.Object)
+                .SetupAsync(context, CancellationToken.None);
+            return (setup, Assert.Single(setup.Tools!, t => t.Descriptor.Name == tool));
         }
 
         private static JsonElement Input(object value) => JsonSerializer.SerializeToElement(value);
 
         [Fact]
-        public async Task TheProfile_HasItsPromptAndTheAskDataTool_AndNoTwStock()
+        public async Task TheProfile_HasItsPromptAndItsReadOnlyTools_AndNoTwStock()
         {
             var (setup, tool) = await SetupAsync(Page());
 
@@ -63,8 +67,8 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             Assert.Contains("2026-10-24", setup.SystemPrompt);
             Assert.False(setup.AttachTwStock);
             Assert.Null(setup.CachedBackground);
-            Assert.Equal(AskDataTool.Name, tool.Descriptor.Name);
-            Assert.Equal(ToolEffect.Read, tool.Descriptor.Effect);
+            Assert.Equal(new[] { AskDataTool.Name, DescribeDataTool.Name }, setup.Tools!.Select(t => t.Descriptor.Name));
+            Assert.All(setup.Tools!, t => Assert.Equal(ToolEffect.Read, t.Descriptor.Effect));
             Assert.Equal("object", tool.Descriptor.InputSchema.GetProperty("type").GetString());
         }
 
@@ -159,6 +163,40 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             Assert.True(result.IsError);
             Assert.Contains("找不到欄位", result.Content);
             Assert.Null(result.Card);
+        }
+
+        [Fact]
+        public async Task DescribeData_OnAnUploadedFile_ListsItsColumns_AndTheLatestDateOfItsDateColumns()
+        {
+            _sessions.Setup(s => s.GetSchema("s-1")).Returns(ServiceResult.Ok(new SessionSchemaDto(
+            [
+                new SessionFieldDefDto { Name = "日期", DataType = "datetime", CanonicalType = "DateTime" },
+                new SessionFieldDefDto { Name = "地區", DataType = "nvarchar", CanonicalType = "String" },
+            ])));
+            _sessions.Setup(s => s.GetMaxDate("s-1", "日期")).Returns(ServiceResult.Ok(new SessionMaxDateDto("2026-09-30T00:00:00")));
+            var (_, tool) = await SetupAsync(Page(("sessionId", "s-1")), DescribeDataTool.Name);
+
+            var result = await tool.RunAsync(Input(new { }), Ctx, CancellationToken.None);
+
+            Assert.False(result.IsError);
+            var content = JsonDocument.Parse(result.Content).RootElement;
+            Assert.Equal(new[] { "日期", "地區" }, content.GetProperty("columns").EnumerateArray().Select(c => c.GetProperty("name").GetString()));
+            Assert.Equal("String", content.GetProperty("columns")[1].GetProperty("type").GetString());
+            Assert.Equal("2026-09-30", content.GetProperty("latestDates").GetProperty("日期").GetString());
+            _usage.Verify(u => u.TryConsumeAsync(It.IsAny<string>(), It.IsAny<UsageFeature>(), It.IsAny<ulong>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DescribeData_ThatCannotReadTheSource_TellsTheModelWhy()
+        {
+            _queries.Setup(q => q.GetSchemaAsync(It.IsAny<QueryContextDto?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Fail(ErrorCodes.NotFound, "找不到資料源"));
+            var (_, tool) = await SetupAsync(Page(("sourceId", Source.ToString())), DescribeDataTool.Name);
+
+            var result = await tool.RunAsync(Input(new { }), Ctx, CancellationToken.None);
+
+            Assert.True(result.IsError);
+            Assert.Contains("找不到資料源", result.Content);
         }
 
         [Fact]

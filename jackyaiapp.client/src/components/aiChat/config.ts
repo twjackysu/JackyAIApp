@@ -32,6 +32,8 @@ export interface AiChatConfig {
   signedOutPlaceholder: string;
   /** The message box's placeholder: on a phone, and with room for the hint about keys. */
   inputPlaceholder: { narrow: string; wide: string };
+  /** The line under the message box: what the answers are not (Finance: not investment advice). */
+  disclaimer: string;
   /** Wording of this app's own for some failures (a decline that names the app's subject). */
   errorMessages?: Partial<Record<ChatErrorCode, string>>;
   /** How this app draws kinds of tool card the chat does not (cards/toolCard), by kind. */
