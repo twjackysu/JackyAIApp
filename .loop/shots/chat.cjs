@@ -151,6 +151,28 @@ const briefing = [
   done,
 ];
 
+// 「考我今天該複習的單字」：review_quiz 的 quiz 卡片，在卡片上直接作答。
+const studioQuiz = [
+  start,
+  { type: 'tool_use', id: 't1', name: 'review_quiz', displayName: '複習小測驗' },
+  {
+    type: 'tool_result', id: 't1', name: 'review_quiz', ok: true, durationMs: 160,
+    card: {
+      kind: 'quiz', title: '複習小測驗',
+      data: {
+        fromDue: true, totalDue: 12,
+        questions: [
+          { userWordId: 11, word: 'serendipity', prompt: 'What is the meaning of "serendipity"?', options: ['the occurrence of events by chance in a happy way', 'a feeling of deep sadness', 'a formal agreement between two parties', 'the act of moving to another country'], correctIndex: 0, explanation: 'serendipity: the occurrence of events by chance in a happy way（意外發現美好事物的運氣）' },
+          { userWordId: 12, word: 'ephemeral', prompt: 'Fashions are ___; they come and go every season.', options: ['durable', 'ephemeral', 'ancient', 'reluctant'], correctIndex: 1, explanation: 'ephemeral: lasting for a very short time（短暫的）' },
+          { userWordId: 13, word: 'meticulous', prompt: '「一絲不苟的；非常仔細的」的英文是？', options: ['careless', 'generous', 'meticulous', 'obvious'], correctIndex: 2, explanation: 'meticulous: showing great attention to detail（一絲不苟的）' },
+        ],
+      },
+    },
+  },
+  delta('出好了！三題都是你今天該複習的字，直接在上面的卡片作答，答完會記進複習排程。加油 💪'),
+  done,
+];
+
 // 頁面內的 fetch 替身：/api/chatbot/chat 回一個照順序送出事件的串流。
 const fakeChat = (events) => {
   const realFetch = window.fetch.bind(window);
@@ -282,6 +304,19 @@ async function ask(page, text, placeholder) {
       await page.waitForTimeout(800);
       await page.screenshot({ path: `${out}/studio-go-reopened-${name}.png` });
     }
+    await page.close();
+
+    // Studio：/english → ⌘K →「考我今天該複習的單字」→ quiz 卡片，答第一題
+    page = await open(browser, viewport, studioQuiz);
+    await page.goto('http://localhost:5173/english');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(800);
+    await ask(page, '考我今天該複習的單字');
+    await page.screenshot({ path: `${out}/studio-quiz-${name}.png` });
+    await page.getByRole('button', { name: /a feeling of deep sadness/ }).click();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${out}/studio-quiz-answered-${name}.png` });
     await page.close();
 
     // Studio：/portfolio → ⌘K → 持倉表格

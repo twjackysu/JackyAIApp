@@ -49,7 +49,7 @@ describe('studioSuggestionsFor', () => {
   });
 
   it('starts with the page’s own suggestions', () => {
-    expect(studioSuggestionsFor('/english/review')[0].text).toContain('serendipity');
+    expect(studioSuggestionsFor('/english/review')[0].text).toBe('考我今天該複習的單字');
     expect(studioSuggestionsFor('/portfolio')[0].text).toContain('持股');
     expect(studioSuggestionsFor('/connectors')[0].text).toContain('Claude');
     // On one dashboard: read it. Not on the list of them, where "this dashboard" is none.
@@ -89,9 +89,14 @@ describe('studioFollowUpsFor', () => {
     followUpsOn(path).find((r) => r.tools?.includes('learning_progress'))!.texts;
 
   it('offers to take the reader to a page, but not to the one they are on', () => {
-    expect(learning('/')).toEqual(['帶我去複習', '帶我去每日挑戰']);
-    expect(learning('/english/review')).toEqual(['帶我去每日挑戰']);
-    expect(learning('/english/daily')).toEqual(['帶我去複習']);
+    expect(learning('/')).toEqual(['考我幾題', '帶我去複習', '帶我去每日挑戰']);
+    expect(learning('/english/review')).toEqual(['考我幾題', '帶我去每日挑戰']);
+    expect(learning('/english/daily')).toEqual(['考我幾題', '帶我去複習']);
+  });
+
+  it('after a quiz, offers another one', () => {
+    const quiz = followUpsOn('/').find((r) => r.tools?.includes('review_quiz'))!;
+    expect(quiz.texts).toEqual(['再考我 3 題', '帶我去複習']);
   });
 
   it('carries on from a dashboard it read', () => {

@@ -5,8 +5,10 @@ import EventIcon from '@mui/icons-material/EventOutlined';
 import ExploreIcon from '@mui/icons-material/ExploreOutlined';
 import ExtensionIcon from '@mui/icons-material/ExtensionOutlined';
 import PieChartIcon from '@mui/icons-material/PieChartOutlined';
+import QuizIcon from '@mui/icons-material/QuizOutlined';
 
 import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
+import QuizCardView from './QuizCardView';
 
 import type { AiChatConfig, AiChatSuggestion } from '@/components/aiChat/config';
 
@@ -29,8 +31,8 @@ export function studioShownOn(path: string): boolean {
 }
 
 const ENGLISH: AiChatSuggestion[] = [
+  { text: '考我今天該複習的單字', icon: QuizIcon },
   { text: '幫我查 serendipity 是什麼意思', icon: AutoStoriesIcon },
-  { text: '我想複習今天該複習的單字', icon: AutoStoriesIcon },
 ];
 const PORTFOLIO: AiChatSuggestion[] = [
   { text: '幫我看看我的持股，哪幾檔虧最多？', icon: PieChartIcon },
@@ -94,7 +96,8 @@ const GO_TO: Readonly<Record<string, string>> = {
 const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
   { tools: ['look_up_word'], texts: ['把這個字加入我的單字庫', '用這個字造三個例句'] },
   { tools: ['add_word_to_repository'], texts: ['我今天還有哪些字要複習？'] },
-  { tools: ['learning_progress'], texts: ['帶我去複習', '帶我去每日挑戰'] },
+  { tools: ['learning_progress'], texts: ['考我幾題', '帶我去複習', '帶我去每日挑戰'] },
+  { tools: ['review_quiz'], texts: ['再考我 3 題', '帶我去複習'] },
   {
     tools: ['portfolio_summary'],
     texts: ['哪一檔佔比最高？風險集中嗎？', '我的資產配置偏重哪裡？'],
@@ -133,6 +136,8 @@ export function studioChatConfig(path: string): AiChatConfig {
     disclaimer: 'AI 回答可能有誤；會改變資料的動作都會先請你確認。',
     pageContext: { path: path.slice(0, 100) },
     followUps: studioFollowUpsFor(path),
+    // The review quiz is answered on its card (review_quiz).
+    cardRenderers: { quiz: QuizCardView },
   };
 }
 
