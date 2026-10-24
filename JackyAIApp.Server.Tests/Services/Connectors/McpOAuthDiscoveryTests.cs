@@ -1,8 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Text;
 using JackyAIApp.Server.Configuration;
 using JackyAIApp.Server.Services.Connectors;
+using JackyAIApp.Server.Tests.TestHelpers;
 
 namespace JackyAIApp.Server.Tests.Services.Connectors
 {
@@ -10,42 +10,6 @@ namespace JackyAIApp.Server.Tests.Services.Connectors
     public class McpOAuthDiscoveryTests
     {
         private static readonly Uri Server = new("https://mcp.example.com/mcp");
-
-        /// <summary>Answers each URL it was given; 404 for any other. Records what was asked.</summary>
-        internal sealed class FakeWeb : HttpMessageHandler, IMcpHttpHandlerSource
-        {
-            private readonly Dictionary<string, Func<HttpRequestMessage, HttpResponseMessage>> _routes = new();
-            public List<string> Asked { get; } = [];
-            public List<(HttpRequestMessage Request, string Body)> Posts { get; } = [];
-
-            public FakeWeb Json(string url, string json, HttpStatusCode status = HttpStatusCode.OK)
-            {
-                _routes[url] = _ => new HttpResponseMessage(status) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
-                return this;
-            }
-
-            public FakeWeb Answer(string url, Func<HttpRequestMessage, HttpResponseMessage> answer)
-            {
-                _routes[url] = answer;
-                return this;
-            }
-
-            public HttpMessageHandler Create() => new Shared(this);
-
-            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-            {
-                var url = request.RequestUri!.ToString();
-                Asked.Add(url);
-                if (request.Content != null) Posts.Add((request, await request.Content.ReadAsStringAsync(ct)));
-                return _routes.TryGetValue(url, out var answer) ? answer(request) : new HttpResponseMessage(HttpStatusCode.NotFound);
-            }
-
-            /// <summary>The client disposes its handler; the fake lives on for the test to read.</summary>
-            private sealed class Shared(FakeWeb web) : DelegatingHandler(web)
-            {
-                protected override void Dispose(bool disposing) { }
-            }
-        }
 
         private const string Prm = """
             { "resource": "https://mcp.example.com/mcp", "authorization_servers": ["https://auth.example.com"],
