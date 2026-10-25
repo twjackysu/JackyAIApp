@@ -11,7 +11,7 @@
 
 ## 1. CI 狀態
 
-- 第 17 輪的審查修正 CI 40161718965 綠；最後一次含程式碼的 push 是 Studio 歡迎訊息多一句選取提示（只改字串），開工時照 §0 看最新一次。
+- 第 17 輪的審查修正 CI 40161718965 綠；最後一次含程式碼的 push（Studio 歡迎訊息的選取提示）CI 40161885791 綠；開工時照 §0 看最新一次。
 - clone 可能是 shallow：開工先 `git fetch --unshallow origin`（否則 merge-base 與 `rev-list --count` 不對）。
 - 截圖：`.loop/shots/chat.cjs`（Studio／指令列／測驗／短文＋朗讀／記交易、貼截圖記交易／Data Analysis／今日簡報／語音／帶我去／換圖＋接著問／dashboard 的 AI 解讀／/finance，桌機＋手機）、**`selection.cjs`**（第 17 輪：字典頁選例句→翻成中文；Studio 短文裡選字；選取用 `selectIn(page, locator, text, last)` 在頁面內建 Range）、`connectors.cjs`、`mcp-app.cjs`。只想拍一個情境：用 python 取 chat.cjs 開頭到 `(async () => {` 之前（dist 與 fixtures 路徑改成絕對路徑），加上只含那一段的 IIFE，另存在 scratch 跑。
 - **前端改動一定要跑 `npm run build`**（vitest 不做型別檢查），**改了 `SitePages.cs` 也要跑前端測試**（`quickActions.test.ts` 讀它）。`npm run lint`＋`npm run test` 加起來約 6 分鐘，放背景跑再看 log。`npx tsc -b` 會改 `tsconfig.node.tsbuildinfo`，commit 前 `git checkout` 它。**regex 裡的 `\uXXXX` 用 Write 工具寫會變成真的字元**，寫完 grep 確認（或用 python 寫）。

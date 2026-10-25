@@ -8,7 +8,7 @@
 - **審查**（subagent，D-087）：一個高風險已修（「問 AI」放進輸入框的頁面文字送出時沒帶旗標 → `inputQuotesPageText`），兩個中風險、兩個低風險已修。
 - 文件：兩份 CLAUDE.md、D-086～D-087、SHOWCASE（亮點一列、demo 第 3 步、已知限制、日誌）；截圖 `select-sentence-*`、`select-translate-*`、`select-word-studio-*`（`.loop/shots/selection.cjs`）。
 - **巡檢 /portfolio 的 Studio 歡迎畫面**（桌機、手機，`studio-portfolio-welcome-*`）：四個建議排列正常；歡迎訊息多一句「在頁面上選取一段字，也能直接叫我解釋或翻譯」，讓人發現選取工具列。
-- 驗證：cscheck 新診斷 0；前端 lint、test（136 檔 1454 個）、build 全過；CI 40160603830（選取文字＋quotesPageText，第一次就綠）、**40161718965（審查修正）綠**；最後的歡迎訊息 commit 見下一輪開工時的 CI。
+- 驗證：cscheck 新診斷 0；前端 lint、test（136 檔 1454 個）、build 全過；CI 40160603830（選取文字＋quotesPageText，第一次就綠）、**40161718965（審查修正）綠**；**40161885791（本輪最後一次含程式碼的 push：歡迎訊息）綠**。
 - 問題：無阻礙。
 
 ## 2026-10-25 09:42 – 第 16 輪（用說的／貼截圖記交易、審查、巡檢）
