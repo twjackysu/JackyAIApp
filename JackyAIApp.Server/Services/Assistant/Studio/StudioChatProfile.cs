@@ -59,12 +59,16 @@ namespace JackyAIApp.Server.Services.Assistant.Studio
         }
 
         /// <summary>
-        /// What Studio AI is told it remembers: how to keep and forget a note, then the reader's notes
+        /// What Studio AI is told it remembers: how to keep and forget a note, when to offer to keep one the reader did not
+        /// ask for (once a conversation, on the confirmation card every <see cref="RememberTool"/> call gets), then the reader's notes
         /// (<see cref="MemoryNotesPrompt.Block"/>), or that it remembers nothing yet.
         /// </summary>
         internal static string MemoryPrompt(IReadOnlyList<string>? notes) =>
             "- 使用者要你記住關於他的事（「記住…」「以後都…」）時用 remember，一次一則、用他的話寫成一句簡短的筆記；要你忘掉時用 forget，" +
             "text 一字不差地照抄下面清單裡的那一則；問你記得他什麼時照清單回答。\n" +
+            "- 使用者沒叫你記，但順口說了之後的對話也用得到的事（目標或考試日期、想要的短文情境、回答的語氣或長度），而清單裡還沒有時，" +
+            "先回答他的問題，再在同一個回覆的最後呼叫 remember 提議記住，並用一句話說明「要我記住的話請按允許」；確認卡會讓他決定，" +
+            "他拒絕就不要再提。一個對話最多提議一次；一次性的事（今天要做什麼）、別人的事、密碼證件或健康狀況都不要提議。\n" +
             (notes is { Count: > 0 }
                 ? MemoryNotesPrompt.Block(notes, "例如短文的情境、簡報先講什麼")
                 : "你目前沒有記得任何關於使用者的事。\n");

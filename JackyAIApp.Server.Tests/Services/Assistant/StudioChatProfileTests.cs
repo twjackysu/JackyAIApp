@@ -62,6 +62,19 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
         }
 
         [Fact]
+        public void ANoteTheReaderDidNotAskFor_IsOfferedOnce_OnTheConfirmationCard()
+        {
+            var prompt = StudioChatProfile.SystemPromptFor(Today, null, false);
+
+            // An offer is a remember call, which always asks (AlwaysAsks), after the answer, once a conversation.
+            Assert.True(RememberTool.Definition.AlwaysAsks);
+            Assert.Contains("呼叫 remember 提議記住", prompt);
+            Assert.Contains("一個對話最多提議一次", prompt);
+            Assert.Contains("他拒絕就不要再提", prompt);
+            Assert.Contains("密碼證件或健康狀況都不要提議", prompt);
+        }
+
+        [Fact]
         public void TheMorningBriefing_UsesTheReadersNotes_InItsLastSuggestion()
         {
             var prompt = StudioChatProfile.SystemPromptFor(Today, null, false, notes: ["下個月要考多益，目標 850"]);
