@@ -101,6 +101,7 @@ namespace JackyAIApp.Server.Tests.Architecture
             ["ReadingQuestionOptions"] = "English", ["DailyChallengeResults"] = "English", ["DailyChallengeSets"] = "English",
 
             ["ChatConversations"] = "Assistant", ["ChatMessages"] = "Assistant", ["ChatAttachments"] = "Assistant",
+            ["AssistantMemories"] = "Assistant",
 
             ["ConnectorInstallations"] = "Connectors", ["SiteAccessTokens"] = "Connectors",
 

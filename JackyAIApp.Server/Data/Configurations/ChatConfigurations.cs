@@ -6,6 +6,15 @@ namespace JackyAIApp.Server.Data.Configurations
 {
     // Chatbot conversation history (self-hosted, replaces Dify-side storage).
 
+    /// <summary>Studio AI's notes about the reader (docs/ai-native/design/08): read all at once, per reader.</summary>
+    public sealed class AssistantMemoryConfiguration : IEntityTypeConfiguration<AssistantMemory>
+    {
+        public void Configure(EntityTypeBuilder<AssistantMemory> builder)
+        {
+            builder.HasIndex(m => m.UserId);
+        }
+    }
+
     public sealed class ChatConversationConfiguration : IEntityTypeConfiguration<ChatConversation>
     {
         public void Configure(EntityTypeBuilder<ChatConversation> builder)

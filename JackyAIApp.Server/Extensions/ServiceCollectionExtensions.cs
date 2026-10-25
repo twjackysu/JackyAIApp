@@ -8,6 +8,7 @@ using JackyAIApp.Server.Services.Connectors.SiteMcp;
 using JackyAIApp.Server.Services;
 using JackyAIApp.Server.Services.AiUsage;
 using JackyAIApp.Server.Services.Assistant;
+using JackyAIApp.Server.Services.Assistant.Memory;
 using JackyAIApp.Server.Services.Assistant.Studio;
 using JackyAIApp.Server.Services.Chatbot;
 using JackyAIApp.Server.Services.DailyChallenge;
@@ -60,6 +61,8 @@ namespace JackyAIApp.Server.Extensions
             // Studio AI, the assistant on every page, and its own tool (listed with the site's tools).
             services.AddScoped<IChatProfile, StudioChatProfile>();
             services.AddSingleton(new SiteToolSet("全站", [OpenPageTool.Definition]));
+            // What the reader asked Studio AI to remember (docs/ai-native/design/08).
+            services.AddScoped<IAssistantMemoryService, AssistantMemoryService>();
 
             services.AddSingleton<IPromptLoader, PromptLoader>();
             services.AddScoped<IOpenAIPromptService, OpenAIPromptService>();

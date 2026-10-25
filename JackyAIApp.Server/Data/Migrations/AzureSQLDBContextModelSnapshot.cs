@@ -192,6 +192,32 @@ namespace JackyAIApp.Server.Data.Migrations
                     b.ToTable("AiUsageLogs");
                 });
 
+            modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.AssistantMemory", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AssistantMemories");
+                });
+
             modelBuilder.Entity("JackyAIApp.Server.Data.Models.SQL.ChatAttachment", b =>
                 {
                     b.Property<long>("Id")
