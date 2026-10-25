@@ -55,7 +55,11 @@ jackyaiapp.client/src/
   What differs between apps' assistants (greeting, example questions, suggestions,
   placeholders, the server profile, error wording, words for tools the server names no display name for,
   `toolLabels`: Finance's hosted tw-stock tools, `FINANCE_TOOL_LABELS`, so its chips and header read 「個股歷史股價」
-  rather than "stock history") is an `AiChatConfig` (`components/aiChat/config.ts`)
+  rather than "stock history"; the ready-made requests a draft starting with `/` lists over the box, `slashCommands`, D-114:
+  Finance's market questions that name no stock, `FINANCE_SLASH_COMMANDS`, each one of its example questions, and Data Analysis's
+  columns, highlights, trend and a whole dashboard, that last left out for an uploaded file; matched as Studio AI's are,
+  `utils/slashCommands`' `matchSlashCommands`, drawn by the same chips, `components/QuickChips`, and a press empties the box and
+  sends one in the conversation on screen) is an `AiChatConfig` (`components/aiChat/config.ts`)
   that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`; Data Analysis's depends on what
   is on screen, `dataAnalysisAiChatFor`: nothing about dashboards for an uploaded file, whose charts cannot be saved); the chat's
   parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools
@@ -84,7 +88,7 @@ jackyaiapp.client/src/
   "portfolio", "帶我去 dashboards") or one English word offer to go straight there (`quickActionsFor`, shown over the
   box by `QuickActionChips` through the panel's `inputAccessory`): a press navigates, empties the box and closes the
   drawer, with no AI and no usage; Enter still sends the text to the AI. A draft starting with `/` lists Studio AI's ready-made
-  requests instead (`slashCommands`, D-111: 今日簡報, 考我單字, 用我的單字寫短文, 投資組合健檢, …, narrowed by what follows
+  requests instead (`slashCommands`, matched by the chat's `matchSlashCommands` like every assistant's, D-111: 今日簡報, 考我單字, 用我的單字寫短文, 投資組合健檢, …, narrowed by what follows
   the slash, in either language or by the site MCP server's prompt name, `/quiz`): a press sends one as if typed, the drawer
   staying open (the briefing as a new conversation, as the home page sends it). The page's own come first
   (`pageSlashCommands`, D-113): 解釋 {word} on a word's dictionary page, 記一筆交易 on /portfolio, 做一個新的 dashboard on /dashboards, 解讀這個 dashboard on one of the reader's own

@@ -4,6 +4,7 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 
 import type { AiChatConfig } from '@/components/aiChat/config';
+import type { SlashCommand } from '@/components/aiChat/utils/slashCommands';
 
 /**
  * Questions the assistant can answer, one per kind of data its stock tools reach (the backend's
@@ -84,6 +85,56 @@ export const FINANCE_TOOL_LABELS: Readonly<Record<string, string>> = {
   get_market_holiday_schedule: '休市日',
 };
 
+/**
+ * Typed as `/` in the box (D-114): the market questions that need no stock named, one per kind of data, each one of
+ * the example questions above (so within what the tools reach). A stock's own questions stay typed, or are the
+ * follow-ups under an answer about it.
+ */
+export const FINANCE_SLASH_COMMANDS: readonly SlashCommand[] = [
+  {
+    key: 'market_news',
+    label: '今日重大消息',
+    ask: '今天有什麼重大消息？',
+    kind: 'command',
+    words: ['消息', '新聞', '重大', '今天', 'news', 'today'],
+  },
+  {
+    key: 'foreign_buying',
+    label: '外資在買什麼',
+    ask: '外資最近在買什麼股票？',
+    kind: 'command',
+    words: ['外資', '法人', '籌碼', '買超', 'foreign', 'institutional'],
+  },
+  {
+    key: 'futures_chips',
+    label: '台指期籌碼',
+    ask: '台指期籌碼偏多還是偏空？',
+    kind: 'command',
+    words: ['台指期', '期貨', '籌碼', '多空', 'futures'],
+  },
+  {
+    key: 'high_yield',
+    label: '高殖利率股',
+    ask: '推薦一些高殖利率股票',
+    kind: 'command',
+    words: ['殖利率', '股利', '存股', 'dividend', 'yield'],
+  },
+  {
+    key: 'ex_dividend',
+    label: '下個月除權息',
+    ask: '下個月有哪些公司除權息？',
+    kind: 'command',
+    words: ['除權息', '除息', '股利', 'dividend', 'exdividend'],
+  },
+  {
+    key: 'business_cycle',
+    label: '景氣燈號',
+    ask: '現在景氣燈號是什麼顏色？',
+    kind: 'command',
+    words: ['景氣', '燈號', '總經', 'macro', 'cycle'],
+  },
+];
+
 /** Stock Intelligence's assistant: Taiwan market data through the tw-stock tools. */
 export const FINANCE_AI_CHAT: AiChatConfig = {
   profile: 'finance',
@@ -98,12 +149,13 @@ export const FINANCE_AI_CHAT: AiChatConfig = {
     { text: '台指期籌碼偏多還是偏空？', icon: CandlestickChartIcon },
     { text: '0050 現在溢價多少？', icon: PieChartOutlineIcon },
   ],
+  slashCommands: FINANCE_SLASH_COMMANDS,
   connectedLabel: '台股資料已連線',
   disclaimer: 'AI 回答可能有誤，數據請以官方資料為準，不構成投資建議。',
   signedOutPlaceholder: '登入後即可問 AI 助手台股問題',
   inputPlaceholder: {
     narrow: '問台股、財報、ETF…',
-    wide: '問台股、財報、ETF、期貨…（Enter 送出，Shift+Enter 換行）',
+    wide: '問台股、財報、ETF、期貨…；打 / 看現成指令（Enter 送出，Shift+Enter 換行）',
   },
   // After a stock's prices, its chips and financials; after its financials, its peers.
   followUps: [

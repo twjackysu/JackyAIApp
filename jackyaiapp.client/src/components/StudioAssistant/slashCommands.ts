@@ -2,26 +2,18 @@ import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
 import { dictionaryWordOf, MAKE_DASHBOARD, RECORD_TRADE, WRITE_WITH_MY_WORDS } from './studioChat';
 
 import type { DashboardSummary } from '@/apis/dashboardApis/types';
+import type { SlashCommand } from '@/components/aiChat/utils/slashCommands';
+
+import { matchSlashCommands } from '@/components/aiChat/utils/slashCommands';
+
+export type { SlashCommand } from '@/components/aiChat/utils/slashCommands';
+export { isSlashDraft } from '@/components/aiChat/utils/slashCommands';
 
 /**
- * Studio AI's ready-made requests, typed as `/` in its box (D-111): `/` lists them, `/簡報` or `/quiz` narrows
- * them, and a press sends the request as if typed. The same requests another AI gets from the site's MCP server
- * as prompts (Claude Code's `/mcp__jacky-studio__daily_briefing`, the server's `SitePrompt`s), so each also
- * answers to that prompt's name. Unlike a quick action these ask the AI, so they cost what a message costs.
+ * Studio AI's ready-made requests, typed as `/` in its box (D-111; the matching and the type are the chat's,
+ * `aiChat/utils/slashCommands`). The same requests another AI gets from the site's MCP server as prompts (Claude
+ * Code's `/mcp__jacky-studio__daily_briefing`, the server's `SitePrompt`s), so each also answers to that prompt's name.
  */
-export interface SlashCommand {
-  /** Unique among the commands; the server prompt's name where there is one. */
-  key: string;
-  label: string;
-  /** What is sent. */
-  ask: string;
-  /** In a new conversation (the briefing, as the home page's card sends it). */
-  fresh?: boolean;
-  kind: 'command';
-  /** What a reader might type after the slash, lowercase, besides the label. */
-  words: readonly string[];
-}
-
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
   {
     key: 'daily_briefing',
@@ -141,32 +133,14 @@ export function pageSlashCommands(
   return [];
 }
 
-/** Whether what is typed asks for the commands: it starts with a slash (after any spaces). */
-export const isSlashDraft = (draft: string) => draft.trimStart().startsWith('/');
-
-/** Shorter than this, what follows the slash is matched against the labels only ("/a" is no command's word). */
-const MIN_WORD_QUERY = 2;
-
 /**
- * The commands for what is typed on page `path` (the page's own first, `pageSlashCommands`): all of them for a bare `/`; else those whose label holds what follows the
- * slash, or (from two characters) whose prompt name or one of whose words does. None when the draft does not
- * start with `/`, or what follows is a path (another slash) or longer than a command's name would be: these
- * ask the AI, so they are offered only for what plainly names one.
+ * The commands for what is typed on page `path`: the page's own first (`pageSlashCommands`), then the site's,
+ * matched as every assistant's are (`matchSlashCommands`).
  */
 export function slashCommandsFor(
   draft: string,
   path = '',
   dashboards: readonly PageDashboard[] = [],
 ): SlashCommand[] {
-  if (!isSlashDraft(draft)) return [];
-  const commands = [...pageSlashCommands(path, dashboards), ...SLASH_COMMANDS];
-  const q = draft.trimStart().slice(1).trim().toLowerCase();
-  if (q.length === 0) return commands;
-  if (q.length > 20 || q.includes('/')) return [];
-  const byWords = q.length >= MIN_WORD_QUERY;
-  return commands.filter(
-    (c) =>
-      c.label.toLowerCase().includes(q) ||
-      (byWords && (c.key.includes(q) || c.words.some((w) => w.includes(q)))),
-  );
+  return matchSlashCommands(draft, [...pageSlashCommands(path, dashboards), ...SLASH_COMMANDS]);
 }

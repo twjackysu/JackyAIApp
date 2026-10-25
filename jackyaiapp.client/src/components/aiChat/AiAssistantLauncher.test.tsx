@@ -1,4 +1,4 @@
-import { act, useEffect } from 'react';
+import { act, type ReactNode, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,6 +23,7 @@ interface PanelProps {
   inputQuotesPageText?: boolean;
   ask?: { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
   onAskSent?: (id: number) => void;
+  inputAccessory?: ReactNode;
 }
 
 // The real panel is tested on its own; here only what the launcher hands it and does with it.
@@ -33,7 +34,12 @@ vi.mock('.', () => {
     useEffect(() => {
       panel.mounts += 1;
     }, []);
-    return <div data-testid="panel">panel</div>;
+    return (
+      <div data-testid="panel">
+        panel
+        {props.inputAccessory}
+      </div>
+    );
   }
   return { default: StubPanel };
 });
@@ -192,6 +198,42 @@ describe('AiAssistantLauncher', () => {
     await focusBox();
 
     expect(panel.props!.inputValue).toBe('2330 今天');
+  });
+
+  it('lists its ready-made requests for a draft starting with /, and sends the one pressed (D-114)', async () => {
+    await render(signedIn);
+    await focusBox();
+    const chips = () => [
+      ...container.querySelectorAll<HTMLElement>('[data-testid="quick-actions"] button'),
+    ];
+    expect(chips()).toEqual([]);
+    act(() => panel.props!.onInputChange('/'));
+    expect(chips().map((c) => c.textContent)).toEqual(
+      FINANCE_AI_CHAT.slashCommands!.map((c) => c.label),
+    );
+    act(() => panel.props!.onInputChange('/外資'));
+    expect(chips().map((c) => c.textContent)).toEqual(['外資在買什麼']);
+    act(() => chips()[0].click());
+    expect(panel.props!.inputValue).toBe('');
+    expect(panel.props!.ask).toMatchObject({ text: '外資最近在買什麼股票？' });
+    expect(panel.props!.ask?.fresh).toBeUndefined();
+    act(() => panel.props!.onInputChange('外資最近在買什麼'));
+    expect(chips()).toEqual([]);
+  });
+
+  it('lists none for an assistant without them', async () => {
+    const { slashCommands: _omitted, ...withoutCommands } = FINANCE_AI_CHAT;
+    void _omitted;
+    await act(async () =>
+      root.render(
+        <MemoryRouter initialEntries={['/finance']}>
+          <AiAssistantLauncher config={withoutCommands} {...signedIn} />
+        </MemoryRouter>,
+      ),
+    );
+    await focusBox();
+    act(() => panel.props!.onInputChange('/'));
+    expect(container.querySelector('[data-testid="quick-actions"]')).toBeNull();
   });
 
   it('folds back to one line and keeps the same conversation for next time', async () => {

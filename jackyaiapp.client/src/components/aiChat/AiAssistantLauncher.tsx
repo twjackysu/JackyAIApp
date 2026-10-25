@@ -1,8 +1,9 @@
 import Box from '@mui/material/Box';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { CompactChatBar } from './components/CompactChatBar';
+import QuickChips from './components/QuickChips';
 import { AiChatConfig, AiChatConfigContext } from './config';
 import { useAskQueue } from './hooks/useAskQueue';
 import {
@@ -12,6 +13,7 @@ import {
 } from './selection/selectionActions';
 import SelectionBar from './selection/SelectionBar';
 import { HANDOFF_FROM, handoffFromState } from './utils/handoff';
+import { matchSlashCommands, type SlashCommand } from './utils/slashCommands';
 
 import type { AssistantActivity } from '.';
 
@@ -124,6 +126,20 @@ export function AiAssistantLauncher({
     );
   }, [location, isAuthenticated, enqueueAsk, navigate]);
 
+  // A draft starting with `/` lists this assistant's ready-made requests (`AiChatConfig.slashCommands`, D-114), as
+  // Studio AI's box does: a press empties the box and sends one as if typed, in the conversation on screen.
+  const commands = useMemo(
+    () => (config.slashCommands ? matchSlashCommands(draft, config.slashCommands) : []),
+    [draft, config.slashCommands],
+  );
+  const pickCommand = useCallback(
+    (command: SlashCommand) => {
+      changeDraft('');
+      enqueueAsk({ text: command.ask, ...(command.fresh && { fresh: true }) });
+    },
+    [changeDraft, enqueueAsk],
+  );
+
   // Where an answer asked to go, kept until that answer is done (the last one asked wins).
   const goAfterAnswer = useRef<string | undefined>(undefined);
   const holdNavigation = useCallback((path: string) => {
@@ -187,6 +203,9 @@ export function AiAssistantLauncher({
                 onCollapse={collapse}
                 onActivityChange={onActivity}
                 onNavigate={onNavigate ? holdNavigation : undefined}
+                inputAccessory={
+                  config.slashCommands && <QuickChips actions={commands} onPick={pickCommand} />
+                }
               />
             </Suspense>
           </Box>

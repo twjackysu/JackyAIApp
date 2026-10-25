@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { FINANCE_AI_CHAT, FINANCE_TOOL_LABELS } from './aiChatConfig';
+import {
+  FINANCE_AI_CHAT,
+  FINANCE_EXAMPLE_QUESTIONS,
+  FINANCE_SLASH_COMMANDS,
+  FINANCE_TOOL_LABELS,
+} from './aiChatConfig';
+
+import { matchSlashCommands } from '@/components/aiChat/utils/slashCommands';
 
 describe('FINANCE_TOOL_LABELS', () => {
   it('names every tool a follow-up question is offered after', () => {
@@ -14,5 +21,26 @@ describe('FINANCE_TOOL_LABELS', () => {
     expect(Object.keys(FINANCE_TOOL_LABELS).every((name) => /^get_[a-z0-9_]+$/.test(name))).toBe(
       true,
     );
+  });
+});
+
+describe('FINANCE_SLASH_COMMANDS', () => {
+  it('asks only the example questions, so within what the tools reach, each once', () => {
+    const asks = FINANCE_SLASH_COMMANDS.map((c) => c.ask);
+    expect(asks.every((a) => (FINANCE_EXAMPLE_QUESTIONS as readonly string[]).includes(a))).toBe(
+      true,
+    );
+    expect(new Set(asks).size).toBe(asks.length);
+    expect(new Set(FINANCE_SLASH_COMMANDS.map((c) => c.key)).size).toBe(asks.length);
+    expect(FINANCE_AI_CHAT.slashCommands).toBe(FINANCE_SLASH_COMMANDS);
+  });
+
+  it('are found by a word in either language', () => {
+    const keys = (draft: string) =>
+      matchSlashCommands(draft, FINANCE_SLASH_COMMANDS).map((c) => c.key);
+    expect(keys('/外資')).toEqual(['foreign_buying']);
+    expect(keys('/景氣')).toEqual(['business_cycle']);
+    expect(keys('/futures')).toEqual(['futures_chips']);
+    expect(keys('/殖利率')).toEqual(['high_yield']);
   });
 });

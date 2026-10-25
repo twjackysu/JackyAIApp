@@ -5,10 +5,7 @@ import SendIcon from '@mui/icons-material/SendOutlined';
 import { Box, ButtonBase, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
-import type { QuickAction } from './quickActions';
-import type { SlashCommand } from './slashCommands';
-
-import { ACCENT, accentWash, hairline } from '@/components/aiChat/style';
+import { ACCENT, accentWash, hairline } from '../style';
 
 const ICONS = {
   page: ArrowOutwardIcon,
@@ -17,20 +14,28 @@ const ICONS = {
   command: SendIcon,
 } as const;
 
-/** A chip over the message box: a quick action (no AI) or a ready-made request (`/`, sent to the AI). */
-export type QuickChip = QuickAction | SlashCommand;
+/**
+ * A chip over the message box: a ready-made request (`command`, a `/` draft, sent to the AI; every assistant's),
+ * or one of Studio AI's quick actions, which go somewhere without the AI (a page, a dashboard, a word).
+ */
+export interface QuickChipItem {
+  key: string;
+  label: string;
+  kind: keyof typeof ICONS;
+}
 
 /**
- * What Studio AI can do at once for what is being typed (`quickActionsFor`), over the message box: a
- * press goes there without asking the AI; or, for a draft starting with `/`, its ready-made requests
- * (`slashCommandsFor`), which a press sends. Nothing is shown when nothing fits.
+ * What the assistant can do at once for what is being typed, over the message box (the panel's
+ * `inputAccessory`): Studio AI's quick actions (`quickActionsFor`), which a press follows without asking the AI;
+ * or, for a draft starting with `/`, the assistant's ready-made requests (`matchSlashCommands`), which a press
+ * sends. Nothing is shown when nothing fits.
  */
-export default function QuickActionChips({
+export default function QuickChips<T extends QuickChipItem>({
   actions,
   onPick,
 }: {
-  actions: readonly QuickChip[];
-  onPick: (action: QuickChip) => void;
+  actions: readonly T[];
+  onPick: (action: T) => void;
 }) {
   const theme = useTheme();
   const commands = actions.some((a) => a.kind === 'command');

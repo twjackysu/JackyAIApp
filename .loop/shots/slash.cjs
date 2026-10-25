@@ -297,7 +297,7 @@ async function ask(page, text, placeholder) {
 }
 
 
-// 第 24 輪：Studio 打「/」出現現成指令（D-111）。用法：NODE_PATH=$(npm root -g) node ../.loop/shots/slash.cjs <輸出目錄>
+// 第 24 輪：Studio 打「/」出現現成指令（D-111）；第 26 輪加上 /finance、/data-analysis 的助理（D-114）。用法：NODE_PATH=$(npm root -g) node ../.loop/shots/slash.cjs <輸出目錄>
 (async () => {
   const browser = await chromium.launch();
   for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
@@ -321,6 +321,23 @@ async function ask(page, text, placeholder) {
     await page.getByRole('textbox').last().fill('/');
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${out}/studio-slash-${name}-desktop.png` });
+    await page.close();
+  }
+  // 第 26 輪：/finance 與 /data-analysis 自己的助理也有「/」（D-114）。展開一行的輸入框，在對話的輸入框打「/」。
+  for (const [name, at, viewport] of [
+    ['finance-desktop', '/finance', { width: 1280, height: 900 }],
+    ['finance-phone', '/finance', { width: 390, height: 844 }],
+    ['data-desktop', '/data-analysis', { width: 1280, height: 900 }],
+  ]) {
+    const page = await open(browser, viewport, briefing);
+    await page.goto(`http://localhost:5173${at}`);
+    await page.waitForTimeout(2000);
+    await page.locator('input[aria-label]').first().click();
+    await page.waitForTimeout(1200);
+    const box = page.locator('[data-ai-assistant] textarea').first();
+    await box.fill('/');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${out}/assistant-slash-${name}.png` });
     await page.close();
   }
   await browser.close();

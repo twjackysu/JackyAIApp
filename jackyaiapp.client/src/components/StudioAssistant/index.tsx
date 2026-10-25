@@ -8,16 +8,16 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { ASK_STUDIO_EVENT, askedOf } from './askStudio';
-import QuickActionChips, { type QuickChip } from './QuickActionChips';
-import { quickActionsFor } from './quickActions';
+import { quickActionsFor, type QuickAction } from './quickActions';
 import { refreshAfterTool } from './refreshAfterTool';
-import { isSlashDraft, slashCommandsFor } from './slashCommands';
+import { isSlashDraft, slashCommandsFor, type SlashCommand } from './slashCommands';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
 
 import type { AssistantActivity } from '@/components/aiChat';
 
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useLazyGetDashboardsQuery } from '@/apis/dashboardApis';
+import QuickChips from '@/components/aiChat/components/QuickChips';
 import { AiChatConfigContext } from '@/components/aiChat/config';
 import { useAskQueue } from '@/components/aiChat/hooks/useAskQueue';
 import {
@@ -33,6 +33,9 @@ import { ActionTooltip } from '@/components/hints';
 import { useAppDispatch } from '@/redux/hooks';
 
 const AiAssistantPanel = lazy(() => import('@/components/aiChat'));
+
+/** A chip over the message box: a quick action (no AI) or a ready-made request (`/`, sent to the AI). */
+type QuickChip = QuickAction | SlashCommand;
 
 /**
  * Studio AI on every page (docs/ai-native/design/05 §1): a button in the lower right corner, or ⌘K /
@@ -261,7 +264,7 @@ export default function StudioAssistant() {
                 onInputChange={changeDraft}
                 inputQuotesPageText={draftQuotesPage}
                 onCollapse={closeByHand}
-                inputAccessory={<QuickActionChips actions={quickActions} onPick={pickQuick} />}
+                inputAccessory={<QuickChips actions={quickActions} onPick={pickQuick} />}
               />
             </Suspense>
           </Box>
