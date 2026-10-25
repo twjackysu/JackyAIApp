@@ -249,5 +249,5 @@ MCP Apps 擴充（`io.modelcontextprotocol/ui`）讓支援的 client（Claude、
 
 - **宣告方式跟工具一樣**：`SitePrompt`（`Services/Connectors/SitePrompts.cs`）是 `public static readonly`，放在用到的工具旁邊，所屬類別的 `All` 列出、在該模組的註冊裡 `services.AddSingleton(prompt)`。`SitePromptDefinitionsTests` 檢查名稱（slash command 可用的 key）、標題長度、文字裡點名的工具都是本站工具且有 `jacky-studio`、每個參數都進到文字。
 - **只提供用得到的**：一個 prompt 列出的工具全部都提供給這個 token（讀取一律、寫入要允許寫入的 token、使用者在 /connectors 停用的不算）才會出現在 `prompts/list`；`prompts/get` 拿不到的 prompt 跟不存在一樣（-32602）。
-- **參數**：只讀 prompt 宣告的參數，必須是字串；整理成一行（控制字元、換行變空白）、去頭尾空白、最多 100 字（不切開 surrogate pair）；必填的空了是 -32602。參數是使用者在自己的 client 打的，就是他的要求，所以不另外標成不可信；整理成一行是為了不讓它看起來像 prompt 本身的段落。
+- **參數**：只讀 prompt 宣告的參數，必須是字串；整理成一行（控制字元、換行、U+2028／U+2029、格式字元變空白）、去頭尾空白、最多 100 字（不切開 surrogate pair）；必填的空了是 -32602。參數是使用者在自己的 client 打的，就是他的要求，所以不另外標成不可信；整理成一行是為了不讓它看起來像 prompt 本身的段落。
 - **不收費**：跟 `tools/call` 一樣，AI 的工作是對方 client 的模型做的。

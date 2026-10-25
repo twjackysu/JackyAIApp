@@ -1,5 +1,15 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-26 01:42 – 第 24 輪（本站 MCP server 的現成指令、Studio 的「/」、審查）
+
+- 開工：master 沒有新 commit（已合過）；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，先 `git fetch --unshallow`。
+- **本站 MCP server 提供 prompts**（D-110、design/03 §9.3）：`prompts/list`／`prompts/get`，`SitePrompt` 由各模組宣告在工具旁邊（今日簡報、解釋單字、考我單字、用我的單字寫短文、投資組合健檢、解讀 dashboard）；token 用得到全部工具才列出；參數只讀字串、整理成一行、最多 100 字。Claude Code 裡是 `/mcp__jacky-studio__daily_briefing`。測試：`SiteMcpServerTests`（含真的 SDK client 的 `ListPromptsAsync`／`GetPromptAsync`）、新的 `SitePromptDefinitionsTests`。
+- **產生 token 的對話框**寫出 Claude Code、VS Code、Claude Desktop 怎麼叫出現成指令（`ClientConfig.prompts`；指令用等寬字、手機可斷行）。重拍 `site-mcp-token-*`（新腳本 `.loop/shots/site-token.cjs`）。
+- **Studio 打「/」出現現成指令**（D-111）：`slashCommands`，六個，按下就送出（今日簡報開新對話），名稱與 MCP prompts 一致（測試讀伺服器檔案）。截圖 `studio-slash-*`（`.loop/shots/slash.cjs`）。
+- **審查**（subagent，D-112）：無高風險；定義測試只認 `ISiteTool`、加註冊檢查；`Clean` 多處理 U+2028／U+2029／格式字元；`/` 比對收緊。
+- 驗證：cscheck 新診斷 0；前端 lint、test、build 全過；CI 40218324796（prompts，第一次就綠）、**40219935497（本輪最後一次含程式碼的 push：Studio「/」＋審查修正）綠**。
+- 問題：無阻礙。
+
 ## 2026-10-25 23:42 – 第 23 輪（確認卡：重新整理、倒數、分頁標題、時間到的說法、審查）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
