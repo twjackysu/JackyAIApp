@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using JackyAIApp.Server.DTO;
 using JackyAIApp.Server.Services.Connectors;
 using JackyAIApp.Server.Services.DailyChallenge;
 using JackyAIApp.Server.Services.SpacedRepetition;
@@ -57,6 +58,132 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
             return new AiToolResult(text.ToString().TrimEnd(), Card: new { kind = "link", title = "英文學習", href, description, actionLabel = label });
         }
     }
+    /// <summary>
+    /// Where the reader went wrong lately, for Studio AI (「找出我的弱點」): how each exam type went over the last days and
+    /// the words they answered wrong most (<see cref="IStatsService.GetWeakSpotsAsync"/>, their own exam attempts), as a
+    /// table card, so the model can coach them and offer a <see cref="ReviewQuizTool"/> on what is due. A read: nothing
+    /// is changed or charged. The words are the dictionary's, the counts the site's own, so nothing here is outside text.
+    /// </summary>
+    public sealed class WeakSpotsTool(IStatsService stats) : ISiteTool
+    {
+        public const string Name = "weak_spots";
+
+        internal const int DefaultDays = 30;
+
+        public static readonly AiToolDescriptor Definition = new(
+            Name,
+            "最近的弱點",
+            "讀取使用者最近幾天（預設 30 天）的英文測驗紀錄：各種測驗（克漏字、翻譯、造句、聽寫、聽力、閱讀…）的答對率，" +
+            "以及最常答錯的單字（答錯幾次、最近一次答對了沒）。使用者問自己哪裡最弱、最常錯什麼、測驗表現、該加強什麼時使用。",
+            JsonSerializer.SerializeToElement(new
+            {
+                type = "object",
+                properties = new
+                {
+                    days = new
+                    {
+                        type = "integer",
+                        minimum = StatsService.MinWeakSpotDays,
+                        maximum = StatsService.MaxWeakSpotDays,
+                        description = $"往回看幾天，預設 {DefaultDays}",
+                    },
+                },
+            }),
+            ToolEffect.Read);
+
+        public AiToolDescriptor Descriptor => Definition;
+
+        /// <summary>The exam types as the reader knows them on the exam page; another type is shown as recorded.</summary>
+        internal static string LabelOf(string examType) => examType switch
+        {
+            "Cloze" => "克漏字",
+            "Translation" => "翻譯",
+            "Sentence" => "造句",
+            "Dictation" => "聽寫",
+            "Listening" => "聽力（看圖）",
+            "ListeningResponse" => "聽力（選回應）",
+            "Reading" => "閱讀測驗",
+            "Writing" => "寫作",
+            _ => examType,
+        };
+
+        public async Task<AiToolResult> RunAsync(JsonElement input, AiToolContext context, CancellationToken ct)
+        {
+            var days = input.ValueKind == JsonValueKind.Object && input.TryGetProperty("days", out var given) &&
+                       given.ValueKind == JsonValueKind.Number && given.TryGetInt32(out var n)
+                ? n
+                : DefaultDays;
+            var read = await stats.GetWeakSpotsAsync(days, ct);
+            if (!read.IsSuccess) return AiToolResult.Error("測驗紀錄暫時讀不到，請告訴使用者稍後再試。");
+
+            var spots = read.Data!;
+            if (spots.TotalAttempts == 0)
+                return new AiToolResult(
+                    $"使用者最近 {spots.Days} 天沒有做過測驗，還看不出弱點。建議他先做幾題測驗，或用 review_quiz 在這裡考幾題。",
+                    Card: new { kind = "link", title = "英文測驗", href = "/english/exam", description = "克漏字、翻譯、聽寫…做幾題就看得出弱點", actionLabel = "去做測驗" });
+
+            var text = new StringBuilder();
+            var correct = spots.ByType.Sum(t => t.Correct);
+            text.AppendLine($"最近 {spots.Days} 天共作答 {spots.TotalAttempts} 次，答對 {correct} 次（{Percent(correct, spots.TotalAttempts)}）。");
+            text.AppendLine("各種測驗：" + string.Join("；", spots.ByType.Select(t =>
+                $"{LabelOf(t.ExamType)} {t.Correct}/{t.Attempts}（{Percent(t.Correct, t.Attempts)}）")));
+            if (spots.Words.Count == 0)
+            {
+                text.AppendLine("這段期間考到的單字都答對了，沒有答錯的字。");
+            }
+            else
+            {
+                text.AppendLine("最常答錯的單字（答錯／作答次數；最近一次的結果）：");
+                foreach (var w in spots.Words)
+                    text.AppendLine($"- {w.Word}：{w.Wrong}/{w.Attempts}；最近一次{(w.LatestCorrect ? "答對了" : "還是錯")}");
+            }
+            text.AppendLine("請先用一兩句話點出最需要加強的地方（答對率最低的測驗、還是錯的字），數字照上面，不要自己估算；" +
+                            "再給一個具體的下一步，例如用 review_quiz 考幾題、用 look_up_word 解釋最常錯的字，或去做答對率最低的那種測驗。");
+
+            return new AiToolResult(text.ToString().TrimEnd(), Card: spots.Words.Count > 0 ? WordsCard(spots) : TypesCard(spots));
+        }
+
+        private static object WordsCard(WeakSpotsResponse spots) => new
+        {
+            kind = "table",
+            title = $"最近 {spots.Days} 天最常答錯的單字",
+            columns = new object[]
+            {
+                new { key = "word", label = "單字" },
+                new { key = "wrong", label = "答錯", numeric = true },
+                new { key = "attempts", label = "作答", numeric = true },
+                new { key = "latest", label = "最近一次" },
+            },
+            rows = spots.Words.Select(w => new Dictionary<string, object?>
+            {
+                ["word"] = w.Word,
+                ["wrong"] = w.Wrong,
+                ["attempts"] = w.Attempts,
+                ["latest"] = w.LatestCorrect ? "答對" : "答錯",
+            }).ToList(),
+        };
+
+        private static object TypesCard(WeakSpotsResponse spots) => new
+        {
+            kind = "table",
+            title = $"最近 {spots.Days} 天的測驗",
+            columns = new object[]
+            {
+                new { key = "type", label = "測驗" },
+                new { key = "attempts", label = "作答", numeric = true },
+                new { key = "rate", label = "答對 %", numeric = true },
+            },
+            rows = spots.ByType.Select(t => new Dictionary<string, object?>
+            {
+                ["type"] = LabelOf(t.ExamType),
+                ["attempts"] = t.Attempts,
+                ["rate"] = Math.Round(100.0 * t.Correct / t.Attempts),
+            }).ToList(),
+        };
+
+        private static string Percent(int part, int whole) => $"{Math.Round(100.0 * part / whole)}%";
+    }
+
     /// <summary>
     /// A short quiz on the reader's own words, in the chat (Studio AI's 「考我今天的單字」): a few multiple-choice
     /// questions on the words due for review (<see cref="IReviewQuizService"/>, the daily challenge's kinds, no AI), shown

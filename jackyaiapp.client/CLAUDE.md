@@ -89,7 +89,7 @@ jackyaiapp.client/src/
   "portfolio", "帶我去 dashboards") or one English word offer to go straight there (`quickActionsFor`, shown over the
   box by `QuickActionChips` through the panel's `inputAccessory`): a press navigates, empties the box and closes the
   drawer, with no AI and no usage; Enter still sends the text to the AI. A draft starting with `/` lists Studio AI's ready-made
-  requests instead (`slashCommands`, matched by the chat's `matchSlashCommands` like every assistant's, D-111: 今日簡報, 考我單字, 用我的單字寫短文, 投資組合健檢, …, narrowed by what follows
+  requests instead (`slashCommands`, matched by the chat's `matchSlashCommands` like every assistant's, D-111: 今日簡報, 考我單字, 用我的單字寫短文, 找出我的弱點, 投資組合健檢, …, narrowed by what follows
   the slash, in either language or by the site MCP server's prompt name, `/quiz`): a press sends one as if typed, the drawer
   staying open (the briefing as a new conversation, as the home page sends it). The page's own come first
   (`pageSlashCommands`, D-113): 解釋 {word} on a word's dictionary page, 記一筆交易 on /portfolio, 做一個新的 dashboard on /dashboards, 解讀這個 dashboard on one of the reader's own
@@ -98,7 +98,8 @@ jackyaiapp.client/src/
   server's `SitePages.cs` by its test; the reader's dashboards (the /dashboards list, read each time the drawer opens)
   are offered by their name or two characters of it (「打開『業績追蹤』」), and on /dashboards the first suggestion reads the
   first of the reader's own (「幫我解讀『業績追蹤』這個 dashboard」). On a word's dictionary page its suggestions are about
-  that word (`dictionaryWordOf`). On the repository the first is writing a passage with the reader's own words (`saved_words`). A review quiz (`review_quiz`) comes as a `quiz` card, Studio AI's own renderer
+  that word (`dictionaryWordOf`). On the repository the first is writing a passage with the reader's own words (`saved_words`); on the stats and exam
+  pages, finding where they went wrong lately (`weak_spots`, `FIND_MY_WEAK_SPOTS`, also the `/` command 找出我的弱點, the server's MCP prompt `my_weak_spots`). A review quiz (`review_quiz`) comes as a `quiz` card, Studio AI's own renderer
   (`QuizCardView`, `quizCard.parseQuizCard`): one question at a time, right or wrong shown at once, and after the last the
   answers go to the review schedule as the review page sends them (`review/submit`, right 4, wrong 1), no AI involved —
   only for words that are due, and only the first time: a card drawn again from a reopened conversation (a renderer's

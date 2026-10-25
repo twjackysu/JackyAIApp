@@ -25,6 +25,8 @@ describe('slashCommandsFor', () => {
     expect(keys('/健檢')).toEqual(['portfolio_checkup']);
     expect(keys('/短文')).toEqual(['write_with_my_words']);
     expect(keys('/記得')).toEqual(['memories']);
+    expect(keys('/弱點')).toEqual(['my_weak_spots']);
+    expect(keys('/weak')).toEqual(['my_weak_spots']);
   });
 
   it('offers nothing without a leading slash, for no match, or for a sentence', () => {
@@ -53,7 +55,13 @@ describe('the commands', () => {
   it('are keyed uniquely, and those named after the site MCP server’s prompts name real ones', () => {
     expect(new Set(SLASH_COMMANDS.map((c) => c.key)).size).toBe(SLASH_COMMANDS.length);
     const server = sitePromptsCs + englishPromptsCs + portfolioPromptsCs;
-    for (const key of ['daily_briefing', 'quiz_me', 'write_with_my_words', 'portfolio_checkup']) {
+    for (const key of [
+      'daily_briefing',
+      'quiz_me',
+      'write_with_my_words',
+      'my_weak_spots',
+      'portfolio_checkup',
+    ]) {
       expect(SLASH_COMMANDS.some((c) => c.key === key)).toBe(true);
       expect(server).toContain(`"${key}"`);
     }

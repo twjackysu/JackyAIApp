@@ -280,7 +280,11 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   generator, `GenerateFor`, no AI; the wrong options from the reader's other saved words, topped up from the dictionary by
   id), shown as a `quiz` card the reader answers on, which sends the answers to the review schedule itself when the words
   are due; a read, since making it changes nothing; the model is told the words, and the questions and answers only
-  for a client that cannot draw the card: `Services/Dictionary/Assistant`; Portfolio's `portfolio_summary`, the reader's own portfolio as
+  for a client that cannot draw the card; and `weak_spots`, where the reader went wrong lately: their own exam attempts of
+  the last 7–90 days (default 30; `IStatsService.GetWeakSpotsAsync`, the most recent 2000 at most), each exam type's right
+  answers and the words answered wrong most (at most 10, those still wrong at the latest attempt first, then by misses), as a
+  table card, so the model names what to work on and offers a `review_quiz`; with no attempts, a link card to the exams:
+  `Services/Dictionary/Assistant`; Portfolio's `portfolio_summary`, the reader's own portfolio as
   /portfolio values it, a table card of the positions, and `update_holding`, a write, so asked first: one holding already in
   the latest snapshot gets a new quantity (`quantity`, or `change` for a trade), the snapshot saved again as today's in
   Taipei (or the latest's date if that is later) the way /portfolio saves one, so the history keeps the earlier one; the cost
@@ -410,7 +414,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 - The server also offers ready-made requests, MCP prompts (`prompts/list`, `prompts/get`; design/03 §9.3, D-110): Claude Code
   shows each as a slash command (`/mcp__jacky-studio__daily_briefing`). A prompt is a `SitePrompt` (`Services/Connectors/SitePrompts.cs`):
   a `public static readonly` field next to the tools it asks for (the morning briefing in `Services/Assistant/Studio/StudioSitePrompts`, English's
-  `explain_word`/`quiz_me`/`write_with_my_words`, Portfolio's `portfolio_checkup`, Data Analysis's `read_my_dashboard`), listed in its class's `All`
+  `explain_word`/`quiz_me`/`write_with_my_words`/`my_weak_spots`, Portfolio's `portfolio_checkup`, Data Analysis's `read_my_dashboard`), listed in its class's `All`
   and registered with `services.AddSingleton(prompt)` in its module's registration; `SitePromptDefinitionsTests` holds each to the same
   shape (a key a client can use, its tools site tools named in its text, every argument in it). It is offered only when the token is offered
   every tool it names, and one not offered is an unknown prompt (-32602). Only its own arguments are read, as strings, each put on one line,

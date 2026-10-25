@@ -6,7 +6,7 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
     /// <summary>
     /// The English app's ready-made requests for another AI using the site's MCP server (<see cref="SitePrompt"/>): a
     /// word explained from the site's dictionary, a review quiz asked one question at a time, and a passage written with
-    /// the reader's own saved words.
+    /// the reader's own saved words, and where the reader went wrong lately, then a quiz.
     /// </summary>
     public static class EnglishSitePrompts
     {
@@ -43,12 +43,23 @@ namespace JackyAIApp.Server.Services.Dictionary.Assistant
                 (args.TryGetValue("topic", out var topic) ? $"，主題是「{topic}」" : "") +
                 "，把用到的單字用粗體標出，最後附上中文翻譯。");
 
+        public static readonly SitePrompt MyWeakSpots = new(
+            "my_weak_spots",
+            "找出我的弱點",
+            "看我最近的英文測驗紀錄，找出最需要加強的地方，再考我幾題。",
+            [WeakSpotsTool.Name, ReviewQuizTool.Name],
+            [],
+            _ =>
+                $"用 jacky-studio 的 {WeakSpotsTool.Name} 讀我最近 30 天的測驗紀錄，用繁體中文告訴我最需要加強的一兩件事" +
+                "（答對率最低的測驗、最常答錯而且最近還是錯的字），數字照工具結果；" +
+                $"再用 {ReviewQuizTool.Name} 出 3 題，一次只給我一題，等我回答後再說對錯。");
+
         /// <summary>The quiz's number of questions when the reader gave a number (kept within what the tool asks), else null.</summary>
         internal static int? CountOf(IReadOnlyDictionary<string, string> args) =>
             args.TryGetValue("count", out var text) && int.TryParse(text, out var count)
                 ? Math.Clamp(count, 1, ReviewQuizService.MaxQuestions)
                 : null;
 
-        public static IReadOnlyList<SitePrompt> All { get; } = [ExplainWord, QuizMe, WriteWithMyWords];
+        public static IReadOnlyList<SitePrompt> All { get; } = [ExplainWord, QuizMe, WriteWithMyWords, MyWeakSpots];
     }
 }

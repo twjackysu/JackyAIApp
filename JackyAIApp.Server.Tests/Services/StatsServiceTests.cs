@@ -214,5 +214,65 @@ namespace JackyAIApp.Server.Tests.Services
         {
             Assert.Equal(expected, (await As("alice").GetActivityAsync(asked, default)).Data!.Days.Count);
         }
+        private void Attempt(string userId, string? word, bool correct, DateTime at, string type = "Cloze")
+        {
+            if (word != null && _db.Words.Find(word) == null)
+                _db.Words.Add(new Word { Id = word, WordText = word, KKPhonics = "/k/", DateAdded = Today, LastUpdated = Today });
+            _db.ExamAttempts.Add(new ExamAttempt { UserId = userId, WordId = word, ExamType = type, IsCorrect = correct, CreatedAt = at });
+        }
+
+        [Fact]
+        public async Task WeakSpots_RanksTheWordsStillWrongFirst_ThenByMisses_AndCountsEachType()
+        {
+            // "fixed": wrong twice, then right (latest). "still": wrong once, latest. "often": wrong three times, latest wrong.
+            Attempt("alice", "fixed", false, Today.AddDays(-5));
+            Attempt("alice", "fixed", false, Today.AddDays(-4));
+            Attempt("alice", "fixed", true, Today.AddDays(-1), "Dictation");
+            Attempt("alice", "still", false, Today.AddHours(2), "Translation");
+            Attempt("alice", "often", false, Today.AddDays(-3));
+            Attempt("alice", "often", true, Today.AddDays(-2));
+            Attempt("alice", "often", false, Today.AddDays(-1).AddHours(3));
+            Attempt("alice", "often", false, Today.AddHours(1));
+            Attempt("alice", "right", true, Today);
+            Attempt("alice", null, false, Today, "Listening");
+            Attempt("alice", "old", false, Today.AddDays(-40));      // outside the 30 days
+            Attempt("bob", "bobs", false, Today);                   // someone else's
+            await _db.SaveChangesAsync();
+
+            var spots = (await As("alice").GetWeakSpotsAsync(30, default)).Data!;
+
+            Assert.Equal(30, spots.Days);
+            Assert.Equal(10, spots.TotalAttempts);
+            Assert.Equal(["often", "still", "fixed"], spots.Words.Select(w => w.Word));
+            var often = spots.Words[0];
+            Assert.Equal((3, 4, false), (often.Wrong, often.Attempts, often.LatestCorrect));
+            Assert.Equal(Today.AddHours(1), often.LastWrongAt);
+            Assert.Equal(DateTimeKind.Utc, often.LastWrongAt.Kind);
+            Assert.True(spots.Words[2].LatestCorrect);
+            Assert.Equal(
+                [("Cloze", 7, 2), ("Dictation", 1, 1), ("Listening", 1, 0), ("Translation", 1, 0)],
+                spots.ByType.Select(t => (t.ExamType, t.Attempts, t.Correct)));
+        }
+
+        [Theory]
+        [InlineData(0, 7)]
+        [InlineData(500, 90)]
+        [InlineData(14, 14)]
+        public async Task WeakSpots_Window_IsSevenTo90Days(int asked, int expected)
+        {
+            Assert.Equal(expected, (await As("alice").GetWeakSpotsAsync(asked, default)).Data!.Days);
+        }
+
+        [Fact]
+        public async Task WeakSpots_NamesAtMostTenWords()
+        {
+            for (var i = 0; i < 12; i++) Attempt("alice", $"w{i:D2}", false, Today.AddHours(i));
+            await _db.SaveChangesAsync();
+
+            var spots = (await As("alice").GetWeakSpotsAsync(30, default)).Data!;
+
+            Assert.Equal(StatsService.MaxWeakWords, spots.Words.Count);
+            Assert.Equal("w11", spots.Words[0].Word); // the most recent miss first, all else equal
+        }
     }
 }

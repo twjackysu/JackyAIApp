@@ -9,6 +9,7 @@ import PieChartIcon from '@mui/icons-material/PieChartOutlined';
 import PsychologyIcon from '@mui/icons-material/PsychologyOutlined';
 import QuizIcon from '@mui/icons-material/QuizOutlined';
 import ShowChartIcon from '@mui/icons-material/ShowChartOutlined';
+import TrendingDownIcon from '@mui/icons-material/TrendingDownOutlined';
 
 import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
 import QuizCardView from './QuizCardView';
@@ -36,6 +37,13 @@ export function studioShownOn(path: string): boolean {
 const ENGLISH: AiChatSuggestion[] = [
   { text: '考我今天該複習的單字', icon: QuizIcon },
   { text: '幫我查 serendipity 是什麼意思', icon: AutoStoriesIcon },
+];
+/** Where the reader went wrong lately (weak_spots): what the stats page counts but cannot say what to do about. */
+export const FIND_MY_WEAK_SPOTS = '找出我最近英文最弱的地方';
+/** On the stats and exam pages, which show the results the weak spots are read from. */
+const RESULTS: AiChatSuggestion[] = [
+  { text: FIND_MY_WEAK_SPOTS, icon: TrendingDownIcon },
+  { text: '考我今天該複習的單字', icon: QuizIcon },
 ];
 /** The reader's own words (saved_words): writing with them is what the repository page cannot do itself. */
 export const WRITE_WITH_MY_WORDS = '用我單字庫裡最近存的字寫一段短文';
@@ -127,15 +135,17 @@ export function studioSuggestionsFor(
       ? dashboardsSuggestions(dashboards)
       : on(path, '/english/repository')
         ? REPOSITORY
-        : on(path, '/english')
-          ? ENGLISH
-          : on(path, '/portfolio')
-            ? PORTFOLIO
-            : on(path, '/connectors')
-              ? CONNECTORS
-              : path.startsWith('/dashboards/')
-                ? DASHBOARD
-                : [];
+        : on(path, '/english/stats') || on(path, '/english/exam')
+          ? RESULTS
+          : on(path, '/english')
+            ? ENGLISH
+            : on(path, '/portfolio')
+              ? PORTFOLIO
+              : on(path, '/connectors')
+                ? CONNECTORS
+                : path.startsWith('/dashboards/')
+                  ? DASHBOARD
+                  : [];
   return [...own, ...COMMON].slice(0, 4);
 }
 
@@ -152,6 +162,7 @@ const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
   { tools: ['learning_progress'], texts: ['考我幾題', '帶我去複習', '帶我去每日挑戰'] },
   { tools: ['review_quiz'], texts: ['再考我 3 題', '帶我去複習'] },
   { tools: ['saved_words'], texts: ['換個主題再寫一段', '考我幾題'] },
+  { tools: ['weak_spots'], texts: ['考我幾題', '解釋我最常錯的那個字', '帶我去複習'] },
   {
     tools: ['portfolio_summary'],
     texts: ['哪一檔佔比最高？風險集中嗎？', MY_HOLDINGS_MARKET, '我的資產配置偏重哪裡？'],

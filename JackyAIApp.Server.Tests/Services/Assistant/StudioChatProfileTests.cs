@@ -93,6 +93,15 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
         }
 
         [Fact]
+        public async Task WhereTheReaderIsWeak_NamesTheWeakSpotsTool_AndAQuizAsTheNextStep()
+        {
+            var setup = await SetupAsync();
+
+            Assert.Contains($"用 {WeakSpotsTool.Name}", setup.SystemPrompt);
+            Assert.Contains($"用 {ReviewQuizTool.Name} 考幾題", setup.SystemPrompt);
+        }
+
+        [Fact]
         public async Task WritingWithTheReadersOwnWords_NamesTheSavedWordsTool()
         {
             var setup = await SetupAsync();

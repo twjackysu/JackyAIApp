@@ -20,6 +20,12 @@ namespace JackyAIApp.Server.Services.DailyChallenge
 
         /// <summary>Challenges and exam attempts per day, for the last <paramref name="days"/> days (1–366, default 365).</summary>
         Task<ServiceResult<ActivityResponse>> GetActivityAsync(int days, CancellationToken ct);
+
+        /// <summary>
+        /// The reader's exam attempts of the last <paramref name="days"/> days (7–90): how each exam type went and the
+        /// words they answered wrong most. Only their own attempts; nothing is charged or changed.
+        /// </summary>
+        Task<ServiceResult<WeakSpotsResponse>> GetWeakSpotsAsync(int days, CancellationToken ct);
     }
 
     public class StatsService(
@@ -196,6 +202,81 @@ namespace JackyAIApp.Server.Services.DailyChallenge
             {
                 Days = allDays,
                 ActiveDays = counts.Count,
+            });
+        }
+
+        /// <summary>The fewest and most days <see cref="GetWeakSpotsAsync"/> looks back.</summary>
+        public const int MinWeakSpotDays = 7, MaxWeakSpotDays = 90;
+
+        /// <summary>The most recent attempts a weak-spot read takes, so a heavy user's window stays one small query.</summary>
+        internal const int MaxWeakSpotAttempts = 2000;
+
+        /// <summary>The words a weak-spot read names.</summary>
+        public const int MaxWeakWords = 10;
+
+        public async Task<ServiceResult<WeakSpotsResponse>> GetWeakSpotsAsync(int days, CancellationToken ct)
+        {
+            var userId = currentUser.RequireId();
+            days = Math.Clamp(days, MinWeakSpotDays, MaxWeakSpotDays);
+            var start = Today.AddDays(-(days - 1));
+
+            var attempts = await dbContext.ExamAttempts
+                .AsNoTracking()
+                .Where(e => e.UserId == userId && e.CreatedAt >= start)
+                .OrderByDescending(e => e.CreatedAt)
+                .Take(MaxWeakSpotAttempts)
+                .Select(e => new
+                {
+                    e.ExamType,
+                    e.IsCorrect,
+                    e.WordId,
+                    WordText = e.Word != null ? e.Word.WordText : null,
+                    e.CreatedAt,
+                })
+                .ToListAsync(ct);
+
+            var byType = attempts
+                .GroupBy(a => a.ExamType)
+                .Select(g => new ExamTypeResult { ExamType = g.Key, Attempts = g.Count(), Correct = g.Count(a => a.IsCorrect) })
+                .OrderByDescending(t => t.Attempts)
+                .ThenBy(t => t.ExamType, StringComparer.Ordinal)
+                .ToList();
+
+            // Newest first, so each word's first attempt is its latest.
+            var words = attempts
+                .Where(a => a.WordId != null && !string.IsNullOrWhiteSpace(a.WordText))
+                .GroupBy(a => a.WordId!)
+                .Select(g => new
+                {
+                    Word = g.First().WordText!,
+                    Attempts = g.Count(),
+                    Wrong = g.Count(a => !a.IsCorrect),
+                    LatestCorrect = g.First().IsCorrect,
+                    LastWrongAt = g.Where(a => !a.IsCorrect).Select(a => (DateTime?)a.CreatedAt).FirstOrDefault(),
+                })
+                .Where(w => w.Wrong > 0)
+                // Still wrong before put right since; then the most misses, the worst rate, the most recent.
+                .OrderBy(w => w.LatestCorrect)
+                .ThenByDescending(w => w.Wrong)
+                .ThenByDescending(w => (double)w.Wrong / w.Attempts)
+                .ThenByDescending(w => w.LastWrongAt)
+                .Take(MaxWeakWords)
+                .Select(w => new WeakWord
+                {
+                    Word = w.Word,
+                    Attempts = w.Attempts,
+                    Wrong = w.Wrong,
+                    LatestCorrect = w.LatestCorrect,
+                    LastWrongAt = DateTime.SpecifyKind(w.LastWrongAt!.Value, DateTimeKind.Utc),
+                })
+                .ToList();
+
+            return ServiceResult.Ok(new WeakSpotsResponse
+            {
+                Days = days,
+                TotalAttempts = attempts.Count,
+                ByType = byType,
+                Words = words,
             });
         }
 

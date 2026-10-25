@@ -1,5 +1,11 @@
 import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
-import { dictionaryWordOf, MAKE_DASHBOARD, RECORD_TRADE, WRITE_WITH_MY_WORDS } from './studioChat';
+import {
+  dictionaryWordOf,
+  FIND_MY_WEAK_SPOTS,
+  MAKE_DASHBOARD,
+  RECORD_TRADE,
+  WRITE_WITH_MY_WORDS,
+} from './studioChat';
 
 import type { DashboardSummary } from '@/apis/dashboardApis/types';
 import type { SlashCommand } from '@/components/aiChat/utils/slashCommands';
@@ -36,6 +42,13 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     ask: WRITE_WITH_MY_WORDS,
     kind: 'command',
     words: ['短文', '寫作', '單字', 'write', 'writing', 'words'],
+  },
+  {
+    key: 'my_weak_spots',
+    label: '找出我的弱點',
+    ask: FIND_MY_WEAK_SPOTS,
+    kind: 'command',
+    words: ['弱點', '錯字', '加強', 'weak', 'mistakes'],
   },
   {
     key: 'portfolio_checkup',

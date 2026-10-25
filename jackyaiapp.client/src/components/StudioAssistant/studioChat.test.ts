@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { READ_DASHBOARD_PROMPT } from './askStudio';
 import {
+  FIND_MY_WEAK_SPOTS,
   MAKE_DASHBOARD,
   MY_HOLDINGS_MARKET,
   studioChatConfig,
@@ -122,6 +123,20 @@ describe('studioFollowUpsFor', () => {
   it('after a quiz, offers another one', () => {
     const quiz = followUpsOn('/').find((r) => r.tools?.includes('review_quiz'))!;
     expect(quiz.texts).toEqual(['再考我 3 題', '帶我去複習']);
+  });
+
+  it('on the stats and exam pages, offers to find the reader’s weak spots first', () => {
+    for (const path of ['/english/stats', '/english/exam', '/english/exam/cloze']) {
+      expect(studioSuggestionsFor(path)[0].text).toBe(FIND_MY_WEAK_SPOTS);
+    }
+    expect(studioSuggestionsFor('/english/review')[0].text).not.toBe(FIND_MY_WEAK_SPOTS);
+  });
+
+  it('after reading the weak spots, offers a quiz, an explanation and the review, but not on the review', () => {
+    const rule = followUpsOn('/english/stats').find((r) => r.tools?.includes('weak_spots'))!;
+    expect(rule.texts).toEqual(['考我幾題', '解釋我最常錯的那個字', '帶我去複習']);
+    const onReview = followUpsOn('/english/review').find((r) => r.tools?.includes('weak_spots'))!;
+    expect(onReview.texts).not.toContain('帶我去複習');
   });
 
   it('after writing with the reader’s words, offers another passage or a quiz', () => {

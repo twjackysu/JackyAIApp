@@ -133,8 +133,9 @@ namespace JackyAIApp.Server.Extensions
             services.AddScoped<ISiteTool, LearningProgressTool>();
             services.AddScoped<ISiteTool, ReviewQuizTool>();
             services.AddScoped<ISiteTool, SavedWordsTool>();
+            services.AddScoped<ISiteTool, WeakSpotsTool>();
             services.AddSingleton(new SiteToolSet("英文學習",
-                [LookUpWordTool.Definition, AddWordToRepositoryTool.Definition, SavedWordsTool.Definition, LearningProgressTool.Definition, ReviewQuizTool.Definition]));
+                [LookUpWordTool.Definition, AddWordToRepositoryTool.Definition, SavedWordsTool.Definition, LearningProgressTool.Definition, ReviewQuizTool.Definition, WeakSpotsTool.Definition]));
             foreach (var prompt in EnglishSitePrompts.All) services.AddSingleton(prompt);
             services.AddScoped<IWordOfTheDayService, WordOfTheDayService>();
 
