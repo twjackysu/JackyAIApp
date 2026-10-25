@@ -16,6 +16,10 @@ export function refreshAfterTool(tool: string): RefreshAction[] {
     case 'add_word_to_repository':
       // What adding a word on the repository page refreshes (repositoryApis).
       return [api.util.invalidateTags(['PersonalWord', 'DueReviews', 'DueCount', 'LearningStats'])];
+    case 'remember':
+    case 'forget':
+      // The connectors page's list of what Studio AI remembers (assistantMemoryApis).
+      return [api.util.invalidateTags(['AssistantMemory'])];
     default:
       return [];
   }

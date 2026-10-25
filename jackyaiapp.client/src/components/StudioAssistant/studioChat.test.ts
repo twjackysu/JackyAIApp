@@ -144,6 +144,15 @@ describe('studioFollowUpsFor', () => {
     expect(rule.texts).toEqual(['我的投資組合現在怎麼樣？']);
   });
 
+  it('after keeping or forgetting a note, offers to say what it remembers; and so on the connectors page', () => {
+    for (const tool of ['remember', 'forget']) {
+      const rule = followUpsOn('/').find((r) => r.tools?.includes(tool))!;
+      expect(rule.texts).toEqual(['你記得我什麼？']);
+    }
+    expect(studioSuggestionsFor('/connectors').map((s) => s.text)).toContain('你記得我什麼？');
+    expect(studioChatConfig('/').greeting).toContain('記住');
+  });
+
   it('carries on from a dashboard it read', () => {
     const rule = followUpsOn('/dashboards/x').find((r) => r.tools?.includes('read_dashboard'));
     expect(rule?.texts.length).toBeGreaterThan(0);

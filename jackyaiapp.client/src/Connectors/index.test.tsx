@@ -44,6 +44,8 @@ vi.mock('./AiConnectorsSection', () => ({
 
 // Letting other AIs use the site has its own tests (SiteMcpSection/index.test.tsx).
 vi.mock('./SiteMcpSection', () => ({ default: () => '[SiteMcp]' }));
+// What Studio AI remembers has its own tests (MemorySection/index.test.tsx).
+vi.mock('./MemorySection', () => ({ default: () => '[Memory]' }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

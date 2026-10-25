@@ -21,6 +21,11 @@ describe('refreshAfterTool', () => {
     ]);
   });
 
+  it('reads what Studio AI remembers again after it kept or forgot a note', () => {
+    expect(tagsOf('remember')).toEqual([{ type: 'api/invalidateTags', tags: ['AssistantMemory'] }]);
+    expect(tagsOf('forget')).toEqual([{ type: 'api/invalidateTags', tags: ['AssistantMemory'] }]);
+  });
+
   it('refreshes nothing after a read', () => {
     expect(refreshAfterTool('portfolio_summary')).toEqual([]);
     expect(refreshAfterTool('look_up_word')).toEqual([]);

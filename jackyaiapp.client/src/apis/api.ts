@@ -18,6 +18,8 @@ const TAG_TYPES = [
   'LearningStats',
   'DailyChallenge',
   'ListeningBank',
+  // What the reader asked Studio AI to remember (the connectors page lists it; Studio's remember/forget change it).
+  'AssistantMemory',
 ] as const;
 
 export type ApiTag = TagDescription<(typeof TAG_TYPES)[number]>;

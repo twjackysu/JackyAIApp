@@ -6,6 +6,7 @@ import EventIcon from '@mui/icons-material/EventOutlined';
 import ExploreIcon from '@mui/icons-material/ExploreOutlined';
 import ExtensionIcon from '@mui/icons-material/ExtensionOutlined';
 import PieChartIcon from '@mui/icons-material/PieChartOutlined';
+import PsychologyIcon from '@mui/icons-material/PsychologyOutlined';
 import QuizIcon from '@mui/icons-material/QuizOutlined';
 import ShowChartIcon from '@mui/icons-material/ShowChartOutlined';
 
@@ -72,8 +73,11 @@ const wordSuggestions = (word: string): AiChatSuggestion[] => [
 ];
 /** On one dashboard (`/dashboards/{id}`), which the server's prompt names as "this dashboard". */
 const DASHBOARD: AiChatSuggestion[] = [{ text: READ_DASHBOARD_PROMPT, icon: DashboardIcon }];
+/** What Studio AI remembers about the reader (`remember`, docs/ai-native/design/08). */
+const WHAT_DO_YOU_REMEMBER = '你記得我什麼？';
 const CONNECTORS: AiChatSuggestion[] = [
   { text: '怎麼讓 Claude 或 ChatGPT 使用這個網站？', icon: ExtensionIcon },
+  { text: WHAT_DO_YOU_REMEMBER, icon: PsychologyIcon },
 ];
 const COMMON: AiChatSuggestion[] = [
   { text: BRIEFING_PROMPT, icon: AutoAwesomeIcon },
@@ -151,6 +155,7 @@ const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
     texts: ['哪一檔佔比最高？風險集中嗎？', MY_HOLDINGS_MARKET, '我的資產配置偏重哪裡？'],
   },
   { tools: ['update_holding'], texts: ['我的投資組合現在怎麼樣？'] },
+  { tools: ['remember', 'forget'], texts: [WHAT_DO_YOU_REMEMBER] },
   { tools: ['google_calendar_events'], texts: ['明天呢？', '這週哪天比較空？'] },
   {
     tools: ['read_dashboard'],
@@ -176,7 +181,7 @@ export function studioChatConfig(
     title: 'Studio AI',
     greetingTitle: '我是 Studio AI，想做什麼？',
     greeting:
-      '告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。打頁面名稱、dashboard 名稱或一個英文單字，可以不經 AI 直接前往；在頁面上選取一段字，也能直接叫我解釋或翻譯。',
+      '告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。打頁面名稱、dashboard 名稱或一個英文單字，可以不經 AI 直接前往；在頁面上選取一段字，也能直接叫我解釋或翻譯。說「記住…」，我就會記得你的目標與偏好。',
     examples: ['這個網站可以做哪些事？', '幫我查一個英文單字', '我的投資組合現在怎麼樣？'],
     suggestions: studioSuggestionsFor(path, dashboards),
     connectedLabel: '全站助理',

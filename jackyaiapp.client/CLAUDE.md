@@ -147,7 +147,10 @@ sent or stored, so a reopened conversation shows a plain message. A site tool's 
   (`AddMcpServerDialog`: URL → credentials → tools). Which entries show, in what order, and what
   「連線」does for one are `connectorView`; the dialog's checks and the request it sends are
   `AddMcpServerDialog/addMcpServer`. The catalog failing to load leaves the account connections working.
-  Below it, `SiteMcpSection` lets other AIs use the site: the site's MCP address, the reader's tokens (revoked after a
+  Below it, `MemorySection` lists what the reader asked Studio AI to remember (`assistantMemoryApis`, in the shared API,
+  tag `AssistantMemory`, which Studio's `remember`/`forget` also refresh through `refreshAfterTool`) and forgets one on a
+  second press; keeping one is only Studio AI's 「記住…」, asked first in the chat (D-100).
+  Below that, `SiteMcpSection` lets other AIs use the site: the site's MCP address, the reader's tokens (revoked after a
   second click) and `CreateTokenDialog`, which shows a new token once, with the settings for Claude Code, Claude
   Desktop, Cursor and VS Code filled in (`clientConfigs`); what a token's row says is `tokenView`
 - `/oauth/authorize` (`OAuthConsent`) is where another AI's OAuth sign-in to the site's MCP server asks the reader:

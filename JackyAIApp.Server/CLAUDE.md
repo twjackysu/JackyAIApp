@@ -55,7 +55,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 | MarketData | `Services.Market` (prices, history and backfill, fundamentals/chips/macro providers, TW symbol list, MIS TAIEX quote, trading calendar, `TwStockCode`), `Services.ExternalApi.Twse` | Platform |
 | English | `Services.Dictionary` (with `.Assistant`: its tools for Studio AI), `.Repository`, `.Exam`, `.Listening`, `.SpacedRepetition`, `.DailyChallenge`, `.WordOfTheDay`, `.SpellChecker`, `Mappers` | Connectors, Platform |
 | Connectors | `Services.Connectors` (what the AI may use: the tool contract `IAiTool`, the site's own tools as features register them, the reader's connectors and tool permissions, the hosted MCP servers, e.g. `TwStockMcp`; native connectors, `.Google`; the site's own MCP server, `.SiteMcp`; see docs/ai-native/design/03) | Platform |
-| Assistant | `Services.Assistant` (chat profiles, the turn's request), `Services.Chatbot` (the shared chat engine: turns, stream, history, attachments) | Connectors, Platform |
+| Assistant | `Services.Assistant` (chat profiles, the turn's request; `.Memory`: what the reader asked Studio AI to remember), `Services.Chatbot` (the shared chat engine: turns, stream, history, attachments) | Connectors, Platform |
 | Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest; `Services.Finance.Assistant`: the /finance assistant's profile and market background) | Assistant, Connectors, MarketData, Platform |
 | Portfolio | `Services.Portfolio` (with `.Assistant`: its tools for Studio AI) | Connectors, MarketData, Platform |
 | DataAnalysis | `Services.DataAnalysis` | Assistant, Connectors, Platform |
@@ -294,6 +294,15 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   `portfolio_summary` in one reply, three short parts, and with words due, an offer of a `review_quiz`; `StudioChatProfileTests` pins the tool names it uses). On a
   dashboard's page (`/dashboards/{id}`, `StudioChatProfile.DashboardOf`, an id that parses or nothing) the prompt names that
   dashboard, so "this dashboard" is the one on screen
+- Studio AI remembers what the reader asked it to (docs/ai-native/design/08, `Services/Assistant/Memory`): short notes in
+  their words, `AssistantMemories` (module Assistant), one line each, at most 200 characters and 30 a reader, the same words
+  kept once (`AssistantMemoryService`). Every note is in each Studio prompt (`StudioChatProfile.MemoryPrompt`), inside
+  `<user_memories>` with `<`/`>` made full-width so no note can close it, and called the reader's notes, not instructions:
+  a note lasts into every later conversation, so one slipped in by someone else's words would too. Hence `remember` is a write
+  (asked first, its card saying the whole note, `IDescribesCall`), and `forget` names a note by its words as kept (so its card
+  shows exactly what goes) and is `Destructive` (always asked; never offered by the site's MCP server). The connectors page
+  lists and forgets them (`GET`/`DELETE api/assistant/memories`, `AssistantMemoriesController` → `AssistantMemoryPage`,
+  someone else's NotFound). Only Studio AI reads them
 - `AnthropicChatService.StreamChatAsync` only orchestrates a turn. Its requests and the reading of the
   stream (the deltas to the reader, the pause_turn retries, uploading the files again when the Files API
   no longer has one) are `ModelTurn`, which ends in a `TurnOutcome`; what an outcome comes to (answered,
