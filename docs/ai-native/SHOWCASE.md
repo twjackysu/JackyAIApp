@@ -23,6 +23,7 @@
 | 「我今天有什麼行程？」→ **Google 日曆表格卡片** + 空檔建議 | 原生 connector `google_calendar_events`：用既有 Google 帳號連線（唯讀），行程標題視為外部文字 | 不只 MCP：自家程式呼叫 API 也是同一套工具抽象 |
 | /data-analysis 最上方的 AI 對話：問問題 → **互動圖表**（卡片上直接換成長條、圓餅…，不再問 AI）→ 「存到業績追蹤 dashboard」→ 確認 → 完成 | `ask_data`（沿用 問 AI 的檢查過的查詢管線）、`describe_data`、`save_to_dashboard` | AI 只用經過驗證的查詢，不自己寫 SQL |
 | **一句話做出整個 dashboard**：「幫我做一個業績總覽 dashboard（3 到 4 張圖），存完打開」→ AI 自己挑趨勢、組成、排名三四張互補的圖 → 一張確認卡列出全部，按 **「全部允許（3）」** → 頁面切到剛做好的 dashboard | 只靠 prompt：同一個回覆一起呼叫多個 `ask_data`，再一起呼叫多個 `save_to_dashboard`（依序執行，第一張建立、之後的找到它）；確認卡的「全部允許」只在全部是本站工具、沒有無法復原的動作、沒讀過外部內容時出現 | Agent 做的是「一件事」而不是「一個步驟」：規劃、執行多步、一次讓你確認 |
+| **AI 之間交棒**：在任何頁面跟 Studio AI 說「幫我做一個業績總覽 dashboard」→ 它說「交給資料分析的 AI 助理」→ 頁面自己切到 /data-analysis，那裡的助理**自動展開並接手**，畫圖、出確認卡 | `open_page` 的 `go`＋`ask` → `tool_result.handoff`（只跟著站內導覽送、讀過外部內容的對話不送）→ react-router 的 location state（外部連結設不了）→ 目的頁的 launcher 以新對話送一次後清掉 | 多 agent 協作（handoff）：全站助理是入口與調度者，專門的助理帶專門的工具做事；使用者不必知道該去哪問、也不用重打一次 |
 | dashboard 上一鍵 **「AI 解讀」**：Studio AI 用最新資料重算每張圖，說出最重要的變化與異常（手機上 dashboard 一列一張圖） | `read_dashboard`（只讀自己的 dashboard，別人分享的不讀）；dashboard 頁的路徑讓「這個 dashboard」就是正在看的那個；同一個工具也開放給本站 MCP server，Claude.ai 裡也能問「我的業績追蹤 dashboard 怎麼樣？」 | 資料不只畫成圖，AI 還會讀圖、說重點 |
 | **Connectors**：目錄一鍵加入 tw-stock、DeepWiki；貼任何 MCP URL 自動偵測登入方式 | MCP 官方 SDK（Streamable HTTP）、SafeHttp 防 SSRF | MCP 是 AI 接工具的標準 |
 | 需要登入的 MCP server：**自動跑完 MCP 授權規格** | 401 → PRM（RFC 9728）→ AS metadata（RFC 8414／OIDC）→ DCR／CIMD／手填 client → PKCE S256 + `resource` + `iss` → token 加密 → 到期自動 refresh → 403 `insufficient_scope` 時 step-up | 2025-11 起的 MCP 授權規格（PRM、CIMD、RFC 8707 resource、RFC 9207 iss） |
@@ -76,6 +77,9 @@
    ![換圖與接著問](screenshots/data-analysis-followups-desktop.png)
    **一句話做出整個 dashboard**：開新對話，按歡迎畫面的第四個建議「幫我做一個業績總覽 dashboard（3 到 4 張圖），存完打開」→ AI 先看欄位，再一口氣畫出三四張互補的圖（趨勢、各地區占比、前 5 名產品）→ 一張確認卡列出全部存檔，按「全部允許（3）」→ 回答結束後頁面切到剛做好的「業績總覽」。
    ![一句話做出整個 dashboard 的確認卡](screenshots/data-whole-dashboard-desktop.png)
+   **或從任何頁面交棒**：在首頁 ⌘K 跟 Studio AI 說「幫我做一個業績總覽 dashboard，存完打開」→ 它回「交給資料分析的 AI 助理了」→ 回答結束後抽屜收起、頁面切到 /data-analysis，那裡的助理自己展開、送出同一個請求，接著就是上面的三張圖與「全部允許」。
+   ![Studio AI 交棒](screenshots/studio-handoff-desktop.png)
+   ![資料分析的助理接手](screenshots/studio-handoff-data-desktop.png)
    到了 dashboard 頁，按標題旁的 **「AI 解讀」** → Studio AI 開新對話，讀這個 dashboard 的每張圖（用最新資料重算）→「北區是成長引擎、南區在下滑」這類重點，下方的接著問「哪張圖的變化最大？」。
    ![dashboard 的 AI 解讀按鈕](screenshots/dashboard-ai-button-desktop.png)
    ![Studio AI 解讀 dashboard](screenshots/studio-dashboard-desktop.png)

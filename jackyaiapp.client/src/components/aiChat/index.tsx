@@ -53,8 +53,9 @@ interface AiAssistantPanelProps {
   /** The `ask` with this id was sent: its owner drops it (`useAskQueue`), so a panel mounted again does not send it
    *  twice, and hands the next one. */
   onAskSent?: (id: number) => void;
-  /** An answer takes the reader to a page of the site (Studio AI's `open_page` with `go`); without it, only its link. */
-  onNavigate?: (path: string) => void;
+  /** An answer takes the reader to a page of the site (Studio AI's `open_page` with `go`), with a question for that
+   *  page's own assistant when it hands a task over (`utils/handoff`); without it, only its link. */
+  onNavigate?: (path: string, handoff?: string) => void;
   /** One of the profile's own tools finished (Studio AI reads again what a write changed). */
   onToolDone?: (tool: string) => void;
   /** Over the message box, from the app that holds the panel (Studio AI's quick actions for what is typed). */

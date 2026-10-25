@@ -26,6 +26,7 @@ import {
 } from '@/components/aiChat/selection/selectionActions';
 import SelectionBar from '@/components/aiChat/selection/SelectionBar';
 import { ACCENT_GRADIENT } from '@/components/aiChat/style';
+import { handoffState } from '@/components/aiChat/utils/handoff';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip } from '@/components/hints';
 import { useAppDispatch } from '@/redux/hooks';
@@ -77,32 +78,35 @@ export default function StudioAssistant() {
   // An answer that takes the reader to a page (open_page with go): the page changes under the drawer; on a
   // phone, where the drawer is the whole screen, it closes once the answer is done (they read what to do there
   // first), so they see where they are. A page with an assistant of its own (/finance) has no Studio AI to read
-  // the answer in, so going there waits for the answer too. The conversation stays.
+  // the answer in, so going there waits for the answer too. The conversation stays. A task handed to that page's own
+  // assistant (open_page with `ask`, D-095) goes with it, once the answer is done as an answer: that page then asks
+  // it, and the drawer, which that page does not show, closes.
   const navigate = useNavigate();
   const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'));
-  const afterAnswer = useRef<{ close: boolean; path?: string }>({ close: false });
+  const afterAnswer = useRef<{ close: boolean; path?: string; handoff?: string }>({ close: false });
   // The reader went somewhere with a quick action while an answer was written: the rest of that answer
   // takes them nowhere (cleared when it is done).
   const tookOver = useRef(false);
   const busyRef = useRef(false);
   const goTo = useCallback(
-    (path: string) => {
+    (path: string, handoff?: string) => {
       if (tookOver.current) return;
       if (studioShownOn(path)) navigate(path);
-      else afterAnswer.current.path = path;
+      else afterAnswer.current = { ...afterAnswer.current, path, handoff };
       if (fullScreen) afterAnswer.current.close = true;
     },
     [navigate, fullScreen],
   );
   const onActivity = useCallback(
-    ({ busy }: AssistantActivity) => {
+    ({ busy, answered }: AssistantActivity) => {
       busyRef.current = busy;
       if (busy) return;
       tookOver.current = false;
-      const { close, path } = afterAnswer.current;
+      const { close, path, handoff } = afterAnswer.current;
       afterAnswer.current = { close: false };
       if (close) setOpen(false);
-      if (path) navigate(path);
+      // Stopped or failed: the reader goes there, but nothing is asked in their name.
+      if (path) navigate(path, handoff && answered ? { state: handoffState(handoff) } : undefined);
     },
     [navigate],
   );

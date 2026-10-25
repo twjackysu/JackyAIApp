@@ -267,7 +267,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   the reader is on (page context `path`) in its prompt, `open_page` (`OpenPageTool`, a link card to a page, a
   word's dictionary page included; a word that is not plain letters is dropped; with `go`, when the reader asked to be
   taken there, the result's `AiToolResult.Navigate` also moves their page: `tool_result.navigate`, which `ClientToolRunner`
-  sends only for a site tool's call and only as a plain path on this site, never a connector's), every `ISiteTool` a feature
+  sends only for a site tool's call and only as a plain path on this site, never a connector's, and never once the conversation
+  has read outside text, when the model is told the page did not move, `NotMovedNote`; going to /finance or /data-analysis
+  with `ask`, `OpenPageTool.HandsOverTo`, it hands the reader's task to that page's own assistant: `AiToolResult.Handoff`, sent
+  as `tool_result.handoff` only with that navigation, trimmed to 500 characters, which that page asks as a new conversation, D-095), every `ISiteTool` a feature
   registers (English's `look_up_word`, `add_word_to_repository`, a write, so asked first, `saved_words`, the words the
   reader saved most recently with one meaning each and how many they have (`IRepositoryService.GetRecentWordsAsync`, at most
   30), so it can write a passage with the reader's own words, `learning_progress`,

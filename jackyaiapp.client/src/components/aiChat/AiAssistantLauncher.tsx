@@ -1,6 +1,6 @@
 import Box from '@mui/material/Box';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { CompactChatBar } from './components/CompactChatBar';
 import { AiChatConfig, AiChatConfigContext } from './config';
@@ -11,6 +11,7 @@ import {
   type SelectionActionKind,
 } from './selection/selectionActions';
 import SelectionBar from './selection/SelectionBar';
+import { handoffFromState } from './utils/handoff';
 
 import type { AssistantActivity } from '.';
 
@@ -103,6 +104,24 @@ export function AiAssistantLauncher({
     },
     [isAuthenticated, navigate, enqueueAsk],
   );
+
+  // A task Studio AI handed to this page's assistant (D-095, `utils/handoff`): asked once, as the first message of a new
+  // conversation, then taken out of the history entry, so going back or reloading does not ask it again. Only this
+  // site's code sets the location state; the server sends it only from a conversation that read no outside text.
+  const location = useLocation();
+  const handedOver = useRef<string | null>(null);
+  useEffect(() => {
+    const text = handoffFromState(location.state);
+    if (!text || !isAuthenticated || handedOver.current === location.key) return;
+    handedOver.current = location.key;
+    setOpened(true);
+    setExpanded(true);
+    enqueueAsk({ text, fresh: true });
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: null },
+    );
+  }, [location, isAuthenticated, enqueueAsk, navigate]);
 
   // Where an answer asked to go, kept until that answer is done (the last one asked wins).
   const goAfterAnswer = useRef<string | undefined>(undefined);

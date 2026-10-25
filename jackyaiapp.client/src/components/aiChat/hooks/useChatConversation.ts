@@ -8,6 +8,7 @@ import {
   ApprovalDecision,
   MessageApproval,
 } from '../utils/approval';
+import { handoffOf } from '../utils/handoff';
 import { applyToolEvent, settleToolSteps, ToolStep } from '../utils/toolActivity';
 
 import { chatbotApis, useLazyGetConversationMessagesQuery } from '@/apis/chatbotApis';
@@ -58,8 +59,9 @@ const storedCards = (raw: unknown): Pick<Message, 'cards'> => {
  */
 export interface ChatConversationOptions extends ChatStreamingOptions {
   /** A tool result moved the reader's page (`tool_result.navigate`, a path on this site); only as it streams,
-   *  never from a reopened conversation. Without it the result's link card is all the reader gets. */
-  onNavigate?: (path: string) => void;
+   *  never from a reopened conversation. Without it the result's link card is all the reader gets. `handoff` is a
+   *  question for that page's own assistant (`tool_result.handoff`, `utils/handoff`). */
+  onNavigate?: (path: string, handoff?: string) => void;
   /** One of the profile's own tools finished without failing (`tool_result` with `ok`), named as the server names
    *  it; only as it streams. Lets the page read again what a write changed (Studio AI, `refreshAfterTool`). */
   onToolDone?: (tool: string) => void;
@@ -225,8 +227,10 @@ export function useChatConversation(options?: ChatConversationOptions) {
       },
       onToolEvent: (event) => {
         updateSteps((steps) => applyToolEvent(steps, event));
-        const path = event.type === 'tool_result' && event.ok ? sitePathOf(event.navigate) : null;
-        if (path) onNavigateRef.current?.(path);
+        if (event.type === 'tool_result' && event.ok) {
+          const path = sitePathOf(event.navigate);
+          if (path) onNavigateRef.current?.(path, handoffOf(event.handoff));
+        }
         if (event.type === 'tool_result' && event.ok) onToolDoneRef.current?.(event.name);
       },
       onApprovalEvent: (event) =>

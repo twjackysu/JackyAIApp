@@ -100,7 +100,12 @@ jackyaiapp.client/src/
   「AI 解讀」 (`READ_DASHBOARD_PROMPT`, fresh; the server names the dashboard on screen and `read_dashboard` reads it), which is
   also Studio AI's first suggestion on a dashboard. A tool result's `navigate` (Studio AI's `open_page` with `go`, a path on this site only, `sitePathOf`, as it streams,
   never from a reopened conversation) moves the page under the drawer through the panel's `onNavigate`; on a phone the
-  drawer then closes once the answer is done. A site tool's write that worked (`tool_result` with `ok`, the panel's
+  drawer then closes once the answer is done. A result going to /finance or /data-analysis can hand that page's own assistant
+the reader's task (`tool_result.handoff`, `aiChat/utils/handoff`, D-095: 「幫我做一個業績總覽 dashboard」 asked of Studio AI is
+made by /data-analysis's assistant, which has the data tools): once the answer is done as an answer (not stopped or failed)
+the page goes there with the question in the router's location state, which only the site's code can set, and that
+page's `AiAssistantLauncher` opens and asks it once as a new conversation, then replaces the history entry without it,
+so going back or reloading asks nothing again. A site tool's write that worked (`tool_result` with `ok`, the panel's
   `onToolDone`, as it streams) has the page under the drawer read again what it changed (`refreshAfterTool`:
   `update_holding` the portfolio's `Holdings`/`Summary`, `add_word_to_repository` what adding a word on the repository
   page refreshes), so the change shows there at once. Selecting text on a page also asks it (`aiChat/selection`: `SelectionBar`, `readSelection`, `selectionActions`, shared

@@ -28,6 +28,9 @@ namespace JackyAIApp.Server.Services.Chatbot
         /// <summary>The most of one result the model is sent; the rest is cut, and it is told so.</summary>
         public const int MaxResultChars = 40_000;
 
+        /// <summary>The longest question handed to another page's assistant.</summary>
+        public const int MaxHandoffLength = 500;
+
         internal const string UnknownToolMessage = "沒有這個工具。";
         internal const string FailedMessage = "工具執行失敗，請換個方式或告訴使用者稍後再試。";
         internal const string TimedOutMessage = "工具逾時沒有回應，請告訴使用者稍後再試。";
@@ -39,6 +42,8 @@ namespace JackyAIApp.Server.Services.Chatbot
 
         /// <summary>How often a waiting stream sends a comment line.</summary>
         public static readonly TimeSpan PingEvery = TimeSpan.FromSeconds(20);
+        internal const string NotMovedNote =
+            "\n[注意：畫面沒有切換，也沒有把問題交給那一頁的助理（例如這個對話讀過外部內容時不會自動切換）。請使用者按對話中的連結自己前往。]";
         internal const string TruncatedNote = "\n[結果過長，以上僅為前段。]";
 
         // As the API's own JSON (Program.cs): camelCase, enums by name — a card may carry a DTO the
@@ -113,6 +118,7 @@ namespace JackyAIApp.Server.Services.Chatbot
 
                 var card = result.IsError || result.Card == null ? null : CardOf(call.Name, result.Card);
                 if (card != null) Cards.Add(card.Value);
+                var navigate = NavigateOf(call.Name, result);
                 await _sse.WriteAsync(new
                 {
                     type = "tool_result",
@@ -121,7 +127,8 @@ namespace JackyAIApp.Server.Services.Chatbot
                     ok = !result.IsError,
                     card,
                     durationMs,
-                    navigate = NavigateOf(call.Name, result),
+                    navigate,
+                    handoff = navigate != null ? HandoffOf(result) : null,
                 }, ct);
                 // What an outside connector (or someone's calendar invite) said may be written to steer the model;
                 // from here on in the turn, nothing that changes anything runs without the reader (docs/ai-native/design/06).
@@ -130,7 +137,10 @@ namespace JackyAIApp.Server.Services.Chatbot
                 results.Add(new BetaToolResultBlockParam
                 {
                     ToolUseID = call.ID,
-                    Content = Wrap(call.Name, result.Content),
+                    // The tool said the page went there (and a task was handed over); it did not, so the model must not say it did.
+                    Content = Wrap(call.Name, result.Navigate != null && navigate == null && !result.IsError
+                        ? result.Content + NotMovedNote
+                        : result.Content),
                     IsError = result.IsError,
                 });
             }
@@ -176,6 +186,18 @@ namespace JackyAIApp.Server.Services.Chatbot
             _byName.TryGetValue(toolName, out var tool) && tool.Descriptor.Connector == AiToolDescriptor.SiteConnector
                 ? path
                 : null;
+
+        /// <summary>
+        /// The question handed to the assistant of the page the reader goes to (<see cref="AiToolResult.Handoff"/>): only with
+        /// that navigation (so only a site tool's, and never after outside text), trimmed and at most
+        /// <see cref="MaxHandoffLength"/> characters, nothing for blank.
+        /// </summary>
+        private static string? HandoffOf(AiToolResult result)
+        {
+            var text = result.Handoff?.Trim();
+            if (string.IsNullOrEmpty(text)) return null;
+            return text.Length > MaxHandoffLength ? text[..MaxHandoffLength] : text;
+        }
 
         /// <summary>The card as the reader may be sent it (<see cref="ToolCardGuard"/>), or null.</summary>
         private JsonElement? CardOf(string toolName, object card)

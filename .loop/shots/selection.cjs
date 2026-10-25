@@ -226,11 +226,15 @@ const studioWriting = [
 ];
 
 // 頁面內的 fetch 替身：/api/chatbot/chat 回一個照順序送出事件的串流。
-const fakeChat = (events) => {
+// events 可以是一段串流，或是一串串流（第 n 次送出拿第 n 段，情境 F 的交棒用）。
+const fakeChat = (scripts) => {
   const realFetch = window.fetch.bind(window);
+  let calls = 0;
   window.fetch = (input, init) => {
     const url = typeof input === 'string' ? input : input.url;
     if (!url.includes('/api/chatbot/chat')) return realFetch(input, init);
+    const events = Array.isArray(scripts[0]) ? scripts[Math.min(calls, scripts.length - 1)] : scripts;
+    calls += 1;
     const enc = new TextEncoder();
     const body = new ReadableStream({
       async start(controller) {
@@ -356,6 +360,18 @@ async function selectIn(page, locator, text, last = false) {
   }, [text, last]);
   await page.waitForTimeout(700);
 }
+// Studio AI 把整個 dashboard 交給 /data-analysis 的助理（open_page 的 go＋ask）。
+const studioHandoff = [
+  start,
+  { type: 'tool_use', id: 't1', name: 'open_page', displayName: '開啟頁面' },
+  {
+    type: 'tool_result', id: 't1', name: 'open_page', ok: true, durationMs: 3, navigate: '/data-analysis',
+    handoff: '幫我做一個業績總覽 dashboard（3 到 4 張圖），存完打開',
+    card: { kind: 'link', title: '資料分析', href: '/data-analysis', description: '查詢與彙總表格資料，有自己的資料分析 AI 助理', actionLabel: '前往' },
+  },
+  delta('做 dashboard 要用資料分析的資料工具，我把這件事**交給資料分析的 AI 助理**了——它會先看欄位、畫三四張互補的圖，再請你確認存檔。'),
+  done,
+];
 const only = (k) => !process.env.ONLY || process.env.ONLY === k;
 (async () => {
   const out = process.argv[2];
@@ -434,6 +450,24 @@ const only = (k) => !process.env.ONLY || process.env.ONLY === k;
       await page.waitForTimeout(1500);
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: `${out}/data-whole-dashboard-${name}.png` });
+      await page.close();
+    }
+    if (only('F')) {
+      // F：Studio AI 交棒（D-095）——首頁 ⌘K「幫我做一個業績總覽 dashboard」→ Studio 用 open_page（go＋ask）交給
+      // /data-analysis 的助理 → 回答結束後頁面切過去，那裡的助理自己展開並送出同一個請求 → 三張圖＋一張確認卡。
+      const page = await open(browser, viewport, [studioHandoff, wholeDashboard]);
+      await page.goto('http://localhost:5173/');
+      await page.waitForTimeout(1500);
+      await page.keyboard.press('Control+k');
+      await page.waitForTimeout(800);
+      await page.getByRole('textbox').last().fill('幫我做一個業績總覽 dashboard，存完打開');
+      await page.getByRole('textbox').last().press('Enter');
+      await page.waitForTimeout(700);
+      await page.screenshot({ path: `${out}/studio-handoff-${name}.png` });
+      await page.waitForTimeout(6000);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: `${out}/studio-handoff-data-${name}.png` });
+      console.log('F', name, page.url());
       await page.close();
     }
   }

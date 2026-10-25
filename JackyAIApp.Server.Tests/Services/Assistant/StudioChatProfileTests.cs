@@ -161,6 +161,33 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             Assert.Null(notQuite.Navigate);
         }
 
+        [Fact]
+        public async Task OpenPage_HandsTheTaskToThePagesOwnAssistant_OnlyWhenGoingToOneWithAnAssistant()
+        {
+            var handed = await OpenAsync(new { page = "data-analysis", go = true, ask = "  幫我做一個業績總覽 dashboard  " });
+            var notGoing = await OpenAsync(new { page = "data-analysis", ask = "幫我做一個業績總覽 dashboard" });
+            var noAssistant = await OpenAsync(new { page = "portfolio", go = true, ask = "幫我看投資組合" });
+            var blank = await OpenAsync(new { page = "finance", go = true, ask = "   " });
+
+            Assert.Equal("/data-analysis", handed.Navigate);
+            Assert.Equal("幫我做一個業績總覽 dashboard", handed.Handoff);
+            Assert.Contains("接手", handed.Content);
+            Assert.Null(notGoing.Handoff);
+            Assert.Null(notGoing.Navigate);
+            Assert.Equal("/portfolio", noAssistant.Navigate);
+            Assert.Null(noAssistant.Handoff);
+            Assert.Null(blank.Handoff);
+            Assert.All(OpenPageTool.HandsOverTo, key => Assert.NotNull(SitePages.Find(key)));
+        }
+
+        [Fact]
+        public void ThePrompt_HandsDataAndMarketTasksToThoseAssistants()
+        {
+            var prompt = StudioChatProfile.SystemPromptFor(new DateOnly(2026, 10, 25), null, hasConnectors: false);
+
+            Assert.Contains("設 go 與 ask", prompt);
+        }
+
         [Theory]
         [InlineData("Serendipity", "/english/dictionary/serendipity")]
         [InlineData("ice cream", "/english/dictionary/ice%20cream")]

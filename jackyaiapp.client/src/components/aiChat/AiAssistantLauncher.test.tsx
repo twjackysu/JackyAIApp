@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AiAssistantLauncher } from './AiAssistantLauncher';
 import { SELECTION_SETTLE_MS } from './selection/readSelection';
+import { handoffFromState, handoffState } from './utils/handoff';
 
 import type { AssistantActivity } from '.';
 
@@ -56,16 +57,22 @@ afterEach(() => {
 
 /** Where the router is (a selected word's dictionary page is a page to go to). */
 function Location() {
-  return <div data-testid="location">{useLocation().pathname}</div>;
+  const { pathname, state } = useLocation();
+  return (
+    <div data-testid="location" data-handoff={handoffFromState(state) ?? ''}>
+      {pathname}
+    </div>
+  );
 }
 
 async function render(
   auth: { isAuthenticated: boolean; isAuthLoading: boolean },
   onNavigate?: (path: string) => void,
+  entry: string | { pathname: string; state: unknown } = '/finance',
 ) {
   await act(async () =>
     root.render(
-      <MemoryRouter initialEntries={['/finance']}>
+      <MemoryRouter initialEntries={[entry]}>
         <AiAssistantLauncher config={FINANCE_AI_CHAT} {...auth} onNavigate={onNavigate} />
         <Location />
       </MemoryRouter>,
@@ -280,6 +287,33 @@ describe('AiAssistantLauncher', () => {
     );
 
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  describe('a task Studio AI handed to this page', () => {
+    const handed = { pathname: '/finance', state: handoffState('台積電最近外資在買還是賣？') };
+    const location = () => container.querySelector<HTMLElement>('[data-testid="location"]')!;
+
+    it('is asked once, in a new conversation, and taken out of the history entry', async () => {
+      await render(signedIn, undefined, handed);
+      await act(async () => new Promise((r) => setTimeout(r, 0)));
+
+      expect(panelShown()).toBe(true);
+      expect(panel.props!.ask).toEqual({ id: 1, text: '台積電最近外資在買還是賣？', fresh: true });
+      expect(location().dataset.handoff).toBe('');
+      expect(location().textContent).toBe('/finance');
+
+      act(() => panel.props!.onAskSent!(1));
+      expect(panel.props!.ask).toBeUndefined();
+    });
+
+    it('waits for the sign-in, and asks nothing for a visitor who is not signed in', async () => {
+      await render({ isAuthenticated: false, isAuthLoading: true }, undefined, handed);
+      expect(panel.props).toBeNull();
+
+      await render({ isAuthenticated: true, isAuthLoading: false }, undefined, handed);
+      await act(async () => new Promise((r) => setTimeout(r, 0)));
+      expect(panel.props!.ask?.text).toBe('台積電最近外資在買還是賣？');
+    });
   });
 
   it('gives the panel no way to move the page when the page did not ask for one', async () => {

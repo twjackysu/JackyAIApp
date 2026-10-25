@@ -737,6 +737,53 @@ namespace JackyAIApp.Server.Tests.Services.Chatbot
         }
 
         [Fact]
+        public async Task AHandoff_GoesWithTheNavigation_Trimmed_AndCutToItsLimit()
+        {
+            var longAsk = "  " + new string('問', ClientToolRunner.MaxHandoffLength + 20) + "  ";
+            _toolProfile.Extra.Add(new RecordingTool("go_there", "開啟頁面", ToolEffect.Read)
+            {
+                Result = _ => new AiToolResult("好", Navigate: "/data-analysis", Handoff: longAsk),
+            });
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "go_there", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("交給資料分析的助理了"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            var result = turn.Events.Single(e => Type(e) == "tool_result");
+            Assert.Equal("/data-analysis", result.GetProperty("navigate").GetString());
+            Assert.Equal(new string('問', ClientToolRunner.MaxHandoffLength), result.GetProperty("handoff").GetString());
+            Assert.DoesNotContain("畫面沒有切換", LastToolResultSent(_anthropic.Requests[1]));
+        }
+
+        [Fact]
+        public async Task AfterOutsideText_NoHandoff_AndTheModelIsToldThePageDidNotMove()
+        {
+            _toolProfile.Extra.Add(new RecordingTool("calendar", "Google 日曆", ToolEffect.Read, outsideText: true));
+            _toolProfile.Extra.Add(new RecordingTool("go_there", "開啟頁面", ToolEffect.Read)
+            {
+                Result = _ => new AiToolResult("已交給那一頁的助理", Navigate: "/data-analysis", Handoff: "幫我做一個 dashboard"),
+            });
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_1", "calendar", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.ClientToolUse("toolu_2", "go_there", "{}"), Sse.End("tool_use"));
+            _anthropic.Reply(Sse.Start(), Sse.Text("請按連結前往"), Sse.End("end_turn"));
+
+            var turn = await AskAsync(profile: ToolProfile.ProfileKey);
+
+            var result = turn.Events.Where(e => Type(e) == "tool_result").Last();
+            Assert.Equal(JsonValueKind.Null, result.GetProperty("navigate").ValueKind);
+            Assert.Equal(JsonValueKind.Null, result.GetProperty("handoff").ValueKind);
+            Assert.Contains("畫面沒有切換", LastToolResultSent(_anthropic.Requests[2]));
+        }
+
+        /// <summary>What the model was sent as the last tool result of a request (its JSON as recorded).</summary>
+        private static string LastToolResultSent(string request)
+        {
+            var messages = JsonDocument.Parse(request).RootElement.GetProperty("messages");
+            var content = messages[messages.GetArrayLength() - 1].GetProperty("content");
+            return content[content.GetArrayLength() - 1].GetProperty("content").GetString()!;
+        }
+
+        [Fact]
         public async Task AConnectorsTool_NeverPutsWordsOfItsOwnOnTheCard()
         {
             _toolProfile.Extra.Add(new RecordingTool("m1__create", "Notion・建立", ToolEffect.Write, connector: "inst-1")

@@ -9,6 +9,7 @@ import { isStudioShortcut } from './studioChat';
 import StudioAssistant from '.';
 
 import { SELECTION_SETTLE_MS } from '@/components/aiChat/selection/readSelection';
+import { handoffFromState } from '@/components/aiChat/utils/handoff';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -20,9 +21,9 @@ const mocks = vi.hoisted(() => ({
     onCollapse: () => void;
     ask?: { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
     onAskSent?: (id: number) => void;
-    onNavigate?: (path: string) => void;
+    onNavigate?: (path: string, handoff?: string) => void;
     onToolDone?: (tool: string) => void;
-    onActivityChange?: (a: { busy: boolean; hasConversation: boolean }) => void;
+    onActivityChange?: (a: { busy: boolean; hasConversation: boolean; answered?: boolean }) => void;
     inputValue: string;
     onInputChange: (value: string) => void;
     inputQuotesPageText?: boolean;
@@ -78,14 +79,15 @@ async function render(path: string) {
   );
 }
 
-const router: { navigate?: NavigateFunction; pathname?: string } = {};
+const router: { navigate?: NavigateFunction; pathname?: string; state?: unknown } = {};
 function CaptureNavigate() {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, state } = useLocation();
   useEffect(() => {
     router.navigate = navigate;
     router.pathname = pathname;
-  }, [navigate, pathname]);
+    router.state = state;
+  }, [navigate, pathname, state]);
   return null;
 }
 
@@ -228,6 +230,41 @@ describe('StudioAssistant', () => {
     await act(async () => mocks.panel!.onActivityChange!({ busy: false, hasConversation: true }));
     await settle();
     expect(router.pathname).toBe('/finance');
+  });
+
+  it("hands a task to the page's own assistant once the answer is done as an answer", async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+
+    await act(async () =>
+      mocks.panel!.onNavigate!('/data-analysis', '幫我做一個業績總覽 dashboard'),
+    );
+    await settle();
+    expect(router.pathname).toBe('/');
+
+    await act(async () =>
+      mocks.panel!.onActivityChange!({ busy: false, hasConversation: true, answered: true }),
+    );
+    await settle();
+    expect(router.pathname).toBe('/data-analysis');
+    expect(handoffFromState(router.state)).toBe('幫我做一個業績總覽 dashboard');
+    // That page has no Studio AI: the drawer goes, the conversation stays.
+    expect(mocks.panel!.active).toBe(false);
+  });
+
+  it("asks nothing in the reader's name when the answer was stopped, though it still goes there", async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+
+    await act(async () =>
+      mocks.panel!.onNavigate!('/data-analysis', '幫我做一個業績總覽 dashboard'),
+    );
+    await act(async () => mocks.panel!.onActivityChange!({ busy: false, hasConversation: true }));
+    await settle();
+    expect(router.pathname).toBe('/data-analysis');
+    expect(handoffFromState(router.state)).toBeUndefined();
   });
 
   it('on a phone, a drawer the reader closed meanwhile is not closed for them later', async () => {

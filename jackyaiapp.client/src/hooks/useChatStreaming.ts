@@ -30,6 +30,9 @@ export type ToolEvent =
       /** A path on this site the reader's page goes to now (Studio AI's `open_page` when asked to take them
        *  there); unchecked until `sitePathOf`. */
       navigate?: unknown;
+      /** A question for the assistant of the page `navigate` goes to (Studio AI handing a task to /data-analysis's or
+       *  /finance's own); unchecked until `handoffOf`. */
+      handoff?: unknown;
     };
 
 /** A write waiting for the reader's decision, and the server saying the decisions arrived

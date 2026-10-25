@@ -194,8 +194,9 @@ const lastActivity = () => activities[activities.length - 1];
 /** The panel's owner holds the message being typed, as the one-line box does on the page. */
 type Ask = { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
 
-/** Pages an answer took the reader to (`onNavigate`). */
+/** Pages an answer took the reader to (`onNavigate`), with the task handed to that page's assistant if any. */
 let navigations: string[];
+let handoffs: (string | undefined)[];
 /** Tools that finished without failing (`onToolDone`). */
 let toolsDone: string[];
 /** The box holds text selected on a page (`inputQuotesPageText`). */
@@ -207,7 +208,10 @@ function Harness({ initialDraft, ask }: { initialDraft: string; ask?: Ask }) {
     <AiAssistantPanel
       active
       ask={ask}
-      onNavigate={(path) => navigations.push(path)}
+      onNavigate={(path, handoff) => {
+        navigations.push(path);
+        handoffs.push(handoff);
+      }}
       onToolDone={(tool) => toolsDone.push(tool)}
       inputValue={draft}
       onInputChange={setDraft}
@@ -224,6 +228,7 @@ async function mount(initialDraft = '', ask?: Ask) {
   collapses = 0;
   activities = [];
   navigations = [];
+  handoffs = [];
   toolsDone = [];
   inputQuotes = false;
   const store = configureStore({
@@ -679,6 +684,38 @@ describe('AiAssistantPanel', () => {
     expect(navigations).toEqual(['/english/review']);
     // Each call that worked is reported by its tool's name, the failed one is not.
     expect(toolsDone).toEqual(['open_page', 'open_page']);
+  });
+
+  it("hands the page's assistant the task the result carries, checked", async () => {
+    await mount();
+    chatReplies.push(() =>
+      sseReply(
+        { type: 'tool_use', id: 't1', name: 'open_page' },
+        {
+          type: 'tool_result',
+          id: 't1',
+          name: 'open_page',
+          ok: true,
+          navigate: '/data-analysis',
+          handoff: '  幫我做一個業績總覽 dashboard ',
+        },
+        { type: 'tool_use', id: 't2', name: 'open_page' },
+        {
+          type: 'tool_result',
+          id: 't2',
+          name: 'open_page',
+          ok: true,
+          navigate: '/finance',
+          handoff: 7,
+        },
+        { type: 'delta', text: '交給資料分析的助理了' },
+        { type: 'done', conversationId: 'c1' },
+      ),
+    );
+    await send('幫我做一個業績總覽 dashboard');
+    await waitForText('交給資料分析的助理了');
+    expect(navigations).toEqual(['/data-analysis', '/finance']);
+    expect(handoffs).toEqual(['幫我做一個業績總覽 dashboard', undefined]);
   });
 
   it("draws a tool result's card in the answer, above its text", async () => {
