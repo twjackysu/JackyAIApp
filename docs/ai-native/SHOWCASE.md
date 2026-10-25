@@ -61,9 +61,10 @@
    ![字典頁選一句例句](screenshots/select-sentence-desktop.png)
    ![翻成中文與值得學的字詞](screenshots/select-translate-desktop.png)
    ![朗讀](screenshots/studio-read-aloud-phone.png)
-   **它記得你**：在單字庫頁 ⌘K 說「記住：我在準備多益，目標 800 分，短文用商務情境」→ **確認卡**「記住：『在準備多益，目標 800 分；短文用商務情境』」→ 允許 →「Studio AI 記得的事」卡片。開一個新對話再按「用我單字庫裡最近存的字寫一段短文」→ 短文是商務情境、提到多益（模型讀到的是 system prompt 裡的筆記）。問「你記得我什麼？」會照清單回答；記住「我負責北區業績」後，到 /data-analysis 問「最近業績怎麼樣」，資料分析的助理會先看北區並說明（它只讀筆記、不能改）；到 /connectors 的「Studio AI 記得的事」看得到每一則，可以刪。
+   **它記得你**：在單字庫頁 ⌘K 說「記住：我在準備多益，目標 800 分，短文用商務情境」→ **確認卡**「記住：『在準備多益，目標 800 分；短文用商務情境』」→ 允許 →「Studio AI 記得的事」卡片。開一個新對話再按「用我單字庫裡最近存的字寫一段短文」→ 短文是商務情境、提到多益（模型讀到的是 system prompt 裡的筆記）。問「你記得我什麼？」會照清單回答；記住「我負責北區業績」後，到 /data-analysis 問「最近業績怎麼樣」，資料分析的助理會先看北區並說明（它只讀筆記、不能改）；沒叫它記也行：「我下個月要考多益，用我最近存的字寫一段短文」→ 短文寫完，最後一張確認卡「記住：『下個月要考多益』」（一個對話最多提議一次，按拒絕就不再提）；到 /connectors 的「Studio AI 記得的事」看得到每一則，可以刪。
    ![記住之前先問](screenshots/studio-memory-desktop.png)
    ![記住了](screenshots/studio-memory-done-desktop.png)
+   ![Studio AI 主動提議記住](screenshots/studio-memory-offer-desktop.png)
    ![/connectors 的 Studio AI 記得的事](screenshots/connectors-memory-desktop.png)
 4. **我的資產（1 分鐘）**：到 /portfolio → ⌘K →「幫我看看我的持股，哪幾檔虧最多？」→ 持倉表格卡片 + 重點。
    ![Studio 讀投資組合](screenshots/studio-portfolio-desktop.png)

@@ -316,6 +316,20 @@ const memoryDone = [
   delta('\n\n記住了！之後用你的單字寫短文會用**商務情境**，出題也會往多益的題型靠。想看我記得哪些事，可以問「你記得我什麼？」，或到 Connectors 管理。'),
   done,
 ];
+// 第 22 輪：使用者沒叫它記，Studio 回答後主動提議（D-103）——一樣是確認卡。
+const memoryOffer = [
+  start,
+  { type: 'tool_use', id: 't1', name: 'saved_words', displayName: '我的單字庫' },
+  {
+    type: 'tool_result', id: 't1', name: 'saved_words', ok: true, durationMs: 140,
+    card: { kind: 'link', title: '我的單字庫', description: '共 86 個字，最近加入：negotiate、deadline、quarterly、candid、resilient', href: '/english/repository', actionLabel: '前往單字庫' },
+  },
+  delta('多益常考商務情境，這段就用辦公室寫：\n\n> Our **quarterly** report was due on Friday, so the team had to **negotiate** a new **deadline** with the client. Our manager was **candid** about the delay, and the client appreciated it. The project hit a few problems, but the team proved **resilient**.\n\n**中文翻譯**：我們的**季度**報告週五要交，所以團隊得和客戶**協商**新的**截止日**。經理**坦白**說明延誤，客戶很感謝。專案遇到一些問題，但團隊證明了自己很**有韌性**。\n\n你提到下個月要考多益，要我記住嗎？之後的短文和小測驗都會往多益靠。要的話請按允許：'),
+  {
+    type: 'approval_required', pendingId: 'p1', tainted: false,
+    calls: [{ toolUseId: 't2', connector: 'site', connectorName: 'Jacky Studio', tool: 'remember', displayName: '記住', effect: 'write', alwaysAsks: true, input: { text: '下個月要考多益' }, summary: '記住：「下個月要考多益」' }],
+  },
+];
 const memories = { memories: [
   { id: 'm2', text: '在準備多益，目標 800 分；短文用商務情境', createdAt: '2026-10-25T12:00:00' },
   { id: 'm1', text: '早上通勤時間比較適合複習單字', createdAt: '2026-10-24T01:00:00' },
@@ -325,13 +339,18 @@ const memories = { memories: [
   const out = process.argv[2];
   const browser = await chromium.launch();
   for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
-    for (const [events, shot] of [[memoryAsk, 'studio-memory'], [memoryDone, 'studio-memory-done']]) {
+    for (const [events, shot, question] of [
+      [memoryAsk, 'studio-memory', '記住：我在準備多益，目標 800 分，短文用商務情境'],
+      [memoryDone, 'studio-memory-done', '記住：我在準備多益，目標 800 分，短文用商務情境'],
+      [memoryOffer, 'studio-memory-offer', '我下個月要考多益，用我最近存的字寫一段短文'],
+    ]) {
+      if (process.env.ONLY && !shot.endsWith(process.env.ONLY)) continue;
       const page = await open(browser, viewport, events);
       await page.goto('http://localhost:5173/english/repository');
       await page.waitForTimeout(1500);
       await page.keyboard.press('Control+k');
       await page.waitForTimeout(800);
-      await ask(page, '記住：我在準備多益，目標 800 分，短文用商務情境');
+      await ask(page, question);
       await page.waitForTimeout(1500);
       await page.screenshot({ path: `${out}/${shot}-${name}.png` });
       await page.close();
