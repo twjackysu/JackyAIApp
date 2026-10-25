@@ -22,6 +22,7 @@
 | 「我今天加碼 0050 兩張，均價 185，幫我記下來」（或**貼一張券商成交回報的截圖**）→ **確認卡**「『0050』加 2,000（成交價 185）（存成今天的快照）」→ 允許 → 投資組合更新 | `update_holding`（寫入，先確認）：最新快照改那一筆、存成今天的快照，成本照平均成本法（買進加上付出的錢、賣出保留平均成本）；買進沒說價格就先問、對到兩筆就不猜 | 跨 app 的「用說的記帳」：AI 不只讀你的資料，也幫你維護它 |
 | 「我今天有什麼行程？」→ **Google 日曆表格卡片** + 空檔建議 | 原生 connector `google_calendar_events`：用既有 Google 帳號連線（唯讀），行程標題視為外部文字 | 不只 MCP：自家程式呼叫 API 也是同一套工具抽象 |
 | /data-analysis 最上方的 AI 對話：問問題 → **互動圖表**（卡片上直接換成長條、圓餅…，不再問 AI）→ 「存到業績追蹤 dashboard」→ 確認 → 完成 | `ask_data`（沿用 問 AI 的檢查過的查詢管線）、`describe_data`、`save_to_dashboard` | AI 只用經過驗證的查詢，不自己寫 SQL |
+| **一句話做出整個 dashboard**：「幫我做一個業績總覽 dashboard（3 到 4 張圖），存完打開」→ AI 自己挑趨勢、組成、排名三四張互補的圖 → 一張確認卡列出全部，按 **「全部允許（3）」** → 頁面切到剛做好的 dashboard | 只靠 prompt：同一個回覆一起呼叫多個 `ask_data`，再一起呼叫多個 `save_to_dashboard`（依序執行，第一張建立、之後的找到它）；確認卡的「全部允許」只在全部是本站工具、沒有無法復原的動作、沒讀過外部內容時出現 | Agent 做的是「一件事」而不是「一個步驟」：規劃、執行多步、一次讓你確認 |
 | dashboard 上一鍵 **「AI 解讀」**：Studio AI 用最新資料重算每張圖，說出最重要的變化與異常（手機上 dashboard 一列一張圖） | `read_dashboard`（只讀自己的 dashboard，別人分享的不讀）；dashboard 頁的路徑讓「這個 dashboard」就是正在看的那個；同一個工具也開放給本站 MCP server，Claude.ai 裡也能問「我的業績追蹤 dashboard 怎麼樣？」 | 資料不只畫成圖，AI 還會讀圖、說重點 |
 | **Connectors**：目錄一鍵加入 tw-stock、DeepWiki；貼任何 MCP URL 自動偵測登入方式 | MCP 官方 SDK（Streamable HTTP）、SafeHttp 防 SSRF | MCP 是 AI 接工具的標準 |
 | 需要登入的 MCP server：**自動跑完 MCP 授權規格** | 401 → PRM（RFC 9728）→ AS metadata（RFC 8414／OIDC）→ DCR／CIMD／手填 client → PKCE S256 + `resource` + `iss` → token 加密 → 到期自動 refresh → 403 `insufficient_scope` 時 step-up | 2025-11 起的 MCP 授權規格（PRM、CIMD、RFC 8707 resource、RFC 9207 iss） |
@@ -30,7 +31,7 @@
 | **在 Claude.ai／ChatGPT 裡也看得到本站的卡片**：問「我的投資組合」，回答下方直接出現本站的持倉表格（深淺色跟著 host） | MCP Apps（`ui://` 資源、`structuredContent`、postMessage 的 `ui/initialize`／`tool-result`／`size-changed`），一個內嵌的 HTML 畫所有卡片 | MCP Apps（2026 的 generative UI 標準）：工具不只回文字，也回 UI |
 | /finance 的 Stock Intelligence：**行為不變**，工具 chip 與進度改用中文（「個股歷史股價」「技術指標」），回答下方有「接著問」 | 同一套共用 chat（`FinanceChatRequestTests` 逐欄位鎖住請求）；中文名稱是前端的對照表（`FINANCE_TOOL_LABELS`） | — |
 
-## Demo 腳本（約 9 分鐘）
+## Demo 腳本（約 10 分鐘）
 
 前置：production（或本機）已有 `Settings:AnthropicApiKey`；用一般帳號登入；Portfolio 有一份快照；/data-analysis 的預設資料源可用（見 FOR_JACKY 2）。
 
@@ -73,6 +74,8 @@
    ![存到 dashboard 的確認卡](screenshots/data-analysis-save-desktop.png)
    圖表卡片上的圖示可以直接換成直條圖、圓餅圖…（不再問 AI）；下方的「接著問」一鍵續問。
    ![換圖與接著問](screenshots/data-analysis-followups-desktop.png)
+   **一句話做出整個 dashboard**：開新對話，按歡迎畫面的第四個建議「幫我做一個業績總覽 dashboard（3 到 4 張圖），存完打開」→ AI 先看欄位，再一口氣畫出三四張互補的圖（趨勢、各地區占比、前 5 名產品）→ 一張確認卡列出全部存檔，按「全部允許（3）」→ 回答結束後頁面切到剛做好的「業績總覽」。
+   ![一句話做出整個 dashboard 的確認卡](screenshots/data-whole-dashboard-desktop.png)
    到了 dashboard 頁，按標題旁的 **「AI 解讀」** → Studio AI 開新對話，讀這個 dashboard 的每張圖（用最新資料重算）→「北區是成長引擎、南區在下滑」這類重點，下方的接著問「哪張圖的變化最大？」。
    ![dashboard 的 AI 解讀按鈕](screenshots/dashboard-ai-button-desktop.png)
    ![Studio AI 解讀 dashboard](screenshots/studio-dashboard-desktop.png)
@@ -182,5 +185,6 @@ flowchart LR
 | 10/25 | 16 | **用說的（或貼截圖）記一筆交易**（`update_holding`：確認後更新投資組合、成本照平均成本法、幣別不同只收總額）；巡檢 /english/exam、/english/repository 手機版 Studio |
 | 10/25 | 17 | **選取文字問 Studio AI**（解釋、翻譯、問 AI；一個英文單字查字典或加入單字庫，Studio 短文裡的字也能選）；頁面文字當外部文字（`quotesPageText`） |
 | 10/25 | 18 | 選取工具列擴到 /finance 與 /data-analysis 的助理（共用 `aiChat/selection`）；作答中的考題、每日挑戰、閃卡、測驗卡不給選取工具列 |
+| 10/25 | 19 | **一句話做出整個 dashboard**（多張圖一次查、一張確認卡存完）；確認卡的「全部允許／全部拒絕」（只限本站工具、未讀外部內容）；修好 Jacky 改名後的紅 CI；第 18 輪審查剩下的兩個低風險 |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

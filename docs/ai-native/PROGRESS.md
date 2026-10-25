@@ -1,5 +1,16 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 15:41 – 第 19 輪（修紅 CI、一句話做出整個 dashboard、確認卡全部允許、審查）
+
+- 開工：master 沒有新 commit；**最新一次 CI 是紅的**：Jacky 15:30 的 commit 25c21dd 把 `QuickActions.tsx` 改名成 `QuickActionChips.tsx`（避免 Windows／macOS 上與 `quickActions.ts` 只差大小寫），但 `StudioAssistant/index.tsx` 的 import 沒跟著改 → 修 import、元件名稱與 client CLAUDE.md（CI 40174073059 綠）。
+- **第 18 輪審查剩下的低風險**（D-092）：助理的標題列與對話紀錄標 `noSelectionAsk`；Studio 與 `AiAssistantLauncher` 的 ask 改成依序佇列（`aiChat/hooks/useAskQueue`，面板 `onAskSent(id)`）。
+- **巡檢 /data-analysis 的選取**：助理回答裡選「南區則緩步下滑」→ 工具列「解釋／翻成英文／問 AI」，按下送出的訊息正確（接在原對話、沒有 quotesPageText，以 console 確認）。截圖 `select-data-*`（`selection.cjs` 情境 D）。
+- **一句話做出整個 dashboard**（D-090）：只改 /data-analysis 助理的 prompt 與歡迎畫面第四個建議；多個 `save_to_dashboard` 依序執行，第一張建立、之後的找到它（新測試）。
+- **確認卡的「全部允許（N）／全部拒絕」**（D-091）：只在全部是本站工具、沒有 destructive、沒讀過外部內容時給全部允許；「以後直接執行」每個工具只問一次；`ApprovalCard` 以 `pendingId` 為 key。截圖 `data-whole-dashboard-*`（情境 E）。
+- **審查**（subagent，D-093）：無高風險；中風險「外部 MCP 的 effect 是對方自己說的，全部允許可能放行夾帶的刪除」已修（只限本站工具）；上傳檔案時查完第一張就停（prompt）。其餘低風險記在 D-093。
+- 驗證：前端 lint、test（137 檔 1477＋個）、build 全過；CI 40174073059、40174872913、40175193675（後端 prompt＋測試，第一次就綠）、40175961415 綠；審查修正的 CI 見 NEXT §1。
+- 問題：無阻礙。
+
 ## 2026-10-25 13:42 – 第 18 輪（選取工具列巡檢、擴到 /finance 與 /data-analysis 的助理、審查）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。clone 是 shallow，先 `git fetch --unshallow`。
