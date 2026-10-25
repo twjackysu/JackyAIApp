@@ -14,7 +14,8 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
     /// Only a holding already in the latest snapshot: a new one needs its asset type, market and currency, which the
     /// holdings editor on /portfolio looks up properly. The cost basis follows the average-cost rule: selling keeps the
     /// average cost (the cost shrinks in proportion), buying adds what was paid — so buying more of a holding that has a
-    /// cost needs the price, or its P&amp;L would be wrong from then on.
+    /// cost needs what was paid (the price, or the total in the cost's currency when that is not the price's), or its
+    /// P&amp;L would be wrong from then on.
     /// </para>
     /// </summary>
     public sealed class UpdateHoldingTool(IPortfolioService portfolio, TimeProvider time) : ISiteTool, IDescribesCall
@@ -26,7 +27,8 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
             "更新持倉",
             "更新使用者投資組合裡一筆既有持倉的數量（股數、基金單位數，現金、負債、不動產是金額），存成今天的快照。" +
             "使用者說他買進、賣出、加碼、減碼，或要你把某筆持倉改成多少時使用。quantity（改成多少）與 change（增減多少，賣出是負數）" +
-            "擇一；台股一張是 1000 股。買進有成本的持倉時要給 price（這次的成交價，每單位，用這筆持倉成本的幣別），使用者沒說就先問他。" +
+            "擇一；台股一張是 1000 股。買進有成本的持倉時要給 price（這次的成交價，每單位）或 cost（這次總共付了多少），使用者沒說就先問他；" +
+            "價格與成本幣別不同的持倉（例如用台幣買的美股）只收 cost（用成本的幣別），工具會告訴你是哪個幣別。" +
             "只能改已經有的持倉，新增持倉請他到投資組合頁面。執行前會請使用者確認。",
             JsonSerializer.SerializeToElement(new
             {
@@ -36,7 +38,8 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
                     symbol = new { type = "string", description = "持倉的代號或名稱（例如 0050、AAPL、台積電；現金、負債用名稱）" },
                     quantity = new { type = "number", minimum = 0, description = "改成多少；0 代表從投資組合移除" },
                     change = new { type = "number", description = "增減多少：買進是正數、賣出是負數" },
-                    price = new { type = "number", exclusiveMinimum = 0, description = "買進的成交價（每單位）" },
+                    price = new { type = "number", exclusiveMinimum = 0, description = "買進的成交價（每單位，持倉的價格幣別）" },
+                    cost = new { type = "number", exclusiveMinimum = 0, description = "這次買進總共付了多少（持倉成本的幣別）" },
                 },
                 required = new[] { "symbol" },
             }),
@@ -77,15 +80,24 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
                 return new AiToolResult($"{Label(position)} 本來就是 {Amount(before)}，沒有變更。", Card: PortfolioCard($"{Label(position)}：{Amount(before)}", "看投資組合"));
 
             var costBefore = position.CostBasis;
+            var costCurrency = string.IsNullOrWhiteSpace(position.CostCurrency) ? position.Currency : position.CostCurrency;
             if (AssetValuationPolicy.For(position.AssetType).HasCostBasis && costBefore is { } cost)
             {
                 if (after < before)
                     position.CostBasis = before == 0 ? null : Math.Round(cost * after / before, 2);
-                else if (change.Price is { } price)
+                else if (change.Cost is { } paid)
+                    position.CostBasis = Math.Round(cost + paid, 2);
+                else if (change.Price is { } price && costCurrency == position.Currency)
                     position.CostBasis = Math.Round(cost + (after - before) * price, 2);
+                else if (change.Price is not null)
+                    // A price is in the holding's own currency; its cost is kept in another (a US stock paid for in
+                    // TWD), and converting is not the model's to guess.
+                    return AiToolResult.Error(
+                        $"{Label(position)} 的價格是 {position.Currency}、成本記成 {costCurrency}，所以沒有用成交價更新。請問使用者這次總共付了多少 {costCurrency}，再用 cost 傳。");
                 else
                     return AiToolResult.Error(
-                        $"{Label(position)} 有記錄成本，買進要知道成交價才能算對損益，所以還沒有更新。請問使用者這次每單位的成交價（{position.CostCurrency ?? position.Currency}）。");
+                        $"{Label(position)} 有記錄成本，買進要知道付了多少才能算對損益，所以還沒有更新。請問使用者這次每單位的成交價（{position.Currency}）" +
+                        (costCurrency == position.Currency ? "或總共付了多少。" : $"，或總共付了多少 {costCurrency}（用 cost 傳）。"));
             }
             position.Quantity = after;
 
@@ -101,13 +113,16 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
             }, ct);
 
             var dateText = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            // A snapshot already on that date is replaced, as the editor's save replaces it: say so, not that history keeps it.
+            var replacedSameDay = latest.EffectiveDate == date;
             var text = after == 0
-                ? $"已把 {Label(position)} 從投資組合移除（原本 {Amount(before)}），存成 {dateText} 的快照。"
+                ? $"已把 {Label(position)} 從投資組合移除（原本 {Amount(before)}），存成 {dateText} 的快照" +
+                  (replacedSameDay ? "（取代了這一天原本的快照）。" : "（之前的快照留在歷史裡）。")
                 : $"已更新 {Label(position)}：{Amount(before)} → {Amount(after)}" +
                   (position.CostBasis != costBefore && position.CostBasis is { } costAfter
-                      ? $"，成本 {Amount(costBefore ?? 0)} → {Amount(costAfter)} {position.CostCurrency ?? position.Currency}"
+                      ? $"，成本 {Amount(costBefore ?? 0)} → {Amount(costAfter)} {costCurrency}"
                       : "") +
-                  $"，存成 {dateText} 的快照（之前的快照留在歷史裡）。";
+                  $"，存成 {dateText} 的快照" + (replacedSameDay ? "（取代了這一天原本的快照）。" : "（之前的快照留在歷史裡）。");
             return new AiToolResult(
                 text,
                 Card: PortfolioCard(after == 0 ? $"{Label(position)} 已移除" : $"{Label(position)}：{Amount(before)} → {Amount(after)}", "看投資組合"));
@@ -131,7 +146,7 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
     }
 
     /// <summary>What one <see cref="UpdateHoldingTool"/> call asks for: the holding, and either its new quantity or the change.</summary>
-    internal sealed record HoldingChange(string Symbol, decimal? Quantity, decimal? Change, decimal? Price)
+    internal sealed record HoldingChange(string Symbol, decimal? Quantity, decimal? Change, decimal? Price, decimal? Cost)
     {
         internal const int MaxSymbolLength = 40;
 
@@ -144,9 +159,10 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
             var quantity = NumberOf(input, "quantity");
             var change = NumberOf(input, "change");
             var price = NumberOf(input, "price");
+            var cost = NumberOf(input, "cost");
             // Exactly one of the two; a change of nothing is not a change.
-            if ((quantity is null) == (change is null) || quantity < 0 || change == 0 || price <= 0) return null;
-            return new HoldingChange(symbol, quantity, change, price);
+            if ((quantity is null) == (change is null) || quantity < 0 || change == 0 || price <= 0 || cost <= 0) return null;
+            return new HoldingChange(symbol, quantity, change, price, cost);
         }
 
         /// <summary>By symbol or by name ("0050" or "元大台灣50"); two holdings that both match are refused, not guessed.</summary>
@@ -159,7 +175,7 @@ namespace JackyAIApp.Server.Services.Portfolio.Assistant
             (0m, _) => $"把「{Symbol}」從你的投資組合移除",
             ({ } q, _) => $"把「{Symbol}」的數量改成 {UpdateHoldingTool.Amount(q)}",
             (_, > 0m) => $"「{Symbol}」加 {UpdateHoldingTool.Amount(Change!.Value)}" +
-                          (Price is { } p ? $"（成交價 {UpdateHoldingTool.Amount(p)}）" : ""),
+                          (Cost is { } c ? $"（共付 {UpdateHoldingTool.Amount(c)}）" : Price is { } p ? $"（成交價 {UpdateHoldingTool.Amount(p)}）" : ""),
             _ => $"「{Symbol}」減 {UpdateHoldingTool.Amount(-Change!.Value)}",
         };
 

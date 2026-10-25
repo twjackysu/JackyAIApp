@@ -26,6 +26,9 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
                 new PositionInput { AssetType = AssetType.STOCK, Symbol = "0050", Name = "元大台灣50", Market = "TW", Currency = "TWD", CostCurrency = "TWD", Quantity = 5000, CostBasis = 900_000m },
                 new PositionInput { AssetType = AssetType.STOCK, Symbol = "2330", Name = "台積電", Market = "TW", Currency = "TWD", CostCurrency = "TWD", Quantity = 1000 },
                 new PositionInput { AssetType = AssetType.CASH, Symbol = "", Name = "現金", Currency = "TWD", Quantity = 300_000m },
+                new PositionInput { AssetType = AssetType.STOCK, Symbol = "AAPL", Name = "Apple", Market = "US", Currency = "USD", CostCurrency = "TWD", Quantity = 10, CostBasis = 60_000m },
+                new PositionInput { AssetType = AssetType.FUND, Symbol = "F1", Name = "全球基金", Currency = "USD", CostCurrency = "TWD", Quantity = 100.5m, UnitPrice = 12.3m, CostBasis = 40_000m },
+                new PositionInput { AssetType = AssetType.REAL_ESTATE, Symbol = "", Name = "自宅", Currency = "TWD", Quantity = 12_000_000m, ValuationMethod = "市價" },
             ],
         };
 
@@ -138,11 +141,78 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         }
 
         [Fact]
+        public async Task TheOtherHoldings_KeepEveryField()
+        {
+            var h = new Harness(Latest());
+
+            await h.Run(new { symbol = "2330", quantity = 2000 });
+
+            var fund = Held(h.Saved!, "F1");
+            Assert.Equal(100.5m, fund.Quantity);
+            Assert.Equal(12.3m, fund.UnitPrice);
+            Assert.Equal("TWD", fund.CostCurrency);
+            Assert.Equal(40_000m, fund.CostBasis);
+            Assert.Equal("市價", Assert.Single(h.Saved!.Positions, p => p.Name == "自宅").ValuationMethod);
+        }
+
+        [Fact]
+        public async Task SellingByTheNewQuantity_AlsoKeepsTheAverageCost()
+        {
+            var h = new Harness(Latest());
+
+            // The symbol as the model may send it: padded.
+            await h.Run(new { symbol = " 0050 ", quantity = 2500 });
+
+            Assert.Equal(2500m, Held(h.Saved!, "0050").Quantity);
+            Assert.Equal(450_000m, Held(h.Saved!, "0050").CostBasis);
+        }
+
+        [Fact]
+        public async Task AHoldingPricedInOneCurrencyAndCostInAnother_TakesThePaidTotal_NotThePrice()
+        {
+            var h = new Harness(Latest());
+
+            var refused = await h.Run(new { symbol = "aapl", change = 10, price = 200 });
+            Assert.True(refused.IsError);
+            Assert.Contains("TWD", refused.Content);
+            Assert.Null(h.Saved);
+
+            var result = await h.Run(new { symbol = "aapl", change = 10, cost = 64_000 });
+            Assert.False(result.IsError);
+            Assert.Equal(20m, Held(h.Saved!, "AAPL").Quantity);
+            Assert.Equal(124_000m, Held(h.Saved!, "AAPL").CostBasis);
+            Assert.Contains("TWD", result.Content);
+        }
+
+        [Fact]
+        public async Task ASnapshotAlreadyDatedToday_IsReplaced_AndTheReplySaysSo()
+        {
+            var h = new Harness(Latest(Today));
+
+            var result = await h.Run(new { symbol = "2330", quantity = 2000 });
+
+            Assert.Equal(Today, h.Saved!.EffectiveDate);
+            Assert.Contains("取代", result.Content);
+            Assert.DoesNotContain("留在歷史", result.Content);
+        }
+
+        [Fact]
+        public async Task AnEmptyPortfolio_SavesNothing()
+        {
+            var h = new Harness(new SaveHoldingsRequest { EffectiveDate = Today });
+
+            var result = await h.Run(new { symbol = "0050", change = 1000, price = 185 });
+
+            Assert.True(result.IsError);
+            Assert.Null(h.Saved);
+        }
+
+        [Fact]
         public async Task AHoldingNotHeld_SavesNothing_AndPointsToThePortfolioPage()
         {
             var h = new Harness(Latest());
 
-            var result = await h.Run(new { symbol = "AAPL", change = 10, price = 200 });
+            var result = await h.Run(new { symbol = "NVDA", change = 10, price = 200 });
 
             Assert.True(result.IsError);
             Assert.Contains("0050", result.Content);
@@ -181,6 +251,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [InlineData("""{"symbol":"0050","quantity":-1}""")]
         [InlineData("""{"symbol":"0050","change":0}""")]
         [InlineData("""{"symbol":"0050","change":5,"price":0}""")]
+        [InlineData("""{"symbol":"0050","change":5,"cost":-1}""")]
         [InlineData("""{"symbol":"","change":5}""")]
         public async Task AnUnclearCall_SavesNothing(string input)
         {
@@ -196,6 +267,7 @@ namespace JackyAIApp.Server.Tests.Services.Portfolio
         [Theory]
         [InlineData("""{"symbol":"0050","change":2000,"price":185}""", "「0050」加 2,000（成交價 185）")]
         [InlineData("""{"symbol":"0050","change":-1000}""", "「0050」減 1,000")]
+        [InlineData("""{"symbol":"AAPL","change":10,"cost":64000}""", "「AAPL」加 10（共付 64,000）")]
         [InlineData("""{"symbol":"0050","quantity":3000}""", "把「0050」的數量改成 3,000")]
         [InlineData("""{"symbol":"0050","quantity":0}""", "把「0050」從你的投資組合移除")]
         public void TheConfirmationCard_SaysTheChangeInWords(string input, string expected)
