@@ -48,6 +48,8 @@ interface AiAssistantPanelProps {
   onAskSent?: () => void;
   /** An answer takes the reader to a page of the site (Studio AI's `open_page` with `go`); without it, only its link. */
   onNavigate?: (path: string) => void;
+  /** One of the profile's own tools finished (Studio AI reads again what a write changed). */
+  onToolDone?: (tool: string) => void;
   /** Over the message box, from the app that holds the panel (Studio AI's quick actions for what is typed). */
   inputAccessory?: ReactNode;
 }
@@ -68,6 +70,7 @@ function AiAssistantPanel({
   ask,
   onAskSent,
   onNavigate,
+  onToolDone,
   inputAccessory,
 }: AiAssistantPanelProps) {
   const sheet = variant === 'sheet';
@@ -78,6 +81,7 @@ function AiAssistantPanel({
     pageContext: config.pageContext,
     toolLabels: config.toolLabels,
     onNavigate,
+    onToolDone,
   });
   const { messages, conversationId, busy } = conversation;
   const preview = usePreview(conversation.blocks, conversation.currentHtmlBlock);

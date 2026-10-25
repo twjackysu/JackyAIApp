@@ -10,6 +10,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ASK_STUDIO_EVENT, askedOf, type AskStudioDetail } from './askStudio';
 import QuickActions from './QuickActions';
 import { quickActionsFor, type QuickAction } from './quickActions';
+import { refreshAfterTool } from './refreshAfterTool';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
 
 import type { AssistantActivity } from '@/components/aiChat';
@@ -20,6 +21,7 @@ import { AiChatConfigContext } from '@/components/aiChat/config';
 import { ACCENT_GRADIENT } from '@/components/aiChat/style';
 import CenteredSpinner from '@/components/CenteredSpinner';
 import { ActionTooltip } from '@/components/hints';
+import { useAppDispatch } from '@/redux/hooks';
 
 const AiAssistantPanel = lazy(() => import('@/components/aiChat'));
 
@@ -53,6 +55,12 @@ export default function StudioAssistant() {
   }, [open, loadBoards]);
   const boards = boardList?.data;
   const config = useMemo(() => studioChatConfig(pathname, boards), [pathname, boards]);
+  // A write Studio AI made (a holding updated, a word added) shows at once on the page under the drawer.
+  const dispatch = useAppDispatch();
+  const toolDone = useCallback(
+    (tool: string) => refreshAfterTool(tool).forEach((action) => dispatch(action)),
+    [dispatch],
+  );
 
   // An answer that takes the reader to a page (open_page with go): the page changes under the drawer; on a
   // phone, where the drawer is the whole screen, it closes once the answer is done (they read what to do there
@@ -187,6 +195,7 @@ export default function StudioAssistant() {
                 ask={ask}
                 onAskSent={askSent}
                 onNavigate={goTo}
+                onToolDone={toolDone}
                 onActivityChange={onActivity}
                 onInputChange={setDraft}
                 onCollapse={closeByHand}

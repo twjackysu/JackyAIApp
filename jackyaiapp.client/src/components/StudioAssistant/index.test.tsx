@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
     ask?: { id: number; text: string; fresh?: boolean };
     onAskSent?: () => void;
     onNavigate?: (path: string) => void;
+    onToolDone?: (tool: string) => void;
     onActivityChange?: (a: { busy: boolean; hasConversation: boolean }) => void;
     inputValue: string;
     onInputChange: (value: string) => void;
@@ -27,9 +28,11 @@ const mocks = vi.hoisted(() => ({
   narrow: false,
   boards: [] as { id: string; name: string }[],
   loadBoards: vi.fn(),
+  dispatch: vi.fn(),
 }));
 vi.mock('@mui/material/useMediaQuery', () => ({ default: () => mocks.narrow }));
 vi.mock('@/apis/accountApis', () => ({ useGetUserInfoQuery: () => mocks.user }));
+vi.mock('@/redux/hooks', () => ({ useAppDispatch: () => mocks.dispatch }));
 vi.mock('@/apis/dashboardApis', () => ({
   useLazyGetDashboardsQuery: () => [mocks.loadBoards, { data: { data: mocks.boards } }],
 }));
@@ -50,6 +53,7 @@ beforeEach(() => {
   mocks.narrow = false;
   mocks.boards = [];
   mocks.loadBoards = vi.fn();
+  mocks.dispatch = vi.fn();
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -154,6 +158,24 @@ describe('StudioAssistant', () => {
     await act(async () => askStudio('給我今天的簡報', { fresh: true }));
     await settle();
     expect(mocks.panel!.ask).toEqual({ id: 1, text: '給我今天的簡報', fresh: true });
+  });
+
+  it('reads again what a write of Studio AI changed, so the page under the drawer shows it', async () => {
+    await render('/portfolio');
+    await act(async () => button()!.click());
+    await settle();
+
+    await act(async () => mocks.panel!.onToolDone!('update_holding'));
+    expect(mocks.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'portfolioApis/invalidateTags',
+        payload: ['Holdings', 'Summary'],
+      }),
+    );
+
+    mocks.dispatch.mockClear();
+    await act(async () => mocks.panel!.onToolDone!('portfolio_summary'));
+    expect(mocks.dispatch).not.toHaveBeenCalled();
   });
 
   it('goes to the page an answer takes the reader to, the drawer and its conversation still open', async () => {

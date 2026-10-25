@@ -1,5 +1,17 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 09:42 – 第 16 輪（用說的／貼截圖記交易、審查、巡檢）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。
+- **`update_holding`**（D-081）：「我今天加碼 0050 兩張，均價 185，幫我記下來」→ 確認卡「『0050』加 2,000（成交價 185）（存成今天的快照）」→ 最新快照改那一筆、存成今天（台北）的快照；成本照平均成本法；只改既有持倉（新增回連結卡）、對到兩筆不猜、買進沒價格不存。記完的接著問「我的投資組合現在怎麼樣？」；/portfolio 的 Studio 建議「幫我記一筆今天的交易」（AI 會問細節或請他貼截圖）。測試：`UpdateHoldingToolTests`（19 個情境）、`StudioChatProfileTests`、`studioChat.test.ts`。
+- **貼成交回報截圖記帳**（D-083）：只改 Studio 的 prompt（附件本來就共用）；截圖情境 `studio-trade-image-*`（`.loop/shots/fixtures/trade-confirmation.png` 是自己畫的虛構回報；`chat.cjs` 補了附件上傳與內容的假 API）。
+- **寫入後頁面立刻重讀**（D-085）：面板的 `onToolDone` → Studio 的 `refreshAfterTool`（`update_holding` → 投資組合、`add_word_to_repository` → 單字庫與複習）；抽屜後面的頁面不用手動重新整理。測試：`refreshAfterTool.test.ts`、Studio 與面板的測試。
+- **審查**（subagent，D-082）：無高風險；兩個中風險已修（價格與成本幣別不同只收 `cost`、同日第二次修改照實說取代了當天的快照）。
+- **巡檢**：/english/exam、/english/repository 手機版 Studio 的建議正常；/finance 回答下方的複製／朗讀是滑鼠移上去才出現（桌機設計如此，`MessageActions`），截圖沒有 hover 所以看不到，不是 bug。每日挑戰不放進 Studio（D-084）。
+- 文件：server CLAUDE.md（模組表、Studio 工具）、D-081～D-084、SHOWCASE（亮點一列、demo 第 4 步、日誌）、PLAN；截圖 `studio-trade-*`、`studio-trade-image-*`。
+- 驗證：cscheck 新診斷 0；前端 lint、test、build 全過；CI 40152058952（update_holding，第一次就綠）、40152437241、40152714154（審查修正）綠；最後一次含程式碼的 push 見下一則 NEXT §1。
+- 問題：無阻礙。
+
 ## 2026-10-25 07:42 – 第 15 輪（用自己的單字寫短文、朗讀、審查）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠。

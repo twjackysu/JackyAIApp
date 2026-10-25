@@ -196,6 +196,8 @@ type Ask = { id: number; text: string; fresh?: boolean };
 
 /** Pages an answer took the reader to (`onNavigate`). */
 let navigations: string[];
+/** Tools that finished without failing (`onToolDone`). */
+let toolsDone: string[];
 
 function Harness({ initialDraft, ask }: { initialDraft: string; ask?: Ask }) {
   const [draft, setDraft] = useState(initialDraft);
@@ -204,6 +206,7 @@ function Harness({ initialDraft, ask }: { initialDraft: string; ask?: Ask }) {
       active
       ask={ask}
       onNavigate={(path) => navigations.push(path)}
+      onToolDone={(tool) => toolsDone.push(tool)}
       inputValue={draft}
       onInputChange={setDraft}
       onCollapse={() => (collapses += 1)}
@@ -218,6 +221,7 @@ async function mount(initialDraft = '', ask?: Ask) {
   collapses = 0;
   activities = [];
   navigations = [];
+  toolsDone = [];
   const store = configureStore({
     reducer: { [chatbotApis.reducerPath]: chatbotApis.reducer },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(chatbotApis.middleware),
@@ -597,6 +601,8 @@ describe('AiAssistantPanel', () => {
     await send('帶我去複習');
     await waitForText('到了');
     expect(navigations).toEqual(['/english/review']);
+    // Each call that worked is reported by its tool's name, the failed one is not.
+    expect(toolsDone).toEqual(['open_page', 'open_page']);
   });
 
   it("draws a tool result's card in the answer, above its text", async () => {

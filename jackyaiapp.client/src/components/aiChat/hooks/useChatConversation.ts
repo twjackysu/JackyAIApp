@@ -55,6 +55,9 @@ export interface ChatConversationOptions extends ChatStreamingOptions {
   /** A tool result moved the reader's page (`tool_result.navigate`, a path on this site); only as it streams,
    *  never from a reopened conversation. Without it the result's link card is all the reader gets. */
   onNavigate?: (path: string) => void;
+  /** One of the profile's own tools finished without failing (`tool_result` with `ok`), named as the server names
+   *  it; only as it streams. Lets the page read again what a write changed (Studio AI, `refreshAfterTool`). */
+  onToolDone?: (tool: string) => void;
 }
 
 export function useChatConversation(options?: ChatConversationOptions) {
@@ -67,8 +70,10 @@ export function useChatConversation(options?: ChatConversationOptions) {
   const { sendStreamingMessage, stop, streamingStatus } = useChatStreaming(options);
   // The latest handler, whenever the result arrives (a turn's callbacks are the render's that sent it).
   const onNavigateRef = useRef(options?.onNavigate);
+  const onToolDoneRef = useRef(options?.onToolDone);
   useEffect(() => {
     onNavigateRef.current = options?.onNavigate;
+    onToolDoneRef.current = options?.onToolDone;
   });
   const { blocks, currentHtmlBlock } = useStreamingHtmlParser(currentStreamingContent);
   const busy = streamingStatus.isLoading;
@@ -216,6 +221,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
         updateSteps((steps) => applyToolEvent(steps, event));
         const path = event.type === 'tool_result' && event.ok ? sitePathOf(event.navigate) : null;
         if (path) onNavigateRef.current?.(path);
+        if (event.type === 'tool_result' && event.ok) onToolDoneRef.current?.(event.name);
       },
       onApprovalEvent: (event) =>
         event.type === 'approval_required'

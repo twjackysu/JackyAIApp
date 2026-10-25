@@ -96,7 +96,10 @@ jackyaiapp.client/src/
   「AI 解讀」 (`READ_DASHBOARD_PROMPT`, fresh; the server names the dashboard on screen and `read_dashboard` reads it), which is
   also Studio AI's first suggestion on a dashboard. A tool result's `navigate` (Studio AI's `open_page` with `go`, a path on this site only, `sitePathOf`, as it streams,
   never from a reopened conversation) moves the page under the drawer through the panel's `onNavigate`; on a phone the
-  drawer then closes once the answer is done. On a page without the button only the button goes: the drawer, and the conversation in it, stay
+  drawer then closes once the answer is done. A site tool's write that worked (`tool_result` with `ok`, the panel's
+  `onToolDone`, as it streams) has the page under the drawer read again what it changed (`refreshAfterTool`:
+  `update_holding` the portfolio's `Holdings`/`Summary`, `add_word_to_repository` what adding a word on the repository
+  page refreshes), so the change shows there at once. On a page without the button only the button goes: the drawer, and the conversation in it, stay
   mounted once opened (one of its own link cards may lead to /finance). An app's own assistant (`AiAssistantLauncher`) moves the page only when
   the page passes `onNavigate` (/data-analysis: `save_to_dashboard` asked to open what it saved), and only once the answer is
   done (`AssistantActivity.answered`: not when the reader stopped it, or it failed), since the assistant is part of the page
