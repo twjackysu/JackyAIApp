@@ -105,7 +105,9 @@ the reader's task (`tool_result.handoff`, `aiChat/utils/handoff`, D-095: 「幫�
 made by /data-analysis's assistant, which has the data tools): once the answer is done as an answer (not stopped or failed)
 the page goes there with the question in the router's location state, which only the site's code can set, and that
 page's `AiAssistantLauncher` opens and asks it once as a new conversation, then replaces the history entry without it,
-so going back or reloading asks nothing again. A site tool's write that worked (`tool_result` with `ok`, the panel's
+so going back or reloading asks nothing again. That message is marked 「由 Studio AI 轉來」 over its bubble (`SendOptions.handedOverBy`,
+`Message.handedOverBy`, D-099), so the conversation is not one that started by itself; the mark is the client's alone, never
+sent or stored, so a reopened conversation shows a plain message. A site tool's write that worked (`tool_result` with `ok`, the panel's
   `onToolDone`, as it streams) has the page under the drawer read again what it changed (`refreshAfterTool`:
   `update_holding` the portfolio's `Holdings`/`Summary`, `add_word_to_repository` what adding a word on the repository
   page refreshes), so the change shows there at once. Selecting text on a page also asks it (`aiChat/selection`: `SelectionBar`, `readSelection`, `selectionActions`, shared

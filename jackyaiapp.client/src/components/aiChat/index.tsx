@@ -123,13 +123,16 @@ function AiAssistantPanel({
   useEffect(() => {
     if (!ask || sentAsk.current === ask.id) return;
     sentAsk.current = ask.id;
-    const quotes = ask.quotesPageText ? { quotesPageText: true } : {};
+    const options = {
+      ...(ask.quotesPageText && { quotesPageText: true }),
+      ...(ask.handedOverBy && { handedOverBy: ask.handedOverBy }),
+    };
     if (ask.fresh) {
       // A preview of the old conversation's answer has nothing to do with the new one.
       closePreview();
-      send(ask.text, [], { fresh: true, ...quotes });
+      send(ask.text, [], { fresh: true, ...options });
     } else {
-      send(ask.text, [], quotes);
+      send(ask.text, [], options);
     }
     onAskSent?.(ask.id);
   }, [ask, send, closePreview, onAskSent]);

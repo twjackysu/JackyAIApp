@@ -298,7 +298,12 @@ describe('AiAssistantLauncher', () => {
       await act(async () => new Promise((r) => setTimeout(r, 0)));
 
       expect(panelShown()).toBe(true);
-      expect(panel.props!.ask).toEqual({ id: 1, text: '台積電最近外資在買還是賣？', fresh: true });
+      expect(panel.props!.ask).toEqual({
+        id: 1,
+        text: '台積電最近外資在買還是賣？',
+        fresh: true,
+        handedOverBy: 'Studio AI',
+      });
       expect(location().dataset.handoff).toBe('');
       expect(location().textContent).toBe('/finance');
 

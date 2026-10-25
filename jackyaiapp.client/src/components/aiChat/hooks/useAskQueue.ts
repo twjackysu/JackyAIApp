@@ -9,6 +9,8 @@ export interface ChatAsk {
   fresh?: boolean;
   /** Quotes text the reader selected on a page (someone else's words, maybe). */
   quotesPageText?: boolean;
+  /** Another assistant handed this task over (`SendOptions.handedOverBy`): its name, shown over the message. */
+  handedOverBy?: string;
 }
 
 /**

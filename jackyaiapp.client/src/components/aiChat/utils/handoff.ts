@@ -9,6 +9,9 @@
 /** The longest question handed over, as the server cuts it (`ClientToolRunner.MaxHandoffLength`). */
 export const HANDOFF_MAX = 500;
 
+/** Who hands tasks over: the name shown over the message the page's assistant is asked (D-099). */
+export const HANDOFF_FROM = 'Studio AI';
+
 const STATE_KEY = 'assistantHandoff';
 
 /** The question a tool result hands over (`tool_result.handoff`), or undefined for none or anything else. */

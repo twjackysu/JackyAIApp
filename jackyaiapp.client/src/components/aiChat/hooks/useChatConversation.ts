@@ -32,6 +32,11 @@ export interface SendOptions {
    * someone else's words: the server treats the conversation as having read outside content.
    */
   quotesPageText?: boolean;
+  /**
+   * The message is a task another assistant handed over (Studio AI's handoff, D-095): its name, shown over the
+   * reader's message so they see where it came from (D-099). Nothing of it goes to the server.
+   */
+  handedOverBy?: string;
 }
 
 /** Maps stored conversation rows (one per turn) into chat bubbles. */
@@ -150,7 +155,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
     text: string,
     attachments: ChatAttachment[],
     edited?: Message,
-    { fresh = false, quotesPageText = false }: SendOptions = {},
+    { fresh = false, quotesPageText = false, handedOverBy }: SendOptions = {},
   ) => {
     const userMessage: Message = {
       id: `${Date.now()}-${nextTurnKey.current++}`,
@@ -158,6 +163,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
       isUser: true,
       timestamp: new Date(),
       attachments: attachments.length > 0 ? attachments : undefined,
+      ...(handedOverBy && { handedOverBy }),
     };
     // 創建初始的 bot 訊息
     const botMessage: Message = {
@@ -285,6 +291,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
   const send = (text: string, attachments: ChatAttachment[], options?: SendOptions) => {
     const fresh = options?.fresh === true;
     const quotesPageText = options?.quotesPageText === true;
+    const handedOverBy = options?.handedOverBy;
     if (busy) {
       setQueued((prev) => [
         ...prev,
@@ -294,10 +301,11 @@ export function useChatConversation(options?: ChatConversationOptions) {
           attachments,
           ...(fresh && { fresh }),
           ...(quotesPageText && { quotesPageText }),
+          ...(handedOverBy && { handedOverBy }),
         },
       ]);
     } else {
-      void sendTurn(text, attachments, undefined, { fresh, quotesPageText });
+      void sendTurn(text, attachments, undefined, { fresh, quotesPageText, handedOverBy });
     }
   };
 

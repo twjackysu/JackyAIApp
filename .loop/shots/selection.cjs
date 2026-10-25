@@ -3,7 +3,7 @@
 // 用法：cd jackyaiapp.client && npm run build && NODE_PATH=$(npm root -g) node ../.loop/shots/selection.cjs <輸出目錄>（前半段與 chat.cjs 相同）
 // /data-analysis 助理的回答裡選一段（第 19 輪，情境 D）。
 // 一句話做出整個 dashboard（第 19 輪，情境 E）。
-// 只拍一個情境：ONLY=A|B|C|D|E。
+// 只拍一個情境：ONLY=A|B|C|D|E|F|G|H（F 也拍交棒來的訊息上方的「由 Studio AI 轉來」，第 21 輪）。
 // chat 的串流由頁面內的 fetch 替身送出（addInitScript），可以停在確認卡上不結束，所以拍得到「等待確認」的畫面。
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -503,6 +503,11 @@ const only = (k) => !process.env.ONLY || process.env.ONLY === k;
       await page.waitForTimeout(6000);
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: `${out}/studio-handoff-data-${name}.png` });
+      // 第 21 輪（D-099）：捲到對話開頭，看「由 Studio AI 轉來」
+      await page.locator('[data-testid="user-message"]').first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
+      await page.waitForTimeout(400);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: `${out}/studio-handoff-from-${name}.png` });
       console.log('F', name, page.url());
       await page.close();
     }

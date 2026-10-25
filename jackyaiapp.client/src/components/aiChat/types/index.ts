@@ -27,6 +27,8 @@ export interface QueuedMessage {
   fresh?: boolean;
   /** Quotes text selected on a page (`SendOptions.quotesPageText`). */
   quotesPageText?: boolean;
+  /** Handed over by another assistant (`SendOptions.handedOverBy`). */
+  handedOverBy?: string;
 }
 
 export interface Message {
@@ -48,6 +50,9 @@ export interface Message {
   approval?: MessageApproval;
   /** Files sent with a user message. */
   attachments?: ChatAttachment[];
+  /** A user message another assistant handed over (D-099): that assistant's name, shown over the bubble in this
+   *  session only (the server keeps the text alone, so a reopened conversation shows a plain message). */
+  handedOverBy?: string;
   /** An answer that came to its end in this session (not stopped, failed or reopened): follow-ups go under it. */
   answered?: boolean;
 }

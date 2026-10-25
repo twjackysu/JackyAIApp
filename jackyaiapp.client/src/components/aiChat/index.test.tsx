@@ -192,7 +192,13 @@ let activities: AssistantActivity[];
 const lastActivity = () => activities[activities.length - 1];
 
 /** The panel's owner holds the message being typed, as the one-line box does on the page. */
-type Ask = { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
+type Ask = {
+  id: number;
+  text: string;
+  fresh?: boolean;
+  quotesPageText?: boolean;
+  handedOverBy?: string;
+};
 
 /** Pages an answer took the reader to (`onNavigate`), with the task handed to that page's assistant if any. */
 let navigations: string[];
@@ -502,6 +508,41 @@ describe('AiAssistantPanel', () => {
     await send('謝謝');
     await waitFor(() => expect(chatBodies).toHaveLength(3));
     expect(chatBodies[2].conversationId).toBe('conv-2');
+  });
+
+  it('marks a task handed over by another assistant, sent now or after the reply being written, and tells the server nothing of it', async () => {
+    await mount();
+    let finish!: () => void;
+    chatReplies.push(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = () =>
+            resolve(
+              sseReply({ type: 'delta', text: '一' }, { type: 'done', conversationId: 'conv-1' }),
+            );
+        }),
+    );
+    await send('first');
+    await renderAsk({
+      id: 1,
+      text: '幫我做一個業績總覽 dashboard',
+      fresh: true,
+      handedOverBy: 'Studio AI',
+    });
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '好的' }, { type: 'done', conversationId: 'conv-2' }),
+    );
+    await act(async () => finish());
+    await waitForText('好的');
+    expect(chatBodies[1]).toEqual({
+      message: '幫我做一個業績總覽 dashboard',
+      conversationId: '',
+      attachmentIds: [],
+      profile: 'finance',
+    });
+    const marks = container.querySelectorAll('[data-testid="handed-over"]');
+    expect(marks).toHaveLength(1);
+    expect(marks[0].textContent).toBe('由 Studio AI 轉來');
   });
 
   it('a new conversation asked for while a reply is being written waits for it, then starts', async () => {

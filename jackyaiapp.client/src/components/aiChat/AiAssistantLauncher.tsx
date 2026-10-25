@@ -11,7 +11,7 @@ import {
   type SelectionActionKind,
 } from './selection/selectionActions';
 import SelectionBar from './selection/SelectionBar';
-import { handoffFromState } from './utils/handoff';
+import { HANDOFF_FROM, handoffFromState } from './utils/handoff';
 
 import type { AssistantActivity } from '.';
 
@@ -106,7 +106,7 @@ export function AiAssistantLauncher({
   );
 
   // A task Studio AI handed to this page's assistant (D-095, `utils/handoff`): asked once, as the first message of a new
-  // conversation, then taken out of the history entry, so going back or reloading does not ask it again. Only this
+  // conversation (marked as handed over by Studio AI), then taken out of the history entry, so going back or reloading does not ask it again. Only this
   // site's code sets the location state; the server sends it only from a conversation that read no outside text.
   const location = useLocation();
   const handedOver = useRef<string | null>(null);
@@ -116,7 +116,8 @@ export function AiAssistantLauncher({
     handedOver.current = location.key;
     setOpened(true);
     setExpanded(true);
-    enqueueAsk({ text, fresh: true });
+    // Shown over the message as where it came from (D-099), so the reader sees the pages' assistants pass it on.
+    enqueueAsk({ text, fresh: true, handedOverBy: HANDOFF_FROM });
     navigate(
       { pathname: location.pathname, search: location.search, hash: location.hash },
       { replace: true, state: null },

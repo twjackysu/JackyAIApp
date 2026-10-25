@@ -185,6 +185,19 @@ describe('MessageArea', () => {
     });
   });
 
+  it('says over a message another assistant handed over where it came from, and over no other', () => {
+    render([
+      { ...message('u1', '幫我做一個業績總覽 dashboard', true), handedOverBy: 'Studio AI' },
+      message('a1', '好的'),
+      message('u2', '再加一張圖', true),
+    ]);
+    const marks = container.querySelectorAll('[data-testid="handed-over"]');
+    expect(marks).toHaveLength(1);
+    expect(marks[0].textContent).toBe('由 Studio AI 轉來');
+    const users = container.querySelectorAll('[data-testid="user-message"]');
+    expect(users[0].contains(marks[0])).toBe(true);
+  });
+
   it('never scrolls the page itself', () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;

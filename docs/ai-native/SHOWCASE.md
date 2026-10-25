@@ -80,8 +80,9 @@
    ![換圖與接著問](screenshots/data-analysis-followups-desktop.png)
    **一句話做出整個 dashboard**：開新對話，按歡迎畫面的第四個建議「幫我做一個業績總覽 dashboard（3 到 4 張圖），存完打開」→ AI 先看欄位，再一口氣畫出三四張互補的圖（趨勢、各地區占比、前 5 名產品）→ 一張確認卡列出全部存檔，按「全部允許（3）」→ 回答結束後頁面切到剛做好的「業績總覽」。
    ![一句話做出整個 dashboard 的確認卡](screenshots/data-whole-dashboard-desktop.png)
-   **或從任何頁面交棒**：在首頁 ⌘K 跟 Studio AI 說「幫我做一個業績總覽 dashboard，存完打開」（/dashboards 列表頁的 Studio 建議裡就有這一句）→ 它回「交給資料分析的 AI 助理了」→ 回答結束後抽屜收起、頁面切到 /data-analysis，那裡的助理自己展開、送出同一個請求，接著就是上面的三張圖與「全部允許」。
+   **或從任何頁面交棒**：在首頁 ⌘K 跟 Studio AI 說「幫我做一個業績總覽 dashboard，存完打開」（/dashboards 列表頁的 Studio 建議裡就有這一句）→ 它回「交給資料分析的 AI 助理了」→ 回答結束後抽屜收起、頁面切到 /data-analysis，那裡的助理自己展開、送出同一個請求（訊息上方標著「由 Studio AI 轉來」），接著就是上面的三張圖與「全部允許」。
    ![Studio AI 交棒](screenshots/studio-handoff-desktop.png)
+   ![由 Studio AI 轉來](screenshots/studio-handoff-from-desktop.png)
    ![資料分析的助理接手](screenshots/studio-handoff-data-desktop.png)
    到了 dashboard 頁，按標題旁的 **「AI 解讀」** → Studio AI 開新對話，讀這個 dashboard 的每張圖（用最新資料重算）→「北區是成長引擎、南區在下滑」這類重點，下方的接著問「哪張圖的變化最大？」。
    ![dashboard 的 AI 解讀按鈕](screenshots/dashboard-ai-button-desktop.png)

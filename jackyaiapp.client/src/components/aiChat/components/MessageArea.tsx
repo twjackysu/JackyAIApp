@@ -1,4 +1,5 @@
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import ShortcutIcon from '@mui/icons-material/Shortcut';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { Box, Button, ButtonBase, Paper, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -23,6 +24,23 @@ import { TRUNCATED_NOTE } from '@/apis/chatbotApis/chatErrors';
 import { attachmentContentUrl } from '@/apis/chatbotApis/types';
 import MarkdownMessage from '@/components/MarkdownMessage';
 import { ParsedBlock } from '@/hooks/useStreamingHtmlParser';
+
+/**
+ * Over a message another assistant handed over (D-099): the task came from Studio AI on another page, so the reader
+ * sees why this conversation started by itself.
+ */
+function HandedOver({ by }: { by: string }) {
+  return (
+    <Typography
+      variant="caption"
+      color="text.secondary"
+      data-testid="handed-over"
+      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
+    >
+      <ShortcutIcon sx={{ fontSize: 14, color: ACCENT }} aria-hidden />由 {by} 轉來
+    </Typography>
+  );
+}
 
 /** Within this many pixels of the end, the reader counts as "following" the conversation. */
 const FOLLOW_THRESHOLD_PX = 80;
@@ -265,6 +283,7 @@ function MessageArea({
                   ...revealActionsOnHover,
                 }}
               >
+                {message.handedOverBy && <HandedOver by={message.handedOverBy} />}
                 {attachments}
                 {editing ? (
                   <MessageEditor
