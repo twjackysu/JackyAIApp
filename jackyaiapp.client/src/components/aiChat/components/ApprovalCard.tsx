@@ -50,7 +50,8 @@ const where = (call: ApprovalCall) =>
  * toggle; one without (an outside connector's) always shows its arguments.
  *
  * Several calls (a whole dashboard's charts saved at once) can also be decided together: 全部拒絕 always, and
- * 全部允許 when none of them cannot be undone and the conversation has not read outside content — there, an extra call
+ * 全部允許 when all are the site's own tools, none of them cannot be undone and the conversation has not read outside
+ * content — an outside server's tool says its own effect, and after outside content an extra call
  * an injected text slipped in among the expected ones is exactly what one press would wave through, so each is decided
  * on its own. Letting a tool run on its own from now on is offered once per tool, under its first call.
  */
@@ -82,7 +83,10 @@ export default function ApprovalCard({
     if (allowed.length > 0) onAlwaysAllow?.(allowed);
   };
   const single = approval.calls.length === 1;
-  const canAllowAll = !approval.tainted && approval.calls.every((c) => c.effect !== 'destructive');
+  // Only the site's own tools, whose effect is our own code's word (an outside server's is a hint it may leave out).
+  const canAllowAll =
+    !approval.tainted &&
+    approval.calls.every((c) => c.connector === SITE_CONNECTOR && c.effect !== 'destructive');
   const allAs = (approve: boolean) =>
     submit(approval.calls.map((c) => ({ toolUseId: c.toolUseId, approve })));
   const open = state === 'pending' || state === 'failed';

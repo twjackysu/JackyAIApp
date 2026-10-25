@@ -178,7 +178,7 @@ describe('ApprovalCard', () => {
     ]);
   });
 
-  it('offers no 全部允許 when one call cannot be undone, or after outside content: each is decided on its own', () => {
+  it('offers no 全部允許 when one call cannot be undone, is an outside connector’s, or after outside content', () => {
     render({ pendingId: 'p', calls: [call('a'), call('b', { effect: 'destructive' })] });
     expect(buttons().some((b) => b.textContent?.startsWith('全部允許'))).toBe(false);
     expect(button('全部拒絕')).toBeDefined();
@@ -188,6 +188,10 @@ describe('ApprovalCard', () => {
     render({ pendingId: 'q', calls: [call('c'), call('d')], tainted: true });
     expect(buttons().some((b) => b.textContent?.startsWith('全部允許'))).toBe(false);
     expect(button('送出')).toBeDefined();
+
+    // An outside connector's tool says its own effect (a hint it may leave out): decided one by one.
+    render({ pendingId: 'r', calls: [call('e'), call('f', { connector: 'inst-1' })] });
+    expect(buttons().some((b) => b.textContent?.startsWith('全部允許'))).toBe(false);
   });
 
   describe('letting a site tool run on its own from now on', () => {

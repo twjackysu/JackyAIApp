@@ -76,6 +76,7 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             // A whole dashboard in one go: its charts asked together, then saved together, put to the reader at once.
             Assert.Contains("一整個 dashboard", setup.SystemPrompt);
             Assert.Contains("同一張確認卡", setup.SystemPrompt);
+            Assert.Contains("chartId 是 null", setup.SystemPrompt);
             Assert.False(setup.AttachTwStock);
             Assert.Null(setup.CachedBackground);
             Assert.Equal(new[] { AskDataTool.Name, DescribeDataTool.Name, SaveToDashboardTool.Name }, setup.Tools!.Select(t => t.Descriptor.Name));
