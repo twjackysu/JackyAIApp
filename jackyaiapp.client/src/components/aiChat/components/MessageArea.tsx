@@ -310,7 +310,9 @@ function MessageArea({
           // of what ran, above the text with the tools' cards.
           const awaitingReader = message.approval != null && message.approval.state !== 'resolved';
           const approvalCard = message.approval && (
+            // A new question in the same answer (a later round of the turn) is a new card, its choices its own.
             <ApprovalCard
+              key={message.approval.request.pendingId}
               approval={message.approval.request}
               state={message.approval.state}
               decisions={message.approval.decisions}

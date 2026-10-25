@@ -59,7 +59,9 @@ jackyaiapp.client/src/
   that the app passes to `AiAssistantLauncher` (Finance's is `Finance/aiChatConfig.ts`); the chat's
   parts read it with `useAiChatConfig()`, so their tests render under an `AiChatConfigContext`. The tools
   an answer used are `ToolActivity` (from the stream's `tool_use`/`tool_result`, `utils/toolActivity`),
-  a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`; a call the site describes in words,
+  a write waiting for the reader is `ApprovalCard` (`approval_required`, `utils/approval`; several calls are decided one
+  by one or together, 全部拒絕 always and 全部允許 only when none is destructive and the conversation read no outside content,
+  and 「以後直接執行」 is offered once per tool; MessageArea keys it by `pendingId`, so a later question is a new card; a call the site describes in words,
   `summary`, shows that with its raw arguments behind 「顯示送出的參數」, an outside connector's always shows them; while it waits it comes after the
   answer's text, with no thinking dots, and once answered it stays above the text as a record; the header says
   what the turn is doing, `hooks/chatStatus`, a tool by its display name and「等你確認」while it waits; for a site tool's write, outside a

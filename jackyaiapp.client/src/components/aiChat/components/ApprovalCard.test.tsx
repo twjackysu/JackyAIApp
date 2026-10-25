@@ -104,10 +104,10 @@ describe('ApprovalCard', () => {
       pendingId: 'p',
       calls: [call('a'), call('b', { displayName: '建立 issue' })],
     });
-    const send = () => button('送出');
+    const send = () => button('照上面的選擇送出');
 
     expect(send().disabled).toBe(true);
-    expect(container.textContent).toContain('每一項都選好允許或拒絕後才能送出');
+    expect(container.textContent).toContain('也可以逐項選好允許或拒絕');
 
     const [allowA, , , refuseB] = buttons().filter(
       (b) => b.textContent === '允許' || b.textContent === '拒絕',
@@ -154,6 +154,42 @@ describe('ApprovalCard', () => {
     expect(button('允許')).toBeDefined();
   });
 
+  it('several calls can be allowed, or refused, all at once', () => {
+    const calls = [
+      call('a'),
+      call('b'),
+      call('c', { tool: 'save', displayName: '存到 dashboard' }),
+    ];
+    const onSubmit = render({ pendingId: 'p', calls });
+
+    click(button('全部允許（3）'));
+    expect(onSubmit).toHaveBeenCalledWith([
+      { toolUseId: 'a', approve: true },
+      { toolUseId: 'b', approve: true },
+      { toolUseId: 'c', approve: true },
+    ]);
+
+    const refused = render({ pendingId: 'q', calls });
+    click(button('全部拒絕'));
+    expect(refused).toHaveBeenCalledWith([
+      { toolUseId: 'a', approve: false },
+      { toolUseId: 'b', approve: false },
+      { toolUseId: 'c', approve: false },
+    ]);
+  });
+
+  it('offers no 全部允許 when one call cannot be undone, or after outside content: each is decided on its own', () => {
+    render({ pendingId: 'p', calls: [call('a'), call('b', { effect: 'destructive' })] });
+    expect(buttons().some((b) => b.textContent?.startsWith('全部允許'))).toBe(false);
+    expect(button('全部拒絕')).toBeDefined();
+    expect(button('送出').disabled).toBe(true);
+    expect(container.textContent).toContain('每一項都選好允許或拒絕後才能送出');
+
+    render({ pendingId: 'q', calls: [call('c'), call('d')], tainted: true });
+    expect(buttons().some((b) => b.textContent?.startsWith('全部允許'))).toBe(false);
+    expect(button('送出')).toBeDefined();
+  });
+
   describe('letting a site tool run on its own from now on', () => {
     const checkbox = () => container.querySelector<HTMLInputElement>('input[type="checkbox"]');
 
@@ -163,6 +199,8 @@ describe('ApprovalCard', () => {
       act(() =>
         root.render(
           <ApprovalCard
+            // Each question is a card of its own, as MessageArea keys it.
+            key={approval.pendingId}
             approval={approval}
             state="pending"
             onSubmit={onSubmit}
@@ -193,6 +231,30 @@ describe('ApprovalCard', () => {
       const second = renderWith({ pendingId: 'q', calls: [call('b')] });
       click(button('允許'));
       expect(second.onAlwaysAllow).not.toHaveBeenCalled();
+    });
+
+    it('is offered once per tool, and goes once for it when its calls are allowed together', () => {
+      const { onAlwaysAllow } = renderWith({
+        pendingId: 'p',
+        calls: [call('a'), call('b'), call('c', { tool: 'save', displayName: '存到 dashboard' })],
+      });
+      expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(2);
+
+      click(checkbox()!);
+      click(button('全部允許（3）'));
+
+      expect(onAlwaysAllow).toHaveBeenCalledWith([expect.objectContaining({ toolUseId: 'a' })]);
+    });
+
+    it('goes for a tool whose first call was refused but another allowed', () => {
+      const { onAlwaysAllow } = renderWith({ pendingId: 'p', calls: [call('a'), call('b')] });
+      click(checkbox()!);
+      const toggles = buttons().filter((b) => b.textContent === '允許' || b.textContent === '拒絕');
+      click(toggles[1]); // a: 拒絕
+      click(toggles[2]); // b: 允許
+      click(button('照上面的選擇送出'));
+
+      expect(onAlwaysAllow).toHaveBeenCalledWith([expect.objectContaining({ tool: 'add_word' })]);
     });
 
     it('is not offered for a destructive call, an outside connector’s, or after outside content', () => {

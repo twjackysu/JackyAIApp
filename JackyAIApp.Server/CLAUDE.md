@@ -419,7 +419,10 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   model is told (`chartId`, `DataAnalysisCharts`, in memory per reader and conversation), so `save_to_dashboard`
   (`SaveToDashboardTool`, a write, so asked first) saves exactly the chart the reader saw to the dashboard they named
   (one they own of that name, or a new one) without asking the data again; with `open` (the reader asked to see it once
-  saved) its result also takes the page there (`AiToolResult.Navigate`, as Studio AI's `open_page` with `go`).
+  saved) its result also takes the page there (`AiToolResult.Navigate`, as Studio AI's `open_page` with `go`). Asked for a whole
+  dashboard (「幫我做一個業績總覽 dashboard」), the prompt has it ask 3–4 charts in one reply and save them in the next, all to
+  one name (the calls run in order, so the first creates it and the rest find it), `open` on the last only: one
+  confirmation card for all of them.
   `read_dashboard` (`ReadDashboardTool`, an `ISiteTool`, so Studio AI's and the site MCP server's, not this page's) reads one of
   the reader's dashboards as it is now: each chart's rows re-run through `IDashboardService.GetWidgetDataAsync` (the first 6
   charts, 40 rows each, within 20s: a chart not done by then and those after it are reported as not read), by id or name,

@@ -34,6 +34,9 @@ interface ApprovalCardProps {
   onAlwaysAllow?: (calls: ApprovalCall[]) => void;
 }
 
+/** One tool of one connector: what a permission is set for. */
+const toolKey = (call: ApprovalCall) => `${call.connector}/${call.tool}`;
+
 const where = (call: ApprovalCall) =>
   call.connector === SITE_CONNECTOR
     ? null
@@ -45,6 +48,11 @@ const where = (call: ApprovalCall) =>
  * away. Once sent, the card keeps what was decided. A call the site describes in words (`summary`, written by
  * the site's own code from the arguments) shows that, its raw arguments (ids such as a chartId) behind a
  * toggle; one without (an outside connector's) always shows its arguments.
+ *
+ * Several calls (a whole dashboard's charts saved at once) can also be decided together: 全部拒絕 always, and
+ * 全部允許 when none of them cannot be undone and the conversation has not read outside content — there, an extra call
+ * an injected text slipped in among the expected ones is exactly what one press would wave through, so each is decided
+ * on its own. Letting a tool run on its own from now on is offered once per tool, under its first call.
  */
 export default function ApprovalCard({
   approval,
@@ -57,14 +65,26 @@ export default function ApprovalCard({
   const [chosen, setChosen] = useState<Record<string, boolean>>({});
   const [always, setAlways] = useState<Record<string, boolean>>({});
   const [shown, setShown] = useState<Record<string, boolean>>({});
+  // The first call of each tool: where its 「以後直接執行」 box is, and what is handed on for it.
+  const firstOfTool = new Map<string, ApprovalCall>();
+  for (const c of approval.calls) if (!firstOfTool.has(toolKey(c))) firstOfTool.set(toolKey(c), c);
   const submit = (sent: ApprovalDecision[]) => {
     onSubmit(sent);
-    const allowed = approval.calls.filter(
-      (c) => always[c.toolUseId] && sent.some((d) => d.toolUseId === c.toolUseId && d.approve),
-    );
+    const approved = new Set(sent.filter((d) => d.approve).map((d) => d.toolUseId));
+    // A tool ticked to run on its own, for which at least one of its calls was allowed.
+    const allowed = [...firstOfTool.entries()]
+      .filter(
+        ([key]) =>
+          always[key] &&
+          approval.calls.some((c) => toolKey(c) === key && approved.has(c.toolUseId)),
+      )
+      .map(([, c]) => c);
     if (allowed.length > 0) onAlwaysAllow?.(allowed);
   };
   const single = approval.calls.length === 1;
+  const canAllowAll = !approval.tainted && approval.calls.every((c) => c.effect !== 'destructive');
+  const allAs = (approve: boolean) =>
+    submit(approval.calls.map((c) => ({ toolUseId: c.toolUseId, approve })));
   const open = state === 'pending' || state === 'failed';
   const decided = new Map(decisions?.map((d) => [d.toolUseId, d.approve]));
   const allChosen = approval.calls.every((c) => c.toolUseId in chosen);
@@ -196,43 +216,76 @@ export default function ApprovalCard({
               <ToggleButton value="no">拒絕</ToggleButton>
             </ToggleButtonGroup>
           )}
-          {open && onAlwaysAllow && canAlwaysAllow(call, approval.tainted) && (
-            <FormControlLabel
-              sx={{
-                mt: 0.5,
-                ml: 0,
-                minHeight: 44,
-                '& .MuiFormControlLabel-label': { fontSize: '0.8rem' },
-              }}
-              control={
-                <Checkbox
-                  size="small"
-                  checked={always[call.toolUseId] === true}
-                  onChange={(e) =>
-                    setAlways((prev) => ({ ...prev, [call.toolUseId]: e.target.checked }))
-                  }
-                />
-              }
-              label={`允許後，以後「${call.displayName}」直接執行（可到 Connectors 改回）`}
-            />
-          )}
+          {open &&
+            onAlwaysAllow &&
+            firstOfTool.get(toolKey(call)) === call &&
+            canAlwaysAllow(call, approval.tainted) && (
+              <FormControlLabel
+                sx={{
+                  mt: 0.5,
+                  ml: 0,
+                  minHeight: 44,
+                  '& .MuiFormControlLabel-label': { fontSize: '0.8rem' },
+                }}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={always[toolKey(call)] === true}
+                    onChange={(e) =>
+                      setAlways((prev) => ({ ...prev, [toolKey(call)]: e.target.checked }))
+                    }
+                  />
+                }
+                label={`允許後，以後「${call.displayName}」直接執行（可到 Connectors 改回）`}
+              />
+            )}
         </Box>
       ))}
 
       {open && !single && (
-        <Button
-          size="small"
-          variant="contained"
-          disabled={!allChosen}
-          onClick={() => submit(decisionsFor(approval.calls, chosen))}
-          sx={{ mt: 1, minHeight: 44 }}
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1,
+            mt: 1,
+            '& .MuiButton-root': { minHeight: 44 },
+          }}
         >
-          送出
-        </Button>
+          {canAllowAll && (
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<CheckIcon />}
+              onClick={() => allAs(true)}
+            >
+              全部允許（{approval.calls.length}）
+            </Button>
+          )}
+          <Button
+            size="small"
+            variant="outlined"
+            color="inherit"
+            startIcon={<CloseIcon />}
+            onClick={() => allAs(false)}
+          >
+            全部拒絕
+          </Button>
+          <Button
+            size="small"
+            variant={canAllowAll ? 'outlined' : 'contained'}
+            disabled={!allChosen}
+            onClick={() => submit(decisionsFor(approval.calls, chosen))}
+          >
+            {canAllowAll ? '照上面的選擇送出' : '送出'}
+          </Button>
+        </Box>
       )}
       {open && !single && !allChosen && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-          每一項都選好允許或拒絕後才能送出
+          {canAllowAll
+            ? '也可以逐項選好允許或拒絕，再按「照上面的選擇送出」'
+            : '每一項都選好允許或拒絕後才能送出'}
         </Typography>
       )}
       {state === 'sending' && (

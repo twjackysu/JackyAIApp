@@ -2,7 +2,8 @@
 // /finance 助理的回答裡選一段 → 問 /finance 自己的助理（第 18 輪）。
 // 用法：cd jackyaiapp.client && npm run build && NODE_PATH=$(npm root -g) node ../.loop/shots/selection.cjs <輸出目錄>（前半段與 chat.cjs 相同）
 // /data-analysis 助理的回答裡選一段（第 19 輪，情境 D）。
-// 只拍一個情境：ONLY=A|B|C|D。
+// 一句話做出整個 dashboard（第 19 輪，情境 E）。
+// 只拍一個情境：ONLY=A|B|C|D|E。
 // chat 的串流由頁面內的 fetch 替身送出（addInitScript），可以停在確認卡上不結束，所以拍得到「等待確認」的畫面。
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -245,6 +246,33 @@ const fakeChat = (events) => {
 };
 
 
+// E：一句話做出整個 dashboard（第 19 輪）：三張圖一起查，再三個 save_to_dashboard 合在一張確認卡。
+const chartCard = (id, title, viz, headers, rows) => ({
+  type: 'tool_result', id, name: 'ask_data', ok: true, durationMs: 2100,
+  card: { kind: 'chart', title, data: { viz, headers, groupHints: headers.slice(0, -1), temporalHints: headers[0] === '月份' ? ['月份'] : [], rows, plan: { viewBy: headers.slice(0, -1), measures: [{ field: headers[headers.length - 1], aggregation: 'sum' }] } } },
+});
+const months = ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
+const wholeDashboard = [
+  start,
+  { type: 'tool_use', id: 't0', name: 'describe_data', displayName: '查看欄位' },
+  { type: 'tool_result', id: 't0', name: 'describe_data', ok: true, durationMs: 300 },
+  { type: 'tool_use', id: 't1', name: 'ask_data', displayName: '查詢資料' },
+  { type: 'tool_use', id: 't2', name: 'ask_data', displayName: '查詢資料' },
+  { type: 'tool_use', id: 't3', name: 'ask_data', displayName: '查詢資料' },
+  chartCard('t1', '每月營收', 'line', ['月份', '營收'], months.map((m, i) => ({ 月份: m, 營收: 1800 + i * 120 + (i % 2) * 60 }))),
+  chartCard('t2', '各地區營收占比', 'donut', ['地區', '營收'], [{ 地區: '北區', 營收: 4700 }, { 地區: '中區', 營收: 2850 }, { 地區: '南區', 營收: 2900 }]),
+  chartCard('t3', '營收前 5 名產品', 'bar', ['產品', '營收'], [{ 產品: '筆電', 營收: 3200 }, { 產品: '螢幕', 營收: 2100 }, { 產品: '鍵盤', 營收: 1500 }, { 產品: '耳機', 營收: 1250 }, { 產品: '滑鼠', 營收: 900 }]),
+  delta('我挑了三張互補的圖：**整體趨勢**（每月營收）、**組成**（各地區占比）和**排名**（前 5 名產品）。請確認要把它們存進新的「業績總覽」dashboard：'),
+  {
+    type: 'approval_required', pendingId: 'p1', tainted: false,
+    calls: [
+      { toolUseId: 's1', connector: 'site', connectorName: 'Jacky Studio', tool: 'save_to_dashboard', displayName: '存到 dashboard', effect: 'write', input: { chartId: 'chart-a1', dashboard: '業績總覽', title: '每月營收' }, summary: '把「每月營收」存到 dashboard「業績總覽」' },
+      { toolUseId: 's2', connector: 'site', connectorName: 'Jacky Studio', tool: 'save_to_dashboard', displayName: '存到 dashboard', effect: 'write', input: { chartId: 'chart-b2', dashboard: '業績總覽', title: '各地區營收占比' }, summary: '把「各地區營收占比」存到 dashboard「業績總覽」' },
+      { toolUseId: 's3', connector: 'site', connectorName: 'Jacky Studio', tool: 'save_to_dashboard', displayName: '存到 dashboard', effect: 'write', input: { chartId: 'chart-c3', dashboard: '業績總覽', title: '營收前 5 名產品', open: true }, summary: '把「營收前 5 名產品」存到 dashboard「業績總覽」，存好後打開它' },
+    ],
+  },
+];
+
 async function open(browser, viewport, events) {
   const page = await browser.newPage({ viewport });
   await page.addInitScript(fakeChat, events);
@@ -392,6 +420,20 @@ const only = (k) => !process.env.ONLY || process.env.ONLY === k;
       await page.screenshot({ path: `${out}/select-data-${name}.png` });
       // 按下去之後的畫面不拍：假的串流每次回同一段，第二個回答看起來跟第一個一樣（已用 console 確認送出的是
       // 「請解釋…「南區則緩步下滑」」、conversationId c1、沒有 quotesPageText，訊息框也捲到最下面）。
+      await page.close();
+    }
+    if (only('E')) {
+      // E：/data-analysis 歡迎畫面的第四個建議「幫我做一個業績總覽 dashboard」→ 三張圖 → 一張確認卡存三張
+      const page = await open(browser, viewport, wholeDashboard);
+      await page.goto('http://localhost:5173/data-analysis');
+      await page.waitForTimeout(2000);
+      await page.getByPlaceholder(/問 AI 助手/).first().click();
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: `${out}/data-whole-dashboard-welcome-${name}.png` });
+      await ask(page, '幫我做一個業績總覽 dashboard（3 到 4 張圖），存完打開', /問你的資料/);
+      await page.waitForTimeout(1500);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: `${out}/data-whole-dashboard-${name}.png` });
       await page.close();
     }
   }
