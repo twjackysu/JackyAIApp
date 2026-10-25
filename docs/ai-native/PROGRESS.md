@@ -1,5 +1,16 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 21:42 – 第 22 輪（記憶的收尾：資料分析只讀、主動提議記住、審查）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
+- **今日簡報用上筆記**：最後一句建議會用跟今天有關的筆記（目標、考試日期），`StudioChatProfileTests` 鎖住。
+- **資料分析的助理只讀筆記**（D-102、design/08 §8）：共用的 `MemoryNotesPrompt`（`Block` 由 Studio 抽出、逐字不變；`ReadOnlyFor` 給沒有 remember／forget 的助理）。沒有筆記時 prompt 一字不差；讀不到筆記時照常回答。/finance 不讀（prompt 逐字鎖住）；「你記得我什麼？」不加工具。
+- **Studio AI 主動提議記住**（D-103）：順口提到的目標或偏好 → 回答後呼叫 `remember`（`AlwaysAsks`＝一定是確認卡），一個對話一次、只根據使用者自己打的話。截圖 `studio-memory-offer-*`（`memory.cjs`，`ONLY=offer` 只拍它）。
+- **/connectors 記憶區塊**：手機標題一行（`typography: { xs: 'subtitle1', sm: 'h6' }`）、說明改成一個字串（原本換行在中文之間多出空格）、提到資料分析只讀。
+- **審查**（subagent，D-104）：無高風險；字級、筆記用法與「不要因筆記呼叫工具」的矛盾、提議來源、讀不到筆記、逐字測試都已修。
+- 驗證：cscheck 新診斷 0；前端 lint、test（140 檔 1501 個）、build 全過；CI 40199245143 紅（`SessionUploadLimitsTests` 的 DI 驗證少了 `IAssistantMemoryService`）→ 40199683114 綠；40199896238（主動提議）綠；**40200592893（本輪最後一次含程式碼的 push：審查修正）綠**。
+- 問題：新的建構子依賴要記得補 `SessionUploadLimitsTests.Registration_*` 的 DI 替身（它用 ValidateOnBuild 驗整個 `AddDataAnalysisServices`）。
+
 ## 2026-10-25 19:42 – 第 21 輪（交棒標示、截圖巡檢、Studio AI 的記憶、審查）
 
 - 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。clone 是 shallow，先 `git fetch --unshallow`。

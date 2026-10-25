@@ -201,5 +201,7 @@ flowchart LR
 | 10/25 | 18 | 選取工具列擴到 /finance 與 /data-analysis 的助理（共用 `aiChat/selection`）；作答中的考題、每日挑戰、閃卡、測驗卡不給選取工具列 |
 | 10/25 | 19 | **一句話做出整個 dashboard**（多張圖一次查、一張確認卡存完）；確認卡的「全部允許／全部拒絕」（只限本站工具、未讀外部內容）；修好 Jacky 改名後的紅 CI；第 18 輪審查剩下的兩個低風險 |
 | 10/25 | 20 | **AI 之間交棒**（Studio AI 的 `open_page` 帶 `ask`，把做 dashboard、查市場的事交給 /data-analysis、/finance 自己的助理接手）；「我的持股最近外資在買還是賣？」（Studio 讀持股、交給 Stock Intelligence）；/dashboards 的 Studio 建議做新 dashboard；巡檢 /data-analysis 下方「問 AI」結果的選取；審查修正 |
+| 10/25 | 21 | 交棒訊息標「由 Studio AI 轉來」；**Studio AI 的記憶**（`remember`／`forget`、`<user_memories>`、/connectors 的「Studio AI 記得的事」、`AlwaysAsks`） |
+| 10/25 | 22 | 記憶收尾：今日簡報用筆記、資料分析的助理只讀筆記、**Studio 主動提議記住**（確認卡把關）；/connectors 記憶區塊手機版 |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。
