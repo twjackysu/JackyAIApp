@@ -12,7 +12,7 @@
 ## 1. CI 狀態
 
 - 第 26 輪：SDK 已改回 `'10.0.x'`（CI 綠）。之後若 setup-dotnet 又報「Could not find .NET Core SDK」（新版剛發布、CDN 還沒有），就暫時釘前一版並記在這裡；版本查 `curl -sS https://raw.githubusercontent.com/dotnet/core/main/release-notes/10.0/releases.json`（`latest-sdk`）。
-- 第 26 輪只動前端與 CI 設定；**最後一次含程式碼的 push（審查修正）的 CI 下一輪開工先確認**（本輪收尾時已等到結果，見 PROGRESS）。
+- 第 26 輪只動前端與 CI 設定；最後一次含程式碼的 push 7ff7dcd 的 CI 40238937360 綠。
 - 截圖：`.loop/shots/slash.cjs` 第三段拍 /finance、/data-analysis 的「/」（展開一行的輸入框：`input[aria-label]` → `[data-ai-assistant] textarea`）。
 - 第 24 輪：**最後一次含程式碼的 push e0d0875b（Studio「/」＋審查修正）CI 40219935497 綠**。截圖腳本新增 `.loop/shots/site-token.cjs`（產生 token 對話框）、`slash.cjs`（Studio 打「/」）。新的建構子依賴記得補 `SessionUploadLimitsTests.Registration_*` 的 DI 替身。
 - 截圖：`.loop/shots/memory.cjs`（第 21 輪：記住 → 確認卡 → 記住了；/connectors 的「Studio AI 記得的事」）。注意它開 /connectors 不能用 chat.cjs 的 `open()`（會空白），要用只有一個 route 的頁面。

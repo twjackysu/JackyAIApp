@@ -7,7 +7,7 @@
 - **/finance 與 /data-analysis 自己的助理也有「/」現成指令**（D-114）：`SlashCommand`／`matchSlashCommands`（`aiChat/utils/slashCommands`）與 chip（`aiChat/components/QuickChips`，原 Studio 的 `QuickActionChips`）搬進共用的 aiChat；`AiChatConfig.slashCommands`。/finance 六個（都是既有範例問題，請求不變）、/data-analysis 四個（上傳檔案時沒有 dashboard）。截圖 `assistant-slash-*`（`slash.cjs` 第三段）。
 - **「/」草稿按 Enter（或送出鈕）送出第一個列出的指令**（D-115）：面板的 `onSendDraft`；沒有列出指令、或挑了附件時照打的字送；第一個 chip 標 ↵ 與 `aria-keyshortcuts`。重拍 `studio-slash-*`。
 - **審查**（subagent）：無高、中風險；低風險的附件被留下、↵ 被念進按鈕名稱、placeholder 少了 Shift+Enter 都已修，補了附件的測試。
-- 驗證：前端 lint、test（144 檔 1550＋個）、build 全過；CI 40237590760（D-114）、40238218185（D-115）綠；審查修正的 CI 見收尾。
+- 驗證：前端 lint、test（144 檔 1550＋個）、build 全過；CI 40237590760（D-114）、40238218185（D-115）綠；**40238937360（本輪最後一次含程式碼的 push 7ff7dcd：審查修正）綠**。
 - 問題：無阻礙。
 
 ## 2026-10-26 03:42 – 第 25 輪（「/」指令跟著頁面走、CI 的 .NET SDK）
