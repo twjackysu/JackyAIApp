@@ -1,5 +1,17 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 17:41 – 第 20 輪（AI 之間交棒、持股外資動向、/dashboards 建議、選取巡檢、審查）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠；沒有 Jacky 的新 commit。
+- **AI 之間交棒**（D-095）：Studio AI 的 `open_page` 多 `ask`（只在 `go` 且頁面是 finance／data-analysis），`AiToolResult.Handoff` 由 `ClientToolRunner` 跟著 navigate 送（`tool_result.handoff`，最多 500 字；讀過外部內容就連 navigate 一起不送，並告訴模型畫面沒切換：`NotMovedNote`）。前端：Studio 等回答以回答結束才帶著問題切頁（router location state），目的頁的 `AiAssistantLauncher` 展開、以新對話送一次、清掉 state（`aiChat/utils/handoff`）。Studio prompt：資料、圖表、dashboard、個股市場的事直接交棒。
+- **持股的市場面**（D-097）：/portfolio 的 Studio 建議與 `portfolio_summary` 後的接著問「我的持股最近外資在買還是賣？」→ Studio 讀持股、把代號交給 /finance 的助理（不帶金額）。補上 D-073 留下的缺口，不改 Finance。
+- **/dashboards 的 Studio 建議**「幫我做一個業績總覽 dashboard」（D-098，交棒給資料分析）。
+- **巡檢 /data-analysis 下方「問 AI」的選取**：解讀文字選起來 → 頁面助理的「解釋／翻成英文／問 AI」，正常；輸入框裡的問題不出工具列。不用改。截圖 `select-nl-interpretation-desktop`（`selection.cjs` 情境 H）。
+- **審查**（subagent，D-096）：無高風險；一個低風險已修（先交棒、後面又立刻切頁時，回答結束不再被拉回去）；附件不 taint、使用者自己接手時不交棒、交棒用預設資料源——接受並記錄。
+- 截圖：`studio-handoff-*`、`studio-handoff-data-*`（情境 F）、`studio-holdings-handoff-*`、`studio-holdings-finance-*`（情境 G）。
+- 驗證：cscheck 新診斷 0；前端 lint、test（139 檔 1491 個）、build 全過；CI 40183035832（交棒，後端第一次就綠）、40183265044（審查修正）、40183500106（持股交棒）綠；**40183931712（本輪最後一次含程式碼的 push：/dashboards 建議）綠**。
+- 問題：無阻礙。
+
 ## 2026-10-25 15:41 – 第 19 輪（修紅 CI、一句話做出整個 dashboard、確認卡全部允許、審查）
 
 - 開工：master 沒有新 commit；**最新一次 CI 是紅的**：Jacky 15:30 的 commit 25c21dd 把 `QuickActions.tsx` 改名成 `QuickActionChips.tsx`（避免 Windows／macOS 上與 `quickActions.ts` 只差大小寫），但 `StudioAssistant/index.tsx` 的 import 沒跟著改 → 修 import、元件名稱與 client CLAUDE.md（CI 40174073059 綠）。

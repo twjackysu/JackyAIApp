@@ -305,6 +305,17 @@ async function open(browser, viewport, events) {
       { 月份: m, 地區: '北區', 營收: 820 + i * 60 }, { 月份: m, 地區: '中區', 營收: 540 + i * 25 + (i % 2) * 40 }, { 月份: m, 地區: '南區', 營收: 610 - i * 15 },
     ]) } });
     if (p === `/api/dashboard/${BOARD}/widgets/w2/data`) return json({ data: { rows: [{ 地區: '北區', 營收: 4700 }, { 地區: '中區', 營收: 2850 }, { 地區: '南區', 營收: 2900 }] } });
+    if (p === '/api/dataanalysis/schema') return json({ data: { fields: [
+      { name: 'OrderDate', dataType: 'date', isNullable: false, canonicalType: 'DateTime' },
+      { name: 'Region', dataType: 'nvarchar', isNullable: false, canonicalType: 'String' },
+      { name: 'Amount', dataType: 'decimal', isNullable: false, canonicalType: 'Decimal' },
+    ] } });
+    if (p === '/api/dataanalysis/summarize/nl') return json({ data: {
+      plan: { viewBy: [{ type: 'Field', fieldName: 'Region', alias: '地區' }], measures: [{ fieldName: 'Amount', aggregation: 'Sum', alias: '營收' }] },
+      interpretation: '依地區加總 2026 年第三季的營收（Amount），由高到低排序',
+      rows: [{ 地區: '北區', 營收: 3120 }, { 地區: '南區', 營收: 1790 }, { 地區: '中區', 營收: 1730 }],
+      notes: ['資料裡沒有「東區」，已忽略這個條件'],
+    } });
     if (p.startsWith('/api/')) return json({ data: null });
     const file = path.join(dist, p === '/' || !path.extname(p) ? 'index.html' : p);
     if (!fs.existsSync(file)) return route.fulfill({ status: 404, body: '' });
@@ -511,6 +522,25 @@ const only = (k) => !process.env.ONLY || process.env.ONLY === k;
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: `${out}/studio-holdings-finance-${name}.png` });
       console.log('G', name, page.url());
+      await page.close();
+    }
+    if (only('H')) {
+      // H：/data-analysis 下方的「問 AI」：回答（解讀、提醒、結果表）裡選字 → 頁面助理的工具列（選取巡檢）
+      const page = await open(browser, viewport, dataChartDone);
+      await page.goto('http://localhost:5173/data-analysis');
+      await page.waitForTimeout(2000);
+      await page.getByRole('button', { name: 'ask AI' }).click();
+      await page.waitForTimeout(500);
+      const q = page.getByPlaceholder(/EMEA/);
+      await q.fill('第三季各地區營收，東區也要');
+      await q.press('Control+Enter');
+      await page.waitForTimeout(2500);
+      await page.screenshot({ path: `${out}/select-nl-result-${name}.png`, fullPage: true });
+      await page.getByText('依地區加總 2026 年第三季的營收').scrollIntoViewIfNeeded();
+      await page.evaluate(() => window.scrollBy(0, 200));
+      await selectIn(page, page.locator('body'), '依地區加總 2026 年第三季的營收', false);
+      await page.screenshot({ path: `${out}/select-nl-interpretation-${name}.png` });
+      console.log('H toolbar', await page.getByRole('toolbar').count(), await page.getByRole('toolbar').allInnerTexts());
       await page.close();
     }
   }
