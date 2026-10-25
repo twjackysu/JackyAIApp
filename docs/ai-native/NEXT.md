@@ -19,7 +19,7 @@
 
 ## 2. 下一步（依序）
 
-1. **巡檢 /portfolio 的 Studio**（小）：歡迎畫面的新建議「幫我記一筆今天的交易」在手機與桌機的樣子；`update_holding` 的結果卡（連結卡「元大台灣50（0050）：5,000 → 7,000」）在 `chat.cjs` 補一個允許後的情境（`approval_resolved` → `tool_result` → `delta` → `done`）。
+1. **巡檢 /portfolio 的 Studio**（小）：歡迎畫面的新建議「幫我記一筆今天的交易」在手機與桌機的樣子（第 16 輪已拍允許後的 `studio-trade-done-*`；假串流的第二段文字要以 `\n\n` 開頭，跟伺服器 `ModelTurn` 一樣）。
 2. **選做（少而精，11/3 前）**：
    - 第 16 輪已做：寫入後抽屜後面的頁面重讀（`refreshAfterTool`，D-085）。若之後加新的本站寫入工具，記得在 `refreshAfterTool` 補上它改了哪些 tag。
    - `saved_words` 的短文直接「把短文裡我不認識的字加入單字庫」——已可用 look_up_word＋add_word_to_repository（多個寫入同一張確認卡），可拍成 demo 截圖。

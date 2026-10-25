@@ -67,6 +67,19 @@ const studioTrade = [
   },
 ];
 
+// 同上，允許之後：已更新的連結卡、說明、接著問
+const studioTradeDone = [
+  ...studioTrade,
+  { type: 'approval_resolved', pendingId: 'p1', decisions: [{ toolUseId: 't1', approve: true }] },
+  { type: 'tool_use', id: 't1', name: 'update_holding', displayName: '更新持倉' },
+  {
+    type: 'tool_result', id: 't1', name: 'update_holding', ok: true, durationMs: 420,
+    card: { kind: 'link', title: '投資組合', href: '/portfolio', description: '元大台灣50（0050）：5,000 → 7,000', actionLabel: '看投資組合' },
+  },
+  delta('\n\n記好了：**0050 從 5,000 股加到 7,000 股**，成本 900,000 → 1,270,000 元（平均成本約 181.4 元），存成今天的快照，之前的快照留在歷史裡。'),
+  done,
+];
+
 // 附上成交回報截圖 →「讀到兩筆」→ 兩筆更新持倉一起出現在確認卡（停在確認卡）
 const studioTradeImage = [
   start,
@@ -402,6 +415,16 @@ async function ask(page, text, placeholder) {
     await page.waitForTimeout(800);
     await ask(page, '我今天加碼 0050 兩張，均價 185，幫我記下來');
     await page.screenshot({ path: `${out}/studio-trade-${name}.png` });
+    await page.close();
+
+    page = await open(browser, viewport, studioTradeDone);
+    await page.goto('http://localhost:5173/portfolio');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(800);
+    await ask(page, '我今天加碼 0050 兩張，均價 185，幫我記下來');
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: `${out}/studio-trade-done-${name}.png` });
     await page.close();
 
     // Studio：/portfolio → ⌘K → 附上成交回報截圖 → 兩筆一起確認

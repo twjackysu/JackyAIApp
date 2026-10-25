@@ -8,7 +8,7 @@
 - **寫入後頁面立刻重讀**（D-085）：面板的 `onToolDone` → Studio 的 `refreshAfterTool`（`update_holding` → 投資組合、`add_word_to_repository` → 單字庫與複習）；抽屜後面的頁面不用手動重新整理。測試：`refreshAfterTool.test.ts`、Studio 與面板的測試。
 - **審查**（subagent，D-082）：無高風險；兩個中風險已修（價格與成本幣別不同只收 `cost`、同日第二次修改照實說取代了當天的快照）。
 - **巡檢**：/english/exam、/english/repository 手機版 Studio 的建議正常；/finance 回答下方的複製／朗讀是滑鼠移上去才出現（桌機設計如此，`MessageActions`），截圖沒有 hover 所以看不到，不是 bug。每日挑戰不放進 Studio（D-084）。
-- 文件：server CLAUDE.md（模組表、Studio 工具）、D-081～D-084、SHOWCASE（亮點一列、demo 第 4 步、日誌）、PLAN；截圖 `studio-trade-*`、`studio-trade-image-*`。
+- 文件：server CLAUDE.md（模組表、Studio 工具）、D-081～D-084、SHOWCASE（亮點一列、demo 第 4 步、日誌）、PLAN；截圖 `studio-trade-*`（含允許後的 `studio-trade-done-*`）、`studio-trade-image-*`。
 - 驗證：cscheck 新診斷 0；前端 lint、test、build 全過；CI 40152058952（update_holding，第一次就綠）、40152437241、40152714154（審查修正）綠；最後一次含程式碼的 push 見下一則 NEXT §1。
 - 問題：無阻礙。
 
