@@ -18,6 +18,8 @@ import { usePreview } from './hooks/usePreview';
 import { ACCENT, ACCENT_GRADIENT, hairline, panelSurface } from './style';
 import { insertPastedText, readPaste } from './utils/paste';
 
+import type { ChatAsk } from './hooks/useAskQueue';
+
 /** What the folded one-line box shows about a conversation it is hiding. */
 export interface AssistantActivity {
   /** A reply is being written. */
@@ -47,9 +49,10 @@ interface AiAssistantPanelProps {
   /** A message to send as if the reader had typed it (Studio AI's `askStudio`): each id is sent once,
    *  `fresh` as the first message of a new conversation (`SendOptions.fresh`), `quotesPageText` for text the
    *  reader selected on a page (`SendOptions.quotesPageText`). */
-  ask?: { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
-  /** The `ask` was sent: its owner drops it, so a panel mounted again does not send it twice. */
-  onAskSent?: () => void;
+  ask?: ChatAsk;
+  /** The `ask` with this id was sent: its owner drops it (`useAskQueue`), so a panel mounted again does not send it
+   *  twice, and hands the next one. */
+  onAskSent?: (id: number) => void;
   /** An answer takes the reader to a page of the site (Studio AI's `open_page` with `go`); without it, only its link. */
   onNavigate?: (path: string) => void;
   /** One of the profile's own tools finished (Studio AI reads again what a write changed). */
@@ -127,7 +130,7 @@ function AiAssistantPanel({
     } else {
       send(ask.text, [], quotes);
     }
-    onAskSent?.();
+    onAskSent?.(ask.id);
   }, [ask, send, closePreview, onAskSent]);
 
   const hasConversation = messages.length > 0;

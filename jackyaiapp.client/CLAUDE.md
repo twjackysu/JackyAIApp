@@ -89,7 +89,8 @@ jackyaiapp.client/src/
   answers go to the review schedule as the review page sends them (`review/submit`, right 4, wrong 1), no AI involved —
   only for words that are due, and only the first time: a card drawn again from a reopened conversation (a renderer's
   `saved`, which `ToolCards` passes for stored cards) and a quiz on words not yet due are practice, recording nothing. A page opens it with a message sent through `askStudio(text, { fresh? })` (`StudioAssistant/askStudio`, a window
-  event; the panel's `ask` prop sends each id once; `fresh` sends it as the first message of a new conversation,
+  event; the panel's `ask` prop sends each id once, and its owner holds the asks in order until each is sent,
+  `aiChat/hooks/useAskQueue`, so two asked before the lazy panel has loaded both go; `fresh` sends it as the first message of a new conversation,
   `useChatConversation`'s `send(…, { fresh: true })`, queued like any message while an answer is written): the home
   page's 「AI 今日簡報」 (`Portal/BriefingCard`, signed in only, nothing asked until clicked) sends `BRIEFING_PROMPT`,
   always fresh, so it neither resends an old conversation's history nor inherits that conversation's tainted writes. A dashboard's owner gets
@@ -106,7 +107,8 @@ jackyaiapp.client/src/
   sends with `quotesPageText`, the panel's `inputQuotesPageText`, until it is emptied); the others send at once.
   From the page they go as a new conversation with `quotesPageText` (the chat request's flag: page text may be someone
   else's words, so the server counts the conversation as having read outside text and its writes ask first); from one of
-  Studio AI's own answers (the drawer is `[data-ai-assistant]`) they continue the conversation on screen; what each press
+  Studio AI's own answers (the drawer is `[data-ai-assistant]`; its header and list of conversations are not answers and
+  are marked `noSelectionAsk`) they continue the conversation on screen; what each press
   does is `selectionStepOf`, the same for every assistant. Text in a box,
   a dialog, another drawer or a menu is left alone, and so is what a page marks with `noSelectionAsk(on)` (`data-no-selection-ask`):
   a question still being answered, where explaining or translating it would give the answer away (`ExamRoundShell`'s

@@ -316,6 +316,23 @@ describe('AiAssistantPanel', () => {
     expect(collapses).toBe(1);
   });
 
+  it('keeps its header and list of conversations out of what selecting text asks about, not its answers', async () => {
+    conversations = [conversation('c1', '台積電走勢')];
+    messagesOf = { c1: [turn(1, 'user', '台積電呢？'), turn(2, 'assistant', '多頭排列。')] };
+    await mount();
+    await openConversation('台積電走勢');
+    await waitForText('多頭排列。');
+
+    const marked = (el: Element | null | undefined) => !!el?.closest('[data-no-selection-ask]');
+    expect(marked(row('台積電走勢'))).toBe(true);
+    expect(marked(buttonByLabel('新對話'))).toBe(true);
+    const answer = [...container.querySelectorAll('*')].find(
+      (el) => el.childElementCount === 0 && el.textContent === '多頭排列。',
+    );
+    expect(answer).toBeDefined();
+    expect(marked(answer)).toBe(false);
+  });
+
   it('tells its owner when a reply is being written and when there is a conversation', async () => {
     await mount();
     expect(lastActivity()).toEqual({ busy: false, hasConversation: false, answered: false });

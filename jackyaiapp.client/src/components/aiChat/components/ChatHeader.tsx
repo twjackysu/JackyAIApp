@@ -6,6 +6,7 @@ import { Box, IconButton, LinearProgress, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 import { useAiChatConfig } from '../config';
+import { noSelectionAsk } from '../selection/readSelection';
 import { ACCENT, hairline } from '../style';
 
 import AssistantMark from './AssistantMark';
@@ -44,7 +45,9 @@ const ChatHeader = ({
   const closeLabel = sheet ? '關閉' : '收合';
 
   return (
+    // The header (the conversation's title, the actions) is not one of the answers either.
     <Box
+      {...noSelectionAsk()}
       sx={{
         position: 'relative',
         display: 'flex',

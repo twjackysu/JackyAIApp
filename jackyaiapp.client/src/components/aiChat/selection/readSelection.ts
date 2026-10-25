@@ -10,7 +10,8 @@ const NO_ASK = '[data-no-selection-ask]';
 const NEVER = `input, textarea, [contenteditable=""], [contenteditable="true"], ${NO_ASK}`;
 /**
  * Spread on an element whose text must not be asked about while `on`: a test's question (translating it, or
- * opening the word's dictionary page, would give the answer away) or a layout being dragged.
+ * opening the word's dictionary page, would give the answer away), a layout being dragged, or an assistant's own
+ * chrome (its header and list of conversations: a title there is not one of its answers).
  */
 export const noSelectionAsk = (on = true): { 'data-no-selection-ask'?: '' } =>
   on ? { 'data-no-selection-ask': '' } : {};

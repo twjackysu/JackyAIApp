@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { CompactChatBar } from './components/CompactChatBar';
 import { AiChatConfig, AiChatConfigContext } from './config';
+import { useAskQueue } from './hooks/useAskQueue';
 import {
   draftWithSelection,
   selectionStepOf,
@@ -58,12 +59,8 @@ export function AiAssistantLauncher({
     setDraft(value);
     if (!value.trim()) setDraftQuotesPage(false);
   }, []);
-  // A selection's message to send (explain, translate), kept until the panel has sent it.
-  const [ask, setAsk] = useState<
-    { id: number; text: string; fresh?: boolean; quotesPageText?: boolean } | undefined
-  >();
-  const askId = useRef(0);
-  const askSent = useCallback(() => setAsk(undefined), []);
+  // A selection's messages to send (explain, translate), each kept until the panel has sent it.
+  const { ask, enqueue: enqueueAsk, sent: askSent } = useAskQueue();
   const [activity, setActivity] = useState<AssistantActivity>(IDLE);
 
   useEffect(() => {
@@ -99,14 +96,12 @@ export function AiAssistantLauncher({
         if (step.quotesPageText) setDraftQuotesPage(true);
         return;
       }
-      askId.current += 1;
-      setAsk({
-        id: askId.current,
+      enqueueAsk({
         text: step.text,
         ...(step.fromPage && { fresh: true, quotesPageText: true }),
       });
     },
-    [isAuthenticated, navigate],
+    [isAuthenticated, navigate, enqueueAsk],
   );
 
   // Where an answer asked to go, kept until that answer is done (the last one asked wins).

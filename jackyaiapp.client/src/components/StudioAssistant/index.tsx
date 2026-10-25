@@ -7,7 +7,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { ASK_STUDIO_EVENT, askedOf, type AskStudioDetail } from './askStudio';
+import { ASK_STUDIO_EVENT, askedOf } from './askStudio';
 import QuickActionChips from './QuickActionChips';
 import { quickActionsFor, type QuickAction } from './quickActions';
 import { refreshAfterTool } from './refreshAfterTool';
@@ -18,6 +18,7 @@ import type { AssistantActivity } from '@/components/aiChat';
 import { useGetUserInfoQuery } from '@/apis/accountApis';
 import { useLazyGetDashboardsQuery } from '@/apis/dashboardApis';
 import { AiChatConfigContext } from '@/components/aiChat/config';
+import { useAskQueue } from '@/components/aiChat/hooks/useAskQueue';
 import {
   draftWithSelection,
   selectionStepOf,
@@ -55,13 +56,9 @@ export default function StudioAssistant() {
     setDraft(value);
     if (!value.trim()) setDraftQuotesPage(false);
   }, []);
-  // A message a page asked Studio AI (askStudio); the id tells the panel a new one from the last.
-  // Kept until the panel has sent it, then dropped (the id keeps counting).
-  const [ask, setAsk] = useState<
-    (AskStudioDetail & { id: number; quotesPageText?: boolean }) | undefined
-  >();
-  const askId = useRef(0);
-  const askSent = useCallback(() => setAsk(undefined), []);
+  // The messages pages asked Studio AI (askStudio, a selection), in order, each kept until the panel has sent it:
+  // two asked before the panel has loaded both go.
+  const { ask, enqueue: enqueueAsk, sent: askSent } = useAskQueue();
   // The reader's dashboards (the /dashboards list), read each time the drawer opens (Studio AI may have saved a
   // new one meanwhile, on the server): the command bar opens them by name, and on /dashboards a suggestion reads one.
   const [loadBoards, { data: boardList }] = useLazyGetDashboardsQuery();
@@ -155,15 +152,13 @@ export default function StudioAssistant() {
         if (step.quotesPageText) setDraftQuotesPage(true);
         return;
       }
-      askId.current += 1;
-      setAsk({
-        id: askId.current,
+      enqueueAsk({
         text: step.text,
         // Page text may be someone else's words: the server counts it as outside text (writes ask first).
         ...(step.fromPage && { fresh: true, quotesPageText: true }),
       });
     },
-    [navigate, fullScreen],
+    [navigate, fullScreen, enqueueAsk],
   );
 
   useEffect(() => {
@@ -185,12 +180,11 @@ export default function StudioAssistant() {
       if (!asked) return;
       setOpened(true);
       setOpen(true);
-      askId.current += 1;
-      setAsk({ id: askId.current, ...asked });
+      enqueueAsk(asked);
     };
     window.addEventListener(ASK_STUDIO_EVENT, onAsk);
     return () => window.removeEventListener(ASK_STUDIO_EVENT, onAsk);
-  }, [shown]);
+  }, [shown, enqueueAsk]);
 
   // A page without the button closes the drawer (the conversation is kept for when it comes back).
   useEffect(() => {

@@ -4,6 +4,7 @@ import { Box, Button, IconButton, List, ListItemButton, Typography } from '@mui/
 import { useTheme } from '@mui/material/styles';
 
 import { useAiChatConfig } from '../config';
+import { noSelectionAsk } from '../selection/readSelection';
 import { ACCENT, accentWash, hairline } from '../style';
 import { periodOf } from '../utils/period';
 
@@ -58,7 +59,11 @@ const ConversationList = ({
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    // The list of conversations is not one of the answers: a title selected here is not asked about.
+    <Box
+      {...noSelectionAsk()}
+      sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+    >
       <Box sx={{ p: 1.5, pb: 1 }}>
         <Button
           fullWidth

@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
     variant?: string;
     onCollapse: () => void;
     ask?: { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
-    onAskSent?: () => void;
+    onAskSent?: (id: number) => void;
     onNavigate?: (path: string) => void;
     onToolDone?: (tool: string) => void;
     onActivityChange?: (a: { busy: boolean; hasConversation: boolean }) => void;
@@ -150,6 +150,7 @@ describe('StudioAssistant', () => {
     await settle();
     expect(mocks.panel).toMatchObject({ active: true, ask: { id: 1, text: '給我今天的簡報' } });
 
+    await act(async () => mocks.panel!.onAskSent!(1));
     await act(async () => mocks.panel!.onCollapse());
     await act(async () => askStudio('給我今天的簡報'));
     await settle();
@@ -246,7 +247,23 @@ describe('StudioAssistant', () => {
     await render('/');
     await act(async () => askStudio('給我今天的簡報'));
     await settle();
-    await act(async () => mocks.panel!.onAskSent!());
+    await act(async () => mocks.panel!.onAskSent!(1));
+    expect(mocks.panel!.ask).toBeUndefined();
+  });
+
+  it('keeps every message asked before the panel sent the first, and hands them on in order', async () => {
+    await render('/');
+    // Both before the (lazy) panel has sent anything: the second does not replace the first.
+    await act(async () => {
+      askStudio('給我今天的簡報', { fresh: true });
+      askStudio('考我今天該複習的單字');
+    });
+    await settle();
+    expect(mocks.panel!.ask).toEqual({ id: 1, text: '給我今天的簡報', fresh: true });
+
+    await act(async () => mocks.panel!.onAskSent!(1));
+    expect(mocks.panel!.ask).toEqual({ id: 2, text: '考我今天該複習的單字' });
+    await act(async () => mocks.panel!.onAskSent!(2));
     expect(mocks.panel!.ask).toBeUndefined();
   });
 

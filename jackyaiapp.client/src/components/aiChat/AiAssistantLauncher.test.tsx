@@ -21,7 +21,7 @@ interface PanelProps {
   onNavigate?: (path: string) => void;
   inputQuotesPageText?: boolean;
   ask?: { id: number; text: string; fresh?: boolean; quotesPageText?: boolean };
-  onAskSent?: () => void;
+  onAskSent?: (id: number) => void;
 }
 
 // The real panel is tested on its own; here only what the launcher hands it and does with it.
@@ -305,7 +305,7 @@ describe('AiAssistantLauncher', () => {
         fresh: true,
         quotesPageText: true,
       });
-      await act(async () => panel.props!.onAskSent!());
+      await act(async () => panel.props!.onAskSent!(panel.props!.ask!.id));
       expect(panel.props!.ask).toBeUndefined();
     });
 
