@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { READ_DASHBOARD_PROMPT } from './askStudio';
 import {
+  MAKE_DASHBOARD,
   MY_HOLDINGS_MARKET,
   studioChatConfig,
   studioFollowUpsFor as followUpsOn,
@@ -49,13 +50,12 @@ describe('studioSuggestionsFor', () => {
     expect(studioSuggestionsFor('/dashboards', boards)[0].text).toBe(
       '幫我解讀「業績追蹤」這個 dashboard',
     );
-    // None of their own, or a name too long to be found again: the site's suggestions.
-    expect(studioSuggestionsFor('/dashboards', [boards[0]])[0].text).toBe(
-      studioSuggestionsFor('/jobs')[0].text,
-    );
+    expect(studioSuggestionsFor('/dashboards', boards)[1].text).toBe(MAKE_DASHBOARD);
+    // None of their own, or a name too long to be found again: making one comes first.
+    expect(studioSuggestionsFor('/dashboards', [boards[0]])[0].text).toBe(MAKE_DASHBOARD);
     expect(
       studioSuggestionsFor('/dashboards', [{ name: 'x'.repeat(31), isOwner: true }])[0].text,
-    ).toBe(studioSuggestionsFor('/jobs')[0].text);
+    ).toBe(MAKE_DASHBOARD);
   });
 
   it('on a word’s dictionary page, offers to do something with that word first', () => {

@@ -91,12 +91,19 @@ export interface StudioDashboard {
 /** A name longer than this is not put in a suggestion (read_dashboard finds a dashboard by its whole name). */
 const MAX_SUGGESTED_NAME = 30;
 
-/** On the dashboards list: reading the first of the reader's own (read_dashboard reads only those). */
+/** Making a whole dashboard: Studio AI hands it to /data-analysis's assistant, which has the data tools (D-095). */
+export const MAKE_DASHBOARD = '幫我做一個業績總覽 dashboard（3 到 4 張圖），存完打開';
+
+/**
+ * On the dashboards list: reading the first of the reader's own (read_dashboard reads only those), then making a
+ * new one.
+ */
 function dashboardsSuggestions(dashboards: readonly StudioDashboard[]): AiChatSuggestion[] {
   const name = dashboards.find((d) => d.isOwner && d.name.trim())?.name.trim();
+  const make: AiChatSuggestion = { text: MAKE_DASHBOARD, icon: DashboardIcon };
   return name && name.length <= MAX_SUGGESTED_NAME
-    ? [{ text: `幫我解讀「${name}」這個 dashboard`, icon: DashboardIcon }]
-    : [];
+    ? [{ text: `幫我解讀「${name}」這個 dashboard`, icon: DashboardIcon }, make]
+    : [make];
 }
 
 /**
