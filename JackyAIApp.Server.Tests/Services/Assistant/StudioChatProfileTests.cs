@@ -51,6 +51,8 @@ namespace JackyAIApp.Server.Tests.Services.Assistant
             Assert.Contains(PortfolioSummaryTool.Name, setup.SystemPrompt);
             // …and offers a quiz when words are due.
             Assert.Contains(ReviewQuizTool.Name, setup.SystemPrompt);
+            // A trade the reader tells it about is recorded with the portfolio's write (asked first).
+            Assert.Contains(UpdateHoldingTool.Name, setup.SystemPrompt);
         }
 
         [Fact]

@@ -128,6 +128,11 @@ describe('studioFollowUpsFor', () => {
     expect(rule.texts).toEqual(['換個主題再寫一段', '考我幾題']);
   });
 
+  it('after recording a trade, offers to look at the portfolio as it is now', () => {
+    const rule = followUpsOn('/portfolio').find((r) => r.tools?.includes('update_holding'))!;
+    expect(rule.texts).toEqual(['我的投資組合現在怎麼樣？']);
+  });
+
   it('carries on from a dashboard it read', () => {
     const rule = followUpsOn('/dashboards/x').find((r) => r.tools?.includes('read_dashboard'));
     expect(rule?.texts.length).toBeGreaterThan(0);

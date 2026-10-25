@@ -137,6 +137,7 @@ const STUDIO_FOLLOW_UPS: NonNullable<AiChatConfig['followUps']> = [
     tools: ['portfolio_summary'],
     texts: ['哪一檔佔比最高？風險集中嗎？', '我的資產配置偏重哪裡？'],
   },
+  { tools: ['update_holding'], texts: ['我的投資組合現在怎麼樣？'] },
   { tools: ['google_calendar_events'], texts: ['明天呢？', '這週哪天比較空？'] },
   {
     tools: ['read_dashboard'],

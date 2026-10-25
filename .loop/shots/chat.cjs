@@ -57,6 +57,16 @@ const studioPortfolio = [
   done,
 ];
 
+// /portfolio：「我今天加碼 0050 兩張，均價 185」→ 更新持倉的確認卡（停在確認卡）
+const studioTrade = [
+  start,
+  delta('好的，幫你把今天的加碼記進投資組合，請確認：'),
+  {
+    type: 'approval_required', pendingId: 'p1', tainted: false,
+    calls: [{ toolUseId: 't1', connector: 'site', connectorName: 'Jacky Studio', tool: 'update_holding', displayName: '更新持倉', effect: 'write', input: { symbol: '0050', change: 2000, price: 185 }, summary: '「0050」加 2,000（成交價 185）（存成今天的快照）' }],
+  },
+];
+
 // /finance：hosted 的 tw-stock 工具（沒有顯示名稱、沒有卡片），回答後的接著問。
 const financeTrend = [
   start,
@@ -367,6 +377,16 @@ async function ask(page, text, placeholder) {
     await page.waitForTimeout(800);
     await ask(page, '幫我看看我的持股，哪幾檔虧最多？');
     await page.screenshot({ path: `${out}/studio-portfolio-${name}.png` });
+    await page.close();
+
+    // Studio：/portfolio → ⌘K → 記一筆加碼（停在確認卡）
+    page = await open(browser, viewport, studioTrade);
+    await page.goto('http://localhost:5173/portfolio');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(800);
+    await ask(page, '我今天加碼 0050 兩張，均價 185，幫我記下來');
+    await page.screenshot({ path: `${out}/studio-trade-${name}.png` });
     await page.close();
 
     // /data-analysis：最上方的對話 → 圖表卡片 → 存到 dashboard 的確認卡

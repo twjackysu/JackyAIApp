@@ -57,7 +57,7 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
 | Connectors | `Services.Connectors` (what the AI may use: the tool contract `IAiTool`, the site's own tools as features register them, the reader's connectors and tool permissions, the hosted MCP servers, e.g. `TwStockMcp`; native connectors, `.Google`; the site's own MCP server, `.SiteMcp`; see docs/ai-native/design/03) | Platform |
 | Assistant | `Services.Assistant` (chat profiles, the turn's request), `Services.Chatbot` (the shared chat engine: turns, stream, history, attachments) | Connectors, Platform |
 | Finance | `Services.Finance` (analysis, indicators, scoring, predictions, digest; `Services.Finance.Assistant`: the /finance assistant's profile and market background) | Assistant, Connectors, MarketData, Platform |
-| Portfolio | `Services.Portfolio` (with `.Assistant`: its tool for Studio AI) | Connectors, MarketData, Platform |
+| Portfolio | `Services.Portfolio` (with `.Assistant`: its tools for Studio AI) | Connectors, MarketData, Platform |
 | DataAnalysis | `Services.DataAnalysis` | Assistant, Connectors, Platform |
 | Tools | `Services.Job` | Platform |
 
@@ -275,7 +275,12 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   id), shown as a `quiz` card the reader answers on, which sends the answers to the review schedule itself when the words
   are due; a read, since making it changes nothing; the model is told the words, and the questions and answers only
   for a client that cannot draw the card: `Services/Dictionary/Assistant`; Portfolio's `portfolio_summary`, the reader's own portfolio as
-  /portfolio values it, a table card of the positions: `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events`)
+  /portfolio values it, a table card of the positions, and `update_holding`, a write, so asked first: one holding already in
+  the latest snapshot gets a new quantity (`quantity`, or `change` for a trade), the snapshot saved again as today's in
+  Taipei (or the latest's date if that is later) the way /portfolio saves one, so the history keeps the earlier one; the cost
+  follows the average-cost rule (a sale keeps the average, a purchase adds what was paid, so buying more of a holding with a
+  cost needs its `price` and is refused without one); a new holding, or a name that matches two, is refused with a link to
+  /portfolio, never guessed: `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events`)
   and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market. Its prompt also says
   what the morning briefing is (the home page's 「給我今天的簡報」: the calendar, `learning_progress` and
   `portfolio_summary` in one reply, three short parts, and with words due, an offer of a `review_quiz`; `StudioChatProfileTests` pins the tool names it uses). On a
