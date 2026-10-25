@@ -1,6 +1,9 @@
+using System.Security.Claims;
+using JackyAIApp.Server.Common;
 using JackyAIApp.Server.Data;
 using JackyAIApp.Server.Services.Assistant.Memory;
 using JackyAIApp.Server.Tests.TestHelpers;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace JackyAIApp.Server.Tests.Services.Assistant.Memory
@@ -105,6 +108,30 @@ namespace JackyAIApp.Server.Tests.Services.Assistant.Memory
             Assert.Equal(mine, forgotten);
             Assert.Empty(await Service().ListAsync(User, CancellationToken.None));
             Assert.Single(await Service().ListAsync("u2", CancellationToken.None));
+        }
+
+        private AssistantMemoryPage Page(string userId)
+        {
+            var http = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId)], "test")),
+            };
+            return new AssistantMemoryPage(Service(), TestCurrentUser.Of(http));
+        }
+
+        [Fact]
+        public async Task TheConnectorsPage_ListsTheReadersOwn_AndForgetsOnlyThose()
+        {
+            var mine = (await Service().AddAsync(User, "在準備多益", CancellationToken.None)).Memory!;
+            var theirs = (await Service().AddAsync("u2", "別人的筆記", CancellationToken.None)).Memory!;
+
+            var listed = (await Page(User).ListAsync(CancellationToken.None)).Data!;
+            Assert.Equal(mine, Assert.Single(listed.Memories));
+            Assert.Equal(AssistantMemoryService.Limit, listed.Limit);
+
+            Assert.Equal(ErrorCodes.NotFound, (await Page(User).ForgetAsync(theirs.Id, CancellationToken.None)).Error);
+            Assert.True((await Page(User).ForgetAsync(mine.Id, CancellationToken.None)).IsSuccess);
+            Assert.Equal("u2", Assert.Single(_db.AssistantMemories).UserId);
         }
 
         [Fact]

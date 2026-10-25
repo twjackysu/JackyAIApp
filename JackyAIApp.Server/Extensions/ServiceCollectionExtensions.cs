@@ -63,6 +63,7 @@ namespace JackyAIApp.Server.Extensions
             services.AddSingleton(new SiteToolSet("全站", [OpenPageTool.Definition]));
             // What the reader asked Studio AI to remember (docs/ai-native/design/08).
             services.AddScoped<IAssistantMemoryService, AssistantMemoryService>();
+            services.AddScoped<IAssistantMemoryPage, AssistantMemoryPage>();
             services.AddScoped<ISiteTool, RememberTool>();
             services.AddScoped<ISiteTool, ForgetTool>();
             services.AddSingleton(new SiteToolSet("記憶", [RememberTool.Definition, ForgetTool.Definition]));
