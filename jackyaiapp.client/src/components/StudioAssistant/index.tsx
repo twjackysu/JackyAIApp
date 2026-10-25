@@ -8,7 +8,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { ASK_STUDIO_EVENT, askedOf, type AskStudioDetail } from './askStudio';
-import QuickActions from './QuickActions';
+import QuickActionChips from './QuickActionChips';
 import { quickActionsFor, type QuickAction } from './quickActions';
 import { refreshAfterTool } from './refreshAfterTool';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
@@ -248,7 +248,7 @@ export default function StudioAssistant() {
                 onInputChange={changeDraft}
                 inputQuotesPageText={draftQuotesPage}
                 onCollapse={closeByHand}
-                inputAccessory={<QuickActions actions={quickActions} onPick={pickQuick} />}
+                inputAccessory={<QuickActionChips actions={quickActions} onPick={pickQuick} />}
               />
             </Suspense>
           </Box>

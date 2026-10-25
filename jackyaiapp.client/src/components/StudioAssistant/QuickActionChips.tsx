@@ -14,7 +14,7 @@ const ICONS = { page: ArrowOutwardIcon, dashboard: DashboardIcon, word: MenuBook
  * What Studio AI can do at once for what is being typed (`quickActionsFor`), over the message box: a
  * press goes there without asking the AI. Nothing is shown when nothing fits.
  */
-export default function QuickActions({
+export default function QuickActionChips({
   actions,
   onPick,
 }: {
