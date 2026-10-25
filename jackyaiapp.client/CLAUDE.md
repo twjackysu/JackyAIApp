@@ -48,7 +48,11 @@ jackyaiapp.client/src/
   and its queue are `useChatConversation`, the picked files `usePendingAttachments`, the preview
   `usePreview`, speaking a message instead of typing it `useSpeechInput` (the browser's Web Speech API,
   zh-TW; the words go into the box after what was typed and the reader still sends; no button where the browser
-  cannot listen, e.g. Firefox). What differs between apps' assistants (greeting, example questions, suggestions,
+  cannot listen, e.g. Firefox), and reading an answer aloud `useSpeechOutput` (the answer's button 朗讀: the browser's speech
+  synthesis, nothing sent to the server and no usage; `utils/speechText` turns the Markdown into words and cuts them into
+  runs of English and Chinese, each read in a voice of its language, an abbreviation in a Chinese sentence staying Chinese,
+  in pieces of at most 200 characters; one answer reads at a time, and only the one reading may stop the browser's speech).
+  What differs between apps' assistants (greeting, example questions, suggestions,
   placeholders, the server profile, error wording, words for tools the server names no display name for,
   `toolLabels`: Finance's hosted tw-stock tools, `FINANCE_TOOL_LABELS`, so its chips and header read 「個股歷史股價」
   rather than "stock history") is an `AiChatConfig` (`components/aiChat/config.ts`)
@@ -80,7 +84,7 @@ jackyaiapp.client/src/
   server's `SitePages.cs` by its test; the reader's dashboards (the /dashboards list, read each time the drawer opens)
   are offered by their name or two characters of it (「打開『業績追蹤』」), and on /dashboards the first suggestion reads the
   first of the reader's own (「幫我解讀『業績追蹤』這個 dashboard」). On a word's dictionary page its suggestions are about
-  that word (`dictionaryWordOf`). A review quiz (`review_quiz`) comes as a `quiz` card, Studio AI's own renderer
+  that word (`dictionaryWordOf`). On the repository the first is writing a passage with the reader's own words (`saved_words`). A review quiz (`review_quiz`) comes as a `quiz` card, Studio AI's own renderer
   (`QuizCardView`, `quizCard.parseQuizCard`): one question at a time, right or wrong shown at once, and after the last the
   answers go to the review schedule as the review page sends them (`review/submit`, right 4, wrong 1), no AI involved —
   only for words that are due, and only the first time: a card drawn again from a reopened conversation (a renderer's

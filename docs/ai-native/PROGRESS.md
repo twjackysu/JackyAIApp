@@ -1,5 +1,15 @@
 # PROGRESS（新的在最上面）
 
+## 2026-10-25 07:42 – 第 15 輪（用自己的單字寫短文、朗讀、審查）
+
+- 開工：master 沒有新 commit；上一輪最後的 CI 綠。
+- **`saved_words`**（D-078）：Studio AI 讀使用者最近存的單字（`IRepositoryService.GetRecentWordsAsync`：最近 1–30 個、一個詞性與中文意思、總字數）；/english/repository 的第一個建議「用我單字庫裡最近存的字寫一段短文」，接著問「換個主題再寫一段」「考我幾題」；今日簡報有到期的字時最後問要不要考幾題。測試：`SavedWordsToolTests`、`RepositoryServiceTests`（SQLite：新的在前、只算自己的、上下限）、`StudioChatProfileTests`。
+- **朗讀**（D-079）：三個助理的回答下方多「朗讀」（`useSpeechOutput`＋`utils/speechText`：Markdown 變成字、英中分段各用自己的聲音）。
+- **審查**（subagent，D-080）：無高風險；兩個中風險（朗讀的擁有權、長段落）與三個低風險已修。
+- 文件：兩份 CLAUDE.md、D-078～D-080、SHOWCASE（亮點兩列、demo 第 3 步之後、日誌）、PLAN；截圖 `studio-writing-*`、`studio-read-aloud-*`（`.loop/shots/chat.cjs` 加了這個情境）。
+- 驗證：cscheck 只有已知雜訊（`AsNoTracking`）；前端 lint、test（130 檔 1397 個，加上這輪的新測試）、build 全過；CI 40144454772（saved_words，第一次就綠）、40145153097（朗讀）綠、**40145843957（本輪最後一次含程式碼的 push：審查修正）見下一則確認**。
+- 問題：Write 工具把 regex 裡的 `\u3000` 這類跳脫寫成真的字元，被 eslint 的 no-irregular-whitespace 擋下——regex 裡的 Unicode 範圍用 python 寫入或事後 grep 確認。
+
 ## 2026-10-25 05:41 – 第 14 輪（指令列打開 dashboard、頁面建議、複習小測驗、審查）
 
 - 開工：master 的新 commit（chore: remove details）已在 branch 裡；上一輪最後的 CI 綠。
