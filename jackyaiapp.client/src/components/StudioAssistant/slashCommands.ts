@@ -1,5 +1,5 @@
 import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
-import { dictionaryWordOf, WRITE_WITH_MY_WORDS } from './studioChat';
+import { dictionaryWordOf, MAKE_DASHBOARD, WRITE_WITH_MY_WORDS } from './studioChat';
 
 import type { DashboardSummary } from '@/apis/dashboardApis/types';
 
@@ -84,7 +84,7 @@ function dashboardIdOf(path: string): string | undefined {
 
 /**
  * The commands of the page the reader is on, listed before the site's (D-113): on a word's dictionary page,
- * explaining that word; on one of the reader's own dashboards, reading it (read_dashboard reads only the reader's
+ * explaining that word; on the dashboards list, making a new one; on one of the reader's own dashboards, reading it (read_dashboard reads only the reader's
  * own, so not on one shared with them, nor before the list has been read). The same requests as the page's
  * suggestions, so the server's prompt names "this dashboard" from the page.
  */
@@ -101,6 +101,17 @@ export function pageSlashCommands(
         ask: `解釋 ${word}：最常用的一兩個意思，各附一個英文例句與中文翻譯，再說一個容易跟它搞混的字`,
         kind: 'command',
         words: ['解釋', '意思', 'explain', 'meaning', word],
+      },
+    ];
+  // Studio AI hands the dashboard to /data-analysis's assistant, which has the data tools (D-095).
+  if (path === '/dashboards')
+    return [
+      {
+        key: 'make_dashboard',
+        label: '做一個新的 dashboard',
+        ask: MAKE_DASHBOARD,
+        kind: 'command',
+        words: ['做', '新的', '建立', 'dashboard', '儀表板', 'make', 'new', 'create'],
       },
     ];
   const id = dashboardIdOf(path);

@@ -7,6 +7,7 @@ import portfolioPromptsCs from '../../../../JackyAIApp.Server/Services/Portfolio
 
 import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
 import { isSlashDraft, pageSlashCommands, SLASH_COMMANDS, slashCommandsFor } from './slashCommands';
+import { MAKE_DASHBOARD } from './studioChat';
 
 const keys = (draft: string) => slashCommandsFor(draft).map((c) => c.key);
 
@@ -88,7 +89,13 @@ describe('the page’s own commands', () => {
     expect(pageSlashCommands(path, shared)).toEqual([]);
     expect(pageSlashCommands(path, [])).toEqual([]);
     expect(pageSlashCommands(`/dashboards/${ID}/edit`, own)).toEqual([]);
-    expect(pageSlashCommands('/dashboards', own)).toEqual([]);
+    expect(pageSlashCommands('/dashboards', own).map((c) => c.key)).toEqual(['make_dashboard']);
+  });
+
+  it('makes a new dashboard from the dashboards list, as its suggestion does', () => {
+    const [make] = pageSlashCommands('/dashboards');
+    expect(make).toMatchObject({ key: 'make_dashboard', ask: MAKE_DASHBOARD });
+    expect(pageKeys('/做', '/dashboards')).toEqual(['make_dashboard']);
   });
 
   it('adds nothing on other pages, and keeps the site’s commands after the page’s', () => {

@@ -50,6 +50,8 @@
    ![指令列打開 dashboard](screenshots/studio-quick-dashboard-desktop.png)
    打一個 **「/」** → 輸入框上方出現「現成指令」：今日簡報、考我單字、用我的單字寫短文、投資組合健檢…，按一下就送出（同一組指令在 Claude Code 裡是 `/mcp__jacky-studio__…`，見第 8 步）。
    ![Studio 的斜線指令](screenshots/studio-slash-desktop.png)
+   在自己的 dashboard 上打「/」，第一個就是 **「解讀這個 dashboard」**；在字典的單字頁是 **「解釋 serendipity」**——指令跟著頁面走。
+   ![dashboard 頁的斜線指令](screenshots/studio-slash-dashboard-desktop.png)
 2. **AI 操作網站（30 秒）**：在首頁 ⌘K →「帶我去複習」→ 背後的頁面直接切到「複習」，Studio 說明怎麼翻牌（手機上回答完抽屜自動收起，再按按鈕對話還在）。
    ![帶我去複習](screenshots/studio-go-desktop.png)
 3. **本站即工具（1 分鐘）**：輸入「serendipity 是什麼？幫我加入單字庫」→ 回答上方顯示用了「查字典」→ 單字連結卡 → 出現**確認卡**「加入單字庫：serendipity」→ 按「允許」→「已加入」與「前往單字庫」。確認卡下方寫著「3 分鐘內沒有回覆，這次就不執行」（最後一分鐘倒數秒數）；切到別的分頁時，分頁標題變成「（等你確認）Jacky's Studio」，這時重新整理頁面，瀏覽器會先問要不要離開（D-105～D-107）。
@@ -209,5 +211,6 @@ flowchart LR
 | 10/25 | 22 | 記憶收尾：今日簡報用筆記、資料分析的助理只讀筆記、**Studio 主動提議記住**（確認卡把關）；/connectors 記憶區塊手機版 |
 | 10/25 | 23 | 確認卡打磨：剩餘時間倒數、分頁標題「（等你確認）」、重新整理前先問、時間到寫「沒有在時限內回覆」；評估重新接上確認卡（resumable stream）後不做 |
 | 10/26 | 24 | **本站 MCP server 的現成指令**（MCP prompts：Claude Code 打 `/mcp__jacky-studio__daily_briefing` 就是今日簡報，共 6 個，token 用得到的工具才列出）；Studio 輸入框打 **「/」** 出現同一組現成指令；產生 token 的對話框寫出各 AI 怎麼叫出；審查修正 |
+| 10/26 | 25 | 「/」指令跟著頁面走：單字頁「解釋 {word}」、/dashboards「做一個新的 dashboard」、自己的 dashboard「解讀這個 dashboard」排在最前面 |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。
