@@ -275,6 +275,12 @@ describe('ApprovalCard', () => {
     });
   });
 
+  it('says nothing ran, rather than refused, for a card its turn ended without', () => {
+    render({ pendingId: 'p', calls: [call('a')] }, vi.fn(), 'resolved', []);
+    expect(container.textContent).toContain('沒有執行');
+    expect(container.textContent).not.toContain('已拒絕');
+  });
+
   it('says the time ran out rather than that the reader refused', () => {
     act(() =>
       root.render(
@@ -302,8 +308,9 @@ describe('ApprovalCard', () => {
       render({ pendingId: 'p', calls: [call('a')], askedAt });
       expect(timeLeft()).toBe('3 分鐘內沒有回覆，這次就不執行');
 
+      // 30 seconds before the server's limit, less the 5 the card keeps in hand.
       act(() => vi.advanceTimersByTime(2 * 60 * 1000 + 30_000));
-      expect(timeLeft()).toBe('30 秒內沒有回覆，這次就不執行');
+      expect(timeLeft()).toBe('25 秒內沒有回覆，這次就不執行');
     });
 
     it('is gone once sent or answered, and not shown without a time', () => {

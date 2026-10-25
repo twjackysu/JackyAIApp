@@ -83,24 +83,31 @@ export const hasOpenApproval = (messages: readonly { approval?: MessageApproval 
 export const APPROVAL_TIMEOUT_MS = 3 * 60 * 1000;
 
 /**
- * What the card says about the time left to answer, or nothing when it does not know when it was asked. The server
- * started counting a moment before the question arrived, so this is never later than its own limit. Under a minute
- * it counts the seconds (`urgent`); at the end, the server's no is on its way.
+ * Taken off the deadline the card shows: the server starts counting a moment before the question reaches the browser,
+ * so a deadline counted from its arrival would run later than the server's own.
+ */
+export const APPROVAL_TIME_MARGIN_MS = 5 * 1000;
+
+/**
+ * What the card says about the time left to answer, or nothing when it does not know when it was asked: counted from
+ * its arrival, less `APPROVAL_TIME_MARGIN_MS`, so it does not run past the server's limit. Under a minute it counts
+ * the seconds (`urgent`); at the end, the server's no is on its way.
  */
 export const approvalTimeLeft = (
   askedAt: number | undefined,
   now: number,
 ): { text: string; urgent: boolean } | null => {
   if (askedAt === undefined) return null;
-  const left = Math.ceil((askedAt + APPROVAL_TIMEOUT_MS - now) / 1000);
+  const left = Math.ceil((askedAt + APPROVAL_TIMEOUT_MS - APPROVAL_TIME_MARGIN_MS - now) / 1000);
   if (left <= 0) return { text: '時間到了，這次不會執行', urgent: true };
   if (left <= 60) return { text: `${left} 秒內沒有回覆，這次就不執行`, urgent: true };
   return { text: `${Math.ceil(left / 60)} 分鐘內沒有回覆，這次就不執行`, urgent: false };
 };
 
 /**
- * A card once the server has its decisions (`approval_resolved`). One still waiting on the reader (not sent by
- * them) that comes back all no ran out of time: the card says so rather than that they refused (D-108).
+ * A card once the server has its decisions (`approval_resolved`). All no, unless the reader themselves sent all no,
+ * means the time ran out — before they answered, or before their answer (or a retry after a failed send) got there —
+ * and the card says so rather than that they refused (D-108).
  */
 export const resolveApproval = (
   approval: MessageApproval,
@@ -109,5 +116,7 @@ export const resolveApproval = (
   ...approval,
   state: 'resolved',
   decisions,
-  expired: approval.state === 'pending' && decisions.every((d) => !d.approve),
+  expired:
+    decisions.every((d) => !d.approve) &&
+    !(approval.decisions?.length && approval.decisions.every((d) => !d.approve)),
 });

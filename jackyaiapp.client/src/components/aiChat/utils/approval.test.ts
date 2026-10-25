@@ -4,6 +4,7 @@ import clientToolRunnerCs from '../../../../../JackyAIApp.Server/Services/Chatbo
 
 import {
   alwaysAllowRequest,
+  APPROVAL_TIME_MARGIN_MS,
   APPROVAL_TIMEOUT_MS,
   approvalTimeLeft,
   canAlwaysAllow,
@@ -100,6 +101,8 @@ describe('hasOpenApproval', () => {
 
 describe('approvalTimeLeft', () => {
   const asked = 1_000_000;
+  // A little before the server's own limit, which started a moment before the question arrived.
+  const deadline = asked + APPROVAL_TIMEOUT_MS - APPROVAL_TIME_MARGIN_MS;
 
   it("counts to the server's own limit", () => {
     const minutes = /ApprovalTimeout = TimeSpan\.FromMinutes\((\d+)\)/.exec(clientToolRunnerCs);
@@ -120,15 +123,15 @@ describe('approvalTimeLeft', () => {
       text: '2 分鐘內沒有回覆，這次就不執行',
       urgent: false,
     });
-    expect(approvalTimeLeft(asked, asked + APPROVAL_TIMEOUT_MS - 60_000)).toEqual({
+    expect(approvalTimeLeft(asked, deadline - 60_000)).toEqual({
       text: '60 秒內沒有回覆，這次就不執行',
       urgent: true,
     });
-    expect(approvalTimeLeft(asked, asked + APPROVAL_TIMEOUT_MS - 4_500)).toEqual({
+    expect(approvalTimeLeft(asked, deadline - 4_500)).toEqual({
       text: '5 秒內沒有回覆，這次就不執行',
       urgent: true,
     });
-    expect(approvalTimeLeft(asked, asked + APPROVAL_TIMEOUT_MS + 2_000)).toEqual({
+    expect(approvalTimeLeft(asked, deadline)).toEqual({
       text: '時間到了，這次不會執行',
       urgent: true,
     });
@@ -136,6 +139,21 @@ describe('approvalTimeLeft', () => {
 });
 
 describe('resolveApproval', () => {
+  it('takes all-no after the reader sent an allow, or after a failed send, as the time running out', () => {
+    const allow = [
+      { toolUseId: 't1', approve: true },
+      { toolUseId: 't2', approve: false },
+    ];
+    const card = { request: { pendingId: 'p1', calls: [call('t1'), call('t2')] } };
+    const allNo = allow.map((d) => ({ ...d, approve: false }));
+    expect(resolveApproval({ ...card, state: 'sending', decisions: allow }, allNo).expired).toBe(
+      true,
+    );
+    expect(resolveApproval({ ...card, state: 'failed', decisions: allow }, allNo).expired).toBe(
+      true,
+    );
+  });
+
   const waiting = (state: MessageApproval['state']): MessageApproval => ({
     request: { pendingId: 'p1', calls: [call('t1'), call('t2')] },
     state,
@@ -154,8 +172,9 @@ describe('resolveApproval', () => {
     });
   });
 
-  it("keeps the reader's own answer as theirs", () => {
-    expect(resolveApproval(waiting('sending'), no).expired).toBe(false);
+  it("keeps the reader's own no as theirs, and anything allowed as an answer", () => {
+    expect(resolveApproval({ ...waiting('sending'), decisions: no }, no).expired).toBe(false);
+    expect(resolveApproval({ ...waiting('failed'), decisions: no }, no).expired).toBe(false);
     expect(
       resolveApproval(waiting('pending'), [
         { toolUseId: 't1', approve: true },

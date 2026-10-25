@@ -199,7 +199,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
     const settleSteps = (answered: boolean) =>
       updateSteps((steps) => settleToolSteps(steps, answered));
     // A question left open when the turn ended was never answered: the server ran none of it, and
-    // a click now would find nothing waiting. It shows as decided, every call declined.
+    // a click now would find nothing waiting. It shows as closed with nothing run (no decisions).
     const closeApproval = () =>
       setMessages((prev) =>
         prev.map((msg) =>
@@ -231,6 +231,7 @@ export function useChatConversation(options?: ChatConversationOptions) {
           answered: true,
         });
         settleSteps(true);
+        closeApproval();
       },
       onToolEvent: (event) => {
         updateSteps((steps) => applyToolEvent(steps, event));
@@ -346,7 +347,14 @@ export function useChatConversation(options?: ChatConversationOptions) {
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
-      updateApproval(pendingId, { state: 'failed' });
+      // Only a card still being sent: the server's own answer (its time ran out first) may already have closed it.
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.approval?.request.pendingId === pendingId && msg.approval.state === 'sending'
+            ? { ...msg, approval: { ...msg.approval, state: 'failed' } }
+            : msg,
+        ),
+      );
     }
   };
 

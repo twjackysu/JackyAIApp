@@ -57,9 +57,12 @@ describe('useWaitingTitle', () => {
     expect(document.title).toBe("Jacky's Studio");
   });
 
-  it('takes off only its mark, leaving a title changed meanwhile', () => {
+  it("marks the title a page sets meanwhile, and leaves that page's title after", async () => {
     render(true);
     document.title = 'Another page';
+    // The observer runs as a microtask.
+    await act(async () => {});
+    expect(document.title).toBe(`${WAITING_TITLE_MARK}Another page`);
     render(false);
     expect(document.title).toBe('Another page');
   });

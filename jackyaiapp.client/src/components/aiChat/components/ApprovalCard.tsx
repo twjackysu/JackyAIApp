@@ -49,6 +49,19 @@ function useNow(ticking: boolean) {
   return now;
 }
 
+/**
+ * What a decided call says: allowed, refused by the reader, the time ran out (`expired`), or no decision at all
+ * (the turn ended — stopped, failed or done — with the card still open, so nothing ran).
+ */
+const resolvedLabel = (approve: boolean | undefined, expired: boolean) =>
+  approve === undefined
+    ? '沒有執行'
+    : approve
+      ? '已允許'
+      : expired
+        ? '沒有在時限內回覆，沒有執行'
+        : '已拒絕';
+
 /** One tool of one connector: what a permission is set for. */
 const toolKey = (call: ApprovalCall) => `${call.connector}/${call.tool}`;
 
@@ -203,11 +216,7 @@ export default function ApprovalCard({
                 color: decided.get(call.toolUseId) ? 'success.main' : 'text.secondary',
               }}
             >
-              {decided.get(call.toolUseId)
-                ? '已允許'
-                : expired
-                  ? '沒有在時限內回覆，沒有執行'
-                  : '已拒絕'}
+              {resolvedLabel(decided.get(call.toolUseId), expired)}
             </Typography>
           ) : single ? (
             <Box sx={{ display: 'flex', gap: 1, mt: 1, '& .MuiButton-root': { minHeight: 44 } }}>
