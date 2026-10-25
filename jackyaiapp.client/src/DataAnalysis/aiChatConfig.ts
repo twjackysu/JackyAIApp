@@ -34,7 +34,8 @@ export const DATA_ANALYSIS_AI_CHAT: AiChatConfig = {
     { text: '幫我找出這份資料最值得注意的三件事', icon: TravelExploreIcon },
     { text: '上個月各地區營收是多少？', icon: TableChartIcon },
     { text: '畫出近 12 個月的營收趨勢', icon: ShowChartIcon },
-    { text: '畫出各地區每月營收，存到「業績追蹤」dashboard', icon: DashboardCustomizeIcon },
+    // One sentence, a whole dashboard: the charts asked together, saved together on one confirmation (D-090).
+    { text: '幫我做一個業績總覽 dashboard（3 到 4 張圖），存完打開', icon: DashboardCustomizeIcon },
   ],
   connectedLabel: '資料源已連線',
   disclaimer: 'AI 回答可能有誤，重要的數字請以明細資料核對。',

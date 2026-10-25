@@ -1,7 +1,8 @@
 // 選取文字問 AI 的截圖（第 17、18 輪；迴圈專用，合併前與 .loop/ 一起刪）：字典頁選例句 → 翻成中文；Studio 短文裡選一個字；
 // /finance 助理的回答裡選一段 → 問 /finance 自己的助理（第 18 輪）。
 // 用法：cd jackyaiapp.client && npm run build && NODE_PATH=$(npm root -g) node ../.loop/shots/selection.cjs <輸出目錄>（前半段與 chat.cjs 相同）
-// 只拍一個情境：ONLY=A|B|C。
+// /data-analysis 助理的回答裡選一段（第 19 輪，情境 D）。
+// 只拍一個情境：ONLY=A|B|C|D。
 // chat 的串流由頁面內的 fetch 替身送出（addInitScript），可以停在確認卡上不結束，所以拍得到「等待確認」的畫面。
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -243,6 +244,7 @@ const fakeChat = (events) => {
   };
 };
 
+
 async function open(browser, viewport, events) {
   const page = await browser.newPage({ viewport });
   await page.addInitScript(fakeChat, events);
@@ -375,6 +377,21 @@ const only = (k) => !process.env.ONLY || process.env.ONLY === k;
       await page.getByRole('toolbar').getByText('解釋').click();
       await page.waitForTimeout(3500);
       await page.screenshot({ path: `${out}/select-finance-explain-${name}.png` });
+      await page.close();
+    }
+    if (only('D')) {
+      // D：/data-analysis 助理的回答裡選「南區則緩步下滑」→ 工具列（名稱是這一頁的助理：解釋／翻成英文／問 AI）
+      const page = await open(browser, viewport, dataChartDone);
+      await page.goto('http://localhost:5173/data-analysis');
+      await page.waitForTimeout(2000);
+      await page.getByPlaceholder(/問 AI 助手/).first().click();
+      await page.waitForTimeout(800);
+      await ask(page, '畫出各地區每月營收', /問你的資料/);
+      await page.waitForTimeout(1000);
+      await selectIn(page, page.locator('[data-ai-assistant]'), '南區則緩步下滑', true);
+      await page.screenshot({ path: `${out}/select-data-${name}.png` });
+      // 按下去之後的畫面不拍：假的串流每次回同一段，第二個回答看起來跟第一個一樣（已用 console 確認送出的是
+      // 「請解釋…「南區則緩步下滑」」、conversationId c1、沒有 quotesPageText，訊息框也捲到最下面）。
       await page.close();
     }
   }

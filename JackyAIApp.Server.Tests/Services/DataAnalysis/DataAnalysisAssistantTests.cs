@@ -73,6 +73,9 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
 
             Assert.Equal(DataAnalysisChatProfile.SystemPromptFor(Today), setup.SystemPrompt);
             Assert.Contains("2026-10-24", setup.SystemPrompt);
+            // A whole dashboard in one go: its charts asked together, then saved together, put to the reader at once.
+            Assert.Contains("一整個 dashboard", setup.SystemPrompt);
+            Assert.Contains("同一張確認卡", setup.SystemPrompt);
             Assert.False(setup.AttachTwStock);
             Assert.Null(setup.CachedBackground);
             Assert.Equal(new[] { AskDataTool.Name, DescribeDataTool.Name, SaveToDashboardTool.Name }, setup.Tools!.Select(t => t.Descriptor.Name));
@@ -294,6 +297,37 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
 
             Assert.True(result.IsError);
             Assert.Null(result.Navigate);
+        }
+
+        [Fact]
+        public async Task SeveralChartsSavedInTurn_ToANewDashboard_CreateItOnce_AndAllGoInIt()
+        {
+            // "幫我做一個業績總覽 dashboard": the reply's saves run one after another (ClientToolRunner), so the
+            // first creates the dashboard and the others find it by its name.
+            var first = await ChartIdAsync();
+            var second = await ChartIdAsync();
+            var owned = new List<DashboardSummaryDto>();
+            _dashboards.Setup(d => d.ListAsync(It.IsAny<CancellationToken>())).ReturnsAsync(() => ServiceResult.Ok(owned.ToList()));
+            _dashboards.Setup(d => d.CreateAsync(It.IsAny<CreateDashboardRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((CreateDashboardRequest r, CancellationToken _) =>
+                {
+                    var created = new DashboardSummaryDto { Id = Board, Name = r.Name, Visibility = default, IsOwner = true };
+                    owned.Add(created);
+                    return ServiceResult.Ok(created);
+                });
+            _dashboards.Setup(d => d.AddWidgetAsync(It.IsAny<Guid>(), It.IsAny<AddWidgetRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ServiceResult.Ok(new DashboardWidgetDto { Id = Guid.NewGuid(), VizType = "line", Plan = default }));
+            var (_, save) = await SetupAsync(Page(), SaveToDashboardTool.Name);
+
+            var one = await save.RunAsync(Input(new { chartId = first, dashboard = "業績總覽", title = "每月營收" }), Ctx, CancellationToken.None);
+            var two = await save.RunAsync(Input(new { chartId = second, dashboard = "業績總覽", title = "各地區占比", open = true }), Ctx, CancellationToken.None);
+
+            Assert.Contains("已建立 dashboard「業績總覽」", one.Content);
+            Assert.Contains("已把「各地區占比」存進 dashboard「業績總覽」", two.Content);
+            _dashboards.Verify(d => d.CreateAsync(It.IsAny<CreateDashboardRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+            _dashboards.Verify(d => d.AddWidgetAsync(Board, It.IsAny<AddWidgetRequest>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+            Assert.Null(one.Navigate);
+            Assert.Equal($"/dashboards/{Board}", two.Navigate);
         }
 
         [Fact]
