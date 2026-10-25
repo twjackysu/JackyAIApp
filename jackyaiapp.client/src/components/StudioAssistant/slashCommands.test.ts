@@ -7,7 +7,7 @@ import portfolioPromptsCs from '../../../../JackyAIApp.Server/Services/Portfolio
 
 import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
 import { isSlashDraft, pageSlashCommands, SLASH_COMMANDS, slashCommandsFor } from './slashCommands';
-import { MAKE_DASHBOARD } from './studioChat';
+import { MAKE_DASHBOARD, RECORD_TRADE } from './studioChat';
 
 const keys = (draft: string) => slashCommandsFor(draft).map((c) => c.key);
 
@@ -92,6 +92,16 @@ describe('the page’s own commands', () => {
     expect(pageSlashCommands('/dashboards', own).map((c) => c.key)).toEqual(['make_dashboard']);
   });
 
+  it('records a trade on the portfolio page, as its suggestion does', () => {
+    expect(pageSlashCommands('/portfolio')[0]).toMatchObject({
+      key: 'record_trade',
+      ask: RECORD_TRADE,
+    });
+    expect(pageKeys('/交易', '/portfolio')).toEqual(['record_trade']);
+    expect(pageKeys('/trade', '/portfolio')).toEqual(['record_trade']);
+    expect(pageSlashCommands('/portfolios')).toEqual([]);
+  });
+
   it('makes a new dashboard from the dashboards list, as its suggestion does', () => {
     const [make] = pageSlashCommands('/dashboards');
     expect(make).toMatchObject({ key: 'make_dashboard', ask: MAKE_DASHBOARD });
@@ -99,7 +109,7 @@ describe('the page’s own commands', () => {
   });
 
   it('adds nothing on other pages, and keeps the site’s commands after the page’s', () => {
-    expect(pageKeys('/', '/portfolio')).toEqual(SLASH_COMMANDS.map((c) => c.key));
+    expect(pageKeys('/', '/english/review')).toEqual(SLASH_COMMANDS.map((c) => c.key));
     expect(pageKeys('/', '/english/dictionary/serendipity').slice(1)).toEqual(
       SLASH_COMMANDS.map((c) => c.key),
     );

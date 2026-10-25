@@ -45,12 +45,14 @@ const REPOSITORY: AiChatSuggestion[] = [
 ];
 /** The market side of the reader's own holdings: answered by /finance's assistant, handed the holdings (D-097). */
 export const MY_HOLDINGS_MARKET = '我的持股最近外資在買還是賣？';
+/** Recording a trade by saying it or pasting the trade confirmation (update_holding asks first). */
+export const RECORD_TRADE = '幫我記一筆今天的交易';
 const PORTFOLIO: AiChatSuggestion[] = [
   { text: '幫我看看我的持股，哪幾檔虧最多？', icon: PieChartIcon },
   // Studio AI reads the holdings, then hands the question to /finance's assistant, which has the market data (D-097).
   { text: MY_HOLDINGS_MARKET, icon: ShowChartIcon },
   // The model asks which holding, how many and at what price, or for the trade confirmation's screenshot.
-  { text: '幫我記一筆今天的交易', icon: EditNoteIcon },
+  { text: RECORD_TRADE, icon: EditNoteIcon },
 ];
 /** A word's dictionary page as the server's `open_page` makes it: letters, an apostrophe or a hyphen. */
 const DICTIONARY_WORD = /^\/english\/dictionary\/([a-z][a-z'-]{0,29})$/i;

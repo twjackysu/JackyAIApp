@@ -211,6 +211,6 @@ flowchart LR
 | 10/25 | 22 | 記憶收尾：今日簡報用筆記、資料分析的助理只讀筆記、**Studio 主動提議記住**（確認卡把關）；/connectors 記憶區塊手機版 |
 | 10/25 | 23 | 確認卡打磨：剩餘時間倒數、分頁標題「（等你確認）」、重新整理前先問、時間到寫「沒有在時限內回覆」；評估重新接上確認卡（resumable stream）後不做 |
 | 10/26 | 24 | **本站 MCP server 的現成指令**（MCP prompts：Claude Code 打 `/mcp__jacky-studio__daily_briefing` 就是今日簡報，共 6 個，token 用得到的工具才列出）；Studio 輸入框打 **「/」** 出現同一組現成指令；產生 token 的對話框寫出各 AI 怎麼叫出；審查修正 |
-| 10/26 | 25 | 「/」指令跟著頁面走：單字頁「解釋 {word}」、/dashboards「做一個新的 dashboard」、自己的 dashboard「解讀這個 dashboard」排在最前面 |
+| 10/26 | 25 | 「/」指令跟著頁面走：單字頁「解釋 {word}」、/portfolio「記一筆交易」、/dashboards「做一個新的 dashboard」、自己的 dashboard「解讀這個 dashboard」排在最前面 |
 
 截至第 6 輪：feature/ai-native 比 master 多 60+ 個 commit（不含 merge）。

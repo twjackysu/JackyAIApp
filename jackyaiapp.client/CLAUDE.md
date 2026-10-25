@@ -87,7 +87,7 @@ jackyaiapp.client/src/
   requests instead (`slashCommands`, D-111: 今日簡報, 考我單字, 用我的單字寫短文, 投資組合健檢, …, narrowed by what follows
   the slash, in either language or by the site MCP server's prompt name, `/quiz`): a press sends one as if typed, the drawer
   staying open (the briefing as a new conversation, as the home page sends it). The page's own come first
-  (`pageSlashCommands`, D-113): 解釋 {word} on a word's dictionary page, 做一個新的 dashboard on /dashboards, 解讀這個 dashboard on one of the reader's own
+  (`pageSlashCommands`, D-113): 解釋 {word} on a word's dictionary page, 記一筆交易 on /portfolio, 做一個新的 dashboard on /dashboards, 解讀這個 dashboard on one of the reader's own
   dashboards (in the /dashboards list with `isOwner`; not on a shared one, nor before the list is read). These ask the AI, so the chips say 現成指令
   rather than 不用問 AI. Those that are also the server's MCP prompts keep its names, which their test holds to the server's files. Its page list, `QUICK_PAGES`, is held to the
   server's `SitePages.cs` by its test; the reader's dashboards (the /dashboards list, read each time the drawer opens)
