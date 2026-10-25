@@ -106,5 +106,21 @@ namespace JackyAIApp.Server.Tests.Services.Assistant.Memory
             Assert.Empty(await Service().ListAsync(User, CancellationToken.None));
             Assert.Single(await Service().ListAsync("u2", CancellationToken.None));
         }
+
+        [Fact]
+        public async Task ANote_CanBeForgottenByItsWords_AsKept()
+        {
+            await Service().AddAsync(User, "在準備多益，目標 800 分", CancellationToken.None);
+            await Service().AddAsync(User, "Short passages please", CancellationToken.None);
+            await Service().AddAsync("u2", "在準備多益，目標 800 分", CancellationToken.None);
+
+            Assert.Null(await Service().RemoveTextAsync(User, "在準備多益", CancellationToken.None));
+            Assert.Null(await Service().RemoveTextAsync(User, "  ", CancellationToken.None));
+            var forgotten = await Service().RemoveTextAsync(User, " short passages\nplease ", CancellationToken.None);
+
+            Assert.Equal("Short passages please", forgotten!.Text);
+            Assert.Equal(["在準備多益，目標 800 分"], (await Service().ListAsync(User, CancellationToken.None)).Select(m => m.Text));
+            Assert.Single(await Service().ListAsync("u2", CancellationToken.None));
+        }
     }
 }

@@ -45,6 +45,12 @@ namespace JackyAIApp.Server.Services.Assistant.Memory
 
         /// <summary>Forgets one of the reader's memories: the one forgotten, or null for none of theirs by that id.</summary>
         Task<AssistantMemoryDto?> RemoveAsync(string userId, string id, CancellationToken ct);
+
+        /// <summary>
+        /// Forgets the reader's memory with these words (as kept: one line, any case), which is how Studio AI names one:
+        /// its confirmation card then shows exactly what goes. The one forgotten, or null for none with those words.
+        /// </summary>
+        Task<AssistantMemoryDto?> RemoveTextAsync(string userId, string text, CancellationToken ct);
     }
 
     public sealed class AssistantMemoryService(AzureSQLDBContext db, TimeProvider time) : IAssistantMemoryService
@@ -85,6 +91,18 @@ namespace JackyAIApp.Server.Services.Assistant.Memory
         public async Task<AssistantMemoryDto?> RemoveAsync(string userId, string id, CancellationToken ct)
         {
             var row = await db.AssistantMemories.FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId, ct);
+            if (row == null) return null;
+            db.AssistantMemories.Remove(row);
+            await db.SaveChangesAsync(ct);
+            return Dto(row);
+        }
+
+        public async Task<AssistantMemoryDto?> RemoveTextAsync(string userId, string text, CancellationToken ct)
+        {
+            var note = Normalize(text);
+            if (note.Length == 0) return null;
+            var kept = await db.AssistantMemories.Where(m => m.UserId == userId).ToListAsync(ct);
+            var row = kept.FirstOrDefault(m => string.Equals(m.Text, note, StringComparison.OrdinalIgnoreCase));
             if (row == null) return null;
             db.AssistantMemories.Remove(row);
             await db.SaveChangesAsync(ct);
