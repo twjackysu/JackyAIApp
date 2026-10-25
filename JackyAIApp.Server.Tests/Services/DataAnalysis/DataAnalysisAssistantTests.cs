@@ -10,6 +10,7 @@ using JackyAIApp.Server.Services.Assistant.Memory;
 using JackyAIApp.Server.Services.DataAnalysis;
 using JackyAIApp.Server.Services.DataAnalysis.Assistant;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace JackyAIApp.Server.Tests.Services.DataAnalysis
@@ -29,6 +30,7 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
         private readonly Mock<IDashboardService> _dashboards = new();
         private readonly DataAnalysisCharts _charts = new(new MemoryCache(new MemoryCacheOptions()));
         private readonly List<AssistantMemoryDto> _memories = [];
+        private bool _memoriesFail;
         private NlSummarizeRequestDto? _asked;
 
         public DataAnalysisAssistantTests()
@@ -62,10 +64,11 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
             var connectors = new Mock<IConnectorToolSource>();
             connectors.Setup(c => c.ForUserAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(() => _connectorTools.ToList());
             var memories = new Mock<IAssistantMemoryService>();
-            memories.Setup(m => m.ListAsync("u1", It.IsAny<CancellationToken>())).ReturnsAsync(() => _memories.ToList());
+            memories.Setup(m => m.ListAsync("u1", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => _memoriesFail ? throw new InvalidOperationException("db down") : _memories.ToList());
             var setup = await new DataAnalysisChatProfile(
                     _nl.Object, _queries.Object, _sessions.Object, _usage.Object, connectors.Object, _dashboards.Object, _charts,
-                    memories.Object)
+                    memories.Object, NullLogger<DataAnalysisChatProfile>.Instance)
                 .SetupAsync(context, CancellationToken.None);
             return (setup, Assert.Single(setup.Tools!, t => t.Descriptor.Name == tool));
         }
@@ -97,6 +100,16 @@ namespace JackyAIApp.Server.Tests.Services.DataAnalysis
 
             Assert.DoesNotContain("user_memories", setup.SystemPrompt);
             Assert.DoesNotContain("筆記", setup.SystemPrompt);
+        }
+
+        [Fact]
+        public async Task NotesThatCannotBeRead_LeaveThePromptAsWithoutThem()
+        {
+            _memoriesFail = true;
+
+            var (setup, _) = await SetupAsync(Page());
+
+            Assert.Equal(DataAnalysisChatProfile.SystemPromptFor(Today), setup.SystemPrompt);
         }
 
         [Fact]

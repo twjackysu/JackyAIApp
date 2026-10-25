@@ -59,8 +59,10 @@ export default function MemorySection({ notify }: MemorySectionProps) {
           sx={{
             flex: 1,
             minWidth: 0,
-            fontSize: { xs: '1rem', sm: undefined },
+            typography: { xs: 'subtitle1', sm: 'h6' },
             whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
           Studio AI 記得的事
