@@ -280,7 +280,8 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   Taipei (or the latest's date if that is later) the way /portfolio saves one, so the history keeps the earlier one; the cost
   follows the average-cost rule (a sale keeps the average, a purchase adds what was paid, so buying more of a holding with a
   cost needs its `price`, or the total `cost` paid, which is the only one taken when the cost is kept in another currency than
-  the price, and is refused without one; a second change on a day replaces that day's snapshot, and the reply says so); a new holding, or a name that matches two, is refused with a link to
+  the price, and is refused without one; a second change on a day replaces that day's snapshot, and the reply says so); the prompt has a trade confirmation the reader attached
+  (a broker's screenshot) read out trade by trade and each one put to them as its own `update_holding` call; a new holding, or a name that matches two, is refused with a link to
   /portfolio, never guessed: `Services/Portfolio/Assistant`; Data Analysis's `read_dashboard`, below; Connectors' `google_calendar_events`)
   and the reader's connectors' tools. No tw-stock: /finance has its own assistant for the market. Its prompt also says
   what the morning briefing is (the home page's 「給我今天的簡報」: the calendar, `learning_progress` and

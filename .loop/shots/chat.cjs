@@ -67,6 +67,19 @@ const studioTrade = [
   },
 ];
 
+// 附上成交回報截圖 →「讀到兩筆」→ 兩筆更新持倉一起出現在確認卡（停在確認卡）
+const studioTradeImage = [
+  start,
+  delta('我從截圖讀到兩筆成交：\n\n| 代號 | 買賣 | 數量 | 均價 |\n|---|---|---|---|\n| 0050 元大台灣50 | 買進 | 2,000 股 | 185.00 |\n| 2330 台積電 | 賣出 | 500 股 | 1,450.00 |\n\n請逐筆確認，允許後幫你記進投資組合：'),
+  {
+    type: 'approval_required', pendingId: 'p1', tainted: false,
+    calls: [
+      { toolUseId: 't1', connector: 'site', connectorName: 'Jacky Studio', tool: 'update_holding', displayName: '更新持倉', effect: 'write', input: { symbol: '0050', change: 2000, price: 185 }, summary: '「0050」加 2,000（成交價 185）（存成今天的快照）' },
+      { toolUseId: 't2', connector: 'site', connectorName: 'Jacky Studio', tool: 'update_holding', displayName: '更新持倉', effect: 'write', input: { symbol: '2330', change: -500 }, summary: '「2330」減 500（存成今天的快照）' },
+    ],
+  },
+];
+
 // /finance：hosted 的 tw-stock 工具（沒有顯示名稱、沒有卡片），回答後的接著問。
 const financeTrend = [
   start,
@@ -224,6 +237,8 @@ async function open(browser, viewport, events) {
     const json = (body) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
     if (p === '/api/account/info') return json({ data: user });
     if (p.startsWith('/api/chatbot/conversations')) return json({ data: [] });
+    if (p === '/api/chatbot/attachments') return json({ data: { id: 7, fileName: 'trade-confirmation.png', kind: 'image', charCount: 0, truncated: false } });
+    if (p === '/api/chatbot/attachments/7/content') return route.fulfill({ body: fs.readFileSync(path.join(__dirname, 'fixtures/trade-confirmation.png')), contentType: 'image/png' });
     if (p === '/api/dataanalysis/sources') return json({ data: [] });
     if (p === '/api/review/submit') return json({ data: { wordsReviewed: 3, correctCount: 2, xpEarned: 6 } });
     if (p.startsWith('/api/review/due')) return json({ data: { dueCount: 12 } });
@@ -387,6 +402,18 @@ async function ask(page, text, placeholder) {
     await page.waitForTimeout(800);
     await ask(page, '我今天加碼 0050 兩張，均價 185，幫我記下來');
     await page.screenshot({ path: `${out}/studio-trade-${name}.png` });
+    await page.close();
+
+    // Studio：/portfolio → ⌘K → 附上成交回報截圖 → 兩筆一起確認
+    page = await open(browser, viewport, studioTradeImage);
+    await page.goto('http://localhost:5173/portfolio');
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(800);
+    await page.locator('input[type=file]').last().setInputFiles(path.join(__dirname, 'fixtures/trade-confirmation.png'));
+    await page.waitForTimeout(800);
+    await ask(page, '幫我把這兩筆記進投資組合');
+    await page.screenshot({ path: `${out}/studio-trade-image-${name}.png` });
     await page.close();
 
     // /data-analysis：最上方的對話 → 圖表卡片 → 存到 dashboard 的確認卡
