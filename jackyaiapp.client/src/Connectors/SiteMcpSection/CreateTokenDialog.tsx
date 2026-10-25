@@ -98,6 +98,31 @@ export default function CreateTokenDialog({ open, serverUrl, onClose }: CreateTo
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             加好之後，對那個 AI 說「查一下 serendipity 的意思」或「我的投資組合現在多少？」試試看。
           </Typography>
+          {config.prompts && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              也有現成指令（今日簡報、考我單字、解讀 dashboard…）：
+              {config.prompts.split(/(\/mcp\S+)/).map((part, i) =>
+                i % 2 === 1 ? (
+                  <Box
+                    key={i}
+                    component="code"
+                    sx={{
+                      fontFamily: 'monospace',
+                      color: 'text.primary',
+                      // One line where it fits; a phone breaks it anywhere rather than overflow.
+                      whiteSpace: { sm: 'nowrap' },
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {part}
+                  </Box>
+                ) : (
+                  part
+                ),
+              )}
+              。
+            </Typography>
+          )}
         </DialogContent>
       ) : (
         <DialogContent>

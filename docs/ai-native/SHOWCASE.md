@@ -31,6 +31,7 @@
 | 每個工具「自動／需確認／停用」；確認卡可勾「以後直接執行」；讀過外部資料（含行事曆邀請）後的寫入一律先問；工具說明被改了就改回需確認 | `ToolPermissions`、taint（D-031、`OutsideText`）、工具結果包成不可信資料、`CachedTools.Changed`（rug pull） | prompt injection 與 tool poisoning 防護 |
 | **網站本身就是 MCP server**：在 /connectors 產生 token，一鍵複製 Claude Code／Claude Desktop／Cursor／VS Code 的設定，別家的 AI 就能查字典、看你的學習進度與投資組合 | `POST /api/mcp`（Streamable HTTP、JSON 回應、無 session）、只存雜湊的 PAT、預設唯讀、跟 /connectors 的權限連動；**Claude.ai／ChatGPT 只要貼網址**：本站同時是 OAuth 授權伺服器（PRM、AS metadata、DCR、PKCE、同意頁） | MCP 是雙向的：網站不只是 MCP client，也是 MCP server |
 | **在 Claude.ai／ChatGPT 裡也看得到本站的卡片**：問「我的投資組合」，回答下方直接出現本站的持倉表格（深淺色跟著 host） | MCP Apps（`ui://` 資源、`structuredContent`、postMessage 的 `ui/initialize`／`tool-result`／`size-changed`），一個內嵌的 HTML 畫所有卡片 | MCP Apps（2026 的 generative UI 標準）：工具不只回文字，也回 UI |
+| **別家 AI 裡的斜線指令**：Claude Code 打 `/mcp__jacky-studio__daily_briefing` 就是今日簡報；還有「考我單字」（一次一題）、「解讀 dashboard」、「投資組合健檢」等 6 個現成指令（VS Code、Claude Desktop 的選單也有） | MCP prompts（`prompts/list`／`prompts/get`）：每個 `SitePrompt` 宣告在它用到的工具旁邊，token 用不到的工具就不列出它；參數整理成一行、最多 100 字 | MCP 的三種能力（tools、resources、prompts）本站對外全部提供 |
 | /finance 的 Stock Intelligence：**行為不變**，工具 chip 與進度改用中文（「個股歷史股價」「技術指標」），回答下方有「接著問」 | 同一套共用 chat（`FinanceChatRequestTests` 逐欄位鎖住請求）；中文名稱是前端的對照表（`FINANCE_TOOL_LABELS`） | — |
 
 ## Demo 腳本（約 10 分鐘）
@@ -97,7 +98,7 @@
    ![Connectors：目錄裡的 Notion、Linear 一鍵授權](screenshots/connectors-oauth-desktop.png)
    ![自己的 MCP server：偵測到 OAuth](screenshots/add-mcp-oauth-desktop.png)
 7. **安全（1 分鐘）**：在 connector 詳情把某個工具設成「停用」→ AI 說它沒有這個能力；「需確認」的工具一律出確認卡；按「停止」整輪什麼都不執行。
-8. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
+8. **反過來：網站本身就是 MCP server（1 分鐘）**：/connectors 往下捲到「讓其他 AI 使用本站」→「產生 token」（名稱 Claude Code、唯讀）→ 複製「Claude Code」那一行指令貼到終端機 → 在 Claude Code 問「用 jacky-studio 查一下 serendipity，再看我今天要複習幾個字」→ 它呼叫本站的 `look_up_word`、`learning_progress`。再打 `/mcp__jacky-studio__daily_briefing`（產生 token 的對話框會寫出這行）→ Claude Code 一次呼叫行程、學習進度、投資組合三個工具，整理成三段簡報；`/mcp__jacky-studio__quiz_me` 則一次問一題。回到 /connectors 看到 token「最後使用」更新；按「撤銷」後 Claude Code 立刻連不上。
    **或在 Claude.ai**：設定 → Connectors → 新增自訂 connector，只貼 `https://apps.jacky-studio.com/api/mcp` → 跳到本站的同意頁「Claude 想用你的身分使用 Jacky Studio 的工具，完成後會回到 claude.ai」→ 允許 → 回到 Claude.ai，工具出現。
    接著在 Claude.ai 問「我的投資組合現在怎麼樣？」→ 回答下方出現 **Jacky Studio 的持倉表格卡片**（MCP App），問「serendipity 是什麼」→ 單字卡，按「看完整解釋」開到本站字典頁；token 允許寫入時卡片上還有「加入單字庫」，在 Claude 裡按一下就加進本站的單字庫（MCP App 經 host 呼叫 `tools/call`）。
    ![其他 AI 的 OAuth 同意頁](screenshots/site-mcp-oauth-consent-desktop.png)

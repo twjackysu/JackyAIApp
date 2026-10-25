@@ -4,12 +4,23 @@ export const siteMcpUrl = (origin: string) => `${origin.replace(/\/+$/, '')}/api
 /** The name the other AI lists the server under. */
 export const SERVER_KEY = 'jacky-studio';
 
+/**
+ * The morning briefing among the server's ready-made requests (MCP prompts: the server's `SitePrompt`s,
+ * `StudioSitePrompts.DailyBriefing`; its test holds the two together), the one the dialog names.
+ */
+export const BRIEFING_PROMPT = 'daily_briefing';
+
 export interface ClientConfig {
   key: 'claudeCode' | 'claudeDesktop' | 'cursor' | 'vscode';
   label: string;
   /** Where it goes, in words. */
   where: string;
   text: string;
+  /**
+   * Where that AI shows the site's ready-made requests (MCP prompts), in words, naming the briefing.
+   * None for a client whose way to them we do not know.
+   */
+  prompts?: string;
 }
 
 const json = (value: unknown) => JSON.stringify(value, null, 2);
@@ -28,6 +39,7 @@ export function clientConfigs(serverUrl: string, token: string): ClientConfig[] 
       label: 'Claude Code',
       where: '在終端機執行',
       text: `claude mcp add --transport http ${SERVER_KEY} ${serverUrl} --header "Authorization: ${authorization}"`,
+      prompts: `輸入 /mcp__${SERVER_KEY}__${BRIEFING_PROMPT} 就是今日簡報；打 /mcp__${SERVER_KEY} 看全部`,
     },
     {
       key: 'claudeDesktop',
@@ -42,6 +54,7 @@ export function clientConfigs(serverUrl: string, token: string): ClientConfig[] 
           },
         },
       }),
+      prompts: `輸入框的「＋」→ ${SERVER_KEY}，選「今日簡報」或其他現成指令`,
     },
     {
       key: 'cursor',
@@ -60,6 +73,7 @@ export function clientConfigs(serverUrl: string, token: string): ClientConfig[] 
           [SERVER_KEY]: { type: 'http', url: serverUrl, headers: { Authorization: authorization } },
         },
       }),
+      prompts: `在 Copilot Chat 輸入 /mcp.${SERVER_KEY}.${BRIEFING_PROMPT} 就是今日簡報`,
     },
   ];
 }

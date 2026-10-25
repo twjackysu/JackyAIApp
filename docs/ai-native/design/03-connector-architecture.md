@@ -233,3 +233,21 @@ MCP Apps 擴充（`io.modelcontextprotocol/ui`）讓支援的 client（Claude、
 - **資料**：`tools/call` 成功且工具有卡片時，結果多一個 `structuredContent: { card }`——table 原樣，link 的 `href` 補成完整網址（本站路徑 → issuer + 路徑；只收 https）；其他 kind、不能跟的連結、超過 200k 字元則不放。文字（`content`）照舊，連結卡另外在文字後附「標題：完整網址」，讓不畫 app 的 client 也能給使用者連結。
 - **按鈕（第 10 輪，D-059）**：工具實作 `IOffersAppActions` 就能在卡片上放「下一步」（查字典 → 加入單字庫），`structuredContent.actions: [{ tool, label, arguments }]`，只放這個 token 能呼叫的；App 按下時送 `tools/call` 給 host，host 轉給本站。使用者按下就是確認。
 - **測試**：`SiteMcpServerTests` 的 MCP Apps 區塊（宣告、資源、structuredContent、HTML 不含 innerHTML 與外部載入）；畫面用 playwright 自己扮 host（`ui/initialize` → `tool-result` → `size-changed`）截圖（`screenshots/mcp-app-card-*.png`），含 `<img onerror>` 當資料時只顯示成文字。
+
+### 9.3 現成指令：MCP prompts（第 24 輪，D-110）
+
+工具讓別家的模型「能做」，prompts 讓使用者「一鍵叫它做」：MCP 的 `prompts/list`、`prompts/get`，Claude Code 顯示成斜線指令（`/mcp__jacky-studio__daily_briefing`）、VS Code 是 `/mcp.jacky-studio.daily_briefing`、Claude Desktop 在輸入框的「＋」選單。內容就是本站自己最會的組合，用 Studio AI 的說法寫給只有工具的 client：
+
+| prompt | 參數 | 用到的工具 | 模組 |
+|---|---|---|---|
+| `daily_briefing` 今日簡報 | — | `google_calendar_events`、`learning_progress`、`portfolio_summary` | Assistant（`StudioSitePrompts`） |
+| `explain_word` 解釋單字 | `word`（必填） | `look_up_word` | English（`EnglishSitePrompts`） |
+| `quiz_me` 考我單字 | `count` | `review_quiz`（一次問一題，等回答再公布） | English |
+| `write_with_my_words` 用我的單字寫短文 | `topic` | `saved_words` | English |
+| `portfolio_checkup` 投資組合健檢 | — | `portfolio_summary`（不給買賣建議） | Portfolio（`PortfolioSitePrompts`） |
+| `read_my_dashboard` 解讀 dashboard | `dashboard`（必填） | `read_dashboard` | DataAnalysis（`DataAnalysisSitePrompts`） |
+
+- **宣告方式跟工具一樣**：`SitePrompt`（`Services/Connectors/SitePrompts.cs`）是 `public static readonly`，放在用到的工具旁邊，所屬類別的 `All` 列出、在該模組的註冊裡 `services.AddSingleton(prompt)`。`SitePromptDefinitionsTests` 檢查名稱（slash command 可用的 key）、標題長度、文字裡點名的工具都是本站工具且有 `jacky-studio`、每個參數都進到文字。
+- **只提供用得到的**：一個 prompt 列出的工具全部都提供給這個 token（讀取一律、寫入要允許寫入的 token、使用者在 /connectors 停用的不算）才會出現在 `prompts/list`；`prompts/get` 拿不到的 prompt 跟不存在一樣（-32602）。
+- **參數**：只讀 prompt 宣告的參數，必須是字串；整理成一行（控制字元、換行變空白）、去頭尾空白、最多 100 字（不切開 surrogate pair）；必填的空了是 -32602。參數是使用者在自己的 client 打的，就是他的要求，所以不另外標成不可信；整理成一行是為了不讓它看起來像 prompt 本身的段落。
+- **不收費**：跟 `tools/call` 一樣，AI 的工作是對方 client 的模型做的。

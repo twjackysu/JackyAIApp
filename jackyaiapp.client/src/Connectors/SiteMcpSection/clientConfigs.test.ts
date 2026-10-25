@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { clientConfigs, siteMcpUrl } from './clientConfigs';
+import studioPromptsCs from '../../../../JackyAIApp.Server/Services/Assistant/Studio/StudioSitePrompts.cs?raw';
+
+import { BRIEFING_PROMPT, clientConfigs, siteMcpUrl } from './clientConfigs';
 
 const url = 'https://apps.jacky-studio.com/api/mcp';
 const token = 'jsk_abc';
@@ -44,5 +46,20 @@ describe('clientConfigs', () => {
         'jacky-studio': { type: 'http', url, headers: { Authorization: 'Bearer jsk_abc' } },
       },
     });
+  });
+});
+
+describe('the ready-made requests (MCP prompts)', () => {
+  const byKey = Object.fromEntries(clientConfigs(url, token).map((c) => [c.key, c]));
+
+  it('names the server’s own briefing prompt', () => {
+    expect(studioPromptsCs).toContain(`"${BRIEFING_PROMPT}"`);
+  });
+
+  it('says each client’s way to them, in its own command shape', () => {
+    expect(byKey.claudeCode.prompts).toContain('/mcp__jacky-studio__daily_briefing');
+    expect(byKey.vscode.prompts).toContain('/mcp.jacky-studio.daily_briefing');
+    expect(byKey.claudeDesktop.prompts).toContain('jacky-studio');
+    expect(byKey.cursor.prompts).toBeUndefined();
   });
 });

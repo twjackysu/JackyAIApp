@@ -407,6 +407,14 @@ code; comments do not count). A new `Services.Something` namespace is in no modu
   host's `ui/open-link`), every tool names it in `_meta.ui`, and a result with a table or link card carries it as
   `structuredContent.card` (a link's address made whole). Being sessionless, the server cannot tell whether the client
   said it draws apps, so it always offers it; others ignore it. A link card's address also follows the text in full
+- The server also offers ready-made requests, MCP prompts (`prompts/list`, `prompts/get`; design/03 §9.3, D-110): Claude Code
+  shows each as a slash command (`/mcp__jacky-studio__daily_briefing`). A prompt is a `SitePrompt` (`Services/Connectors/SitePrompts.cs`):
+  a `public static readonly` field next to the tools it asks for (the morning briefing in `Services/Assistant/Studio/StudioSitePrompts`, English's
+  `explain_word`/`quiz_me`/`write_with_my_words`, Portfolio's `portfolio_checkup`, Data Analysis's `read_my_dashboard`), listed in its class's `All`
+  and registered with `services.AddSingleton(prompt)` in its module's registration; `SitePromptDefinitionsTests` holds each to the same
+  shape (a key a client can use, its tools site tools named in its text, every argument in it). It is offered only when the token is offered
+  every tool it names, and one not offered is an unknown prompt (-32602). Only its own arguments are read, as strings, each put on one line,
+  trimmed and cut to 100 characters (`SitePrompts.Clean`); a required one left empty is -32602. No usage charge, as for a call
 - A card can carry buttons there (`structuredContent.actions`: `{ tool, label, arguments }`): a site tool that is
   `IOffersAppActions` names the next step (the dictionary's lookup: add the word to the repository), and the server keeps
   only those whose tool the token may call (`SiteMcpApp.AddActions`). Pressing one sends `tools/call` from the app through

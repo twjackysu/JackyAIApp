@@ -102,3 +102,17 @@ services.AddSingleton(new SiteToolSet("功能名稱", [MyTool.Definition]));   /
 
 寫好的 `ISiteTool` 不只 Studio AI 用得到：本站對外的 MCP server（`POST /api/mcp`，design/03 §9）會把它提供給使用者接上的 Claude Desktop、Cursor 等。讀取型工具一律提供；`ToolEffect.Write` 只給允許寫入的 token；`Destructive` 永遠不提供。所以 **`Effect` 要老實標**，說明（`Description`）也要寫得讓別家的模型看得懂。不需要另外註冊。
 
+想讓使用者在 Claude Code 打一個斜線指令就叫你的工具做一件完整的事，再加一個 **現成指令（MCP prompt）**，放在工具旁邊（design/03 §9.3，範例 `Services/Dictionary/Assistant/EnglishSitePrompts.cs`）：
+
+```csharp
+public static readonly SitePrompt ExplainWord = new(
+    "explain_word", "解釋單字", "從 Jacky Studio 的字典查一個英文單字，用中文解釋並附例句。",
+    [LookUpWordTool.Name],                                        // 這些工具都提供給 token 時才出現
+    [new SitePromptArgument("word", "要查的英文單字", Required: true)],
+    args => $"用 jacky-studio 的 {LookUpWordTool.Name} 查「{args["word"]}」，……");
+public static IReadOnlyList<SitePrompt> All { get; } = [ExplainWord];
+// 模組的註冊：foreach (var prompt in EnglishSitePrompts.All) services.AddSingleton(prompt);
+```
+
+`SitePromptDefinitionsTests` 會自動檢查它（名稱、工具存在、參數進到文字），不用另外寫測試。
+
