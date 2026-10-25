@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace JackyAIApp.Server.Services.Connectors
@@ -38,15 +39,22 @@ namespace JackyAIApp.Server.Services.Connectors
         public const int MaxArgumentChars = 100;
 
         /// <summary>
-        /// An argument as it goes into the prompt's text: on one line (a control character, a line break included, becomes
-        /// a space), trimmed, at most <see cref="MaxArgumentChars"/>. Null when nothing is left. The reader typed it into
+        /// A control character, a line or paragraph separator (U+2028/U+2029, which break a line too), or a format character
+        /// (bidi overrides, zero-width marks: what could make the text read otherwise than it is).
+        /// </summary>
+        private static bool Breaks(char c) => char.IsControl(c) || CharUnicodeInfo.GetUnicodeCategory(c) is
+            UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator or UnicodeCategory.Format;
+
+        /// <summary>
+        /// An argument as it goes into the prompt's text: on one line (a control, separator or format character, a line
+        /// break included, becomes a space), trimmed, at most <see cref="MaxArgumentChars"/>. Null when nothing is left. The reader typed it into
         /// their own client, so it is their request; one line keeps it from passing for more of the prompt's own wording.
         /// </summary>
         public static string? Clean(string? value)
         {
             if (value == null) return null;
             var text = new StringBuilder(Math.Min(value.Length, MaxArgumentChars * 2));
-            foreach (var c in value) text.Append(char.IsControl(c) ? ' ' : c);
+            foreach (var c in value) text.Append(Breaks(c) ? ' ' : c);
             var cleaned = text.ToString().Trim();
             if (cleaned.Length > MaxArgumentChars)
             {

@@ -10,6 +10,7 @@
 |---|---|---|
 | **Studio AI**：任何頁面右下角按鈕或 ⌘K／Ctrl+K 叫出，知道你在哪一頁 | 共用 chat 引擎的 `studio` profile；本站功能都是工具（`ISiteTool`） | 「網站本身就是工具」：同一個 AI 到處都在 |
 | **⌘K 也是指令列**：在 Studio 打「複習」「portfolio」、自己 dashboard 的名稱或一個英文單字，輸入框上方立刻出現「前往『複習』」「查字典：review」，按下直接到（不問 AI、不花用量）；打完整的問題就交給 AI | 前端的 `quickActionsFor`（頁面清單由測試對齊伺服器的 `SitePages`），只認頁面名稱與單一英文單字 | Raycast／Linear 式的指令列與 AI 助理合而為一：簡單的事零延遲，複雜的事交給 agent |
+| **打「/」就有現成指令**：Studio 輸入框打 `/` → 今日簡報、考我單字、用我的單字寫短文、投資組合健檢…一排按鈕，打 `/簡報`、`/quiz` 就篩出來，按下直接送出 | 前端的 `slashCommands`；名稱跟本站 MCP server 的 prompts 一樣，所以 Claude Code 裡的 `/mcp__jacky-studio__quiz_me` 與本站的 `/quiz` 是同一件事 | 斜線指令是 2026 AI 產品的共通語言（Claude、ChatGPT、Cursor） |
 | **用說的**：三個助理的輸入框都有麥克風，說「給我今天的簡報」字就出現在框裡 | 瀏覽器內建的 Web Speech API（zh-TW），不經本站伺服器、不花 AI 額度；Firefox 沒有就不顯示 | 語音是 2026 AI 助理的基本互動 |
 | **聽它說**：每個回答下方的「朗讀」，英文段落用英文聲音、中文翻譯用中文聲音念出來（配上麥克風就是語音對話） | 瀏覽器的 speechSynthesis，`speechText` 把 Markdown 變成字並依語言切段；不經伺服器、不花用量 | 語音進、語音出：AI 助理不只能看 |
 | **AI 今日簡報**：首頁一鍵，Studio AI 同時讀行程、學習進度、投資組合，整理成三段重點與「先做哪件事」 | `askStudio`（任何頁面帶一句話打開 Studio）；模型在一次回覆裡呼叫三個工具，卡片與文字一起出現 | Agent 的價值是「跨 app 組合」：一個問題用到三個資料源 |
@@ -47,6 +48,8 @@
    ![⌘K 指令列](screenshots/studio-quick-desktop.png)
    打 dashboard 名稱的一部分（「業績」）→「打開『每月業績追蹤』」，按下直接到那個 dashboard。
    ![指令列打開 dashboard](screenshots/studio-quick-dashboard-desktop.png)
+   打一個 **「/」** → 輸入框上方出現「現成指令」：今日簡報、考我單字、用我的單字寫短文、投資組合健檢…，按一下就送出（同一組指令在 Claude Code 裡是 `/mcp__jacky-studio__…`，見第 8 步）。
+   ![Studio 的斜線指令](screenshots/studio-slash-desktop.png)
 2. **AI 操作網站（30 秒）**：在首頁 ⌘K →「帶我去複習」→ 背後的頁面直接切到「複習」，Studio 說明怎麼翻牌（手機上回答完抽屜自動收起，再按按鈕對話還在）。
    ![帶我去複習](screenshots/studio-go-desktop.png)
 3. **本站即工具（1 分鐘）**：輸入「serendipity 是什麼？幫我加入單字庫」→ 回答上方顯示用了「查字典」→ 單字連結卡 → 出現**確認卡**「加入單字庫：serendipity」→ 按「允許」→「已加入」與「前往單字庫」。確認卡下方寫著「3 分鐘內沒有回覆，這次就不執行」（最後一分鐘倒數秒數）；切到別的分頁時，分頁標題變成「（等你確認）Jacky's Studio」，這時重新整理頁面，瀏覽器會先問要不要離開（D-105～D-107）。

@@ -83,7 +83,11 @@ jackyaiapp.client/src/
   `studioChat`. It is the site's command bar too: while the reader types, a few words naming a page ("複習",
   "portfolio", "帶我去 dashboards") or one English word offer to go straight there (`quickActionsFor`, shown over the
   box by `QuickActionChips` through the panel's `inputAccessory`): a press navigates, empties the box and closes the
-  drawer, with no AI and no usage; Enter still sends the text to the AI. Its page list, `QUICK_PAGES`, is held to the
+  drawer, with no AI and no usage; Enter still sends the text to the AI. A draft starting with `/` lists Studio AI's ready-made
+  requests instead (`slashCommands`, D-111: 今日簡報, 考我單字, 用我的單字寫短文, 投資組合健檢, …, narrowed by what follows
+  the slash, in either language or by the site MCP server's prompt name, `/quiz`): a press sends one as if typed, the drawer
+  staying open (the briefing as a new conversation, as the home page sends it); these ask the AI, so the chips say 現成指令
+  rather than 不用問 AI. Those that are also the server's MCP prompts keep its names, which their test holds to the server's files. Its page list, `QUICK_PAGES`, is held to the
   server's `SitePages.cs` by its test; the reader's dashboards (the /dashboards list, read each time the drawer opens)
   are offered by their name or two characters of it (「打開『業績追蹤』」), and on /dashboards the first suggestion reads the
   first of the reader's own (「幫我解讀『業績追蹤』這個 dashboard」). On a word's dictionary page its suggestions are about

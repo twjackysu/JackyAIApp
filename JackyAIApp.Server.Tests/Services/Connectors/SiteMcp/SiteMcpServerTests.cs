@@ -440,6 +440,7 @@ namespace JackyAIApp.Server.Tests.Services.Connectors.SiteMcp
             Assert.Equal(new string('a', SitePrompts.MaxArgumentChars - 1), SitePrompts.Clean(emoji));
             Assert.Null(SitePrompts.Clean(null));
             Assert.Null(SitePrompts.Clean("\u0000 \r\n"));
+            Assert.Equal("a b c d", SitePrompts.Clean("a\u2028b\u2029c\u202Ed"));
         }
 
         [Fact]

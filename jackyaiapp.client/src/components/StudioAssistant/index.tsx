@@ -8,9 +8,10 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { ASK_STUDIO_EVENT, askedOf } from './askStudio';
-import QuickActionChips from './QuickActionChips';
-import { quickActionsFor, type QuickAction } from './quickActions';
+import QuickActionChips, { type QuickChip } from './QuickActionChips';
+import { quickActionsFor } from './quickActions';
 import { refreshAfterTool } from './refreshAfterTool';
+import { isSlashDraft, slashCommandsFor } from './slashCommands';
 import { isStudioShortcut, studioChatConfig, studioShownOn } from './studioChat';
 
 import type { AssistantActivity } from '@/components/aiChat';
@@ -117,19 +118,29 @@ export default function StudioAssistant() {
   // goes there at once, without the AI: the box is emptied and the drawer closes, as a command bar would, on
   // every screen. The reader has taken over, so a page an answer still being written was going to take them
   // to is dropped.
-  const quickActions = useMemo(
-    () => quickActionsFor(draft, pathname, boards ?? []),
+  // A draft starting with `/` lists the ready-made requests instead (`slashCommandsFor`, D-111): a press sends
+  // one as if typed, in the drawer that stays open; the briefing in a new conversation, as the home page sends it.
+  const quickActions = useMemo<QuickChip[]>(
+    () =>
+      isSlashDraft(draft)
+        ? slashCommandsFor(draft)
+        : quickActionsFor(draft, pathname, boards ?? []),
     [draft, pathname, boards],
   );
   const pickQuick = useCallback(
-    (action: QuickAction) => {
+    (action: QuickChip) => {
+      if (action.kind === 'command') {
+        changeDraft('');
+        enqueueAsk({ text: action.ask, ...(action.fresh && { fresh: true }) });
+        return;
+      }
       afterAnswer.current = { close: false };
       tookOver.current = busyRef.current;
       changeDraft('');
       setOpen(false);
       navigate(action.path);
     },
-    [navigate, changeDraft],
+    [navigate, changeDraft, enqueueAsk],
   );
 
   // Closed by hand meanwhile: the reader has taken over, nothing closes it for them later.

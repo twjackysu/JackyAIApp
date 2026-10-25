@@ -24,12 +24,26 @@ namespace JackyAIApp.Server.Tests.Architecture
                 .Select(f => (t, (SitePrompt)f.GetValue(null)!)))
             .ToArray();
 
+        /// <summary>
+        /// The tools the site's MCP server can offer: <see cref="ISiteTool"/>s (a profile's own tool, <c>ask_data</c>, is not
+        /// one), never one that <see cref="AiToolDescriptor.AlwaysAsks"/>. A prompt naming another would never be offered.
+        /// </summary>
         private static readonly HashSet<string> SiteToolNames = Types
-            .Where(t => typeof(IAiTool).IsAssignableFrom(t) && t is { IsClass: true, IsAbstract: false })
+            .Where(t => typeof(ISiteTool).IsAssignableFrom(t) && t is { IsClass: true, IsAbstract: false })
             .Select(t => t.GetField("Definition", BindingFlags.Public | BindingFlags.Static)?.GetValue(null))
             .OfType<AiToolDescriptor>()
+            .Where(d => !d.AlwaysAsks)
             .Select(d => d.Name)
             .ToHashSet();
+
+        private static string ServerSourceDir()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "JackyAIApp.Server", "JackyAIApp.Server.csproj")))
+                dir = dir.Parent;
+            Assert.NotNull(dir);
+            return Path.Combine(dir!.FullName, "JackyAIApp.Server");
+        }
 
         public static TheoryData<string> Prompts()
         {
@@ -64,6 +78,19 @@ namespace JackyAIApp.Server.Tests.Architecture
                     Declared.Where(d => d.Owner == owner).Select(d => d.Prompt.Name).OrderBy(n => n),
                     all!.Select(p => p.Name).OrderBy(n => n));
             }
+        }
+
+        [Fact]
+        public void EachClassDeclaringPrompts_HasItsAllRegistered()
+        {
+            var sep = Path.DirectorySeparatorChar;
+            var registrations = string.Join('\n', Directory
+                .EnumerateFiles(ServerSourceDir(), "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.Contains($"{sep}bin{sep}") && !f.Contains($"{sep}obj{sep}"))
+                .Select(File.ReadAllText));
+
+            foreach (var owner in Declared.Select(d => d.Owner).Distinct())
+                Assert.Contains($"foreach (var prompt in {owner.Name}.All) services.AddSingleton(prompt);", registrations);
         }
 
         [Theory]

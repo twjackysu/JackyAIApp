@@ -181,14 +181,14 @@ export function studioChatConfig(
     title: 'Studio AI',
     greetingTitle: '我是 Studio AI，想做什麼？',
     greeting:
-      '告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。打頁面名稱、dashboard 名稱或一個英文單字，可以不經 AI 直接前往；在頁面上選取一段字，也能直接叫我解釋或翻譯。說「記住…」，我就會記得你的目標與偏好。',
+      '告訴我你想做的事，我帶你到對的地方，也能使用你在 Connectors 接上的工具（會改變東西的動作會先問你）。打頁面名稱、dashboard 名稱或一個英文單字，可以不經 AI 直接前往；打 / 看現成指令（今日簡報、考我單字…）；在頁面上選取一段字，也能直接叫我解釋或翻譯。說「記住…」，我就會記得你的目標與偏好。',
     examples: ['這個網站可以做哪些事？', '幫我查一個英文單字', '我的投資組合現在怎麼樣？'],
     suggestions: studioSuggestionsFor(path, dashboards),
     connectedLabel: '全站助理',
     signedOutPlaceholder: '登入後即可使用 Studio AI',
     inputPlaceholder: {
-      narrow: '想做什麼？',
-      wide: '想做什麼？例如：幫我查 serendipity（Enter 送出，Shift+Enter 換行）',
+      narrow: '想做什麼？打 / 看指令',
+      wide: '想做什麼？例如：幫我查 serendipity；打 / 看現成指令（Enter 送出）',
     },
     disclaimer: 'AI 回答可能有誤；會改變資料的動作都會先請你確認。',
     pageContext: { path: path.slice(0, 100) },

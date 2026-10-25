@@ -367,6 +367,40 @@ describe('StudioAssistant', () => {
     expect(router.pathname).toBe('/portfolio');
   });
 
+  it('lists the ready-made requests for a slash, and sends the one pressed, the drawer staying open', async () => {
+    await render('/');
+    await act(async () => button()!.click());
+    await settle();
+    const quick = () => [...document.querySelectorAll('[data-testid="quick-actions"] button')];
+
+    await act(async () => mocks.panel!.onInputChange('/'));
+    expect(quick().length).toBeGreaterThanOrEqual(5);
+    expect(document.querySelector('[data-testid="quick-actions"]')!.textContent).toContain(
+      '現成指令',
+    );
+
+    await act(async () => mocks.panel!.onInputChange('/考'));
+    expect(quick().map((b) => b.textContent)).toEqual(['考我單字']);
+    await act(async () => (quick()[0] as HTMLButtonElement).click());
+    await settle();
+    expect(router.pathname).toBe('/');
+    expect(mocks.panel!.active).toBe(true);
+    expect(mocks.panel!.inputValue).toBe('');
+    expect(mocks.panel!.ask).toEqual({ id: 1, text: '考我今天該複習的單字' });
+  });
+
+  it('sends the briefing from a slash in a new conversation, as the home page does', async () => {
+    await render('/english');
+    await act(async () => button()!.click());
+    await settle();
+    await act(async () => mocks.panel!.onInputChange('/briefing'));
+    const quick = [...document.querySelectorAll('[data-testid="quick-actions"] button')];
+    expect(quick.map((b) => b.textContent)).toEqual(['今日簡報']);
+    await act(async () => (quick[0] as HTMLButtonElement).click());
+    await settle();
+    expect(mocks.panel!.ask).toEqual({ id: 1, text: '給我今天的簡報', fresh: true });
+  });
+
   it('offers the dictionary page of one English word typed in the box', async () => {
     await render('/english');
     await act(async () => button()!.click());
