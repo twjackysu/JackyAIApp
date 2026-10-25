@@ -35,6 +35,9 @@ interface AiAssistantPanelProps {
   /** The message being typed, shared with the one-line box so typing carries over either way. */
   inputValue: string;
   onInputChange: (value: string) => void;
+  /** The box holds text the reader selected on a page (Studio AI's 問 AI on a selection): what they send from it
+   *  goes with `quotesPageText`, so the server counts it as outside text. */
+  inputQuotesPageText?: boolean;
   /** Fold the panel back into its one-line box. */
   onCollapse: () => void;
   onActivityChange?: (activity: AssistantActivity) => void;
@@ -65,6 +68,7 @@ function AiAssistantPanel({
   active,
   inputValue,
   onInputChange: setInputValue,
+  inputQuotesPageText = false,
   onCollapse,
   onActivityChange,
   variant = 'inline',
@@ -170,7 +174,7 @@ function AiAssistantPanel({
     const text = inputValue;
     const sent = attachments.takeForMessage();
     setInputValue('');
-    conversation.send(text, sent);
+    conversation.send(text, sent, inputQuotesPageText ? { quotesPageText: true } : undefined);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

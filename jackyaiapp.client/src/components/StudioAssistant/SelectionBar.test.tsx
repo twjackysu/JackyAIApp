@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { readSelection, SELECTION_SETTLE_MS } from './readSelection';
 import SelectionBar from './SelectionBar';
@@ -121,7 +121,7 @@ describe('SelectionBar', () => {
     expect(bar()).toBeNull();
   });
 
-  it('goes when the selection is cleared, the page scrolls, or Escape', async () => {
+  it('goes when the selection is cleared, or Escape', async () => {
     await renderBar();
     const text = document.getElementById('text')!;
     await selectAndSettle('The market rallied today.', text);
@@ -130,12 +130,61 @@ describe('SelectionBar', () => {
     expect(bar()).toBeNull();
 
     await selectAndSettle('The market rallied today.', text);
+    await act(async () =>
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })),
+    );
+    expect(bar()).toBeNull();
+  });
+
+  it('takes Escape for itself, not for the drawer the selection is in', async () => {
+    await renderBar();
+    const drawerKeys = vi.fn();
+    page.addEventListener('keydown', drawerKeys);
+    await selectAndSettle('The market rallied today.', document.getElementById('text')!);
+    await act(async () =>
+      page.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })),
+    );
+    expect(bar()).toBeNull();
+    expect(drawerKeys).not.toHaveBeenCalled();
+
+    // With no bar, Escape is the page's again.
+    await act(async () =>
+      page.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })),
+    );
+    expect(drawerKeys).toHaveBeenCalledTimes(1);
+  });
+
+  it('moves with the selection when something scrolls, and goes once it is gone', async () => {
+    await renderBar();
+    const text = document.getElementById('text')!;
+    await selectAndSettle('The market rallied today.', text);
+    fakeSelection('The market rallied today.', text, {
+      left: 100,
+      top: 300,
+      width: 80,
+      height: 20,
+    });
+    await act(async () => window.dispatchEvent(new Event('scroll')));
+    expect(getComputedStyle(bar()!).top).toBe('292px');
+
+    fakeSelection(null, text);
     await act(async () => window.dispatchEvent(new Event('scroll')));
     expect(bar()).toBeNull();
+  });
 
-    await selectAndSettle('The market rallied today.', text);
-    await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
-    expect(bar()).toBeNull();
+  it('stays while it is being pressed, though a touch browser clears the selection on the tap', async () => {
+    const onAction = await renderBar();
+    await selectAndSettle('The market rallied today.', document.getElementById('text')!);
+    await act(async () => bar()!.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+    fakeSelection(null, document.getElementById('text')!);
+    await act(async () => {
+      document.dispatchEvent(new Event('selectionchange'));
+      vi.advanceTimersByTime(SELECTION_SETTLE_MS);
+    });
+    expect(bar()).not.toBeNull();
+
+    await act(async () => buttons()[0].click());
+    expect(onAction).toHaveBeenCalledWith('explain', 'The market rallied today.', false);
   });
 
   it('shows nothing while turned off (Studio AI open, or not on this page)', async () => {
@@ -178,6 +227,30 @@ describe('readSelection', () => {
     page.appendChild(menu);
     fakeSelection('Navigation', menu.firstChild!);
     expect(readSelection()).toBeNull();
+  });
+
+  it('stays on the screen for a selection taller than it, or at its bottom edge on a touch screen', () => {
+    const node = document.getElementById('text')!;
+    fakeSelection('The market rallied today.', node, {
+      left: 100,
+      top: -500,
+      width: 80,
+      height: 2000,
+    });
+    expect(readSelection()!.top).toBe(window.innerHeight - 52);
+
+    // A touch screen (jsdom has no matchMedia of its own).
+    window.matchMedia = (() => ({ matches: true })) as unknown as typeof window.matchMedia;
+    onTestFinished(() => {
+      delete (window as { matchMedia?: unknown }).matchMedia;
+    });
+    fakeSelection('The market rallied today.', node, {
+      left: 100,
+      top: window.innerHeight - 30,
+      width: 80,
+      height: 20,
+    });
+    expect(readSelection()).toMatchObject({ below: true, top: window.innerHeight - 52 });
   });
 
   it('is nothing for one character or an empty box', () => {

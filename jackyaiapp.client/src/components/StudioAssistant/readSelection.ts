@@ -11,6 +11,9 @@ const NOT_PAGE_TEXT = '[role="dialog"], .MuiModal-root, .MuiDrawer-root';
 /** How long the selection must stay put before the bar shows (a drag still selecting is not asked about). */
 export const SELECTION_SETTLE_MS = 250;
 
+/** About how tall the bar is, to keep it on the screen. */
+const BAR_HEIGHT = 44;
+
 export interface Selected {
   text: string;
   /** Where the bar goes, in the viewport. */
@@ -50,10 +53,14 @@ export function readSelection(): Selected | null {
     Math.max(rect.left + rect.width / 2, half + 8),
     Math.max(window.innerWidth - half - 8, half + 8),
   );
+  // Kept on the screen: a selection taller than it, or one at its bottom edge on a phone.
+  const top = below
+    ? Math.min(rect.bottom + (coarse ? 36 : 8), window.innerHeight - BAR_HEIGHT - 8)
+    : Math.max(rect.top - 8, BAR_HEIGHT + 8);
   return {
     text,
     left,
-    top: below ? rect.bottom + (coarse ? 36 : 8) : rect.top - 8,
+    top: Math.max(top, 8),
     below,
     inStudio: inStudio[0],
   };

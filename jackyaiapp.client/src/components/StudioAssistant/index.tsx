@@ -44,6 +44,13 @@ export default function StudioAssistant() {
   // Mounted on first open and kept, so the conversation lives on.
   const [opened, setOpened] = useState(false);
   const [draft, setDraft] = useState('');
+  // The box holds text selected on the page (問 AI on a selection), until it is emptied (sent, or cleared):
+  // what is sent from it is page text, possibly someone else's words (D-086, D-087).
+  const [draftQuotesPage, setDraftQuotesPage] = useState(false);
+  const changeDraft = useCallback((value: string) => {
+    setDraft(value);
+    if (!value.trim()) setDraftQuotesPage(false);
+  }, []);
   // A message a page asked Studio AI (askStudio); the id tells the panel a new one from the last.
   // Kept until the panel has sent it, then dropped (the id keeps counting).
   const [ask, setAsk] = useState<
@@ -110,11 +117,11 @@ export default function StudioAssistant() {
     (action: QuickAction) => {
       afterAnswer.current = { close: false };
       tookOver.current = busyRef.current;
-      setDraft('');
+      changeDraft('');
       setOpen(false);
       navigate(action.path);
     },
-    [navigate],
+    [navigate, changeDraft],
   );
 
   // Closed by hand meanwhile: the reader has taken over, nothing closes it for them later.
@@ -144,6 +151,7 @@ export default function StudioAssistant() {
         setDraft((typed) =>
           [typed.trimEnd(), selectionMessage('ask', text)].filter(Boolean).join('\n'),
         );
+        if (!inStudio) setDraftQuotesPage(true);
         return;
       }
       askId.current += 1;
@@ -236,7 +244,8 @@ export default function StudioAssistant() {
                 onNavigate={goTo}
                 onToolDone={toolDone}
                 onActivityChange={onActivity}
-                onInputChange={setDraft}
+                onInputChange={changeDraft}
+                inputQuotesPageText={draftQuotesPage}
                 onCollapse={closeByHand}
                 inputAccessory={<QuickActions actions={quickActions} onPick={pickQuick} />}
               />

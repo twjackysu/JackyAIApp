@@ -198,6 +198,8 @@ type Ask = { id: number; text: string; fresh?: boolean; quotesPageText?: boolean
 let navigations: string[];
 /** Tools that finished without failing (`onToolDone`). */
 let toolsDone: string[];
+/** The box holds text selected on a page (`inputQuotesPageText`). */
+let inputQuotes = false;
 
 function Harness({ initialDraft, ask }: { initialDraft: string; ask?: Ask }) {
   const [draft, setDraft] = useState(initialDraft);
@@ -209,6 +211,7 @@ function Harness({ initialDraft, ask }: { initialDraft: string; ask?: Ask }) {
       onToolDone={(tool) => toolsDone.push(tool)}
       inputValue={draft}
       onInputChange={setDraft}
+      inputQuotesPageText={inputQuotes}
       onCollapse={() => (collapses += 1)}
       onActivityChange={(a) => activities.push(a)}
     />
@@ -222,6 +225,7 @@ async function mount(initialDraft = '', ask?: Ask) {
   activities = [];
   navigations = [];
   toolsDone = [];
+  inputQuotes = false;
   const store = configureStore({
     reducer: { [chatbotApis.reducerPath]: chatbotApis.reducer },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(chatbotApis.middleware),
@@ -541,6 +545,21 @@ describe('AiAssistantPanel', () => {
     expect(chatBodies[2]).toMatchObject({
       message: '翻譯：「B」',
       conversationId: 'conv-1',
+      quotesPageText: true,
+    });
+  });
+
+  it('sends what the reader typed with quotesPageText while the box holds text selected on a page', async () => {
+    await mount();
+    inputQuotes = true;
+    await renderAsk();
+    chatReplies.push(() =>
+      sseReply({ type: 'delta', text: '好' }, { type: 'done', conversationId: 'conv-1' }),
+    );
+    await send('關於「殖利率」，怎麼算？');
+    await waitFor(() => expect(chatBodies).toHaveLength(1));
+    expect(chatBodies[0]).toMatchObject({
+      message: '關於「殖利率」，怎麼算？',
       quotesPageText: true,
     });
   });

@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
     onActivityChange?: (a: { busy: boolean; hasConversation: boolean }) => void;
     inputValue: string;
     onInputChange: (value: string) => void;
+    inputQuotesPageText?: boolean;
     inputAccessory?: ReactNode;
   } | null,
   narrow: false,
@@ -389,8 +390,16 @@ describe('StudioAssistant', () => {
       await press('問 AI');
       await settle();
 
-      expect(mocks.panel).toMatchObject({ active: true, inputValue: '關於「殖利率」，' });
+      expect(mocks.panel).toMatchObject({
+        active: true,
+        inputValue: '關於「殖利率」，',
+        inputQuotesPageText: true,
+      });
       expect(mocks.panel!.ask).toBeUndefined();
+
+      // Sent (the box emptied): what is typed next is the reader's own.
+      await act(async () => mocks.panel!.onInputChange(''));
+      expect(mocks.panel!.inputQuotesPageText).toBe(false);
     });
 
     it('opens one English word’s dictionary page without the AI', async () => {
@@ -426,6 +435,8 @@ describe('StudioAssistant', () => {
       await settle();
 
       expect(mocks.panel!.inputValue).toBe('幫我看看\n關於「殖利率」，');
+      // Studio AI's own answer is in this conversation already, not page text.
+      expect(mocks.panel!.inputQuotesPageText).toBe(false);
     });
   });
 });

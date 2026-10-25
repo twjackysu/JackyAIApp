@@ -1,7 +1,7 @@
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { Box, ButtonBase, Paper, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { readSelection, SELECTION_SETTLE_MS, type Selected } from './readSelection';
 import {
@@ -29,6 +29,13 @@ export default function SelectionBar({
 }) {
   const theme = useTheme();
   const [selected, setSelected] = useState<Selected | null>(null);
+  // The bar is shown (for Escape) and being pressed: a touch browser may clear the selection on the tap,
+  // before the click, and the bar must still be there for it.
+  const shownRef = useRef(false);
+  const pressing = useRef(false);
+  useEffect(() => {
+    shownRef.current = selected !== null;
+  }, [selected]);
 
   useEffect(() => {
     if (!enabled) {
@@ -37,24 +44,39 @@ export default function SelectionBar({
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onChange = () => {
+      if (pressing.current) return;
       clearTimeout(timer);
       setSelected(null);
       timer = setTimeout(() => setSelected(readSelection()), SELECTION_SETTLE_MS);
     };
-    const hide = () => setSelected(null);
+    // Scrolling (the page, or Studio AI's answer growing under the selection) moves the bar with it.
+    const follow = () => {
+      if (!pressing.current && shownRef.current) setSelected(readSelection());
+    };
+    const released = () => {
+      // After the click that the press makes, if any.
+      setTimeout(() => (pressing.current = false), 0);
+    };
+    // Escape takes the bar away, not the drawer the selection is in (the capture runs before MUI's).
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') hide();
+      if (e.key !== 'Escape' || !shownRef.current) return;
+      e.stopPropagation();
+      setSelected(null);
     };
     document.addEventListener('selectionchange', onChange);
-    window.addEventListener('scroll', hide, true);
-    window.addEventListener('resize', hide);
-    window.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', follow, true);
+    window.addEventListener('resize', follow);
+    window.addEventListener('pointerup', released);
+    window.addEventListener('pointercancel', released);
+    document.addEventListener('keydown', onKey, true);
     return () => {
       clearTimeout(timer);
       document.removeEventListener('selectionchange', onChange);
-      window.removeEventListener('scroll', hide, true);
-      window.removeEventListener('resize', hide);
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', follow, true);
+      window.removeEventListener('resize', follow);
+      window.removeEventListener('pointerup', released);
+      window.removeEventListener('pointercancel', released);
+      document.removeEventListener('keydown', onKey, true);
     };
   }, [enabled]);
 
@@ -62,6 +84,7 @@ export default function SelectionBar({
     (action: SelectionAction) => {
       if (!selected) return;
       onAction(action.kind, selected.text, selected.inStudio);
+      pressing.current = false;
       setSelected(null);
       window.getSelection?.()?.removeAllRanges();
     },
@@ -78,6 +101,7 @@ export default function SelectionBar({
       elevation={6}
       // A press must not move the focus or clear the selection before it is read.
       onMouseDown={(e) => e.preventDefault()}
+      onPointerDown={() => (pressing.current = true)}
       sx={{
         position: 'fixed',
         left: selected.left,
