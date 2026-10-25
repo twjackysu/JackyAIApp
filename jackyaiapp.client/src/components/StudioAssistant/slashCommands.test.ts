@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import sitePromptsCs from '../../../../JackyAIApp.Server/Services/Assistant/Studio/StudioSitePrompts.cs?raw';
+import dataAnalysisPromptsCs from '../../../../JackyAIApp.Server/Services/DataAnalysis/Assistant/DataAnalysisSitePrompts.cs?raw';
 import englishPromptsCs from '../../../../JackyAIApp.Server/Services/Dictionary/Assistant/EnglishSitePrompts.cs?raw';
 import portfolioPromptsCs from '../../../../JackyAIApp.Server/Services/Portfolio/Assistant/PortfolioSitePrompts.cs?raw';
 
-import { BRIEFING_PROMPT } from './askStudio';
-import { isSlashDraft, SLASH_COMMANDS, slashCommandsFor } from './slashCommands';
+import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
+import { isSlashDraft, pageSlashCommands, SLASH_COMMANDS, slashCommandsFor } from './slashCommands';
 
 const keys = (draft: string) => slashCommandsFor(draft).map((c) => c.key);
 
@@ -55,5 +56,51 @@ describe('the commands', () => {
       expect(SLASH_COMMANDS.some((c) => c.key === key)).toBe(true);
       expect(server).toContain(`"${key}"`);
     }
+  });
+});
+
+describe('the page’s own commands', () => {
+  const ID = '6F9619FF-8B86-D011-B42D-00C04FC964FF';
+  const own = [{ id: ID, isOwner: true }];
+  const shared = [{ id: ID, isOwner: false }];
+  const pageKeys = (draft: string, path: string, boards = own) =>
+    slashCommandsFor(draft, path, boards).map((c) => c.key);
+
+  it('explains the word of a dictionary page, first', () => {
+    expect(pageKeys('/', '/english/dictionary/serendipity')[0]).toBe('explain_word');
+    const [explain] = pageSlashCommands('/english/dictionary/Serendipity');
+    expect(explain.label).toBe('解釋 serendipity');
+    expect(explain.ask).toContain('serendipity');
+    expect(explain.fresh).toBeUndefined();
+    expect(pageKeys('/解釋', '/english/dictionary/serendipity')).toEqual(['explain_word']);
+    expect(pageKeys('/seren', '/english/dictionary/serendipity')).toEqual(['explain_word']);
+  });
+
+  it('reads the dashboard on screen only when it is the reader’s own', () => {
+    const path = `/dashboards/${ID.toLowerCase()}`;
+    expect(pageKeys('/', path)[0]).toBe('read_my_dashboard');
+    expect(pageKeys('/解讀', path)).toEqual(['read_my_dashboard']);
+    expect(pageSlashCommands(path, own)[0]).toMatchObject({
+      ask: READ_DASHBOARD_PROMPT,
+      fresh: true,
+    });
+    expect(pageSlashCommands(`/dashboards/${encodeURIComponent(ID)}`, own)).toHaveLength(1);
+    expect(pageSlashCommands(path, shared)).toEqual([]);
+    expect(pageSlashCommands(path, [])).toEqual([]);
+    expect(pageSlashCommands(`/dashboards/${ID}/edit`, own)).toEqual([]);
+    expect(pageSlashCommands('/dashboards', own)).toEqual([]);
+  });
+
+  it('adds nothing on other pages, and keeps the site’s commands after the page’s', () => {
+    expect(pageKeys('/', '/portfolio')).toEqual(SLASH_COMMANDS.map((c) => c.key));
+    expect(pageKeys('/', '/english/dictionary/serendipity').slice(1)).toEqual(
+      SLASH_COMMANDS.map((c) => c.key),
+    );
+    expect(pageKeys('/xyz123', '/english/dictionary/serendipity')).toEqual([]);
+  });
+
+  it('are named after the site MCP server’s prompts for the same request', () => {
+    expect(englishPromptsCs).toContain('"explain_word"');
+    expect(dataAnalysisPromptsCs).toContain('"read_my_dashboard"');
   });
 });

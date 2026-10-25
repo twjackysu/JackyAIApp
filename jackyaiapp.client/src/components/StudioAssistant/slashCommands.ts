@@ -1,5 +1,7 @@
-import { BRIEFING_PROMPT } from './askStudio';
-import { WRITE_WITH_MY_WORDS } from './studioChat';
+import { BRIEFING_PROMPT, READ_DASHBOARD_PROMPT } from './askStudio';
+import { dictionaryWordOf, WRITE_WITH_MY_WORDS } from './studioChat';
+
+import type { DashboardSummary } from '@/apis/dashboardApis/types';
 
 /**
  * Studio AI's ready-made requests, typed as `/` in its box (D-111): `/` lists them, `/簡報` or `/quiz` narrows
@@ -66,6 +68,57 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   },
 ];
 
+/** A dashboard of the reader's, as the /dashboards list gives it: whose it is decides whether it can be read. */
+export type PageDashboard = Pick<DashboardSummary, 'id' | 'isOwner'>;
+
+/** The dashboard `/dashboards/{id}` shows, its id lowercase (ids are GUIDs), or undefined on any other page. */
+function dashboardIdOf(path: string): string | undefined {
+  const match = /^\/dashboards\/([^/]+)$/.exec(path);
+  if (!match) return undefined;
+  try {
+    return decodeURIComponent(match[1]).toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The commands of the page the reader is on, listed before the site's (D-113): on a word's dictionary page,
+ * explaining that word; on one of the reader's own dashboards, reading it (read_dashboard reads only the reader's
+ * own, so not on one shared with them, nor before the list has been read). The same requests as the page's
+ * suggestions, so the server's prompt names "this dashboard" from the page.
+ */
+export function pageSlashCommands(
+  path: string,
+  dashboards: readonly PageDashboard[] = [],
+): SlashCommand[] {
+  const word = dictionaryWordOf(path);
+  if (word)
+    return [
+      {
+        key: 'explain_word',
+        label: `解釋 ${word}`,
+        ask: `解釋 ${word}：最常用的一兩個意思，各附一個英文例句與中文翻譯，再說一個容易跟它搞混的字`,
+        kind: 'command',
+        words: ['解釋', '意思', 'explain', 'meaning', word],
+      },
+    ];
+  const id = dashboardIdOf(path);
+  if (id && dashboards.some((d) => d.isOwner && d.id.toLowerCase() === id))
+    return [
+      {
+        key: 'read_my_dashboard',
+        label: '解讀這個 dashboard',
+        ask: READ_DASHBOARD_PROMPT,
+        // As the dashboard's own 「AI 解讀」 button sends it.
+        fresh: true,
+        kind: 'command',
+        words: ['解讀', 'dashboard', '儀表板', '摘要', 'read', 'summary'],
+      },
+    ];
+  return [];
+}
+
 /** Whether what is typed asks for the commands: it starts with a slash (after any spaces). */
 export const isSlashDraft = (draft: string) => draft.trimStart().startsWith('/');
 
@@ -73,18 +126,23 @@ export const isSlashDraft = (draft: string) => draft.trimStart().startsWith('/')
 const MIN_WORD_QUERY = 2;
 
 /**
- * The commands for what is typed: all of them for a bare `/`; else those whose label holds what follows the
+ * The commands for what is typed on page `path` (the page's own first, `pageSlashCommands`): all of them for a bare `/`; else those whose label holds what follows the
  * slash, or (from two characters) whose prompt name or one of whose words does. None when the draft does not
  * start with `/`, or what follows is a path (another slash) or longer than a command's name would be: these
  * ask the AI, so they are offered only for what plainly names one.
  */
-export function slashCommandsFor(draft: string): SlashCommand[] {
+export function slashCommandsFor(
+  draft: string,
+  path = '',
+  dashboards: readonly PageDashboard[] = [],
+): SlashCommand[] {
   if (!isSlashDraft(draft)) return [];
+  const commands = [...pageSlashCommands(path, dashboards), ...SLASH_COMMANDS];
   const q = draft.trimStart().slice(1).trim().toLowerCase();
-  if (q.length === 0) return [...SLASH_COMMANDS];
+  if (q.length === 0) return commands;
   if (q.length > 20 || q.includes('/')) return [];
   const byWords = q.length >= MIN_WORD_QUERY;
-  return SLASH_COMMANDS.filter(
+  return commands.filter(
     (c) =>
       c.label.toLowerCase().includes(q) ||
       (byWords && (c.key.includes(q) || c.words.some((w) => w.includes(q)))),

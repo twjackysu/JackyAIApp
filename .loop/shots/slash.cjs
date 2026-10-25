@@ -256,6 +256,7 @@ async function open(browser, viewport, events) {
     if (p === '/api/review/submit') return json({ data: { wordsReviewed: 3, correctCount: 2, xpEarned: 6 } });
     if (p.startsWith('/api/review/due')) return json({ data: { dueCount: 12 } });
     if (p.includes('dailychallenge/stats') || p.includes('DailyChallenge/stats')) return json({ data: { currentStreak: 18, todayCompleted: false, todayScore: null } });
+    if (p === '/api/dashboard') return json({ data: [{ id: BOARD, name: '業績追蹤', widgetCount: 2, visibility: 'Private', isOwner: true, createdAt: '2026-10-20T00:00:00Z' }] });
     if (p === `/api/dashboard/${BOARD}`) return json({ data: {
       id: BOARD, name: '業績追蹤', visibility: 'Private', isOwner: true,
       widgets: [
@@ -308,6 +309,18 @@ async function ask(page, text, placeholder) {
     await page.getByRole('textbox').last().fill('/');
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${out}/studio-slash-${name}.png` });
+    await page.close();
+  }
+  // 第 25 輪：頁面自己的指令排在最前面（D-113）——自己的 dashboard 上「解讀這個 dashboard」、字典頁「解釋 serendipity」。
+  for (const [name, at] of [['dashboard', `/dashboards/${BOARD}`], ['word', '/english/dictionary/serendipity']]) {
+    const page = await open(browser, { width: 1280, height: 900 }, briefing);
+    await page.goto(`http://localhost:5173${at}`);
+    await page.waitForTimeout(1500);
+    await page.keyboard.press('Control+k');
+    await page.waitForTimeout(1000);
+    await page.getByRole('textbox').last().fill('/');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${out}/studio-slash-${name}-desktop.png` });
     await page.close();
   }
   await browser.close();

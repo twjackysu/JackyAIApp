@@ -120,10 +120,11 @@ export default function StudioAssistant() {
   // to is dropped.
   // A draft starting with `/` lists the ready-made requests instead (`slashCommandsFor`, D-111): a press sends
   // one as if typed, in the drawer that stays open; the briefing in a new conversation, as the home page sends it.
+  // The page's own come first (explaining the word on its dictionary page, reading the reader's dashboard; D-113).
   const quickActions = useMemo<QuickChip[]>(
     () =>
       isSlashDraft(draft)
-        ? slashCommandsFor(draft)
+        ? slashCommandsFor(draft, pathname, boards ?? [])
         : quickActionsFor(draft, pathname, boards ?? []),
     [draft, pathname, boards],
   );
