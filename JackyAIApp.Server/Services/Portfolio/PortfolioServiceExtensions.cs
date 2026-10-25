@@ -29,9 +29,11 @@ namespace JackyAIApp.Server.Services.Portfolio
             services.AddScoped<IHoldingPriceService, HoldingPriceService>();
             services.AddScoped<IHoldingAiSummaryService, HoldingAiSummaryService>();
             services.AddScoped<Common.ServerTiming>();
-            // Studio AI's tool for the reader's own portfolio (docs/ai-native/design/03).
+            // Studio AI's tools for the reader's own portfolio (docs/ai-native/design/03): the summary, and one
+            // holding's new quantity (a write, so asked first).
             services.AddScoped<ISiteTool, PortfolioSummaryTool>();
-            services.AddSingleton(new SiteToolSet("投資組合", [PortfolioSummaryTool.Definition]));
+            services.AddScoped<ISiteTool, UpdateHoldingTool>();
+            services.AddSingleton(new SiteToolSet("投資組合", [PortfolioSummaryTool.Definition, UpdateHoldingTool.Definition]));
 
             // Singleton: holds the search list in memory and opens its own DbContexts through
             // the factory, so the background refresher can share the one instance.
